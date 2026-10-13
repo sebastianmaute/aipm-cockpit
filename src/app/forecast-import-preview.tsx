@@ -52,6 +52,7 @@ const SOURCE_KEY: Record<SourceRejection, TranslationKey> = {
   "person-not-on-row": "forecastImportRejectSourcePerson",
   "period-not-near": "forecastImportRejectSourcePeriod",
   "period-conflict": "forecastImportRejectSourceConflict",
+  "columns-unconfirmed": "forecastImportRejectSourceColumns",
   "cell-reused": "forecastImportRejectSourceReused",
 };
 const DROP_KEY: Record<DropReason["reason"], TranslationKey> = {
@@ -88,13 +89,20 @@ function periodLabel(lang: Lang, key: string): string {
 }
 
 /** Why a Claude row's source did not back it. A period conflict names its
- *  periods, as labels: the one the detected columns read the cell in, or the
- *  row's and then the column header's. */
+ *  periods, as labels: the column header's and then the detected columns', the
+ *  one the detected columns read the cell in, the row's and then the column
+ *  header's, or the row's two. */
 function sourceWhy(lang: Lang, r: Extract<RejectedRow, { reason: "source" }>): string {
   const periods = r.periods;
+  const label = (key: string): string => periodLabel(lang, key);
   if (periods === undefined) return t(lang, SOURCE_KEY[r.detail]);
-  if ("sheet" in periods) return t(lang, "forecastImportRejectSourceSheet", periodLabel(lang, periods.sheet));
-  return t(lang, SOURCE_KEY[r.detail], periodLabel(lang, periods.row), periodLabel(lang, periods.header));
+  if ("rows" in periods) return t(lang, "forecastImportRejectSourceRows", label(periods.rows[0]), label(periods.rows[1]));
+  if ("sheet" in periods) {
+    return "header" in periods
+      ? t(lang, "forecastImportRejectSourceSheetHeader", label(periods.header), label(periods.sheet))
+      : t(lang, "forecastImportRejectSourceSheet", label(periods.sheet));
+  }
+  return t(lang, SOURCE_KEY[r.detail], label(periods.row), label(periods.header));
 }
 
 function describeRejected(lang: Lang, r: RejectedRow): string {

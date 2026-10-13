@@ -1,0 +1,273 @@
+// §500 fix 8 — the owner's "fail closed" decision of 2026-10-13: a Claude claim
+// is accepted only when EVERY period source for the cited cell agrees with it.
+// The sources are H (the hand route's reading), U (the nearest period header
+// above the cell) and R (the period cells on the cited row, counted only where
+// there is no H). Any disagreement is a visible refusal, never a pick, and a
+// sheet whose columns are ambiguous is refused until the user confirms them.
+// Every test here pins a wrong number that must NOT be written.
+import { describe, expect, it } from "vitest";
+import { validateForecastRows } from "./forecast-validate";
+import { detectLayout } from "./layout-detect";
+import type { NumberOrigin, SheetGrid } from "./sheet-grid";
+import type { ColumnMapping } from "./forecast-types";
+
+const sheetOf = (rows: string[][], numbers?: NumberOrigin): SheetGrid => ({ name: "S", rows, truncated: false, numbers });
+const strictOn = (rows: string[][], numbers?: NumberOrigin, columns?: ColumnMapping) => ({
+  sheet: sheetOf(rows, numbers),
+  requireSource: true,
+  defaultYear: 2026,
+  ...(columns === undefined ? {} : { columns }),
+});
+const claim = (period: string, hours: number, source: string, person = "Ann") => ({ person, period, hours, source });
+const detail = (out: ReturnType<typeof validateForecastRows>) =>
+  out.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason));
+const periodsOf = (out: ReturnType<typeof validateForecastRows>) => out.ok.map((r) => [r.person, r.period, r.hours]);
+/** Blank rows that push the real header past detection's ten-row scan: the
+ *  detection is then unknown, so there is no H. */
+const pad = (n: number): string[][] => Array.from({ length: n }, () => []);
+
+describe("N1: stacked year blocks the hand route reads as one year (rr8 N1, residue 9)", () => {
+  const sheets: Record<"csv" | "serials", { rows: string[][]; numbers: NumberOrigin }> = {
+    csv: {
+      rows: [["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Name", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"], ["Bob", "31", "41"]],
+      numbers: "text",
+    },
+    serials: {
+      rows: [["Name", "46023", "46054"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Name", "46388", "46419"], ["Ann", "30", "40"], ["Bob", "31", "41"]],
+      numbers: "dot",
+    },
+  };
+  const blockTwo = new Set([30, 31, 40, 41]);
+  const neverBlockTwo = (out: ReturnType<typeof validateForecastRows>) => {
+    expect(out.ok.filter((r) => blockTwo.has(r.hours))).toEqual([]);
+    expect(out.ok.filter((r) => r.period.startsWith("2027"))).toEqual([]);
+  };
+
+  it.each(["csv", "serials"] as const)("the detection is clear and wide (%s): the hand route reads block 2 as 2026", (kind) => {
+    const { rows, numbers } = sheets[kind];
+    expect(detectLayout(rows, { numbers, defaultYear: 2026 })).toMatchObject({ kind: "wide", ambiguous: [] });
+  });
+
+  it.each(["csv", "serials"] as const)("P2a: the right 2027 claims for block 2 are refused, naming both periods (%s)", (kind) => {
+    const { rows, numbers } = sheets[kind];
+    const out = validateForecastRows([claim("Jan 2027", 30, "S!B5"), claim("Feb 2027", 41, "S!C6", "Bob")], strictOn(rows, numbers));
+    expect(out.ok).toEqual([]);
+    expect(out.rejected).toEqual([
+      { row: claim("Jan 2027", 30, "S!B5"), reason: "source", detail: "period-conflict", periods: { sheet: "2026-01", header: "2027-01" } },
+      { row: claim("Feb 2027", 41, "S!C6", "Bob"), reason: "source", detail: "period-conflict", periods: { sheet: "2026-02", header: "2027-02" } },
+    ]);
+  });
+
+  it.each(["csv", "serials"] as const)("P2b: wrong 2026 claims for block 2 are refused; block 1's right claim stands (%s)", (kind) => {
+    const { rows, numbers } = sheets[kind];
+    const out = validateForecastRows([
+      claim("Jan 2026", 10, "S!B2"), claim("Jan 2026", 30, "S!B5"), claim("Feb 2026", 41, "S!C6", "Bob"),
+    ], strictOn(rows, numbers));
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 10]]);
+    expect(detail(out)).toEqual(["period-conflict", "period-conflict"]);
+    expect(out.duplicates).toEqual([]);
+    neverBlockTwo(out);
+  });
+
+  it.each(["csv", "serials"] as const)("P2d: year-less Jan / Feb claims for block 2 are refused, not re-routed into 2026 (%s)", (kind) => {
+    const { rows, numbers } = sheets[kind];
+    const out = validateForecastRows([claim("Jan", 30, "S!B5"), claim("Feb", 41, "S!C6", "Bob")], strictOn(rows, numbers));
+    expect(out.ok).toEqual([]);
+    expect(detail(out)).toEqual(["period-conflict", "period-conflict"]);
+  });
+
+  it.each(["csv", "serials"] as const)("P2f: a fully correct reading writes block 1 and refuses block 2 (%s)", (kind) => {
+    const { rows, numbers } = sheets[kind];
+    const out = validateForecastRows([
+      claim("Jan 2026", 10, "S!B2"), claim("Feb 2026", 20, "S!C2"), claim("Jan 2026", 11, "S!B3", "Bob"), claim("Feb 2026", 21, "S!C3", "Bob"),
+      claim("Jan 2027", 30, "S!B5"), claim("Feb 2027", 40, "S!C5"), claim("Jan 2027", 31, "S!B6", "Bob"), claim("Feb 2027", 41, "S!C6", "Bob"),
+    ], strictOn(rows, numbers));
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 10], ["Ann", "2026-02", 20], ["Bob", "2026-01", 11], ["Bob", "2026-02", 21]]);
+    expect(detail(out)).toEqual(["period-conflict", "period-conflict", "period-conflict", "period-conflict"]);
+    neverBlockTwo(out);
+  });
+});
+
+// rr8 OOS-1: title and key/value rows over a long sheet with two number
+// columns. The hand route asks there, so the Claude route refuses every claim
+// until the user confirms the columns.
+describe("OOS-1: an ambiguous sheet is refused until its columns are confirmed", () => {
+  const shapes = {
+    "Erstellt von | Max | 01.03.2026 over Name | Monat | Plan | Bemerkung | Ist": {
+      text: [["Erstellt von", "Max", "01.03.2026", "Stand", "02.03.2026"], ["Name", "Monat", "Plan", "Bemerkung", "Ist"],
+        ["Ann", "Jan 2026", "40", "", "35"], ["Bob", "Feb 2026", "30", "", "25"]],
+      dot: [["Erstellt von", "Max", "46082", "Stand", "46083"], ["Name", "Monat", "Plan", "Bemerkung", "Ist"],
+        ["Ann", "46023", "40", "", "35"], ["Bob", "46054", "30", "", "25"]],
+      claims: [claim("Jan 2026", 40, "S!C3"), claim("Feb 2026", 30, "S!C4", "Bob"), claim("Mar 2026", 35, "S!E3")],
+    },
+    "Projekt Alpha | Forecast | Q1 over Name | Monat | Plan | Ist": {
+      text: [["Projekt Alpha", "Forecast", "01.01.2026", "31.03.2026"], ["Name", "Monat", "Plan", "Ist"],
+        ["Ann", "01.01.2026", "40", "35"], ["Ann", "01.02.2026", "30", "25"], ["Ann", "01.03.2026", "20", "15"]],
+      dot: [["Projekt Alpha", "Forecast", "46023", "46112"], ["Name", "Monat", "Plan", "Ist"],
+        ["Ann", "46023", "40", "35"], ["Ann", "46054", "30", "25"], ["Ann", "46082", "20", "15"]],
+      claims: [claim("Jan 2026", 40, "S!C3"), claim("Jan 2026", 30, "S!C4"), claim("Jan 2026", 20, "S!C5")],
+    },
+    "Projekt | Alpha | 01.01. | 31.01. over Name | Datum | Plan | Ist": {
+      text: [["Projekt", "Alpha", "01.01.2026", "31.01.2026"], ["Name", "Datum", "Plan", "Ist"], ["Ann", "15.01.2026", "40", "35"]],
+      dot: [["Projekt", "Alpha", "46023", "46053"], ["Name", "Datum", "Plan", "Ist"], ["Ann", "46037", "40", "35"]],
+      claims: [claim("Jan 2026", 40, "S!C3"), claim("Jan 2026", 35, "S!D3")],
+    },
+    "Forecast | Ist-Stunden under a key/value title": {
+      text: [["Erstellt von", "Max", "01.03.2026", "Stand", "02.03.2026"], ["Name", "Monat", "Forecast", "Bemerkung", "Ist-Stunden"],
+        ["Ann", "Jan 2026", "40", "", "35"], ["Bob", "Feb 2026", "30", "", "25"]],
+      dot: [["Erstellt von", "Max", "46082", "Stand", "46083"], ["Name", "Monat", "Forecast", "Bemerkung", "Ist-Stunden"],
+        ["Ann", "46023", "40", "", "35"], ["Bob", "46054", "30", "", "25"]],
+      claims: [claim("Jan 2026", 40, "S!C3"), claim("Feb 2026", 30, "S!C4", "Bob"), claim("Mar 2026", 40, "S!C3")],
+    },
+  };
+  const cases = Object.entries(shapes).flatMap(([label, s]) => (["text", "dot"] as const).map((numbers) => [label, numbers, s[numbers], s.claims] as const));
+
+  it.each(cases)("%s (%s): every claim is refused columns-unconfirmed, nothing is written", (_label, numbers, rows, claims) => {
+    expect(detectLayout(rows, { numbers, defaultYear: 2026 }).ambiguous.length).toBeGreaterThan(0);
+    const out = validateForecastRows(claims, strictOn(rows, numbers));
+    expect(out.ok).toEqual([]);
+    expect(out.subPeriods).toEqual([]);
+    expect(detail(out)).toEqual(claims.map(() => "columns-unconfirmed"));
+  });
+
+  // Confirmed: H is read with the confirmed mapping and checked against U.
+  const confirmed = (rows: string[][], numbers: NumberOrigin) => {
+    const mapping = detectLayout(rows, { numbers, defaultYear: 2026 }).mapping;
+    if (mapping === null) throw new Error("no layout");
+    return strictOn(rows, numbers, mapping);
+  };
+
+  it.each(["text", "dot"] as const)("Q1 title, confirmed (%s): January's cell stands for January only, nothing sums to 90", (numbers) => {
+    const s = shapes["Projekt Alpha | Forecast | Q1 over Name | Monat | Plan | Ist"];
+    const opts = confirmed(s[numbers], numbers);
+    const allJan = validateForecastRows(s.claims, opts);
+    expect(periodsOf(allJan)).toEqual([["Ann", "2026-01", 40]]);
+    expect(detail(allJan)).toEqual(["period-conflict", "period-conflict"]);
+    // Feb's cell: the hand route reads February, the title's 01.01.2026 above it January.
+    expect(validateForecastRows([claim("Feb 2026", 30, "S!C4")], opts).rejected).toEqual([
+      { row: claim("Feb 2026", 30, "S!C4"), reason: "source", detail: "period-conflict", periods: { sheet: "2026-02", header: "2026-01" } },
+    ]);
+  });
+
+  it.each(["text", "dot"] as const)("month title over Datum | Plan | Ist, confirmed (%s): the two cells collide, never 75", (numbers) => {
+    const s = shapes["Projekt | Alpha | 01.01. | 31.01. over Name | Datum | Plan | Ist"];
+    const out = validateForecastRows(s.claims, confirmed(s[numbers], numbers));
+    expect(out.rejected).toEqual([]);
+    expect(out.subPeriods).toEqual([]);
+    expect(out.ok).toEqual([]);
+    expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!C3", "S!D3"] }]);
+  });
+
+  it.each([
+    ["Erstellt von | Max | 01.03.2026 over Name | Monat | Plan | Bemerkung | Ist"],
+    ["Forecast | Ist-Stunden under a key/value title"],
+  ] as const)("%s, confirmed: the title's March above the hours column disagrees with every row, so no month is written", (label) => {
+    for (const numbers of ["text", "dot"] as const) {
+      const s = shapes[label];
+      const opts = confirmed(s[numbers], numbers);
+      const out = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Feb 2026", 30, "S!C4", "Bob"), claim("Mar 2026", 40, "S!C3")], opts);
+      expect(out.ok).toEqual([]);
+      expect(out.rejected.map((r) => (r.reason === "source" ? r.periods : undefined))).toEqual([
+        { sheet: "2026-01", header: "2026-03" }, { sheet: "2026-02", header: "2026-03" }, { sheet: "2026-01", header: "2026-03" },
+      ]);
+    }
+  });
+});
+
+describe("an unknown layout: no H, so U and every R cell must agree", () => {
+  it("one row period cell that disagrees with the claim refuses it; the right claims stand", () => {
+    const rows = [...pad(10), ["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "8"], ["Bob", "Feb 2026", "4"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    expect(detail(validateForecastRows([claim("Feb 2026", 8, "S!C12")], strictOn(rows)))).toEqual(["period-not-near"]);
+    const right = validateForecastRows([claim("Jan 2026", 8, "S!C12"), claim("Feb 2026", 4, "S!C13", "Bob")], strictOn(rows));
+    expect(periodsOf(right)).toEqual([["Ann", "2026-01", 8], ["Bob", "2026-02", 4]]);
+  });
+
+  it("two row period cells that disagree refuse every claim, naming both", () => {
+    const rows = [...pad(10), ["Name", "Von", "Bis", "Stunden"], ["Ann", "Jan 2026", "Feb 2026", "8"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    for (const period of ["Jan 2026", "Feb 2026"]) {
+      const out = validateForecastRows([claim(period, 8, "S!D12")], strictOn(rows));
+      expect(out.ok).toEqual([]);
+      expect(out.rejected).toEqual([
+        { row: claim(period, 8, "S!D12"), reason: "source", detail: "period-conflict", periods: { rows: ["2026-01", "2026-02"] } },
+      ]);
+    }
+  });
+
+  it("a key/value title's date over the hours column no longer hides the row's month (the exemption is gone)", () => {
+    const rows = [...pad(9), ["Erstellt von", "Max", "01.03.2026", "Stand", "02.03.2026"], ["Name", "Monat", "Plan", "Bemerkung", "Ist"],
+      ["Ann", "Jan 2026", "40", "", "35"], ["Bob", "Feb 2026", "30", "", "25"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    const wrong = validateForecastRows([claim("Mar 2026", 40, "S!C12")], strictOn(rows));
+    expect(wrong.ok).toEqual([]);
+    expect(wrong.rejected).toEqual([
+      { row: claim("Mar 2026", 40, "S!C12"), reason: "source", detail: "period-conflict", periods: { row: "2026-01", header: "2026-03" } },
+    ]);
+    // The right month is refused too: the two sources disagree.
+    expect(detail(validateForecastRows([claim("Jan 2026", 40, "S!C12")], strictOn(rows)))).toEqual(["period-conflict"]);
+  });
+
+  it("a Start date beside a period header refuses the claim: no row cell is exempt", () => {
+    const rows = [...pad(10), ["Name", "Start", "Jan 2026", "Feb 2026"], ["Ann", "01.02.2026", "10", "20"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    expect(detail(validateForecastRows([claim("Feb 2026", 20, "S!D12")], strictOn(rows)))).toEqual([]);
+    expect(detail(validateForecastRows([claim("Jan 2026", 10, "S!C12")], strictOn(rows)))).toEqual(["period-conflict"]);
+  });
+
+  it("two cells of one long row collide: no sum without distinct date headers above", () => {
+    const rows = [...pad(10), ["Name", "Monat", "Plan", "Ist"], ["Ann", "Jan 2026", "40", "35"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C12"), claim("Jan 2026", 35, "S!D12")], strictOn(rows));
+    expect(out.ok).toEqual([]);
+    expect(out.subPeriods).toEqual([]);
+    expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!C12", "S!D12"] }]);
+  });
+
+  it("a row with its own period cell is no sub-period row: a month title's two dates over Plan | Ist never sum to 75", () => {
+    const rows = [...pad(9), ["Projekt", "Alpha", "01.01.2026", "31.01.2026"], ["Name", "Datum", "Plan", "Ist"], ["Ann", "15.01.2026", "40", "35"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C12"), claim("Jan 2026", 35, "S!D12")], strictOn(rows));
+    expect(out.rejected).toEqual([]);
+    expect(out.subPeriods).toEqual([]);
+    expect(out.ok).toEqual([]);
+    expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!C12", "S!D12"] }]);
+  });
+
+  it("sprint-date headers still sum their sub-periods", () => {
+    const rows = [...pad(10), ["Name", "05.01.2026", "19.01.2026", "02.02.2026", "16.02.2026"], ["Ann", "40", "40", "40", "40"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    const out = validateForecastRows([
+      claim("05.01.2026", 40, "S!B12"), claim("19.01.2026", 40, "S!C12"), claim("02.02.2026", 40, "S!D12"), claim("16.02.2026", 40, "S!E12"),
+    ], strictOn(rows));
+    expect(out.rejected).toEqual([]);
+    expect(out.collisions).toEqual([]);
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 80], ["Ann", "2026-02", 80]]);
+    expect(out.subPeriods).toHaveLength(2);
+  });
+});
+
+describe("an edited mapping is the hand reading the claim is checked against", () => {
+  // A clear long sheet: the detection takes Monat (a period word) over Start.
+  const rows = [["Name", "Start", "Monat", "Stunden"], ["Ann", "01.03.2026", "Jan 2026", "40"], ["Ann", "01.03.2026", "Feb 2026", "30"]];
+  const detected = detectLayout(rows, { defaultYear: 2026 });
+
+  it("the detection is clear and reads Monat", () => {
+    expect(detected).toMatchObject({ kind: "long", ambiguous: [], mapping: { period: 2, hours: 3 } });
+  });
+
+  it("with the period moved to Start, a claim in Monat's month for the hours cell is refused, Start's month accepted", () => {
+    const edited = { ...detected.mapping!, period: 1 };
+    const wrong = validateForecastRows([claim("Jan 2026", 40, "S!D2")], strictOn(rows, undefined, edited));
+    expect(wrong.ok).toEqual([]);
+    expect(wrong.rejected).toEqual([
+      { row: claim("Jan 2026", 40, "S!D2"), reason: "source", detail: "period-conflict", periods: { sheet: "2026-03" } },
+    ]);
+    expect(periodsOf(validateForecastRows([claim("Mar 2026", 40, "S!D2")], strictOn(rows, undefined, edited)))).toEqual([["Ann", "2026-03", 40]]);
+  });
+
+  it("without the edit, the detection's own reading decides", () => {
+    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!D2")], strictOn(rows)))).toEqual([["Ann", "2026-01", 40]]);
+    expect(detail(validateForecastRows([claim("Mar 2026", 40, "S!D2")], strictOn(rows)))).toEqual(["period-conflict"]);
+  });
+});

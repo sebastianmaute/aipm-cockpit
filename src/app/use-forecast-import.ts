@@ -16,8 +16,11 @@
 // that more than one column could hold the hours or the period (`ambiguous`),
 // the hand route opens on the mapping step, and Apply is refused until each
 // such field is confirmed: by choosing its column, or by `confirmColumns`.
-// Re-detecting (a new file, sheet, or Detect columns) asks again. The Claude
-// route is not gated: its rows are checked cell by cell instead.
+// Re-detecting (a new file, sheet, or Detect columns) asks again. ★★ The
+// Claude route waits too (fix 8): until the columns are confirmed it refuses
+// every claim (`columns-unconfirmed`), and once the user has confirmed or
+// edited the mapping, each claim is checked against THAT reading
+// (`claudeColumnsOf`), not the default detection.
 //
 // ★ The Claude route's rows are UNTRUSTED: they pass `validateForecastRows`
 // with `requireSource: true`, which rejects a row whose cited cell does not
@@ -148,6 +151,21 @@ function confirmsField(a: ColumnAmbiguity, before: ColumnMapping | null, next: C
   return before?.layout === "long" && next.layout === "long" && next[a.field] !== before[a.field];
 }
 
+/** What the Claude route's check reads the columns by (`validateForecastRows`'s
+ *  `columns`): "unconfirmed" while an ambiguous field waits for the user; the
+ *  hand mapping once the detection found a layout (confirmed if it asked) or
+ *  the user changed the mapping it opened with (`opened`); else nothing, so
+ *  an unknown layout has no hand reading. */
+function claudeColumnsOf(
+  unconfirmed: readonly ColumnAmbiguity[],
+  mapping: ColumnMapping | null,
+  opened: ColumnMapping | null,
+  layoutDetected: boolean,
+): ColumnMapping | "unconfirmed" | undefined {
+  if (unconfirmed.length > 0) return "unconfirmed";
+  return mapping !== null && (layoutDetected || mapping !== opened) ? mapping : undefined;
+}
+
 /** The message for a failed Claude read, or null for an abort (the user's own
  *  stop is not an error). Mirrors the other forced-call features' mapping. */
 export function forecastImportErrorOf(e: unknown): ForecastImportError | null {
@@ -238,6 +256,8 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const [sheets, setSheets] = useState<readonly SheetGrid[]>([]);
   const [sheetIndex, setSheetIndex] = useState(0);
   const [mapping, setMappingState] = useState<ColumnMapping | null>(null);
+  // The mapping the hand route opened with, to tell a user's edit from it.
+  const [openedMapping, setOpenedMapping] = useState<ColumnMapping | null>(null);
   const [layoutDetected, setLayoutDetected] = useState(false);
   const [unconfirmed, setUnconfirmed] = useState<readonly ColumnAmbiguity[]>(NO_AMBIGUITY);
   const [route, setRoute] = useState<ForecastImportRoute>("hand");
@@ -270,10 +290,14 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
 
   const validated = useMemo<Validated | null>(() => {
     if (!sheet) return null;
-    // The Claude route reads year-less headers in the year the mapping step shows.
-    if (route === "claude") return validateForecastRows(claudeRows, { sheet, requireSource: true, defaultYear: year });
+    // The Claude route reads year-less headers in the year the mapping step
+    // shows, and the columns as the user confirmed or edited them.
+    if (route === "claude") {
+      const columns = claudeColumnsOf(unconfirmed, mapping, openedMapping, layoutDetected);
+      return validateForecastRows(claudeRows, { sheet, requireSource: true, defaultYear: year, columns });
+    }
     return handRows ? validateForecastRows(handRows.rows, { sheet, requireSource: false, defaultYear: year }) : null;
-  }, [sheet, route, claudeRows, handRows, year]);
+  }, [sheet, route, claudeRows, handRows, year, unconfirmed, mapping, openedMapping, layoutDetected]);
 
   const unread = useMemo(
     () => (route === "claude" && sheet && validated ? findUnreadCells(sheet, validated) : NO_UNREAD),
@@ -314,7 +338,9 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     setNotes("");
     setOverrides(NO_OVERRIDES);
     setLayoutDetected(detected.mapping !== null);
-    setMappingState(detected.mapping ?? defaultMappingFor(grid.rows, year, grid.numbers));
+    const opened = detected.mapping ?? defaultMappingFor(grid.rows, year, grid.numbers);
+    setMappingState(opened);
+    setOpenedMapping(opened);
     setUnconfirmed(detected.ambiguous);
     setStep(detected.mapping && detected.ambiguous.length === 0 ? "preview" : "mapping");
   }, [year]);

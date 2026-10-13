@@ -792,7 +792,9 @@ describe("useForecastImport — ambiguous columns are confirmed before Apply (fi
     expect(result.current.ambiguous).toEqual([]);
   });
 
-  it("leaves the Claude route ungated", async () => {
+  // Fix 8 (owner decision 2026-10-13): the Claude route waits for the columns
+  // too. It was ungated before, and its evidence rules decided such sheets.
+  it("refuses every Claude claim until the columns are confirmed, then checks it against them", async () => {
     claudeResponds({ rows: [{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C2" }] });
     const deps = depsOf();
     const { result } = await loaded(deps, PLAN_IST);
@@ -801,6 +803,15 @@ describe("useForecastImport — ambiguous columns are confirmed before Apply (fi
     });
     expect(result.current.route).toBe("claude");
     expect(result.current.ambiguous).toEqual([]);
+    expect(result.current.rejected).toMatchObject([{ reason: "source", detail: "columns-unconfirmed" }]);
+    expect(applyNow(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+    act(() => result.current.editMapping());
+    act(() => result.current.confirmColumns());
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected).toEqual([]);
     expect(applyNow(result)).toBe("applied");
     expect(hoursWritten(deps)).toEqual({ "2026-01": 40 });
   });
@@ -816,5 +827,120 @@ describe("useForecastImport — ambiguous columns are confirmed before Apply (fi
     act(() => result.current.showPreview());
     expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
     expect(applyNow(result)).toBe("refused");
+  });
+});
+
+// Fix 8: the Claude route reads the columns the user confirmed or edited. A
+// title row's dates over the hours column are a period source of their own
+// (U), so a confirmed reading (H) that disagrees with them is still refused.
+describe("useForecastImport — the Claude route checks claims against the confirmed columns (fix 8)", () => {
+  type Hook = { current: ReturnType<typeof useForecastImport> };
+  const claudeRepliesInOrder = (...replies: unknown[][]) => {
+    const spy = vi.spyOn(globalThis, "fetch");
+    for (const rows of replies) {
+      spy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows } }] }),
+      } as unknown as Response);
+    }
+    return spy;
+  };
+  const ask = async (result: Hook) => {
+    await act(async () => {
+      await result.current.askClaude();
+    });
+  };
+  const confirmed = async (result: Hook) => {
+    act(() => result.current.editMapping());
+    act(() => result.current.confirmColumns());
+    await ask(result);
+  };
+  const details = (result: Hook) => result.current.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason));
+  const changes = (result: Hook) => result.current.importPlan?.changes.map((c) => [c.period, c.next]);
+  const ann = (period: string, hours: number, source: string) => ({ person: "Ann Lee", period, hours, source });
+
+  const Q1 = "Projekt Alpha,Forecast,01.01.2026,31.03.2026\r\nName,Monat,Plan,Ist\r\n"
+    + "Ann Lee,01.01.2026,40,35\r\nAnn Lee,01.02.2026,30,25\r\nAnn Lee,01.03.2026,20,15\r\n";
+  const MONTH = "Projekt,Alpha,01.01.2026,31.01.2026\r\nName,Datum,Plan,Ist\r\nAnn Lee,15.01.2026,40,35\r\n";
+  const keyValue = (hours: string, actuals: string) => `Erstellt von,Max,01.03.2026,Stand,02.03.2026\r\nName,Monat,${hours},Bemerkung,${actuals}\r\n`
+    + "Ann Lee,Jan 2026,40,,35\r\nAnn Lee,Feb 2026,30,,25\r\n";
+
+  it("Projekt Alpha | Forecast | Q1: nothing before the columns are confirmed, then January's cell only, never 90", async () => {
+    const allJan = [ann("Jan 2026", 40, "forecast!C3"), ann("Jan 2026", 30, "forecast!C4"), ann("Jan 2026", 20, "forecast!C5")];
+    claudeRepliesInOrder(allJan, allJan, [ann("Feb 2026", 40, "forecast!C3")]);
+    const { result } = await loaded(depsOf(), Q1);
+    await ask(result);
+    expect(details(result)).toEqual(["columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed"]);
+    expect(changes(result)).toEqual([]);
+    await confirmed(result);
+    expect(changes(result)).toEqual([["2026-01", 40]]);
+    expect(details(result)).toEqual(["period-conflict", "period-conflict"]);
+    // A wrong month for the one cell every source agrees on is still refused.
+    await ask(result);
+    expect(changes(result)).toEqual([]);
+    expect(result.current.rejected).toMatchObject([{ detail: "period-conflict", periods: { sheet: "2026-01" } }]);
+  });
+
+  it("Projekt | Alpha | 01.01. | 31.01. over Datum | Plan | Ist: confirmed, the two cells of one row collide, never 75", async () => {
+    const both = [ann("Jan 2026", 40, "forecast!C3"), ann("Jan 2026", 35, "forecast!D3")];
+    claudeRepliesInOrder(both, both);
+    const deps = depsOf();
+    const { result } = await loaded(deps, MONTH);
+    await ask(result);
+    expect(details(result)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
+    await confirmed(result);
+    expect(result.current.rejected).toEqual([]);
+    expect(result.current.subPeriods).toEqual([]);
+    expect(result.current.collisions).toEqual([{ person: "Ann Lee", period: "2026-01", sources: ["forecast!C3", "forecast!D3"] }]);
+    let outcome: string | undefined;
+    act(() => {
+      outcome = result.current.apply();
+    });
+    expect(outcome).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["Plan | Bemerkung | Ist", "Plan", "Ist"],
+    ["Forecast | Bemerkung | Ist-Stunden", "Forecast", "Ist-Stunden"],
+  ])("Erstellt von | Max | 01.03.2026 over %s: confirmed, the title's March refuses every month, and no March for January", async (_label, hours, actuals) => {
+    const reply = [ann("Jan 2026", 40, "forecast!C3"), ann("Feb 2026", 30, "forecast!C4")];
+    claudeRepliesInOrder(reply, reply, [ann("Mar 2026", 40, "forecast!C3")]);
+    const { result } = await loaded(depsOf(), keyValue(hours, actuals));
+    await ask(result);
+    expect(details(result)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
+    await confirmed(result);
+    expect(changes(result)).toEqual([]);
+    expect(result.current.rejected).toMatchObject([
+      { detail: "period-conflict", periods: { sheet: "2026-01", header: "2026-03" } },
+      { detail: "period-conflict", periods: { sheet: "2026-02", header: "2026-03" } },
+    ]);
+    await ask(result);
+    expect(changes(result)).toEqual([]);
+    expect(details(result)).toEqual(["period-conflict"]);
+  });
+
+  // A clear long sheet: detection reads Monat; the user moves the period to Start.
+  const START = "Name,Start,Monat,Stunden\r\nAnn Lee,01.03.2026,Jan 2026,40\r\nAnn Lee,01.03.2026,Feb 2026,30\r\n";
+
+  it("an edited mapping is the reading the claim is checked against: the hours cell's old month is refused", async () => {
+    claudeRepliesInOrder([ann("Jan 2026", 40, "forecast!D2")], [ann("Mar 2026", 40, "forecast!D2")]);
+    const { result } = await loaded(depsOf(), START);
+    expect(result.current.ambiguous).toEqual([]);
+    act(() => result.current.setMapping({ ...result.current.mapping!, period: 1 }));
+    await ask(result);
+    expect(result.current.rejected).toMatchObject([{ detail: "period-conflict", periods: { sheet: "2026-03" } }]);
+    expect(changes(result)).toEqual([]);
+    await ask(result);
+    expect(result.current.rejected).toEqual([]);
+    expect(changes(result)).toEqual([["2026-03", 40]]);
+  });
+
+  it("without the edit, the detection's reading decides", async () => {
+    claudeRepliesInOrder([ann("Jan 2026", 40, "forecast!D2")]);
+    const { result } = await loaded(depsOf(), START);
+    await ask(result);
+    expect(result.current.rejected).toEqual([]);
+    expect(changes(result)).toEqual([["2026-01", 40]]);
   });
 });

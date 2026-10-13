@@ -551,14 +551,56 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(within(section).getByText(/forecast!B2/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheet", t(L, "forecastImportWeekLabel", "02", "2026")));
     expect(t(L, "forecastImportWeekLabel", "02", "2026")).toBe("W02 2026");
   });
+  /** Ten blank lines push the header past detection's scan: an unknown layout,
+   *  so the hand route reads nothing and the row and header decide (fix 8). */
+  const UNKNOWN_PAD = Array.from({ length: 10 }, () => "");
+  async function chooseUnknown(lines: string[]): Promise<void> {
+    const input = screen.getByLabelText(t(L, "forecastImportFile"));
+    fireEvent.change(input, { target: { files: [new File([[...UNKNOWN_PAD, ...lines, ""].join("\r\n")], "forecast.csv", { type: "text/csv" })] } });
+    await screen.findByText(t(L, "forecastImportNoLayout"));
+  }
+
   it("says why Claude's row was refused when the row and the column header disagree", async () => {
-    claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C4" }]);
+    claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C14" }]);
     render(<ForecastImportModal {...propsOf()} />);
-    await chooseAmbiguous(["Zeitraum,01.01.2026,31.03.2026", "", "Name,Monat,Plan,Ist", "Ann Lee,Jan 2026,40,35", "Ann Lee,Feb 2026,30,25", ""].join("\r\n"));
+    await chooseUnknown(["Zeitraum,01.01.2026,31.03.2026", "", "Name,Monat,Plan,Ist", "Ann Lee,Jan 2026,40,35", "Ann Lee,Feb 2026,30,25"]);
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
     const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!C4/)).toHaveTextContent(t(L, "forecastImportRejectSourceConflict", "Jan 2026", "Mar 2026"));
+    expect(within(section).getByText(/forecast!C14/)).toHaveTextContent(t(L, "forecastImportRejectSourceConflict", "Jan 2026", "Mar 2026"));
     // Read after the row and a dash, like its sibling reasons: lower case.
     expect(t(L, "forecastImportRejectSourceConflict", "a", "b")).toMatch(/^the row says a/);
+  });
+
+  // Fix 8 (rr8 m1): the stacked block's header and the detected columns are
+  // two sources, and the reason names both.
+  it("names the column header's period and the detected columns' when they disagree", async () => {
+    claudeSays([{ person: "Ann Lee", period: "Jan 2027", hours: 30, source: "forecast!B5" }]);
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile(["Name,Jan 2026,Feb 2026", "Ann Lee,10,20", "Bob Kay,11,21", "Name,Jan 2027,Feb 2027", "Ann Lee,30,40", "Bob Kay,31,41", ""].join("\r\n"));
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(/forecast!B5/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheetHeader", "Jan 2027", "Jan 2026"));
+    expect(t(L, "forecastImportRejectSourceSheetHeader", "a", "b")).toBe("the column header says a, but the detected columns read b");
+  });
+
+  it("names the row's two periods when they disagree", async () => {
+    claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 8, source: "forecast!D12" }]);
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseUnknown(["Name,Von,Bis,Stunden", "Ann Lee,Jan 2026,Feb 2026,8"]);
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(/forecast!D12/)).toHaveTextContent(t(L, "forecastImportRejectSourceRows", "Jan 2026", "Feb 2026"));
+  });
+
+  // Fix 8: an ambiguous sheet refuses every Claude claim until its columns are confirmed.
+  it("says the columns must be confirmed first when Claude reads an ambiguous sheet", async () => {
+    claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C2" }]);
+    const props = propsOf();
+    render(<ForecastImportModal {...props} />);
+    await chooseAmbiguous(PLAN_IST);
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(/forecast!C2/)).toHaveTextContent(t(L, "forecastImportRejectSourceColumns"));
+    expect(applyButton()).toBeDisabled();
   });
 });

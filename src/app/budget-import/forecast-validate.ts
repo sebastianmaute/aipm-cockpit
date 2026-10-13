@@ -6,9 +6,9 @@
 // person and under (or beside) that period (`source-evidence.ts`). Pure: no
 // i18n, no React, no DOM.
 
-import type { AssumedYear, ForecastCollision, ForecastRow } from "./forecast-types";
+import type { AssumedYear, ColumnMapping, ForecastCollision, ForecastRow } from "./forecast-types";
 import { assumedYearOf, classifyPeriodCell, resolvePeriod, type AssignedPeriod } from "./period-assign";
-import { handPeriodAt, handReadingOf, type HandReading } from "./hand-reading";
+import { handPeriodAt, handReadingOf, type HandReading, type HandSource } from "./hand-reading";
 import type { SheetGrid } from "./sheet-grid";
 import { checkSource, citedCell, columnNaming, headerDateOf, sourceKey, sourcePosition, type PeriodConflict, type SourceRejection } from "./source-evidence";
 
@@ -46,8 +46,13 @@ type Checked =
   | { ok: false; reason: "shape" | "hours" | "period" | "person" }
   | { ok: false; reason: "source"; detail: SourceRejection; periods?: PeriodConflict };
 /** `defaultYear`: the year a period label without one ("Jan", "KW03") is read
- *  in — the row's own `period` and the sheet cells that back it alike. */
-type Options = { sheet: SheetGrid; requireSource: boolean; defaultYear?: number };
+ *  in — the row's own `period` and the sheet cells that back it alike.
+ *  `columns` (the Claude route only, fix 8): the hand route's mapping the user
+ *  edited or confirmed, which the hand reading H is then read with;
+ *  `"unconfirmed"` while the sheet's ambiguous columns wait for the user, which
+ *  refuses every claim `columns-unconfirmed`; absent, the sheet's own detection
+ *  decides (`handReadingOf`: ambiguous is unconfirmed, unknown has no H). */
+type Options = { sheet: SheetGrid; requireSource: boolean; defaultYear?: number; columns?: ColumnMapping | "unconfirmed" };
 type Merged = { row: ForecastRow; count: number; sources: string[] };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -77,7 +82,7 @@ function round2(value: number): number {
   return Math.round(value * HOURS_DECIMALS_FACTOR) / HOURS_DECIMALS_FACTOR + 0;
 }
 
-function checkRow(raw: unknown, opts: Options, hand: HandReading | null): Checked {
+function checkRow(raw: unknown, opts: Options, hand: HandSource): Checked {
   if (!isRecord(raw)) return { ok: false, reason: "shape" };
   const { person, period, hours, rate, email, source } = raw;
   if (typeof person !== "string" || person.trim() === "") return { ok: false, reason: "person" };
@@ -95,6 +100,8 @@ function checkRow(raw: unknown, opts: Options, hand: HandReading | null): Checke
   if (typeof rate === "number") row.rate = rate;
   if (typeof source === "string") row.source = source;
   if (!opts.requireSource) return { ok: true, row, assumed: claim.year === undefined };
+  // Ambiguous columns the user has not confirmed: no cell of the sheet is read (fix 8).
+  if (hand === "unconfirmed") return { ok: false, reason: "source", detail: "columns-unconfirmed" };
   const evidence = checkSource({ person: row.person, hours, source: row.source }, claim, opts.sheet, opts.defaultYear, hand);
   if ("problem" in evidence) {
     return evidence.periods === undefined
@@ -114,7 +121,8 @@ function checkRow(raw: unknown, opts: Options, hand: HandReading | null): Checke
  *  summed as before the collision rule. `rows`: the distinct sheet rows (a
  *  row without a usable source counts as one of its own). A cell on a row the
  *  hand route reads as a LONG row has no date header: its period is the row's
- *  (`hand`), so two such cells collide. */
+ *  (`hand`), so two such cells collide; so does a cell the hand route does not
+ *  read whose row holds a period cell of its own (`headerDateOf`, fix 8). */
 function rowShape(e: Merged, sheet: SheetGrid, hand: HandReading | null): { collision: boolean; subPeriod: boolean; rows: number } {
   const byRow = new Map<number, Array<string | null>>();
   let unplaced = e.count - e.sources.length;
@@ -125,8 +133,10 @@ function rowShape(e: Merged, sheet: SheetGrid, hand: HandReading | null): { coll
       continue;
     }
     const personCol = columnNaming(sheet.rows[at.rowIdx] ?? [], at.colIdx, e.row.person) ?? undefined;
-    const onLongRow = hand?.layout === "long" && handPeriodAt(hand, at.rowIdx, at.colIdx) !== undefined;
-    byRow.set(at.rowIdx, [...(byRow.get(at.rowIdx) ?? []), onLongRow ? null : headerDateOf(sheet, { ...at, personCol })]);
+    const isHandRead = handPeriodAt(hand, at.rowIdx, at.colIdx) !== undefined;
+    const onLongRow = hand?.layout === "long" && isHandRead;
+    const date = onLongRow ? null : headerDateOf(sheet, { ...at, personCol }, isHandRead);
+    byRow.set(at.rowIdx, [...(byRow.get(at.rowIdx) ?? []), date]);
   }
   const shared = [...byRow.values()].filter((dates) => dates.length > 1);
   const isSubPeriods = (dates: Array<string | null>): boolean =>
@@ -148,8 +158,10 @@ function withoutSource(row: ForecastRow): ForecastRow {
  * Checks forecast rows from either import route. Each row is judged on its own
  * first (hours within 0..744 and rounded to two decimals, canonical period,
  * non-blank person and — on the Claude route — a `source` that cites a cell
- * holding that number on the person's row, under the NEAREST period header
- * above it (or, with none above, beside it on the row: `checkSource`); the
+ * holding that number on the person's row, in a period EVERY source for the
+ * cell agrees on — the hand reading, the nearest period header above, the
+ * row's own period cells (`checkSource`, fix 8); a sheet whose columns are
+ * ambiguous and not confirmed (`columns`) refuses every claim; the
  * PERSON must be on that row, an email the row does not hold is dropped, and
  * the accepted period is the one the SHEET reads there). A rejected `source`
  * names its cause in `detail`. `assumedYear` is set when an accepted row's
@@ -168,7 +180,9 @@ export function validateForecastRows(input: unknown, opts: Options): ValidationR
   }
 
   // The Claude route only: the hand route's reading of the sheet, once.
-  const hand = opts.requireSource ? handReadingOf(opts.sheet, opts.defaultYear) : null;
+  const hand: HandSource = !opts.requireSource ? null
+    : opts.columns === "unconfirmed" ? "unconfirmed"
+    : handReadingOf(opts.sheet, opts.defaultYear, opts.columns);
   const rejected: RejectedRow[] = [];
   const usedSources = new Set<string>();
   const merged = new Map<string, Merged>();
@@ -190,7 +204,8 @@ export function validateForecastRows(input: unknown, opts: Options): ValidationR
   }
 
   const entries = [...merged.values()];
-  const shaped = entries.map((e) => ({ e, shape: e.count > 1 ? rowShape(e, opts.sheet, hand) : null }));
+  const reading = hand === "unconfirmed" ? null : hand;
+  const shaped = entries.map((e) => ({ e, shape: e.count > 1 ? rowShape(e, opts.sheet, reading) : null }));
   const kept = shaped.filter(({ shape }) => shape?.collision !== true);
   const asDuplicate = ({ e }: { e: Merged }): DuplicateRow => ({ person: e.row.person, period: e.row.period, count: e.count, sources: e.sources });
   const result: ValidationResult = {

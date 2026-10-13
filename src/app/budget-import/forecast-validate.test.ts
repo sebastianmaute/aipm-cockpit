@@ -608,7 +608,7 @@ describe("validateForecastRows: the nearest period header above the cited cell",
 
   it("rejects a period that only a Start date elsewhere on the row names (CR probe)", () => {
     const opts = strictOn([["Name", "Start", "Jan 2026", "Feb 2026"], ["Ann", "01.02.2026", "10", "20"]]);
-    // The hand route reads this cell, so its period decides (rr7 I1).
+    // The hand route reads this cell and no source disagrees: another period is refused (fix 8).
     expect(detail(validateForecastRows([{ person: "Ann", period: "2026-02", hours: 10, source: "S!C2" }], opts))).toEqual(["period-conflict"]);
     expect(validateForecastRows([{ person: "Ann", period: "2026-01", hours: 10, source: "S!C2" }], opts).ok).toHaveLength(1);
   });
@@ -619,7 +619,7 @@ describe("validateForecastRows: the nearest period header above the cited cell",
       ["Name", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"],
     ]);
     expect(validateForecastRows([{ person: "Ann", period: "Jan 2027", hours: 30, source: "S!B4" }], opts).ok.map((r) => r.period)).toEqual(["2027-01"]);
-    // The hand route reads this cell, so its period decides (rr7 I1).
+    // The hand route reads this cell and no source disagrees: another period is refused (fix 8).
     expect(detail(validateForecastRows([{ person: "Ann", period: "Jan 2026", hours: 30, source: "S!B4" }], opts))).toEqual(["period-conflict"]);
   });
 
@@ -628,7 +628,7 @@ describe("validateForecastRows: the nearest period header above the cited cell",
     const claim = (period: string) => validateForecastRows([{ person: "Ann", period, hours: 3, source: "S!D2" }], opts);
     expect(claim("Jan 2027").ok.map((r) => r.period)).toEqual(["2027-01"]);
     expect(claim("Jan").ok.map((r) => r.period)).toEqual(["2027-01"]);
-    // The hand route reads this cell, so its period decides (rr7 I1).
+    // The hand route reads this cell and no source disagrees: another period is refused (fix 8).
     expect(detail(claim("Jan 2026"))).toEqual(["period-conflict"]);
   });
 
@@ -637,7 +637,7 @@ describe("validateForecastRows: the nearest period header above the cited cell",
     const claim = (period: string) => validateForecastRows([{ person: "Ann", period, hours: 40, source: "S!C2" }], opts);
     expect(claim("2026-W03").ok.map((r) => r.period)).toEqual(["2026-W03"]);
     expect(claim("2026-01-12").ok.map((r) => r.period)).toEqual(["2026-W03"]);
-    // The hand route reads this cell, so its period decides (rr7 I1).
+    // The hand route reads this cell and no source disagrees: another period is refused (fix 8).
     expect(detail(claim("2026-01"))).toEqual(["period-conflict"]);
   });
 
@@ -646,7 +646,7 @@ describe("validateForecastRows: the nearest period header above the cited cell",
     const claim = (period: string) => validateForecastRows([{ person: "Ann", period, hours: 8, source: "S!D2" }], opts);
     expect(claim("Jan 2027").ok.map((r) => r.period)).toEqual(["2027-01"]);
     expect(claim("Jan").ok.map((r) => r.period)).toEqual(["2027-01"]);
-    // The hand route reads this cell, so its period decides (rr7 I1).
+    // The hand route reads this cell and no source disagrees: another period is refused (fix 8).
     expect(detail(claim("Jan 2026"))).toEqual(["period-conflict"]);
   });
 
@@ -709,7 +709,7 @@ describe("validateForecastRows: a long sheet of Monday dates (round 2)", () => {
   it("reads the period cell as its ISO week, as the hand route does", () => {
     expect(claim("2026-W03").ok.map((r) => r.period)).toEqual(["2026-W03"]);
     expect(claim("2026-01-12").ok.map((r) => r.period)).toEqual(["2026-W03"]);
-    // The hand route reads this cell, so its period decides (rr7 I1).
+    // The hand route reads this cell and no source disagrees: another period is refused (fix 8).
     expect(claim("2026-01").rejected.map((r) => (r.reason === "source" ? r.detail : r.reason))).toEqual(["period-conflict"]);
   });
 });
@@ -754,7 +754,7 @@ describe("validateForecastRows: a title row's date range is no period header (ro
       { person: "Ann", period: "Dez 2026", hours: 4, source: "S!C4" },
     ], { sheet, requireSource: true });
     expect(out.ok).toEqual([]);
-    // The hand route reads this cell, so its period decides (rr7 I1).
+    // The hand route reads this cell and no source disagrees: another period is refused (fix 8).
     expect(out.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason))).toEqual(["period-conflict", "period-conflict"]);
   });
 });
@@ -822,14 +822,15 @@ describe("validateForecastRows: in-grid text does not bound the header search (r
   });
 });
 
-// Fix 7 (replaces final review I1's header-row stop): the column header above
-// the cited cell and a period cell on the cited row are two sources. When both
-// exist and name DIFFERENT periods, the claim is refused `period-conflict` —
-// visible, never wrong hours. When only one exists, it decides, as before. A
-// row's date is no evidence against a header that labels its column as
-// something else (`Start`) and heads only numbers on the row: the CR probe's
-// wide sheet with a Start column.
-describe("validateForecastRows: conflicting period evidence is refused (fix 7)", () => {
+// Fix 7, then fix 8 (the owner's "fail closed" of 2026-10-13): the period
+// sources for a cited cell are the hand route's reading (H), the nearest period
+// header above it (U) and, without H, every period cell on the cited row (R).
+// When two disagree, the claim is refused `period-conflict` — visibly, even
+// when the claim is right; never wrong hours. A sheet whose columns are
+// ambiguous refuses every claim `columns-unconfirmed` until the user confirms
+// them. `claude-unanimity.test.ts` pins the rules; these are the earlier
+// rounds' probe sheets under them.
+describe("validateForecastRows: conflicting period evidence is refused (fix 7, fix 8)", () => {
   const strictOn = (rows: string[][], numbers?: "dot" | "text") => ({
     sheet: { name: "S", rows, truncated: false, numbers } as SheetGrid,
     requireSource: true,
@@ -838,106 +839,108 @@ describe("validateForecastRows: conflicting period evidence is refused (fix 7)",
   const detail = (out: ReturnType<typeof validateForecastRows>) =>
     out.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason));
   const periodsOf = (out: ReturnType<typeof validateForecastRows>) => out.ok.map((r) => [r.period, r.hours]);
+  const conflicts = (out: ReturnType<typeof validateForecastRows>) => out.rejected.map((r) => (r.reason === "source" ? r.periods : undefined));
+  /** Blank rows that push the real header past detection's ten-row scan: the
+   *  detection is then unknown, so there is no H. */
+  const pad = (n: number): string[][] => Array.from({ length: n }, () => []);
 
-  const quarter = (header: string[], numbers?: "dot" | "text") => strictOn(numbers === "dot"
+  const quarterRows = (header: string[], numbers?: "dot" | "text") => numbers === "dot"
     ? [["Zeitraum", "46023", "46112"], [], header, ["Ann", "46023", "40", "35"], ["Ann", "46054", "30", "25"], ["Ann", "46082", "20", "15"]]
-    : [["Zeitraum", "01.01.2026", "31.03.2026"], [], header, ["Ann", "Jan 2026", "40", "35"], ["Ann", "Feb 2026", "30", "25"], ["Ann", "Mär 2026", "20", "15"]], numbers);
+    : [["Zeitraum", "01.01.2026", "31.03.2026"], [], header, ["Ann", "Jan 2026", "40", "35"], ["Ann", "Feb 2026", "30", "25"], ["Ann", "Mär 2026", "20", "15"]];
+  const quarter = (header: string[], numbers?: "dot" | "text") => strictOn(quarterRows(header, numbers), numbers);
 
-  // rr7 I1: where the hand route reads the sheet clearly, its reading decides
-  // (the "hand route's reading" describe below); these title rows no longer
-  // refuse the right months there.
+  // Fix 8: the range's 31.03.2026 heads the hours column (U), and the hand
+  // route reads each row's month (H). They agree on March's row only. Before
+  // fix 8, H decided alone and the January and February claims stood.
   it.each([
     ["Name | Monat | Stunden, CSV", ["Name", "Monat", "Stunden"], "text"],
     ["Name | Monat | Stunden, workbook serials", ["Name", "Monat", "Stunden"], "dot"],
     ["Wer | Wann | Wieviel, CSV", ["Wer", "Wann", "Wieviel"], "text"],
-  ] as const)("accepts the right months under a Q1 range title row over a clear long sheet (%s)", (_label, header, numbers) => {
+  ] as const)("refuses the months a Q1 range title row disagrees with, over a clear long sheet (%s)", (_label, header, numbers) => {
     const opts = quarter([...header], numbers);
     const all = validateForecastRows([claim("Jan 2026", 40, "S!C4"), claim("Feb 2026", 30, "S!C5"), claim("Mar 2026", 20, "S!C6")], opts);
-    expect(all.rejected).toEqual([]);
-    expect(periodsOf(all)).toEqual([["2026-01", 40], ["2026-02", 30], ["2026-03", 20]]);
+    expect(periodsOf(all)).toEqual([["2026-03", 20]]);
+    expect(conflicts(all)).toEqual([{ sheet: "2026-01", header: "2026-03" }, { sheet: "2026-02", header: "2026-03" }]);
     const wrong = validateForecastRows([claim("Mar 2026", 40, "S!C4")], opts);
     expect(wrong.ok).toEqual([]);
-    expect(wrong.rejected).toEqual([{ row: claim("Mar 2026", 40, "S!C4"), reason: "source", detail: "period-conflict", periods: { sheet: "2026-01" } }]);
-  });
-
-  // Plan | Ist is ambiguous for the hand route, so the evidence rules decide.
-  it.each([
-    ["CSV", "text"],
-    ["workbook serials", "dot"],
-  ] as const)("refuses every claim for a cell whose row and title disagree, where the hand route asks (%s)", (_label, numbers) => {
-    const opts = quarter(["Name", "Monat", "Plan", "Ist"], numbers);
-    // January's cell: the row says January, the title's 31.03.2026 above it says March.
-    for (const period of ["Jan 2026", "Mar 2026", "Feb 2026"]) {
-      const out = validateForecastRows([claim(period, 40, "S!C4")], opts);
-      expect(out.ok).toEqual([]);
-      expect(detail(out)).toEqual(["period-conflict"]);
-    }
-    // Only March's cell, where the row and the title agree, stands.
-    const all = validateForecastRows([claim("Jan 2026", 40, "S!C4"), claim("Feb 2026", 30, "S!C5"), claim("Mar 2026", 20, "S!C6")], opts);
-    expect(periodsOf(all)).toEqual([["2026-03", 20]]);
-    expect(detail(all)).toEqual(["period-conflict", "period-conflict"]);
-  });
-
-  it("names both periods of a row and header conflict: the row's, then the header's", () => {
-    const out = validateForecastRows([claim("Jan 2026", 40, "S!C4")], quarter(["Name", "Monat", "Plan", "Ist"]));
-    expect(out.rejected).toEqual([
-      { row: claim("Jan 2026", 40, "S!C4"), reason: "source", detail: "period-conflict", periods: { row: "2026-01", header: "2026-03" } },
+    expect(wrong.rejected).toEqual([
+      { row: claim("Mar 2026", 40, "S!C4"), reason: "source", detail: "period-conflict", periods: { sheet: "2026-01", header: "2026-03" } },
     ]);
   });
 
-  it("von | 01.01.2026 | bis | 31.03.2026 title row: the right months stand on a clear sheet, conflict where the hand route asks", () => {
+  it.each([
+    ["CSV", "text"],
+    ["workbook serials", "dot"],
+  ] as const)("refuses every claim on Plan | Ist under a Q1 range until the columns are confirmed (%s)", (_label, numbers) => {
+    const opts = quarter(["Name", "Monat", "Plan", "Ist"], numbers);
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C4"), claim("Feb 2026", 30, "S!C5"), claim("Mar 2026", 20, "S!C6"), claim("Mar 2026", 40, "S!C4")], opts);
+    expect(out.ok).toEqual([]);
+    expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed"]);
+  });
+
+  it("names both periods of a row and header conflict, the row's then the header's, on an unknown layout", () => {
+    const opts = strictOn([...pad(10), ...quarterRows(["Name", "Monat", "Plan", "Ist"])]);
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C14")], opts);
+    expect(out.rejected).toEqual([
+      { row: claim("Jan 2026", 40, "S!C14"), reason: "source", detail: "period-conflict", periods: { row: "2026-01", header: "2026-03" } },
+    ]);
+  });
+
+  it("von | 01.01.2026 | bis | 31.03.2026 title row: refused where the title disagrees, columns-unconfirmed where the hand route asks", () => {
     const clear = strictOn([
       ["von", "01.01.2026", "bis", "31.03.2026"], [],
       ["Name", "Rolle", "Monat", "Stunden"],
       ["Ann", "Dev", "Jan 2026", "40"], ["Ann", "Dev", "Feb 2026", "30"],
     ]);
-    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!D4"), claim("Feb 2026", 30, "S!D5")], clear))).toEqual([["2026-01", 40], ["2026-02", 30]]);
-    expect(detail(validateForecastRows([claim("Mar 2026", 40, "S!D4")], clear))).toEqual(["period-conflict"]);
-    // "bis" labels the Monat column, but Dev, not a number, sits under the
-    // title's 01.01.2026: no exemption, so the row's January conflicts.
+    // The title's 31.03.2026 heads the Stunden column: no month but March stands.
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!D4"), claim("Feb 2026", 30, "S!D5"), claim("Mar 2026", 40, "S!D4")], clear);
+    expect(out.ok).toEqual([]);
+    expect(conflicts(out)).toEqual([{ sheet: "2026-01", header: "2026-03" }, { sheet: "2026-02", header: "2026-03" }, { sheet: "2026-01", header: "2026-03" }]);
     const asks = strictOn([
       ["von", "01.01.2026", "bis", "31.03.2026"], [],
       ["Name", "Rolle", "Monat", "Plan", "Ist"],
       ["Ann", "Dev", "Jan 2026", "40", "35"], ["Ann", "Dev", "Feb 2026", "30", "25"],
     ]);
-    const out = validateForecastRows([claim("Jan 2026", 40, "S!D4"), claim("Feb 2026", 30, "S!D5"), claim("Mar 2026", 40, "S!D4")], asks);
-    expect(out.ok).toEqual([]);
-    expect(detail(out)).toEqual(["period-conflict", "period-conflict", "period-conflict"]);
+    const asked = validateForecastRows([claim("Jan 2026", 40, "S!D4"), claim("Feb 2026", 30, "S!D5"), claim("Mar 2026", 40, "S!D4")], asks);
+    expect(asked.ok).toEqual([]);
+    expect(detail(asked)).toEqual(["columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed"]);
   });
 
-  it("a three-date metadata row: the right months stand on a clear sheet, conflict where the hand route asks", () => {
+  it("a three-date metadata row: refused where its date over the hours column disagrees, columns-unconfirmed where the hand route asks", () => {
     const rows = (hours: string[], cells: (h: string) => string[]) => [
       ["Erstellt", "01.01.2026", "Stand", "15.01.2026", "Druck", "20.01.2026"], [],
       ["Name", "Monat", "Bemerkung", ...hours],
       ["Ann", "Feb 2026", "", ...cells("30")], ["Ann", "Mär 2026", "", ...cells("20")],
     ];
-    const clear = strictOn(rows(["Stunden"], (h) => [h]));
-    expect(periodsOf(validateForecastRows([claim("Feb 2026", 30, "S!D4"), claim("Mär 2026", 20, "S!D5")], clear))).toEqual([["2026-02", 30], ["2026-03", 20]]);
-    expect(detail(validateForecastRows([claim("Jan 2026", 30, "S!D4")], clear))).toEqual(["period-conflict"]);
+    // The Stand date 15.01.2026 heads the Stunden column: January, against every row.
+    const clear = validateForecastRows([claim("Feb 2026", 30, "S!D4"), claim("Mär 2026", 20, "S!D5"), claim("Jan 2026", 30, "S!D4")], strictOn(rows(["Stunden"], (h) => [h])));
+    expect(clear.ok).toEqual([]);
+    expect(conflicts(clear)).toEqual([{ sheet: "2026-02", header: "2026-01" }, { sheet: "2026-03", header: "2026-01" }, { sheet: "2026-02", header: "2026-01" }]);
     const asks = strictOn(rows(["Plan", "Ist"], (h) => [h, "1"]));
     const out = validateForecastRows([claim("Feb 2026", 30, "S!D4"), claim("Mär 2026", 20, "S!D5"), claim("Jan 2026", 30, "S!D4")], asks);
     expect(out.ok).toEqual([]);
-    expect(detail(out)).toEqual(["period-conflict", "period-conflict", "period-conflict"]);
+    expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed"]);
   });
 
-  it.each([
-    ["Stunden | Ist (the hand route reads the row)", ["Stunden", "Ist"]],
-    ["Plan | Ist (the hand route asks)", ["Plan", "Ist"]],
-  ])("does not sum two cells of one long row as sub-periods of a metadata row's dates: %s", (_label, hours) => {
-    // The row and the dates above agree on January, so nothing conflicts; but
-    // a header that the row's own period cell is not labelled by is no proof of
-    // date columns finer than the period: the two cells collide (blocking)
-    // instead of being added to 75.
-    const opts = strictOn([
-      ["Erstellt", "", "01.01.2026", "15.01.2026", "20.01.2026"], [],
-      ["Name", "Monat", ...hours],
-      ["Ann", "Jan 2026", "40", "35"],
-    ]);
-    const out = validateForecastRows([claim("Jan 2026", 40, "S!C4"), claim("Jan 2026", 35, "S!D4")], opts);
+  const metadataOver = (hours: string[]) => strictOn([
+    ["Erstellt", "", "01.01.2026", "15.01.2026", "20.01.2026"], [],
+    ["Name", "Monat", ...hours],
+    ["Ann", "Jan 2026", "40", "35"],
+  ]);
+
+  it("never sums two cells of one long row under a metadata row's dates: Stunden | Ist, read by the hand route, collides", () => {
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C4"), claim("Jan 2026", 35, "S!D4")], metadataOver(["Stunden", "Ist"]));
     expect(out.rejected).toEqual([]);
     expect(out.subPeriods).toEqual([]);
     expect(out.ok).toEqual([]);
     expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!C4", "S!D4"] }]);
+  });
+
+  it("never sums two cells of one long row under a metadata row's dates: Plan | Ist waits for the columns", () => {
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C4"), claim("Jan 2026", 35, "S!D4")], metadataOver(["Plan", "Ist"]));
+    expect(out.ok).toEqual([]);
+    expect(out.subPeriods).toEqual([]);
+    expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
   });
 
   // rr6 N2: a two-row header — the months on row 1, the person label on row 2.
@@ -955,19 +958,16 @@ describe("validateForecastRows: conflicting period evidence is refused (fix 7)",
   });
 
   // rr6 N2 T2: the same two-row header with an Eintritt date on Ann's row. The
-  // header and the row disagree for January's cell, so no claim for it stands.
+  // hand route reads it long (Eintritt the period) with three Std columns to
+  // choose from, so every claim waits for the columns — March's own cell too.
   it.each([
     ["workbook serials", [["", "", "46023", "46054", "46082"], ["Name", "Eintritt", "Std", "Std", "Std"], ["Ann", "46082", "40", "35", "30"]], "dot"],
     ["CSV", [["", "", "Jan 2026", "Feb 2026", "Mär 2026"], ["Name", "Eintritt", "Std", "Std", "Std"], ["Ann", "01.03.2026", "40", "35", "30"]], "text"],
-  ] as const)("refuses a Mar claim for January's cell when an Eintritt date on the row says March (%s)", (_label, rows, numbers) => {
+  ] as const)("refuses every claim under Name | Eintritt | Std | Std | Std until the columns are confirmed (%s)", (_label, rows, numbers) => {
     const opts = strictOn(rows.map((r) => [...r]), numbers);
-    const wrong = validateForecastRows([claim("Mar 2026", 40, "S!C3")], opts);
-    expect(wrong.ok).toEqual([]);
-    expect(detail(wrong)).toEqual(["period-conflict"]);
-    // The right month is refused too: the two sources disagree.
-    expect(detail(validateForecastRows([claim("Jan 2026", 40, "S!C3")], opts))).toEqual(["period-conflict"]);
-    // March's own cell agrees with the row: accepted.
-    expect(periodsOf(validateForecastRows([claim("Mar 2026", 30, "S!E3")], opts))).toEqual([["2026-03", 30]]);
+    const out = validateForecastRows([claim("Mar 2026", 40, "S!C3"), claim("Jan 2026", 40, "S!C3"), claim("Mar 2026", 30, "S!E3")], opts);
+    expect(out.ok).toEqual([]);
+    expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed"]);
   });
 
   it("accepts Bob's claims below placeholder rows that name weeks or months in words", () => {
@@ -985,29 +985,31 @@ describe("validateForecastRows: conflicting period evidence is refused (fix 7)",
     expect(detail(validateForecastRows([bob("Feb 2026", 4, "S!B5")], opts))).toEqual(["period-not-near"]);
   });
 
-  it("an Eintritt column labelled in the header row vouches for nothing: the header decides (CR probe shape)", () => {
+  // The CR probe shape. Dora's Elternzeit keeps detection from reading it wide,
+  // so there is no H, and Bob's Eintritt date is R. Before fix 8 a column the
+  // header row labels was exempt; no row cell is now.
+  it("an Eintritt date on the row is a period source too: January's cell is refused, March's own cell stands", () => {
     const opts = strictOn([
       ["Name", "Eintritt", "Jan 2026", "Feb 2026", "Mär 2026"],
       ["Dora", "", "", "Elternzeit (3 Monate)", ""],
       ["Bob", "01.03.2026", "4", "5", "6"],
     ]);
     const bob = (period: string, hours: number, source: string) => claim(period, hours, source, "Bob");
-    expect(periodsOf(validateForecastRows([bob("Jan 2026", 4, "S!C3")], opts))).toEqual([["2026-01", 4]]);
-    expect(detail(validateForecastRows([bob("Mar 2026", 4, "S!C3")], opts))).toEqual(["period-not-near"]);
+    const out = validateForecastRows([bob("Jan 2026", 4, "S!C3"), bob("Mar 2026", 4, "S!C3")], opts);
+    expect(out.ok).toEqual([]);
+    expect(conflicts(out)).toEqual([{ row: "2026-03", header: "2026-01" }, { row: "2026-03", header: "2026-01" }]);
+    expect(periodsOf(validateForecastRows([bob("Mar 2026", 6, "S!E3")], opts))).toEqual([["2026-03", 6]]);
   });
 
-  it("a period word above the row's period cell is no label: a title range over Plan | Ist is refused", () => {
-    // Projekt / Zeitraum above the long sheet's Name / Monat: the title's dates
-    // sit over Stunden and Ist, and "Zeitraum" is a period word, not a label.
-    // Plan | Ist: the hand route asks, so the evidence rules decide.
+  it("a title range over Plan | Ist is refused until the columns are confirmed", () => {
     const opts = strictOn([
       ["Projekt", "Zeitraum", "01.01.2026", "31.03.2026"],
       ["Name", "Monat", "Plan", "Ist"],
       ["Ann", "Mär 2026", "40", "35"],
     ]);
-    const out = validateForecastRows([claim("Jan 2026", 40, "S!C3")], opts);
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Mar 2026", 40, "S!C3")], opts);
     expect(out.ok).toEqual([]);
-    expect(detail(out)).toEqual(["period-conflict"]);
+    expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
   });
 
   it("sums sprint dates on a row whose Start date is labelled in the header row: no conflict", () => {
@@ -1022,15 +1024,15 @@ describe("validateForecastRows: conflicting period evidence is refused (fix 7)",
     expect(periodsOf(out)).toEqual([["2026-01", 80], ["2026-02", 80]]);
   });
 
-  it("a date header and a date on the row in the same period are consistent: the claim stands", () => {
-    const opts = strictOn([["", "", "05.01.2026", "02.02.2026"], ["Name", "Eintritt", "Std", "Std"], ["Bob", "10.01.2026", "40", "30"]]);
-    expect(periodsOf(validateForecastRows([claim("05.01.2026", 40, "S!C3", "Bob")], opts))).toEqual([["2026-01", 40]]);
-    expect(detail(validateForecastRows([claim("02.02.2026", 30, "S!D3", "Bob")], opts))).toEqual(["period-conflict"]);
+  it("a date header and a date on the row in the same period agree: the claim stands (an unknown layout)", () => {
+    const opts = strictOn([...pad(10), ["", "", "05.01.2026", "02.02.2026"], ["Name", "Eintritt", "Std", "Std"], ["Bob", "10.01.2026", "40", "30"]]);
+    expect(periodsOf(validateForecastRows([claim("05.01.2026", 40, "S!C13", "Bob")], opts))).toEqual([["2026-01", 40]]);
+    expect(detail(validateForecastRows([claim("02.02.2026", 30, "S!D13", "Bob")], opts))).toEqual(["period-conflict"]);
   });
 
-  it("does not count a CSV's five-digit number on the row as a date", () => {
-    const opts = strictOn([["", "Jan 2026", "Feb 2026"], ["Name", "Std", "Std", "PersNr"], ["Ann", "40", "35", "46082"]]);
-    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!B3")], opts))).toEqual([["2026-01", 40]]);
+  it("does not count a CSV's five-digit number on the row as a date (an unknown layout)", () => {
+    const opts = strictOn([...pad(10), ["", "Jan 2026", "Feb 2026"], ["Name", "Std", "Std", "PersNr"], ["Ann", "40", "35", "46082"]]);
+    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!B13")], opts))).toEqual([["2026-01", 40]]);
   });
 
   it("does not stop at a person row holding only placeholders: Bob's claims below Carl's Urlaub row are checked against the month header", () => {
@@ -1048,14 +1050,12 @@ describe("validateForecastRows: conflicting period evidence is refused (fix 7)",
   });
 });
 
-// rr7 I1 (controller ruling): ONE source of truth. When the hand route's own
-// detection of the cited sheet is clear (not unknown, nothing ambiguous) and
-// reads the cited cell — or, on a long sheet, the cited cell's row — the claim
-// must name the period the hand route reads there; a mismatch is
-// `period-conflict` with the hand route's period. Title and metadata rows of
-// key/value cells (`Erstellt von | Max | 01.03.2026`) once let a wrong month
-// through the evidence exemption, and summed Stunden + Ist to 75.
-describe("validateForecastRows: the hand route's reading decides the cells it reads (rr7 I1)", () => {
+// rr7 I1, then fix 8: the hand route's reading (H) is one of the sources. Title
+// and metadata rows of key/value cells (`Erstellt von | Max | 01.03.2026`) once
+// let a wrong month through the evidence exemption, and summed Stunden + Ist to
+// 75. H no longer decides alone (fix 8): the title's dates above the hours
+// column are a source too, and where they disagree with H the claim is refused.
+describe("validateForecastRows: the hand route's reading is one of the sources (rr7 I1, fix 8)", () => {
   const strictOn = (rows: string[][], numbers?: "dot" | "text", defaultYear?: number) => ({
     sheet: { name: "S", rows, truncated: false, numbers } as SheetGrid,
     requireSource: true,
@@ -1065,6 +1065,7 @@ describe("validateForecastRows: the hand route's reading decides the cells it re
   const detail = (out: ReturnType<typeof validateForecastRows>) =>
     out.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason));
   const periodsOf = (out: ReturnType<typeof validateForecastRows>) => out.ok.map((r) => [r.period, r.hours]);
+  const unconfirmed = (n: number) => Array.from({ length: n }, () => "columns-unconfirmed");
 
   const keyValueTitle = {
     text: [["Erstellt von", "Max", "01.03.2026", "Stand", "02.03.2026"], ["Name", "Monat", "Stunden", "Bemerkung", "Ist"],
@@ -1073,15 +1074,11 @@ describe("validateForecastRows: the hand route's reading decides the cells it re
       ["Ann", "46023", "40", "", "35"], ["Bob", "46054", "30", "", "25"]],
   };
 
-  it.each(["text", "dot"] as const)("Erstellt von | Max | 01.03.2026 title (%s): the right months stand, March for January's cell is refused", (numbers) => {
-    const opts = strictOn(keyValueTitle[numbers], numbers);
-    const ok = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Feb 2026", 30, "S!C4", "Bob")], opts);
-    expect(ok.rejected).toEqual([]);
-    expect(periodsOf(ok)).toEqual([["2026-01", 40], ["2026-02", 30]]);
-    const wrong = validateForecastRows([claim("Mar 2026", 40, "S!C3")], opts);
-    expect(wrong.ok).toEqual([]);
-    expect(wrong.rejected).toEqual([
-      { row: claim("Mar 2026", 40, "S!C3"), reason: "source", detail: "period-conflict", periods: { sheet: "2026-01" } },
+  it.each(["text", "dot"] as const)("Erstellt von | Max | 01.03.2026 title over Stunden | Bemerkung | Ist (%s): its March disagrees with every row, so no month stands", (numbers) => {
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Feb 2026", 30, "S!C4", "Bob"), claim("Mar 2026", 40, "S!C3")], strictOn(keyValueTitle[numbers], numbers));
+    expect(out.ok).toEqual([]);
+    expect(out.rejected.map((r) => (r.reason === "source" ? r.periods : undefined))).toEqual([
+      { sheet: "2026-01", header: "2026-03" }, { sheet: "2026-02", header: "2026-03" }, { sheet: "2026-01", header: "2026-03" },
     ]);
   });
 
@@ -1092,17 +1089,10 @@ describe("validateForecastRows: the hand route's reading decides the cells it re
       ["Ann", "46023", "40", "35"], ["Ann", "46054", "30", "25"], ["Ann", "46082", "20", "15"]],
   };
 
-  it.each(["text", "dot"] as const)("Projekt Alpha | Forecast | Q1 dates title (%s): each month's cell stands for its own month only", (numbers) => {
-    const opts = strictOn(quarterTitle[numbers], numbers);
-    const right = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Feb 2026", 30, "S!C4"), claim("Mar 2026", 20, "S!C5")], opts);
-    expect(right.rejected).toEqual([]);
-    expect(periodsOf(right)).toEqual([["2026-01", 40], ["2026-02", 30], ["2026-03", 20]]);
-    // All three claimed as January: only January's own cell stands, nothing sums to 90.
-    const allJan = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Jan 2026", 30, "S!C4"), claim("Jan 2026", 20, "S!C5")], opts);
+  it.each(["text", "dot"] as const)("Projekt Alpha | Forecast | Q1 dates title over Stunden | Ist (%s): January's cell only, nothing sums to 90", (numbers) => {
+    const allJan = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Jan 2026", 30, "S!C4"), claim("Jan 2026", 20, "S!C5")], strictOn(quarterTitle[numbers], numbers));
     expect(periodsOf(allJan)).toEqual([["2026-01", 40]]);
     expect(detail(allJan)).toEqual(["period-conflict", "period-conflict"]);
-    // A cell on a row the hand route reads, outside its hours column (Ist), keeps that row's period.
-    expect(detail(validateForecastRows([claim("Mar 2026", 35, "S!D3")], opts))).toEqual(["period-conflict"]);
   });
 
   const monthTitle = {
@@ -1127,15 +1117,26 @@ describe("validateForecastRows: the hand route's reading decides the cells it re
     expect(periodsOf(in2027)).toEqual([["2027-01", 1]]);
   });
 
-  it("keeps the evidence rules for a cell the hand route does not read: an ambiguous sheet", () => {
-    // Plan | Ist is ambiguous for the hand route, so the quarter range above
-    // still conflicts with the rows (fix 7) rather than being settled by it.
+  it("an ambiguous sheet refuses every claim columns-unconfirmed, whatever its cells say", () => {
     const opts = strictOn([
       ["Zeitraum", "01.01.2026", "", "31.03.2026"], [],
       ["Name", "Monat", "Plan", "Ist"],
       ["Ann", "Jan 2026", "40", "35"],
     ]);
-    expect(detail(validateForecastRows([claim("Mar 2026", 35, "S!D4")], opts))).toEqual(["period-conflict"]);
-    expect(validateForecastRows([claim("Mar 2026", 35, "S!D4")], opts).rejected[0]).toMatchObject({ periods: { row: "2026-01", header: "2026-03" } });
+    const out = validateForecastRows([claim("Mar 2026", 35, "S!D4"), claim("Jan 2026", 40, "S!C4")], opts);
+    expect(out.ok).toEqual([]);
+    expect(out.rejected).toEqual([
+      { row: claim("Mar 2026", 35, "S!D4"), reason: "source", detail: "columns-unconfirmed" },
+      { row: claim("Jan 2026", 40, "S!C4"), reason: "source", detail: "columns-unconfirmed" },
+    ]);
+  });
+
+  it("an explicit unconfirmed refuses every claim even on a clear sheet; the hand route never sees it", () => {
+    const rows = [["Name", "Jan 2026", "Feb 2026"], ["Ann", "1", "2"]];
+    const sheet: SheetGrid = { name: "S", rows, truncated: false };
+    const gated = validateForecastRows([claim("Jan 2026", 1, "S!B2")], { sheet, requireSource: true, columns: "unconfirmed" });
+    expect(detail(gated)).toEqual(unconfirmed(1));
+    // The hand route never sees the option.
+    expect(validateForecastRows([claim("Jan 2026", 1, "S!B2")], { sheet, requireSource: false, columns: "unconfirmed" }).ok).toHaveLength(1);
   });
 });

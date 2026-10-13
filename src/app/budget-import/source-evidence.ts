@@ -5,9 +5,8 @@
 // left out). Pure: no i18n, no React, no DOM.
 
 import { periodKeyForDate } from "../resource-capacity";
-import { detectDecimalStyle, isBlank, parseNumberCell, type DecimalStyle } from "./forecast-rows";
+import { detectDecimalStyle, parseNumberCell, type DecimalStyle } from "./forecast-rows";
 import { handPeriodAt, type HandReading } from "./hand-reading";
-import { isPeriodWordHeader } from "./layout-detect";
 import {
   assignCellPeriod,
   isWeekSpacedColumn,
@@ -25,16 +24,20 @@ import type { SheetGrid } from "./sheet-grid";
 /** Why a row's `source` does not back it: no cell of this sheet is named
  *  (missing, malformed, another sheet, outside the grid), the cell does not hold
  *  the hours, the person is not on the cell's row, the period is not the one
- *  above (or, with no period header above, beside) the cell, the header above
- *  the cell and a period cell on its row name different periods
- *  (`period-conflict`, `periodNearCell`), or an earlier row already used the
- *  cell. */
-export type SourceRejection = "bad-ref" | "value-mismatch" | "person-not-on-row" | "period-not-near" | "period-conflict" | "cell-reused";
+ *  above (or, with no period header above, beside) the cell, two period
+ *  sources for the cell disagree or the claim names another period than the
+ *  hand route reads (`period-conflict`, `periodNearCell`), the sheet's columns
+ *  are ambiguous and not confirmed (`columns-unconfirmed`, every claim of the
+ *  sheet), or an earlier row already used the cell. */
+export type SourceRejection =
+  | "bad-ref" | "value-mismatch" | "person-not-on-row" | "period-not-near" | "period-conflict" | "columns-unconfirmed" | "cell-reused";
 
 /** What a `period-conflict` names, as canonical keys: the period the hand
- *  route reads the cited cell in (`sheet`), or what a period cell on the cited
- *  row says and what the column header above the cell says. */
-export type PeriodConflict = { sheet: string } | { row: string; header: string };
+ *  route reads the cited cell in (`sheet`) — alone when the claim names
+ *  another, with `header` when the column header above the cell names
+ *  another; or a period cell on the cited row (`row`) against that header; or
+ *  two period cells on the cited row that disagree (`rows`). */
+export type PeriodConflict = { sheet: string } | { sheet: string; header: string } | { row: string; header: string } | { rows: [string, string] };
 
 /** How far a cited cell may sit from the stated hours (rounding in the file). */
 const SOURCE_HOURS_TOLERANCE = 0.005;
@@ -170,43 +173,24 @@ function headersAbove(sheet: SheetGrid, col: number, runOf: (row: number) => Rea
   return out;
 }
 
-/** A cell that is blank or a number in the sheet's number origin; a
- *  period-shaped cell (a workbook's serial date) is not a number. */
-function isBlankOrNumber(cell: string, sheet: SheetGrid): boolean {
-  if (isBlank(cell)) return true;
-  if (isPeriodShapedIn(cell, sheet.numbers)) return false;
-  return parseNumberCell(cell, "dot", sheet.numbers) !== null || parseNumberCell(cell, "comma", sheet.numbers) !== null;
-}
-
 /** A period cell on the cited row: its column and what it says. */
 type RowPeriod = { col: number; text: string; cell: PeriodCell };
 
 /**
- * The period cells on the cited row (period-shaped in the sheet's number
- * origin: a CSV's five-digit number is no date) that are EVIDENCE against the
- * column header in `headerRow` — all of them, except a cell whose column that
- * header row labels as something else AND whose row holds only numbers or
- * blanks under the header's periods. That exception is a real wide header
- * describing its own row (`Name | Start | Jan 2026 | Feb 2026`): the Start date
- * vouches for nothing there (CR probe), as before. A title or metadata row of
- * dates over a long sheet has a period, a period word (`Zeitraum`), a blank
- * or a label above the row's own period column, and `Monat` or `Rolle` cells
- * under its dates. The cited cell and the PERSON cell are skipped by position.
+ * R: EVERY period cell on the cited row (period-shaped in the sheet's number
+ * origin: a CSV's five-digit number is no date), the cited cell and the PERSON
+ * cell skipped by position. ★★★ No cell is exempt (fix 8, the owner's "fail
+ * closed"): an exemption for a column the header row labels (`Name | Start |
+ * Jan 2026`) once fired on a key/value title row (`Erstellt von | Max |
+ * 01.03.2026`) and vouched for a wrong month (rr7 I1, rr8 OOS-1).
  */
-function rowEvidence(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; personCol?: number }, headerRow: number): RowPeriod[] {
+export function rowPeriodCells(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; personCol?: number }): RowPeriod[] {
   const cells = sheet.rows[at.rowIdx] ?? [];
-  const header = sheet.rows[headerRow] ?? [];
-  const periodCols = headerProbeRun(header, sheet.numbers ?? "text").flatMap((p, col) => (p === null ? [] : [col]));
-  const headsNumbers = periodCols.every((col) => isBlankOrNumber(cells[col] ?? "", sheet));
-  const labels = (col: number): boolean => {
-    const label = (header[col] ?? "").trim();
-    return label !== "" && classifyPeriodCell(label) === null && !isPeriodWordHeader(label);
-  };
   const out: RowPeriod[] = [];
   cells.forEach((text, col) => {
     if (col === at.colIdx || col === at.personCol || !isPeriodShapedIn(text, sheet.numbers)) return;
     const cell = classifyPeriodCell(text);
-    if (cell !== null && !(headsNumbers && labels(col))) out.push({ col, text, cell });
+    if (cell !== null) out.push({ col, text, cell });
   });
   return out;
 }
@@ -214,13 +198,16 @@ function rowEvidence(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; per
 /** The ISO day of the date header a cell sits under (the nearest period header
  *  above it, `nearestPeriodRowAbove`, when its cell is a date — an Excel serial only in a workbook), else
  *  null: what tells a sub-period column ("05.01.2026") from a period label.
- *  ★ Null too when the row has a period cell of its own that the header does
- *  not label away (`rowEvidence`): a metadata row's three January dates over a
- *  long sheet's `Stunden | Ist` once summed the two to 75 as sub-periods
- *  (final review I1). `personCol` is the cited row's person column. */
-export function headerDateOf(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; personCol?: number }): string | null {
+ *  ★★ Null too when the hand route does not read the cell (`hasHand` false)
+ *  and its row holds a period cell of its own (`rowPeriodCells`): such a row
+ *  is a long row, whose cells share its one period. A month title's two dates
+ *  over a long sheet's `Plan | Ist` once summed the two to 75 as sub-periods
+ *  (final review I1, rr8 OOS-1). Where the hand route reads the cell, it has
+ *  chosen the row's period column, so the row is not consulted. `personCol` is
+ *  the cited row's person column. */
+export function headerDateOf(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; personCol?: number }, hasHand: boolean): string | null {
   const r = nearestPeriodRowAbove(sheet, at.rowIdx, at.colIdx);
-  if (r !== null && rowEvidence(sheet, at, r).length > 0) return null;
+  if (r !== null && !hasHand && rowPeriodCells(sheet, at).length > 0) return null;
   const c = r === null ? null : classifyPeriodCell(sheet.rows[r]?.[at.colIdx] ?? "");
   if (c === null || c.kind !== "month" || c.date === undefined) return null;
   return sheet.numbers === "dot" || c.serial !== true ? c.date : null;
@@ -249,68 +236,78 @@ function rowYearOf(cells: readonly string[], skip: (col: number) => boolean): st
   return cells.find((cell, col) => !skip(col) && parseYearCell(cell) !== undefined);
 }
 
+/** U: the period the nearest period header above the cell (`nearestPeriodRowAbove`)
+ *  gives its column, read as part of ITS row's run (`assignRunDetailed`) — so a
+ *  stacked 2027 block, or a year-less "Jan" after "Dez", reads as that header
+ *  says. Undefined with no header above; null when the header reads no period
+ *  in the real default year (a year-less header with none). */
+function headerPeriodOf(sheet: SheetGrid, at: { rowIdx: number; colIdx: number }, defaultYear: number | undefined): AssignedPeriod | null | undefined {
+  const headerRow = nearestPeriodRowAbove(sheet, at.rowIdx, at.colIdx);
+  if (headerRow === null) return undefined;
+  return assignRunDetailed(sheet.rows[headerRow], { defaultYear, numbers: sheet.numbers })[at.colIdx] ?? null;
+}
+
 /**
- * The period the cited cell sits under, when the claim names it. ★★ If the
- * cited column holds a period header above the cell (`nearestPeriodRowAbove`),
- * the NEAREST one decides, read as part of ITS row's run (`assignRunDetailed`)
- * — so a stacked 2027 block, or a year-less "Jan" after "Dez", reads as that
- * header says. ★★ Unless a period cell on the cited row is evidence against it
- * (`rowEvidence`) and names a DIFFERENT period: then the claim is refused
- * `period-conflict`, whatever it says (fix 7). A title row's quarter range
- * `Zeitraum | 01.01.2026 | 31.03.2026` once headed the hours column of the
- * long sheet below it, rejecting the right months and vouching for a wrong one
- * (final review I1); a header-row stop that fixed it misfired on two-row
- * headers and placeholder rows (rr6 N2). A refusal is visible, and the hand
- * route (Detect columns) reads such a sheet by its rows. A date on the row in
- * the header's own period is consistent (sprint dates). Only when the column
- * above holds no period header (a long sheet) is the row searched, skipping
- * the cited cell and the PERSON cell by position; there a year-less period
- * cell takes a year cell on the same row before `defaultYear`.
+ * The period the cited cell is in, when EVERY period source for it agrees and
+ * the claim names it (fix 8, the owner's "fail closed" of 2026-10-13: eight
+ * rounds of evidence rules each let a new wrong-hours case through). The
+ * sources:
+ * - H, `hand`: the hand route's reading of the cell (`handPeriodAt`);
+ * - U: the nearest period header above the cell (`headerPeriodOf`);
+ * - R: every period cell on the cited row (`rowPeriodCells`), ONLY without H —
+ *   with H, the hand route has already chosen the row's period column. A
+ *   year-less row cell takes a year cell on the same row before `defaultYear`.
+ * Two sources that disagree refuse the claim `period-conflict`, naming both,
+ * whatever it claims: H against U is a stacked year block the hand route reads
+ * as one year (rr8 N1), U against R a title row's dates over a long sheet
+ * (final review I1), R against R a `Von | Bis` pair. No source at all, or a
+ * claim the agreeing sources do not name, is `period-not-near` — or, with H,
+ * `period-conflict` naming H's period. ★★ No source decides alone: H once did
+ * (rr7), and wrote a stacked 2027 block into 2026.
  */
 export function periodNearCell(
   sheet: SheetGrid,
   at: { rowIdx: number; colIdx: number; personCol: number },
   claim: PeriodCell,
   defaultYear: number | undefined,
+  hand?: AssignedPeriod,
 ): NearCheck {
+  const header = headerPeriodOf(sheet, at, defaultYear);
+  if (header === null) return { problem: "period-not-near" };
+  if (hand !== undefined) {
+    if (header !== undefined && header.period !== hand.period) {
+      return { problem: "period-conflict", periods: { sheet: hand.period, header: header.period } };
+    }
+    return claimNames(claim, hand.period) ? { period: hand } : { problem: "period-conflict", periods: { sheet: hand.period } };
+  }
   const cells = sheet.rows[at.rowIdx] ?? [];
-  const skip = (col: number): boolean => col === at.colIdx || col === at.personCol;
-  const rowYear = rowYearOf(cells, skip);
+  const rowYear = rowYearOf(cells, (col) => col === at.colIdx || col === at.personCol);
   // A long sheet's column of dates a week apart is weekly, as the hand route reads it.
   const readCell = (col: number): AssignedPeriod | null =>
     assignCellPeriod(cells[col], { rowYear, defaultYear, weeks: columnFacts(sheet).weekly(col) });
-  const headerRow = nearestPeriodRowAbove(sheet, at.rowIdx, at.colIdx);
-  if (headerRow !== null) {
-    const assigned = assignRunDetailed(sheet.rows[headerRow], { defaultYear, numbers: sheet.numbers })[at.colIdx];
-    if (!assigned) return { problem: "period-not-near" };
-    const against = rowEvidence(sheet, at, headerRow).find((e) => !claimNames(e.cell, assigned.period));
-    if (against !== undefined) {
-      return { problem: "period-conflict", periods: { row: readCell(against.col)?.period ?? against.text.trim(), header: assigned.period } };
-    }
-    return claimNames(claim, assigned.period) ? { period: assigned } : { problem: "period-not-near" };
+  const row = rowPeriodCells(sheet, at);
+  const labelOf = (e: RowPeriod): string => readCell(e.col)?.period ?? e.text.trim();
+  const anchor = header ?? row.map((e) => readCell(e.col)).find((p): p is AssignedPeriod => p !== null);
+  if (anchor === undefined) return { problem: "period-not-near" };
+  const against = row.find((e) => !claimNames(e.cell, anchor.period));
+  if (against !== undefined) {
+    return {
+      problem: "period-conflict",
+      periods: header !== undefined ? { row: labelOf(against), header: header.period } : { rows: [anchor.period, labelOf(against)] },
+    };
   }
-  for (let col = 0; col < cells.length; col++) {
-    if (skip(col)) continue;
-    const assigned = readCell(col);
-    if (assigned && claimNames(claim, assigned.period)) return { period: assigned };
-  }
-  return { problem: "period-not-near" };
+  return claimNames(claim, anchor.period) ? { period: anchor } : { problem: "period-not-near" };
 }
 
 export type SourceCheck = { problem: SourceRejection; periods?: PeriodConflict } | { period: AssignedPeriod };
 
 /**
  * What a cited cell proves for a row: it must hold the hours (by the sheet's
- * number rule), ANOTHER cell of its row must name the PERSON, and the claimed
- * period must be the one the cell sits under. ★★ Where the hand route reads
- * the cell (`hand`: `handReadingOf`, a clear detection — or, on a long sheet,
- * the cell's row), that reading IS the period: a claim naming another is
- * `period-conflict` (rr7 I1: a key/value title row `Erstellt von | Max |
- * 01.03.2026` let a wrong month through `rowEvidence`'s exemption). Only
- * elsewhere does `periodNearCell` decide. Returns the
- * period as the SHEET reads it, or why the cell does not back the row. An
- * email never vouches for the person: the model can write any email beside any
- * name.
+ * number rule), ANOTHER cell of its row must name the PERSON, and every period
+ * source for the cell must agree on the claimed period (`periodNearCell`, with
+ * the hand route's reading `hand` from `handReadingOf`). Returns the period as
+ * the SHEET reads it, or why the cell does not back the row. An email never
+ * vouches for the person: the model can write any email beside any name.
  */
 export function checkSource(
   row: { person: string; hours: number; source?: string },
@@ -325,9 +322,5 @@ export function checkSource(
   if (value === null || Math.abs(value - row.hours) > SOURCE_HOURS_TOLERANCE) return { problem: "value-mismatch" };
   const personCol = columnNaming(sheet.rows[cited.rowIdx], cited.colIdx, row.person);
   if (personCol === null) return { problem: "person-not-on-row" };
-  const handPeriod = handPeriodAt(hand, cited.rowIdx, cited.colIdx);
-  if (handPeriod !== undefined) {
-    return claimNames(claim, handPeriod.period) ? { period: handPeriod } : { problem: "period-conflict", periods: { sheet: handPeriod.period } };
-  }
-  return periodNearCell(sheet, { ...cited, personCol }, claim, defaultYear);
+  return periodNearCell(sheet, { ...cited, personCol }, claim, defaultYear, handPeriodAt(hand, cited.rowIdx, cited.colIdx));
 }
