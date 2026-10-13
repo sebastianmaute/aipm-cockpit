@@ -44779,8 +44779,9 @@ What is known:
 
 - **Measured and pinned.** `src/app/task-manager.ask-claude-view.test.tsx` mounts the whole app: a first press from the dashboard reports `chat` (asserted: that is the pin), a typed follow-up `chat`, and a second press from the dashboard `dashboard`. The fix flips the pin to `dashboard`.
 - **The press mounts the panel.** The same test asserts the chat composer is absent before the first press and finds it after.
-- **Scope beyond the first press is not measured.** §548's load hold unmounts the whole main tree on a project swap and on a reload, so if the cause is the fresh mount, the first press after each of those is hit too.
+- **Scope beyond the first press is not measured, and the two hypotheses below predict opposite answers.** §548's load hold unmounts the whole main tree on a project swap and on a reload: if the cause is the fresh mount, the first press after each of those is hit too; if it is the lazy chunk load, it is not, because the chunk is cached by then.
 - **Not yet explained.** `requestChat` (`workspace-tab-context.tsx`) sets the tab and the seed in one update, ChatPanel's seed effect submits synchronously, and `submitPrompt` reads `dispatcher.getSnapshot()` with no await before it, while `useChatDispatcher` updates its view ref in an effect of `TaskManager`, the parent. On an already-mounted panel that order yields the page; why a fresh mount yields `chat` is the open question.
+- **Leading hypothesis, to rule out first (not tested): the lazy chunk.** `ChatPanel` is a `next/dynamic` import (`workspace-panels.tsx`), and that is real under vitest too. On the first press the commit that sets the chat tab renders the loading skeleton, `TaskManager`'s view-ref effect then records `chat`, and only when the chunk resolves does ChatPanel mount and its seed effect read the snapshot, which by then says `chat`. Once the module is loaded the panel mounts in the same commit as the tab change, so the child's seed effect runs before the parent's view-ref effect and reads the page, which matches what was measured.
 
 Size S.
 

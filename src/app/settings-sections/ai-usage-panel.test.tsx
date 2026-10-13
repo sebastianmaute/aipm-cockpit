@@ -544,14 +544,14 @@ describe("AiUsagePanel — view-switch counter (§702)", () => {
 
   it("shows nothing about view switches before the first chat message", () => {
     render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, { wrapper });
-    expect(screen.queryByText("Chat messages answered this week")).not.toBeInTheDocument();
+    expect(screen.queryByText("Chat messages completed this week")).not.toBeInTheDocument();
   });
 
   it("shows the week's messages and requests, warm view switches per request, and cache-write tokens", () => {
     render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, {
       wrapper: sendsWrapper("en-US", THREE_SENDS),
     });
-    expect(screen.getByText("Chat messages answered this week").nextElementSibling).toHaveTextContent(
+    expect(screen.getByText("Chat messages completed this week").nextElementSibling).toHaveTextContent(
       "3 (6 API requests)",
     );
     expect(screen.getByText("View switches with a warm cache").nextElementSibling).toHaveTextContent(
@@ -603,7 +603,7 @@ describe("AiUsagePanel — view-switch counter (§702)", () => {
       render(<AiUsagePanel lang="de" sessionCap={100_000} weeklyCap={500_000} />, {
         wrapper: sendsWrapper("de", THREE_SENDS),
       });
-      expect(screen.getByText("Beantwortete Chat-Nachrichten diese Woche").nextElementSibling).toHaveTextContent(
+      expect(screen.getByText("Abgeschlossene Chat-Nachrichten diese Woche").nextElementSibling).toHaveTextContent(
         "3 (6 API-Anfragen)",
       );
       expect(screen.getByText("Ansichtswechsel bei warmem Cache").nextElementSibling).toHaveTextContent(

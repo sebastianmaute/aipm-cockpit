@@ -40,6 +40,11 @@ function seedRegistry() {
 // The guide library loads asynchronously, and a press made before it is ready
 // only PREFILLS the box: ChatPanel's send gate blocks while guides are pending.
 // Count the store's loads so the test can wait until every one has settled.
+// ★ The count stands in for readiness ONLY on the localStorage backend this
+//   test uses (no Turso config): `refresh` marks the library loaded a
+//   microtask after the last load settles, and its save-then-reload gap is
+//   microtask-only too. Against Turso that gap is a network wait, and a
+//   settled count could read true before the reload starts — don't copy it.
 const guideLoads = vi.hoisted(() => ({ started: 0, settled: 0 }));
 vi.mock("./operating-guide-store", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./operating-guide-store")>();

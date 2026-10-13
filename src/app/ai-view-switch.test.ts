@@ -72,6 +72,14 @@ describe("classifySend", () => {
     expect(classifySend(prev({ priorTurns: 6 }), next({ priorTurns: 7 }))).toBe("warm");
   });
 
+  it("KNOWN SLIP, pinned: a conversation cleared while it was the shorter one gets past the guard", () => {
+    // One message (priorTurns 0), Clear chat, a send left unanswered, then a
+    // retry within the TTL: the retry has priorTurns 1 > 0, so it is compared
+    // with the cleared conversation. The header documents this; closing it
+    // (an epoch bumped by Clear chat) turns this red, and the fix flips it.
+    expect(classifySend(prev({ priorTurns: 0 }), next({ viewText: "VIEW-B", priorTurns: 1 }))).toBe("switch");
+  });
+
   it("is cold when the model changed, since every model keeps its own cache", () => {
     expect(classifySend(prev(), next({ model: "claude-model-b", viewText: "VIEW-B" }))).toBe("cold");
     expect(classifySend(prev(), next({ model: "claude-model-b" }))).toBe("cold");

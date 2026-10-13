@@ -3974,7 +3974,7 @@ export const de: Record<TranslationKey, string> = {
   aiUsageOutput: "Ausgabe",
   aiUsageBasisHint: "Die Balken zählen kostenäquivalente Tokens, keine rohen: zwischengespeicherte Eingabe zählt 0,1, Cache-Schreibvorgänge 1,25, Ausgaben 5.",
   aiUsageCacheHitRate: "Cache-Trefferquote: {0} %",
-  aiViewSwitchSends: "Beantwortete Chat-Nachrichten diese Woche",
+  aiViewSwitchSends: "Abgeschlossene Chat-Nachrichten diese Woche",
   aiViewSwitchSendsValue: "{0} ({1} API-Anfragen)",
   aiViewSwitchSwitches: "Ansichtswechsel bei warmem Cache",
   aiViewSwitchRatio: "{0} (1 von {1} API-Anfragen)",

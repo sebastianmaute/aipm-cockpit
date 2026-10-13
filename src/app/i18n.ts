@@ -4225,7 +4225,7 @@ const enUS = {
   aiUsageOutput: "Output",
   aiUsageBasisHint: "Bars count cost-equivalent tokens, not raw ones: cached input counts 0.1, cache writes 1.25, output 5.",
   aiUsageCacheHitRate: "Cache hit rate: {0}%",
-  aiViewSwitchSends: "Chat messages answered this week",
+  aiViewSwitchSends: "Chat messages completed this week",
   aiViewSwitchSendsValue: "{0} ({1} API requests)",
   aiViewSwitchSwitches: "View switches with a warm cache",
   aiViewSwitchRatio: "{0} (1 in {1} API requests)",
