@@ -423,14 +423,16 @@ describe("probe: long workbooks with two date columns stay long (round 5)", () =
     ]);
   });
 
-  it("Name | Start | Jan | Feb reads long, as at round 3 (register residue)", () => {
+  // Final review I4: this read long until a period-headed column stopped being
+  // a long sheet's hours column (residue (13) closed).
+  it("Name | Start | Jan | Feb reads wide: nothing lands in the start month", () => {
     const rows = [["Name", "Start", "Jan", "Feb"], ["Ann Lee", "01.02.2026", "8", "4"], ["Bob Kay", "15.03.2026", "1", "2"]];
     const detected = detectLayout(rows, { defaultYear: 2026 });
-    expect(detected.kind).toBe("long");
-    expect(detected.mapping).toMatchObject({ period: 1, hours: 2 });
+    expect(detected.kind).toBe("wide");
+    expect(detected.mapping).toMatchObject({ person: 0, periodCols: [2, 3] });
     const run = readSheet(rows);
-    expect(rowsOf(run)).toEqual([["Ann Lee", "2026-02", 8], ["Bob Kay", "2026-03", 1]]);
-    expect(run.out.ignoredColumns).toEqual([{ col: 3, header: "Feb" }]);
+    expect(rowsOf(run)).toEqual([["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-01", 1], ["Bob Kay", "2026-02", 2]]);
+    expect(run.out.ignoredColumns).toEqual([]);
   });
 
   it("a long sheet with Start | Ende date pairs on every row stays long", () => {
@@ -526,5 +528,52 @@ describe("probe: an ID or number column is never the hours (final review I3)", (
     const run = readSheet(rows);
     expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30]]);
     expect(run.out.rows.some((r) => r.hours === 2025)).toBe(false);
+  });
+});
+
+// Final review I4: labelled months beside a date column read long — the date
+// column as the period, the first month column as the hours.
+describe("probe: a column headed by a period is never a long sheet's hours (final review I4)", () => {
+  const expectedWide = [["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 50], ["Bob Kay", "2026-01", 30], ["Bob Kay", "2026-02", 20]];
+
+  it.each([
+    ["CSV", "01.03.2026", "01.05.2026", "text"],
+    ["workbook serial", "46082", "46143", "dot"],
+  ] as const)("Name | Start | Jan 2026 | Feb 2026 (%s Start) reads wide, nothing in the start month", (_label, annStart, bobStart, numbers) => {
+    const rows = [["Name", "Start", "Jan 2026", "Feb 2026"], ["Ann Lee", annStart, "40", "50"], ["Bob Kay", bobStart, "30", "20"]];
+    expect(detectLayout(rows, { numbers, defaultYear: 2026 }).mapping).toMatchObject({ layout: "wide", periodCols: [2, 3] });
+    const run = readSheet(rows, numbers);
+    expect(triplesOf(run)).toEqual(expectedWide);
+    expect(run.out.rows.some((r) => r.period === "2026-03" || r.period === "2026-05")).toBe(false);
+  });
+
+  // The long guards, in a CSV (their workbook-serial twins are in "long
+  // workbooks with two date columns stay long" above).
+  it.each([
+    ["Von | Bis", [["Name", "Von", "Bis", "Stunden"], ["Ann Lee", "01.01.2026", "31.01.2026", "40"], ["Ann Lee", "01.02.2026", "28.02.2026", "30"]]],
+    ["Eintritt | Monat", [["Name", "Eintritt", "Monat", "Stunden"], ["Ann Lee", "15.03.2023", "01.01.2026", "40"], ["Ann Lee", "15.03.2023", "01.02.2026", "30"]]],
+    ["Monat | Stunden | Erfasst", [["Name", "Monat", "Stunden", "Erfasst"], ["Ann Lee", "01.01.2026", "40", "08.01.2026"], ["Ann Lee", "01.02.2026", "30", "06.02.2026"]]],
+  ])("Name | %s stays long in a CSV", (_label, rows) => {
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("long");
+    const run = readSheet(rows);
+    expect(run.validated.rejected).toEqual([]);
+    expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30]]);
+  });
+
+  it("weekly Name | Woche | Stunden | Start stays long in a CSV", () => {
+    const rows = [["Name", "Woche", "Stunden", "Start"], ["Ann Lee", "05.01.2026", "40", "01.12.2025"], ["Ann Lee", "12.01.2026", "32", "01.12.2025"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("long");
+    expect(triplesOf(readSheet(rows))).toEqual([["Ann Lee", "2026-W02", 40], ["Ann Lee", "2026-W03", 32]]);
+  });
+
+  // Start and Ende as serials, Monat as text labels. With Monat stored as dates
+  // too, three serial columns read wide from a data row: residue (10).
+  it("Name | Start | Ende | Monat | Stunden stays long with workbook serial dates", () => {
+    const rows = [
+      ["Name", "Start", "Ende", "Monat", "Stunden"],
+      ["Ann Lee", "46023", "46203", "Jan 2026", "8"], ["Ann Lee", "46023", "46203", "Feb 2026", "4"], ["Bob Kay", "46082", "46387", "Mär 2026", "2"],
+    ];
+    expect(detectLayout(rows, { numbers: "dot", defaultYear: 2026 }).mapping).toMatchObject({ layout: "long", period: 3, hours: 4 });
+    expect(triplesOf(readSheet(rows, "dot"))).toEqual([["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-03", 2]]);
   });
 });

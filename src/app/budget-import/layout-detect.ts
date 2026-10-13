@@ -272,7 +272,12 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
 
   const numeric = numericColumns(header, data, width, skip, ctx);
   const rateCols = numeric.filter((col) => RATE_HEADER_RE.test(cellAt(header, col)));
-  const hoursCols = numeric.filter((col) => !rateCols.includes(col));
+  // ★★ A column headed by a period ("Jan", "Jan 2026", "KW03") is never a long
+  // sheet's hours: `Name | Start | Jan 2026 | Feb 2026` once read long, the
+  // Start date as the period and January's column as the hours, so Ann's
+  // January landed in her start month (final review I4). Such a sheet falls
+  // through to two-period wide.
+  const hoursCols = numeric.filter((col) => !rateCols.includes(col) && classifyPeriodCell(cellAt(header, col)) === null);
   // A named hours column, else the RIGHTMOST number column: a code or team
   // number sits left of the figures more often than right of them.
   const hours = hoursCols.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? hoursCols[hoursCols.length - 1];
@@ -342,10 +347,11 @@ function detectionPasses(rows: Rows, numbers: NumberOrigin, year: number | undef
  * settles both. ★★ Long-without stays AHEAD of two-period wide: a long
  * workbook's data row of two serial dates (`Von | Bis`) reads as a two-period
  * header, and the serials below it count as numbers (`wideFromHeader`), so
- * moving both two-period passes first read such sheets wide (re-review 4). The
- * price is two year-less months beside a date column (`Name | Start | Jan |
- * Feb`), which read long. The mapping carries `defaultYear` as `year`, the year
- * the mapping step shows.
+ * moving both two-period passes first read such sheets wide (re-review 4).
+ * Months beside a date column (`Name | Start | Jan | Feb`, `… | Jan 2026 | Feb
+ * 2026`) still reach two-period wide: a long reading never takes a
+ * period-headed hours column (`longFromHeader`, final review I4). The mapping
+ * carries `defaultYear` as `year`, the year the mapping step shows.
  */
 export function detectLayout(
   rows: readonly string[][],
