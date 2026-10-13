@@ -13,7 +13,7 @@
 // are right" (`fi.claudeUnconfirmed`), with the reason as its accessible
 // description.
 
-import { useId } from "react";
+import { useId, useRef } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -293,8 +293,15 @@ function wideNames(columns: readonly ColumnAmbiguity[], nameOf: (col: number) =>
  *  layout; only the button accepts their sum. Rows with no person (final
  *  review 3, I2) name their rows, and two detectable sheets (M1) their sheets.
  *  ★★ Claude's mapping opens with its own notice and the button, with or
- *  without a question: only the press confirms it. */
-function AmbiguityNotice({ lang, fi, header, layout }: { lang: Lang; fi: ForecastImport; header: readonly string[]; layout: Draft["layout"] }) {
+ *  without a question: only the press confirms it. ★ The press unmounts the
+ *  notice, so `onConfirmed` moves the focus on (final review 3, M5). */
+function AmbiguityNotice({ lang, fi, header, layout, onConfirmed }: {
+  lang: Lang;
+  fi: ForecastImport;
+  header: readonly string[];
+  layout: Draft["layout"];
+  onConfirmed: () => void;
+}) {
   const nameOf = (col: number): string => {
     const label = (header[col] ?? "").trim();
     return label === "" ? columnLetters(col) : `${columnLetters(col)}: ${label}`;
@@ -326,7 +333,14 @@ function AmbiguityNotice({ lang, fi, header, layout }: { lang: Lang; fi: Forecas
       {shown.map((a) => (
         <Banner key={a.field} severity="warn">{noticeText(lang, a, namesOf(a))}</Banner>
       ))}
-      <Button variant="secondary" size="xs" onClick={fi.confirmColumns}>
+      <Button
+        variant="secondary"
+        size="xs"
+        onClick={() => {
+          fi.confirmColumns();
+          onConfirmed();
+        }}
+      >
         {t(lang, "forecastImportConfirmColumns")}
       </Button>
     </div>
@@ -338,6 +352,8 @@ function MappingStep({ lang, fi, sheet }: { lang: Lang; fi: ForecastImport; shee
   const draft = draftOf(fi.mapping);
   const headerId = useId();
   const yearId = useId();
+  // "These columns are right" unmounts its notice; the focus moves on here.
+  const previewRef = useRef<HTMLButtonElement>(null);
   const header = rows[draft.headerRow] ?? [];
   const width = rows.reduce((max, r) => Math.max(max, r.length), 0);
   const chosen = [draft.person, draft.email, draft.rate, ...(draft.layout === "long" ? [draft.period, draft.hours, draft.yearCol] : [])];
@@ -356,7 +372,9 @@ function MappingStep({ lang, fi, sheet }: { lang: Lang; fi: ForecastImport; shee
   return (
     <section className="space-y-3">
       {!fi.layoutDetected && fi.route === "hand" && <Banner severity="info">{t(lang, "forecastImportNoLayout")}</Banner>}
-      {(fi.ambiguous.length > 0 || fi.claudeUnconfirmed) && <AmbiguityNotice lang={lang} fi={fi} header={header} layout={draft.layout} />}
+      {(fi.ambiguous.length > 0 || fi.claudeUnconfirmed) && (
+        <AmbiguityNotice lang={lang} fi={fi} header={header} layout={draft.layout} onConfirmed={() => previewRef.current?.focus()} />
+      )}
       <SegmentedControl
         ariaLabel={t(lang, "forecastImportLayout")}
         value={draft.layout}
@@ -413,7 +431,7 @@ function MappingStep({ lang, fi, sheet }: { lang: Lang; fi: ForecastImport; shee
           </ul>
         )}
       </div>
-      <Button variant="secondary" size="xs" onClick={() => fi.showPreview(next)}>
+      <Button ref={previewRef} variant="secondary" size="xs" onClick={() => fi.showPreview(next)}>
         {t(lang, "forecastImportShowPreview")}
       </Button>
     </section>

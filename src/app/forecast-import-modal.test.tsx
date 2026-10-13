@@ -669,13 +669,32 @@ describe("ForecastImportModal — Claude's choice of one block of a Plan/Ist she
   });
 });
 
-// Final review 3: the new questions name their rows (I2).
-describe("ForecastImportModal — the merged-person notice (final review 3)", () => {
+// Final review 3: "These columns are right" unmounted itself on press and the
+// focus fell to the document (M5); the new questions name their rows (I2).
+describe("ForecastImportModal — the confirmation's focus and the merged-person notice (final review 3)", () => {
+  const PLAN_IST = "Name,Monat,Plan,Ist\r\nAnn Lee,Jan 2026,40,35\r\nAnn Lee,Feb 2026,30,25\r\n";
+  const confirmButton = () => screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") });
+
   async function choose(text: string): Promise<void> {
     const input = screen.getByLabelText(t(L, "forecastImportFile"));
     fireEvent.change(input, { target: { files: [new File([text], "forecast.csv", { type: "text/csv" })] } });
     await screen.findByRole("button", { name: t(L, "forecastImportConfirmColumns") });
   }
+
+  it("moves the focus to Show preview once the press removes the notice, by click and by keyboard", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<ForecastImportModal {...propsOf()} />);
+    await choose(PLAN_IST);
+    await user.click(confirmButton());
+    expect(screen.queryByRole("button", { name: t(L, "forecastImportConfirmColumns") })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    unmount();
+    render(<ForecastImportModal {...propsOf()} />);
+    await choose(PLAN_IST);
+    confirmButton().focus();
+    await user.keyboard("{Enter}");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+  });
 
   it("names the rows with no person and their text, and keeps Apply waiting", async () => {
     const rows = ["Name;Art;Jan 2026;Feb 2026;Mär 2026", "Ann Lee;Ist;10;20;30", ";Plan;100;110;120", "Bob Ray;Ist;1;2;3", ";Plan;4;5;6"];
