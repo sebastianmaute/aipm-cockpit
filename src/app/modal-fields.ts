@@ -89,7 +89,7 @@ export const MODAL_FIELDS: Record<ModalId, readonly ModalField[]> = {
   ],
   resource: [
     { id: "name", labelKey: "resourceFirstName", tier: "simple", required: true },
-    { id: "email", labelKey: "resourceEmail", tier: "simple" },
+    { id: "email", labelKey: "resourceEmail", tier: "simple", required: true }, // §708: the form always shows and requires it
     { id: "jobTitle", labelKey: "resourceJobTitle", tier: "advanced" },
     { id: "company", labelKey: "resourceCompany", tier: "advanced" },
     { id: "department", labelKey: "resourceDepartment", tier: "advanced" },
