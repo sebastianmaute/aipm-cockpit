@@ -282,9 +282,10 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   the header (`isPeriodWordHeader`: `Month`, `Monat`, `Period`, `Zeitraum`, `Week`, `KW` …; `Startmonat`
   holds none) first, then a `Date` / `Datum` header, then a real date over a bare serial; ties keep the
   leftmost. `Start date` once tied with `Month` and won, summing every row into the start month (final
-  review I2). Its HOURS column is PRESELECTED as the LEFTMOST hours candidate, whatever its share or
-  header word (round 8 m-1; the person is settled first, so a text column holding one number is never
-  taken); an ID or row-number column (`ID_HEADER`), a year column (`isYearColumn`), a
+  review I2). Its HOURS column is PRESELECTED by `preselectHours`: a header matching `HOURS_HEADER_RE`
+  first, then the higher share, then the leftmost (round 9 I-D, below). The person is settled first, so
+  a text column holding one number can still be the person, and as an hours candidate it loses the
+  preselection to any hours-word or share-passing column; an ID or row-number column (`ID_HEADER`), a year column (`isYearColumn`), a
   column of period-shaped cells (a workbook's serial dates) and a column HEADED by a period (`Jan`, `Jan
   2026`) are never it — `ID | Name | Month | Effort` once imported the IDs (I3), and `Name | Start | Jan
   2026 | Feb 2026` read long with the Start date as the period and January as the hours (I4), where it now
@@ -304,8 +305,11 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   I-B): a share once let two `-` in `Stunden` leave `Ist` the only candidate (the actuals imported), and
   an `offen` in `Monat` leave `Erfasst am` the only period. Whether a row is a header at all, and its
   score, still need a column passing the 80 % share (`COLUMN_SHARE`); the PRESELECTION does not (round 8
-  m-1): the hours take the leftmost candidate, and the period ranks by header word (`periodRank`) first,
-  then share, then the leftmost. And
+  m-1): the hours rank by an hours word (`HOURS_HEADER_RE`, `preselectHours`) first, then share, then the
+  leftmost (round 9 I-D: the leftmost alone took `Ist`, `Tage`, `FTE`, a numeric `Team` or a one-number
+  notes column over `Stunden`, and "These columns are right" imported it; `Forecast | Ist-Stunden` now
+  preselects `Ist-Stunden`, residue 27), and the period ranks by header word (`periodRank`) first, then
+  share, then the leftmost. And
   the PERIOD when two or more columns qualify and not exactly one is headed by a period word, that one
   preselected and passing the share (`Datum |
   Eintritt`, `Datum | Startmonat` ask; `Start date | Month` does not). The mapping it returns is still the
@@ -346,9 +350,16 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   `Name`) ends the reading too. Only a second header of unrelated words matches none of this (residue 28). The
   preselected row is unchanged, except that a candidate with no data row before the next candidate (an
   empty first block) is skipped (`skipEmptyBlocks`, round 7 C1), and the notice names the candidate rows
-  (1-based). In the Wide layout, which has no hours or period select, ONE notice names the candidate
-  columns by header and asks to check the mapping and confirm (rr8 m2, round 7); a header notice is shown
-  beside it. Detection
+  (1-based). ★★ Either layout asks about the ROWS (`differingRows` in `row-differences.ts`, `{ field:
+  "rows", candidates: [columns], samples }`, round 9 I-W) when two or more data rows of one person (on a
+  long sheet, of one period) differ in a TEXT column the mapping does not read: `Name | Art | Jan 2026`
+  with a Plan and an Ist row once imported 50 + 43 = 93 on both routes, unasked. The notice names the
+  columns and the first such person's values; only "These columns are right" accepts the sum (no select
+  confirms it, `confirmsField`), and the confirmation is bound to the header row, person and period
+  column(s). Rows that differ in no such column stay "Combined rows"; the cost is a task description per
+  row (residue 32). In the Wide layout, which has no hours or period select, ONE notice names the candidate
+  columns by header and asks to check the mapping and confirm (rr8 m2, round 7); a header notice and a
+  rows notice are shown beside it. Detection
   scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, blank rows skipped
   and not counted, so a large sheet does not freeze the dialog (M1); `gridToForecastRows` then reads every
   row. The CLAUDE route
@@ -452,8 +463,10 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   does not differ from the cited cell's: the same period, neither under one, or only ONE of the two under
   one (`hasTwinColumn`, `isIndependentKey`; round 7 judged the cited row only, so a blank forecast cell
   or a title run over one column let the Ist through, rr11 I-C). Only different periods or distinct
-  sprint dates are independent, so unknown month sheets and one-number long sheets import; the cost is
-  an unknown long sheet with a second number column (residue 31).
+  sprint dates are independent, and distinct dates only on a row with no period cell of its own (round 9
+  I-C′, the `headerDateOf` condition: a padded key/value title's two March dates over `Plan | Ist` made
+  the Ist independent on March rows), so unknown month sheets, sprint sheets and one-number long sheets
+  import; the cost is an unknown long sheet with a second number column (residue 31).
   ★★ "Edited" means a COLUMN field
   differs from the mapping the hand route opened with (`isSameColumns`: layout, header row, person, period,
   hours, year column; fix 9 I-2, round 5): the mapping step's Show preview passes a fresh copy, and a

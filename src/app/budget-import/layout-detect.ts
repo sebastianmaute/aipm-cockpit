@@ -473,7 +473,8 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   if (strongHours.length === 0) return null;
   const rate = rateCols.find((col) => strong.includes(col));
   // The person is settled before the hours, so a text column holding one
-  // number is never taken for the hours (round 8).
+  // number can still be the person (round 8); as an hours candidate it loses
+  // the preselection to any hours-word or share-passing column (`preselectHours`).
   const beforeHours = new Set([...skip, ...strongHours, ...(rate === undefined ? [] : [rate])]);
   const email = findEmailColumn(header, data, beforeHours);
   const personCandidates = Array.from({ length: width }, (_, col) => col).filter((col) => !beforeHours.has(col));

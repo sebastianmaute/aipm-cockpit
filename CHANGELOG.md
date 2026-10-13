@@ -30,7 +30,9 @@ longer carries its own changelog comment.
   `Stunden | Kosten` or `Forecast | Iststunden`, whatever their headers; `Datum | Eintritt`; a sheet of
   month columns whose rows hold any date of their own outside the month columns, such as a `Start` or a
   notes column, or a year column beside months without a year), or more than one row could be the header
-  row (stacked blocks, or the header row repeated further down), the column
+  row (stacked blocks, or the header row repeated further down), or one person has several rows (in one
+  month, on a sheet of one row per month) that differ in another text column, such as a Plan and an Ist
+  row or a task per row, whose hours would be added together, the column
   step opens with a note naming the candidates, and Apply waits until you choose the column or confirm that
   the columns are right. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
   and so do month names and weeks without a year (`Jan`, `KW03`): they are read in the import's year,
@@ -63,8 +65,9 @@ longer carries its own changelog comment.
   asks about, Claude's rows are not imported until you confirm the columns, and a row Claude cites from a
   cell those columns do not read as hours (an Ist, cost or ID cell beside the hours, or beside a blank
   forecast) is not imported. Where no layout is found, Claude's rows are not imported while the sheet
-  holds a second number column that its headers do not tell apart from the cited one (set the columns
-  with Detect columns instead). Monthly figures are spread over a
+  holds a second number column, unless the period headers above the two name different periods, or
+  different dates of one period on a row with no period of its own, such as sprint columns (set the
+  columns with Detect columns instead). Monthly figures are spread over a
   weekly plan (and weekly over a monthly one) by working days, keeping the total exact. The preview lists
   every cell that would change, people it could not match (you can pick or skip each one; archived
   resources are neither matched nor offered, and "Müller, Hans" matches Hans Müller), hours outside the
