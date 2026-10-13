@@ -1024,3 +1024,31 @@ describe("useForecastImport — Claude must cite a cell the confirmed columns re
     expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 40]]);
   });
 });
+
+// Fix 9 I-1 (rr9 H5): with an "offen" in the Monat column the sheet once opened
+// straight on the preview, and Claude's February Ist cells were applied as January.
+describe("useForecastImport — one placeholder does not switch the row-period question off (fix 9 I-1)", () => {
+  it("gates the sheet on the hand route and refuses Claude's claims", async () => {
+    claudeResponds({ rows: [
+      { person: "Bob Ray", period: "Jan 2026", hours: 35, source: "forecast!D4" },
+      { person: "Dora Li", period: "Jan 2026", hours: 35, source: "forecast!D6" },
+    ] });
+    const csv = ["Erstellt,,01.01.2026,15.01.2026,20.01.2026", "Name,Monat,Stunden,Ist", "Ann Lee,Jan 2026,40,35", "Bob Ray,Feb 2026,40,35",
+      "Cid Ott,offen,40,35", "Dora Li,Feb 2026,40,35", "Eve Wu,Jan 2026,40,35", ""].join("\r\n");
+    const deps = depsOf();
+    const { result } = await loaded(deps, csv);
+    expect(result.current.step).toBe("mapping");
+    expect(result.current.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason))).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
+    expect(result.current.importPlan?.changes).toEqual([]);
+    let outcome: string | undefined;
+    act(() => {
+      outcome = result.current.apply();
+    });
+    expect(outcome).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+});

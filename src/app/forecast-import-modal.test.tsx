@@ -532,14 +532,15 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     }),
   } as unknown as Response);
 
+  // Fix 9 I-1: the Eintritt date this used now makes the sheet ask, so the
+  // message is shown on a clear wide sheet: Mar claimed for February's cell.
   it("says why Claude's row was refused when the detected columns read its cell in another period", async () => {
-    claudeSays([{ person: "Ann Lee", period: "Mar 2026", hours: 10, source: "forecast!C3" }]);
+    claudeSays([{ person: "Ann Lee", period: "Mar 2026", hours: 20, source: "forecast!C2" }]);
     render(<ForecastImportModal {...propsOf()} />);
-    const people = ["Bob Kay", "Cem Ott", "Dora Li", "Eve Wu"].map((p) => `${p},,1,2,3`);
-    await chooseFile([",,Jan 2026,Feb 2026,Mar 2026", "Name,Eintritt,Std,Std,Std", "Ann Lee,01.03.2026,10,20,30", ...people, ""].join("\r\n"));
+    await chooseFile(["Name,Jan 2026,Feb 2026,Mar 2026", "Ann Lee,10,20,30", "Bob Kay,1,2,3", ""].join("\r\n"));
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
     const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!C3/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheet", "Jan 2026"));
+    expect(within(section).getByText(/forecast!C2/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheet", "Feb 2026"));
   });
 
   it("names a week by its label, not its key", async () => {

@@ -666,3 +666,25 @@ describe("detectLayout — a wide reading whose rows hold their own period colum
     expect(detected.ambiguous).toEqual([]);
   });
 });
+
+// Fix 9 I-1 (rr9): ONE period-shaped data cell outside the period and person
+// columns makes a wide reading ask. A share threshold let a single placeholder
+// in the long sheet's Monat column (`offen`, `-`) switch the question off.
+describe("detectLayout — any period cell outside the wide period columns asks (fix 9 I-1)", () => {
+  const metadataWith = (placeholder: string): string[][] => [
+    ["Erstellt", "", "01.01.2026", "15.01.2026", "20.01.2026"], ["Name", "Monat", "Stunden", "Ist"],
+    ["Ann", "Jan 2026", "40", "35"], ["Bob", "Feb 2026", "40", "35"], ["Cid", placeholder, "40", "35"],
+    ["Dora", "Feb 2026", "40", "35"], ["Eve", "Jan 2026", "40", "35"],
+  ];
+
+  it.each(["-", "n/a", "offen", "Q1 2026"])("the metadata row over a Monat column with %s in it still asks", (placeholder) => {
+    const detected = detectLayout(metadataWith(placeholder), { defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", mapping: { headerRow: 0 } });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
+  });
+
+  it("a notes column with one date in it asks too (the accepted cost)", () => {
+    const rows = [["Name", "Notiz", "Jan 2026", "Feb 2026"], ["Ann", "", "40", "50"], ["Bob", "ab 01.03.2026", "30", "20"], ["Cid", "15.02.2026", "10", "10"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3] }]);
+  });
+});

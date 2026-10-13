@@ -406,3 +406,28 @@ describe("a claim must cite a cell the hand reading reads (round 3)", () => {
     expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!C2")], strictOn(rows)))).toEqual([["Ann", "2026-01", 40]]);
   });
 });
+
+// Fix 9 I-1 (rr9): the round-2 question held only while every Monat cell was
+// a period; one placeholder let Claude write Bob's and Dora's February Ist
+// cells into January.
+describe("one placeholder in the row-period column does not switch the question off (fix 9 I-1)", () => {
+  const rowsWith = (placeholder: string, numbers: "text" | "dot") => {
+    const [jan, feb, d1, d2, d3] = numbers === "dot" ? ["46023", "46054", "46023", "46037", "46042"] : ["Jan 2026", "Feb 2026", "01.01.2026", "15.01.2026", "20.01.2026"];
+    return [["Erstellt", "", d1, d2, d3], ["Name", "Monat", "Stunden", "Ist"],
+      ["Ann", jan, "40", "35"], ["Bob", feb, "40", "35"], ["Cid", placeholder, "40", "35"], ["Dora", feb, "40", "35"], ["Eve", jan, "40", "35"]];
+  };
+  const people = ["Ann", "Bob", "Cid", "Dora", "Eve"];
+
+  it.each(["-", "n/a", "offen", "Q1 2026"].flatMap((p) => (["text", "dot"] as const).map((n) => [p, n] as const)))(
+    "%s (%s): every Ist and Stunden claim is refused columns-unconfirmed, no January total takes the February rows", (placeholder, numbers) => {
+      const rows = rowsWith(placeholder, numbers);
+      const ist = people.map((p, i) => claim("Jan 2026", 35, `S!D${i + 3}`, p));
+      const stunden = people.map((p, i) => claim("Jan 2026", 40, `S!C${i + 3}`, p));
+      for (const claims of [ist, stunden]) {
+        const out = validateForecastRows(claims, strictOn(rows, numbers));
+        expect(out.ok.filter((r) => r.period === "2026-01")).toEqual([]);
+        expect(detail(out)).toEqual(people.map(() => "columns-unconfirmed"));
+      }
+    },
+  );
+});

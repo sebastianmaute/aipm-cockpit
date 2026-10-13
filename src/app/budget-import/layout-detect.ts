@@ -185,17 +185,19 @@ function wideFromHeader(rows: Rows, headerRow: number, periodCols: readonly numb
 
 /**
  * The columns of a wide reading's data rows that hold a period of their own:
- * not among the header's period columns, and period-shaped (in the sheet's
- * number origin: a CSV's five-digit number is no date) in `COLUMN_SHARE` of
- * their non-blank cells.
+ * not among the header's period columns nor the person column, with ANY data
+ * cell period-shaped in the sheet's number origin (a CSV's five-digit number
+ * is no date). ★★ Any, not a share (fix 9 I-1): an 80 % share let ONE
+ * placeholder in a long sheet's `Monat` column (`offen`, `-`, `n/a`) turn
+ * the question off, and Claude's February Ist cells were written as January.
+ * The cost: a wide sheet with one date in a notes column asks too.
  */
 function rowPeriodColumns(rows: Rows, mapping: ColumnMapping, ctx: Ctx): number[] {
   const data = dataRowsBelow(rows, mapping.headerRow);
-  const periodSet = new Set(mapping.periodCols ?? []);
+  const skip = new Set([...(mapping.periodCols ?? []), mapping.person]);
   const out: number[] = [];
   for (let col = 0; col < rowWidth(data); col++) {
-    const cells = columnCells(data, col);
-    if (!periodSet.has(col) && cells.length > 0 && shareOf(cells, (c) => isPeriodShapedIn(c, ctx.numbers)) >= COLUMN_SHARE) out.push(col);
+    if (!skip.has(col) && columnCells(data, col).some((c) => isPeriodShapedIn(c, ctx.numbers))) out.push(col);
   }
   return out;
 }
