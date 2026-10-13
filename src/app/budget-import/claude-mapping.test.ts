@@ -112,3 +112,22 @@ describe("claudeMappingOf: refusals", () => {
     expect(refusalOf(wide({ periodCols: ["D", 4] }), WIDE)).toBe("shape");
   });
 });
+
+// Final review 2 (M3): a model fills an unused field with "" or []. For an
+// OPTIONAL field that is no value; a required field left empty is refused.
+describe("claudeMappingOf: empty fields", () => {
+  it("reads an empty optional field, or an empty field of the other layout, as absent", () => {
+    expect(claudeMappingOf(long({ email: "", rate: "", yearCol: "", periodCols: [] }), LONG)).toEqual({
+      mapping: { layout: "long", headerRow: 1, person: 0, period: 2, hours: 3 },
+    });
+    expect(claudeMappingOf(wide({ period: "", hours: "", yearCol: "", email: "" }), WIDE)).toEqual({
+      mapping: { layout: "wide", headerRow: 0, person: 0, periodCols: [3, 4] },
+    });
+  });
+
+  it("still refuses an empty required field", () => {
+    expect(refusalOf(long({ hours: "" }), LONG)).toBe("letter");
+    expect(refusalOf(long({ person: "" }), LONG)).toBe("letter");
+    expect(refusalOf(wide({ periodCols: [] }), WIDE)).toBe("period-cols");
+  });
+});

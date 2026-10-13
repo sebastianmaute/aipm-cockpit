@@ -41,6 +41,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 /** Null and undefined alike: the model may send either for an unused field. */
 const isAbsent = (value: unknown): boolean => value === undefined || value === null;
 
+/** An OPTIONAL field the model filled with no value: absent, "" or [] (final
+ *  review 2, M3). A required field left empty is still refused. */
+const isUnset = (value: unknown): boolean => isAbsent(value) || value === "" || (Array.isArray(value) && value.length === 0);
+
 /** A column letter as a 0-based column inside the sheet's width. */
 function columnOf(value: unknown, width: number): number {
   if (typeof value !== "string") throw new Refused("shape");
@@ -56,7 +60,7 @@ function requiredColumn(raw: Record<string, unknown>, field: string, width: numb
 }
 
 function optionalColumn(raw: Record<string, unknown>, field: string, width: number): number | undefined {
-  return isAbsent(raw[field]) ? undefined : columnOf(raw[field], width);
+  return isUnset(raw[field]) ? undefined : columnOf(raw[field], width);
 }
 
 /** The 1-based row number the prompt shows, as a 0-based row of the sheet. */
@@ -67,7 +71,7 @@ function headerRowOf(value: unknown, rowCount: number): number {
 }
 
 function yearOf(value: unknown): number | undefined {
-  if (isAbsent(value)) return undefined;
+  if (isUnset(value)) return undefined;
   if (typeof value !== "number") throw new Refused("shape");
   if (!Number.isInteger(value) || parseYearCell(String(value)) !== value) throw new Refused("year");
   return value;
@@ -85,7 +89,7 @@ function convert(raw: unknown, sheet: SheetGrid): ColumnMapping {
   const layout = raw.layout;
   const width = sheet.rows.reduce((max, row) => Math.max(max, row.length), 0);
   const otherLayout = layout === "wide" ? LONG_ONLY : WIDE_ONLY;
-  if (otherLayout.some((field) => !isAbsent(raw[field]))) throw new Refused("other-layout");
+  if (otherLayout.some((field) => !isUnset(raw[field]))) throw new Refused("other-layout");
   const mapping: ColumnMapping = {
     layout,
     headerRow: headerRowOf(raw.headerRow, sheet.rows.length),
@@ -118,7 +122,9 @@ function convert(raw: unknown, sheet: SheetGrid): ColumnMapping {
  * inside the sheet's width and the header row a row of the sheet; the mapped
  * columns must be distinct; the layout's own fields must be present (`person`;
  * wide `periodCols`, non-empty; long `period` and `hours`) and the other
- * layout's absent; `year` a whole year. Otherwise the reason it was refused.
+ * layout's absent; `year` a whole year. An optional field (and a field of the
+ * other layout) sent as null, "" or [] is absent. Otherwise the reason it was
+ * refused.
  */
 export function claudeMappingOf(raw: unknown, sheet: SheetGrid): ClaudeMappingResult {
   try {
