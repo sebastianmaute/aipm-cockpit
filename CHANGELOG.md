@@ -27,9 +27,12 @@ longer carries its own changelog comment.
   person and period), and you can adjust them. German exports read correctly (`1.234,5`, `Jan. 2026`,
   `KW03 2026`, `Mrz 26`), and so do month names and weeks without a year (`Jan`, `KW03`): they are read
   in the import's year, which starts at the bucket's start year, and a header row that runs past December
-  (`Okt … Dez Jan Feb`, a fiscal `Jul … Jun`, `KW52 KW01`) moves on into the next year. The preview says
-  which year it assumed, with a link to change it. A long sheet's year column (`Jahr`, `FY`) supplies each
-  row's year. A header of dates a week apart (Monday dates) is read as weeks. Two cells of one row that
+  (`Okt … Dez Jan Feb`, a fiscal `Jul … Jun`, `KW52 KW01`) moves on into the next year, while months before
+  the first header that names its year count back from it (`Nov Dez Jan 2027` is Nov and Dez 2026). The
+  preview says which year it assumed, with a link to change it. A long sheet's year column (`Jahr`, `FY`)
+  supplies each row's year. Dates a week apart (Monday dates), in a header row or in a long sheet's period
+  column, are read as weeks. A CSV is read up to the same number of cells as a workbook sheet, and the
+  preview says when it was cut. Two cells of one row that
   land on the same person and period block Apply until the columns or the sheet are fixed, instead of
   being added together. Total rows and columns are skipped (quarter and fiscal-year totals too), and any
   other column of numbers that is not read is listed instead of dropped without a word. Or Ask Claude to

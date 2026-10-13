@@ -280,12 +280,16 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   its month). A WIDE header row is read as a RUN (`assignRunPeriods` / `assignRunDetailed`): a cell that
   names its year sets a running year; a year-less month or week takes it (starting at the default year)
   and moves it on when its index steps backwards, so `Dez | Jan`, a fiscal `Jul … Jun` and `KW52 | KW01`
-  roll into the next year (week 53 checked in the year it lands in); and a run of dates a whole number of
-  weeks apart, the closest exactly seven days, is read as ISO weeks. Before this, Monday-date headers
-  collapsed into months and a two-year `Jan … Dez Jan … Dez` summed 2027 into 2026 (final review). A LONG
-  sheet's rows are never read as a run; a year-less period cell there takes the row's
-  `ColumnMapping.yearCol` year (a column headed `Jahr` / `Year` / `FY` …, or holding only four-digit years),
-  else the default year. That default is ONE value in the hook: it starts at the bucket's start year and
+  roll into the next year (week 53 checked in the year it lands in); year-less cells BEFORE the first
+  labelled one count back from it (`Nov | Dez | Jan 2027` is Nov and Dez 2026), so only a run with no
+  label at all uses the default year; and a run of dates a whole number of weeks apart, the closest
+  exactly seven days, is read as ISO weeks. Before this, Monday-date headers collapsed into months and a
+  two-year `Jan … Dez Jan … Dez` summed 2027 into 2026 (final review). A LONG sheet's rows are never read
+  as a run (they repeat Jan…Dec per person), but its period column gets the same week rule over its
+  DISTINCT dates, sorted (`isWeekSpacedColumn`), so a long sheet of Monday dates is weekly while
+  first-of-month dates stay months; the Claude route's row search reads the column the same way. A
+  year-less period cell there takes the row's `ColumnMapping.yearCol` year (a column headed `Jahr` /
+  `Year` / `FY` …, or holding only four-digit years), else the default year. That default is ONE value in the hook: it starts at the bucket's start year and
   follows the mapping step's field, and a cleared field means none on both routes. `detectLayout` runs
   every pass WITHOUT it first and uses it only when nothing is found — with it first, a `Start` column of
   month names unseated a sheet that had read correctly. When a period took its year from the default,
@@ -336,6 +340,8 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   as `Error("too-large")`, never importing part of it. The xlsx reader is bounded per sheet (cells and rows,
   `MAX_XLSX_SHEET_CELLS`), per workbook (`MAX_XLSX_TOTAL_ROWS`, `MAX_XLSX_TOTAL_CELLS`), and reads each
   worksheet path once (`sheetEntries` de-duplicates). Gap rows from a `<row r>` jump share one empty row.
+  A CSV is bounded the same way: `readDelimited` stops before the row that would pass
+  `MAX_XLSX_SHEET_CELLS` and the grid is `truncated`, which the modal's existing notice shows.
   ★★ These bounds protect the CHAT attachment path too — it is the same reader. The many-sheet wide-cell
   blow-up they close predates §500; the row-gap one came with it (honouring `<row r>` so a cited row
   number matches Excel).
