@@ -304,14 +304,16 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   `Year` / `FY` …, or holding only four-digit years), else the default year. That default is ONE value in the hook: it starts at the bucket's start year and
   follows the mapping step's field, and a cleared field means none on both routes. ★★ `detectLayout` runs
   its passes in a FIXED order and takes the first that finds a layout: wide (3+ periods) without the
-  default year, wide with it, two-period wide without it, two-period wide with it, then long without and
+  default year, wide with it, long without it, two-period wide without it, then long and two-period wide
   with it. Both neighbouring orders shipped a bug: long WITH the year early let a `Start` column of month
   names become the period column of a correct wide sheet (fix wave 1), and every year-less pass first
   read a year-less wide sheet with any date column (`Start`, `Eintritt`) as long, its hours in the
-  date's month (fix wave 2) — with two months (`Name | Start | Jan | Feb`) that held until two-period
-  wide with the year moved ahead of long (re-review 3). A long sheet's `Start | Ende` date pair is not
-  taken for a two-period header: under a data row read as one, the rows below hold dates, not numbers.
-  When a period took its year from the default,
+  date's month (fix wave 2). ★★ Long without the year stays AHEAD of two-period wide: in a WORKBOOK a
+  long sheet's data row of two serial dates (`Von | Bis`, or a month column stored as dates beside
+  another date column) reads as a two-period header, and `wideFromHeader` counts the serials below it as
+  numbers, so moving both two-period passes first in round 4 read such sheets wide, their dates as
+  hours (re-review 4). The price: `Name | Start | Jan | Feb` (two year-less months beside a date column)
+  reads long. When a period took its year from the default,
   `assumedYear` makes the preview say so, with a link to the year field.
 - **`validateForecastRows` is the one gate for both.** Hours 0..744 rounded to two decimals, a canonical
   period, a non-blank person; same person and period from DIFFERENT sheet rows are summed (a summed row
@@ -331,7 +333,9 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   between the header and the cell is passed over. Round 3 stopped at such a cell, which rejected every valid
   claim beneath it and, through `headerDateOf`, turned sprint-date sub-period columns under a `-` back into
   the same-row blocker. A title row's lone date gives its column no period and is passed over too, so it
-  vouches for nothing. Only with no period header above (a long sheet) is the row searched, skipping the
+  vouches for nothing; so does a run of exactly two dates more than 92 days apart
+  (`MAX_TWO_DATE_PERIOD_GAP_DAYS`: `Zeitraum | 01.01.2026 | 31.12.2026` is a range, which round 4 took as a
+  long sheet's period header, vouching for December), while two closer dates and three or more stay periods. Only with no period header above (a long sheet) is the row searched, skipping the
   person cell by POSITION. Any row above,
   or a `Start` date on the row, once vouched for the wrong period. That is the safety boundary against an
   invented value; the prompt is not. A sheet's per-column style and week shape are computed once

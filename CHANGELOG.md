@@ -25,7 +25,7 @@ longer carries its own changelog comment.
   planned hours per person from an `.xlsx`, `.xlsm` or `.csv` file into that bucket. Detect columns finds the
   person, period and hours columns of a wide sheet (a column per month or week) or a long one (a row per
   person and period), and you can adjust them; a year-less sheet with a start-date column is still read
-  as one column per month, even with only two months. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
+  as one column per month. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
   and so do month names and weeks without a year (`Jan`, `KW03`): they are read in the import's year,
   which starts at the bucket's start year, and a header row that turns the year (`Okt … Dez Jan Feb`, a
   fiscal `Jul … Jun`, `KW52 KW01`: a step back of at least half a year) moves on into the next year, while
