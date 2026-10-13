@@ -7,7 +7,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { defaultSettings, type Settings } from "./settings-types";
 import type { BudgetBucket, Resource, ResourcePlan, Role } from "./types";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { ForecastImportModal, type ForecastImportModalProps } from "./forecast-import-modal";
 
@@ -583,7 +583,21 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
     const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
     expect(within(section).getByText(/forecast!B5/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheetHeader", "Jan 2027", "Jan 2026"));
-    expect(t(L, "forecastImportRejectSourceSheetHeader", "a", "b")).toBe("the column header says a, but the detected columns read b");
+    expect(t(L, "forecastImportRejectSourceSheetHeader", "a", "b")).toBe("the column header says a, but the detected or confirmed columns read b");
+  });
+
+  // Fix 9 m-b, m-c: the source reasons name confirmed columns as well as
+  // detected ones, and the unconfirmed-columns reason names the real path, the
+  // Detect columns button, by its exact label in both languages.
+  it("words the hand-reading reasons for detected or confirmed columns, and names Detect columns", async () => {
+    expect(t(L, "forecastImportRejectSourceSheet", "Jan 2026")).toBe("the detected or confirmed columns read this cell as Jan 2026");
+    expect(t(L, "forecastImportRejectSourceColumns")).toBe(
+      `the columns of this sheet are ambiguous. Use ${t(L, "forecastImportDetect")} to confirm them, then ask Claude again`,
+    );
+    await loadI18n("de");
+    expect(t("de", "forecastImportRejectSourceSheet", "Jan. 2026")).toBe("die erkannten oder bestätigten Spalten lesen diese Zelle als Jan. 2026");
+    expect(t("de", "forecastImportRejectSourceSheetHeader", "a", "b")).toBe("die Spaltenüberschrift sagt a, die erkannten oder bestätigten Spalten lesen aber b");
+    expect(t("de", "forecastImportRejectSourceColumns")).toContain(`„${t("de", "forecastImportDetect")}“`);
   });
 
   it("names the row's two periods when they disagree", async () => {
