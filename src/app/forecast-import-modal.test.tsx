@@ -498,6 +498,24 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(applyButton()).toBeEnabled();
   });
 
+  // rr7 I2: the layout control's Wide → Long round-trip once cleared the
+  // notice and enabled Apply on the questioned preselection.
+  it("keeps the notice and the disabled Apply through a Wide → Long round-trip", async () => {
+    const user = userEvent.setup();
+    const props = propsOf();
+    render(<ForecastImportModal {...props} />);
+    await chooseAmbiguous(PLAN_IST);
+    await user.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutWide") }));
+    await user.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutLong") }));
+    expect(screen.getByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: t(L, "forecastImportColHours") })).toHaveValue("2");
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
+    expect(applyButton()).toBeDisabled();
+    fireEvent.click(applyButton());
+    expect(props.onChangeBuckets).not.toHaveBeenCalled();
+  });
+
   it("names the period candidates of Name | Datum | Eintritt", async () => {
     render(<ForecastImportModal {...propsOf()} />);
     await chooseAmbiguous("Name,Datum,Eintritt,Stunden\r\nAnn Lee,01.01.2026,03/2026,40\r\nAnn Lee,01.02.2026,03/2026,30\r\n");

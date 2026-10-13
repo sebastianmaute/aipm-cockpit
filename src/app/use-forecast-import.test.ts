@@ -748,6 +748,21 @@ describe("useForecastImport — ambiguous columns are confirmed before Apply (fi
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
   });
 
+  // rr7 I2: Wide, then Long again, rebuilt the long mapping from the defaults
+  // (the questioned preselection) and had cleared the gate on the way.
+  it("a layout round-trip (Long, Wide, Long) confirms nothing", async () => {
+    const deps = depsOf();
+    const { result } = await loaded(deps, PLAN_IST);
+    const long = result.current.mapping!;
+    act(() => result.current.setMapping(wideMappingFor(result.current.sheets[0].rows, 0, { person: 0 }, 2026)));
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    act(() => result.current.setMapping({ ...long }));
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    act(() => result.current.showPreview());
+    expect(applyNow(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+
   it("asks for the period of Datum | Eintritt, and choosing it confirms", async () => {
     const deps = depsOf();
     const { result } = await loaded(deps, DATUM_EINTRITT);

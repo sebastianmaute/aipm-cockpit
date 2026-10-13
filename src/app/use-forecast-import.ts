@@ -139,10 +139,13 @@ const NO_COLLISIONS: readonly ForecastCollision[] = [];
 const NO_UNREAD: UnreadCells = { cells: [], rows: [] };
 const NO_AMBIGUITY: readonly ColumnAmbiguity[] = [];
 
-/** `next` settles an ambiguous field: the user chose its column (a different
- *  one than before, even if they come back), or left the long layout. */
+/** `next` settles an ambiguous field: the user chose its column in the long
+ *  layout (a different one than before, even if they come back). ★★ A layout
+ *  change confirms nothing: Wide, then Long, rebuilds the long mapping from the
+ *  defaults — the very preselection in question — and once cleared the gate on
+ *  the way (rr7 I2). */
 function confirmsField(a: ColumnAmbiguity, before: ColumnMapping | null, next: ColumnMapping): boolean {
-  return next.layout !== "long" || next[a.field] !== before?.[a.field];
+  return before?.layout === "long" && next.layout === "long" && next[a.field] !== before[a.field];
 }
 
 /** The message for a failed Claude read, or null for an abort (the user's own
