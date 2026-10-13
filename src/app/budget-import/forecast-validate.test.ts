@@ -1008,7 +1008,10 @@ describe("validateForecastRows: conflicting period evidence is refused (fix 7, f
     expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
   });
 
-  it("sums sprint dates on a row whose Start date is labelled in the header row: no conflict", () => {
+  // Fix 8: a row with a period cell of its own is never summed as sub-periods,
+  // labelled or not; it summed to 80 per month before. The claims stand, but
+  // collide and block Apply.
+  it("does not sum sprint dates on a row with a Start date: the claims collide", () => {
     const opts = strictOn([
       ["Name", "Start", "05.01.2026", "19.01.2026", "02.02.2026", "16.02.2026"],
       ["Bob", "01.03.2026", "40", "40", "40", "40"],
@@ -1016,8 +1019,11 @@ describe("validateForecastRows: conflicting period evidence is refused (fix 7, f
     const bob = (period: string, source: string) => claim(period, 40, source, "Bob");
     const out = validateForecastRows([bob("05.01.2026", "S!C2"), bob("19.01.2026", "S!D2"), bob("02.02.2026", "S!E2"), bob("16.02.2026", "S!F2")], opts);
     expect(out.rejected).toEqual([]);
-    expect(out.collisions).toEqual([]);
-    expect(periodsOf(out)).toEqual([["2026-01", 80], ["2026-02", 80]]);
+    expect(out.ok).toEqual([]);
+    expect(out.collisions).toEqual([
+      { person: "Bob", period: "2026-01", sources: ["S!C2", "S!D2"] },
+      { person: "Bob", period: "2026-02", sources: ["S!E2", "S!F2"] },
+    ]);
   });
 
   it("a date header and a date on the row in the same period agree: the claim stands (an unknown layout)", () => {

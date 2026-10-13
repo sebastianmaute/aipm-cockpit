@@ -121,8 +121,8 @@ function checkRow(raw: unknown, opts: Options, hand: HandSource): Checked {
  *  summed as before the collision rule. `rows`: the distinct sheet rows (a
  *  row without a usable source counts as one of its own). A cell on a row the
  *  hand route reads as a LONG row has no date header: its period is the row's
- *  (`hand`), so two such cells collide; so does a cell the hand route does not
- *  read whose row holds a period cell of its own (`headerDateOf`, fix 8). */
+ *  (`hand`), so two such cells collide; so do two cells whose row holds a
+ *  period cell of its own (`headerDateOf`). */
 function rowShape(e: Merged, sheet: SheetGrid, hand: HandReading | null): { collision: boolean; subPeriod: boolean; rows: number } {
   const byRow = new Map<number, Array<string | null>>();
   let unplaced = e.count - e.sources.length;
@@ -133,9 +133,8 @@ function rowShape(e: Merged, sheet: SheetGrid, hand: HandReading | null): { coll
       continue;
     }
     const personCol = columnNaming(sheet.rows[at.rowIdx] ?? [], at.colIdx, e.row.person) ?? undefined;
-    const isHandRead = handPeriodAt(hand, at.rowIdx, at.colIdx) !== undefined;
-    const onLongRow = hand?.layout === "long" && isHandRead;
-    const date = onLongRow ? null : headerDateOf(sheet, { ...at, personCol }, isHandRead);
+    const onLongRow = hand?.layout === "long" && handPeriodAt(hand, at.rowIdx, at.colIdx) !== undefined;
+    const date = onLongRow ? null : headerDateOf(sheet, { ...at, personCol });
     byRow.set(at.rowIdx, [...(byRow.get(at.rowIdx) ?? []), date]);
   }
   const shared = [...byRow.values()].filter((dates) => dates.length > 1);

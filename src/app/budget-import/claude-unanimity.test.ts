@@ -6,6 +6,7 @@
 // sheet whose columns are ambiguous is refused until the user confirms them.
 // Every test here pins a wrong number that must NOT be written.
 import { describe, expect, it } from "vitest";
+import { gridToForecastRows } from "./forecast-rows";
 import { validateForecastRows } from "./forecast-validate";
 import { detectLayout } from "./layout-detect";
 import type { NumberOrigin, SheetGrid } from "./sheet-grid";
@@ -269,5 +270,50 @@ describe("an edited mapping is the hand reading the claim is checked against", (
   it("without the edit, the detection's own reading decides", () => {
     expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!D2")], strictOn(rows)))).toEqual([["Ann", "2026-01", 40]]);
     expect(detail(validateForecastRows([claim("Mar 2026", 40, "S!D2")], strictOn(rows)))).toEqual(["period-conflict"]);
+  });
+});
+
+// Fix 8: a row with its own period cell is a long row, whose cells share its
+// one period. Two cells of it are never summed as sub-periods, on either route
+// and whoever reads the cells: a metadata row the detection takes for a wide
+// header once summed Stunden + Ist to 75 (re-found while fixing rr8 OOS-1).
+describe("a row with its own period cell is never a sub-period row, on either route", () => {
+  const people = ["Ann", "Bob", "Cem", "Dora", "Eve"];
+  const metadataRows = [["Erstellt", "", "01.01.2026", "15.01.2026", "20.01.2026"], ["Name", "Monat", "Stunden", "Ist"], ...people.map((p) => [p, "Jan 2026", "40", "35"])];
+  const sprintRows = [["Name", "Start", "05.01.2026", "19.01.2026", "02.02.2026", "16.02.2026"], ["Bob", "01.03.2026", "40", "40", "40", "40"]];
+  const handRoute = (rows: string[][]) => {
+    const mapping = detectLayout(rows, { defaultYear: 2026 }).mapping;
+    if (mapping === null) throw new Error("no layout");
+    return validateForecastRows(gridToForecastRows(rows, mapping, "S").rows, { sheet: sheetOf(rows), requireSource: false, defaultYear: 2026 });
+  };
+
+  it("the detection reads the metadata row as a clear wide header", () => {
+    expect(detectLayout(metadataRows, { defaultYear: 2026 })).toMatchObject({ kind: "wide", ambiguous: [], mapping: { headerRow: 0, periodCols: [2, 3, 4] } });
+  });
+
+  it("Claude route: Ann's Stunden and Ist cells collide, never 75", () => {
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Jan 2026", 35, "S!D3")], strictOn(metadataRows));
+    expect(out.rejected).toEqual([]);
+    expect(out.ok).toEqual([]);
+    expect(out.subPeriods).toEqual([]);
+    expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!C3", "S!D3"] }]);
+  });
+
+  it("hand route: every person's two cells collide, never 75", () => {
+    const out = handRoute(metadataRows);
+    expect(out.ok).toEqual([]);
+    expect(out.subPeriods).toEqual([]);
+    expect(out.collisions.map((c) => c.person)).toEqual(people);
+  });
+
+  it("sprint dates beside a Start date collide on both routes: refused visibly, not summed", () => {
+    const bob = (period: string, source: string) => claim(period, 40, source, "Bob");
+    const claude = validateForecastRows([bob("05.01.2026", "S!C2"), bob("19.01.2026", "S!D2"), bob("02.02.2026", "S!E2"), bob("16.02.2026", "S!F2")], strictOn(sprintRows));
+    expect(claude.rejected).toEqual([]);
+    expect(claude.ok).toEqual([]);
+    expect(claude.collisions.map((c) => c.period)).toEqual(["2026-01", "2026-02"]);
+    const hand = handRoute(sprintRows);
+    expect(hand.ok).toEqual([]);
+    expect(hand.collisions.map((c) => c.period)).toEqual(["2026-01", "2026-02"]);
   });
 });

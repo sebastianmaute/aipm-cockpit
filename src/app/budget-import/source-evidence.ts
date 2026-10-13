@@ -198,16 +198,16 @@ export function rowPeriodCells(sheet: SheetGrid, at: { rowIdx: number; colIdx: n
 /** The ISO day of the date header a cell sits under (the nearest period header
  *  above it, `nearestPeriodRowAbove`, when its cell is a date — an Excel serial only in a workbook), else
  *  null: what tells a sub-period column ("05.01.2026") from a period label.
- *  ★★ Null too when the hand route does not read the cell (`hasHand` false)
- *  and its row holds a period cell of its own (`rowPeriodCells`): such a row
- *  is a long row, whose cells share its one period. A month title's two dates
- *  over a long sheet's `Plan | Ist` once summed the two to 75 as sub-periods
- *  (final review I1, rr8 OOS-1). Where the hand route reads the cell, it has
- *  chosen the row's period column, so the row is not consulted. `personCol` is
- *  the cited row's person column. */
-export function headerDateOf(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; personCol?: number }, hasHand: boolean): string | null {
+ *  ★★★ Null too when the row holds a period cell of its own (`rowPeriodCells`),
+ *  on either route and whoever reads the cell: such a row is a long row, whose
+ *  cells share its one period. A metadata row's dates over a long sheet's
+ *  `Stunden | Ist` once summed the two to 75 as sub-periods (final review I1,
+ *  rr8 OOS-1) — also where the hand route reads that metadata row as a wide
+ *  header (fix 8). Sprint dates beside a `Start` date collide too: refused
+ *  visibly, never summed wrong. `personCol` is the cited row's person column. */
+export function headerDateOf(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; personCol?: number }): string | null {
   const r = nearestPeriodRowAbove(sheet, at.rowIdx, at.colIdx);
-  if (r !== null && !hasHand && rowPeriodCells(sheet, at).length > 0) return null;
+  if (r !== null && rowPeriodCells(sheet, at).length > 0) return null;
   const c = r === null ? null : classifyPeriodCell(sheet.rows[r]?.[at.colIdx] ?? "");
   if (c === null || c.kind !== "month" || c.date === undefined) return null;
   return sheet.numbers === "dot" || c.serial !== true ? c.date : null;
