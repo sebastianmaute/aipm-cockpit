@@ -272,8 +272,11 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   column, wide or long and at any position, that holds numbers in most person rows but is neither read,
   mapped nor headed as a total (`isTotalHeader`: the total words plus `Q1`–`Q4`, `H1`/`H2`, `FY`/`GJ`),
   an employee number (`PersNr`, `ID` …) or a year column (`isYearColumn`) comes back as an `IgnoredColumn`
-  and is listed under "Not imported", and so does a count of data rows ABOVE the header row
-  (`rowsAboveHeader`: a stacked year block above the detected header). The person column is a mostly-text
+  and is listed under "Not imported" (a period-shaped cell, such as a workbook's serial date, never counts
+  as a number there), and so does a count of data rows ABOVE the header row (`rowsAboveHeader`: a stacked
+  year block above the detected header). A row counts only when it holds a number under one of the header's
+  period columns with a period header of its own above it (on a long sheet: an hours number beside a period
+  cell), so a metadata row (`Stand | 46296`, `Version | 3`, `Projekt | 4711`) is not reported. The person column is a mostly-text
   column headed Name / Mitarbeiter / Person / Resource …, else the first mostly-text one. The CLAUDE route
   sends the sheet to ONE forced call (`runForecastImportCall`, tool `propose_forecast_rows`, prompt text
   from `sheetToPromptText` over the shared `renderSheetMarkdown`). Both produce the same `ForecastRow` list.
@@ -285,10 +288,13 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   months and weeks compared by their place in the year — so `Dez | Jan`, a fiscal `Jul … Jun` and
   `KW52 | KW01` roll into the next year (week 53 checked in the year it lands in) while a backwards
   `Dez | Nov | Okt` stays in one year (rolling at every backward step once spread it over four years);
-  year-less cells BEFORE the first labelled one count back from it by the same rule (`Nov | Dez | Jan
-  2027` is Nov and Dez 2026, `KW52 | Jan 2027` is 2026-W52), so only a run with no label at all uses the
-  default year; a header's ONE date or serial cell (`31.12.2025`, a project number `40100`) is no period
-  and anchors nothing; and a run of dates a whole number of weeks apart, the closest
+  year-less cells BEFORE the first labelled one count back from it, always back in time — left of the
+  first label is earlier (`Nov | Dez | Jan 2027` is Nov and Dez 2026, `Mai | Jan 2027` is May 2026,
+  `KW52 | Jan 2027` is 2026-W52; the half-year rule once kept `Mai` in 2027 and is for reading forwards
+  only) — so only a run with no label at all uses the default year; a header's ONE date or serial cell
+  (`31.12.2025`, a project number `40100`) is no period and anchors nothing, and beside month or week
+  labels no date or serial anchors their year however many there are (`40100 | 40200 | Jan` once read
+  Jan as 2010): dates anchor only an all-date run; and a run of dates a whole number of weeks apart, the closest
   exactly seven days, is read as ISO weeks. Before this, Monday-date headers collapsed into months and a
   two-year `Jan … Dez Jan … Dez` summed 2027 into 2026 (final review). A LONG sheet's rows are never read
   as a run (they repeat Jan…Dec per person), but its period column gets the same week rule over its
@@ -298,11 +304,14 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   `Year` / `FY` …, or holding only four-digit years), else the default year. That default is ONE value in the hook: it starts at the bucket's start year and
   follows the mapping step's field, and a cleared field means none on both routes. ★★ `detectLayout` runs
   its passes in a FIXED order and takes the first that finds a layout: wide (3+ periods) without the
-  default year, wide with it, long without it, two-period wide without it, then long and two-period wide
+  default year, wide with it, two-period wide without it, two-period wide with it, then long without and
   with it. Both neighbouring orders shipped a bug: long WITH the year early let a `Start` column of month
   names become the period column of a correct wide sheet (fix wave 1), and every year-less pass first
   read a year-less wide sheet with any date column (`Start`, `Eintritt`) as long, its hours in the
-  date's month (fix wave 2). When a period took its year from the default,
+  date's month (fix wave 2) — with two months (`Name | Start | Jan | Feb`) that held until two-period
+  wide with the year moved ahead of long (re-review 3). A long sheet's `Start | Ende` date pair is not
+  taken for a two-period header: under a data row read as one, the rows below hold dates, not numbers.
+  When a period took its year from the default,
   `assumedYear` makes the preview say so, with a link to the year field.
 - **`validateForecastRows` is the one gate for both.** Hours 0..744 rounded to two decimals, a canonical
   period, a non-blank person; same person and period from DIFFERENT sheet rows are summed (a summed row
@@ -316,15 +325,20 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   on either route — a second row citing it is rejected. With `requireSource` (the Claude route only, whose
   rows are UNTRUSTED) a row passes only when its cited cell holds its hours by the sheet's own number rule,
   a DIFFERENT cell of that row holds the PERSON, and the period is the one the cell sits under (`checkSource`
-  in `source-evidence.ts`): the NEAREST period cell above it in its column, read as part of that header
-  row's run, the search stopping at the first non-blank cell that is neither a period nor a number (the
-  header bounds it, so a title-row date above a long sheet's header vouches for nothing); only with no
-  period above (a long sheet) is the row searched, skipping the person cell by POSITION. Any row above,
+  in `source-evidence.ts`): the NEAREST period header above it in its column (`nearestPeriodRowAbove`: a
+  row whose run gives that column a period), read as part of that row's run. ★★ Text in the grid never
+  bounds that search: a placeholder (`-`, `Urlaub`), a unit row (`Std`) or a `Plan | Ist` sub-header
+  between the header and the cell is passed over. Round 3 stopped at such a cell, which rejected every valid
+  claim beneath it and, through `headerDateOf`, turned sprint-date sub-period columns under a `-` back into
+  the same-row blocker. A title row's lone date gives its column no period and is passed over too, so it
+  vouches for nothing. Only with no period header above (a long sheet) is the row searched, skipping the
+  person cell by POSITION. Any row above,
   or a `Start` date on the row, once vouched for the wrong period. That is the safety boundary against an
   invented value; the prompt is not. A sheet's per-column style and week shape are computed once
   (`columnFacts`). `findUnreadCells` (`unread-cells.ts`) then lists, as information, the number cells the
   reply did not cite on rows it read, and every row it did not cite at all that holds a number under a
-  period header or in a column it cited as hours — a person it skipped entirely is "row 7 (Bob Kay)"; total
+  period header or in a column it cited as hours — a person it skipped entirely is "row 7 (Bob Kay)", read
+  from the column the accepted rows name their people in, else the row's first text cell; total
   rows are left out, and a period-shaped cell (a workbook's serial date) is never an unread number. ★★ An email never vouches for the person, and an email the cited row does not hold is
   STRIPPED from the accepted row: the model can write any email beside any name, and matching tries the
   email first, so a model-supplied `bob@…` on Ann's row once routed Ann's hours to Bob (final review).

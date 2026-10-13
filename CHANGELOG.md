@@ -25,23 +25,26 @@ longer carries its own changelog comment.
   planned hours per person from an `.xlsx`, `.xlsm` or `.csv` file into that bucket. Detect columns finds the
   person, period and hours columns of a wide sheet (a column per month or week) or a long one (a row per
   person and period), and you can adjust them; a year-less sheet with a start-date column is still read
-  as one column per month. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
+  as one column per month, even with only two months. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
   and so do month names and weeks without a year (`Jan`, `KW03`): they are read in the import's year,
   which starts at the bucket's start year, and a header row that turns the year (`Okt … Dez Jan Feb`, a
   fiscal `Jul … Jun`, `KW52 KW01`: a step back of at least half a year) moves on into the next year, while
-  months before the first header that names its year count back from it (`Nov Dez Jan 2027` is Nov and
-  Dez 2026). The preview says which year it assumed, with a link to change it. A long sheet's year column
+  months before the first header that names its year count back from it, always earlier (`Nov Dez Jan 2027`
+  is Nov and Dez 2026, `Mai Jan 2027` is May 2026); a date or code number in the header row never sets the
+  year of the month names beside it. The preview says which year it assumed, with a link to change it. A long sheet's year column
   (`Jahr`, `FY`) supplies each row's year. Dates a week apart (Monday dates), in a header row or in a long
   sheet's period column, are read as weeks; finer date columns (bi-weekly, semi-monthly) are added into
   their month, and the preview says so. A CSV is read up to the same number of cells as a workbook sheet,
   and the preview says when it was cut. Two cells of one row with the same period label block Apply until
   the columns or the sheet are fixed, instead of being added together. Total rows and columns are skipped
   (quarter and fiscal-year totals too), and any other column of numbers that is not read — except an ID or
-  year column — is listed instead of dropped without a word, as are data rows above the header row. Or
+  year column, or a column of workbook dates — is listed instead of dropped without a word, as are data rows
+  of an earlier block above the header row (a title or metadata row is not counted). Or
   Ask Claude to read the sheet: every row it returns cites the cell its hours came from, and a row whose
   cell does not hold them, that is not on that person's row, or that is not under the period it claims is
   not imported — the preview says which, and lists the number cells and the rows Claude did not read,
-  including a person it left out entirely. Monthly figures are spread over a
+  including a person it left out entirely, by name. A placeholder such as `-` or `Urlaub`, a unit row or a
+  Plan/Ist row under the month header does not stop Claude's rows being checked against that header. Monthly figures are spread over a
   weekly plan (and weekly over a monthly one) by working days, keeping the total exact. The preview lists
   every cell that would change, people it could not match (you can pick or skip each one; archived
   resources are neither matched nor offered, and "Müller, Hans" matches Hans Müller), hours outside the
