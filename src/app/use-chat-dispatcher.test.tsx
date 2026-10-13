@@ -914,6 +914,62 @@ describe("useChatDispatcher", () => {
     expect(onRaid.current.getSnapshot().viewDigest).toBeUndefined();
   });
 
+  describe("§703 — an Ask-Claude send names the page it was requested from", () => {
+    function renderAcrossViews(initialView: AppView) {
+      const settings = makeSettings();
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <TestProviders tasks={seedTasks()}>{children}</TestProviders>
+      );
+      return renderHook(
+        ({ view }: { view: AppView }) =>
+          useChatDispatcher({
+            settings,
+            clock: testClock("2026-05-19", "UTC"),
+            setSelectedIds: vi.fn(),
+            setSettings: vi.fn(),
+            isReadOnly: false,
+            currentView: view,
+            settingsProjectId: "default", holidaySet: new Set<string>(),
+            getDashboardModel: stubGetDashboardModel,
+            getBudgetRollup: stubGetBudgetRollup,
+            getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+          }),
+        { wrapper, initialProps: { view: initialView } },
+      );
+    }
+
+    it("after the switch to chat, the origin's view AND its digest are reported; without one, chat is", () => {
+      const { result, rerender } = renderAcrossViews("open-points");
+      const pageDigest = result.current.getSnapshot().viewDigest;
+      expect(pageDigest).toContain("3 tasks visible");
+      rerender({ view: "chat" });
+
+      const asked = result.current.getSnapshot({ originView: "open-points" });
+      expect(asked.currentView).toBe("open-points");
+      expect(asked.viewDigest).toBe(pageDigest);
+
+      const typed = result.current.getSnapshot();
+      expect(typed.currentView).toBe("chat");
+      expect(typed.viewDigest).toBeUndefined();
+    });
+
+    it("sends no digest when the origin is not the page the dispatcher last saw", () => {
+      const { result, rerender } = renderAcrossViews("open-points");
+      rerender({ view: "chat" });
+      const snap = result.current.getSnapshot({ originView: "workload" });
+      expect(snap.currentView).toBe("workload");
+      // open-points' digest must not be sent under workload's name.
+      expect(snap.viewDigest).toBeUndefined();
+    });
+
+    it("keeps the last page's digest across a chat visit, not chat's (which has none)", () => {
+      const { result, rerender } = renderAcrossViews("workload");
+      rerender({ view: "open-points" });
+      rerender({ view: "chat" });
+      expect(result.current.getSnapshot({ originView: "open-points" }).viewDigest).toContain("3 tasks visible");
+    });
+  });
+
   it("open-points viewDigest reflects the live task count", () => {
     const { result } = renderDispatcher(seedTasks(), false, "open-points");
     expect(result.current.getSnapshot().viewDigest).toContain("3");

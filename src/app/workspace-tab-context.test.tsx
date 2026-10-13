@@ -41,11 +41,19 @@ afterEach(() => {
 });
 
 describe("pendingChatSeed", () => {
-  it("requestChat switches to the chat tab and stores the seed", () => {
+  it("requestChat switches to the chat tab and stores the seed with the view it was made from (§703)", () => {
     const { result } = renderHook(() => useWorkspaceTab(), { wrapper });
+    act(() => result.current.setActiveTab("gantt"));
     act(() => result.current.requestChat("Summarize risks", true));
     expect(result.current.activeTab).toBe("chat");
-    expect(result.current.pendingChatSeed).toEqual({ prompt: "Summarize risks", autoSend: true });
+    expect(result.current.pendingChatSeed).toEqual({ prompt: "Summarize risks", autoSend: true, originView: "gantt" });
+  });
+
+  it("a request made on the chat tab records chat as its origin", () => {
+    const { result } = renderHook(() => useWorkspaceTab(), { wrapper });
+    act(() => result.current.requestChat("first", true));
+    act(() => result.current.requestChat("second", true));
+    expect(result.current.pendingChatSeed?.originView).toBe("chat");
   });
 
   it("clearChatSeed nulls the seed", () => {

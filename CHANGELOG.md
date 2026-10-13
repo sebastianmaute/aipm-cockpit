@@ -21,6 +21,17 @@ longer carries its own changelog comment.
   change, and the counts are stored apart from the token limits, which they never affect. With operating
   guides off, the panel says no view guides are sent instead.
 
+### Fixed
+
+- **"Ask Claude" now always tells Claude which page you asked from.** A press on Open Points, or one
+  made on another page in the first moments after the app opened, told Claude it was on the chat tab, so
+  a prompt about "this page" reached it without the page, and from Open Points without the summary of the
+  rows on screen. A press now names the page it was made on, and so does acting on an AI suggestion that
+  opens the chat. If the press only fills in the message box, because Claude is still answering or the
+  app is still loading its guides, the page goes with that text when you send it unchanged; once you edit
+  it, it is your own message from the chat. When Claude checks where you are while answering, it gets the
+  same page rather than the chat tab.
+
 ## [1.18.0] - 2026-10-12 "Larsson"
 
 A feature release. Optimize with AI in Open Points proposes splits, regroups, missing tasks, estimates and

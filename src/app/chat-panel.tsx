@@ -11,7 +11,8 @@ import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig, Settings } from "./settings-types";
 import { clampMaxChatTurns } from "./settings-types";
-import type { ChatConversation } from "./workspace-tab-context";
+import type { ChatConversation, ChatSeed } from "./workspace-tab-context";
+import type { AppView } from "./nav-config";
 import { useAiUsageContext } from "./ai-usage-context";
 import type { SendFingerprint } from "./ai-view-switch";
 import { useResizable } from "./use-resizable";
@@ -211,7 +212,7 @@ function ChatPanelImpl({
   onChangeModel?: (model: string) => void;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
-  chatSeed?: { prompt: string; autoSend: boolean } | null;
+  chatSeed?: ChatSeed | null;
   onChatSeedConsumed?: () => void;
   /** Deep-link to Settings → AI; rendered as a "Configure AI" button in the
    *  empty state when AI is off / no key. Omitted in pop-outs (can't navigate). */
@@ -375,7 +376,7 @@ function ChatPanelInner({
   onChangeModel?: (model: string) => void;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
-  chatSeed?: { prompt: string; autoSend: boolean } | null;
+  chatSeed?: ChatSeed | null;
   onChatSeedConsumed?: () => void;
   /** Deep-link to Settings → AI; rendered as a "Configure AI" button in the
    *  empty state when AI is off / no key. Omitted in pop-outs (can't navigate). */
@@ -621,7 +622,15 @@ function ChatPanelInner({
   const apiKeyLocked =
     masterOn && !ai.apiKey.trim() && unlockedKey === null && isPassphraseLocked("anthropicApiKey");
 
-  async function submitPrompt(textArg?: string) {
+  // §703: the page a seed the send gate only PREFILLED was requested from, with its text as the
+  // box got it and the scope epoch it was made in. The next send uses it once, and only when it
+  // sends that text unchanged in the same scope; anything else, an edit in the box included (the
+  // composer's onChange clears it), is a message typed in the chat.
+  const prefillOriginRef = useRef<{ prompt: string; originView: AppView; epoch: number } | null>(null);
+
+  // `opts.originView` (§703) is set only by an auto-sent seed: the page the request came from. A
+  // prefilled seed's page comes from `prefillOriginRef` instead.
+  async function submitPrompt(textArg?: string, opts?: { originView?: AppView }) {
     const text = (textArg ?? input).trim().slice(0, CHAT_MESSAGE_MAX);
     const atts = attachments;
     // ★ `abortRef` is the STRUCTURAL single-flight bail (§321). `busy` is a
@@ -633,6 +642,14 @@ function ChatPanelInner({
       setError(t(lang, "chatNoApiKey"));
       return;
     }
+    const prefill = prefillOriginRef.current;
+    // ★ Defensive, and no test can see it: once this send empties the box, typing clears the ref
+    //   (the composer's onChange), a new seed replaces it, and dictation would have to produce the
+    //   seed's exact text. (The chips' prefill branch is unreachable today: every chip auto-sends.)
+    prefillOriginRef.current = null;
+    const originView =
+      opts?.originView ??
+      (prefill !== null && prefill.prompt === text && !isScopeStale(getScopeEpoch, prefill.epoch) ? prefill.originView : undefined);
     setError(null);
     setInput("");
     setAttachments([]);
@@ -696,7 +713,13 @@ function ChatPanelInner({
     const stale = () =>
       cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId || isScopeStale(getScopeEpoch, sendEpoch);
 
-    const snapshot = dispatcher.getSnapshot();
+    const snapshot = dispatcher.getSnapshot({ originView });
+    // §703: a `get_app_state` call later in this send answers with the same
+    // page, not the chat tab the press switched to, so the tool cannot
+    // contradict the turn context it was sent with. A typed send has no origin
+    // and keeps the dispatcher as it is.
+    const toolDispatcher: ToolDispatcher =
+      originView === undefined ? dispatcher : { ...dispatcher, getSnapshot: () => dispatcher.getSnapshot({ originView }) };
     const system = buildStableSystemBlocks(lang, snapshot, guides, ai.groundInGuides, ai);
     const turnContext = buildTurnContext(lang, snapshot, guides, ai.groundInGuides, ai);
     // ★★★ WIRE-ONLY. `messages` stays the PERSISTED history; the turn context is
@@ -892,7 +915,7 @@ function ChatPanelInner({
             let resultStr: string;
             let isError = false;
             try {
-              const r = await runTool(dispatcher, block.name, block.input);
+              const r = await runTool(toolDispatcher, block.name, block.input);
               resultStr = stringifyResult(r);
             } catch (err) {
               isError = true;
@@ -1276,16 +1299,23 @@ function ChatPanelInner({
   // fires effects in declaration order within the same commit, so when
   // `chatSeed` changes this gate-mirror (declared first) refreshes the ref
   // before the seed effect below reads it.
-  const sendGateRef = useRef<{ blocked: boolean; submit: (text?: string) => void; consume: () => void }>({
+  const sendGateRef = useRef<{
+    blocked: boolean;
+    submit: (text?: string, opts?: { originView?: AppView }) => void;
+    consume: () => void;
+    epoch: () => number;
+  }>({
     blocked: true,
     submit: () => {},
     consume: () => {},
+    epoch: () => 0,
   });
   useEffect(() => {
     sendGateRef.current = {
       blocked: guidesPending || apiKeyMissing || busy,
       submit: submitPrompt,
       consume: () => onChatSeedConsumed?.(),
+      epoch: getScopeEpoch,
     };
   });
 
@@ -1301,8 +1331,12 @@ function ChatPanelInner({
     const { prompt, autoSend } = chatSeed;
     // A seed is an external request (another view's requestChat), applied once per seed object.
     setInput((draft) => (!autoSend && draft.trim() !== "" ? `${draft.trimEnd()}\n${prompt}` : prompt));
-    if (chatSeed.autoSend && !sendGateRef.current.blocked) {
-      sendGateRef.current.submit(chatSeed.prompt);
+    const sendNow = chatSeed.autoSend && !sendGateRef.current.blocked;
+    prefillOriginRef.current = sendNow
+      ? null
+      : { prompt: prompt.trim().slice(0, CHAT_MESSAGE_MAX), originView: chatSeed.originView, epoch: sendGateRef.current.epoch() };
+    if (sendNow) {
+      sendGateRef.current.submit(chatSeed.prompt, { originView: chatSeed.originView });
     }
     sendGateRef.current.consume();
   }, [chatSeed]);
@@ -1674,7 +1708,11 @@ function ChatPanelInner({
           rows={2}
           maxLength={CHAT_MESSAGE_MAX}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            // §703: an edit makes the box the user's text, so a prefilled seed's page no longer applies.
+            prefillOriginRef.current = null;
+          }}
           onKeyDown={handleKeyDown}
           onFocus={registration.onFocus}
           onBlur={registration.onBlur}

@@ -56,6 +56,7 @@ import { useWorkspace } from "./workspace-context";
 import { useDocumentTools } from "./use-document-tools";
 import { useRegisterTools } from "./use-register-tools";
 import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
+import type { AppView } from "./nav-config";
 export type { ChatDispatcherArgs };
 
 /** The §422 `emails` refusal text, naming WHICH rule the address broke. */
@@ -212,6 +213,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     viewDigestRef.current = viewDigest;
   }, [viewDigest]);
+  // §703: the last page outside the chat tab, with the digest it had, as ONE
+  // pair (both come from the same render's `currentView`). An Ask-Claude send
+  // names the page it was requested from; by the time it is sent the chat tab
+  // may already be the current view, and its digest gone.
+  const lastPageRef = useRef<{ view: AppView; digest: string | undefined } | null>(null);
+  useEffect(() => {
+    if (args.currentView !== "chat") lastPageRef.current = { view: args.currentView, digest: viewDigest };
+  }, [args.currentView, viewDigest]);
   useEffect(() => {
     getDashboardModelRef.current = args.getDashboardModel;
   }, [args.getDashboardModel]);
@@ -909,8 +918,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         return true;
       },
 
-      getSnapshot: () => {
+      getSnapshot: (opts) => {
         const tasks = tasksRef.current;
+        // §703: an Ask-Claude send names the page it came from, never whatever
+        // the view ref holds when the chat's effect happens to run.
+        const origin = opts?.originView;
+        const page = lastPageRef.current;
+        const view = origin ?? viewRef.current;
+        const digest =
+          origin === undefined ? viewDigestRef.current : page?.view === origin ? page.digest : undefined;
         const groups = new Set<string>();
         const labels = new Set<string>();
         for (const tk of tasks) {
@@ -930,7 +946,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           knownLabels: Array.from(labels).sort(),
           mode: deriveMode(settingsRef.current.features),
           enabledModules: settingsRef.current.features as FeatureModuleId[],
-          currentView: viewRef.current,
+          currentView: view,
           insights: insightsRef.current ?? [],
           // Assembled by useViewDigest — needs pane state this hook lacks (health
           // filter, debounced search, view mode) to name the rows the pane ACTUALLY
@@ -940,7 +956,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           // effects flush); a mid-turn `get_app_state` right after a create can
           // return a digest predating that write. Not worth a synchronous mirror: the
           // digest describes the SCREEN, which has not repainted either.
-          viewDigest: viewDigestRef.current,
+          // ★ With an origin (§703) the digest is `lastPageRef`'s, written while the
+          //   user was last on that page. Until the user leaves the chat tab it does
+          //   not move, a write included, so a `get_app_state` call repeats the turn
+          //   context's value. The send keeps running if they leave it, and from then
+          //   on the call follows the last page they visited outside the chat: the
+          //   page's digest from their latest visit if it is the origin page, none
+          //   otherwise, back on the chat tab included. Never another page's digest.
+          viewDigest: digest,
           timezone: clockRef.current.tz,
           // ★ The toggle gate lives INSIDE summarizeForRecap (which also owns
           // the not-yet-existing settings field it reads), so a switched-off

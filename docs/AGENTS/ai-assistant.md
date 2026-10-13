@@ -1717,6 +1717,28 @@
   should fill them in for symmetry. Pure, i18n-free, **clock-free** (`today` passed in, unread by all
   four digests today but kept required so the first date-based digest doesn't have to touch every call
   site to add it).
+  ★★ **An auto-sent chat seed names the page it was requested from, NOT the dispatcher's view ref** (§703).
+  `requestChat` switches to the chat tab and stores the seed in one update, and the view ref follows
+  `currentView` in an effect of `TaskManager`, the parent, so a seeded send read whatever that ref held
+  when the chat's seed effect ran. Measured on the pre-fix code: a press with the panel already mounted
+  reported the page; a press that MOUNTED it reported `chat` — on the dashboard only before the panel's
+  lazy chunk had loaded, on Open Points (which renders no `WorkspaceSection`, so no panel) every time,
+  the chunk loaded or not. Why a mount in the press commit still read `chat` was not traced. The
+  seed now carries `ChatSeed.originView`, captured when `requestChat` is called, and `submitPrompt`
+  passes it to `getSnapshot({ originView })`, which reports that view and the digest the dispatcher last
+  held for it (none if the last page outside the chat tab was another one). ★ Do not "simplify" this back to
+  the view ref: a green run of a press on a mounted panel proves nothing, since that case was right
+  before the fix too. ★ The tool loop of such a send gets a dispatcher
+  whose `getSnapshot` passes the same origin, so a `get_app_state` call answers with the page too and cannot
+  contradict the turn context; a typed send keeps the plain dispatcher and answers `chat`. ★ A seed the
+  send gate only PREFILLS (guides pending, no key, a send in flight, or `autoSend` false) keeps its origin in
+  `prefillOriginRef` (`chat-panel.tsx`). The next send uses it ONCE, and only if it sends that text
+  unchanged in the same scope epoch; any typing in the box clears it (the composer's `onChange`), a seed
+  appended after a draft fails the text match, and a scope change fails the epoch, so each is a typed
+  message and reports `chat`. ★ A project swap normally never reaches the epoch check: the §548 load hold
+  unmounts the panel, ref and box together. The check is the backstop for one that keeps it mounted. ★ A
+  voice command the app does not recognise is routed to the chat as a prefill too
+  (`routeUnknownVoice` → `requestChat(text, false)`), so sent unchanged it names the page it was spoken on.
   ★★★ **The digest must describe what the user can actually SEE, and this took TWO corrections.** The
   input is assembled by **`use-view-digest.ts`**, not inline in the dispatcher — it needs pane state the
   dispatcher does not hold. ★★ Correction 1: an early revision fed the digest raw `tasks`. ★★★ Correction

@@ -17,6 +17,7 @@ import { t } from "./i18n";
 import { buildSystemPrompt, systemBlocksText } from "./chat-api";
 import { appliedProposalNotice } from "./chat-proposal-stage";
 import type { ToolDispatcher } from "./chat-tools";
+import type { AppView } from "./nav-config";
 import { defaultAiConfig as baseAiConfig } from "./settings-types";
 import type { OperatingGuide } from "./operating-guide";
 import type { FeatureModuleId } from "./feature-modules";
@@ -717,7 +718,7 @@ describe("SP1 seed + foundational chips", () => {
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
-        chatSeed={{ prompt: "Summarize risks", autoSend: false }}
+        chatSeed={{ prompt: "Summarize risks", autoSend: false, originView: "dashboard" }}
         onChatSeedConsumed={onChatSeedConsumed}
       />,
     );
@@ -735,7 +736,7 @@ describe("SP1 seed + foundational chips", () => {
     const { rerender } = render(<ChatPanel {...props} chatSeed={null} />);
     const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: "half-typed question" } });
-    rerender(<ChatPanel {...props} chatSeed={{ prompt: "Plan the kickoff", autoSend: false }} />);
+    rerender(<ChatPanel {...props} chatSeed={{ prompt: "Plan the kickoff", autoSend: false, originView: "dashboard" }} />);
     expect(textarea.value).toBe("half-typed question\nPlan the kickoff");
   });
 
@@ -743,27 +744,192 @@ describe("SP1 seed + foundational chips", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
     render(
       <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()}
-        chatSeed={{ prompt: "Plan the kickoff", autoSend: false }} onChatSeedConsumed={vi.fn()} />,
+        chatSeed={{ prompt: "Plan the kickoff", autoSend: false, originView: "dashboard" }} onChatSeedConsumed={vi.fn()} />,
       { reactStrictMode: true },
     );
     expect((screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement).value).toBe("Plan the kickoff");
   });
 
-  it("auto-sends the seed when autoSend is true and the key is present", async () => {
+  it("auto-sends the seed when autoSend is true and the key is present, naming the page it came from (§703)", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
     const onChatSeedConsumed = vi.fn();
+    const dispatcher = makeDispatcher();
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
         ai={AI_WITH_KEY}
-        dispatcher={makeDispatcher()}
+        dispatcher={dispatcher}
         onAcceptConsent={vi.fn()}
-        chatSeed={{ prompt: "What's next?", autoSend: true }}
+        chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }}
         onChatSeedConsumed={onChatSeedConsumed}
       />,
     );
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
     expect(onChatSeedConsumed).toHaveBeenCalledTimes(1);
+    expect(dispatcher.getSnapshot).toHaveBeenCalledWith({ originView: "dashboard" });
+  });
+
+  // §703: a seed the send gate only PREFILLS keeps the page it was requested
+  // from, and the user's later send of that text, unchanged, names it.
+  describe("a prefilled seed sent later", () => {
+    const GUIDES_AI = { ...AI_WITH_KEY, groundInGuides: true };
+    const seed = { prompt: "What's next?", autoSend: true, originView: "dashboard" as const };
+    function sendBox() {
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    }
+
+    it("names the page when the seed waited for the guides and is sent unchanged", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: GUIDES_AI, dispatcher, onAcceptConsent: vi.fn(), onChatSeedConsumed: vi.fn(), chatSeed: seed };
+      const { rerender } = render(<ChatPanel {...props} guidesReady={false} />);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      rerender(<ChatPanel {...props} guidesReady />);
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: "dashboard" });
+    });
+
+    it("names the page for a prefill-only seed sent unchanged", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      render(
+        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
+          chatSeed={{ ...seed, autoSend: false, originView: "gantt" }} onChatSeedConsumed={vi.fn()} />,
+      );
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: "gantt" });
+    });
+
+    it("sends an edited prefill as a typed message, with no page", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      render(
+        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
+          chatSeed={{ ...seed, autoSend: false }} onChatSeedConsumed={vi.fn()} />,
+      );
+      fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "What's next for me?" } });
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: undefined });
+    });
+
+    // No edit happens here: the box holds the draft and the seed together, so
+    // only the text match keeps this a typed message.
+    it("sends a seed appended after a draft as a typed message, with no page", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: AI_WITH_KEY, dispatcher, onAcceptConsent: vi.fn(), onChatSeedConsumed: vi.fn() };
+      const { rerender } = render(<ChatPanel {...props} chatSeed={null} />);
+      fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "my draft" } });
+      rerender(<ChatPanel {...props} chatSeed={{ ...seed, autoSend: false }} />);
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: undefined });
+    });
+
+    it("drops the page once the box is edited, even if the text is typed back", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      render(
+        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
+          chatSeed={{ ...seed, autoSend: false }} onChatSeedConsumed={vi.fn()} />,
+      );
+      const box = screen.getByPlaceholderText("Ask Claude about your tasks…");
+      fireEvent.change(box, { target: { value: "" } });
+      fireEvent.change(box, { target: { value: "What's next?" } });
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: undefined });
+    });
+
+    // ★ The keydown on a disabled box is not a user path, but the same early return is: an
+    //   auto-send chip stays enabled while guides load or a send is in flight, and its click
+    //   returns early with the prefill still pending. This pins that such a send leaves the
+    //   page for the real one.
+    it("keeps the page through a send that returned early", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: GUIDES_AI, dispatcher, onAcceptConsent: vi.fn(), onChatSeedConsumed: vi.fn(), chatSeed: seed };
+      const { rerender } = render(<ChatPanel {...props} guidesReady={false} />);
+      fireEvent.keyDown(screen.getByPlaceholderText("Loading operating guides…"), { key: "Enter" });
+      expect(fetchSpy).not.toHaveBeenCalled();
+      rerender(<ChatPanel {...props} guidesReady />);
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: "dashboard" });
+    });
+
+    it("drops the page once the project scope has changed", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      let epoch = 0;
+      render(
+        <ChatPanel {...SCOPE_PROPS} getScopeEpoch={() => epoch} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
+          chatSeed={{ ...seed, autoSend: false }} onChatSeedConsumed={vi.fn()} />,
+      );
+      epoch = 1;
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: undefined });
+    });
+  });
+
+  // §703: the request names the page an Ask-Claude press came from, and a
+  // `get_app_state` call later in the same send must not contradict it. The
+  // stub answers "chat" when no origin is passed, as the real dispatcher does
+  // once the chat tab is showing.
+  describe("get_app_state inside a send", () => {
+    type Block = { type: string; id?: string; name?: string; input?: unknown; text?: string; tool_use_id?: string; content?: unknown };
+    function toolTurnFetch(bodies: string[]) {
+      const usage = { input_tokens: 1, output_tokens: 1 };
+      const turns = [
+        { content: [{ type: "tool_use", id: "t1", name: "get_app_state", input: {} }], stop_reason: "tool_use", usage },
+        { content: [{ type: "text", text: "done" }], stop_reason: "end_turn", usage },
+      ];
+      return vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+        bodies.push(String(init?.body ?? ""));
+        const body = turns[Math.min(bodies.length - 1, turns.length - 1)];
+        return Promise.resolve({ ok: true, text: () => Promise.resolve(""), json: () => Promise.resolve(body) } as unknown as Response);
+      });
+    }
+    function viewDispatcher(): ToolDispatcher {
+      const d = makeDispatcher();
+      const base = d.getSnapshot();
+      d.getSnapshot = vi.fn((opts?: { originView?: AppView }) => ({ ...base, currentView: opts?.originView ?? ("chat" as const) }));
+      return d;
+    }
+    /** The `currentView` the get_app_state tool result carried in the second request. */
+    function toolResultView(body: string): unknown {
+      const msgs = (JSON.parse(body) as { messages: { content: unknown }[] }).messages;
+      const blocks = msgs.flatMap((m) => (Array.isArray(m.content) ? (m.content as Block[]) : []));
+      const result = blocks.find((b) => b.type === "tool_result" && b.tool_use_id === "t1");
+      return (JSON.parse(String(result?.content)) as { currentView?: unknown }).currentView;
+    }
+
+    it("answers with the page an auto-sent seed came from", async () => {
+      const bodies: string[] = [];
+      toolTurnFetch(bodies);
+      render(
+        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={viewDispatcher()} onAcceptConsent={vi.fn()}
+          chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }} onChatSeedConsumed={vi.fn()} />,
+      );
+      await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
+      expect(bodies).toHaveLength(2);
+      expect(toolResultView(bodies[1])).toBe("dashboard");
+    });
+
+    it("answers with the chat tab for a typed message", async () => {
+      const bodies: string[] = [];
+      toolTurnFetch(bodies);
+      render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={viewDispatcher()} onAcceptConsent={vi.fn()} />);
+      fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "where am I?" } });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+      await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
+      expect(bodies).toHaveLength(2);
+      expect(toolResultView(bodies[1])).toBe("chat");
+    });
   });
 
   it("does not auto-send when the api key is missing (seeds input only)", () => {
@@ -775,7 +941,7 @@ describe("SP1 seed + foundational chips", () => {
         ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "" }}
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
-        chatSeed={{ prompt: "What's next?", autoSend: true }}
+        chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }}
         onChatSeedConsumed={onChatSeedConsumed}
       />,
     );
@@ -793,7 +959,7 @@ describe("SP1 seed + foundational chips", () => {
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
         guidesReady={false}
-        chatSeed={{ prompt: "What's next?", autoSend: true }}
+        chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }}
         onChatSeedConsumed={onChatSeedConsumed}
       />,
     );

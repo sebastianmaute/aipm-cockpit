@@ -5,46 +5,47 @@
 // TYPED message always reports "chat"; whether an Ask-Claude auto-send reports
 // the page it was pressed on decides what a counted "switch" means in practice.
 //
-// ★★ MEASURED, 2026-10-13: an Ask-Claude press with the chat panel already
-//    mounted reports the page it was pressed on, so the counter sees a view
-//    switch between it and a typed follow-up. The press that MOUNTS the chat
-//    panel (the session's first) reports "chat" instead — the mechanism is not
-//    established, and the model is then not told which page the user asked
-//    about. That is the defect §703, and the test PINS it on purpose: fixing
-//    §703 turns the pin red, and the fix flips it to "dashboard". (Not
-//    `it.fails`, which passes on ANY failure, a timeout included, so it would
-//    go on passing when the press stopped sending at all.)
+// ★★ An Ask-Claude press reports the page it was pressed on, so the counter
+//    sees a view switch between it and a typed follow-up. Until §703 a press
+//    that MOUNTED the chat panel reported "chat": the report came from
+//    whichever value the view ref held when the chat's seed effect ran. The
+//    seed now carries the view it was requested from (`ChatSeed.originView`),
+//    so no auto-sent press depends on that.
+// ★★ WHEN the panel mounts at the press, measured 2026-10-13 against the
+//    pre-fix code by a throwaway probe of this file's own shape: on the
+//    dashboard the panel is in the tree and its lazy chunk loads by itself, so
+//    a press made once it had loaded reported "dashboard", and only one made
+//    before it had (the test below) reported "chat". Open Points renders no
+//    WorkspaceSection, so the panel is not mounted there at all, and a press
+//    from it reported "chat" even with the chunk already loaded
+//    (`task-manager.ask-claude-open-points.test.tsx`). So the lazy chunk is not
+//    the whole story; why a mount in the press commit still read "chat" was
+//    not traced.
+// ★★ This file must keep the chat chunk UNLOADED until its first press, so a
+//    test that loads it first belongs in another file — see the header of
+//    `src/test/ask-claude-harness.ts` for the order dependence that caused.
 //
-// ★ Full mount on purpose: the answer depends on React's effect ORDER between
-//   ChatPanel's seed effect (a child, which submits synchronously) and
-//   useChatDispatcher's view-ref effect (in TaskManager, the parent). A
-//   harness of either half alone could not see it.
+// ★ Full mount on purpose, as a regression guard: the old answer depended on
+//   when ChatPanel's seed effect (a child, which submits synchronously) ran
+//   relative to useChatDispatcher's view-ref effect (in TaskManager, the
+//   parent), and how that timing played out was not fully traced (above). A
+//   harness of either half alone could not see a regression back to that.
 import "fake-indexeddb/auto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
-import { SETTINGS_KEY } from "./use-settings";
-import { defaultAiConfig } from "./settings-types";
 import TaskManager from "./task-manager";
+import {
+  askFromHere,
+  mockClaude,
+  reportedView,
+  seedAiSettings,
+  seedRegistry,
+  waitForGuides,
+  type WireBody,
+} from "../test/ask-claude-harness";
 
-function seedRegistry() {
-  window.localStorage.setItem(
-    "aipm-cockpit:projects",
-    JSON.stringify({
-      projects: [{ id: "p1", name: "Seed", code: "SEED", storageConfig: { kind: "browser" } }],
-      currentProjectId: "p1",
-    }),
-  );
-}
-
-// The guide library loads asynchronously, and a press made before it is ready
-// only PREFILLS the box: ChatPanel's send gate blocks while guides are pending.
-// Count the store's loads so the test can wait until every one has settled.
-// ★ The count stands in for readiness ONLY on the localStorage backend this
-//   test uses (no Turso config): `refresh` marks the library loaded a
-//   microtask after the last load settles, and its save-then-reload gap is
-//   microtask-only too. Against Turso that gap is a network wait, and a
-//   settled count could read true before the reload starts — don't copy it.
+// Counts the guide store's loads for `waitForGuides` (the harness says why).
 const guideLoads = vi.hoisted(() => ({ started: 0, settled: 0 }));
 vi.mock("./operating-guide-store", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./operating-guide-store")>();
@@ -61,13 +62,6 @@ vi.mock("./operating-guide-store", async (importOriginal) => {
   };
 });
 
-type WireBody = { system: { text: string }[]; messages: unknown[] };
-
-/** The `Current view:` line the request's turn context carried. */
-function reportedView(body: WireBody): string | undefined {
-  return JSON.stringify(body.messages).match(/Current view: ([\w-]+)\./)?.[1];
-}
-
 describe("§702 — the view an Ask-Claude send reports", () => {
   beforeEach(() => {
     __resetMintStateForTests();
@@ -81,37 +75,11 @@ describe("§702 — the view an Ask-Claude send reports", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("reports the page for an Ask-Claude press once the chat is mounted, the chat tab for a typed message, and (§703) the chat tab for the press that mounts it", async () => {
+  it("reports the page for every Ask-Claude press, the first included (§703), and the chat tab for a typed message", async () => {
     seedRegistry();
-    window.localStorage.setItem(
-      SETTINGS_KEY,
-      JSON.stringify({ ai: { ...defaultAiConfig, enabled: true, consentAccepted: true, apiKey: "sk-test" } }),
-    );
+    seedAiSettings();
     const bodies: WireBody[] = [];
-    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-      if (url.includes("/v1/messages")) {
-        bodies.push(JSON.parse(String(init?.body)) as WireBody);
-        return Promise.resolve({
-          ok: true,
-          text: () => Promise.resolve(""),
-          json: () =>
-            Promise.resolve({
-              content: [{ type: "text", text: "done" }],
-              stop_reason: "end_turn",
-              usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
-            }),
-        } as unknown as Response);
-      }
-      if (url.includes("/v1/models")) {
-        return Promise.resolve({
-          ok: true,
-          text: () => Promise.resolve(""),
-          json: () => Promise.resolve({ data: [] }),
-        } as unknown as Response);
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url}`));
-    });
+    mockClaude(bodies);
 
     render(<TaskManager />);
     const header = await screen.findByRole("banner", undefined, { timeout: 15_000 });
@@ -119,28 +87,17 @@ describe("§702 — the view an Ask-Claude send reports", () => {
     // The landing view, which the request should name if it reports the page.
     expect(window.location.hash).toBe("#dashboard");
 
-    const askFromHere = async (n: number) => {
-      fireEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "Ask Claude" }));
-      const menu = await screen.findByRole("dialog", { name: "Ask Claude" });
-      fireEvent.click(within(menu).getAllByRole("button")[0]);
-      await waitFor(() => expect(bodies).toHaveLength(n), { timeout: 15_000 });
-    };
     expect(ask).toBeInTheDocument();
-    await waitFor(
-      () => {
-        expect(guideLoads.settled).toBeGreaterThan(0);
-        expect(guideLoads.settled).toBe(guideLoads.started);
-      },
-      { timeout: 15_000 },
-    );
-    // Before the first press the chat panel is not mounted (in either composer
-    // state); the box found after the press is the positive half of that check.
+    await waitForGuides(guideLoads);
+    // Before the first press the panel's lazy chunk has not loaded yet (no
+    // composer in either state); the box found after the press is the positive
+    // half of that check.
     expect(screen.queryByPlaceholderText("Ask Claude about your tasks…")).toBeNull();
     expect(screen.queryByPlaceholderText("Loading operating guides…")).toBeNull();
-    await askFromHere(1);
-    // §703, PINNED: the press that mounts the panel reports the chat tab, not
-    // the dashboard it was pressed on. Fixing §703 turns this red; flip it.
-    expect(reportedView(bodies[0])).toBe("chat");
+    await askFromHere(bodies, 1);
+    // §703: a press made before the chunk loads reports the dashboard it was
+    // pressed on. It reported the chat tab until the seed carried its origin.
+    expect(reportedView(bodies[0])).toBe("dashboard");
 
     // The chat tab is showing now; a typed follow-up reports it.
     const box = await screen.findByPlaceholderText("Ask Claude about your tasks…");
@@ -155,7 +112,7 @@ describe("§702 — the view an Ask-Claude send reports", () => {
       window.location.hash = "#dashboard";
     });
     await waitFor(() => expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).not.toBeVisible());
-    await askFromHere(3);
+    await askFromHere(bodies, 3);
     expect(reportedView(bodies[2])).toBe("dashboard");
 
     // So that send carries a different view-guide block than the typed message
