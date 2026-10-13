@@ -57,6 +57,60 @@ describe("I1 — a month header merged over two sub-columns asks for the period"
   });
 });
 
+/** Six people, each on a person row and a merged-person row below it. */
+function mergedPeopleWide(first: string, second: string): string[][] {
+  return [
+    ["Name", "Art", "Jan 2026", "Feb 2026", "Mär 2026"],
+    ...PEOPLE.flatMap((p) => [[p, first, "10", "20", "30"], ["", second, "100", "110", "120"]]),
+  ];
+}
+
+function mergedPeopleLong(first: string, second: string): string[][] {
+  return [
+    ["Name", "Monat", "Art", "Stunden"],
+    ...PEOPLE.flatMap((p) => [[p, "Jan 2026", first, "10"], ["", "Jan 2026", second, "100"]]),
+  ];
+}
+
+/** The 0-based rows of the merged-person rows: every second row from row 2. */
+const CONTINUATION_ROWS = PEOPLE.map((_, i) => 2 + 2 * i);
+
+describe("I2 — a person merged over several rows asks", () => {
+  it("wide Name | Art | months: the blank-person Plan rows are a continuation question", () => {
+    const detected = detectLayout(mergedPeopleWide("Ist", "Plan"), { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "wide", person: 0, periodCols: [2, 3, 4] });
+    expect(detected.ambiguous).toEqual([{ field: "continuation", candidates: CONTINUATION_ROWS, samples: ["Ist", "Plan"] }]);
+  });
+
+  it("the long twin Name | Monat | Art | Stunden asks the same", () => {
+    const detected = detectLayout(mergedPeopleLong("Ist", "Plan"), { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", person: 0, period: 1, hours: 3 });
+    expect(detected.ambiguous).toEqual([{ field: "continuation", candidates: CONTINUATION_ROWS, samples: ["Ist", "Plan"] }]);
+  });
+
+  it("a Claude mapping of either sheet is asked the same", () => {
+    expect(questionsFor(mergedPeopleWide("Ist", "Plan"), { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3, 4], year: 2026 }))
+      .toEqual([{ field: "continuation", candidates: CONTINUATION_ROWS, samples: ["Ist", "Plan"] }]);
+    expect(questionsFor(mergedPeopleLong("Ist", "Plan"), { layout: "long", headerRow: 0, person: 0, period: 1, hours: 3, year: 2026 }))
+      .toEqual([{ field: "continuation", candidates: CONTINUATION_ROWS, samples: ["Ist", "Plan"] }]);
+  });
+
+  it("an unlabelled total row at the bottom asks too, with no samples: it is never summed into the last person", () => {
+    const rows = [["Name", "Jan 2026", "Feb 2026", "Mär 2026"], ...PEOPLE.map((p) => [p, "10", "20", "30"]), ["", "60", "120", "180"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([{ field: "continuation", candidates: [7], samples: [] }]);
+  });
+
+  it("a blank-person spacer row with no numbers does not ask", () => {
+    const rows = [["Name", "Art", "Jan 2026", "Feb 2026", "Mär 2026"], ...PEOPLE.flatMap((p) => [[p, "Plan", "10", "20", "30"], ["", "-", "", "", ""]])];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+
+  it("a total row labelled in the person column behaves as today", () => {
+    const rows = [["Name", "Jan 2026", "Feb 2026", "Mär 2026"], ...PEOPLE.map((p) => [p, "10", "20", "30"]), ["Summe", "60", "120", "180"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+});
+
 describe("M4 — an N/YYYY header run that continues past 12 asks", () => {
   const header = (n: number): string[] => Array.from({ length: n }, (_, i) => `${String(i + 1).padStart(2, "0")}/2026`);
 

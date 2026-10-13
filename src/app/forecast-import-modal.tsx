@@ -258,7 +258,24 @@ const AMBIGUOUS_KEY: Record<ColumnAmbiguity["field"], TranslationKey> = {
   period: "forecastImportAmbiguousPeriod",
   header: "forecastImportAmbiguousHeader",
   rows: "forecastImportAmbiguousRows",
+  continuation: "forecastImportAmbiguousContinuation",
+  sheet: "forecastImportAmbiguousSheet",
 };
+/** Rows a continuation notice names before it ends in "…": a merged person
+ *  column can leave every second row of a long sheet without a person. */
+const MAX_NAMED_ROWS = 5;
+
+/** A notice's text: rows and continuations quote their samples (a continuation
+ *  without any reads the plain variant). */
+function noticeText(lang: Lang, a: ColumnAmbiguity, names: string): string {
+  if (a.field === "rows") return t(lang, AMBIGUOUS_KEY.rows, names, a.samples.join(", "));
+  if (a.field === "continuation") {
+    return a.samples.length === 0
+      ? t(lang, "forecastImportAmbiguousContinuationPlain", names)
+      : t(lang, AMBIGUOUS_KEY.continuation, names, a.samples.join(", "));
+  }
+  return t(lang, AMBIGUOUS_KEY[a.field], names);
+}
 
 /** The Wide notice's candidate columns, by letter and header (round 7: it once named none). */
 function wideNames(columns: readonly ColumnAmbiguity[], nameOf: (col: number) => string): string {
@@ -273,19 +290,27 @@ function wideNames(columns: readonly ColumnAmbiguity[], nameOf: (col: number) =>
  *  ★ In the Wide layout there is no hours or period select to choose from, so
  *  ONE notice asks to check the mapping instead (rr8 m2). One person's
  *  differing rows (round 9 I-W) name their columns and sample values in either
- *  layout; only the button accepts their sum. ★★ Claude's mapping opens with
- *  its own notice and the button, with or without a question: only the press
- *  confirms it. */
+ *  layout; only the button accepts their sum. Rows with no person (final
+ *  review 3, I2) name their rows, and two detectable sheets (M1) their sheets.
+ *  ★★ Claude's mapping opens with its own notice and the button, with or
+ *  without a question: only the press confirms it. */
 function AmbiguityNotice({ lang, fi, header, layout }: { lang: Lang; fi: ForecastImport; header: readonly string[]; layout: Draft["layout"] }) {
   const nameOf = (col: number): string => {
     const label = (header[col] ?? "").trim();
     return label === "" ? columnLetters(col) : `${columnLetters(col)}: ${label}`;
   };
-  // A header ambiguity names its candidate ROWS (1-based), in either layout.
-  const namesOf = (a: ColumnAmbiguity): string =>
-    (a.field === "header" ? a.candidates.map((row) => String(row + 1)) : a.candidates.map(nameOf)).join(", ");
+  const rowNames = (rows: readonly number[], max = Infinity): string =>
+    [...rows.slice(0, max).map((row) => String(row + 1)), ...(rows.length > max ? ["…"] : [])].join(", ");
+  // A header or continuation ambiguity names its candidate ROWS (1-based), a
+  // sheet ambiguity its sheets, in either layout.
+  const namesOf = (a: ColumnAmbiguity): string => {
+    if (a.field === "header") return rowNames(a.candidates);
+    if (a.field === "continuation") return rowNames(a.candidates, MAX_NAMED_ROWS);
+    if (a.field === "sheet") return a.candidates.map((i) => fi.sheets[i]?.name ?? String(i + 1)).join(", ");
+    return a.candidates.map(nameOf).join(", ");
+  };
   const columns = fi.ambiguous.filter((a) => a.field === "hours" || a.field === "period");
-  const shown = layout === "wide" ? fi.ambiguous.filter((a) => a.field === "header" || a.field === "rows") : fi.ambiguous;
+  const shown = layout === "wide" ? fi.ambiguous.filter((a) => a.field !== "hours" && a.field !== "period") : fi.ambiguous;
   // The notes sit inside a sentence that ends with its own full stop.
   const notesText = fi.notes.trim().replace(/[.!]+$/, "");
   return (
@@ -299,9 +324,7 @@ function AmbiguityNotice({ lang, fi, header, layout }: { lang: Lang; fi: Forecas
         <Banner severity="warn">{t(lang, "forecastImportAmbiguousWide", wideNames(columns, nameOf))}</Banner>
       )}
       {shown.map((a) => (
-        <Banner key={a.field} severity="warn">
-          {a.field === "rows" ? t(lang, AMBIGUOUS_KEY[a.field], namesOf(a), a.samples.join(", ")) : t(lang, AMBIGUOUS_KEY[a.field], namesOf(a))}
-        </Banner>
+        <Banner key={a.field} severity="warn">{noticeText(lang, a, namesOf(a))}</Banner>
       ))}
       <Button variant="secondary" size="xs" onClick={fi.confirmColumns}>
         {t(lang, "forecastImportConfirmColumns")}

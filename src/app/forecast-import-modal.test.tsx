@@ -10,6 +10,7 @@ import type { BudgetBucket, Resource, ResourcePlan, Role } from "./types";
 import { t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { ForecastImportModal, type ForecastImportModalProps } from "./forecast-import-modal";
+import { buildZip } from "./zip";
 
 vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
 import { useSettings } from "./use-settings";
@@ -665,5 +666,54 @@ describe("ForecastImportModal — Claude's choice of one block of a Plan/Ist she
     fireEvent.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutLong") }));
     fireEvent.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutWide") }));
     expect(found("D: Jan 2026, E: Feb 2026, F: Jan 2026, G: Feb 2026")).toBeInTheDocument();
+  });
+});
+
+// Final review 3: the new questions name their rows (I2).
+describe("ForecastImportModal — the merged-person notice (final review 3)", () => {
+  async function choose(text: string): Promise<void> {
+    const input = screen.getByLabelText(t(L, "forecastImportFile"));
+    fireEvent.change(input, { target: { files: [new File([text], "forecast.csv", { type: "text/csv" })] } });
+    await screen.findByRole("button", { name: t(L, "forecastImportConfirmColumns") });
+  }
+
+  it("names the rows with no person and their text, and keeps Apply waiting", async () => {
+    const rows = ["Name;Art;Jan 2026;Feb 2026;Mär 2026", "Ann Lee;Ist;10;20;30", ";Plan;100;110;120", "Bob Ray;Ist;1;2;3", ";Plan;4;5;6"];
+    render(<ForecastImportModal {...propsOf()} />);
+    await choose(`${rows.join("\r\n")}\r\n`);
+    expect(screen.getByText(t(L, "forecastImportAmbiguousContinuation", "3, 5", "Ist, Plan"))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
+    expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeDisabled();
+  });
+
+  it("an unlabelled total row reads the plain notice", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await choose("Name;Jan 2026;Feb 2026;Mar 2026\r\nAnn Lee;10;20;30\r\n;10;20;30\r\n");
+    expect(screen.getByText(t(L, "forecastImportAmbiguousContinuationPlain", "3"))).toBeInTheDocument();
+  });
+});
+
+describe("ForecastImportModal — two detectable sheets (final review 3, M1)", () => {
+  it("names both sheets, keeps Apply waiting, and choosing a sheet in the Sheet select confirms it", async () => {
+    const str = (ref: string, text: string) => `<c r="${ref}" t="inlineStr"><is><t>${text}</t></is></c>`;
+    const sheetXml = (h: string) => `<worksheet><sheetData><row r="1">${str("A1", "Name")}${str("B1", "Jan 2026")}${str("C1", "Feb 2026")}${str("D1", "Mar 2026")}</row>`
+      + `<row r="2">${str("A2", "Ann Lee")}<c r="B2"><v>${h}</v></c><c r="C2"><v>${h}</v></c><c r="D2"><v>${h}</v></c></row></sheetData></worksheet>`;
+    const blob = buildZip([
+      { path: "xl/workbook.xml", data: `<workbook><sheets><sheet name="Ist" sheetId="1" r:id="rId1"/><sheet name="Forecast" sheetId="2" r:id="rId2"/></sheets></workbook>` },
+      { path: "xl/_rels/workbook.xml.rels", data: `<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/></Relationships>` },
+      { path: "xl/worksheets/sheet1.xml", data: sheetXml("9") },
+      { path: "xl/worksheets/sheet2.xml", data: sheetXml("12") },
+    ]);
+    const props = propsOf();
+    render(<ForecastImportModal {...props} />);
+    fireEvent.change(screen.getByLabelText(t(L, "forecastImportFile")), { target: { files: [new File([await blob.arrayBuffer()], "forecast.xlsx")] } });
+    expect(await screen.findByText(t(L, "forecastImportAmbiguousSheet", "Ist, Forecast"))).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: t(L, "forecastImportSheet") }), { target: { value: "1" } });
+    const apply = await screen.findByRole("button", { name: t(L, "forecastImportApply") });
+    await waitFor(() => expect(apply).toBeEnabled());
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousSheet", "Ist, Forecast"))).toBeNull();
+    fireEvent.click(apply);
+    expect(props.onChangeBuckets).toHaveBeenCalledTimes(1);
   });
 });

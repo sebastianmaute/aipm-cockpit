@@ -39,10 +39,18 @@ export type ColumnMapping = {
  *  but the dialog asks the user to confirm it before anything is applied (fix
  *  7: the owner's "ask, don't guess"; `header`: fix 9 OOS-c). `rows` (round 9
  *  I-W, `differingRows`): one person's rows differ in the `candidates` text
- *  columns, `samples` quoting their values; confirming accepts the sum. */
+ *  columns, `samples` quoting their values; confirming accepts the sum.
+ *  `continuation` (final review 3, I2, `continuationRows`): `candidates` are
+ *  0-based ROWS with no person but a number in a read column, below a person
+ *  row (a person cell merged over several rows, or an unlabelled total);
+ *  `samples` quote the text that tells the first one from the row above, if
+ *  any. Confirming accepts that they are not read. `sheet` (final review 3,
+ *  M1, the hook's own question): `candidates` are the 0-based SHEETS a layout
+ *  is detected on, two or more; choosing a sheet confirms it. */
 export type ColumnAmbiguity =
-  | { field: "hours" | "period" | "header"; candidates: number[] }
-  | { field: "rows"; candidates: number[]; samples: string[] };
+  | { field: "hours" | "period" | "header" | "sheet"; candidates: number[] }
+  | { field: "rows"; candidates: number[]; samples: string[] }
+  | { field: "continuation"; candidates: number[]; samples: string[] };
 
 /** A column, at any position and in either layout, that the import did not read
  *  although most data rows hold a number in it: not a mapped field, and its

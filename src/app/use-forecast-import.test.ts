@@ -14,7 +14,7 @@ import type { BudgetBucket, Resource, ResourcePlan, Role } from "./types";
 import { AiHttpError } from "./ai-errors";
 import { MAX_ATTACHMENT_BYTES } from "./chat-attachments";
 import { buildZip } from "./zip";
-import { gridToForecastRows } from "./budget-import/forecast-rows";
+import { columnLetters, gridToForecastRows } from "./budget-import/forecast-rows";
 import { forecastImportErrorOf, useForecastImport, wideMappingFor, type ForecastImportDeps } from "./use-forecast-import";
 
 vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
@@ -1245,5 +1245,127 @@ describe("useForecastImport — a Claude long mapping that leaves out the year c
     act(() => result.current.showPreview());
     expect(applyOutcome(result)).toBe("applied");
     expect(hoursWrittenBy(deps)).toEqual({ "2026-01": 5, "2027-01": 10, "2027-02": 3 });
+  });
+});
+
+// Final review 3 (I1, I2, M1): Excel's merged cells, and a workbook with more
+// than one detectable sheet, went straight to the preview and wrote the left
+// or top sub-column (or the first sheet's actuals) with no question.
+describe("useForecastImport — merged cells and several detectable sheets (final review 3)", () => {
+  const PEOPLE = ["Ann Lee", "Bob Ray", "Cem Oz", "Dana Fox", "Eli Roe", "Fay Wu"];
+  const str = (ref: string, text: string) => `<c r="${ref}" t="inlineStr"><is><t>${text}</t></is></c>`;
+  const num = (ref: string, value: string) => `<c r="${ref}"><v>${value}</v></c>`;
+  const sheetXml = (grid: readonly (readonly string[])[]): string => `<worksheet><sheetData>${grid.map((cells, r) => `<row r="${r + 1}">${cells.map((cell, c) => {
+    const ref = `${columnLetters(c)}${r + 1}`;
+    if (cell === "") return "";
+    return /^\d+$/.test(cell) ? num(ref, cell) : str(ref, cell);
+  }).join("")}</row>`).join("")}</sheetData></worksheet>`;
+  const workbook = async (sheets: readonly { name: string; grid: readonly (readonly string[])[] }[]): Promise<File> => {
+    const blob = buildZip([
+      { path: "xl/workbook.xml", data: `<workbook><sheets>${sheets.map((s, i) => `<sheet name="${s.name}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>` },
+      { path: "xl/_rels/workbook.xml.rels", data: `<Relationships>${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}</Relationships>` },
+      ...sheets.map((s, i) => ({ path: `xl/worksheets/sheet${i + 1}.xml`, data: sheetXml(s.grid) })),
+    ]);
+    return new File([await blob.arrayBuffer()], "forecast.xlsx");
+  };
+  const csvOf = (grid: readonly (readonly string[])[]): string => grid.map((r) => r.join(";")).join("\r\n") + "\r\n";
+  const resources: Resource[] = PEOPLE.map((p, i) => {
+    const [firstName, lastName] = p.split(" ");
+    return { id: i + 1, firstName, lastName, roleId: ROLE.id, utilizationMode: "percent", utilization: {} };
+  });
+  const loadFileNow = async (deps: ForecastImportDeps, file: File) => {
+    const hook = renderHook((d: ForecastImportDeps) => useForecastImport(d), { initialProps: deps });
+    await act(async () => {
+      await hook.result.current.loadFile(file);
+    });
+    return hook;
+  };
+  /** Opens the preview and checks that Apply is refused and nothing written. */
+  const refusedBeforeConfirmation = (result: Hook, deps: ForecastImportDeps) => {
+    expect(result.current.step).toBe("mapping");
+    act(() => result.current.showPreview());
+    expect(applyOutcome(result)).toBe("refused");
+    expect(result.current.error).toEqual({ key: "forecastImportConfirmFirst" });
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  };
+
+  /** `Name | <m> | (blank) …` over a sub-header row; the first sub-column holds 10/20/30. */
+  const mergedMonths = (months: readonly string[], sub: readonly [string, string]): string[][] => [
+    ["Name", ...months.flatMap((m) => [m, ""])],
+    ["", ...months.flatMap(() => [...sub])],
+    ...PEOPLE.map((p) => [p, "10", "100", "20", "110", "30", "120"]),
+  ];
+
+  it.each([
+    ["CSV, Ist first", "csv", ["Jan 2026", "Feb 2026", "Mär 2026"], ["Ist", "Plan"]],
+    ["CSV, Plan first", "csv", ["Jan 2026", "Feb 2026", "Mär 2026"], ["Plan", "Ist"]],
+    ["CSV, € | Std", "csv", ["Jan 2026", "Feb 2026", "Mär 2026"], ["€", "Std"]],
+    ["workbook serials, Actual first", "xlsx", ["46023", "46054", "46082"], ["Actual", "Forecast"]],
+    ["workbook serials, € | Std", "xlsx", ["46023", "46054", "46082"], ["€", "Std"]],
+  ] as const)("I1, %s: opens on the mapping step, Apply refused, no sub-column figure written before the confirmation", async (_label, kind, months, sub) => {
+    const deps = depsOf({ resources });
+    const grid = mergedMonths(months, sub);
+    const file = kind === "csv" ? csvFile(csvOf(grid)) : await workbook([{ name: "Plan", grid }]);
+    const { result } = await loadFileNow(deps, file);
+    expect(result.current.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4, 5, 6] }]);
+    refusedBeforeConfirmation(result, deps);
+    act(() => result.current.confirmColumns());
+    expect(applyOutcome(result)).toBe("applied");
+  });
+
+  it.each([
+    ["wide", [["Name", "Art", "Jan 2026", "Feb 2026", "Mär 2026"], ...PEOPLE.flatMap((p) => [[p, "Ist", "10", "20", "30"], ["", "Plan", "100", "110", "120"]])]],
+    ["long", [["Name", "Monat", "Art", "Stunden"], ...PEOPLE.flatMap((p) => [[p, "Jan 2026", "Ist", "10"], ["", "Jan 2026", "Plan", "100"]])]],
+  ] as const)("I2, %s: a person merged over two rows opens on the mapping step, Apply refused before the confirmation", async (_label, grid) => {
+    const deps = depsOf({ resources });
+    const { result } = await loadFileNow(deps, csvFile(csvOf(grid)));
+    expect(result.current.ambiguous).toEqual([{ field: "continuation", candidates: [2, 4, 6, 8, 10, 12], samples: ["Ist", "Plan"] }]);
+    refusedBeforeConfirmation(result, deps);
+    act(() => result.current.confirmColumns());
+    expect(result.current.ambiguous).toEqual([]);
+    expect(applyOutcome(result)).toBe("applied");
+  });
+
+  const SAME_SHAPE = (h: string) => [["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Ann Lee", h, h, h]];
+
+  it("M1: two detectable sheets open on the mapping step with a sheet question; Apply waits; choosing a sheet confirms it", async () => {
+    const deps = depsOf();
+    const { result } = await loadFileNow(deps, await workbook([{ name: "Ist", grid: SAME_SHAPE("9") }, { name: "Forecast", grid: SAME_SHAPE("12") }]));
+    expect(result.current.sheetIndex).toBe(0);
+    expect(result.current.ambiguous).toEqual([{ field: "sheet", candidates: [0, 1] }]);
+    refusedBeforeConfirmation(result, deps);
+    act(() => result.current.selectSheet(1));
+    expect(result.current.ambiguous).toEqual([]);
+    expect(result.current.step).toBe("preview");
+    expect(applyOutcome(result)).toBe("applied");
+    expect(hoursWrittenBy(deps)).toEqual({ "2026-01": 12, "2026-02": 12, "2026-03": 12 });
+  });
+
+  it("M1: \"These columns are right\" confirms the sheet too; Detect columns and Ask Claude ask again", async () => {
+    claudeResponds(WIDE_MAPPING);
+    const deps = depsOf();
+    const { result } = await loadFileNow(deps, await workbook([{ name: "Ist", grid: SAME_SHAPE("9") }, { name: "Forecast", grid: SAME_SHAPE("12") }]));
+    act(() => result.current.confirmColumns());
+    expect(result.current.ambiguous).toEqual([]);
+    act(() => result.current.detectColumns());
+    expect(result.current.ambiguous).toEqual([{ field: "sheet", candidates: [0, 1] }]);
+    expect(result.current.step).toBe("mapping");
+    act(() => result.current.confirmColumns());
+    await askClaudeNow(result);
+    expect(result.current.ambiguous).toEqual([{ field: "sheet", candidates: [0, 1] }]);
+    act(() => result.current.confirmColumns());
+    expect(result.current.ambiguous).toEqual([]);
+    act(() => result.current.showPreview());
+    expect(applyOutcome(result)).toBe("applied");
+    expect(hoursWrittenBy(deps)).toEqual({ "2026-01": 9, "2026-02": 9, "2026-03": 9 });
+  });
+
+  it("M1: one detectable sheet behaves as today", async () => {
+    const deps = depsOf();
+    const { result } = await loadFileNow(deps, await workbook([{ name: "Notes", grid: [["just", "words"]] }, { name: "Forecast", grid: SAME_SHAPE("12") }]));
+    expect(result.current.sheetIndex).toBe(1);
+    expect(result.current.ambiguous).toEqual([]);
+    expect(result.current.step).toBe("preview");
+    expect(applyOutcome(result)).toBe("applied");
   });
 });

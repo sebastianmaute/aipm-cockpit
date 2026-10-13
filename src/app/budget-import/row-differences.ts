@@ -1,5 +1,6 @@
 // src/app/budget-import/row-differences.ts — one person on several rows that
-// differ in another TEXT column (§500, round 9 I-W). Pure: no i18n, no React.
+// differ in another TEXT column (§500, round 9 I-W), and rows with no person
+// below a person row (final review 3, I2). Pure: no i18n, no React.
 
 import { cellAt, isBlank, isNumberCell, isTotalLabel, readingEnd } from "./forecast-rows";
 import type { ColumnAmbiguity, ColumnMapping } from "./forecast-types";
@@ -11,6 +12,7 @@ const MAX_SAMPLES = 3;
 const MAX_SAMPLE_CHARS = 40;
 
 type RowsAmbiguity = Extract<ColumnAmbiguity, { field: "rows" }>;
+type ContinuationAmbiguity = Extract<ColumnAmbiguity, { field: "continuation" }>;
 
 /** A cell that is TEXT: not blank, not a number, not a period. */
 function isTextCell(cell: string, numbers: NumberOrigin): boolean {
@@ -25,9 +27,14 @@ function mappedColumns(mapping: ColumnMapping): Set<number> {
   return new Set(cols.filter((c): c is number => c !== undefined));
 }
 
+/** The columns the mapping reads hours from. */
+function valueColumnsOf(mapping: ColumnMapping): (number | undefined)[] {
+  return mapping.layout === "wide" ? (mapping.periodCols ?? []) : [mapping.hours];
+}
+
 /** The data rows the hand route reads, grouped by person (and, long, by period). */
 function rowsByPerson(rows: readonly string[][], mapping: ColumnMapping, numbers: NumberOrigin): Map<string, (readonly string[])[]> {
-  const valueCols = mapping.layout === "wide" ? (mapping.periodCols ?? []) : [mapping.hours];
+  const valueCols = valueColumnsOf(mapping);
   const groups = new Map<string, (readonly string[])[]>();
   const end = readingEnd(rows, mapping, numbers);
   for (let index = mapping.headerRow + 1; index < end; index++) {
@@ -67,4 +74,49 @@ export function differingRows(rows: readonly string[][], mapping: ColumnMapping,
     }
   }
   return candidates.size === 0 ? null : { field: "rows", candidates: [...candidates].sort((a, b) => a - b), samples };
+}
+
+/** The text that tells `row` from the person row `above` in a column the
+ *  mapping does not read (`Ist` over `Plan`), both values; else none. */
+function differingText(above: readonly string[], row: readonly string[], mapped: ReadonlySet<number>, numbers: NumberOrigin): string[] {
+  const width = Math.max(above.length, row.length);
+  for (let col = 0; col < width; col++) {
+    if (mapped.has(col)) continue;
+    const pair = [cellAt(above, col).trim(), cellAt(row, col).trim()];
+    if (pair[0] !== pair[1] && pair.some((v) => isTextCell(v, numbers))) return pair.filter((v) => v !== "").map(clip);
+  }
+  return [];
+}
+
+/**
+ * ★★★ The rows of the reading with NO person but a number in a read column,
+ * below a person row (final review 3, I2): Excel keeps a person cell merged
+ * over two rows (`Ann Lee | Ist` over `(blank) | Plan`) in its TOP cell only,
+ * so the second row was dropped as "no person" and the first imported
+ * straight to the preview — the actuals, or one of two projects. The person
+ * is never carried down: an unlabelled total row at the bottom would then be
+ * summed into the last person. A row holding a total label in any cell, a
+ * spacer with no number, and rows above the first person row do not ask.
+ * `candidates` are the rows (0-based), `samples` the first one's text beside
+ * the person row's (`differingText`).
+ */
+export function continuationRows(rows: readonly string[][], mapping: ColumnMapping, numbers: NumberOrigin = "text"): ContinuationAmbiguity | null {
+  const valueCols = valueColumnsOf(mapping);
+  const mapped = mappedColumns(mapping);
+  const end = readingEnd(rows, mapping, numbers);
+  const candidates: number[] = [];
+  let personRow: readonly string[] | null = null;
+  let samples: string[] = [];
+  for (let index = mapping.headerRow + 1; index < end; index++) {
+    const row = rows[index] ?? [];
+    if (row.some(isTotalLabel)) continue;
+    if (!isBlank(cellAt(row, mapping.person))) {
+      personRow = row;
+      continue;
+    }
+    if (personRow === null || !valueCols.some((col) => isNumberCell(cellAt(row, col), numbers))) continue;
+    if (candidates.length === 0) samples = differingText(personRow, row, mapped, numbers);
+    candidates.push(index);
+  }
+  return candidates.length === 0 ? null : { field: "continuation", candidates, samples };
 }

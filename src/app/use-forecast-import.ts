@@ -16,7 +16,10 @@
 // that more than one column could hold the hours or the period (`ambiguous`),
 // the hand route opens on the mapping step, and Apply is refused until each
 // such field is confirmed: by choosing its column, or by `confirmColumns`.
-// Re-detecting (a new file, sheet, or Detect columns) asks again.
+// Re-detecting (a new file, sheet, or Detect columns) asks again. ★★ A
+// workbook with two or more detectable sheets asks which one (`sheet`, final
+// review 3 M1, owner decision 2026-10-13): choosing a sheet or "These columns
+// are right" confirms it; Detect columns and Ask Claude ask it again.
 //
 // ★★★ CLAUDE SETS THE MAPPING, NEVER A VALUE (owner decision 2026-10-13).
 // "Ask Claude" returns a column mapping; the hand reader imports with it. It
@@ -148,11 +151,14 @@ const NO_CONFIRMATIONS: ReadonlyMap<string, string> = new Map();
 
 /** What a confirmation of `field` is bound to in `m`: the header row, the
  *  hours column, or the period column (a wide reading's period columns). The
- *  `rows` question (round 9 I-W) is bound to what groups the rows: the header
- *  row, the person and the period column(s). */
+ *  `rows` question (round 9 I-W) and the `continuation` one (final review 3,
+ *  I2) are bound to what groups the rows: the header row, the person and the
+ *  period column(s). */
 function fieldValue(m: ColumnMapping, field: ColumnAmbiguity["field"]): string {
   if (field === "header") return String(m.headerRow);
-  if (field === "rows") return [m.headerRow, m.person, fieldValue(m, "period")].join(":");
+  if (field === "rows" || field === "continuation") return [m.headerRow, m.person, fieldValue(m, "period")].join(":");
+  // The sheet question is the hook's own (`sheetConfirmed`), never a mapping's.
+  if (field === "sheet") return "";
   if (field === "hours") return String(m.hours);
   return m.layout === "long" ? String(m.period) : (m.periodCols ?? []).join(",");
 }
@@ -186,8 +192,9 @@ function confirmsField(a: ColumnAmbiguity, before: ColumnMapping | null, next: C
   if (before === null || before.layout !== next.layout) return false;
   // The header row has a select in either layout (fix 9 OOS-c).
   if (a.field === "header") return next.headerRow !== before.headerRow;
-  // Only "These columns are right" accepts one person's differing rows (round 9 I-W).
-  if (a.field === "rows") return false;
+  // Only "These columns are right" accepts one person's differing rows (round
+  // 9 I-W) or rows with no person (final review 3, I2).
+  if (a.field === "rows" || a.field === "continuation" || a.field === "sheet") return false;
   return next.layout === "long" && next[a.field] !== before[a.field];
 }
 
@@ -264,18 +271,16 @@ function detectSheet(grid: SheetGrid, year: number | undefined): LayoutDetection
 }
 
 /** The first sheet a layout is found on (else the first sheet), with its
- *  detection, so a load detects each sheet at most once. */
-function firstDetectedSheet(
+ *  detection, and every sheet a layout is found on (`detectable`), so a load
+ *  detects each sheet once. */
+function detectSheets(
   sheets: readonly SheetGrid[],
   year: number | undefined,
-): { index: number; detected: LayoutDetection } {
-  let first: LayoutDetection | null = null;
-  for (let index = 0; index < sheets.length; index++) {
-    const detected = detectSheet(sheets[index], year);
-    first ??= detected;
-    if (detected.kind !== "unknown") return { index, detected };
-  }
-  return { index: 0, detected: first ?? detectSheet(sheets[0], year) };
+): { index: number; detected: LayoutDetection; detectable: number[] } {
+  const all = sheets.map((grid) => detectSheet(grid, year));
+  const detectable = all.flatMap((d, i) => (d.kind !== "unknown" ? [i] : []));
+  const index = detectable[0] ?? 0;
+  return { index, detected: all[index], detectable };
 }
 
 type Validated = ReturnType<typeof validateForecastRows>;
@@ -301,6 +306,10 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const [route, setRoute] = useState<ForecastImportRoute>("hand");
   // The Claude route's press: the mapping "These columns are right" confirmed.
   const [claudeConfirmed, setClaudeConfirmed] = useState<ColumnMapping | null>(null);
+  // The sheets a layout was detected on, when two or more (else none), and
+  // whether the user confirmed the sheet in effect (final review 3, M1).
+  const [sheetCandidates, setSheetCandidates] = useState<readonly number[]>([]);
+  const [sheetConfirmed, setSheetConfirmed] = useState(false);
   const [notes, setNotes] = useState("");
   const [overrides, setOverrides] = useState<ReadonlyMap<string, PersonOverride>>(NO_OVERRIDES);
   const [error, setError] = useState<ForecastImportError | null>(null);
@@ -327,10 +336,11 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     [isClaude, sheet, mapping],
   );
   const claudePressed = isClaude && claudeConfirmed !== null && mapping !== null && isSameMapping(claudeConfirmed, mapping);
-  const unconfirmed = useMemo(
-    () => (isClaude ? (claudePressed ? NO_AMBIGUITY : claudeQuestions) : unconfirmedOf(questioned, confirmations, mapping)),
-    [isClaude, claudePressed, claudeQuestions, questioned, confirmations, mapping],
-  );
+  const isSheetOpen = sheetCandidates.length > 1 && !sheetConfirmed;
+  const unconfirmed = useMemo(() => {
+    const columns = isClaude ? (claudePressed ? NO_AMBIGUITY : claudeQuestions) : unconfirmedOf(questioned, confirmations, mapping);
+    return isSheetOpen ? [{ field: "sheet" as const, candidates: [...sheetCandidates] }, ...columns] : columns;
+  }, [isClaude, claudePressed, claudeQuestions, questioned, confirmations, mapping, isSheetOpen, sheetCandidates]);
   const claudeUnconfirmed = isClaude && !claudePressed;
 
   const handRows = useMemo(
@@ -369,20 +379,22 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     return reqIdRef.current;
   }, []);
 
-  /** The hand route over one sheet: preview when a layout is found and clear,
-   *  else the mapping step. `known` is a detection the caller already ran on
-   *  `grid`. Every detection starts its own confirmation. */
-  const openHandRoute = useCallback((grid: SheetGrid, known?: LayoutDetection) => {
+  /** The hand route over one sheet: preview when a layout is found and clear
+   *  and no sheet question is open (`isSheetAsked`), else the mapping step.
+   *  `known` is a detection the caller already ran on `grid`. Every detection
+   *  starts its own confirmation, the sheet's included. */
+  const openHandRoute = useCallback((grid: SheetGrid, isSheetAsked: boolean, known?: LayoutDetection) => {
     const detected = known ?? detectSheet(grid, year);
     setRoute("hand");
     setClaudeConfirmed(null);
+    setSheetConfirmed(!isSheetAsked);
     setNotes("");
     setOverrides(NO_OVERRIDES);
     setLayoutDetected(detected.mapping !== null);
     setMappingState(detected.mapping ?? defaultMappingFor(grid.rows, year, grid.numbers));
     setQuestioned(detected.ambiguous);
     setConfirmations(NO_CONFIRMATIONS);
-    setStep(detected.mapping && detected.ambiguous.length === 0 ? "preview" : "mapping");
+    setStep(detected.mapping && detected.ambiguous.length === 0 && !isSheetAsked ? "preview" : "mapping");
   }, [year]);
 
   const loadFile = useCallback(async (file: File) => {
@@ -392,6 +404,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     // Size first: a 2 GB file must never be read into memory to find out.
     if (checkAttachmentSize(file.size) !== null) {
       setSheets([]);
+      setSheetCandidates([]);
       setStep("source");
       setError({ key: "forecastImportErrorFileTooLarge", args: [String(MAX_ATTACHMENT_BYTES / BYTES_PER_MB)] });
       return;
@@ -401,13 +414,18 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
       const grids = await readSheetFile(file.name, new Uint8Array(await file.arrayBuffer()));
       if (reqId !== reqIdRef.current) return;
       if (grids.length === 0) throw new Error("empty");
-      const { index, detected } = firstDetectedSheet(grids, year);
+      const { index, detected, detectable } = detectSheets(grids, year);
+      // ★★ Two detectable sheets (`Ist`, then `Forecast`) ask which one (final
+      // review 3, M1): the first was once imported straight to the preview.
+      const asked = detectable.length > 1 ? detectable : [];
       setSheets(grids);
       setSheetIndex(index);
-      openHandRoute(grids[index], detected);
+      setSheetCandidates(asked);
+      openHandRoute(grids[index], asked.length > 0, detected);
     } catch (e) {
       if (reqId !== reqIdRef.current) return;
       setSheets([]);
+      setSheetCandidates([]);
       setStep("source");
       setError({ key: e instanceof Error && e.message === "unsupported" ? "forecastImportErrorUnsupported" : "forecastImportErrorUnreadable" });
     } finally {
@@ -422,7 +440,8 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     setBusy(false);
     setError(null);
     setSheetIndex(index);
-    openHandRoute(grid);
+    // Choosing a sheet confirms it.
+    openHandRoute(grid, false);
   }, [sheets, nextRequest, openHandRoute]);
 
   const detectColumns = useCallback(() => {
@@ -430,8 +449,8 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     nextRequest();
     setBusy(false);
     setError(null);
-    openHandRoute(sheet);
-  }, [sheet, nextRequest, openHandRoute]);
+    openHandRoute(sheet, sheetCandidates.length > 1);
+  }, [sheet, nextRequest, openHandRoute, sheetCandidates]);
 
   // ★ The four user edits below each clear a stale error: a banner from an
   // earlier failed action must not outlive the user moving on. ★★ An edit
@@ -457,6 +476,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const confirmColumns = useCallback(() => {
     setError(null);
     if (mapping === null) return;
+    setSheetConfirmed(true);
     if (isClaude) {
       setClaudeConfirmed(mapping);
       return;
@@ -502,6 +522,8 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
       setMappingState(proposed);
       setYear(proposed.year);
       setClaudeConfirmed(null);
+      // A route change asks the sheet again; the press confirms it.
+      setSheetConfirmed(false);
       setNotes(res.notes);
       setOverrides(NO_OVERRIDES);
       setRoute("claude");

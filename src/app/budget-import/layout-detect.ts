@@ -12,7 +12,7 @@ import { cellAt, detectDecimalStyle, ID_HEADER, isBlank, isNumberCell, isTotalLa
 import type { ColumnAmbiguity, ColumnMapping } from "./forecast-types";
 import { assignRunPeriods, classifyPeriodCell, isPeriodShapedIn, isYearColumn, isYearHeader, parseYearCell, usableYear } from "./period-assign";
 import { HOURS_HEADER_RE, isPeriodWordHeader, PERSON_HEADER_RE } from "./header-words";
-import { differingRows } from "./row-differences";
+import { continuationRows, differingRows } from "./row-differences";
 import type { NumberOrigin } from "./sheet-grid";
 
 /** `ambiguous` lists the fields more than one column could be: a long
@@ -663,8 +663,9 @@ export function detectLayout(
 }
 
 /** `ambiguous` with the questions every reading asks of its mapping: every
- *  repeated header row (`withRepeatedHeaders`) and one person's differing rows
- *  (`differingRows`), read in `year`. */
+ *  repeated header row (`withRepeatedHeaders`), one person's differing rows
+ *  (`differingRows`), read in `year`, and rows with no person below a person
+ *  row (`continuationRows`, final review 3 I2). */
 function withMappingQuestions(
   ambiguous: ColumnAmbiguity[],
   rows: Rows,
@@ -673,8 +674,8 @@ function withMappingQuestions(
   year: number | undefined,
 ): ColumnAmbiguity[] {
   const repeated = withRepeatedHeaders(ambiguous, mapping, repeatedHeaderRows(rows, mapping, numbers));
-  const differing = differingRows(rows, { ...mapping, year }, numbers);
-  return differing === null ? repeated : [...repeated, differing];
+  const asked: (ColumnAmbiguity | null)[] = [differingRows(rows, { ...mapping, year }, numbers), continuationRows(rows, mapping, numbers)];
+  return [...repeated, ...asked.filter((a): a is ColumnAmbiguity => a !== null)];
 }
 
 /** The rows of the scan range that read as a header of `layout`: a long
