@@ -31,6 +31,9 @@ const MIN_YEAR_CELL = 2000;
 const MAX_YEAR_CELL = 2100;
 const DAYS_PER_WEEK = 7;
 const MS_PER_DAY = 86_400_000;
+/** The most days two dates may lie apart and still be two period columns (a
+ *  quarter); farther apart, a run of just those two is a date RANGE. */
+const MAX_TWO_DATE_PERIOD_GAP_DAYS = 92;
 
 const MONTHS: Readonly<Record<string, number>> = {
   jan: 1, januar: 1, january: 1, jän: 1, jänner: 1,
@@ -277,7 +280,9 @@ export function isWeekSpacedColumn(cells: readonly string[], numbers: NumberOrig
  *   Jan 2027` is Nov and Dez 2026, `Mai | Jan 2027` is May 2026, `KW52 | Jan
  *   2027` is 2026-W52. Only a run with no labelled cell at all reads in
  *   `defaultYear`.
- * - A header's ONE date or serial cell is no period (`withoutLoneDate`); in a
+ * - A header's ONE date or serial cell is no period (`withoutLoneDate`), nor
+ *   are TWO dates with no other period cell when they lie more than
+ *   `MAX_TWO_DATE_PERIOD_GAP_DAYS` apart (`withoutDateRange`); in a
  *   row that holds month or week labels, dates and serials (any number of
  *   them) keep their own period but never anchor the labels' year
  *   (`anchorsYear`).
@@ -290,7 +295,7 @@ export function assignRunDetailed(
   cells: readonly string[],
   opts: { defaultYear?: number; numbers?: NumberOrigin } = {},
 ): Array<AssignedPeriod | null> {
-  const classes = withoutLoneDate(cells.map(classifyPeriodCell));
+  const classes = withoutDateRange(withoutLoneDate(cells.map(classifyPeriodCell)));
   if (isWeekSpacedDates(classes, opts.numbers ?? "text")) {
     return classes.map((c) =>
       c?.kind === "month" && c.date !== undefined ? { period: periodKeyForDate(c.date, "week"), assumed: false } : null);
@@ -320,6 +325,18 @@ function anchorsYear(classes: ReadonlyArray<PeriodCell | null>): (c: PeriodCell)
  *  date run and read as such. */
 function withoutLoneDate(classes: Array<PeriodCell | null>): Array<PeriodCell | null> {
   return classes.filter(isDateCell).length === 1 ? classes.map((c) => (isDateCell(c) ? null : c)) : classes;
+}
+
+/** A run of exactly TWO period cells, both dates (or serials), more than
+ *  `MAX_TWO_DATE_PERIOD_GAP_DAYS` apart is a date RANGE, not two periods: a
+ *  title row's `Zeitraum | 01.01.2026 | 31.12.2026` once became a long sheet's
+ *  period header and vouched for December (re-review 4). Closer pairs (two
+ *  months, two quarters) and runs of three or more dates are untouched. */
+function withoutDateRange(classes: Array<PeriodCell | null>): Array<PeriodCell | null> {
+  const dates = classes.flatMap((c) => (c === null ? [] : [c.kind === "month" ? c.date : undefined]));
+  if (dates.length !== 2 || dates[0] === undefined || dates[1] === undefined) return classes;
+  const gap = (Date.parse(`${dates[1]}T00:00:00Z`) - Date.parse(`${dates[0]}T00:00:00Z`)) / MS_PER_DAY;
+  return Math.abs(gap) > MAX_TWO_DATE_PERIOD_GAP_DAYS ? classes.map(() => null) : classes;
 }
 
 /** A period's place in its year, 0 (January, week 1) to 1, so months and weeks

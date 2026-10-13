@@ -446,3 +446,25 @@ describe("probe: long workbooks with two date columns stay long (round 5)", () =
     expect(rowsOf(readSheet(rows))).toEqual([["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-03", 2]]);
   });
 });
+
+// Round 5 (rr4 Important 2): two dates more than 92 days apart are a range, not
+// two period columns; two closer ones still head a two-period wide sheet.
+describe("probe: a title row's date range over a long sheet (round 5)", () => {
+  it("reads the long sheet under Zeitraum | 01.01.2026 | 31.12.2026, every row in its month", () => {
+    const rows = [["Zeitraum", "01.01.2026", "31.12.2026"], ["Name", "Monat", "Stunden"], ["Ann Lee", "Jan 2026", "8"], ["Ann Lee", "Feb 2026", "4"]];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.kind).toBe("long");
+    expect(detected.mapping).toMatchObject({ headerRow: 1, period: 1, hours: 2 });
+    const run = readSheet(rows);
+    expect(run.validated.rejected).toEqual([]);
+    expect(run.out.rows.map((r) => [r.person, r.period, r.hours])).toEqual([["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4]]);
+  });
+
+  it("still reads Name | 01.01.2026 | 01.02.2026 as a two-period wide sheet", () => {
+    const rows = [["Name", "01.01.2026", "01.02.2026"], ["Ann Lee", "8", "4"], ["Bob Kay", "1", "2"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).mapping).toMatchObject({ layout: "wide", periodCols: [1, 2] });
+    expect(readSheet(rows).out.rows.map((r) => [r.person, r.period, r.hours])).toEqual([
+      ["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-01", 1], ["Bob Kay", "2026-02", 2],
+    ]);
+  });
+});

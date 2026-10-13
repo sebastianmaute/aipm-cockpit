@@ -724,6 +724,34 @@ describe("validateForecastRows: a title row's lone date is no period header (rou
   });
 });
 
+// Round 5 (rr4 Important 2): a title row's date RANGE became the long sheet's
+// period header — the right months rejected, a wrong December accepted.
+describe("validateForecastRows: a title row's date range is no period header (round 5)", () => {
+  const sheet: SheetGrid = {
+    name: "S",
+    rows: [["Zeitraum", "01.01.2026", "31.12.2026"], ["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "8"], ["Ann", "Feb 2026", "4"]],
+    truncated: false,
+  };
+
+  it("accepts the months on the cited rows", () => {
+    const out = validateForecastRows([
+      { person: "Ann", period: "Jan 2026", hours: 8, source: "S!C3" },
+      { person: "Ann", period: "Feb 2026", hours: 4, source: "S!C4" },
+    ], { sheet, requireSource: true });
+    expect(out.rejected).toEqual([]);
+    expect(out.ok.map((r) => [r.period, r.hours])).toEqual([["2026-01", 8], ["2026-02", 4]]);
+  });
+
+  it("rejects a December claimed for the same cells", () => {
+    const out = validateForecastRows([
+      { person: "Ann", period: "Dez 2026", hours: 8, source: "S!C3" },
+      { person: "Ann", period: "Dez 2026", hours: 4, source: "S!C4" },
+    ], { sheet, requireSource: true });
+    expect(out.ok).toEqual([]);
+    expect(out.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason))).toEqual(["period-not-near", "period-not-near"]);
+  });
+});
+
 // Round 4 (rr3 Important 1): text inside the grid never bounds the search for a
 // period header. A placeholder, a unit row or a Plan | Ist sub-header between
 // the header and the cited cell once rejected every claim beneath it.

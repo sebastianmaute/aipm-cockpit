@@ -137,9 +137,10 @@ export function columnNaming(rowCells: readonly string[], citedCol: number, text
  *  grid never bounds the search — a placeholder (`-`, `Urlaub`), a unit row
  *  (`Std`) or a `Plan | Ist` sub-header between the header and the cell once
  *  rejected every valid claim beneath it (re-review 3). A period-shaped cell
- *  whose row gives it no period (a title row's lone date: `withoutLoneDate`) is
- *  passed over, so a long sheet with a dated title row still falls back to the
- *  row search. A year-less header counts whatever the default year
+ *  whose row gives it no period (a title row's lone date: `withoutLoneDate`; a
+ *  two-date range such as `Zeitraum | 01.01.2026 | 31.12.2026`:
+ *  `withoutDateRange`) is passed over, so a long sheet with a dated title row
+ *  still falls back to the row search. A year-less header counts whatever the default year
  *  (`headerProbeRun`); `periodNearCell` reads the period itself with the real
  *  one. */
 export function nearestPeriodRowAbove(sheet: SheetGrid, rowIdx: number, col: number): number | null {

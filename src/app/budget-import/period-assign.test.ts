@@ -187,3 +187,24 @@ describe("isWeekSpacedColumn and assignCellPeriod — a long sheet's dates", () 
     expect(assignCellPeriod("Jan", { weeks: true, defaultYear: 2026 })).toEqual({ period: "2026-01", assumed: true });
   });
 });
+
+// Round 5 (rr4 Important 2): a title row's date RANGE (`Zeitraum | 01.01.2026 |
+// 31.12.2026`) is two dates, so it read as a two-period header and vouched for
+// December under a long sheet's hours column.
+describe("assignRunPeriods — two dates far apart are a range, not periods", () => {
+  it("gives a title row's year-long date range no period, in a CSV and a workbook", () => {
+    expect(assignRunPeriods(["Zeitraum", "01.01.2026", "31.12.2026"])).toEqual([null, null, null]);
+    expect(assignRunPeriods(["Zeitraum", "46023", "46387"], { numbers: "dot" })).toEqual([null, null, null]);
+    expect(assignRunPeriods(["Zeitraum", "01.07.2026", "01.01.2026"])).toEqual([null, null, null]);
+  });
+
+  it("keeps two dates at most 92 days apart as periods, and drops them at 93", () => {
+    expect(assignRunPeriods(["Name", "01.01.2026", "01.02.2026"])).toEqual([null, "2026-01", "2026-02"]);
+    expect(assignRunPeriods(["Name", "01.01.2026", "03.04.2026"])).toEqual([null, "2026-01", "2026-04"]);
+    expect(assignRunPeriods(["Name", "01.01.2026", "04.04.2026"])).toEqual([null, null, null]);
+  });
+
+  it("leaves a run of three or more dates as it was, however far apart", () => {
+    expect(assignRunPeriods(["Name", "01.01.2026", "01.07.2026", "31.12.2026"])).toEqual([null, "2026-01", "2026-07", "2026-12"]);
+  });
+});
