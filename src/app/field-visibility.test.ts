@@ -1,5 +1,6 @@
 // src/app/field-visibility.test.ts
 import { describe, expect, it } from "vitest";
+import { MODAL_FIELDS, MODAL_IDS } from "./modal-fields";
 import {
   applyTier, sanitizeFieldVisibility, tierFields, tierOf, toggleField, visibleFields,
 } from "./field-visibility";
@@ -28,7 +29,17 @@ describe("visibleFields", () => {
     const vis = visibleFields("milestone", { fields: ["name", "ghost"] });
     expect(vis.has("name")).toBe(true);
     expect(vis.has("ghost")).toBe(false);
-    expect(vis.has("targetDate")).toBe(false);
+    expect(vis.has("description")).toBe(false);
+  });
+  it("always includes the required ids, whatever the stored config says", () => {
+    // targetDate is required on a milestone; this stored set omits it (and everything else).
+    expect(visibleFields("milestone", { fields: ["name"] }).has("targetDate")).toBe(true);
+    expect(visibleFields("milestone", { fields: [] }).has("name")).toBe(true);
+    // Every modal: an empty stored config still yields exactly its required fields.
+    for (const id of MODAL_IDS) {
+      const required = MODAL_FIELDS[id].filter((f) => f.required).map((f) => f.id);
+      expect([...visibleFields(id, { fields: [] })].sort()).toEqual([...required].sort());
+    }
   });
   it("shows budget detailed-planning (role/discipline allocations) at the default Advanced tier", () => {
     // 0.169.4: planningDetail moved full→advanced so the allocation UI is not
