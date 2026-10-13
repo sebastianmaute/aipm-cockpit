@@ -237,6 +237,17 @@ function headerAmbiguity(headerRows: readonly number[]): ColumnAmbiguity[] {
   return headerRows.length > 1 ? [{ field: "header", candidates: [...headerRows] }] : [];
 }
 
+/** The index of the header candidate to preselect, from `start`: a candidate
+ *  with no data row before the next candidate heads an EMPTY block and is
+ *  skipped (round 7 C1: a zero-row first wide block was preselected, and
+ *  "These columns are right" read the 2027 data as 2026). */
+function skipEmptyBlocks(rows: Rows, headerRows: readonly number[], start: number): number {
+  const data = dataRowIndices(rows);
+  let at = start;
+  while (at + 1 < headerRows.length && !data.some((i) => i > headerRows[at] && i < headerRows[at + 1])) at += 1;
+  return at;
+}
+
 /** The header question with every repeated header row among its candidates
  *  (round 5): a stacked block asks whatever its size, a one-row block too. */
 function withRepeatedHeaders(ambiguous: ColumnAmbiguity[], mapping: ColumnMapping, repeated: readonly number[]): ColumnAmbiguity[] {
@@ -248,7 +259,7 @@ function withRepeatedHeaders(ambiguous: ColumnAmbiguity[], mapping: ColumnMappin
 
 function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): Detected | null {
   const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
-  let first: ColumnMapping | null = null;
+  const found: ColumnMapping[] = [];
   const headerRows: number[] = [];
   for (let headerRow = 0; headerRow < scanned; headerRow++) {
     const header = rows[headerRow];
@@ -261,10 +272,12 @@ function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): Detected | null {
     if (periodCols.length < minPeriods) continue;
     const mapping = wideFromHeader(rows, headerRow, periodCols, ctx);
     if (mapping === null) continue;
-    first ??= mapping;
+    found.push(mapping);
     headerRows.push(headerRow);
   }
-  return first === null ? null : { mapping: first, ambiguous: [...wideAmbiguity(rows, first, ctx), ...headerAmbiguity(headerRows)] };
+  if (found.length === 0) return null;
+  const chosen = found[skipEmptyBlocks(rows, headerRows, 0)];
+  return { mapping: chosen, ambiguous: [...wideAmbiguity(rows, chosen, ctx), ...headerAmbiguity(headerRows)] };
 }
 
 /** Rank weights of `periodRank`, most significant first. */
@@ -453,15 +466,19 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
  */
 function detectLong(rows: Rows, ctx: Ctx): Detected | null {
   const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
-  let best: ScoredMapping | null = null;
+  const found: ScoredMapping[] = [];
   const headerRows: number[] = [];
+  let bestAt = -1;
   for (let headerRow = 0; headerRow < scanned; headerRow++) {
     const candidate = longFromHeader(rows, headerRow, ctx);
     if (candidate === null) continue;
+    if (bestAt < 0 || candidate.score >= found[bestAt].score) bestAt = found.length;
+    found.push(candidate);
     headerRows.push(headerRow);
-    if (best === null || candidate.score >= best.score) best = candidate;
   }
-  return best === null ? null : { mapping: best.mapping, ambiguous: [...best.ambiguous, ...headerAmbiguity(headerRows)] };
+  if (bestAt < 0) return null;
+  const best = found[skipEmptyBlocks(rows, headerRows, bestAt)];
+  return { mapping: best.mapping, ambiguous: [...best.ambiguous, ...headerAmbiguity(headerRows)] };
 }
 
 type Pass = { kind: "wide" | "long"; run: () => Detected | null };

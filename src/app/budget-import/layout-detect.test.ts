@@ -770,3 +770,28 @@ describe("detectLayout — placeholders cannot push a long column out of the que
     expect(detected).toMatchObject({ kind: "long", ambiguous: [], mapping: { period: 1, hours: 2 } });
   });
 });
+
+// Round 7 C1 (rr10): the header question's preselection skips a candidate
+// with no data rows before the next one. A zero-row first wide block was
+// preselected over the real header, and "These columns are right" then read
+// the 2027 data as 2026.
+describe("detectLayout — an empty first block is not preselected (round 7 C1)", () => {
+  it("Name | Jan 2026 | Feb 2026 directly over Name | Jan 2027 | Feb 2027 preselects the second header row", () => {
+    const people = [["Ann", "30", "40"], ["Bob", "31", "41"], ["Cid", "32", "42"], ["Dora", "33", "43"]];
+    const rows = [["Name", "Jan 2026", "Feb 2026"], ["Name", "Jan 2027", "Feb 2027"], ...people];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", mapping: { headerRow: 1, periodCols: [1, 2] } });
+    expect(detected.ambiguous).toEqual([{ field: "header", candidates: [0, 1] }]);
+    expect(gridToForecastRows(rows, detected.mapping!, "S").rows.every((r) => r.period.startsWith("2027"))).toBe(true);
+  });
+
+  it("a blank row between does not count as data: the second header row is still preselected", () => {
+    const rows = [["Name", "Jan 2026", "Feb 2026"], [], ["Name", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"], ["Bob", "31", "41"], ["Cid", "32", "42"], ["Dora", "33", "43"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).mapping).toMatchObject({ headerRow: 2 });
+  });
+
+  it("a first block with data rows stays preselected", () => {
+    const rows = [["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Name", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"], ["Bob", "31", "41"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).mapping).toMatchObject({ headerRow: 0 });
+  });
+});
