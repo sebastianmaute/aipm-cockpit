@@ -105,6 +105,16 @@ export function nearestPeriodRowAbove(sheet: SheetGrid, rowIdx: number, col: num
   return null;
 }
 
+/** The ISO day of the date header a cell sits under (the nearest period cell
+ *  above it, when that is a date — an Excel serial only in a workbook), else
+ *  null: what tells a sub-period column ("05.01.2026") from a period label. */
+export function headerDateOf(sheet: SheetGrid, at: { rowIdx: number; colIdx: number }): string | null {
+  const r = nearestPeriodRowAbove(sheet, at.rowIdx, at.colIdx);
+  const c = r === null ? null : classifyPeriodCell(sheet.rows[r]?.[at.colIdx] ?? "");
+  if (c === null || c.kind !== "month" || c.date === undefined) return null;
+  return sheet.numbers === "dot" || c.serial !== true ? c.date : null;
+}
+
 /** The claimed period names `period`: a labelled claim must equal it (a date by
  *  its own month or ISO week, whichever `period` is); a year-less claim needs
  *  only the same month or week number, its year coming from the sheet. */

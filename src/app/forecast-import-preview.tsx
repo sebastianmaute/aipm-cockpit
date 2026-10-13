@@ -119,8 +119,9 @@ function CollisionsSection({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
   );
 }
 
-/** Rows of DIFFERENT sheet rows summed into one person and period: imported,
- *  so listed apart from what was not. */
+/** Rows of DIFFERENT sheet rows summed into one person and period, and date
+ *  columns of one row finer than the period: imported, so listed apart from
+ *  what was not. */
 function CombinedSection({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
   return (
     <Section title={t(lang, "forecastImportCombined")}>
@@ -129,6 +130,12 @@ function CombinedSection({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
           <li key={`u${i}`}>
             {t(lang, "forecastImportDuplicate", d.person, d.period, String(d.count))}
             {d.sources.length > 0 ? ` · ${t(lang, "forecastImportSources", d.sources.join(", "))}` : ""}
+          </li>
+        ))}
+        {fi.subPeriods.map((d, i) => (
+          <li key={`s${i}`}>
+            {t(lang, "forecastImportSubPeriod", d.person, d.period, String(d.count))}
+            {` · ${t(lang, "forecastImportSources", d.sources.join(", "))}`}
           </li>
         ))}
       </ul>
@@ -218,7 +225,7 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
           </ul>
         </Section>
       )}
-      {fi.duplicates.length > 0 && <CombinedSection lang={lang} fi={fi} />}
+      {fi.duplicates.length + fi.subPeriods.length > 0 && <CombinedSection lang={lang} fi={fi} />}
       {fi.notes.trim() !== "" && (
         <Section title={t(lang, "forecastImportNotes")}>
           <p className="whitespace-pre-wrap">{fi.notes}</p>

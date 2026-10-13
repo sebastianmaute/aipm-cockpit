@@ -27,6 +27,7 @@ function citations(result: ValidationResult): { all: string[]; accepted: string[
   const accepted = [
     ...result.ok.flatMap((r) => (r.source === undefined ? [] : [r.source])),
     ...result.duplicates.flatMap((d) => d.sources),
+    ...result.subPeriods.flatMap((d) => d.sources),
     ...result.collisions.flatMap((c) => c.sources),
   ];
   const rejected = result.rejected.flatMap((r) => {
@@ -34,7 +35,7 @@ function citations(result: ValidationResult): { all: string[]; accepted: string[
     return source === undefined ? [] : [source];
   });
   const people = new Set(
-    [...result.ok, ...result.duplicates, ...result.collisions].map((r) => r.person.trim().toLowerCase()),
+    [...result.ok, ...result.duplicates, ...result.subPeriods, ...result.collisions].map((r) => r.person.trim().toLowerCase()),
   );
   return { all: [...accepted, ...rejected], accepted, people };
 }

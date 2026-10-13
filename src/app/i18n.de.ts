@@ -2451,6 +2451,7 @@ export const de: Record<TranslationKey, string> = {
   forecastImportSkippedPeople: "Übersprungen: {0}",
   forecastImportOutOfRange: "Außerhalb der Topf-Laufzeit, übersprungen: {0}",
   forecastImportDuplicate: "{0}, {1}: {2}-mal aufgeführt, Stunden addiert",
+  forecastImportSubPeriod: "{0}, {1}: {2} Datumsspalten einer Zeile zusammengezählt",
   forecastImportSources: "Zellen {0}",
   forecastImportNotes: "Anmerkungen von Claude",
   forecastImportChanges: "Änderungen",

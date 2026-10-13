@@ -81,6 +81,8 @@ export interface ForecastImport {
   unresolvedPeople: readonly UnresolvedPerson[];
   rejected: readonly RejectedRow[];
   duplicates: readonly DuplicateRow[];
+  /** Date columns of one row finer than the period, summed (bi-weekly sheets). */
+  subPeriods: readonly DuplicateRow[];
   /** Cells of one sheet row landing on the same person and period: they block Apply. */
   collisions: readonly ForecastCollision[];
   dropped: readonly DropReason[];
@@ -432,6 +434,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     unresolvedPeople,
     rejected: validated?.rejected ?? [],
     duplicates: validated?.duplicates ?? [],
+    subPeriods: validated?.subPeriods ?? [],
     collisions,
     dropped: route === "hand" ? (handRows?.dropped ?? []) : [],
     ignoredColumns: route === "hand" ? (handRows?.ignoredColumns ?? []) : [],

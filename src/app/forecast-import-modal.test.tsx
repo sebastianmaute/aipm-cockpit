@@ -399,3 +399,14 @@ describe("ForecastImportModal — a line shared with people not in the sheet", (
     expect(within(diff).getAllByText(t(L, "forecastImportOthersOnLine", "Bob Ray"))).toHaveLength(3);
   });
 });
+
+describe("ForecastImportModal — date columns finer than the period (round 3)", () => {
+  it("sums sprint-date columns into their month and says so, with Apply enabled", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile("Name,05.01.2026,19.01.2026,02.02.2026,16.02.2026\r\nAnn Lee,40,40,40,40\r\n");
+    const combined = screen.getByRole("region", { name: t(L, "forecastImportCombined") });
+    expect(within(combined).getByText(new RegExp(t(L, "forecastImportSubPeriod", "Ann Lee", "2026-01", "2")))).toBeInTheDocument();
+    expect(screen.queryByText(t(L, "forecastImportBlockerSameRow"))).toBeNull();
+    expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeEnabled();
+  });
+});

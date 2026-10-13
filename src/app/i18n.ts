@@ -2602,6 +2602,7 @@ const enUS = {
   forecastImportSkippedPeople: "Skipped: {0}",
   forecastImportOutOfRange: "Outside the bucket's dates, skipped: {0}",
   forecastImportDuplicate: "{0}, {1}: listed {2} times, hours summed",
+  forecastImportSubPeriod: "{0}, {1}: {2} date columns of one row added together",
   forecastImportSources: "cells {0}",
   forecastImportNotes: "Claude's notes",
   forecastImportChanges: "Changes",

@@ -223,3 +223,50 @@ describe("probe: a year-less wide sheet with a date column stays wide (round 3)"
     expect(run.out.rows).toHaveLength(12);
   });
 });
+
+// Round 3 (rr2 Important 2): date columns finer than the period are sub-period
+// columns and are summed; only identical or equivalent labels collide.
+describe("probe: bi-weekly and semi-monthly date headers (round 3)", () => {
+  const monthPlan = (run: Run) => {
+    const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2027-12-31", granularity: "month", currency: "EUR" };
+    return buildForecastImportPlan(run.validated.ok, {
+      bucket: bucketOf("2026-01-01", "2026-03-31"), resources: [ANN], roles: [ROLE], plan,
+      holidaySet: new Set(), overrides: new Map(), collisions: run.validated.collisions,
+    });
+  };
+
+  it("sprint dates 05.01 | 19.01 | 02.02 | 16.02.2026 sum to 80 per month, no blocker, reported", () => {
+    const run = readSheet([["Name", "05.01.2026", "19.01.2026", "02.02.2026", "16.02.2026"], ["Ann Lee", "40", "40", "40", "40"]]);
+    expect(run.validated.collisions).toEqual([]);
+    expect(run.validated.subPeriods).toEqual([
+      { person: "Ann Lee", period: "2026-01", count: 2, sources: ["S!B2", "S!C2"] },
+      { person: "Ann Lee", period: "2026-02", count: 2, sources: ["S!D2", "S!E2"] },
+    ]);
+    expect(run.validated.duplicates).toEqual([]);
+    const plan = monthPlan(run);
+    expect(plan.blockers).toEqual([]);
+    expect(cellsOf(plan)).toEqual([["2026-01", 80], ["2026-02", 80]]);
+  });
+
+  it("semi-monthly 01.01 | 15.01 | 01.02 | 15.02.2026 sum the same way", () => {
+    const run = readSheet([["Name", "01.01.2026", "15.01.2026", "01.02.2026", "15.02.2026"], ["Ann Lee", "40", "40", "40", "40"]]);
+    expect(run.validated.collisions).toEqual([]);
+    expect(cellsOf(monthPlan(run))).toEqual([["2026-01", 80], ["2026-02", 80]]);
+  });
+
+  it("equivalent labels still block: 2026-01 | Jan 2026, and one date twice", () => {
+    expect(readSheet([["Name", "2026-01", "Jan 2026", "Feb 2026"], ["Ann Lee", "1", "2", "3"]]).validated.collisions).toHaveLength(1);
+    expect(readSheet([["Name", "05.01.2026", "05.01.2026", "Feb 2026"], ["Ann Lee", "1", "2", "3"]]).validated.collisions).toHaveLength(1);
+  });
+
+  it("sums date claims under distinct date headers on the Claude route too", () => {
+    const grid: SheetGrid = { name: "S", rows: [["Name", "05.01.2026", "19.01.2026"], ["Ann Lee", "40", "30"]], truncated: false };
+    const out = validateForecastRows([
+      { person: "Ann Lee", period: "05.01.2026", hours: 40, source: "S!B2" },
+      { person: "Ann Lee", period: "19.01.2026", hours: 30, source: "S!C2" },
+    ], { sheet: grid, requireSource: true });
+    expect(out.collisions).toEqual([]);
+    expect(out.ok).toEqual([{ person: "Ann Lee", period: "2026-01", hours: 70 }]);
+    expect(out.subPeriods).toHaveLength(1);
+  });
+});

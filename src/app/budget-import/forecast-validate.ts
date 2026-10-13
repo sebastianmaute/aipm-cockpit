@@ -9,7 +9,7 @@
 import type { AssumedYear, ForecastCollision, ForecastRow } from "./forecast-types";
 import { assumedYearOf, classifyPeriodCell, resolvePeriod, type AssignedPeriod } from "./period-assign";
 import type { SheetGrid } from "./sheet-grid";
-import { checkSource, citedCell, columnNaming, sourceKey, sourcePosition, type SourceRejection } from "./source-evidence";
+import { checkSource, citedCell, columnNaming, headerDateOf, sourceKey, sourcePosition, type SourceRejection } from "./source-evidence";
 
 /** Hours in the longest month (31 * 24): no single cell can hold more. */
 export const MAX_IMPORT_HOURS_PER_CELL = 744;
@@ -32,6 +32,9 @@ export type ValidationResult = {
   rejected: RejectedRow[];
   duplicates: DuplicateRow[];
   collisions: ForecastCollision[];
+  /** Person × period sums of DATE columns of one sheet row finer than the period
+   *  (bi-weekly, semi-monthly): summed, and listed so the preview says so. */
+  subPeriods: DuplicateRow[];
   /** Set when an accepted row's period took its year from `defaultYear`. */
   assumedYear?: AssumedYear;
 };
@@ -99,10 +102,24 @@ function checkRow(raw: unknown, opts: Options): Checked {
   return { ok: true, row: isEmailBacked ? sourced : withoutEmail(sourced), assumed: evidence.period.assumed };
 }
 
-/** Two of the sources cite cells of the same sheet row. */
-function sharesSheetRow(sources: readonly string[], sheetName: string): boolean {
-  const rows = sources.map((s) => sourcePosition(s, sheetName)?.rowIdx).filter((r): r is number => r !== undefined);
-  return new Set(rows).size < rows.length;
+/** How a person × period group sits in the sheet. Cells of ONE row that share
+ *  the period are a `collision` (never summed) unless every one sits under a
+ *  DISTINCT date header — date columns finer than the period (`subPeriod`),
+ *  summed as before the collision rule. `rows`: the distinct sheet rows (a
+ *  row without a usable source counts as one of its own). */
+function rowShape(e: Merged, sheet: SheetGrid): { collision: boolean; subPeriod: boolean; rows: number } {
+  const byRow = new Map<number, Array<string | null>>();
+  let unplaced = e.count - e.sources.length;
+  for (const source of e.sources) {
+    const at = sourcePosition(source, sheet.name);
+    if (at === null) unplaced += 1;
+    else byRow.set(at.rowIdx, [...(byRow.get(at.rowIdx) ?? []), headerDateOf(sheet, at)]);
+  }
+  const shared = [...byRow.values()].filter((dates) => dates.length > 1);
+  const isSubPeriods = (dates: Array<string | null>): boolean =>
+    dates.every((d) => d !== null) && new Set(dates).size === dates.length;
+  const collision = shared.some((dates) => !isSubPeriods(dates));
+  return { collision, subPeriod: !collision && shared.length > 0, rows: byRow.size + unplaced };
 }
 
 /** A summed row: the first row's person, email and rate, but NO `source` — the
@@ -133,7 +150,9 @@ function withoutSource(row: ForecastRow): ForecastRow {
  * once put a weekly sheet's five Monday columns into one month (final review).
  */
 export function validateForecastRows(input: unknown, opts: Options): ValidationResult {
-  if (!Array.isArray(input)) return { ok: [], rejected: [{ row: input, reason: "shape" }], duplicates: [], collisions: [] };
+  if (!Array.isArray(input)) {
+    return { ok: [], rejected: [{ row: input, reason: "shape" }], duplicates: [], collisions: [], subPeriods: [] };
+  }
 
   const rejected: RejectedRow[] = [];
   const usedSources = new Set<string>();
@@ -158,15 +177,17 @@ export function validateForecastRows(input: unknown, opts: Options): ValidationR
   }
 
   const entries = [...merged.values()];
-  const isCollision = (e: Merged): boolean => e.count > 1 && sharesSheetRow(e.sources, opts.sheet.name);
-  const kept = entries.filter((e) => !isCollision(e));
+  const shaped = entries.map((e) => ({ e, shape: e.count > 1 ? rowShape(e, opts.sheet) : null }));
+  const kept = shaped.filter(({ shape }) => shape?.collision !== true);
+  const asDuplicate = ({ e }: { e: Merged }): DuplicateRow => ({ person: e.row.person, period: e.row.period, count: e.count, sources: e.sources });
   const result: ValidationResult = {
-    ok: kept.map((e) => (e.count > 1 ? withoutSource(e.row) : e.row)),
+    ok: kept.map(({ e }) => (e.count > 1 ? withoutSource(e.row) : e.row)),
     rejected,
-    duplicates: kept
-      .filter((e) => e.count > 1)
-      .map((e) => ({ person: e.row.person, period: e.row.period, count: e.count, sources: e.sources })),
-    collisions: entries.filter(isCollision).map((e) => ({ person: e.row.person, period: e.row.period, sources: e.sources })),
+    duplicates: kept.filter(({ shape }) => (shape?.rows ?? 0) > 1).map(asDuplicate),
+    collisions: shaped
+      .filter(({ shape }) => shape?.collision === true)
+      .map(({ e }) => ({ person: e.row.person, period: e.row.period, sources: e.sources })),
+    subPeriods: kept.filter(({ shape }) => shape?.subPeriod === true).map(asDuplicate),
   };
   const assumedYear = assumedYearOf(read, opts.defaultYear);
   return assumedYear === undefined ? result : { ...result, assumedYear };

@@ -38,7 +38,7 @@ describe("validateForecastRows: shape", () => {
   });
 
   it("accepts an empty array", () => {
-    expect(validateForecastRows([], plain)).toEqual({ ok: [], rejected: [], duplicates: [], collisions: [] });
+    expect(validateForecastRows([], plain)).toEqual({ ok: [], rejected: [], duplicates: [], collisions: [], subPeriods: [] });
   });
 
   it("rejects a non-number rate, a negative rate and a non-string email as shape", () => {
