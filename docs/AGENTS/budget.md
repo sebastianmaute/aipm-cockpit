@@ -263,7 +263,8 @@ A bucket card's "Import forecast" opens `ForecastImportModal`; all logic is `use
 engines live in `src/app/budget-import/` (no i18n, no React).
 
 - **Two routes, one reader.** A file becomes `SheetGrid`s (`readSheetFile`: CSV, or xlsx through
-  `extractXlsxGrid`). The HAND route finds the columns (`detectLayout`, editable on the mapping step) and
+  `extractXlsxGrid`; a 1904-system workbook, `isDate1904Workbook`, has its serial-shaped cells moved to the 1900
+  system, final review 3 M7, residue 41). The HAND route finds the columns (`detectLayout`, editable on the mapping step) and
   reads them with `gridToForecastRows`, deciding the decimal style once over all hours columns
   (`detectDecimalStyle`), never per cell; in German style a dot is only a thousands mark in groups of
   three, so a stray `2.5` is reported, not read as 25. ★★ A workbook is exempt from that guess
@@ -362,6 +363,25 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, blank rows skipped
   and not counted, so a large sheet does not freeze the dialog (M1); `gridToForecastRows` then reads every
   row. Both routes read the sheet with this one reader; they differ only in who sets the mapping.
+- ★★★ **Excel's merged cells, a second sheet and `N/YYYY` weeks ask too (final review 3, 2026-10-13).**
+  Excel keeps a merged cell's text in its top-left cell only, and both shapes once went straight to the
+  preview. A WIDE reading asks for the period when a column holding a number has a BLANK header among
+  its period columns or in the blank-headed columns right after them (`blankHeadedNumberColumns`, I1: a
+  month header merged over `Ist | Plan`, `Actual | Forecast` or `€ | Std` read the left sub-column as
+  the month), and when the header's `N/YYYY` run goes past 12 (`pastTwelveNumberColumns`, M4: `01/2026
+  … 14/2026` numbers weeks and read 01–12 as months). Either layout asks about a row with NO person but a
+  number in a read column below a person row (`continuationRows` in `row-differences.ts`, `{ field:
+  "continuation", candidates: [rows], samples }`, I2: `Ann Lee | Ist` over `(blank) | Plan` read Ann's Ist
+  row and dropped the Plan row). ★★ The person is NEVER carried down: an unlabelled total row at the
+  bottom would then be summed into the last person; it asks instead. A row holding a total label in any
+  cell and a spacer with no number do not ask; confirmed, such rows are not read, as before. All three
+  sit in `wideAmbiguity` / `withMappingQuestions`, so `questionsFor` asks them of a Claude mapping too, and
+  only "These columns are right" confirms the continuation (`confirmsField`). A workbook with two or more
+  sheets that detect a layout asks which one (`{ field: "sheet", candidates: [sheets] }`, M1, owner
+  decision 2026-10-13): the hook's own question (`sheetCandidates` / `sheetConfirmed`, never a mapping's),
+  prepended to `ambiguous`, so the same gate holds Apply on either route; choosing a sheet or the press
+  confirms it, and Detect columns and Ask Claude ask it again. The press moves the focus to Show preview,
+  since it unmounts its own notice (M5). Residue (36)–(39).
 - ★★ **Which period a cell is: ONE module, `period-assign.ts`**, read by the reader and detection alike, so
   the two cannot disagree. A single cell is `parsePeriodLabel` (a date is
   its month). A WIDE header row is read as a RUN (`assignRunPeriods` / `assignRunDetailed`): a cell that
@@ -467,9 +487,16 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   (caught in review; pinned by the "range" tests). A target cell that a sheet period covers only partly
   is still written but flagged `partial` for the preview; only uncovered WORKING days count (weekends and
   `holidaySet` days are skipped in `hasUncoveredWorkday`). A changed cell on a line shared with people
-  the sheet does not list carries their names (`othersOnLine`): the value replaces their share too.
-  Matching is by email, then name (also "Last, First"); an archived resource (`active === false`) is never
-  matched or offered. Overrides settle only rows whose automatic match failed. Blockers: `follows-plan`
+  the sheet does not list FOR THAT PERIOD carries their names (`othersOnLine`, per period since final
+  review 3 M2: a member listed for January but blank for April lost their April share unnamed): the value
+  replaces their share too. Matching is by email, then name (also "Last, First"); an archived resource
+  (`active === false`) is never matched or offered. Overrides settle only rows whose automatic match
+  failed. ★★ ROUTING (`routeOf`, final review 3 M3, owner decision 2026-10-13): a matched person goes to
+  the ONE line of the bucket's planning mode that already lists them, whatever its role, and a sheet rate is
+  checked against that line's role; on several such lines they are unresolved (`several-lines`, a reason of
+  its own; the picker may name another resource, or Skip); on none, to their role's line (blended: its
+  discipline), as the spec first said. Routing by role alone once created a Dev line beside Ann's Senior
+  line and counted her January twice. Residue (40). Blockers: `follows-plan`
   (budget follows plan is on), `closed`, `same-row-period` (a validator collision), `nothing-to-apply`.
 - **`applyForecastImport` is the only writer**, and it writes only budget hours and allocation
   membership (a missing allocation is created with empty actuals) — never rates, the plan, other

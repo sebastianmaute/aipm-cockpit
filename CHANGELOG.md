@@ -26,15 +26,19 @@ longer carries its own changelog comment.
   person, period and hours columns of a wide sheet (a column per month or week) or a long one (a row per
   person and period), and you can adjust them; month columns beside a start-date column, with or without a year, are read as
   one column per month, and an ID, row-number or year column is never taken for the hours. When more than one
-  column could hold the hours or the period (any two columns holding numbers, however few, such as `Plan | Ist`, `Stunden | Ist`,
-  `Stunden | Kosten` or `Forecast | Iststunden`, whatever their headers; `Datum | Eintritt`; a sheet of
-  month columns whose rows hold any date of their own outside the month columns, such as a `Start` or a
-  notes column, or a year column beside months without a year), or more than one row could be the header
-  row (stacked blocks, or the header row repeated further down), or one person has several rows (in one
-  month, on a sheet of one row per month) that differ in another text column, such as a Plan and an Ist
-  row or a task per row, whose hours would be added together, the column
-  step opens with a note naming the candidates, and Apply waits until you choose the column or confirm that
-  the columns are right. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
+  column could hold the hours or the period (on a sheet of one row per month, any two columns holding
+  numbers, however few, such as `Plan | Ist`, `Stunden | Ist`, `Stunden | Kosten` or `Forecast | Iststunden`,
+  whatever their headers, or `Datum | Eintritt`; on a sheet of month columns, a column of numbers with a
+  blank header among or right after the month columns, as under a month header merged over `Ist | Plan`,
+  `Actual | Forecast` or `€ | Std` sub-columns, any date of the rows' own outside the month columns, such as
+  a `Start` or a notes column, a year column beside months without a year, or a header run such as
+  `01/2026 … 14/2026` that goes past 12), or more than one row could be the header row (stacked blocks, or
+  the header row repeated further down), or one person has several rows (in one month, on a sheet of one
+  row per month) that differ in another text column, such as a Plan and an Ist row or a task per row, whose
+  hours would be added together, or a row below a person's row holds hours but no person (a name merged
+  over two rows, or an unlabelled total row), which is not read, or more than one sheet of a workbook holds
+  a forecast, the column step opens with a note naming the candidates, and Apply waits until you choose the
+  column or the sheet or confirm that the columns are right; the confirmation moves on to Show preview. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
   and so do month names and weeks without a year (`Jan`, `KW03`): they are read in the import's year,
   which starts at the bucket's start year, and a header row that turns the year (`Okt … Dez Jan Feb`, a
   fiscal `Jul … Jun`, `KW52 KW01`: a step back of at least half a year) moves on into the next year, while
@@ -43,7 +47,8 @@ longer carries its own changelog comment.
   year of the month names beside it. The preview says which year it assumed, with a link to change it. A long sheet's year column
   (`Jahr`, `FY`) supplies each row's year. Dates a week apart (Monday dates), in a header row or in a long
   sheet's period column, are read as weeks; finer date columns (bi-weekly, semi-monthly) are added into
-  their month, and the preview says so. A CSV is read up to the same number of cells as a workbook sheet,
+  their month, and the preview says so. A workbook in the 1904 date system (old Mac workbooks) reads its
+  dates as the dates they name. A CSV is read up to the same number of cells as a workbook sheet,
   and the preview says when it was cut. Two cells of one row with the same period label block Apply until
   the columns or the sheet are fixed, instead of being added together. Total rows and columns are skipped
   (quarter and fiscal-year totals too), and any other column of numbers that is not read — except an ID or
@@ -52,18 +57,21 @@ longer carries its own changelog comment.
   repeated header row, so a sheet of stacked blocks (`Forecast` over `Ist`) imports only the block you
   choose, and the preview says how many rows below it were not read. Or
   Ask Claude to set the columns: Claude says where the person, period and hours columns and the header
-  row are, never the values, and chooses the planned hours, never the actuals. Its columns open on the
+  row are, never the values, and is asked to choose the planned hours, never the actuals; your press below
+  is what makes sure of it. Its columns open on the
   column step with its notes, read exactly as if you had set them, with every question above asked of
   them, and Apply waits until you press “These columns are right” — changing a column is not that
   press. Columns Claude leaves out are asked about too: a year column beside months without a year,
   or month columns holding numbers (one block of a Plan/Ist sheet), which the column step names by
   letter and the preview lists as left out. If Claude names a column the sheet does not have, the
   dialog says so and you set the columns yourself. Monthly figures are spread over a
-  weekly plan (and weekly over a monthly one) by working days, keeping the total exact. The preview lists
+  weekly plan (and weekly over a monthly one) by working days, keeping the total exact. A person's hours go
+  to the one line of the bucket that already lists them, whatever its role, and otherwise to the line of
+  their role; a person listed on several lines is shown as not matched. The preview lists
   every cell that would change, people it could not match (you can pick or skip each one; archived
   resources are neither matched nor offered, and "Müller, Hans" matches Hans Müller), hours outside the
   bucket's periods, rates that differ from the rate card, periods the sheet covers only in part, cells on a
-  line shared with people the sheet does not list, and rows combined from several sheet rows. Nothing is
+  line shared with people the sheet does not list for that period, and rows combined from several sheet rows. Nothing is
   written until you apply, and Apply refuses if the bucket was closed or removed, or "Budget hours follow
   plan" was switched on, while the preview was open, and says so when nothing would change any more. One apply is one undo step. Operating guides can now
   target the forecast import.

@@ -1,6 +1,6 @@
 # Forecast import — design (§500)
 
-**Register:** §500 · **Work item:** #39 · **Status:** approved in conversation 2026-10-12; implemented on `feat/500-forecast-import`; amended 2026-10-13 (§3.3, the Claude route proposes the mapping)
+**Register:** §500 · **Work item:** #39 · **Status:** approved in conversation 2026-10-12; implemented on `feat/500-forecast-import`; amended 2026-10-13 (§3.3, the Claude route proposes the mapping; §3.2 step 2 and §3.4 step 1, the line a person sits on and the sheet question)
 
 ## 1. Problem and intent
 
@@ -84,6 +84,14 @@ type ForecastRow = {
    to `skip`.
 2. **Route.** Detailed bucket → the person's role allocation (`roleId`); blended bucket
    (`planningMode === "blended"`) → the allocation of that role's discipline.
+
+   > **Amendment 2026-10-13 (owner decision, final review 3 M3): the line the person already sits on.**
+   > If the matched resource is a member of exactly ONE line of the target bucket (in its planning
+   > mode), their hours go to that line, whatever its role, and a sheet rate is checked against that
+   > line's role. If they are a member of several lines, they are UNRESOLVED with a reason of their own
+   > (`several-lines`): the per-row picker may name another resource, or Skip; nothing is written for
+   > them otherwise. Otherwise they are routed by role as above. Routing by role alone created a Dev line
+   > beside Ann's existing Senior line and counted her January twice.
 3. **Convert periods** to `plan.granularity`. A source period becomes its working days (plan workday
    hours, holidays excluded), and its hours are spread across the target periods those days fall in,
    weighted by working days. Same granularity = identity. Hours are kept exact to 2 decimals; any rounding
@@ -138,6 +146,13 @@ popouts (read-only). Steps, in one draggable `Modal`:
 
 1. **Source** — file picker (`.xlsx,.xlsm,.csv`), sheet picker when there are several (default: the first
    sheet `detectLayout` does not call `unknown`), target bucket (preselected from the card).
+
+   > **Amendment 2026-10-13 (owner decision, final review 3 M1): ask which sheet.** When two or more
+   > sheets of a workbook detect a layout (not `unknown`), the first of them is still preselected, but
+   > the import opens on the mapping step with a sheet question that gates Apply until the user confirms
+   > the sheet: choosing a sheet in the Sheet select, or "These columns are right". Detect columns and
+   > Ask Claude ask it again. One detectable sheet behaves as before. A workbook whose sheets are `Ist`
+   > then `Forecast` in the same shape once imported the actuals straight to the preview.
 2. **Route** — "Detect columns" (default) or "Ask Claude". `unknown` layout opens the mapping empty with
    "Ask Claude" offered.
 3. **Mapping** — the detected or Claude's columns as selects, a 5-row sample showing what each row
