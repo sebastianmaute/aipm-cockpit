@@ -448,7 +448,7 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     const props = propsOf();
     render(<ForecastImportModal {...props} />);
     await chooseAmbiguous(PLAN_IST);
-    expect(screen.getByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeInTheDocument();
+    expect(screen.getByText(t(L, "forecastImportAmbiguousHours", "C: Plan, D: Ist"))).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: t(L, "forecastImportColHours") })).toHaveValue("2");
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
     await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
@@ -466,7 +466,7 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     const confirm = screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") });
     confirm.focus();
     await user.keyboard("{Enter}");
-    expect(screen.queryByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeNull();
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousHours", "C: Plan, D: Ist"))).toBeNull();
     expect(screen.queryByRole("button", { name: t(L, "forecastImportConfirmColumns") })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
     await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
@@ -480,7 +480,7 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     render(<ForecastImportModal {...propsOf()} />);
     await chooseAmbiguous(PLAN_IST);
     fireEvent.change(screen.getByRole("combobox", { name: t(L, "forecastImportColHours") }), { target: { value: "3" } });
-    expect(screen.queryByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeNull();
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousHours", "C: Plan, D: Ist"))).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
     const diff = await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
     expect(within(diff).getByText("— → 35")).toBeInTheDocument();
@@ -496,7 +496,7 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     await chooseAmbiguous(PLAN_IST);
     await user.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutWide") }));
     await user.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutLong") }));
-    expect(screen.getByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeInTheDocument();
+    expect(screen.getByText(t(L, "forecastImportAmbiguousHours", "C: Plan, D: Ist"))).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: t(L, "forecastImportColHours") })).toHaveValue("2");
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
     await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
@@ -508,7 +508,7 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
   it("names the period candidates of Name | Datum | Eintritt", async () => {
     render(<ForecastImportModal {...propsOf()} />);
     await chooseAmbiguous("Name,Datum,Eintritt,Stunden\r\nAnn Lee,01.01.2026,03/2026,40\r\nAnn Lee,01.02.2026,03/2026,30\r\n");
-    expect(screen.getByText(t(L, "forecastImportAmbiguousPeriod", "Datum, Eintritt"))).toBeInTheDocument();
+    expect(screen.getByText(t(L, "forecastImportAmbiguousPeriod", "B: Datum, C: Eintritt"))).toBeInTheDocument();
     expect(applyButton()).toBeDisabled();
     expect(applyButton()).toHaveAccessibleDescription(t(L, "forecastImportConfirmFirst"));
   });
@@ -521,12 +521,12 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     await chooseAmbiguous("Name,Start,Jan 2026,Feb 2026\r\nAnn Lee,01.03.2026,40,50\r\n");
     expect(screen.getByRole("radio", { name: t(L, "forecastImportLayoutWide") })).toBeChecked();
     // Round 7: the Wide notice names the candidate columns by header.
-    expect(t(L, "forecastImportAmbiguousWide", "Start, Jan 2026, Feb 2026")).toContain("Start, Jan 2026, Feb 2026");
-    expect(screen.getByText(t(L, "forecastImportAmbiguousWide", "Start, Jan 2026, Feb 2026"))).toBeInTheDocument();
+    expect(t(L, "forecastImportAmbiguousWide", "B: Start, C: Jan 2026, D: Feb 2026")).toContain("B: Start, C: Jan 2026, D: Feb 2026");
+    expect(screen.getByText(t(L, "forecastImportAmbiguousWide", "B: Start, C: Jan 2026, D: Feb 2026"))).toBeInTheDocument();
     expect(applyButton()).toBeDisabled();
     expect(applyButton()).toHaveAccessibleDescription(t(L, "forecastImportConfirmFirst"));
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") }));
-    expect(screen.queryByText(t(L, "forecastImportAmbiguousWide", "Start, Jan 2026, Feb 2026"))).toBeNull();
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousWide", "B: Start, C: Jan 2026, D: Feb 2026"))).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
     const diff = await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
     expect(within(diff).getByText("— → 40")).toBeInTheDocument();
@@ -573,12 +573,12 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     render(<ForecastImportModal {...propsOf()} />);
     await chooseAmbiguous(PLAN_IST);
     await user.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutWide") }));
-    expect(screen.getByText(t(L, "forecastImportAmbiguousWide", "Plan, Ist"))).toBeInTheDocument();
-    expect(screen.queryByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeNull();
+    expect(screen.getByText(t(L, "forecastImportAmbiguousWide", "C: Plan, D: Ist"))).toBeInTheDocument();
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousHours", "C: Plan, D: Ist"))).toBeNull();
     expect(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") })).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutLong") }));
-    expect(screen.queryByText(t(L, "forecastImportAmbiguousWide", "Plan, Ist"))).toBeNull();
-    expect(screen.getByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeInTheDocument();
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousWide", "C: Plan, D: Ist"))).toBeNull();
+    expect(screen.getByText(t(L, "forecastImportAmbiguousHours", "C: Plan, D: Ist"))).toBeInTheDocument();
   });
 });
 
@@ -588,8 +588,8 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
 describe("ForecastImportModal — one person, rows that differ in a text column (round 9 I-W)", () => {
   const applyButton = () => screen.getByRole("button", { name: t(L, "forecastImportApply") });
   it.each([
-    ["Wide", "Name,Art,Jan 2026,Feb 2026\r\nAnn Lee,Plan,50,40\r\nAnn Lee,Ist,43,30\r\n", "Art"],
-    ["Long", "Name,Typ,Monat,Stunden\r\nAnn Lee,Plan,Jan 2026,50\r\nAnn Lee,Ist,Jan 2026,43\r\n", "Typ"],
+    ["Wide", "Name,Art,Jan 2026,Feb 2026\r\nAnn Lee,Plan,50,40\r\nAnn Lee,Ist,43,30\r\n", "B: Art"],
+    ["Long", "Name,Typ,Monat,Stunden\r\nAnn Lee,Plan,Jan 2026,50\r\nAnn Lee,Ist,Jan 2026,43\r\n", "B: Typ"],
   ])("%s: names the column and its values, Apply waits, confirming shows the sum", async (_layout, csv, column) => {
     const props = propsOf();
     render(<ForecastImportModal {...props} />);
@@ -641,7 +641,7 @@ describe("ForecastImportModal — Claude's choice of one block of a Plan/Ist she
     claudeMaps({ layout: "wide", headerRow: 1, person: "A", periodCols: ["F", "G"] });
     await askOn(PLAN_IST);
     expect(screen.getByText(t(L, "forecastImportPeriodColsFound", "F: Jan 2026, G: Feb 2026"))).toBeInTheDocument();
-    expect(screen.getByText(t(L, "forecastImportAmbiguousWide", "Jan 2026, Feb 2026, Jan 2026, Feb 2026"))).toBeInTheDocument();
+    expect(screen.getByText(t(L, "forecastImportAmbiguousWide", "D: Jan 2026, E: Feb 2026, F: Jan 2026, G: Feb 2026"))).toBeInTheDocument();
   });
 
   it("says a left-out period-headed column is left out by the mapping, never that its header is no period", async () => {

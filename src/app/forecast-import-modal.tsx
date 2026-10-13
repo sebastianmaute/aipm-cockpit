@@ -260,14 +260,16 @@ const AMBIGUOUS_KEY: Record<ColumnAmbiguity["field"], TranslationKey> = {
   rows: "forecastImportAmbiguousRows",
 };
 
-/** The Wide notice's candidate columns, by header (round 7: it once named none). */
+/** The Wide notice's candidate columns, by letter and header (round 7: it once named none). */
 function wideNames(columns: readonly ColumnAmbiguity[], nameOf: (col: number) => string): string {
   return [...new Set(columns.flatMap((a) => a.candidates))].sort((a, b) => a - b).map(nameOf).join(", ");
 }
 
 /** One notice per field more than one column could be, naming the candidates
- *  by header (or column letter), and the button that confirms the mapping as
- *  it stands. Choosing the field's column confirms it too, on the hand route.
+ *  by letter and header (`D: Jan 2026`, as the period-columns line: a
+ *  `Plan | Ist` sheet repeats its month headers, final review 2), and the
+ *  button that confirms the mapping as it stands. Choosing the field's column
+ *  confirms it too, on the hand route.
  *  ★ In the Wide layout there is no hours or period select to choose from, so
  *  ONE notice asks to check the mapping instead (rr8 m2). One person's
  *  differing rows (round 9 I-W) name their columns and sample values in either
@@ -275,7 +277,10 @@ function wideNames(columns: readonly ColumnAmbiguity[], nameOf: (col: number) =>
  *  its own notice and the button, with or without a question: only the press
  *  confirms it. */
 function AmbiguityNotice({ lang, fi, header, layout }: { lang: Lang; fi: ForecastImport; header: readonly string[]; layout: Draft["layout"] }) {
-  const nameOf = (col: number): string => (header[col] ?? "").trim() || columnLetters(col);
+  const nameOf = (col: number): string => {
+    const label = (header[col] ?? "").trim();
+    return label === "" ? columnLetters(col) : `${columnLetters(col)}: ${label}`;
+  };
   // A header ambiguity names its candidate ROWS (1-based), in either layout.
   const namesOf = (a: ColumnAmbiguity): string =>
     (a.field === "header" ? a.candidates.map((row) => String(row + 1)) : a.candidates.map(nameOf)).join(", ");

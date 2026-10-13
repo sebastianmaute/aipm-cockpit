@@ -357,7 +357,7 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   confirms it, `confirmsField`), and the confirmation is bound to the header row, person and period
   column(s). Rows that differ in no such column stay "Combined rows"; the cost is a task description per
   row (residue 32). In the Wide layout, which has no hours or period select, ONE notice names the candidate
-  columns by header and asks to check the mapping and confirm (rr8 m2, round 7); a header notice and a
+  columns by letter and header and asks to check the mapping and confirm (rr8 m2, round 7); a header notice and a
   rows notice are shown beside it. Detection
   scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, blank rows skipped
   and not counted, so a large sheet does not freeze the dialog (M1); `gridToForecastRows` then reads every
@@ -430,8 +430,8 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   Stunden` without `Jahr` summed Ann's 2027 into 2026); a wide mapping that leaves out period-headed
   columns holding numbers asks for the period, those columns among the candidates
   (`leftOutPeriodColumns`, M1: Claude's choice of the Ist block of a `Plan | Ist` sheet, the month
-  headers repeated over a sub-header row). The mapping step names period columns by letter (`D: Jan
-  2026`), and such a column is listed as left out by the mapping (`IgnoredColumn.isPeriodHeader`), never
+  headers repeated over a sub-header row). The mapping step and every question notice name columns
+  by letter and header (`D: Jan 2026`), and such a column is listed as left out by the mapping (`IgnoredColumn.isPeriodHeader`), never
   as "its header is not a period". An edit of the person, email or rate column keeps a wide mapping's
   period columns; a layout, header-row or year change rebuilds them from the header (M2). The converter
   reads an empty optional field (`""`, `[]`) as absent and still refuses an empty required one (M3). Detection's own mapping asks the same through it (pinned against `detectLayout`).
