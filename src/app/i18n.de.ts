@@ -3947,6 +3947,7 @@ export const de: Record<TranslationKey, string> = {
   modePresetSimple: "Einfach",
   modePresetAdvanced: "Erweitert",
   modeModulesHeading: "Funktionen",
+  modeRetentionNote: "Vorhandene Daten bleiben erhalten und erscheinen wieder, sobald Sie eine Funktion erneut aktivieren.",
   settingsFunctionsPointer: "Funktionen werden pro Projekt gewählt.",
   settingsFunctionsOpen: "Funktionen dieses Projekts öffnen",
   settingsFunctionsNoProject: "Öffnen Sie zuerst ein Projekt, um dessen Funktionen zu wählen.",

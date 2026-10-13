@@ -3040,6 +3040,7 @@ const enUS = {
   modePresetSimple: "Simple",
   modePresetAdvanced: "Advanced",
   modeModulesHeading: "Functions",
+  modeRetentionNote: "Existing data is kept and reappears when you re-enable a function.",
   settingsFunctionsPointer: "Functions are chosen per project.",
   settingsFunctionsOpen: "Open this project's functions",
   settingsFunctionsNoProject: "Open a project first to choose its functions.",

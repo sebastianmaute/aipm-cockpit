@@ -6,7 +6,9 @@
 // `UsesNotice` under its checkbox while any of them is off. The notice only says so
 // and offers to turn them on — switching a module on never switches another one on.
 
+import { useId } from "react";
 import { Button } from "./button";
+import { FieldHint } from "./field-hint";
 import {
   ALL_MODULE_IDS,
   FEATURE_MODULES,
@@ -86,6 +88,8 @@ export function FunctionsPicker({
   onChange: (next: FeatureModuleId[]) => void;
 }) {
   const mode = deriveMode(features);
+  // Namespaces the description ids so two mounted pickers (a dialog over a view) cannot collide.
+  const idBase = useId();
   const toggle = (id: FeatureModuleId) =>
     onChange(features.includes(id) ? features.filter((x) => x !== id) : [...features, id]);
   const turnOn = (missing: readonly FeatureModuleId[]) => {
@@ -130,14 +134,29 @@ export function FunctionsPicker({
           return (
             <div key={m.id} className="flex flex-col gap-1.5">
               <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={features.includes(m.id)} onChange={() => toggle(m.id)} />
+                <Checkbox
+                  checked={features.includes(m.id)}
+                  onChange={() => toggle(m.id)}
+                  aria-describedby={m.descKey ? `${idBase}-desc-${m.id}` : undefined}
+                />
                 <span>{t(lang, m.labelKey)}</span>
               </label>
+              {/* A SEPARATE span linked by aria-describedby — nested in the <label> it would fold
+                  into the checkbox's accessible name and break exact-name queries. */}
+              {m.descKey && (
+                <FieldHint as="span" id={`${idBase}-desc-${m.id}`} className="ml-6">
+                  {t(lang, m.descKey)}
+                </FieldHint>
+              )}
               <UsesNotice lang={lang} moduleId={m.id} missing={missing} onTurnOn={() => turnOn(missing)} />
             </div>
           );
         })}
       </fieldset>
+
+      <p className="rounded-md bg-[var(--rag-amber)]/20 px-3 py-2 text-xs text-ui-dark-blue dark:text-ui-light-grey">
+        {t(lang, "modeRetentionNote")}
+      </p>
     </>
   );
 }

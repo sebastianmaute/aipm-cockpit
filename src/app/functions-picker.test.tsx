@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
+import { ALL_MODULE_IDS, FEATURE_MODULES, type FeatureModuleId } from "./feature-modules";
+import { t } from "./i18n";
 import { FunctionsPicker, UsesNotice } from "./functions-picker";
 
 function setup(features: FeatureModuleId[]) {
@@ -10,6 +11,35 @@ function setup(features: FeatureModuleId[]) {
 }
 
 describe("FunctionsPicker", () => {
+  // §706 — what each function does, and that switching one off keeps its data. The description is a
+  // separate element linked by aria-describedby, so it must not leak into the checkbox's NAME.
+  it("describes every module that has a descKey on its checkbox, without changing the name", () => {
+    setup([]);
+    const described = FEATURE_MODULES.filter((m) => m.descKey);
+    expect(described.length).toBeGreaterThan(0);
+    for (const m of described) {
+      const box = screen.getByRole("checkbox", { name: t("en-US", m.labelKey) });
+      expect(box).toHaveAccessibleDescription(t("en-US", m.descKey!));
+    }
+  });
+
+  it("scopes the description ids so two mounted pickers do not collide", () => {
+    render(
+      <>
+        <FunctionsPicker lang="en-US" features={[]} onChange={vi.fn()} />
+        <FunctionsPicker lang="en-US" features={[]} onChange={vi.fn()} />
+      </>,
+    );
+    const budget = screen.getAllByRole("checkbox", { name: "Budget" });
+    expect(budget).toHaveLength(2);
+    expect(budget[0].getAttribute("aria-describedby")).not.toBe(budget[1].getAttribute("aria-describedby"));
+  });
+
+  it("says once, below the list, that existing data is kept", () => {
+    setup(["gantt"]);
+    expect(screen.getAllByText("Existing data is kept and reappears when you re-enable a function.")).toHaveLength(1);
+  });
+
   it("presets clear every module or select all of them", () => {
     const onChange = setup(["gantt"]);
     fireEvent.click(screen.getByRole("button", { name: "Apply Simple preset" }));
