@@ -108,6 +108,15 @@ describe("assignRunPeriods — what a year-less run rolls on, and what anchors i
     ]);
     expect(assignRunPeriods(["Dez", "Nov", "Okt", "Sep"], { defaultYear: 2026 })).toEqual(["2026-12", "2026-11", "2026-10", "2026-09"]);
   });
+
+  // Round 4 (rr3 Minor 6): in a row of month or week labels, dates and serials
+  // never anchor the labels' year, however many of them there are.
+  it("lets two serial code cells in a labelled header anchor nothing: 40100 | 40200 | Jan | Feb | Mär", () => {
+    const run = assignRunPeriods(["Name", "40100", "40200", "Jan", "Feb", "Mär"], { defaultYear: 2026, numbers: "dot" });
+    expect(run.slice(3)).toEqual(["2026-01", "2026-02", "2026-03"]);
+    expect(assignRunPeriods(["31.12.2025", "15.01.2026", "Feb", "Mär"], { defaultYear: 2026 }).slice(2)).toEqual(["2026-02", "2026-03"]);
+    expect(assignRunPeriods(["Okt", "Nov", "15.01.2026", "01.02.2026", "Jan 2027"]).slice(0, 2)).toEqual(["2026-10", "2026-11"]);
+  });
 });
 
 describe("assignRunPeriods — dates a week apart", () => {

@@ -264,8 +264,8 @@ export function isWeekSpacedColumn(cells: readonly string[], numbers: NumberOrig
 
 /**
  * A WIDE header row's period cells, read left to right as a RUN (§500):
- * - A cell that names its year (`Dez 2026`, `KW50 2026`, `2026-12`, a date of
- *   a date run) sets the running year. A year-less month or week takes the
+ * - A LABEL that names its year (`Dez 2026`, `KW50 2026`, `2026-12`) sets the
+ *   running year; in an all-date run, each date does. A year-less month or week takes the
  *   running year, which starts at `defaultYear`, and moves it on by one at the
  *   turn of a year — a step BACK of at least half a year (6 months, 26 weeks)
  *   against the previous period cell, months and weeks compared by their place
@@ -277,7 +277,10 @@ export function isWeekSpacedColumn(cells: readonly string[], numbers: NumberOrig
  *   Jan 2027` is Nov and Dez 2026, `Mai | Jan 2027` is May 2026, `KW52 | Jan
  *   2027` is 2026-W52. Only a run with no labelled cell at all reads in
  *   `defaultYear`.
- * - A header's ONE date or serial cell is no period (`withoutLoneDate`).
+ * - A header's ONE date or serial cell is no period (`withoutLoneDate`); in a
+ *   row that holds month or week labels, dates and serials (any number of
+ *   them) keep their own period but never anchor the labels' year
+ *   (`anchorsYear`).
  * - A run of dates a whole number of weeks apart, the closest exactly seven
  *   days, reads each date as its ISO week; any other dates read as their month.
  * Non-period cells are null and do not break the run. A LONG sheet's rows are
@@ -292,10 +295,23 @@ export function assignRunDetailed(
     return classes.map((c) =>
       c?.kind === "month" && c.date !== undefined ? { period: periodKeyForDate(c.date, "week"), assumed: false } : null);
   }
-  const out = readForwards(classes, usableYear(opts.defaultYear));
-  const first = classes.findIndex((c) => c?.year !== undefined);
-  if (first > 0) countBack(classes, out, first);
+  const anchors = anchorsYear(classes);
+  const out = readForwards(classes, usableYear(opts.defaultYear), anchors);
+  const first = classes.findIndex((c) => c !== null && anchors(c));
+  if (first > 0) countBack(classes, out, first, anchors);
   return out;
+}
+
+const isDateCell = (c: PeriodCell | null): boolean => c?.kind === "month" && c.date !== undefined;
+
+/** Which cells of a run may set (or count back from) its year: a cell that
+ *  names its year — but a date or serial only in an all-date run. ★ Beside month
+ *  or week labels a date never anchors them, however many there are: two
+ *  numeric code cells `40100 | 40200` once moved `Jan | Feb | Mär` into 2010
+ *  (re-review 3). Such a date still reads as its own period. */
+function anchorsYear(classes: ReadonlyArray<PeriodCell | null>): (c: PeriodCell) => boolean {
+  const hasLabels = classes.some((c) => c !== null && !isDateCell(c));
+  return (c) => c.year !== undefined && !(hasLabels && isDateCell(c));
 }
 
 /** A header's ONE date (or serial) cell is no period: it neither joins nor
@@ -303,8 +319,7 @@ export function assignRunDetailed(
  *  moved a whole `Jan | Feb | Mär` into 2025 or 2009. Two or more dates are a
  *  date run and read as such. */
 function withoutLoneDate(classes: Array<PeriodCell | null>): Array<PeriodCell | null> {
-  const isDate = (c: PeriodCell | null): boolean => c?.kind === "month" && c.date !== undefined;
-  return classes.filter(isDate).length === 1 ? classes.map((c) => (isDate(c) ? null : c)) : classes;
+  return classes.filter(isDateCell).length === 1 ? classes.map((c) => (isDateCell(c) ? null : c)) : classes;
 }
 
 /** A period's place in its year, 0 (January, week 1) to 1, so months and weeks
@@ -328,15 +343,22 @@ const isNotEarlier = (c: PeriodCell, next: PeriodCell): boolean =>
  *  the cell to its right lies in the year before, however small the gap
  *  (`Mai | Jan 2027` → May 2026, `Dez | Jan 2027` → Dez 2026, `KW52 | Jan 2027`
  *  → 2026-W52). The half-year rule (`isTurnOfYear`) once kept `Mai` in 2027
- *  (re-review 3); it is for reading forwards only. Overwrites `out`. */
-function countBack(classes: ReadonlyArray<PeriodCell | null>, out: Array<AssignedPeriod | null>, first: number): void {
+ *  (re-review 3); it is for reading forwards only. A cell that does not anchor
+ *  (`anchorsYear`: a date beside labels) keeps its own period and is passed
+ *  over. Overwrites `out`. */
+function countBack(
+  classes: ReadonlyArray<PeriodCell | null>,
+  out: Array<AssignedPeriod | null>,
+  first: number,
+  anchors: (c: PeriodCell) => boolean,
+): void {
   const label = classes[first];
   if (label?.year === undefined) return;
   let year = label.year;
   let next: PeriodCell = label;
   for (let i = first - 1; i >= 0; i--) {
     const c = classes[i];
-    if (c === null) continue;
+    if (c === null || (c.year !== undefined && !anchors(c))) continue;
     if (isNotEarlier(c, next)) year -= 1;
     next = c;
     const period = resolvePeriod(c, year);
@@ -346,13 +368,22 @@ function countBack(classes: ReadonlyArray<PeriodCell | null>, out: Array<Assigne
 
 /** The run read left to right: a labelled cell sets the running year, a
  *  year-less one takes it and rolls it on at the turn of a year (a step back
- *  of half a year or more: `isTurnOfYear`). */
-function readForwards(classes: ReadonlyArray<PeriodCell | null>, defaultYear: number | undefined): Array<AssignedPeriod | null> {
+ *  of half a year or more: `isTurnOfYear`). A cell that names its year but does
+ *  not anchor (`anchorsYear`) reads as itself and leaves the run alone. */
+function readForwards(
+  classes: ReadonlyArray<PeriodCell | null>,
+  defaultYear: number | undefined,
+  anchors: (c: PeriodCell) => boolean,
+): Array<AssignedPeriod | null> {
   let year = defaultYear;
   let assumed = year !== undefined;
   let previous: PeriodCell | undefined;
   return classes.map((c) => {
     if (c === null) return null;
+    if (c.year !== undefined && !anchors(c)) {
+      const own = resolvePeriod(c, undefined);
+      return own === null ? null : { period: own, assumed: false };
+    }
     if (c.year !== undefined) {
       year = c.year;
       assumed = false;

@@ -331,3 +331,13 @@ describe("probe: stacked year blocks on the hand route (round 3)", () => {
     expect(run.out.rowsAboveHeader).toBe(1);
   });
 });
+
+// Round 4 (rr3 Minor 6): two numeric code cells once moved Jan…Mär into 2010.
+describe("probe: numeric code cells in a header of year-less months (round 4)", () => {
+  it("two serial code cells beside year-less months leave the months in the default year, no collision", () => {
+    const rows = [["Name", "40100", "40200", "Jan", "Feb", "Mär"], ["Ann Lee", "", "", "8", "8", "8"]];
+    const run = readSheet(rows, "dot");
+    expect(run.validated.collisions).toEqual([]);
+    expect(run.out.rows.map((r) => r.period)).toEqual(["2026-01", "2026-02", "2026-03"]);
+  });
+});
