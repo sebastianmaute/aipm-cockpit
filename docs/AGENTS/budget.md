@@ -323,12 +323,17 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   range reads as a header for it (`headerAmbiguity`, `{ field: "header", candidates: [rows] }`, fix 9
   OOS-c): stacked long blocks (`Name | Monat | Forecast` over `Name | Monat | Ist`, which imported the Ist
   block) and stacked wide year blocks (residue 9). ★★★ A REPEATED HEADER (`repeatedHeaderRows`, round 5)
-  is a row whose person-column cell equals the header's person label and which holds no number in the
-  hours or period columns: detection adds every one, above or below, to the header question whatever the
+  is a row that holds no number in the hours or period columns and repeats the header's person label, or
+  reads as a header of the mapping's shape under any label (round 6, `readsAsHeader`): a person header
+  word in the person column (`PERSON_HEADER_RE`), two or more period labels in a wide reading's period
+  columns, or, long, an hours word in the hours column or a period word in the period column (`header-words.ts`;
+  a header word holds no digit, so `2 Wochen Urlaub` or `Elternzeit (3 Monate)` is no header, and nor are
+  `Urlaub`, `-` or `n/a`). The rows right beside the header row are a two-row header (`Name | Std | Std`
+  under the months), never a repeated one. Detection adds every one, above or below, to the header question whatever the
   block sizes (a one-row block too), and the hand reading STOPS before the first one below the header row
   (`readingEnd`; the preview counts the rows below it, `rowsBelowRepeatedHeader`), so header row 1 reads
-  the Forecast block only and the later header the Ist block only. A second block whose header names the
-  person column differently (`Mitarbeiter` under `Name`) is no repeated header (residue 28). The
+  the Forecast block only and the later header the Ist block only; a second block under `Mitarbeiter` (below
+  `Name`) ends the reading too. Only a second header of unrelated words matches none of this (residue 28). The
   preselected row is unchanged, and the notice names the candidate rows (1-based). In the Wide layout, which has no hours or period select, ONE notice asks to
   check the mapping and confirm (rr8 m2); a header notice is shown beside it. Detection
   scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, blank rows skipped
