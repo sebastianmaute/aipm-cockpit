@@ -10,7 +10,7 @@ import { columnLetters, isTotalLabel, type DecimalStyle } from "./forecast-rows"
 import type { ValidationResult } from "./forecast-validate";
 import { classifyPeriodCell } from "./period-assign";
 import type { SheetGrid } from "./sheet-grid";
-import { columnFacts, nearestPeriodRowAbove, sheetNumber, sourcePosition } from "./source-evidence";
+import { columnFacts, columnNaming, nearestPeriodRowAbove, sheetNumber, sourcePosition } from "./source-evidence";
 
 /** A sheet row no row cites although it holds hours, with the text that names
  *  its person when there is one. `row` is 1-based. */
@@ -27,19 +27,39 @@ const sourceOf = (raw: unknown): string | undefined => {
   return typeof source === "string" ? source : undefined;
 };
 
-/** Every source the reply cited, accepted or rejected, and the accepted ones. */
-function citations(result: ValidationResult): { all: string[]; accepted: string[] } {
+type Citation = { source: string; person: string };
+
+/** Every source the reply cited, accepted or rejected, and the accepted ones
+ *  with the person each was accepted for. */
+function citations(result: ValidationResult): { all: string[]; accepted: Citation[] } {
+  const each = (person: string, sources: readonly string[]): Citation[] => sources.map((source) => ({ source, person }));
   const accepted = [
-    ...result.ok.flatMap((r) => (r.source === undefined ? [] : [r.source])),
-    ...result.duplicates.flatMap((d) => d.sources),
-    ...result.subPeriods.flatMap((d) => d.sources),
-    ...result.collisions.flatMap((c) => c.sources),
+    ...result.ok.flatMap((r) => (r.source === undefined ? [] : each(r.person, [r.source]))),
+    ...result.duplicates.flatMap((d) => each(d.person, d.sources)),
+    ...result.subPeriods.flatMap((d) => each(d.person, d.sources)),
+    ...result.collisions.flatMap((c) => each(c.person, c.sources)),
   ];
   const rejected = result.rejected.flatMap((r) => {
     const source = sourceOf(r.row);
     return source === undefined ? [] : [source];
   });
-  return { all: [...accepted, ...rejected], accepted };
+  return { all: [...accepted.map((c) => c.source), ...rejected], accepted };
+}
+
+/** The column the accepted rows name their people in — the most common one
+ *  (`columnNaming` on each cited row), the leftmost on a tie — else undefined. */
+function personColumn(sheet: SheetGrid, accepted: readonly Citation[]): number | undefined {
+  const counts = new Map<number, number>();
+  for (const { source, person } of accepted) {
+    const at = sourcePosition(source, sheet.name);
+    const col = at === null ? null : columnNaming(sheet.rows[at.rowIdx] ?? [], at.colIdx, person);
+    if (col !== null) counts.set(col, (counts.get(col) ?? 0) + 1);
+  }
+  let best: number | undefined;
+  for (const [col, n] of counts) {
+    if (best === undefined || n > (counts.get(best) ?? 0) || (n === counts.get(best) && col < best)) best = col;
+  }
+  return best;
 }
 
 /** The row of each cited column's header: the nearest non-blank, non-number
@@ -68,7 +88,9 @@ function citedColumnHeaders(sheet: SheetGrid, cited: readonly Position[], isNumb
  * a number cell under a period header (a wide sheet) or in a column the reply
  * cited as hours, below that column's header (a long sheet) — a person the
  * reply skipped ENTIRELY included. Total rows (`isTotalLabel`) are left out.
- * Information, not a blocker.
+ * A row's person is its cell in the column the accepted rows name their people
+ * in (`personColumn`), else its first text cell — a `Rolle | Name` sheet once
+ * named a skipped person by their role. Information, not a blocker.
  */
 export function findUnreadCells(sheet: SheetGrid, result: ValidationResult): UnreadCells {
   const { all, accepted } = citations(result);
@@ -80,7 +102,8 @@ export function findUnreadCells(sheet: SheetGrid, result: ValidationResult): Unr
   const citedAt = positions(all);
   const cited = new Set(citedAt.map((p) => `${p.rowIdx}:${p.colIdx}`));
   const citedRows = new Set(citedAt.map((p) => p.rowIdx));
-  const acceptedRows = new Set(positions(accepted).map((p) => p.rowIdx));
+  const acceptedRows = new Set(positions(accepted.map((c) => c.source)).map((p) => p.rowIdx));
+  const personCol = personColumn(sheet, accepted);
 
   const styleOf = (col: number): DecimalStyle => columnFacts(sheet).style(col);
   const isPeriodShaped = (cell: string): boolean => {
@@ -105,7 +128,9 @@ export function findUnreadCells(sheet: SheetGrid, result: ValidationResult): Unr
     }
     if (citedRows.has(rowIdx) || row.some(isTotalLabel)) return;
     if (!row.some((cell, col) => holdsHours(rowIdx, col, cell))) return;
-    const person = row.find((cell, col) => cell.trim() !== "" && !isNumber(col, cell) && !isPeriodShaped(cell))?.trim();
+    const isText = (cell: string, col: number): boolean => cell.trim() !== "" && !isNumber(col, cell) && !isPeriodShaped(cell);
+    const named = personCol === undefined ? "" : (row[personCol] ?? "");
+    const person = (isText(named, personCol ?? -1) ? named : row.find(isText))?.trim();
     rows.push(person === undefined ? { row: rowIdx + 1 } : { row: rowIdx + 1, person });
   });
   return { cells, rows };

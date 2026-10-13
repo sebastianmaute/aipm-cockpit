@@ -121,4 +121,28 @@ describe("findUnreadCells — a person skipped in a wide sheet (round 3)", () =>
     ];
     expect(unreadOf(sheet, complete)).toEqual({ cells: [], rows: [] });
   });
+
+  // Round 4 (rr3 Minor 2): the person is read from the column the accepted
+  // rows name their people in, not from the row's first text cell.
+  it("names a skipped person from the accepted rows' person column: Rolle | Name gives Bob Kay", () => {
+    const sheet: SheetGrid = {
+      name: "S",
+      rows: [["Rolle", "Name", "Jan 2026", "Feb 2026"], ["Dev", "Ann Lee", "8", "8"], ["QA", "Bob Kay", "4", "4"]],
+      truncated: false,
+    };
+    expect(unreadOf(sheet, [row("Ann Lee", "Jan 2026", 8, "S!C2"), row("Ann Lee", "Feb 2026", 8, "S!D2")])).toEqual({
+      cells: [],
+      rows: [{ row: 3, person: "Bob Kay" }],
+    });
+  });
+
+  it("falls back to the row's first text cell when no accepted row names a person column", () => {
+    const sheet: SheetGrid = {
+      name: "S",
+      rows: [["Rolle", "Name", "Jan 2026", "Feb 2026"], ["Dev", "Ann Lee", "8", "8"], ["QA", "Bob Kay", "4", "4"]],
+      truncated: false,
+    };
+    // The one row is rejected (wrong hours), so no accepted row names a column.
+    expect(unreadOf(sheet, [row("Ann Lee", "Jan 2026", 99, "S!C2")]).rows).toEqual([{ row: 3, person: "QA" }]);
+  });
 });
