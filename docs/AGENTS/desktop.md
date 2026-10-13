@@ -65,7 +65,8 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   (`lib/exit-reporting.ts`) reports only when `quitting` is false and a window is alive.
 - **The log.** `resolveLogDir` gives `%LOCALAPPDATA%\aipm-cockpit\logs` (then `TEMP`, `TMP`, `.`), and
   `main.ts`'s `log` appends to `launch.log` there and never throws. Dialogs name that path.
-- **The splash says what it is doing (§705).** `start()` sends "Starting the background service…", then
+- **The splash says what it is doing (§705).** `start()` sends "Starting the background service…" only when it
+  spawns the server (a port this build already serves goes straight to "Opening…"), then
   "Opening…" just before `loadURL`, and a reassurance line after `SPLASH_SLOW_MS` (10 s). The strings
   and the `executeJavaScript` scripts are in `lib/splash-status.ts` (German when `app.getLocale()`
   starts with `de`); `splash.html` owns the two text lines and `window.__splash`. The slow timer is

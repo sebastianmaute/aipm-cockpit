@@ -54,7 +54,9 @@
     font-family: Arial, 'Liberation Sans', Helvetica, sans-serif;
   }
   .status { margin-top: -36px; min-height: 1.4em; font-size: 15px; letter-spacing: .5px; }
-  .slow   { margin-top: 12px; font-size: 13px; line-height: 1.4; opacity: .85; }
+  /* The slow line's space is reserved from the start (two lines, the longest EN/DE text): showing it
+     later would otherwise grow the page and re-centre the artwork by about 25px. */
+  .slow   { margin-top: 12px; font-size: 13px; line-height: 1.4; opacity: .85; min-height: 2.8em; visibility: hidden; }
 </style>
   <svg class="splash" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400"
        role="img" aria-label="AI PM Cockpit is starting" xmlns:c2pa="http://c2pa.org/manifest">
@@ -174,7 +176,7 @@
     </g>
   </svg>
   <p id="splash-status" class="status" role="status"></p>
-  <p id="splash-slow" class="slow" hidden></p>
+  <p id="splash-slow" class="slow"></p>
   <script>
     // Called by main.ts via executeJavaScript. textContent only: the text is
     // data, never markup.
@@ -183,7 +185,7 @@
       slow: function (t) {
         var el = document.getElementById("splash-slow");
         el.textContent = t;
-        el.hidden = false;
+        el.style.visibility = "visible";
       },
     };
   </script>

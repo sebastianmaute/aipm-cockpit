@@ -499,8 +499,6 @@ async function start(): Promise<void> {
     fail(title, message);
   };
   try {
-    sendSplash("status", splashText.starting);
-
     const probe = await probePort();
     const owner = classifyPortOwner(probe, app.getVersion());
 
@@ -536,6 +534,9 @@ async function start(): Promise<void> {
     }
 
     if (owner === "free") {
+      // Only a launch that really starts the service says so: when this build already serves the
+      // port ("ours") nothing is starting, and the splash goes straight to "Opening…" below.
+      sendSplash("status", splashText.starting);
       serverChild = spawnServer(process.resourcesPath);
       // Both streams are piped, so both are drained: an unread pipe fills and
       // stalls the server on its next write.
