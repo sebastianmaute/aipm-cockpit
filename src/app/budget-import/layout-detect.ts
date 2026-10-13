@@ -240,10 +240,42 @@ function leftOutPeriodColumns(rows: Rows, mapping: ColumnMapping, ctx: Ctx): num
     && columnCells(data, col).some((c) => isNumberCell(c, ctx.numbers)) ? [col] : []));
 }
 
+/**
+ * ★★★ The blank-headed columns holding a number inside the run of a wide
+ * mapping's period columns, or in the blank-headed columns right after it
+ * (final review 3, I1): Excel keeps a merged month header's text in its LEFT
+ * cell only, so `Jan 2026 | (blank) | Feb 2026 | (blank)` over `Ist | Plan`,
+ * `Actual | Forecast` or `€ | Std` read the left sub-column as the month and
+ * left the other out, unasked — the actuals or the costs written as the
+ * forecast. A `Plan | Ist` order asks too (the accepted fail-closed cost).
+ * The person, email and rate columns are no candidates.
+ */
+function blankHeadedNumberColumns(rows: Rows, mapping: ColumnMapping, ctx: Ctx): number[] {
+  const periodCols = mapping.periodCols ?? [];
+  if (periodCols.length === 0) return [];
+  const header = rows[mapping.headerRow] ?? [];
+  const data = dataRowsBelow(rows, mapping.headerRow);
+  const width = Math.max(header.length, rowWidth(data));
+  const first = periodCols.reduce((min, col) => Math.min(min, col), Infinity);
+  let last = periodCols.reduce((max, col) => Math.max(max, col), -Infinity);
+  while (last + 1 < width && isBlank(cellAt(header, last + 1))) last += 1;
+  const skip = new Set([...periodCols, mapping.person, mapping.email, mapping.rate]);
+  const out: number[] = [];
+  for (let col = first + 1; col <= last; col++) {
+    if (!skip.has(col) && isBlank(cellAt(header, col)) && columnCells(data, col).some((c) => isNumberCell(c, ctx.numbers))) out.push(col);
+  }
+  return out;
+}
+
 function wideAmbiguity(rows: Rows, mapping: ColumnMapping, ctx: Ctx): ColumnAmbiguity[] {
-  const own = [...new Set([...rowPeriodColumns(rows, mapping, ctx), ...rowYearColumns(rows, mapping), ...leftOutPeriodColumns(rows, mapping, ctx)])];
+  const own = [...new Set([
+    ...rowPeriodColumns(rows, mapping, ctx),
+    ...rowYearColumns(rows, mapping),
+    ...leftOutPeriodColumns(rows, mapping, ctx),
+    ...blankHeadedNumberColumns(rows, mapping, ctx),
+  ])];
   if (own.length === 0) return [];
-  return [{ field: "period", candidates: [...own, ...(mapping.periodCols ?? [])].sort((a, b) => a - b) }];
+  return [{ field: "period", candidates: [...new Set([...own, ...(mapping.periodCols ?? [])])].sort((a, b) => a - b) }];
 }
 
 /**
