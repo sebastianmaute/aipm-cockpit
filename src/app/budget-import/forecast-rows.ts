@@ -283,7 +283,8 @@ export function gridToForecastRows(
 /** Every column, at any position and in either layout, that is not read, not a
  *  mapped field and not headed as a total (`isTotalHeader`), yet holds a number
  *  in more than half of the person rows — hours the import would otherwise
- *  leave out without a word. */
+ *  leave out without a word. A period-shaped cell is no number here, as in
+ *  `findUnreadCells`: a workbook's `Eintritt` serials were once listed. */
 function unreadNumberColumns(
   header: readonly string[],
   mapping: ColumnMapping,
@@ -300,7 +301,8 @@ function unreadNumberColumns(
     const cells = people.map(({ row }) => cellAt(row, col));
     if (skip.has(col) || isTotalHeader(label) || ID_HEADER.test(label.trim()) || isYearColumn(label, cells)) continue;
     const style = detectDecimalStyle(cells, numbers);
-    const numeric = cells.filter((c) => parseNumberCell(c, style, numbers) !== null).length;
+    // A period-shaped cell (a workbook's serial date) is never hours.
+    const numeric = cells.filter((c) => !isPeriodShapedIn(c, numbers) && parseNumberCell(c, style, numbers) !== null).length;
     if (numeric > people.length * IGNORED_COLUMN_SHARE) out.push({ col, header: label.trim() });
   }
   return out;

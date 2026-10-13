@@ -341,3 +341,26 @@ describe("probe: numeric code cells in a header of year-less months (round 4)", 
     expect(run.out.rows.map((r) => r.period)).toEqual(["2026-01", "2026-02", "2026-03"]);
   });
 });
+
+// Round 4 (rr3 Minor 5): a workbook's serial date column is period-shaped, never
+// an unread hours column.
+describe("probe: a serial date column is not an ignored number column (round 4)", () => {
+  it("Name | Eintritt | Jan | Feb | Mär with Eintritt 45000 in a workbook lists no ignored column", () => {
+    const run = readSheet([
+      ["Name", "Eintritt", "Jan", "Feb", "Mär"],
+      ["Ann Lee", "45000", "8", "8", "8"],
+      ["Bob Kay", "45200", "4", "4", "4"],
+    ], "dot");
+    expect(run.out.rows).toHaveLength(6);
+    expect(run.out.ignoredColumns).toEqual([]);
+  });
+
+  it("still lists a CSV column of five-digit numbers: a serial counts as a date only in a workbook", () => {
+    const run = readSheet([
+      ["Name", "Kosten", "Jan", "Feb", "Mär"],
+      ["Ann Lee", "45000", "8", "8", "8"],
+      ["Bob Kay", "45200", "4", "4", "4"],
+    ]);
+    expect(run.out.ignoredColumns).toEqual([{ col: 1, header: "Kosten" }]);
+  });
+});
