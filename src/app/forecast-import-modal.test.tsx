@@ -568,7 +568,8 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
   it("says why Claude's row was refused when the row and the column header disagree", async () => {
     claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C14" }]);
     render(<ForecastImportModal {...propsOf()} />);
-    await chooseUnknown(["Zeitraum,01.01.2026,31.03.2026", "", "Name,Monat,Plan,Ist", "Ann Lee,Jan 2026,40,35", "Ann Lee,Feb 2026,30,25"]);
+    // Round 8: one number column, since a second one (Plan | Ist) now refuses row-ambiguous.
+    await chooseUnknown(["Zeitraum,01.01.2026,31.03.2026", "", "Name,Monat,Stunden", "Ann Lee,Jan 2026,40", "Ann Lee,Feb 2026,30"]);
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
     const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
     expect(within(section).getByText(/forecast!C14/)).toHaveTextContent(t(L, "forecastImportRejectSourceConflict", "Jan 2026", "Mar 2026"));

@@ -784,3 +784,38 @@ describe("an unknown layout refuses a row with two numbers for one period (round
     expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!D2")], strictOn(rows)))).toEqual([["Ann", "2026-01", 40]]);
   });
 });
+
+// Round 8 I-C (rr11): row-ambiguous judges COLUMNS. With no hand reading, a
+// claim is refused when the sheet holds another number-bearing column whose
+// period sources do not differ from the cited cell's: the same column-header
+// period, neither under one, or only one of the two under one. A blank
+// forecast cell or a title run over one column once let the Ist through.
+describe("an unknown layout judges columns, not just the cited row (round 8 I-C)", () => {
+  it("a blank or placeholder forecast cell beside the Ist: the Ist claims are refused", () => {
+    for (const blank of ["", "-", "tbd"]) {
+      const rows = [...pad(10), ["Name", "Monat", "Stunden", "Ist"], ["Ann", "Jan 2026", "40", "35"], ["Bob", "Feb 2026", blank, "25"]];
+      expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+      expect(detail(validateForecastRows([claim("Feb 2026", 25, "S!D13", "Bob")], strictOn(rows)))).toEqual(["row-ambiguous"]);
+    }
+  });
+
+  it("a title run over the Stunden column only: Ann's Ist 35 is refused", () => {
+    const rows = [...pad(9), ["Zeitraum", "01.01.2026", "31.01.2026"], ["Name", "Monat", "Stunden", "Ist"], ["Ann", "Jan 2026", "40", "35"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    expect(detail(validateForecastRows([claim("Jan 2026", 35, "S!D12")], strictOn(rows)))).toEqual(["row-ambiguous"]);
+  });
+
+  it("an unknown wide month sheet still imports, a blank month included", () => {
+    const rows = [...pad(10), ["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", ""], ["Bob", "11", "21"]];
+    const out = validateForecastRows([claim("Jan 2026", 10, "S!B12"), claim("Feb 2026", 21, "S!C13", "Bob")], strictOn(rows));
+    expect(out.rejected).toEqual([]);
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 10], ["Bob", "2026-02", 21]]);
+  });
+
+  it("an unknown long sheet with ONE number column still imports", () => {
+    const rows = [...pad(10), ["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "40"], ["Bob", "Feb 2026", "30"]];
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C12"), claim("Feb 2026", 30, "S!C13", "Bob")], strictOn(rows));
+    expect(out.rejected).toEqual([]);
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 40], ["Bob", "2026-02", 30]]);
+  });
+});

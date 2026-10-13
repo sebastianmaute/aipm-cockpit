@@ -5,7 +5,7 @@
 // left out). Pure: no i18n, no React, no DOM.
 
 import { periodKeyForDate } from "../resource-capacity";
-import { detectDecimalStyle, parseNumberCell, type DecimalStyle } from "./forecast-rows";
+import { detectDecimalStyle, isBlank, parseNumberCell, type DecimalStyle } from "./forecast-rows";
 import { handPeriodAt, isUnreadCellOfReading, type HandReading } from "./hand-reading";
 import {
   assignCellPeriod,
@@ -29,9 +29,9 @@ import type { SheetGrid } from "./sheet-grid";
  *  hand route reads (`period-conflict`, `periodNearCell`), the sheet's columns
  *  are ambiguous and not confirmed (`columns-unconfirmed`, every claim of the
  *  sheet), the hand route reads other cells of the cited row but not this one
- *  (`cell-not-read`), there is no hand reading and the cited row holds another
- *  number for the same period (`row-ambiguous`, round 7), or an earlier row
- *  already used the cell. */
+ *  (`cell-not-read`), there is no hand reading and another number column of the
+ *  sheet is not told apart from the cited one (`row-ambiguous`, rounds 7–8), or
+ *  an earlier row already used the cell. */
 export type SourceRejection =
   | "bad-ref" | "value-mismatch" | "person-not-on-row" | "period-not-near" | "period-conflict" | "columns-unconfirmed"
   | "cell-not-read" | "row-ambiguous" | "cell-reused";
@@ -344,29 +344,51 @@ function headerKeyOf(sheet: SheetGrid, at: { rowIdx: number; colIdx: number }, d
   return date === undefined ? { period: assigned.period } : { period: assigned.period, date };
 }
 
-/** Two cells of one row sit under the same period: both without a period
- *  header above, or both under the same period, unless distinct dates of it
- *  (sprint or semi-monthly sub-period columns). */
-function isSamePeriodKey(a: HeaderKey, b: HeaderKey): boolean {
-  if (a === "none" || b === "none") return a === b;
-  if (a === null || b === null) return false;
-  return a.period === b.period && !(a.date !== undefined && b.date !== undefined && a.date !== b.date);
+/** Two columns' header keys at one row are INDEPENDENT: both under a period
+ *  header, and either different periods or distinct dates of one (sprint or
+ *  semi-monthly sub-period columns). Anything else — the same period, neither
+ *  under a header, or only ONE under a header (a title run over one column),
+ *  or an unreadable header — does not tell them apart (round 8 I-C). */
+function isIndependentKey(a: HeaderKey, b: HeaderKey): boolean {
+  if (a === "none" || b === "none" || a === null || b === null) return false;
+  return a.period !== b.period || (a.date !== undefined && b.date !== undefined && a.date !== b.date);
+}
+
+const NUMBER_COLUMNS = new WeakMap<SheetGrid, Map<number, boolean>>();
+
+/** The column holds a number (not period-shaped) in any row of the sheet. */
+function isNumberBearing(sheet: SheetGrid, col: number): boolean {
+  const known = NUMBER_COLUMNS.get(sheet) ?? new Map<number, boolean>();
+  NUMBER_COLUMNS.set(sheet, known);
+  const cached = known.get(col);
+  if (cached !== undefined) return cached;
+  const bears = sheet.rows.some((row) => {
+    const cell = row[col] ?? "";
+    return !isBlank(cell) && !isPeriodShapedIn(cell, sheet.numbers) && sheetNumber(sheet, col, cell) !== null;
+  });
+  known.set(col, bears);
+  return bears;
 }
 
 /**
- * ★★ Without a hand reading, the cited row holds ANOTHER number cell (not
- * period-shaped, not the person cell) under the same period as the cited cell
- * (`isSamePeriodKey`): on an unknown layout nothing tells `Stunden` from
- * `Ist`, and Claude's actuals were accepted (rr10 OOS-1, round 7). Distinct
- * month columns and distinct sprint dates do not match. The cost: a long row's
- * `PersNr` or year number refuses it too.
+ * ★★ Without a hand reading, the sheet holds ANOTHER number-bearing column
+ * (`isNumberBearing`; the cited row's person column excluded) whose period
+ * sources at the cited row do not differ from the cited cell's
+ * (`isIndependentKey`): on an unknown layout nothing tells `Stunden` from
+ * `Ist`. Round 7 looked only at the cited ROW, so a blank or placeholder
+ * forecast cell beside the Ist, or a title run over the Stunden column only,
+ * let Claude's actuals through (rr11 I-C). Distinct month columns and distinct
+ * sprint dates stay independent. The cost: an unknown long sheet with a second
+ * number column (`Ist`, `PersNr`, a year, a total) refuses on the Claude route.
  */
-function hasTwinNumber(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; personCol: number }, defaultYear: number | undefined): boolean {
-  const cells = sheet.rows[at.rowIdx] ?? [];
+function hasTwinColumn(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; personCol: number }, defaultYear: number | undefined): boolean {
   const own = headerKeyOf(sheet, at, defaultYear);
-  return cells.some((cell, col) => col !== at.colIdx && col !== at.personCol
-    && !isPeriodShapedIn(cell, sheet.numbers) && sheetNumber(sheet, col, cell) !== null
-    && isSamePeriodKey(own, headerKeyOf(sheet, { rowIdx: at.rowIdx, colIdx: col }, defaultYear)));
+  const width = sheet.rows.reduce((max, row) => Math.max(max, row.length), 0);
+  for (let col = 0; col < width; col++) {
+    if (col === at.colIdx || col === at.personCol || !isNumberBearing(sheet, col)) continue;
+    if (!isIndependentKey(own, headerKeyOf(sheet, { rowIdx: at.rowIdx, colIdx: col }, defaultYear))) return true;
+  }
+  return false;
 }
 
 /**
@@ -401,7 +423,7 @@ export function checkSource(
   // A read row's other cells (Ist, Kosten, an ID) back nothing, whatever they hold (fix 8
   // round 3), nor do the rows of another stacked block (round 5).
   if (isUnreadCellOfReading(hand, cited.rowIdx, cited.colIdx)) return { problem: "cell-not-read" };
-  // No hand reading: a second number for the same period on the row backs nothing (round 7).
-  if (hand === null && hasTwinNumber(sheet, { ...cited, personCol }, defaultYear)) return { problem: "row-ambiguous" };
+  // No hand reading: a second number column the period sources cannot tell apart (rounds 7, 8).
+  if (hand === null && hasTwinColumn(sheet, { ...cited, personCol }, defaultYear)) return { problem: "row-ambiguous" };
   return periodNearCell(sheet, { ...cited, personCol }, claim, defaultYear, handPeriodAt(hand, cited.rowIdx, cited.colIdx));
 }

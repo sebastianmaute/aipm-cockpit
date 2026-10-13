@@ -1224,3 +1224,26 @@ describe("useForecastImport — placeholders in the hours column ask (round 7 I-
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
   });
 });
+
+// Round 8 I-C (rr11 D2): on an unknown layout, Claude's Ist 25 beside Bob's
+// blank forecast was applied as his February forecast.
+describe("useForecastImport — an unknown layout's second number column refuses the Ist (round 8 I-C)", () => {
+  it("refuses Bob's Ist 25 as row-ambiguous and applies nothing", async () => {
+    claudeResponds({ rows: [{ person: "Bob Ray", period: "Feb 2026", hours: 25, source: "forecast!D13" }] });
+    const deps = depsOf();
+    const csv = [...Array.from({ length: 10 }, () => ""), "Name,Monat,Stunden,Ist", "Ann Lee,Jan 2026,40,35", "Bob Ray,Feb 2026,,25", ""].join("\r\n");
+    const { result } = await loaded(deps, csv);
+    expect(result.current.layoutDetected).toBe(false);
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected).toMatchObject([{ reason: "source", detail: "row-ambiguous" }]);
+    expect(result.current.importPlan?.changes).toEqual([]);
+    let outcome: string | undefined;
+    act(() => {
+      outcome = result.current.apply();
+    });
+    expect(outcome).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+});

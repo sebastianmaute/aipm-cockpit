@@ -807,13 +807,17 @@ describe("validateForecastRows: in-grid text does not bound the header search (r
     expect(out.ok.map((r) => r.period)).toEqual(["2026-01", "2026-02", "2026-03"]);
   });
 
-  it("accepts the Plan cells under a Plan | Ist sub-header", () => {
+  // Round 8 I-C: the sheet reads unknown (the sub-header row is text under the
+  // months), so there is no hand reading, and the Ist columns sit under no
+  // month header of their own: Plan and Ist cannot be told apart, and the right
+  // Plan claims are refused row-ambiguous (residue 31). They stood before.
+  it("refuses the Plan cells under a Plan | Ist sub-header with merged month cells: row-ambiguous", () => {
     const sheet = sheetOf([["Name", "Jan 2026", "", "Feb 2026", ""], ["", "Plan", "Ist", "Plan", "Ist"], ["Ann", "8", "6", "8", "7"]]);
     const out = validateForecastRows([
       claim("Ann", "Jan 2026", 8, "S!B3"), claim("Ann", "Feb 2026", 8, "S!D3"),
     ], { sheet, requireSource: true });
-    expect(out.rejected).toEqual([]);
-    expect(out.ok.map((r) => r.period)).toEqual(["2026-01", "2026-02"]);
+    expect(out.ok).toEqual([]);
+    expect(out.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason))).toEqual(["row-ambiguous", "row-ambiguous"]);
   });
 
   it("accepts Bob's sprint-date claims under a - in Ann's row and sums his January to 80", () => {
@@ -890,8 +894,9 @@ describe("validateForecastRows: conflicting period evidence is refused (fix 7, f
     expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed", "columns-unconfirmed"]);
   });
 
+  // Round 8: one number column, since a second (Plan | Ist) now refuses row-ambiguous.
   it("names both periods of a row and header conflict, the row's then the header's, on an unknown layout", () => {
-    const opts = strictOn([...pad(10), ...quarterRows(["Name", "Monat", "Plan", "Ist"])]);
+    const opts = strictOn([...pad(10), ["Zeitraum", "01.01.2026", "31.03.2026"], [], ["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "40"]]);
     const out = validateForecastRows([claim("Jan 2026", 40, "S!C14")], opts);
     expect(out.rejected).toEqual([
       { row: claim("Jan 2026", 40, "S!C14"), reason: "source", detail: "period-conflict", periods: { row: "2026-01", header: "2026-03" } },
@@ -1046,9 +1051,13 @@ describe("validateForecastRows: conflicting period evidence is refused (fix 7, f
     expect(detail(validateForecastRows([claim("02.02.2026", 30, "S!D13", "Bob")], opts))).toEqual(["period-conflict"]);
   });
 
+  // Round 8 I-C: the CSV 46082 counts as a NUMBER, so the PersNr column is a
+  // second number column under no month header and the claim is refused
+  // row-ambiguous; read as a date it would have been a period-conflict with the
+  // row's March. It was accepted before round 8.
   it("does not count a CSV's five-digit number on the row as a date (an unknown layout)", () => {
     const opts = strictOn([...pad(10), ["", "Jan 2026", "Feb 2026"], ["Name", "Std", "Std", "PersNr"], ["Ann", "40", "35", "46082"]]);
-    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!B13")], opts))).toEqual([["2026-01", 40]]);
+    expect(detail(validateForecastRows([claim("Jan 2026", 40, "S!B13")], opts))).toEqual(["row-ambiguous"]);
   });
 
   it("does not stop at a person row holding only placeholders: Bob's claims below Carl's Urlaub row are checked against the month header", () => {
