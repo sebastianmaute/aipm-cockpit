@@ -215,13 +215,16 @@ function rowsAboveHeaderCount(
  * Period labels without a year are read in `mapping.year`, and `assumedYear`
  * says so when any returned row's period took its year from it (a wide header
  * that rolled on from it included). `ignoredColumns` lists a wide sheet's
- * unread number columns (see `IgnoredColumn`).
+ * unread number columns (see `IgnoredColumn`). `onRead`, when given, hears
+ * every cell read into a row: its 0-based row and column and the period it was
+ * read as (`handReadingOf` builds the Claude route's check on it).
  */
 export function gridToForecastRows(
   rows: readonly string[][],
   mapping: ColumnMapping,
   sheetName: string,
   numbers: NumberOrigin = "text",
+  onRead?: (rowIdx: number, col: number, period: AssignedPeriod) => void,
 ): ForecastRowsResult {
   const out: ForecastRow[] = [];
   const read: AssignedPeriod[] = [];
@@ -269,6 +272,7 @@ export function gridToForecastRows(
       else {
         out.push(withMeta(meta, period, hours, sourceOf(index, col)));
         read.push({ period, assumed });
+        onRead?.(index, col, { period, assumed });
       }
     }
   }

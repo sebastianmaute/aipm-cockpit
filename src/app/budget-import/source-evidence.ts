@@ -6,6 +6,7 @@
 
 import { periodKeyForDate } from "../resource-capacity";
 import { detectDecimalStyle, isBlank, parseNumberCell, type DecimalStyle } from "./forecast-rows";
+import { handPeriodAt, type HandReading } from "./hand-reading";
 import { isPeriodWordHeader } from "./layout-detect";
 import {
   assignCellPeriod,
@@ -30,9 +31,10 @@ import type { SheetGrid } from "./sheet-grid";
  *  cell. */
 export type SourceRejection = "bad-ref" | "value-mismatch" | "person-not-on-row" | "period-not-near" | "period-conflict" | "cell-reused";
 
-/** The two periods of a `period-conflict`, as canonical keys: what a period
- *  cell on the cited row says, and what the column header above the cell says. */
-export type PeriodConflict = { row: string; header: string };
+/** What a `period-conflict` names, as canonical keys: the period the hand
+ *  route reads the cited cell in (`sheet`), or what a period cell on the cited
+ *  row says and what the column header above the cell says. */
+export type PeriodConflict = { sheet: string } | { row: string; header: string };
 
 /** How far a cited cell may sit from the stated hours (rounding in the file). */
 const SOURCE_HOURS_TOLERANCE = 0.005;
@@ -300,7 +302,12 @@ export type SourceCheck = { problem: SourceRejection; periods?: PeriodConflict }
 /**
  * What a cited cell proves for a row: it must hold the hours (by the sheet's
  * number rule), ANOTHER cell of its row must name the PERSON, and the claimed
- * period must be the one the cell sits under (`periodNearCell`). Returns the
+ * period must be the one the cell sits under. ★★ Where the hand route reads
+ * the cell (`hand`: `handReadingOf`, a clear detection — or, on a long sheet,
+ * the cell's row), that reading IS the period: a claim naming another is
+ * `period-conflict` (rr7 I1: a key/value title row `Erstellt von | Max |
+ * 01.03.2026` let a wrong month through `rowEvidence`'s exemption). Only
+ * elsewhere does `periodNearCell` decide. Returns the
  * period as the SHEET reads it, or why the cell does not back the row. An
  * email never vouches for the person: the model can write any email beside any
  * name.
@@ -310,6 +317,7 @@ export function checkSource(
   claim: PeriodCell,
   sheet: SheetGrid,
   defaultYear: number | undefined,
+  hand: HandReading | null = null,
 ): SourceCheck {
   const cited = citedCell(row.source, sheet);
   if (cited === null) return { problem: "bad-ref" };
@@ -317,5 +325,9 @@ export function checkSource(
   if (value === null || Math.abs(value - row.hours) > SOURCE_HOURS_TOLERANCE) return { problem: "value-mismatch" };
   const personCol = columnNaming(sheet.rows[cited.rowIdx], cited.colIdx, row.person);
   if (personCol === null) return { problem: "person-not-on-row" };
+  const handPeriod = handPeriodAt(hand, cited.rowIdx, cited.colIdx);
+  if (handPeriod !== undefined) {
+    return claimNames(claim, handPeriod.period) ? { period: handPeriod } : { problem: "period-conflict", periods: { sheet: handPeriod.period } };
+  }
   return periodNearCell(sheet, { ...cited, personCol }, claim, defaultYear);
 }

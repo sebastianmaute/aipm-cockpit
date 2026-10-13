@@ -71,6 +71,16 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+/** Why a Claude row's source did not back it. A period conflict names its
+ *  periods: the one the detected columns read the cell in, or the row's and
+ *  then the column header's. */
+function sourceWhy(lang: Lang, r: Extract<RejectedRow, { reason: "source" }>): string {
+  const periods = r.periods;
+  if (periods === undefined) return t(lang, SOURCE_KEY[r.detail]);
+  if ("sheet" in periods) return t(lang, "forecastImportRejectSourceSheet", periods.sheet);
+  return t(lang, SOURCE_KEY[r.detail], periods.row, periods.header);
+}
+
 function describeRejected(lang: Lang, r: RejectedRow): string {
   const raw = r.row;
   const rec = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
@@ -79,9 +89,7 @@ function describeRejected(lang: Lang, r: RejectedRow): string {
         .filter((v) => v !== undefined && v !== null && v !== "")
         .map(String)
     : [];
-  // A period conflict names both periods: the row's, then the column header's.
-  const conflictArgs = r.reason === "source" && r.periods ? [r.periods.row, r.periods.header] : [];
-  const why = r.reason === "source" ? t(lang, SOURCE_KEY[r.detail], ...conflictArgs) : t(lang, REJECT_KEY[r.reason], String(MAX_IMPORT_HOURS_PER_CELL));
+  const why = r.reason === "source" ? sourceWhy(lang, r) : t(lang, REJECT_KEY[r.reason], String(MAX_IMPORT_HOURS_PER_CELL));
   const text = t(lang, "forecastImportRejectedRow", parts.length > 0 ? parts.join(" · ") : "—", why);
   return rec && typeof rec.source === "string" ? `${text} (${rec.source})` : text;
 }

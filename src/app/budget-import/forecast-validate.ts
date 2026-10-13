@@ -8,6 +8,7 @@
 
 import type { AssumedYear, ForecastCollision, ForecastRow } from "./forecast-types";
 import { assumedYearOf, classifyPeriodCell, resolvePeriod, type AssignedPeriod } from "./period-assign";
+import { handPeriodAt, handReadingOf, type HandReading } from "./hand-reading";
 import type { SheetGrid } from "./sheet-grid";
 import { checkSource, citedCell, columnNaming, headerDateOf, sourceKey, sourcePosition, type PeriodConflict, type SourceRejection } from "./source-evidence";
 
@@ -76,7 +77,7 @@ function round2(value: number): number {
   return Math.round(value * HOURS_DECIMALS_FACTOR) / HOURS_DECIMALS_FACTOR + 0;
 }
 
-function checkRow(raw: unknown, opts: Options): Checked {
+function checkRow(raw: unknown, opts: Options, hand: HandReading | null): Checked {
   if (!isRecord(raw)) return { ok: false, reason: "shape" };
   const { person, period, hours, rate, email, source } = raw;
   if (typeof person !== "string" || person.trim() === "") return { ok: false, reason: "person" };
@@ -94,7 +95,7 @@ function checkRow(raw: unknown, opts: Options): Checked {
   if (typeof rate === "number") row.rate = rate;
   if (typeof source === "string") row.source = source;
   if (!opts.requireSource) return { ok: true, row, assumed: claim.year === undefined };
-  const evidence = checkSource({ person: row.person, hours, source: row.source }, claim, opts.sheet, opts.defaultYear);
+  const evidence = checkSource({ person: row.person, hours, source: row.source }, claim, opts.sheet, opts.defaultYear, hand);
   if ("problem" in evidence) {
     return evidence.periods === undefined
       ? { ok: false, reason: "source", detail: evidence.problem }
@@ -111,8 +112,10 @@ function checkRow(raw: unknown, opts: Options): Checked {
  *  the period are a `collision` (never summed) unless every one sits under a
  *  DISTINCT date header — date columns finer than the period (`subPeriod`),
  *  summed as before the collision rule. `rows`: the distinct sheet rows (a
- *  row without a usable source counts as one of its own). */
-function rowShape(e: Merged, sheet: SheetGrid): { collision: boolean; subPeriod: boolean; rows: number } {
+ *  row without a usable source counts as one of its own). A cell on a row the
+ *  hand route reads as a LONG row has no date header: its period is the row's
+ *  (`hand`), so two such cells collide. */
+function rowShape(e: Merged, sheet: SheetGrid, hand: HandReading | null): { collision: boolean; subPeriod: boolean; rows: number } {
   const byRow = new Map<number, Array<string | null>>();
   let unplaced = e.count - e.sources.length;
   for (const source of e.sources) {
@@ -122,7 +125,8 @@ function rowShape(e: Merged, sheet: SheetGrid): { collision: boolean; subPeriod:
       continue;
     }
     const personCol = columnNaming(sheet.rows[at.rowIdx] ?? [], at.colIdx, e.row.person) ?? undefined;
-    byRow.set(at.rowIdx, [...(byRow.get(at.rowIdx) ?? []), headerDateOf(sheet, { ...at, personCol })]);
+    const onLongRow = hand?.layout === "long" && handPeriodAt(hand, at.rowIdx, at.colIdx) !== undefined;
+    byRow.set(at.rowIdx, [...(byRow.get(at.rowIdx) ?? []), onLongRow ? null : headerDateOf(sheet, { ...at, personCol })]);
   }
   const shared = [...byRow.values()].filter((dates) => dates.length > 1);
   const isSubPeriods = (dates: Array<string | null>): boolean =>
@@ -163,12 +167,14 @@ export function validateForecastRows(input: unknown, opts: Options): ValidationR
     return { ok: [], rejected: [{ row: input, reason: "shape" }], duplicates: [], collisions: [], subPeriods: [] };
   }
 
+  // The Claude route only: the hand route's reading of the sheet, once.
+  const hand = opts.requireSource ? handReadingOf(opts.sheet, opts.defaultYear) : null;
   const rejected: RejectedRow[] = [];
   const usedSources = new Set<string>();
   const merged = new Map<string, Merged>();
   const read: AssignedPeriod[] = [];
   for (const raw of input as unknown[]) {
-    const checked = checkRow(raw, opts);
+    const checked = checkRow(raw, opts, hand);
     const key = checked.ok && checked.row.source !== undefined ? sourceKey(checked.row.source, opts.sheet.name) : null;
     if (!checked.ok) {
       rejected.push(rejectionOf(raw, checked));
@@ -184,7 +190,7 @@ export function validateForecastRows(input: unknown, opts: Options): ValidationR
   }
 
   const entries = [...merged.values()];
-  const shaped = entries.map((e) => ({ e, shape: e.count > 1 ? rowShape(e, opts.sheet) : null }));
+  const shaped = entries.map((e) => ({ e, shape: e.count > 1 ? rowShape(e, opts.sheet, hand) : null }));
   const kept = shaped.filter(({ shape }) => shape?.collision !== true);
   const asDuplicate = ({ e }: { e: Merged }): DuplicateRow => ({ person: e.row.person, period: e.row.period, count: e.count, sources: e.sources });
   const result: ValidationResult = {
