@@ -272,10 +272,11 @@ export function isWeekSpacedColumn(cells: readonly string[], numbers: NumberOrig
  *   in the year: `Dez 2026 | Jan` is January 2027, a year-less `Jul … Jun` runs
  *   into the next year, `KW52 | KW01` too, while `Dez | Nov | Okt` stays in one
  *   year. Week 53 is checked against the year the week lands in.
- * - Year-less cells BEFORE the first labelled one count BACK from it by the
- *   same rule, never from `defaultYear`: `Nov | Dez | Jan 2027` is Nov and Dez
- *   2026, `KW52 | Jan 2027` is 2026-W52. Only a run with no labelled cell at
- *   all reads in `defaultYear`.
+ * - Year-less cells BEFORE the first labelled one count BACK from it, never
+ *   from `defaultYear`, and always back in time (`countBack`): `Nov | Dez |
+ *   Jan 2027` is Nov and Dez 2026, `Mai | Jan 2027` is May 2026, `KW52 | Jan
+ *   2027` is 2026-W52. Only a run with no labelled cell at all reads in
+ *   `defaultYear`.
  * - A header's ONE date or serial cell is no period (`withoutLoneDate`).
  * - A run of dates a whole number of weeks apart, the closest exactly seven
  *   days, reads each date as its ISO week; any other dates read as their month.
@@ -316,10 +317,18 @@ function positionInYear(c: PeriodCell): number {
  *  year; a smaller one is a sheet listed backwards (`Dez | Nov | Okt`). */
 const isTurnOfYear = (from: PeriodCell, to: PeriodCell): boolean => positionInYear(from) - positionInYear(to) >= HALF_YEAR - POSITION_EPSILON;
 
-/** The cells before the run's first labelled cell, read backwards from it: a
- *  cell at least half a year LATER in the year than the cell to its right lies
- *  in the year before (`Dez | Jan 2027` → Dez 2026, `KW52 | Jan 2027` → 2026-W52).
- *  Overwrites `out`. */
+/** `c` is not earlier in the year than `next`: the same month or week, or a
+ *  later one (months and weeks compared by their place in the year; a month
+ *  and a week at the same place are the same time). */
+const isNotEarlier = (c: PeriodCell, next: PeriodCell): boolean =>
+  (c.kind === next.kind ? c.index >= next.index : positionInYear(c) > positionInYear(next));
+
+/** The cells before the run's first labelled cell, read backwards from it.
+ *  ★ Left of the first label is EARLIER: a cell not earlier in the year than
+ *  the cell to its right lies in the year before, however small the gap
+ *  (`Mai | Jan 2027` → May 2026, `Dez | Jan 2027` → Dez 2026, `KW52 | Jan 2027`
+ *  → 2026-W52). The half-year rule (`isTurnOfYear`) once kept `Mai` in 2027
+ *  (re-review 3); it is for reading forwards only. Overwrites `out`. */
 function countBack(classes: ReadonlyArray<PeriodCell | null>, out: Array<AssignedPeriod | null>, first: number): void {
   const label = classes[first];
   if (label?.year === undefined) return;
@@ -328,7 +337,7 @@ function countBack(classes: ReadonlyArray<PeriodCell | null>, out: Array<Assigne
   for (let i = first - 1; i >= 0; i--) {
     const c = classes[i];
     if (c === null) continue;
-    if (isTurnOfYear(c, next)) year -= 1;
+    if (isNotEarlier(c, next)) year -= 1;
     next = c;
     const period = resolvePeriod(c, year);
     out[i] = period === null ? null : { period, assumed: false };

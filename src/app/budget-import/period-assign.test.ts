@@ -96,6 +96,18 @@ describe("assignRunPeriods — what a year-less run rolls on, and what anchors i
     expect(assignRunPeriods(["KW52", "Jan 2027"])).toEqual(["2026-W52", "2027-01"]);
     expect(assignRunPeriods(["Dez", "KW01 2027"])).toEqual(["2026-12", "2027-W01"]);
   });
+
+  // Round 4 (rr3 Minor 4): left of the first label is earlier — counting back
+  // never stays in the label's year for a later month, however small the gap.
+  it("counts back always back in time: Mai | Jan 2027 is May 2026, Feb | Jan 2027 is Feb 2026", () => {
+    expect(assignRunPeriods(["Mai", "Jan 2027"])).toEqual(["2026-05", "2027-01"]);
+    expect(assignRunPeriods(["Feb", "Jan 2027"])).toEqual(["2026-02", "2027-01"]);
+    expect(assignRunPeriods(["Nov", "Dez", "Jan 2027"])).toEqual(["2026-11", "2026-12", "2027-01"]);
+    expect(assignRunPeriods(["Jul", "Aug", "Sep", "Okt", "Nov", "Dez", "Jan 2027"])).toEqual([
+      "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12", "2027-01",
+    ]);
+    expect(assignRunPeriods(["Dez", "Nov", "Okt", "Sep"], { defaultYear: 2026 })).toEqual(["2026-12", "2026-11", "2026-10", "2026-09"]);
+  });
 });
 
 describe("assignRunPeriods — dates a week apart", () => {
