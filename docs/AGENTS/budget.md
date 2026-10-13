@@ -349,11 +349,15 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   (`MAX_TWO_DATE_PERIOD_GAP_DAYS`: `Zeitraum | 01.01.2026 | 31.12.2026` is a range, which round 4 took as a
   long sheet's period header, vouching for December), while two closer dates and three or more stay periods. ★★ A HEADER ROW for the cited row's person column between that period row and the cell ends the search
   (`isHeaderRowFor`: no number cells — a period-shaped cell is none — at least two non-blank text cells, one
-  in the person column; a long sheet's `Name | Monat | Stunden`), and the row is searched instead: a quarter
+  in the person column, and a recognised label: a person header there (`PERSON_HEADER_RE`) or a period or
+  hours header in another cell (`PERIOD_HEADER_RE`, `HOURS_HEADER_RE`), the words layout detection reads; a
+  long sheet's `Name | Monat | Stunden` or `Wer | Monat | Stunden`), and the row is searched instead: a quarter
   `Zeitraum | 01.01.2026 | 31.03.2026` (89 days, under the range limit), a `von | … | bis | …` pair or three
   `Erstellt / Stand / Druck` dates once headed the hours column below them, rejecting the right months and
   vouching for a wrong one (final review I1). A unit row or `Plan | Ist` sub-header has a blank person cell,
-  and a data row with a placeholder holds numbers, so neither stops it; `headerDateOf` and
+  a data row with a placeholder holds numbers, and a person row of placeholders alone (`Carl | Urlaub |
+  Urlaub`) has no recognised label, so none of them stops it — before that label test, the placeholder row
+  cut the rows below it off their month header (round 2); `headerDateOf` and
   `findUnreadCells` stop the same way. Only with no period header above (a long sheet), or such a header row
   between, is the row searched, skipping the
   person cell by POSITION. Any row above,
