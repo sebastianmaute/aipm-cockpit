@@ -282,8 +282,9 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   the header (`isPeriodWordHeader`: `Month`, `Monat`, `Period`, `Zeitraum`, `Week`, `KW` …; `Startmonat`
   holds none) first, then a `Date` / `Datum` header, then a real date over a bare serial; ties keep the
   leftmost. `Start date` once tied with `Month` and won, summing every row into the start month (final
-  review I2). Its HOURS column is PRESELECTED as the leftmost one with an hours word (`Hours`, `Stunden`,
-  `Aufwand`, `Effort` …), else the LEFTMOST number column; an ID or row-number column (`ID_HEADER`), a year column (`isYearColumn`), a
+  review I2). Its HOURS column is PRESELECTED as the LEFTMOST hours candidate, whatever its share or
+  header word (round 8 m-1; the person is settled first, so a text column holding one number is never
+  taken); an ID or row-number column (`ID_HEADER`), a year column (`isYearColumn`), a
   column of period-shaped cells (a workbook's serial dates) and a column HEADED by a period (`Jan`, `Jan
   2026`) are never it — `ID | Name | Month | Effort` once imported the IDs (I3), and `Name | Start | Jan
   2026 | Feb 2026` read long with the Start date as the period and January as the hours (I4), where it now
@@ -298,13 +299,15 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   `Gebuchte Stunden`, `Spent hours` or `Logged hours` silently, one missed spelling per round (rr6 N1,
   rr7, rr8 N2); both are gone. So `Plan | Stunden`, `Stunden | Ist` and `Name | Monat | Stunden | Kosten`
   ask, and only a sheet with ONE column holding numbers (`Name | Monat | Stunden`, `ID | Name | Month |
-  Effort`, `Nr | Name | Monat | Aufwand`) is clear; the hours word only preselects. ★★★ A column is an
+  Effort`, `Nr | Name | Monat | Aufwand`) is clear. ★★★ A column is an
   hours candidate when it holds ONE number, and a period candidate when it holds ONE period (round 7
   I-B): a share once let two `-` in `Stunden` leave `Ist` the only candidate (the actuals imported), and
-  an `offen` in `Monat` leave `Erfasst am` the only period. The PRESELECTION, and whether a row is a
-  header at all, still need the 80 % share (`COLUMN_SHARE`). And
+  an `offen` in `Monat` leave `Erfasst am` the only period. Whether a row is a header at all, and its
+  score, still need a column passing the 80 % share (`COLUMN_SHARE`); the PRESELECTION does not (round 8
+  m-1): the hours take the leftmost candidate, and the period ranks by header word (`periodRank`) first,
+  then share, then the leftmost. And
   the PERIOD when two or more columns qualify and not exactly one is headed by a period word, that one
-  also the preselected column (`Datum |
+  preselected and passing the share (`Datum |
   Eintritt`, `Datum | Startmonat` ask; `Start date | Month` does not). The mapping it returns is still the
   default above, but `useForecastImport` then opens on the mapping step with a notice per field naming the
   candidates, and refuses Apply — the button disabled, the reason its accessible description — until each
@@ -320,7 +323,9 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   columns and the person column with ANY period-shaped data cell (`rowPeriodColumns`; fix 9 I-1 — an
   80 % share let one `offen` in the `Monat` column turn the question off), or, beside year-less period
   headers, a year column (`rowYearColumns`, fix 9 OOS-b: `Name | Jahr | Jan | Feb` read Ann's 2027 row
-  as 2026), offered with those columns as the candidates. The cost: one date in a notes column asks. A metadata row (`Erstellt | 01.01. | 15.01. | 20.01.`) over a long sheet's `Name |
+  as 2026), offered with those columns as the candidates. The cost: one date in a notes column asks,
+  and in a WORKBOOK every integer that reads as a serial date (5-digit numbers such as a `PersNr`, a
+  postal code or a cost centre) is period-shaped, so such a column outside the months asks too. A metadata row (`Erstellt | 01.01. | 15.01. | 20.01.`) over a long sheet's `Name |
   Monat | Stunden | Ist` is read as a clear wide header once enough person rows sit under it, and the
   Claude route then accepted Ist-only claims in the metadata row's month (Bob's February as January =
   35), because the hand reading and the header above were the same wrong row; so `Name | Start | Jan
@@ -442,10 +447,13 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   or edited the mapping, `useForecastImport` passes it (`validateForecastRows`'s `columns`) and H is read
   with THAT mapping and its year, so a user who fixed the columns is not checked against the uncorrected
   detection; a clear detection is H as detected; an unknown one has no H. ★★ With no H, a claim is also
-  refused `row-ambiguous` when its row holds ANOTHER number cell (not period-shaped, not the person cell)
-  under the same period: the same column-header period, or neither under one (`hasTwinNumber`, round 7:
-  on an unknown layout nothing tells `Stunden` from `Ist`). Distinct month columns and distinct sprint
-  dates do not match; the cost is an unknown long row with a `PersNr` or year number (residue 31).
+  refused `row-ambiguous` when the sheet holds ANOTHER number-bearing column (a number in any row;
+  period-shaped cells and the cited row's person column excluded) whose column header at the cited row
+  does not differ from the cited cell's: the same period, neither under one, or only ONE of the two under
+  one (`hasTwinColumn`, `isIndependentKey`; round 7 judged the cited row only, so a blank forecast cell
+  or a title run over one column let the Ist through, rr11 I-C). Only different periods or distinct
+  sprint dates are independent, so unknown month sheets and one-number long sheets import; the cost is
+  an unknown long sheet with a second number column (residue 31).
   ★★ "Edited" means a COLUMN field
   differs from the mapping the hand route opened with (`isSameColumns`: layout, header row, person, period,
   hours, year column; fix 9 I-2, round 5): the mapping step's Show preview passes a fresh copy, and a

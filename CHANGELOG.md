@@ -62,8 +62,9 @@ longer carries its own changelog comment.
   the preview names both periods, even if Claude read it right. On a sheet whose columns Detect columns
   asks about, Claude's rows are not imported until you confirm the columns, and a row Claude cites from a
   cell those columns do not read as hours (an Ist, cost or ID cell beside the hours, or beside a blank
-  forecast) is not imported. Where no layout is found, a row holding two numbers for one period is not
-  imported either. Monthly figures are spread over a
+  forecast) is not imported. Where no layout is found, Claude's rows are not imported while the sheet
+  holds a second number column that its headers do not tell apart from the cited one (set the columns
+  with Detect columns instead). Monthly figures are spread over a
   weekly plan (and weekly over a monthly one) by working days, keeping the total exact. The preview lists
   every cell that would change, people it could not match (you can pick or skip each one; archived
   resources are neither matched nor offered, and "Müller, Hans" matches Hans Müller), hours outside the
