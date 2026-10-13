@@ -724,3 +724,26 @@ describe("a repeated header row under another label ends the reading too (round 
     expect(gridToForecastRows(rows, mapping, "S").rows.map((r) => r.hours)).toEqual([40, 35, 30, 4, 5, 6]);
   });
 });
+
+// Round 7 I-A (rr10): with a hand reading, ONLY the cells it reads back a
+// claim. A row inside its range that it reads nothing from (a blank or "-"
+// forecast, blank months) once fell back to the row's own period cells, so
+// Bob's Ist or Budget cell was written as forecast hours.
+describe("with a hand reading, only the cells it reads back a claim (round 7 I-A)", () => {
+  it("wide: Bob's Budget 120 on a row with blank months is refused cell-not-read once the columns are confirmed", () => {
+    const rows = [["Name", "Start", "Jan 2026", "Feb 2026", "Mar 2026", "Budget"],
+      ["Ann", "01.01.2026", "10", "20", "30", "60"], ["Bob", "01.02.2026", "", "", "", "120"]];
+    const mapping = detectLayout(rows, { defaultYear: 2026 }).mapping!;
+    const budget = claim("Feb 2026", 120, "S!F3", "Bob");
+    expect(validateForecastRows([budget], strictOn(rows, undefined, mapping)).rejected).toEqual([{ row: budget, reason: "source", detail: "cell-not-read" }]);
+  });
+
+  it("long: Bob's Ist 25 beside a blank or '-' forecast is refused cell-not-read with Stunden confirmed", () => {
+    for (const blank of ["", "-"]) {
+      const rows = [["Name", "Monat", "Stunden", "Ist"], ["Ann", "Jan 2026", "40", "35"], ["Bob", "Feb 2026", blank, "25"], ["Cid", "Jan 2026", "30", "28"]];
+      const mapping = { layout: "long" as const, headerRow: 0, person: 0, period: 1, hours: 2, year: 2026 };
+      const ist = claim("Feb 2026", 25, "S!D3", "Bob");
+      expect(validateForecastRows([ist], strictOn(rows, undefined, mapping)).rejected).toEqual([{ row: ist, reason: "source", detail: "cell-not-read" }]);
+    }
+  });
+});

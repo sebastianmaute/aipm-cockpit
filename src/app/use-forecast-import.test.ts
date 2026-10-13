@@ -1181,3 +1181,27 @@ describe("useForecastImport — a confirmation belongs to its layout and column 
     expect(result.current.ambiguous).toEqual([]);
   });
 });
+
+// Round 7 I-A (rr10 U1): after confirming Stunden, Claude's Ist cell on Bob's
+// blank-forecast row was applied as his February forecast (25).
+describe("useForecastImport — a blank forecast row's Ist is never applied (round 7 I-A)", () => {
+  it("refuses Bob's Ist claim as cell-not-read and applies nothing", async () => {
+    claudeResponds({ rows: [{ person: "Bob Ray", period: "Feb 2026", hours: 25, source: "forecast!D3" }] });
+    const deps = depsOf();
+    const csv = "Name,Monat,Stunden,Ist\r\nAnn Lee,Jan 2026,40,35\r\nBob Ray,Feb 2026,,25\r\nCid Fox,Jan 2026,30,28\r\nDora Kim,Feb 2026,20,18\r\n";
+    const { result } = await loaded(deps, csv);
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    act(() => result.current.confirmColumns());
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected).toMatchObject([{ reason: "source", detail: "cell-not-read" }]);
+    expect(result.current.importPlan?.changes).toEqual([]);
+    let outcome: string | undefined;
+    act(() => {
+      outcome = result.current.apply();
+    });
+    expect(outcome).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+});

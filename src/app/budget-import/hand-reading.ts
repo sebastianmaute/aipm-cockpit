@@ -2,27 +2,23 @@
 // (§500), for the Claude route's check: H, one of the period sources that must
 // all agree (`periodNearCell`, fix 8). Pure: no i18n, no React, no DOM.
 
-import { gridToForecastRows, readingEnd } from "./forecast-rows";
+import { gridToForecastRows } from "./forecast-rows";
 import type { ColumnMapping } from "./forecast-types";
 import { detectLayout } from "./layout-detect";
 import type { AssignedPeriod } from "./period-assign";
 import type { SheetGrid } from "./sheet-grid";
 
 /** The periods the hand route reads, per cell read into a row (`"row:col"`,
- *  0-based), and the sheet rows those cells sit on (`readRows`). ★★★ Only a
- *  read cell has a period here (fix 8 round 3, fail closed): a long row's
- *  period once covered EVERY cell of that row, so a claim citing its `Ist` or
- *  `Kosten` cell stood in the row's month whatever that cell held. */
+ *  0-based). ★★★ Only a read cell has a period here, and only a read cell
+ *  backs a claim (fix 8 round 3, round 7 I-A, fail closed): a long row's period
+ *  once covered EVERY cell of that row, so a claim citing its `Ist` or `Kosten`
+ *  cell stood in the row's month, and a row the reading covered but read
+ *  nothing from (a blank or `-` forecast) fell back to its own period cells. */
 export type HandReading = {
   layout: "wide" | "long";
   /** The mapping's person column: a claim's person must sit in it (fix 9 OOS-a). */
   person: number;
   cells: ReadonlyMap<string, AssignedPeriod>;
-  readRows: ReadonlySet<number>;
-  /** The rows the reading covers, `[from, to)`: below the header row and
-   *  before the first repeated header row (round 5, `readingEnd`). */
-  from: number;
-  to: number;
 };
 
 /** What the Claude route's check reads a sheet's columns by: the hand route's
@@ -39,13 +35,13 @@ export function handPeriodAt(hand: HandReading | null, rowIdx: number, colIdx: n
   return hand?.cells.get(`${rowIdx}:${colIdx}`);
 }
 
-/** The hand route does not read this cell, though it reads other cells of its
- *  row, or the row lies outside the rows it covers (another stacked block, above
- *  the header row or past a repeated one, round 5): a claim citing it is
- *  refused `cell-not-read` (`checkSource`). */
+/** There is a hand reading and it does not read this cell — wherever the cell
+ *  is: another column of a read row, a row it reads nothing from, another
+ *  stacked block, above the header row (round 7 I-A). A claim citing it is
+ *  refused `cell-not-read` (`checkSource`); the row's own period cells are
+ *  never consulted while a hand reading exists. */
 export function isUnreadCellOfReading(hand: HandReading | null, rowIdx: number, colIdx: number): boolean {
-  if (hand === null || handPeriodAt(hand, rowIdx, colIdx) !== undefined) return false;
-  return hand.readRows.has(rowIdx) || rowIdx < hand.from || rowIdx >= hand.to;
+  return hand !== null && handPeriodAt(hand, rowIdx, colIdx) === undefined;
 }
 
 /**
@@ -75,10 +71,8 @@ function computeHandReading(sheet: SheetGrid, defaultYear: number | undefined, m
 
 function readWith(sheet: SheetGrid, mapping: ColumnMapping): HandReading {
   const cells = new Map<string, AssignedPeriod>();
-  const readRows = new Set<number>();
   gridToForecastRows(sheet.rows, mapping, sheet.name, sheet.numbers, (rowIdx, col, period) => {
     cells.set(`${rowIdx}:${col}`, period);
-    readRows.add(rowIdx);
   });
-  return { layout: mapping.layout, person: mapping.person, cells, readRows, from: mapping.headerRow + 1, to: readingEnd(sheet.rows, mapping, sheet.numbers) };
+  return { layout: mapping.layout, person: mapping.person, cells };
 }
