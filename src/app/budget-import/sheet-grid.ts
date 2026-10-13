@@ -30,11 +30,27 @@ function countUnquoted(line: string, target: string): number {
   return count;
 }
 
-/** `;` when the first non-blank line holds more unquoted `;` than `,` (the
- *  German Excel export), else `,`. */
+/** The delimiters a CSV may use, in tie order. */
+const DELIMITERS = [",", ";", "\t"] as const;
+/** How many non-blank lines decide the delimiter. */
+const DELIMITER_SAMPLE_LINES = 5;
+
+/** The delimiter (`,`, `;` — the German Excel export — or a tab) that most of
+ *  the first `DELIMITER_SAMPLE_LINES` non-blank lines hold unquoted; a tie goes
+ *  to the one the first of those lines holds most often, then to the earlier
+ *  in `DELIMITERS` — so a one-line file reads as before (`;` only when it
+ *  outnumbers `,`). ★ The first line alone once decided: a title line without a
+ *  delimiter (`Forecast 2026`) made a `;` sheet one column (final review M6). */
 function detectDelimiter(text: string): string {
-  const firstLine = text.split(/\r\n|\n|\r/).find((l) => l.trim() !== "") ?? "";
-  return countUnquoted(firstLine, ";") > countUnquoted(firstLine, ",") ? ";" : ",";
+  const lines = text.split(/\r\n|\n|\r/).filter((l) => l.trim() !== "").slice(0, DELIMITER_SAMPLE_LINES);
+  const score = (d: string): [number, number] => [lines.filter((l) => countUnquoted(l, d) > 0).length, countUnquoted(lines[0] ?? "", d)];
+  let best: string = DELIMITERS[0];
+  for (const d of DELIMITERS.slice(1)) {
+    const [lineCount, firstCount] = score(d);
+    const [bestLines, bestFirst] = score(best);
+    if (lineCount > bestLines || (lineCount === bestLines && firstCount > bestFirst)) best = d;
+  }
+  return best;
 }
 
 /**

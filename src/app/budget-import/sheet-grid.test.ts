@@ -52,8 +52,38 @@ describe("parseDelimited", () => {
     ]);
   });
 
-  it("chooses the delimiter from the first non-blank line", () => {
+  it("chooses the delimiter from the non-blank lines, skipping blank ones", () => {
     expect(parseDelimited("\n\nJan;Feb\n1,5;2\n")).toEqual([[""], [""], ["Jan", "Feb"], ["1,5", "2"]]);
+  });
+
+  // Final review M6: the first non-blank line alone decided, so a title line
+  // without a delimiter made a `;` file one column, and tabs were never read.
+  it("reads a ; sheet under a title line with no delimiter", () => {
+    expect(parseDelimited("Forecast 2026\nName;Jan 2026;Feb 2026\nAnn;8;4\n")).toEqual([
+      ["Forecast 2026"], ["Name", "Jan 2026", "Feb 2026"], ["Ann", "8", "4"],
+    ]);
+  });
+
+  it("reads a tab-delimited sheet", () => {
+    expect(parseDelimited("Name\tJan 2026\tFeb 2026\r\nAnn\t7,5\t4\r\n")).toEqual([["Name", "Jan 2026", "Feb 2026"], ["Ann", "7,5", "4"]]);
+  });
+
+  it("takes the delimiter most of the first five non-blank lines hold, not the first line's", () => {
+    // A title line with a ; must not split a comma sheet.
+    expect(parseDelimited("Stand; Version 3\nName,Jan 2026\nAnn,8\nBob,4\n")).toEqual([
+      ["Stand; Version 3"], ["Name", "Jan 2026"], ["Ann", "8"], ["Bob", "4"],
+    ]);
+    // German decimal commas on some lines do not outvote the ; on every line.
+    expect(parseDelimited("Name;Jan;Feb\nAnn;7,5;8\nBob;1,5;2,5\n")).toEqual([["Name", "Jan", "Feb"], ["Ann", "7,5", "8"], ["Bob", "1,5", "2,5"]]);
+    // Lines past the fifth do not vote.
+    const head = Array.from({ length: 5 }, (_, i) => `a${i};b`).join("\n");
+    const tail = Array.from({ length: 7 }, (_, i) => `c${i},d`).join("\n");
+    expect(parseDelimited(`${head}\n${tail}\n`)[0]).toEqual(["a0", "b"]);
+  });
+
+  it("breaks a tie on the first line, comma first, as before", () => {
+    expect(parseDelimited("a;b\nc,d\n")).toEqual([["a", "b"], ["c,d"]]);
+    expect(parseDelimited("a;b,c\nd\n")).toEqual([["a;b", "c"], ["d"]]);
   });
 
   it("keeps empty cells and drops only the trailing empty row", () => {
