@@ -233,17 +233,17 @@ describe("an unknown layout: no H, so U and every R cell must agree", () => {
     }
   });
 
+  // Round 9 I-C′ flips this from period-conflict to row-ambiguous: the row has
+  // a period cell of its own, so the title's two dates no longer tell Plan from
+  // Ist. Refused either way, nothing written.
   it("a key/value title's date over the hours column no longer hides the row's month (the exemption is gone)", () => {
     const rows = [...pad(9), ["Erstellt von", "Max", "01.03.2026", "Stand", "02.03.2026"], ["Name", "Monat", "Plan", "Bemerkung", "Ist"],
       ["Ann", "Jan 2026", "40", "", "35"], ["Bob", "Feb 2026", "30", "", "25"]];
     expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
     const wrong = validateForecastRows([claim("Mar 2026", 40, "S!C12")], strictOn(rows));
     expect(wrong.ok).toEqual([]);
-    expect(wrong.rejected).toEqual([
-      { row: claim("Mar 2026", 40, "S!C12"), reason: "source", detail: "period-conflict", periods: { row: "2026-01", header: "2026-03" } },
-    ]);
-    // The right month is refused too: the two sources disagree.
-    expect(detail(validateForecastRows([claim("Jan 2026", 40, "S!C12")], strictOn(rows)))).toEqual(["period-conflict"]);
+    expect(detail(wrong)).toEqual(["row-ambiguous"]);
+    expect(detail(validateForecastRows([claim("Jan 2026", 40, "S!C12")], strictOn(rows)))).toEqual(["row-ambiguous"]);
   });
 
   it("a Start date beside a period header refuses the claim: no row cell is exempt", () => {
@@ -264,14 +264,16 @@ describe("an unknown layout: no H, so U and every R cell must agree", () => {
     expect(detail(out)).toEqual(["row-ambiguous", "row-ambiguous"]);
   });
 
+  // Round 9 I-C′ flips this from a collision to row-ambiguous: the title's two
+  // dates no longer make Plan and Ist independent on a row with a period cell.
   it("a row with its own period cell is no sub-period row: a month title's two dates over Plan | Ist never sum to 75", () => {
     const rows = [...pad(9), ["Projekt", "Alpha", "01.01.2026", "31.01.2026"], ["Name", "Datum", "Plan", "Ist"], ["Ann", "15.01.2026", "40", "35"]];
     expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
     const out = validateForecastRows([claim("Jan 2026", 40, "S!C12"), claim("Jan 2026", 35, "S!D12")], strictOn(rows));
-    expect(out.rejected).toEqual([]);
     expect(out.subPeriods).toEqual([]);
     expect(out.ok).toEqual([]);
-    expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!C12", "S!D12"] }]);
+    expect(out.collisions).toEqual([]);
+    expect(detail(out)).toEqual(["row-ambiguous", "row-ambiguous"]);
   });
 
   it("sprint-date headers still sum their sub-periods", () => {
@@ -818,5 +820,35 @@ describe("an unknown layout judges columns, not just the cited row (round 8 I-C)
     const out = validateForecastRows([claim("Jan 2026", 40, "S!C12"), claim("Feb 2026", 30, "S!C13", "Bob")], strictOn(rows));
     expect(out.rejected).toEqual([]);
     expect(periodsOf(out)).toEqual([["Ann", "2026-01", 40], ["Bob", "2026-02", 30]]);
+  });
+});
+
+// Round 9 I-C′ (rr12): two columns are independent through DISTINCT dates of
+// one period only when the cited row holds no period cell of its own — the
+// condition `headerDateOf` uses. A padded key/value title's two March dates
+// over `Plan | Ist`, rows in March, once made the Ist independent of the Plan.
+describe("an unknown layout: distinct title dates do not tell columns apart on a row with a period (round 9 I-C′)", () => {
+  const rows = [...pad(9), ["Erstellt von", "Max", "01.03.2026", "Stand", "02.03.2026"], ["Name", "Monat", "Plan", "Bemerkung", "Ist"],
+    ["Ann", "Mär 2026", "40", "", "35"], ["Bob", "Mär 2026", "30", "", "25"]];
+
+  it("the Ist claims are refused row-ambiguous, and so are the Plan claims: no 75", () => {
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    const ist = validateForecastRows([claim("Mar 2026", 35, "S!E12"), claim("Mar 2026", 25, "S!E13", "Bob")], strictOn(rows));
+    expect(ist.ok).toEqual([]);
+    expect(detail(ist)).toEqual(["row-ambiguous", "row-ambiguous"]);
+    const both = validateForecastRows([claim("Mar 2026", 40, "S!C12"), claim("Mar 2026", 35, "S!E12")], strictOn(rows));
+    expect(both.ok).toEqual([]);
+    expect(both.subPeriods).toEqual([]);
+    expect(detail(both)).toEqual(["row-ambiguous", "row-ambiguous"]);
+  });
+
+  it("a sprint-date sheet with no period cell on its rows still sums its sub-periods", () => {
+    const sprint = [...pad(10), ["Name", "05.01.2026", "19.01.2026"], ["Ann", "40", "30"], ["Bob", "20", "10"]];
+    expect(detectLayout(sprint, { defaultYear: 2026 }).kind).toBe("unknown");
+    const out = validateForecastRows([
+      claim("05.01.2026", 40, "S!B12"), claim("19.01.2026", 30, "S!C12"), claim("05.01.2026", 20, "S!B13", "Bob"), claim("19.01.2026", 10, "S!C13", "Bob"),
+    ], strictOn(sprint));
+    expect(out.rejected).toEqual([]);
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 70], ["Bob", "2026-01", 30]]);
   });
 });

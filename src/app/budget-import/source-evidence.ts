@@ -345,13 +345,16 @@ function headerKeyOf(sheet: SheetGrid, at: { rowIdx: number; colIdx: number }, d
 }
 
 /** Two columns' header keys at one row are INDEPENDENT: both under a period
- *  header, and either different periods or distinct dates of one (sprint or
- *  semi-monthly sub-period columns). Anything else — the same period, neither
- *  under a header, or only ONE under a header (a title run over one column),
- *  or an unreadable header — does not tell them apart (round 8 I-C). */
-function isIndependentKey(a: HeaderKey, b: HeaderKey): boolean {
+ *  header, and either different periods or — only when `datesCount` — distinct
+ *  dates of one (sprint or semi-monthly sub-period columns). Anything else — the
+ *  same period, neither under a header, or only ONE under a header (a title run
+ *  over one column), or an unreadable header — does not tell them apart (round
+ *  8 I-C). ★★ `datesCount` is false when the cited row holds a period cell of
+ *  its own, the condition `headerDateOf` uses: a padded key/value title's two
+ *  March dates over `Plan | Ist` once made the Ist independent (rr12 I-C′). */
+function isIndependentKey(a: HeaderKey, b: HeaderKey, datesCount: boolean): boolean {
   if (a === "none" || b === "none" || a === null || b === null) return false;
-  return a.period !== b.period || (a.date !== undefined && b.date !== undefined && a.date !== b.date);
+  return a.period !== b.period || (datesCount && a.date !== undefined && b.date !== undefined && a.date !== b.date);
 }
 
 const NUMBER_COLUMNS = new WeakMap<SheetGrid, Map<number, boolean>>();
@@ -377,16 +380,18 @@ function isNumberBearing(sheet: SheetGrid, col: number): boolean {
  * (`isIndependentKey`): on an unknown layout nothing tells `Stunden` from
  * `Ist`. Round 7 looked only at the cited ROW, so a blank or placeholder
  * forecast cell beside the Ist, or a title run over the Stunden column only,
- * let Claude's actuals through (rr11 I-C). Distinct month columns and distinct
- * sprint dates stay independent. The cost: an unknown long sheet with a second
+ * let Claude's actuals through (rr11 I-C). Distinct month columns stay
+ * independent, and distinct sprint dates on a row with no period cell of its
+ * own (round 9 I-C′). The cost: an unknown long sheet with a second
  * number column (`Ist`, `PersNr`, a year, a total) refuses on the Claude route.
  */
 function hasTwinColumn(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; personCol: number }, defaultYear: number | undefined): boolean {
   const own = headerKeyOf(sheet, at, defaultYear);
+  const datesCount = rowPeriodCells(sheet, at).length === 0;
   const width = sheet.rows.reduce((max, row) => Math.max(max, row.length), 0);
   for (let col = 0; col < width; col++) {
     if (col === at.colIdx || col === at.personCol || !isNumberBearing(sheet, col)) continue;
-    if (!isIndependentKey(own, headerKeyOf(sheet, { rowIdx: at.rowIdx, colIdx: col }, defaultYear))) return true;
+    if (!isIndependentKey(own, headerKeyOf(sheet, { rowIdx: at.rowIdx, colIdx: col }, defaultYear), datesCount)) return true;
   }
   return false;
 }
