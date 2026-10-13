@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractXlsx, extractXlsxGrid, MAX_XLSX_SHEET_CELLS, MAX_XLSX_TOTAL_CELLS, MAX_XLSX_TOTAL_ROWS, XLSX_SHEET_TRUNCATED } from "./xlsx-extract";
+import { extractXlsx, extractXlsxGrid, isDate1904Workbook, MAX_XLSX_SHEET_CELLS, MAX_XLSX_TOTAL_CELLS, MAX_XLSX_TOTAL_ROWS, XLSX_SHEET_TRUNCATED } from "./xlsx-extract";
 import { expectLinearScaling } from "../test/scaling";
 
 function enc(s: string): Uint8Array {
@@ -690,5 +690,27 @@ describe("extractXlsxGrid", () => {
       ]));
       expect(out).toBe("## Sheet: Sheet1\n\n| h |\n| --- |\n| d |");
     });
+  });
+});
+
+// Final review 3, M7: a workbook in the 1904 date system says so in
+// `<workbookPr date1904="1"/>`; its serials count from 1904-01-01.
+describe("isDate1904Workbook", () => {
+  const entriesOf = (workbook: string) => new Map<string, Uint8Array>([["xl/workbook.xml", enc(workbook)]]);
+
+  it.each([
+    [`<workbook><workbookPr date1904="1"/><sheets/></workbook>`, true],
+    [`<workbook><workbookPr defaultThemeVersion="164011" date1904="true"/></workbook>`, true],
+    [`<workbook><workbookPr date1904='1'></workbookPr></workbook>`, true],
+    [`<workbook><workbookPr date1904="0"/></workbook>`, false],
+    [`<workbook><workbookPr date1904="false"/></workbook>`, false],
+    [`<workbook><workbookPr defaultThemeVersion="164011"/></workbook>`, false],
+    [`<workbook><sheets/></workbook>`, false],
+  ])("%s → %s", (workbook, expected) => {
+    expect(isDate1904Workbook(entriesOf(workbook))).toBe(expected);
+  });
+
+  it("is false without a workbook part", () => {
+    expect(isDate1904Workbook(new Map())).toBe(false);
   });
 });

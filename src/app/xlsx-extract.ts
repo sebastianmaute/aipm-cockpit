@@ -458,6 +458,20 @@ export function extractXlsxGrid(
   });
 }
 
+/** True when the workbook uses the 1904 date system (`<workbookPr date1904="1"/>`,
+ *  old Mac workbooks): its serials count from 1904-01-01, not 1899-12-30. */
+export function isDate1904Workbook(entries: Map<string, Uint8Array>): boolean {
+  const b = entries.get("xl/workbook.xml");
+  if (!b) return false;
+  let found = false;
+  // The first <workbookPr> only: a workbook has one.
+  forEachOpenTag(decodeUtf8(b), "<workbookPr\\b", (tag) => {
+    found = /\bdate1904\s*=\s*(["'])(1|true)\1/.test(tag);
+    return false;
+  });
+  return found;
+}
+
 /** Extract Markdown from an xlsx/xlsm entry map (one section per sheet). */
 export function extractXlsx(entries: Map<string, Uint8Array>): string {
   const sections: string[] = [];

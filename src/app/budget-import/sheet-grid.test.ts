@@ -178,3 +178,30 @@ describe("readDelimited — the cell cap", () => {
     expect(cut.rows).toHaveLength(rowsOfTwo);
   });
 });
+
+// Final review 3, M7: a 1904-system workbook's serials read 4 years and 1 day
+// early. readSheetFile rebases them to the 1900 system the reader assumes.
+describe("readSheetFile — the 1904 date system", () => {
+  async function workbookBytes(workbookPr: string, cells: string): Promise<Uint8Array> {
+    const blob = buildZip([
+      { path: "xl/workbook.xml", data: `<workbook>${workbookPr}<sheets><sheet name="Forecast" sheetId="1" r:id="rId1"/></sheets></workbook>` },
+      { path: "xl/_rels/workbook.xml.rels", data: `<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>` },
+      { path: "xl/worksheets/sheet1.xml", data: `<worksheet><sheetData><row r="1">${cells}</row></sheetData></worksheet>` },
+    ]);
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+  // 2026-01-01 is 44561 in the 1904 system and 46023 in the 1900 one.
+  const CELLS = `<c r="A1" t="inlineStr"><is><t>Name</t></is></c><c r="B1"><v>44561</v></c><c r="C1"><v>44561.5</v></c><c r="D1"><v>40</v></c>`;
+
+  it("reads a 1904 workbook's serials as the dates they name", async () => {
+    const [sheet] = await readSheetFile("f.xlsx", await workbookBytes(`<workbookPr date1904="1"/>`, CELLS));
+    expect(sheet.rows).toEqual([["Name", "46023", "46023.5", "40"]]);
+    expect(excelSerialToIso(Number(sheet.rows[0][1]))).toBe("2026-01-01");
+  });
+
+  it("leaves a 1900 workbook's serials as they are", async () => {
+    const [sheet] = await readSheetFile("f.xlsx", await workbookBytes(`<workbookPr defaultThemeVersion="164011"/>`, CELLS));
+    expect(sheet.rows).toEqual([["Name", "44561", "44561.5", "40"]]);
+    expect(excelSerialToIso(Number(sheet.rows[0][1]))).toBe("2021-12-31");
+  });
+});

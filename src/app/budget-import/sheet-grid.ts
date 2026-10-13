@@ -5,7 +5,7 @@
 // "45658"): deciding what a cell means (a number, a date, a period header) is
 // the next layer's job, because the locale of the file is only known there.
 
-import { extractXlsxGrid, MAX_XLSX_SHEET_CELLS } from "../xlsx-extract";
+import { extractXlsxGrid, isDate1904Workbook, MAX_XLSX_SHEET_CELLS } from "../xlsx-extract";
 import { readZipEntries } from "../unzip";
 
 /** How a grid's number cells were written. "dot": an xlsx/xlsm workbook, whose
@@ -147,6 +147,28 @@ export function excelSerialToIso(serial: number): string | null {
   return new Date(epoch + day * MS_PER_DAY).toISOString().slice(0, 10);
 }
 
+/** Days from 1899-12-30 (serial 0 after the phantom leap day) to 1904-01-01,
+ *  serial 0 of the 1904 date system. */
+const DATE_1904_OFFSET_DAYS = 1462;
+/** The cells the import reads as a workbook's serial date (`isPeriodShapedIn`). */
+const SERIAL_CELL_RE = /^(\d{5})(\.\d+)?$/;
+
+/**
+ * ★ A 1904-system workbook's rows with its serial-shaped cells moved to the
+ * 1900 system every reader assumes (final review 3, M7): such serials once
+ * read 4 years and 1 day early, so headers and period cells landed outside
+ * the bucket with nothing said. Only cells the import already reads as a
+ * date move (five digits, an optional fraction); every other cell is kept.
+ * The grid holds no cell types, so a five-digit TEXT cell moves too — the
+ * import reads it as a date either way.
+ */
+function rebased1904(rows: string[][]): string[][] {
+  return rows.map((row) => row.map((cell) => {
+    const m = SERIAL_CELL_RE.exec(cell);
+    return m ? `${Number(m[1]) + DATE_1904_OFFSET_DAYS}${m[2] ?? ""}` : cell;
+  }));
+}
+
 /** UTF-8 when the bytes are valid UTF-8, else windows-1252 (a German Excel
  *  "CSV" export is cp1252, and decoding it as UTF-8 would mangle the umlauts
  *  of the very `Mär` headers the import reads). */
@@ -172,7 +194,9 @@ function extensionOf(fileName: string): string {
 export async function readSheetFile(name: string, bytes: Uint8Array): Promise<SheetGrid[]> {
   const ext = extensionOf(name);
   if (ext === "xlsx" || ext === "xlsm") {
-    return extractXlsxGrid(await readZipEntries(bytes)).map((grid) => ({ ...grid, numbers: "dot" as const }));
+    const entries = await readZipEntries(bytes);
+    const is1904 = isDate1904Workbook(entries);
+    return extractXlsxGrid(entries).map((grid) => ({ ...grid, rows: is1904 ? rebased1904(grid.rows) : grid.rows, numbers: "dot" as const }));
   }
   if (ext === "csv") {
     const base = name.slice(0, name.length - ext.length - 1);
