@@ -539,15 +539,26 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     await chooseFile([",,Jan 2026,Feb 2026,Mar 2026", "Name,Eintritt,Std,Std,Std", "Ann Lee,01.03.2026,10,20,30", ...people, ""].join("\r\n"));
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
     const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!C3/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheet", "2026-01"));
+    expect(within(section).getByText(/forecast!C3/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheet", "Jan 2026"));
   });
 
+  it("names a week by its label, not its key", async () => {
+    claudeSays([{ person: "Ann Lee", period: "2026-W05", hours: 10, source: "forecast!B2" }]);
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile(["Name,2026-01-05,2026-01-12,2026-01-19", "Ann Lee,10,20,30", ""].join("\r\n"));
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(/forecast!B2/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheet", t(L, "forecastImportWeekLabel", "02", "2026")));
+    expect(t(L, "forecastImportWeekLabel", "02", "2026")).toBe("W02 2026");
+  });
   it("says why Claude's row was refused when the row and the column header disagree", async () => {
     claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C4" }]);
     render(<ForecastImportModal {...propsOf()} />);
     await chooseAmbiguous(["Zeitraum,01.01.2026,31.03.2026", "", "Name,Monat,Plan,Ist", "Ann Lee,Jan 2026,40,35", "Ann Lee,Feb 2026,30,25", ""].join("\r\n"));
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
     const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!C4/)).toHaveTextContent(t(L, "forecastImportRejectSourceConflict", "2026-01", "2026-03"));
+    expect(within(section).getByText(/forecast!C4/)).toHaveTextContent(t(L, "forecastImportRejectSourceConflict", "Jan 2026", "Mar 2026"));
+    // Read after the row and a dash, like its sibling reasons: lower case.
+    expect(t(L, "forecastImportRejectSourceConflict", "a", "b")).toMatch(/^the row says a/);
   });
 });

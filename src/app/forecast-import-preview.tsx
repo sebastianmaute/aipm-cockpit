@@ -71,14 +71,30 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+const MONTH_KEY_RE = /^(\d{4})-(\d{2})$/;
+const WEEK_KEY_RE = /^(\d{4})-W(\d{2})$/;
+
+/** A canonical period key as the user reads it: "2026-01" as the locale's
+ *  short month and year ("Jan 2026", "Jan. 2026"), "2026-W03" as "W03 2026" /
+ *  "KW03 2026"; anything else as written. */
+function periodLabel(lang: Lang, key: string): string {
+  const month = MONTH_KEY_RE.exec(key);
+  if (month) {
+    const first = new Date(Date.UTC(Number(month[1]), Number(month[2]) - 1, 1));
+    return first.toLocaleDateString(localeFor(lang), { month: "short", year: "numeric", timeZone: "UTC" });
+  }
+  const week = WEEK_KEY_RE.exec(key);
+  return week ? t(lang, "forecastImportWeekLabel", week[2], week[1]) : key;
+}
+
 /** Why a Claude row's source did not back it. A period conflict names its
- *  periods: the one the detected columns read the cell in, or the row's and
- *  then the column header's. */
+ *  periods, as labels: the one the detected columns read the cell in, or the
+ *  row's and then the column header's. */
 function sourceWhy(lang: Lang, r: Extract<RejectedRow, { reason: "source" }>): string {
   const periods = r.periods;
   if (periods === undefined) return t(lang, SOURCE_KEY[r.detail]);
-  if ("sheet" in periods) return t(lang, "forecastImportRejectSourceSheet", periods.sheet);
-  return t(lang, SOURCE_KEY[r.detail], periods.row, periods.header);
+  if ("sheet" in periods) return t(lang, "forecastImportRejectSourceSheet", periodLabel(lang, periods.sheet));
+  return t(lang, SOURCE_KEY[r.detail], periodLabel(lang, periods.row), periodLabel(lang, periods.header));
 }
 
 function describeRejected(lang: Lang, r: RejectedRow): string {
