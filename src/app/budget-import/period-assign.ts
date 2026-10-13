@@ -370,6 +370,24 @@ export function assumedYearOf(
   return { year, rolled: assumed.some((p) => Number(p.period.slice(0, 4)) !== year) };
 }
 
+/** A stand-in default year: whether a header run gives a column a period must
+ *  not depend on the default year (a year-less "Jan" is a header either way). */
+const HEADER_PROBE_YEAR = 2000;
+
+/** A row read as a header run with a stand-in year (`HEADER_PROBE_YEAR`): a
+ *  column it gives a period is a PERIOD HEADER for that column. A title row's
+ *  lone date gives none (`withoutLoneDate`). */
+export function headerProbeRun(row: readonly string[], numbers: NumberOrigin): Array<AssignedPeriod | null> {
+  return assignRunDetailed(row, { defaultYear: HEADER_PROBE_YEAR, numbers });
+}
+
+/** A period-shaped cell in the sheet's number origin: a five-digit serial counts
+ *  only in a workbook (`numbers` "dot"). Such a cell is never a number of hours. */
+export function isPeriodShapedIn(cell: string, numbers: NumberOrigin | undefined): boolean {
+  const c = classifyPeriodCell(cell);
+  return c !== null && !(c.kind === "month" && c.serial === true && numbers !== "dot");
+}
+
 /** `assignRunDetailed`'s periods alone. */
 export function assignRunPeriods(
   cells: readonly string[],

@@ -7,7 +7,17 @@
 // definition detection and the Claude route read too.
 
 import type { NumberOrigin } from "./sheet-grid";
-import { assignCellPeriod, assignRunDetailed, assumedYearOf, isWeekSpacedColumn, isYearColumn, parsePeriodLabel, type AssignedPeriod } from "./period-assign";
+import {
+  assignCellPeriod,
+  assignRunDetailed,
+  assumedYearOf,
+  headerProbeRun,
+  isPeriodShapedIn,
+  isWeekSpacedColumn,
+  isYearColumn,
+  parsePeriodLabel,
+  type AssignedPeriod,
+} from "./period-assign";
 import type { AssumedYear, ColumnMapping, DropReason, ForecastRow, IgnoredColumn } from "./forecast-types";
 
 /** Re-exported: callers that read a single period cell keep one import. */
@@ -158,8 +168,8 @@ function longCell(
 }
 
 /** What `gridToForecastRows` returns. `rowsAboveHeader` counts the rows above
- *  the header row that hold a text cell and a number — data the import never
- *  reads (a stacked year block above the detected header). */
+ *  the header row that hold data the import never reads — a stacked year block
+ *  above the detected header (`rowsAboveHeaderCount`). */
 export type ForecastRowsResult = {
   rows: ForecastRow[];
   dropped: DropReason[];
@@ -168,10 +178,30 @@ export type ForecastRowsResult = {
   assumedYear?: AssumedYear;
 };
 
-/** A row that looks like data: a non-blank text cell and a number cell. */
-function isDataLikeRow(row: readonly string[], numbers: NumberOrigin): boolean {
-  const isNumber = (c: string): boolean => parseNumberCell(c, "dot", numbers) !== null || parseNumberCell(c, "comma", numbers) !== null;
-  return row.some((c) => !isBlank(c) && !isNumber(c)) && row.some(isNumber);
+/**
+ * The rows above the header row that hold data: a text cell and a number (not
+ * period-shaped: a workbook's `46296` is a date) under one of the header's
+ * period columns, with a period header of its own above it in that column — a
+ * stacked year block. On a long sheet: a number in the hours column beside a
+ * period cell in the period column. ★ A metadata row (`Stand | 46296`,
+ * `Version | 3`, `Projekt | 4711`) is neither, and was once reported as "rows
+ * above the header row were not read" (re-review 3).
+ */
+function rowsAboveHeaderCount(
+  rows: readonly string[][],
+  mapping: ColumnMapping,
+  periodCols: readonly number[],
+  numbers: NumberOrigin,
+): number {
+  const above = rows.slice(0, mapping.headerRow);
+  const isNumber = (c: string): boolean =>
+    !isPeriodShapedIn(c, numbers) && (parseNumberCell(c, "dot", numbers) !== null || parseNumberCell(c, "comma", numbers) !== null);
+  const runs = above.map((row) => headerProbeRun(row, numbers));
+  const hasHeaderAbove = (rowIdx: number, col: number): boolean => runs.slice(0, rowIdx).some((run) => (run[col] ?? null) !== null);
+  const holdsHours = (row: readonly string[], rowIdx: number): boolean => (mapping.layout === "wide"
+    ? periodCols.some((col) => isNumber(cellAt(row, col)) && hasHeaderAbove(rowIdx, col))
+    : isNumber(cellAt(row, mapping.hours)) && isPeriodShapedIn(cellAt(row, mapping.period), numbers));
+  return above.filter((row, rowIdx) => row.some((c) => !isBlank(c) && !isNumber(c)) && holdsHours(row, rowIdx)).length;
 }
 
 /**
@@ -244,7 +274,7 @@ export function gridToForecastRows(
   dropped.sort((a, b) => a.row - b.row);
   const readCols = wide ? columns.map((c) => c.col) : [mapping.period, mapping.hours, mapping.yearCol];
   const ignoredColumns = unreadNumberColumns(header, mapping, readCols, people, numbers);
-  const rowsAboveHeader = rows.slice(0, mapping.headerRow).filter((row) => isDataLikeRow(row, numbers)).length;
+  const rowsAboveHeader = rowsAboveHeaderCount(rows, mapping, columns.map((c) => c.col), numbers);
   const assumedYear = assumedYearOf(read, mapping.year);
   const result: ForecastRowsResult = { rows: out, dropped, ignoredColumns, rowsAboveHeader };
   return assumedYear === undefined ? result : { ...result, assumedYear };

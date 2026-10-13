@@ -8,7 +8,7 @@
 
 import { columnLetters, isTotalLabel, type DecimalStyle } from "./forecast-rows";
 import type { ValidationResult } from "./forecast-validate";
-import { classifyPeriodCell } from "./period-assign";
+import { isPeriodShapedIn } from "./period-assign";
 import type { SheetGrid } from "./sheet-grid";
 import { columnFacts, columnNaming, nearestPeriodRowAbove, sheetNumber, sourcePosition } from "./source-evidence";
 
@@ -106,10 +106,7 @@ export function findUnreadCells(sheet: SheetGrid, result: ValidationResult): Unr
   const personCol = personColumn(sheet, accepted);
 
   const styleOf = (col: number): DecimalStyle => columnFacts(sheet).style(col);
-  const isPeriodShaped = (cell: string): boolean => {
-    const c = classifyPeriodCell(cell);
-    return c !== null && !(c.kind === "month" && c.serial === true && sheet.numbers !== "dot");
-  };
+  const isPeriodShaped = (cell: string): boolean => isPeriodShapedIn(cell, sheet.numbers);
   const isNumber = (col: number, cell: string): boolean => sheetNumber(sheet, col, cell, styleOf(col)) !== null && !isPeriodShaped(cell);
   const hoursHeaders = citedColumnHeaders(sheet, citedAt, isNumber);
   const holdsHours = (rowIdx: number, col: number, cell: string): boolean =>

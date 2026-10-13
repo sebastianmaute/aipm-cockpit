@@ -11,6 +11,7 @@ import {
   isWeekSpacedColumn,
   assignRunDetailed,
   classifyPeriodCell,
+  headerProbeRun,
   parseYearCell,
   resolvePeriod,
   type AssignedPeriod,
@@ -30,9 +31,6 @@ const SOURCE_HOURS_TOLERANCE = 0.005;
 const LETTERS_IN_ALPHABET = 26;
 const CHAR_CODE_A = 65;
 const CELL_REF = /^([A-Z]{1,3})([1-9]\d*)$/;
-/** A stand-in year: whether a run gives a column a period must not depend on
- *  the default year (a year-less header is a header either way). */
-const STAND_IN_YEAR = 2000;
 
 /** A1 column letters as a 0-based index: A=0, Z=25, AA=26. */
 function columnIndex(letters: string): number {
@@ -102,7 +100,7 @@ export function columnFacts(sheet: SheetGrid): ColumnFacts {
       return cache.get(col) as T;
     };
   };
-  const runOf = memo((row) => assignRunDetailed(sheet.rows[row] ?? [], { defaultYear: STAND_IN_YEAR, numbers: sheet.numbers }));
+  const runOf = memo((row) => headerProbeRun(sheet.rows[row] ?? [], sheet.numbers ?? "text"));
   const facts: ColumnFacts = {
     style: memo((col) => columnStyle(sheet, col)),
     weekly: memo((col) => isWeekSpacedColumn(sheet.rows.map((r) => r[col] ?? ""), sheet.numbers)),
@@ -141,9 +139,9 @@ export function columnNaming(rowCells: readonly string[], citedCol: number, text
  *  rejected every valid claim beneath it (re-review 3). A period-shaped cell
  *  whose row gives it no period (a title row's lone date: `withoutLoneDate`) is
  *  passed over, so a long sheet with a dated title row still falls back to the
- *  row search. A year-less header counts whatever the default year: the run is
- *  read with a stand-in year here, and `periodNearCell` reads the period itself
- *  with the real one. */
+ *  row search. A year-less header counts whatever the default year
+ *  (`headerProbeRun`); `periodNearCell` reads the period itself with the real
+ *  one. */
 export function nearestPeriodRowAbove(sheet: SheetGrid, rowIdx: number, col: number): number | null {
   const above = columnFacts(sheet).headerAbove(col)[rowIdx];
   return above === undefined || above < 0 ? null : above;

@@ -302,4 +302,32 @@ describe("probe: stacked year blocks on the hand route (round 3)", () => {
     const run = readSheet([["Forecast 2026"], [], ["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Ann Lee", "1", "2", "3"]]);
     expect(run.out.rowsAboveHeader).toBe(0);
   });
+
+  // Round 4 (rr3 Minor 3): metadata rows above the header are not unread data.
+  it("counts no metadata row: a workbook Stand | 46296 (a serial date)", () => {
+    const run = readSheet([["Stand", "46296"], [], ["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Ann Lee", "1", "2", "3"]], "dot");
+    expect(run.out.rows).toHaveLength(3);
+    expect(run.out.rowsAboveHeader).toBe(0);
+  });
+
+  it("does not count a serial date under an earlier block's month header as data", () => {
+    const run = readSheet([
+      ["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Stand", "46296", "", ""], [],
+      ["Name", "Jan 2027", "Feb 2027", "Mar 2027"], ["Ann Lee", "1", "2", "3"],
+    ], "dot");
+    expect(run.out.rows.map((r) => r.period)).toEqual(["2027-01", "2027-02", "2027-03"]);
+    expect(run.out.rowsAboveHeader).toBe(0);
+  });
+
+  it("counts no metadata row: a CSV Version | 3 and Projekt | 4711", () => {
+    const run = readSheet([["Version", "3"], ["Projekt", "4711"], [], ["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Ann Lee", "1", "2", "3"]]);
+    expect(run.out.rows).toHaveLength(3);
+    expect(run.out.rowsAboveHeader).toBe(0);
+  });
+
+  it("still counts a long block's data row above a long header", () => {
+    const run = readSheet([["Name", "Monat", "Stunden"], ["Ann Lee", "Jan 2026", "8"], [], ["Name", "Monat", "Stunden"], ["Ann Lee", "Feb 2026", "4"]]);
+    expect(run.out.rows.map((r) => r.period)).toEqual(["2026-02"]);
+    expect(run.out.rowsAboveHeader).toBe(1);
+  });
 });
