@@ -896,4 +896,30 @@ describe("validateForecastRows: a header row between a dated title row and the c
     expect(out.ok).toEqual([]);
     expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!C4", "S!D4"] }]);
   });
+
+  // Round 2 ruling: a header row needs a recognised label — a person header in
+  // the person column, or a period or hours header elsewhere on the row.
+  it("stops at Wer | Monat | Stunden too: the column labels are recognised", () => {
+    const opts = strictOn([
+      ["Zeitraum", "01.01.2026", "31.03.2026"], [],
+      ["Wer", "Monat", "Stunden"],
+      ["Ann", "Jan 2026", "40"], ["Ann", "Feb 2026", "30"],
+    ]);
+    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!C4"), claim("Feb 2026", 30, "S!C5")], opts))).toEqual([["2026-01", 40], ["2026-02", 30]]);
+    expect(detail(validateForecastRows([claim("Mar 2026", 40, "S!C4")], opts))).toEqual(["period-not-near"]);
+  });
+
+  it("does not stop at a person row holding only placeholders: Bob's claims below Carl's Urlaub row are checked against the month header", () => {
+    const opts = strictOn([
+      ["Name", "Jan 2026", "Feb 2026", "Mär 2026"],
+      ["Carl", "Urlaub", "Urlaub", "Urlaub"],
+      ["Bob", "4", "5", "6"],
+    ]);
+    const bob = (period: string, hours: number, source: string) => ({ person: "Bob", period, hours, source });
+    const out = validateForecastRows([bob("Jan 2026", 4, "S!B3"), bob("Feb 2026", 5, "S!C3"), bob("Mär 2026", 6, "S!D3")], opts);
+    expect(out.rejected).toEqual([]);
+    expect(out.ok.map((r) => [r.period, r.hours])).toEqual([["2026-01", 4], ["2026-02", 5], ["2026-03", 6]]);
+    // Still under that header: a wrong month for Bob's January cell is refused.
+    expect(detail(validateForecastRows([bob("Feb 2026", 4, "S!B3")], opts))).toEqual(["period-not-near"]);
+  });
 });

@@ -6,6 +6,7 @@
 
 import { periodKeyForDate } from "../resource-capacity";
 import { detectDecimalStyle, parseNumberCell, type DecimalStyle } from "./forecast-rows";
+import { HOURS_HEADER_RE, PERIOD_HEADER_RE, PERSON_HEADER_RE } from "./layout-detect";
 import {
   assignCellPeriod,
   isWeekSpacedColumn,
@@ -172,12 +173,21 @@ function isNumberIn(cell: string, numbers: NumberOrigin): boolean {
 }
 
 /** A HEADER ROW for `personCol`: no number cell (`isNumberIn`), at least two
- *  non-blank text cells, one of them in `personCol`. A unit row (`| Std | Std`)
- *  or a `| Plan | Ist` sub-header has a blank person cell; a data row with a
- *  `-` or `Urlaub` placeholder holds numbers. Neither is a header row. */
+ *  non-blank text cells, one of them in `personCol`, and a recognised label —
+ *  a person header in `personCol` (`PERSON_HEADER_RE`: `Name`, `Mitarbeiter`
+ *  …) or a period or hours header in another cell (`PERIOD_HEADER_RE`,
+ *  `HOURS_HEADER_RE`: `Monat`, `KW`, `Stunden`, `Aufwand` …), the words layout
+ *  detection reads. A unit row (`| Std | Std`) or a `| Plan | Ist` sub-header
+ *  has a blank person cell; a data row with a `-` or `Urlaub` placeholder holds
+ *  numbers. ★ A person row of placeholders alone (`Carl | Urlaub | Urlaub`)
+ *  has no recognised label: without that test it stopped the search, and the
+ *  rows below it lost their month header (final review 2, round 2). */
 function isHeaderRowFor(row: readonly string[], personCol: number, numbers: NumberOrigin): boolean {
-  if ((row[personCol] ?? "").trim() === "" || row.some((c) => isNumberIn(c, numbers))) return false;
-  return row.filter((c) => c.trim() !== "").length >= 2;
+  const personCell = (row[personCol] ?? "").trim();
+  if (personCell === "" || row.some((c) => isNumberIn(c, numbers))) return false;
+  if (row.filter((c) => c.trim() !== "").length < 2) return false;
+  const isColumnLabel = (c: string, col: number): boolean => col !== personCol && (PERIOD_HEADER_RE.test(c) || HOURS_HEADER_RE.test(c));
+  return PERSON_HEADER_RE.test(personCell) || row.some(isColumnLabel);
 }
 
 /** Per row, the nearest row above it that is a header row for `personCol` (-1

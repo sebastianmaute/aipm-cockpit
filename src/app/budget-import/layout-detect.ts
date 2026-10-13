@@ -31,14 +31,16 @@ const COLUMN_SHARE = 0.8;
 /** Share of a column's non-blank cells that must be text for a person column. */
 const TEXT_SHARE = 0.5;
 
-/** A long sheet's period column by its header: ranked first (`periodRank`). */
-const PERIOD_HEADER_RE = /month|monat|period|periode|zeitraum|week|woche|kw/i;
+/** A long sheet's period column by its header: ranked first (`periodRank`).
+ *  This, `HOURS_HEADER_RE` and `PERSON_HEADER_RE` also tell the Claude route's
+ *  header-search stop a header row (`isHeaderRowFor` in source-evidence.ts). */
+export const PERIOD_HEADER_RE = /month|monat|period|periode|zeitraum|week|woche|kw/i;
 /** A date column's header: ranked below `PERIOD_HEADER_RE`, above none. */
 const DATE_HEADER_RE = /date|datum/i;
-const HOURS_HEADER_RE = /hour|stunden|std|hrs|aufwand|effort/i;
+export const HOURS_HEADER_RE = /hour|stunden|std|hrs|aufwand|effort/i;
 const RATE_HEADER_RE = /\brates?\b|satz|€\/h|eur\/h/i;
 const EMAIL_HEADER_RE = /e-?mail/i;
-const PERSON_HEADER_RE = /^(name|mitarbeiter(in)?|person|ressource|resource|employee|member|mitglied)$/i;
+export const PERSON_HEADER_RE = /^(name|mitarbeiter(in)?|person|ressource|resource|employee|member|mitglied)$/i;
 const SERIAL_RE = /^\d{5}(\.\d+)?$/;
 
 const UNKNOWN: LayoutDetection = { kind: "unknown", mapping: null };

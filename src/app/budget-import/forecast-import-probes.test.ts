@@ -282,6 +282,21 @@ describe("probe: bi-weekly and semi-monthly date headers (round 3)", () => {
     expect(run.validated.ok.find((r) => r.person === "Bob Kay" && r.period === "2026-01")?.hours).toBe(80);
     expect(monthPlan(run).blockers).not.toContain("same-row-period");
   });
+
+  // Final review 2, round 2: a person row of placeholders alone is not a header
+  // row, so Bob's sprint dates below it still sit under their date headers.
+  it("Carl's row of - only does not stop Bob's sprint dates being summed: 2026-01 = 80, no blocker", () => {
+    const run = readSheet([
+      ["Name", "05.01.2026", "19.01.2026", "02.02.2026", "16.02.2026"],
+      ["Carl", "-", "-", "-", "-"],
+      ["Bob Kay", "40", "40", "40", "40"],
+      ["Ann Lee", "20", "20", "20", "20"], ["Dora", "8", "8", "8", "8"], ["Eve", "4", "4", "4", "4"],
+    ]);
+    expect(run.validated.collisions).toEqual([]);
+    expect(run.validated.ok.find((r) => r.person === "Bob Kay" && r.period === "2026-01")?.hours).toBe(80);
+    expect(run.validated.ok.find((r) => r.person === "Bob Kay" && r.period === "2026-02")?.hours).toBe(80);
+    expect(monthPlan(run).blockers).not.toContain("same-row-period");
+  });
 });
 
 // Round 3 (rr2 observation 2): stacked year blocks. Detection takes the second
