@@ -96,13 +96,12 @@ section if you work from a project file.
 3. Open the database and copy its **URL**. It looks like
    `libsql://aipm-cockpit-yourname.aws-eu-west-1.turso.io`. Copy it exactly as Turso shows it,
    including the region part; do not shorten it.
-4. On the same database, create a **token** with **read and write** access. Choose an expiry that
-   suits you, and note the date: when it expires the app can no longer reach the database until
-   you create a new one. Copy the token; Turso shows it only once.
+4. On the same database, create a **token** with **read and write** access and **no expiry**, so
+   the connection never stops without warning. Copy the token; Turso shows it only once.
    - If you prefer the command line, sign in first with `turso auth login`, then run
      `turso db create aipm-cockpit` (step 2), `turso db show aipm-cockpit --url` (step 3) and
-     `turso db tokens create aipm-cockpit --expiration 90d` (step 4). Without `--expiration`
-     the command creates a token that never expires, so pass one and note the date.
+     `turso db tokens create aipm-cockpit` (step 4). Do not pass `--expiration`: without it the
+     command creates a token that never expires, which is what the app expects.
 5. In the app, open **Settings → Integrations**, turn on **Turso storage backend**, paste the URL
    into **Database URL** and the token into **Auth token**, then click **Test connection**. It
    should answer "Connected." Click **Apply**.

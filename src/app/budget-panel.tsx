@@ -26,6 +26,7 @@ import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { AddButton } from "./pane-toolbar";
 import { BudgetSetupChecklist, type BudgetSetupView } from "./budget-setup-checklist";
+import type { FeatureModuleId } from "./feature-modules";
 import { budgetSetupSteps, isBudgetSetupDismissed, setBudgetSetupDismissed } from "./budget-setup";
 import { ViewCallout } from "./view-callout";
 import { BudgetUnappliedNotice } from "./budget-unapplied-notice";
@@ -88,6 +89,10 @@ export interface BudgetPanelProps {
   onSetupGo?: (view: BudgetSetupView) => void;
   onStartTour?: (id: string) => void;
   onLoadDemo?: () => void;
+  /** The project's enabled functions and the commit that turns more on: the checklist swaps a
+   *  go-link whose target function is off for a hint (+ turn-on, omitted in a popout). */
+  features?: readonly FeatureModuleId[];
+  onCommitFeatures?: (features: FeatureModuleId[]) => void;
 }
 
 /** Module-level so the default is one stable identity, not a fresh `{}` per render. */
@@ -108,7 +113,7 @@ function blankBucket(id: number, plan: ResourcePlan, today: string): BudgetBucke
 }
 
 export function BudgetPanel(props: BudgetPanelProps) {
-  const { lang, buckets, roles, resources, plan, onSetupGo, onStartTour, onLoadDemo, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, timelogProjectId, onGoToTimelog, onOpenBudgetReport, tasks = [], actualsByBucket = NO_ACTUALS, actualsFetchedAt } = props;
+  const { lang, buckets, roles, resources, plan, onSetupGo, onStartTour, onLoadDemo, features, onCommitFeatures, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, timelogProjectId, onGoToTimelog, onOpenBudgetReport, tasks = [], actualsByBucket = NO_ACTUALS, actualsFetchedAt } = props;
   const locale = localeFor(lang);
   const confirm = useConfirm();
   // Hoisted from `props.today` — a `react-hooks/exhaustive-deps` dep may not
@@ -398,6 +403,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
         <BudgetSetupChecklist
           lang={lang} steps={setupSteps} collapsed={setupCollapsed}
           onAddBucket={addBucket} onGo={onSetupGo} onStartTour={onStartTour} onLoadDemo={onLoadDemo}
+          features={features} onCommitFeatures={onCommitFeatures}
           onDismiss={dismissSetup}
         />
       )}

@@ -489,85 +489,89 @@ async function start(): Promise<void> {
       .executeJavaScript(splashScript(kind, text))
       .catch((err: unknown) => log(`splash ${kind} not shown: ${String(err)}`));
   };
-  // ★★ Cleared on EVERY way out of start() that leaves the splash: before
-  // loadURL, and in each failure below (failStart). A timer left running
-  // would fire into whatever the window shows next.
+  // ★★ Cleared on EVERY way out of start() that leaves the splash: the try/finally below covers
+  // a normal fall-through to loadURL, each failStart return AND a throw from probePort,
+  // spawnServer or waitForReady. A timer left running would fire into whatever the window
+  // shows next.
   const slowTimer = setTimeout(() => sendSplash("slow", splashText.slow), SPLASH_SLOW_MS);
   const failStart = (title: string, message: string): void => {
     clearTimeout(slowTimer);
     fail(title, message);
   };
-  sendSplash("status", splashText.starting);
+  try {
+    sendSplash("status", splashText.starting);
 
-  const probe = await probePort();
-  const owner = classifyPortOwner(probe, app.getVersion());
+    const probe = await probePort();
+    const owner = classifyPortOwner(probe, app.getVersion());
 
-  if (owner === "foreign") {
-    // ★★★ NEVER rebind to a free port. The port is half the origin, so a
-    // different port is a different IndexedDB store — the user's workspace
-    // would silently vanish. Fail loudly instead.
-    failStart(
-      "Port in use",
-      `Another program is already using port ${APP_PORT} on this computer. ` +
-        `AI PM Cockpit cannot start until that program is closed. ` +
-        `It will not use a different port, because its saved data belongs to this one.`,
-    );
-    return;
-  }
-
-  if (owner === "stale") {
-    // §631: our own server, but a different build, left running by a crash.
-    // Reusing it would show the user that build instead of the one they
-    // installed, and this launch could not stop it on quit (it never spawned
-    // it, so `serverChild` stays null). Its pid is unknown here, and killing
-    // whatever holds a port is an identity guess, so fail loudly instead.
-    // `app.getVersion()` is desktop/package.json's version, which
-    // `npm run version:check` keeps equal to APP_VERSION, the attribute's source.
-    const found = probe.reachable ? probedAppVersion(probe.body) : null;
-    failStart(
-      "Another version is still running",
-      `Another copy of AI PM Cockpit (version ${found || "unknown"}) is still running in the background, ` +
-        `so this version (${app.getVersion()}) cannot start. ` +
-        `Restart your computer, or end the AI PM Cockpit processes in Task Manager, then open the app again.`,
-    );
-    return;
-  }
-
-  if (owner === "free") {
-    serverChild = spawnServer(process.resourcesPath);
-    // Both streams are piped, so both are drained: an unread pipe fills and
-    // stalls the server on its next write.
-    serverChild.stdout?.on("data", (d: Buffer) => log(`server: ${d.toString().trimEnd()}`));
-    serverChild.stderr?.on("data", (d: Buffer) => log(`server: ${d.toString().trimEnd()}`));
-    serverChild.on("exit", (code) => {
-      log(`server exited with code ${code}`);
-      if (shouldReportServerExit({ quitting, windowAlive: !!win && !win.isDestroyed() })) {
-        dialog.showErrorBox(
-          "AI PM Cockpit stopped",
-          `The application's background service stopped unexpectedly (code ${code}). ` +
-            `Please close and reopen AI PM Cockpit.\n\nDetails: ${join(logDir, "launch.log")}`,
-        );
-      }
-    });
-
-    const ready = await waitForReady({
-      probe: async () => (await probePort()).reachable,
-      timeoutMs: 60000,
-      intervalMs: 250,
-      now: () => Date.now(),
-      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
-    });
-
-    if (!ready.ready) {
+    if (owner === "foreign") {
+      // ★★★ NEVER rebind to a free port. The port is half the origin, so a
+      // different port is a different IndexedDB store — the user's workspace
+      // would silently vanish. Fail loudly instead.
       failStart(
-        "AI PM Cockpit did not start",
-        "The application's background service did not finish starting in time.",
+        "Port in use",
+        `Another program is already using port ${APP_PORT} on this computer. ` +
+          `AI PM Cockpit cannot start until that program is closed. ` +
+          `It will not use a different port, because its saved data belongs to this one.`,
       );
       return;
     }
+
+    if (owner === "stale") {
+      // §631: our own server, but a different build, left running by a crash.
+      // Reusing it would show the user that build instead of the one they
+      // installed, and this launch could not stop it on quit (it never spawned
+      // it, so `serverChild` stays null). Its pid is unknown here, and killing
+      // whatever holds a port is an identity guess, so fail loudly instead.
+      // `app.getVersion()` is desktop/package.json's version, which
+      // `npm run version:check` keeps equal to APP_VERSION, the attribute's source.
+      const found = probe.reachable ? probedAppVersion(probe.body) : null;
+      failStart(
+        "Another version is still running",
+        `Another copy of AI PM Cockpit (version ${found || "unknown"}) is still running in the background, ` +
+          `so this version (${app.getVersion()}) cannot start. ` +
+          `Restart your computer, or end the AI PM Cockpit processes in Task Manager, then open the app again.`,
+      );
+      return;
+    }
+
+    if (owner === "free") {
+      serverChild = spawnServer(process.resourcesPath);
+      // Both streams are piped, so both are drained: an unread pipe fills and
+      // stalls the server on its next write.
+      serverChild.stdout?.on("data", (d: Buffer) => log(`server: ${d.toString().trimEnd()}`));
+      serverChild.stderr?.on("data", (d: Buffer) => log(`server: ${d.toString().trimEnd()}`));
+      serverChild.on("exit", (code) => {
+        log(`server exited with code ${code}`);
+        if (shouldReportServerExit({ quitting, windowAlive: !!win && !win.isDestroyed() })) {
+          dialog.showErrorBox(
+            "AI PM Cockpit stopped",
+            `The application's background service stopped unexpectedly (code ${code}). ` +
+              `Please close and reopen AI PM Cockpit.\n\nDetails: ${join(logDir, "launch.log")}`,
+          );
+        }
+      });
+
+      const ready = await waitForReady({
+        probe: async () => (await probePort()).reachable,
+        timeoutMs: 60000,
+        intervalMs: 250,
+        now: () => Date.now(),
+        sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+      });
+
+      if (!ready.ready) {
+        failStart(
+          "AI PM Cockpit did not start",
+          "The application's background service did not finish starting in time.",
+        );
+        return;
+      }
+    }
+  } finally {
+    clearTimeout(slowTimer);
   }
 
-  clearTimeout(slowTimer);
   sendSplash("status", splashText.opening);
   await win.loadURL(APP_ORIGIN);
   setTimeout(() => updater?.check("startup"), STARTUP_CHECK_DELAY_MS);

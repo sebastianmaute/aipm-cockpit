@@ -548,6 +548,27 @@ describe("ResourceEditModal — Needed group and required email (§708)", () => 
     expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorEmailRequired"));
   });
 
+  it("keeps Additional emails reachable when a stored visibility config lacks email", () => {
+    render(
+      <>
+        <HideEmail />
+        <ResourceEditModal
+          lang="en-US"
+          resource={{ ...base, emails: ["sofia.alt@acme.test"] }}
+          isNew={false}
+          onSave={vi.fn()}
+          onDelete={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </>,
+      { wrapper },
+    );
+    // Email is required now and its checkbox is locked on, so the extras cannot be gated on it:
+    // §708 matches bookings on them, and a person unticked Email before that landed keeps this config.
+    expect(screen.getByRole("textbox", { name: `${t("en-US", "resourceEmailsLabel")} 1` })).toHaveValue("sofia.alt@acme.test");
+    expect(screen.getByRole("button", { name: /Add email/ })).toBeInTheDocument();
+  });
+
   describe("More details disclosure", () => {
     it("is named and closed for a new person", () => {
       setup({ resource: { ...blankPerson, email: "sofia@acme.test" }, isNew: true });

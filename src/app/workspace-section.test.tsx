@@ -24,6 +24,7 @@ import type { SuggestedAction } from "./next-actions/types";
 import { groupNextActions, pickHeroGroup } from "./next-actions/group";
 import { t } from "./i18n";
 import { markDemoBannerDone } from "./demo-banner-state";
+import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 
 vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
@@ -1345,6 +1346,12 @@ describe("WorkspaceSection — the dashboard demo banner (§712)", () => {
 
   it("is hidden without a demo handler", () => {
     renderAtDashboard(undefined);
+    expect(screen.queryByText(TEXT())).toBeNull();
+  });
+
+  it("is hidden when the local demo is refused: a browser-backed project and no usable Turso", () => {
+    saveRegistry(addProject(emptyRegistry(), { id: "p1", name: "Acme", code: "AC", storageConfig: { kind: "browser" } }, true));
+    renderAtDashboard(vi.fn());
     expect(screen.queryByText(TEXT())).toBeNull();
   });
 

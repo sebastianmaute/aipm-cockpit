@@ -343,6 +343,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   //   is the newer intent, and Apply then writes it. Without the guard an outside write
   //   (another settings surface, a hydration) silently replaced what was being typed.
   const tursoIsLive = settings.storageConfig?.kind === "turso";
+  // The Apply button's own render condition (the Turso test step below), shared with step 4's copy.
+  const showTursoApply = tursoIsLive && !(envTursoUrlUsable && hideTokenField);
   const [tursoUrl, setTursoUrl] = useState(turso.databaseUrl);
   const [tursoToken, setTursoToken] = useState(turso.authToken);
   const [prevStoredTursoUrl, setPrevStoredTursoUrl] = useState(turso.databaseUrl);
@@ -1000,6 +1002,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         <div className="mt-2 space-y-2 border-l-2 border-line pl-3">
           <TursoSetupSteps
             lang={lang}
+            canApply={showTursoApply}
             state={tursoSetupState({
               url: tursoUrl ?? "",
               token: tursoToken ?? "",
@@ -1174,7 +1177,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               button cannot say WHY it is dead. The SharePoint Apply has the same asymmetry for a
               different reason (an emptied field); `storage-config.tsx` states its own predicate. */}
           <div className="flex flex-wrap gap-2">
-          {tursoIsLive && !(envTursoUrlUsable && hideTokenField) && (
+          {showTursoApply && (
             // ★ Same `size` as "Test connection" beside it; the transparent border matches the
             //   secondary variant's 1px border, so the two buttons are the same height.
             <Button

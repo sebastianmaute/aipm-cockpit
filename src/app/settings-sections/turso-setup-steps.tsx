@@ -18,6 +18,9 @@ interface TursoSetupStepsProps {
   tokenStep: ReactNode;
   /** The existing Test connection / Apply controls. */
   testStep: ReactNode;
+  /** Whether the Apply button is rendered beside Test connection (Turso storage only), so step 4
+   *  names Apply only where it exists. */
+  canApply: boolean;
 }
 
 /** The "done" marker: a decorative check plus text for assistive technology. */
@@ -39,7 +42,7 @@ function ExternalLink({ href, children }: { href: string; children: ReactNode })
 }
 
 /** Numbered checklist around the Turso URL, token and test controls. */
-export function TursoSetupSteps({ lang, state, urlStep, tokenStep, testStep }: TursoSetupStepsProps) {
+export function TursoSetupSteps({ lang, state, urlStep, tokenStep, testStep, canApply }: TursoSetupStepsProps) {
   const heading = "font-medium text-foreground";
   return (
     <div>
@@ -55,18 +58,18 @@ export function TursoSetupSteps({ lang, state, urlStep, tokenStep, testStep }: T
             <span>{t(lang, "tursoStepUrl")}</span>
             {state.urlDone && <DoneMark lang={lang} />}
           </p>
-          <div className="mt-1">{urlStep}</div>
+          <div className="mt-1 space-y-2">{urlStep}</div>
         </li>
         <li>
           <p className={heading}>
             <span>{t(lang, "tursoStepToken")}</span>
             {state.tokenDone && <DoneMark lang={lang} />}
           </p>
-          <div className="mt-1">{tokenStep}</div>
+          <div className="mt-1 space-y-2">{tokenStep}</div>
         </li>
         <li>
           <p className={heading}>
-            <span>{t(lang, "tursoStepTest")}</span>
+            <span>{t(lang, canApply ? "tursoStepTestApply" : "tursoStepTest")}</span>
             {state.testDone && <DoneMark lang={lang} />}
           </p>
           <div className="mt-1 space-y-2">{testStep}</div>

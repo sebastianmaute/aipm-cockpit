@@ -475,7 +475,7 @@ export const APP_MILESTONE = "Larsson";
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 /** The app's public source repository, linked from the Version panel. */
 export const APP_REPO_URL = "https://github.com/sebastianmaute/aipm-cockpit";
-/** The step-by-step install and setup guide (with pictures), linked from the Turso setup steps. */
+/** The step-by-step install and setup guide, linked from the Turso setup steps. */
 export const INSTALL_GUIDE_URL = `${APP_REPO_URL}/blob/main/docs/desktop-rollout.md`;
 /** The author's public profile, linked from the Version panel's author line. */
 export const APP_AUTHOR_URL = "https://www.linkedin.com/in/sebastian-maute/";

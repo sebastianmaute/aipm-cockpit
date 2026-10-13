@@ -6,11 +6,12 @@ import { INSTALL_GUIDE_URL } from "../version";
 
 const NONE = { urlDone: false, tokenDone: false, testDone: false };
 
-function renderSteps(state = NONE) {
+function renderSteps(state = NONE, canApply = true) {
   return render(
     <TursoSetupSteps
       lang="en-US"
       state={state}
+      canApply={canApply}
       urlStep={<input aria-label="url-field" />}
       tokenStep={<input aria-label="token-field" />}
       testStep={<button type="button">test-button</button>}
@@ -51,6 +52,7 @@ describe("TursoSetupSteps", () => {
     expect(screen.queryByText(done)).toBeNull();
     const props = {
       lang: "en-US" as const,
+      canApply: true,
       urlStep: <input aria-label="url-field" />,
       tokenStep: <input aria-label="token-field" />,
       testStep: <button type="button">test-button</button>,
@@ -73,6 +75,30 @@ describe("TursoSetupSteps", () => {
     expect(done).toHaveClass("sr-only");
     const glyph = done.parentElement?.querySelector('[aria-hidden="true"]');
     expect(glyph?.textContent).toBe("✓");
+  });
+
+  it("names Apply in step 4 only where the Apply button exists", () => {
+    const { unmount } = renderSteps(NONE, true);
+    expect(screen.getByText(t("en-US", "tursoStepTestApply"))).toBeInTheDocument();
+    expect(t("en-US", "tursoStepTestApply")).toMatch(/Apply/);
+    unmount();
+    renderSteps(NONE, false);
+    expect(screen.getByText(t("en-US", "tursoStepTest"))).toBeInTheDocument();
+    expect(t("en-US", "tursoStepTest")).not.toMatch(/Apply/);
+    expect(screen.queryByText(t("en-US", "tursoStepTestApply"))).toBeNull();
+  });
+
+  it("spaces the controls inside the URL, token and test steps", () => {
+    renderSteps();
+    const items = within(screen.getByRole("list")).getAllByRole("listitem");
+    for (const i of [1, 2, 3]) {
+      expect(items[i].querySelector(":scope > div")).toHaveClass("space-y-2");
+    }
+  });
+
+  it("does not promise pictures in the guide link until the guide has them", () => {
+    renderSteps();
+    expect(t("en-US", "tursoStepGuide")).not.toMatch(/picture/i);
   });
 
   it("links the step-by-step guide to the install guide", () => {

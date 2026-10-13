@@ -27,12 +27,14 @@ longer carries its own changelog comment.
   before Timelog is set up) and the Functions choice say so, and offer to turn them on.
 - **The Budget view walks you through setting up a budget.** An empty Budget shows four steps in order:
   give a role a rate, add the people, create a bucket, and import time bookings from Timelog. Each step
-  ticks itself off, links to the right place, and the list can be hidden. It folds to "Budget setup: N
-  of 4" once the first bucket exists.
+  ticks itself off and links to the right place; where the link's function is switched off for the
+  project, it says so and offers to turn it on. It folds to "Budget setup: N of 4" once the first bucket
+  exists, and the folded list can be hidden.
 - **The Turso settings list the setup steps.** Create the database, copy its URL, create a token without
   an expiry, then test the connection, with a link to the step-by-step guide.
 - **The demo project is easier to find.** A one-time banner on the dashboard and an entry in Help open
-  the demo project. The banner goes away when you dismiss it or open the demo once on this device.
+  the demo project. The banner goes away when you dismiss it or open the demo once on this device, and
+  it is not shown where the demo cannot open (a project stored in this browser, with no Turso connected).
 - **The desktop app says what it is doing while it starts.** The start screen shows that the background
   service is starting and, after ten seconds, that the first start after installing or updating can take
   up to a minute.

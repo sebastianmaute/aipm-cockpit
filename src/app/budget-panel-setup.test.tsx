@@ -36,6 +36,15 @@ describe("BudgetPanel setup checklist", () => {
     expect(onChangeBuckets).toHaveBeenCalledTimes(1);
   });
 
+  test("a go-link whose function is off becomes a hint, and Turn on commits the function (§710)", async () => {
+    const onCommitFeatures = vi.fn();
+    render(<BudgetPanel {...base} onSetupGo={vi.fn()} features={["budget"]} onCommitFeatures={onCommitFeatures} />);
+    expect(screen.queryByRole("button", { name: t(L, "budgetSetupGoRoles") })).toBeNull();
+    expect(screen.getAllByText(t(L, "budgetSetupModuleOff", t(L, "tabResources")))).toHaveLength(2);
+    await userEvent.setup().click(screen.getByRole("button", { name: t(L, "budgetSetupTurnOnAria", t(L, "tabResources"), t(L, "budgetSetupRates")) }));
+    expect(onCommitFeatures).toHaveBeenCalledWith(["resources", "budget"]);
+  });
+
   test("once a bucket exists it collapses to a one-line summary above the table", () => {
     render(<BudgetPanel {...base} buckets={[bucket()]} />);
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);

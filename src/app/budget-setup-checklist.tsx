@@ -6,6 +6,7 @@ import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { budgetSetupDoneCount, type BudgetSetupStep, type BudgetSetupSteps } from "./budget-setup";
 import type { AppView } from "./nav-config";
+import { ALL_MODULE_IDS, FEATURE_MODULES, isViewEnabled, moduleForView, type FeatureModuleId } from "./feature-modules";
 
 /** The views a setup step can send the user to. These are the REAL `AppView`
  *  ids (`nav-config.ts`), so `onGo` feeds `setActiveTab` directly. */
@@ -27,6 +28,12 @@ export interface BudgetSetupChecklistProps {
   /** Undefined in a popout: the demo link is hidden. */
   onLoadDemo?: () => void;
   onDismiss: () => void;
+  /** The project's enabled functions. Absent = nothing is gated (every link renders). A go-link
+   *  whose view belongs to a function that is off becomes a hint instead: `setActiveTab` on a
+   *  disabled view is bounced to the Dashboard by `disabledViewRedirect`. */
+  features?: readonly FeatureModuleId[];
+  /** Undefined in a popout: the hint stays but offers no turn-on button. */
+  onCommitFeatures?: (features: FeatureModuleId[]) => void;
 }
 
 interface RowSpec {
@@ -46,14 +53,44 @@ function StepMarker({ lang, done, step }: { lang: Lang; done: boolean; step: Bud
   );
 }
 
-function StepList({ lang, steps, onAddBucket, onGo }: Pick<BudgetSetupChecklistProps, "lang" | "steps" | "onAddBucket" | "onGo">) {
-  const goButton = (view: BudgetSetupView, key: TranslationKey) =>
-    onGo ? (
-      <Button variant="secondary" size="xs" onClick={() => onGo(view)}>{t(lang, key)}</Button>
-    ) : undefined;
+const MODULE_LABEL_KEY = new Map(FEATURE_MODULES.map((m) => [m.id, m.labelKey]));
+
+type StepListProps = Pick<BudgetSetupChecklistProps, "lang" | "steps" | "onAddBucket" | "onGo" | "features" | "onCommitFeatures">;
+
+function StepList({ lang, steps, onAddBucket, onGo, features, onCommitFeatures }: StepListProps) {
+  /** "The Resources function is off" + a one-click turn-on, where a go-link would land on a
+   *  disabled view. The turn-on commits the union in registry order (as the Time bookings notice). */
+  const offHint = (moduleId: FeatureModuleId, rowLabelKey: TranslationKey) => {
+    const name = t(lang, MODULE_LABEL_KEY.get(moduleId) ?? "modeModulesHeading");
+    const turnOn = () => {
+      const next = new Set<FeatureModuleId>([...(features ?? []), moduleId]);
+      onCommitFeatures?.(ALL_MODULE_IDS.filter((id) => next.has(id)));
+    };
+    return (
+      <span className="flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
+        <span>{t(lang, "budgetSetupModuleOff", name)}</span>
+        {onCommitFeatures && (
+          <Button
+            variant="secondary"
+            size="xs"
+            aria-label={t(lang, "budgetSetupTurnOnAria", name, t(lang, rowLabelKey))}
+            onClick={turnOn}
+          >
+            {t(lang, "functionsUsesTurnOn")}
+          </Button>
+        )}
+      </span>
+    );
+  };
+  const goButton = (view: BudgetSetupView, key: TranslationKey, rowLabelKey: TranslationKey) => {
+    if (!onGo) return undefined;
+    const moduleId = moduleForView(view);
+    if (features && moduleId && !isViewEnabled(view, features)) return offHint(moduleId, rowLabelKey);
+    return <Button variant="secondary" size="xs" onClick={() => onGo(view)}>{t(lang, key)}</Button>;
+  };
   const rows: RowSpec[] = [
-    { step: 1, done: steps.ratesDone, labelKey: "budgetSetupRates", action: goButton("manage-roles", "budgetSetupGoRoles") },
-    { step: 2, done: steps.peopleDone, labelKey: "budgetSetupPeople", action: goButton("directory", "budgetSetupGoPeople") },
+    { step: 1, done: steps.ratesDone, labelKey: "budgetSetupRates", action: goButton("manage-roles", "budgetSetupGoRoles", "budgetSetupRates") },
+    { step: 2, done: steps.peopleDone, labelKey: "budgetSetupPeople", action: goButton("directory", "budgetSetupGoPeople", "budgetSetupPeople") },
     {
       step: 3, done: steps.bucketDone, labelKey: "budgetSetupBucket",
       // Once a bucket exists the panel's own header button covers adding more.
@@ -61,7 +98,7 @@ function StepList({ lang, steps, onAddBucket, onGo }: Pick<BudgetSetupChecklistP
         <Button variant="secondary" size="xs" onClick={onAddBucket}>{`+ ${t(lang, "budgetAddBucket")}…`}</Button>
       ),
     },
-    { step: 4, done: steps.bookingsDone, labelKey: "budgetSetupBookings", optional: true, action: goButton("timelog", "budgetSetupGoBookings") },
+    { step: 4, done: steps.bookingsDone, labelKey: "budgetSetupBookings", optional: true, action: goButton("timelog", "budgetSetupGoBookings", "budgetSetupBookings") },
   ];
   return (
     <ol className="flex flex-col gap-1.5">
@@ -129,7 +166,7 @@ export function BudgetSetupChecklist(props: BudgetSetupChecklistProps) {
       )}
       {showList && (
       <div id={listId} className={collapsed ? "mt-2" : undefined}>
-        <StepList lang={lang} steps={steps} onAddBucket={props.onAddBucket} onGo={props.onGo} />
+        <StepList lang={lang} steps={steps} onAddBucket={props.onAddBucket} onGo={props.onGo} features={props.features} onCommitFeatures={props.onCommitFeatures} />
         {(onStartTour || onLoadDemo) && (
           <div className="mt-2 flex flex-wrap items-center gap-2 px-3 print:hidden">
             {onStartTour && (

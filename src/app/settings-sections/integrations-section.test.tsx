@@ -1121,6 +1121,18 @@ describe("§711 — Turso setup as numbered steps", () => {
     );
   });
 
+  it("names Apply in step 4 only on Turso storage, where the Apply button exists", () => {
+    const apply = t("en-US", "integrationsTursoApplyLabel");
+    const { unmount } = render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expect(screen.getByText(t("en-US", "tursoStepTest"))).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: apply })).toBeNull();
+    unmount();
+    const onTurso = { ...tursoSettings(""), storageConfig: { kind: "turso" as const } };
+    render(<IntegrationsSection lang="en-US" settings={onTurso} onChange={() => {}} />);
+    expect(screen.getByText(t("en-US", "tursoStepTestApply"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: apply })).toBeInTheDocument();
+  });
+
   it("does not render the list while Turso is disabled", () => {
     render(<IntegrationsSection lang="en-US" settings={defaultSettings} onChange={() => {}} />);
     expect(screen.queryByText(t("en-US", "tursoStepUrl"))).toBeNull();

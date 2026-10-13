@@ -370,43 +370,44 @@ export function ResourceEditModal({
                 </HintedLabel>
               )}
 
-              {/* Additional emails — full width */}
-              {isVisible("email") && (
-                <div className="flex flex-col gap-1.5 text-sm sm:col-span-2">
-                  <span className="flex items-center gap-1 font-medium text-foreground">
-                    {t(lang, "resourceEmailsLabel")}<InfoTooltip text={t(lang, "resourceEmailsHint")} />
-                  </span>
-                  {(draft.emails ?? []).map((addr, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <Input
-                        type="email"
-                        value={addr}
-                        aria-label={`${t(lang, "resourceEmailsLabel")} ${i + 1}`}
-                        onChange={(e) => {
-                          const next = [...(draft.emails ?? [])];
-                          next[i] = e.target.value;
-                          update("emails", next);
-                        }}
-                        className="flex-1"
-                      />
-                      <IconButton
-                        variant="danger"
-                        label={`${t(lang, "resourceEmailRemove")} ${i + 1}`}
-                        title={`${t(lang, "resourceEmailRemove")} ${i + 1}`}
-                        onClick={() => update("emails", (draft.emails ?? []).filter((_, j) => j !== i))}
-                      >
-                        <XMarkIcon aria-hidden="true" className="h-4 w-4" />
-                      </IconButton>
-                    </div>
-                  ))}
-                  <Button
-                    onClick={() => update("emails", [...(draft.emails ?? []), ""])}
-                    variant="secondary" size="xs" className="self-start"
-                  >
-                    + {t(lang, "resourceEmailAdd")}
-                  </Button>
-                </div>
-              )}
+              {/* Additional emails — full width. Not gated on the email visibility flag: email is required
+                  now (its checkbox is locked on), and a config saved before that may still lack it, which
+                  would hide extras that §708 matches bookings on. */}
+              <div className="flex flex-col gap-1.5 text-sm sm:col-span-2">
+                <span className="flex items-center gap-1 font-medium text-foreground">
+                  {t(lang, "resourceEmailsLabel")}<InfoTooltip text={t(lang, "resourceEmailsHint")} />
+                </span>
+                {(draft.emails ?? []).map((addr, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      type="email"
+                      value={addr}
+                      aria-label={`${t(lang, "resourceEmailsLabel")} ${i + 1}`}
+                      onChange={(e) => {
+                        const next = [...(draft.emails ?? [])];
+                        next[i] = e.target.value;
+                        update("emails", next);
+                      }}
+                      className="flex-1"
+                    />
+                    <IconButton
+                      variant="danger"
+                      label={`${t(lang, "resourceEmailRemove")} ${i + 1}`}
+                      title={`${t(lang, "resourceEmailRemove")} ${i + 1}`}
+                      onClick={() => update("emails", (draft.emails ?? []).filter((_, j) => j !== i))}
+                    >
+                      <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+                    </IconButton>
+                  </div>
+                ))}
+                <Button
+                  onClick={() => update("emails", [...(draft.emails ?? []), ""])}
+                  variant="secondary" size="xs" className="self-start"
+                >
+                  + {t(lang, "resourceEmailAdd")}
+                </Button>
+              </div>
+
 
               {/* External resource flag — full width */}
               {/* ★★ The hint is the label's SIBLING, not its child: inside, its text

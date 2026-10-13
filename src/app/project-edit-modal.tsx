@@ -1,9 +1,9 @@
 "use client";
 
-// The project modal host, shared by the Projects panel (create + edit) and the
-// Settings → General project block (edit). Extracted so Settings does not have
-// to copy the Modal + panel + header + scroller block — dup:check is blocking,
-// and two copies would drift on chrome, sizing and dismissal behaviour.
+// The project modal host: the Projects panel mounts it for both create and edit (Settings →
+// Functions reaches the edit through a request that panel consumes). Extracted so the Modal + panel + header + scroller
+// block is not copied per flow — dup:check is blocking, and two copies would drift on chrome,
+// sizing and dismissal behaviour.
 //
 // Presentational: every value and handler is a prop.
 
@@ -120,7 +120,7 @@ function FunctionsSection({
 }
 
 /** The shell wrapped around a prefilled `ProjectForm` — the edit flow, mounted
- *  from both the Projects panel and Settings → General. */
+ *  by the Projects panel (`projects-panel.tsx`). */
 export function ProjectEditModal({
   lang, initial, stakeholderNames, addressBook, resources, features, focusFunctions, sizeKey, onSubmit, onCancel,
 }: ProjectEditModalProps) {

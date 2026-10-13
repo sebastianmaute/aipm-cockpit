@@ -57,6 +57,14 @@ export function isTursoUsable(portfolioMode: PortfolioMode, tursoConfig: TursoCo
   return portfolioMode === "turso" && tursoConfig !== null;
 }
 
+/** The one predicate for "the local demo would overwrite a browser-backed project, so the create
+ *  refuses it" (`local-blocked`). `createDemo` decides by it and the dashboard banner hides by it,
+ *  so the banner is never offered where its button can only end in the refusal toast.
+ *  `tursoUsable` is `isTursoUsable(...)`; `browserProject` is `browserProjectIn(...)`. */
+export function isLocalDemoBlocked(tursoUsable: boolean, browserProject: ProjectRegistryEntry | null): boolean {
+  return !tursoUsable && browserProject !== null;
+}
+
 export type DemoVariant = { kind: "local" } | { kind: "turso"; projectName: string };
 
 export function demoVariantFor(lang: Lang, portfolioMode: PortfolioMode, tursoConfig: TursoConfig | null): DemoVariant {
@@ -118,7 +126,7 @@ function historyFor(
 export async function createDemo(deps: CreateDemoDeps): Promise<DemoOutcome> {
   const { ws } = deps;
   if (!deps.tursoUsable || !ws.project) {
-    if (deps.browserProject) return "local-blocked";
+    if (isLocalDemoBlocked(false, deps.browserProject)) return "local-blocked"; // this branch IS the local path
     await deps.createLocal(ws);
     return "local";
   }

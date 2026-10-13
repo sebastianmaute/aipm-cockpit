@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./snapshot-store", () => ({ appendSnapshots: vi.fn() }));
 
 import {
-  createDemo, DEMO_PLAN_GRANULARITY, DEMO_SAMPLE_NAME, demoHistoryFor, demoHistoryWeeks, demoVariantFor, isTursoUsable, useLoadDemo,
+  createDemo, DEMO_PLAN_GRANULARITY, DEMO_SAMPLE_NAME, demoHistoryFor, demoHistoryWeeks, demoVariantFor, isLocalDemoBlocked, isTursoUsable, useLoadDemo,
   type CreateDemoDeps, type UseLoadDemoDeps,
 } from "./demo-project";
 import { readDemoCreatedLocally } from "./demo-intent";
@@ -502,5 +502,14 @@ describe("useLoadDemo — marks the dashboard demo banner done (§712)", () => {
     window.localStorage.clear();
     await run(loadDeps({ portfolioMode: "turso", tursoConfig: CONFIG, createTursoProject: fakeCreate(null), hasTursoProjects: true }));
     expect(readDemoBannerDone()).toBe(false);
+  });
+});
+
+describe("isLocalDemoBlocked", () => {
+  it("is true only with no usable Turso AND a browser-backed project", () => {
+    expect(isLocalDemoBlocked(false, BROWSER_PROJECT)).toBe(true);
+    expect(isLocalDemoBlocked(false, null)).toBe(false);
+    expect(isLocalDemoBlocked(true, BROWSER_PROJECT)).toBe(false);
+    expect(isLocalDemoBlocked(true, null)).toBe(false);
   });
 });
