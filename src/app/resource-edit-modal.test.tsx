@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { beforeAll, describe, it, expect, vi } from "vitest";
 import { useEffect, useRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -40,6 +40,8 @@ const base: Resource = {
   id: 1,
   firstName: "Sofia",
   lastName: "Ramirez",
+  // §708 — the form requires an email, so the shared fixture carries one.
+  email: "sofia@acme.test",
   roleId: null,
   utilizationMode: "percent",
   utilization: {},
@@ -365,7 +367,7 @@ describe("ResourceEditModal", () => {
 
   it("renders an InfoTooltip for the Email field (accessible by hint text as aria-label)", () => {
     setupFull();
-    expect(screen.getByRole("button", { name: t("en-US", "resourceEmailHint") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "resourceEmailTimelogHint") })).toBeInTheDocument();
   });
 
   describe("field visibility", () => {
@@ -442,5 +444,134 @@ describe("ResourceEditModal Add email on the shared Button", () => {
     expect(screen.getByRole("button", { name: /Add email/ }).className).toBe(
       buttonClassFor({ variant: "secondary", size: "xs", className: "self-start" }),
     );
+  });
+});
+
+// §708 — the fields Timelog needs lead the form, and the form insists on an email.
+describe("ResourceEditModal — Needed group and required email (§708)", () => {
+  const blankPerson: Resource = { ...base, firstName: "", lastName: "", email: undefined };
+
+  function submitForm() {
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+  }
+
+  /** Field visibility with the email field switched OFF (everything else on). */
+  function HideEmail() {
+    const { setFieldVisibility } = useWorkspace();
+    const seeded = useRef(false);
+    useEffect(() => {
+      if (seeded.current) return;
+      seeded.current = true;
+      setFieldVisibility(() => ({
+        resource: { fields: applyTier("resource", "full").fields.filter((id) => id !== "email") },
+      }));
+    }, [setFieldVisibility]);
+    return null;
+  }
+
+  it("groups first name, last name and email under Needed, ahead of More details", () => {
+    setup({ resource: blankPerson, isNew: true });
+    const group = screen.getByRole("group", { name: t("en-US", "resourceNeededHeading") });
+    expect(within(group).getByRole("textbox", { name: t("en-US", "resourceFirstName") })).toBeInTheDocument();
+    expect(within(group).getByRole("textbox", { name: t("en-US", "resourceLastName") })).toBeInTheDocument();
+    expect(within(group).getByRole("textbox", { name: t("en-US", "resourceEmail") })).toBeInTheDocument();
+    expect(within(group).queryByRole("textbox", { name: t("en-US", "resourceJobTitle") })).toBeNull();
+    const details = document.querySelector("details")!;
+    expect(group.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(details.contains(screen.getByRole("textbox", { name: t("en-US", "resourceJobTitle") }))).toBe(true);
+  });
+
+  it("explains the email with the Timelog hint", () => {
+    setup({ resource: blankPerson, isNew: true });
+    expect(screen.getByRole("button", { name: t("en-US", "resourceEmailTimelogHint") })).toBeInTheDocument();
+    expect(t("en-US", "resourceEmailTimelogHint")).toBe(
+      "Matches Timelog bookings, calendar and contacts — use the address the person signs into Timelog with.",
+    );
+  });
+
+  it("refuses to save without an email, says why, and does not call onSave", () => {
+    const onSave = vi.fn();
+    setup({ resource: { ...blankPerson, firstName: "Sofia" }, isNew: true, onSave });
+    submitForm();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Enter the person's email — it is how Timelog bookings reach them.",
+    );
+    expect(screen.getByRole("textbox", { name: t("en-US", "resourceEmail") })).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("treats a whitespace-only email as missing", () => {
+    const onSave = vi.fn();
+    setup({ resource: { ...blankPerson, firstName: "Sofia", email: "   " }, isNew: true, onSave });
+    submitForm();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorEmailRequired"));
+  });
+
+  it("checks the name before the email", () => {
+    const onSave = vi.fn();
+    setup({ resource: blankPerson, isNew: true, onSave });
+    submitForm();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorName"));
+  });
+
+  it("saves once an email is entered", () => {
+    const onSave = vi.fn();
+    setup({ resource: { ...blankPerson, firstName: "Sofia" }, isNew: true, onSave });
+    fireEvent.change(screen.getByRole("textbox", { name: t("en-US", "resourceEmail") }), {
+      target: { value: " sofia@acme.test " },
+    });
+    submitForm();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ firstName: "Sofia", email: "sofia@acme.test" });
+  });
+
+  it("still renders and enforces the email when field visibility hides it", () => {
+    const onSave = vi.fn();
+    render(
+      <>
+        <HideEmail />
+        <ResourceEditModal
+          lang="en-US"
+          resource={{ ...blankPerson, firstName: "Sofia" }}
+          isNew
+          onSave={onSave}
+          onDelete={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </>,
+      { wrapper },
+    );
+    expect(screen.getByRole("textbox", { name: t("en-US", "resourceEmail") })).toBeInTheDocument();
+    submitForm();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorEmailRequired"));
+  });
+
+  describe("More details disclosure", () => {
+    it("is named and closed for a new person", () => {
+      setup({ resource: { ...blankPerson, email: "sofia@acme.test" }, isNew: true });
+      const details = document.querySelector("details")!;
+      expect(details.open).toBe(false);
+      expect(within(details).getByText(t("en-US", "resourceMoreDetails")).tagName).toBe("SUMMARY");
+    });
+
+    it("is open when an existing person already has a job title", () => {
+      setup({ resource: { ...base, email: "sofia@acme.test", title: "Engineer" } });
+      expect(document.querySelector("details")!.open).toBe(true);
+    });
+
+    it("is open when an existing person has only extra emails or the external flag", () => {
+      const { unmount } = setup({ resource: { ...base, email: "sofia@acme.test", emails: ["alt@acme.test"] } });
+      expect(document.querySelector("details")!.open).toBe(true);
+      unmount();
+      setup({ resource: { ...base, email: "sofia@acme.test", isExternal: true } });
+      expect(document.querySelector("details")!.open).toBe(true);
+    });
+
+    it("is closed for an existing person with nothing in it", () => {
+      setup({ resource: { ...base, email: "sofia@acme.test" } });
+      expect(document.querySelector("details")!.open).toBe(false);
+    });
   });
 });

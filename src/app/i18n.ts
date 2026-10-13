@@ -2228,6 +2228,10 @@ const enUS = {
   resourceConfirmDelete: "Delete this resource?",
   resourceDeleteCascadeNote: "The person's calendar entries (absences and shifts) will also be removed.",
   resourceErrorName: "Enter a first or last name.",
+  resourceErrorEmailRequired: "Enter the person's email — it is how Timelog bookings reach them.",
+  resourceNeededHeading: "Needed",
+  resourceMoreDetails: "More details",
+  resourceNoEmailMarker: "No email — cannot match Timelog",
 
   resourcesUnlinked: "Unlinked",
   resourcesUnlinkedHint: "Not in the address book",
@@ -3853,7 +3857,7 @@ const enUS = {
   // Edit Resource tooltips
   resourceFirstNameHint: "Given name of the person.",
   resourceLastNameHint: "Family name of the person.",
-  resourceEmailHint: "Primary email; matches calendar and contacts.",
+  resourceEmailTimelogHint: "Matches Timelog bookings, calendar and contacts — use the address the person signs into Timelog with.",
   resourcePhoneHint: "Contact phone number (optional).",
   resourceCompanyHint: "Employing company or vendor.",
   resourceDepartmentHint: "Department or team.",

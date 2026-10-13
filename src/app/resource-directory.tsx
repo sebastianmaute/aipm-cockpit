@@ -490,7 +490,9 @@ function ResourceDirectoryInner({
                         seenAddr.add(key);
                         return true;
                       });
-                      if (emailList.length === 0) return "—";
+                      // §708 — Timelog bookings match on ANY of a person's addresses, so the marker shows only
+                      // when there is neither a primary nor a non-blank extra one (the filter above drops blanks).
+                      if (emailList.length === 0) return <span className="italic">{t(lang, "resourceNoEmailMarker")}</span>;
                       // ★ `key={addr}` is safe only as a CONSEQUENCE of the filter above:
                       // the dedupe is case-insensitive, so every survivor differs from
                       // every other case-insensitively, hence also exactly. Drop the
