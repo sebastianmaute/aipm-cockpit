@@ -414,6 +414,22 @@ describe("useForecastImport — apply", () => {
 });
 
 describe("useForecastImport — the Claude route", () => {
+  // §500 fix wave 2 (CR I4): a reply that skips rows no longer looks complete.
+  it("lists the cells a reply did not read, and nothing on the hand route", async () => {
+    claudeResponds({
+      rows: [
+        { person: "Ann Lee", period: "Jan 2026", hours: 10, source: "forecast!B2" },
+        { person: "Ann Lee", period: "Feb 2026", hours: 20, source: "forecast!C2" },
+      ],
+    });
+    const { result } = await loaded(depsOf());
+    expect(result.current.unread).toEqual({ cells: [], rows: [] });
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.unread).toEqual({ cells: ["forecast!D2"], rows: [] });
+  });
+
   it("validates Claude's rows with sources required: a source-less row is rejected", async () => {
     const fetchSpy = claudeResponds({
       rows: [

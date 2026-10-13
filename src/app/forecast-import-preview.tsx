@@ -12,7 +12,7 @@
 // control has an accessible name.
 
 import { useId, type ReactNode } from "react";
-import { type Lang, localeFor, t, type TranslationKey } from "./i18n";
+import { type Lang, localeFor, t, tPlural, type TranslationKey } from "./i18n";
 import { Banner } from "./banner";
 import { Button } from "./button";
 import { Select } from "./form-controls";
@@ -25,6 +25,9 @@ import type { AssumedYear, DropReason } from "./budget-import/forecast-types";
 import { MAX_IMPORT_HOURS_PER_CELL, type RejectedRow, type SourceRejection } from "./budget-import/forecast-validate";
 import type { Discipline, Grade, Resource, Role } from "./types";
 import type { ForecastImport } from "./use-forecast-import";
+
+/** Unread cells listed by reference before the rest are only counted. */
+const MAX_UNREAD_LISTED = 20;
 
 const BLOCKER_KEY: Record<ImportBlocker, TranslationKey> = {
   "follows-plan": "forecastImportBlockerFollowsPlan",
@@ -133,6 +136,14 @@ function CombinedSection({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
   );
 }
 
+/** The first MAX_UNREAD_LISTED unread cells by reference, and a count of the rest. */
+function unreadCellsText(lang: Lang, cells: readonly string[]): string {
+  const rest = cells.length - MAX_UNREAD_LISTED;
+  const listed = cells.slice(0, MAX_UNREAD_LISTED).join(", ");
+  const text = rest > 0 ? `${listed} ${t(lang, "forecastImportUnreadMore", String(rest))}` : listed;
+  return tPlural(lang, "forecastImportUnreadCells", cells.length, cells.length, text);
+}
+
 function allocLabel(alloc: AllocationKey, roles: readonly Role[], disciplines: readonly Discipline[], grades: readonly Grade[]): string {
   if (alloc.kind === "role") return roleLabel(roles.find((r) => r.id === alloc.roleId), disciplines, grades) || `#${alloc.roleId}`;
   return disciplines.find((d) => d.id === alloc.disciplineId)?.name || `#${alloc.disciplineId}`;
@@ -165,7 +176,8 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
     group.changes.push(c);
     groups.set(key, group);
   }
-  const hasNotImported = fi.rejected.length + fi.dropped.length + fi.ignoredColumns.length + plan.outOfRange.length + plan.skipped.length > 0;
+  const hasNotImported = fi.rejected.length + fi.dropped.length + fi.ignoredColumns.length + plan.outOfRange.length + plan.skipped.length
+    + fi.unread.cells.length + fi.unread.rows.length > 0;
   const delta = plan.hoursDelta;
   return (
     <div className="space-y-4">
@@ -199,6 +211,10 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
             {fi.rejected.map((r, i) => (
               <li key={`r${i}`}>{describeRejected(lang, r)}</li>
             ))}
+            {fi.unread.cells.length > 0 && <li>{unreadCellsText(lang, fi.unread.cells)}</li>}
+            {fi.unread.rows.length > 0 && (
+              <li>{tPlural(lang, "forecastImportUnreadRows", fi.unread.rows.length, fi.unread.rows.length, fi.unread.rows.join(", "))}</li>
+            )}
             {plan.skipped.length > 0 && <li>{t(lang, "forecastImportSkippedPeople", plan.skipped.join(", "))}</li>}
             {plan.outOfRange.length > 0 && (
               <li>{t(lang, "forecastImportOutOfRange", plan.outOfRange.map((o) => `${o.person} ${o.period}`).join(", "))}</li>

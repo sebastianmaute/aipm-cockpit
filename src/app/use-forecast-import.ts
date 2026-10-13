@@ -27,6 +27,7 @@ import { assignRunPeriods } from "./budget-import/period-assign";
 import type { AssumedYear, ColumnMapping, DropReason, ForecastCollision, ForecastRow, IgnoredColumn } from "./budget-import/forecast-types";
 import { validateForecastRows, type DuplicateRow, type RejectedRow } from "./budget-import/forecast-validate";
 import { detectLayout, type LayoutDetection } from "./budget-import/layout-detect";
+import { findUnreadCells, type UnreadCells } from "./budget-import/unread-cells";
 import { readSheetFile, type NumberOrigin, type SheetGrid } from "./budget-import/sheet-grid";
 import { runForecastImportCall } from "./forecast-import-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -85,6 +86,9 @@ export interface ForecastImport {
   dropped: readonly DropReason[];
   /** The hand route's number columns left unread (header not a period). */
   ignoredColumns: readonly IgnoredColumn[];
+  /** The Claude route's number cells (and long-sheet rows) the reply did not
+   *  cite — information, not a blocker. Empty on the hand route. */
+  unread: UnreadCells;
   /** The default year headers without one were read in, when the preview's
    *  rows used it (either route); the preview says so. */
   assumedYear: AssumedYear | undefined;
@@ -115,6 +119,7 @@ const BYTES_PER_MB = 1024 * 1024;
 const NO_OVERRIDES: ReadonlyMap<string, PersonOverride> = new Map();
 const NO_ROWS: readonly ForecastRow[] = [];
 const NO_COLLISIONS: readonly ForecastCollision[] = [];
+const NO_UNREAD: UnreadCells = { cells: [], rows: [] };
 
 /** The message for a failed Claude read, or null for an abort (the user's own
  *  stop is not an error). Mirrors the other forced-call features' mapping. */
@@ -242,6 +247,10 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     return handRows ? validateForecastRows(handRows.rows, { sheet, requireSource: false, defaultYear: year }) : null;
   }, [sheet, route, claudeRows, handRows, year]);
 
+  const unread = useMemo(
+    () => (route === "claude" && sheet && validated ? findUnreadCells(sheet, validated) : NO_UNREAD),
+    [route, sheet, validated],
+  );
   const okRows = validated?.ok ?? NO_ROWS;
   const collisions = validated?.collisions ?? NO_COLLISIONS;
   const canPreview = step === "preview" && validated !== null && liveBucket !== undefined;
@@ -427,6 +436,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     dropped: route === "hand" ? (handRows?.dropped ?? []) : [],
     ignoredColumns: route === "hand" ? (handRows?.ignoredColumns ?? []) : [],
     assumedYear: route === "hand" ? handRows?.assumedYear : validated?.assumedYear,
+    unread,
     sample: handRows ? handRows.rows.slice(0, SAMPLE_ROWS) : NO_ROWS,
     notes,
     error,

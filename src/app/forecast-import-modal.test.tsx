@@ -342,3 +342,38 @@ describe("ForecastImportModal — the assumed year", () => {
     expect(screen.queryByRole("button", { name: t(L, "forecastImportChangeYear") })).toBeNull();
   });
 });
+
+describe("ForecastImportModal — cells Claude did not read", () => {
+  function replyWith(rows: unknown[]) {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows } }] }),
+    } as unknown as Response);
+  }
+
+  it("lists a skipped cell under Not imported, as information", async () => {
+    replyWith([
+      { person: "Ann Lee", period: "Jan 2026", hours: 10, source: "forecast!B2" },
+      { person: "Ann Lee", period: "Feb 2026", hours: 20, source: "forecast!C2" },
+    ]);
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(t(L, "forecastImportUnreadCellsOne", 1, "forecast!D2"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeEnabled();
+  });
+
+  it("lists the first 20 cells and counts the rest", async () => {
+    const header = ["Name", ...Array.from({ length: 24 }, (_, i) => `KW${String(i + 1).padStart(2, "0")} 2026`)].join(",");
+    const line = ["Ann Lee", ...Array.from({ length: 24 }, () => "1")].join(",");
+    replyWith([{ person: "Ann Lee", period: "KW01 2026", hours: 1, source: "forecast!B2" }]);
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile(`${header}\r\n${line}\r\n`);
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
+    const refs = ["C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V"].map((c) => `forecast!${c}2`);
+    const list = `${refs.join(", ")} ${t(L, "forecastImportUnreadMore", "3")}`;
+    expect(within(section).getByText(t(L, "forecastImportUnreadCells", 23, list))).toBeInTheDocument();
+  });
+});
