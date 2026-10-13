@@ -267,12 +267,31 @@ function blankHeadedNumberColumns(rows: Rows, mapping: ColumnMapping, ctx: Ctx):
   return out;
 }
 
+/** A month written by number (`01/2026`, `01.2026`), as `classifyPeriodCell` reads it. */
+const MONTH_NUMBER_HEADER_RE = /^(\d{1,2})[/.](\d{4})$/;
+const MONTHS_PER_YEAR = 12;
+
+/**
+ * ★★ The header's `N/YYYY` columns when that run goes past 12 (final review 3,
+ * M4): `01/2026 … 14/2026` numbers weeks, and once read 01–12 as January to
+ * December, each holding one week's hours, straight to the preview. A run
+ * that stops at 12 or below reads as months.
+ */
+function pastTwelveNumberColumns(rows: Rows, mapping: ColumnMapping): number[] {
+  const header = rows[mapping.headerRow] ?? [];
+  const skip = new Set([mapping.person, mapping.email, mapping.rate]);
+  const numberOf = (col: number): number => Number(MONTH_NUMBER_HEADER_RE.exec(cellAt(header, col).trim())?.[1] ?? 0);
+  const cols = header.flatMap((_, col) => (!skip.has(col) && numberOf(col) > 0 ? [col] : []));
+  return cols.some((col) => numberOf(col) > MONTHS_PER_YEAR) ? cols : [];
+}
+
 function wideAmbiguity(rows: Rows, mapping: ColumnMapping, ctx: Ctx): ColumnAmbiguity[] {
   const own = [...new Set([
     ...rowPeriodColumns(rows, mapping, ctx),
     ...rowYearColumns(rows, mapping),
     ...leftOutPeriodColumns(rows, mapping, ctx),
     ...blankHeadedNumberColumns(rows, mapping, ctx),
+    ...pastTwelveNumberColumns(rows, mapping),
   ])];
   if (own.length === 0) return [];
   return [{ field: "period", candidates: [...new Set([...own, ...(mapping.periodCols ?? [])])].sort((a, b) => a - b) }];

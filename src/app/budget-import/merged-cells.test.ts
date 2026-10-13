@@ -56,3 +56,20 @@ describe("I1 — a month header merged over two sub-columns asks for the period"
     expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
   });
 });
+
+describe("M4 — an N/YYYY header run that continues past 12 asks", () => {
+  const header = (n: number): string[] => Array.from({ length: n }, (_, i) => `${String(i + 1).padStart(2, "0")}/2026`);
+
+  it("01/2026 … 14/2026 asks for the period, every such column a candidate", () => {
+    const rows = [["Name", ...header(14)], ...PEOPLE.map((p) => [p, ...header(14).map(() => "40")])];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: Array.from({ length: 14 }, (_, i) => i + 1) }]);
+  });
+
+  it("a run that stops at 12 reads as months, as today", () => {
+    const rows = [["Name", ...header(12)], ...PEOPLE.map((p) => [p, ...header(12).map(() => "40")])];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.ambiguous).toEqual([]);
+    expect(detected.mapping?.periodCols).toHaveLength(12);
+  });
+});
