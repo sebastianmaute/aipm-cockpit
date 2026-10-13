@@ -7,8 +7,9 @@
  *  word of the header (`isPeriodWordHeader`): `Startmonat` or
  *  `Abrechnungsmonat` holds one only as part of a longer word. */
 const PERIOD_WORD_RE = /^(months?|monate?|periods?|perioden?|zeitraum|weeks?|wochen?|kw)$/i;
-/** An hours word: a long sheet's repeated header (`repeatedHeaderRows`). It
- *  neither settles nor, since round 8, preselects the hours column. */
+/** An hours word: a long sheet's repeated header (`repeatedHeaderRows`) and
+ *  the first rank of the hours PRESELECTION (round 9 I-D). It never settles the
+ *  hours column: two candidates always ask. */
 export const HOURS_HEADER_RE = /hour|stunden|std|hrs|aufwand|effort/i;
 /** A person column's header. */
 export const PERSON_HEADER_RE = /^(name|mitarbeiter(in)?|person|ressource|resource|employee|member|mitglied)$/i;

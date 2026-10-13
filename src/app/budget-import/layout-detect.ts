@@ -11,7 +11,7 @@
 import { cellAt, detectDecimalStyle, ID_HEADER, isBlank, isTotalLabel, parseNumberCell, parsePeriodLabel, repeatedHeaderRows } from "./forecast-rows";
 import type { ColumnAmbiguity, ColumnMapping } from "./forecast-types";
 import { assignRunPeriods, classifyPeriodCell, isPeriodShapedIn, isYearColumn, isYearHeader, parseYearCell, usableYear } from "./period-assign";
-import { isPeriodWordHeader, PERSON_HEADER_RE } from "./header-words";
+import { HOURS_HEADER_RE, isPeriodWordHeader, PERSON_HEADER_RE } from "./header-words";
 import type { NumberOrigin } from "./sheet-grid";
 
 /** `ambiguous` lists the fields more than one column could be: a long
@@ -429,6 +429,22 @@ type Detected = { mapping: ColumnMapping; ambiguous: ColumnAmbiguity[] };
 /** A long reading of one candidate header row, with how well its columns fit. */
 type ScoredMapping = Detected & { score: number };
 
+/**
+ * The preselected hours column: a header matching `HOURS_HEADER_RE` first,
+ * then the higher number share, then the leftmost. ★★ Round 8 took the
+ * leftmost alone, and "These columns are right" then imported `Ist`, `Tage`,
+ * `FTE`, a numeric `Team` or a notes column holding one number in place of
+ * `Stunden` (rr12 I-D). A share-first pick took `Ist` over a `Stunden` with
+ * two `-` (rr11 I-B); a rightmost pick `Ist` or `Summe` over `Plan` (rr6 N1).
+ * ★ `Forecast | Ist-Stunden` preselects `Ist-Stunden` (register 27); the
+ * user sees the choice, because two candidates always ask.
+ */
+function preselectHours(candidates: readonly number[], header: readonly string[], data: Rows, ctx: Ctx): number | undefined {
+  const named = (col: number) => (HOURS_HEADER_RE.test(cellAt(header, col).trim()) ? 1 : 0);
+  const share = new Map(candidates.map((col) => [col, numberShare(columnCells(data, col), ctx)]));
+  return [...candidates].sort((a, b) => named(b) - named(a) || (share.get(b) ?? 0) - (share.get(a) ?? 0) || a - b)[0];
+}
+
 function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping | null {
   const header = rows[headerRow] ?? [];
   const data = dataRowsBelow(rows, headerRow);
@@ -462,12 +478,9 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   const person = pickPerson(personCandidates, header, data, email, ctx);
   if (person === null) return null;
   // The PRESELECTION only, which the user confirms whenever there is a choice
-  // (`ambiguityOf`): the LEFTMOST hours candidate, the person and email columns
-  // excluded, whatever its share (round 8 m-1: a share-first pick took `Ist`
-  // over a `Stunden` with two `-`). ★★ A rightmost pick (final review I3)
-  // imported `Ist`, `Actual`, `Summe` or `Betrag` in place of `Plan` (rr6 N1).
+  // (`ambiguityOf`), the person and email columns excluded.
   const questioned = hoursCols.filter((col) => col !== person && col !== email);
-  const hours = questioned[0];
+  const hours = preselectHours(questioned, header, data, ctx);
   if (hours === undefined || isDataRowShaped(header, period, hours, ctx)) return null;
   return {
     mapping: withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate, yearCol }),

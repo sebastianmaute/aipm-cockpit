@@ -918,10 +918,10 @@ describe("useForecastImport — the Claude route checks claims against the confi
     expect(details(result)).toEqual(["period-conflict"]);
   });
 
-  // Round 8 m-1: Forecast (the leftmost candidate) is preselected now; it was
-  // Ist-Stunden, and the Forecast cells were cell-not-read. Confirmed, the
-  // title's March refuses every month.
-  it("Erstellt von | Max | 01.03.2026 over Forecast | Bemerkung | Ist-Stunden: confirmed as preselected, the title's March refuses every month", async () => {
+  // Round 9 I-D: the hours word preselects Ist-Stunden again (round 8 took
+  // Forecast), so after confirming as preselected the Forecast cells Claude
+  // cites are not read.
+  it("Erstellt von | Max | 01.03.2026 over Forecast | Bemerkung | Ist-Stunden: confirmed as preselected, the Forecast cells are not read", async () => {
     const reply = [ann("Jan 2026", 40, "forecast!C3"), ann("Feb 2026", 30, "forecast!C4")];
     claudeRepliesInOrder(reply, reply);
     const { result } = await loaded(depsOf(), keyValue("Forecast", "Ist-Stunden"));
@@ -929,7 +929,7 @@ describe("useForecastImport — the Claude route checks claims against the confi
     expect(details(result)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
     await confirmed(result);
     expect(changes(result)).toEqual([]);
-    expect(details(result)).toEqual(["period-conflict", "period-conflict"]);
+    expect(details(result)).toEqual(["cell-not-read", "cell-not-read"]);
   });
 
   // A clear long sheet: detection reads Monat; the user moves the period to Start.
@@ -1273,5 +1273,19 @@ describe("useForecastImport — the preselection is the forecast column (round 8
     act(() => result.current.confirmColumns());
     act(() => result.current.showPreview());
     expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 40]]);
+  });
+});
+
+// Round 9 I-D (rr12 K4): "These columns are right" on FTE | Stunden applied
+// the FTE fractions as hours.
+describe("useForecastImport — FTE | Stunden confirms the Stunden hours (round 9 I-D)", () => {
+  it("preselects Stunden and applies 80 and 160", async () => {
+    const deps = depsOf();
+    const csv = "Name,Monat,FTE,Stunden\r\nAnn Lee,Jan 2026,0.5,80\r\nAnn Lee,Feb 2026,1,160\r\n";
+    const { result } = await loaded(deps, csv);
+    expect(result.current.mapping).toMatchObject({ layout: "long", hours: 3 });
+    act(() => result.current.confirmColumns());
+    act(() => result.current.showPreview());
+    expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 80], ["2026-02", 160]]);
   });
 });
