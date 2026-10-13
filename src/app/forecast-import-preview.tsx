@@ -51,6 +51,7 @@ const SOURCE_KEY: Record<SourceRejection, TranslationKey> = {
   "value-mismatch": "forecastImportRejectSourceValue",
   "person-not-on-row": "forecastImportRejectSourcePerson",
   "period-not-near": "forecastImportRejectSourcePeriod",
+  "period-conflict": "forecastImportRejectSourceConflict",
   "cell-reused": "forecastImportRejectSourceReused",
 };
 const DROP_KEY: Record<DropReason["reason"], TranslationKey> = {
@@ -78,7 +79,9 @@ function describeRejected(lang: Lang, r: RejectedRow): string {
         .filter((v) => v !== undefined && v !== null && v !== "")
         .map(String)
     : [];
-  const why = r.reason === "source" ? t(lang, SOURCE_KEY[r.detail]) : t(lang, REJECT_KEY[r.reason], String(MAX_IMPORT_HOURS_PER_CELL));
+  // A period conflict names both periods: the row's, then the column header's.
+  const conflictArgs = r.reason === "source" && r.periods ? [r.periods.row, r.periods.header] : [];
+  const why = r.reason === "source" ? t(lang, SOURCE_KEY[r.detail], ...conflictArgs) : t(lang, REJECT_KEY[r.reason], String(MAX_IMPORT_HOURS_PER_CELL));
   const text = t(lang, "forecastImportRejectedRow", parts.length > 0 ? parts.join(" · ") : "—", why);
   return rec && typeof rec.source === "string" ? `${text} (${rec.source})` : text;
 }

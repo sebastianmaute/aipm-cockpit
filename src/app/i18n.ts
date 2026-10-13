@@ -2590,6 +2590,7 @@ const enUS = {
   forecastImportRejectSourcePerson: "the person is not on the cited cell's row",
   forecastImportRejectSourcePeriod: "the period is neither in the cited cell's row nor above it",
   forecastImportRejectSourceReused: "the cited cell already backs another row",
+  forecastImportRejectSourceConflict: "The row says {0} but the column header says {1}",
   forecastImportRejectedRow: "{0} – {1}",
   forecastImportRowRef: "Row {0}: {1}",
   forecastImportDropTotal: "a total row",

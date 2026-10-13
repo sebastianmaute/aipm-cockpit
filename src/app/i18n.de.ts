@@ -2439,6 +2439,7 @@ export const de: Record<TranslationKey, string> = {
   forecastImportRejectSourcePerson: "die Person steht nicht in der Zeile der genannten Zelle",
   forecastImportRejectSourcePeriod: "die Periode steht weder in der Zeile der genannten Zelle noch darüber",
   forecastImportRejectSourceReused: "die genannte Zelle belegt schon eine andere Zeile",
+  forecastImportRejectSourceConflict: "Die Zeile sagt {0}, aber die Spaltenüberschrift sagt {1}",
   forecastImportRejectedRow: "{0} – {1}",
   forecastImportRowRef: "Zeile {0}: {1}",
   forecastImportDropTotal: "eine Summenzeile",

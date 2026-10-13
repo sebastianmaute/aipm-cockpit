@@ -9,18 +9,19 @@
 import type { AssumedYear, ForecastCollision, ForecastRow } from "./forecast-types";
 import { assumedYearOf, classifyPeriodCell, resolvePeriod, type AssignedPeriod } from "./period-assign";
 import type { SheetGrid } from "./sheet-grid";
-import { checkSource, citedCell, columnNaming, headerDateOf, sourceKey, sourcePosition, type SourceRejection } from "./source-evidence";
+import { checkSource, citedCell, columnNaming, headerDateOf, sourceKey, sourcePosition, type PeriodConflict, type SourceRejection } from "./source-evidence";
 
 /** Hours in the longest month (31 * 24): no single cell can hold more. */
 export const MAX_IMPORT_HOURS_PER_CELL = 744;
 
 const HOURS_DECIMALS_FACTOR = 100;
 
-export type { SourceRejection };
+export type { PeriodConflict, SourceRejection };
 
+/** A row left out, and why. A `period-conflict` carries its two `periods`. */
 export type RejectedRow =
   | { row: ForecastRow | unknown; reason: "shape" | "hours" | "period" | "person" }
-  | { row: ForecastRow | unknown; reason: "source"; detail: SourceRejection };
+  | { row: ForecastRow | unknown; reason: "source"; detail: SourceRejection; periods?: PeriodConflict };
 
 /** A person and period that several input rows contributed to. `sources` lists
  *  the contributing rows' own `source` references in input order (rows without
@@ -42,7 +43,7 @@ export type ValidationResult = {
 type Checked =
   | { ok: true; row: ForecastRow; assumed: boolean }
   | { ok: false; reason: "shape" | "hours" | "period" | "person" }
-  | { ok: false; reason: "source"; detail: SourceRejection };
+  | { ok: false; reason: "source"; detail: SourceRejection; periods?: PeriodConflict };
 /** `defaultYear`: the year a period label without one ("Jan", "KW03") is read
  *  in — the row's own `period` and the sheet cells that back it alike. */
 type Options = { sheet: SheetGrid; requireSource: boolean; defaultYear?: number };
@@ -94,7 +95,11 @@ function checkRow(raw: unknown, opts: Options): Checked {
   if (typeof source === "string") row.source = source;
   if (!opts.requireSource) return { ok: true, row, assumed: claim.year === undefined };
   const evidence = checkSource({ person: row.person, hours, source: row.source }, claim, opts.sheet, opts.defaultYear);
-  if ("problem" in evidence) return { ok: false, reason: "source", detail: evidence.problem };
+  if ("problem" in evidence) {
+    return evidence.periods === undefined
+      ? { ok: false, reason: "source", detail: evidence.problem }
+      : { ok: false, reason: "source", detail: evidence.problem, periods: evidence.periods };
+  }
   const sourced: ForecastRow = { ...row, period: evidence.period.period };
   // An email the cited row does not show is the model's, not the sheet's, and
   // matching by email first would route the hours to whoever owns it.
@@ -166,9 +171,7 @@ export function validateForecastRows(input: unknown, opts: Options): ValidationR
     const checked = checkRow(raw, opts);
     const key = checked.ok && checked.row.source !== undefined ? sourceKey(checked.row.source, opts.sheet.name) : null;
     if (!checked.ok) {
-      rejected.push(checked.reason === "source"
-        ? { row: raw, reason: "source", detail: checked.detail }
-        : { row: raw, reason: checked.reason });
+      rejected.push(rejectionOf(raw, checked));
       continue;
     }
     if (key !== null && usedSources.has(key)) {
@@ -195,6 +198,14 @@ export function validateForecastRows(input: unknown, opts: Options): ValidationR
   };
   const assumedYear = assumedYearOf(read, opts.defaultYear);
   return assumedYear === undefined ? result : { ...result, assumedYear };
+}
+
+/** The rejected-row entry for a row that failed its check. */
+function rejectionOf(raw: unknown, checked: Extract<Checked, { ok: false }>): RejectedRow {
+  if (checked.reason !== "source") return { row: raw, reason: checked.reason };
+  return checked.periods === undefined
+    ? { row: raw, reason: "source", detail: checked.detail }
+    : { row: raw, reason: "source", detail: checked.detail, periods: checked.periods };
 }
 
 /** Adds an accepted row to the person × period sums. */
