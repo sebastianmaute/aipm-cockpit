@@ -25,8 +25,10 @@ export { parsePeriodLabel };
 
 export type DecimalStyle = "dot" | "comma";
 
-/** An employee-number column's header: its numbers are never hours. */
-const ID_HEADER = /^(persnr|personalnummer|pers\.?-?nr\.?|ma-?nr\.?|id|nr\.?|no\.?|employee id)$/i;
+/** An employee-number or row-number column's header: its numbers are never
+ *  hours — not an unread column here, nor a long sheet's hours column in
+ *  `detectLayout`. */
+export const ID_HEADER =/^(persnr|personalnummer|pers\.?-?nr\.?|ma-?nr\.?|id|nr\.?|no\.?|employee id)$/i;
 
 /** Share of the person rows that must hold a number for an unread column to be reported. */
 const IGNORED_COLUMN_SHARE = 0.5;

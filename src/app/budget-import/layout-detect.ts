@@ -8,9 +8,9 @@
 // first; a two-period wide sheet is only believed when no long reading fits,
 // because a long sheet's start/end date columns look the same.
 
-import { cellAt, detectDecimalStyle, isBlank, isTotalLabel, parseNumberCell, parsePeriodLabel } from "./forecast-rows";
+import { cellAt, detectDecimalStyle, ID_HEADER, isBlank, isTotalLabel, parseNumberCell, parsePeriodLabel } from "./forecast-rows";
 import type { ColumnMapping } from "./forecast-types";
-import { assignRunPeriods, classifyPeriodCell, isYearHeader, parseYearCell, usableYear } from "./period-assign";
+import { assignRunPeriods, classifyPeriodCell, isPeriodShapedIn, isYearColumn, isYearHeader, parseYearCell, usableYear } from "./period-assign";
 import type { NumberOrigin } from "./sheet-grid";
 
 export type LayoutDetection = {
@@ -30,7 +30,7 @@ const TEXT_SHARE = 0.5;
 const PERIOD_HEADER_RE = /month|monat|period|periode|zeitraum|week|woche|kw/i;
 /** A date column's header: ranked below `PERIOD_HEADER_RE`, above none. */
 const DATE_HEADER_RE = /date|datum/i;
-const HOURS_HEADER_RE = /hour|stunden|std|hrs/i;
+const HOURS_HEADER_RE = /hour|stunden|std|hrs|aufwand|effort/i;
 const RATE_HEADER_RE = /\brates?\b|satz|€\/h|eur\/h/i;
 const EMAIL_HEADER_RE = /e-?mail/i;
 const PERSON_HEADER_RE = /^(name|mitarbeiter(in)?|person|ressource|resource|employee|member|mitglied)$/i;
@@ -223,14 +223,21 @@ function findPeriodColumn(
   return best && { col: best.col, share: best.share };
 }
 
-/** Numeric columns with a header, not the period or year column, not rate-like. */
+/** Numeric columns with a header, not the period or year column, not an ID
+ *  (`ID_HEADER`: `ID`, `Nr`, `PersNr` …) or year column (`isYearColumn`).
+ *  ★★ `ID | Name | Month | Effort` once imported the employee IDs as hours, and
+ *  `Nr | … | Aufwand` the row numbers (final review I3). A period-shaped cell (a
+ *  workbook's serial date) counts as no number here, so with the rightmost
+ *  pick (`longFromHeader`) a trailing `Erfasst` date column is not the hours. */
 function numericColumns(header: readonly string[], data: Rows, width: number, skip: ReadonlySet<number>, ctx: Ctx): number[] {
   const out: number[] = [];
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
     const cells = columnCells(data, col);
-    const isCandidate = !skip.has(col) && !isBlank(label) && cells.length > 0 && numberShare(cells, ctx) >= COLUMN_SHARE;
-    if (isCandidate) out.push(col);
+    const isExcluded = skip.has(col) || isBlank(label) || ID_HEADER.test(label.trim()) || isYearColumn(label, cells);
+    const style = detectDecimalStyle(cells, ctx.numbers);
+    const figureShare = shareOf(cells, (c) => !isPeriodShapedIn(c, ctx.numbers) && parseNumberCell(c, style, ctx.numbers) !== null);
+    if (!isExcluded && cells.length > 0 && figureShare >= COLUMN_SHARE) out.push(col);
   }
   return out;
 }
@@ -266,7 +273,9 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   const numeric = numericColumns(header, data, width, skip, ctx);
   const rateCols = numeric.filter((col) => RATE_HEADER_RE.test(cellAt(header, col)));
   const hoursCols = numeric.filter((col) => !rateCols.includes(col));
-  const hours = hoursCols.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? hoursCols[0];
+  // A named hours column, else the RIGHTMOST number column: a code or team
+  // number sits left of the figures more often than right of them.
+  const hours = hoursCols.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? hoursCols[hoursCols.length - 1];
   if (hours === undefined || isDataRowShaped(header, period, hours, ctx)) return null;
   const rate = rateCols[0];
 

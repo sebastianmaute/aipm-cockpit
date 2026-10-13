@@ -489,3 +489,42 @@ describe("probe: a start-date column beside the period column (final review I2)"
     expect(run.validated.duplicates).toEqual([]);
   });
 });
+
+// Final review I3: an ID or row-number column was taken as the hours column
+// when the hours header was not a known hours word.
+describe("probe: an ID or number column is never the hours (final review I3)", () => {
+  it("ID | Name | Month | Effort reads the Effort hours, not the employee IDs", () => {
+    const rows = [["ID", "Name", "Month", "Effort"], ["12", "Ann Lee", "Jan 2026", "40"], ["12", "Ann Lee", "Feb 2026", "30"], ["14", "Bob Kay", "Jan 2026", "20"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).mapping).toMatchObject({ layout: "long", person: 1, period: 2, hours: 3 });
+    const run = readSheet(rows);
+    expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30], ["Bob Kay", "2026-01", 20]]);
+    expect(run.out.rows.some((r) => r.hours === 12 || r.hours === 14)).toBe(false);
+  });
+
+  it("Nr | Name | Monat | Aufwand reads the Aufwand hours, not the row numbers", () => {
+    const rows = [["Nr", "Name", "Monat", "Aufwand"], ["1", "Ann Lee", "Jan 2026", "40"], ["2", "Ann Lee", "Feb 2026", "30"], ["3", "Bob Kay", "Jan 2026", "20"]];
+    const run = readSheet(rows);
+    expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30], ["Bob Kay", "2026-01", 20]]);
+    expect(run.out.rows.some((r) => [1, 2, 3].includes(r.hours))).toBe(false);
+  });
+
+  it("takes the rightmost of two unnamed number columns: Team | Menge reads Menge", () => {
+    const rows = [["Name", "Monat", "Team", "Menge"], ["Ann Lee", "Jan 2026", "7", "40"], ["Ann Lee", "Feb 2026", "7", "30"]];
+    const run = readSheet(rows);
+    expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30]]);
+    expect(run.out.rows.some((r) => r.hours === 7)).toBe(false);
+  });
+
+  it("never takes a workbook's trailing serial-date column as the hours: Wert, not Erfasst", () => {
+    const rows = [["Name", "Monat", "Wert", "Erfasst"], ["Ann Lee", "Jan 2026", "40", "46030"], ["Ann Lee", "Feb 2026", "30", "46060"]];
+    expect(detectLayout(rows, { numbers: "dot", defaultYear: 2026 }).mapping).toMatchObject({ layout: "long", period: 1, hours: 2 });
+    expect(triplesOf(readSheet(rows, "dot"))).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30]]);
+  });
+
+  it("never takes a year column as the hours, even the rightmost: Wert, not Basisjahr", () => {
+    const rows = [["Name", "Jahr", "Monat", "Wert", "Basisjahr"], ["Ann Lee", "2026", "Jan", "40", "2025"], ["Ann Lee", "2026", "Feb", "30", "2025"]];
+    const run = readSheet(rows);
+    expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30]]);
+    expect(run.out.rows.some((r) => r.hours === 2025)).toBe(false);
+  });
+});

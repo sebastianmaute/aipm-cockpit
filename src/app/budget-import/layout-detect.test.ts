@@ -186,13 +186,14 @@ describe("detectLayout — long", () => {
     expect(detectLayout(grid).mapping).toMatchObject({ period: 1, hours: 3 });
   });
 
-  it("takes the first numeric column as hours when no header says so", () => {
+  // Final review I3: the leftmost was taken, until an ID column became the hours.
+  it("takes the rightmost numeric column as hours when no header says so", () => {
     const grid = [
       ["Name", "Month", "A", "B"],
-      ["Ann", "2026-01", "80", "95"],
-      ["Ann", "2026-02", "72", "95"],
+      ["Ann", "2026-01", "95", "80"],
+      ["Ann", "2026-02", "95", "72"],
     ];
-    expect(detectLayout(grid).mapping).toMatchObject({ period: 1, hours: 2 });
+    expect(detectLayout(grid).mapping).toMatchObject({ period: 1, hours: 3 });
   });
 
   it("prefers a period-looking header when two columns parse as periods", () => {
