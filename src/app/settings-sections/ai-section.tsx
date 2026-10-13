@@ -424,7 +424,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       />
 
       {/* Live usage bars — sourced from AiUsageProvider */}
-      {!hideUsage && <AiUsagePanel lang={lang} sessionCap={sessionCap} weeklyCap={weeklyCap} />}
+      {!hideUsage && <AiUsagePanel lang={lang} sessionCap={sessionCap} weeklyCap={weeklyCap} guidesOn={settings.ai.groundInGuides} />}
 
       {/* Assistant behaviour. These sat under the "Operating guides" heading
           but have nothing to do with guides — the guides extraction surfaced

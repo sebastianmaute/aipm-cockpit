@@ -25,6 +25,7 @@ import { sealPassphrase } from "./secrets";
 import { peekMintId } from "./id-mint-session";
 import type { ChatConversation } from "./workspace-tab-context";
 import { useAiUsageContext } from "./ai-usage-context";
+import type { SendFingerprint } from "./ai-view-switch";
 
 // §548/§596 — `ChatPanel`'s two scope readers are REQUIRED props (see
 // `ChatScopeProps` in chat-panel.tsx: an optional one degrades silently, which is
@@ -63,6 +64,9 @@ const { DEFAULT_AI_USAGE_CONTEXT } = vi.hoisted(() => ({
     weekTotal: 0,
     nextReset: new Date(),
     record: vi.fn(),
+    viewSwitchWeek: { sends: 0, requests: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
+    recordChatSend: vi.fn(),
+    noteUnbilledChatSend: vi.fn(),
   },
 }));
 
@@ -3228,14 +3232,21 @@ describe("cache-token usage recording", () => {
 
   it("records cache tokens from every turn of a send", async () => {
     const recordSpy = vi.fn();
+    const recordChatSendSpy = vi.fn();
     vi.mocked(useAiUsageContext).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       record: recordSpy,
+      recordChatSend: recordChatSendSpy,
     });
 
+    // A clock that moves on every read, so the two requests' stamps differ.
+    let tick = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => ++tick);
+    const fetchTimes: number[] = [];
     let call = 0;
     vi.spyOn(globalThis, "fetch").mockImplementation(() => {
       call += 1;
+      fetchTimes.push(Date.now());
       // Turn 1: a real (non-destructive) tool call, so the round-trip loop
       // executes it and continues. Turn 2: the final answer. Both turns carry
       // the SAME cache_read figure — a per-turn accumulator that overwrites
@@ -3282,6 +3293,296 @@ describe("cache-token usage recording", () => {
     expect(recordSpy).toHaveBeenCalledWith(
       expect.objectContaining({ cacheRead: 2000, cacheWrite: 500 }),
     );
+    // §702: one send, two API requests — the counter is told both numbers.
+    expect(recordChatSendSpy).toHaveBeenCalledTimes(1);
+    expect(recordChatSendSpy).toHaveBeenCalledWith(expect.anything(), 500, 2);
+    // The cache is refreshed when a request goes out, so the window anchors
+    // on the LAST request's send time — not the first, and not the arrival
+    // of its answer.
+    const [fp] = recordChatSendSpy.mock.calls[0] as [{ startedAt: number; lastRequestAt: number }];
+    expect(fetchTimes).toHaveLength(2);
+    expect(fp.startedAt).toBeLessThan(fetchTimes[0]);
+    expect(fp.lastRequestAt).toBeGreaterThan(fetchTimes[0]);
+    expect(fp.lastRequestAt).toBeLessThan(fetchTimes[1]);
+  });
+
+  // §702: the view-switch counter classifies sends by what each one put in
+  // front of the transcript, so the fingerprint must be the system blocks the
+  // request ACTUALLY carried, and the thread key must hold steady across sends
+  // of one conversation or no send could ever count as a switch.
+  it("hands each finished send's system blocks, thread and cache writes to the view-switch counter", async () => {
+    const recordChatSendSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+    });
+    // A clock that moves on every read, so "stamped before the request" and
+    // "stamped after it" are distinguishable rather than equal.
+    let tick = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => ++tick);
+    const fetchTimes: number[] = [];
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      fetchTimes.push(Date.now());
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "text", text: "done" }],
+            stop_reason: "end_turn",
+            usage: { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 700, cache_read_input_tokens: 0 },
+          }),
+      } as unknown as Response);
+    });
+    const viewGuide: OperatingGuide = {
+      id: "vg", name: "Open points", content: "Sort by due date.", enabled: true, priority: 1,
+      scope: { views: ["open-points" as const] }, builtIn: true,
+    };
+
+    render(
+      <ChatPanel
+        {...SCOPE_PROPS}
+        lang="en-US"
+        ai={{ ...AI_WITH_KEY, groundInGuides: true }}
+        guides={[viewGuide]}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "first" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(recordChatSendSpy).toHaveBeenCalledTimes(1));
+    fireEvent.change(ta, { target: { value: "second" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(recordChatSendSpy).toHaveBeenCalledTimes(2));
+
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string) as {
+      system: { text: string }[];
+      model: string;
+      tools: { name: string }[];
+    };
+    const [firstFp, firstWrite] = recordChatSendSpy.mock.calls[0] as [
+      SendFingerprint,
+      number,
+    ];
+    // Model and tools sit in front of `system` in the cache prefix, so they
+    // must be the ones the request carried.
+    expect(firstFp.model).toBe(body.model);
+    expect(body.tools.length).toBeGreaterThan(0);
+    expect(firstFp.toolNames).toBe(body.tools.map((d) => d.name).join(","));
+    const [secondFp] = recordChatSendSpy.mock.calls[1] as [{ threadKey: string; priorTurns: number }, number];
+    expect(firstFp.stableText).toBe(body.system[0].text);
+    expect(body.system[1].text).toContain("Sort by due date.");
+    expect(firstFp.viewText).toBe(body.system[1].text);
+    expect(firstWrite).toBe(700);
+    expect(firstFp.priorTurns).toBe(0);
+    expect(secondFp.priorTurns).toBeGreaterThan(0);
+    expect(secondFp.threadKey).toBe(firstFp.threadKey);
+    // Both stamps are taken just before a request goes out: with one request
+    // they bracket nothing and both precede it.
+    expect(firstFp.startedAt).toBeLessThan(fetchTimes[0]);
+    expect(firstFp.lastRequestAt).toBeLessThan(fetchTimes[0]);
+    expect(firstFp.lastRequestAt).toBeGreaterThanOrEqual(firstFp.startedAt);
+  });
+
+  // A send that goes stale WITHOUT being cancelled — a workspace scope change;
+  // a project or thread switch cancels instead. The view-switch counter must
+  // get the request together with its cache write, or a switch would be
+  // recorded with a write of 0; the token caps keep their old rule and never
+  // see a response that landed after the send went stale.
+  it("gives the counter the cache write of a response that landed after a scope change, and the caps none of it", async () => {
+    const recordSpy = vi.fn();
+    const recordChatSendSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      record: recordSpy,
+      recordChatSend: recordChatSendSpy,
+    });
+    let resolveFetch!: (r: Response) => void;
+    vi.spyOn(globalThis, "fetch").mockReturnValue(new Promise<Response>((res) => { resolveFetch = res; }));
+    let epoch = 0;
+    render(
+      <ChatPanel
+        {...SCOPE_PROPS}
+        getScopeEpoch={() => epoch}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "q" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(1));
+    epoch = 1;
+    resolveFetch({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "late" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 800, cache_read_input_tokens: 0 },
+        }),
+    } as unknown as Response);
+
+    await waitFor(() => expect(recordChatSendSpy).toHaveBeenCalledTimes(1));
+    expect(recordChatSendSpy).toHaveBeenCalledWith(expect.anything(), 800, 1);
+    expect(recordSpy).toHaveBeenCalledTimes(1);
+    expect(recordSpy).toHaveBeenCalledWith({ input: 0, output: 0, cacheWrite: 0, cacheRead: 0 });
+  });
+
+  function renderGuidedPanel() {
+    const viewGuide: OperatingGuide = {
+      id: "vg", name: "Open points", content: "Sort by due date.", enabled: true, priority: 1,
+      scope: { views: ["open-points" as const] }, builtIn: true,
+    };
+    render(
+      <ChatPanel
+        {...SCOPE_PROPS}
+        lang="en-US"
+        ai={{ ...AI_WITH_KEY, groundInGuides: true }}
+        guides={[viewGuide]}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "hi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  }
+
+  // A send that fails AFTER a response is not billed, but its prefix reached
+  // the cache — so the counter must still learn it as the thread's baseline.
+  it("notes, without counting, a send that failed after a response", async () => {
+    const recordChatSendSpy = vi.fn();
+    const noteSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+      noteUnbilledChatSend: noteSpy,
+    });
+    let call = 0;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      call += 1;
+      if (call > 1) return Promise.reject(new Error("boom"));
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "tool_use", id: "t1", name: "list_tasks", input: {} }],
+            stop_reason: "tool_use",
+            usage: { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+          }),
+      } as unknown as Response);
+    });
+
+    renderGuidedPanel();
+    await screen.findByText(t("en-US", "chatError", "boom"));
+
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string) as {
+      system: { text: string }[];
+    };
+    expect(recordChatSendSpy).not.toHaveBeenCalled();
+    expect(noteSpy).toHaveBeenCalledTimes(1);
+    expect(noteSpy.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ stableText: body.system[0].text, viewText: body.system[1].text }),
+    );
+  });
+
+  it("tells the counter nothing about a send whose first request failed", async () => {
+    const recordChatSendSpy = vi.fn();
+    const noteSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+      noteUnbilledChatSend: noteSpy,
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.reject(new Error("boom")));
+
+    renderGuidedPanel();
+    await screen.findByText(t("en-US", "chatError", "boom"));
+
+    expect(recordChatSendSpy).not.toHaveBeenCalled();
+    expect(noteSpy).not.toHaveBeenCalled();
+  });
+
+  // ★ The mock ignores the abort signal, so the request answers AFTER Stop and
+  //   the loop breaks on the cancel without throwing. A real Stop aborts the
+  //   fetch and takes the catch instead (the next test); this pins the
+  //   defensive cancel-after-response branch.
+  it("notes, without counting, a send stopped after its request answered", async () => {
+    const recordChatSendSpy = vi.fn();
+    const noteSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+      noteUnbilledChatSend: noteSpy,
+    });
+    let answer: (r: Response) => void = () => {};
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      () => new Promise<Response>((resolve) => { answer = resolve; }),
+    );
+
+    renderGuidedPanel();
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByRole("button", { name: "Stop" })[0]);
+    answer({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "late" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+        }),
+    } as unknown as Response);
+
+    await waitFor(() => expect(noteSpy).toHaveBeenCalledTimes(1));
+    expect(recordChatSendSpy).not.toHaveBeenCalled();
+  });
+
+  // The real Stop after a response: request 1 answered with a tool call, the
+  // abort then rejects request 2. The prefix of request 1 is cached, so the
+  // send is noted — and dated from request 1, the last one that ANSWERED: an
+  // aborted request may or may not have reached the cache, so the stamp errs
+  // toward cold.
+  it("notes a send whose second request was aborted, dated from the last request that answered", async () => {
+    const recordChatSendSpy = vi.fn();
+    const noteSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+      noteUnbilledChatSend: noteSpy,
+    });
+    let tick = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => ++tick);
+    const fetchTimes: number[] = [];
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      call += 1;
+      fetchTimes.push(Date.now());
+      if (call === 2) return Promise.reject(new DOMException("aborted", "AbortError"));
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "tool_use", id: "t1", name: "list_tasks", input: {} }],
+            stop_reason: "tool_use",
+            usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 150, cache_read_input_tokens: 0 },
+          }),
+      } as unknown as Response);
+    });
+
+    renderGuidedPanel();
+    await waitFor(() => expect(noteSpy).toHaveBeenCalledTimes(1));
+    expect(recordChatSendSpy).not.toHaveBeenCalled();
+    expect(fetchTimes).toHaveLength(2);
+    const [fp] = noteSpy.mock.calls[0] as [SendFingerprint];
+    expect(fp.startedAt).toBeLessThan(fetchTimes[0]);
+    expect(fp.lastRequestAt).toBeLessThan(fetchTimes[0]);
   });
 });
 

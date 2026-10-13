@@ -9,6 +9,7 @@ import {
   useAiUsageContext,
 } from "../ai-usage-context";
 import { nextWeekReset } from "../ai-usage";
+import { G2_BREAK_EVEN_REQUESTS_PER_SWITCH, type ViewSwitchStats } from "../ai-view-switch";
 import { ProgressTrack } from "../progress-track";
 import { type Lang, t, localeFor } from "../i18n";
 import {
@@ -142,10 +143,14 @@ type AiUsagePanelProps = {
   lang: Lang;
   sessionCap: number;
   weeklyCap: number;
+  /** §702: whether operating guides are on. With them off no view guide is
+   *  sent, so G2 would have nothing to move and the break-even means nothing.
+   *  Defaults to on. */
+  guidesOn?: boolean;
 };
 
-export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps) {
-  const { sessionTotal, weekTotal, nextReset, sessionUsage } = useAiUsageContext();
+export function AiUsagePanel({ lang, sessionCap, weeklyCap, guidesOn = true }: AiUsagePanelProps) {
+  const { sessionTotal, weekTotal, nextReset, sessionUsage, viewSwitchWeek } = useAiUsageContext();
 
   // ★★★ NOT a state setter in an effect (`react-hooks/set-state-in-effect` is
   //     fatal here, and re-rendering would only make the line vanish mid-read).
@@ -218,6 +223,59 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps)
       <p className="mt-1 text-xs text-muted-foreground">
         {t(lang, "aiUsageResetAt", resetLabel)}
       </p>
+      <ViewSwitchLines lang={lang} locale={locale} stats={viewSwitchWeek} guidesOn={guidesOn} />
     </div>
+  );
+}
+
+/** §702: this week's chat sends and warm view switches. Hidden until the week's
+ *  first send, so a week without a chat shows no zeros. */
+function ViewSwitchLines({
+  lang,
+  locale,
+  stats,
+  guidesOn,
+}: {
+  lang: Lang;
+  locale: string;
+  stats: ViewSwitchStats;
+  guidesOn: boolean;
+}) {
+  if (stats.sends === 0) return null;
+  const fmt = (n: number): string => Math.round(n).toLocaleString(locale);
+  // ★ The rate is per API REQUEST, the break-even's unit — see
+  //   `G2_BREAK_EVEN_REQUESTS_PER_SWITCH` for why a send is the wrong one.
+  const switchesLabel =
+    stats.switches === 0 || stats.requests === 0
+      ? fmt(stats.switches)
+      : t(lang, "aiViewSwitchRatio", fmt(stats.switches), fmt(stats.requests / stats.switches));
+  // ★ The baseline is WARM non-switch sends only: cold sends write the whole
+  //   prefix whatever G2 does, so averaging them in would understate the
+  //   saving (see `ai-view-switch.ts`). "—" rather than 0 when a side has no
+  //   sends: an average over nothing is undefined, and a 0 would read as free.
+  const switchAvg = stats.switches === 0 ? "—" : fmt(stats.switchCacheWrite / stats.switches);
+  const warmAvg = stats.warmSends === 0 ? "—" : fmt(stats.warmCacheWrite / stats.warmSends);
+  return (
+    <>
+      <dl className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+        <div className="flex justify-between gap-2">
+          <dt>{t(lang, "aiViewSwitchSends")}</dt>
+          <dd className="tabular-nums">{t(lang, "aiViewSwitchSendsValue", fmt(stats.sends), fmt(stats.requests))}</dd>
+        </div>
+        <div className="flex justify-between gap-2">
+          <dt>{t(lang, "aiViewSwitchSwitches")}</dt>
+          <dd className="tabular-nums">{switchesLabel}</dd>
+        </div>
+        <div className="flex justify-between gap-2">
+          <dt>{t(lang, "aiViewSwitchCacheWrites")}</dt>
+          <dd className="tabular-nums">{t(lang, "aiViewSwitchCacheWritesValue", switchAvg, warmAvg)}</dd>
+        </div>
+      </dl>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {guidesOn
+          ? t(lang, "aiViewSwitchHint", String(G2_BREAK_EVEN_REQUESTS_PER_SWITCH))
+          : t(lang, "aiViewSwitchHintGuidesOff", t(lang, "filterQuotedValue", t(lang, "aiGroundInGuides")))}
+      </p>
+    </>
   );
 }

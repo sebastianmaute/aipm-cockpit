@@ -66,10 +66,14 @@ export function normalizeUsage(u: Partial<Usage> | undefined): Usage {
   };
 }
 
-const isoDate = (d: Date): string =>
+/** The local-date bucket key. Exported so `ai-view-switch.ts` buckets by the
+ *  same day as the token meter. */
+export const isoDate = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-const mondayOf = (d: Date): Date => {
+/** Local midnight of the Monday that starts `d`'s week. Exported so
+ *  `ai-view-switch.ts` sums the same week as `weekToDate`. */
+export const mondayOf = (d: Date): Date => {
   const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const dow = (r.getDay() + 6) % 7; // Mon=0
   r.setDate(r.getDate() - dow);

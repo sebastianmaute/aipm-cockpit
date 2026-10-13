@@ -485,3 +485,140 @@ describe("AiUsagePanel", () => {
     });
   });
 });
+
+// §702: the week's view-switch counter, rendered under the weekly bar.
+type SendSeed = { viewText: string; startedAt: number; cacheWrite: number; requests: number };
+
+function SeedSends({ sends, children }: { sends: SendSeed[]; children: ReactNode }) {
+  const { recordChatSend } = useAiUsageContext();
+  const firedRef = useRef(false);
+  useEffect(() => {
+    if (firedRef.current) return;
+    firedRef.current = true;
+    for (const [i, s] of sends.entries()) {
+      recordChatSend(
+        {
+          threadKey: "p|t",
+          model: "m",
+          toolNames: "t",
+          stableText: "S",
+          viewText: s.viewText,
+          startedAt: s.startedAt,
+          lastRequestAt: s.startedAt + 5_000,
+          // Each later send continues the conversation.
+          priorTurns: 2 + 2 * i,
+        },
+        s.cacheWrite,
+        s.requests,
+      );
+    }
+  }, [recordChatSend, sends]);
+  return <>{children}</>;
+}
+
+function sendsWrapper(lang: Lang, sends: SendSeed[]) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <AiUsageProvider lang={lang} ai={defaultAiConfig} showToast={vi.fn()}>
+        <SeedSends sends={sends}>{children}</SeedSends>
+      </AiUsageProvider>
+    );
+  };
+}
+
+// Three messages in one thread, six API requests between them: the first is
+// cold (nothing before it, 20,000 written), the second changes the view block
+// inside the cache window (a switch, 9,000), the third changes nothing (warm,
+// 600). The cold write must stay out of both averages, and the switch rate is
+// per REQUEST, the break-even's unit.
+const THREE_SENDS: SendSeed[] = [
+  { viewText: "A", startedAt: 1_000, cacheWrite: 20_000, requests: 1 },
+  { viewText: "B", startedAt: 61_000, cacheWrite: 9_000, requests: 2 },
+  { viewText: "B", startedAt: 121_000, cacheWrite: 600, requests: 3 },
+];
+
+describe("AiUsagePanel — view-switch counter (§702)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("shows nothing about view switches before the first chat message", () => {
+    render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, { wrapper });
+    expect(screen.queryByText("Chat messages completed this week")).not.toBeInTheDocument();
+  });
+
+  it("shows the week's messages and requests, warm view switches per request, and cache-write tokens", () => {
+    render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, {
+      wrapper: sendsWrapper("en-US", THREE_SENDS),
+    });
+    expect(screen.getByText("Chat messages completed this week").nextElementSibling).toHaveTextContent(
+      "3 (6 API requests)",
+    );
+    expect(screen.getByText("View switches with a warm cache").nextElementSibling).toHaveTextContent(
+      "1 (1 in 6 API requests)",
+    );
+    expect(screen.getByText("Cache-write tokens per message").nextElementSibling).toHaveTextContent(
+      "9,000 on a switch, 600 on other warm messages",
+    );
+    // ★ "more often than", so a rate of 1 in 30 cannot read as below the line.
+    expect(
+      screen.getByText(/pays off when view switches happen more often than about one in 46 API requests/),
+    ).toBeInTheDocument();
+    // The register's slice name is not user vocabulary.
+    expect(screen.queryByText(/G2/)).not.toBeInTheDocument();
+  });
+
+  it("says there is nothing to move while operating guides are off, instead of quoting the break-even", () => {
+    render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} guidesOn={false} />, {
+      wrapper: sendsWrapper("en-US", THREE_SENDS),
+    });
+    // The setting is named by its own label, quoted the way filters quote.
+    expect(
+      screen.getByText(
+        `${t("en-US", "filterQuotedValue", t("en-US", "aiGroundInGuides"))} is off, so no view guides are sent and there is nothing to move out of the cached prompt.`,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/46 API requests/)).not.toBeInTheDocument();
+  });
+
+  it("says no ratio and no average for a side with no messages", () => {
+    render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, {
+      wrapper: sendsWrapper("en-US", [
+        { viewText: "A", startedAt: 1_000, cacheWrite: 20_000, requests: 1 },
+        { viewText: "A", startedAt: 61_000, cacheWrite: 400, requests: 1 },
+      ]),
+    });
+    expect(screen.getByText("View switches with a warm cache").nextElementSibling).toHaveTextContent(/^0$/);
+    expect(screen.getByText("Cache-write tokens per message").nextElementSibling).toHaveTextContent(
+      "— on a switch, 400 on other warm messages",
+    );
+  });
+
+  describe("in German", () => {
+    beforeAll(async () => {
+      await loadI18n("de");
+    });
+
+    it("renders the German labels and German number grouping", () => {
+      render(<AiUsagePanel lang="de" sessionCap={100_000} weeklyCap={500_000} />, {
+        wrapper: sendsWrapper("de", THREE_SENDS),
+      });
+      expect(screen.getByText("Abgeschlossene Chat-Nachrichten diese Woche").nextElementSibling).toHaveTextContent(
+        "3 (6 API-Anfragen)",
+      );
+      expect(screen.getByText("Ansichtswechsel bei warmem Cache").nextElementSibling).toHaveTextContent(
+        "1 (1 von 6 API-Anfragen)",
+      );
+      expect(screen.getByText("Cache-Schreib-Tokens pro Nachricht").nextElementSibling).toHaveTextContent(
+        "9.000 bei einem Wechsel, 600 bei anderen warmen Nachrichten",
+      );
+    });
+
+    it("quotes the German setting label when operating guides are off", () => {
+      render(<AiUsagePanel lang="de" sessionCap={100_000} weeklyCap={500_000} guidesOn={false} />, {
+        wrapper: sendsWrapper("de", THREE_SENDS),
+      });
+      expect(screen.getByText(/^\u201EClaude an Betriebsleitf\u00E4den binden\u201C ist aus/)).toBeInTheDocument();
+    });
+  });
+});

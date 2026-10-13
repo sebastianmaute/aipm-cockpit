@@ -6,12 +6,14 @@ import {
   AI_CAP_BASIS_NOTICE_KEY,
   AI_COST_BASIS_NOTICE_KEY,
   AI_USAGE_KEY,
+  AI_VIEW_SWITCH_KEY,
   AiUsageProvider,
   useAiUsageContext,
 } from "./ai-usage-context";
 import { defaultAiConfig } from "./settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
 import { t } from "./i18n";
+import { isoDate } from "./ai-usage";
 
 beforeEach(() => {
   localStorage.clear();
@@ -427,5 +429,129 @@ describe("AiUsageProvider", () => {
 
     expect(window.localStorage.getItem(AI_COST_BASIS_NOTICE_KEY)).toBeNull();
     expect(window.localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY)).toBeNull();
+  });
+});
+
+// §702: the view-switch counter lives beside the token meter but in its own
+// key, so nothing here may reach the cap arithmetic.
+describe("AiUsageProvider — view-switch counter (§702)", () => {
+  const fp = (viewText: string, startedAt: number, threadKey = "p1:t1") => ({
+    threadKey,
+    model: "m",
+    toolNames: "t",
+    stableText: "S",
+    viewText,
+    startedAt,
+    lastRequestAt: startedAt + 5_000,
+    // Each later send continues the conversation, so it has more turns before
+    // it: one more for every second it starts later.
+    priorTurns: Math.floor(startedAt / 1_000),
+  });
+
+  it("neither counts nor remembers a send no request of which went out", async () => {
+    // Nothing reached the cache, so the next send must still be compared with
+    // the one before it: A, (B with no request), B → a switch, not a warm send.
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+
+    act(() => { result.current.recordChatSend(fp("A", 1_000), 0, 1); });
+    act(() => { result.current.recordChatSend(fp("B", 61_000), 0, 0); });
+    act(() => { result.current.recordChatSend(fp("B", 121_000), 4_000, 1); });
+
+    expect(result.current.viewSwitchWeek).toEqual({
+      sends: 2,
+      requests: 2,
+      switches: 1,
+      warmSends: 0,
+      switchCacheWrite: 4_000,
+      warmCacheWrite: 0,
+    });
+  });
+
+  it("classifies each chat send against the previous one and totals the week", async () => {
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+
+    act(() => { result.current.recordChatSend(fp("A", 1_000), 20_000, 1); }); // cold: first send
+    act(() => { result.current.recordChatSend(fp("B", 61_000), 9_000, 3); }); // switch
+    act(() => { result.current.recordChatSend(fp("B", 121_000), 200, 2); }); // warm
+
+    expect(result.current.viewSwitchWeek).toEqual({
+      sends: 3,
+      requests: 6,
+      switches: 1,
+      warmSends: 1,
+      switchCacheWrite: 9_000,
+      warmCacheWrite: 200,
+    });
+  });
+
+  it("compares a send with the previous send in ITS thread, not with whatever ran last", async () => {
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+
+    act(() => { result.current.recordChatSend(fp("A", 1_000, "p1:x"), 0, 1); });
+    act(() => { result.current.recordChatSend(fp("A", 31_000, "p1:y"), 0, 1); });
+    act(() => { result.current.recordChatSend(fp("B", 61_000, "p1:x"), 7_000, 1); });
+
+    expect(result.current.viewSwitchWeek.switches).toBe(1);
+    expect(result.current.viewSwitchWeek.switchCacheWrite).toBe(7_000);
+  });
+
+  it("lets an unbilled send move the thread's baseline without counting it", async () => {
+    // A send stopped or failed after a response still wrote its prefix to the
+    // cache, so the next send must be compared with IT, not with the one before.
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+
+    act(() => { result.current.recordChatSend(fp("A", 1_000), 0, 1); });
+    act(() => { result.current.noteUnbilledChatSend(fp("B", 61_000)); });
+    act(() => { result.current.recordChatSend(fp("B", 121_000), 300, 1); });
+
+    expect(result.current.viewSwitchWeek).toEqual({
+      sends: 2,
+      requests: 2,
+      switches: 0,
+      warmSends: 1,
+      switchCacheWrite: 0,
+      warmCacheWrite: 300,
+    });
+  });
+
+  it("persists to its own key and reloads it, leaving the token buckets untouched", async () => {
+    const first = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+    act(() => { first.result.current.recordChatSend(fp("A", 1_000), 50, 1); });
+    first.unmount();
+
+    expect(localStorage.getItem(AI_VIEW_SWITCH_KEY)).not.toBeNull();
+    expect(localStorage.getItem(AI_USAGE_KEY)).toBeNull();
+
+    const second = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+    expect(second.result.current.viewSwitchWeek.sends).toBe(1);
+    expect(second.result.current.weekTotal).toBe(0);
+  });
+
+  it("normalises a malformed stored blob instead of casting it", async () => {
+    // Today's bucket, so it is summed into the week: a cast would carry the
+    // string through and the totals below would not be numbers.
+    localStorage.setItem(
+      AI_VIEW_SWITCH_KEY,
+      JSON.stringify({ [isoDate(new Date())]: { sends: "x", requests: 2 }, junk: { sends: 9 } }),
+    );
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+
+    act(() => { result.current.recordChatSend(fp("A", 1_000), 10, 1); });
+
+    expect(result.current.viewSwitchWeek).toEqual({
+      sends: 1,
+      requests: 3,
+      switches: 0,
+      warmSends: 0,
+      switchCacheWrite: 0,
+      warmCacheWrite: 0,
+    });
   });
 });
