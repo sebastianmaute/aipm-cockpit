@@ -814,3 +814,86 @@ describe("validateForecastRows: in-grid text does not bound the header search (r
     expect(out.ok.find((r) => r.person === "Ann" && r.period === "2026-01")?.hours).toBe(40);
   });
 });
+
+// Final review I1: a title or metadata row of dates — a quarter range (89 days)
+// or three dates — was the period header of the long sheet's hours column below
+// it. The right months were rejected and a wrong one vouched for. A header row
+// (`Name | Monat | Stunden`) between that row and the cited cell stops the
+// search; the row is searched instead.
+describe("validateForecastRows: a header row between a dated title row and the cell stops the search (final review I1)", () => {
+  const strictOn = (rows: string[][], numbers?: "dot" | "text") => ({
+    sheet: { name: "S", rows, truncated: false, numbers } as SheetGrid,
+    requireSource: true,
+  });
+  const claim = (period: string, hours: number, source: string) => ({ person: "Ann", period, hours, source });
+  const detail = (out: ReturnType<typeof validateForecastRows>) =>
+    out.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason));
+  const periodsOf = (out: ReturnType<typeof validateForecastRows>) => out.ok.map((r) => [r.period, r.hours]);
+
+  const quarterCsv = strictOn([
+    ["Zeitraum", "01.01.2026", "31.03.2026"], [],
+    ["Name", "Monat", "Stunden"],
+    ["Ann", "Jan 2026", "40"], ["Ann", "Feb 2026", "30"], ["Ann", "Mär 2026", "20"],
+  ]);
+  const quarterXlsx = strictOn([
+    ["Zeitraum", "46023", "46112"], [],
+    ["Name", "Monat", "Stunden"],
+    ["Ann", "46023", "40"], ["Ann", "46054", "30"], ["Ann", "46082", "20"],
+  ], "dot");
+
+  it.each([["CSV", quarterCsv], ["workbook serials", quarterXlsx]])(
+    "accepts Jan, Feb and Mar under a Q1 range title row (%s)", (_label, opts) => {
+      const out = validateForecastRows([claim("Jan 2026", 40, "S!C4"), claim("Feb 2026", 30, "S!C5"), claim("Mar 2026", 20, "S!C6")], opts);
+      expect(out.rejected).toEqual([]);
+      expect(periodsOf(out)).toEqual([["2026-01", 40], ["2026-02", 30], ["2026-03", 20]]);
+    },
+  );
+
+  it.each([["CSV", quarterCsv], ["workbook serials", quarterXlsx]])(
+    "rejects a March claim for January's cell under a Q1 range title row (%s)", (_label, opts) => {
+      const out = validateForecastRows([claim("Mar 2026", 40, "S!C4")], opts);
+      expect(out.ok).toEqual([]);
+      expect(detail(out)).toEqual(["period-not-near"]);
+    },
+  );
+
+  it("reads a von | 01.01.2026 | bis | 31.03.2026 title row's long sheet by its rows", () => {
+    const opts = strictOn([
+      ["von", "01.01.2026", "bis", "31.03.2026"], [],
+      ["Name", "Rolle", "Monat", "Stunden"],
+      ["Ann", "Dev", "Jan 2026", "40"], ["Ann", "Dev", "Feb 2026", "30"],
+    ]);
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!D4"), claim("Feb 2026", 30, "S!D5")], opts);
+    expect(out.rejected).toEqual([]);
+    expect(periodsOf(out)).toEqual([["2026-01", 40], ["2026-02", 30]]);
+    expect(detail(validateForecastRows([claim("Mar 2026", 40, "S!D4")], opts))).toEqual(["period-not-near"]);
+  });
+
+  it("reads a long sheet under a three-date metadata row by its rows", () => {
+    const opts = strictOn([
+      ["Erstellt", "01.01.2026", "Stand", "15.01.2026", "Druck", "20.01.2026"], [],
+      ["Name", "Monat", "Bemerkung", "Stunden"],
+      ["Ann", "Feb 2026", "", "30"], ["Ann", "Mär 2026", "", "20"],
+    ]);
+    const out = validateForecastRows([claim("Feb 2026", 30, "S!D4"), claim("Mär 2026", 20, "S!D5")], opts);
+    expect(out.rejected).toEqual([]);
+    expect(periodsOf(out)).toEqual([["2026-02", 30], ["2026-03", 20]]);
+    // The metadata row's 15.01.2026 sits above the hours: January is not vouched for.
+    expect(detail(validateForecastRows([claim("Jan 2026", 30, "S!D4")], opts))).toEqual(["period-not-near"]);
+  });
+
+  it("does not sum two cells of one long row as sub-periods of the metadata row's dates", () => {
+    // headerDateOf stops at the header row too: Stunden and Ist both say January
+    // on the row, so they collide (blocking) instead of being added to 75.
+    const opts = strictOn([
+      ["Erstellt", "", "01.01.2026", "15.01.2026", "20.01.2026"], [],
+      ["Name", "Monat", "Stunden", "Ist"],
+      ["Ann", "Jan 2026", "40", "35"],
+    ]);
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C4"), claim("Jan 2026", 35, "S!D4")], opts);
+    expect(out.rejected).toEqual([]);
+    expect(out.subPeriods).toEqual([]);
+    expect(out.ok).toEqual([]);
+    expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!C4", "S!D4"] }]);
+  });
+});

@@ -111,14 +111,14 @@ export function findUnreadCells(sheet: SheetGrid, result: ValidationResult): Unr
   const hoursHeaders = citedColumnHeaders(sheet, citedAt, isNumber);
   const holdsHours = (rowIdx: number, col: number, cell: string): boolean =>
     isNumber(col, cell)
-    && (nearestPeriodRowAbove(sheet, rowIdx, col) !== null || rowIdx > (hoursHeaders.get(col) ?? Infinity));
+    && (nearestPeriodRowAbove(sheet, rowIdx, col, personCol) !== null || rowIdx > (hoursHeaders.get(col) ?? Infinity));
 
   const cells: string[] = [];
   const rows: UnreadRow[] = [];
   sheet.rows.forEach((row, rowIdx) => {
     if (acceptedRows.has(rowIdx)) {
       row.forEach((cell, col) => {
-        const isUnread = !cited.has(`${rowIdx}:${col}`) && isNumber(col, cell) && nearestPeriodRowAbove(sheet, rowIdx, col) !== null;
+        const isUnread = !cited.has(`${rowIdx}:${col}`) && isNumber(col, cell) && nearestPeriodRowAbove(sheet, rowIdx, col, personCol) !== null;
         if (isUnread) cells.push(`${sheet.name}!${columnLetters(col)}${rowIdx + 1}`);
       });
       return;

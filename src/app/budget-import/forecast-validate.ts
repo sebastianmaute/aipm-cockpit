@@ -112,8 +112,12 @@ function rowShape(e: Merged, sheet: SheetGrid): { collision: boolean; subPeriod:
   let unplaced = e.count - e.sources.length;
   for (const source of e.sources) {
     const at = sourcePosition(source, sheet.name);
-    if (at === null) unplaced += 1;
-    else byRow.set(at.rowIdx, [...(byRow.get(at.rowIdx) ?? []), headerDateOf(sheet, at)]);
+    if (at === null) {
+      unplaced += 1;
+      continue;
+    }
+    const personCol = columnNaming(sheet.rows[at.rowIdx] ?? [], at.colIdx, e.row.person) ?? undefined;
+    byRow.set(at.rowIdx, [...(byRow.get(at.rowIdx) ?? []), headerDateOf(sheet, { ...at, personCol })]);
   }
   const shared = [...byRow.values()].filter((dates) => dates.length > 1);
   const isSubPeriods = (dates: Array<string | null>): boolean =>
