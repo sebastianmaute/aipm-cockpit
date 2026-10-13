@@ -141,6 +141,35 @@ const NO_ROWS: readonly ForecastRow[] = [];
 const NO_COLLISIONS: readonly ForecastCollision[] = [];
 const NO_UNREAD: UnreadCells = { cells: [], rows: [] };
 const NO_AMBIGUITY: readonly ColumnAmbiguity[] = [];
+const NO_CONFIRMATIONS: ReadonlyMap<string, string> = new Map();
+
+/** What a confirmation of `field` is bound to in `m`: the header row, the
+ *  hours column, or the period column (a wide reading's period columns). */
+function fieldValue(m: ColumnMapping, field: ColumnAmbiguity["field"]): string {
+  if (field === "header") return String(m.headerRow);
+  if (field === "hours") return String(m.hours);
+  return m.layout === "long" ? String(m.period) : (m.periodCols ?? []).join(",");
+}
+
+const confirmationKey = (layout: ColumnMapping["layout"], field: ColumnAmbiguity["field"]): string => `${layout}:${field}`;
+
+/**
+ * The questioned fields the user has not confirmed for the CURRENT mapping.
+ * ★★ A confirmation belongs to a (layout, field) pair and to the value it
+ * confirmed (fix 9 m-a): choosing the period in Long once also cleared the
+ * Wide reading's question, so flipping back to Wide applied the very reading
+ * that was questioned, and a round-trip that reset a chosen hours column kept
+ * the gate cleared on the default.
+ */
+function unconfirmedOf(
+  questioned: readonly ColumnAmbiguity[],
+  confirmations: ReadonlyMap<string, string>,
+  mapping: ColumnMapping | null,
+): readonly ColumnAmbiguity[] {
+  if (mapping === null || questioned.length === 0) return questioned;
+  const open = questioned.filter((a) => confirmations.get(confirmationKey(mapping.layout, a.field)) !== fieldValue(mapping, a.field));
+  return open.length === questioned.length ? questioned : open;
+}
 
 /** `next` settles an ambiguous field: the user chose its column in the long
  *  layout (a different one than before, even if they come back). ★★ A layout
@@ -276,7 +305,9 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   // The mapping the hand route opened with, to tell a user's edit from it.
   const [openedMapping, setOpenedMapping] = useState<ColumnMapping | null>(null);
   const [layoutDetected, setLayoutDetected] = useState(false);
-  const [unconfirmed, setUnconfirmed] = useState<readonly ColumnAmbiguity[]>(NO_AMBIGUITY);
+  // The fields detection questioned, and what the user confirmed (`unconfirmedOf`).
+  const [questioned, setQuestioned] = useState<readonly ColumnAmbiguity[]>(NO_AMBIGUITY);
+  const [confirmations, setConfirmations] = useState<ReadonlyMap<string, string>>(NO_CONFIRMATIONS);
   const [route, setRoute] = useState<ForecastImportRoute>("hand");
   const [claudeRows, setClaudeRows] = useState<unknown>(null);
   const [notes, setNotes] = useState("");
@@ -297,6 +328,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   // Cleanup-only: abort an in-flight call on unmount. Sets no state.
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  const unconfirmed = useMemo(() => unconfirmedOf(questioned, confirmations, mapping), [questioned, confirmations, mapping]);
   const sheet: SheetGrid | undefined = sheets[sheetIndex];
   const liveBucket = buckets.find((b) => b.id === bucketId);
 
@@ -358,7 +390,8 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     const opened = detected.mapping ?? defaultMappingFor(grid.rows, year, grid.numbers);
     setMappingState(opened);
     setOpenedMapping(opened);
-    setUnconfirmed(detected.ambiguous);
+    setQuestioned(detected.ambiguous);
+    setConfirmations(NO_CONFIRMATIONS);
     setStep(detected.mapping && detected.ambiguous.length === 0 ? "preview" : "mapping");
   }, [year]);
 
@@ -418,14 +451,27 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     setMappingState(next);
     if (next !== null) {
       setYear(next.year);
-      setUnconfirmed((prev) => prev.filter((a) => !confirmsField(a, mapping, next)));
+      const chosen = questioned.filter((a) => confirmsField(a, mapping, next));
+      if (chosen.length > 0) {
+        setConfirmations((prev) => {
+          const out = new Map(prev);
+          for (const a of chosen) out.set(confirmationKey(next.layout, a.field), fieldValue(next, a.field));
+          return out;
+        });
+      }
     }
-  }, [mapping]);
+  }, [mapping, questioned]);
 
+  // "These columns are right": confirms every questioned field as the current mapping reads it.
   const confirmColumns = useCallback(() => {
     setError(null);
-    setUnconfirmed(NO_AMBIGUITY);
-  }, []);
+    if (mapping === null) return;
+    setConfirmations((prev) => {
+      const out = new Map(prev);
+      for (const a of questioned) out.set(confirmationKey(mapping.layout, a.field), fieldValue(mapping, a.field));
+      return out;
+    });
+  }, [mapping, questioned]);
 
   const editMapping = useCallback(() => {
     setError(null);

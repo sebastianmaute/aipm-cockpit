@@ -1124,3 +1124,45 @@ describe("useForecastImport — more than one header row waits for the user (fix
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
   });
 });
+
+// Fix 9 m-a (rr9 H2): a confirmation belongs to a (layout, field) pair and to
+// the column it confirmed. Choosing the period in Long once also cleared the
+// Wide reading's question, and Claude's Bob February Ist claim was applied as
+// January after the user flipped back to Wide.
+describe("useForecastImport — a confirmation belongs to its layout and column (fix 9 m-a)", () => {
+  const METADATA = ["Erstellt,,01.01.2026,15.01.2026,20.01.2026", "Name,Monat,Stunden,Ist",
+    "Ann Lee,Jan 2026,40,35", "Bob Ray,Feb 2026,40,35", "Cid Ott,Jan 2026,40,35", "Dora Li,Feb 2026,40,35", "Eve Wu,Jan 2026,40,35", ""].join("\r\n");
+
+  it("flipping back to the questioned Wide reading re-arms its question, and Claude's claim is refused", async () => {
+    claudeResponds({ rows: [{ person: "Bob Ray", period: "Jan 2026", hours: 35, source: "forecast!D4" }] });
+    const deps = depsOf();
+    const { result } = await loaded(deps, METADATA);
+    const wide = result.current.mapping!;
+    expect(result.current.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
+    const long = { layout: "long" as const, headerRow: 0, person: 0, period: 1, hours: 2, year: 2026 };
+    act(() => result.current.setMapping(long));
+    act(() => result.current.setMapping({ ...long, period: 3 }));
+    expect(result.current.ambiguous).toEqual([]);
+    act(() => result.current.setMapping({ ...wide }));
+    expect(result.current.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason))).toEqual(["columns-unconfirmed"]);
+    expect(result.current.importPlan?.changes).toEqual([]);
+  });
+
+  it("a chosen hours column reset by a layout round-trip waits for confirmation again", async () => {
+    const PLAN_IST = "Name,Monat,Plan,Ist\r\nAnn Lee,Jan 2026,40,35\r\nAnn Lee,Feb 2026,30,25\r\n";
+    const { result } = await loaded(depsOf(), PLAN_IST);
+    const long = result.current.mapping!;
+    act(() => result.current.setMapping({ ...long, hours: 3 }));
+    expect(result.current.ambiguous).toEqual([]);
+    act(() => result.current.setMapping(wideMappingFor(result.current.sheets[0].rows, 0, { person: 0 }, 2026)));
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    act(() => result.current.setMapping({ ...long, hours: 2 }));
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    act(() => result.current.setMapping({ ...long, hours: 3 }));
+    expect(result.current.ambiguous).toEqual([]);
+  });
+});
