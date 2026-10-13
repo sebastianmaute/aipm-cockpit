@@ -44,6 +44,8 @@ import { TimelogApplyNotices } from "./timelog-apply-notices";
 import { decideReapply } from "./timelog-reapply";
 import { bucketOverlay } from "./timelog-actuals";
 import { Button } from "./button";
+import { ALL_MODULE_IDS, missingUses, type FeatureModuleId } from "./feature-modules";
+import { UsesNotice } from "./functions-picker";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -61,6 +63,8 @@ export function TimelogPanel({
   isPopout = false,
   projectKey = "default",
   onConfigureTimelog,
+  features = ALL_MODULE_IDS,
+  onCommitFeatures,
 }: {
   lang: Lang;
   isPopout?: boolean;
@@ -68,6 +72,12 @@ export function TimelogPanel({
   /** Canonical per-device store key (`portfolioCurrentId ?? "default"`). Keys
    *  BOTH per-device Timelog stores (picker scope and actuals cache). */
   projectKey?: string;
+  /** The enabled modules. Decides whether the Resources/Budget notice shows. Defaults to every
+   *  module (no notice), so only the workspace-section mount needs to pass it. */
+  features?: readonly FeatureModuleId[];
+  /** Commits a new module list (the Turn on button). Omitted in popouts: the notice then
+   *  shows without a button. */
+  onCommitFeatures?: (features: FeatureModuleId[]) => void;
 }) {
   const ws = useWorkspace();
   const { settings, setSettings, hydrated } = useSettings();
@@ -539,10 +549,22 @@ export function TimelogPanel({
   //   full page, the §74 guards AND Clear-all (why that last one is not optional: the header
   //   of timelog-not-configured.tsx). ★★ And on `hydrated` — settings load in an EFFECT, so a
   //   bare gate flashes "switched off", Clear-all included, at every CONFIGURED user.
+  // §707: what this view needs and has off. "Turn on" commits the union in registry order.
+  const usesMissing = missingUses("timelog", features);
+  const turnOnMissing = () => {
+    const next = new Set<FeatureModuleId>([...features, ...usesMissing]);
+    onCommitFeatures?.(ALL_MODULE_IDS.filter((id) => next.has(id)));
+  };
+
   if (hydrated && !cfg.enabled) return <TimelogNotConfigured lang={lang} paneRef={paneRef} onConfigure={onConfigureTimelog} hasFetched={!!sync.fetchedAt} canClearAll={canClearAllFetched({ isPopout, syncBusy: sync.busy, confirming, hasFetched: !!sync.fetchedAt })} onClearAll={() => void clearAllFetched()} />;
 
   return (
     <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
+      {usesMissing.length > 0 && (
+        <div className="mb-3 print:hidden">
+          <UsesNotice lang={lang} moduleId="timelog" missing={usesMissing} onTurnOn={onCommitFeatures && turnOnMissing} />
+        </div>
+      )}
       <TimelogToolbar
         lang={lang}
         isPopout={isPopout}

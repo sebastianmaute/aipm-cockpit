@@ -15,6 +15,7 @@ import type { Resource, BudgetBucket } from "./types";
 import type { TimelogLinks } from "./timelog-types";
 import { GUARDRAIL_INSIGHT_TYPES, type Insight } from "./insights/insight";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -2627,4 +2628,71 @@ describe("TimelogPanel", () => {
       expect(logDiag).toHaveBeenCalledWith("error", "timelog.customersLoadFailed", { message: "boom" });
     });
   });
+  // §707: the view says what it needs. Time bookings matches bookings to people
+  // (Resources) and costs them (Budget); while either is off the panel says so and
+  // offers a one-click Turn on. The panel only reports the NEXT list — the parent
+  // commits it, and a popout (no callback) shows the sentence without a button.
+  describe("uses notice (§707)", () => {
+    const BASE = ["timelog"] as const;
+    const NOTICE = t("en-US", "functionsUsesTimelog");
+
+    function renderWith(features: readonly FeatureModuleId[], onCommitFeatures?: (f: FeatureModuleId[]) => void) {
+      enableTimelog();
+      return render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" features={features} onCommitFeatures={onCommitFeatures} />
+        </>,
+        { wrapper },
+      );
+    }
+
+    it("names the one module that is off when Budget is off", () => {
+      renderWith([...BASE, "resources"], vi.fn());
+      expect(screen.getByText(`${NOTICE} ${t("en-US", "functionsUsesOneOff", "Budget")}`)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: t("en-US", "functionsUsesTurnOnLabel", "Budget") })).toBeInTheDocument();
+    });
+
+    it("says both are off when Resources and Budget are both off", () => {
+      renderWith([...BASE], vi.fn());
+      expect(screen.getByText(`${NOTICE} ${t("en-US", "functionsUsesBothOff")}`)).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: t("en-US", "functionsUsesTurnOnLabel", t("en-US", "functionsUsesJoin", "Resources", "Budget")) }),
+      ).toBeInTheDocument();
+    });
+
+    it("shows no notice when Resources and Budget are both on", () => {
+      renderWith([...BASE, "resources", "budget"], vi.fn());
+      expect(screen.queryByText((text) => text.includes(NOTICE))).toBeNull();
+      expect(screen.queryByRole("button", { name: t("en-US", "functionsUsesTurnOn") })).toBeNull();
+    });
+
+    it("Turn on commits the current list plus the missing modules, in registry order, once each", () => {
+      const onCommit = vi.fn();
+      // Deliberately out of registry order (timelog listed before gantt): the commit
+      // must be the union in canonical registry order, each id once.
+      renderWith(["timelog", "gantt"], onCommit);
+      fireEvent.click(
+        screen.getByRole("button", { name: t("en-US", "functionsUsesTurnOnLabel", t("en-US", "functionsUsesJoin", "Resources", "Budget")) }),
+      );
+      expect(onCommit).toHaveBeenCalledTimes(1);
+      const committed = onCommit.mock.calls[0][0] as FeatureModuleId[];
+      expect(committed).toEqual(ALL_MODULE_IDS.filter((id) => ["timelog", "gantt", "resources", "budget"].includes(id)));
+      expect(new Set(committed).size).toBe(committed.length);
+    });
+
+    it("Turn on with only Budget missing adds just Budget", () => {
+      const onCommit = vi.fn();
+      renderWith([...BASE, "resources"], onCommit);
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "functionsUsesTurnOnLabel", "Budget") }));
+      expect(onCommit).toHaveBeenCalledWith(ALL_MODULE_IDS.filter((id) => ["timelog", "resources", "budget"].includes(id)));
+    });
+
+    it("a popout (no callback) shows the notice without a Turn on button", () => {
+      renderWith([...BASE], undefined);
+      expect(screen.getByText(`${NOTICE} ${t("en-US", "functionsUsesBothOff")}`)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Turn on/ })).toBeNull();
+    });
+  });
+
 });

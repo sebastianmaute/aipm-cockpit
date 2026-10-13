@@ -1044,7 +1044,7 @@ export function WorkspaceSection({
 
         {activeTab === "timelog" && (
           <div id="panel-timelog" role="tabpanel" className={panelClass}>
-            <TimelogPanel lang={lang} isPopout={isPopout} projectKey={currentProjectId ?? "default"} onConfigureTimelog={!isPopout && onOpenSettingsSection ? () => onOpenSettingsSection("integrations") : undefined} />
+            <TimelogPanel lang={lang} isPopout={isPopout} projectKey={currentProjectId ?? "default"} onConfigureTimelog={!isPopout && onOpenSettingsSection ? () => onOpenSettingsSection("integrations") : undefined} features={settings.features} onCommitFeatures={isPopout ? undefined : workspace.setFeatures} />
           </div>
         )}
 
