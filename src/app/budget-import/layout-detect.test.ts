@@ -565,7 +565,6 @@ describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
     ["Nr | Name | Monat | Aufwand", [["Nr", "Name", "Monat", "Aufwand"], ["1", "Ann", "Jan 2026", "40"], ["2", "Bob", "Jan 2026", "20"]]],
     ["Name | Start | Zeitraum | Stunden", [["Name", "Start", "Zeitraum", "Stunden"], ["Ann", "01.01.2026", "01.01.2026", "80"], ["Ann", "01.01.2026", "01.02.2026", "60"]]],
     ["Name | Jahr | Monat | Wert | Basisjahr", [["Name", "Jahr", "Monat", "Wert", "Basisjahr"], ["Ann", "2026", "Jan", "40", "2025"], ["Ann", "2026", "Feb", "30", "2025"]]],
-    ["Name | Start | Jan 2026 | Feb 2026 (wide)", [["Name", "Start", "Jan 2026", "Feb 2026"], ["Ann", "01.03.2026", "40", "50"], ["Bob", "01.05.2026", "30", "20"]]],
   ])("%s is clear", (_label, rows) => {
     expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
   });
@@ -630,5 +629,40 @@ describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
 
   it("reports no ambiguity on a wide sheet", () => {
     expect(detectLayout(GERMAN_WIDE).ambiguous).toEqual([]);
+  });
+});
+
+// Fix 8 round 2 (controller ruling): a WIDE reading whose data rows carry a
+// period column of their own (a `Start` date, a long sheet's `Monat` under a
+// metadata row read as the header) is not settled: the period may be the
+// header's columns or that column. Detection asks, on both routes.
+describe("detectLayout — a wide reading whose rows hold their own period column asks (fix 8)", () => {
+  const people = ["Ann", "Bob", "Cem", "Dora", "Eve"];
+
+  it("a metadata row over Monat | Stunden | Ist, read wide, asks for the period with Monat among the candidates", () => {
+    const rows = [["Erstellt", "", "01.01.2026", "15.01.2026", "20.01.2026"], ["Name", "Monat", "Stunden", "Ist"], ...people.map((p) => [p, "Jan 2026", "40", "35"])];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", mapping: { layout: "wide", headerRow: 0, periodCols: [2, 3, 4] } });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
+  });
+
+  it.each([
+    ["CSV", "01.03.2026", "01.05.2026", "text"],
+    ["workbook serial Start", "46082", "46143", "dot"],
+  ] as const)("Name | Start | Jan 2026 | Feb 2026 asks (%s)", (_label, annStart, bobStart, numbers) => {
+    const rows = [["Name", "Start", "Jan 2026", "Feb 2026"], ["Ann", annStart, "40", "50"], ["Bob", bobStart, "30", "20"]];
+    const detected = detectLayout(rows, { numbers, defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", mapping: { periodCols: [2, 3] } });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3] }]);
+  });
+
+  it.each([
+    ["Name | Jan 2026 | Feb 2026", [["Name", "Jan 2026", "Feb 2026"], ["Ann", "40", "50"], ["Bob", "30", "20"]], "text"],
+    ["Name | Rolle | Jan | Feb | Mär", [["Name", "Rolle", "Jan", "Feb", "Mär"], ["Ann", "Dev", "1", "2", "3"], ["Bob", "QA", "4", "5", "6"]], "text"],
+    ["a CSV PersNr of five-digit numbers beside the months", [["Name", "PersNr", "Jan 2026", "Feb 2026"], ["Ann", "46082", "40", "50"], ["Bob", "46143", "30", "20"]], "text"],
+  ] as const)("a wide sheet with no row-period column stays clear: %s", (_label, rows, numbers) => {
+    const detected = detectLayout(rows.map((r) => [...r]), { numbers, defaultYear: 2026 });
+    expect(detected.kind).toBe("wide");
+    expect(detected.ambiguous).toEqual([]);
   });
 });

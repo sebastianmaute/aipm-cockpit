@@ -13,9 +13,10 @@ import type { ColumnAmbiguity, ColumnMapping } from "./forecast-types";
 import { assignRunPeriods, classifyPeriodCell, isPeriodShapedIn, isYearColumn, isYearHeader, parseYearCell, usableYear } from "./period-assign";
 import type { NumberOrigin } from "./sheet-grid";
 
-/** `ambiguous` lists the long-sheet fields more than one column could be
- *  (`longFromHeader`); empty when the choice is clear, and always for a wide
- *  sheet or none. */
+/** `ambiguous` lists the fields more than one column could be: a long
+ *  sheet's (`longFromHeader`), or a wide sheet's period when its data rows
+ *  hold a period column of their own (`wideAmbiguity`); empty when the choice
+ *  is clear, and always for none. */
 export type LayoutDetection = {
   kind: "wide" | "long" | "unknown";
   mapping: ColumnMapping | null;
@@ -182,7 +183,40 @@ function wideFromHeader(rows: Rows, headerRow: number, periodCols: readonly numb
   );
 }
 
-function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): ColumnMapping | null {
+/**
+ * The columns of a wide reading's data rows that hold a period of their own:
+ * not among the header's period columns, and period-shaped (in the sheet's
+ * number origin: a CSV's five-digit number is no date) in `COLUMN_SHARE` of
+ * their non-blank cells.
+ */
+function rowPeriodColumns(rows: Rows, mapping: ColumnMapping, ctx: Ctx): number[] {
+  const data = dataRowsBelow(rows, mapping.headerRow);
+  const periodSet = new Set(mapping.periodCols ?? []);
+  const out: number[] = [];
+  for (let col = 0; col < rowWidth(data); col++) {
+    const cells = columnCells(data, col);
+    if (!periodSet.has(col) && cells.length > 0 && shareOf(cells, (c) => isPeriodShapedIn(c, ctx.numbers)) >= COLUMN_SHARE) out.push(col);
+  }
+  return out;
+}
+
+/**
+ * ★★★ A wide reading whose data rows hold a period column of their own asks
+ * for the PERIOD (fix 8, controller ruling): the period may be the header's
+ * columns or that column. A metadata row (`Erstellt | 01.01. | 15.01. |
+ * 20.01.`) over a long sheet's `Name | Monat | Stunden | Ist` reads as a clear
+ * wide header once enough person rows sit under it, and the Claude route then
+ * accepted the `Ist` cells in the metadata row's month (Bob's February as
+ * January). `Name | Start | Jan 2026 | Feb 2026` asks too. The candidates are
+ * that column and the header's period columns.
+ */
+function wideAmbiguity(rows: Rows, mapping: ColumnMapping, ctx: Ctx): ColumnAmbiguity[] {
+  const own = rowPeriodColumns(rows, mapping, ctx);
+  if (own.length === 0) return [];
+  return [{ field: "period", candidates: [...own, ...(mapping.periodCols ?? [])].sort((a, b) => a - b) }];
+}
+
+function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): Detected | null {
   const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
   for (let headerRow = 0; headerRow < scanned; headerRow++) {
     const header = rows[headerRow];
@@ -194,7 +228,7 @@ function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): ColumnMapping | n
     }
     if (periodCols.length < minPeriods) continue;
     const mapping = wideFromHeader(rows, headerRow, periodCols, ctx);
-    if (mapping !== null) return mapping;
+    if (mapping !== null) return { mapping, ambiguous: wideAmbiguity(rows, mapping, ctx) };
   }
   return null;
 }
@@ -379,9 +413,6 @@ function detectLong(rows: Rows, ctx: Ctx): Detected | null {
 
 type Pass = { kind: "wide" | "long"; run: () => Detected | null };
 
-/** A wide reading: no ambiguity is reported for one. */
-const asWide = (mapping: ColumnMapping | null): Detected | null => (mapping === null ? null : { mapping, ambiguous: [] });
-
 /** The detection passes in order; the first that finds a layout wins (see
  *  `detectLayout`). Passes with the year are left out when there is none. */
 function detectionPasses(rows: Rows, numbers: NumberOrigin, year: number | undefined): Pass[] {
@@ -389,13 +420,13 @@ function detectionPasses(rows: Rows, numbers: NumberOrigin, year: number | undef
   const withYear: Ctx = { numbers, year };
   const yearPasses = (passes: Pass[]): Pass[] => (year === undefined ? [] : passes);
   return [
-    { kind: "wide", run: () => asWide(detectWide(rows, MIN_WIDE_PERIODS, bare)) },
-    ...yearPasses([{ kind: "wide", run: () => asWide(detectWide(rows, MIN_WIDE_PERIODS, withYear)) }]),
+    { kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS, bare) },
+    ...yearPasses([{ kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS, withYear) }]),
     { kind: "long", run: () => detectLong(rows, bare) },
-    { kind: "wide", run: () => asWide(detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, bare)) },
+    { kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, bare) },
     ...yearPasses([
       { kind: "long", run: () => detectLong(rows, withYear) },
-      { kind: "wide", run: () => asWide(detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, withYear)) },
+      { kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, withYear) },
     ]),
   ];
 }
@@ -422,7 +453,8 @@ function detectionPasses(rows: Rows, numbers: NumberOrigin, year: number | undef
  * 2026`) still reach two-period wide: a long reading never takes a
  * period-headed hours column (`longFromHeader`, final review I4). The mapping
  * carries `defaultYear` as `year`, the year the mapping step shows; `ambiguous`
- * is the long reading's unsettled fields (`ambiguityOf`).
+ * is the long reading's unsettled fields (`ambiguityOf`), or a wide reading's
+ * period when its rows hold a period column of their own (`wideAmbiguity`).
  */
 export function detectLayout(
   rows: readonly string[][],

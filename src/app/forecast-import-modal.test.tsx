@@ -604,6 +604,26 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(applyButton()).toBeDisabled();
   });
 
+  // Round 2: a wide sheet whose rows hold their own period column (a Start date)
+  // asks for the period; the Wide notice and the confirm button carry it.
+  it("asks about a wide sheet with a Start date column, and confirming it enables Apply", async () => {
+    const props = propsOf();
+    render(<ForecastImportModal {...props} />);
+    await chooseAmbiguous("Name,Start,Jan 2026,Feb 2026\r\nAnn Lee,01.03.2026,40,50\r\n");
+    expect(screen.getByRole("radio", { name: t(L, "forecastImportLayoutWide") })).toBeChecked();
+    expect(screen.getByText(t(L, "forecastImportAmbiguousWide"))).toBeInTheDocument();
+    expect(applyButton()).toBeDisabled();
+    expect(applyButton()).toHaveAccessibleDescription(t(L, "forecastImportConfirmFirst"));
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") }));
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousWide"))).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    const diff = await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
+    expect(within(diff).getByText("— → 40")).toBeInTheDocument();
+    expect(applyButton()).toBeEnabled();
+    fireEvent.click(applyButton());
+    expect(props.onChangeBuckets).toHaveBeenCalledTimes(1);
+  });
+
   // rr8 m2: the Wide layout has no hours select to choose from.
   it("asks to check the mapping, not to choose a column, in the Wide layout", async () => {
     const user = userEvent.setup();

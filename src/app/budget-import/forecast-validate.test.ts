@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAX_IMPORT_HOURS_PER_CELL, validateForecastRows } from "./forecast-validate";
+import { detectLayout } from "./layout-detect";
 import type { SheetGrid } from "./sheet-grid";
 
 const GRID: SheetGrid = {
@@ -606,11 +607,18 @@ describe("validateForecastRows: the nearest period header above the cited cell",
   const detail = (out: ReturnType<typeof validateForecastRows>) =>
     out.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason));
 
+  // Round 2: the Start column makes the wide detection ask, so nothing stands
+  // until the columns are confirmed; then the confirmed reading decides.
   it("rejects a period that only a Start date elsewhere on the row names (CR probe)", () => {
-    const opts = strictOn([["Name", "Start", "Jan 2026", "Feb 2026"], ["Ann", "01.02.2026", "10", "20"]]);
+    const rows = [["Name", "Start", "Jan 2026", "Feb 2026"], ["Ann", "01.02.2026", "10", "20"]];
+    const opts = strictOn(rows);
+    const feb = { person: "Ann", period: "2026-02", hours: 10, source: "S!C2" };
+    const jan = { person: "Ann", period: "2026-01", hours: 10, source: "S!C2" };
+    expect(detail(validateForecastRows([feb, jan], opts))).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
+    const confirmed = { ...opts, columns: detectLayout(rows).mapping! };
     // The hand route reads this cell and no source disagrees: another period is refused (fix 8).
-    expect(detail(validateForecastRows([{ person: "Ann", period: "2026-02", hours: 10, source: "S!C2" }], opts))).toEqual(["period-conflict"]);
-    expect(validateForecastRows([{ person: "Ann", period: "2026-01", hours: 10, source: "S!C2" }], opts).ok).toHaveLength(1);
+    expect(detail(validateForecastRows([feb], confirmed))).toEqual(["period-conflict"]);
+    expect(validateForecastRows([jan], confirmed).ok).toHaveLength(1);
   });
 
   it("reads stacked year blocks by the block the cell sits in", () => {
@@ -1011,11 +1019,13 @@ describe("validateForecastRows: conflicting period evidence is refused (fix 7, f
   // Fix 8: a row with a period cell of its own is never summed as sub-periods,
   // labelled or not; it summed to 80 per month before. The claims stand, but
   // collide and block Apply.
+  // Round 2: the Start column also makes the detection ask; confirmed, the claims still collide.
   it("does not sum sprint dates on a row with a Start date: the claims collide", () => {
-    const opts = strictOn([
+    const rows = [
       ["Name", "Start", "05.01.2026", "19.01.2026", "02.02.2026", "16.02.2026"],
       ["Bob", "01.03.2026", "40", "40", "40", "40"],
-    ]);
+    ];
+    const opts = { ...strictOn(rows), columns: detectLayout(rows).mapping! };
     const bob = (period: string, source: string) => claim(period, 40, source, "Bob");
     const out = validateForecastRows([bob("05.01.2026", "S!C2"), bob("19.01.2026", "S!D2"), bob("02.02.2026", "S!E2"), bob("16.02.2026", "S!F2")], opts);
     expect(out.rejected).toEqual([]);

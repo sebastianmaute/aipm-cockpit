@@ -287,12 +287,23 @@ describe("a row with its own period cell is never a sub-period row, on either ro
     return validateForecastRows(gridToForecastRows(rows, mapping, "S").rows, { sheet: sheetOf(rows), requireSource: false, defaultYear: 2026 });
   };
 
-  it("the detection reads the metadata row as a clear wide header", () => {
-    expect(detectLayout(metadataRows, { defaultYear: 2026 })).toMatchObject({ kind: "wide", ambiguous: [], mapping: { headerRow: 0, periodCols: [2, 3, 4] } });
+  /** The Claude route with the sheet's own detected mapping confirmed. */
+  const confirmedOn = (rows: string[][]) => {
+    const mapping = detectLayout(rows, { defaultYear: 2026 }).mapping;
+    if (mapping === null) throw new Error("no layout");
+    return strictOn(rows, undefined, mapping);
+  };
+
+  // Round 2: such a wide reading now asks (detection), so this gate is what
+  // holds once the user has confirmed it.
+  it("the detection reads the metadata row as a wide header, and asks", () => {
+    expect(detectLayout(metadataRows, { defaultYear: 2026 })).toMatchObject({
+      kind: "wide", ambiguous: [{ field: "period", candidates: [1, 2, 3, 4] }], mapping: { headerRow: 0, periodCols: [2, 3, 4] },
+    });
   });
 
-  it("Claude route: Ann's Stunden and Ist cells collide, never 75", () => {
-    const out = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Jan 2026", 35, "S!D3")], strictOn(metadataRows));
+  it("Claude route, the wide reading confirmed: Ann's Stunden and Ist cells collide, never 75", () => {
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Jan 2026", 35, "S!D3")], confirmedOn(metadataRows));
     expect(out.rejected).toEqual([]);
     expect(out.ok).toEqual([]);
     expect(out.subPeriods).toEqual([]);
@@ -306,14 +317,38 @@ describe("a row with its own period cell is never a sub-period row, on either ro
     expect(out.collisions.map((c) => c.person)).toEqual(people);
   });
 
-  it("sprint dates beside a Start date collide on both routes: refused visibly, not summed", () => {
+  it("sprint dates beside a Start date collide on both routes, the columns confirmed: refused visibly, not summed", () => {
     const bob = (period: string, source: string) => claim(period, 40, source, "Bob");
-    const claude = validateForecastRows([bob("05.01.2026", "S!C2"), bob("19.01.2026", "S!D2"), bob("02.02.2026", "S!E2"), bob("16.02.2026", "S!F2")], strictOn(sprintRows));
+    const claude = validateForecastRows([bob("05.01.2026", "S!C2"), bob("19.01.2026", "S!D2"), bob("02.02.2026", "S!E2"), bob("16.02.2026", "S!F2")], confirmedOn(sprintRows));
     expect(claude.rejected).toEqual([]);
     expect(claude.ok).toEqual([]);
     expect(claude.collisions.map((c) => c.period)).toEqual(["2026-01", "2026-02"]);
     const hand = handRoute(sprintRows);
     expect(hand.ok).toEqual([]);
     expect(hand.collisions.map((c) => c.period)).toEqual(["2026-01", "2026-02"]);
+  });
+});
+
+// Round 2 (controller ruling on concern 1): a wide detection whose data rows
+// carry their own period column asks. The metadata row over Monat | Stunden |
+// Ist, read as a wide header, once let Claude's Ist-only claims through in the
+// metadata row's month: Bob's and Dora's February rows as January = 35.
+describe("a wide reading whose rows hold their own period column waits for the columns (round 2)", () => {
+  const people = ["Ann", "Bob", "Cem", "Dora", "Eve"];
+  const rows = [["Erstellt", "", "01.01.2026", "15.01.2026", "20.01.2026"], ["Name", "Monat", "Stunden", "Ist"],
+    ...people.map((p, i) => [p, i % 2 === 1 ? "Feb 2026" : "Jan 2026", "40", "35"])];
+
+  it("refuses Claude's Ist-only claims columns-unconfirmed: no January = 35", () => {
+    const ist = people.map((p, i) => claim("Jan 2026", 35, `S!D${i + 3}`, p));
+    const out = validateForecastRows(ist, strictOn(rows));
+    expect(out.ok).toEqual([]);
+    expect(detail(out)).toEqual(people.map(() => "columns-unconfirmed"));
+  });
+
+  it("refuses Claude's Stunden + Ist claims columns-unconfirmed: no 75", () => {
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Jan 2026", 35, "S!D3")], strictOn(rows));
+    expect(out.ok).toEqual([]);
+    expect(out.subPeriods).toEqual([]);
+    expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
   });
 });

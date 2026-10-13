@@ -184,9 +184,9 @@ describe("probe: a year-less wide sheet with a date column stays wide (round 3)"
   const months6 = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun"];
   const periodsOf = (run: Run) => run.out.rows.map((r) => [r.person, r.period, r.hours]);
 
-  it("Name | Start | Jan | Feb | Mär", () => {
+  it("Name | Start | Jan | Feb | Mär (round 2: it asks for the period)", () => {
     const rows = [["Name", "Start", "Jan", "Feb", "Mär"], ["Ann Lee", "01.02.2026", "8", "4", "2"], ["Bob Kay", "15.03.2026", "1", "2", "3"]];
-    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("wide");
+    expect(detectLayout(rows, { defaultYear: 2026 })).toMatchObject({ kind: "wide", ambiguous: [{ field: "period", candidates: [1, 2, 3, 4] }] });
     expect(periodsOf(readSheet(rows))).toEqual([
       ["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Ann Lee", "2026-03", 2],
       ["Bob Kay", "2026-01", 1], ["Bob Kay", "2026-02", 2], ["Bob Kay", "2026-03", 3],
@@ -440,10 +440,12 @@ describe("probe: long workbooks with two date columns stay long (round 5)", () =
 
   // Final review I4: this read long until a period-headed column stopped being
   // a long sheet's hours column (residue (13) closed).
-  it("Name | Start | Jan | Feb reads wide: nothing lands in the start month", () => {
+  // Round 2: the Start column of dates makes the wide reading ask for the period.
+  it("Name | Start | Jan | Feb reads wide and asks: nothing lands in the start month", () => {
     const rows = [["Name", "Start", "Jan", "Feb"], ["Ann Lee", "01.02.2026", "8", "4"], ["Bob Kay", "15.03.2026", "1", "2"]];
     const detected = detectLayout(rows, { defaultYear: 2026 });
     expect(detected.kind).toBe("wide");
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3] }]);
     expect(detected.mapping).toMatchObject({ person: 0, periodCols: [2, 3] });
     const run = readSheet(rows);
     expect(rowsOf(run)).toEqual([["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-01", 1], ["Bob Kay", "2026-02", 2]]);
@@ -598,9 +600,11 @@ describe("probe: a column headed by a period is never a long sheet's hours (fina
   it.each([
     ["CSV", "01.03.2026", "01.05.2026", "text"],
     ["workbook serial", "46082", "46143", "dot"],
-  ] as const)("Name | Start | Jan 2026 | Feb 2026 (%s Start) reads wide, nothing in the start month", (_label, annStart, bobStart, numbers) => {
+  ] as const)("Name | Start | Jan 2026 | Feb 2026 (%s Start) reads wide and asks, nothing in the start month", (_label, annStart, bobStart, numbers) => {
     const rows = [["Name", "Start", "Jan 2026", "Feb 2026"], ["Ann Lee", annStart, "40", "50"], ["Bob Kay", bobStart, "30", "20"]];
-    expect(detectLayout(rows, { numbers, defaultYear: 2026 }).mapping).toMatchObject({ layout: "wide", periodCols: [2, 3] });
+    expect(detectLayout(rows, { numbers, defaultYear: 2026 })).toMatchObject({
+      mapping: { layout: "wide", periodCols: [2, 3] }, ambiguous: [{ field: "period", candidates: [1, 2, 3] }],
+    });
     const run = readSheet(rows, numbers);
     expect(triplesOf(run)).toEqual(expectedWide);
     expect(run.out.rows.some((r) => r.period === "2026-03" || r.period === "2026-05")).toBe(false);

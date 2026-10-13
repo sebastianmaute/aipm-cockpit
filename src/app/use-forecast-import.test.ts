@@ -944,3 +944,48 @@ describe("useForecastImport — the Claude route checks claims against the confi
     expect(changes(result)).toEqual([["2026-01", 40]]);
   });
 });
+
+// Round 2 (controller ruling on concern 1): a metadata row over a long sheet's
+// Monat | Stunden | Ist reads as a wide header; its rows' own Monat column now
+// makes that reading ask, on both routes.
+describe("useForecastImport — a wide reading whose rows hold their own period column waits (round 2)", () => {
+  const METADATA = [
+    "Erstellt,,01.01.2026,15.01.2026,20.01.2026", "Name,Monat,Stunden,Ist",
+    "Ann Lee,Jan 2026,40,35", "Bob Ray,Feb 2026,40,35", "Cem Ott,Jan 2026,40,35", "Dora Li,Feb 2026,40,35", "Eve Wu,Jan 2026,40,35", "",
+  ].join("\r\n");
+
+  it("gates the hand route and refuses Claude, then reads the hours the user picked", async () => {
+    claudeResponds({ rows: [
+      { person: "Ann Lee", period: "Jan 2026", hours: 35, source: "forecast!D3" },
+      { person: "Bob Ray", period: "Jan 2026", hours: 35, source: "forecast!D4" },
+    ] });
+    const deps = depsOf();
+    const { result } = await loaded(deps, METADATA);
+    expect(result.current.step).toBe("mapping");
+    expect(result.current.mapping).toMatchObject({ layout: "wide", headerRow: 0 });
+    expect(result.current.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
+    act(() => result.current.showPreview());
+    let outcome: string | undefined;
+    act(() => {
+      outcome = result.current.apply();
+    });
+    expect(outcome).toBe("refused");
+    expect(result.current.error).toEqual({ key: "forecastImportConfirmFirst" });
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason))).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
+    expect(result.current.importPlan?.changes).toEqual([]);
+    // The user maps it as the long sheet it is and confirms: Stunden, never Ist or their sum.
+    act(() => result.current.setMapping({ layout: "long", headerRow: 1, person: 0, period: 1, hours: 2, year: 2026 }));
+    act(() => result.current.confirmColumns());
+    act(() => result.current.showPreview());
+    const written = result.current.importPlan?.changes.map((c) => [c.period, c.next]);
+    expect(written).toEqual([["2026-01", 40], ["2026-02", 40]]);
+    act(() => {
+      outcome = result.current.apply();
+    });
+    expect(outcome).toBe("applied");
+    expect(deps.onChangeBuckets).toHaveBeenCalledTimes(1);
+  });
+});
