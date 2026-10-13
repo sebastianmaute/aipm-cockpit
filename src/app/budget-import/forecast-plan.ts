@@ -31,8 +31,8 @@ export type CellChange = {
   old: number | undefined;
   next: number;
   partial?: true;
-  /** Members of the allocation's line the sheet does not list: the imported
-   *  value replaces the whole cell, their share included. */
+  /** Members of the allocation's line the sheet does not list for this
+   *  period: the imported value replaces the whole cell, their share included. */
   othersOnLine?: string[];
 };
 /** `several-lines`: the matched resource sits on more than one line of the
@@ -148,6 +148,8 @@ type Acc = {
   alloc: AllocationKey;
   cents: Map<string, number>;
   people: Set<number>;
+  /** Per target period, the people whose hours reach it (final review 3, M2). */
+  peopleByPeriod: Map<string, Set<number>>;
   /** Sheet periods that contributed an in-range share to this allocation. */
   sources: Set<string>;
 };
@@ -208,10 +210,11 @@ function addShare(
   source: string,
   out: Collector,
 ): void {
-  const target = acc ?? { alloc, cents: new Map<string, number>(), people: new Set<number>(), sources: new Set<string>() };
+  const target = acc ?? { alloc, cents: new Map<string, number>(), people: new Set<number>(), peopleByPeriod: new Map<string, Set<number>>(), sources: new Set<string>() };
   out.accs.set(allocId(alloc), target);
   target.cents.set(key, (target.cents.get(key) ?? 0) + cents);
   target.people.add(resourceId);
+  target.peopleByPeriod.set(key, new Set([...(target.peopleByPeriod.get(key) ?? []), resourceId]));
   target.sources.add(source);
 }
 
@@ -310,7 +313,7 @@ type Diff = Pick<ImportPlan, "changes" | "addResources" | "newAllocations" | "ho
 
 type DiffScope = { active: ReadonlyMap<string, Period>; holidaySet: ReadonlySet<string>; byId: ReadonlyMap<number, Resource> };
 
-/** The names of a stored line's members the sheet did not match to it. */
+/** The names of a stored line's members the sheet did not match to it in a period. */
 function othersOnLine(stored: StoredAlloc | undefined, matched: ReadonlySet<number>, byId: ReadonlyMap<number, Resource>): string[] {
   return (stored?.resourceIds ?? [])
     .filter((id) => !matched.has(id))
@@ -338,7 +341,6 @@ function hasUncoveredWorkday(target: Period, covers: readonly Period[], holidayS
 function diffAllocation(acc: Acc, stored: StoredAlloc | undefined, scope: DiffScope): Diff {
   const changes: CellChange[] = [];
   const covers = [...acc.sources].map(sourcePeriodBounds);
-  const others = othersOnLine(stored, acc.people, scope.byId);
   let delta = 0;
   for (const period of [...acc.cents.keys()].sort()) {
     const next = (acc.cents.get(period) ?? 0) / 100;
@@ -347,6 +349,9 @@ function diffAllocation(acc: Acc, stored: StoredAlloc | undefined, scope: DiffSc
     const change: CellChange = { alloc: acc.alloc, period, old, next };
     const target = scope.active.get(period);
     if (target && hasUncoveredWorkday(target, covers, scope.holidaySet)) change.partial = true;
+    // ★ Per period (final review 3, M2): a member the sheet lists for January
+    // but leaves blank for April loses their April share, and April says so.
+    const others = othersOnLine(stored, acc.peopleByPeriod.get(period) ?? new Set(), scope.byId);
     if (others.length > 0) change.othersOnLine = others;
     changes.push(change);
     delta += next - (old ?? 0);

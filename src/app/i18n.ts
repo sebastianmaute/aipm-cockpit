@@ -2620,7 +2620,7 @@ const enUS = {
   forecastImportNewAllocation: "New line: {0}",
   forecastImportAddResources: "{0}: adds {1}",
   forecastImportPartial: "The sheet covers only part of this period.",
-  forecastImportOthersOnLine: "also covers {0} (not in the sheet)",
+  forecastImportOthersOnLine: "also covers {0} (not in the sheet for this period)",
   forecastImportTotalDelta: "Total change: {0} h",
   forecastImportApply: "Apply",
   forecastImportRefused: "The bucket changed while the preview was open (closed, removed, or “Budget hours follow plan” switched on). Nothing was written.",

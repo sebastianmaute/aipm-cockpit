@@ -633,3 +633,17 @@ describe("routing to the line the bucket already places the person on (final rev
     expect(p.newAllocations).toEqual([{ kind: "role", roleId: ROLE_A.id }]);
   });
 });
+
+// Final review 3, M2: the members the sheet does not list are found PER PERIOD:
+// Bob, listed for January but blank for April, is named in April's note.
+describe("the line's members not in the sheet, per period (final review 3, M2)", () => {
+  it("names a member blank for a covered period in that period's note only", () => {
+    const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray")];
+    const bucket = bucketOf({ endDate: "2026-04-30", allocations: [alloc(ROLE_A.id, { "2026-04": 160 }, [1, 2])] });
+    const p = plan([row("Ann Lee", "2026-01", 80), row("Bob Ray", "2026-01", 80), row("Ann Lee", "2026-04", 80)], { resources, bucket });
+    expect(p.changes).toEqual([
+      { alloc: { kind: "role", roleId: ROLE_A.id }, period: "2026-01", old: undefined, next: 160 },
+      { alloc: { kind: "role", roleId: ROLE_A.id }, period: "2026-04", old: 160, next: 80, othersOnLine: ["Bob Ray"] },
+    ]);
+  });
+});
