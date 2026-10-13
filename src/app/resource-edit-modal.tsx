@@ -57,6 +57,9 @@ function inputToBirthday(input: string, yearUnknown: boolean): string | undefine
   return yearUnknown ? input.slice(5) : input;
 }
 
+/** The banner id the email field's `aria-describedby` points at while it shows the required-email refusal. */
+const EMAIL_REQUIRED_ERROR_ID = "resource-email-required-error";
+
 // §708 — "More details" starts open when the person already has anything in it, so an edit never
 // hides a value behind a closed disclosure.
 function hasMoreDetails(r: Resource | null): boolean {
@@ -81,6 +84,10 @@ export function ResourceEditModal({
   const { draft, setDraft, update, error, setError } = useDraftState<Resource>(resource);
   const [yearUnknown, setYearUnknown] = useState(() => !birthdayHasYear(resource?.birthday));
   const [moreOpen, setMoreOpen] = useState(() => hasMoreDetails(resource));
+  // Set only by the required-email refusal in `handleSubmit` (which clears it first), so the email
+  // field can flag and describe itself without comparing the banner's TEXT to a translation. It
+  // only counts while a banner shows, so the places that clear `error` need not clear it too.
+  const [emailMissing, setEmailMissing] = useState(false);
 
   if (prevResource !== resource) {
     setPrevResource(resource);
@@ -104,6 +111,7 @@ export function ResourceEditModal({
     e.preventDefault();
     if (!draft) return;
     adj.reset();
+    setEmailMissing(false);
     const firstName = adj.track(describeTextCap((draft.firstName ?? "").trim(), ASSIGNEE_MAX));
     const lastName = adj.track(describeTextCap((draft.lastName ?? "").trim(), ASSIGNEE_MAX));
     if (!firstName && !lastName) {
@@ -115,6 +123,7 @@ export function ResourceEditModal({
     // §708 — this FORM requires an email (it is how Timelog bookings reach the person); the other
     // create paths (picker, AI tool, imports) deliberately do not.
     if (!email) {
+      setEmailMissing(true);
       setError(t(lang, "resourceErrorEmailRequired"));
       return;
     }
@@ -179,7 +188,8 @@ export function ResourceEditModal({
   const cappedEmailReport = describeTextCap(normalizeEmailShape((draft.email ?? "").trim()), EMAIL_MAX);
   const cappedEmail = sanitizeLoadedEmail(draft.email) || undefined;
 
-  const emailMissing = error === t(lang, "resourceErrorEmailRequired");
+  // The flag outlives `error` (any edit clears the banner), so it only counts while a banner shows.
+  const emailRequiredShown = emailMissing && error !== null;
 
   const title = isNew ? t(lang, "resourceNewTitle") : t(lang, "resourceEditTitle");
 
@@ -267,9 +277,10 @@ export function ResourceEditModal({
                   update("email", trimmed || undefined);
                 }}
                 aria-required="true"
-                aria-invalid={emailFieldInvalid(cappedEmail) || emailMissing || undefined}
+                aria-invalid={emailFieldInvalid(cappedEmail) || emailRequiredShown || undefined}
                 aria-describedby={joinDescribedBy(
                   "resource-email-counter",
+                  emailRequiredShown ? EMAIL_REQUIRED_ERROR_ID : undefined,
                   emailFlagDescribedBy("resource-email-error", lang, cappedEmail, error),
                 )}
               />
@@ -408,7 +419,6 @@ export function ResourceEditModal({
                 </Button>
               </div>
 
-
               {/* External resource flag — full width */}
               {/* ★★ The hint is the label's SIBLING, not its child: inside, its text
                   joined the checkbox's accessible name (open-followups §386). */}
@@ -476,7 +486,7 @@ export function ResourceEditModal({
             </div>
           </details>
 
-          {error && <ModalFieldError error={error} />}
+          {error && <ModalFieldError error={error} id={emailRequiredShown ? EMAIL_REQUIRED_ERROR_ID : undefined} />}
 
           <ModalEditFooter
             lang={lang}

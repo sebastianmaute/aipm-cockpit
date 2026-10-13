@@ -596,3 +596,104 @@ describe("ResourceEditModal — Needed group and required email (§708)", () => 
     });
   });
 });
+
+// §708 — the required-email refusal is tied to the email field, and driven by a flag rather than
+// by comparing the banner's text to a translation.
+describe("ResourceEditModal — required-email refusal wiring (§708)", () => {
+  beforeAll(() => loadI18n("de"));
+  const noEmail: Resource = { ...base, email: undefined };
+  const emailBox = () => screen.getByRole("textbox", { name: t("en-US", "resourceEmail") });
+  const submitForm = () =>
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+
+  it("describes the email input by the refusal while it shows", () => {
+    setup({ resource: noEmail, isNew: true });
+    expect(emailBox()).not.toHaveAccessibleDescription(/Timelog bookings reach them/);
+    submitForm();
+    const alert = screen.getByRole("alert");
+    expect(alert.id).not.toBe("");
+    expect(emailBox().getAttribute("aria-describedby")!.split(" ")).toContain(alert.id);
+    expect(emailBox()).toHaveAccessibleDescription(/it is how Timelog bookings reach them/);
+  });
+
+  it("drops the flag and the description as soon as the user edits the email", () => {
+    setup({ resource: noEmail, isNew: true });
+    submitForm();
+    expect(emailBox()).toHaveAttribute("aria-invalid", "true");
+    fireEvent.change(emailBox(), { target: { value: "sofia@acme.test" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(emailBox()).not.toHaveAttribute("aria-invalid");
+    expect(emailBox().getAttribute("aria-describedby") ?? "").not.toContain("required-error");
+  });
+
+  it("does not flag the email for an unrelated banner error", () => {
+    setup({ resource: { ...noEmail, firstName: "", lastName: "" }, isNew: true });
+    submitForm();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorName"));
+    expect(emailBox()).not.toHaveAttribute("aria-invalid");
+    expect(emailBox().getAttribute("aria-describedby") ?? "").not.toContain("required-error");
+  });
+
+  // A text comparison would lose the flag here: the banner still holds the English sentence while
+  // `t("de", …)` now returns the German one. The state flag does not depend on the wording.
+  it("keeps flagging the email when the language changes under a showing refusal", () => {
+    const { props, rerender } = setup({ resource: noEmail, isNew: true });
+    submitForm();
+    expect(emailBox()).toHaveAttribute("aria-invalid", "true");
+    rerender(<ResourceEditModal {...props} lang="de" />);
+    expect(screen.getByRole("textbox", { name: t("de", "resourceEmail") })).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("forgets the refusal when the modal is pointed at another person", () => {
+    const { props, rerender } = setup({ resource: noEmail, isNew: true });
+    submitForm();
+    expect(emailBox()).toHaveAttribute("aria-invalid", "true");
+    rerender(<ResourceEditModal {...props} resource={{ ...base, id: 2 }} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(emailBox()).not.toHaveAttribute("aria-invalid");
+  });
+});
+
+// §708 — "More details" starts open when the person already has anything in it.
+describe("ResourceEditModal — More details disclosure follows the person (§708)", () => {
+  const plain: Resource = { ...base };
+  const withTitle: Resource = { ...base, id: 2, title: "Engineer" };
+  const details = () => document.querySelector("details")!;
+  /** What the browser does when the user clicks the summary. */
+  const userSetsOpen = (open: boolean) => {
+    details().open = open;
+    fireEvent(details(), new Event("toggle"));
+  };
+
+  it("re-seeds open when the resource changes to a person who has details, and closed for one who has none", () => {
+    const { props, rerender } = setup({ resource: plain });
+    expect(details().open).toBe(false);
+    rerender(<ResourceEditModal {...props} resource={withTitle} />);
+    expect(details().open).toBe(true);
+    rerender(<ResourceEditModal {...props} resource={{ ...plain, id: 3 }} />);
+    expect(details().open).toBe(false);
+  });
+
+  it("re-seeds even over a disclosure the user closed", () => {
+    const { props, rerender } = setup({ resource: withTitle });
+    userSetsOpen(false);
+    expect(details().open).toBe(false);
+    rerender(<ResourceEditModal {...props} resource={{ ...withTitle, id: 4 }} />);
+    expect(details().open).toBe(true);
+  });
+
+  it("keeps a disclosure the user closed closed across a re-render with the same person", () => {
+    const { props, rerender } = setup({ resource: withTitle });
+    expect(details().open).toBe(true);
+    userSetsOpen(false);
+    rerender(<ResourceEditModal {...props} resource={withTitle} onClose={vi.fn()} />);
+    expect(details().open).toBe(false);
+  });
+
+  it("keeps a disclosure the user opened open across a re-render with the same person", () => {
+    const { props, rerender } = setup({ resource: plain });
+    userSetsOpen(true);
+    rerender(<ResourceEditModal {...props} resource={plain} onClose={vi.fn()} />);
+    expect(details().open).toBe(true);
+  });
+});
