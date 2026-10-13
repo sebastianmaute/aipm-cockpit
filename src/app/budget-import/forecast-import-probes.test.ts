@@ -364,3 +364,32 @@ describe("probe: a serial date column is not an ignored number column (round 4)"
     expect(run.out.ignoredColumns).toEqual([{ col: 1, header: "Kosten" }]);
   });
 });
+
+// Round 4 (rr3 observation): two year-less months beside a date column were
+// read long, the hours in the date's month and Feb listed as ignored.
+describe("probe: two year-less months beside a date column (round 4)", () => {
+  it("Name | Start | Jan | Feb is wide, every cell in its month", () => {
+    const rows = [["Name", "Start", "Jan", "Feb"], ["Ann Lee", "01.02.2026", "8", "4"], ["Bob Kay", "15.03.2026", "1", "2"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("wide");
+    const run = readSheet(rows);
+    expect(run.out.rows.map((r) => [r.person, r.period, r.hours])).toEqual([
+      ["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-01", 1], ["Bob Kay", "2026-02", 2],
+    ]);
+    expect(run.out.ignoredColumns).toEqual([]);
+  });
+
+  it("a long sheet with Start | Ende date pairs on every row stays long", () => {
+    const rows = [
+      ["Name", "Start", "Ende", "Monat", "Stunden"],
+      ["Ann Lee", "01.01.2026", "30.06.2026", "Jan 2026", "8"],
+      ["Ann Lee", "01.01.2026", "30.06.2026", "Feb 2026", "4"],
+      ["Bob Kay", "01.03.2026", "31.12.2026", "Mär 2026", "2"],
+    ];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.kind).toBe("long");
+    expect(detected.mapping).toMatchObject({ period: 3, hours: 4 });
+    expect(readSheet(rows).out.rows.map((r) => [r.person, r.period, r.hours])).toEqual([
+      ["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-03", 2],
+    ]);
+  });
+});

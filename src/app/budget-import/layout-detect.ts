@@ -5,8 +5,7 @@
 // WIDE: one column per period ("Jan 2026", "KW03 2026"), one row per person.
 // LONG: one row per person and period, with a period column and an hours
 // column. A wide header with at least MIN_WIDE_PERIODS period cells is taken
-// first; a two-period wide sheet is only believed when no long reading fits,
-// because a long sheet's start/end date columns look the same.
+// first, then a two-period one, then a long reading (`detectLayout`).
 
 import { cellAt, detectDecimalStyle, isBlank, isTotalLabel, parseNumberCell, parsePeriodLabel } from "./forecast-rows";
 import type { ColumnMapping } from "./forecast-types";
@@ -285,12 +284,10 @@ function detectionPasses(rows: Rows, numbers: NumberOrigin, year: number | undef
   return [
     { kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS, bare) },
     ...yearPasses([{ kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS, withYear) }]),
-    { kind: "long", run: () => detectLong(rows, bare) },
     { kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, bare) },
-    ...yearPasses([
-      { kind: "long", run: () => detectLong(rows, withYear) },
-      { kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, withYear) },
-    ]),
+    ...yearPasses([{ kind: "wide", run: () => detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, withYear) }]),
+    { kind: "long", run: () => detectLong(rows, bare) },
+    ...yearPasses([{ kind: "long", run: () => detectLong(rows, withYear) }]),
   ];
 }
 
@@ -300,16 +297,19 @@ function detectionPasses(rows: Rows, numbers: NumberOrigin, year: number | undef
  * blank). `unknown` when neither a wide nor a long reading fits. `numbers` is
  * the grid's `SheetGrid.numbers` (a workbook's stored numbers read with a dot).
  * ★★ The passes run in a FIXED order and the first that finds a layout wins:
- * (1) wide with 3+ periods, no default year; (2) the same WITH it; (3) long, no
- * year; (4) two-period wide, no year; (5) long, then two-period wide, with the
- * year. With the year it reads month names and weeks without one ("Jan",
- * "KW03") as periods. Long ran with the year before (fix wave 1): a data
- * column of month names ("Start" holding "Mai") became the period column of
- * a correct wide sheet. Every year-less pass ran first (fix wave 2): a
+ * (1) wide with 3+ periods, no default year; (2) the same WITH it; (3)
+ * two-period wide, no year; (4) the same WITH it; (5) long, no year; (6) long
+ * with the year. With the year it reads month names and weeks without one
+ * ("Jan", "KW03") as periods. Long ran with the year before (fix wave 1): a
+ * data column of month names ("Start" holding "Mai") became the period column
+ * of a correct wide sheet. Every year-less pass ran first (fix wave 2): a
  * year-less WIDE sheet with any date column ("Start", "Eintritt") was then read
- * as long, the hours in the date's month. Wide-with-year before long-without
- * settles both. The mapping carries `defaultYear` as `year`, the year the
- * mapping step shows.
+ * as long, the hours in the date's month — and with two months
+ * (`Name | Start | Jan | Feb`) that held until two-period wide with the year
+ * moved ahead of long too (re-review 3). A long sheet's `Start | Ende` pair
+ * is not taken for a two-period header: under a data row read as one, the
+ * rows below hold dates in those columns, not numbers (`wideFromHeader`). The mapping carries `defaultYear` as
+ * `year`, the year the mapping step shows.
  */
 export function detectLayout(
   rows: readonly string[][],
