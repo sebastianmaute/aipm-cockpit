@@ -636,11 +636,13 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     render(<ForecastImportModal {...props} />);
     await chooseAmbiguous("Name,Start,Jan 2026,Feb 2026\r\nAnn Lee,01.03.2026,40,50\r\n");
     expect(screen.getByRole("radio", { name: t(L, "forecastImportLayoutWide") })).toBeChecked();
-    expect(screen.getByText(t(L, "forecastImportAmbiguousWide"))).toBeInTheDocument();
+    // Round 7: the Wide notice names the candidate columns by header.
+    expect(t(L, "forecastImportAmbiguousWide", "Start, Jan 2026, Feb 2026")).toContain("Start, Jan 2026, Feb 2026");
+    expect(screen.getByText(t(L, "forecastImportAmbiguousWide", "Start, Jan 2026, Feb 2026"))).toBeInTheDocument();
     expect(applyButton()).toBeDisabled();
     expect(applyButton()).toHaveAccessibleDescription(t(L, "forecastImportConfirmFirst"));
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") }));
-    expect(screen.queryByText(t(L, "forecastImportAmbiguousWide"))).toBeNull();
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousWide", "Start, Jan 2026, Feb 2026"))).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
     const diff = await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
     expect(within(diff).getByText("— → 40")).toBeInTheDocument();
@@ -674,7 +676,8 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     render(<ForecastImportModal {...propsOf()} />);
     await chooseAmbiguous("Name,Jan 2026,Feb 2026\r\nAnn Lee,10,20\r\nBob Kay,11,21\r\nName,Jan 2027,Feb 2027\r\nAnn Lee,30,40\r\nBob Kay,31,41\r\n");
     expect(screen.getByText(t(L, "forecastImportAmbiguousHeader", "1, 4"))).toBeInTheDocument();
-    expect(screen.queryByText(t(L, "forecastImportAmbiguousWide"))).toBeNull();
+    const widePrefix = t(L, "forecastImportAmbiguousWide", "\u0000").split("\u0000")[0];
+    expect(screen.queryByText((text) => text.startsWith(widePrefix))).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") }));
     expect(screen.queryByText(t(L, "forecastImportAmbiguousHeader", "1, 4"))).toBeNull();
   });
@@ -697,11 +700,11 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     render(<ForecastImportModal {...propsOf()} />);
     await chooseAmbiguous(PLAN_IST);
     await user.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutWide") }));
-    expect(screen.getByText(t(L, "forecastImportAmbiguousWide"))).toBeInTheDocument();
+    expect(screen.getByText(t(L, "forecastImportAmbiguousWide", "Plan, Ist"))).toBeInTheDocument();
     expect(screen.queryByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeNull();
     expect(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") })).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutLong") }));
-    expect(screen.queryByText(t(L, "forecastImportAmbiguousWide"))).toBeNull();
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousWide", "Plan, Ist"))).toBeNull();
     expect(screen.getByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeInTheDocument();
   });
 });

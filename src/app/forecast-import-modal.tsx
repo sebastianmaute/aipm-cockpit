@@ -239,6 +239,11 @@ const AMBIGUOUS_KEY: Record<ColumnAmbiguity["field"], TranslationKey> = {
   header: "forecastImportAmbiguousHeader",
 };
 
+/** The Wide notice's candidate columns, by header (round 7: it once named none). */
+function wideNames(columns: readonly ColumnAmbiguity[], nameOf: (col: number) => string): string {
+  return [...new Set(columns.flatMap((a) => a.candidates))].sort((a, b) => a - b).map(nameOf).join(", ");
+}
+
 /** One notice per field more than one column could be, naming the candidates
  *  by header (or column letter), and the button that confirms the mapping as
  *  it stands. Choosing the field's column confirms it too. ★ In the Wide
@@ -253,7 +258,9 @@ function AmbiguityNotice({ lang, fi, header, layout }: { lang: Lang; fi: Forecas
   const shown = layout === "wide" ? fi.ambiguous.filter((a) => a.field === "header") : fi.ambiguous;
   return (
     <div className="space-y-2">
-      {layout === "wide" && columns.length > 0 && <Banner severity="warn">{t(lang, "forecastImportAmbiguousWide")}</Banner>}
+      {layout === "wide" && columns.length > 0 && (
+        <Banner severity="warn">{t(lang, "forecastImportAmbiguousWide", wideNames(columns, nameOf))}</Banner>
+      )}
       {shown.map((a) => (
         <Banner key={a.field} severity="warn">{t(lang, AMBIGUOUS_KEY[a.field], namesOf(a))}</Banner>
       ))}
