@@ -708,7 +708,7 @@ describe("validateForecastRows: a long sheet of Monday dates (round 2)", () => {
   });
 });
 
-describe("validateForecastRows: the header bounds the search for a period above (round 3)", () => {
+describe("validateForecastRows: a title row's lone date is no period header (round 3)", () => {
   it("accepts long-sheet claims under a title row that holds a date (rr2 probe)", () => {
     const sheet: SheetGrid = {
       name: "S",
