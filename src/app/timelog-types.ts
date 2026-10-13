@@ -207,7 +207,7 @@ export type TimelogScopeMode = "auto" | "self" | "org";
 /** Per-device connection config (mirror JiraConfig). Lives at settings.timelog (TOP-LEVEL). */
 export type TimelogConfig = {
   enabled: boolean;
-  host: string;     // e.g. "app2.timelog.com"
+  host: string;     // e.g. "app.timelog.com"; no built-in — Timelog serves regions from different hosts (§704)
   tenant: string;   // the Timelog tenant slug (a URL path segment); no built-in — see `defaultTimelogTenant` in timelog-sanitize.ts
   email: string;    // identifying, plaintext
   apiToken: string; // sealed secret; blanked on disk by writeSettings
@@ -221,9 +221,13 @@ export type TimelogConfig = {
 //   (timelog-sanitize.ts), which falls back to the `NEXT_PUBLIC_TIMELOG_TENANT`
 //   build variable through `defaultTimelogTenant()`. `sanitizeTimelogConfig`
 //   calls `defaultTimelogTenant()` too, but has no production caller today.
+// ★ No built-in HOST either (§704): the old `app2.timelog.com` default was one
+//   Timelog region and sent users elsewhere to a 404. A stored config still wins
+//   over this default (`use-settings.ts` spreads it first), so existing users keep
+//   the host they have; a request with a blank host is blocked, never sent.
 export const defaultTimelogConfig: TimelogConfig = {
   enabled: false,
-  host: "app2.timelog.com",
+  host: "",
   tenant: "",
   email: "",
   apiToken: "",

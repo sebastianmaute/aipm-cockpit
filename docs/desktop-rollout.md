@@ -139,11 +139,13 @@ you can apply them to the Budget.
 
 1. Go to <https://login.timelog.com/personaltoken> and sign in with your Timelog account.
 2. Generate a **personal access token** and copy it.
-3. Note two parts of the address you use for Timelog in your browser. For
-   `https://app2.timelog.com/yourcompany/...`, the **host** is `app2.timelog.com` and the
-   **tenant** is `yourcompany`. Ask your Timelog administrator if you are not sure.
-4. In the app, open **Settings → Integrations**, tick **Enable Timelog integration**, and fill in
-   **Host**, **Tenant**, **Account email** and **Personal access token**.
+3. Open Timelog in your browser and copy the address bar, for example
+   `https://app.timelog.com/yourcompany/...`. Timelog serves regions from different hosts, so
+   do not guess it. The first path segment (`yourcompany`) is the **tenant**.
+4. In the app, open **Settings → Integrations**, tick **Enable Timelog integration**, paste the
+   address into **Your Timelog address** (it fills in the host and the tenant), then fill in
+   **Account email** and **Personal access token**. **Edit host and tenant separately** is there
+   if you need to correct either by hand.
 5. Click **Test connection**. It reports how many people it can see and a scope: `self` (your own
    bookings) or `org` (the whole organisation's). With **Data scope** on **Auto-detect**, the
    default, that scope comes from your Timelog permissions. With **My bookings only** or **Whole

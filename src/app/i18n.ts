@@ -1826,6 +1826,11 @@ const enUS = {
   //   for Timelog a STORED tenant always wins, so the env only fills a BLANK
   //   field rather than overriding a typed one — the input stays live.
   timelogTenantFromEnv: "This field is blank, so this deployment's NEXT_PUBLIC_TIMELOG_TENANT build variable is used. Enter a tenant here to override it.",
+  timelogAddress: "Your Timelog address",
+  timelogAddressHint: "Open Timelog in your browser, copy the address bar, paste it here.",
+  timelogAddressInvalid: "This is not a Timelog address.",
+  timelogAddressEditSeparately: "Edit host and tenant separately",
+  timelogTenantHint: "The part after the host in your Timelog address.",
   timelogEmail: "Account email",
   timelogToken: "Personal access token",
   timelogScope: "Data scope",
@@ -1838,6 +1843,9 @@ const enUS = {
   timelogTestOk: "Connected — {0} users, scope: {1}",
   timelogTestOkOne: "Connected — 1 user, scope: {1}",
   timelogTestFail: "Connection failed (HTTP {0})",
+  timelogTest404:
+    "Timelog has no tenant \"{0}\" on {1}. Timelog serves regions from different addresses — check the address bar while logged in.",
+  timelogTestNoHost: "Paste your Timelog address first.",
   timelogTokenInvalid: "Token was rejected. Re-enter it.",
   timelogCacheNotSaved:
     "These TimeLog bookings could not be saved on this device because browser storage is full or unavailable. The Budget view does not show them, and they are gone after a reload. Apply them to the budget now, or free up browser storage and fetch again.",

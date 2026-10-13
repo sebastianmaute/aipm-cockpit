@@ -199,3 +199,23 @@ describe("§650 — the unreadable probe feeds the AI key verdict for the Anthro
     expect(events).toHaveLength(1);
   });
 });
+
+describe("timelog host on load (§704)", () => {
+  it("a stored host still wins over the blank default, so an existing user keeps app2.timelog.com", async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({ timelog: { enabled: true, host: "app2.timelog.com", tenant: "acme" } }),
+    );
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    expect(result.current.settings.timelog?.host).toBe("app2.timelog.com");
+    expect(result.current.settings.timelog?.tenant).toBe("acme");
+  });
+
+  it("a device that never stored a timelog host loads with a blank one", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ timelog: { enabled: true } }));
+    const { result } = renderHook(() => useSettings());
+    await waitFor(() => expect(result.current.hydrated).toBe(true));
+    expect(result.current.settings.timelog?.host).toBe("");
+  });
+});

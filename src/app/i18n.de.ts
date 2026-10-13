@@ -1725,6 +1725,12 @@ export const de: Record<TranslationKey, string> = {
   //   LEERES Feld, statt ein eingegebenes zu überschreiben — das Feld bleibt bearbeitbar.
   timelogTenantFromEnv:
     "Dieses Feld ist leer, daher wird die Build-Variable NEXT_PUBLIC_TIMELOG_TENANT dieser Installation verwendet. Geben Sie hier einen Mandanten ein, um sie zu überschreiben.",
+  timelogAddress: "Ihre Timelog-Adresse",
+  timelogAddressHint:
+    "Öffnen Sie Timelog im Browser, kopieren Sie die Adresse aus der Adressleiste und fügen Sie sie hier ein.",
+  timelogAddressInvalid: "Das ist keine Timelog-Adresse.",
+  timelogAddressEditSeparately: "Host und Mandant einzeln bearbeiten",
+  timelogTenantHint: "Der Teil nach dem Host in Ihrer Timelog-Adresse.",
   timelogEmail: "Konto-E-Mail",
   timelogToken: "Persönlicher Zugriffstoken",
   timelogScope: "Datenbereich",
@@ -1736,6 +1742,9 @@ export const de: Record<TranslationKey, string> = {
   timelogTestOk: "Verbunden — {0} Benutzer, Bereich: {1}",
   timelogTestOkOne: "Verbunden — 1 Benutzer, Bereich: {1}",
   timelogTestFail: "Verbindung fehlgeschlagen (HTTP {0})",
+  timelogTest404:
+    "Timelog kennt den Mandanten \"{0}\" auf {1} nicht. Timelog betreibt Regionen unter verschiedenen Adressen — prüfen Sie die Adressleiste, während Sie angemeldet sind.",
+  timelogTestNoHost: "Fügen Sie zuerst Ihre Timelog-Adresse ein.",
   timelogTokenInvalid: "Token wurde abgelehnt. Bitte erneut eingeben.",
   timelogCacheNotSaved:
     "Diese TimeLog-Buchungen konnten auf diesem Gerät nicht gespeichert werden, weil der Browserspeicher voll oder nicht verfügbar ist. Die Budgetansicht zeigt sie nicht an, und nach dem Neuladen sind sie verloren. Wenden Sie sie jetzt auf das Budget an oder geben Sie Browserspeicher frei und rufen Sie die Buchungen erneut ab.",

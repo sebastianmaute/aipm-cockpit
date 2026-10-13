@@ -545,3 +545,96 @@ describe("TimelogSettings — email draft persists only a valid value", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("TimelogSettings — address field (§704, §709)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("ships with no built-in host", () => {
+    expect(defaultTimelogConfig.host).toBe("");
+  });
+
+  it("fills host and tenant from a pasted address", () => {
+    const onChange = vi.fn();
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText(t("en-US", "timelogAddress")), {
+      target: { value: "https://app.timelog.com/acme/registration/week" },
+    });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith({ ...cfg, host: "app.timelog.com", tenant: "acme" });
+    expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
+  });
+
+  it("shows an error and writes nothing for an address that is not a Timelog one", () => {
+    const onChange = vi.fn();
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText(t("en-US", "timelogAddress")), {
+      target: { value: "https://eviltimelog.com/acme" },
+    });
+    expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("clears the error once the field is emptied again", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.change(input, { target: { value: "nonsense" } });
+    expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "" } });
+    expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
+  });
+
+  it("rendering a stored config writes nothing and shows the stored host and tenant", () => {
+    const onChange = vi.fn();
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "app2.timelog.com", tenant: "acme" };
+    const { container } = render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
+    expect(onChange).not.toHaveBeenCalled();
+    expect((screen.getByLabelText(t("en-US", "timelogHost")) as HTMLInputElement).value).toBe("app2.timelog.com");
+    expect((screen.getByLabelText(t("en-US", "timelogTenant")) as HTMLInputElement).value).toBe("acme");
+    expect(container.querySelector("details")?.open).toBe(true);
+    // The address field is local state: it is NOT back-filled from the stored values.
+    expect((screen.getByLabelText(t("en-US", "timelogAddress")) as HTMLInputElement).value).toBe("");
+  });
+
+  it("keeps host and tenant under a closed disclosure while both are blank", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    const { container } = render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    expect(container.querySelector("details")?.open).toBe(false);
+  });
+
+  it("explains the tenant field", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "app.timelog.com", tenant: "acme" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "timelogTenantHint"))).toBeInTheDocument();
+  });
+
+  it("'Test connection' names the tenant and host on a 404", async () => {
+    vi.mocked(timelogApi.listUsers).mockRejectedValue(Object.assign(new Error("nope"), { status: 404 }));
+    vi.mocked(timelogApi.getPrivileges).mockRejectedValue(Object.assign(new Error("nope"), { status: 404 }));
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "app2.timelog.com", tenant: "acme", apiToken: "tok" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }));
+    expect(await screen.findByText(t("en-US", "timelogTest404", "acme", "app2.timelog.com"))).toBeInTheDocument();
+    expect(screen.getByText(/no tenant "acme" on app2\.timelog\.com/)).toBeInTheDocument();
+  });
+
+  it("'Test connection' keeps the generic text for other statuses", async () => {
+    vi.mocked(timelogApi.listUsers).mockRejectedValue(Object.assign(new Error("boom"), { status: 500 }));
+    vi.mocked(timelogApi.getPrivileges).mockRejectedValue(Object.assign(new Error("boom"), { status: 500 }));
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "app.timelog.com", tenant: "acme", apiToken: "tok" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }));
+    expect(await screen.findByText(t("en-US", "timelogTestFail", "500"))).toBeInTheDocument();
+  });
+
+  it("'Test connection' sends nothing while no host is set", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true, tenant: "acme", apiToken: "tok" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }));
+    expect(screen.getByText(t("en-US", "timelogTestNoHost"))).toBeInTheDocument();
+    expect(timelogApi.listUsers).not.toHaveBeenCalled();
+    expect(timelogApi.getPrivileges).not.toHaveBeenCalled();
+  });
+});
