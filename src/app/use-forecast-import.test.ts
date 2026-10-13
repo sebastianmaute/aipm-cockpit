@@ -918,9 +918,10 @@ describe("useForecastImport — the Claude route checks claims against the confi
     expect(details(result)).toEqual(["period-conflict"]);
   });
 
-  // Round 3: the preselection reads Ist-Stunden (the hours word), so after
-  // confirming as preselected, the Forecast cells Claude cites are not read.
-  it("Erstellt von | Max | 01.03.2026 over Forecast | Bemerkung | Ist-Stunden: confirmed as preselected, the Forecast cells are not read", async () => {
+  // Round 8 m-1: Forecast (the leftmost candidate) is preselected now; it was
+  // Ist-Stunden, and the Forecast cells were cell-not-read. Confirmed, the
+  // title's March refuses every month.
+  it("Erstellt von | Max | 01.03.2026 over Forecast | Bemerkung | Ist-Stunden: confirmed as preselected, the title's March refuses every month", async () => {
     const reply = [ann("Jan 2026", 40, "forecast!C3"), ann("Feb 2026", 30, "forecast!C4")];
     claudeRepliesInOrder(reply, reply);
     const { result } = await loaded(depsOf(), keyValue("Forecast", "Ist-Stunden"));
@@ -928,7 +929,7 @@ describe("useForecastImport — the Claude route checks claims against the confi
     expect(details(result)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
     await confirmed(result);
     expect(changes(result)).toEqual([]);
-    expect(details(result)).toEqual(["cell-not-read", "cell-not-read"]);
+    expect(details(result)).toEqual(["period-conflict", "period-conflict"]);
   });
 
   // A clear long sheet: detection reads Monat; the user moves the period to Start.
@@ -1245,5 +1246,32 @@ describe("useForecastImport — an unknown layout's second number column refuses
     });
     expect(outcome).toBe("refused");
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+});
+
+// Round 8 m-1 (rr11): the preselection follows the candidates, not the share.
+// The hours preselect the LEFTMOST candidate; the period ranks by header word
+// first, then share, then leftmost. "These columns are right" once applied
+// the actuals (Ist) or every row in March (Erfasst am).
+describe("useForecastImport — the preselection is the forecast column (round 8 m-1)", () => {
+  it("Stunden with two '-' beside Ist preselects Stunden, and confirming writes Ann's forecast 40", async () => {
+    const deps = depsOf();
+    const csv = "Name,Monat,Stunden,Ist\r\nAnn Lee,Jan 2026,40,35\r\nBob Ray,Jan 2026,-,12\r\nCid Fox,Jan 2026,30,28\r\nDora Kim,Jan 2026,-,8\r\n";
+    const { result } = await loaded(deps, csv);
+    expect(result.current.mapping).toMatchObject({ layout: "long", period: 1, hours: 2 });
+    act(() => result.current.confirmColumns());
+    act(() => result.current.showPreview());
+    expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 40]]);
+  });
+
+  it("offen in Monat beside Erfasst am preselects Monat, and confirming writes the forecast in its own month", async () => {
+    const deps = depsOf();
+    const csv = "Name,Monat,Stunden,Erfasst am\r\nAnn Lee,Jan 2026,40,15.03.2026\r\nBob Ray,offen,30,15.03.2026\r\nCid Fox,Feb 2026,20,15.03.2026\r\nDora Kim,Mär 2026,10,15.03.2026\r\n";
+    const { result } = await loaded(deps, csv);
+    expect(result.current.ambiguous).toContainEqual({ field: "period", candidates: [1, 3] });
+    expect(result.current.mapping).toMatchObject({ layout: "long", period: 1, hours: 2 });
+    act(() => result.current.confirmColumns());
+    act(() => result.current.showPreview());
+    expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 40]]);
   });
 });

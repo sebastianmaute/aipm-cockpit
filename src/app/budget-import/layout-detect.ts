@@ -11,7 +11,7 @@
 import { cellAt, detectDecimalStyle, ID_HEADER, isBlank, isTotalLabel, parseNumberCell, parsePeriodLabel, repeatedHeaderRows } from "./forecast-rows";
 import type { ColumnAmbiguity, ColumnMapping } from "./forecast-types";
 import { assignRunPeriods, classifyPeriodCell, isPeriodShapedIn, isYearColumn, isYearHeader, parseYearCell, usableYear } from "./period-assign";
-import { HOURS_HEADER_RE, isPeriodWordHeader, PERSON_HEADER_RE } from "./header-words";
+import { isPeriodWordHeader, PERSON_HEADER_RE } from "./header-words";
 import type { NumberOrigin } from "./sheet-grid";
 
 /** `ambiguous` lists the fields more than one column could be: a long
@@ -315,7 +315,7 @@ function findYearColumn(header: readonly string[], data: Rows, width: number): n
 
 /** The period column (best `periodRank`), its period share, and every column
  *  that qualified (`candidates`, left to right). */
-type PeriodPick = { col: number; share: number; candidates: number[] };
+type PeriodPick = { col: number; share: number; strong: boolean; candidates: number[] };
 
 function findPeriodColumn(
   header: readonly string[],
@@ -327,7 +327,9 @@ function findPeriodColumn(
   // With a year column, a year-less "Jan" is a period: the row supplies its year.
   const isPeriod = (c: string): boolean =>
     parsePeriodLabel(c, ctx.year) !== null || (yearCol !== undefined && classifyPeriodCell(c) !== null);
-  let best: { col: number; share: number; rank: number } | undefined;
+  type Scored = { col: number; share: number; rank: number };
+  let best: Scored | undefined;
+  let strongShare = -1;
   const candidates: number[] = [];
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
@@ -337,12 +339,16 @@ function findPeriodColumn(
     // ★★ ONE period makes a candidate (round 7 I-B): an `offen` in `Monat` once
     // pushed it under the share, and every row was read in `Erfasst am`'s month.
     candidates.push(col);
-    // The PRESELECTION (and whether the row is a header at all) keeps the share.
-    if (share < COLUMN_SHARE) continue;
-    const rank = periodRank(label, cells);
-    if (best === undefined || rank < best.rank) best = { col, share, rank };
+    // Whether the row is a header at all (and its score) keeps the share.
+    if (share >= COLUMN_SHARE) strongShare = Math.max(strongShare, share);
+    // ★★ The PRESELECTION ranks the header word first, then the share, then
+    // the leftmost (round 8 m-1): a share-first pick took `Erfasst am` over a
+    // `Monat` with one `offen`, and "These columns are right" read every row in March.
+    const scored: Scored = { col, share, rank: periodRank(label, cells) };
+    if (best === undefined || scored.rank < best.rank || (scored.rank === best.rank && scored.share > best.share)) best = scored;
   }
-  return best && { col: best.col, share: best.share, candidates };
+  if (best === undefined || strongShare < 0) return undefined;
+  return { col: best.col, share: strongShare, strong: best.share >= COLUMN_SHARE, candidates };
 }
 
 /**
@@ -360,12 +366,18 @@ function findPeriodColumn(
  *   N1, rr7, rr8 N2). `Name | Monat | Stunden | Kosten` asks; one number
  *   column (`Name | Monat | Stunden`, `ID | Name | Month | Effort`) does not.
  */
-function ambiguityOf(header: readonly string[], periodCols: readonly number[], hoursCols: readonly number[], period: number): ColumnAmbiguity[] {
+function ambiguityOf(
+  header: readonly string[],
+  periodCols: readonly number[],
+  hoursCols: readonly number[],
+  period: { col: number; strong: boolean },
+): ColumnAmbiguity[] {
   const named = periodCols.filter((col) => isPeriodWordHeader(cellAt(header, col)));
   const out: ColumnAmbiguity[] = [];
-  // One period-word column settles it only when the preselection is that column
-  // (round 7 I-B: the share can now preselect another one).
-  const settled = named.length === 1 && named[0] === period;
+  // One period-word column settles it only when it is the preselection and its
+  // periods pass the share (round 7 I-B, round 8): a placeholder in `Monat`
+  // still asks, with `Monat` preselected.
+  const settled = named.length === 1 && named[0] === period.col && period.strong;
   if (periodCols.length > 1 && !settled) out.push({ field: "period", candidates: [...periodCols] });
   if (hoursCols.length > 1) out.push({ field: "hours", candidates: [...hoursCols] });
   return out;
@@ -439,23 +451,28 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   // through to two-period wide.
   const hoursCols = numeric.filter((col) => !rateCols.includes(col) && classifyPeriodCell(cellAt(header, col)) === null);
   const strongHours = hoursCols.filter((col) => strong.includes(col));
-  // The PRESELECTION only, which the user confirms whenever there is a choice
-  // (`ambiguityOf`): the leftmost column with an hours word, else the LEFTMOST
-  // number column. ★★ A rightmost pick (final review I3) imported `Ist`,
-  // `Actual`, `Summe` or `Betrag` in place of `Plan` or `Forecast` (rr6 N1).
-  const hours = strongHours.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? strongHours[0];
-  if (hours === undefined || isDataRowShaped(header, period, hours, ctx)) return null;
+  // A row is a header only with a share-passing hours column (and that scores it).
+  if (strongHours.length === 0) return null;
   const rate = rateCols.find((col) => strong.includes(col));
-
-  const used = new Set([...skip, hours, ...(rate === undefined ? [] : [rate])]);
-  const email = findEmailColumn(header, data, used);
-  const candidates = Array.from({ length: width }, (_, col) => col).filter((col) => !used.has(col));
-  const person = pickPerson(candidates, header, data, email, ctx);
+  // The person is settled before the hours, so a text column holding one
+  // number is never taken for the hours (round 8).
+  const beforeHours = new Set([...skip, ...strongHours, ...(rate === undefined ? [] : [rate])]);
+  const email = findEmailColumn(header, data, beforeHours);
+  const personCandidates = Array.from({ length: width }, (_, col) => col).filter((col) => !beforeHours.has(col));
+  const person = pickPerson(personCandidates, header, data, email, ctx);
   if (person === null) return null;
+  // The PRESELECTION only, which the user confirms whenever there is a choice
+  // (`ambiguityOf`): the LEFTMOST hours candidate, the person and email columns
+  // excluded, whatever its share (round 8 m-1: a share-first pick took `Ist`
+  // over a `Stunden` with two `-`). ★★ A rightmost pick (final review I3)
+  // imported `Ist`, `Actual`, `Summe` or `Betrag` in place of `Plan` (rr6 N1).
+  const questioned = hoursCols.filter((col) => col !== person && col !== email);
+  const hours = questioned[0];
+  if (hours === undefined || isDataRowShaped(header, period, hours, ctx)) return null;
   return {
     mapping: withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate, yearCol }),
-    ambiguous: ambiguityOf(header, found.candidates.filter((col) => col !== person && col !== email), hoursCols.filter((col) => col !== person && col !== email), period),
-    score: found.share + numberShare(columnCells(data, hours), ctx),
+    ambiguous: ambiguityOf(header, found.candidates.filter((col) => col !== person && col !== email), questioned, found),
+    score: found.share + numberShare(columnCells(data, strongHours[0]), ctx),
   };
 }
 

@@ -199,14 +199,17 @@ describe("OOS-1: an ambiguous sheet is refused until its columns are confirmed",
     }
   });
 
-  // The hours word preselects Ist-Stunden here, so confirming the default reads
-  // that column, and the Forecast cells Claude cites are not read (round 3).
-  it("Forecast | Ist-Stunden under a key/value title, confirmed as preselected: the Forecast cells are not read, nothing is written", () => {
+  // Round 8 m-1: Forecast, the leftmost candidate, is preselected now (Ist-Stunden
+  // was, by the hours word, and the Forecast cells were cell-not-read). Confirmed
+  // as preselected, the title's March disagrees with every row, so nothing is written.
+  it("Forecast | Ist-Stunden under a key/value title, confirmed as preselected: Forecast is read, the title's March refuses every month", () => {
     for (const numbers of ["text", "dot"] as const) {
       const s = shapes["Forecast | Ist-Stunden under a key/value title"];
       const out = validateForecastRows(keyValueClaims, confirmed(s[numbers], numbers));
       expect(out.ok).toEqual([]);
-      expect(detail(out)).toEqual(["cell-not-read", "cell-not-read", "cell-not-read"]);
+      expect(out.rejected.map((r) => (r.reason === "source" ? r.periods : undefined))).toEqual([
+        { sheet: "2026-01", header: "2026-03" }, { sheet: "2026-02", header: "2026-03" }, { sheet: "2026-01", header: "2026-03" },
+      ]);
     }
   });
 });

@@ -177,14 +177,15 @@ describe("detectLayout — long", () => {
     ]);
   });
 
-  // Fix 8: the hours word only preselects; two number columns always ask.
-  it("preselects the hours-looking header when two numeric columns qualify, and asks", () => {
+  // Fix 8: two number columns always ask; round 8: the leftmost is preselected.
+  // Round 8 m-1: the hours preselect the LEFTMOST candidate (Cost); it was the hours word (Hrs).
+  it("preselects the leftmost of two numeric columns, and asks", () => {
     const grid = [
       ["Name", "Month", "Cost", "Hrs"],
       ["Ann", "2026-01", "7600", "80"],
       ["Ann", "2026-02", "6840", "72"],
     ];
-    expect(detectLayout(grid)).toMatchObject({ mapping: { period: 1, hours: 3 }, ambiguous: [{ field: "hours", candidates: [2, 3] }] });
+    expect(detectLayout(grid)).toMatchObject({ mapping: { period: 1, hours: 2 }, ambiguous: [{ field: "hours", candidates: [2, 3] }] });
   });
 
   // Fix 7: the rightmost pick of final review I3 imported the constant,
@@ -210,13 +211,15 @@ describe("detectLayout — long", () => {
     expect(detectLayout(grid).mapping).toMatchObject({ period: 2, hours: 3 });
   });
 
+  // Round 8 m-1: Budget is the leftmost hours candidate, so it is preselected
+  // and the hours ask; the period is still Month (Hours was preselected before).
   it("does not mistake a column of large numbers for the period column", () => {
     const grid = [
       ["Name", "Budget", "Month", "Hours"],
       ["Ann", "25000", "Jan 2026", "80"],
       ["Bob", "30000", "Jan 2026", "72"],
     ];
-    expect(detectLayout(grid).mapping).toMatchObject({ period: 2, hours: 3 });
+    expect(detectLayout(grid)).toMatchObject({ mapping: { period: 2, hours: 1 }, ambiguous: [{ field: "hours", candidates: [1, 3] }] });
   });
 
   it("finds the header below a title row and ignores a total row", () => {
@@ -330,9 +333,10 @@ describe("detectLayout — rate header", () => {
       ["Ann", "2026-01", "3", "80"],
       ["Ann", "2026-02", "4", "72"],
     ];
-    const mapping = detectLayout(grid).mapping;
-    expect(mapping).toMatchObject({ layout: "long", period: 1, hours: 3 });
-    expect(mapping?.rate).toBeUndefined();
+    // Round 8 m-1: Generated is the leftmost hours candidate (Hours was preselected before); still no rate.
+    const detected = detectLayout(grid);
+    expect(detected).toMatchObject({ mapping: { layout: "long", period: 1, hours: 2 }, ambiguous: [{ field: "hours", candidates: [2, 3] }] });
+    expect(detected.mapping?.rate).toBeUndefined();
   });
 
   it("still takes Rate and Stundensatz as the rate column", () => {
@@ -510,9 +514,10 @@ describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
   // Fix 8 (owner decision 2026-10-13, rr8 N2): no header word settles the
   // hours. Each round's "named hours column" escape let a new actuals
   // spelling through (`Ist`, then `Iststunden`, `Gebuchte Stunden` …).
-  it("asks for Plan | Stunden too, Stunden preselected: one hours word settles nothing", () => {
+  // Round 8 m-1: the leftmost candidate (Plan) is preselected; it was Stunden.
+  it("asks for Plan | Stunden too, Plan preselected: one hours word settles nothing", () => {
     const detected = detectLayout(twoFigures("Plan", "Stunden", ["35", "30", "25"], PLAN), { defaultYear: 2026 });
-    expect(detected.mapping).toMatchObject({ hours: 3 });
+    expect(detected.mapping).toMatchObject({ hours: 2 });
     expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
   });
 
@@ -535,18 +540,19 @@ describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
     expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
   });
 
-  // The preselection is the leftmost column with an hours word, else the
-  // leftmost; the user confirms it either way.
+  // Round 8 m-1: the preselection is the LEFTMOST candidate (column 2) in
+  // every row; Ist-Stunden and Booked hours were preselected by the hours word.
+  // The user confirms it either way.
   it.each([
-    ["Forecast | Ist-Stunden", "Forecast", "Ist-Stunden", 3],
+    ["Forecast | Ist-Stunden", "Forecast", "Ist-Stunden", 2],
     ["Forecast | Actuals (h)", "Forecast", "Actuals (h)", 2],
-    ["Forecast | Booked hours", "Forecast", "Booked hours", 3],
+    ["Forecast | Booked hours", "Forecast", "Booked hours", 2],
     ["Stunden | Ist", "Stunden", "Ist", 2],
     ["Stunden | Std Ist", "Stunden", "Std Ist", 2],
     ["Soll-Stunden | Ist-Stunden", "Soll-Stunden", "Ist-Stunden", 2],
     ["Plan-Std | Ist-Std", "Plan-Std", "Ist-Std", 2],
     ["Ist-Stunden | Plan stunden", "Ist-Stunden", "Plan stunden", 2],
-  ] as const)("%s asks, the preselection by the hours word", (_label, x, y, hours) => {
+  ] as const)("%s asks, the leftmost candidate preselected", (_label, x, y, hours) => {
     const detected = detectLayout(twoFigures(x, y, PLAN, ["35", "30", "25"]), { defaultYear: 2026 });
     expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
     expect(detected.mapping).toMatchObject({ hours });
