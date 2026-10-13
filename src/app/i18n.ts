@@ -2593,6 +2593,7 @@ const enUS = {
   forecastImportWhyNoMatch: "no resource with this name or email",
   forecastImportWhyAmbiguous: "several resources match",
   forecastImportWhyNoRole: "the resource has no role",
+  forecastImportWhySeveralLines: "the resource is on more than one line of this bucket",
   forecastImportMatchPerson: "Match person",
   forecastImportSkip: "Skip",
   forecastImportRateNotes: "Rates that differ from the role",

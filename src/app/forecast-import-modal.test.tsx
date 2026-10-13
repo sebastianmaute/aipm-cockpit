@@ -736,3 +736,21 @@ describe("ForecastImportModal — two detectable sheets (final review 3, M1)", (
     expect(props.onChangeBuckets).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("ForecastImportModal — a person on two lines of the bucket (final review 3, M3)", () => {
+  it("lists them as not matched with a reason of its own, and writes nothing for them", async () => {
+    const SENIOR: Role = { ...ROLE, id: 11 };
+    const twoLines: BudgetBucket = {
+      ...BUCKET,
+      allocations: [
+        { roleId: ROLE.id, resourceIds: [ANN.id], budgetHours: {}, actualHours: {} },
+        { roleId: SENIOR.id, resourceIds: [ANN.id], budgetHours: { "2026-01": 100 }, actualHours: {} },
+      ],
+    };
+    render(<ForecastImportModal {...propsOf({ roles: [ROLE, SENIOR], bucket: twoLines, buckets: [twoLines] })} />);
+    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
+    expect(screen.getByText(t(L, "forecastImportWhySeveralLines"))).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: t(L, "forecastImportChanges") })).toBeNull();
+    expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeDisabled();
+  });
+});

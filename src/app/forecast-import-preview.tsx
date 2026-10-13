@@ -36,6 +36,7 @@ const WHY_KEY: Record<UnresolvedPerson["why"], TranslationKey> = {
   "no-match": "forecastImportWhyNoMatch",
   ambiguous: "forecastImportWhyAmbiguous",
   "no-role": "forecastImportWhyNoRole",
+  "several-lines": "forecastImportWhySeveralLines",
 };
 const REJECT_KEY: Record<RejectedRow["reason"], TranslationKey> = {
   shape: "forecastImportRejectShape",

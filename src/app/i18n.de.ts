@@ -2442,6 +2442,7 @@ export const de: Record<TranslationKey, string> = {
   forecastImportWhyNoMatch: "keine Ressource mit diesem Namen oder dieser E-Mail",
   forecastImportWhyAmbiguous: "mehrere Ressourcen passen",
   forecastImportWhyNoRole: "die Ressource hat keine Rolle",
+  forecastImportWhySeveralLines: "die Ressource steht auf mehr als einer Zeile dieses Budgets",
   forecastImportMatchPerson: "Person zuordnen",
   forecastImportSkip: "Überspringen",
   forecastImportRateNotes: "Sätze, die von der Rolle abweichen",

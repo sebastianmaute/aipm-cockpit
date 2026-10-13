@@ -35,10 +35,13 @@ export type CellChange = {
    *  value replaces the whole cell, their share included. */
   othersOnLine?: string[];
 };
+/** `several-lines`: the matched resource sits on more than one line of the
+ *  target bucket, so which line their hours go to is not settled (final
+ *  review 3, M3); `candidates` is empty. */
 export type UnresolvedPerson = {
   person: string;
   email?: string;
-  why: "no-match" | "ambiguous" | "no-role";
+  why: "no-match" | "ambiguous" | "no-role" | "several-lines";
   candidates: number[];
 };
 export type RateNote = {
@@ -212,17 +215,58 @@ function addShare(
   target.sources.add(source);
 }
 
+/** A matched person and the line their hours go to; `rateRole` is the role a
+ *  sheet rate is compared against (the line's own, on a role line). */
+type Routed = { kind: "routed"; resource: Resource; alloc: AllocationKey; rateRole: Role };
+type Routing = Routed | Exclude<Resolution, { kind: "matched" }>;
+
+/** The lines of the bucket's planning mode that list `resourceId`, one key each. */
+function memberLines(bucket: BudgetBucket, resourceId: number): AllocationKey[] {
+  const keys: AllocationKey[] = bucket.planningMode === "blended"
+    ? (bucket.disciplineAllocations ?? []).filter((a) => (a.resourceIds ?? []).includes(resourceId)).map((a) => ({ kind: "discipline", disciplineId: a.disciplineId }))
+    : bucket.allocations.filter((a) => (a.resourceIds ?? []).includes(resourceId)).map((a) => ({ kind: "role", roleId: a.roleId }));
+  return [...new Map(keys.map((k) => [allocId(k), k])).values()];
+}
+
+/**
+ * ★★ Where a matched person's hours go (final review 3, M3, owner decision
+ * 2026-10-13): the ONE line of the bucket that already lists them, whatever
+ * its role; on several such lines they are unresolved (`several-lines`); on
+ * none, the line of their role (or, blended, its discipline). Routing by role
+ * alone once created a Dev line beside Ann's Senior line and counted her
+ * January twice.
+ */
+function routeOf(res: Resolution, bucket: BudgetBucket, ix: Indexes): Routing {
+  if (res.kind !== "matched") return res;
+  const lines = memberLines(bucket, res.resource.id);
+  if (lines.length > 1) return { kind: "unresolved", why: "several-lines", candidates: [] };
+  if (lines.length === 0) return { kind: "routed", resource: res.resource, alloc: allocKeyOf(res.role, bucket.planningMode === "blended"), rateRole: res.role };
+  const line = lines[0];
+  const lineRole = line.kind === "role" ? ix.roleById.get(line.roleId) : undefined;
+  return { kind: "routed", resource: res.resource, alloc: line, rateRole: lineRole ?? res.role };
+}
+
+/** `resolveRow`, routed (`routeOf`). A person on several lines takes the
+ *  picker's choice: another resource, or Skip. */
+function resolveAndRoute(row: ForecastRow, ix: Indexes, ctx: ImportCtx): Routing {
+  const first = routeOf(resolveRow(row, ix, ctx.overrides), ctx.bucket, ix);
+  if (first.kind !== "unresolved" || first.why !== "several-lines") return first;
+  const override = ctx.overrides.get(normalisePerson(row.person));
+  if (override === undefined) return first;
+  if (override === "skip") return { kind: "skip" };
+  return routeOf(resolveIds(ix.byId.has(override) ? [override] : [], ix), ctx.bucket, ix);
+}
+
 function processMatched(
   row: ForecastRow,
-  resource: Resource,
-  role: Role,
+  routed: Routed,
   ctx: ImportCtx,
   inRange: ReadonlyMap<string, Period>,
   out: Collector,
 ): void {
-  const alloc = allocKeyOf(role, ctx.bucket.planningMode === "blended");
+  const { resource, alloc } = routed;
   const shares = splitToGranularity(row.period, row.hours, ctx.plan.granularity, ctx.holidaySet);
-  if (shares.some((share) => inRange.has(share.key))) noteRate(row, resource, role, out);
+  if (shares.some((share) => inRange.has(share.key))) noteRate(row, resource, routed.rateRole, out);
   for (const share of shares) {
     if (!inRange.has(share.key)) {
       const key = `${normalisePerson(row.person)}|${share.key}`;
@@ -242,12 +286,12 @@ function collect(rows: readonly ForecastRow[], ctx: ImportCtx, ix: Indexes, acti
     rateNotes: new Map(),
   };
   for (const row of rows) {
-    const res = resolveRow(row, ix, ctx.overrides);
+    const res = resolveAndRoute(row, ix, ctx);
     if (res.kind === "skip") {
       const key = normalisePerson(row.person);
       if (!out.skipped.has(key)) out.skipped.set(key, row.person);
     } else if (res.kind === "unresolved") recordUnresolved(row, res, out);
-    else processMatched(row, res.resource, res.role, ctx, active, out);
+    else processMatched(row, res, ctx, active, out);
   }
   return out;
 }

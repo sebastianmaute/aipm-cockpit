@@ -576,3 +576,60 @@ describe("applyForecastImport", () => {
     expect(again.addResources).toEqual([]);
   });
 });
+
+// Final review 3, M3 (owner decision 2026-10-13): a person the bucket already
+// places on ONE line has their hours routed to that line, whatever its role;
+// on several lines they are unresolved. Routing by the resource's role once
+// created a Dev line beside Ann's Senior line and counted her January twice.
+describe("routing to the line the bucket already places the person on (final review 3, M3)", () => {
+  const SENIOR = ROLE_B;
+
+  it("routes Ann (role Dev) to the Senior line she sits on: Senior Jan becomes 120, no Dev line", () => {
+    const bucket = bucketOf({ allocations: [alloc(SENIOR.id, { "2026-01": 100 }, [1])] });
+    const p = plan([row("Ann Lee", "2026-01", 120)], { bucket });
+    expect(p.changes).toEqual([{ alloc: { kind: "role", roleId: SENIOR.id }, period: "2026-01", old: 100, next: 120 }]);
+    expect(p.newAllocations).toEqual([]);
+    expect(p.addResources).toEqual([]);
+    const next = applyForecastImport(bucket, p);
+    expect(next.allocations).toHaveLength(1);
+    expect(next.allocations.reduce((sum, a) => sum + (a.budgetHours["2026-01"] ?? 0), 0)).toBe(120);
+  });
+
+  it("compares a sheet rate against the line's role", () => {
+    const bucket = bucketOf({ allocations: [alloc(SENIOR.id, {}, [1])] });
+    expect(plan([row("Ann Lee", "2026-01", 10, { rate: SENIOR.internalRate })], { bucket }).rateNotes).toEqual([]);
+  });
+
+  it("routes a blended bucket to the one discipline line the person sits on", () => {
+    const line: DisciplineAllocation = { disciplineId: 2, resourceIds: [1], budgetHours: {}, actualHours: {} };
+    const p = plan([row("Ann Lee", "2026-01", 10)], { bucket: bucketOf({ planningMode: "blended", disciplineAllocations: [line] }) });
+    expect(p.changes.map((c) => c.alloc)).toEqual([{ kind: "discipline", disciplineId: 2 }]);
+  });
+
+  it("leaves a person on two lines unresolved, with a reason of its own, and writes nothing for them", () => {
+    const bucket = bucketOf({ allocations: [alloc(ROLE_A.id, { "2026-01": 5 }, [1]), alloc(SENIOR.id, { "2026-01": 100 }, [1])] });
+    const p = plan([row("Ann Lee", "2026-01", 120)], { bucket });
+    expect(p.unresolved).toEqual([{ person: "Ann Lee", why: "several-lines", candidates: [] }]);
+    expect(p.changes).toEqual([]);
+    expect(p.blockers).toContain("nothing-to-apply");
+  });
+
+  it("the picker can name another resource for such a person, or skip them", () => {
+    const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray")];
+    const bucket = bucketOf({ allocations: [alloc(ROLE_A.id, {}, [1]), alloc(SENIOR.id, {}, [1])] });
+    const picked = plan([row("Ann Lee", "2026-01", 7)], { resources, bucket, overrides: new Map([[normalisePerson("Ann Lee"), 2]]) });
+    expect(picked.unresolved).toEqual([]);
+    expect(picked.changes).toEqual([{ alloc: { kind: "role", roleId: ROLE_A.id }, period: "2026-01", old: undefined, next: 7, othersOnLine: ["Ann Lee"] }]);
+    expect(picked.addResources).toEqual([{ alloc: { kind: "role", roleId: ROLE_A.id }, resourceIds: [2] }]);
+    const skipped = plan([row("Ann Lee", "2026-01", 7)], { resources, bucket, overrides: new Map<string, PersonOverride>([[normalisePerson("Ann Lee"), "skip"]]) });
+    expect(skipped.skipped).toEqual(["Ann Lee"]);
+    expect(skipped.changes).toEqual([]);
+  });
+
+  it("a person on no line is routed by role, as before", () => {
+    const bucket = bucketOf({ allocations: [alloc(SENIOR.id, { "2026-01": 100 }, [2])] });
+    const p = plan([row("Ann Lee", "2026-01", 10)], { bucket });
+    expect(p.changes.map((c) => c.alloc)).toEqual([{ kind: "role", roleId: ROLE_A.id }]);
+    expect(p.newAllocations).toEqual([{ kind: "role", roleId: ROLE_A.id }]);
+  });
+});
