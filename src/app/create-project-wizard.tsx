@@ -26,6 +26,7 @@ import { suggestTemplate } from "./template-suggest";
 import {
   ALL_MODULE_IDS,
   type FeatureModuleId,
+  MODE_LABEL_KEY,
   deriveMode,
 } from "./feature-modules";
 import { t, type Lang } from "./i18n";
@@ -70,12 +71,6 @@ type CreateFormat = "json" | "csv" | "md";
 //    concern and stays here. jsdom has no layout — nothing in the unit suite
 //    can see any of it.
 const TEMPLATE_CARD_CLASS = "w-full justify-start text-left";
-
-const MODE_LABEL_KEY = {
-  simple: "modeSimple",
-  modular: "modeModular",
-  advanced: "modeAdvanced",
-} as const;
 
 // Pinned nav footer shared by steps 2 and 3 (Back · optional Cancel · primary CTA).
 function WizardNavFooter({

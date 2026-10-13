@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { type Lang, t } from "../i18n";
 import { Checkbox, Input } from "../form-controls";
 import { EmptyState } from "../empty-state";
-import { deriveMode } from "../feature-modules";
+import { MODE_LABEL_KEY, deriveMode } from "../feature-modules";
 import { templateFromWorkspace, type ProjectTemplate } from "../templates";
 import { useTemplates } from "../use-templates";
 import { useCurrentWorkspace } from "../use-current-workspace";
@@ -22,12 +22,6 @@ const nameOfTemplate = (tpl: ProjectTemplate) => tpl.name;
 interface TemplatesSectionProps {
   lang: Lang;
 }
-
-const MODE_LABEL_KEY = {
-  simple: "modeSimple",
-  modular: "modeModular",
-  advanced: "modeAdvanced",
-} as const;
 
 /** Short, human summary of what a template configures (its derived mode). */
 function modeSummary(lang: Lang, tpl: ProjectTemplate): string {

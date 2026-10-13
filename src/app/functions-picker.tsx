@@ -13,17 +13,12 @@ import {
   ALL_MODULE_IDS,
   FEATURE_MODULES,
   type FeatureModuleId,
+  MODE_LABEL_KEY,
   deriveMode,
   missingUses,
 } from "./feature-modules";
 import { Checkbox } from "./form-controls";
 import { t, type Lang, type TranslationKey } from "./i18n";
-
-const MODE_LABEL_KEY = {
-  simple: "modeSimple",
-  modular: "modeModular",
-  advanced: "modeAdvanced",
-} as const;
 
 /** The sentence saying what a module uses. A module with `uses` but no entry here
  *  still gets the "X is off" part of its notice. */
@@ -31,13 +26,18 @@ const USES_SENTENCE_KEY: Partial<Record<FeatureModuleId, TranslationKey>> = {
   timelog: "functionsUsesTimelog",
 };
 
-const LABEL_KEY_BY_ID = new Map<FeatureModuleId, TranslationKey>(
+// Complete by construction: `FEATURE_MODULES` is the registry `FeatureModuleId` describes, so a
+// lookup cannot miss and needs no fallback label.
+const LABEL_KEY_BY_ID = Object.fromEntries(
   FEATURE_MODULES.map((m) => [m.id, m.labelKey]),
-);
+) as Record<FeatureModuleId, TranslationKey>;
 
+/** Two names keep the translated "{0} and {1}"; three or more are joined by the locale's own
+ *  list rule (Oxford comma in en-US, "und" in de) instead of an English ", ". */
 function moduleNames(lang: Lang, ids: readonly FeatureModuleId[]): string {
-  const names = ids.map((id) => t(lang, LABEL_KEY_BY_ID.get(id) ?? "modeModulesHeading"));
-  return names.length === 2 ? t(lang, "functionsUsesJoin", names[0], names[1]) : names.join(", ");
+  const names = ids.map((id) => t(lang, LABEL_KEY_BY_ID[id]));
+  if (names.length === 2) return t(lang, "functionsUsesJoin", names[0], names[1]);
+  return new Intl.ListFormat(lang, { type: "conjunction" }).format(names);
 }
 
 /** What a module uses and which of that is off. `onTurnOn` is optional: without it the
@@ -47,11 +47,14 @@ export function UsesNotice({
   moduleId,
   missing,
   onTurnOn,
+  id,
 }: {
   lang: Lang;
   moduleId: FeatureModuleId;
   missing: readonly FeatureModuleId[];
   onTurnOn?: () => void;
+  /** Lets the module's checkbox point at the notice with `aria-describedby`. */
+  id?: string;
 }) {
   if (missing.length === 0) return null;
   const sentenceKey = USES_SENTENCE_KEY[moduleId];
@@ -59,7 +62,7 @@ export function UsesNotice({
   const offText =
     missing.length === 1 ? t(lang, "functionsUsesOneOff", names) : t(lang, "functionsUsesBothOff");
   return (
-    <div className="ml-6 flex flex-col items-start gap-1.5 text-sm text-muted-foreground">
+    <div id={id} role="status" className="ml-6 flex flex-col items-start gap-1.5 text-sm text-muted-foreground">
       <p>
         {sentenceKey ? `${t(lang, sentenceKey)} ` : ""}
         {offText}
@@ -131,13 +134,19 @@ export function FunctionsPicker({
         </legend>
         {FEATURE_MODULES.map((m) => {
           const missing = missingUses(m.id, features);
+          const noticeId = `${idBase}-uses-${m.id}`;
+          // The checkbox is described by its hint and, while it shows, by the uses notice.
+          const describedBy = [
+            m.descKey ? `${idBase}-desc-${m.id}` : null,
+            missing.length > 0 ? noticeId : null,
+          ].filter((x): x is string => x !== null).join(" ");
           return (
             <div key={m.id} className="flex flex-col gap-1.5">
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={features.includes(m.id)}
                   onChange={() => toggle(m.id)}
-                  aria-describedby={m.descKey ? `${idBase}-desc-${m.id}` : undefined}
+                  aria-describedby={describedBy || undefined}
                 />
                 <span>{t(lang, m.labelKey)}</span>
               </label>
@@ -148,7 +157,7 @@ export function FunctionsPicker({
                   {t(lang, m.descKey)}
                 </FieldHint>
               )}
-              <UsesNotice lang={lang} moduleId={m.id} missing={missing} onTurnOn={() => turnOn(missing)} />
+              <UsesNotice id={noticeId} lang={lang} moduleId={m.id} missing={missing} onTurnOn={() => turnOn(missing)} />
             </div>
           );
         })}

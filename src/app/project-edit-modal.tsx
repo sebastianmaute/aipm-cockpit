@@ -9,7 +9,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { type Contact } from "./contacts";
-import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
+import { ALL_MODULE_IDS, type FeatureModuleId, sameFeatureSet } from "./feature-modules";
 import { FunctionsPicker } from "./functions-picker";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
@@ -78,13 +78,6 @@ interface ProjectEditModalProps {
   /** `features` is `null` when the functions equal the `features` prop as a set. */
   onSubmit: (meta: ProjectMeta, features: FeatureModuleId[] | null) => void;
   onCancel: () => void;
-}
-
-/** Set equality — order and duplicates do not count. */
-function sameFeatureSet(a: readonly FeatureModuleId[], b: readonly FeatureModuleId[]): boolean {
-  const left = new Set(a);
-  const right = new Set(b);
-  return left.size === right.size && [...left].every((id) => right.has(id));
 }
 
 /** The Functions part of Edit project: the shared picker over a LOCAL draft. The

@@ -10,7 +10,9 @@ import {
   isViewEnabled,
   missingUses,
   moduleForView,
+  MODE_LABEL_KEY,
   reportForModule,
+  sameFeatureSet,
   sanitizeFeatures,
   visibleReports,
 } from "./feature-modules";
@@ -153,5 +155,30 @@ describe("§707 uses", () => {
   it("is empty when the module itself is off or declares nothing", () => {
     expect(missingUses("timelog", [])).toEqual([]);
     expect(missingUses("budget", ["budget"])).toEqual([]);
+  });
+});
+
+describe("sameFeatureSet (A5)", () => {
+  it("ignores order", () => {
+    expect(sameFeatureSet(["raid", "gantt"], ["gantt", "raid"])).toBe(true);
+  });
+  it("ignores duplicates: a repeated id is the same set, not a different one", () => {
+    expect(sameFeatureSet(["raid", "raid", "gantt"], ["gantt", "raid"])).toBe(true);
+  });
+  it("tells different sets of the same length apart", () => {
+    expect(sameFeatureSet(["raid", "gantt"], ["raid", "budget"])).toBe(false);
+  });
+  it("tells a subset from its superset", () => {
+    expect(sameFeatureSet(["raid"], ["raid", "gantt"])).toBe(false);
+    expect(sameFeatureSet(["raid", "raid"], ["raid", "gantt"])).toBe(false);
+  });
+  it("treats two empty lists as equal", () => {
+    expect(sameFeatureSet([], [])).toBe(true);
+  });
+});
+
+describe("MODE_LABEL_KEY (A1)", () => {
+  it("has one label key per mode", () => {
+    expect(MODE_LABEL_KEY).toEqual({ simple: "modeSimple", modular: "modeModular", advanced: "modeAdvanced" });
   });
 });

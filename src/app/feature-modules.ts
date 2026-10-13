@@ -83,6 +83,14 @@ export const ALL_MODULE_IDS: readonly FeatureModuleId[] = FEATURE_MODULES.map((m
 
 export type AppMode = "simple" | "modular" | "advanced";
 
+/** The i18n key of each mode's badge label. ONE copy: the wizard, the Functions picker
+ *  and the templates section all read it (it used to be pasted into each). */
+export const MODE_LABEL_KEY = {
+  simple: "modeSimple",
+  modular: "modeModular",
+  advanced: "modeAdvanced",
+} as const satisfies Record<AppMode, TranslationKey>;
+
 const MODULE_BY_ID = new Map<FeatureModuleId, FeatureModule>(
   FEATURE_MODULES.map((m) => [m.id, m]),
 );
@@ -106,6 +114,14 @@ export function deriveMode(features: readonly FeatureModuleId[]): AppMode {
   if (features.length === 0) return "simple";
   if (features.length >= ALL_MODULE_IDS.length) return "advanced";
   return "modular";
+}
+
+/** Set equality of two feature lists: order and duplicates do not count. Compares the
+ *  Set SIZES, not the array lengths, so a list with a repeated id is not "different". */
+export function sameFeatureSet(a: readonly FeatureModuleId[], b: readonly FeatureModuleId[]): boolean {
+  const left = new Set(a);
+  const right = new Set(b);
+  return left.size === right.size && [...left].every((id) => right.has(id));
 }
 
 export function isModuleEnabled(id: FeatureModuleId, features: readonly FeatureModuleId[]): boolean {
