@@ -150,27 +150,37 @@ describe("OOS-1: an ambiguous sheet is refused until its columns are confirmed",
     ]);
   });
 
-  it.each(["text", "dot"] as const)("month title over Datum | Plan | Ist, confirmed (%s): the two cells collide, never 75", (numbers) => {
+  // Round 3: the confirmed columns read Plan, so the Ist cell backs nothing.
+  it.each(["text", "dot"] as const)("month title over Datum | Plan | Ist, confirmed (%s): the Ist cell is not read, Plan stands alone, never 75", (numbers) => {
     const s = shapes["Projekt | Alpha | 01.01. | 31.01. over Name | Datum | Plan | Ist"];
     const out = validateForecastRows(s.claims, confirmed(s[numbers], numbers));
-    expect(out.rejected).toEqual([]);
+    expect(out.rejected).toEqual([{ row: claim("Jan 2026", 35, "S!D3"), reason: "source", detail: "cell-not-read" }]);
     expect(out.subPeriods).toEqual([]);
-    expect(out.ok).toEqual([]);
-    expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!C3", "S!D3"] }]);
+    expect(out.collisions).toEqual([]);
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 40]]);
   });
 
-  it.each([
-    ["Erstellt von | Max | 01.03.2026 over Name | Monat | Plan | Bemerkung | Ist"],
-    ["Forecast | Ist-Stunden under a key/value title"],
-  ] as const)("%s, confirmed: the title's March above the hours column disagrees with every row, so no month is written", (label) => {
+  const keyValueClaims = [claim("Jan 2026", 40, "S!C3"), claim("Feb 2026", 30, "S!C4", "Bob"), claim("Mar 2026", 40, "S!C3")];
+
+  it("Erstellt von | Max | 01.03.2026 over Name | Monat | Plan | Bemerkung | Ist, confirmed: the title's March above the hours column disagrees with every row, so no month is written", () => {
     for (const numbers of ["text", "dot"] as const) {
-      const s = shapes[label];
-      const opts = confirmed(s[numbers], numbers);
-      const out = validateForecastRows([claim("Jan 2026", 40, "S!C3"), claim("Feb 2026", 30, "S!C4", "Bob"), claim("Mar 2026", 40, "S!C3")], opts);
+      const s = shapes["Erstellt von | Max | 01.03.2026 over Name | Monat | Plan | Bemerkung | Ist"];
+      const out = validateForecastRows(keyValueClaims, confirmed(s[numbers], numbers));
       expect(out.ok).toEqual([]);
       expect(out.rejected.map((r) => (r.reason === "source" ? r.periods : undefined))).toEqual([
         { sheet: "2026-01", header: "2026-03" }, { sheet: "2026-02", header: "2026-03" }, { sheet: "2026-01", header: "2026-03" },
       ]);
+    }
+  });
+
+  // The hours word preselects Ist-Stunden here, so confirming the default reads
+  // that column, and the Forecast cells Claude cites are not read (round 3).
+  it("Forecast | Ist-Stunden under a key/value title, confirmed as preselected: the Forecast cells are not read, nothing is written", () => {
+    for (const numbers of ["text", "dot"] as const) {
+      const s = shapes["Forecast | Ist-Stunden under a key/value title"];
+      const out = validateForecastRows(keyValueClaims, confirmed(s[numbers], numbers));
+      expect(out.ok).toEqual([]);
+      expect(detail(out)).toEqual(["cell-not-read", "cell-not-read", "cell-not-read"]);
     }
   });
 });
@@ -350,5 +360,49 @@ describe("a wide reading whose rows hold their own period column waits for the c
     expect(out.ok).toEqual([]);
     expect(out.subPeriods).toEqual([]);
     expect(detail(out)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
+  });
+});
+
+// Round 3 (controller ruling, fail closed): where there is a hand reading, a
+// claim must cite a cell that reading itself reads. Any other cell of a read
+// row is refused `cell-not-read`, whatever it holds: the metadata probe's Ist
+// cell read as January = 35, and a `Kosten` 40 that happens to equal the
+// Stunden 40 (rr8 deviation verdict 1, now flipped).
+describe("a claim must cite a cell the hand reading reads (round 3)", () => {
+  const notRead = (claimRow: ReturnType<typeof claim>) => ({ row: claimRow, reason: "source", detail: "cell-not-read" });
+
+  it("the metadata probe mapped long and confirmed: Ann's Ist cell is refused, her Stunden cell accepted", () => {
+    const people = ["Ann", "Bob", "Cem", "Dora", "Eve"];
+    const rows = [["Erstellt", "", "01.01.2026", "15.01.2026", "20.01.2026"], ["Name", "Monat", "Stunden", "Ist"],
+      ...people.map((p, i) => [p, i % 2 === 1 ? "Feb 2026" : "Jan 2026", "40", "35"])];
+    const long: ColumnMapping = { layout: "long", headerRow: 1, person: 0, period: 1, hours: 2, year: 2026 };
+    const ist = claim("Jan 2026", 35, "S!D3");
+    expect(validateForecastRows([ist], strictOn(rows, undefined, long)).rejected).toEqual([notRead(ist)]);
+    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!C3")], strictOn(rows, undefined, long)))).toEqual([["Ann", "2026-01", 40]]);
+  });
+
+  it("a Kosten 40 that equals the Stunden 40 is refused once the columns are confirmed (Stunden the hours)", () => {
+    const rows = [["Name", "Monat", "Stunden", "Kosten"], ["Ann", "Jan 2026", "40", "40"], ["Bob", "Feb 2026", "20", "1600"]];
+    const mapping = detectLayout(rows, { defaultYear: 2026 }).mapping!;
+    expect(mapping).toMatchObject({ layout: "long", hours: 2 });
+    const kosten = claim("Jan 2026", 40, "S!D2");
+    expect(validateForecastRows([kosten], strictOn(rows, undefined, mapping)).rejected).toEqual([notRead(kosten)]);
+    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!C2")], strictOn(rows, undefined, mapping)))).toEqual([["Ann", "2026-01", 40]]);
+  });
+
+  it("an ID that equals the hours on a clear long sheet is refused: ID | Name | Monat | Aufwand", () => {
+    const rows = [["ID", "Name", "Monat", "Aufwand"], ["40", "Ann", "Jan 2026", "40"], ["14", "Bob", "Feb 2026", "20"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+    const id = claim("Jan 2026", 40, "S!A2");
+    expect(validateForecastRows([id], strictOn(rows)).rejected).toEqual([notRead(id)]);
+    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!D2")], strictOn(rows)))).toEqual([["Ann", "2026-01", 40]]);
+  });
+
+  it("on a wide sheet, a number outside the period columns of a read row is refused too", () => {
+    const rows = [["Name", "Kosten", "Jan 2026", "Feb 2026"], ["Ann", "40", "40", "50"], ["Bob", "30", "30", "20"]];
+    expect(detectLayout(rows, { defaultYear: 2026 })).toMatchObject({ kind: "wide", ambiguous: [] });
+    const kosten = claim("Jan 2026", 40, "S!B2");
+    expect(validateForecastRows([kosten], strictOn(rows)).rejected).toEqual([notRead(kosten)]);
+    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!C2")], strictOn(rows)))).toEqual([["Ann", "2026-01", 40]]);
   });
 });

@@ -8,13 +8,15 @@ import { detectLayout } from "./layout-detect";
 import type { AssignedPeriod } from "./period-assign";
 import type { SheetGrid } from "./sheet-grid";
 
-/** The periods the hand route reads: per cell read into a row (`"row:col"`,
- *  0-based), and on a long sheet per sheet row too, since every cell of such a
- *  row is in that row's period. */
+/** The periods the hand route reads, per cell read into a row (`"row:col"`,
+ *  0-based), and the sheet rows those cells sit on (`readRows`). ★★★ Only a
+ *  read cell has a period here (fix 8 round 3, fail closed): a long row's
+ *  period once covered EVERY cell of that row, so a claim citing its `Ist` or
+ *  `Kosten` cell stood in the row's month whatever that cell held. */
 export type HandReading = {
   layout: "wide" | "long";
   cells: ReadonlyMap<string, AssignedPeriod>;
-  rows: ReadonlyMap<number, AssignedPeriod>;
+  readRows: ReadonlySet<number>;
 };
 
 /** What the Claude route's check reads a sheet's columns by: the hand route's
@@ -25,11 +27,16 @@ export type HandSource = HandReading | "unconfirmed" | null;
 
 const READINGS = new WeakMap<SheetGrid, Map<string, HandSource>>();
 
-/** The hand route's period for a cell, or undefined when it does not read it
- *  (nor, on a long sheet, its row). */
+/** The hand route's period for a cell, or undefined when it does not read
+ *  that cell. */
 export function handPeriodAt(hand: HandReading | null, rowIdx: number, colIdx: number): AssignedPeriod | undefined {
-  if (hand === null) return undefined;
-  return hand.cells.get(`${rowIdx}:${colIdx}`) ?? (hand.layout === "long" ? hand.rows.get(rowIdx) : undefined);
+  return hand?.cells.get(`${rowIdx}:${colIdx}`);
+}
+
+/** The hand route reads other cells of this row but not this one: a claim
+ *  citing it is refused `cell-not-read` (`checkSource`). */
+export function isUnreadCellOfReadRow(hand: HandReading | null, rowIdx: number, colIdx: number): boolean {
+  return hand !== null && hand.readRows.has(rowIdx) && handPeriodAt(hand, rowIdx, colIdx) === undefined;
 }
 
 /**
@@ -58,12 +65,11 @@ function computeHandReading(sheet: SheetGrid, defaultYear: number | undefined, m
 }
 
 function readWith(sheet: SheetGrid, mapping: ColumnMapping): HandReading {
-  const layout = mapping.layout;
   const cells = new Map<string, AssignedPeriod>();
-  const rows = new Map<number, AssignedPeriod>();
+  const readRows = new Set<number>();
   gridToForecastRows(sheet.rows, mapping, sheet.name, sheet.numbers, (rowIdx, col, period) => {
     cells.set(`${rowIdx}:${col}`, period);
-    if (layout === "long") rows.set(rowIdx, period);
+    readRows.add(rowIdx);
   });
-  return { layout, cells, rows };
+  return { layout: mapping.layout, cells, readRows };
 }

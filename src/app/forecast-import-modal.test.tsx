@@ -624,6 +624,17 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(props.onChangeBuckets).toHaveBeenCalledTimes(1);
   });
 
+  // Round 3: a cited cell on a read row that the columns do not read as hours.
+  it("says why Claude's row was refused when it cites a cell the columns do not read", async () => {
+    claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!A2" }]);
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile(["ID,Name,Monat,Aufwand", "40,Ann Lee,Jan 2026,40", "14,Bob Kay,Feb 2026,20", ""].join("\r\n"));
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(/forecast!A2/)).toHaveTextContent(t(L, "forecastImportRejectSourceNotRead"));
+    expect(t(L, "forecastImportRejectSourceNotRead")).toBe("the detected or confirmed columns do not read this cell as hours");
+  });
+
   // rr8 m2: the Wide layout has no hours select to choose from.
   it("asks to check the mapping, not to choose a column, in the Wide layout", async () => {
     const user = userEvent.setup();

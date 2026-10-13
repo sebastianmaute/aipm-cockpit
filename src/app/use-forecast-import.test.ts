@@ -881,7 +881,8 @@ describe("useForecastImport — the Claude route checks claims against the confi
     expect(result.current.rejected).toMatchObject([{ detail: "period-conflict", periods: { sheet: "2026-01" } }]);
   });
 
-  it("Projekt | Alpha | 01.01. | 31.01. over Datum | Plan | Ist: confirmed, the two cells of one row collide, never 75", async () => {
+  // Round 3: the confirmed columns read Plan; the Ist cell is not read.
+  it("Projekt | Alpha | 01.01. | 31.01. over Datum | Plan | Ist: confirmed, the Ist cell is refused and Plan is written, never 75", async () => {
     const both = [ann("Jan 2026", 40, "forecast!C3"), ann("Jan 2026", 35, "forecast!D3")];
     claudeRepliesInOrder(both, both);
     const deps = depsOf();
@@ -889,24 +890,21 @@ describe("useForecastImport — the Claude route checks claims against the confi
     await ask(result);
     expect(details(result)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
     await confirmed(result);
-    expect(result.current.rejected).toEqual([]);
+    expect(details(result)).toEqual(["cell-not-read"]);
     expect(result.current.subPeriods).toEqual([]);
-    expect(result.current.collisions).toEqual([{ person: "Ann Lee", period: "2026-01", sources: ["forecast!C3", "forecast!D3"] }]);
+    expect(result.current.collisions).toEqual([]);
+    expect(changes(result)).toEqual([["2026-01", 40]]);
     let outcome: string | undefined;
     act(() => {
       outcome = result.current.apply();
     });
-    expect(outcome).toBe("refused");
-    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+    expect(outcome).toBe("applied");
   });
 
-  it.each([
-    ["Plan | Bemerkung | Ist", "Plan", "Ist"],
-    ["Forecast | Bemerkung | Ist-Stunden", "Forecast", "Ist-Stunden"],
-  ])("Erstellt von | Max | 01.03.2026 over %s: confirmed, the title's March refuses every month, and no March for January", async (_label, hours, actuals) => {
+  it("Erstellt von | Max | 01.03.2026 over Plan | Bemerkung | Ist: confirmed, the title's March refuses every month, and no March for January", async () => {
     const reply = [ann("Jan 2026", 40, "forecast!C3"), ann("Feb 2026", 30, "forecast!C4")];
     claudeRepliesInOrder(reply, reply, [ann("Mar 2026", 40, "forecast!C3")]);
-    const { result } = await loaded(depsOf(), keyValue(hours, actuals));
+    const { result } = await loaded(depsOf(), keyValue("Plan", "Ist"));
     await ask(result);
     expect(details(result)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
     await confirmed(result);
@@ -918,6 +916,19 @@ describe("useForecastImport — the Claude route checks claims against the confi
     await ask(result);
     expect(changes(result)).toEqual([]);
     expect(details(result)).toEqual(["period-conflict"]);
+  });
+
+  // Round 3: the preselection reads Ist-Stunden (the hours word), so after
+  // confirming as preselected, the Forecast cells Claude cites are not read.
+  it("Erstellt von | Max | 01.03.2026 over Forecast | Bemerkung | Ist-Stunden: confirmed as preselected, the Forecast cells are not read", async () => {
+    const reply = [ann("Jan 2026", 40, "forecast!C3"), ann("Feb 2026", 30, "forecast!C4")];
+    claudeRepliesInOrder(reply, reply);
+    const { result } = await loaded(depsOf(), keyValue("Forecast", "Ist-Stunden"));
+    await ask(result);
+    expect(details(result)).toEqual(["columns-unconfirmed", "columns-unconfirmed"]);
+    await confirmed(result);
+    expect(changes(result)).toEqual([]);
+    expect(details(result)).toEqual(["cell-not-read", "cell-not-read"]);
   });
 
   // A clear long sheet: detection reads Monat; the user moves the period to Start.
@@ -987,5 +998,29 @@ describe("useForecastImport — a wide reading whose rows hold their own period 
     });
     expect(outcome).toBe("applied");
     expect(deps.onChangeBuckets).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Round 3: after the user confirms the long mapping, Claude may cite only the
+// cells that mapping reads.
+describe("useForecastImport — Claude must cite a cell the confirmed columns read (round 3)", () => {
+  it("refuses Ann's Ist cell as cell-not-read and writes her Stunden", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows: [
+        { person: "Ann Lee", period: "Jan 2026", hours: 35, source: "forecast!D3" },
+        { person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C3" },
+      ] } }] }),
+    } as unknown as Response);
+    const csv = ["Erstellt,,01.01.2026,15.01.2026,20.01.2026", "Name,Monat,Stunden,Ist",
+      "Ann Lee,Jan 2026,40,35", "Bob Ray,Feb 2026,40,35", "Cem Ott,Jan 2026,40,35", "Dora Li,Feb 2026,40,35", "Eve Wu,Jan 2026,40,35", ""].join("\r\n");
+    const { result } = await loaded(depsOf(), csv);
+    act(() => result.current.setMapping({ layout: "long", headerRow: 1, person: 0, period: 1, hours: 2, year: 2026 }));
+    act(() => result.current.confirmColumns());
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected).toMatchObject([{ reason: "source", detail: "cell-not-read" }]);
+    expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 40]]);
   });
 });

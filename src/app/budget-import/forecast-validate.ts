@@ -8,7 +8,7 @@
 
 import type { AssumedYear, ColumnMapping, ForecastCollision, ForecastRow } from "./forecast-types";
 import { assumedYearOf, classifyPeriodCell, resolvePeriod, type AssignedPeriod } from "./period-assign";
-import { handPeriodAt, handReadingOf, type HandReading, type HandSource } from "./hand-reading";
+import { handReadingOf, type HandSource } from "./hand-reading";
 import type { SheetGrid } from "./sheet-grid";
 import { checkSource, citedCell, columnNaming, headerDateOf, sourceKey, sourcePosition, type PeriodConflict, type SourceRejection } from "./source-evidence";
 
@@ -119,11 +119,10 @@ function checkRow(raw: unknown, opts: Options, hand: HandSource): Checked {
  *  the period are a `collision` (never summed) unless every one sits under a
  *  DISTINCT date header — date columns finer than the period (`subPeriod`),
  *  summed as before the collision rule. `rows`: the distinct sheet rows (a
- *  row without a usable source counts as one of its own). A cell on a row the
- *  hand route reads as a LONG row has no date header: its period is the row's
- *  (`hand`), so two such cells collide; so do two cells whose row holds a
- *  period cell of its own (`headerDateOf`). */
-function rowShape(e: Merged, sheet: SheetGrid, hand: HandReading | null): { collision: boolean; subPeriod: boolean; rows: number } {
+ *  row without a usable source counts as one of its own). Two cells whose row
+ *  holds a period cell of its own collide (`headerDateOf`) — a long row among
+ *  them, whose hand reading reads only its hours cell anyway (round 3). */
+function rowShape(e: Merged, sheet: SheetGrid): { collision: boolean; subPeriod: boolean; rows: number } {
   const byRow = new Map<number, Array<string | null>>();
   let unplaced = e.count - e.sources.length;
   for (const source of e.sources) {
@@ -133,8 +132,7 @@ function rowShape(e: Merged, sheet: SheetGrid, hand: HandReading | null): { coll
       continue;
     }
     const personCol = columnNaming(sheet.rows[at.rowIdx] ?? [], at.colIdx, e.row.person) ?? undefined;
-    const onLongRow = hand?.layout === "long" && handPeriodAt(hand, at.rowIdx, at.colIdx) !== undefined;
-    const date = onLongRow ? null : headerDateOf(sheet, { ...at, personCol });
+    const date = headerDateOf(sheet, { ...at, personCol });
     byRow.set(at.rowIdx, [...(byRow.get(at.rowIdx) ?? []), date]);
   }
   const shared = [...byRow.values()].filter((dates) => dates.length > 1);
@@ -203,8 +201,7 @@ export function validateForecastRows(input: unknown, opts: Options): ValidationR
   }
 
   const entries = [...merged.values()];
-  const reading = hand === "unconfirmed" ? null : hand;
-  const shaped = entries.map((e) => ({ e, shape: e.count > 1 ? rowShape(e, opts.sheet, reading) : null }));
+  const shaped = entries.map((e) => ({ e, shape: e.count > 1 ? rowShape(e, opts.sheet) : null }));
   const kept = shaped.filter(({ shape }) => shape?.collision !== true);
   const asDuplicate = ({ e }: { e: Merged }): DuplicateRow => ({ person: e.row.person, period: e.row.period, count: e.count, sources: e.sources });
   const result: ValidationResult = {

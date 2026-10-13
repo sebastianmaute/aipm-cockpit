@@ -2600,6 +2600,7 @@ const enUS = {
   forecastImportRejectSourceSheet: "the detected columns read this cell as {0}",
   forecastImportRejectSourceSheetHeader: "the column header says {0}, but the detected columns read {1}",
   forecastImportRejectSourceRows: "the row names two periods, {0} and {1}",
+  forecastImportRejectSourceNotRead: "the detected or confirmed columns do not read this cell as hours",
   forecastImportRejectSourceColumns: "the columns of this sheet are ambiguous. Confirm them in the mapping step, then ask Claude again",
   forecastImportRejectedRow: "{0} – {1}",
   forecastImportRowRef: "Row {0}: {1}",

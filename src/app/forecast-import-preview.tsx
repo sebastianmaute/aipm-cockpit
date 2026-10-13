@@ -53,6 +53,7 @@ const SOURCE_KEY: Record<SourceRejection, TranslationKey> = {
   "period-not-near": "forecastImportRejectSourcePeriod",
   "period-conflict": "forecastImportRejectSourceConflict",
   "columns-unconfirmed": "forecastImportRejectSourceColumns",
+  "cell-not-read": "forecastImportRejectSourceNotRead",
   "cell-reused": "forecastImportRejectSourceReused",
 };
 const DROP_KEY: Record<DropReason["reason"], TranslationKey> = {
