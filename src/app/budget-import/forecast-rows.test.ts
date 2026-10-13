@@ -617,3 +617,25 @@ describe("gridToForecastRows — the year it assumed", () => {
     expect(gridToForecastRows(grid, wide(grid[0]), "S").assumedYear).toBeUndefined();
   });
 });
+
+// Round 3 (rr2 Minor 5): neither an employee-number column nor a year column is
+// "hours left out".
+describe("gridToForecastRows — columns that are never hours", () => {
+  it("does not report an ID column: PersNr | Name | Jan 2026 …", () => {
+    const grid = [["PersNr", "Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["1001", "Ann", "1", "2", "3"], ["1002", "Bob", "4", "5", "6"]];
+    const mapping: ColumnMapping = { layout: "wide", headerRow: 0, person: 1, periodCols: [2, 3, 4] };
+    expect(gridToForecastRows(grid, mapping, "S").ignoredColumns).toEqual([]);
+    for (const header of ["Personalnummer", "Pers.-Nr.", "MA-Nr", "ID", "Nr", "No", "Employee ID"]) {
+      const g = [[header, ...grid[0].slice(1)], ...grid.slice(1)];
+      expect(gridToForecastRows(g, mapping, "S").ignoredColumns).toEqual([]);
+    }
+  });
+
+  it("does not report a long sheet's year column when the periods name their own year", () => {
+    const grid = [["Name", "Jahr", "Monat", "Stunden"], ["Ann", "2026", "Jan 2026", "8"]];
+    const mapping: ColumnMapping = { layout: "long", headerRow: 0, person: 0, period: 2, hours: 3 };
+    expect(gridToForecastRows(grid, mapping, "S").ignoredColumns).toEqual([]);
+    const unnamed = [["Name", "Basis", "Monat", "Stunden"], ["Ann", "2026", "Jan 2026", "8"]];
+    expect(gridToForecastRows(unnamed, mapping, "S").ignoredColumns).toEqual([]);
+  });
+});

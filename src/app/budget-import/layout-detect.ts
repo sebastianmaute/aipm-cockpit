@@ -10,7 +10,7 @@
 
 import { cellAt, detectDecimalStyle, isBlank, isTotalLabel, parseNumberCell, parsePeriodLabel } from "./forecast-rows";
 import type { ColumnMapping } from "./forecast-types";
-import { assignRunPeriods, classifyPeriodCell, parseYearCell, usableYear } from "./period-assign";
+import { assignRunPeriods, classifyPeriodCell, isYearHeader, parseYearCell, usableYear } from "./period-assign";
 import type { NumberOrigin } from "./sheet-grid";
 
 export type LayoutDetection = {
@@ -31,7 +31,6 @@ const HOURS_HEADER_RE = /hour|stunden|std|hrs/i;
 const RATE_HEADER_RE = /\brates?\b|satz|€\/h|eur\/h/i;
 const EMAIL_HEADER_RE = /e-?mail/i;
 const PERSON_HEADER_RE = /^(name|mitarbeiter(in)?|person|ressource|resource|employee|member|mitglied)$/i;
-const YEAR_HEADER_RE = /^(jahr|year|yr|gj|fy|geschäftsjahr|fiscal year)$/i;
 const SERIAL_RE = /^\d{5}(\.\d+)?$/;
 
 const UNKNOWN: LayoutDetection = { kind: "unknown", mapping: null };
@@ -171,7 +170,7 @@ function periodRank(header: string, cells: readonly string[]): number {
 /** A long sheet's year column: by header ("Jahr", "FY"), else the first column
  *  whose cells are all four-digit years (2000–2100). */
 function findYearColumn(header: readonly string[], data: Rows, width: number): number | undefined {
-  const byHeader = header.findIndex((label) => YEAR_HEADER_RE.test((label ?? "").trim()));
+  const byHeader = header.findIndex((label) => isYearHeader(label ?? ""));
   if (byHeader >= 0) return byHeader;
   for (let col = 0; col < width; col++) {
     const cells = columnCells(data, col);

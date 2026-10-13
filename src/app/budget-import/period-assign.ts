@@ -181,6 +181,17 @@ export function parsePeriodLabel(cell: string, defaultYear?: number): string | n
   return c === null ? null : resolvePeriod(c, defaultYear);
 }
 
+/** A year column's header: "Jahr", "Year", "FY", "GJ", "Geschäftsjahr" …. */
+export function isYearHeader(cell: string): boolean {
+  return /^(jahr|year|yr|gj|fy|geschäftsjahr|fiscal year)$/i.test(cell.trim());
+}
+
+/** A year column: headed as one, or holding only four-digit years. */
+export function isYearColumn(header: string, cells: readonly string[]): boolean {
+  const filled = cells.filter((c) => c.trim() !== "");
+  return isYearHeader(header) || (filled.length > 0 && filled.every((c) => parseYearCell(c) !== undefined));
+}
+
 /** A cell holding a plausible year (2000–2100, four digits), else undefined:
  *  a long sheet's year column ("Jahr", "FY"). */
 export function parseYearCell(cell: string): number | undefined {

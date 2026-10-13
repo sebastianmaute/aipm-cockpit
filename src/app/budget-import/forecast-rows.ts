@@ -7,13 +7,16 @@
 // definition detection and the Claude route read too.
 
 import type { NumberOrigin } from "./sheet-grid";
-import { assignCellPeriod, assignRunDetailed, assumedYearOf, isWeekSpacedColumn, parsePeriodLabel, type AssignedPeriod } from "./period-assign";
+import { assignCellPeriod, assignRunDetailed, assumedYearOf, isWeekSpacedColumn, isYearColumn, parsePeriodLabel, type AssignedPeriod } from "./period-assign";
 import type { AssumedYear, ColumnMapping, DropReason, ForecastRow, IgnoredColumn } from "./forecast-types";
 
 /** Re-exported: callers that read a single period cell keep one import. */
 export { parsePeriodLabel };
 
 export type DecimalStyle = "dot" | "comma";
+
+/** An employee-number column's header: its numbers are never hours. */
+const ID_HEADER = /^(persnr|personalnummer|pers\.?-?nr\.?|ma-?nr\.?|id|nr\.?|no\.?|employee id)$/i;
 
 /** Share of the person rows that must hold a number for an unread column to be reported. */
 const IGNORED_COLUMN_SHARE = 0.5;
@@ -245,8 +248,8 @@ function unreadNumberColumns(
   const out: IgnoredColumn[] = [];
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
-    if (skip.has(col) || isTotalHeader(label)) continue;
     const cells = people.map(({ row }) => cellAt(row, col));
+    if (skip.has(col) || isTotalHeader(label) || ID_HEADER.test(label.trim()) || isYearColumn(label, cells)) continue;
     const style = detectDecimalStyle(cells, numbers);
     const numeric = cells.filter((c) => parseNumberCell(c, style, numbers) !== null).length;
     if (numeric > people.length * IGNORED_COLUMN_SHARE) out.push({ col, header: label.trim() });
