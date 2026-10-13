@@ -27,7 +27,8 @@ longer carries its own changelog comment.
   person and period), and you can adjust them; month columns beside a start-date column, with or without a year, are read as
   one column per month, and an ID, row-number or year column is never taken for the hours. When more than one
   column could hold the hours or the period (any two number columns, such as `Plan | Ist`, `Stunden | Ist`,
-  `Stunden | Kosten` or `Forecast | Iststunden`, whatever their headers; or `Datum | Eintritt`), the column
+  `Stunden | Kosten` or `Forecast | Iststunden`, whatever their headers; `Datum | Eintritt`; or a sheet of
+  month columns whose rows also hold a date column of their own, such as `Start`), the column
   step opens with a note naming the candidates, and Apply waits until you choose the column or confirm that
   the columns are right. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
   and so do month names and weeks without a year (`Jan`, `KW03`): they are read in the import's year,

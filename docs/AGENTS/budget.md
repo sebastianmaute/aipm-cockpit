@@ -307,9 +307,15 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   and ★★ nor does the layout control — Wide then Long rebuilt the questioned preselection from the
   defaults and once cleared the gate on the way, rr7 I2), or "These columns are right". Re-detecting asks
   again. ★★ The Claude route waits too (fix 8): until the columns are confirmed it refuses every claim
-  (`columns-unconfirmed`, below). A wide sheet never asks; when the user switches an asking sheet to the
-  Wide layout, which has no hours or period select, ONE notice asks to check the mapping and confirm
-  (rr8 m2). Detection
+  (`columns-unconfirmed`, below). ★★★ A WIDE reading asks for the PERIOD when its data rows hold a
+  period column of their own (`wideAmbiguity`, fix 8 round 2): a column outside the header's period
+  columns that is period-shaped in `COLUMN_SHARE` of its non-blank cells, offered with those columns as
+  the candidates. A metadata row (`Erstellt | 01.01. | 15.01. | 20.01.`) over a long sheet's `Name |
+  Monat | Stunden | Ist` is read as a clear wide header once enough person rows sit under it, and the
+  Claude route then accepted Ist-only claims in the metadata row's month (Bob's February as January =
+  35), because the hand reading and the header above were the same wrong row; so `Name | Start | Jan
+  2026 | Feb 2026` asks too. Any other wide sheet does not ask. In the Wide layout, which has no hours or
+  period select, ONE notice asks to check the mapping and confirm (rr8 m2). Detection
   scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, blank rows skipped
   and not counted, so a large sheet does not freeze the dialog (M1); `gridToForecastRows` then reads every
   row. The CLAUDE route
