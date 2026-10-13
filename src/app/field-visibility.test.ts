@@ -54,6 +54,19 @@ describe("applyTier / tierOf", () => {
     const cfg = applyTier("milestone", "simple");
     expect(tierOf("milestone", cfg)).toBe("simple");
   });
+  // The label describes what the form SHOWS (visibleFields adds the required ids), so a stored
+  // config that merely omits a required id is still the tier it otherwise equals.
+  it("labels a stored config equal to a tier minus a required id with that tier, not custom", () => {
+    const simple = tierFields("resource", "simple");
+    expect(simple).toContain("email"); // required since §708
+    const withoutEmail = { fields: simple.filter((id) => id !== "email") };
+    expect(tierOf("resource", withoutEmail)).toBe("simple");
+  });
+  it("still labels a genuinely custom config custom", () => {
+    const advanced = tierFields("resource", "advanced");
+    const extra = tierFields("resource", "full").find((id) => !advanced.includes(id))!;
+    expect(tierOf("resource", { fields: [...tierFields("resource", "simple"), extra] })).toBe("custom");
+  });
   it("tierOf(undefined) is advanced (the default)", () => {
     expect(tierOf("milestone", undefined)).toBe("advanced");
   });

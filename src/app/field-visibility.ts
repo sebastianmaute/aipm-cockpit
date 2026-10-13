@@ -57,10 +57,10 @@ export function toggleField(
   return { fields: ordered };
 }
 
-/** Derive the segmented-control label: a named tier if the set matches it exactly, else "custom". */
+/** Derive the segmented-control label: a named tier if the set the form actually shows
+ *  (`visibleFields`, required ids included) matches it exactly, else "custom". */
 export function tierOf(modalId: ModalId, cfg?: ModalVisibility): FieldTier | "custom" {
-  const have = cfg ? new Set(cfg.fields.filter((id) => knownIds(modalId).has(id)))
-                   : new Set(tierFields(modalId, DEFAULT_TIER));
+  const have = visibleFields(modalId, cfg);
   for (const tier of TIERS) {
     const want = new Set(tierFields(modalId, tier));
     if (want.size === have.size && [...want].every((id) => have.has(id))) return tier;
