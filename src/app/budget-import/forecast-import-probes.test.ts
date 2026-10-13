@@ -368,8 +368,8 @@ describe("probe: a serial date column is not an ignored number column (round 4)"
 // Round 5 (rr4 Important 1): moving both two-period wide passes ahead of the
 // long passes turned long WORKBOOKS with two date columns wide — a data row of
 // two serials read as a two-period header, the serials below as hours. The
-// round-3 order is back; the year-less `Name | Start | Jan | Feb` it misreads
-// is register residue.
+// round-3 order is back. The year-less `Name | Start | Jan | Feb` it misread
+// reads wide since the final review's I4 (below).
 describe("probe: long workbooks with two date columns stay long (round 5)", () => {
   const rowsOf = (run: Run) => run.out.rows.map((r) => [r.person, r.period, r.hours]);
   const readLong = (rows: string[][]) => {

@@ -22,10 +22,10 @@ longer carries its own changelog comment.
   guides off, the panel says no view guides are sent instead.
 
 - **Import a budget forecast from a spreadsheet (§500).** "Import forecast…" on a budget bucket's card reads
-  planned hours per person from an `.xlsx`, `.xlsm` or `.csv` file into that bucket. Detect columns finds the
+  planned hours per person from an `.xlsx`, `.xlsm` or `.csv` file (comma, semicolon or tab) into that bucket. Detect columns finds the
   person, period and hours columns of a wide sheet (a column per month or week) or a long one (a row per
-  person and period), and you can adjust them; a year-less sheet with a start-date column is still read
-  as one column per month. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
+  person and period), and you can adjust them; month columns beside a start-date column, with or without a year, are read as
+  one column per month, and a start-date, ID or row-number column is not taken for the period or the hours. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
   and so do month names and weeks without a year (`Jan`, `KW03`): they are read in the import's year,
   which starts at the bucket's start year, and a header row that turns the year (`Okt … Dez Jan Feb`, a
   fiscal `Jul … Jun`, `KW52 KW01`: a step back of at least half a year) moves on into the next year, while
@@ -44,14 +44,15 @@ longer carries its own changelog comment.
   cell does not hold them, that is not on that person's row, or that is not under the period it claims is
   not imported — the preview says which, and lists the number cells and the rows Claude did not read,
   including a person it left out entirely, by name. A placeholder such as `-` or `Urlaub`, a unit row or a
-  Plan/Ist row under the month header does not stop Claude's rows being checked against that header. Monthly figures are spread over a
+  Plan/Ist row under the month header does not stop Claude's rows being checked against that header, and a
+  dated title or metadata row above a long sheet's header row does not stand in for the period. Monthly figures are spread over a
   weekly plan (and weekly over a monthly one) by working days, keeping the total exact. The preview lists
   every cell that would change, people it could not match (you can pick or skip each one; archived
   resources are neither matched nor offered, and "Müller, Hans" matches Hans Müller), hours outside the
   bucket's periods, rates that differ from the rate card, periods the sheet covers only in part, cells on a
   line shared with people the sheet does not list, and rows combined from several sheet rows. Nothing is
   written until you apply, and Apply refuses if the bucket was closed or removed, or "Budget hours follow
-  plan" was switched on, while the preview was open. One apply is one undo step. Operating guides can now
+  plan" was switched on, while the preview was open, and says so when nothing would change any more. One apply is one undo step. Operating guides can now
   target the forecast import.
 
 ### Fixed
@@ -70,7 +71,9 @@ longer carries its own changelog comment.
 - **Spreadsheet attachments in the AI assistant chat are bounded (§500).** A workbook with very many sheets
   or very wide rows is now read only up to a fixed number of rows and cells across the whole file, and
   marked as cut, instead of exhausting the browser's memory. One consequence: a sheet's rows past row
-  250,000 are now cut (and marked as cut), where a sparse sheet with data that far down used to be read.
+  250,000 are now cut (and marked as cut), where a sparse sheet with data that far down used to be read; the
+  rows are also counted against one budget for the whole workbook, so in a workbook with several large sheets a
+  later sheet can be cut sooner.
 
 ## [1.18.0] - 2026-10-12 "Larsson"
 

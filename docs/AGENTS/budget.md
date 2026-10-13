@@ -277,7 +277,18 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   year block above the detected header). A row counts only when it holds a number under one of the header's
   period columns with a period header of its own above it (on a long sheet: an hours number beside a period
   cell), so a metadata row (`Stand | 46296`, `Version | 3`, `Projekt | 4711`) is not reported. The person column is a mostly-text
-  column headed Name / Mitarbeiter / Person / Resource …, else the first mostly-text one. The CLAUDE route
+  column headed Name / Mitarbeiter / Person / Resource …, else the first mostly-text one. ★★ A long
+  sheet's PERIOD column is ranked (`periodRank`): a `Month` / `Monat` / `Period` / `Zeitraum` / `Week` /
+  `KW` header first, then cells that are period LABELS (`Jan 2026`, `2026-01`, `KW03`) over full dates, then
+  a `Date` / `Datum` header, then a real date over a bare serial; ties keep the leftmost. `Start date` once
+  tied with `Month` and won, summing every row into the start month (final review I2). Its HOURS column is
+  a named one (`Hours`, `Stunden`, `Aufwand`, `Effort` …), else the RIGHTMOST number column; an ID or
+  row-number column (`ID_HEADER`), a year column (`isYearColumn`), a column of period-shaped cells (a
+  workbook's serial dates) and a column HEADED by a period (`Jan`, `Jan 2026`) are never it — `ID | Name |
+  Month | Effort` once imported the IDs (I3), and `Name | Start | Jan 2026 | Feb 2026` read long with the
+  Start date as the period and January as the hours (I4), where it now reads two-period wide. Detection
+  scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, so a large sheet does
+  not freeze the dialog (M1); `gridToForecastRows` then reads every row. The CLAUDE route
   sends the sheet to ONE forced call (`runForecastImportCall`, tool `propose_forecast_rows`, prompt text
   from `sheetToPromptText` over the shared `renderSheetMarkdown`). Both produce the same `ForecastRow` list.
 - ★★ **Which period a cell is: ONE module, `period-assign.ts`**, read by the hand route, detection and the
@@ -312,8 +323,9 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   long sheet's data row of two serial dates (`Von | Bis`, or a month column stored as dates beside
   another date column) reads as a two-period header, and `wideFromHeader` counts the serials below it as
   numbers, so moving both two-period passes first in round 4 read such sheets wide, their dates as
-  hours (re-review 4). The price: `Name | Start | Jan | Feb` (two year-less months beside a date column)
-  reads long. When a period took its year from the default,
+  hours (re-review 4). `Name | Start | Jan | Feb` (two year-less months beside a date column), which that
+  order once read long, reaches two-period wide because a long reading never takes a period-headed hours
+  column. When a period took its year from the default,
   `assumedYear` makes the preview say so, with a link to the year field.
 - **`validateForecastRows` is the one gate for both.** Hours 0..744 rounded to two decimals, a canonical
   period, a non-blank person; same person and period from DIFFERENT sheet rows are summed (a summed row
@@ -335,7 +347,15 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   the same-row blocker. A title row's lone date gives its column no period and is passed over too, so it
   vouches for nothing; so does a run of exactly two dates more than 92 days apart
   (`MAX_TWO_DATE_PERIOD_GAP_DAYS`: `Zeitraum | 01.01.2026 | 31.12.2026` is a range, which round 4 took as a
-  long sheet's period header, vouching for December), while two closer dates and three or more stay periods. Only with no period header above (a long sheet) is the row searched, skipping the
+  long sheet's period header, vouching for December), while two closer dates and three or more stay periods. ★★ A HEADER ROW for the cited row's person column between that period row and the cell ends the search
+  (`isHeaderRowFor`: no number cells — a period-shaped cell is none — at least two non-blank text cells, one
+  in the person column; a long sheet's `Name | Monat | Stunden`), and the row is searched instead: a quarter
+  `Zeitraum | 01.01.2026 | 31.03.2026` (89 days, under the range limit), a `von | … | bis | …` pair or three
+  `Erstellt / Stand / Druck` dates once headed the hours column below them, rejecting the right months and
+  vouching for a wrong one (final review I1). A unit row or `Plan | Ist` sub-header has a blank person cell,
+  and a data row with a placeholder holds numbers, so neither stops it; `headerDateOf` and
+  `findUnreadCells` stop the same way. Only with no period header above (a long sheet), or such a header row
+  between, is the row searched, skipping the
   person cell by POSITION. Any row above,
   or a `Start` date on the row, once vouched for the wrong period. That is the safety boundary against an
   invented value; the prompt is not. A sheet's per-column style and week shape are computed once
