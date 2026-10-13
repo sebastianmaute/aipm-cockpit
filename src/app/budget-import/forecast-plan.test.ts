@@ -647,3 +647,29 @@ describe("the line's members not in the sheet, per period (final review 3, M2)",
     ]);
   });
 });
+
+// rr14 (out of scope, taken into fix10b): a person on two lines is
+// unresolved, yet another member's figure still replaces the shared cell, and
+// the note called her "not in the sheet for this period". She is in the
+// sheet; the note now says she was not matched.
+describe("a shared line's member who is in the sheet but unresolved (rr14 M3a)", () => {
+  it("names her apart from the members the sheet does not list", () => {
+    const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray"), person(3, "Carol", "Ito", { roleId: ROLE_B.id })];
+    const bucket = bucketOf({ allocations: [alloc(ROLE_B.id, { "2026-01": 100 }, [1, 3]), alloc(ROLE_A.id, {}, [1, 2])] });
+    const p = plan([row("Ann Lee", "2026-01", 120), row("Carol Ito", "2026-01", 80)], { resources, bucket });
+    expect(p.unresolved.map((u) => [u.person, u.why])).toEqual([["Ann Lee", "several-lines"]]);
+    expect(p.changes).toEqual([
+      { alloc: { kind: "role", roleId: ROLE_B.id }, period: "2026-01", old: 100, next: 80, unmatchedOnLine: ["Ann Lee"] },
+    ]);
+  });
+
+  it("a skipped member is named the same way, and a member the sheet leaves out stays under othersOnLine", () => {
+    const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray"), person(3, "Carol", "Ito", { roleId: ROLE_B.id })];
+    const bucket = bucketOf({ allocations: [alloc(ROLE_B.id, { "2026-01": 100 }, [1, 2, 3]), alloc(ROLE_A.id, {}, [1])] });
+    const overrides = new Map<string, PersonOverride>([[normalisePerson("Ann Lee"), "skip"]]);
+    const p = plan([row("Ann Lee", "2026-01", 120), row("Carol Ito", "2026-01", 80)], { resources, bucket, overrides });
+    expect(p.changes).toEqual([
+      { alloc: { kind: "role", roleId: ROLE_B.id }, period: "2026-01", old: 100, next: 80, othersOnLine: ["Bob Ray"], unmatchedOnLine: ["Ann Lee"] },
+    ]);
+  });
+});

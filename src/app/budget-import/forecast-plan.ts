@@ -34,6 +34,9 @@ export type CellChange = {
   /** Members of the allocation's line the sheet does not list for this
    *  period: the imported value replaces the whole cell, their share included. */
   othersOnLine?: string[];
+  /** Members of the line who ARE in the sheet but were not routed to it (on
+   *  several lines, or skipped): the value replaces their share too (rr14). */
+  unmatchedOnLine?: string[];
 };
 /** `several-lines`: the matched resource sits on more than one line of the
  *  target bucket, so which line their hours go to is not settled (final
@@ -78,9 +81,11 @@ type Indexes = {
   roleById: Map<number, Role>;
 };
 
+/** `resourceId`: the resource the sheet person matched, when it is known but
+ *  their hours were not routed (`several-lines`, or skipped after it). */
 type Resolution =
-  | { kind: "skip" }
-  | { kind: "unresolved"; why: UnresolvedPerson["why"]; candidates: number[] }
+  | { kind: "skip"; resourceId?: number }
+  | { kind: "unresolved"; why: UnresolvedPerson["why"]; candidates: number[]; resourceId?: number }
   | { kind: "matched"; resource: Resource; role: Role };
 
 function addIndexed(index: Map<string, number[]>, key: string, id: number): void {
@@ -160,6 +165,8 @@ type Collector = {
   skipped: Map<string, string>;
   outOfRange: Map<string, { person: string; period: string }>;
   rateNotes: Map<string, RateNote>;
+  /** Resources the sheet names but whose hours were not routed (`Resolution.resourceId`). */
+  unmatchedIds: Set<number>;
 };
 
 function allocKeyOf(role: Role, blended: boolean): AllocationKey {
@@ -242,7 +249,7 @@ function memberLines(bucket: BudgetBucket, resourceId: number): AllocationKey[] 
 function routeOf(res: Resolution, bucket: BudgetBucket, ix: Indexes): Routing {
   if (res.kind !== "matched") return res;
   const lines = memberLines(bucket, res.resource.id);
-  if (lines.length > 1) return { kind: "unresolved", why: "several-lines", candidates: [] };
+  if (lines.length > 1) return { kind: "unresolved", why: "several-lines", candidates: [], resourceId: res.resource.id };
   if (lines.length === 0) return { kind: "routed", resource: res.resource, alloc: allocKeyOf(res.role, bucket.planningMode === "blended"), rateRole: res.role };
   const line = lines[0];
   const lineRole = line.kind === "role" ? ix.roleById.get(line.roleId) : undefined;
@@ -256,7 +263,7 @@ function resolveAndRoute(row: ForecastRow, ix: Indexes, ctx: ImportCtx): Routing
   if (first.kind !== "unresolved" || first.why !== "several-lines") return first;
   const override = ctx.overrides.get(normalisePerson(row.person));
   if (override === undefined) return first;
-  if (override === "skip") return { kind: "skip" };
+  if (override === "skip") return { kind: "skip", resourceId: first.resourceId };
   return routeOf(resolveIds(ix.byId.has(override) ? [override] : [], ix), ctx.bucket, ix);
 }
 
@@ -287,9 +294,11 @@ function collect(rows: readonly ForecastRow[], ctx: ImportCtx, ix: Indexes, acti
     skipped: new Map(),
     outOfRange: new Map(),
     rateNotes: new Map(),
+    unmatchedIds: new Set(),
   };
   for (const row of rows) {
     const res = resolveAndRoute(row, ix, ctx);
+    if (res.kind !== "routed" && res.resourceId !== undefined) out.unmatchedIds.add(res.resourceId);
     if (res.kind === "skip") {
       const key = normalisePerson(row.person);
       if (!out.skipped.has(key)) out.skipped.set(key, row.person);
@@ -311,12 +320,17 @@ function findStored(bucket: BudgetBucket, key: AllocationKey): StoredAlloc | und
 
 type Diff = Pick<ImportPlan, "changes" | "addResources" | "newAllocations" | "hoursDelta">;
 
-type DiffScope = { active: ReadonlyMap<string, Period>; holidaySet: ReadonlySet<string>; byId: ReadonlyMap<number, Resource> };
+type DiffScope = {
+  active: ReadonlyMap<string, Period>;
+  holidaySet: ReadonlySet<string>;
+  byId: ReadonlyMap<number, Resource>;
+  unmatchedIds: ReadonlySet<number>;
+};
 
-/** The names of a stored line's members the sheet did not match to it in a period. */
-function othersOnLine(stored: StoredAlloc | undefined, matched: ReadonlySet<number>, byId: ReadonlyMap<number, Resource>): string[] {
+/** The names of a stored line's members that `keep` selects. */
+function lineMembers(stored: StoredAlloc | undefined, byId: ReadonlyMap<number, Resource>, keep: (id: number) => boolean): string[] {
   return (stored?.resourceIds ?? [])
-    .filter((id) => !matched.has(id))
+    .filter(keep)
     .map((id) => {
       const r = byId.get(id);
       return r ? `${r.firstName} ${r.lastName}`.trim() : `#${id}`;
@@ -351,8 +365,13 @@ function diffAllocation(acc: Acc, stored: StoredAlloc | undefined, scope: DiffSc
     if (target && hasUncoveredWorkday(target, covers, scope.holidaySet)) change.partial = true;
     // ★ Per period (final review 3, M2): a member the sheet lists for January
     // but leaves blank for April loses their April share, and April says so.
-    const others = othersOnLine(stored, acc.peopleByPeriod.get(period) ?? new Set(), scope.byId);
+    // ★ A member the sheet names but did not route here (rr14 M3a) is no
+    // "not in the sheet": they are named apart.
+    const routed = acc.peopleByPeriod.get(period) ?? new Set<number>();
+    const others = lineMembers(stored, scope.byId, (id) => !routed.has(id) && !scope.unmatchedIds.has(id));
+    const unmatched = lineMembers(stored, scope.byId, (id) => !routed.has(id) && scope.unmatchedIds.has(id));
     if (others.length > 0) change.othersOnLine = others;
+    if (unmatched.length > 0) change.unmatchedOnLine = unmatched;
     changes.push(change);
     delta += next - (old ?? 0);
   }
@@ -380,7 +399,7 @@ export function buildForecastImportPlan(rows: readonly ForecastRow[], ctx: Impor
   const active = new Map(bucketActivePeriods(ctx.bucket, ctx.plan).map((p) => [p.key, p]));
   const ix = buildIndexes(ctx.resources, ctx.roles);
   const collected = collect(rows, ctx, ix, active);
-  const scope: DiffScope = { active, holidaySet: ctx.holidaySet, byId: ix.byId };
+  const scope: DiffScope = { active, holidaySet: ctx.holidaySet, byId: ix.byId, unmatchedIds: collected.unmatchedIds };
   const diffs = [...collected.accs.values()].map((acc) => diffAllocation(acc, findStored(ctx.bucket, acc.alloc), scope));
   const changes = diffs.flatMap((d) => d.changes);
   return {

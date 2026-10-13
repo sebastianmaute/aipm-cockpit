@@ -2475,6 +2475,7 @@ export const de: Record<TranslationKey, string> = {
   forecastImportAddResources: "{0}: neu dabei {1}",
   forecastImportPartial: "Das Blatt deckt nur einen Teil dieser Periode ab.",
   forecastImportOthersOnLine: "deckt auch {0} ab (für diese Periode nicht im Blatt)",
+  forecastImportUnmatchedOnLine: "deckt auch {0} ab (im Blatt, nicht zugeordnet)",
   forecastImportTotalDelta: "Änderung gesamt: {0} h",
   forecastImportApply: "Übernehmen",
   forecastImportRefused: "Der Budget-Topf hat sich geändert, während die Vorschau offen war (geschlossen, entfernt oder „Budgetstunden folgen Planung“ eingeschaltet). Nichts wurde geschrieben.",

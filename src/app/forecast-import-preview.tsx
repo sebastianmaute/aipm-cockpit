@@ -245,6 +245,9 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
                     {c.othersOnLine && (
                       <span className="text-xs text-muted-foreground">{t(lang, "forecastImportOthersOnLine", c.othersOnLine.join(", "))}</span>
                     )}
+                    {c.unmatchedOnLine && (
+                      <span className="text-xs text-muted-foreground">{t(lang, "forecastImportUnmatchedOnLine", c.unmatchedOnLine.join(", "))}</span>
+                    )}
                   </li>
                 ))}
               </ul>

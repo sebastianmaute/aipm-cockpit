@@ -816,3 +816,22 @@ describe("ForecastImportModal — notices that say what confirming reads (rr14 N
     expect(screen.getByText(tPlural(L, "forecastImportAmbiguousContinuation", 2, "3, 5", "Ist, Plan"))).toBeInTheDocument();
   });
 });
+
+describe("ForecastImportModal — a shared line's member who is in the sheet but unresolved (rr14 M3a)", () => {
+  it("says she is in the sheet and not matched, not that she is missing from it", async () => {
+    const SENIOR: Role = { ...ROLE, id: 11 };
+    const CAROL: Resource = { ...ANN, id: 3, firstName: "Carol", lastName: "Ito", roleId: SENIOR.id };
+    const bucket: BudgetBucket = {
+      ...BUCKET,
+      allocations: [
+        { roleId: SENIOR.id, resourceIds: [ANN.id, CAROL.id], budgetHours: { "2026-01": 100 }, actualHours: {} },
+        { roleId: ROLE.id, resourceIds: [ANN.id], budgetHours: {}, actualHours: {} },
+      ],
+    };
+    render(<ForecastImportModal {...propsOf({ resources: [ANN, CAROL], roles: [ROLE, SENIOR], bucket, buckets: [bucket] })} />);
+    await chooseFile(`${WIDE}Ann Lee,120,,\r\nCarol Ito,80,,\r\n`);
+    const diff = screen.getByRole("region", { name: t(L, "forecastImportChanges") });
+    expect(within(diff).getByText(t(L, "forecastImportUnmatchedOnLine", "Ann Lee"))).toBeInTheDocument();
+    expect(within(diff).queryByText(t(L, "forecastImportOthersOnLine", "Ann Lee"))).toBeNull();
+  });
+});
