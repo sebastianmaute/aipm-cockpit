@@ -77,8 +77,10 @@ export interface BudgetPanelProps {
   onLearnMore?: (conceptId: string) => void;
   /** Cache key for the per-device TimeLog actuals the unapplied notice reads —
    *  the SAME one `TimelogPanel` writes under. Both it and `onGoToTimelog` are
-   *  needed before the notice renders at all. */
-  timelogProjectId?: string;
+   *  needed before the notice renders at all. Required: `workspace-section` always supplies the
+   *  project key (`currentProjectId ?? "default"`), and the setup checklist's dismissal is
+   *  keyed on it too. */
+  timelogProjectId: string;
   onGoToTimelog?: () => void;
   /** Opens the Budget report tab (§6.4 link line). `workspace-section.tsx`
    *  omits this prop in a popout (Plan Ruling 12), so the link renders only
@@ -242,7 +244,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
   // `currentProjectId ?? "default"`, i.e. the per-project key per-device state
   // already uses. The dismissal is read on every render (a try/catch'd
   // localStorage read) so a project switch can never show another project's flag.
-  const setupKey = timelogProjectId ?? "default";
+  const setupKey = timelogProjectId;
   const [setupHiddenNow, setSetupHiddenNow] = useState(false);
   const setupSteps = budgetSetupSteps({ roles, resources, buckets });
   const setupDismissed = setupHiddenNow || isBudgetSetupDismissed(setupKey);
@@ -338,7 +340,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
       {/* Above the bucket cards deliberately: editing allocations here is what
           makes cached bookings applicable, and this view otherwise points at
           Timelog nowhere at all. Read-only — it never writes a money figure. */}
-      {timelogProjectId !== undefined && onGoToTimelog && (
+      {onGoToTimelog && (
         <BudgetUnappliedNotice
           lang={lang} projectId={timelogProjectId} buckets={buckets} roles={roles}
           resources={resources} granularity={plan.granularity} onGoToTimelog={onGoToTimelog}

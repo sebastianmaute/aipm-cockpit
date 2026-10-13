@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { computeAccessibleName } from "dom-accessibility-api";
 import { BudgetSetupChecklist } from "./budget-setup-checklist";
 import type { BudgetSetupSteps } from "./budget-setup";
 import { loadI18n, t } from "./i18n";
@@ -173,10 +174,37 @@ describe("BudgetSetupChecklist collapsed", () => {
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
   });
 
-  test("the visible toggle text is contained in its accessible name (label in name)", () => {
+  // WCAG 2.5.3: the accessible name is COMPUTED (aria-label wins over the text), then checked for
+  // the visible text — in both states, since the label and the text swap together.
+  test("the visible toggle text is contained in its computed accessible name (label in name)", async () => {
+    setup({ steps: some, collapsed: true });
+    const u = userEvent.setup();
+    const states = [
+      { aria: "budgetSetupShowAria", visible: "budgetSetupShow" },
+      { aria: "budgetSetupHideAria", visible: "budgetSetupHide" },
+    ] as const;
+    for (const [i, s] of states.entries()) {
+      const toggle = screen.getByRole("button", { name: t(L, s.aria) });
+      const visible = toggle.textContent ?? "";
+      expect(visible).toBe(t(L, s.visible));
+      expect(computeAccessibleName(toggle).toLowerCase()).toContain(visible.toLowerCase());
+      if (i === 0) await u.click(toggle);
+    }
+  });
+
+  test("aria-controls names an element that exists while the steps are collapsed, and is hidden until opened", async () => {
     setup({ steps: some, collapsed: true });
     const toggle = screen.getByRole("button", { name: t(L, "budgetSetupShowAria") });
-    expect(toggle.textContent).toContain(t(L, "budgetSetupShow"));
+    const id = toggle.getAttribute("aria-controls")!;
+    expect(id).toBeTruthy();
+    const target = document.getElementById(id)!;
+    expect(target).toBeInTheDocument();
+    expect(target).not.toBeVisible();
+    expect(target).toHaveAttribute("hidden");
+    await userEvent.setup().click(toggle);
+    expect(document.getElementById(id)).toBe(target);
+    expect(target).toBeVisible();
+    expect(target).not.toHaveAttribute("hidden");
   });
 
   test("the hide button is named Hide budget setup and calls onDismiss", async () => {

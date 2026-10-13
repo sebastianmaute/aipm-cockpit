@@ -164,8 +164,9 @@ export function BudgetSetupChecklist(props: BudgetSetupChecklistProps) {
           <p className="text-xs text-muted-foreground">{t(lang, "budgetSetupIntro")}</p>
         </div>
       )}
-      {showList && (
-      <div id={listId} className={collapsed ? "mt-2" : undefined}>
+      {/* Always mounted, `hidden`-toggled: the collapsed toggle's `aria-controls` must name an element
+          that exists while the list is closed (the same pattern as the action row's reasons panel). */}
+      <div id={listId} hidden={!showList} className={collapsed ? "mt-2" : undefined}>
         <StepList lang={lang} steps={steps} onAddBucket={props.onAddBucket} onGo={props.onGo} features={props.features} onCommitFeatures={props.onCommitFeatures} />
         {(onStartTour || onLoadDemo) && (
           <div className="mt-2 flex flex-wrap items-center gap-2 px-3 print:hidden">
@@ -178,7 +179,6 @@ export function BudgetSetupChecklist(props: BudgetSetupChecklistProps) {
           </div>
         )}
       </div>
-      )}
     </section>
   );
 }

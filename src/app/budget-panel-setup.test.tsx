@@ -69,6 +69,35 @@ describe("BudgetPanel setup checklist", () => {
     expect(hideBtn()).toBeNull();
   });
 
+  test("opening and closing the steps does not undo a dismissal, whenever it is made", async () => {
+    const u = userEvent.setup();
+    const { unmount } = render(<BudgetPanel {...base} buckets={[bucket()]} />);
+    const show = () => screen.getByRole("button", { name: t(L, "budgetSetupShowAria") });
+    await u.click(show());
+    expect(screen.getAllByRole("listitem")).toHaveLength(4);
+    await u.click(screen.getByRole("button", { name: t(L, "budgetSetupHideAria") }));
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    // Dismissed after a full open/close cycle...
+    await u.click(hideBtn()!);
+    expect(hideBtn()).toBeNull();
+    expect(collapsedLine(3)).toBeNull();
+    unmount();
+    // ...it is still gone on a fresh mount, and stays gone while the steps are open on another.
+    render(<BudgetPanel {...base} buckets={[bucket()]} />);
+    expect(hideBtn()).toBeNull();
+    expect(collapsedLine(3)).toBeNull();
+  });
+
+  test("dismissing while the steps are open hides the whole line, steps included", async () => {
+    const u = userEvent.setup();
+    render(<BudgetPanel {...base} buckets={[bucket()]} />);
+    await u.click(screen.getByRole("button", { name: t(L, "budgetSetupShowAria") }));
+    await u.click(hideBtn()!);
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    expect(screen.queryByRole("region", { name: t(L, "budgetSetupTitle") })).toBeNull();
+    expect(window.localStorage.getItem(budgetSetupDismissKey("acme"))).toBe("1");
+  });
+
   test("a dismissal for one project does not hide another project's line", () => {
     window.localStorage.setItem(budgetSetupDismissKey("acme"), "1");
     render(<BudgetPanel {...base} buckets={[bucket()]} timelogProjectId="other" />);

@@ -20,7 +20,7 @@ const buckets: BudgetBucket[] = [{
 const props = {
   lang: "en-US" as const, buckets, roles, disciplines: [], grades: [], resources: [],
   plan, fxRates: null, absences: [], holidaySet: new Set<string>(), workdayHours: 8, today: "2026-02-01",
-  onChangeBuckets: vi.fn(), onRefreshFx: vi.fn(),
+  onChangeBuckets: vi.fn(), onRefreshFx: vi.fn(), timelogProjectId: "acme",
 };
 
 // §474 (rollup half): the EUR-labelled project rollup sums every bucket's
