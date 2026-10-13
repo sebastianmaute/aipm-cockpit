@@ -43,6 +43,9 @@ const PERIOD_WORD_RE = /^(months?|monate?|periods?|perioden?|zeitraum|weeks?|woc
 /** A date column's header: ranked below a period word, above none. */
 const DATE_HEADER_RE = /date|datum/i;
 const HOURS_HEADER_RE = /hour|stunden|std|hrs|aufwand|effort/i;
+/** A header naming ACTUALS, as a whole word or a part of a compound
+ *  (`Ist-Stunden`, `Actual hours`, `Gebucht (Std)`): never a named hours column. */
+const ACTUALS_WORD_RE = /^(ist|actuals?|gebucht|booked)$/i;
 const RATE_HEADER_RE = /\brates?\b|satz|€\/h|eur\/h/i;
 const EMAIL_HEADER_RE = /e-?mail/i;
 const PERSON_HEADER_RE = /^(name|mitarbeiter(in)?|person|ressource|resource|employee|member|mitglied)$/i;
@@ -53,6 +56,13 @@ const WORD_SPLIT_RE = /[^\p{L}]+/u;
  *  `Month`, `Start month`, `Monat/Jahr`, `KW 05`. */
 export function isPeriodWordHeader(label: string): boolean {
   return label.split(WORD_SPLIT_RE).some((word) => PERIOD_WORD_RE.test(word));
+}
+
+/** A named hours column: an hours word (`HOURS_HEADER_RE`), and no actuals
+ *  word (`ACTUALS_WORD_RE`): `Forecast | Ist-Stunden` once read Ist silently,
+ *  where it now asks (rr7). */
+function isNamedHoursHeader(label: string): boolean {
+  return HOURS_HEADER_RE.test(label) && !label.split(WORD_SPLIT_RE).some((word) => ACTUALS_WORD_RE.test(word));
 }
 
 const UNKNOWN: LayoutDetection = { kind: "unknown", mapping: null, ambiguous: [] };
@@ -267,15 +277,16 @@ function findPeriodColumn(
  *   Eintritt` and `Datum | Startmonat` ask);
  * - the HOURS, when two or more number columns are left after the exclusions
  *   (`numericColumns`, rate and period-headed columns) and not exactly one of
- *   them is headed by an hours word (`Plan | Stunden` is clear; `Plan | Ist`,
- *   `h | Betrag`, `Menge | Summe` ask).
+ *   them is a named hours column (`isNamedHoursHeader`: `Plan | Stunden` is
+ *   clear; `Plan | Ist`, `h | Betrag`, `Menge | Summe`, `Forecast | Ist-Stunden`
+ *   ask).
  */
 function ambiguityOf(header: readonly string[], periodCols: readonly number[], hoursCols: readonly number[]): ColumnAmbiguity[] {
   const named = (cols: readonly number[], isNamed: (label: string) => boolean): number =>
     cols.filter((col) => isNamed(cellAt(header, col))).length;
   const out: ColumnAmbiguity[] = [];
   if (periodCols.length > 1 && named(periodCols, isPeriodWordHeader) !== 1) out.push({ field: "period", candidates: [...periodCols] });
-  if (hoursCols.length > 1 && named(hoursCols, (label) => HOURS_HEADER_RE.test(label)) !== 1) out.push({ field: "hours", candidates: [...hoursCols] });
+  if (hoursCols.length > 1 && named(hoursCols, isNamedHoursHeader) !== 1) out.push({ field: "hours", candidates: [...hoursCols] });
   return out;
 }
 
@@ -340,7 +351,7 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   // A named hours column, else the LEFTMOST number column. ★★ A rightmost pick
   // (final review I3) imported `Ist`, `Actual`, `Summe` or `Betrag` in place of
   // `Plan` or `Forecast` (rr6 N1); where it is not clear, `ambiguityOf` asks.
-  const hours = hoursCols.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? hoursCols[0];
+  const hours = hoursCols.find((col) => isNamedHoursHeader(cellAt(header, col))) ?? hoursCols[0];
   if (hours === undefined || isDataRowShaped(header, period, hours, ctx)) return null;
   const rate = rateCols[0];
 

@@ -512,10 +512,37 @@ describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
     expect(detected.ambiguous).toEqual([]);
   });
 
-  it("asks when two candidates are headed by an hours word: Stunden | Std Ist", () => {
-    const detected = detectLayout(twoFigures("Stunden", "Std Ist", PLAN, ["35", "30", "25"]), { defaultYear: 2026 });
+  it("asks when two candidates are headed by an hours word: Stunden | Std Plan", () => {
+    const detected = detectLayout(twoFigures("Stunden", "Std Plan", PLAN, ["35", "30", "25"]), { defaultYear: 2026 });
     expect(detected.mapping).toMatchObject({ hours: 2 });
     expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  // rr7 (controller ruling): a header that names ACTUALS — the whole word
+  // ist / actual(s) / gebucht / booked, also as a part of a hyphenated or
+  // spaced compound — is not a named hours column, for the pick or the gate.
+  it.each(["Ist-Stunden", "Stunden Ist", "Actual hours", "Actuals (h)", "Gebucht (Std)", "Booked hours"])(
+    "Forecast | %s asks, Forecast preselected: an actuals header is no named hours column", (actuals) => {
+      const detected = detectLayout(twoFigures("Forecast", actuals, PLAN, ["35", "30", "25"]), { defaultYear: 2026 });
+      expect(detected.mapping).toMatchObject({ hours: 2 });
+      expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    },
+  );
+
+  it.each([
+    ["Stunden | Ist", "Stunden", "Ist"],
+    ["Stunden | Std Ist", "Stunden", "Std Ist"],
+    ["Ist-Stunden | Plan stunden", "Ist-Stunden", "Plan stunden"],
+  ])("%s is clear: one named hours column that is not actuals", (_label, x, y) => {
+    const detected = detectLayout(twoFigures(x, y, PLAN, ["35", "30", "25"]), { defaultYear: 2026 });
+    expect(detected.ambiguous).toEqual([]);
+    expect(detected.mapping).toMatchObject({ hours: x === "Ist-Stunden" ? 3 : 2 });
+  });
+
+  it("a lone actuals column is still the hours: Name | Monat | Ist-Stunden", () => {
+    const detected = detectLayout(twoFigures("Ist-Stunden", "", PLAN, ["", "", ""]), { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ hours: 2 });
+    expect(detected.ambiguous).toEqual([]);
   });
 
   it.each([
