@@ -274,7 +274,7 @@ function ViewSwitchLines({
       <p className="mt-1 text-xs text-muted-foreground">
         {guidesOn
           ? t(lang, "aiViewSwitchHint", String(G2_BREAK_EVEN_REQUESTS_PER_SWITCH))
-          : t(lang, "aiViewSwitchHintGuidesOff")}
+          : t(lang, "aiViewSwitchHintGuidesOff", t(lang, "filterQuotedValue", t(lang, "aiGroundInGuides")))}
       </p>
     </>
   );

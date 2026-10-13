@@ -3387,13 +3387,16 @@ describe("cache-token usage recording", () => {
   });
 
   // A send that goes stale WITHOUT being cancelled — a workspace scope change;
-  // a project or thread switch cancels instead — is still billed and recorded.
-  // The request it counts must come with that request's cache write, or a
-  // switch would be recorded with a write of 0.
-  it("records the cache write of a response that landed after a scope change", async () => {
+  // a project or thread switch cancels instead. The view-switch counter must
+  // get the request together with its cache write, or a switch would be
+  // recorded with a write of 0; the token caps keep their old rule and never
+  // see a response that landed after the send went stale.
+  it("gives the counter the cache write of a response that landed after a scope change, and the caps none of it", async () => {
+    const recordSpy = vi.fn();
     const recordChatSendSpy = vi.fn();
     vi.mocked(useAiUsageContext).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
+      record: recordSpy,
       recordChatSend: recordChatSendSpy,
     });
     let resolveFetch!: (r: Response) => void;
@@ -3426,6 +3429,8 @@ describe("cache-token usage recording", () => {
 
     await waitFor(() => expect(recordChatSendSpy).toHaveBeenCalledTimes(1));
     expect(recordChatSendSpy).toHaveBeenCalledWith(expect.anything(), 800, 1);
+    expect(recordSpy).toHaveBeenCalledTimes(1);
+    expect(recordSpy).toHaveBeenCalledWith({ input: 0, output: 0, cacheWrite: 0, cacheRead: 0 });
   });
 
   function renderGuidedPanel() {
@@ -3503,9 +3508,10 @@ describe("cache-token usage recording", () => {
     expect(noteSpy).not.toHaveBeenCalled();
   });
 
-  // Stop pressed while a request is in flight, and that request then answers:
-  // the loop breaks on the cancel without throwing, so this is the
-  // cancel-after-response branch, not the catch.
+  // ★ The mock ignores the abort signal, so the request answers AFTER Stop and
+  //   the loop breaks on the cancel without throwing. A real Stop aborts the
+  //   fetch and takes the catch instead (the next test); this pins the
+  //   defensive cancel-after-response branch.
   it("notes, without counting, a send stopped after its request answered", async () => {
     const recordChatSendSpy = vi.fn();
     const noteSpy = vi.fn();
@@ -3535,6 +3541,47 @@ describe("cache-token usage recording", () => {
 
     await waitFor(() => expect(noteSpy).toHaveBeenCalledTimes(1));
     expect(recordChatSendSpy).not.toHaveBeenCalled();
+  });
+
+  // The real Stop after a response: request 1 answered with a tool call, the
+  // abort then rejects request 2. The prefix of request 1 is cached, so the
+  // send is noted — and dated from request 1, the last one that ANSWERED: an
+  // aborted or rejected request refreshed nothing.
+  it("notes a send whose second request was aborted, dated from the last request that answered", async () => {
+    const recordChatSendSpy = vi.fn();
+    const noteSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+      noteUnbilledChatSend: noteSpy,
+    });
+    let tick = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => ++tick);
+    const fetchTimes: number[] = [];
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      call += 1;
+      fetchTimes.push(Date.now());
+      if (call === 2) return Promise.reject(new DOMException("aborted", "AbortError"));
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "tool_use", id: "t1", name: "list_tasks", input: {} }],
+            stop_reason: "tool_use",
+            usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 150, cache_read_input_tokens: 0 },
+          }),
+      } as unknown as Response);
+    });
+
+    renderGuidedPanel();
+    await waitFor(() => expect(noteSpy).toHaveBeenCalledTimes(1));
+    expect(recordChatSendSpy).not.toHaveBeenCalled();
+    expect(fetchTimes).toHaveLength(2);
+    const [fp] = noteSpy.mock.calls[0] as [SendFingerprint];
+    expect(fp.startedAt).toBeLessThan(fetchTimes[0]);
+    expect(fp.lastRequestAt).toBeLessThan(fetchTimes[0]);
   });
 });
 

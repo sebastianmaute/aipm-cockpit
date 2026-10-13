@@ -707,13 +707,16 @@ function ChatPanelInner({
     const messages = fitHistoryToBudget(newHistory, MAX_STAGED_PAYLOAD_BYTES);
 
     // §702: what this send put in front of the transcript, for the view-switch
-    // counter. Both stamps are taken just before a request goes out, because
-    // that is when the cache lifetime is refreshed (`VIEW_SWITCH_CACHE_TTL_MS`
-    // says why). `requests` counts round-trips that answered (the
-    // break-even's unit); any of them means a prefix reached the cache.
+    // counter. Each stamp is the time a request went out, because that is when
+    // the cache lifetime is refreshed (`VIEW_SWITCH_CACHE_TTL_MS` says why),
+    // and it is kept only once that request ANSWERED: an aborted or rejected
+    // request refreshed nothing. `requests` counts the answered round-trips
+    // (the break-even's unit) and `switchCacheWrite` their cache writes; any
+    // of them means a prefix reached the cache.
     let firstRequestAt: number | null = null;
     let lastRequestAt = 0;
     let requests = 0;
+    let switchCacheWrite = 0;
     const sendFingerprint = (): SendFingerprint => ({
       threadKey: `${sendProjectId ?? ""}|${sendThreadId ?? ""}`,
       model: ai.model,
@@ -747,8 +750,7 @@ function ChatPanelInner({
       const maxTurns = clampMaxChatTurns(ai.maxChatTurns);
       for (let turn = 0; turn < maxTurns; turn++) {
         if (stale()) break;
-        lastRequestAt = Date.now();
-        firstRequestAt ??= lastRequestAt;
+        const sentAt = Date.now();
         const response = await callClaude(
           effectiveApiKey,
           ai.model,
@@ -756,17 +758,21 @@ function ChatPanelInner({
           buildWireMessages(messages, turnContext).messages,
           ai, controller.signal,
         );
-        // Billed whether or not the send is still current, so the request and
-        // its tokens are counted together, before the stale check: a request
-        // counted without its cache write would record a switch as free.
+        // §702: the counter takes the request and its cache write together,
+        // BEFORE the stale check — a request counted without its write would
+        // record a switch as free. The cap totals below keep their own rule and
+        // skip a response that landed after the send went stale.
+        lastRequestAt = sentAt;
+        firstRequestAt ??= sentAt;
         requests += 1;
+        switchCacheWrite += response.usage.cache_creation_input_tokens;
+        // A cancel or a project switch may have landed while awaiting — bail
+        // before writing this turn onto (possibly) another project's state.
+        if (stale()) break;
         totalInput += response.usage.input_tokens;
         totalOutput += response.usage.output_tokens;
         totalCacheWrite += response.usage.cache_creation_input_tokens;
         totalCacheRead += response.usage.cache_read_input_tokens;
-        // A cancel or a project switch may have landed while awaiting — bail
-        // before writing this turn onto (possibly) another project's state.
-        if (stale()) break;
 
         const assistantMsg: ApiMessage = {
           role: "assistant",
@@ -1039,7 +1045,7 @@ function ChatPanelInner({
           cacheWrite: totalCacheWrite,
           cacheRead: totalCacheRead,
         });
-        recordChatSend(sendFingerprint(), totalCacheWrite, requests);
+        recordChatSend(sendFingerprint(), switchCacheWrite, requests);
       } else if (requests > 0) {
         // Stopped after a response: not billed, but the prefix is cached.
         noteUnbilledChatSend(sendFingerprint());

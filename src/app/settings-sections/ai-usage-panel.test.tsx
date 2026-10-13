@@ -563,13 +563,20 @@ describe("AiUsagePanel — view-switch counter (§702)", () => {
     expect(
       screen.getByText(/pays off when view switches happen more often than about one in 46 API requests/),
     ).toBeInTheDocument();
+    // The register's slice name is not user vocabulary.
+    expect(screen.queryByText(/G2/)).not.toBeInTheDocument();
   });
 
-  it("says G2 would change nothing while operating guides are off, instead of quoting the break-even", () => {
+  it("says there is nothing to move while operating guides are off, instead of quoting the break-even", () => {
     render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} guidesOn={false} />, {
       wrapper: sendsWrapper("en-US", THREE_SENDS),
     });
-    expect(screen.getByText(/operating guides.*off.*G2 would change nothing/i)).toBeInTheDocument();
+    // The setting is named by its own label, quoted the way filters quote.
+    expect(
+      screen.getByText(
+        `${t("en-US", "filterQuotedValue", t("en-US", "aiGroundInGuides"))} is off, so no view guides are sent and there is nothing to move out of the cached prompt.`,
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/46 API requests/)).not.toBeInTheDocument();
   });
 
@@ -604,6 +611,13 @@ describe("AiUsagePanel — view-switch counter (§702)", () => {
       expect(screen.getByText("Cache-Schreib-Tokens pro Nachricht").nextElementSibling).toHaveTextContent(
         "9.000 bei einem Wechsel, 600 bei anderen warmen Nachrichten",
       );
+    });
+
+    it("quotes the German setting label when operating guides are off", () => {
+      render(<AiUsagePanel lang="de" sessionCap={100_000} weeklyCap={500_000} guidesOn={false} />, {
+        wrapper: sendsWrapper("de", THREE_SENDS),
+      });
+      expect(screen.getByText(/^\u201EClaude an Betriebsleitf\u00E4den binden\u201C ist aus/)).toBeInTheDocument();
     });
   });
 });

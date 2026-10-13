@@ -68,9 +68,10 @@ export type SendFingerprint = {
   stableText: string;
   /** Every later `system` block's text joined; `""` when the view has none. */
   viewText: string;
-  /** Epoch ms just before the send's first request went out. */
+  /** Epoch ms just before the send's first ANSWERED request went out. */
   startedAt: number;
-  /** Epoch ms just before the send's last request went out. */
+  /** Epoch ms just before the send's last ANSWERED request went out: an
+   *  aborted or rejected request refreshed nothing. */
   lastRequestAt: number;
   /** Messages in the thread before this send's user message. */
   priorTurns: number;
