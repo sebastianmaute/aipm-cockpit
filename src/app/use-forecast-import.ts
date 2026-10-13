@@ -247,13 +247,13 @@ export function wideMappingFor(
 
 /** The columns the mapping step starts from when nothing was detected:
  *  header row 1, person in column A, every header period a period column. */
-export function defaultMappingFor(rows: readonly string[][], year?: number, numbers?: NumberOrigin): ColumnMapping {
+function defaultMappingFor(rows: readonly string[][], year?: number, numbers?: NumberOrigin): ColumnMapping {
   return wideMappingFor(rows, 0, { person: 0 }, year, numbers);
 }
 
 /** The year a header without one is read in by default: the target bucket's
  *  start year. */
-export function bucketStartYear(bucket: BudgetBucket): number | undefined {
+function bucketStartYear(bucket: BudgetBucket): number | undefined {
   const year = Number(bucket.startDate.slice(0, 4));
   return Number.isInteger(year) && year > 0 ? year : undefined;
 }

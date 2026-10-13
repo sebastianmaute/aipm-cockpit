@@ -70,7 +70,7 @@ function headersAbove(sheet: SheetGrid, col: number): readonly number[] {
  *  a row whose run (`headerProbeRun`) gives `col` a period. ★★ Text in the
  *  grid never bounds the search — a placeholder (`-`, `Urlaub`), a unit row
  *  (`Std`) or a `Plan | Ist` sub-header between the header and the cell. */
-export function nearestPeriodRowAbove(sheet: SheetGrid, rowIdx: number, col: number): number | null {
+function nearestPeriodRowAbove(sheet: SheetGrid, rowIdx: number, col: number): number | null {
   const above = headersAbove(sheet, col)[rowIdx];
   return above === undefined || above < 0 ? null : above;
 }
@@ -81,7 +81,7 @@ type RowPeriod = { col: number; text: string; cell: PeriodCell };
 /** EVERY period cell on the row (period-shaped in the sheet's number origin: a
  *  CSV's five-digit number is no date), the cell itself and the PERSON cell
  *  skipped by position. */
-export function rowPeriodCells(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; personCol?: number }): RowPeriod[] {
+function rowPeriodCells(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; personCol?: number }): RowPeriod[] {
   const cells = sheet.rows[at.rowIdx] ?? [];
   const out: RowPeriod[] = [];
   cells.forEach((text, col) => {

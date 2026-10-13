@@ -197,9 +197,9 @@ describe("assignRunPeriods — two dates far apart are a range, not periods", ()
     expect(assignRunPeriods(["Zeitraum", "01.07.2026", "01.01.2026"])).toEqual([null, null, null]);
   });
 
-  // The run alone: a two-period wide header on the hand route. Whether such a
-  // row heads the hours below it on the Claude route is the header search's
-  // call (`nearestPeriodRowAbove`, which stops at a header row in between).
+  // The run alone: a two-period wide header. Whether such a row heads the
+  // hours below it is the detection's call (a header row is scored on the data
+  // rows under it).
   it("reads two dates at most 92 days apart in one run as two period cells, and a range at 93", () => {
     expect(assignRunPeriods(["Name", "01.01.2026", "01.02.2026"])).toEqual([null, "2026-01", "2026-02"]);
     expect(assignRunPeriods(["Name", "01.01.2026", "03.04.2026"])).toEqual([null, "2026-01", "2026-04"]);
