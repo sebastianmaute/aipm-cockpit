@@ -1161,4 +1161,44 @@ describe("§711 — Turso setup as numbered steps", () => {
     expect(screen.getByText(t("en-US", "tursoStepUrl")).closest("li")).toHaveTextContent(done);
     expect(screen.getByText(t("en-US", "tursoStepToken")).closest("li")).toHaveTextContent(done);
   });
+
+  // B5: the test step is a DERIVED comparison (tursoTestFresh), so an edit made after a pass must
+  // take the tick back, and a failure must never have given it.
+  describe("the test step's tick follows the tested credentials", () => {
+    const done = t("en-US", "tursoStepDone");
+    const testItem = () => screen.getByText(t("en-US", "tursoStepTest")).closest("li") as HTMLElement;
+    const runTest = async (user: ReturnType<typeof userEvent.setup>) =>
+      user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+
+    it("un-ticks after a passed test when the URL is edited", async () => {
+      const user = userEvent.setup();
+      vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+      render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+      await runTest(user);
+      await screen.findByText(t("en-US", "integrationsTursoTestOk"));
+      expect(testItem()).toHaveTextContent(done);
+      await user.type(screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")), "z");
+      expect(testItem()).not.toHaveTextContent(done);
+    });
+
+    it("un-ticks after a passed test when the token is edited", async () => {
+      const user = userEvent.setup();
+      vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+      render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+      await runTest(user);
+      await screen.findByText(t("en-US", "integrationsTursoTestOk"));
+      expect(testItem()).toHaveTextContent(done);
+      await user.type(screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")), "z");
+      expect(testItem()).not.toHaveTextContent(done);
+    });
+
+    it("stays un-ticked after a failed test", async () => {
+      const user = userEvent.setup();
+      vi.mocked(testTursoConnection).mockRejectedValueOnce(new StorageNotReadyError("turso-token-rejected"));
+      render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+      await runTest(user);
+      await screen.findByText(t("en-US", "integrationsTursoTestAuth"));
+      expect(testItem()).not.toHaveTextContent(done);
+    });
+  });
 });
