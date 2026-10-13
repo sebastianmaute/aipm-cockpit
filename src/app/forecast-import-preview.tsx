@@ -22,12 +22,9 @@ import { resourceDisplayName, roleLabel } from "./resource-foundation";
 import { columnLetters } from "./budget-import/forecast-rows";
 import { allocId, normalisePerson, type AllocationKey, type CellChange, type ImportBlocker, type ImportPlan, type UnresolvedPerson } from "./budget-import/forecast-plan";
 import type { AssumedYear, DropReason } from "./budget-import/forecast-types";
-import { MAX_IMPORT_HOURS_PER_CELL, type RejectedRow, type SourceRejection } from "./budget-import/forecast-validate";
+import { MAX_IMPORT_HOURS_PER_CELL, type RejectedRow } from "./budget-import/forecast-validate";
 import type { Discipline, Grade, Resource, Role } from "./types";
 import type { ForecastImport } from "./use-forecast-import";
-
-/** Unread cells listed by reference before the rest are only counted. */
-const MAX_UNREAD_LISTED = 20;
 
 const BLOCKER_KEY: Record<ImportBlocker, TranslationKey> = {
   "follows-plan": "forecastImportBlockerFollowsPlan",
@@ -40,22 +37,11 @@ const WHY_KEY: Record<UnresolvedPerson["why"], TranslationKey> = {
   ambiguous: "forecastImportWhyAmbiguous",
   "no-role": "forecastImportWhyNoRole",
 };
-const REJECT_KEY: Record<Exclude<RejectedRow["reason"], "source">, TranslationKey> = {
+const REJECT_KEY: Record<RejectedRow["reason"], TranslationKey> = {
   shape: "forecastImportRejectShape",
   hours: "forecastImportRejectHours",
   period: "forecastImportRejectPeriod",
   person: "forecastImportRejectPerson",
-};
-const SOURCE_KEY: Record<SourceRejection, TranslationKey> = {
-  "bad-ref": "forecastImportRejectSourceRef",
-  "value-mismatch": "forecastImportRejectSourceValue",
-  "person-not-on-row": "forecastImportRejectSourcePerson",
-  "period-not-near": "forecastImportRejectSourcePeriod",
-  "period-conflict": "forecastImportRejectSourceConflict",
-  "columns-unconfirmed": "forecastImportRejectSourceColumns",
-  "cell-not-read": "forecastImportRejectSourceNotRead",
-  "row-ambiguous": "forecastImportRejectSourceRowAmbiguous",
-  "cell-reused": "forecastImportRejectSourceReused",
 };
 const DROP_KEY: Record<DropReason["reason"], TranslationKey> = {
   total: "forecastImportDropTotal",
@@ -74,39 +60,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-const MONTH_KEY_RE = /^(\d{4})-(\d{2})$/;
-const WEEK_KEY_RE = /^(\d{4})-W(\d{2})$/;
-
-/** A canonical period key as the user reads it: "2026-01" as the locale's
- *  short month and year ("Jan 2026", "Jan. 2026"), "2026-W03" as "W03 2026" /
- *  "KW03 2026"; anything else as written. */
-function periodLabel(lang: Lang, key: string): string {
-  const month = MONTH_KEY_RE.exec(key);
-  if (month) {
-    const first = new Date(Date.UTC(Number(month[1]), Number(month[2]) - 1, 1));
-    return first.toLocaleDateString(localeFor(lang), { month: "short", year: "numeric", timeZone: "UTC" });
-  }
-  const week = WEEK_KEY_RE.exec(key);
-  return week ? t(lang, "forecastImportWeekLabel", week[2], week[1]) : key;
-}
-
-/** Why a Claude row's source did not back it. A period conflict names its
- *  periods, as labels: the column header's and then the detected columns', the
- *  one the detected or confirmed columns read the cell in, the row's and then the column
- *  header's, or the row's two. */
-function sourceWhy(lang: Lang, r: Extract<RejectedRow, { reason: "source" }>): string {
-  const periods = r.periods;
-  const label = (key: string): string => periodLabel(lang, key);
-  if (periods === undefined) return t(lang, SOURCE_KEY[r.detail]);
-  if ("rows" in periods) return t(lang, "forecastImportRejectSourceRows", label(periods.rows[0]), label(periods.rows[1]));
-  if ("sheet" in periods) {
-    return "header" in periods
-      ? t(lang, "forecastImportRejectSourceSheetHeader", label(periods.header), label(periods.sheet))
-      : t(lang, "forecastImportRejectSourceSheet", label(periods.sheet));
-  }
-  return t(lang, SOURCE_KEY[r.detail], label(periods.row), label(periods.header));
-}
-
 function describeRejected(lang: Lang, r: RejectedRow): string {
   const raw = r.row;
   const rec = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
@@ -115,7 +68,7 @@ function describeRejected(lang: Lang, r: RejectedRow): string {
         .filter((v) => v !== undefined && v !== null && v !== "")
         .map(String)
     : [];
-  const why = r.reason === "source" ? sourceWhy(lang, r) : t(lang, REJECT_KEY[r.reason], String(MAX_IMPORT_HOURS_PER_CELL));
+  const why = t(lang, REJECT_KEY[r.reason], String(MAX_IMPORT_HOURS_PER_CELL));
   const text = t(lang, "forecastImportRejectedRow", parts.length > 0 ? parts.join(" · ") : "—", why);
   return rec && typeof rec.source === "string" ? `${text} (${rec.source})` : text;
 }
@@ -176,23 +129,6 @@ function CombinedSection({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
   );
 }
 
-/** The first MAX_UNREAD_LISTED items, and a count of the rest. */
-function listedWithRest(lang: Lang, items: readonly string[]): string {
-  const rest = items.length - MAX_UNREAD_LISTED;
-  const listed = items.slice(0, MAX_UNREAD_LISTED).join(", ");
-  return rest > 0 ? `${listed} ${t(lang, "forecastImportUnreadMore", String(rest))}` : listed;
-}
-
-function unreadCellsText(lang: Lang, cells: readonly string[]): string {
-  return tPlural(lang, "forecastImportUnreadCells", cells.length, cells.length, listedWithRest(lang, cells));
-}
-
-/** "Claude did not read row 7 (Bob Kay)": each row with its person, when known. */
-function unreadRowsText(lang: Lang, rows: ForecastImport["unread"]["rows"]): string {
-  const items = rows.map((r) => (r.person === undefined ? String(r.row) : `${r.row} (${r.person})`));
-  return tPlural(lang, "forecastImportUnreadRows", rows.length, rows.length, listedWithRest(lang, items));
-}
-
 function allocLabel(alloc: AllocationKey, roles: readonly Role[], disciplines: readonly Discipline[], grades: readonly Grade[]): string {
   if (alloc.kind === "role") return roleLabel(roles.find((r) => r.id === alloc.roleId), disciplines, grades) || `#${alloc.roleId}`;
   return disciplines.find((d) => d.id === alloc.disciplineId)?.name || `#${alloc.disciplineId}`;
@@ -222,7 +158,7 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
     groups.set(key, group);
   }
   const hasNotImported = fi.rejected.length + fi.dropped.length + fi.ignoredColumns.length + plan.outOfRange.length + plan.skipped.length
-    + fi.unread.cells.length + fi.unread.rows.length + fi.rowsAboveHeader + fi.rowsBelowRepeatedHeader > 0;
+    + fi.rowsAboveHeader + fi.rowsBelowRepeatedHeader > 0;
   const delta = plan.hoursDelta;
   return (
     <div className="space-y-4">
@@ -259,10 +195,6 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
             {fi.rowsAboveHeader > 0 && <li>{tPlural(lang, "forecastImportRowsAboveHeader", fi.rowsAboveHeader, fi.rowsAboveHeader)}</li>}
             {fi.rowsBelowRepeatedHeader > 0 && (
               <li>{tPlural(lang, "forecastImportRowsBelowRepeatedHeader", fi.rowsBelowRepeatedHeader, fi.rowsBelowRepeatedHeader)}</li>
-            )}
-            {fi.unread.cells.length > 0 && <li>{unreadCellsText(lang, fi.unread.cells)}</li>}
-            {fi.unread.rows.length > 0 && (
-              <li>{unreadRowsText(lang, fi.unread.rows)}</li>
             )}
             {plan.skipped.length > 0 && <li>{t(lang, "forecastImportSkippedPeople", plan.skipped.join(", "))}</li>}
             {plan.outOfRange.length > 0 && (

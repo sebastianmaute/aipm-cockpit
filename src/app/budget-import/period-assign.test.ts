@@ -1,6 +1,5 @@
-// §500 — how a header row's cells become periods. The hand route, detection and
-// the Claude near-cell check all read a header through `assignRunPeriods`, so
-// these pin the one definition.
+// §500 — how a header row's cells become periods. The reader and detection both
+// read a header through `assignRunPeriods`, so these pin the one definition.
 import { describe, expect, it } from "vitest";
 import { assignCellPeriod, assignRunDetailed, assignRunPeriods, classifyPeriodCell, isWeekSpacedColumn, parsePeriodLabel } from "./period-assign";
 

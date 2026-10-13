@@ -1,10 +1,9 @@
 // src/app/budget-import/period-assign.ts — how a sheet cell becomes a period
 // (§500). Pure: no i18n, no React, no DOM.
 //
-// ★★ ONE place decides this, for the hand route (`gridToForecastRows`),
-// detection (`detectLayout`) and the Claude route's near-cell check
-// (`validateForecastRows`), so the three can never disagree about which
-// period a cell is. A single cell is read by `parsePeriodLabel`; a WIDE
+// ★★ ONE place decides this, for the reader both routes import with
+// (`gridToForecastRows`) and detection (`detectLayout`), so the two can never
+// disagree about which period a cell is. A single cell is read by `parsePeriodLabel`; a WIDE
 // header row is read as a RUN by `assignRunPeriods`, because a year-less
 // "Jan" that follows "Dez" is next year's January, and a row of Monday dates
 // a week apart is a row of weeks, not of months.

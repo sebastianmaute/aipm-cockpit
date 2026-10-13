@@ -37,7 +37,6 @@ import { assignRunPeriods } from "./budget-import/period-assign";
 import type { AssumedYear, ColumnAmbiguity, ColumnMapping, DropReason, ForecastCollision, ForecastRow, IgnoredColumn } from "./budget-import/forecast-types";
 import { validateForecastRows, type DuplicateRow, type RejectedRow } from "./budget-import/forecast-validate";
 import { detectLayout, questionsFor, type LayoutDetection } from "./budget-import/layout-detect";
-import type { UnreadCells } from "./budget-import/unread-cells";
 import { readSheetFile, type NumberOrigin, type SheetGrid } from "./budget-import/sheet-grid";
 import { runForecastImportCall } from "./forecast-import-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -114,8 +113,6 @@ export interface ForecastImport {
   rowsAboveHeader: number;
   /** Non-blank rows below a repeated header row (not read). */
   rowsBelowRepeatedHeader: number;
-  /** Always empty now that Claude cites no cells. */
-  unread: UnreadCells;
   /** The default year headers without one were read in, when the preview's
    *  rows used it; the preview says so. */
   assumedYear: AssumedYear | undefined;
@@ -146,7 +143,6 @@ const BYTES_PER_MB = 1024 * 1024;
 const NO_OVERRIDES: ReadonlyMap<string, PersonOverride> = new Map();
 const NO_ROWS: readonly ForecastRow[] = [];
 const NO_COLLISIONS: readonly ForecastCollision[] = [];
-const NO_UNREAD: UnreadCells = { cells: [], rows: [] };
 const NO_AMBIGUITY: readonly ColumnAmbiguity[] = [];
 const NO_CONFIRMATIONS: ReadonlyMap<string, string> = new Map();
 
@@ -344,8 +340,8 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
 
   // Both routes read the sheet by the mapping in effect.
   const validated = useMemo<Validated | null>(
-    () => (sheet && handRows ? validateForecastRows(handRows.rows, { sheet, requireSource: false, defaultYear: year }) : null),
-    [sheet, handRows, year],
+    () => (sheet && handRows ? validateForecastRows(handRows.rows, { sheet }) : null),
+    [sheet, handRows],
   );
 
   const okRows = validated?.ok ?? NO_ROWS;
@@ -579,7 +575,6 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     rowsAboveHeader: handRows?.rowsAboveHeader ?? 0,
     rowsBelowRepeatedHeader: handRows?.rowsBelowRepeatedHeader ?? 0,
     assumedYear: handRows?.assumedYear,
-    unread: NO_UNREAD,
     sample: handRows ? handRows.rows.slice(0, SAMPLE_ROWS) : NO_ROWS,
     notes,
     error,

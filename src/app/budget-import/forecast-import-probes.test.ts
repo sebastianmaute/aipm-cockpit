@@ -24,7 +24,7 @@ function readSheet(rows: string[][], numbers: NumberOrigin = "text", defaultYear
   const detected = detectLayout(rows, { numbers, defaultYear });
   if (detected.mapping === null) throw new Error("no layout detected");
   const out = gridToForecastRows(rows, detected.mapping, "S", numbers);
-  return { grid, out, validated: validateForecastRows(out.rows, { sheet: grid, requireSource: false, defaultYear }) };
+  return { grid, out, validated: validateForecastRows(out.rows, { sheet: grid }) };
 }
 
 function planOf(run: Run, bucket: BudgetBucket, granularity: ResourcePlan["granularity"]): ImportPlan {
@@ -257,17 +257,6 @@ describe("probe: bi-weekly and semi-monthly date headers (round 3)", () => {
   it("equivalent labels still block: 2026-01 | Jan 2026, and one date twice", () => {
     expect(readSheet([["Name", "2026-01", "Jan 2026", "Feb 2026"], ["Ann Lee", "1", "2", "3"]]).validated.collisions).toHaveLength(1);
     expect(readSheet([["Name", "05.01.2026", "05.01.2026", "Feb 2026"], ["Ann Lee", "1", "2", "3"]]).validated.collisions).toHaveLength(1);
-  });
-
-  it("sums date claims under distinct date headers on the Claude route too", () => {
-    const grid: SheetGrid = { name: "S", rows: [["Name", "05.01.2026", "19.01.2026"], ["Ann Lee", "40", "30"]], truncated: false };
-    const out = validateForecastRows([
-      { person: "Ann Lee", period: "05.01.2026", hours: 40, source: "S!B2" },
-      { person: "Ann Lee", period: "19.01.2026", hours: 30, source: "S!C2" },
-    ], { sheet: grid, requireSource: true });
-    expect(out.collisions).toEqual([]);
-    expect(out.ok).toEqual([{ person: "Ann Lee", period: "2026-01", hours: 70 }]);
-    expect(out.subPeriods).toHaveLength(1);
   });
 
   // Round 4 (rr3 Important 1c): a placeholder above a cell once hid its date

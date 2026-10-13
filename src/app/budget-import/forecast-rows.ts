@@ -4,7 +4,8 @@
 // Cells arrive as the strings the file holds. What a cell MEANS is decided
 // here: a number ("1.234,5" is 1234.5 in a German export, not 1.2345) or a
 // total label. Which PERIOD a cell is comes from `period-assign.ts`, the one
-// definition detection and the Claude route read too.
+// definition detection reads too. Both routes import through this reader:
+// Claude only proposes the mapping (§500).
 
 import { HOURS_HEADER_RE, isPeriodWordHeader, PERSON_HEADER_RE } from "./header-words";
 import type { NumberOrigin } from "./sheet-grid";
@@ -287,16 +288,14 @@ function rowsAboveHeaderCount(
  * Period labels without a year are read in `mapping.year`, and `assumedYear`
  * says so when any returned row's period took its year from it (a wide header
  * that rolled on from it included). `ignoredColumns` lists a wide sheet's
- * unread number columns (see `IgnoredColumn`). `onRead`, when given, hears
- * every cell read into a row: its 0-based row and column and the period it was
- * read as (`handReadingOf` builds the Claude route's check on it).
+ * unread number columns (see `IgnoredColumn`). Both routes read the sheet
+ * here: the mapping is detection's, the user's, or Claude's (§500).
  */
 export function gridToForecastRows(
   rows: readonly string[][],
   mapping: ColumnMapping,
   sheetName: string,
   numbers: NumberOrigin = "text",
-  onRead?: (rowIdx: number, col: number, period: AssignedPeriod) => void,
 ): ForecastRowsResult {
   const out: ForecastRow[] = [];
   const read: AssignedPeriod[] = [];
@@ -346,7 +345,6 @@ export function gridToForecastRows(
       else {
         out.push(withMeta(meta, period, hours, sourceOf(index, col)));
         read.push({ period, assumed });
-        onRead?.(index, col, { period, assumed });
       }
     }
   }
@@ -365,8 +363,8 @@ export function gridToForecastRows(
 /** Every column, at any position and in either layout, that is not read, not a
  *  mapped field and not headed as a total (`isTotalHeader`), yet holds a number
  *  in more than half of the person rows — hours the import would otherwise
- *  leave out without a word. A period-shaped cell is no number here, as in
- *  `findUnreadCells`: a workbook's `Eintritt` serials were once listed. */
+ *  leave out without a word. A period-shaped cell is no number here: a
+ *  workbook's `Eintritt` serials were once listed. */
 function unreadNumberColumns(
   header: readonly string[],
   mapping: ColumnMapping,
