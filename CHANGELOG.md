@@ -10,6 +10,17 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Added
+
+- **Settings → AI now shows how often the chat's view changes while its prompt cache is warm.** Once you
+  have sent a chat message in the week, the panel under the weekly usage bar lists the week's completed
+  chat messages and their API requests, how many of them were view switches with a warm cache (1 in how
+  many API requests), and the cache-write tokens per message on a switch against other warm messages. A
+  hint gives the break-even: moving a view's guides out of the cached prompt pays off when switches happen
+  more often than about one in 46 API requests. It only measures: how the chat sends its prompt does not
+  change, and the counts are stored apart from the token limits, which they never affect. With operating
+  guides off, the panel says no view guides are sent instead.
+
 ## [1.18.0] - 2026-10-12 "Larsson"
 
 A feature release. Optimize with AI in Open Points proposes splits, regroups, missing tasks, estimates and
