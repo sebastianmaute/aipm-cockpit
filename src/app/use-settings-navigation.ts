@@ -26,10 +26,12 @@ import type { Settings } from "./settings-types";
 export interface SettingsNavigationDeps {
   layout: Settings["layout"];
   setActiveTab: Dispatch<SetStateAction<AppView>>;
+  /** A popout window gets no section opener in `workspaceNav` (it has no Settings to open). */
+  isPopout: boolean;
 }
 
 export function useSettingsNavigation(deps: SettingsNavigationDeps) {
-  const { layout, setActiveTab } = deps;
+  const { layout, setActiveTab, isPopout } = deps;
 
   // Deep-link the Action Center's "Learning is ON/OFF" pill to the Next-actions
   // settings section (where the learning controls live) — not the bare Settings
@@ -83,7 +85,26 @@ export function useSettingsNavigation(deps: SettingsNavigationDeps) {
   }, [setActiveTab]);
   const clearProjectFunctionsRequest = useCallback(() => setProjectFunctionsRequest(null), []);
 
+  // ★ Ready-made prop bags: task-manager spreads these instead of destructuring eleven names and
+  // folding the popout gate into a long line. Each bag's keys are the PROP names its consumer
+  // takes, so a call site cannot rename one by accident. Rebuilt each render; the members are the
+  // stable callbacks above, so no consumer sees a changed identity.
+  const workspaceNav = {
+    onOpenLearningSettings,
+    onOpenSettingsSection: isPopout ? undefined : onOpenSettingsSection,
+    projectFunctionsRequest,
+    onProjectFunctionsRequestConsumed: clearProjectFunctionsRequest,
+  };
+  const classicMenu = {
+    settingsMenuOpen: isClassicLayout && classicSettingsOpen,
+    onSettingsMenuOpenChange: setClassicSettingsOpen,
+  };
+  const sectionProps = { requestSection: settingsSectionRequest, onSectionConsumed: clearSettingsSectionRequest };
+
   return {
+    workspaceNav,
+    classicMenu,
+    sectionProps,
     settingsSectionRequest,
     clearSettingsSectionRequest,
     isClassicLayout,

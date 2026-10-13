@@ -8,7 +8,7 @@ import { renderHook, act } from "@testing-library/react";
 import { useSettingsNavigation, type SettingsNavigationDeps } from "./use-settings-navigation";
 
 function makeDeps(over: Partial<SettingsNavigationDeps> = {}): SettingsNavigationDeps {
-  return { layout: "modern", setActiveTab: vi.fn(), ...over };
+  return { layout: "modern", setActiveTab: vi.fn(), isPopout: false, ...over };
 }
 
 describe("useSettingsNavigation — modern layout", () => {
@@ -196,5 +196,55 @@ describe("useSettingsNavigation — project functions request (§706)", () => {
     act(() => result.current.openProjectFunctions());
     expect(deps.setActiveTab).toHaveBeenCalledWith("projects");
     expect(result.current.projectFunctionsRequest).toBe(1);
+  });
+});
+
+// B9: the bags task-manager spreads at its call sites (it has no line to spare for a destructure
+// of eleven names), so each bag's members and the popout gate are pinned here.
+describe("useSettingsNavigation — the prop bags task-manager spreads", () => {
+  it("workspaceNav carries the section opener, the learning link and the project-functions request", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useSettingsNavigation(deps));
+    const nav = result.current.workspaceNav;
+    expect(nav.onOpenSettingsSection).toBe(result.current.onOpenSettingsSection);
+    expect(nav.onOpenLearningSettings).toBe(result.current.onOpenLearningSettings);
+    expect(nav.projectFunctionsRequest).toBeNull();
+    expect(nav.onProjectFunctionsRequestConsumed).toBe(result.current.clearProjectFunctionsRequest);
+    act(() => result.current.openProjectFunctions());
+    expect(result.current.workspaceNav.projectFunctionsRequest).toBe(1);
+  });
+
+  it("a popout gets no section opener in its bag, yet the plain handler stays callable", () => {
+    const deps = makeDeps({ isPopout: true });
+    const { result } = renderHook(() => useSettingsNavigation(deps));
+    expect(result.current.workspaceNav.onOpenSettingsSection).toBeUndefined();
+    expect(result.current.workspaceNav.onOpenLearningSettings).toBe(result.current.onOpenLearningSettings);
+    act(() => result.current.onOpenSettingsSection("ai"));
+    expect(deps.setActiveTab).toHaveBeenCalledWith("settings");
+  });
+
+  it("classicMenu is open only in the classic layout, and its setter drives it", () => {
+    const deps = makeDeps({ layout: "classic" });
+    const { result } = renderHook(() => useSettingsNavigation(deps));
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(false);
+    act(() => result.current.classicMenu.onSettingsMenuOpenChange(true));
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(true);
+  });
+
+  it("classicMenu reads closed in the modern layout even if something asked it open", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useSettingsNavigation(deps));
+    act(() => result.current.classicMenu.onSettingsMenuOpenChange(true));
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(false);
+  });
+
+  it("sectionProps hands the request and its consumer to SettingsView", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useSettingsNavigation(deps));
+    expect(result.current.sectionProps.requestSection).toBeUndefined();
+    act(() => result.current.onOpenSettingsSection("ai"));
+    expect(result.current.sectionProps.requestSection).toEqual({ id: "ai", nonce: 1 });
+    act(() => result.current.sectionProps.onSectionConsumed());
+    expect(result.current.sectionProps.requestSection).toBeUndefined();
   });
 });

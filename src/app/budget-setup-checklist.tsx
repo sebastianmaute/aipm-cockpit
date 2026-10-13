@@ -53,7 +53,11 @@ function StepMarker({ lang, done, step }: { lang: Lang; done: boolean; step: Bud
   );
 }
 
-const MODULE_LABEL_KEY = new Map(FEATURE_MODULES.map((m) => [m.id, m.labelKey]));
+// Complete by construction: `FEATURE_MODULES` is the registry `FeatureModuleId` describes, so a
+// lookup cannot miss and needs no fallback label (same shape as functions-picker.tsx).
+const MODULE_LABEL_KEY = Object.fromEntries(
+  FEATURE_MODULES.map((m) => [m.id, m.labelKey]),
+) as Record<FeatureModuleId, TranslationKey>;
 
 type StepListProps = Pick<BudgetSetupChecklistProps, "lang" | "steps" | "onAddBucket" | "onGo" | "features" | "onCommitFeatures">;
 
@@ -61,7 +65,7 @@ function StepList({ lang, steps, onAddBucket, onGo, features, onCommitFeatures }
   /** "The Resources function is off" + a one-click turn-on, where a go-link would land on a
    *  disabled view. The turn-on commits the union in registry order (as the Time bookings notice). */
   const offHint = (moduleId: FeatureModuleId, rowLabelKey: TranslationKey) => {
-    const name = t(lang, MODULE_LABEL_KEY.get(moduleId) ?? "modeModulesHeading");
+    const name = t(lang, MODULE_LABEL_KEY[moduleId]);
     const turnOn = () => {
       const next = new Set<FeatureModuleId>([...(features ?? []), moduleId]);
       onCommitFeatures?.(ALL_MODULE_IDS.filter((id) => next.has(id)));

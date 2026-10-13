@@ -685,10 +685,8 @@ function TaskManagerInner() {
   });
   // "Open settings" requests (the modern deep-link and the classic popover) —
   // extracted to useSettingsNavigation.
-  const {
-    settingsSectionRequest, clearSettingsSectionRequest, isClassicLayout, classicSettingsOpen, setClassicSettingsOpen,
-    onOpenSettingsSection, onOpenSettings, onOpenLearningSettings, projectFunctionsRequest, openProjectFunctions, clearProjectFunctionsRequest,
-  } = useSettingsNavigation({ layout: settings.layout, setActiveTab });
+  const { onOpenSettingsSection, onOpenSettings, openProjectFunctions, workspaceNav, classicMenu, sectionProps } =
+    useSettingsNavigation({ layout: settings.layout, setActiveTab, isPopout });
   const openAction = useCallback(
     (a: SuggestedAction) => {
       executeActionCta(a.cta, {
@@ -1525,8 +1523,7 @@ function TaskManagerInner() {
     onLogAsRaid: raidCreate.openFromAction,
     learningEnabled: settings.nextActionsLearning?.enabled ?? false,
     expertMode: settings.expertMode === true,
-    onOpenLearningSettings,
-    onOpenSettingsSection: isPopout ? undefined : onOpenSettingsSection, projectFunctionsRequest, onProjectFunctionsRequestConsumed: clearProjectFunctionsRequest,
+    ...workspaceNav,
     onStartTour: settings.layout === "modern" && !isPopout ? tour.start : undefined,
     catalogTours: tour.catalogTours,
     completedTours: tour.completedTours,
@@ -1635,7 +1632,8 @@ function TaskManagerInner() {
       // read appearance under (workspace-section uses portfolioCurrentId), so a
       // per-project appearance override applies in Turso portfolio mode too.
       projectId={portfolioCurrentId ?? "default"}
-      onOpenProjectFunctions={openProjectFunctions} hasCurrentProject={project !== undefined}
+      onOpenProjectFunctions={openProjectFunctions}
+      hasCurrentProject={project !== undefined}
       storageDescription={storageDescription}
       storageReady={storageOk}
       onPickStorageFile={onPickStorageFile}
@@ -1655,8 +1653,7 @@ function TaskManagerInner() {
       onResetLearning={isPopout ? undefined : () => { void learning.reset(); }}
       onOpenInsights={isPopout ? undefined : () => setActiveTab("learning-insights")}
       onOpenVersion={desktopVersionRequest.openVersion}
-      requestSection={settingsSectionRequest}
-      onSectionConsumed={clearSettingsSectionRequest}
+      {...sectionProps}
       isPopout={isPopout}
       resources={resources}
       // The TimeLog guardrail policy rides the workspace `timelogLinks` blob,
@@ -1781,8 +1778,9 @@ function TaskManagerInner() {
     handleSaveTemplate,
     handleApplyTemplate,
     undoControl: undoControlEl,
-    settingsMenuOpen: isClassicLayout && classicSettingsOpen,
-    onSettingsMenuOpenChange: setClassicSettingsOpen, exportForecast, onLoadDemo: isPopout ? undefined : () => { void loadDemo(); },
+    ...classicMenu,
+    exportForecast,
+    onLoadDemo: isPopout ? undefined : () => { void loadDemo(); },
   });
 
   // The banner stack every returned tree renders above the workspace — see buildAppBanners.
