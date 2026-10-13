@@ -103,4 +103,22 @@ describe("findUnreadCells — a person skipped in a wide sheet (round 3)", () =>
       rows: [{ row: 3, person: "Bob Kay" }],
     });
   });
+
+  // Round 4 (rr3 Minor 1): a title block above the header is not data the
+  // reply skipped, even when the title row holds a date.
+  it("does not list title-block rows above a wide header whose title row holds a date", () => {
+    const sheet: SheetGrid = {
+      name: "S",
+      rows: [
+        ["Forecast", "Stand", "01.10.2026"], ["Budget gesamt", "", "1200"], [],
+        ["Name", "Jan 2026", "Feb 2026", "Mär 2026"], ["Ann", "8", "8", "8"], ["Bob", "4", "4", "4"],
+      ],
+      truncated: false,
+    };
+    const complete = [
+      row("Ann", "Jan 2026", 8, "S!B5"), row("Ann", "Feb 2026", 8, "S!C5"), row("Ann", "Mär 2026", 8, "S!D5"),
+      row("Bob", "Jan 2026", 4, "S!B6"), row("Bob", "Feb 2026", 4, "S!C6"), row("Bob", "Mär 2026", 4, "S!D6"),
+    ];
+    expect(unreadOf(sheet, complete)).toEqual({ cells: [], rows: [] });
+  });
 });

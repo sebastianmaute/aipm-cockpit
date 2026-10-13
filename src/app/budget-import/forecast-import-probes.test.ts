@@ -269,6 +269,19 @@ describe("probe: bi-weekly and semi-monthly date headers (round 3)", () => {
     expect(out.ok).toEqual([{ person: "Ann Lee", period: "2026-01", hours: 70 }]);
     expect(out.subPeriods).toHaveLength(1);
   });
+
+  // Round 4 (rr3 Important 1c): a placeholder above a cell once hid its date
+  // header, and Bob's January became a same-row collision.
+  it("a - in Ann's row does not stop Bob's sprint dates being summed: 2026-01 = 80, no blocker", () => {
+    const run = readSheet([
+      ["Name", "05.01.2026", "19.01.2026", "02.02.2026", "16.02.2026"],
+      ["Ann Lee", "40", "-", "40", "40"],
+      ["Bob Kay", "40", "40", "40", "40"],
+    ]);
+    expect(run.validated.collisions).toEqual([]);
+    expect(run.validated.ok.find((r) => r.person === "Bob Kay" && r.period === "2026-01")?.hours).toBe(80);
+    expect(monthPlan(run).blockers).not.toContain("same-row-period");
+  });
 });
 
 // Round 3 (rr2 observation 2): stacked year blocks. Detection takes the second

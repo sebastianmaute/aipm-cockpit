@@ -30,6 +30,9 @@ const SOURCE_HOURS_TOLERANCE = 0.005;
 const LETTERS_IN_ALPHABET = 26;
 const CHAR_CODE_A = 65;
 const CELL_REF = /^([A-Z]{1,3})([1-9]\d*)$/;
+/** A stand-in year: whether a run gives a column a period must not depend on
+ *  the default year (a year-less header is a header either way). */
+const STAND_IN_YEAR = 2000;
 
 /** A1 column letters as a 0-based index: A=0, Z=25, AA=26. */
 function columnIndex(letters: string): number {
@@ -75,11 +78,17 @@ export function citedCell(source: string | undefined, sheet: SheetGrid): { rowId
   return at === null || cell === undefined ? null : { ...at, cell };
 }
 
-/** Per-column facts of one sheet, each computed once: `style` (`columnStyle`)
- *  and `weekly` (`isWeekSpacedColumn`). Recomputing them per claim made the
- *  Claude-route check take a second at the 4000-cell cap (re-review). Grids are
- *  never mutated, so the facts are kept per grid object. */
-export type ColumnFacts = { style: (col: number) => DecimalStyle; weekly: (col: number) => boolean };
+/** Per-column facts of one sheet, each computed once: `style` (`columnStyle`),
+ *  `weekly` (`isWeekSpacedColumn`) and `headerAbove` (per row, the nearest
+ *  period header row above it in the column, -1 for none:
+ *  `nearestPeriodRowAbove`). Recomputing them per claim made the Claude-route
+ *  check take a second at the 4000-cell cap (re-review). Grids are never
+ *  mutated, so the facts are kept per grid object. */
+export type ColumnFacts = {
+  style: (col: number) => DecimalStyle;
+  weekly: (col: number) => boolean;
+  headerAbove: (col: number) => readonly number[];
+};
 
 const FACTS = new WeakMap<SheetGrid, ColumnFacts>();
 
@@ -93,9 +102,11 @@ export function columnFacts(sheet: SheetGrid): ColumnFacts {
       return cache.get(col) as T;
     };
   };
+  const runOf = memo((row) => assignRunDetailed(sheet.rows[row] ?? [], { defaultYear: STAND_IN_YEAR, numbers: sheet.numbers }));
   const facts: ColumnFacts = {
     style: memo((col) => columnStyle(sheet, col)),
     weekly: memo((col) => isWeekSpacedColumn(sheet.rows.map((r) => r[col] ?? ""), sheet.numbers)),
+    headerAbove: memo((col) => headersAbove(sheet, col, runOf)),
   };
   FACTS.set(sheet, facts);
   return facts;
@@ -123,26 +134,35 @@ export function columnNaming(rowCells: readonly string[], citedCol: number, text
   return cols.find((col) => classifyPeriodCell(rowCells[col]) === null) ?? cols[0] ?? null;
 }
 
-/** The nearest row above `rowIdx` whose cell in `col` is period-shaped, else
- *  null. ★ The header BOUNDS the search: it stops at the first non-blank cell
- *  that is neither a period nor a number (a "Stunden" header), so a date in a
- *  title row above a long sheet's header does not count as its period header. */
+/** The nearest row above `rowIdx` that is a PERIOD HEADER for `col`, else null:
+ *  a row whose run (`assignRunDetailed`) gives `col` a period. ★★ Text in the
+ *  grid never bounds the search — a placeholder (`-`, `Urlaub`), a unit row
+ *  (`Std`) or a `Plan | Ist` sub-header between the header and the cell once
+ *  rejected every valid claim beneath it (re-review 3). A period-shaped cell
+ *  whose row gives it no period (a title row's lone date: `withoutLoneDate`) is
+ *  passed over, so a long sheet with a dated title row still falls back to the
+ *  row search. A year-less header counts whatever the default year: the run is
+ *  read with a stand-in year here, and `periodNearCell` reads the period itself
+ *  with the real one. */
 export function nearestPeriodRowAbove(sheet: SheetGrid, rowIdx: number, col: number): number | null {
-  for (let r = rowIdx - 1; r >= 0; r--) {
-    const cell = sheet.rows[r]?.[col] ?? "";
-    if (classifyPeriodCell(cell) !== null) return r;
-    if (cell.trim() !== "" && !isNumberLike(cell, sheet)) return null;
+  const above = columnFacts(sheet).headerAbove(col)[rowIdx];
+  return above === undefined || above < 0 ? null : above;
+}
+
+/** Per row of `col`, the nearest row above it that is a period header for `col`
+ *  (-1 for none), in one pass down the column. */
+function headersAbove(sheet: SheetGrid, col: number, runOf: (row: number) => ReadonlyArray<AssignedPeriod | null>): number[] {
+  const out: number[] = [];
+  let last = -1;
+  for (let r = 0; r < sheet.rows.length; r++) {
+    out.push(last);
+    if (classifyPeriodCell(sheet.rows[r]?.[col] ?? "") !== null && (runOf(r)[col] ?? null) !== null) last = r;
   }
-  return null;
+  return out;
 }
 
-/** A number in either decimal style (a data cell, not a header). */
-function isNumberLike(cell: string, sheet: SheetGrid): boolean {
-  return parseNumberCell(cell, "dot", sheet.numbers) !== null || parseNumberCell(cell, "comma", sheet.numbers) !== null;
-}
-
-/** The ISO day of the date header a cell sits under (the nearest period cell
- *  above it, when that is a date — an Excel serial only in a workbook), else
+/** The ISO day of the date header a cell sits under (the nearest period header
+ *  above it, `nearestPeriodRowAbove`, when its cell is a date — an Excel serial only in a workbook), else
  *  null: what tells a sub-period column ("05.01.2026") from a period label. */
 export function headerDateOf(sheet: SheetGrid, at: { rowIdx: number; colIdx: number }): string | null {
   const r = nearestPeriodRowAbove(sheet, at.rowIdx, at.colIdx);
@@ -165,11 +185,12 @@ function claimNames(claim: PeriodCell, period: string): boolean {
 
 /**
  * The period the cited cell sits under, when the claim names it. ★★ If the
- * cited column holds a period cell above the cell, the NEAREST one decides,
- * read as part of ITS header row's run (`assignRunDetailed`) — so a stacked
- * 2027 block, or a year-less "Jan" after "Dez", reads as that header says, and
- * a date elsewhere on the row (a "Start" column) vouches for nothing. Only
- * when the column above holds no period (a long sheet) is the row searched,
+ * cited column holds a period header above the cell (`nearestPeriodRowAbove`),
+ * the NEAREST one decides, read as part of ITS row's run (`assignRunDetailed`)
+ * — so a stacked 2027 block, or a year-less "Jan" after "Dez", reads as that
+ * header says, and a date elsewhere on the row (a "Start" column) vouches for
+ * nothing. Only when the column above holds no period header (a long sheet) is
+ * the row searched,
  * skipping the cited cell and the PERSON cell by position; there a year-less
  * period cell takes a year cell on the same row before `defaultYear`.
  */

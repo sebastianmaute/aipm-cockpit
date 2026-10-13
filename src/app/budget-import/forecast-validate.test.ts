@@ -723,3 +723,66 @@ describe("validateForecastRows: the header bounds the search for a period above 
     expect(out.ok.map((r) => r.period)).toEqual(["2026-10", "2026-11"]);
   });
 });
+
+// Round 4 (rr3 Important 1): text inside the grid never bounds the search for a
+// period header. A placeholder, a unit row or a Plan | Ist sub-header between
+// the header and the cited cell once rejected every claim beneath it.
+describe("validateForecastRows: in-grid text does not bound the header search (round 4)", () => {
+  const sheetOf = (rows: string[][]): SheetGrid => ({ name: "S", rows, truncated: false });
+  const claim = (person: string, period: string, hours: number, source: string) => ({ person, period, hours, source });
+
+  it.each(["-", "Urlaub", "krank"])("accepts every claim of a complete reply with %s in a month cell", (placeholder) => {
+    const sheet = sheetOf([["Name", "Jan 2026", "Feb 2026", "Mär 2026"], ["Ann", "8", placeholder, "8"], ["Bob", "4", "4", "4"]]);
+    const out = validateForecastRows([
+      claim("Ann", "Jan 2026", 8, "S!B2"), claim("Ann", "Mär 2026", 8, "S!D2"),
+      claim("Bob", "Jan 2026", 4, "S!B3"), claim("Bob", "Feb 2026", 4, "S!C3"), claim("Bob", "Mär 2026", 4, "S!D3"),
+    ], { sheet, requireSource: true });
+    expect(out.rejected).toEqual([]);
+    expect(out.ok).toHaveLength(5);
+  });
+
+  it("accepts year-less claims under a year-less header with n/a in a month cell", () => {
+    const sheet = sheetOf([["Name", "Jan", "Feb", "Mär"], ["Ann", "8", "n/a", "8"], ["Bob", "4", "4", "4"]]);
+    const out = validateForecastRows([
+      claim("Ann", "Jan", 8, "S!B2"), claim("Ann", "Mär", 8, "S!D2"),
+      claim("Bob", "Jan", 4, "S!B3"), claim("Bob", "Feb", 4, "S!C3"), claim("Bob", "Mär", 4, "S!D3"),
+    ], { sheet, requireSource: true, defaultYear: 2026 });
+    expect(out.rejected).toEqual([]);
+    expect(out.ok.filter((r) => r.person === "Bob").map((r) => r.period)).toEqual(["2026-01", "2026-02", "2026-03"]);
+  });
+
+  it("accepts every claim under a unit row (Std) beneath the month header", () => {
+    const sheet = sheetOf([["Name", "Jan 2026", "Feb 2026", "Mär 2026"], ["", "Std", "Std", "Std"], ["Ann", "8", "8", "8"]]);
+    const out = validateForecastRows([
+      claim("Ann", "Jan 2026", 8, "S!B3"), claim("Ann", "Feb 2026", 8, "S!C3"), claim("Ann", "Mär 2026", 8, "S!D3"),
+    ], { sheet, requireSource: true });
+    expect(out.rejected).toEqual([]);
+    expect(out.ok.map((r) => r.period)).toEqual(["2026-01", "2026-02", "2026-03"]);
+  });
+
+  it("accepts the Plan cells under a Plan | Ist sub-header", () => {
+    const sheet = sheetOf([["Name", "Jan 2026", "", "Feb 2026", ""], ["", "Plan", "Ist", "Plan", "Ist"], ["Ann", "8", "6", "8", "7"]]);
+    const out = validateForecastRows([
+      claim("Ann", "Jan 2026", 8, "S!B3"), claim("Ann", "Feb 2026", 8, "S!D3"),
+    ], { sheet, requireSource: true });
+    expect(out.rejected).toEqual([]);
+    expect(out.ok.map((r) => r.period)).toEqual(["2026-01", "2026-02"]);
+  });
+
+  it("accepts Bob's sprint-date claims under a - in Ann's row and sums his January to 80", () => {
+    const sheet = sheetOf([
+      ["Name", "05.01.2026", "19.01.2026", "02.02.2026", "16.02.2026"],
+      ["Ann", "40", "-", "40", "40"],
+      ["Bob", "40", "40", "40", "40"],
+    ]);
+    const out = validateForecastRows([
+      claim("Ann", "05.01.2026", 40, "S!B2"), claim("Ann", "02.02.2026", 40, "S!D2"), claim("Ann", "16.02.2026", 40, "S!E2"),
+      claim("Bob", "05.01.2026", 40, "S!B3"), claim("Bob", "19.01.2026", 40, "S!C3"),
+      claim("Bob", "02.02.2026", 40, "S!D3"), claim("Bob", "16.02.2026", 40, "S!E3"),
+    ], { sheet, requireSource: true });
+    expect(out.rejected).toEqual([]);
+    expect(out.collisions).toEqual([]);
+    expect(out.ok.find((r) => r.person === "Bob" && r.period === "2026-01")?.hours).toBe(80);
+    expect(out.ok.find((r) => r.person === "Ann" && r.period === "2026-01")?.hours).toBe(40);
+  });
+});
