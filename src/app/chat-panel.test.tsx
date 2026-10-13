@@ -769,6 +769,84 @@ describe("SP1 seed + foundational chips", () => {
     expect(dispatcher.getSnapshot).toHaveBeenCalledWith({ originView: "dashboard" });
   });
 
+  // §703: a seed the send gate only PREFILLS keeps the page it was requested
+  // from, and the user's later send of that text, unchanged, names it.
+  describe("a prefilled seed sent later", () => {
+    const GUIDES_AI = { ...AI_WITH_KEY, groundInGuides: true };
+    const seed = { prompt: "What's next?", autoSend: true, originView: "dashboard" as const };
+    function sendBox() {
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    }
+
+    it("names the page when the seed waited for the guides and is sent unchanged", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: GUIDES_AI, dispatcher, onAcceptConsent: vi.fn(), onChatSeedConsumed: vi.fn(), chatSeed: seed };
+      const { rerender } = render(<ChatPanel {...props} guidesReady={false} />);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      rerender(<ChatPanel {...props} guidesReady />);
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: "dashboard" });
+    });
+
+    it("names the page for a prefill-only seed sent unchanged", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      render(
+        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
+          chatSeed={{ ...seed, autoSend: false, originView: "gantt" }} onChatSeedConsumed={vi.fn()} />,
+      );
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: "gantt" });
+    });
+
+    it("sends an edited prefill as a typed message, with no page", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      render(
+        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
+          chatSeed={{ ...seed, autoSend: false }} onChatSeedConsumed={vi.fn()} />,
+      );
+      fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "What's next for me?" } });
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: undefined });
+    });
+
+    it("uses the page once: the same text sent again is a typed message", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      render(
+        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
+          chatSeed={{ ...seed, autoSend: false }} onChatSeedConsumed={vi.fn()} />,
+      );
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      const box = screen.getByPlaceholderText("Ask Claude about your tasks…");
+      await waitFor(() => expect(box).not.toBeDisabled());
+      fireEvent.change(box, { target: { value: "What's next?" } });
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: undefined });
+    });
+
+    it("drops the page once the project scope has changed", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      let epoch = 0;
+      render(
+        <ChatPanel {...SCOPE_PROPS} getScopeEpoch={() => epoch} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
+          chatSeed={{ ...seed, autoSend: false }} onChatSeedConsumed={vi.fn()} />,
+      );
+      epoch = 1;
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: undefined });
+    });
+  });
+
   // §703: the request names the page an Ask-Claude press came from, and a
   // `get_app_state` call later in the same send must not contradict it. The
   // stub answers "chat" when no origin is passed, as the real dispatcher does

@@ -26,10 +26,9 @@ longer carries its own changelog comment.
 - **"Ask Claude" now always tells Claude which page you asked from.** A press on Open Points, or one
   made on another page in the first moments after the app opened, told Claude it was on the chat tab, so
   a prompt about "this page" reached it without the page, and from Open Points without the summary of the
-  rows on screen. Every press that sends straight away now names the page it was made on, and so does
-  acting on an AI suggestion that opens the chat. A press that only fills in the message box, because
-  Claude is still answering or the app is still loading its guides, is sent later as a message typed in
-  the chat. When Claude checks where you are while answering, it now gets that same page
+  rows on screen. Every press now names the page it was made on, and so does acting on an AI suggestion
+  that opens the chat. A press that only fills in the message box, because Claude is still answering or
+  the app is still loading its guides, names it too when you send that text unchanged. When Claude checks where you are while answering, it now gets that same page
   rather than the chat tab.
 
 ## [1.18.0] - 2026-10-12 "Larsson"

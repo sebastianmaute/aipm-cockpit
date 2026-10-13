@@ -1731,8 +1731,10 @@
   before the fix too. ★ The tool loop of such a send gets a dispatcher
   whose `getSnapshot` passes the same origin, so a `get_app_state` call answers with the page too and cannot
   contradict the turn context; a typed send keeps the plain dispatcher and answers `chat`. ★ A seed the
-  send gate only PREFILLS (guides pending, no key, a send in flight) carries no origin: the user sends it
-  later as a typed message, which reports `chat`.
+  send gate only PREFILLS (guides pending, no key, a send in flight, or `autoSend` false) keeps its origin in
+  `prefillOriginRef` (`chat-panel.tsx`). The next send uses it ONCE, and only if it sends that text
+  unchanged in the same scope epoch; an edited, appended-to or repeated text is a typed message and reports
+  `chat`, and so is anything after a project swap.
   ★★★ **The digest must describe what the user can actually SEE, and this took TWO corrections.** The
   input is assembled by **`use-view-digest.ts`**, not inline in the dispatcher — it needs pane state the
   dispatcher does not hold. ★★ Correction 1: an early revision fed the digest raw `tasks`. ★★★ Correction

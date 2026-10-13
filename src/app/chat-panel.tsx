@@ -622,6 +622,11 @@ function ChatPanelInner({
   const apiKeyLocked =
     masterOn && !ai.apiKey.trim() && unlockedKey === null && isPassphraseLocked("anthropicApiKey");
 
+  // §703: the page a seed the send gate only PREFILLED was requested from, with its text as the
+  // box got it and the scope epoch it was made in. The next send uses it once, and only when it
+  // sends that text unchanged in the same scope; anything else is a message typed in the chat.
+  const prefillOriginRef = useRef<{ prompt: string; originView: AppView; epoch: number } | null>(null);
+
   // `originView` (§703) is set only by an auto-sent seed: the page the request came from.
   async function submitPrompt(textArg?: string, opts?: { originView?: AppView }) {
     const text = (textArg ?? input).trim().slice(0, CHAT_MESSAGE_MAX);
@@ -635,6 +640,11 @@ function ChatPanelInner({
       setError(t(lang, "chatNoApiKey"));
       return;
     }
+    const prefill = prefillOriginRef.current;
+    prefillOriginRef.current = null;
+    const originView =
+      opts?.originView ??
+      (prefill !== null && prefill.prompt === text && !isScopeStale(getScopeEpoch, prefill.epoch) ? prefill.originView : undefined);
     setError(null);
     setInput("");
     setAttachments([]);
@@ -698,7 +708,6 @@ function ChatPanelInner({
     const stale = () =>
       cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId || isScopeStale(getScopeEpoch, sendEpoch);
 
-    const originView = opts?.originView;
     const snapshot = dispatcher.getSnapshot({ originView });
     // §703: a `get_app_state` call later in this send answers with the same
     // page, not the chat tab the press switched to, so the tool cannot
@@ -1289,16 +1298,19 @@ function ChatPanelInner({
     blocked: boolean;
     submit: (text?: string, opts?: { originView?: AppView }) => void;
     consume: () => void;
+    epoch: () => number;
   }>({
     blocked: true,
     submit: () => {},
     consume: () => {},
+    epoch: () => 0,
   });
   useEffect(() => {
     sendGateRef.current = {
       blocked: guidesPending || apiKeyMissing || busy,
       submit: submitPrompt,
       consume: () => onChatSeedConsumed?.(),
+      epoch: getScopeEpoch,
     };
   });
 
@@ -1314,7 +1326,11 @@ function ChatPanelInner({
     const { prompt, autoSend } = chatSeed;
     // A seed is an external request (another view's requestChat), applied once per seed object.
     setInput((draft) => (!autoSend && draft.trim() !== "" ? `${draft.trimEnd()}\n${prompt}` : prompt));
-    if (chatSeed.autoSend && !sendGateRef.current.blocked) {
+    const sendNow = chatSeed.autoSend && !sendGateRef.current.blocked;
+    prefillOriginRef.current = sendNow
+      ? null
+      : { prompt: prompt.trim().slice(0, CHAT_MESSAGE_MAX), originView: chatSeed.originView, epoch: sendGateRef.current.epoch() };
+    if (sendNow) {
       sendGateRef.current.submit(chatSeed.prompt, { originView: chatSeed.originView });
     }
     sendGateRef.current.consume();
