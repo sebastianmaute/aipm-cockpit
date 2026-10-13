@@ -23,10 +23,11 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **"Ask Claude" now always tells Claude which page you asked from.** A press made before the chat had
-  been opened told Claude it was on the chat tab, so a prompt about "this page" reached it without the page, and without the visible-rows summary of Open Points, Workload, Gantt
-  or Budget. Every press now sends the page it was made on, and so does acting on an AI suggestion that
-  opens the chat.
+- **"Ask Claude" now always tells Claude which page you asked from.** A press on Open Points, or one
+  made on another page in the first moments after the app opened, told Claude it was on the chat tab, so
+  a prompt about "this page" reached it without the page, and from Open Points without the summary of the
+  rows on screen. Every press now sends the page it was made on, and so does acting on an AI suggestion
+  that opens the chat.
 
 ## [1.18.0] - 2026-10-12 "Larsson"
 

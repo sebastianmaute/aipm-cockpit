@@ -1719,15 +1719,16 @@
   site to add it).
   ★★ **An auto-sent chat seed names the page it was requested from, NOT the dispatcher's view ref** (§703).
   `requestChat` switches to the chat tab and stores the seed in one update, and the view ref follows
-  `currentView` in an effect of `TaskManager`, the parent. Which value a seeded send read therefore
-  depended on effect ORDER: the child's seed effect ran first on a mounted panel (the page), while a
-  first press reported `chat` (measured; probably because `ChatPanel` is a lazy chunk that mounts after
-  the parent's effect, which was never isolated, and the fix does not depend on it). The
+  `currentView` in an effect of `TaskManager`, the parent, so a seeded send read whatever that ref held
+  when the chat's seed effect ran. Measured on the pre-fix code: a press with the panel already mounted
+  reported the page; a press that MOUNTED it reported `chat` — on the dashboard only before the panel's
+  lazy chunk had loaded, on Open Points (which renders no `WorkspaceSection`, so no panel) every time,
+  the chunk loaded or not. Why a mount in the press commit still read `chat` was not traced. The
   seed now carries `ChatSeed.originView`, captured when `requestChat` is called, and `submitPrompt`
   passes it to `getSnapshot({ originView })`, which reports that view and the digest the dispatcher last
   held for it (none if the last page outside the chat tab was another one). ★ Do not "simplify" this back to
-  the view ref: a green run of the second press proves nothing, since effect order made that one right
-  by accident. ★ Residue: a `get_app_state` call during such a send still calls `getSnapshot()` with no
+  the view ref: a green run of a press on a mounted panel proves nothing, since that case was right
+  before the fix too. ★ Residue: a `get_app_state` call during such a send still calls `getSnapshot()` with no
   origin, so it answers `chat`.
   ★★★ **The digest must describe what the user can actually SEE, and this took TWO corrections.** The
   input is assembled by **`use-view-digest.ts`**, not inline in the dispatcher — it needs pane state the

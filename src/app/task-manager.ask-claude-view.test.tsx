@@ -6,14 +6,20 @@
 // the page it was pressed on decides what a counted "switch" means in practice.
 //
 // ★★ An Ask-Claude press reports the page it was pressed on, so the counter
-//    sees a view switch between it and a typed follow-up. Until §703 the press
-//    that MOUNTS the chat panel (made before the chat had been opened) reported
-//    "chat": the report came from whichever value the view ref held when the
-//    chat's seed effect ran. Probably because the panel is a lazy chunk that
-//    mounts after the parent's effect has written "chat"; that was never
-//    isolated, and the fix does not depend on it. The seed now carries the view
-//    it was requested from (`ChatSeed.originView`), so no press depends on
-//    effect order.
+//    sees a view switch between it and a typed follow-up. Until §703 a press
+//    that MOUNTED the chat panel reported "chat": the report came from
+//    whichever value the view ref held when the chat's seed effect ran. The
+//    seed now carries the view it was requested from (`ChatSeed.originView`),
+//    so no press depends on that.
+// ★★ WHEN the panel mounts at the press, measured 2026-10-13 against the
+//    pre-fix code by a throwaway probe of this file's own shape: on the
+//    dashboard the panel is in the tree and its lazy chunk loads by itself, so
+//    a press made once it had loaded reported "dashboard", and only one made
+//    before it had (the first test below) reported "chat". Open Points renders
+//    no WorkspaceSection, so the panel is not mounted there at all, and a press
+//    from it reported "chat" even with the chunk already loaded (the second
+//    test). So the lazy chunk is not the whole story; why a mount in the press
+//    commit still read "chat" was not traced.
 //
 // ★ Full mount on purpose, as a regression guard: the old answer came from
 //   React's effect ORDER between ChatPanel's seed effect (a child, which
@@ -150,12 +156,13 @@ describe("§702 — the view an Ask-Claude send reports", () => {
 
     expect(ask).toBeInTheDocument();
     await waitForGuides();
-    // Before the first press the chat panel is not mounted (in either composer
-    // state); the box found after the press is the positive half of that check.
+    // Before the first press the panel's lazy chunk has not loaded yet (no
+    // composer in either state); the box found after the press is the positive
+    // half of that check.
     expect(screen.queryByPlaceholderText("Ask Claude about your tasks…")).toBeNull();
     expect(screen.queryByPlaceholderText("Loading operating guides…")).toBeNull();
     await askFromHere(bodies, 1);
-    // §703: the press that mounts the panel reports the dashboard it was
+    // §703: a press made before the chunk loads reports the dashboard it was
     // pressed on. It reported the chat tab until the seed carried its origin.
     expect(reportedView(bodies[0])).toBe("dashboard");
 
@@ -181,7 +188,7 @@ describe("§702 — the view an Ask-Claude send reports", () => {
     expect(viewBlock(bodies[2])).not.toBe(viewBlock(bodies[1]));
   }, 60_000);
 
-  it("§703: the first press from a digest view sends that view and its digest", async () => {
+  it("§703: a press on Open Points, where the chat panel is not mounted, sends that view and its digest", async () => {
     seedRegistry();
     seedAiSettings();
     const bodies: WireBody[] = [];
@@ -191,11 +198,17 @@ describe("§702 — the view an Ask-Claude send reports", () => {
     const header = await screen.findByRole("banner", undefined, { timeout: 15_000 });
     await within(header).findByRole("button", { name: "Ask Claude" }, { timeout: 15_000 });
     await waitForGuides();
+    // Let the chat panel's lazy chunk load on the dashboard first, so this
+    // pins the case that does not depend on it: before §703 this press still
+    // reported "chat".
+    await screen.findByPlaceholderText("Ask Claude about your tasks…", undefined, { timeout: 15_000 });
+    expect(screen.queryByRole("combobox", { name: "Health" })).toBeNull();
     // The app lands on the dashboard whatever the URL says; navigate as a user would.
     act(() => {
       window.location.hash = "#open-points";
     });
-    await waitFor(() => expect(window.location.hash).toBe("#open-points"));
+    // Open Points' own health filter is on screen, and the chat panel is gone.
+    await screen.findByRole("combobox", { name: "Health" }, { timeout: 15_000 });
     expect(screen.queryByPlaceholderText("Ask Claude about your tasks…")).toBeNull();
 
     await askFromHere(bodies, 1);
