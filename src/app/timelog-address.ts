@@ -16,6 +16,8 @@ const ADDRESS_RE = /^https:\/\/([^/?#]*)([^?#]*)/i;
 // A bare DNS name; stricter than the server guard on purpose (it also keeps
 // whitespace and other junk out of the stored host).
 const HOSTNAME_RE = /^[a-z0-9.-]+$/;
+// Control characters (C0, DEL, C1) — checked on the DECODED tenant, so "%00" is caught too.
+const CONTROL_CHARS_RE = /[\u0000-\u001f\u007f-\u009f]/;
 
 export type TimelogAddress = { host: string; tenant: string };
 
@@ -26,6 +28,9 @@ export function parseTimelogAddress(raw: string): TimelogAddress | null {
   if (authority.includes("@") || authority.includes(":")) return null;
   const host = authority.toLowerCase();
   if (!HOSTNAME_RE.test(host)) return null;
+  // An empty label (leading dot, "..") is not a hostname; the apex suffix check
+  // below would otherwise accept ".timelog.com" and "a..timelog.com".
+  if (host.split(".").includes("")) return null;
   if (host !== TIMELOG_APEX && !host.endsWith(`.${TIMELOG_APEX}`)) return null;
 
   const segment = match[2].split("/").find((part) => part !== "");
@@ -36,6 +41,6 @@ export function parseTimelogAddress(raw: string): TimelogAddress | null {
   } catch {
     return null;
   }
-  if (tenant.trim() === "") return null;
+  if (tenant.trim() === "" || CONTROL_CHARS_RE.test(tenant)) return null;
   return { host, tenant };
 }

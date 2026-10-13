@@ -569,11 +569,46 @@ describe("TimelogSettings — address field (§704, §709)", () => {
     const onChange = vi.fn();
     const cfg = { ...defaultTimelogConfig, enabled: true };
     render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
-    fireEvent.change(screen.getByLabelText(t("en-US", "timelogAddress")), {
-      target: { value: "https://eviltimelog.com/acme" },
-    });
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.change(input, { target: { value: "https://eviltimelog.com/acme" } });
+    fireEvent.blur(input);
     expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("says nothing while a full address is still being typed, and only after blur", () => {
+    const onChange = vi.fn();
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.change(input, { target: { value: "https://app.time" } });
+    expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
+    expect(input).not.toHaveAttribute("aria-invalid");
+    fireEvent.blur(input);
+    expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("flags an invalid paste at once, without waiting for blur", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.paste(input);
+    fireEvent.change(input, { target: { value: "https://eviltimelog.com/acme" } });
+    expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+  });
+
+  it("a valid paste fills host and tenant, shows no error and opens the separate fields", () => {
+    const onChange = vi.fn();
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    const { container } = render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.paste(input);
+    fireEvent.change(input, { target: { value: "https://app.timelog.com/acme/registration/week" } });
+    expect(onChange).toHaveBeenLastCalledWith({ ...cfg, host: "app.timelog.com", tenant: "acme" });
+    expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
+    expect(container.querySelector("details")?.open).toBe(true);
   });
 
   it("clears the error once the field is emptied again", () => {
@@ -581,6 +616,7 @@ describe("TimelogSettings — address field (§704, §709)", () => {
     render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
     const input = screen.getByLabelText(t("en-US", "timelogAddress"));
     fireEvent.change(input, { target: { value: "nonsense" } });
+    fireEvent.blur(input);
     expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
     fireEvent.change(input, { target: { value: "" } });
     expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
@@ -602,6 +638,19 @@ describe("TimelogSettings — address field (§704, §709)", () => {
     const cfg = { ...defaultTimelogConfig, enabled: true };
     const { container } = render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
     expect(container.querySelector("details")?.open).toBe(false);
+  });
+
+  it("B1: the disclosure stays open while both stored values are emptied under the cursor", () => {
+    function Harness() {
+      const [cfg, setCfg] = useState({ ...defaultTimelogConfig, enabled: true, host: "app.timelog.com", tenant: "acme" });
+      return <TimelogSettings lang="en-US" config={cfg} onChange={setCfg} />;
+    }
+    const { container } = render(<Harness />);
+    expect(container.querySelector("details")?.open).toBe(true);
+    fireEvent.change(screen.getByLabelText(t("en-US", "timelogHost")), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText(t("en-US", "timelogTenant")), { target: { value: "" } });
+    expect(container.querySelector("details")?.open).toBe(true);
+    expect((screen.getByLabelText(t("en-US", "timelogHost")) as HTMLInputElement).value).toBe("");
   });
 
   it("explains the tenant field", () => {

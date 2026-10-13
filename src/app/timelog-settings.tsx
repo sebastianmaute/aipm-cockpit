@@ -66,7 +66,15 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
   //   `host` + `tenant` and then forgotten. Rendering a stored config therefore
   //   calls `onChange` zero times.
   const [addressDraft, setAddressDraft] = useState("");
-  const addressInvalid = addressDraft.trim() !== "" && parseTimelogAddress(addressDraft) === null;
+  // The error waits for blur or a paste: a full URL is invalid for as long as it
+  // is being typed, and an error under the cursor on every keystroke is noise.
+  const [addressTouched, setAddressTouched] = useState(false);
+  const addressInvalid =
+    addressTouched && addressDraft.trim() !== "" && parseTimelogAddress(addressDraft) === null;
+  // Sticky (B1): open from the start when values are stored, then user-controlled.
+  // Deriving it from the live values collapsed it under the cursor the moment
+  // both inputs were emptied. A successful paste opens it so the result is visible.
+  const [separateOpen, setSeparateOpen] = useState(() => config.host.trim() !== "" || config.tenant.trim() !== "");
   // The INPUT keeps showing the raw stored value (blank stays blank — typing
   // here always wins over the env, so editing must stay live); this only
   // decides whether to say a blank field currently falls back to the
@@ -173,8 +181,13 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
                 const next = e.target.value;
                 setAddressDraft(next);
                 const parsed = parseTimelogAddress(next);
-                if (parsed !== null) set(parsed);
+                if (parsed !== null) {
+                  set(parsed);
+                  setSeparateOpen(true);
+                }
               }}
+              onBlur={() => setAddressTouched(true)}
+              onPaste={() => setAddressTouched(true)}
               aria-invalid={addressInvalid ? true : undefined}
               aria-describedby={addressInvalid ? `${addressHintId} ${addressErrorId}` : addressHintId}
             />
@@ -183,7 +196,11 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
             {t(lang, "timelogAddressHint")}
           </FieldHint>
           <FieldError id={addressErrorId}>{addressInvalid ? t(lang, "timelogAddressInvalid") : null}</FieldError>
-          <details open={config.host.trim() !== "" || config.tenant.trim() !== ""} className="text-xs">
+          <details
+            open={separateOpen}
+            onToggle={(e) => setSeparateOpen(e.currentTarget.open)}
+            className="text-xs"
+          >
             <summary className={`cursor-pointer text-muted-foreground ${FOCUS_RING}`}>
               {t(lang, "timelogAddressEditSeparately")}
             </summary>
