@@ -3,26 +3,20 @@
 // the safety boundary against invented values: a row only gets through when
 // its shape is right, its numbers are plausible and, when a source is
 // required, the cell it cites really holds that number, on the row of that
-// person and under (or beside) that period. Pure: no i18n, no React, no DOM.
+// person and under (or beside) that period (`source-evidence.ts`). Pure: no
+// i18n, no React, no DOM.
 
-import { parseNumberCell, parsePeriodLabel } from "./forecast-rows";
 import type { ForecastCollision, ForecastRow } from "./forecast-types";
+import { classifyPeriodCell, resolvePeriod } from "./period-assign";
 import type { SheetGrid } from "./sheet-grid";
+import { checkSource, citedCell, columnNaming, sourceKey, sourcePosition, type SourceRejection } from "./source-evidence";
 
 /** Hours in the longest month (31 * 24): no single cell can hold more. */
 export const MAX_IMPORT_HOURS_PER_CELL = 744;
 
-/** How far a cited cell may sit from the stated hours (rounding in the file). */
-const SOURCE_HOURS_TOLERANCE = 0.005;
-const LETTERS_IN_ALPHABET = 26;
-const CHAR_CODE_A = 65;
 const HOURS_DECIMALS_FACTOR = 100;
 
-/** Why a row's `source` does not back it: no cell of this sheet is named
- *  (missing, malformed, another sheet, outside the grid), the cell does not hold
- *  the hours, the person is not on the cell's row, the period is neither in that
- *  row nor above the cell, or an earlier row already used the cell. */
-export type SourceRejection = "bad-ref" | "value-mismatch" | "person-not-on-row" | "period-not-near" | "cell-reused";
+export type { SourceRejection };
 
 export type RejectedRow =
   | { row: ForecastRow | unknown; reason: "shape" | "hours" | "period" | "person" }
@@ -49,93 +43,8 @@ type Checked =
 type Options = { sheet: SheetGrid; requireSource: boolean; defaultYear?: number };
 type Merged = { row: ForecastRow; count: number; sources: string[] };
 
-const CELL_REF = /^([A-Z]{1,3})([1-9]\d*)$/;
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** A1 column letters as a 0-based index: A=0, Z=25, AA=26. */
-function columnIndex(letters: string): number {
-  let index = 0;
-  for (const ch of letters) index = index * LETTERS_IN_ALPHABET + (ch.charCodeAt(0) - CHAR_CODE_A + 1);
-  return index - 1;
-}
-
-/** The cell part of `<sheet>!<A1>` or `'<sheet>'!<A1>` (an apostrophe inside
- *  the quotes is doubled), or null when the sheet part is not `sheetName` or is
- *  empty. The name is compared literally, never built into a pattern: names may
- *  hold `(`, `+`. */
-function cellPartOf(source: string, sheetName: string): string | null {
-  if (sheetName === "") return null;
-  const bare = `${sheetName}!`;
-  if (source.startsWith(bare)) return source.slice(bare.length);
-  const quoted = `'${sheetName.replace(/'/g, "''")}'!`;
-  if (source.startsWith(quoted)) return source.slice(quoted.length);
-  return null;
-}
-
-/** One reference per cell: sheet name plus upper-case A1, whichever spelling
- *  (bare or quoted) cited it. A reference this sheet does not own keeps its
- *  text, so it still collides with an identical one. */
-function sourceKey(source: string, sheetName: string): string {
-  const cellPart = cellPartOf(source, sheetName);
-  return cellPart === null ? source : `${sheetName}!${cellPart.toUpperCase()}`;
-}
-
-function cellMatchesHours(cell: string, hours: number): boolean {
-  return (["dot", "comma"] as const).some((style) => {
-    const value = parseNumberCell(cell, style);
-    return value !== null && Math.abs(value - hours) <= SOURCE_HOURS_TOLERANCE;
-  });
-}
-
-/** `text` (trimmed, case-insensitive) is a cell of the row other than the cited one. */
-function isOnRow(rowCells: readonly string[], citedCol: number, text: string): boolean {
-  const wanted = text.trim().toLowerCase();
-  return wanted !== "" && rowCells.some((cell, col) => col !== citedCol && cell.trim().toLowerCase() === wanted);
-}
-
-/** The period sits in the cited cell's row (long layout) or in its column above
- *  it (wide layout header). A cell that names the row's person never counts:
- *  with a default year, a person called "Jan" would otherwise vouch for January. */
-function isPeriodNearCell(sheet: SheetGrid, rowIdx: number, colIdx: number, row: ForecastRow, year: number | undefined): boolean {
-  const person = row.person.trim().toLowerCase();
-  const isInRow = sheet.rows[rowIdx].some((cell, col) =>
-    col !== colIdx && cell.trim().toLowerCase() !== person && parsePeriodLabel(cell, year) === row.period);
-  if (isInRow) return true;
-  return sheet.rows.slice(0, rowIdx).some((above) => {
-    const cell = above[colIdx];
-    return cell !== undefined && parsePeriodLabel(cell, year) === row.period;
-  });
-}
-
-/** The cited cell's 0-based row and column when `source` names a cell of
- *  `sheet`, else null. */
-function citedCell(source: string | undefined, sheet: SheetGrid): { rowIdx: number; colIdx: number; cell: string } | null {
-  if (source === undefined) return null;
-  const cellPart = cellPartOf(source, sheet.name);
-  const match = cellPart === null ? null : CELL_REF.exec(cellPart);
-  if (match === null) return null;
-  const rowIdx = Number(match[2]) - 1;
-  const colIdx = columnIndex(match[1]);
-  const cell = sheet.rows[rowIdx]?.[colIdx];
-  return cell === undefined ? null : { rowIdx, colIdx, cell };
-}
-
-/**
- * Null when `row.source` names a cell of `sheet` that holds the row's hours, on
- * a row where ANOTHER cell names the PERSON, under or beside the row's period;
- * else why not. An email never vouches for the person: the model can write any
- * email beside any name (`checkRow` strips an email the row does not hold).
- */
-function sourceProblem(row: ForecastRow, sheet: SheetGrid, year: number | undefined): SourceRejection | null {
-  const cited = citedCell(row.source, sheet);
-  if (cited === null) return "bad-ref";
-  const { rowIdx, colIdx, cell } = cited;
-  if (!cellMatchesHours(cell, row.hours)) return "value-mismatch";
-  if (!isOnRow(sheet.rows[rowIdx], colIdx, row.person)) return "person-not-on-row";
-  return isPeriodNearCell(sheet, rowIdx, colIdx, row, year) ? null : "period-not-near";
 }
 
 /** The row without its email; everything else kept. */
@@ -149,7 +58,7 @@ function withoutEmail(row: ForecastRow): ForecastRow {
 /** The cited row holds this email in a cell other than the cited one. */
 function isEmailOnCitedRow(row: ForecastRow, sheet: SheetGrid): boolean {
   const cited = citedCell(row.source, sheet);
-  return cited !== null && row.email !== undefined && isOnRow(sheet.rows[cited.rowIdx], cited.colIdx, row.email);
+  return cited !== null && row.email !== undefined && columnNaming(sheet.rows[cited.rowIdx], cited.colIdx, row.email) !== null;
 }
 
 function isValidHours(value: unknown): value is number {
@@ -165,8 +74,11 @@ function checkRow(raw: unknown, opts: Options): Checked {
   if (!isRecord(raw)) return { ok: false, reason: "shape" };
   const { person, period, hours, rate, email, source } = raw;
   if (typeof person !== "string" || person.trim() === "") return { ok: false, reason: "person" };
-  const canonicalPeriod = typeof period === "string" ? parsePeriodLabel(period, opts.defaultYear) : null;
-  if (canonicalPeriod === null) return { ok: false, reason: "period" };
+  // A claim must read as a period on its own (a year-less one only with a
+  // default year); on the Claude route the sheet then says which year it is.
+  const claim = typeof period === "string" ? classifyPeriodCell(period) : null;
+  const canonicalPeriod = claim === null ? null : resolvePeriod(claim, opts.defaultYear);
+  if (claim === null || canonicalPeriod === null) return { ok: false, reason: "period" };
   if (!isValidHours(hours)) return { ok: false, reason: "hours" };
   const isRateBad = rate !== undefined && !(typeof rate === "number" && Number.isFinite(rate) && rate >= 0);
   if (isRateBad || (email !== undefined && typeof email !== "string")) return { ok: false, reason: "shape" };
@@ -176,24 +88,18 @@ function checkRow(raw: unknown, opts: Options): Checked {
   if (typeof rate === "number") row.rate = rate;
   if (typeof source === "string") row.source = source;
   if (!opts.requireSource) return { ok: true, row };
-  const problem = sourceProblem({ ...row, hours }, opts.sheet, opts.defaultYear);
-  if (problem !== null) return { ok: false, reason: "source", detail: problem };
+  const evidence = checkSource({ person: row.person, hours, source: row.source }, claim, opts.sheet, opts.defaultYear);
+  if ("problem" in evidence) return { ok: false, reason: "source", detail: evidence.problem };
+  const sourced: ForecastRow = { ...row, period: evidence.period.period };
   // An email the cited row does not show is the model's, not the sheet's, and
   // matching by email first would route the hours to whoever owns it.
-  const isEmailBacked = row.email === undefined || isEmailOnCitedRow(row, opts.sheet);
-  return { ok: true, row: isEmailBacked ? row : withoutEmail(row) };
-}
-
-/** The 1-based sheet row a `source` names in this sheet, else null. */
-function sheetRowOf(source: string, sheetName: string): number | null {
-  const cellPart = cellPartOf(source, sheetName);
-  const match = cellPart === null ? null : CELL_REF.exec(cellPart);
-  return match === null ? null : Number(match[2]);
+  const isEmailBacked = sourced.email === undefined || isEmailOnCitedRow(sourced, opts.sheet);
+  return { ok: true, row: isEmailBacked ? sourced : withoutEmail(sourced) };
 }
 
 /** Two of the sources cite cells of the same sheet row. */
 function sharesSheetRow(sources: readonly string[], sheetName: string): boolean {
-  const rows = sources.map((s) => sheetRowOf(s, sheetName)).filter((r): r is number => r !== null);
+  const rows = sources.map((s) => sourcePosition(s, sheetName)?.rowIdx).filter((r): r is number => r !== undefined);
   return new Set(rows).size < rows.length;
 }
 

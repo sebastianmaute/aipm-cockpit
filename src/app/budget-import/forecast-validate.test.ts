@@ -152,8 +152,8 @@ describe("validateForecastRows: source (Claude route)", () => {
     expect(validateForecastRows([row("Sheet1!B2", 40.01)], strict).rejected).toHaveLength(1);
   });
 
-  it("reads the cell in either decimal style", () => {
-    // "12,5" is 12.5 as a comma number and unreadable as a dot number.
+  it("reads the cell in its column's decimal style", () => {
+    // "12,5" is 12.5 in its comma-style column.
     const german: SheetGrid = { name: "Sheet1", rows: [["Person", "2026-01", "2026-02"], ["Ann", "12,5", "1.234,5"]], truncated: false };
     const opts = { sheet: german, requireSource: true };
     expect(validateForecastRows([row("Sheet1!B2", 12.5)], opts).rejected).toEqual([]);
@@ -590,5 +590,83 @@ describe("validateForecastRows: same-row collisions", () => {
     expect(out.rejected).toEqual([]);
     expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!B2", "'S'!C2"] }]);
     expect(out.ok).toEqual([]);
+  });
+});
+
+// §500 fix wave 2 (CR I3, RR I2, RR minor 3, CR minor 5): the Claude route's
+// period must be the NEAREST header above the cited cell, read as that header
+// row's run; the person cell is excluded by position; numbers are read by the
+// sheet's own rule.
+describe("validateForecastRows: the nearest period header above the cited cell", () => {
+  const strictOn = (rows: string[][], defaultYear?: number, numbers?: "dot" | "text") => ({
+    sheet: { name: "S", rows, truncated: false, numbers } as SheetGrid,
+    requireSource: true,
+    defaultYear,
+  });
+  const detail = (out: ReturnType<typeof validateForecastRows>) =>
+    out.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason));
+
+  it("rejects a period that only a Start date elsewhere on the row names (CR probe)", () => {
+    const opts = strictOn([["Name", "Start", "Jan 2026", "Feb 2026"], ["Ann", "01.02.2026", "10", "20"]]);
+    expect(detail(validateForecastRows([{ person: "Ann", period: "2026-02", hours: 10, source: "S!C2" }], opts))).toEqual(["period-not-near"]);
+    expect(validateForecastRows([{ person: "Ann", period: "2026-01", hours: 10, source: "S!C2" }], opts).ok).toHaveLength(1);
+  });
+
+  it("reads stacked year blocks by the block the cell sits in", () => {
+    const opts = strictOn([
+      ["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", "20"],
+      ["Name", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"],
+    ]);
+    expect(validateForecastRows([{ person: "Ann", period: "Jan 2027", hours: 30, source: "S!B4" }], opts).ok.map((r) => r.period)).toEqual(["2027-01"]);
+    expect(detail(validateForecastRows([{ person: "Ann", period: "Jan 2026", hours: 30, source: "S!B4" }], opts))).toEqual(["period-not-near"]);
+  });
+
+  it("reads a year-less header as its run: Jan after Dez is next January (RR probe)", () => {
+    const opts = strictOn([["Name", "Nov", "Dez", "Jan", "Feb"], ["Ann", "1", "2", "3", "4"]], 2026);
+    const claim = (period: string) => validateForecastRows([{ person: "Ann", period, hours: 3, source: "S!D2" }], opts);
+    expect(claim("Jan 2027").ok.map((r) => r.period)).toEqual(["2027-01"]);
+    expect(claim("Jan").ok.map((r) => r.period)).toEqual(["2027-01"]);
+    expect(detail(claim("Jan 2026"))).toEqual(["period-not-near"]);
+  });
+
+  it("reads dates a week apart as weeks, matching a week or the same date", () => {
+    const opts = strictOn([["Name", "2026-01-05", "2026-01-12"], ["Ann", "40", "40"]]);
+    const claim = (period: string) => validateForecastRows([{ person: "Ann", period, hours: 40, source: "S!C2" }], opts);
+    expect(claim("2026-W03").ok.map((r) => r.period)).toEqual(["2026-W03"]);
+    expect(claim("2026-01-12").ok.map((r) => r.period)).toEqual(["2026-W03"]);
+    expect(detail(claim("2026-01"))).toEqual(["period-not-near"]);
+  });
+
+  it("falls back to the row when the column above holds no period, combining a year cell on the row", () => {
+    const opts = strictOn([["Name", "Jahr", "Monat", "Stunden"], ["Ann", "2027", "Jan", "8"]], 2026);
+    const claim = (period: string) => validateForecastRows([{ person: "Ann", period, hours: 8, source: "S!D2" }], opts);
+    expect(claim("Jan 2027").ok.map((r) => r.period)).toEqual(["2027-01"]);
+    expect(claim("Jan").ok.map((r) => r.period)).toEqual(["2027-01"]);
+    expect(detail(claim("Jan 2026"))).toEqual(["period-not-near"]);
+  });
+
+  it("excludes the person cell by position, not by value: person Mai, period Mai", () => {
+    const opts = strictOn([["Name", "Monat", "Stunden"], ["Mai", "Mai", "8"]], 2026);
+    const out = validateForecastRows([{ person: "Mai", period: "Mai", hours: 8, source: "S!C2" }], opts);
+    expect(out.rejected).toEqual([]);
+    expect(out.ok.map((r) => r.period)).toEqual(["2026-05"]);
+  });
+
+  it("reads the cited cell by the sheet's number rule: a CSV 7,5 backs 7.5, never 75", () => {
+    const csv = strictOn([["Person", "2026-01"], ["Ann", "7,5"]]);
+    const claim = (hours: number) => validateForecastRows([{ person: "Ann", period: "2026-01", hours, source: "S!B2" }], csv);
+    expect(detail(claim(75))).toEqual(["value-mismatch"]);
+    expect(claim(7.5).ok).toHaveLength(1);
+  });
+
+  it("reads a workbook's stored numbers with a dot and its text cells by the column's style", () => {
+    const xlsx = strictOn([["Person", "2026-01"], ["Ann", "2.625"], ["Bob", "7,5"]], undefined, "dot");
+    const claim = (person: string, hours: number, source: string) =>
+      validateForecastRows([{ person, period: "2026-01", hours, source }], xlsx);
+    // Bob's "7,5" makes the column comma-style, where "2.625" would read 2625:
+    // Ann's 2.625 is accepted only because a stored number reads with a dot.
+    expect(claim("Ann", 2.625, "S!B2").ok).toHaveLength(1);
+    expect(claim("Bob", 7.5, "S!B3").ok).toHaveLength(1);
+    expect(detail(claim("Bob", 75, "S!B3"))).toEqual(["value-mismatch"]);
   });
 });
