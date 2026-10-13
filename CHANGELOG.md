@@ -25,7 +25,10 @@ longer carries its own changelog comment.
   planned hours per person from an `.xlsx`, `.xlsm` or `.csv` file (comma, semicolon or tab) into that bucket. Detect columns finds the
   person, period and hours columns of a wide sheet (a column per month or week) or a long one (a row per
   person and period), and you can adjust them; month columns beside a start-date column, with or without a year, are read as
-  one column per month, and a start-date, ID or row-number column is not taken for the period or the hours. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
+  one column per month, and an ID, row-number or year column is never taken for the hours. When more than one
+  column could hold the hours or the period (`Plan | Ist`, `Menge | Summe`, `Datum | Eintritt`), the column
+  step opens with a note naming the candidates, and Apply waits until you choose the column or confirm that
+  the columns are right. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
   and so do month names and weeks without a year (`Jan`, `KW03`): they are read in the import's year,
   which starts at the bucket's start year, and a header row that turns the year (`Okt … Dez Jan Feb`, a
   fiscal `Jul … Jun`, `KW52 KW01`: a step back of at least half a year) moves on into the next year, while
@@ -45,7 +48,9 @@ longer carries its own changelog comment.
   not imported — the preview says which, and lists the number cells and the rows Claude did not read,
   including a person it left out entirely, by name. A placeholder such as `-` or `Urlaub`, a unit row or a
   Plan/Ist row under the month header does not stop Claude's rows being checked against that header, and a
-  dated title or metadata row above a long sheet's header row does not stand in for the period. Monthly figures are spread over a
+  row whose own period cell and the column header above it name different periods (a quarter's date range in
+  a title row above a long sheet) is not imported, the preview naming both periods; Detect columns reads
+  such a sheet by its rows. Monthly figures are spread over a
   weekly plan (and weekly over a monthly one) by working days, keeping the total exact. The preview lists
   every cell that would change, people it could not match (you can pick or skip each one; archived
   resources are neither matched nor offered, and "Müller, Hans" matches Hans Müller), hours outside the

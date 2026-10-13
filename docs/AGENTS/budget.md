@@ -278,17 +278,31 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   period columns with a period header of its own above it (on a long sheet: an hours number beside a period
   cell), so a metadata row (`Stand | 46296`, `Version | 3`, `Projekt | 4711`) is not reported. The person column is a mostly-text
   column headed Name / Mitarbeiter / Person / Resource …, else the first mostly-text one. ★★ A long
-  sheet's PERIOD column is ranked (`periodRank`): a `Month` / `Monat` / `Period` / `Zeitraum` / `Week` /
-  `KW` header first, then cells that are period LABELS (`Jan 2026`, `2026-01`, `KW03`) over full dates, then
-  a `Date` / `Datum` header, then a real date over a bare serial; ties keep the leftmost. `Start date` once
-  tied with `Month` and won, summing every row into the start month (final review I2). Its HOURS column is
-  a named one (`Hours`, `Stunden`, `Aufwand`, `Effort` …), else the RIGHTMOST number column; an ID or
-  row-number column (`ID_HEADER`), a year column (`isYearColumn`), a column of period-shaped cells (a
-  workbook's serial dates) and a column HEADED by a period (`Jan`, `Jan 2026`) are never it — `ID | Name |
-  Month | Effort` once imported the IDs (I3), and `Name | Start | Jan 2026 | Feb 2026` read long with the
-  Start date as the period and January as the hours (I4), where it now reads two-period wide. Detection
-  scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, so a large sheet does
-  not freeze the dialog (M1); `gridToForecastRows` then reads every row. The CLAUDE route
+  sheet's PERIOD column is ranked (`periodRank`) by its header WORDS alone: a period word as a whole word of
+  the header (`isPeriodWordHeader`: `Month`, `Monat`, `Period`, `Zeitraum`, `Week`, `KW` …; `Startmonat`
+  holds none) first, then a `Date` / `Datum` header, then a real date over a bare serial; ties keep the
+  leftmost. `Start date` once tied with `Month` and won, summing every row into the start month (final
+  review I2). Its HOURS column is a named one (`Hours`, `Stunden`, `Aufwand`, `Effort` …), else the
+  LEFTMOST number column; an ID or row-number column (`ID_HEADER`), a year column (`isYearColumn`), a
+  column of period-shaped cells (a workbook's serial dates) and a column HEADED by a period (`Jan`, `Jan
+  2026`) are never it — `ID | Name | Month | Effort` once imported the IDs (I3), and `Name | Start | Jan
+  2026 | Feb 2026` read long with the Start date as the period and January as the hours (I4), where it now
+  reads two-period wide. ★★★ **WHERE THAT DOES NOT SETTLE IT, DETECTION ASKS (fix 7, the owner's decision
+  of 2026-10-13).** Three rounds of column-guessing rules each imported wrong hours: a rightmost-hours pick
+  took `Ist`, `Actual`, `Summe` or `Betrag` over `Plan` (rr6 N1), a rank of month-LABEL cells over full
+  dates summed a `Datum` sheet into its `Eintritt` month (rr6 N3), and a header-row stop on the Claude route
+  (below) misfired on two-row headers. Both were removed. `detectLayout` reports `ambiguous`
+  (`ColumnAmbiguity`, from `ambiguityOf`): the HOURS when two or more candidates remain and not exactly one
+  is headed by an hours word (`Plan | Ist`, `h | Betrag`, `Menge | Summe` ask; `Plan | Stunden` does not),
+  the PERIOD when two or more columns qualify and not exactly one is headed by a period word (`Datum |
+  Eintritt`, `Datum | Startmonat` ask; `Start date | Month` does not). The mapping it returns is still the
+  default above, but `useForecastImport` then opens on the mapping step with a notice per field naming the
+  candidates, and refuses Apply — the button disabled, the reason its accessible description — until each
+  field is confirmed: its column chosen (an edit of another field does not count), or "These columns are
+  right". Re-detecting asks again; the Claude route is not gated; a wide sheet never asks. Detection
+  scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, blank rows skipped
+  and not counted, so a large sheet does not freeze the dialog (M1); `gridToForecastRows` then reads every
+  row. The CLAUDE route
   sends the sheet to ONE forced call (`runForecastImportCall`, tool `propose_forecast_rows`, prompt text
   from `sheetToPromptText` over the shared `renderSheetMarkdown`). Both produce the same `ForecastRow` list.
 - ★★ **Which period a cell is: ONE module, `period-assign.ts`**, read by the hand route, detection and the
@@ -347,19 +361,23 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   the same-row blocker. A title row's lone date gives its column no period and is passed over too, so it
   vouches for nothing; so does a run of exactly two dates more than 92 days apart
   (`MAX_TWO_DATE_PERIOD_GAP_DAYS`: `Zeitraum | 01.01.2026 | 31.12.2026` is a range, which round 4 took as a
-  long sheet's period header, vouching for December), while two closer dates and three or more stay periods. ★★ A HEADER ROW for the cited row's person column between that period row and the cell ends the search
-  (`isHeaderRowFor`: no number cells — a period-shaped cell is none — at least two non-blank text cells, one
-  in the person column, and a recognised label: a person header there (`PERSON_HEADER_RE`) or a period or
-  hours header in another cell (`PERIOD_HEADER_RE`, `HOURS_HEADER_RE`), the words layout detection reads; a
-  long sheet's `Name | Monat | Stunden` or `Wer | Monat | Stunden`), and the row is searched instead: a quarter
-  `Zeitraum | 01.01.2026 | 31.03.2026` (89 days, under the range limit), a `von | … | bis | …` pair or three
-  `Erstellt / Stand / Druck` dates once headed the hours column below them, rejecting the right months and
-  vouching for a wrong one (final review I1). A unit row or `Plan | Ist` sub-header has a blank person cell,
-  a data row with a placeholder holds numbers, and a person row of placeholders alone (`Carl | Urlaub |
-  Urlaub`) has no recognised label, so none of them stops it — before that label test, the placeholder row
-  cut the rows below it off their month header (round 2); `headerDateOf` and
-  `findUnreadCells` stop the same way. Only with no period header above (a long sheet), or such a header row
-  between, is the row searched, skipping the
+  long sheet's period header, vouching for December), while two closer dates and three or more stay periods. ★★ **CONFLICTING EVIDENCE IS REFUSED, NOT RESOLVED (fix 7).** When the header above the cited cell
+  AND a period cell on the cited row both exist and name DIFFERENT periods, the claim is rejected
+  `period-conflict`, whatever it claims, and the preview names both periods ("The row says … but the column
+  header says …"): a quarter `Zeitraum | 01.01.2026 | 31.03.2026` (89 days, under the range limit), a
+  `von | … | bis | …` pair or three `Erstellt / Stand / Druck` dates once headed a long sheet's hours
+  column, rejecting the right months and vouching for a wrong one (final review I1). Now such a sheet's
+  claims are refused, visibly, and Detect columns reads it by its rows. A row date in the header's own
+  period is consistent (sprint dates). A row cell is evidence only when period-shaped in the sheet's number
+  origin, and not when the header row LABELS its column as something else (non-blank, no period, no period
+  word) and the row holds only numbers or blanks under the header's periods (`rowEvidence`): the CR probe's
+  `Name | Start | Jan 2026 | Feb 2026`, where the Start date vouches for nothing and the header decides.
+  Such evidence also keeps `headerDateOf` from calling the header a sub-period date, so a metadata row's
+  January dates over `Stunden | Ist` do not sum the two. ★★ This replaced a HEADER-ROW STOP
+  (`isHeaderRowFor` — removed, do NOT reintroduce it), which ended the upward search at a
+  `Name | Monat | Stunden` row; it fired on two-row headers (months on row 1, `Name | Std | Std` on row 2)
+  and on placeholder rows, rejecting every right claim and letting a date on the row vouch for a wrong
+  month (rr6 N2, N4). Only with no period header above (a long sheet) is the row searched, skipping the
   person cell by POSITION. Any row above,
   or a `Start` date on the row, once vouched for the wrong period. That is the safety boundary against an
   invented value; the prompt is not. A sheet's per-column style and week shape are computed once

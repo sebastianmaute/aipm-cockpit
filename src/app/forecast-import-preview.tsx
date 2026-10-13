@@ -86,9 +86,10 @@ function describeRejected(lang: Lang, r: RejectedRow): string {
   return rec && typeof rec.source === "string" ? `${text} (${rec.source})` : text;
 }
 
-/** Which year headers without one were read in. A detected layout goes straight
- *  to the preview, so this is where that assumption is shown; the hand route
- *  links to the year field on the mapping step. */
+/** Which year headers without one were read in. A detected layout with no
+ *  ambiguous columns goes straight to the preview, so this is where that
+ *  assumption is shown; the hand route links to the year field on the mapping
+ *  step. */
 function AssumedYearLine({ lang, fi, assumed }: { lang: Lang; fi: ForecastImport; assumed: AssumedYear }) {
   const text = t(lang, assumed.rolled ? "forecastImportAssumedYearFrom" : "forecastImportAssumedYear", String(assumed.year));
   return (
