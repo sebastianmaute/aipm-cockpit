@@ -294,3 +294,27 @@ describe("ForecastImportModal — the long layout's year column", () => {
     expect(screen.getByText("Ann Lee · 2026-01 · 8 h (forecast!D2)")).toBeInTheDocument();
   });
 });
+
+// §500 fix wave 2 (CR C1): summed rows are not "not imported", and a same-row
+// collision blocks Apply with the cells named and a way back to the mapping.
+describe("ForecastImportModal — combined rows and same-row collisions", () => {
+  it("lists rows summed from different sheet rows under Combined rows, not Not imported", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\nAnn Lee,1,2,3\r\n`);
+    const combined = screen.getByRole("region", { name: t(L, "forecastImportCombined") });
+    expect(within(combined).getByText(new RegExp(t(L, "forecastImportDuplicate", "Ann Lee", "2026-01", "2")))).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: t(L, "forecastImportNotImported") })).toBeNull();
+    expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeEnabled();
+  });
+
+  it("blocks Apply on two cells of one row in the same period, names the cells and offers the mapping", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile("Name,Jan 2026,Jan 2026,Feb 2026\r\nAnn Lee,10,20,5\r\n");
+    expect(screen.getByText(t(L, "forecastImportBlockerSameRow"))).toBeInTheDocument();
+    const section = screen.getByRole("region", { name: t(L, "forecastImportCollisions") });
+    expect(within(section).getByText(t(L, "forecastImportCollision", "Ann Lee", "2026-01", "forecast!B2, forecast!C2"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeDisabled();
+    fireEvent.click(within(section).getByRole("button", { name: t(L, "forecastImportChangeMapping") }));
+    expect(screen.getByRole("combobox", { name: t(L, "forecastImportColPerson") })).toBeInTheDocument();
+  });
+});

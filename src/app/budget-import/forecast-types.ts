@@ -39,6 +39,13 @@ export type ColumnMapping = {
  *  0-based; `header` is the header cell as written. */
 export type IgnoredColumn = { col: number; header: string };
 
+/** Two or more cells of ONE sheet row that name the same person and period —
+ *  `sources` are their "<sheet>!<ref>" references in input order. Never summed:
+ *  one row holds one figure per period, so two mean the periods were read
+ *  wrong (or the sheet repeats a column), and the import blocks until the
+ *  mapping or the sheet is fixed. */
+export type ForecastCollision = { person: string; period: string; sources: string[] };
+
 /** A sheet row (or cell) the import left out. `row` is the 1-based sheet row
  *  number, the one the spreadsheet shows. */
 export type DropReason = {

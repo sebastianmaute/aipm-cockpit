@@ -14,6 +14,7 @@
 import { useId, type ReactNode } from "react";
 import { type Lang, localeFor, t, type TranslationKey } from "./i18n";
 import { Banner } from "./banner";
+import { Button } from "./button";
 import { Select } from "./form-controls";
 import { ExclamationTriangleIcon } from "./icons";
 import { buildRowTokens, rowLabel } from "./row-tokens";
@@ -28,6 +29,7 @@ import type { ForecastImport } from "./use-forecast-import";
 const BLOCKER_KEY: Record<ImportBlocker, TranslationKey> = {
   "follows-plan": "forecastImportBlockerFollowsPlan",
   closed: "forecastImportBlockerClosed",
+  "same-row-period": "forecastImportBlockerSameRow",
   "nothing-to-apply": "forecastImportBlockerNothing",
 };
 const WHY_KEY: Record<UnresolvedPerson["why"], TranslationKey> = {
@@ -78,6 +80,42 @@ function describeRejected(lang: Lang, r: RejectedRow): string {
   return rec && typeof rec.source === "string" ? `${text} (${rec.source})` : text;
 }
 
+/** Cells of one sheet row that landed on the same person and period: the import
+ *  is blocked, and the hand route can go back to the mapping from here. */
+function CollisionsSection({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
+  return (
+    <Section title={t(lang, "forecastImportCollisions")}>
+      <ul className="space-y-0.5">
+        {fi.collisions.map((c) => (
+          <li key={`${c.person}|${c.period}`}>{t(lang, "forecastImportCollision", c.person, c.period, c.sources.join(", "))}</li>
+        ))}
+      </ul>
+      {fi.route === "hand" && (
+        <Button variant="secondary" size="xs" onClick={fi.editMapping}>
+          {t(lang, "forecastImportChangeMapping")}
+        </Button>
+      )}
+    </Section>
+  );
+}
+
+/** Rows of DIFFERENT sheet rows summed into one person and period: imported,
+ *  so listed apart from what was not. */
+function CombinedSection({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
+  return (
+    <Section title={t(lang, "forecastImportCombined")}>
+      <ul className="space-y-0.5 text-muted-foreground">
+        {fi.duplicates.map((d, i) => (
+          <li key={`u${i}`}>
+            {t(lang, "forecastImportDuplicate", d.person, d.period, String(d.count))}
+            {d.sources.length > 0 ? ` · ${t(lang, "forecastImportSources", d.sources.join(", "))}` : ""}
+          </li>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
 function allocLabel(alloc: AllocationKey, roles: readonly Role[], disciplines: readonly Discipline[], grades: readonly Grade[]): string {
   if (alloc.kind === "role") return roleLabel(roles.find((r) => r.id === alloc.roleId), disciplines, grades) || `#${alloc.roleId}`;
   return disciplines.find((d) => d.id === alloc.disciplineId)?.name || `#${alloc.disciplineId}`;
@@ -110,7 +148,7 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
     group.changes.push(c);
     groups.set(key, group);
   }
-  const hasNotImported = fi.rejected.length + fi.dropped.length + fi.ignoredColumns.length + plan.outOfRange.length + plan.skipped.length + fi.duplicates.length > 0;
+  const hasNotImported = fi.rejected.length + fi.dropped.length + fi.ignoredColumns.length + plan.outOfRange.length + plan.skipped.length > 0;
   const delta = plan.hoursDelta;
   return (
     <div className="space-y-4">
@@ -118,6 +156,7 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
       {plan.blockers.map((b) => (
         <Banner key={b} severity="warn">{t(lang, BLOCKER_KEY[b])}</Banner>
       ))}
+      {fi.collisions.length > 0 && <CollisionsSection lang={lang} fi={fi} />}
       {fi.unresolvedPeople.length > 0 && <UnresolvedSection lang={lang} fi={fi} resources={resources} roles={roles} />}
       {plan.rateNotes.length > 0 && (
         <Section title={t(lang, "forecastImportRateNotes")}>
@@ -142,12 +181,6 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
             {fi.rejected.map((r, i) => (
               <li key={`r${i}`}>{describeRejected(lang, r)}</li>
             ))}
-            {fi.duplicates.map((d, i) => (
-              <li key={`u${i}`}>
-                {t(lang, "forecastImportDuplicate", d.person, d.period, String(d.count))}
-                {d.sources.length > 0 ? ` · ${t(lang, "forecastImportSources", d.sources.join(", "))}` : ""}
-              </li>
-            ))}
             {plan.skipped.length > 0 && <li>{t(lang, "forecastImportSkippedPeople", plan.skipped.join(", "))}</li>}
             {plan.outOfRange.length > 0 && (
               <li>{t(lang, "forecastImportOutOfRange", plan.outOfRange.map((o) => `${o.person} ${o.period}`).join(", "))}</li>
@@ -155,6 +188,7 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
           </ul>
         </Section>
       )}
+      {fi.duplicates.length > 0 && <CombinedSection lang={lang} fi={fi} />}
       {fi.notes.trim() !== "" && (
         <Section title={t(lang, "forecastImportNotes")}>
           <p className="whitespace-pre-wrap">{fi.notes}</p>

@@ -6,7 +6,7 @@
 // person and under (or beside) that period. Pure: no i18n, no React, no DOM.
 
 import { parseNumberCell, parsePeriodLabel } from "./forecast-rows";
-import type { ForecastRow } from "./forecast-types";
+import type { ForecastCollision, ForecastRow } from "./forecast-types";
 import type { SheetGrid } from "./sheet-grid";
 
 /** Hours in the longest month (31 * 24): no single cell can hold more. */
@@ -32,6 +32,13 @@ export type RejectedRow =
  *  the contributing rows' own `source` references in input order (rows without
  *  one add nothing). */
 export type DuplicateRow = { person: string; period: string; count: number; sources: string[] };
+
+export type ValidationResult = {
+  ok: ForecastRow[];
+  rejected: RejectedRow[];
+  duplicates: DuplicateRow[];
+  collisions: ForecastCollision[];
+};
 
 type Checked =
   | { ok: true; row: ForecastRow }
@@ -177,6 +184,19 @@ function checkRow(raw: unknown, opts: Options): Checked {
   return { ok: true, row: isEmailBacked ? row : withoutEmail(row) };
 }
 
+/** The 1-based sheet row a `source` names in this sheet, else null. */
+function sheetRowOf(source: string, sheetName: string): number | null {
+  const cellPart = cellPartOf(source, sheetName);
+  const match = cellPart === null ? null : CELL_REF.exec(cellPart);
+  return match === null ? null : Number(match[2]);
+}
+
+/** Two of the sources cite cells of the same sheet row. */
+function sharesSheetRow(sources: readonly string[], sheetName: string): boolean {
+  const rows = sources.map((s) => sheetRowOf(s, sheetName)).filter((r): r is number => r !== null);
+  return new Set(rows).size < rows.length;
+}
+
 /** A summed row: the first row's person, email and rate, but NO `source` — the
  *  cited cells each hold only part of the sum. */
 function withoutSource(row: ForecastRow): ForecastRow {
@@ -197,13 +217,12 @@ function withoutSource(row: ForecastRow): ForecastRow {
  * two rows cannot both be what one cell holds. Only then are rows for the same
  * person (case-insensitive, trimmed) and period summed, so a sum may exceed
  * 744; the summed row carries no `source`, and `duplicates` lists the sources
- * that contributed.
+ * that contributed. ★★ Rows whose sources share ONE sheet row are never summed:
+ * they are `collisions`, left out of `ok`, and block the import — summing them
+ * once put a weekly sheet's five Monday columns into one month (final review).
  */
-export function validateForecastRows(
-  input: unknown,
-  opts: Options,
-): { ok: ForecastRow[]; rejected: RejectedRow[]; duplicates: DuplicateRow[] } {
-  if (!Array.isArray(input)) return { ok: [], rejected: [{ row: input, reason: "shape" }], duplicates: [] };
+export function validateForecastRows(input: unknown, opts: Options): ValidationResult {
+  if (!Array.isArray(input)) return { ok: [], rejected: [{ row: input, reason: "shape" }], duplicates: [], collisions: [] };
 
   const rejected: RejectedRow[] = [];
   const usedSources = new Set<string>();
@@ -239,11 +258,14 @@ export function validateForecastRows(
   }
 
   const entries = [...merged.values()];
+  const isCollision = (e: Merged): boolean => e.count > 1 && sharesSheetRow(e.sources, opts.sheet.name);
+  const kept = entries.filter((e) => !isCollision(e));
   return {
-    ok: entries.map((e) => (e.count > 1 ? withoutSource(e.row) : e.row)),
+    ok: kept.map((e) => (e.count > 1 ? withoutSource(e.row) : e.row)),
     rejected,
-    duplicates: entries
+    duplicates: kept
       .filter((e) => e.count > 1)
       .map((e) => ({ person: e.row.person, period: e.row.period, count: e.count, sources: e.sources })),
+    collisions: entries.filter(isCollision).map((e) => ({ person: e.row.person, period: e.row.period, sources: e.sources })),
   };
 }

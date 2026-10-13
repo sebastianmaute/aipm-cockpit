@@ -4,7 +4,7 @@
 import { bucketActivePeriods } from "../budget-report";
 import type { Period } from "../resource-capacity";
 import type { BucketAllocation, BudgetBucket, DisciplineAllocation, Resource, ResourcePlan, Role } from "../types";
-import type { ForecastRow } from "./forecast-types";
+import type { ForecastCollision, ForecastRow } from "./forecast-types";
 import { sourcePeriodBounds, splitToGranularity } from "./period-split";
 
 /** Relative rate difference above which a sheet rate is reported. */
@@ -19,6 +19,8 @@ export type ImportCtx = {
   holidaySet: ReadonlySet<string>;
   /** Key: `normalisePerson` of the sheet person. */
   overrides: ReadonlyMap<string, PersonOverride>;
+  /** The validator's same-row collisions; any one blocks (`same-row-period`). */
+  collisions?: readonly ForecastCollision[];
 };
 export type AllocationKey = { kind: "role"; roleId: number } | { kind: "discipline"; disciplineId: number };
 /** `partial` is set when the target period has working days that no sheet period
@@ -43,7 +45,7 @@ export type RateNote = {
   internalRate: number;
   externalRate: number;
 };
-export type ImportBlocker = "follows-plan" | "closed" | "nothing-to-apply";
+export type ImportBlocker = "follows-plan" | "closed" | "same-row-period" | "nothing-to-apply";
 export type ImportPlan = {
   changes: CellChange[];
   unresolved: UnresolvedPerson[];
@@ -294,6 +296,7 @@ function blockersOf(ctx: ImportCtx, changeCount: number): ImportBlocker[] {
   const blockers: ImportBlocker[] = [];
   if (ctx.plan.budgetFollowsPlan === true) blockers.push("follows-plan");
   if (ctx.bucket.status === "closed") blockers.push("closed");
+  if ((ctx.collisions?.length ?? 0) > 0) blockers.push("same-row-period");
   if (changeCount === 0) blockers.push("nothing-to-apply");
   return blockers;
 }

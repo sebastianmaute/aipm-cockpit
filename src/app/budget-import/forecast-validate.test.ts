@@ -38,7 +38,7 @@ describe("validateForecastRows: shape", () => {
   });
 
   it("accepts an empty array", () => {
-    expect(validateForecastRows([], plain)).toEqual({ ok: [], rejected: [], duplicates: [] });
+    expect(validateForecastRows([], plain)).toEqual({ ok: [], rejected: [], duplicates: [], collisions: [] });
   });
 
   it("rejects a non-number rate, a negative rate and a non-string email as shape", () => {
@@ -545,5 +545,50 @@ describe("validateForecastRows: duplicates", () => {
     expect(out.ok).toEqual([{ person: "Ann", period: "2026-01", hours: 40, source: "Sheet1!B2" }]);
     expect(out.rejected.map((r) => r.reason)).toEqual(["source"]);
     expect(out.duplicates).toEqual([]);
+  });
+});
+
+// §500 fix wave 2 (CR C1): two cells of ONE sheet row that land on the same
+// person and period are a collision — never summed, never written.
+describe("validateForecastRows: same-row collisions", () => {
+  it("reports two hand-route cells of one row as a collision and keeps them out of ok", () => {
+    const out = validateForecastRows(
+      [
+        { person: "Ann", period: "2026-01", hours: 10, source: "Sheet1!B2" },
+        { person: "Ann", period: "2026-01", hours: 20, source: "Sheet1!C2" },
+        { person: "Ann", period: "2026-02", hours: 5, source: "Sheet1!D2" },
+      ],
+      plain,
+    );
+    expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["Sheet1!B2", "Sheet1!C2"] }]);
+    expect(out.ok).toEqual([{ person: "Ann", period: "2026-02", hours: 5, source: "Sheet1!D2" }]);
+    expect(out.duplicates).toEqual([]);
+  });
+
+  it("keeps summing duplicates that come from DIFFERENT rows", () => {
+    const out = validateForecastRows(
+      [
+        { person: "Ann", period: "2026-01", hours: 10, source: "Sheet1!B2" },
+        { person: "Ann", period: "2026-01", hours: 20, source: "Sheet1!B3" },
+      ],
+      plain,
+    );
+    expect(out.collisions).toEqual([]);
+    expect(out.ok).toEqual([{ person: "Ann", period: "2026-01", hours: 30 }]);
+    expect(out.duplicates).toHaveLength(1);
+  });
+
+  it("reports two accepted Claude rows citing cells of one row with the same person and period", () => {
+    const sheet: SheetGrid = { name: "S", rows: [["Name", "Jan 2026", "Jan 2026"], ["Ann", "10", "20"]], truncated: false };
+    const out = validateForecastRows(
+      [
+        { person: "Ann", period: "2026-01", hours: 10, source: "S!B2" },
+        { person: "Ann", period: "2026-01", hours: 20, source: "'S'!C2" },
+      ],
+      { sheet, requireSource: true },
+    );
+    expect(out.rejected).toEqual([]);
+    expect(out.collisions).toEqual([{ person: "Ann", period: "2026-01", sources: ["S!B2", "'S'!C2"] }]);
+    expect(out.ok).toEqual([]);
   });
 });

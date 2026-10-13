@@ -396,6 +396,21 @@ describe("useForecastImport — apply", () => {
     expect(outcome).toBe("refused");
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
   });
+
+  it("refuses while two cells of one sheet row land on the same person and period", async () => {
+    const deps = depsOf();
+    const { result } = await loaded(deps, "Name,Jan 2026,Jan 2026,Feb 2026\r\nAnn Lee,10,20,5\r\n");
+    expect(result.current.collisions).toEqual([
+      { person: "Ann Lee", period: "2026-01", sources: ["forecast!B2", "forecast!C2"] },
+    ]);
+    expect(result.current.importPlan?.blockers).toEqual(["same-row-period"]);
+    let outcome: string | undefined;
+    act(() => {
+      outcome = result.current.apply();
+    });
+    expect(outcome).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
 });
 
 describe("useForecastImport — the Claude route", () => {

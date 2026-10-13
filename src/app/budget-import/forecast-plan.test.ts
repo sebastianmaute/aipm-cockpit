@@ -422,6 +422,12 @@ describe("blockers", () => {
   it("nothing-to-apply", () => {
     expect(plan([]).blockers).toEqual(["nothing-to-apply"]);
   });
+
+  it("same-row-period when the validator reported a same-row collision", () => {
+    const collisions = [{ person: "Ann Lee", period: "2026-02", sources: ["S!B2", "S!C2"] }];
+    expect(plan([row("Ann Lee", "2026-01", 10)], { collisions }).blockers).toEqual(["same-row-period"]);
+    expect(plan([row("Ann Lee", "2026-01", 10)], { collisions: [] }).blockers).toEqual([]);
+  });
 });
 
 describe("applyForecastImport", () => {

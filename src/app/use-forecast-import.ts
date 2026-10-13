@@ -24,7 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyForecastImport, buildForecastImportPlan, normalisePerson, type ImportPlan, type PersonOverride, type UnresolvedPerson } from "./budget-import/forecast-plan";
 import { gridToForecastRows, isTotalLabel } from "./budget-import/forecast-rows";
 import { assignRunPeriods } from "./budget-import/period-assign";
-import type { ColumnMapping, DropReason, ForecastRow, IgnoredColumn } from "./budget-import/forecast-types";
+import type { ColumnMapping, DropReason, ForecastCollision, ForecastRow, IgnoredColumn } from "./budget-import/forecast-types";
 import { validateForecastRows, type DuplicateRow, type RejectedRow } from "./budget-import/forecast-validate";
 import { detectLayout, type LayoutDetection } from "./budget-import/layout-detect";
 import { readSheetFile, type NumberOrigin, type SheetGrid } from "./budget-import/sheet-grid";
@@ -80,6 +80,8 @@ export interface ForecastImport {
   unresolvedPeople: readonly UnresolvedPerson[];
   rejected: readonly RejectedRow[];
   duplicates: readonly DuplicateRow[];
+  /** Cells of one sheet row landing on the same person and period: they block Apply. */
+  collisions: readonly ForecastCollision[];
   dropped: readonly DropReason[];
   /** The hand route's number columns left unread (header not a period). */
   ignoredColumns: readonly IgnoredColumn[];
@@ -109,6 +111,7 @@ const SAMPLE_ROWS = 5;
 const BYTES_PER_MB = 1024 * 1024;
 const NO_OVERRIDES: ReadonlyMap<string, PersonOverride> = new Map();
 const NO_ROWS: readonly ForecastRow[] = [];
+const NO_COLLISIONS: readonly ForecastCollision[] = [];
 
 /** The message for a failed Claude read, or null for an abort (the user's own
  *  stop is not an error). Mirrors the other forced-call features' mapping. */
@@ -232,13 +235,14 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   }, [sheet, route, claudeRows, handRows, mapping, startYear]);
 
   const okRows = validated?.ok ?? NO_ROWS;
+  const collisions = validated?.collisions ?? NO_COLLISIONS;
   const canPreview = step === "preview" && validated !== null && liveBucket !== undefined;
 
   const importPlan = useMemo(
     () => (canPreview && liveBucket
-      ? buildForecastImportPlan(okRows, { bucket: liveBucket, resources, roles, plan, holidaySet, overrides })
+      ? buildForecastImportPlan(okRows, { bucket: liveBucket, resources, roles, plan, holidaySet, overrides, collisions })
       : null),
-    [canPreview, liveBucket, okRows, resources, roles, plan, holidaySet, overrides],
+    [canPreview, liveBucket, okRows, resources, roles, plan, holidaySet, overrides, collisions],
   );
   const unresolvedPeople = useMemo(
     () => (canPreview && liveBucket
@@ -385,7 +389,9 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     // disabled there, and the bucket did not change.
     if (step !== "preview") return "refused";
     if (!live || !validated || live.status === "closed" || plan.budgetFollowsPlan === true) return refuse();
-    const fresh = buildForecastImportPlan(validated.ok, { bucket: live, resources, roles, plan, holidaySet, overrides });
+    const fresh = buildForecastImportPlan(validated.ok, {
+      bucket: live, resources, roles, plan, holidaySet, overrides, collisions: validated.collisions,
+    });
     if (fresh.blockers.length > 0) return refuse();
     const next = { ...applyForecastImport(live, fresh), localModifiedAt: new Date().toISOString() };
     onChangeBuckets(buckets.map((b) => (b.id === bucketId ? next : b)), { kind: "budget.updated", name: live.name });
@@ -407,6 +413,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     unresolvedPeople,
     rejected: validated?.rejected ?? [],
     duplicates: validated?.duplicates ?? [],
+    collisions,
     dropped: route === "hand" ? (handRows?.dropped ?? []) : [],
     ignoredColumns: route === "hand" ? (handRows?.ignoredColumns ?? []) : [],
     sample: handRows ? handRows.rows.slice(0, SAMPLE_ROWS) : NO_ROWS,

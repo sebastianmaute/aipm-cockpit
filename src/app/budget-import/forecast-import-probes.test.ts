@@ -137,3 +137,17 @@ describe("probe: a long sheet with a year column (CR I2)", () => {
     expect(run.out.rows.map((r) => [r.period, r.hours])).toEqual([["2027-01", 8]]);
   });
 });
+
+describe("probe: one sheet row naming a period twice (CR C1)", () => {
+  it("Name | Jan 2026 | Jan 2026 blocks Apply with same-row-period, nothing summed", () => {
+    const run = readSheet([["Name", "Jan 2026", "Jan 2026", "Feb 2026"], ["Ann Lee", "10", "20", "5"]]);
+    expect(run.validated.collisions).toEqual([{ person: "Ann Lee", period: "2026-01", sources: ["S!B2", "S!C2"] }]);
+    const bucket = bucketOf("2026-01-01", "2026-03-31");
+    const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2027-12-31", granularity: "month", currency: "EUR" };
+    const out = buildForecastImportPlan(run.validated.ok, {
+      bucket, resources: [ANN], roles: [ROLE], plan, holidaySet: new Set(), overrides: new Map(), collisions: run.validated.collisions,
+    });
+    expect(out.blockers).toContain("same-row-period");
+    expect(cellsOf(out)).toEqual([["2026-02", 5]]);
+  });
+});
