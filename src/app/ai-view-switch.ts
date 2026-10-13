@@ -11,6 +11,9 @@
 //    whole transcript as a cache write. G2 would move block 1 onto the turn
 //    and make that write disappear — but only when:
 //    - block 0 is unchanged (if it changed, the cache is rewritten anyway);
+//    - the model and the tool list are unchanged (each model keeps its own
+//      cache, and `tools` sit in front of `system` in the prefix, so a
+//      change to either rewrites the cache anyway);
 //    - the previous send is in the SAME thread (another thread has its own
 //      prefix);
 //    - the cache is still warm (after the TTL the write happens anyway);
@@ -24,12 +27,21 @@
 //    G2 would save. Cold sends write the whole prefix whatever G2 does, so
 //    folding them into the baseline would inflate it and understate the
 //    saving; they are counted as sends and their writes are not kept.
+// ★ KNOWN BLIND SPOT: the transcript prefix can change on its own. When
+//    `fitHistoryToBudget` swaps an earlier turn's attachment for a
+//    placeholder (on the send that first crosses the attachment budget), the
+//    whole transcript is rewritten whatever G2 does, yet that send is still
+//    classified switch or warm. It takes large attachments, so it is named
+//    here rather than fingerprinted.
 
 import { isoDate, mondayOf } from "./ai-usage";
 
-/** Anthropic's default `ephemeral` cache lifetime. The real lifetime is
- *  refreshed on every read, so measuring from the previous send's finish is
- *  the conservative reading. */
+/** Anthropic's default `ephemeral` cache lifetime. ★ The lifetime is
+ *  refreshed when a request is PROCESSED, which is when it goes out, not when
+ *  its answer finishes arriving. So the window runs from the previous send's
+ *  LAST request to this send's FIRST. Both stamps are taken just before a
+ *  request leaves the browser, so its upload time sits on both sides and
+ *  cancels; what is left is well under a second either way. */
 export const VIEW_SWITCH_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /** The MODELLED break-even this counter exists to check: G2 pays
@@ -48,23 +60,30 @@ export const G2_BREAK_EVEN_REQUESTS_PER_SWITCH = 46;
 export type SendFingerprint = {
   /** Project and thread, so a send in another thread never counts. */
   threadKey: string;
+  /** The model the requests named: every model keeps its own cache. */
+  model: string;
+  /** The names of the tools the requests carried, joined in request order. */
+  toolNames: string;
   /** `system` block 0's text. */
   stableText: string;
   /** Every later `system` block's text joined; `""` when the view has none. */
   viewText: string;
-  /** Epoch ms before the send's first request went out. */
+  /** Epoch ms just before the send's first request went out. */
   startedAt: number;
-  /** Epoch ms when the send's last response arrived. */
-  finishedAt: number;
+  /** Epoch ms just before the send's last request went out. */
+  lastRequestAt: number;
   /** Messages in the thread before this send's user message. */
   priorTurns: number;
 };
 
 export type SendKind = "switch" | "warm" | "cold";
 
-/** ★ The window runs from the previous send's FINISH to this send's START:
- *  the question is whether the cache was warm when this send's first request
- *  went out, and a long tool loop must not push a warm send past it. */
+/** ★ The window runs from the previous send's LAST REQUEST to this send's
+ *  FIRST: the question is whether the cache was warm when this send's first
+ *  request went out. Measuring from the previous send's last ANSWER would
+ *  stretch the window by that answer's generation time and count an expired
+ *  cache as warm; measuring to this send's last request would let its own
+ *  tool loop push a warm send past it. */
 export function classifySend(
   prev: SendFingerprint | null | undefined,
   next: SendFingerprint,
@@ -73,9 +92,30 @@ export function classifySend(
   if (!prev) return "cold";
   if (next.priorTurns <= 0) return "cold";
   if (prev.threadKey !== next.threadKey) return "cold";
-  if (next.startedAt - prev.finishedAt >= ttlMs) return "cold";
+  if (next.startedAt - prev.lastRequestAt >= ttlMs) return "cold";
+  if (prev.model !== next.model) return "cold";
+  if (prev.toolNames !== next.toolNames) return "cold";
   if (prev.stableText !== next.stableText) return "cold";
   return prev.viewText !== next.viewText ? "switch" : "warm";
+}
+
+/** Remembers `fp` as its thread's latest send and forgets every thread whose
+ *  last request is a whole cache window before `fp` started. A forgotten
+ *  entry could only ever classify a later send as cold: `ChatPanel` runs one
+ *  send at a time (`abortRef`, §321) and records it before the next can
+ *  start, so every later send starts after `fp` did. Without this the map
+ *  would keep one entry for every thread touched since the app loaded. */
+export function pruneLastSends(
+  last: ReadonlyMap<string, SendFingerprint>,
+  fp: SendFingerprint,
+  ttlMs: number = VIEW_SWITCH_CACHE_TTL_MS,
+): ReadonlyMap<string, SendFingerprint> {
+  const out = new Map<string, SendFingerprint>();
+  for (const [k, v] of last) {
+    if (fp.startedAt - v.lastRequestAt < ttlMs) out.set(k, v);
+  }
+  out.set(fp.threadKey, fp);
+  return out;
 }
 
 export type ViewSwitchStats = {
@@ -89,14 +129,15 @@ export type ViewSwitchStats = {
 };
 export type ViewSwitchBuckets = Record<string, ViewSwitchStats>; // key: YYYY-MM-DD (local)
 
-const EMPTY_STATS: ViewSwitchStats = {
+/** A week with nothing in it. Frozen, because it is shared as a default. */
+export const EMPTY_VIEW_SWITCH_STATS: Readonly<ViewSwitchStats> = Object.freeze({
   sends: 0,
   requests: 0,
   switches: 0,
   warmSends: 0,
   switchCacheWrite: 0,
   warmCacheWrite: 0,
-};
+});
 
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -135,7 +176,7 @@ export function addViewSwitchSend(
   requests: number,
 ): ViewSwitchBuckets {
   const k = isoDate(when);
-  const prev = normalizeStats(b[k] ?? EMPTY_STATS);
+  const prev = normalizeStats(b[k] ?? EMPTY_VIEW_SWITCH_STATS);
   const w = finite(cacheWrite);
   return {
     ...b,
@@ -152,7 +193,7 @@ export function addViewSwitchSend(
 
 export function weekViewSwitchStats(b: ViewSwitchBuckets, now: Date): ViewSwitchStats {
   const start = mondayOf(now);
-  const total = { ...EMPTY_STATS };
+  const total = { ...EMPTY_VIEW_SWITCH_STATS };
   for (const [k, v] of Object.entries(b)) {
     const d = new Date(`${k}T00:00:00`);
     if (d < start || d > now) continue;

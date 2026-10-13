@@ -55,6 +55,7 @@ import {
   type ToolResultBlock,
   type ApiMessage,
   type DisplayItem,
+  toolNamesFor,
 } from "./chat-api";
 import { buildWireMessages } from "./chat-cache-layout";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -706,17 +707,21 @@ function ChatPanelInner({
     const messages = fitHistoryToBudget(newHistory, MAX_STAGED_PAYLOAD_BYTES);
 
     // §702: what this send put in front of the transcript, for the view-switch
-    // counter. Stamped BEFORE the first request: the cache window is measured
-    // to the send's start. `requests` counts round-trips that answered (the
+    // counter. Both stamps are taken just before a request goes out, because
+    // that is when the cache lifetime is refreshed (`VIEW_SWITCH_CACHE_TTL_MS`
+    // says why). `requests` counts round-trips that answered (the
     // break-even's unit); any of them means a prefix reached the cache.
-    const sendStartedAt = Date.now();
+    let firstRequestAt: number | null = null;
+    let lastRequestAt = 0;
     let requests = 0;
     const sendFingerprint = (): SendFingerprint => ({
       threadKey: `${sendProjectId ?? ""}|${sendThreadId ?? ""}`,
+      model: ai.model,
+      toolNames: [...toolNamesFor(ai)].join(","),
       stableText: system[0]?.text ?? "",
       viewText: system.slice(1).map((b) => b.text).join("\n\n"),
-      startedAt: sendStartedAt,
-      finishedAt: Date.now(),
+      startedAt: firstRequestAt ?? lastRequestAt,
+      lastRequestAt,
       priorTurns: newHistory.length - 1,
     });
 
@@ -742,6 +747,8 @@ function ChatPanelInner({
       const maxTurns = clampMaxChatTurns(ai.maxChatTurns);
       for (let turn = 0; turn < maxTurns; turn++) {
         if (stale()) break;
+        lastRequestAt = Date.now();
+        firstRequestAt ??= lastRequestAt;
         const response = await callClaude(
           effectiveApiKey,
           ai.model,
@@ -749,14 +756,17 @@ function ChatPanelInner({
           buildWireMessages(messages, turnContext).messages,
           ai, controller.signal,
         );
+        // Billed whether or not the send is still current, so the request and
+        // its tokens are counted together, before the stale check: a request
+        // counted without its cache write would record a switch as free.
         requests += 1;
-        // A cancel or a project switch may have landed while awaiting — bail
-        // before writing this turn onto (possibly) another project's state.
-        if (stale()) break;
         totalInput += response.usage.input_tokens;
         totalOutput += response.usage.output_tokens;
         totalCacheWrite += response.usage.cache_creation_input_tokens;
         totalCacheRead += response.usage.cache_read_input_tokens;
+        // A cancel or a project switch may have landed while awaiting — bail
+        // before writing this turn onto (possibly) another project's state.
+        if (stale()) break;
 
         const assistantMsg: ApiMessage = {
           role: "assistant",

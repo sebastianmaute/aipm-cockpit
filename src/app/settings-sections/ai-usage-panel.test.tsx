@@ -497,7 +497,16 @@ function SeedSends({ sends, children }: { sends: SendSeed[]; children: ReactNode
     firedRef.current = true;
     for (const s of sends) {
       recordChatSend(
-        { threadKey: "p|t", stableText: "S", viewText: s.viewText, startedAt: s.startedAt, finishedAt: s.startedAt + 5_000, priorTurns: 2 },
+        {
+          threadKey: "p|t",
+          model: "m",
+          toolNames: "t",
+          stableText: "S",
+          viewText: s.viewText,
+          startedAt: s.startedAt,
+          lastRequestAt: s.startedAt + 5_000,
+          priorTurns: 2,
+        },
         s.cacheWrite,
         s.requests,
       );
@@ -550,7 +559,18 @@ describe("AiUsagePanel — view-switch counter (§702)", () => {
     expect(screen.getByText("Cache-write tokens per message").nextElementSibling).toHaveTextContent(
       "9,000 on a switch, 600 on other warm messages",
     );
-    expect(screen.getByText(/one view switch in 46 API requests/)).toBeInTheDocument();
+    // ★ "more often than", so a rate of 1 in 30 cannot read as below the line.
+    expect(
+      screen.getByText(/pays off when view switches happen more often than about one in 46 API requests/),
+    ).toBeInTheDocument();
+  });
+
+  it("says G2 would change nothing while operating guides are off, instead of quoting the break-even", () => {
+    render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} guidesOn={false} />, {
+      wrapper: sendsWrapper("en-US", THREE_SENDS),
+    });
+    expect(screen.getByText(/operating guides.*off.*G2 would change nothing/i)).toBeInTheDocument();
+    expect(screen.queryByText(/46 API requests/)).not.toBeInTheDocument();
   });
 
   it("says no ratio and no average for a side with no messages", () => {

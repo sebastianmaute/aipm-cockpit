@@ -437,11 +437,33 @@ describe("AiUsageProvider", () => {
 describe("AiUsageProvider — view-switch counter (§702)", () => {
   const fp = (viewText: string, startedAt: number, threadKey = "p1:t1") => ({
     threadKey,
+    model: "m",
+    toolNames: "t",
     stableText: "S",
     viewText,
     startedAt,
-    finishedAt: startedAt + 5_000,
+    lastRequestAt: startedAt + 5_000,
     priorTurns: 2,
+  });
+
+  it("neither counts nor remembers a send no request of which went out", async () => {
+    // Nothing reached the cache, so the next send must still be compared with
+    // the one before it: A, (B with no request), B → a switch, not a warm send.
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: makeWrapper(vi.fn()) });
+    await act(async () => {});
+
+    act(() => { result.current.recordChatSend(fp("A", 1_000), 0, 1); });
+    act(() => { result.current.recordChatSend(fp("B", 61_000), 0, 0); });
+    act(() => { result.current.recordChatSend(fp("B", 121_000), 4_000, 1); });
+
+    expect(result.current.viewSwitchWeek).toEqual({
+      sends: 2,
+      requests: 2,
+      switches: 1,
+      warmSends: 0,
+      switchCacheWrite: 4_000,
+      warmCacheWrite: 0,
+    });
   });
 
   it("classifies each chat send against the previous one and totals the week", async () => {

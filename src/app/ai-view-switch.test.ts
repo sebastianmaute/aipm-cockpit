@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   addViewSwitchSend,
   classifySend,
+  EMPTY_VIEW_SWITCH_STATS,
   normalizeViewSwitchBuckets,
+  pruneLastSends,
   VIEW_SWITCH_CACHE_TTL_MS,
   weekViewSwitchStats,
   type SendFingerprint,
@@ -12,22 +14,24 @@ import {
 const T0 = new Date("2026-10-12T10:00:00").getTime();
 const MIN = 60_000;
 
-/** The previous send: finished at T0. */
+/** The previous send: its last request went out at T0. */
 function prev(over: Partial<SendFingerprint> = {}): SendFingerprint {
   return {
     threadKey: "p1:t1",
+    model: "claude-model-a",
+    toolNames: "list_tasks,update_task",
     stableText: "STABLE",
     viewText: "VIEW-A",
     startedAt: T0 - 10_000,
-    finishedAt: T0,
+    lastRequestAt: T0,
     priorTurns: 2,
     ...over,
   };
 }
 
-/** The next send: started one minute after `prev` finished. */
+/** The next send: its first request went out one minute after `prev`'s last. */
 function next(over: Partial<SendFingerprint> = {}): SendFingerprint {
-  return prev({ startedAt: T0 + MIN, finishedAt: T0 + MIN + 10_000, priorTurns: 4, ...over });
+  return prev({ startedAt: T0 + MIN, lastRequestAt: T0 + MIN + 10_000, priorTurns: 4, ...over });
 }
 
 describe("classifySend", () => {
@@ -56,17 +60,28 @@ describe("classifySend", () => {
     expect(classifySend(prev(), next({ viewText: "VIEW-B", priorTurns: 0 }))).toBe("cold");
   });
 
-  it("measures the cache window from the previous send's FINISH to this send's START", () => {
-    const at = (startedAt: number) => next({ viewText: "VIEW-B", startedAt, finishedAt: startedAt + 90_000 });
+  it("is cold when the model changed, since every model keeps its own cache", () => {
+    expect(classifySend(prev(), next({ model: "claude-model-b", viewText: "VIEW-B" }))).toBe("cold");
+    expect(classifySend(prev(), next({ model: "claude-model-b" }))).toBe("cold");
+  });
+
+  it("is cold when the tool list changed, since tools come before system in the cache prefix", () => {
+    expect(classifySend(prev(), next({ toolNames: "list_tasks", viewText: "VIEW-B" }))).toBe("cold");
+    expect(classifySend(prev(), next({ toolNames: "list_tasks" }))).toBe("cold");
+  });
+
+  it("measures the cache window from the previous send's LAST REQUEST to this send's FIRST", () => {
+    const at = (startedAt: number) => next({ viewText: "VIEW-B", startedAt, lastRequestAt: startedAt + 90_000 });
     expect(classifySend(prev(), at(T0 + VIEW_SWITCH_CACHE_TTL_MS - 1))).toBe("switch");
     expect(classifySend(prev(), at(T0 + VIEW_SWITCH_CACHE_TTL_MS))).toBe("cold");
   });
 
   it("still counts a switch whose own tool loop ran past the window", () => {
-    // Previous send finished at T0; this one went out at 4:00 and its tool
-    // loop ran until 5:30. The request was warm, so this is a switch.
+    // The previous send's last request went out at T0; this one went out at
+    // 4:00 and its tool loop sent its last request at 5:30. The first request
+    // was warm, so this is a switch.
     expect(
-      classifySend(prev(), next({ viewText: "VIEW-B", startedAt: T0 + 4 * MIN, finishedAt: T0 + 5.5 * MIN })),
+      classifySend(prev(), next({ viewText: "VIEW-B", startedAt: T0 + 4 * MIN, lastRequestAt: T0 + 5.5 * MIN })),
     ).toBe("switch");
   });
 
@@ -119,6 +134,36 @@ describe("addViewSwitchSend", () => {
 });
 
 const ZERO = { sends: 0, requests: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 };
+
+describe("EMPTY_VIEW_SWITCH_STATS", () => {
+  it("is all zeros and frozen, so a shared default cannot be written through", () => {
+    expect(EMPTY_VIEW_SWITCH_STATS).toEqual(ZERO);
+    expect(Object.isFrozen(EMPTY_VIEW_SWITCH_STATS)).toBe(true);
+  });
+});
+
+describe("pruneLastSends", () => {
+  it("remembers the send under its thread and drops threads whose cache has expired", () => {
+    const old = prev({ threadKey: "p1:old", lastRequestAt: T0 });
+    const recent = prev({ threadKey: "p1:recent", lastRequestAt: T0 + 2 * MIN });
+    const fp = next({ threadKey: "p1:t1", startedAt: T0 + VIEW_SWITCH_CACHE_TTL_MS });
+    const before = new Map([
+      [old.threadKey, old],
+      [recent.threadKey, recent],
+    ]);
+    const after = pruneLastSends(before, fp);
+    expect([...after.keys()].sort()).toEqual(["p1:recent", "p1:t1"]);
+    expect(after.get("p1:t1")).toBe(fp);
+    // Pure: the input map is untouched.
+    expect([...before.keys()].sort()).toEqual(["p1:old", "p1:recent"]);
+  });
+
+  it("keeps a thread whose last request is just inside the window", () => {
+    const edge = prev({ threadKey: "p1:edge", lastRequestAt: T0 });
+    const fp = next({ threadKey: "p1:t1", startedAt: T0 + VIEW_SWITCH_CACHE_TTL_MS - 1 });
+    expect(pruneLastSends(new Map([[edge.threadKey, edge]]), fp).has("p1:edge")).toBe(true);
+  });
+});
 
 describe("weekViewSwitchStats", () => {
   it("sums Monday..now of the current week only", () => {

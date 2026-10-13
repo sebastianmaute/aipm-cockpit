@@ -25,6 +25,7 @@ import { sealPassphrase } from "./secrets";
 import { peekMintId } from "./id-mint-session";
 import type { ChatConversation } from "./workspace-tab-context";
 import { useAiUsageContext } from "./ai-usage-context";
+import type { SendFingerprint } from "./ai-view-switch";
 
 // §548/§596 — `ChatPanel`'s two scope readers are REQUIRED props (see
 // `ChatScopeProps` in chat-panel.tsx: an optional one degrades silently, which is
@@ -3238,9 +3239,14 @@ describe("cache-token usage recording", () => {
       recordChatSend: recordChatSendSpy,
     });
 
+    // A clock that moves on every read, so the two requests' stamps differ.
+    let tick = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => ++tick);
+    const fetchTimes: number[] = [];
     let call = 0;
     vi.spyOn(globalThis, "fetch").mockImplementation(() => {
       call += 1;
+      fetchTimes.push(Date.now());
       // Turn 1: a real (non-destructive) tool call, so the round-trip loop
       // executes it and continues. Turn 2: the final answer. Both turns carry
       // the SAME cache_read figure — a per-turn accumulator that overwrites
@@ -3290,6 +3296,14 @@ describe("cache-token usage recording", () => {
     // §702: one send, two API requests — the counter is told both numbers.
     expect(recordChatSendSpy).toHaveBeenCalledTimes(1);
     expect(recordChatSendSpy).toHaveBeenCalledWith(expect.anything(), 500, 2);
+    // The cache is refreshed when a request goes out, so the window anchors
+    // on the LAST request's send time — not the first, and not the arrival
+    // of its answer.
+    const [fp] = recordChatSendSpy.mock.calls[0] as [{ startedAt: number; lastRequestAt: number }];
+    expect(fetchTimes).toHaveLength(2);
+    expect(fp.startedAt).toBeLessThan(fetchTimes[0]);
+    expect(fp.lastRequestAt).toBeGreaterThan(fetchTimes[0]);
+    expect(fp.lastRequestAt).toBeLessThan(fetchTimes[1]);
   });
 
   // §702: the view-switch counter classifies sends by what each one put in
@@ -3345,11 +3359,18 @@ describe("cache-token usage recording", () => {
 
     const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string) as {
       system: { text: string }[];
+      model: string;
+      tools: { name: string }[];
     };
     const [firstFp, firstWrite] = recordChatSendSpy.mock.calls[0] as [
-      { threadKey: string; stableText: string; viewText: string; startedAt: number; finishedAt: number; priorTurns: number },
+      SendFingerprint,
       number,
     ];
+    // Model and tools sit in front of `system` in the cache prefix, so they
+    // must be the ones the request carried.
+    expect(firstFp.model).toBe(body.model);
+    expect(body.tools.length).toBeGreaterThan(0);
+    expect(firstFp.toolNames).toBe(body.tools.map((d) => d.name).join(","));
     const [secondFp] = recordChatSendSpy.mock.calls[1] as [{ threadKey: string; priorTurns: number }, number];
     expect(firstFp.stableText).toBe(body.system[0].text);
     expect(body.system[1].text).toContain("Sort by due date.");
@@ -3358,10 +3379,53 @@ describe("cache-token usage recording", () => {
     expect(firstFp.priorTurns).toBe(0);
     expect(secondFp.priorTurns).toBeGreaterThan(0);
     expect(secondFp.threadKey).toBe(firstFp.threadKey);
-    // The cache window is measured to the send's START, so the start stamp
-    // must precede its first request and the finish stamp follow its last.
+    // Both stamps are taken just before a request goes out: with one request
+    // they bracket nothing and both precede it.
     expect(firstFp.startedAt).toBeLessThan(fetchTimes[0]);
-    expect(firstFp.finishedAt).toBeGreaterThan(fetchTimes[0]);
+    expect(firstFp.lastRequestAt).toBeLessThan(fetchTimes[0]);
+    expect(firstFp.lastRequestAt).toBeGreaterThanOrEqual(firstFp.startedAt);
+  });
+
+  // A send that goes stale WITHOUT being cancelled — a workspace scope change;
+  // a project or thread switch cancels instead — is still billed and recorded.
+  // The request it counts must come with that request's cache write, or a
+  // switch would be recorded with a write of 0.
+  it("records the cache write of a response that landed after a scope change", async () => {
+    const recordChatSendSpy = vi.fn();
+    vi.mocked(useAiUsageContext).mockReturnValue({
+      ...DEFAULT_AI_USAGE_CONTEXT,
+      recordChatSend: recordChatSendSpy,
+    });
+    let resolveFetch!: (r: Response) => void;
+    vi.spyOn(globalThis, "fetch").mockReturnValue(new Promise<Response>((res) => { resolveFetch = res; }));
+    let epoch = 0;
+    render(
+      <ChatPanel
+        {...SCOPE_PROPS}
+        getScopeEpoch={() => epoch}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "q" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(1));
+    epoch = 1;
+    resolveFetch({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "late" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 800, cache_read_input_tokens: 0 },
+        }),
+    } as unknown as Response);
+
+    await waitFor(() => expect(recordChatSendSpy).toHaveBeenCalledTimes(1));
+    expect(recordChatSendSpy).toHaveBeenCalledWith(expect.anything(), 800, 1);
   });
 
   function renderGuidedPanel() {

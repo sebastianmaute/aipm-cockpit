@@ -143,9 +143,13 @@ type AiUsagePanelProps = {
   lang: Lang;
   sessionCap: number;
   weeklyCap: number;
+  /** §702: whether operating guides are on. With them off no view guide is
+   *  sent, so G2 would have nothing to move and the break-even means nothing.
+   *  Defaults to on. */
+  guidesOn?: boolean;
 };
 
-export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps) {
+export function AiUsagePanel({ lang, sessionCap, weeklyCap, guidesOn = true }: AiUsagePanelProps) {
   const { sessionTotal, weekTotal, nextReset, sessionUsage, viewSwitchWeek } = useAiUsageContext();
 
   // ★★★ NOT a state setter in an effect (`react-hooks/set-state-in-effect` is
@@ -219,14 +223,24 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap }: AiUsagePanelProps)
       <p className="mt-1 text-xs text-muted-foreground">
         {t(lang, "aiUsageResetAt", resetLabel)}
       </p>
-      <ViewSwitchLines lang={lang} locale={locale} stats={viewSwitchWeek} />
+      <ViewSwitchLines lang={lang} locale={locale} stats={viewSwitchWeek} guidesOn={guidesOn} />
     </div>
   );
 }
 
 /** §702: this week's chat sends and warm view switches. Hidden until the
  *  first send, so a device that never chats sees no zeros. */
-function ViewSwitchLines({ lang, locale, stats }: { lang: Lang; locale: string; stats: ViewSwitchStats }) {
+function ViewSwitchLines({
+  lang,
+  locale,
+  stats,
+  guidesOn,
+}: {
+  lang: Lang;
+  locale: string;
+  stats: ViewSwitchStats;
+  guidesOn: boolean;
+}) {
   if (stats.sends === 0) return null;
   const fmt = (n: number): string => Math.round(n).toLocaleString(locale);
   // ★ The rate is per API REQUEST, the break-even's unit — see
@@ -258,7 +272,9 @@ function ViewSwitchLines({ lang, locale, stats }: { lang: Lang; locale: string; 
         </div>
       </dl>
       <p className="mt-1 text-xs text-muted-foreground">
-        {t(lang, "aiViewSwitchHint", String(G2_BREAK_EVEN_REQUESTS_PER_SWITCH))}
+        {guidesOn
+          ? t(lang, "aiViewSwitchHint", String(G2_BREAK_EVEN_REQUESTS_PER_SWITCH))
+          : t(lang, "aiViewSwitchHintGuidesOff")}
       </p>
     </>
   );

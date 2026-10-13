@@ -22,8 +22,10 @@ import {
 } from "./ai-usage";
 import {
   addViewSwitchSend,
+  EMPTY_VIEW_SWITCH_STATS,
   classifySend,
   normalizeViewSwitchBuckets,
+  pruneLastSends,
   weekViewSwitchStats,
   type SendFingerprint,
   type ViewSwitchBuckets,
@@ -91,7 +93,7 @@ const AiUsageContext = createContext<AiUsageContextValue>({
   weekTotal: 0,
   nextReset: new Date(),
   record: () => {},
-  viewSwitchWeek: { sends: 0, requests: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
+  viewSwitchWeek: EMPTY_VIEW_SWITCH_STATS,
   recordChatSend: () => {},
   noteUnbilledChatSend: () => {},
 });
@@ -278,11 +280,14 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
   //   the cache may well be warm, but nothing says what it holds.
   const lastSendsRef = useRef<ReadonlyMap<string, SendFingerprint>>(new Map());
   const rememberSend = useCallback((fp: SendFingerprint): void => {
-    lastSendsRef.current = new Map(lastSendsRef.current).set(fp.threadKey, fp);
+    lastSendsRef.current = pruneLastSends(lastSendsRef.current, fp);
   }, []);
 
   const recordChatSend = useCallback(
     (fp: SendFingerprint, cacheWrite: number, requests: number): void => {
+      // ★ A send none of whose requests went out never reached the cache:
+      //   neither count it nor let it become the thread's baseline.
+      if (!(requests > 0)) return;
       const kind = classifySend(lastSendsRef.current.get(fp.threadKey), fp);
       rememberSend(fp);
       const next = addViewSwitchSend(viewSwitchBucketsRef.current, new Date(), kind, cacheWrite, requests);
