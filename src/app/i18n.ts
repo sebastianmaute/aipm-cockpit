@@ -2549,6 +2549,7 @@ const enUS = {
   forecastImportColRate: "Rate column",
   forecastImportColPeriod: "Period column",
   forecastImportColHours: "Hours column",
+  forecastImportColYear: "Year column",
   forecastImportColNone: "None",
   forecastImportPeriodColsFound: "Period columns in the header row: {0}",
   forecastImportColumnsCapped: "Only the first {0} columns are offered.",

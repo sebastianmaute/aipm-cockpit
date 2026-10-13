@@ -548,3 +548,18 @@ describe("gridToForecastRows — long", () => {
     expect(out.rows).toEqual([{ person: "Ann", period: "2026-02", hours: 3, source: "S!C3" }]);
   });
 });
+
+// §500 fix wave 2 (CR I2): a long sheet whose year sits in its own column.
+describe("gridToForecastRows — a long sheet's year column", () => {
+  const mapping: ColumnMapping = { layout: "long", headerRow: 0, person: 0, yearCol: 1, period: 2, hours: 3, year: 2026 };
+
+  it("combines a year-less period with that row's year, whatever the default year", () => {
+    const grid = [["Name", "Jahr", "Monat", "Stunden"], ["Ann", "2027", "Jan", "8"], ["Ann", "2028", "KW03", "4"]];
+    expect(gridToForecastRows(grid, mapping, "S").rows.map((r) => r.period)).toEqual(["2027-01", "2028-W03"]);
+  });
+
+  it("keeps a period's own year, and falls back to the default year on a blank year cell", () => {
+    const grid = [["Name", "Jahr", "Monat", "Stunden"], ["Ann", "2027", "Feb 2028", "8"], ["Ann", "", "Mär", "4"]];
+    expect(gridToForecastRows(grid, mapping, "S").rows.map((r) => r.period)).toEqual(["2028-02", "2026-03"]);
+  });
+});

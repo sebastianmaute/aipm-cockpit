@@ -204,7 +204,17 @@ function RouteBar({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
 
 // ------------------------------------------------------------------ mapping
 
-type Draft = { layout: "wide" | "long"; headerRow: number; person: number; email?: number; rate?: number; period: number; hours: number; year?: number };
+type Draft = {
+  layout: "wide" | "long";
+  headerRow: number;
+  person: number;
+  email?: number;
+  rate?: number;
+  period: number;
+  hours: number;
+  year?: number;
+  yearCol?: number;
+};
 
 function draftOf(mapping: ColumnMapping | null): Draft {
   return {
@@ -216,6 +226,7 @@ function draftOf(mapping: ColumnMapping | null): Draft {
     period: mapping?.period ?? 1,
     hours: mapping?.hours ?? 2,
     year: mapping?.year,
+    yearCol: mapping?.yearCol,
   };
 }
 
@@ -227,6 +238,7 @@ function mappingOf(d: Draft, sheet: SheetGrid): ColumnMapping {
   if (d.email !== undefined) mapping.email = d.email;
   if (d.rate !== undefined) mapping.rate = d.rate;
   if (d.year !== undefined) mapping.year = d.year;
+  if (d.yearCol !== undefined) mapping.yearCol = d.yearCol;
   return mapping;
 }
 
@@ -259,7 +271,7 @@ function MappingStep({ lang, fi, sheet }: { lang: Lang; fi: ForecastImport; shee
   const yearId = useId();
   const header = rows[draft.headerRow] ?? [];
   const width = rows.reduce((max, r) => Math.max(max, r.length), 0);
-  const chosen = [draft.person, draft.email, draft.rate, ...(draft.layout === "long" ? [draft.period, draft.hours] : [])];
+  const chosen = [draft.person, draft.email, draft.rate, ...(draft.layout === "long" ? [draft.period, draft.hours, draft.yearCol] : [])];
   const offered = new Set([
     ...Array.from({ length: Math.min(width, MAX_COLUMN_CHOICES) }, (_, col) => col),
     ...chosen.filter((c): c is number => c !== undefined && c < width),
@@ -310,6 +322,7 @@ function MappingStep({ lang, fi, sheet }: { lang: Lang; fi: ForecastImport; shee
           <>
             <ColumnSelect label={t(lang, "forecastImportColPeriod")} value={draft.period} columns={columns} optional={false} noneLabel={none} onChange={(c) => commit({ period: c ?? 0 })} />
             <ColumnSelect label={t(lang, "forecastImportColHours")} value={draft.hours} columns={columns} optional={false} noneLabel={none} onChange={(c) => commit({ hours: c ?? 0 })} />
+            <ColumnSelect label={t(lang, "forecastImportColYear")} value={draft.yearCol} columns={columns} optional noneLabel={none} onChange={(yearCol) => commit({ yearCol })} />
           </>
         )}
       </div>

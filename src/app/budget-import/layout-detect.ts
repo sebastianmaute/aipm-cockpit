@@ -10,7 +10,7 @@
 
 import { detectDecimalStyle, isTotalLabel, parseNumberCell, parsePeriodLabel } from "./forecast-rows";
 import type { ColumnMapping } from "./forecast-types";
-import { assignRunPeriods, usableYear } from "./period-assign";
+import { assignRunPeriods, classifyPeriodCell, parseYearCell, usableYear } from "./period-assign";
 import type { NumberOrigin } from "./sheet-grid";
 
 export type LayoutDetection = {
@@ -30,6 +30,7 @@ const PERIOD_HEADER_RE = /month|monat|period|periode|date|datum|week|woche|kw/i;
 const HOURS_HEADER_RE = /hour|stunden|std|hrs/i;
 const RATE_HEADER_RE = /\brates?\b|satz|€\/h|eur\/h/i;
 const EMAIL_HEADER_RE = /e-?mail/i;
+const YEAR_HEADER_RE = /^(jahr|year|yr|gj|fy|geschäftsjahr|fiscal year)$/i;
 const SERIAL_RE = /^\d{5}(\.\d+)?$/;
 
 const UNKNOWN: LayoutDetection = { kind: "unknown", mapping: null };
@@ -61,9 +62,6 @@ function rowWidth(rows: Rows): number {
 function shareOf(cells: readonly string[], predicate: (cell: string) => boolean): number {
   return cells.length === 0 ? 0 : cells.filter(predicate).length / cells.length;
 }
-
-const periodShare = (cells: readonly string[], ctx: Ctx): number =>
-  shareOf(cells, (c) => parsePeriodLabel(c, ctx.year) !== null);
 
 function numberShare(cells: readonly string[], ctx: Ctx): number {
   const style = detectDecimalStyle(cells, ctx.numbers);
@@ -120,6 +118,7 @@ function withOptionals(base: ColumnMapping, extras: Partial<ColumnMapping>): Col
   const out: ColumnMapping = { ...base };
   if (extras.email !== undefined) out.email = extras.email;
   if (extras.rate !== undefined) out.rate = extras.rate;
+  if (extras.yearCol !== undefined) out.yearCol = extras.yearCol;
   return out;
 }
 
@@ -164,31 +163,47 @@ function periodRank(header: string, cells: readonly string[]): number {
   return cells.every((c) => SERIAL_RE.test(c)) ? 2 : 1;
 }
 
+/** A long sheet's year column: by header ("Jahr", "FY"), else the first column
+ *  whose cells are all four-digit years (2000–2100). */
+function findYearColumn(header: readonly string[], data: Rows, width: number): number | undefined {
+  const byHeader = header.findIndex((label) => YEAR_HEADER_RE.test((label ?? "").trim()));
+  if (byHeader >= 0) return byHeader;
+  for (let col = 0; col < width; col++) {
+    const cells = columnCells(data, col);
+    if (cells.length > 0 && cells.every((c) => parseYearCell(c) !== undefined)) return col;
+  }
+  return undefined;
+}
+
 function findPeriodColumn(
   header: readonly string[],
   data: Rows,
   width: number,
   ctx: Ctx,
+  yearCol: number | undefined,
 ): { col: number; share: number } | undefined {
+  // With a year column, a year-less "Jan" is a period: the row supplies its year.
+  const isPeriod = (c: string): boolean =>
+    parsePeriodLabel(c, ctx.year) !== null || (yearCol !== undefined && classifyPeriodCell(c) !== null);
   let best: { col: number; share: number; rank: number } | undefined;
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
     const cells = columnCells(data, col);
-    const share = periodShare(cells, ctx);
-    if (isBlank(label) || parsePeriodLabel(label, ctx.year) !== null || share < COLUMN_SHARE) continue;
+    const share = shareOf(cells, isPeriod);
+    if (col === yearCol || isBlank(label) || parsePeriodLabel(label, ctx.year) !== null || share < COLUMN_SHARE) continue;
     const rank = periodRank(label, cells);
     if (best === undefined || rank < best.rank) best = { col, share, rank };
   }
   return best && { col: best.col, share: best.share };
 }
 
-/** Numeric columns with a header, not the period column, not rate-like. */
-function numericColumns(header: readonly string[], data: Rows, width: number, period: number, ctx: Ctx): number[] {
+/** Numeric columns with a header, not the period or year column, not rate-like. */
+function numericColumns(header: readonly string[], data: Rows, width: number, skip: ReadonlySet<number>, ctx: Ctx): number[] {
   const out: number[] = [];
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
     const cells = columnCells(data, col);
-    const isCandidate = col !== period && !isBlank(label) && cells.length > 0 && numberShare(cells, ctx) >= COLUMN_SHARE;
+    const isCandidate = !skip.has(col) && !isBlank(label) && cells.length > 0 && numberShare(cells, ctx) >= COLUMN_SHARE;
     if (isCandidate) out.push(col);
   }
   return out;
@@ -213,24 +228,29 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   const header = rows[headerRow] ?? [];
   const data = dataRowsBelow(rows, headerRow);
   const width = Math.max(header.length, rowWidth(data));
-  const found = findPeriodColumn(header, data, width, ctx);
+  const yearFound = findYearColumn(header, data, width);
+  const found = findPeriodColumn(header, data, width, ctx, yearFound);
   if (found === undefined) return null;
   const period = found.col;
+  // The year column is mapped only when some period cell needs a year from it.
+  const needsYear = columnCells(data, period).some((c) => classifyPeriodCell(c)?.year === undefined);
+  const yearCol = needsYear ? yearFound : undefined;
+  const skip = new Set([period, ...(yearFound === undefined ? [] : [yearFound])]);
 
-  const numeric = numericColumns(header, data, width, period, ctx);
+  const numeric = numericColumns(header, data, width, skip, ctx);
   const rateCols = numeric.filter((col) => RATE_HEADER_RE.test(cellAt(header, col)));
   const hoursCols = numeric.filter((col) => !rateCols.includes(col));
   const hours = hoursCols.find((col) => HOURS_HEADER_RE.test(cellAt(header, col))) ?? hoursCols[0];
   if (hours === undefined || isDataRowShaped(header, period, hours, ctx)) return null;
   const rate = rateCols[0];
 
-  const used = new Set([period, hours, ...(rate === undefined ? [] : [rate])]);
+  const used = new Set([...skip, hours, ...(rate === undefined ? [] : [rate])]);
   const email = findEmailColumn(header, data, used);
   const candidates = Array.from({ length: width }, (_, col) => col).filter((col) => !used.has(col));
   const person = pickPerson(candidates, data, email, ctx);
   if (person === null) return null;
   return {
-    mapping: withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate }),
+    mapping: withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate, yearCol }),
     score: found.share + numberShare(columnCells(data, hours), ctx),
   };
 }

@@ -17,7 +17,9 @@ export type ForecastRow = {
  *  is a 0-based row index. A "wide" sheet has one column per period
  *  (`periodCols`); a "long" sheet has one row per person and period
  *  (`period` + `hours`). `year` is the year a period label without one
- *  ("Jan", "KW03") is read in; absent, such a label is not a period. */
+ *  ("Jan", "KW03") is read in; absent, such a label is not a period. A long
+ *  sheet's `yearCol` holds each row's year: a year-less period cell takes that
+ *  row's year before `year`. */
 export type ColumnMapping = {
   layout: "wide" | "long";
   headerRow: number;
@@ -28,6 +30,7 @@ export type ColumnMapping = {
   period?: number;
   hours?: number;
   year?: number;
+  yearCol?: number;
 };
 
 /** A wide sheet's column right of the first period column that the import did

@@ -22,6 +22,8 @@ const TWO_DIGIT_YEAR_BASE = 2000;
 const MIN_DEFAULT_YEAR = 1000;
 const MAX_DEFAULT_YEAR = 9999;
 const MAX_WEEK = 53;
+const MIN_YEAR_CELL = 2000;
+const MAX_YEAR_CELL = 2100;
 const DAYS_PER_WEEK = 7;
 const MS_PER_DAY = 86_400_000;
 
@@ -172,6 +174,32 @@ export function resolvePeriod(cell: PeriodCell, year: number | undefined): strin
 export function parsePeriodLabel(cell: string, defaultYear?: number): string | null {
   const c = classifyPeriodCell(cell);
   return c === null ? null : resolvePeriod(c, defaultYear);
+}
+
+/** A cell holding a plausible year (2000–2100, four digits), else undefined:
+ *  a long sheet's year column ("Jahr", "FY"). */
+export function parseYearCell(cell: string): number | undefined {
+  const s = cell.trim();
+  if (!/^\d{4}$/.test(s)) return undefined;
+  const year = Number(s);
+  return year >= MIN_YEAR_CELL && year <= MAX_YEAR_CELL ? year : undefined;
+}
+
+/**
+ * ONE cell of a long sheet (a period column, never a run): a period that names
+ * its year keeps it; a year-less one takes the row's `rowYear` cell when that
+ * holds a year (`parseYearCell`), else `defaultYear` — and only then is it
+ * `assumed`.
+ */
+export function assignCellPeriod(
+  cell: string,
+  opts: { rowYear?: string; defaultYear?: number } = {},
+): AssignedPeriod | null {
+  const c = classifyPeriodCell(cell);
+  if (c === null) return null;
+  const rowYear = c.year === undefined && opts.rowYear !== undefined ? parseYearCell(opts.rowYear) : undefined;
+  const period = resolvePeriod(c, rowYear ?? opts.defaultYear);
+  return period === null ? null : { period, assumed: c.year === undefined && rowYear === undefined };
 }
 
 /** A run's cells are dates a whole number of weeks apart, the closest exactly

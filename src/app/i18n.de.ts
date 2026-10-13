@@ -2398,6 +2398,7 @@ export const de: Record<TranslationKey, string> = {
   forecastImportColRate: "Satzspalte",
   forecastImportColPeriod: "Periodenspalte",
   forecastImportColHours: "Stundenspalte",
+  forecastImportColYear: "Jahresspalte",
   forecastImportColNone: "Keine",
   forecastImportPeriodColsFound: "Periodenspalten in der Kopfzeile: {0}",
   forecastImportColumnsCapped: "Nur die ersten {0} Spalten werden angeboten.",

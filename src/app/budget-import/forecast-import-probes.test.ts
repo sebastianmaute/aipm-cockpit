@@ -130,3 +130,10 @@ describe("probe: detection reads the sheet without the year first (RR I1)", () =
     expect(detected.mapping).toMatchObject({ periodCols: [1, 2, 3], year: 2026 });
   });
 });
+
+describe("probe: a long sheet with a year column (CR I2)", () => {
+  it("Name | Jahr | Monat | Stunden imports 2027 even with the default year 2026", () => {
+    const run = readSheet([["Name", "Jahr", "Monat", "Stunden"], ["Ann Lee", "2027", "Jan", "8"]]);
+    expect(run.out.rows.map((r) => [r.period, r.hours])).toEqual([["2027-01", 8]]);
+  });
+});

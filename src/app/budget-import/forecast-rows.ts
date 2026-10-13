@@ -7,7 +7,7 @@
 // definition detection and the Claude route read too.
 
 import type { NumberOrigin } from "./sheet-grid";
-import { assignRunDetailed, parsePeriodLabel } from "./period-assign";
+import { assignCellPeriod, assignRunDetailed, parsePeriodLabel } from "./period-assign";
 import type { ColumnMapping, DropReason, ForecastRow, IgnoredColumn } from "./forecast-types";
 
 /** Re-exported: callers that read a single period cell keep one import. */
@@ -128,6 +128,15 @@ function wideColumns(header: readonly string[], mapping: ColumnMapping, numbers:
   return out;
 }
 
+/** Long layout: a row's one hours cell and its period — a year-less period cell
+ *  takes the row's `yearCol` year, else `mapping.year`. A long sheet's rows are
+ *  never read as a run: they repeat Jan…Dec per person. */
+function longCell(row: readonly string[], mapping: ColumnMapping): { col: number; period: string | null; assumed: boolean } {
+  const rowYear = mapping.yearCol === undefined ? undefined : cellAt(row, mapping.yearCol);
+  const assigned = assignCellPeriod(cellAt(row, mapping.period), { rowYear, defaultYear: mapping.year });
+  return { col: mapping.hours ?? -1, period: assigned?.period ?? null, assumed: assigned?.assumed ?? false };
+}
+
 /**
  * The forecast rows of one sheet. A blank hours cell yields no row, a `0`
  * does. Rows whose person is a total label, or blank, are dropped (a row
@@ -173,9 +182,7 @@ export function gridToForecastRows(
 
   for (const { index, row } of people) {
     const meta = readMeta(row, mapping, rateStyle, numbers);
-    const cells = wide
-      ? columns
-      : [{ col: mapping.hours ?? -1, period: parsePeriodLabel(cellAt(row, mapping.period), mapping.year) }];
+    const cells = wide ? columns : [longCell(row, mapping)];
     for (const { col, period } of cells) {
       const raw = cellAt(row, col);
       if (isBlank(raw)) continue;

@@ -281,3 +281,16 @@ describe("ForecastImportModal", () => {
     expect(within(section).getByText(t(L, "forecastImportIgnoredColumn", "C", "Foo"))).toBeInTheDocument();
   });
 });
+
+describe("ForecastImportModal — the long layout's year column", () => {
+  it("offers a Year column select that the long sheet's year is read from", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile("Name,Jahr,Monat,Stunden\r\nAnn Lee,2027,Jan,8\r\n");
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportEditColumns") }));
+    const yearCol = screen.getByRole("combobox", { name: t(L, "forecastImportColYear") });
+    expect(yearCol).toHaveValue("1");
+    expect(screen.getByText("Ann Lee · 2027-01 · 8 h (forecast!D2)")).toBeInTheDocument();
+    fireEvent.change(yearCol, { target: { value: "" } });
+    expect(screen.getByText("Ann Lee · 2026-01 · 8 h (forecast!D2)")).toBeInTheDocument();
+  });
+});

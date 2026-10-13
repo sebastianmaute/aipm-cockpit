@@ -380,3 +380,28 @@ describe("detectLayout — unknown", () => {
     expect(detectLayout(grid)).toEqual({ kind: "unknown", mapping: null });
   });
 });
+
+// §500 fix wave 2 (CR I2): a long sheet whose year sits in its own column.
+describe("detectLayout — a year column beside year-less periods", () => {
+  it("maps a Jahr column next to a Monat column of month names", () => {
+    const rows = [["Name", "Jahr", "Monat", "Stunden"], ["Ann", "2027", "Jan", "8"], ["Ann", "2027", "Feb", "4"]];
+    for (const defaultYear of [undefined, 2026]) {
+      expect(detectLayout(rows, { defaultYear })).toMatchObject({
+        kind: "long",
+        mapping: { layout: "long", person: 0, yearCol: 1, period: 2, hours: 3 },
+      });
+    }
+  });
+
+  it("finds a column of four-digit years by its data when no header names it", () => {
+    const rows = [["Name", "Basis", "Monat", "Wert"], ["Ann", "2027", "Jan", "8"], ["Bob", "2028", "Feb", "4"]];
+    expect(detectLayout(rows).mapping).toMatchObject({ yearCol: 1, period: 2, hours: 3 });
+  });
+
+  it("maps no year column when every period cell names its own year", () => {
+    const rows = [["Name", "Jahr", "Monat", "Stunden"], ["Ann", "2027", "Jan 2027", "8"]];
+    const mapping = detectLayout(rows).mapping;
+    expect(mapping).toMatchObject({ layout: "long", period: 2, hours: 3 });
+    expect(mapping?.yearCol).toBeUndefined();
+  });
+});
