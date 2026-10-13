@@ -15,13 +15,14 @@
 //     without carrying Clear-all forward would strand them with data they can
 //     neither refresh nor remove — the precise trap that omission prevents.
 //     Every OTHER Timelog action reaches the network and is correctly gone.
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { t, type Lang } from "./i18n";
 import { Button } from "./button";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 
 export function TimelogNotConfigured({
   lang,
+  notice,
   paneRef,
   onConfigure,
   hasFetched,
@@ -29,6 +30,8 @@ export function TimelogNotConfigured({
   onClearAll,
 }: {
   lang: Lang;
+  /** The "this view uses Resources/Budget, which are off" notice (§707), rendered first. */
+  notice?: ReactNode;
   /** `useResizable`'s ref. The empty state carries the SAME pane wrapper the
    *  full page uses, so switching the integration off does not change how the
    *  view sizes itself. Optional so the component can be unit-tested alone. */
@@ -56,6 +59,7 @@ export function TimelogNotConfigured({
 }) {
   return (
     <div ref={paneRef} className={`print-root space-y-3 ${VIEW_PANE_RESIZABLE_CLASS}`}>
+      {notice}
       <p className="text-sm text-muted-foreground">{t(lang, "timelogNotConfigured")}</p>
       {onConfigure && <Button onClick={onConfigure}>{t(lang, "timelogConfigure")}</Button>}
       {hasFetched && (

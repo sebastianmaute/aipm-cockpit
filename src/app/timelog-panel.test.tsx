@@ -2693,6 +2693,46 @@ describe("TimelogPanel", () => {
       expect(screen.getByText(`${NOTICE} ${t("en-US", "functionsUsesBothOff")}`)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Turn on/ })).toBeNull();
     });
+
+    describe("while Timelog is not configured", () => {
+      const BOTH_LABEL = () =>
+        t("en-US", "functionsUsesTurnOnLabel", t("en-US", "functionsUsesJoin", "Resources", "Budget"));
+
+      function renderOff(features: readonly FeatureModuleId[], onCommitFeatures?: (f: FeatureModuleId[]) => void) {
+        // No enableTimelog(): defaults carry `timelog.enabled === false`.
+        return render(
+          <>
+            <SeedWorkspace />
+            <TimelogPanel lang="en-US" features={features} onCommitFeatures={onCommitFeatures} onConfigureTimelog={() => {}} />
+          </>,
+          { wrapper },
+        );
+      }
+
+      it("shows the notice beside the Configure button and Turn on commits the union", async () => {
+        const onCommit = vi.fn();
+        renderOff(["timelog", "resources"], onCommit);
+        await waitFor(() => screen.getByRole("button", { name: t("en-US", "timelogConfigure") }));
+        expect(screen.getByText(`${NOTICE} ${t("en-US", "functionsUsesOneOff", "Budget")}`)).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: t("en-US", "functionsUsesTurnOnLabel", "Budget") }));
+        expect(onCommit).toHaveBeenCalledTimes(1);
+        expect(onCommit).toHaveBeenCalledWith(ALL_MODULE_IDS.filter((id) => ["timelog", "resources", "budget"].includes(id)));
+      });
+
+      it("shows the notice without a button when there is no callback (popout)", async () => {
+        renderOff(["timelog"], undefined);
+        await waitFor(() => screen.getByRole("button", { name: t("en-US", "timelogConfigure") }));
+        expect(screen.getByText(`${NOTICE} ${t("en-US", "functionsUsesBothOff")}`)).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: BOTH_LABEL() })).toBeNull();
+        expect(screen.queryByRole("button", { name: /Turn on/ })).toBeNull();
+      });
+
+      it("shows no notice when Resources and Budget are on (control)", async () => {
+        renderOff(["timelog", "resources", "budget"], vi.fn());
+        await waitFor(() => screen.getByRole("button", { name: t("en-US", "timelogConfigure") }));
+        expect(screen.queryByText((text) => text.includes(NOTICE))).toBeNull();
+      });
+    });
   });
 
 });
