@@ -381,8 +381,10 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   owner's "fail closed" of 2026-10-13).** Eight rounds of evidence rules each let a new wrong-hours case
   through, so no source decides alone and a disagreement is a visible refusal, never a pick
   (`periodNearCell`). The sources: H, the hand route's reading of the cell (`handReadingOf` in
-  `hand-reading.ts`: the hand route's own `gridToForecastRows` over the sheet; on a long sheet every cell
-  of a read row is in that row's period); U, the nearest period header above the cell, read as part of
+  `hand-reading.ts`: the hand route's own `gridToForecastRows` over the sheet, per cell it READS — ★★★ a
+  cited cell on a row it reads but outside those cells is refused `cell-not-read`, whatever it holds
+  (fix 8 round 3: a long row's period once covered every cell of the row, so its `Ist`, a `Kosten` 40 equal
+  to the Stunden 40, or an ID stood in the row's month)); U, the nearest period header above the cell, read as part of
   its row's run (above); and R, every period cell on the cited row (`rowPeriodCells`, the cited and
   PERSON cells skipped by position; a year-less one takes a year cell on the row before the default year),
   counted ONLY without H — with H, the hand route has already chosen the row's period column. A claim
@@ -410,8 +412,8 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   (`headerDateOf`, both routes): a row with its own period is a long row. A metadata row (`Erstellt |
   01.01. | 15.01. | 20.01.`) over enough person rows is detected as a clear WIDE header, and a first cut
   of fix 8 that skipped the row check under H summed Stunden + Ist to 75; sprint dates beside a `Start`
-  date now collide instead of summing. Two cited cells of a row the hand route reads LONG collide too
-  (`rowShape`). ★★ The header-row stop that came before all this (`isHeaderRowFor` — removed, do NOT
+  date now collide instead of summing. On a long reading only the hours cell of a row is read, so two
+  cited cells of one long row can no longer both stand. ★★ The header-row stop that came before all this (`isHeaderRowFor` — removed, do NOT
   reintroduce it) ended the upward search at a `Name | Monat | Stunden` row; it fired on two-row headers
   (months on row 1, `Name | Std | Std` on row 2) and on placeholder rows, rejecting every right claim and
   letting a date on the row vouch for a wrong month (rr6 N2, N4). Any row above, or a `Start` date on the

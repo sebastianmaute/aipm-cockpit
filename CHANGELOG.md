@@ -55,7 +55,8 @@ longer carries its own changelog comment.
   the cell, and the period cells on its row. When any two disagree (a second year block under its own
   header, a title row of dates above a long sheet, a start date on the row), the row is not imported and
   the preview names both periods, even if Claude read it right. On a sheet whose columns Detect columns
-  asks about, Claude's rows are not imported until you confirm the columns. Monthly figures are spread over a
+  asks about, Claude's rows are not imported until you confirm the columns, and a row Claude cites from a
+  cell those columns do not read as hours (an Ist, cost or ID cell beside the hours) is not imported. Monthly figures are spread over a
   weekly plan (and weekly over a monthly one) by working days, keeping the total exact. The preview lists
   every cell that would change, people it could not match (you can pick or skip each one; archived
   resources are neither matched nor offered, and "Müller, Hans" matches Hans Müller), hours outside the
