@@ -709,3 +709,39 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(screen.getByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeInTheDocument();
   });
 });
+
+
+// Round 9 I-W: one person's rows that differ in a text column are named, with
+// sample values, in either layout; only the confirm button accepts the sum.
+describe("ForecastImportModal — one person, rows that differ in a text column (round 9 I-W)", () => {
+  const applyButton = () => screen.getByRole("button", { name: t(L, "forecastImportApply") });
+  it.each([
+    ["Wide", "Name,Art,Jan 2026,Feb 2026\r\nAnn Lee,Plan,50,40\r\nAnn Lee,Ist,43,30\r\n", "Art"],
+    ["Long", "Name,Typ,Monat,Stunden\r\nAnn Lee,Plan,Jan 2026,50\r\nAnn Lee,Ist,Jan 2026,43\r\n", "Typ"],
+  ])("%s: names the column and its values, Apply waits, confirming shows the sum", async (_layout, csv, column) => {
+    const props = propsOf();
+    render(<ForecastImportModal {...props} />);
+    const input = screen.getByLabelText(t(L, "forecastImportFile"));
+    fireEvent.change(input, { target: { files: [new File([csv], "forecast.csv", { type: "text/csv" })] } });
+    await screen.findByRole("button", { name: t(L, "forecastImportConfirmColumns") });
+    const notice = t(L, "forecastImportAmbiguousRows", column, "Plan, Ist");
+    expect(notice).toContain(`${column} (Plan, Ist)`);
+    expect(screen.getByText(notice)).toBeInTheDocument();
+    const widePrefix = t(L, "forecastImportAmbiguousWide", "\u0000").split("\u0000")[0];
+    expect(screen.queryByText((text) => text.startsWith(widePrefix))).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
+    expect(applyButton()).toBeDisabled();
+    fireEvent.click(applyButton());
+    expect(props.onChangeBuckets).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportEditColumns") }));
+    fireEvent.click(await screen.findByRole("button", { name: t(L, "forecastImportConfirmColumns") }));
+    expect(screen.queryByText(notice)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    const diff = await screen.findByRole("region", { name: t(L, "forecastImportChanges") });
+    expect(within(diff).getByText("— → 93")).toBeInTheDocument();
+    expect(applyButton()).toBeEnabled();
+    fireEvent.click(applyButton());
+    expect(props.onChangeBuckets).toHaveBeenCalledTimes(1);
+  });
+});

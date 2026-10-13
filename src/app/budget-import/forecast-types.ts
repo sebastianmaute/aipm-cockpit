@@ -37,8 +37,12 @@ export type ColumnMapping = {
  *  could be: `candidates` are 0-based columns, or 0-based ROWS for `header`,
  *  in order. The mapping detection returns still picks one (`detectLayout`),
  *  but the dialog asks the user to confirm it before anything is applied (fix
- *  7: the owner's "ask, don't guess"; `header`: fix 9 OOS-c). */
-export type ColumnAmbiguity = { field: "hours" | "period" | "header"; candidates: number[] };
+ *  7: the owner's "ask, don't guess"; `header`: fix 9 OOS-c). `rows` (round 9
+ *  I-W, `differingRows`): one person's rows differ in the `candidates` text
+ *  columns, `samples` quoting their values; confirming accepts the sum. */
+export type ColumnAmbiguity =
+  | { field: "hours" | "period" | "header"; candidates: number[] }
+  | { field: "rows"; candidates: number[]; samples: string[] };
 
 /** A column, at any position and in either layout, that the import did not read
  *  although most data rows hold a number in it: not a mapped field, and its

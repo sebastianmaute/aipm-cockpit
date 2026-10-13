@@ -237,6 +237,7 @@ const AMBIGUOUS_KEY: Record<ColumnAmbiguity["field"], TranslationKey> = {
   hours: "forecastImportAmbiguousHours",
   period: "forecastImportAmbiguousPeriod",
   header: "forecastImportAmbiguousHeader",
+  rows: "forecastImportAmbiguousRows",
 };
 
 /** The Wide notice's candidate columns, by header (round 7: it once named none). */
@@ -248,21 +249,25 @@ function wideNames(columns: readonly ColumnAmbiguity[], nameOf: (col: number) =>
  *  by header (or column letter), and the button that confirms the mapping as
  *  it stands. Choosing the field's column confirms it too. ★ In the Wide
  *  layout there is no hours or period select to choose from, so ONE notice
- *  asks to check the mapping instead (rr8 m2). */
+ *  asks to check the mapping instead (rr8 m2). One person's differing rows
+ *  (round 9 I-W) name their columns and sample values in either layout; only
+ *  the button accepts their sum. */
 function AmbiguityNotice({ lang, fi, header, layout }: { lang: Lang; fi: ForecastImport; header: readonly string[]; layout: Draft["layout"] }) {
   const nameOf = (col: number): string => (header[col] ?? "").trim() || columnLetters(col);
   // A header ambiguity names its candidate ROWS (1-based), in either layout.
   const namesOf = (a: ColumnAmbiguity): string =>
     (a.field === "header" ? a.candidates.map((row) => String(row + 1)) : a.candidates.map(nameOf)).join(", ");
-  const columns = fi.ambiguous.filter((a) => a.field !== "header");
-  const shown = layout === "wide" ? fi.ambiguous.filter((a) => a.field === "header") : fi.ambiguous;
+  const columns = fi.ambiguous.filter((a) => a.field === "hours" || a.field === "period");
+  const shown = layout === "wide" ? fi.ambiguous.filter((a) => a.field === "header" || a.field === "rows") : fi.ambiguous;
   return (
     <div className="space-y-2">
       {layout === "wide" && columns.length > 0 && (
         <Banner severity="warn">{t(lang, "forecastImportAmbiguousWide", wideNames(columns, nameOf))}</Banner>
       )}
       {shown.map((a) => (
-        <Banner key={a.field} severity="warn">{t(lang, AMBIGUOUS_KEY[a.field], namesOf(a))}</Banner>
+        <Banner key={a.field} severity="warn">
+          {a.field === "rows" ? t(lang, AMBIGUOUS_KEY[a.field], namesOf(a), a.samples.join(", ")) : t(lang, AMBIGUOUS_KEY[a.field], namesOf(a))}
+        </Banner>
       ))}
       <Button variant="secondary" size="xs" onClick={fi.confirmColumns}>
         {t(lang, "forecastImportConfirmColumns")}

@@ -12,13 +12,15 @@ import { cellAt, detectDecimalStyle, ID_HEADER, isBlank, isTotalLabel, parseNumb
 import type { ColumnAmbiguity, ColumnMapping } from "./forecast-types";
 import { assignRunPeriods, classifyPeriodCell, isPeriodShapedIn, isYearColumn, isYearHeader, parseYearCell, usableYear } from "./period-assign";
 import { HOURS_HEADER_RE, isPeriodWordHeader, PERSON_HEADER_RE } from "./header-words";
+import { differingRows } from "./row-differences";
 import type { NumberOrigin } from "./sheet-grid";
 
 /** `ambiguous` lists the fields more than one column could be: a long
  *  sheet's (`longFromHeader`), or a wide sheet's period when its data rows
- *  hold a period column of their own (`wideAmbiguity`), and the header row
- *  when more than one row reads as one (`headerAmbiguity`); empty when the
- *  choice is clear, and always for none. */
+ *  hold a period column of their own (`wideAmbiguity`), the header row when
+ *  more than one row reads as one (`headerAmbiguity`), and the `rows` one
+ *  person's rows differ in (`differingRows`); empty when the choice is clear,
+ *  and always for none. */
 export type LayoutDetection = {
   kind: "wide" | "long" | "unknown";
   mapping: ColumnMapping | null;
@@ -554,7 +556,9 @@ function detectionPasses(rows: Rows, numbers: NumberOrigin, year: number | undef
  * period-headed hours column (`longFromHeader`, final review I4). The mapping
  * carries `defaultYear` as `year`, the year the mapping step shows; `ambiguous`
  * is the long reading's unsettled fields (`ambiguityOf`), or a wide reading's
- * period when its rows hold a period column of their own (`wideAmbiguity`).
+ * period when its rows hold a period column of their own (`wideAmbiguity`),
+ * and, either layout, one person's rows that differ in a text column
+ * (`differingRows`, round 9 I-W).
  */
 export function detectLayout(
   rows: readonly string[][],
@@ -566,7 +570,9 @@ export function detectLayout(
     const found = pass.run();
     if (found === null) continue;
     const { mapping } = found;
-    const ambiguous = withRepeatedHeaders(found.ambiguous, mapping, repeatedHeaderRows(rows, mapping, numbers));
+    const repeated = withRepeatedHeaders(found.ambiguous, mapping, repeatedHeaderRows(rows, mapping, numbers));
+    const differing = differingRows(rows, { ...mapping, year }, numbers);
+    const ambiguous = differing === null ? repeated : [...repeated, differing];
     return { kind: pass.kind, mapping: opts.defaultYear === undefined ? mapping : { ...mapping, year: opts.defaultYear }, ambiguous };
   }
   return UNKNOWN;

@@ -146,9 +146,12 @@ const NO_AMBIGUITY: readonly ColumnAmbiguity[] = [];
 const NO_CONFIRMATIONS: ReadonlyMap<string, string> = new Map();
 
 /** What a confirmation of `field` is bound to in `m`: the header row, the
- *  hours column, or the period column (a wide reading's period columns). */
+ *  hours column, or the period column (a wide reading's period columns). The
+ *  `rows` question (round 9 I-W) is bound to what groups the rows: the header
+ *  row, the person and the period column(s). */
 function fieldValue(m: ColumnMapping, field: ColumnAmbiguity["field"]): string {
   if (field === "header") return String(m.headerRow);
+  if (field === "rows") return [m.headerRow, m.person, fieldValue(m, "period")].join(":");
   if (field === "hours") return String(m.hours);
   return m.layout === "long" ? String(m.period) : (m.periodCols ?? []).join(",");
 }
@@ -182,6 +185,8 @@ function confirmsField(a: ColumnAmbiguity, before: ColumnMapping | null, next: C
   if (before === null || before.layout !== next.layout) return false;
   // The header row has a select in either layout (fix 9 OOS-c).
   if (a.field === "header") return next.headerRow !== before.headerRow;
+  // Only "These columns are right" accepts one person's differing rows (round 9 I-W).
+  if (a.field === "rows") return false;
   return next.layout === "long" && next[a.field] !== before[a.field];
 }
 

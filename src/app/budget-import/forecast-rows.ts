@@ -187,7 +187,7 @@ export type ForecastRowsResult = {
 
 /** A cell holding a number in the sheet's number origin; a period-shaped cell
  *  (a workbook's serial date) is no number. */
-function isNumberCell(cell: string, numbers: NumberOrigin): boolean {
+export function isNumberCell(cell: string, numbers: NumberOrigin): boolean {
   return !isPeriodShapedIn(cell, numbers) && (parseNumberCell(cell, "dot", numbers) !== null || parseNumberCell(cell, "comma", numbers) !== null);
 }
 

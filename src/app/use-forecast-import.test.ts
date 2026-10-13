@@ -1289,3 +1289,106 @@ describe("useForecastImport — FTE | Stunden confirms the Stunden hours (round 
     expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 80], ["2026-02", 160]]);
   });
 });
+
+// Round 9 I-W (rr12): one person on several rows that differ in a text column
+// (Plan and Ist) was summed on both routes, unasked. The hand route is gated
+// and the Claude route refuses `columns-unconfirmed` until confirmed; once
+// confirmed, the sum is applied and shown.
+describe("useForecastImport — one person, rows that differ in a text column (round 9 I-W)", () => {
+  type Hook = { current: ReturnType<typeof useForecastImport> };
+  const str = (ref: string, text: string) => `<c r="${ref}" t="inlineStr"><is><t>${text}</t></is></c>`;
+  const num = (ref: string, value: string) => `<c r="${ref}"><v>${value}</v></c>`;
+  const workbook = async (grid: readonly (readonly string[])[]): Promise<File> => {
+    const xml = grid.map((cells, r) => `<row r="${r + 1}">${cells.map((cell, c) => {
+      const ref = `${"ABCD"[c]}${r + 1}`;
+      return /^\d+$/.test(cell) ? num(ref, cell) : str(ref, cell);
+    }).join("")}</row>`).join("");
+    const blob = buildZip([
+      { path: "xl/workbook.xml", data: `<workbook><sheets><sheet name="forecast" sheetId="1" r:id="rId1"/></sheets></workbook>` },
+      { path: "xl/_rels/workbook.xml.rels", data: `<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>` },
+      { path: "xl/worksheets/sheet1.xml", data: `<worksheet><sheetData>${xml}</sheetData></worksheet>` },
+    ]);
+    return new File([await blob.arrayBuffer()], "forecast.xlsx");
+  };
+  const csvOf = (grid: readonly (readonly string[])[]): string => grid.map((r) => r.join(",")).join("\r\n") + "\r\n";
+  const load = async (deps: ForecastImportDeps, grid: readonly (readonly string[])[], kind: "csv" | "xlsx") => {
+    const hook = renderHook((d: ForecastImportDeps) => useForecastImport(d), { initialProps: deps });
+    const file = kind === "csv" ? csvFile(csvOf(grid)) : await workbook(grid);
+    await act(async () => {
+      await hook.result.current.loadFile(file);
+    });
+    return hook;
+  };
+  const applyNow = (result: Hook) => {
+    let outcome: string | undefined;
+    act(() => {
+      outcome = result.current.apply();
+    });
+    return outcome;
+  };
+  const hoursWritten = (deps: ForecastImportDeps) => {
+    const [next] = (deps.onChangeBuckets as ReturnType<typeof vi.fn>).mock.calls[0] as [BudgetBucket[]];
+    return next[0].allocations[0].budgetHours;
+  };
+  const changes = (result: Hook) => result.current.importPlan?.changes.map((c) => [c.period, c.next]) ?? [];
+  const details = (result: Hook) => result.current.rejected.map((r) => (r.reason === "source" ? r.detail : r.reason));
+  const ann = (period: string, hours: number, source: string) => ({ person: "Ann Lee", period, hours, source });
+  const replies = (...lists: unknown[][]) => {
+    const spy = vi.spyOn(globalThis, "fetch");
+    for (const rows of lists) {
+      spy.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows } }] }),
+      } as unknown as Response);
+    }
+  };
+  const ask = async (result: Hook) => {
+    await act(async () => {
+      await result.current.askClaude();
+    });
+  };
+
+  const shapes = [
+    { label: "wide CSV", kind: "csv", grid: [["Name", "Art", "Jan 2026", "Feb 2026"], ["Ann Lee", "Plan", "50", "40"], ["Ann Lee", "Ist", "43", "30"]],
+      claims: [ann("Jan 2026", 50, "forecast!C2"), ann("Feb 2026", 40, "forecast!D2"), ann("Jan 2026", 43, "forecast!C3"), ann("Feb 2026", 30, "forecast!D3")],
+      written: { "2026-01": 93, "2026-02": 70 } },
+    { label: "wide serial", kind: "xlsx", grid: [["Name", "Art", "46023", "46054"], ["Ann Lee", "Plan", "50", "40"], ["Ann Lee", "Ist", "43", "30"]],
+      claims: [ann("Jan 2026", 50, "forecast!C2"), ann("Feb 2026", 40, "forecast!D2"), ann("Jan 2026", 43, "forecast!C3"), ann("Feb 2026", 30, "forecast!D3")],
+      written: { "2026-01": 93, "2026-02": 70 } },
+    { label: "long CSV", kind: "csv", grid: [["Name", "Typ", "Monat", "Stunden"], ["Ann Lee", "Plan", "Jan 2026", "50"], ["Ann Lee", "Ist", "Jan 2026", "43"]],
+      claims: [ann("Jan 2026", 50, "forecast!D2"), ann("Jan 2026", 43, "forecast!D3")], written: { "2026-01": 93 } },
+    { label: "long serial", kind: "xlsx", grid: [["Name", "Typ", "Monat", "Stunden"], ["Ann Lee", "Plan", "46023", "50"], ["Ann Lee", "Ist", "46023", "43"]],
+      claims: [ann("Jan 2026", 50, "forecast!D2"), ann("Jan 2026", 43, "forecast!D3")], written: { "2026-01": 93 } },
+  ] as const;
+
+  it.each(shapes)("$label, hand route: gated, nothing applied; confirmed, the sum is applied and shown", async ({ kind, grid, written }) => {
+    const deps = depsOf();
+    const { result } = await load(deps, grid, kind);
+    expect(result.current.step).toBe("mapping");
+    expect(result.current.ambiguous).toEqual([{ field: "rows", candidates: [1], samples: ["Plan", "Ist"] }]);
+    act(() => result.current.showPreview());
+    expect(applyNow(result)).toBe("refused");
+    expect(result.current.error).toEqual({ key: "forecastImportConfirmFirst" });
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+    act(() => result.current.confirmColumns());
+    expect(result.current.ambiguous).toEqual([]);
+    expect(changes(result)).toEqual(Object.entries(written));
+    expect(result.current.duplicates.length).toBeGreaterThan(0);
+    expect(applyNow(result)).toBe("applied");
+    expect(hoursWritten(deps)).toEqual(written);
+  });
+
+  it.each(shapes)("$label, Claude route: columns-unconfirmed until confirmed, then the sum", async ({ kind, grid, claims, written }) => {
+    replies([...claims], [...claims]);
+    const deps = depsOf();
+    const { result } = await load(deps, grid, kind);
+    await ask(result);
+    expect(changes(result)).toEqual([]);
+    expect(details(result)).toEqual(claims.map(() => "columns-unconfirmed"));
+    act(() => result.current.editMapping());
+    act(() => result.current.confirmColumns());
+    await ask(result);
+    expect(details(result)).toEqual([]);
+    expect(changes(result)).toEqual(Object.entries(written));
+  });
+});

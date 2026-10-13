@@ -2569,6 +2569,7 @@ const enUS = {
   forecastImportAmbiguousPeriod: "More than one column could hold the period: {0}. Choose the right one.",
   forecastImportAmbiguousWide: "Detection was unsure about these columns: {0}. Check the mapping, then confirm.",
   forecastImportAmbiguousHeader: "More than one row could be the header row: rows {0}. Choose the right one.",
+  forecastImportAmbiguousRows: "Some people have more than one row that differ in {0} ({1}). Their hours would be added together.",
   forecastImportConfirmColumns: "These columns are right",
   forecastImportConfirmFirst: "Confirm the columns first: choose the right one on the mapping step, or press “These columns are right”.",
   forecastImportBlockerFollowsPlan: "“Budget hours follow plan” is on, so budget hours are derived from capacity and imported hours would not show. Turn it off to import.",

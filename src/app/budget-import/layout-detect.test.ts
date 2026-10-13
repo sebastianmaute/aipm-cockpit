@@ -826,3 +826,52 @@ describe("detectLayout — the hours word preselects among all candidates (round
     expect(detectLayout(rows, { defaultYear: 2026 }).mapping).toMatchObject({ layout: "long", hours: 3 });
   });
 });
+
+// Round 9 I-W (rr12): one person on several rows that differ in another TEXT
+// column (`Art`: Plan and Ist; `Aufgabe`) was summed silently — 50 + 43 = 93.
+// Detection now asks (`field: "rows"`); pure repeats stay "Combined rows".
+describe("detectLayout — one person, several rows that differ in a text column (round 9 I-W)", () => {
+  const ROWS_ASK = { field: "rows", candidates: [1], samples: ["Plan", "Ist"] };
+
+  it.each([
+    ["CSV", "text", "Jan 2026", "Feb 2026"],
+    ["workbook serial", "dot", "46023", "46054"],
+  ] as const)("wide Name | Art | months (%s) asks about Art", (_label, numbers, jan, feb) => {
+    const rows = [["Name", "Art", jan, feb], ["Ann Lee", "Plan", "50", "40"], ["Ann Lee", "Ist", "43", "30"], ["Bob Ray", "Plan", "20", "20"]];
+    const detected = detectLayout(rows, { numbers, defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "wide", person: 0, periodCols: [2, 3] });
+    expect(detected.ambiguous).toEqual([ROWS_ASK]);
+  });
+
+  it.each([
+    ["CSV", "text", "Jan 2026"],
+    ["workbook serial", "dot", "46023"],
+  ] as const)("long Name | Typ | Monat | Stunden (%s) asks about Typ", (_label, numbers, jan) => {
+    const rows = [["Name", "Typ", "Monat", "Stunden"], ["Ann Lee", "Plan", jan, "50"], ["Ann Lee", "Ist", jan, "43"], ["Bob Ray", "Plan", jan, "20"]];
+    const detected = detectLayout(rows, { numbers, defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", person: 0, period: 2, hours: 3 });
+    expect(detected.ambiguous).toEqual([ROWS_ASK]);
+  });
+
+  it("the cost: a task-description column with two lines per person asks too", () => {
+    const rows = [["Name", "Monat", "Aufgabe", "Stunden"], ["Ann Lee", "Jan 2026", "Konzept", "20"], ["Ann Lee", "Jan 2026", "Umsetzung", "30"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([{ field: "rows", candidates: [2], samples: ["Konzept", "Umsetzung"] }]);
+  });
+
+  it("a long person on several rows in DIFFERENT months is no question", () => {
+    const rows = [["Name", "Typ", "Monat", "Stunden"], ["Ann Lee", "Plan", "Jan 2026", "50"], ["Ann Lee", "Ist", "Feb 2026", "43"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+
+  it("one row per person stays clear", () => {
+    const rows = [["Name", "Art", "Jan 2026", "Feb 2026"], ["Ann Lee", "Plan", "50", "40"], ["Bob Ray", "Ist", "20", "20"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+
+  it("pure repeats (no differing text column) stay clear: they are Combined rows", () => {
+    const wide = [["Name", "Art", "Jan 2026", "Feb 2026"], ["Ann Lee", "Plan", "50", "40"], ["Ann Lee", "Plan", "10", "10"]];
+    const long = [["Name", "Monat", "Stunden"], ["Ann Lee", "Jan 2026", "20"], ["Ann Lee", "Jan 2026", "30"]];
+    expect(detectLayout(wide, { defaultYear: 2026 }).ambiguous).toEqual([]);
+    expect(detectLayout(long, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+});
