@@ -624,10 +624,12 @@ function ChatPanelInner({
 
   // §703: the page a seed the send gate only PREFILLED was requested from, with its text as the
   // box got it and the scope epoch it was made in. The next send uses it once, and only when it
-  // sends that text unchanged in the same scope; anything else is a message typed in the chat.
+  // sends that text unchanged in the same scope; anything else, an edit in the box included (the
+  // composer's onChange clears it), is a message typed in the chat.
   const prefillOriginRef = useRef<{ prompt: string; originView: AppView; epoch: number } | null>(null);
 
-  // `originView` (§703) is set only by an auto-sent seed: the page the request came from.
+  // `opts.originView` (§703) is set only by an auto-sent seed: the page the request came from. A
+  // prefilled seed's page comes from `prefillOriginRef` instead.
   async function submitPrompt(textArg?: string, opts?: { originView?: AppView }) {
     const text = (textArg ?? input).trim().slice(0, CHAT_MESSAGE_MAX);
     const atts = attachments;
@@ -641,6 +643,9 @@ function ChatPanelInner({
       return;
     }
     const prefill = prefillOriginRef.current;
+    // ★ Defensive, and no test can see it: once this send empties the box, typing clears the ref
+    //   (the composer's onChange), a new seed replaces it, and dictation would have to produce the
+    //   seed's exact text. (The chips' prefill branch is unreachable today: every chip auto-sends.)
     prefillOriginRef.current = null;
     const originView =
       opts?.originView ??
@@ -1703,7 +1708,11 @@ function ChatPanelInner({
           rows={2}
           maxLength={CHAT_MESSAGE_MAX}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            // §703: an edit makes the box the user's text, so a prefilled seed's page no longer applies.
+            prefillOriginRef.current = null;
+          }}
           onKeyDown={handleKeyDown}
           onFocus={registration.onFocus}
           onBlur={registration.onBlur}

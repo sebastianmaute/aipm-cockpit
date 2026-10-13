@@ -815,21 +815,49 @@ describe("SP1 seed + foundational chips", () => {
       expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: undefined });
     });
 
-    it("uses the page once: the same text sent again is a typed message", async () => {
+    // No edit happens here: the box holds the draft and the seed together, so
+    // only the text match keeps this a typed message.
+    it("sends a seed appended after a draft as a typed message, with no page", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: AI_WITH_KEY, dispatcher, onAcceptConsent: vi.fn(), onChatSeedConsumed: vi.fn() };
+      const { rerender } = render(<ChatPanel {...props} chatSeed={null} />);
+      fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "my draft" } });
+      rerender(<ChatPanel {...props} chatSeed={{ ...seed, autoSend: false }} />);
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: undefined });
+    });
+
+    it("drops the page once the box is edited, even if the text is typed back", async () => {
       const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
       render(
         <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
           chatSeed={{ ...seed, autoSend: false }} onChatSeedConsumed={vi.fn()} />,
       );
-      sendBox();
-      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
       const box = screen.getByPlaceholderText("Ask Claude about your tasks…");
-      await waitFor(() => expect(box).not.toBeDisabled());
+      fireEvent.change(box, { target: { value: "" } });
       fireEvent.change(box, { target: { value: "What's next?" } });
       sendBox();
-      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
       expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: undefined });
+    });
+
+    // ★ Not reachable by a user: the box is disabled in every state where the
+    //   send returns early. The keydown is fired on the disabled box only to pin
+    //   that a send which returns early leaves the page for the real one.
+    it("keeps the page through a send that returned early", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+      const dispatcher = makeDispatcher();
+      const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: GUIDES_AI, dispatcher, onAcceptConsent: vi.fn(), onChatSeedConsumed: vi.fn(), chatSeed: seed };
+      const { rerender } = render(<ChatPanel {...props} guidesReady={false} />);
+      fireEvent.keyDown(screen.getByPlaceholderText("Loading operating guides…"), { key: "Enter" });
+      expect(fetchSpy).not.toHaveBeenCalled();
+      rerender(<ChatPanel {...props} guidesReady />);
+      sendBox();
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: "dashboard" });
     });
 
     it("drops the page once the project scope has changed", async () => {
