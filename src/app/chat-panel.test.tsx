@@ -844,8 +844,8 @@ describe("SP1 seed + foundational chips", () => {
       expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: undefined });
     });
 
-    // ★ Not reachable by a user: the box is disabled in every state where the
-    //   send returns early. The keydown is fired on the disabled box only to pin
+    // ★ Not reachable by a user: the box is disabled in every early return that
+    //   can see a pending prefill (an empty box cannot hold one). The keydown is fired on the disabled box only to pin
     //   that a send which returns early leaves the page for the real one.
     it("keeps the page through a send that returned early", async () => {
       const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);

@@ -1734,8 +1734,11 @@
   send gate only PREFILLS (guides pending, no key, a send in flight, or `autoSend` false) keeps its origin in
   `prefillOriginRef` (`chat-panel.tsx`). The next send uses it ONCE, and only if it sends that text
   unchanged in the same scope epoch; any typing in the box clears it (the composer's `onChange`), a seed
-  appended after a draft fails the text match, and a project swap fails the epoch, so each is a typed
-  message and reports `chat`.
+  appended after a draft fails the text match, and a scope change fails the epoch, so each is a typed
+  message and reports `chat`. ★ A project swap normally never reaches the epoch check: the §548 load hold
+  unmounts the panel, ref and box together. The check is the backstop for one that keeps it mounted. ★ A
+  voice command the app does not recognise is routed to the chat as a prefill too
+  (`routeUnknownVoice` → `requestChat(text, false)`), so sent unchanged it names the page it was spoken on.
   ★★★ **The digest must describe what the user can actually SEE, and this took TWO corrections.** The
   input is assembled by **`use-view-digest.ts`**, not inline in the dispatcher — it needs pane state the
   dispatcher does not hold. ★★ Correction 1: an early revision fed the digest raw `tasks`. ★★★ Correction
