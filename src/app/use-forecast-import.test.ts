@@ -5,7 +5,7 @@
 // open preview (Review Focus 5).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { createElement, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ActionGuidesProvider } from "./action-guides-context";
 import type { OperatingGuide } from "./operating-guide";
 import { useBudgetBuckets } from "./use-budget-buckets";
@@ -449,8 +449,9 @@ describe("useForecastImport — the Claude route", () => {
       id: "g", name: "Forecast rules", content: "Hours are per month, never per week.", enabled: true, priority: 1,
       scope: { targets: ["forecastImport"] }, builtIn: false,
     };
+    // A plain function component (no hooks), called directly: this file is .ts, not .tsx.
     const wrapper = ({ children }: { children: ReactNode }) =>
-      createElement(ActionGuidesProvider, { value: { guides: [guide], groundInGuides: true, ready: true }, children });
+      ActionGuidesProvider({ value: { guides: [guide], groundInGuides: true, ready: true }, children });
     const fetchSpy = claudeResponds({ rows: [] });
     const hook = renderHook((d: ForecastImportDeps) => useForecastImport(d), { initialProps: depsOf(), wrapper });
     await act(async () => {
