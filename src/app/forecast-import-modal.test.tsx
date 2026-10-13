@@ -603,4 +603,18 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(within(section).getByText(/forecast!C2/)).toHaveTextContent(t(L, "forecastImportRejectSourceColumns"));
     expect(applyButton()).toBeDisabled();
   });
+
+  // rr8 m2: the Wide layout has no hours select to choose from.
+  it("asks to check the mapping, not to choose a column, in the Wide layout", async () => {
+    const user = userEvent.setup();
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseAmbiguous(PLAN_IST);
+    await user.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutWide") }));
+    expect(screen.getByText(t(L, "forecastImportAmbiguousWide"))).toBeInTheDocument();
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeNull();
+    expect(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") })).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutLong") }));
+    expect(screen.queryByText(t(L, "forecastImportAmbiguousWide"))).toBeNull();
+    expect(screen.getByText(t(L, "forecastImportAmbiguousHours", "Plan, Ist"))).toBeInTheDocument();
+  });
 });

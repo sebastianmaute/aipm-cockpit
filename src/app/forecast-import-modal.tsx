@@ -240,14 +240,18 @@ const AMBIGUOUS_KEY: Record<ColumnAmbiguity["field"], TranslationKey> = {
 
 /** One notice per field more than one column could be, naming the candidates
  *  by header (or column letter), and the button that confirms the mapping as
- *  it stands. Choosing the field's column confirms it too. */
-function AmbiguityNotice({ lang, fi, header }: { lang: Lang; fi: ForecastImport; header: readonly string[] }) {
+ *  it stands. Choosing the field's column confirms it too. ★ In the Wide
+ *  layout there is no hours or period select to choose from, so ONE notice
+ *  asks to check the mapping instead (rr8 m2). */
+function AmbiguityNotice({ lang, fi, header, layout }: { lang: Lang; fi: ForecastImport; header: readonly string[]; layout: Draft["layout"] }) {
   const nameOf = (col: number): string => (header[col] ?? "").trim() || columnLetters(col);
   return (
     <div className="space-y-2">
-      {fi.ambiguous.map((a) => (
-        <Banner key={a.field} severity="warn">{t(lang, AMBIGUOUS_KEY[a.field], a.candidates.map(nameOf).join(", "))}</Banner>
-      ))}
+      {layout === "wide"
+        ? <Banner severity="warn">{t(lang, "forecastImportAmbiguousWide")}</Banner>
+        : fi.ambiguous.map((a) => (
+          <Banner key={a.field} severity="warn">{t(lang, AMBIGUOUS_KEY[a.field], a.candidates.map(nameOf).join(", "))}</Banner>
+        ))}
       <Button variant="secondary" size="xs" onClick={fi.confirmColumns}>
         {t(lang, "forecastImportConfirmColumns")}
       </Button>
@@ -275,7 +279,7 @@ function MappingStep({ lang, fi, sheet }: { lang: Lang; fi: ForecastImport; shee
   return (
     <section className="space-y-3">
       {!fi.layoutDetected && <Banner severity="info">{t(lang, "forecastImportNoLayout")}</Banner>}
-      {fi.ambiguous.length > 0 && <AmbiguityNotice lang={lang} fi={fi} header={header} />}
+      {fi.ambiguous.length > 0 && <AmbiguityNotice lang={lang} fi={fi} header={header} layout={draft.layout} />}
       <SegmentedControl
         ariaLabel={t(lang, "forecastImportLayout")}
         value={draft.layout}

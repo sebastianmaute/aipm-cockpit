@@ -2414,6 +2414,7 @@ export const de: Record<TranslationKey, string> = {
   forecastImportShowPreview: "Vorschau anzeigen",
   forecastImportAmbiguousHours: "Mehr als eine Spalte könnte die Stunden enthalten: {0}. Wählen Sie die richtige.",
   forecastImportAmbiguousPeriod: "Mehr als eine Spalte könnte die Periode enthalten: {0}. Wählen Sie die richtige.",
+  forecastImportAmbiguousWide: "Die Erkennung war sich bei diesen Spalten unsicher. Prüfen Sie die Zuordnung und bestätigen Sie dann.",
   forecastImportConfirmColumns: "Diese Spalten stimmen",
   forecastImportConfirmFirst: "Bestätigen Sie zuerst die Spalten: Wählen Sie bei der Spaltenzuordnung die richtige, oder klicken Sie auf „Diese Spalten stimmen“.",
   forecastImportBlockerFollowsPlan: "„Budgetstunden folgen Planung“ ist eingeschaltet: Budgetstunden werden aus der Kapazität abgeleitet, importierte Stunden wären nicht sichtbar. Schalten Sie es zum Importieren aus.",

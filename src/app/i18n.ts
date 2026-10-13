@@ -2565,6 +2565,7 @@ const enUS = {
   forecastImportShowPreview: "Show preview",
   forecastImportAmbiguousHours: "More than one column could hold the hours: {0}. Choose the right one.",
   forecastImportAmbiguousPeriod: "More than one column could hold the period: {0}. Choose the right one.",
+  forecastImportAmbiguousWide: "Detection was unsure about these columns. Check the mapping, then confirm.",
   forecastImportConfirmColumns: "These columns are right",
   forecastImportConfirmFirst: "Confirm the columns first: choose the right one on the mapping step, or press “These columns are right”.",
   forecastImportBlockerFollowsPlan: "“Budget hours follow plan” is on, so budget hours are derived from capacity and imported hours would not show. Turn it off to import.",
