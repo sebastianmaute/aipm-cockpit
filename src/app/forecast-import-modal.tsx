@@ -30,6 +30,7 @@ import { resourceDisplayName, roleLabel } from "./resource-foundation";
 import { columnLetters } from "./budget-import/forecast-rows";
 import { normalisePerson, type AllocationKey, type CellChange, type ImportBlocker, type ImportPlan, type UnresolvedPerson } from "./budget-import/forecast-plan";
 import type { ColumnMapping, DropReason } from "./budget-import/forecast-types";
+import type { SheetGrid } from "./budget-import/sheet-grid";
 import { MAX_IMPORT_HOURS_PER_CELL, type RejectedRow, type SourceRejection } from "./budget-import/forecast-validate";
 import type { Discipline, Grade, Resource, Role } from "./types";
 import { useForecastImport, wideMappingFor, type ForecastImport, type ForecastImportDeps } from "./use-forecast-import";
@@ -145,7 +146,7 @@ function ForecastImportDialog({ lang, onClose, disciplines, grades, ...deps }: F
           {fi.bucketGone && <Banner severity="error">{t(lang, "forecastImportBucketGone")}</Banner>}
           {sheet && <RouteBar lang={lang} fi={fi} />}
           {sheet?.truncated && <Banner severity="warn">{t(lang, "forecastImportTruncated")}</Banner>}
-          {sheet && fi.step === "mapping" && <MappingStep lang={lang} fi={fi} rows={sheet.rows} />}
+          {sheet && fi.step === "mapping" && <MappingStep lang={lang} fi={fi} sheet={sheet} />}
           {fi.step === "preview" && fi.importPlan && (
             <PreviewStep lang={lang} fi={fi} plan={fi.importPlan} resources={deps.resources} roles={deps.roles} disciplines={disciplines} grades={grades} />
           )}
@@ -218,8 +219,10 @@ function draftOf(mapping: ColumnMapping | null): Draft {
   };
 }
 
-function mappingOf(d: Draft, rows: readonly string[][]): ColumnMapping {
-  if (d.layout === "wide") return wideMappingFor(rows, d.headerRow, { person: d.person, email: d.email, rate: d.rate }, d.year);
+function mappingOf(d: Draft, sheet: SheetGrid): ColumnMapping {
+  if (d.layout === "wide") {
+    return wideMappingFor(sheet.rows, d.headerRow, { person: d.person, email: d.email, rate: d.rate }, d.year, sheet.numbers);
+  }
   const mapping: ColumnMapping = { layout: "long", headerRow: d.headerRow, person: d.person, period: d.period, hours: d.hours };
   if (d.email !== undefined) mapping.email = d.email;
   if (d.rate !== undefined) mapping.rate = d.rate;
@@ -249,7 +252,8 @@ function ColumnSelect({ label, value, columns, optional, noneLabel, onChange }: 
   );
 }
 
-function MappingStep({ lang, fi, rows }: { lang: Lang; fi: ForecastImport; rows: readonly string[][] }) {
+function MappingStep({ lang, fi, sheet }: { lang: Lang; fi: ForecastImport; sheet: SheetGrid }) {
+  const rows = sheet.rows;
   const draft = draftOf(fi.mapping);
   const headerId = useId();
   const yearId = useId();
@@ -261,9 +265,9 @@ function MappingStep({ lang, fi, rows }: { lang: Lang; fi: ForecastImport; rows:
     ...chosen.filter((c): c is number => c !== undefined && c < width),
   ]);
   const columns = [...offered].sort((a, b) => a - b).map((col) => ({ col, text: `${columnLetters(col)}: ${header[col] ?? ""}` }));
-  const commit = (patch: Partial<Draft>) => fi.setMapping(mappingOf({ ...draft, ...patch }, rows));
+  const commit = (patch: Partial<Draft>) => fi.setMapping(mappingOf({ ...draft, ...patch }, sheet));
   const none = t(lang, "forecastImportColNone");
-  const next = mappingOf(draft, rows);
+  const next = mappingOf(draft, sheet);
   const periodLabels = (next.periodCols ?? []).map((c) => header[c]).join(", ");
   return (
     <section className="space-y-3">

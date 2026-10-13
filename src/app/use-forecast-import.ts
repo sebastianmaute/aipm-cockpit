@@ -22,11 +22,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyForecastImport, buildForecastImportPlan, normalisePerson, type ImportPlan, type PersonOverride, type UnresolvedPerson } from "./budget-import/forecast-plan";
-import { gridToForecastRows, isTotalLabel, parsePeriodLabel } from "./budget-import/forecast-rows";
+import { gridToForecastRows, isTotalLabel } from "./budget-import/forecast-rows";
+import { assignRunPeriods } from "./budget-import/period-assign";
 import type { ColumnMapping, DropReason, ForecastRow, IgnoredColumn } from "./budget-import/forecast-types";
 import { validateForecastRows, type DuplicateRow, type RejectedRow } from "./budget-import/forecast-validate";
 import { detectLayout, type LayoutDetection } from "./budget-import/layout-detect";
-import { readSheetFile, type SheetGrid } from "./budget-import/sheet-grid";
+import { readSheetFile, type NumberOrigin, type SheetGrid } from "./budget-import/sheet-grid";
 import { runForecastImportCall } from "./forecast-import-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiKeyMessageKeyForError } from "./ai-key-status";
@@ -127,17 +128,20 @@ export function forecastImportErrorOf(e: unknown): ForecastImportError | null {
 /** A wide mapping over a chosen header row: every header cell that reads as a
  *  period becomes a period column, except the person / email / rate columns
  *  and totals. `year` reads headers without a year ("Jan") and is kept on
- *  the mapping. */
+ *  the mapping. The header is read as a run (`assignRunPeriods`), exactly as
+ *  `gridToForecastRows` will read it. */
 export function wideMappingFor(
   rows: readonly string[][],
   headerRow: number,
   cols: { person: number; email?: number; rate?: number },
   year?: number,
+  numbers?: NumberOrigin,
 ): ColumnMapping {
   const header = rows[headerRow] ?? [];
   const taken = new Set([cols.person, cols.email, cols.rate].filter((c): c is number => c !== undefined));
+  const run = assignRunPeriods(header, { defaultYear: year, numbers });
   const periodCols = header.flatMap((cell, col) =>
-    !taken.has(col) && !isTotalLabel(cell) && parsePeriodLabel(cell, year) !== null ? [col] : [],
+    !taken.has(col) && !isTotalLabel(cell) && run[col] !== null ? [col] : [],
   );
   const mapping: ColumnMapping = { layout: "wide", headerRow, person: cols.person };
   if (cols.email !== undefined) mapping.email = cols.email;
@@ -149,8 +153,8 @@ export function wideMappingFor(
 
 /** The columns the mapping step starts from when nothing was detected:
  *  header row 1, person in column A, every header period a period column. */
-export function defaultMappingFor(rows: readonly string[][], year?: number): ColumnMapping {
-  return wideMappingFor(rows, 0, { person: 0 }, year);
+export function defaultMappingFor(rows: readonly string[][], year?: number, numbers?: NumberOrigin): ColumnMapping {
+  return wideMappingFor(rows, 0, { person: 0 }, year, numbers);
 }
 
 /** The year a header without one is read in by default: the target bucket's
@@ -260,7 +264,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     setNotes("");
     setOverrides(NO_OVERRIDES);
     setLayoutDetected(detected.mapping !== null);
-    setMappingState(detected.mapping ?? defaultMappingFor(grid.rows, startYear));
+    setMappingState(detected.mapping ?? defaultMappingFor(grid.rows, startYear, grid.numbers));
     setStep(detected.mapping ? "preview" : "mapping");
   }, [startYear]);
 

@@ -2,135 +2,21 @@
 // forecast rows (§500). Pure: no i18n, no React, no DOM.
 //
 // Cells arrive as the strings the file holds. What a cell MEANS is decided
-// here: a period header ("Mär 2026", "KW03 2026", an Excel serial), a number
-// ("1.234,5" is 1234.5 in a German export, not 1.2345) or a total label.
+// here: a number ("1.234,5" is 1234.5 in a German export, not 1.2345) or a
+// total label. Which PERIOD a cell is comes from `period-assign.ts`, the one
+// definition detection and the Claude route read too.
 
-import { isoWeekParts } from "../resource-capacity";
-import { excelSerialToIso, type NumberOrigin } from "./sheet-grid";
+import type { NumberOrigin } from "./sheet-grid";
+import { assignRunDetailed, parsePeriodLabel } from "./period-assign";
 import type { ColumnMapping, DropReason, ForecastRow, IgnoredColumn } from "./forecast-types";
+
+/** Re-exported: callers that read a single period cell keep one import. */
+export { parsePeriodLabel };
 
 export type DecimalStyle = "dot" | "comma";
 
-const MIN_EXCEL_SERIAL_PERIOD = 20000;
-const MAX_EXCEL_SERIAL_PERIOD = 80000;
-const DEC_28_MONTH_INDEX = 11;
-const DEC_28_DAY = 28; // always inside the last ISO week of its year
-const MAX_HOUR = 23;
-const MAX_MINUTE_OR_SECOND = 59;
-const TWO_DIGIT_YEAR_BASE = 2000;
-const MIN_DEFAULT_YEAR = 1000;
-const MAX_DEFAULT_YEAR = 9999;
 /** Share of the person rows that must hold a number for an unread column to be reported. */
 const IGNORED_COLUMN_SHARE = 0.5;
-
-const MONTHS: Readonly<Record<string, number>> = {
-  jan: 1, januar: 1, january: 1, jän: 1, jänner: 1,
-  feb: 2, februar: 2, february: 2,
-  mar: 3, mär: 3, märz: 3, maerz: 3, mrz: 3, march: 3,
-  apr: 4, april: 4,
-  may: 5, mai: 5,
-  jun: 6, juni: 6, june: 6,
-  jul: 7, juli: 7, july: 7,
-  aug: 8, august: 8,
-  sep: 9, sept: 9, september: 9,
-  oct: 10, okt: 10, october: 10, oktober: 10,
-  nov: 11, november: 11,
-  dec: 12, dez: 12, december: 12, dezember: 12,
-};
-
-const pad2 = (n: number): string => String(n).padStart(2, "0");
-
-function monthKey(year: number, month: number): string | null {
-  return month >= 1 && month <= 12 ? `${year}-${pad2(month)}` : null;
-}
-
-/** Month key of a real calendar date (UTC round trip), else null. */
-function dateMonthKey(year: number, month: number, day: number): string | null {
-  const d = new Date(Date.UTC(year, month - 1, day));
-  const isReal = d.getUTCFullYear() === year && d.getUTCMonth() === month - 1 && d.getUTCDate() === day;
-  return isReal ? monthKey(year, month) : null;
-}
-
-/** ISO weeks in a year (52 or 53). */
-function isoWeeksInYear(year: number): number {
-  return isoWeekParts(new Date(Date.UTC(year, DEC_28_MONTH_INDEX, DEC_28_DAY))).week;
-}
-
-function weekKey(year: number, week: number): string | null {
-  return week >= 1 && week <= isoWeeksInYear(year) ? `${year}-W${pad2(week)}` : null;
-}
-
-function serialKey(cell: string): string | null {
-  const serial = Number(cell);
-  if (serial < MIN_EXCEL_SERIAL_PERIOD || serial > MAX_EXCEL_SERIAL_PERIOD) return null;
-  const iso = excelSerialToIso(serial);
-  return iso === null ? null : iso.slice(0, 7);
-}
-
-/** A usable default year, else undefined (absent, fractional, not four digits). */
-function usableYear(year: number | undefined): number | undefined {
-  const isYear = year !== undefined && Number.isInteger(year) && year >= MIN_DEFAULT_YEAR && year <= MAX_DEFAULT_YEAR;
-  return isYear ? year : undefined;
-}
-
-/** A month name ("Jan", "Mrz.", "Januar") or week ("KW03", "KW 3", "W03") that
- *  names no year, read in `year`. Bare numbers are never read this way. */
-function yearlessKey(s: string, year: number): string | null {
-  let m = /^([a-zäöü]+)\.?$/.exec(s);
-  if (m) {
-    const month = MONTHS[m[1]];
-    return month === undefined ? null : monthKey(year, month);
-  }
-  m = /^(?:kw|w)\s*(\d{1,2})$/.exec(s);
-  return m ? weekKey(year, Number(m[1])) : null;
-}
-
-/**
- * A period header as a canonical key: month "YYYY-MM" or week "YYYY-Www".
- * Case-insensitive, trimmed; null for anything unrecognised. Two-digit years
- * mean 20YY. With `defaultYear`, a month name or week with no year of its own
- * ("Jan", "KW03") is read in that year; without it, such a label is null.
- */
-export function parsePeriodLabel(cell: string, defaultYear?: number): string | null {
-  const s = cell.trim().toLowerCase();
-  if (s === "") return null;
-
-  let m = /^(\d{4})[-/](\d{1,2})$/.exec(s);
-  if (m) return monthKey(Number(m[1]), Number(m[2]));
-
-  // ISO date, optionally with a time ("2026-01-15 00:00:00", "...T09:30:00.000Z").
-  m = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ t](\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?z?)?$/.exec(s);
-  if (m) {
-    const isTimeValid = Number(m[4] ?? 0) <= MAX_HOUR
-      && Number(m[5] ?? 0) <= MAX_MINUTE_OR_SECOND
-      && Number(m[6] ?? 0) <= MAX_MINUTE_OR_SECOND;
-    return isTimeValid ? dateMonthKey(Number(m[1]), Number(m[2]), Number(m[3])) : null;
-  }
-
-  m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(s);
-  if (m) return dateMonthKey(Number(m[3]), Number(m[2]), Number(m[1]));
-
-  m = /^(\d{1,2})[/.](\d{4})$/.exec(s);
-  if (m) return monthKey(Number(m[2]), Number(m[1]));
-
-  m = /^(\d{4})-(?:kw|w)(\d{1,2})$/.exec(s);
-  if (m) return weekKey(Number(m[1]), Number(m[2]));
-
-  m = /^(?:kw|w)\s*(\d{1,2})[\s/-]+(\d{4})$/.exec(s);
-  if (m) return weekKey(Number(m[2]), Number(m[1]));
-
-  m = /^([a-zäöü]+)\.?[\s-]*(\d{4}|\d{2})$/.exec(s);
-  // "KW03" matches this shape too; it is a year-less week, read below.
-  const month = m === null ? undefined : MONTHS[m[1]];
-  if (m && month !== undefined) {
-    const year = m[2].length === 2 ? TWO_DIGIT_YEAR_BASE + Number(m[2]) : Number(m[2]);
-    return monthKey(year, month);
-  }
-
-  if (/^\d{5}(\.\d+)?$/.test(s)) return serialKey(s);
-  const year = usableYear(defaultYear);
-  return year === undefined ? null : yearlessKey(s, year);
-}
 
 /** Whitespace removed and one trailing unit or currency mark cut. */
 function stripNumberDecoration(cell: string): string {
@@ -227,14 +113,17 @@ function withMeta(meta: PersonMeta, period: string, hours: number, source: strin
   return row;
 }
 
-/** Wide layout: the period of every column whose header is a period. */
-function wideColumns(header: readonly string[], mapping: ColumnMapping): Array<{ col: number; period: string }> {
-  const out: Array<{ col: number; period: string }> = [];
+type WideColumn = { col: number; period: string; assumed: boolean };
+
+/** Wide layout: the period of every mapped column whose header is a period,
+ *  the header row read as a RUN (`assignRunDetailed`: year rollover, dates a
+ *  week apart as weeks). */
+function wideColumns(header: readonly string[], mapping: ColumnMapping, numbers: NumberOrigin): WideColumn[] {
+  const run = assignRunDetailed(header, { defaultYear: mapping.year, numbers });
+  const out: WideColumn[] = [];
   for (const col of mapping.periodCols ?? []) {
-    const label = cellAt(header, col);
-    if (isTotalLabel(label)) continue;
-    const period = parsePeriodLabel(label, mapping.year);
-    if (period !== null) out.push({ col, period });
+    const assigned = run[col];
+    if (!isTotalLabel(cellAt(header, col)) && assigned) out.push({ col, ...assigned });
   }
   return out;
 }
@@ -258,7 +147,7 @@ export function gridToForecastRows(
   const dropped: DropReason[] = [];
   const header = rows[mapping.headerRow] ?? [];
   const wide = mapping.layout === "wide";
-  const columns = wide ? wideColumns(header, mapping) : [];
+  const columns = wide ? wideColumns(header, mapping, numbers) : [];
   const hoursCols = wide ? columns.map((c) => c.col) : [mapping.hours];
   const mappedCols = [mapping.person, mapping.email, mapping.rate, mapping.period, ...hoursCols];
 

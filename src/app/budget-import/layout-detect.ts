@@ -10,6 +10,7 @@
 
 import { detectDecimalStyle, isTotalLabel, parseNumberCell, parsePeriodLabel } from "./forecast-rows";
 import type { ColumnMapping } from "./forecast-types";
+import { assignRunPeriods, usableYear } from "./period-assign";
 import type { NumberOrigin } from "./sheet-grid";
 
 export type LayoutDetection = {
@@ -119,7 +120,6 @@ function withOptionals(base: ColumnMapping, extras: Partial<ColumnMapping>): Col
   const out: ColumnMapping = { ...base };
   if (extras.email !== undefined) out.email = extras.email;
   if (extras.rate !== undefined) out.rate = extras.rate;
-  if (extras.year !== undefined) out.year = extras.year;
   return out;
 }
 
@@ -137,7 +137,7 @@ function wideFromHeader(rows: Rows, headerRow: number, periodCols: readonly numb
   if (person === null) return null;
   return withOptionals(
     { layout: "wide", headerRow, person, periodCols: [...periodCols] },
-    { email, rate, year: ctx.year },
+    { email, rate },
   );
 }
 
@@ -145,9 +145,11 @@ function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): ColumnMapping | n
   const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
   for (let headerRow = 0; headerRow < scanned; headerRow++) {
     const header = rows[headerRow];
+    // The header is read as a RUN: year rollover, dates a week apart as weeks.
+    const run = assignRunPeriods(header, { defaultYear: ctx.year, numbers: ctx.numbers });
     const periodCols: number[] = [];
     for (let col = 0; col < header.length; col++) {
-      if (!isTotalLabel(header[col]) && parsePeriodLabel(header[col], ctx.year) !== null) periodCols.push(col);
+      if (!isTotalLabel(header[col]) && run[col] !== null) periodCols.push(col);
     }
     if (periodCols.length < minPeriods) continue;
     const mapping = wideFromHeader(rows, headerRow, periodCols, ctx);
@@ -228,7 +230,7 @@ function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping 
   const person = pickPerson(candidates, data, email, ctx);
   if (person === null) return null;
   return {
-    mapping: withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate, year: ctx.year }),
+    mapping: withOptionals({ layout: "long", headerRow, person, period, hours }, { email, rate }),
     score: found.share + numberShare(columnCells(data, hours), ctx),
   };
 }
@@ -248,19 +250,8 @@ function detectLong(rows: Rows, ctx: Ctx): ColumnMapping | null {
   return best?.mapping ?? null;
 }
 
-/**
- * Guess the layout of a sheet grid and where its columns are. Scans the first
- * 10 rows for the header. Ragged and empty rows are fine (a missing cell is
- * blank). `unknown` when neither a wide nor a long reading fits. `numbers` is
- * the grid's `SheetGrid.numbers` (a workbook's stored numbers read with a dot);
- * with `defaultYear`, month names and weeks without a year ("Jan", "KW03") are
- * periods of that year, and the mapping carries it as `year`.
- */
-export function detectLayout(
-  rows: readonly string[][],
-  opts: { numbers?: NumberOrigin; defaultYear?: number } = {},
-): LayoutDetection {
-  const ctx: Ctx = { numbers: opts.numbers ?? "text", year: opts.defaultYear };
+/** Every pass in order (wide, long, two-period wide) under one reading. */
+function detectPasses(rows: Rows, ctx: Ctx): LayoutDetection {
   const wide = detectWide(rows, MIN_WIDE_PERIODS, ctx);
   if (wide !== null) return { kind: "wide", mapping: wide };
   const long = detectLong(rows, ctx);
@@ -268,4 +259,28 @@ export function detectLayout(
   const narrowWide = detectWide(rows, MIN_WIDE_PERIODS_FALLBACK, ctx);
   if (narrowWide !== null) return { kind: "wide", mapping: narrowWide };
   return UNKNOWN;
+}
+
+/**
+ * Guess the layout of a sheet grid and where its columns are. Scans the first
+ * 10 rows for the header. Ragged and empty rows are fine (a missing cell is
+ * blank). `unknown` when neither a wide nor a long reading fits. `numbers` is
+ * the grid's `SheetGrid.numbers` (a workbook's stored numbers read with a dot).
+ * ★★ ALL passes run WITHOUT `defaultYear` first; only when that finds nothing
+ * do they run again with it, reading month names and weeks without a year
+ * ("Jan", "KW03") as periods. With the year first, a data column of month
+ * names (a "Start" holding "Mai") counted as a period column and unseated a
+ * sheet that had always been read correctly (fix-wave review). Either way the
+ * mapping carries `defaultYear` as `year`, the year the mapping step shows.
+ */
+export function detectLayout(
+  rows: readonly string[][],
+  opts: { numbers?: NumberOrigin; defaultYear?: number } = {},
+): LayoutDetection {
+  const numbers = opts.numbers ?? "text";
+  const year = usableYear(opts.defaultYear);
+  let found = detectPasses(rows, { numbers });
+  if (found.mapping === null && year !== undefined) found = detectPasses(rows, { numbers, year });
+  if (found.mapping === null || opts.defaultYear === undefined) return found;
+  return { kind: found.kind, mapping: { ...found.mapping, year: opts.defaultYear } };
 }
