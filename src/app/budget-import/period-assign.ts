@@ -22,6 +22,11 @@ const TWO_DIGIT_YEAR_BASE = 2000;
 const MIN_DEFAULT_YEAR = 1000;
 const MAX_DEFAULT_YEAR = 9999;
 const MAX_WEEK = 53;
+const MONTHS_PER_YEAR = 12;
+const WEEKS_PER_YEAR = 52;
+const HALF_YEAR = 0.5;
+/** Float slack for "exactly half a year" (Jul → Jan, KW27 → KW01). */
+const POSITION_EPSILON = 1e-9;
 const MIN_YEAR_CELL = 2000;
 const MAX_YEAR_CELL = 2100;
 const DAYS_PER_WEEK = 7;
@@ -248,15 +253,19 @@ export function isWeekSpacedColumn(cells: readonly string[], numbers: NumberOrig
 
 /**
  * A WIDE header row's period cells, read left to right as a RUN (§500):
- * - A cell that names its year (`Dez 2026`, `KW50 2026`, `2026-12`, a date)
- *   sets the running year. A year-less month or week takes the running year,
- *   which starts at `defaultYear`, and moves it on by one whenever its index
- *   steps BACKWARDS against the previous cell of the same kind: `Dez 2026 | Jan`
- *   is January 2027, a year-less `Jul … Jun` runs into the next year, and
- *   `KW52 | KW01` too. Week 53 is checked against the year the week lands in.
- * - Year-less cells BEFORE the first labelled one count BACK from it, never
- *   from `defaultYear`: `Nov | Dez | Jan 2027` is Nov and Dez 2026. Only a run
- *   with no labelled cell at all reads in `defaultYear`.
+ * - A cell that names its year (`Dez 2026`, `KW50 2026`, `2026-12`, a date of
+ *   a date run) sets the running year. A year-less month or week takes the
+ *   running year, which starts at `defaultYear`, and moves it on by one at the
+ *   turn of a year — a step BACK of at least half a year (6 months, 26 weeks)
+ *   against the previous period cell, months and weeks compared by their place
+ *   in the year: `Dez 2026 | Jan` is January 2027, a year-less `Jul … Jun` runs
+ *   into the next year, `KW52 | KW01` too, while `Dez | Nov | Okt` stays in one
+ *   year. Week 53 is checked against the year the week lands in.
+ * - Year-less cells BEFORE the first labelled one count BACK from it by the
+ *   same rule, never from `defaultYear`: `Nov | Dez | Jan 2027` is Nov and Dez
+ *   2026, `KW52 | Jan 2027` is 2026-W52. Only a run with no labelled cell at
+ *   all reads in `defaultYear`.
+ * - A header's ONE date or serial cell is no period (`withoutLoneDate`).
  * - A run of dates a whole number of weeks apart, the closest exactly seven
  *   days, reads each date as its ISO week; any other dates read as their month.
  * Non-period cells are null and do not break the run. A LONG sheet's rows are
@@ -266,7 +275,7 @@ export function assignRunDetailed(
   cells: readonly string[],
   opts: { defaultYear?: number; numbers?: NumberOrigin } = {},
 ): Array<AssignedPeriod | null> {
-  const classes = cells.map(classifyPeriodCell);
+  const classes = withoutLoneDate(cells.map(classifyPeriodCell));
   if (isWeekSpacedDates(classes, opts.numbers ?? "text")) {
     return classes.map((c) =>
       c?.kind === "month" && c.date !== undefined ? { period: periodKeyForDate(c.date, "week"), assumed: false } : null);
@@ -277,30 +286,51 @@ export function assignRunDetailed(
   return out;
 }
 
+/** A header's ONE date (or serial) cell is no period: it neither joins nor
+ *  anchors a year-less run — a `31.12.2025` or a project number `40100` once
+ *  moved a whole `Jan | Feb | Mär` into 2025 or 2009. Two or more dates are a
+ *  date run and read as such. */
+function withoutLoneDate(classes: Array<PeriodCell | null>): Array<PeriodCell | null> {
+  const isDate = (c: PeriodCell | null): boolean => c?.kind === "month" && c.date !== undefined;
+  return classes.filter(isDate).length === 1 ? classes.map((c) => (isDate(c) ? null : c)) : classes;
+}
+
+/** A period's place in its year, 0 (January, week 1) to 1, so months and weeks
+ *  compare with each other. */
+function positionInYear(c: PeriodCell): number {
+  return c.kind === "month" ? (c.index - 1) / MONTHS_PER_YEAR : (c.index - 1) / WEEKS_PER_YEAR;
+}
+
+/** A step back of at least half a year (6 months, 26 weeks) is the turn of a
+ *  year; a smaller one is a sheet listed backwards (`Dez | Nov | Okt`). */
+const isTurnOfYear = (from: PeriodCell, to: PeriodCell): boolean => positionInYear(from) - positionInYear(to) >= HALF_YEAR - POSITION_EPSILON;
+
 /** The cells before the run's first labelled cell, read backwards from it: a
- *  cell whose index is HIGHER than the next one of its kind to its right lies
- *  in the year before (`Dez | Jan 2027` → Dez 2026). Overwrites `out`. */
+ *  cell at least half a year LATER in the year than the cell to its right lies
+ *  in the year before (`Dez | Jan 2027` → Dez 2026, `KW52 | Jan 2027` → 2026-W52).
+ *  Overwrites `out`. */
 function countBack(classes: ReadonlyArray<PeriodCell | null>, out: Array<AssignedPeriod | null>, first: number): void {
   const label = classes[first];
   if (label?.year === undefined) return;
   let year = label.year;
-  const next: { month?: number; week?: number } = { [label.kind]: label.index };
+  let next: PeriodCell = label;
   for (let i = first - 1; i >= 0; i--) {
     const c = classes[i];
     if (c === null) continue;
-    if ((next[c.kind] ?? Infinity) < c.index) year -= 1;
-    next[c.kind] = c.index;
+    if (isTurnOfYear(c, next)) year -= 1;
+    next = c;
     const period = resolvePeriod(c, year);
     out[i] = period === null ? null : { period, assumed: false };
   }
 }
 
 /** The run read left to right: a labelled cell sets the running year, a
- *  year-less one takes it and rolls it on when its index steps backwards. */
+ *  year-less one takes it and rolls it on at the turn of a year (a step back
+ *  of half a year or more: `isTurnOfYear`). */
 function readForwards(classes: ReadonlyArray<PeriodCell | null>, defaultYear: number | undefined): Array<AssignedPeriod | null> {
   let year = defaultYear;
   let assumed = year !== undefined;
-  const previous: { month?: number; week?: number } = {};
+  let previous: PeriodCell | undefined;
   return classes.map((c) => {
     if (c === null) return null;
     if (c.year !== undefined) {
@@ -308,10 +338,10 @@ function readForwards(classes: ReadonlyArray<PeriodCell | null>, defaultYear: nu
       assumed = false;
     } else if (year === undefined) {
       return null;
-    } else if ((previous[c.kind] ?? 0) > c.index) {
+    } else if (previous !== undefined && isTurnOfYear(previous, c)) {
       year += 1;
     }
-    previous[c.kind] = c.index;
+    previous = c;
     const period = resolvePeriod(c, year);
     return period === null ? null : { period, assumed: c.year === undefined && assumed };
   });

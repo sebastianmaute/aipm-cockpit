@@ -72,6 +72,32 @@ describe("assignRunPeriods — year rollover", () => {
   });
 });
 
+// Round 3 (rr2 Minors 1–3).
+describe("assignRunPeriods — what a year-less run rolls on, and what anchors it", () => {
+  it("rolls only on a step back of six months or more (KW: 26 weeks)", () => {
+    expect(assignRunPeriods(["Dez", "Nov", "Okt", "Sep"], { defaultYear: 2026 })).toEqual(["2026-12", "2026-11", "2026-10", "2026-09"]);
+    expect(assignRunPeriods(["Okt", "Nov", "Dez", "Jan", "Feb"], { defaultYear: 2026 })).toEqual(["2026-10", "2026-11", "2026-12", "2027-01", "2027-02"]);
+    expect(assignRunPeriods(["Jul", "Jan"], { defaultYear: 2026 })).toEqual(["2026-07", "2027-01"]);
+    expect(assignRunPeriods(["Jun", "Jan"], { defaultYear: 2026 })).toEqual(["2026-06", "2026-01"]);
+    expect(assignRunPeriods(["KW27", "KW01"], { defaultYear: 2026 })).toEqual(["2026-W27", "2027-W01"]);
+    expect(assignRunPeriods(["KW26", "KW01"], { defaultYear: 2026 })).toEqual(["2026-W26", "2026-W01"]);
+  });
+
+  it("lets no lone date or serial header cell anchor or join the run", () => {
+    expect(assignRunPeriods(["Name", "Jan", "Feb", "Mär", "31.12.2025"], { defaultYear: 2026 })).toEqual([
+      null, "2026-01", "2026-02", "2026-03", null,
+    ]);
+    expect(assignRunPeriods(["Name", "40100", "Jan", "Feb", "Mär"], { defaultYear: 2026, numbers: "dot" })).toEqual([
+      null, null, "2026-01", "2026-02", "2026-03",
+    ]);
+  });
+
+  it("counts back across kinds by position in the year: KW52 | Jan 2027 is 2026-W52", () => {
+    expect(assignRunPeriods(["KW52", "Jan 2027"])).toEqual(["2026-W52", "2027-01"]);
+    expect(assignRunPeriods(["Dez", "KW01 2027"])).toEqual(["2026-12", "2027-W01"]);
+  });
+});
+
 describe("assignRunPeriods — dates a week apart", () => {
   it("reads Monday ISO dates a week apart as ISO weeks", () => {
     expect(assignRunPeriods(["Name", "2026-01-05", "2026-01-12", "2026-01-19", "2026-01-26", "2026-02-02"])).toEqual([

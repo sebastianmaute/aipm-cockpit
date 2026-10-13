@@ -384,13 +384,14 @@ describe("gridToForecastRows — wide", () => {
     expect(out.rows[0].source).toBe("S!AB2");
   });
 
-  it("maps an Excel-serial header to its month", () => {
+  // Round 3 (M2): a LONE date or serial header cell is no period; a run of them is.
+  it("maps a run of Excel-serial headers to their months", () => {
     const grid = [
-      ["Name", "45658"],
-      ["Ann", "2"],
+      ["Name", "45658", "45689"],
+      ["Ann", "2", "3"],
     ];
-    const out = gridToForecastRows(grid, { ...wide, periodCols: [1] }, "S");
-    expect(out.rows[0].period).toBe("2025-01");
+    const out = gridToForecastRows(grid, { ...wide, periodCols: [1, 2] }, "S");
+    expect(out.rows.map((r) => r.period)).toEqual(["2025-01", "2025-02"]);
   });
 });
 
