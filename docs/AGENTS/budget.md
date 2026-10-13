@@ -270,8 +270,10 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   (`SheetGrid.numbers` is "dot" for xlsx/xlsm): Excel stores every number cell with a dot, so those cells
   read with a dot and never vote — one `2.625` once flipped a whole column and read `7.5` as 75. Any
   column, wide or long and at any position, that holds numbers in most person rows but is neither read,
-  mapped nor headed as a total (`isTotalHeader`: the total words plus `Q1`–`Q4`, `H1`/`H2`, `FY`/`GJ`)
-  comes back as an `IgnoredColumn` and is listed under "Not imported". The person column is a mostly-text
+  mapped nor headed as a total (`isTotalHeader`: the total words plus `Q1`–`Q4`, `H1`/`H2`, `FY`/`GJ`),
+  an employee number (`PersNr`, `ID` …) or a year column (`isYearColumn`) comes back as an `IgnoredColumn`
+  and is listed under "Not imported", and so does a count of data rows ABOVE the header row
+  (`rowsAboveHeader`: a stacked year block above the detected header). The person column is a mostly-text
   column headed Name / Mitarbeiter / Person / Resource …, else the first mostly-text one. The CLAUDE route
   sends the sheet to ONE forced call (`runForecastImportCall`, tool `propose_forecast_rows`, prompt text
   from `sheetToPromptText` over the shared `renderSheetMarkdown`). Both produce the same `ForecastRow` list.
@@ -279,10 +281,14 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   Claude near-cell check alike, so the three cannot disagree. A single cell is `parsePeriodLabel` (a date is
   its month). A WIDE header row is read as a RUN (`assignRunPeriods` / `assignRunDetailed`): a cell that
   names its year sets a running year; a year-less month or week takes it (starting at the default year)
-  and moves it on when its index steps backwards, so `Dez | Jan`, a fiscal `Jul … Jun` and `KW52 | KW01`
-  roll into the next year (week 53 checked in the year it lands in); year-less cells BEFORE the first
-  labelled one count back from it (`Nov | Dez | Jan 2027` is Nov and Dez 2026), so only a run with no
-  label at all uses the default year; and a run of dates a whole number of weeks apart, the closest
+  and moves it on at the turn of a year — a step BACK of at least half a year (6 months, 26 weeks),
+  months and weeks compared by their place in the year — so `Dez | Jan`, a fiscal `Jul … Jun` and
+  `KW52 | KW01` roll into the next year (week 53 checked in the year it lands in) while a backwards
+  `Dez | Nov | Okt` stays in one year (rolling at every backward step once spread it over four years);
+  year-less cells BEFORE the first labelled one count back from it by the same rule (`Nov | Dez | Jan
+  2027` is Nov and Dez 2026, `KW52 | Jan 2027` is 2026-W52), so only a run with no label at all uses the
+  default year; a header's ONE date or serial cell (`31.12.2025`, a project number `40100`) is no period
+  and anchors nothing; and a run of dates a whole number of weeks apart, the closest
   exactly seven days, is read as ISO weeks. Before this, Monday-date headers collapsed into months and a
   two-year `Jan … Dez Jan … Dez` summed 2027 into 2026 (final review). A LONG sheet's rows are never read
   as a run (they repeat Jan…Dec per person), but its period column gets the same week rule over its
@@ -290,23 +296,36 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   first-of-month dates stay months; the Claude route's row search reads the column the same way. A
   year-less period cell there takes the row's `ColumnMapping.yearCol` year (a column headed `Jahr` /
   `Year` / `FY` …, or holding only four-digit years), else the default year. That default is ONE value in the hook: it starts at the bucket's start year and
-  follows the mapping step's field, and a cleared field means none on both routes. `detectLayout` runs
-  every pass WITHOUT it first and uses it only when nothing is found — with it first, a `Start` column of
-  month names unseated a sheet that had read correctly. When a period took its year from the default,
+  follows the mapping step's field, and a cleared field means none on both routes. ★★ `detectLayout` runs
+  its passes in a FIXED order and takes the first that finds a layout: wide (3+ periods) without the
+  default year, wide with it, long without it, two-period wide without it, then long and two-period wide
+  with it. Both neighbouring orders shipped a bug: long WITH the year early let a `Start` column of month
+  names become the period column of a correct wide sheet (fix wave 1), and every year-less pass first
+  read a year-less wide sheet with any date column (`Start`, `Eintritt`) as long, its hours in the
+  date's month (fix wave 2). When a period took its year from the default,
   `assumedYear` makes the preview say so, with a link to the year field.
 - **`validateForecastRows` is the one gate for both.** Hours 0..744 rounded to two decimals, a canonical
   period, a non-blank person; same person and period from DIFFERENT sheet rows are summed (a summed row
   carries no `source`; `duplicates` lists the contributors, shown as "Combined rows"). ★★ Rows whose sources
   share ONE sheet row are never summed: they are `collisions`, left out of `ok`, and the plan's
-  `same-row-period` blocker holds Apply until the mapping or the sheet is fixed. A source cell backs ONE row
+  `same-row-period` blocker holds Apply until the mapping or the sheet is fixed — UNLESS every one sits
+  under a DISTINCT date header (`headerDateOf`): date columns finer than the period (bi-weekly,
+  semi-monthly) are sub-period columns, summed as before and listed as `subPeriods` under "Combined
+  rows" (blocking them made such sheets unimportable). Identical or equivalent labels (`Jan 2026 | Jan
+  2026`, `2026-01 | Jan 2026`, one date twice) still block. A source cell backs ONE row
   on either route — a second row citing it is rejected. With `requireSource` (the Claude route only, whose
   rows are UNTRUSTED) a row passes only when its cited cell holds its hours by the sheet's own number rule,
   a DIFFERENT cell of that row holds the PERSON, and the period is the one the cell sits under (`checkSource`
   in `source-evidence.ts`): the NEAREST period cell above it in its column, read as part of that header
-  row's run; only with no period above (a long sheet) is the row searched, skipping the person cell by
-  POSITION. Any row above, or a `Start` date on the row, once vouched for the wrong period. That is the
-  safety boundary against an invented value; the prompt is not. `findUnreadCells` (`unread-cells.ts`) then
-  lists the number cells the reply did not cite, as information. ★★ An email never vouches for the person, and an email the cited row does not hold is
+  row's run, the search stopping at the first non-blank cell that is neither a period nor a number (the
+  header bounds it, so a title-row date above a long sheet's header vouches for nothing); only with no
+  period above (a long sheet) is the row searched, skipping the person cell by POSITION. Any row above,
+  or a `Start` date on the row, once vouched for the wrong period. That is the safety boundary against an
+  invented value; the prompt is not. A sheet's per-column style and week shape are computed once
+  (`columnFacts`). `findUnreadCells` (`unread-cells.ts`) then lists, as information, the number cells the
+  reply did not cite on rows it read, and every row it did not cite at all that holds a number under a
+  period header or in a column it cited as hours — a person it skipped entirely is "row 7 (Bob Kay)"; total
+  rows are left out, and a period-shaped cell (a workbook's serial date) is never an unread number. ★★ An email never vouches for the person, and an email the cited row does not hold is
   STRIPPED from the accepted row: the model can write any email beside any name, and matching tries the
   email first, so a model-supplied `bob@…` on Ann's row once routed Ann's hours to Bob (final review).
   A rejected source names its cause (`SourceRejection`), and the preview shows each cause in its own words.
