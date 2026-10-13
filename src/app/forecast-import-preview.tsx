@@ -143,12 +143,21 @@ function CombinedSection({ lang, fi }: { lang: Lang; fi: ForecastImport }) {
   );
 }
 
-/** The first MAX_UNREAD_LISTED unread cells by reference, and a count of the rest. */
+/** The first MAX_UNREAD_LISTED items, and a count of the rest. */
+function listedWithRest(lang: Lang, items: readonly string[]): string {
+  const rest = items.length - MAX_UNREAD_LISTED;
+  const listed = items.slice(0, MAX_UNREAD_LISTED).join(", ");
+  return rest > 0 ? `${listed} ${t(lang, "forecastImportUnreadMore", String(rest))}` : listed;
+}
+
 function unreadCellsText(lang: Lang, cells: readonly string[]): string {
-  const rest = cells.length - MAX_UNREAD_LISTED;
-  const listed = cells.slice(0, MAX_UNREAD_LISTED).join(", ");
-  const text = rest > 0 ? `${listed} ${t(lang, "forecastImportUnreadMore", String(rest))}` : listed;
-  return tPlural(lang, "forecastImportUnreadCells", cells.length, cells.length, text);
+  return tPlural(lang, "forecastImportUnreadCells", cells.length, cells.length, listedWithRest(lang, cells));
+}
+
+/** "Claude did not read row 7 (Bob Kay)": each row with its person, when known. */
+function unreadRowsText(lang: Lang, rows: ForecastImport["unread"]["rows"]): string {
+  const items = rows.map((r) => (r.person === undefined ? String(r.row) : `${r.row} (${r.person})`));
+  return tPlural(lang, "forecastImportUnreadRows", rows.length, rows.length, listedWithRest(lang, items));
 }
 
 function allocLabel(alloc: AllocationKey, roles: readonly Role[], disciplines: readonly Discipline[], grades: readonly Grade[]): string {
@@ -216,7 +225,7 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
             ))}
             {fi.unread.cells.length > 0 && <li>{unreadCellsText(lang, fi.unread.cells)}</li>}
             {fi.unread.rows.length > 0 && (
-              <li>{tPlural(lang, "forecastImportUnreadRows", fi.unread.rows.length, fi.unread.rows.length, fi.unread.rows.join(", "))}</li>
+              <li>{unreadRowsText(lang, fi.unread.rows)}</li>
             )}
             {plan.skipped.length > 0 && <li>{t(lang, "forecastImportSkippedPeople", plan.skipped.join(", "))}</li>}
             {plan.outOfRange.length > 0 && (

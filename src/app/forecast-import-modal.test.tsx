@@ -410,3 +410,24 @@ describe("ForecastImportModal — date columns finer than the period (round 3)",
     expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeEnabled();
   });
 });
+
+describe("ForecastImportModal — a person Claude skipped (round 3)", () => {
+  it("names the skipped row and its person under Not imported", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        stop_reason: "tool_use",
+        content: [{ type: "tool_use", name: "propose_forecast_rows", input: { rows: [
+          { person: "Ann Lee", period: "Jan 2026", hours: 10, source: "forecast!B2" },
+          { person: "Ann Lee", period: "Feb 2026", hours: 20, source: "forecast!C2" },
+          { person: "Ann Lee", period: "Mar 2026", hours: 30, source: "forecast!D2" },
+        ] } }],
+      }),
+    } as unknown as Response);
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\nBob Kay,1,2,3\r\n`);
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(t(L, "forecastImportUnreadRowsOne", 1, "3 (Bob Kay)"))).toBeInTheDocument();
+  });
+});

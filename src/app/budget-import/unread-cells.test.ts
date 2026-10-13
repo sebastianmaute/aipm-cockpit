@@ -55,11 +55,52 @@ describe("findUnreadCells — rows of a long sheet", () => {
     truncated: false,
   };
 
-  it("lists a row of an accepted person that no row cites", () => {
-    expect(unreadOf(LONG, [row("Ann", "Jan 2026", 8, "S!C2")])).toEqual({ cells: [], rows: [3] });
+  it("lists a row no row cites, with its person, when its hours column was cited", () => {
+    expect(unreadOf(LONG, [row("Ann", "Jan 2026", 8, "S!C2"), row("Bob", "Jan 2026", 2, "S!C4")])).toEqual({
+      cells: [],
+      rows: [{ row: 3, person: "Ann" }],
+    });
   });
 
-  it("does not list a person Claude did not accept at all", () => {
-    expect(unreadOf(LONG, [row("Ann", "Jan 2026", 8, "S!C2"), row("Ann", "Feb 2026", 4, "S!C3")])).toEqual({ cells: [], rows: [] });
+  // Round 3 (rr2 observation 1, controller ruling I4): a person the reply
+  // skipped ENTIRELY is reported too.
+  it("lists a person Claude skipped entirely", () => {
+    expect(unreadOf(LONG, [row("Ann", "Jan 2026", 8, "S!C2"), row("Ann", "Feb 2026", 4, "S!C3")])).toEqual({
+      cells: [],
+      rows: [{ row: 4, person: "Bob" }],
+    });
+  });
+
+  it("does not list a total row", () => {
+    const withTotal: SheetGrid = { ...LONG, rows: [...LONG.rows, ["Summe", "", "14"]] };
+    const complete = [row("Ann", "Jan 2026", 8, "S!C2"), row("Ann", "Feb 2026", 4, "S!C3"), row("Bob", "Jan 2026", 2, "S!C4")];
+    expect(unreadOf(withTotal, complete)).toEqual({ cells: [], rows: [] });
+  });
+
+  // Round 3 (rr2 Important 3): a workbook's date cells are serials; a period
+  // cell is never an unread number cell.
+  it("lists nothing after a complete reply on a long workbook of serial dates", () => {
+    const xlsx: SheetGrid = {
+      name: "S",
+      rows: [["Name", "Datum", "Stunden"], ["Ann", "46023", "8"], ["Ann", "46054", "4"], ["Ann", "46082", "2"]],
+      truncated: false,
+      numbers: "dot",
+    };
+    const complete = [row("Ann", "2026-01", 8, "S!C2"), row("Ann", "2026-02", 4, "S!C3"), row("Ann", "2026-03", 2, "S!C4")];
+    expect(unreadOf(xlsx, complete)).toEqual({ cells: [], rows: [] });
+  });
+});
+
+describe("findUnreadCells — a person skipped in a wide sheet (round 3)", () => {
+  it("lists Bob's row when only Ann was read, and not a Summe row", () => {
+    const sheet: SheetGrid = {
+      name: "S",
+      rows: [["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", "20"], ["Bob Kay", "5", "5"], ["Summe", "15", "25"]],
+      truncated: false,
+    };
+    expect(unreadOf(sheet, [row("Ann", "Jan 2026", 10, "S!B2"), row("Ann", "Feb 2026", 20, "S!C2")])).toEqual({
+      cells: [],
+      rows: [{ row: 3, person: "Bob Kay" }],
+    });
   });
 });
