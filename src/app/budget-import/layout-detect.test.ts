@@ -956,3 +956,38 @@ describe("questionsFor — the questions of a given mapping", () => {
     expect(questionsFor(rows, detected.mapping!)).toEqual(detected.ambiguous);
   });
 });
+
+// Final review 2 (I1, M1): a mapping that leaves out a column detection would
+// read is asked about, not read silently.
+describe("questionsFor — columns the mapping leaves out", () => {
+  const JAHR = [["Titel"], ["Name", "Jahr", "Monat", "Stunden"], ["Ann Lee", "2027", "Jan", "10"], ["Ann Lee", "2026", "Jan", "5"], ["Bob Ray", "2027", "Feb", "3"]];
+
+  it("asks for the period, the year column among the candidates, when a long mapping leaves out the year column of year-less months", () => {
+    const asked = questionsFor(JAHR, { layout: "long", headerRow: 1, person: 0, period: 2, hours: 3, year: 2026 });
+    expect(asked).toEqual([{ field: "period", candidates: [1, 2] }]);
+  });
+
+  it("asks nothing of the same mapping with the year column mapped, nor where the months name their year", () => {
+    expect(questionsFor(JAHR, { layout: "long", headerRow: 1, person: 0, period: 2, hours: 3, yearCol: 1, year: 2026 })).toEqual([]);
+    const named = JAHR.map((row, i) => (i > 1 ? [row[0], row[1], `${row[2]} 2026`, row[3]] : row));
+    expect(questionsFor(named, { layout: "long", headerRow: 1, person: 0, period: 2, hours: 3, year: 2026 })).toEqual([]);
+  });
+
+  const PLAN_IST = [["Name", "Jan 2026", "Feb 2026", "Jan 2026", "Feb 2026"], ["", "Plan", "Plan", "Ist", "Ist"],
+    ["Ann Lee", "10", "20", "9", "18"], ["Bob Ray", "5", "5", "4", "4"]];
+
+  it("asks for the period of a wide mapping that leaves out period-headed columns holding numbers: the Plan/Ist sub-header", () => {
+    expect(questionsFor(PLAN_IST, { layout: "wide", headerRow: 0, person: 0, periodCols: [3, 4] })).toEqual([
+      { field: "period", candidates: [1, 2, 3, 4] },
+    ]);
+    expect(questionsFor(PLAN_IST, { layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2] })).toEqual([
+      { field: "period", candidates: [1, 2, 3, 4] },
+    ]);
+  });
+
+  it("asks nothing when every period-headed number column is read, or a left-out one holds no number", () => {
+    const rows = [["Name", "Jan 2026", "Feb 2026", "Mär 2026"], ["Ann Lee", "10", "20", ""], ["Bob Ray", "5", "5", ""]];
+    expect(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2, 3] })).toEqual([]);
+    expect(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2] })).toEqual([]);
+  });
+});

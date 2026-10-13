@@ -8,7 +8,7 @@
 // first; a two-period wide sheet is only believed when no long reading fits,
 // because a long sheet's start/end date columns look the same.
 
-import { cellAt, detectDecimalStyle, ID_HEADER, isBlank, isTotalLabel, parseNumberCell, parsePeriodLabel, repeatedHeaderRows } from "./forecast-rows";
+import { cellAt, detectDecimalStyle, ID_HEADER, isBlank, isNumberCell, isTotalLabel, parseNumberCell, parsePeriodLabel, repeatedHeaderRows } from "./forecast-rows";
 import type { ColumnAmbiguity, ColumnMapping } from "./forecast-types";
 import { assignRunPeriods, classifyPeriodCell, isPeriodShapedIn, isYearColumn, isYearHeader, parseYearCell, usableYear } from "./period-assign";
 import { HOURS_HEADER_RE, isPeriodWordHeader, PERSON_HEADER_RE } from "./header-words";
@@ -222,8 +222,26 @@ function rowYearColumns(rows: Rows, mapping: ColumnMapping): number[] {
     .filter((col) => !skip.has(col) && isYearColumn(cellAt(header, col), columnCells(data, col)));
 }
 
+/**
+ * ★★ The columns a wide mapping LEAVES OUT although their header reads as a
+ * period in the header row's run and their data rows hold a number (final
+ * review 2, M1): a Claude mapping that picks one block of a `Plan | Ist` sheet
+ * (the same month headers twice, a sub-header row below) would otherwise read
+ * that block silently. Detection's own mapping takes every such column, so it
+ * never asks this; the person, email and rate columns and totals are no
+ * candidates.
+ */
+function leftOutPeriodColumns(rows: Rows, mapping: ColumnMapping, ctx: Ctx): number[] {
+  const header = rows[mapping.headerRow] ?? [];
+  const data = dataRowsBelow(rows, mapping.headerRow);
+  const run = assignRunPeriods(header, { defaultYear: ctx.year, numbers: ctx.numbers });
+  const skip = new Set([...(mapping.periodCols ?? []), mapping.person, mapping.email, mapping.rate]);
+  return header.flatMap((label, col) => (!skip.has(col) && run[col] !== null && !isTotalLabel(label)
+    && columnCells(data, col).some((c) => isNumberCell(c, ctx.numbers)) ? [col] : []));
+}
+
 function wideAmbiguity(rows: Rows, mapping: ColumnMapping, ctx: Ctx): ColumnAmbiguity[] {
-  const own = [...new Set([...rowPeriodColumns(rows, mapping, ctx), ...rowYearColumns(rows, mapping)])];
+  const own = [...new Set([...rowPeriodColumns(rows, mapping, ctx), ...rowYearColumns(rows, mapping), ...leftOutPeriodColumns(rows, mapping, ctx)])];
   if (own.length === 0) return [];
   return [{ field: "period", candidates: [...own, ...(mapping.periodCols ?? [])].sort((a, b) => a - b) }];
 }
@@ -642,7 +660,26 @@ function longQuestions(rows: Rows, mapping: ColumnMapping, ctx: Ctx): ColumnAmbi
     mapping.hours,
   );
   const share = scanned.find((s) => s.col === mapping.period)?.share ?? 0;
-  return ambiguityOf(header, periodCols, hoursCols, { col: mapping.period ?? -1, strong: share >= COLUMN_SHARE });
+  const asked = ambiguityOf(header, periodCols, hoursCols, { col: mapping.period ?? -1, strong: share >= COLUMN_SHARE });
+  return withLeftOutYear(asked, data, mapping, yearFound);
+}
+
+/**
+ * ★★ `asked` with the PERIOD question when a long mapping leaves out the
+ * sheet's year column (`yearFound`) while its period cells name no year
+ * (final review 2, I1): `Name | Jahr | Monat | Stunden` mapped without `Jahr`
+ * read every `Jan` in the default year, summing Ann's 2027 into 2026, and
+ * nothing asked. The year column joins the candidates. Detection maps such a
+ * column itself, so its own mapping never asks this — the long twin of the
+ * wide reading's row year column (`rowYearColumns`, fix 9 OOS-b).
+ */
+function withLeftOutYear(asked: ColumnAmbiguity[], data: Rows, mapping: ColumnMapping, yearFound: number | undefined): ColumnAmbiguity[] {
+  if (yearFound === undefined || mapping.yearCol !== undefined || mapping.period === undefined) return asked;
+  const isYearLess = columnCells(data, mapping.period).some((c) => classifyPeriodCell(c)?.year === undefined && classifyPeriodCell(c) !== null);
+  if (!isYearLess) return asked;
+  const before = asked.find((a) => a.field === "period")?.candidates ?? [];
+  const candidates = [...new Set([...before, mapping.period, yearFound])].sort((a, b) => a - b);
+  return [{ field: "period", candidates }, ...asked.filter((a) => a.field !== "period")];
 }
 
 /**
