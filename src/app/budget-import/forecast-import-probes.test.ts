@@ -365,17 +365,72 @@ describe("probe: a serial date column is not an ignored number column (round 4)"
   });
 });
 
-// Round 4 (rr3 observation): two year-less months beside a date column were
-// read long, the hours in the date's month and Feb listed as ignored.
-describe("probe: two year-less months beside a date column (round 4)", () => {
-  it("Name | Start | Jan | Feb is wide, every cell in its month", () => {
-    const rows = [["Name", "Start", "Jan", "Feb"], ["Ann Lee", "01.02.2026", "8", "4"], ["Bob Kay", "15.03.2026", "1", "2"]];
-    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("wide");
-    const run = readSheet(rows);
-    expect(run.out.rows.map((r) => [r.person, r.period, r.hours])).toEqual([
-      ["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-01", 1], ["Bob Kay", "2026-02", 2],
+// Round 5 (rr4 Important 1): moving both two-period wide passes ahead of the
+// long passes turned long WORKBOOKS with two date columns wide — a data row of
+// two serials read as a two-period header, the serials below as hours. The
+// round-3 order is back; the year-less `Name | Start | Jan | Feb` it misreads
+// is register residue.
+describe("probe: long workbooks with two date columns stay long (round 5)", () => {
+  const rowsOf = (run: Run) => run.out.rows.map((r) => [r.person, r.period, r.hours]);
+  const readLong = (rows: string[][]) => {
+    expect(detectLayout(rows, { numbers: "dot", defaultYear: 2026 }).kind).toBe("long");
+    const run = readSheet(rows, "dot");
+    expect(run.validated.rejected).toEqual([]);
+    return run;
+  };
+
+  it("Name | Von | Bis | Stunden with a serial date range per row", () => {
+    const run = readLong([
+      ["Name", "Von", "Bis", "Stunden"],
+      ["Ann Lee", "46023", "46053", "40"], ["Ann Lee", "46054", "46081", "30"], ["Bob Kay", "46023", "46053", "20"],
     ]);
-    expect(run.out.ignoredColumns).toEqual([]);
+    expect(rowsOf(run)).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30], ["Bob Kay", "2026-01", 20]]);
+  });
+
+  it("Name | Eintritt | Monat | Stunden with the months stored as dates", () => {
+    const run = readLong([
+      ["Name", "Eintritt", "Monat", "Stunden"],
+      ["Ann Lee", "45000", "46023", "8"], ["Ann Lee", "45000", "46054", "4"],
+      ["Bob Kay", "45500", "46023", "2"], ["Bob Kay", "45500", "46054", "6"],
+    ]);
+    expect(rowsOf(run)).toEqual([["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-01", 2], ["Bob Kay", "2026-02", 6]]);
+  });
+
+  it("Name | Monat | Stunden | Erfasst with both date columns stored as dates", () => {
+    const run = readLong([
+      ["Name", "Monat", "Stunden", "Erfasst"],
+      ["Ann Lee", "46023", "8", "46030"], ["Ann Lee", "46054", "4", "46060"], ["Bob Kay", "46023", "2", "46031"],
+    ]);
+    expect(rowsOf(run)).toEqual([["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-01", 2]]);
+  });
+
+  it("weekly Name | Woche | Stunden | Start with Monday dates and a start date", () => {
+    const run = readLong([
+      ["Name", "Woche", "Stunden", "Start"],
+      ["Ann Lee", "46027", "40", "46000"], ["Ann Lee", "46034", "32", "46000"], ["Bob Kay", "46027", "20", "46010"],
+    ]);
+    expect(rowsOf(run)).toEqual([["Ann Lee", "2026-W02", 40], ["Ann Lee", "2026-W03", 32], ["Bob Kay", "2026-W02", 20]]);
+  });
+
+  it("a date-range title row over a long sheet offers no December hours", () => {
+    const run = readLong([
+      ["Zeitraum", "46023", "46387"],
+      ["Name", "Monat", "Stunden"],
+      ["Ann Lee", "46023", "8"], ["Ann Lee", "46054", "6"], ["Ann Lee", "46082", "4"], ["Bob Kay", "46023", "2"], ["Bob Kay", "46054", "3"],
+    ]);
+    expect(rowsOf(run)).toEqual([
+      ["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 6], ["Ann Lee", "2026-03", 4], ["Bob Kay", "2026-01", 2], ["Bob Kay", "2026-02", 3],
+    ]);
+  });
+
+  it("Name | Start | Jan | Feb reads long, as at round 3 (register residue)", () => {
+    const rows = [["Name", "Start", "Jan", "Feb"], ["Ann Lee", "01.02.2026", "8", "4"], ["Bob Kay", "15.03.2026", "1", "2"]];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.kind).toBe("long");
+    expect(detected.mapping).toMatchObject({ period: 1, hours: 2 });
+    const run = readSheet(rows);
+    expect(rowsOf(run)).toEqual([["Ann Lee", "2026-02", 8], ["Bob Kay", "2026-03", 1]]);
+    expect(run.out.ignoredColumns).toEqual([{ col: 3, header: "Feb" }]);
   });
 
   it("a long sheet with Start | Ende date pairs on every row stays long", () => {
@@ -388,8 +443,6 @@ describe("probe: two year-less months beside a date column (round 4)", () => {
     const detected = detectLayout(rows, { defaultYear: 2026 });
     expect(detected.kind).toBe("long");
     expect(detected.mapping).toMatchObject({ period: 3, hours: 4 });
-    expect(readSheet(rows).out.rows.map((r) => [r.person, r.period, r.hours])).toEqual([
-      ["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-03", 2],
-    ]);
+    expect(rowsOf(readSheet(rows))).toEqual([["Ann Lee", "2026-01", 8], ["Ann Lee", "2026-02", 4], ["Bob Kay", "2026-03", 2]]);
   });
 });
