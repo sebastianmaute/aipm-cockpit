@@ -209,11 +209,30 @@ function rowPeriodColumns(rows: Rows, mapping: ColumnMapping, ctx: Ctx): number[
  * 20.01.`) over a long sheet's `Name | Monat | Stunden | Ist` reads as a clear
  * wide header once enough person rows sit under it, and the Claude route then
  * accepted the `Ist` cells in the metadata row's month (Bob's February as
- * January). `Name | Start | Jan 2026 | Feb 2026` asks too. The candidates are
- * that column and the header's period columns.
+ * January). `Name | Start | Jan 2026 | Feb 2026` asks too, and so does a row
+ * year column beside year-less headers (`rowYearColumns`). The candidates are
+ * those columns and the header's period columns.
  */
+/**
+ * The year columns of a wide reading's data rows (`isYearColumn`: `Jahr`,
+ * `FY`, or four-digit years), outside the period and person columns, when
+ * any of its period headers names no year (`Jan`, `KW03`) — fix 9 OOS-b:
+ * `Name | Jahr | Jan | Feb` with Ann's row in 2027 once read 2026-01 = 10 on
+ * both routes, the row's year ignored.
+ */
+function rowYearColumns(rows: Rows, mapping: ColumnMapping): number[] {
+  const header = rows[mapping.headerRow] ?? [];
+  const periodCols = mapping.periodCols ?? [];
+  if (!periodCols.some((col) => classifyPeriodCell(cellAt(header, col))?.year === undefined)) return [];
+  const data = dataRowsBelow(rows, mapping.headerRow);
+  const skip = new Set([...periodCols, mapping.person]);
+  const width = Math.max(header.length, rowWidth(data));
+  return Array.from({ length: width }, (_, col) => col)
+    .filter((col) => !skip.has(col) && isYearColumn(cellAt(header, col), columnCells(data, col)));
+}
+
 function wideAmbiguity(rows: Rows, mapping: ColumnMapping, ctx: Ctx): ColumnAmbiguity[] {
-  const own = rowPeriodColumns(rows, mapping, ctx);
+  const own = [...new Set([...rowPeriodColumns(rows, mapping, ctx), ...rowYearColumns(rows, mapping)])];
   if (own.length === 0) return [];
   return [{ field: "period", candidates: [...own, ...(mapping.periodCols ?? [])].sort((a, b) => a - b) }];
 }

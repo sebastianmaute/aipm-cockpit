@@ -485,3 +485,15 @@ describe("the claimed person must sit in the person column (fix 9 OOS-a)", () =>
     expect(out.rejected).toEqual([notOnRow(dan)]);
   });
 });
+
+// Fix 9 OOS-b: the same sheet on the Claude route waits for the columns.
+describe("a year column beside year-less wide headers waits for the columns (fix 9 OOS-b)", () => {
+  it("Name | Jahr | Jan | Feb never reads 2026-01 = 10 without a confirmation", () => {
+    const rows = [["Name", "Jahr", "Jan", "Feb"], ["Ann", "2027", "10", "20"]];
+    for (const period of ["Jan 2026", "Jan", "Jan 2027"]) {
+      const out = validateForecastRows([claim(period, 10, "S!C2")], strictOn(rows));
+      expect(out.ok).toEqual([]);
+      expect(detail(out)).toEqual(["columns-unconfirmed"]);
+    }
+  });
+});

@@ -688,3 +688,23 @@ describe("detectLayout — any period cell outside the wide period columns asks 
     expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3] }]);
   });
 });
+
+// Fix 9 OOS-b (rr9): a per-row year column beside year-less month headers was
+// ignored, and Ann's 2027 row read as 2026-01 = 10 on both routes.
+describe("detectLayout — a year column beside year-less wide headers asks (fix 9 OOS-b)", () => {
+  it("Name | Jahr | Jan | Feb asks for the period, the year column among the candidates", () => {
+    const detected = detectLayout([["Name", "Jahr", "Jan", "Feb"], ["Ann", "2027", "10", "20"]], { defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", mapping: { periodCols: [2, 3] } });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3] }]);
+  });
+
+  it("a column of four-digit years under another header asks too", () => {
+    const detected = detectLayout([["Name", "GJ-Plan", "Jan", "Feb", "Mär"], ["Ann", "2027", "10", "20", "30"], ["Bob", "2027", "1", "2", "3"]], { defaultYear: 2026 });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
+  });
+
+  it("labelled month headers do not ask for a year column", () => {
+    const detected = detectLayout([["Name", "Jahr", "Jan 2027", "Feb 2027"], ["Ann", "2027", "10", "20"]], { defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", ambiguous: [] });
+  });
+});
