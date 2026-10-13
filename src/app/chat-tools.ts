@@ -453,7 +453,8 @@ export type ToolDispatcher = {
    *  The request switches to the chat tab, so without it the snapshot names
    *  "chat" — or the page, depending on whether the view ref's effect has run
    *  yet. With it, `currentView` is that page and `viewDigest` is its last
-   *  digest (absent if the dispatcher holds none for it). */
+   *  digest (absent if the dispatcher holds none for it), as it was when the
+   *  user left the page: it does not change during the send, a write included. */
   getSnapshot(opts?: { originView?: AppView }): {
     today: string;
     language: Lang;

@@ -956,6 +956,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           // effects flush); a mid-turn `get_app_state` right after a create can
           // return a digest predating that write. Not worth a synchronous mirror: the
           // digest describes the SCREEN, which has not repainted either.
+          // ★ With an origin (§703) the digest is `lastPageRef`'s, written while the
+          //   user was last on that page, and the chat tab shows for the whole send,
+          //   so it does not move during the send at all, a write included. The turn
+          //   context carries the same value; a `get_app_state` call repeats it.
           viewDigest: digest,
           timezone: clockRef.current.tz,
           // ★ The toggle gate lives INSIDE summarizeForRecap (which also owns
