@@ -1675,8 +1675,8 @@
   bullet used to pose as unresolved — cheap for a user who never switches views mid-conversation vs.
   fresh-every-send for everyone — is G2's to weigh, not a guess to make here. Building G2 in the app is
   tracked as `docs/open-followups.md` §702 (split from §483 on 2026-10-12, after the harness measured
-  G2 and it passed). The cost side is measured, not settled: `ai-view-switch.ts` counts warm view
-  switches per chat send (the rule and why each condition is there sit in its header), `AiUsageProvider`
+  G2 and it passed). The cost side is being measured, not settled: `ai-view-switch.ts` classifies each chat send as a
+  warm view switch or not (the rule and why each condition is there sit in its header), `AiUsageProvider`
   stores them under their own key so the caps never read them, and the AI usage panel shows the week
   beside the modelled break-even, stated per API request rather than per send (`G2_BREAK_EVEN_REQUESTS_PER_SWITCH`
   says why). G2 waits on that data (§702).

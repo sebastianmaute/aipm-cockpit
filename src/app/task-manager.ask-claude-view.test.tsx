@@ -7,11 +7,13 @@
 //
 // ★★ MEASURED, 2026-10-13: an Ask-Claude press with the chat panel already
 //    mounted reports the page it was pressed on, so the counter sees a view
-//    switch between it and a typed follow-up. The FIRST press of a session
-//    reported "chat" instead — the mechanism is not established, and the model
-//    is then not told which page the user asked about (§703). That first press
-//    is deliberately NOT asserted here: pinning it would lock in the defect;
-//    the fix adds the assertion.
+//    switch between it and a typed follow-up. The press that MOUNTS the chat
+//    panel (the session's first) reports "chat" instead — the mechanism is not
+//    established, and the model is then not told which page the user asked
+//    about. That is the defect §703, and the test PINS it on purpose: fixing
+//    §703 turns the pin red, and the fix flips it to "dashboard". (Not
+//    `it.fails`, which passes on ANY failure, a timeout included, so it would
+//    go on passing when the press stopped sending at all.)
 //
 // ★ Full mount on purpose: the answer depends on React's effect ORDER between
 //   ChatPanel's seed effect (a child, which submits synchronously) and
@@ -35,6 +37,25 @@ function seedRegistry() {
   );
 }
 
+// The guide library loads asynchronously, and a press made before it is ready
+// only PREFILLS the box: ChatPanel's send gate blocks while guides are pending.
+// Count the store's loads so the test can wait until every one has settled.
+const guideLoads = vi.hoisted(() => ({ started: 0, settled: 0 }));
+vi.mock("./operating-guide-store", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./operating-guide-store")>();
+  return {
+    ...actual,
+    loadGuides: async (...args: Parameters<typeof actual.loadGuides>) => {
+      guideLoads.started += 1;
+      try {
+        return await actual.loadGuides(...args);
+      } finally {
+        guideLoads.settled += 1;
+      }
+    },
+  };
+});
+
 type WireBody = { system: { text: string }[]; messages: unknown[] };
 
 /** The `Current view:` line the request's turn context carried. */
@@ -45,6 +66,8 @@ function reportedView(body: WireBody): string | undefined {
 describe("§702 — the view an Ask-Claude send reports", () => {
   beforeEach(() => {
     __resetMintStateForTests();
+    guideLoads.started = 0;
+    guideLoads.settled = 0;
     window.localStorage.clear();
     window.history.replaceState(null, "", "/");
   });
@@ -53,7 +76,7 @@ describe("§702 — the view an Ask-Claude send reports", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("reports the page for an Ask-Claude press once the chat is mounted, and the chat tab for a typed message", async () => {
+  it("reports the page for an Ask-Claude press once the chat is mounted, the chat tab for a typed message, and (§703) the chat tab for the press that mounts it", async () => {
     seedRegistry();
     window.localStorage.setItem(
       SETTINGS_KEY,
@@ -98,8 +121,21 @@ describe("§702 — the view an Ask-Claude send reports", () => {
       await waitFor(() => expect(bodies).toHaveLength(n), { timeout: 15_000 });
     };
     expect(ask).toBeInTheDocument();
-    // The session's first press mounts the chat; its view is not asserted.
+    await waitFor(
+      () => {
+        expect(guideLoads.settled).toBeGreaterThan(0);
+        expect(guideLoads.settled).toBe(guideLoads.started);
+      },
+      { timeout: 15_000 },
+    );
+    // Before the first press the chat panel is not mounted (in either composer
+    // state); the box found after the press is the positive half of that check.
+    expect(screen.queryByPlaceholderText("Ask Claude about your tasks…")).toBeNull();
+    expect(screen.queryByPlaceholderText("Loading operating guides…")).toBeNull();
     await askFromHere(1);
+    // §703, PINNED: the press that mounts the panel reports the chat tab, not
+    // the dashboard it was pressed on. Fixing §703 turns this red; flip it.
+    expect(reportedView(bodies[0])).toBe("chat");
 
     // The chat tab is showing now; a typed follow-up reports it.
     const box = await screen.findByPlaceholderText("Ask Claude about your tasks…");

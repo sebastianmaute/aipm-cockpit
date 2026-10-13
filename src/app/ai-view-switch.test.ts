@@ -64,7 +64,9 @@ describe("classifySend", () => {
     // Clear chat keeps the thread id. A first send after it that got no
     // answer is never recorded, but its message stays in the history, so the
     // retry has priorTurns 1 — and must not be compared with the cleared
-    // conversation's last send, whose prefix is no longer cached.
+    // conversation's last send, whose prefix is no longer cached. ★ The guard
+    // compares LENGTHS, so it holds only when the cleared conversation was the
+    // longer one; the header's known slip (a one-message conversation) passes.
     expect(classifySend(prev({ priorTurns: 6 }), next({ viewText: "VIEW-B", priorTurns: 1 }))).toBe("cold");
     expect(classifySend(prev({ priorTurns: 6 }), next({ priorTurns: 6 }))).toBe("cold");
     expect(classifySend(prev({ priorTurns: 6 }), next({ priorTurns: 7 }))).toBe("warm");

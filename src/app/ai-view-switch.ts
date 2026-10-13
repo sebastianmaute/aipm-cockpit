@@ -19,8 +19,13 @@
 //    - the cache is still warm (after the TTL the write happens anyway);
 //    - the send continues the SAME conversation: it has turns before it, and
 //      more of them than the previous send had (a first message has no
-//      transcript to rewrite, and file mode's "New chat" and Clear chat both
-//      keep the thread id while emptying the history).
+//      transcript to rewrite, and Clear chat keeps the thread id while
+//      emptying the history; Turso's "New chat" mints a new id, so the thread
+//      check above already separates it). ★ That is a LENGTH test, not an
+//      identity one: a conversation cleared while shorter than the new one
+//      gets past it (one message, Clear chat, a send left unanswered, then a
+//      retry within the TTL). Such a slip compares two short transcripts, so
+//      its cost is small; an epoch bumped by Clear chat would close it.
 //    A send failing any of those would cost the same under G2, so counting it
 //    would overstate the saving. Such a send is "cold".
 // ★★ THREE KINDS, NOT TWO. A warm send whose view block did NOT change is the
