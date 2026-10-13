@@ -2616,6 +2616,8 @@ const enUS = {
   forecastImportTotalDelta: "Total change: {0} h",
   forecastImportApply: "Apply",
   forecastImportRefused: "The bucket changed while the preview was open (closed, removed, or “Budget hours follow plan” switched on). Nothing was written.",
+  forecastImportRefusedSameRow: "Two cells of one sheet row fall in the same period for the same person. Nothing was written.",
+  forecastImportRefusedNothing: "No budget cell would change any more: the bucket already holds these hours. Nothing was written.",
   forecastImportBucketGone: "This bucket no longer exists. Close this dialog and choose another bucket.",
   aiGuideScopeAny: "Always on",
   aiViewsTitle: "Views",

@@ -2465,6 +2465,8 @@ export const de: Record<TranslationKey, string> = {
   forecastImportTotalDelta: "Änderung gesamt: {0} h",
   forecastImportApply: "Übernehmen",
   forecastImportRefused: "Der Budget-Topf hat sich geändert, während die Vorschau offen war (geschlossen, entfernt oder „Budgetstunden folgen Planung“ eingeschaltet). Nichts wurde geschrieben.",
+  forecastImportRefusedSameRow: "Zwei Zellen einer Zeile des Blatts fallen für dieselbe Person in dieselbe Periode. Nichts wurde geschrieben.",
+  forecastImportRefusedNothing: "Keine Budgetzelle würde sich mehr ändern: Der Budget-Topf enthält diese Stunden schon. Nichts wurde geschrieben.",
   forecastImportBucketGone: "Diesen Budget-Topf gibt es nicht mehr. Schließen Sie diesen Dialog und wählen Sie einen anderen Topf.",
   aiGuideScopeAny: "Immer aktiv",
   aiViewsTitle: "Ansichten",

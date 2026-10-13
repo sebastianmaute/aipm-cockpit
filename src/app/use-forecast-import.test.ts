@@ -424,6 +424,27 @@ describe("useForecastImport — apply", () => {
     });
     expect(outcome).toBe("refused");
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+    // Final review M3: the refusal names its cause, not "the bucket changed".
+    expect(result.current.error).toEqual({ key: "forecastImportRefusedNothing" });
+  });
+
+  it("names nothing-to-apply when someone else applied the same hours while the preview was open", async () => {
+    const deps = depsOf();
+    const hook = await loaded(deps);
+    expect(hook.result.current.importPlan?.blockers).toEqual([]);
+    const applied: BudgetBucket = {
+      ...BUCKET,
+      allocations: [{ roleId: ROLE.id, resourceIds: [ANN.id], budgetHours: { "2026-01": 10, "2026-02": 20, "2026-03": 30 }, actualHours: {} }],
+    };
+    hook.rerender({ ...deps, buckets: [applied, OTHER] });
+    let outcome: string | undefined;
+    act(() => {
+      outcome = hook.result.current.apply();
+    });
+    expect(outcome).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+    expect(hook.result.current.error).toEqual({ key: "forecastImportRefusedNothing" });
+    expect(hook.result.current.error).not.toEqual({ key: "forecastImportRefused" });
   });
 
   it("refuses while two cells of one sheet row land on the same person and period", async () => {
@@ -439,6 +460,22 @@ describe("useForecastImport — apply", () => {
     });
     expect(outcome).toBe("refused");
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+    expect(result.current.error).toEqual({ key: "forecastImportRefusedSameRow" });
+  });
+
+  it("keeps the bucket-changed message when the bucket also closed: closed outranks nothing-to-apply", async () => {
+    const deps = depsOf();
+    const hook = await loaded(deps);
+    const closedApplied: BudgetBucket = {
+      ...BUCKET,
+      status: "closed",
+      allocations: [{ roleId: ROLE.id, resourceIds: [ANN.id], budgetHours: { "2026-01": 10, "2026-02": 20, "2026-03": 30 }, actualHours: {} }],
+    };
+    hook.rerender({ ...deps, buckets: [closedApplied, OTHER] });
+    act(() => {
+      hook.result.current.apply();
+    });
+    expect(hook.result.current.error).toEqual({ key: "forecastImportRefused" });
   });
 });
 

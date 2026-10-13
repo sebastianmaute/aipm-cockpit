@@ -404,8 +404,8 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
 
   const apply = useCallback((): "applied" | "refused" => {
     const live = buckets.find((b) => b.id === bucketId);
-    const refuse = (): "refused" => {
-      setError({ key: "forecastImportRefused" });
+    const refuse = (key: TranslationKey = "forecastImportRefused"): "refused" => {
+      setError({ key });
       return "refused";
     };
     // Outside the preview the user has reviewed nothing. No message: Apply is
@@ -415,6 +415,11 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     const fresh = buildForecastImportPlan(validated.ok, {
       bucket: live, resources, roles, plan, holidaySet, overrides, collisions: validated.collisions,
     });
+    // The refusal names its cause: a collision, or nothing left to change (the
+    // same hours applied elsewhere first) is not "the bucket changed" (final
+    // review M3). Closed / follows-plan are caught above with that message.
+    if (fresh.blockers.includes("same-row-period")) return refuse("forecastImportRefusedSameRow");
+    if (fresh.blockers.includes("nothing-to-apply")) return refuse("forecastImportRefusedNothing");
     if (fresh.blockers.length > 0) return refuse();
     const next = { ...applyForecastImport(live, fresh), localModifiedAt: new Date().toISOString() };
     onChangeBuckets(buckets.map((b) => (b.id === bucketId ? next : b)), { kind: "budget.updated", name: live.name });
