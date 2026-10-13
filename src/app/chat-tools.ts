@@ -454,9 +454,10 @@ export type ToolDispatcher = {
    *  "chat" — or the page, depending on whether the view ref's effect has run
    *  yet. With it, `currentView` is that page and `viewDigest` is its last
    *  digest (absent if the dispatcher holds none for it), as it was when the
-   *  user left the page. It stays that while the chat tab shows, a write
-   *  included; if the user leaves the chat tab mid-send it becomes that page's
-   *  current digest on the page, and absent anywhere else. */
+   *  user left the page. It stays that until the user leaves the chat tab, a
+   *  write included; if they leave it mid-send it follows the last page they
+   *  visited outside the chat: that page's digest from their latest visit if it
+   *  is the origin, absent otherwise, back on the chat tab included. */
   getSnapshot(opts?: { originView?: AppView }): {
     today: string;
     language: Lang;

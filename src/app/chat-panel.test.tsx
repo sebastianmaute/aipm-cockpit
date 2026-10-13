@@ -844,9 +844,10 @@ describe("SP1 seed + foundational chips", () => {
       expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: undefined });
     });
 
-    // ★ Not reachable by a user: the box is disabled in every early return that
-    //   can see a pending prefill (an empty box cannot hold one). The keydown is fired on the disabled box only to pin
-    //   that a send which returns early leaves the page for the real one.
+    // ★ The keydown on a disabled box is not a user path, but the same early return is: an
+    //   auto-send chip stays enabled while guides load or a send is in flight, and its click
+    //   returns early with the prefill still pending. This pins that such a send leaves the
+    //   page for the real one.
     it("keeps the page through a send that returned early", async () => {
       const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();

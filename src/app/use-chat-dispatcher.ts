@@ -957,11 +957,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           // return a digest predating that write. Not worth a synchronous mirror: the
           // digest describes the SCREEN, which has not repainted either.
           // ★ With an origin (§703) the digest is `lastPageRef`'s, written while the
-          //   user was last on that page. While the chat tab shows it does not move,
-          //   a write included, so a `get_app_state` call repeats the turn context's
-          //   value. The send keeps running if the user leaves the chat tab, and then
-          //   it does move: back on the origin page the call gets that page's current
-          //   digest, on any other page none. Never another page's digest.
+          //   user was last on that page. Until the user leaves the chat tab it does
+          //   not move, a write included, so a `get_app_state` call repeats the turn
+          //   context's value. The send keeps running if they leave it, and from then
+          //   on the call follows the last page they visited outside the chat: the
+          //   page's digest from their latest visit if it is the origin page, none
+          //   otherwise, back on the chat tab included. Never another page's digest.
           viewDigest: digest,
           timezone: clockRef.current.tz,
           // ★ The toggle gate lives INSIDE summarizeForRecap (which also owns
