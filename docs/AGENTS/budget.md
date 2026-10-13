@@ -293,13 +293,16 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   dates summed a `Datum` sheet into its `Eintritt` month (rr6 N3), and a header-row stop on the Claude route
   (below) misfired on two-row headers. Both were removed. `detectLayout` reports `ambiguous`
   (`ColumnAmbiguity`, from `ambiguityOf`): the HOURS when two or more candidates remain and not exactly one
-  is headed by an hours word (`Plan | Ist`, `h | Betrag`, `Menge | Summe` ask; `Plan | Stunden` does not),
+  is a NAMED hours column (`isNamedHoursHeader`: an hours word and no actuals word — `ist`, `actual(s)`,
+  `gebucht`, `booked`, also inside `Ist-Stunden`; `Plan | Ist`, `h | Betrag`, `Menge | Summe`,
+  `Forecast | Ist-Stunden` ask; `Plan | Stunden` and `Stunden | Ist` do not; the pick skips actuals too),
   the PERIOD when two or more columns qualify and not exactly one is headed by a period word (`Datum |
   Eintritt`, `Datum | Startmonat` ask; `Start date | Month` does not). The mapping it returns is still the
   default above, but `useForecastImport` then opens on the mapping step with a notice per field naming the
   candidates, and refuses Apply — the button disabled, the reason its accessible description — until each
-  field is confirmed: its column chosen (an edit of another field does not count), or "These columns are
-  right". Re-detecting asks again; the Claude route is not gated; a wide sheet never asks. Detection
+  field is confirmed: its column chosen within the long layout (an edit of another field does not count,
+  and ★★ nor does the layout control — Wide then Long rebuilt the questioned preselection from the
+  defaults and once cleared the gate on the way, rr7 I2), or "These columns are right". Re-detecting asks again; the Claude route is not gated; a wide sheet never asks. Detection
   scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, blank rows skipped
   and not counted, so a large sheet does not freeze the dialog (M1); `gridToForecastRows` then reads every
   row. The CLAUDE route
@@ -361,13 +364,22 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   the same-row blocker. A title row's lone date gives its column no period and is passed over too, so it
   vouches for nothing; so does a run of exactly two dates more than 92 days apart
   (`MAX_TWO_DATE_PERIOD_GAP_DAYS`: `Zeitraum | 01.01.2026 | 31.12.2026` is a range, which round 4 took as a
-  long sheet's period header, vouching for December), while two closer dates and three or more stay periods. ★★ **CONFLICTING EVIDENCE IS REFUSED, NOT RESOLVED (fix 7).** When the header above the cited cell
+  long sheet's period header, vouching for December), while two closer dates and three or more stay periods. ★★★ **WHERE THE HAND ROUTE READS THE CELL, ITS READING IS THE PERIOD (rr7 I1, one source of
+  truth).** `handReadingOf` (`hand-reading.ts`) runs the hand route's own `detectLayout` and
+  `gridToForecastRows` on the cited sheet, with the same default year, once per grid and year; when that
+  detection is clear (not unknown, nothing `ambiguous`) and reads the cited cell into a row — or, on a long
+  sheet, reads the cited cell's ROW, every cell of which is in that row's period — the claim must name that
+  period (`checkSource`), else it is `period-conflict` naming it ("the detected columns read this cell as
+  …"). Two cited cells of such a long row collide (`rowShape`). A key/value title row (`Erstellt von | Max
+  | 01.03.2026`, `Projekt Alpha | Forecast | 01.01.2026 | 31.03.2026`) once let a wrong month through the
+  exemption below and summed Stunden + Ist to 75. Everything after this applies only to the cells the hand
+  route does not read. ★★ **CONFLICTING EVIDENCE IS REFUSED, NOT RESOLVED (fix 7).** When the header above the cited cell
   AND a period cell on the cited row both exist and name DIFFERENT periods, the claim is rejected
-  `period-conflict`, whatever it claims, and the preview names both periods ("The row says … but the column
-  header says …"): a quarter `Zeitraum | 01.01.2026 | 31.03.2026` (89 days, under the range limit), a
+  `period-conflict`, whatever it claims, and the preview names both periods by label ("the row says Jan
+  2026 but the column header says Mar 2026"): a quarter `Zeitraum | 01.01.2026 | 31.03.2026` (89 days, under the range limit), a
   `von | … | bis | …` pair or three `Erstellt / Stand / Druck` dates once headed a long sheet's hours
-  column, rejecting the right months and vouching for a wrong one (final review I1). Now such a sheet's
-  claims are refused, visibly, and Detect columns reads it by its rows. A row date in the header's own
+  column, rejecting the right months and vouching for a wrong one (final review I1). Where the hand route
+  cannot read such a sheet (it asks, or finds nothing), its claims are refused, visibly. A row date in the header's own
   period is consistent (sprint dates). A row cell is evidence only when period-shaped in the sheet's number
   origin, and not when the header row LABELS its column as something else (non-blank, no period, no period
   word) and the row holds only numbers or blanks under the header's periods (`rowEvidence`): the CR probe's
