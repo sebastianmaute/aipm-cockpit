@@ -490,6 +490,19 @@ describe("probe: a start-date column beside the period column (final review I2)"
     expect(run.validated.ok.some((r) => r.hours === 140)).toBe(false);
     expect(run.validated.duplicates).toEqual([]);
   });
+
+  // Both columns hold full dates, so only the HEADER can tell them apart.
+  it.each([
+    ["Start date | Month", ["Name", "Start date", "Month", "Hours"], ["15.01.2026", "01.01.2026", "01.02.2026"], "text"],
+    ["Start | Zeitraum", ["Name", "Start", "Zeitraum", "Stunden"], ["15.01.2026", "01.01.2026", "01.02.2026"], "text"],
+    ["Start date | Month as workbook serials", ["Name", "Start date", "Month", "Hours"], ["46037", "46023", "46054"], "dot"],
+  ] as const)("%s, both of dates, reads the period header's column: Jan 80, Feb 60", (_label, header, [start, jan, feb], numbers) => {
+    const rows = [[...header], ["Ann Lee", start, jan, "80"], ["Ann Lee", start, feb, "60"]];
+    expect(detectLayout(rows, { numbers, defaultYear: 2026 }).mapping).toMatchObject({ layout: "long", period: 2, hours: 3 });
+    const run = readSheet(rows, numbers);
+    expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 80], ["Ann Lee", "2026-02", 60]]);
+    expect(run.validated.ok.some((r) => r.hours === 140)).toBe(false);
+  });
 });
 
 // Final review I3: an ID or row-number column was taken as the hours column
@@ -508,6 +521,16 @@ describe("probe: an ID or number column is never the hours (final review I3)", (
     const run = readSheet(rows);
     expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30], ["Bob Kay", "2026-01", 20]]);
     expect(run.out.rows.some((r) => [1, 2, 3].includes(r.hours))).toBe(false);
+  });
+
+  // The ID column to the RIGHT of the figures: neither a hours word nor the
+  // rightmost pick protects the figures, only the ID exclusion does.
+  it.each(["PersNr", "ID"])("Name | Monat | Menge | %s reads Menge, not the IDs", (idHeader) => {
+    const rows = [["Name", "Monat", "Menge", idHeader], ["Ann Lee", "Jan 2026", "40", "4711"], ["Ann Lee", "Feb 2026", "30", "4711"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).mapping).toMatchObject({ layout: "long", period: 1, hours: 2 });
+    const run = readSheet(rows);
+    expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 40], ["Ann Lee", "2026-02", 30]]);
+    expect(run.out.ignoredColumns).toEqual([]);
   });
 
   it("takes the rightmost of two unnamed number columns: Team | Menge reads Menge", () => {
