@@ -39,8 +39,9 @@ export function detectDecimalStyle(cells: readonly string[], numbers: NumberOrig
 
 /** A number cell as Excel stores it: digits and at most one dot decimal. */
 const STORED_NUMBER = /^[+-]?\d+(\.\d+)?$/;
-/** A German number: a dot only as a thousands mark in groups of three. */
-const COMMA_NUMBER = /^[+-]?([1-9]\d{0,2}(\.\d{3})+|\d+)(,\d+)?$/;
+/** A German number: a dot only as a thousands mark in groups of three; a bare
+ *  leading-comma decimal (",5") is 0.5. */
+const COMMA_NUMBER = /^[+-]?(([1-9]\d{0,2}(\.\d{3})+|\d+)(,\d+)?|,\d+)$/;
 
 /** In a workbook (`numbers` "dot"), a plain dot number is a stored number cell,
  *  read with a dot whatever its column's style and never voting on that style. */

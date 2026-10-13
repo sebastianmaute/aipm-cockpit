@@ -214,6 +214,14 @@ describe("parseNumberCell", () => {
     expect(parseNumberCell("1.234.567,5", "comma")).toBe(1234567.5);
     expect(parseNumberCell("+12,5 h", "comma")).toBe(12.5);
   });
+
+  // §500 fix wave 2 (RR minor 1): a leading-comma decimal reads again.
+  it("in comma style reads a leading-comma decimal", () => {
+    expect(parseNumberCell(",5", "comma")).toBe(0.5);
+    expect(parseNumberCell("-,25", "comma")).toBe(-0.25);
+    expect(parseNumberCell("2.5", "comma")).toBeNull();
+    expect(parseNumberCell("0.125", "comma")).toBeNull();
+  });
   it("reads a workbook's stored number with a dot whatever the column's style", () => {
     expect(parseNumberCell("2.625", "comma", "dot")).toBe(2.625);
     expect(parseNumberCell(" -7.5 ", "comma", "dot")).toBe(-7.5);
