@@ -495,7 +495,7 @@ function SeedSends({ sends, children }: { sends: SendSeed[]; children: ReactNode
   useEffect(() => {
     if (firedRef.current) return;
     firedRef.current = true;
-    for (const s of sends) {
+    for (const [i, s] of sends.entries()) {
       recordChatSend(
         {
           threadKey: "p|t",
@@ -505,7 +505,8 @@ function SeedSends({ sends, children }: { sends: SendSeed[]; children: ReactNode
           viewText: s.viewText,
           startedAt: s.startedAt,
           lastRequestAt: s.startedAt + 5_000,
-          priorTurns: 2,
+          // Each later send continues the conversation.
+          priorTurns: 2 + 2 * i,
         },
         s.cacheWrite,
         s.requests,

@@ -60,6 +60,16 @@ describe("classifySend", () => {
     expect(classifySend(prev(), next({ viewText: "VIEW-B", priorTurns: 0 }))).toBe("cold");
   });
 
+  it("is cold when the conversation is not LONGER than the previous send's, as after Clear chat", () => {
+    // Clear chat keeps the thread id. A first send after it that got no
+    // answer is never recorded, but its message stays in the history, so the
+    // retry has priorTurns 1 — and must not be compared with the cleared
+    // conversation's last send, whose prefix is no longer cached.
+    expect(classifySend(prev({ priorTurns: 6 }), next({ viewText: "VIEW-B", priorTurns: 1 }))).toBe("cold");
+    expect(classifySend(prev({ priorTurns: 6 }), next({ priorTurns: 6 }))).toBe("cold");
+    expect(classifySend(prev({ priorTurns: 6 }), next({ priorTurns: 7 }))).toBe("warm");
+  });
+
   it("is cold when the model changed, since every model keeps its own cache", () => {
     expect(classifySend(prev(), next({ model: "claude-model-b", viewText: "VIEW-B" }))).toBe("cold");
     expect(classifySend(prev(), next({ model: "claude-model-b" }))).toBe("cold");

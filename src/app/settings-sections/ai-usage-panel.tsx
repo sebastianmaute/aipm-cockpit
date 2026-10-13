@@ -228,8 +228,8 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap, guidesOn = true }: A
   );
 }
 
-/** §702: this week's chat sends and warm view switches. Hidden until the
- *  first send, so a device that never chats sees no zeros. */
+/** §702: this week's chat sends and warm view switches. Hidden until the week's
+ *  first send, so a week without a chat shows no zeros. */
 function ViewSwitchLines({
   lang,
   locale,

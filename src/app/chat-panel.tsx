@@ -709,14 +709,15 @@ function ChatPanelInner({
     // §702: what this send put in front of the transcript, for the view-switch
     // counter. Each stamp is the time a request went out, because that is when
     // the cache lifetime is refreshed (`VIEW_SWITCH_CACHE_TTL_MS` says why),
-    // and it is kept only once that request ANSWERED: an aborted or rejected
-    // request refreshed nothing. `requests` counts the answered round-trips
-    // (the break-even's unit) and `switchCacheWrite` their cache writes; any
-    // of them means a prefix reached the cache.
+    // and it is kept only once that request ANSWERED: an aborted request may
+    // or may not have reached the cache, so the stamp errs toward cold.
+    // `requests` counts the answered round-trips (the break-even's unit) and
+    // `counterCacheWrite` their cache writes, whatever the send is classified
+    // as; any of them means a prefix reached the cache.
     let firstRequestAt: number | null = null;
     let lastRequestAt = 0;
     let requests = 0;
-    let switchCacheWrite = 0;
+    let counterCacheWrite = 0;
     const sendFingerprint = (): SendFingerprint => ({
       threadKey: `${sendProjectId ?? ""}|${sendThreadId ?? ""}`,
       model: ai.model,
@@ -765,7 +766,7 @@ function ChatPanelInner({
         lastRequestAt = sentAt;
         firstRequestAt ??= sentAt;
         requests += 1;
-        switchCacheWrite += response.usage.cache_creation_input_tokens;
+        counterCacheWrite += response.usage.cache_creation_input_tokens;
         // A cancel or a project switch may have landed while awaiting — bail
         // before writing this turn onto (possibly) another project's state.
         if (stale()) break;
@@ -1045,7 +1046,7 @@ function ChatPanelInner({
           cacheWrite: totalCacheWrite,
           cacheRead: totalCacheRead,
         });
-        recordChatSend(sendFingerprint(), switchCacheWrite, requests);
+        recordChatSend(sendFingerprint(), counterCacheWrite, requests);
       } else if (requests > 0) {
         // Stopped after a response: not billed, but the prefix is cached.
         noteUnbilledChatSend(sendFingerprint());

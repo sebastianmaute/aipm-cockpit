@@ -3546,7 +3546,8 @@ describe("cache-token usage recording", () => {
   // The real Stop after a response: request 1 answered with a tool call, the
   // abort then rejects request 2. The prefix of request 1 is cached, so the
   // send is noted — and dated from request 1, the last one that ANSWERED: an
-  // aborted or rejected request refreshed nothing.
+  // aborted request may or may not have reached the cache, so the stamp errs
+  // toward cold.
   it("notes a send whose second request was aborted, dated from the last request that answered", async () => {
     const recordChatSendSpy = vi.fn();
     const noteSpy = vi.fn();

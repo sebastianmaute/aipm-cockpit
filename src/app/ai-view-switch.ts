@@ -17,8 +17,10 @@
 //    - the previous send is in the SAME thread (another thread has its own
 //      prefix);
 //    - the cache is still warm (after the TTL the write happens anyway);
-//    - the send continues a conversation (a first message has no transcript
-//      to rewrite, and file mode keeps ONE thread id across "New chat").
+//    - the send continues the SAME conversation: it has turns before it, and
+//      more of them than the previous send had (a first message has no
+//      transcript to rewrite, and file mode's "New chat" and Clear chat both
+//      keep the thread id while emptying the history).
 //    A send failing any of those would cost the same under G2, so counting it
 //    would overstate the saving. Such a send is "cold".
 // ★★ THREE KINDS, NOT TWO. A warm send whose view block did NOT change is the
@@ -70,8 +72,10 @@ export type SendFingerprint = {
   viewText: string;
   /** Epoch ms just before the send's first ANSWERED request went out. */
   startedAt: number;
-  /** Epoch ms just before the send's last ANSWERED request went out: an
-   *  aborted or rejected request refreshed nothing. */
+  /** Epoch ms just before the send's last ANSWERED request went out. An
+   *  aborted request may or may not have reached the cache, and a rejected
+   *  one did not; only an answered one is known to have refreshed it, so the
+   *  stamp errs toward cold. */
   lastRequestAt: number;
   /** Messages in the thread before this send's user message. */
   priorTurns: number;
@@ -92,6 +96,7 @@ export function classifySend(
 ): SendKind {
   if (!prev) return "cold";
   if (next.priorTurns <= 0) return "cold";
+  if (next.priorTurns <= prev.priorTurns) return "cold";
   if (prev.threadKey !== next.threadKey) return "cold";
   if (next.startedAt - prev.lastRequestAt >= ttlMs) return "cold";
   if (prev.model !== next.model) return "cold";

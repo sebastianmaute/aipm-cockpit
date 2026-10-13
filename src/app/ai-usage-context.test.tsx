@@ -443,7 +443,9 @@ describe("AiUsageProvider — view-switch counter (§702)", () => {
     viewText,
     startedAt,
     lastRequestAt: startedAt + 5_000,
-    priorTurns: 2,
+    // Each later send continues the conversation, so it has more turns before
+    // it: one more for every second it starts later.
+    priorTurns: Math.floor(startedAt / 1_000),
   });
 
   it("neither counts nor remembers a send no request of which went out", async () => {
