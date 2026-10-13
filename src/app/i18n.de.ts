@@ -2411,6 +2411,7 @@ export const de: Record<TranslationKey, string> = {
   forecastImportAssumedYearFrom: "Kopfzeilen ohne Jahr wurden ab {0} gelesen und laufen ins Folgejahr.",
   forecastImportChangeYear: "Jahr ändern",
   forecastImportIgnoredColumn: "Spalte {0} ({1}): enthält Zahlen, aber die Überschrift ist keine Periode",
+  forecastImportIgnoredPeriodColumn: "Spalte {0} ({1}): Die Überschrift ist eine Periode, aber die Zuordnung lässt die Spalte aus",
   forecastImportRowsAboveHeader: "{0} Zeilen über der Kopfzeile wurden nicht gelesen",
   forecastImportRowsAboveHeaderOne: "1 Zeile über der Kopfzeile wurde nicht gelesen",
   forecastImportRowsBelowRepeatedHeader: "{0} Zeilen unter einer wiederholten Kopfzeile wurden nicht gelesen",

@@ -184,7 +184,9 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
         <Section title={t(lang, "forecastImportNotImported")}>
           <ul className="space-y-0.5 text-muted-foreground">
             {fi.ignoredColumns.map((c) => (
-              <li key={`c${c.col}`}>{t(lang, "forecastImportIgnoredColumn", columnLetters(c.col), c.header || "—")}</li>
+              <li key={`c${c.col}`}>
+                {t(lang, c.isPeriodHeader ? "forecastImportIgnoredPeriodColumn" : "forecastImportIgnoredColumn", columnLetters(c.col), c.header || "—")}
+              </li>
             ))}
             {fi.dropped.map((d, i) => (
               <li key={`d${i}`}>{t(lang, "forecastImportRowRef", String(d.row), t(lang, DROP_KEY[d.reason]))}</li>

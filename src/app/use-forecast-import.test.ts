@@ -1211,3 +1211,39 @@ describe("useForecastImport — one person, rows that differ in a text column (r
     expect(hoursWritten(deps)).toEqual(written);
   });
 });
+
+// Final review 2 (I1): Claude's long mapping of Name | Jahr | Monat | Stunden
+// without the year column read every Jan in the default year.
+describe("useForecastImport — a Claude long mapping that leaves out the year column (final review 2, I1)", () => {
+  const JAHR = "Name;Jahr;Monat;Stunden\r\nAnn Lee;2027;Jan;10\r\nAnn Lee;2026;Jan;5\r\nBob Ray;2027;Feb;3\r\n";
+  const TWO_YEARS: BudgetBucket = { ...BUCKET, endDate: "2027-12-31" };
+  const twoYearDeps = () => depsOf({ bucket: TWO_YEARS, buckets: [TWO_YEARS], plan: { ...PLAN, endDate: "2027-12-31" } });
+
+  it("asks for the period with the year column among the candidates, and nothing is applied before the press", async () => {
+    claudeResponds({ layout: "long", headerRow: 1, person: "A", period: "C", hours: "D" });
+    const deps = twoYearDeps();
+    const { result } = await loaded(deps, JAHR);
+    await askClaudeNow(result);
+    expect(result.current.mapping?.yearCol).toBeUndefined();
+    expect(result.current.ambiguous).toEqual([{ field: "period", candidates: [1, 2] }]);
+    act(() => result.current.showPreview());
+    expect(applyOutcome(result)).toBe("refused");
+    expect(deps.onChangeBuckets).not.toHaveBeenCalled();
+  });
+
+  it("with the year column mapped, 2027 is read and written", async () => {
+    claudeResponds({ layout: "long", headerRow: 1, person: "A", period: "C", hours: "D" });
+    const deps = twoYearDeps();
+    const { result } = await loaded(deps, JAHR);
+    await askClaudeNow(result);
+    act(() => result.current.setMapping({ ...result.current.mapping!, yearCol: 1 }));
+    expect(result.current.ambiguous).toEqual([]);
+    expect(result.current.sample.map((r) => [r.person, r.period, r.hours])).toEqual([
+      ["Ann Lee", "2027-01", 10], ["Ann Lee", "2026-01", 5], ["Bob Ray", "2027-02", 3],
+    ]);
+    act(() => result.current.confirmColumns());
+    act(() => result.current.showPreview());
+    expect(applyOutcome(result)).toBe("applied");
+    expect(hoursWrittenBy(deps)).toEqual({ "2026-01": 5, "2027-01": 10, "2027-02": 3 });
+  });
+});

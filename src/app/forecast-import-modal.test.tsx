@@ -210,7 +210,7 @@ describe("ForecastImportModal", () => {
     await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
     expect(await screen.findByText(t(L, "forecastImportClaudeProposed", "Mar is a total"))).toBeInTheDocument();
-    expect(screen.getByText(t(L, "forecastImportPeriodColsFound", "Jan 2026, Feb 2026"))).toBeInTheDocument();
+    expect(screen.getByText(t(L, "forecastImportPeriodColsFound", "B: Jan 2026, C: Feb 2026"))).toBeInTheDocument();
     const apply = () => screen.getByRole("button", { name: t(L, "forecastImportApply") });
     expect(apply()).toBeDisabled();
     expect(apply()).toHaveAccessibleDescription(t(L, "forecastImportConfirmClaudeFirst"));
@@ -615,5 +615,55 @@ describe("ForecastImportModal — one person, rows that differ in a text column 
     expect(applyButton()).toBeEnabled();
     fireEvent.click(applyButton());
     expect(props.onChangeBuckets).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Final review 2 (M1, M2): a Plan/Ist sheet repeats its month headers over a
+// sub-header row. Claude's choice of one block is named by column letter and
+// asked about, the other block says why it is not read, and an unrelated edit
+// keeps Claude's period columns.
+describe("ForecastImportModal — Claude's choice of one block of a Plan/Ist sheet (final review 2)", () => {
+  const PLAN_IST = "Name;E-Mail;Satz;Jan 2026;Feb 2026;Jan 2026;Feb 2026\r\n;;;Plan;Plan;Ist;Ist\r\nAnn Lee;ann@x.de;90;10;20;9;18\r\n";
+  const claudeMaps = (input: Record<string, unknown>) => vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ok: true,
+    json: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "propose_forecast_mapping", input }] }),
+  } as unknown as Response);
+  async function askOn(csv: string) {
+    render(<ForecastImportModal {...propsOf()} />);
+    // Waits for the trigger, not the preview: this sheet may open on the mapping step.
+    fireEvent.change(screen.getByLabelText(t(L, "forecastImportFile")), { target: { files: [new File([csv], "forecast.csv", { type: "text/csv" })] } });
+    fireEvent.click(await screen.findByRole("button", { name: t(L, "forecastImportAskClaude") }));
+    await screen.findByRole("button", { name: t(L, "forecastImportConfirmColumns") });
+  }
+  const select = (key: Parameters<typeof t>[1]) => screen.getByRole("combobox", { name: t(L, key) });
+
+  it("names the period columns by letter and asks about the left-out block", async () => {
+    claudeMaps({ layout: "wide", headerRow: 1, person: "A", periodCols: ["F", "G"] });
+    await askOn(PLAN_IST);
+    expect(screen.getByText(t(L, "forecastImportPeriodColsFound", "F: Jan 2026, G: Feb 2026"))).toBeInTheDocument();
+    expect(screen.getByText(t(L, "forecastImportAmbiguousWide", "Jan 2026, Feb 2026, Jan 2026, Feb 2026"))).toBeInTheDocument();
+  });
+
+  it("says a left-out period-headed column is left out by the mapping, never that its header is no period", async () => {
+    claudeMaps({ layout: "wide", headerRow: 1, person: "A", periodCols: ["F", "G"] });
+    await askOn(PLAN_IST);
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportShowPreview") }));
+    const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(t(L, "forecastImportIgnoredPeriodColumn", "D", "Jan 2026"))).toBeInTheDocument();
+    expect(within(section).queryByText(t(L, "forecastImportIgnoredColumn", "D", "Jan 2026"))).toBeNull();
+  });
+
+  it("keeps Claude's period columns through an email or rate edit; a layout change rebuilds them", async () => {
+    claudeMaps({ layout: "wide", headerRow: 1, person: "A", periodCols: ["D", "E"] });
+    await askOn(PLAN_IST);
+    const found = (labels: string) => screen.getByText(t(L, "forecastImportPeriodColsFound", labels));
+    expect(found("D: Jan 2026, E: Feb 2026")).toBeInTheDocument();
+    fireEvent.change(select("forecastImportColEmail"), { target: { value: "1" } });
+    expect(found("D: Jan 2026, E: Feb 2026")).toBeInTheDocument();
+    fireEvent.change(select("forecastImportColRate"), { target: { value: "2" } });
+    expect(found("D: Jan 2026, E: Feb 2026")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutLong") }));
+    fireEvent.click(screen.getByRole("radio", { name: t(L, "forecastImportLayoutWide") }));
+    expect(found("D: Jan 2026, E: Feb 2026, F: Jan 2026, G: Feb 2026")).toBeInTheDocument();
   });
 });

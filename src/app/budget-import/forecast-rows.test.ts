@@ -639,3 +639,18 @@ describe("gridToForecastRows — columns that are never hours", () => {
     expect(gridToForecastRows(unnamed, mapping, "S").ignoredColumns).toEqual([]);
   });
 });
+
+// Final review 2 (M1): a period-headed number column the mapping leaves out is
+// not "a header that is not a period"; it says so.
+describe("gridToForecastRows — a period-headed column the mapping leaves out", () => {
+  it("marks a left-out column whose header is a period, and only that one", () => {
+    const grid = [["Name", "Jan 2026", "Feb 2026", "Jan 2026", "Feb 2026", "Foo"], ["", "Plan", "Plan", "Ist", "Ist", ""],
+      ["Ann Lee", "10", "20", "9", "18", "1"], ["Bob Ray", "5", "5", "4", "4", "2"]];
+    const mapping = { layout: "wide" as const, headerRow: 0, person: 0, periodCols: [3, 4] };
+    expect(gridToForecastRows(grid, mapping, "S").ignoredColumns).toEqual([
+      { col: 1, header: "Jan 2026", isPeriodHeader: true },
+      { col: 2, header: "Feb 2026", isPeriodHeader: true },
+      { col: 5, header: "Foo" },
+    ]);
+  });
+});

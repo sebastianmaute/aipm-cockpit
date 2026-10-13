@@ -2562,6 +2562,7 @@ const enUS = {
   forecastImportAssumedYearFrom: "Headers without a year were read from {0} on, running into the next year.",
   forecastImportChangeYear: "Change year",
   forecastImportIgnoredColumn: "Column {0} ({1}): holds numbers, but its header is not a period",
+  forecastImportIgnoredPeriodColumn: "Column {0} ({1}): its header is a period, but the mapping leaves it out",
   forecastImportRowsAboveHeader: "{0} rows above the header row were not read",
   forecastImportRowsAboveHeaderOne: "1 row above the header row was not read",
   forecastImportRowsBelowRepeatedHeader: "{0} rows below a repeated header row were not read",

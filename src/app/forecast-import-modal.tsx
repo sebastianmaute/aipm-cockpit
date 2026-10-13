@@ -205,9 +205,23 @@ function draftOf(mapping: ColumnMapping | null): Draft {
   };
 }
 
-function mappingOf(d: Draft, sheet: SheetGrid): ColumnMapping {
+/** The wide mapping's period columns kept as they are: `current` is wide on the
+ *  same header row and year. ★★ An edit of the person, email or rate column
+ *  once rebuilt them from the header, which replaced Claude's choice of one
+ *  block of a `Plan | Ist` sheet with every period header (final review 2, M2).
+ *  A layout, header-row or year change rebuilds them: the year decides which
+ *  headers are periods. A column the edit takes for another field leaves them. */
+function keptPeriodCols(d: Draft, current: ColumnMapping | null): number[] | null {
+  if (current === null || current.layout !== "wide" || current.headerRow !== d.headerRow || current.year !== d.year) return null;
+  const taken = new Set([d.person, d.email, d.rate]);
+  return (current.periodCols ?? []).filter((col) => !taken.has(col));
+}
+
+function mappingOf(d: Draft, sheet: SheetGrid, current: ColumnMapping | null): ColumnMapping {
   if (d.layout === "wide") {
-    return wideMappingFor(sheet.rows, d.headerRow, { person: d.person, email: d.email, rate: d.rate }, d.year, sheet.numbers);
+    const rebuilt = wideMappingFor(sheet.rows, d.headerRow, { person: d.person, email: d.email, rate: d.rate }, d.year, sheet.numbers);
+    const kept = keptPeriodCols(d, current);
+    return kept === null ? rebuilt : { ...rebuilt, periodCols: kept };
   }
   const mapping: ColumnMapping = { layout: "long", headerRow: d.headerRow, person: d.person, period: d.period, hours: d.hours };
   if (d.email !== undefined) mapping.email = d.email;
@@ -304,12 +318,13 @@ function MappingStep({ lang, fi, sheet }: { lang: Lang; fi: ForecastImport; shee
     ...chosen.filter((c): c is number => c !== undefined && c < width),
   ]);
   const columns = [...offered].sort((a, b) => a - b).map((col) => ({ col, text: `${columnLetters(col)}: ${header[col] ?? ""}` }));
-  const commit = (patch: Partial<Draft>) => fi.setMapping(mappingOf({ ...draft, ...patch }, sheet));
+  const commit = (patch: Partial<Draft>) => fi.setMapping(mappingOf({ ...draft, ...patch }, sheet, fi.mapping));
   const none = t(lang, "forecastImportColNone");
   // ★★ Claude's mapping is previewed as it stands: rebuilt from the draft, a
   // wide mapping would take every period header instead of Claude's columns.
-  const next = fi.route === "claude" && fi.mapping !== null ? fi.mapping : mappingOf(draft, sheet);
-  const periodLabels = (next.periodCols ?? []).map((c) => header[c]).join(", ");
+  const next = fi.route === "claude" && fi.mapping !== null ? fi.mapping : mappingOf(draft, sheet, fi.mapping);
+  // By letter too: a `Plan | Ist` sheet repeats its month headers (final review 2, M1).
+  const periodLabels = (next.periodCols ?? []).map((c) => `${columnLetters(c)}: ${header[c] ?? ""}`).join(", ");
   return (
     <section className="space-y-3">
       {!fi.layoutDetected && fi.route === "hand" && <Banner severity="info">{t(lang, "forecastImportNoLayout")}</Banner>}

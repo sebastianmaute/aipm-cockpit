@@ -12,6 +12,7 @@ import type { NumberOrigin } from "./sheet-grid";
 import {
   assignCellPeriod,
   assignRunDetailed,
+  assignRunPeriods,
   assumedYearOf,
   classifyPeriodCell,
   headerProbeRun,
@@ -375,6 +376,8 @@ function unreadNumberColumns(
   if (people.length === 0) return [];
   const skip = new Set<number | undefined>([mapping.person, mapping.email, mapping.rate, ...readCols]);
   const width = people.reduce((max, { row }) => Math.max(max, row.length), header.length);
+  // A header that reads as a period in its row's run: the mapping left the column out.
+  const run = assignRunPeriods(header, { defaultYear: mapping.year, numbers });
   const out: IgnoredColumn[] = [];
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
@@ -383,7 +386,8 @@ function unreadNumberColumns(
     const style = detectDecimalStyle(cells, numbers);
     // A period-shaped cell (a workbook's serial date) is never hours.
     const numeric = cells.filter((c) => !isPeriodShapedIn(c, numbers) && parseNumberCell(c, style, numbers) !== null).length;
-    if (numeric > people.length * IGNORED_COLUMN_SHARE) out.push({ col, header: label.trim() });
+    if (numeric <= people.length * IGNORED_COLUMN_SHARE) continue;
+    out.push((run[col] ?? null) === null ? { col, header: label.trim() } : { col, header: label.trim(), isPeriodHeader: true });
   }
   return out;
 }
