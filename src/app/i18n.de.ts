@@ -2303,6 +2303,13 @@ export const de: Record<TranslationKey, string> = {
   integrationsTursoTokenEnvRejected:
     "Das Token der Bereitstellung wurde abgelehnt. Ein hier eingegebenes Token wird stattdessen verwendet.",
   integrationsTursoLearnMore: "Mehr über Turso erfahren ↗",
+  tursoStepCreate: "Kostenlose Datenbank auf turso.tech anlegen ↗",
+  tursoStepCreateHint: "Wählen Sie einen Standort in Ihrer Nähe (EU für europäische Projekte). Lassen Sie den Tab geöffnet.",
+  tursoStepUrl: "Datenbank-URL — von der Seite der Datenbank kopieren",
+  tursoStepToken: "Auth-Token — ohne Ablaufdatum erstellen und hier einfügen",
+  tursoStepTest: "Verbindung testen, dann Übernehmen",
+  tursoStepDone: "erledigt",
+  tursoStepGuide: "Schritt-für-Schritt-Anleitung mit Bildern ↗",
   integrationsComingSoon: "Verfügbar ab 0.22.0",
 
   outlookCalImportTitle: "Outlook-Kalender importieren",

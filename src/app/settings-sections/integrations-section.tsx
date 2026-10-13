@@ -25,6 +25,8 @@ import { InfoTooltip } from "../info-tooltip";
 import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../portfolio-mode";
 import { getTursoConfig, isEnvTokenRejected, isUsableTursoUrl } from "../turso-config";
 import { testTursoConnection } from "../turso-pipeline";
+import { tursoSetupState } from "../turso-setup-state";
+import { TursoSetupSteps } from "./turso-setup-steps";
 import { tursoErrorKind } from "../storage-error";
 import { SECRET_MERGE_TIMEOUT_MS, writeSettings } from "../use-settings";
 import { loadRegistry } from "../projects-registry";
@@ -996,6 +998,16 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
       {turso.enabled && (
         <div className="mt-2 space-y-2 border-l-2 border-line pl-3">
+          <TursoSetupSteps
+            lang={lang}
+            state={tursoSetupState({
+              url: tursoUrl ?? "",
+              token: tursoToken ?? "",
+              urlFromEnv: envTursoUrlUsable,
+              tokenFromEnv: hideTokenField,
+              testConfirmed: tursoTestConfirmed,
+            })}
+            urlStep={<>
           {envTursoUrlUsable && (
             <div className="block text-xs">
               <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -1042,6 +1054,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               )}
             </div>
           )}
+            </>}
+            tokenStep={<>
           {hideTokenField && (
             <div className="block text-xs">
               <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -1137,6 +1151,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               )}
             </div>
           )}
+            </>}
+            testStep={<>
           {/* ★★ §548 — Apply exists ONLY on Turso storage, the one kind where committing the
               credentials rebuilds the backend (see `tursoIsLive`). Hidden when NEITHER field is
               editable: there is nothing to draft.
@@ -1206,6 +1222,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 )
               : null}
           </p>
+            </>}
+          />
           {/* Primary action: carry the current project into Turso.
               ★ `canMoveToTurso` stays a RENDER gate — with the portfolio already
               on Turso, or no project to move, there is nothing to migrate and a

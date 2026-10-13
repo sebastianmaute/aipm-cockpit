@@ -2453,6 +2453,13 @@ const enUS = {
   integrationsTursoTokenEnvRejected:
     "The deployment token was rejected. A token entered here is used instead.",
   integrationsTursoLearnMore: "Learn more about Turso ↗",
+  tursoStepCreate: "Create a free database at turso.tech ↗",
+  tursoStepCreateHint: "Pick a location near you (EU for European projects). Keep the tab open.",
+  tursoStepUrl: "Database URL — copy it from the database's page",
+  tursoStepToken: "Auth token — create one without an expiry, then paste it here",
+  tursoStepTest: "Test connection, then Apply",
+  tursoStepDone: "done",
+  tursoStepGuide: "Step-by-step guide with pictures ↗",
   integrationsComingSoon: "Available in 0.22.0+",
 
   outlookCalImportTitle: "Import Outlook calendar",
