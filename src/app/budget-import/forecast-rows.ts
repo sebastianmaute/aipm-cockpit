@@ -7,8 +7,8 @@
 // definition detection and the Claude route read too.
 
 import type { NumberOrigin } from "./sheet-grid";
-import { assignCellPeriod, assignRunDetailed, parsePeriodLabel } from "./period-assign";
-import type { ColumnMapping, DropReason, ForecastRow, IgnoredColumn } from "./forecast-types";
+import { assignCellPeriod, assignRunDetailed, assumedYearOf, parsePeriodLabel, type AssignedPeriod } from "./period-assign";
+import type { AssumedYear, ColumnMapping, DropReason, ForecastRow, IgnoredColumn } from "./forecast-types";
 
 /** Re-exported: callers that read a single period cell keep one import. */
 export { parsePeriodLabel };
@@ -143,16 +143,19 @@ function longCell(row: readonly string[], mapping: ColumnMapping): { col: number
  * with nothing in any mapped cell is skipped without a drop). `dropped.row`
  * is the 1-based sheet row. Hours are returned as read, unrounded. `numbers` is
  * the grid's `SheetGrid.numbers`: a workbook's stored numbers read with a dot.
- * Period labels without a year are read in `mapping.year`. `ignoredColumns`
- * lists a wide sheet's unread number columns (see `IgnoredColumn`).
+ * Period labels without a year are read in `mapping.year`, and `assumedYear`
+ * says so when any returned row's period took its year from it (a wide header
+ * that rolled on from it included). `ignoredColumns` lists a wide sheet's
+ * unread number columns (see `IgnoredColumn`).
  */
 export function gridToForecastRows(
   rows: readonly string[][],
   mapping: ColumnMapping,
   sheetName: string,
   numbers: NumberOrigin = "text",
-): { rows: ForecastRow[]; dropped: DropReason[]; ignoredColumns: IgnoredColumn[] } {
+): { rows: ForecastRow[]; dropped: DropReason[]; ignoredColumns: IgnoredColumn[]; assumedYear?: AssumedYear } {
   const out: ForecastRow[] = [];
+  const read: AssignedPeriod[] = [];
   const dropped: DropReason[] = [];
   const header = rows[mapping.headerRow] ?? [];
   const wide = mapping.layout === "wide";
@@ -183,7 +186,7 @@ export function gridToForecastRows(
   for (const { index, row } of people) {
     const meta = readMeta(row, mapping, rateStyle, numbers);
     const cells = wide ? columns : [longCell(row, mapping)];
-    for (const { col, period } of cells) {
+    for (const { col, period, assumed } of cells) {
       const raw = cellAt(row, col);
       if (isBlank(raw)) continue;
       if (period === null) {
@@ -192,13 +195,17 @@ export function gridToForecastRows(
       }
       const hours = parseNumberCell(raw, hoursStyle, numbers);
       if (hours === null) dropped.push({ row: index + 1, reason: "bad-number" });
-      else out.push(withMeta(meta, period, hours, sourceOf(index, col)));
+      else {
+        out.push(withMeta(meta, period, hours, sourceOf(index, col)));
+        read.push({ period, assumed });
+      }
     }
   }
 
   dropped.sort((a, b) => a.row - b.row);
   const ignoredColumns = wide ? unreadNumberColumns(header, mapping, columns, people, numbers) : [];
-  return { rows: out, dropped, ignoredColumns };
+  const assumedYear = assumedYearOf(read, mapping.year);
+  return assumedYear === undefined ? { rows: out, dropped, ignoredColumns } : { rows: out, dropped, ignoredColumns, assumedYear };
 }
 
 /** The columns from the first period column on that are not read, not a

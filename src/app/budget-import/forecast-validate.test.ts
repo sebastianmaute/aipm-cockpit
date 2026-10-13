@@ -670,3 +670,25 @@ describe("validateForecastRows: the nearest period header above the cited cell",
     expect(detail(claim("Bob", 75, "S!B3"))).toEqual(["value-mismatch"]);
   });
 });
+
+describe("validateForecastRows: the year it assumed (Claude route)", () => {
+  const opts = (rows: string[][]) => ({ sheet: { name: "S", rows, truncated: false } as SheetGrid, requireSource: true, defaultYear: 2026 });
+
+  it("reports the default year when an accepted row's period took its year from it", () => {
+    const out = validateForecastRows([{ person: "Ann", period: "Jan", hours: 1, source: "S!B2" }], opts([["Name", "Jan", "Feb"], ["Ann", "1", "2"]]));
+    expect(out.assumedYear).toEqual({ year: 2026, rolled: false });
+  });
+
+  it("says so when the header ran into the next year", () => {
+    const out = validateForecastRows([{ person: "Ann", period: "Jan", hours: 2, source: "S!C2" }], opts([["Name", "Dez", "Jan"], ["Ann", "1", "2"]]));
+    expect(out.ok.map((r) => r.period)).toEqual(["2027-01"]);
+    expect(out.assumedYear).toEqual({ year: 2026, rolled: true });
+  });
+
+  it("reports nothing when the sheet names the year, or for a rejected row", () => {
+    const labelled = validateForecastRows([{ person: "Ann", period: "Jan 2026", hours: 1, source: "S!B2" }], opts([["Name", "Jan 2026"], ["Ann", "1"]]));
+    expect(labelled.assumedYear).toBeUndefined();
+    const rejected = validateForecastRows([{ person: "Bob", period: "Jan", hours: 1, source: "S!B2" }], opts([["Name", "Jan"], ["Ann", "1"]]));
+    expect(rejected.assumedYear).toBeUndefined();
+  });
+});

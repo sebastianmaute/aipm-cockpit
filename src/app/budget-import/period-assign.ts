@@ -259,6 +259,18 @@ export function assignRunDetailed(
   });
 }
 
+/** The default year the given periods assumed, if any did: `rolled` when one
+ *  of them landed past it (a run that moved on into the next year). */
+export function assumedYearOf(
+  periods: ReadonlyArray<AssignedPeriod>,
+  defaultYear: number | undefined,
+): { year: number; rolled: boolean } | undefined {
+  const year = usableYear(defaultYear);
+  const assumed = periods.filter((p) => p.assumed);
+  if (year === undefined || assumed.length === 0) return undefined;
+  return { year, rolled: assumed.some((p) => Number(p.period.slice(0, 4)) !== year) };
+}
+
 /** `assignRunDetailed`'s periods alone. */
 export function assignRunPeriods(
   cells: readonly string[],

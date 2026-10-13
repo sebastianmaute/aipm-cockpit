@@ -444,6 +444,26 @@ describe("useForecastImport — the Claude route", () => {
     });
     expect(result.current.rejected).toEqual([]);
     expect(result.current.importPlan?.changes.map((c) => [c.period, c.next])).toEqual([["2026-01", 10]]);
+    expect(result.current.assumedYear).toEqual({ year: 2026, rolled: false });
+  });
+
+  // §500 fix wave 2 (CR minor 9): ONE year value feeds detection, the hand
+  // route and the Claude validator — a cleared year field means "no default
+  // year" on both routes.
+  it("a cleared year field reads no year-less header on either route", async () => {
+    claudeResponds({ rows: [{ person: "Ann Lee", period: "Jan", hours: 10, source: "forecast!B2" }] });
+    const { result } = await loaded(depsOf(), "Name,Jan,Feb,Mar\r\nAnn Lee,10,20,30\r\n");
+    expect(result.current.assumedYear).toEqual({ year: 2026, rolled: false });
+    act(() => result.current.setMapping(wideMappingFor(result.current.sheets[0].rows, 0, { person: 0 }, undefined)));
+    expect(result.current.sample).toEqual([]);
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected.map((r) => r.reason)).toEqual(["period"]);
+    expect(result.current.assumedYear).toBeUndefined();
+    act(() => result.current.detectColumns());
+    expect(result.current.layoutDetected).toBe(false);
+    expect(result.current.mapping?.year).toBeUndefined();
   });
 
   // Reviewer probe (§500 final review): an email the model put on Ann's row

@@ -24,7 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyForecastImport, buildForecastImportPlan, normalisePerson, type ImportPlan, type PersonOverride, type UnresolvedPerson } from "./budget-import/forecast-plan";
 import { gridToForecastRows, isTotalLabel } from "./budget-import/forecast-rows";
 import { assignRunPeriods } from "./budget-import/period-assign";
-import type { ColumnMapping, DropReason, ForecastCollision, ForecastRow, IgnoredColumn } from "./budget-import/forecast-types";
+import type { AssumedYear, ColumnMapping, DropReason, ForecastCollision, ForecastRow, IgnoredColumn } from "./budget-import/forecast-types";
 import { validateForecastRows, type DuplicateRow, type RejectedRow } from "./budget-import/forecast-validate";
 import { detectLayout, type LayoutDetection } from "./budget-import/layout-detect";
 import { readSheetFile, type NumberOrigin, type SheetGrid } from "./budget-import/sheet-grid";
@@ -85,6 +85,9 @@ export interface ForecastImport {
   dropped: readonly DropReason[];
   /** The hand route's number columns left unread (header not a period). */
   ignoredColumns: readonly IgnoredColumn[];
+  /** The default year headers without one were read in, when the preview's
+   *  rows used it (either route); the preview says so. */
+  assumedYear: AssumedYear | undefined;
   /** The first rows the current hand mapping reads, for the mapping step. */
   sample: readonly ForecastRow[];
   notes: string;
@@ -210,6 +213,12 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const [overrides, setOverrides] = useState<ReadonlyMap<string, PersonOverride>>(NO_OVERRIDES);
   const [error, setError] = useState<ForecastImportError | null>(null);
   const [busy, setBusy] = useState<false | "file" | "claude">(false);
+  // ★ ONE year value: detection, the hand route's mapping and the Claude
+  // validator all read year-less headers in it. It starts at the bucket's start
+  // year and follows the mapping step's year field; a CLEARED field means no
+  // default year on both routes (it once fell back to the start year on the
+  // Claude route only).
+  const [year, setYear] = useState<number | undefined>(startYear);
 
   // Monotonic request generation: a read or a Claude reply that resolves after
   // a newer action (or a cancel) is discarded.
@@ -229,10 +238,9 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const validated = useMemo<Validated | null>(() => {
     if (!sheet) return null;
     // The Claude route reads year-less headers in the year the mapping step shows.
-    const defaultYear = mapping?.year ?? startYear;
-    if (route === "claude") return validateForecastRows(claudeRows, { sheet, requireSource: true, defaultYear });
-    return handRows ? validateForecastRows(handRows.rows, { sheet, requireSource: false, defaultYear }) : null;
-  }, [sheet, route, claudeRows, handRows, mapping, startYear]);
+    if (route === "claude") return validateForecastRows(claudeRows, { sheet, requireSource: true, defaultYear: year });
+    return handRows ? validateForecastRows(handRows.rows, { sheet, requireSource: false, defaultYear: year }) : null;
+  }, [sheet, route, claudeRows, handRows, year]);
 
   const okRows = validated?.ok ?? NO_ROWS;
   const collisions = validated?.collisions ?? NO_COLLISIONS;
@@ -262,15 +270,15 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   /** The hand route over one sheet: preview when a layout is found, else the
    *  mapping step. `known` is a detection the caller already ran on `grid`. */
   const openHandRoute = useCallback((grid: SheetGrid, known?: LayoutDetection) => {
-    const detected = known ?? detectSheet(grid, startYear);
+    const detected = known ?? detectSheet(grid, year);
     setRoute("hand");
     setClaudeRows(null);
     setNotes("");
     setOverrides(NO_OVERRIDES);
     setLayoutDetected(detected.mapping !== null);
-    setMappingState(detected.mapping ?? defaultMappingFor(grid.rows, startYear, grid.numbers));
+    setMappingState(detected.mapping ?? defaultMappingFor(grid.rows, year, grid.numbers));
     setStep(detected.mapping ? "preview" : "mapping");
-  }, [startYear]);
+  }, [year]);
 
   const loadFile = useCallback(async (file: File) => {
     const reqId = nextRequest();
@@ -288,7 +296,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
       const grids = await readSheetFile(file.name, new Uint8Array(await file.arrayBuffer()));
       if (reqId !== reqIdRef.current) return;
       if (grids.length === 0) throw new Error("empty");
-      const { index, detected } = firstDetectedSheet(grids, startYear);
+      const { index, detected } = firstDetectedSheet(grids, year);
       setSheets(grids);
       setSheetIndex(index);
       openHandRoute(grids[index], detected);
@@ -300,7 +308,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     } finally {
       if (reqId === reqIdRef.current) setBusy(false);
     }
-  }, [nextRequest, openHandRoute, startYear]);
+  }, [nextRequest, openHandRoute, year]);
 
   const selectSheet = useCallback((index: number) => {
     const grid = sheets[index];
@@ -326,6 +334,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     setError(null);
     setRoute("hand");
     setMappingState(next);
+    if (next !== null) setYear(next.year);
   }, []);
 
   const editMapping = useCallback(() => {
@@ -339,6 +348,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     if (!chosen) return;
     setError(null);
     setMappingState(chosen);
+    setYear(chosen.year);
     setRoute("hand");
     setStep("preview");
   }, [mapping]);
@@ -416,6 +426,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     collisions,
     dropped: route === "hand" ? (handRows?.dropped ?? []) : [],
     ignoredColumns: route === "hand" ? (handRows?.ignoredColumns ?? []) : [],
+    assumedYear: route === "hand" ? handRows?.assumedYear : validated?.assumedYear,
     sample: handRows ? handRows.rows.slice(0, SAMPLE_ROWS) : NO_ROWS,
     notes,
     error,

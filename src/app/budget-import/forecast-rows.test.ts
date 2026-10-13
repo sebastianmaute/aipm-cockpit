@@ -563,3 +563,33 @@ describe("gridToForecastRows — a long sheet's year column", () => {
     expect(gridToForecastRows(grid, mapping, "S").rows.map((r) => r.period)).toEqual(["2028-02", "2026-03"]);
   });
 });
+
+// §500 fix wave 2 (CR I2): the preview says which year it assumed.
+describe("gridToForecastRows — the year it assumed", () => {
+  const wide = (header: string[]): ColumnMapping => ({
+    layout: "wide", headerRow: 0, person: 0, periodCols: header.map((_, i) => i).slice(1), year: 2026,
+  });
+
+  it("reports the default year when a read period took its year from it", () => {
+    const grid = [["Name", "Jan", "Feb"], ["Ann", "1", "2"]];
+    expect(gridToForecastRows(grid, wide(grid[0]), "S").assumedYear).toEqual({ year: 2026, rolled: false });
+  });
+
+  it("says so when the run rolled into the next year", () => {
+    const grid = [["Name", "Dez", "Jan"], ["Ann", "1", "2"]];
+    expect(gridToForecastRows(grid, wide(grid[0]), "S").assumedYear).toEqual({ year: 2026, rolled: true });
+  });
+
+  it("reports nothing when every period names its year, or a year column supplies it", () => {
+    const labelled = [["Name", "Jan 2026", "Feb"], ["Ann", "1", "2"]];
+    expect(gridToForecastRows(labelled, wide(labelled[0]), "S").assumedYear).toBeUndefined();
+    const long = [["Name", "Jahr", "Monat", "Stunden"], ["Ann", "2027", "Jan", "8"]];
+    const mapping: ColumnMapping = { layout: "long", headerRow: 0, person: 0, yearCol: 1, period: 2, hours: 3, year: 2026 };
+    expect(gridToForecastRows(long, mapping, "S").assumedYear).toBeUndefined();
+  });
+
+  it("reports nothing for a year-less period whose cell is blank", () => {
+    const grid = [["Name", "Jan 2026", "Feb 2026", "Mär"], ["Ann", "1", "2", ""]];
+    expect(gridToForecastRows(grid, wide(grid[0]), "S").assumedYear).toBeUndefined();
+  });
+});

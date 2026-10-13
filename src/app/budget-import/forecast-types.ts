@@ -46,6 +46,10 @@ export type IgnoredColumn = { col: number; header: string };
  *  mapping or the sheet is fixed. */
 export type ForecastCollision = { person: string; period: string; sources: string[] };
 
+/** The default year headers without one were read in, when any imported period
+ *  took its year from it; `rolled` when such a run moved on into a later year. */
+export type AssumedYear = { year: number; rolled: boolean };
+
 /** A sheet row (or cell) the import left out. `row` is the 1-based sheet row
  *  number, the one the spreadsheet shows. */
 export type DropReason = {

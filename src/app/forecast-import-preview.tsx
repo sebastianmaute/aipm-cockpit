@@ -21,7 +21,7 @@ import { buildRowTokens, rowLabel } from "./row-tokens";
 import { resourceDisplayName, roleLabel } from "./resource-foundation";
 import { columnLetters } from "./budget-import/forecast-rows";
 import { normalisePerson, type AllocationKey, type CellChange, type ImportBlocker, type ImportPlan, type UnresolvedPerson } from "./budget-import/forecast-plan";
-import type { DropReason } from "./budget-import/forecast-types";
+import type { AssumedYear, DropReason } from "./budget-import/forecast-types";
 import { MAX_IMPORT_HOURS_PER_CELL, type RejectedRow, type SourceRejection } from "./budget-import/forecast-validate";
 import type { Discipline, Grade, Resource, Role } from "./types";
 import type { ForecastImport } from "./use-forecast-import";
@@ -78,6 +78,23 @@ function describeRejected(lang: Lang, r: RejectedRow): string {
   const why = r.reason === "source" ? t(lang, SOURCE_KEY[r.detail]) : t(lang, REJECT_KEY[r.reason], String(MAX_IMPORT_HOURS_PER_CELL));
   const text = t(lang, "forecastImportRejectedRow", parts.length > 0 ? parts.join(" · ") : "—", why);
   return rec && typeof rec.source === "string" ? `${text} (${rec.source})` : text;
+}
+
+/** Which year headers without one were read in. A detected layout goes straight
+ *  to the preview, so this is where that assumption is shown; the hand route
+ *  links to the year field on the mapping step. */
+function AssumedYearLine({ lang, fi, assumed }: { lang: Lang; fi: ForecastImport; assumed: AssumedYear }) {
+  const text = t(lang, assumed.rolled ? "forecastImportAssumedYearFrom" : "forecastImportAssumedYear", String(assumed.year));
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+      <span>{text}</span>
+      {fi.route === "hand" && (
+        <Button variant="secondary" size="xs" onClick={fi.editMapping}>
+          {t(lang, "forecastImportChangeYear")}
+        </Button>
+      )}
+    </div>
+  );
 }
 
 /** Cells of one sheet row that landed on the same person and period: the import
@@ -153,6 +170,7 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
   return (
     <div className="space-y-4">
       {fi.route === "claude" && <p className="text-muted-foreground">{t(lang, "forecastImportClaudeRoute")}</p>}
+      {fi.assumedYear && <AssumedYearLine lang={lang} fi={fi} assumed={fi.assumedYear} />}
       {plan.blockers.map((b) => (
         <Banner key={b} severity="warn">{t(lang, BLOCKER_KEY[b])}</Banner>
       ))}

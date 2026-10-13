@@ -318,3 +318,27 @@ describe("ForecastImportModal — combined rows and same-row collisions", () => 
     expect(screen.getByRole("combobox", { name: t(L, "forecastImportColPerson") })).toBeInTheDocument();
   });
 });
+
+// §500 fix wave 2 (CR I2): a detected layout goes straight to the preview, so
+// the preview says which year headers without one were read in.
+describe("ForecastImportModal — the assumed year", () => {
+  it("says headers without a year were read in the bucket's start year, with a way to the year field", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile("Name,Jan,Feb,Mar\r\nAnn Lee,1,2,3\r\n");
+    expect(screen.getByText(t(L, "forecastImportAssumedYear", "2026"))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportChangeYear") }));
+    expect(screen.getByRole("spinbutton", { name: t(L, "forecastImportYear") })).toHaveValue(2026);
+  });
+
+  it("says from which year when the headers ran into the next one", async () => {
+    render(<ForecastImportModal {...propsOf({ bucket: { ...BUCKET, endDate: "2027-12-31" }, buckets: [{ ...BUCKET, endDate: "2027-12-31" }] })} />);
+    await chooseFile("Name,Nov,Dez,Jan\r\nAnn Lee,1,2,3\r\n");
+    expect(screen.getByText(t(L, "forecastImportAssumedYearFrom", "2026"))).toBeInTheDocument();
+  });
+
+  it("says nothing when every header names its year", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile(`${WIDE}Ann Lee,1,2,3\r\n`);
+    expect(screen.queryByRole("button", { name: t(L, "forecastImportChangeYear") })).toBeNull();
+  });
+});

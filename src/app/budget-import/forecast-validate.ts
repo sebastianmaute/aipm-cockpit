@@ -6,8 +6,8 @@
 // person and under (or beside) that period (`source-evidence.ts`). Pure: no
 // i18n, no React, no DOM.
 
-import type { ForecastCollision, ForecastRow } from "./forecast-types";
-import { classifyPeriodCell, resolvePeriod } from "./period-assign";
+import type { AssumedYear, ForecastCollision, ForecastRow } from "./forecast-types";
+import { assumedYearOf, classifyPeriodCell, resolvePeriod, type AssignedPeriod } from "./period-assign";
 import type { SheetGrid } from "./sheet-grid";
 import { checkSource, citedCell, columnNaming, sourceKey, sourcePosition, type SourceRejection } from "./source-evidence";
 
@@ -32,10 +32,12 @@ export type ValidationResult = {
   rejected: RejectedRow[];
   duplicates: DuplicateRow[];
   collisions: ForecastCollision[];
+  /** Set when an accepted row's period took its year from `defaultYear`. */
+  assumedYear?: AssumedYear;
 };
 
 type Checked =
-  | { ok: true; row: ForecastRow }
+  | { ok: true; row: ForecastRow; assumed: boolean }
   | { ok: false; reason: "shape" | "hours" | "period" | "person" }
   | { ok: false; reason: "source"; detail: SourceRejection };
 /** `defaultYear`: the year a period label without one ("Jan", "KW03") is read
@@ -87,14 +89,14 @@ function checkRow(raw: unknown, opts: Options): Checked {
   if (typeof email === "string") row.email = email;
   if (typeof rate === "number") row.rate = rate;
   if (typeof source === "string") row.source = source;
-  if (!opts.requireSource) return { ok: true, row };
+  if (!opts.requireSource) return { ok: true, row, assumed: claim.year === undefined };
   const evidence = checkSource({ person: row.person, hours, source: row.source }, claim, opts.sheet, opts.defaultYear);
   if ("problem" in evidence) return { ok: false, reason: "source", detail: evidence.problem };
   const sourced: ForecastRow = { ...row, period: evidence.period.period };
   // An email the cited row does not show is the model's, not the sheet's, and
   // matching by email first would route the hours to whoever owns it.
   const isEmailBacked = sourced.email === undefined || isEmailOnCitedRow(sourced, opts.sheet);
-  return { ok: true, row: isEmailBacked ? sourced : withoutEmail(sourced) };
+  return { ok: true, row: isEmailBacked ? sourced : withoutEmail(sourced), assumed: evidence.period.assumed };
 }
 
 /** Two of the sources cite cells of the same sheet row. */
@@ -116,9 +118,12 @@ function withoutSource(row: ForecastRow): ForecastRow {
  * Checks forecast rows from either import route. Each row is judged on its own
  * first (hours within 0..744 and rounded to two decimals, canonical period,
  * non-blank person and — on the Claude route — a `source` that cites a cell
- * holding that number on the person's row under or beside the period; the PERSON
- * must be on that row, and an email the row does not hold is dropped from the
- * accepted row). A rejected `source` names its cause in `detail`. A source
+ * holding that number on the person's row, under the NEAREST period header
+ * above it (or, with none above, beside it on the row: `checkSource`); the
+ * PERSON must be on that row, an email the row does not hold is dropped, and
+ * the accepted period is the one the SHEET reads there). A rejected `source`
+ * names its cause in `detail`. `assumedYear` is set when an accepted row's
+ * period took its year from `defaultYear`. A source
  * cell backs ONE row: a later row citing it again is rejected `source`, since
  * two rows cannot both be what one cell holds. Only then are rows for the same
  * person (case-insensitive, trimmed) and period summed, so a sum may exceed
@@ -133,6 +138,7 @@ export function validateForecastRows(input: unknown, opts: Options): ValidationR
   const rejected: RejectedRow[] = [];
   const usedSources = new Set<string>();
   const merged = new Map<string, Merged>();
+  const read: AssignedPeriod[] = [];
   for (const raw of input as unknown[]) {
     const checked = checkRow(raw, opts);
     const key = checked.ok && checked.row.source !== undefined ? sourceKey(checked.row.source, opts.sheet.name) : null;
@@ -147,26 +153,14 @@ export function validateForecastRows(input: unknown, opts: Options): ValidationR
       continue;
     }
     if (key !== null) usedSources.add(key);
-    const { row } = checked;
-    const rowSources = row.source === undefined ? [] : [row.source];
-    const mergeKey = `${row.person.toLowerCase()}\u0000${row.period}`;
-    const seen = merged.get(mergeKey);
-    merged.set(
-      mergeKey,
-      seen === undefined
-        ? { row, count: 1, sources: rowSources }
-        : {
-            row: { ...seen.row, hours: round2(seen.row.hours + row.hours) },
-            count: seen.count + 1,
-            sources: [...seen.sources, ...rowSources],
-          },
-    );
+    mergeRow(merged, checked.row);
+    read.push({ period: checked.row.period, assumed: checked.assumed });
   }
 
   const entries = [...merged.values()];
   const isCollision = (e: Merged): boolean => e.count > 1 && sharesSheetRow(e.sources, opts.sheet.name);
   const kept = entries.filter((e) => !isCollision(e));
-  return {
+  const result: ValidationResult = {
     ok: kept.map((e) => (e.count > 1 ? withoutSource(e.row) : e.row)),
     rejected,
     duplicates: kept
@@ -174,4 +168,23 @@ export function validateForecastRows(input: unknown, opts: Options): ValidationR
       .map((e) => ({ person: e.row.person, period: e.row.period, count: e.count, sources: e.sources })),
     collisions: entries.filter(isCollision).map((e) => ({ person: e.row.person, period: e.row.period, sources: e.sources })),
   };
+  const assumedYear = assumedYearOf(read, opts.defaultYear);
+  return assumedYear === undefined ? result : { ...result, assumedYear };
+}
+
+/** Adds an accepted row to the person × period sums. */
+function mergeRow(merged: Map<string, Merged>, row: ForecastRow): void {
+  const rowSources = row.source === undefined ? [] : [row.source];
+  const mergeKey = `${row.person.toLowerCase()}\u0000${row.period}`;
+  const seen = merged.get(mergeKey);
+  merged.set(
+    mergeKey,
+    seen === undefined
+      ? { row, count: 1, sources: rowSources }
+      : {
+          row: { ...seen.row, hours: round2(seen.row.hours + row.hours) },
+          count: seen.count + 1,
+          sources: [...seen.sources, ...rowSources],
+        },
+  );
 }
