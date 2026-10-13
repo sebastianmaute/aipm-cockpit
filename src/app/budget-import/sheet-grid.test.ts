@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildZip } from "../zip";
-import { excelSerialToIso, parseDelimited, readSheetFile } from "./sheet-grid";
+import { MAX_XLSX_SHEET_CELLS } from "../xlsx-extract";
+import { excelSerialToIso, parseDelimited, readDelimited, readSheetFile } from "./sheet-grid";
 
 const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
 
@@ -122,5 +123,28 @@ describe("readSheetFile", () => {
   it("rejects anything else as unsupported", async () => {
     await expect(readSheetFile("old.xls", enc("x"))).rejects.toThrow("unsupported");
     await expect(readSheetFile("noext", enc("x"))).rejects.toThrow("unsupported");
+  });
+});
+
+// §500 fix wave 2, round 2 (CR minor 6): a CSV is bounded like a workbook sheet.
+describe("readDelimited — the cell cap", () => {
+  it("stops before the row that would pass the cap and marks the grid as cut", () => {
+    expect(readDelimited("a,b\nc,d\ne,f\n", 5)).toEqual({ rows: [["a", "b"], ["c", "d"]], truncated: true });
+    expect(readDelimited("a,b\nc,d\ne,f\n", 6)).toEqual({ rows: [["a", "b"], ["c", "d"], ["e", "f"]], truncated: false });
+  });
+
+  it("reads a whole file without a cap, as parseDelimited does", () => {
+    expect(readDelimited("a;b\n1;2\n").rows).toEqual(parseDelimited("a;b\n1;2\n"));
+  });
+
+  it("cuts a csv just over MAX_XLSX_SHEET_CELLS in readSheetFile", async () => {
+    const rowsOfTwo = MAX_XLSX_SHEET_CELLS / 2;
+    const fits = Array.from({ length: rowsOfTwo }, () => "1,2").join("\n");
+    const [whole] = await readSheetFile("f.csv", enc(fits));
+    expect(whole.truncated).toBe(false);
+    expect(whole.rows).toHaveLength(rowsOfTwo);
+    const [cut] = await readSheetFile("f.csv", enc(`${fits}\n3,4`));
+    expect(cut.truncated).toBe(true);
+    expect(cut.rows).toHaveLength(rowsOfTwo);
   });
 });

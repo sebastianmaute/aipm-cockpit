@@ -5,7 +5,7 @@
 // "45658"): deciding what a cell means (a number, a date, a period header) is
 // the next layer's job, because the locale of the file is only known there.
 
-import { extractXlsxGrid } from "../xlsx-extract";
+import { extractXlsxGrid, MAX_XLSX_SHEET_CELLS } from "../xlsx-extract";
 import { readZipEntries } from "../unzip";
 
 /** How a grid's number cells were written. "dot": an xlsx/xlsm workbook, whose
@@ -41,9 +41,20 @@ function detectDelimiter(text: string): string {
  * RFC 4180 reader: quoted cells may hold the delimiter, a doubled `""` for a
  * quote and line breaks; CRLF, LF and a lone CR each end a row. A leading BOM
  * is dropped and the trailing empty row (the file's final newline) is not
- * returned. The delimiter is detected, see `detectDelimiter`.
+ * returned. The delimiter is detected, see `detectDelimiter`. Unbounded: a
+ * file is read whole (`readDelimited` takes a cell cap).
  */
 export function parseDelimited(text: string): string[][] {
+  return readDelimited(text).rows;
+}
+
+/**
+ * `parseDelimited` with a cell cap: reading stops before the row whose cells
+ * would take the total past `maxCells`, and `truncated` says so — the same
+ * bound a workbook sheet has (`MAX_XLSX_SHEET_CELLS`), so a huge CSV is not
+ * held as millions of strings and walked by every detection pass.
+ */
+export function readDelimited(text: string, maxCells = Infinity): { rows: string[][]; truncated: boolean } {
   const src = text.startsWith(BOM) ? text.slice(1) : text;
   const delimiter = detectDelimiter(src);
   const rows: string[][] = [];
@@ -51,19 +62,24 @@ export function parseDelimited(text: string): string[][] {
   let field = "";
   let inQuotes = false;
   let rowStarted = false;
+  let cells = 0;
+  let truncated = false;
 
   const endField = (): void => {
     row.push(field);
     field = "";
+    if (cells + row.length > maxCells) truncated = true;
   };
   const endRow = (): void => {
     endField();
+    if (truncated) return;
     rows.push(row);
+    cells += row.length;
     row = [];
     rowStarted = false;
   };
 
-  for (let i = 0; i < src.length; i++) {
+  for (let i = 0; i < src.length && !truncated; i++) {
     const ch = src[i];
     if (inQuotes) {
       if (ch !== '"') field += ch;
@@ -82,12 +98,12 @@ export function parseDelimited(text: string): string[][] {
       endRow();
     } else field += ch;
   }
-  if (rowStarted || field !== "" || row.length > 0) endRow();
+  if (!truncated && (rowStarted || field !== "" || row.length > 0)) endRow();
   // A file ending in a blank line leaves one [""] row behind.
   while (rows.length > 0 && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === "") {
     rows.pop();
   }
-  return rows;
+  return { rows, truncated };
 }
 
 /** 1900-03-01 is serial 61; serial 60 is Excel's phantom 1900-02-29. */
@@ -144,7 +160,8 @@ export async function readSheetFile(name: string, bytes: Uint8Array): Promise<Sh
   }
   if (ext === "csv") {
     const base = name.slice(0, name.length - ext.length - 1);
-    return [{ name: base, rows: parseDelimited(decodeCsvBytes(bytes)), truncated: false, numbers: "text" }];
+    const { rows, truncated } = readDelimited(decodeCsvBytes(bytes), MAX_XLSX_SHEET_CELLS);
+    return [{ name: base, rows, truncated, numbers: "text" }];
   }
   throw new Error("unsupported");
 }
