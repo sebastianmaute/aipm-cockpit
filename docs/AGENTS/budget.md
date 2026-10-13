@@ -322,8 +322,14 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   2026 | Feb 2026` asks too. ★★ Either layout asks for the HEADER ROW when more than one row of the scan
   range reads as a header for it (`headerAmbiguity`, `{ field: "header", candidates: [rows] }`, fix 9
   OOS-c): stacked long blocks (`Name | Monat | Forecast` over `Name | Monat | Ist`, which imported the Ist
-  block) and stacked wide year blocks (residue 9). The preselected row is unchanged, and the notice names
-  the candidate rows (1-based). In the Wide layout, which has no hours or period select, ONE notice asks to
+  block) and stacked wide year blocks (residue 9). ★★★ A REPEATED HEADER (`repeatedHeaderRows`, round 5)
+  is a row whose person-column cell equals the header's person label and which holds no number in the
+  hours or period columns: detection adds every one, above or below, to the header question whatever the
+  block sizes (a one-row block too), and the hand reading STOPS before the first one below the header row
+  (`readingEnd`; the preview counts the rows below it, `rowsBelowRepeatedHeader`), so header row 1 reads
+  the Forecast block only and the later header the Ist block only. A second block whose header names the
+  person column differently (`Mitarbeiter` under `Name`) is no repeated header (residue 28). The
+  preselected row is unchanged, and the notice names the candidate rows (1-based). In the Wide layout, which has no hours or period select, ONE notice asks to
   check the mapping and confirm (rr8 m2); a header notice is shown beside it. Detection
   scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, blank rows skipped
   and not counted, so a large sheet does not freeze the dialog (M1); `gridToForecastRows` then reads every
@@ -380,9 +386,11 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   the cell of that row in the PERSON column names the person, and every period source for the cell agrees (`checkSource`
   in `source-evidence.ts`, below). U is the NEAREST period header above it in its column (`nearestPeriodRowAbove`: a
   row whose run gives that column a period), read as part of that row's run. ★★ The PERSON column is the
-  hand reading's where there is one, else the column that holds the person cell for most of the reply's
-  claims, the leftmost on a tie (`personColumnOf`, fix 9 OOS-a): a person named in ANY cell of the row
-  once vouched for the claim, so a `Vertretung` or `Manager` column routed someone else's hours to them. ★★ Text in the grid never
+  hand reading's where there is one, else the cited row's LEFTMOST non-blank text cell, period-shaped,
+  email and number cells skipped (`leftmostTextColumn`, round 5): a person named in ANY cell of the row
+  once vouched for the claim, so a `Vertretung` or `Manager` column routed someone else's hours to them,
+  and a majority vote over the claims (fix 9) let a reply of one deputy claim win alone. The cost: a
+  `Rolle | Name` sheet with no hand reading refuses its people (residue 29). ★★ Text in the grid never
   bounds that search: a placeholder (`-`, `Urlaub`), a unit row (`Std`) or a `Plan | Ist` sub-header
   between the header and the cell is passed over. Round 3 stopped at such a cell, which rejected every valid
   claim beneath it and, through `headerDateOf`, turned sprint-date sub-period columns under a `-` back into
@@ -394,9 +402,10 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   through, so no source decides alone and a disagreement is a visible refusal, never a pick
   (`periodNearCell`). The sources: H, the hand route's reading of the cell (`handReadingOf` in
   `hand-reading.ts`: the hand route's own `gridToForecastRows` over the sheet, per cell it READS — ★★★ a
-  cited cell on a row it reads but outside those cells is refused `cell-not-read`, whatever it holds
-  (fix 8 round 3: a long row's period once covered every cell of the row, so its `Ist`, a `Kosten` 40 equal
-  to the Stunden 40, or an ID stood in the row's month)); U, the nearest period header above the cell, read as part of
+  cited cell on a row it reads but outside those cells, or on a row outside the rows it covers (above the
+  header row or from a repeated header on: another stacked block, round 5), is refused `cell-not-read`,
+  whatever it holds (fix 8 round 3: a long row's period once covered every cell of the row, so its `Ist`, a
+  `Kosten` 40 equal to the Stunden 40, or an ID stood in the row's month)); U, the nearest period header above the cell, read as part of
   its row's run (above); and R, every period cell on the cited row (`rowPeriodCells`, the cited and
   PERSON cells skipped by position; a year-less one takes a year cell on the row before the default year),
   counted ONLY without H — with H, the hand route has already chosen the row's period column. A claim
@@ -418,10 +427,11 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   columns to confirm them, then ask Claude again", one line per refused row); once the user has confirmed
   or edited the mapping, `useForecastImport` passes it (`validateForecastRows`'s `columns`) and H is read
   with THAT mapping and its year, so a user who fixed the columns is not checked against the uncorrected
-  detection; a clear detection is H as detected; an unknown one has no H. ★★ "Edited" means a mapping
-  VALUE differs from the one the hand route opened with (`isSameMapping`, field by field, a year
-  included; fix 9 I-2): the mapping step's Show preview passes a fresh copy, and a reference compare once
-  made an unknown layout's default mapping H on a no-op preview, writing Bob's March row as February. Readings are cached per grid
+  detection; a clear detection is H as detected; an unknown one has no H. ★★ "Edited" means a COLUMN field
+  differs from the mapping the hand route opened with (`isSameColumns`: layout, header row, person, period,
+  hours, year column; fix 9 I-2, round 5): the mapping step's Show preview passes a fresh copy, and a
+  reference compare once made an unknown layout's default mapping H on a no-op preview, writing Bob's
+  March row as February. The year value alone is no column edit. Readings are cached per grid
   and mapping (or default year). ★★ Two cells of one row in one period are a collision, never a sum,
   unless each sits under a distinct date header (U) AND the row holds no period cell of its own
   (`headerDateOf`, both routes): a row with its own period is a long row. A metadata row (`Erstellt |

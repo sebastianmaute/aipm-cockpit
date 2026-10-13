@@ -30,7 +30,7 @@ longer carries its own changelog comment.
   `Stunden | Kosten` or `Forecast | Iststunden`, whatever their headers; `Datum | Eintritt`; a sheet of
   month columns whose rows hold any date of their own outside the month columns, such as a `Start` or a
   notes column, or a year column beside months without a year), or more than one row could be the header
-  row (stacked blocks), the column
+  row (stacked blocks, or the header row repeated further down), the column
   step opens with a note naming the candidates, and Apply waits until you choose the column or confirm that
   the columns are right. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
   and so do month names and weeks without a year (`Jan`, `KW03`): they are read in the import's year,
@@ -46,7 +46,9 @@ longer carries its own changelog comment.
   the columns or the sheet are fixed, instead of being added together. Total rows and columns are skipped
   (quarter and fiscal-year totals too), and any other column of numbers that is not read — except an ID or
   year column, or a column of workbook dates — is listed instead of dropped without a word, as are data rows
-  of an earlier block above the header row (a title or metadata row is not counted). Or
+  of an earlier block above the header row (a title or metadata row is not counted). The reading stops at a
+  repeated header row, so a sheet of stacked blocks (`Forecast` over `Ist`) imports only the block you
+  choose, and the preview says how many rows below it were not read. Or
   Ask Claude to read the sheet: every row it returns cites the cell its hours came from, and a row whose
   cell does not hold them, whose person is not in the person column of that row, or that is not under the
   period it claims is not imported — the preview says which, and lists the number cells and the rows Claude did not read,
