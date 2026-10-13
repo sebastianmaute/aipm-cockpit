@@ -1052,3 +1052,36 @@ describe("useForecastImport — one placeholder does not switch the row-period q
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
   });
 });
+
+// Fix 9 I-2 (rr9 H1b): on an unknown layout, "Show preview" with nothing
+// changed passes a fresh copy of the default mapping. Compared by reference,
+// it counted as an edit and made the default mapping H, so Bob's March row was
+// written as February. An edit is a change of a mapping VALUE.
+describe("useForecastImport — only a changed value is an edited mapping (fix 9 I-2)", () => {
+  const UNKNOWN = ["Forecast Q1,Jan 2026,Feb 2026,Mar 2026", ...Array.from({ length: 10 }, () => ""),
+    "Name,Monat,Stunden", "Ann Lee,Jan 2026,40", "Bob Ray,Mar 2026,40", ""].join("\r\n");
+  const bobAsFebruary = { rows: [{ person: "Bob Ray", period: "Feb 2026", hours: 40, source: "forecast!C14" }] };
+
+  it("a no-op Show preview leaves an unknown layout without a hand reading: Bob's March as February is refused", async () => {
+    claudeResponds(bobAsFebruary);
+    const { result } = await loaded(depsOf(), UNKNOWN);
+    expect(result.current.layoutDetected).toBe(false);
+    act(() => result.current.showPreview({ ...result.current.mapping! }));
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected).toMatchObject([{ detail: "period-conflict", periods: { row: "2026-03", header: "2026-02" } }]);
+    expect(result.current.importPlan?.changes).toEqual([]);
+  });
+
+  it("a real edit still makes the mapping the hand reading", async () => {
+    claudeResponds(bobAsFebruary);
+    const { result } = await loaded(depsOf(), UNKNOWN);
+    act(() => result.current.setMapping({ layout: "long", headerRow: 11, person: 0, period: 1, hours: 2, year: 2026 }));
+    await act(async () => {
+      await result.current.askClaude();
+    });
+    expect(result.current.rejected).toMatchObject([{ detail: "period-conflict", periods: { sheet: "2026-03", header: "2026-02" } }]);
+    expect(result.current.importPlan?.changes).toEqual([]);
+  });
+});
