@@ -941,15 +941,15 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§701](#701-ai-actions-other-than-the-chat-ignore-operating-guides--closed-2026-10-12) | AI actions other than the chat ignore operating guides | — | — | **CLOSED** 2026-10-12 |
 | [§702](#702-the-ai-chat-still-sends-the-current-views-guides-as-a-system-block-so-a-view-switch-invalidates-the-cached-transcript-build-slice-g2-in-the-app--open) | The AI chat still sends the current view's guides as a system block, so a view switch invalidates the cached transcript (build slice G2 in the app) | — | — | open |
 | [§703](#703-an-ask-claude-press-that-mounts-the-chat-panel-tells-claude-it-is-on-the-chat-tab-not-the-page-it-was-pressed-on--closed-2026-10-13) | An Ask Claude press that mounts the chat panel tells Claude it is on the chat tab, not the page it was pressed on | — | — | **CLOSED** 2026-10-13 |
-| [§704](#704-the-timelog-connection-defaults-to-the-app2-host-so-a-tenant-on-another-timelog-region-fails-with-a-bare-404--open) | The Timelog connection defaults to the app2 host, so a tenant on another Timelog region fails with a bare 404 | — | — | open |
-| [§705](#705-the-desktop-apps-first-start-is-slow-and-nothing-says-so-so-it-reads-as-hung--open) | The desktop app's first start is slow and nothing says so, so it reads as hung | — | — | open |
-| [§706](#706-turning-modules-on-or-off-needs-expert-mode--open) | Turning modules on or off needs expert mode | — | — | open |
-| [§707](#707-turning-on-time-bookings-does-not-say-it-needs-resources-and-budget--open) | Turning on Time bookings does not say it needs Resources and Budget | — | — | open |
-| [§708](#708-the-resource-form-does-not-mark-the-name-and-email-that-timelog-matching-needs--open) | The resource form does not mark the name and email that Timelog matching needs | — | — | open |
-| [§709](#709-the-timelog-tenant-field-does-not-say-where-to-find-the-tenant--open) | The Timelog tenant field does not say where to find the tenant | — | — | open |
-| [§710](#710-an-empty-budget-view-offers-only-add-bucket-with-no-word-on-the-setup-order--open) | An empty Budget view offers only "Add bucket", with no word on the setup order | — | — | open |
-| [§711](#711-the-turso-settings-give-one-line-of-help-for-a-setup-that-needs-two-browser-round-trips--open) | The Turso settings give one line of help for a setup that needs two browser round trips | — | — | open |
-| [§712](#712-the-demo-project-is-easy-to-miss-once-the-tour-is-skipped-and-a-project-is-created-from-a-template--open) | The demo project is easy to miss once the tour is skipped and a project is created from a template | — | — | open |
+| [§704](#704-the-timelog-connection-defaults-to-the-app2-host-so-a-tenant-on-another-timelog-region-fails-with-a-bare-404--closed-2026-10-13) | The Timelog connection defaults to the app2 host, so a tenant on another Timelog region fails with a bare 404 | — | — | **CLOSED** 2026-10-13 |
+| [§705](#705-the-desktop-apps-first-start-is-slow-and-nothing-says-so-so-it-reads-as-hung--closed-2026-10-13) | The desktop app's first start is slow and nothing says so, so it reads as hung | — | — | **CLOSED** 2026-10-13 |
+| [§706](#706-turning-modules-on-or-off-needs-expert-mode--closed-2026-10-13) | Turning modules on or off needs expert mode | — | — | **CLOSED** 2026-10-13 |
+| [§707](#707-turning-on-time-bookings-does-not-say-it-needs-resources-and-budget--closed-2026-10-13) | Turning on Time bookings does not say it needs Resources and Budget | — | — | **CLOSED** 2026-10-13 |
+| [§708](#708-the-resource-form-does-not-mark-the-name-and-email-that-timelog-matching-needs--closed-2026-10-13) | The resource form does not mark the name and email that Timelog matching needs | — | — | **CLOSED** 2026-10-13 |
+| [§709](#709-the-timelog-tenant-field-does-not-say-where-to-find-the-tenant--closed-2026-10-13) | The Timelog tenant field does not say where to find the tenant | — | — | **CLOSED** 2026-10-13 |
+| [§710](#710-an-empty-budget-view-offers-only-add-bucket-with-no-word-on-the-setup-order--closed-2026-10-13) | An empty Budget view offers only "Add bucket", with no word on the setup order | — | — | **CLOSED** 2026-10-13 |
+| [§711](#711-the-turso-settings-give-one-line-of-help-for-a-setup-that-needs-two-browser-round-trips--closed-2026-10-13) | The Turso settings give one line of help for a setup that needs two browser round trips | — | — | **CLOSED** 2026-10-13 |
+| [§712](#712-the-demo-project-is-easy-to-miss-once-the-tour-is-skipped-and-a-project-is-created-from-a-template--closed-2026-10-13) | The demo project is easy to miss once the tour is skipped and a project is created from a template | — | — | **CLOSED** 2026-10-13 |
 | [§713](#713-the-install-guide-leaves-out-what-a-non-technical-pilot-user-needed-and-nothing-in-the-app-points-to-it--open) | The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it | — | — | open |
 | [§714](#714-follow-up-with-the-uk-pilot-user-fixes-before-their-2026-10-22-review-the-api-key-cost-question-and-a-project-intake-session--open) | Follow-up with the UK pilot user: fixes before their 2026-10-22 review, the API-key cost question, and a project-intake session | — | — | open |
 <!-- INDEX:END -->
@@ -44798,11 +44798,11 @@ Size S.
 
 **Source:** §702 (the view-switch counter's review, 2026-10-13).
 
-## 704. The Timelog connection defaults to the app2 host, so a tenant on another Timelog region fails with a bare 404 — OPEN
+## 704. The Timelog connection defaults to the app2 host, so a tenant on another Timelog region fails with a bare 404 — CLOSED 2026-10-13
 
-**Status:** OPEN 2026-10-13 — seen live in a pilot onboarding session: a UK tenant's "Test connection" returned `404 not allowed` until the host was changed from `app2.timelog.com` to `app.timelog.com`. The default is still the German-region host (`grep -c 'host: "app2.timelog.com"' src/app/timelog-types.ts` → 1). That Timelog serves regions from different hosts was observed in that session, not documented here from Timelog's side.
+**Status:** CLOSED 2026-10-13 on `feat/pilot-onboarding-phase1` (GitHub #693; commit 7f29f6e4b). The app no longer ships a Timelog region: `defaultTimelogConfig.host` is `""`, and a host already stored on a device still wins over it (`use-settings.ts` spreads the default first). Settings → Integrations → Timelog leads with one "Your Timelog address" field: the user pastes the browser address bar and `parseTimelogAddress` (`timelog-address.ts`) reads host and tenant out of it, mirroring the proxy's `normalizeHost` and never looser. The pasted text lives in local state only, so rendering a stored config never calls `onChange`; host and tenant stay editable under "Edit host and tenant separately", open when either is stored. A blank host is never sent: "Test connection" says to paste the address first. A 404 from "Test connection" now names the tenant and host and says Timelog serves regions from different addresses (`timelogTest404`). ★ Chosen instead of the proposal's host choice or retry-on-404: pasting the address works for every region without the app knowing a list. Witness: `src/app/timelog-address.test.ts`, `src/app/timelog-settings.test.tsx` (address field, 404 message, no host sent), `src/app/use-settings.secrets.test.ts` (a stored host wins over the blank default). Not done: the app does not link `docs/desktop-rollout.md` from the Timelog settings, and the guide was only adjusted for the new field; linking and rewriting the guide stay with §713. Whether Timelog documents its regional hosts is still unchecked from Timelog's side. Measured at closure with `npx vitest run src/app/timelog-address.test.ts src/app/timelog-settings.test.tsx src/app/use-settings.secrets.test.ts --maxWorkers=2`: 3 files, 85 passed. Not re-run at closure: the e2e suite, `npm run build` and the full unit suite.
 
-**Work item:** #693
+★ The text below is the record as opened, before the fix: its measured greps and its "Proposed" paragraph describe the old code and the first idea, not what shipped.
 
 `defaultTimelogConfig` sets `host` to `app2.timelog.com`, the host the integration was built and verified against. A tenant that lives on another regional host gets a 404 from the proxied call, and the settings show it as a plain connection failure. Nothing on screen says that the host is region-specific or which value to try, so the pilot session needed the owner to read the user's browser address bar to find it. `docs/desktop-rollout.md` does tell a user to copy the host from that address bar, but the app does not link the guide, and a user who keeps the default never reads it.
 
@@ -44812,11 +44812,11 @@ Size S.
 
 **Source:** owner's onboarding session with a UK pilot user, 2026-10-13.
 
-## 705. The desktop app's first start is slow and nothing says so, so it reads as hung — OPEN
+## 705. The desktop app's first start is slow and nothing says so, so it reads as hung — CLOSED 2026-10-13
 
-**Status:** OPEN 2026-10-13 — not a defect: the owner ruled on 2026-10-13 that the slow first start is normal and that users must be told. The splash names no wait (`grep -c "first start\|first launch" desktop/splash.html` → 0). In the pilot session Windows marked the window "Not responding", it disappeared, and it then opened on the other monitor.
+**Status:** CLOSED 2026-10-13 on `feat/pilot-onboarding-phase1` (GitHub #694; commit aec00bd1b). The splash now says what is happening: "Starting the background service…" while the local server starts, "Opening…" just before the window loads, and, after `SPLASH_SLOW_MS` (10 s), "Still starting. The first start after installing or updating can take up to a minute — please wait." (German when the OS locale starts with `de`). The strings and the scripts `main.ts` sends are in `desktop/src/lib/splash-status.ts`; `desktop/splash.html` owns the two text lines. ★ Differs from the proposal: the slow line appears on ANY start that takes longer than 10 s, not only the first one, because the app cannot tell a first start from a slow one; "up to a minute" is the entry's own account, not a measurement. Witness: `desktop/src/lib/splash-status.test.ts` (locale choice, script escaping). `main.ts` is outside the root typecheck and no test imports it, so its timing (the slow timer cleared before `loadURL` and on a failed start) and the rendered splash are NOT machine-verified: the owner still has to eye-check a packaged build before release. Not done: the same sentence in `docs/desktop-rollout.md` "The first time you open it" stays with §713. Measured at closure with `npx vitest run desktop/src/lib/splash-status.test.ts --maxWorkers=2`: 1 file, 14 passed. Not re-run at closure: the e2e suite, `npm run build` and the full unit suite.
 
-**Work item:** #694
+★ The text below is the record as opened, before the fix: its measured greps and its "Proposed" paragraph describe the old code and the first idea, not what shipped.
 
 The first launch after install does background work before the window is usable. The splash shows only the artwork and "starting", so a first-time user cannot tell a slow start from a hang and starts clicking. In the pilot session the user said that a long wait is fine "as long as you know it's going to take a long time".
 
@@ -44826,11 +44826,11 @@ Size S.
 
 **Source:** owner's onboarding session with a UK pilot user, 2026-10-13.
 
-## 706. Turning modules on or off needs expert mode — OPEN
+## 706. Turning modules on or off needs expert mode — CLOSED 2026-10-13
 
-**Status:** OPEN 2026-10-13 — the Mode section is in the expert-only list (`grep -n "const EXPERT_IDS" src/app/settings-view.tsx | grep -c '"mode"'` → 1). The Integrations section is not expert-only, so the Timelog settings themselves were reachable.
+**Status:** CLOSED 2026-10-13 on `feat/pilot-onboarding-phase1` (GitHub #695; commits a747cfdf6, aa6545076, 2bbae0855, ac64bb127). Choosing functions no longer needs expert mode. The create wizard's Functions step is now a shared `FunctionsPicker` (`functions-picker.tsx`), and the same picker sits in Edit project (project list, Edit), above Save, where the choice applies to that project and commits through `setFeatures`. Settings → "Functions" (the old Mode section, removed from `EXPERT_IDS`) holds only a pointer: "Open this project's functions" opens Edit project for the current project, focused on Functions (a monotonic request that `ProjectsPanel` seeds with a sentinel, per the remount-swallow rule), and the control says "Open a project first to choose its functions." when none is open. The picker shows each function's description and, always, that existing data is kept when a function is switched off. ★ Differs from the proposal's wording: the module choice stays per project and lives in Edit project rather than in a section of its own, with Settings linking to it. Witness: `src/app/functions-picker.test.tsx`, `src/app/project-edit-modal.test.tsx`, `src/app/projects-panel.test.tsx`, `src/app/settings-sections/mode-section.test.tsx`, `src/app/settings-view.test.tsx`, `src/app/use-settings-navigation.test.ts`. Not machine-verified: a Functions request arriving from the Settings popout (flagged by the task review, carried to the final review). Measured at closure with `npx vitest run src/app/functions-picker.test.tsx src/app/project-edit-modal.test.tsx src/app/projects-panel.test.tsx src/app/settings-sections/mode-section.test.tsx src/app/settings-view.test.tsx src/app/use-settings-navigation.test.ts --maxWorkers=2`: 6 files, 137 passed. Not re-run at closure: the e2e suite, `npm run build` and the full unit suite.
 
-**Work item:** #695
+★ The text below is the record as opened, before the fix: its measured greps and its "Proposed" paragraph describe the old code and the first idea, not what shipped.
 
 In the pilot session the user had to switch expert mode on to reach Settings → Mode and turn on Resources, Time bookings and Budget. Turning on a module is ordinary setup for a new project, not an advanced setting, and a non-technical user would not look for it behind a switch called "expert".
 
@@ -44840,11 +44840,11 @@ Size S.
 
 **Source:** owner's onboarding session with a UK pilot user, 2026-10-13.
 
-## 707. Turning on Time bookings does not say it needs Resources and Budget — OPEN
+## 707. Turning on Time bookings does not say it needs Resources and Budget — CLOSED 2026-10-13
 
-**Status:** OPEN 2026-10-13 — `FEATURE_MODULES` declares no dependency between modules (`grep -c -i "requires\|dependsOn" src/app/feature-modules.ts` → 0).
+**Status:** CLOSED 2026-10-13 on `feat/pilot-onboarding-phase1` (GitHub #696; commits 30a2dc73f, a747cfdf6, be5c25b6c, f64403180). `FEATURE_MODULES` can now declare `uses`, and Time bookings declares Resources and Budget; `missingUses` lists what is off (nothing when the module itself is off). ★ The declaration is informational: turning Time bookings on does not turn the others on. The notice is shown in two places instead: the Functions picker (wizard and Edit project), and the Time bookings view itself above its content while Resources or Budget is off, including in the "Timelog not configured" state a new user lands in first (the second commit; the first cut missed it). Both offer a "turn on" action, except in a popout, where the view shows the notice without it. Witness: `src/app/feature-modules.test.ts`, `src/app/functions-picker.test.tsx`, `src/app/timelog-panel.test.tsx` (both off, one off, both on, popout without the button, not-configured state). Measured at closure with `npx vitest run src/app/feature-modules.test.ts src/app/functions-picker.test.tsx src/app/timelog-panel.test.tsx --maxWorkers=2`: 3 files, 137 passed. Not re-run at closure: the e2e suite, `npm run build` and the full unit suite.
 
-**Work item:** #696
+★ The text below is the record as opened, before the fix: its measured greps and its "Proposed" paragraph describe the old code and the first idea, not what shipped.
 
 Timelog bookings are matched to resources by name and email and are costed through roles in budget buckets, so the Time bookings module on its own shows bookings that nothing can use. The pilot user needed the owner to explain that all three modules had to be on, and in which order to set them up.
 
@@ -44854,11 +44854,11 @@ Size S.
 
 **Source:** owner's onboarding session with a UK pilot user, 2026-10-13.
 
-## 708. The resource form does not mark the name and email that Timelog matching needs — OPEN
+## 708. The resource form does not mark the name and email that Timelog matching needs — CLOSED 2026-10-13
 
-**Status:** OPEN 2026-10-13 — the resource modal marks no field as required (`grep -c "required" src/app/resource-edit-modal.tsx` → 0).
+**Status:** CLOSED 2026-10-13 on `feat/pilot-onboarding-phase1` (GitHub #697; commits c2152fbe4, 7b4eeca6f, 9b42426c6). The resource form now leads with a "Needed" group (first name, last name, email), always shown whatever the field-visibility choice, and folds the rest into "More details", open when the person already has a value there. Email is now required on Save ("Enter the person's email — it is how Timelog bookings reach them."; the name was already required), its info tooltip says to use the address the person signs into Timelog with, and email is locked as required in the field-visibility picker (`modal-fields.ts`) so it cannot be hidden. ★ The tooltip does not depend on the Timelog integration being on, unlike the proposal. The directory marks a person with no primary and no additional email ("No email — cannot match Timelog"). Matching was widened too: `autoMatchUsers` now compares a Timelog user's email with the primary and the additional emails, a primary match winning, so a person whose Timelog account uses a second address is matched. Limits: only the resource form enforces the email; picker quick-create, the AI tool and imports still create people without one, and an existing person without one is untouched until edited (Save then asks for it). Witness: `src/app/timelog-match.test.ts`, `src/app/resource-edit-modal.test.tsx`, `src/app/resource-directory.test.tsx`, `src/app/use-resource-quick-create.test.ts`, `src/app/modal-field-controls.test.tsx`. Measured at closure with `npx vitest run src/app/timelog-match.test.ts src/app/resource-edit-modal.test.tsx src/app/resource-directory.test.tsx src/app/use-resource-quick-create.test.ts src/app/modal-field-controls.test.tsx --maxWorkers=2`: 5 files, 131 passed. Not re-run at closure: the e2e suite, `npm run build` and the full unit suite.
 
-**Work item:** #697
+★ The text below is the record as opened, before the fix: its measured greps and its "Proposed" paragraph describe the old code and the first idea, not what shipped.
 
 Imported Timelog bookings are attributed to a resource by matching name and email, so a resource without them never receives any bookings, silently. In the pilot session the user asked which of the form's fields mattered; the owner said only name and email do, and that the form should say so.
 
@@ -44868,11 +44868,11 @@ Size S.
 
 **Source:** owner's onboarding session with a UK pilot user, 2026-10-13.
 
-## 709. The Timelog tenant field does not say where to find the tenant — OPEN
+## 709. The Timelog tenant field does not say where to find the tenant — CLOSED 2026-10-13
 
-**Status:** OPEN 2026-10-13 — the only tenant help is the build-variable notice (`grep -c "timelogTenantFromEnv" src/app/i18n.ts` → 1), shown when the field is blank on a deployment that sets one; nothing tells a user where their tenant is written.
+**Status:** CLOSED 2026-10-13 on `feat/pilot-onboarding-phase1` (GitHub #698; commit 7f29f6e4b, shipped with §704). Two parts. A user who pastes their Timelog address no longer has to find the tenant at all: `parseTimelogAddress` reads it from the address's first path segment. And the separate tenant field carries a hint, "The part after the host in your Timelog address." (`timelogTenantHint`), so a user who edits it by hand is told where it is written. ★ The hint is shorter than the guide's wording and does not itself say to look at the browser's address bar; the address field above it does ("Open Timelog in your browser, copy the address bar, paste it here."). Witness: `src/app/timelog-address.test.ts` (tenant from the path, decoding, rejected addresses), `src/app/timelog-settings.test.tsx`. Measured at closure with `npx vitest run src/app/timelog-address.test.ts src/app/timelog-settings.test.tsx --maxWorkers=2`: 2 files, 70 passed. Not re-run at closure: the e2e suite, `npm run build` and the full unit suite.
 
-**Work item:** #698
+★ The text below is the record as opened, before the fix: its measured greps and its "Proposed" paragraph describe the old code and the first idea, not what shipped.
 
 The pilot user did not know their tenant and had to log out of Timelog and back in to read it off the sign-in page. A one-line hint saying where the tenant appears would have saved that.
 
@@ -44884,11 +44884,11 @@ Size XS.
 
 **Source:** owner's onboarding session with a UK pilot user, 2026-10-13.
 
-## 710. An empty Budget view offers only "Add bucket", with no word on the setup order — OPEN
+## 710. An empty Budget view offers only "Add bucket", with no word on the setup order — CLOSED 2026-10-13
 
-**Status:** OPEN 2026-10-13 — with no buckets the panel renders only the add button (`grep -c "AddFirstItemButton onAdd={addBucket}" src/app/budget-panel.tsx` → 1).
+**Status:** CLOSED 2026-10-13 on `feat/pilot-onboarding-phase1` (GitHub #699; commit 61475e004). An empty Budget view no longer offers only "Add bucket". It shows "Set up your budget": four steps in order, each ticked from the project's data with nothing new stored on the Workspace. (1) Give a role a rate. (2) Add the people. (3) Create a bucket for each phase or contract. (4) Import time bookings from Timelog (optional; counted once any bucket's role or discipline allocation has actual hours). The first step not done is marked "next"; links open Manage roles, the Resources directory and Time bookings, step 3 has "Add bucket", and "Take the budget tour" and "Explore with demo data" are offered (the links are omitted in a popout). Once a bucket exists the list collapses to "Budget setup: N of 4" with show/hide, and stays until the bookings step is done or it is hidden; the hide choice is remembered per device and project. ★ The steps follow the entry's order, but step 3 only says to create a bucket: it does not teach the per-bucket detail the entry lists (dates, type and people per Timelog phase). Witness: `src/app/budget-setup.test.ts`, `src/app/budget-setup-checklist.test.tsx`, `src/app/budget-panel-setup.test.tsx`. Measured at closure with `npx vitest run src/app/budget-setup.test.ts src/app/budget-setup-checklist.test.tsx src/app/budget-panel-setup.test.tsx --maxWorkers=2`: 3 files, 46 passed. Not re-run at closure: the e2e suite, `npm run build` and the full unit suite.
 
-**Work item:** #699
+★ The text below is the record as opened, before the fix: its measured greps and its "Proposed" paragraph describe the old code and the first idea, not what shipped.
 
 Budget brings roles and rates, resources, buckets and Timelog bookings together, and it only shows anything once those exist in that order. The owner had to explain the order in the pilot session: roles with rates, the people working on the project, a bucket per Timelog phase with its dates, type and people, then the bookings import. The empty view gives no hint of any of this.
 
@@ -44898,11 +44898,11 @@ Size S.
 
 **Source:** owner's onboarding session with a UK pilot user, 2026-10-13.
 
-## 711. The Turso settings give one line of help for a setup that needs two browser round trips — OPEN
+## 711. The Turso settings give one line of help for a setup that needs two browser round trips — CLOSED 2026-10-13
 
-**Status:** OPEN 2026-10-13 — the Turso settings carry one hint (`grep -c "integrationsTursoHint" src/app/i18n.ts` → 1), which says what Turso is and where the token is kept; no steps.
+**Status:** CLOSED 2026-10-13 on `feat/pilot-onboarding-phase1` (GitHub #700; commit bfb400ca9), for the app half only. The Turso settings now show numbered steps in the order the guide has them: (1) create a database at turso.tech, in a location near you, and keep that tab open; (2) copy the database URL from the database's page; (3) create an auth token without an expiry and paste it; (4) test the connection, then apply. Steps tick themselves from the fields (a usable URL or token supplied by the build environment counts, an unusable one does not; the test step ticks only after a passing test for exactly the current URL and token), and the section links the install guide (`INSTALL_GUIDE_URL`). The same section is mounted in the backend dialog, the backend setup wizard and the project empty state, so all three get the steps. ★ NOT DONE: `docs/desktop-rollout.md` still tells the user to choose a token expiry and to pass `--expiration` (its Turso step 4 and the command-line note under it), which now contradicts the dialog. The owner decision of 2026-10-13 requires the guide to change with the dialog, and that edit stays with §713 (its Turso token expiry bullet). ★ The URL step comes before the token step, the reverse of this entry's list, to match the guide. Witness: `src/app/settings-sections/turso-setup-steps.test.tsx`, `src/app/settings-sections/integrations-section.test.tsx`, `src/app/turso-setup-state.test.ts`. Not covered by tests: a step un-ticking after an edit, or staying un-ticked after a failed test. Measured at closure with `npx vitest run src/app/settings-sections/turso-setup-steps.test.tsx src/app/settings-sections/integrations-section.test.tsx src/app/turso-setup-state.test.ts --maxWorkers=2`: 3 files, 71 passed. Not re-run at closure: the e2e suite, `npm run build` and the full unit suite.
 
-**Work item:** #700
+★ The text below is the record as opened, before the fix: its measured greps and its "Proposed" paragraph describe the old code and the first idea, not what shipped.
 
 Setting up Turso means: sign up, create a database (an EU region), create a token without an expiry and copy it, paste it in the app, go back to the website, copy the database URL, paste it, test the connection. The pilot user needed the owner to talk through each switch between browser and app, and closed the browser tab before copying the URL.
 
@@ -44914,11 +44914,11 @@ Size S.
 
 **Source:** owner's onboarding session with a UK pilot user, 2026-10-13.
 
-## 712. The demo project is easy to miss once the tour is skipped and a project is created from a template — OPEN
+## 712. The demo project is easy to miss once the tour is skipped and a project is created from a template — CLOSED 2026-10-13
 
-**Status:** OPEN 2026-10-13 — `never machine-verified` that a skipped tour plus template content hides every prompt; the demo is offered in the tour, in the empty-workspace state, and in the Projects panel (`grep -rn "tourLoadDemo" src/app --include=*.tsx | grep -v test | wc -l` → 1, the panel's button).
+**Status:** CLOSED 2026-10-13 on `feat/pilot-onboarding-phase1` (GitHub #701; commits 19293e9b4, 497cf1baf). Two places now offer the demo besides the empty state, the tour and the Projects panel: a one-time banner on the dashboard of any project (an "explore" button or a dismiss ✕; never in a popout), and an entry in the Help panel's footer, wired into both header mounts. The banner is spent per device (`demo-banner-state.ts`): by its ✕ or by ANY demo open, because `useLoadDemo` marks it itself, so it never shows on the demo. ★ Differs from the proposal: it appears on every project's dashboard until spent, not only on a project holding only starter content, since the app cannot tell starter content from real work. The dashboard visual baseline is kept free of the banner by seeding the done flag in `e2e/visual.spec.ts` (not run here). Limit: "spent" is per device, so a demo created on another device or Turso client still shows the banner here. Witness: `src/app/demo-banner.test.tsx`, `src/app/demo-banner-state.test.ts`, `src/app/demo-project.test.ts`, `src/app/help-menu.test.tsx`, `src/app/app-header.test.tsx`, `src/app/shell-chrome.test.tsx`, `src/app/workspace-section.test.tsx`. Not done: saying where the demo is in `docs/desktop-rollout.md` stays with §713. Measured at closure with `npx vitest run src/app/demo-banner.test.tsx src/app/demo-banner-state.test.ts src/app/demo-project.test.ts src/app/help-menu.test.tsx src/app/app-header.test.tsx src/app/shell-chrome.test.tsx src/app/workspace-section.test.tsx --maxWorkers=2`: 7 files, 146 passed. Not re-run at closure: the e2e suite, `npm run build` and the full unit suite.
 
-**Work item:** #701
+★ The text below is the record as opened, before the fix: its measured greps and its "Proposed" paragraph describe the old code and the first idea, not what shipped.
 
 A project created from a template starts with starter content, so the empty-workspace state that offers the demo never shows. The pilot user had not found the demo; the owner pointed to Projects → "Explore a demo project".
 
