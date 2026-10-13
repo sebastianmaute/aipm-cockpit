@@ -268,20 +268,41 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   (`detectDecimalStyle`), never per cell; in German style a dot is only a thousands mark in groups of
   three, so a stray `2.5` is reported, not read as 25. ★★ A workbook is exempt from that guess
   (`SheetGrid.numbers` is "dot" for xlsx/xlsm): Excel stores every number cell with a dot, so those cells
-  read with a dot and never vote — one `2.625` once flipped a whole column and read `7.5` as 75. A month
-  name or week without a year ("Jan", "KW03") is a period only in `ColumnMapping.year`, which the hook
-  starts at the bucket's start year and the mapping step edits; the validator reads a Claude row in the
-  same year. A wide sheet's number column whose header is not a period comes back as an
-  `IgnoredColumn` and is listed under "Not imported". The CLAUDE route sends the sheet to ONE forced call
-  (`runForecastImportCall`, tool `propose_forecast_rows`, prompt text from `sheetToPromptText` over the
-  shared `renderSheetMarkdown`). Both produce the same `ForecastRow` list.
+  read with a dot and never vote — one `2.625` once flipped a whole column and read `7.5` as 75. Any
+  column, wide or long and at any position, that holds numbers in most person rows but is neither read,
+  mapped nor headed as a total (`isTotalHeader`: the total words plus `Q1`–`Q4`, `H1`/`H2`, `FY`/`GJ`)
+  comes back as an `IgnoredColumn` and is listed under "Not imported". The person column is a mostly-text
+  column headed Name / Mitarbeiter / Person / Resource …, else the first mostly-text one. The CLAUDE route
+  sends the sheet to ONE forced call (`runForecastImportCall`, tool `propose_forecast_rows`, prompt text
+  from `sheetToPromptText` over the shared `renderSheetMarkdown`). Both produce the same `ForecastRow` list.
+- ★★ **Which period a cell is: ONE module, `period-assign.ts`**, read by the hand route, detection and the
+  Claude near-cell check alike, so the three cannot disagree. A single cell is `parsePeriodLabel` (a date is
+  its month). A WIDE header row is read as a RUN (`assignRunPeriods` / `assignRunDetailed`): a cell that
+  names its year sets a running year; a year-less month or week takes it (starting at the default year)
+  and moves it on when its index steps backwards, so `Dez | Jan`, a fiscal `Jul … Jun` and `KW52 | KW01`
+  roll into the next year (week 53 checked in the year it lands in); and a run of dates a whole number of
+  weeks apart, the closest exactly seven days, is read as ISO weeks. Before this, Monday-date headers
+  collapsed into months and a two-year `Jan … Dez Jan … Dez` summed 2027 into 2026 (final review). A LONG
+  sheet's rows are never read as a run; a year-less period cell there takes the row's
+  `ColumnMapping.yearCol` year (a column headed `Jahr` / `Year` / `FY` …, or holding only four-digit years),
+  else the default year. That default is ONE value in the hook: it starts at the bucket's start year and
+  follows the mapping step's field, and a cleared field means none on both routes. `detectLayout` runs
+  every pass WITHOUT it first and uses it only when nothing is found — with it first, a `Start` column of
+  month names unseated a sheet that had read correctly. When a period took its year from the default,
+  `assumedYear` makes the preview say so, with a link to the year field.
 - **`validateForecastRows` is the one gate for both.** Hours 0..744 rounded to two decimals, a canonical
-  period, a non-blank person; same person and period are summed (a summed row carries no `source`;
-  `duplicates` lists the contributors). A source cell backs ONE row on either route — a second row citing
-  it is rejected. With `requireSource` (the Claude route only, whose rows are UNTRUSTED) a row passes only
-  when its cited cell holds its hours, a DIFFERENT cell of that row holds the PERSON, and the period sits
-  in that row or in the cited column above. That is the safety boundary against an invented value; the
-  prompt is not. ★★ An email never vouches for the person, and an email the cited row does not hold is
+  period, a non-blank person; same person and period from DIFFERENT sheet rows are summed (a summed row
+  carries no `source`; `duplicates` lists the contributors, shown as "Combined rows"). ★★ Rows whose sources
+  share ONE sheet row are never summed: they are `collisions`, left out of `ok`, and the plan's
+  `same-row-period` blocker holds Apply until the mapping or the sheet is fixed. A source cell backs ONE row
+  on either route — a second row citing it is rejected. With `requireSource` (the Claude route only, whose
+  rows are UNTRUSTED) a row passes only when its cited cell holds its hours by the sheet's own number rule,
+  a DIFFERENT cell of that row holds the PERSON, and the period is the one the cell sits under (`checkSource`
+  in `source-evidence.ts`): the NEAREST period cell above it in its column, read as part of that header
+  row's run; only with no period above (a long sheet) is the row searched, skipping the person cell by
+  POSITION. Any row above, or a `Start` date on the row, once vouched for the wrong period. That is the
+  safety boundary against an invented value; the prompt is not. `findUnreadCells` (`unread-cells.ts`) then
+  lists the number cells the reply did not cite, as information. ★★ An email never vouches for the person, and an email the cited row does not hold is
   STRIPPED from the accepted row: the model can write any email beside any name, and matching tries the
   email first, so a model-supplied `bob@…` on Ann's row once routed Ann's hours to Bob (final review).
   A rejected source names its cause (`SourceRejection`), and the preview shows each cause in its own words.
@@ -292,8 +313,11 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   period starting before the bucket or running past the plan: cells no screen shows, written silently
   (caught in review; pinned by the "range" tests). A target cell that a sheet period covers only partly
   is still written but flagged `partial` for the preview; only uncovered WORKING days count (weekends and
-  `holidaySet` days are skipped in `hasUncoveredWorkday`). Overrides settle only rows whose automatic
-  match failed. Blockers: `follows-plan` (budget follows plan is on), `closed`, `nothing-to-apply`.
+  `holidaySet` days are skipped in `hasUncoveredWorkday`). A changed cell on a line shared with people
+  the sheet does not list carries their names (`othersOnLine`): the value replaces their share too.
+  Matching is by email, then name (also "Last, First"); an archived resource (`active === false`) is never
+  matched or offered. Overrides settle only rows whose automatic match failed. Blockers: `follows-plan`
+  (budget follows plan is on), `closed`, `same-row-period` (a validator collision), `nothing-to-apply`.
 - **`applyForecastImport` is the only writer**, and it writes only budget hours and allocation
   membership (a missing allocation is created with empty actuals) — never rates, the plan, other
   buckets, stored actual hours or resources. It does not read
