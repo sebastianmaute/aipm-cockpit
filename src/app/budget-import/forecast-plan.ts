@@ -5,7 +5,7 @@ import { bucketActivePeriods } from "../budget-report";
 import type { Period } from "../resource-capacity";
 import type { BucketAllocation, BudgetBucket, DisciplineAllocation, Resource, ResourcePlan, Role } from "../types";
 import type { ForecastCollision, ForecastRow } from "./forecast-types";
-import { sourcePeriodBounds, splitToGranularity } from "./period-split";
+import { sourcePeriodBounds, splitToGranularity, toCents } from "./period-split";
 
 /** Relative rate difference above which a sheet rate is reported. */
 const RATE_MISMATCH = 0.005;
@@ -161,12 +161,10 @@ function allocKeyOf(role: Role, blended: boolean): AllocationKey {
   return blended ? { kind: "discipline", disciplineId: role.disciplineId } : { kind: "role", roleId: role.id };
 }
 
-function allocId(key: AllocationKey): string {
+/** One string per allocation line ("r:<roleId>" / "d:<disciplineId>"): the key
+ *  patches are grouped by, and the preview's React key. */
+export function allocId(key: AllocationKey): string {
   return key.kind === "role" ? `r:${key.roleId}` : `d:${key.disciplineId}`;
-}
-
-function toCents(hours: number): number {
-  return Math.round((hours + Number.EPSILON) * 100);
 }
 
 function relativeDiff(rate: number, reference: number): number {

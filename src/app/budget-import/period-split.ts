@@ -39,7 +39,7 @@ function calendarDays(start: string, end: string): number {
 
 /** Hours to whole cents. The epsilon makes a decimal tie such as 1.005 (stored
  *  as 1.00499...) round up like the figure the user typed. */
-function toCents(hours: number): number {
+export function toCents(hours: number): number {
   return Math.round((hours + Number.EPSILON) * 100);
 }
 

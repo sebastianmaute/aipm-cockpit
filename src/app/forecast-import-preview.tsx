@@ -20,7 +20,7 @@ import { ExclamationTriangleIcon } from "./icons";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { resourceDisplayName, roleLabel } from "./resource-foundation";
 import { columnLetters } from "./budget-import/forecast-rows";
-import { normalisePerson, type AllocationKey, type CellChange, type ImportBlocker, type ImportPlan, type UnresolvedPerson } from "./budget-import/forecast-plan";
+import { allocId, normalisePerson, type AllocationKey, type CellChange, type ImportBlocker, type ImportPlan, type UnresolvedPerson } from "./budget-import/forecast-plan";
 import type { AssumedYear, DropReason } from "./budget-import/forecast-types";
 import { MAX_IMPORT_HOURS_PER_CELL, type RejectedRow, type SourceRejection } from "./budget-import/forecast-validate";
 import type { Discipline, Grade, Resource, Role } from "./types";
@@ -154,10 +154,6 @@ function resourceName(id: number, resources: readonly Resource[]): string {
   return resource ? resourceDisplayName(resource) : `#${id}`;
 }
 
-function allocKey(alloc: AllocationKey): string {
-  return alloc.kind === "role" ? `r:${alloc.roleId}` : `d:${alloc.disciplineId}`;
-}
-
 export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, grades }: {
   lang: Lang;
   fi: ForecastImport;
@@ -171,7 +167,7 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
   const fmt = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
   const groups = new Map<string, { alloc: AllocationKey; changes: CellChange[] }>();
   for (const c of plan.changes) {
-    const key = allocKey(c.alloc);
+    const key = allocId(c.alloc);
     const group = groups.get(key) ?? { alloc: c.alloc, changes: [] };
     group.changes.push(c);
     groups.set(key, group);
@@ -232,10 +228,10 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
         <Section title={t(lang, "forecastImportMembership")}>
           <ul className="space-y-0.5">
             {plan.newAllocations.map((a) => (
-              <li key={`n${allocKey(a)}`}>{t(lang, "forecastImportNewAllocation", allocLabel(a, roles, disciplines, grades))}</li>
+              <li key={`n${allocId(a)}`}>{t(lang, "forecastImportNewAllocation", allocLabel(a, roles, disciplines, grades))}</li>
             ))}
             {plan.addResources.map((a) => (
-              <li key={`a${allocKey(a.alloc)}`}>
+              <li key={`a${allocId(a.alloc)}`}>
                 {t(lang, "forecastImportAddResources", allocLabel(a.alloc, roles, disciplines, grades), a.resourceIds.map((id) => resourceName(id, resources)).join(", "))}
               </li>
             ))}
@@ -245,7 +241,7 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
       {plan.changes.length > 0 && (
         <Section title={t(lang, "forecastImportChanges")}>
           {[...groups.values()].map((g) => (
-            <div key={allocKey(g.alloc)} className="mt-2">
+            <div key={allocId(g.alloc)} className="mt-2">
               <h4 className="font-medium text-foreground">{allocLabel(g.alloc, roles, disciplines, grades)}</h4>
               <ul className="space-y-0.5">
                 {g.changes.map((c) => (

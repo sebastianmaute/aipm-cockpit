@@ -102,10 +102,11 @@ export function columnLetters(col: number): string {
   return out;
 }
 
-const cellAt = (row: readonly string[], col: number | undefined): string =>
-  col === undefined ? "" : (row[col] ?? "");
+/** A cell of a (possibly ragged or missing) row; "" for an absent cell or column. */
+export const cellAt = (row: readonly string[] | undefined, col: number | undefined): string =>
+  col === undefined ? "" : (row?.[col] ?? "");
 
-const isBlank = (s: string): boolean => s.trim() === "";
+export const isBlank = (s: string): boolean => s.trim() === "";
 
 type PersonMeta = { person: string; email?: string; rate?: number };
 

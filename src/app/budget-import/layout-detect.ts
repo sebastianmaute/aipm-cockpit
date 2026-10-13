@@ -8,7 +8,7 @@
 // first; a two-period wide sheet is only believed when no long reading fits,
 // because a long sheet's start/end date columns look the same.
 
-import { detectDecimalStyle, isTotalLabel, parseNumberCell, parsePeriodLabel } from "./forecast-rows";
+import { cellAt, detectDecimalStyle, isBlank, isTotalLabel, parseNumberCell, parsePeriodLabel } from "./forecast-rows";
 import type { ColumnMapping } from "./forecast-types";
 import { assignRunPeriods, classifyPeriodCell, parseYearCell, usableYear } from "./period-assign";
 import type { NumberOrigin } from "./sheet-grid";
@@ -42,8 +42,6 @@ type Rows = readonly string[][];
  *  year a period label without one is read in (see `parsePeriodLabel`). */
 type Ctx = { numbers: NumberOrigin; year?: number };
 
-const cellAt = (row: readonly string[] | undefined, col: number): string => row?.[col] ?? "";
-const isBlank = (s: string): boolean => s.trim() === "";
 const isTotalRow = (row: readonly string[]): boolean => row.some(isTotalLabel);
 
 /** The data rows under a header, total rows left out. */
