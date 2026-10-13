@@ -44906,9 +44906,9 @@ Size S.
 
 Setting up Turso means: sign up, create a database (an EU region), create a token without an expiry and copy it, paste it in the app, go back to the website, copy the database URL, paste it, test the connection. The pilot user needed the owner to talk through each switch between browser and app, and closed the browser tab before copying the URL.
 
-`docs/desktop-rollout.md` has these steps, but the dialog does not link it. ★ The guide and the session disagree on one point: the guide says to choose a token expiry and note the date, while in the session the owner advised a token without expiry, so that the connection does not stop without warning. The owner should settle which advice stands before it is copied into the dialog.
+`docs/desktop-rollout.md` has these steps, but the dialog does not link it. ★ **Owner decision 2026-10-13: the token is created WITHOUT an expiry**, so that the connection never stops without warning. The guide says the opposite twice (choose an expiry and note the date; pass `--expiration` on the command line), so it must change with the dialog.
 
-Proposed: numbered steps in the dialog itself, in the order they are done, with the easy-to-miss points called out (the token expiry, per the decision above; keep the Turso page open until both values are pasted), and a link to the guide.
+Proposed: numbered steps in the dialog itself, in the order they are done, with the easy-to-miss points called out (no token expiry, per the decision above; keep the Turso page open until both values are pasted), and a link to the guide.
 
 Size S.
 
@@ -44939,7 +44939,7 @@ Size XS.
 - **Browser download prompts.** The browser's own warning about an uncommon download comes before Windows' box and needs **Keep** (twice in the session). The guide names only the Windows box.
 - **First start.** That it is slow and the window may show "Not responding" (§705).
 - **Claude API key versus subscription.** That a Claude subscription does not include API use, the minimum first credit purchase and optional auto top-up, a typical monthly cost, and that it may be claimable as an expense.
-- **Turso token expiry.** The guide's advice differs from the owner's in the session (§711).
+- **Turso token expiry.** The guide says to set one; the owner decided on 2026-10-13 that the token has none (§711), so both of the guide's Turso steps that mention expiry change.
 - **Setup order for budgets.** The modules to turn on (§706, §707), then roles and rates → resources with name and email (§708) → budget buckets → Timelog import (§710).
 - **Demo project.** Where to find it (§712).
 
