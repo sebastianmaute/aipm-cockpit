@@ -259,20 +259,25 @@ function withRepeatedHeaders(ambiguous: ColumnAmbiguity[], mapping: ColumnMappin
   return [...ambiguous.filter((a) => a.field !== "header"), { field: "header", candidates }];
 }
 
+/** A wide reading of one candidate header row with `minPeriods` period cells
+ *  or more, else null. */
+function wideHeaderAt(rows: Rows, headerRow: number, minPeriods: number, ctx: Ctx): ColumnMapping | null {
+  const header = rows[headerRow];
+  // The header is read as a RUN: year rollover, dates a week apart as weeks.
+  const run = assignRunPeriods(header, { defaultYear: ctx.year, numbers: ctx.numbers });
+  const periodCols: number[] = [];
+  for (let col = 0; col < header.length; col++) {
+    if (!isTotalLabel(header[col]) && run[col] !== null) periodCols.push(col);
+  }
+  return periodCols.length < minPeriods ? null : wideFromHeader(rows, headerRow, periodCols, ctx);
+}
+
 function detectWide(rows: Rows, minPeriods: number, ctx: Ctx): Detected | null {
   const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
   const found: ColumnMapping[] = [];
   const headerRows: number[] = [];
   for (let headerRow = 0; headerRow < scanned; headerRow++) {
-    const header = rows[headerRow];
-    // The header is read as a RUN: year rollover, dates a week apart as weeks.
-    const run = assignRunPeriods(header, { defaultYear: ctx.year, numbers: ctx.numbers });
-    const periodCols: number[] = [];
-    for (let col = 0; col < header.length; col++) {
-      if (!isTotalLabel(header[col]) && run[col] !== null) periodCols.push(col);
-    }
-    if (periodCols.length < minPeriods) continue;
-    const mapping = wideFromHeader(rows, headerRow, periodCols, ctx);
+    const mapping = wideHeaderAt(rows, headerRow, minPeriods, ctx);
     if (mapping === null) continue;
     found.push(mapping);
     headerRows.push(headerRow);
@@ -326,31 +331,42 @@ function findPeriodColumn(
   ctx: Ctx,
   yearCol: number | undefined,
 ): PeriodPick | undefined {
+  let best: PeriodScan | undefined;
+  let strongShare = -1;
+  const scanned = scanPeriodColumns(header, data, width, ctx, yearCol);
+  for (const scored of scanned) {
+    // Whether the row is a header at all (and its score) keeps the share.
+    if (scored.share >= COLUMN_SHARE) strongShare = Math.max(strongShare, scored.share);
+    // ★★ The PRESELECTION ranks the header word first, then the share, then
+    // the leftmost (round 8 m-1): a share-first pick took `Erfasst am` over a
+    // `Monat` with one `offen`, and "These columns are right" read every row in March.
+    if (best === undefined || scored.rank < best.rank || (scored.rank === best.rank && scored.share > best.share)) best = scored;
+  }
+  if (best === undefined || strongShare < 0) return undefined;
+  return { col: best.col, share: strongShare, strong: best.share >= COLUMN_SHARE, candidates: scanned.map((s) => s.col) };
+}
+
+/** A column that could be a long sheet's period: its period share and rank. */
+type PeriodScan = { col: number; share: number; rank: number };
+
+/** Every column under `header` that could hold a long sheet's period, left to
+ *  right: a labelled column (its label no period itself), not the year column,
+ *  with ONE period cell at least. */
+function scanPeriodColumns(header: readonly string[], data: Rows, width: number, ctx: Ctx, yearCol: number | undefined): PeriodScan[] {
   // With a year column, a year-less "Jan" is a period: the row supplies its year.
   const isPeriod = (c: string): boolean =>
     parsePeriodLabel(c, ctx.year) !== null || (yearCol !== undefined && classifyPeriodCell(c) !== null);
-  type Scored = { col: number; share: number; rank: number };
-  let best: Scored | undefined;
-  let strongShare = -1;
-  const candidates: number[] = [];
+  const out: PeriodScan[] = [];
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
     const cells = columnCells(data, col);
     const share = shareOf(cells, isPeriod);
-    if (col === yearCol || isBlank(label) || parsePeriodLabel(label, ctx.year) !== null || share === 0) continue;
     // ★★ ONE period makes a candidate (round 7 I-B): an `offen` in `Monat` once
     // pushed it under the share, and every row was read in `Erfasst am`'s month.
-    candidates.push(col);
-    // Whether the row is a header at all (and its score) keeps the share.
-    if (share >= COLUMN_SHARE) strongShare = Math.max(strongShare, share);
-    // ★★ The PRESELECTION ranks the header word first, then the share, then
-    // the leftmost (round 8 m-1): a share-first pick took `Erfasst am` over a
-    // `Monat` with one `offen`, and "These columns are right" read every row in March.
-    const scored: Scored = { col, share, rank: periodRank(label, cells) };
-    if (best === undefined || scored.rank < best.rank || (scored.rank === best.rank && scored.share > best.share)) best = scored;
+    if (col === yearCol || isBlank(label) || parsePeriodLabel(label, ctx.year) !== null || share === 0) continue;
+    out.push({ col, share, rank: periodRank(label, cells) });
   }
-  if (best === undefined || strongShare < 0) return undefined;
-  return { col: best.col, share: strongShare, strong: best.share >= COLUMN_SHARE, candidates };
+  return out;
 }
 
 /**
@@ -571,10 +587,79 @@ export function detectLayout(
     const found = pass.run();
     if (found === null) continue;
     const { mapping } = found;
-    const repeated = withRepeatedHeaders(found.ambiguous, mapping, repeatedHeaderRows(rows, mapping, numbers));
-    const differing = differingRows(rows, { ...mapping, year }, numbers);
-    const ambiguous = differing === null ? repeated : [...repeated, differing];
+    const ambiguous = withMappingQuestions(found.ambiguous, rows, mapping, numbers, year);
     return { kind: pass.kind, mapping: opts.defaultYear === undefined ? mapping : { ...mapping, year: opts.defaultYear }, ambiguous };
   }
   return UNKNOWN;
+}
+
+/** `ambiguous` with the questions every reading asks of its mapping: every
+ *  repeated header row (`withRepeatedHeaders`) and one person's differing rows
+ *  (`differingRows`), read in `year`. */
+function withMappingQuestions(
+  ambiguous: ColumnAmbiguity[],
+  rows: Rows,
+  mapping: ColumnMapping,
+  numbers: NumberOrigin,
+  year: number | undefined,
+): ColumnAmbiguity[] {
+  const repeated = withRepeatedHeaders(ambiguous, mapping, repeatedHeaderRows(rows, mapping, numbers));
+  const differing = differingRows(rows, { ...mapping, year }, numbers);
+  return differing === null ? repeated : [...repeated, differing];
+}
+
+/** The rows of the scan range that read as a header of `layout`: a long
+ *  reading (`longFromHeader`) or a wide one with two period cells at least. */
+function headerRowsFor(rows: Rows, layout: ColumnMapping["layout"], ctx: Ctx): number[] {
+  const scanned = Math.min(rows.length, MAX_HEADER_SCAN_ROWS);
+  const isHeader = (row: number): boolean => (layout === "long"
+    ? longFromHeader(rows, row, ctx) !== null
+    : wideHeaderAt(rows, row, MIN_WIDE_PERIODS_FALLBACK, ctx) !== null);
+  return Array.from({ length: scanned }, (_, row) => row).filter(isHeader);
+}
+
+/** `cols` with the column a mapping chose, in order: the question names it
+ *  even where detection would not have offered it. */
+function withChosen(cols: readonly number[], chosen: number | undefined): number[] {
+  return [...new Set(chosen === undefined ? cols : [...cols, chosen])].sort((a, b) => a - b);
+}
+
+/** A long mapping's period and hours questions, by `ambiguityOf` over the
+ *  columns that could be each — what `longFromHeader` asks of its own
+ *  preselection, for the mapping's header row and columns. */
+function longQuestions(rows: Rows, mapping: ColumnMapping, ctx: Ctx): ColumnAmbiguity[] {
+  const header = rows[mapping.headerRow] ?? [];
+  const data = dataRowsBelow(rows, mapping.headerRow);
+  const width = Math.max(header.length, rowWidth(data));
+  const yearFound = findYearColumn(header, data, width);
+  const own = new Set([mapping.person, mapping.email, mapping.rate].filter((c): c is number => c !== undefined));
+  const scanned = scanPeriodColumns(header, data, width, ctx, mapping.yearCol ?? yearFound);
+  const periodCols = withChosen(scanned.map((s) => s.col).filter((col) => !own.has(col)), mapping.period);
+  const skip = new Set([mapping.period, mapping.yearCol, yearFound].filter((c): c is number => c !== undefined));
+  const numeric = numericColumns(header, data, width, skip, ctx).any;
+  const hoursCols = withChosen(
+    numeric.filter((col) => !own.has(col) && !RATE_HEADER_RE.test(cellAt(header, col)) && classifyPeriodCell(cellAt(header, col)) === null),
+    mapping.hours,
+  );
+  const share = scanned.find((s) => s.col === mapping.period)?.share ?? 0;
+  return ambiguityOf(header, periodCols, hoursCols, { col: mapping.period ?? -1, strong: share >= COLUMN_SHARE });
+}
+
+/**
+ * ★★ The questions `mapping` raises, whoever chose it (§500: Claude's mapping,
+ * or the user's edit of it) — what `detectLayout` asks of its own preselection,
+ * evaluated for THIS mapping: a long mapping's period and hours candidates
+ * (`longQuestions`), a wide mapping's row period or row year column
+ * (`wideAmbiguity`), the header row when another row of the scan range reads
+ * as a header of the layout (`headerRowsFor`) or repeats it
+ * (`repeatedHeaderRows`), and one person's differing rows (`differingRows`).
+ * Year-less labels are read in `mapping.year`. A mapping of Claude's asks
+ * these before its rows are applied; detection's mapping asks the same.
+ */
+export function questionsFor(rows: readonly string[][], mapping: ColumnMapping, opts: { numbers?: NumberOrigin } = {}): ColumnAmbiguity[] {
+  const numbers = opts.numbers ?? "text";
+  const ctx: Ctx = { numbers, year: usableYear(mapping.year) };
+  const own = mapping.layout === "wide" ? wideAmbiguity(rows, mapping, ctx) : longQuestions(rows, mapping, ctx);
+  const headerRows = [...new Set([...headerRowsFor(rows, mapping.layout, ctx), mapping.headerRow])].sort((a, b) => a - b);
+  return withMappingQuestions([...own, ...headerAmbiguity(headerRows)], rows, mapping, numbers, ctx.year);
 }

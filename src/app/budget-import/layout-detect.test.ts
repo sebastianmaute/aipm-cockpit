@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { gridToForecastRows } from "./forecast-rows";
-import { DETECTION_SAMPLE_ROWS, detectLayout } from "./layout-detect";
+import { DETECTION_SAMPLE_ROWS, detectLayout, questionsFor } from "./layout-detect";
 import { parseDelimited } from "./sheet-grid";
 
 const GERMAN_WIDE = [
@@ -873,5 +873,86 @@ describe("detectLayout — one person, several rows that differ in a text column
     const long = [["Name", "Monat", "Stunden"], ["Ann Lee", "Jan 2026", "20"], ["Ann Lee", "Jan 2026", "30"]];
     expect(detectLayout(wide, { defaultYear: 2026 }).ambiguous).toEqual([]);
     expect(detectLayout(long, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+});
+
+// §500, Claude sets the mapping: the questions detection raises are evaluated
+// against the mapping IN EFFECT (Claude's, or the user's edit of it), not only
+// against detection's own preselection.
+describe("questionsFor — the questions of a given mapping", () => {
+  const fieldsOf = (asked: ReturnType<typeof questionsFor>) => asked.map((a) => a.field);
+
+  it("asks nothing for a clear long mapping", () => {
+    const rows = [["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "40"], ["Bob", "Jan 2026", "30"]];
+    expect(questionsFor(rows, { layout: "long", headerRow: 0, person: 0, period: 1, hours: 2 })).toEqual([]);
+  });
+
+  it("asks for the hours when a mapping picks Ist on Name | Monat | Stunden | Ist", () => {
+    const rows = [["Name", "Monat", "Stunden", "Ist"], ["Ann", "Jan 2026", "40", "35"], ["Bob", "Jan 2026", "30", "25"]];
+    expect(questionsFor(rows, { layout: "long", headerRow: 0, person: 0, period: 1, hours: 3 })).toEqual([
+      { field: "hours", candidates: [2, 3] },
+    ]);
+  });
+
+  it("names the mapped hours column even where detection would never offer it", () => {
+    const rows = [["Name", "Monat", "Stunden", "Rate"], ["Ann", "Jan 2026", "40", "90"], ["Bob", "Jan 2026", "30", "90"]];
+    expect(questionsFor(rows, { layout: "long", headerRow: 0, person: 0, period: 1, hours: 3 })).toEqual([
+      { field: "hours", candidates: [2, 3] },
+    ]);
+  });
+
+  it("asks for the period of a long mapping when two columns could hold it", () => {
+    const rows = [["Name", "Datum", "Eintritt", "Stunden"], ["Ann", "01.01.2026", "01.03.2020", "40"], ["Bob", "01.02.2026", "01.05.2021", "30"]];
+    expect(questionsFor(rows, { layout: "long", headerRow: 0, person: 0, period: 2, hours: 3 })).toEqual([
+      { field: "period", candidates: [1, 2] },
+    ]);
+  });
+
+  it("raises the rows question for a wide mapping on Name | Art | months", () => {
+    const rows = [["Name", "Art", "Jan 2026", "Feb 2026"], ["Ann", "Plan", "50", "40"], ["Ann", "Ist", "43", "30"]];
+    expect(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3] })).toEqual([
+      { field: "rows", candidates: [1], samples: ["Plan", "Ist"] },
+    ]);
+  });
+
+  it("evaluates the rows question for the mapping's person column, not detection's", () => {
+    const rows = [["Team", "Name", "Jan 2026", "Feb 2026"], ["Core", "Ann", "50", "40"], ["Core", "Bob", "43", "30"]];
+    expect(detectLayout(rows).ambiguous).toEqual([]);
+    expect(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3] })).toEqual([
+      { field: "rows", candidates: [1], samples: ["Ann", "Bob"] },
+    ]);
+  });
+
+  it("asks for the header row when the mapping sits on a second stacked block", () => {
+    const rows = [
+      ["Name", "Jan 2026", "Feb 2026", "Mär 2026"], ["Ann", "10", "20", "30"],
+      ["Name", "Jan 2027", "Feb 2027", "Mär 2027"], ["Ann", "40", "50", "60"],
+    ];
+    const asked = questionsFor(rows, { layout: "wide", headerRow: 2, person: 0, periodCols: [1, 2, 3] });
+    expect(asked).toEqual([{ field: "header", candidates: [0, 2] }]);
+  });
+
+  it("asks for the period of a wide mapping whose rows hold a date column of their own", () => {
+    const rows = [["Name", "Start", "Jan 2026", "Feb 2026", "Mär 2026"], ["Ann", "01.03.2026", "10", "20", "30"]];
+    expect(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3, 4] })).toEqual([
+      { field: "period", candidates: [1, 2, 3, 4] },
+    ]);
+  });
+
+  it("asks for the period of a wide mapping with year-less headers beside a row year column", () => {
+    const rows = [["Name", "Jahr", "Jan", "Feb", "Mär"], ["Ann", "2027", "10", "20", "30"]];
+    expect(fieldsOf(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3, 4], year: 2026 }))).toEqual(["period"]);
+  });
+
+  it.each([
+    ["hours", [["Name", "Monat", "Stunden", "Ist"], ["Ann", "Jan 2026", "40", "35"], ["Bob", "Jan 2026", "30", "25"]]],
+    ["period", [["Name", "Datum", "Eintritt", "Stunden"], ["Ann", "01.01.2026", "01.03.2020", "40"], ["Bob", "01.02.2026", "01.05.2021", "30"]]],
+    ["rows", [["Name", "Art", "Jan 2026", "Feb 2026"], ["Ann", "Plan", "50", "40"], ["Ann", "Ist", "43", "30"]]],
+    ["row period", [["Name", "Start", "Jan 2026", "Feb 2026", "Mär 2026"], ["Ann", "01.03.2026", "10", "20", "30"]]],
+    ["repeated header", [["Name", "Monat", "Forecast"], ["Ann", "Jan 2026", "40"], ["Name", "Monat", "Ist"], ["Ann", "Jan 2026", "35"]]],
+  ])("asks what detection asks for its own preselection (%s)", (_label, rows) => {
+    const detected = detectLayout(rows);
+    expect(detected.ambiguous).not.toEqual([]);
+    expect(questionsFor(rows, detected.mapping!)).toEqual(detected.ambiguous);
   });
 });
