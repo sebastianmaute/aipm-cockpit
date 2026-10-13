@@ -15,6 +15,8 @@ import type { SheetGrid } from "./sheet-grid";
  *  `Kosten` cell stood in the row's month whatever that cell held. */
 export type HandReading = {
   layout: "wide" | "long";
+  /** The mapping's person column: a claim's person must sit in it (fix 9 OOS-a). */
+  person: number;
   cells: ReadonlyMap<string, AssignedPeriod>;
   readRows: ReadonlySet<number>;
 };
@@ -71,5 +73,5 @@ function readWith(sheet: SheetGrid, mapping: ColumnMapping): HandReading {
     cells.set(`${rowIdx}:${col}`, period);
     readRows.add(rowIdx);
   });
-  return { layout: mapping.layout, cells, readRows };
+  return { layout: mapping.layout, person: mapping.person, cells, readRows };
 }

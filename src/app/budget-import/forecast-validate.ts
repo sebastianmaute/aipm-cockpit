@@ -10,7 +10,7 @@ import type { AssumedYear, ColumnMapping, ForecastCollision, ForecastRow } from 
 import { assumedYearOf, classifyPeriodCell, resolvePeriod, type AssignedPeriod } from "./period-assign";
 import { handReadingOf, type HandSource } from "./hand-reading";
 import type { SheetGrid } from "./sheet-grid";
-import { checkSource, citedCell, columnNaming, headerDateOf, sourceKey, sourcePosition, type PeriodConflict, type SourceRejection } from "./source-evidence";
+import { checkSource, citedCell, columnNaming, headerDateOf, personColumnOf, sourceKey, sourcePosition, type PeriodConflict, type SourceRejection } from "./source-evidence";
 
 /** Hours in the longest month (31 * 24): no single cell can hold more. */
 export const MAX_IMPORT_HOURS_PER_CELL = 744;
@@ -82,7 +82,7 @@ function round2(value: number): number {
   return Math.round(value * HOURS_DECIMALS_FACTOR) / HOURS_DECIMALS_FACTOR + 0;
 }
 
-function checkRow(raw: unknown, opts: Options, hand: HandSource): Checked {
+function checkRow(raw: unknown, opts: Options, hand: HandSource, personColumn: number | undefined): Checked {
   if (!isRecord(raw)) return { ok: false, reason: "shape" };
   const { person, period, hours, rate, email, source } = raw;
   if (typeof person !== "string" || person.trim() === "") return { ok: false, reason: "person" };
@@ -102,7 +102,7 @@ function checkRow(raw: unknown, opts: Options, hand: HandSource): Checked {
   if (!opts.requireSource) return { ok: true, row, assumed: claim.year === undefined };
   // Ambiguous columns the user has not confirmed: no cell of the sheet is read (fix 8).
   if (hand === "unconfirmed") return { ok: false, reason: "source", detail: "columns-unconfirmed" };
-  const evidence = checkSource({ person: row.person, hours, source: row.source }, claim, opts.sheet, opts.defaultYear, hand);
+  const evidence = checkSource({ person: row.person, hours, source: row.source }, claim, opts.sheet, opts.defaultYear, hand, personColumn);
   if ("problem" in evidence) {
     return evidence.periods === undefined
       ? { ok: false, reason: "source", detail: evidence.problem }
@@ -180,12 +180,14 @@ export function validateForecastRows(input: unknown, opts: Options): ValidationR
   const hand: HandSource = !opts.requireSource ? null
     : opts.columns === "unconfirmed" ? "unconfirmed"
     : handReadingOf(opts.sheet, opts.defaultYear, opts.columns);
+  // Without a hand reading, the person column is the one most claims name their person in.
+  const personColumn = opts.requireSource && hand === null ? personColumnOf(input as unknown[], opts.sheet) : undefined;
   const rejected: RejectedRow[] = [];
   const usedSources = new Set<string>();
   const merged = new Map<string, Merged>();
   const read: AssignedPeriod[] = [];
   for (const raw of input as unknown[]) {
-    const checked = checkRow(raw, opts, hand);
+    const checked = checkRow(raw, opts, hand, personColumn);
     const key = checked.ok && checked.row.source !== undefined ? sourceKey(checked.row.source, opts.sheet.name) : null;
     if (!checked.ok) {
       rejected.push(rejectionOf(raw, checked));

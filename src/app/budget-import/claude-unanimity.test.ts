@@ -431,3 +431,57 @@ describe("one placeholder in the row-period column does not switch the question 
     },
   );
 });
+
+// Fix 9 OOS-a (rr9 p7): a person named in ANY other cell of the cited row
+// vouched for the claim, so a deputy or manager column routed someone else's
+// hours to them. The person must sit in the person column: the hand reading's
+// where there is one, else the column most claims name their person in.
+describe("the claimed person must sit in the person column (fix 9 OOS-a)", () => {
+  const notOnRow = (c: ReturnType<typeof claim>) => ({ row: c, reason: "source", detail: "person-not-on-row" });
+
+  it("Name | Vertretung | Monat | Stunden: Bob, the deputy, is refused; Ann is accepted", () => {
+    const rows = [["Name", "Vertretung", "Monat", "Stunden"], ["Ann", "Bob", "Jan 2026", "40"]];
+    expect(detectLayout(rows, { defaultYear: 2026 })).toMatchObject({ kind: "long", ambiguous: [], mapping: { person: 0 } });
+    const bob = claim("Jan 2026", 40, "S!D2", "Bob");
+    expect(validateForecastRows([bob], strictOn(rows)).rejected).toEqual([notOnRow(bob)]);
+    expect(periodsOf(validateForecastRows([claim("Jan 2026", 40, "S!D2")], strictOn(rows)))).toEqual([["Ann", "2026-01", 40]]);
+  });
+
+  it("wide Name | Manager | Jan 2026 | Feb 2026: the manager's claims are refused, the people's accepted", () => {
+    const rows = [["Name", "Manager", "Jan 2026", "Feb 2026"], ["Ann", "Bob", "10", "20"], ["Cid", "Bob", "11", "21"]];
+    expect(detectLayout(rows, { defaultYear: 2026 })).toMatchObject({ kind: "wide", ambiguous: [], mapping: { person: 0 } });
+    const bobs = [claim("Jan 2026", 10, "S!C2", "Bob"), claim("Jan 2026", 11, "S!C3", "Bob")];
+    const out = validateForecastRows(bobs, strictOn(rows));
+    expect(out.ok).toEqual([]);
+    expect(out.rejected).toEqual(bobs.map(notOnRow));
+    const people = validateForecastRows([claim("Jan 2026", 10, "S!C2"), claim("Jan 2026", 11, "S!C3", "Cid")], strictOn(rows));
+    expect(periodsOf(people)).toEqual([["Ann", "2026-01", 10], ["Cid", "2026-01", 11]]);
+  });
+
+  it("an unknown long layout: the column most claims name their person in decides, so the deputy Bob is refused", () => {
+    const rows = [...pad(10), ["Name", "Vertretung", "Monat", "Stunden"],
+      ["Ann", "Bob", "Jan 2026", "40"], ["Cid", "Dan", "Feb 2026", "20"], ["Eve", "Bob", "Mar 2026", "30"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    const bob = claim("Mar 2026", 30, "S!D14", "Bob");
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!D12"), claim("Feb 2026", 20, "S!D13", "Cid"), bob], strictOn(rows));
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 40], ["Cid", "2026-02", 20]]);
+    expect(out.rejected).toEqual([notOnRow(bob)]);
+  });
+
+  it("an unknown wide layout: the manager's claim is refused", () => {
+    const rows = [...pad(10), ["Name", "Manager", "Jan 2026", "Feb 2026"], ["Ann", "Bob", "10", "20"], ["Cid", "Bob", "11", "21"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).kind).toBe("unknown");
+    const bob = claim("Feb 2026", 20, "S!D12", "Bob");
+    const out = validateForecastRows([claim("Jan 2026", 10, "S!C12"), claim("Jan 2026", 11, "S!C13", "Cid"), bob], strictOn(rows));
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 10], ["Cid", "2026-01", 11]]);
+    expect(out.rejected).toEqual([notOnRow(bob)]);
+  });
+
+  it("on a tie, the leftmost column decides", () => {
+    const rows = [...pad(10), ["Name", "Vertretung", "Monat", "Stunden"], ["Ann", "Bob", "Jan 2026", "40"], ["Cid", "Dan", "Feb 2026", "20"]];
+    const dan = claim("Feb 2026", 20, "S!D13", "Dan");
+    const out = validateForecastRows([claim("Jan 2026", 40, "S!D12"), dan], strictOn(rows));
+    expect(periodsOf(out)).toEqual([["Ann", "2026-01", 40]]);
+    expect(out.rejected).toEqual([notOnRow(dan)]);
+  });
+});

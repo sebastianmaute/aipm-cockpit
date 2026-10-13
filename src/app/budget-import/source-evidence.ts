@@ -147,6 +147,37 @@ export function columnNaming(rowCells: readonly string[], citedCol: number, text
   return cols.find((col) => classifyPeriodCell(rowCells[col]) === null) ?? cols[0] ?? null;
 }
 
+/** `cell` names `text`: trimmed, case-insensitive, and not blank. */
+function isNamedBy(cell: string | undefined, text: string): boolean {
+  const wanted = text.trim().toLowerCase();
+  return wanted !== "" && (cell ?? "").trim().toLowerCase() === wanted;
+}
+
+/**
+ * Without a hand reading, the PERSON column of the Claude route's claims: the
+ * column that holds the person cell (`columnNaming`) for most of them; on a
+ * tie, the leftmost. Undefined when no claim names a cited cell of `sheet`.
+ * ★★ A person named in ANY cell of the cited row once vouched for the claim,
+ * so a deputy (`Vertretung`) or `Manager` column routed someone else's hours
+ * to them (fix 9 OOS-a).
+ */
+export function personColumnOf(claims: readonly unknown[], sheet: SheetGrid): number | undefined {
+  const votes = new Map<number, number>();
+  for (const raw of claims) {
+    const rec = typeof raw === "object" && raw !== null ? (raw as { person?: unknown; source?: unknown }) : null;
+    if (rec === null || typeof rec.person !== "string" || typeof rec.source !== "string") continue;
+    const cited = citedCell(rec.source, sheet);
+    const col = cited === null ? null : columnNaming(sheet.rows[cited.rowIdx], cited.colIdx, rec.person);
+    if (col !== null) votes.set(col, (votes.get(col) ?? 0) + 1);
+  }
+  let best: number | undefined;
+  for (const [col, count] of votes) {
+    const top = best === undefined ? 0 : votes.get(best) ?? 0;
+    if (best === undefined || count > top || (count === top && col < best)) best = col;
+  }
+  return best;
+}
+
 /** The nearest row above `rowIdx` that is a PERIOD HEADER for `col`, else null:
  *  a row whose run (`assignRunDetailed`) gives `col` a period. ★★ Text in the
  *  grid never bounds the search — a placeholder (`-`, `Urlaub`), a unit row
@@ -305,7 +336,8 @@ export type SourceCheck = { problem: SourceRejection; periods?: PeriodConflict }
 
 /**
  * What a cited cell proves for a row: it must hold the hours (by the sheet's
- * number rule), ANOTHER cell of its row must name the PERSON, and every period
+ * number rule), the cell of its row in the PERSON column (the hand reading's,
+ * else `personColumn`) must name the person, and every period
  * source for the cell must agree on the claimed period (`periodNearCell`, with
  * the hand route's reading `hand` from `handReadingOf`). Where the hand route
  * reads the cited row, the cited cell must be one it reads (`cell-not-read`).
@@ -319,12 +351,19 @@ export function checkSource(
   sheet: SheetGrid,
   defaultYear: number | undefined,
   hand: HandReading | null = null,
+  personColumn?: number,
 ): SourceCheck {
   const cited = citedCell(row.source, sheet);
   if (cited === null) return { problem: "bad-ref" };
   const value = sheetNumber(sheet, cited.colIdx, cited.cell);
   if (value === null || Math.abs(value - row.hours) > SOURCE_HOURS_TOLERANCE) return { problem: "value-mismatch" };
-  const personCol = columnNaming(sheet.rows[cited.rowIdx], cited.colIdx, row.person);
+  // The person must sit in the person column: the hand reading's, else the
+  // claims' own (`personColumnOf`), never any other cell of the row (fix 9 OOS-a).
+  const expected = hand?.person ?? personColumn;
+  const cells = sheet.rows[cited.rowIdx] ?? [];
+  const personCol = expected === undefined
+    ? columnNaming(cells, cited.colIdx, row.person)
+    : expected !== cited.colIdx && isNamedBy(cells[expected], row.person) ? expected : null;
   if (personCol === null) return { problem: "person-not-on-row" };
   // A read row's other cells (Ist, Kosten, an ID) back nothing, whatever they hold (fix 8 round 3).
   if (isUnreadCellOfReadRow(hand, cited.rowIdx, cited.colIdx)) return { problem: "cell-not-read" };
