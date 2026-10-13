@@ -579,15 +579,15 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
   // Fix 8 (rr8 m1): the stacked block's header and the detected columns are
   // two sources, and the reason names both.
   it("names the column header's period and the detected columns' when they disagree", async () => {
-    claudeSays([{ person: "Ann Lee", period: "Jan 2027", hours: 30, source: "forecast!B5" }]);
+    // Round 6: stacked blocks no longer reach this message (a second header row
+    // ends the reading); a Q1 range title row over a clear long sheet does:
+    // its 31.03.2026 heads the Stunden column, the hand reading says January.
+    claudeSays([{ person: "Ann Lee", period: "Jan 2026", hours: 40, source: "forecast!C4" }]);
     render(<ForecastImportModal {...propsOf()} />);
-    // Fix 9 OOS-c: the two header rows make the sheet ask; confirm, then ask Claude.
-    // Round 5: a second block under "Name" ends the reading; under "Mitarbeiter" it does not.
-    await chooseAmbiguous(["Name,Jan 2026,Feb 2026", "Ann Lee,10,20", "Bob Kay,11,21", "Mitarbeiter,Jan 2027,Feb 2027", "Ann Lee,30,40", "Bob Kay,31,41", ""].join("\r\n"));
-    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportConfirmColumns") }));
+    await chooseFile(["Zeitraum,01.01.2026,31.03.2026", "", "Name,Monat,Stunden", "Ann Lee,Jan 2026,40", "Bob Kay,Feb 2026,30", ""].join("\r\n"));
     fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportAskClaude") }));
     const section = await screen.findByRole("region", { name: t(L, "forecastImportNotImported") });
-    expect(within(section).getByText(/forecast!B5/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheetHeader", "Jan 2027", "Jan 2026"));
+    expect(within(section).getByText(/forecast!C4/)).toHaveTextContent(t(L, "forecastImportRejectSourceSheetHeader", "Mar 2026", "Jan 2026"));
     expect(t(L, "forecastImportRejectSourceSheetHeader", "a", "b")).toBe("the column header says a, but the detected or confirmed columns read b");
   });
 

@@ -6,11 +6,13 @@
 // total label. Which PERIOD a cell is comes from `period-assign.ts`, the one
 // definition detection and the Claude route read too.
 
+import { HOURS_HEADER_RE, isPeriodWordHeader, PERSON_HEADER_RE } from "./header-words";
 import type { NumberOrigin } from "./sheet-grid";
 import {
   assignCellPeriod,
   assignRunDetailed,
   assumedYearOf,
+  classifyPeriodCell,
   headerProbeRun,
   isPeriodShapedIn,
   isWeekSpacedColumn,
@@ -189,24 +191,51 @@ function isNumberCell(cell: string, numbers: NumberOrigin): boolean {
   return !isPeriodShapedIn(cell, numbers) && (parseNumberCell(cell, "dot", numbers) !== null || parseNumberCell(cell, "comma", numbers) !== null);
 }
 
+/** A header word in a cell, never a placeholder: no digit (`2 Wochen Urlaub`,
+ *  `Elternzeit (3 Monate)` hold a period word but are no header). */
+const isHeaderWord = (cell: string, test: (text: string) => boolean): boolean => !/\d/.test(cell) && test(cell.trim());
+
+/** At least two of the cells are period labels (`classifyPeriodCell`, with or
+ *  without a year): a wide month header. */
+const MIN_PERIOD_LABELS = 2;
+
+/** `row` reads as a header of the mapping's shape, under ANY person label (round
+ *  6): its person cell is a person header word (`Mitarbeiter`, `Name`); or, wide,
+ *  two or more of its period-column cells are period labels; or, long, its
+ *  hours cell is an hours word (`Std`, `Stunden`) or its period cell a period
+ *  word (`Monat`, `Zeitraum`). */
+function readsAsHeader(row: readonly string[], mapping: ColumnMapping): boolean {
+  if (PERSON_HEADER_RE.test(cellAt(row, mapping.person).trim())) return true;
+  if (mapping.layout === "wide") {
+    return (mapping.periodCols ?? []).filter((col) => classifyPeriodCell(cellAt(row, col)) !== null).length >= MIN_PERIOD_LABELS;
+  }
+  return isHeaderWord(cellAt(row, mapping.hours), (t) => HOURS_HEADER_RE.test(t))
+    || isHeaderWord(cellAt(row, mapping.period), isPeriodWordHeader);
+}
+
 /**
- * The rows, other than the header row, that REPEAT it (round 5): the header's
- * person label in the mapping's person column (trimmed, case-insensitive), and
- * no number in the hours and period columns (a wide reading's period columns).
- * ★★ Stacked blocks (`Name | Monat | Forecast` over `Name | Monat | Ist`, or a
- * second year block under its own month header) were read as one: header row
- * 1 summed Forecast and Ist, and the later header read the Ist block silently.
- * Detection asks about every such row (`detectLayout`), above or below.
+ * The rows, other than the header row, that REPEAT it: no number in the hours
+ * and period columns (a wide reading's period columns), and the header's
+ * person label in the mapping's person column (trimmed, case-insensitive,
+ * round 5) or a header of the mapping's shape under any label (`readsAsHeader`,
+ * round 6: `Mitarbeiter | Jan 2027` under `Name | Jan 2026`). ★★ Stacked blocks
+ * (`Name | Monat | Forecast` over `Name | Monat | Ist`, or a second year block
+ * under its own month header) were read as one: header row 1 summed Forecast
+ * and Ist, and the later header read the Ist block silently. Detection asks
+ * about every such row (`detectLayout`), above or below. ★ The rows right
+ * beside the header row are a two-row header (`Name | Std | Std` under the
+ * months), never a repeated one. Placeholder rows (`Urlaub`, `-`, `n/a`, `2
+ * Wochen Urlaub`) are none of these.
  */
 export function repeatedHeaderRows(rows: readonly string[][], mapping: ColumnMapping, numbers: NumberOrigin = "text"): number[] {
   const label = cellAt(rows[mapping.headerRow], mapping.person).trim().toLowerCase();
-  if (label === "") return [];
   const valueCols = mapping.layout === "wide" ? (mapping.periodCols ?? []) : [mapping.hours, mapping.period];
-  return rows.flatMap((row, index) => (
-    index !== mapping.headerRow
-      && cellAt(row, mapping.person).trim().toLowerCase() === label
-      && !valueCols.some((col) => isNumberCell(cellAt(row, col), numbers))
-      ? [index] : []));
+  return rows.flatMap((row, index) => {
+    if (Math.abs(index - mapping.headerRow) <= 1) return [];
+    if (valueCols.some((col) => isNumberCell(cellAt(row, col), numbers))) return [];
+    const sameLabel = label !== "" && cellAt(row, mapping.person).trim().toLowerCase() === label;
+    return sameLabel || readsAsHeader(row, mapping) ? [index] : [];
+  });
 }
 
 /** Where the hand reading ends (exclusive): the first repeated header row below

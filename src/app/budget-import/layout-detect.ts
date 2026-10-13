@@ -11,6 +11,7 @@
 import { cellAt, detectDecimalStyle, ID_HEADER, isBlank, isTotalLabel, parseNumberCell, parsePeriodLabel, repeatedHeaderRows } from "./forecast-rows";
 import type { ColumnAmbiguity, ColumnMapping } from "./forecast-types";
 import { assignRunPeriods, classifyPeriodCell, isPeriodShapedIn, isYearColumn, isYearHeader, parseYearCell, usableYear } from "./period-assign";
+import { HOURS_HEADER_RE, isPeriodWordHeader, PERSON_HEADER_RE } from "./header-words";
 import type { NumberOrigin } from "./sheet-grid";
 
 /** `ambiguous` lists the fields more than one column could be: a long
@@ -38,26 +39,13 @@ const COLUMN_SHARE = 0.8;
 /** Share of a column's non-blank cells that must be text for a person column. */
 const TEXT_SHARE = 0.5;
 
-/** A period WORD (`Month`, `Monat`, `Zeitraum`, `KW` …), matched as a whole
- *  word of the header (`isPeriodWordHeader`): `Startmonat` or
- *  `Abrechnungsmonat` holds one only as part of a longer word. */
-const PERIOD_WORD_RE = /^(months?|monate?|periods?|perioden?|zeitraum|weeks?|wochen?|kw)$/i;
 /** A date column's header: ranked below a period word, above none. */
 const DATE_HEADER_RE = /date|datum/i;
-/** An hours word: only which candidate the mapping step PRESELECTS. It never
- *  settles the hours column (`ambiguityOf`). */
-const HOURS_HEADER_RE = /hour|stunden|std|hrs|aufwand|effort/i;
 const RATE_HEADER_RE = /\brates?\b|satz|€\/h|eur\/h/i;
 const EMAIL_HEADER_RE = /e-?mail/i;
-const PERSON_HEADER_RE = /^(name|mitarbeiter(in)?|person|ressource|resource|employee|member|mitglied)$/i;
 const SERIAL_RE = /^\d{5}(\.\d+)?$/;
-const WORD_SPLIT_RE = /[^\p{L}]+/u;
 
-/** A header with a period word as one of its words (`PERIOD_WORD_RE`):
- *  `Month`, `Start month`, `Monat/Jahr`, `KW 05`. */
-export function isPeriodWordHeader(label: string): boolean {
-  return label.split(WORD_SPLIT_RE).some((word) => PERIOD_WORD_RE.test(word));
-}
+export { isPeriodWordHeader };
 
 const UNKNOWN: LayoutDetection = { kind: "unknown", mapping: null, ambiguous: [] };
 
