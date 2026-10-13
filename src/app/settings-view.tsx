@@ -37,7 +37,6 @@ import { CommTemplatesSection } from "./settings-sections/comm-templates-section
 import { ScheduledJobsSection } from "./settings-sections/scheduled-jobs-section";
 import type { UseCommTemplatesResult } from "./use-comm-templates";
 import type { TursoConfig } from "./turso-config";
-import type { FeatureModuleId } from "./feature-modules";
 import { BackendSetupWizard } from "./backend-setup-wizard";
 import { Checkbox } from "./form-controls";
 
@@ -45,7 +44,11 @@ interface SettingsViewProps {
   lang: Lang;
   settings: Settings;
   onChange: (s: Settings) => void;
-  onCommitFeatures: (features: FeatureModuleId[]) => void;
+  /** §706 — "Open this project's functions": opens Edit project focused on Functions (functions are
+   *  chosen per project there; this view only points at it). */
+  onOpenProjectFunctions: () => void;
+  /** False while no project is open — the pointer button is then disabled with a hint. */
+  hasCurrentProject: boolean;
   storageDescription: string | null;
   storageReady: boolean;
   onPickStorageFile: () => Promise<void>;
@@ -139,7 +142,8 @@ const RAIL: (RailEntry<SectionId> & { labelKey: TranslationKey })[] = [
 ];
 
 // Advanced sections revealed only in expert mode.
-const EXPERT_IDS: readonly SectionId[] = ["nextActions", "notifications", "templates", "mode", "export", "commTemplates"];
+// §706: "mode" (now the Functions pointer) is NOT here — everyone must be able to find where functions live.
+const EXPERT_IDS: readonly SectionId[] = ["nextActions", "notifications", "templates", "export", "commTemplates"];
 // Connectivity sections grouped together above Information flows (own divider).
 // `scheduledJobs` is NOT here any more — it is a child of `ai` and renders
 // inside that branch, not as a peer.
@@ -359,13 +363,10 @@ export function SettingsView(props: SettingsViewProps) {
         )}
         {active === "mode" && (
           <ModeSection
-            // Remount when the active project's functions change so the draft
-            // re-seeds from the new set — prevents a stale draft (and thus
-            // saving the old project's functions) after a project switch.
-            key={(settings.features ?? []).join("|")}
             lang={lang}
             settings={settings}
-            onCommitFeatures={props.onCommitFeatures}
+            hasCurrentProject={props.hasCurrentProject}
+            onOpenProjectFunctions={props.onOpenProjectFunctions}
             onChange={onChange}
           />
         )}

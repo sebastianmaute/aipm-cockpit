@@ -218,6 +218,8 @@ export function WorkspaceSection({
   expertMode,
   onOpenLearningSettings,
   onOpenSettingsSection,
+  projectFunctionsRequest,
+  onProjectFunctionsRequestConsumed,
   onStartTour,
   catalogTours,
   completedTours,
@@ -1074,6 +1076,8 @@ export function WorkspaceSection({
               onRestore={onRestoreProject}
               onHardDelete={onHardDeleteProject}
               mode={mode}
+              projectFunctionsRequest={projectFunctionsRequest}
+              onProjectFunctionsRequestConsumed={onProjectFunctionsRequestConsumed}
             />
           </div>
         )}

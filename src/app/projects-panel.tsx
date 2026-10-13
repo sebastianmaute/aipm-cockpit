@@ -26,7 +26,7 @@
 // local state is which modal is open and (in create mode) the chosen file
 // format for the new project.
 
-import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { type ExportFormat } from "./export";
@@ -119,6 +119,12 @@ export interface ProjectsPanelProps {
   /** Loads the demo project. The entry renders only when this is passed, so a
    *  caller that must not offer it (a popout) simply omits it. */
   onLoadDemo?: () => void;
+  /** §706 — Settings -> Functions asks for Edit project, focused on Functions: a monotonic number,
+   *  `null`/absent = no request. See the reconcile in the body for why the last-seen value is seeded
+   *  with a sentinel. */
+  projectFunctionsRequest?: number | null;
+  /** Called once per request after it was acted on, so the owner clears it back to `null`. */
+  onProjectFunctionsRequestConsumed?: () => void;
 }
 
 type ModalState =
@@ -168,8 +174,30 @@ export function ProjectsPanel({
   onHardDelete,
   liveMetaById,
   onLoadDemo,
+  projectFunctionsRequest = null,
+  onProjectFunctionsRequestConsumed,
 }: ProjectsPanelProps) {
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
+  // §706 — a Functions request. ★ This panel MOUNTS FRESH when the view switches to it, so the
+  // last-seen request is seeded `null`, NEVER the live prop: seeding the live value would make a
+  // pending request look already handled and the dialog would silently never open (AGENTS.md
+  // "Remount-swallow"). Reconciled during render (set-state-in-effect is banned); the consume
+  // callback calls a prop, so it may run in an effect.
+  const [handledFunctionsRequest, setHandledFunctionsRequest] = useState<number | null>(null);
+  const [focusFunctions, setFocusFunctions] = useState(false);
+  if (projectFunctionsRequest !== null && projectFunctionsRequest !== handledFunctionsRequest) {
+    setHandledFunctionsRequest(projectFunctionsRequest);
+    if (currentProject) {
+      setFocusFunctions(true);
+      setModal({ mode: "edit" });
+    }
+  }
+  const consumedFunctionsRequestRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (projectFunctionsRequest === null || consumedFunctionsRequestRef.current === projectFunctionsRequest) return;
+    consumedFunctionsRequestRef.current = projectFunctionsRequest;
+    onProjectFunctionsRequestConsumed?.();
+  }, [projectFunctionsRequest, onProjectFunctionsRequestConsumed]);
 
   // Per-row key-fact state (spec §5.3/§5.4). The CURRENT project is measured live
   // from memory and never reads the cache. A non-current row is measured live
@@ -275,7 +303,10 @@ export function ProjectsPanel({
 
   const isTurso = mode === "turso";
 
-  const closeModal = () => setModal({ mode: "closed" });
+  const closeModal = () => {
+    setFocusFunctions(false);
+    setModal({ mode: "closed" });
+  };
 
   const openCreate = () => setModal({ mode: "create" });
 
@@ -702,6 +733,7 @@ export function ProjectsPanel({
           addressBook={addressBook}
           resources={resources}
           features={features}
+          focusFunctions={focusFunctions}
           sizeKey="aipm-cockpit:create-modal-size"
           onSubmit={handleEditSubmit}
           onCancel={closeModal}

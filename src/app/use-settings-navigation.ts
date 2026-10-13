@@ -6,6 +6,11 @@
 // only the header `SettingsMenu` popover, whose open state is owned here.
 // Extracted from task-manager.tsx (§491); move-only.
 //
+// §706 — it also owns the OTHER "go and open X" request that Settings makes: Settings -> Functions
+// opens Edit project focused on its Functions part (`openProjectFunctions`). That request is a
+// monotonic number (`null` = none) the Projects view consumes; it is state HERE, not in
+// task-manager, because task-manager has no line to spare.
+//
 // ★ It keeps the inline `useCallback` memoization on purpose, against
 // Extraction convention 1 (non-memoized handlers): `clearSettingsSectionRequest`
 // reaches settings-view.tsx as `onSectionConsumed`, which is in the dependency
@@ -65,6 +70,19 @@ export function useSettingsNavigation(deps: SettingsNavigationDeps) {
   const onOpenLearningSettings = useCallback(() => onOpenSettingsSection("nextActions"), [onOpenSettingsSection]);
   const clearSettingsSectionRequest = useCallback(() => setSettingsSectionRequest(undefined), []);
 
+  // §706 — "open this project's functions". The Projects view MOUNTS FRESH after the view switch, so
+  // the request is a monotonic NUMBER the panel seeds its last-seen value against with a sentinel
+  // (AGENTS.md "Remount-swallow"), and the panel calls the clear callback once it has acted.
+  // The counter lives in a ref and is never reset, so a request after a consumed one is distinct.
+  const [projectFunctionsRequest, setProjectFunctionsRequest] = useState<number | null>(null);
+  const projectFunctionsNonceRef = useRef(0);
+  const openProjectFunctions = useCallback(() => {
+    projectFunctionsNonceRef.current += 1;
+    setProjectFunctionsRequest(projectFunctionsNonceRef.current);
+    setActiveTab("projects");
+  }, [setActiveTab]);
+  const clearProjectFunctionsRequest = useCallback(() => setProjectFunctionsRequest(null), []);
+
   return {
     settingsSectionRequest,
     clearSettingsSectionRequest,
@@ -74,5 +92,8 @@ export function useSettingsNavigation(deps: SettingsNavigationDeps) {
     onOpenSettingsSection,
     onOpenSettings,
     onOpenLearningSettings,
+    projectFunctionsRequest,
+    openProjectFunctions,
+    clearProjectFunctionsRequest,
   };
 }

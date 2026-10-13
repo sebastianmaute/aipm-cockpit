@@ -26,7 +26,7 @@ A quadrant-based policy maps each stakeholder's Influence/Interest position to a
 | Keep Informed | 7 days | Milestones, pending Changes |
 | Monitor | 3 days | Overdue milestones only |
 
-Reminders are generated when: a milestone the stakeholder is RACI-linked to is overdue or within the lead window; an open RAID item linked to the stakeholder meets the severity threshold or is overdue; or a pending Change item is linked to the stakeholder. Requires the Stakeholders feature module to be enabled (Settings → Mode).
+Reminders are generated when: a milestone the stakeholder is RACI-linked to is overdue or within the lead window; an open RAID item linked to the stakeholder meets the severity threshold or is overdue; or a pending Change item is linked to the stakeholder. Requires the Stakeholders feature module to be enabled (Edit project → Functions).
 
 ## Birthday reminders
 

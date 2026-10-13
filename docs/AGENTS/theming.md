@@ -495,7 +495,7 @@
 - **Settings sections:** each window shows a uniform pane `<h2>` (its rail label); `mode`/`templates`/
   `commTemplates` are excluded (they self-head + carry an intro line). Appearance is its OWN rail section
   (un-folded from General; General now folds only Storage).
-- **Feature-module guidance (Settings → Mode — the section is titled "Mode"; only its intro copy calls the toggles "functions"):** `mode-section.tsx` renders each `FEATURE_MODULES`
+- **Feature-module guidance (§706: Settings → Functions is now only a pointer to Edit project; the section id stays `mode`):** `mode-section.tsx` no longer renders the toggles — the shared `functions-picker.tsx` does. Until §706 `mode-section.tsx` rendered each `FEATURE_MODULES`
   toggle with an optional `descKey` description under the label (use case + when to enable). ★ Adding a
   module ⇒ give it a `descKey` + EN/DE i18n string (all 12 now have one). ★★ a11y: the description is a
   SEPARATE `<span id>` linked via `aria-describedby` — do NOT nest it inside the `<label>` (that folds it

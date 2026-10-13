@@ -12,7 +12,7 @@ import { useToast } from "./use-toast";
 import { useSettings } from "./use-settings";
 import { useApplyFavicon } from "./use-favicon";
 import { useTemplateActions } from "./use-template-actions";
-import { disabledViewRedirect, isModuleEnabled, deriveMode, type FeatureModuleId } from "./feature-modules";
+import { disabledViewRedirect, isModuleEnabled, deriveMode } from "./feature-modules";
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
@@ -280,7 +280,6 @@ function TaskManagerInner() {
     fxRates,
     project,
     setProject,
-    setFeatures,
     setBudgetHistory,
   } = useWorkspace();
 
@@ -288,15 +287,6 @@ function TaskManagerInner() {
   // reactive `settings.features` (the source the 45 module consumers read), so
   // mode changes and project switches re-render instead of reloading the page.
   useFeaturesSync(setSettings);
-
-  // Committing a mode/feature change just writes the per-project features;
-  // useFeaturesSync propagates it into settings reactively (no reload).
-  const handleCommitFeatures = useCallback(
-    (features: FeatureModuleId[]) => {
-      setFeatures(features);
-    },
-    [setFeatures],
-  );
 
   const { setContacts, contactsList, handleRemoveContact } = useContacts({ hydrated, tasks });
 
@@ -697,7 +687,7 @@ function TaskManagerInner() {
   // extracted to useSettingsNavigation.
   const {
     settingsSectionRequest, clearSettingsSectionRequest, isClassicLayout, classicSettingsOpen, setClassicSettingsOpen,
-    onOpenSettingsSection, onOpenSettings, onOpenLearningSettings,
+    onOpenSettingsSection, onOpenSettings, onOpenLearningSettings, projectFunctionsRequest, openProjectFunctions, clearProjectFunctionsRequest,
   } = useSettingsNavigation({ layout: settings.layout, setActiveTab });
   const openAction = useCallback(
     (a: SuggestedAction) => {
@@ -1536,7 +1526,7 @@ function TaskManagerInner() {
     learningEnabled: settings.nextActionsLearning?.enabled ?? false,
     expertMode: settings.expertMode === true,
     onOpenLearningSettings,
-    onOpenSettingsSection: isPopout ? undefined : onOpenSettingsSection,
+    onOpenSettingsSection: isPopout ? undefined : onOpenSettingsSection, projectFunctionsRequest, onProjectFunctionsRequestConsumed: clearProjectFunctionsRequest,
     onStartTour: settings.layout === "modern" && !isPopout ? tour.start : undefined,
     catalogTours: tour.catalogTours,
     completedTours: tour.completedTours,
@@ -1645,7 +1635,7 @@ function TaskManagerInner() {
       // read appearance under (workspace-section uses portfolioCurrentId), so a
       // per-project appearance override applies in Turso portfolio mode too.
       projectId={portfolioCurrentId ?? "default"}
-      onCommitFeatures={handleCommitFeatures}
+      onOpenProjectFunctions={openProjectFunctions} hasCurrentProject={project !== undefined}
       storageDescription={storageDescription}
       storageReady={storageOk}
       onPickStorageFile={onPickStorageFile}

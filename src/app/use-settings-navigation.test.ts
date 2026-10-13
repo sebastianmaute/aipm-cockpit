@@ -164,3 +164,37 @@ describe("useSettingsNavigation — identity", () => {
     expect(result.current.clearSettingsSectionRequest).toBe(clear);
   });
 });
+
+describe("useSettingsNavigation — project functions request (§706)", () => {
+  it("starts with no request", () => {
+    const { result } = renderHook(() => useSettingsNavigation(makeDeps()));
+    expect(result.current.projectFunctionsRequest).toBeNull();
+  });
+
+  it("opening switches to the projects view and bumps a monotonic request that survives being consumed", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useSettingsNavigation(deps));
+    act(() => result.current.openProjectFunctions());
+    expect(deps.setActiveTab).toHaveBeenCalledWith("projects");
+    expect(result.current.projectFunctionsRequest).toBe(1);
+    act(() => result.current.clearProjectFunctionsRequest());
+    expect(result.current.projectFunctionsRequest).toBeNull();
+    act(() => result.current.openProjectFunctions());
+    expect(result.current.projectFunctionsRequest).toBe(2);
+  });
+
+  it("a repeat open before the first was consumed is still a distinct value", () => {
+    const { result } = renderHook(() => useSettingsNavigation(makeDeps()));
+    act(() => result.current.openProjectFunctions());
+    act(() => result.current.openProjectFunctions());
+    expect(result.current.projectFunctionsRequest).toBe(2);
+  });
+
+  it("works in the classic layout too (it only changes the view)", () => {
+    const deps = makeDeps({ layout: "classic" });
+    const { result } = renderHook(() => useSettingsNavigation(deps));
+    act(() => result.current.openProjectFunctions());
+    expect(deps.setActiveTab).toHaveBeenCalledWith("projects");
+    expect(result.current.projectFunctionsRequest).toBe(1);
+  });
+});

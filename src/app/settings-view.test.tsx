@@ -25,7 +25,8 @@ function makeProps(overrides = {}) {
     lang: "en-US" as const,
     settings: defaultSettings,
     onChange: vi.fn(),
-    onCommitFeatures: vi.fn(),
+    onOpenProjectFunctions: vi.fn(),
+    hasCurrentProject: true,
     storageDescription: null,
     storageReady: false,
     onPickStorageFile: vi.fn().mockResolvedValue(undefined),
@@ -42,7 +43,7 @@ describe("SettingsView", () => {
     // Appearance is its own always-visible standalone rail entry.
     expect(screen.getByRole("button", { name: t("en-US", "settingsSectionAppearance") })).toBeInTheDocument();
     // Expert-only rail entries are absent.
-    for (const key of ["settingsSectionMode", "settingsSectionTemplates", "settingsSectionNotifications", "settingsSectionNextActions", "settingsSectionExport"] as const) {
+    for (const key of ["settingsSectionTemplates", "settingsSectionNotifications", "settingsSectionNextActions", "settingsSectionExport"] as const) {
       expect(screen.queryByRole("button", { name: t("en-US", key) })).toBeNull();
     }
   });
@@ -76,11 +77,21 @@ describe("SettingsView", () => {
 
   it("expert mode reveals the advanced sections", () => {
     render(<SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true } })} />);
-    const modeBtn = screen.getByRole("button", { name: t("en-US", "settingsSectionMode") });
-    expect(modeBtn).toBeInTheDocument();
     expect(screen.getByRole("button", { name: t("en-US", "settingsSectionNextActions") })).toBeInTheDocument();
-    fireEvent.click(modeBtn);
-    expect(screen.getByText(/Current mode/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionMode") }));
+    expect(screen.getByRole("spinbutton", { name: t("en-US", "versionRetentionLabel") })).toBeInTheDocument();
+  });
+
+  // §706 — the Functions section is for everyone: no expert mode needed to find where functions live.
+  it("lists the Functions section without expert mode and its pane shows the pointer button (§706)", () => {
+    const onOpenProjectFunctions = vi.fn();
+    render(<SettingsView {...makeProps({ onOpenProjectFunctions })} />);
+    const rail = screen.getByRole("button", { name: "Functions" });
+    expect(rail).toBe(screen.getByRole("button", { name: t("en-US", "settingsSectionMode") }));
+    fireEvent.click(rail);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsFunctionsOpen") }));
+    expect(onOpenProjectFunctions).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("spinbutton", { name: t("en-US", "versionRetentionLabel") })).toBeNull();
   });
 
   it("toggling expert mode off propagates expertMode:false through onChange", () => {
