@@ -1717,6 +1717,17 @@
   should fill them in for symmetry. Pure, i18n-free, **clock-free** (`today` passed in, unread by all
   four digests today but kept required so the first date-based digest doesn't have to touch every call
   site to add it).
+  ★★ **An auto-sent chat seed names the page it was requested from, NOT the dispatcher's view ref** (§703).
+  `requestChat` switches to the chat tab and stores the seed in one update, and the view ref follows
+  `currentView` in an effect of `TaskManager`, the parent. Which value a seeded send read therefore
+  depended on effect ORDER: the child's seed effect ran first on a mounted panel (the page), last on a
+  first press, where `ChatPanel` is a lazy chunk that mounts after the parent's effect (`chat`). The
+  seed now carries `ChatSeed.originView`, captured when `requestChat` is called, and `submitPrompt`
+  passes it to `getSnapshot({ originView })`, which reports that view and the digest the dispatcher last
+  held for it (none if the last page outside the chat tab was another one). ★ Do not "simplify" this back to
+  the view ref: a green run of the second press proves nothing, since effect order made that one right
+  by accident. ★ Residue: a `get_app_state` call during such a send still calls `getSnapshot()` with no
+  origin, so it answers `chat`.
   ★★★ **The digest must describe what the user can actually SEE, and this took TWO corrections.** The
   input is assembled by **`use-view-digest.ts`**, not inline in the dispatcher — it needs pane state the
   dispatcher does not hold. ★★ Correction 1: an early revision fed the digest raw `tasks`. ★★★ Correction

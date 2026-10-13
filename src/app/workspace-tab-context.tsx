@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useCallback, useContext, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { type PopoutTab, readPopoutTabFromUrl } from "./broadcast-sync";
 import { type AppView, buildHash, slugToView } from "./nav-config";
 import type { ApiMessage, DisplayItem } from "./chat-api";
@@ -13,6 +13,15 @@ export interface ChatConversation {
   display: DisplayItem[];
 }
 
+/** A request to the chat panel. `originView` (§703) is the view that was
+ *  active when the request was made: the request itself switches to the chat
+ *  tab, so an auto-send would otherwise name "chat" as the page it was about. */
+export interface ChatSeed {
+  prompt: string;
+  autoSend: boolean;
+  originView: AppView;
+}
+
 interface WorkspaceTabContextValue {
   activeTab: AppView;
   setActiveTab: React.Dispatch<React.SetStateAction<AppView>>;
@@ -20,7 +29,7 @@ interface WorkspaceTabContextValue {
   pendingOpen: { view: AppView; id: number } | null;
   requestOpen: (view: AppView, id: number) => void;
   clearPendingOpen: () => void;
-  pendingChatSeed: { prompt: string; autoSend: boolean } | null;
+  pendingChatSeed: ChatSeed | null;
   requestChat: (prompt: string, autoSend: boolean) => void;
   clearChatSeed: () => void;
   // Deep-link a Help concept: switch to the Help view and scroll to the
@@ -69,10 +78,17 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
     }
   }, [isPopout]);
   const clearPendingOpen = useCallback(() => setPendingOpen(null), []);
-  const [pendingChatSeed, setPendingChatSeed] = useState<{ prompt: string; autoSend: boolean } | null>(null);
+  const [pendingChatSeed, setPendingChatSeed] = useState<ChatSeed | null>(null);
+  // Read by requestChat, which is called from handlers after a commit, so the
+  // effect has run by then. A request made on the chat tab records "chat".
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
   const requestChat = useCallback((prompt: string, autoSend: boolean) => {
+    const originView = activeTabRef.current;
     setActiveTab("chat");
-    setPendingChatSeed({ prompt, autoSend });
+    setPendingChatSeed({ prompt, autoSend, originView });
     // No hash write: chat carries no item id (unlike requestOpen).
   }, []);
   const clearChatSeed = useCallback(() => setPendingChatSeed(null), []);

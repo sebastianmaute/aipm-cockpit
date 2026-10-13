@@ -11,7 +11,8 @@ import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig, Settings } from "./settings-types";
 import { clampMaxChatTurns } from "./settings-types";
-import type { ChatConversation } from "./workspace-tab-context";
+import type { ChatConversation, ChatSeed } from "./workspace-tab-context";
+import type { AppView } from "./nav-config";
 import { useAiUsageContext } from "./ai-usage-context";
 import type { SendFingerprint } from "./ai-view-switch";
 import { useResizable } from "./use-resizable";
@@ -211,7 +212,7 @@ function ChatPanelImpl({
   onChangeModel?: (model: string) => void;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
-  chatSeed?: { prompt: string; autoSend: boolean } | null;
+  chatSeed?: ChatSeed | null;
   onChatSeedConsumed?: () => void;
   /** Deep-link to Settings → AI; rendered as a "Configure AI" button in the
    *  empty state when AI is off / no key. Omitted in pop-outs (can't navigate). */
@@ -375,7 +376,7 @@ function ChatPanelInner({
   onChangeModel?: (model: string) => void;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
-  chatSeed?: { prompt: string; autoSend: boolean } | null;
+  chatSeed?: ChatSeed | null;
   onChatSeedConsumed?: () => void;
   /** Deep-link to Settings → AI; rendered as a "Configure AI" button in the
    *  empty state when AI is off / no key. Omitted in pop-outs (can't navigate). */
@@ -621,7 +622,8 @@ function ChatPanelInner({
   const apiKeyLocked =
     masterOn && !ai.apiKey.trim() && unlockedKey === null && isPassphraseLocked("anthropicApiKey");
 
-  async function submitPrompt(textArg?: string) {
+  // `originView` (§703) is set only by an auto-sent seed: the page the request came from.
+  async function submitPrompt(textArg?: string, opts?: { originView?: AppView }) {
     const text = (textArg ?? input).trim().slice(0, CHAT_MESSAGE_MAX);
     const atts = attachments;
     // ★ `abortRef` is the STRUCTURAL single-flight bail (§321). `busy` is a
@@ -696,7 +698,7 @@ function ChatPanelInner({
     const stale = () =>
       cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId || isScopeStale(getScopeEpoch, sendEpoch);
 
-    const snapshot = dispatcher.getSnapshot();
+    const snapshot = dispatcher.getSnapshot({ originView: opts?.originView });
     const system = buildStableSystemBlocks(lang, snapshot, guides, ai.groundInGuides, ai);
     const turnContext = buildTurnContext(lang, snapshot, guides, ai.groundInGuides, ai);
     // ★★★ WIRE-ONLY. `messages` stays the PERSISTED history; the turn context is
@@ -1276,7 +1278,11 @@ function ChatPanelInner({
   // fires effects in declaration order within the same commit, so when
   // `chatSeed` changes this gate-mirror (declared first) refreshes the ref
   // before the seed effect below reads it.
-  const sendGateRef = useRef<{ blocked: boolean; submit: (text?: string) => void; consume: () => void }>({
+  const sendGateRef = useRef<{
+    blocked: boolean;
+    submit: (text?: string, opts?: { originView?: AppView }) => void;
+    consume: () => void;
+  }>({
     blocked: true,
     submit: () => {},
     consume: () => {},
@@ -1302,7 +1308,7 @@ function ChatPanelInner({
     // A seed is an external request (another view's requestChat), applied once per seed object.
     setInput((draft) => (!autoSend && draft.trim() !== "" ? `${draft.trimEnd()}\n${prompt}` : prompt));
     if (chatSeed.autoSend && !sendGateRef.current.blocked) {
-      sendGateRef.current.submit(chatSeed.prompt);
+      sendGateRef.current.submit(chatSeed.prompt, { originView: chatSeed.originView });
     }
     sendGateRef.current.consume();
   }, [chatSeed]);

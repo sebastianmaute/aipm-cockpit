@@ -449,7 +449,12 @@ export type ToolDispatcher = {
   getResourceRow(id: number): Resource | null;
   updateResource(id: number, patch: Partial<ResourceInput>): ResourceSummary | null;
   deleteResource(id: number): boolean;
-  getSnapshot(): {
+  /** `originView` (§703): the page an "Ask Claude" send was requested from.
+   *  The request switches to the chat tab, so without it the snapshot names
+   *  "chat" — or the page, depending on whether the view ref's effect has run
+   *  yet. With it, `currentView` is that page and `viewDigest` is its last
+   *  digest (absent if the dispatcher holds none for it). */
+  getSnapshot(opts?: { originView?: AppView }): {
     today: string;
     language: Lang;
     holidayCountries: string[];

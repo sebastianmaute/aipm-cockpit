@@ -717,7 +717,7 @@ describe("SP1 seed + foundational chips", () => {
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
-        chatSeed={{ prompt: "Summarize risks", autoSend: false }}
+        chatSeed={{ prompt: "Summarize risks", autoSend: false, originView: "dashboard" }}
         onChatSeedConsumed={onChatSeedConsumed}
       />,
     );
@@ -735,7 +735,7 @@ describe("SP1 seed + foundational chips", () => {
     const { rerender } = render(<ChatPanel {...props} chatSeed={null} />);
     const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: "half-typed question" } });
-    rerender(<ChatPanel {...props} chatSeed={{ prompt: "Plan the kickoff", autoSend: false }} />);
+    rerender(<ChatPanel {...props} chatSeed={{ prompt: "Plan the kickoff", autoSend: false, originView: "dashboard" }} />);
     expect(textarea.value).toBe("half-typed question\nPlan the kickoff");
   });
 
@@ -743,27 +743,29 @@ describe("SP1 seed + foundational chips", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
     render(
       <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()}
-        chatSeed={{ prompt: "Plan the kickoff", autoSend: false }} onChatSeedConsumed={vi.fn()} />,
+        chatSeed={{ prompt: "Plan the kickoff", autoSend: false, originView: "dashboard" }} onChatSeedConsumed={vi.fn()} />,
       { reactStrictMode: true },
     );
     expect((screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement).value).toBe("Plan the kickoff");
   });
 
-  it("auto-sends the seed when autoSend is true and the key is present", async () => {
+  it("auto-sends the seed when autoSend is true and the key is present, naming the page it came from (§703)", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
     const onChatSeedConsumed = vi.fn();
+    const dispatcher = makeDispatcher();
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
         ai={AI_WITH_KEY}
-        dispatcher={makeDispatcher()}
+        dispatcher={dispatcher}
         onAcceptConsent={vi.fn()}
-        chatSeed={{ prompt: "What's next?", autoSend: true }}
+        chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }}
         onChatSeedConsumed={onChatSeedConsumed}
       />,
     );
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
     expect(onChatSeedConsumed).toHaveBeenCalledTimes(1);
+    expect(dispatcher.getSnapshot).toHaveBeenCalledWith({ originView: "dashboard" });
   });
 
   it("does not auto-send when the api key is missing (seeds input only)", () => {
@@ -775,7 +777,7 @@ describe("SP1 seed + foundational chips", () => {
         ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "" }}
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
-        chatSeed={{ prompt: "What's next?", autoSend: true }}
+        chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }}
         onChatSeedConsumed={onChatSeedConsumed}
       />,
     );
@@ -793,7 +795,7 @@ describe("SP1 seed + foundational chips", () => {
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
         guidesReady={false}
-        chatSeed={{ prompt: "What's next?", autoSend: true }}
+        chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }}
         onChatSeedConsumed={onChatSeedConsumed}
       />,
     );
