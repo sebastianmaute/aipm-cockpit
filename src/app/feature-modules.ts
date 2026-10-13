@@ -24,6 +24,9 @@ export interface FeatureModule {
   views: readonly AppView[];
   /** The addable report this module unlocks, if any. */
   report?: AddableReportId;
+  /** Modules this one reads from. Informational only: turning this module on does not turn them on,
+   *  but the Functions picker and the module's own view say what is off (§707). */
+  uses?: readonly FeatureModuleId[];
 }
 
 export const FEATURE_MODULES: readonly FeatureModule[] = [
@@ -50,7 +53,7 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
   },
   { id: "history", labelKey: "navHistory", descKey: "historyModuleDesc", views: ["history"] },
   { id: "knowledge", labelKey: "navKnowledge", descKey: "knowledgeModuleDesc", views: ["knowledge"] },
-  { id: "timelog", labelKey: "navTimelog", descKey: "timelogModuleDesc", views: ["timelog"] },
+  { id: "timelog", labelKey: "navTimelog", descKey: "timelogModuleDesc", views: ["timelog"], uses: ["resources", "budget"] },
 ] as const;
 
 /** Views always present regardless of mode. */
@@ -107,6 +110,13 @@ export function deriveMode(features: readonly FeatureModuleId[]): AppMode {
 
 export function isModuleEnabled(id: FeatureModuleId, features: readonly FeatureModuleId[]): boolean {
   return features.includes(id);
+}
+
+/** The modules `id` declares it uses that are not in `features`, in declaration order.
+ *  Empty when `id` declares none, or when `id` itself is off (nothing to warn about). */
+export function missingUses(id: FeatureModuleId, features: readonly FeatureModuleId[]): FeatureModuleId[] {
+  if (!features.includes(id)) return [];
+  return (MODULE_BY_ID.get(id)?.uses ?? []).filter((u) => !features.includes(u));
 }
 
 export function moduleForView(view: AppView): FeatureModuleId | null {

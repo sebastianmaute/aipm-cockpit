@@ -8,6 +8,7 @@ import {
   enabledNavViews,
   isModuleEnabled,
   isViewEnabled,
+  missingUses,
   moduleForView,
   reportForModule,
   sanitizeFeatures,
@@ -133,5 +134,24 @@ describe("documents view ownership", () => {
   it("still omits a module-owned view when that module is off", () => {
     expect(isViewEnabled("history", [])).toBe(false);
     expect(enabledNavViews([])).not.toContain("history");
+  });
+});
+
+describe("§707 uses", () => {
+  it("only timelog declares uses: resources then budget", () => {
+    expect(FEATURE_MODULES.filter((m) => m.uses).map((m) => m.id)).toEqual(["timelog"]);
+    expect(FEATURE_MODULES.find((m) => m.id === "timelog")!.uses).toEqual(["resources", "budget"]);
+  });
+  it("every declared use is a real module id", () => {
+    for (const m of FEATURE_MODULES) for (const u of m.uses ?? []) expect(ALL_MODULE_IDS).toContain(u);
+  });
+  it("missingUses names what is off, in order", () => {
+    expect(missingUses("timelog", ["timelog"])).toEqual(["resources", "budget"]);
+    expect(missingUses("timelog", ["timelog", "resources"])).toEqual(["budget"]);
+    expect(missingUses("timelog", ["timelog", "resources", "budget"])).toEqual([]);
+  });
+  it("is empty when the module itself is off or declares nothing", () => {
+    expect(missingUses("timelog", [])).toEqual([]);
+    expect(missingUses("budget", ["budget"])).toEqual([]);
   });
 });
