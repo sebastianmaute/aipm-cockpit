@@ -160,3 +160,20 @@ describe("probe: year-less headers before the first labelled one (round 2)", () 
     expect(run.out.assumedYear).toBeUndefined();
   });
 });
+
+describe("probe: a long sheet of Monday dates (round 2)", () => {
+  it("reads each date as its ISO week: 40 h per week in a weekly plan, nothing combined", () => {
+    const dates = ["2026-01-05", "2026-01-12", "2026-01-19", "2026-01-26", "2026-02-02"];
+    const run = readSheet([["Name", "Woche", "Stunden"], ...dates.map((d) => ["Ann Lee", d, "40"])]);
+    expect(run.out.rows.map((r) => r.period)).toEqual(["2026-W02", "2026-W03", "2026-W04", "2026-W05", "2026-W06"]);
+    expect(run.validated.duplicates).toEqual([]);
+    expect(cellsOf(planOf(run, bucketOf("2026-01-01", "2026-03-31"), "week"))).toEqual(
+      ["2026-W02", "2026-W03", "2026-W04", "2026-W05", "2026-W06"].map((w) => [w, 40]),
+    );
+  });
+
+  it("keeps first-of-month dates as months", () => {
+    const run = readSheet([["Name", "Monat", "Stunden"], ["Ann Lee", "2026-01-01", "8"], ["Ann Lee", "2026-02-01", "4"], ["Ann Lee", "2026-03-01", "2"]]);
+    expect(run.out.rows.map((r) => r.period)).toEqual(["2026-01", "2026-02", "2026-03"]);
+  });
+});

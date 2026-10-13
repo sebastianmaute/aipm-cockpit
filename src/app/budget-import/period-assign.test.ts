@@ -2,7 +2,7 @@
 // the Claude near-cell check all read a header through `assignRunPeriods`, so
 // these pin the one definition.
 import { describe, expect, it } from "vitest";
-import { assignRunDetailed, assignRunPeriods, classifyPeriodCell, parsePeriodLabel } from "./period-assign";
+import { assignCellPeriod, assignRunDetailed, assignRunPeriods, classifyPeriodCell, isWeekSpacedColumn, parsePeriodLabel } from "./period-assign";
 
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -116,5 +116,27 @@ describe("parsePeriodLabel and classifyPeriodCell — one cell", () => {
     expect(classifyPeriodCell("KW54")).toBeNull();
     expect(classifyPeriodCell("05.01.2026")).toEqual({ kind: "month", index: 1, year: 2026, date: "2026-01-05" });
     expect(classifyPeriodCell("2027")).toBeNull();
+  });
+});
+
+// Round 2: a LONG sheet's period column of dates a week apart is weeks too.
+describe("isWeekSpacedColumn and assignCellPeriod — a long sheet's dates", () => {
+  it("is true for distinct dates a whole number of weeks apart, the closest one week, in any order", () => {
+    expect(isWeekSpacedColumn(["Woche", "2026-01-12", "2026-01-05", "2026-01-05", "", "2026-01-26"])).toBe(true);
+    expect(isWeekSpacedColumn(["05.01.2026", "12.01.2026"])).toBe(true);
+    expect(isWeekSpacedColumn(["46027", "46034"], "dot")).toBe(true);
+  });
+
+  it("is false for first-of-month dates, a lone date, serials in a CSV, or dates mixed with labels", () => {
+    expect(isWeekSpacedColumn(["2026-01-01", "2026-02-01", "2026-03-01"])).toBe(false);
+    expect(isWeekSpacedColumn(["2026-01-05", "2026-01-05"])).toBe(false);
+    expect(isWeekSpacedColumn(["46027", "46034"], "text")).toBe(false);
+    expect(isWeekSpacedColumn(["2026-01-05", "2026-01-12", "Feb 2026"])).toBe(false);
+  });
+
+  it("reads a date as its ISO week when the column is weekly", () => {
+    expect(assignCellPeriod("2026-01-05", { weeks: true })).toEqual({ period: "2026-W02", assumed: false });
+    expect(assignCellPeriod("2026-01-05", {})).toEqual({ period: "2026-01", assumed: false });
+    expect(assignCellPeriod("Jan", { weeks: true, defaultYear: 2026 })).toEqual({ period: "2026-01", assumed: true });
   });
 });

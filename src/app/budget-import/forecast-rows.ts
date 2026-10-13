@@ -7,7 +7,7 @@
 // definition detection and the Claude route read too.
 
 import type { NumberOrigin } from "./sheet-grid";
-import { assignCellPeriod, assignRunDetailed, assumedYearOf, parsePeriodLabel, type AssignedPeriod } from "./period-assign";
+import { assignCellPeriod, assignRunDetailed, assumedYearOf, isWeekSpacedColumn, parsePeriodLabel, type AssignedPeriod } from "./period-assign";
 import type { AssumedYear, ColumnMapping, DropReason, ForecastRow, IgnoredColumn } from "./forecast-types";
 
 /** Re-exported: callers that read a single period cell keep one import. */
@@ -144,9 +144,13 @@ function wideColumns(header: readonly string[], mapping: ColumnMapping, numbers:
 /** Long layout: a row's one hours cell and its period — a year-less period cell
  *  takes the row's `yearCol` year, else `mapping.year`. A long sheet's rows are
  *  never read as a run: they repeat Jan…Dec per person. */
-function longCell(row: readonly string[], mapping: ColumnMapping): { col: number; period: string | null; assumed: boolean } {
+function longCell(
+  row: readonly string[],
+  mapping: ColumnMapping,
+  weeks: boolean,
+): { col: number; period: string | null; assumed: boolean } {
   const rowYear = mapping.yearCol === undefined ? undefined : cellAt(row, mapping.yearCol);
-  const assigned = assignCellPeriod(cellAt(row, mapping.period), { rowYear, defaultYear: mapping.year });
+  const assigned = assignCellPeriod(cellAt(row, mapping.period), { rowYear, defaultYear: mapping.year, weeks });
   return { col: mapping.hours ?? -1, period: assigned?.period ?? null, assumed: assigned?.assumed ?? false };
 }
 
@@ -193,12 +197,14 @@ export function gridToForecastRows(
     numbers,
   );
   const rateStyle = detectDecimalStyle(people.map(({ row }) => cellAt(row, mapping.rate)), numbers);
+  // A long sheet's period column of dates a week apart (Mondays) is read as weeks.
+  const weeklyColumn = !wide && isWeekSpacedColumn(people.map(({ row }) => cellAt(row, mapping.period)), numbers);
   const sourceOf = (index: number, col: number): string =>
     `${sheetName}!${columnLetters(col)}${index + 1}`;
 
   for (const { index, row } of people) {
     const meta = readMeta(row, mapping, rateStyle, numbers);
-    const cells = wide ? columns : [longCell(row, mapping)];
+    const cells = wide ? columns : [longCell(row, mapping, weeklyColumn)];
     for (const { col, period, assumed } of cells) {
       const raw = cellAt(row, col);
       if (isBlank(raw)) continue;

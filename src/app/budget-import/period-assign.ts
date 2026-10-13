@@ -189,14 +189,18 @@ export function parseYearCell(cell: string): number | undefined {
  * ONE cell of a long sheet (a period column, never a run): a period that names
  * its year keeps it; a year-less one takes the row's `rowYear` cell when that
  * holds a year (`parseYearCell`), else `defaultYear` — and only then is it
- * `assumed`.
+ * `assumed`. With `weeks` (its column is weekly: `isWeekSpacedColumn`), a date
+ * is its ISO week.
  */
 export function assignCellPeriod(
   cell: string,
-  opts: { rowYear?: string; defaultYear?: number } = {},
+  opts: { rowYear?: string; defaultYear?: number; weeks?: boolean } = {},
 ): AssignedPeriod | null {
   const c = classifyPeriodCell(cell);
   if (c === null) return null;
+  if (opts.weeks === true && c.kind === "month" && c.date !== undefined) {
+    return { period: periodKeyForDate(c.date, "week"), assumed: false };
+  }
   const rowYear = c.year === undefined && opts.rowYear !== undefined ? parseYearCell(opts.rowYear) : undefined;
   const period = resolvePeriod(c, rowYear ?? opts.defaultYear);
   return period === null ? null : { period, assumed: c.year === undefined && rowYear === undefined };
@@ -206,16 +210,40 @@ export function assignCellPeriod(
  *  one week: a weekly forecast headed by Monday dates. Excel serials count as
  *  dates only in a workbook (`numbers` "dot"). */
 function isWeekSpacedDates(cells: ReadonlyArray<PeriodCell | null>, numbers: NumberOrigin): boolean {
-  const present = cells.filter((c): c is PeriodCell => c !== null);
+  const days = dateDays(cells, numbers);
+  return days !== null && isWeekSpacing(days);
+}
+
+/** The day numbers of the period cells, in order, when every one is a date
+ *  (an Excel serial only in a workbook); null when any is not. */
+function dateDays(cells: ReadonlyArray<PeriodCell | null>, numbers: NumberOrigin): number[] | null {
   const days: number[] = [];
-  for (const c of present) {
+  for (const c of cells) {
+    if (c === null) continue;
     const isDate = c.kind === "month" && c.date !== undefined && (numbers === "dot" || c.serial !== true);
-    if (!isDate) return false;
+    if (!isDate) return null;
     days.push(Date.parse(`${c.date}T00:00:00Z`) / MS_PER_DAY);
   }
+  return days;
+}
+
+/** Consecutive gaps all positive whole weeks, the smallest exactly one week. */
+function isWeekSpacing(days: readonly number[]): boolean {
   if (days.length < 2) return false;
   const gaps = days.slice(1).map((d, i) => d - days[i]);
   return gaps.every((g) => g > 0 && g % DAYS_PER_WEEK === 0) && Math.min(...gaps) === DAYS_PER_WEEK;
+}
+
+/**
+ * A LONG sheet's period column is weekly: its period cells are all dates, and
+ * their DISTINCT values, sorted, are a whole number of weeks apart with the
+ * closest exactly seven days — the wide run's rule (`isWeekSpacing`) applied
+ * to a column, whose rows repeat and need not be in order. Non-period cells
+ * (the header, blanks) are ignored. First-of-month dates stay months.
+ */
+export function isWeekSpacedColumn(cells: readonly string[], numbers: NumberOrigin = "text"): boolean {
+  const days = dateDays(cells.map(classifyPeriodCell), numbers);
+  return days !== null && isWeekSpacing([...new Set(days)].sort((a, b) => a - b));
 }
 
 /**

@@ -8,6 +8,7 @@ import { periodKeyForDate } from "../resource-capacity";
 import { detectDecimalStyle, parseNumberCell, type DecimalStyle } from "./forecast-rows";
 import {
   assignCellPeriod,
+  isWeekSpacedColumn,
   assignRunDetailed,
   classifyPeriodCell,
   parseYearCell,
@@ -142,7 +143,9 @@ export function periodNearCell(
   const rowYear = cells.find((cell, col) => !skip(col) && parseYearCell(cell) !== undefined);
   for (let col = 0; col < cells.length; col++) {
     if (skip(col)) continue;
-    const assigned = assignCellPeriod(cells[col], { rowYear, defaultYear });
+    // A long sheet's column of dates a week apart is weekly, as the hand route reads it.
+    const weeks = isWeekSpacedColumn(sheet.rows.map((r) => r[col] ?? ""), sheet.numbers);
+    const assigned = assignCellPeriod(cells[col], { rowYear, defaultYear, weeks });
     if (assigned && claimNames(claim, assigned.period)) return assigned;
   }
   return null;

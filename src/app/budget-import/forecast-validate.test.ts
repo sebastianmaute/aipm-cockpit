@@ -692,3 +692,18 @@ describe("validateForecastRows: the year it assumed (Claude route)", () => {
     expect(rejected.assumedYear).toBeUndefined();
   });
 });
+
+describe("validateForecastRows: a long sheet of Monday dates (round 2)", () => {
+  const sheet: SheetGrid = {
+    name: "S",
+    rows: [["Name", "Woche", "Stunden"], ["Ann", "2026-01-05", "40"], ["Ann", "2026-01-12", "30"]],
+    truncated: false,
+  };
+  const claim = (period: string) => validateForecastRows([{ person: "Ann", period, hours: 30, source: "S!C3" }], { sheet, requireSource: true });
+
+  it("reads the period cell as its ISO week, as the hand route does", () => {
+    expect(claim("2026-W03").ok.map((r) => r.period)).toEqual(["2026-W03"]);
+    expect(claim("2026-01-12").ok.map((r) => r.period)).toEqual(["2026-W03"]);
+    expect(claim("2026-01").rejected.map((r) => (r.reason === "source" ? r.detail : r.reason))).toEqual(["period-not-near"]);
+  });
+});
