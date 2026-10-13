@@ -431,3 +431,12 @@ describe("ForecastImportModal — a person Claude skipped (round 3)", () => {
     expect(within(section).getByText(t(L, "forecastImportUnreadRowsOne", 1, "3 (Bob Kay)"))).toBeInTheDocument();
   });
 });
+
+describe("ForecastImportModal — rows above the header row (round 3)", () => {
+  it("says how many rows above the header row were not read", async () => {
+    render(<ForecastImportModal {...propsOf()} />);
+    await chooseFile(["Name,Jan 2026,Feb 2026,Mar 2026", "Ann Lee,10,20,30", "", "Name,Jan 2027,Feb 2027,Mar 2027", "Ann Lee,40,50,60", ""].join("\r\n"));
+    const section = screen.getByRole("region", { name: t(L, "forecastImportNotImported") });
+    expect(within(section).getByText(t(L, "forecastImportRowsAboveHeaderOne", 1))).toBeInTheDocument();
+  });
+});

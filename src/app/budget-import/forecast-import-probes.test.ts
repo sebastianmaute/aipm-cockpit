@@ -270,3 +270,23 @@ describe("probe: bi-weekly and semi-monthly date headers (round 3)", () => {
     expect(out.subPeriods).toHaveLength(1);
   });
 });
+
+// Round 3 (rr2 observation 2): stacked year blocks. Detection takes the second
+// block's header; the rows of the first block are reported, not dropped silently.
+describe("probe: stacked year blocks on the hand route (round 3)", () => {
+  it("reports the first block's rows above the detected header row", () => {
+    const run = readSheet([
+      ["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Ann Lee", "10", "20", "30"],
+      [],
+      ["Name", "Jan 2027", "Feb 2027", "Mar 2027"], ["Ann Lee", "40", "50", "60"],
+    ]);
+    expect(detectLayout(run.grid.rows, { defaultYear: 2026 }).mapping?.headerRow).toBe(3);
+    expect(run.out.rows.map((r) => r.period)).toEqual(["2027-01", "2027-02", "2027-03"]);
+    expect(run.out.rowsAboveHeader).toBe(1);
+  });
+
+  it("counts no title or header row above the header", () => {
+    const run = readSheet([["Forecast 2026"], [], ["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Ann Lee", "1", "2", "3"]]);
+    expect(run.out.rowsAboveHeader).toBe(0);
+  });
+});

@@ -157,6 +157,23 @@ function longCell(
   return { col: mapping.hours ?? -1, period: assigned?.period ?? null, assumed: assigned?.assumed ?? false };
 }
 
+/** What `gridToForecastRows` returns. `rowsAboveHeader` counts the rows above
+ *  the header row that hold a text cell and a number — data the import never
+ *  reads (a stacked year block above the detected header). */
+export type ForecastRowsResult = {
+  rows: ForecastRow[];
+  dropped: DropReason[];
+  ignoredColumns: IgnoredColumn[];
+  rowsAboveHeader: number;
+  assumedYear?: AssumedYear;
+};
+
+/** A row that looks like data: a non-blank text cell and a number cell. */
+function isDataLikeRow(row: readonly string[], numbers: NumberOrigin): boolean {
+  const isNumber = (c: string): boolean => parseNumberCell(c, "dot", numbers) !== null || parseNumberCell(c, "comma", numbers) !== null;
+  return row.some((c) => !isBlank(c) && !isNumber(c)) && row.some(isNumber);
+}
+
 /**
  * The forecast rows of one sheet. A blank hours cell yields no row, a `0`
  * does. Rows whose person is a total label, or blank, are dropped (a row
@@ -173,7 +190,7 @@ export function gridToForecastRows(
   mapping: ColumnMapping,
   sheetName: string,
   numbers: NumberOrigin = "text",
-): { rows: ForecastRow[]; dropped: DropReason[]; ignoredColumns: IgnoredColumn[]; assumedYear?: AssumedYear } {
+): ForecastRowsResult {
   const out: ForecastRow[] = [];
   const read: AssignedPeriod[] = [];
   const dropped: DropReason[] = [];
@@ -227,8 +244,10 @@ export function gridToForecastRows(
   dropped.sort((a, b) => a.row - b.row);
   const readCols = wide ? columns.map((c) => c.col) : [mapping.period, mapping.hours, mapping.yearCol];
   const ignoredColumns = unreadNumberColumns(header, mapping, readCols, people, numbers);
+  const rowsAboveHeader = rows.slice(0, mapping.headerRow).filter((row) => isDataLikeRow(row, numbers)).length;
   const assumedYear = assumedYearOf(read, mapping.year);
-  return assumedYear === undefined ? { rows: out, dropped, ignoredColumns } : { rows: out, dropped, ignoredColumns, assumedYear };
+  const result: ForecastRowsResult = { rows: out, dropped, ignoredColumns, rowsAboveHeader };
+  return assumedYear === undefined ? result : { ...result, assumedYear };
 }
 
 /** Every column, at any position and in either layout, that is not read, not a

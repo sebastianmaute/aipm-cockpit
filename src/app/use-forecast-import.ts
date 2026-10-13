@@ -88,6 +88,8 @@ export interface ForecastImport {
   dropped: readonly DropReason[];
   /** The hand route's number columns left unread (header not a period). */
   ignoredColumns: readonly IgnoredColumn[];
+  /** The hand route's rows above the header row that hold data (not read). */
+  rowsAboveHeader: number;
   /** The Claude route's number cells (and long-sheet rows) the reply did not
    *  cite — information, not a blocker. Empty on the hand route. */
   unread: UnreadCells;
@@ -438,6 +440,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     collisions,
     dropped: route === "hand" ? (handRows?.dropped ?? []) : [],
     ignoredColumns: route === "hand" ? (handRows?.ignoredColumns ?? []) : [],
+    rowsAboveHeader: route === "hand" ? (handRows?.rowsAboveHeader ?? 0) : 0,
     assumedYear: route === "hand" ? handRows?.assumedYear : validated?.assumedYear,
     unread,
     sample: handRows ? handRows.rows.slice(0, SAMPLE_ROWS) : NO_ROWS,

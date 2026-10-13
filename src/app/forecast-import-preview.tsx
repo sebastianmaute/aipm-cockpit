@@ -189,7 +189,7 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
     groups.set(key, group);
   }
   const hasNotImported = fi.rejected.length + fi.dropped.length + fi.ignoredColumns.length + plan.outOfRange.length + plan.skipped.length
-    + fi.unread.cells.length + fi.unread.rows.length > 0;
+    + fi.unread.cells.length + fi.unread.rows.length + fi.rowsAboveHeader > 0;
   const delta = plan.hoursDelta;
   return (
     <div className="space-y-4">
@@ -223,6 +223,7 @@ export function PreviewStep({ lang, fi, plan, resources, roles, disciplines, gra
             {fi.rejected.map((r, i) => (
               <li key={`r${i}`}>{describeRejected(lang, r)}</li>
             ))}
+            {fi.rowsAboveHeader > 0 && <li>{tPlural(lang, "forecastImportRowsAboveHeader", fi.rowsAboveHeader, fi.rowsAboveHeader)}</li>}
             {fi.unread.cells.length > 0 && <li>{unreadCellsText(lang, fi.unread.cells)}</li>}
             {fi.unread.rows.length > 0 && (
               <li>{unreadRowsText(lang, fi.unread.rows)}</li>
