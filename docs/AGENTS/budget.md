@@ -498,7 +498,9 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   the ONE line of the bucket's planning mode that already lists them, whatever its role, and a sheet rate is
   checked against that line's role; on several such lines they are unresolved (`several-lines`, a reason of
   its own; the picker may name another resource, or Skip); on none, to their role's line (blended: its
-  discipline), as the spec first said. Routing by role alone once created a Dev line beside Ann's Senior
+  discipline), as the spec first said. Such a person's resource is recorded (`unmatchedIds`), and a changed
+  cell of a line they sit on names them apart (`unmatchedOnLine`, "in the sheet, not matched"), never under
+  `othersOnLine` (rr14 M3a). Routing by role alone once created a Dev line beside Ann's Senior
   line and counted her January twice. Residue (40). Blockers: `follows-plan`
   (budget follows plan is on), `closed`, `same-row-period` (a validator collision), `nothing-to-apply`.
 - **`applyForecastImport` is the only writer**, and it writes only budget hours and allocation

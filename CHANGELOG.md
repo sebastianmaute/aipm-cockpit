@@ -72,7 +72,7 @@ longer carries its own changelog comment.
   every cell that would change, people it could not match (you can pick or skip each one; archived
   resources are neither matched nor offered, and "Müller, Hans" matches Hans Müller), hours outside the
   bucket's periods, rates that differ from the rate card, periods the sheet covers only in part, cells on a
-  line shared with people the sheet does not list for that period, and rows combined from several sheet rows. Nothing is
+  line shared with people the sheet does not list for that period (or lists but could not match), and rows combined from several sheet rows. Nothing is
   written until you apply, and Apply refuses if the bucket was closed or removed, or "Budget hours follow
   plan" was switched on, while the preview was open, and says so when nothing would change any more. One apply is one undo step. Operating guides can now
   target the forecast import.
