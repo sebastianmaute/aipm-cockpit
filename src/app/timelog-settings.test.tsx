@@ -590,13 +590,33 @@ describe("TimelogSettings — address field (§704, §709)", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("hides the error again while the user is typing, and shows it again on the next blur", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "https://app.time" } });
+    fireEvent.blur(input);
+    expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "https://app.timelog" } });
+    expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
+    expect(input).not.toHaveAttribute("aria-invalid");
+    fireEvent.blur(input);
+    expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+  });
+
   it("flags an invalid paste at once, without waiting for blur", () => {
     const cfg = { ...defaultTimelogConfig, enabled: true };
     render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
     const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.focus(input);
     fireEvent.paste(input);
     fireEvent.change(input, { target: { value: "https://eviltimelog.com/acme" } });
     expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+    // ...and typing after the paste hides it again.
+    fireEvent.change(input, { target: { value: "https://eviltimelog.com/acm" } });
+    expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
   });
 
   it("a valid paste fills host and tenant, shows no error and opens the separate fields", () => {
@@ -651,6 +671,25 @@ describe("TimelogSettings — address field (§704, §709)", () => {
     fireEvent.change(screen.getByLabelText(t("en-US", "timelogTenant")), { target: { value: "" } });
     expect(container.querySelector("details")?.open).toBe(true);
     expect((screen.getByLabelText(t("en-US", "timelogHost")) as HTMLInputElement).value).toBe("");
+  });
+
+  it("B1: opens when stored values arrive after mount, unless the user closed it", () => {
+    const empty = { ...defaultTimelogConfig, enabled: true };
+    const filled = { ...empty, host: "app.timelog.com", tenant: "acme" };
+    const view = render(<TimelogSettings lang="en-US" config={empty} onChange={vi.fn()} />);
+    expect(view.container.querySelector("details")?.open).toBe(false);
+    view.rerender(<TimelogSettings lang="en-US" config={filled} onChange={vi.fn()} />);
+    expect(view.container.querySelector("details")?.open).toBe(true);
+    view.unmount();
+
+    const closed = render(<TimelogSettings lang="en-US" config={empty} onChange={vi.fn()} />);
+    const details = closed.container.querySelector("details") as HTMLDetailsElement;
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+    details.open = false;
+    fireEvent(details, new Event("toggle"));
+    closed.rerender(<TimelogSettings lang="en-US" config={filled} onChange={vi.fn()} />);
+    expect(closed.container.querySelector("details")?.open).toBe(false);
   });
 
   it("explains the tenant field", () => {

@@ -758,8 +758,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `handleCreateResource` is a dependency of two memos in `use-action-center-handlers.ts` (its header says more). An
   eleventh, `use-settings-navigation.ts` (§491), holds the "open settings" routing (the modern deep-link request and its
   monotonic nonce, the classic popover's open state and its render-time clear on leaving classic); it is coverage-GATED,
-  pinned by its own `renderHook` test, and keeps its `useCallback`s on purpose because `clearSettingsSectionRequest` is in
-  the dependency array of settings-view.tsx's request-consuming effect (its header says more). A twelfth,
+  pinned by its own `renderHook` test, and keeps its `useCallback`s on purpose because `clearSettingsSectionRequest` (handed out as
+  `sectionProps.onSectionConsumed`) is in the dependency array of settings-view.tsx's request-consuming effect. ★ It returns
+  three handlers and three ready prop bags (`workspaceNav`, `classicMenu`, `sectionProps`) that task-manager spreads, never
+  the raw state (its header says more). A twelfth,
   `use-settings-change-log.ts` (§491), holds the debounced `settings.updated` logger (the hydration and initial-run skips,
   the §160 AI-credit counter it clears rather than decrements, the unmount-only cancel); it is coverage-GATED, pinned by
   its own `renderHook` test, and has no memoization to keep. ★★ It is the one site handed the RAW, actor-less

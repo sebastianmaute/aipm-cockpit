@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { t, tPlural, type Lang, type TranslationKey } from "./i18n";
 import { FieldError, FieldNotice } from "./field-feedback";
 import { FieldHint } from "./field-hint";
@@ -66,15 +66,26 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
   //   `host` + `tenant` and then forgotten. Rendering a stored config therefore
   //   calls `onChange` zero times.
   const [addressDraft, setAddressDraft] = useState("");
-  // The error waits for blur or a paste: a full URL is invalid for as long as it
-  // is being typed, and an error under the cursor on every keystroke is noise.
-  const [addressTouched, setAddressTouched] = useState(false);
+  // The error is for a field the user has LEFT or just pasted into: a full URL is invalid for as
+  // long as it is being typed, so focus and every typed change hide it, and blur or a paste (whose
+  // change event follows the paste event) show it.
+  const [showAddressError, setShowAddressError] = useState(false);
+  const pastedRef = useRef(false);
   const addressInvalid =
-    addressTouched && addressDraft.trim() !== "" && parseTimelogAddress(addressDraft) === null;
-  // Sticky (B1): open from the start when values are stored, then user-controlled.
-  // Deriving it from the live values collapsed it under the cursor the moment
-  // both inputs were emptied. A successful paste opens it so the result is visible.
-  const [separateOpen, setSeparateOpen] = useState(() => config.host.trim() !== "" || config.tenant.trim() !== "");
+    showAddressError && addressDraft.trim() !== "" && parseTimelogAddress(addressDraft) === null;
+  // Sticky (B1): open when values are stored, then user-controlled. Deriving it from the live
+  // values collapsed it under the cursor the moment both inputs were emptied. It opens (a) on a
+  // successful paste, so the result is visible, and (b) when stored values first APPEAR after
+  // mount (they can hydrate late) unless the user has closed it — a render-time reconcile, since
+  // set-state-in-effect is banned. Emptying the values never closes it.
+  const storedPresent = config.host.trim() !== "" || config.tenant.trim() !== "";
+  const [separateOpen, setSeparateOpen] = useState(storedPresent);
+  const [closedByUser, setClosedByUser] = useState(false);
+  const [seenStored, setSeenStored] = useState(storedPresent);
+  if (storedPresent !== seenStored) {
+    setSeenStored(storedPresent);
+    if (storedPresent && !closedByUser) setSeparateOpen(true);
+  }
   // The INPUT keeps showing the raw stored value (blank stays blank — typing
   // here always wins over the env, so editing must stay live); this only
   // decides whether to say a blank field currently falls back to the
@@ -180,14 +191,19 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
               onChange={(e) => {
                 const next = e.target.value;
                 setAddressDraft(next);
+                setShowAddressError(pastedRef.current);
+                pastedRef.current = false;
                 const parsed = parseTimelogAddress(next);
                 if (parsed !== null) {
                   set(parsed);
                   setSeparateOpen(true);
                 }
               }}
-              onBlur={() => setAddressTouched(true)}
-              onPaste={() => setAddressTouched(true)}
+              onFocus={() => setShowAddressError(false)}
+              onBlur={() => setShowAddressError(true)}
+              onPaste={() => {
+                pastedRef.current = true;
+              }}
               aria-invalid={addressInvalid ? true : undefined}
               aria-describedby={addressInvalid ? `${addressHintId} ${addressErrorId}` : addressHintId}
             />
@@ -198,7 +214,10 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
           <FieldError id={addressErrorId}>{addressInvalid ? t(lang, "timelogAddressInvalid") : null}</FieldError>
           <details
             open={separateOpen}
-            onToggle={(e) => setSeparateOpen(e.currentTarget.open)}
+            onToggle={(e) => {
+              setSeparateOpen(e.currentTarget.open);
+              setClosedByUser(!e.currentTarget.open);
+            }}
             className="text-xs"
           >
             <summary className={`cursor-pointer text-muted-foreground ${FOCUS_RING}`}>

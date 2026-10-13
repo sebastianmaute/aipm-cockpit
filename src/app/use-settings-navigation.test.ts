@@ -15,33 +15,32 @@ describe("useSettingsNavigation — modern layout", () => {
   it("a sectioned request navigates to Settings and carries the section and a fresh nonce", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useSettingsNavigation(deps));
-    expect(result.current.isClassicLayout).toBe(false);
-    expect(result.current.settingsSectionRequest).toBeUndefined();
+    expect(result.current.sectionProps.requestSection).toBeUndefined();
 
     act(() => result.current.onOpenSettingsSection("ai"));
     expect(deps.setActiveTab).toHaveBeenCalledWith("settings");
-    expect(result.current.settingsSectionRequest).toEqual({ id: "ai", nonce: 1 });
-    expect(result.current.classicSettingsOpen).toBe(false);
+    expect(result.current.sectionProps.requestSection).toEqual({ id: "ai", nonce: 1 });
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(false);
 
     act(() => result.current.onOpenSettingsSection("ai"));
-    expect(result.current.settingsSectionRequest).toEqual({ id: "ai", nonce: 2 });
+    expect(result.current.sectionProps.requestSection).toEqual({ id: "ai", nonce: 2 });
   });
 
   it("the nonce is never reset: a request after the previous one was consumed is still distinct", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useSettingsNavigation(deps));
     act(() => result.current.onOpenSettingsSection("jira"));
-    act(() => result.current.clearSettingsSectionRequest());
-    expect(result.current.settingsSectionRequest).toBeUndefined();
+    act(() => result.current.sectionProps.onSectionConsumed());
+    expect(result.current.sectionProps.requestSection).toBeUndefined();
     act(() => result.current.onOpenSettingsSection("jira"));
-    expect(result.current.settingsSectionRequest).toEqual({ id: "jira", nonce: 2 });
+    expect(result.current.sectionProps.requestSection).toEqual({ id: "jira", nonce: 2 });
   });
 
   it("the learning deep link targets the Next-actions section", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useSettingsNavigation(deps));
-    act(() => result.current.onOpenLearningSettings());
-    expect(result.current.settingsSectionRequest).toEqual({ id: "nextActions", nonce: 1 });
+    act(() => result.current.workspaceNav.onOpenLearningSettings());
+    expect(result.current.sectionProps.requestSection).toEqual({ id: "nextActions", nonce: 1 });
     expect(deps.setActiveTab).toHaveBeenCalledWith("settings");
   });
 
@@ -50,8 +49,8 @@ describe("useSettingsNavigation — modern layout", () => {
     const { result } = renderHook(() => useSettingsNavigation(deps));
     act(() => result.current.onOpenSettings());
     expect(deps.setActiveTab).toHaveBeenCalledWith("settings");
-    expect(result.current.settingsSectionRequest).toBeUndefined();
-    expect(result.current.classicSettingsOpen).toBe(false);
+    expect(result.current.sectionProps.requestSection).toBeUndefined();
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(false);
   });
 });
 
@@ -59,43 +58,41 @@ describe("useSettingsNavigation — classic layout", () => {
   it("a sectioned request opens the popover instead: no navigation, no section request", () => {
     const deps = makeDeps({ layout: "classic" });
     const { result } = renderHook(() => useSettingsNavigation(deps));
-    expect(result.current.isClassicLayout).toBe(true);
     act(() => result.current.onOpenSettingsSection("storage"));
-    expect(result.current.classicSettingsOpen).toBe(true);
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(true);
     expect(deps.setActiveTab).not.toHaveBeenCalled();
-    expect(result.current.settingsSectionRequest).toBeUndefined();
+    expect(result.current.sectionProps.requestSection).toBeUndefined();
   });
 
   it("the un-sectioned request opens the popover too", () => {
     const deps = makeDeps({ layout: "classic" });
     const { result } = renderHook(() => useSettingsNavigation(deps));
     act(() => result.current.onOpenSettings());
-    expect(result.current.classicSettingsOpen).toBe(true);
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(true);
     expect(deps.setActiveTab).not.toHaveBeenCalled();
   });
 
   it("the popover's own setter opens and closes it, and it stays open across a classic rerender", () => {
     const deps = makeDeps({ layout: "classic" });
     const { result, rerender } = renderHook((d: SettingsNavigationDeps) => useSettingsNavigation(d), { initialProps: deps });
-    act(() => result.current.setClassicSettingsOpen(true));
+    act(() => result.current.classicMenu.onSettingsMenuOpenChange(true));
     rerender({ ...deps });
-    expect(result.current.classicSettingsOpen).toBe(true);
-    act(() => result.current.setClassicSettingsOpen(false));
-    expect(result.current.classicSettingsOpen).toBe(false);
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(true);
+    act(() => result.current.classicMenu.onSettingsMenuOpenChange(false));
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(false);
   });
 
   it("leaving classic clears the open popover, so switching back does not reopen it", () => {
     const deps = makeDeps({ layout: "classic" });
     const { result, rerender } = renderHook((d: SettingsNavigationDeps) => useSettingsNavigation(d), { initialProps: deps });
     act(() => result.current.onOpenSettings());
-    expect(result.current.classicSettingsOpen).toBe(true);
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(true);
 
     rerender({ ...deps, layout: "modern" });
-    expect(result.current.isClassicLayout).toBe(false);
-    expect(result.current.classicSettingsOpen).toBe(false);
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(false);
 
     rerender({ ...deps, layout: "classic" });
-    expect(result.current.classicSettingsOpen).toBe(false);
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(false);
   });
 });
 
@@ -110,12 +107,12 @@ describe("useSettingsNavigation — the handlers follow a deps change", () => {
     act(() => result.current.onOpenSettings());
     expect(deps.setActiveTab).toHaveBeenCalledTimes(1);
     expect(deps.setActiveTab).toHaveBeenLastCalledWith("settings");
-    expect(result.current.classicSettingsOpen).toBe(false);
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(false);
 
     act(() => result.current.onOpenSettingsSection("ai"));
     expect(deps.setActiveTab).toHaveBeenCalledTimes(2);
-    expect(result.current.settingsSectionRequest).toEqual({ id: "ai", nonce: 1 });
-    expect(result.current.classicSettingsOpen).toBe(false);
+    expect(result.current.sectionProps.requestSection).toEqual({ id: "ai", nonce: 1 });
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(false);
   });
 
   it("modern → classic: both requests open the popover, and nothing navigates", () => {
@@ -124,11 +121,11 @@ describe("useSettingsNavigation — the handlers follow a deps change", () => {
     rerender({ ...deps, layout: "classic" });
 
     act(() => result.current.onOpenSettings());
-    expect(result.current.classicSettingsOpen).toBe(true);
-    act(() => result.current.setClassicSettingsOpen(false));
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(true);
+    act(() => result.current.classicMenu.onSettingsMenuOpenChange(false));
     act(() => result.current.onOpenSettingsSection("ai"));
-    expect(result.current.classicSettingsOpen).toBe(true);
-    expect(result.current.settingsSectionRequest).toBeUndefined();
+    expect(result.current.classicMenu.settingsMenuOpen).toBe(true);
+    expect(result.current.sectionProps.requestSection).toBeUndefined();
     expect(deps.setActiveTab).not.toHaveBeenCalled();
   });
 
@@ -152,23 +149,23 @@ describe("useSettingsNavigation — identity", () => {
     rerender({ ...deps });
     expect(result.current.onOpenSettingsSection).toBe(first.onOpenSettingsSection);
     expect(result.current.onOpenSettings).toBe(first.onOpenSettings);
-    expect(result.current.onOpenLearningSettings).toBe(first.onOpenLearningSettings);
-    expect(result.current.clearSettingsSectionRequest).toBe(first.clearSettingsSectionRequest);
+    expect(result.current.workspaceNav.onOpenLearningSettings).toBe(first.workspaceNav.onOpenLearningSettings);
+    expect(result.current.sectionProps.onSectionConsumed).toBe(first.sectionProps.onSectionConsumed);
   });
 
   it("keeps the consume callback stable even when a request lands", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useSettingsNavigation(deps));
-    const clear = result.current.clearSettingsSectionRequest;
+    const clear = result.current.sectionProps.onSectionConsumed;
     act(() => result.current.onOpenSettingsSection("general"));
-    expect(result.current.clearSettingsSectionRequest).toBe(clear);
+    expect(result.current.sectionProps.onSectionConsumed).toBe(clear);
   });
 });
 
 describe("useSettingsNavigation — project functions request (§706)", () => {
   it("starts with no request", () => {
     const { result } = renderHook(() => useSettingsNavigation(makeDeps()));
-    expect(result.current.projectFunctionsRequest).toBeNull();
+    expect(result.current.workspaceNav.projectFunctionsRequest).toBeNull();
   });
 
   it("opening switches to the projects view and bumps a monotonic request that survives being consumed", () => {
@@ -176,18 +173,18 @@ describe("useSettingsNavigation — project functions request (§706)", () => {
     const { result } = renderHook(() => useSettingsNavigation(deps));
     act(() => result.current.openProjectFunctions());
     expect(deps.setActiveTab).toHaveBeenCalledWith("projects");
-    expect(result.current.projectFunctionsRequest).toBe(1);
-    act(() => result.current.clearProjectFunctionsRequest());
-    expect(result.current.projectFunctionsRequest).toBeNull();
+    expect(result.current.workspaceNav.projectFunctionsRequest).toBe(1);
+    act(() => result.current.workspaceNav.onProjectFunctionsRequestConsumed());
+    expect(result.current.workspaceNav.projectFunctionsRequest).toBeNull();
     act(() => result.current.openProjectFunctions());
-    expect(result.current.projectFunctionsRequest).toBe(2);
+    expect(result.current.workspaceNav.projectFunctionsRequest).toBe(2);
   });
 
   it("a repeat open before the first was consumed is still a distinct value", () => {
     const { result } = renderHook(() => useSettingsNavigation(makeDeps()));
     act(() => result.current.openProjectFunctions());
     act(() => result.current.openProjectFunctions());
-    expect(result.current.projectFunctionsRequest).toBe(2);
+    expect(result.current.workspaceNav.projectFunctionsRequest).toBe(2);
   });
 
   it("works in the classic layout too (it only changes the view)", () => {
@@ -195,7 +192,7 @@ describe("useSettingsNavigation — project functions request (§706)", () => {
     const { result } = renderHook(() => useSettingsNavigation(deps));
     act(() => result.current.openProjectFunctions());
     expect(deps.setActiveTab).toHaveBeenCalledWith("projects");
-    expect(result.current.projectFunctionsRequest).toBe(1);
+    expect(result.current.workspaceNav.projectFunctionsRequest).toBe(1);
   });
 });
 
@@ -207,18 +204,20 @@ describe("useSettingsNavigation — the prop bags task-manager spreads", () => {
     const { result } = renderHook(() => useSettingsNavigation(deps));
     const nav = result.current.workspaceNav;
     expect(nav.onOpenSettingsSection).toBe(result.current.onOpenSettingsSection);
-    expect(nav.onOpenLearningSettings).toBe(result.current.onOpenLearningSettings);
+    expect(typeof nav.onOpenLearningSettings).toBe("function");
     expect(nav.projectFunctionsRequest).toBeNull();
-    expect(nav.onProjectFunctionsRequestConsumed).toBe(result.current.clearProjectFunctionsRequest);
     act(() => result.current.openProjectFunctions());
     expect(result.current.workspaceNav.projectFunctionsRequest).toBe(1);
+    act(() => result.current.workspaceNav.onProjectFunctionsRequestConsumed());
+    expect(result.current.workspaceNav.projectFunctionsRequest).toBeNull();
   });
 
   it("a popout gets no section opener in its bag, yet the plain handler stays callable", () => {
     const deps = makeDeps({ isPopout: true });
     const { result } = renderHook(() => useSettingsNavigation(deps));
     expect(result.current.workspaceNav.onOpenSettingsSection).toBeUndefined();
-    expect(result.current.workspaceNav.onOpenLearningSettings).toBe(result.current.onOpenLearningSettings);
+    act(() => result.current.workspaceNav.onOpenLearningSettings());
+    expect(deps.setActiveTab).toHaveBeenCalledWith("settings");
     act(() => result.current.onOpenSettingsSection("ai"));
     expect(deps.setActiveTab).toHaveBeenCalledWith("settings");
   });

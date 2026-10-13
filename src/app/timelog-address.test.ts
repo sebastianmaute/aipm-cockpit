@@ -25,7 +25,11 @@ describe("parseTimelogAddress", () => {
     "https://app.timelog.com:8080/acme",
     "https://app.timelog.com:443/acme",
     // Adversarial authorities (B2/B3): each must be rejected, none may reach the stored host.
-    "https://app.timelog.com\@evil.com/acme",
+    // Backslash authority (a WHATWG parser reads "\" as "/"). In a JS string the escape is doubled.
+    "https://app.timelog.com\\@evil.com/acme",
+    "https://app.timelog.com\\.evil.com/acme",
+    "https://app.timelog.com\\/acme",
+    "https://evil\\.timelog.com/acme",
     "https://app.timelog.com./acme",
     "https://app%40evil.com.timelog.com/acme",
     "https://app%2etimelog.com/acme",

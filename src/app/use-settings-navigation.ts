@@ -4,7 +4,14 @@
 // modern layout has a Settings view with sections, reached by a deep-link
 // request carrying a monotonic nonce; the classic layout has no Settings view,
 // only the header `SettingsMenu` popover, whose open state is owned here.
-// Extracted from task-manager.tsx (§491); move-only.
+// Extracted from task-manager.tsx (§491). The logic is move-only; the RETURN is not: it hands
+// task-manager ready prop bags (below), because task-manager has no line to spare for a
+// destructure of eleven names.
+//
+// ★ What it returns is exactly what task-manager reads: three handlers it uses directly
+// (`onOpenSettingsSection`, `onOpenSettings`, `openProjectFunctions`) and three bags it spreads
+// onto a props object (`workspaceNav`, `classicMenu`, `sectionProps`). The raw state and clearers
+// are NOT returned; tests reach them through the bags, the same way a consumer does.
 //
 // §706 — it also owns the OTHER "go and open X" request that Settings makes: Settings -> Functions
 // opens Edit project focused on its Functions part (`openProjectFunctions`). That request is a
@@ -101,20 +108,5 @@ export function useSettingsNavigation(deps: SettingsNavigationDeps) {
   };
   const sectionProps = { requestSection: settingsSectionRequest, onSectionConsumed: clearSettingsSectionRequest };
 
-  return {
-    workspaceNav,
-    classicMenu,
-    sectionProps,
-    settingsSectionRequest,
-    clearSettingsSectionRequest,
-    isClassicLayout,
-    classicSettingsOpen,
-    setClassicSettingsOpen,
-    onOpenSettingsSection,
-    onOpenSettings,
-    onOpenLearningSettings,
-    projectFunctionsRequest,
-    openProjectFunctions,
-    clearProjectFunctionsRequest,
-  };
+  return { workspaceNav, classicMenu, sectionProps, onOpenSettingsSection, onOpenSettings, openProjectFunctions };
 }
