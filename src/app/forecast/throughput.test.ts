@@ -54,6 +54,15 @@ describe("dailyThroughput", () => {
     expect(h.samples[h.days.indexOf("2026-10-13")]).toBe(1);
   });
 
+  test("effort unit counts an unestimated Done task at unestimatedSize, default 0", () => {
+    const tasks = [done(1, "2026-10-13", 30), done(2, "2026-10-13")];
+    const total = (size?: number) =>
+      dailyThroughput({ tasks, today: TODAY, window: 5 as HistoryWindow, holidaySet: HOLIDAYS, unit: "effort", unestimatedSize: size })
+        .samples.reduce((a, b) => a + b, 0);
+    expect(total()).toBe(30);
+    expect(total(60)).toBe(90);
+  });
+
   test("attributes a non-working completion after today to today when today works, else drops it", () => {
     // Today Friday 16th; Saturday 17th is in the future -> invalid. Use today = Sat 17th instead.
     const sat = run([done(1, "2026-10-17")], 5, "tasks", "2026-10-17");

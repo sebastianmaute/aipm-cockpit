@@ -73,11 +73,17 @@ const MAX_CAPACITY_PERCENT = 300;
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
+const finiteOr = (v: number, fallback: number): number => (Number.isFinite(v) ? v : fallback);
+
 export function clampWhatIf(w: WhatIf, backlog: number): WhatIf {
   return {
-    scopeTasks: clamp(w.scopeTasks, -backlog, MAX_SCOPE_TASKS),
-    scopePercent: clamp(w.scopePercent, MIN_SCOPE_PERCENT, MAX_SCOPE_PERCENT),
-    capacityPercent: clamp(w.capacityPercent, MIN_CAPACITY_PERCENT, MAX_CAPACITY_PERCENT),
+    scopeTasks: clamp(Math.round(finiteOr(w.scopeTasks, DEFAULT_WHAT_IF.scopeTasks)), -backlog, MAX_SCOPE_TASKS),
+    scopePercent: clamp(finiteOr(w.scopePercent, DEFAULT_WHAT_IF.scopePercent), MIN_SCOPE_PERCENT, MAX_SCOPE_PERCENT),
+    capacityPercent: clamp(
+      finiteOr(w.capacityPercent, DEFAULT_WHAT_IF.capacityPercent),
+      MIN_CAPACITY_PERCENT,
+      MAX_CAPACITY_PERCENT,
+    ),
   };
 }
 
@@ -102,9 +108,14 @@ function sizer(open: readonly Task[], unit: ForecastUnit): { sizeOf: (t: Task) =
   return { sizeOf: (t) => (hasEstimate(t) ? (t.originalEstimateMinutes ?? 0) : med), unitSize: med };
 }
 
-/** Net tasks added by the what-if: absolute plus percent of the original backlog, rounded half-up. */
-function scopeDelta(w: WhatIf, openCount: number): number {
-  return w.scopeTasks + Math.floor((openCount * w.scopePercent) / 100 + 0.5);
+/**
+ * Net amount the what-if adds: the absolute tasks at one task's size, plus a percent of the base
+ * backlog (rounded half-up). Removing every open task empties the backlog whatever their estimates.
+ */
+function scopeDelta(w: WhatIf, openCount: number, base: number, unitSize: number): number {
+  const removesAll = w.scopeTasks < 0 && -w.scopeTasks >= openCount;
+  const absolute = removesAll ? -base : w.scopeTasks * unitSize;
+  return absolute + Math.floor((base * w.scopePercent) / 100 + 0.5);
 }
 
 function resultUnit(requested: ForecastUnit, open: readonly Task[]): ForecastUnit {
@@ -125,14 +136,15 @@ function whenRows(days: Int32Array, today: string, holidaySet: ReadonlySet<strin
 
 export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleForecastResult {
   const { tasks, milestones, today, holidaySet, window } = input;
-  const trials = input.trials ?? FORECAST_TRIALS;
+  const trials = Math.max(1, Math.floor(input.trials ?? FORECAST_TRIALS));
   const open = tasks.filter((t) => !isTaskClosed(t));
   const unit = resultUnit(input.unit, open);
   const whatIf = clampWhatIf(input.whatIf, open.length);
   const { sizeOf, unitSize } = sizer(open, unit);
-  const backlog = Math.max(0, open.reduce((s, t) => s + sizeOf(t), 0) + scopeDelta(whatIf, open.length) * unitSize);
+  const base = open.reduce((s, t) => s + sizeOf(t), 0);
+  const backlog = Math.max(0, base + scopeDelta(whatIf, open.length, base, unitSize));
 
-  const history: ThroughputHistory = dailyThroughput({ tasks, today, window, holidaySet, unit });
+  const history: ThroughputHistory = dailyThroughput({ tasks, today, window, holidaySet, unit, unestimatedSize: unitSize });
   const windowDays = history.days.length;
   if (backlog > 0 && (history.finished < MIN_FINISHED_TASKS || windowDays < MIN_HISTORY_WORKING_DAYS)) {
     return {

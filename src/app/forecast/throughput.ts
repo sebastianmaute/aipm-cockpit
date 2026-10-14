@@ -44,14 +44,21 @@ function windowDays(
     : workingDaysBefore(today, window, holidaySet);
 }
 
+function effortWeight(t: Task, unestimatedSize: number): number {
+  const minutes = t.originalEstimateMinutes ?? 0;
+  return minutes > 0 ? minutes : unestimatedSize;
+}
+
 export function dailyThroughput(args: {
   tasks: readonly Task[];
   today: string;
   window: HistoryWindow;
   holidaySet: ReadonlySet<string>;
   unit: ForecastUnit;
+  /** Effort unit: minutes counted for a Done task with no estimate (default 0). */
+  unestimatedSize?: number;
 }): ThroughputHistory {
-  const { tasks, today, window, holidaySet, unit } = args;
+  const { tasks, today, window, holidaySet, unit, unestimatedSize = 0 } = args;
   let doneWithoutDate = 0;
   const completions: { day: string; weight: number }[] = [];
   for (const t of tasks) {
@@ -62,7 +69,7 @@ export function dailyThroughput(args: {
     }
     if (!isValidIsoDate(t.completedDate) || t.completedDate > today) continue;
     const day = attributedDay(t.completedDate, today, holidaySet);
-    if (day !== null) completions.push({ day, weight: unit === "effort" ? (t.originalEstimateMinutes ?? 0) : 1 });
+    if (day !== null) completions.push({ day, weight: unit === "effort" ? effortWeight(t, unestimatedSize) : 1 });
   }
   const earliest = completions.reduce<string | null>((m, c) => (m === null || c.day < m ? c.day : m), null);
   const days = windowDays(window, today, holidaySet, earliest);
