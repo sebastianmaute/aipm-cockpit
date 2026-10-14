@@ -1,0 +1,121 @@
+import { beforeAll, describe, expect, test } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { ForecastPanel } from "./forecast-panel";
+import { loadI18n, t } from "./i18n";
+import type { Milestone, ResourcePlan, Task } from "./types";
+import { workingDaysBefore } from "./working-days";
+import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
+
+// 2026-10-14 is a Wednesday.
+const TODAY = "2026-10-14";
+const NO_HOLIDAYS: ReadonlySet<string> = new Set();
+// Hoisted so a rerender changes only the prop under test; a fresh [] would recompute on its own.
+const NO_MILESTONES: Milestone[] = [];
+const PLAN = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "week", currency: "EUR" } as ResourcePlan;
+
+function task(id: number, over: Partial<Task> = {}): Task {
+  return { id, title: `t${id}`, dueDate: "", priority: "Medium", status: "Open", ...over } as Task;
+}
+/** One task done on each of the last `n` working days including today, so every sample is 1. */
+function steadyDone(n: number, minutes?: number): Task[] {
+  const days = [...workingDaysBefore(TODAY, n - 1, NO_HOLIDAYS), TODAY];
+  return days.map((d, i) => task(1000 + i, { status: "Done", completedDate: d, originalEstimateMinutes: minutes }));
+}
+const open = (n: number, over: Partial<Task> = {}): Task[] => Array.from({ length: n }, (_, i) => task(i + 1, over));
+
+function renderPanel(tasks: Task[], holidaySet: ReadonlySet<string> = NO_HOLIDAYS) {
+  return render(
+    <ForecastPanel lang="en-US" tasks={tasks} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={holidaySet} />,
+  );
+}
+const p50 = () => within(screen.getByRole("row", { name: /^P50/ })).getAllByRole("cell")[0].textContent;
+
+describe("ForecastPanel", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  test("shows the empty state below the history floor", () => {
+    renderPanel([...open(4), ...steadyDone(3)]);
+    expect(screen.getByText("3 of 10 finished tasks — 7 more needed")).toBeTruthy();
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  test("the empty state reads in German", () => {
+    render(
+      <ForecastPanel lang="de" tasks={[...open(4), ...steadyDone(3)]} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} />,
+    );
+    expect(screen.getByText("3 von 10 erledigten Aufgaben – 7 weitere nötig")).toBeTruthy();
+  });
+
+  test("Quick ignores what-if values; What-if shows scope and capacity inputs", async () => {
+    const user = userEvent.setup();
+    renderPanel([...open(5), ...steadyDone(60)]);
+    expect(screen.queryByLabelText("Capacity (%)")).toBeNull();
+    expect(p50()).toBe("Oct 21, 2026");
+
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    expect(screen.getByLabelText("Scope change (tasks)")).toBeTruthy();
+    expect(screen.getByLabelText("Scope change (%)")).toBeTruthy();
+    const capacity = screen.getByLabelText("Capacity (%)");
+    await user.clear(capacity);
+    await user.type(capacity, "200{Enter}");
+    expect(p50()).toBe("Oct 19, 2026");
+
+    await user.click(screen.getByRole("radio", { name: "Quick" }));
+    expect(screen.queryByLabelText("Capacity (%)")).toBeNull();
+    expect(p50()).toBe("Oct 21, 2026");
+  });
+
+  test("effort toggle is disabled with a reason under 70% coverage", () => {
+    renderPanel([...open(5), ...steadyDone(60)]);
+    expect((screen.getByRole("radio", { name: "Effort" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("radiogroup", { name: "Forecast unit" }).getAttribute("title")).toBe(
+      "Effort needs an estimate on 70 % of open tasks; 0 % have one.",
+    );
+  });
+
+  test("effort toggle is enabled at full coverage", () => {
+    renderPanel([...open(5, { originalEstimateMinutes: 60 }), ...steadyDone(60, 60)]);
+    expect((screen.getByRole("radio", { name: "Effort" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  test("an invalid capacity reverts and shows the message", async () => {
+    const user = userEvent.setup();
+    renderPanel([...open(5), ...steadyDone(60)]);
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    const capacity = screen.getByLabelText("Capacity (%)") as HTMLInputElement;
+    await user.clear(capacity);
+    await user.type(capacity, "5");
+    await user.tab();
+    expect(capacity.value).toBe("100");
+    expect(capacity.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByText("Not a valid value; the previous one is kept.")).toBeTruthy();
+    expect(p50()).toBe("Oct 21, 2026");
+  });
+
+  test("recomputes when holidaySet changes", () => {
+    const tasks = [...open(5), ...steadyDone(60)];
+    const { rerender } = renderPanel(tasks);
+    expect(p50()).toBe("Oct 21, 2026");
+    rerender(
+      <ForecastPanel lang="en-US" tasks={tasks} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={new Set(["2026-10-15"])} />,
+    );
+    expect(p50()).toBe("Oct 22, 2026");
+  });
+
+  test("captions the basis of the forecast", () => {
+    renderPanel([...open(5), ...steadyDone(60), task(90, { status: "Done" })]);
+    expect(screen.getByText("10,000 runs of your last 60 working days (60 finished tasks)")).toBeTruthy();
+    expect(screen.getByText(/1 done task\(s\) have no completion date/)).toBeTruthy();
+  });
+
+  test("toolbar keeps the trailing group contiguous", () => {
+    const { container } = renderPanel([...open(5), ...steadyDone(60)]);
+    expectButtonOrder(["printHint", "tableResetSizeHint"], { contiguous: true });
+    const toolbar = container.querySelector<HTMLElement>("[data-forecast-toolbar]");
+    if (!toolbar) throw new Error("toolbar not rendered");
+    expect(buttonNames(toolbar).slice(-2)).toEqual([t("en-US", "printHint"), t("en-US", "tableResetSizeHint")]);
+  });
+});
