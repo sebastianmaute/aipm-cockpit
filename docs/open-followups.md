@@ -974,6 +974,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§734](#734-an-empty-raci-matrix-names-one-missing-input-at-a-time--open) | An empty RACI matrix names one missing input at a time | — | — | open |
 | [§735](#735-ai-documents-give-no-guided-setup-for-the-api-key-templates-and-a-first-document--open) | AI documents give no guided setup for the API key, templates and a first document | — | — | open |
 | [§736](#736-an-empty-gantt-chart-names-only-the-first-missing-input--open) | An empty Gantt chart names only the first missing input | — | — | open |
+| [§737](#737-chart-labels-sit-directly-on-their-line-and-are-partly-hidden-or-hard-to-read--open) | Chart labels sit directly on their line and are partly hidden or hard to read | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45338,3 +45339,17 @@ Proposed: a light checklist in the §710 shape on the shared component (see §73
 Size S.
 
 **Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
+
+## 737. Chart labels sit directly on their line and are partly hidden or hard to read — OPEN
+
+**Status:** OPEN 2026-10-14. In `burndown-chart.tsx` only the BAC marker labels draw a halo (`grep -c 'paintOrder="stroke"' src/app/burndown-chart.tsx` → 1) while the chart draws more in-chart labels than that (`grep -c "<text" src/app/burndown-chart.tsx` → 12, axis ticks included).
+
+**Work item:** #733
+
+In-chart labels ("breakouts") sit a few pixels from the line they name, so that line and other marks cover them and they are hard to read. In the burndown chart: the BAC label (`y(model.bacLine) - 4`), the BAC-baseline and BAC-step labels (`+ 9`), the work-left label at the EV point (`- 7`), the EV join labels (`- 6`) and the two end figures at `X1 + 4`. `endLabelYs` separates the two end figures from each other only, not from the lines or other labels.
+
+Proposed: give every in-chart label a surface-colour halo, keep labels clear of every plotted line rather than only their own, and keep them inside the plot area. Check the Trends charts (`trend-chart.tsx`, `trends-panel.tsx`) for the same shape.
+
+Size S–M.
+
+**Source:** owner request 2026-10-14 ("in charts the breakouts should not sit directly next to their line and get partially hidden or difficult to read").
