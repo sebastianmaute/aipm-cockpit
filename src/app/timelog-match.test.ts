@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { autoMatchUsers, autoMatchProjects, isDisplayableUser, displayableUsers, resolveCustomerByName, timelogProjectLabel } from "./timelog-match";
+import { autoMatchUsers, autoMatchProjects, hasMatchableEmail, isDisplayableUser, displayableUsers, resolveCustomerByName, timelogProjectLabel } from "./timelog-match";
 import type { TimelogUser, TimelogLinks } from "./timelog-types";
 import type { Resource, BudgetBucket } from "./types";
 
@@ -148,5 +148,14 @@ describe("timelogProjectLabel (§316)", () => {
   });
   it("is the bare name when the project has no number", () => {
     expect(timelogProjectLabel({ id: 1, name: "Support", no: "" })).toBe("Support");
+  });
+});
+
+describe("hasMatchableEmail (M6)", () => {
+  it("is true for a primary or any non-blank additional email, and false for blanks only", () => {
+    expect(hasMatchableEmail({ email: "a@acme.test" })).toBe(true);
+    expect(hasMatchableEmail({ email: undefined, emails: ["", "b@acme.test"] })).toBe(true);
+    expect(hasMatchableEmail({ email: "  ", emails: [" "] })).toBe(false);
+    expect(hasMatchableEmail({})).toBe(false);
   });
 });

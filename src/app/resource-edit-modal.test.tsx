@@ -508,6 +508,22 @@ describe("ResourceEditModal — Needed group and required email (§708)", () => 
     expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorEmailRequired"));
   });
 
+  it("M6: saves a person whose only email is an additional one", () => {
+    const onSave = vi.fn();
+    setup({ resource: { ...blankPerson, firstName: "Sofia", emails: ["sofia.alt@acme.test"] }, isNew: true, onSave });
+    submitForm();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ firstName: "Sofia", email: undefined, emails: ["sofia.alt@acme.test"] });
+  });
+
+  it("M6: a blank additional email does not count", () => {
+    const onSave = vi.fn();
+    setup({ resource: { ...blankPerson, firstName: "Sofia", emails: ["   "] }, isNew: true, onSave });
+    submitForm();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorEmailRequired"));
+  });
+
   it("checks the name before the email", () => {
     const onSave = vi.fn();
     setup({ resource: blankPerson, isNew: true, onSave });

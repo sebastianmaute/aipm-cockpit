@@ -17,6 +17,13 @@ export function displayableUsers(users: readonly TimelogUser[]): TimelogUser[] {
   return users.filter(isDisplayableUser);
 }
 
+/** Whether a person can be matched to a Timelog user at all: a non-blank primary OR additional
+ *  email, since `matchByEmail` reads both. The one rule behind the resource form's required email
+ *  and the directory's "no email" marker (§708). */
+export function hasMatchableEmail(r: Pick<Resource, "email" | "emails">): boolean {
+  return [r.email, ...(r.emails ?? [])].some((e) => (e ?? "").trim() !== "");
+}
+
 /** The resource a Timelog email belongs to: a PRIMARY-email match beats an
  *  extra-email (`Resource.emails`) match, and each pass is case-insensitive and
  *  trimmed (§708). Two passes rather than one scan, so the answer never depends

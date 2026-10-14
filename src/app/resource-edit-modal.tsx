@@ -21,6 +21,7 @@ import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
 import { ASSIGNEE_MAX, EMAIL_MAX, findTornEmail, normalizeEmailShape, sanitizeLoadedEmail } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
+import { hasMatchableEmail } from "./timelog-match";
 import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, joinDescribedBy } from "./editor-email-rule";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
@@ -120,9 +121,15 @@ export function ResourceEditModal({
     }
     adj.track(cappedEmailReport);
     const email = cappedEmail;
+    // M-C4: each member is stored `Name <addr>`-unwrapped (`normalizeEmailShape`),
+    // as `sanitizeResource` stores it for every AI write and load.
+    const emails = (draft.emails ?? [])
+      .map((e) => normalizeEmailShape(e.trim()))
+      .filter((e) => e.length > 0);
     // §708 — this FORM requires an email (it is how Timelog bookings reach the person); the other
-    // create paths (picker, AI tool, imports) deliberately do not.
-    if (!email) {
+    // create paths (picker, AI tool, imports) deliberately do not. Any address satisfies it, primary
+    // or additional, because matching reads all of them (`hasMatchableEmail`, the directory's rule).
+    if (!hasMatchableEmail({ email, emails })) {
       setEmailMissing(true);
       setError(t(lang, "resourceErrorEmailRequired"));
       return;
@@ -132,11 +139,6 @@ export function ResourceEditModal({
       setError(emailRefusal);
       return;
     }
-    // M-C4: each member is stored `Name <addr>`-unwrapped (`normalizeEmailShape`),
-    // as `sanitizeResource` stores it for every AI write and load.
-    const emails = (draft.emails ?? [])
-      .map((e) => normalizeEmailShape(e.trim()))
-      .filter((e) => e.length > 0);
     // §422 — the one shared rule, `findTornEmail` (`sanitize-core.ts`), the
     // same predicate every other write boundary asks. The editor always sends
     // an ARRAY, so only a member that is BOTH unsafe AND not already present,
