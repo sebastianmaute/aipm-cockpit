@@ -19,7 +19,7 @@ import {
 } from "./timelog-api";
 import { aggregateActuals, buildDailyRoll, type ActualsAggregate } from "./timelog-actuals";
 import { saveActualsCache, loadActualsCache, clearActualsCache, type ActualsCacheEntry, type TimelogRollWindow } from "./timelog-actuals-store";
-import { autoMatchUsers, autoMatchProjects, displayableUsers, type TimelogProjectRef } from "./timelog-match";
+import { autoMatchUsers, autoMatchProjects, displayableUsers, initialsToUserId, type TimelogProjectRef } from "./timelog-match";
 import { isAbortError } from "./abort-error";
 import type { TimelogDailyRoll, TimelogLinks, TimelogScopeMode, TimelogTimeItem, TimelogUser } from "./timelog-types";
 import type { Resource, BudgetBucket } from "./types";
@@ -56,18 +56,21 @@ type Args = {
  *  ★ Named `fetchWindow`, never `window` — this is browser code, and shadowing
  *  the DOM global inside a hook file is how a later edit reaching for
  *  `window.localStorage` here silently resolves to a date range instead.
- *  ★★ The third member, `dailyUsers`, rides here for the same reason and its
- *  rationale lives on the field declaration in `timelog-actuals-store.ts`. */
+ *  ★★ The third member, `dailyUsers`, and the fourth, `dailyProjects` (§699),
+ *  ride here for the same reason; their rationale lives on the field
+ *  declarations in `timelog-actuals-store.ts`. */
 function rollPair(
   roll: TimelogDailyRoll | undefined,
   fetchWindow: TimelogRollWindow | undefined,
   coveredUsers: readonly number[] | undefined,
+  coveredProjects: readonly number[] | undefined,
 ): {
   daily: TimelogDailyRoll | undefined;
   dailyWindow: TimelogRollWindow | undefined;
   dailyUsers: readonly number[] | undefined;
+  dailyProjects: readonly number[] | undefined;
 } {
-  return { daily: roll, dailyWindow: fetchWindow, dailyUsers: coveredUsers };
+  return { daily: roll, dailyWindow: fetchWindow, dailyUsers: coveredUsers, dailyProjects: coveredProjects };
 }
 
 export function useTimelogSync(args: Args) {
@@ -112,6 +115,10 @@ export function useTimelogSync(args: Args) {
   // that must stay distinguishable, because "fetched and clean" is clearable
   // and "not fetched" must freeze.
   const [dailyUsers, setDailyUsers] = useState<readonly number[] | undefined>(() => loadActualsCache(projectId)?.dailyUsers);
+  // §699 — the TimeLog PROJECTS `daily` was fetched over, held as state for the
+  // same reason: only the caller that issued the request knows the ids, and a
+  // project with no bookings leaves no item to derive it from.
+  const [dailyProjects, setDailyProjects] = useState<readonly number[] | undefined>(() => loadActualsCache(projectId)?.dailyProjects);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<number | null>(null);
   // ★★ TRUE when the LAST cache write was refused by the browser (quota or
@@ -200,8 +207,11 @@ export function useTimelogSync(args: Args) {
   // user can narrow + tick before the costly per-employee timesheet fetch.
   async function loadDirectory(): Promise<void> {
     await runGuarded(async (signal) => {
-      const shown = displayableUsers(await listUsers(creds, signal));
-      fullDirectoryRef.current = shown;
+      // The ref keeps the WHOLE directory (inactive users too, §699); the
+      // People table shows only the displayable subset.
+      const all = await listUsers(creds, signal);
+      fullDirectoryRef.current = all;
+      const shown = displayableUsers(all);
       setUsers(shown);
       // Persist alongside EXISTING bookings only. A directory-only load (no prior
       // fetchedAt) stays in-memory — caching it would fabricate a `fetchedAt` that
@@ -214,7 +224,7 @@ export function useTimelogSync(args: Args) {
       // anywhere. This path has no `items`, so it carries the state through —
       // via `rollPair`, which carries the roll's WINDOW with it (see its note).
       if (fetchedAt) {
-        persist({ fetchedAt, aggregates, users: shown, projectRefs, partial, ...rollPair(daily, dailyWindow, dailyUsers) });
+        persist({ fetchedAt, aggregates, users: shown, projectRefs, partial, ...rollPair(daily, dailyWindow, dailyUsers, dailyProjects) });
       }
     });
   }
@@ -258,7 +268,7 @@ export function useTimelogSync(args: Args) {
       // ★★ `partial` and the roll pair carried through for the same reason as
       // the directory reload above — this save has no `items` either.
       if (fetchedAt) {
-        persist({ fetchedAt, aggregates, users, projectRefs: refs, partial, ...rollPair(daily, dailyWindow, dailyUsers) });
+        persist({ fetchedAt, aggregates, users, projectRefs: refs, partial, ...rollPair(daily, dailyWindow, dailyUsers, dailyProjects) });
       }
     });
   }
@@ -298,6 +308,9 @@ export function useTimelogSync(args: Args) {
     isPartial: boolean,
     fetchWindow: TimelogRollWindow,
     coveredUsers: readonly number[],
+    // §699 — REQUIRED for the same reason: the ids a project fetch covered, or
+    // undefined for a person fetch (which proves no project's whole bookings).
+    coveredProjects: readonly number[] | undefined,
   ): ActualsAggregate {
     const u = usersOverride ?? users;
     // Distinct projects seen — lets the matching UI bootstrap never-linked ones.
@@ -336,7 +349,8 @@ export function useTimelogSync(args: Args) {
     setDaily(roll);
     setDailyWindow(fetchWindow);
     setDailyUsers(coveredUsers);
-    persist({ fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs, partial: isPartial, ...rollPair(roll, fetchWindow, coveredUsers) });
+    setDailyProjects(coveredProjects);
+    persist({ fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs, partial: isPartial, ...rollPair(roll, fetchWindow, coveredUsers, coveredProjects) });
     return agg;
   }
 
@@ -407,7 +421,9 @@ export function useTimelogSync(args: Args) {
       // safe only because `failedEmployees > 0` sets `isPartial`, which freezes
       // every guardrail insight regardless of scope. Drop that term and this
       // list starts overstating coverage.
-      finish(items, undefined, failedEmployees > 0 || signal.aborted, { from: startDate, to: endDate }, covered);
+      // §699 — a person fetch leaves the project scope ABSENT: it is not a
+      // project fetch, so no closed month can be checked against it.
+      finish(items, undefined, failedEmployees > 0 || signal.aborted, { from: startDate, to: endDate }, covered, undefined);
       return { failedEmployees };
     });
   }
@@ -437,19 +453,20 @@ export function useTimelogSync(args: Args) {
       // Resolve EmployeeInitials→userId against the FULL org directory (cached in
       // a ref, loaded once). Must NOT reuse `users` — that now holds only the
       // prior fetch's bookers subset, which would leave most rows unresolved.
+      // ★★ INACTIVE USERS INCLUDED (§699 section 10): a person deactivated
+      // after a close otherwise reads as having deleted every booking. Only the
+      // People table below hides them.
       if (!fullDirectoryRef.current) {
-        fullDirectoryRef.current = displayableUsers(await listUsers(creds, signal));
+        fullDirectoryRef.current = await listUsers(creds, signal);
       }
       const directory = fullDirectoryRef.current;
-      const initialsToUserId = new Map(
-        directory.filter((u) => u.initials).map((u) => [u.initials.trim().toLowerCase(), u.userId] as const),
-      );
+      const byInitials = initialsToUserId(directory);
       let items: TimelogTimeItem[] = [];
       let failedProjects = 0;
       for (const id of ids) {
         if (signal.aborted) break;
         try {
-          items = items.concat(await listProjectTimeRegistrations(creds, id, startDate, endDate, signal, initialsToUserId));
+          items = items.concat(await listProjectTimeRegistrations(creds, id, startDate, endDate, signal, byInitials));
         } catch (e) {
           if (signal.aborted) throw e; // propagate the cancel out of the fail-soft loop
           failedProjects++;
@@ -460,9 +477,10 @@ export function useTimelogSync(args: Args) {
       // compare; also drops the summary-only empty-date row an empty project emits).
       const inWindow = items.filter((it) => it.date >= startDate && it.date <= endDate);
       // People = only the employees who booked on the selected projects (the
-      // directory subset whose userId appears in the fetched rows).
+      // displayable directory subset whose userId appears in the fetched rows).
+      // An inactive booker stays in the roll but not in the matching UI.
       const bookerIds = new Set(inWindow.map((it) => it.userId).filter((id) => id > 0));
-      const bookers = directory.filter((u) => bookerIds.has(u.userId));
+      const bookers = displayableUsers(directory).filter((u) => bookerIds.has(u.userId));
       setUsers(bookers);
       // `signal.aborted` for the same reason as the per-user path above: the
       // loop `break`s on a cancel and still reaches this line.
@@ -482,7 +500,11 @@ export function useTimelogSync(args: Args) {
       // project is precisely somebody whose other projects are missing.
       // ★★ The cost, and the two closure options, are recorded in open-followups
       // §366 rather than restated here.
-      const agg = finish(inWindow, bookers, failedProjects > 0 || signal.aborted, { from: startDate, to: endDate }, []);
+      // §699 — the PROJECT half of the scope is exactly what this fetch DOES
+      // prove: every booking on `ids` in the window, whoever made it. Unique
+      // and ascending, so it compares to a close's `projectIds` as a set.
+      const coveredProjects = [...ids].sort((a, b) => a - b);
+      const agg = finish(inWindow, bookers, failedProjects > 0 || signal.aborted, { from: startDate, to: endDate }, [], coveredProjects);
       return { failedProjects, projectCount: ids.length, aggregates: agg };
     });
   }
@@ -505,7 +527,7 @@ export function useTimelogSync(args: Args) {
       // ★★ Fourth saver. The roll pair is carried through here too — a
       // display-only people cleanup must not take the guardrail roll, or its
       // declared coverage, with it.
-      persist({ fetchedAt, aggregates, users: next, projectRefs, partial, ...rollPair(daily, dailyWindow, dailyUsers) });
+      persist({ fetchedAt, aggregates, users: next, projectRefs, partial, ...rollPair(daily, dailyWindow, dailyUsers, dailyProjects) });
     }
   }
 
@@ -524,6 +546,7 @@ export function useTimelogSync(args: Args) {
     // Same rule for the scope half: a covered-people list outliving its roll
     // certifies people whose cells are gone.
     setDailyUsers(undefined);
+    setDailyProjects(undefined);
     setUsers([]);
     setProjectRefs([]);
     fullDirectoryRef.current = null; // force a fresh directory on the next fetch
@@ -532,5 +555,5 @@ export function useTimelogSync(args: Args) {
     setCacheNotSaved(false);
   }
 
-  return { aggregates, fetchedAt, partial, daily, dailyWindow, dailyUsers, users, projectRefs, customers, customerProjects, busy, error, cacheNotSaved, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
+  return { aggregates, fetchedAt, partial, daily, dailyWindow, dailyUsers, dailyProjects, users, projectRefs, customers, customerProjects, busy, error, cacheNotSaved, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
 }

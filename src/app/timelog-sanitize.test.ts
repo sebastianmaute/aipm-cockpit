@@ -1,6 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { logDiag } from "./diagnostics";
 import {
   sanitizeTimelogLinks,
+  sanitizeTimelogClose,
   sanitizeTimelogConfig,
   isBlankTimelogLinks,
   EMPTY_TIMELOG_LINKS,
@@ -8,6 +10,8 @@ import {
   type TimelogEnv,
 } from "./timelog-sanitize";
 import { defaultTimelogConfig } from "./timelog-types";
+
+vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 
 const NO_TENANT_ENV: TimelogEnv = { tenant: undefined };
 
@@ -188,6 +192,18 @@ describe("sanitizeTimelogLinks policy", () => {
     });
   });
 
+  // §699 — the closed-month rule has no toggle and no threshold: closing a month
+  // is its opt-in. A stored key for it is meaningless and is dropped.
+  it("drops a policy key for timelogClosedMonth", () => {
+    const out = sanitizeTimelogLinks({
+      ...base,
+      policy: { timelogClosedMonth: { enabled: true, threshold: 3 }, timelogNonWorkingDay: { enabled: true } },
+    });
+    expect(out?.policy).toEqual({ timelogNonWorkingDay: { enabled: true } });
+    const alone = sanitizeTimelogLinks({ ...base, policy: { timelogClosedMonth: { enabled: true } } });
+    expect(JSON.stringify(alone)).toBe('{"userLinks":[],"projectLinks":[]}');
+  });
+
   it("ignores a non-object policy without dropping the links", () => {
     const out = sanitizeTimelogLinks({ ...base, policy: "yes" });
     expect(out).toEqual({ userLinks: [], projectLinks: [] });
@@ -228,5 +244,118 @@ describe("isBlankTimelogLinks", () => {
         policy: { timelogNonWorkingDay: { enabled: true } },
       }),
     ).toBe(false);
+  });
+});
+
+describe("sanitizeTimelogClose (§699)", () => {
+  const VALID = {
+    through: "2026-09",
+    projectIds: [9, 12],
+    saved: {
+      "2026-08": { "7": { "2026-08-03": 8 } },
+      "2026-09": { "7": {}, "9": { "2026-09-12": 7.5 } },
+    },
+  };
+  const withSaved = (saved: unknown, through = "2026-09") => ({ through, projectIds: [9, 12], saved });
+  const withProjects = (projectIds: unknown) => ({ ...VALID, projectIds });
+
+  beforeEach(() => vi.mocked(logDiag).mockClear());
+
+  it("keeps a valid close", () => {
+    expect(sanitizeTimelogClose(VALID)).toEqual(VALID);
+    const out = sanitizeTimelogLinks({ userLinks: [], projectLinks: [], close: VALID });
+    expect(out?.close).toEqual(VALID);
+  });
+
+  it("copies projectIds rather than aliasing the raw array", () => {
+    const raw = { ...VALID, projectIds: [9, 12] };
+    const out = sanitizeTimelogClose(raw);
+    expect(out?.projectIds).toEqual([9, 12]);
+    expect(out?.projectIds).not.toBe(raw.projectIds);
+  });
+
+  it("logs the projectIds reason when it drops a close for its project set", () => {
+    sanitizeTimelogClose(withProjects([12, 9]));
+    expect(logDiag).toHaveBeenCalledWith(
+      "warn",
+      "timelog.close-dropped",
+      { reason: "projectIds are not unique ascending positive integers" },
+    );
+  });
+
+  const bad: Array<[string, unknown]> = [
+    ["through 2026-13", withSaved({}, "2026-13")],
+    ["a saved month after through", withSaved({ "2026-10": { "7": {} } })],
+    ["user key 0", withSaved({ "2026-09": { "0": {} } })],
+    ["user key x", withSaved({ "2026-09": { x: {} } })],
+    ["day 2026-09-31", withSaved({ "2026-09": { "7": { "2026-09-31": 1 } } })],
+    ["day 2026-02-29", withSaved({ "2026-02": { "7": { "2026-02-29": 1 } } })],
+    ["day outside its month", withSaved({ "2026-09": { "7": { "2026-08-03": 1 } } })],
+    ["hours NaN", withSaved({ "2026-09": { "7": { "2026-09-03": NaN } } })],
+    ["hours as a string", withSaved({ "2026-09": { "7": { "2026-09-03": "8" } } })],
+    ["hours Infinity", withSaved({ "2026-09": { "7": { "2026-09-03": Infinity } } })],
+    ["hours null", withSaved({ "2026-09": { "7": { "2026-09-03": null } } })],
+    ["saved an array", withSaved([])],
+    // §699 revision — the project set the closed months were fetched over.
+    ["projectIds missing", { through: VALID.through, saved: VALID.saved }],
+    ["projectIds empty", withProjects([])],
+    ["projectIds not an array", withProjects(9)],
+    ["projectIds with 0", withProjects([0, 9])],
+    ["projectIds with a negative id", withProjects([-1, 9])],
+    ["projectIds with a fraction", withProjects([9, 12.5])],
+    ["projectIds with a string", withProjects(["9", 12])],
+    ["projectIds duplicated", withProjects([9, 9])],
+    ["projectIds not ascending", withProjects([12, 9])],
+  ];
+  it.each(bad)("drops the whole close for %s", (_name, close) => {
+    expect(sanitizeTimelogClose(close)).toBeUndefined();
+    const out = sanitizeTimelogLinks({ userLinks: [], projectLinks: [], close });
+    expect(out && "close" in out).toBe(false);
+  });
+
+  // §699 section 10 — TimeLog corrections can make a day total negative, and the
+  // saved copy records what the fetch showed. A negative close must survive
+  // every load, or the next Fetch drops every closed month.
+  it("keeps negative and zero hours", () => {
+    const close = withSaved({ "2026-09": { "7": { "2026-09-03": -1, "2026-09-04": 0, "2026-09-05": -0.25 } } });
+    expect(sanitizeTimelogClose(close)).toEqual(close);
+    expect(sanitizeTimelogLinks({ userLinks: [], projectLinks: [], close })?.close).toEqual(close);
+    expect(logDiag).not.toHaveBeenCalled();
+  });
+
+  it("drops the whole close when one hours value is not a number", () => {
+    const close = withSaved({
+      "2026-09": {
+        "7": { "2026-09-03": 8 },
+        "9": { "2026-09-04": 6 },
+        "11": { "2026-09-05": NaN },
+      },
+    });
+    expect(sanitizeTimelogClose(close)).toBeUndefined();
+  });
+
+  it("logs a diagnostic when it drops a close", () => {
+    sanitizeTimelogClose(withSaved({ "2026-09": { "7": { "2026-09-03": NaN } } }));
+    expect(logDiag).toHaveBeenCalledWith(
+      "warn",
+      "timelog.close-dropped",
+      expect.objectContaining({ reason: expect.any(String) }),
+    );
+  });
+
+  it("does not log for a valid or an absent close", () => {
+    sanitizeTimelogClose(VALID);
+    sanitizeTimelogClose(undefined);
+    sanitizeTimelogLinks({ userLinks: [], projectLinks: [] });
+    expect(logDiag).not.toHaveBeenCalled();
+  });
+
+  it("leaves close absent when unset", () => {
+    const out = sanitizeTimelogLinks({ userLinks: [], projectLinks: [] });
+    expect(out && "close" in out).toBe(false);
+  });
+
+  it("a blob holding only a close is not blank", () => {
+    expect(isBlankTimelogLinks({ userLinks: [], projectLinks: [], close: VALID })).toBe(false);
   });
 });

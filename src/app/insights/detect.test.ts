@@ -440,6 +440,22 @@ describe("timelog guardrail insights", () => {
     expect(g?.data.person).toBe("#7");
   });
 
+  // §699 — `netHours` reaches `data` only for the rule that sets it; the
+  // whole-object assertion above pins its ABSENCE for the others.
+  it("carries netHours into data for a closed-month violation", () => {
+    const out = detect({
+      timelogViolations: [{ ...violation, rule: "timelogClosedMonth" as const, threshold: 0, netHours: -2 }],
+      resources: [ada],
+    });
+    const g = out.find((i) => i.type === "timelogClosedMonth");
+    expect(g?.key).toBe("timelog:timelogClosedMonth:7");
+    expect(g?.data).toEqual({
+      person: "Ada Lovelace", count: 2, worstHours: 12, threshold: 0,
+      firstViolationDate: "2026-02-03", lastViolationDate: "2026-02-19",
+      timelogUserId: 7, netHours: -2,
+    });
+  });
+
   it("emits one insight per violation, all at medium severity", () => {
     const out = detect({
       timelogViolations: [

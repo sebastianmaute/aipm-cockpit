@@ -39,6 +39,23 @@ export type TimelogFinancialDay = {
 export type TimelogUserLink = { timelogUserId: number; resourceId: number; manual: boolean };
 /** Durable mapping: Timelog project → app budget bucket (null = explicitly unmapped). */
 export type TimelogProjectLink = { timelogProjectId: number; bucketId: number | null; manual: boolean };
+/** Closed months (§699): the hours every person with a booking had on the
+ *  selected TimeLog projects when a month was closed, kept so a later
+ *  difference can be flagged. The close is PER PROJECT SET: a project fetch
+ *  proves every booking on its projects, never a person's whole day. */
+export type TimelogMonthClose = {
+  /** "YYYY-MM": the last closed month. Every month up to and including it is closed. */
+  through: string;
+  /** The TimeLog project ids the closed months were fetched over: unique,
+   *  positive integers, ascending, non-empty. One set for the whole close; a
+   *  fetch over any other set cannot check it (see `dailyProjects`). */
+  projectIds: number[];
+  /** month "YYYY-MM" → TimeLog userId (string key) → day "YYYY-MM-DD" → hours.
+   *  Hours may be negative (a TimeLog correction). A person with no entry for
+   *  a month is compared against `{}`, so an entry of `{}` means the same. */
+  saved: Record<string, Record<string, Record<string, number>>>;
+};
+
 /** Per-project blob persisted on the Workspace (mirror SteeringCommittee).
  *  `customerId` is the TimeLog CustomerID the booking fetch is scoped to
  *  (positive int; absent = unscoped / whole-org per-user fetch). `projectIds`
@@ -52,18 +69,24 @@ export type TimelogLinks = {
   /** Guardrail policy. Absent when no rule is configured — see
    *  `sanitizeTimelogLinks`, which drops the key to keep the blob byte-stable. */
   policy?: TimelogPolicy;
+  /** Closed months. Absent (never `{}`) when nothing is closed — see
+   *  `sanitizeTimelogClose`. */
+  close?: TimelogMonthClose;
 };
 
 /** The guardrail rules. These literals are ALSO the guardrail `InsightType`
  *  members — deliberately identical, so no rule→type lookup table exists to
  *  drift. `timelog-policy.test.ts` pins the identity. The first four are
- *  OpenProject's; `timelogAbsenceDay` (§700) is Cockpit's own. */
+ *  OpenProject's; `timelogAbsenceDay` (§700) and `timelogClosedMonth` (§699)
+ *  are Cockpit's own. `timelogClosedMonth` has no policy entry: closing a month
+ *  is its opt-in, so `sanitizeTimelogPolicy` drops a stored key for it. */
 export type TimelogRuleId =
   | "timelogCapPerEntry"
   | "timelogCapPerDay"
   | "timelogNonWorkingDay"
   | "timelogWorkingHours"
-  | "timelogAbsenceDay";
+  | "timelogAbsenceDay"
+  | "timelogClosedMonth";
 
 export const TIMELOG_RULE_IDS: readonly TimelogRuleId[] = [
   "timelogCapPerEntry",
@@ -71,6 +94,7 @@ export const TIMELOG_RULE_IDS: readonly TimelogRuleId[] = [
   "timelogNonWorkingDay",
   "timelogWorkingHours",
   "timelogAbsenceDay",
+  "timelogClosedMonth",
 ];
 
 /** `threshold` is hours. Absent on the three rules that compare against

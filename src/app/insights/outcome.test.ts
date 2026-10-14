@@ -101,7 +101,8 @@ describe("METRIC_FIELD guard", () => {
       // derived expectation would pass against ANY map and pin nothing. Adding
       // an insight type is meant to land here and force the metric decision.
       ["budgetVariance", "milestoneSlip", "overdueTrend", "raidAging", "stalledWork",
-        "timelogAbsenceDay", "timelogCapPerDay", "timelogCapPerEntry", "timelogNonWorkingDay", "timelogWorkingHours"],
+        "timelogAbsenceDay", "timelogCapPerDay", "timelogCapPerEntry", "timelogClosedMonth", "timelogNonWorkingDay",
+        "timelogWorkingHours"],
     );
   });
 
@@ -138,6 +139,7 @@ describe("METRIC_FIELD guard", () => {
       { rule: "timelogNonWorkingDay", timelogUserId: 7, resourceId: null, count: 1, worstHours: 4, threshold: 0, firstViolationDate: "2026-02-07", lastViolationDate: "2026-02-07" },
       { rule: "timelogWorkingHours", timelogUserId: 7, resourceId: null, count: 3, worstHours: 10, threshold: 8, firstViolationDate: "2026-02-02", lastViolationDate: "2026-02-11" },
       { rule: "timelogAbsenceDay", timelogUserId: 7, resourceId: null, count: 2, worstHours: 6, threshold: 0, firstViolationDate: "2026-02-09", lastViolationDate: "2026-02-10" },
+      { rule: "timelogClosedMonth", timelogUserId: 7, resourceId: null, count: 3, worstHours: 8, threshold: 0, firstViolationDate: "2026-01-12", lastViolationDate: "2026-01-20", netHours: 6 },
     ],
   };
 

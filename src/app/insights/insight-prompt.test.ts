@@ -183,6 +183,29 @@ describe("guardrail fact lines", () => {
   });
 });
 
+// §699 — the closed-month line carries the signed net change and the largest
+// single-day change; it has no threshold.
+describe("timelogClosedMonth fact line (§699)", () => {
+  function closed(netHours: number): Insight {
+    return make(1, "timelogClosedMonth", "medium", "active", {
+      person: "Ada", count: G_COUNT, worstHours: G_WORST_HOURS, threshold: 0, netHours,
+    });
+  }
+  const lines = (i: Insight) => buildInsightsPromptBlock([i]).split("\n").filter((l) => l.startsWith("- "));
+
+  it("renders a positive net change", () => {
+    expect(lines(closed(6))).toEqual([
+      "- [medium] TimeLog: Ada has 2 day(s) in closed months changed since the close, net +6h, largest 12h",
+    ]);
+  });
+
+  it("renders a negative net change", () => {
+    expect(lines(closed(-4))).toEqual([
+      "- [medium] TimeLog: Ada has 2 day(s) in closed months changed since the close, net -4h, largest 12h",
+    ]);
+  });
+});
+
 describe("recent outcomes section", () => {
   it("surfaces acted insights that carry an outcome, with the measured move", () => {
     const out = buildInsightsPromptBlock([acted(1)]);

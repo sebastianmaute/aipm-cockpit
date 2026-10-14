@@ -20,6 +20,7 @@ export const METRIC_FIELD: Record<InsightType, string> = {
   timelogNonWorkingDay: "count",
   timelogWorkingHours: "count",
   timelogAbsenceDay: "count",
+  timelogClosedMonth: "count",
 };
 
 /** ★ An EMPTY or whitespace-only string must NOT coerce to 0 — `Number("")` is 0,

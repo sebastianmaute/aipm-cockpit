@@ -26,7 +26,7 @@ import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile
 import type { Insight, InsightType } from "./insights/insight";
 import { loadLandingState } from "./landing-state";
 import { loadActualsCache } from "./timelog-actuals-store";
-import { evaluateTimelogPolicy } from "./timelog-policy";
+import { closedMonthCertifies, evaluateTimelogPolicy } from "./timelog-policy";
 import { metricAtActionPatch } from "./insights/outcome";
 import { applyInsightLoggedAsRaid } from "./insights/log-as-raid";
 
@@ -125,29 +125,6 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
       // three separate `loadActualsCache` calls could straddle a write and pair
       // a window with a roll it never covered.
       const actuals = loadActualsCache(currentProjectId ?? "default");
-      const policyResult = evaluateTimelogPolicy({
-        daily: actuals?.daily ?? null,
-        policy: timelogLinks?.policy,
-        holidaySet,
-        holidaysReady,
-        userLinks: timelogLinks?.userLinks ?? [],
-        shifts,
-        absences,
-        resources,
-      });
-      const detected = detectInsights(
-        { ...buildInsightInput(), timelogViolations: policyResult.violations },
-        today,
-      );
-      // ★★★ THE PREDICATE THAT KEEPS "this produced no violation" DISTINCT FROM
-      // "this was never looked at". Answered PER INSIGHT, never per type: for
-      // the guardrails the answer depends on the row's own violating days.
-      // Every unproven case returns FALSE, because freezing is recoverable (the
-      // next covering fetch clears it) and a fabricated "improved" in an
-      // exported artifact is not.
-      const evaluatedRules = new Set<InsightType>(policyResult.evaluated);
-      const rollWindow = actuals?.dailyWindow;
-      const rollUsers = actuals?.dailyUsers;
       // ★★★ ANY NON-FALSE `partial` FREEZES HERE — and this deliberately does
       // NOT match how the Apply path reads the same flag. `partial` is validated
       // NOWHERE, so a non-boolean
@@ -166,6 +143,37 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
       // and it is untouched here.
       const partialFlag = actuals?.partial;
       const rollPartial = partialFlag !== undefined && partialFlag !== false;
+      const policyResult = evaluateTimelogPolicy({
+        daily: actuals?.daily ?? null,
+        policy: timelogLinks?.policy,
+        holidaySet,
+        holidaysReady,
+        userLinks: timelogLinks?.userLinks ?? [],
+        shifts,
+        absences,
+        resources,
+        // §699 — the stored close. `isEvaluated` below certifies the
+        // closed-month rule per person (`closedMonthCertifies`).
+        close: timelogLinks?.close ?? null,
+        partial: rollPartial,
+        dailyWindow: actuals?.dailyWindow,
+        // §699 — the project set the roll was fetched over; a closed month is
+        // checked only when it equals `close.projectIds`.
+        dailyProjects: actuals?.dailyProjects,
+      });
+      const detected = detectInsights(
+        { ...buildInsightInput(), timelogViolations: policyResult.violations },
+        today,
+      );
+      // ★★★ THE PREDICATE THAT KEEPS "this produced no violation" DISTINCT FROM
+      // "this was never looked at". Answered PER INSIGHT, never per type: for
+      // the guardrails the answer depends on the row's own violating days.
+      // Every unproven case returns FALSE, because freezing is recoverable (the
+      // next covering fetch clears it) and a fabricated "improved" in an
+      // exported artifact is not.
+      const evaluatedRules = new Set<InsightType>(policyResult.evaluated);
+      const rollWindow = actuals?.dailyWindow;
+      const rollUsers = actuals?.dailyUsers;
       const isEvaluated = (insight: Insight): boolean => {
         // ★★ NOT a core type merely because it is in the list: `overdueTrend`
         // goes dark whenever this device has no landing snapshot for the
@@ -190,6 +198,27 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         // The policy module's OWN report, never the rules that happened to
         // yield violations and never every rule unconditionally.
         if (!evaluatedRules.has(insight.type)) return false;
+        // §699 — decided on its own: it is a per-MONTH question, so the generic
+        // day-window test below would clear a flag over a month the roll only
+        // partly covers. A missing date or user id freezes, as everywhere here.
+        // ★★ It asks the PROJECT scope (`dailyProjects`), never `rollUsers`: the
+        // close is per project set, and a project fetch records nobody.
+        // ★ Nor links: every booker is checked (§699 section 10), so a person
+        // matched automatically, or not at all, clears like a pinned one.
+        if (insight.type === "timelogClosedMonth") {
+          const from = insight.data.firstViolationDate;
+          const to = insight.data.lastViolationDate;
+          const person = insight.data.timelogUserId;
+          if (typeof from !== "string" || typeof to !== "string" || typeof person !== "number") return false;
+          return closedMonthCertifies({
+            first: from,
+            last: to,
+            close: timelogLinks?.close ?? null,
+            closedMonthsCovered: policyResult.closedMonthsCovered,
+            partial: rollPartial,
+            dailyProjects: actuals?.dailyProjects,
+          });
+        }
         // A `partial` fetch is missing whole people while every rule still
         // reports itself evaluated — a lost zero, not a real one.
         if (rollPartial) return false;

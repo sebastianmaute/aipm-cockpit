@@ -98,6 +98,7 @@ describe("InsightsPanel", () => {
     expect(labelOf("timelogNonWorkingDay")).toBe("Time booked on a non-working day");
     expect(labelOf("timelogWorkingHours")).toBe("Time over defined working hours");
     expect(labelOf("timelogAbsenceDay")).toBe("Time booked while absent");
+    expect(labelOf("timelogClosedMonth")).toBe("TimeLog changed in a closed month");
   });
 
   it("wires lifecycle controls with row-unique names and calls the handler with the id", async () => {

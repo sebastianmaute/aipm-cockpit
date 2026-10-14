@@ -19,7 +19,7 @@ describe("imageRefs", () => {
 
 // §713 — a renamed or deleted docs image must fail here, not show a broken picture on GitHub.
 describe("every image the README and the install guide show exists", () => {
-  for (const [file, floor] of [["README.md", 17], ["docs/desktop-rollout.md", 9]]) {
+  for (const [file, floor] of [["README.md", 17], ["docs/desktop-rollout.md", 13]]) {
     it(`${file}`, () => {
       const refs = imageRefs(readFileSync(file, "utf8"), file);
       // Anti-vacuity: a pattern that matched nothing would pass the existence loop.

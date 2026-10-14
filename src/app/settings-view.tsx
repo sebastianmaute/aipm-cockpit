@@ -468,6 +468,7 @@ export function SettingsView(props: SettingsViewProps) {
               onMigrateToTurso={props.onMigrateToTurso}
               timelogLinks={props.timelogLinks}
               onTimelogLinksChange={props.onTimelogLinksChange}
+              timelogCacheProjectId={props.timelogLinks ? (props.projectId ?? "default") : undefined}
             />
           </div>
         )}

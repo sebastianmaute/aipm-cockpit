@@ -305,6 +305,9 @@ function timelogGuardrailInsights(
         // the certifying direction. `sanitizeData` keeps numeric values, so it
         // survives every load path with no sanitiser change.
         timelogUserId: v.timelogUserId,
+        // §699 — the signed net change, for the closed-month text only. Added
+        // only when the rule set it, so the other five rules' data is unchanged.
+        ...(v.netHours !== undefined ? { netHours: v.netHours } : {}),
       },
     };
   });
