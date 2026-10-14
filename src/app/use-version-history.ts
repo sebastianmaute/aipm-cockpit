@@ -26,7 +26,9 @@ export interface UseVersionHistoryArgs {
   retention: number;
   getPayload: () => string; // lazily serialize the CURRENT workspace
   onError?: (err: unknown) => void;
-  applyWorkspace?: (ws: Workspace) => void;
+  /** §476 — `meta.capturedAt` is the restored version's capture time (null when it is not in the
+   *  loaded list), which the restore funnel needs to record a currency switch back. */
+  applyWorkspace?: (ws: Workspace, meta: { capturedAt: string | null }) => void;
   logActivity?: (kind: "history.restore", ...args: (string | number)[]) => void;
 }
 
@@ -280,11 +282,11 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       const merged = applyRestore(now, version, changes, selection, { versionSpeaksForEmptySlices: speaks });
       const restored = { ...merged, raid: repairLoadedRaid(merged.raid) };
       await capturePayload(workspaceToJson(restored), "auto", null);
-      applyWorkspace?.(restored);
+      applyWorkspace?.(restored, { capturedAt: versions.find((v) => v.id === versionId)?.capturedAt ?? null });
       logActivity?.("history.restore", count, versionLabel);
       return true;
     } catch (err) { onError?.(err); return false; }
-  }, [active, config, projectId, getPayload, capturePayload, applyWorkspace, logActivity, onError]);
+  }, [active, config, projectId, getPayload, capturePayload, applyWorkspace, logActivity, onError, versions]);
 
   const loadDiff = useCallback(async (fromId: string, to: string | "now"): Promise<VersionChange[]> => {
     if (!active) return [];

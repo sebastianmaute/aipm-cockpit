@@ -312,6 +312,24 @@ describe("useVersionHistory", () => {
     expect(logActivity).toHaveBeenCalledWith("history.restore", 1, "v1-label");
   });
 
+  // §476 — the restore funnel needs the version's capture time to record a currency switch back
+  // (`restoreSwitchEntry` cancels only the switches made AFTER it).
+  it("restore hands applyWorkspace the restored version's capturedAt", async () => {
+    const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
+      grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(JSON.stringify({ tasks: [{ id: 1, title: "Old" }], ...base }));
+    const meta = (id: string, capturedAt: string) => ({ id, projectId: "p1", capturedAt, trigger: "auto" as const, label: null, summary: null });
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([meta("v2", "2026-10-15T08:00:00.000Z"), meta("v1", "2026-10-14T08:00:00.000Z")]);
+    const now = JSON.stringify({ tasks: [{ id: 1, title: "New" }], ...base });
+    const applyWorkspace = vi.fn();
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => now, applyWorkspace })));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current.versions.map((v) => v.id)).toEqual(["v2", "v1"]); // control: the list loaded
+    await act(async () => { await result.current.restore("v1", { [changeKey("tasks", 1)]: ["title"] }, "v1-label"); });
+    expect(applyWorkspace).toHaveBeenCalledTimes(1);
+    expect(applyWorkspace.mock.calls[0][1]).toEqual({ capturedAt: "2026-10-14T08:00:00.000Z" });
+  });
+
   // §674 — a restored version can carry a RAID cause loop saved before the guard
   // existed. The restore repairs it as a load and logs it, rather than handing the
   // loop to the setter, which would break it against the current state.

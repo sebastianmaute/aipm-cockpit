@@ -62,6 +62,29 @@ export function rebaseFactor(history: readonly BaselineEntry[], atIso: string): 
   return factor;
 }
 
+/**
+ * §476 — the entry a VERSION RESTORE appends when the restored `plan.currency`
+ * differs from the current one, so the read-time rebase stays in step with the plan.
+ * The current currency is the latest entry's (or `planCurrency` while the history is
+ * empty). `perPrevious` cancels every switch made after the version was captured, so
+ * a record from before the version rebases with a net factor of 1 relative to it.
+ * ★ The product assumes the switches after `versionCapturedAt` lead from the restored
+ *   currency to the current one, each with a `perPrevious`. It deliberately never
+ *   falls back to `crossRate`: no session rates are guaranteed at restore time.
+ *   Returns null when the currencies are equal (nothing to record).
+ */
+export function restoreSwitchEntry(
+  history: readonly BaselineEntry[],
+  restoredCurrency: BudgetCurrency,
+  planCurrency: BudgetCurrency,
+  versionCapturedAt: string,
+  nowIso: string,
+): BaselineEntry | null {
+  const current = history.length > 0 ? history[history.length - 1].currency : planCurrency;
+  if (restoredCurrency === current) return null;
+  return { from: nowIso.slice(0, 10), at: nowIso, currency: restoredCurrency, perPrevious: 1 / rebaseFactor(history, versionCapturedAt) };
+}
+
 const scale = (v: number | null, f: number): number | null => (v === null ? null : v * f);
 
 export function rebaseSnapshots(

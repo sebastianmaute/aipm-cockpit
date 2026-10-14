@@ -119,7 +119,12 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   `currency`, `perPrevious?`).** Every switch appends one entry whose `perPrevious` is the cross rate
   it used. It is a meta-blob slice on all six write paths
   (`grep -c "baselineHistory" src/app/turso-tenant-schema.ts` → 3) and, like `budgetHistory`, is
-  absent from the version-restore funnel ([`activity-log.md`](activity-log.md)).
+  absent from the version capture, so a restore never REPLACES it ([`activity-log.md`](activity-log.md)).
+  ★★ But `plan` IS restored, so a restore that changes `plan.currency` APPENDS a switch back
+  (`restoreSwitchEntry`, called from `applyRestoredWorkspace`): `perPrevious` = 1 / the product of the
+  `perPrevious` of every entry later than the version's `capturedAt`, so a record from before the version
+  rebases with a net factor of 1. Never `crossRate` (no session rates at restore time). A restore whose
+  capture time is unknown appends nothing and logs `history.restoreCurrencyUnrecorded`.
 - ★★★ **STORED HISTORY IS NEVER REWRITTEN; IT IS REBASED AT READ TIME.** Snapshots and
   `budgetHistory` entries stay in the currency they were captured in. `rebaseFactor` multiplies the
   `perPrevious` of every switch LATER than a record's timestamp, and `rebaseSnapshots` and

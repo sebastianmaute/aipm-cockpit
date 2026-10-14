@@ -28,6 +28,8 @@ import { seedMintFromWorkspace } from "./id-mint-session";
 import { useVersionHistory, type UseVersionHistoryArgs, type UseVersionHistoryResult } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { useWorkspace } from "./workspace-context";
+import { restoreSwitchEntry } from "./baseline-currency";
+import { logDiag } from "./diagnostics";
 import { workspaceToJson, type Workspace } from "./workspace";
 import type { CalendarEvent } from "./calendar-event";
 import type { Settings } from "./settings-types";
@@ -68,7 +70,9 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
     steeringCommittee, setSteeringCommittee, timelogLinks, setTimelogLinks,
     knowledgeItems, setKnowledgeItems, insights, setInsights, documents, setDocuments,
     documentVersions, setDocumentVersions, settingsOverrides, setSettingsOverrides, setCalendarEvents,
+    setBaselineHistory,
   } = useWorkspace();
+  const planCurrency = plan.currency;
 
   // Lazily serialize the CURRENT workspace for a version-history capture. The field
   // set mirrors `applyRestoredWorkspace` below — capture and restore must agree or a
@@ -99,7 +103,16 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
   // above as well: this hook does not destructure `setBudgetHistory` (task-manager does). The budget commit boundary is the series' only writer; undo and
   // version restore do not go through it, so a restore's BAC movement surfaces as unattributed variance
   // instead, and a restore never blanks the recorded series either.
-  const applyRestoredWorkspace = useCallback((w: Workspace) => {
+  // ★★ `baselineHistory` is not captured either, so it cannot be restored — but `plan.currency` is. A restore that
+  // changes the currency therefore APPENDS a switch back (`restoreSwitchEntry`, §476), or the read-time rebase
+  // would go on converting history into a currency the plan no longer has. It needs the version's capture time.
+  const applyRestoredWorkspace = useCallback((w: Workspace, meta: { capturedAt: string | null }) => {
+    const restoredCurrency = w.plan?.currency ?? planCurrency;
+    const versionAt = meta.capturedAt;
+    if (versionAt !== null) {
+      const nowIso = new Date().toISOString();
+      setBaselineHistory((h) => { const e = restoreSwitchEntry(h, restoredCurrency, planCurrency, versionAt, nowIso); return e ? [...h, e] : h; });
+    } else if (restoredCurrency !== planCurrency) logDiag("warn", "history.restoreCurrencyUnrecorded", { restoredCurrency });
     setTasks(dropDanglingDependencies(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? []))); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
@@ -110,7 +123,7 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
     // snapshot can't be reused this session. Side-effecting; runs on restore
     // (callback), not during render.
     seedMintFromWorkspace(w, "raise");
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setSettingsOverrides, setCalendarEvents]);
+  }, [planCurrency, setBaselineHistory, setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setSettingsOverrides, setCalendarEvents]);
 
   // Stable onError so useVersionHistory's `refresh` callback keeps a stable
   // identity — an inline arrow here re-creates refresh every render, re-running
