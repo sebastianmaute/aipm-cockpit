@@ -182,8 +182,8 @@ The app walks you through this itself: open **Help** (the **?** at the top) and 
 **Getting started: set up a budget**. The pictures below show where each step happens. The same
 Help panel has a link back to this guide at the bottom, and **Explore the demo project**, which
 opens a fully filled-in sample project to look around in. With Turso storage it opens any time;
-with projects kept on this laptop, only before you create your first one, because it would
-otherwise replace that project.
+otherwise only while no project uses the app's own built-in storage, because it would replace that
+project. A project kept in a file does not count.
 
 ![The Help panel showing Getting started: set up a budget, with the Installation & setup guide link at the bottom](assets/guide/09-help-entry.png)
 
@@ -198,7 +198,7 @@ An empty Budget view shows a checklist; each step ticks itself off as you go:
 
 **Manage roles** opens the rate card, where each role gets its hourly rate:
 
-![The rate card: each discipline and grade with its internal and external hourly rates](assets/guide/06-roles.png)
+![The rate card: each discipline and grade with its internal and external rates per hour and per day](assets/guide/06-roles.png)
 
 Add each person with the email they use in Timelog, so their bookings can be matched to them:
 

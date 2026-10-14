@@ -6,6 +6,7 @@ import { DEMO_BANNER_DONE_KEY } from "../src/app/demo-banner-state";
 import { IDB_DB_NAME, IDB_ENTITY_STORES } from "../src/app/idb-layout";
 import { splashMessages, splashScript } from "../desktop/src/lib/splash-status";
 import { clearCallouts, markCallout } from "./guide-callouts";
+import { cropClip } from "../scripts/guide-crop.mjs";
 
 // The install guide's screenshots (docs/assets/guide/) and the README gallery
 // (docs/assets/*.png), §713. Run with `npm run docs:guide-shots` — the
@@ -37,10 +38,11 @@ const CROP_PAD_TOP = 8;
 
 /**
  * Photograph the region from `from`'s top-left to `to`'s bottom-right, padded and clamped to the
- * viewport. A clip of the PAGE rather than `locator.screenshot`: the latter scrolls the element's
- * container itself, and the views here scroll inside their own panes. Only the PADDING may be
- * clamped: a region that itself runs past the viewport throws, rather than shipping a picture
- * cut short. `pad: 0` crops to the region exactly (a panel whose own border frames it).
+ * viewport (the arithmetic, and its throw on a region that runs off screen, is `cropClip` in
+ * scripts/guide-crop.mjs, unit-tested beside it). A clip of the PAGE rather than
+ * `locator.screenshot`: the latter scrolls the element's container itself, and the views here
+ * scroll inside their own panes. `pad` overrides the padding on every side; `pad: 0` crops to
+ * the region exactly (a panel whose own border frames it).
  */
 async function shotSpan(
   from: Locator,
@@ -60,24 +62,20 @@ async function shotSpan(
   if (!a || !b || c.some((r) => r === null)) throw new Error(`shotSpan(${file}): a bound is not rendered`);
   const view = page.viewportSize();
   if (!view) throw new Error("shotSpan: no viewport");
-  const xs = c.length > 0 ? c.filter((r) => r !== null) : [a, b];
-  const region = {
-    left: Math.min(...xs.map((r) => r.x)),
-    top: Math.min(a.y, b.y),
-    right: Math.max(...xs.map((r) => r.x + r.width)),
-    bottom: Math.max(a.y + a.height, b.y + b.height),
-  };
-  // Half a pixel of slack: bounding boxes are fractional.
-  if (region.left < -0.5 || region.top < -0.5 || region.right > view.width + 0.5 || region.bottom > view.height + 0.5) {
-    throw new Error(`shotSpan(${file}): the region runs past the ${view.width}×${view.height} viewport: ${JSON.stringify(region)}`);
+  let clip;
+  try {
+    clip = cropClip({
+      from: a,
+      to: b,
+      across: c.filter((r) => r !== null),
+      view,
+      pad: opts.pad ?? CROP_PAD,
+      padTop: opts.pad ?? CROP_PAD_TOP,
+    });
+  } catch (err) {
+    throw new Error(`shotSpan(${file}): ${(err as Error).message}`);
   }
-  const pad = opts.pad ?? CROP_PAD;
-  const padTop = opts.pad ?? CROP_PAD_TOP;
-  const x = Math.max(0, region.left - pad);
-  const y = Math.max(0, region.top - padTop);
-  const right = Math.min(view.width, region.right + pad);
-  const bottom = Math.min(view.height, region.bottom + pad);
-  await page.screenshot({ path: file, clip: { x, y, width: right - x, height: bottom - y }, animations: "disabled", caret: "hide" });
+  await page.screenshot({ path: file, clip, animations: "disabled", caret: "hide" });
 }
 
 async function shot(locator: Locator, file: string, opts: { pad?: number } = {}): Promise<void> {
@@ -222,13 +220,15 @@ test.describe("guide", () => {
     await expect(notice).toBeVisible();
     await notice.scrollIntoViewIfNeeded();
     await markCallout(notice);
-    await shotSpan(bookings, notice, `${GUIDE_DIR}/05-functions.png`, { across: functions });
+    // Padding 8: the callout outline needs 6, and more shows a sliver of the note below.
+    await shotSpan(bookings, notice, `${GUIDE_DIR}/05-functions.png`, { across: functions, pad: 8 });
     await clearCallouts(page);
   });
 
   test("06 roles and rates, reached from the budget checklist", async ({ page }) => {
-    // Wider than the guide default: at 1280 the rate card clips its External /h column.
-    await page.setViewportSize({ width: 1600, height: 900 });
+    // Wider than the guide default: the rate card grows with the window, and below this width it
+    // clips its day-rate columns at the panel's edge.
+    await page.setViewportSize({ width: 2400, height: 900 });
     await prepare(page);
     await clearEntityStore(page, IDB_ENTITY_STORES.budgets);
     await gotoApp(page, FROZEN_NOW);
