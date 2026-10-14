@@ -38,31 +38,50 @@ const CROP_PAD_TOP = 8;
 /**
  * Photograph the region from `from`'s top-left to `to`'s bottom-right, padded and clamped to the
  * viewport. A clip of the PAGE rather than `locator.screenshot`: the latter scrolls the element's
- * container itself, and the views here scroll inside their own panes.
+ * container itself, and the views here scroll inside their own panes. Only the PADDING may be
+ * clamped: a region that itself runs past the viewport throws, rather than shipping a picture
+ * cut short. `pad: 0` crops to the region exactly (a panel whose own border frames it).
  */
-async function shotSpan(from: Locator, to: Locator, file: string, opts: { across?: Locator | Locator[] } = {}): Promise<void> {
+async function shotSpan(
+  from: Locator,
+  to: Locator,
+  file: string,
+  opts: { across?: Locator | Locator[]; pad?: number } = {},
+): Promise<void> {
   const page = from.page();
   // To the TOP of its pane, so the region below it has the most room before the viewport ends.
   await from.evaluate((el) => el.scrollIntoView({ block: "start" }));
   const a = await from.boundingBox();
   const b = await to.boundingBox();
-  // `across` sets the width (the union of its boxes): a crop between two narrow controls would
-  // otherwise cut the text beside them.
+  // `across` sets the width only (the union of its boxes): a crop between two narrow controls
+  // would otherwise cut the text beside them. Height is always `from` to `to`.
   const across = opts.across === undefined ? [] : Array.isArray(opts.across) ? opts.across : [opts.across];
   const c = await Promise.all(across.map((l) => l.boundingBox()));
   if (!a || !b || c.some((r) => r === null)) throw new Error(`shotSpan(${file}): a bound is not rendered`);
   const view = page.viewportSize();
   if (!view) throw new Error("shotSpan: no viewport");
   const xs = c.length > 0 ? c.filter((r) => r !== null) : [a, b];
-  const x = Math.max(0, Math.min(...xs.map((r) => r.x)) - CROP_PAD);
-  const y = Math.max(0, Math.min(a.y, b.y, ...xs.map((r) => r.y)) - CROP_PAD_TOP);
-  const right = Math.min(view.width, Math.max(...xs.map((r) => r.x + r.width)) + CROP_PAD);
-  const bottom = Math.min(view.height, Math.max(a.y + a.height, b.y + b.height) + CROP_PAD);
+  const region = {
+    left: Math.min(...xs.map((r) => r.x)),
+    top: Math.min(a.y, b.y),
+    right: Math.max(...xs.map((r) => r.x + r.width)),
+    bottom: Math.max(a.y + a.height, b.y + b.height),
+  };
+  // Half a pixel of slack: bounding boxes are fractional.
+  if (region.left < -0.5 || region.top < -0.5 || region.right > view.width + 0.5 || region.bottom > view.height + 0.5) {
+    throw new Error(`shotSpan(${file}): the region runs past the ${view.width}×${view.height} viewport: ${JSON.stringify(region)}`);
+  }
+  const pad = opts.pad ?? CROP_PAD;
+  const padTop = opts.pad ?? CROP_PAD_TOP;
+  const x = Math.max(0, region.left - pad);
+  const y = Math.max(0, region.top - padTop);
+  const right = Math.min(view.width, region.right + pad);
+  const bottom = Math.min(view.height, region.bottom + pad);
   await page.screenshot({ path: file, clip: { x, y, width: right - x, height: bottom - y }, animations: "disabled", caret: "hide" });
 }
 
-async function shot(locator: Locator, file: string): Promise<void> {
-  await shotSpan(locator, locator, file);
+async function shot(locator: Locator, file: string, opts: { pad?: number } = {}): Promise<void> {
+  await shotSpan(locator, locator, file, opts);
 }
 
 /** Skip the tour and the one-time demo banner, as e2e/visual.spec.ts does. */
@@ -208,6 +227,8 @@ test.describe("guide", () => {
   });
 
   test("06 roles and rates, reached from the budget checklist", async ({ page }) => {
+    // Wider than the guide default: at 1280 the rate card clips its External /h column.
+    await page.setViewportSize({ width: 1600, height: 900 });
     await prepare(page);
     await clearEntityStore(page, IDB_ENTITY_STORES.budgets);
     await gotoApp(page, FROZEN_NOW);
@@ -218,7 +239,8 @@ test.describe("guide", () => {
     await expect(card).toBeVisible();
     // The rate table is wider than its panel, which clips it: the panel's own Print button marks its right edge.
     const print = page.locator("main").getByRole("button", { name: /print/i }).first();
-    await shotSpan(card, page.getByRole("button", { name: "Add role", exact: true }), `${GUIDE_DIR}/06-roles.png`, { across: [card, print] });
+    // From the Print button, which sits higher than the heading, so the crop does not cut it.
+    await shotSpan(print, page.getByRole("button", { name: "Add role", exact: true }), `${GUIDE_DIR}/06-roles.png`, { across: [card, print] });
   });
 
   test("07 the resource form, email marked for Timelog", async ({ page }) => {
@@ -269,7 +291,8 @@ test.describe("guide", () => {
     await expect(guide).toBeVisible();
     await blurActive(page);
     await markCallout(guide);
-    await shot(help, `${GUIDE_DIR}/09-help-entry.png`);
+    // The panel has its own border: no padding, so none of the dashboard behind it shows.
+    await shot(help, `${GUIDE_DIR}/09-help-entry.png`, { pad: 0 });
     await clearCallouts(page);
   });
 });

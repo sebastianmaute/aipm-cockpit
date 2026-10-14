@@ -198,7 +198,7 @@ An empty Budget view shows a checklist; each step ticks itself off as you go:
 
 **Manage roles** opens the rate card, where each role gets its hourly rate:
 
-![The rate card: each discipline and grade with its internal hourly rate](assets/guide/06-roles.png)
+![The rate card: each discipline and grade with its internal and external hourly rates](assets/guide/06-roles.png)
 
 Add each person with the email they use in Timelog, so their bookings can be matched to them:
 
