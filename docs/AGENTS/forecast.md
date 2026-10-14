@@ -16,10 +16,10 @@ text. The view is flat in `src/app/` (`forecast-panel.tsx` orchestrates; `foreca
 |---|---|
 | `forecast/constants.ts` | `FORECAST_TRIALS` (10,000), `MIN_FINISHED_TASKS` (10), `MIN_HISTORY_WORKING_DAYS` (10), `EFFORT_MODE_MIN_COVERAGE` (0.7), `MAX_HORIZON_WORKING_DAYS` (1300), `HISTORY_WINDOWS`, `DEFAULT_HISTORY_WINDOW` (60) |
 | `forecast/rng.ts` | `mulberry32` (seeded PRNG) and `seedFrom` (FNV-1a over the parts joined by `\|`) |
-| `forecast/throughput.ts` | `dailyThroughput`: completions per working day, zero days kept |
+| `forecast/throughput.ts` | `dailyThroughput`: completions per working day, zero days kept; `isValidIsoDate` (strict `YYYY-MM-DD`) |
 | `forecast/simulate.ts` | `SimOptions`, `drawDay`, `simulateWhen`, `simulateHowMany`, `percentile` |
 | `forecast/milestones.ts` | `orderBacklog`, `milestoneChances` |
-| `forecast/index.ts` | `computeScheduleForecast`: floor, backlog, effort mode, what-if, streams |
+| `forecast/index.ts` | `computeScheduleForecast`: floor, backlog, effort mode, what-if, streams; `lastForecastableDay` (the How-many horizon) |
 
 ## Landmines
 
@@ -45,8 +45,16 @@ text. The view is flat in `src/app/` (`forecast-panel.tsx` orchestrates; `foreca
   fewer than `MIN_HISTORY_WORKING_DAYS` window days, returns `kind: "insufficient"` carrying the shortfall
   and `doneWithoutDate`. An EMPTY backlog skips the floor (R3): it still runs `milestoneChances`, where
   all-closed reads 100 %, no linked tasks reads `no-linked-tasks`, and overdue needs an open task.
-- **Window.** `HistoryWindow` is 30, 60, 90 or `"all"`. A fixed window is that many working days ending
-  at the latest working day on or before `today`; `"all"` starts at the earliest attributed completion.
+- **Window.** `HistoryWindow` is 30, 60, 90 or `"all"`. Both kinds end at the latest working day on or
+  before `today` and start NO EARLIER than the earliest attributed completion. `"all"` starts exactly
+  there; a fixed window is that many working days, cut at that completion when the project is younger
+  (R14). With no attributed completion at all the window is empty.
+- ★★ **Why R14 cuts a fixed window.** Days before the team's first completion are not real zero days.
+  Padding them in made a project with 15 working days of history at 2 tasks a day forecast 60 open tasks
+  at P50 ≈ 119 working days on the default window 60, instead of 30 (pinned by "a young project is
+  forecast from its own days, not padded to the window (R14)" in `index.test.ts`). The cost of the rule:
+  a team that genuinely idled before its first finish gets an optimistic forecast. Because of the cut, the
+  days floor (`MIN_HISTORY_WORKING_DAYS`) now bites on a fixed window too, not only on `"all"`.
 - **Next-working-day shift.** A completion on a non-working day counts on the NEXT working day
   (`attributedDay`), capped at `today` (dropped when `today` is itself non-working and the shift passes it).
 
@@ -64,6 +72,11 @@ text. The view is flat in `src/app/` (`forecast-panel.tsx` orchestrates; `foreca
 - **How many reads at 100−P (R7).** The result `amount` for P50/P80/P95 is `percentile(reached, 100 − p)`
   of the sorted per-trial totals: "at least N with P % confidence", the ActionableAgile How-Many
   convention the customer cited. So P95 is the LOW end.
+- **How-many horizon (R15).** The target is capped at `lastForecastableDay(today, holidaySet)` —
+  `MAX_HORIZON_WORKING_DAYS` working days after `today` — before its working days are counted, so the
+  cost (`trials × target days` draws, run in the panel's render-time `useMemo`) is bounded the same way
+  When is. Uncapped, a year-2206 target took about 14 s in the final review's probe. The panel enforces
+  the same bound (see "What the panel owns").
 - **Capacity** is `capacityPercent / 100` on every draw, clamped to 10–300 %.
 
 ## Effort unit
@@ -99,13 +112,23 @@ text. The view is flat in `src/app/` (`forecast-panel.tsx` orchestrates; `foreca
   the rounded percentages (`gapOf` in `forecast-tables.tsx`).
 - **`closedIds` (R4).** A linked id is open when it is in `ordered`, closed when it is in `closedIds`,
   otherwise dangling and ignored. All linked closed → 100 %; all dangling → `no-linked-tasks`;
-  a past date with open work → `overdue`; an achieved milestone is skipped.
+  a past date with open work → `overdue`; an achieved milestone is skipped. All-closed is checked BEFORE
+  the date, so an overdue milestone whose linked tasks are all closed reads 100 % (pinned by "overdue with
+  every linked task closed reads 1/1, not overdue (T3b)").
+- ★★ **A milestone without a valid date is omitted (R16).** `requiredIsoDateOnLoad` repairs an invalid
+  milestone date to `""`, and `"" < today` would read `overdue`. `milestoneChances` skips any `m.date`
+  that fails `isValidIsoDate`, so such a milestone is absent from the table. The table's date cell also
+  formats only a valid date and is blank otherwise, because `formatDayMonthYear("")` throws a
+  `RangeError`, which blanked the whole app before this rule.
 
 ## What the panel owns
 
 `ForecastPanel` holds mode (Quick / What-if), unit, window, target date and the what-if fields, and runs
 the engine once per input change in a `useMemo`. Quick always runs the plain forecast whatever the
-What-if fields hold. None of this is saved to the project. The default window is 60 working days; the
+What-if fields hold. None of this is saved to the project. The How-many target, stored or defaulted, is
+clamped into [`today`, `lastForecastableDay`] on every render by `clampHowManyTarget`, so a passing
+midnight or a far plan end re-clamps it. The date input carries the same `min` and `max` and refuses a
+date outside them with `forecastInputInvalid` (R15). The default window is 60 working days; the
 axe spec selects **"All history" (R13)** and waits for the chart so axe sees the forecast state, not
 only the empty state.
 
@@ -117,12 +140,14 @@ only the empty state.
 ## Performance
 
 A probe of `computeScheduleForecast` on `sample-workspace-huge.json` (repo root) at 10,000 trials took
-about 30 ms (measured 2026-10-14 in Node, one run, not a benchmark gate). It is fast enough to recompute
+about 30 ms (measured 2026-10-14 in Node, one run, not a benchmark gate) with a near How-many target.
+The How-many cost grows with the target's distance: a 2030 target took about 395 ms in the final review's
+probe, which is why R15 caps it at the horizon. It is fast enough to recompute
 on every input change without a worker.
 
 ## Mutation proof (slice 1)
 
-Four mutants, run one at a time, each turned red by its own test:
+Four mutants for the slice, run one at a time, each turned red by its own test:
 
 | Mutant | File | Killing test | Message |
 |---|---|---|---|
@@ -130,6 +155,16 @@ Four mutants, run one at a time, each turned red by its own test:
 | next-working-day shift dropped in `attributedDay` | `forecast/throughput.ts` | "moves a Saturday completion to Monday" (and the holiday and after-today tests) | expected +0 to be 1 |
 | coverage comparison `>=` changed to `>` in `resultUnit` | `forecast/index.ts` | "effort at 70% coverage is honoured, unestimated tasks count at the median" | expected 'tasks' to be 'effort' |
 | first instead of last open linked task for the queue position in `milestoneChances` | `forecast/milestones.ts` | "a milestone waits for the LAST of its open linked tasks in the queue, not the first" | deep-equal failure (chance 1 instead of 0) |
+
+Two more from the final-review fix wave, each killed by a test added for it:
+
+| Mutant | File | Killing test | Message |
+|---|---|---|---|
+| floor-only rounding in `drawDay` (`return whole;`) | `forecast/simulate.ts` | "stochastic rounding averages to the fraction, both ways (T2b)" | expected [ +0, +0, … ] to include 1 |
+| `overdue` checked before all-closed in `milestoneChances` | `forecast/milestones.ts` | "overdue with every linked task closed reads 1/1, not overdue (T3b)" | expected { state: 'overdue' } to deeply equal { state: 'chance', … } |
+
+★ The floor-only mutant passed the older "integer: true stochastic-rounds to whole numbers" test, whose
+`2 ≤ v ≤ 4` bound a floor still meets.
 
 ★ The fourth mutant SURVIVED until that test was added: no earlier test linked a milestone to two open
 tasks at different queue positions.

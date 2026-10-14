@@ -18,7 +18,8 @@ longer carries its own changelog comment.
   its tasks were worked first. Switch the unit to effort when at least 70 % of open tasks carry an estimate. The
   What-if mode adds or removes scope and changes team capacity; scope changes move the dates and the count, not
   the milestone chances. With fewer than 10 completed tasks in the history window the view says what is missing
-  instead of guessing. Done tasks without a completion date are left out and counted. The inputs are not saved,
+  instead of guessing. The history window starts no earlier than the first completed task, so a young
+  project is not judged by days before its work began. Done tasks without a completion date are left out and counted. The inputs are not saved,
   and Ask Claude cannot quote the figures yet.
 - **A "Getting started: set up a budget" Help entry, and the install guide one click away.** Help lists
   the new entry first under Workflows: turn on the functions, rate the roles, add the people with their
