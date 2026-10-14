@@ -182,7 +182,8 @@ The app walks you through this itself: open **Help** (the **?** at the top) and 
 **Getting started: set up a budget**. The pictures below show where each step happens. The same
 Help panel has a link back to this guide at the bottom, and **Explore the demo project**, which
 opens a fully filled-in sample project to look around in. With Turso storage it opens any time;
-otherwise only while no project uses the app's own built-in storage, because it would replace that
+otherwise only while no project uses the app's built-in storage (**Settings → Storage**: **Browser only**,
+which the app calls "this browser's storage" even on the desktop), because the demo would replace that
 project. A project kept in a file does not count.
 
 ![The Help panel showing Getting started: set up a budget, with the Installation & setup guide link at the bottom](assets/guide/09-help-entry.png)
