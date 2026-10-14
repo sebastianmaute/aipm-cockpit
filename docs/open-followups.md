@@ -953,6 +953,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§713](#713-the-install-guide-leaves-out-what-a-non-technical-pilot-user-needed-and-nothing-in-the-app-points-to-it--open) | The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it | — | — | open |
 | [§714](#714-follow-up-with-the-uk-pilot-user-fixes-before-their-2026-10-22-review-the-api-key-cost-question-and-a-project-intake-session--open) | Follow-up with the UK pilot user: fixes before their 2026-10-22 review, the API-key cost question, and a project-intake session | — | — | open |
 | [§715](#715-no-recorded-walk-through-shows-a-new-user-downloading-installing-and-setting-up-the-desktop-app--open) | No recorded walk-through shows a new user downloading, installing and setting up the desktop app | — | — | open |
+| [§728](#728-the-first-start-splashs-status-text-has-not-been-eye-checked-on-a-packaged-desktop-build--open) | The first-start splash's status text has not been eye-checked on a packaged desktop build | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45005,3 +45006,24 @@ Placement follows the product tour: a GitHub-hosted embed in the README (and her
 Size M.
 
 **Source:** owner decision, 2026-10-14, while approving the §713 design.
+
+## 728. The first-start splash's status text has not been eye-checked on a packaged desktop build — OPEN
+
+**Status:** OPEN 2026-10-14 — the timing is unit-tested (`grep -n "SPLASH_SLOW_MS = " desktop/src/lib/splash-status.ts` → 10 000 ms, driven with fake timers by `splash-status.test.ts`), but no test renders the packaged window.
+
+**Work item:** #720
+
+§705 added status text to the desktop splash: "Starting…" while the local service starts, a reassurance line after `SPLASH_SLOW_MS`, and "Opening…" once it is up. The unit tests cover the sequence; only a person looking at a packaged build can see the rest. The owner merged phase 1 (PR #706) on 2026-10-14 with this check deferred.
+
+To check, install a packaged build on Windows and:
+
+- **First launch:** the status text sits clear of the artwork, legible on its ground, and not clipped.
+- **At 10 seconds:** the reassurance line appears without the text block jumping or reflowing.
+- **Relaunch** while the service is already up: the splash goes straight to "Opening…" with no "Starting…" flash.
+- **German OS locale:** the DE strings fit the same space.
+
+Close this with what was seen, or file each defect found as its own entry.
+
+Size S.
+
+**Source:** owner decision at the phase-1 merge, 2026-10-14.
