@@ -26,7 +26,7 @@ text. The view is flat in `src/app/` (`forecast-panel.tsx` orchestrates; `foreca
 - ★★★ **No `Math.random`, `Date.now()` or `new Date()` in the engine.** A forecast must be reproducible
   for the same inputs, so every draw comes from `mulberry32`, and `today` is a PROP (`today` on
   `ScheduleForecastInput`), never read from the clock. `isValidIsoDate` in `throughput.ts` builds a
-  `Date` only from a given string, to reject `2026-02-30`. Check: `grep -rn "Math.random\|Date.now\|new Date()" src/app/forecast --include=*.ts | grep -v test` must print only that guarded parse.
+  `Date` only from a given string, to reject `2026-02-30`. Check: `grep -rn "Math.random\|Date.now\|new Date()" src/app/forecast --include=*.ts | grep -v test` must print nothing (the one guarded parse is `new Date(` with a template-literal argument, which that pattern does not match).
 - ★★ **A Done task with no `completedDate` is EXCLUDED, not repaired.** `dailyThroughput` counts it in
   `doneWithoutDate` and keeps it out of `samples`; the view tells the user how many. Repairing it would
   invent a date — see [`task-status.md`](task-status.md) (load does not repair a split pair). A
@@ -122,6 +122,14 @@ on every input change without a worker.
 
 ## Mutation proof (slice 1)
 
-Four mutants, each turned red by its own test (table in the PR): drop the Cancelled exclusion in
-`computeScheduleForecast`; drop the next-working-day shift in `attributedDay`; flip the `>=` in
-`resultUnit` to `>`; take the first instead of the last open linked task in `milestoneChances`.
+Four mutants, run one at a time, each turned red by its own test:
+
+| Mutant | File | Killing test | Message |
+|---|---|---|---|
+| backlog filter keeps Cancelled (`!isTaskClosed` replaced by `status !== "Done"`) | `forecast/index.ts` | "Cancelled tasks are not in the backlog" | expected 4 to be 3 |
+| next-working-day shift dropped in `attributedDay` | `forecast/throughput.ts` | "moves a Saturday completion to Monday" (and the holiday and after-today tests) | expected +0 to be 1 |
+| coverage comparison `>=` changed to `>` in `resultUnit` | `forecast/index.ts` | "effort at 70% coverage is honoured, unestimated tasks count at the median" | expected 'tasks' to be 'effort' |
+| first instead of last open linked task for the queue position in `milestoneChances` | `forecast/milestones.ts` | "a milestone waits for the LAST of its open linked tasks in the queue, not the first" | deep-equal failure (chance 1 instead of 0) |
+
+★ The fourth mutant SURVIVED until that test was added: no earlier test linked a milestone to two open
+tasks at different queue positions.
