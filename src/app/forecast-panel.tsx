@@ -7,6 +7,7 @@
 import { useMemo, useState } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { localeFor } from "./date-format";
+import { formatDayMonthYear } from "./forecast-format";
 import {
   DEFAULT_WHAT_IF,
   clampWhatIf,
@@ -159,7 +160,13 @@ function InsufficientState({ lang, result }: { lang: Lang; result: ForecastInsuf
     lines.push(t(lang, "forecastInsufficient", result.finished, result.neededFinished, result.neededFinished - result.finished));
   }
   if (result.days < result.neededDays) {
-    lines.push(t(lang, "forecastInsufficientDays", result.days, result.neededDays, result.neededDays - result.days));
+    const args = [result.days, result.neededDays, result.neededDays - result.days] as const;
+    // R14 cut a fixed window at the first completion: say so, or "8 of 10 days" reads as a wrong window.
+    lines.push(
+      result.windowCutAt === null
+        ? t(lang, "forecastInsufficientDays", ...args)
+        : t(lang, "forecastInsufficientDaysCut", ...args, formatDayMonthYear(result.windowCutAt, localeFor(lang))),
+    );
   }
   if (result.doneWithoutDate > 0) lines.push(tPlural(lang, "forecastDoneWithoutDate", result.doneWithoutDate, result.doneWithoutDate));
   const [first, ...rest] = lines;

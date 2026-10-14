@@ -125,14 +125,20 @@ describe("dailyThroughput", () => {
     // 30 working days back from Wed 14th, skipping the holiday on the 12th, starts on Wed 2 Sep.
     expect(h.days[0]).toBe("2026-09-02");
     expect(h.finished).toBe(1);
+    expect(h.cutAtFirstCompletion, "a whole window is not cut").toBe(false);
+  });
+
+  test("a fixed window R14 shortened is flagged; 'all' never is", () => {
+    expect(run([done(1, "2026-10-08"), done(2, "2026-10-14")], 30).cutAtFirstCompletion).toBe(true);
+    expect(run([done(1, "2026-10-08"), done(2, "2026-10-14")], "all").cutAtFirstCompletion).toBe(false);
   });
 
   test("a fixed window with no completions is empty", () => {
-    expect(run([], 30)).toEqual({ samples: [], days: [], finished: 0, doneWithoutDate: 0 });
+    expect(run([], 30)).toEqual({ samples: [], days: [], finished: 0, doneWithoutDate: 0, cutAtFirstCompletion: false });
   });
 
   test("window 'all' with no completions yields an empty history", () => {
     const h = run([], "all");
-    expect(h).toEqual({ samples: [], days: [], finished: 0, doneWithoutDate: 0 });
+    expect(h).toEqual({ samples: [], days: [], finished: 0, doneWithoutDate: 0, cutAtFirstCompletion: false });
   });
 });

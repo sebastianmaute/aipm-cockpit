@@ -779,6 +779,8 @@ const enUS = {
   forecastInsufficientTitle: "Not enough history to forecast yet",
   forecastInsufficient: "{0} of {1} finished tasks — {2} more needed",
   forecastInsufficientDays: "{0} of {1} working days of history — {2} more needed",
+  forecastInsufficientDaysCut:
+    "{0} of {1} working days of history — {2} more needed. The window was shortened to start at the first completion, {3}.",
   forecastBasis: "{0} runs of your last {1} working days ({2} finished tasks)",
   forecastBasisAll: "{0} runs of all {1} working days of history ({2} finished tasks)",
   forecastDoneWithoutDate: "{0} done tasks have no completion date and are not counted.",

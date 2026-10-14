@@ -718,6 +718,8 @@ export const de: Record<TranslationKey, string> = {
   forecastInsufficientTitle: "Noch zu wenig Verlauf für eine Prognose",
   forecastInsufficient: "{0} von {1} erledigten Aufgaben – {2} weitere nötig",
   forecastInsufficientDays: "{0} von {1} Arbeitstagen Verlauf – {2} weitere nötig",
+  forecastInsufficientDaysCut:
+    "{0} von {1} Arbeitstagen Verlauf – {2} weitere nötig. Das Fenster wurde gekürzt und beginnt beim ersten Abschluss, {3}.",
   forecastBasis: "{0} Durchläufe über Ihre letzten {1} Arbeitstage ({2} erledigte Aufgaben)",
   forecastBasisAll: "{0} Durchläufe über alle {1} Arbeitstage Verlauf ({2} erledigte Aufgaben)",
   forecastDoneWithoutDate: "{0} erledigte Aufgaben ohne Abschlussdatum zählen nicht mit.",

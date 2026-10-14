@@ -10,6 +10,8 @@ export type ThroughputHistory = {
   finished: number;
   /** Done tasks with no usable completedDate; never part of `samples`. */
   doneWithoutDate: number;
+  /** A fixed window R14 shortened: it starts at the first completion (`days[0]`), not `window` days back. */
+  cutAtFirstCompletion: boolean;
 };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -89,5 +91,7 @@ export function dailyThroughput(args: {
     totals.set(c.day, prev + c.weight);
     finished += 1;
   }
-  return { samples: days.map((d) => totals.get(d) ?? 0), days, finished, doneWithoutDate };
+  // A fixed window always holds `window` days unless R14 cut it; an empty one has no first completion.
+  const cutAtFirstCompletion = window !== "all" && days.length > 0 && days.length < window;
+  return { samples: days.map((d) => totals.get(d) ?? 0), days, finished, doneWithoutDate, cutAtFirstCompletion };
 }

@@ -77,6 +77,16 @@ describe("computeScheduleForecast floor", () => {
     const fiveDays = steadyDays(5).flatMap((d, i) => [done(6000 + 2 * i, d), done(6001 + 2 * i, d)]);
     const r = computeScheduleForecast(input([...open(5), ...fiveDays], { window: 30 }));
     expect(r).toMatchObject({ kind: "insufficient", finished: 10, days: 5, neededDays: 10 });
+    // The view says the window was cut at the first completion; "all" always starts there, so it says nothing.
+    expect(r).toMatchObject({ windowCutAt: steadyDays(5)[0] });
+    expect(computeScheduleForecast(input([...open(5), ...fiveDays], { window: "all" }))).toMatchObject({ windowCutAt: null });
+  });
+
+  test("a fixed window short only of finished tasks, or with no completion at all, is not called cut", () => {
+    // 30 days back reach past the first completion only when it is younger: 3 old finishes keep the window whole.
+    const r = computeScheduleForecast(input([...open(5), done(7000, "2026-08-03"), ...recentDone(3)], { window: 30 }));
+    expect(r).toMatchObject({ kind: "insufficient", days: 30, windowCutAt: null });
+    expect(computeScheduleForecast(input(open(5), { window: 30 }))).toMatchObject({ kind: "insufficient", days: 0, windowCutAt: null });
   });
 
   test("insufficient carries the Done-without-date count", () => {

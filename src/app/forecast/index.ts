@@ -61,6 +61,8 @@ export type ForecastInsufficient = {
   days: number;
   neededDays: number;
   doneWithoutDate: number;
+  /** The first completion's day when R14 shortened a fixed window to start there, else null. */
+  windowCutAt: string | null;
 };
 
 export type ScheduleForecastResult = ScheduleForecast | ForecastInsufficient;
@@ -203,6 +205,7 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
       days: windowDays,
       neededDays: MIN_HISTORY_WORKING_DAYS,
       doneWithoutDate: history.doneWithoutDate,
+      windowCutAt: history.cutAtFirstCompletion ? history.days[0] : null,
     };
   }
 
