@@ -134,8 +134,10 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   currency, and multiplies the planner's money fields (`ROLE_FIELDS`, `BUCKET_FIELDS`, `costImpact`) by
   `rebaseFactor(history, capturedAt)`, round2, re-deriving a day role's hourly rates. Factor 1 → untouched;
   an unknown capture time converts nothing. Never `fixedPriceAmount` or `fxRateOverride`. A restore
-  appends no history entry and logs no currency row. ★ The compare view's diff is NOT converted, so it
-  can show a version's raw figure for a field the restore will write converted.
+  appends no history entry and logs no currency row. ★ A compare against NOW runs the same
+  conversion (`loadDiff`), so its rows, the selections built from them and the values written agree, and
+  no currency row appears; a version-to-version compare stays RAW (no single denomination). A capture
+  time missing from the loaded list falls back to factor 1 and logs `version.captureTimeUnknown`.
   ★ `sanitizeBaselineHistory` drops a `perPrevious` outside [1e-4, 1e4]: one absurd entry would push
   `rebaseFactor` to Infinity or 0 for every earlier record.
 - ★★★ **STORED HISTORY IS NEVER REWRITTEN; IT IS REBASED AT READ TIME.** Snapshots and

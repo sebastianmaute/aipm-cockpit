@@ -30,7 +30,7 @@ export interface UseVersionHistoryArgs {
   /** §476 — applied to the parsed VERSION before it is diffed and merged, with its capture time
    *  (null when the version is not in the loaded list). The wiring passes `prepareRestoredVersion`:
    *  version money is converted into the current currency, and `plan.currency` never changes. */
-  prepareVersion?: (version: Workspace, capturedAt: string | null) => Workspace;
+  prepareVersion: (version: Workspace, capturedAt: string | null) => Workspace;
   logActivity?: (kind: "history.restore", ...args: (string | number)[]) => void;
 }
 
@@ -257,6 +257,16 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     [writeVersion],
   );
 
+  // §476 — a version compared or restored against NOW is first brought into the current
+  // denomination (`prepareVersion`), so the compare rows, the selections built from them and the
+  // values a restore writes all come from the same converted version. A missing capture time
+  // falls back to factor 1 and is logged.
+  const prepareAgainstNow = useCallback((parsed: Workspace, versionId: string): Workspace => {
+    const capturedAt = versions.find((v) => v.id === versionId)?.capturedAt ?? null;
+    if (capturedAt === null) logDiag("warn", "version.captureTimeUnknown", { versionId });
+    return prepareVersion(parsed, capturedAt);
+  }, [versions, prepareVersion]);
+
   const restore = useCallback(async (versionId: string, selection: RestoreSelection, versionLabel: string): Promise<boolean> => {
     if (!active) return false;
     const count = Object.keys(selection).length;
@@ -273,9 +283,7 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       // misleading diff but a wipe: every live record reads as "added" and the
       // restore deletes it. `emptyWorkspace()` carries the nine core lists as
       // `[]`, so the absent-key guard below cannot catch that shape.
-      const parsed = jsonToWorkspace(verStr, { strict: true });
-      const capturedAt = versions.find((v) => v.id === versionId)?.capturedAt ?? null;
-      const version = prepareVersion ? prepareVersion(parsed, capturedAt) : parsed;
+      const version = prepareAgainstNow(jsonToWorkspace(verStr, { strict: true }), versionId);
       const now = jsonToWorkspace(getPayload());
       const speaks = speaksForEmptySlices(readCaptureFormat(verStr));
       const changes = diffWorkspaces(version, now, { olderSpeaksForEmptySlices: speaks });
@@ -290,7 +298,7 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       logActivity?.("history.restore", count, versionLabel);
       return true;
     } catch (err) { onError?.(err); return false; }
-  }, [active, config, projectId, getPayload, capturePayload, applyWorkspace, prepareVersion, logActivity, onError, versions]);
+  }, [active, config, projectId, getPayload, capturePayload, applyWorkspace, prepareAgainstNow, logActivity, onError]);
 
   const loadDiff = useCallback(async (fromId: string, to: string | "now"): Promise<VersionChange[]> => {
     if (!active) return [];
@@ -311,8 +319,11 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         // STRICT parse: a truncated/malformed payload THROWS here instead of
         // silently degrading to an empty workspace (which would render a
         // misleading "everything added" diff). Surfaced as compareParseFailed.
+        // ★ Only a vs-NOW compare is converted. A version-to-version compare stays RAW: the two
+        // sides have no single denomination to convert into, and nothing is restored from it.
+        const older = jsonToWorkspace(fromStr, { strict: true });
         return diffWorkspaces(
-          jsonToWorkspace(fromStr, { strict: true }),
+          to === "now" ? prepareAgainstNow(older, fromId) : older,
           jsonToWorkspace(toStr, { strict: true }),
           { olderSpeaksForEmptySlices: speaksForEmptySlices(readCaptureFormat(fromStr)) },
         );
@@ -334,7 +345,7 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       onError?.(err);
       return [];
     }
-  }, [active, config, projectId, getPayload, onError]);
+  }, [active, config, projectId, getPayload, prepareAgainstNow, onError]);
 
   useEffect(
     () => () => {
