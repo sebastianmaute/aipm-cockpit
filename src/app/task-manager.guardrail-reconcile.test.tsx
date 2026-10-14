@@ -639,3 +639,69 @@ describe("task-manager → the evaluated scope handed to reconcileInsights", () 
     expectFrozen(goneInsight);
   }, TEST_MS);
 });
+
+// §699 — the closed-month guardrail through the runner. Ann is TimeLog user 7;
+// September 2026 was closed with 8h on the 12th and the 15th.
+describe("task-manager → timelogClosedMonth", () => {
+  const CLOSED_KEY = "timelog:timelogClosedMonth:7";
+  const SEPT_DAYS = { firstViolationDate: "2026-09-12", lastViolationDate: "2026-09-19" };
+  const cell = (hours: number) => ({ hours, maxEntryHours: hours, entryCount: 1 });
+  /** September as booked at close time, and again when nothing changed. */
+  const rollUnchanged: TimelogDailyRoll = {
+    ...roll,
+    [dailyKey(7, "2026-09-12")]: cell(8),
+    [dailyKey(7, "2026-09-15")]: cell(8),
+  };
+  /** The 12th was lowered to 6h after the close. */
+  const rollChanged: TimelogDailyRoll = { ...rollUnchanged, [dailyKey(7, "2026-09-12")]: cell(6) };
+  const closedLinks = (withClose: boolean): TimelogLinks => ({
+    ...links,
+    userLinks: [{ timelogUserId: 7, resourceId: 40, manual: true }],
+    ...(withClose
+      ? { close: { through: "2026-09", saved: { "2026-09": { "7": { "2026-09-12": 8, "2026-09-15": 8 } } } } }
+      : {}),
+  });
+  const closedInsight = acted({
+    id: 20,
+    key: CLOSED_KEY,
+    type: "timelogClosedMonth",
+    count: 1,
+    data: { person: "#7", count: 1, worstHours: 2, threshold: 0, netHours: -2, ...SEPT_DAYS, timelogUserId: 7 },
+  });
+
+  it("raises a flag for a late change", async () => {
+    seedCache({ daily: rollChanged });
+    await mountAndReconcile([], closedLinks(true));
+    await waitFor(() => expect(cellFor(CLOSED_KEY)[1]).toBe("active"), { timeout: RECONCILE_MS });
+  }, TEST_MS);
+
+  it("clears after the month is reopened", async () => {
+    seedCache({ daily: rollChanged });
+    await mountAndReconcile([closedInsight], closedLinks(false));
+    expectResolved(CLOSED_KEY);
+  }, TEST_MS);
+
+  it("clears when the change is reverted over a covering roll", async () => {
+    seedCache({ daily: rollUnchanged });
+    await mountAndReconcile([closedInsight], closedLinks(true));
+    expectResolved(CLOSED_KEY);
+  }, TEST_MS);
+
+  it("freezes when the window covers the changed days but not the whole month", async () => {
+    seedCache({ daily: rollUnchanged, dailyWindow: { from: "2026-09-12", to: "2026-09-30" } });
+    await mountAndReconcile([closedInsight], closedLinks(true));
+    expectFrozen(closedInsight);
+  }, TEST_MS);
+
+  it("freezes on a partial fetch", async () => {
+    seedCache({ daily: rollUnchanged, partial: true });
+    await mountAndReconcile([closedInsight], closedLinks(true));
+    expectFrozen(closedInsight);
+  }, TEST_MS);
+
+  it("freezes when the person is missing from dailyUsers", async () => {
+    seedCache({ daily: rollUnchanged, dailyUsers: [8, 9] });
+    await mountAndReconcile([closedInsight], closedLinks(true));
+    expectFrozen(closedInsight);
+  }, TEST_MS);
+});

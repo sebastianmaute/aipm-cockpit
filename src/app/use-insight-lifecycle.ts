@@ -26,7 +26,7 @@ import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile
 import type { Insight, InsightType } from "./insights/insight";
 import { loadLandingState } from "./landing-state";
 import { loadActualsCache } from "./timelog-actuals-store";
-import { evaluateTimelogPolicy } from "./timelog-policy";
+import { closedMonthCertifies, evaluateTimelogPolicy } from "./timelog-policy";
 import { metricAtActionPatch } from "./insights/outcome";
 import { applyInsightLoggedAsRaid } from "./insights/log-as-raid";
 
@@ -152,10 +152,9 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         shifts,
         absences,
         resources,
-        // §699 — the close is withheld until `isEvaluated` certifies the
-        // closed-month rule per person (`closedMonthCertifies`). With
-        // `close: null` the rule is a certain clean and mints nothing.
-        close: null,
+        // §699 — the stored close. `isEvaluated` below certifies the
+        // closed-month rule per person (`closedMonthCertifies`).
+        close: timelogLinks?.close ?? null,
         partial: rollPartial,
         dailyWindow: actuals?.dailyWindow,
         dailyUsers: actuals?.dailyUsers,
@@ -197,6 +196,25 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         // The policy module's OWN report, never the rules that happened to
         // yield violations and never every rule unconditionally.
         if (!evaluatedRules.has(insight.type)) return false;
+        // §699 — decided on its own: it is a per-MONTH question, so the generic
+        // day-window test below would clear a flag over a month the roll only
+        // partly covers. A missing date or user id freezes, as everywhere here.
+        if (insight.type === "timelogClosedMonth") {
+          const from = insight.data.firstViolationDate;
+          const to = insight.data.lastViolationDate;
+          const person = insight.data.timelogUserId;
+          if (typeof from !== "string" || typeof to !== "string" || typeof person !== "number") return false;
+          return closedMonthCertifies({
+            first: from,
+            last: to,
+            userId: person,
+            close: timelogLinks?.close ?? null,
+            closedMonthsCovered: policyResult.closedMonthsCovered,
+            partial: rollPartial,
+            dailyUsers: rollUsers,
+            linkedUsers: policyResult.linkedUsers,
+          });
+        }
         // A `partial` fetch is missing whole people while every rule still
         // reports itself evaluated — a lost zero, not a real one.
         if (rollPartial) return false;
