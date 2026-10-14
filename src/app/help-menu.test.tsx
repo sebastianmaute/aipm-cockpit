@@ -60,6 +60,13 @@ describe("HelpMenu floating panel", () => {
     expect(guide.compareDocumentPosition(license) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("lets the footer's links wrap, so a narrow panel never scrolls sideways (§713)", () => {
+    render(<HelpMenu lang="en-US" />);
+    openPanel();
+    const footer = screen.getByRole("link", { name: "Installation & setup guide ↗" }).parentElement!;
+    expect(footer.className.split(/\s+/)).toContain("flex-wrap");
+  });
+
   // The panel is drag-resizable and persists its size, so a dragged-oversize
   // window had no way back to the default — every other resizable surface
   // carries this control.

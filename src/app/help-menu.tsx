@@ -238,7 +238,7 @@ export function HelpMenu({
 
           <HelpContentPane lang={lang} query={query} readingLevel={settings.helpReadingLevel ?? "standard"} />
 
-          <div className="flex shrink-0 items-center justify-end gap-4 border-t border-line px-4 py-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1 border-t border-line px-4 py-2">
             {onLoadDemo && (
               <Button variant="ghost" size="xs" onClick={onLoadDemo}>{t(lang, "helpExploreDemo")}</Button>
             )}
