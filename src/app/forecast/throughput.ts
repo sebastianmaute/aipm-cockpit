@@ -1,0 +1,78 @@
+import type { Task } from "../types";
+import { isWorkingDay, nthWorkingDayAfter, workingDaysBefore, workingDaysInRange } from "../working-days";
+import type { ForecastUnit, HistoryWindow } from "./constants";
+
+export type ThroughputHistory = {
+  /** Completions (or estimated minutes) per working day, zero days kept. */
+  samples: number[];
+  days: string[];
+  /** Completions that landed inside the window. */
+  finished: number;
+  /** Done tasks with no usable completedDate; never part of `samples`. */
+  doneWithoutDate: number;
+};
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isValidIsoDate(s: string | undefined): s is string {
+  if (typeof s !== "string" || !ISO_DATE.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
+/** The working day a completion counts on, or null when it is dropped. */
+function attributedDay(completed: string, today: string, holidaySet: ReadonlySet<string>): string | null {
+  const day = isWorkingDay(completed, holidaySet) ? completed : nthWorkingDayAfter(completed, 1, holidaySet);
+  if (day <= today) return day;
+  return isWorkingDay(today, holidaySet) ? today : null;
+}
+
+function windowEnd(today: string, holidaySet: ReadonlySet<string>): string {
+  return isWorkingDay(today, holidaySet) ? today : workingDaysBefore(today, 1, holidaySet)[0];
+}
+
+function windowDays(
+  window: HistoryWindow,
+  today: string,
+  holidaySet: ReadonlySet<string>,
+  earliest: string | null,
+): string[] {
+  const end = windowEnd(today, holidaySet);
+  if (window === "all") return earliest === null ? [] : workingDaysInRange(earliest, end, holidaySet);
+  return isWorkingDay(today, holidaySet)
+    ? [...workingDaysBefore(today, window - 1, holidaySet), today]
+    : workingDaysBefore(today, window, holidaySet);
+}
+
+export function dailyThroughput(args: {
+  tasks: readonly Task[];
+  today: string;
+  window: HistoryWindow;
+  holidaySet: ReadonlySet<string>;
+  unit: ForecastUnit;
+}): ThroughputHistory {
+  const { tasks, today, window, holidaySet, unit } = args;
+  let doneWithoutDate = 0;
+  const completions: { day: string; weight: number }[] = [];
+  for (const t of tasks) {
+    if (t.status !== "Done") continue;
+    if (!t.completedDate) {
+      doneWithoutDate += 1;
+      continue;
+    }
+    if (!isValidIsoDate(t.completedDate) || t.completedDate > today) continue;
+    const day = attributedDay(t.completedDate, today, holidaySet);
+    if (day !== null) completions.push({ day, weight: unit === "effort" ? (t.originalEstimateMinutes ?? 0) : 1 });
+  }
+  const earliest = completions.reduce<string | null>((m, c) => (m === null || c.day < m ? c.day : m), null);
+  const days = windowDays(window, today, holidaySet, earliest);
+  const totals = new Map<string, number>(days.map((d) => [d, 0]));
+  let finished = 0;
+  for (const c of completions) {
+    const prev = totals.get(c.day);
+    if (prev === undefined) continue;
+    totals.set(c.day, prev + c.weight);
+    finished += 1;
+  }
+  return { samples: days.map((d) => totals.get(d) ?? 0), days, finished, doneWithoutDate };
+}

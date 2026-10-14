@@ -1,0 +1,102 @@
+import { describe, expect, test } from "vitest";
+import type { Task } from "../types";
+import type { HistoryWindow } from "./constants";
+import { dailyThroughput } from "./throughput";
+
+// 2026-10-14 is a Wednesday. 2026-10-12 (Mon) is a holiday in this fixture.
+const TODAY = "2026-10-14";
+const HOLIDAYS: ReadonlySet<string> = new Set(["2026-10-12"]);
+
+function task(over: Partial<Task>): Task {
+  return { id: 1, title: "t", status: "Done", ...over } as Task;
+}
+function done(id: number, completedDate: string, minutes?: number): Task {
+  return task({ id, status: "Done", completedDate, originalEstimateMinutes: minutes });
+}
+// Short windows (5, 3) keep the fixtures small; the engine takes any day count.
+function run(tasks: Task[], window: number | "all" = 5, unit: "tasks" | "effort" = "tasks", today = TODAY) {
+  return dailyThroughput({ tasks, today, window: window as HistoryWindow, holidaySet: HOLIDAYS, unit });
+}
+
+describe("dailyThroughput", () => {
+  test("counts Done tasks per working day and keeps zero days", () => {
+    // 5-day window ending Wed 14th: Oct 8, 9, 13, 14 are working; the 12th is a holiday -> 8,9,13,14 + 7
+    const h = run([done(1, "2026-10-13"), done(2, "2026-10-13"), done(3, "2026-10-14")]);
+    expect(h.samples).toHaveLength(5);
+    expect(h.samples.reduce((a, b) => a + b, 0)).toBe(3);
+    expect(h.samples).toContain(0);
+    expect(h.days[h.days.length - 1]).toBe(TODAY);
+    expect(h.finished).toBe(3);
+  });
+
+  test("excludes Cancelled tasks", () => {
+    const h = run([done(1, "2026-10-13"), task({ id: 2, status: "Cancelled", completedDate: "2026-10-13" })]);
+    expect(h.samples.reduce((a, b) => a + b, 0)).toBe(1);
+    expect(h.finished).toBe(1);
+  });
+
+  test("counts Done-without-date separately", () => {
+    const h = run([task({ id: 1, status: "Done", completedDate: undefined }), done(2, "2026-10-13")]);
+    expect(h.doneWithoutDate).toBe(1);
+    expect(h.samples.reduce((a, b) => a + b, 0)).toBe(1);
+  });
+
+  test("moves a Saturday completion to Monday", () => {
+    // Today Wed 14th, Saturday 10th -> next working day is Mon 12th (holiday) -> Tue 13th
+    const h = run([done(1, "2026-10-10")]);
+    expect(h.samples[h.days.indexOf("2026-10-13")]).toBe(1);
+    const noHoliday = dailyThroughput({ tasks: [done(1, "2026-10-10")], today: TODAY, window: 5 as HistoryWindow, holidaySet: new Set(), unit: "tasks" });
+    expect(noHoliday.samples[noHoliday.days.indexOf("2026-10-12")]).toBe(1);
+  });
+
+  test("moves a holiday completion to the next working day", () => {
+    const h = run([done(1, "2026-10-12")]);
+    expect(h.samples[h.days.indexOf("2026-10-13")]).toBe(1);
+  });
+
+  test("attributes a non-working completion after today to today when today works, else drops it", () => {
+    // Today Friday 16th; Saturday 17th is in the future -> invalid. Use today = Sat 17th instead.
+    const sat = run([done(1, "2026-10-17")], 5, "tasks", "2026-10-17");
+    expect(sat.finished).toBe(0);
+    // Completion on Sunday with today Monday: next working day is today, counted there.
+    const mon = run([done(1, "2026-10-18")], 5, "tasks", "2026-10-19");
+    expect(mon.samples[mon.days.indexOf("2026-10-19")]).toBe(1);
+  });
+
+  test("ignores invalid and future completedDate", () => {
+    const h = run([done(1, "2026-10-15"), done(2, "garbage"), done(3, "2026-13-45"), done(4, "")]);
+    expect(h.samples.reduce((a, b) => a + b, 0)).toBe(0);
+    expect(h.finished).toBe(0);
+    // A blank string is no date at all, so it is the Done-without-date case, not an invalid one.
+    expect(h.doneWithoutDate).toBe(1);
+  });
+
+  test("effort unit sums originalEstimateMinutes", () => {
+    const h = run([done(1, "2026-10-13", 60), done(2, "2026-10-13", 30), done(3, "2026-10-14")], 5, "effort");
+    expect(h.samples.reduce((a, b) => a + b, 0)).toBe(90);
+    expect(h.finished).toBe(3);
+  });
+
+  test("window 'all' starts at the first completion", () => {
+    const h = run([done(1, "2026-10-08"), done(2, "2026-10-14")], "all");
+    expect(h.days[0]).toBe("2026-10-08");
+    expect(h.days[h.days.length - 1]).toBe(TODAY);
+    expect(h.samples.reduce((a, b) => a + b, 0)).toBe(2);
+  });
+
+  test("excludes completions older than the window", () => {
+    const h = run([done(1, "2026-09-01"), done(2, "2026-10-14")]);
+    expect(h.finished).toBe(1);
+  });
+
+  test("a non-working today ends the window on the previous working day", () => {
+    const h = run([done(1, "2026-10-16")], 3, "tasks", "2026-10-17");
+    expect(h.days).toEqual(["2026-10-14", "2026-10-15", "2026-10-16"]);
+    expect(h.samples).toEqual([0, 0, 1]);
+  });
+
+  test("window 'all' with no completions yields an empty history", () => {
+    const h = run([], "all");
+    expect(h).toEqual({ samples: [], days: [], finished: 0, doneWithoutDate: 0 });
+  });
+});
