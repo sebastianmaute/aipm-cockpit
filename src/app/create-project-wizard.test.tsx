@@ -219,6 +219,31 @@ describe("CreateProjectWizard", () => {
     expect(opts.features).toContain("trends");
   });
 
+  // §707 — Step 3 shows what Time bookings uses and Turn on writes into the WIZARD's own
+  // selection (not a stored setting), which Create then reports.
+  it("Step 3 offers Turn on for a missing module and Create reports the updated selection", () => {
+    const { onCreate } = setup();
+    completeStep1();
+    fireEvent.click(screen.getByRole("button", { name: /choose functions yourself/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    // Blank starts with every module on; take Budget off while Time bookings stays on.
+    const budget = screen.getByRole("checkbox", { name: "Budget" }) as HTMLInputElement;
+    fireEvent.click(budget);
+    expect(budget.checked).toBe(false);
+    expect((screen.getByRole("checkbox", { name: "Time bookings" }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole("status")).toHaveTextContent("Budget is off.");
+
+    fireEvent.click(screen.getByRole("button", { name: "Turn on Budget" }));
+    expect(budget.checked).toBe(true);
+    expect(screen.queryByRole("status")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create project" }));
+    const [, , opts] = onCreate.mock.calls[0];
+    expect(opts.features).toContain("budget");
+    expect(opts.features).toContain("timelog");
+  });
+
   // open-followups §55 (WCAG 1.4.1). The selected template was signalled by a
   // green border + tint ALONE, which measured 1.53-1.88:1 against the
   // unselected border in all four LIGHT schemes. The marker is the non-colour

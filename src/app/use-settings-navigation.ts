@@ -4,7 +4,19 @@
 // modern layout has a Settings view with sections, reached by a deep-link
 // request carrying a monotonic nonce; the classic layout has no Settings view,
 // only the header `SettingsMenu` popover, whose open state is owned here.
-// Extracted from task-manager.tsx (§491); move-only.
+// Extracted from task-manager.tsx (§491). The logic is move-only; the RETURN is not: it hands
+// task-manager ready prop bags (below), because task-manager has no line to spare for a
+// destructure of eleven names.
+//
+// ★ What it returns is exactly what task-manager reads: three handlers it uses directly
+// (`onOpenSettingsSection`, `onOpenSettings`, `openProjectFunctions`) and three bags it spreads
+// onto a props object (`workspaceNav`, `classicMenu`, `sectionProps`). The raw state and clearers
+// are NOT returned; tests reach them through the bags, the same way a consumer does.
+//
+// §706 — it also owns the OTHER "go and open X" request that Settings makes: Settings -> Functions
+// opens Edit project focused on its Functions part (`openProjectFunctions`). That request is a
+// monotonic number (`null` = none) the Projects view consumes; it is state HERE, not in
+// task-manager, because task-manager has no line to spare.
 //
 // ★ It keeps the inline `useCallback` memoization on purpose, against
 // Extraction convention 1 (non-memoized handlers): `clearSettingsSectionRequest`
@@ -21,10 +33,12 @@ import type { Settings } from "./settings-types";
 export interface SettingsNavigationDeps {
   layout: Settings["layout"];
   setActiveTab: Dispatch<SetStateAction<AppView>>;
+  /** A popout window gets no section opener in `workspaceNav` (it has no Settings to open). */
+  isPopout: boolean;
 }
 
 export function useSettingsNavigation(deps: SettingsNavigationDeps) {
-  const { layout, setActiveTab } = deps;
+  const { layout, setActiveTab, isPopout } = deps;
 
   // Deep-link the Action Center's "Learning is ON/OFF" pill to the Next-actions
   // settings section (where the learning controls live) — not the bare Settings
@@ -65,14 +79,34 @@ export function useSettingsNavigation(deps: SettingsNavigationDeps) {
   const onOpenLearningSettings = useCallback(() => onOpenSettingsSection("nextActions"), [onOpenSettingsSection]);
   const clearSettingsSectionRequest = useCallback(() => setSettingsSectionRequest(undefined), []);
 
-  return {
-    settingsSectionRequest,
-    clearSettingsSectionRequest,
-    isClassicLayout,
-    classicSettingsOpen,
-    setClassicSettingsOpen,
-    onOpenSettingsSection,
-    onOpenSettings,
+  // §706 — "open this project's functions". The Projects view MOUNTS FRESH after the view switch, so
+  // the request is a monotonic NUMBER the panel seeds its last-seen value against with a sentinel
+  // (AGENTS.md "Remount-swallow"), and the panel calls the clear callback once it has acted.
+  // The counter lives in a ref and is never reset, so a request after a consumed one is distinct.
+  const [projectFunctionsRequest, setProjectFunctionsRequest] = useState<number | null>(null);
+  const projectFunctionsNonceRef = useRef(0);
+  const openProjectFunctions = useCallback(() => {
+    projectFunctionsNonceRef.current += 1;
+    setProjectFunctionsRequest(projectFunctionsNonceRef.current);
+    setActiveTab("projects");
+  }, [setActiveTab]);
+  const clearProjectFunctionsRequest = useCallback(() => setProjectFunctionsRequest(null), []);
+
+  // ★ Ready-made prop bags: task-manager spreads these instead of destructuring eleven names and
+  // folding the popout gate into a long line. Each bag's keys are the PROP names its consumer
+  // takes, so a call site cannot rename one by accident. Rebuilt each render; the members are the
+  // stable callbacks above, so no consumer sees a changed identity.
+  const workspaceNav = {
     onOpenLearningSettings,
+    onOpenSettingsSection: isPopout ? undefined : onOpenSettingsSection,
+    projectFunctionsRequest,
+    onProjectFunctionsRequestConsumed: clearProjectFunctionsRequest,
   };
+  const classicMenu = {
+    settingsMenuOpen: isClassicLayout && classicSettingsOpen,
+    onSettingsMenuOpenChange: setClassicSettingsOpen,
+  };
+  const sectionProps = { requestSection: settingsSectionRequest, onSectionConsumed: clearSettingsSectionRequest };
+
+  return { workspaceNav, classicMenu, sectionProps, onOpenSettingsSection, onOpenSettings, openProjectFunctions };
 }

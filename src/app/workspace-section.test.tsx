@@ -4,7 +4,7 @@ import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 import type React from "react";
-import { WorkspaceProvider } from "./workspace-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 import { FiltersProvider, useFilters } from "./filters-context";
@@ -23,6 +23,9 @@ import type { FeatureModuleId } from "./feature-modules";
 import type { SuggestedAction } from "./next-actions/types";
 import { groupNextActions, pickHeroGroup } from "./next-actions/group";
 import { t } from "./i18n";
+import { markDemoBannerDone } from "./demo-banner-state";
+import { DEMO_SAMPLE_CODE } from "./demo-project";
+import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 
 vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
@@ -691,6 +694,57 @@ describe("WorkspaceSection — demo entry on the Projects panel", () => {
   });
 });
 
+// §707 — TimelogPanel is mocked in this file, so its notice cannot render; the contract the notice
+// depends on is the two props below: `features` (what is on) and `onCommitFeatures` (what Turn on
+// calls). Without the callback the notice is read-only, which is exactly the popout's behaviour.
+describe("WorkspaceSection — Time bookings features wiring", () => {
+  function Probe() {
+    const { setActiveTab } = useWorkspaceTab();
+    const { features } = useWorkspace();
+    return (
+      <>
+        <button data-testid="goto-timelog" onClick={() => setActiveTab("timelog")} />
+        <output data-testid="ws-features">{JSON.stringify(features ?? null)}</output>
+      </>
+    );
+  }
+  const renderAtTimelog = async () => {
+    timelogPanelMock.props.length = 0;
+    render(
+      <>
+        <Probe />
+        <WorkspaceSection {...makeProps()} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-timelog"));
+    await screen.findByTestId("timelog-panel");
+    return timelogPanelMock.props.at(-1)!;
+  };
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("hands TimelogPanel the live features and a callback that commits them to the workspace", async () => {
+    const props = await renderAtTimelog();
+    expect(props.features).toEqual(["dashboard", "trends", "gantt", "milestones", "resources", "budget", "raid", "changes", "stakeholders"]);
+    expect(typeof props.onCommitFeatures).toBe("function");
+    act(() => (props.onCommitFeatures as (next: FeatureModuleId[]) => void)(["timelog", "budget"]));
+    expect(screen.getByTestId("ws-features")).toHaveTextContent('["timelog","budget"]');
+  });
+
+  // Mutation: dropping the `isPopout ? undefined :` guard turns this red.
+  it("omits the commit callback in a popout, but still passes the features", async () => {
+    // "timelog" is not a popout slug; any valid one makes `isPopout` true, and the test then
+    // navigates to the tab itself.
+    window.history.replaceState(null, "", "/?popout=budget");
+    const props = await renderAtTimelog();
+    expect(props.onCommitFeatures).toBeUndefined();
+    expect(Array.isArray(props.features)).toBe(true);
+  });
+});
+
 describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
   // Full `Settings`-shaped fixture (same minimal shape the module-disabled
   // test above builds) with Turso credentials configured under
@@ -1300,5 +1354,110 @@ describe("§1 — ResourcesPanel receives stable handler identities", () => {
     held(7, null);
     expect(second.onReassignTask).toHaveBeenCalledWith(7, null);
     expect(first.onReassignTask).not.toHaveBeenCalled();
+  });
+});
+
+describe("WorkspaceSection — the dashboard demo banner (§712)", () => {
+  function TabProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-dashboard" onClick={() => setActiveTab("dashboard")} />;
+  }
+  // The popout case starts on a popout-capable tab and navigates to the dashboard, so it is
+  // the popout gate and not the starting view that hides the banner.
+  const renderAtDashboard = (onLoadDemo: (() => void) | undefined) => {
+    render(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps({ onLoadDemo })} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-dashboard"));
+  };
+  const TEXT = () => t("en-US", "demoBannerText");
+
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => {
+    window.localStorage.clear();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("shows above the dashboard and Explore calls onLoadDemo", () => {
+    const onLoadDemo = vi.fn();
+    renderAtDashboard(onLoadDemo);
+    expect(screen.getByText(TEXT())).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "demoBannerExplore") }));
+    expect(onLoadDemo).toHaveBeenCalledTimes(1);
+  });
+
+  it("is hidden in a popout, even with the handler", () => {
+    window.history.replaceState(null, "", "/?popout=budget");
+    renderAtDashboard(vi.fn());
+    expect(screen.queryByText(TEXT())).toBeNull();
+  });
+
+  it("is hidden without a demo handler", () => {
+    renderAtDashboard(undefined);
+    expect(screen.queryByText(TEXT())).toBeNull();
+  });
+
+  it("is hidden when the local demo is refused: a browser-backed project and no usable Turso", () => {
+    saveRegistry(addProject(emptyRegistry(), { id: "p1", name: "Acme", code: "AC", storageConfig: { kind: "browser" } }, true));
+    renderAtDashboard(vi.fn());
+    expect(screen.queryByText(TEXT())).toBeNull();
+  });
+
+  it("stays hidden on a fresh mount once the demo was opened on this device", () => {
+    markDemoBannerDone();
+    renderAtDashboard(vi.fn());
+    expect(screen.queryByText(TEXT())).toBeNull();
+  });
+
+  it("M3: is hidden on the demo project itself", () => {
+    const currentProject = { name: "Acme pilot sandbox", code: DEMO_SAMPLE_CODE } as WorkspaceSectionProps["currentProject"];
+    render(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps({ onLoadDemo: vi.fn(), currentProject })} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-dashboard"));
+    expect(screen.queryByText(TEXT())).toBeNull();
+  });
+});
+
+describe("WorkspaceSection — the budget checklist offers the demo only where it can open (§712, M2)", () => {
+  function TabProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-budget" onClick={() => setActiveTab("budget")} />;
+  }
+  const renderAtBudget = async (onLoadDemo: () => void) => {
+    render(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps({ onLoadDemo })} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-budget"));
+    await screen.findByTestId("budget-panel");
+    return budgetPanelMock.props.at(-1)!;
+  };
+
+  beforeEach(() => {
+    budgetPanelMock.props.length = 0;
+    window.localStorage.clear();
+  });
+  afterEach(() => window.localStorage.clear());
+
+  it("passes the demo handler when the demo can open", async () => {
+    const onLoadDemo = vi.fn();
+    expect((await renderAtBudget(onLoadDemo)).onLoadDemo).toBe(onLoadDemo);
+  });
+
+  it("withholds it when the local demo is refused: a browser-backed project and no usable Turso", async () => {
+    saveRegistry(addProject(emptyRegistry(), { id: "p1", name: "Acme", code: "AC", storageConfig: { kind: "browser" } }, true));
+    expect((await renderAtBudget(vi.fn())).onLoadDemo).toBeUndefined();
   });
 });

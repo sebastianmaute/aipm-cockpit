@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { t, tPlural, type Lang, type TranslationKey } from "./i18n";
 import { FieldError, FieldNotice } from "./field-feedback";
 import { FieldHint } from "./field-hint";
@@ -18,6 +18,7 @@ import { saveSecretValue } from "./use-secrets";
 import { removeSealed } from "./secrets-store";
 import { listUsers, getPrivileges } from "./timelog-api";
 import { effectiveTimelogConfig } from "./timelog-sanitize";
+import { parseTimelogAddress } from "./timelog-address";
 import { FOCUS_RING } from "./interaction-styles";
 import { Button } from "./button";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
@@ -57,6 +58,38 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
   const [testing, setTesting] = useState(false);
   const set = (patch: Partial<TimelogConfig>) => onChange({ ...config, ...patch });
   const tenantHintId = useId();
+  const tenantExplainId = useId();
+  const addressHintId = useId();
+  const addressErrorId = useId();
+  // ★ LOCAL ONLY (§704): the pasted address is never persisted and never
+  //   back-filled from the stored host/tenant — a pasted address is parsed into
+  //   `host` + `tenant` and then forgotten. Rendering a stored config therefore
+  //   calls `onChange` zero times.
+  const [addressDraft, setAddressDraft] = useState("");
+  // The error is for a field the user has LEFT or just pasted into: a full URL is invalid for as
+  // long as it is being typed, so focus and every typed change hide it, and blur or a paste (whose
+  // change event follows the paste event) show it.
+  const [showAddressError, setShowAddressError] = useState(false);
+  const pastedRef = useRef(false);
+  // The draft text last committed (by a paste or a blur). Blur commits only a draft that changed
+  // since then: the draft is never cleared, so re-committing it would write a stale tenant back over
+  // one edited under "Edit separately" since the paste (N1).
+  const committedDraftRef = useRef("");
+  const addressInvalid =
+    showAddressError && addressDraft.trim() !== "" && parseTimelogAddress(addressDraft) === null;
+  // Sticky (B1): open when values are stored, then user-controlled. Deriving it from the live
+  // values collapsed it under the cursor the moment both inputs were emptied. It opens (a) on a
+  // successful paste, so the result is visible, and (b) when stored values first APPEAR after
+  // mount (they can hydrate late) unless the user has closed it — a render-time reconcile, since
+  // set-state-in-effect is banned. Emptying the values never closes it.
+  const storedPresent = config.host.trim() !== "" || config.tenant.trim() !== "";
+  const [separateOpen, setSeparateOpen] = useState(storedPresent);
+  const [closedByUser, setClosedByUser] = useState(false);
+  const [seenStored, setSeenStored] = useState(storedPresent);
+  if (storedPresent !== seenStored) {
+    setSeenStored(storedPresent);
+    if (storedPresent && !closedByUser) setSeparateOpen(true);
+  }
   // The INPUT keeps showing the raw stored value (blank stays blank — typing
   // here always wins over the env, so editing must stay live); this only
   // decides whether to say a blank field currently falls back to the
@@ -72,6 +105,15 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
     errorId: emailErrorId,
   } = useEmailDraft(config.email);
 
+  // Writes the parsed host + tenant on paste or blur. An unparseable address writes nothing, and
+  // one that matches the stored values is not written again (a second blur, a re-paste).
+  function commitAddress(text: string) {
+    const parsed = parseTimelogAddress(text);
+    if (parsed === null) return;
+    if (parsed.host !== config.host || parsed.tenant !== config.tenant) set(parsed);
+    setSeparateOpen(true);
+  }
+
   function handleToken(value: string) {
     set({ apiToken: value, tokenInvalidAt: undefined });
     // §565: a blank token REMOVES the sealed record. Sealing "" left a ciphertext that
@@ -81,14 +123,20 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
   }
 
   async function test() {
+    // The input keeps showing the STORED (possibly blank) tenant, but the
+    // actual test call must use the same effective value the panel and the
+    // proxy would use — a blank stored tenant falls back to the deployment's
+    // NEXT_PUBLIC_TIMELOG_TENANT, never written back into `config`.
+    const effective = effectiveTimelogConfig(config);
+    if (effective.host.trim() === "") {
+      // No built-in host any more (§704): a blank host would only come back as a
+      // "missing credentials" 400, so say what to do instead of sending it.
+      setTestResult(t(lang, "timelogTestNoHost"));
+      return;
+    }
     setTesting(true);
     setTestResult(null);
     try {
-      // The input keeps showing the STORED (possibly blank) tenant, but the
-      // actual test call must use the same effective value the panel and the
-      // proxy would use — a blank stored tenant falls back to the deployment's
-      // NEXT_PUBLIC_TIMELOG_TENANT, never written back into `config`.
-      const effective = effectiveTimelogConfig(config);
       const creds = { host: effective.host, tenant: effective.tenant, token: effective.apiToken };
       const [users, priv] = await Promise.all([listUsers(creds), getPrivileges(creds)]);
       // The EFFECTIVE scope: auto is resolved first, so the message never reads "Auto-detect".
@@ -107,7 +155,12 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
         e instanceof Error && typeof (e as unknown as { status?: unknown }).status === "number"
           ? (e as unknown as { status: number }).status
           : 0;
-      setTestResult(t(lang, "timelogTestFail", String(status)));
+      // §704: a 404 is almost always a wrong region or tenant, not an outage.
+      setTestResult(
+        status === 404
+          ? t(lang, "timelogTest404", effective.tenant, effective.host)
+          : t(lang, "timelogTestFail", String(status)),
+      );
     } finally {
       setTesting(false);
     }
@@ -142,29 +195,84 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
             {t(lang, "timelogTokenHelpAfter")}
           </p>
           <label className="block text-xs">
-            {t(lang, "timelogHost")}
+            {t(lang, "timelogAddress")}
             <Input
               size="xs"
               className="mt-1 w-full"
-              value={config.host}
-              onChange={(e) => set({ host: e.target.value })}
+              value={addressDraft}
+              placeholder="https://app.timelog.com/acme/…"
+              onChange={(e) => {
+                const next = e.target.value;
+                const pasted = pastedRef.current;
+                setAddressDraft(next);
+                setShowAddressError(pasted);
+                pastedRef.current = false;
+                // M1: only a paste commits here. Every prefix of a typed address can parse
+                // (`…/a`, `…/ac`), so committing per keystroke replaced a working tenant mid-word.
+                if (pasted) {
+                  committedDraftRef.current = next;
+                  commitAddress(next);
+                }
+              }}
+              onFocus={() => setShowAddressError(false)}
+              onBlur={() => {
+                setShowAddressError(true);
+                if (addressDraft === committedDraftRef.current) return;
+                committedDraftRef.current = addressDraft;
+                commitAddress(addressDraft);
+              }}
+              onPaste={() => {
+                pastedRef.current = true;
+              }}
+              aria-invalid={addressInvalid ? true : undefined}
+              aria-describedby={addressInvalid ? `${addressHintId} ${addressErrorId}` : addressHintId}
             />
           </label>
-          <label className="block text-xs">
-            {t(lang, "timelogTenant")}
-            <Input
-              size="xs"
-              className="mt-1 w-full"
-              value={config.tenant}
-              onChange={(e) => set({ tenant: e.target.value })}
-              aria-describedby={tenantFromEnv ? tenantHintId : undefined}
-            />
-          </label>
-          {tenantFromEnv && (
-            <FieldHint id={tenantHintId} className="-mt-1">
-              {t(lang, "timelogTenantFromEnv")}
-            </FieldHint>
-          )}
+          <FieldHint id={addressHintId} className="-mt-1">
+            {t(lang, "timelogAddressHint")}
+          </FieldHint>
+          <FieldError id={addressErrorId}>{addressInvalid ? t(lang, "timelogAddressInvalid") : null}</FieldError>
+          <details
+            open={separateOpen}
+            onToggle={(e) => {
+              setSeparateOpen(e.currentTarget.open);
+              setClosedByUser(!e.currentTarget.open);
+            }}
+            className="text-xs"
+          >
+            <summary className={`cursor-pointer text-muted-foreground ${FOCUS_RING}`}>
+              {t(lang, "timelogAddressEditSeparately")}
+            </summary>
+            <div className="mt-2 flex flex-col gap-2">
+              <label className="block text-xs">
+                {t(lang, "timelogHost")}
+                <Input
+                  size="xs"
+                  className="mt-1 w-full"
+                  value={config.host}
+                  onChange={(e) => set({ host: e.target.value })}
+                />
+              </label>
+              <label className="block text-xs">
+                {t(lang, "timelogTenant")}
+                <Input
+                  size="xs"
+                  className="mt-1 w-full"
+                  value={config.tenant}
+                  onChange={(e) => set({ tenant: e.target.value })}
+                  aria-describedby={tenantFromEnv ? `${tenantExplainId} ${tenantHintId}` : tenantExplainId}
+                />
+              </label>
+              <FieldHint id={tenantExplainId} className="-mt-1">
+                {t(lang, "timelogTenantHint")}
+              </FieldHint>
+              {tenantFromEnv && (
+                <FieldHint id={tenantHintId} className="-mt-1">
+                  {t(lang, "timelogTenantFromEnv")}
+                </FieldHint>
+              )}
+            </div>
+          </details>
           <label className="block text-xs">
             {t(lang, "timelogEmail")}
             <Input

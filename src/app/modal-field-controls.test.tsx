@@ -85,6 +85,19 @@ describe("ModalFieldControls popover", () => {
     expect(nameBox).toBeChecked();
   });
 
+  // §708 — the resource form always renders and enforces Email, so its picker checkbox must not
+  // pretend to control it.
+  it("disables the resource Email checkbox: the form always shows and requires it", () => {
+    render(<ModalFieldControls modalId="resource" lang={EN} />, { wrapper });
+    openPopover();
+    const emailBox = screen.getByRole("checkbox", { name: t(EN, "resourceEmail") });
+    expect(emailBox).toBeDisabled();
+    expect(emailBox).toBeChecked();
+    // Even the Simple tier keeps it (it is a simple-tier field), and a click cannot switch it off.
+    fireEvent.click(emailBox);
+    expect(emailBox).toBeChecked();
+  });
+
   it("labels the trigger Custom and checks no radio after a hand-toggle", () => {
     renderControls();
     openPopover();

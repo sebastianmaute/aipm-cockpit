@@ -24,6 +24,9 @@ export interface FeatureModule {
   views: readonly AppView[];
   /** The addable report this module unlocks, if any. */
   report?: AddableReportId;
+  /** Modules this one reads from. Informational only: turning this module on does not turn them on,
+   *  but the Functions picker and the module's own view say what is off (§707). */
+  uses?: readonly FeatureModuleId[];
 }
 
 export const FEATURE_MODULES: readonly FeatureModule[] = [
@@ -50,7 +53,7 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
   },
   { id: "history", labelKey: "navHistory", descKey: "historyModuleDesc", views: ["history"] },
   { id: "knowledge", labelKey: "navKnowledge", descKey: "knowledgeModuleDesc", views: ["knowledge"] },
-  { id: "timelog", labelKey: "navTimelog", descKey: "timelogModuleDesc", views: ["timelog"] },
+  { id: "timelog", labelKey: "navTimelog", descKey: "timelogModuleDesc", views: ["timelog"], uses: ["resources", "budget"] },
 ] as const;
 
 /** Views always present regardless of mode. */
@@ -80,6 +83,14 @@ export const ALL_MODULE_IDS: readonly FeatureModuleId[] = FEATURE_MODULES.map((m
 
 export type AppMode = "simple" | "modular" | "advanced";
 
+/** The i18n key of each mode's badge label. ONE copy: the wizard, the Functions picker
+ *  and the templates section all read it (it used to be pasted into each). */
+export const MODE_LABEL_KEY = {
+  simple: "modeSimple",
+  modular: "modeModular",
+  advanced: "modeAdvanced",
+} as const satisfies Record<AppMode, TranslationKey>;
+
 const MODULE_BY_ID = new Map<FeatureModuleId, FeatureModule>(
   FEATURE_MODULES.map((m) => [m.id, m]),
 );
@@ -105,8 +116,23 @@ export function deriveMode(features: readonly FeatureModuleId[]): AppMode {
   return "modular";
 }
 
+/** Set equality of two feature lists: order and duplicates do not count. Compares the
+ *  Set SIZES, not the array lengths, so a list with a repeated id is not "different". */
+export function sameFeatureSet(a: readonly FeatureModuleId[], b: readonly FeatureModuleId[]): boolean {
+  const left = new Set(a);
+  const right = new Set(b);
+  return left.size === right.size && [...left].every((id) => right.has(id));
+}
+
 export function isModuleEnabled(id: FeatureModuleId, features: readonly FeatureModuleId[]): boolean {
   return features.includes(id);
+}
+
+/** The modules `id` declares it uses that are not in `features`, in declaration order.
+ *  Empty when `id` declares none, or when `id` itself is off (nothing to warn about). */
+export function missingUses(id: FeatureModuleId, features: readonly FeatureModuleId[]): FeatureModuleId[] {
+  if (!features.includes(id)) return [];
+  return (MODULE_BY_ID.get(id)?.uses ?? []).filter((u) => !features.includes(u));
 }
 
 export function moduleForView(view: AppView): FeatureModuleId | null {

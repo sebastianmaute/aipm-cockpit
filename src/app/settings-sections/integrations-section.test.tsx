@@ -1101,3 +1101,104 @@ describe("§609 — a clear beats the Save & switch token seal", () => {
     expect(loadSealed("tursoAuthToken")).toBeNull();
   });
 });
+
+describe("§711 — Turso setup as numbered steps", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("renders the four-step list around the existing fields when Turso is enabled", () => {
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    const items = screen.getAllByRole("listitem").filter((li) => li.closest("ol"));
+    expect(items.length).toBeGreaterThanOrEqual(4);
+    const urlItem = screen.getByText(t("en-US", "tursoStepUrl")).closest("li");
+    const tokenItem = screen.getByText(t("en-US", "tursoStepToken")).closest("li");
+    const testItem = screen.getByText(t("en-US", "tursoStepTest")).closest("li");
+    expect(urlItem).toContainElement(screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")));
+    expect(tokenItem).toContainElement(screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")));
+    expect(testItem).toContainElement(
+      screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }),
+    );
+  });
+
+  it("names Apply in step 4 only on Turso storage, where the Apply button exists", () => {
+    const apply = t("en-US", "integrationsTursoApplyLabel");
+    const { unmount } = render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    expect(screen.getByText(t("en-US", "tursoStepTest"))).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: apply })).toBeNull();
+    unmount();
+    const onTurso = { ...tursoSettings(""), storageConfig: { kind: "turso" as const } };
+    render(<IntegrationsSection lang="en-US" settings={onTurso} onChange={() => {}} />);
+    expect(screen.getByText(t("en-US", "tursoStepTestApply"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: apply })).toBeInTheDocument();
+  });
+
+  it("does not render the list while Turso is disabled", () => {
+    render(<IntegrationsSection lang="en-US" settings={defaultSettings} onChange={() => {}} />);
+    expect(screen.queryByText(t("en-US", "tursoStepUrl"))).toBeNull();
+  });
+
+  it("marks the URL and token steps done from the typed values, and the test step after a pass", async () => {
+    const user = userEvent.setup();
+    vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+    const done = t("en-US", "tursoStepDone");
+    const itemOf = (key: "tursoStepUrl" | "tursoStepToken" | "tursoStepTest") =>
+      screen.getByText(t("en-US", key)).closest("li") as HTMLElement;
+    expect(itemOf("tursoStepUrl")).toHaveTextContent(done);
+    expect(itemOf("tursoStepToken")).toHaveTextContent(done);
+    expect(itemOf("tursoStepTest")).not.toHaveTextContent(done);
+    await user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+    await screen.findByText(t("en-US", "integrationsTursoTestOk"));
+    expect(itemOf("tursoStepTest")).toHaveTextContent(done);
+  });
+
+  it("counts an environment-supplied URL and token as done", () => {
+    vi.stubEnv("NEXT_PUBLIC_TURSO_DATABASE_URL", "libsql://env-db.turso.io");
+    vi.stubEnv("NEXT_PUBLIC_TURSO_AUTH_TOKEN", "env-tok");
+    render(<IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />);
+    const done = t("en-US", "tursoStepDone");
+    expect(screen.getByText(t("en-US", "tursoStepUrl")).closest("li")).toHaveTextContent(done);
+    expect(screen.getByText(t("en-US", "tursoStepToken")).closest("li")).toHaveTextContent(done);
+  });
+
+  // B5: the test step is a DERIVED comparison (tursoTestFresh), so an edit made after a pass must
+  // take the tick back, and a failure must never have given it.
+  describe("the test step's tick follows the tested credentials", () => {
+    const done = t("en-US", "tursoStepDone");
+    const testItem = () => screen.getByText(t("en-US", "tursoStepTest")).closest("li") as HTMLElement;
+    const runTest = async (user: ReturnType<typeof userEvent.setup>) =>
+      user.click(screen.getByRole("button", { name: t("en-US", "integrationsTursoTestLabel") }));
+
+    it("un-ticks after a passed test when the URL is edited", async () => {
+      const user = userEvent.setup();
+      vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+      render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+      await runTest(user);
+      await screen.findByText(t("en-US", "integrationsTursoTestOk"));
+      expect(testItem()).toHaveTextContent(done);
+      await user.type(screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")), "z");
+      expect(testItem()).not.toHaveTextContent(done);
+    });
+
+    it("un-ticks after a passed test when the token is edited", async () => {
+      const user = userEvent.setup();
+      vi.mocked(testTursoConnection).mockResolvedValueOnce(undefined);
+      render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+      await runTest(user);
+      await screen.findByText(t("en-US", "integrationsTursoTestOk"));
+      expect(testItem()).toHaveTextContent(done);
+      await user.type(screen.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")), "z");
+      expect(testItem()).not.toHaveTextContent(done);
+    });
+
+    it("stays un-ticked after a failed test", async () => {
+      const user = userEvent.setup();
+      vi.mocked(testTursoConnection).mockRejectedValueOnce(new StorageNotReadyError("turso-token-rejected"));
+      render(<IntegrationsSection lang="en-US" settings={tursoSettings("fake")} onChange={() => {}} />);
+      await runTest(user);
+      await screen.findByText(t("en-US", "integrationsTursoTestAuth"));
+      expect(testItem()).not.toHaveTextContent(done);
+    });
+  });
+});

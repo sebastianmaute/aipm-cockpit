@@ -2,83 +2,76 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ModeSection } from "./mode-section";
 import { defaultSettings } from "../settings-types";
-import { ALL_MODULE_IDS, type FeatureModuleId } from "../feature-modules";
-import { loadI18n, type Lang } from "../i18n";
-import { buttonClassFor } from "../../test/button-variant";
+import { loadI18n, t, type Lang } from "../i18n";
 
 beforeAll(async () => {
   await loadI18n("de");
 });
 
 function setup(
-  features = [...ALL_MODULE_IDS],
   settingsPatch: Partial<typeof defaultSettings> = {},
   lang: Lang = "en-US",
+  hasCurrentProject = true,
 ) {
-  const onCommit = vi.fn();
+  const onOpenProjectFunctions = vi.fn();
   const onChange = vi.fn();
   render(
     <ModeSection
       lang={lang}
-      settings={{ ...defaultSettings, features, ...settingsPatch }}
-      onCommitFeatures={onCommit}
+      settings={{ ...defaultSettings, ...settingsPatch }}
+      hasCurrentProject={hasCurrentProject}
+      onOpenProjectFunctions={onOpenProjectFunctions}
       onChange={onChange}
     />,
   );
-  return { onCommit, onChange };
+  return { onOpenProjectFunctions, onChange };
 }
 
-describe("ModeSection", () => {
-  // §102: the Simple and Advanced preset buttons are the shared secondary Button.
-  it("renders both preset buttons as the secondary Button", () => {
+describe("ModeSection pointer (§706)", () => {
+  it("explains that functions are chosen per project and offers the open button, without expert mode", () => {
     setup();
-    const expected = buttonClassFor({ variant: "secondary", size: "sm" });
-    expect(screen.getByRole("button", { name: "Apply Simple preset" }).className).toBe(expected);
-    expect(screen.getByRole("button", { name: "Apply Advanced preset" }).className).toBe(expected);
+    expect(screen.getByText("Functions are chosen per project.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open this project's functions" })).toBeEnabled();
   });
 
-  it("shows Advanced when all modules are on", () => {
-    setup([...ALL_MODULE_IDS]);
-    // The badge span carries data-testid="mode-badge"; the "Advanced" preset button also
-    // renders "Advanced", so we query the badge specifically.
-    expect(screen.getByTestId("mode-badge")).toHaveTextContent("Advanced");
+  it("the open button calls onOpenProjectFunctions", () => {
+    const { onOpenProjectFunctions } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Open this project's functions" }));
+    expect(onOpenProjectFunctions).toHaveBeenCalledTimes(1);
   });
 
-  it("Save is disabled until the draft differs, then commits the draft", () => {
-    const { onCommit } = setup([...ALL_MODULE_IDS]);
-    const save = screen.getByRole("button", { name: "Save" });
-    expect(save).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Apply Simple preset" })); // draft -> []
-    expect(save).toBeEnabled();
-    fireEvent.click(save);
-    expect(onCommit).toHaveBeenCalledWith([]);
+  it("the open button is disabled, with a described hint, when there is no current project", () => {
+    const { onOpenProjectFunctions } = setup({}, "en-US", false);
+    const button = screen.getByRole("button", { name: "Open this project's functions" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(t("en-US", "settingsFunctionsNoProject"));
+    fireEvent.click(button);
+    expect(onOpenProjectFunctions).not.toHaveBeenCalled();
   });
 
-  it("toggling one module off from Advanced yields Modular and commits the remaining set", () => {
-    const { onCommit } = setup([...ALL_MODULE_IDS]);
-    fireEvent.click(screen.getByRole("checkbox", { name: "RAID" })); // uncheck RAID
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    const committed = onCommit.mock.calls[0][0] as string[];
-    expect(committed).not.toContain("raid");
-    expect(committed.length).toBe(ALL_MODULE_IDS.length - 1);
-    expect(committed).toEqual(ALL_MODULE_IDS.filter((id) => id !== "raid"));
-  });
-
-  it("Discard resets the draft to saved (Save disabled again)", () => {
-    setup([...ALL_MODULE_IDS]);
-    fireEvent.click(screen.getByRole("button", { name: "Apply Simple preset" }));
-    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-  });
-
-  it("badge shows Modular when one module is unchecked", () => {
-    setup([...ALL_MODULE_IDS]);
-    fireEvent.click(screen.getByRole("checkbox", { name: "RAID" }));
-    expect(screen.getByTestId("mode-badge")).toHaveTextContent("Modular");
-  });
-
-  it("renders the version-history retention stepper with min/step bounds", () => {
+  it("no longer renders the presets, the module checkboxes or Save/Discard", () => {
     setup();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
+    expect(screen.queryByTestId("mode-badge")).toBeNull();
+  });
+
+  it("translates the pointer under German", () => {
+    setup({}, "de");
+    expect(screen.getByRole("button", { name: t("de", "settingsFunctionsOpen") })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open this project's functions" })).toBeNull();
+  });
+});
+
+describe("ModeSection version-history retention (expert only)", () => {
+  it("is absent without expert mode", () => {
+    setup();
+    expect(screen.queryByRole("spinbutton", { name: "Version history: keep" })).toBeNull();
+  });
+
+  it("renders the stepper with min/step bounds in expert mode", () => {
+    setup({ expertMode: true });
     const stepper = screen.getByRole("spinbutton", { name: "Version history: keep" });
     expect(stepper).toHaveAttribute("min", "50");
     expect(stepper).toHaveAttribute("step", "10");
@@ -86,7 +79,7 @@ describe("ModeSection", () => {
   });
 
   it("snaps the retention value to the nearest 10 and patches versionHistoryRetention", () => {
-    const { onChange } = setup();
+    const { onChange } = setup({ expertMode: true });
     const stepper = screen.getByRole("spinbutton", { name: "Version history: keep" });
     fireEvent.change(stepper, { target: { value: "63" } });
     expect(onChange).toHaveBeenCalledWith(
@@ -95,60 +88,11 @@ describe("ModeSection", () => {
   });
 
   it("clamps an over-max retention value to 1000", () => {
-    const { onChange } = setup();
+    const { onChange } = setup({ expertMode: true });
     const stepper = screen.getByRole("spinbutton", { name: "Version history: keep" });
     fireEvent.change(stepper, { target: { value: "9999" } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ versionHistoryRetention: 1000 }),
     );
-  });
-
-  it("re-seeds the draft from the new feature set when remounted on a project switch", () => {
-    // settings-view supplies a `key` derived from the active feature set, so a
-    // project switch remounts ModeSection and re-seeds its draft. Simulate that
-    // here: render with one set, then re-render with a new set AND a new key.
-    const projA: FeatureModuleId[] = ["raid"];
-    const projB: FeatureModuleId[] = ["budget"];
-    const props = { lang: "en-US" as const, onCommitFeatures: vi.fn(), onChange: vi.fn() };
-    const { rerender } = render(
-      <ModeSection
-        key={projA.join("|")}
-        settings={{ ...defaultSettings, features: projA }}
-        {...props}
-      />,
-    );
-    // Project A: RAID checked, Budget not.
-    expect(screen.getByRole("checkbox", { name: "RAID" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "Budget" })).not.toBeChecked();
-
-    rerender(
-      <ModeSection
-        key={projB.join("|")}
-        settings={{ ...defaultSettings, features: projB }}
-        {...props}
-      />,
-    );
-    // Project B's draft reflects the NEW set (Budget on, RAID off) — not stale.
-    expect(screen.getByRole("checkbox", { name: "Budget" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "RAID" })).not.toBeChecked();
-    // Save is disabled because the re-seeded draft matches the new saved set.
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-  });
-
-  it("translates the preset buttons' accessible names under German", () => {
-    setup([...ALL_MODULE_IDS], {}, "de");
-    expect(screen.getByRole("button", { name: "Einfaches Preset anwenden" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Erweitertes Preset anwenden" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Apply Simple preset" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Apply Advanced preset" })).not.toBeInTheDocument();
-  });
-});
-
-// §691/§690 — Save is the accent Button and Discard the secondary one, both md.
-describe("ModeSection Save and Discard", () => {
-  it("draw the shared Button", () => {
-    setup();
-    expect(screen.getByRole("button", { name: /^save/i }).className).toBe(buttonClassFor({ variant: "accent", size: "md" }));
-    expect(screen.getByRole("button", { name: /^discard/i }).className).toBe(buttonClassFor({ variant: "secondary", size: "md" }));
   });
 });

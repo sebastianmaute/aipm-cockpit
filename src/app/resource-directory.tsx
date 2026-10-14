@@ -10,6 +10,7 @@ import { type Lang, t, tPlural } from "./i18n";
 import { birthdayMonthDay } from "./birthdays";
 import { resourceDisplayName, roleLabel } from "./resource-foundation";
 import type { Discipline, Grade, Resource, Role } from "./types";
+import { hasMatchableEmail } from "./timelog-match";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { useRowTokens } from "./use-row-tokens";
@@ -490,7 +491,10 @@ function ResourceDirectoryInner({
                         seenAddr.add(key);
                         return true;
                       });
-                      if (emailList.length === 0) return "—";
+                      // §708 — Timelog bookings match on ANY of a person's addresses, so the marker shows only
+                      // when there is neither a primary nor a non-blank extra one: `hasMatchableEmail`, the
+                      // same rule the edit form's required email asks.
+                      if (!hasMatchableEmail(r)) return <span className="italic">{t(lang, "resourceNoEmailMarker")}</span>;
                       // ★ `key={addr}` is safe only as a CONSEQUENCE of the filter above:
                       // the dedupe is case-insensitive, so every survivor differs from
                       // every other case-insensitively, hence also exactly. Drop the

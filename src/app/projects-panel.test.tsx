@@ -66,14 +66,22 @@ const CURRENT_META: ProjectMeta = {
   regulatory: ["GDPR / data protection regulation"],
 };
 
-function setup(overrides: Partial<React.ComponentProps<typeof ProjectsPanel>> = {}) {
-  const onSwitch = vi.fn();
-  const onCreate = vi.fn();
-  const onUpdateCurrent = vi.fn();
-  const onDelete = vi.fn();
-  const onExportCurrent = vi.fn();
-  const onLoadFromFile = vi.fn();
-  render(
+type PanelProps = Partial<React.ComponentProps<typeof ProjectsPanel>>;
+
+function makeHandlers() {
+  return {
+    onSwitch: vi.fn(),
+    onCreate: vi.fn(),
+    onUpdateCurrent: vi.fn(),
+    onDelete: vi.fn(),
+    onExportCurrent: vi.fn(),
+    onLoadFromFile: vi.fn(),
+    onCommitFeatures: vi.fn(),
+  };
+}
+
+function panelElement(h: ReturnType<typeof makeHandlers>, overrides: PanelProps = {}) {
+  return (
     <ProjectsPanel
       projects={PROJECTS}
       currentProjectId="p1"
@@ -85,17 +93,27 @@ function setup(overrides: Partial<React.ComponentProps<typeof ProjectsPanel>> = 
       onChangeSettings={vi.fn()}
       lang="en-US"
       mode="file"
-      onSwitch={onSwitch}
-      onCreate={onCreate}
-      onUpdateCurrent={onUpdateCurrent}
-      onDelete={onDelete}
-      onExportCurrent={onExportCurrent}
-      onLoadFromFile={onLoadFromFile}
+      onSwitch={h.onSwitch}
+      onCreate={h.onCreate}
+      onUpdateCurrent={h.onUpdateCurrent}
+      onDelete={h.onDelete}
+      onExportCurrent={h.onExportCurrent}
+      onLoadFromFile={h.onLoadFromFile}
       onMigrateToTurso={vi.fn()}
+      features={["dashboard", "gantt"]}
+      onCommitFeatures={h.onCommitFeatures}
       {...overrides}
-    />,
+    />
   );
-  return { onSwitch, onCreate, onUpdateCurrent, onDelete, onExportCurrent, onLoadFromFile };
+}
+
+function setup(overrides: PanelProps = {}) {
+  const handlers = makeHandlers();
+  const utils = render(panelElement(handlers, overrides));
+  return {
+    ...handlers,
+    rerenderWith: (next: PanelProps) => utils.rerender(panelElement(handlers, next)),
+  };
 }
 
 // --- ProjectForm fill helpers (mirrors project-form.test.tsx) -------------
@@ -219,6 +237,87 @@ describe("ProjectsPanel", () => {
     );
     expect(onUpdateCurrent).toHaveBeenCalledTimes(1);
     expect(onUpdateCurrent.mock.calls[0][0].name).toBe("Apollo");
+  });
+
+  it("Save with changed functions calls onUpdateCurrent and onCommitFeatures (§706)", () => {
+    const { onUpdateCurrent, onCommitFeatures } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.click(dialog.getByRole("checkbox", { name: t("en-US", "navMilestones") }));
+    fireEvent.click(dialog.getByRole("button", { name: "Edit project" }));
+    expect(onUpdateCurrent).toHaveBeenCalledTimes(1);
+    expect(onCommitFeatures).toHaveBeenCalledTimes(1);
+    const next = onCommitFeatures.mock.calls[0][0] as string[];
+    expect(new Set(next)).toEqual(new Set(["dashboard", "gantt", "milestones"]));
+  });
+
+  it("Save with unchanged functions never calls onCommitFeatures (§706)", () => {
+    const { onUpdateCurrent, onCommitFeatures } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Edit project" }),
+    );
+    expect(onUpdateCurrent).toHaveBeenCalledTimes(1);
+    expect(onCommitFeatures).not.toHaveBeenCalled();
+  });
+
+  // §706 — Settings -> Functions deep-links here. The view switch MOUNTS the panel fresh, so a pending
+  // request must be honoured on the first render (AGENTS.md "Remount-swallow"), not only on a change.
+  it("a pending request on a FRESH mount opens Edit focused on Functions and is consumed once (§706)", async () => {
+    const onConsumed = vi.fn();
+    setup({ projectFunctionsRequest: 3, onProjectFunctionsRequestConsumed: onConsumed });
+    const dialog = within(screen.getByRole("dialog"));
+    const heading = dialog.getByRole("heading", { name: t("en-US", "editProjectFunctionsHeading") });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reopen on a re-render with the same request value after the dialog was closed (§706)", () => {
+    const onConsumed = vi.fn();
+    const props = { projectFunctionsRequest: 3, onProjectFunctionsRequestConsumed: onConsumed };
+    const { rerenderWith } = setup(props);
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    rerenderWith(props);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens again for a NEW request value (§706)", () => {
+    const onConsumed = vi.fn();
+    const { rerenderWith } = setup({ projectFunctionsRequest: 1, onProjectFunctionsRequestConsumed: onConsumed });
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    rerenderWith({ projectFunctionsRequest: 2, onProjectFunctionsRequestConsumed: onConsumed });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(onConsumed).toHaveBeenCalledTimes(2);
+  });
+
+  // The request is consumed even when it cannot be honoured, so it does not stay pending and
+  // fire later when a project appears.
+  it("a request with no current project opens nothing and is still consumed once (§706)", () => {
+    const onConsumed = vi.fn();
+    const props = { currentProject: undefined, currentProjectId: null, projectFunctionsRequest: 5, onProjectFunctionsRequestConsumed: onConsumed };
+    const { rerenderWith } = setup(props);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+    rerenderWith(props);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+    // ...and a project appearing later does not resurrect the spent request.
+    rerenderWith({ ...props, currentProject: CURRENT_META, currentProjectId: "p1" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("a null request opens nothing (§706)", () => {
+    setup({ projectFunctionsRequest: null, onProjectFunctionsRequestConsumed: vi.fn() });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("a plain open of Edit (no request) does not focus the Functions heading (§706)", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
+    const heading = within(screen.getByRole("dialog")).getByRole("heading", { name: t("en-US", "editProjectFunctionsHeading") });
+    expect(heading).not.toHaveFocus();
   });
 
   it("calls onExportCurrent with the chosen format from the export menu", () => {

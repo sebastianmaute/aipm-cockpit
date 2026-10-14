@@ -89,6 +89,21 @@ describe("useResourceQuickCreate — the picker's one-step create", () => {
     expect(deps.logActivity).toHaveBeenCalledWith("resource.created", 6, "Plato");
   });
 
+  // §708 — only the resource edit FORM requires an email; the picker's create stays one step.
+  it("still creates a person with no email (the required-email rule is the form's alone)", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useResourceQuickCreate(deps));
+    let id = 0;
+    act(() => {
+      id = result.current.handleCreateResource("Plato Acme", "");
+    });
+    expect(id).toBe(6);
+    const row = committed(deps, deps.resources)[2];
+    expect(row).toMatchObject({ id: 6, firstName: "Plato", lastName: "Acme" });
+    expect(row.email).toBeUndefined();
+    expect(deps.logActivity).toHaveBeenCalledWith("resource.created", 6, "Plato Acme");
+  });
+
   it("mints from the latest resource list after a rerender", () => {
     const deps = makeDeps();
     const { result, rerender } = renderHook((d: ResourceQuickCreateDeps) => useResourceQuickCreate(d), { initialProps: deps });

@@ -60,4 +60,20 @@ describe("useFeaturesSync", () => {
     // overwrite with the all-modules default.
     expect(updater({ features: ["raid"] }).features).toEqual([...ALL_MODULE_IDS]);
   });
+
+  // A5 — equality is by SET, so a stored list that merely repeats an id is not rewritten
+  // (an array-length comparison called [raid, raid] different from [raid] and queued an update).
+  it("returns the same settings object when the stored list is the target set with a repeated id", () => {
+    const setSettings = vi.fn();
+    const { getByText } = render(
+      <Providers>
+        <Harness setSettings={setSettings} />
+      </Providers>,
+    );
+    setSettings.mockClear();
+    act(() => getByText("set").click());
+    const updater = setSettings.mock.calls.at(-1)![0] as (s: { features: string[] }) => { features: string[] };
+    const stored = { features: ["raid", "raid"] };
+    expect(updater(stored)).toBe(stored);
+  });
 });
