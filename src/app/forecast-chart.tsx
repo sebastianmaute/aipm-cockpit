@@ -7,7 +7,7 @@
 
 import { type Lang, t } from "./i18n";
 import { localeFor } from "./date-format";
-import { formatDayMonth } from "./forecast-format";
+import { formatDayMonth, formatDayMonthYear } from "./forecast-format";
 import { formatWhen } from "./forecast-tables";
 import type { ScheduleForecast } from "./forecast";
 import { MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
@@ -46,6 +46,15 @@ export function weeklyBuckets(distribution: ArrayLike<number>): { weeks: number[
   return { weeks: weeks.length === 0 ? [0] : weeks, beyond };
 }
 
+/** Slack for float error in `slotX`, in viewBox units. */
+const EDGE_EPSILON = 0.5;
+
+/** A tick at either edge of the plot is anchored inward, so its label is not clipped. */
+function tickAnchor(x: number): "start" | "middle" | "end" {
+  if (x <= X0 + EDGE_EPSILON) return "start";
+  return x >= X1 - EDGE_EPSILON ? "end" : "middle";
+}
+
 export function ForecastChart({
   lang,
   forecast,
@@ -77,8 +86,14 @@ export function ForecastChart({
   if (beyond > 0) cumulative.push(`${slotX(beyondSlot + 1)},${y(1)}`);
 
   const tickEvery = Math.max(1, Math.ceil(weeks.length / MAX_X_TICKS));
-  const ticks = weeks.map((_, i) => i).filter((i) => i % tickEvery === 0);
   const locale = localeFor(lang);
+  const ticks = weeks
+    .map((_, i) => i)
+    .filter((i) => i % tickEvery === 0)
+    .map((i) => ({ i, x: slotX(i + 1), date: nthWorkingDayAfter(today, (i + 1) * WORKING_DAYS_PER_WEEK, holidaySet) }));
+  // Day and month alone are ambiguous once the axis runs into another calendar year.
+  const axisEnd = nthWorkingDayAfter(today, weeks.length * WORKING_DAYS_PER_WEEK, holidaySet);
+  const formatTick = axisEnd.slice(0, 4) !== today.slice(0, 4) ? formatDayMonthYear : formatDayMonth;
   const summary = t(lang, "forecastChartSummary", ...forecast.when.map((w) => formatWhen(w.date, lang)));
 
   return (
@@ -131,17 +146,17 @@ export function ForecastChart({
           );
         })}
         <line x1={X0} y1={Y_BOTTOM} x2={X1} y2={Y_BOTTOM} className="stroke-line" strokeWidth={1} aria-hidden="true" />
-        {ticks.map((i) => (
+        {ticks.map(({ i, x, date }) => (
           <text
             key={i}
             data-tick={i}
             aria-hidden="true"
-            x={slotX(i + 1)}
+            x={x}
             y={H - 8}
-            textAnchor="middle"
+            textAnchor={tickAnchor(x)}
             className="fill-muted-foreground text-[8px] tabular-nums"
           >
-            {formatDayMonth(nthWorkingDayAfter(today, (i + 1) * WORKING_DAYS_PER_WEEK, holidaySet), locale)}
+            {formatTick(date, locale)}
           </text>
         ))}
         {beyond > 0 && (
