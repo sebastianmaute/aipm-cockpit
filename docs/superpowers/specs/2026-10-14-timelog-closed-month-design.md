@@ -161,3 +161,24 @@ anchored write, and end on an empty `git diff --stat`.
 - CHANGELOG [Unreleased] entry.
 - Register §699 closed, with measurements and residues; the index rebuilt.
 - A "Closed months" subsection under "Timelog integration" in `docs/AGENTS/integrations.md`.
+
+## 9. Revision 2026-10-14: the close is per project (owner decision)
+
+The final branch review found that the TimeLog panel fetches only by project (`fetchBookingsForProjects`), and that this fetch records no covered people (`dailyUsers: []`, deliberately, §366). Sections 3 and 4 required every linked person in `dailyUsers`, so with anyone linked a close was always refused, and the rule never checked anyone. The owner chose to make the close per project rather than add a per-person fetch. This section replaces the conflicting parts of sections 2–4 and 6.
+
+**What a project fetch proves.** A complete project fetch returns every booking on the selected TimeLog projects in its window, whoever made it. So for those projects a linked person's daily hours are fully known, including a person who booked nothing (`{}`). Hours on other projects are out of scope by design.
+
+**Data.** `TimelogMonthClose` gains `projectIds: number[]`: the TimeLog project ids the closed months were fetched over, unique, positive integers, ascending, non-empty. One set for the whole close. The sanitizer validates it with the same all-or-nothing rule.
+
+**Cache.** `ActualsCacheEntry` gains `dailyProjects?: readonly number[]`: the TimeLog project ids a project-scope fetch covered (the ids passed to `fetchBookingsForProjects`, unique, ascending). It follows `dailyUsers` everywhere in the store: validated on read, carried on every save via `rollPair`, and shed together with `daily`, `dailyWindow` and `dailyUsers`. A person-scope fetch leaves it absent. Absent means "project scope unknown" and closed months cannot be checked against it.
+
+**Closing.** `closeNextMonth` refuses, in this order: `no-roll` → `not-ended` → `window-start` → `window-end` → `partial` → `no-projects` (the cache has no `dailyProjects`, or an empty one) → `projects-changed` (a close exists and the cache's `dailyProjects` differs from `close.projectIds`). `person-missing` is removed. The first close records the cache's `dailyProjects` as `projectIds`. Linked people are saved as before, `{}` for a linked person with no bookings.
+
+**Checking.** A closed month is covered when the window spans it, the fetch is not partial, and the cache's `dailyProjects` equals `close.projectIds`. Every linked person is checked in every covered closed month; `dailyUsers` plays no part. When the project set differs, no closed month is covered: no violations, the rule is not evaluated, and stored flags freeze until the same projects are fetched again or the months are reopened. `closedMonthCertifies` drops its `dailyUsers` condition and takes the project-set match instead.
+
+**Panel.** New refusal texts replace `timelogCloseRefusePersonMissing`:
+- `timelogCloseRefuseNoProjects`: "Fetch TimeLog bookings for the project's TimeLog projects first." / DE "Rufen Sie zuerst die TimeLog-Buchungen der TimeLog-Projekte des Projekts ab."
+- `timelogCloseRefuseProjectsChanged`: "The last fetch covers different TimeLog projects than the closed months. Fetch the same projects, or reopen the closed months." / DE "Der letzte Abruf umfasst andere TimeLog-Projekte als die abgeschlossenen Monate. Rufen Sie dieselben Projekte ab oder öffnen Sie die abgeschlossenen Monate wieder."
+The linked-later warning names a linked person missing from ANY saved month, not only the last.
+
+**Residues added.** Changes on a person's other TimeLog projects are not seen. Adding or removing a TimeLog project after a close freezes the check until the selection matches again. A flag whose span the cache only partly covers is narrowed to the covered part when re-detected (the same shape as the other five rules). IndexedDB and both Turso layouts are not round-tripped by a test of their own; they decode through `sanitizeTimelogLinks`.
