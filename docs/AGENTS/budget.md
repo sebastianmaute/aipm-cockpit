@@ -156,9 +156,10 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
     is stamped with `baselineHistory.length` and the last entry's `at` as they were when its prompt
     was built (`historyLength` and `historyLastAt`, carried on the generators' prompt-time
     snapshot, `RecommendSnapshot`, and stamped in `useInsightRecommendations`' store callback). A
-    longer history at apply means a switch since. A SHORTER one, or an equal length whose last
-    `at` differs, means the history was replaced, so the currency the amounts were written in is
-    unknown, and it is refused too. A length-only stamp (an earlier build of this feature) keeps
+    longer history at apply means a switch since. A SHORTER one, or an equal length that holds no
+    entry with the stamped `at`, means the history was replaced, so the currency the amounts were
+    written in is unknown, and it is refused too. The stamped entry is looked for anywhere, not
+    only last: a switch appends in memory, but a reload orders the history by `at`. A length-only stamp (an earlier build of this feature) keeps
     the length rule alone. `generatedAt` is only a day, so comparing it would refuse a
     recommendation regenerated on the day of a switch for the rest of that day. A recommendation
     with no stamp (an older build) is refused once the history holds any switch entry (one with
