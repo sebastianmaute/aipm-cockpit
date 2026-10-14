@@ -73,7 +73,9 @@ longer carries its own changelog comment.
   version never changes the currency: rates and cost impacts it brings back are converted into the
   current currency. Role rates, a bucket's own hourly rates and change cost impacts are converted
   once; fixed-price amounts and a bucket's manual exchange rate are not changed. Past Trends snapshots and budget history are shown in the new currency at the rate of each
-  switch. The switch is not offered in a pop-out window.
+  switch. The switch is not offered in a pop-out window. A bucket or change editor that was open when
+  the currency changed in another window does not save its old amounts, and an AI recommendation with
+  a cost made before the switch is not applied; both say so and ask you to start again.
 
 ### Changed
 

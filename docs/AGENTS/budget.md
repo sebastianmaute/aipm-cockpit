@@ -115,6 +115,11 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   ★ A day-basis role missing one day field (the sanitizer allows it) keeps that side's CONVERTED hourly
   rate and gets no invented day rate, where `materializeRoleRates` alone would zero it. The rule is
   `materializeDayBasisRole` (`role-rates.ts`), shared with both restore paths below.
+  ★ An HOUR-basis role's hourly rate is authoritative: `convertRole` converts the hourly rates and
+  RE-DERIVES any stored day field from them (`materializeRoleRates`), so the day rate never drifts a
+  cent from the one the roles editor shows, and the dialog's day row shows that derived value. A day
+  field the role does not carry stays absent. The restore chain calls `convertRole` per step, so it
+  follows the same rule.
   The history entry's `from` is the PROJECT day (`today`, i.e. `clock.today` through `BudgetPanel`),
   never `nowIso.slice(0, 10)`, the UTC day; `at` stays the ISO instant.
   ★★ It NEVER touches `fixedPriceAmount` (stored in the bucket's currency) or `fxRateOverride`
@@ -122,6 +127,11 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   `setBudgets`, `setChanges`, `setPlan`, `setBaselineHistory`). ★★ The three record setters are
   FUNCTIONAL and convert `prev` at the plan's rate (`convertRole` / `convertBucket` / `convertChange`),
   so a record another writer queued in the same tick is converted, not overwritten; one history append.
+  ★★ Confirm first decides against the LIVE currency, not the one its render planned from: a probe
+  `setPlan` updater (returns `p` unchanged, so StrictMode's double invoke is harmless) runs under
+  `flushSync`, after every update queued before it, and records whether `p.currency` is still the
+  plan's `from`. If a peer tab's switch landed in the same tick, nothing is converted, appended or
+  logged — otherwise the money would be converted twice.
   A pending choice that stops being a switch (a peer tab made it) is dropped by a render-time
   reconcile, so the dialog cannot reappear on its own later.
 - ★★ **THE SWITCH IS NOT UNDOABLE.** It captures no undo entry; the dialog says so, and switching
@@ -129,6 +139,24 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   ★★ It also RETIRES every undo/redo entry captured before it, in this tab and in any peer tab its
   sync reaches: their images hold old-currency amounts. Mechanism: [`undo.md`](undo.md) "Gates on the stack"
   (`useDenominationEpoch`).
+- ★★ **Money drafted before a switch is never written after it.** Two places hold old-currency amounts
+  the switch cannot reach:
+  - **An open bucket or change editor.** `BudgetBucketModal` and `ChangeEditModal` capture the
+    denomination key (`denominationKey`: currency plus history length, the same key the undo epoch
+    counts) when they MOUNT, which is when they open, through `useDenominationMovedSinceOpen`
+    (`use-denomination-epoch.ts`). If a peer tab's switch reaches this tab while the editor is open,
+    Save writes nothing and toasts `guardDenominationChanged` (through `reportSilentFailure`, like
+    the `editVanished` guard); the user closes the editor and edits again. The check lives in the
+    modals because the save hooks (`commitBuckets`, `handleSaveChange`) have no notion of when an
+    editor opened.
+  - **A stored AI insight recommendation.** `recommendationPredatesSwitch` (`insights/insight.ts`)
+    is true when some switch entry (one with `perPrevious`) starts on or after the recommendation's
+    `generatedAt` and a proposed call carries a money argument (`REC_MONEY_ARGS`, today only
+    `costImpact`; `insight-money-args.test.ts` derives the set from the tool schemas, so a new money
+    argument on an allowed tool fails it until listed). `confirmInsightRecommendation` then refuses the
+    WHOLE apply: nothing is written, the insight stays `proposed`, and the toast
+    (`insightRecommendationCurrencyChanged`) asks for a new recommendation. `generatedAt` is a DAY, so a
+    switch on the same day refuses too. Calls without money arguments apply as before.
 - **The switch is LOGGED** (owner requirement): Confirm writes ONE `plan.currencySwitched` activity entry, actor
   `"user"`, args `[from, to, rate, ECB date]` (rate rounded by `roundRate` to 6 decimals). The stored
   args never change; the activity PANEL formats the rate and the date in the viewer's locale at render
@@ -171,6 +199,16 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   ★ `buildDemoSnapshots` computes from TODAY's rates but stamps a past `capturedAt`, so it divides each
   record's money by `rebaseFactor(baselineHistory, capturedAt)` (`scaleSnapshotMoney`): stored in the
   currency in force at capture, the read-time rebase brings it back instead of converting it twice.
+  ★ The ordering is by WALL CLOCK across devices: `rebaseFactor` and `laterSwitchRates` compare the
+  switching device's `entry.at` with a record's `capturedAt`, which another device's clock stamped. A
+  capture made just after a switch on a device whose clock runs behind sorts before the switch and is
+  converted twice. Inherent to timestamps from different clocks, and accepted.
+- ★ **Two rate tables.** The switch converts role, bucket-override and change money at the SESSION ECB
+  rates (`useFxRates().sessionRates`), while the budget engine converts a bucket in another currency at
+  the CACHED `workspace.fxRates`, which may be older. The refresh that fills the session table also
+  caches it (`useFxRates`' `onLoaded`), so the two usually match; a load or a peer tab's synced state
+  can still put an older cached table beside a switch made at today's rates, and then a converted rate
+  and an engine-converted bucket disagree slightly until the next refresh.
 
 ## Where the rates come from, and rounding
 
