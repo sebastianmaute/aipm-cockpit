@@ -34,6 +34,19 @@ describe("cropClip (the guide screenshots' crop, §713)", () => {
     expect(() => cropClip({ from: box(100, 100, 50, 20), to: box(100, 200, 50, 20), across: [box(0, 0, 1300, 10)], view, pad: 0, padTop: 0 })).toThrow(/runs past/);
   });
 
+  it("throws on every edge, the left one included", () => {
+    expect(() => cropClip({ from: box(-10, 100, 50, 20), to: box(100, 200, 50, 20), view, pad: 0, padTop: 0 })).toThrow(/runs past/);
+    expect(() => cropClip({ from: box(100, 100, 50, 20), to: box(1250, 200, 50, 20), view, pad: 0, padTop: 0 })).toThrow(/runs past/);
+  });
+
+  it("allows no more than half a pixel of slack", () => {
+    const at = (from, to) => () => cropClip({ from, to, view, pad: 0, padTop: 0 });
+    expect(at(box(-0.6, 100, 10, 10), box(0, 200, 10, 10))).toThrow(/runs past/);
+    expect(at(box(100, -0.6, 10, 10), box(100, 200, 10, 10))).toThrow(/runs past/);
+    expect(at(box(100, 100, 10, 10), box(1270.6, 200, 10, 10))).toThrow(/runs past/);
+    expect(at(box(100, 100, 10, 10), box(100, 790.6, 10, 10))).toThrow(/runs past/);
+  });
+
   it("allows half a pixel of slack, since bounding boxes are fractional", () => {
     expect(() => cropClip({ from: box(-0.4, 0, 10, 10), to: box(0, 790, 10, 10.4), view, pad: 0, padTop: 0 })).not.toThrow();
   });
