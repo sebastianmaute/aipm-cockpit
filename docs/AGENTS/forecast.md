@@ -10,7 +10,8 @@ Reproduce the file list: `ls src/app/forecast`.
 
 The engine lives in `src/app/forecast/` and is PURE and i18n-free: it returns numbers and codes, never
 text. The view is flat in `src/app/` (`forecast-panel.tsx` orchestrates; `forecast-toolbar.tsx`,
-`forecast-chart.tsx`, `forecast-tables.tsx` and `forecast-format.ts` present).
+`forecast-chart.tsx` and `forecast-tables.tsx` present). It reuses `forecast-format.ts` (the budget
+forecast's formatter) rather than owning a formatter of its own.
 
 | File | Owns |
 |---|---|
@@ -41,10 +42,16 @@ text. The view is flat in `src/app/` (`forecast-panel.tsx` orchestrates; `foreca
   numbers on every render and machine.
 - **Separate streams (R5).** `stream(name)` derives one `mulberry32` per output — `"when"`, `"howMany"`,
   `"milestones"` — from `seedFrom([...seedParts, name])`. No figure depends on whether another ran first.
-- **Floor.** With a non-empty backlog, fewer than `MIN_FINISHED_TASKS` completions inside the window, or
-  fewer than `MIN_HISTORY_WORKING_DAYS` window days, returns `kind: "insufficient"` carrying the shortfall
-  and `doneWithoutDate`. An EMPTY backlog skips the floor (R3): it still runs `milestoneChances`, where
-  all-closed reads 100 %, no linked tasks reads `no-linked-tasks`, and overdue needs an open task.
+- **Floor.** With at least one open task, fewer than `MIN_FINISHED_TASKS` completions inside the window,
+  or fewer than `MIN_HISTORY_WORKING_DAYS` window days, returns `kind: "insufficient"` carrying the
+  shortfall and `doneWithoutDate`. A project with NO open task skips the floor (R3): it still runs
+  `milestoneChances`, where all-closed reads 100 %, no linked tasks reads `no-linked-tasks`, and overdue
+  needs an open task.
+- ★★ **The floor reads the backlog BEFORE the what-if** (`open.length > 0`, not the post-what-if
+  `backlog`). A What-if scope of −100 % empties the simulated backlog but not the real one; reading the
+  simulated one let How-many and the milestone chances (which use the real linked tasks, and read 0 %
+  on an empty history) render with no history at all. Pinned by "a what-if that empties the backlog
+  still needs the history floor" in `index.test.ts`.
 - **Window.** `HistoryWindow` is 30, 60, 90 or `"all"`. Both kinds end at the latest working day on or
   before `today` and start NO EARLIER than the earliest attributed completion. `"all"` starts exactly
   there; a fixed window is that many working days, cut at that completion when the project is younger
@@ -72,6 +79,11 @@ text. The view is flat in `src/app/` (`forecast-panel.tsx` orchestrates; `foreca
 - **How many reads at 100−P (R7).** The result `amount` for P50/P80/P95 is `percentile(reached, 100 − p)`
   of the sorted per-trial totals: "at least N with P % confidence", the ActionableAgile How-Many
   convention the customer cited. So P95 is the LOW end.
+- ★★ **How many is capped at the backlog.** `simulateHowMany` takes the post-what-if `backlog` (tasks or
+  minutes, the samples' unit): each trial stops drawing once it reaches it and reports
+  `Math.min(total, backlog)`. Uncapped, a horizon target showed P50 = 1,390 beside 100 open tasks in the pre-PR review's probe.
+  Pinned by "How-many is capped at the open backlog" (`index.test.ts`) and "a trial never delivers more
+  than the backlog" (`simulate.test.ts`).
 - **How-many horizon (R15).** The target is capped at `lastForecastableDay(today, holidaySet)` —
   `MAX_HORIZON_WORKING_DAYS` working days after `today` — before its working days are counted, so the
   cost (`trials × target days` draws, run in the panel's render-time `useMemo`) is bounded the same way
@@ -115,11 +127,14 @@ text. The view is flat in `src/app/` (`forecast-panel.tsx` orchestrates; `foreca
   a past date with open work → `overdue`; an achieved milestone is skipped. All-closed is checked BEFORE
   the date, so an overdue milestone whose linked tasks are all closed reads 100 % (pinned by "overdue with
   every linked task closed reads 1/1, not overdue (T3b)").
-- ★★ **A milestone without a valid date is omitted (R16).** `requiredIsoDateOnLoad` repairs an invalid
-  milestone date to `""`, and `"" < today` would read `overdue`. `milestoneChances` skips any `m.date`
-  that fails `isValidIsoDate`, so such a milestone is absent from the table. The table's date cell also
-  formats only a valid date and is blank otherwise, because `formatDayMonthYear("")` throws a
-  `RangeError`, which blanked the whole app before this rule.
+- ★★ **A milestone without a valid date is omitted (R16).** `requiredIsoDateOnLoad` repairs a date to
+  `""` (and `"" < today` would read `overdue`) unless it is at least shape-valid: a `YYYY-MM-DD`
+  non-calendar date in 1900–2100 such as `2026-11-31` is kept raw (`isKeptNonCalendarDate` in
+  `sanitize-load-date.ts`). `milestoneChances` skips any `m.date` that fails `isValidIsoDate`, which
+  covers both, so such a milestone is absent from the table. The table's date cell also formats only a
+  valid date and is blank otherwise, because `formatDayMonthYear("")` throws a `RangeError`, which
+  blanked the whole app before this rule. The panel's `defaultHowManyTarget` applies the same check to
+  milestone dates and `plan.endDate`, so a kept non-calendar date never becomes the How-many target.
 
 ## What the panel owns
 
@@ -139,11 +154,43 @@ only the empty state.
 
 ## Performance
 
-A probe of `computeScheduleForecast` on `sample-workspace-huge.json` (repo root) at 10,000 trials took
-about 30 ms (measured 2026-10-14 in Node, one run, not a benchmark gate) with a near How-many target.
-The How-many cost grows with the target's distance: a 2030 target took about 395 ms in the final review's
-probe, which is why R15 caps it at the horizon. It is fast enough to recompute
-on every input change without a worker.
+The engine runs on the main thread, in the panel's render-time `useMemo`, on every input change. There
+is no worker. Measured 2026-10-14 after the How-many backlog cap, in Node through `vite-node`, on
+`sample-workspace-huge.json` (repo root: 270 tasks, 100 open, 60 milestones), at 10,000 trials, the
+default window 60 and `today` 2026-10-14. Each figure is the median of 5 runs after one warm-up, on a
+shared machine. It is a probe, not a benchmark gate:
+
+| Case | Median |
+|---|---|
+| Default call (How-many target 2026-11-01) | 21 ms |
+| How-many target at the horizon (`lastForecastableDay`) | 33 ms |
+| Capacity 10 % + scope +500 % + horizon target | 382 ms |
+| The same, plus one milestone dated at the horizon | 929 ms |
+
+★★ **The everyday case is fast; the extremes the What-if allows are NOT.** At 10 % capacity every When
+trial runs to the 1,300-day horizon (`beyond`), and a milestone at the horizon makes `milestoneChances`
+walk the same distance. So the What-if fields can stall a render for around a second on a large
+project. Before the cap, the horizon target alone cost about 220 ms (the pre-PR review's probe), because
+How-many drew every day up to the target. Reproduce from the repo root (single runs, so expect noise;
+delete the file afterwards):
+
+```bash
+cat > forecast-probe.ts <<'EOF'
+import { readFileSync } from "node:fs";
+import { computeScheduleForecast, lastForecastableDay, DEFAULT_WHAT_IF } from "./src/app/forecast/index";
+const ws = JSON.parse(readFileSync("sample-workspace-huge.json", "utf8"));
+const today = "2026-10-14", holidaySet = new Set<string>(), max = lastForecastableDay(today, holidaySet);
+const open = ws.tasks.filter((t: { status: string }) => t.status !== "Done" && t.status !== "Cancelled");
+const far = [...ws.milestones, { id: 999999, name: "far", date: max, linkedTaskIds: [open[open.length - 1].id] }];
+const extreme = { scopeTasks: 0, scopePercent: 500, capacityPercent: 10 };
+for (const over of [{}, { howManyTarget: max }, { howManyTarget: max, whatIf: extreme }, { howManyTarget: max, whatIf: extreme, milestones: far }]) {
+  const t0 = performance.now();
+  computeScheduleForecast({ tasks: ws.tasks, milestones: ws.milestones, today, holidaySet, window: 60, unit: "tasks", whatIf: DEFAULT_WHAT_IF, howManyTarget: "2026-11-01", ...over });
+  console.log(Math.round(performance.now() - t0), "ms");
+}
+EOF
+npx vite-node forecast-probe.ts; rm forecast-probe.ts
+```
 
 ## Mutation proof (slice 1)
 
