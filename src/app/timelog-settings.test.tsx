@@ -577,6 +577,25 @@ describe("TimelogSettings — address field (§704, §709)", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("N1: leaving the address field after a paste does not write the pasted tenant back over a later edit", () => {
+    function Harness() {
+      const [cfg, setCfg] = useState({ ...defaultTimelogConfig, enabled: true });
+      return <TimelogSettings lang="en-US" config={cfg} onChange={setCfg} />;
+    }
+    render(<Harness />);
+    const address = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.focus(address);
+    fireEvent.paste(address);
+    fireEvent.change(address, { target: { value: "https://app.timelog.com/acme" } });
+    fireEvent.blur(address);
+    const tenant = screen.getByLabelText(t("en-US", "timelogTenant")) as HTMLInputElement;
+    expect(tenant.value).toBe("acme");
+    fireEvent.change(tenant, { target: { value: "acme2" } });
+    fireEvent.focus(address);
+    fireEvent.blur(address);
+    expect(tenant.value).toBe("acme2");
+  });
+
   it("M1: typing then leaving the field commits only the final address, once", () => {
     function Harness({ spy }: { spy: (c: typeof defaultTimelogConfig) => void }) {
       const [cfg, setCfg] = useState({ ...defaultTimelogConfig, enabled: true });

@@ -71,6 +71,10 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
   // change event follows the paste event) show it.
   const [showAddressError, setShowAddressError] = useState(false);
   const pastedRef = useRef(false);
+  // The draft text last committed (by a paste or a blur). Blur commits only a draft that changed
+  // since then: the draft is never cleared, so re-committing it would write a stale tenant back over
+  // one edited under "Edit separately" since the paste (N1).
+  const committedDraftRef = useRef("");
   const addressInvalid =
     showAddressError && addressDraft.trim() !== "" && parseTimelogAddress(addressDraft) === null;
   // Sticky (B1): open when values are stored, then user-controlled. Deriving it from the live
@@ -205,11 +209,16 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
                 pastedRef.current = false;
                 // M1: only a paste commits here. Every prefix of a typed address can parse
                 // (`…/a`, `…/ac`), so committing per keystroke replaced a working tenant mid-word.
-                if (pasted) commitAddress(next);
+                if (pasted) {
+                  committedDraftRef.current = next;
+                  commitAddress(next);
+                }
               }}
               onFocus={() => setShowAddressError(false)}
               onBlur={() => {
                 setShowAddressError(true);
+                if (addressDraft === committedDraftRef.current) return;
+                committedDraftRef.current = addressDraft;
                 commitAddress(addressDraft);
               }}
               onPaste={() => {
