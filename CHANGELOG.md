@@ -12,6 +12,12 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **A "Getting started: set up a budget" Help entry, and the install guide one click away.** Help lists
+  the new entry first under Workflows: turn on the functions, rate the roles, add the people with their
+  Timelog email, add buckets, import the hours. The Help panel's footer and the About panel link the
+  installation and setup guide, which now also covers the browser's download warning, the slow first
+  start, that a Claude subscription does not include API credit, and setting up a first budget, with
+  pictures. The README's gallery pictures were retaken.
 - **You can close TimeLog months, and a later change to a closed month is flagged.** Settings → Integrations →
   TimeLog has a Closed months block. Closing the next month saves the daily hours of everyone who booked on
   the fetched TimeLog projects that month, whether or not they are linked to a resource, and negative day

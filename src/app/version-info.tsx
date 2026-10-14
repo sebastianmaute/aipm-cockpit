@@ -20,6 +20,7 @@ import {
   APP_REPO_URL,
   APP_SPONSOR_URL,
   APP_VERSION_LABEL,
+  INSTALL_GUIDE_URL,
 } from "./version";
 
 /** Centered modal wrapping VersionInfo, opened from the sidebar version line,
@@ -115,6 +116,7 @@ export function VersionInfo({ lang, logPath }: { lang: Lang; logPath?: string })
           {t(lang, "versionAuthor")} · {t(lang, "versionBuiltWith")}
         </p>
         <p className="flex flex-wrap gap-x-3">
+          <ExternalLink href={INSTALL_GUIDE_URL}>{t(lang, "installGuideLink")}</ExternalLink>
           <ExternalLink href={APP_REPO_URL}>{t(lang, "versionGithubLink")}</ExternalLink>
           <ExternalLink href={APP_AUTHOR_URL}>{t(lang, "versionLinkedInLink")}</ExternalLink>
           <ExternalLink href={APP_SPONSOR_URL}>{t(lang, "versionSponsorLink")}</ExternalLink>

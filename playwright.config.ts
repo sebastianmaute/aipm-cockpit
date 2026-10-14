@@ -14,6 +14,37 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
 // webServer below and read back by e2e/a11y.spec.ts's guard from data-boot-nonce.
 const BOOT_NONCE = runStartsDevServer(process.env) ? mintBootNonce(process.env) : undefined;
 
+// ★★ §713: the guide-shots run photographs Settings, which shows what a deployment's
+// environment sets ("Set by NEXT_PUBLIC_TURSO_DATABASE_URL", a rejected deployment token).
+// Next keeps a variable already present in the process environment, even an empty one, over
+// .env.local — so this run boots its server with every deployment variable the app reads
+// blanked, and the pictures show what a fresh install shows.
+// List: `grep -rhoE "process.env.[A-Z_]+" src --include=*.ts --include=*.tsx | sort -u`.
+// ★★ The project EXISTS only when E2E_GUIDE_SHOTS=1, which `npm run docs:guide-shots` sets
+// itself (the E2E_LIVE_APP pattern): a run naming no project would otherwise take the pictures
+// too, against a server that read .env.local. And it refuses any server it does not start
+// itself — PLAYWRIGHT_REUSE_SERVER=1 or PLAYWRIGHT_NO_WEBSERVER=1 — since an already-running
+// server keeps its own environment and the blanking would not reach it.
+const GUIDE_SHOTS_RUN = process.env.E2E_GUIDE_SHOTS === "1";
+if (GUIDE_SHOTS_RUN && (reuseDevServer(process.env) || !runStartsDevServer(process.env))) {
+  throw new Error(
+    "E2E_GUIDE_SHOTS=1 needs a server this run starts: a running one keeps its own environment, which would reach the screenshots. Unset PLAYWRIGHT_REUSE_SERVER and PLAYWRIGHT_NO_WEBSERVER.",
+  );
+}
+const GUIDE_SHOTS_BLANK_ENV: Record<string, string> = Object.fromEntries(
+  [
+    "NEXT_PUBLIC_TURSO_DATABASE_URL",
+    "NEXT_PUBLIC_TURSO_AUTH_TOKEN",
+    "NEXT_PUBLIC_MSAL_TENANT_ID",
+    "NEXT_PUBLIC_MSAL_CLIENT_ID",
+    "NEXT_PUBLIC_TIMELOG_TENANT",
+    "NEXT_PUBLIC_EXPORT_FOOTER",
+    "NEXT_PUBLIC_AI_POLICY_URL",
+    "NEXT_PUBLIC_AI_POLICY_ORG",
+    "ANTHROPIC_API_KEY",
+  ].map((name) => [name, ""]),
+);
+
 // ★★★ Live-Turso specs that DROP tables (`e2e/live-turso-env.ts` names the database
 // they may touch). Every live spec shares ONE throwaway database, and the default
 // run is fullyParallel, so a spec dropping `document_assets` or every workspace
@@ -86,7 +117,7 @@ export default defineConfig({
       // below: it drives a PACKAGED Electron app that no CI runner builds, so
       // left in this project it would fail (or skip) in the blocking e2e job.
       name: "chromium",
-      testIgnore: [/visual\.spec\.ts/, /desktop-smoke\.spec\.ts/, LIVE_TURSO_DESTRUCTIVE],
+      testIgnore: [/visual\.spec\.ts/, /guide-shots\.spec\.ts/, /desktop-smoke\.spec\.ts/, LIVE_TURSO_DESTRUCTIVE],
       use: { ...devices["Desktop Chrome"] },
     },
     {
@@ -111,6 +142,36 @@ export default defineConfig({
       testMatch: /visual\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], timezoneId: "UTC", locale: "en-US" },
     },
+    ...(GUIDE_SHOTS_RUN
+      ? [
+    {
+      // The install guide's screenshots and the README gallery (§713) — opt-in
+      // (`npm run docs:guide-shots`, which sets E2E_GUIDE_SHOTS=1; see GUIDE_SHOTS_RUN) and
+      // never in CI: it WRITES files under
+      // docs/assets/ instead of asserting on them, so it is not a pixel gate and
+      // a run in CI would only dirty the checkout. The `chromium` project above
+      // ignores it for the same reason. Pinned like `visual` (UTC, en-US) plus a
+      // light scheme, reduced motion and a fixed viewport, so a retake frames the
+      // same region with the same data. One worker: the tests write shared files.
+      name: "guide-shots",
+      testMatch: /guide-shots\.spec\.ts/,
+      workers: 1,
+      fullyParallel: false,
+      retries: 0,
+      use: {
+        ...devices["Desktop Chrome"],
+        timezoneId: "UTC",
+        locale: "en-US",
+        colorScheme: "light" as const,
+        reducedMotion: "reduce" as const,
+        viewport: { width: 1280, height: 800 },
+        deviceScaleFactor: 2,
+        // Native date inputs format by the BROWSER's language, not the page locale: pin it too.
+        launchOptions: { args: ["--lang=en-US"] },
+      },
+    },
+        ]
+      : []),
     {
       // Packaged Electron desktop app — opt-in (`npm run e2e:desktop`), and
       // never in CI: it needs the artifact `npm run desktop:package` writes to
@@ -175,7 +236,7 @@ export default defineConfig({
         // server from another worktree or an older run. PLAYWRIGHT_REUSE_SERVER=1 opts
         // back in; boot that server with the same E2E_BOOT_NONCE or the guard refuses it.
         reuseExistingServer: reuseDevServer(process.env),
-        env: BOOT_NONCE ? { [BOOT_NONCE_ENV]: BOOT_NONCE } : {},
+        env: { ...(GUIDE_SHOTS_RUN ? GUIDE_SHOTS_BLANK_ENV : {}), ...(BOOT_NONCE ? { [BOOT_NONCE_ENV]: BOOT_NONCE } : {}) },
         stdout: "ignore",
         stderr: "pipe",
       },
