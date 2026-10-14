@@ -62,6 +62,9 @@ export function ForecastChart({
   const slots = weeks.length + (beyond > 0 ? 1 : 0);
   const slotW = (X1 - X0) / slots;
   const slotX = (i: number) => X0 + i * slotW;
+  // Working days ahead on the same scale: day 5 lands on slotX(1), the end of week 0,
+  // where that week's tick and cumulative point sit.
+  const dayX = (day: number) => X0 + (day / WORKING_DAYS_PER_WEEK) * slotW;
   const y = (share: number) => Y_BOTTOM - share * (Y_BOTTOM - Y_TOP);
   const beyondSlot = weeks.length;
 
@@ -117,8 +120,7 @@ export function ForecastChart({
         )}
         <polyline points={cumulative.join(" ")} fill="none" className="stroke-ui-dark-blue dark:stroke-ui-light-grey" strokeWidth={2} />
         {forecast.when.map((w, i) => {
-          const slot = w.daysAhead === "beyond" ? beyondSlot : weekOf(w.daysAhead);
-          const x = slotX(slot) + slotW / 2;
+          const x = w.daysAhead === "beyond" ? slotX(beyondSlot) + slotW / 2 : dayX(w.daysAhead);
           return (
             <g key={w.p} data-percentile={w.p} aria-hidden="true">
               <line x1={x} y1={Y_TOP - 4} x2={x} y2={Y_BOTTOM} className="stroke-foreground" strokeWidth={1} strokeDasharray="4 3" />
@@ -132,6 +134,7 @@ export function ForecastChart({
         {ticks.map((i) => (
           <text
             key={i}
+            data-tick={i}
             aria-hidden="true"
             x={slotX(i + 1)}
             y={H - 8}

@@ -131,7 +131,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         <>
           <ForecastCaption lang={lang} forecast={result} historyWindow={historyWindow} />
           <ForecastChart lang={lang} forecast={result} today={today} holidaySet={holidaySet} />
-          <PercentileTable lang={lang} forecast={result} target={howManyTarget} onTargetChange={setTarget} />
+          <PercentileTable lang={lang} forecast={result} target={howManyTarget} today={today} onTargetChange={setTarget} />
           <MilestoneTable lang={lang} milestones={milestones} chances={result.milestones} whatIf={mode === "whatif"} />
         </>
       )}

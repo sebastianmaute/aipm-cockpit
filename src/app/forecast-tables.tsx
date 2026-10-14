@@ -3,7 +3,7 @@
 // Schedule forecast tables (§502): the P50/P80/P95 When + How-many table and the
 // milestone chance table. Presentational — the panel owns the engine call.
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { localeFor } from "./date-format";
 import { formatDayMonthYear, formatHours } from "./forecast-format";
@@ -45,13 +45,17 @@ export function PercentileTable({
   lang,
   forecast,
   target,
+  today,
   onTargetChange,
 }: {
   lang: Lang;
   forecast: ScheduleForecast;
   target: string;
+  today: string;
   onTargetChange: (iso: string) => void;
 }) {
+  const [invalid, setInvalid] = useState(false);
+  const messageId = useId();
   const targetText = formatDayMonthYear(target, localeFor(lang));
   return (
     <Section title={t(lang, "forecastPercentilesTitle")}>
@@ -63,11 +67,24 @@ export function PercentileTable({
             type="date"
             size="xs"
             value={target}
+            min={today}
+            invalid={invalid}
+            aria-describedby={invalid ? messageId : undefined}
             onChange={(e) => {
-              if (ISO_DATE.test(e.target.value)) onTargetChange(e.target.value);
+              const iso = e.target.value;
+              if (!ISO_DATE.test(iso)) return;
+              // A target before today counts no working days; refuse it like an invalid What-if value.
+              const accepted = iso >= today;
+              setInvalid(!accepted);
+              if (accepted) onTargetChange(iso);
             }}
           />
         </label>
+        {invalid && (
+          <span id={messageId} className="text-xs font-medium text-ui-pink-strong">
+            {t(lang, "forecastInputInvalid")}
+          </span>
+        )}
       </div>
       <div className="overflow-x-auto rounded-md border border-line">
         <table className="min-w-full text-left text-sm">

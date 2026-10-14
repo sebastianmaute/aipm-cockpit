@@ -1,6 +1,7 @@
-import { describe, expect, test } from "vitest";
+import { beforeAll, describe, expect, test } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { MilestoneTable, formatChance } from "./forecast-tables";
+import { loadI18n } from "./i18n";
 import type { MilestoneChance } from "./forecast/milestones";
 import type { Milestone } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -44,11 +45,11 @@ describe("MilestoneTable", () => {
     expect(orphan.textContent).not.toMatch(/%/);
   });
 
-  test("a 0.996 chance renders as ≥ 99 %", () => {
+  test("a 0.996 chance renders as ≥ 99%", () => {
     render(<MilestoneTable lang="en-US" milestones={[ms(1, "Go-live")]} chances={[chance(1, 0.996, 1)]} whatIf={false} />);
     const row = screen.getByRole("row", { name: /Go-live/ });
-    expect(within(row).getByText("≥ 99 %")).toBeTruthy();
-    expect(within(row).getByText("100 %")).toBeTruthy();
+    expect(within(row).getByText("≥ 99%")).toBeTruthy();
+    expect(within(row).getByText("100%")).toBeTruthy();
   });
 
   test("shows the scope note only in What-if", () => {
@@ -60,10 +61,19 @@ describe("MilestoneTable", () => {
 });
 
 describe("formatChance", () => {
-  test("whole percent, and a sub-certain 100 reads ≥ 99 %", () => {
-    expect(formatChance(0.424, "en-US")).toBe("42 %");
-    expect(formatChance(0.996, "en-US")).toBe("≥ 99 %");
-    expect(formatChance(1, "en-US")).toBe("100 %");
-    expect(formatChance(0, "en-US")).toBe("0 %");
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  test("whole percent, and a sub-certain 100 reads ≥ 99% (EN: no space, R10)", () => {
+    expect(formatChance(0.424, "en-US")).toBe("42%");
+    expect(formatChance(0.996, "en-US")).toBe("≥ 99%");
+    expect(formatChance(1, "en-US")).toBe("100%");
+    expect(formatChance(0, "en-US")).toBe("0%");
+  });
+
+  test("German puts a space before the percent sign (R10)", () => {
+    expect(formatChance(0.424, "de")).toBe("42 %");
+    expect(formatChance(0.996, "de")).toBe("≥ 99 %");
   });
 });

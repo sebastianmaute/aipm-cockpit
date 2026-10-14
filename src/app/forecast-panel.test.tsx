@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ForecastPanel } from "./forecast-panel";
 import { loadI18n, t } from "./i18n";
@@ -72,7 +72,7 @@ describe("ForecastPanel", () => {
     renderPanel([...open(5), ...steadyDone(60)]);
     expect((screen.getByRole("radio", { name: "Effort" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole("radiogroup", { name: "Forecast unit" }).getAttribute("title")).toBe(
-      "Effort needs an estimate on 70 % of open tasks; 0 % have one.",
+      "Effort needs an estimate on 70% of open tasks; 0% have one.",
     );
   });
 
@@ -109,6 +109,31 @@ describe("ForecastPanel", () => {
     renderPanel([...open(5), ...steadyDone(60), task(90, { status: "Done" })]);
     expect(screen.getByText("10,000 runs of your last 60 working days (60 finished tasks)")).toBeTruthy();
     expect(screen.getByText(/1 done task\(s\) have no completion date/)).toBeTruthy();
+  });
+
+  test("percentile lines sit on the tick of their own date", () => {
+    // Every run finishes on day 5 (Oct 21), the end of week 0: tick 0 and the first curve point.
+    const { container } = renderPanel([...open(5), ...steadyDone(60)]);
+    const tick = container.querySelector("[data-tick='0']");
+    expect(tick?.textContent).toBe("Oct 21");
+    for (const p of [50, 80, 95]) {
+      const line = container.querySelector(`[data-percentile='${p}'] line`);
+      expect(Number(line?.getAttribute("x1"))).toBeCloseTo(Number(tick?.getAttribute("x")), 6);
+    }
+  });
+
+  test("a How many target before today is refused with the message", () => {
+    renderPanel([...open(5), ...steadyDone(60)]);
+    const input = screen.getByLabelText("How many by") as HTMLInputElement;
+    expect(input.value).toBe("2026-12-31");
+    fireEvent.change(input, { target: { value: "2026-10-01" } });
+    expect(screen.getByText("Not a valid value; the previous one is kept.")).toBeTruthy();
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(input.value).toBe("2026-12-31");
+    expect(screen.getByRole("columnheader", { name: "At least, by Dec 31, 2026" })).toBeTruthy();
+    fireEvent.change(input, { target: { value: TODAY } });
+    expect(screen.queryByText("Not a valid value; the previous one is kept.")).toBeNull();
+    expect(screen.getByRole("columnheader", { name: "At least, by Oct 14, 2026" })).toBeTruthy();
   });
 
   test("toolbar keeps the trailing group contiguous", () => {
