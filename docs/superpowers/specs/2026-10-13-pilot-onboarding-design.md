@@ -204,7 +204,8 @@ Help entry opens the demo.
   - the first start being slow (the §705 sentence; may mention "Not responding");
   - Claude: a subscription does not include API use; buy credit at Anthropic's billing page (linked). **No
     amounts** (owner: skip for now). Expense claimability is NOT mentioned (internal only);
-  - Turso: the two steps that advise an expiry change to "no expiry" (§711);
+  - ~~Turso: the two steps that advise an expiry change to "no expiry" (§711);~~ — dropped 2026-10-14: §711
+    already made that change (`grep -n "no expiry" docs/desktop-rollout.md` → step 4);
   - Timelog: paste the address (§704);
   - a link to the in-app Help entry below instead of restating the setup order.
 - **In-app Help**, Workflows group: **Getting started: set up a budget** (EN + DE) — turn on the functions
@@ -219,7 +220,8 @@ Help entry opens the demo.
   run by `npm run docs:guide-shots` (new `scriptsDescriptions` entry + CONTRIBUTING.md table).
 - Deterministic: fixed seed, frozen clock, light theme, 1280×800, en-US.
 - **Guide shots** use a fictional fixture and are cropped to the relevant region (`locator.screenshot`):
-  splash (§705), Configure database → Turso checklist (§711), Settings → AI key field, Timelog address
+  splash (§705; the spec opens `desktop/splash.html` over `file://` and injects the status text with the same
+  `splashScript` the desktop shell sends, so no Electron runs), Configure database → Turso checklist (§711), Settings → AI key field, Timelog address
   (§704), Edit project → Functions with the §707 notice, Manage roles, resource form (§708), budget
   checklist (§710), demo banner and Help entry (§712). Output `docs/assets/guide/<nn>-<step>.png`.
 - **Callouts** (highlight box or numbered marker) are drawn by the spec through an injected overlay, so a
@@ -230,6 +232,15 @@ Help entry opens the demo.
 - **Hand-captured:** the browser download prompt and Windows' SmartScreen box are taken by the owner by hand
   (`docs/assets/guide/<nn>-<step>.manual.png`); the spec never writes `*.manual.png`.
 - **Not a pixel gate.** One unit test checks that every image the guide and README reference exists.
+
+### Amendments at design approval (owner, 2026-10-14)
+
+- **Base:** phase 1 ships first (PR #706); phase 2 builds on main once it merges.
+- **README gallery stays in phase 2**: the same spec regenerates all 16 existing `docs/assets/*.png` names,
+  full-window from the demo project. Every gallery image changes and gets an eye-check before merge.
+- **Splash shot** comes from `desktop/splash.html` over `file://` (above).
+- **Out of scope, filed as §715:** a recorded first-run demo video (download → install → setup), made with
+  the `ecc:ui-demo` skill after this phase ships. This phase's guide order and fixtures are what it follows.
 
 ---
 
