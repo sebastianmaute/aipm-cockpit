@@ -2,7 +2,7 @@
  * Rate mix (MR 3 addendum §3.2). Pure and i18n-free. € and hours forecasts
  * diverge only when the average contract rate of the hours actually booked
  * differs from the planned average. This module measures that drift over
- * HOURLY buckets (a fixed-price bucket's € actual is already an hours ratio),
+ * HOURLY buckets (a fixed-price bucket's money actual is already an hours ratio),
  * groups rows by role or discipline, names the driver and decides whether the
  * surfaces signal it. Hours per row mirror `computeBucketReport` exactly: own
  * effective budget hours and `actualHoursIn` over the bucket's active periods.
@@ -11,7 +11,7 @@ import { bucketActivePeriods, bucketRateRows, effectiveBudgetHours } from "./bud
 import { actualHoursIn } from "./actual-hours";
 import { roleLabel } from "./resource-foundation";
 import { isPaceAvailable, paceVacHealth, type BudgetForecast } from "./budget-forecast";
-import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role } from "./types";
+import type { Absence, BudgetBucket, Discipline, Grade, Resource, ResourcePlan, Role } from "./types";
 import { isContractPriced } from "./types";
 
 export const RATE_DRIFT_SIGNAL_RATIO = 0.03;
@@ -39,14 +39,11 @@ export type RateMixInput = {
   buckets: readonly BudgetBucket[]; roles: readonly Role[]; disciplines: readonly Discipline[]; grades: readonly Grade[];
   plan: ResourcePlan; resources: readonly Resource[]; workdayHours: number; holidaySet: ReadonlySet<string>;
   absences: readonly Absence[]; eur: BudgetForecast; hours: BudgetForecast;
-  /** Unread since §476: role rates are already in the baseline `eur` is in,
-   *  so nothing here converts. Kept on the input so callers need not change. */
-  fxRates: FxRates | null;
 };
 
 const QUIET: RateMixSignal = { triggered: false, direction: null, severity: null };
 
-/** Trigger (§3.2): both pace forecasts available AND (|drift| ≥ 3% OR the €
+/** Trigger (§3.2): both pace forecasts available AND (|drift| ≥ 3% OR the money
  *  and hours pace VAC ratings differ). Severity is a warning only when the
  *  ratings differ. */
 export function rateMixSignal(drift: number, eur: BudgetForecast, hours: BudgetForecast): RateMixSignal {

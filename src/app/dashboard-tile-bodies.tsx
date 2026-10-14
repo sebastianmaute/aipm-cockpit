@@ -98,7 +98,7 @@ export interface TileBodyArgs {
   dc: DensityClasses;
   model: DashboardModel;
   trends: Record<MetricKey, MetricTrend>;
-  /** Currency label for the burn-down axis. EUR: the engine's burn-down series
+  /** Currency label for the burn-down axis — the baseline (`plan.currency`): the engine's burn-down series
    *  is `budgetHours × role.rates.external` and converts nothing — see the
    *  `currency` argument in `dashboard-panel.tsx`. */
   currency: string;

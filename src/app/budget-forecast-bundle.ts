@@ -1,5 +1,5 @@
 /**
- * Forecast bundle (MR 3 addendum §3). One call builds the € and hours
+ * Forecast bundle (MR 3 addendum §3). One call builds the money and hours
  * forecasts, the rate mix and the earned-value history from the inputs the
  * Budget report and the dashboard already hold. A separate module because
  * `budget-rate-mix.ts` imports from `budget-forecast.ts` (plan Ruling 2 — no
@@ -44,7 +44,7 @@ export function computeForecastBundle(input: ForecastBundleInput): ForecastBundl
   const mix = computeRateMix({
     buckets: input.buckets, roles: input.roles, disciplines: input.disciplines, grades: input.grades,
     plan: input.plan, resources: input.resources, workdayHours: input.workdayHours,
-    holidaySet: input.holidaySet, absences: input.absences, eur, hours, fxRates: input.fxRates,
+    holidaySet: input.holidaySet, absences: input.absences, eur, hours,
   });
   const evHistory = computeEvHistory({
     report: input.report, buckets: input.buckets, tasks: input.tasks,

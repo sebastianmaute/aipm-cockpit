@@ -1,5 +1,6 @@
 // Pure per-period burn-down series for the dashboard + budget report charts.
-// Reads budgeted vs actual hours across all buckets, and € on the
+// Reads budgeted vs actual hours across all buckets, and money (in the project's
+// baseline currency, `plan.currency`, §476) on the
 // external-rate basis for T&M buckets / the contract-amount basis for
 // fixed-price ones (§472 — see the `isContractPriced` branch below, which an end-to-end bucket (§488) shares), returns
 // "remaining" arrays that descend over the plan periods — optionally sliced
@@ -31,7 +32,7 @@ export type BurndownSeries = {
   totalBudgetValue: number;
 };
 
-/** Derives per-period planned vs actual remaining hours and € across all buckets
+/** Derives per-period planned vs actual remaining hours and money across all buckets
  *  for the burn-down charts. `today` is an ISO date string (YYYY-MM-DD); actual
  *  remaining is defined only up to the period containing today.
  *
@@ -92,7 +93,7 @@ export function computeBurndownSeries(
       // (budget-report.ts), through the SAME `currencyToBase` helper (§474/§475
       // unresolved-rate handling applies here unchanged). Hours are still summed
       // for the hours series (the chart's other axis), just not used to price
-      // this bucket's €.
+      // this bucket's money.
       //
       // The report's `budgetValue` is the full converted contract amount
       // regardless of hours; `consumedValue` is that amount scaled by the

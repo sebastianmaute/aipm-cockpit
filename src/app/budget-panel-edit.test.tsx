@@ -312,6 +312,13 @@ describe("BudgetPanel baseline-currency control", () => {
     const select = screen.getByRole("combobox", { name: "Project currency" });
     const refresh = screen.getByRole("button", { name: "Refresh ECB rates" });
     expect(select.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // IMMEDIATELY before: the control's outermost box (the select's highest ancestor that
+    // does not also hold the button) is the button's own previous sibling, with nothing between.
+    let control: HTMLElement = select;
+    while (control.parentElement && !control.parentElement.contains(refresh)) control = control.parentElement;
+    let refreshBox: HTMLElement = refresh;
+    while (refreshBox.parentElement && refreshBox.parentElement !== control.parentElement) refreshBox = refreshBox.parentElement;
+    expect(control.nextElementSibling).toBe(refreshBox);
   });
 
   test("is not rendered in a popout", () => {

@@ -144,7 +144,8 @@ export type Workspace = {
    *  undefined/empty serializes to nothing (byte-stable). Sanitized by
    *  sanitizeActivityLog. */
   activityLog?: readonly ActivityEntry[];
-  /** Budget-at-completion history (EUR, project own basis). Meta-blob sibling
+  /** Budget-at-completion history (project own basis, in the baseline in force at
+   *  each entry and rebased at read time, §476). Meta-blob sibling
    *  of `activityLog`: storage-only, never capped, NOT counted by
    *  isWorkspaceEmpty. Optional & additive: undefined/empty serializes to
    *  nothing (byte-stable). Sanitized by sanitizeBudgetHistory. */

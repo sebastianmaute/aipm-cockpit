@@ -264,8 +264,8 @@ export type DashboardModel = {
    *  model and the budget rollup carry is in it. Present even without a
    *  forecast, so a reader never has to infer the unit. */
   currency: BudgetCurrency;
-  /** € + hours forecasts, rate mix and earned-value history (MR 3). The
-   *  pace/efficiency € forecast (spec §5) that drives the Budget RAG's
+  /** Money + hours forecasts, rate mix and earned-value history (MR 3). The
+   *  pace/efficiency money forecast (spec §5) that drives the Budget RAG's
    *  pace-VAC input is `forecastBundle.eur` — computed as a local inside
    *  `computeDashboard` (never exported on its own; nothing outside
    *  `dashboard.ts` read it, §580). Null exactly when `burndown` is (no
@@ -303,7 +303,7 @@ export interface DashboardEntities {
   resources: readonly Resource[];
   absences: readonly Absence[];
   /** Cached ECB rates, or null. Forwarded to the budget engine so a non-EUR
-   *  fixed-price bucket's contract amount converts to EUR before the Budget
+   *  fixed-price bucket's contract amount converts to the baseline before the Budget
    *  RAG reads consumedValue/budgetValue. */
   fxRates: FxRates | null;
   milestones?: readonly Milestone[];
@@ -469,7 +469,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
         baselineHistory: input.baselineHistory,
       })
     : null;
-  // The budget RAG stays € only (addendum §3.3).
+  // The budget RAG stays on money only, never hours (addendum §3.3).
   const forecast: BudgetForecast | null = forecastBundle?.eur ?? null;
   // The budget RAG reads the pace VAC once the pace forecast exists (spec
   // §6.3); before that the consumed-vs-budget ratio stays the signal. Effort

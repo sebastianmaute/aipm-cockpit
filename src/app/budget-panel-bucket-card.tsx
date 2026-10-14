@@ -54,7 +54,7 @@ function sumPeriods(hours: Record<string, number>, periods: { key: string }[]): 
  *  renders no `/CPI/` at all): `costPerformanceIndex` is a
  *  0-1 ratio (not the 0-100 percent every other CciValue.percent carries), so
  *  it is scaled ×100 here at the one render boundary rather than in the pure
- *  engine. `earnedValue` is EUR, like every other CciValue.amount — callers
+ *  engine. `earnedValue` is in the baseline (`plan.currency`), like every other CciValue.amount — callers
  *  convert it to the bucket's display currency the same way they already do
  *  for margin/burn (`cci(...)`). */
 export function cpiCciValue(earnedValue: number | null, costPerformanceIndex: number | null): CciValue {

@@ -183,7 +183,7 @@ export type ForecastFactsByUnit = { eur: ForecastFacts; hours: ForecastFacts };
  * - dated values are hours, from the same day-key / spread-period rules.
  *
  * AC (§5.4/Ruling 1): per bucket, T&M → `BucketReport.consumedValue`
- * (external-EUR basis, already report-consistent); fixed price → the
+ * (external-rate basis, already report-consistent); fixed price → the
  * UNCAPPED contract ratio `contract × actualHours ÷ budgetHours`, so an
  * overrun shows (the report's own `consumedValue` is capped at the contract
  * amount and must never be reused here).

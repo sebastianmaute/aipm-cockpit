@@ -60,7 +60,7 @@ describe("computeBurndownSeries", () => {
     expect(s.actualRemainingHours).toEqual([180, 90, null]);
   });
 
-  it("computes € on the external-rate basis", () => {
+  it("computes money on the external-rate basis", () => {
     const s = computeBurndownSeries([bucket()], plan, roles, [], 8, new Set<string>(), [], "2026-02-15", null);
     expect(s.totalBudgetValue).toBe(60000);
     expect(s.plannedRemainingValue).toEqual([40000, 20000, 0]);

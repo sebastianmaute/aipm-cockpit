@@ -83,7 +83,7 @@ function roleFor(roleId: number, roles: readonly Role[]): Role | undefined {
   return roles.find((r) => r.id === roleId);
 }
 
-/** A CCI value: an absolute amount (EUR) and a percent, or null when the
+/** A CCI value: an absolute amount (in the baseline, `plan.currency`) and a percent, or null when the
  *  denominator is 0 (rendered as "-"). */
 export type CciValue = { amount: number; percent: number | null };
 
@@ -531,7 +531,7 @@ export type BudgetReport = {
 
 /**
  * Spillover-in amounts per bucket: a CLOSED bucket with a successor contributes
- * its remaining budget (budget - actual hours, and the EUR value) to the
+ * its remaining budget (budget - actual hours, and the money value) to the
  * successor. Single hop (no transitive chains); self-refs and missing
  * successors are ignored. Returns maps keyed by successor bucket id.
  */
