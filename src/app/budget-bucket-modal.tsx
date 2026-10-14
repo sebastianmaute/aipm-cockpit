@@ -81,6 +81,10 @@ export function BudgetBucketModal({
   const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:budget-bucket");
   const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:budget-bucket");
   const { isVisible } = useModalVisibility("budget");
+  // The ONE rule for whether the manual FX field is on screen — the render and the save
+  // validation both read it, so a hidden field is never validated (§475 EUR, §476 baseline).
+  const fxOverrideShown = (currency: BudgetCurrency): boolean =>
+    isVisible("fxOverride") && currency !== "EUR" && currency !== baseCurrency;
   const showToast = useToastContext();
   const confirm = useConfirm();
   const adj = useAdjustmentTracker();
@@ -278,7 +282,10 @@ export function BudgetBucketModal({
     // buckets nobody re-saves are left alone; `resolveRate` already repairs
     // those at read time (see `bucketPerEur` in fx.ts).
     const fxRateOverride = draft.currency === "EUR" ? undefined : draft.fxRateOverride;
-    if (fxRateOverride != null &&
+    // §476 B11 — validated only while the field is SHOWN. Hidden (a bucket in the baseline
+    // currency, or the field toggled off) its value is kept as stored, and an error about a
+    // field the user cannot see would block the save with no way to fix it.
+    if (fxOverrideShown(draft.currency) && fxRateOverride != null &&
         (!Number.isFinite(fxRateOverride) || fxRateOverride <= 0)) {
       return setError(t(lang, "budgetFxOverrideInvalid"));
     }
@@ -517,7 +524,7 @@ export function BudgetBucketModal({
               §476: hidden on a bucket in the project's baseline currency as well,
               which needs no conversion — but the stored value is KEPT on save
               (it is per EUR, and matters again if the project switches away). */}
-          {isVisible("fxOverride") && draft.currency !== "EUR" && draft.currency !== baseCurrency && (
+          {fxOverrideShown(draft.currency) && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="flex items-center gap-1">{t(lang, "budgetFxOverride")}<InfoTooltip text={t(lang, "budgetFxOverrideHint")} /></span>
             <input

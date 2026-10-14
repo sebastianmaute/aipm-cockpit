@@ -635,6 +635,16 @@ describe("BudgetBucketModal — FX override hidden on a baseline-currency bucket
     expect(onSave).toHaveBeenCalledTimes(1);
     expect((onSave.mock.calls[0][0] as BudgetBucket).fxRateOverride).toBe(0.86);
   });
+  // B11 — a hidden field is not validated either: an invalid value the draft carries (typed
+  // before the bucket moved into the baseline currency) must not block the save behind an error
+  // about a field the user cannot see. The value is kept, as above.
+  test("a hidden override is not validated: an invalid stored value neither blocks the save nor is dropped", () => {
+    const { onSave } = setup({ baseCurrency: "GBP", bucket: { ...baseBucket, currency: "GBP", fxRateOverride: -1 } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(screen.queryByText(t("en-US", "budgetFxOverrideInvalid"))).not.toBeInTheDocument();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as BudgetBucket).fxRateOverride).toBe(-1);
+  });
   test("a GBP project still shows it on a USD bucket", () => {
     setup({ baseCurrency: "GBP", bucket: { ...baseBucket, currency: "USD" } });
     expect(screen.getByLabelText(t("en-US", "budgetFxOverride"))).toBeInTheDocument();
