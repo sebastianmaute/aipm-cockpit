@@ -57,7 +57,12 @@ type Rows = readonly string[][];
  *  year a period label without one is read in (see `parsePeriodLabel`). */
 type Ctx = { numbers: NumberOrigin; year?: number };
 
-const isTotalRow = (row: readonly string[]): boolean => row.some(isTotalLabel);
+/** A total row of the detection sample: its FIRST non-blank cell is a total
+ *  label. The person column is not known yet, and a label sits left of the
+ *  figures it sums. ★★ Any cell (final review 4, I1) dropped every `Ann Lee |
+ *  Gesamt` row, so a sheet of `Gesamt / Ist / Plan` groups took the `Art`
+ *  column for the person. */
+const isTotalRow = (row: readonly string[]): boolean => isTotalLabel(row.find((c) => !isBlank(c)) ?? "");
 
 /** Per grid, the indices of its rows that hold data: not blank, not a total. */
 const DATA_ROW_INDICES = new WeakMap<Rows, number[]>();

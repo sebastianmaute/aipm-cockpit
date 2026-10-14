@@ -1281,11 +1281,11 @@ describe("useForecastImport — merged cells and several detectable sheets (fina
     return hook;
   };
   /** Opens the preview and checks that Apply is refused and nothing written. */
-  const refusedBeforeConfirmation = (result: Hook, deps: ForecastImportDeps) => {
+  const refusedBeforeConfirmation = (result: Hook, deps: ForecastImportDeps, key = "forecastImportConfirmFirst") => {
     expect(result.current.step).toBe("mapping");
     act(() => result.current.showPreview());
     expect(applyOutcome(result)).toBe("refused");
-    expect(result.current.error).toEqual({ key: "forecastImportConfirmFirst" });
+    expect(result.current.error).toEqual({ key });
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
   };
 
@@ -1402,7 +1402,7 @@ describe("useForecastImport — merged cells and several detectable sheets (fina
     const { result } = await loadFileNow(deps, csvFile(csvOf(grid)));
     await askClaudeNow(result);
     expect(result.current.ambiguous).toEqual([{ field: "continuation", candidates: ALL_TOTALS_ROWS, samples: ["Gesamt", "Ist"] }]);
-    refusedBeforeConfirmation(result, deps);
+    refusedBeforeConfirmation(result, deps, "forecastImportConfirmClaudeFirst");
   });
 
   // Final review 4, I2: the long twin of final review 3's I1 — a merged
@@ -1436,7 +1436,7 @@ describe("useForecastImport — merged cells and several detectable sheets (fina
     const { result } = await loadFileNow(deps, await mergedHoursFile(kind, mergedHours(months, sub, values)));
     await askClaudeNow(result);
     expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
-    refusedBeforeConfirmation(result, deps);
+    refusedBeforeConfirmation(result, deps, "forecastImportConfirmClaudeFirst");
   });
 
   it("M1: one detectable sheet behaves as today", async () => {

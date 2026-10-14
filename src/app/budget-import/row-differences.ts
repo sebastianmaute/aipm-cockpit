@@ -95,8 +95,12 @@ function differingText(above: readonly string[], row: readonly string[], mapped:
  * so the second row was dropped as "no person" and the first imported
  * straight to the preview — the actuals, or one of two projects. The person
  * is never carried down: an unlabelled total row at the bottom would then be
- * summed into the last person. A row holding a total label in any cell, a
- * spacer with no number, and rows above the first person row do not ask.
+ * summed into the last person. A row with no person holding a total label in
+ * any cell, a row whose PERSON cell is a total label, a spacer with no number,
+ * and rows above the first person row do not ask. ★★ Only the person cell
+ * makes a person row, as in the reader and `differingRows` (final review 4,
+ * I1): an any-cell total check skipped `Ann Lee | Gesamt`, so the Ist and Plan
+ * rows below it asked nothing and her Gesamt was written as her forecast.
  * `candidates` are the rows (0-based), `samples` the first one's text beside
  * the person row's (`differingText`).
  */
@@ -109,12 +113,12 @@ export function continuationRows(rows: readonly string[][], mapping: ColumnMappi
   let samples: string[] = [];
   for (let index = mapping.headerRow + 1; index < end; index++) {
     const row = rows[index] ?? [];
-    if (row.some(isTotalLabel)) continue;
-    if (!isBlank(cellAt(row, mapping.person))) {
-      personRow = row;
+    const person = cellAt(row, mapping.person);
+    if (!isBlank(person)) {
+      if (!isTotalLabel(person)) personRow = row;
       continue;
     }
-    if (personRow === null || !valueCols.some((col) => isNumberCell(cellAt(row, col), numbers))) continue;
+    if (row.some(isTotalLabel) || personRow === null || !valueCols.some((col) => isNumberCell(cellAt(row, col), numbers))) continue;
     if (candidates.length === 0) samples = differingText(personRow, row, mapped, numbers);
     candidates.push(index);
   }
