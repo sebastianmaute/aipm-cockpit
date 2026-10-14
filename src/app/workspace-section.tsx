@@ -887,7 +887,7 @@ export function WorkspaceSection({
 
         {activeTab === "dashboard" && (
           <div id="panel-dashboard" role="tabpanel" className={panelScrollClass}>
-            {!isPopout && onLoadDemo && <DemoBanner lang={lang} tursoUsable={isTursoUsable(mode, chatTursoConfig)} projectName={currentProject?.name} onExplore={onLoadDemo} />}
+            {!isPopout && onLoadDemo && <DemoBanner lang={lang} tursoUsable={isTursoUsable(mode, chatTursoConfig)} project={currentProject} onExplore={onLoadDemo} />}
             <DashboardPanel
               lang={lang}
               tasks={tasks}

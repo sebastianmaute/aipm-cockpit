@@ -24,7 +24,7 @@ import type { SuggestedAction } from "./next-actions/types";
 import { groupNextActions, pickHeroGroup } from "./next-actions/group";
 import { t } from "./i18n";
 import { markDemoBannerDone } from "./demo-banner-state";
-import { DEMO_SAMPLE_NAME } from "./demo-project";
+import { DEMO_SAMPLE_CODE } from "./demo-project";
 import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 
 vi.mock("./use-settings", () => ({
@@ -1414,7 +1414,7 @@ describe("WorkspaceSection — the dashboard demo banner (§712)", () => {
   });
 
   it("M3: is hidden on the demo project itself", () => {
-    const currentProject = { name: t("en-US", "demoProjectName", DEMO_SAMPLE_NAME) } as WorkspaceSectionProps["currentProject"];
+    const currentProject = { name: "Acme pilot sandbox", code: DEMO_SAMPLE_CODE } as WorkspaceSectionProps["currentProject"];
     render(
       <>
         <TabProbe />

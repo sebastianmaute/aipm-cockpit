@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { DemoBanner } from "./demo-banner";
 import { DEMO_BANNER_DONE_KEY, markDemoBannerDone, readDemoBannerDone } from "./demo-banner-state";
 import { loadI18n, t } from "./i18n";
-import { DEMO_SAMPLE_NAME } from "./demo-project";
+import { DEMO_SAMPLE_CODE, DEMO_SAMPLE_NAME } from "./demo-project";
 import { addProject, emptyRegistry, saveRegistry, type ProjectRegistryEntry } from "./projects-registry";
 
 const BROWSER_PROJECT: ProjectRegistryEntry = { id: "p1", name: "Acme", code: "AC", storageConfig: { kind: "browser" } };
@@ -75,11 +75,18 @@ describe("DemoBanner", () => {
     await loadI18n("de");
     for (const lang of ["en-US", "de"] as const) {
       const name = t(lang, "demoProjectName", DEMO_SAMPLE_NAME);
-      const { container, unmount } = render(<DemoBanner lang="en-US" tursoUsable projectName={name} onExplore={vi.fn()} />);
+      const { container, unmount } = render(<DemoBanner lang="en-US" tursoUsable project={{ name, code: "ACME" }} onExplore={vi.fn()} />);
       expect(container).toBeEmptyDOMElement();
       unmount();
     }
-    render(<DemoBanner lang="en-US" tursoUsable projectName="Acme" onExplore={vi.fn()} />);
+    render(<DemoBanner lang="en-US" tursoUsable project={{ name: "Acme", code: "ACME" }} onExplore={vi.fn()} />);
     expect(screen.getByText(t("en-US", "demoBannerText"))).toBeInTheDocument();
+  });
+
+  it("M3: is hidden on a renamed demo that keeps the sample's project code", () => {
+    const { container } = render(
+      <DemoBanner lang="en-US" tursoUsable project={{ name: "Acme pilot sandbox", code: DEMO_SAMPLE_CODE }} onExplore={vi.fn()} />,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 });

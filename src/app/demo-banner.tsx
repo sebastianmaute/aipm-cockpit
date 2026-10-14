@@ -12,22 +12,23 @@ import { Button } from "./button";
 import { IconButton } from "./icon-button";
 import { XMarkIcon } from "./icons";
 import { type Lang, t } from "./i18n";
+import type { ProjectMeta } from "./types";
 import { markDemoBannerDone, readDemoBannerDone } from "./demo-banner-state";
-import { isDemoProjectName, isLocalDemoBlocked } from "./demo-project";
+import { isDemoProject, isLocalDemoBlocked } from "./demo-project";
 import { readBrowserProject } from "./projects-registry";
 
 /** `tursoUsable` is `isTursoUsable(portfolioMode, tursoConfig)`, as the demo create reads it.
- *  `projectName` is the current project's: the banner never shows on the demo itself, which a
+ *  `project` is the current project: the banner never shows on the demo itself, which a
  *  device that opened the demo before the "done" marker existed would otherwise see (M3). */
-export function DemoBanner({ lang, tursoUsable, projectName, onExplore }: {
+export function DemoBanner({ lang, tursoUsable, project, onExplore }: {
   lang: Lang;
   tursoUsable: boolean;
-  projectName?: string;
+  project?: Pick<ProjectMeta, "name" | "code">;
   onExplore: () => void;
 }) {
   const [hidden, setHidden] = useState(false);
   // Read at render, not seeded once: the demo can be opened from Help while this is mounted.
-  if (hidden || readDemoBannerDone() || isDemoProjectName(projectName)) return null;
+  if (hidden || readDemoBannerDone() || isDemoProject(project)) return null;
   // Read at render for the same reason: the registry changes while the dashboard stays mounted.
   // `readBrowserProject` parses only when the stored registry text changed.
   if (isLocalDemoBlocked(tursoUsable, readBrowserProject())) return null;

@@ -51,6 +51,10 @@ export function demoHistoryWeeks(today: string): number {
  *  loaded. `demo-project.test.ts` pins it to the master. The copy (`demoCardBody`) names it too. */
 export const DEMO_SAMPLE_NAME = "Customer Identity Platform";
 
+/** The sample master's `project.code`. A literal for the same reason as the name: importing the
+ *  master here would pull it into the main bundle. `demo-project.test.ts` pins it to the master. */
+export const DEMO_SAMPLE_CODE = "CIP-2026";
+
 /** The one predicate for "the demo goes to Turso" (AGENTS.md "Turso-gated features"): the card's
  *  variant, the boot note and the create all read it. */
 export function isTursoUsable(portfolioMode: PortfolioMode, tursoConfig: TursoConfig | null): boolean {
@@ -65,11 +69,13 @@ export function isLocalDemoBlocked(tursoUsable: boolean, browserProject: Project
   return !tursoUsable && browserProject !== null;
 }
 
-/** True for the Turso demo project itself, whichever language created it: the EN and DE names
- *  (`demoProjectName`) differ only in the case of "(demo)", so the match ignores case. */
-export function isDemoProjectName(name: string | undefined): boolean {
-  if (name === undefined) return false;
-  return name.trim().toLowerCase() === t("en-US", "demoProjectName", DEMO_SAMPLE_NAME).toLowerCase();
+/** True for the Turso demo project itself: its name, whichever language created it (the EN and
+ *  DE `demoProjectName` differ only in the case of "(demo)", so the match ignores case), OR the
+ *  sample's project code, which the create keeps and a rename leaves alone. */
+export function isDemoProject(project: Pick<ProjectMeta, "name" | "code"> | undefined): boolean {
+  if (project === undefined) return false;
+  if (project.code.trim() === DEMO_SAMPLE_CODE) return true;
+  return project.name.trim().toLowerCase() === t("en-US", "demoProjectName", DEMO_SAMPLE_NAME).toLowerCase();
 }
 
 export type DemoVariant = { kind: "local" } | { kind: "turso"; projectName: string };

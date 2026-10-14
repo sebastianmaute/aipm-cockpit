@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./snapshot-store", () => ({ appendSnapshots: vi.fn() }));
 
 import {
-  createDemo, DEMO_PLAN_GRANULARITY, DEMO_SAMPLE_NAME, demoHistoryFor, demoHistoryWeeks, demoVariantFor, isLocalDemoBlocked, isTursoUsable, useLoadDemo,
+  createDemo, DEMO_PLAN_GRANULARITY, DEMO_SAMPLE_CODE, DEMO_SAMPLE_NAME, demoHistoryFor, demoHistoryWeeks, demoVariantFor, isLocalDemoBlocked, isTursoUsable, useLoadDemo,
   type CreateDemoDeps, type UseLoadDemoDeps,
 } from "./demo-project";
 import { readDemoCreatedLocally } from "./demo-intent";
@@ -303,6 +303,10 @@ describe("the demo's start-card facts", () => {
 
   it("names the sample exactly as the master does", () => {
     expect(DEMO_SAMPLE_NAME).toBe((MASTER as { project: { name: string } }).project.name);
+  });
+
+  it("carries the master's own project code", () => {
+    expect(DEMO_SAMPLE_CODE).toBe((MASTER as { project: { code: string } }).project.code);
   });
 
   it("calls Turso usable only in Turso mode with a config", () => {
