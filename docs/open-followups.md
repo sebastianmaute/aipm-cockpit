@@ -966,7 +966,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§726](#726-forecast-import-cannot-route-some-matched-people-and-its-notes-name-namesakes-inconsistently--open) | Forecast import cannot route some matched people, and its notes name namesakes inconsistently | — | — | open |
 | [§727](#727-forecast-plants-mixes-matching-and-apply-and-should-split-before-it-grows--open) | forecast-plan.ts mixes matching and apply and should split before it grows | — | — | open |
 | [§728](#728-the-first-start-splashs-status-text-has-not-been-eye-checked-on-a-packaged-desktop-build--open) | The first-start splash's status text has not been eye-checked on a packaged desktop build | — | — | open |
-| [§729](#729-the-install-guide-describes-the-browser-download-prompt-and-the-windows-protection-box-without-pictures--open) | The install guide describes the browser download prompt and the Windows protection box without pictures | — | — | open |
+| [§729](#729-the-install-guide-describes-the-browser-download-prompt-and-the-windows-protection-box-without-pictures--closed-2026-10-14) | The install guide describes the browser download prompt and the Windows protection box without pictures | — | — | **CLOSED** 2026-10-14 |
 | [§730](#730-the-timelog-view-gives-no-guided-setup-for-its-connection-links-and-first-fetch--open) | The TimeLog view gives no guided setup for its connection, links and first fetch | — | — | open |
 | [§731](#731-an-empty-resources-view-says-only-no-contacts-available-and-gives-no-setup-order--open) | An empty Resources view says only "No contacts available." and gives no setup order | — | — | open |
 | [§732](#732-the-jira-integration-gives-no-guided-setup-for-site-token-project-and-first-sync--open) | The Jira integration gives no guided setup for site, token, project and first sync | — | — | open |
@@ -45223,11 +45223,11 @@ Size S.
 
 **Source:** owner decision at the phase-1 merge, 2026-10-14.
 
-## 729. The install guide describes the browser download prompt and the Windows protection box without pictures — OPEN
+## 729. The install guide describes the browser download prompt and the Windows protection box without pictures — CLOSED 2026-10-14
 
-**Status:** OPEN 2026-10-14 — both steps are text only; no hand-captured picture is in the guide yet (`grep -c "manual.png" docs/desktop-rollout.md` → 0).
+**Status:** CLOSED 2026-10-14 on `docs/guide-manual-pictures` (GitHub #721). Both install steps now carry hand-captured pictures, four in all (`grep -c "manual.png" docs/desktop-rollout.md` → 4): Edge's download warning with **Keep**, its second warning with **Keep anyway** (a step the guide had not described), and Windows' protection box before and after **More info**. The Windows pictures were taken on a German Windows, by the owner's choice; the step's text names the German labels beside the English ones. `scripts/doc-image-refs.test.mjs` checks the files exist; its floor for the guide rose from 9 to 13.
 
-**Work item:** #721
+★ The text below is the record as opened: it names two pictures, before Edge's second warning was found.
 
 Two steps of the install guide's "Installing" section have no picture: the browser's "isn't commonly downloaded" warning with **Keep**, and Windows' "Windows protected your PC" box with **More info** → **Run anyway**. Both happen outside the web page, so `npm run docs:guide-shots` (§713) cannot take them. They were left out on purpose until they exist (plan ruling R8): an image line pointing at a missing file would fail `scripts/doc-image-refs.test.mjs`.
 

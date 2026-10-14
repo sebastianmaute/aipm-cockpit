@@ -7,9 +7,24 @@
    `aipm-cockpit-<version>-setup.exe (Windows installer)`. No sign-in is needed once the repository
    is public.
 2. Your browser may warn that the file "isn't commonly downloaded" and hold it back. Open the
-   browser's download list, then choose **Keep** on the installer (some browsers ask twice, the
-   second time under **Show more**). Then run it.
-3. Windows will show a blue **"Windows protected your PC"** box. This is expected: the app is not code-signed. Click **More info**, then **Run anyway**.
+   browser's download list, open the **…** menu on the installer, and choose **Keep**.
+
+   ![Edge's download list warning that the installer isn't commonly downloaded, with Keep chosen in the file's menu](assets/guide/download-keep.manual.png)
+
+   Edge then asks once more: open the arrow beside **Delete** and choose **Keep anyway**. Then run
+   the installer.
+
+   ![Edge's second warning, "Make sure you trust the installer before you open it", with Keep anyway under the arrow beside Delete](assets/guide/download-keep-anyway.manual.png)
+
+3. Windows will show a blue **"Windows protected your PC"** box. This is expected: the app is not
+   code-signed. Click **More info**, then **Run anyway**. The pictures show the box on a German
+   Windows, where it reads *"Der Computer wurde durch Windows geschützt"* and the two are
+   *Weitere Informationen* and *Trotzdem ausführen*.
+
+   ![Windows' blue protection box, in German, before More info: the More info link and only a Don't run button](assets/guide/smartscreen.manual.png)
+
+   ![The same box after More info: the installer's name, publisher unknown, and the Run anyway button beside Don't run](assets/guide/smartscreen-run-anyway.manual.png)
+
 4. The app installs for your user only — you do **not** need admin rights.
 5. Optional: verify the download carries this repository's build provenance —
    `gh attestation verify aipm-cockpit-<version>-setup.exe --repo sebastianmaute/aipm-cockpit`.

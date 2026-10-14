@@ -17,7 +17,8 @@ longer carries its own changelog comment.
   Timelog email, add buckets, import the hours. The Help panel's footer and the About panel link the
   installation and setup guide, which now also covers the browser's download warning, the slow first
   start, that a Claude subscription does not include API credit, and setting up a first budget, with
-  pictures. The README's gallery pictures were retaken.
+  pictures. The README's gallery pictures were retaken. The guide's install steps now show the browser's
+  two download warnings and Windows' protection box, too.
 - **Settings → AI now shows how often the chat's view changes while its prompt cache is warm.** Once you
   have sent a chat message in the week, the panel under the weekly usage bar lists the week's completed
   chat messages and their API requests, how many of them were view switches with a warm cache (1 in how
