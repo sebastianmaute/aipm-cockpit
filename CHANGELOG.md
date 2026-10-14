@@ -13,14 +13,16 @@ longer carries its own changelog comment.
 ### Added
 
 - **You can close TimeLog months, and a later change to a closed month is flagged.** Settings → Integrations →
-  TimeLog has a Closed months block. Close the next month saves each linked person's daily hours for it from
-  the fetched bookings; Reopen steps back one month, after a confirmation. A sixth guardrail,
-  `timelogClosedMonth`, compares the next fetch with what was saved and raises one finding per person whose
-  hours changed by 0.01 h or more on any day, with the net change. Nothing is blocked, and budget actuals
-  are untouched. A month cannot be closed while it has not ended, while the fetched window does not cover
-  all of it, while the fetch was partial, or while a linked person is missing from it. A finding is not
-  cleared by a fetch that covers only part of its month, and a partial fetch leaves existing findings as
-  they are.
+  TimeLog has a Closed months block. Closing the next month saves each linked person's daily hours on the
+  fetched TimeLog projects for that month; Reopen steps back one month, after a confirmation. The close
+  belongs to the set of TimeLog projects fetched when the first month was closed. A sixth guardrail,
+  `timelogClosedMonth`, compares the next fetch of the same projects with what was saved and raises one
+  finding per person whose hours changed by 0.01 h or more on any day, with the net change. Hours on other
+  TimeLog projects are not checked. Nothing is blocked, and budget actuals are untouched. A month cannot be
+  closed while it has not ended, while the fetched window does not cover all of it, while the fetch was
+  partial, before TimeLog projects have been fetched, or when the last fetch covers different TimeLog
+  projects than the closed months. A finding is not cleared by a fetch that covers only part of its month or
+  other projects, and a partial fetch leaves existing findings as they are.
 - **Settings → AI now shows how often the chat's view changes while its prompt cache is warm.** Once you
   have sent a chat message in the week, the panel under the weekly usage bar lists the week's completed
   chat messages and their API requests, how many of them were view switches with a warm cache (1 in how
