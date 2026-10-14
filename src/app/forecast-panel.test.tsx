@@ -198,6 +198,77 @@ describe("ForecastPanel", () => {
     );
   });
 
+  test("tasks-mode amounts carry the unit word, with a real singular", () => {
+    const { unmount } = renderPanel([...open(5), ...steadyDone(60)]);
+    expect(screen.getByText("Open work: 5 tasks")).toBeTruthy();
+    // The default target (plan end) lies past the backlog's finish, so every percentile delivers all 5.
+    const howMany = () => screen.getAllByRole("row").slice(1).map((r) => within(r).getAllByRole("cell")[1].textContent);
+    expect(howMany()).toEqual(["5 tasks", "5 tasks", "5 tasks"]);
+    unmount();
+    renderPanel([...open(1), ...steadyDone(60)]);
+    expect(screen.getByText("Open work: 1 task")).toBeTruthy();
+    expect(howMany()).toEqual(["1 task", "1 task", "1 task"]);
+  });
+
+  test("tasks-mode amounts read in German", () => {
+    render(<ForecastPanel lang="de" tasks={[...open(5), ...steadyDone(60)]} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} />);
+    expect(screen.getByText("Offene Arbeit: 5 Aufgaben")).toBeTruthy();
+  });
+
+  test("a fixed window cut at the first completion says so in the empty state (R14)", async () => {
+    const user = userEvent.setup();
+    // Two finishes on each of the last 8 working days (Oct 5–14): enough tasks, too few days.
+    const eight = steadyDone(8);
+    renderPanel([...open(5), ...eight, ...eight.map((d) => ({ ...d, id: d.id + 500 }))]);
+    expect(
+      screen.getByText(
+        "8 of 10 working days of history — 2 more needed. The window was shortened to start at the first completion, Oct 5, 2026.",
+      ),
+    ).toBeTruthy();
+    // "All history" always starts at the first completion, so there is nothing to explain.
+    await user.selectOptions(screen.getByLabelText("History"), "all");
+    expect(screen.getByText("8 of 10 working days of history — 2 more needed")).toBeTruthy();
+    expect(screen.queryByText(/window was shortened/)).toBeNull();
+  });
+
+  test("the cut-window note reads in German", () => {
+    const eight = steadyDone(8);
+    render(
+      <ForecastPanel lang="de" tasks={[...open(5), ...eight, ...eight.map((d) => ({ ...d, id: d.id + 500 }))]} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} />,
+    );
+    expect(screen.getByText(/^8 von 10 Arbeitstagen Verlauf – 2 weitere nötig\. Das Fenster wurde gekürzt und beginnt beim ersten Abschluss, /)).toBeTruthy();
+  });
+
+  test("a committed scope removal shows the clamped value the forecast uses once tasks close (M8)", async () => {
+    const user = userEvent.setup();
+    const tasks = [...open(5), ...steadyDone(60)];
+    const { rerender } = renderPanel(tasks);
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    const scope = screen.getByLabelText("Scope change (tasks)") as HTMLInputElement;
+    await user.clear(scope);
+    await user.type(scope, "-5{Enter}");
+    expect(scope.value).toBe("-5");
+    // Two of the five are cancelled elsewhere: only 3 can be removed now.
+    const closed = tasks.map((task) => (task.id <= 2 ? { ...task, status: "Cancelled" as const } : task));
+    rerender(<ForecastPanel lang="en-US" tasks={closed} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} />);
+    expect(scope.value, "the field shows the value the engine clamps to").toBe("-3");
+    expect(screen.getByText("Open work: 0 tasks")).toBeTruthy();
+  });
+
+  test("the caption prints the trial count the forecast ran, 5,000 at a What-if extreme", async () => {
+    const user = userEvent.setup();
+    renderPanel([...open(5), ...steadyDone(60)]);
+    expect(screen.getByText("10,000 runs of your last 60 working days (60 finished tasks)")).toBeTruthy();
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    const capacity = screen.getByLabelText("Capacity (%)");
+    await user.clear(capacity);
+    await user.type(capacity, "10{Enter}");
+    const scope = screen.getByLabelText("Scope change (tasks)");
+    await user.clear(scope);
+    await user.type(scope, "1000{Enter}");
+    expect(screen.getByText("5,000 runs of your last 60 working days (60 finished tasks)")).toBeTruthy();
+  });
+
   test("toolbar keeps the trailing group contiguous", () => {
     const { container } = renderPanel([...open(5), ...steadyDone(60)]);
     expectButtonOrder(["printHint", "tableResetSizeHint"], { contiguous: true });
