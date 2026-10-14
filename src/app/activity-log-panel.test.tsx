@@ -5,6 +5,7 @@ import { ActivityLogPanel } from "./activity-log-panel";
 import { ConfirmProvider } from "./confirm-dialog";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import { loadI18n, t } from "./i18n";
+import { formatExpiryDate } from "./date-format";
 import { expectButtonOrder } from "../test/toolbar-order";
 import { activityMessageKey, type ActivityEntry } from "./activity-log";
 import { buttonClassFor } from "../test/button-variant";
@@ -940,7 +941,7 @@ describe("ActivityLogPanel sortable column headers", () => {
  * the same keys on a hardcoded "en-US", so it cannot produce a German defect at
  * all — the DE case below is reachable from here and nowhere else.
  */
-// §476 — a baseline-currency switch renders readably.
+// §476 — a baseline-currency switch renders readably: rate and ECB date in the viewer's locale.
 describe("ActivityLogPanel — project currency entries (§476)", () => {
   beforeAll(async () => {
     await loadI18n("de");
@@ -948,11 +949,11 @@ describe("ActivityLogPanel — project currency entries (§476)", () => {
   const switched = entry({ id: "1", kind: "plan.currencySwitched", args: ["EUR", "GBP", 0.852, "2026-10-13"], actor: "user" });
   it("renders in English", () => {
     renderPanel(<ActivityLogPanel lang="en-US" entries={[switched]} onClear={() => {}} />);
-    expect(screen.getByText("Project currency switched from EUR to GBP at 0.852 (ECB rates of 2026-10-13)")).toBeInTheDocument();
+    expect(screen.getByText(`Project currency switched from EUR to GBP at 0.852 (ECB rates of ${formatExpiryDate("2026-10-13", "en-US")})`)).toBeInTheDocument();
   });
   it("renders in German", () => {
     renderPanel(<ActivityLogPanel lang="de" entries={[switched]} onClear={() => {}} />);
-    expect(screen.getByText("Projektwährung von EUR auf GBP umgestellt, Kurs 0.852 (EZB-Kurse vom 2026-10-13)")).toBeInTheDocument();
+    expect(screen.getByText(`Projektwährung von EUR auf GBP umgestellt, Kurs 0,852 (EZB-Kurse vom ${formatExpiryDate("2026-10-13", "de")})`)).toBeInTheDocument();
   });
 });
 

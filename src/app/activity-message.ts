@@ -1,5 +1,6 @@
 import { type ActivityKind, activityMessageKey } from "./activity-log";
-import { type Lang, type PluralBaseKey, t, tPlural } from "./i18n";
+import { type Lang, type PluralBaseKey, localeFor, t, tPlural } from "./i18n";
+import { formatExpiryDate } from "./date-format";
 
 /**
  * The count-bearing activity kinds, and the `args` slot the count sits in.
@@ -88,6 +89,26 @@ export function activityPluralBase(kind: ActivityKind): PluralBaseKey | undefine
 }
 
 /**
+ * §476 — per-kind DISPLAY formatting of stored args, applied by `activityMessage`
+ * on the non-plural path only (a count slot is never formatted before `Number`
+ * reads it) and to a COPY (the stored entry never changes). A kind absent here
+ * renders its args exactly as before.
+ * ★ `plan.currencySwitched` stores `[from, to, rate, ECB date]` with the rate a
+ *   number and the date ISO; the viewer reads both in their locale (DE "0,852",
+ *   "13. Okt. 2026"). A value that does not parse is left as stored.
+ */
+const ACTIVITY_ARG_DISPLAY: Partial<Record<ActivityKind, (lang: Lang, args: (string | number)[]) => (string | number)[]>> = {
+  "plan.currencySwitched": (lang, args) => args.map((a, i) => {
+    if (i === 2) {
+      const n = typeof a === "number" ? a : typeof a === "string" && a.trim() !== "" ? Number(a) : NaN;
+      return Number.isFinite(n) ? new Intl.NumberFormat(localeFor(lang), { maximumFractionDigits: 6 }).format(n) : a;
+    }
+    if (i === 3 && typeof a === "string" && /^\d{4}-\d{2}-\d{2}$/.test(a)) return formatExpiryDate(a, lang);
+    return a;
+  }),
+};
+
+/**
  * The single rendering path for an activity entry's message, shared by the
  * user-visible panel and the AI-prompt renderer.
  *
@@ -133,5 +154,6 @@ export function activityMessage(lang: Lang, kind: string, args: (string | number
     return tPlural(lang, plural.base, Number(raw), ...args);
   }
 
-  return t(lang, key, ...args);
+  const display = ACTIVITY_ARG_DISPLAY[kind as ActivityKind];
+  return t(lang, key, ...(display ? display(lang, args) : args));
 }
