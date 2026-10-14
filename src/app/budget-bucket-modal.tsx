@@ -513,8 +513,11 @@ export function BudgetBucketModal({
               an override there is incoherent data rather than a preference, and
               `resolveRate` (fx.ts) already declines to consult one on an EUR
               bucket. Offering the field anyway let a user set a value nothing
-              would ever read. */}
-          {isVisible("fxOverride") && draft.currency !== "EUR" && (
+              would ever read.
+              §476: hidden on a bucket in the project's baseline currency as well,
+              which needs no conversion — but the stored value is KEPT on save
+              (it is per EUR, and matters again if the project switches away). */}
+          {isVisible("fxOverride") && draft.currency !== "EUR" && draft.currency !== baseCurrency && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="flex items-center gap-1">{t(lang, "budgetFxOverride")}<InfoTooltip text={t(lang, "budgetFxOverrideHint")} /></span>
             <input

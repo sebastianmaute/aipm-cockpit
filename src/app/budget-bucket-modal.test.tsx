@@ -624,6 +624,27 @@ describe("BudgetBucketModal — FX override currency gate (§475)", () => {
   });
 });
 
+// §476: a bucket in the project's own baseline currency needs no conversion, so the manual FX override
+// is hidden there too. Unlike the EUR gate above, the stored value is KEPT on save: it is per EUR, and the
+// project could switch back to a currency where it matters again.
+describe("BudgetBucketModal — FX override hidden on a baseline-currency bucket (§476)", () => {
+  test("a GBP project hides it on a GBP bucket, and saving keeps the stored override", () => {
+    const { onSave } = setup({ baseCurrency: "GBP", bucket: { ...baseBucket, currency: "GBP", fxRateOverride: 0.86 } });
+    expect(screen.queryByLabelText(t("en-US", "budgetFxOverride"))).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as BudgetBucket).fxRateOverride).toBe(0.86);
+  });
+  test("a GBP project still shows it on a USD bucket", () => {
+    setup({ baseCurrency: "GBP", bucket: { ...baseBucket, currency: "USD" } });
+    expect(screen.getByLabelText(t("en-US", "budgetFxOverride"))).toBeInTheDocument();
+  });
+  test("a GBP project still hides it on an EUR bucket", () => {
+    setup({ baseCurrency: "GBP", bucket: { ...baseBucket, currency: "EUR" } });
+    expect(screen.queryByLabelText(t("en-US", "budgetFxOverride"))).not.toBeInTheDocument();
+  });
+});
+
 describe("BudgetBucketModal field-visibility control", () => {
   test("mounts the field-visibility trigger inside the modal header", () => {
     setup();

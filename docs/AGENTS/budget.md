@@ -57,6 +57,8 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   save when the currency is EUR (§475, closed), but buckets nobody re-saves still carry theirs.
   Only the read-time rule repairs those (`bucketPerEur` in `fx.ts` ignores the override on an EUR
   bucket), so do not "simplify" it away on the grounds that the modal already clears the field.
+  ★ The modal also HIDES the field on a bucket in the baseline currency (§476, it resolves to 1, source
+  `"base"`), but KEEPS a stored value on save there: it is per EUR and matters again after a switch.
 - ★★ **`"unresolved"` AND `"base"` BOTH RETURN 1, AND SO CAN A REAL RATE.** Never infer "unresolved"
   from `resolveRate(...) === 1`. Ask `resolveRateSource`. `bucketCurrencyLabel`
   (`budget-currency-label.ts`) is shared by the Budget panel and the Budget report so both
