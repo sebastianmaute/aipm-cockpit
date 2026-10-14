@@ -18,12 +18,16 @@ const BOOT_NONCE = runStartsDevServer(process.env) ? mintBootNonce(process.env) 
 // environment sets ("Set by NEXT_PUBLIC_TURSO_DATABASE_URL", a rejected deployment token).
 // Next keeps a variable already present in the process environment, even an empty one, over
 // .env.local — so this run boots its server with every deployment variable the app reads
-// blanked, and the pictures show what a fresh install shows. Only a server THIS run starts:
-// with PLAYWRIGHT_REUSE_SERVER=1 an already-running server keeps its own environment.
+// blanked, and the pictures show what a fresh install shows.
 // List: `grep -rhoE "process.env.[A-Z_]+" src --include=*.ts --include=*.tsx | sort -u`.
-const GUIDE_SHOTS_RUN = process.argv.some(
-  (arg, i, all) => arg === "--project=guide-shots" || (arg === "--project" && all[i + 1] === "guide-shots"),
-);
+// ★★ The project EXISTS only when E2E_GUIDE_SHOTS=1, which `npm run docs:guide-shots` sets
+// itself (the E2E_LIVE_APP pattern): a run naming no project would otherwise take the pictures
+// too, against a server that read .env.local. And it refuses server reuse, since an
+// already-running server keeps its own environment and the blanking would not reach it.
+const GUIDE_SHOTS_RUN = process.env.E2E_GUIDE_SHOTS === "1";
+if (GUIDE_SHOTS_RUN && reuseDevServer(process.env)) {
+  throw new Error("E2E_GUIDE_SHOTS=1 cannot reuse a running server: its environment would reach the screenshots. Unset PLAYWRIGHT_REUSE_SERVER.");
+}
 const GUIDE_SHOTS_BLANK_ENV: Record<string, string> = Object.fromEntries(
   [
     "NEXT_PUBLIC_TURSO_DATABASE_URL",
@@ -135,9 +139,12 @@ export default defineConfig({
       testMatch: /visual\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], timezoneId: "UTC", locale: "en-US" },
     },
+    ...(GUIDE_SHOTS_RUN
+      ? [
     {
       // The install guide's screenshots and the README gallery (§713) — opt-in
-      // (`npm run docs:guide-shots`) and never in CI: it WRITES files under
+      // (`npm run docs:guide-shots`, which sets E2E_GUIDE_SHOTS=1; see GUIDE_SHOTS_RUN) and
+      // never in CI: it WRITES files under
       // docs/assets/ instead of asserting on them, so it is not a pixel gate and
       // a run in CI would only dirty the checkout. The `chromium` project above
       // ignores it for the same reason. Pinned like `visual` (UTC, en-US) plus a
@@ -160,6 +167,8 @@ export default defineConfig({
         launchOptions: { args: ["--lang=en-US"] },
       },
     },
+        ]
+      : []),
     {
       // Packaged Electron desktop app — opt-in (`npm run e2e:desktop`), and
       // never in CI: it needs the artifact `npm run desktop:package` writes to
