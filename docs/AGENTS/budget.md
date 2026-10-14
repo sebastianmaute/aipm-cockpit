@@ -59,6 +59,9 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   bucket), so do not "simplify" it away on the grounds that the modal already clears the field.
   ★ The modal also HIDES the field on a bucket in the baseline currency (§476, it resolves to 1, source
   `"base"`), but KEEPS a stored value on save there: it is per EUR and matters again after a switch.
+  Render and save read ONE predicate (`fxOverrideShown` in `budget-bucket-modal.tsx`), so a hidden
+  field is never VALIDATED either: an invalid value it carries cannot block a save behind an error
+  about a field the user cannot see.
 - ★★ **`"unresolved"` AND `"base"` BOTH RETURN 1, AND SO CAN A REAL RATE.** Never infer "unresolved"
   from `resolveRate(...) === 1`. Ask `resolveRateSource`. `bucketCurrencyLabel`
   (`budget-currency-label.ts`) is shared by the Budget panel and the Budget report so both
@@ -109,16 +112,26 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   baseline money rate ONCE by the cross rate (`crossRate` in `baseline-currency.ts`: units of the new
   baseline per 1 unit of the old, via the EUR table), rounded to 2 decimals — the four role rates
   (day-based roles re-materialised), the two bucket rate overrides and every change's `costImpact`.
+  ★ A day-basis role missing one day field (the sanitizer allows it) gets that side's day rate derived
+  from its CONVERTED hourly before re-materialising, so the switch neither zeroes nor splits it.
+  The history entry's `from` is the PROJECT day (`today`, i.e. `clock.today` through `BudgetPanel`),
+  never `nowIso.slice(0, 10)`, the UTC day; `at` stays the ISO instant.
   ★★ It NEVER touches `fixedPriceAmount` (stored in the bucket's currency) or `fxRateOverride`
   (per EUR, above). Confirm re-plans from LIVE state and writes through five setters (`setRoles`,
-  `setBudgets`, `setChanges`, `setPlan`, `setBaselineHistory`).
+  `setBudgets`, `setChanges`, `setPlan`, `setBaselineHistory`). ★★ The three record setters are
+  FUNCTIONAL and convert `prev` at the plan's rate (`convertRole` / `convertBucket` / `convertChange`),
+  so a record another writer queued in the same tick is converted, not overwritten; one history append.
+  A pending choice that stops being a switch (a peer tab made it) is dropped by a render-time
+  reconcile, so the dialog cannot reappear on its own later.
 - ★★ **THE SWITCH IS NOT UNDOABLE.** It captures no undo entry; the dialog says so, and switching
   back is the way back (at that day's rate, so a round trip need not restore the old figures exactly).
   ★★ It also RETIRES every undo/redo entry captured before it, in this tab and in any peer tab its
   sync reaches: their images hold old-currency amounts. Mechanism: [`undo.md`](undo.md) "Gates on the stack"
   (`useDenominationEpoch`).
 - **The switch is LOGGED** (owner requirement): Confirm writes ONE `plan.currencySwitched` activity entry, actor
-  `"user"`, args `[from, to, rate, ECB date]` (rate rounded by `roundRate` to 6 decimals). The
+  `"user"`, args `[from, to, rate, ECB date]` (rate rounded by `roundRate` to 6 decimals). The stored
+  args never change; `activityMessage` formats the rate and the date in the viewer's locale at render
+  (`ACTIVITY_ARG_DISPLAY` in `activity-message.ts`, a per-kind hook no other kind uses). The
   completion trend does not read it (pinned in `completion-trend.test.ts`, "§476").
 - **`baselineHistory` (`Workspace.baselineHistory`, entries `BaselineEntry`: `from`, `at`,
   `currency`, `perPrevious?`).** Every switch appends one entry whose `perPrevious` is the cross rate
@@ -131,9 +144,14 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   wrote old-currency values with nothing appended). `prepareRestoredVersion` (`baseline-switch.ts`) runs on
   the parsed VERSION before the diff and the merge (`useVersionHistory.restore`'s `prepareVersion`, wired in
   `use-version-history-wiring.ts` with the LIVE history, currency and workday hours): it pins the plan's
-  currency, and multiplies the planner's money fields (`ROLE_FIELDS`, `BUCKET_FIELDS`, `costImpact`) by
-  `rebaseFactor(history, capturedAt)`, round2, re-deriving a day role's hourly rates. Factor 1 → untouched;
-  an unknown capture time converts nothing. Never `fixedPriceAmount` or `fxRateOverride`. A restore
+  currency, and converts the planner's money fields (`ROLE_FIELDS`, `BUCKET_FIELDS`, `costImpact`) through
+  every later switch IN ORDER (`laterSwitchRates`), round2 and a day-basis re-derive at EACH step — exactly
+  what the successive switches did, so a value untouched since the version comes back to the cent (one
+  compound `rebaseFactor` rounded once drifts by 0.01 after two switches). No later switch → no money
+  converted; an unknown capture time converts nothing. Either way a day-basis role's hourly rates are
+  re-derived at the CURRENT workday hours, so a compare against now shows no hourly row for an unchanged
+  day rate. ★★ A per-field restore takes a day-basis role's day and hourly rate as a PAIR (`applyRestore`,
+  `DAY_RATE_PAIRS` in `version-restore.ts`, re-materialised at the `workdayHours` the wiring passes). Never `fixedPriceAmount` or `fxRateOverride`. A restore
   appends no history entry and logs no currency row. ★ A compare against NOW runs the same
   conversion (`loadDiff`), so its rows, the selections built from them and the values written agree, and
   no currency row appears; a version-to-version compare stays RAW (no single denomination). A capture
@@ -146,6 +164,9 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   `rebaseBudgetHistory` (both defined in `baseline-currency.ts`) apply it before any reader sees the
   record; they are CALLED FROM `use-snapshots.ts` and `budget-forecast-bundle.ts` respectively. A new reader of either must go through those two call sites, never the raw
   slice: `git grep -n "rebaseSnapshots(\|rebaseBudgetHistory(" -- src/app ':!*.test.*'`.
+  ★ `buildDemoSnapshots` computes from TODAY's rates but stamps a past `capturedAt`, so it divides each
+  record's money by `rebaseFactor(baselineHistory, capturedAt)` (`scaleSnapshotMoney`): stored in the
+  currency in force at capture, the read-time rebase brings it back instead of converting it twice.
 
 ## Where the rates come from, and rounding
 
