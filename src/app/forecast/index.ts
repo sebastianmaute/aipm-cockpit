@@ -151,8 +151,9 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
 
   const history: ThroughputHistory = dailyThroughput({ tasks, today, window, holidaySet, unit, unestimatedSize: unitSize });
   const windowDays = history.days.length;
-  // The floor reads the real backlog: a what-if that empties it must not let below-floor numbers out.
-  if (open.length > 0 && (history.finished < MIN_FINISHED_TASKS || windowDays < MIN_HISTORY_WORKING_DAYS)) {
+  // The floor applies when there is real OR simulated work: a what-if that empties the real backlog, or
+  // adds scope to an empty one, must not let below-floor numbers out. Only no work at all skips it (R3).
+  if ((open.length > 0 || backlog > 0) && (history.finished < MIN_FINISHED_TASKS || windowDays < MIN_HISTORY_WORKING_DAYS)) {
     return {
       kind: "insufficient",
       finished: history.finished,

@@ -42,16 +42,19 @@ forecast's formatter) rather than owning a formatter of its own.
   numbers on every render and machine.
 - **Separate streams (R5).** `stream(name)` derives one `mulberry32` per output — `"when"`, `"howMany"`,
   `"milestones"` — from `seedFrom([...seedParts, name])`. No figure depends on whether another ran first.
-- **Floor.** With at least one open task, fewer than `MIN_FINISHED_TASKS` completions inside the window,
-  or fewer than `MIN_HISTORY_WORKING_DAYS` window days, returns `kind: "insufficient"` carrying the
-  shortfall and `doneWithoutDate`. A project with NO open task skips the floor (R3): it still runs
-  `milestoneChances`, where all-closed reads 100 %, no linked tasks reads `no-linked-tasks`, and overdue
-  needs an open task.
-- ★★ **The floor reads the backlog BEFORE the what-if** (`open.length > 0`, not the post-what-if
-  `backlog`). A What-if scope of −100 % empties the simulated backlog but not the real one; reading the
-  simulated one let How-many and the milestone chances (which use the real linked tasks, and read 0 %
-  on an empty history) render with no history at all. Pinned by "a what-if that empties the backlog
-  still needs the history floor" in `index.test.ts`.
+- **Floor.** When there is real OR simulated work (`open.length > 0 || backlog > 0`, where `backlog`
+  is the post-what-if amount), fewer than `MIN_FINISHED_TASKS` completions inside the window, or fewer
+  than `MIN_HISTORY_WORKING_DAYS` window days, returns `kind: "insufficient"` carrying the shortfall
+  and `doneWithoutDate`. Only a project with NO open task AND no what-if scope added skips the floor
+  (R3): it still runs `milestoneChances`, where all-closed reads 100 %, no linked tasks reads
+  `no-linked-tasks`, and overdue needs an open task.
+- ★★ **Neither backlog alone decides the floor.** Reading only the post-what-if `backlog` let a scope
+  of −100 % empty the simulated backlog and skip the floor while real linked tasks stayed open, so
+  How-many and the milestone chances (which use the real linked tasks, and read 0 % on an empty
+  history) rendered with no history at all. Reading only `open.length` let a What-if of +N tasks on a
+  project with no open task skip it the same way. Pinned by "a what-if that empties the backlog still
+  needs the history floor" and "a what-if that adds scope to an empty backlog still needs the history
+  floor" in `index.test.ts`.
 - **Window.** `HistoryWindow` is 30, 60, 90 or `"all"`. Both kinds end at the latest working day on or
   before `today` and start NO EARLIER than the earliest attributed completion. `"all"` starts exactly
   there; a fixed window is that many working days, cut at that completion when the project is younger

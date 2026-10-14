@@ -97,6 +97,11 @@ describe("computeScheduleForecast backlog", () => {
     expect(r.kind, "the floor reads the open backlog before the what-if").toBe("insufficient");
   });
 
+  test("a what-if that adds scope to an empty backlog still needs the history floor", () => {
+    const r = computeScheduleForecast(input([], { whatIf: { ...NEUTRAL, scopeTasks: 5 } }));
+    expect(r.kind, "the floor applies to the simulated backlog too").toBe("insufficient");
+  });
+
   test("an empty backlog skips the floor and keeps milestone states", () => {
     const ms: Milestone[] = [{ id: 1, name: "M", date: "2026-11-01", linkedTaskIds: [] }];
     const r = computeScheduleForecast(input([], { milestones: ms }));
