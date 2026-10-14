@@ -251,21 +251,21 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
-  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **17** named views — Dashboard · Open Points · Gantt ·
+  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **18** named views — Dashboard · Open Points · Gantt ·
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
-  Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 7 scheme
-  COMBOS (harbor/meridian/umber L+D, Beacon light-only) × 17 + 7 Kanban-board variants (one per combo)
-  + 7 pink-count-badge scans (one per combo, §681)
+  Time bookings · AI Assistant · Next actions · Insights · Documents · Forecast — so a passing run reports 7 scheme
+  COMBOS (harbor/meridian/umber L+D, Beacon light-only) × 18 + 7 Kanban-board variants (one per combo)
+  + 7 pink-count-badge scans (one per combo, §681) + 7 RAG-letter-chip scans (one per combo, §683)
   + 1 notes-window rich-text-toolbar scan + 1 Documents block-editor scan + 1 Reports cumulative-chart
   scan + 1 Reports chart-readout scan + 2 Turso-storage Settings tests (all harbor-light only and
-  hardcoded, so none scales with the combo count) = **139** axe tests, plus ONE non-scan guard test
-  (asserts the served app's `data-app-version` matches this checkout's version and, on a dev server, its `data-checkout` matches `checkoutToken` of the runner's cwd and its `data-boot-nonce` matches the run's `E2E_BOOT_NONCE` (`judgeBootNonce`, which also refuses an absent or unminted nonce); an absent `data-checkout` fails unless `PLAYWRIGHT_NO_WEBSERVER` is set, which also skips the nonce check, open-followups §58) — **140**
-  tests total in the spec file (measured 2026-10-08 with `npx playwright test e2e/a11y.spec.ts --list`; this line once said 128/129 while the file held 131, and on 2026-10-08 said 140 over a breakdown still summing to 132). ★ Don't derive these numbers, MEASURE them, in the same
+  hardcoded, so none scales with the combo count) = **153** axe tests, plus ONE non-scan guard test
+  (asserts the served app's `data-app-version` matches this checkout's version and, on a dev server, its `data-checkout` matches `checkoutToken` of the runner's cwd and its `data-boot-nonce` matches the run's `E2E_BOOT_NONCE` (`judgeBootNonce`, which also refuses an absent or unminted nonce); an absent `data-checkout` fails unless `PLAYWRIGHT_NO_WEBSERVER` is set, which also skips the nonce check, open-followups §58) — **154**
+  tests total in the spec file (measured 2026-10-14 with `npx playwright test e2e/a11y.spec.ts --list`; this line once said 128/129 while the file held 131, and on 2026-10-08 said 140 over a breakdown still summing to 132, and by 2026-10-14 the breakdown had silently lost the seven §683 RAG-letter-chip scans). ★ Don't derive these numbers, MEASURE them, in the same
   commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
   browsers needed, and it also proves `e2e/seed-workspace.ts`'s module-level sample read still resolves), and
-  `grep "›" | grep -vc "guard"` over that output counts the axe tests (139 on 2026-10-08). ★ Not
+  `grep "›" | grep -vc "guard"` over that output counts the axe tests (153 on 2026-10-14). ★ Not
   `grep -c "a11y:"`, which this line used to give: the chart-readout scan has no `a11y:` prefix, so it
-  undercounts by one (138) and a reader adding the guard gets 139, not the total.
+  undercounts by one (152) and a reader adding the guard gets 153, not the total.
   ★★ A VIEW IN THE LIST IS NOT THE SAME AS A VIEW BEING COVERED — the scan only sees what the e2e seed
   put in IndexedDB. A slice with no data renders its EMPTY STATE at scan time, so the run is green over
   a panel with no rows, no per-row controls and nothing to collide. Seeding `documents` for the first

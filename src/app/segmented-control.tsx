@@ -43,6 +43,8 @@ export interface SegmentedControlProps<T extends string> {
   optionAriaLabel?: (value: T) => string;
   /** Tooltip text for the whole control (rendered as the radiogroup's title). */
   title?: string;
+  /** Id of a VISIBLE element describing the control (e.g. why it is disabled); `title` is hover-only. */
+  ariaDescribedBy?: string;
   /** Extra classes for the wrapper (e.g. `w-full` to span its column). */
   className?: string;
   /** Guided-tour anchor, placed on the radiogroup root. */
@@ -57,6 +59,7 @@ export function SegmentedControl<T extends string>({
   ariaLabel,
   optionAriaLabel,
   title,
+  ariaDescribedBy,
   className = "",
   dataTourId,
 }: SegmentedControlProps<T>) {
@@ -72,6 +75,7 @@ export function SegmentedControl<T extends string>({
       data-tour-id={dataTourId}
       aria-label={ariaLabel}
       title={title}
+      aria-describedby={ariaDescribedBy}
       aria-disabled={disabled || undefined}
       onKeyDown={disabled ? undefined : handleKeyDown}
       className={`inline-flex flex-wrap rounded-md border border-line bg-[var(--segment-track-bg)] ${

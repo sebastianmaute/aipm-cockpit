@@ -74,6 +74,7 @@ import {
   RaidReportPanel,
   ChangePanel,
   ChangeReportPanel,
+  ForecastPanel,
   StakeholdersPanel,
   RaciPanel,
   StakeholderMapPanel,
@@ -729,6 +730,12 @@ export function WorkspaceSection({
         {activeTab === "change-report" && (
           <div id="panel-change-report" role="tabpanel" className={panelScrollClass}>
             <ChangeReportPanel lang={lang} items={changes} today={today} />
+          </div>
+        )}
+
+        {activeTab === "forecast" && (
+          <div id="panel-forecast" role="tabpanel" className={panelScrollClass}>
+            <ForecastPanel lang={lang} tasks={tasks} milestones={milestones} plan={plan} today={today} holidaySet={holidaySet} isPopout={isPopout} />
           </div>
         )}
 
