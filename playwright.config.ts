@@ -14,6 +14,30 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
 // webServer below and read back by e2e/a11y.spec.ts's guard from data-boot-nonce.
 const BOOT_NONCE = runStartsDevServer(process.env) ? mintBootNonce(process.env) : undefined;
 
+// ★★ §713: the guide-shots run photographs Settings, which shows what a deployment's
+// environment sets ("Set by NEXT_PUBLIC_TURSO_DATABASE_URL", a rejected deployment token).
+// Next keeps a variable already present in the process environment, even an empty one, over
+// .env.local — so this run boots its server with every deployment variable the app reads
+// blanked, and the pictures show what a fresh install shows. Only a server THIS run starts:
+// with PLAYWRIGHT_REUSE_SERVER=1 an already-running server keeps its own environment.
+// List: `grep -rhoE "process.env.[A-Z_]+" src --include=*.ts --include=*.tsx | sort -u`.
+const GUIDE_SHOTS_RUN = process.argv.some(
+  (arg, i, all) => arg === "--project=guide-shots" || (arg === "--project" && all[i + 1] === "guide-shots"),
+);
+const GUIDE_SHOTS_BLANK_ENV: Record<string, string> = Object.fromEntries(
+  [
+    "NEXT_PUBLIC_TURSO_DATABASE_URL",
+    "NEXT_PUBLIC_TURSO_AUTH_TOKEN",
+    "NEXT_PUBLIC_MSAL_TENANT_ID",
+    "NEXT_PUBLIC_MSAL_CLIENT_ID",
+    "NEXT_PUBLIC_TIMELOG_TENANT",
+    "NEXT_PUBLIC_EXPORT_FOOTER",
+    "NEXT_PUBLIC_AI_POLICY_URL",
+    "NEXT_PUBLIC_AI_POLICY_ORG",
+    "ANTHROPIC_API_KEY",
+  ].map((name) => [name, ""]),
+);
+
 // ★★★ Live-Turso specs that DROP tables (`e2e/live-turso-env.ts` names the database
 // they may touch). Every live spec shares ONE throwaway database, and the default
 // run is fullyParallel, so a spec dropping `document_assets` or every workspace
@@ -198,7 +222,7 @@ export default defineConfig({
         // server from another worktree or an older run. PLAYWRIGHT_REUSE_SERVER=1 opts
         // back in; boot that server with the same E2E_BOOT_NONCE or the guard refuses it.
         reuseExistingServer: reuseDevServer(process.env),
-        env: BOOT_NONCE ? { [BOOT_NONCE_ENV]: BOOT_NONCE } : {},
+        env: { ...(GUIDE_SHOTS_RUN ? GUIDE_SHOTS_BLANK_ENV : {}), ...(BOOT_NONCE ? { [BOOT_NONCE_ENV]: BOOT_NONCE } : {}) },
         stdout: "ignore",
         stderr: "pipe",
       },
