@@ -975,6 +975,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§735](#735-ai-documents-give-no-guided-setup-for-the-api-key-templates-and-a-first-document--open) | AI documents give no guided setup for the API key, templates and a first document | — | — | open |
 | [§736](#736-an-empty-gantt-chart-names-only-the-first-missing-input--open) | An empty Gantt chart names only the first missing input | — | — | open |
 | [§737](#737-chart-labels-sit-directly-on-their-line-and-are-partly-hidden-or-hard-to-read--open) | Chart labels sit directly on their line and are partly hidden or hard to read | — | — | open |
+| [§738](#738-a-workday-hours-change-zeroes-the-hourly-rate-on-a-day-basis-roles-side-that-has-no-day-rate--open) | A workday-hours change zeroes the hourly rate on a day-basis role's side that has no day rate | — | — | open |
+| [§739](#739-a-new-projects-plan-start-date-is-the-utc-day-not-the-local-day--open) | A new project's plan start date is the UTC day, not the local day | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45353,3 +45355,35 @@ Proposed: give every in-chart label a surface-colour halo, keep labels clear of 
 Size S–M.
 
 **Source:** owner request 2026-10-14 ("in charts the breakouts should not sit directly next to their line and get partially hidden or difficult to read").
+
+## 738. A workday-hours change zeroes the hourly rate on a day-basis role's side that has no day rate — OPEN
+
+**Status:** OPEN 2026-10-14. `rematerializeDayBasisRoles` still maps day-basis roles through plain `materializeRoleRates` (`grep -n "materializeRoleRates(r, workdayHours)" src/app/role-rates.ts` → 1 hit), while the §476 switch and restore paths use `materializeDayBasisRole` (`grep -rln "materializeDayBasisRole(" src/app --include=*.ts | grep -v test` → 3 files).
+
+**Work item:** #734
+
+A change of workday hours sets the hourly rate to 0 on a day-basis role's side that has no day rate. `task-manager.tsx` calls `rematerializeDayBasisRoles(prev, workdayHoursNow)` on that change, and plain `materializeRoleRates` reads a missing `internalRateDay`/`externalRateDay` as 0 and derives the hourly from it. The sanitizer allows a day-basis role with one day field missing. Example: `{rateBasis:"day", internalRateDay:800, externalRate:150}` → after a workday-hours change `externalRate` is 0 and `externalRateDay` is 0.
+
+The baseline switch and version restore already avoid this (§476): a side with no day rate keeps its hourly rate and gets no invented day rate.
+
+Proposed: route `rematerializeDayBasisRoles` through `materializeDayBasisRole` so all three paths share one rule; test the example above.
+
+Size S.
+
+**Source:** found in review of the §476 fix round, 2026-10-14; filed on the owner's word.
+
+## 739. A new project's plan start date is the UTC day, not the local day — OPEN
+
+**Status:** OPEN 2026-10-14. `emptyWorkspace()` builds the plan from the UTC date (`grep -n "defaultResourcePlan(new Date().toISOString().slice(0, 10))" src/app/workspace.ts` → 2 hits: `emptyWorkspace()` and the `migrateWorkspaceV5` fallback for a workspace with no plan).
+
+**Work item:** #735
+
+`emptyWorkspace()` (`workspace.ts`) builds the plan with `defaultResourcePlan(new Date().toISOString().slice(0, 10))`. Between local midnight and the UTC day change (00:00–02:00 in Berlin in summer) that is yesterday's date. `buildNewProjectWorkspace` (`new-project-workspace.ts`) starts from `emptyWorkspace()`, and since §476 its creation `baselineHistory` entry takes `from: ws.plan.startDate`, so that entry carries the same early date.
+
+`emptyWorkspace()` has many callers, most of them blank fallbacks where the plan date does not matter (`grep -lw "emptyWorkspace" src/app/*.ts src/app/*.tsx | grep -v test`); the user-visible case is project creation.
+
+Proposed: take the start date from the app's local today (the clock the rest of the app uses) for a new project, at least in `buildNewProjectWorkspace`; test with a fixed clock at 00:30 local on the 1st.
+
+Size S.
+
+**Source:** found in review of the §476 fix round, 2026-10-14 (pre-existing); filed on the owner's word.
