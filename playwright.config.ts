@@ -86,7 +86,7 @@ export default defineConfig({
       // below: it drives a PACKAGED Electron app that no CI runner builds, so
       // left in this project it would fail (or skip) in the blocking e2e job.
       name: "chromium",
-      testIgnore: [/visual\.spec\.ts/, /desktop-smoke\.spec\.ts/, LIVE_TURSO_DESTRUCTIVE],
+      testIgnore: [/visual\.spec\.ts/, /guide-shots\.spec\.ts/, /desktop-smoke\.spec\.ts/, LIVE_TURSO_DESTRUCTIVE],
       use: { ...devices["Desktop Chrome"] },
     },
     {
@@ -110,6 +110,29 @@ export default defineConfig({
       name: "visual",
       testMatch: /visual\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], timezoneId: "UTC", locale: "en-US" },
+    },
+    {
+      // The install guide's screenshots and the README gallery (§713) — opt-in
+      // (`npm run docs:guide-shots`) and never in CI: it WRITES files under
+      // docs/assets/ instead of asserting on them, so it is not a pixel gate and
+      // a run in CI would only dirty the checkout. The `chromium` project above
+      // ignores it for the same reason. Pinned like `visual` (UTC, en-US) plus a
+      // light scheme, reduced motion and a fixed viewport, so a retake frames the
+      // same region with the same data. One worker: the tests write shared files.
+      name: "guide-shots",
+      testMatch: /guide-shots\.spec\.ts/,
+      workers: 1,
+      fullyParallel: false,
+      retries: 0,
+      use: {
+        ...devices["Desktop Chrome"],
+        timezoneId: "UTC",
+        locale: "en-US",
+        colorScheme: "light",
+        reducedMotion: "reduce",
+        viewport: { width: 1280, height: 800 },
+        deviceScaleFactor: 2,
+      },
     },
     {
       // Packaged Electron desktop app — opt-in (`npm run e2e:desktop`), and
