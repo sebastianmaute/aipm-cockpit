@@ -78,6 +78,17 @@ export type ActualsCacheEntry = {
   // ★★ Rides on EVERY save via `rollPair`, for the §172 reason: an entry is
   // rewritten whole, so a saver that omits it CLEARS it.
   dailyUsers?: readonly number[];
+  // §699 — THE PROJECT HALF OF THE SCOPE CLAIM: the TimeLog project ids a
+  // project-scope fetch covered (the ids passed to `fetchBookingsForProjects`,
+  // unique, ascending). A complete project fetch returns every booking on those
+  // projects, whoever made it, so for them a linked person's day is fully
+  // known; a closed month is checked only when this equals the close's
+  // `projectIds`. A person-scope fetch leaves it absent, and absent means
+  // "project scope unknown": closed months cannot be checked against it.
+  // ★★ It follows `dailyUsers` everywhere in this file — validated on read,
+  // shed TOGETHER with `daily`, `dailyWindow` and `dailyUsers` — and rides on
+  // EVERY save via `rollPair` for the same §172 reason.
+  dailyProjects?: readonly number[];
 };
 
 /** The inclusive ISO `YYYY-MM-DD` date range a `daily` roll was fetched over. */
@@ -198,6 +209,9 @@ function withCheckedDailyWindow(e: StoredEntry): StoredEntry {
   return copy;
 }
 
+const isPositiveIdList = (v: unknown): boolean =>
+  Array.isArray(v) && v.every((n) => typeof n === "number" && Number.isInteger(n) && n > 0);
+
 /** ALL-OR-NOTHING, like the window and for the same reason: a scope claim that
  *  is partly garbage is not a narrower claim, it is an unknown one, and keeping
  *  the readable half would certify coverage for whoever happened to parse. A
@@ -209,12 +223,31 @@ function withCheckedDailyWindow(e: StoredEntry): StoredEntry {
 function withCheckedDailyUsers(e: StoredEntry): StoredEntry {
   const u: unknown = e.dailyUsers;
   if (u === undefined) return e;
-  if (Array.isArray(u) && u.every((n) => typeof n === "number" && Number.isInteger(n) && n > 0)) {
-    return e;
-  }
+  if (isPositiveIdList(u)) return e;
   const copy = { ...e };
   delete copy.dailyUsers;
   return copy;
+}
+
+/** §699 — the project half of the scope claim, checked by the same
+ *  all-or-nothing rule as `dailyUsers`: anything but a list of positive
+ *  integers drops the field, which reads as "project scope unknown", and a
+ *  closed month is then not checked (the recoverable direction). A valid list
+ *  is normalised to unique ascending, the documented shape, so a hand-edited
+ *  `[12, 9, 12]` reads back as `[9, 12]`. */
+function withCheckedDailyProjects(e: StoredEntry): StoredEntry {
+  const p: unknown = e.dailyProjects;
+  if (p === undefined) return e;
+  if (!isPositiveIdList(p)) {
+    const copy = { ...e };
+    delete copy.dailyProjects;
+    return copy;
+  }
+  const ids = p as number[];
+  const normalised = [...new Set(ids)].sort((a, b) => a - b);
+  const alreadyNormal =
+    normalised.length === ids.length && normalised.every((n, i) => n === ids[i]);
+  return alreadyNormal ? e : { ...e, dailyProjects: normalised };
 }
 
 /** Pack for storage. Identity when there is nothing to pack. */
@@ -236,7 +269,7 @@ function readMap(): CacheMap {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
   const out: CacheMap = {};
   for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-    if (isEntry(v)) out[k] = withCheckedDailyUsers(withCheckedDailyWindow(withCheckedDaily(v)));
+    if (isEntry(v)) out[k] = withCheckedDailyProjects(withCheckedDailyUsers(withCheckedDailyWindow(withCheckedDaily(v))));
   }
   return out;
 }
@@ -298,7 +331,7 @@ export const MAX_DAILY_ROLL_CHARS = 512 * 1024;
  *  `saveActualsCache` enforce it across entries (§361). A SINGLE entry whose own
  *  `users` exceed it is handled by stage 5, which sheds that entry's
  *  `users`/`projectRefs` whole and keeps its aggregates (§430, closed). An entry
- *  STILL over budget sheds its own roll trio (stage 6) and is then written
+ *  STILL over budget sheds its own roll fields (stage 6) and is then written
  *  as-is — nothing sheds aggregates off the entry being saved. Since the day
  *  cells are stored packed (`timelog-actuals-codec.ts`) that takes an extreme
  *  aggregate; when the browser then refuses the write, `saveActualsCache`
@@ -367,8 +400,9 @@ function shedOrder(map: CacheMap, keep: string): string[] {
  *  on every AI turn. So the trim and the narrowing live in ONE function on the
  *  write path all four savers funnel through, and cannot be written out of
  *  step.
- *  ★★ Nothing surviving drops `daily`, `dailyWindow` AND `dailyUsers` TOGETHER,
- *  since the two claims describe a roll that no longer exists. A missing
+ *  ★★ Nothing surviving drops `daily`, `dailyWindow`, `dailyUsers` AND
+ *  `dailyProjects` TOGETHER, since the three claims describe a roll that no
+ *  longer exists. A missing
  *  window makes the reconcile FREEZE (`rollWindow === undefined` returns
  *  false), which is the recoverable direction and already the back-compat rule.
  *  Everything else in the entry is written regardless: losing the roll must
@@ -436,6 +470,7 @@ function withBoundedDaily(e: StoredEntry): StoredEntry {
     delete copy.dailyWindow;
     // The scope claim describes the roll; with no roll left it claims nothing.
     delete copy.dailyUsers;
+    delete copy.dailyProjects;
     return copy;
   }
   const kept: TimelogDailyRoll = {};
@@ -475,13 +510,13 @@ function withBoundedDaily(e: StoredEntry): StoredEntry {
 
 /** ★★★ SIX STAGES, IN INCREASING ORDER OF WHAT THEY COST THE USER.
  *  1. Count eviction (`MAX_PROJECTS`), newest `fetchedAt` first.
- *  2. Shed `daily` + `dailyWindow` + `dailyUsers` TOGETHER from the oldest
+ *  2. Shed `daily` + `dailyWindow` + `dailyUsers` + `dailyProjects` TOGETHER from the oldest
  *     entries.
  *  3. Shed `users` + `projectRefs` from the oldest entries.
  *  4. Drop whole entries, oldest first — the only stage that costs `aggregates`.
  *  5. Shed the SAVED entry's own `users` + `projectRefs` — reached only when
  *     that entry alone is over budget (open-followups §430).
- *  6. Shed the SAVED entry's own `daily` + `dailyWindow` + `dailyUsers`
+ *  6. Shed the SAVED entry's own `daily` + `dailyWindow` + `dailyUsers` + `dailyProjects`
  *     together — reached only when stage 5 was not enough.
  *  ★★★ RETURNS WHETHER THE MAP REACHED STORAGE. `writeDeviceJson` never throws,
  *  so without this a refused write (quota, disabled storage) is silent and the
@@ -507,7 +542,7 @@ function withBoundedDaily(e: StoredEntry): StoredEntry {
  *  project's `dailyWindow` during a save for THIS one rewrites a coverage CLAIM
  *  the insights reconcile trusts; the insight would then read as covered, find
  *  no violation in the trimmed roll, and resolve as a fabricated "improved"
- *  into shared, exported data. Shedding the three roll fields TOGETHER claims
+ *  into shared, exported data. Shedding the four roll fields TOGETHER claims
  *  nothing instead: `rollWindow === undefined` makes the reconcile predicate
  *  return false FOR A GUARDRAIL INSIGHT (`overdueTrend`, `budgetVariance` and
  *  the `CORE_INSIGHT_TYPES` members return earlier and are not roll-derived),
@@ -568,11 +603,12 @@ export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): b
     for (const k of shedOrder(out, projectId)) {
       if (size <= MAX_ACTUALS_TOTAL_CHARS) break;
       const e = out[k];
-      if (e.daily === undefined && e.dailyWindow === undefined && e.dailyUsers === undefined) continue;
+      if (e.daily === undefined && e.dailyWindow === undefined && e.dailyUsers === undefined && e.dailyProjects === undefined) continue;
       const shed = { ...e };
       delete shed.daily;
       delete shed.dailyWindow;
       delete shed.dailyUsers;
+      delete shed.dailyProjects;
       out = { ...out, [k]: shed };
       size = mapSize(out);
     }
@@ -618,18 +654,19 @@ export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): b
     }
   }
 
-  // Stage 6 — the SAVED entry's own roll trio, shed TOGETHER by stage 2's rule
+  // Stage 6 — the SAVED entry's own roll fields, shed TOGETHER by stage 2's rule
   // (a window or scope claim must never outlive its roll). Reached only when
   // the entry is still over budget without its users, i.e. its packed
   // aggregates alone approach the budget. The cost is the recoverable one: with
   // no window the insights reconcile FREEZES until the next fetch.
   if (size > MAX_ACTUALS_TOTAL_CHARS) {
     const e = out[projectId];
-    if (e.daily !== undefined || e.dailyWindow !== undefined || e.dailyUsers !== undefined) {
+    if (e.daily !== undefined || e.dailyWindow !== undefined || e.dailyUsers !== undefined || e.dailyProjects !== undefined) {
       const shed = { ...e };
       delete shed.daily;
       delete shed.dailyWindow;
       delete shed.dailyUsers;
+      delete shed.dailyProjects;
       out = { ...out, [projectId]: shed };
     }
   }

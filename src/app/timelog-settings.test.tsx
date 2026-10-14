@@ -786,3 +786,27 @@ describe("TimelogSettings — address field (§704, §709)", () => {
     expect(timelogApi.getPrivileges).not.toHaveBeenCalled();
   });
 });
+
+describe("TimelogSettings closed months block", () => {
+  const mount = (cacheProjectId?: string) =>
+    render(
+      <TimelogSettings
+        lang="en-US"
+        config={defaultTimelogConfig}
+        onChange={vi.fn()}
+        links={EMPTY_LINKS}
+        onLinksChange={vi.fn()}
+        timelogCacheProjectId={cacheProjectId}
+      />,
+    );
+
+  it("renders the Closed months block when the cache project id is passed", () => {
+    mount("p1");
+    expect(screen.getByText(t("en-US", "timelogCloseTitle"))).toBeInTheDocument();
+  });
+
+  it("renders no Closed months block without the cache project id", () => {
+    mount();
+    expect(screen.queryByText(t("en-US", "timelogCloseTitle"))).not.toBeInTheDocument();
+  });
+});

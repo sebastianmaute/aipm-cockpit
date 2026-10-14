@@ -1,5 +1,6 @@
 "use client";
 import { useId, useRef, useState } from "react";
+import { TimelogMonthClosePanel } from "./timelog-month-close-panel";
 import { t, tPlural, type Lang, type TranslationKey } from "./i18n";
 import { FieldError, FieldNotice } from "./field-feedback";
 import { FieldHint } from "./field-hint";
@@ -42,6 +43,9 @@ interface Props {
    *  nothing is the false affordance this repo already bans elsewhere. */
   links?: TimelogLinks;
   onLinksChange?: (next: TimelogLinks) => void;
+  /** The actuals-cache key (`projectId ?? "default"`) the Closed months block reads.
+   *  Omitted ⇒ no Closed months block, same rule as the guardrails. */
+  timelogCacheProjectId?: string;
 }
 
 /** The label for each scope mode, shared by the Data scope select and the
@@ -52,7 +56,9 @@ const SCOPE_LABEL_KEY: Record<TimelogScopeMode, TranslationKey> = {
   org: "timelogScopeOrg",
 };
 
-export function TimelogSettings({ lang, config, onChange, links, onLinksChange }: Props) {
+export function TimelogSettings({ lang, config, onChange, links, onLinksChange, timelogCacheProjectId }: Props) {
+  // Lazy so the clock is read once, never in the render body (same convention as the booking fetch window).
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
   const { notifyEnable } = useIntegrationDisclaimer();
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
@@ -335,6 +341,15 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
     </div>
     {links !== undefined && onLinksChange !== undefined && (
       <TimelogGuardrails lang={lang} links={links} onLinksChange={onLinksChange} />
+    )}
+    {links !== undefined && onLinksChange !== undefined && timelogCacheProjectId !== undefined && (
+      <TimelogMonthClosePanel
+        lang={lang}
+        links={links}
+        onLinksChange={onLinksChange}
+        cacheProjectId={timelogCacheProjectId}
+        today={today}
+      />
     )}
     </>
   );

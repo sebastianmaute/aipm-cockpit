@@ -17,6 +17,21 @@ export function displayableUsers(users: readonly TimelogUser[]): TimelogUser[] {
   return users.filter(isDisplayableUser);
 }
 
+/** §699 section 10 — v2 `EmployeeInitials` → TimeLog user id over the WHOLE
+ *  directory, inactive users included: a person deactivated after a month was
+ *  closed must not read as having deleted every booking (their rows would
+ *  otherwise become the `userId: 0` sentinel, which the roll drops).
+ *  ★★ On an initials clash a displayable (active) user wins, so every row that
+ *  resolved before still resolves to the same person; among equals the later
+ *  directory entry wins, as before. */
+export function initialsToUserId(users: readonly TimelogUser[]): Map<string, number> {
+  const hidden = users.filter((u) => !isDisplayableUser(u));
+  const shown = users.filter(isDisplayableUser);
+  return new Map(
+    [...hidden, ...shown].filter((u) => u.initials.trim()).map((u) => [u.initials.trim().toLowerCase(), u.userId] as const),
+  );
+}
+
 /** Whether a person can be matched to a Timelog user at all: a non-blank primary OR additional
  *  email, since `matchByEmail` reads both. The one rule behind the resource form's required email
  *  and the directory's "no email" marker (§708). */

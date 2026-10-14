@@ -3,8 +3,9 @@
 import {
   type TimelogLinks, type TimelogUserLink, type TimelogProjectLink,
   type TimelogConfig, type TimelogScopeMode, defaultTimelogConfig,
-  TIMELOG_RULE_IDS, type TimelogPolicy,
+  TIMELOG_RULE_IDS, type TimelogPolicy, type TimelogMonthClose,
 } from "./timelog-types";
+import { logDiag } from "./diagnostics";
 import { MAX_HOURS_PER_DAY } from "./types";
 
 /** A `timelogLinks` blob with nothing in it. Exported so the settings surface
@@ -69,7 +70,8 @@ export function isBlankTimelogLinks(links: TimelogLinks): boolean {
     links.projectLinks.length === 0 &&
     links.customerId === undefined &&
     (links.projectIds?.length ?? 0) === 0 &&
-    (links.policy === undefined || Object.keys(links.policy).length === 0)
+    (links.policy === undefined || Object.keys(links.policy).length === 0) &&
+    links.close === undefined
   );
 }
 
@@ -99,6 +101,9 @@ function sanitizeTimelogPolicy(raw: unknown): TimelogPolicy | undefined {
   const r = raw as Record<string, unknown>;
   const out: TimelogPolicy = {};
   for (const rule of TIMELOG_RULE_IDS) {
+    // §699 — no toggle and no threshold: closing a month is the opt-in, so a
+    // stored key for it means nothing and is dropped.
+    if (rule === "timelogClosedMonth") continue;
     const v = r[rule];
     if (!v || typeof v !== "object" || Array.isArray(v)) continue;
     const o = v as Record<string, unknown>;
@@ -112,6 +117,74 @@ function sanitizeTimelogPolicy(raw: unknown): TimelogPolicy | undefined {
     };
   }
   return Object.keys(out).length > 0 ? out : undefined;
+}
+
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const DAY_RE = /^(\d{4}-(0[1-9]|1[0-2]))-(\d{2})$/;
+const USER_KEY_RE = /^[1-9]\d*$/;
+
+/** True for a real calendar day (rejects 2026-09-31 and 2026-02-29) whose
+ *  month part is `month`. */
+function isDayInMonth(day: string, month: string): boolean {
+  const m = DAY_RE.exec(day);
+  if (!m || m[1] !== month) return false;
+  const d = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, Number(m[3])));
+  return d.toISOString().slice(0, 10) === day;
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === "object" && !Array.isArray(v);
+
+/** §699 revision — the close's project set: non-empty, positive integers,
+ *  strictly ascending (which also makes it unique). Strict rather than
+ *  normalising, because the only writer (`closeNextMonth`) already produces
+ *  this shape, so anything else is a hand edit or corruption. */
+function isProjectIdSet(v: unknown): v is number[] {
+  if (!Array.isArray(v) || v.length === 0) return false;
+  return v.every((n, i) => typeof n === "number" && Number.isInteger(n) && n > 0 && (i === 0 || n > v[i - 1]));
+}
+
+/** Why a `close` is invalid, or null when it is sound. */
+function closeProblem(r: Record<string, unknown>): string | null {
+  const through = r.through;
+  if (typeof through !== "string" || !MONTH_RE.test(through)) return "through is not a YYYY-MM month";
+  if (!isProjectIdSet(r.projectIds)) return "projectIds are not unique ascending positive integers";
+  if (!isRecord(r.saved)) return "saved is not an object";
+  for (const [month, users] of Object.entries(r.saved)) {
+    if (!MONTH_RE.test(month)) return "a saved month is not a YYYY-MM month";
+    if (month > through) return "a saved month is after through";
+    if (!isRecord(users)) return "a month's users are not an object";
+    for (const [userId, days] of Object.entries(users)) {
+      if (!USER_KEY_RE.test(userId)) return "a user key is not a positive integer";
+      if (!isRecord(days)) return "a user's days are not an object";
+      for (const [day, hours] of Object.entries(days)) {
+        if (!isDayInMonth(day, month)) return "a day is not a real day inside its month";
+        // §699 section 10 — any finite number: a TimeLog correction can make a
+        // day total negative, and the saved copy records what the fetch showed.
+        // Rejecting it dropped every closed month on the next Fetch.
+        if (!isNum(hours)) return "an hours value is not a finite number";
+      }
+    }
+  }
+  return null;
+}
+
+/** §699. All-or-nothing: a partly kept copy would raise false "changed" flags,
+ *  so one bad cell drops the whole `close`. A drop is logged because nothing
+ *  else reports it (sanitize runs at load, with no toast). The values are
+ *  copied, never aliased to the raw input. */
+export function sanitizeTimelogClose(raw: unknown): TimelogMonthClose | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  const problem = isRecord(raw) ? closeProblem(raw) : "close is not an object";
+  if (problem !== null || !isRecord(raw)) {
+    logDiag("warn", "timelog.close-dropped", { reason: problem ?? "close is not an object" });
+    return undefined;
+  }
+  return {
+    through: raw.through as string,
+    projectIds: [...(raw.projectIds as number[])],
+    saved: JSON.parse(JSON.stringify(raw.saved)) as TimelogMonthClose["saved"],
+  };
 }
 
 export function sanitizeTimelogLinks(raw: unknown): TimelogLinks | undefined {
@@ -152,12 +225,14 @@ export function sanitizeTimelogLinks(raw: unknown): TimelogLinks | undefined {
     ? [...new Set(r.projectIds.filter((v): v is number => isNum(v) && Number.isInteger(v) && v > 0))].slice(0, 200)
     : [];
   const policy = sanitizeTimelogPolicy(r.policy);
+  const close = sanitizeTimelogClose(r.close);
   return {
     userLinks,
     projectLinks,
     ...(customerId !== undefined ? { customerId } : {}),
     ...(projectIds.length > 0 ? { projectIds } : {}),
     ...(policy !== undefined ? { policy } : {}),
+    ...(close !== undefined ? { close } : {}),
   };
 }
 

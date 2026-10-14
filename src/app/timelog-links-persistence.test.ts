@@ -9,12 +9,25 @@ import { describe, it, expect } from "vitest";
 import { emptyWorkspace, workspaceToJson, jsonToWorkspace } from "./workspace";
 import { workspaceToCsv, csvToWorkspace } from "./csv-codecs";
 import { workspaceToMarkdown, markdownToWorkspace } from "./markdown-codecs";
-import type { TimelogLinks } from "./timelog-types";
+import type { TimelogLinks, TimelogMonthClose } from "./timelog-types";
 
 const SAMPLE_LINKS: TimelogLinks = {
   userLinks: [{ timelogUserId: 11, resourceId: 2, manual: true }],
   projectLinks: [{ timelogProjectId: 99, bucketId: 5, manual: false }],
 };
+
+const SAMPLE_CLOSE: TimelogMonthClose = {
+  through: "2026-09",
+  projectIds: [9, 12],
+  saved: {
+    "2026-08": { "7": { "2026-08-03": 8 } },
+    "2026-09": { "7": {}, "9": { "2026-09-12": 7.5 } },
+  },
+};
+
+function wsWithClose() {
+  return { ...emptyWorkspace(), timelogLinks: { ...SAMPLE_LINKS, close: SAMPLE_CLOSE } };
+}
 
 function wsWithLinks() {
   return { ...emptyWorkspace(), timelogLinks: SAMPLE_LINKS };
@@ -27,6 +40,11 @@ describe("JSON codec — timelogLinks", () => {
     const ws = wsWithLinks();
     const restored = jsonToWorkspace(workspaceToJson(ws));
     expect(restored.timelogLinks).toEqual(SAMPLE_LINKS);
+  });
+
+  it("round-trips a close (§699)", () => {
+    const restored = jsonToWorkspace(workspaceToJson(wsWithClose()));
+    expect(restored.timelogLinks?.close).toEqual(SAMPLE_CLOSE);
   });
 
   it("links-less workspace has no timelogLinks key in JSON output", () => {
@@ -44,6 +62,11 @@ describe("CSV codec — timelogLinks", () => {
     expect(restored.timelogLinks).toEqual(SAMPLE_LINKS);
   });
 
+  it("round-trips a close (§699)", () => {
+    const restored = csvToWorkspace(workspaceToCsv(wsWithClose()));
+    expect(restored.timelogLinks?.close).toEqual(SAMPLE_CLOSE);
+  });
+
   it("links-less workspace emits no # TIMELOG LINKS section", () => {
     const csv = workspaceToCsv(emptyWorkspace());
     expect(csv).not.toContain("# TIMELOG LINKS");
@@ -57,6 +80,11 @@ describe("Markdown codec — timelogLinks", () => {
     const ws = wsWithLinks();
     const restored = markdownToWorkspace(workspaceToMarkdown(ws));
     expect(restored.timelogLinks).toEqual(SAMPLE_LINKS);
+  });
+
+  it("round-trips a close (§699)", () => {
+    const restored = markdownToWorkspace(workspaceToMarkdown(wsWithClose()));
+    expect(restored.timelogLinks?.close).toEqual(SAMPLE_CLOSE);
   });
 
   it("links-less workspace emits no ## Timelog Links section", () => {

@@ -135,6 +135,8 @@ interface IntegrationsSectionProps {
    *  guardrails section at all. */
   timelogLinks?: TimelogLinks;
   onTimelogLinksChange?: (next: TimelogLinks) => void;
+  /** Actuals-cache key for the Closed months block; set only where a project is open. */
+  timelogCacheProjectId?: string;
 }
 
 /** One calendar write-back entity row (label + an Enable and an Auto-sync toggle
@@ -229,7 +231,7 @@ function CalendarSyncEntityRow({
   );
 }
 
-export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira, noCurrentProject, timelogLinks, onTimelogLinksChange }: IntegrationsSectionProps) {
+export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira, noCurrentProject, timelogLinks, onTimelogLinksChange, timelogCacheProjectId }: IntegrationsSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
   const confirm = useConfirm();
   // Busy flags for the two genuinely-async buttons (M365 sign-in, portfolio
@@ -1429,6 +1431,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         onChange={(next) => onChange({ ...settings, timelog: next })}
         links={timelogLinks}
         onLinksChange={onTimelogLinksChange}
+        timelogCacheProjectId={timelogCacheProjectId}
       />
       {!hideJira && (
         <div className="mt-4 border-t border-line pt-3">

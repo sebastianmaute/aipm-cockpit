@@ -359,6 +359,49 @@ describe("ActualsCacheEntry.dailyWindow", () => {
   });
 });
 
+// §699 — the PROJECT half of the roll's scope claim, which a closed month is
+// checked against. Validated all-or-nothing on read, like `dailyUsers`.
+describe("ActualsCacheEntry.dailyProjects", () => {
+  const BASE = {
+    fetchedAt: "2026-09-04T00:00:00.000Z",
+    aggregates: agg(9),
+    daily: { "7|2026-09-01": { hours: 8, maxEntryHours: 8, entryCount: 1 } },
+    dailyWindow: { from: "2026-09-01", to: "2026-09-30" },
+  };
+
+  it("round-trips a project set", () => {
+    saveActualsCache("dp1", { ...BASE, dailyProjects: [9, 12] });
+    expect(loadActualsCache("dp1")?.dailyProjects).toEqual([9, 12]);
+  });
+
+  it("reads a stored list back as unique ascending", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, { dp0: { ...BASE, dailyUsers: [7], dailyProjects: [12, 9, 12] } });
+    expect(loadActualsCache("dp0")?.dailyProjects).toEqual([9, 12]);
+  });
+
+  it("loads an entry with no dailyProjects as absent", () => {
+    saveActualsCache("dp2", BASE);
+    const e = loadActualsCache("dp2");
+    expect(e?.dailyProjects).toBeUndefined();
+    expect(e?.daily).toBeDefined();
+  });
+
+  it.each<[string, unknown]>([
+    ["a non-array", 9],
+    ["a zero id", [0, 9]],
+    ["a negative id", [-3]],
+    ["a fraction", [9.5]],
+    ["a string id", ["9"]],
+  ])("strips %s, keeping the rest of the entry", (_name, dailyProjects) => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, { dp3: { ...BASE, dailyUsers: [7], dailyProjects } });
+    const e = loadActualsCache("dp3");
+    expect(e?.dailyProjects).toBeUndefined();
+    expect(e?.dailyUsers).toEqual([7]);
+    expect(e?.daily).toEqual(BASE.daily);
+    expect(e?.dailyWindow).toEqual(BASE.dailyWindow);
+  });
+});
+
 // ★★★ The roll BOUND, and the window narrowing that has to ride with it.
 // `writeDeviceJson` swallows a quota error whole, so an over-budget roll used
 // to cost the ENTIRE save — `aggregates` included. Trimming fixes that, and
@@ -536,10 +579,15 @@ describe("ActualsCacheEntry.daily size bound", () => {
       partial: true,
       daily: unusable,
       dailyWindow: { from: isoDay(0), to: isoDay(OVER_DAYS - 1) },
+      dailyUsers: [7],
+      dailyProjects: [55],
     });
     const e = loadActualsCache("b5");
     expect(e?.daily).toBeUndefined();
     expect(e?.dailyWindow).toBeUndefined();
+    // §699 — both scope claims describe the roll, so they go with it.
+    expect(e?.dailyUsers).toBeUndefined();
+    expect(e?.dailyProjects).toBeUndefined();
     expect(e?.aggregates?.unattributed.hours).toBe(11);
     expect(e?.users?.[0].userId).toBe(7);
     expect(e?.fetchedAt).toBe("2026-09-04T00:00:00.000Z");
@@ -618,6 +666,7 @@ describe("timelog actuals cache — map-level size budget", () => {
     daily: bigRoll(BIG_DAYS),
     dailyWindow: { from: isoDay(0), to: isoDay(BIG_DAYS - 1) },
     dailyUsers: [7],
+    dailyProjects: [55],
   });
 
   const storedLength = () => (window.localStorage.getItem(TIMELOG_ACTUALS_KEY) ?? "").length;
@@ -646,6 +695,7 @@ describe("timelog actuals cache — map-level size budget", () => {
     expect(oldest?.daily).toBeUndefined();
     expect(oldest?.dailyWindow).toBeUndefined();
     expect(oldest?.dailyUsers).toBeUndefined();
+    expect(oldest?.dailyProjects).toBeUndefined();
 
     expect(loadActualsCache("p4")?.daily).toBeDefined();
   });
@@ -672,6 +722,7 @@ describe("timelog actuals cache — map-level size budget", () => {
     expect(e?.daily).toBeDefined();
     expect(e?.dailyWindow).toBeDefined();
     expect(e?.dailyUsers).toEqual([7]);
+    expect(e?.dailyProjects).toEqual([55]);
   });
 
   /** A directory-heavy entry: no roll, bulk in `users`. This is the shape that
@@ -750,6 +801,7 @@ describe("timelog actuals cache — map-level size budget", () => {
       daily: bigRoll(10),
       dailyWindow: smallWindow,
       dailyUsers: [7],
+      dailyProjects: [55],
     };
     saveActualsCache("solo", caller);
     // ★ Immutability: stage 5 must COPY the entry it sheds from, never mutate
@@ -767,6 +819,7 @@ describe("timelog actuals cache — map-level size budget", () => {
     expect(e?.daily).toEqual(bigRoll(10));
     expect(e?.dailyWindow).toEqual(smallWindow);
     expect(e?.dailyUsers).toEqual([7]);
+    expect(e?.dailyProjects).toEqual([55]);
     expect(e?.users).toBeUndefined();
     expect(e?.projectRefs).toBeUndefined();
   });
@@ -829,6 +882,7 @@ describe("timelog actuals cache — map-level size budget", () => {
       daily: roll,
       dailyWindow: { from: isoDay(0), to: isoDay(9) },
       dailyUsers: [7],
+      dailyProjects: [55],
     };
     expect(saveActualsCache("huge", caller)).toBe(true);
     const e = loadActualsCache("huge");
@@ -837,6 +891,7 @@ describe("timelog actuals cache — map-level size budget", () => {
     expect(e?.daily).toBeUndefined();
     expect(e?.dailyWindow).toBeUndefined();
     expect(e?.dailyUsers).toBeUndefined();
+    expect(e?.dailyProjects).toBeUndefined();
     // A COPY was shed, never the caller's object.
     expect(caller.daily).toBe(roll);
   });
