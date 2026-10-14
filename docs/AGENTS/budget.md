@@ -112,6 +112,9 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   `setBudgets`, `setChanges`, `setPlan`, `setBaselineHistory`).
 - ★★ **THE SWITCH IS NOT UNDOABLE.** It captures no undo entry; the dialog says so, and switching
   back is the way back (at that day's rate, so a round trip need not restore the old figures exactly).
+  ★★ It also RETIRES every undo/redo entry captured before it, in this tab and in any peer tab its
+  sync reaches: their images hold old-currency amounts. Mechanism: [`undo.md`](undo.md) "Gates on the stack"
+  (`useDenominationEpoch`).
 - **`baselineHistory` (`Workspace.baselineHistory`, entries `BaselineEntry`: `from`, `at`,
   `currency`, `perPrevious?`).** Every switch appends one entry whose `perPrevious` is the cross rate
   it used. It is a meta-blob slice on all six write paths

@@ -23,7 +23,9 @@ export interface BaselineCurrencyControlProps {
  * The project baseline-currency picker (§476). Choosing a currency opens a
  * confirmation listing every converted value; only Confirm writes, through the
  * five workspace setters, and it captures NO undo entry (the dialog says the
- * switch cannot be undone; switching back is the way back).
+ * switch cannot be undone; switching back is the way back). Every undo/redo
+ * entry captured BEFORE it is retired too — its images hold old-currency
+ * amounts — through `useDenominationEpoch`'s share of the undo epoch.
  *
  * ★ Reads `useWorkspace()` itself so `BudgetPanel` need not (it is not memo'd
  * today, but keeping the context read here keeps the panel's props the only

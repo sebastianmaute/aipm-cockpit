@@ -34,6 +34,7 @@ import { journalWorkspace, resolveJournalProjectKey, useUnloadJournal } from "./
 import { useOtherJournals, type OtherJournal } from "./use-other-journals";
 import { useConflictResolution } from "./use-conflict-resolution";
 import { useWorkspaceSync } from "./use-workspace-sync";
+import { useDenominationEpoch } from "./use-denomination-epoch";
 import { enqueueSave, whenSaved } from "./save-queue";
 import { createMirrorLedger } from "./mirror-ledger";
 import { createPeerRevisionDeferral } from "./peer-revision-deferral";
@@ -331,7 +332,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // not move the scope epoch (in-flight AI / Graph writes for this project would be dropped), but it does
   // replace the rows every undo image was taken against: replaying one would silently mix the two versions.
   const restoreEpochRef = useRef(0);
-  const getUndoEpoch = useCallback(() => scopeEpochRef.current + restoreEpochRef.current, []);
+  // §476 — plus one per change of the money denomination (a baseline-currency switch, here or in a peer tab).
+  const getDenominationEpoch = useDenominationEpoch(plan.currency, baselineHistory.length, args.onUndoHistoryReset);
+  const getUndoEpoch = useCallback(() => scopeEpochRef.current + restoreEpochRef.current + getDenominationEpoch(), [getDenominationEpoch]);
   const resetUndoHistory = () => {
     restoreEpochRef.current += 1;
     args.onUndoHistoryReset?.();
