@@ -23,7 +23,8 @@ import { useTimelogSync } from "./use-timelog-sync";
 import { loadActualsCache } from "./timelog-actuals-store";
 import type { TimelogLinks } from "./timelog-types";
 import { bucketOverlay, type ActualsAggregate } from "./timelog-actuals";
-import { closeNextMonth } from "./timelog-month-close";
+import { closeNextMonth, type MonthCloseCache } from "./timelog-month-close";
+import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { evaluateTimelogPolicy } from "./timelog-policy";
 
 const creds = { host: "app2.timelog.com", tenant: "acme", token: "tok" };
@@ -688,7 +689,6 @@ it("§699 — a project fetch can be closed and a later change is flagged", asyn
     close: undefined,
     firstMonth: "2026-09",
     cache: { daily: first?.daily, dailyWindow: first?.dailyWindow, partial: first?.partial, dailyProjects: first?.dailyProjects },
-    linkedUserIds: [5],
     today: "2026-10-14",
   });
   expect(result).toEqual({
@@ -713,4 +713,107 @@ it("§699 — a project fetch can be closed and a later change is flagged", asyn
     rule: "timelogClosedMonth", timelogUserId: 5, count: 1, netHours: 2,
     firstViolationDate: "2026-09-10", lastViolationDate: "2026-09-10",
   })]);
+});
+
+// §699 section 10 — the next three build their caches through the REAL
+// project fetch. The v2 mock resolves `EmployeeInitials` through the map the
+// hook hands it, exactly as `mapV2TimeItem` does (`|| 0` when unmatched),
+// so what reaches the roll is what the directory resolution decided.
+type V2Row = { initials: string; hours: number; date?: string };
+function mockProjectRows(rows: readonly V2Row[]) {
+  (api.listProjectTimeRegistrations as ReturnType<typeof vi.fn>).mockImplementation(
+    async (_c: unknown, id: number, _s: string, _e: string, _sig: unknown, map?: ReadonlyMap<string, number>) =>
+      id === 9
+        ? rows.map((r) => ({ ...septItem((map?.get(r.initials.toLowerCase()) ?? 0) || 0, r.hours), date: r.date ?? "2026-09-10" }))
+        : [],
+  );
+}
+const ADA = { userId: 5, firstName: "Ada", lastName: "L", initials: "AL", email: "a@x.com", isActive: true };
+const BOB = { userId: 6, firstName: "Bob", lastName: "M", initials: "BM", email: "b@x.com", isActive: true };
+const cacheOf = (projectId = "p1"): MonthCloseCache => {
+  const e = loadActualsCache(projectId);
+  return { daily: e?.daily, dailyWindow: e?.dailyWindow, partial: e?.partial, dailyProjects: e?.dailyProjects };
+};
+const checkClosed = (close: Parameters<typeof evaluateTimelogPolicy>[0]["close"], userLinks: TimelogLinks["userLinks"] = []) => {
+  const e = loadActualsCache("p1");
+  return evaluateTimelogPolicy({
+    daily: e?.daily ?? null, policy: undefined,
+    holidaySet: new Set<string>(), holidaysReady: true, userLinks, shifts: [], absences: [], resources: [],
+    close, dailyWindow: e?.dailyWindow, dailyProjects: e?.dailyProjects, partial: e?.partial === true,
+  });
+};
+async function projectFetch(over: Partial<Parameters<typeof useTimelogSync>[0]> = {}) {
+  const h = renderHook(() => useTimelogSync(args({ scopeMode: "self", ...over })));
+  await act(async () => { await h.result.current.fetchBookingsForProjects([9], SEPT.from, SEPT.to); });
+  return h;
+}
+
+it("§699 I1 — an AUTO-matched person is saved at close and a later change is flagged", async () => {
+  // No stored user link: Ada is matched to resource 2 by email only.
+  const noPins: TimelogLinks = { userLinks: [], projectLinks: [{ timelogProjectId: 9, bucketId: 7, manual: true }] };
+  const resources = [{ id: 2, firstName: "Ada", lastName: "L", email: "a@x.com", roleId: null }] as unknown as Parameters<typeof useTimelogSync>[0]["resources"];
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([ADA]);
+  mockProjectRows([{ initials: "AL", hours: 4 }]);
+  const h = await projectFetch({ links: noPins, resources });
+  // The precondition the finding needs: matched automatically, not pinned.
+  expect(h.result.current.aggregates?.byResource[2]?.hours).toBe(4);
+  expect(noPins.userLinks).toEqual([]);
+  const result = closeNextMonth({ close: undefined, firstMonth: "2026-09", cache: cacheOf(), today: "2026-10-14" });
+  expect(result).toEqual({ ok: true, close: { through: "2026-09", projectIds: [9], saved: { "2026-09": { "5": { "2026-09-10": 4 } } } } });
+  if (!result.ok) return;
+  h.unmount();
+
+  mockProjectRows([{ initials: "AL", hours: 6 }]);
+  await projectFetch({ links: noPins, resources });
+  const res = checkClosed(result.close, noPins.userLinks);
+  expect(res.evaluated).toContain("timelogClosedMonth");
+  expect(res.violations).toEqual([expect.objectContaining({
+    rule: "timelogClosedMonth", timelogUserId: 5, resourceId: null, count: 1, netHours: 2,
+  })]);
+});
+
+it("§699 I2 — a negative correction row closes and the close survives sanitizeTimelogLinks", async () => {
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([ADA]);
+  // A correction booked against an earlier entry: the day totals -1.5 h.
+  mockProjectRows([{ initials: "AL", hours: 2 }, { initials: "AL", hours: -3.5 }]);
+  await projectFetch();
+  const result = closeNextMonth({ close: undefined, firstMonth: "2026-09", cache: cacheOf(), today: "2026-10-14" });
+  expect(result.ok && result.close.saved["2026-09"]).toEqual({ "5": { "2026-09-10": -1.5 } });
+  if (!result.ok) return;
+  const stored = sanitizeTimelogLinks(JSON.parse(JSON.stringify({ userLinks: [], projectLinks: [], close: result.close })));
+  expect(stored?.close).toEqual(result.close);
+  // And the round-tripped close still reads the unchanged roll as clean.
+  const res = checkClosed(stored?.close ?? null);
+  expect(res.evaluated).toContain("timelogClosedMonth");
+  expect(res.violations).toEqual([]);
+});
+
+it("§699 I3 — a person deactivated after the close still appears in the roll and is not read as deleted", async () => {
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([ADA, BOB]);
+  mockProjectRows([{ initials: "AL", hours: 4 }, { initials: "BM", hours: 3 }]);
+  const first = await projectFetch();
+  const result = closeNextMonth({ close: undefined, firstMonth: "2026-09", cache: cacheOf(), today: "2026-10-14" });
+  expect(result.ok && Object.keys(result.close.saved["2026-09"]).sort()).toEqual(["5", "6"]);
+  if (!result.ok) return;
+  first.unmount();
+
+  // Bob is deactivated in TimeLog. A fresh mount reloads the directory.
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([ADA, { ...BOB, isActive: false }]);
+  const later = await projectFetch();
+  expect(loadActualsCache("p1")?.daily?.["6|2026-09-10"]?.hours).toBe(3);
+  const res = checkClosed(result.close);
+  expect(res.evaluated).toContain("timelogClosedMonth");
+  expect(res.violations).toEqual([]);
+  // The matching UI still hides him.
+  expect(later.result.current.users.map((u) => u.userId)).toEqual([5]);
+});
+
+it("§699 I3 — an active person wins an initials clash with an inactive one", async () => {
+  // Status quo for every active person: their rows never move to a former
+  // colleague who carried the same initials.
+  const formerAl = { userId: 4, firstName: "Al", lastName: "Old", initials: "AL", email: "old@x.com", isActive: false };
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([ADA, formerAl]);
+  mockProjectRows([{ initials: "AL", hours: 4 }]);
+  await projectFetch();
+  expect(Object.keys(loadActualsCache("p1")?.daily ?? {})).toEqual(["5|2026-09-10"]);
 });

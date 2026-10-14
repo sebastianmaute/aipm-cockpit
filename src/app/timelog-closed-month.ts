@@ -11,8 +11,14 @@
 // ★★★ THE CLOSE IS PER PROJECT SET (§699 revision). The panel fetches by
 // project, which proves every booking on those projects whoever made it, but
 // records nobody in `dailyUsers` (§366). So a closed month is checked only when
-// the roll's `dailyProjects` equals `close.projectIds`, and then EVERY linked
-// person is checked; `dailyUsers` plays no part in this rule.
+// the roll's `dailyProjects` equals `close.projectIds`; `dailyUsers` plays no
+// part in this rule.
+//
+// ★★★ EVERY BOOKER IS CHECKED, NOT ONLY LINKED PEOPLE (section 10). Stored
+// `userLinks` hold only manual pins (auto-matches are never written back), so
+// a team matched by email was saved and checked by nobody. Per covered closed
+// month the rule checks every user id in `saved[month]` or in the roll for
+// that month; links only NAME the person, exactly as in the other five rules.
 //
 // ★ NOT named `timelog-month-close.ts`: that module CLOSES and REOPENS months
 // (the settings action). This one CHECKS them.
@@ -44,6 +50,8 @@ export interface ClosedMonthInput {
    *  Undefined (a person fetch, or an entry written before the field) never
    *  matches. */
   readonly dailyProjects: readonly number[] | undefined;
+  /** Names a violation's person only (`resourceId`, null when unlinked), as
+   *  in the other five rules. Never decides who is checked. */
   readonly userLinks: readonly TimelogUserLink[];
   /** ★★★ REQUIRED. A partial or cancelled fetch lost a project, or never ran
    *  it, so a person's bookings there have no cells and every saved day would
@@ -71,11 +79,14 @@ function coveredClosedMonths(close: TimelogMonthClose, window: TimelogRollWindow
     .sort();
 }
 
-/** A change of at least `CLOSED_MONTH_TOLERANCE_HOURS`, compared in whole
- *  hundredths. A plain `>= 0.01` misses 8 → 8.01, because `8.01 - 8` is
- *  0.00999… in floating point. 0.004 still rounds to 0 and stays unflagged. */
+/** Absorbs the float error of a subtraction like `8.01 - 8` (0.00999…). */
+const FLOAT_EPSILON_HOURS = 1e-9;
+
+/** A change of at least `CLOSED_MONTH_TOLERANCE_HOURS`, with a float epsilon.
+ *  A plain `>= 0.01` misses 8 → 8.01. Rounding to hundredths (the first fix)
+ *  over-reached: it read 0.006 as 0.01 and flagged it. */
 function isChange(change: number): boolean {
-  return Math.round(Math.abs(change) * 100) >= Math.round(CLOSED_MONTH_TOLERANCE_HOURS * 100);
+  return Math.abs(change) >= CLOSED_MONTH_TOLERANCE_HOURS - FLOAT_EPSILON_HOURS;
 }
 
 /** "userId|YYYY-MM": a person's month that holds a cell this loop cannot read. */
@@ -116,11 +127,12 @@ function currentHours(
 
 /** One person's changed days across every covered closed month, or null when
  *  nothing changed. A missing day counts as 0 on either side, so an added and
- *  a deleted day both count. A person with no `saved[month]` entry (linked
- *  after the close) is compared against an empty map, so all their bookings
- *  count. */
+ *  a deleted day both count. A person with no `saved[month]` entry (a new
+ *  booker in a closed month) is compared against an empty map, so all their
+ *  bookings count. */
 function personViolation(
-  link: TimelogUserLink,
+  userId: number,
+  resourceId: number | null,
   close: TimelogMonthClose,
   covered: readonly string[],
   current: ReadonlyMap<string, number>,
@@ -132,8 +144,8 @@ function personViolation(
   let first = "";
   let last = "";
   for (const month of covered) {
-    if (unreadableMonths.has(personMonth(link.timelogUserId, month))) continue;
-    const saved = close.saved[month]?.[String(link.timelogUserId)] ?? {};
+    if (unreadableMonths.has(personMonth(userId, month))) continue;
+    const saved = close.saved[month]?.[String(userId)] ?? {};
     const days = new Set<string>(Object.keys(saved));
     for (const day of current.keys()) if (day.startsWith(`${month}-`)) days.add(day);
     for (const day of [...days].sort()) {
@@ -149,8 +161,8 @@ function personViolation(
   if (count === 0) return null;
   return {
     rule: "timelogClosedMonth",
-    timelogUserId: link.timelogUserId,
-    resourceId: link.resourceId,
+    timelogUserId: userId,
+    resourceId,
     count,
     worstHours: round2(worst),
     threshold: 0,
@@ -160,12 +172,24 @@ function personViolation(
   };
 }
 
+/** The user ids to check: everyone saved for a covered month, and everyone
+ *  the roll holds a readable cell for in one. Positive ids only, ascending. */
+function peopleToCheck(
+  close: TimelogMonthClose,
+  covered: readonly string[],
+  byUser: ReadonlyMap<number, ReadonlyMap<string, number>>,
+): number[] {
+  const ids = new Set<number>(byUser.keys());
+  for (const month of covered) for (const key of Object.keys(close.saved[month] ?? {})) ids.add(Number(key));
+  return [...ids].filter((id) => Number.isInteger(id) && id > 0).sort((a, b) => a - b);
+}
+
 /** The rule. Evaluated when nothing is closed (a certain clean: no late change
  *  can exist, which is what lets reopening the last month clear its flags) or
  *  when a roll exists over the close's project set and every cell of it is
- *  readable. EVERY linked person is checked in every covered closed month: a
- *  complete project fetch holds every booking on those projects, so a linked
- *  person with no cells booked nothing there. Unlinked people are not checked.
+ *  readable. EVERY person saved or booked in a covered closed month is checked,
+ *  linked or not: a complete project fetch holds every booking on those
+ *  projects, so a saved person with no cells booked nothing there.
  *  ★★★ A DIFFERENT PROJECT SET covers nothing: no violations, not evaluated,
  *  so stored flags freeze until the same projects are fetched or the months
  *  are reopened.
@@ -183,42 +207,46 @@ export function evaluateClosedMonth(input: ClosedMonthInput): ClosedMonthResult 
   const covered = coveredClosedMonths(close, dailyWindow);
   if (partial) return { evaluated: false, violations: [], closedMonthsCovered: covered };
   const { byUser, unreadable, unreadableMonths } = currentHours(daily, new Set(covered));
-  const seen = new Set<number>();
+  // The same naming as the other five rules: the stored link's resource, or
+  // null (the insight then names the TimeLog id).
+  const userToResource = new Map(userLinks.map((l) => [l.timelogUserId, l.resourceId]));
   const violations: TimelogViolation[] = [];
-  for (const link of [...userLinks].sort((a, b) => a.timelogUserId - b.timelogUserId)) {
-    if (seen.has(link.timelogUserId)) continue;
-    seen.add(link.timelogUserId);
-    const v = personViolation(link, close, covered, byUser.get(link.timelogUserId) ?? new Map(), unreadableMonths);
+  for (const userId of peopleToCheck(close, covered, byUser)) {
+    const v = personViolation(
+      userId,
+      userToResource.get(userId) ?? null,
+      close,
+      covered,
+      byUser.get(userId) ?? new Map(),
+      unreadableMonths,
+    );
     if (v !== null) violations.push(v);
   }
   return { evaluated: !unreadable, violations, closedMonthsCovered: covered };
 }
 
 /** The runner's per-insight certification for `timelogClosedMonth`: may a
- *  stored insight about `userId` over `first`..`last` be cleared? Every month
+ *  stored insight over `first`..`last` be cleared? Every month
  *  in that span must pass. A month after `close.through` was reopened, so
  *  nothing about it can still be flagged and it passes; a still-closed month
- *  passes only when the roll covers all of it, is not partial, was fetched
- *  over the close's project set (`dailyProjects`), and the person is linked.
- *  An unreadable span certifies nothing.
+ *  passes only when the roll covers all of it, is not partial, and was fetched
+ *  over the close's project set (`dailyProjects`). Links play no part: every
+ *  booker is checked (section 10). An unreadable span certifies nothing.
  *  ★★ The project-set match is checked here AND in the rule, deliberately: a
  *  caller handing in `closedMonthsCovered` from elsewhere must not be able to
  *  certify a clean over the wrong projects. */
 export function closedMonthCertifies(args: {
   first: string;
   last: string;
-  userId: number;
   close: TimelogMonthClose | null;
   closedMonthsCovered: readonly string[];
   partial: boolean;
   dailyProjects: readonly number[] | undefined;
-  linkedUsers: readonly number[];
 }): boolean {
-  const { first, last, userId, close } = args;
+  const { first, last, close } = args;
   if (close === null) return true;
   if (!ISO_DAY.test(first) || !ISO_DAY.test(last) || first > last) return false;
-  const answerable =
-    !args.partial && sameProjectSet(args.dailyProjects, close.projectIds) && args.linkedUsers.includes(userId);
+  const answerable = !args.partial && sameProjectSet(args.dailyProjects, close.projectIds);
   for (let month = first.slice(0, 7); month <= last.slice(0, 7); month = nextMonth(month)) {
     if (month > close.through) continue;
     if (!answerable || !args.closedMonthsCovered.includes(month)) return false;

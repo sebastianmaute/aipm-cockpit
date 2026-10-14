@@ -1876,7 +1876,7 @@ const enUS = {
   timelogGuardrailsHint:
     "Flag bookings that break these rules. Cockpit never changes a booking — it only tells you. All rules are off until you turn them on.",
   timelogCloseTitle: "Closed months",
-  timelogCloseHelp: "Closing a month saves each linked person's TimeLog hours on the fetched TimeLog projects. While any month is closed, Cockpit flags later changes to them. The close covers the TimeLog projects fetched for the first closed month; to change them, reopen every closed month, which discards their saved hours.",
+  timelogCloseHelp: "Closing a month saves each person's TimeLog hours on the fetched TimeLog projects. While any month is closed, Cockpit flags later changes to them. The close covers the TimeLog projects fetched for the first closed month; to change them, reopen every closed month, which discards their saved hours. To accept a reviewed change, accept that month's current hours.",
   timelogCloseThrough: "Closed through {0}",
   timelogCloseNone: "No month is closed.",
   timelogCloseFirstMonth: "First month to close",
@@ -1891,7 +1891,12 @@ const enUS = {
   timelogCloseRefusePartial: "The last fetch was incomplete. Fetch again.",
   timelogCloseRefuseNoProjects: "Fetch TimeLog bookings for the project's TimeLog projects first.",
   timelogCloseRefuseProjectsChanged: "The last fetch covers different TimeLog projects than the closed months. Fetch the same projects, or reopen the closed months.",
-  timelogCloseLinkedLater: "Linked after the close, so all their bookings in closed months are flagged: {0}",
+  timelogCloseRefuseNotClosed: "{0} is not closed.",
+  timelogCloseProjects: "TimeLog projects of the closed months: {0}",
+  timelogAcceptMonth: "Month to accept",
+  timelogAcceptButton: "Accept current hours for {0}",
+  timelogAcceptConfirm: "Accept {0}'s current hours? Later changes are compared against them.",
+  timelogAcceptConfirmYes: "Accept",
   timelogEntryCapLabel: "Entry cap (hours)",
   timelogDayCapLabel: "Daily cap (hours)",
   timelogThresholdNeeded:

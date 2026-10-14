@@ -203,6 +203,8 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         // partly covers. A missing date or user id freezes, as everywhere here.
         // ★★ It asks the PROJECT scope (`dailyProjects`), never `rollUsers`: the
         // close is per project set, and a project fetch records nobody.
+        // ★ Nor links: every booker is checked (§699 section 10), so a person
+        // matched automatically, or not at all, clears like a pinned one.
         if (insight.type === "timelogClosedMonth") {
           const from = insight.data.firstViolationDate;
           const to = insight.data.lastViolationDate;
@@ -211,12 +213,10 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
           return closedMonthCertifies({
             first: from,
             last: to,
-            userId: person,
             close: timelogLinks?.close ?? null,
             closedMonthsCovered: policyResult.closedMonthsCovered,
             partial: rollPartial,
             dailyProjects: actuals?.dailyProjects,
-            linkedUsers: policyResult.linkedUsers,
           });
         }
         // A `partial` fetch is missing whole people while every rule still

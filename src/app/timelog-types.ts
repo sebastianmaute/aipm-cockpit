@@ -39,7 +39,7 @@ export type TimelogFinancialDay = {
 export type TimelogUserLink = { timelogUserId: number; resourceId: number; manual: boolean };
 /** Durable mapping: Timelog project → app budget bucket (null = explicitly unmapped). */
 export type TimelogProjectLink = { timelogProjectId: number; bucketId: number | null; manual: boolean };
-/** Closed months (§699): the hours each linked person had booked on the
+/** Closed months (§699): the hours every person with a booking had on the
  *  selected TimeLog projects when a month was closed, kept so a later
  *  difference can be flagged. The close is PER PROJECT SET: a project fetch
  *  proves every booking on its projects, never a person's whole day. */
@@ -51,7 +51,8 @@ export type TimelogMonthClose = {
    *  fetch over any other set cannot check it (see `dailyProjects`). */
   projectIds: number[];
   /** month "YYYY-MM" → TimeLog userId (string key) → day "YYYY-MM-DD" → hours.
-   *  A user's map may be `{}`: linked and covered, with no bookings. */
+   *  Hours may be negative (a TimeLog correction). A person with no entry for
+   *  a month is compared against `{}`, so an entry of `{}` means the same. */
   saved: Record<string, Record<string, Record<string, number>>>;
 };
 

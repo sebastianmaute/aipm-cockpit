@@ -19,7 +19,7 @@ import {
 } from "./timelog-api";
 import { aggregateActuals, buildDailyRoll, type ActualsAggregate } from "./timelog-actuals";
 import { saveActualsCache, loadActualsCache, clearActualsCache, type ActualsCacheEntry, type TimelogRollWindow } from "./timelog-actuals-store";
-import { autoMatchUsers, autoMatchProjects, displayableUsers, type TimelogProjectRef } from "./timelog-match";
+import { autoMatchUsers, autoMatchProjects, displayableUsers, initialsToUserId, type TimelogProjectRef } from "./timelog-match";
 import { isAbortError } from "./abort-error";
 import type { TimelogDailyRoll, TimelogLinks, TimelogScopeMode, TimelogTimeItem, TimelogUser } from "./timelog-types";
 import type { Resource, BudgetBucket } from "./types";
@@ -207,8 +207,11 @@ export function useTimelogSync(args: Args) {
   // user can narrow + tick before the costly per-employee timesheet fetch.
   async function loadDirectory(): Promise<void> {
     await runGuarded(async (signal) => {
-      const shown = displayableUsers(await listUsers(creds, signal));
-      fullDirectoryRef.current = shown;
+      // The ref keeps the WHOLE directory (inactive users too, §699); the
+      // People table shows only the displayable subset.
+      const all = await listUsers(creds, signal);
+      fullDirectoryRef.current = all;
+      const shown = displayableUsers(all);
       setUsers(shown);
       // Persist alongside EXISTING bookings only. A directory-only load (no prior
       // fetchedAt) stays in-memory — caching it would fabricate a `fetchedAt` that
@@ -450,19 +453,20 @@ export function useTimelogSync(args: Args) {
       // Resolve EmployeeInitials→userId against the FULL org directory (cached in
       // a ref, loaded once). Must NOT reuse `users` — that now holds only the
       // prior fetch's bookers subset, which would leave most rows unresolved.
+      // ★★ INACTIVE USERS INCLUDED (§699 section 10): a person deactivated
+      // after a close otherwise reads as having deleted every booking. Only the
+      // People table below hides them.
       if (!fullDirectoryRef.current) {
-        fullDirectoryRef.current = displayableUsers(await listUsers(creds, signal));
+        fullDirectoryRef.current = await listUsers(creds, signal);
       }
       const directory = fullDirectoryRef.current;
-      const initialsToUserId = new Map(
-        directory.filter((u) => u.initials).map((u) => [u.initials.trim().toLowerCase(), u.userId] as const),
-      );
+      const byInitials = initialsToUserId(directory);
       let items: TimelogTimeItem[] = [];
       let failedProjects = 0;
       for (const id of ids) {
         if (signal.aborted) break;
         try {
-          items = items.concat(await listProjectTimeRegistrations(creds, id, startDate, endDate, signal, initialsToUserId));
+          items = items.concat(await listProjectTimeRegistrations(creds, id, startDate, endDate, signal, byInitials));
         } catch (e) {
           if (signal.aborted) throw e; // propagate the cancel out of the fail-soft loop
           failedProjects++;
@@ -473,9 +477,10 @@ export function useTimelogSync(args: Args) {
       // compare; also drops the summary-only empty-date row an empty project emits).
       const inWindow = items.filter((it) => it.date >= startDate && it.date <= endDate);
       // People = only the employees who booked on the selected projects (the
-      // directory subset whose userId appears in the fetched rows).
+      // displayable directory subset whose userId appears in the fetched rows).
+      // An inactive booker stays in the roll but not in the matching UI.
       const bookerIds = new Set(inWindow.map((it) => it.userId).filter((id) => id > 0));
-      const bookers = directory.filter((u) => bookerIds.has(u.userId));
+      const bookers = displayableUsers(directory).filter((u) => bookerIds.has(u.userId));
       setUsers(bookers);
       // `signal.aborted` for the same reason as the per-user path above: the
       // loop `break`s on a cancel and still reaches this line.

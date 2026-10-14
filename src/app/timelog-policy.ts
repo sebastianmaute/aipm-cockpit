@@ -101,8 +101,8 @@ export interface TimelogPolicyInput {
   readonly close: TimelogMonthClose | null;
   /** §699 — the window and the TimeLog projects the roll covers. A closed
    *  month is checked only when the window holds all of it and
-   *  `dailyProjects` equals `close.projectIds`; then every linked person is
-   *  checked. A REQUIRED key that may be undefined (project scope unknown,
+   *  `dailyProjects` equals `close.projectIds`; then every person saved or
+   *  booked in it is checked, linked or not. A REQUIRED key that may be undefined (project scope unknown,
    *  which checks nothing). Read only by the closed-month rule. */
   readonly dailyWindow: TimelogRollWindow | undefined;
   readonly dailyProjects: readonly number[] | undefined;
@@ -265,8 +265,9 @@ function drain(rule: TimelogRuleId, m: Map<number, Accum>): TimelogViolation[] {
 /** ★★ The closed-month rule runs INDEPENDENTLY of `policy`: closing a month is
  *  its opt-in, so the policy rules' early return must not swallow it. It is
  *  appended LAST, which keeps `evaluated` in `TIMELOG_RULE_IDS` order.
- *  ★★ `linkedUsers` is filled whenever a roll exists, policy or not: the
- *  runner's closed-month certification reads it. */
+ *  ★ `linkedUsers` is filled whenever a roll exists, policy or not. The
+ *  closed-month certification no longer reads it (§699 section 10: every
+ *  booker is checked); only the link-dependent policy rules do. */
 export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyResult {
   const rules = evaluatePolicyRules(input);
   const closed = evaluateClosedMonth(input);

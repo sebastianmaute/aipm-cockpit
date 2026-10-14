@@ -159,7 +159,10 @@ function closeProblem(r: Record<string, unknown>): string | null {
       if (!isRecord(days)) return "a user's days are not an object";
       for (const [day, hours] of Object.entries(days)) {
         if (!isDayInMonth(day, month)) return "a day is not a real day inside its month";
-        if (!isNum(hours) || hours < 0) return "an hours value is not a finite number >= 0";
+        // §699 section 10 — any finite number: a TimeLog correction can make a
+        // day total negative, and the saved copy records what the fetch showed.
+        // Rejecting it dropped every closed month on the next Fetch.
+        if (!isNum(hours)) return "an hours value is not a finite number";
       }
     }
   }

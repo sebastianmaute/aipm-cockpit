@@ -43,7 +43,8 @@ import type { Insight } from "./insights/insight";
 import type { Absence, Resource } from "./types";
 import type { TimelogDailyRoll, TimelogLinks } from "./timelog-types";
 import { dailyKey } from "./timelog-types";
-import { saveActualsCache } from "./timelog-actuals-store";
+import { loadActualsCache, saveActualsCache } from "./timelog-actuals-store";
+import { acceptMonth } from "./timelog-month-close";
 import { saveLandingState } from "./landing-state";
 
 let setInsightsRef: Dispatch<SetStateAction<readonly Insight[] | undefined>> | null = null;
@@ -644,7 +645,8 @@ describe("task-manager → the evaluated scope handed to reconcileInsights", () 
 // September 2026 was closed with 8h on the 12th and the 15th.
 describe("task-manager → timelogClosedMonth", () => {
   const CLOSED_KEY = "timelog:timelogClosedMonth:7";
-  const SEPT_DAYS = { firstViolationDate: "2026-09-12", lastViolationDate: "2026-09-19" };
+  // §699 M12 — the stored flag's span is the one day its own roll changes.
+  const SEPT_DAYS = { firstViolationDate: "2026-09-12", lastViolationDate: "2026-09-12" };
   const cell = (hours: number) => ({ hours, maxEntryHours: hours, entryCount: 1 });
   /** September as booked at close time, and again when nothing changed. */
   const rollUnchanged: TimelogDailyRoll = {
@@ -691,6 +693,14 @@ describe("task-manager → timelogClosedMonth", () => {
     expectResolved(CLOSED_KEY);
   }, TEST_MS);
 
+  // §699 section 10 — links play no part: an unlinked booker (auto-matched,
+  // or never matched) is checked, so their flag clears like anyone's.
+  it("clears an unlinked person's flag when the change is reverted", async () => {
+    seedClosed({ daily: rollUnchanged });
+    await mountAndReconcile([closedInsight], { ...closedLinks(true), userLinks: [] });
+    expectResolved(CLOSED_KEY);
+  }, TEST_MS);
+
   it("freezes when the window covers the changed days but not the whole month", async () => {
     seedClosed({ daily: rollUnchanged, dailyWindow: { from: "2026-09-12", to: "2026-09-30" } });
     await mountAndReconcile([closedInsight], closedLinks(true));
@@ -701,6 +711,24 @@ describe("task-manager → timelogClosedMonth", () => {
     seedClosed({ daily: rollUnchanged, partial: true });
     await mountAndReconcile([closedInsight], closedLinks(true));
     expectFrozen(closedInsight);
+  }, TEST_MS);
+
+  // §699 I4 — accepting September re-saves it from the covering roll, so the
+  // flag about the lowered 12th clears and later changes compare against 6h.
+  it("clears after acceptMonth for September over a covering roll", async () => {
+    seedClosed({ daily: rollChanged });
+    const stored = closedLinks(true);
+    const entry = loadActualsCache(PROJECT);
+    const accepted = acceptMonth({
+      close: stored.close!,
+      month: "2026-09",
+      cache: { daily: entry?.daily, dailyWindow: entry?.dailyWindow, partial: entry?.partial, dailyProjects: entry?.dailyProjects },
+      today: "2026-10-14",
+    });
+    expect(accepted.ok && accepted.close.saved["2026-09"]["7"]).toEqual({ "2026-09-12": 6, "2026-09-15": 8 });
+    if (!accepted.ok) return;
+    await mountAndReconcile([closedInsight], { ...stored, close: accepted.close });
+    expectResolved(CLOSED_KEY);
   }, TEST_MS);
 
   it("freezes when the last fetch covered different TimeLog projects", async () => {

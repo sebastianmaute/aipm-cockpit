@@ -102,16 +102,34 @@ describe("TimelogMonthClosePanel", () => {
     expect((onChange.mock.calls[0][0] as TimelogLinks).close?.projectIds).toEqual([9]);
   });
 
-  it("warns about a person missing from an EARLIER saved month, not only the last", () => {
-    mockCache({ ...FULL, users: [{ userId: 9, firstName: "Ann", lastName: "Lee", initials: "AL", email: "", isActive: true }] });
-    // Ann (9) was saved for September but not for August.
-    const links: TimelogLinks = {
-      userLinks: [...LINKS.userLinks, { timelogUserId: 9, resourceId: 2, manual: false }],
-      projectLinks: [],
-      close: { through: "2026-09", projectIds: [9], saved: { "2026-08": { "7": {} }, "2026-09": { "7": {}, "9": {} } } },
-    };
-    renderPanel(links);
-    expect(screen.getByText(/Linked after the close.*Ann Lee/)).toBeTruthy();
+  // §699 section 10 — the close saves every booker, linked or not.
+  it("saves an unlinked booker at close", () => {
+    mockCache({ ...FULL, daily: { ...FULL.daily, "13|2026-09-04": cell(2) } });
+    const onChange = renderPanel({ userLinks: [], projectLinks: [] });
+    fireEvent.click(screen.getByRole("button", { name: "Close September 2026" }));
+    expect((onChange.mock.calls[0][0] as TimelogLinks).close?.saved["2026-09"]).toEqual({ "13": { "2026-09-04": 2 } });
+  });
+
+  // §699 M5 — the close's TimeLog projects, by name from the cached refs.
+  it("lists the close's TimeLog projects by name, falling back to the id", () => {
+    mockCache({ ...FULL, projectRefs: [{ id: 9, name: "Alpha", no: "P-9" }] });
+    renderPanel({ ...CLOSE_SEP, close: { ...CLOSE_SEP.close!, projectIds: [9, 12] } });
+    expect(screen.getByText("TimeLog projects of the closed months: Alpha · P-9, 12")).toBeTruthy();
+  });
+
+  it("names no projects while nothing is closed", () => {
+    renderPanel();
+    expect(screen.queryByText(/TimeLog projects of the closed months/)).toBeNull();
+  });
+
+  // §699 M9 — a cached window older than 12 months is reachable.
+  it("offers first months back to the start of an older cached window", () => {
+    mockCache({ ...FULL, dailyWindow: { from: "2025-03-15", to: "2026-10-14" } });
+    renderPanel();
+    const select = screen.getByLabelText(t("en-US", "timelogCloseFirstMonth")) as HTMLSelectElement;
+    expect(select.options).toHaveLength(19);
+    expect(select.options[0].value).toBe("2026-09");
+    expect(select.options[18].value).toBe("2025-03");
   });
 
   it("closes the selected month from a covering cache", () => {
@@ -149,24 +167,76 @@ describe("TimelogMonthClosePanel", () => {
     expect("close" in arg).toBe(false);
   });
 
-  it("warns about a person linked after the close, by name, and not when everyone is saved", () => {
-    mockCache({ ...FULL, users: [{ userId: 9, firstName: "Ann", lastName: "Lee", initials: "AL", email: "", isActive: true }] });
-    const later: TimelogLinks = {
-      ...CLOSE_AUG_ONLY,
-      userLinks: [...LINKS.userLinks, { timelogUserId: 9, resourceId: 2, manual: false }],
-    };
-    const { unmount } = render(
-      <TimelogMonthClosePanel lang="en-US" links={later} onLinksChange={vi.fn()} cacheProjectId="p1" today={TODAY} />,
-    );
-    expect(screen.getByText(/Linked after the close.*Ann Lee/)).toBeTruthy();
-    unmount();
-    renderPanel(CLOSE_AUG_ONLY);
-    expect(screen.queryByText(/Linked after the close/)).toBeNull();
+  // §699 I4 — accepting a reviewed change re-saves one closed month.
+  describe("accepting a closed month", () => {
+    const pickMonth = (month: string) =>
+      fireEvent.change(screen.getByLabelText(t("en-US", "timelogAcceptMonth")), { target: { value: month } });
+
+    it("offers the closed months, newest first, and none while nothing is closed", () => {
+      renderPanel(CLOSE_SEP);
+      const select = screen.getByLabelText(t("en-US", "timelogAcceptMonth")) as HTMLSelectElement;
+      expect([...select.options].map((o) => o.value)).toEqual(["2026-09", "2026-08"]);
+      expect(select.value).toBe("2026-09");
+    });
+
+    it("is absent while nothing is closed", () => {
+      renderPanel();
+      expect(screen.queryByLabelText(t("en-US", "timelogAcceptMonth"))).toBeNull();
+      expect(screen.queryByRole("button", { name: /Accept current hours/ })).toBeNull();
+    });
+
+    it("asks before accepting, and Cancel writes nothing", () => {
+      const onChange = renderPanel(CLOSE_SEP);
+      pickMonth("2026-08");
+      fireEvent.click(screen.getByRole("button", { name: "Accept current hours for August 2026" }));
+      expect(onChange).not.toHaveBeenCalled();
+      expect(screen.getByText("Accept August 2026's current hours? Later changes are compared against them.")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(onChange).not.toHaveBeenCalled();
+      expect(screen.queryByText(/Later changes are compared/)).toBeNull();
+    });
+
+    it("Confirm re-saves only that month and keeps through", () => {
+      const onChange = renderPanel(CLOSE_SEP);
+      pickMonth("2026-08");
+      fireEvent.click(screen.getByRole("button", { name: "Accept current hours for August 2026" }));
+      fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+      const arg = onChange.mock.calls[0][0] as TimelogLinks;
+      expect(arg.close).toEqual({
+        through: "2026-09",
+        projectIds: [9],
+        saved: { "2026-08": { "7": { "2026-08-03": 8 } }, "2026-09": { "7": {} } },
+      });
+    });
+
+    it("explains a refusal for the chosen month and disables Accept", () => {
+      mockCache({ ...FULL, dailyWindow: { from: "2026-08-05", to: "2026-10-14" } });
+      renderPanel(CLOSE_SEP);
+      pickMonth("2026-08");
+      expect(screen.getByText("The last fetch starts after the 1st of August 2026. Fetch the whole month.")).toBeTruthy();
+      expect((screen.getByRole("button", { name: "Accept current hours for August 2026" }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it("states a shared refusal once", () => {
+      mockCache({ ...FULL, partial: true });
+      renderPanel(CLOSE_AUG_ONLY);
+      expect(screen.getAllByText("The last fetch was incomplete. Fetch again.")).toHaveLength(1);
+      expect((screen.getByRole("button", { name: "Accept current hours for August 2026" }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it("opens one confirmation at a time, with unique button names", () => {
+      renderPanel(CLOSE_SEP);
+      fireEvent.click(screen.getByRole("button", { name: "Accept current hours for September 2026" }));
+      expect(screen.queryByRole("button", { name: "Reopen September 2026" })).toBeNull();
+      const names = screen.getAllByRole("button").map((b) => b.textContent);
+      expect(new Set(names).size).toBe(names.length);
+    });
   });
 
   it("keeps every button name unique", () => {
     renderPanel(CLOSE_SEP);
     fireEvent.click(screen.getByRole("button", { name: "Reopen September 2026" }));
+    expect(screen.queryByRole("button", { name: /Accept current hours/ })).toBeNull();
     const names = screen.getAllByRole("button").map((b) => b.textContent);
     expect(new Set(names).size).toBe(names.length);
   });

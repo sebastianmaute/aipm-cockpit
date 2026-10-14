@@ -291,9 +291,10 @@ describe("sanitizeTimelogClose (§699)", () => {
     ["day 2026-09-31", withSaved({ "2026-09": { "7": { "2026-09-31": 1 } } })],
     ["day 2026-02-29", withSaved({ "2026-02": { "7": { "2026-02-29": 1 } } })],
     ["day outside its month", withSaved({ "2026-09": { "7": { "2026-08-03": 1 } } })],
-    ["hours -1", withSaved({ "2026-09": { "7": { "2026-09-03": -1 } } })],
     ["hours NaN", withSaved({ "2026-09": { "7": { "2026-09-03": NaN } } })],
     ["hours as a string", withSaved({ "2026-09": { "7": { "2026-09-03": "8" } } })],
+    ["hours Infinity", withSaved({ "2026-09": { "7": { "2026-09-03": Infinity } } })],
+    ["hours null", withSaved({ "2026-09": { "7": { "2026-09-03": null } } })],
     ["saved an array", withSaved([])],
     // §699 revision — the project set the closed months were fetched over.
     ["projectIds missing", { through: VALID.through, saved: VALID.saved }],
@@ -312,19 +313,29 @@ describe("sanitizeTimelogClose (§699)", () => {
     expect(out && "close" in out).toBe(false);
   });
 
-  it("drops the whole close when one hours value is negative", () => {
+  // §699 section 10 — TimeLog corrections can make a day total negative, and the
+  // saved copy records what the fetch showed. A negative close must survive
+  // every load, or the next Fetch drops every closed month.
+  it("keeps negative and zero hours", () => {
+    const close = withSaved({ "2026-09": { "7": { "2026-09-03": -1, "2026-09-04": 0, "2026-09-05": -0.25 } } });
+    expect(sanitizeTimelogClose(close)).toEqual(close);
+    expect(sanitizeTimelogLinks({ userLinks: [], projectLinks: [], close })?.close).toEqual(close);
+    expect(logDiag).not.toHaveBeenCalled();
+  });
+
+  it("drops the whole close when one hours value is not a number", () => {
     const close = withSaved({
       "2026-09": {
         "7": { "2026-09-03": 8 },
         "9": { "2026-09-04": 6 },
-        "11": { "2026-09-05": -1 },
+        "11": { "2026-09-05": NaN },
       },
     });
     expect(sanitizeTimelogClose(close)).toBeUndefined();
   });
 
   it("logs a diagnostic when it drops a close", () => {
-    sanitizeTimelogClose(withSaved({ "2026-09": { "7": { "2026-09-03": -1 } } }));
+    sanitizeTimelogClose(withSaved({ "2026-09": { "7": { "2026-09-03": NaN } } }));
     expect(logDiag).toHaveBeenCalledWith(
       "warn",
       "timelog.close-dropped",

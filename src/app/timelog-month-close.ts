@@ -1,5 +1,5 @@
 import type { TimelogRollWindow } from "./timelog-actuals-store";
-import { parseDailyKey, type TimelogDailyRoll, type TimelogMonthClose } from "./timelog-types";
+import { isDailyCell, parseDailyKey, type TimelogDailyRoll, type TimelogMonthClose } from "./timelog-types";
 
 /** Closing and reopening TimeLog months (§699). Pure, clock-free and i18n-free:
  *  `today` is passed in and refusals are reason codes the settings panel translates.
@@ -8,8 +8,10 @@ import { parseDailyKey, type TimelogDailyRoll, type TimelogMonthClose } from "./
  *  projects. ★★★ The close is PER PROJECT SET (§699 revision): the panel's
  *  only fetch is by project and records nobody in `dailyUsers` (§366), so a
  *  per-person condition here refused every close. A complete project fetch
- *  returns every booking on its projects, whoever made it, which is what lets
- *  a linked person with no bookings be saved as `{}`. */
+ *  returns every booking on its projects, whoever made it, so the close saves
+ *  EVERY person with a booking in the month (section 10), linked or not:
+ *  stored links hold only manual pins, and a person the panel matched
+ *  automatically was never saved. Links are not an input here. */
 export type MonthCloseCache = {
   daily: TimelogDailyRoll | undefined;
   dailyWindow: TimelogRollWindow | undefined;
@@ -25,7 +27,9 @@ export type MonthCloseRefusal =
   | "window-end"
   | "partial"
   | "no-projects"
-  | "projects-changed";
+  | "projects-changed"
+  /** `acceptMonth` only: the month is not a closed month. */
+  | "not-closed";
 
 export type MonthCloseResult =
   | { ok: true; close: TimelogMonthClose }
@@ -69,19 +73,20 @@ export function monthToClose(close: TimelogMonthClose | undefined, firstMonth: s
   return close ? nextMonth(close.through) : firstMonth;
 }
 
-function savedForMonth(
-  daily: TimelogDailyRoll,
-  month: string,
-  linkedUserIds: readonly number[],
-): Record<string, Record<string, number>> {
+/** Every positive TimeLog user's day totals in `month`, as the roll holds
+ *  them, negative corrections included. A person with no booking in the month
+ *  gets no entry; the rule compares a missing entry against `{}`.
+ *  ★ Skipped: a cell the roll cannot read (`isDailyCell`), and a user id
+ *  that is not positive (the unidentified-booker sentinel), which the
+ *  sanitizer would reject, dropping the whole close on the next load. */
+function savedForMonth(daily: TimelogDailyRoll, month: string): Record<string, Record<string, number>> {
   const prefix = `${month}-`;
   const byUser: Record<string, Record<string, number>> = {};
-  for (const id of linkedUserIds) byUser[String(id)] = {};
   for (const [key, cell] of Object.entries(daily)) {
     const parsed = parseDailyKey(key);
-    if (!parsed || !parsed.date.startsWith(prefix)) continue;
-    const days = byUser[String(parsed.userId)];
-    if (days) days[parsed.date] = cell.hours;
+    if (!parsed || parsed.userId <= 0 || !parsed.date.startsWith(prefix) || !isDailyCell(cell)) continue;
+    const id = String(parsed.userId);
+    byUser[id] = { ...byUser[id], [parsed.date]: cell.hours };
   }
   return byUser;
 }
@@ -107,7 +112,6 @@ export function closeNextMonth(args: {
   close: TimelogMonthClose | undefined;
   firstMonth: string;
   cache: MonthCloseCache;
-  linkedUserIds: readonly number[];
   today: string;
 }): MonthCloseResult {
   const month = monthToClose(args.close, args.firstMonth);
@@ -120,7 +124,35 @@ export function closeNextMonth(args: {
       // The first close records the fetched set; a later close keeps it (the
       // refusal above has proved the two are the same set).
       projectIds: args.close ? [...args.close.projectIds] : projectSet(args.cache.dailyProjects),
-      saved: { ...(args.close?.saved ?? {}), [month]: savedForMonth(args.cache.daily, month, args.linkedUserIds) },
+      saved: { ...(args.close?.saved ?? {}), [month]: savedForMonth(args.cache.daily, month) },
+    },
+  };
+}
+
+/** §699 section 10 — accept a reviewed change: re-save one closed month from
+ *  the current cache, under the same coverage refusals as a close, keeping
+ *  `through` and `projectIds`. Later changes then compare against the
+ *  accepted hours, and the month's flag clears on the next evaluation.
+ *  Refuses `not-closed` unless `month` has a saved copy and is `<= through`
+ *  (`not-ended` cannot apply: a closed month had ended when it closed). */
+export function acceptMonth(args: {
+  close: TimelogMonthClose;
+  month: string;
+  cache: MonthCloseCache;
+  today: string;
+}): MonthCloseResult {
+  const { close, month, cache } = args;
+  if (month > close.through || !Object.keys(close.saved).includes(month)) {
+    return { ok: false, reason: "not-closed", month };
+  }
+  const reason = refusalFor(month, cache, close, args.today);
+  if (reason || !cache.daily) return { ok: false, reason: reason ?? "no-roll", month };
+  return {
+    ok: true,
+    close: {
+      through: close.through,
+      projectIds: [...close.projectIds],
+      saved: { ...close.saved, [month]: savedForMonth(cache.daily, month) },
     },
   };
 }

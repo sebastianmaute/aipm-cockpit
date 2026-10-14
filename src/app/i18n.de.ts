@@ -1775,7 +1775,7 @@ export const de: Record<TranslationKey, string> = {
   timelogGuardrailsHint:
     "Markiert Buchungen, die gegen diese Regeln verstoßen. Cockpit ändert keine Buchung — es weist nur darauf hin. Alle Regeln sind aus, bis Sie sie einschalten.",
   timelogCloseTitle: "Abgeschlossene Monate",
-  timelogCloseHelp: "Beim Abschluss eines Monats werden die TimeLog-Stunden jeder verknüpften Person auf den abgerufenen TimeLog-Projekten gespeichert. Solange ein Monat abgeschlossen ist, meldet Cockpit spätere Änderungen daran. Der Abschluss gilt für die TimeLog-Projekte, die für den ersten abgeschlossenen Monat abgerufen wurden; um sie zu ändern, öffnen Sie alle abgeschlossenen Monate wieder, wobei deren gespeicherte Stunden verloren gehen.",
+  timelogCloseHelp: "Beim Abschluss eines Monats werden die TimeLog-Stunden jeder Person auf den abgerufenen TimeLog-Projekten gespeichert. Solange ein Monat abgeschlossen ist, meldet Cockpit spätere Änderungen daran. Der Abschluss gilt für die TimeLog-Projekte, die für den ersten abgeschlossenen Monat abgerufen wurden; um sie zu ändern, öffnen Sie alle abgeschlossenen Monate wieder, wobei deren gespeicherte Stunden verloren gehen. Um eine geprüfte Änderung zu übernehmen, übernehmen Sie die aktuellen Stunden dieses Monats.",
   timelogCloseThrough: "Abgeschlossen bis {0}",
   timelogCloseNone: "Kein Monat ist abgeschlossen.",
   timelogCloseFirstMonth: "Erster abzuschließender Monat",
@@ -1790,7 +1790,12 @@ export const de: Record<TranslationKey, string> = {
   timelogCloseRefusePartial: "Der letzte Abruf war unvollständig. Rufen Sie erneut ab.",
   timelogCloseRefuseNoProjects: "Rufen Sie zuerst die TimeLog-Buchungen der TimeLog-Projekte des Projekts ab.",
   timelogCloseRefuseProjectsChanged: "Der letzte Abruf umfasst andere TimeLog-Projekte als die abgeschlossenen Monate. Rufen Sie dieselben Projekte ab oder öffnen Sie die abgeschlossenen Monate wieder.",
-  timelogCloseLinkedLater: "Nach dem Abschluss verknüpft, daher werden alle ihre Buchungen in abgeschlossenen Monaten gemeldet: {0}",
+  timelogCloseRefuseNotClosed: "{0} ist nicht abgeschlossen.",
+  timelogCloseProjects: "TimeLog-Projekte der abgeschlossenen Monate: {0}",
+  timelogAcceptMonth: "Zu übernehmender Monat",
+  timelogAcceptButton: "Aktuelle Stunden für {0} übernehmen",
+  timelogAcceptConfirm: "Die aktuellen Stunden für {0} übernehmen? Spätere Änderungen werden mit ihnen verglichen.",
+  timelogAcceptConfirmYes: "Übernehmen",
   timelogEntryCapLabel: "Limit pro Eintrag (Stunden)",
   timelogDayCapLabel: "Tageslimit (Stunden)",
   timelogThresholdNeeded:

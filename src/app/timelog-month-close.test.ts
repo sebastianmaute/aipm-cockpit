@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  acceptMonth,
   closeNextMonth,
   lastDayOfMonth,
   monthToClose,
@@ -43,7 +44,6 @@ function close(over: Partial<Parameters<typeof closeNextMonth>[0]> = {}) {
       close: undefined,
       firstMonth: "2026-08",
       cache: CACHE,
-      linkedUserIds: [7, 9],
       today: TODAY,
       ...over,
     }),
@@ -108,10 +108,6 @@ describe("refusals", () => {
     const c: TimelogMonthClose = { through: "2026-08", projectIds: PROJECTS, saved: { "2026-08": {} } };
     expect(close({ close: c, cache: { ...CACHE, dailyProjects: [12, 9] } }).ok).toBe(true);
   });
-  test("a linked person missing from dailyUsers no longer refuses", () => {
-    // A project fetch records nobody in dailyUsers (§366); the close must not read it.
-    expect(close({ linkedUserIds: [7, 12] }).ok).toBe(true);
-  });
   test("refusal order: no-roll beats not-ended", () => {
     expect(close({ cache: { ...CACHE, daily: undefined }, today: "2026-08-10" })).toMatchObject({ reason: "no-roll" });
   });
@@ -146,7 +142,7 @@ describe("closeNextMonth", () => {
       close: {
         through: "2026-08",
         projectIds: [9, 12],
-        saved: { "2026-08": { "7": { "2026-08-03": 8, "2026-08-04": 4.5 }, "9": {} } },
+        saved: { "2026-08": { "7": { "2026-08-03": 8, "2026-08-04": 4.5 }, "11": { "2026-08-03": 5 } } },
       },
     });
   });
@@ -159,13 +155,29 @@ describe("closeNextMonth", () => {
     const r = close({ close: prior, cache: { ...CACHE, dailyProjects: [12, 9] } });
     expect(r.ok && r.close.projectIds).toEqual([9, 12]);
   });
-  test("saves an empty map for a linked person with no bookings", () => {
+  // §699 section 10 — every booker, not only linked people: links are not an
+  // input. User 9 booked only in September, so August saves nobody for them;
+  // the rule compares a person with no saved entry against {}.
+  test("saves every person with a booking in the month, and nobody else", () => {
     const r = close();
-    expect(r.ok && r.close.saved["2026-08"]["9"]).toEqual({});
+    expect(r.ok && Object.keys(r.close.saved["2026-08"]).sort()).toEqual(["11", "7"]);
   });
-  test("saves only linked people", () => {
-    const r = close();
-    expect(r.ok && Object.keys(r.close.saved["2026-08"])).toEqual(["7", "9"]);
+  test("saves a negative day total as fetched", () => {
+    const r = close({ cache: { ...CACHE, daily: { ...ROLL, "7|2026-08-05": cell(-2.5) } } });
+    expect(r.ok && r.close.saved["2026-08"]["7"]["2026-08-05"]).toBe(-2.5);
+  });
+  // §699 M8 — a cell the roll cannot read, and the non-positive sentinel ids
+  // the sanitizer would reject (which would drop the whole close on load).
+  test("skips an unreadable cell and a non-positive user id", () => {
+    const daily = {
+      ...ROLL,
+      "7|2026-08-05": { hours: "4" },
+      "13|2026-08-06": null,
+      "0|2026-08-03": cell(2),
+      "-3|2026-08-03": cell(2),
+    } as unknown as TimelogDailyRoll;
+    const r = close({ cache: { ...CACHE, daily } });
+    expect(r.ok && r.close.saved["2026-08"]).toEqual({ "7": { "2026-08-03": 8, "2026-08-04": 4.5 }, "11": { "2026-08-03": 5 } });
   });
   test("closes the month after through and keeps earlier months", () => {
     const prior: TimelogMonthClose = { through: "2026-08", projectIds: PROJECTS, saved: { "2026-08": { "7": { "2026-08-03": 8 }, "9": {} } } };
@@ -200,5 +212,62 @@ describe("reopenLastMonth", () => {
   });
   test("returns undefined for a single-month close", () => {
     expect(reopenLastMonth(deepFreeze({ through: "2026-08", projectIds: PROJECTS, saved: { "2026-08": {} } }))).toBeUndefined();
+  });
+});
+
+describe("acceptMonth", () => {
+  /** Closed through September; Ann (7) had 8 h on 3 August when it closed. */
+  const CLOSED: TimelogMonthClose = {
+    through: "2026-09",
+    projectIds: PROJECTS,
+    saved: { "2026-08": { "7": { "2026-08-03": 8 } }, "2026-09": { "7": { "2026-09-01": 6 } } },
+  };
+  function accept(over: Partial<Parameters<typeof acceptMonth>[0]> = {}) {
+    return acceptMonth(deepFreeze({ close: CLOSED, month: "2026-08", cache: CACHE, today: TODAY, ...over }));
+  }
+
+  test("replaces only that month with the current bookers' cells", () => {
+    expect(accept()).toEqual({
+      ok: true,
+      close: {
+        through: "2026-09",
+        projectIds: [9, 12],
+        saved: {
+          "2026-08": { "7": { "2026-08-03": 8, "2026-08-04": 4.5 }, "11": { "2026-08-03": 5 } },
+          "2026-09": { "7": { "2026-09-01": 6 } },
+        },
+      },
+    });
+  });
+  test("accepts the last closed month and keeps through", () => {
+    const r = accept({ month: "2026-09" });
+    expect(r.ok && r.close.through).toBe("2026-09");
+    expect(r.ok && r.close.saved["2026-09"]).toEqual({ "7": { "2026-09-01": 6 }, "9": { "2026-09-02": 3 } });
+  });
+  test("refuses a month that is not closed", () => {
+    expect(accept({ month: "2026-10" })).toEqual({ ok: false, reason: "not-closed", month: "2026-10" });
+    expect(accept({ month: "2026-07" })).toEqual({ ok: false, reason: "not-closed", month: "2026-07" });
+    // A saved key after through (hand edit) is still not closed.
+    const odd = { ...CLOSED, through: "2026-08" };
+    expect(accept({ close: odd, month: "2026-09" })).toEqual({ ok: false, reason: "not-closed", month: "2026-09" });
+  });
+  const COVERAGE: Array<[string, MonthCloseCache, string]> = [
+    ["no-roll", { ...CACHE, daily: undefined }, "no-roll"],
+    ["window-start", { ...CACHE, dailyWindow: { from: "2026-08-02", to: "2026-09-30" } }, "window-start"],
+    ["window-end", { ...CACHE, dailyWindow: { from: "2026-07-01", to: "2026-08-30" } }, "window-end"],
+    ["partial", { ...CACHE, partial: true }, "partial"],
+    ["no-projects", { ...CACHE, dailyProjects: [] }, "no-projects"],
+    ["projects-changed", { ...CACHE, dailyProjects: [9] }, "projects-changed"],
+  ];
+  test.each(COVERAGE)("refuses %s like a close", (_name, cache, reason) => {
+    expect(accept({ cache })).toEqual({ ok: false, reason, month: "2026-08" });
+  });
+  test("not-closed beats every coverage refusal", () => {
+    expect(accept({ month: "2026-10", cache: { ...CACHE, daily: undefined } })).toMatchObject({ reason: "not-closed" });
+  });
+  test("leaves the input close untouched", () => {
+    const before = JSON.stringify(CLOSED);
+    accept();
+    expect(JSON.stringify(CLOSED)).toBe(before);
   });
 });

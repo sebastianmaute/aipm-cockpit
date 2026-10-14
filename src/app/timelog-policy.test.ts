@@ -964,10 +964,32 @@ describe("timelogClosedMonth (§699)", () => {
   });
 
   // §699 fix 3 — the boundary in floating point: 8.01 - 8 is 0.00999…, which a
-  // plain `>= 0.01` misses. Compared in hundredths it is a change.
+  // plain `>= 0.01` misses. The comparison carries a float epsilon (M6).
   it("flags 8 → 8.01 as a change", () => {
     const res = run({ [dailyKey(7, SEP_12)]: [8.01, 8.01, 1], [dailyKey(7, SEP_19)]: [4, 4, 1] });
     expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 7, count: 1, netHours: 0.01, worstHours: 0.01 })]);
+  });
+
+  // §699 M6 — the other side of the epsilon: rounding to hundredths read 0.006
+  // as 0.01 and flagged it. Below the tolerance is rounding, from 8 or from 0.
+  it("does not flag 8 → 8.004 or a 0.006 h change", () => {
+    const res = run({
+      [dailyKey(7, SEP_12)]: [8.004, 8.004, 1],
+      [dailyKey(7, SEP_19)]: [4.006, 4.006, 1],
+      [dailyKey(9, "2026-09-05")]: [0.006, 0.006, 1],
+    });
+    expect(res.evaluated).toEqual(["timelogClosedMonth"]);
+    expect(closedViolations(res)).toEqual([]);
+  });
+
+  // §699 section 10 — the saved copy records what the fetch showed, negative
+  // corrections included.
+  it("compares a negative saved day like any other", () => {
+    const close: TimelogMonthClose = { ...CLOSE, saved: { "2026-09": { "7": { [SEP_12]: -2 } } } };
+    expect(closedViolations(run({ [dailyKey(7, SEP_12)]: [-2, 0, 1] }, { close }))).toEqual([]);
+    expect(closedViolations(run({ [dailyKey(7, SEP_12)]: [1, 1, 1] }, { close }))).toEqual([
+      expect.objectContaining({ timelogUserId: 7, count: 1, worstHours: 3, netHours: 3 }),
+    ]);
   });
 
   // ★★★ A partial or cancelled fetch lost a project, or never ran it. Ann has
@@ -1017,16 +1039,29 @@ describe("timelogClosedMonth (§699)", () => {
     expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 11, resourceId: 42, count: 1, netHours: 5 })]);
   });
 
-  it("does not check an unlinked person's bookings", () => {
+  // ★★★ §699 section 10 — every booker is checked, not only linked people:
+  // stored links hold only manual pins, so a team matched automatically was
+  // never checked. An unlinked booker is named the way the other five rules
+  // name one: by TimeLog id, `resourceId: null`.
+  it("flags a change by an unlinked booker, with no resource", () => {
     const res = run({ ...AS_CLOSED, [dailyKey(13, "2026-09-08")]: [5, 5, 1] });
-    expect(res.violations).toEqual([]);
+    expect(res.violations).toEqual([{
+      rule: "timelogClosedMonth", timelogUserId: 13, resourceId: null, count: 1, worstHours: 5, threshold: 0,
+      firstViolationDate: "2026-09-08", lastViolationDate: "2026-09-08", netHours: 5,
+    }]);
+  });
+
+  it("checks a saved person who has no link at all", () => {
+    const res = run({ [dailyKey(7, SEP_12)]: [8, 8, 1] }, { userLinks: [] });
+    expect(res.evaluated).toEqual(["timelogClosedMonth"]);
+    expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 7, resourceId: null, count: 1, netHours: -4 })]);
   });
 
   // ★★★ §699 revision — a complete project fetch returns every booking on its
   // projects, so a linked person with no cells booked nothing there. Ann's two
   // saved days are therefore deleted, and `dailyUsers` (empty for a project
   // fetch, §366) is not consulted at all.
-  it("checks every linked person over a matching project set", () => {
+  it("checks every saved person over a matching project set", () => {
     const res = run({});
     expect(res.evaluated).toEqual(["timelogClosedMonth"]);
     expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 7, count: 2, netHours: -12 })]);
@@ -1100,8 +1135,7 @@ describe("timelogClosedMonth (§699)", () => {
     const res = run({ ...AS_CLOSED, [dailyKey(7, "2026-09-20")]: [3, 3, 1] }, { policy: undefined });
     expect(res.evaluated).toEqual(["timelogClosedMonth"]);
     expect(closedViolations(res)).toHaveLength(1);
-    // ★★ The runner's per-person certification reads this, so it must be
-    // populated even when no policy rule ran.
+    // ★ Filled whenever a roll exists, policy or not.
     expect(res.linkedUsers).toEqual([7, 9]);
   });
 
@@ -1147,12 +1181,10 @@ describe("closedMonthCertifies (§699)", () => {
   const BASE = {
     first: "2026-09-12",
     last: "2026-09-19",
-    userId: 7,
     close: CLOSE as TimelogMonthClose | null,
     closedMonthsCovered: ["2026-09"] as readonly string[],
     partial: false,
     dailyProjects: [9, 12] as readonly number[] | undefined,
-    linkedUsers: [7, 9] as readonly number[],
   };
 
   it("is true when every condition holds", () => {
@@ -1160,7 +1192,7 @@ describe("closedMonthCertifies (§699)", () => {
   });
 
   it("is true for close null, whatever else holds", () => {
-    expect(closedMonthCertifies({ ...BASE, close: null, closedMonthsCovered: [], partial: true, dailyProjects: undefined, linkedUsers: [] })).toBe(true);
+    expect(closedMonthCertifies({ ...BASE, close: null, closedMonthsCovered: [], partial: true, dailyProjects: undefined })).toBe(true);
   });
 
   it("is true for a month after through (reopened), even uncovered", () => {
@@ -1181,9 +1213,6 @@ describe("closedMonthCertifies (§699)", () => {
     expect(closedMonthCertifies({ ...BASE, dailyProjects: [12, 9] })).toBe(true);
   });
 
-  it("is false for an unlinked person", () => {
-    expect(closedMonthCertifies({ ...BASE, linkedUsers: [9] })).toBe(false);
-  });
 
   // A span that cannot be walked month by month certifies nothing; without the
   // guard the walk runs zero times and reports every month as passing.
