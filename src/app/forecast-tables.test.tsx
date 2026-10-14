@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { render, screen, within } from "@testing-library/react";
-import { MilestoneTable, formatChance } from "./forecast-tables";
+import { MilestoneTable, formatAmount, formatChance } from "./forecast-tables";
 import { loadI18n } from "./i18n";
 import type { MilestoneChance } from "./forecast/milestones";
 import type { Milestone } from "./types";
@@ -73,6 +73,21 @@ describe("MilestoneTable", () => {
     expect(screen.queryByText(/does not change milestone chances/)).toBeNull();
     rerender(<MilestoneTable lang="en-US" milestones={[ms(1, "M")]} chances={[chance(1, 0.5)]} whatIf />);
     expect(screen.getByText(/does not change milestone chances/)).toBeTruthy();
+  });
+});
+
+describe("formatAmount", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  test("tasks carry the unit word with a real singular, effort its hours (EN and DE)", () => {
+    expect(formatAmount(1, "tasks", "en-US")).toBe("1 task");
+    expect(formatAmount(0, "tasks", "en-US")).toBe("0 tasks");
+    expect(formatAmount(1200, "tasks", "en-US")).toBe("1,200 tasks");
+    expect(formatAmount(1, "tasks", "de")).toBe("1 Aufgabe");
+    expect(formatAmount(1200, "tasks", "de")).toBe("1.200 Aufgaben");
+    expect(formatAmount(720, "effort", "en-US")).toBe("12 h");
   });
 });
 

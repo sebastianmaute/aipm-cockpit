@@ -788,6 +788,8 @@ const enUS = {
   forecastNearlyCertain: "≥ 99%",
   forecastPercentilesTitle: "When and how many",
   forecastBacklog: "Open work: {0}",
+  forecastAmountTasks: "{0} tasks",
+  forecastAmountTasksOne: "{0} task",
   forecastTargetDate: "How many by",
   forecastColConfidence: "Confidence",
   forecastColWhen: "Done by",

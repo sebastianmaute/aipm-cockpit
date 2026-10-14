@@ -727,6 +727,8 @@ export const de: Record<TranslationKey, string> = {
   forecastNearlyCertain: "≥ 99 %",
   forecastPercentilesTitle: "Wann und wie viel",
   forecastBacklog: "Offene Arbeit: {0}",
+  forecastAmountTasks: "{0} Aufgaben",
+  forecastAmountTasksOne: "{0} Aufgabe",
   forecastTargetDate: "Wie viel bis",
   forecastColConfidence: "Sicherheit",
   forecastColWhen: "Fertig bis",

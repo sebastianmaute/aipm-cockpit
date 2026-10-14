@@ -4,7 +4,7 @@
 // milestone chance table. Presentational — the panel owns the engine call.
 
 import { useId, useMemo, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { localeFor } from "./date-format";
 import { formatDayMonthYear, formatHours } from "./forecast-format";
 import type { ScheduleForecast } from "./forecast";
@@ -33,11 +33,12 @@ export function formatWhen(date: string | null, lang: Lang): string {
   return date === null ? t(lang, "forecastBeyond") : formatDayMonthYear(date, localeFor(lang));
 }
 
-/** Tasks as a count; effort (minutes) as whole hours. */
+/** Tasks as a count with its unit word ("1 task", "5 tasks"); effort (minutes) as whole hours ("12 h"). */
 export function formatAmount(amount: number, unit: ForecastUnit, lang: Lang): string {
   const locale = localeFor(lang);
   if (unit === "effort") return formatHours(amount / 60, locale);
-  return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(amount);
+  const whole = Math.round(amount);
+  return tPlural(lang, "forecastAmountTasks", whole, new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(whole));
 }
 
 const CELL = "px-3 py-2";
