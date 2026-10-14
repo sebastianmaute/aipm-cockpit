@@ -116,7 +116,7 @@ describe("ForecastPanel", () => {
   test("captions the basis of the forecast", () => {
     renderPanel([...open(5), ...steadyDone(60), task(90, { status: "Done" })]);
     expect(screen.getByText("10,000 runs of your last 60 working days (60 finished tasks)")).toBeTruthy();
-    expect(screen.getByText(/1 done task\(s\) have no completion date/)).toBeTruthy();
+    expect(screen.getByText("1 done task has no completion date and is not counted.")).toBeTruthy();
   });
 
   test("percentile lines sit on the tick of their own date", () => {

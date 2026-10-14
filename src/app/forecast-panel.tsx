@@ -5,7 +5,7 @@
 // and hands the result to the presentational toolbar, chart and tables.
 
 import { useMemo, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { localeFor } from "./date-format";
 import {
   DEFAULT_WHAT_IF,
@@ -161,7 +161,7 @@ function InsufficientState({ lang, result }: { lang: Lang; result: ForecastInsuf
   if (result.days < result.neededDays) {
     lines.push(t(lang, "forecastInsufficientDays", result.days, result.neededDays, result.neededDays - result.days));
   }
-  if (result.doneWithoutDate > 0) lines.push(t(lang, "forecastDoneWithoutDate", result.doneWithoutDate));
+  if (result.doneWithoutDate > 0) lines.push(tPlural(lang, "forecastDoneWithoutDate", result.doneWithoutDate, result.doneWithoutDate));
   const [first, ...rest] = lines;
   return (
     <div className="pb-6">
@@ -186,7 +186,7 @@ function ForecastCaption({ lang, forecast, historyWindow }: { lang: Lang; foreca
   return (
     <div className="space-y-0.5 text-xs text-muted-foreground">
       <p>{basis}</p>
-      {forecast.doneWithoutDate > 0 && <p>{t(lang, "forecastDoneWithoutDate", forecast.doneWithoutDate)}</p>}
+      {forecast.doneWithoutDate > 0 && <p>{tPlural(lang, "forecastDoneWithoutDate", forecast.doneWithoutDate, forecast.doneWithoutDate)}</p>}
       {forecast.beyondShare > 0 && <p>{t(lang, "forecastBeyondShare", beyond)}</p>}
     </div>
   );
