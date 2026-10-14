@@ -27,7 +27,7 @@ export type RecommendPlanWorkspace = Pick<
 /** What a generate reads beside its prompt (§350), plus the baseline-currency history length
  *  and last entry's `at` in force then (§476), which the stored recommendation is stamped with. */
 export type RecommendSnapshot = RecommendPlanWorkspace & {
-  readonly historyLength?: number;
+  readonly historyLength: number;
   readonly historyLastAt?: string;
 };
 

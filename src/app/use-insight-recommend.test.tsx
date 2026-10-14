@@ -45,7 +45,7 @@ describe("useInsightRecommend", () => {
   // call — and handed to the store beside the result.
   it("reads the entity snapshot before the call and passes it to applyRecommendation", async () => {
     const order: string[] = [];
-    const snap = { tasks: [], raid: [], changes: [], milestones: [], stakeholders: [] };
+    const snap = { tasks: [], raid: [], changes: [], milestones: [], stakeholders: [], historyLength: 0 };
     runInsightRecommendation.mockImplementation(async () => { order.push("call"); return recommendation; });
     const args = makeArgs({ snapshotEntities: () => { order.push("snapshot"); return snap; } });
     const { result } = renderHook(() => useInsightRecommend(args));

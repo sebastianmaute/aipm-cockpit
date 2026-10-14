@@ -123,6 +123,14 @@ describe("recommendationPredatesSwitch (§476)", () => {
     expect(recommendationPredatesSwitch(rec({ id: 1, costImpact: 10 }, 1), [sw("2026-09-07")])).toBe(false);
   });
 
+  it("the stamped last entry may sit anywhere in an equal-length history: a reload sorts it by `at`", () => {
+    // Appended in memory with an `at` older than an existing entry (a device clock behind), then
+    // reloaded: `sanitizeBaselineHistory` orders by `at`, so the stamped entry is no longer last.
+    const r = { ...rec({ id: 1, costImpact: 10 }, 2), historyLastAt: sw("2026-09-02").at };
+    expect(recommendationPredatesSwitch(r, [sw("2026-09-05"), sw("2026-09-02")])).toBe(false);
+    expect(recommendationPredatesSwitch(r, [sw("2026-09-02"), sw("2026-09-05")])).toBe(false);
+  });
+
   it("a money argument nested in an object or array argument counts", () => {
     expect(recommendationPredatesSwitch(rec({ id: 1, lines: [{ costImpact: 10 }] }, 0), [sw("2026-09-03")])).toBe(true);
     expect(recommendationPredatesSwitch(rec({ id: 1, meta: { costImpact: 10 } }, 0), [sw("2026-09-03")])).toBe(true);

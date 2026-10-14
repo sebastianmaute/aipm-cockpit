@@ -77,7 +77,7 @@ describe("useInsightRecommendRunner", () => {
   // to the store with the result, so the token covers the model round-trip.
   test("reads each candidate's entity snapshot before its call and hands it to the store", async () => {
     const order: string[] = [];
-    const snap = { tasks: [], raid: [], changes: [], milestones: [], stakeholders: [] };
+    const snap = { tasks: [], raid: [], changes: [], milestones: [], stakeholders: [], historyLength: 0 };
     const snapshotEntities = vi.fn(() => { order.push("snapshot"); return snap; });
     mockRun.mockImplementation(async () => { order.push("call"); return fakeRec; });
     const { applyRecommendation } = renderRunner({ insights: [makeInsight(1)], snapshotEntities });

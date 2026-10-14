@@ -93,7 +93,7 @@ export interface InsightRecommendation {
    *  record to `proposed` (and re-offer its creates). */
   readonly refusedCalls?: number;
   /** §476: `Workspace.baselineHistory.length` when the recommendation's prompt was built.
-   *  A longer history at apply means a currency switch since, and a money call is refused
+   *  A different length at apply means a switch or a replaced history, and a money call is refused
    *  (`recommendationPredatesSwitch`). Absent on one made by an older build. */
   readonly historyLength?: number;
   /** §476: the `at` of the history's LAST entry when the prompt was built, beside
@@ -177,13 +177,16 @@ export const REC_MONEY_ARGS: readonly string[] = ["costImpact"];
  *  generated, so those amounts are in the old currency. "After" is decided by the history
  *  LENGTH stamped at generation (`historyLength`): a switch only appends, so a longer history
  *  means a later switch; a SHORTER one means the history was replaced since, and the currency
- *  the amounts were written in is unknown, so it is refused too. An equal length whose last
- *  entry's `at` differs from the stamped `historyLastAt` was replaced and regrown, and is
- *  refused as well (a stamp without `historyLastAt` keeps the length rule alone). Never by
- *  `generatedAt`, which is a DAY — a recommendation regenerated on the day of a switch, as the
- *  refusal asks, would be refused for the rest of that day. A money argument counts at any depth of a call's input.
- *  An UNSTAMPED recommendation (an older build) is refused once the history holds any switch
- *  (an entry with `perPrevious`; the creation entry converts nothing and is not one). */
+ *  the amounts were written in is unknown, so it is refused too. An equal length that no longer
+ *  holds an entry with the stamped `historyLastAt` was replaced and regrown, and is refused as
+ *  well (a stamp without `historyLastAt` keeps the length rule alone). The stamped entry is
+ *  looked for ANYWHERE, not only last: a switch appends in memory, but a reload orders the
+ *  history by `at`, so an entry from a device whose clock runs behind is no longer last. Never
+ *  by `generatedAt`, which is a DAY — a recommendation regenerated on the day of a switch, as
+ *  the refusal asks, would be refused for the rest of that day. A money argument counts at any
+ *  depth of a call's input. An UNSTAMPED recommendation (an older build) is refused once the
+ *  history holds any switch (an entry with `perPrevious`; the creation entry converts nothing
+ *  and is not one). */
 export function recommendationPredatesSwitch(
   rec: InsightRecommendation,
   history: readonly BaselineEntry[],
@@ -191,7 +194,7 @@ export function recommendationPredatesSwitch(
   if (!rec.proposedCalls.some((c) => carriesMoney(c.input))) return false;
   if (rec.historyLength !== undefined) {
     if (history.length !== rec.historyLength) return true;
-    return rec.historyLastAt !== undefined && history[history.length - 1]?.at !== rec.historyLastAt;
+    return rec.historyLastAt !== undefined && !history.some((e) => e.at === rec.historyLastAt);
   }
   return history.some((e) => e.perPrevious !== undefined);
 }
@@ -200,7 +203,9 @@ export function recommendationPredatesSwitch(
 function carriesMoney(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(carriesMoney);
   if (typeof value !== "object" || value === null) return false;
-  return Object.entries(value).some(([k, v]) => (REC_MONEY_ARGS.includes(k) && v !== undefined) || carriesMoney(v));
+  return Object.entries(value).some(
+    ([k, v]) => (REC_MONEY_ARGS.includes(k) && v !== undefined) || carriesMoney(v),
+  );
 }
 
 /** Lifecycle callbacks a surface (dashboard card, Insights view) invokes to

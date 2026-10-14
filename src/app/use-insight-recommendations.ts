@@ -263,7 +263,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       const lastAt = historyStamp.historyLastAt;
       const stamped = {
         ...stampRecommendationTokens(rec, snapshot ?? { tasks, raid, changes, milestones, stakeholders }),
-        historyLength: historyStamp.historyLength ?? historyLength,
+        historyLength: historyStamp.historyLength,
         ...(lastAt !== undefined ? { historyLastAt: lastAt } : {}),
       };
       setInsights((prev) => (prev ?? []).map((i) => (i.id === id ? { ...i, recommendation: stamped } : i)));
