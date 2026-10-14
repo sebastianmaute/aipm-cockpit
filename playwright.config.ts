@@ -22,11 +22,14 @@ const BOOT_NONCE = runStartsDevServer(process.env) ? mintBootNonce(process.env) 
 // List: `grep -rhoE "process.env.[A-Z_]+" src --include=*.ts --include=*.tsx | sort -u`.
 // ★★ The project EXISTS only when E2E_GUIDE_SHOTS=1, which `npm run docs:guide-shots` sets
 // itself (the E2E_LIVE_APP pattern): a run naming no project would otherwise take the pictures
-// too, against a server that read .env.local. And it refuses server reuse, since an
-// already-running server keeps its own environment and the blanking would not reach it.
+// too, against a server that read .env.local. And it refuses any server it does not start
+// itself — PLAYWRIGHT_REUSE_SERVER=1 or PLAYWRIGHT_NO_WEBSERVER=1 — since an already-running
+// server keeps its own environment and the blanking would not reach it.
 const GUIDE_SHOTS_RUN = process.env.E2E_GUIDE_SHOTS === "1";
-if (GUIDE_SHOTS_RUN && reuseDevServer(process.env)) {
-  throw new Error("E2E_GUIDE_SHOTS=1 cannot reuse a running server: its environment would reach the screenshots. Unset PLAYWRIGHT_REUSE_SERVER.");
+if (GUIDE_SHOTS_RUN && (reuseDevServer(process.env) || !runStartsDevServer(process.env))) {
+  throw new Error(
+    "E2E_GUIDE_SHOTS=1 needs a server this run starts: a running one keeps its own environment, which would reach the screenshots. Unset PLAYWRIGHT_REUSE_SERVER and PLAYWRIGHT_NO_WEBSERVER.",
+  );
 }
 const GUIDE_SHOTS_BLANK_ENV: Record<string, string> = Object.fromEntries(
   [
