@@ -54,14 +54,20 @@ function bucketPerEur(bucket: RateBucket, fxRates: FxRates | null): { source: "o
  *        bucket per EUR = 1 for EUR, else the override, else the cached rate
  *      and the rate is bucket per EUR ÷ base per EUR, with the bucket side's
  *      source ("cached" for an EUR bucket)
- *   3. 1 when either side has no rate — UNRESOLVED, see `RateSource`
+ *   3. 1 when either side has no rate, or their quotient is not a positive finite
+ *      number — UNRESOLVED, see `RateSource`
  */
 function resolveRateInfo(bucket: RateBucket, fxRates: FxRates | null, base: BudgetCurrency): RateResolution {
   if (bucket.currency === base) return { source: "base", rate: 1 };
   const baseSide = basePerEur(base, fxRates);
   const bucketSide = bucketPerEur(bucket, fxRates);
   if (baseSide === null || bucketSide === null) return { source: "unresolved", rate: 1 };
-  return { source: bucketSide.source, rate: bucketSide.perEur / baseSide };
+  const rate = bucketSide.perEur / baseSide;
+  // A quotient of two positive finite rates can still underflow to 0 or overflow to Infinity
+  // (an extreme override); either would zero or blow up every converted figure, so it reads as
+  // unresolved — at par, and counted as such — rather than as a rate.
+  if (!(rate > 0) || !Number.isFinite(rate)) return { source: "unresolved", rate: 1 };
+  return { source: bucketSide.source, rate };
 }
 
 /** Units of the bucket's currency per 1 `base`. See `resolveRateInfo` for the precedence. */

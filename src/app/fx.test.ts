@@ -145,3 +145,25 @@ describe("conversion", () => {
     expect(Number.isFinite(currencyToBase(100, bucket({ currency: "EUR", fxRateOverride: 0 }), null, "EUR"))).toBe(true);
   });
 });
+// §476 — with a non-EUR baseline the rate is a QUOTIENT (bucket per EUR ÷ base per EUR), which
+// can leave the positive finite range even though both sides are positive and finite. A rate of 0
+// or Infinity would zero or blow up every converted figure, so it reads as unresolved instead.
+// Found by fx.property.test.ts ("resolveRate is always strictly positive") in CI.
+describe("resolveRate — a cross rate outside the finite positive range (§476)", () => {
+  const wide: FxRates = { base: "EUR", date: "2026-05-26", fetchedAt: "x", rates: { USD: 1000, GBP: 0.01 } };
+  test("an underflow to 0 is unresolved: rate 1, never 0", () => {
+    const b = bucket({ currency: "GBP", fxRateOverride: 5e-324 });
+    expect(resolveRate(b, wide, "USD")).toBe(1);
+    expect(resolveRateSource(b, wide, "USD")).toBe("unresolved");
+    expect(Number.isFinite(currencyToBase(100, b, wide, "USD"))).toBe(true);
+  });
+  test("an overflow to Infinity is unresolved: rate 1, never Infinity", () => {
+    const b = bucket({ currency: "USD", fxRateOverride: Number.MAX_VALUE });
+    expect(resolveRate(b, wide, "GBP")).toBe(1);
+    expect(resolveRateSource(b, wide, "GBP")).toBe("unresolved");
+  });
+  test("an ordinary cross rate is unaffected", () => {
+    expect(resolveRate(bucket({ currency: "GBP" }), fx, "USD")).toBeCloseTo(0.85 / 1.08, 12);
+    expect(resolveRateSource(bucket({ currency: "GBP" }), fx, "USD")).toBe("cached");
+  });
+});
