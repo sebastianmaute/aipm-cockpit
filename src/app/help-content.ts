@@ -159,7 +159,7 @@ const HELP_ENTRIES_LITERAL = [
   // already covered by `concept-budget` and set equality does not need it
   // here — it is listed so the Related line is complete rather than
   // arbitrarily truncated.
-  { id: "feature-reports", group: "features", titleKey: "helpSecReportsTitle", bodyKey: "helpSecReportsBody", relatedViews: ["reports", "budget-report", "raid-report", "change-report"], relatedConcepts: ["concept-task-status", "concept-raid"] },
+  { id: "feature-reports", group: "features", titleKey: "helpSecReportsTitle", bodyKey: "helpSecReportsBody", relatedViews: ["reports", "budget-report", "raid-report", "change-report", "forecast"], relatedConcepts: ["concept-task-status", "concept-raid"] },
   // ★ Absorbs the reading level, so that setting is documented exactly once.
   { id: "feature-help", group: "features", titleKey: "helpSecHelpTitle", bodyKey: "helpSecHelpBody", relatedViews: ["help"] },
 

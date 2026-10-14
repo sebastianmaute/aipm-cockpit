@@ -62,6 +62,10 @@ export const ChangeReportPanel = dynamic(
   () => import("./change-report-panel").then((m) => m.ChangeReportPanel),
   { ssr: false, loading },
 );
+export const ForecastPanel = dynamic(
+  () => import("./forecast-panel").then((m) => m.ForecastPanel),
+  { ssr: false, loading },
+);
 export const StakeholdersPanel = dynamic(
   () => import("./stakeholders-panel").then((m) => m.StakeholdersPanel),
   { ssr: false, loading },

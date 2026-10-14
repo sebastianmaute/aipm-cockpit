@@ -66,6 +66,7 @@ const NAV_ICON: Record<AppView, AppIcon> = {
   "raid-report": DocumentChartBarIcon,
   changes: ArrowsRightLeftIcon,
   "change-report": DocumentChartBarIcon,
+  forecast: ChartBarIcon,
   stakeholders: UserGroupIcon,
   raci: TableCellsIcon,
   "stakeholder-map": PresentationChartLineIcon,

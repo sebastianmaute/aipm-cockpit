@@ -22,7 +22,7 @@ src/app/layout.tsx        root layout, security headers, globals.css,
 
 `projects` · `open-points` · `dashboard` · `actions` · `insights` · `trends` · `history` · `chat` ·
 `gantt` · `milestones` · `resources` (`directory` · `workload` · `calendar` · `planning`) ·
-`manage-roles` · `budget` · `budget-report` · `raid` · `raid-report` · `changes` · `change-report` ·
+`manage-roles` · `budget` · `budget-report` · `raid` · `raid-report` · `changes` · `change-report` · `forecast` ·
 `stakeholders` · `raci` · `stakeholder-map` · `knowledge` · `documents` · `reports` · `activity` ·
 `settings` ·
 `help` · `learning-insights` · `steering-committee` · `timelog` · `portfolio-health`
