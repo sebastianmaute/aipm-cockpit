@@ -112,8 +112,9 @@ of at least `CLOSED_MONTH_TOLERANCE_HOURS = 0.01` is a changed day; smaller ones
 - `threshold`: 0;
 - new optional `netHours`: the signed sum of the changes, for the text only.
 
-**Text, EN and DE.** "Ann Lee: 3 days in closed months changed since the close (net +6 h, largest 8 h,
-12–19 Sep 2026)." Real umlauts in DE.
+**Text, EN and DE.** "Ann Lee: 3 days in closed months changed since the close (net +6 h, largest 8 h)."
+The changed days are carried in `data` (first and last) but not repeated in the text, which matches the
+other five guardrails. Real umlauts in DE.
 
 **On/off.** No separate toggle. Closing a month is the opt-in, and the rule runs while any month is closed.
 This deliberately differs from the other five rules, which are off by default.
