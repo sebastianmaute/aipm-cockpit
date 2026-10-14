@@ -152,19 +152,22 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   - **A stored AI insight recommendation.** `recommendationPredatesSwitch` (`insights/insight.ts`)
     is true when a proposed call carries a money argument (`REC_MONEY_ARGS`, today only
     `costImpact`, found at any depth of the call's input) and a switch was made after the
-    recommendation was generated. ★ "After" is the HISTORY, not the day: the stored recommendation
-    is stamped with `baselineHistory.length` and the last entry's `at` as they were when its prompt
-    was built (`historyLength` and `historyLastAt`, carried on the generators' prompt-time
-    snapshot, `RecommendSnapshot`, and stamped in `useInsightRecommendations`' store callback). A
-    longer history at apply means a switch since. A SHORTER one, or an equal length that holds no
-    entry with the stamped `at`, means the history was replaced, so the currency the amounts were
-    written in is unknown, and it is refused too. The stamped entry is looked for anywhere, not
-    only last: a switch appends in memory, but a reload orders the history by `at`. A length-only stamp (an earlier build of this feature) keeps
-    the length rule alone. `generatedAt` is only a day, so comparing it would refuse a
-    recommendation regenerated on the day of a switch for the rest of that day. A recommendation
-    with no stamp (an older build) is refused once the history holds any switch entry (one with
-    `perPrevious`; the creation entry is not one). Both stamps are persisted (`sanitizeInsights`
-    keeps a non-negative integer and a non-empty string) and count as material changes in
+    recommendation was generated. ★ "After" is the HISTORY, not the day: the stored
+    recommendation is stamped with `baselineHistory.length` and `baselineHistoryDigest` as they
+    were when its prompt was built (`historyLength` and `historyDigest`, carried on the
+    generators' prompt-time snapshot, `RecommendSnapshot`, and stamped in
+    `useInsightRecommendations`' store callback). A longer history at apply means a switch since.
+    A SHORTER one, or an equal length with a different digest (an import that dropped one entry
+    and added another), means the history was replaced, so the currency the amounts were written
+    in is unknown, and it is refused too. The digest hashes each entry's `at`, currency and
+    `perPrevious` in SORTED order: a switch appends in memory, but a reload orders the history by
+    `at`, so the same entries arrive in either order and must read as the same history. A
+    length-only stamp (an earlier build of this feature) keeps the length rule alone.
+    `generatedAt` is only a day, so comparing it would refuse a recommendation regenerated on the
+    day of a switch for the rest of that day. A recommendation with no stamp (an older build) is
+    refused once the history holds any switch entry (one with `perPrevious`; the creation entry
+    is not one). Both stamps are persisted (`sanitizeInsights` keeps a non-negative integer and a
+    16-character hex digest) and count as material changes in
     `insightsMateriallyEqual`. `insight-money-args.test.ts` makes every number argument of an
     allowed tool either a money argument or one named in its explicit non-money list, nested
     object properties and array items at any depth included, so a new one must be classified.
