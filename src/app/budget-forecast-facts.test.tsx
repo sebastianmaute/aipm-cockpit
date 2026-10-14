@@ -21,7 +21,7 @@ const EV_NULL: BudgetForecast = {
 
 describe("ForecastFactsRow", () => {
   it("shows BAC, AC, Remaining and EV with the percent complete", () => {
-    render(<ForecastFactsRow lang="en-US" forecast={AVAILABLE} />);
+    render(<ForecastFactsRow currency="EUR" lang="en-US" forecast={AVAILABLE} />);
     expect(screen.getByText("€240,000")).toBeInTheDocument();
     expect(screen.getByText("€168,000")).toBeInTheDocument();
     expect(screen.getByText("€72,000")).toBeInTheDocument();
@@ -29,7 +29,7 @@ describe("ForecastFactsRow", () => {
   });
 
   it("shows a dash for EV (and no percent) when ev/percentComplete are null, while BAC/AC/Remaining still show real figures", () => {
-    render(<ForecastFactsRow lang="en-US" forecast={EV_NULL} />);
+    render(<ForecastFactsRow currency="EUR" lang="en-US" forecast={EV_NULL} />);
     // Exactly one dash on the page — the EV tile's value — and the other
     // three facts still render their real money figures (EV_NULL uses
     // distinct bac/ac/remaining so this can't pass by accidental overlap).
@@ -41,7 +41,7 @@ describe("ForecastFactsRow", () => {
   });
 
   it("gives each fact a term-bearing tooltip trigger", () => {
-    render(<ForecastFactsRow lang="en-US" forecast={AVAILABLE} />);
+    render(<ForecastFactsRow currency="EUR" lang="en-US" forecast={AVAILABLE} />);
     const triggers = document.querySelectorAll("[data-info-tooltip-trigger]");
     const labels = Array.from(triggers).map((el) => el.getAttribute("aria-label"));
     expect(labels).toEqual([
@@ -66,13 +66,13 @@ describe("ForecastFactsRow", () => {
 // the component) — `rateFactParts`/`RATE_DRIFT_SIGNAL_RATIO` is the ONE check.
 describe("ForecastFactsRow — rate fact (MR 3)", () => {
   it("adds no fifth fact without a mix, keeping the four-column grid", () => {
-    const { container } = render(<ForecastFactsRow lang="en-US" forecast={EUR_FORECAST} />);
+    const { container } = render(<ForecastFactsRow currency="EUR" lang="en-US" forecast={EUR_FORECAST} />);
     expect(screen.queryByText("Avg rate booked")).toBeNull();
     expect(container.firstElementChild!.className).toContain("sm:grid-cols-4");
   });
 
   it("shows the drifting rate with a direction arrow and its tooltip", () => {
-    const { container } = render(<ForecastFactsRow lang="en-US" forecast={EUR_FORECAST} mix={MIX_HOURS_WORSE} />);
+    const { container } = render(<ForecastFactsRow currency="EUR" lang="en-US" forecast={EUR_FORECAST} mix={MIX_HOURS_WORSE} />);
     // getByText only reads an element's DIRECT text-node children (nested
     // elements, like the aria-hidden arrow span, don't contribute to the
     // match), so this also locates the ONE element that wraps the whole
@@ -81,8 +81,8 @@ describe("ForecastFactsRow — rate fact (MR 3)", () => {
     // arrow sits, or even whether it exists at all — a mutant moving the
     // `aria-hidden` span BEFORE the rate still reads as "rate note" once
     // whitespace collapses, and passed).
-    const parts = rateFactParts("en-US", MIX_HOURS_WORSE);
-    const valueEl = screen.getByText(rateFactValue("en-US", MIX_HOURS_WORSE));
+    const parts = rateFactParts("en-US", MIX_HOURS_WORSE, "EUR");
+    const valueEl = screen.getByText(rateFactValue("en-US", MIX_HOURS_WORSE, "EUR"));
     expect(valueEl.textContent).toBe(`${parts.rate} ${parts.arrow} ${parts.note}`);
     const arrowEl = valueEl.querySelector("[aria-hidden='true']");
     expect(arrowEl).not.toBeNull();
@@ -93,13 +93,13 @@ describe("ForecastFactsRow — rate fact (MR 3)", () => {
     expect(container.firstElementChild!.className).toContain("lg:grid-cols-5");
     const trigger = screen.getByRole("button", { name: "What is Avg rate booked?" });
     act(() => trigger.focus());
-    expect(screen.getByRole("tooltip")).toHaveTextContent(rateFactTip("en-US", MIX_HOURS_WORSE));
+    expect(screen.getByRole("tooltip")).toHaveTextContent(rateFactTip("en-US", MIX_HOURS_WORSE, "EUR"));
   });
 
   it("shows 'on plan' without an arrow when the drift is below the threshold", () => {
-    const { container } = render(<ForecastFactsRow lang="en-US" forecast={EUR_FORECAST} mix={MIX_ON_PLAN} />);
-    const parts = rateFactParts("en-US", MIX_ON_PLAN);
-    const valueEl = screen.getByText(rateFactValue("en-US", MIX_ON_PLAN));
+    const { container } = render(<ForecastFactsRow currency="EUR" lang="en-US" forecast={EUR_FORECAST} mix={MIX_ON_PLAN} />);
+    const parts = rateFactParts("en-US", MIX_ON_PLAN, "EUR");
+    const valueEl = screen.getByText(rateFactValue("en-US", MIX_ON_PLAN, "EUR"));
     expect(valueEl.textContent).toBe(`${parts.rate} · ${parts.note}`);
     expect(container.textContent).not.toMatch(/[▲▼]/);
   });

@@ -19,6 +19,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { RateMixChip } from "./budget-rate-mix-chip";
 import { rateMixChipName, rateMixChipText, rateMixExplanation } from "./budget-rate-mix-text";
 import type { RateMix } from "./budget-rate-mix";
+import type { BudgetCurrency } from "./types";
 import { splitVariance, type BudgetHistorySummary } from "./budget-history";
 import {
   isPaceAvailable, isEfficiencyAvailable, paceVacHealth, BURN_RATE_WINDOW_WORKING_DAYS,
@@ -174,22 +175,22 @@ function VarianceSplitRows({
   );
 }
 
-function mixChip(lang: Lang, mix: RateMix | null, eur: BudgetForecast, hours: BudgetForecast, card: "pace" | "efficiency"): ReactNode {
+function mixChip(lang: Lang, mix: RateMix | null, eur: BudgetForecast, hours: BudgetForecast, card: "pace" | "efficiency", currency: BudgetCurrency): ReactNode {
   if (!mix || !mix.triggered || mix.direction === null) return null;
   return (
     <RateMixChip
-      name={rateMixChipName(lang, mix, card)}
-      text={rateMixChipText(lang, mix)}
-      tip={rateMixExplanation(lang, mix, eur, hours)}
+      name={rateMixChipName(lang, mix, card, currency)}
+      text={rateMixChipText(lang, mix, currency)}
+      tip={rateMixExplanation(lang, mix, eur, hours, currency)}
       direction={mix.direction}
     />
   );
 }
 
 function PaceCard({
-  lang, pace, facts, money, locale, hasFixedPrice, eur, hours, mix, history,
+  lang, pace, facts, money, currency, locale, hasFixedPrice, eur, hours, mix, history,
 }: {
-  lang: Lang; pace: BudgetForecast["pace"]; facts: Facts; money: Money; locale: string; hasFixedPrice: boolean;
+  lang: Lang; pace: BudgetForecast["pace"]; facts: Facts; money: Money; currency: BudgetCurrency; locale: string; hasFixedPrice: boolean;
   eur: BudgetForecast; hours: BudgetForecast | null; mix: RateMix | null; history: BudgetHistorySummary | null;
 }) {
   const titleId = useId();
@@ -251,7 +252,7 @@ function PaceCard({
           </p>
           {hours && isPaceAvailable(hours.pace) && (
             <>
-              <HoursLine lang={lang} chip={mixChip(lang, mix, eur, hours, "pace")}>
+              <HoursLine lang={lang} chip={mixChip(lang, mix, eur, hours, "pace", currency)}>
                 <HoursRow term={t(lang, "forecastEacHours")}>{formatHours(hours.pace.eac, locale)}</HoursRow>
                 <HoursRow term={t(lang, "forecastVacHours")}>
                   {formatHours(hours.pace.vac, locale)} ({formatSignedPercent(hours.facts.bac > 0 ? hours.pace.vac / hours.facts.bac : 0, locale, 1)})
@@ -278,9 +279,9 @@ function PaceCard({
 }
 
 function EfficiencyCard({
-  lang, efficiency, facts, money, locale, hasFixedPrice, eur, hours, mix, history,
+  lang, efficiency, facts, money, currency, locale, hasFixedPrice, eur, hours, mix, history,
 }: {
-  lang: Lang; efficiency: BudgetForecast["efficiency"]; facts: Facts; money: Money; locale: string; hasFixedPrice: boolean;
+  lang: Lang; efficiency: BudgetForecast["efficiency"]; facts: Facts; money: Money; currency: BudgetCurrency; locale: string; hasFixedPrice: boolean;
   eur: BudgetForecast; hours: BudgetForecast | null; mix: RateMix | null; history: BudgetHistorySummary | null;
 }) {
   const titleId = useId();
@@ -341,7 +342,7 @@ function EfficiencyCard({
           />
           {hours && isEfficiencyAvailable(hours.efficiency) && (
             <>
-              <HoursLine lang={lang} chip={mixChip(lang, mix, eur, hours, "efficiency")}>
+              <HoursLine lang={lang} chip={mixChip(lang, mix, eur, hours, "efficiency", currency)}>
                 <HoursRow term={t(lang, "forecastEacHours")}>{formatHours(hours.efficiency.eac, locale)}</HoursRow>
                 <HoursRow term={t(lang, "forecastVacHours")}>
                   {formatHours(hours.efficiency.vac, locale)} ({formatSignedPercent(hours.facts.bac > 0 ? hours.efficiency.vac / hours.facts.bac : 0, locale, 1)})
@@ -402,9 +403,12 @@ function GapLine({
 }
 
 export function ForecastCards({
-  lang, forecast, view, onViewChange, hours = null, mix = null, history = null,
+  lang, currency, forecast, view, onViewChange, hours = null, mix = null, history = null,
 }: {
-  lang: Lang; forecast: BudgetForecast;
+  lang: Lang;
+  /** The baseline every money figure in the cards is in (`plan.currency`, §476). */
+  currency: BudgetCurrency;
+  forecast: BudgetForecast;
   /** Which card shows. The caller owns it (`ForecastSection` reads the device setting). */
   view: ForecastView;
   onViewChange: (view: ForecastView) => void;
@@ -412,7 +416,7 @@ export function ForecastCards({
   history?: BudgetHistorySummary | null;
 }) {
   const locale = localeFor(lang);
-  const money: Money = (n) => formatCurrency(n, "EUR", locale);
+  const money: Money = (n) => formatCurrency(n, currency, locale);
   const { pace, efficiency, gap, facts, hasFixedPrice } = forecast;
   return (
     <div>
@@ -434,9 +438,9 @@ export function ForecastCards({
         />
       </div>
       {view === "pace" ? (
-        <PaceCard lang={lang} pace={pace} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} />
+        <PaceCard lang={lang} pace={pace} facts={facts} money={money} currency={currency} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} />
       ) : (
-        <EfficiencyCard lang={lang} efficiency={efficiency} facts={facts} money={money} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} />
+        <EfficiencyCard lang={lang} efficiency={efficiency} facts={facts} money={money} currency={currency} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} />
       )}
       {/* The gap line compares BOTH forecasts, so it shows under whichever card
           is chosen; its conditions are unchanged. */}

@@ -4,6 +4,7 @@ import { useSnapshots } from "./use-snapshots";
 import * as store from "./snapshot-store";
 import type { SnapshotRecord } from "./snapshot";
 import type { Task } from "./types";
+import type { BaselineEntry } from "./baseline-currency";
 
 function rec(id: string, bucket: string, isBaseline = false): SnapshotRecord {
   return {
@@ -30,6 +31,7 @@ const baseArgs = {
   showToast: vi.fn(),
   lang: "en-US" as const,
   tasks: [] as readonly Task[],
+  baselineHistory: [] as readonly BaselineEntry[],
 };
 
 const emptyContextArgs = {
@@ -421,5 +423,29 @@ describe("useSnapshots completion variance for an all-cancelled project", () => 
     const { result } = renderWithTasks([]);
     await waitFor(() => expect(result.current.variance.length).toBeGreaterThan(0));
     expect(result.current.variance.find((r) => r.key === "pctComplete")).toBeDefined();
+  });
+});
+
+describe("useSnapshots rebases stored money into the current baseline (§476)", () => {
+  it("scales a snapshot captured before a EUR→GBP switch, in snapshots AND latest", async () => {
+    const stored = { ...rec("2026-06-08T00:00:00.000Z", "2026-W24", true), remainingCost: 1000 };
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([stored]);
+    vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    const baselineHistory: BaselineEntry[] = [
+      { from: "2026-06-09", at: "2026-06-09T00:00:00.000Z", currency: "GBP", perPrevious: 0.85 },
+    ];
+    const { result } = renderHook(() => useSnapshots({ ...baseArgs, baselineHistory }));
+    await waitFor(() => expect(result.current.snapshots).toHaveLength(1));
+    expect(result.current.snapshots[0].remainingCost).toBeCloseTo(850, 6);
+    expect(result.current.latest?.remainingCost).toBeCloseTo(850, 6);
+  });
+
+  it("returns the stored figure unchanged without a switch", async () => {
+    const stored = { ...rec("2026-06-08T00:00:00.000Z", "2026-W24", true), remainingCost: 1000 };
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([stored]);
+    vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    const { result } = renderHook(() => useSnapshots(baseArgs));
+    await waitFor(() => expect(result.current.snapshots).toHaveLength(1));
+    expect(result.current.latest?.remainingCost).toBe(1000);
   });
 });

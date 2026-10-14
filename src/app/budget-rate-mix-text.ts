@@ -5,10 +5,11 @@
  * the numbers agree on every surface (S6).
  */
 import { type Lang, t, localeFor } from "./i18n";
-import { formatCurrency } from "./resource-cost";
+import { currencySymbol, formatCurrency } from "./resource-cost";
 import { formatDayMonth, formatHours, formatShare, formatSignedPercent } from "./forecast-format";
 import { isPaceAvailable, type BudgetForecast } from "./budget-forecast";
 import { RATE_DRIFT_SIGNAL_RATIO, type RateMix } from "./budget-rate-mix";
+import type { BudgetCurrency } from "./types";
 
 // `computeRateMix` only sets a non-null `direction` when BOTH pace
 // forecasts are available and both BACs are positive (`rateMixSignal`,
@@ -35,9 +36,9 @@ function fixedPriceScope(lang: Lang, mix: RateMix, locale: string): string | nul
     : null;
 }
 
-export function rateMixExplanation(lang: Lang, mix: RateMix, eur: BudgetForecast, hours: BudgetForecast): string {
+export function rateMixExplanation(lang: Lang, mix: RateMix, eur: BudgetForecast, hours: BudgetForecast, currency: BudgetCurrency): string {
   const locale = localeFor(lang);
-  const money = (n: number) => formatCurrency(n, "EUR", locale);
+  const money = (n: number) => formatCurrency(n, currency, locale);
   const parts: string[] = [];
   if (mix.driver) {
     parts.push(t(lang, "forecastMixDriver", mix.driver.name, formatShare(mix.driver.bookedShare, locale), formatShare(mix.driver.plannedShare, locale)));
@@ -60,18 +61,20 @@ export function rateMixExplanation(lang: Lang, mix: RateMix, eur: BudgetForecast
   return parts.join(" ");
 }
 
-export function rateMixBannerText(lang: Lang, mix: RateMix, eur: BudgetForecast, hours: BudgetForecast): string {
+export function rateMixBannerText(lang: Lang, mix: RateMix, eur: BudgetForecast, hours: BudgetForecast, currency: BudgetCurrency): string {
   const lead = t(lang, mix.severity === "warning" ? "forecastMixLeadWarning" : "forecastMixLeadNote");
   const head = t(lang, mix.direction === "eur-worse" ? "forecastMixHeadEurWorse" : "forecastMixHeadHoursWorse");
-  return `${lead} ${head} ${rateMixExplanation(lang, mix, eur, hours)}`;
+  return `${lead} ${head} ${rateMixExplanation(lang, mix, eur, hours, currency)}`;
 }
 
-export function rateMixChipText(lang: Lang, mix: RateMix): string {
-  return t(lang, mix.direction === "eur-worse" ? "forecastMixChipEurWorse" : "forecastMixChipHoursWorse");
+/** The chip names the money side by the baseline currency symbol (§476). */
+export function rateMixChipText(lang: Lang, mix: RateMix, currency: BudgetCurrency): string {
+  const symbol = currencySymbol(currency, localeFor(lang));
+  return t(lang, mix.direction === "eur-worse" ? "forecastMixChipEurWorse" : "forecastMixChipHoursWorse", symbol);
 }
 
-export function rateMixChipName(lang: Lang, mix: RateMix, card: "pace" | "efficiency"): string {
-  return t(lang, card === "pace" ? "forecastMixChipNamePace" : "forecastMixChipNameEfficiency", rateMixChipText(lang, mix));
+export function rateMixChipName(lang: Lang, mix: RateMix, card: "pace" | "efficiency", currency: BudgetCurrency): string {
+  return t(lang, card === "pace" ? "forecastMixChipNamePace" : "forecastMixChipNameEfficiency", rateMixChipText(lang, mix, currency));
 }
 
 export function rateMixTileChipText(lang: Lang, mix: RateMix, hours: BudgetForecast): string {
@@ -112,9 +115,9 @@ export function rateMixPoints(lang: Lang, difference: number): string {
  * threshold is checked (`rateFactValue` derives from this, never re-checks
  * it). `arrow` is `null` when the rate is on plan (no glyph is rendered).
  */
-export function rateFactParts(lang: Lang, mix: RateMix): { rate: string; note: string; arrow: "▲" | "▼" | null } {
+export function rateFactParts(lang: Lang, mix: RateMix, currency: BudgetCurrency): { rate: string; note: string; arrow: "▲" | "▼" | null } {
   const locale = localeFor(lang);
-  const rate = t(lang, "forecastRatePerHour", formatCurrency(mix.bookedRate, "EUR", locale));
+  const rate = t(lang, "forecastRatePerHour", formatCurrency(mix.bookedRate, currency, locale));
   if (Math.abs(mix.drift) >= RATE_DRIFT_SIGNAL_RATIO) {
     const note = t(lang, "forecastRateDrift", formatSignedPercent(mix.drift, locale, 1));
     return { rate, note, arrow: mix.drift < 0 ? "▼" : "▲" };
@@ -122,18 +125,19 @@ export function rateFactParts(lang: Lang, mix: RateMix): { rate: string; note: s
   return { rate, note: t(lang, "forecastRateOnPlan"), arrow: null };
 }
 
-export function rateFactValue(lang: Lang, mix: RateMix): string {
-  const { rate, note, arrow } = rateFactParts(lang, mix);
+export function rateFactValue(lang: Lang, mix: RateMix, currency: BudgetCurrency): string {
+  const { rate, note, arrow } = rateFactParts(lang, mix, currency);
   return arrow !== null ? `${rate} ${note}` : `${rate} · ${note}`;
 }
 
-export function rateFactTip(lang: Lang, mix: RateMix): string {
+export function rateFactTip(lang: Lang, mix: RateMix, currency: BudgetCurrency): string {
   const locale = localeFor(lang);
-  const money = (n: number) => formatCurrency(n, "EUR", locale);
+  const money = (n: number) => formatCurrency(n, currency, locale);
   const tip = t(
     lang, "forecastTipRate",
     money(mix.bookedValue), formatHours(mix.actualHours, locale), money(mix.bookedRate),
     money(mix.budgetValue), formatHours(mix.budgetHours, locale), money(mix.plannedRate),
+    currencySymbol(currency, locale),
   );
   const scope = fixedPriceScope(lang, mix, locale);
   return scope === null ? tip : `${tip} ${scope}`;

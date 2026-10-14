@@ -40,6 +40,12 @@ describe("budgetForecastRows (§545)", () => {
     expect(value(rows, "VAC at current efficiency")).toBe("-€5,000 (-25.0%)");
   });
 
+  it("states the money in the bundle's baseline currency (§476)", () => {
+    const rows = budgetForecastRows(bundle({ currency: "GBP" }), "en-US");
+    expect(value(rows, "Budget (BAC)")).toBe("£20,000 (200 h)");
+    expect(rows.flat().join(" ")).not.toContain("€");
+  });
+
   it("signs a positive variance", () => {
     const eur = { ...EUR, pace: { ...(EUR.pace as Extract<BudgetForecast["pace"], { eac: number }>), eac: 18000, vac: 2000 } };
     expect(value(budgetForecastRows(bundle({ eur }), "en-US"), "VAC at current pace")).toBe("+€2,000 (+10.0%)");

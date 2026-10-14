@@ -65,7 +65,7 @@ export function budgetForecastRows(bundle: ForecastBundle | null | undefined, la
   if (!bundle) return [];
   const { eur, hours } = bundle;
   const locale = localeFor(lang);
-  const money = (n: number) => formatCurrency(n, "EUR", locale);
+  const money = (n: number) => formatCurrency(n, bundle.currency, locale);
   const withHours = (euro: string, h: number | null) => (h === null ? euro : `${euro} (${formatHours(h, locale)})`);
 
   const rows: string[][] = [
@@ -98,7 +98,7 @@ export function budgetForecastRows(bundle: ForecastBundle | null | undefined, la
       ].filter((part): part is string => part !== null).join(" "),
     ]);
   }
-  if (bundle.mix) rows.push([t(lang, "forecastFactRate"), rateFactValue(lang, bundle.mix)]);
+  if (bundle.mix) rows.push([t(lang, "forecastFactRate"), rateFactValue(lang, bundle.mix, bundle.currency)]);
   if (eur.hasFixedPrice) rows.push([t(lang, "exportForecastNote"), t(lang, "forecastFixedPriceNote")]);
   return rows;
 }

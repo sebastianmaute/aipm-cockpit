@@ -219,7 +219,7 @@ describe("budget forecast (open-followups §545)", () => {
   function bundle(changeCount: number): ForecastBundle {
     return {
       eur: eurForecast, hours: hoursForecast, mix,
-      evHistory: { available: true, points: [] },
+      evHistory: { available: true, points: [] }, currency: "EUR",
       history: changeCount < 0 ? null : {
         baselineDate: "2026-04-01",
         baseline: { hours: 100, value: 10000 },

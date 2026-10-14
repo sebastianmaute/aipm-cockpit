@@ -21,6 +21,7 @@ import type {
 import type { ActivityEntry } from "./activity-log";
 import type { SnapshotRecord } from "./snapshot";
 import type { BudgetHistoryEntry } from "./budget-history";
+import type { BaselineEntry } from "./baseline-currency";
 
 export type SubStatus = Health | null;
 
@@ -310,6 +311,9 @@ export interface DashboardEntities {
   snapshots?: readonly SnapshotRecord[];
   /** The project's recorded budget-at-completion history (`useWorkspace().budgetHistory`). */
   budgetHistory?: readonly BudgetHistoryEntry[];
+  /** The project's baseline-currency switches (`useWorkspace().baselineHistory`,
+   *  §476): the forecast bundle rebases the budget history with them. */
+  baselineHistory?: readonly BaselineEntry[];
 }
 
 /** The non-entity context (today/zone-derived date, settings-derived scalars,
@@ -348,6 +352,7 @@ export function buildDashboardInput(e: DashboardEntities, ctx: DashboardContext)
     grades: e.grades ?? [],
     snapshots: e.snapshots ?? [],
     budgetHistory: e.budgetHistory ?? [],
+    baselineHistory: e.baselineHistory ?? [],
     workdayHours: ctx.workdayHours,
     holidaySet: ctx.holidaySet,
     status: ctx.status,
@@ -358,10 +363,12 @@ export function buildDashboardInput(e: DashboardEntities, ctx: DashboardContext)
 
 const NO_SNAPSHOTS: readonly SnapshotRecord[] = [];
 
-/** Entities for `buildLiveDashboardInput`. `budgetHistory` is required so a
- *  caller cannot drop it silently; `snapshots` arrives through the trends gate. */
-export type LiveDashboardEntities = Omit<DashboardEntities, "snapshots" | "budgetHistory"> & {
+/** Entities for `buildLiveDashboardInput`. `budgetHistory` and `baselineHistory`
+ *  are required so a caller cannot drop either silently; `snapshots` arrives
+ *  through the trends gate. */
+export type LiveDashboardEntities = Omit<DashboardEntities, "snapshots" | "budgetHistory" | "baselineHistory"> & {
   budgetHistory: readonly BudgetHistoryEntry[];
+  baselineHistory: readonly BaselineEntry[];
 };
 
 /** Input for the model task-manager builds for Next Actions, the AI assistant
@@ -376,9 +383,9 @@ export function buildLiveDashboardInput(
   ctx: DashboardContext,
   trends: { active: boolean; snapshots: readonly SnapshotRecord[] } | null,
 ): DashboardInput {
-  const { budgetHistory, ...rest } = e;
+  const { budgetHistory, baselineHistory, ...rest } = e;
   return buildDashboardInput(
-    { ...rest, budgetHistory, snapshots: trends?.active ? trends.snapshots : NO_SNAPSHOTS },
+    { ...rest, budgetHistory, baselineHistory, snapshots: trends?.active ? trends.snapshots : NO_SNAPSHOTS },
     ctx,
   );
 }
@@ -455,6 +462,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
         resources: input.resources, workdayHours: input.workdayHours, absences: input.absences,
         disciplines: input.disciplines, grades: input.grades,
         progress: bucketProgressSeries(input.snapshots), budgetHistory: input.budgetHistory,
+        baselineHistory: input.baselineHistory,
       })
     : null;
   // The budget RAG stays € only (addendum §3.3).

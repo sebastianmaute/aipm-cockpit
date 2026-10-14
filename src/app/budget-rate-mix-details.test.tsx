@@ -8,7 +8,7 @@ const props = { lang: "en-US" as const, eur: EUR_FORECAST, hours: HOURS_FORECAST
 
 describe("RateMixDetails", () => {
   it("is collapsed by default and lists every row with planned and booked shares", () => {
-    const { container } = render(<RateMixDetails {...props} mix={MIX_HOURS_WORSE} open={false} focusNonce={0} />);
+    const { container } = render(<RateMixDetails currency="EUR" {...props} mix={MIX_HOURS_WORSE} open={false} focusNonce={0} />);
     expect(container.querySelector("details")!.open).toBe(false);
     const rows = screen.getAllByRole("row").slice(1);
     expect(rows).toHaveLength(3);
@@ -23,26 +23,26 @@ describe("RateMixDetails", () => {
   });
 
   it("names the table for assistive tech — the <summary> above it is not associated with it", () => {
-    render(<RateMixDetails {...props} mix={MIX_HOURS_WORSE} open focusNonce={0} />);
+    render(<RateMixDetails currency="EUR" {...props} mix={MIX_HOURS_WORSE} open focusNonce={0} />);
     expect(screen.getByRole("table", { name: "Share of booked hours by role compared with the plan" })).toBeInTheDocument();
   });
 
   it("marks only the driver row with the Driver badge", () => {
-    render(<RateMixDetails {...props} mix={MIX_HOURS_WORSE} open focusNonce={0} />);
+    render(<RateMixDetails currency="EUR" {...props} mix={MIX_HOURS_WORSE} open focusNonce={0} />);
     expect(screen.getAllByText("Driver")).toHaveLength(1);
     expect(screen.getByText("Driver").closest("tr")).toHaveTextContent("Consultant Junior");
   });
 
   it("explains the mix in the footnote, or says it is on plan", () => {
-    const { rerender } = render(<RateMixDetails {...props} mix={MIX_HOURS_WORSE} open focusNonce={0} />);
-    expect(screen.getByText(rateMixExplanation("en-US", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE))).toBeInTheDocument();
-    rerender(<RateMixDetails {...props} mix={MIX_ON_PLAN} open focusNonce={0} />);
+    const { rerender } = render(<RateMixDetails currency="EUR" {...props} mix={MIX_HOURS_WORSE} open focusNonce={0} />);
+    expect(screen.getByText(rateMixExplanation("en-US", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR"))).toBeInTheDocument();
+    rerender(<RateMixDetails currency="EUR" {...props} mix={MIX_ON_PLAN} open focusNonce={0} />);
     expect(screen.getByText("No role is 3 points or more off its planned share.")).toBeInTheDocument();
   });
 
   it("moves focus to its summary when the focus nonce changes", () => {
-    const { rerender, container } = render(<RateMixDetails {...props} mix={MIX_HOURS_WORSE} open={false} focusNonce={0} />);
-    rerender(<RateMixDetails {...props} mix={MIX_HOURS_WORSE} open focusNonce={1} />);
+    const { rerender, container } = render(<RateMixDetails currency="EUR" {...props} mix={MIX_HOURS_WORSE} open={false} focusNonce={0} />);
+    rerender(<RateMixDetails currency="EUR" {...props} mix={MIX_HOURS_WORSE} open focusNonce={1} />);
     expect(document.activeElement).toBe(container.querySelector("summary"));
   });
 });

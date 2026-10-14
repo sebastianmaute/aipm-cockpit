@@ -1,6 +1,6 @@
 // src/app/use-snapshots.ts
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   appendSnapshot as storeAppend, deleteSnapshot as storeDelete,
   deleteSnapshots as storeDeleteMany,
@@ -17,6 +17,7 @@ import { tasksHaveNoActiveScope } from "./dashboard";
 import type { Task } from "./types";
 import { reportCapabilityGap } from "./guard-feedback";
 import type { Lang } from "./i18n";
+import { rebaseSnapshots, type BaselineEntry } from "./baseline-currency";
 
 export interface UseSnapshotsArgs {
   /** True only when storage is Turso, this is not a popout, and recording is on. */
@@ -87,6 +88,11 @@ export interface UseSnapshotsArgs {
   /** Live task list. Used ONLY to decide whether the completion variance row is
    *  meaningful — see the `variance` derivation below. */
   tasks: readonly Task[];
+  /** The project's baseline-currency switches (§476). Stored snapshots stay in
+   *  the currency they were captured in; every snapshot this hook RETURNS is
+   *  rebased into the current baseline. Capture and the stored state are
+   *  untouched — only the read is rebased. */
+  baselineHistory: readonly BaselineEntry[];
 }
 
 export interface UseSnapshotsResult {
@@ -324,8 +330,14 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     }
   }, [active, reportInactiveBail]);
 
-  const baseline = pickBaseline(snapshots);
-  const sorted = [...snapshots].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+  // §476: rebase at READ time, before anything below picks or compares a
+  // snapshot, so the baseline, the latest and the variance all share one unit.
+  // The stored `snapshots` state stays as captured (capture compares buckets,
+  // never money).
+  const baselineHistory = args.baselineHistory;
+  const rebased = useMemo(() => rebaseSnapshots(snapshots, baselineHistory), [snapshots, baselineHistory]);
+  const baseline = pickBaseline(rebased);
+  const sorted = [...rebased].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
   const latest = sorted.length ? sorted[sorted.length - 1] : null;
   // The completion row is dropped for a project with no active scope: 0% there
   // is an empty denominator, not lost delivery, and `worseIfLower` would report
@@ -350,7 +362,7 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   const variance = rawVariance.length > 0 && tasksHaveNoActiveScope(args.tasks)
     ? withoutCompletionVariance(rawVariance)
     : rawVariance;
-  const gaps = detectGaps(snapshots, cadence, today);
+  const gaps = detectGaps(rebased, cadence, today);
 
   return { snapshots: sorted, baseline, latest, variance, gaps, busy, captureNow, rebaselineNow, setBaseline, deleteSnapshot, deleteSnapshots };
 }

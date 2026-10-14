@@ -18,12 +18,13 @@ import { t, localeFor, type Lang } from "./i18n";
 import { formatMoneyCompact, formatDayMonthYear } from "./forecast-format";
 import { isPaceAvailable, isEfficiencyAvailable, type BudgetForecast } from "./budget-forecast";
 import { TextButton } from "./text-button";
+import type { BudgetCurrency } from "./types";
 
 /** Link-line text (§6.4): the pace/efficiency EAC range (low EAC first), the
  *  pace EAC alone when efficiency is unavailable, or one of the three
  *  pace-unavailable texts ("Forecast from <date>", "Forecast starts once
  *  hours are booked", "No recent bookings"). */
-export function forecastLinkText(f: BudgetForecast, lang: Lang): string {
+export function forecastLinkText(f: BudgetForecast, lang: Lang, currency: BudgetCurrency): string {
   const locale = localeFor(lang);
   if (!isPaceAvailable(f.pace)) {
     const pace = f.pace;
@@ -34,11 +35,11 @@ export function forecastLinkText(f: BudgetForecast, lang: Lang): string {
   }
   const pace = f.pace;
   if (!isEfficiencyAvailable(f.efficiency)) {
-    return t(lang, "forecastLinkSingle", formatMoneyCompact(pace.eac, locale));
+    return t(lang, "forecastLinkSingle", formatMoneyCompact(pace.eac, currency, locale));
   }
   const efficiency = f.efficiency;
   const [low, high] = pace.eac <= efficiency.eac ? [pace, efficiency] : [efficiency, pace];
-  return t(lang, "forecastLinkRange", formatMoneyCompact(low.eac, locale), formatMoneyCompact(high.eac, locale));
+  return t(lang, "forecastLinkRange", formatMoneyCompact(low.eac, currency, locale), formatMoneyCompact(high.eac, currency, locale));
 }
 
 /** Budget view link line (§6.4): the text above, plus a `TextButton` to the
@@ -46,11 +47,11 @@ export function forecastLinkText(f: BudgetForecast, lang: Lang): string {
  *  button, so the button's accessible name stays the visible "Budget Report"
  *  text alone (controller ruling 2). */
 export function BudgetForecastLink({
-  lang, forecast, onOpen,
-}: { lang: Lang; forecast: BudgetForecast; onOpen: () => void }) {
+  lang, forecast, currency, onOpen,
+}: { lang: Lang; forecast: BudgetForecast; currency: BudgetCurrency; onOpen: () => void }) {
   return (
     <p className="mb-2 flex flex-wrap items-center gap-2 text-sm">
-      {forecastLinkText(forecast, lang)}
+      {forecastLinkText(forecast, lang, currency)}
       <span aria-hidden="true">→</span>
       <TextButton onClick={onOpen}>{t(lang, "budgetReportTitle")}</TextButton>
     </p>

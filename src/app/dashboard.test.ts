@@ -9,6 +9,7 @@ import type { ProjectReport } from "./budget-report";
 import { isPaceAvailable } from "./budget-forecast";
 import { summarizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
 import type { SnapshotRecord } from "./snapshot";
+import type { BaselineEntry } from "./baseline-currency";
 import type { Task, RaidItem, Milestone, ChangeItem, BudgetBucket, Role } from "./types";
 import type { ActivityEntry } from "./activity-log";
 
@@ -200,7 +201,7 @@ describe("computeDashboard", () => {
       tasks: [], raid: [], budgets: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
       roles: [], resources: [], absences: [], fxRates: null, workdayHours: 8,
       holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02",
-      milestones: [], changes: [], disciplines: [], grades: [], snapshots: [], budgetHistory: [],
+      milestones: [], changes: [], disciplines: [], grades: [], snapshots: [], budgetHistory: [], baselineHistory: [],
       ...over,
     };
   }
@@ -495,7 +496,7 @@ describe("dashboard scope signal from changes", () => {
       tasks: [], raid: [], budgets: [], plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
       roles: [], resources: [], absences: [], fxRates: null, workdayHours: 8,
       holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02",
-      milestones: [], changes: [], disciplines: [], grades: [], snapshots: [], budgetHistory: [],
+      milestones: [], changes: [], disciplines: [], grades: [], snapshots: [], budgetHistory: [], baselineHistory: [],
       ...over,
     };
   }
@@ -538,7 +539,7 @@ describe("computeDashboard burndown", () => {
       roles: [], resources: [], absences: [], fxRates: null,
       workdayHours: 8, holidaySet: holidays,
       status: {} as DashboardInput["status"], activity: [], today, milestones: [], changes: [],
-      disciplines: [], grades: [], snapshots: [], budgetHistory: [],
+      disciplines: [], grades: [], snapshots: [], budgetHistory: [], baselineHistory: [],
       ...over,
     };
   }
@@ -659,7 +660,7 @@ describe("buildLiveDashboardInput", () => {
   const entities = {
     tasks: [], raid: [], budgets: [],
     plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" } as DashboardInput["plan"],
-    roles: [], resources: [], absences: [], fxRates: null,
+    roles: [], resources: [], absences: [], fxRates: null, baselineHistory: [],
   };
   const ctx = { workdayHours: 8, holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02" };
   const history: BudgetHistoryEntry[] = [{
@@ -671,6 +672,12 @@ describe("buildLiveDashboardInput", () => {
   it("threads the recorded budget history through", () => {
     const input = buildLiveDashboardInput({ ...entities, budgetHistory: history }, ctx, null);
     expect(input.budgetHistory).toBe(history);
+  });
+
+  it("threads the baseline-currency history through (§476)", () => {
+    const baselineHistory: BaselineEntry[] = [{ from: "2026-03-01", at: "2026-03-01T00:00:00.000Z", currency: "GBP", perPrevious: 0.85 }];
+    const input = buildLiveDashboardInput({ ...entities, budgetHistory: [], baselineHistory }, ctx, null);
+    expect(input.baselineHistory).toBe(baselineHistory);
   });
 
   it("passes snapshots only while trends are active", () => {

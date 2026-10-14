@@ -1,4 +1,6 @@
-/** Locale formatting for the budget forecast surfaces. Forecast money is EUR (engine unit). Dates are ISO days read in UTC. */
+/** Locale formatting for the budget forecast surfaces. Forecast money is in the project's baseline currency (`plan.currency`, the engine unit since §476), so a money formatter takes it as a parameter. Dates are ISO days read in UTC. */
+import type { BudgetCurrency } from "./types";
+
 // Fix round 2: some locales (measured: de-DE) do not abbreviate compact
 // currency below roughly EUR1M at maximumSignificantDigits:3 -- Intl just
 // rounds to 3 significant digits and prints the full grouped number with no
@@ -8,10 +10,10 @@
 // no-suffix case via `formatToParts`'s `type: "compact"` part and fall back
 // to the ordinary (non-compact) currency format in that case, which prints
 // the real, non-rounded figure instead.
-export function formatMoneyCompact(amount: number, locale: string): string {
+export function formatMoneyCompact(amount: number, currency: BudgetCurrency, locale: string): string {
   const compactFormatter = new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "EUR",
+    currency,
     notation: "compact",
     maximumSignificantDigits: 3,
   });
@@ -19,7 +21,7 @@ export function formatMoneyCompact(amount: number, locale: string): string {
   if (!isCompacted) {
     return new Intl.NumberFormat(locale, {
       style: "currency",
-      currency: "EUR",
+      currency,
       maximumFractionDigits: 0,
     }).format(amount);
   }

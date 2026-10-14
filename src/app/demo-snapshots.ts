@@ -229,6 +229,7 @@ export function buildDemoSnapshots(ws: Workspace, asOf: string): SnapshotRecord[
           tasks, raid: w.raid, budgets, plan: w.plan, roles: w.roles, resources: w.resources,
           absences: w.absences, fxRates: w.fxRates ?? null, milestones, changes: w.changes ?? [],
           budgetHistory: w.budgetHistory ?? [],
+          baselineHistory: w.baselineHistory ?? [],
         },
         {
           workdayHours: defaultSettings.resources.workdayHours,

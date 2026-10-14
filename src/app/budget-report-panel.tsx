@@ -39,6 +39,7 @@ import { bucketProgressSeries } from "./budget-ev-history";
 import { ForecastFactsRow } from "./budget-forecast-facts";
 import { ForecastSection } from "./budget-forecast-section";
 import type { BudgetHistoryEntry } from "./budget-history";
+import type { BaselineEntry } from "./baseline-currency";
 import type { SnapshotRecord } from "./snapshot";
 
 const DETAIL_COL_WIDTHS = {
@@ -59,6 +60,7 @@ const NO_GRADES: readonly Grade[] = [];
 // every render, invalidating the `progress`/`bundle` memos for no input change.
 const NO_SNAPSHOTS: readonly SnapshotRecord[] = [];
 const NO_BUDGET_HISTORY: readonly BudgetHistoryEntry[] = [];
+const NO_BASELINE_HISTORY: readonly BaselineEntry[] = [];
 
 interface Props {
   lang: Lang;
@@ -83,11 +85,15 @@ interface Props {
   snapshots?: readonly SnapshotRecord[];
   /** The project's recorded budget-at-completion history (`useWorkspace()`). */
   budgetHistory?: readonly BudgetHistoryEntry[];
+  /** The project's baseline-currency switches (`useWorkspace()`, §476): the
+   *  recorded budget history is rebased into the current baseline with them. */
+  baselineHistory?: readonly BaselineEntry[];
 }
 
 export function BudgetReportPanel({
   lang, buckets, plan, roles, disciplines, grades = NO_GRADES, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
   showHints, isPopout, onLearnMore, snapshots = NO_SNAPSHOTS, budgetHistory = NO_BUDGET_HISTORY,
+  baselineHistory = NO_BASELINE_HISTORY,
 }: Props) {
   // Hooks are called unconditionally before the empty-state early return (rules of hooks).
   const report = useMemo(
@@ -125,9 +131,9 @@ export function BudgetReportPanel({
     () => computeForecastBundle({
       report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today,
       resources, workdayHours, absences, disciplines, grades,
-      progress, budgetHistory,
+      progress, budgetHistory, baselineHistory,
     }),
-    [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today, resources, workdayHours, absences, disciplines, grades, progress, budgetHistory],
+    [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today, resources, workdayHours, absences, disciplines, grades, progress, budgetHistory, baselineHistory],
   );
   const forecast = bundle.eur;
   const { ref, reset } = useResizable("aipm-cockpit:budget-report-size");
@@ -142,7 +148,7 @@ export function BudgetReportPanel({
   }
 
   const locale = localeFor(lang);
-  const money = (n: number) => formatCurrency(n, "EUR", locale);
+  const money = (n: number) => formatCurrency(n, planCurrency, locale);
   const pct = (v: CciValue) => (v.percent == null ? "—" : `${v.percent.toFixed(1)}%`);
   const proj = report.project;
   // No bucket carries an internal rate, so cost is 0 for want of a rate card
@@ -152,7 +158,7 @@ export function BudgetReportPanel({
   const content = (
     <>
       <Section title={t(lang, "budgetReportProjectTotal")}>
-        <ForecastFactsRow lang={lang} forecast={forecast} mix={bundle.mix} />
+        <ForecastFactsRow lang={lang} currency={planCurrency} forecast={forecast} mix={bundle.mix} />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Tile label={t(lang, "budgetBudgetHours")} value={proj.budgetHours.toFixed(0)} />
           <Tile label={t(lang, "budgetPlanHours")} value={proj.plannedHours.toFixed(0)}
@@ -193,25 +199,25 @@ export function BudgetReportPanel({
           chart={
             <>
               <BurndownChainWarning lang={lang} chain={bucketChain} />
-              {/* ★★ EUR, not `plan.currency`: `computeBurndownSeries` builds every
-                  value as `budgetHours × role.rates.external` and converts NOTHING,
-                  and the engine's money unit is EUR (a fixed-price bucket's contract
-                  amount is converted to EUR at `computeBucketReport`'s one read). The
-                  `money` helper above already hardcodes EUR for the cost/EVM tiles,
-                  which are rate-derived in exactly the same way — this chart was the
-                  one figure in the file still labelled otherwise (open-followups
-                  §465). ★ Contrast the Budget view's per-bucket tiles
-                  (`budget-panel-bucket-card.tsx`), which convert EUR→bucket currency
+              {/* ★★ `plan.currency`, the project baseline (§476): `computeBurndownSeries`
+                  builds every value as `budgetHours × role.rates.external`, and role
+                  rates are entered in the baseline, while a fixed-price bucket's
+                  contract amount is converted INTO the baseline at
+                  `computeBucketReport`'s one read. So the series is in the baseline,
+                  the same unit as the `money` helper above. (Until §476 the engine
+                  unit was a fixed EUR and this label was hardcoded to it, §465.)
+                  ★ Contrast the Budget view's per-bucket tiles
+                  (`budget-panel-bucket-card.tsx`), which convert baseline→bucket currency
                   BEFORE labelling and so correctly use the bucket's own currency.
                   The change table is DETACHED: at 70% of even a wide viewport the
                   chart is near its 640px floor, so the panel's `2xl` side-by-side
                   placement is unreachable here, and the table goes full width
                   below the row instead (spec B, Decision 7). */}
-              <BurndownChartPanel lang={lang} series={burndown} bundle={bundle} today={today} planEnd={plan.endDate} currency="EUR" detachChangeTable />
+              <BurndownChartPanel lang={lang} series={burndown} bundle={bundle} today={today} planEnd={plan.endDate} currency={planCurrency} detachChangeTable />
               <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
             </>
           }
-          belowRow={<BurndownChangeTableBlock lang={lang} series={burndown} bundle={bundle} currency="EUR" />}
+          belowRow={<BurndownChangeTableBlock lang={lang} series={burndown} bundle={bundle} currency={planCurrency} />}
         />
       </Section>
 
@@ -386,12 +392,12 @@ export function BucketDetailTable({
       { key: "budgetH", col: "budgetH", label: t(lang, "budgetBudgetHours"), align: "right" },
       { key: "planH", col: "planH", label: t(lang, "budgetPlanHours"), align: "right" },
       { key: "actualH", col: "actualH", label: t(lang, "budgetActualHours"), align: "right" },
-      { key: "budgetEur", col: "budgetEur", label: t(lang, "budgetReportColBudgetEur"), align: "right" },
-      { key: "consumedEur", col: "consumedEur", label: t(lang, "budgetReportColConsumed"), align: "right" },
+      { key: "budgetEur", col: "budgetEur", label: t(lang, "budgetReportColBudgetEur", base), align: "right" },
+      { key: "consumedEur", col: "consumedEur", label: t(lang, "budgetReportColConsumed", base), align: "right" },
       { key: "margin", col: "margin", label: t(lang, "budgetReportColMargin"), align: "right" },
       { key: "winLoss", col: "winLoss", label: t(lang, "budgetReportColWinLoss"), align: "right", hint: t(lang, "budgetReportColWinLossHint") },
     ],
-    [lang],
+    [lang, base],
   );
 
   return (

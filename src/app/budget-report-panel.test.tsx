@@ -155,20 +155,16 @@ describe("BudgetReportPanel", () => {
     expect(within(gammaRow).getAllByText("R").length).toBeGreaterThanOrEqual(2);
   });
 
-  it("labels the burn-down value axis in EUR even when the plan names another currency", () => {
+  it("labels the burn-down value axis in the plan's baseline currency (§476)", () => {
     // ★★ `computeBurndownSeries` builds every T&M bucket's value as
     // `budgetHours × role.rates.external`, and a fixed-price bucket's from its
-    // contract amount via `currencyToBase` (§472) — either way nothing it
-    // produces is converted a second time, and the engine's money unit is EUR.
-    // So the series is EUR whatever the plan's `currency` says — narrowing
-    // that field to the `BudgetCurrency` union did NOT make it safe to label
-    // with, because the union still admits `USD`/`GBP`: it states the plan's
-    // base currency, never the unit of an unconverted engine figure. This
-    // file's own top-level `buckets` fixture is all `type: "tm"`, so this test
-    // exercises the rate-derived half only; §472's fixed-price contract basis
-    // is pinned separately in `budget-burndown.test.ts`. This file's `money`
-    // helper already hardcodes `formatCurrency(n, "EUR", …)` for the
-    // co-rendered cost/EVM tiles, which are rate-derived in exactly the same way.
+    // contract amount via `currencyToBase` (§472) — either way the series is in
+    // the project baseline, `plan.currency`, since §476 (role rates are entered
+    // in it). This file's own top-level `buckets` fixture is all `type: "tm"`,
+    // so this test exercises the rate-derived half only; §472's fixed-price
+    // contract basis is pinned separately in `budget-burndown.test.ts`. Until
+    // §476 the engine unit was a fixed EUR and this test pinned the opposite
+    // label (§465).
     renderPanel({ plan: { ...plan, currency: "USD" } });
     // Scoped to the € chart: `BurndownChart` renders `<div>{caption}</div><svg>`,
     // so the caption's parent is that chart alone ("Budget remaining" is the
@@ -184,8 +180,8 @@ describe("BudgetReportPanel", () => {
     // exceeds the budget and the actual line ends below zero) → 4.
     const money = Array.from(valueChart.querySelectorAll("svg text[data-axis='y']")).map((el) => el.textContent ?? "");
     expect(money).toHaveLength(4);
-    expect(money.filter((s) => s.includes("$"))).toEqual([]);
-    expect(money.every((s) => s.includes("€"))).toBe(true);
+    expect(money.filter((s) => s.includes("€"))).toEqual([]);
+    expect(money.every((s) => s.includes("$"))).toBe(true);
   });
 
   it("renders the burn-down caption beneath the chart", () => {
@@ -468,9 +464,9 @@ describe("BudgetReportPanel — the German win/loss column hint", () => {
     await loadI18n("de");
   });
 
-  it("states both branches and names EUR, not the bucket currency", () => {
+  it("states both branches and names the project currency, not the bucket currency", () => {
     renderPanel({ lang: "de" });
-    const hint = "Festpreis: Erlös minus Kosten. Time-and-Material: Budget minus Verbrauch, also das verbleibende Budget. In EUR; negativ bedeutet, dass der Bucket mit Verlust läuft.";
+    const hint = "Festpreis: Erlös minus Kosten. Time-and-Material: Budget minus Verbrauch, also das verbleibende Budget. In der Projektwährung; negativ bedeutet, dass der Bucket mit Verlust läuft.";
     // Both props, as in the twin's test: the `aria-label` locates the trigger,
     // the portalled body is what the reader actually sees, and the call site
     // passes the key to each separately.
@@ -700,5 +696,18 @@ describe("BudgetReportPanel — the forecast row (spec B)", () => {
     // The caption stays with the chart, above the table.
     const caption = within(section).getByText(t("en-US", "dashboardBurnCaption"));
     expect(caption.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("BudgetReportPanel — money in the project baseline currency (§476)", () => {
+  it("formats every money cell in GBP, with no euro sign anywhere, for a GBP-baseline project", () => {
+    const gbpBuckets = buckets.map((b) => ({ ...b, currency: "GBP" as const }));
+    const { container } = renderPanel({ plan: { ...plan, currency: "GBP" }, buckets: gbpBuckets });
+    const tiles = screen.getByText(t("en-US", "budgetCciConsumption")).closest(".grid") as HTMLElement;
+    // Positive control: the revenue figure is there, in pounds.
+    expect(within(tiles).getAllByText(/£39,900/)).toHaveLength(2);
+    expect(within(tiles).getByText(/£26,600/)).toBeInTheDocument();
+    expect(container.textContent).toContain("£");
+    expect(container.textContent).not.toContain("€");
   });
 });

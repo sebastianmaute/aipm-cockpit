@@ -245,7 +245,7 @@ describe("computeBurndownSeries — fixed-price buckets (§472)", () => {
 
   // Review follow-up (§472 fixed-price burndown cap, register): pins the
   // `Math.min(fixedPriceBase, ...)` cap explicitly — every case above that
-  // exercises `consumedEur` keeps actual hours at or below budgeted hours, so
+  // exercises `consumedAt` keeps actual hours at or below budgeted hours, so
   // none of them can distinguish a capped ratio from an uncapped one deleting
   // the cap would still leave those green. Delete the `Math.min` (leave the
   // ratio multiply) and this test goes red for the right reason: consumed
@@ -324,7 +324,7 @@ describe("computeBurndownSeries — fixed-price buckets (§472)", () => {
     expect(s.totalBudgetValue).toBeCloseTo(15000, 5);
     expect(s.plannedRemainingValue).toEqual([10000, 5000, 0]);
     expect(s.todayIndex).toBe(1);
-    // consumedEur = 15000 * 210/300 = 10500, split 120/210 and 90/210:
+    // consumed = 15000 * 210/300 = 10500, split 120/210 and 90/210:
     // Jan 10500*120/210 = 6000, Feb 10500*90/210 = 4500.
     expect(s.actualRemainingValue).toEqual([9000, 4500, null]);
   });

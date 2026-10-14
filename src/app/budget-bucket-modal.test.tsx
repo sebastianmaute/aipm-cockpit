@@ -104,6 +104,7 @@ function setup(
       <Seed tier={tier} />
       <BudgetBucketModal
         lang="en-US"
+        baseCurrency="EUR"
         bucket={baseBucket}
         allBuckets={[baseBucket]}
         roles={roles}
@@ -421,6 +422,7 @@ describe("BudgetBucketModal", () => {
     render(
       <BudgetBucketModal
         lang="en-US"
+        baseCurrency="EUR"
         bucket={{ ...baseBucket, currency: "USD" }}
         allBuckets={[baseBucket]}
         roles={roles}
@@ -456,6 +458,7 @@ describe("BudgetBucketModal", () => {
     render(
       <BudgetBucketModal
         lang="en-US"
+        baseCurrency="EUR"
         bucket={baseBucket}
         allBuckets={[baseBucket]}
         roles={roles}

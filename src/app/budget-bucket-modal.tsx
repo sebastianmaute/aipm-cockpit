@@ -45,6 +45,9 @@ interface BudgetBucketModalProps {
   lang: Lang;
   bucket: BudgetBucket;
   allBuckets: readonly BudgetBucket[];
+  /** The project baseline (`plan.currency`, §476): the unit a rate override
+   *  is entered in, the same as the role rates it overrides. */
+  baseCurrency: BudgetCurrency;
   roles: readonly Role[];
   disciplines: readonly Discipline[];
   grades: readonly Grade[];
@@ -61,6 +64,7 @@ export function BudgetBucketModal({
   lang,
   bucket,
   allBuckets,
+  baseCurrency,
   roles,
   disciplines,
   grades,
@@ -636,7 +640,7 @@ export function BudgetBucketModal({
                   }));
                 }}
               />
-              <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour")}</span>
+              <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour", baseCurrency)}</span>
             </div>
             <FieldNotice id={rateIntNoticeId}>{notice.rateOverrideInternal}</FieldNotice>
           </label>
@@ -667,7 +671,7 @@ export function BudgetBucketModal({
                   }));
                 }}
               />
-              <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour")}</span>
+              <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour", baseCurrency)}</span>
             </div>
             <FieldNotice id={rateExtNoticeId}>{notice.rateOverrideExternal}</FieldNotice>
           </label>

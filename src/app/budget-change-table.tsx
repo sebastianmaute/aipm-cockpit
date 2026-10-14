@@ -16,7 +16,7 @@
 // which is the only thing that tells a "+30" apart from a "+€3,000".
 import { useId } from "react";
 import { type Lang, t, localeFor } from "./i18n";
-import { formatCurrency } from "./resource-cost";
+import { currencySymbol, formatCurrency } from "./resource-cost";
 import { formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { orderBudgetChanges, type BudgetHistorySummary, type VarianceSplit } from "./budget-history";
 import type { ChartUnit } from "./burndown-geometry";
@@ -47,7 +47,7 @@ export function BudgetChangeTable({
   const eurUnit = unit === "eur";
   const fmt = (v: number) => (eurUnit ? formatCurrency(v, currency, locale) : formatHours(v, locale));
   const signed = (v: number) => signedFigure(fmt(v), v);
-  const unitLabel = t(lang, eurUnit ? "burndownUnitEur" : "burndownUnitHours");
+  const unitLabel = eurUnit ? t(lang, "burndownUnitEur", currencySymbol(currency, locale)) : t(lang, "burndownUnitHours");
 
   const ordered = orderBudgetChanges(history.changes);
   const deltas = ordered.map((entry) => (eurUnit ? entry.deltaValue : entry.deltaHours));

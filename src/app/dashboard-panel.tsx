@@ -112,11 +112,12 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const density: DashboardDensity = props.density ?? "comfortable";
   const dc = densityClasses(density);
   const varianceRows = props.variance ?? [];
-  const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory } = useWorkspace();
+  const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory, baselineHistory } = useWorkspace();
   // Hoisted above the `model` useMemo below: it depends on this, and it must
   // keep a stable identity when `props.snapshots` is absent so that memo
   // never invalidates for no input change.
   const snapshots = props.snapshots ?? EMPTY_SNAPSHOTS;
+  const planCurrency = props.plan.currency;
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:dashboard-size");
   // ★★ Every Reset layout is a re-measure trigger, whatever it changed. A board that differed from
   // the default only in widths or order leaves the measure key otherwise unchanged; see
@@ -146,6 +147,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             // caller (most tests) byte-identical to before this change.
             snapshots: props.tursoActive ? snapshots : EMPTY_SNAPSHOTS,
             budgetHistory,
+            baselineHistory,
           },
           {
             workdayHours: props.workdayHours,
@@ -164,7 +166,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
       props.disciplines, props.grades,
       showRaid, showBudget, showMilestones, showChanges,
       status, activity, today, fxRates,
-      props.tursoActive, snapshots, budgetHistory,
+      props.tursoActive, snapshots, budgetHistory, baselineHistory,
     ],
   );
 
@@ -344,12 +346,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const bodies = buildTileBodies({
     lang, dc, model,
     trends,
-    // ★★ EUR, never `plan.currency`: this labels the engine's burn-down series
-    // (`budgetHours × role.rates.external`), which converts nothing. Narrowing
-    // `plan.currency` to the `BudgetCurrency` union did not make it safe — the
-    // union still admits USD/GBP — and labelling with it printed EUR money
-    // under another symbol on the LANDING view (docs/open-followups.md §465).
-    currency: "EUR",
+    // ★★ `plan.currency`, the project baseline (§476): this labels the engine's
+    // burn-down series (`budgetHours × role.rates.external`), and role rates are
+    // entered in the baseline. Until §476 the engine unit was a fixed EUR and
+    // this was hardcoded to it (§465).
+    currency: planCurrency,
     completionSeries,
     milestoneBuckets,
     varianceRows,

@@ -34,6 +34,6 @@ export const FIXTURE_RATE_MIX = {
 export function forecastBundleFixture(over: Partial<ForecastBundle> = {}): ForecastBundle {
   return {
     eur: FIXTURE_EUR_FORECAST, hours: FIXTURE_HOURS_FORECAST, mix: FIXTURE_RATE_MIX,
-    evHistory: { available: true, points: [] }, history: null, ...over,
+    evHistory: { available: true, points: [] }, history: null, currency: "EUR", ...over,
   } as ForecastBundle;
 }

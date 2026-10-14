@@ -10,6 +10,7 @@ import { TermTooltip } from "./budget-forecast-tooltip";
 import type { BudgetForecast } from "./budget-forecast";
 import { rateFactParts, rateFactTip } from "./budget-rate-mix-text";
 import type { RateMix } from "./budget-rate-mix";
+import type { BudgetCurrency } from "./types";
 
 /** Label with a term-bearing "What is X?" tooltip trigger (§6.2). */
 function FactLabel({ lang, term, tip }: { lang: Lang; term: string; tip: string }) {
@@ -22,12 +23,12 @@ function FactLabel({ lang, term, tip }: { lang: Lang; term: string; tip: string 
 }
 
 export function ForecastFactsRow({
-  lang, forecast, mix = null,
+  lang, currency, forecast, mix = null,
 }: {
-  lang: Lang; forecast: BudgetForecast; mix?: RateMix | null;
+  lang: Lang; currency: BudgetCurrency; forecast: BudgetForecast; mix?: RateMix | null;
 }) {
   const locale = localeFor(lang);
-  const money = (n: number) => formatCurrency(n, "EUR", locale);
+  const money = (n: number) => formatCurrency(n, currency, locale);
   const { bac, ac, remaining, ev, percentComplete } = forecast.facts;
 
   // EV can be unresolved (a linked bucket has no percent complete) — the tip
@@ -45,7 +46,7 @@ export function ForecastFactsRow({
   // Split into rate/note/arrow by Task 7's `rateFactParts` — the ONE place the
   // `RATE_DRIFT_SIGNAL_RATIO` threshold is checked (controller ruling P13);
   // this component never re-derives the arrow from the raw drift ratio.
-  const rateParts = mix ? rateFactParts(lang, mix) : null;
+  const rateParts = mix ? rateFactParts(lang, mix, currency) : null;
 
   return (
     <div className={`mb-3 grid grid-cols-2 gap-3 ${mix ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-4"}`}>
@@ -67,7 +68,7 @@ export function ForecastFactsRow({
       />
       {mix && rateParts ? (
         <Tile
-          label={<FactLabel lang={lang} term={t(lang, "forecastFactRate")} tip={rateFactTip(lang, mix)} />}
+          label={<FactLabel lang={lang} term={t(lang, "forecastFactRate")} tip={rateFactTip(lang, mix, currency)} />}
           value={
             rateParts.arrow !== null ? (
               <>{rateParts.rate} <span aria-hidden="true">{rateParts.arrow}</span> {rateParts.note}</>

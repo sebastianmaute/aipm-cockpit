@@ -45,6 +45,7 @@ const base = {
   gaps: ["2026-W23"],
   busy: false,
   captureNow: noop, setBaseline: noop, deleteSnapshot: noop, deleteSnapshots: noop as (ids: readonly string[]) => Promise<void>,
+  currency: "EUR" as const,
 };
 
 describe("TrendsPanel", () => {
@@ -207,14 +208,11 @@ describe("TrendsPanel", () => {
   });
 });
 
-// ★ The panel's `currency` is a hardcoded "EUR": what it labels is
-// `remainingCost`, which `buildSnapshot` takes from
-// `model.burndown.actualRemainingValue` — the budget engine's series, built as
-// `budgetHours × role.rates.external` and converted NOWHERE, so the figure is
-// EUR regardless of any project-level currency setting (docs/open-followups.md
-// §465). `SnapshotRecord` no longer carries a `currency` field to mislabel
-// with (§469) and `TrendsPanelProps` never took one, so this test now pins
-// only the label itself, not an absence of a per-snapshot override.
+// ★ The panel's `currency` prop is the project baseline (`plan.currency`,
+// §476): what it labels is `remainingCost`, which `buildSnapshot` takes from
+// the engine's burn-down series — in the baseline — and which `useSnapshots`
+// rebases into the current baseline for a snapshot captured before a switch.
+// `SnapshotRecord` carries no `currency` field of its own (§469).
 describe("TrendsPanel currency labelling", () => {
   it("labels the remaining-cost trend in EUR", () => {
     renderPanel(
@@ -241,6 +239,15 @@ describe("TrendsPanel currency labelling", () => {
     expect(money).toHaveLength(3);
     expect(money.filter((s) => s.includes("$"))).toEqual([]);
     expect(money.every((s) => s.includes("€"))).toBe(true);
+  });
+
+  it("labels the remaining-cost trend in the project baseline when it is not EUR (§476)", () => {
+    renderPanel(<TrendsPanel {...base} currency="GBP" />);
+    const costChart = screen.getByText(/Remaining cost/i).parentElement!;
+    const money = within(costChart).getAllByText(/[€£]/).map((el) => el.textContent ?? "");
+    expect(money).toHaveLength(3);
+    expect(money.filter((s) => s.includes("€"))).toEqual([]);
+    expect(money.every((s) => s.includes("£"))).toBe(true);
   });
 });
 

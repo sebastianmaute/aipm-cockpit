@@ -150,7 +150,7 @@ export function computeBurndownSeries(
       // Chronological order is what makes "cumulative" mean anything.
       const ordered = [...inWindow].sort((x, y) => x.i - y.i);
       let cumActualHours = 0;
-      let cumConsumedEur = 0;
+      let cumConsumed = 0;
       for (const { i, bh, ah, cost } of ordered) {
         const budgetShare = bucketBudgetHours > 0 ? bh / bucketBudgetHours : evenShare;
         budgetV[i] += fixedPriceBase * budgetShare;
@@ -159,9 +159,9 @@ export function computeBurndownSeries(
           continue;
         }
         cumActualHours += ah;
-        const nextConsumedEur = consumedAt(cumActualHours);
-        actualV[i] += nextConsumedEur - cumConsumedEur;
-        cumConsumedEur = nextConsumedEur;
+        const nextConsumed = consumedAt(cumActualHours);
+        actualV[i] += nextConsumed - cumConsumed;
+        cumConsumed = nextConsumed;
       }
       continue;
     }

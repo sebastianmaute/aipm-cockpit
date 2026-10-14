@@ -12,7 +12,7 @@ import { rateMixBannerText } from "./budget-rate-mix-text";
 import { forecastNotices, type ForecastNotice } from "./budget-forecast-notices";
 import { BURN_RATE_WINDOW_WORKING_DAYS, type BudgetForecast } from "./budget-forecast";
 import type { RateMix } from "./budget-rate-mix";
-import type { PlanGranularity } from "./types";
+import type { BudgetCurrency, PlanGranularity } from "./types";
 
 /** Full banner sentence for one notice (§6.1a). */
 export function forecastNoticeText(n: ForecastNotice, lang: Lang, granularity: PlanGranularity): string {
@@ -60,9 +60,11 @@ export function forecastNoticeShortText(n: ForecastNotice, lang: Lang): string {
 }
 
 export function ForecastBanners({
-  lang, forecast, granularity, hours = null, mix = null, onShowMix,
+  lang, currency, forecast, granularity, hours = null, mix = null, onShowMix,
 }: {
   lang: Lang;
+  /** The baseline the money in the rate-mix sentence is in (§476). */
+  currency: BudgetCurrency;
   forecast: BudgetForecast;
   granularity: PlanGranularity;
   hours?: BudgetForecast | null;
@@ -76,7 +78,7 @@ export function ForecastBanners({
   // must account for it.
   const mixBanner = mix && mix.triggered && hours ? (
     <Banner severity={mix.severity === "warning" ? "warn" : "info"} className="flex flex-wrap items-start gap-2">
-      <span className="min-w-0 flex-1">{rateMixBannerText(lang, mix, forecast, hours)}</span>
+      <span className="min-w-0 flex-1">{rateMixBannerText(lang, mix, forecast, hours, currency)}</span>
       {onShowMix ? (
         <Button variant="secondary" size="xs" onClick={onShowMix}>{t(lang, "forecastMixAction")}</Button>
       ) : null}
