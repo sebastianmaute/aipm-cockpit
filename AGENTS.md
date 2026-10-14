@@ -761,7 +761,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   pinned by its own `renderHook` test, and keeps its `useCallback`s on purpose because `clearSettingsSectionRequest` (handed out as
   `sectionProps.onSectionConsumed`) is in the dependency array of settings-view.tsx's request-consuming effect. ★ It returns
   three handlers and three ready prop bags (`workspaceNav`, `classicMenu`, `sectionProps`) that task-manager spreads, never
-  the raw state (its header says more). A twelfth,
+  the raw state (its header says more). ★ `workspaceNav` also carries the Projects panel's
+  `projectFunctionsRequest` (bumped by `openProjectFunctions`, which opens Edit project on its Functions part) and
+  `onProjectFunctionsRequestConsumed`: a null-seeded monotonic nonce the panel clears once it has acted — the
+  remount-swallow shape. A twelfth,
   `use-settings-change-log.ts` (§491), holds the debounced `settings.updated` logger (the hydration and initial-run skips,
   the §160 AI-credit counter it clears rather than decrements, the unmount-only cancel); it is coverage-GATED, pinned by
   its own `renderHook` test, and has no memoization to keep. ★★ It is the one site handed the RAW, actor-less
