@@ -27,9 +27,9 @@ const NO_HOLIDAYS: ReadonlySet<string> = new Set();
  *  behaviour, including that very membership, is pinned in the
  *  "timelogClosedMonth (§699)" describe below, which calls the engine directly. */
 function evaluatePolicyRules(
-  input: Omit<TimelogPolicyInput, "close" | "dailyWindow" | "dailyUsers" | "partial">,
+  input: Omit<TimelogPolicyInput, "close" | "dailyWindow" | "dailyProjects" | "partial">,
 ): TimelogPolicyResult {
-  const res = evaluateTimelogPolicy({ ...input, close: null, dailyWindow: undefined, dailyUsers: undefined, partial: false });
+  const res = evaluateTimelogPolicy({ ...input, close: null, dailyWindow: undefined, dailyProjects: undefined, partial: false });
   return { ...res, evaluated: res.evaluated.filter((r) => r !== "timelogClosedMonth") };
 }
 
@@ -884,9 +884,12 @@ describe("timelogClosedMonth (§699)", () => {
   // and covered with no bookings, so the close saved `{}` for them.
   const CLOSE: TimelogMonthClose = {
     through: "2026-09",
+    projectIds: [9, 12],
     saved: { "2026-09": { "7": { [SEP_12]: 8, [SEP_19]: 4 }, "9": {} } },
   };
   const SEPTEMBER = { from: "2026-09-01", to: "2026-09-30" };
+  /** The project set a project fetch covered, matching `CLOSE.projectIds`. */
+  const PROJECTS = [9, 12] as const;
   const LINKS = [link(7, 40), link(9, 41)];
   /** Ann's roll exactly as it was at the close. */
   const AS_CLOSED = { [dailyKey(7, SEP_12)]: [8, 8, 1], [dailyKey(7, SEP_19)]: [4, 4, 1] } as const;
@@ -903,7 +906,7 @@ describe("timelogClosedMonth (§699)", () => {
       userLinks: LINKS,
       close: CLOSE,
       dailyWindow: SEPTEMBER,
-      dailyUsers: [7, 9],
+      dailyProjects: PROJECTS,
       partial: false,
       ...opts,
     });
@@ -967,9 +970,8 @@ describe("timelogClosedMonth (§699)", () => {
     expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 7, count: 1, netHours: 0.01, worstHours: 0.01 })]);
   });
 
-  // ★★★ A partial or cancelled fetch keeps every requested person in
-  // dailyUsers, fetched or not. Ann has no cells here, so without the guard
-  // both her saved days read as deleted.
+  // ★★★ A partial or cancelled fetch lost a project, or never ran it. Ann has
+  // no cells here, so without the guard both her saved days read as deleted.
   it("a partial roll emits no closed-month violation", () => {
     const res = run({}, { partial: true });
     expect(res.violations).toEqual([]);
@@ -993,7 +995,7 @@ describe("timelogClosedMonth (§699)", () => {
     const res = evaluateTimelogPolicy({
       daily, policy: undefined,
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], shifts: [],
-      userLinks: LINKS, close: CLOSE, dailyWindow: SEPTEMBER, dailyUsers: [7, 9], partial: false,
+      userLinks: LINKS, close: CLOSE, dailyWindow: SEPTEMBER, dailyProjects: PROJECTS, partial: false,
     });
     expect(res.evaluated).toEqual([]);
     expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 9, count: 1 })]);
@@ -1010,21 +1012,44 @@ describe("timelogClosedMonth (§699)", () => {
   it("flags bookings by a person linked after the close", () => {
     const res = run(
       { ...AS_CLOSED, [dailyKey(11, "2026-09-08")]: [5, 5, 1] },
-      { userLinks: [...LINKS, link(11, 42)], dailyUsers: [7, 9, 11] },
+      { userLinks: [...LINKS, link(11, 42)] },
     );
     expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 11, resourceId: 42, count: 1, netHours: 5 })]);
   });
 
   it("does not check an unlinked person's bookings", () => {
-    const res = run({ ...AS_CLOSED, [dailyKey(13, "2026-09-08")]: [5, 5, 1] }, { dailyUsers: [7, 9, 13] });
+    const res = run({ ...AS_CLOSED, [dailyKey(13, "2026-09-08")]: [5, 5, 1] });
     expect(res.violations).toEqual([]);
   });
 
-  // ★★★ A person missing from the fetch must never read as "all deleted".
-  it("skips a saved person absent from dailyUsers", () => {
-    const res = run({}, { dailyUsers: [9] });
+  // ★★★ §699 revision — a complete project fetch returns every booking on its
+  // projects, so a linked person with no cells booked nothing there. Ann's two
+  // saved days are therefore deleted, and `dailyUsers` (empty for a project
+  // fetch, §366) is not consulted at all.
+  it("checks every linked person over a matching project set", () => {
+    const res = run({});
     expect(res.evaluated).toEqual(["timelogClosedMonth"]);
-    expect(res.violations).toEqual([]);
+    expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 7, count: 2, netHours: -12 })]);
+  });
+
+  it("flags a linked person with no saved entry for that month", () => {
+    // Linked after the close: no saved key at all, so every booking counts.
+    const res = run({ ...AS_CLOSED, [dailyKey(11, "2026-09-08")]: [2, 2, 1] }, { userLinks: [...LINKS, link(11, 42)] });
+    expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 11, count: 1, netHours: 2 })]);
+  });
+
+  // ★★★ A different project set covers nothing: its cells say nothing about
+  // the projects the close saved. No violation, and not evaluated, so stored
+  // flags freeze.
+  it("raises nothing and is not evaluated over a different project set", () => {
+    for (const dailyProjects of [[9], [9, 12, 15], undefined, []]) {
+      const res = run({ [dailyKey(7, "2026-09-20")]: [3, 3, 1] }, { dailyProjects });
+      expect(res.violations).toEqual([]);
+      expect(res.evaluated).toEqual([]);
+      expect(res.closedMonthsCovered).toEqual([]);
+    }
+    // Not vacuous: the same roll over the matching set, in any order, is flagged.
+    expect(closedViolations(run({ [dailyKey(7, "2026-09-20")]: [3, 3, 1] }, { dailyProjects: [12, 9] }))).toHaveLength(1);
   });
 
   it("skips a month not fully covered", () => {
@@ -1048,6 +1073,7 @@ describe("timelogClosedMonth (§699)", () => {
   it("reports one violation per person over every covered closed month", () => {
     const close: TimelogMonthClose = {
       through: "2026-10",
+      projectIds: CLOSE.projectIds,
       saved: { ...CLOSE.saved, "2026-10": { "7": {}, "9": {} } },
     };
     const res = run(
@@ -1105,7 +1131,7 @@ describe("timelogClosedMonth (§699)", () => {
       daily: { ...roll({ [dailyKey(7, SEP_12)]: [8, 8, 1] }), "garbage": { hours: 1, maxEntryHours: 1, entryCount: 1 } },
       policy: undefined,
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], shifts: [],
-      userLinks: LINKS, close: CLOSE, dailyWindow: SEPTEMBER, dailyUsers: [7, 9], partial: false,
+      userLinks: LINKS, close: CLOSE, dailyWindow: SEPTEMBER, dailyProjects: PROJECTS, partial: false,
     });
     expect(res.evaluated).toEqual([]);
     expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 7, count: 1, netHours: -4 })]);
@@ -1115,6 +1141,7 @@ describe("timelogClosedMonth (§699)", () => {
 describe("closedMonthCertifies (§699)", () => {
   const CLOSE: TimelogMonthClose = {
     through: "2026-09",
+    projectIds: [9, 12],
     saved: { "2026-09": { "7": { "2026-09-12": 8 } } },
   };
   const BASE = {
@@ -1124,7 +1151,7 @@ describe("closedMonthCertifies (§699)", () => {
     close: CLOSE as TimelogMonthClose | null,
     closedMonthsCovered: ["2026-09"] as readonly string[],
     partial: false,
-    dailyUsers: [7, 9] as readonly number[] | undefined,
+    dailyProjects: [9, 12] as readonly number[] | undefined,
     linkedUsers: [7, 9] as readonly number[],
   };
 
@@ -1133,11 +1160,11 @@ describe("closedMonthCertifies (§699)", () => {
   });
 
   it("is true for close null, whatever else holds", () => {
-    expect(closedMonthCertifies({ ...BASE, close: null, closedMonthsCovered: [], partial: true, dailyUsers: undefined, linkedUsers: [] })).toBe(true);
+    expect(closedMonthCertifies({ ...BASE, close: null, closedMonthsCovered: [], partial: true, dailyProjects: undefined, linkedUsers: [] })).toBe(true);
   });
 
   it("is true for a month after through (reopened), even uncovered", () => {
-    const reopened: TimelogMonthClose = { through: "2026-08", saved: { "2026-08": { "7": {} } } };
+    const reopened: TimelogMonthClose = { through: "2026-08", projectIds: [9, 12], saved: { "2026-08": { "7": {} } } };
     expect(closedMonthCertifies({ ...BASE, close: reopened, closedMonthsCovered: [] })).toBe(true);
   });
 
@@ -1145,9 +1172,13 @@ describe("closedMonthCertifies (§699)", () => {
     expect(closedMonthCertifies({ ...BASE, partial: true })).toBe(false);
   });
 
-  it("is false for a person missing from dailyUsers", () => {
-    expect(closedMonthCertifies({ ...BASE, dailyUsers: [9] })).toBe(false);
-    expect(closedMonthCertifies({ ...BASE, dailyUsers: undefined })).toBe(false);
+  // ★★★ §699 revision — the project-set match replaces the `dailyUsers`
+  // condition. A covered month over a different set certifies nothing.
+  it("is false for a project-set mismatch", () => {
+    expect(closedMonthCertifies({ ...BASE, dailyProjects: [9] })).toBe(false);
+    expect(closedMonthCertifies({ ...BASE, dailyProjects: [9, 12, 15] })).toBe(false);
+    expect(closedMonthCertifies({ ...BASE, dailyProjects: undefined })).toBe(false);
+    expect(closedMonthCertifies({ ...BASE, dailyProjects: [12, 9] })).toBe(true);
   });
 
   it("is false for an unlinked person", () => {
@@ -1167,6 +1198,7 @@ describe("closedMonthCertifies (§699)", () => {
 
   const TWO_MONTHS: TimelogMonthClose = {
     through: "2026-10",
+    projectIds: [9, 12],
     saved: { "2026-09": { "7": {} }, "2026-10": { "7": {} } },
   };
   const SPAN = { ...BASE, close: TWO_MONTHS, first: "2026-09-12", last: "2026-10-03" };

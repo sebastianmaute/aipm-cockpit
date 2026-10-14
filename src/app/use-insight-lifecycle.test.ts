@@ -108,12 +108,14 @@ describe("useInsightLifecycle runner → timelogClosedMonth", () => {
       fetchedAt: "2026-10-04T08:00:00.000Z",
       daily: { [dailyKey(7, "2026-09-12")]: cell(6) },
       dailyWindow: { from: "2026-01-01", to: "2026-10-04" },
-      dailyUsers: [7],
+      // §699 revision — a project-scope entry: nobody in dailyUsers, the project set recorded.
+      dailyUsers: [],
+      dailyProjects: [55],
     });
     const timelogLinks: TimelogLinks = {
       userLinks: [{ timelogUserId: 7, resourceId: 40, manual: true }],
       projectLinks: [],
-      close: { through: "2026-09", saved: { "2026-09": { "7": { "2026-09-12": 8 } } } },
+      close: { through: "2026-09", projectIds: [55], saved: { "2026-09": { "7": { "2026-09-12": 8 } } } },
     };
     const { result } = renderHook(() => {
       const [insights, setInsights] = useState<readonly Insight[] | undefined>([]);

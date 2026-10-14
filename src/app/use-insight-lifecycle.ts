@@ -157,7 +157,9 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         close: timelogLinks?.close ?? null,
         partial: rollPartial,
         dailyWindow: actuals?.dailyWindow,
-        dailyUsers: actuals?.dailyUsers,
+        // §699 — the project set the roll was fetched over; a closed month is
+        // checked only when it equals `close.projectIds`.
+        dailyProjects: actuals?.dailyProjects,
       });
       const detected = detectInsights(
         { ...buildInsightInput(), timelogViolations: policyResult.violations },
@@ -199,6 +201,8 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         // §699 — decided on its own: it is a per-MONTH question, so the generic
         // day-window test below would clear a flag over a month the roll only
         // partly covers. A missing date or user id freezes, as everywhere here.
+        // ★★ It asks the PROJECT scope (`dailyProjects`), never `rollUsers`: the
+        // close is per project set, and a project fetch records nobody.
         if (insight.type === "timelogClosedMonth") {
           const from = insight.data.firstViolationDate;
           const to = insight.data.lastViolationDate;
@@ -211,7 +215,7 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
             close: timelogLinks?.close ?? null,
             closedMonthsCovered: policyResult.closedMonthsCovered,
             partial: rollPartial,
-            dailyUsers: rollUsers,
+            dailyProjects: actuals?.dailyProjects,
             linkedUsers: policyResult.linkedUsers,
           });
         }

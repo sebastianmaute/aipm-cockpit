@@ -250,12 +250,14 @@ describe("isBlankTimelogLinks", () => {
 describe("sanitizeTimelogClose (§699)", () => {
   const VALID = {
     through: "2026-09",
+    projectIds: [9, 12],
     saved: {
       "2026-08": { "7": { "2026-08-03": 8 } },
       "2026-09": { "7": {}, "9": { "2026-09-12": 7.5 } },
     },
   };
-  const withSaved = (saved: unknown, through = "2026-09") => ({ through, saved });
+  const withSaved = (saved: unknown, through = "2026-09") => ({ through, projectIds: [9, 12], saved });
+  const withProjects = (projectIds: unknown) => ({ ...VALID, projectIds });
 
   beforeEach(() => vi.mocked(logDiag).mockClear());
 
@@ -263,6 +265,22 @@ describe("sanitizeTimelogClose (§699)", () => {
     expect(sanitizeTimelogClose(VALID)).toEqual(VALID);
     const out = sanitizeTimelogLinks({ userLinks: [], projectLinks: [], close: VALID });
     expect(out?.close).toEqual(VALID);
+  });
+
+  it("copies projectIds rather than aliasing the raw array", () => {
+    const raw = { ...VALID, projectIds: [9, 12] };
+    const out = sanitizeTimelogClose(raw);
+    expect(out?.projectIds).toEqual([9, 12]);
+    expect(out?.projectIds).not.toBe(raw.projectIds);
+  });
+
+  it("logs the projectIds reason when it drops a close for its project set", () => {
+    sanitizeTimelogClose(withProjects([12, 9]));
+    expect(logDiag).toHaveBeenCalledWith(
+      "warn",
+      "timelog.close-dropped",
+      { reason: "projectIds are not unique ascending positive integers" },
+    );
   });
 
   const bad: Array<[string, unknown]> = [
@@ -277,6 +295,16 @@ describe("sanitizeTimelogClose (§699)", () => {
     ["hours NaN", withSaved({ "2026-09": { "7": { "2026-09-03": NaN } } })],
     ["hours as a string", withSaved({ "2026-09": { "7": { "2026-09-03": "8" } } })],
     ["saved an array", withSaved([])],
+    // §699 revision — the project set the closed months were fetched over.
+    ["projectIds missing", { through: VALID.through, saved: VALID.saved }],
+    ["projectIds empty", withProjects([])],
+    ["projectIds not an array", withProjects(9)],
+    ["projectIds with 0", withProjects([0, 9])],
+    ["projectIds with a negative id", withProjects([-1, 9])],
+    ["projectIds with a fraction", withProjects([9, 12.5])],
+    ["projectIds with a string", withProjects(["9", 12])],
+    ["projectIds duplicated", withProjects([9, 9])],
+    ["projectIds not ascending", withProjects([12, 9])],
   ];
   it.each(bad)("drops the whole close for %s", (_name, close) => {
     expect(sanitizeTimelogClose(close)).toBeUndefined();

@@ -21,7 +21,9 @@ const FULL: ActualsCacheEntry = {
   daily: { "7|2026-08-03": cell(8) },
   dailyWindow: { from: "2026-08-01", to: "2026-10-14" },
   partial: false,
-  dailyUsers: [7],
+  // §699 revision — shaped like the panel's only fetch: project scope, nobody in dailyUsers.
+  dailyUsers: [],
+  dailyProjects: [9],
 };
 const mockCache = (entry: ActualsCacheEntry | undefined) =>
   vi.mocked(loadActualsCache).mockReturnValue(entry);
@@ -41,11 +43,11 @@ function renderPanel(links: TimelogLinks = LINKS) {
 }
 const CLOSE_SEP: TimelogLinks = {
   ...LINKS,
-  close: { through: "2026-09", saved: { "2026-08": { "7": {} }, "2026-09": { "7": {} } } },
+  close: { through: "2026-09", projectIds: [9], saved: { "2026-08": { "7": {} }, "2026-09": { "7": {} } } },
 };
 const CLOSE_AUG_ONLY: TimelogLinks = {
   ...LINKS,
-  close: { through: "2026-08", saved: { "2026-08": { "7": {} } } },
+  close: { through: "2026-08", projectIds: [9], saved: { "2026-08": { "7": {} } } },
 };
 
 describe("TimelogMonthClosePanel", () => {
@@ -67,7 +69,7 @@ describe("TimelogMonthClosePanel", () => {
     ["window-start", { ...FULL, dailyWindow: { from: "2026-09-05", to: "2026-10-14" } }, "The last fetch starts after the 1st of September 2026. Fetch the whole month."],
     ["window-end", { ...FULL, dailyWindow: { from: "2026-08-01", to: "2026-09-20" } }, "The last fetch ends before the end of September 2026. Fetch the whole month."],
     ["partial", { ...FULL, partial: true }, "The last fetch was incomplete. Fetch again."],
-    ["person-missing", { ...FULL, dailyUsers: [9] }, "The last fetch did not include every linked person."],
+    ["no-projects", { ...FULL, dailyProjects: undefined }, "Fetch TimeLog bookings for the project's TimeLog projects first."],
   ];
   it.each(REFUSALS)("explains the %s refusal and disables Close", (_reason, entry, text) => {
     mockCache(entry);
@@ -81,6 +83,35 @@ describe("TimelogMonthClosePanel", () => {
       <TimelogMonthClosePanel lang="en-US" links={CLOSE_AUG_ONLY} onLinksChange={vi.fn()} cacheProjectId="p1" today="2026-09-20" />,
     );
     expect(screen.getByText("September 2026 has not ended yet.")).toBeTruthy();
+  });
+
+  it("explains a fetch over different TimeLog projects and disables Close", () => {
+    mockCache({ ...FULL, dailyProjects: [9, 12] });
+    renderPanel(CLOSE_AUG_ONLY);
+    expect(
+      screen.getByText(
+        "The last fetch covers different TimeLog projects than the closed months. Fetch the same projects, or reopen the closed months.",
+      ),
+    ).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Close September 2026" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("records the fetched project set on the first close", () => {
+    const onChange = renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Close September 2026" }));
+    expect((onChange.mock.calls[0][0] as TimelogLinks).close?.projectIds).toEqual([9]);
+  });
+
+  it("warns about a person missing from an EARLIER saved month, not only the last", () => {
+    mockCache({ ...FULL, users: [{ userId: 9, firstName: "Ann", lastName: "Lee", initials: "AL", email: "", isActive: true }] });
+    // Ann (9) was saved for September but not for August.
+    const links: TimelogLinks = {
+      userLinks: [...LINKS.userLinks, { timelogUserId: 9, resourceId: 2, manual: false }],
+      projectLinks: [],
+      close: { through: "2026-09", projectIds: [9], saved: { "2026-08": { "7": {} }, "2026-09": { "7": {}, "9": {} } } },
+    };
+    renderPanel(links);
+    expect(screen.getByText(/Linked after the close.*Ann Lee/)).toBeTruthy();
   });
 
   it("closes the selected month from a covering cache", () => {

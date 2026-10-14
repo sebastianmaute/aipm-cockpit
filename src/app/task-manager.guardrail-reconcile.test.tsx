@@ -658,9 +658,13 @@ describe("task-manager → timelogClosedMonth", () => {
     ...links,
     userLinks: [{ timelogUserId: 7, resourceId: 40, manual: true }],
     ...(withClose
-      ? { close: { through: "2026-09", saved: { "2026-09": { "7": { "2026-09-12": 8, "2026-09-15": 8 } } } } }
+      ? { close: { through: "2026-09", projectIds: [55], saved: { "2026-09": { "7": { "2026-09-12": 8, "2026-09-15": 8 } } } } }
       : {}),
   });
+  // §699 revision — the cache the panel's only fetch writes: project scope,
+  // nobody in dailyUsers (§366), the project set matching the close's.
+  const seedClosed = (over: Parameters<typeof seedCache>[0] = {}) =>
+    seedCache({ dailyUsers: [], dailyProjects: [55], ...over });
   const closedInsight = acted({
     id: 20,
     key: CLOSED_KEY,
@@ -670,37 +674,37 @@ describe("task-manager → timelogClosedMonth", () => {
   });
 
   it("raises a flag for a late change", async () => {
-    seedCache({ daily: rollChanged });
+    seedClosed({ daily: rollChanged });
     await mountAndReconcile([], closedLinks(true));
     await waitFor(() => expect(cellFor(CLOSED_KEY)[1]).toBe("active"), { timeout: RECONCILE_MS });
   }, TEST_MS);
 
   it("clears after the month is reopened", async () => {
-    seedCache({ daily: rollChanged });
+    seedClosed({ daily: rollChanged });
     await mountAndReconcile([closedInsight], closedLinks(false));
     expectResolved(CLOSED_KEY);
   }, TEST_MS);
 
   it("clears when the change is reverted over a covering roll", async () => {
-    seedCache({ daily: rollUnchanged });
+    seedClosed({ daily: rollUnchanged });
     await mountAndReconcile([closedInsight], closedLinks(true));
     expectResolved(CLOSED_KEY);
   }, TEST_MS);
 
   it("freezes when the window covers the changed days but not the whole month", async () => {
-    seedCache({ daily: rollUnchanged, dailyWindow: { from: "2026-09-12", to: "2026-09-30" } });
+    seedClosed({ daily: rollUnchanged, dailyWindow: { from: "2026-09-12", to: "2026-09-30" } });
     await mountAndReconcile([closedInsight], closedLinks(true));
     expectFrozen(closedInsight);
   }, TEST_MS);
 
   it("freezes on a partial fetch", async () => {
-    seedCache({ daily: rollUnchanged, partial: true });
+    seedClosed({ daily: rollUnchanged, partial: true });
     await mountAndReconcile([closedInsight], closedLinks(true));
     expectFrozen(closedInsight);
   }, TEST_MS);
 
-  it("freezes when the person is missing from dailyUsers", async () => {
-    seedCache({ daily: rollUnchanged, dailyUsers: [8, 9] });
+  it("freezes when the last fetch covered different TimeLog projects", async () => {
+    seedClosed({ daily: rollUnchanged, dailyProjects: [55, 56] });
     await mountAndReconcile([closedInsight], closedLinks(true));
     expectFrozen(closedInsight);
   }, TEST_MS);

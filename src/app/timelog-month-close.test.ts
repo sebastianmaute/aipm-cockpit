@@ -26,12 +26,15 @@ const ROLL: TimelogDailyRoll = {
   "9|2026-09-02": cell(3),
   "11|2026-08-03": cell(5),
 };
+/** §699 revision — shaped like a project fetch: the close reads the PROJECT
+ *  scope, never `dailyUsers` (which a project fetch leaves empty). */
 const CACHE: MonthCloseCache = {
   daily: ROLL,
   dailyWindow: { from: "2026-07-01", to: "2026-09-30" },
   partial: false,
-  dailyUsers: [7, 9, 11],
+  dailyProjects: [9, 12],
 };
+const PROJECTS = [9, 12];
 const TODAY = "2026-10-14";
 
 function close(over: Partial<Parameters<typeof closeNextMonth>[0]> = {}) {
@@ -62,7 +65,7 @@ describe("month arithmetic", () => {
   });
   test("monthToClose is firstMonth without a close, else the month after through", () => {
     expect(monthToClose(undefined, "2026-08")).toBe("2026-08");
-    expect(monthToClose({ through: "2026-08", saved: {} }, "2026-01")).toBe("2026-09");
+    expect(monthToClose({ through: "2026-08", projectIds: PROJECTS, saved: {} }, "2026-01")).toBe("2026-09");
   });
 });
 
@@ -91,11 +94,23 @@ describe("refusals", () => {
   test("partial undefined is accepted", () => {
     expect(close({ cache: { ...CACHE, partial: undefined } }).ok).toBe(true);
   });
-  test("person-missing when a linked id is not in dailyUsers", () => {
-    expect(close({ linkedUserIds: [7, 12] })).toEqual({ ok: false, reason: "person-missing", month: "2026-08" });
+  test("refuses without a project scope", () => {
+    expect(close({ cache: { ...CACHE, dailyProjects: undefined } })).toEqual({ ok: false, reason: "no-projects", month: "2026-08" });
+    expect(close({ cache: { ...CACHE, dailyProjects: [] } })).toEqual({ ok: false, reason: "no-projects", month: "2026-08" });
   });
-  test("person-missing when dailyUsers is undefined", () => {
-    expect(close({ cache: { ...CACHE, dailyUsers: undefined } })).toEqual({ ok: false, reason: "person-missing", month: "2026-08" });
+  test("refuses when the project set changed", () => {
+    const c: TimelogMonthClose = { through: "2026-08", projectIds: [9], saved: { "2026-08": {} } };
+    expect(close({ close: c })).toEqual({ ok: false, reason: "projects-changed", month: "2026-09" });
+    // Not vacuous: the same close over the same set closes.
+    expect(close({ close: { ...c, projectIds: PROJECTS } }).ok).toBe(true);
+  });
+  test("compares the project set as a set, not by order", () => {
+    const c: TimelogMonthClose = { through: "2026-08", projectIds: PROJECTS, saved: { "2026-08": {} } };
+    expect(close({ close: c, cache: { ...CACHE, dailyProjects: [12, 9] } }).ok).toBe(true);
+  });
+  test("a linked person missing from dailyUsers no longer refuses", () => {
+    // A project fetch records nobody in dailyUsers (§366); the close must not read it.
+    expect(close({ linkedUserIds: [7, 12] }).ok).toBe(true);
   });
   test("refusal order: no-roll beats not-ended", () => {
     expect(close({ cache: { ...CACHE, daily: undefined }, today: "2026-08-10" })).toMatchObject({ reason: "no-roll" });
@@ -108,13 +123,18 @@ describe("refusals", () => {
     const cache = { ...CACHE, dailyWindow: { from: "2026-08-02", to: "2026-08-30" } };
     expect(close({ cache })).toMatchObject({ reason: "window-start" });
   });
-  test("refusal order: window-end beats partial and partial beats person-missing", () => {
+  test("refusal order: window-end beats partial and partial beats no-projects", () => {
     const w = { from: "2026-07-01", to: "2026-08-30" };
     expect(close({ cache: { ...CACHE, dailyWindow: w, partial: true } })).toMatchObject({ reason: "window-end" });
-    expect(close({ cache: { ...CACHE, partial: true }, linkedUserIds: [12] })).toMatchObject({ reason: "partial" });
+    expect(close({ cache: { ...CACHE, partial: true, dailyProjects: undefined } })).toMatchObject({ reason: "partial" });
+  });
+  test("refusal order: partial beats projects-changed, no-projects beats projects-changed", () => {
+    const c: TimelogMonthClose = { through: "2026-08", projectIds: [9], saved: { "2026-08": {} } };
+    expect(close({ close: c, cache: { ...CACHE, partial: true } })).toMatchObject({ reason: "partial" });
+    expect(close({ close: c, cache: { ...CACHE, dailyProjects: [] } })).toMatchObject({ reason: "no-projects" });
   });
   test("the refusal month follows through when a close exists", () => {
-    const c: TimelogMonthClose = { through: "2026-08", saved: { "2026-08": {} } };
+    const c: TimelogMonthClose = { through: "2026-08", projectIds: PROJECTS, saved: { "2026-08": {} } };
     expect(close({ close: c, today: "2026-09-30" })).toEqual({ ok: false, reason: "not-ended", month: "2026-09" });
   });
 });
@@ -125,9 +145,19 @@ describe("closeNextMonth", () => {
       ok: true,
       close: {
         through: "2026-08",
+        projectIds: [9, 12],
         saved: { "2026-08": { "7": { "2026-08-03": 8, "2026-08-04": 4.5 }, "9": {} } },
       },
     });
+  });
+  test("the first close records the cache's project set, unique and ascending", () => {
+    const r = close({ cache: { ...CACHE, dailyProjects: [12, 9, 12] } });
+    expect(r.ok && r.close.projectIds).toEqual([9, 12]);
+  });
+  test("a later close keeps the recorded project set", () => {
+    const prior: TimelogMonthClose = { through: "2026-08", projectIds: PROJECTS, saved: { "2026-08": {} } };
+    const r = close({ close: prior, cache: { ...CACHE, dailyProjects: [12, 9] } });
+    expect(r.ok && r.close.projectIds).toEqual([9, 12]);
   });
   test("saves an empty map for a linked person with no bookings", () => {
     const r = close();
@@ -138,12 +168,13 @@ describe("closeNextMonth", () => {
     expect(r.ok && Object.keys(r.close.saved["2026-08"])).toEqual(["7", "9"]);
   });
   test("closes the month after through and keeps earlier months", () => {
-    const prior: TimelogMonthClose = { through: "2026-08", saved: { "2026-08": { "7": { "2026-08-03": 8 }, "9": {} } } };
+    const prior: TimelogMonthClose = { through: "2026-08", projectIds: PROJECTS, saved: { "2026-08": { "7": { "2026-08-03": 8 }, "9": {} } } };
     const r = close({ close: prior, firstMonth: "2020-01" });
     expect(r).toEqual({
       ok: true,
       close: {
         through: "2026-09",
+        projectIds: [9, 12],
         saved: {
           "2026-08": { "7": { "2026-08-03": 8 }, "9": {} },
           "2026-09": { "7": { "2026-09-01": 6 }, "9": { "2026-09-02": 3 } },
@@ -152,7 +183,7 @@ describe("closeNextMonth", () => {
     });
   });
   test("refuses the current month and accepts the day after", () => {
-    const c: TimelogMonthClose = { through: "2026-08", saved: { "2026-08": {} } };
+    const c: TimelogMonthClose = { through: "2026-08", projectIds: PROJECTS, saved: { "2026-08": {} } };
     expect(close({ close: c, today: "2026-09-30" })).toMatchObject({ ok: false, reason: "not-ended" });
     expect(close({ close: c, today: "2026-10-01" }).ok).toBe(true);
   });
@@ -162,11 +193,12 @@ describe("reopenLastMonth", () => {
   test("drops saved[through] and moves through back", () => {
     const c = deepFreeze<TimelogMonthClose>({
       through: "2026-09",
+      projectIds: PROJECTS,
       saved: { "2026-08": { "7": {} }, "2026-09": { "7": { "2026-09-01": 6 } } },
     });
-    expect(reopenLastMonth(c)).toEqual({ through: "2026-08", saved: { "2026-08": { "7": {} } } });
+    expect(reopenLastMonth(c)).toEqual({ through: "2026-08", projectIds: [9, 12], saved: { "2026-08": { "7": {} } } });
   });
   test("returns undefined for a single-month close", () => {
-    expect(reopenLastMonth(deepFreeze({ through: "2026-08", saved: { "2026-08": {} } }))).toBeUndefined();
+    expect(reopenLastMonth(deepFreeze({ through: "2026-08", projectIds: PROJECTS, saved: { "2026-08": {} } }))).toBeUndefined();
   });
 });

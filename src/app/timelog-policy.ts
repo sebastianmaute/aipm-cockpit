@@ -99,11 +99,13 @@ export interface TimelogPolicyInput {
    *  `holidaysReady`: a caller that forgot it would certify every closed
    *  month clean. The rule runs whether or not `policy` is set. */
   readonly close: TimelogMonthClose | null;
-  /** §699 — the window and the people the roll covers. A closed month is
-   *  checked only when the window holds all of it, and a person only when
-   *  they are in `dailyUsers`. */
+  /** §699 — the window and the TimeLog projects the roll covers. A closed
+   *  month is checked only when the window holds all of it and
+   *  `dailyProjects` equals `close.projectIds`; then every linked person is
+   *  checked. A REQUIRED key that may be undefined (project scope unknown,
+   *  which checks nothing). Read only by the closed-month rule. */
   readonly dailyWindow: TimelogRollWindow | undefined;
-  readonly dailyUsers: readonly number[] | undefined;
+  readonly dailyProjects: readonly number[] | undefined;
   /** §699 — REQUIRED: whether the roll is partial, normalised (any non-false
    *  stored value is true). Read only by the closed-month rule; see
    *  `ClosedMonthInput.partial`. */

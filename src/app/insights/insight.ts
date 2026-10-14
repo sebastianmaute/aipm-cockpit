@@ -208,7 +208,8 @@ export const GUARDRAIL_INSIGHT_TYPES: ReadonlySet<InsightType> = new Set<Insight
 /** Slots at `MAX_INSIGHTS` that guardrail rows may never take FIRST.
  *  ★★★ WHY IT EXISTS. Guardrail cardinality is up to 6 × (TimeLog users seen in
  *  a fetch) with no cap in `detect.ts` — `drain` emits one row per (rule, user),
- *  but only for ENABLED rules that actually fired for that user, so 6× is an
+ *  but only for ENABLED rules that actually fired for that user (`timelogClosedMonth`
+ *  has no enable flag: it runs while any month is closed), so 6× is an
  *  upper bound rather than the cardinality. Every guardrail is `medium` while
  *  `overdueTrend` is the app's ONLY `low` detector. Under the comparator that
  *  singleton therefore sorts LAST and loses to every guardrail before ties are

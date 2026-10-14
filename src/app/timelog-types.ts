@@ -39,21 +39,27 @@ export type TimelogFinancialDay = {
 export type TimelogUserLink = { timelogUserId: number; resourceId: number; manual: boolean };
 /** Durable mapping: Timelog project → app budget bucket (null = explicitly unmapped). */
 export type TimelogProjectLink = { timelogProjectId: number; bucketId: number | null; manual: boolean };
-/** Per-project blob persisted on the Workspace (mirror SteeringCommittee).
- *  `customerId` is the TimeLog CustomerID the booking fetch is scoped to
- *  (positive int; absent = unscoped / whole-org per-user fetch). `projectIds`
- *  are the specific TimeLog projects of that customer the user picked to fetch
- *  (positive ints; absent/empty = none selected yet). */
-/** Closed months (§699): the hours each linked person had booked when a month
- *  was closed, kept so a later difference can be flagged. */
+/** Closed months (§699): the hours each linked person had booked on the
+ *  selected TimeLog projects when a month was closed, kept so a later
+ *  difference can be flagged. The close is PER PROJECT SET: a project fetch
+ *  proves every booking on its projects, never a person's whole day. */
 export type TimelogMonthClose = {
   /** "YYYY-MM": the last closed month. Every month up to and including it is closed. */
   through: string;
+  /** The TimeLog project ids the closed months were fetched over: unique,
+   *  positive integers, ascending, non-empty. One set for the whole close; a
+   *  fetch over any other set cannot check it (see `dailyProjects`). */
+  projectIds: number[];
   /** month "YYYY-MM" → TimeLog userId (string key) → day "YYYY-MM-DD" → hours.
    *  A user's map may be `{}`: linked and covered, with no bookings. */
   saved: Record<string, Record<string, Record<string, number>>>;
 };
 
+/** Per-project blob persisted on the Workspace (mirror SteeringCommittee).
+ *  `customerId` is the TimeLog CustomerID the booking fetch is scoped to
+ *  (positive int; absent = unscoped / whole-org per-user fetch). `projectIds`
+ *  are the specific TimeLog projects of that customer the user picked to fetch
+ *  (positive ints; absent/empty = none selected yet). */
 export type TimelogLinks = {
   userLinks: TimelogUserLink[];
   projectLinks: TimelogProjectLink[];

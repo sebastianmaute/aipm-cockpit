@@ -135,10 +135,20 @@ function isDayInMonth(day: string, month: string): boolean {
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
 
+/** §699 revision — the close's project set: non-empty, positive integers,
+ *  strictly ascending (which also makes it unique). Strict rather than
+ *  normalising, because the only writer (`closeNextMonth`) already produces
+ *  this shape, so anything else is a hand edit or corruption. */
+function isProjectIdSet(v: unknown): v is number[] {
+  if (!Array.isArray(v) || v.length === 0) return false;
+  return v.every((n, i) => typeof n === "number" && Number.isInteger(n) && n > 0 && (i === 0 || n > v[i - 1]));
+}
+
 /** Why a `close` is invalid, or null when it is sound. */
 function closeProblem(r: Record<string, unknown>): string | null {
   const through = r.through;
   if (typeof through !== "string" || !MONTH_RE.test(through)) return "through is not a YYYY-MM month";
+  if (!isProjectIdSet(r.projectIds)) return "projectIds are not unique ascending positive integers";
   if (!isRecord(r.saved)) return "saved is not an object";
   for (const [month, users] of Object.entries(r.saved)) {
     if (!MONTH_RE.test(month)) return "a saved month is not a YYYY-MM month";
@@ -169,6 +179,7 @@ export function sanitizeTimelogClose(raw: unknown): TimelogMonthClose | undefine
   }
   return {
     through: raw.through as string,
+    projectIds: [...(raw.projectIds as number[])],
     saved: JSON.parse(JSON.stringify(raw.saved)) as TimelogMonthClose["saved"],
   };
 }

@@ -24,7 +24,8 @@ const REFUSAL_KEY: Record<MonthCloseRefusal, TranslationKey> = {
   "window-start": "timelogCloseRefuseWindowStart",
   "window-end": "timelogCloseRefuseWindowEnd",
   partial: "timelogCloseRefusePartial",
-  "person-missing": "timelogCloseRefusePersonMissing",
+  "no-projects": "timelogCloseRefuseNoProjects",
+  "projects-changed": "timelogCloseRefuseProjectsChanged",
 };
 
 function monthLabel(month: string, lang: Lang): string {
@@ -59,7 +60,7 @@ function attemptClose(
     daily: entry?.daily,
     dailyWindow: entry?.dailyWindow,
     partial: entry?.partial,
-    dailyUsers: entry?.dailyUsers,
+    dailyProjects: entry?.dailyProjects,
   };
   return closeNextMonth({ close, firstMonth, cache, linkedUserIds, today });
 }
@@ -118,8 +119,10 @@ export function TimelogMonthClosePanel({
     }
     return byId;
   }, [cacheProjectId]);
+  // A linked person missing from ANY saved month has no saved copy there, so
+  // every booking of theirs in that month is flagged (§699).
   const linkedLater = close
-    ? linkedUserIds.filter((id) => close.saved[close.through]?.[String(id)] === undefined)
+    ? linkedUserIds.filter((id) => Object.values(close.saved).some((m) => m[String(id)] === undefined))
     : [];
 
   return (

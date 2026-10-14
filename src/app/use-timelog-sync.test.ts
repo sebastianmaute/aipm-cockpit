@@ -23,6 +23,8 @@ import { useTimelogSync } from "./use-timelog-sync";
 import { loadActualsCache } from "./timelog-actuals-store";
 import type { TimelogLinks } from "./timelog-types";
 import { bucketOverlay, type ActualsAggregate } from "./timelog-actuals";
+import { closeNextMonth } from "./timelog-month-close";
+import { evaluateTimelogPolicy } from "./timelog-policy";
 
 const creds = { host: "app2.timelog.com", tenant: "acme", token: "tok" };
 // Persisted links are always MANUAL pins in production (auto-matches are never
@@ -610,4 +612,105 @@ it("resets cacheNotSaved on Clear all", async () => {
   expect(result.current.cacheNotSaved).toBe(true);
   act(() => { result.current.clearAll(); });
   expect(result.current.cacheNotSaved).toBe(false);
+});
+
+// §699 revision — the PROJECT half of the roll's scope claim. A project fetch
+// records the ids it fetched (unique, ascending); a person fetch leaves it
+// absent. It is the same §172 hazard as `daily`: every saver rewrites the
+// entry whole, so each of the three non-fetch savers gets its own case.
+const SEPT = { from: "2026-09-01", to: "2026-09-30" };
+const septItem = (userId: number, hours: number) => ({ ...item(userId, hours), date: "2026-09-10" });
+
+async function mountWithProjectRoll(hours = 4) {
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([
+    { userId: 5, firstName: "Ada", lastName: "L", initials: "AL", email: "a@x.com", isActive: true },
+  ]);
+  (api.listProjectTimeRegistrations as ReturnType<typeof vi.fn>).mockImplementation(
+    async (_creds: unknown, id: number) => (id === 9 ? [septItem(5, hours)] : []),
+  );
+  const h = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await act(async () => { await h.result.current.fetchBookingsForProjects([12, 9, 12], SEPT.from, SEPT.to); });
+  expect(loadActualsCache("p1")?.dailyProjects).toEqual([9, 12]);
+  return h;
+}
+
+it("records the fetched project set on a project fetch and exposes it", async () => {
+  const h = await mountWithProjectRoll();
+  expect(h.result.current.dailyProjects).toEqual([9, 12]);
+  // §366 — a project fetch still certifies no person.
+  expect(loadActualsCache("p1")?.dailyUsers).toEqual([]);
+});
+
+it("keeps dailyProjects when a directory reload rewrites the cache entry", async () => {
+  const h = await mountWithProjectRoll();
+  await act(async () => { await h.result.current.loadDirectory(); });
+  expect(loadActualsCache("p1")?.dailyProjects).toEqual([9, 12]);
+});
+
+it("keeps dailyProjects when a managed-projects reload rewrites the cache entry", async () => {
+  const h = await mountWithProjectRoll();
+  (api.getMe as ReturnType<typeof vi.fn>).mockResolvedValue({ userId: 5 });
+  (api.listManagedProjects as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 9, name: "Acme", no: "P9" }]);
+  await act(async () => { await h.result.current.loadManagedProjects(); });
+  expect(loadActualsCache("p1")?.dailyProjects).toEqual([9, 12]);
+});
+
+it("keeps dailyProjects when removeUsers rewrites the cache entry", async () => {
+  const h = await mountWithProjectRoll();
+  act(() => { h.result.current.removeUsers([5]); });
+  expect(loadActualsCache("p1")?.dailyProjects).toEqual([9, 12]);
+});
+
+it("a person fetch leaves dailyProjects absent, replacing a project fetch's", async () => {
+  const h = await mountWithProjectRoll();
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([septItem(5, 4)]);
+  await act(async () => { await h.result.current.fetchBookings(SEPT.from, SEPT.to); });
+  expect(h.result.current.dailyProjects).toBeUndefined();
+  expect(loadActualsCache("p1")?.dailyProjects).toBeUndefined();
+});
+
+it("clearAll drops dailyProjects with the roll", async () => {
+  const h = await mountWithProjectRoll();
+  act(() => { h.result.current.clearAll(); });
+  expect(h.result.current.dailyProjects).toBeUndefined();
+});
+
+// ★★★ THE TEST WHOSE ABSENCE LET THE ORIGINAL CLOSE SHIP UNUSABLE. The cache is
+// not hand-built: it is exactly what the panel's only fetch writes
+// (`dailyUsers: []`, `dailyProjects` set). A month must close over it, and a
+// later change on the same projects must be flagged.
+it("§699 — a project fetch can be closed and a later change is flagged", async () => {
+  const linked = [{ timelogUserId: 5, resourceId: 2, manual: true }];
+  await mountWithProjectRoll(4);
+  const first = loadActualsCache("p1");
+  const result = closeNextMonth({
+    close: undefined,
+    firstMonth: "2026-09",
+    cache: { daily: first?.daily, dailyWindow: first?.dailyWindow, partial: first?.partial, dailyProjects: first?.dailyProjects },
+    linkedUserIds: [5],
+    today: "2026-10-14",
+  });
+  expect(result).toEqual({
+    ok: true,
+    close: { through: "2026-09", projectIds: [9, 12], saved: { "2026-09": { "5": { "2026-09-10": 4 } } } },
+  });
+  if (!result.ok) return;
+
+  await mountWithProjectRoll(6);
+  const later = loadActualsCache("p1");
+  const res = evaluateTimelogPolicy({
+    daily: later?.daily ?? null,
+    policy: undefined,
+    holidaySet: new Set<string>(), holidaysReady: true, userLinks: linked, shifts: [], absences: [], resources: [],
+    close: result.close,
+    dailyWindow: later?.dailyWindow,
+    dailyProjects: later?.dailyProjects,
+    partial: later?.partial === true,
+  });
+  expect(res.evaluated).toContain("timelogClosedMonth");
+  expect(res.violations).toEqual([expect.objectContaining({
+    rule: "timelogClosedMonth", timelogUserId: 5, count: 1, netHours: 2,
+    firstViolationDate: "2026-09-10", lastViolationDate: "2026-09-10",
+  })]);
 });

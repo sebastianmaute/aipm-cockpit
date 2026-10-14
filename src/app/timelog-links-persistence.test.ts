@@ -18,6 +18,7 @@ const SAMPLE_LINKS: TimelogLinks = {
 
 const SAMPLE_CLOSE: TimelogMonthClose = {
   through: "2026-09",
+  projectIds: [9, 12],
   saved: {
     "2026-08": { "7": { "2026-08-03": 8 } },
     "2026-09": { "7": {}, "9": { "2026-09-12": 7.5 } },
