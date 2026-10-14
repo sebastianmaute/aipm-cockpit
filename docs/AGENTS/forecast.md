@@ -202,24 +202,19 @@ only the empty state.
 
 The engine runs on the main thread, in the panel's render-time `useMemo`, on every input change. There
 is no worker. Measured 2026-10-14 in Node through `vite-node`, on `sample-workspace-huge.json` (repo
-root: 270 tasks, 100 open, 60 milestones), the default window 60 and `today` 2026-10-14. "Before" is the
-engine as it stood before the early exits (commit a9d7dee87), run in the same process as "after", alternating,
-median of 7 runs after one warm-up, on a shared machine. "After" was re-measured separately at
-10,000 trials in every case (median of 5, one warm-up), so the two columns are not from one process. It
-is a probe, not a benchmark gate:
+root: 270 tasks, 100 open, 60 milestones), the default window 60 and `today` 2026-10-14, at 10,000
+trials, median of 5 runs after one warm-up, on a shared machine. It is a probe, not a benchmark gate:
 
-| Case | Before | After (10,000 trials) |
-|---|---|---|
-| Default call (How-many target 2026-11-01) | 21 ms | 29 ms |
-| How-many target at the horizon (`lastForecastableDay`) | 36 ms | 50 ms |
-| Capacity 10 % + scope +500 % + horizon target | 453 ms | 597 ms |
-| The same, plus one milestone dated at the horizon | 1,251 ms | 595 ms |
+| Case | Time |
+|---|---|
+| Default call (How-many target 2026-11-01) | 29 ms |
+| How-many target at the horizon (`lastForecastableDay`) | 50 ms |
+| Capacity 10 % + scope +500 % + horizon target | 597 ms |
+| The same, plus one milestone dated at the horizon | 595 ms |
 
-The early exits changed the results of none of these (identical digests). The small cases and the third
-read higher than "Before" on this run; the machine was shared and the columns come from different
-processes, so treat differences under about 50 % as noise. The milestone at the horizon at ordinary
-capacity (300 %) went from about 810 ms to about 30 ms, because every trial now stops once that
-milestone is reached.
+The early exits (commit 28dda4652) change no result: at the same trial count the engine before and after
+them gave identical result digests in every case. No before/after timing is quoted: the only "before"
+figures were taken in a different process on a shared machine and cannot be compared with these.
 
 ★★ **The What-if extremes miss the ~150 ms target, at about 600 ms, and that is accepted.** At 10 % capacity no
 trial reaches a +500 % backlog, so When walks most of the 1,300-day horizon before `beyond` is certain,
