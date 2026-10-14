@@ -36,9 +36,14 @@ const isNumber = (p: Prop): boolean => {
 function collectNumberArgs(properties: Record<string, Prop>, found: Set<string>): void {
   for (const [arg, prop] of Object.entries(properties)) {
     if (isNumber(prop)) found.add(arg);
-    if (prop.properties) collectNumberArgs(prop.properties, found);
-    if (prop.items?.properties) collectNumberArgs(prop.items.properties, found);
+    collectNested(prop, found);
   }
+}
+
+/** Descends into an object's properties and through array `items` at any nesting. */
+function collectNested(prop: Prop, found: Set<string>): void {
+  if (prop.properties) collectNumberArgs(prop.properties, found);
+  if (prop.items) collectNested(prop.items, found);
 }
 
 /** Every number-typed (or number-array) argument of every `ALLOWED_REC_TOOLS` tool. */
@@ -83,10 +88,11 @@ describe("REC_MONEY_ARGS (§476)", () => {
         properties: {
           lines: { type: "array", items: { type: "object", properties: { unitPrice: { type: "number" } } } },
           meta: { type: "object", properties: { fee: { type: "number" } } },
+          grid: { type: "array", items: { type: "array", items: { type: "object", properties: { rate: { type: "number" } } } } },
         },
       },
     };
-    expect(unclassified(numberArgsOfAllowedTools([...defs, fake]))).toEqual(["fee", "unitPrice"]);
+    expect(unclassified(numberArgsOfAllowedTools([...defs, fake]))).toEqual(["fee", "rate", "unitPrice"]);
   });
 });
 
@@ -107,6 +113,14 @@ describe("recommendationPredatesSwitch (§476)", () => {
   it("a history SHORTER than the stamp is refused: the denomination it was made in is unknown", () => {
     expect(recommendationPredatesSwitch(rec({ id: 1, costImpact: 10 }, 2), [sw("2026-09-03")])).toBe(true);
     expect(recommendationPredatesSwitch(rec({ id: 1, costImpact: 10 }, 1), [])).toBe(true);
+  });
+
+  it("an equal-length history whose last entry differs from the stamp is refused: it was replaced and regrown", () => {
+    const r = { ...rec({ id: 1, costImpact: 10 }, 1), historyLastAt: "2026-09-03T10:00:00.000Z" };
+    expect(recommendationPredatesSwitch(r, [sw("2026-09-03")])).toBe(false);
+    expect(recommendationPredatesSwitch(r, [sw("2026-09-07")])).toBe(true);
+    // A length-only stamp (an earlier build of this feature) keeps the length rule alone.
+    expect(recommendationPredatesSwitch(rec({ id: 1, costImpact: 10 }, 1), [sw("2026-09-07")])).toBe(false);
   });
 
   it("a money argument nested in an object or array argument counts", () => {

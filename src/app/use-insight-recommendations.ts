@@ -243,9 +243,10 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // §476 — the baseline-history length rides the same snapshot, so a switch made while the
   // model was answering still counts as AFTER the recommendation (`recommendationPredatesSwitch`).
   const historyLength = baselineHistory.length;
+  const historyLastAt = baselineHistory[historyLength - 1]?.at;
   const snapshotEntities = useCallback(
-    (): RecommendSnapshot => ({ tasks, raid, changes, milestones, stakeholders, historyLength }),
-    [tasks, raid, changes, milestones, stakeholders, historyLength],
+    (): RecommendSnapshot => ({ tasks, raid, changes, milestones, stakeholders, historyLength, historyLastAt }),
+    [tasks, raid, changes, milestones, stakeholders, historyLength, historyLastAt],
   );
   const applyInsightRecommendation = useCallback(
     (id: number, rec: InsightRecommendation, snapshot?: RecommendSnapshot) => {
@@ -256,13 +257,18 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       // §350 — stamp from the PROMPT-TIME snapshot both generators hand in, so an
       // edit made while the model was answering reads as a change and the confirm
       // refuses. The live arrays are the fallback for a caller that passed none.
+      // §476 — both history stamps come from ONE source: the snapshot when given, else the live
+      // values. Mixing them would pair a prompt-time length with a later last entry.
+      const historyStamp = snapshot ?? { historyLength, historyLastAt };
+      const lastAt = historyStamp.historyLastAt;
       const stamped = {
         ...stampRecommendationTokens(rec, snapshot ?? { tasks, raid, changes, milestones, stakeholders }),
-        historyLength: snapshot?.historyLength ?? historyLength,
+        historyLength: historyStamp.historyLength ?? historyLength,
+        ...(lastAt !== undefined ? { historyLastAt: lastAt } : {}),
       };
       setInsights((prev) => (prev ?? []).map((i) => (i.id === id ? { ...i, recommendation: stamped } : i)));
     },
-    [setInsights, tasks, raid, changes, milestones, stakeholders, loadPending, historyLength],
+    [setInsights, tasks, raid, changes, milestones, stakeholders, loadPending, historyLength, historyLastAt],
   );
   const {
     generatingId: insightGeneratingId,

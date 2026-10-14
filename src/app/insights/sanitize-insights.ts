@@ -83,6 +83,8 @@ function sanitizeRecommendation(v: unknown): InsightRecommendation | undefined {
     typeof o.historyLength === "number" && Number.isSafeInteger(o.historyLength) && o.historyLength >= 0
       ? o.historyLength
       : undefined;
+  // §476: the `at` of the history's last entry at generation — a non-empty string, else dropped.
+  const historyLastAt = isoOr(o.historyLastAt, "");
   return {
     summary,
     proposedCalls: calls,
@@ -92,6 +94,7 @@ function sanitizeRecommendation(v: unknown): InsightRecommendation | undefined {
     ...(appliedAt ? { appliedAt } : {}),
     ...(refusedCalls !== undefined ? { refusedCalls } : {}),
     ...(historyLength !== undefined ? { historyLength } : {}),
+    ...(historyLastAt ? { historyLastAt } : {}),
   };
 }
 /** Numeric coercion for persisted metric values. An EMPTY/whitespace string must

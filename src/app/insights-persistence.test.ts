@@ -160,17 +160,21 @@ describe("insights — recommendation.historyLength survives the codecs (§476)"
         generatedAt: "2026-07-10",
         status: "proposed",
         historyLength: 2,
+        historyLastAt: "2026-09-03T10:00:00.000Z",
       },
     },
   ];
   const ws = () => ({ ...emptyWorkspace(), insights: STAMPED });
   it("JSON", () => {
     expect(jsonToWorkspace(workspaceToJson(ws())).insights?.[0].recommendation?.historyLength).toBe(2);
+    expect(jsonToWorkspace(workspaceToJson(ws())).insights?.[0].recommendation?.historyLastAt).toBe("2026-09-03T10:00:00.000Z");
   });
   it("CSV (storage path)", () => {
     expect(csvToWorkspace(workspaceToCsv(ws())).insights?.[0].recommendation?.historyLength).toBe(2);
+    expect(csvToWorkspace(workspaceToCsv(ws())).insights?.[0].recommendation?.historyLastAt).toBe("2026-09-03T10:00:00.000Z");
   });
   it("Markdown (storage path)", () => {
     expect(markdownToWorkspace(workspaceToMarkdown(ws())).insights?.[0].recommendation?.historyLength).toBe(2);
+    expect(markdownToWorkspace(workspaceToMarkdown(ws())).insights?.[0].recommendation?.historyLastAt).toBe("2026-09-03T10:00:00.000Z");
   });
 });

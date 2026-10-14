@@ -96,6 +96,11 @@ export interface InsightRecommendation {
    *  A longer history at apply means a currency switch since, and a money call is refused
    *  (`recommendationPredatesSwitch`). Absent on one made by an older build. */
   readonly historyLength?: number;
+  /** §476: the `at` of the history's LAST entry when the prompt was built, beside
+   *  `historyLength`: a length alone cannot tell a history that was replaced and grew back to
+   *  the same length from the one the recommendation saw. Absent when the history was empty,
+   *  and on one made by an older build. */
+  readonly historyLastAt?: string;
 }
 
 export const INSIGHT_OUTCOME_DIRECTIONS = ["improved", "unchanged", "worsened"] as const;
@@ -172,9 +177,11 @@ export const REC_MONEY_ARGS: readonly string[] = ["costImpact"];
  *  generated, so those amounts are in the old currency. "After" is decided by the history
  *  LENGTH stamped at generation (`historyLength`): a switch only appends, so a longer history
  *  means a later switch; a SHORTER one means the history was replaced since, and the currency
- *  the amounts were written in is unknown, so it is refused too. Never by `generatedAt`, which
- *  is a DAY — a recommendation regenerated on the day of a switch, as the refusal asks, would be
- *  refused for the rest of that day. A money argument counts at any depth of a call's input.
+ *  the amounts were written in is unknown, so it is refused too. An equal length whose last
+ *  entry's `at` differs from the stamped `historyLastAt` was replaced and regrown, and is
+ *  refused as well (a stamp without `historyLastAt` keeps the length rule alone). Never by
+ *  `generatedAt`, which is a DAY — a recommendation regenerated on the day of a switch, as the
+ *  refusal asks, would be refused for the rest of that day. A money argument counts at any depth of a call's input.
  *  An UNSTAMPED recommendation (an older build) is refused once the history holds any switch
  *  (an entry with `perPrevious`; the creation entry converts nothing and is not one). */
 export function recommendationPredatesSwitch(
@@ -182,7 +189,10 @@ export function recommendationPredatesSwitch(
   history: readonly BaselineEntry[],
 ): boolean {
   if (!rec.proposedCalls.some((c) => carriesMoney(c.input))) return false;
-  if (rec.historyLength !== undefined) return history.length !== rec.historyLength;
+  if (rec.historyLength !== undefined) {
+    if (history.length !== rec.historyLength) return true;
+    return rec.historyLastAt !== undefined && history[history.length - 1]?.at !== rec.historyLastAt;
+  }
   return history.some((e) => e.perPrevious !== undefined);
 }
 

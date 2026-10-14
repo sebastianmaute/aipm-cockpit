@@ -4780,7 +4780,7 @@ export const de: Record<TranslationKey, string> = {
   insightRecommendationApplyFailed: "Einige Änderungen dieser Empfehlung konnten nicht angewendet werden.",
   insightRecommendationAllRejected: "Nicht übernommen — jede Änderung in dieser Empfehlung wurde abgelehnt.",
   insightRecommendationStale: "Diese Empfehlung wurde nicht angewendet — die Projektdaten haben sich seit der Erstellung geändert. Erstellen Sie eine neue Empfehlung.",
-  insightRecommendationCurrencyChanged: "Diese Empfehlung wurde nicht angewendet — die Projektwährung wurde seit der Erstellung umgestellt, ihre Beträge sind also in der alten Währung. Erstellen Sie eine neue Empfehlung.",
+  insightRecommendationCurrencyChanged: "Diese Empfehlung wurde nicht angewendet — der Währungsverlauf des Projekts hat sich seit der Erstellung geändert, ihre Beträge können also in einer anderen Währung sein. Erstellen Sie eine neue Empfehlung.",
   insightRecommendationStalePartial: "Einige Änderungen wurden nicht angewendet — die Projektdaten haben sich seit der Erstellung dieser Empfehlung geändert. Erstellen Sie für den Rest eine neue Empfehlung.",
   insightRecommendationSkippedFields: "Übersprungen: {0}",
   insightRecommendationGenerating: "Wird erstellt…",

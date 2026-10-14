@@ -572,6 +572,7 @@ describe("a pre-switch recommendation carrying money is refused after a currency
     const { result } = renderHook(() => useInsightRecommendations(mkDeps({ insights: store.read(), setInsights: store.setInsights, baselineHistory: [CREATION, SWITCH] })));
     await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
     expect(store.read()[0].recommendation?.historyLength).toBe(2);
+    expect(store.read()[0].recommendation?.historyLastAt).toBe(SWITCH.at);
   });
 
   // Driven through the BACKGROUND RUNNER on purpose, like the §350 token test above: it reads the
@@ -598,5 +599,6 @@ describe("a pre-switch recommendation carrying money is refused after a currency
     await act(async () => { answer(mkRec({ id: 42, status: "In Progress" })); });
     expect(store.read()[0].recommendation, "no recommendation was stored").toBeDefined();
     expect(store.read()[0].recommendation?.historyLength).toBe(1);
+    expect(store.read()[0].recommendation?.historyLastAt).toBe(CREATION.at);
   });
 });

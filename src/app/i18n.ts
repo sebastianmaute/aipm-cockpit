@@ -5061,7 +5061,7 @@ const enUS = {
   insightRecommendationApplyFailed: "Some changes in this recommendation couldn't be applied.",
   insightRecommendationAllRejected: "Not applied — every change in this recommendation was rejected.",
   insightRecommendationStale: "This recommendation wasn't applied — the project data changed since it was generated. Generate a new one.",
-  insightRecommendationCurrencyChanged: "This recommendation wasn't applied — the project currency changed since it was generated, so its amounts are in the old currency. Generate a new one.",
+  insightRecommendationCurrencyChanged: "This recommendation wasn't applied — the project's currency history changed since it was generated, so its amounts may be in a different currency. Generate a new one.",
   insightRecommendationStalePartial: "Some changes weren't applied — the project data changed since this recommendation was generated. Generate a new one for the rest.",
   insightRecommendationSkippedFields: "Skipped: {0}",
   insightRecommendationGenerating: "Generating…",

@@ -332,6 +332,7 @@ function recommendationEqual(
     a.refusedCalls === b.refusedCalls &&
     // §476: persisted, and it decides whether a money call may still be applied.
     a.historyLength === b.historyLength &&
+    a.historyLastAt === b.historyLastAt &&
     toolCallsEqual(a.proposedCalls, b.proposedCalls)
   );
 }

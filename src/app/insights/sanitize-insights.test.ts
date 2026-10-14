@@ -305,6 +305,28 @@ describe("sanitizeInsights — loggedRaidId (§515)", () => {
   });
 });
 
+describe("sanitizeInsights — recommendation.historyLastAt (§476)", () => {
+  const raw = (historyLastAt: unknown) => ({
+    id: 1, key: "k", type: "overdueTrend", severity: "low", status: "active", data: {},
+    firstSeenAt: "2026-01-01", lastSeenAt: "2026-01-01", occurrences: 1,
+    recommendation: {
+      summary: "s", status: "proposed", generatedAt: "2026-01-01",
+      proposedCalls: [{ name: "update_task", input: { id: 1 } }],
+      historyLength: 1, historyLastAt,
+    },
+  });
+  test("keeps a non-empty string", () => {
+    expect(sanitizeInsights([raw("2026-09-03T10:00:00.000Z")])[0]?.recommendation?.historyLastAt).toBe("2026-09-03T10:00:00.000Z");
+  });
+  test("drops anything else and omits the key, keeping the recommendation", () => {
+    for (const v of ["", "  ", 5, null, undefined, {}]) {
+      const rec = sanitizeInsights([raw(v)])[0]?.recommendation;
+      expect(rec?.historyLength).toBe(1);
+      expect(rec && "historyLastAt" in rec).toBe(false);
+    }
+  });
+});
+
 describe("sanitizeInsights — recommendation.historyLength (§476)", () => {
   const raw = (historyLength: unknown) => ({
     id: 1, key: "k", type: "overdueTrend", severity: "low", status: "active", data: {},
