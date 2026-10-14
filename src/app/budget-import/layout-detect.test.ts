@@ -1,0 +1,993 @@
+import { describe, expect, it } from "vitest";
+import { gridToForecastRows } from "./forecast-rows";
+import { DETECTION_SAMPLE_ROWS, detectLayout, questionsFor } from "./layout-detect";
+import { parseDelimited } from "./sheet-grid";
+
+const GERMAN_WIDE = [
+  ["Name", "Jan 2026", "Feb 2026", "Gesamt"],
+  ["Ann", "1.234,5", "0", ""],
+  ["Gesamt", "1.234,5", "0", ""],
+];
+
+describe("detectLayout — wide", () => {
+  it("maps the German wide grid: Gesamt is no period column", () => {
+    const out = detectLayout(GERMAN_WIDE);
+    expect(out.kind).toBe("wide");
+    expect(out.mapping).toEqual({ layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2] });
+  });
+
+  it("agrees with gridToForecastRows end to end", () => {
+    const { mapping } = detectLayout(GERMAN_WIDE);
+    expect(mapping).not.toBeNull();
+    const out = gridToForecastRows(GERMAN_WIDE, mapping!, "S");
+    expect(out.rows).toEqual([
+      { person: "Ann", period: "2026-01", hours: 1234.5, source: "S!B2" },
+      { person: "Ann", period: "2026-02", hours: 0, source: "S!C2" },
+    ]);
+    expect(out.dropped).toEqual([{ row: 3, reason: "total" }]);
+  });
+
+  it("reads a workbook's stored numbers with a dot, so 2.625 does not unseat the hours", () => {
+    const grid = [
+      ["Name", "Jan 2026", "Feb 2026", "Mar 2026"],
+      ["Ann", "7.5", "2.625", "40"],
+      ["Bob", "37.5", "12", "8"],
+    ];
+    expect(detectLayout(grid, { numbers: "dot" }).mapping).toEqual({
+      layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2, 3],
+    });
+    // The same cells from a CSV read German, and two of six are not numbers.
+    expect(detectLayout(grid).kind).toBe("unknown");
+  });
+
+  // Reviewer probe (§500 final review): "Mrz" is how a German Excel abbreviates
+  // March, and an unknown month header silently dropped the month.
+  it("reads a German CSV whose March is \"Mrz 26\"", () => {
+    const grid = parseDelimited("Mitarbeiter;Jan 26;Feb 26;Mrz 26;Apr 26\r\nAnn;1;2;3;4\r\n");
+    const { mapping } = detectLayout(grid);
+    expect(mapping?.periodCols).toEqual([1, 2, 3, 4]);
+    expect(gridToForecastRows(grid, mapping!, "S").rows.map((r) => r.period)).toEqual([
+      "2026-01", "2026-02", "2026-03", "2026-04",
+    ]);
+  });
+
+  it("reads month headers without a year under a default year, and only then", () => {
+    const grid = [["Name", "Jan", "Feb", "Mär"], ["Ann", "10", "20", "30"]];
+    const out = detectLayout(grid, { defaultYear: 2026 });
+    expect(out.kind).toBe("wide");
+    expect(out.mapping).toEqual({ layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2, 3], year: 2026 });
+    expect(gridToForecastRows(grid, out.mapping!, "S").rows.map((r) => r.period)).toEqual([
+      "2026-01", "2026-02", "2026-03",
+    ]);
+    expect(detectLayout(grid)).toEqual({ kind: "unknown", mapping: null, ambiguous: [] });
+  });
+
+  it("reads a long sheet of year-less months under a default year", () => {
+    const grid = [["Name", "Monat", "Stunden"], ["Ann", "Jan", "4"], ["Ann", "Feb", "5"]];
+    expect(detectLayout(grid, { defaultYear: 2026 }).mapping).toEqual({
+      layout: "long", headerRow: 0, person: 0, period: 1, hours: 2, year: 2026,
+    });
+  });
+
+  it("finds the header below a title row and a blank row", () => {
+    const grid = [
+      ["Forecast Q1"],
+      [],
+      ["Name", "Jan 2026", "Feb 2026", "Mar 2026"],
+      ["Ann", "10", "20", "30"],
+    ];
+    const out = detectLayout(grid);
+    expect(out.kind).toBe("wide");
+    expect(out.mapping).toEqual({ layout: "wide", headerRow: 2, person: 0, periodCols: [1, 2, 3] });
+  });
+
+  it("maps email and rate columns left of the periods, person being the text column", () => {
+    const grid = [
+      ["Email", "Resource", "Rate (EUR/h)", "2026-01", "2026-02", "2026-03", "Total"],
+      ["ann@x.de", "Ann", "95", "10", "20", "30", "60"],
+      ["bob@x.de", "Bob", "85", "5", "5", "5", "15"],
+      ["", "Total", "", "15", "25", "35", "75"],
+    ];
+    expect(detectLayout(grid).mapping).toEqual({
+      layout: "wide",
+      headerRow: 0,
+      person: 1,
+      email: 0,
+      rate: 2,
+      periodCols: [3, 4, 5],
+    });
+  });
+
+  it("detects an email column by its data when the header does not say so", () => {
+    const grid = [
+      ["Who", "Contact", "Jan 2026", "Feb 2026", "Mar 2026"],
+      ["Ann", "ann@x.de", "1", "2", "3"],
+      ["Bob", "bob@x.de", "1", "2", "3"],
+    ];
+    expect(detectLayout(grid).mapping).toMatchObject({ person: 0, email: 1, periodCols: [2, 3, 4] });
+  });
+
+  it("skips a numeric id column when choosing the person column", () => {
+    const grid = [
+      ["No.", "Name", "KW01 2026", "KW02 2026", "KW03 2026"],
+      ["101", "Ann", "8", "8", "8"],
+      ["102", "Bob", "8", "8", "8"],
+      ["", "Summe", "16", "16", "16"],
+    ];
+    expect(detectLayout(grid).mapping).toMatchObject({
+      layout: "wide",
+      person: 1,
+      periodCols: [2, 3, 4],
+    });
+  });
+
+  it("does not let a total row's numbers or text decide the person column", () => {
+    const grid = [
+      ["Id", "Name", "Jan 2026", "Feb 2026", "Mar 2026"],
+      ["1", "Ann", "1", "1", "1"],
+      ["Total", "Total", "1", "1", "1"],
+    ];
+    expect(detectLayout(grid).mapping?.person).toBe(1);
+  });
+
+  it("copes with ragged rows", () => {
+    const grid = [["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Ann", "1"], [], ["Bob"]];
+    expect(detectLayout(grid).mapping).toMatchObject({ person: 0, periodCols: [1, 2, 3] });
+  });
+
+  it("is unknown when no column left of the periods is text", () => {
+    const grid = [["Jan 2026", "Feb 2026", "Mar 2026"], ["1", "2", "3"]];
+    expect(detectLayout(grid)).toEqual({ kind: "unknown", mapping: null, ambiguous: [] });
+  });
+});
+
+describe("detectLayout — long", () => {
+  it("maps email / period / hours / rate", () => {
+    const grid = [
+      ["Email", "Month", "Hours", "Rate"],
+      ["a@x.de", "2026-01", "80", "95"],
+      ["a@x.de", "2026-02", "72", "95"],
+      ["b@x.de", "2026-01", "40", "85"],
+    ];
+    const out = detectLayout(grid);
+    expect(out.kind).toBe("long");
+    expect(out.mapping).toEqual({
+      layout: "long",
+      headerRow: 0,
+      person: 0,
+      email: 0,
+      period: 1,
+      hours: 2,
+      rate: 3,
+    });
+  });
+
+  it("agrees with gridToForecastRows end to end", () => {
+    const grid = [
+      ["Name", "Monat", "Stunden"],
+      ["Ann", "Jan 2026", "1.234,5"],
+      ["Ann", "Feb 2026", "80"],
+    ];
+    const { mapping } = detectLayout(grid);
+    expect(mapping).toEqual({ layout: "long", headerRow: 0, person: 0, period: 1, hours: 2 });
+    const out = gridToForecastRows(grid, mapping!, "S");
+    expect(out.rows.map((r) => [r.person, r.period, r.hours])).toEqual([
+      ["Ann", "2026-01", 1234.5],
+      ["Ann", "2026-02", 80],
+    ]);
+  });
+
+  // Fix 8: two number columns always ask. Round 9 I-D: the hours word ranks
+  // first again (Hrs); round 8 had preselected the leftmost (Cost).
+  it("preselects the hours-word column of two numeric columns, and asks", () => {
+    const grid = [
+      ["Name", "Month", "Cost", "Hrs"],
+      ["Ann", "2026-01", "7600", "80"],
+      ["Ann", "2026-02", "6840", "72"],
+    ];
+    expect(detectLayout(grid)).toMatchObject({ mapping: { period: 1, hours: 3 }, ambiguous: [{ field: "hours", candidates: [2, 3] }] });
+  });
+
+  // Fix 7: the rightmost pick of final review I3 imported the constant,
+  // rate-like 95 here. The leftmost is the default again, and the choice is
+  // left to the user (`ambiguous`).
+  it("takes the first numeric column as hours when no header says so, and asks", () => {
+    const grid = [
+      ["Name", "Month", "A", "B"],
+      ["Ann", "2026-01", "80", "95"],
+      ["Ann", "2026-02", "72", "95"],
+    ];
+    const detected = detectLayout(grid);
+    expect(detected.mapping).toMatchObject({ period: 1, hours: 2 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  it("prefers a period-looking header when two columns parse as periods", () => {
+    const grid = [
+      ["Name", "Start", "Month", "Hours"],
+      ["Ann", "2026-01-01", "2026-01", "80"],
+      ["Ann", "2026-02-01", "2026-02", "72"],
+    ];
+    expect(detectLayout(grid).mapping).toMatchObject({ period: 2, hours: 3 });
+  });
+
+  // Round 9 I-D: Hours (the hours word) is preselected again; round 8 took Budget.
+  // The hours ask either way; the period is Month.
+  it("does not mistake a column of large numbers for the period column", () => {
+    const grid = [
+      ["Name", "Budget", "Month", "Hours"],
+      ["Ann", "25000", "Jan 2026", "80"],
+      ["Bob", "30000", "Jan 2026", "72"],
+    ];
+    expect(detectLayout(grid)).toMatchObject({ mapping: { period: 2, hours: 3 }, ambiguous: [{ field: "hours", candidates: [1, 3] }] });
+  });
+
+  it("finds the header below a title row and ignores a total row", () => {
+    const grid = [
+      ["Forecast"],
+      ["Name", "Month", "Hours"],
+      ["Ann", "2026-01", "80"],
+      ["Ann", "2026-02", "72"],
+      ["Total", "", "152"],
+    ];
+    expect(detectLayout(grid).mapping).toMatchObject({ headerRow: 1, person: 0, period: 1, hours: 2 });
+  });
+
+  it("tolerates one bad period cell out of ten", () => {
+    const body = Array.from({ length: 9 }, (_, i) => ["Ann", `2026-0${i + 1}`, "10"]);
+    const grid = [["Name", "Month", "Hours"], ...body, ["Ann", "soon", "10"]];
+    expect(detectLayout(grid).kind).toBe("long");
+  });
+
+  /** A header, then 8 good rows, with one unparseable period cell put at `badAt` (1-based data row). */
+  const withBadPeriod = (badAt: number, bad: string): string[][] => {
+    const body = Array.from({ length: 8 }, (_, i) => ["Ann", `2026-0${i + 1}`, "10"]);
+    body.splice(badAt - 1, 1, ["Ann", bad, "10"]);
+    return [["Name", "Month", "Hours"], ...body];
+  };
+
+  it("never takes a data row as the header: a bad period at data row 3 keeps headerRow 0", () => {
+    const grid = withBadPeriod(3, "soon");
+    const { mapping } = detectLayout(grid);
+    expect(mapping).toMatchObject({ layout: "long", headerRow: 0, period: 1, hours: 2 });
+    const out = gridToForecastRows(grid, mapping!, "S");
+    expect(out.rows).toHaveLength(7);
+    expect(out.rows.map((r) => r.period)).not.toContain("2026-03");
+    expect(out.dropped).toEqual([{ row: 4, reason: "bad-period" }]);
+  });
+
+  it("keeps headerRow 0 for a bad period at data row 1", () => {
+    expect(detectLayout(withBadPeriod(1, "TBD")).mapping).toMatchObject({ headerRow: 0 });
+  });
+
+  it("keeps headerRow 0 for a bad period at the last data row", () => {
+    expect(detectLayout(withBadPeriod(8, "TBD")).mapping).toMatchObject({ headerRow: 0 });
+  });
+});
+
+describe("detectLayout — date-heavy and titled sheets", () => {
+  const DATE_HEAVY = [
+    ["Name", "Start", "End", "Month", "Hours"],
+    ["Ann", "2026-01-01", "2026-01-28", "2026-01", "80"],
+    ["Bob", "2026-01-01", "2026-01-28", "2026-02", "40"],
+    ["Cid", "2026-02-01", "2026-02-28", "2026-02", "72"],
+  ];
+
+  it("does not take a long sheet's data row with three dates as a wide header", () => {
+    const out = detectLayout(DATE_HEAVY);
+    expect(out.kind).toBe("long");
+    expect(out.mapping).toEqual({
+      layout: "long",
+      headerRow: 0,
+      person: 0,
+      period: 3,
+      hours: 4,
+    });
+  });
+
+  it("agrees with gridToForecastRows end to end on the date-heavy long sheet", () => {
+    const { mapping } = detectLayout(DATE_HEAVY);
+    expect(mapping).not.toBeNull();
+    const out = gridToForecastRows(DATE_HEAVY, mapping!, "S");
+    expect(out.rows.map((r) => [r.person, r.period, r.hours])).toEqual([
+      ["Ann", "2026-01", 80],
+      ["Bob", "2026-02", 40],
+      ["Cid", "2026-02", 72],
+    ]);
+    expect(out.dropped).toEqual([]);
+  });
+
+  it("still reads a wide sheet whose data cells are numbers or blanks", () => {
+    const grid = [
+      ["Name", "Jan 2026", "Feb 2026", "Mar 2026"],
+      ["Ann", "", "20", ""],
+      ["Bob", "1.234,5", "", "3"],
+    ];
+    expect(detectLayout(grid).mapping).toMatchObject({ layout: "wide", headerRow: 0 });
+  });
+
+  it("picks the real header under a full-width title row", () => {
+    const grid = [
+      ["Project", "Alpha", "Beta"],
+      ["Name", "Month", "Hours"],
+      ["Ann", "2026-01", "80"],
+      ["Ann", "2026-02", "72"],
+      ["Bob", "2026-01", "40"],
+      ["Bob", "2026-02", "40"],
+      ["Cid", "2026-01", "8"],
+    ];
+    expect(detectLayout(grid).mapping).toEqual({
+      layout: "long",
+      headerRow: 1,
+      person: 0,
+      period: 1,
+      hours: 2,
+    });
+  });
+});
+
+describe("detectLayout — rate header", () => {
+  it("does not take a word that merely contains 'rate' as the rate column", () => {
+    const grid = [
+      ["Name", "Month", "Generated", "Hours"],
+      ["Ann", "2026-01", "3", "80"],
+      ["Ann", "2026-02", "4", "72"],
+    ];
+    // Round 9 I-D: Hours (the hours word) is preselected again; still no rate.
+    const detected = detectLayout(grid);
+    expect(detected).toMatchObject({ mapping: { layout: "long", period: 1, hours: 3 }, ambiguous: [{ field: "hours", candidates: [2, 3] }] });
+    expect(detected.mapping?.rate).toBeUndefined();
+  });
+
+  it("still takes Rate and Stundensatz as the rate column", () => {
+    const rate = detectLayout([
+      ["Name", "Month", "Hours", "Rate"],
+      ["Ann", "2026-01", "80", "95"],
+    ]);
+    expect(rate.mapping?.rate).toBe(3);
+    const satz = detectLayout([
+      ["Name", "Monat", "Stunden", "Stundensatz"],
+      ["Ann", "2026-01", "80", "95"],
+    ]);
+    expect(satz.mapping).toMatchObject({ hours: 2, rate: 3 });
+  });
+
+  it("takes the plural 'Rates' as the rate column", () => {
+    const grid = [
+      ["Name", "Month", "Hours", "Rates"],
+      ["Ann", "2026-01", "80", "95"],
+    ];
+    expect(detectLayout(grid).mapping?.rate).toBe(3);
+  });
+
+  it("does not take 'Corporate' as the rate column of a wide sheet", () => {
+    const grid = [
+      ["Name", "Corporate", "Jan 2026", "Feb 2026", "Mar 2026"],
+      ["Ann", "ACME", "1", "2", "3"],
+    ];
+    expect(detectLayout(grid).mapping?.rate).toBeUndefined();
+  });
+});
+
+describe("detectLayout — unknown", () => {
+  it("rejects a prose grid", () => {
+    const grid = [
+      ["Dear team"],
+      ["please find the forecast attached", "kind regards"],
+      [],
+      ["Ann"],
+    ];
+    expect(detectLayout(grid)).toEqual({ kind: "unknown", mapping: null, ambiguous: [] });
+  });
+
+  it("rejects an empty grid and empty rows", () => {
+    expect(detectLayout([])).toEqual({ kind: "unknown", mapping: null, ambiguous: [] });
+    expect(detectLayout([[], []])).toEqual({ kind: "unknown", mapping: null, ambiguous: [] });
+  });
+
+  it("rejects a name list with numbers but no periods", () => {
+    const grid = [["Name", "Hours"], ["Ann", "80"], ["Bob", "72"]];
+    expect(detectLayout(grid)).toEqual({ kind: "unknown", mapping: null, ambiguous: [] });
+  });
+});
+
+// §500 fix wave 2 (CR minor 7): a column headed Name beats the first text column.
+describe("detectLayout — the person column by its header", () => {
+  it("takes Name over a Team column left of it in a wide sheet", () => {
+    const rows = [["Team", "Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Dev", "Ann Lee", "1", "2", "3"]];
+    expect(detectLayout(rows).mapping).toMatchObject({ layout: "wide", person: 1 });
+  });
+
+  it("takes Mitarbeiter over a Team column in a long sheet", () => {
+    const rows = [["Team", "Mitarbeiter", "Monat", "Stunden"], ["Dev", "Ann Lee", "Jan 2026", "8"]];
+    expect(detectLayout(rows).mapping).toMatchObject({ layout: "long", person: 1 });
+  });
+});
+
+// §500 fix wave 2 (CR I2): a long sheet whose year sits in its own column.
+describe("detectLayout — a year column beside year-less periods", () => {
+  it("maps a Jahr column next to a Monat column of month names", () => {
+    const rows = [["Name", "Jahr", "Monat", "Stunden"], ["Ann", "2027", "Jan", "8"], ["Ann", "2027", "Feb", "4"]];
+    for (const defaultYear of [undefined, 2026]) {
+      expect(detectLayout(rows, { defaultYear })).toMatchObject({
+        kind: "long",
+        mapping: { layout: "long", person: 0, yearCol: 1, period: 2, hours: 3 },
+      });
+    }
+  });
+
+  it("finds a column of four-digit years by its data when no header names it", () => {
+    const rows = [["Name", "Basis", "Monat", "Wert"], ["Ann", "2027", "Jan", "8"], ["Bob", "2028", "Feb", "4"]];
+    expect(detectLayout(rows).mapping).toMatchObject({ yearCol: 1, period: 2, hours: 3 });
+  });
+
+  it("maps no year column when every period cell names its own year", () => {
+    const rows = [["Name", "Jahr", "Monat", "Stunden"], ["Ann", "2027", "Jan 2027", "8"]];
+    const mapping = detectLayout(rows).mapping;
+    expect(mapping).toMatchObject({ layout: "long", period: 2, hours: 3 });
+    expect(mapping?.yearCol).toBeUndefined();
+  });
+});
+
+// Final review M1: detection scored every candidate header over ALL data rows,
+// which froze the dialog on a large workbook. It samples the first
+// DETECTION_SAMPLE_ROWS rows under each candidate; reading stays complete.
+describe("detectLayout — samples the rows under a candidate header (final review M1)", () => {
+  const months = ["2026-01", "2026-02", "2026-03"];
+  const longRows = (n: number, hours: (i: number) => string = () => "10"): string[][] => [
+    ["Name", "Monat", "Stunden"],
+    ...Array.from({ length: n }, (_, i) => [`P${i}`, months[i % 3], hours(i)]),
+  ];
+  const wideRows = (n: number): string[][] => [
+    ["Name", "Jan 2026", "Feb 2026", "Mar 2026"],
+    ...Array.from({ length: n }, (_, i) => [`P${i}`, "1", "2", "3"]),
+  ];
+
+  it("samples 200 rows", () => {
+    expect(DETECTION_SAMPLE_ROWS).toBe(200);
+  });
+
+  it("detects a wide and a long sheet past the sample as it does a short one, and reads every row", () => {
+    const n = DETECTION_SAMPLE_ROWS + 100;
+    for (const [short, long] of [[wideRows(2), wideRows(n)], [longRows(2), longRows(n)]]) {
+      const detected = detectLayout(long);
+      expect(detected).toEqual(detectLayout(short));
+      const perRow = detected.mapping?.layout === "wide" ? 3 : 1;
+      expect(gridToForecastRows(long, detected.mapping!, "S").rows).toHaveLength(n * perRow);
+    }
+  });
+
+  it("judges the columns by the sample: text past it does not unseat the hours column", () => {
+    // Over all 300 rows the Stunden column is two-thirds numbers, below the
+    // 80 % a column needs; over the sample it is all numbers.
+    const rows = longRows(DETECTION_SAMPLE_ROWS + 100, (i) => (i < DETECTION_SAMPLE_ROWS ? "10" : "n/a"));
+    const detected = detectLayout(rows);
+    expect(detected.mapping).toMatchObject({ layout: "long", period: 1, hours: 2 });
+    const out = gridToForecastRows(rows, detected.mapping!, "S");
+    expect(out.rows).toHaveLength(DETECTION_SAMPLE_ROWS);
+    expect(out.dropped).toHaveLength(100);
+  });
+
+  // Fix 7 (rr6 N5): blank rows under the header are skipped, not counted, so a
+  // sheet whose data starts after 210 blank rows is still sampled.
+  it("skips blank rows under the header: 210 blank rows, then the data, detect as without them", () => {
+    const blanks = Array.from({ length: 210 }, (_, i) => (i % 2 === 0 ? [] : ["", "", ""]));
+    for (const rows of [wideRows(3), longRows(3)]) {
+      const padded = [rows[0], ...blanks, ...rows.slice(1)];
+      expect(detectLayout(padded)).toEqual(detectLayout(rows));
+      expect(detectLayout(padded).kind).not.toBe("unknown");
+    }
+  });
+});
+
+// Fix 7 (owner decision 2026-10-13): when more than one column could be a long
+// sheet's hours or period column, detection says so instead of guessing. The
+// mapping it returns is the deterministic default; the dialog asks.
+describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
+  const months = ["Jan 2026", "Feb 2026", "Mär 2026"];
+  /** `Name | Monat | x | y`, Ann and Bob over three months (rr6 N1). */
+  const twoFigures = (x: string, y: string, xs: readonly string[], ys: readonly string[]): string[][] => [
+    ["Name", "Monat", x, y],
+    ...["Ann Lee", "Bob Kay"].flatMap((p) => months.map((m, i) => [p, m, xs[i], ys[i]])),
+  ];
+  const PLAN = ["40", "35", "30"];
+
+  it.each([
+    ["Plan", "Ist", ["35", "30", "25"]],
+    ["Soll", "Ist", ["35", "30", "25"]],
+    ["Forecast", "Ist", ["35", "30", "25"]],
+    ["Forecast", "Actual", ["35", "30", "25"]],
+    ["h", "Betrag", ["400", "350", "300"]],
+    ["Menge", "Summe", ["100", "101", "102"]],
+    ["Menge", "kumuliert", ["40", "80", "120"]],
+  ] as const)("%s | %s: both columns are hours candidates, the left one preselected", (x, y, ys) => {
+    const detected = detectLayout(twoFigures(x, y, PLAN, ys), { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", period: 1, hours: 2 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  it("Plan | Ist in a workbook asks too", () => {
+    const detected = detectLayout(twoFigures("Plan", "Ist", PLAN, ["35", "30", "25"]), { numbers: "dot", defaultYear: 2026 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  // Fix 8 (owner decision 2026-10-13, rr8 N2): no header word settles the
+  // hours. Each round's "named hours column" escape let a new actuals
+  // spelling through (`Ist`, then `Iststunden`, `Gebuchte Stunden` …).
+  // Round 9 I-D: the hours word preselects Stunden again (round 8 took Plan).
+  it("asks for Plan | Stunden too, Stunden preselected: one hours word settles nothing", () => {
+    const detected = detectLayout(twoFigures("Plan", "Stunden", ["35", "30", "25"], PLAN), { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ hours: 3 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  it.each(["Iststunden", "IstStd", "Gebuchte Stunden", "Geleistete Stunden", "Spent hours", "Logged hours"])(
+    "Forecast | %s asks (rr8 N2): a second number column is a choice, whatever its header", (actuals) => {
+      const detected = detectLayout(twoFigures("Forecast", actuals, PLAN, ["35", "30", "25"]), { defaultYear: 2026 });
+      expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    },
+  );
+
+  it("asks for Name | Monat | Stunden | Kosten, Stunden preselected", () => {
+    const detected = detectLayout(twoFigures("Stunden", "Kosten", PLAN, ["4000", "3500", "3000"]), { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ hours: 2 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  it("asks when two candidates are headed by an hours word: Stunden | Std Plan", () => {
+    const detected = detectLayout(twoFigures("Stunden", "Std Plan", PLAN, ["35", "30", "25"]), { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ hours: 2 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  // Round 9 I-D: an hours word ranks first, then share, then leftmost. So
+  // Ist-Stunden and Booked hours are preselected (round 8 took column 2). The
+  // user confirms it either way.
+  it.each([
+    ["Forecast | Ist-Stunden", "Forecast", "Ist-Stunden", 3],
+    ["Forecast | Actuals (h)", "Forecast", "Actuals (h)", 2],
+    ["Forecast | Booked hours", "Forecast", "Booked hours", 3],
+    ["Stunden | Ist", "Stunden", "Ist", 2],
+    ["Stunden | Std Ist", "Stunden", "Std Ist", 2],
+    ["Soll-Stunden | Ist-Stunden", "Soll-Stunden", "Ist-Stunden", 2],
+    ["Plan-Std | Ist-Std", "Plan-Std", "Ist-Std", 2],
+    ["Ist-Stunden | Plan stunden", "Ist-Stunden", "Plan stunden", 2],
+  ] as const)("%s asks, the hours word preselected, else the leftmost", (_label, x, y, hours) => {
+    const detected = detectLayout(twoFigures(x, y, PLAN, ["35", "30", "25"]), { defaultYear: 2026 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    expect(detected.mapping).toMatchObject({ hours });
+  });
+
+  it("a lone actuals column is still the hours: Name | Monat | Ist-Stunden", () => {
+    const detected = detectLayout(twoFigures("Ist-Stunden", "", PLAN, ["", "", ""]), { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ hours: 2 });
+    expect(detected.ambiguous).toEqual([]);
+  });
+
+  it.each([
+    ["Name | Monat | Stunden", [["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "40"], ["Ann", "Feb 2026", "30"]]],
+    ["Name | Start date | Month | Hours", [["Name", "Start date", "Month", "Hours"], ["Ann", "01.01.2026", "Jan 2026", "80"], ["Ann", "01.01.2026", "Feb 2026", "60"]]],
+    ["ID | Name | Month | Effort", [["ID", "Name", "Month", "Effort"], ["12", "Ann", "Jan 2026", "40"], ["14", "Bob", "Jan 2026", "20"]]],
+    ["Nr | Name | Monat | Aufwand", [["Nr", "Name", "Monat", "Aufwand"], ["1", "Ann", "Jan 2026", "40"], ["2", "Bob", "Jan 2026", "20"]]],
+    ["Name | Start | Zeitraum | Stunden", [["Name", "Start", "Zeitraum", "Stunden"], ["Ann", "01.01.2026", "01.01.2026", "80"], ["Ann", "01.01.2026", "01.02.2026", "60"]]],
+    ["Name | Jahr | Monat | Wert | Basisjahr", [["Name", "Jahr", "Monat", "Wert", "Basisjahr"], ["Ann", "2026", "Jan", "40", "2025"], ["Ann", "2026", "Feb", "30", "2025"]]],
+  ])("%s is clear", (_label, rows) => {
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+
+  it("asks which date column is the period: Datum | Eintritt, Datum preselected (CSV)", () => {
+    const rows = [
+      ["Name", "Datum", "Eintritt", "Stunden"],
+      ["Ann Lee", "01.01.2026", "03/2026", "40"], ["Ann Lee", "01.02.2026", "03/2026", "35"], ["Ann Lee", "01.03.2026", "03/2026", "30"],
+      ["Bob Kay", "01.01.2026", "03/2026", "30"], ["Bob Kay", "01.02.2026", "03/2026", "25"],
+    ];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", period: 1, hours: 3 });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2] }]);
+  });
+
+  it("asks the same with Datum and Eintritt as workbook serials", () => {
+    const rows = [
+      ["Name", "Datum", "Eintritt", "Stunden"],
+      ["Ann Lee", "46023", "46082", "40"], ["Ann Lee", "46054", "46082", "35"], ["Bob Kay", "46023", "46082", "30"],
+    ];
+    const detected = detectLayout(rows, { numbers: "dot", defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", period: 1, hours: 3 });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2] }]);
+  });
+
+  it("asks for Datum | Startmonat: a month word inside a longer word is no period word", () => {
+    const rows = [
+      ["Name", "Datum", "Startmonat", "Stunden"],
+      ["Ann Lee", "01.01.2026", "Mär 2026", "40"], ["Ann Lee", "01.02.2026", "Mär 2026", "35"],
+    ];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ period: 1 });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2] }]);
+  });
+
+  it("is clear when exactly one period candidate is headed by a period word: Start date | Month, both of dates", () => {
+    const rows = [["Name", "Start date", "Month", "Hours"], ["Ann", "15.01.2026", "01.01.2026", "80"], ["Ann", "15.01.2026", "01.02.2026", "60"]];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ period: 2 });
+    expect(detected.ambiguous).toEqual([]);
+  });
+
+  // A2: the rank that put period LABELS above full dates is gone; header
+  // words rank, then the leftmost.
+  it("ranks by header word, not by label cells: Beginn | Wann asks, the leftmost preselected", () => {
+    const rows = [["Name", "Beginn", "Wann", "Stunden"], ["Ann", "01.01.2026", "Jan 2026", "80"], ["Ann", "01.01.2026", "Feb 2026", "60"]];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ period: 1, hours: 3 });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2] }]);
+  });
+
+  it("reports both fields when both are ambiguous", () => {
+    const rows = [
+      ["Name", "Datum", "Eintritt", "Plan", "Ist"],
+      ["Ann", "01.01.2026", "03/2026", "40", "35"], ["Ann", "01.02.2026", "03/2026", "35", "30"],
+    ];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([
+      { field: "period", candidates: [1, 2] },
+      { field: "hours", candidates: [3, 4] },
+    ]);
+  });
+
+  it("reports no ambiguity on a wide sheet", () => {
+    expect(detectLayout(GERMAN_WIDE).ambiguous).toEqual([]);
+  });
+});
+
+// Fix 8 round 2 (controller ruling): a WIDE reading whose data rows carry a
+// period column of their own (a `Start` date, a long sheet's `Monat` under a
+// metadata row read as the header) is not settled: the period may be the
+// header's columns or that column. Detection asks, on both routes.
+describe("detectLayout — a wide reading whose rows hold their own period column asks (fix 8)", () => {
+  const people = ["Ann", "Bob", "Cem", "Dora", "Eve"];
+
+  it("a metadata row over Monat | Stunden | Ist, read wide, asks for the period with Monat among the candidates", () => {
+    const rows = [["Erstellt", "", "01.01.2026", "15.01.2026", "20.01.2026"], ["Name", "Monat", "Stunden", "Ist"], ...people.map((p) => [p, "Jan 2026", "40", "35"])];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", mapping: { layout: "wide", headerRow: 0, periodCols: [2, 3, 4] } });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
+  });
+
+  it.each([
+    ["CSV", "01.03.2026", "01.05.2026", "text"],
+    ["workbook serial Start", "46082", "46143", "dot"],
+  ] as const)("Name | Start | Jan 2026 | Feb 2026 asks (%s)", (_label, annStart, bobStart, numbers) => {
+    const rows = [["Name", "Start", "Jan 2026", "Feb 2026"], ["Ann", annStart, "40", "50"], ["Bob", bobStart, "30", "20"]];
+    const detected = detectLayout(rows, { numbers, defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", mapping: { periodCols: [2, 3] } });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3] }]);
+  });
+
+  it.each([
+    ["Name | Jan 2026 | Feb 2026", [["Name", "Jan 2026", "Feb 2026"], ["Ann", "40", "50"], ["Bob", "30", "20"]], "text"],
+    ["Name | Rolle | Jan | Feb | Mär", [["Name", "Rolle", "Jan", "Feb", "Mär"], ["Ann", "Dev", "1", "2", "3"], ["Bob", "QA", "4", "5", "6"]], "text"],
+    ["a CSV PersNr of five-digit numbers beside the months", [["Name", "PersNr", "Jan 2026", "Feb 2026"], ["Ann", "46082", "40", "50"], ["Bob", "46143", "30", "20"]], "text"],
+  ] as const)("a wide sheet with no row-period column stays clear: %s", (_label, rows, numbers) => {
+    const detected = detectLayout(rows.map((r) => [...r]), { numbers, defaultYear: 2026 });
+    expect(detected.kind).toBe("wide");
+    expect(detected.ambiguous).toEqual([]);
+  });
+});
+
+// Fix 9 I-1 (rr9): ONE period-shaped data cell outside the period and person
+// columns makes a wide reading ask. A share threshold let a single placeholder
+// in the long sheet's Monat column (`offen`, `-`) switch the question off.
+describe("detectLayout — any period cell outside the wide period columns asks (fix 9 I-1)", () => {
+  const metadataWith = (placeholder: string): string[][] => [
+    ["Erstellt", "", "01.01.2026", "15.01.2026", "20.01.2026"], ["Name", "Monat", "Stunden", "Ist"],
+    ["Ann", "Jan 2026", "40", "35"], ["Bob", "Feb 2026", "40", "35"], ["Cid", placeholder, "40", "35"],
+    ["Dora", "Feb 2026", "40", "35"], ["Eve", "Jan 2026", "40", "35"],
+  ];
+
+  it.each(["-", "n/a", "offen", "Q1 2026"])("the metadata row over a Monat column with %s in it still asks", (placeholder) => {
+    const detected = detectLayout(metadataWith(placeholder), { defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", mapping: { headerRow: 0 } });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
+  });
+
+  it("a notes column with one date in it asks too (the accepted cost)", () => {
+    const rows = [["Name", "Notiz", "Jan 2026", "Feb 2026"], ["Ann", "", "40", "50"], ["Bob", "ab 01.03.2026", "30", "20"], ["Cid", "15.02.2026", "10", "10"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3] }]);
+  });
+});
+
+// Fix 9 OOS-b (rr9): a per-row year column beside year-less month headers was
+// ignored, and Ann's 2027 row read as 2026-01 = 10 on both routes.
+describe("detectLayout — a year column beside year-less wide headers asks (fix 9 OOS-b)", () => {
+  it("Name | Jahr | Jan | Feb asks for the period, the year column among the candidates", () => {
+    const detected = detectLayout([["Name", "Jahr", "Jan", "Feb"], ["Ann", "2027", "10", "20"]], { defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", mapping: { periodCols: [2, 3] } });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3] }]);
+  });
+
+  it("a column of four-digit years under another header asks too", () => {
+    const detected = detectLayout([["Name", "GJ-Plan", "Jan", "Feb", "Mär"], ["Ann", "2027", "10", "20", "30"], ["Bob", "2027", "1", "2", "3"]], { defaultYear: 2026 });
+    expect(detected.ambiguous).toEqual([{ field: "period", candidates: [1, 2, 3, 4] }]);
+  });
+
+  it("labelled month headers do not ask for a year column", () => {
+    const detected = detectLayout([["Name", "Jahr", "Jan 2027", "Feb 2027"], ["Ann", "2027", "10", "20"]], { defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", ambiguous: [] });
+  });
+});
+
+// Fix 9 OOS-c (rr9): more than one row of the scan range reads as a header for
+// the chosen layout — stacked long blocks (`Name|Monat|Forecast` over
+// `Name|Monat|Ist`, where the hand route took the Ist block) and stacked wide
+// year blocks (residue 9, the later block summed into the first block's year).
+// Detection asks which row is the header; the preselection stays.
+describe("detectLayout — more than one header row asks (fix 9 OOS-c)", () => {
+  const stackedLong = (numbers: "text" | "dot") => {
+    const [jan, feb] = numbers === "dot" ? ["46023", "46054"] : ["Jan 2026", "Feb 2026"];
+    return [["Name", "Monat", "Forecast"], ["Ann", jan, "40"], ["Bob", feb, "30"], ["Name", "Monat", "Ist"], ["Ann", jan, "35"], ["Bob", feb, "25"]];
+  };
+  const stackedWide = (numbers: "text" | "dot") => numbers === "dot"
+    ? [["Name", "46023", "46054"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Name", "46388", "46419"], ["Ann", "30", "40"], ["Bob", "31", "41"]]
+    : [["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Name", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"], ["Bob", "31", "41"]];
+
+  it.each(["text", "dot"] as const)("stacked long blocks (%s) ask, the later header row preselected", (numbers) => {
+    const detected = detectLayout(stackedLong(numbers), { numbers, defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "long", mapping: { headerRow: 3, period: 1, hours: 2 } });
+    expect(detected.ambiguous).toEqual([{ field: "header", candidates: [0, 3] }]);
+  });
+
+  it.each(["text", "dot"] as const)("stacked wide year blocks (%s) ask, the first header row preselected", (numbers) => {
+    const detected = detectLayout(stackedWide(numbers), { numbers, defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", mapping: { headerRow: 0, periodCols: [1, 2] } });
+    expect(detected.ambiguous).toEqual([{ field: "header", candidates: [0, 3] }]);
+  });
+
+  it.each([
+    ["Name | Monat | Stunden", [["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "40"], ["Bob", "Feb 2026", "30"]]],
+    ["Name | Jan 2026 | Feb 2026", [["Name", "Jan 2026", "Feb 2026"], ["Ann", "40", "50"], ["Bob", "30", "20"]]],
+  ])("a sheet with one header row stays clear: %s", (_label, rows) => {
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+});
+
+// Round 7 I-B (rr10): on a long sheet a column is an hours candidate when it
+// holds ONE number, and a period candidate when it holds ONE period, so a
+// placeholder can no longer push the right column out of the question. The
+// preselection keeps today's share-based ranking.
+describe("detectLayout — placeholders cannot push a long column out of the question (round 7 I-B)", () => {
+  it("Stunden with two '-' beside Ist asks for the hours", () => {
+    const rows = [["Name", "Monat", "Stunden", "Ist"], ["Ann", "Jan 2026", "40", "35"], ["Bob", "Jan 2026", "-", "12"], ["Cid", "Jan 2026", "30", "28"], ["Dora", "Jan 2026", "-", "8"]];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", period: 1 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  it("offen in Monat beside Erfasst am asks for the period", () => {
+    const rows = [["Name", "Monat", "Stunden", "Erfasst am"], ["Ann", "Jan 2026", "40", "15.03.2026"], ["Bob", "offen", "30", "15.03.2026"],
+      ["Cid", "Feb 2026", "20", "15.03.2026"], ["Dora", "Mär 2026", "10", "15.03.2026"]];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.ambiguous).toContainEqual({ field: "period", candidates: [1, 3] });
+  });
+
+  it.each([
+    ["CSV", [["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "40"], ["Bob", "Feb 2026", "30"]], "text"],
+    ["workbook serials", [["Name", "Monat", "Stunden"], ["Ann", "46023", "40"], ["Bob", "46054", "30"]], "dot"],
+  ] as const)("plain Name | Monat | Stunden stays clear (%s)", (_label, rows, numbers) => {
+    const detected = detectLayout(rows.map((r) => [...r]), { numbers, defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "long", ambiguous: [], mapping: { period: 1, hours: 2 } });
+  });
+});
+
+// Round 7 C1 (rr10): the header question's preselection skips a candidate
+// with no data rows before the next one. A zero-row first wide block was
+// preselected over the real header, and "These columns are right" then read
+// the 2027 data as 2026.
+describe("detectLayout — an empty first block is not preselected (round 7 C1)", () => {
+  it("Name | Jan 2026 | Feb 2026 directly over Name | Jan 2027 | Feb 2027 preselects the second header row", () => {
+    const people = [["Ann", "30", "40"], ["Bob", "31", "41"], ["Cid", "32", "42"], ["Dora", "33", "43"]];
+    const rows = [["Name", "Jan 2026", "Feb 2026"], ["Name", "Jan 2027", "Feb 2027"], ...people];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected).toMatchObject({ kind: "wide", mapping: { headerRow: 1, periodCols: [1, 2] } });
+    expect(detected.ambiguous).toEqual([{ field: "header", candidates: [0, 1] }]);
+    expect(gridToForecastRows(rows, detected.mapping!, "S").rows.every((r) => r.period.startsWith("2027"))).toBe(true);
+  });
+
+  it("a blank row between does not count as data: the second header row is still preselected", () => {
+    const rows = [["Name", "Jan 2026", "Feb 2026"], [], ["Name", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"], ["Bob", "31", "41"], ["Cid", "32", "42"], ["Dora", "33", "43"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).mapping).toMatchObject({ headerRow: 2 });
+  });
+
+  it("a first block with data rows stays preselected", () => {
+    const rows = [["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Name", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"], ["Bob", "31", "41"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).mapping).toMatchObject({ headerRow: 0 });
+  });
+});
+
+// Round 9 I-D (rr12): the leftmost-hours preselection of round 8 took Ist,
+// Tage, FTE, a team number or a one-number notes column over Stunden. The
+// hours word ranks first again, then share, then leftmost.
+describe("detectLayout — the hours word preselects among all candidates (round 9 I-D)", () => {
+  it.each([
+    ["Ist | Stunden", ["Name", "Monat", "Ist", "Stunden"], ["35", "40"], 3],
+    ["Tage | Stunden", ["Name", "Monat", "Tage", "Stunden"], ["5", "40"], 3],
+    ["FTE | Stunden", ["Name", "Monat", "FTE", "Stunden"], ["0.5", "80"], 3],
+    ["a numeric Team column", ["Name", "Team", "Monat", "Stunden"], ["3", "40"], 3],
+  ] as const)("%s preselects Stunden", (_label, header, cells, hours) => {
+    const team = header[1] === "Team";
+    const rows = [[...header], ...["Ann", "Bob", "Cid"].map((p, i) => team
+      ? [p, cells[0], ["Jan 2026", "Feb 2026", "Mär 2026"][i], cells[1]]
+      : [p, ["Jan 2026", "Feb 2026", "Mär 2026"][i], cells[0], cells[1]])];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", hours });
+    expect(detected.ambiguous).toContainEqual({ field: "hours", candidates: team ? [1, 3] : [2, 3] });
+  });
+
+  it("a notes column holding one number preselects Stunden", () => {
+    const rows = [["Name", "Bemerkung", "Monat", "Stunden"], ["Ann", "ok", "Jan 2026", "40"], ["Bob", "3", "Feb 2026", "30"], ["Cid", "neu", "Mär 2026", "20"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).mapping).toMatchObject({ layout: "long", hours: 3 });
+  });
+});
+
+// Round 9 I-W (rr12): one person on several rows that differ in another TEXT
+// column (`Art`: Plan and Ist; `Aufgabe`) was summed silently — 50 + 43 = 93.
+// Detection now asks (`field: "rows"`); pure repeats stay "Combined rows".
+describe("detectLayout — one person, several rows that differ in a text column (round 9 I-W)", () => {
+  const ROWS_ASK = { field: "rows", candidates: [1], samples: ["Plan", "Ist"] };
+
+  it.each([
+    ["CSV", "text", "Jan 2026", "Feb 2026"],
+    ["workbook serial", "dot", "46023", "46054"],
+  ] as const)("wide Name | Art | months (%s) asks about Art", (_label, numbers, jan, feb) => {
+    const rows = [["Name", "Art", jan, feb], ["Ann Lee", "Plan", "50", "40"], ["Ann Lee", "Ist", "43", "30"], ["Bob Ray", "Plan", "20", "20"]];
+    const detected = detectLayout(rows, { numbers, defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "wide", person: 0, periodCols: [2, 3] });
+    expect(detected.ambiguous).toEqual([ROWS_ASK]);
+  });
+
+  it.each([
+    ["CSV", "text", "Jan 2026"],
+    ["workbook serial", "dot", "46023"],
+  ] as const)("long Name | Typ | Monat | Stunden (%s) asks about Typ", (_label, numbers, jan) => {
+    const rows = [["Name", "Typ", "Monat", "Stunden"], ["Ann Lee", "Plan", jan, "50"], ["Ann Lee", "Ist", jan, "43"], ["Bob Ray", "Plan", jan, "20"]];
+    const detected = detectLayout(rows, { numbers, defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", person: 0, period: 2, hours: 3 });
+    expect(detected.ambiguous).toEqual([ROWS_ASK]);
+  });
+
+  it("the cost: a task-description column with two lines per person asks too", () => {
+    const rows = [["Name", "Monat", "Aufgabe", "Stunden"], ["Ann Lee", "Jan 2026", "Konzept", "20"], ["Ann Lee", "Jan 2026", "Umsetzung", "30"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([{ field: "rows", candidates: [2], samples: ["Konzept", "Umsetzung"] }]);
+  });
+
+  it("a long person on several rows in DIFFERENT months is no question", () => {
+    const rows = [["Name", "Typ", "Monat", "Stunden"], ["Ann Lee", "Plan", "Jan 2026", "50"], ["Ann Lee", "Ist", "Feb 2026", "43"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+
+  it("one row per person stays clear", () => {
+    const rows = [["Name", "Art", "Jan 2026", "Feb 2026"], ["Ann Lee", "Plan", "50", "40"], ["Bob Ray", "Ist", "20", "20"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+
+  it("pure repeats (no differing text column) stay clear: they are Combined rows", () => {
+    const wide = [["Name", "Art", "Jan 2026", "Feb 2026"], ["Ann Lee", "Plan", "50", "40"], ["Ann Lee", "Plan", "10", "10"]];
+    const long = [["Name", "Monat", "Stunden"], ["Ann Lee", "Jan 2026", "20"], ["Ann Lee", "Jan 2026", "30"]];
+    expect(detectLayout(wide, { defaultYear: 2026 }).ambiguous).toEqual([]);
+    expect(detectLayout(long, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+});
+
+// §500, Claude sets the mapping: the questions detection raises are evaluated
+// against the mapping IN EFFECT (Claude's, or the user's edit of it), not only
+// against detection's own preselection.
+describe("questionsFor — the questions of a given mapping", () => {
+  const fieldsOf = (asked: ReturnType<typeof questionsFor>) => asked.map((a) => a.field);
+
+  it("asks nothing for a clear long mapping", () => {
+    const rows = [["Name", "Monat", "Stunden"], ["Ann", "Jan 2026", "40"], ["Bob", "Jan 2026", "30"]];
+    expect(questionsFor(rows, { layout: "long", headerRow: 0, person: 0, period: 1, hours: 2 })).toEqual([]);
+  });
+
+  it("asks for the hours when a mapping picks Ist on Name | Monat | Stunden | Ist", () => {
+    const rows = [["Name", "Monat", "Stunden", "Ist"], ["Ann", "Jan 2026", "40", "35"], ["Bob", "Jan 2026", "30", "25"]];
+    expect(questionsFor(rows, { layout: "long", headerRow: 0, person: 0, period: 1, hours: 3 })).toEqual([
+      { field: "hours", candidates: [2, 3] },
+    ]);
+  });
+
+  it("names the mapped hours column even where detection would never offer it", () => {
+    const rows = [["Name", "Monat", "Stunden", "Rate"], ["Ann", "Jan 2026", "40", "90"], ["Bob", "Jan 2026", "30", "90"]];
+    expect(questionsFor(rows, { layout: "long", headerRow: 0, person: 0, period: 1, hours: 3 })).toEqual([
+      { field: "hours", candidates: [2, 3] },
+    ]);
+  });
+
+  it("asks for the period of a long mapping when two columns could hold it", () => {
+    const rows = [["Name", "Datum", "Eintritt", "Stunden"], ["Ann", "01.01.2026", "01.03.2020", "40"], ["Bob", "01.02.2026", "01.05.2021", "30"]];
+    expect(questionsFor(rows, { layout: "long", headerRow: 0, person: 0, period: 2, hours: 3 })).toEqual([
+      { field: "period", candidates: [1, 2] },
+    ]);
+  });
+
+  it("raises the rows question for a wide mapping on Name | Art | months", () => {
+    const rows = [["Name", "Art", "Jan 2026", "Feb 2026"], ["Ann", "Plan", "50", "40"], ["Ann", "Ist", "43", "30"]];
+    expect(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3] })).toEqual([
+      { field: "rows", candidates: [1], samples: ["Plan", "Ist"] },
+    ]);
+  });
+
+  it("evaluates the rows question for the mapping's person column, not detection's", () => {
+    const rows = [["Team", "Name", "Jan 2026", "Feb 2026"], ["Core", "Ann", "50", "40"], ["Core", "Bob", "43", "30"]];
+    expect(detectLayout(rows).ambiguous).toEqual([]);
+    expect(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3] })).toEqual([
+      { field: "rows", candidates: [1], samples: ["Ann", "Bob"] },
+    ]);
+  });
+
+  it("asks for the header row when the mapping sits on a second stacked block", () => {
+    const rows = [
+      ["Name", "Jan 2026", "Feb 2026", "Mär 2026"], ["Ann", "10", "20", "30"],
+      ["Name", "Jan 2027", "Feb 2027", "Mär 2027"], ["Ann", "40", "50", "60"],
+    ];
+    const asked = questionsFor(rows, { layout: "wide", headerRow: 2, person: 0, periodCols: [1, 2, 3] });
+    expect(asked).toEqual([{ field: "header", candidates: [0, 2] }]);
+  });
+
+  it("asks for the period of a wide mapping whose rows hold a date column of their own", () => {
+    const rows = [["Name", "Start", "Jan 2026", "Feb 2026", "Mär 2026"], ["Ann", "01.03.2026", "10", "20", "30"]];
+    expect(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3, 4] })).toEqual([
+      { field: "period", candidates: [1, 2, 3, 4] },
+    ]);
+  });
+
+  it("asks for the period of a wide mapping with year-less headers beside a row year column", () => {
+    const rows = [["Name", "Jahr", "Jan", "Feb", "Mär"], ["Ann", "2027", "10", "20", "30"]];
+    expect(fieldsOf(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3, 4], year: 2026 }))).toEqual(["period"]);
+  });
+
+  it.each([
+    ["hours", [["Name", "Monat", "Stunden", "Ist"], ["Ann", "Jan 2026", "40", "35"], ["Bob", "Jan 2026", "30", "25"]]],
+    ["period", [["Name", "Datum", "Eintritt", "Stunden"], ["Ann", "01.01.2026", "01.03.2020", "40"], ["Bob", "01.02.2026", "01.05.2021", "30"]]],
+    ["rows", [["Name", "Art", "Jan 2026", "Feb 2026"], ["Ann", "Plan", "50", "40"], ["Ann", "Ist", "43", "30"]]],
+    ["row period", [["Name", "Start", "Jan 2026", "Feb 2026", "Mär 2026"], ["Ann", "01.03.2026", "10", "20", "30"]]],
+    ["repeated header", [["Name", "Monat", "Forecast"], ["Ann", "Jan 2026", "40"], ["Name", "Monat", "Ist"], ["Ann", "Jan 2026", "35"]]],
+  ])("asks what detection asks for its own preselection (%s)", (_label, rows) => {
+    const detected = detectLayout(rows);
+    expect(detected.ambiguous).not.toEqual([]);
+    expect(questionsFor(rows, detected.mapping!)).toEqual(detected.ambiguous);
+  });
+});
+
+// Final review 2 (I1, M1): a mapping that leaves out a column detection would
+// read is asked about, not read silently.
+describe("questionsFor — columns the mapping leaves out", () => {
+  const JAHR = [["Titel"], ["Name", "Jahr", "Monat", "Stunden"], ["Ann Lee", "2027", "Jan", "10"], ["Ann Lee", "2026", "Jan", "5"], ["Bob Ray", "2027", "Feb", "3"]];
+
+  it("asks for the period, the year column among the candidates, when a long mapping leaves out the year column of year-less months", () => {
+    const asked = questionsFor(JAHR, { layout: "long", headerRow: 1, person: 0, period: 2, hours: 3, year: 2026 });
+    expect(asked).toEqual([{ field: "period", candidates: [1, 2] }]);
+  });
+
+  it("asks nothing of the same mapping with the year column mapped, nor where the months name their year", () => {
+    expect(questionsFor(JAHR, { layout: "long", headerRow: 1, person: 0, period: 2, hours: 3, yearCol: 1, year: 2026 })).toEqual([]);
+    const named = JAHR.map((row, i) => (i > 1 ? [row[0], row[1], `${row[2]} 2026`, row[3]] : row));
+    expect(questionsFor(named, { layout: "long", headerRow: 1, person: 0, period: 2, hours: 3, year: 2026 })).toEqual([]);
+  });
+
+  const PLAN_IST = [["Name", "Jan 2026", "Feb 2026", "Jan 2026", "Feb 2026"], ["", "Plan", "Plan", "Ist", "Ist"],
+    ["Ann Lee", "10", "20", "9", "18"], ["Bob Ray", "5", "5", "4", "4"]];
+
+  it("asks for the period of a wide mapping that leaves out period-headed columns holding numbers: the Plan/Ist sub-header", () => {
+    expect(questionsFor(PLAN_IST, { layout: "wide", headerRow: 0, person: 0, periodCols: [3, 4] })).toEqual([
+      { field: "period", candidates: [1, 2, 3, 4] },
+    ]);
+    expect(questionsFor(PLAN_IST, { layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2] })).toEqual([
+      { field: "period", candidates: [1, 2, 3, 4] },
+    ]);
+  });
+
+  it("asks nothing when every period-headed number column is read, or a left-out one holds no number", () => {
+    const rows = [["Name", "Jan 2026", "Feb 2026", "Mär 2026"], ["Ann Lee", "10", "20", ""], ["Bob Ray", "5", "5", ""]];
+    expect(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2, 3] })).toEqual([]);
+    expect(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [1, 2] })).toEqual([]);
+  });
+});

@@ -174,6 +174,7 @@ function sheetEntries(entries: Map<string, Uint8Array>): { name: string; path: s
     // of, silently losing r:id (written after name by real Excel) along with
     // it (M-7). sheetTagAttrs reads both attributes quote-aware instead.
     const mapped: { name: string; path: string }[] = [];
+    const seenPaths = new Set<string>();
     const wbXml = decodeUtf8(wb);
     const sheetOpenRe = /<sheet\b/g;
     while (sheetOpenRe.exec(wbXml) !== null) {
@@ -182,7 +183,12 @@ function sheetEntries(entries: Map<string, Uint8Array>): { name: string; path: s
       const target = tag.name !== null && tag.rid !== null ? relMap.get(tag.rid) : undefined;
       if (tag.name !== null && target) {
         const path = resolveTarget(target);
-        if (entries.has(path)) mapped.push({ name: unescapeXml(tag.name), path });
+        // A worksheet is parsed ONCE: a workbook listing one path under many
+        // <sheet> names would otherwise multiply its cost by the list length.
+        if (entries.has(path) && !seenPaths.has(path)) {
+          seenPaths.add(path);
+          mapped.push({ name: unescapeXml(tag.name), path });
+        }
       }
       sheetOpenRe.lastIndex = tag.resume;
     }
@@ -314,7 +320,48 @@ function forEachXmlElement(xml: string, name: string, visit: (whole: string) => 
   }
 }
 
-function sheetRows(xml: string, shared: string[]): { rows: string[][]; truncated: boolean } {
+/** Excel's last row number: a `<row r>` past it is not a real position. */
+const MAX_XLSX_ROW = 1_048_576;
+
+/** Padded cell slots across ALL sheets of one workbook. `MAX_XLSX_SHEET_CELLS`
+ *  bounds one sheet; thousands of small distinct sheets of wide rows
+ *  (`<c r="XFD1">` pads a row to 16,384) add up to gigabytes without this. */
+export const MAX_XLSX_TOTAL_CELLS = 2_000_000;
+
+/** Row slots one sheet may take, gaps included — separate from the cell budget,
+ *  which a gap row (no cells) never touches. */
+const MAX_XLSX_SHEET_ROWS = MAX_XLSX_SHEET_CELLS;
+
+/** Row slots across ALL sheets of one workbook. A sparse worksheet costs one
+ *  pointer per gap row, so without this a workbook of many distinct sparse
+ *  sheets could still exhaust memory. */
+export const MAX_XLSX_TOTAL_ROWS = 1_000_000;
+
+/** Every gap row is this ONE array: a gap holds nothing, and a fresh array per
+ *  row was ~1M allocations for a single hostile `<row r>`. Frozen because it is
+ *  shared — rows of the grid are only ever read. */
+const EMPTY_ROW: string[] = Object.freeze([]) as unknown as string[];
+
+/** The 0-based grid index a `<row r="N">` asks for, or null when it has none or
+ *  it is not usable — non-numeric, not after the row before it, or past Excel's
+ *  last row — in which case the row simply follows the previous one. */
+function rowIndexFromAttr(rowXml: string, rowCount: number): number | null {
+  const m = /^<row\b[^>]*?\br="(\d+)"/.exec(rowXml);
+  if (m === null) return null;
+  const index = Number(m[1]) - 1;
+  return index >= rowCount && index < MAX_XLSX_ROW ? index : null;
+}
+
+/** Rows as a grid whose index is the sheet's own row number minus one. Excel
+ *  omits empty rows from the XML, so a row's `r` decides where it lands and any
+ *  gap is filled with empty rows (they hold no cells, so the budget ignores them).
+ *  The Markdown path drops blank rows anyway; the forecast import cites cells by
+ *  row number and needs them to match what the user sees in Excel (§500). */
+function sheetRows(
+  xml: string,
+  shared: string[],
+  limits: { maxRows: number; maxCells: number },
+): { rows: string[][]; cellCount: number; truncated: boolean } {
   const rows: string[][] = [];
   let cellCount = 0;
   let truncated = false;
@@ -327,23 +374,33 @@ function sheetRows(xml: string, shared: string[]): { rows: string[][]; truncated
       // ~8e9) would exhaust memory, so the cell is dropped instead (§558).
       if (idx >= MAX_XLSX_COLUMNS) return true;
       while (cells.length < idx) cells.push("");
-      cells.push(escapeMarkdownTableCell(cellValue(cellXml, shared)));
+      cells.push(cellValue(cellXml, shared));
       return true;
     });
     // One row is at most MAX_XLSX_COLUMNS, so the overshoot past the budget is
     // bounded by a single row (§579).
-    if (cellCount + cells.length > MAX_XLSX_SHEET_CELLS) {
+    if (cellCount + cells.length > limits.maxCells) {
+      truncated = true;
+      return false;
+    }
+    const at = rowIndexFromAttr(rowXml, rows.length) ?? rows.length;
+    if (at + 1 > limits.maxRows) {
       truncated = true;
       return false;
     }
     cellCount += cells.length;
+    while (rows.length < at) rows.push(EMPTY_ROW);
     rows.push(cells);
     return true;
   });
-  return { rows, truncated };
+  return { rows, cellCount, truncated };
 }
 
-function renderRows(rows: string[][], truncatedEarlier: boolean): string {
+/** Renders raw grid rows as a Markdown table; cells are escaped HERE, so the
+ *  grid itself (`extractXlsxGrid`) carries the values as the sheet holds them.
+ *  Exported so the forecast import's prompt text (`sheetToPromptText`) shares
+ *  this renderer and its cell budget instead of keeping a second one. */
+export function renderSheetMarkdown(rows: string[][], truncatedEarlier: boolean): string {
   const nonEmpty = rows.filter((r) => r.some((c) => c.trim() !== ""));
   // A sheet cut before its first data row still says it was cut.
   if (nonEmpty.length === 0) return truncatedEarlier ? XLSX_SHEET_TRUNCATED : "";
@@ -364,7 +421,7 @@ function renderRows(rows: string[][], truncatedEarlier: boolean): string {
   const truncated = truncatedEarlier || kept < nonEmpty.length;
   if (kept === 0) return XLSX_SHEET_TRUNCATED;
   const pad = (r: string[]): string[] => {
-    const c = [...r];
+    const c = r.map(escapeMarkdownTableCell);
     while (c.length < width) c.push("");
     return c;
   };
@@ -378,13 +435,48 @@ function renderRows(rows: string[][], truncatedEarlier: boolean): string {
   return lines.join("\n");
 }
 
+/** Every sheet of an xlsx/xlsm entry map as raw cell rows (values only, not
+ *  Markdown-escaped), in workbook order. `extractXlsx` renders from this, so
+ *  the Markdown path and the grid path cannot drift. `truncated` means the
+ *  sheet was cut at `MAX_XLSX_SHEET_CELLS`. */
+export function extractXlsxGrid(
+  entries: Map<string, Uint8Array>,
+): { name: string; rows: string[][]; truncated: boolean }[] {
+  const shared = sharedStrings(entries);
+  let slotsLeft = MAX_XLSX_TOTAL_ROWS;
+  let cellsLeft = MAX_XLSX_TOTAL_CELLS;
+  return sheetEntries(entries).map(({ name, path }) => {
+    // Out of slots: the sheet is not read at all, only reported as cut.
+    if (slotsLeft <= 0 || cellsLeft <= 0) return { name, rows: [], truncated: true };
+    const { rows, cellCount, truncated } = sheetRows(decodeUtf8(entries.get(path)!), shared, {
+      maxRows: Math.min(MAX_XLSX_SHEET_ROWS, slotsLeft),
+      maxCells: Math.min(MAX_XLSX_SHEET_CELLS, cellsLeft),
+    });
+    slotsLeft -= rows.length;
+    cellsLeft -= cellCount;
+    return { name, rows, truncated };
+  });
+}
+
+/** True when the workbook uses the 1904 date system (`<workbookPr date1904="1"/>`,
+ *  old Mac workbooks): its serials count from 1904-01-01, not 1899-12-30. */
+export function isDate1904Workbook(entries: Map<string, Uint8Array>): boolean {
+  const b = entries.get("xl/workbook.xml");
+  if (!b) return false;
+  let found = false;
+  // The first <workbookPr> only: a workbook has one.
+  forEachOpenTag(decodeUtf8(b), "<workbookPr\\b", (tag) => {
+    found = /\bdate1904\s*=\s*(["'])(1|true)\1/.test(tag);
+    return false;
+  });
+  return found;
+}
+
 /** Extract Markdown from an xlsx/xlsm entry map (one section per sheet). */
 export function extractXlsx(entries: Map<string, Uint8Array>): string {
-  const shared = sharedStrings(entries);
   const sections: string[] = [];
-  for (const { name, path } of sheetEntries(entries)) {
-    const { rows, truncated } = sheetRows(decodeUtf8(entries.get(path)!), shared);
-    const table = renderRows(rows, truncated);
+  for (const { name, rows, truncated } of extractXlsxGrid(entries)) {
+    const table = renderSheetMarkdown(rows, truncated);
     if (table === "") continue;
     sections.push(`## Sheet: ${name}\n\n${table}`);
   }

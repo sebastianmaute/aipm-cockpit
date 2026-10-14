@@ -100,6 +100,9 @@ export interface BudgetBucketCardProps {
   plannedByResourcePeriod: Readonly<Record<number, Record<string, number>>>;
   actualsFetchedAt?: string;
   onEdit: (bucketId: number) => void;
+  /** Opens the forecast import (§500). Absent in a popout, which cannot write;
+   *  the card also hides it on a closed bucket, which is read-only. */
+  onImportForecast?: (bucketId: number) => void;
   onUpdateBucket: (bucketId: number, patch: Partial<BudgetBucket>) => void;
   onRemoveBucket: (bucketId: number) => void;
   onSetCell: (bucketId: number, roleId: number, periodKey: string, field: CellField, value: number) => void;
@@ -110,7 +113,7 @@ export function BudgetBucketCard({
   lang, locale, br, bucket, bucketToken, roleTokens, detailedRows, plan, fxRates, roles, disciplines, grades,
   resources, tasks, today, budgetFollowsPlan, cellBudget, roleFilter, roleSort, onSortRole, colWidths,
   startResize, openPeople, togglePeople, reorder, actualsByBucket, plannedByResourcePeriod, actualsFetchedAt,
-  onEdit, onUpdateBucket, onRemoveBucket, onSetCell, onSetDisciplineCell,
+  onEdit, onImportForecast, onUpdateBucket, onRemoveBucket, onSetCell, onSetDisciplineCell,
 }: BudgetBucketCardProps) {
   const disciplineNamesFor = (ids: readonly number[]) =>
     ids.map((id) => disciplines.find((d) => d.id === id)?.name).filter((n): n is string => !!n);
@@ -440,6 +443,16 @@ export function BudgetBucketCard({
         >
           {t(lang, "budgetEditBucket")}
         </Button>
+        {onImportForecast && bucket.status !== "closed" && (
+          <Button
+            variant="secondary"
+            size="xs"
+            aria-label={rowLabel(t(lang, "forecastImportOpen"), bucketToken)}
+            onClick={() => onImportForecast(bucket.id)}
+          >
+            {t(lang, "forecastImportOpen")}
+          </Button>
+        )}
         <Button
           variant="secondary"
           size="xs"

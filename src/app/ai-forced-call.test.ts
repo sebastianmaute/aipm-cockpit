@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { runForcedToolCall } from "./ai-forced-call";
+import { runForcedToolCall, runForcedToolCallWithStop } from "./ai-forced-call";
 import { AiHttpError } from "./ai-errors";
 import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
 
@@ -16,6 +16,14 @@ function args() {
   };
 }
 
+function stubReply(stopReason: string | undefined) {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ stop_reason: stopReason, content: [{ type: "tool_use", name: "t", input: { a: 1 } }] }),
+  }));
+}
+
 function stubStatus(status: number) {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
@@ -28,6 +36,22 @@ function stubStatus(status: number) {
 
 beforeEach(() => __resetAiKeyStatusForTests());
 afterEach(() => vi.unstubAllGlobals());
+
+describe("runForcedToolCallWithStop — the reply's stop reason beside the input", () => {
+  it("returns the input and the stop reason", async () => {
+    stubReply("max_tokens");
+    await expect(runForcedToolCallWithStop(args())).resolves.toEqual({ input: { a: 1 }, stopReason: "max_tokens" });
+    stubReply("tool_use");
+    await expect(runForcedToolCallWithStop(args())).resolves.toEqual({ input: { a: 1 }, stopReason: "tool_use" });
+  });
+
+  it("reports an absent stop reason as undefined, and runForcedToolCall still returns the input alone", async () => {
+    stubReply(undefined);
+    await expect(runForcedToolCallWithStop(args())).resolves.toEqual({ input: { a: 1 }, stopReason: undefined });
+    stubReply("max_tokens");
+    await expect(runForcedToolCall(args())).resolves.toEqual({ a: 1 });
+  });
+});
 
 describe("runForcedToolCall — §650 reports the key verdict at the envelope", () => {
   it.each([
