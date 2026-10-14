@@ -33,6 +33,14 @@ describe("help-content backbone", () => {
     expect(entry.relatedViews).toEqual(["budget", "resources", "timelog"]);
   });
 
+  // The demo is refused on local storage once a project exists (isLocalDemoBlocked), which is
+  // nearly every user following this entry: it must say when the demo opens, not promise it.
+  it("says when the demo can open, in both languages", async () => {
+    await loadI18n("de");
+    expect(t("en-US", "helpWorkflowGettingStartedBody")).toMatch(/Turso storage any time.*before you create your first one/);
+    expect(t("de", "helpWorkflowGettingStartedBody")).toMatch(/Turso-Speicher jederzeit.*bevor Sie Ihr erstes Projekt anlegen/);
+  });
+
   it("every group in HELP_GROUP_ORDER has a label", () => {
     for (const g of HELP_GROUP_ORDER) expect(HELP_GROUP_LABEL[g]).toBeTruthy();
   });
