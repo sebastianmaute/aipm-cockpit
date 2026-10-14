@@ -4,7 +4,7 @@
  * `fixedPriceAmount` or `fxRateOverride`.
  */
 import { crossRate, laterSwitchRates, type BaselineEntry } from "./baseline-currency";
-import { dayFromHour, materializeRoleRates, rematerializeDayBasisRoles, round2 } from "./role-rates";
+import { materializeDayBasisRole, round2 } from "./role-rates";
 import type { BudgetBucket, BudgetCurrency, ChangeItem, FxRates, Role } from "./types";
 import type { Workspace } from "./workspace";
 
@@ -55,13 +55,9 @@ export function convertRole(role: Role, rate: number, workdayHours: number): Rol
     const v = role[f];
     if (typeof v === "number") next[f] = round2(v * rate);
   }
-  if (role.rateBasis !== "day") return next;
-  // A day-basis role missing one day field (the sanitizer allows it) would have that side
-  // ZEROED by `materializeRoleRates`; derive its day rate from the converted hourly first,
-  // so the switch keeps the money and leaves the pair consistent (§476 B2).
-  if (typeof next.internalRateDay !== "number" && typeof next.internalRate === "number") next.internalRateDay = dayFromHour(next.internalRate, workdayHours);
-  if (typeof next.externalRateDay !== "number" && typeof next.externalRate === "number") next.externalRateDay = dayFromHour(next.externalRate, workdayHours);
-  return materializeRoleRates(next, workdayHours);
+  // A day-basis role is re-derived; a side with no day rate keeps its CONVERTED hourly
+  // rather than being zeroed (§476 B2) — the same rule the restore paths apply.
+  return materializeDayBasisRole(next, workdayHours);
 }
 
 export function convertBucket(bucket: BudgetBucket, rate: number): BudgetBucket {
@@ -168,8 +164,8 @@ export function prepareRestoredVersion(
   const wdh = opts.workdayHours;
   if (rates.length === 0) {
     if (!Array.isArray(version.roles)) return pinned;
-    const roles = rematerializeDayBasisRoles(version.roles, wdh);
-    return roles === version.roles ? pinned : { ...pinned, roles };
+    if (!version.roles.some((r) => r.rateBasis === "day")) return pinned;
+    return { ...pinned, roles: version.roles.map((r) => materializeDayBasisRole(r, wdh)) };
   }
   const chain = <T>(x: T, step: (v: T, rate: number) => T): T => rates.reduce(step, x);
   return {

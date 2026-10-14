@@ -7,7 +7,7 @@
 import type { Workspace } from "./workspace";
 import { COLLECTION_SPECS, type RecordId, type VersionChange } from "./version-diff";
 import { PRE_FORMAT_2_BLIND_SLICES } from "./version-capture-format";
-import { DEFAULT_WORKDAY_HOURS, materializeRoleRates } from "./role-rates";
+import { DEFAULT_WORKDAY_HOURS, materializeDayBasisRole } from "./role-rates";
 import type { Role } from "./types";
 
 /** Selection keyed by changeKey(collection, recordId); value is "all" (whole
@@ -65,7 +65,7 @@ function restoreRoleFields(target: Rec, source: Rec, fields: string[] | "all", a
     if (paired.has(hour) || paired.has(day)) for (const f of [hour, day]) if (f in source) paired.add(f);
   }
   const merged = mergeFields(target, source, [...paired], allChanged);
-  return materializeRoleRates(merged as unknown as Role, workdayHours) as unknown as Rec;
+  return materializeDayBasisRole(merged as unknown as Role, workdayHours) as unknown as Rec;
 }
 
 /** ★ `versionSpeaksForEmptySlices` mirrors `diffWorkspaces`' option and must be

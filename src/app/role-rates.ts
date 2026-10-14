@@ -61,6 +61,29 @@ export function materializeRoleRates(role: Role, workdayHours: number): Role {
 }
 
 /**
+ * §476 — `materializeRoleRates` for a role the baseline switch or a version restore
+ * re-derives, with ONE extra rule: a day-basis side that has NO day rate (the sanitizer
+ * allows it) keeps its stored hourly rate and gets no invented day rate, where
+ * `materializeRoleRates` alone would zero both. Shared by `convertRole`
+ * (`baseline-switch.ts`), `prepareRestoredVersion` and `applyRestore`'s role merge
+ * (`version-restore.ts`), so switch and restore cannot disagree. Hour-basis roles are
+ * returned untouched.
+ */
+export function materializeDayBasisRole(role: Role, workdayHours: number): Role {
+  if (role.rateBasis !== "day") return role;
+  const out: Role = { ...materializeRoleRates(role, workdayHours) };
+  if (typeof role.internalRateDay !== "number") {
+    delete out.internalRateDay;
+    out.internalRate = role.internalRate;
+  }
+  if (typeof role.externalRateDay !== "number") {
+    delete out.externalRateDay;
+    out.externalRate = role.externalRate;
+  }
+  return out;
+}
+
+/**
  * Re-derive the hourly cost rate on every DAY-basis role from `workdayHours`.
  * Hour-basis roles are untouched (their hourly is authoritative; the day figure
  * is display-only). Returns the SAME array reference when there are no day-basis

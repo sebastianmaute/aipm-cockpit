@@ -255,13 +255,45 @@ describe("planBaselineSwitch — rows and edge records (B2, B3)", () => {
     expect(plan({ changes: [zero] })!.changes[0]).toBe(zero);
   });
 
-  // Ruling: a day-basis role missing one day field keeps that side's money. Its day rate is
-  // derived from the CONVERTED hourly before re-materialising, so the side is neither zeroed
-  // (what `materializeRoleRates` alone would do) nor left inconsistent.
+  // Ruling: a day-basis role missing one day field keeps that side's money: the side keeps its
+  // CONVERTED hourly and gets no invented day rate (`materializeDayBasisRole`, the rule the
+  // restore paths share), where `materializeRoleRates` alone would zero it.
   it("a day-basis role missing one day field converts that side from its hourly instead of zeroing it", () => {
     const partial: Role = { id: 12, disciplineId: 1, gradeId: 1, rateBasis: "day", internalRateDay: 800, internalRate: 100, externalRate: 150 };
     const p = plan({ roles: [partial] })!;
-    expect(p.roles[0]).toMatchObject({ internalRateDay: 681.6, internalRate: 85.2, externalRateDay: 1022.4, externalRate: 127.8 });
+    expect(p.roles[0]).toMatchObject({ internalRateDay: 681.6, internalRate: 85.2, externalRate: 127.8 });
+    expect("externalRateDay" in p.roles[0]).toBe(false);
     expect(p.rows).toContainEqual({ kind: "role", id: 12, label: "role-12", field: "externalRate", before: 150, after: 127.8 });
+  });
+});
+
+// §476 fix round 1 — the restore paths re-materialise a day-basis role with the SAME missing-side
+// rule as the switch (`materializeDayBasisRole`): a side with no day rate keeps its hourly money.
+describe("restore of a day-basis role missing one day field (fix round 1)", () => {
+  const partial = (over: Partial<Role> = {}): Role => ({
+    id: 13, disciplineId: 1, gradeId: 1, rateBasis: "day", internalRateDay: 800, internalRate: 100, externalRate: 150, ...over,
+  });
+  const at = (roles: Role[]): Workspace => ({ ...emptyWorkspace(), roles });
+  const prepNow = (v: Workspace) =>
+    prepareRestoredVersion(v, { history: [], capturedAt: "2026-10-01T08:00:00.000Z", currency: "EUR", workdayHours: 8 });
+
+  it("an unchanged role shows no compare row (no phantom externalRate 150 → 0)", () => {
+    const rows = diffWorkspaces(prepNow(at([partial()])), at([partial()])).filter((c) => c.collection === "roles");
+    expect(rows).toEqual([]);
+  });
+
+  it("restoring only a non-rate field keeps the hourly money of the missing side", () => {
+    const version = prepNow(at([partial({ disciplineId: 2 })]));
+    const now = at([partial()]);
+    const changes = diffWorkspaces(version, now);
+    const out = applyRestore(now, version, changes, { [changeKey("roles", 13)]: ["disciplineId"] }, { workdayHours: 8 });
+    expect(out.roles[0]).toMatchObject({ disciplineId: 2, externalRate: 150, internalRateDay: 800, internalRate: 100 });
+  });
+
+  it("restoring the whole record keeps it too", () => {
+    const version = prepNow(at([partial({ disciplineId: 2 })]));
+    const now = at([partial()]);
+    const out = applyRestore(now, version, diffWorkspaces(version, now), { [changeKey("roles", 13)]: "all" }, { workdayHours: 8 });
+    expect(out.roles[0].externalRate).toBe(150);
   });
 });
