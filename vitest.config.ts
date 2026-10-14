@@ -127,8 +127,9 @@ export default defineConfig({
         // records barrel trio PLUS sanitize-html.ts / sanitize-report.ts), not
         // only the three-file barrel — the aggregate is across all of them.
         "src/app/sanitize*.ts": { lines: 95, branches: 94 }, // 98.33 / 95.70
-        // §502 schedule-forecast engine; measured 2026-10-14 by a run over src/app/forecast alone.
-        "src/app/forecast/**": { lines: 98, branches: 86 }, // 100 / 88.81
+        // §502 schedule-forecast engine; re-measured 2026-10-14 after the adaptive trial count went
+        // (npx vitest run src/app/forecast --coverage --coverage.include='src/app/forecast/**').
+        "src/app/forecast/**": { lines: 98, branches: 86 }, // 100 / 90.9
       },
     },
   },
