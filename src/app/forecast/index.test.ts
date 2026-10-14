@@ -263,13 +263,17 @@ describe("trial count (spec §5 Performance)", () => {
     // 1 a day, 500 open: When 500 + How many 5 days = 505 per trial, under the 800 budget; a milestone
     // 500 working days out adds 500 more and tips it.
     const tasks = [...open(500), ...recentDone(10)];
-    const run = (milestones: Milestone[]) => computeScheduleForecast(input(tasks, { trials: undefined, milestones }));
+    const trialsWith = (milestones: Milestone[]): number => {
+      const r = computeScheduleForecast(input(tasks, { trials: undefined, milestones }));
+      if (r.kind !== "forecast") throw new Error("expected forecast");
+      return r.trials;
+    };
     const far = (over: Partial<Milestone> = {}): Milestone => ({ id: 1, name: "M", date: "2028-12-29", linkedTaskIds: [500], ...over });
-    expect(run([]).trials).toBe(FORECAST_TRIALS);
-    expect(run([far()]).trials, "a far open milestone tips the budget").toBe(FORECAST_TRIALS_REDUCED);
-    expect(run([far({ achievedDate: "2026-10-01" })]).trials, "achieved").toBe(FORECAST_TRIALS);
-    expect(run([far({ date: "2028-02-30" })]).trials, "invalid date").toBe(FORECAST_TRIALS);
-    expect(run([far({ date: "2026-10-01" })]).trials, "past date").toBe(FORECAST_TRIALS);
+    expect(trialsWith([])).toBe(FORECAST_TRIALS);
+    expect(trialsWith([far()]), "a far open milestone tips the budget").toBe(FORECAST_TRIALS_REDUCED);
+    expect(trialsWith([far({ achievedDate: "2026-10-01" })]), "achieved").toBe(FORECAST_TRIALS);
+    expect(trialsWith([far({ date: "2028-02-30" })]), "invalid date").toBe(FORECAST_TRIALS);
+    expect(trialsWith([far({ date: "2026-10-01" })]), "past date").toBe(FORECAST_TRIALS);
   });
 });
 
