@@ -542,7 +542,7 @@ export const de: Record<TranslationKey, string> = {
   budgetSetupNext: "als Nächstes",
   budgetSetupStepDone: "erledigt",
   budgetSetupStepTodo: "offen",
-  budgetSetupCollapsed: "Budget-Einrichtung: {0} von 4 ·",
+  budgetSetupCollapsed: "Budget-Einrichtung: {0} von {1} ·",
   budgetSetupShow: "anzeigen",
   budgetSetupHide: "ausblenden",
   budgetSetupShowAria: "Einrichtungsschritte anzeigen",

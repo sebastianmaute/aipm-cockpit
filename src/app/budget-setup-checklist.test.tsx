@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { computeAccessibleName } from "dom-accessibility-api";
 import { BudgetSetupChecklist } from "./budget-setup-checklist";
-import type { BudgetSetupSteps } from "./budget-setup";
+import { BUDGET_SETUP_STEP_COUNT, type BudgetSetupSteps } from "./budget-setup";
 import { loadI18n, t } from "./i18n";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 
@@ -156,8 +156,15 @@ describe("BudgetSetupChecklist collapsed", () => {
 
   test("shows the count and keeps the steps hidden", () => {
     setup({ steps: some, collapsed: true });
-    expect(screen.getByText(t(L, "budgetSetupCollapsed", 3))).toBeInTheDocument();
+    expect(screen.getByText("Budget setup: 3 of 4 ·")).toBeInTheDocument();
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+  });
+
+  test("M11: the total comes from BUDGET_SETUP_STEP_COUNT, not from the string, in EN and DE", async () => {
+    await loadI18n("de");
+    expect(t(L, "budgetSetupCollapsed", "X", "Y")).toBe("Budget setup: X of Y ·");
+    expect(t("de", "budgetSetupCollapsed", "X", "Y")).toBe("Budget-Einrichtung: X von Y ·");
+    expect(BUDGET_SETUP_STEP_COUNT).toBe(4);
   });
 
   test("the show toggle is a disclosure that reveals and hides the steps", async () => {

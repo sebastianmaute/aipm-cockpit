@@ -4,7 +4,7 @@ import { CheckIcon, XMarkIcon } from "./icons";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
-import { budgetSetupDoneCount, type BudgetSetupStep, type BudgetSetupSteps } from "./budget-setup";
+import { BUDGET_SETUP_STEP_COUNT, budgetSetupDoneCount, type BudgetSetupStep, type BudgetSetupSteps } from "./budget-setup";
 import type { AppView } from "./nav-config";
 import { ALL_MODULE_IDS, FEATURE_MODULES, isViewEnabled, moduleForView, type FeatureModuleId } from "./feature-modules";
 
@@ -140,7 +140,7 @@ export function BudgetSetupChecklist(props: BudgetSetupChecklistProps) {
     <section aria-label={t(lang, "budgetSetupTitle")} className="rounded-lg border border-line bg-surface p-3 print:hidden">
       {collapsed ? (
         <div className="flex flex-wrap items-center gap-2 text-sm text-foreground">
-          <span>{t(lang, "budgetSetupCollapsed", budgetSetupDoneCount(steps))}</span>
+          <span>{t(lang, "budgetSetupCollapsed", budgetSetupDoneCount(steps), BUDGET_SETUP_STEP_COUNT)}</span>
           <ToggleButton
             variant="disclosure"
             lang={lang}

@@ -3,7 +3,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BudgetPanel } from "./budget-panel";
 import { t } from "./i18n";
-import { budgetSetupDismissKey } from "./budget-setup";
+import { BUDGET_SETUP_STEP_COUNT, budgetSetupDismissKey } from "./budget-setup";
 import type { BudgetBucket, ResourcePlan, Role } from "./types";
 
 const L = "en-US" as const;
@@ -18,7 +18,7 @@ const base = {
   plan, fxRates: null, absences: [], holidaySet: new Set<string>(), workdayHours: 8, today: "2026-02-01",
   onChangeBuckets: vi.fn(), onRefreshFx: vi.fn(), timelogProjectId: "acme",
 };
-const collapsedLine = (n: number) => screen.queryByText(t(L, "budgetSetupCollapsed", n));
+const collapsedLine = (n: number) => screen.queryByText(t(L, "budgetSetupCollapsed", n, BUDGET_SETUP_STEP_COUNT));
 const hideBtn = () => screen.queryByRole("button", { name: t(L, "budgetSetupDismiss") });
 
 afterEach(() => {

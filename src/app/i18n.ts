@@ -572,7 +572,7 @@ const enUS = {
   budgetSetupNext: "next",
   budgetSetupStepDone: "done",
   budgetSetupStepTodo: "to do",
-  budgetSetupCollapsed: "Budget setup: {0} of 4 ·",
+  budgetSetupCollapsed: "Budget setup: {0} of {1} ·",
   budgetSetupShow: "show",
   budgetSetupHide: "hide",
   budgetSetupShowAria: "Show setup steps",
