@@ -95,7 +95,8 @@ forecast's formatter) rather than owning a formatter of its own.
 
 - Offered only when `effortCoverage(open) >= EFFORT_MODE_MIN_COVERAGE` (share of open tasks with an
   `originalEstimateMinutes > 0`); otherwise `resultUnit` falls back to `"tasks"` silently and the toolbar
-  disables the toggle with a description. The `>=` is boundary-pinned: exactly 70 % qualifies.
+  disables the toggle. The reason is a VISIBLE muted hint beside it, which is also the radiogroup's
+  `aria-describedby` (a disabled radio takes no focus, so a `title` alone reached hover only). The `>=` is boundary-pinned: exactly 70 % qualifies.
 - **One measuring stick (R6/R8).** In effort mode an UNESTIMATED open task, an unestimated what-if
   addition AND an unestimated DONE task (via `dailyThroughput`'s optional `unestimatedSize`) all count at
   the median estimate of the estimated open tasks. `backlog` is then in minutes. This is the defensive
