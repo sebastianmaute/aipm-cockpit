@@ -2,6 +2,7 @@
 // from `type` + `data` by the React surfaces (never stored as prose), so this
 // module is language-neutral.
 import type { AppView } from "../nav-config";
+import type { BaselineEntry } from "../baseline-currency";
 import { TIMELOG_RULE_IDS } from "../timelog-types";
 
 export const INSIGHT_TYPES = [
@@ -156,6 +157,24 @@ export const ALLOWED_REC_TOOLS: ReadonlySet<string> = new Set([
   "update_stakeholder",
   "create_stakeholder",
 ]);
+
+/** §476 — the arguments of an `ALLOWED_REC_TOOLS` tool that carry money in the project's
+ *  currency. ★ A tool added above that accepts another money argument must list it here:
+ *  `insight-money-args.test.ts` derives the set from the tool schemas and fails otherwise. */
+export const REC_MONEY_ARGS: readonly string[] = ["costImpact"];
+
+/** §476 — true when this recommendation must not be replayed: it was generated on or before
+ *  the day of a baseline-currency SWITCH (an entry with `perPrevious`; the creation entry is
+ *  not one) and some proposed call carries a money argument, which holds old-currency amounts.
+ *  `generatedAt` is a DAY, so a switch made the same day refuses too — the order within the
+ *  day is unknown, and refusing a current recommendation costs one regenerate. */
+export function recommendationPredatesSwitch(
+  rec: InsightRecommendation,
+  history: readonly BaselineEntry[],
+): boolean {
+  if (!history.some((e) => e.perPrevious !== undefined && e.from >= rec.generatedAt)) return false;
+  return rec.proposedCalls.some((c) => REC_MONEY_ARGS.some((arg) => c.input[arg] !== undefined));
+}
 
 /** Lifecycle callbacks a surface (dashboard card, Insights view) invokes to
  *  advance an insight's status. Assembled by `useInsightRecommendations` from its

@@ -31,7 +31,8 @@ import {
   type Settings,
 } from "./settings-types";
 import type { Insight, InsightActions, InsightRecommendation } from "./insights/insight";
-import { ALLOWED_REC_TOOLS } from "./insights/insight";
+import { ALLOWED_REC_TOOLS, recommendationPredatesSwitch } from "./insights/insight";
+import type { BaselineEntry } from "./baseline-currency";
 import { metricAtActionPatch } from "./insights/outcome";
 import type { ScopeEpochReader } from "./scope-epoch";
 import { useInsightRecommend } from "./use-insight-recommend";
@@ -83,6 +84,9 @@ export interface InsightRecommendationDeps {
   milestones: readonly Milestone[];
   changes: readonly ChangeItem[];
   stakeholders: readonly Stakeholder[];
+  /** §476 — the baseline-currency history; a recommendation generated before a switch is not
+   *  replayed when it carries money (`recommendationPredatesSwitch`). */
+  baselineHistory: readonly BaselineEntry[];
   resourcesById: ReadonlyMap<number, Resource>;
   insights: readonly Insight[] | undefined;
   setInsights: Dispatch<SetStateAction<readonly Insight[] | undefined>>;
@@ -112,6 +116,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     milestones,
     changes,
     stakeholders,
+    baselineHistory,
     resourcesById,
     insights,
     setInsights,
@@ -355,6 +360,14 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // never drive a destructive tool (delete_*/update_settings) through runTool,
     // even if it slipped a stale load path. Load-time sanitize also strips these.
     const calls = rec.proposedCalls.filter((c) => ALLOWED_REC_TOOLS.has(c.name));
+    // §476 — a recommendation generated before a baseline-currency switch holds money in the
+    // OLD currency; replayed now it would write `costImpact: 5000` as 5000 of the new one. The
+    // whole apply is refused (nothing written, the insight stays `proposed`) like the stale
+    // refusal below, so the user regenerates it. Calls without money are not affected.
+    if (recommendationPredatesSwitch({ ...rec, proposedCalls: calls }, baselineHistory)) {
+      showToast("error", t(lang, "insightRecommendationCurrencyChanged"));
+      return;
+    }
     // ★★ §548 — NO scope-epoch guard here, and NOT because closing the modal cancels anything: it
     // does not, this function runs to completion after the unmount. It is safe because every
     // `ALLOWED_REC_TOOLS` dispatcher writes local state only, so each `await runTool` below resolves
@@ -464,7 +477,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       failed + refused > 0 ? "error" : "info",
       t(lang, failed + refused > 0 ? "insightRecommendationApplyFailed" : "insightRecommendationApplied"),
     );
-  }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivityAs, showToast, lang, tasks, raid, changes, milestones, stakeholders]);
+  }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivityAs, showToast, lang, tasks, raid, changes, milestones, stakeholders, baselineHistory]);
 
   return {
     insightActions,
