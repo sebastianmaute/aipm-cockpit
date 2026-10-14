@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { TursoSetupSteps } from "./turso-setup-steps";
 import { t } from "../i18n";
 import { INSTALL_GUIDE_URL } from "../version";
+import { FOCUS_RING } from "../interaction-styles";
 
 const NONE = { urlDone: false, tokenDone: false, testDone: false };
 
@@ -106,5 +107,13 @@ describe("TursoSetupSteps", () => {
     const link = screen.getByRole("link", { name: t("en-US", "tursoStepGuide") });
     expect(link).toHaveAttribute("href", INSTALL_GUIDE_URL);
     expect(link).toHaveAttribute("target", "_blank");
+  });
+  it("M9: gives every link the app focus ring", () => {
+    renderSteps();
+    const links = screen.getAllByRole("link");
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      for (const cls of FOCUS_RING.split(" ")) expect(link).toHaveClass(cls);
+    }
   });
 });

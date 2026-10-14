@@ -3,11 +3,12 @@
 import type { ReactNode } from "react";
 import { type Lang, t } from "../i18n";
 import { FieldHint } from "../field-hint";
+import { FOCUS_RING } from "../interaction-styles";
 import { INSTALL_GUIDE_URL } from "../version";
 import type { TursoSetupState } from "../turso-setup-state";
 
 const TURSO_URL = "https://turso.tech/";
-const LINK_CLASS = "text-ui-dark-blue dark:text-ui-light-grey underline hover:opacity-80";
+const LINK_CLASS = `text-ui-dark-blue dark:text-ui-light-grey underline hover:opacity-80 ${FOCUS_RING}`;
 
 interface TursoSetupStepsProps {
   lang: Lang;
