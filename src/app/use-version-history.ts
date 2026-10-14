@@ -26,9 +26,11 @@ export interface UseVersionHistoryArgs {
   retention: number;
   getPayload: () => string; // lazily serialize the CURRENT workspace
   onError?: (err: unknown) => void;
-  /** §476 — `meta.capturedAt` is the restored version's capture time (null when it is not in the
-   *  loaded list), which the restore funnel needs to record a currency switch back. */
-  applyWorkspace?: (ws: Workspace, meta: { capturedAt: string | null }) => void;
+  applyWorkspace?: (ws: Workspace) => void;
+  /** §476 — applied to the parsed VERSION before it is diffed and merged, with its capture time
+   *  (null when the version is not in the loaded list). The wiring passes `prepareRestoredVersion`:
+   *  version money is converted into the current currency, and `plan.currency` never changes. */
+  prepareVersion?: (version: Workspace, capturedAt: string | null) => Workspace;
   logActivity?: (kind: "history.restore", ...args: (string | number)[]) => void;
 }
 
@@ -99,7 +101,7 @@ export function isEmptyWorkspacePayload(json: string): boolean {
 }
 
 export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistoryResult {
-  const { config, projectId, enabled, idleMs, retention, getPayload, onError, applyWorkspace, logActivity } = args;
+  const { config, projectId, enabled, idleMs, retention, getPayload, onError, applyWorkspace, prepareVersion, logActivity } = args;
   const [versions, setVersions] = useState<ProjectVersionMeta[]>([]);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -271,7 +273,9 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       // misleading diff but a wipe: every live record reads as "added" and the
       // restore deletes it. `emptyWorkspace()` carries the nine core lists as
       // `[]`, so the absent-key guard below cannot catch that shape.
-      const version = jsonToWorkspace(verStr, { strict: true });
+      const parsed = jsonToWorkspace(verStr, { strict: true });
+      const capturedAt = versions.find((v) => v.id === versionId)?.capturedAt ?? null;
+      const version = prepareVersion ? prepareVersion(parsed, capturedAt) : parsed;
       const now = jsonToWorkspace(getPayload());
       const speaks = speaksForEmptySlices(readCaptureFormat(verStr));
       const changes = diffWorkspaces(version, now, { olderSpeaksForEmptySlices: speaks });
@@ -282,11 +286,11 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       const merged = applyRestore(now, version, changes, selection, { versionSpeaksForEmptySlices: speaks });
       const restored = { ...merged, raid: repairLoadedRaid(merged.raid) };
       await capturePayload(workspaceToJson(restored), "auto", null);
-      applyWorkspace?.(restored, { capturedAt: versions.find((v) => v.id === versionId)?.capturedAt ?? null });
+      applyWorkspace?.(restored);
       logActivity?.("history.restore", count, versionLabel);
       return true;
     } catch (err) { onError?.(err); return false; }
-  }, [active, config, projectId, getPayload, capturePayload, applyWorkspace, logActivity, onError, versions]);
+  }, [active, config, projectId, getPayload, capturePayload, applyWorkspace, prepareVersion, logActivity, onError, versions]);
 
   const loadDiff = useCallback(async (fromId: string, to: string | "now"): Promise<VersionChange[]> => {
     if (!active) return [];

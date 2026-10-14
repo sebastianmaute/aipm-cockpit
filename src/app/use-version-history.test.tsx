@@ -4,7 +4,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import * as store from "./version-store";
 import { useVersionHistory, isEmptyWorkspacePayload } from "./use-version-history";
-import { changeKey } from "./version-restore";
+import { changeKey, type RestoreSelection } from "./version-restore";
+import { prepareRestoredVersion } from "./baseline-switch";
+import type { BaselineEntry } from "./baseline-currency";
+import type { Workspace } from "./workspace";
+import type { BudgetCurrency } from "./types";
 import { CAPTURE_FORMAT, readCaptureFormat } from "./version-capture-format";
 
 vi.mock("./version-store", { spy: true });
@@ -312,22 +316,57 @@ describe("useVersionHistory", () => {
     expect(logActivity).toHaveBeenCalledWith("history.restore", 1, "v1-label");
   });
 
-  // §476 — the restore funnel needs the version's capture time to record a currency switch back
-  // (`restoreSwitchEntry` cancels only the switches made AFTER it).
-  it("restore hands applyWorkspace the restored version's capturedAt", async () => {
-    const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
-      grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };
-    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(JSON.stringify({ tasks: [{ id: 1, title: "Old" }], ...base }));
-    const meta = (id: string, capturedAt: string) => ({ id, projectId: "p1", capturedAt, trigger: "auto" as const, label: null, summary: null });
-    vi.spyOn(store, "listVersionMeta").mockResolvedValue([meta("v2", "2026-10-15T08:00:00.000Z"), meta("v1", "2026-10-14T08:00:00.000Z")]);
-    const now = JSON.stringify({ tasks: [{ id: 1, title: "New" }], ...base });
-    const applyWorkspace = vi.fn();
-    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => now, applyWorkspace })));
-    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    expect(result.current.versions.map((v) => v.id)).toEqual(["v2", "v1"]); // control: the list loaded
-    await act(async () => { await result.current.restore("v1", { [changeKey("tasks", 1)]: ["title"] }, "v1-label"); });
-    expect(applyWorkspace).toHaveBeenCalledTimes(1);
-    expect(applyWorkspace.mock.calls[0][1]).toEqual({ capturedAt: "2026-10-14T08:00:00.000Z" });
+  // §476 pre-merge ruling — a restore converts the money it takes from a version into the CURRENT
+  // currency (the switches made since the version's capture) and never changes `plan.currency`. The
+  // hook hands the parsed version and its capture time to `prepareVersion` BEFORE the diff and the
+  // merge, so whole-record and per-field restores both see converted values. Real `applyRestore`.
+  describe("§476 — restore converts version money into the current currency", () => {
+    const V1_AT = "2026-10-14T08:00:00.000Z";
+    const PLAN = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" };
+    const base = { raid: [], absences: [], shifts: [], resources: [], disciplines: [], grades: [],
+      budgets: [], milestones: [], stakeholders: [], status: {}, tasks: [] };
+    const role = (internalRate: number, externalRate: number) => ({ id: 3, disciplineId: 1, gradeId: 1, internalRate, externalRate });
+    const chg = (costImpact: number) => ({ id: 7, title: "C", raisedDate: "2026-01-01", linkedTaskIds: [], linkedRaidIds: [], costImpact });
+    const version = JSON.stringify({ ...base, plan: { ...PLAN, startDate: "2025-01-01", currency: "EUR" }, roles: [role(100, 150)], changes: [chg(1000)] });
+    const meta = { id: "v1", projectId: "p1", capturedAt: V1_AT, trigger: "auto" as const, label: null, summary: null };
+    async function restoreWith(history: BaselineEntry[], currency: BudgetCurrency, now: string, selection: RestoreSelection) {
+      vi.spyOn(store, "loadVersionPayload").mockResolvedValue(version);
+      vi.spyOn(store, "listVersionMeta").mockResolvedValue([meta]);
+      const applyWorkspace = vi.fn();
+      const prepareVersion = (v: Workspace, capturedAt: string | null) => prepareRestoredVersion(v, { history, capturedAt, currency, workdayHours: 8 });
+      const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => now, applyWorkspace, prepareVersion })));
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect(result.current.versions).toHaveLength(1); // control: the capture time is known
+      await act(async () => { await result.current.restore("v1", selection, "v1-label"); });
+      expect(applyWorkspace).toHaveBeenCalledTimes(1);
+      return applyWorkspace.mock.calls[0][0] as Workspace;
+    }
+    const GBP_SWITCH: BaselineEntry[] = [{ from: "2026-10-14", at: "2026-10-14T09:00:00.000Z", currency: "GBP", perPrevious: 0.85 }];
+    const nowGbp = JSON.stringify({ ...base, plan: { ...PLAN, currency: "GBP" }, roles: [role(170, 127.5)], changes: [chg(1700)] });
+
+    it("(1a) restoring the whole plan record from a pre-switch EUR version keeps GBP and restores the rest", async () => {
+      const applied = await restoreWith(GBP_SWITCH, "GBP", nowGbp, { [changeKey("plan", null)]: "all" });
+      expect(applied.plan.currency).toBe("GBP");
+      expect(applied.plan.startDate).toBe("2025-01-01");
+    });
+
+    it("(1b) a per-field restore of one role rate and one costImpact converts them (EUR→GBP 0.85)", async () => {
+      const applied = await restoreWith(GBP_SWITCH, "GBP", nowGbp, {
+        [changeKey("roles", 3)]: ["internalRate"], [changeKey("changes", 7)]: ["costImpact"],
+      });
+      expect(applied.roles[0]).toMatchObject({ internalRate: 85, externalRate: 127.5 });
+      expect(applied.changes?.[0]?.costImpact).toBe(850);
+    });
+
+    it("(2) after a non-cancelling round trip (EUR→USD 1.10→EUR 0.95) the restored rate carries the move", async () => {
+      const trip: BaselineEntry[] = [
+        { from: "2026-10-14", at: "2026-10-14T09:00:00.000Z", currency: "USD", perPrevious: 1.1 },
+        { from: "2026-10-14", at: "2026-10-14T10:00:00.000Z", currency: "EUR", perPrevious: 0.95 },
+      ];
+      const nowEur = JSON.stringify({ ...base, plan: { ...PLAN, currency: "EUR" }, roles: [role(200, 150)], changes: [chg(1000)] });
+      const applied = await restoreWith(trip, "EUR", nowEur, { [changeKey("roles", 3)]: ["internalRate"] });
+      expect(applied.roles[0].internalRate).toBe(104.5);
+    });
   });
 
   // §674 — a restored version can carry a RAID cause loop saved before the guard

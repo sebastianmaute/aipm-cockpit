@@ -81,8 +81,8 @@ newest entries until the next save.
   `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
   `activityLog`, so fanning it out would blank the audit trail on every version restore.
   ★★ It is ONE OF SIX slices on which the two funnels disagree, NOT the only one — `features`,
-  `fieldVisibility`, `documentAssets`, `budgetHistory` and `baselineHistory` (§476) are also absent from the restore fan-out (a restore that changes
-  `plan.currency` APPENDS one `baselineHistory` entry — it never replaces the slice; see `budget.md`). An
+  `fieldVisibility`, `documentAssets`, `budgetHistory` and `baselineHistory` (§476) are also absent from the restore fan-out (a restore never changes
+  `plan.currency` either, and converts the money it restores — see `budget.md`). An
   earlier revision said "the one slice" and its successors said THREE and FOUR; each sends a reader who
   diffs the funnels off to distrust the doc or to "complete the pattern" on the rest. ★★★ **THAT
   SENTENCE HAS NOW BEEN OVERTAKEN THREE TIMES BY SLICES THAT NEVER OPENED THIS FILE** —

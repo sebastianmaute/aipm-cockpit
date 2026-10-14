@@ -73,6 +73,7 @@ function makeDeps(over: Partial<VersionHistoryWiringDeps> = {}): VersionHistoryW
     storageKind: "turso",
     features: ["history"],
     versionHistoryRetention: undefined,
+    workdayHours: 8,
     isPopout: false,
     logActivityUser: vi.fn(),
     reportStorageOutcome: vi.fn(),
@@ -149,7 +150,7 @@ describe("useVersionHistoryWiring — capture, restore, error, notify", () => {
       milestones: [{ id: 4, name: "M", date: "2026-07-01" } as Milestone],
       stakeholders: [STAKEHOLDER],
     };
-    act(() => { args().applyWorkspace?.(restored, { capturedAt: null }); });
+    act(() => { args().applyWorkspace?.(restored); });
     expect(h.result.current.ws.tasks.map((t) => t.id)).toEqual([1, 2]);
     expect(h.result.current.ws.tasks[0].dependencies ?? []).toEqual([]);
     expect(h.result.current.ws.milestones.map((m) => m.id)).toEqual([4]);
@@ -168,58 +169,34 @@ describe("useVersionHistoryWiring — capture, restore, error, notify", () => {
   });
 });
 
-// §476 — the restore funnel restores `plan` (and with it `plan.currency`) but never `baselineHistory`,
-// which is not captured. A restore that changes the currency therefore records itself as a switch back,
-// or the read-time rebase would go on converting old snapshots into a currency the plan no longer has.
-describe("useVersionHistoryWiring — a restore keeps baselineHistory in step with plan.currency", () => {
+// §476 pre-merge ruling — a restore never changes the currency: the wiring hands `useVersionHistory` a
+// `prepareVersion` that pins the LIVE `plan.currency` and converts the version's money by the LIVE
+// `baselineHistory` (day roles re-derived with the settings' workday hours), and the fan-out itself
+// neither appends a history entry nor logs a currency row.
+describe("useVersionHistoryWiring — a restore converts version money and keeps the currency", () => {
   const T_VERSION = "2026-10-14T08:00:00.000Z";
-  const T_SWITCH = "2026-10-14T09:00:00.000Z";
-  const SWITCH = { from: "2026-10-14", at: T_SWITCH, currency: "GBP" as const, perPrevious: 0.85 };
-  function afterGbpSwitch() {
-    const h = mount();
+  const SWITCH = { from: "2026-10-14", at: "2026-10-14T09:00:00.000Z", currency: "GBP" as const, perPrevious: 0.85 };
+  function afterGbpSwitch(over: Partial<VersionHistoryWiringDeps> = {}) {
+    const h = mount(over);
     act(() => {
       h.result.current.ws.setPlan((p) => ({ ...p, currency: "GBP" }));
       h.result.current.ws.setBaselineHistory([SWITCH]);
     });
     return h;
   }
-  it("restoring a pre-switch EUR version appends a switch back to EUR at 1/0.85", () => {
-    const h = afterGbpSwitch();
-    const restored: Workspace = { ...emptyWorkspace(), plan: { ...h.result.current.ws.plan, currency: "EUR" } };
-    act(() => { args().applyWorkspace?.(restored, { capturedAt: T_VERSION }); });
-    expect(h.result.current.ws.plan.currency).toBe("EUR"); // control: the plan was restored
-    const hist = h.result.current.ws.baselineHistory;
-    expect(hist).toHaveLength(2);
-    expect(hist[1]).toMatchObject({ currency: "EUR", perPrevious: 1 / 0.85 });
-    expect(hist[1].at > T_SWITCH).toBe(true);
+  const dayRole = { id: 3, disciplineId: 1, gradeId: 1, rateBasis: "day" as const, internalRateDay: 800, externalRateDay: 1000, internalRate: 80, externalRate: 100 };
+  it("prepareVersion pins the live currency and converts by the live history, day rates over the settings' workday", () => {
+    const h = afterGbpSwitch({ workdayHours: 10 });
+    const version: Workspace = { ...emptyWorkspace(), plan: { ...h.result.current.ws.plan, currency: "EUR" }, roles: [dayRole] };
+    const out = args().prepareVersion?.(version, T_VERSION);
+    expect(out?.plan.currency).toBe("GBP");
+    expect(out?.roles[0]).toMatchObject({ internalRateDay: 680, externalRateDay: 850, internalRate: 68, externalRate: 85 });
   });
-  // §476 owner requirement — the switch back is recorded through the wiring's user logger, once.
-  it("records the switch back in the activity log: from, to and the rate (6 decimals)", () => {
+  it("the fan-out appends no history entry and logs nothing", () => {
     const h = afterGbpSwitch();
-    const restored: Workspace = { ...emptyWorkspace(), plan: { ...h.result.current.ws.plan, currency: "EUR" } };
-    act(() => { args().applyWorkspace?.(restored, { capturedAt: T_VERSION }); });
-    const calls = (h.deps.logActivityUser as ReturnType<typeof vi.fn>).mock.calls;
-    expect(calls).toEqual([["plan.currencyRestored", "GBP", "EUR", 1.176471]]);
-  });
-  it("logs nothing when the restore keeps the currency", () => {
-    const h = afterGbpSwitch();
-    const restored: Workspace = { ...emptyWorkspace(), plan: { ...h.result.current.ws.plan, currency: "GBP" } };
-    act(() => { args().applyWorkspace?.(restored, { capturedAt: T_VERSION }); });
+    const before = h.result.current.ws.baselineHistory;
+    act(() => { args().applyWorkspace?.({ ...emptyWorkspace(), plan: { ...h.result.current.ws.plan } }); });
+    expect(h.result.current.ws.baselineHistory).toBe(before);
     expect(h.deps.logActivityUser).not.toHaveBeenCalled();
-  });
-  it("a restore whose capture time is unknown appends nothing (it cannot compute the factor)", () => {
-    const h = afterGbpSwitch();
-    const before = h.result.current.ws.baselineHistory;
-    const restored: Workspace = { ...emptyWorkspace(), plan: { ...h.result.current.ws.plan, currency: "EUR" } };
-    act(() => { args().applyWorkspace?.(restored, { capturedAt: null }); });
-    expect(h.result.current.ws.plan.currency).toBe("EUR"); // control: the plan was restored
-    expect(h.result.current.ws.baselineHistory).toBe(before);
-  });
-  it("a restore that keeps the currency leaves the history unchanged", () => {
-    const h = afterGbpSwitch();
-    const before = h.result.current.ws.baselineHistory;
-    const restored: Workspace = { ...emptyWorkspace(), plan: { ...h.result.current.ws.plan, currency: "GBP" } };
-    act(() => { args().applyWorkspace?.(restored, { capturedAt: T_VERSION }); });
-    expect(h.result.current.ws.baselineHistory).toBe(before);
   });
 });

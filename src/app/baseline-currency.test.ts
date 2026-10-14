@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  crossRate, rebaseBudgetHistory, rebaseFactor, rebaseSnapshots, restoreSwitchEntry, sanitizeBaselineHistory,
+  crossRate, rebaseBudgetHistory, rebaseFactor, rebaseSnapshots, sanitizeBaselineHistory,
   type BaselineEntry,
 } from "./baseline-currency";
 import type { FxRates } from "./types";
@@ -26,6 +26,13 @@ describe("sanitizeBaselineHistory", () => {
       { ...good, currency: "CHF" }, { ...good, perPrevious: 0 }, { ...good, perPrevious: NaN },
       { ...good, from: "14.10.2026" }, { ...good, at: "yesterday" },
     ])).toEqual([]);
+  });
+  // §476 pre-merge — a perPrevious outside [1e-4, 1e4] is no FX rate; one such entry would push
+  // `rebaseFactor` to Infinity or 0 for every record before it.
+  test("drops a perPrevious outside [1e-4, 1e4] and keeps a real one (INR, 105)", () => {
+    expect(sanitizeBaselineHistory([{ ...good, perPrevious: 1e200 }, { ...good, perPrevious: 1e-9 }])).toEqual([]);
+    expect(sanitizeBaselineHistory([{ ...good, currency: "INR", perPrevious: 105 }])).toEqual([{ ...good, currency: "INR", perPrevious: 105 }]);
+    expect(sanitizeBaselineHistory([{ ...good, perPrevious: 1e-4 }, { ...good, at: T2, perPrevious: 1e4 }])).toHaveLength(2); // the bounds are inclusive
   });
   test("keeps a creation entry without perPrevious", () => {
     const c = { from: "2026-10-14", at: T1, currency: "EUR" };
@@ -101,38 +108,5 @@ describe("rebaseBudgetHistory", () => {
   test("empty history returns the same array", () => {
     const arr = [e];
     expect(rebaseBudgetHistory(arr, [])).toBe(arr);
-  });
-});
-
-// §476 — a version restore whose plan currency differs from the current one records itself as a
-// switch back, so the read-time rebase stays in step with `plan.currency`.
-describe("restoreSwitchEntry", () => {
-  const NOW = "2026-12-01T09:00:00.000Z";
-  const V0 = ms(T1, -60_000); // the version: captured in EUR, before the GBP switch
-  test("restoring a pre-switch EUR version after EUR→GBP appends a switch back at 1/0.85", () => {
-    const e = restoreSwitchEntry([history[0]], "EUR", "GBP", V0, NOW);
-    expect(e).toEqual({ from: "2026-12-01", at: NOW, currency: "EUR", perPrevious: 1 / 0.85 });
-  });
-  test("…and a snapshot captured before the version rebases to its original value (factor 1)", () => {
-    const e = restoreSwitchEntry([history[0]], "EUR", "GBP", V0, NOW);
-    const snap = { capturedAt: ms(V0, -1000), remainingCost: 1000, series: [{ plannedCost: 200, actualCost: 50 }] } as unknown as SnapshotRecord;
-    const [r] = rebaseSnapshots([snap], [history[0], e as BaselineEntry]);
-    expect(r.remainingCost).toBeCloseTo(1000);
-    expect(r.series[0].plannedCost).toBeCloseTo(200);
-    expect(r.series[0].actualCost).toBeCloseTo(50);
-  });
-  test("cancels only the switches AFTER the version (two later switches → their product)", () => {
-    const e = restoreSwitchEntry(history, "EUR", "USD", V0, NOW);
-    expect(e?.perPrevious).toBeCloseTo(1 / (0.85 * 1.3));
-  });
-  test("the current currency is the latest entry's, not the caller's fallback", () => {
-    expect(restoreSwitchEntry([history[0]], "GBP", "EUR", V0, NOW)).toBeNull();
-  });
-  test("an empty history falls back to the plan's currency", () => {
-    expect(restoreSwitchEntry([], "EUR", "EUR", V0, NOW)).toBeNull();
-    expect(restoreSwitchEntry([], "GBP", "EUR", V0, NOW)).toEqual({ from: "2026-12-01", at: NOW, currency: "GBP", perPrevious: 1 });
-  });
-  test("equal currencies append nothing", () => {
-    expect(restoreSwitchEntry([history[0]], "GBP", "GBP", ms(T1, 1000), NOW)).toBeNull();
   });
 });

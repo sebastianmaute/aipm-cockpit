@@ -17,6 +17,8 @@ export type BaselineEntry = {
   perPrevious?: number; // absent on a creation entry
 };
 
+const PER_PREVIOUS_MIN = 1e-4;
+const PER_PREVIOUS_MAX = 1e4;
 const ISO_MS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 function sanitizeEntry(input: unknown): BaselineEntry | null {
@@ -27,7 +29,9 @@ function sanitizeEntry(input: unknown): BaselineEntry | null {
   if (typeof e.at !== "string" || !ISO_MS.test(e.at) || Number.isNaN(Date.parse(e.at))) return null;
   if (!isBudgetCurrency(e.currency)) return null;
   if (e.perPrevious === undefined) return { from, at: e.at, currency: e.currency };
-  if (typeof e.perPrevious !== "number" || !Number.isFinite(e.perPrevious) || e.perPrevious <= 0) return null;
+  // §476 — no real cross rate between the four currencies leaves [1e-4, 1e4]; outside it, one
+  // entry would push `rebaseFactor` to Infinity or 0 for every record before it.
+  if (typeof e.perPrevious !== "number" || !(e.perPrevious >= PER_PREVIOUS_MIN && e.perPrevious <= PER_PREVIOUS_MAX)) return null;
   return { from, at: e.at, currency: e.currency, perPrevious: e.perPrevious };
 }
 
@@ -60,33 +64,6 @@ export function rebaseFactor(history: readonly BaselineEntry[], atIso: string): 
     if (e.at > atIso && e.perPrevious !== undefined) factor *= e.perPrevious;
   }
   return factor;
-}
-
-/** The currency the history says money is in now: the latest entry's, or `planCurrency` while it is empty. */
-export function currentBaselineCurrency(history: readonly BaselineEntry[], planCurrency: BudgetCurrency): BudgetCurrency {
-  return history.length > 0 ? history[history.length - 1].currency : planCurrency;
-}
-
-/**
- * §476 — the entry a VERSION RESTORE appends when the restored `plan.currency`
- * differs from the current one, so the read-time rebase stays in step with the plan.
- * The current currency is the latest entry's (or `planCurrency` while the history is
- * empty). `perPrevious` cancels every switch made after the version was captured, so
- * a record from before the version rebases with a net factor of 1 relative to it.
- * ★ The product assumes the switches after `versionCapturedAt` lead from the restored
- *   currency to the current one, each with a `perPrevious`. It deliberately never
- *   falls back to `crossRate`: no session rates are guaranteed at restore time.
- *   Returns null when the currencies are equal (nothing to record).
- */
-export function restoreSwitchEntry(
-  history: readonly BaselineEntry[],
-  restoredCurrency: BudgetCurrency,
-  planCurrency: BudgetCurrency,
-  versionCapturedAt: string,
-  nowIso: string,
-): BaselineEntry | null {
-  if (restoredCurrency === currentBaselineCurrency(history, planCurrency)) return null;
-  return { from: nowIso.slice(0, 10), at: nowIso, currency: restoredCurrency, perPrevious: 1 / rebaseFactor(history, versionCapturedAt) };
 }
 
 /** A cross rate rounded to 6 decimals, as the activity log records it (§476). */

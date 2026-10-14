@@ -118,19 +118,26 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   sync reaches: their images hold old-currency amounts. Mechanism: [`undo.md`](undo.md) "Gates on the stack"
   (`useDenominationEpoch`).
 - **The switch is LOGGED** (owner requirement): Confirm writes ONE `plan.currencySwitched` activity entry, actor
-  `"user"`, args `[from, to, rate, ECB date]` (rate rounded by `roundRate` to 6 decimals). A version restore that
-  appends a switch back logs `plan.currencyRestored` `[from, to, rate]` through the wiring's `logActivityUser`. The
-  completion trend reads neither (pinned in `completion-trend.test.ts`, "§476").
+  `"user"`, args `[from, to, rate, ECB date]` (rate rounded by `roundRate` to 6 decimals). The
+  completion trend does not read it (pinned in `completion-trend.test.ts`, "§476").
 - **`baselineHistory` (`Workspace.baselineHistory`, entries `BaselineEntry`: `from`, `at`,
   `currency`, `perPrevious?`).** Every switch appends one entry whose `perPrevious` is the cross rate
   it used. It is a meta-blob slice on all six write paths
   (`grep -c "baselineHistory" src/app/turso-tenant-schema.ts` → 3) and, like `budgetHistory`, is
   absent from the version capture, so a restore never REPLACES it ([`activity-log.md`](activity-log.md)).
-  ★★ But `plan` IS restored, so a restore that changes `plan.currency` APPENDS a switch back
-  (`restoreSwitchEntry`, called from `applyRestoredWorkspace`): `perPrevious` = 1 / the product of the
-  `perPrevious` of every entry later than the version's `capturedAt`, so a record from before the version
-  rebases with a net factor of 1. Never `crossRate` (no session rates at restore time). A restore whose
-  capture time is unknown appends nothing and logs `history.restoreCurrencyUnrecorded`.
+  ★★★ **A VERSION RESTORE NEVER CHANGES `plan.currency`, AND CONVERTS THE MONEY IT RESTORES** (pre-merge
+  ruling, superseding an earlier design that appended a "switch back" entry: restore is per record and per
+  field, so restoring the plan record alone re-labelled new-currency rates, and a per-field rate restore
+  wrote old-currency values with nothing appended). `prepareRestoredVersion` (`baseline-switch.ts`) runs on
+  the parsed VERSION before the diff and the merge (`useVersionHistory.restore`'s `prepareVersion`, wired in
+  `use-version-history-wiring.ts` with the LIVE history, currency and workday hours): it pins the plan's
+  currency, and multiplies the planner's money fields (`ROLE_FIELDS`, `BUCKET_FIELDS`, `costImpact`) by
+  `rebaseFactor(history, capturedAt)`, round2, re-deriving a day role's hourly rates. Factor 1 → untouched;
+  an unknown capture time converts nothing. Never `fixedPriceAmount` or `fxRateOverride`. A restore
+  appends no history entry and logs no currency row. ★ The compare view's diff is NOT converted, so it
+  can show a version's raw figure for a field the restore will write converted.
+  ★ `sanitizeBaselineHistory` drops a `perPrevious` outside [1e-4, 1e4]: one absurd entry would push
+  `rebaseFactor` to Infinity or 0 for every earlier record.
 - ★★★ **STORED HISTORY IS NEVER REWRITTEN; IT IS REBASED AT READ TIME.** Snapshots and
   `budgetHistory` entries stay in the currency they were captured in. `rebaseFactor` multiplies the
   `perPrevious` of every switch LATER than a record's timestamp, and `rebaseSnapshots` and

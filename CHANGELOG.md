@@ -69,10 +69,10 @@ longer carries its own changelog comment.
   existing project to another currency once the ECB rates have been refreshed in the same session: a
   confirmation lists every rate and cost impact before and after, converted once at that day's rate, and
   the switch is recorded in the activity log and cannot be undone (switch back instead); edits made
-  before it can no longer be undone either, in any open window of the project. When restoring a saved version brings back an earlier currency, past
-  Trends snapshots and budget history follow it. Role rates, a bucket's own hourly rates and change cost
-  impacts are converted once; fixed-price amounts and a bucket's manual exchange rate are not
-  changed. Past Trends snapshots and budget history are shown in the new currency at the rate of each
+  before it can no longer be undone either, in any open window of the project. Restoring a saved
+  version never changes the currency: rates and cost impacts it brings back are converted into the
+  current currency. Role rates, a bucket's own hourly rates and change cost impacts are converted
+  once; fixed-price amounts and a bucket's manual exchange rate are not changed. Past Trends snapshots and budget history are shown in the new currency at the rate of each
   switch. The switch is not offered in a pop-out window.
 
 ### Changed

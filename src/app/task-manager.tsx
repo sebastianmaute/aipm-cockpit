@@ -762,7 +762,7 @@ function TaskManagerInner() {
   const versionHistory = useVersionHistoryWiring({
     stakeholders, calendarEvents, tursoConfig, tursoProjectId, isPopout, logActivityUser,
     reportStorageOutcome, versionNotifyRef,
-    storageKind: settings.storageConfig.kind,
+    storageKind: settings.storageConfig.kind, workdayHours: settings.resources.workdayHours,
     features: settings.features,
     versionHistoryRetention: settings.versionHistoryRetention,
   });

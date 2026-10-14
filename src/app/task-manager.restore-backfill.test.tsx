@@ -47,8 +47,8 @@ let setDocumentAssetsRef: ((v: readonly DocumentAsset[] | undefined) => void) | 
 // restore flow would need a Turso backend.
 vi.mock("./use-version-history", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./use-version-history")>()),
-  useVersionHistory: (args: { applyWorkspace: (w: Workspace, meta: { capturedAt: string | null }) => void; getPayload: () => string }) => {
-    applyRestored = (w) => args.applyWorkspace(w, { capturedAt: null }); // §476: no capture time, so no currency entry
+  useVersionHistory: (args: { applyWorkspace: (w: Workspace) => void; getPayload: () => string }) => {
+    applyRestored = args.applyWorkspace;
     getPayload = args.getPayload;
     return {
       versions: [], busy: false, notifySaved: () => {},

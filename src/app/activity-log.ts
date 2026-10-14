@@ -64,10 +64,9 @@ export type ActivityKind =
   | "budget.created"
   | "budget.updated"
   | "budget.deleted"
-  // §476 — a baseline-currency switch (args: from, to, cross rate, ECB date) and a version
-  // restore that switched it back (args: from, to, rate). Not undoable, so no undo label.
+  // §476 — a baseline-currency switch (args: from, to, cross rate, ECB date). Not undoable, so
+  // no undo label. A version restore never changes the currency, so it has no kind of its own.
   | "plan.currencySwitched"
-  | "plan.currencyRestored"
   | "discipline.deleted"
   | "grade.deleted"
   | "settings.updated"
@@ -344,7 +343,6 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "budget.updated": "activityBudgetUpdated",
   "budget.deleted": "activityBudgetDeleted",
   "plan.currencySwitched": "activityPlanCurrencySwitched",
-  "plan.currencyRestored": "activityPlanCurrencyRestored",
   "discipline.deleted": "activityDisciplineDeleted",
   "grade.deleted": "activityGradeDeleted",
   "settings.updated": "activitySettingsUpdated", // no args — no {0}/{1} placeholder
