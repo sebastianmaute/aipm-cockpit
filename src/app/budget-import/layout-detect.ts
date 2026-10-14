@@ -461,8 +461,10 @@ function scanPeriodColumns(header: readonly string[], data: Rows, width: number,
  *   no number; then rate and period-headed columns). ★★★ No header word settles
  *   it (fix 8): a "named hours column" escape read `Ist`, `Iststunden`,
  *   `Gebuchte Stunden` or `Logged hours` silently, one spelling per round (rr6
- *   N1, rr7, rr8 N2). `Name | Monat | Stunden | Kosten` asks; one number
- *   column (`Name | Monat | Stunden`, `ID | Name | Month | Effort`) does not.
+ *   N1, rr7, rr8 N2). `Name | Monat | Stunden | Kosten` asks, and so does a
+ *   blank-headed number column (`Name | Monat | Stunden | (blank)`, final
+ *   review 4, I2); one number column (`Name | Monat | Stunden`, `ID | Name |
+ *   Month | Effort`) does not.
  */
 function ambiguityOf(
   header: readonly string[],
@@ -486,19 +488,23 @@ function ambiguityOf(
  *  ★★ `ID | Name | Month | Effort` once imported the employee IDs as hours, and
  *  `Nr | … | Aufwand` the row numbers (final review I3). A period-shaped cell (a
  *  workbook's serial date) counts as no number here, so a serial `Erfasst`
- *  date column is no hours candidate. */
+ *  date column is no hours candidate. ★★★ A blank-headed column is in `any`
+ *  only, never `strong` (final review 4, I2): Excel keeps a merged `Stunden`
+ *  header's text in its LEFT cell, so `Name | Monat | Stunden | (blank)` over
+ *  `Ist | Plan` or `€ | Std` read the left sub-column unasked. It asks the
+ *  hours question now, but never scores a header row nor is preselected. */
 function numericColumns(header: readonly string[], data: Rows, width: number, skip: ReadonlySet<number>, ctx: Ctx): NumericColumns {
   const any: number[] = [];
   const strong: number[] = [];
   for (let col = 0; col < width; col++) {
     const label = cellAt(header, col);
     const cells = columnCells(data, col);
-    const isExcluded = skip.has(col) || isBlank(label) || ID_HEADER.test(label.trim()) || isYearColumn(label, cells);
+    const isExcluded = skip.has(col) || ID_HEADER.test(label.trim()) || isYearColumn(label, cells);
     const style = detectDecimalStyle(cells, ctx.numbers);
     const figureShare = shareOf(cells, (c) => !isPeriodShapedIn(c, ctx.numbers) && parseNumberCell(c, style, ctx.numbers) !== null);
     if (isExcluded || figureShare === 0) continue;
     any.push(col);
-    if (figureShare >= COLUMN_SHARE) strong.push(col);
+    if (figureShare >= COLUMN_SHARE && !isBlank(label)) strong.push(col);
   }
   return { any, strong };
 }
@@ -535,12 +541,14 @@ type ScoredMapping = Detected & { score: number };
  * `Stunden` (rr12 I-D). A share-first pick took `Ist` over a `Stunden` with
  * two `-` (rr11 I-B); a rightmost pick `Ist` or `Summe` over `Plan` (rr6 N1).
  * ★ `Forecast | Ist-Stunden` preselects `Ist-Stunden` (register 27); the
- * user sees the choice, because two candidates always ask.
+ * user sees the choice, because two candidates always ask. A labelled column
+ * comes before a blank-headed one (`numericColumns`, final review 4, I2).
  */
 function preselectHours(candidates: readonly number[], header: readonly string[], data: Rows, ctx: Ctx): number | undefined {
   const named = (col: number) => (HOURS_HEADER_RE.test(cellAt(header, col).trim()) ? 1 : 0);
+  const labelled = (col: number) => (isBlank(cellAt(header, col)) ? 0 : 1);
   const share = new Map(candidates.map((col) => [col, numberShare(columnCells(data, col), ctx)]));
-  return [...candidates].sort((a, b) => named(b) - named(a) || (share.get(b) ?? 0) - (share.get(a) ?? 0) || a - b)[0];
+  return [...candidates].sort((a, b) => named(b) - named(a) || labelled(b) - labelled(a) || (share.get(b) ?? 0) - (share.get(a) ?? 0) || a - b)[0];
 }
 
 function longFromHeader(rows: Rows, headerRow: number, ctx: Ctx): ScoredMapping | null {
