@@ -156,6 +156,8 @@ export default defineConfig({
         reducedMotion: "reduce",
         viewport: { width: 1280, height: 800 },
         deviceScaleFactor: 2,
+        // Native date inputs format by the BROWSER's language, not the page locale: pin it too.
+        launchOptions: { args: ["--lang=en-US"] },
       },
     },
     {

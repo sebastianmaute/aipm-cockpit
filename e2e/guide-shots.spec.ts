@@ -274,5 +274,144 @@ test.describe("guide", () => {
   });
 });
 
-// Used by the gallery block.
-void GALLERY_DIR;
+/** Scroll an element to the top of its pane. */
+async function scrollToTop(target: Locator): Promise<void> {
+  await target.evaluate((el) => el.scrollIntoView({ block: "start" }));
+}
+
+/** Full-window gallery shot: the Next dev-mode badge hidden, the view settled. */
+async function galleryShot(page: Page, name: string): Promise<void> {
+  await blurActive(page);
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+  await waitForViewSettled(page);
+  await page.screenshot({ path: `${GALLERY_DIR}/${name}.png`, animations: "disabled", caret: "hide" });
+}
+
+// The README gallery: 16 of its 17 pictures (version-history.png shows a Turso-only view).
+// ★ 1696×917 at 1.5× is the existing images' 2544×1376 pixels at a density a reader can still read.
+test.describe("gallery", () => {
+  test.use({ viewport: { width: 1696, height: 917 }, deviceScaleFactor: 1.5 });
+
+  test.beforeEach(async ({ page }) => {
+    await prepare(page);
+    await gotoApp(page, FROZEN_NOW);
+  });
+
+  test("dashboard", async ({ page }) => {
+    await expect(page.getByText("Overall:", { exact: false }).first()).toBeVisible();
+    await galleryShot(page, "dashboard");
+  });
+
+  test("open-points", async ({ page }) => {
+    await openView(page, "Open Points");
+    await expect(page.locator("main").getByRole("table").first()).toBeVisible();
+    await galleryShot(page, "open-points");
+  });
+
+  test("swimlanes", async ({ page }) => {
+    await openView(page, "Open Points");
+    await page.locator("main").getByText("Swimlanes", { exact: true }).click();
+    // The lane picker exists only in the swimlane layout.
+    await expect(page.getByRole("combobox").filter({ hasText: "Add person lane" })).toBeVisible();
+    await galleryShot(page, "swimlanes");
+  });
+
+  test("gantt", async ({ page }) => {
+    await openView(page, "Gantt");
+    // Past the finished tasks, to the rows with live bars, milestones and dependency arrows.
+    await scrollToTop(page.locator("main").getByText("Backend API skeleton", { exact: true }).first());
+    await page.locator("main").getByRole("button", { name: "View", exact: true }).click();
+    await expect(page.getByText("Show or hide chart layers", { exact: false }).first()).toBeVisible();
+    await galleryShot(page, "gantt");
+  });
+
+  test("raid", async ({ page }) => {
+    await openView(page, "RAID");
+    await page.locator("main tbody tr").first().click();
+    await expect(page.getByRole("dialog").first()).toBeVisible();
+    await galleryShot(page, "raid");
+  });
+
+  test("budget", async ({ page }) => {
+    await openView(page, "Budget");
+    await expect(page.locator("main").getByRole("table").first()).toBeVisible();
+    await galleryShot(page, "budget");
+  });
+
+  test("budget-report-efficiency", async ({ page }) => {
+    await openView(page, "Reports");
+    await openView(page, "Budget Report");
+    await page.locator("main").getByText("At current efficiency", { exact: true }).first().click();
+    await expect(page.getByText("EAC at current efficiency", { exact: false }).first()).toBeVisible();
+    await scrollToTop(page.locator("main").getByText("Forecast", { exact: true }).first());
+    await galleryShot(page, "budget-report-efficiency");
+  });
+
+  test("budget-report-pace", async ({ page }) => {
+    await openView(page, "Reports");
+    await openView(page, "Budget Report");
+    // At current pace is the default forecast.
+    await expect(page.getByText("EAC at current pace", { exact: false }).first()).toBeVisible();
+    await scrollToTop(page.locator("main").getByText("Forecast", { exact: true }).first());
+    await galleryShot(page, "budget-report-pace");
+  });
+
+  test("changes", async ({ page }) => {
+    await openView(page, "Changes");
+    // A change row opens its editor on click; the title is the fourth cell.
+    await page.locator("main tbody tr:visible").first().locator("td").nth(3).click();
+    // The editor's own Notes log button: the row behind the dialog carries one too.
+    await page.getByRole("dialog").getByRole("button", { name: /Notes log/ }).first().click();
+    await expect(page.getByText(/^Notes log — /).first()).toBeVisible();
+    await galleryShot(page, "changes");
+  });
+
+  test("stakeholders", async ({ page }) => {
+    await openView(page, "Stakeholders");
+    // The name cell is the edit button: it carries the stakeholder's name as `title`.
+    await page.locator("main tbody tr:visible").first().locator("td button[title]").first().click();
+    await expect(page.getByRole("dialog").first()).toBeVisible();
+    await galleryShot(page, "stakeholders");
+  });
+
+  test("raci", async ({ page }) => {
+    await openView(page, "Stakeholders");
+    await openView(page, "RACI Matrix");
+    await expect(page.locator("main").getByRole("table").first()).toBeVisible();
+    await galleryShot(page, "raci");
+  });
+
+  test("knowledge", async ({ page }) => {
+    await openView(page, "Knowledge");
+    await expect(page.locator("main").getByRole("link").first()).toBeVisible();
+    await galleryShot(page, "knowledge");
+  });
+
+  test("operating-guides", async ({ page }) => {
+    await openSettingsSection(page, "AI Assistant");
+    // The guides list shows only while the assistant is on.
+    await enableIntegration(page, page.getByRole("checkbox", { name: "Enable AI assistant", exact: true }));
+    await page.locator("main").getByRole("button", { name: "Operating guides", exact: true }).click();
+    await expect(page.getByText("Operating guides", { exact: true }).nth(1)).toBeVisible();
+    await galleryShot(page, "operating-guides");
+  });
+
+  test("information-flows", async ({ page }) => {
+    await openSettingsSection(page, "Information flows");
+    await expect(page.locator("main svg").first()).toBeVisible();
+    await galleryShot(page, "information-flows");
+  });
+
+  test("new-project", async ({ page }) => {
+    await openView(page, "Projects");
+    await page.locator("main").getByRole("button", { name: /New project/ }).first().click();
+    await expect(page.getByRole("dialog").first()).toBeVisible();
+    await galleryShot(page, "new-project");
+  });
+
+  test("help", async ({ page }) => {
+    await openView(page, "Help");
+    await expect(page.locator("main").getByText("Concepts", { exact: false }).first()).toBeVisible();
+    await galleryShot(page, "help");
+  });
+});
