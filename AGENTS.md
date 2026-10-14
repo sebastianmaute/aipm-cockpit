@@ -41,6 +41,7 @@ before your first edit — the rest is reference, reachable from here.
 | [rich-text](docs/AGENTS/rich-text.md) | note logs · the seven rich fields · DOM-free vs browser-only · sanitizers + model-write boundaries · export fidelity · the toolbar |
 | [activity-log](docs/AGENTS/activity-log.md) | meta-blob persistence · `logMode` · actors · forward-compat sanitising · the three completion-trend delta shapes |
 | [task-status](docs/AGENTS/task-status.md) | the `status` ⟺ `completedDate` pair · the five writers · load does NOT repair a split pair · `isTaskClosed` vs `isTaskDelivered` |
+| [task-manager](docs/AGENTS/task-manager.md) | the orchestrator's decomposition map — every extracted `use*` hook and `build*` builder, coverage-gated or excluded, and why |
 | [budget](docs/AGENTS/budget.md) | the EUR boundary (`fx.ts`) · plan currency on load · budget follows plan · earned value · the Budget panel's cell layer |
 | [undo](docs/AGENTS/undo.md) | what is undoable · creates · label registrations · rows vs patches · the redo arm |
 | [desktop](docs/AGENTS/desktop.md) | Electron runtime · port · sign-in popup · print · PDF · updater |
@@ -102,358 +103,40 @@ long after the directory it named stopped existing.
 
 ## Commands
 
+★★★ One line per command and its main trap. The full notes — every measurement and failure story behind these
+lines — are in [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md) "Gate gotchas". Read that entry before relying on, or
+editing, a gate.
+
 ```bash
-npm run dev                 # next dev (public next, pinned EXACTLY; version in package.json — a caret here would let a
-                            # lockfile merge resolved the wrong way move the framework silently. Framework-coupled
-                            # packages are exact-pinned; the rule and its reasoning live in CONTRIBUTING.md
-                            # under "Dependencies". Read node_modules/next/dist/docs for version behavior.)
+npm run dev                 # next dev on :3000; `next` is exact-pinned (CONTRIBUTING.md "Dependencies")
 npm run build               # next build (prebuild checks script-docs are in sync)
-npm run lint                # eslint --max-warnings=0 — ★★★ EVERY warning is now FATAL, and that is 25
-                            # rules, not one: `@typescript-eslint/no-unused-vars` is still severity 1 and
-                            # `noUnusedLocals` still does not exist in tsconfig.json, but the flag makes
-                            # both moot. `_`-prefixed params are NOT exempt (no argsIgnorePattern), so an
-                            # unused param from an extract now FAILS rather than warning. Verify severity:
-                            #   npx eslint --print-config src/app/icons.ts   (read .rules)
-                            # react-hooks/exhaustive-deps (severity 1 — FATAL since --max-warnings=0) rejects an `obj.member` dep (e.g.
-                            # [snapshots.rebaselineNow]) — hoist it to a local const and depend on that.
-                            # A react-hooks PURITY rule bans `Date.now()`/`Math.random()`/`new Date()`
-                            # in a component RENDER body too (not just useMemo) — capture via a lazy
-                            # `useState(() => Date.now())`, or read it inside an effect/callback.
-                            # `react-hooks/set-state-in-effect` is BANNED (fatal) — to sync state to a
-                            # changed prop, use the render-time reconcile pattern (`if (prop !== handled)
-                            # { setState(...) }` guarded by a nonce/last-seen state), NOT a useEffect.)
-                            # ★ `npx eslint --max-warnings=0 src/app` now matches CI's STRICTNESS but not
-                            # its SCOPE — CI lints the whole repo, this lints one directory.
-npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next build` does NOT
-                            # typecheck *.test.tsx and vitest never typechecks — a test-only type
-                            # error (e.g. an invalid getByRole `{exact:...}`; a string `name` is
-                            # ALREADY an exact match) passes build + tests but FAILS tsc (CI). Run
-                            # `npx tsc --noEmit` after editing ANY test.
-                            # ★★ THAT RULE IS TESTING-LIBRARY ONLY (`*.test.tsx`), AND PLAYWRIGHT IS
-                            # THE EXACT OPPOSITE — reading it as universal cost three debug cycles on
-                            # 2026-08-26. RTL's string `name` is a whole-string match and has no
-                            # `exact` option; Playwright's `getByRole` takes one and it DEFAULTS TO
-                            # FALSE, so a bare `name` is a case-INSENSITIVE SUBSTRING. Verify, don't
-                            # trust this line: `grep -n "exact?: boolean" -B 8
-                            # node_modules/playwright-core/types/types.d.ts` prints "Whether to find
-                            # an exact match: case-sensitive and whole-string. Default to false."
-                            # ★★ In `e2e/` that bites TWO ways and the second is silent. LOUD: a bare
-                            # title matches every per-row control named `"<verb> – <title>"` (six
-                            # elements in `documents-list.tsx`) → a strict-mode violation that names
-                            # itself. SILENT: a bare `"Rename"` on a modal's commit button ALSO
-                            # matches the row trigger behind the open modal, so the click lands on
-                            # whichever the engine resolves first. Pass `exact: true` in e2e specs.
-                            # fast-check gotchas that pass
-                            # vitest but FAIL tsc/the test: `fc.date()` can emit an Invalid Date →
-                            # `.toISOString()` throws — pass `{noInvalidDate:true}` or map an integer
-                            # ms range to `new Date(ms)`; the regex `/s` (dotAll) flag fails tsc
-                            # (target < es2018) — use `[\s\S]` instead.
-                            # ★★ TIPTAP COMMANDS ARE TYPED BY MODULE AUGMENTATION, and this is the same
-                            # vitest-green/tsc-red shape from the other direction. Each extension
-                            # declares its own commands with `declare module '@tiptap/core'` INSIDE its
-                            # package (verify: `grep -n "declare module" node_modules/@tiptap/
-                            # extension-highlight/dist/index.d.ts`), so `toggleHighlight` /
-                            # `toggleSuperscript` / `toggleSubscript` do not exist on Tiptap's chained-
-                            # commands type (deliberately un-backticked — it is an UPSTREAM type, and
-                            # backticking it would make docs:symbols:check flag this file, which is the
-                            # gate working) until some file in the TS PROGRAM imports that module. A toolbar calling
-                            # them while only the EDITOR imports the extensions works at RUNTIME either
-                            # way — the command is registered on the live editor — so vitest is green
-                            # and only tsc objects. Run tsc after touching either file.
-                            # ★ The IDE language-server's inline diagnostics are MID-EDIT snapshots —
-                            # after a multi-file edit they routinely show phantom "Cannot find module"/
-                            # "implicitly any" that a real `npx tsc --noEmit` (exit 0) contradicts. Trust
-                            # tsc, not the squiggles.
-                            # ★★ A PASS IS EXIT 0 WITH ZERO ERRORS IN TOTAL — never "0 errors in src/".
-                            # One syntax error anywhere, e.g. in a corrupt generated `.next` types file
-                            # that the gitignored `next-env.d.ts` imports, suppresses the real type
-                            # errors while tsc still exits 2, so a src/-filtered count reads green. The
-                            # checked-file count goes UP in that case, so it cannot detect it either.
-                            # Fix: stop the dev server, delete `.next` (that alone regenerates nothing),
-                            # then regenerate with `npx next typegen`, `npm run dev` or `npm run build`.
-npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout = 20s
-                            # (raised from the 5s default in vitest.config) — the CPU-heavy
-                            # fast-check property suites (`*.property.test.ts`, ~100 runs each) +
-                            # fake-indexeddb setup can starve a worker past 5s under full-suite
-                            # parallel load on a slow machine → a RARE, non-deterministic timeout
-                            # that never repros in isolation or in CI. Don't "fix" such a flake by
-                            # editing the property logic before ruling out a load timeout (run the
-                            # property thousands of times in isolation first; logic bugs repro there).
-                            # ★ `--minWorkers` DOES NOT EXIST in vitest 4.1.11 or 5.0.2 either — it exits with a CACError
-                            # before running anything, which reads like a broken suite. `--maxWorkers=N` DOES
-                            # exist and is the fix when a saturated machine kills the fork pool (measured: 8x
-                            # "Failed to start forks worker" reported as `Test Files no tests` at EXIT=1 —
-                            # ground rule 2's false-green shape, but red).
-                            # ★ `--reporter=basic` DOES NOT EXIST in vitest 4.1.11 or 5.0.2 — it fails to load a
-                            # reporter module and errors at startup, which reads like a broken test run.
-                            # Use `--reporter=dot`.
-                            # ★★ `onTestFailed` runs AFTER every `afterEach`, and `afterEach` is LIFO — by
-                            # the time it fires, vitest.setup.ts's RTL cleanup() and the test file's own
-                            # vi.clearAllMocks() have both already run, so the capture reads zeroed mocks
-                            # and an empty document.body. Measured, not theorised: a capture written the
-                            # obvious way printed `{"fetchCalls":0,"toastCalls":[],…}` on a run where the
-                            # fetch HAD fired and the toast HAD rendered — which would have falsely
-                            # CONFIRMED the already-suspected hypothesis with fabricated evidence. That is
-                            # worse than no capture: one that agrees with your prior is the one you stop
-                            # checking. The working pattern is a describe-scoped afterEach holding a
-                            # closure the test body assigns, guarded on ctx.task.result?.state === "fail"
-                            # — registered LAST, so it runs FIRST, while mocks and DOM are still live.
-                            # `timelog-panel.test.tsx` and `use-tasks-dedup.test.tsx` carry that pattern
-                            # with a warning comment (open-followups §73).
-                            # ★★★ A StrictMode test is VACUOUS-BUT-GREEN in the obvious shape. React's
-                            # double-invoke walk descends each branch to the topmost fiber FLAGGED FOR
-                            # PLACEMENT and fires there only if StrictMode is at or above it. On a first
-                            # mount the only placed fibers are the root's direct children, so nothing may
-                            # sit between the root and StrictMode on that branch: `wrapper: StrictMode` and
-                            # RTL's `reactStrictMode: true` satisfy that; composing it inside a wrapper
-                            # (`({children}) => <StrictMode>{children}</StrictMode>`) does NOT, and the test
-                            # then passes with the line it claims to pin DELETED — that shape is the likely
-                            # source of §85's "StrictMode single-invokes here" (the 2026-08-04 run's shape
-                            # was never recovered) and was measured vacuous for `use-storage-backend`; the
-                            # other two `mountedRef` re-sets simply shipped with no StrictMode test at all.
-                            # ★★ That is the MOUNT case only, and it is a corollary — the rule turns on
-                            # which fiber carries the PLACEMENT flag (since React 19.3.0, a NEW fiber only). Three
-                            # successive wordings of it shipped over-general, each measured at one shape and
-                            # written as if it held everywhere, so do NOT extend this summary by reasoning:
-                            # `src/app/strictmode.meta.test.tsx` states the rule in full and pins every edge
-                            # but one, which it flags as stated-not-pinned. Read it before writing a
-                            # StrictMode test, and mutation-test the guard.
-npm run test:shuffle        # the SAME command CI's `unit-shuffled` job runs, pinned seed (BLOCKING).
-                            # ★ Run this before pushing anything that adds or reorders tests — it is
-                            # the ONLY local reproduction of that gate. `--sequence.shuffle` as a bare
-                            # boolean shuffles BOTH file order and test order WITHIN a file, so it
-                            # catches intra-file order dependence (open-followups §75), not just
-                            # cross-file leakage. A red run here is deterministic and re-runnable;
-                            # the weekly random-seed job echoes its own seed for the same purpose.
-npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts are BLOCKING in CI
-                            # (global lines 92/funcs 91/branch 80/stmts 89 + per-engine globs), and
-                            # `test:run` does NOT enforce them — a new coverage-gated `.ts` file (a
-                            # pure engine, or an extracted `use*` hook that wasn't added to
-                            # coverage.exclude) can be green locally and fail the unit job.
-npm run e2e                 # playwright (incl. the 17-view axe a11y gate)
-npm run e2e:smoke           # fast subset. e2e:visual / e2e:visual:update drive the visual-regression
-                            # specs; e2e:ui opens the Playwright UI; e2e:install fetches browsers.
-                            # ★ The visual project pins its own frozen clock (`VISUAL_FROZEN_NOW` in
-                            # `e2e/visual.spec.ts`, passed through `gotoApp`'s `time` param) so a
-                            # `FROZEN_NOW` bump in `e2e/seed.ts` no longer forces a re-baseline (§573).
-npm run e2e:smoke:prod      # smoke against a REAL production server (build FIRST — it does not build).
-                            # ★★★ THE ONLY LOCAL REPRODUCTION OF THE PROD CSP. `e2e:smoke` starts no
-                            # server, so it is only ever pointed at a dev server — and dev grants
-                            # 'unsafe-inline' on style-src-elem while prod is nonce-only (src/proxy.ts).
-                            # A prod-only defect that rendered EVERY rich-text editor unstyled shipped
-                            # unnoticed behind exactly that gap (open-followups §54). Run it before
-                            # shipping anything touching CSP, layout.tsx, or a dependency that injects a
-                            # <style>. ★ Owns port 3200 and REFUSES to run if something else holds it —
-                            # it would otherwise mistake a foreign server for its own and kill it.
-npm run dup:check           # jscpd duplication GATE (--threshold in package.json dup:check; BLOCKING in CI)
-                            # ★★ IT COMPARES ONE NUMBER: the TOTAL duplicated-LINE percentage across all
-                            # formats — NOT per-format, and NOT tokens. 1.11% (2297/207417 lines) against a
-                            # 1.75 threshold on 2026-09-26, jscpd 5.3.2 (it was 1.19% on 2026-08-08). The
-                            # console table prints six cells and flags none; the eye-catching per-format
-                            # token figure is never read. Bisect by exit code — it is the only witness. Run
-                            # dup:check's own command with the threshold overridden: on 2026-09-26 1.11
-                            # exits 0 and 1.10 exits 1; on 2026-08-08, 1.60 and 1.52 both exited 0, ruling
-                            # out per-format tokens and total tokens. See open-followups.md §116.
-                            # ★ docs/baselines/jscpd-2026-07.json is a RETAINED July-2026 report, NOT a
-                            # gate input — dup:check passes only --threshold and there is no .jscpd.json.
-npm run size:check          # file-size ratchet — fails on a NEW file over the LIMIT, or a baselined file that grew
-                            # ★★★ THE LIMIT IS 1600, DOUBLED FROM 800 ON 2026-09-03, and every entry in
-                            # `docs/baselines/file-sizes.json` was doubled in the same change — the ratchet was
-                            # biting on routine work. Read the number from `scripts/check-file-sizes.mjs` (`LIMIT`)
-                            # rather than any prose, this line included. ★★★ `--update` DISCARDS THE DOUBLING, AND
-                            # IT DELETES RATHER THAN HALVES: it writes only files ABOVE the LIMIT, so at 1600 it
-                            # emits `task-manager.tsx` ALONE and the other three entries VANISH. Running it (which
-                            # the gate's own failure message still recommends) restores a no-headroom ratchet and
-                            # makes "re-double by hand" impossible for the dropped rows without git archaeology.
-                            # ★ CONSEQUENCE: three of the four baseline entries are ALREADY INERT, because a file is
-                            # only compared against its entry when it is over the LIMIT — chat-panel,
-                            # tasks-section and workspace-section are governed by the LIMIT alone until they pass
-                            # 1600. Only `task-manager.tsx` is still consulted, and since 2026-10-04 its entry is its
-                            # measured length with NO headroom (§491), so any growth fails the gate — read the
-                            # other three as recorded intent, not as live limits.
-                            # ★★ IT COUNTS `wc -l` + 1. The script measures `readFileSync().split("\n").length`,
-                            # which for a newline-terminated file is one MORE than `wc -l`. So a file at `wc -l`
-                            # 1599 is already AT the limit with ZERO headroom. The same +1 applies to a baselined
-                            # file, which is how an `--update`-derived baseline lands one above `wc -l`.
-                            # Budgeting a change from `wc -l` overstates your room by exactly one
-                            # line and the gate fails on the commit — it cost a build on `use-storage-backend.ts`.
-                            # Read the real number with:
-                            #   node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"
-npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when a doc gains a NEW
-                            # `path:LINE` citation, or cites a line that cannot exist. This is the
-                            # enforcement the ★★★ "cite the SYMBOL, not a line range" rule never had.
-                            # ★★ IT CANNOT TELL YOU A CITATION IS CORRECT, and nothing can — the doc
-                            # never records what was supposed to be at that line. It proves only that
-                            # the line COULD exist and that the count is not growing. A cite silently
-                            # shifted by an insertion still passes: measured on the very row that
-                            # motivated the gate, where `jira/_helpers.ts:181` sat 64 lines off the
-                            # actual `console.error` and passed the range check while
-                            # `timelog/_helpers.ts:185` (one line past EOF) was caught. Two wrong
-                            # cites, one detectable. Do NOT read green as "the citations are right".
-                            # ★★ It reads CONTINUATION cites too — "`use-resource-planner.ts:710` and
-                            # `:723`, returned at `:1023`/`:1025`" is FOUR citations, and the first cut saw
-                            # ONE of them while the three bare ones (all broken) were invisible.
-                            # Widening found 55 more citations and raised out-of-range 5 → 8.
-                            # ★★★ A bare `:NNN` is resolved ONLY from a file mentioned EARLIER ON THE
-                            # SAME LINE, and the anchor is the nearest preceding file MENTION, not the
-                            # nearest preceding `path:LINE` — a full-cite anchor skipped a colon-less
-                            # `task-manager.tsx` and hung four of its line numbers on a 152-citable-line file,
-                            # reporting violations that did not exist. The ~113 bare cites whose path
-                            # sits on a PREVIOUS line stay out of scope (100 of 156): the form is ambiguous
-                            # (AGENTS.md's own `:3000` is a PORT), and a gate that invents a citation
-                            # is worse than one with a known blind spot.
-                            # ★ Grandfathered breakage in docs/baselines/doc-line-cites.json is down
-                            # from 11 unresolvable + 8 out-of-range, and every survivor sits in one of
-                            # two DATED SNAPSHOTS: docs/security/findings-2026-07.md (an audit) and
-                            # docs/handrolled-ui-inventory.md (archived 2026-09-13; its two survivors
-                            # point past the end of `tasks-section.tsx` after the §492 split). Both are
-                            # bannered as such and deliberately NOT renumbered, because rewriting a
-                            # dated record to match today's tree destroys the only thing it is good
-                            # for. Read today's counts off the gate's own summary line, not off here.
-                            # A third bucket, `thirdParty`, holds cites into dompurify/
-                            # prosemirror/vitest/eslint internals: unresolvable BY DESIGN, not repo
-                            # debt, classified so the debt number stays worth reading. ★★ ITS SIZE IS
-                            # DELIBERATELY NOT QUOTED HERE — this line said 10 and the gate printed 9
-                            # (disproved 2026-08-17 by a reviewer passing through). Read it off the
-                            # gate's own summary line, which prints every bucket:
-                            # `npm run docs:claims:check`. ★★ Not
-                            # harmless though — they rot on any upgrade, and the vitest one carries a
-                            # CONTENT HASH in its filename, so it WILL break and nothing will say so.
-                            # Re-baseline ONLY after REMOVING citations or converting them to
-                            # symbols: `node scripts/check-doc-claims.mjs --update`. Re-baselining to
-                            # admit a new one defeats the only thing it checks.
-                            # ★★★ WHAT THE CLEAN-UP MEASURED, and it is the argument for the whole
-                            # rule: ONE row of docs/handrolled-ui-inventory.md carried SEVEN line
-                            # numbers and FIVE were wrong — two off by 3 and 6, two off by 8, and one
-                            # naming a file the code had left — while the CLAIM they supported was
-                            # still true at every site. The gate caught ONE, the only one past EOF.
-                            # Two more rows ended up naming a file the code had LEFT (`export-pptx.ts`
-                            # for an element now emitted by `pptxTextBox`; `chat-panel.tsx` for a caret
-                            # now in `chat-tool-block.tsx`). ★★ BOTH were EXACT when written and were
-                            # broken by a later EXTRACTION commit — verify with `git log -S` on the
-                            # moved string, which names the refactor in each case. An earlier revision
-                            # here called them wrong-file-outright authoring errors and contrasted them
-                            # with the line-number drift; they are the SAME drift, one directory up, and
-                            # no gate can see either. A wrong line number is a SYMPTOM — go
-                            # re-verify the claim, never renumber it.
-                            # ★ Citations inside ``` fences are ignored on purpose — a stack trace or
-                            # sample command is an example, not a claim about this repo.
-                            # ★★ The PARSING lives in `scripts/doc-claims-lib.mjs` and HAS A UNIT
-                            # TEST (`doc-claims-lib.test.mjs`) — every defect this gate has shipped
-                            # was a regex defect, and both were found by running it against the real
-                            # docs, never by reading it. ★★★ A COLD REVIEW THEN FOUND FIVE MORE, TWO
-                            # OF WHICH COULD FAIL A GOOD BRANCH: `@` was missing from the citation
-                            # char classes, so a scoped package (`@tiptap/...`) parsed with the `@`
-                            # stripped and was counted as REPO DEBT rather than third-party; and
-                            # `stripFencedBlocks` was a parity toggle that missed BLOCKQUOTED and
-                            # TILDE fences, inverted on an inline ``` span, and let NESTED fences
-                            # leak — a `> ```bash` block exists in README.md today. Also: bare
-                            # RANGES (`:113-116`) were invisible, a URL with a line anchor parsed as
-                            # a citation, and the range check counted one line too many so a cite to
-                            # exactly one past EOF passed. All five fixed; the four REGEX ones are
-                            # mutation-proved (4/4), the `stripFencedBlocks` rewrite by its own cases
-                            # rather than by a mutant — which is why that 4 sits under a 5. Details in
-                            # open-followups §131. ★ Fixing them made the gate STRICTER and it found
-                            # more at once (a second broken cite in the snapshot). ★★ The "537 → 541
-                            # cites" that used to sit here was a MOMENT'S total, not a property of
-                            # the fix, and it had drifted to 532 by 2026-08-17 — every citation
-                            # added or removed anywhere moves it. Quote the DIRECTION, never the
-                            # totals; `npm run docs:claims:check` prints today's.
-                            # `vitest.config.ts` `include` now covers
-                            # `scripts/**/*.{test,spec}.mjs` so the CI gates themselves are testable;
-                            # coverage `include` deliberately stays `src/**`, so a script test raises
-                            # no floor. ★★★ THE TWO TRUNCATION GUARDS ARE NOT INTERCHANGEABLE, and
-                            # this line said they were: PATH_RE's `(?!...)` lookahead is LOAD-BEARING
-                            # ALONE (drop it and `foo.tsxx` yields a phantom anchor to `foo.tsx`),
-                            # while the longest-first extension order really is redundant (dropping
-                            # it changes NO output). ★ Both are pinned by a differential test in
-                            # `doc-claims-lib.test.mjs` that builds each mutant from the exported
-                            # `SOURCE_EXT` — run it, don't trust a number here; this line used to
-                            # quote a review's corpus size, which nothing could reproduce.
-                            # The lookahead mutant survived the first
-                            # suite only because nothing fed it an extension-SUFFIXED name — a test
-                            # gap recorded as proof of redundancy, i.e. licence to delete a live
-                            # guard. ★★ A surviving mutant is a QUESTION: "equivalent mutant" and
-                            # "missing test" look identical from the harness, and separating them
-                            # needs an input the suite does not have. Go find one.
-npm run stop                # kill ONLY the dev server bound to the app port (default 3000; PORT-overridable)
-                            # via scripts/stop-dev.mjs — port-scoped (netstat/taskkill on win, lsof/kill on
-                            # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a
-                            # scriptsDescriptions entry or docs:scripts:check fails.
-                            # ★★★ WHICH docs it regenerates is DISCOVERED, NEVER NAMED, so no grep over the
-                            # script can enumerate them: `findDocs` walks top-level `*.md` plus
-                            # `docs/**/*.md`, and `syncFile` returns "no-marker" for any file lacking the
-                            # pair `<!-- AUTO-GENERATED from package.json scripts -->` … `<!-- END
-                            # AUTO-GENERATED -->`. CONSEQUENCE: `grep README scripts/sync-script-docs.mjs`
-                            # returns nothing whether README participates or not — it CANNOT answer the
-                            # question, and on 2026-09-10 an empty result was read as proof that it does
-                            # not, in a plan that then prescribed that grep as the verification. An empty
-                            # grep confirms whatever you already believed. Enumerate the participants
-                            # instead, which is one command:
-                            #   git grep -lE "<!-- END AUTO-GENERATED --[>]" -- "*.md"
-                            # (grep the END marker: the start marker alone also sits in this file and two
-                            # superpowers plans, which do not participate; `[>]` stops a self-match.)
-                            # ★★ It returns CONTRIBUTING.md ALONE today, so this is a TWO-file change
-                            # (package.json + CONTRIBUTING.md) — read that off the grep, never off this
-                            # line. ★ README carried the pair from the initial commit until `7723c3d2`
-                            # curated its table down to six hand-picked commands; a standing note calling
-                            # it a three-file change was true when written and was falsified by that
-                            # commit. Re-adding the markers to README would silently put it back under the
-                            # generator and replace the curated list with the full one.
-npm run followups:check     # REPORT, not a gate — it runs in NO CI job and exits 0 even with missing
-                            # symbols (measured: exit 0 while printing SYMBOL_MISSING=10). Classifies every
-                            # `docs/open-followups.md` entry by whether the names/paths/line numbers it
-                            # cites still EXIST: CLEAN · SYMBOL_MISSING · PATH_MISSING · *_THIRD_PARTY ·
-                            # NO_MACHINE_CLAIM. ★★ CLEAN does NOT mean the entry is still valid — the
-                            # script's own header says so: it can describe a behaviour fixed two releases
-                            # ago. It rules claims OUT, never IN, and a verdict routes work to a probe
-                            # rather than closing anything. `--run-repro` also executes the allowlisted
-                            # reproduce commands; `--json <out>` writes a snapshot.
-npm run followups:index:check # heading ⟺ index-row GATE over docs/open-followups.md (BLOCKING in CI)
-                            # ★★ Exit 1 = DRIFT (a heading with no row, a row with no heading, a
-                            # §number used twice, or a table that is not exactly what a rebuild writes);
-                            # exit 2 = the gate COULD NOT SCAN (markers missing or duplicated, either set
-                            # empty, a row the rebuild cannot parse, or under its 50-per-axis floor). A scan that reads nothing passes everything, so
-                            # 2 is the load-bearing code and demands the opposite response to 1.
-                            # ★★ That 50 counts EVERY heading, closed ones included, so it never falls
-                            # on a closure. The gates that count OPEN entries (claims · status ·
-                            # workitems · github) import ONE floor instead, `MIN_OPEN_ENTRIES` in
-                            # `followup-claims-lib.mjs` — 50 until 2026-10-08, when 50 linked entries
-                            # meant the next closure would turn CI red. Read it there, not here:
-                            #   grep -n "MIN_OPEN_ENTRIES =" scripts/followup-claims-lib.mjs
-                            # ★★★ THE MARKER MATCH IS WHOLE-LINE AND THAT IS LOAD-BEARING. The marker
-                            # strings have also appeared inside fenced code samples above the real
-                            # table, and `src.indexOf(INDEX_BEGIN)` then slices the SAMPLE, which holds
-                            # 0 rows, and the gate calls every heading missing. Count today's copies:
-                            #   grep -c "<!-- INDEX:BEGIN -->" docs/open-followups.md
-                            # Pinned by a regression test in `followup-index-lib.test.mjs` either way.
-                            # ★★ The table is GENERATED by `node scripts/rebuild-followup-index.mjs`; this
-                            # gate (in `static`) and a test in `unit` both fail when the committed table
-                            # differs from a rebuild. `--check` on the script runs the same drift check.
-                            # ★★ It compares SETS, so it is blind to a duplicate on its own — a pasted row
-                            # leaves both differences empty while the counts disagree. That is why the
-                            # duplicate axes are reported separately; do not "simplify" them away.
-                            # ★ Parsing is pure (`followup-index-lib.mjs`, unit-tested, NO shebang — a `#!`
-                            # on an imported .mjs makes vitest throw naming the WRONG file); the CLI
-                            # `check-followup-index.mjs` owns the I/O and the exit codes.
-npm run src:symbols:check   # REPORT, not a gate — backticked names cited in `src/` COMMENTS that resolve
-                            # nowhere in the CODE. ★★★ IT COVERS THE HALF `docs:symbols:check` CANNOT SEE:
-                            # that gate reads AGENTS.md + `docs/AGENTS/*.md` and NOTHING else, so an
-                            # invented identifier inside a source docstring is ungated forever. Live
-                            # instance: a reproduce command naming a function that never existed, which
-                            # STILL RETURNED THE RIGHT ANSWER because a substring matched the real call —
-                            # so it read as verified, and it arrived in a round that was CORRECTING a
-                            # different claim in the same docstring. ★★ Its universe EXCLUDES comment text,
-                            # which the GATE considered and deliberately REJECTED for itself (literal/key
-                            # names would produce false findings, and a gate that cries wolf gets switched
-                            # off). That trade is right for a report a human triages once and wrong for a
-                            # blocking gate — do NOT "align" the two. ★★ A first cut built the universe from
-                            # raw text like the gate does and reported 0 findings over 516 names; the same
-                            # corpus reports 13 once comments are excluded, because an invented name
-                            # resolves against its own docstring. ★ Every finding is a QUESTION — an
-                            # upstream API, a spec field, a deliberately hypothetical name and an invented
-                            # one all look identical; correct it or say near it that it is absent (the
-                            # gate's `ABSENCE_MARKERS` suppress it). `--since <ref>` scopes it to one branch.
+npm run lint                # eslint --max-warnings=0 — ★★★ EVERY warning is FATAL, unused `_` params included.
+                            # `react-hooks/set-state-in-effect` is banned: use the render-time reconcile pattern.
+                            # No `Date.now()`/`new Date()`/`Math.random()` in a render body; hoist an `obj.member`
+                            # dep to a local const. CI lints the whole repo, not one directory.
+npx tsc --noEmit            # typecheck + i18n EN/DE key parity. ★★ vitest never typechecks — run it after editing
+                            # ANY test. A pass is exit 0 with ZERO errors in total. Trust tsc, not IDE squiggles.
+                            # RTL's string `name` is already exact; Playwright's `getByRole` name is a case-
+                            # insensitive SUBSTRING unless `exact: true` — pass it in e2e specs.
+npm run test:run            # vitest (20s test timeout). `--maxWorkers=N` exists; `--minWorkers` and
+                            # `--reporter=basic` do NOT (use `--reporter=dot`). ★★★ A StrictMode test composed
+                            # inside a wrapper is VACUOUS-BUT-GREEN: read `src/app/strictmode.meta.test.tsx` first.
+                            # ★★ `onTestFailed` runs AFTER every `afterEach` — mocks and DOM are already reset.
+npm run test:shuffle        # the same command as CI's BLOCKING `unit-shuffled` job — run before adding or reordering tests
+npm run test:coverage       # vitest + coverage floors (BLOCKING in CI; `test:run` does not enforce them)
+npm run e2e                 # playwright, incl. the axe a11y gate
+npm run e2e:smoke           # fast subset; e2e:visual / e2e:visual:update / e2e:ui / e2e:install
+npm run e2e:smoke:prod      # smoke against a REAL production server (build first) — ★★★ the ONLY local repro of
+                            # the prod CSP (dev allows 'unsafe-inline'); owns port 3200
+npm run dup:check           # jscpd GATE on the TOTAL duplicated-LINE % (BLOCKING); bisect by exit code
+npm run size:check          # file-size ratchet; LIMIT in `scripts/check-file-sizes.mjs`, counted as `wc -l` + 1.
+                            # ★★★ never run `--update`: it drops the baseline headroom and deletes rows
+npm run docs:claims:check   # doc `path:LINE` citation RATCHET (BLOCKING) — proves a line COULD exist, never that
+                            # the cite is right. Cite the SYMBOL, not a line.
+npm run stop                # kill ONLY the dev server on the app port — never a blanket `taskkill /IM node.exe`
+npm run followups:check     # REPORT only (exits 0 always) — CLEAN rules claims OUT, never IN
+npm run followups:index:check # register heading ⟺ index-row GATE (BLOCKING): exit 1 = drift, exit 2 = could not scan
+npm run src:symbols:check   # REPORT: backticked names in `src/` comments that resolve nowhere in code
 ```
 
 ★★★ **NEVER READ A GATE'S EXIT CODE THROUGH A PIPE — you get the PIPE's status, not the command's.**
@@ -703,106 +386,20 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `workspace-context.tsx` = live workspace state + setters; `types.ts` = all entity shapes + enum
   consts; `sanitize.ts` = single per-entity validators (a BARREL — see "Sanitize module map");
   `i18n.ts`/`i18n.de.ts` = EN/DE strings; `nav-config.ts` = `AppView` list + nav labels.
-- **task-manager decomposition map (Phase 3):** the orchestrator's cross-cutting clusters were
-  extracted into **deps-object hook factories** (see "Extraction conventions") called
-  unconditionally before the single return, plus plain builders (render helpers and one handler builder). The wiring lives in:
-  `use-calendar-integrations.ts` (ALL Outlook push/pull/background-auto-sync for milestones +
-  committee + task/raid/change/absence), `use-action-center-handlers.ts` (assign / mark-done /
-  clear-blocker / reschedule / draft / escalate / rebaseline / create-task CTAs), `use-ai-orchestration.ts`
-  (Analyze-with-AI + weight-suggestion context + scheduled-job runner),
-  `use-insight-recommendations.ts` (entity resolution + the insight-recommendation confirm/replay
-  path), `use-insight-lifecycle.ts` (the insight detection input + the detect → reconcile runner + the acknowledge / act / logged-as-RAID /
-  dismiss handlers), `use-outlook-imports.ts` (the Outlook contacts and calendar import flows), `use-portfolio-projects.ts`
-  (the multi-project handlers, the mode-aware project lists, the key-facts snapshot effect and the `useTursoProjects`
-  composition), `use-next-actions.ts` (the workload alerts, the next-actions engine run, its grouping and the
-  group-aware snooze), `use-task-editor-create.ts` (the task editor's create-RAID and new-linked-task wiring and
-  the create-mode buffer they stage into), `use-resource-quick-create.ts` (creating a resource from the picker or the
-  task editor's address-book button), `use-settings-navigation.ts` ("open settings" routed by layout: the modern
-  deep-link request, the classic header popover), `use-settings-change-log.ts` (the debounced, actor-less
-  `settings.updated` row and its §160 AI credits), `use-turso-project-list.ts` (the Turso portfolio's active and
-  archived project lists, their load-once flag and `refreshTursoProjects`), `use-version-history-wiring.ts` (the Turso
-  version-history capture payload, the restore fan-out that is the SECOND load funnel, and the `useVersionHistory` call),
-  `use-reminder-banners.tsx` (the Birthday and Jira-token banners and the budget-bucket toast),
-  `use-trend-snapshots.ts` (the trend-snapshot recording gate, the `useSnapshots` call, `actionTrends` and the render-scope
-  `dashboardModel`; coverage-GATED, pinned by its own `renderHook` test, memos kept on purpose — its header says why),
-  `use-template-actions.ts` (the project menu's Save-as-template and Apply-template actions),
-  `use-chat-dispatcher-wiring.ts` (the `useChatDispatcher` call and its `getBudgetRollup` / `getAllocationsSnapshot` /
-  `getDashboardModel` read-tool getters), `use-storage-banner-reshow.ts` (the render-time reconciles that re-show a dismissed
-  saving-paused banner on a NEW cause),
-  `workload-triage-handlers.ts` (`buildWorkloadTriageHandlers` — a plain builder, coverage-GATED and tested: the Resources
-  workload reassign/reschedule and clear-unlinked handlers, the last with its destructive-save arming), `shell-chrome.tsx`
-  (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), `buildTaskEditorChrome` in
-  `task-editor-actions.tsx` (a plain builder for the task editor footer slots), `buildAppModalsBlock` in
-  `app-modals-block.tsx` (a plain builder for `modalsBlock`, the overlay layer every returned tree renders once; its
-  deps keys are all required, so a dropped optional prop is a tsc error), `buildAppBanners` in `app-banners-block.tsx` (a
-  plain builder for `bannersEl`, the banner stack above the workspace, with its popout gates), and
-  `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ The first three hook files are
-  RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
-  same class as `.tsx`) — extracting a `use*` factory from task-manager into a NEW `.ts` file makes its
-  handlers coverage-GATED, so either exclude the new file or expect a function-coverage drop. ★ A THIRD option, and the better one when the hook holds real logic rather than glue: TEST it. `use-view-digest.ts` (0.216.0) is a deps-object hook that assembles the AI view digest from live pane state; it is coverage-GATED and stays above the floors on its own tests, so it is deliberately NOT in `coverage.exclude`. Exclude glue, not logic. ★★ The fourth, `use-insight-recommendations.ts`, is NOT excluded: it was until §275 (closed), but its confirm path filters replayed calls through `ALLOWED_REC_TOOLS`, a security boundary, and an excluded file hides even an uncovered guard. Its own `renderHook` test pins that filter. A fifth, `use-insight-lifecycle.ts` (§491), holds the insight detect →
-  reconcile runner and the four lifecycle handlers; it is also coverage-GATED, with the runner driven through
-  `TaskManager` by `task-manager.guardrail-reconcile.test.tsx` and the handlers pinned by its own `renderHook` test. A sixth,
-  `use-outlook-imports.ts` (§491), holds the Outlook contacts and calendar import flows (modal state, fetch, error-key
-  mapping, confirm); it is coverage-GATED and pinned by its own `renderHook` test. A seventh, `use-portfolio-projects.ts`
-  (§491), holds the multi-project wiring (the delete's survivor switch, the mode-aware lists, the key-facts snapshot
-  effect); it is coverage-GATED and pinned by its own `renderHook` test, and it keeps its inline `useCallback`/`useMemo`
-  memoization ON PURPOSE, against convention 1 below (move-only; its header says why). An eighth, `use-next-actions.ts`
-  (§491), holds the next-actions wiring (the engine input, the comms-pending ids, the group-aware snooze and its store);
-  it is coverage-GATED, pinned by its own `renderHook` test, and keeps its memoization on purpose because `nextActions` feeds downstream memos and effects (its header says more). A ninth, `use-task-editor-create.ts` (§491), holds the task
-  editor's create-from-editor wiring (the create-RAID apply and its `raid.created` log, the linked-task create, the
-  create-mode buffer); it is coverage-GATED, pinned by its own `renderHook` test, and keeps its `useCallback`s on purpose
-  because the buffer's `flush` depends on both applies and feeds `useTaskBudgetLink` (its header says more). A tenth,
-  `use-resource-quick-create.ts` (§491), holds creating a resource from outside the Resources view (the picker's
-  one-step create and its `resource.created` log, the task editor's add-to-address-book and its fill-once assignee
-  write-back); it is coverage-GATED, pinned by its own `renderHook` test, and keeps its `useCallback`s on purpose because
-  `handleCreateResource` is a dependency of two memos in `use-action-center-handlers.ts` (its header says more). An
-  eleventh, `use-settings-navigation.ts` (§491), holds the "open settings" routing (the modern deep-link request and its
-  monotonic nonce, the classic popover's open state and its render-time clear on leaving classic); it is coverage-GATED,
-  pinned by its own `renderHook` test, and keeps its `useCallback`s on purpose because `clearSettingsSectionRequest` is in
-  the dependency array of settings-view.tsx's request-consuming effect (its header says more). A twelfth,
-  `use-settings-change-log.ts` (§491), holds the debounced `settings.updated` logger (the hydration and initial-run skips,
-  the §160 AI-credit counter it clears rather than decrements, the unmount-only cancel); it is coverage-GATED, pinned by
-  its own `renderHook` test, and has no memoization to keep. ★★ It is the one site handed the RAW, actor-less
-  `logActivity` — `task-manager.activity-actor.test.tsx` pins that through the real component. A thirteenth,
-  `use-turso-project-list.ts` (§491), holds the Turso portfolio's project lists (the active and archived lists, the
-  `tursoListLoaded` flag that flips only on a successful fetch, `refreshTursoProjects` and its first-load effect); it is
-  coverage-GATED, pinned by its own `renderHook` test, and keeps `refreshTursoProjects`'s `useCallback` on purpose because
-  its first-load effect and the handlers in `use-portfolio-projects.ts` and `use-turso-projects.ts` depend on it (its header
-  says more). A fourteenth, `use-version-history-wiring.ts` (§491), holds the version-history wiring (`getVersionPayload`,
-  `applyRestoredWorkspace`, the error bridge into the storage banner, the `useVersionHistory` call and the `notifySaved`
-  hand-off); it reads the workspace slices from `useWorkspace()` rather than taking 46 deps fields, is coverage-GATED,
-  pinned by its own `renderHook` test, and keeps its three `useCallback`s on purpose (its header says why). A fifteenth,
-  `use-reminder-banners.tsx` (§491), holds the two reminder banners with their snooze and dismiss state and the
-  bucket toast keyed on the ending-bucket ids; it returns the banner fragment that `bannersEl` renders first. It is
-  NOT coverage-gated — a `.tsx`, so `vitest.config.ts`'s `src/app/**/*.tsx` exclusion covers it — and is pinned by its
-  own test plus `task-manager.reminder-banners-callsite.test.tsx`. A sixteenth, `use-template-actions.ts` (§491), holds
-  the template list and the Save-as-template and Apply-template actions; it reads the workspace setters and the
-  template snapshot builder from context, takes `features` as a dep rather than reading `useSettings` (a second
-  instance syncs only after a commit), is coverage-GATED, pinned by its own `renderHook` test plus
-  `task-manager.template-notice.test.tsx`, and keeps its two `useCallback`s move-only. ★ Apply APPENDS a template's
-  seed (`applyTemplate` keeps every existing row) and sets its features; an earlier comment in task-manager said
-  features were not applied. A seventeenth, `use-trend-snapshots.ts`
-  (§491), holds the trend-snapshot recording gate, the `useSnapshots` call, `actionTrends` and the render-scope
-  `dashboardModel`; it is coverage-GATED, pinned by its own `renderHook` test, and keeps its two memos on purpose. An eighteenth,
-  `use-chat-dispatcher-wiring.ts` (§491), holds the assistant's tool dispatcher: the `useChatDispatcher` call and the
-  two derived read-tool getters, which read their slices from `useWorkspace()`. It is coverage-GATED, pinned by its own
-  `renderHook` test, and memoizes nothing — the getters are rebuilt every render on purpose, because the dispatcher
-  reads each through a ref. ★ It forwards the dispatcher's args field by field, checked `satisfies ForwardedArgs`, so a NEW
-  `ChatDispatcherArgs` field, optional or not, is a tsc error there until forwarded (its header says why). A nineteenth,
-  `use-storage-banner-reshow.ts` (§491), holds the three render-time reconciles that clear a saving-paused banner's
-  dismissal when a NEW cause arrives (the incomplete load, keyed on the truncation object and the decode and malformed
-  nonces; the refused destructive save; the §586/§587 load pause), with their null/0 seeds. It is coverage-GATED, pinned by
-  its own `renderHook` test plus `task-manager.truncation-banner.test.tsx`, and has nothing memoized. ★ The three
-  `*BannerDismissed` flags stay in task-manager: `onRevealSavingPaused`, handed INTO `useStorageBackend`, sets two of
-  them, and this hook's inputs are that hook's outputs, so it cannot own them. The
-  task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
+- **task-manager decomposition map (Phase 3) → [`docs/AGENTS/task-manager.md`](docs/AGENTS/task-manager.md).** The
+  orchestrator's cross-cutting clusters live in deps-object `use*` hooks called unconditionally before the single
+  return, plus plain `build*` builders; that file lists every one and why each keeps or drops its memoization.
+  ★★ A new `.ts` hook extracted from task-manager is coverage-GATED: test it if it holds logic (`use-view-digest.ts`
+  is the model) or add it to `vitest.config.ts` `coverage.exclude` if it is glue. ★★ `use-insight-recommendations.ts`
+  filters replayed calls through `ALLOWED_REC_TOOLS`, a security boundary — never exclude it. Open that file before
+  extracting from, or wiring into, task-manager.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`
      object of live render-scope values, is named `use*` and called UNCONDITIONALLY before the single
      return, and returns NON-memoized handlers (they read live scope each render). Pattern origin:
-     `use-storage-file-ops.ts`; Phase-3 instances above. A JSX-only builder with NO hook calls is a plain
+     `use-storage-file-ops.ts`; Phase-3 instances in `docs/AGENTS/task-manager.md`. A JSX-only builder with NO hook calls is a plain
      `build*` fn (e.g. `buildShellChrome`), not a `use*`. ★ Such `.ts` hook files are coverage-gated —
-     add them to `vitest.config.ts` `coverage.exclude` if they are pure UI glue (see the decomposition note).
+     add them to `vitest.config.ts` `coverage.exclude` if they are pure UI glue (see [`docs/AGENTS/task-manager.md`](docs/AGENTS/task-manager.md)).
   2. **Calendar bag.** A new calendar-capable entity threads ONE `EntityCalendarProps` on the pane
      contract, never five flat props. `outlookEventId` persists across the six write paths + is guarded by
      `entity-persistence-registry.test.ts`.
@@ -902,50 +499,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   dark+mockup (3.5/4.4:1). Tier colour MUST ride the DOT/STRIPE (non-text, AA-exempt), never tinted small text (bit the
   tier count + hero eyebrow; both now muted). ★ the `actions` (Next actions) view is now in axe `A11Y_VIEWS` (hash-nav in
   `e2e/a11y.spec.ts` — Dashboard sub-child, sidebar entry may be collapsed at scan time).
-- **Icons come from `src/app/icons.ts`**, never from `lucide-react` directly (the sole exception is
-  `rich-text-toolbar.tsx`, whose set came from Tiptap's reference toolbar) and never from
-  `@heroicons/react`, which was REMOVED app-wide in 0.255.0 — a `no-restricted-imports` rule makes a
-  reintroduction fatal, and its `patterns` half is the load-bearing one because every old call site
-  imported the `/24/outline` SUBPATH. ★★ The barrel re-exports lucide under the OLD heroicons names
-  on purpose, so a name there is NOT a claim about what lucide calls that glyph.
-  ★★★ A NAME MATCH IS NOT A GLYPH MATCH: lucide's `Bolt` is a hardware nut and its `ChartBar` is
-  horizontal, so both were remapped — check `/icon-gallery` in dev, and note `icons.test.ts` pins
-  every row by `displayName`, which is alias-invariant. ★★ **Five of the barrel's icons render no `<path>`**
-  (`Bars2Icon` a `<line>`, both ellipsis icons `<circle>`, `Squares2X2Icon`/`StopIcon` `<rect>`), and
-  lucide prepends its own `lucide lucide-<name>` classes — so an icon test must assert on
-  `svg.children.length`, never `querySelector("path")`, and never on an exact `class` string. Three
-  pre-existing tests broke on exactly that. ★ Line weight is pinned to heroicons' 1.5 by a
-  `globals.css` rule on `.lucide`; that file is unlayered, so overriding it needs `stroke-[2]!`.
-  ★★ **A stale `.next` makes `/icon-gallery` 404 in dev, and it is the only route that can show
-  this.** The page is the repo's sole `if (process.env.NODE_ENV === "production") notFound();`
-  guard (`grep -rn NODE_ENV src --include=*.ts --include=*.tsx` — read the hits; ★★ do NOT count
-  them, and do NOT read "sole" as "the only `=== "production"` test". `use-arrangement.ts` has one
-  too, as an early return guarding a dev-only `console.warn`; what is unique here is the pairing with
-  `notFound()`, which is what makes the ROUTE disappear. An earlier revision said "the other two hits
-  are `!==`", which was already loose — one of them is a `vi.stubEnv` in a test, not a comparison —
-  and went stale the moment a fourth site landed), so
-  a dev server serving anything stale for that route 404s while every sibling route is fine. It
-  reaches the gallery/visual e2e specs as `toHaveCount` "Received: 0", which reads like a broken
-  selector. Remedy is the one this file already gives for a corrupted dev cache: stop the server,
-  `Remove-Item -Recurse -Force .next`, restart.
-  ★★★ **DO NOT BLAME `npm run build` FOR IT — an earlier revision of this bullet did, at length,
-  and the cause was never established.** It asserted that a build leaves production chunks in
-  `.next` which `next dev` then serves, with the guard constant-folded true. That mechanism is
-  refuted by Next 16's own docs (`node_modules/next/dist/docs/.../version-16.md` "Concurrent `dev`
-  and `build`": dev outputs to `.next/dev`, build to the root, precisely so the two do not
-  conflict), and the reproduction does not reproduce — stop → build → start → curl now gives
-  200/200/200 three times over, as does building while dev runs. The 404 was real and clearing
-  `.next` did fix it; the build correlation was spurious. ★★ It also prescribed
-  `ls .next/BUILD_ID` as a router, which is worse than useless: `BUILD_ID` survives ANY past build
-  (CI, `e2e:smoke:prod`), so on a machine that has ever built it is permanently present.
-  ★★ **THE SAME SYMPTOM HAS A SECOND CAUSE with the opposite remedy.** Chained `npx playwright
-  test` invocations race their own webServer: while `playwright.config.ts` set `reuseExistingServer:
-  !process.env.CI`, a local run ATTACHED to a server the previous invocation was still
-  releasing and got the same `Received: 0`. Since §58 (b) reuse is off unless
-  `PLAYWRIGHT_REUSE_SERVER=1`, so the same race now fails with "is already used" instead, which
-  names itself. Fix either by not chaining — `--repeat-each=N`
-  inside ONE invocation (5/5 green). A post-mortem `curl` cannot tell the two apart, since the
-  server is gone by then either way.
+- **Icons come from `src/app/icons.ts` → [`docs/AGENTS/theming.md`](docs/AGENTS/theming.md) "Icons".** Never import
+  `lucide-react` directly (the sole exception is `rich-text-toolbar.tsx`) and never `@heroicons/react` (removed; a
+  `no-restricted-imports` rule makes it fatal). ★★★ The barrel re-exports lucide under the OLD heroicons names, and a
+  name match is not a glyph match — check `/icon-gallery` in dev. ★★ Some icons render no `<path>`: an icon test
+  asserts on `svg.children.length`, never `querySelector("path")` or an exact `class` string.
 - **Top bar in TWO independent places**, both built in `task-manager.tsx`: classic `AppHeader`
   (`appHeaderEl`, used by classic main-window `legacyTree`) and modern `ModernShell` `topBarMenus` slot
   (DEFAULT layout). A new top-bar control must wire into BOTH or it's invisible in whichever layout you
@@ -1098,44 +656,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   defeats any bail. THREAD PROPS instead — workspace-section already holds
   `disciplines`/`grades`/`setResources` and passes them to sibling panels. (The un-memoized panels it renders —
   tasks, milestones, dashboard, insights, knowledge, timelog — lose nothing by consuming context.)
-- **Gantt module map:** `GanttPanel` (`gantt.tsx`) is orchestrator only (data derivation +
-  layout); heavy
-  parts extracted. Pure i18n-free ENGINES `gantt-engine.ts` (date math, prefs load/save, critical-path,
-  derive-bar) and `gantt-status-buckets.ts` (`taskStatusBuckets`/`milestoneStatusBucket` — which
-  status-filter buckets an entity belongs to; `today` passed in, no clock). React pieces: hooks
-  `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
-  lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar) and
-  `use-gantt-prefs.ts` (sort/filter prefs state + localStorage hydrate/persist + setters); presentational
-  `gantt-chrome.tsx` (`GanttToolbar`, `GanttHeader` axis, `GanttDependencyLayer` SVG arrows + milestone
-  connectors), `gantt-rows.tsx` (`GanttTaskRow`, `GanttMilestoneRow`), `gantt-chart.tsx` (`GanttChart` —
-  the scrollable chart surface: sticky header, overlays, today marker, dependency layer, the interleaved
-  row list, the trailing add-task affordance and the range footer; extracted from `gantt.tsx`),
-  `gantt-overlays.tsx` (`GanttNonWorkingLayer` holiday shading + `GanttGridLayer` dotted day rules, both
-  `aria-hidden` + `pointer-events-none` so they can never intercept a bar drag; both derive their origin
-  from the SHARED `dayLeftPx(i, nameColWidth)` — a layer computing its own origin/column width puts a grid
-  line off its date label) and `gantt-view-menu.tsx` (`GanttViewMenu`, the toolbar's View popover holding
-  all EIGHT display toggles — dependencies · holidays · absences · grid · critical path · baseline ·
-  show-milestones · inline milestone placement; every one is a `ToggleButton`, never a hand-rolled
-  `aria-pressed` button, so each gets the non-colour pressed marker). Rows/chrome/chart/overlays are PURE —
-  `GanttPanel` threads data + drag state/handlers (incl. the same `interactingWithBarRef` the row's
-  `onDragStart` reads synchronously) down as props. ★ Gantt IS in axe `A11Y_VIEWS`. ★ One brittle
-  markup-ORDER source test reads `gantt-chrome.tsx` (toolbar markup moved there), not `gantt.tsx`.
-  ★★★ **GANTT PREFS ARE v2 AND `statuses: []` NOW MEANS "SHOW NOTHING".** `GANTT_PREFS_VERSION = 2`
-  (`gantt-engine.ts`); `DEFAULT_PREFS.statuses` is `[...ALL_GANTT_STATUSES]`, i.e. every bucket TICKED.
-  The pre-v2 blob used empty-means-all, so `loadPrefs` migrates it — `!isV2 && statuses.length === 0`
-  re-fills all three buckets — and `savePrefs` stamps `v`. Writing `statuses: []` intending "show
-  everything" now yields an EMPTY chart. ★★ Consequently **any "is a filter active" test must compare
-  `prefs.statuses.length < ALL_GANTT_STATUSES.length`, NEVER `> 0`** — a `> 0` test calls an untouched
-  project filtered and hides its "add your first task" affordance (that exact mistake shipped a regression
-  in the 0.213.0 branch; `grep -n "ALL_GANTT_STATUSES.length" src/app/gantt.tsx` shows the correct form). ★ `resetFilters` restores all three
-  statuses, NOT `[]`; priorities and assignees keep empty-means-all and still clear to `[]`. ★
-  `ALL_GANTT_STATUSES` is `Object.freeze`d and `loadPrefs` returns `DEFAULT_PREFS` BY REFERENCE on its
-  SSR/no-blob/catch paths — spread it (`[...ALL_GANTT_STATUSES]`) wherever a mutable array is wanted.
-  ★ The name-column resize handle (in `GanttHeader`, `gantt-chrome.tsx`) renders the SAME 3-dot ⋮ grip
-  glyph as the Open Points table but tuned for the LIGHT `bg-surface-muted` header (`text-muted-foreground/60`
-  + `hover:bg-ui-dark-blue/10` + `hover:text-ui-dark-blue`) — NOT the shared `ColumnResizeHandle` (which
-  uses dark-header `table-head-*` tokens). It's `role="button"` + aria-label, mouse-only (`onMouseDown`); the
-  SVG child is `aria-hidden` so the accessible name stays the aria-label.
+- **Gantt module map → [`docs/AGENTS/ui-shell.md`](docs/AGENTS/ui-shell.md) "Gantt module map".** `GanttPanel`
+  (`gantt.tsx`) is orchestrator only; `gantt-engine.ts` and `gantt-status-buckets.ts` are pure and i18n-free; rows,
+  chrome, chart and overlays are presentational. ★★★ Gantt prefs are v2 and `statuses: []` now means SHOW NOTHING —
+  an "is a filter active" test compares `prefs.statuses.length < ALL_GANTT_STATUSES.length`, never `> 0`.
+  Gantt IS in axe `A11Y_VIEWS`.
 - **Reports module map:** `ReportsPanel` (`reports.tsx`) owns data + sort/column-resize state; pure
   i18n-free `reports-stats.ts` (`computeStats` + `Stats`/`GroupOrLabelRow`) and presentational
   `reports-tables.tsx` (`GroupOrLabelTable`, `AssigneeTable`, `Tile`, `Section`, `StackedBar` + shared
@@ -1162,63 +687,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `ensureUnlinked`, so the naive "external disappears" assertion passes for the wrong reason — give them a
   task and assert absence from the WHOLE pane. (Planning/rollup DO correctly consume a pre-filtered
   `visibleResources` — they just `map` it.)
-- **★ Toolbar button ORDER convention (this is the RULE, not a claim every pane already follows it — read the
-  pane's own toolbar before assuming compliance):** every pane's toolbar ends with the contiguous trailing group
-  **Print · reset-columns · reset-pane-size**, in that order. Destructive/bulk actions (Activity's "Clear log")
-  and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members.
-  ★★ IN THE ELECTRON DESKTOP SHELL EVERY ARITY BELOW LOSES ITS **Print** MEMBER — `PrintButton` renders
-  `null` there ([why](docs/AGENTS/desktop.md#print-and-the-menu)), so one short is not drift;
-  jsdom still renders Print.
-  ★★ THE DASHBOARD'S GROUP IS A 2×2 GRID (Print | reset-layout over reset-size | badge; DOM order unchanged, so it still reads row by row) AND ITS MIDDLE MEMBER IS **reset-LAYOUT**, not reset-columns —
-  `ResetLayoutButton`, restoring the tile arrangement to `DEFAULT_LAYOUT`. That pane has no columns to reset, and
-  arrangement is the reset-columns ANALOGUE (it restores CONTENT arrangement, where reset-pane-size restores the
-  BOX), so it sorts into the same slot: Print · reset-layout · reset-size. Do NOT "correct" it to the spelling
-  above. It is pinned by `expectButtonOrder` with `contiguous: true` in `dashboard-panel.test.tsx`, and that
-  assertion is mutation-proved — reordering the two resets turns it red. ★ It is also the one member carrying its
-  own `!arrangement.readOnly` guard, because the stack around it is gated only on `print:hidden`; a popout is
-  read-only by design and would otherwise gain a working reset.
-  ★★ SINCE SPEC C THE DASHBOARD'S STACK ENDS WITH A FOURTH CONTROL AFTER THE GROUP — `DashboardHiddenBadge`, the
-  hidden-tiles count that toggles the tray under row 1: Print · reset-layout · reset-size · badge. It is the one
-  deliberate exception to "ends with the trailing group": it is the arrangement's disclosure and drop target, not a
-  utility, and it renders only while a tile is hidden or a drag is in flight, so the three resets stay contiguous with
-  or without it. Pinned by the same `contiguous: true` assertion, once without the badge and once with it.
-  ★★★ **A PANE WITH BOTH IS FOUR MEMBERS: Print · reset-columns · reset-layout · reset-size.** Reports is the
-  first pane to carry all four; the two above are the three-member SPECIAL CASES of it. ★ NO VERSION IS
-  QUOTED, and adding one back is a regression twice over: this said "(0.290.x)" while `version.ts` read
-  0.289.0 and the branch introducing the fourth member bumped nothing, so the number was ASPIRATIONAL —
-  and the preamble to this whole section already says version/MR provenance lives in git + CHANGELOG,
-  not here. The order is not arbitrary — it
-  contains BOTH of them as SUBSEQUENCES, so neither existing convention breaks, and it keeps the two CONTENT
-  resets together ahead of the BOX reset. ★★ `contiguous: true` catches a control inserted BETWEEN members but
-  cannot adjudicate the ORDER itself, which is why it is written here rather than inferred from a green test —
-  and it cannot see a member wrongly PRESENT in a popout either, so the `readOnly` guard needs its own test.
-  ★ `ReportCard` emits the group for its seven consumers; `onResetCols` and `onResetLayout` are both OPTIONAL and
-  rendered only when passed, so a pane with no engine for one gets nothing. Drift has
-  been caught and fixed more than once: Outlook once sat between the two resets in Resources; Clear once sat
-  after them in Activity; Open Points had the worst case — Print/reset-size/reset-columns sat BEFORE the
-  destructive Clear-all AND the two resets were in the wrong relative order (reset-size before reset-columns),
-  fixed in 0.211.0. ★ the reset-columns button uses `ResetColWidthsIcon` (columns glyph) and reset-size uses
-  `ResetSizeIcon`; Gantt's name-column reset once wore the reset-SIZE glyph, making the two adjacent resets
-  indistinguishable. That one was fixed in an EARLIER release — 0.211.0 did not touch Gantt at all, and this
-  sentence sitting under a "fixed in 0.211.0" clause made it read as though it had.
-  ★★ A pane's PRIMARY action leads the control row, ahead of its filters — `PlanningToolbar`'s `aiPlanButton`
-  is the reference, and RACI's "Suggest RACI" joined it in 0.212.0 (it had been sitting in the trailing group
-  beside Print/Reset, reading as a trailing utility). The trailing group is unaffected either way: a leading
-  control only has to come BEFORE it, which is why `expectButtonOrder` takes `contiguous` per call.
-  ★★ ASSERT THIS WITH THE SHARED `src/test/toolbar-order.ts`, never a local `compareDocumentPosition` walk.
-  `buttonIndex` THROWS when a key matches zero or several buttons; a hand-rolled `findIndex` silently takes
-  the first, so an ordering assertion can pass against the wrong control. And plain ordering is NOT enough
-  for the trailing group — only `contiguous: true` catches a control drifting BETWEEN two members, which is
-  the exact drift this bullet lists four instances of. ★ The helper reads BUTTONS only, so a combobox filter
-  still needs one hand-rolled position check.
-  ★ 0.212.0 also moved Planning's "Hide externals" INTO the trailing `ml-auto` group so it sits beside the
-  Outlook block, matching what `renderWorkloadHeader` already did — Planning had been the outlier. ★ That is
-  a GROUPING change, not an ordering one: the toggle was already the element immediately preceding the group,
-  so a DOM-ORDER assertion passes against the unfixed code. Assert `closest("div.ml-auto")` contains the
-  Outlook control instead.
-  ★ Gantt's **View** menu (`GanttViewMenu`, 0.213.0) sits AFTER the reset-filters button and BEFORE the
-  trailing Print · reset-columns · reset-size group (`gantt-chrome.tsx`) — it collects display toggles, so
-  it is neither a primary action nor a member of the trailing group.
+- **★ Toolbar button ORDER convention → [`docs/AGENTS/ui-shell.md`](docs/AGENTS/ui-shell.md) "toolbar button
+  order".** Every pane's toolbar ends with the contiguous trailing group **Print · reset-columns · reset-layout ·
+  reset-size** (a pane drops the members it lacks; the Electron shell renders no Print); destructive/bulk actions
+  and integration blocks go BEFORE it; a pane's primary action leads the row. ★★ Assert it with the shared
+  `src/test/toolbar-order.ts` `expectButtonOrder`, `contiguous: true` for the trailing group — never a hand-rolled
+  walk. Read the exceptions there (the Dashboard's badge, the popout `readOnly` guard) before touching a toolbar.
 - **Documents (AI document authoring) → [`docs/AGENTS/documents.md`](docs/AGENTS/documents.md).** A
   `ProjectDocument` is JSON at rest over a typed `DocBlock` union; bytes are rendered ON DEMAND and
   never stored, and PDF is the HTML renderer printed, not a fourth renderer. ★★ `documents` and
@@ -1236,46 +710,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `applyWorkspace`'s `logMode` defaults to REPLACE, `isWorkspaceEmpty` deliberately EXCLUDES it
   (inverting the `documents` rule, and counting it would turn a data-loss guard into a data-loss
   vector), and the trend now derives from THREE incompatible delta shapes that must not be merged.
-- **AI Assistant chat-thread sidebar is Turso-ONLY.** `chat-panel.tsx` mounts `ChatThreadSidebar`
-  (`chat-thread-sidebar.tsx`, over `chat-thread-list.tsx`) only inside `{tursoMode && (...)}`, and
-  `tursoMode` is fed from `workspace-section.tsx`'s `chatTursoMode = (settings.storageConfig.kind ===
-  "turso" || mode === "turso") && chatTursoConfig !== null`. ★★ The OR is load-bearing, and this bullet
-  used to say `mode === "turso"` alone: `mode` here is the multi-project Turso-PICKER flag
-  (`workspace-section-types.ts` `mode: "file" | "turso"`), not `settings.storageConfig.kind` (the
-  single-DB Turso STORAGE backend) — gating on `mode` alone silently gave a user on single-project Turso
-  storage no chat persistence. Mirrors `task-manager.tsx`'s `trendsActive`, which ORs the identical two
-  signals for Snapshots/Trends, and reads `settings.storageConfig` unguarded for the same reason — the
-  field is non-optional on `Settings`, so a `?.` here would only mask a broken fixture.
-  ★★★ "FILE MODE" DOES NOT MEAN "UNCHANGED", and this bullet asserted it did — it read "FILE mode is
-  byte-identical to before this branch: no sidebar, no multi-thread persistence." That sentence was true
-  of the ORIGINAL gate (`mode === "turso"` alone) and was carried over verbatim when the OR was added
-  two lines above it, which is the whole failure: `mode === "file"` with single-DB Turso STORAGE and a
-  usable config satisfies the first disjunct, so the sidebar mounts and threads persist. The panel is
-  byte-identical to before this branch only when NEITHER signal is Turso, or when `chatTursoConfig` is
-  null. Pinned by the `mode=file, storageConfig.kind==='turso'` test in `workspace-section.test.tsx`,
-  which is the mirror of the one pinning the `mode` disjunct.
-  ★★★ AND THE FORMULA ABOVE WAS WRONG UNTIL NOW FOR A SECOND REASON WORTH RECORDING: it was quoted with
-  a `?.` that the source does not have. The commit that CORRECTED this paragraph was followed by the
-  VERY NEXT commit on the branch removing the `?.` from `workspace-section.tsx` — so the correction was
-  re-staled one commit after it landed, by its own review round, before anything merged. (Reproduce:
-  `git log --oneline --reverse <base>..HEAD` puts the docs commit immediately before the test commit,
-  and `git log -S'storageConfig?.kind === "turso" || mode' -- src/app/workspace-section.tsx` names the
-  second one as the remover.)
-  `docs:symbols:check` cannot see this (it proves only that a mixed-case NAME exists, and
-  `storageConfig` exists either way). A correction is a NEW claim: re-check it against the tree at the
-  END of the round, not at the moment you wrote it.
-  ★★ "AI Assistant" IS in axe `A11Y_VIEWS`, but `e2e/seed.ts` seeds FILE mode, so the gate never renders
-  this sidebar — same blind spot class as the other Turso-gated views and the Resources → Calendar
-  sub-tab (see `docs/AGENTS/accessibility.md`). Compounding it, axe has no rule that flags two controls sharing an accessible name
-  (measured in `docs/AGENTS/accessibility.md`) — so even a scanned run could not catch a row-label collision here.
-  `chat-thread-list.test.tsx` / `chat-thread-sidebar.test.tsx` are therefore the ONLY coverage this
-  surface will ever have; do not read a green axe run as covering it, and eye-verify against a real
-  Turso project before shipping any change to this surface.
-  ★ The `chat_threads` table is deliberately OUT of `TABLE_NAMES` (else a workspace save's per-table
-  DELETE sweep wipes it); its upsert is a single atomic `INSERT OR REPLACE`, never a delete-then-insert
-  pair, because `runTursoPipeline` only opens a transaction when the first statement is literal `BEGIN`.
-  `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
-  requires `projectId` (not just an id) so a delete can never reach across projects.
+- **AI Assistant chat-thread sidebar is Turso-ONLY → [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md)
+  "chat-thread sidebar".** `chat-panel.tsx` mounts `ChatThreadSidebar` only when `tursoMode`, which
+  `workspace-section.tsx` computes as `(settings.storageConfig.kind === "turso" || mode === "turso") &&
+  chatTursoConfig !== null`. ★★★ The OR is load-bearing (`mode` is the multi-project picker flag, not the storage
+  backend), so "file mode" does NOT mean no sidebar. ★★ The e2e seed is file mode, so axe never renders it — its
+  unit tests are the only coverage. `chat_threads` stays OUT of `TABLE_NAMES`.
 - **Attachment ingest — ONE entry point, and a mail is a TREE.** `attachment-ingest.ts`
   (`ingestFile` / `ingestBytes`) is the only read/classify/extract path. `chat-panel.tsx`,
   `step0-import-panel.tsx` and anything added later CALL it and must never reimplement it — three
@@ -1346,6 +786,7 @@ is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lan
 | [activity-log.md](docs/AGENTS/activity-log.md) | `Workspace.activityLog` — meta-blob persistence · storage-only on every export/document path (one internal audit download, §510) · `logMode` REPLACE-by-default · entry ids and actors · forward-compat sanitising · the THREE incompatible completion-trend delta shapes |
 | [documents.md](docs/AGENTS/documents.md) | documents — the DATA half: `DocVersion` before-images · retention + tombstones + the `"restored"` marker · `applyDocMutation` (the single mutation path) · `documentVersions` across all six write paths and both load funnels · AND the UI half: renderers, pane split, the hand block editor |
 | [task-status.md](docs/AGENTS/task-status.md) | the task completion model — the `status` ⟺ `completedDate` invariant · the FIVE paths that write the pair and the mechanism each holds it by · why `migrateTask` does NOT repair a split pair · the `isTaskClosed` / `isTaskDelivered` split |
+| [task-manager.md](docs/AGENTS/task-manager.md) | the `task-manager.tsx` decomposition — every extracted deps-object hook and builder, which are coverage-GATED and which excluded, and why each keeps or drops its memoization |
 | [budget.md](docs/AGENTS/budget.md) | budget and money — `resolveRate` / `currencyToEur` and the one stored non-EUR field · the IndexedDB field-wise plan coercion (`coerceStoredPlan`) · `effectiveBudgetHours` mirroring · bucket earned value and its all-or-nothing rollup · the panel module map and pinned-column arithmetic |
 | [undo.md](docs/AGENTS/undo.md) | the undo/redo stack — creates · label registrations · row vs field-patch capture · field groups · the §295 redo arm · popout + load-hold |
 | [desktop.md](docs/AGENTS/desktop.md) | the Electron shell at RUNTIME — port + server child · navigation + sign-in popup · print + menu · PDF export · updater |
