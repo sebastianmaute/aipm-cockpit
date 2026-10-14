@@ -158,7 +158,7 @@ describe("BudgetReportPanel", () => {
   it("labels the burn-down value axis in EUR even when the plan names another currency", () => {
     // ★★ `computeBurndownSeries` builds every T&M bucket's value as
     // `budgetHours × role.rates.external`, and a fixed-price bucket's from its
-    // contract amount via `currencyToEur` (§472) — either way nothing it
+    // contract amount via `currencyToBase` (§472) — either way nothing it
     // produces is converted a second time, and the engine's money unit is EUR.
     // So the series is EUR whatever the plan's `currency` says — narrowing
     // that field to the `BudgetCurrency` union did NOT make it safe to label
@@ -317,7 +317,7 @@ describe("BudgetReportPanel — detail table sorting with an uncostable bucket",
 // table converts NOTHING and heads its money columns "(EUR)", so the very same
 // engine figure must arrive here already converted. Both halves of the fixture
 // are load-bearing: a NON-EUR bucket and a rate != 1. `renderPanel` passes
-// `fxRates={null}`, at which `resolveRate` returns 1 and `currencyToEur` is
+// `fxRates={null}`, at which `resolveRate` returns 1 and `currencyToBase` is
 // the identity function — so every other test in this file passes
 // byte-identically whether the engine's conversion exists or not.
 describe("BudgetReportPanel — a non-EUR fixed-price bucket", () => {
@@ -400,7 +400,7 @@ describe("BudgetReportPanel — §474 the currency column discloses an unresolve
   // This table's money columns are EUR and a T&M row's figures (hours × EUR
   // role rates) were never converted, so "converted at 1:1" would claim a
   // conversion that did not happen. Only the fixed-price row's contract
-  // amount went through `currencyToEur` at par. Both rows in ONE render so
+  // amount went through `currencyToBase` at par. Both rows in ONE render so
   // the pair differs by `type` alone.
   it("marks the rateless fixed-price row but not the rateless T&M row", () => {
     const ratelessTm: BudgetBucket = {
@@ -506,14 +506,14 @@ describe("§474 — the missing-bucket fallback does not claim EUR", () => {
   };
 
   it("resolves to null for a missing bucket record, never the \"eur\" source", () => {
-    expect(detailRowRateSource(undefined, null)).toBeNull();
+    expect(detailRowRateSource(undefined, null, "EUR")).toBeNull();
   });
 
   it("resolves normally through resolveRateSource for a present bucket", () => {
     const b: BudgetBucket = {
       id: 1, name: "B", type: "tm", currency: "USD", startDate: "", endDate: "", status: "open", allocations: [],
     };
-    expect(detailRowRateSource(b, null)).toBe("unresolved");
+    expect(detailRowRateSource(b, null, "EUR")).toBe("unresolved");
   });
 
   it("renders the same bare currency code as before for a row whose bucket is missing", () => {
@@ -522,7 +522,7 @@ describe("§474 — the missing-bucket fallback does not claim EUR", () => {
         lang="en-US"
         rows={[ghostRow]}
         bucketById={new Map()}
-        fxRates={null}
+        fxRates={null} base="EUR"
         colResize={{
           colWidths: detailColWidths,
           sizedWidths: {},

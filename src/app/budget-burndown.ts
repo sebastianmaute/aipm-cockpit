@@ -8,7 +8,7 @@
 
 import { generatePeriods } from "./resource-capacity";
 import { bucketRateRows, bucketActivePeriods, effectiveBudgetHours } from "./budget-report";
-import { currencyToEur, planCurrencyPerEur } from "./fx";
+import { currencyToBase } from "./fx";
 import { actualHoursIn } from "./actual-hours";
 import type { Absence, BudgetBucket, FxRates, Resource, ResourcePlan, Role } from "./types";
 import { isContractPriced } from "./types";
@@ -49,7 +49,7 @@ export function computeBurndownSeries(
   holidaySet: ReadonlySet<string>,
   absences: readonly Absence[],
   today: string,
-  /** Same cache `computeBucketReport` reads through `currencyToEur` for a
+  /** Same cache `computeBucketReport` reads through `currencyToBase` for a
    *  fixed-price bucket's contract amount (§472/§474/§475) — never re-derive
    *  a rate here. */
   fxRates: FxRates | null,
@@ -81,7 +81,7 @@ export function computeBurndownSeries(
   const actualV = new Array<number>(n).fill(0);
 
   for (const b of buckets) {
-    const rows = bucketRateRows(b, roles, planCurrencyPerEur(plan.currency, b, fxRates)); // §473 — rates to EUR
+    const rows = bucketRateRows(b, roles); // §476 — rates are already in the baseline
     // Scope to the bucket's active periods and pass them as canonicalPeriods —
     // mirrors computeBucketReport so the burndown totals equal the report totals.
     const active = bucketActivePeriods(b, plan);
@@ -89,7 +89,7 @@ export function computeBurndownSeries(
     if (isContractPriced(b.type)) {
       // §472: a fixed-price bucket is valued from its CONTRACT AMOUNT, never
       // hours × rate — mirrors computeBucketReport's `fixedPrice`/`consumedValue`
-      // (budget-report.ts), through the SAME `currencyToEur` helper (§474/§475
+      // (budget-report.ts), through the SAME `currencyToBase` helper (§474/§475
       // unresolved-rate handling applies here unchanged). Hours are still summed
       // for the hours series (the chart's other axis), just not used to price
       // this bucket's €.
@@ -107,7 +107,7 @@ export function computeBurndownSeries(
       // and spreading it by actual hours would smear the overrun backwards and
       // show budget left in a period that had already exhausted it. The deltas
       // telescope, so an unclipped series still sums to the report's `consumedValue`.
-      const fixedPriceEur = currencyToEur(b.fixedPriceAmount ?? 0, b, fxRates);
+      const fixedPriceEur = currencyToBase(b.fixedPriceAmount ?? 0, b, fxRates, plan.currency);
       // §488 — an end-to-end bucket consumes its contract by COST (actual hours
       // × internal rate), uncapped, exactly as `computeBucketReport` does.
       const isEndToEnd = b.type === "e2e";

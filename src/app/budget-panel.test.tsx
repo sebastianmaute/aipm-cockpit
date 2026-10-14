@@ -398,8 +398,8 @@ describe("BudgetPanel", () => {
   // ★★★ A NON-EUR BUCKET AND A RATE != 1 ARE BOTH LOAD-BEARING, and nothing
   // else in this file supplies either. The shared `props` passes
   // `fxRates: null`, at which `resolveRate` returns 1 and BOTH converters —
-  // the engine's inward `currencyToEur` and the panel's outward
-  // `eurToCurrency` — are the identity function, so every other test here
+  // the engine's inward `currencyToBase` and the panel's outward
+  // `baseToCurrency` — are the identity function, so every other test here
   // passes byte-identically whether the conversion exists or not. The one
   // existing `currency: "USD"` fixture sets the PLAN's currency, which no
   // converter reads. Overridden per test rather than on `props`, so the other
@@ -421,7 +421,7 @@ describe("BudgetPanel", () => {
   test("a USD fixed-price bucket renders its contract back in USD, not the engine's EUR", () => {
     // THE ROUND TRIP, end to end. The engine converts the $10,000 contract to
     // EUR at its one read (10,000 / 1.1 = 9,090.91) and the bucket tile
-    // converts it back OUT through `inCur`/`eurToCurrency` before labelling it
+    // converts it back OUT through `inCur`/`baseToCurrency` before labelling it
     // with the bucket's own currency. Only both conversions together give
     // $10,000: drop the outward one and the tile prints the engine's EUR
     // figure under a dollar sign ("$9,091"); convert twice and it prints
@@ -473,7 +473,7 @@ describe("BudgetPanel", () => {
   // ★★★ AN EUR BUCKET CARRYING A STALE POSITIVE OVERRIDE — the exact shape
   // `resolveRate`'s EUR-FIRST ordering exists to repair (the modal's currency
   // <select> never clears the field). Check the override first and the rate is
-  // 2, at which the engine DEFLATES the contract through `currencyToEur` while
+  // 2, at which the engine DEFLATES the contract through `currencyToBase` while
   // `cost` — role rates, EUR by construction — is untouched. Both figures below
   // are `revenue − cost`, so the two terms land in different units and the tile
   // is wrong by (rate − 1) × cost.

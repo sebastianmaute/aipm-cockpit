@@ -5,12 +5,12 @@ import { loadI18n } from "./i18n";
 // §474: budget-panel.tsx and budget-report-panel.tsx both append a `(×rate)`
 // suffix after a bucket's currency code, and both must tell a genuinely
 // resolved rate apart from a non-EUR bucket read at par because no rate ever
-// resolved. `rate !== 1` alone cannot make that distinction — an "eur" source
+// resolved. `rate !== 1` alone cannot make that distinction — a "base" source
 // and an "unresolved" source both carry rate === 1 — so this pins the THREE
 // states the RESOLVER's source distinguishes, not just two.
 describe("bucketCurrencyLabel", () => {
   test("an EUR bucket renders its bare currency code, no suffix", () => {
-    expect(bucketCurrencyLabel("en-US", "EUR", 1, "eur")).toBe("EUR");
+    expect(bucketCurrencyLabel("en-US", "EUR", 1, "base")).toBe("EUR");
   });
 
   test("a resolved non-EUR rate that happens to equal 1 renders its bare currency code, no marker", () => {

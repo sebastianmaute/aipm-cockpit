@@ -13,7 +13,6 @@ import { roleLabel } from "./resource-foundation";
 import { isPaceAvailable, paceVacHealth, type BudgetForecast } from "./budget-forecast";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role } from "./types";
 import { isContractPriced } from "./types";
-import { planCurrencyPerEur } from "./fx";
 
 export const RATE_DRIFT_SIGNAL_RATIO = 0.03;
 export const RATE_MIX_DRIVER_MIN_DIFFERENCE = 0.03;
@@ -40,7 +39,8 @@ export type RateMixInput = {
   buckets: readonly BudgetBucket[]; roles: readonly Role[]; disciplines: readonly Discipline[]; grades: readonly Grade[];
   plan: ResourcePlan; resources: readonly Resource[]; workdayHours: number; holidaySet: ReadonlySet<string>;
   absences: readonly Absence[]; eur: BudgetForecast; hours: BudgetForecast;
-  /** §473 — converts plan-currency rates to EUR, the unit `eur` is in. */
+  /** Unread since §476: role rates are already in the baseline `eur` is in,
+   *  so nothing here converts. Kept on the input so callers need not change. */
   fxRates: FxRates | null;
 };
 
@@ -60,7 +60,7 @@ export function rateMixSignal(drift: number, eur: BudgetForecast, hours: BudgetF
 type Group = { kind: "role" | "discipline"; id: number; budgetHours: number; actualHours: number; budgetValue: number };
 
 export function computeRateMix(input: RateMixInput): RateMix | null {
-  const { buckets, roles, disciplines, grades, plan, resources, workdayHours, holidaySet, absences, eur, hours, fxRates } = input;
+  const { buckets, roles, disciplines, grades, plan, resources, workdayHours, holidaySet, absences, eur, hours } = input;
   const budgetFollowsPlan = plan.budgetFollowsPlan ?? false;
   const resourcesById = new Map(resources.map((r) => [r.id, r] as const));
   const groups = new Map<string, Group>();
@@ -80,7 +80,7 @@ export function computeRateMix(input: RateMixInput): RateMix | null {
       continue;
     }
     const periods = bucketActivePeriods(bucket, plan);
-    for (const row of bucketRateRows(bucket, roles, planCurrencyPerEur(plan.currency, bucket, fxRates))) { // §473
+    for (const row of bucketRateRows(bucket, roles)) {
       // `bucketRateRows` always tags a role-planned row with `roleId` and a
       // blended row with `disciplineId` (never neither) — see the tagging it
       // does in `budget-report.ts`. No third case to guard against here.

@@ -19,10 +19,10 @@ import { computeBudgetReport, costIsKnowable, type BucketReport, type CciValue }
 import { CostUnknownNotice } from "./budget-cost-notice";
 import { computeEvm, projectBlendedInternalRate } from "./evm";
 import { formatCurrency } from "./resource-cost";
-import { planCurrencyPerEur, resolveRate, resolveRateSource, type RateSource } from "./fx";
+import { resolveRate, resolveRateSource, type RateSource } from "./fx";
 import { bucketCurrencyLabel } from "./budget-currency-label";
 import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
-import type { Absence, BudgetBucket, Discipline, FxRates, Grade, ResourcePlan, Resource, Role, Task } from "./types";
+import type { Absence, BudgetBucket, BudgetCurrency, Discipline, FxRates, Grade, ResourcePlan, Resource, Role, Task } from "./types";
 import { isContractPriced } from "./types";
 import { BUDGET_TYPE_LABEL } from "./budget-type-label";
 import { RagBadge } from "./rag-badge";
@@ -99,12 +99,12 @@ export function BudgetReportPanel({
   );
   const planCurrency = plan.currency;
   const evm = useMemo(
-    // §473 — the blended rate is in the PLAN currency; the EVM money tiles are
-    // formatted as EUR by `money` below, so convert it the way the engine does.
+    // §476 — the blended rate is in the baseline (`plan.currency`), the unit
+    // every engine figure is in, so it needs no conversion here.
     () => computeEvm(tasks, today, {
-      blendedRate: projectBlendedInternalRate(roles) / planCurrencyPerEur(planCurrency, { currency: planCurrency }, fxRates),
+      blendedRate: projectBlendedInternalRate(roles),
     }),
-    [tasks, today, roles, planCurrency, fxRates],
+    [tasks, today, roles],
   );
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
   const planStart = plan.startDate;
@@ -179,7 +179,7 @@ export function BudgetReportPanel({
             .map((id) => disciplines.find((d) => d.id === id)?.name)
             .filter((n): n is string => !!n)}
         />
-        <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} />
+        <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} base={planCurrency} />
       </Section>
 
       {/* Spec B, Decision 6: ONE Forecast section — banners, the rate-mix note,
@@ -219,7 +219,7 @@ export function BudgetReportPanel({
         lang={lang}
         rows={report.buckets}
         bucketById={bucketById}
-        fxRates={fxRates}
+        fxRates={fxRates} base={planCurrency}
         colResize={detail}
         money={money}
       />
@@ -280,18 +280,19 @@ type DetailResizable = ReturnType<typeof useColumnResize<DetailCol>>;
  * Exported for tests only — its one production caller is `BucketDetailTable`
  * below.
  */
-export function detailRowRateSource(b: BudgetBucket | undefined, fxRates: FxRates | null): RateSource | null {
-  return b ? resolveRateSource(b, fxRates) : null;
+export function detailRowRateSource(b: BudgetBucket | undefined, fxRates: FxRates | null, base: BudgetCurrency): RateSource | null {
+  return b ? resolveRateSource(b, fxRates, base) : null;
 }
 
 /** Exported for tests only — its one production caller is `BudgetReportPanel` above. */
 export function BucketDetailTable({
-  lang, rows, bucketById, fxRates, colResize, money,
+  lang, rows, bucketById, fxRates, base, colResize, money,
 }: {
   lang: Lang;
   rows: BucketReport[];
   bucketById: Map<number, BudgetBucket>;
   fxRates: FxRates | null;
+  base: BudgetCurrency;
   colResize: DetailResizable;
   money: (n: number) => string;
 }) {
@@ -303,9 +304,9 @@ export function BucketDetailTable({
       rows.map((r) => {
         const b = bucketById.get(r.bucketId);
         const blended = b?.planningMode === "blended";
-        // Amounts are already EUR (the engine's base); the FX rate is shown for context only, not used to convert.
-        const rate = b ? resolveRate(b, fxRates) : 1;
-        const rateSource = detailRowRateSource(b, fxRates);
+        // Amounts are already in the baseline (the engine's base); the FX rate is shown for context only, not used to convert.
+        const rate = b ? resolveRate(b, fxRates, base) : 1;
+        const rateSource = detailRowRateSource(b, fxRates, base);
         return {
           ...r,
           modeLabel: t(lang, blended ? "budgetModeBlended" : "budgetModeDetailed"),
@@ -315,10 +316,10 @@ export function BucketDetailTable({
           // `detailRowRateSource`) — the bare currency code is what
           // `bucketCurrencyLabel` would render anyway at this row's rate (1).
           // ★ A T&M row is ALSO rendered bare when its rate is unresolved:
-          // this table's figures are EUR and a T&M row's (hours × EUR role
-          // rates) were never converted, so "converted at 1:1" would claim
+          // this table's figures are in the baseline and a T&M row's (hours ×
+          // baseline role rates) were never converted, so "converted at 1:1" would claim
           // a conversion that did not happen. Only a fixed-price row's
-          // contract amount went through `currencyToEur` at par — the same
+          // contract amount went through `currencyToBase` at par — the same
           // rule `countUnresolvedBuckets` applies to the rollup notice.
           currencyLabel:
             rateSource === null || (rateSource === "unresolved" && !isContractPriced(r.type))
@@ -335,7 +336,7 @@ export function BucketDetailTable({
           winLossUnknown: !costIsKnowable(r) && isContractPriced(r.type),
         };
       }),
-    [rows, bucketById, fxRates, lang],
+    [rows, bucketById, fxRates, base, lang],
   );
 
   const getValue = useCallback((r: typeof mapped[number], k: DetailSortKey): string | number => {

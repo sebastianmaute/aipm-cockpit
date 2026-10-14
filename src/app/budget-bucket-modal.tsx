@@ -272,7 +272,7 @@ export function BudgetBucketModal({
     // inherited from a bucket that already had a stale one) is dropped here
     // rather than validated or persisted. Existing stored overrides on
     // buckets nobody re-saves are left alone; `resolveRate` already repairs
-    // those at read time (see its docstring).
+    // those at read time (see `bucketPerEur` in fx.ts).
     const fxRateOverride = draft.currency === "EUR" ? undefined : draft.fxRateOverride;
     if (fxRateOverride != null &&
         (!Number.isFinite(fxRateOverride) || fxRateOverride <= 0)) {

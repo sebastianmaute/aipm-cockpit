@@ -429,7 +429,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           reason={report.project.costUnknownReason}
           disciplineNames={disciplineNamesFor(report.project.unpricedDisciplineIds)}
         />
-        <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} />
+        <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} base={plan.currency} />
       </section>
 
       <section className="flex flex-col gap-3">

@@ -113,7 +113,7 @@ describe("computeBucketReport — a fixed-price bucket in a non-EUR currency", (
   };
 
   test("the fixture actually converts — a rate of 1 would make this whole describe vacuous", () => {
-    expect(resolveRate(usd, fx)).toBe(1.1);
+    expect(resolveRate(usd, fx, "EUR")).toBe(1.1);
   });
 
   test("revenue is the contract amount in EUR, not the raw bucket-currency number", () => {

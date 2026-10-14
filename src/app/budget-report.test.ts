@@ -1024,11 +1024,11 @@ describe("computeBudgetReport — cost performance index (EV/AC)", () => {
   });
 });
 
-// §473 — role rates are in the PLAN currency (decided 2026-10-02) and every
-// budget figure is EUR, so `bucketRateRows` converts rate-derived money with
-// `planCurrencyPerEur`. Before this, a USD plan's rates were read as EUR while
-// its USD fixed-price contract was converted, and the margin was wrong.
-describe("plan-currency role rates convert to EUR (§473)", () => {
+// §473 put role rates in the PLAN currency; §476 makes that currency the
+// baseline the engine computes in, so rate-derived money is read as stored and
+// only a fixed-price contract converts (into the baseline). Before §473 a USD
+// plan's rates were read as EUR while its USD contract was converted.
+describe("role rates are in the baseline currency (§473, §476)", () => {
   const usdPlan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "USD" };
   const roles: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 50, externalRate: 80 }];
   const alloc = [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }];
@@ -1037,22 +1037,22 @@ describe("plan-currency role rates convert to EUR (§473)", () => {
     allocations: alloc, ...over,
   });
 
-  test("a same-currency fixed-price margin is the USD margin, converted at the bucket's own rate", () => {
-    // Contract 1100 USD, cost 10 h × 50 USD = 500 USD, override 1.1 USD per EUR.
+  test("a baseline-currency fixed-price margin is the USD margin, its stale override ignored", () => {
+    // Contract 1100 USD, cost 10 h × 50 USD = 500 USD; the bucket IS the baseline, so its rate is 1.
     const rep = computeBucketReport(
       bucket({ type: "fixed", fixedPriceAmount: 1100, fxRateOverride: 1.1 }), usdPlan, roles, [], 8, noHolidays, 0, 0, [], [], null,
     );
-    expect(rep.revenue).toBeCloseTo(1000, 6);
-    expect(rep.cost).toBeCloseTo(500 / 1.1, 6);
-    // The pre-§473 engine reported 1000 − 500 = 500 here.
-    expect(rep.winLossValue).toBeCloseTo((1100 - 500) / 1.1, 6);
+    expect(rep.revenue).toBeCloseTo(1100, 6);
+    expect(rep.cost).toBeCloseTo(500, 6);
+    // The pre-§473 engine reported 1000 − 500 = 500 here; §473 reported (1100 − 500) / 1.1 in EUR.
+    expect(rep.winLossValue).toBeCloseTo(1100 - 500, 6);
   });
 
-  test("T&M money converts from the plan currency at the cached rate, even in an EUR bucket", () => {
+  test("T&M money is read in the baseline as stored, even in an EUR bucket with a cached rate", () => {
     const fx: FxRates = { base: "EUR", date: "2026-01-01", fetchedAt: "2026-01-01T00:00:00.000Z", rates: { USD: 2 } };
     const rep = computeBucketReport(bucket({ currency: "EUR" }), usdPlan, roles, [], 8, noHolidays, 0, 0, [], [], fx);
-    expect(rep.cost).toBeCloseTo((10 * 50) / 2, 6);
-    expect(rep.revenue).toBeCloseTo((10 * 80) / 2, 6);
+    expect(rep.cost).toBeCloseTo(10 * 50, 6);
+    expect(rep.revenue).toBeCloseTo(10 * 80, 6);
   });
 
   test("an EUR plan is unchanged (divisor 1)", () => {
