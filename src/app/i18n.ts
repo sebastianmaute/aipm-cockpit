@@ -639,16 +639,17 @@ const enUS = {
   budgetFixedPriceAmount: "Fixed-price amount",
   budgetFxOverride: "Manual FX rate",
   budgetFxOverrideHint: "Manual EUR→currency rate; leave blank to use the cached ECB rate.",
-  // §474: a non-EUR bucket with neither a manual override nor a cached ECB
-  // rate is converted at rate 1 — this marks that state on the currency
-  // label, distinct from a bucket whose resolved rate genuinely is 1. Worded
-  // for BOTH directions it is shown in: the Budget panel card displays a
-  // bucket's EUR figures in its own currency at 1:1, and the report's EUR
-  // table counts a fixed-price contract into EUR at 1:1. Kept short: it
+  // §474: a bucket in another currency than the project baseline, with
+  // neither a manual override nor a cached ECB rate, is converted at rate 1 —
+  // this marks that state on the currency label, distinct from a bucket whose
+  // resolved rate genuinely is 1. Worded for BOTH directions it is shown in:
+  // the Budget panel card displays a bucket's baseline figures in its own
+  // currency at 1:1, and the report's baseline-currency table counts a
+  // fixed-price contract into the baseline at 1:1 (§476). Kept short: it
   // renders inside a `(...)` suffix next to the currency code, e.g.
   // "USD (no FX rate — converted at 1:1)".
   budgetFxRateUnresolved: "no FX rate — converted at 1:1",
-  // §474 (rollup half): the EUR-labelled project rollup sums every bucket's
+  // §474 (rollup half): the baseline-labelled project rollup (§476) sums every bucket's
   // figure regardless of whether a rate ever resolved for it — this names
   // how many of the summands were read at par by default, right below the
   // rollup. Renders only when the count is > 0 (see `BudgetFxRollupNotice`).

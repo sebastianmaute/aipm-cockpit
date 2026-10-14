@@ -15,7 +15,7 @@ import { resolveBucketChain, type BucketChain } from "./budget-bucket-chain";
 import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
 import { isTaskClosed, isTaskDelivered, isTaskOutOfScope } from "./task-closed";
 import type {
-  Absence, BudgetBucket, ChangeItem, Discipline, FxRates, Grade, Milestone, ProjectStatus, RaidItem, RaidSeverity,
+  Absence, BudgetBucket, BudgetCurrency, ChangeItem, Discipline, FxRates, Grade, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
 } from "./types";
 import type { ActivityEntry } from "./activity-log";
@@ -260,6 +260,10 @@ export type DashboardModel = {
   topChanges: ChangeItem[];
   progress: DashboardProgress;
   burndown: BurndownSeries | null;
+  /** The project baseline (`plan.currency`, §476): every money figure the
+   *  model and the budget rollup carry is in it. Present even without a
+   *  forecast, so a reader never has to infer the unit. */
+  currency: BudgetCurrency;
   /** € + hours forecasts, rate mix and earned-value history (MR 3). The
    *  pace/efficiency € forecast (spec §5) that drives the Budget RAG's
    *  pace-VAC input is `forecastBundle.eur` — computed as a local inside
@@ -496,6 +500,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     topChanges: selectTopChanges(input.changes, topRaidN),
     progress: kpi.progress,
     burndown,
+    currency: input.plan.currency,
     forecastBundle,
     chartDates: { today, planEnd: input.plan.endDate },
     bucketChain,

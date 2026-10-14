@@ -199,6 +199,14 @@ export function workspaceAsOf(ws: Workspace, asOf: string, now: string = DEMO_AS
     budgets: (ws.budgets ?? []).map((b) => bucketAsOf(b, asOf, now)),
     activityLog: (ws.activityLog ?? []).filter((a) => !after(a.timestamp, asOf)),
     budgetHistory: (ws.budgetHistory ?? []).filter((h) => !after(h.date, asOf)),
+    // ★ `baselineHistory` (§476) is deliberately NOT filtered by `asOf`, unlike
+    // `budgetHistory` above. The replay keeps TODAY's plan and role rates, so
+    // every figure it computes is in the CURRENT baseline; the rebase must
+    // therefore apply every switch after a budget entry's `at`, including the
+    // ones after `asOf`. Cutting the list at `asOf` would leave an entry from
+    // before a later switch in the old currency beside current-baseline figures.
+    // (The shipped demo masters carry no switches, so this is a correctness
+    // note, not a visible change.)
     status: statusAsOf(ws.status, asOf),
   };
 }

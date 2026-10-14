@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
-import { type DashboardModel } from "./dashboard";
+import { buildDashboardInput, computeDashboard, type DashboardModel } from "./dashboard";
 import { type ProjectReport } from "./budget-report";
 import type { BudgetForecast } from "./budget-forecast";
 import type { ForecastBundle } from "./budget-forecast-bundle";
@@ -272,5 +272,29 @@ describe("budget forecast (open-followups §545)", () => {
 
   it("emits forecast: null when the dashboard has no forecast", () => {
     expect(buildDashboardSnapshot(model({ forecastBundle: null }), report(), "2026-07-25").forecast).toBeNull();
+  });
+});
+
+// §476: every money figure in the payload is in the project baseline, and the
+// `forecast.eur` key keeps its old name for scheduled prompts — so the payload
+// must say WHICH currency, or a model presents a GBP project's pounds as euros.
+describe("the snapshot names the project's currency (§476)", () => {
+  function liveModel(currency: "EUR" | "GBP"): DashboardModel {
+    return computeDashboard(buildDashboardInput(
+      {
+        tasks: [], raid: [], budgets: [], roles: [], resources: [], absences: [], fxRates: null,
+        plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency },
+      },
+      { workdayHours: 8, holidaySet: new Set<string>(), status: {}, activity: [], today: "2026-06-02" },
+    ));
+  }
+
+  it("carries currency: GBP for a GBP-plan project, with or without a budget rollup", () => {
+    expect(buildDashboardSnapshot(liveModel("GBP"), null, "2026-06-02").currency).toBe("GBP");
+    expect(buildDashboardSnapshot(liveModel("GBP"), report(), "2026-06-02").currency).toBe("GBP");
+  });
+
+  it("carries currency: EUR for an EUR-plan project", () => {
+    expect(buildDashboardSnapshot(liveModel("EUR"), report(), "2026-06-02").currency).toBe("EUR");
   });
 });

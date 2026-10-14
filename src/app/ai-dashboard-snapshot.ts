@@ -17,6 +17,7 @@ import type { BudgetForecast } from "./budget-forecast";
 import type { ForecastBundle } from "./budget-forecast-bundle";
 import type { BudgetHistoryEntry, ProjectBac } from "./budget-history";
 import type { RateMix, RateMixRow } from "./budget-rate-mix";
+import type { BudgetCurrency } from "./types";
 
 /** The latest budget changes the snapshot carries (§545). The recorded series
  *  is uncapped, and this payload stays in the chat transcript for the rest of
@@ -90,6 +91,11 @@ function snapshotForecast(bundle: ForecastBundle | null | undefined): DashboardS
 
 export interface DashboardSnapshot {
   today: string;
+  /** The project baseline currency (`plan.currency`, §476). EVERY money figure
+   *  in this payload is in it — `budget`, and `forecast.eur` despite its key
+   *  name (kept: scheduled-job prompts read it). Without this field a model
+   *  reading a GBP project would present its pounds as euros. */
+  currency: BudgetCurrency;
   rag: {
     overall: Health;
     schedule: Health;
@@ -141,6 +147,7 @@ export function buildDashboardSnapshot(
   const knowable = project !== null && costIsKnowable(project);
   return {
     today,
+    currency: model.currency,
     rag: {
       overall: model.overall.effective,
       schedule: model.schedule.effective,
