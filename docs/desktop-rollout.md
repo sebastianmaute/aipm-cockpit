@@ -190,7 +190,7 @@ otherwise replace that project.
 Turn on the functions you need under **Projects → Edit project → Functions**. If a function needs
 another one, the app says which and offers to turn it on:
 
-![Edit project, Functions: Time bookings ticked while Resources is off, and the note saying Time bookings uses Resources and Budget, with a Turn on button](assets/guide/05-functions.png)
+![Functions: Time bookings ticked, and the note under it saying Time bookings uses Resources and Budget and Resources is off, with a Turn on button](assets/guide/05-functions.png)
 
 An empty Budget view shows a checklist; each step ticks itself off as you go:
 
