@@ -562,7 +562,7 @@ const enUS = {
   budgetSetupRates: "Give your roles a rate",
   budgetSetupPeople: "Add the people who do the work",
   budgetSetupBucket: "Create a bucket for each phase or contract",
-  budgetSetupBookings: "Import time bookings from Timelog",
+  budgetSetupBookings: "Record actual hours, for example by importing time bookings from Timelog",
   budgetSetupOptional: "optional",
   budgetSetupGoRoles: "Manage roles",
   budgetSetupGoPeople: "Open directory",

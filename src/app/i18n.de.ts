@@ -532,7 +532,7 @@ export const de: Record<TranslationKey, string> = {
   budgetSetupRates: "Sätze für die Rollen festlegen",
   budgetSetupPeople: "Die Personen hinzufügen, die die Arbeit leisten",
   budgetSetupBucket: "Für jede Phase oder jeden Vertrag einen Bucket anlegen",
-  budgetSetupBookings: "Zeitbuchungen aus Timelog importieren",
+  budgetSetupBookings: "Ist-Stunden erfassen, zum Beispiel durch Import der Zeitbuchungen aus Timelog",
   budgetSetupOptional: "optional",
   budgetSetupGoRoles: "Rollen verwalten",
   budgetSetupGoPeople: "Verzeichnis öffnen",

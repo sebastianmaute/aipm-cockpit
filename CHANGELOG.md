@@ -26,7 +26,7 @@ longer carries its own changelog comment.
 - **Time bookings says what it needs.** While Resources or Budget is off, the Time bookings view (also
   before Timelog is set up) and the Functions choice say so, and offer to turn them on.
 - **The Budget view walks you through setting up a budget.** An empty Budget shows four steps in order:
-  give a role a rate, add the people, create a bucket, and import time bookings from Timelog. Each step
+  give a role a rate, add the people, create a bucket, and record actual hours (for example by importing time bookings from Timelog). Each step
   ticks itself off and links to the right place; where the link's function is switched off for the
   project, it says so and offers to turn it on. It folds to "Budget setup: N of 4" once the first bucket
   exists, and the folded list can be hidden.
