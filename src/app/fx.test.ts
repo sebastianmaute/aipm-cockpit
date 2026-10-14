@@ -105,7 +105,7 @@ describe("countUnresolvedBuckets", () => {
     expect(countUnresolvedBuckets(allRateless, null, "EUR")).toBe(2);
   });
 
-  // ★ A T&M bucket's money is hours × EUR role rates and is converted nowhere,
+  // ★ A T&M bucket's money is hours × baseline role rates and is converted nowhere,
   // so an unresolved rate changes none of its figures — counting it would
   // tell the reader a sum was taken at par when nothing was.
   test("does not count a rateless non-EUR T&M bucket — its money is never converted", () => {

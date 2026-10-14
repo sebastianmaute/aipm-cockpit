@@ -505,7 +505,7 @@ describe("§474 — the missing-bucket fallback does not claim EUR", () => {
     costUnknownReason: "no-rows", unpricedDisciplineIds: [],
   };
 
-  it("resolves to null for a missing bucket record, never the \"eur\" source", () => {
+  it("resolves to null for a missing bucket record, never the \"base\" source", () => {
     expect(detailRowRateSource(undefined, null, "EUR")).toBeNull();
   });
 

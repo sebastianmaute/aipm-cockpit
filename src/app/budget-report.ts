@@ -166,7 +166,7 @@ export type BucketReport = {
   budgetCost: number;
   winLossHours: number;
   winLossValue: number;
-  /** Remaining budget rolled in from a closed predecessor (EUR + hours). */
+  /** Remaining budget rolled in from a closed predecessor (baseline + hours). */
   spilloverInHours: number;
   spilloverInValue: number;
   /** The four figures above with spilled-in budget excluded — see

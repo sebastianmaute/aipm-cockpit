@@ -40,7 +40,7 @@ describe("BudgetPanel — the project rollup discloses unresolved-rate summands"
   });
 
   test("renders nothing when the only rateless non-EUR bucket is T&M", () => {
-    // A T&M bucket's money is hours × EUR role rates and is converted nowhere,
+    // A T&M bucket's money is hours × baseline role rates and is converted nowhere,
     // so its missing rate put nothing into the rollup at par.
     const tmOnly: BudgetBucket[] = [{ ...buckets[0], id: 2, name: "USD T&M", currency: "USD" }];
     render(<BudgetPanel {...props} buckets={tmOnly} fxRates={null} />);

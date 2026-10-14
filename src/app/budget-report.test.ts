@@ -1055,7 +1055,7 @@ describe("role rates are in the baseline currency (§473, §476)", () => {
     expect(rep.revenue).toBeCloseTo(10 * 80, 6);
   });
 
-  test("an EUR plan is unchanged (divisor 1)", () => {
+  test("an EUR plan reads its rates as stored", () => {
     const rep = computeBucketReport(bucket({ currency: "EUR" }), { ...usdPlan, currency: "EUR" }, roles, [], 8, noHolidays, 0, 0, [], [], null);
     expect(rep.cost).toBe(500);
     expect(rep.revenue).toBe(800);

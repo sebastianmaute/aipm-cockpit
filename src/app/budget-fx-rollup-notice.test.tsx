@@ -31,7 +31,7 @@ describe("BudgetFxRollupNotice", () => {
   // (and so read at par without a rate); `bucket()` defaults to T&M.
   test("names the exact count of unresolved buckets", () => {
     const mixed = [
-      bucket({ id: 1, type: "fixed", currency: "EUR" }), // resolved ("eur")
+      bucket({ id: 1, type: "fixed", currency: "EUR" }), // resolved ("base")
       bucket({ id: 2, type: "fixed", currency: "USD" }), // unresolved — no override, no cache
       bucket({ id: 3, type: "fixed", currency: "GBP" }), // unresolved — no override, no cache
     ];
@@ -52,7 +52,7 @@ describe("BudgetFxRollupNotice", () => {
   });
 
   test("renders nothing when the only rateless non-EUR bucket is T&M", () => {
-    // T&M money is hours × EUR role rates, converted nowhere — nothing was summed at par.
+    // T&M money is hours × baseline role rates, converted nowhere — nothing was summed at par.
     const { container } = render(
       <BudgetFxRollupNotice base="EUR" lang="en-US" buckets={[bucket({ type: "tm", currency: "USD" })]} fxRates={null} />,
     );

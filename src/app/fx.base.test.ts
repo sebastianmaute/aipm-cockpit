@@ -20,6 +20,16 @@ describe("resolveRate with a GBP base", () => {
     expect(resolveRate(eur, fx, "GBP")).toBeCloseTo(1 / 0.85, 10);
     expect(resolveRateSource(eur, fx, "GBP")).toBe("cached");
   });
+  test("an EUR bucket ignores a stale override under a non-EUR base too", () => {
+    const eur = bucket({ currency: "EUR", fxRateOverride: 2 });
+    expect(resolveRate(eur, fx, "GBP")).toBeCloseTo(1 / 0.85, 10);
+    expect(resolveRateSource(eur, fx, "GBP")).toBe("cached");
+  });
+  test("an EUR bucket is 1 per EUR by definition, even when the table has no EUR key", () => {
+    const noEurKey: FxRates = { ...fx, rates: { GBP: 0.85 } };
+    expect(resolveRate(bucket({ currency: "EUR" }), noEurKey, "GBP")).toBeCloseTo(1 / 0.85, 10);
+    expect(resolveRateSource(bucket({ currency: "EUR" }), noEurKey, "GBP")).toBe("cached");
+  });
   test("a USD bucket is the cross rate through EUR", () => {
     expect(resolveRate(bucket(), fx, "GBP")).toBeCloseTo(1.1 / 0.85, 10);
     expect(resolveRateSource(bucket(), fx, "GBP")).toBe("cached");

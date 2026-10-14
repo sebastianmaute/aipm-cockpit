@@ -4,7 +4,7 @@
  * - current pace — the value booked per working day over the last
  *   BURN_RATE_WINDOW_WORKING_DAYS working days, carried to the plan end;
  * - current efficiency — ETC = (BAC − EV) ÷ CPI.
- * Money is EUR, on the contract basis (BAC = `budgetValue`), never internal cost.
+ * Money is in the baseline (`plan.currency`), on the contract basis (BAC = `budgetValue`), never internal cost.
  */
 import {
   calendarDaysBetween, countWorkingDays, addCalendarDays, isWorkingDay, nthWorkingDayAfter, workingDaysBefore,

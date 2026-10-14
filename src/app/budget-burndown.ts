@@ -107,7 +107,7 @@ export function computeBurndownSeries(
       // and spreading it by actual hours would smear the overrun backwards and
       // show budget left in a period that had already exhausted it. The deltas
       // telescope, so an unclipped series still sums to the report's `consumedValue`.
-      const fixedPriceEur = currencyToBase(b.fixedPriceAmount ?? 0, b, fxRates, plan.currency);
+      const fixedPriceBase = currencyToBase(b.fixedPriceAmount ?? 0, b, fxRates, plan.currency);
       // §488 — an end-to-end bucket consumes its contract by COST (actual hours
       // × internal rate), uncapped, exactly as `computeBucketReport` does.
       const isEndToEnd = b.type === "e2e";
@@ -144,7 +144,7 @@ export function computeBurndownSeries(
         inWindow.push({ i, bh, ah, cost });
       }
       const consumedAt = (cumActualHours: number) => bucketBudgetHours > 0
-        ? Math.min(fixedPriceEur, fixedPriceEur * (cumActualHours / bucketBudgetHours))
+        ? Math.min(fixedPriceBase, fixedPriceBase * (cumActualHours / bucketBudgetHours))
         : 0;
       const evenShare = inWindow.length > 0 ? 1 / inWindow.length : 0;
       // Chronological order is what makes "cumulative" mean anything.
@@ -153,7 +153,7 @@ export function computeBurndownSeries(
       let cumConsumedEur = 0;
       for (const { i, bh, ah, cost } of ordered) {
         const budgetShare = bucketBudgetHours > 0 ? bh / bucketBudgetHours : evenShare;
-        budgetV[i] += fixedPriceEur * budgetShare;
+        budgetV[i] += fixedPriceBase * budgetShare;
         if (isEndToEnd) {
           actualV[i] += cost;
           continue;

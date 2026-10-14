@@ -244,7 +244,7 @@ describe("computeBurndownSeries — fixed-price buckets (§472)", () => {
   });
 
   // Review follow-up (§472 fixed-price burndown cap, register): pins the
-  // `Math.min(fixedPriceEur, ...)` cap explicitly — every case above that
+  // `Math.min(fixedPriceBase, ...)` cap explicitly — every case above that
   // exercises `consumedEur` keeps actual hours at or below budgeted hours, so
   // none of them can distinguish a capped ratio from an uncapped one deleting
   // the cap would still leave those green. Delete the `Math.min` (leave the
