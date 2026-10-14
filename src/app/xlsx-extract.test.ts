@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractXlsx, MAX_XLSX_SHEET_CELLS, XLSX_SHEET_TRUNCATED } from "./xlsx-extract";
+import { extractXlsx, extractXlsxGrid, isDate1904Workbook, MAX_XLSX_SHEET_CELLS, MAX_XLSX_TOTAL_CELLS, MAX_XLSX_TOTAL_ROWS, XLSX_SHEET_TRUNCATED } from "./xlsx-extract";
 import { expectLinearScaling } from "../test/scaling";
 
 function enc(s: string): Uint8Array {
@@ -471,5 +471,246 @@ describe("extractXlsx", () => {
       const out = extractXlsx(sheetOf(`<row r="1"><c r="A1"><v>1</v></c></row><row r="2"><c r="XFD2"><v>2</v></c></row>`));
       expect(out).not.toContain(XLSX_SHEET_TRUNCATED);
     });
+  });
+});
+
+// §500 — extractXlsx also reads untrusted chat attachments, so the row-gap filling
+// has to stay cheap however many sheets point at however sparse a worksheet.
+describe("xlsx reader row-gap bounds", () => {
+  const sheetXml = (r: number) => `<worksheet><sheetData><row r="${r}"><c r="A${r}"><v>x</v></c></row></sheetData></worksheet>`;
+  const workbookOf = (sheets: { name: string; target: string }[], files: Record<string, string>) => {
+    const wb = `<workbook><sheets>${sheets.map((s, i) => `<sheet name="${s.name}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`;
+    const rels = `<Relationships>${sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Target="${s.target}"/>`).join("")}</Relationships>`;
+    const map = new Map<string, Uint8Array>([
+      ["xl/workbook.xml", enc(wb)],
+      ["xl/_rels/workbook.xml.rels", enc(rels)],
+    ]);
+    for (const [path, xml] of Object.entries(files)) map.set(path, enc(xml));
+    return map;
+  };
+
+  it("parses a worksheet path once however many sheets point at it", () => {
+    const grid = extractXlsxGrid(
+      workbookOf(
+        [1, 2, 3].map((i) => ({ name: `S${i}`, target: "worksheets/sheet1.xml" })),
+        { "xl/worksheets/sheet1.xml": sheetXml(5) },
+      ),
+    );
+    expect(grid.map((g) => g.name)).toEqual(["S1"]);
+  });
+
+  it("stops filling gaps once a workbook has used its total row budget", () => {
+    const names = ["A", "B", "C", "D", "E", "F"];
+    const files = Object.fromEntries(names.map((_, i) => [`xl/worksheets/sheet${i + 1}.xml`, sheetXml(240_000)]));
+    const grid = extractXlsxGrid(workbookOf(names.map((n, i) => ({ name: n, target: `worksheets/sheet${i + 1}.xml` })), files));
+    expect(grid).toHaveLength(6);
+    expect(grid.reduce((sum, g) => sum + g.rows.length, 0)).toBeLessThanOrEqual(MAX_XLSX_TOTAL_ROWS);
+    expect(grid.slice(0, 4).every((g) => !g.truncated && g.rows.length === 240_000)).toBe(true);
+    for (const late of grid.slice(4)) expect(late).toEqual({ name: late.name, rows: [], truncated: true });
+  });
+
+  it("reads thousands of distinct sheets and returns each one", () => {
+    // Not a timing assertion: it pins that de-duplication keeps every DISTINCT
+    // path (and, being linear, that 30,000 of them finish at all).
+    const count = 30_000;
+    const bytes = enc(sheetXml(1));
+    const files = new Map<string, Uint8Array>(
+      Array.from({ length: count }, (_, i): [string, Uint8Array] => [`xl/worksheets/sheet${i + 1}.xml`, bytes]),
+    );
+    const sheets = Array.from({ length: count }, (_, i) => ({ name: `S${i}`, target: `worksheets/sheet${i + 1}.xml` }));
+    const entries = workbookOf(sheets, {});
+    for (const [path, b] of files) entries.set(path, b);
+    expect(extractXlsxGrid(entries)).toHaveLength(count);
+  });
+
+  it("returns every sheet after the budget is spent as empty and truncated without reading it", () => {
+    const names = ["A", "B", "C", "D", "E"];
+    const files = Object.fromEntries(names.map((_, i) => [`xl/worksheets/sheet${i + 1}.xml`, sheetXml(250_000)]));
+    const grid = extractXlsxGrid(workbookOf(names.map((n, i) => ({ name: n, target: `worksheets/sheet${i + 1}.xml` })), files));
+    expect(grid.map((g) => g.truncated)).toEqual([false, false, false, false, true]);
+    expect(grid[4].rows).toEqual([]);
+  });
+});
+
+// The per-sheet cell budget alone lets many distinct sheets of padded rows add up:
+// one <c r="XFD1"> pads a row to 16,384 slots.
+describe("xlsx reader workbook cell budget", () => {
+  const wideRows = (n: number) =>
+    Array.from({ length: n }, (_, i) => `<row r="${i + 1}"><c r="XFD${i + 1}"><v>1</v></c></row>`).join("");
+  const sheetOf = (rows: string) => `<worksheet><sheetData>${rows}</sheetData></worksheet>`;
+  const workbookOf = (xmls: string[]) => {
+    const wb = `<workbook><sheets>${xmls.map((_, i) => `<sheet name="S${i}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`;
+    const rels = `<Relationships>${xmls.map((_, i) => `<Relationship Id="rId${i + 1}" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}</Relationships>`;
+    const map = new Map<string, Uint8Array>([
+      ["xl/workbook.xml", enc(wb)],
+      ["xl/_rels/workbook.xml.rels", enc(rels)],
+    ]);
+    xmls.forEach((x, i) => map.set(`xl/worksheets/sheet${i + 1}.xml`, enc(x)));
+    return map;
+  };
+  const slots = (grid: { rows: string[][] }[]) => grid.reduce((sum, g) => sum + g.rows.reduce((s, r) => s + r.length, 0), 0);
+
+  it("keeps the padded slots of a whole workbook under the total, truncating the later sheets", () => {
+    const xml = sheetOf(wideRows(15));
+    const grid = extractXlsxGrid(workbookOf(Array.from({ length: 200 }, () => xml)));
+    expect(grid).toHaveLength(200);
+    expect(slots(grid)).toBeLessThanOrEqual(MAX_XLSX_TOTAL_CELLS);
+    expect(grid[0].truncated).toBe(false);
+    expect(grid[0].rows).toHaveLength(15);
+    for (const late of grid.slice(100)) expect(late).toEqual({ name: late.name, rows: [], truncated: true });
+  });
+
+  it("leaves an ordinary three-sheet workbook untouched", () => {
+    const grid = extractXlsxGrid(
+      workbookOf([
+        sheetOf('<row r="1"><c r="A1"><v>a</v></c></row>'),
+        sheetOf('<row r="1"><c r="A1"><v>b</v></c><c r="B1"><v>c</v></c></row>'),
+        sheetOf(""),
+      ]),
+    );
+    expect(grid.map((g) => g.truncated)).toEqual([false, false, false]);
+    expect(grid[1].rows).toEqual([["b", "c"]]);
+  });
+});
+
+describe("extractXlsxGrid", () => {
+  // Two sheets, shared strings, a gap, a pipe and a backslash in cells. The
+  // Markdown literal below was captured from extractXlsx BEFORE it was
+  // refactored to render from the grid, so it pins byte-identity (§500).
+  const workbook = `<workbook><sheets>
+    <sheet name="Data" sheetId="1" r:id="rId1"/>
+    <sheet name="Empty" sheetId="2" r:id="rId2"/>
+  </sheets></workbook>`;
+  const rels = `<Relationships>
+    <Relationship Id="rId1" Target="worksheets/sheet1.xml"/>
+    <Relationship Id="rId2" Target="worksheets/sheet2.xml"/>
+  </Relationships>`;
+  const shared = `<sst><si><t>Name</t></si><si><t>a|b</t></si><si><t>x\\y</t></si></sst>`;
+  const sheet1 = `<worksheet><sheetData>
+    <row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>
+    <row r="2"/>
+    <row r="3"><c r="A3"><v>1</v></c><c r="C3" t="s"><v>2</v></c></row>
+  </sheetData></worksheet>`;
+  const sheet2 = `<worksheet><sheetData/></worksheet>`;
+  const entries = new Map<string, Uint8Array>([
+    ["xl/workbook.xml", enc(workbook)],
+    ["xl/_rels/workbook.xml.rels", enc(rels)],
+    ["xl/sharedStrings.xml", enc(shared)],
+    ["xl/worksheets/sheet1.xml", enc(sheet1)],
+    ["xl/worksheets/sheet2.xml", enc(sheet2)],
+  ]);
+
+  it("keeps the Markdown rendering byte-identical", () => {
+    expect(extractXlsx(entries)).toBe(
+      "## Sheet: Data\n\n| Name | a\\|b |  |\n| --- | --- | --- |\n| 1 |  | x\\\\y |",
+    );
+  });
+
+  it("returns every sheet with its raw (unescaped) cells", () => {
+    const grid = extractXlsxGrid(entries);
+    expect(grid.map((g) => g.name)).toEqual(["Data", "Empty"]);
+    expect(grid[0].rows[0]).toEqual(["Name", "a|b"]);
+    expect(grid[0].rows[2]).toEqual(["1", "", "x\\y"]);
+    expect(grid[0].truncated).toBe(false);
+    expect(grid[1].rows).toEqual([]);
+  });
+
+  it("flags a sheet cut at the cell budget", () => {
+    const rows = Array.from({ length: 20 }, (_, i) => {
+      const r = i + 1;
+      return `<row r="${r}"><c r="A${r}"><v>1</v></c><c r="XFD${r}"><v>2</v></c></row>`;
+    }).join("");
+    const big = new Map<string, Uint8Array>([
+      ["xl/worksheets/sheet1.xml", enc(`<worksheet><sheetData>${rows}</sheetData></worksheet>`)],
+    ]);
+    const [sheet] = extractXlsxGrid(big);
+    expect(sheet.truncated).toBe(true);
+    expect(sheet.rows.length).toBeLessThan(20);
+    expect(MAX_XLSX_SHEET_CELLS).toBeGreaterThan(0);
+  });
+
+  // §500 — Excel omits empty rows from the sheet XML, so a grid index must follow
+  // the row's own r attribute or every cell reference shown to the user is off.
+  describe("row numbers follow the r attribute", () => {
+    const gridOf = (rows: string) =>
+      extractXlsxGrid(new Map([["xl/worksheets/sheet1.xml", enc(`<worksheet><sheetData>${rows}</sheetData></worksheet>`)]]))[0];
+    const cell = (ref: string, v: string) => `<c r="${ref}"><v>${v}</v></c>`;
+
+    it("puts a row at index r-1 and fills the gap with empty rows", () => {
+      const { rows } = gridOf(
+        `<row r="1">${cell("A1", "a")}</row><row r="4">${cell("A4", "d")}</row><row r="5">${cell("A5", "e")}</row>`,
+      );
+      expect(rows).toEqual([["a"], [], [], ["d"], ["e"]]);
+    });
+
+    it("places a row without r right after the previous one", () => {
+      const { rows } = gridOf(`<row r="3">${cell("A3", "c")}</row><row><c><v>d</v></c></row>`);
+      expect(rows).toEqual([[], [], ["c"], ["d"]]);
+    });
+
+    it("places a row far down the sheet and counts no gap row as a cell", () => {
+      const { rows, truncated } = gridOf(`<row r="1">${cell("A1", "a")}</row><row r="1000">${cell("A1000", "z")}</row>`);
+      expect(truncated).toBe(false);
+      expect(rows.length).toBe(1000);
+      expect(rows[999]).toEqual(["z"]);
+    });
+
+    it("cuts a sheet whose row would pass the per-sheet row ceiling", () => {
+      const at = MAX_XLSX_SHEET_CELLS + 1;
+      const { rows, truncated } = gridOf(`<row r="1">${cell("A1", "a")}</row><row r="${at}">${cell("A" + at, "z")}</row>`);
+      expect(truncated).toBe(true);
+      expect(rows).toEqual([["a"]]);
+    });
+
+    it("keeps a row placed exactly at the ceiling", () => {
+      const { rows, truncated } = gridOf(`<row r="${MAX_XLSX_SHEET_CELLS}">${cell("A1", "z")}</row>`);
+      expect(truncated).toBe(false);
+      expect(rows.length).toBe(MAX_XLSX_SHEET_CELLS);
+    });
+
+    it("shares one frozen empty row between every gap", () => {
+      const { rows } = gridOf(`<row r="4">${cell("A4", "d")}</row>`);
+      expect(rows[0]).toBe(rows[1]);
+      expect(Object.isFrozen(rows[0])).toBe(true);
+    });
+
+    it("falls back to sequential placement on a hostile r", () => {
+      const { rows } = gridOf(
+        `<row r="3">${cell("A3", "c")}</row>` +
+          `<row r="2">${cell("A2", "back")}</row>` + // not after the previous row
+          `<row r="abc">${cell("A9", "word")}</row>` + // not numeric
+          `<row r="1048577">${cell("A9", "huge")}</row>`, // past Excel's last row
+      );
+      expect(rows).toEqual([[], [], ["c"], ["back"], ["word"], ["huge"]]);
+    });
+
+    it("leaves the Markdown rendering of a gappy sheet unchanged", () => {
+      const out = extractXlsx(new Map([
+        ["xl/worksheets/sheet1.xml", enc(`<worksheet><sheetData><row r="1">${cell("A1", "h")}</row><row r="4">${cell("A4", "d")}</row></sheetData></worksheet>`)],
+      ]));
+      expect(out).toBe("## Sheet: Sheet1\n\n| h |\n| --- |\n| d |");
+    });
+  });
+});
+
+// Final review 3, M7: a workbook in the 1904 date system says so in
+// `<workbookPr date1904="1"/>`; its serials count from 1904-01-01.
+describe("isDate1904Workbook", () => {
+  const entriesOf = (workbook: string) => new Map<string, Uint8Array>([["xl/workbook.xml", enc(workbook)]]);
+
+  it.each([
+    [`<workbook><workbookPr date1904="1"/><sheets/></workbook>`, true],
+    [`<workbook><workbookPr defaultThemeVersion="164011" date1904="true"/></workbook>`, true],
+    [`<workbook><workbookPr date1904='1'></workbookPr></workbook>`, true],
+    [`<workbook><workbookPr date1904="0"/></workbook>`, false],
+    [`<workbook><workbookPr date1904="false"/></workbook>`, false],
+    [`<workbook><workbookPr defaultThemeVersion="164011"/></workbook>`, false],
+    [`<workbook><sheets/></workbook>`, false],
+  ])("%s → %s", (workbook, expected) => {
+    expect(isDate1904Workbook(entriesOf(workbook))).toBe(expected);
+  });
+
+  it("is false without a workbook part", () => {
+    expect(isDate1904Workbook(new Map())).toBe(false);
   });
 });

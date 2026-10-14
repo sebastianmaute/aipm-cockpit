@@ -71,7 +71,9 @@
   view's guide into the cached prompt prefix (view change re-caches that slice). Guide content is
   ENGLISH-ONLY (no i18n). Knowledge only — adds NO new AI tools.
 - **Guides for the single-request AI actions (§701):** `GuideScope.targets` (over `AI_TARGETS` in
-  `operating-guide.ts`) names the surfaces a guide reaches. ★★★ ABSENT OR EMPTY MEANS THE CHAT ONLY
+  `operating-guide.ts`) names the surfaces a guide reaches: the chat plus one id per single-request action.
+  `forecastImport` (the budget forecast import's Claude route) was added by §500, read with
+  `useActionGuideText` in `useForecastImport`; it ships no built-in guide. ★★★ ABSENT OR EMPTY MEANS THE CHAT ONLY
   (`guideTargets`): every guide stored before §701 has none, so reading it as "everywhere" would send all of
   them to every action. `selectActiveGuides` (chat) drops a guide that does not target `chat`;
   `selectActionGuides` / `actionGuideText` pick one action's guides — enabled, naming the target, in plain
@@ -910,6 +912,12 @@
   input tokens per click), and `list_allocations` carries a PER-RESOURCE `truncated` so an omitted resource is
   distinguishable from a genuinely idle one — kept after §12 added the scope, because a scoped query can still
   overflow.
+- **Forecast import, Claude route (§500):** ONE forced `propose_forecast_mapping` call in
+  `forecast-import-call.ts` (`runForecastImportCall`, through the shared never-log `runForcedToolCallWithStop`)
+  reads one sheet and returns a COLUMN MAPPING, never a value. `claudeMappingOf` converts it or refuses it
+  (`bad-mapping`); the hand route's reader imports with it, and Apply waits for the user's explicit
+  "These columns are right". Engine, bounds and the single writer:
+  [`budget.md`](budget.md) "Forecast import (§500)".
 - **AI "Suggest RACI" (RACI matrix toolbar, 0.211.0):** plan-then-apply, mirroring `alloc-plan/` — no
   free-text instruction, just the live stakeholders + milestones. Pure engine `raci-suggest/raci-suggest.ts`
   (`buildRaciContext` digest · `RACI_SUGGEST_TOOL` schema · `parseRaciProposal` · `groundRaciCells` —
@@ -1836,3 +1844,48 @@
   no error anywhere. That is a silently disabled cap, the worst outcome available here, which is why
   `normalizeUsage` is one shared helper rather than a defaulting step repeated at each call site. Never
   replace it with a plain object cast.
+
+### AI Assistant — the chat-thread sidebar (Turso-only)
+
+Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps the ★★★ rule.
+
+- **AI Assistant chat-thread sidebar is Turso-ONLY.** `chat-panel.tsx` mounts `ChatThreadSidebar`
+  (`chat-thread-sidebar.tsx`, over `chat-thread-list.tsx`) only inside `{tursoMode && (...)}`, and
+  `tursoMode` is fed from `workspace-section.tsx`'s `chatTursoMode = (settings.storageConfig.kind ===
+  "turso" || mode === "turso") && chatTursoConfig !== null`. ★★ The OR is load-bearing, and this bullet
+  used to say `mode === "turso"` alone: `mode` here is the multi-project Turso-PICKER flag
+  (`workspace-section-types.ts` `mode: "file" | "turso"`), not `settings.storageConfig.kind` (the
+  single-DB Turso STORAGE backend) — gating on `mode` alone silently gave a user on single-project Turso
+  storage no chat persistence. Mirrors `task-manager.tsx`'s `trendsActive`, which ORs the identical two
+  signals for Snapshots/Trends, and reads `settings.storageConfig` unguarded for the same reason — the
+  field is non-optional on `Settings`, so a `?.` here would only mask a broken fixture.
+  ★★★ "FILE MODE" DOES NOT MEAN "UNCHANGED", and this bullet asserted it did — it read "FILE mode is
+  byte-identical to before this branch: no sidebar, no multi-thread persistence." That sentence was true
+  of the ORIGINAL gate (`mode === "turso"` alone) and was carried over verbatim when the OR was added
+  two lines above it, which is the whole failure: `mode === "file"` with single-DB Turso STORAGE and a
+  usable config satisfies the first disjunct, so the sidebar mounts and threads persist. The panel is
+  byte-identical to before this branch only when NEITHER signal is Turso, or when `chatTursoConfig` is
+  null. Pinned by the `mode=file, storageConfig.kind==='turso'` test in `workspace-section.test.tsx`,
+  which is the mirror of the one pinning the `mode` disjunct.
+  ★★★ AND THE FORMULA ABOVE WAS WRONG UNTIL NOW FOR A SECOND REASON WORTH RECORDING: it was quoted with
+  a `?.` that the source does not have. The commit that CORRECTED this paragraph was followed by the
+  VERY NEXT commit on the branch removing the `?.` from `workspace-section.tsx` — so the correction was
+  re-staled one commit after it landed, by its own review round, before anything merged. (Reproduce:
+  `git log --oneline --reverse <base>..HEAD` puts the docs commit immediately before the test commit,
+  and `git log -S'storageConfig?.kind === "turso" || mode' -- src/app/workspace-section.tsx` names the
+  second one as the remover.)
+  `docs:symbols:check` cannot see this (it proves only that a mixed-case NAME exists, and
+  `storageConfig` exists either way). A correction is a NEW claim: re-check it against the tree at the
+  END of the round, not at the moment you wrote it.
+  ★★ "AI Assistant" IS in axe `A11Y_VIEWS`, but `e2e/seed.ts` seeds FILE mode, so the gate never renders
+  this sidebar — same blind spot class as the other Turso-gated views and the Resources → Calendar
+  sub-tab (see `docs/AGENTS/accessibility.md`). Compounding it, axe has no rule that flags two controls sharing an accessible name
+  (measured in `docs/AGENTS/accessibility.md`) — so even a scanned run could not catch a row-label collision here.
+  `chat-thread-list.test.tsx` / `chat-thread-sidebar.test.tsx` are therefore the ONLY coverage this
+  surface will ever have; do not read a green axe run as covering it, and eye-verify against a real
+  Turso project before shipping any change to this surface.
+  ★ The `chat_threads` table is deliberately OUT of `TABLE_NAMES` (else a workspace save's per-table
+  DELETE sweep wipes it); its upsert is a single atomic `INSERT OR REPLACE`, never a delete-then-insert
+  pair, because `runTursoPipeline` only opens a transaction when the first statement is literal `BEGIN`.
+  `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
+  requires `projectId` (not just an id) so a delete can never reach across projects.

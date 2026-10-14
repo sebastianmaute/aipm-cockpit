@@ -1736,3 +1736,30 @@ describe("BudgetPanel — §6.4 forecast link line", () => {
     expect(onOpenBudgetReport).toHaveBeenCalledTimes(1);
   });
 });
+
+// §500 — the forecast import's entry point. A closed bucket is read-only and a
+// popout cannot write, so neither offers it.
+describe("BudgetPanel — Import forecast…", () => {
+  const importName = rowLabel(t("en-US", "forecastImportOpen"), "PAM");
+
+  test("an open bucket offers it, and clicking opens the import dialog", () => {
+    render(<BudgetPanel {...props} />);
+    const btn = screen.getByRole("button", { name: importName });
+    expectSecondaryButton(btn);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(btn);
+    expect(screen.getByRole("dialog", { name: t("en-US", "forecastImportTitle") })).toBeInTheDocument();
+  });
+
+  test("a closed bucket does not", () => {
+    render(<BudgetPanel {...props} buckets={[{ ...buckets[0], status: "closed" }]} />);
+    expect(screen.getByRole("button", { name: rowLabel(t("en-US", "budgetReopen"), "PAM") })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: importName })).toBeNull();
+  });
+
+  test("a popout does not", () => {
+    render(<BudgetPanel {...props} isPopout />);
+    expect(screen.getByRole("button", { name: rowLabel(t("en-US", "budgetEditBucket"), "PAM") })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: importName })).toBeNull();
+  });
+});

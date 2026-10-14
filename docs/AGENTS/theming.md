@@ -799,3 +799,51 @@
   `interactive:true` pops an incremental-consent dialog for a new scope; background probes stay silent. New
   Graph host must be added to the CSP allowlist (above).
 
+### Icons — the `icons.ts` barrel
+
+Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps the ★★★ rule.
+
+- **Icons come from `src/app/icons.ts`**, never from `lucide-react` directly (the sole exception is
+  `rich-text-toolbar.tsx`, whose set came from Tiptap's reference toolbar) and never from
+  `@heroicons/react`, which was REMOVED app-wide in 0.255.0 — a `no-restricted-imports` rule makes a
+  reintroduction fatal, and its `patterns` half is the load-bearing one because every old call site
+  imported the `/24/outline` SUBPATH. ★★ The barrel re-exports lucide under the OLD heroicons names
+  on purpose, so a name there is NOT a claim about what lucide calls that glyph.
+  ★★★ A NAME MATCH IS NOT A GLYPH MATCH: lucide's `Bolt` is a hardware nut and its `ChartBar` is
+  horizontal, so both were remapped — check `/icon-gallery` in dev, and note `icons.test.ts` pins
+  every row by `displayName`, which is alias-invariant. ★★ **Five of the barrel's icons render no `<path>`**
+  (`Bars2Icon` a `<line>`, both ellipsis icons `<circle>`, `Squares2X2Icon`/`StopIcon` `<rect>`), and
+  lucide prepends its own `lucide lucide-<name>` classes — so an icon test must assert on
+  `svg.children.length`, never `querySelector("path")`, and never on an exact `class` string. Three
+  pre-existing tests broke on exactly that. ★ Line weight is pinned to heroicons' 1.5 by a
+  `globals.css` rule on `.lucide`; that file is unlayered, so overriding it needs `stroke-[2]!`.
+  ★★ **A stale `.next` makes `/icon-gallery` 404 in dev, and it is the only route that can show
+  this.** The page is the repo's sole `if (process.env.NODE_ENV === "production") notFound();`
+  guard (`grep -rn NODE_ENV src --include=*.ts --include=*.tsx` — read the hits; ★★ do NOT count
+  them, and do NOT read "sole" as "the only `=== "production"` test". `use-arrangement.ts` has one
+  too, as an early return guarding a dev-only `console.warn`; what is unique here is the pairing with
+  `notFound()`, which is what makes the ROUTE disappear. An earlier revision said "the other two hits
+  are `!==`", which was already loose — one of them is a `vi.stubEnv` in a test, not a comparison —
+  and went stale the moment a fourth site landed), so
+  a dev server serving anything stale for that route 404s while every sibling route is fine. It
+  reaches the gallery/visual e2e specs as `toHaveCount` "Received: 0", which reads like a broken
+  selector. Remedy is the one this file already gives for a corrupted dev cache: stop the server,
+  `Remove-Item -Recurse -Force .next`, restart.
+  ★★★ **DO NOT BLAME `npm run build` FOR IT — an earlier revision of this bullet did, at length,
+  and the cause was never established.** It asserted that a build leaves production chunks in
+  `.next` which `next dev` then serves, with the guard constant-folded true. That mechanism is
+  refuted by Next 16's own docs (`node_modules/next/dist/docs/.../version-16.md` "Concurrent `dev`
+  and `build`": dev outputs to `.next/dev`, build to the root, precisely so the two do not
+  conflict), and the reproduction does not reproduce — stop → build → start → curl now gives
+  200/200/200 three times over, as does building while dev runs. The 404 was real and clearing
+  `.next` did fix it; the build correlation was spurious. ★★ It also prescribed
+  `ls .next/BUILD_ID` as a router, which is worse than useless: `BUILD_ID` survives ANY past build
+  (CI, `e2e:smoke:prod`), so on a machine that has ever built it is permanently present.
+  ★★ **THE SAME SYMPTOM HAS A SECOND CAUSE with the opposite remedy.** Chained `npx playwright
+  test` invocations race their own webServer: while `playwright.config.ts` set `reuseExistingServer:
+  !process.env.CI`, a local run ATTACHED to a server the previous invocation was still
+  releasing and got the same `Received: 0`. Since §58 (b) reuse is off unless
+  `PLAYWRIGHT_REUSE_SERVER=1`, so the same race now fails with "is already used" instead, which
+  names itself. Fix either by not chaining — `--repeat-each=N`
+  inside ONE invocation (5/5 green). A post-mortem `curl` cannot tell the two apart, since the
+  server is gone by then either way.

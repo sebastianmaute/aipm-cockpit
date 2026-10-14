@@ -879,3 +879,107 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   zone-swatch row use i18n). Rendered in BOTH Settings → Integrations AND the Help-view accordion (same
   component, two mounts).
 
+### UI shell — Gantt module map
+
+Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps the ★★★ rule.
+
+- **Gantt module map:** `GanttPanel` (`gantt.tsx`) is orchestrator only (data derivation +
+  layout); heavy
+  parts extracted. Pure i18n-free ENGINES `gantt-engine.ts` (date math, prefs load/save, critical-path,
+  derive-bar) and `gantt-status-buckets.ts` (`taskStatusBuckets`/`milestoneStatusBucket` — which
+  status-filter buckets an entity belongs to; `today` passed in, no clock). React pieces: hooks
+  `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
+  lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar) and
+  `use-gantt-prefs.ts` (sort/filter prefs state + localStorage hydrate/persist + setters); presentational
+  `gantt-chrome.tsx` (`GanttToolbar`, `GanttHeader` axis, `GanttDependencyLayer` SVG arrows + milestone
+  connectors), `gantt-rows.tsx` (`GanttTaskRow`, `GanttMilestoneRow`), `gantt-chart.tsx` (`GanttChart` —
+  the scrollable chart surface: sticky header, overlays, today marker, dependency layer, the interleaved
+  row list, the trailing add-task affordance and the range footer; extracted from `gantt.tsx`),
+  `gantt-overlays.tsx` (`GanttNonWorkingLayer` holiday shading + `GanttGridLayer` dotted day rules, both
+  `aria-hidden` + `pointer-events-none` so they can never intercept a bar drag; both derive their origin
+  from the SHARED `dayLeftPx(i, nameColWidth)` — a layer computing its own origin/column width puts a grid
+  line off its date label) and `gantt-view-menu.tsx` (`GanttViewMenu`, the toolbar's View popover holding
+  all EIGHT display toggles — dependencies · holidays · absences · grid · critical path · baseline ·
+  show-milestones · inline milestone placement; every one is a `ToggleButton`, never a hand-rolled
+  `aria-pressed` button, so each gets the non-colour pressed marker). Rows/chrome/chart/overlays are PURE —
+  `GanttPanel` threads data + drag state/handlers (incl. the same `interactingWithBarRef` the row's
+  `onDragStart` reads synchronously) down as props. ★ Gantt IS in axe `A11Y_VIEWS`. ★ One brittle
+  markup-ORDER source test reads `gantt-chrome.tsx` (toolbar markup moved there), not `gantt.tsx`.
+  ★★★ **GANTT PREFS ARE v2 AND `statuses: []` NOW MEANS "SHOW NOTHING".** `GANTT_PREFS_VERSION = 2`
+  (`gantt-engine.ts`); `DEFAULT_PREFS.statuses` is `[...ALL_GANTT_STATUSES]`, i.e. every bucket TICKED.
+  The pre-v2 blob used empty-means-all, so `loadPrefs` migrates it — `!isV2 && statuses.length === 0`
+  re-fills all three buckets — and `savePrefs` stamps `v`. Writing `statuses: []` intending "show
+  everything" now yields an EMPTY chart. ★★ Consequently **any "is a filter active" test must compare
+  `prefs.statuses.length < ALL_GANTT_STATUSES.length`, NEVER `> 0`** — a `> 0` test calls an untouched
+  project filtered and hides its "add your first task" affordance (that exact mistake shipped a regression
+  in the 0.213.0 branch; `grep -n "ALL_GANTT_STATUSES.length" src/app/gantt.tsx` shows the correct form). ★ `resetFilters` restores all three
+  statuses, NOT `[]`; priorities and assignees keep empty-means-all and still clear to `[]`. ★
+  `ALL_GANTT_STATUSES` is `Object.freeze`d and `loadPrefs` returns `DEFAULT_PREFS` BY REFERENCE on its
+  SSR/no-blob/catch paths — spread it (`[...ALL_GANTT_STATUSES]`) wherever a mutable array is wanted.
+  ★ The name-column resize handle (in `GanttHeader`, `gantt-chrome.tsx`) renders the SAME 3-dot ⋮ grip
+  glyph as the Open Points table but tuned for the LIGHT `bg-surface-muted` header (`text-muted-foreground/60`
+  + `hover:bg-ui-dark-blue/10` + `hover:text-ui-dark-blue`) — NOT the shared `ColumnResizeHandle` (which
+  uses dark-header `table-head-*` tokens). It's `role="button"` + aria-label, mouse-only (`onMouseDown`); the
+  SVG child is `aria-hidden` so the accessible name stays the aria-label.
+
+### UI shell — toolbar button order
+
+Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps the ★★★ rule.
+
+- **★ Toolbar button ORDER convention (this is the RULE, not a claim every pane already follows it — read the
+  pane's own toolbar before assuming compliance):** every pane's toolbar ends with the contiguous trailing group
+  **Print · reset-columns · reset-pane-size**, in that order. Destructive/bulk actions (Activity's "Clear log")
+  and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members.
+  ★★ IN THE ELECTRON DESKTOP SHELL EVERY ARITY BELOW LOSES ITS **Print** MEMBER — `PrintButton` renders
+  `null` there ([why](desktop.md#print-and-the-menu)), so one short is not drift;
+  jsdom still renders Print.
+  ★★ THE DASHBOARD'S GROUP IS A 2×2 GRID (Print | reset-layout over reset-size | badge; DOM order unchanged, so it still reads row by row) AND ITS MIDDLE MEMBER IS **reset-LAYOUT**, not reset-columns —
+  `ResetLayoutButton`, restoring the tile arrangement to `DEFAULT_LAYOUT`. That pane has no columns to reset, and
+  arrangement is the reset-columns ANALOGUE (it restores CONTENT arrangement, where reset-pane-size restores the
+  BOX), so it sorts into the same slot: Print · reset-layout · reset-size. Do NOT "correct" it to the spelling
+  above. It is pinned by `expectButtonOrder` with `contiguous: true` in `dashboard-panel.test.tsx`, and that
+  assertion is mutation-proved — reordering the two resets turns it red. ★ It is also the one member carrying its
+  own `!arrangement.readOnly` guard, because the stack around it is gated only on `print:hidden`; a popout is
+  read-only by design and would otherwise gain a working reset.
+  ★★ SINCE SPEC C THE DASHBOARD'S STACK ENDS WITH A FOURTH CONTROL AFTER THE GROUP — `DashboardHiddenBadge`, the
+  hidden-tiles count that toggles the tray under row 1: Print · reset-layout · reset-size · badge. It is the one
+  deliberate exception to "ends with the trailing group": it is the arrangement's disclosure and drop target, not a
+  utility, and it renders only while a tile is hidden or a drag is in flight, so the three resets stay contiguous with
+  or without it. Pinned by the same `contiguous: true` assertion, once without the badge and once with it.
+  ★★★ **A PANE WITH BOTH IS FOUR MEMBERS: Print · reset-columns · reset-layout · reset-size.** Reports is the
+  first pane to carry all four; the two above are the three-member SPECIAL CASES of it. ★ NO VERSION IS
+  QUOTED, and adding one back is a regression twice over: this said "(0.290.x)" while `version.ts` read
+  0.289.0 and the branch introducing the fourth member bumped nothing, so the number was ASPIRATIONAL —
+  and the preamble to this whole section already says version/MR provenance lives in git + CHANGELOG,
+  not here. The order is not arbitrary — it
+  contains BOTH of them as SUBSEQUENCES, so neither existing convention breaks, and it keeps the two CONTENT
+  resets together ahead of the BOX reset. ★★ `contiguous: true` catches a control inserted BETWEEN members but
+  cannot adjudicate the ORDER itself, which is why it is written here rather than inferred from a green test —
+  and it cannot see a member wrongly PRESENT in a popout either, so the `readOnly` guard needs its own test.
+  ★ `ReportCard` emits the group for its seven consumers; `onResetCols` and `onResetLayout` are both OPTIONAL and
+  rendered only when passed, so a pane with no engine for one gets nothing. Drift has
+  been caught and fixed more than once: Outlook once sat between the two resets in Resources; Clear once sat
+  after them in Activity; Open Points had the worst case — Print/reset-size/reset-columns sat BEFORE the
+  destructive Clear-all AND the two resets were in the wrong relative order (reset-size before reset-columns),
+  fixed in 0.211.0. ★ the reset-columns button uses `ResetColWidthsIcon` (columns glyph) and reset-size uses
+  `ResetSizeIcon`; Gantt's name-column reset once wore the reset-SIZE glyph, making the two adjacent resets
+  indistinguishable. That one was fixed in an EARLIER release — 0.211.0 did not touch Gantt at all, and this
+  sentence sitting under a "fixed in 0.211.0" clause made it read as though it had.
+  ★★ A pane's PRIMARY action leads the control row, ahead of its filters — `PlanningToolbar`'s `aiPlanButton`
+  is the reference, and RACI's "Suggest RACI" joined it in 0.212.0 (it had been sitting in the trailing group
+  beside Print/Reset, reading as a trailing utility). The trailing group is unaffected either way: a leading
+  control only has to come BEFORE it, which is why `expectButtonOrder` takes `contiguous` per call.
+  ★★ ASSERT THIS WITH THE SHARED `src/test/toolbar-order.ts`, never a local `compareDocumentPosition` walk.
+  `buttonIndex` THROWS when a key matches zero or several buttons; a hand-rolled `findIndex` silently takes
+  the first, so an ordering assertion can pass against the wrong control. And plain ordering is NOT enough
+  for the trailing group — only `contiguous: true` catches a control drifting BETWEEN two members, which is
+  the exact drift this bullet lists four instances of. ★ The helper reads BUTTONS only, so a combobox filter
+  still needs one hand-rolled position check.
+  ★ 0.212.0 also moved Planning's "Hide externals" INTO the trailing `ml-auto` group so it sits beside the
+  Outlook block, matching what `renderWorkloadHeader` already did — Planning had been the outlier. ★ That is
+  a GROUPING change, not an ordering one: the toggle was already the element immediately preceding the group,
+  so a DOM-ORDER assertion passes against the unfixed code. Assert `closest("div.ml-auto")` contains the
+  Outlook control instead.
+  ★ Gantt's **View** menu (`GanttViewMenu`, 0.213.0) sits AFTER the reset-filters button and BEFORE the
+  trailing Print · reset-columns · reset-size group (`gantt-chrome.tsx`) — it collects display toggles, so
+  it is neither a primary action nor a member of the trailing group.

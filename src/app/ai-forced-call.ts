@@ -1,6 +1,6 @@
 // src/app/ai-forced-call.ts — the ONE audited fetch envelope for every one-shot,
 // forced-tool Anthropic call in the app (enumerate them with
-// `grep -rln "runForcedToolCall(" src/app --include=*.ts | grep -v -e test -e ai-forced-call`). Each caller keeps its OWN parse/ground/coerce/validation; only the
+// `grep -rlnE "runForcedToolCall(WithStop)?\(" src/app --include=*.ts | grep -v -e test -e ai-forced-call`). Each caller keeps its OWN parse/ground/coerce/validation; only the
 // wire call + error throw are shared here, so a leak fix lives in ONE place.
 //
 // SECURITY INVARIANT (never regress): this module NEVER logs or echoes the api
@@ -84,6 +84,18 @@ interface ToolUseBlock {
 export async function runForcedToolCall(
   args: ForcedToolCallArgs,
 ): Promise<Record<string, unknown>> {
+  return (await runForcedToolCallWithStop(args)).input;
+}
+
+/**
+ * `runForcedToolCall`, plus the response's `stop_reason` (undefined when the
+ * response has none). A caller whose answer can be long reads it: on
+ * `"max_tokens"` the reply was cut at the output budget, so the tool input may
+ * be partial. Same throws as `runForcedToolCall`.
+ */
+export async function runForcedToolCallWithStop(
+  args: ForcedToolCallArgs,
+): Promise<{ input: Record<string, unknown>; stopReason: string | undefined }> {
   const body: Record<string, unknown> = {
     model: args.model,
     max_tokens: args.maxTokens,
@@ -127,10 +139,13 @@ export async function runForcedToolCall(
   }
   reportAiKeyResponse(args.apiKey, 200);
 
-  const json = (await res.json()) as { content?: ToolUseBlock[] };
+  const json = (await res.json()) as { content?: ToolUseBlock[]; stop_reason?: unknown };
   const toolUse = (json.content ?? []).find(
     (b) => b.type === "tool_use" && b.name === args.toolName,
   );
   if (!toolUse) throw new Error("parse");
-  return (toolUse.input ?? {}) as Record<string, unknown>;
+  return {
+    input: (toolUse.input ?? {}) as Record<string, unknown>,
+    stopReason: typeof json.stop_reason === "string" ? json.stop_reason : undefined,
+  };
 }
