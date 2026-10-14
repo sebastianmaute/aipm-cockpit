@@ -44,6 +44,16 @@ export type TimelogProjectLink = { timelogProjectId: number; bucketId: number | 
  *  (positive int; absent = unscoped / whole-org per-user fetch). `projectIds`
  *  are the specific TimeLog projects of that customer the user picked to fetch
  *  (positive ints; absent/empty = none selected yet). */
+/** Closed months (§699): the hours each linked person had booked when a month
+ *  was closed, kept so a later difference can be flagged. */
+export type TimelogMonthClose = {
+  /** "YYYY-MM": the last closed month. Every month up to and including it is closed. */
+  through: string;
+  /** month "YYYY-MM" → TimeLog userId (string key) → day "YYYY-MM-DD" → hours.
+   *  A user's map may be `{}`: linked and covered, with no bookings. */
+  saved: Record<string, Record<string, Record<string, number>>>;
+};
+
 export type TimelogLinks = {
   userLinks: TimelogUserLink[];
   projectLinks: TimelogProjectLink[];
@@ -52,6 +62,9 @@ export type TimelogLinks = {
   /** Guardrail policy. Absent when no rule is configured — see
    *  `sanitizeTimelogLinks`, which drops the key to keep the blob byte-stable. */
   policy?: TimelogPolicy;
+  /** Closed months. Absent (never `{}`) when nothing is closed — see
+   *  `sanitizeTimelogClose`. */
+  close?: TimelogMonthClose;
 };
 
 /** The guardrail rules. These literals are ALSO the guardrail `InsightType`

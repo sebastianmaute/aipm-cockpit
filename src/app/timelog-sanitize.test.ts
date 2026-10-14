@@ -1,6 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { logDiag } from "./diagnostics";
 import {
   sanitizeTimelogLinks,
+  sanitizeTimelogClose,
   sanitizeTimelogConfig,
   isBlankTimelogLinks,
   EMPTY_TIMELOG_LINKS,
@@ -8,6 +10,8 @@ import {
   type TimelogEnv,
 } from "./timelog-sanitize";
 import { defaultTimelogConfig } from "./timelog-types";
+
+vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 
 const NO_TENANT_ENV: TimelogEnv = { tenant: undefined };
 
@@ -228,5 +232,79 @@ describe("isBlankTimelogLinks", () => {
         policy: { timelogNonWorkingDay: { enabled: true } },
       }),
     ).toBe(false);
+  });
+});
+
+describe("sanitizeTimelogClose (§699)", () => {
+  const VALID = {
+    through: "2026-09",
+    saved: {
+      "2026-08": { "7": { "2026-08-03": 8 } },
+      "2026-09": { "7": {}, "9": { "2026-09-12": 7.5 } },
+    },
+  };
+  const withSaved = (saved: unknown, through = "2026-09") => ({ through, saved });
+
+  beforeEach(() => vi.mocked(logDiag).mockClear());
+
+  it("keeps a valid close", () => {
+    expect(sanitizeTimelogClose(VALID)).toEqual(VALID);
+    const out = sanitizeTimelogLinks({ userLinks: [], projectLinks: [], close: VALID });
+    expect(out?.close).toEqual(VALID);
+  });
+
+  const bad: Array<[string, unknown]> = [
+    ["through 2026-13", withSaved({}, "2026-13")],
+    ["a saved month after through", withSaved({ "2026-10": { "7": {} } })],
+    ["user key 0", withSaved({ "2026-09": { "0": {} } })],
+    ["user key x", withSaved({ "2026-09": { x: {} } })],
+    ["day 2026-09-31", withSaved({ "2026-09": { "7": { "2026-09-31": 1 } } })],
+    ["day 2026-02-29", withSaved({ "2026-02": { "7": { "2026-02-29": 1 } } })],
+    ["day outside its month", withSaved({ "2026-09": { "7": { "2026-08-03": 1 } } })],
+    ["hours -1", withSaved({ "2026-09": { "7": { "2026-09-03": -1 } } })],
+    ["hours NaN", withSaved({ "2026-09": { "7": { "2026-09-03": NaN } } })],
+    ["hours as a string", withSaved({ "2026-09": { "7": { "2026-09-03": "8" } } })],
+    ["saved an array", withSaved([])],
+  ];
+  it.each(bad)("drops the whole close for %s", (_name, close) => {
+    expect(sanitizeTimelogClose(close)).toBeUndefined();
+    const out = sanitizeTimelogLinks({ userLinks: [], projectLinks: [], close });
+    expect(out && "close" in out).toBe(false);
+  });
+
+  it("drops the whole close when one hours value is negative", () => {
+    const close = withSaved({
+      "2026-09": {
+        "7": { "2026-09-03": 8 },
+        "9": { "2026-09-04": 6 },
+        "11": { "2026-09-05": -1 },
+      },
+    });
+    expect(sanitizeTimelogClose(close)).toBeUndefined();
+  });
+
+  it("logs a diagnostic when it drops a close", () => {
+    sanitizeTimelogClose(withSaved({ "2026-09": { "7": { "2026-09-03": -1 } } }));
+    expect(logDiag).toHaveBeenCalledWith(
+      "warn",
+      "timelog.close-dropped",
+      expect.objectContaining({ reason: expect.any(String) }),
+    );
+  });
+
+  it("does not log for a valid or an absent close", () => {
+    sanitizeTimelogClose(VALID);
+    sanitizeTimelogClose(undefined);
+    sanitizeTimelogLinks({ userLinks: [], projectLinks: [] });
+    expect(logDiag).not.toHaveBeenCalled();
+  });
+
+  it("leaves close absent when unset", () => {
+    const out = sanitizeTimelogLinks({ userLinks: [], projectLinks: [] });
+    expect(out && "close" in out).toBe(false);
+  });
+
+  it("a blob holding only a close is not blank", () => {
+    expect(isBlankTimelogLinks({ userLinks: [], projectLinks: [], close: VALID })).toBe(false);
   });
 });
