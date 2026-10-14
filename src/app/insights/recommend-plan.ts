@@ -24,6 +24,13 @@ export type RecommendPlanWorkspace = Pick<
   "tasks" | "raid" | "changes" | "milestones" | "stakeholders"
 >;
 
+/** What a generate reads beside its prompt (§350), plus the baseline-currency history length
+ *  and digest in force then (§476), which the stored recommendation is stamped with. */
+export type RecommendSnapshot = RecommendPlanWorkspace & {
+  readonly historyLength: number;
+  readonly historyDigest: string;
+};
+
 const UPDATE_DESCRIPTOR: Record<string, InlineEntity> = {
   update_task: "task",
   update_raid_item: "raid",

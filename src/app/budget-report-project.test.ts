@@ -180,7 +180,7 @@ describe("computeBudgetReport — project rollup excludes spilled-in budget (§5
 /**
  * The vacuity trap these pin against: every other fixture in this file is
  * `currency: "EUR"` and passes `fxRates: null`, and under EITHER condition
- * `resolveRate` returns 1 and `currencyToEur` is the identity — so a currency
+ * `resolveRate` returns 1 and `currencyToBase` is the identity — so a currency
  * test written with the wrong fixture passes identically before and after the
  * conversion exists. Both cases below therefore use a NON-EUR bucket AND a
  * real rate table, and both are mutation-proved (the conversion itself, and
@@ -190,7 +190,7 @@ describe("computeBudgetReport — currencies do not leak across buckets", () => 
   const fx: FxRates = { base: "EUR", date: "2026-05-26", fetchedAt: "x", rates: { EUR: 1, USD: 1.1, GBP: 0.85 } };
 
   test("the fixture actually converts — a rate of 1 would make this whole describe vacuous", () => {
-    expect(resolveRate(bucket(9, { currency: "USD" }), fx)).toBe(1.1);
+    expect(resolveRate(bucket(9, { currency: "USD" }), fx, "EUR")).toBe(1.1);
   });
 
   test("a closed USD fixed predecessor spills EUR into its T&M successor", () => {

@@ -89,6 +89,7 @@ export function useWorkspaceSync<S extends Slices>(deps: WorkspaceSyncDeps<S>): 
   useBroadcastSync("activityLog", ws.activityLog, mirrorApply.activityLog, syncContext);
   // ★ Same reason as `activityLog`: the autosave writes the whole workspace, so a tab with a stale history would overwrite the other tab's entries.
   useBroadcastSync("budgetHistory", ws.budgetHistory, mirrorApply.budgetHistory, syncContext);
+  useBroadcastSync("baselineHistory", ws.baselineHistory, mirrorApply.baselineHistory, syncContext); // §476 — same reason
   // §4 — the remaining workspace parts: the autosave writes the WHOLE workspace, so a window holding a stale copy of any of them would overwrite the other window's edit.
   useBroadcastSync("plan", ws.plan, mirrorApply.plan, syncContext);
   useBroadcastSync("fxRates", ws.fxRates, mirrorApply.fxRates, syncContext);

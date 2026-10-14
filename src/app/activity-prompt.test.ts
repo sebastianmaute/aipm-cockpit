@@ -108,7 +108,7 @@ describe("renderActivityEntry", () => {
   //   NOT assert wording — the i18n string IS the wording.
   it("renders every ActivityKind with no placeholder left unfilled", () => {
     const kinds = Object.keys(ACTIVITY_KIND_TO_KEY) as ActivityKind[];
-    expect(kinds).toHaveLength(58); // raid.escalated added (§515), ai.wbsPlan (optimize_wbs)
+    expect(kinds).toHaveLength(59); // raid.escalated added (§515), ai.wbsPlan (optimize_wbs), plan.currencySwitched (§476)
     for (const kind of kinds) {
       const r = renderActivityEntry(entry({ kind, args: ["A", "B", "C", "D"] }));
       expect(r.summary, kind).not.toBe("");
@@ -166,5 +166,13 @@ describe("renderActivityEntry — count agreement on map-routed keys", () => {
     expect(renderActivityEntry(entry({ kind: "ai.raciSuggest", args: [3] })).summary).toBe(
       "Applied 3 AI-proposed RACI assignments",
     );
+  });
+});
+
+// §476 fix round 1 — the AI prompt is a MACHINE path: the stored ISO ECB date and raw rate.
+describe("renderActivityEntry — plan.currencySwitched stays raw (§476)", () => {
+  it("renders the ISO date and the raw rate", () => {
+    const r = renderActivityEntry(entry({ kind: "plan.currencySwitched", args: ["EUR", "GBP", 0.852, "2026-10-13"] }));
+    expect(r.summary).toBe("Project currency switched from EUR to GBP at 0.852 (ECB rates of 2026-10-13)");
   });
 });

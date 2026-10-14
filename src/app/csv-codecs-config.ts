@@ -23,6 +23,7 @@ import { type Workspace, sanitizeProjectStatus } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
 import type { ActivityEntry } from "./activity-log";
 import { sanitizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
+import { sanitizeBaselineHistory, type BaselineEntry } from "./baseline-currency";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import {
   CSV_SECTION_ABSENCES,
@@ -51,6 +52,7 @@ import {
   CSV_SECTION_DOCUMENT_ASSETS,
   CSV_SECTION_ACTIVITY,
   CSV_SECTION_BUDGET_HISTORY,
+  CSV_SECTION_BASELINE_HISTORY,
   CSV_SECTION_TASKS,
   absencesToCsv,
   budgetsToCsv,
@@ -380,6 +382,22 @@ export function csvToBudgetHistory(text: string, diag?: DocTruncationDiag): Budg
   const row = parseCsv(text).find((r) => r.length >= 2 && r[0] === "config");
   if (!row) return undefined;
   const history = decodeMetaJson(row[1], sanitizeBudgetHistory, "budgetHistory", diag);
+  return history?.length ? history : undefined;
+}
+
+// --- Baseline-currency history encoder / decoder (§476) ----------------------
+//
+// Same single `config,<json>` row and the same storage-only gate as the budget
+// history just above.
+
+export function baselineHistoryToCsv(history: readonly BaselineEntry[], neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(history), neutralize)].join(",");
+}
+
+export function csvToBaselineHistory(text: string, diag?: DocTruncationDiag): BaselineEntry[] | undefined {
+  const row = parseCsv(text).find((r) => r.length >= 2 && r[0] === "config");
+  if (!row) return undefined;
+  const history = decodeMetaJson(row[1], sanitizeBaselineHistory, "baselineHistory", diag);
   return history?.length ? history : undefined;
 }
 
@@ -744,5 +762,9 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // history-less workspace keeps its bytes (golden-workspace.test).
   if (config === undefined && ws.budgetHistory && ws.budgetHistory.length)
     csvPush(CSV_SECTION_BUDGET_HISTORY, budgetHistoryToCsv(ws.budgetHistory, neutralize));
+  // Baseline-currency history (§476) — STORAGE-ONLY, same gate, emitted last so
+  // a workspace without one keeps its bytes (golden-workspace.test).
+  if (config === undefined && ws.baselineHistory && ws.baselineHistory.length)
+    csvPush(CSV_SECTION_BASELINE_HISTORY, baselineHistoryToCsv(ws.baselineHistory, neutralize));
   return parts.join("\r\n");
 }

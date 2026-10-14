@@ -48,6 +48,7 @@ import { type Workspace, sanitizeProjectStatus } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
 import type { ActivityEntry } from "./activity-log";
 import { sanitizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
+import { sanitizeBaselineHistory, type BaselineEntry } from "./baseline-currency";
 import {
   type ImportDiag,
   type ImportSectionKey,
@@ -347,6 +348,19 @@ export function markdownToBudgetHistory(md: string, diag?: DocTruncationDiag): B
   const body = readFencedJsonSection(md, "Budget History");
   if (body === undefined) return undefined;
   const history = decodeMetaJson(body, sanitizeBudgetHistory, "budgetHistory", diag);
+  return history?.length ? history : undefined;
+}
+
+/** Baseline-currency history (§476) — same fenced json blob and storage-only
+ *  gate as the budget history above. */
+export function baselineHistoryToMarkdown(history: readonly BaselineEntry[]): string {
+  return ["## Baseline History", "", "```json", JSON.stringify(history, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToBaselineHistory(md: string, diag?: DocTruncationDiag): BaselineEntry[] | undefined {
+  const body = readFencedJsonSection(md, "Baseline History");
+  if (body === undefined) return undefined;
+  const history = decodeMetaJson(body, sanitizeBaselineHistory, "baselineHistory", diag);
   return history?.length ? history : undefined;
 }
 
@@ -740,6 +754,9 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // workspace keeps its bytes (golden fixtures).
   if (config === undefined && ws.budgetHistory && ws.budgetHistory.length)
     mdParts.push(budgetHistoryToMarkdown(ws.budgetHistory));
+  // Baseline-currency history (§476) — same gate, emitted last (golden fixtures).
+  if (config === undefined && ws.baselineHistory && ws.baselineHistory.length)
+    mdParts.push(baselineHistoryToMarkdown(ws.baselineHistory));
   const out = mdParts.join("\n");
   return out;
 }

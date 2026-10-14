@@ -56,5 +56,6 @@ export const IDB_OPTIONAL_KV_KEYS = {
   documentVersions: "documentVersions",
   activityLog: "activityLog",
   budgetHistory: "budgetHistory",
+  baselineHistory: "baselineHistory",
   documentAssets: "documentAssets",
 } as const;

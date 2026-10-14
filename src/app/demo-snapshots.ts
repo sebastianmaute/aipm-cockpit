@@ -27,6 +27,7 @@ import {
   type RaidItem, type RaidStatus, type Task,
 } from "./types";
 import { DEMO_AS_OF } from "./demo-workspace";
+import { rebaseFactor, scaleSnapshotMoney } from "./baseline-currency";
 import type { Workspace } from "./workspace";
 
 /** Hour of the replayed capture, matching an end-of-day Friday auto-capture. */
@@ -199,6 +200,14 @@ export function workspaceAsOf(ws: Workspace, asOf: string, now: string = DEMO_AS
     budgets: (ws.budgets ?? []).map((b) => bucketAsOf(b, asOf, now)),
     activityLog: (ws.activityLog ?? []).filter((a) => !after(a.timestamp, asOf)),
     budgetHistory: (ws.budgetHistory ?? []).filter((h) => !after(h.date, asOf)),
+    // ★ `baselineHistory` (§476) is deliberately NOT filtered by `asOf`, unlike
+    // `budgetHistory` above. The replay keeps TODAY's plan and role rates, so
+    // every figure it computes is in the CURRENT baseline; the rebase must
+    // therefore apply every switch after a budget entry's `at`, including the
+    // ones after `asOf`. Cutting the list at `asOf` would leave an entry from
+    // before a later switch in the old currency beside current-baseline figures.
+    // (The shipped demo masters carry no switches, so this is a correctness
+    // note, not a visible change.)
     status: statusAsOf(ws.status, asOf),
   };
 }
@@ -216,7 +225,13 @@ export function demoSnapshotFridays(startDate: string, asOf: string): string[] {
 }
 
 /** One record per replay Friday, captured at that Friday's `CAPTURE_TIME`; the first
- *  is the baseline. Mirrors `useTrendSnapshots`' `buildContext` call for call. */
+ *  is the baseline. Mirrors `useTrendSnapshots`' `buildContext` call for call.
+ *  ★ §476 B8: the replay computes every figure from TODAY's rates, so in the CURRENT
+ *  baseline, but stamps a PAST `capturedAt` — and `useSnapshots` rebases each stored record
+ *  by every switch after its capture (`rebaseSnapshots`). Emitted as computed, a record from
+ *  before a switch would be converted a second time. So each record's money is divided by
+ *  `rebaseFactor(baselineHistory, capturedAt)`: stored in the currency in force at its
+ *  capture, like a live record, and read back as computed. */
 export function buildDemoSnapshots(ws: Workspace, asOf: string): SnapshotRecord[] {
   return demoSnapshotFridays(ws.plan.startDate, asOf).map((friday, i) => {
     const w = workspaceAsOf(ws, friday, asOf);
@@ -229,6 +244,7 @@ export function buildDemoSnapshots(ws: Workspace, asOf: string): SnapshotRecord[
           tasks, raid: w.raid, budgets, plan: w.plan, roles: w.roles, resources: w.resources,
           absences: w.absences, fxRates: w.fxRates ?? null, milestones, changes: w.changes ?? [],
           budgetHistory: w.budgetHistory ?? [],
+          baselineHistory: w.baselineHistory ?? [],
         },
         {
           workdayHours: defaultSettings.resources.workdayHours,
@@ -240,10 +256,12 @@ export function buildDemoSnapshots(ws: Workspace, asOf: string): SnapshotRecord[
         null,
       ),
     );
+    const capturedAt = `${friday}${CAPTURE_TIME}`;
     const record = buildSnapshot({
       model, tasks, milestones, buckets: budgets, planEndDate: w.plan.endDate,
-      capturedAt: `${friday}${CAPTURE_TIME}`, cadence: "weekly", trigger: "auto",
+      capturedAt, cadence: "weekly", trigger: "auto",
     });
-    return { ...record, isBaseline: i === 0 };
+    const inForce = scaleSnapshotMoney(record, 1 / rebaseFactor(ws.baselineHistory ?? [], capturedAt));
+    return { ...inForce, isBaseline: i === 0 };
   });
 }

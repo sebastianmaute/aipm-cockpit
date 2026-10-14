@@ -62,6 +62,7 @@ export interface UseStorageBackendArgs {
   onRegistryChange?: (registry: ProjectsRegistry) => void;
   /** Told after a RESTORE (a kept version, or "Restore anyway") replaced the workspace in place. The undo
    *  history recorded against the version that was replaced no longer describes it, so task-manager prunes
-   *  it — every entry is stale under `getUndoEpoch`, which the restore has just moved. */
+   *  it — every entry is stale under `getUndoEpoch`, which the restore has just moved. Also told after each
+   *  change of the money denomination (§476, `useDenominationEpoch`), for the same reason. */
   onUndoHistoryReset?: () => void;
 }

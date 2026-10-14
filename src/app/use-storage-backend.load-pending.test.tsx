@@ -6,12 +6,13 @@
 //   keyed on it would lock the app for the session after one load error. So EVERY terminal branch of
 //   the load effect settles this one, and (b) and (c) pin exactly that difference.
 import { act, renderHook } from "@testing-library/react";
+import { useEffect, useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { StorageConfig } from "./storage";
-import type { Task } from "./types";
+import type { ChangeItem, Task } from "./types";
 
 vi.mock("./storage", () => ({
   createBackend: vi.fn(),
@@ -49,6 +50,7 @@ import { isScopeStale } from "./scope-epoch";
 import { useStorageBackend } from "./use-storage-backend";
 import { useWorkspace } from "./workspace-context";
 import { SharePointBackend } from "./sharepoint-backend";
+import { useUndoStack } from "./undo/use-undo-stack";
 
 const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
 
@@ -530,5 +532,99 @@ describe("§548 — getScopeEpoch: transitions that MUST move it", () => {
     } finally {
       confirmSpy.mockRestore();
     }
+  });
+});
+
+// §476 — a baseline-currency switch re-denominates every stored money field, so an undo image taken
+// before it holds amounts in the OLD currency: replayed after the switch it would write `{costImpact:
+// 1000}` (EUR) back to be read as £1000. The undo epoch therefore also moves on every change of the
+// denomination (`plan.currency` + the length of `baselineHistory`), which a peer tab's synced switch
+// moves too. The switch below is the one `BaselineCurrencyControl.confirm` performs (converted rows,
+// the new currency, one history entry).
+describe("§476 — a baseline-currency switch retires the undo history taken before it", () => {
+  const noop = () => {};
+  function useUndoProbe(args: Args) {
+    // task-manager hands the storage hook `undoApi.pruneStale` as `onUndoHistoryReset`; the same forward ref here.
+    const pruneRef = useRef<() => void>(noop);
+    const hook = useStorageBackend({ ...args, onUndoHistoryReset: () => pruneRef.current() });
+    const ws = useWorkspace();
+    const undo = useUndoStack({ lang: "en-US", logActivity: noop, showToast: noop, showToastAction: noop, getScopeEpoch: hook.getUndoEpoch });
+    useEffect(() => { pruneRef.current = undo.pruneStale; }, [undo.pruneStale]);
+    return { hook, ws, undo };
+  }
+  async function loaded() {
+    createBackendMock.mockReturnValue(makeBackend(0));
+    const r = renderHook((props: { args: Args }) => useUndoProbe(props.args), {
+      initialProps: { args: makeArgs() },
+      wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+    });
+    await advance(100);
+    return r.result;
+  }
+  type Probe = Awaited<ReturnType<typeof loaded>>;
+  const cost = (result: Probe) => result.current.ws.changes[0]?.costImpact;
+  function editCost(result: Probe, before: number, after: number) {
+    act(() => {
+      result.current.ws.setChanges([{ id: 1, costImpact: after } as ChangeItem]);
+      result.current.undo.captureFieldEdit({ setter: result.current.ws.setChanges, kind: "change.updated", id: 1, before: { costImpact: before }, after: { costImpact: after } });
+    });
+  }
+  function switchToGbp(result: Probe) {
+    act(() => {
+      result.current.ws.setChanges((prev) => prev.map((c) => ({ ...c, costImpact: (c.costImpact ?? 0) * 0.85 })));
+      result.current.ws.setPlan((p) => ({ ...p, currency: "GBP" }));
+      result.current.ws.setBaselineHistory((h) => [...h, { from: "2026-10-14", at: "2026-10-14T10:00:00.000Z", currency: "GBP", perPrevious: 0.85 }]);
+    });
+  }
+
+  it("control: with no switch, undo writes the captured value back", async () => {
+    const result = await loaded();
+    editCost(result, 1000, 2000);
+    act(() => { result.current.undo.undo(); });
+    expect(cost(result)).toBe(1000);
+  });
+
+  it("an undo captured before the switch writes nothing after it", async () => {
+    const result = await loaded();
+    editCost(result, 1000, 2000);
+    switchToGbp(result);
+    expect(cost(result)).toBe(1700); // control: the switch converted the row
+    act(() => { result.current.undo.undo(); });
+    expect(cost(result)).toBe(1700);
+  });
+
+  it("a redo whose undo ran before the switch writes nothing after it", async () => {
+    const result = await loaded();
+    editCost(result, 1000, 2000);
+    act(() => { result.current.undo.undo(); });
+    expect(cost(result)).toBe(1000); // control: the undo ran
+    switchToGbp(result);
+    expect(cost(result)).toBe(850);
+    act(() => { result.current.undo.redo(); });
+    expect(cost(result)).toBe(850);
+  });
+
+  // A round trip that lands in ONE apply (a peer tab's synced state) ends on the SAME currency;
+  // only the history length tells this window the amounts were converted twice.
+  it("a round trip applied at once (same currency, two more history entries) also retires it", async () => {
+    const result = await loaded();
+    editCost(result, 1000, 2000);
+    act(() => {
+      result.current.ws.setChanges([{ id: 1, costImpact: 1990 } as ChangeItem]);
+      result.current.ws.setBaselineHistory((h) => [...h,
+        { from: "2026-10-14", at: "2026-10-14T10:00:00.000Z", currency: "GBP", perPrevious: 0.85 },
+        { from: "2026-10-14", at: "2026-10-14T11:00:00.000Z", currency: "EUR", perPrevious: 1.17 }]);
+    });
+    expect(result.current.ws.plan.currency).toBe("EUR"); // control: the currency did not move
+    act(() => { result.current.undo.undo(); });
+    expect(cost(result)).toBe(1990);
+  });
+
+  it("the switch prunes both stacks at once, so the history shows nothing to undo", async () => {
+    const result = await loaded();
+    editCost(result, 1000, 2000);
+    expect(result.current.undo.canUndo).toBe(true); // control
+    switchToGbp(result);
+    expect(result.current.undo.canUndo).toBe(false);
   });
 });

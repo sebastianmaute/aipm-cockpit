@@ -2,13 +2,13 @@
 
 import { type Lang, tPlural } from "./i18n";
 import { countUnresolvedBuckets } from "./fx";
-import type { BudgetBucket, FxRates } from "./types";
+import type { BudgetBucket, BudgetCurrency, FxRates } from "./types";
 
 /**
  * §474 (the rollup half — read together with `budget-currency-label.ts`,
  * which discloses the SAME "unresolved" state per bucket): the project-total
  * rollup both budget-panel.tsx and budget-report-panel.tsx render sums every
- * bucket's EUR-reported figure regardless of whether a rate was ever
+ * bucket's baseline-reported figure regardless of whether a rate was ever
  * confirmed for it. A bucket whose `resolveRateSource` (fx.ts) reads
  * "unresolved" is summed in AT PAR, with nothing on screen saying so — this
  * is that disclosure. Arithmetic is unchanged; this only names how many
@@ -20,13 +20,15 @@ import type { BudgetBucket, FxRates } from "./types";
  * colour" shape as `CostUnknownNotice` — a text disclosure, not a warning.
  */
 export function BudgetFxRollupNotice({
-  lang, buckets, fxRates,
+  lang, buckets, fxRates, base,
 }: {
   lang: Lang;
   buckets: readonly Pick<BudgetBucket, "type" | "currency" | "fxRateOverride">[];
   fxRates: FxRates | null;
+  /** The project's baseline currency (`plan.currency`, §476). */
+  base: BudgetCurrency;
 }) {
-  const count = countUnresolvedBuckets(buckets, fxRates);
+  const count = countUnresolvedBuckets(buckets, fxRates, base);
   if (count === 0) return null;
   return <p className="mt-2 text-xs text-muted-foreground">{tPlural(lang, "budgetFxRollupUnresolved", count, String(count))}</p>;
 }

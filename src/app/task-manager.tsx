@@ -275,7 +275,7 @@ function TaskManagerInner() {
     setTimelogLinks,
     knowledgeItems,
     insights,
-    documents, setInsights,
+    documents, setInsights, baselineHistory,
     settingsOverrides,
     fxRates,
     project,
@@ -762,7 +762,7 @@ function TaskManagerInner() {
   const versionHistory = useVersionHistoryWiring({
     stakeholders, calendarEvents, tursoConfig, tursoProjectId, isPopout, logActivityUser,
     reportStorageOutcome, versionNotifyRef,
-    storageKind: settings.storageConfig.kind,
+    storageKind: settings.storageConfig.kind, workdayHours: settings.resources.workdayHours,
     features: settings.features,
     versionHistoryRetention: settings.versionHistoryRetention,
   });
@@ -1114,7 +1114,7 @@ function TaskManagerInner() {
     setReviewInsightId,
   } = useInsightRecommendations({
     isPopout, loadPending, getScopeEpoch, settings, lang, today, project, guides: operatingGuides.guides, guidesReady: operatingGuides.ready,
-    tasks, raid, milestones, changes, stakeholders,
+    tasks, raid, milestones, changes, stakeholders, baselineHistory,
     resourcesById, insights, setInsights, dispatcher,
     showToast, logActivityAs,
     onAcknowledgeInsight, onActInsight, onDismissInsight,
@@ -1122,7 +1122,7 @@ function TaskManagerInner() {
   });
 
   const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
-  const { refresh: refreshFx, loading: fxLoading } = useFxRates(cacheFxRates);
+  const { refresh: refreshFx, loading: fxLoading, sessionRates: fxSessionRates } = useFxRates(cacheFxRates);
 
   // Multi-project (portfolio) wiring — the empty-state / project handlers, the mode-aware
   // lists, the key-facts snapshot effect and the Turso project handlers —
@@ -1467,7 +1467,7 @@ function TaskManagerInner() {
     onEditTask: openEditModal,
     onChangeBudgets: guardEdit(commitBuckets), // ★★★ keep guarded — why, and why onCreateResource can't be: task-manager.popout-guard.test.tsx
     onRefreshFx: () => { void refreshFx().then((err) => { if (err) reportSilentFailure(showToast, lang, "fx.refreshFailed", new Error(err), "guardFxRefreshFailed"); }); },
-    fxLoading,
+    fxLoading, fxSessionRates,
     trends,
     versionHistory,
     // Multi-project (Projects view). Mutating callbacks are no-ops in popouts

@@ -54,6 +54,8 @@ export const CSV_SECTION_DOCUMENT_ASSETS = "# DOCUMENT ASSETS";
 export const CSV_SECTION_ACTIVITY = "# ACTIVITY LOG";
 // ★ Not a prefix of, nor prefixed by, any marker above (`# BUDGETS` ends in S).
 export const CSV_SECTION_BUDGET_HISTORY = "# BUDGET HISTORY";
+// ★ Not a prefix of, nor prefixed by, any marker above (§476).
+export const CSV_SECTION_BASELINE_HISTORY = "# BASELINE HISTORY";
 
 /**
  * The sections a dropped IMPORT ROW can be attributed to — the answer to "which

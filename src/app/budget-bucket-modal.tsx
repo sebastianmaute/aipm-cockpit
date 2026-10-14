@@ -34,6 +34,8 @@ import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback
 import { describeTextCap, describeClamp } from "./sanitize-report";
 import { BUDGET_NAME_MAX, PO_NUMBER_MAX, AMOUNT_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
+import { useDenominationMovedSinceOpen } from "./use-denomination-epoch";
+import { reportSilentFailure } from "./guard-feedback";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -45,6 +47,9 @@ interface BudgetBucketModalProps {
   lang: Lang;
   bucket: BudgetBucket;
   allBuckets: readonly BudgetBucket[];
+  /** The project baseline (`plan.currency`, §476): the unit a rate override
+   *  is entered in, the same as the role rates it overrides. */
+  baseCurrency: BudgetCurrency;
   roles: readonly Role[];
   disciplines: readonly Discipline[];
   grades: readonly Grade[];
@@ -61,6 +66,7 @@ export function BudgetBucketModal({
   lang,
   bucket,
   allBuckets,
+  baseCurrency,
   roles,
   disciplines,
   grades,
@@ -77,7 +83,12 @@ export function BudgetBucketModal({
   const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:budget-bucket");
   const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:budget-bucket");
   const { isVisible } = useModalVisibility("budget");
+  // The ONE rule for whether the manual FX field is on screen — the render and the save
+  // validation both read it, so a hidden field is never validated (§475 EUR, §476 baseline).
+  const fxOverrideShown = (currency: BudgetCurrency): boolean =>
+    isVisible("fxOverride") && currency !== "EUR" && currency !== baseCurrency;
   const showToast = useToastContext();
+  const denominationMoved = useDenominationMovedSinceOpen();
   const confirm = useConfirm();
   const adj = useAdjustmentTracker();
   const fixedPriceNoticeId = useId();
@@ -254,6 +265,11 @@ export function BudgetBucketModal({
 
   const save = () => {
     setError(null);
+    // §476 — the draft's rate overrides are in the currency of the moment this editor opened.
+    if (denominationMoved) {
+      reportSilentFailure(showToast, lang, "budget.denominationChanged", "currency switch during edit", "guardDenominationChanged");
+      return;
+    }
     if (!draft.name.trim()) {
       setError(t(lang, "budgetNameRequired"));
       return;
@@ -272,9 +288,12 @@ export function BudgetBucketModal({
     // inherited from a bucket that already had a stale one) is dropped here
     // rather than validated or persisted. Existing stored overrides on
     // buckets nobody re-saves are left alone; `resolveRate` already repairs
-    // those at read time (see its docstring).
+    // those at read time (see `bucketPerEur` in fx.ts).
     const fxRateOverride = draft.currency === "EUR" ? undefined : draft.fxRateOverride;
-    if (fxRateOverride != null &&
+    // §476 B11 — validated only while the field is SHOWN. Hidden (a bucket in the baseline
+    // currency, or the field toggled off) its value is kept as stored, and an error about a
+    // field the user cannot see would block the save with no way to fix it.
+    if (fxOverrideShown(draft.currency) && fxRateOverride != null &&
         (!Number.isFinite(fxRateOverride) || fxRateOverride <= 0)) {
       return setError(t(lang, "budgetFxOverrideInvalid"));
     }
@@ -509,8 +528,11 @@ export function BudgetBucketModal({
               an override there is incoherent data rather than a preference, and
               `resolveRate` (fx.ts) already declines to consult one on an EUR
               bucket. Offering the field anyway let a user set a value nothing
-              would ever read. */}
-          {isVisible("fxOverride") && draft.currency !== "EUR" && (
+              would ever read.
+              §476: hidden on a bucket in the project's baseline currency as well,
+              which needs no conversion — but the stored value is KEPT on save
+              (it is per EUR, and matters again if the project switches away). */}
+          {fxOverrideShown(draft.currency) && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="flex items-center gap-1">{t(lang, "budgetFxOverride")}<InfoTooltip text={t(lang, "budgetFxOverrideHint")} /></span>
             <input
@@ -636,7 +658,7 @@ export function BudgetBucketModal({
                   }));
                 }}
               />
-              <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour")}</span>
+              <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour", baseCurrency)}</span>
             </div>
             <FieldNotice id={rateIntNoticeId}>{notice.rateOverrideInternal}</FieldNotice>
           </label>
@@ -667,7 +689,7 @@ export function BudgetBucketModal({
                   }));
                 }}
               />
-              <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour")}</span>
+              <span className="text-xs text-muted-foreground">{t(lang, "budgetUnitPerHour", baseCurrency)}</span>
             </div>
             <FieldNotice id={rateExtNoticeId}>{notice.rateOverrideExternal}</FieldNotice>
           </label>

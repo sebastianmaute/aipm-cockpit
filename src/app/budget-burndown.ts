@@ -1,5 +1,6 @@
 // Pure per-period burn-down series for the dashboard + budget report charts.
-// Reads budgeted vs actual hours across all buckets, and € on the
+// Reads budgeted vs actual hours across all buckets, and money (in the project's
+// baseline currency, `plan.currency`, §476) on the
 // external-rate basis for T&M buckets / the contract-amount basis for
 // fixed-price ones (§472 — see the `isContractPriced` branch below, which an end-to-end bucket (§488) shares), returns
 // "remaining" arrays that descend over the plan periods — optionally sliced
@@ -8,7 +9,7 @@
 
 import { generatePeriods } from "./resource-capacity";
 import { bucketRateRows, bucketActivePeriods, effectiveBudgetHours } from "./budget-report";
-import { currencyToEur, planCurrencyPerEur } from "./fx";
+import { currencyToBase } from "./fx";
 import { actualHoursIn } from "./actual-hours";
 import type { Absence, BudgetBucket, FxRates, Resource, ResourcePlan, Role } from "./types";
 import { isContractPriced } from "./types";
@@ -31,7 +32,7 @@ export type BurndownSeries = {
   totalBudgetValue: number;
 };
 
-/** Derives per-period planned vs actual remaining hours and € across all buckets
+/** Derives per-period planned vs actual remaining hours and money across all buckets
  *  for the burn-down charts. `today` is an ISO date string (YYYY-MM-DD); actual
  *  remaining is defined only up to the period containing today.
  *
@@ -49,7 +50,7 @@ export function computeBurndownSeries(
   holidaySet: ReadonlySet<string>,
   absences: readonly Absence[],
   today: string,
-  /** Same cache `computeBucketReport` reads through `currencyToEur` for a
+  /** Same cache `computeBucketReport` reads through `currencyToBase` for a
    *  fixed-price bucket's contract amount (§472/§474/§475) — never re-derive
    *  a rate here. */
   fxRates: FxRates | null,
@@ -81,7 +82,7 @@ export function computeBurndownSeries(
   const actualV = new Array<number>(n).fill(0);
 
   for (const b of buckets) {
-    const rows = bucketRateRows(b, roles, planCurrencyPerEur(plan.currency, b, fxRates)); // §473 — rates to EUR
+    const rows = bucketRateRows(b, roles); // §476 — rates are already in the baseline
     // Scope to the bucket's active periods and pass them as canonicalPeriods —
     // mirrors computeBucketReport so the burndown totals equal the report totals.
     const active = bucketActivePeriods(b, plan);
@@ -89,10 +90,10 @@ export function computeBurndownSeries(
     if (isContractPriced(b.type)) {
       // §472: a fixed-price bucket is valued from its CONTRACT AMOUNT, never
       // hours × rate — mirrors computeBucketReport's `fixedPrice`/`consumedValue`
-      // (budget-report.ts), through the SAME `currencyToEur` helper (§474/§475
+      // (budget-report.ts), through the SAME `currencyToBase` helper (§474/§475
       // unresolved-rate handling applies here unchanged). Hours are still summed
       // for the hours series (the chart's other axis), just not used to price
-      // this bucket's €.
+      // this bucket's money.
       //
       // The report's `budgetValue` is the full converted contract amount
       // regardless of hours; `consumedValue` is that amount scaled by the
@@ -107,7 +108,7 @@ export function computeBurndownSeries(
       // and spreading it by actual hours would smear the overrun backwards and
       // show budget left in a period that had already exhausted it. The deltas
       // telescope, so an unclipped series still sums to the report's `consumedValue`.
-      const fixedPriceEur = currencyToEur(b.fixedPriceAmount ?? 0, b, fxRates);
+      const fixedPriceBase = currencyToBase(b.fixedPriceAmount ?? 0, b, fxRates, plan.currency);
       // §488 — an end-to-end bucket consumes its contract by COST (actual hours
       // × internal rate), uncapped, exactly as `computeBucketReport` does.
       const isEndToEnd = b.type === "e2e";
@@ -144,24 +145,24 @@ export function computeBurndownSeries(
         inWindow.push({ i, bh, ah, cost });
       }
       const consumedAt = (cumActualHours: number) => bucketBudgetHours > 0
-        ? Math.min(fixedPriceEur, fixedPriceEur * (cumActualHours / bucketBudgetHours))
+        ? Math.min(fixedPriceBase, fixedPriceBase * (cumActualHours / bucketBudgetHours))
         : 0;
       const evenShare = inWindow.length > 0 ? 1 / inWindow.length : 0;
       // Chronological order is what makes "cumulative" mean anything.
       const ordered = [...inWindow].sort((x, y) => x.i - y.i);
       let cumActualHours = 0;
-      let cumConsumedEur = 0;
+      let cumConsumed = 0;
       for (const { i, bh, ah, cost } of ordered) {
         const budgetShare = bucketBudgetHours > 0 ? bh / bucketBudgetHours : evenShare;
-        budgetV[i] += fixedPriceEur * budgetShare;
+        budgetV[i] += fixedPriceBase * budgetShare;
         if (isEndToEnd) {
           actualV[i] += cost;
           continue;
         }
         cumActualHours += ah;
-        const nextConsumedEur = consumedAt(cumActualHours);
-        actualV[i] += nextConsumedEur - cumConsumedEur;
-        cumConsumedEur = nextConsumedEur;
+        const nextConsumed = consumedAt(cumActualHours);
+        actualV[i] += nextConsumed - cumConsumed;
+        cumConsumed = nextConsumed;
       }
       continue;
     }

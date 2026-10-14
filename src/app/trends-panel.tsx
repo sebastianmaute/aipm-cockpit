@@ -10,6 +10,7 @@ import { RagBadge } from "./rag-badge";
 import { TrendChart, type TrendPoint } from "./trend-chart";
 import { formatCurrency } from "./resource-cost";
 import type { SnapshotRecord, VarianceRow } from "./snapshot";
+import type { BudgetCurrency } from "./types";
 import { VARIANCE_LABEL_KEYS, fmtVarianceCell, fmtVarianceDelta } from "./variance-format";
 import { ReportCard } from "./report-table";
 import { useResizable } from "./use-resizable";
@@ -51,6 +52,9 @@ export interface TrendsPanelProps {
   setBaseline: (id: string) => Promise<void>;
   deleteSnapshot: (id: string) => Promise<void>;
   deleteSnapshots: (ids: readonly string[]) => Promise<void>;
+  /** The project baseline (`plan.currency`, §476): the unit `remainingCost` is
+   *  in, once `useSnapshots` has rebased every stored snapshot into it. */
+  currency: BudgetCurrency;
   // Per-view Help callout (rendered inside the card, like Open Points). Wired
   // only from workspace-section; omitted in the standalone unit test.
   showHints?: boolean;
@@ -77,7 +81,7 @@ function trendPoints(snaps: readonly SnapshotRecord[], gaps: ReadonlySet<string>
 }
 
 export function TrendsPanel(props: TrendsPanelProps) {
-  const { lang, active, snapshots, baseline, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot, deleteSnapshots, showHints, isPopout, onLearnMore } = props;
+  const { lang, active, snapshots, baseline, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot, deleteSnapshots, currency, showHints, isPopout, onLearnMore } = props;
   const { displayTz } = useDisplayTimezone();
   const confirm = useConfirm();
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -116,13 +120,12 @@ export function TrendsPanel(props: TrendsPanelProps) {
 
   const gapSet = new Set(gaps);
   const locale = localeFor(lang);
-  // ★ EUR by construction. The only figure this labels is `remainingCost`,
-  // which `buildSnapshot` takes from `model.burndown.actualRemainingValue` —
-  // the budget engine's series, built as `budgetHours × role.rates.external`
-  // and converted NOWHERE, so it is EUR regardless of any project-level
-  // currency setting (§465). Snapshots no longer carry a currency of their
-  // own to mislabel with (§469).
-  const currency = "EUR";
+  // ★ `currency` is the project baseline. The only figure it labels is
+  // `remainingCost`, which `buildSnapshot` takes from the engine's burn-down
+  // series — in the baseline at capture time (§476). Snapshots carry no
+  // currency of their own (§469); a snapshot captured before a baseline
+  // switch is rebased into the current baseline by `useSnapshots`
+  // (`rebaseSnapshots`) before it reaches this panel.
   const gapLabel = gaps.length > 0 ? tPlural(lang, "trendsGap", gaps.length, gaps.length) : undefined;
 
   const captureButton = (

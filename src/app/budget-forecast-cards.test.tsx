@@ -47,17 +47,19 @@ function withEfficiencyUnavailable(efficiency: EfficiencyUnavailable): BudgetFor
   return { ...AVAILABLE, efficiency, gap: null };
 }
 
-type CardsProps = Omit<ComponentProps<typeof ForecastCards>, "view" | "onViewChange"> & { view?: ForecastView };
+type CardsProps = Omit<ComponentProps<typeof ForecastCards>, "view" | "onViewChange" | "currency"> & {
+  view?: ForecastView; currency?: ComponentProps<typeof ForecastCards>["currency"];
+};
 const noop = () => undefined;
 /** ForecastCards at a FIXED view — for tests about a card's content. The
  *  switch's own behaviour is pinned through `SwitchHarness` below. */
 function Cards({ view = "pace", ...rest }: CardsProps) {
-  return <ForecastCards view={view} onViewChange={noop} {...rest} />;
+  return <ForecastCards currency="EUR" view={view} onViewChange={noop} {...rest} />;
 }
 /** ForecastCards with real state behind the switch, as `ForecastSection` wires it. */
 function SwitchHarness(props: Omit<CardsProps, "view">) {
   const [view, setView] = useState<ForecastView>("pace");
-  return <ForecastCards {...props} view={view} onViewChange={setView} />;
+  return <ForecastCards currency="EUR" {...props} view={view} onViewChange={setView} />;
 }
 const paceRegion = () => screen.queryByRole("region", { name: PACE });
 const effRegion = () => screen.queryByRole("region", { name: EFF });
@@ -96,7 +98,7 @@ describe("ForecastCards — the reading switch (spec B)", () => {
 
   it("reports a click on the other option through onViewChange", () => {
     const onViewChange = vi.fn();
-    render(<ForecastCards lang="en-US" forecast={AVAILABLE} view="pace" onViewChange={onViewChange} />);
+    render(<ForecastCards currency="EUR" lang="en-US" forecast={AVAILABLE} view="pace" onViewChange={onViewChange} />);
     fireEvent.click(screen.getByRole("radio", { name: EFF }));
     expect(onViewChange).toHaveBeenCalledWith("efficiency");
   });
@@ -343,7 +345,7 @@ describe("ForecastCards + ForecastFactsRow — accessibility", () => {
     for (const view of VIEWS) {
       const { unmount } = render(
         <div>
-          <ForecastFactsRow lang="en-US" forecast={AVAILABLE} />
+          <ForecastFactsRow currency="EUR" lang="en-US" forecast={AVAILABLE} />
           <Cards lang="en-US" view={view} forecast={AVAILABLE} />
         </div>,
       );
@@ -405,7 +407,7 @@ describe("ForecastCards — In hours (MR 3)", () => {
     expect(pace).toHaveTextContent("Effort worse than €");
     act(() => pace.focus());
     expect(screen.getByRole("tooltip")).toHaveTextContent(
-      rateMixExplanation("en-US", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE),
+      rateMixExplanation("en-US", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR"),
     );
     unmount();
     render(<Cards lang="en-US" view="efficiency" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_HOURS_WORSE} />);

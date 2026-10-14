@@ -34,6 +34,7 @@ import { journalWorkspace, resolveJournalProjectKey, useUnloadJournal } from "./
 import { useOtherJournals, type OtherJournal } from "./use-other-journals";
 import { useConflictResolution } from "./use-conflict-resolution";
 import { useWorkspaceSync } from "./use-workspace-sync";
+import { useDenominationEpoch } from "./use-denomination-epoch";
 import { enqueueSave, whenSaved } from "./save-queue";
 import { createMirrorLedger } from "./mirror-ledger";
 import { createPeerRevisionDeferral } from "./peer-revision-deferral";
@@ -81,7 +82,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     timelogLinks, setTimelogLinks,
     knowledgeItems, setKnowledgeItems,
     insights, setInsights, documents, setDocuments, documentVersions, setDocumentVersions, activityLog, setActivityLog,
-    budgetHistory, setBudgetHistory,
+    budgetHistory, setBudgetHistory, baselineHistory, setBaselineHistory,
     settingsOverrides, setSettingsOverrides,
     calendarEvents, setCalendarEvents, documentAssets, setDocumentAssets,
   } = useWorkspace();
@@ -331,7 +332,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // not move the scope epoch (in-flight AI / Graph writes for this project would be dropped), but it does
   // replace the rows every undo image was taken against: replaying one would silently mix the two versions.
   const restoreEpochRef = useRef(0);
-  const getUndoEpoch = useCallback(() => scopeEpochRef.current + restoreEpochRef.current, []);
+  // §476 — plus one per change of the money denomination (a baseline-currency switch, here or in a peer tab).
+  const getDenominationEpoch = useDenominationEpoch(plan.currency, baselineHistory.length, args.onUndoHistoryReset);
+  const getUndoEpoch = useCallback(() => scopeEpochRef.current + restoreEpochRef.current + getDenominationEpoch(), [getDenominationEpoch]);
   const resetUndoHistory = () => {
     restoreEpochRef.current += 1;
     args.onUndoHistoryReset?.();
@@ -375,10 +378,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       milestones: into("milestones", setMilestones), changes: into("changes", setChanges), stakeholders: into("stakeholders", setStakeholders),
       steeringCommittee: into("steeringCommittee", setSteeringCommittee), timelogLinks: into("timelogLinks", setTimelogLinks), knowledgeItems: into("knowledgeItems", setKnowledgeItems),
       insights: into("insights", setInsights), documents: into("documents", setDocuments), documentVersions: into("documentVersions", setDocumentVersions),
-      activityLog: into("activityLog", setActivityLog), budgetHistory: into("budgetHistory", setBudgetHistory), settingsOverrides: into("settingsOverrides", setSettingsOverrides),
+      activityLog: into("activityLog", setActivityLog), budgetHistory: into("budgetHistory", setBudgetHistory), baselineHistory: into("baselineHistory", setBaselineHistory), settingsOverrides: into("settingsOverrides", setSettingsOverrides),
       calendarEvents: into("calendarEvents", setCalendarEvents), documentAssets: into("documentAssets", setDocumentAssets),
     };
-  }, [mirrorLedger, setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setFieldVisibility, setFeatures, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setActivityLog, setBudgetHistory, setSettingsOverrides, setCalendarEvents, setDocumentAssets]);
+  }, [mirrorLedger, setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setFieldVisibility, setFeatures, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setActivityLog, setBudgetHistory, setBaselineHistory, setSettingsOverrides, setCalendarEvents, setDocumentAssets]);
   // ★ Once per COMMIT, in a layout effect: it runs before any later render can process a queued updater, so
   //   the next `judge` finds every value it can see as `live` (mirror-ledger.ts `prune`). No deps on purpose.
   useLayoutEffect(() => { mirrorLedger.prune(currentWorkspace()); });
@@ -636,6 +639,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setActivityLog((prev) => mark("activityLog", logMode === "merge" ? mergeActivityLogs(prev, workspace.activityLog) : (workspace.activityLog ?? [])));
     // Same two branches for the budget history, but merged by id in stored order and NEVER capped.
     setBudgetHistory((prev) => mark("budgetHistory", logMode === "merge" ? mergeBudgetHistories(prev, workspace.budgetHistory) : (workspace.budgetHistory ?? [])));
+    setBaselineHistory(mark("baselineHistory", workspace.baselineHistory ?? [])); // §476: ALWAYS replace — merging on a project switch would carry the outgoing project's switches over
     setSettingsOverrides(mark("settingsOverrides", workspace.settingsOverrides));
     setCalendarEvents(mark("calendarEvents", workspace.calendarEvents)); setDocumentAssets(mark("documentAssets", workspace.documentAssets));
     // Seed the session id-minter's high-water from the loaded set so the next
@@ -886,7 +890,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   REQUIRED field, and only 9 of the 28 are required — new slices add OPTIONAL ones.
     //   Measured: dropping `activityLog` from this literal keeps tsc GREEN. The single
     //   spelling, NOT tsc, is what protects this; do not re-inline the literal at the save.
-    const outgoing: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory };
+    const outgoing: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory };
     if (!savesAllowed) {
       if (loadPause === "conflict") unloadJournal.followLive(outgoing); // §4 — no save can carry these edits: pagehide journals them
       if (loadPause !== null && savePausedAnnouncedForRef.current !== backend) {
@@ -1212,18 +1216,18 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // `allowDestructiveSaveAnyway` does, and without the dep the authorised save
     // would wait for an unrelated edit — with saving paused, there may not be one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal, savesAllowed, peerSeq]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal, savesAllowed, peerSeq]);
 
   // §4 §642 §643 §645 — tab sync: the scope, the revision adoption and one `useBroadcastSync` per slice (`use-workspace-sync.ts`).
   const syncContext = useWorkspaceSync({ isPopout: args.isPopout, storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId, fileBinding, getScopeEpoch, isLoadedValue, backend, mirrorApply, peerRevision,
-    slices: { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory } });
+    slices: { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory } });
 
   // Snapshot the live workspace from the render-scope closure — same pattern as
   // the file-picker handlers in use-storage-file-ops.ts (onPickStorageFile /
   // onOpenStorageFile / onRequestStorageSwitch), which take it as a dep. Must
   // NOT be memoized or it would capture stale state.
   function currentWorkspace(): Workspace {
-    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory };
+    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory };
   }
 
   // Persist the registry AND surface the change to the caller so its observable

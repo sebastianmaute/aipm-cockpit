@@ -102,7 +102,7 @@ const changeFields = {
   },
   impactDescription: { type: "string" as const, description: "Impact detail" },
   scheduleImpactDays: { type: "number" as const, description: "Schedule impact in days" },
-  costImpact: { type: "number" as const, description: "Cost impact" },
+  costImpact: { type: "number" as const, description: "Cost impact, in the project's currency (the `currency` code get_dashboard_snapshot returns)" },
   requestedBy: { type: "string" as const, description: "Who requested the change" },
   raisedDate: { type: "string" as const, description: "Date raised YYYY-MM-DD (defaults to today)" },
   decisionBy: {
@@ -445,7 +445,7 @@ export const TOOL_DEFS = [
   {
     name: "get_dashboard_snapshot",
     description:
-      "Read the project's current health: RAG ratings (overall, schedule, budget, scope) with whether each was manually overridden, completion progress, task-effort earned-value metrics (`evm`: PV/EV/AC in HOURS from task estimates, so its SPI/CPI are effort indices, not the budget's money CPI), the budget rollup (hours, value, cost, margin, EV, CPI), the budget forecast (`forecast`: the € and hours forecasts at current pace and at current efficiency with the gap between them, the rate-mix driver, and the latest budget changes with their total count; null when the budget module is off or no forecast can be built yet; each forecast's `efficiency.cpi` is a third kind of CPI, distinct from `evm.cpi` and `budget.costPerformanceIndex`: on contract value in `forecast.eur`, on hours in `forecast.hours`), and counts of overdue tasks, due-soon tasks, open RAID items, overdue and at-risk milestones, and changes by state. Read-only. When a money figure is null, `costUnknownReason` says why the cost basis is unsound — report it as unknown, never as zero. This applies even when `cost` is null but `earnedValue`/`costPerformanceIndex` are not — do NOT back-derive a cost from them (cost = earnedValue / costPerformanceIndex); report cost as unknown instead.",
+      "Read the project's current health: `currency`, the project's currency code, which EVERY money figure in the payload is in (the budget rollup, both forecasts including `forecast.eur` despite its name, and the budget changes) — state amounts in that currency, never assume euros; RAG ratings (overall, schedule, budget, scope) with whether each was manually overridden, completion progress, task-effort earned-value metrics (`evm`: PV/EV/AC in HOURS from task estimates, so its SPI/CPI are effort indices, not the budget's money CPI), the budget rollup (hours, value, cost, margin, EV, CPI), the budget forecast (`forecast`: the money and hours forecasts at current pace and at current efficiency with the gap between them, the rate-mix driver, and the latest budget changes with their total count; null when the budget module is off or no forecast can be built yet; each forecast's `efficiency.cpi` is a third kind of CPI, distinct from `evm.cpi` and `budget.costPerformanceIndex`: on contract value in `forecast.eur`, on hours in `forecast.hours`), and counts of overdue tasks, due-soon tasks, open RAID items, overdue and at-risk milestones, and changes by state. Read-only. When a money figure is null, `costUnknownReason` says why the cost basis is unsound — report it as unknown, never as zero. This applies even when `cost` is null but `earnedValue`/`costPerformanceIndex` are not — do NOT back-derive a cost from them (cost = earnedValue / costPerformanceIndex); report cost as unknown instead.",
     input_schema: { type: "object", properties: {} },
   },
   {

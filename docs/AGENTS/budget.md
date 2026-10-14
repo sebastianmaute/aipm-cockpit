@@ -1,7 +1,8 @@
-# Budget — the EUR boundary, earned value, and the Budget panel's cell layer
+# Budget — the baseline currency, earned value, and the Budget panel's cell layer
 
-Owns the budget engine's money: the FX boundary (`fx.ts`) and the rule that the engine treats every
-figure as EUR, how the plan's and a bucket's currency are sanitised on load, the budget-follows-plan
+Owns the budget engine's money: the FX boundary (`fx.ts`) and the rule that the engine computes every
+figure in the project's BASELINE currency (`plan.currency`, §476), the baseline switch and its
+history, how the plan's and a bucket's currency are sanitised on load, the budget-follows-plan
 mirroring rule the panel and the engine share, bucket earned value (Phase C EVM), the Budget
 panel's module map and column arithmetic, and the forecast import (§500).
 
@@ -10,15 +11,18 @@ Does NOT own the dashboard's budget tiles ([`dashboard.md`](dashboard.md)), the 
 ([`platform.md`](platform.md) "Rate card = DAY rates"), the six-write-paths rule (`AGENTS.md`), or
 the shared table header `SortResizeTh` ([`ui-shell.md`](ui-shell.md)). One fact, one doc.
 
-★★★ **EVERY BUDGET FIGURE IS EUR, AND THERE ARE EXACTLY TWO CONVERSION POINTS.** Role rates and
-per-bucket rate overrides are in the PLAN currency (decided §473, 2026-10-02); `bucketRateRows`
-divides them by `planCurrencyPerEur` (`fx.ts`) at the one place every money consumer reads them —
-report, burndown, rate mix, forecast. `BudgetBucket.fixedPriceAmount` is stored in the BUCKET's
-currency and passes through `currencyToEur`. A new money term built from `bucketRateRows` or from
-`fixedPriceAmount` is EUR already; converting it again is a second conversion. A term built from
-role rates ANY OTHER WAY is plan currency and must divide by `planCurrencyPerEur` itself — the EVM
-tiles' blended rate (`budget-report-panel.tsx`) is the one such site today. The Resources views
-format rate-derived money in `plan.currency`, which is now correct rather than a contradiction.
+★★★ **EVERY BUDGET FIGURE IS IN THE BASELINE (`plan.currency`), AND THERE IS EXACTLY ONE CONVERSION
+POINT INTO IT** (§476, closed 2026-10-14; it replaced the EUR-only engine of §473). Role rates,
+per-bucket rate overrides and a change's `costImpact` are STORED in the baseline, so `bucketRateRows`
+passes them through unconverted to every money consumer — report, burndown, rate mix, forecast. The
+one stored money field in another currency is `BudgetBucket.fixedPriceAmount`, in the BUCKET's
+currency, and it passes through `currencyToBase`; the conversion sites are listed in "The FX
+boundary" below. A new money term built from `bucketRateRows`, from role rates or from
+`fixedPriceAmount` after `currencyToBase` is baseline already; converting it again is a second
+conversion. The one conversion OUT is display: `baseToCurrency`, for a bucket card shown in the
+bucket's own currency. The EVM tiles' blended rate (`budget-report-panel.tsx`) needs no conversion
+any more, and the Resources views, the Budget panel's project row, the report and the dashboard all
+format in `plan.currency`.
 
 ★★ **THREE BUDGET TYPES, TWO PRICED BY CONTRACT** (§488, 2026-10-02). `BUDGET_TYPES` is
 `tm` · `fixed` · `e2e`; ask `isContractPriced(type)` (`types.ts`), never `type === "fixed"`, for
@@ -34,44 +38,195 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
 
 ## The FX boundary (`fx.ts`)
 
-- **The rate means units of the bucket's currency per 1 EUR.** `currencyToEur` divides by it,
-  `eurToCurrency` multiplies. Both read `resolveRate`, and `resolveRate` and `resolveRateSource`
-  read ONE private precedence walk so the two cannot disagree: EUR bucket → 1; a positive
-  `fxRateOverride`; a positive cached ECB rate; else 1, reported as source `"unresolved"`.
+- **The rate means units of the bucket's currency per 1 unit of the BASELINE.** `currencyToBase`
+  divides by it, `baseToCurrency` multiplies. Both read `resolveRate(bucket, fxRates, base)`, whose
+  `base` argument is REQUIRED (pass `plan.currency`), and `resolveRate` and `resolveRateSource` read
+  ONE private precedence walk so the two cannot disagree: a bucket in the baseline → 1, source
+  `"base"`; otherwise both sides are resolved against EUR, the unit of the cached ECB table — the
+  baseline side from the cached rate (EUR itself is 1), the bucket side from a positive
+  `fxRateOverride`, else the cached rate (an EUR bucket is 1) — and the rate is the CROSS RATE
+  bucket-per-EUR ÷ baseline-per-EUR, with the bucket side's source (`"override"` or `"cached"`); when
+  either side has no rate, 1, source `"unresolved"`.
+- ★★ **`fxRateOverride` STILL MEANS "UNITS OF THE BUCKET'S CURRENCY PER 1 EUR"**, whatever the
+  baseline. Its stored meaning did not change with §476, so a baseline switch never touches it; the
+  cross rate divides it by the baseline's own EUR rate at read time. Do not "convert it to the
+  baseline" in a switch or a migration.
 - ★★ **THE EUR CASE IS DECIDED BEFORE THE OVERRIDE, AT READ TIME.** It used to be decided after, so
   a stale override left on an EUR bucket divided the contract (an 80,000 EUR contract with a stale
   1.1 printed 72,727). Fixed in 1.0.2 by `020ab762b`. The bucket modal now drops the override on
   save when the currency is EUR (§475, closed), but buckets nobody re-saves still carry theirs.
-  Only the read-time rule repairs those, so do not "simplify" it away on the grounds that the modal
-  already clears the field.
-- ★★ **`"unresolved"` AND `"eur"` BOTH RETURN 1, AND SO CAN A REAL RATE.** Never infer "unresolved"
+  Only the read-time rule repairs those (`bucketPerEur` in `fx.ts` ignores the override on an EUR
+  bucket), so do not "simplify" it away on the grounds that the modal already clears the field.
+  ★ The modal also HIDES the field on a bucket in the baseline currency (§476, it resolves to 1, source
+  `"base"`), but KEEPS a stored value on save there: it is per EUR and matters again after a switch.
+  Render and save read ONE predicate (`fxOverrideShown` in `budget-bucket-modal.tsx`), so a hidden
+  field is never VALIDATED either: an invalid value it carries cannot block a save behind an error
+  about a field the user cannot see.
+- ★★ **`"unresolved"` AND `"base"` BOTH RETURN 1, AND SO CAN A REAL RATE.** Never infer "unresolved"
   from `resolveRate(...) === 1`. Ask `resolveRateSource`. `bucketCurrencyLabel`
   (`budget-currency-label.ts`) is shared by the Budget panel and the Budget report so both
   surfaces decide the `(×rate)` / no-rate marker from the SOURCE (§474, closed).
 - ★ **Only a FIXED-PRICE bucket's OWN rate can put it at par.** A T&M bucket's money is hours × role
-  rates, which convert from the PLAN currency, so the bucket's own missing rate changes none of its
-  figures. ★ A non-EUR plan with no cached rate converts its rates at par instead, and no notice
-  counts that today — an EUR plan (every shipped sample) never reaches it.
+  rates, which are stored in the baseline, so the bucket's own missing rate changes none of its
+  figures. A baseline other than EUR with no cached rate leaves EVERY bucket in another currency
+  unresolved (the baseline side of the cross rate is missing), and the count says so.
   `countUnresolvedBuckets` counts fixed-price buckets only, and `BudgetFxRollupNotice` renders that
-  count under the EUR project rollup. The report's detail table (`detailRowRateSource` and the
+  count under the baseline project rollup. The report's detail table (`detailRowRateSource` and the
   `currencyLabel` in `BucketDetailTable`) renders an UNRESOLVED T&M row bare for the same reason; a
   T&M row with a resolved rate still gets `bucketCurrencyLabel`'s `(×rate)` suffix. The Budget
   panel's bucket CARD keeps the marker for T&M too, because the card displays through
-  `eurToCurrency` at that same rate.
-- **The conversion sites.** Every `currencyToEur` call converts `fixedPriceAmount`:
+  `baseToCurrency` at that same rate.
+- **The conversion sites.** Every `currencyToBase` call converts `fixedPriceAmount`:
   `computeBucketReport`, `computeBurndownSeries` and the forecast (`budget-forecast.ts`).
   Re-derive rather than trust this list:
-  `git grep -n "currencyToEur(" -- src/app ':!*.test.*'`.
+  `git grep -n "currencyToBase(" -- src/app ':!*.test.*'`. The one `baseToCurrency` caller is the
+  bucket card (`git grep -n "baseToCurrency(" -- src/app ':!*.test.*'`).
 - ★★ **`fxRates` IS A REQUIRED LAST PARAMETER** on `computeBucketReport`, `computeSpillover` and
-  `computeBudgetReport` (`0221e4bab`), so `tsc` lists every call site. Do not give it a default. An
-  all-EUR caller passes `null`, which is behaviour-preserving because `resolveRate` returns 1 there.
-  The budget-variance detector in `insights/detect.ts` passes an explicit `null` because it
-  reads hours only. Its comment says to thread a rate first if it ever reads a money term.
-- **Display.** The Budget panel's project row and the Budget report format in EUR (`projCur` and
-  the report's `money` helper are the literal `"EUR"`). A bucket card converts the engine's EUR
-  outward with `eurToCurrency` for display in the bucket's own currency. Trends labels
-  `remainingCost` as EUR at the reader, because snapshots no longer carry a currency (§469, closed).
-  The dead `currency` column still sits in existing Turso `snapshot` tables. Dropping it is §551.
+  `computeBudgetReport` (`0221e4bab`), so `tsc` lists every call site. Do not give it a default. A
+  caller whose buckets are all in the baseline passes `null`, which is behaviour-preserving because
+  `resolveRate` returns 1 there. The budget-variance detector in `insights/detect.ts` passes an
+  explicit `null` because it reads hours only. Its comment says to thread a rate first if it ever
+  reads a money term.
+- **Display.** The Budget panel's project row and the Budget report format in the baseline
+  (`projCur` in `budget-panel.tsx` and the report's `money` helper both read `plan.currency`). A
+  bucket card converts the engine's baseline figures outward with `baseToCurrency` for display in the
+  bucket's own currency. The dashboard model carries `currency` (`plan.currency`), and the
+  assistant's dashboard snapshot puts it at the top level (`ai-dashboard-snapshot.ts`) so the model
+  is told which unit every money figure is in. Trends labels `remainingCost` in the baseline at the
+  reader, because snapshots carry no currency (§469, closed) — they are rebased first (below). The
+  dead `currency` column still sits in existing Turso `snapshot` tables. Dropping it is §551.
+
+## The baseline currency and its history (§476)
+
+- **Chosen at creation.** The create-project wizard (`create-project-wizard.tsx`) offers the
+  currency; `new-project-workspace.ts` sets `plan.currency` and, for a currency other than the
+  default, stamps a CREATION entry (no `perPrevious`) in `baselineHistory`. An imported workspace's
+  own plan currency wins over the wizard's choice.
+- **Switched from the Budget panel.** `BaselineCurrencyControl` (`baseline-currency-control.tsx`)
+  sits in the Budget panel's toolbar, never in a popout (`!isPopout`). ★★ It is DISABLED until a
+  rate refresh succeeds in THIS session: it reads `useFxRates().sessionRates`, never the cached
+  `workspace.fxRates`, because the switch converts every stored rate once at today's rate and a
+  months-old cached table must not drive it. Choosing a currency opens `BaselineSwitchDialog`
+  (`baseline-switch-dialog.tsx`), which lists every converted value; only Confirm writes.
+- **`planBaselineSwitch` (`baseline-switch.ts`) is the pure planner.** It multiplies every stored
+  baseline money rate ONCE by the cross rate (`crossRate` in `baseline-currency.ts`: units of the new
+  baseline per 1 unit of the old, via the EUR table), rounded to 2 decimals — the four role rates
+  (day-based roles re-materialised), the two bucket rate overrides and every change's `costImpact`.
+  ★ A day-basis role missing one day field (the sanitizer allows it) keeps that side's CONVERTED hourly
+  rate and gets no invented day rate, where `materializeRoleRates` alone would zero it. The rule is
+  `materializeDayBasisRole` (`role-rates.ts`), shared with both restore paths below.
+  ★ An HOUR-basis role's hourly rate is authoritative: `convertRole` converts the hourly rates and
+  RE-DERIVES any stored day field from them (`materializeRoleRates`), so the day rate never drifts a
+  cent from the one the roles editor shows, and the dialog's day row shows that derived value. A day
+  field the role does not carry stays absent. The restore chain calls `convertRole` per step, so it
+  follows the same rule.
+  The history entry's `from` is the PROJECT day (`today`, i.e. `clock.today` through `BudgetPanel`),
+  never `nowIso.slice(0, 10)`, the UTC day; `at` stays the ISO instant.
+  ★★ It NEVER touches `fixedPriceAmount` (stored in the bucket's currency) or `fxRateOverride`
+  (per EUR, above). Confirm re-plans from LIVE state and writes through five setters (`setRoles`,
+  `setBudgets`, `setChanges`, `setPlan`, `setBaselineHistory`). ★★ The three record setters are
+  FUNCTIONAL and convert `prev` at the plan's rate (`convertRole` / `convertBucket` / `convertChange`),
+  so a record another writer queued in the same tick is converted, not overwritten; one history append.
+  ★★ Confirm first decides against the LIVE currency, not the one its render planned from: a probe
+  `setPlan` updater (returns `p` unchanged, so StrictMode's double invoke is harmless) runs under
+  `flushSync`, after every update queued before it, and records whether `p.currency` is still the
+  plan's `from`. If a peer tab's switch landed in the same tick, nothing is converted, appended or
+  logged — otherwise the money would be converted twice.
+  A pending choice that stops being a switch (a peer tab made it) is dropped by a render-time
+  reconcile, so the dialog cannot reappear on its own later.
+- ★★ **THE SWITCH IS NOT UNDOABLE.** It captures no undo entry; the dialog says so, and switching
+  back is the way back (at that day's rate, so a round trip need not restore the old figures exactly).
+  ★★ It also RETIRES every undo/redo entry captured before it, in this tab and in any peer tab its
+  sync reaches: their images hold old-currency amounts. Mechanism: [`undo.md`](undo.md) "Gates on the stack"
+  (`useDenominationEpoch`).
+- ★★ **Money drafted before a switch is never written after it.** Two places hold old-currency amounts
+  the switch cannot reach:
+  - **An open bucket or change editor.** `BudgetBucketModal` and `ChangeEditModal` capture the
+    denomination key (`denominationKey`: currency plus history length, the same key the undo epoch
+    counts) when they MOUNT, which is when they open, through `useDenominationMovedSinceOpen`
+    (`use-denomination-epoch.ts`). If a peer tab's switch reaches this tab while the editor is open,
+    Save writes nothing and toasts `guardDenominationChanged` (through `reportSilentFailure`, like
+    the `editVanished` guard); the user closes the editor and edits again. The check lives in the
+    modals because the save hooks (`commitBuckets`, `handleSaveChange`) have no notion of when an
+    editor opened.
+  - **A stored AI insight recommendation.** `recommendationPredatesSwitch` (`insights/insight.ts`)
+    is true when a proposed call carries a money argument (`REC_MONEY_ARGS`, today only
+    `costImpact`, found at any depth of the call's input) and a switch was made after the
+    recommendation was generated. ★ "After" is the HISTORY, not the day: the stored
+    recommendation is stamped with `baselineHistory.length` and `baselineHistoryDigest` as they
+    were when its prompt was built (`historyLength` and `historyDigest`, carried on the
+    generators' prompt-time snapshot, `RecommendSnapshot`, and stamped in
+    `useInsightRecommendations`' store callback). A longer history at apply means a switch since.
+    A SHORTER one, or an equal length with a different digest (an import that dropped one entry
+    and added another), means the history was replaced, so the currency the amounts were written
+    in is unknown, and it is refused too. The digest hashes each entry's `at`, currency and
+    `perPrevious` in SORTED order: a switch appends in memory, but a reload orders the history by
+    `at`, so the same entries arrive in either order and must read as the same history. A
+    length-only stamp (an earlier build of this feature) keeps the length rule alone.
+    `generatedAt` is only a day, so comparing it would refuse a recommendation regenerated on the
+    day of a switch for the rest of that day. A recommendation with no stamp (an older build) is
+    refused once the history holds any switch entry (one with `perPrevious`; the creation entry
+    is not one). Both stamps are persisted (`sanitizeInsights` keeps a non-negative integer and a
+    16-character hex digest) and count as material changes in
+    `insightsMateriallyEqual`. `insight-money-args.test.ts` makes every number argument of an
+    allowed tool either a money argument or one named in its explicit non-money list, nested
+    object properties and array items at any depth included, so a new one must be classified.
+    `confirmInsightRecommendation` then refuses the WHOLE apply: nothing is written, the insight
+    stays `proposed`, and the toast (`insightRecommendationCurrencyChanged`) says the currency
+    HISTORY changed (not necessarily the currency) and asks for a new recommendation.
+    Calls without money arguments apply as before.
+- **The switch is LOGGED** (owner requirement): Confirm writes ONE `plan.currencySwitched` activity entry, actor
+  `"user"`, args `[from, to, rate, ECB date]` (rate rounded by `roundRate` to 6 decimals). The stored
+  args never change; the activity PANEL formats the rate and the date in the viewer's locale at render
+  (`activityMessage` with `{ display: true }`, `ACTIVITY_ARG_DISPLAY` in `activity-message.ts`, a
+  per-kind hook no other kind uses). The audit download and the AI prompt omit the option and keep the
+  stored ISO date and raw rate. The
+  completion trend does not read it (pinned in `completion-trend.test.ts`, "§476").
+- **`baselineHistory` (`Workspace.baselineHistory`, entries `BaselineEntry`: `from`, `at`,
+  `currency`, `perPrevious?`).** Every switch appends one entry whose `perPrevious` is the cross rate
+  it used. It is a meta-blob slice on all six write paths
+  (`grep -c "baselineHistory" src/app/turso-tenant-schema.ts` → 3) and, like `budgetHistory`, is
+  absent from the version capture, so a restore never REPLACES it ([`activity-log.md`](activity-log.md)).
+  ★★★ **A VERSION RESTORE NEVER CHANGES `plan.currency`, AND CONVERTS THE MONEY IT RESTORES** (pre-merge
+  ruling, superseding an earlier design that appended a "switch back" entry: restore is per record and per
+  field, so restoring the plan record alone re-labelled new-currency rates, and a per-field rate restore
+  wrote old-currency values with nothing appended). `prepareRestoredVersion` (`baseline-switch.ts`) runs on
+  the parsed VERSION before the diff and the merge (`useVersionHistory.restore`'s `prepareVersion`, wired in
+  `use-version-history-wiring.ts` with the LIVE history, currency and workday hours): it pins the plan's
+  currency, and converts the planner's money fields (`ROLE_FIELDS`, `BUCKET_FIELDS`, `costImpact`) through
+  every later switch IN ORDER (`laterSwitchRates`), round2 and a day-basis re-derive at EACH step — exactly
+  what the successive switches did, so a value untouched since the version comes back to the cent (one
+  compound `rebaseFactor` rounded once drifts by 0.01 after two switches). No later switch → no money
+  converted; an unknown capture time converts nothing. Either way a day-basis role's hourly rates are
+  re-derived at the CURRENT workday hours, so a compare against now shows no hourly row for an unchanged
+  day rate. ★★ A per-field restore takes a day-basis role's day and hourly rate as a PAIR (`applyRestore`,
+  `DAY_RATE_PAIRS` in `version-restore.ts`, re-materialised at the `workdayHours` the wiring passes). Never `fixedPriceAmount` or `fxRateOverride`. A restore
+  appends no history entry and logs no currency row. ★ A compare against NOW runs the same
+  conversion (`loadDiff`), so its rows, the selections built from them and the values written agree, and
+  no currency row appears; a version-to-version compare stays RAW (no single denomination). A capture
+  time missing from the loaded list applies no switch rates (no money is converted), still re-derives
+  day-basis roles' hourly rates at the current workday hours, and logs `version.captureTimeUnknown`.
+  ★ `sanitizeBaselineHistory` drops a `perPrevious` outside [1e-4, 1e4]: one absurd entry would push
+  `rebaseFactor` to Infinity or 0 for every earlier record.
+- ★★★ **STORED HISTORY IS NEVER REWRITTEN; IT IS REBASED AT READ TIME.** Snapshots and
+  `budgetHistory` entries stay in the currency they were captured in. `rebaseFactor` multiplies the
+  `perPrevious` of every switch LATER than a record's timestamp, and `rebaseSnapshots` and
+  `rebaseBudgetHistory` (both defined in `baseline-currency.ts`) apply it before any reader sees the
+  record; they are CALLED FROM `use-snapshots.ts` and `budget-forecast-bundle.ts` respectively. A new reader of either must go through those two call sites, never the raw
+  slice: `git grep -n "rebaseSnapshots(\|rebaseBudgetHistory(" -- src/app ':!*.test.*'`.
+  ★ `buildDemoSnapshots` computes from TODAY's rates but stamps a past `capturedAt`, so it divides each
+  record's money by `rebaseFactor(baselineHistory, capturedAt)` (`scaleSnapshotMoney`): stored in the
+  currency in force at capture, the read-time rebase brings it back instead of converting it twice.
+  ★ The ordering is by WALL CLOCK across devices: `rebaseFactor` and `laterSwitchRates` compare the
+  switching device's `entry.at` with a record's `capturedAt`, which another device's clock stamped. A
+  capture made just after a switch on a device whose clock runs behind sorts before the switch and is
+  converted twice. Inherent to timestamps from different clocks, and accepted.
+- ★ **Two rate tables.** The switch converts role, bucket-override and change money at the SESSION ECB
+  rates (`useFxRates().sessionRates`), while the budget engine converts a bucket in another currency at
+  the CACHED `workspace.fxRates`, which may be older. The refresh that fills the session table also
+  caches it (`useFxRates`' `onLoaded`), so the two usually match; a load or a peer tab's synced state
+  can still put an older cached table beside a switch made at today's rates, and then a converted rate
+  and an engine-converted bucket disagree slightly until the next refresh.
 
 ## Where the rates come from, and rounding
 
@@ -102,12 +257,12 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   `"month"`) and a start or end date that does not parse (each replaced ALONE by the default's —
   which can itself produce a reversed window, left unswapped like any stored one). The suite pins
   each shape with its own fixture.
-- ★★ **A NON-EUR PLAN: RATES ARE IN ITS CURRENCY (§473, closed 2026-10-02).** When the plan and a
-  fixed-price bucket share one non-EUR currency, `planCurrencyPerEur` reuses the BUCKET's rate
-  resolution (its `fxRateOverride` included), so the contract and the cost divide by the same number
-  and the margin is the contract-currency margin, converted — it was wrong from 1.0.2 until then.
-  Otherwise the plan currency resolves from the cached ECB rate (it has no override of its own).
-  A configurable baseline currency is §476.
+- ★★ **THE PLAN CURRENCY IS THE BASELINE (§473 closed 2026-10-02, §476 closed 2026-10-14).** §473
+  decided that rates are in the plan's currency and converted them to EUR; §476 made that currency
+  the unit the engine computes in, so rates are no longer converted at all. A fixed-price bucket in
+  the baseline is at par by definition (source `"base"`), so its contract and its cost share one unit
+  and the margin is the contract-currency margin — the case §473 had to fix by reusing the bucket's
+  rate resolution, a helper that is now removed.
 
 ## Budget follows plan
 
@@ -540,8 +695,7 @@ engines live in `src/app/budget-import/` (no i18n, no React).
 
 ## Open register entries
 
-§473 (a non-EUR plan) · §476 (the
-baseline currency is hardcoded EUR) · §551 (the dead snapshot
-`currency` column). This list was read off the register on 2026-09-27 and is not gated (§500 removed
-on its closure, 2026-10-12). Re-check
+§551 (the dead snapshot `currency` column). This list was read off the register on 2026-09-27 and is
+not gated (§500 removed on its closure, 2026-10-12; §473, closed 2026-10-02, and §476, closed
+2026-10-14, removed on 2026-10-14). Re-check
 it against the headings, since a `budget` search also returns entries about other budgets.

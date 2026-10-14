@@ -12,6 +12,7 @@ import { Badge } from "./badge";
 import { rateMixExplanation, rateMixPoints } from "./budget-rate-mix-text";
 import { RATE_MIX_DRIVER_MIN_DIFFERENCE, type RateMix } from "./budget-rate-mix";
 import type { BudgetForecast } from "./budget-forecast";
+import type { BudgetCurrency } from "./types";
 
 // Controller ruling P14: the "used of budget" cell reads "539 of 600 h (90%)"
 // (spec §4.4) — a plain locale-formatted number for the actual hours, not
@@ -21,9 +22,9 @@ function plainNumber(n: number, locale: string): string {
 }
 
 export function RateMixDetails({
-  lang, mix, eur, hours, open, onToggle, focusNonce,
+  lang, currency, mix, eur, hours, open, onToggle, focusNonce,
 }: {
-  lang: Lang; mix: RateMix; eur: BudgetForecast; hours: BudgetForecast;
+  lang: Lang; currency: BudgetCurrency; mix: RateMix; eur: BudgetForecast; hours: BudgetForecast;
   open: boolean; onToggle: (open: boolean) => void; focusNonce: number;
 }) {
   const summaryRef = useRef<HTMLElement | null>(null);
@@ -39,7 +40,7 @@ export function RateMixDetails({
     summaryRef.current?.focus();
   }, [focusNonce]);
   const locale = localeFor(lang);
-  const money = (n: number) => formatCurrency(n, "EUR", locale);
+  const money = (n: number) => formatCurrency(n, currency, locale);
   const headers = ["forecastMixColRole", "forecastMixColRate", "forecastMixColPlanned", "forecastMixColBooked", "forecastMixColDifference", "forecastMixColUsed"] as const;
   return (
     <details
@@ -85,7 +86,7 @@ export function RateMixDetails({
         </table>
         <p className="mt-2 text-xs text-muted-foreground">
           {mix.driver
-            ? rateMixExplanation(lang, mix, eur, hours)
+            ? rateMixExplanation(lang, mix, eur, hours, currency)
             : t(lang, "forecastMixOnPlan", String(Math.round(RATE_MIX_DRIVER_MIN_DIFFERENCE * 100)))}
         </p>
       </div>

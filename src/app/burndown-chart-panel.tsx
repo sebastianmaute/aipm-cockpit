@@ -6,7 +6,8 @@
 // and no stale copy can overwrite the choice (plan Ruling 18). Print shows the
 // chosen view; the switches themselves do not print.
 import { useMemo, type ReactNode } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, localeFor } from "./i18n";
+import { currencySymbol } from "./resource-cost";
 import { useSettings } from "./use-settings";
 import { SegmentedControl } from "./segmented-control";
 import { BurndownChart } from "./burndown-chart";
@@ -115,7 +116,7 @@ export function BurndownChartPanel({
         <SegmentedControl<ChartUnit>
           value={unit}
           options={[
-            { value: "eur", label: t(lang, "burndownUnitEur") },
+            { value: "eur", label: t(lang, "burndownUnitEur", currencySymbol(currency, localeFor(lang))) },
             { value: "hours", label: t(lang, "burndownUnitHours") },
           ]}
           onChange={(v) => setSettings((s) => ({ ...s, budgetChartUnit: v }))}

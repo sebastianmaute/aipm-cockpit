@@ -22,6 +22,7 @@ import {
 } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
 import { sanitizeBudgetHistory } from "./budget-history";
+import { sanitizeBaselineHistory } from "./baseline-currency";
 import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures } from "./feature-modules";
 import {
@@ -253,6 +254,8 @@ export function rowsToWorkspace(
   if (log?.length) ws.activityLog = log;
   const history = decodeMeta("budgetHistory", sanitizeBudgetHistory);
   if (history?.length) ws.budgetHistory = history;
+  const baseline = decodeMeta("baselineHistory", sanitizeBaselineHistory);
+  if (baseline?.length) ws.baselineHistory = baseline;
   // Documents ride `meta` as one JSON blob — no table of their own, so
   // TABLE_NAMES stays untouched. TWO passes, in this order: the structural
   // sanitizer is DOM-FREE and cannot strip markup, so the rich-field allow-list
@@ -427,6 +430,7 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.insights !== next.insights) dirty.add("meta");
   if (prev.activityLog !== next.activityLog) dirty.add("meta");
   if (prev.budgetHistory !== next.budgetHistory) dirty.add("meta");
+  if (prev.baselineHistory !== next.baselineHistory) dirty.add("meta");
   if (prev.documents !== next.documents) dirty.add("meta");
   if (prev.documentVersions !== next.documentVersions) dirty.add("meta");
   if (prev.settingsOverrides !== next.settingsOverrides) dirty.add("meta");
@@ -558,6 +562,16 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         args: [
           { type: "text", value: "budgetHistory" },
           { type: "text", value: JSON.stringify(ws.budgetHistory) },
+        ],
+      });
+    }
+    // baselineHistory (§476): same meta-blob shape (tenant writer mirrors it).
+    if (ws.baselineHistory && ws.baselineHistory.length) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "baselineHistory" },
+          { type: "text", value: JSON.stringify(ws.baselineHistory) },
         ],
       });
     }

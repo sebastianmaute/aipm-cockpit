@@ -20,7 +20,7 @@ import { DragHandle } from "./drag-handle";
 import { BucketRolePeople, PeopleDisclosureLabel, filterSortAllocations } from "./budget-panel-people-rows";
 import type { ActualsByBucket } from "./timelog-actuals";
 import { roleLabel } from "./resource-foundation";
-import { eurToCurrency, resolveRate, resolveRateSource } from "./fx";
+import { baseToCurrency, resolveRate, resolveRateSource } from "./fx";
 import { bucketCurrencyLabel } from "./budget-currency-label";
 import type { BucketAllocation, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role, Task } from "./types";
 import { isContractPriced } from "./types";
@@ -54,7 +54,7 @@ function sumPeriods(hours: Record<string, number>, periods: { key: string }[]): 
  *  renders no `/CPI/` at all): `costPerformanceIndex` is a
  *  0-1 ratio (not the 0-100 percent every other CciValue.percent carries), so
  *  it is scaled ×100 here at the one render boundary rather than in the pure
- *  engine. `earnedValue` is EUR, like every other CciValue.amount — callers
+ *  engine. `earnedValue` is in the baseline (`plan.currency`), like every other CciValue.amount — callers
  *  convert it to the bucket's display currency the same way they already do
  *  for margin/burn (`cci(...)`). */
 export function cpiCciValue(earnedValue: number | null, costPerformanceIndex: number | null): CciValue {
@@ -118,13 +118,13 @@ export function BudgetBucketCard({
   const disciplineNamesFor = (ids: readonly number[]) =>
     ids.map((id) => disciplines.find((d) => d.id === id)?.name).filter((n): n is string => !!n);
   const isBlended = bucket.planningMode === "blended";
-  const rate = resolveRate(bucket, fxRates);
-  // The card keeps the "no FX rate — converted at 1:1" marker for a T&M bucket too (unlike the report's EUR detail table): its figures display through `eurToCurrency` at this same rate, 1 when unresolved, so the label is accurate here.
-  const rateSource = resolveRateSource(bucket, fxRates);
+  const rate = resolveRate(bucket, fxRates, plan.currency);
+  // The card keeps the "no FX rate — converted at 1:1" marker for a T&M bucket too (unlike the report's baseline detail table): its figures display through `baseToCurrency` at this same rate, 1 when unresolved, so the label is accurate here.
+  const rateSource = resolveRateSource(bucket, fxRates, plan.currency);
   const periods = bucketActivePeriods(bucket, plan);
-  const inCur = (eur: number) => formatCurrency(eurToCurrency(eur, bucket, fxRates), bucket.currency, locale);
-  // CCI amounts are EUR from the engine — convert to the bucket currency for display.
-  const cci = (v: CciValue): CciValue => ({ amount: eurToCurrency(v.amount, bucket, fxRates), percent: v.percent });
+  const inCur = (base: number) => formatCurrency(baseToCurrency(base, bucket, fxRates, plan.currency), bucket.currency, locale);
+  // CCI amounts are in the baseline from the engine — convert to the bucket currency for display.
+  const cci = (v: CciValue): CciValue => ({ amount: baseToCurrency(v.amount, bucket, fxRates, plan.currency), percent: v.percent });
   const blendedRows = filterSortAllocations(
     bucket.disciplineAllocations ?? [],
     (a) => disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`,

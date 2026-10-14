@@ -193,6 +193,34 @@ describe("CreateProjectWizard", () => {
     expect(opts.includeSeed).toBe(true);
   });
 
+  it("choosing GBP in the currency select passes currency GBP and a creation clock to onCreate", () => {
+    const { onCreate } = setup();
+    fillRequired({});
+    fireEvent.change(screen.getByLabelText(t("en-US", "baselineCurrencyLabel")), { target: { value: "GBP" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create project" }));
+    const [, , opts] = onCreate.mock.calls[0];
+    expect(opts.baseline?.currency).toBe("GBP");
+    expect(opts.baseline?.nowIso).toMatch(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/);
+  });
+
+  // §476 B10 — the currency is a field of step 1's form, laid out like its sibling storage
+  // field, not a row under the footer (where it sat below the Next button).
+  it("renders the currency select inside the form's field layout, before the footer", () => {
+    setup();
+    const currency = screen.getByLabelText(t("en-US", "baselineCurrencyLabel"));
+    const storage = screen.getByLabelText(t("en-US", "projectStorage"));
+    const next = screen.getByRole("button", { name: "Next" });
+    expect(currency.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(currency.closest("label")?.className).toBe(storage.closest("label")?.className);
+  });
+
+  it("defaults the currency select to EUR", () => {
+    setup();
+    expect((screen.getByLabelText(t("en-US", "baselineCurrencyLabel")) as HTMLSelectElement).value).toBe("EUR");
+  });
+
   it("Blank template enables all modules and creates with no template", () => {
     const { onCreate } = setup();
 

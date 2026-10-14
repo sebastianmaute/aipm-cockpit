@@ -86,3 +86,23 @@ describe("the stakeholder tools disclose that RACI is not writable", () => {
     });
   }
 });
+
+// §476: the snapshot's money is in the project baseline; the descriptions must
+// send the model to the field that names it, for reading AND for costImpact writes.
+describe("the assistant can learn the project's currency", () => {
+  it("get_dashboard_snapshot names its `currency` field and says forecast.eur is in it", () => {
+    const description = TOOL_DEFS.find((def) => def.name === "get_dashboard_snapshot")!.description;
+    expect(description).toContain("`currency`, the project's currency code");
+    expect(description).toContain("`forecast.eur` despite its name");
+    expect(description).toContain("never assume euros");
+  });
+
+  it("every costImpact description points at that field", () => {
+    const withCost = TOOL_DEFS.flatMap((def) => {
+      const props = (def.input_schema as unknown as { properties?: Record<string, { description?: string }> }).properties ?? {};
+      return props.costImpact ? [props.costImpact.description ?? ""] : [];
+    });
+    expect(withCost.length).toBeGreaterThan(0);
+    for (const d of withCost) expect(d).toContain("the `currency` code get_dashboard_snapshot returns");
+  });
+});

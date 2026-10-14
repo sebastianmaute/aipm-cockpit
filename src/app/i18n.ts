@@ -588,6 +588,21 @@ const enUS = {
   budgetTypeE2e: "End-to-end (fixed price)",
   budgetCurrency: "Currency",
   budgetFxRefresh: "Refresh ECB rates",
+  baselineCurrencyLabel: "Project currency",
+  baselineCurrencyHint: "All money in this project is computed and shown in this currency. Rates for other currencies are ECB reference rates crossed through EUR: fine for project budgeting, not for treasury.",
+  baselineCurrencyNeedsRates: "Refresh the ECB rates first: the switch converts your rates at today's rate.",
+  baselineSwitchTitle: "Switch project currency to {0}?",
+  baselineSwitchRate: "1 {0} = {1} {2} (ECB, {3})",
+  baselineSwitchPast: "Past months, snapshots and budget history are shown converted at this rate.",
+  baselineSwitchNoUndo: "This cannot be undone. To go back, switch the currency again.",
+  baselineSwitchColItem: "Item",
+  baselineSwitchColBefore: "Before",
+  baselineSwitchColAfter: "After",
+  baselineSwitchConfirm: "Switch to {0}",
+  baselineSwitchFieldInternalRate: "Internal rate per hour",
+  baselineSwitchFieldExternalRate: "External rate per hour",
+  baselineSwitchFieldInternalRateDay: "Internal rate per day",
+  baselineSwitchFieldExternalRateDay: "External rate per day",
   budgetFixedPrice: "Fixed price amount",
   budgetStart: "Start",
   budgetEnd: "End",
@@ -639,16 +654,17 @@ const enUS = {
   budgetFixedPriceAmount: "Fixed-price amount",
   budgetFxOverride: "Manual FX rate",
   budgetFxOverrideHint: "Manual EUR→currency rate; leave blank to use the cached ECB rate.",
-  // §474: a non-EUR bucket with neither a manual override nor a cached ECB
-  // rate is converted at rate 1 — this marks that state on the currency
-  // label, distinct from a bucket whose resolved rate genuinely is 1. Worded
-  // for BOTH directions it is shown in: the Budget panel card displays a
-  // bucket's EUR figures in its own currency at 1:1, and the report's EUR
-  // table counts a fixed-price contract into EUR at 1:1. Kept short: it
+  // §474: a bucket in another currency than the project baseline, with
+  // neither a manual override nor a cached ECB rate, is converted at rate 1 —
+  // this marks that state on the currency label, distinct from a bucket whose
+  // resolved rate genuinely is 1. Worded for BOTH directions it is shown in:
+  // the Budget panel card displays a bucket's baseline figures in its own
+  // currency at 1:1, and the report's baseline-currency table counts a
+  // fixed-price contract into the baseline at 1:1 (§476). Kept short: it
   // renders inside a `(...)` suffix next to the currency code, e.g.
   // "USD (no FX rate — converted at 1:1)".
   budgetFxRateUnresolved: "no FX rate — converted at 1:1",
-  // §474 (rollup half): the EUR-labelled project rollup sums every bucket's
+  // §474 (rollup half): the baseline-labelled project rollup (§476) sums every bucket's
   // figure regardless of whether a rate ever resolved for it — this names
   // how many of the summands were read at par by default, right below the
   // rollup. Renders only when the count is > 0 (see `BudgetFxRollupNotice`).
@@ -672,6 +688,7 @@ const enUS = {
   activityBudgetCreated: "Budget bucket created: {0}",
   activityBudgetUpdated: "Budget bucket updated: {0}",
   activityBudgetDeleted: "Budget bucket deleted: {0}",
+  activityPlanCurrencySwitched: "Project currency switched from {0} to {1} at {2} (ECB rates of {3})",
   taskBudgetBucket: "Budget bucket",
   budgetBucketNone: "— none —",
   budgetBucketsCount: "{0} buckets",
@@ -684,9 +701,9 @@ const enUS = {
   budgetSwitchToDetailedWarn: "Switching on detailed planning discards the hours entered per discipline for this bucket. Continue?",
   budgetRateOverrideInternal: "Internal rate override",
   budgetRateOverrideExternal: "External rate override",
-  budgetRateOverrideHint: "Overrides the role or blended rate for every line in this bucket. Leave blank to use the computed rate. Values are in EUR.",
+  budgetRateOverrideHint: "Overrides the role or blended rate for every line in this bucket. Leave blank to use the computed rate. Values are in the project currency.",
   budgetRateOverrideInvalid: "Rate overrides must be zero or greater.",
-  budgetUnitPerHour: "EUR/h",
+  budgetUnitPerHour: "{0}/h",
   budgetAddDiscipline: "Add discipline",
   budgetRemoveDiscipline: "Remove discipline",
   budgetNoDisciplinesLeft: "All disciplines are already allocated.",
@@ -844,8 +861,8 @@ const enUS = {
   forecastCpiHours: "CPI (hours)",
   forecastTipCpiHours:
     "CPI in hours: earned budget hours {0} ÷ booked hours {1} = {2}. It compares bucket hours, not task effort.",
-  forecastMixChipHoursWorse: "Effort worse than €",
-  forecastMixChipEurWorse: "€ worse than effort",
+  forecastMixChipHoursWorse: "Effort worse than {0}",
+  forecastMixChipEurWorse: "{0} worse than effort",
   forecastMixChipNamePace: "{0} at current pace — why?",
   forecastMixChipNameEfficiency: "{0} at current efficiency — why?",
   forecastMixWhy: "{0} — why?",
@@ -880,12 +897,12 @@ const enUS = {
   forecastRateDrift: "{0} vs plan",
   forecastRateOnPlan: "on plan",
   forecastTipRate:
-    "Contract value of the hours booked so far ÷ those hours: {0} ÷ {1} = {2}/h. Planned average: {3} ÷ {4} = {5}/h. When the two differ, the € and hours forecasts tell different stories.",
+    "Contract value of the hours booked so far ÷ those hours: {0} ÷ {1} = {2}/h. Planned average: {3} ÷ {4} = {5}/h. When the two differ, the {6} and hours forecasts tell different stories.",
   burndownViewLabel: "Chart orientation",
   burndownViewBurndown: "Burn-down",
   burndownViewCumulative: "Cumulative",
   burndownUnitLabel: "Chart unit",
-  burndownUnitEur: "€",
+  burndownUnitEur: "{0}",
   burndownUnitHours: "Hours",
   burndownValueCumulative: "Spend, cumulative",
   burndownHoursCumulative: "Hours, cumulative",
@@ -998,8 +1015,8 @@ const enUS = {
   budgetReportStatusClosed: "Closed",
   budgetReportRevenue: "Revenue",
   budgetReportCost: "Cost",
-  budgetReportColBudgetEur: "Budget (EUR)",
-  budgetReportColConsumed: "Consumed (EUR)",
+  budgetReportColBudgetEur: "Budget ({0})",
+  budgetReportColConsumed: "Consumed ({0})",
   budgetReportColMargin: "Margin %",
   budgetReportColWinLoss: "Win/Loss",
   budgetReportFilterBucket: "Filter buckets",
@@ -3519,7 +3536,7 @@ const enUS = {
   //   grep -o 'reportUnreadableSlice("[a-zA-Z_]*"' src/app/turso-schema.ts
   // Today that is: project_status, project_meta, field_visibility, features,
   // steering_committee, timelog_links, knowledge_items, insights, activityLog,
-  // budgetHistory, documents, documentVersions, settings_overrides — so a
+  // budgetHistory, baselineHistory, documents, documentVersions, settings_overrides — so a
   // corrupt steering-committee blob in a project with NO documents used to be
   // announced as document data, and the user made a PERMANENT discard decision on a screen that misnamed
   // what was being discarded. These two are the cause-aware alternative, and
@@ -3913,6 +3930,7 @@ const enUS = {
   guardClipboardCopyFailed: "Couldn't copy to clipboard — check browser permissions and try again.",
   guardRestoreVersionMissing: "This version could no longer be loaded — nothing was restored.",
   guardEditVanished: "This item was deleted elsewhere — your change wasn't saved.",
+  guardDenominationChanged: "The project currency changed while this editor was open, so its amounts are out of date — your change wasn't saved. Close it and edit again.",
   guardCommTemplateSaveFailed: "Couldn't save the template — your change wasn't stored. Please retry.",
   guardTimelogPartialProjectFetch: "Bookings for {0} projects couldn't be fetched — totals may be incomplete.",
   guardTimelogPartialProjectFetchOne: "Bookings for 1 project couldn't be fetched — totals may be incomplete.",
@@ -4078,10 +4096,10 @@ const enUS = {
   // Manage Roles tooltips
   rolesDisciplineHint: "The skill area this role belongs to (e.g. Engineering).",
   rolesGradeHint: "Seniority level used to derive the blended rate.",
-  rolesInternalRateHint: "Hourly internal cost rate (EUR).",
-  rolesExternalRateHint: "Hourly external/billing rate (EUR).",
-  rolesInternalRateDayHint: "Daily internal cost rate (EUR). Calculated from the hourly rate unless Days is the entry basis.",
-  rolesExternalRateDayHint: "Daily external/billing rate (EUR). Calculated from the hourly rate unless Days is the entry basis.",
+  rolesInternalRateHint: "Hourly internal cost rate, in the project currency.",
+  rolesExternalRateHint: "Hourly external/billing rate, in the project currency.",
+  rolesInternalRateDayHint: "Daily internal cost rate, in the project currency. Calculated from the hourly rate unless Days is the entry basis.",
+  rolesExternalRateDayHint: "Daily external/billing rate, in the project currency. Calculated from the hourly rate unless Days is the entry basis.",
   rolesRateBasisHint: "Enter either the daily rate or the hourly rate — the other is calculated from your workday hours and locked. Use the Hours/Days switch to choose which one you enter.",
   rolesRateBasis: "Entered in",
   rolesBasisHours: "Hours",
@@ -4139,7 +4157,7 @@ const enUS = {
   budgetUndatedActuals:
     "Of the bookings that could not be placed, {0}h carry no usable booking date. That is a fault in the fetched data rather than in a link — fetching again returns the same bookings, so the dates have to be corrected in TimeLog first.",
   budgetUnappliedActualsGo: "Open Time bookings",
-  budgetReportColWinLossHint: "Fixed-price: revenue minus cost. Time-and-material: budget minus consumed, i.e. remaining budget. In EUR; negative means the bucket runs at a loss.",
+  budgetReportColWinLossHint: "Fixed-price: revenue minus cost. Time-and-material: budget minus consumed, i.e. remaining budget. In the project currency; negative means the bucket runs at a loss.",
   budgetWinLossHint: "Fixed-price: revenue minus cost. Time-and-material: budget minus consumed, i.e. remaining budget. In the bucket currency; negative means the bucket runs at a loss.",
   budgetSpilloverInHint: "Hours carried in from another bucket, and their value in the bucket currency.",
   // Edit Change tooltips
@@ -4153,7 +4171,7 @@ const enUS = {
   changeFieldDescriptionHint: "What is changing and why.",
   changeFieldImpactHint: "Overall impact rating.",
   changeFieldImpactDescriptionHint: "Details of the impact.",
-  changeFieldCostImpactHint: "Estimated cost impact (EUR).",
+  changeFieldCostImpactHint: "Estimated cost impact, in the project currency.",
   changeFieldScheduleImpactHint: "Estimated schedule impact (days).",
   changeFieldResolutionHint: "Decision outcome and rationale.",
   changeFieldLinkedTasksHint: "Tasks affected by this change.",
@@ -5104,6 +5122,7 @@ const enUS = {
   insightRecommendationApplyFailed: "Some changes in this recommendation couldn't be applied.",
   insightRecommendationAllRejected: "Not applied — every change in this recommendation was rejected.",
   insightRecommendationStale: "This recommendation wasn't applied — the project data changed since it was generated. Generate a new one.",
+  insightRecommendationCurrencyChanged: "This recommendation wasn't applied — the project's currency history changed since it was generated, so its amounts may be in a different currency. Generate a new one.",
   insightRecommendationStalePartial: "Some changes weren't applied — the project data changed since this recommendation was generated. Generate a new one for the rest.",
   insightRecommendationSkippedFields: "Skipped: {0}",
   insightRecommendationGenerating: "Generating…",

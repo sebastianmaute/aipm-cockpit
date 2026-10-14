@@ -19,10 +19,10 @@ import { computeBudgetReport, costIsKnowable, type BucketReport, type CciValue }
 import { CostUnknownNotice } from "./budget-cost-notice";
 import { computeEvm, projectBlendedInternalRate } from "./evm";
 import { formatCurrency } from "./resource-cost";
-import { planCurrencyPerEur, resolveRate, resolveRateSource, type RateSource } from "./fx";
+import { resolveRate, resolveRateSource, type RateSource } from "./fx";
 import { bucketCurrencyLabel } from "./budget-currency-label";
 import { BudgetFxRollupNotice } from "./budget-fx-rollup-notice";
-import type { Absence, BudgetBucket, Discipline, FxRates, Grade, ResourcePlan, Resource, Role, Task } from "./types";
+import type { Absence, BudgetBucket, BudgetCurrency, Discipline, FxRates, Grade, ResourcePlan, Resource, Role, Task } from "./types";
 import { isContractPriced } from "./types";
 import { BUDGET_TYPE_LABEL } from "./budget-type-label";
 import { RagBadge } from "./rag-badge";
@@ -39,6 +39,7 @@ import { bucketProgressSeries } from "./budget-ev-history";
 import { ForecastFactsRow } from "./budget-forecast-facts";
 import { ForecastSection } from "./budget-forecast-section";
 import type { BudgetHistoryEntry } from "./budget-history";
+import type { BaselineEntry } from "./baseline-currency";
 import type { SnapshotRecord } from "./snapshot";
 
 const DETAIL_COL_WIDTHS = {
@@ -59,6 +60,7 @@ const NO_GRADES: readonly Grade[] = [];
 // every render, invalidating the `progress`/`bundle` memos for no input change.
 const NO_SNAPSHOTS: readonly SnapshotRecord[] = [];
 const NO_BUDGET_HISTORY: readonly BudgetHistoryEntry[] = [];
+const NO_BASELINE_HISTORY: readonly BaselineEntry[] = [];
 
 interface Props {
   lang: Lang;
@@ -83,11 +85,15 @@ interface Props {
   snapshots?: readonly SnapshotRecord[];
   /** The project's recorded budget-at-completion history (`useWorkspace()`). */
   budgetHistory?: readonly BudgetHistoryEntry[];
+  /** The project's baseline-currency switches (`useWorkspace()`, §476): the
+   *  recorded budget history is rebased into the current baseline with them. */
+  baselineHistory?: readonly BaselineEntry[];
 }
 
 export function BudgetReportPanel({
   lang, buckets, plan, roles, disciplines, grades = NO_GRADES, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
   showHints, isPopout, onLearnMore, snapshots = NO_SNAPSHOTS, budgetHistory = NO_BUDGET_HISTORY,
+  baselineHistory = NO_BASELINE_HISTORY,
 }: Props) {
   // Hooks are called unconditionally before the empty-state early return (rules of hooks).
   const report = useMemo(
@@ -99,12 +105,12 @@ export function BudgetReportPanel({
   );
   const planCurrency = plan.currency;
   const evm = useMemo(
-    // §473 — the blended rate is in the PLAN currency; the EVM money tiles are
-    // formatted as EUR by `money` below, so convert it the way the engine does.
+    // §476 — the blended rate is in the baseline (`plan.currency`), the unit
+    // every engine figure is in, so it needs no conversion here.
     () => computeEvm(tasks, today, {
-      blendedRate: projectBlendedInternalRate(roles) / planCurrencyPerEur(planCurrency, { currency: planCurrency }, fxRates),
+      blendedRate: projectBlendedInternalRate(roles),
     }),
-    [tasks, today, roles, planCurrency, fxRates],
+    [tasks, today, roles],
   );
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
   const planStart = plan.startDate;
@@ -125,9 +131,9 @@ export function BudgetReportPanel({
     () => computeForecastBundle({
       report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today,
       resources, workdayHours, absences, disciplines, grades,
-      progress, budgetHistory,
+      progress, budgetHistory, baselineHistory,
     }),
-    [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today, resources, workdayHours, absences, disciplines, grades, progress, budgetHistory],
+    [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today, resources, workdayHours, absences, disciplines, grades, progress, budgetHistory, baselineHistory],
   );
   const forecast = bundle.eur;
   const { ref, reset } = useResizable("aipm-cockpit:budget-report-size");
@@ -142,7 +148,7 @@ export function BudgetReportPanel({
   }
 
   const locale = localeFor(lang);
-  const money = (n: number) => formatCurrency(n, "EUR", locale);
+  const money = (n: number) => formatCurrency(n, planCurrency, locale);
   const pct = (v: CciValue) => (v.percent == null ? "—" : `${v.percent.toFixed(1)}%`);
   const proj = report.project;
   // No bucket carries an internal rate, so cost is 0 for want of a rate card
@@ -152,7 +158,7 @@ export function BudgetReportPanel({
   const content = (
     <>
       <Section title={t(lang, "budgetReportProjectTotal")}>
-        <ForecastFactsRow lang={lang} forecast={forecast} mix={bundle.mix} />
+        <ForecastFactsRow lang={lang} currency={planCurrency} forecast={forecast} mix={bundle.mix} />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Tile label={t(lang, "budgetBudgetHours")} value={proj.budgetHours.toFixed(0)} />
           <Tile label={t(lang, "budgetPlanHours")} value={proj.plannedHours.toFixed(0)}
@@ -179,7 +185,7 @@ export function BudgetReportPanel({
             .map((id) => disciplines.find((d) => d.id === id)?.name)
             .filter((n): n is string => !!n)}
         />
-        <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} />
+        <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} base={planCurrency} />
       </Section>
 
       {/* Spec B, Decision 6: ONE Forecast section — banners, the rate-mix note,
@@ -193,25 +199,25 @@ export function BudgetReportPanel({
           chart={
             <>
               <BurndownChainWarning lang={lang} chain={bucketChain} />
-              {/* ★★ EUR, not `plan.currency`: `computeBurndownSeries` builds every
-                  value as `budgetHours × role.rates.external` and converts NOTHING,
-                  and the engine's money unit is EUR (a fixed-price bucket's contract
-                  amount is converted to EUR at `computeBucketReport`'s one read). The
-                  `money` helper above already hardcodes EUR for the cost/EVM tiles,
-                  which are rate-derived in exactly the same way — this chart was the
-                  one figure in the file still labelled otherwise (open-followups
-                  §465). ★ Contrast the Budget view's per-bucket tiles
-                  (`budget-panel-bucket-card.tsx`), which convert EUR→bucket currency
+              {/* ★★ `plan.currency`, the project baseline (§476): `computeBurndownSeries`
+                  builds every value as `budgetHours × role.rates.external`, and role
+                  rates are entered in the baseline, while a fixed-price bucket's
+                  contract amount is converted INTO the baseline at
+                  `computeBucketReport`'s one read. So the series is in the baseline,
+                  the same unit as the `money` helper above. (Until §476 the engine
+                  unit was a fixed EUR and this label was hardcoded to it, §465.)
+                  ★ Contrast the Budget view's per-bucket tiles
+                  (`budget-panel-bucket-card.tsx`), which convert baseline→bucket currency
                   BEFORE labelling and so correctly use the bucket's own currency.
                   The change table is DETACHED: at 70% of even a wide viewport the
                   chart is near its 640px floor, so the panel's `2xl` side-by-side
                   placement is unreachable here, and the table goes full width
                   below the row instead (spec B, Decision 7). */}
-              <BurndownChartPanel lang={lang} series={burndown} bundle={bundle} today={today} planEnd={plan.endDate} currency="EUR" detachChangeTable />
+              <BurndownChartPanel lang={lang} series={burndown} bundle={bundle} today={today} planEnd={plan.endDate} currency={planCurrency} detachChangeTable />
               <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
             </>
           }
-          belowRow={<BurndownChangeTableBlock lang={lang} series={burndown} bundle={bundle} currency="EUR" />}
+          belowRow={<BurndownChangeTableBlock lang={lang} series={burndown} bundle={bundle} currency={planCurrency} />}
         />
       </Section>
 
@@ -219,7 +225,7 @@ export function BudgetReportPanel({
         lang={lang}
         rows={report.buckets}
         bucketById={bucketById}
-        fxRates={fxRates}
+        fxRates={fxRates} base={planCurrency}
         colResize={detail}
         money={money}
       />
@@ -280,18 +286,19 @@ type DetailResizable = ReturnType<typeof useColumnResize<DetailCol>>;
  * Exported for tests only — its one production caller is `BucketDetailTable`
  * below.
  */
-export function detailRowRateSource(b: BudgetBucket | undefined, fxRates: FxRates | null): RateSource | null {
-  return b ? resolveRateSource(b, fxRates) : null;
+export function detailRowRateSource(b: BudgetBucket | undefined, fxRates: FxRates | null, base: BudgetCurrency): RateSource | null {
+  return b ? resolveRateSource(b, fxRates, base) : null;
 }
 
 /** Exported for tests only — its one production caller is `BudgetReportPanel` above. */
 export function BucketDetailTable({
-  lang, rows, bucketById, fxRates, colResize, money,
+  lang, rows, bucketById, fxRates, base, colResize, money,
 }: {
   lang: Lang;
   rows: BucketReport[];
   bucketById: Map<number, BudgetBucket>;
   fxRates: FxRates | null;
+  base: BudgetCurrency;
   colResize: DetailResizable;
   money: (n: number) => string;
 }) {
@@ -303,9 +310,9 @@ export function BucketDetailTable({
       rows.map((r) => {
         const b = bucketById.get(r.bucketId);
         const blended = b?.planningMode === "blended";
-        // Amounts are already EUR (the engine's base); the FX rate is shown for context only, not used to convert.
-        const rate = b ? resolveRate(b, fxRates) : 1;
-        const rateSource = detailRowRateSource(b, fxRates);
+        // Amounts are already in the baseline (the engine's base); the FX rate is shown for context only, not used to convert.
+        const rate = b ? resolveRate(b, fxRates, base) : 1;
+        const rateSource = detailRowRateSource(b, fxRates, base);
         return {
           ...r,
           modeLabel: t(lang, blended ? "budgetModeBlended" : "budgetModeDetailed"),
@@ -315,10 +322,10 @@ export function BucketDetailTable({
           // `detailRowRateSource`) — the bare currency code is what
           // `bucketCurrencyLabel` would render anyway at this row's rate (1).
           // ★ A T&M row is ALSO rendered bare when its rate is unresolved:
-          // this table's figures are EUR and a T&M row's (hours × EUR role
-          // rates) were never converted, so "converted at 1:1" would claim
+          // this table's figures are in the baseline and a T&M row's (hours ×
+          // baseline role rates) were never converted, so "converted at 1:1" would claim
           // a conversion that did not happen. Only a fixed-price row's
-          // contract amount went through `currencyToEur` at par — the same
+          // contract amount went through `currencyToBase` at par — the same
           // rule `countUnresolvedBuckets` applies to the rollup notice.
           currencyLabel:
             rateSource === null || (rateSource === "unresolved" && !isContractPriced(r.type))
@@ -335,7 +342,7 @@ export function BucketDetailTable({
           winLossUnknown: !costIsKnowable(r) && isContractPriced(r.type),
         };
       }),
-    [rows, bucketById, fxRates, lang],
+    [rows, bucketById, fxRates, base, lang],
   );
 
   const getValue = useCallback((r: typeof mapped[number], k: DetailSortKey): string | number => {
@@ -385,12 +392,12 @@ export function BucketDetailTable({
       { key: "budgetH", col: "budgetH", label: t(lang, "budgetBudgetHours"), align: "right" },
       { key: "planH", col: "planH", label: t(lang, "budgetPlanHours"), align: "right" },
       { key: "actualH", col: "actualH", label: t(lang, "budgetActualHours"), align: "right" },
-      { key: "budgetEur", col: "budgetEur", label: t(lang, "budgetReportColBudgetEur"), align: "right" },
-      { key: "consumedEur", col: "consumedEur", label: t(lang, "budgetReportColConsumed"), align: "right" },
+      { key: "budgetEur", col: "budgetEur", label: t(lang, "budgetReportColBudgetEur", base), align: "right" },
+      { key: "consumedEur", col: "consumedEur", label: t(lang, "budgetReportColConsumed", base), align: "right" },
       { key: "margin", col: "margin", label: t(lang, "budgetReportColMargin"), align: "right" },
       { key: "winLoss", col: "winLoss", label: t(lang, "budgetReportColWinLoss"), align: "right", hint: t(lang, "budgetReportColWinLossHint") },
     ],
-    [lang],
+    [lang, base],
   );
 
   return (

@@ -683,3 +683,17 @@ describe("an undo/redo that flips delivered-ness seeds its day (§299)", () => {
     expect(withPair.map((p) => p.percent)).toEqual([100, 100, 100]);
   });
 });
+
+// §476 — a currency switch is logged, and must leave the trend alone:
+// no day of its own, no move of the denominator.
+describe("a project-currency entry does not touch the completion trend (§476)", () => {
+  test("the series is identical with and without the switch entry", () => {
+    const BASE = { snapshots: [], tasks: doneBefore(2), currentDone: 2, currentTotal: 4, today: "2026-06-21" } as const;
+    const created = [ev("2026-06-16T09:00:00.000Z", "task.created"), ev("2026-06-20T09:00:00.000Z", "task.created")];
+    const without = computeCompletionTrend({ ...BASE, activity: created });
+    const withSwitch = computeCompletionTrend({ ...BASE, activity: [...created,
+      evArgs("2026-06-18T09:00:00.000Z", "plan.currencySwitched", ["EUR", "GBP", 0.852, "2026-06-17"])] });
+    expect(without.length).toBeGreaterThan(0); // control: the walk produced points
+    expect(withSwitch).toEqual(without);
+  });
+});

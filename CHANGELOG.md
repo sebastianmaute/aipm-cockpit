@@ -72,6 +72,20 @@ longer carries its own changelog comment.
 - **The desktop app says what it is doing while it starts.** The start screen shows that the background
   service is starting and, after ten seconds, that the first start after installing or updating can take
   up to a minute.
+- **A project can be kept in EUR, USD, GBP or INR (§476).** The create-project wizard asks for the
+  project's currency, EUR by default. Role rates are entered in it, and the Budget view, the Budget report,
+  the dashboard, Trends and the assistant show money in it. A bucket in another currency is converted
+  through the ECB rates, and a bucket card still shows its own currency. The Budget view can switch an
+  existing project to another currency once the ECB rates have been refreshed in the same session: a
+  confirmation lists every rate and cost impact before and after, converted once at that day's rate, and
+  the switch is recorded in the activity log and cannot be undone (switch back instead); edits made
+  before it can no longer be undone either, in any open window of the project. Restoring a saved
+  version never changes the currency: rates and cost impacts it brings back are converted into the
+  current currency. Role rates, a bucket's own hourly rates and change cost impacts are converted
+  once; fixed-price amounts and a bucket's manual exchange rate are not changed. Past Trends snapshots and budget history are shown in the new currency at the rate of each
+  switch. The switch is not offered in a pop-out window. A bucket or change editor that was open when
+  the currency changed in another window does not save its old amounts, and an AI recommendation with
+  a cost made before the switch is not applied; both say so and ask you to start again.
 
 ### Changed
 
@@ -163,6 +177,15 @@ longer carries its own changelog comment.
   250,000 are now cut (and marked as cut), where a sparse sheet with data that far down used to be read; the
   rows are also counted against one budget for the whole workbook, so in a workbook with several large sheets a
   later sheet can be cut sooner.
+
+### Notes
+
+- **Project currency (§476).** An older build does not know a project's currency history. Its next
+  save drops it, and it records new Trends snapshots in EUR. Update every client that shares a project,
+  especially a Turso one, before switching its currency.
+- **Projects already in another currency (§476).** A project whose plan currency was already USD, GBP or
+  INR before this release has no currency history, so its earlier Trends snapshots and budget history are
+  read as that currency. No screen could set a plan currency before, so this should affect almost no one.
 
 ## [1.18.0] - 2026-10-12 "Larsson"
 

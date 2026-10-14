@@ -35,6 +35,7 @@ import { computeProjectForecast } from "./budget-forecast";
 import { BudgetForecastLink } from "./budget-forecast-link";
 import { useConfirm } from "./confirm-dialog";
 import { buildRowTokens } from "./row-tokens";
+import { BaselineCurrencyControl } from "./baseline-currency-control";
 
 const BUDGET_COL_WIDTHS = {
   role: 160,
@@ -73,6 +74,11 @@ export interface BudgetPanelProps {
   onSetBudgetFollowsPlan?: (v: boolean) => void;
   onRefreshFx: () => void;
   fxLoading?: boolean;
+  /** §476 — the ECB table a refresh fetched in THIS session; `null` until one
+   *  succeeds. `undefined` means the host does not wire the baseline-currency
+   *  switch at all (`workspace-section` always passes it), so the control —
+   *  which reads `useWorkspace()` — is not rendered. */
+  fxSessionRates?: FxRates | null;
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
@@ -109,7 +115,7 @@ function nextBucketId(buckets: readonly BudgetBucket[]): number {
 
 function blankBucket(id: number, plan: ResourcePlan, today: string): BudgetBucket {
   return {
-    id, name: `Bucket ${id}`, type: "tm", currency: "EUR",
+    id, name: `Bucket ${id}`, type: "tm", currency: plan.currency,
     startDate: plan.startDate, endDate: plan.endDate, status: "open", allocations: [],
     createdDate: today,
   };
@@ -136,16 +142,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
   );
 
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
-  // ★★ The rollup sums the engine's EUR figures and converts NOTHING, so it is
-  // EUR regardless of what `plan.currency` says. Narrowing that field to the
-  // `BudgetCurrency` union did NOT make it safe to label with: the union still
-  // admits `USD`/`GBP`, so it states the plan's base currency, never the unit
-  // of an unconverted engine figure. Labelling it
-  // `plan.currency` printed EUR money under another currency's symbol
-  // (docs/open-followups.md §465). The per-bucket tiles below are the other
-  // case and stay as they are: they convert EUR→bucket currency (`inCur` /
-  // `cci`) BEFORE labelling, so there the bucket's own currency is correct.
-  const projCur = "EUR";
+  // ★★ The rollup sums the engine's figures, and since §476 every one of them
+  // is in the project baseline, `plan.currency`: role rates are entered in it
+  // and a fixed-price contract is converted into it at the engine's one read.
+  // (Until then the engine unit was a fixed EUR, and labelling the rollup with
+  // `plan.currency` printed EUR money under another symbol, §465.) The
+  // per-bucket tiles below are the other case and stay as they are: they
+  // convert baseline→bucket currency (`inCur` / `cci`) BEFORE labelling, so
+  // there the bucket's own currency is correct.
+  const projCur = plan.currency;
 
   // "Budget hours follow plan": when on, a resourced allocation's budget input
   // mirrors the live planned hours and becomes read-only. Scalars hoisted for
@@ -352,7 +357,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
         />
       )}
       {onOpenBudgetReport && forecast && (
-        <BudgetForecastLink lang={lang} forecast={forecast} onOpen={onOpenBudgetReport} />
+        <BudgetForecastLink lang={lang} forecast={forecast} currency={projCur} onOpen={onOpenBudgetReport} />
       )}
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-lg font-medium text-foreground">
@@ -391,6 +396,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
           {/* ★ `Button` already supplies `disabled:cursor-not-allowed
               disabled:opacity-50` in its base class — do not re-declare them
               here. The className is layout only, appended after the variant. */}
+          {!isPopout && props.fxSessionRates !== undefined ? (
+            <BaselineCurrencyControl lang={lang} sessionRates={props.fxSessionRates} workdayHours={workdayHours} today={today} />
+          ) : null}
           <Button
             variant="secondary"
             size="xs"
@@ -429,7 +437,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           reason={report.project.costUnknownReason}
           disciplineNames={disciplineNamesFor(report.project.unpricedDisciplineIds)}
         />
-        <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} />
+        <BudgetFxRollupNotice lang={lang} buckets={buckets} fxRates={fxRates} base={plan.currency} />
       </section>
 
       <section className="flex flex-col gap-3">
@@ -531,6 +539,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           lang={lang}
           bucket={bucketById.get(editingBucketId)!}
           allBuckets={buckets}
+          baseCurrency={plan.currency}
           roles={roles}
           disciplines={props.disciplines}
           grades={props.grades}

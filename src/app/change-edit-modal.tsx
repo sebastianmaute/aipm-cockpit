@@ -30,6 +30,8 @@ import { BUDGET_NAME_MAX, TEXTAREA_MAX, AMOUNT_MAX } from "./sanitize";
 import { filterPickerOptions } from "./picker-filter";
 import { TaskLinkPicker } from "./task-link-picker";
 import { useToastContext } from "./toast-context";
+import { useDenominationMovedSinceOpen } from "./use-denomination-epoch";
+import { reportSilentFailure } from "./guard-feedback";
 import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
 import { XMarkIcon } from "./icons";
@@ -138,6 +140,7 @@ export function ChangeEditModal({
   const deletedElsewhere = !isNew && noteCount === null;
   const deletedHintId = useId();
   const showToast = useToastContext();
+  const denominationMoved = useDenominationMovedSinceOpen();
   const { isVisible } = useModalVisibility("change");
   const [error, setError] = useState<string | null>(null);
   const [raidPickerQuery, setRaidPickerQuery] = useState("");
@@ -191,6 +194,11 @@ export function ChangeEditModal({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // §476 — the draft's `costImpact` is in the currency of the moment this editor opened.
+    if (denominationMoved) {
+      reportSilentFailure(showToast, lang, "change.denominationChanged", "currency switch during edit", "guardDenominationChanged");
+      return;
+    }
     if (!draft.title.trim()) {
       setError(t(lang, "raidErrorTitleRequired"));
       return;

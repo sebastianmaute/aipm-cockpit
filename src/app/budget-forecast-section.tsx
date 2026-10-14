@@ -31,21 +31,21 @@ export function ForecastSection({
   const [focusNonce, setFocusNonce] = useState(0);
   const { settings, setSettings } = useSettings();
   const view: ForecastView = settings.budgetForecastView ?? "pace";
-  const { eur, hours, mix, history } = bundle;
+  const { eur, hours, mix, history, currency } = bundle;
   const showMix = () => {
     setMixOpen(true);
     setFocusNonce((n) => n + 1);
   };
   return (
     <div className="space-y-3">
-      <ForecastBanners lang={lang} forecast={eur} hours={hours} mix={mix} granularity={granularity} onShowMix={mix ? showMix : undefined} />
+      <ForecastBanners lang={lang} currency={currency} forecast={eur} hours={hours} mix={mix} granularity={granularity} onShowMix={mix ? showMix : undefined} />
       {mix ? (
-        <RateMixDetails lang={lang} mix={mix} eur={eur} hours={hours} open={mixOpen} onToggle={setMixOpen} focusNonce={focusNonce} />
+        <RateMixDetails lang={lang} currency={currency} mix={mix} eur={eur} hours={hours} open={mixOpen} onToggle={setMixOpen} focusNonce={focusNonce} />
       ) : null}
       <div className="flex flex-col gap-3 xl:flex-row">
         <div className="xl:w-[30%]">
           <ForecastCards
-            lang={lang} forecast={eur} hours={hours} mix={mix} history={history}
+            lang={lang} currency={currency} forecast={eur} hours={hours} mix={mix} history={history}
             view={view}
             onViewChange={(v) => setSettings((s) => ({ ...s, budgetForecastView: v }))}
           />

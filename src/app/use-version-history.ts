@@ -27,6 +27,13 @@ export interface UseVersionHistoryArgs {
   getPayload: () => string; // lazily serialize the CURRENT workspace
   onError?: (err: unknown) => void;
   applyWorkspace?: (ws: Workspace) => void;
+  /** §476 — applied to the parsed VERSION before it is diffed and merged, with its capture time
+   *  (null when the version is not in the loaded list). The wiring passes `prepareRestoredVersion`:
+   *  version money is converted into the current currency, and `plan.currency` never changes. */
+  prepareVersion: (version: Workspace, capturedAt: string | null) => Workspace;
+  /** §476 A3 — `settings.resources.workdayHours`: a day-basis role restored by field is
+   *  re-materialised at it (`applyRestore`). */
+  workdayHours?: number;
   logActivity?: (kind: "history.restore", ...args: (string | number)[]) => void;
 }
 
@@ -97,7 +104,7 @@ export function isEmptyWorkspacePayload(json: string): boolean {
 }
 
 export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistoryResult {
-  const { config, projectId, enabled, idleMs, retention, getPayload, onError, applyWorkspace, logActivity } = args;
+  const { config, projectId, enabled, idleMs, retention, getPayload, onError, applyWorkspace, prepareVersion, logActivity, workdayHours } = args;
   const [versions, setVersions] = useState<ProjectVersionMeta[]>([]);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -253,6 +260,16 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     [writeVersion],
   );
 
+  // §476 — a version compared or restored against NOW is first brought into the current
+  // denomination (`prepareVersion`), so the compare rows, the selections built from them and the
+  // values a restore writes all come from the same converted version. A missing capture time
+  // falls back to factor 1 and is logged.
+  const prepareAgainstNow = useCallback((parsed: Workspace, versionId: string): Workspace => {
+    const capturedAt = versions.find((v) => v.id === versionId)?.capturedAt ?? null;
+    if (capturedAt === null) logDiag("warn", "version.captureTimeUnknown", { versionId });
+    return prepareVersion(parsed, capturedAt);
+  }, [versions, prepareVersion]);
+
   const restore = useCallback(async (versionId: string, selection: RestoreSelection, versionLabel: string): Promise<boolean> => {
     if (!active) return false;
     const count = Object.keys(selection).length;
@@ -269,7 +286,7 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       // misleading diff but a wipe: every live record reads as "added" and the
       // restore deletes it. `emptyWorkspace()` carries the nine core lists as
       // `[]`, so the absent-key guard below cannot catch that shape.
-      const version = jsonToWorkspace(verStr, { strict: true });
+      const version = prepareAgainstNow(jsonToWorkspace(verStr, { strict: true }), versionId);
       const now = jsonToWorkspace(getPayload());
       const speaks = speaksForEmptySlices(readCaptureFormat(verStr));
       const changes = diffWorkspaces(version, now, { olderSpeaksForEmptySlices: speaks });
@@ -277,14 +294,14 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       // here, as a load (it has no before-image either), and log it; handed to the
       // setter raw it would be broken against the CURRENT state and logged as a write.
       // Before the capture, so the auto version records what the app then holds.
-      const merged = applyRestore(now, version, changes, selection, { versionSpeaksForEmptySlices: speaks });
+      const merged = applyRestore(now, version, changes, selection, { versionSpeaksForEmptySlices: speaks, workdayHours });
       const restored = { ...merged, raid: repairLoadedRaid(merged.raid) };
       await capturePayload(workspaceToJson(restored), "auto", null);
       applyWorkspace?.(restored);
       logActivity?.("history.restore", count, versionLabel);
       return true;
     } catch (err) { onError?.(err); return false; }
-  }, [active, config, projectId, getPayload, capturePayload, applyWorkspace, logActivity, onError]);
+  }, [active, config, projectId, getPayload, capturePayload, applyWorkspace, prepareAgainstNow, logActivity, onError, workdayHours]);
 
   const loadDiff = useCallback(async (fromId: string, to: string | "now"): Promise<VersionChange[]> => {
     if (!active) return [];
@@ -305,8 +322,11 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         // STRICT parse: a truncated/malformed payload THROWS here instead of
         // silently degrading to an empty workspace (which would render a
         // misleading "everything added" diff). Surfaced as compareParseFailed.
+        // ★ Only a vs-NOW compare is converted. A version-to-version compare stays RAW: the two
+        // sides have no single denomination to convert into, and nothing is restored from it.
+        const older = jsonToWorkspace(fromStr, { strict: true });
         return diffWorkspaces(
-          jsonToWorkspace(fromStr, { strict: true }),
+          to === "now" ? prepareAgainstNow(older, fromId) : older,
           jsonToWorkspace(toStr, { strict: true }),
           { olderSpeaksForEmptySlices: speaksForEmptySlices(readCaptureFormat(fromStr)) },
         );
@@ -328,7 +348,7 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       onError?.(err);
       return [];
     }
-  }, [active, config, projectId, getPayload, onError]);
+  }, [active, config, projectId, getPayload, prepareAgainstNow, onError]);
 
   useEffect(
     () => () => {

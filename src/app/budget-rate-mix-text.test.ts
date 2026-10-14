@@ -26,31 +26,46 @@ describe("rateMixExplanation / rateMixBannerText — hours worse", () => {
     `At current pace the hours show ${pct1(hoursVac)}; the budget shows ${pct1(eurVac)}.`;
 
   it("names the driver, the two rates and both pace VACs", () => {
-    expect(rateMixExplanation(en, MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE)).toBe(explanation);
+    expect(rateMixExplanation(en, MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR")).toBe(explanation);
   });
   it("leads the banner with Warning: and the hours-worse head", () => {
-    expect(rateMixBannerText(en, MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE))
+    expect(rateMixBannerText(en, MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR"))
       .toBe(`Warning: the hours tell a worse story than the budget. ${explanation}`);
   });
 });
 
 describe("€ worse, no driver, on plan", () => {
   it("leads with Note: and the rate-not-hours sentence", () => {
-    const text = rateMixBannerText(en, MIX_EUR_WORSE, EUR_FORECAST, HOURS_FORECAST_EUR_WORSE);
+    const text = rateMixBannerText(en, MIX_EUR_WORSE, EUR_FORECAST, HOURS_FORECAST_EUR_WORSE, "EUR");
     expect(text.startsWith("Note: the budget tells a worse story than the hours. Consultant Senior: 37% of the booked hours (planned 30%),")).toBe(true);
     expect(text.endsWith("The difference is in rate, not in hours.")).toBe(true);
   });
   it("drops the driver clause when there is no driver", () => {
-    expect(rateMixExplanation(en, MIX_ON_PLAN, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE).startsWith("Hours cost ")).toBe(true);
+    expect(rateMixExplanation(en, MIX_ON_PLAN, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR").startsWith("Hours cost ")).toBe(true);
   });
 });
 
 describe("chips, names, points, rate fact", () => {
   it("chip text and card-unique names", () => {
-    expect(rateMixChipText(en, MIX_HOURS_WORSE)).toBe("Effort worse than €");
-    expect(rateMixChipText(en, MIX_EUR_WORSE)).toBe("€ worse than effort");
-    expect(rateMixChipName(en, MIX_HOURS_WORSE, "pace")).toBe("Effort worse than € at current pace — why?");
-    expect(rateMixChipName(en, MIX_HOURS_WORSE, "efficiency")).toBe("Effort worse than € at current efficiency — why?");
+    expect(rateMixChipText(en, MIX_HOURS_WORSE, "EUR")).toBe("Effort worse than €");
+    expect(rateMixChipText(en, MIX_EUR_WORSE, "EUR")).toBe("€ worse than effort");
+    expect(rateMixChipName(en, MIX_HOURS_WORSE, "pace", "EUR")).toBe("Effort worse than € at current pace — why?");
+    expect(rateMixChipName(en, MIX_HOURS_WORSE, "efficiency", "EUR")).toBe("Effort worse than € at current efficiency — why?");
+  });
+  it("names the money side and formats every figure in the project baseline (§476)", () => {
+    expect(rateMixChipText(en, MIX_HOURS_WORSE, "GBP")).toBe("Effort worse than £");
+    expect(rateMixChipText(en, MIX_EUR_WORSE, "GBP")).toBe("£ worse than effort");
+    const texts = [
+      rateMixExplanation(en, MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "GBP"),
+      rateMixBannerText(en, MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "GBP"),
+      rateFactValue(en, MIX_HOURS_WORSE, "GBP"),
+      rateFactTip(en, MIX_HOURS_WORSE, "GBP"),
+    ];
+    for (const text of texts) {
+      expect(text).toContain("£");
+      expect(text).not.toContain("€");
+    }
+    expect(rateFactTip(en, MIX_HOURS_WORSE, "GBP")).toContain("the £ and hours forecasts");
   });
   it("tile chip text in both directions", () => {
     const hoursPace = HOURS_FORECAST_HOURS_WORSE.pace;
@@ -67,24 +82,24 @@ describe("chips, names, points, rate fact", () => {
     expect(rateMixPoints(en, 0.004)).toBe("0 pts");
   });
   it("rate fact: drift above the threshold, on plan below it", () => {
-    expect(rateFactValue(en, MIX_HOURS_WORSE)).toBe(`${money(168_000 / 1_450)}/h ${pct1(MIX_HOURS_WORSE.drift)} vs plan`);
-    expect(rateFactValue(en, MIX_ON_PLAN)).toBe(`${money(120)}/h · on plan`);
-    expect(rateFactTip(en, MIX_HOURS_WORSE)).toContain(`${money(240_000)} ÷ 2,000 h = ${money(120)}/h`);
+    expect(rateFactValue(en, MIX_HOURS_WORSE, "EUR")).toBe(`${money(168_000 / 1_450)}/h ${pct1(MIX_HOURS_WORSE.drift)} vs plan`);
+    expect(rateFactValue(en, MIX_ON_PLAN, "EUR")).toBe(`${money(120)}/h · on plan`);
+    expect(rateFactTip(en, MIX_HOURS_WORSE, "EUR")).toContain(`${money(240_000)} ÷ 2,000 h = ${money(120)}/h`);
   });
   it("rate fact parts: down-arrow for a hours-worse drift", () => {
-    const parts = rateFactParts(en, MIX_HOURS_WORSE);
+    const parts = rateFactParts(en, MIX_HOURS_WORSE, "EUR");
     expect(parts.rate).toBe(`${money(168_000 / 1_450)}/h`);
     expect(parts.note).toBe(`${pct1(MIX_HOURS_WORSE.drift)} vs plan`);
     expect(parts.arrow).toBe("▼");
   });
   it("rate fact parts: up-arrow for an eur-worse drift", () => {
-    const parts = rateFactParts(en, MIX_EUR_WORSE);
+    const parts = rateFactParts(en, MIX_EUR_WORSE, "EUR");
     expect(parts.rate).toBe(`${money(168_000 / 1_350)}/h`);
     expect(parts.note).toBe(`${pct1(MIX_EUR_WORSE.drift)} vs plan`);
     expect(parts.arrow).toBe("▲");
   });
   it("rate fact parts: no arrow when the drift is below the signal threshold", () => {
-    const parts = rateFactParts(en, MIX_ON_PLAN);
+    const parts = rateFactParts(en, MIX_ON_PLAN, "EUR");
     expect(parts.rate).toBe(`${money(120)}/h`);
     expect(parts.note).toBe("on plan");
     expect(parts.arrow).toBe(null);
@@ -100,25 +115,25 @@ describe("fixed-price scope disclosure", () => {
 
   it("is absent from both surfaces when nothing was excluded", () => {
     expect(MIX_HOURS_WORSE.excludedActualHours).toBe(0);
-    expect(rateMixExplanation(en, MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE)).not.toContain("fixed-price");
-    expect(rateFactTip(en, MIX_HOURS_WORSE)).not.toContain("fixed-price");
+    expect(rateMixExplanation(en, MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR")).not.toContain("fixed-price");
+    expect(rateFactTip(en, MIX_HOURS_WORSE, "EUR")).not.toContain("fixed-price");
   });
 
   it("closes the explanation and the rate-fact tooltip, with the excluded hours", () => {
-    expect(rateMixExplanation(en, EXCLUDED, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE).endsWith(sentence)).toBe(true);
-    expect(rateFactTip(en, EXCLUDED).endsWith(sentence)).toBe(true);
+    expect(rateMixExplanation(en, EXCLUDED, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR").endsWith(sentence)).toBe(true);
+    expect(rateFactTip(en, EXCLUDED, "EUR").endsWith(sentence)).toBe(true);
   });
 
   it("reaches the banner through the shared explanation", () => {
-    expect(rateMixBannerText(en, EXCLUDED, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE).endsWith(sentence)).toBe(true);
+    expect(rateMixBannerText(en, EXCLUDED, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR").endsWith(sentence)).toBe(true);
   });
 
   it("renders as a whole German sentence on both surfaces", () => {
     // A literal, not a t()-built expectation, so a grammar slip in i18n.de.ts
     // turns this red rather than following the dictionary into the slip.
     const de = "Die Satzwerte umfassen nur Stundenposten; 900 h aus Festpreis-Posten sind ausgenommen.";
-    expect(rateMixExplanation("de", EXCLUDED, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE).endsWith(de)).toBe(true);
-    expect(rateFactTip("de", EXCLUDED).endsWith(de)).toBe(true);
+    expect(rateMixExplanation("de", EXCLUDED, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR").endsWith(de)).toBe(true);
+    expect(rateFactTip("de", EXCLUDED, "EUR").endsWith(de)).toBe(true);
   });
 });
 
@@ -141,7 +156,7 @@ describe("type-safety-only branches — not reachable via computeRateMix", () =>
   };
 
   it("drops the pace sentence when one forecast's pace is unavailable, without fabricating a VAC figure", () => {
-    const text = rateMixExplanation(en, MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_PACE_UNAVAILABLE);
+    const text = rateMixExplanation(en, MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_PACE_UNAVAILABLE, "EUR");
     expect(text).not.toContain("At current pace");
     expect(text.startsWith("Consultant Junior:")).toBe(true);
   });
@@ -159,8 +174,8 @@ describe("type-safety-only branches — not reachable via computeRateMix", () =>
 
 describe("German", () => {
   it("renders the banner head and chip name from the DE dictionary", () => {
-    expect(rateMixBannerText("de", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE).startsWith(`${t("de", "forecastMixLeadWarning")} ${t("de", "forecastMixHeadHoursWorse")}`)).toBe(true);
-    expect(rateMixChipName("de", MIX_HOURS_WORSE, "pace")).toBe("Aufwand schlechter als € beim aktuellen Tempo – warum?");
+    expect(rateMixBannerText("de", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR").startsWith(`${t("de", "forecastMixLeadWarning")} ${t("de", "forecastMixHeadHoursWorse")}`)).toBe(true);
+    expect(rateMixChipName("de", MIX_HOURS_WORSE, "pace", "EUR")).toBe("Aufwand schlechter als € beim aktuellen Tempo – warum?");
   });
   it("reads as whole German sentences (hard-coded, not built from the dictionary)", () => {
     // A literal, so a grammar slip in i18n.de.ts (a lower-case sentence after
@@ -170,12 +185,12 @@ describe("German", () => {
     const explanation =
       "Consultant Junior: 37 % der gebuchten Stunden (geplant 30 %), daher liegt der Stundensatz im Schnitt bei 116 €/h statt 120 €/h. " +
       "Beim aktuellen Tempo zeigen die Stunden -10,5 %, das Budget -8,8 %.";
-    expect(rateMixExplanation("de", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE)).toBe(explanation);
-    expect(rateMixBannerText("de", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE))
+    expect(rateMixExplanation("de", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR")).toBe(explanation);
+    expect(rateMixBannerText("de", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR"))
       .toBe(`Warnung: Die Stunden zeichnen ein schlechteres Bild als das Budget. ${explanation}`);
   });
   it("rate fact parts render the DE note and drift arrow", () => {
-    const parts = rateFactParts("de", MIX_HOURS_WORSE);
+    const parts = rateFactParts("de", MIX_HOURS_WORSE, "EUR");
     const expectedNote = t("de", "forecastRateDrift", formatSignedPercent(MIX_HOURS_WORSE.drift, localeFor("de"), 1));
     expect(parts.note).toBe(expectedNote);
     expect(parts.arrow).toBe("▼");

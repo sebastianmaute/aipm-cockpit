@@ -8,11 +8,11 @@
 // task-manager.tsx (§491); move-only. The workspace slices and setters are read
 // from `useWorkspace()`, the same context task-manager reads them from;
 // `stakeholders` and `calendarEvents` arrive as deps fields because task-manager
-// takes those two from other hooks. The three settings reads arrive as deps fields
-// (`storageKind`, `features`, `versionHistoryRetention`) with the same values.
+// takes those two from other hooks. The four settings reads arrive as deps fields
+// (`storageKind`, `features`, `versionHistoryRetention`, `workdayHours`) with the same values.
 //
-// ★ The three callbacks KEEP their memoization, against Extraction convention 1.
-// `getVersionPayload` and `applyRestoredWorkspace` are `useVersionHistory` args,
+// ★ The callbacks KEEP their memoization, against Extraction convention 1.
+// `getVersionPayload`, `applyRestoredWorkspace` and `prepareVersion` are `useVersionHistory` args,
 // and `handleVersionError` must stay stable so that hook's `refresh` keeps one
 // identity (see the comment on it below).
 //
@@ -28,6 +28,7 @@ import { seedMintFromWorkspace } from "./id-mint-session";
 import { useVersionHistory, type UseVersionHistoryArgs, type UseVersionHistoryResult } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { useWorkspace } from "./workspace-context";
+import { prepareRestoredVersion } from "./baseline-switch";
 import { workspaceToJson, type Workspace } from "./workspace";
 import type { CalendarEvent } from "./calendar-event";
 import type { Settings } from "./settings-types";
@@ -47,6 +48,8 @@ export interface VersionHistoryWiringDeps {
   storageKind: Settings["storageConfig"]["kind"];
   features: Settings["features"];
   versionHistoryRetention: Settings["versionHistoryRetention"];
+  /** §476 — `settings.resources.workdayHours`: a restored day-basis role re-derives its hourly rates with it. */
+  workdayHours: number;
   isPopout: boolean;
   logActivityUser: UseVersionHistoryArgs["logActivity"];
   /** task-manager's storage-status bridge; a version error raises its banner. */
@@ -58,7 +61,7 @@ export interface VersionHistoryWiringDeps {
 export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVersionHistoryResult {
   const {
     stakeholders, calendarEvents, tursoConfig, tursoProjectId, storageKind, features,
-    versionHistoryRetention, isPopout, logActivityUser, reportStorageOutcome, versionNotifyRef,
+    versionHistoryRetention, isPopout, logActivityUser, reportStorageOutcome, versionNotifyRef, workdayHours,
   } = deps;
   const {
     tasks, setTasks, raid, setRaid, absences, setAbsences, shifts, setShifts,
@@ -68,6 +71,7 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
     steeringCommittee, setSteeringCommittee, timelogLinks, setTimelogLinks,
     knowledgeItems, setKnowledgeItems, insights, setInsights, documents, setDocuments,
     documentVersions, setDocumentVersions, settingsOverrides, setSettingsOverrides, setCalendarEvents,
+    baselineHistory,
   } = useWorkspace();
 
   // Lazily serialize the CURRENT workspace for a version-history capture. The field
@@ -111,6 +115,16 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
     // (callback), not during render.
     seedMintFromWorkspace(w, "raise");
   }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setSettingsOverrides, setCalendarEvents]);
+
+  // §476 — a restore NEVER changes `plan.currency` and converts every money field it takes from the version
+  // into the current currency (`prepareRestoredVersion`). Applied to the VERSION before the diff and merge, so
+  // whole-record and per-field restores are covered alike; `baselineHistory` itself is neither captured nor restored.
+  const planCurrency = plan.currency;
+  const prepareVersion = useCallback(
+    (version: Workspace, capturedAt: string | null) =>
+      prepareRestoredVersion(version, { history: baselineHistory, capturedAt, currency: planCurrency, workdayHours }),
+    [baselineHistory, planCurrency, workdayHours],
+  );
 
   // Stable onError so useVersionHistory's `refresh` callback keeps a stable
   // identity — an inline arrow here re-creates refresh every render, re-running
@@ -158,6 +172,8 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
     retention: versionHistoryRetention ?? DEFAULT_VERSION_RETENTION,
     getPayload: getVersionPayload,
     applyWorkspace: applyRestoredWorkspace,
+    prepareVersion,
+    workdayHours,
     logActivity: logActivityUser,
     onError: handleVersionError,
   });

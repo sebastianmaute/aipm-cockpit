@@ -1,7 +1,8 @@
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { applyTemplate, appendSeed, remapSeed } from "./template-apply";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
-import type { ProjectMeta } from "./types";
+import type { BudgetCurrency, ProjectMeta } from "./types";
+import { DEFAULT_CURRENCY } from "./types";
 import type { FeatureModuleId } from "./feature-modules";
 import { emailWriteRefusal, summarizeUnsafeEmailRecords } from "./sanitize";
 
@@ -25,6 +26,12 @@ export interface NewProjectOpts {
    *  inside the held create, so the project's first snapshot load already sees them. It reports
    *  its own failures; a throw does not abort the create. Ignored by buildNewProjectWorkspace. */
   seedSnapshots?: (projectId: string) => Promise<void>;
+  /** The project's baseline currency chosen in the wizard (§476), with the creation
+   *  instant (ISO, `toISOString()`, read by the caller at event time) that stamps the
+   *  creation baseline entry when the currency is not the default. ONE object, so a
+   *  currency without its instant cannot be expressed (it used to be dropped silently).
+   *  Ignored for an imported workspace, whose own plan currency wins. */
+  baseline?: { currency: BudgetCurrency; nowIso: string };
 }
 
 /** Assemble a new project's Workspace: base + meta, optionally apply a template
@@ -42,6 +49,14 @@ export function buildNewProjectWorkspace(meta: ProjectMeta, opts: NewProjectOpts
     ws = appendSeed(ws, remapSeed(ws, withoutUnsafeSeedEmails(opts.aiSeed)));
   }
   if (opts.features !== undefined) ws = { ...ws, features: opts.features };
+  if (opts.baseline && opts.baseline.currency !== DEFAULT_CURRENCY) {
+    const { currency, nowIso } = opts.baseline;
+    ws = {
+      ...ws,
+      plan: { ...ws.plan, currency },
+      baselineHistory: [{ from: ws.plan.startDate, at: nowIso, currency }],
+    };
+  }
   return ws;
 }
 

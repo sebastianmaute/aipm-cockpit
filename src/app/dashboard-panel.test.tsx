@@ -1599,7 +1599,7 @@ describe("DashboardPanel currency labelling", () => {
     );
   }
 
-  it("labels the burn-down value axis in EUR even when the plan names another currency", () => {
+  it("labels the burn-down value axis in the plan's baseline currency (§476)", () => {
     renderUsdDashboard();
     // Scoped to the € chart: `BurndownChart` renders `<div>{caption}</div><button><svg>…</svg></button>`,
     // so the caption's parent is that chart alone ("Budget remaining" is the
@@ -1611,8 +1611,8 @@ describe("DashboardPanel currency labelling", () => {
     // 100 h, nothing reaches below zero, so yMin is 0 and deduplicates → 3.
     const money = Array.from(valueChart.querySelectorAll("svg text[data-axis='y']")).map((el) => el.textContent ?? "");
     expect(money).toHaveLength(3);
-    expect(money.filter((s) => s.includes("$"))).toEqual([]);
-    expect(money.every((s) => s.includes("€"))).toBe(true);
+    expect(money.filter((s) => s.includes("€"))).toEqual([]);
+    expect(money.every((s) => s.includes("$"))).toBe(true);
   });
 });
 

@@ -15,12 +15,13 @@ import { resolveBucketChain, type BucketChain } from "./budget-bucket-chain";
 import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
 import { isTaskClosed, isTaskDelivered, isTaskOutOfScope } from "./task-closed";
 import type {
-  Absence, BudgetBucket, ChangeItem, Discipline, FxRates, Grade, Milestone, ProjectStatus, RaidItem, RaidSeverity,
+  Absence, BudgetBucket, BudgetCurrency, ChangeItem, Discipline, FxRates, Grade, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
 } from "./types";
 import type { ActivityEntry } from "./activity-log";
 import type { SnapshotRecord } from "./snapshot";
 import type { BudgetHistoryEntry } from "./budget-history";
+import type { BaselineEntry } from "./baseline-currency";
 
 export type SubStatus = Health | null;
 
@@ -259,8 +260,12 @@ export type DashboardModel = {
   topChanges: ChangeItem[];
   progress: DashboardProgress;
   burndown: BurndownSeries | null;
-  /** € + hours forecasts, rate mix and earned-value history (MR 3). The
-   *  pace/efficiency € forecast (spec §5) that drives the Budget RAG's
+  /** The project baseline (`plan.currency`, §476): every money figure the
+   *  model and the budget rollup carry is in it. Present even without a
+   *  forecast, so a reader never has to infer the unit. */
+  currency: BudgetCurrency;
+  /** Money + hours forecasts, rate mix and earned-value history (MR 3). The
+   *  pace/efficiency money forecast (spec §5) that drives the Budget RAG's
    *  pace-VAC input is `forecastBundle.eur` — computed as a local inside
    *  `computeDashboard` (never exported on its own; nothing outside
    *  `dashboard.ts` read it, §580). Null exactly when `burndown` is (no
@@ -298,7 +303,7 @@ export interface DashboardEntities {
   resources: readonly Resource[];
   absences: readonly Absence[];
   /** Cached ECB rates, or null. Forwarded to the budget engine so a non-EUR
-   *  fixed-price bucket's contract amount converts to EUR before the Budget
+   *  fixed-price bucket's contract amount converts to the baseline before the Budget
    *  RAG reads consumedValue/budgetValue. */
   fxRates: FxRates | null;
   milestones?: readonly Milestone[];
@@ -310,6 +315,9 @@ export interface DashboardEntities {
   snapshots?: readonly SnapshotRecord[];
   /** The project's recorded budget-at-completion history (`useWorkspace().budgetHistory`). */
   budgetHistory?: readonly BudgetHistoryEntry[];
+  /** The project's baseline-currency switches (`useWorkspace().baselineHistory`,
+   *  §476): the forecast bundle rebases the budget history with them. */
+  baselineHistory?: readonly BaselineEntry[];
 }
 
 /** The non-entity context (today/zone-derived date, settings-derived scalars,
@@ -348,6 +356,7 @@ export function buildDashboardInput(e: DashboardEntities, ctx: DashboardContext)
     grades: e.grades ?? [],
     snapshots: e.snapshots ?? [],
     budgetHistory: e.budgetHistory ?? [],
+    baselineHistory: e.baselineHistory ?? [],
     workdayHours: ctx.workdayHours,
     holidaySet: ctx.holidaySet,
     status: ctx.status,
@@ -358,10 +367,12 @@ export function buildDashboardInput(e: DashboardEntities, ctx: DashboardContext)
 
 const NO_SNAPSHOTS: readonly SnapshotRecord[] = [];
 
-/** Entities for `buildLiveDashboardInput`. `budgetHistory` is required so a
- *  caller cannot drop it silently; `snapshots` arrives through the trends gate. */
-export type LiveDashboardEntities = Omit<DashboardEntities, "snapshots" | "budgetHistory"> & {
+/** Entities for `buildLiveDashboardInput`. `budgetHistory` and `baselineHistory`
+ *  are required so a caller cannot drop either silently; `snapshots` arrives
+ *  through the trends gate. */
+export type LiveDashboardEntities = Omit<DashboardEntities, "snapshots" | "budgetHistory" | "baselineHistory"> & {
   budgetHistory: readonly BudgetHistoryEntry[];
+  baselineHistory: readonly BaselineEntry[];
 };
 
 /** Input for the model task-manager builds for Next Actions, the AI assistant
@@ -376,9 +387,9 @@ export function buildLiveDashboardInput(
   ctx: DashboardContext,
   trends: { active: boolean; snapshots: readonly SnapshotRecord[] } | null,
 ): DashboardInput {
-  const { budgetHistory, ...rest } = e;
+  const { budgetHistory, baselineHistory, ...rest } = e;
   return buildDashboardInput(
-    { ...rest, budgetHistory, snapshots: trends?.active ? trends.snapshots : NO_SNAPSHOTS },
+    { ...rest, budgetHistory, baselineHistory, snapshots: trends?.active ? trends.snapshots : NO_SNAPSHOTS },
     ctx,
   );
 }
@@ -455,9 +466,10 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
         resources: input.resources, workdayHours: input.workdayHours, absences: input.absences,
         disciplines: input.disciplines, grades: input.grades,
         progress: bucketProgressSeries(input.snapshots), budgetHistory: input.budgetHistory,
+        baselineHistory: input.baselineHistory,
       })
     : null;
-  // The budget RAG stays € only (addendum §3.3).
+  // The budget RAG stays on money only, never hours (addendum §3.3).
   const forecast: BudgetForecast | null = forecastBundle?.eur ?? null;
   // The budget RAG reads the pace VAC once the pace forecast exists (spec
   // §6.3); before that the consumed-vs-budget ratio stays the signal. Effort
@@ -488,6 +500,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     topChanges: selectTopChanges(input.changes, topRaidN),
     progress: kpi.progress,
     burndown,
+    currency: input.plan.currency,
     forecastBundle,
     chartDates: { today, planEnd: input.plan.endDate },
     bucketChain,

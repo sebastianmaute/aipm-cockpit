@@ -73,6 +73,7 @@ function makeDeps(over: Partial<VersionHistoryWiringDeps> = {}): VersionHistoryW
     storageKind: "turso",
     features: ["history"],
     versionHistoryRetention: undefined,
+    workdayHours: 8,
     isPopout: false,
     logActivityUser: vi.fn(),
     reportStorageOutcome: vi.fn(),
@@ -165,5 +166,37 @@ describe("useVersionHistoryWiring — capture, restore, error, notify", () => {
   it("hands useVersionHistory's notifySaved to the save-success bridge", () => {
     const h = mount();
     expect(h.deps.versionNotifyRef.current).toBe(stable.notifySaved);
+  });
+});
+
+// §476 pre-merge ruling — a restore never changes the currency: the wiring hands `useVersionHistory` a
+// `prepareVersion` that pins the LIVE `plan.currency` and converts the version's money by the LIVE
+// `baselineHistory` (day roles re-derived with the settings' workday hours), and the fan-out itself
+// neither appends a history entry nor logs a currency row.
+describe("useVersionHistoryWiring — a restore converts version money and keeps the currency", () => {
+  const T_VERSION = "2026-10-14T08:00:00.000Z";
+  const SWITCH = { from: "2026-10-14", at: "2026-10-14T09:00:00.000Z", currency: "GBP" as const, perPrevious: 0.85 };
+  function afterGbpSwitch(over: Partial<VersionHistoryWiringDeps> = {}) {
+    const h = mount(over);
+    act(() => {
+      h.result.current.ws.setPlan((p) => ({ ...p, currency: "GBP" }));
+      h.result.current.ws.setBaselineHistory([SWITCH]);
+    });
+    return h;
+  }
+  const dayRole = { id: 3, disciplineId: 1, gradeId: 1, rateBasis: "day" as const, internalRateDay: 800, externalRateDay: 1000, internalRate: 80, externalRate: 100 };
+  it("prepareVersion pins the live currency and converts by the live history, day rates over the settings' workday", () => {
+    const h = afterGbpSwitch({ workdayHours: 10 });
+    const version: Workspace = { ...emptyWorkspace(), plan: { ...h.result.current.ws.plan, currency: "EUR" }, roles: [dayRole] };
+    const out = args().prepareVersion?.(version, T_VERSION);
+    expect(out?.plan.currency).toBe("GBP");
+    expect(out?.roles[0]).toMatchObject({ internalRateDay: 680, externalRateDay: 850, internalRate: 68, externalRate: 85 });
+  });
+  it("the fan-out appends no history entry and logs nothing", () => {
+    const h = afterGbpSwitch();
+    const before = h.result.current.ws.baselineHistory;
+    act(() => { args().applyWorkspace?.({ ...emptyWorkspace(), plan: { ...h.result.current.ws.plan } }); });
+    expect(h.result.current.ws.baselineHistory).toBe(before);
+    expect(h.deps.logActivityUser).not.toHaveBeenCalled();
   });
 });

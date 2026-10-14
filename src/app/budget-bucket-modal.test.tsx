@@ -7,6 +7,7 @@ import { BudgetBucketModal } from "./budget-bucket-modal";
 import { applyTier } from "./field-visibility";
 import type { FieldTier } from "./modal-fields";
 import { t } from "./i18n";
+import { ToastProvider } from "./toast-context";
 import { fieldTierTrigger, selectFieldTier } from "../test/field-tier";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { BudgetBucket, Role, Task } from "./types";
@@ -104,6 +105,7 @@ function setup(
       <Seed tier={tier} />
       <BudgetBucketModal
         lang="en-US"
+        baseCurrency="EUR"
         bucket={baseBucket}
         allBuckets={[baseBucket]}
         roles={roles}
@@ -421,6 +423,7 @@ describe("BudgetBucketModal", () => {
     render(
       <BudgetBucketModal
         lang="en-US"
+        baseCurrency="EUR"
         bucket={{ ...baseBucket, currency: "USD" }}
         allBuckets={[baseBucket]}
         roles={roles}
@@ -456,6 +459,7 @@ describe("BudgetBucketModal", () => {
     render(
       <BudgetBucketModal
         lang="en-US"
+        baseCurrency="EUR"
         bucket={baseBucket}
         allBuckets={[baseBucket]}
         roles={roles}
@@ -621,6 +625,37 @@ describe("BudgetBucketModal — FX override currency gate (§475)", () => {
   });
 });
 
+// §476: a bucket in the project's own baseline currency needs no conversion, so the manual FX override
+// is hidden there too. Unlike the EUR gate above, the stored value is KEPT on save: it is per EUR, and the
+// project could switch back to a currency where it matters again.
+describe("BudgetBucketModal — FX override hidden on a baseline-currency bucket (§476)", () => {
+  test("a GBP project hides it on a GBP bucket, and saving keeps the stored override", () => {
+    const { onSave } = setup({ baseCurrency: "GBP", bucket: { ...baseBucket, currency: "GBP", fxRateOverride: 0.86 } });
+    expect(screen.queryByLabelText(t("en-US", "budgetFxOverride"))).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as BudgetBucket).fxRateOverride).toBe(0.86);
+  });
+  // B11 — a hidden field is not validated either: an invalid value the draft carries (typed
+  // before the bucket moved into the baseline currency) must not block the save behind an error
+  // about a field the user cannot see. The value is kept, as above.
+  test("a hidden override is not validated: an invalid stored value neither blocks the save nor is dropped", () => {
+    const { onSave } = setup({ baseCurrency: "GBP", bucket: { ...baseBucket, currency: "GBP", fxRateOverride: -1 } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(screen.queryByText(t("en-US", "budgetFxOverrideInvalid"))).not.toBeInTheDocument();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as BudgetBucket).fxRateOverride).toBe(-1);
+  });
+  test("a GBP project still shows it on a USD bucket", () => {
+    setup({ baseCurrency: "GBP", bucket: { ...baseBucket, currency: "USD" } });
+    expect(screen.getByLabelText(t("en-US", "budgetFxOverride"))).toBeInTheDocument();
+  });
+  test("a GBP project still hides it on an EUR bucket", () => {
+    setup({ baseCurrency: "GBP", bucket: { ...baseBucket, currency: "EUR" } });
+    expect(screen.queryByLabelText(t("en-US", "budgetFxOverride"))).not.toBeInTheDocument();
+  });
+});
+
 describe("BudgetBucketModal field-visibility control", () => {
   test("mounts the field-visibility trigger inside the modal header", () => {
     setup();
@@ -733,5 +768,52 @@ describe("BudgetBucketModal — row-unique control names (§276)", () => {
       ],
     }, "full");
     expectRowUniqueNames({ minControls: 15, requireCollisionSeed: true });
+  });
+});
+
+// §476 final fix 2, item 2 — a draft opened BEFORE a baseline-currency switch holds money in the
+// old currency. A peer tab's switch reaches this tab by broadcast while the editor is open; saving
+// the draft then would write pre-switch rate overrides as new-currency amounts. Refused, with a toast.
+describe("BudgetBucketModal — a currency switch while the editor is open (§476)", () => {
+  const live: { current: ReturnType<typeof useWorkspace> | null } = { current: null };
+  function Driver() {
+    const ws = useWorkspace();
+    const ref = useRef(live);
+    useEffect(() => { ref.current.current = ws; });
+    return null;
+  }
+  function open() {
+    const onSave = vi.fn();
+    const showToast = vi.fn();
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <Driver />
+        <BudgetBucketModal
+          lang="en-US" baseCurrency="EUR" bucket={{ ...baseBucket, rateOverrideInternal: 90 }} allBuckets={[baseBucket]}
+          roles={roles} disciplines={[]} grades={[]} resources={[]} onSave={onSave} onClose={vi.fn()}
+        />
+      </ToastProvider>,
+      { wrapper },
+    );
+    return { onSave, showToast };
+  }
+  const save = () => fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+  test("a switch lands after open: Save writes nothing and says why", () => {
+    const { onSave, showToast } = open();
+    act(() => {
+      live.current?.setPlan((p) => ({ ...p, currency: "GBP" }));
+      live.current?.setBaselineHistory((h) => [...h, { from: "2026-10-14", at: "2026-10-14T08:00:00.000Z", currency: "GBP", perPrevious: 0.85 }]);
+    });
+    save();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "guardDenominationChanged"));
+  });
+
+  test("no switch since open: Save writes", () => {
+    const { onSave, showToast } = open();
+    save();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "guardDenominationChanged"));
   });
 });

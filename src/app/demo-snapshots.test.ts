@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildDemoSnapshots, demoSnapshotFridays, workspaceAsOf } from "./demo-snapshots";
 import { DEMO_AS_OF } from "./demo-workspace";
+import { rebaseSnapshots } from "./baseline-currency";
 import { decodeSampleMaster } from "./sample-workspace-variants";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { addCalendarDays, calendarDaysBetween } from "./working-days";
@@ -380,5 +381,33 @@ describe("buildDemoSnapshots over the sample master", () => {
 
   it("matches the committed sample-demo-snapshots.json", () => {
     expect(JSON.parse(readRoot("sample-demo-snapshots.json"))).toEqual(records);
+  });
+  // §476 B8 — a demo record is computed from TODAY's rates (current baseline) but stamped with a
+  // past `capturedAt`, and `useSnapshots` rebases every record by the switches after it. So the
+  // builder emits each record in the currency in force at its capture: the read-time rebase then
+  // brings it back to the figures computed, instead of converting them a second time.
+  it("emits each record in the currency in force at its capture, so the read-time rebase restores it", () => {
+    const fridays = demoSnapshotFridays(master.plan.startDate, DEMO_AS_OF);
+    const mid = fridays[Math.floor(fridays.length / 2)];
+    // The project was created in GBP and switched to EUR (today's plan currency) mid-replay,
+    // so the figures computed from today's state are unchanged and only the stamping moves.
+    const switched: Workspace = {
+      ...master,
+      baselineHistory: [
+        { from: master.plan.startDate, at: `${master.plan.startDate}T08:00:00.000Z`, currency: "GBP" },
+        { from: mid, at: `${mid}T12:00:00.000Z`, currency: "EUR", perPrevious: 2 },
+      ],
+    };
+    const out = buildDemoSnapshots(switched, DEMO_AS_OF);
+    const before = out.findIndex((r) => r.capturedAt > `${mid}T12:00:00.000Z`) - 1;
+    expect(before).toBeGreaterThan(0); // control: records on both sides of the switch
+    expect(records[before].remainingCost).not.toBeNull();
+    expect(out[before].remainingCost).toBeCloseTo(records[before].remainingCost! / 2, 6);
+    expect(out[before + 1].remainingCost).toBe(records[before + 1].remainingCost);
+    const read = rebaseSnapshots(out, switched.baselineHistory!);
+    read.forEach((r, i) => {
+      expect(r.remainingCost === null ? null : r.remainingCost).toBeCloseTo(records[i].remainingCost ?? 0, 6);
+      r.series.forEach((p, j) => expect(p.plannedCost).toBeCloseTo(records[i].series[j].plannedCost, 6));
+    });
   });
 });

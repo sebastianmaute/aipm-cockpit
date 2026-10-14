@@ -73,6 +73,7 @@ import {
   markdownToInsights,
   markdownToActivityLog,
   markdownToBudgetHistory,
+  markdownToBaselineHistory,
   markdownToSettingsOverrides,
   mdUnescape,
   splitMdRow,
@@ -444,6 +445,9 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   // Same whole-md scan for the budget history, emitted after the log.
   const budgetHistory = markdownToBudgetHistory(md, diag);
   if (budgetHistory) ws.budgetHistory = budgetHistory;
+  // And for the baseline-currency history (§476), emitted after it.
+  const baselineHistory = markdownToBaselineHistory(md, diag);
+  if (baselineHistory) ws.baselineHistory = baselineHistory;
   return migrateWorkspaceV10(ws);
 }
 

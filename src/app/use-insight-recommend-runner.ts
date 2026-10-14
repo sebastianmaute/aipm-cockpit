@@ -16,7 +16,7 @@ import { clampInsightRecInterval } from "./settings-types";
 import { MAX_BG_RECS_PER_TICK, type Insight, type InsightRecommendation } from "./insights/insight";
 import type { GroundingIndex } from "./action-ai";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
-import type { RecommendPlanWorkspace } from "./insights/recommend-plan";
+import type { RecommendSnapshot } from "./insights/recommend-plan";
 
 export interface InsightRecommendRunnerArgs {
   /** Caller passes isAiEnabled && ai.insightRecommendations===true && !isPopout. */
@@ -37,10 +37,10 @@ export interface InsightRecommendRunnerArgs {
   buildContextFor: (insight: Insight) => string;
   /** Functional setInsights writer (Task 9 provides). `snapshot` is the
    *  candidate's prompt-time entity snapshot (§350). */
-  applyRecommendation: (id: number, rec: InsightRecommendation, snapshot?: RecommendPlanWorkspace) => void;
+  applyRecommendation: (id: number, rec: InsightRecommendation, snapshot?: RecommendSnapshot) => void;
   /** §350 — read per CANDIDATE, beside its prompt. Omitted outside the stamping
    *  caller (tests). */
-  snapshotEntities?: () => RecommendPlanWorkspace;
+  snapshotEntities?: () => RecommendSnapshot;
   /** §548 — `useStorageBackend`'s scope-epoch reader. Captured per CANDIDATE, immediately before its
    *  billed call, and re-read before `applyRecommendation`: a tick spans several serial calls, so a
    *  swap part-way through must drop only what it invalidates. Omitted outside the storage hook's

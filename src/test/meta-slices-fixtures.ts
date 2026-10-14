@@ -14,14 +14,14 @@ import { type Workspace, jsonToWorkspace } from "../app/workspace";
 export type MetaKey =
   | "status" | "project" | "fieldVisibility" | "features" | "steeringCommittee"
   | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides"
-  | "documents" | "documentVersions" | "activityLog" | "budgetHistory";
+  | "documents" | "documentVersions" | "activityLog" | "budgetHistory" | "baselineHistory";
 
-/** The eleven single-JSON-blob slices (everything but status and project). */
+/** The twelve single-JSON-blob slices (everything but status and project). */
 export type BlobKey = Exclude<MetaKey, "status" | "project">;
 
 export interface BlobCase { key: BlobKey; junk: unknown; empty: unknown; emptyDecoded: unknown }
 
-/** The eleven single-JSON-blob slices: one junk value that has content but
+/** The twelve single-JSON-blob slices: one junk value that has content but
  *  sanitizes to nothing (the values workspace.test.ts's §620 table uses), and
  *  a genuinely empty stored value, with what it decodes to — unchanged from
  *  before §630 (features keeps `[]`, Simple mode; the committee and timelog
@@ -38,6 +38,7 @@ export const META_BLOB_CASES: readonly BlobCase[] = [
   { key: "documentVersions", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
   { key: "activityLog", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
   { key: "budgetHistory", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
+  { key: "baselineHistory", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
 ];
 
 export const ALL_META_KEYS: readonly MetaKey[] = ["status", "project", ...META_BLOB_CASES.map((c) => c.key)];
@@ -64,7 +65,7 @@ function budgetHistoryFixture(): Workspace["budgetHistory"] {
   });
 }
 
-/** The curated sample carries nine of the thirteen slices; the other four are
+/** The curated sample carries nine of the fourteen slices; the other five are
  *  added here so every key has a GENUINE, non-empty value. */
 export function fullMetaWorkspace(): Workspace {
   const sample = jsonToWorkspace(
@@ -76,5 +77,9 @@ export function fullMetaWorkspace(): Workspace {
     features: ["raid"] as FeatureModuleId[],
     settingsOverrides: { timezone: { timezone: "Europe/Berlin" } },
     budgetHistory: budgetHistoryFixture(),
+    baselineHistory: [
+      { from: "2026-01-05", at: "2026-01-05T08:00:00.000Z", currency: "GBP" },
+      { from: "2026-03-02", at: "2026-03-02T09:30:00.000Z", currency: "USD", perPrevious: 1.3 },
+    ],
   };
 }

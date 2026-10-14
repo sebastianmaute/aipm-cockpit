@@ -2,6 +2,8 @@
 // from `type` + `data` by the React surfaces (never stored as prose), so this
 // module is language-neutral.
 import type { AppView } from "../nav-config";
+import type { BaselineEntry } from "../baseline-currency";
+import { hash } from "../token-hash";
 import { TIMELOG_RULE_IDS } from "../timelog-types";
 
 export const INSIGHT_TYPES = [
@@ -91,6 +93,14 @@ export interface InsightRecommendation {
    *  not a new status, so an older build's status check does not reset the
    *  record to `proposed` (and re-offer its creates). */
   readonly refusedCalls?: number;
+  /** §476: `Workspace.baselineHistory.length` when the recommendation's prompt was built.
+   *  A different length at apply means a switch or a replaced history, and a money call is refused
+   *  (`recommendationPredatesSwitch`). Absent on one made by an older build. */
+  readonly historyLength?: number;
+  /** §476: `baselineHistoryDigest` of the history when the prompt was built, beside
+   *  `historyLength`: a length alone cannot tell a history that was replaced and grew back to
+   *  the same length from the one the recommendation saw. Absent on one made by an older build. */
+  readonly historyDigest?: string;
 }
 
 export const INSIGHT_OUTCOME_DIRECTIONS = ["improved", "unchanged", "worsened"] as const;
@@ -156,6 +166,57 @@ export const ALLOWED_REC_TOOLS: ReadonlySet<string> = new Set([
   "update_stakeholder",
   "create_stakeholder",
 ]);
+
+/** §476 — the arguments of an `ALLOWED_REC_TOOLS` tool that carry money in the project's
+ *  currency. ★ `insight-money-args.test.ts` makes every NUMBER argument of an allowed tool
+ *  either listed here or named in its explicit non-money list, so a new one must be decided. */
+export const REC_MONEY_ARGS: readonly string[] = ["costImpact"];
+
+/** §476 — true when this recommendation must not be replayed: some proposed call carries a
+ *  money argument (`REC_MONEY_ARGS`) AND a baseline-currency switch was made after it was
+ *  generated, so those amounts are in the old currency. "After" is decided by the history
+ *  LENGTH stamped at generation (`historyLength`): a switch only appends, so a longer history
+ *  means a later switch; a SHORTER one means the history was replaced since, and the currency
+ *  the amounts were written in is unknown, so it is refused too. An equal length whose
+ *  `baselineHistoryDigest` differs from the stamped `historyDigest` was replaced and regrown
+ *  (an import that dropped one entry and added another), and is refused as well; a stamp without
+ *  `historyDigest` keeps the length rule alone. The digest ignores ORDER: a switch appends in
+ *  memory, but a reload orders the history by `at`, so an entry from a device whose clock runs
+ *  behind moves, and the same entries must still read as the same history. Never
+ *  by `generatedAt`, which is a DAY — a recommendation regenerated on the day of a switch, as
+ *  the refusal asks, would be refused for the rest of that day. A money argument counts at any
+ *  depth of a call's input. An UNSTAMPED recommendation (an older build) is refused once the
+ *  history holds any switch (an entry with `perPrevious`; the creation entry converts nothing
+ *  and is not one). */
+export function recommendationPredatesSwitch(
+  rec: InsightRecommendation,
+  history: readonly BaselineEntry[],
+): boolean {
+  if (!rec.proposedCalls.some((c) => carriesMoney(c.input))) return false;
+  if (rec.historyLength !== undefined) {
+    if (history.length !== rec.historyLength) return true;
+    return rec.historyDigest !== undefined && baselineHistoryDigest(history) !== rec.historyDigest;
+  }
+  return history.some((e) => e.perPrevious !== undefined);
+}
+
+/** §476 — an order-independent digest of a baseline history: each entry's `at`, currency and
+ *  `perPrevious`, sorted, hashed (`hash`, 16 hex characters; not cryptographic, it only tells
+ *  one stored history from another). Sorted because a reload orders entries by `at` while a
+ *  switch appends, so the same entries arrive in either order. */
+export function baselineHistoryDigest(history: readonly BaselineEntry[]): string {
+  const keys = history.map((e) => `${e.at}|${e.currency}|${e.perPrevious ?? ""}`).sort();
+  return hash(keys.join("\n"));
+}
+
+/** True when `value` holds a `REC_MONEY_ARGS` key at any depth of its objects and arrays. */
+function carriesMoney(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(carriesMoney);
+  if (typeof value !== "object" || value === null) return false;
+  return Object.entries(value).some(
+    ([k, v]) => (REC_MONEY_ARGS.includes(k) && v !== undefined) || carriesMoney(v),
+  );
+}
 
 /** Lifecycle callbacks a surface (dashboard card, Insights view) invokes to
  *  advance an insight's status. Assembled by `useInsightRecommendations` from its

@@ -28,6 +28,7 @@ import type {
   BudgetBucket,
   ChangeItem,
   ChangeStatus,
+  FxRates,
   ProjectMeta,
   RaidItem,
   Resource,
@@ -326,6 +327,9 @@ export interface WorkspaceSectionProps {
   onChangeBudgets: (next: BudgetBucket[], meta?: BucketCommitMeta) => void;
   onRefreshFx: () => void;
   fxLoading?: boolean;
+  /** §476 — the ECB table a refresh fetched in THIS session (`useFxRates().sessionRates`);
+   *  `null` until one succeeds. Gates the Budget panel's baseline-currency switch. */
+  fxSessionRates?: FxRates | null;
   trends: UseSnapshotsResult & { active: boolean };
   versionHistory: UseVersionHistoryResult;
   // Multi-project (Projects view). The mutating callbacks are no-ops in popouts

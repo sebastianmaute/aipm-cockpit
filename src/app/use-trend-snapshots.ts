@@ -54,7 +54,7 @@ export function useTrendSnapshots(deps: TrendSnapshotsDeps): TrendSnapshotsResul
     settings, portfolioMode, tursoConfig, isPopout, workspaceLoaded, tursoProjectId,
     holidaySet, today, activityLog, reportStorageOutcome, showToast, lang,
   } = deps;
-  const { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory, status } = useWorkspace();
+  const { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory, baselineHistory, status } = useWorkspace();
   const workdayHours = settings.resources.workdayHours;
 
   // Baseline/variance trend snapshots. Active when the project's data lives in
@@ -72,6 +72,7 @@ export function useTrendSnapshots(deps: TrendSnapshotsDeps): TrendSnapshotsResul
   const snapshots = useSnapshots({
     active: trendsActive, cadence: snapshotsCfg.cadence, tasks, workspaceReady: workspaceLoaded,
     tursoConfig,
+    baselineHistory,
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
     today: new Date(),
     buildContext: () => {
@@ -80,7 +81,7 @@ export function useTrendSnapshots(deps: TrendSnapshotsDeps): TrendSnapshotsResul
       // return value, so passing it would need a self-reference.
       const model = computeDashboard(
         buildLiveDashboardInput(
-          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory },
+          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory, baselineHistory },
           { workdayHours, holidaySet, status, activity: activityLog, today },
           null,
         ),
@@ -119,12 +120,12 @@ export function useTrendSnapshots(deps: TrendSnapshotsDeps): TrendSnapshotsResul
     () =>
       computeDashboard(
         buildLiveDashboardInput(
-          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory },
+          { tasks, raid, budgets, plan, roles, resources, absences, fxRates, milestones, changes, budgetHistory, baselineHistory },
           { workdayHours, holidaySet, status, activity: activityLog, today },
           { active: trendsActive, snapshots: snapshotRecords },
         ),
       ),
-    [tasks, raid, budgets, plan, roles, resources, absences, fxRates, workdayHours, holidaySet, status, activityLog, today, milestones, changes, budgetHistory, trendsActive, snapshotRecords],
+    [tasks, raid, budgets, plan, roles, resources, absences, fxRates, workdayHours, holidaySet, status, activityLog, today, milestones, changes, budgetHistory, baselineHistory, trendsActive, snapshotRecords],
   );
 
   return { trendsActive, snapshots, trends, actionTrends, dashboardModel };

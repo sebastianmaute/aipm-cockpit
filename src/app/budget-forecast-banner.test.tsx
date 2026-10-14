@@ -107,7 +107,7 @@ describe("ForecastBanners", () => {
       spreadPeriodHoursUsed: false, workingDaysLeft: 69,
       etc: 93150, eac: 261150, vac: -21150, runOutDate: "2026-11-27", daysBeforePlannedEnd: 21,
     });
-    const { container } = render(<ForecastBanners lang="en-US" forecast={forecast} granularity="month" />);
+    const { container } = render(<ForecastBanners currency="EUR" lang="en-US" forecast={forecast} granularity="month" />);
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -117,10 +117,10 @@ describe("ForecastBanners", () => {
       spreadPeriodHoursUsed: false, workingDaysLeft: 69,
       etc: 93150, eac: 261150, vac: -21150, runOutDate: "2026-11-27", daysBeforePlannedEnd: 21,
     };
-    const noCost = render(<ForecastBanners lang="en-US" forecast={forecastWith(pace, { unavailable: "no-actual-cost" })} granularity="month" />);
+    const noCost = render(<ForecastBanners currency="EUR" lang="en-US" forecast={forecastWith(pace, { unavailable: "no-actual-cost" })} granularity="month" />);
     expect(noCost.queryByRole("status")).toBeNull();
     noCost.unmount();
-    const noEarned = render(<ForecastBanners lang="en-US" forecast={forecastWith(pace, { unavailable: "no-earned-value" })} granularity="month" />);
+    const noEarned = render(<ForecastBanners currency="EUR" lang="en-US" forecast={forecastWith(pace, { unavailable: "no-earned-value" })} granularity="month" />);
     expect(noEarned.queryByRole("status")).toBeNull();
   });
 
@@ -131,7 +131,7 @@ describe("ForecastBanners", () => {
       etc: 93150, eac: 261150, vac: -21150, runOutDate: "2026-11-27", daysBeforePlannedEnd: 21,
     };
     const efficiency: BudgetForecast["efficiency"] = { unavailable: "needs-percent-complete", bucketsMissingPercent: [{ id: 1, name: "Design" }] };
-    render(<ForecastBanners lang="en-US" forecast={forecastWith(pace, efficiency)} granularity="month" />);
+    render(<ForecastBanners currency="EUR" lang="en-US" forecast={forecastWith(pace, efficiency)} granularity="month" />);
     const banners = screen.getAllByRole("status");
     expect(banners).toHaveLength(2);
     expect(banners[0].textContent).toBe(t("en-US", "forecastBannerSpreadMonth"));
@@ -146,7 +146,7 @@ describe("ForecastBanners", () => {
   it("passes the warn severity through for no-burn, distinct from an info notice", () => {
     const pace: BudgetForecast["pace"] = { unavailable: "no-burn", windowStart: "2026-08-17", windowEnd: "2026-09-11", lastBookingDate: null };
     const efficiency: BudgetForecast["efficiency"] = { unavailable: "needs-percent-complete", bucketsMissingPercent: [{ id: 1, name: "Design" }] };
-    render(<ForecastBanners lang="en-US" forecast={forecastWith(pace, efficiency)} granularity="month" />);
+    render(<ForecastBanners currency="EUR" lang="en-US" forecast={forecastWith(pace, efficiency)} granularity="month" />);
     const banners = screen.getAllByRole("status");
     expect(banners).toHaveLength(2);
     const [warnBanner, infoBanner] = banners; // no-burn (pace, warn) then needs-percent (efficiency, info) — table order
@@ -158,34 +158,34 @@ describe("ForecastBanners", () => {
 
 describe("ForecastBanners — rate-mix banner (MR 3)", () => {
   it("renders the mix banner even when no other notice applies, as a warning", () => {
-    render(<ForecastBanners lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_HOURS_WORSE} granularity="month" />);
+    render(<ForecastBanners currency="EUR" lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_HOURS_WORSE} granularity="month" />);
     const banners = screen.getAllByRole("status");
     expect(banners).toHaveLength(1);
-    expect(banners[0]).toHaveTextContent(rateMixBannerText("en-US", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE));
+    expect(banners[0]).toHaveTextContent(rateMixBannerText("en-US", MIX_HOURS_WORSE, EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, "EUR"));
     expect(banners[0].className).toContain("--rag-amber");
   });
 
   it("uses the info tint when only the drift fires", () => {
-    render(<ForecastBanners lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_EUR_WORSE} mix={MIX_EUR_WORSE} granularity="month" />);
+    render(<ForecastBanners currency="EUR" lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_EUR_WORSE} mix={MIX_EUR_WORSE} granularity="month" />);
     expect(screen.getByRole("status").className).toContain("ui-dark-blue");
   });
 
   it("sits first, ahead of the existing notices", () => {
     const efficiency: BudgetForecast["efficiency"] = { unavailable: "needs-percent-complete", bucketsMissingPercent: [{ id: 1, name: "Design" }] };
-    render(<ForecastBanners lang="en-US" forecast={{ ...EUR_FORECAST, efficiency }} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_HOURS_WORSE} granularity="month" />);
+    render(<ForecastBanners currency="EUR" lang="en-US" forecast={{ ...EUR_FORECAST, efficiency }} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_HOURS_WORSE} granularity="month" />);
     const banners = screen.getAllByRole("status");
     expect(banners).toHaveLength(2);
     expect(banners[0]).toHaveTextContent("Warning: the hours tell a worse story");
   });
 
   it("renders nothing when the mix does not trigger and no notice applies", () => {
-    const { container } = render(<ForecastBanners lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_ON_PLAN} granularity="month" />);
+    const { container } = render(<ForecastBanners currency="EUR" lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_ON_PLAN} granularity="month" />);
     expect(container).toBeEmptyDOMElement();
   });
 
   it("offers the action only with a handler, and calls it", () => {
     const onShowMix = vi.fn();
-    render(<ForecastBanners lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_HOURS_WORSE} granularity="month" onShowMix={onShowMix} />);
+    render(<ForecastBanners currency="EUR" lang="en-US" forecast={EUR_FORECAST} hours={HOURS_FORECAST_HOURS_WORSE} mix={MIX_HOURS_WORSE} granularity="month" onShowMix={onShowMix} />);
     fireEvent.click(screen.getByRole("button", { name: "Where the hours went" }));
     expect(onShowMix).toHaveBeenCalledTimes(1);
   });

@@ -4,7 +4,7 @@
  * - current pace — the value booked per working day over the last
  *   BURN_RATE_WINDOW_WORKING_DAYS working days, carried to the plan end;
  * - current efficiency — ETC = (BAC − EV) ÷ CPI.
- * Money is EUR, on the contract basis (BAC = `budgetValue`), never internal cost.
+ * Money is in the baseline (`plan.currency`), on the contract basis (BAC = `budgetValue`), never internal cost.
  */
 import {
   calendarDaysBetween, countWorkingDays, addCalendarDays, isWorkingDay, nthWorkingDayAfter, workingDaysBefore,
@@ -14,7 +14,7 @@ import { computeBudgetReport, bucketActivePeriods, bucketRateRows, type BudgetRe
 import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
 import { resolveBucketChain } from "./budget-bucket-chain";
 import { bucketPercentComplete } from "./budget-earned-value";
-import { currencyToEur, planCurrencyPerEur } from "./fx";
+import { currencyToBase } from "./fx";
 import { periodKeyForDate } from "./resource-capacity";
 import { isDayKey, granularityOfPeriodKey } from "./actual-hours";
 import type { Absence, BudgetBucket, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
@@ -183,7 +183,7 @@ export type ForecastFactsByUnit = { eur: ForecastFacts; hours: ForecastFacts };
  * - dated values are hours, from the same day-key / spread-period rules.
  *
  * AC (§5.4/Ruling 1): per bucket, T&M → `BucketReport.consumedValue`
- * (external-EUR basis, already report-consistent); fixed price → the
+ * (external-rate basis, already report-consistent); fixed price → the
  * UNCAPPED contract ratio `contract × actualHours ÷ budgetHours`, so an
  * overrun shows (the report's own `consumedValue` is capped at the contract
  * amount and must never be reused here).
@@ -234,7 +234,7 @@ export function forecastFactsByUnit(input: BudgetForecastInput): ForecastFactsBy
     // explains why that subtraction is NOT valid for value.
     const ownBudgetHours = br.ownBudget.budgetHours;
     const fixedPerHour = isFixed && ownBudgetHours > 0
-      ? currencyToEur(bucket.fixedPriceAmount ?? 0, bucket, fxRates) / ownBudgetHours
+      ? currencyToBase(bucket.fixedPriceAmount ?? 0, bucket, fxRates, plan.currency) / ownBudgetHours
       : 0;
     ac += isFixed && !isEndToEnd ? fixedPerHour * br.actualHours : br.consumedValue;
     // ★★★ OWN budget, in BOTH units. Ruling 1 (MR 3) said the opposite — EV on
@@ -267,7 +267,7 @@ export function forecastFactsByUnit(input: BudgetForecastInput): ForecastFactsBy
       }
     }
     const active = new Set(bucketActivePeriods(bucket, plan).map((p) => p.key));
-    for (const row of bucketRateRows(bucket, roles, planCurrencyPerEur(plan.currency, bucket, fxRates))) { // §473
+    for (const row of bucketRateRows(bucket, roles)) {
       const perHour = isEndToEnd ? row.rates.internal : isFixed ? fixedPerHour : row.rates.external;
       for (const [key, hours] of Object.entries(row.actualHours)) {
         // Ruling 4: hours ≤ 0 carry no booking date at all — a negative hand

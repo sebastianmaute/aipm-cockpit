@@ -177,6 +177,7 @@ export function WorkspaceSection({
   onChangeBudgets,
   onRefreshFx,
   fxLoading = false,
+  fxSessionRates = null,
   fullBleed = false,
   trends,
   versionHistory,
@@ -260,7 +261,7 @@ export function WorkspaceSection({
   //   thing `use-entity-inline-ai-edit.tsx` does with `useWorkspace()` for the
   //   inline row editor, which grounds through the same descriptor engine.
   const workspace = useWorkspace();
-  const { tasks, raid, absences, shifts, resources, setResources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights, budgetHistory } = workspace;
+  const { tasks, raid, absences, shifts, resources, setResources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights, budgetHistory, baselineHistory } = workspace;
   // Per-project EFFECTIVE settings — device folded with this project's policy
   // overrides (nextActions/notifications/timezone) AND its per-device appearance
   // overrides (density/view-hints/tasks-view-mode). Reactive: an appearance change
@@ -498,6 +499,7 @@ export function WorkspaceSection({
               onShowActions={() => setActiveTab("actions")}
               snapshots={trendsActive ? trendsSnapshots : EMPTY_SNAPSHOTS}
               budgetHistory={budgetHistory}
+              baselineHistory={baselineHistory}
             />
           </div>
         )}
@@ -816,6 +818,7 @@ export function WorkspaceSection({
               onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
               onRefreshFx={onRefreshFx}
               fxLoading={fxLoading}
+              fxSessionRates={fxSessionRates}
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
@@ -843,6 +846,7 @@ export function WorkspaceSection({
               onLearnMore={requestHelpConcept}
               snapshots={trendsActive ? trendsSnapshots : EMPTY_SNAPSHOTS}
               budgetHistory={budgetHistory}
+              baselineHistory={baselineHistory}
             />
           </div>
         )}
@@ -977,6 +981,7 @@ export function WorkspaceSection({
               setBaseline={trends.setBaseline}
               deleteSnapshot={trends.deleteSnapshot}
               deleteSnapshots={trends.deleteSnapshots}
+              currency={plan.currency}
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}

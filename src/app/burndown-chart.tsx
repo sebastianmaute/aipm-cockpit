@@ -6,7 +6,7 @@
 // schemes); the line swatch in the legend carries the colour.
 import { useId, useMemo } from "react";
 import { type Lang, t, localeFor } from "./i18n";
-import { formatCurrency } from "./resource-cost";
+import { currencySymbol, formatCurrency } from "./resource-cost";
 import { formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { TermTooltip } from "./budget-forecast-tooltip";
 import {
@@ -94,7 +94,7 @@ function BurndownChartBody({
   const caption = t(lang, down
     ? (unit === "eur" ? "burndownBudgetRemaining" : "burndownHoursRemaining")
     : (unit === "eur" ? "burndownValueCumulative" : "burndownHoursCumulative"));
-  const aria = [t(lang, "burndownAria", caption, t(lang, unit === "eur" ? "burndownUnitEur" : "burndownUnitHours"))];
+  const aria = [t(lang, "burndownAria", caption, unit === "eur" ? t(lang, "burndownUnitEur", currencySymbol(currency, locale)) : t(lang, "burndownUnitHours"))];
   if (model.runOut) aria.push(t(lang, "burndownAriaRunOut", formatDayMonthYear(model.runOut.date, locale)));
   // Spec §5.2: the name carries the forecast's own VAC (the card figure) in BOTH
   // orientations; `endFigure` is the EAC in cumulative, so it is not used here.

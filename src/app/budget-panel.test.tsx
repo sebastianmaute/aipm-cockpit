@@ -40,7 +40,7 @@ describe("BudgetPanel — the project rollup discloses unresolved-rate summands"
   });
 
   test("renders nothing when the only rateless non-EUR bucket is T&M", () => {
-    // A T&M bucket's money is hours × EUR role rates and is converted nowhere,
+    // A T&M bucket's money is hours × baseline role rates and is converted nowhere,
     // so its missing rate put nothing into the rollup at par.
     const tmOnly: BudgetBucket[] = [{ ...buckets[0], id: 2, name: "USD T&M", currency: "USD" }];
     render(<BudgetPanel {...props} buckets={tmOnly} fxRates={null} />);
@@ -61,18 +61,15 @@ describe("BudgetPanel", () => {
     expect(screen.getByText(/Project total/i)).toBeInTheDocument();
     expect(screen.getAllByText(/4,000|4000/).length).toBeGreaterThan(0); // 80×150 − 80×100
   });
-  test("labels the project rollup in EUR even when the plan names another currency", () => {
-    // ★★ The rollup sums the ENGINE's figures and converts NOTHING, and every
-    // figure `computeBudgetReport` returns is EUR (a fixed-price bucket's
-    // contract amount is converted to EUR at the engine's one read). So the
-    // rollup is EUR whatever `plan.currency` says. Narrowing that field to the
-    // `BudgetCurrency` union did NOT make it safe to label with: the union
-    // still admits `USD`/`GBP`, so it states the plan's base currency, never
-    // the unit of an unconverted engine figure. Labelling it `plan.currency`
-    // printed EUR money under another currency's symbol
-    // (docs/open-followups.md §465).
-    // ★ The per-bucket tiles further down are a DIFFERENT case and are correct:
-    // they convert EUR→bucket currency (`inCur`/`cci`) before labelling.
+  test("labels the project rollup in the plan's baseline currency (§476)", () => {
+    // ★★ The rollup sums the ENGINE's figures, and since §476 every figure
+    // `computeBudgetReport` returns is in the project baseline, `plan.currency`:
+    // role rates are entered in it and a fixed-price contract is converted into
+    // it at the engine's one read. So the rollup is labelled with it. (Until
+    // §476 the engine unit was a fixed EUR and this test pinned the opposite,
+    // §465.)
+    // ★ The per-bucket tiles further down are a DIFFERENT case: they convert
+    // baseline→bucket currency (`inCur`/`cci`) before labelling.
     render(<BudgetPanel {...props} plan={{ ...plan, currency: "USD" }} />);
     const rollup = screen.getByText(/Project total/i).closest("section")!;
 
@@ -85,9 +82,9 @@ describe("BudgetPanel", () => {
     // loose floor would let a tile silently stop rendering money at all.
     const money = within(rollup).getAllByText(/[€$]/).map((el) => el.textContent ?? "");
     expect(money).toHaveLength(3);
-    // …and every one of those figures is EUR-labelled, none of them dollars.
-    expect(money.filter((s) => s.includes("$"))).toEqual([]);
-    expect(money.every((s) => s.includes("€"))).toBe(true);
+    // …and every one of those figures is dollar-labelled, none of them euros.
+    expect(money.filter((s) => s.includes("€"))).toEqual([]);
+    expect(money.every((s) => s.includes("$"))).toBe(true);
   });
 
   test("the budget tile does not call its money ratio CPI", () => {
@@ -398,8 +395,8 @@ describe("BudgetPanel", () => {
   // ★★★ A NON-EUR BUCKET AND A RATE != 1 ARE BOTH LOAD-BEARING, and nothing
   // else in this file supplies either. The shared `props` passes
   // `fxRates: null`, at which `resolveRate` returns 1 and BOTH converters —
-  // the engine's inward `currencyToEur` and the panel's outward
-  // `eurToCurrency` — are the identity function, so every other test here
+  // the engine's inward `currencyToBase` and the panel's outward
+  // `baseToCurrency` — are the identity function, so every other test here
   // passes byte-identically whether the conversion exists or not. The one
   // existing `currency: "USD"` fixture sets the PLAN's currency, which no
   // converter reads. Overridden per test rather than on `props`, so the other
@@ -421,7 +418,7 @@ describe("BudgetPanel", () => {
   test("a USD fixed-price bucket renders its contract back in USD, not the engine's EUR", () => {
     // THE ROUND TRIP, end to end. The engine converts the $10,000 contract to
     // EUR at its one read (10,000 / 1.1 = 9,090.91) and the bucket tile
-    // converts it back OUT through `inCur`/`eurToCurrency` before labelling it
+    // converts it back OUT through `inCur`/`baseToCurrency` before labelling it
     // with the bucket's own currency. Only both conversions together give
     // $10,000: drop the outward one and the tile prints the engine's EUR
     // figure under a dollar sign ("$9,091"); convert twice and it prints
@@ -473,7 +470,7 @@ describe("BudgetPanel", () => {
   // ★★★ AN EUR BUCKET CARRYING A STALE POSITIVE OVERRIDE — the exact shape
   // `resolveRate`'s EUR-FIRST ordering exists to repair (the modal's currency
   // <select> never clears the field). Check the override first and the rate is
-  // 2, at which the engine DEFLATES the contract through `currencyToEur` while
+  // 2, at which the engine DEFLATES the contract through `currencyToBase` while
   // `cost` — role rates, EUR by construction — is untouched. Both figures below
   // are `revenue − cost`, so the two terms land in different units and the tile
   // is wrong by (rate − 1) × cost.

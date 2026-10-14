@@ -6,10 +6,16 @@ import type { FxRates } from "./types";
 /**
  * Fetches ECB rates from /api/ecb on demand. `onLoaded` receives the sanitized
  * table so the caller can cache it into the workspace (workspace.fxRates).
+ *
+ * `sessionRates` (§476) is the table the LAST SUCCESSFUL `refresh` of THIS mount
+ * fetched, and `null` until one succeeds; a failed refresh never clears or sets
+ * it. The baseline-currency switch converts at today's rate, so it reads this,
+ * never the cached `workspace.fxRates`, which can be months old.
  */
 export function useFxRates(onLoaded: (fx: FxRates) => void) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionRates, setSessionRates] = useState<FxRates | null>(null);
 
   const refresh = useCallback(async (): Promise<string | null> => {
     setLoading(true);
@@ -20,6 +26,7 @@ export function useFxRates(onLoaded: (fx: FxRates) => void) {
       if (!res.ok) throw new Error(typeof body?.error === "string" ? body.error : `HTTP ${res.status}`);
       const fx = sanitizeFxRates(body);
       if (!fx) throw new Error("Invalid rate table");
+      setSessionRates(fx);
       onLoaded(fx);
       return null;
     } catch (err) {
@@ -31,5 +38,5 @@ export function useFxRates(onLoaded: (fx: FxRates) => void) {
     }
   }, [onLoaded]);
 
-  return { loading, error, refresh };
+  return { loading, error, refresh, sessionRates };
 }

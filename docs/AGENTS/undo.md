@@ -202,6 +202,12 @@ undo block the redo, and the next undo then spliced in a second copy.
     (in-flight AI / Graph writes for this project would be dropped), but it replaces the rows every
     undo image was taken against: replaying one after it silently mixed the two versions. Each restore
     then calls `onUndoHistoryReset` (= `pruneStale`), so the history clears at once.
+    ★★ PLUS one per change of the money DENOMINATION (§476, `useDenominationEpoch`): a
+    baseline-currency switch re-denominates every money field, so an image taken before it would
+    write old-currency amounts back as new-currency ones. The key is `plan.currency` + the length of
+    `baselineHistory`, read from the live slices, so a peer tab's synced switch retires that tab's
+    stack too; each change also calls `onUndoHistoryReset`. Pinned in
+    `use-storage-backend.load-pending.test.tsx` ("§476 — a baseline-currency switch retires…").
   - `usePruneUndoOnScopeChange(loadPending, pruneStale)`, a render-time reconcile called after
     `useStorageBackend`, removes the stale entries from BOTH stacks on each falling edge of the load
     hold, and only those. The epoch moves only on a real scope change, so history survives Save-As, a

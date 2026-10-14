@@ -5,6 +5,7 @@ import { computeBudgetReport } from "./budget-report";
 import { computeBurndownSeries } from "./budget-burndown";
 import { summarizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
 import type { BudgetBucket, ResourcePlan, Role } from "./types";
+import type { BaselineEntry } from "./baseline-currency";
 
 const none = new Set<string>();
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
@@ -16,7 +17,7 @@ function input(buckets: BudgetBucket[]): ForecastBundleInput {
   return {
     report, buckets, roles, fxRates: null, tasks: [], plan, burndown, holidaySet: none, today,
     resources: [], workdayHours: 8, absences: [], disciplines: [{ id: 1, name: "Dev" }], grades: [{ id: 1, name: "Senior" }],
-    progress: new Map(), budgetHistory: [],
+    progress: new Map(), budgetHistory: [], baselineHistory: [],
   };
 }
 const bucket = {
@@ -51,5 +52,27 @@ describe("computeForecastBundle", () => {
     const withHistory = computeForecastBundle({ ...input([bucket]), budgetHistory: history });
     expect(withHistory.history).toEqual(summarizeBudgetHistory(history));
     expect(withHistory.history).not.toBeNull();
+  });
+  it("rebases the recorded budget history into the current baseline (§476)", () => {
+    const history: BudgetHistoryEntry[] = [{
+      id: "h1", at: "2026-01-01T00:00:00.000Z", date: "2026-01-01", kind: "baseline",
+      bucketId: null, bucketName: "", projectBacHours: 100, projectBacValue: 15000, deltaHours: 0, deltaValue: 0,
+    }];
+    const baselineHistory: BaselineEntry[] = [
+      { from: "2026-01-01", at: "2025-12-01T00:00:00.000Z", currency: "EUR" },
+      { from: "2026-03-01", at: "2026-03-01T00:00:00.000Z", currency: "GBP", perPrevious: 0.85 },
+    ];
+    const b = computeForecastBundle({ ...input([bucket]), plan: { ...plan, currency: "GBP" }, budgetHistory: history, baselineHistory });
+    expect(b.history?.baseline.value).toBeCloseTo(12750, 6);
+    expect(b.currency).toBe("GBP");
+  });
+  it("leaves the budget history as recorded without a baseline switch", () => {
+    const history: BudgetHistoryEntry[] = [{
+      id: "h1", at: "2026-01-01T00:00:00.000Z", date: "2026-01-01", kind: "baseline",
+      bucketId: null, bucketName: "", projectBacHours: 100, projectBacValue: 15000, deltaHours: 0, deltaValue: 0,
+    }];
+    const b = computeForecastBundle({ ...input([bucket]), budgetHistory: history });
+    expect(b.history?.baseline.value).toBe(15000);
+    expect(b.currency).toBe("EUR");
   });
 });

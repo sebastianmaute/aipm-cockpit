@@ -95,3 +95,13 @@ describe("activityAuditFileName", () => {
     expect(activityAuditFileName(NOW)).toBe("aipm-cockpit-INTERNAL-activity-audit-2026-10-04.json");
   });
 });
+
+// §476 fix round 1 — the audit download is a MACHINE path: the currency-switch entry keeps the
+// stored ISO ECB date and the raw rate; only the activity panel localises them.
+describe("buildActivityAudit — plan.currencySwitched stays raw (§476)", () => {
+  it("renders the ISO date and the raw rate in the message", () => {
+    const switched = entry({ kind: "plan.currencySwitched", args: ["EUR", "GBP", 0.852, "2026-10-13"], changes: undefined });
+    const [project] = buildActivityAudit("current", [source({ log: [switched] })], NOW, "1.15.0").projects;
+    expect(project.entries[0].message).toBe("Project currency switched from EUR to GBP at 0.852 (ECB rates of 2026-10-13)");
+  });
+});

@@ -15,7 +15,7 @@ import type { Role } from "./types";
 /** Fallback conversion factor when the configured workday hours are invalid. */
 export const DEFAULT_WORKDAY_HOURS = 8;
 
-function round2(n: number): number {
+export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
@@ -58,6 +58,29 @@ export function materializeRoleRates(role: Role, workdayHours: number): Role {
     internalRateDay: round2((role.internalRate ?? 0) * wdh),
     externalRateDay: round2((role.externalRate ?? 0) * wdh),
   };
+}
+
+/**
+ * §476 — `materializeRoleRates` for a role the baseline switch or a version restore
+ * re-derives, with ONE extra rule: a day-basis side that has NO day rate (the sanitizer
+ * allows it) keeps its stored hourly rate and gets no invented day rate, where
+ * `materializeRoleRates` alone would zero both. Shared by `convertRole`
+ * (`baseline-switch.ts`), `prepareRestoredVersion` and `applyRestore`'s role merge
+ * (`version-restore.ts`), so switch and restore cannot disagree. Hour-basis roles are
+ * returned untouched.
+ */
+export function materializeDayBasisRole(role: Role, workdayHours: number): Role {
+  if (role.rateBasis !== "day") return role;
+  const out: Role = { ...materializeRoleRates(role, workdayHours) };
+  if (typeof role.internalRateDay !== "number") {
+    delete out.internalRateDay;
+    out.internalRate = role.internalRate;
+  }
+  if (typeof role.externalRateDay !== "number") {
+    delete out.externalRateDay;
+    out.externalRate = role.externalRate;
+  }
+  return out;
 }
 
 /**

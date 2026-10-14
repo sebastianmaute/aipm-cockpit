@@ -27,18 +27,18 @@ function forecastWith(
 describe("forecastLinkText", () => {
   it("both pace and efficiency available: EAC range, low first", () => {
     const forecast = forecastWith(PACE, EFFICIENCY);
-    expect(forecastLinkText(forecast, "en-US")).toBe("Forecast: EAC €261K–€271K");
+    expect(forecastLinkText(forecast, "en-US", "EUR")).toBe("Forecast: EAC €261K–€271K");
   });
 
   it("orders the range low-first even when efficiency's EAC is lower", () => {
     const lowerEfficiency: BudgetForecast["efficiency"] = { ...EFFICIENCY, eac: 200000, vac: 40000 };
     const forecast = forecastWith(PACE, lowerEfficiency);
-    expect(forecastLinkText(forecast, "en-US")).toBe("Forecast: EAC €200K–€261K");
+    expect(forecastLinkText(forecast, "en-US", "EUR")).toBe("Forecast: EAC €200K–€261K");
   });
 
   it("efficiency unavailable: pace EAC alone", () => {
     const forecast = forecastWith(PACE, { unavailable: "needs-percent-complete", bucketsMissingPercent: [{ id: 1, name: "Design" }] });
-    expect(forecastLinkText(forecast, "en-US")).toBe("Forecast: EAC €261K");
+    expect(forecastLinkText(forecast, "en-US", "EUR")).toBe("Forecast: EAC €261K");
   });
 
   it("pace not-enough-bookings with an availableFrom date", () => {
@@ -46,7 +46,7 @@ describe("forecastLinkText", () => {
       { unavailable: "not-enough-bookings", firstBookingDate: "2026-09-15", bookedWorkingDays: 5, availableFrom: "2026-10-13" },
       EFFICIENCY,
     );
-    expect(forecastLinkText(forecast, "en-US")).toBe("Forecast from Oct 13, 2026");
+    expect(forecastLinkText(forecast, "en-US", "EUR")).toBe("Forecast from Oct 13, 2026");
   });
 
   it("pace not-enough-bookings with nothing booked at all", () => {
@@ -54,7 +54,7 @@ describe("forecastLinkText", () => {
       { unavailable: "not-enough-bookings", firstBookingDate: null, bookedWorkingDays: 0, availableFrom: null },
       EFFICIENCY,
     );
-    expect(forecastLinkText(forecast, "en-US")).toBe("Forecast starts once hours are booked");
+    expect(forecastLinkText(forecast, "en-US", "EUR")).toBe("Forecast starts once hours are booked");
   });
 
   it("pace no-burn: no recent bookings", () => {
@@ -62,7 +62,7 @@ describe("forecastLinkText", () => {
       { unavailable: "no-burn", windowStart: "2026-08-17", windowEnd: "2026-09-11", lastBookingDate: "2026-08-03" },
       EFFICIENCY,
     );
-    expect(forecastLinkText(forecast, "en-US")).toBe("No recent bookings");
+    expect(forecastLinkText(forecast, "en-US", "EUR")).toBe("No recent bookings");
   });
 });
 
@@ -71,7 +71,7 @@ describe("BudgetForecastLink", () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
     const forecast = forecastWith(PACE, EFFICIENCY);
-    render(<BudgetForecastLink lang="en-US" forecast={forecast} onOpen={onOpen} />);
+    render(<BudgetForecastLink lang="en-US" forecast={forecast} currency="EUR" onOpen={onOpen} />);
 
     expect(screen.getByText("Forecast: EAC €261K–€271K")).toBeInTheDocument();
     const arrow = screen.getByText("→");

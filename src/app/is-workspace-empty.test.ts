@@ -106,6 +106,20 @@ describe("the save-time counters deliberately exclude auto-grown slices", () => 
     expect(isWorkspaceEmpty({ ...ws, budgetHistory: history })).toBe(true);
   });
 
+  it("baselineHistory is excluded — the same inversion as budgetHistory (§476)", () => {
+    // Appended by a confirmed currency switch and never emptied by use. Same
+    // shape as above: adding it changes NOTHING against a counting base.
+    const history = [{ from: "2026-01-05", at: "2026-01-05T08:00:00.000Z", currency: "GBP" }] as never;
+    const base = { ...ws, tasks: [{ id: 1 }] as never };
+    expect(nonEmptyCollectionCount(base)).toBe(1);
+    expect(workspaceRecordCount(base)).toBe(1);
+    expect(nonEmptyCollectionCount({ ...base, baselineHistory: history })).toBe(1);
+    expect(workspaceRecordCount({ ...base, baselineHistory: history })).toBe(1);
+    expect(nonEmptyCollectionCount({ ...ws, baselineHistory: history })).toBe(0);
+    expect(workspaceRecordCount({ ...ws, baselineHistory: history })).toBe(0);
+    expect(isWorkspaceEmpty({ ...ws, baselineHistory: history })).toBe(true);
+  });
+
   it("documentVersions is excluded, so a retention prune is not a mass deletion", () => {
     const versioned = { ...ws, documentVersions: Array.from({ length: 50 }, (_, i) => ({ id: `v${i}` })) as never };
     expect(nonEmptyCollectionCount(versioned)).toBe(0);

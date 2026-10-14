@@ -43,7 +43,7 @@ interface Deps {
   capture: UndoStackApi["capture"];
   captureComposite: UndoStackApi["captureComposite"];
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
-  /** Project own-basis BAC (hours/EUR) for a bucket set. Absent for callers
+  /** Project own-basis BAC (hours/baseline money) for a bucket set. Absent for callers
    *  that predate budget history (e.g. bulk-edit test doubles) — recording is
    *  skipped entirely rather than defaulting, so no history entry is ever
    *  minted from a synthetic zero BAC. */

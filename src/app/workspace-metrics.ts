@@ -55,6 +55,8 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     // ★★ budgetHistory is ABSENT for the same reason: ordinary budget edits
     //     append it as a side record, so counting it would keep a wiped project
     //     reading as non-empty. Pinned by workspace.test.ts ("ONLY budgetHistory").
+    // ★★ baselineHistory (§476) is ABSENT for the same reason: one confirmed
+    //     currency switch leaves an entry forever. Pinned by is-workspace-empty.test.ts.
 }
 
 /** ★★★ WHICH SLICES COUNT, AND WHY THE EXCLUSIONS ARE LOAD-BEARING.
@@ -74,6 +76,8 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
  *     itself and warns against "completing" the documents precedent.
  *   - budgetHistory: written by ordinary budget edits as a side record — the
  *     same inversion as activityLog, for the same reason.
+ *   - baselineHistory: appended by a confirmed baseline-currency switch (§476)
+ *     and never emptied by use — the same inversion again.
  *   - documentVersions: auto-captured and pruned by retention, so counting it
  *     would make an ordinary prune read as a mass deletion and refuse a
  *     legitimate save.

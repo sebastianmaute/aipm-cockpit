@@ -43,7 +43,7 @@ before your first edit — the rest is reference, reachable from here.
 | [task-status](docs/AGENTS/task-status.md) | the `status` ⟺ `completedDate` pair · the five writers · load does NOT repair a split pair · `isTaskClosed` vs `isTaskDelivered` |
 | [forecast](docs/AGENTS/forecast.md) | the Monte Carlo schedule forecast (§502) · seed + separate rng streams · the history floor · effort mode · what-if scope vs milestone chances · How-many reads at 100−P |
 | [task-manager](docs/AGENTS/task-manager.md) | the orchestrator's decomposition map — every extracted `use*` hook and `build*` builder, coverage-gated or excluded, and why |
-| [budget](docs/AGENTS/budget.md) | the EUR boundary (`fx.ts`) · plan currency on load · budget follows plan · earned value · the Budget panel's cell layer |
+| [budget](docs/AGENTS/budget.md) | the baseline-currency boundary (`fx.ts`) · the baseline switch + `baselineHistory` · plan currency on load · budget follows plan · earned value · the Budget panel's cell layer |
 | [undo](docs/AGENTS/undo.md) | what is undoable · creates · label registrations · rows vs patches · the redo arm |
 | [desktop](docs/AGENTS/desktop.md) | Electron runtime · port · sign-in popup · print · PDF · updater |
 | [storage](docs/AGENTS/storage.md) | the backends · load and save paths · decode diagnostics ("Saving paused") · unload journal · recovery + reset |
@@ -669,8 +669,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   reports-tables → reports-stats); per-type report engines/panels (budget/raid/resource/stakeholder) live
   in their own files. Reports IS in axe `A11Y_VIEWS`.
 - **Budget, FX and the Budget panel → [`docs/AGENTS/budget.md`](docs/AGENTS/budget.md).** The budget
-  engine treats every figure as EUR (§473); `fixedPriceAmount` is the one stored field it converts, with
-  `currencyToEur`. That file owns the FX boundary, earned value and the panel's pinned-column arithmetic.
+  engine computes every figure in the project's BASELINE currency, `plan.currency` (§476), not EUR;
+  `fixedPriceAmount` is the one stored field it converts, with `currencyToBase`. ★★ A baseline switch
+  converts stored rates once and is not undoable; past snapshots and budget history are rebased at READ
+  time from `baselineHistory`, never rewritten. That file owns the FX boundary, the switch, earned value
+  and the panel's pinned-column arithmetic.
 - **Tables — `SortResizeTh<K>` + `TableFilter` (`report-table.tsx`) → [`docs/AGENTS/ui-shell.md`](docs/AGENTS/ui-shell.md)
   "tables" section.** Every sortable header in the app flows through `SortResizeTh`, which owns
   `aria-sort` and the `aria-hidden` sort glyph — never hand-roll a sort header. ★★ `stickyLeft` turns
@@ -789,7 +792,7 @@ is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lan
 | [task-status.md](docs/AGENTS/task-status.md) | the task completion model — the `status` ⟺ `completedDate` invariant · the FIVE paths that write the pair and the mechanism each holds it by · why `migrateTask` does NOT repair a split pair · the `isTaskClosed` / `isTaskDelivered` split |
 | [forecast.md](docs/AGENTS/forecast.md) | the Monte Carlo schedule forecast — engine files in `src/app/forecast/` · seed and per-output rng streams · history floor and window · queue-position milestone chance · effort mode and the median fallback · what-if scope (milestones unaffected) · Gap · How-many at 100−P, capped at the backlog · exact early exits (the rng skips) and always 10,000 trials · the measured cost (about 30 ms by default, about 600 ms at the What-if extremes, no worker) |
 | [task-manager.md](docs/AGENTS/task-manager.md) | the `task-manager.tsx` decomposition — every extracted deps-object hook and builder, which are coverage-GATED and which excluded, and why each keeps or drops its memoization |
-| [budget.md](docs/AGENTS/budget.md) | budget and money — `resolveRate` / `currencyToEur` and the one stored non-EUR field · the IndexedDB field-wise plan coercion (`coerceStoredPlan`) · `effectiveBudgetHours` mirroring · bucket earned value and its all-or-nothing rollup · the panel module map and pinned-column arithmetic |
+| [budget.md](docs/AGENTS/budget.md) | budget and money — `resolveRate` / `currencyToBase`, the baseline currency and the one stored non-baseline field · the baseline switch and its read-time rebase · the IndexedDB field-wise plan coercion (`coerceStoredPlan`) · `effectiveBudgetHours` mirroring · bucket earned value and its all-or-nothing rollup · the panel module map and pinned-column arithmetic |
 | [undo.md](docs/AGENTS/undo.md) | the undo/redo stack — creates · label registrations · row vs field-patch capture · field groups · the §295 redo arm · popout + load-hold |
 | [desktop.md](docs/AGENTS/desktop.md) | the Electron shell at RUNTIME — port + server child · navigation + sign-in popup · print + menu · PDF export · updater |
 | [storage.md](docs/AGENTS/storage.md) | the storage layer — `createBackend` and the four backend classes · the two load funnels · decode diagnostics and the save pause · the debounced save and flush-on-hide · the §629 unload journal · who writes each of the six paths · `/recovery`, safe mode and the factory reset |
