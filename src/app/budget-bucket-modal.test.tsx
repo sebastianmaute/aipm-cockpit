@@ -7,6 +7,7 @@ import { BudgetBucketModal } from "./budget-bucket-modal";
 import { applyTier } from "./field-visibility";
 import type { FieldTier } from "./modal-fields";
 import { t } from "./i18n";
+import { ToastProvider } from "./toast-context";
 import { fieldTierTrigger, selectFieldTier } from "../test/field-tier";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { BudgetBucket, Role, Task } from "./types";
@@ -767,5 +768,52 @@ describe("BudgetBucketModal — row-unique control names (§276)", () => {
       ],
     }, "full");
     expectRowUniqueNames({ minControls: 15, requireCollisionSeed: true });
+  });
+});
+
+// §476 final fix 2, item 2 — a draft opened BEFORE a baseline-currency switch holds money in the
+// old currency. A peer tab's switch reaches this tab by broadcast while the editor is open; saving
+// the draft then would write pre-switch rate overrides as new-currency amounts. Refused, with a toast.
+describe("BudgetBucketModal — a currency switch while the editor is open (§476)", () => {
+  const live: { current: ReturnType<typeof useWorkspace> | null } = { current: null };
+  function Driver() {
+    const ws = useWorkspace();
+    const ref = useRef(live);
+    useEffect(() => { ref.current.current = ws; });
+    return null;
+  }
+  function open() {
+    const onSave = vi.fn();
+    const showToast = vi.fn();
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <Driver />
+        <BudgetBucketModal
+          lang="en-US" baseCurrency="EUR" bucket={{ ...baseBucket, rateOverrideInternal: 90 }} allBuckets={[baseBucket]}
+          roles={roles} disciplines={[]} grades={[]} resources={[]} onSave={onSave} onClose={vi.fn()}
+        />
+      </ToastProvider>,
+      { wrapper },
+    );
+    return { onSave, showToast };
+  }
+  const save = () => fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+  test("a switch lands after open: Save writes nothing and says why", () => {
+    const { onSave, showToast } = open();
+    act(() => {
+      live.current?.setPlan((p) => ({ ...p, currency: "GBP" }));
+      live.current?.setBaselineHistory((h) => [...h, { from: "2026-10-14", at: "2026-10-14T08:00:00.000Z", currency: "GBP", perPrevious: 0.85 }]);
+    });
+    save();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "guardDenominationChanged"));
+  });
+
+  test("no switch since open: Save writes", () => {
+    const { onSave, showToast } = open();
+    save();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "guardDenominationChanged"));
   });
 });

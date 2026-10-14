@@ -3869,6 +3869,7 @@ const enUS = {
   guardClipboardCopyFailed: "Couldn't copy to clipboard — check browser permissions and try again.",
   guardRestoreVersionMissing: "This version could no longer be loaded — nothing was restored.",
   guardEditVanished: "This item was deleted elsewhere — your change wasn't saved.",
+  guardDenominationChanged: "The project currency changed while this editor was open, so its amounts are out of date — your change wasn't saved. Close it and edit again.",
   guardCommTemplateSaveFailed: "Couldn't save the template — your change wasn't stored. Please retry.",
   guardTimelogPartialProjectFetch: "Bookings for {0} projects couldn't be fetched — totals may be incomplete.",
   guardTimelogPartialProjectFetchOne: "Bookings for 1 project couldn't be fetched — totals may be incomplete.",

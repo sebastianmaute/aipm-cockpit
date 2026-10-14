@@ -19,6 +19,26 @@
 //   has moved for a different project anyway, and the components only ever increase,
 //   so their sum moves whenever any one of them does.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWorkspace } from "./workspace-context";
+
+/** The denomination a money amount is in: the plan currency plus the history length (see above). */
+export function denominationKey(currency: string, historyLength: number): string {
+  return `${currency}|${historyLength}`;
+}
+
+/**
+ * §476 — true once the denomination has moved since the calling component MOUNTED. An edit
+ * modal mounts when it opens, so its draft holds money in the denomination of that moment;
+ * a peer tab's switch broadcast in while it is open converts the stored rows but not the
+ * draft, and saving it would write old-currency amounts as new ones. The bucket and change
+ * editors refuse that save (`guardDenominationChanged`). Must be called inside `WorkspaceProvider`.
+ */
+export function useDenominationMovedSinceOpen(): boolean {
+  const { plan, baselineHistory } = useWorkspace();
+  const key = denominationKey(plan.currency, baselineHistory.length);
+  const [atOpen] = useState(key);
+  return key !== atOpen;
+}
 
 /**
  * Returns a STABLE reader of how many times the denomination has changed since mount.
@@ -27,7 +47,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * on the next Ctrl+Z).
  */
 export function useDenominationEpoch(currency: string, historyLength: number, onChange?: () => void): () => number {
-  const key = `${currency}|${historyLength}`;
+  const key = denominationKey(currency, historyLength);
   const [seen, setSeen] = useState({ key, count: 0 });
   // Render-time reconcile (`set-state-in-effect` is banned).
   if (seen.key !== key) setSeen({ key, count: seen.count + 1 });

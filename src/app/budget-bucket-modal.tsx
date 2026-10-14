@@ -34,6 +34,8 @@ import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback
 import { describeTextCap, describeClamp } from "./sanitize-report";
 import { BUDGET_NAME_MAX, PO_NUMBER_MAX, AMOUNT_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
+import { useDenominationMovedSinceOpen } from "./use-denomination-epoch";
+import { reportSilentFailure } from "./guard-feedback";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
@@ -86,6 +88,7 @@ export function BudgetBucketModal({
   const fxOverrideShown = (currency: BudgetCurrency): boolean =>
     isVisible("fxOverride") && currency !== "EUR" && currency !== baseCurrency;
   const showToast = useToastContext();
+  const denominationMoved = useDenominationMovedSinceOpen();
   const confirm = useConfirm();
   const adj = useAdjustmentTracker();
   const fixedPriceNoticeId = useId();
@@ -262,6 +265,11 @@ export function BudgetBucketModal({
 
   const save = () => {
     setError(null);
+    // §476 — the draft's rate overrides are in the currency of the moment this editor opened.
+    if (denominationMoved) {
+      reportSilentFailure(showToast, lang, "budget.denominationChanged", "currency switch during edit", "guardDenominationChanged");
+      return;
+    }
     if (!draft.name.trim()) {
       setError(t(lang, "budgetNameRequired"));
       return;

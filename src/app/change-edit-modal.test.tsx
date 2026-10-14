@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -797,5 +797,49 @@ describe("ChangeEditModal — deleted-elsewhere notice", () => {
     renderModal({ noteCount: null, isNew: true, onOpenNotes: vi.fn() });
     expect(screen.queryByText(BANNER)).toBeNull();
     expect(screen.queryByText(HINT)).toBeNull();
+  });
+});
+
+// §476 final fix 2, item 2 — the change editor's `costImpact` is in the currency of the moment it
+// opened. A peer tab's switch landing while it is open must not let Save write the old amount as
+// a new-currency one: refused, with a toast.
+describe("ChangeEditModal — a currency switch while the editor is open (§476)", () => {
+  const live: { current: ReturnType<typeof useWorkspace> | null } = { current: null };
+  function Driver() {
+    const ws = useWorkspace();
+    const ref = useRef(live);
+    useEffect(() => { ref.current.current = ws; });
+    return null;
+  }
+  function open() {
+    const onSave = vi.fn();
+    const showToast = vi.fn();
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <Driver />
+        <ChangeEditModal {...base} draft={change({ costImpact: 5000 })} onSave={onSave} />
+      </ToastProvider>,
+      { wrapper },
+    );
+    return { onSave, showToast };
+  }
+  const save = () => fireEvent.click(screen.getByRole("button", { name: t("en-US", "raidSave") }));
+
+  it("a switch lands after open: Save writes nothing and says why", () => {
+    const { onSave, showToast } = open();
+    act(() => {
+      live.current?.setPlan((p) => ({ ...p, currency: "GBP" }));
+      live.current?.setBaselineHistory((h) => [...h, { from: "2026-10-14", at: "2026-10-14T08:00:00.000Z", currency: "GBP", perPrevious: 0.85 }]);
+    });
+    save();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "guardDenominationChanged"));
+  });
+
+  it("no switch since open: Save writes", () => {
+    const { onSave } = open();
+    save();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as ChangeItem).costImpact).toBe(5000);
   });
 });

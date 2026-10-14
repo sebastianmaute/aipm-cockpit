@@ -3647,6 +3647,7 @@ export const de: Record<TranslationKey, string> = {
   guardClipboardCopyFailed: "Kopieren in die Zwischenablage nicht möglich — prüfen Sie die Browser-Berechtigungen und versuchen Sie es erneut.",
   guardRestoreVersionMissing: "Diese Version konnte nicht mehr geladen werden — es wurde nichts wiederhergestellt.",
   guardEditVanished: "Dieser Eintrag wurde an anderer Stelle gelöscht — Ihre Änderung wurde nicht gespeichert.",
+  guardDenominationChanged: "Die Projektwährung wurde geändert, während dieser Editor geöffnet war; seine Beträge sind daher veraltet — Ihre Änderung wurde nicht gespeichert. Schließen Sie den Editor und bearbeiten Sie den Eintrag erneut.",
   guardCommTemplateSaveFailed: "Vorlage konnte nicht gespeichert werden — Ihre Änderung wurde nicht gespeichert. Bitte erneut versuchen.",
   guardTimelogPartialProjectFetch: "Buchungen für {0} Projekte konnten nicht abgerufen werden — die Summen sind möglicherweise unvollständig.",
   guardTimelogPartialProjectFetchOne: "Buchungen für 1 Projekt konnten nicht abgerufen werden — die Summen sind möglicherweise unvollständig.",
