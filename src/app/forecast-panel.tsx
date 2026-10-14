@@ -97,8 +97,11 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
   );
   const maxTarget = useMemo(() => lastForecastableDay(today, holidaySet), [today, holidaySet]);
   const howManyTarget = clampHowManyTarget(target ?? fallbackTarget, today, maxTarget);
+  // What the engine uses, derived at render: a committed scope of -5 reads -3 once only 3 tasks are open,
+  // so the field never shows a figure the forecast does not use. The raw value stays, so it heals if they reopen.
+  const usedWhatIf = useMemo(() => clampWhatIf(whatIf, open.length), [whatIf, open.length]);
   // Quick always runs the plain forecast, whatever the What-if fields still hold.
-  const appliedWhatIf = mode === "whatif" ? whatIf : DEFAULT_WHAT_IF;
+  const appliedWhatIf = mode === "whatif" ? usedWhatIf : DEFAULT_WHAT_IF;
 
   const result = useMemo(
     () =>
@@ -134,7 +137,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
           coverage={coverage}
           historyWindow={historyWindow}
           onWindowChange={setHistoryWindow}
-          whatIf={whatIf}
+          whatIf={usedWhatIf}
           onCommitWhatIf={commitWhatIf}
           onResetSize={reset}
         />
