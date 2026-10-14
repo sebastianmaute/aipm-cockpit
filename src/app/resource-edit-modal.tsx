@@ -278,7 +278,8 @@ export function ResourceEditModal({
                   const trimmed = describeTextCap(e.target.value, EMAIL_MAX).value.trim();
                   update("email", trimmed || undefined);
                 }}
-                aria-required="true"
+                // Required only while no additional email satisfies the rule (`hasMatchableEmail`).
+                aria-required={hasMatchableEmail({ emails: draft.emails }) ? undefined : true}
                 aria-invalid={emailFieldInvalid(cappedEmail) || emailRequiredShown || undefined}
                 aria-describedby={joinDescribedBy(
                   "resource-email-counter",

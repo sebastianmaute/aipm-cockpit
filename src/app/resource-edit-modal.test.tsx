@@ -632,6 +632,15 @@ describe("ResourceEditModal — required-email refusal wiring (§708)", () => {
     expect(emailBox()).toHaveAccessibleDescription(/it is how Timelog bookings reach them/);
   });
 
+  it("M6: marks the primary required only while no additional email satisfies the rule", () => {
+    const { props, rerender } = setup({ resource: { ...noEmail, emails: undefined }, isNew: true });
+    expect(emailBox()).toHaveAttribute("aria-required", "true");
+    rerender(<ResourceEditModal {...props} resource={{ ...noEmail, emails: ["sofia.alt@acme.test"] }} key="extra" />);
+    expect(emailBox()).not.toHaveAttribute("aria-required");
+    rerender(<ResourceEditModal {...props} resource={{ ...noEmail, emails: ["   "] }} key="blank" />);
+    expect(emailBox()).toHaveAttribute("aria-required", "true");
+  });
+
   it("drops the flag and the description as soon as the user edits the email", () => {
     setup({ resource: noEmail, isNew: true });
     submitForm();
