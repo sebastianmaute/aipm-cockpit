@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { planBaselineSwitch, prepareRestoredVersion } from "./baseline-switch";
 import type { BaselineEntry } from "./baseline-currency";
-import { materializeRoleRates, round2 } from "./role-rates";
+import { dayFromHour, materializeRoleRates, round2 } from "./role-rates";
 import { diffWorkspaces } from "./version-diff";
 import { applyRestore, changeKey } from "./version-restore";
 import { emptyWorkspace, type Workspace } from "./workspace";
@@ -295,5 +295,34 @@ describe("restore of a day-basis role missing one day field (fix round 1)", () =
     const now = at([partial()]);
     const out = applyRestore(now, version, diffWorkspaces(version, now), { [changeKey("roles", 13)]: "all" }, { workdayHours: 8 });
     expect(out.roles[0].externalRate).toBe(150);
+  });
+});
+
+// §476 final fix 2, item 3 — an hour-basis role's HOURLY rate is authoritative: the switch converts
+// it and RE-DERIVES the stored day fields from it, so they never drift from `dayFromHour(hourly)`
+// (the value the roles editor shows). 33.33 → 28.4 h; day 266.64 converted alone is 227.18, derived 227.2.
+describe("hour-basis role day fields are re-derived, not converted alone (final fix 2)", () => {
+  const drifty: Role = { id: 21, disciplineId: 1, gradeId: 1, internalRate: 33.33, externalRate: 50, internalRateDay: 266.64, externalRateDay: 400 };
+
+  it("the converted day fields equal the day derived from the converted hourly", () => {
+    const r = plan({ roles: [drifty] })!.roles[0];
+    expect(r.internalRate).toBe(28.4);
+    expect(r.internalRateDay).toBe(dayFromHour(28.4, 8));
+    expect(r.internalRateDay).toBe(227.2);
+    expect(r.externalRateDay).toBe(dayFromHour(r.externalRate, 8));
+  });
+
+  it("the dialog lists no independently converted day row for it", () => {
+    const rows = plan({ roles: [drifty] })!.rows.filter((row) => row.id === 21);
+    const day = rows.find((row) => row.field === "internalRateDay");
+    expect(day?.after).toBe(227.2);
+    expect(rows.some((row) => row.after === 227.18)).toBe(false);
+  });
+
+  it("a restore across the switch takes the same re-derived day value", () => {
+    const version: Workspace = { ...emptyWorkspace(), roles: [drifty] };
+    const S: BaselineEntry = { from: "2026-10-02", at: "2026-10-02T08:00:00.000Z", currency: "GBP", perPrevious: 0.852 };
+    const out = prepareRestoredVersion(version, { history: [S], capturedAt: "2026-10-01T08:00:00.000Z", currency: "GBP", workdayHours: 8 });
+    expect(out.roles[0].internalRateDay).toBe(227.2);
   });
 });

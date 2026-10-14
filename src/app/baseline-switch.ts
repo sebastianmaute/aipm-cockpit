@@ -4,7 +4,7 @@
  * `fixedPriceAmount` or `fxRateOverride`.
  */
 import { crossRate, laterSwitchRates, type BaselineEntry } from "./baseline-currency";
-import { materializeDayBasisRole, round2 } from "./role-rates";
+import { materializeDayBasisRole, materializeRoleRates, round2 } from "./role-rates";
 import type { BudgetBucket, BudgetCurrency, ChangeItem, FxRates, Role } from "./types";
 import type { Workspace } from "./workspace";
 
@@ -57,7 +57,16 @@ export function convertRole(role: Role, rate: number, workdayHours: number): Rol
   }
   // A day-basis role is re-derived; a side with no day rate keeps its CONVERTED hourly
   // rather than being zeroed (§476 B2) — the same rule the restore paths apply.
-  return materializeDayBasisRole(next, workdayHours);
+  if (role.rateBasis === "day") return materializeDayBasisRole(next, workdayHours);
+  // An hour-basis role's HOURLY rate is authoritative: a stored day field is re-derived
+  // from the converted hourly (the value the roles editor shows), never converted on its
+  // own, which drifts by a cent. A day field the role does not carry stays absent.
+  const derived = materializeRoleRates(next, workdayHours);
+  const out: Role = { ...next };
+  for (const f of ["internalRateDay", "externalRateDay"] as const) {
+    if (typeof role[f] === "number") out[f] = derived[f];
+  }
+  return out;
 }
 
 export function convertBucket(bucket: BudgetBucket, rate: number): BudgetBucket {
