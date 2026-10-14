@@ -23,6 +23,7 @@ import { ForecastChart } from "./forecast-chart";
 import { MilestoneTable, PercentileTable } from "./forecast-tables";
 import { ReportCard } from "./report-table";
 import { EmptyState } from "./empty-state";
+import { isValidIsoDate } from "./forecast/throughput";
 import { isTaskClosed } from "./task-closed";
 import type { Milestone, ResourcePlan, Task } from "./types";
 import { useResizable } from "./use-resizable";
@@ -30,7 +31,11 @@ import { nthWorkingDayAfter } from "./working-days";
 
 const FALLBACK_TARGET_WORKING_DAYS = 30;
 
-/** The How-many target: the earliest unachieved milestone on or after today, else the plan end, else today + 30 working days. */
+/**
+ * The How-many target: the earliest unachieved milestone on or after today, else the plan end, else
+ * today + 30 working days. Load keeps a shape-valid non-calendar date (2026-11-31) raw, so each
+ * candidate must be a real calendar day before it can become the target.
+ */
 export function defaultHowManyTarget(
   milestones: readonly Milestone[],
   plan: ResourcePlan,
@@ -38,11 +43,11 @@ export function defaultHowManyTarget(
   holidaySet: ReadonlySet<string>,
 ): string {
   const upcoming = milestones
-    .filter((m) => !m.achievedDate && m.date >= today)
+    .filter((m) => !m.achievedDate && isValidIsoDate(m.date) && m.date >= today)
     .map((m) => m.date)
     .sort();
   if (upcoming.length > 0) return upcoming[0];
-  if (plan.endDate >= today) return plan.endDate;
+  if (isValidIsoDate(plan.endDate) && plan.endDate >= today) return plan.endDate;
   return nthWorkingDayAfter(today, FALLBACK_TARGET_WORKING_DAYS, holidaySet);
 }
 

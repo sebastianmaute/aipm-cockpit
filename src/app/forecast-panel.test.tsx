@@ -170,11 +170,25 @@ describe("ForecastPanel", () => {
   });
 
   test("a milestone with a blank date does not crash the view (R16)", () => {
-    // Load repairs an invalid milestone date to ""; the engine omits it, so no row is formatted.
+    // Load repairs a date that is not YYYY-MM-DD to ""; the engine omits it, so no row is formatted.
     const blank: Milestone[] = [{ id: 1, name: "Broken", date: "", linkedTaskIds: [1] }];
     render(<ForecastPanel lang="en-US" tasks={[...open(5), ...steadyDone(60)]} milestones={blank} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} />);
     expect(screen.queryByRole("rowheader", { name: /Broken/ })).toBeNull();
     expect(screen.getByText(t("en-US", "forecastNoMilestones"))).toBeTruthy();
+  });
+
+  test("a non-calendar milestone or plan end never becomes the default target (R16)", () => {
+    // Load keeps a shape-valid non-calendar date raw (`isKeptNonCalendarDate`).
+    const bad: Milestone[] = [{ id: 1, name: "Bad", date: "2026-11-31", linkedTaskIds: [1] }];
+    const tasks = [...open(5), ...steadyDone(60)];
+    const { unmount } = render(<ForecastPanel lang="en-US" tasks={tasks} milestones={bad} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} />);
+    expect((screen.getByLabelText("How many by") as HTMLInputElement).value, "milestone date skipped").toBe("2026-12-31");
+    unmount();
+    const badPlan = { ...PLAN, endDate: "2026-11-31" } as ResourcePlan;
+    render(<ForecastPanel lang="en-US" tasks={tasks} milestones={NO_MILESTONES} plan={badPlan} today={TODAY} holidaySet={NO_HOLIDAYS} />);
+    expect((screen.getByLabelText("How many by") as HTMLInputElement).value, "plan end skipped").toBe(
+      nthWorkingDayAfter(TODAY, 30, NO_HOLIDAYS),
+    );
   });
 
   test("toolbar keeps the trailing group contiguous", () => {
