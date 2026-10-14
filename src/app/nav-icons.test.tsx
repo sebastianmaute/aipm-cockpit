@@ -15,7 +15,7 @@ const lucideName = (svg: Element) =>
 // together. Mis-wiring is the defect class this whole barrel exists to guard,
 // so the expectation has to be stated independently, the way `icons.test.ts`
 // states its 69 rows. ★★ Four glyphs are intentionally REUSED across views
-// (clock, text-align-start, and file-chart-column ×4), so do NOT "improve" this
+// (clock, text-align-start, chart-column, and file-chart-column ×4), so do NOT "improve" this
 // into a distinctness assertion: it would be a false red, and splitting those
 // rows to satisfy it would be a product change smuggled in by a test.
 const EXPECTED_GLYPH: Record<AppView, string> = {
@@ -42,6 +42,7 @@ const EXPECTED_GLYPH: Record<AppView, string> = {
   "raid-report": "lucide-file-chart-column",
   changes: "lucide-arrow-left-right",
   "change-report": "lucide-file-chart-column",
+  forecast: "lucide-chart-column",
   stakeholders: "lucide-users-round",
   raci: "lucide-table",
   "stakeholder-map": "lucide-presentation",

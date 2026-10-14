@@ -59,8 +59,8 @@ function parseWhatIf(whatIf: WhatIf, field: WhatIfField, raw: string, openCount:
 
 interface Props {
   lang: Lang;
-  tasks: Task[];
-  milestones: Milestone[];
+  tasks: readonly Task[];
+  milestones: readonly Milestone[];
   plan: ResourcePlan;
   today: string;
   holidaySet: ReadonlySet<string>;

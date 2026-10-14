@@ -26,7 +26,7 @@ import { sealPassphrase, type SealedSecret } from "../src/app/secrets";
 // names, labels, landmarks, ARIA) AND `color-contrast`, which now passes after
 // the palette tuning, the status-chip rework (dark-blue text on the hue tint
 // instead of same-hue text), and dropping the opacity-dim on completed rows.
-const A11Y_VIEWS = ["Dashboard", "Open Points", "Gantt", "Resources", "Budget", "RAID", "Settings", "Stakeholders", "Changes", "Milestones", "Reports", "Activity", "Time bookings", "AI Assistant", "Next actions", "Insights", "Documents"] as const;
+const A11Y_VIEWS = ["Dashboard", "Open Points", "Gantt", "Resources", "Budget", "RAID", "Settings", "Stakeholders", "Changes", "Milestones", "Reports", "Activity", "Time bookings", "AI Assistant", "Next actions", "Insights", "Documents", "Forecast"] as const;
 
 // Views reached by hash (not a top-level sidebar click): Dashboard sub-children
 // whose sidebar entry may be collapsed at scan time. Navigating by hash mirrors
@@ -34,9 +34,11 @@ const A11Y_VIEWS = ["Dashboard", "Open Points", "Gantt", "Resources", "Budget", 
 const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
   "Next actions": "#actions",
   Insights: "#insights",
+  // A Reports child: the sidebar entry sits under a collapsible parent.
+  Forecast: "#forecast",
 };
 
-// ★★★ THE HASH MUST STICK, OR THESE TWO VIEWS ARE SCANNED AS THE DASHBOARD AND
+// ★★★ THE HASH MUST STICK, OR THE HASH_VIEW VIEWS ARE SCANNED AS THE DASHBOARD AND
 // NOTHING SAYS SO. `gotoApp` waits for <main> and the "Dashboard" nav entry,
 // both gated on `i18nReady` — NOT on `hydrated`. `useHashView` is enabled only
 // once `hydrated` is true, and its early return sits ABOVE the
@@ -48,7 +50,7 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
 // applies the stale-residue rule and lands on the DASHBOARD — and nothing
 // downstream notices: `waitForViewSettled` polls <main>'s innerHTML for
 // STABILITY, never for WHICH view, so axe passes on the Dashboard and
-// `Next actions` / `Insights` go permanently unscanned on a green run.
+// `Next actions` / `Insights` / `Forecast` go permanently unscanned on a green run.
 //
 // SELF-HEALING rather than merely loud: the loss is a race, and a red nobody
 // can reproduce is worth less than a spec that repairs itself. Each round
@@ -297,7 +299,7 @@ for (const combo of COMBOS) {
         // (modern-shell.tsx → top-bar.tsx), i.e. it is DERIVED from the routed
         // view and from nothing else — the only h1 the modern shell renders,
         // and the same label these A11Y_VIEWS entries are spelled with. So it
-        // reads "Next actions" / "Insights" only when that view is genuinely
+        // reads "Next actions" / "Insights" / "Forecast" only when that view is genuinely
         // on screen, and "Dashboard" in every failure above.
         // ★★ `exact: true` is NOT optional: Playwright's `getByRole` name
         // matching defaults to a case-insensitive SUBSTRING (the opposite of
@@ -310,6 +312,13 @@ for (const combo of COMBOS) {
         ).toBeVisible();
       } else {
         await openView(page, name);
+      }
+      // ★ The seed's completions fall mostly outside the default 60-working-day
+      // window, so the Forecast would scan its "not enough history" state (no
+      // chart, no tables). "All history" is independent of today's date.
+      if (name === "Forecast") {
+        await page.getByRole("combobox", { name: "History", exact: true }).selectOption("all");
+        await expect(page.locator("#panel-forecast svg[role=img]")).toBeVisible();
       }
       // ★ The table must be on screen, or this scan is the empty state again.
       if (timelog) {

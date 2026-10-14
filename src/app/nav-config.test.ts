@@ -73,8 +73,8 @@ describe("nav-config", () => {
     expect(subTabsFor("open-points")).toEqual([]);
   });
 
-  it("exposes budget-report, raid-report and change-report as children of reports", () => {
-    const reportKids = [{ view: "budget-report" }, { view: "raid-report" }, { view: "change-report" }];
+  it("exposes budget-report, raid-report, change-report and forecast as children of reports", () => {
+    const reportKids = [{ view: "budget-report" }, { view: "raid-report" }, { view: "change-report" }, { view: "forecast" }];
     expect(subTabsFor("reports")).toEqual(reportKids);
     expect(subTabsFor("budget-report")).toEqual(reportKids);
     expect(subTabsFor("raid-report")).toEqual(reportKids);
@@ -83,6 +83,9 @@ describe("nav-config", () => {
     expect(allNavViews()).toContain("raid-report");
     expect(navLabelKey("budget-report")).toBe("budgetReportTitle");
     expect(navLabelKey("raid-report")).toBe("raidReportTitle");
+    expect(subTabsFor("forecast")).toEqual(reportKids);
+    expect(navLabelKey("forecast")).toBe("forecastTitle");
+    expect(buildHash("forecast")).toBe("#forecast");
   });
 
   it("includes changes + change-report in nav", () => {
@@ -98,6 +101,7 @@ describe("nav-config", () => {
       { view: "budget-report" },
       { view: "raid-report" },
       { view: "change-report" },
+      { view: "forecast" },
     ]);
     expect(navLabelKey("changes")).toBe("navChanges");
     expect(navLabelKey("change-report")).toBe("changeReportTitle");

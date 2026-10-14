@@ -152,6 +152,13 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     purpose: "Change report aggregates change requests by state, type and impact.",
     toolHints: ["list_changes"],
   },
+  forecast: {
+    purpose:
+      "Forecast runs a Monte Carlo simulation over the project's completed-task throughput to estimate when the open work finishes (P50/P80/P95) and each milestone's chance of being met.",
+    toolHints: ["list_tasks", "list_milestones"],
+    reading:
+      "No chat tool returns the simulated dates or chances, so never quote a percentile or a milestone chance as if you had read it; list_tasks gives the open backlog and completion dates the simulation is built from. Point the user to this view for the forecast itself.",
+  },
   stakeholders: {
     purpose:
       "Stakeholders is the register of people and organizations with influence and interest levels.",

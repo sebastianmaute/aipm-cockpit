@@ -58,6 +58,12 @@ describe("ask-claude-prompts", () => {
     expect(ASK_CLAUDE_PROMPTS.timelog).toBeUndefined();
   });
 
+  // No read tool returns a simulated forecast yet (`get_forecast` is slice 4
+  // of §502), so a chip here would ask a question no tool can answer.
+  it("has no chip for forecast, whose read tool is not built yet (§502)", () => {
+    expect(ASK_CLAUDE_PROMPTS.forecast).toBeUndefined();
+  });
+
   // Not a capability gap: `search_history` shipped and VIEW_AI_SCOPE.activity
   // says so, so a chip here would satisfy the "tool hints or a digest" test
   // below. Its absence is a product choice, recorded so nobody infers a missing
