@@ -48,17 +48,21 @@ export function simulateWhen(
   return { days, beyondShare: o.trials === 0 ? 0 : beyond / o.trials };
 }
 
-/** Amount delivered within `days` working days, per trial, sorted ascending. */
+/**
+ * Amount delivered within `days` working days, per trial, sorted ascending. Capped at `backlog`:
+ * a trial cannot deliver more than is open, so it stops drawing once the backlog is done.
+ */
 export function simulateHowMany(
   samples: readonly number[],
   days: number,
+  backlog: number,
   o: SimOptions,
 ): Float64Array {
   const out = new Float64Array(o.trials);
   for (let t = 0; t < o.trials; t += 1) {
     let total = 0;
-    for (let d = 0; d < days; d += 1) total += drawDay(samples, o);
-    out[t] = total;
+    for (let d = 0; d < days && total < backlog; d += 1) total += drawDay(samples, o);
+    out[t] = Math.min(total, backlog);
   }
   out.sort();
   return out;

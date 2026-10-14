@@ -151,7 +151,8 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
 
   const history: ThroughputHistory = dailyThroughput({ tasks, today, window, holidaySet, unit, unestimatedSize: unitSize });
   const windowDays = history.days.length;
-  if (backlog > 0 && (history.finished < MIN_FINISHED_TASKS || windowDays < MIN_HISTORY_WORKING_DAYS)) {
+  // The floor reads the real backlog: a what-if that empties it must not let below-floor numbers out.
+  if (open.length > 0 && (history.finished < MIN_FINISHED_TASKS || windowDays < MIN_HISTORY_WORKING_DAYS)) {
     return {
       kind: "insufficient",
       finished: history.finished,
@@ -179,7 +180,7 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
   const lastDay = lastForecastableDay(today, holidaySet);
   const target = input.howManyTarget < lastDay ? input.howManyTarget : lastDay;
   const targetDays = countWorkingDays(addCalendarDays(today, 1), addCalendarDays(target, 1), holidaySet);
-  const reached = simulateHowMany(history.samples, targetDays, stream("howMany"));
+  const reached = simulateHowMany(history.samples, targetDays, backlog, stream("howMany"));
   const chances = milestoneChances({
     milestones,
     ordered: orderBacklog(open),

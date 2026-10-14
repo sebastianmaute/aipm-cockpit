@@ -2,6 +2,9 @@ import { describe, expect, test } from "vitest";
 import { mulberry32 } from "./rng";
 import { drawDay, percentile, simulateHowMany, simulateWhen, type SimOptions } from "./simulate";
 
+/** A backlog no test in this file reaches, for the cases that are not about the cap. */
+const UNCAPPED = Number.MAX_SAFE_INTEGER;
+
 function opts(over: Partial<SimOptions> = {}): SimOptions {
   return { trials: 200, rng: mulberry32(42), capacity: 1, horizon: 1300, integer: true, ...over };
 }
@@ -52,24 +55,32 @@ describe("simulateWhen", () => {
 
 describe("simulateHowMany", () => {
   test("how many after 5 days at 2/day is 10", () => {
-    const out = simulateHowMany([2], 5, opts());
+    const out = simulateHowMany([2], 5, UNCAPPED, opts());
     expect(Array.from(out).every((v) => v === 10)).toBe(true);
   });
 
+  test("a trial never delivers more than the backlog", () => {
+    // 2/day for 5 days would be 10, but only 5 are open; effort fractions are capped the same way.
+    const out = simulateHowMany([2], 5, 5, opts());
+    expect(Array.from(out).every((v) => v === 5), "How-many is capped at the backlog").toBe(true);
+    const frac = simulateHowMany([3], 4, 2.5, opts({ integer: false }));
+    expect(Array.from(frac).every((v) => v === 2.5), "How-many is capped at the backlog (effort)").toBe(true);
+  });
+
   test("integer: false keeps fractions", () => {
-    const out = simulateHowMany([3], 2, opts({ capacity: 0.5, integer: false }));
+    const out = simulateHowMany([3], 2, UNCAPPED, opts({ capacity: 0.5, integer: false }));
     expect(Array.from(out).every((v) => v === 3)).toBe(true);
   });
 
   test("integer: true stochastic-rounds to whole numbers", () => {
-    const out = simulateHowMany([3], 2, opts({ capacity: 0.5 }));
+    const out = simulateHowMany([3], 2, UNCAPPED, opts({ capacity: 0.5 }));
     expect(Array.from(out).every((v) => Number.isInteger(v) && v >= 2 && v <= 4)).toBe(true);
   });
 
   test("stochastic rounding averages to the fraction, both ways (T2b)", () => {
     // 1 x 0.5 per day: each day rounds to 0 or 1, and the mean over many draws is 0.5.
     // A floor-only rounding would make every draw 0 (80 % capacity on 1-task days would never finish).
-    const out = Array.from(simulateHowMany([1], 1, opts({ trials: 4000, capacity: 0.5 })));
+    const out = Array.from(simulateHowMany([1], 1, UNCAPPED, opts({ trials: 4000, capacity: 0.5 })));
     const mean = out.reduce((a, b) => a + b, 0) / out.length;
     expect(out).toContain(0);
     expect(out).toContain(1);
@@ -78,7 +89,7 @@ describe("simulateHowMany", () => {
   });
 
   test("results are sorted ascending", () => {
-    const out = simulateHowMany([0, 4], 5, opts());
+    const out = simulateHowMany([0, 4], 5, UNCAPPED, opts());
     expect(Array.from(out)).toEqual(Array.from(out).sort((x, y) => x - y));
   });
 });

@@ -86,10 +86,15 @@ describe("computeScheduleForecast floor", () => {
 
 describe("computeScheduleForecast backlog", () => {
   test("scope -100% empties the backlog and finishes today", () => {
-    const r = computeScheduleForecast(input(open(5), { whatIf: { ...NEUTRAL, scopePercent: -100 } }));
+    const r = computeScheduleForecast(input([...open(5), ...recentDone(10)], { whatIf: { ...NEUTRAL, scopePercent: -100 } }));
     if (r.kind !== "forecast") throw new Error("expected forecast");
     expect(r.backlog).toBe(0);
     expect(r.when.every((w) => w.daysAhead === 0 && w.date === TODAY)).toBe(true);
+  });
+
+  test("a what-if that empties the backlog still needs the history floor", () => {
+    const r = computeScheduleForecast(input(open(5), { whatIf: { ...NEUTRAL, scopePercent: -100 } }));
+    expect(r.kind, "the floor reads the open backlog before the what-if").toBe("insufficient");
   });
 
   test("an empty backlog skips the floor and keeps milestone states", () => {
@@ -166,8 +171,8 @@ describe("computeScheduleForecast determinism", () => {
 describe("computeScheduleForecast effort what-if and history", () => {
   const sized = (...mins: number[]) => mins.map((m, i) => task(i + 1, { originalEstimateMinutes: m }));
 
-  test("effort scope -100% with unequal estimates and no history is done today", () => {
-    const r = computeScheduleForecast(input(sized(10, 10, 1000), { unit: "effort", whatIf: { ...NEUTRAL, scopePercent: -100 } }));
+  test("effort scope -100% with unequal estimates is done today", () => {
+    const r = computeScheduleForecast(input([...sized(10, 10, 1000), ...recentDone(10, 30)], { unit: "effort", whatIf: { ...NEUTRAL, scopePercent: -100 } }));
     if (r.kind !== "forecast") throw new Error("expected forecast");
     expect(r.unit).toBe("effort");
     expect(r.backlog).toBe(0);
@@ -175,7 +180,7 @@ describe("computeScheduleForecast effort what-if and history", () => {
   });
 
   test("effort scopeTasks = -open.length empties the backlog", () => {
-    const r = computeScheduleForecast(input(sized(10, 10, 1000), { unit: "effort", whatIf: { ...NEUTRAL, scopeTasks: -3 } }));
+    const r = computeScheduleForecast(input([...sized(10, 10, 1000), ...recentDone(10, 30)], { unit: "effort", whatIf: { ...NEUTRAL, scopeTasks: -3 } }));
     expect(r).toMatchObject({ kind: "forecast", backlog: 0 });
   });
 
@@ -219,10 +224,18 @@ describe("computeScheduleForecast how many", () => {
   }
 
   test("counts the working days in (today, target] from a weekend today", () => {
-    const r = computeScheduleForecast(input([...open(5), ...steadyTwoPerDay()], { today: "2026-10-17", howManyTarget: "2026-10-23" }));
+    // 50 open, so the backlog cap (below) stays out of the way.
+    const r = computeScheduleForecast(input([...open(50), ...steadyTwoPerDay()], { today: "2026-10-17", howManyTarget: "2026-10-23" }));
     if (r.kind !== "forecast") throw new Error("expected forecast");
     // Mon-Fri = 5 working days at exactly 2 per day.
     expect(r.howMany.map((h) => h.amount)).toEqual([10, 10, 10]);
+  });
+
+  test("How-many is capped at the open backlog", () => {
+    // 2 a day for 5 working days would be 10, but only 5 tasks are open.
+    const r = computeScheduleForecast(input([...open(5), ...steadyTwoPerDay()], { today: "2026-10-17", howManyTarget: "2026-10-23" }));
+    if (r.kind !== "forecast") throw new Error("expected forecast");
+    expect(r.howMany.map((h) => h.amount), "How-many is capped at the backlog").toEqual([5, 5, 5]);
   });
 
   test("a target on or before today yields 0", () => {
@@ -233,7 +246,8 @@ describe("computeScheduleForecast how many", () => {
 
   test("a far target is capped at the horizon (R15)", () => {
     // A year-2206 typo would otherwise simulate ~47,000 days per trial; 2 a day x 1300 days = 2600.
-    const tasks = [...open(5), ...steadyTwoPerDay()];
+    // 3000 open, so the backlog cap stays out of the way.
+    const tasks = [...open(3000), ...steadyTwoPerDay()];
     const r = computeScheduleForecast(input(tasks, { today: "2026-10-17", howManyTarget: "2206-10-14", trials: 3 }));
     if (r.kind !== "forecast") throw new Error("expected forecast");
     expect(r.howMany.map((h) => h.amount)).toEqual([2600, 2600, 2600]);
@@ -242,7 +256,8 @@ describe("computeScheduleForecast how many", () => {
   test("higher confidence promises no more than lower confidence", () => {
     // Uneven days (3, 2, then 1s): since R14 the window holds no pre-history zeros to spread the draws.
     const uneven = [done(1500, "2026-10-14"), done(1501, "2026-10-14"), done(1502, "2026-10-13")];
-    const r = computeScheduleForecast(input([...open(5), ...recentDone(12), ...uneven], { howManyTarget: "2026-11-13" }));
+    // 100 open, so no percentile reaches the backlog cap.
+    const r = computeScheduleForecast(input([...open(100), ...recentDone(12), ...uneven], { howManyTarget: "2026-11-13" }));
     if (r.kind !== "forecast") throw new Error("expected forecast");
     const [p50, p80, p95] = r.howMany.map((h) => h.amount);
     expect(p95).toBeLessThanOrEqual(p80);
