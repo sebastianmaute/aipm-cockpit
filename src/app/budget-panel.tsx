@@ -35,6 +35,7 @@ import { computeProjectForecast } from "./budget-forecast";
 import { BudgetForecastLink } from "./budget-forecast-link";
 import { useConfirm } from "./confirm-dialog";
 import { buildRowTokens } from "./row-tokens";
+import { BaselineCurrencyControl } from "./baseline-currency-control";
 
 const BUDGET_COL_WIDTHS = {
   role: 160,
@@ -73,6 +74,11 @@ export interface BudgetPanelProps {
   onSetBudgetFollowsPlan?: (v: boolean) => void;
   onRefreshFx: () => void;
   fxLoading?: boolean;
+  /** §476 — the ECB table a refresh fetched in THIS session; `null` until one
+   *  succeeds. `undefined` means the host does not wire the baseline-currency
+   *  switch at all (`workspace-section` always passes it), so the control —
+   *  which reads `useWorkspace()` — is not rendered. */
+  fxSessionRates?: FxRates | null;
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
@@ -390,6 +396,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
           {/* ★ `Button` already supplies `disabled:cursor-not-allowed
               disabled:opacity-50` in its base class — do not re-declare them
               here. The className is layout only, appended after the variant. */}
+          {!isPopout && props.fxSessionRates !== undefined ? (
+            <BaselineCurrencyControl lang={lang} sessionRates={props.fxSessionRates} workdayHours={workdayHours} />
+          ) : null}
           <Button
             variant="secondary"
             size="xs"

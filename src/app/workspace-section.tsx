@@ -176,6 +176,7 @@ export function WorkspaceSection({
   onChangeBudgets,
   onRefreshFx,
   fxLoading = false,
+  fxSessionRates = null,
   fullBleed = false,
   trends,
   versionHistory,
@@ -810,6 +811,7 @@ export function WorkspaceSection({
               onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
               onRefreshFx={onRefreshFx}
               fxLoading={fxLoading}
+              fxSessionRates={fxSessionRates}
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}

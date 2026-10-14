@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { BudgetPanel } from "./budget-panel";
-import type { BudgetBucket, Discipline, Role, ResourcePlan, Task } from "./types";
+import type { BudgetBucket, Discipline, FxRates, Role, ResourcePlan, Task } from "./types";
 
 // The edit modal's header controls read field visibility from the workspace,
 // so any render that can open the modal needs Workspace/Filters providers.
@@ -291,5 +291,31 @@ describe("BudgetPanel editing", () => {
     const linked: BudgetBucket[] = [{ ...twoBuckets[1], taskIds: [1, 2] }];
     render(<Harness initial={linked} onChangeSpy={vi.fn()} />, { wrapper });
     expect(screen.getByLabelText("Manual % complete – Build")).toHaveAttribute("placeholder", "—");
+  });
+});
+
+// §476 — the baseline-currency switch sits in the toolbar before the FX refresh
+// button, in the main window only, and only when the host wires session rates.
+describe("BudgetPanel baseline-currency control", () => {
+  const renderPanel = (extra: { fxSessionRates?: FxRates | null; isPopout?: boolean }) =>
+    render(
+      <BudgetPanel
+        lang="en-US" buckets={[]} roles={roles} disciplines={[]} grades={[]} resources={[]} plan={plan}
+        fxRates={null} absences={[]} holidaySet={new Set<string>()} workdayHours={8} today="2026-02-01"
+        onChangeBuckets={vi.fn()} onRefreshFx={vi.fn()} timelogProjectId="acme" {...extra}
+      />,
+      { wrapper },
+    );
+
+  test("renders the Project currency select immediately before Refresh ECB rates", () => {
+    renderPanel({ fxSessionRates: null });
+    const select = screen.getByRole("combobox", { name: "Project currency" });
+    const refresh = screen.getByRole("button", { name: "Refresh ECB rates" });
+    expect(select.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  test("is not rendered in a popout", () => {
+    renderPanel({ fxSessionRates: null, isPopout: true });
+    expect(screen.queryByRole("combobox", { name: "Project currency" })).not.toBeInTheDocument();
   });
 });

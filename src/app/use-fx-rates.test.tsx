@@ -23,4 +23,22 @@ describe("useFxRates", () => {
     await act(async () => { await result.current.refresh(); });
     expect(result.current.error).toBeTruthy();
   });
+
+  // §476 — the baseline switch converts at TODAY's rate, so it may only use a
+  // table fetched in this mount, never the one cached in the workspace.
+  test("sessionRates is null before refresh and the fetched table after a successful one", async () => {
+    server.use(http.get("*/api/ecb", () => HttpResponse.json(sample)));
+    const { result } = renderHook(() => useFxRates(vi.fn()));
+    expect(result.current.sessionRates).toBeNull();
+    await act(async () => { await result.current.refresh(); });
+    expect(result.current.sessionRates).toEqual(sample);
+  });
+
+  test("sessionRates stays null after a failed refresh", async () => {
+    server.use(http.get("*/api/ecb", () => HttpResponse.json({ error: "x" }, { status: 502 })));
+    const { result } = renderHook(() => useFxRates(vi.fn()));
+    await act(async () => { await result.current.refresh(); });
+    expect(result.current.error).toBeTruthy();
+    expect(result.current.sessionRates).toBeNull();
+  });
 });
