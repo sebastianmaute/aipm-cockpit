@@ -950,7 +950,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§710](#710-an-empty-budget-view-offers-only-add-bucket-with-no-word-on-the-setup-order--closed-2026-10-13) | An empty Budget view offers only "Add bucket", with no word on the setup order | — | — | **CLOSED** 2026-10-13 |
 | [§711](#711-the-turso-settings-give-one-line-of-help-for-a-setup-that-needs-two-browser-round-trips--closed-2026-10-13) | The Turso settings give one line of help for a setup that needs two browser round trips | — | — | **CLOSED** 2026-10-13 |
 | [§712](#712-the-demo-project-is-easy-to-miss-once-the-tour-is-skipped-and-a-project-is-created-from-a-template--closed-2026-10-13) | The demo project is easy to miss once the tour is skipped and a project is created from a template | — | — | **CLOSED** 2026-10-13 |
-| [§713](#713-the-install-guide-leaves-out-what-a-non-technical-pilot-user-needed-and-nothing-in-the-app-points-to-it--open) | The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it | — | — | open |
+| [§713](#713-the-install-guide-leaves-out-what-a-non-technical-pilot-user-needed-and-nothing-in-the-app-points-to-it--closed-2026-10-14) | The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it | — | — | **CLOSED** 2026-10-14 |
 | [§714](#714-follow-up-with-the-uk-pilot-user-fixes-before-their-2026-10-22-review-the-api-key-cost-question-and-a-project-intake-session--open) | Follow-up with the UK pilot user: fixes before their 2026-10-22 review, the API-key cost question, and a project-intake session | — | — | open |
 | [§715](#715-no-recorded-walk-through-shows-a-new-user-downloading-installing-and-setting-up-the-desktop-app--open) | No recorded walk-through shows a new user downloading, installing and setting up the desktop app | — | — | open |
 | [§728](#728-the-first-start-splashs-status-text-has-not-been-eye-checked-on-a-packaged-desktop-build--open) | The first-start splash's status text has not been eye-checked on a packaged desktop build | — | — | open |
@@ -44938,11 +44938,13 @@ Size XS.
 
 **Source:** owner's onboarding session with a UK pilot user, 2026-10-13.
 
-## 713. The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it — OPEN
+## 713. The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it — CLOSED 2026-10-14
 
-**Status:** OPEN 2026-10-13 — the guide exists and the README links it (`grep -c "desktop-rollout" README.md` → 2), but no app or desktop file does (`grep -rn "desktop-rollout" src desktop --include=*.ts --include=*.tsx --include=*.html | wc -l` → 0).
+**Status:** CLOSED 2026-10-14 on `feat/pilot-onboarding-phase2` (GitHub #702). The install guide now covers the browser's own download warning and **Keep**, the slow first start (a start screen, and Windows' brief "Not responding"), that a Claude subscription does not include API use and credit is bought separately, and a new "Setting up your first budget" section; it carries nine pictures (`grep -c "assets/guide/" docs/desktop-rollout.md` → 9). The app points to it from the Help panel's footer and the About panel (`installGuideLink`, through `INSTALL_GUIDE_URL`), beside the Turso steps' link from §711, and Help has a new workflow, "Getting started: set up a budget", listed first. The pictures and 16 of the README's 17 gallery images are written by one opt-in spec, `npm run docs:guide-shots`, never run in CI; `scripts/doc-image-refs.test.mjs` fails when an image the README or the guide shows is missing.
 
-**Work item:** #702
+Left as they were, on purpose: no amounts, top-up or expense advice for API credit (decided at design approval); `version-history.png` stays hand-captured, since its view needs Turso storage; the browser download prompt and Windows' box are described in text until hand-captured pictures are added; there is no demo-banner picture, because the banner hides wherever the demo would be refused, which is the screenshot spec's own state.
+
+★ The text below is the record as opened, before the fix: its measured greps and its "Proposed" paragraph describe the old guide, not what shipped.
 
 `docs/desktop-rollout.md` already covers downloading from the Releases page, the "Windows protected your PC" box, and the Claude, Turso, Jira and Timelog keys (Timelog's host and tenant included). It was not in front of the pilot user, and it misses what that session needed:
 
