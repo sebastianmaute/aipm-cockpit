@@ -964,6 +964,13 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§725](#725-forecast-imports-mapping-step-cannot-express-some-corrections--open) | Forecast import's mapping step cannot express some corrections | — | — | open |
 | [§726](#726-forecast-import-cannot-route-some-matched-people-and-its-notes-name-namesakes-inconsistently--open) | Forecast import cannot route some matched people, and its notes name namesakes inconsistently | — | — | open |
 | [§727](#727-forecast-plants-mixes-matching-and-apply-and-should-split-before-it-grows--open) | forecast-plan.ts mixes matching and apply and should split before it grows | — | — | open |
+| [§730](#730-the-timelog-view-gives-no-guided-setup-for-its-connection-links-and-first-fetch--open) | The TimeLog view gives no guided setup for its connection, links and first fetch | — | — | open |
+| [§731](#731-an-empty-resources-view-says-only-no-contacts-available-and-gives-no-setup-order--open) | An empty Resources view says only "No contacts available." and gives no setup order | — | — | open |
+| [§732](#732-the-jira-integration-gives-no-guided-setup-for-site-token-project-and-first-sync--open) | The Jira integration gives no guided setup for site, token, project and first sync | — | — | open |
+| [§733](#733-the-outlook-calendar-integration-gives-no-guided-setup-for-sign-in-calendar-and-sync--open) | The Outlook calendar integration gives no guided setup for sign-in, calendar and sync | — | — | open |
+| [§734](#734-an-empty-raci-matrix-names-one-missing-input-at-a-time--open) | An empty RACI matrix names one missing input at a time | — | — | open |
+| [§735](#735-ai-documents-give-no-guided-setup-for-the-api-key-templates-and-a-first-document--open) | AI documents give no guided setup for the API key, templates and a first document | — | — | open |
+| [§736](#736-an-empty-gantt-chart-names-only-the-first-missing-input--open) | An empty Gantt chart names only the first missing input | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45158,3 +45165,101 @@ The entry closes when every item is fixed or closed by an owner decision.
 The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
+
+## 730. The TimeLog view gives no guided setup for its connection, links and first fetch — OPEN
+
+**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n "timelogNotConfigured" src/app/i18n.ts` shows the only guidance: a switched-off notice pointing to Settings → Integrations.
+
+**Work item:** #723
+
+TimeLog needs the longest setup chain in the app, in a fixed order: connect (address, tenant, API token), link TimeLog people to resources, link TimeLog projects to budget buckets, fetch bookings, and optionally turn on the guardrails and close months (§699). Nothing in the view names that order; the pilot needed help with it (§704, §709).
+
+Proposed: a live checklist in the shape of the Budget view's (§710, `budget-setup-checklist.tsx`, steps ticked from project data, nothing new stored), each step linking to its control. ★ The budget component is budget-specific (its view and step types are hard-wired), so the first entry built from this group should extract a shared checklist component first; §731–§736 then reuse it.
+
+Size M (S once the shared component exists).
+
+**Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
+
+## 731. An empty Resources view says only "No contacts available." and gives no setup order — OPEN
+
+**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -rln '"resourcesEmpty"' src/app --include=*.tsx` lists `resource-directory.tsx` and `resources-panel.tsx`, the two places that show it.
+
+**Work item:** #724
+
+Resource planning depends on reference data that must exist first: roles (with rates for the budget), disciplines and grades, then the people, then capacity and absences, then allocations. The empty view says "No contacts available." and nothing about that order. Steps 1–2 overlap with the budget checklist (§710), which already ticks "Give your roles a rate" and "Add the people".
+
+Proposed: a checklist in the §710 shape on the shared component (see §730).
+
+Size S–M.
+
+**Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
+
+## 732. The Jira integration gives no guided setup for site, token, project and first sync — OPEN
+
+**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; never machine-verified; the steps were read from the Jira settings block (`jiraApiToken`, `jiraApiTokenLink` keys in `src/app/i18n.ts`).
+
+**Work item:** #725
+
+Jira needs a site URL, an email and an API token, then a primary project, then a first sync. Each step fails silently or with a late error when an earlier one is missing.
+
+Proposed: a short checklist in the §710 shape on the shared component (see §730).
+
+Size S.
+
+**Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
+
+## 733. The Outlook calendar integration gives no guided setup for sign-in, calendar and sync — OPEN
+
+**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n "outlookSignInRequired" src/app/i18n.ts` shows sign-in is reported only once an import is tried.
+
+**Work item:** #726
+
+Outlook write-back and the two-way pull need a Microsoft sign-in (M365 client and tenant ids), a calendar choice and a first sync. The need to sign in is only reported when an action is tried.
+
+Proposed: a short checklist in the §710 shape on the shared component (see §730).
+
+Size S.
+
+**Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
+
+## 734. An empty RACI matrix names one missing input at a time — OPEN
+
+**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n "raciNo" src/app/i18n.ts` shows `raciNoMilestones` and `raciNoStakeholders`, each shown alone.
+
+**Work item:** #727
+
+The RACI matrix needs both milestones and stakeholders. The empty state says "Add milestones to build the RACI matrix." or "Add stakeholders to build the RACI matrix.", one at a time, so a user who fixes the first meets the second only afterwards.
+
+Proposed: a two-step checklist (milestones, stakeholders, then assign or let Claude suggest) in the §710 shape on the shared component (see §730).
+
+Size S.
+
+**Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
+
+## 735. AI documents give no guided setup for the API key, templates and a first document — OPEN
+
+**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -rln '"documentsNoneYet"' src/app --include=*.tsx` lists `documents-list.tsx`, whose empty state is the single line "No documents yet.".
+
+**Work item:** #728
+
+Generating a document needs an Anthropic API key (and the AI master switch on), then a template, then a first generation. Without the key the feature is blocked, and the empty documents list says only "No documents yet."
+
+Proposed: a checklist in the §710 shape on the shared component (see §730), with the key step linking to Settings → AI.
+
+Size S.
+
+**Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
+
+## 736. An empty Gantt chart names only the first missing input — OPEN
+
+**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n -A1 "ganttEmpty:" src/app/i18n.ts` shows the empty text "Add at least one task with a due date to see it on the Gantt chart.".
+
+**Work item:** #729
+
+The Gantt chart becomes useful with tasks that have dates, then dependencies, then milestones and a baseline. The empty text names only the first.
+
+Proposed: a light checklist in the §710 shape on the shared component (see §730). Lowest value of this group; build last or not at all.
+
+Size S.
+
+**Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
