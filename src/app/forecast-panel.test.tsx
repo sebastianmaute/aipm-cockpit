@@ -160,6 +160,37 @@ describe("ForecastPanel", () => {
     expect(header("At least, by Nov 9, 2026"), "Enter commits").toBeTruthy();
   });
 
+  test("a pending target draft shows a hint that describes the input, gone once committed (M5)", () => {
+    renderPanel([...open(5), ...steadyDone(60)]);
+    const input = screen.getByLabelText("How many by") as HTMLInputElement;
+    const HINT = "Applies when you leave the field or press Enter";
+    expect(screen.queryByText(HINT), "no draft, no hint").toBeNull();
+    expect(input.hasAttribute("aria-describedby")).toBe(false);
+    fireEvent.change(input, { target: { value: "2026-11-02" } });
+    const hint = screen.getByText(HINT);
+    expect(hint.id).not.toBe("");
+    expect(input.getAttribute("aria-describedby")?.split(" ")).toContain(hint.id);
+    fireEvent.blur(input);
+    expect(screen.queryByText(HINT), "committed, hint gone").toBeNull();
+    expect(input.hasAttribute("aria-describedby")).toBe(false);
+  });
+
+  test("a refused draft keeps both descriptions while a new draft is pending (M5)", () => {
+    renderPanel([...open(5), ...steadyDone(60)]);
+    const input = screen.getByLabelText("How many by") as HTMLInputElement;
+    commitTarget(input, "2026-10-01");
+    fireEvent.change(input, { target: { value: "2026-11-02" } });
+    const ids = input.getAttribute("aria-describedby")?.split(" ") ?? [];
+    expect(ids).toContain(screen.getByText("Not a valid value; the previous one is kept.").id);
+    expect(ids).toContain(screen.getByText("Applies when you leave the field or press Enter").id);
+  });
+
+  test("the target hint reads in German", () => {
+    render(<ForecastPanel lang="de" tasks={[...open(5), ...steadyDone(60)]} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} />);
+    fireEvent.change(screen.getByLabelText("Wie viel bis"), { target: { value: "2026-11-02" } });
+    expect(screen.getByText("Wird übernommen, wenn Sie das Feld verlassen oder Enter drücken")).toBeTruthy();
+  });
+
   test("a draft target is dropped when the committed target changes from outside (M5)", () => {
     const tasks = [...open(5), ...steadyDone(60)];
     const { rerender } = renderPanel(tasks);

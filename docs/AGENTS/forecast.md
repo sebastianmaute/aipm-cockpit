@@ -187,7 +187,10 @@ midnight or a far plan end re-clamps it. The date input carries the same `min` a
 date outside them with `forecastInputInvalid` (R15). Typing or arrow-stepping the date edits a draft in
 `PercentileTable`; blur or Enter commits it, so the forecast reruns once per accepted date. A draft
 remembers the target it began from, and a render-time reconcile drops it when the committed target
-changes underneath (a new plan end, a midnight re-clamp). Pinned by "the How many target commits on
+changes underneath (a new plan end, a midnight re-clamp). While a draft is pending a muted hint,
+`forecastTargetDateHint`, says it applies on leaving the field or Enter (a day picked from the native
+calendar waits too) and is added to the input's `aria-describedby`; its line is always reserved, so it
+appears without moving the table. Pinned by "the How many target commits on
 blur or Enter, not on each change (M5)" and "a draft target is dropped when the committed target
 changes from outside (M5)" (`forecast-panel.test.tsx`). The default window is 60 working days; the
 axe spec selects **"All history" (R13)** and waits for the chart so axe sees the forecast state, not

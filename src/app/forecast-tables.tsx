@@ -66,6 +66,9 @@ export function PercentileTable({
   // Render-time reconcile: a target changed from outside (midnight re-clamp) drops a draft begun against the old one.
   if (draft !== null && draft.base !== target) setDraft(null);
   const messageId = useId();
+  const hintId = useId();
+  const pending = draft !== null;
+  const describedBy = [invalid ? messageId : null, pending ? hintId : null].filter((id) => id !== null).join(" ") || undefined;
   const targetText = formatDayMonthYear(target, localeFor(lang));
   const commit = () => {
     if (draft === null) return;
@@ -80,7 +83,7 @@ export function PercentileTable({
   };
   return (
     <Section title={t(lang, "forecastPercentilesTitle")}>
-      <div className="mb-2 flex flex-wrap items-center gap-4 text-sm">
+      <div className="mb-1 flex flex-wrap items-center gap-4 text-sm">
         <span className="text-muted-foreground">{t(lang, "forecastBacklog", formatAmount(forecast.backlog, forecast.unit, lang))}</span>
         <label className="flex items-center gap-2 text-muted-foreground">
           {t(lang, "forecastTargetDate")}
@@ -91,7 +94,7 @@ export function PercentileTable({
             min={today}
             max={maxTarget}
             invalid={invalid}
-            aria-describedby={invalid ? messageId : undefined}
+            aria-describedby={describedBy}
             onChange={(e) => setDraft({ base: target, text: e.target.value })}
             onBlur={commit}
             onKeyDown={(e) => {
@@ -105,6 +108,11 @@ export function PercentileTable({
           </span>
         )}
       </div>
+      {/* Always mounted with one line reserved, so the hint appears without moving the table. A date
+          picked from the native calendar also waits for blur or Enter, which is what this says. */}
+      <p className="mb-2 min-h-4 text-xs text-muted-foreground">
+        {pending && <span id={hintId}>{t(lang, "forecastTargetDateHint")}</span>}
+      </p>
       <div className="overflow-x-auto rounded-md border border-line">
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>

@@ -800,6 +800,7 @@ const enUS = {
   forecastAmountTasks: "{0} tasks",
   forecastAmountTasksOne: "{0} task",
   forecastTargetDate: "How many by",
+  forecastTargetDateHint: "Applies when you leave the field or press Enter",
   forecastColConfidence: "Confidence",
   forecastColWhen: "Done by",
   forecastColHowMany: "At least, by {0}",

@@ -737,6 +737,7 @@ export const de: Record<TranslationKey, string> = {
   forecastAmountTasks: "{0} Aufgaben",
   forecastAmountTasksOne: "{0} Aufgabe",
   forecastTargetDate: "Wie viel bis",
+  forecastTargetDateHint: "Wird übernommen, wenn Sie das Feld verlassen oder Enter drücken",
   forecastColConfidence: "Sicherheit",
   forecastColWhen: "Fertig bis",
   forecastColHowMany: "Mindestens, bis {0}",
