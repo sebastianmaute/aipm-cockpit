@@ -753,6 +753,27 @@ describe("ForecastImportModal — a person on two lines of the bucket (final rev
     expect(screen.queryByRole("region", { name: t(L, "forecastImportChanges") })).toBeNull();
     expect(screen.getByRole("button", { name: t(L, "forecastImportApply") })).toBeDisabled();
   });
+
+  // Final review 4, M1: a pick for an unmatched person that lands on a resource
+  // on several lines stays unresolved; the row once kept "no resource with this
+  // name or email", as if the pick had taken.
+  it("a pick that lands on a resource on two lines says the pick did not take", async () => {
+    const SENIOR: Role = { ...ROLE, id: 11 };
+    const CAROL: Resource = { ...ANN, id: 3, firstName: "Carol", lastName: "Ito" };
+    const twoLines: BudgetBucket = {
+      ...BUCKET,
+      allocations: [
+        { roleId: ROLE.id, resourceIds: [ANN.id, CAROL.id], budgetHours: { "2026-01": 100 }, actualHours: {} },
+        { roleId: SENIOR.id, resourceIds: [ANN.id], budgetHours: { "2026-01": 50 }, actualHours: {} },
+      ],
+    };
+    render(<ForecastImportModal {...propsOf({ resources: [ANN, CAROL], roles: [ROLE, SENIOR], bucket: twoLines, buckets: [twoLines] })} />);
+    await chooseFile(`${WIDE}A. Lee,10,20,30\r\nCarol Ito,80,80,80\r\n`);
+    expect(screen.getByText(t(L, "forecastImportWhyNoMatch"))).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: `${t(L, "forecastImportMatchPerson")} – A. Lee` }), { target: { value: String(ANN.id) } });
+    expect(await screen.findByText(t(L, "forecastImportPickSeveralLines"))).toBeInTheDocument();
+    expect(screen.queryByText(t(L, "forecastImportWhyNoMatch"))).toBeNull();
+  });
 });
 
 // rr14 N1: the merged-month (I1) and past-12 (M4) questions once confirmed

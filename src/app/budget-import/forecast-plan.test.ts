@@ -672,4 +672,16 @@ describe("a shared line's member who is in the sheet but unresolved (rr14 M3a)",
       { alloc: { kind: "role", roleId: ROLE_B.id }, period: "2026-01", old: 100, next: 80, othersOnLine: ["Bob Ray"], unmatchedOnLine: ["Ann Lee"] },
     ]);
   });
+
+  // Final review 4, M2: an ambiguous person's candidates were still named
+  // "not in the sheet for this period", although the sheet names them.
+  it("an ambiguous person's candidate on the line is named as not matched too", () => {
+    const resources = [person(1, "Ann", "Lee", { roleId: ROLE_B.id }), person(4, "Ann", "Lee"), person(3, "Carol", "Ito", { roleId: ROLE_B.id })];
+    const bucket = bucketOf({ allocations: [alloc(ROLE_B.id, { "2026-01": 100 }, [1, 3])] });
+    const p = plan([row("Ann Lee", "2026-01", 120), row("Carol Ito", "2026-01", 80)], { resources, bucket });
+    expect(p.unresolved.map((u) => [u.person, u.why])).toEqual([["Ann Lee", "ambiguous"]]);
+    expect(p.changes).toEqual([
+      { alloc: { kind: "role", roleId: ROLE_B.id }, period: "2026-01", old: 100, next: 80, unmatchedOnLine: ["Ann Lee"] },
+    ]);
+  });
 });
