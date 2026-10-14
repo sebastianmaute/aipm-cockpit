@@ -502,13 +502,16 @@ describe("insight recommendations carry the operating guides (§701)", () => {
   });
 });
 
-// §476 final fix 2, item 1 — a recommendation generated BEFORE a baseline-currency switch holds
-// money in the OLD currency. Replayed after it, `costImpact: 5000` would be written as 5000 of
-// the new currency, so the whole apply is refused while any call carries a money argument.
+// §476 final fix 2, item 1 (fix round 1) — a recommendation generated BEFORE a baseline-currency
+// switch holds money in the OLD currency. Replayed after it, `costImpact: 5000` would be written as
+// 5000 of the new currency, so the whole apply is refused while any call carries a money argument.
+// "Before" is decided by the history LENGTH stamped at generation (`historyLength`), not by the
+// day: a recommendation regenerated on the day of the switch, as the refusal toast asks, applies.
 describe("a pre-switch recommendation carrying money is refused after a currency switch (§476)", () => {
   const SWITCH = { from: "2026-09-03", at: "2026-09-03T10:00:00.000Z", currency: "GBP" as const, perPrevious: 0.85 };
-  function recWith(calls: InsightRecommendation["proposedCalls"]): InsightRecommendation {
-    return { summary: "s", proposedCalls: calls, generatedAt: "2026-09-03", status: "proposed" };
+  const CREATION = { from: "2026-09-01", at: "2026-09-01T10:00:00.000Z", currency: "GBP" as const };
+  function recWith(calls: InsightRecommendation["proposedCalls"], historyLength?: number): InsightRecommendation {
+    return { summary: "s", proposedCalls: calls, generatedAt: "2026-09-03", status: "proposed", ...(historyLength !== undefined ? { historyLength } : {}) };
   }
   async function confirm(rec: InsightRecommendation, baselineHistory: InsightRecommendationDeps["baselineHistory"]) {
     const store = mkStore([mkInsight({ recommendation: rec })]);
@@ -525,28 +528,49 @@ describe("a pre-switch recommendation carrying money is refused after a currency
   }
   const moneyCall = { name: "create_change", input: { title: "Scope add", costImpact: 5000 } };
   const plainCall = { name: "create_task", input: { taskName: "New", assignee: "A", dueDate: "2026-09-09" } };
+  const refusedToast = () => t("en-US", "insightRecommendationCurrencyChanged");
 
-  it("refuses the whole apply: nothing written, the insight not advanced, and the toast says why", async () => {
-    const { store, deps, createChange, createTask } = await confirm(recWith([plainCall, moneyCall]), [SWITCH]);
+  it("generated before a switch: refuses the whole apply, nothing written, the insight not advanced, and the toast says why", async () => {
+    const { store, deps, createChange, createTask } = await confirm(recWith([plainCall, moneyCall], 0), [SWITCH]);
     expect(createChange).not.toHaveBeenCalled();
     expect(createTask).not.toHaveBeenCalled();
     expect(store.calls).not.toHaveBeenCalled();
     expect(store.read()[0].recommendation?.status).toBe("proposed");
-    expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationCurrencyChanged"));
+    expect(deps.showToast).toHaveBeenCalledWith("error", refusedToast());
     expect(deps.logActivityAs).not.toHaveBeenCalled();
   });
 
-  it("applies the same recommendation when no switch happened since it was generated", async () => {
-    const before = { ...SWITCH, from: "2026-09-02" };
-    const { store, createChange } = await confirm(recWith([moneyCall]), [before]);
+  it("generated after a same-day switch (stamped with it): applied", async () => {
+    const { store, deps, createChange } = await confirm(recWith([moneyCall], 1), [SWITCH]);
+    expect(createChange).toHaveBeenCalledTimes(1);
+    expect(store.read()[0].recommendation?.status).toBe("applied");
+    expect(deps.showToast).not.toHaveBeenCalledWith("error", refusedToast());
+  });
+
+  it("applies a recommendation without money arguments even after a switch", async () => {
+    const { store, deps, createTask } = await confirm(recWith([plainCall], 0), [SWITCH]);
+    expect(createTask).toHaveBeenCalledTimes(1);
+    expect(store.read()[0].recommendation?.status).toBe("applied");
+    expect(deps.showToast).not.toHaveBeenCalledWith("error", refusedToast());
+  });
+
+  it("an unstamped (older build) recommendation after a switch: refused", async () => {
+    const { createChange, deps } = await confirm(recWith([moneyCall]), [CREATION, SWITCH]);
+    expect(createChange).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("error", refusedToast());
+  });
+
+  it("an unstamped recommendation with only the creation entry: applied", async () => {
+    const { createChange, store } = await confirm(recWith([moneyCall]), [CREATION]);
     expect(createChange).toHaveBeenCalledTimes(1);
     expect(store.read()[0].recommendation?.status).toBe("applied");
   });
 
-  it("applies a recommendation without money arguments even after a switch", async () => {
-    const { store, deps, createTask } = await confirm(recWith([plainCall]), [SWITCH]);
-    expect(createTask).toHaveBeenCalledTimes(1);
-    expect(store.read()[0].recommendation?.status).toBe("applied");
-    expect(deps.showToast).not.toHaveBeenCalledWith("error", t("en-US", "insightRecommendationCurrencyChanged"));
+  it("a generated recommendation is stamped with the history length in force when its prompt was built", async () => {
+    vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42, status: "In Progress" }));
+    const store = mkStore([mkInsight()]);
+    const { result } = renderHook(() => useInsightRecommendations(mkDeps({ insights: store.read(), setInsights: store.setInsights, baselineHistory: [CREATION, SWITCH] })));
+    await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
+    expect(store.read()[0].recommendation?.historyLength).toBe(2);
   });
 });

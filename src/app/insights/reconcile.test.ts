@@ -887,3 +887,14 @@ describe("recommendation.refusedCalls (§351)", () => {
     expect(insightsMateriallyEqual([a], [{ ...a, recommendation: { ...a.recommendation!, refusedCalls: undefined } }])).toBe(false);
   });
 });
+
+describe("recommendation.historyLength (§476)", () => {
+  it("counts a changed stamp as a material change", () => {
+    const a = stored("a", {
+      recommendation: { summary: "s", proposedCalls: [], generatedAt: "2026-01-09", status: "proposed", historyLength: 1 },
+    });
+    expect(insightsMateriallyEqual([a], [{ ...a, recommendation: { ...a.recommendation! } }])).toBe(true);
+    expect(insightsMateriallyEqual([a], [{ ...a, recommendation: { ...a.recommendation!, historyLength: 2 } }])).toBe(false);
+    expect(insightsMateriallyEqual([a], [{ ...a, recommendation: { ...a.recommendation!, historyLength: undefined } }])).toBe(false);
+  });
+});

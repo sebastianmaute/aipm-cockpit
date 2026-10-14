@@ -13,7 +13,7 @@ import { AiHttpError, classifyAiError, type AiErrorClass } from "./ai-errors";
 import type { Insight, InsightRecommendation } from "./insights/insight";
 import type { GroundingIndex } from "./action-ai";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
-import type { RecommendPlanWorkspace } from "./insights/recommend-plan";
+import type { RecommendSnapshot } from "./insights/recommend-plan";
 
 export interface UseInsightRecommendArgs {
   insights: readonly Insight[];
@@ -24,10 +24,10 @@ export interface UseInsightRecommendArgs {
   /** `snapshot` is what `snapshotEntities` returned when the prompt was BUILT
    *  (§350), so the store can stamp concurrency tokens from the rows the model
    *  actually read rather than from rows as they stand when it answers. */
-  applyRecommendation: (id: number, rec: InsightRecommendation, snapshot?: RecommendPlanWorkspace) => void;
+  applyRecommendation: (id: number, rec: InsightRecommendation, snapshot?: RecommendSnapshot) => void;
   /** §350 — the five entity lists a recommendation may update, read at the
    *  moment the prompt is built. Omitted by callers that do not stamp tokens (tests). */
-  snapshotEntities?: () => RecommendPlanWorkspace;
+  snapshotEntities?: () => RecommendSnapshot;
   isPopout?: boolean;
   /** Caller surfaces the toast for a failed generate. */
   /** `error` is the thrown value, so a caller can name a refused key (§650, `aiKeyMessageKeyForError`). */

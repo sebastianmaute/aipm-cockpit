@@ -304,3 +304,26 @@ describe("sanitizeInsights — loggedRaidId (§515)", () => {
     }
   });
 });
+
+describe("sanitizeInsights — recommendation.historyLength (§476)", () => {
+  const raw = (historyLength: unknown) => ({
+    id: 1, key: "k", type: "overdueTrend", severity: "low", status: "active", data: {},
+    firstSeenAt: "2026-01-01", lastSeenAt: "2026-01-01", occurrences: 1,
+    recommendation: {
+      summary: "s", status: "proposed", generatedAt: "2026-01-01",
+      proposedCalls: [{ name: "update_task", input: { id: 1 } }],
+      historyLength,
+    },
+  });
+  test("keeps a non-negative integer", () => {
+    expect(sanitizeInsights([raw(0)])[0]?.recommendation?.historyLength).toBe(0);
+    expect(sanitizeInsights([raw(3)])[0]?.recommendation?.historyLength).toBe(3);
+  });
+  test("drops anything else and omits the key, keeping the recommendation", () => {
+    for (const v of [-1, 2.5, "1", null, undefined, NaN, Infinity]) {
+      const rec = sanitizeInsights([raw(v)])[0]?.recommendation;
+      expect(rec?.status).toBe("proposed");
+      expect(rec && "historyLength" in rec).toBe(false);
+    }
+  });
+});

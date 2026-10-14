@@ -147,3 +147,30 @@ describe("insights byte-stability (empty ⇒ no section)", () => {
     expect(workspaceToMarkdown(withField)).toBe(workspaceToMarkdown(withoutField));
   });
 });
+
+// §476: the baseline-history length stamped at generation rides the insights blob on every text
+// codec, so a reload still knows whether a recommendation predates a currency switch.
+describe("insights — recommendation.historyLength survives the codecs (§476)", () => {
+  const STAMPED: Insight[] = [
+    {
+      ...SAMPLE_INSIGHTS[0],
+      recommendation: {
+        summary: "Raise a change",
+        proposedCalls: [{ name: "create_change", input: { title: "Scope", costImpact: 100 } }],
+        generatedAt: "2026-07-10",
+        status: "proposed",
+        historyLength: 2,
+      },
+    },
+  ];
+  const ws = () => ({ ...emptyWorkspace(), insights: STAMPED });
+  it("JSON", () => {
+    expect(jsonToWorkspace(workspaceToJson(ws())).insights?.[0].recommendation?.historyLength).toBe(2);
+  });
+  it("CSV (storage path)", () => {
+    expect(csvToWorkspace(workspaceToCsv(ws())).insights?.[0].recommendation?.historyLength).toBe(2);
+  });
+  it("Markdown (storage path)", () => {
+    expect(markdownToWorkspace(workspaceToMarkdown(ws())).insights?.[0].recommendation?.historyLength).toBe(2);
+  });
+});

@@ -78,6 +78,11 @@ function sanitizeRecommendation(v: unknown): InsightRecommendation | undefined {
     o.refusedCalls <= INSIGHT_REC_MAX_CALLS
       ? o.refusedCalls
       : undefined;
+  // §476: the baseline-history length at generation — a non-negative integer, else dropped.
+  const historyLength =
+    typeof o.historyLength === "number" && Number.isSafeInteger(o.historyLength) && o.historyLength >= 0
+      ? o.historyLength
+      : undefined;
   return {
     summary,
     proposedCalls: calls,
@@ -86,6 +91,7 @@ function sanitizeRecommendation(v: unknown): InsightRecommendation | undefined {
     ...(appliedSummary ? { appliedSummary } : {}),
     ...(appliedAt ? { appliedAt } : {}),
     ...(refusedCalls !== undefined ? { refusedCalls } : {}),
+    ...(historyLength !== undefined ? { historyLength } : {}),
   };
 }
 /** Numeric coercion for persisted metric values. An EMPTY/whitespace string must

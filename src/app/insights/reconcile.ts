@@ -330,6 +330,8 @@ function recommendationEqual(
     // §351: persisted, so a change to it alone must count as material — as
     // §515 did for `loggedRaidId` in the record comparator.
     a.refusedCalls === b.refusedCalls &&
+    // §476: persisted, and it decides whether a money call may still be applied.
+    a.historyLength === b.historyLength &&
     toolCallsEqual(a.proposedCalls, b.proposedCalls)
   );
 }

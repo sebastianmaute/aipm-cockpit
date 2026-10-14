@@ -92,6 +92,10 @@ export interface InsightRecommendation {
    *  not a new status, so an older build's status check does not reset the
    *  record to `proposed` (and re-offer its creates). */
   readonly refusedCalls?: number;
+  /** §476: `Workspace.baselineHistory.length` when the recommendation's prompt was built.
+   *  A longer history at apply means a currency switch since, and a money call is refused
+   *  (`recommendationPredatesSwitch`). Absent on one made by an older build. */
+  readonly historyLength?: number;
 }
 
 export const INSIGHT_OUTCOME_DIRECTIONS = ["improved", "unchanged", "worsened"] as const;
@@ -159,21 +163,25 @@ export const ALLOWED_REC_TOOLS: ReadonlySet<string> = new Set([
 ]);
 
 /** §476 — the arguments of an `ALLOWED_REC_TOOLS` tool that carry money in the project's
- *  currency. ★ A tool added above that accepts another money argument must list it here:
- *  `insight-money-args.test.ts` derives the set from the tool schemas and fails otherwise. */
+ *  currency. ★ `insight-money-args.test.ts` makes every NUMBER argument of an allowed tool
+ *  either listed here or named in its explicit non-money list, so a new one must be decided. */
 export const REC_MONEY_ARGS: readonly string[] = ["costImpact"];
 
-/** §476 — true when this recommendation must not be replayed: it was generated on or before
- *  the day of a baseline-currency SWITCH (an entry with `perPrevious`; the creation entry is
- *  not one) and some proposed call carries a money argument, which holds old-currency amounts.
- *  `generatedAt` is a DAY, so a switch made the same day refuses too — the order within the
- *  day is unknown, and refusing a current recommendation costs one regenerate. */
+/** §476 — true when this recommendation must not be replayed: some proposed call carries a
+ *  money argument (`REC_MONEY_ARGS`) AND a baseline-currency switch was made after it was
+ *  generated, so those amounts are in the old currency. "After" is decided by the history
+ *  LENGTH stamped at generation (`historyLength`): the history only grows, so a longer one
+ *  means a later switch. Never by `generatedAt`, which is a DAY — a recommendation regenerated
+ *  on the day of a switch, as the refusal asks, would be refused for the rest of that day.
+ *  An UNSTAMPED recommendation (an older build) is refused once the history holds any switch
+ *  (an entry with `perPrevious`; the creation entry converts nothing and is not one). */
 export function recommendationPredatesSwitch(
   rec: InsightRecommendation,
   history: readonly BaselineEntry[],
 ): boolean {
-  if (!history.some((e) => e.perPrevious !== undefined && e.from >= rec.generatedAt)) return false;
-  return rec.proposedCalls.some((c) => REC_MONEY_ARGS.some((arg) => c.input[arg] !== undefined));
+  if (!rec.proposedCalls.some((c) => REC_MONEY_ARGS.some((arg) => c.input[arg] !== undefined))) return false;
+  if (rec.historyLength !== undefined) return history.length > rec.historyLength;
+  return history.some((e) => e.perPrevious !== undefined);
 }
 
 /** Lifecycle callbacks a surface (dashboard card, Insights view) invokes to
