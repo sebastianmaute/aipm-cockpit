@@ -111,6 +111,122 @@ describe("I2 — a person merged over several rows asks", () => {
   });
 });
 
+// §500 final review 4, I1: a person row with a total word in ANOTHER column
+// (`Ann Lee | Gesamt`) was skipped as a total row, so the blank-person Ist and
+// Plan rows below it had no person row and asked nothing, and the reader wrote
+// Ann's Gesamt as her forecast. Only the person cell decides now.
+const TOTAL_WIDE_HEADER = ["Name", "Art", "Jan 2026", "Feb 2026", "Mär 2026"];
+const TOTAL_LONG_HEADER = ["Name", "Monat", "Art", "Stunden"];
+
+/** Ann on a `<total>` row with Ist and Plan rows below it; everyone else one Plan row. */
+function totalPersonWide(total: string): string[][] {
+  return [
+    TOTAL_WIDE_HEADER,
+    ["Ann Lee", total, "110", "130", "150"], ["", "Ist", "10", "20", "30"], ["", "Plan", "100", "110", "120"],
+    ...PEOPLE.slice(1).map((p) => [p, "Plan", "10", "20", "30"]),
+  ];
+}
+
+function totalPersonLong(total: string): string[][] {
+  return [
+    TOTAL_LONG_HEADER,
+    ["Ann Lee", "Jan 2026", total, "110"], ["", "Jan 2026", "Ist", "10"], ["", "Jan 2026", "Plan", "100"],
+    ...PEOPLE.slice(1).map((p) => [p, "Jan 2026", "Plan", "10"]),
+  ];
+}
+
+/** Every person laid out as `Gesamt / Ist / Plan`. */
+const allTotalsWide = (): string[][] => [
+  TOTAL_WIDE_HEADER,
+  ...PEOPLE.flatMap((p) => [[p, "Gesamt", "110", "130", "150"], ["", "Ist", "10", "20", "30"], ["", "Plan", "100", "110", "120"]]),
+];
+const allTotalsLong = (): string[][] => [
+  TOTAL_LONG_HEADER,
+  ...PEOPLE.flatMap((p) => [[p, "Jan 2026", "Gesamt", "110"], ["", "Jan 2026", "Ist", "10"], ["", "Jan 2026", "Plan", "100"]]),
+];
+/** The blank-person rows of `allTotals*`: rows 2, 3, 5, 6 … */
+const ALL_TOTALS_CONTINUATIONS = PEOPLE.flatMap((_, i) => [2 + 3 * i, 3 + 3 * i]);
+
+describe("final review 4, I1 — a total word beside the person does not hide the rows below", () => {
+  it.each(["Gesamt", "Summe Plan+Ist", "Total"])("wide, Ann's row says %s: detection asks the continuation question", (total) => {
+    const detected = detectLayout(totalPersonWide(total), { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "wide", person: 0, periodCols: [2, 3, 4] });
+    expect(detected.ambiguous).toEqual([{ field: "continuation", candidates: [2, 3], samples: [total, "Ist"] }]);
+  });
+
+  it("long, Ann's row says Gesamt: detection asks the continuation question", () => {
+    const detected = detectLayout(totalPersonLong("Gesamt"), { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", person: 0, period: 1, hours: 3 });
+    expect(detected.ambiguous).toEqual([{ field: "continuation", candidates: [2, 3], samples: ["Gesamt", "Ist"] }]);
+  });
+
+  it("every person on a Gesamt row: detection takes the Name column and asks, wide and long", () => {
+    const wide = detectLayout(allTotalsWide(), { defaultYear: 2026 });
+    expect(wide.mapping).toMatchObject({ layout: "wide", person: 0, periodCols: [2, 3, 4] });
+    expect(wide.ambiguous).toEqual([{ field: "continuation", candidates: ALL_TOTALS_CONTINUATIONS, samples: ["Gesamt", "Ist"] }]);
+    const long = detectLayout(allTotalsLong(), { defaultYear: 2026 });
+    expect(long.mapping).toMatchObject({ layout: "long", person: 0, period: 1, hours: 3 });
+    expect(long.ambiguous).toEqual([{ field: "continuation", candidates: ALL_TOTALS_CONTINUATIONS, samples: ["Gesamt", "Ist"] }]);
+  });
+
+  it("a Claude mapping of either sheet is asked the same", () => {
+    const ask = { field: "continuation", candidates: ALL_TOTALS_CONTINUATIONS, samples: ["Gesamt", "Ist"] };
+    expect(questionsFor(allTotalsWide(), { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3, 4], year: 2026 })).toEqual([ask]);
+    expect(questionsFor(allTotalsLong(), { layout: "long", headerRow: 0, person: 0, period: 1, hours: 3, year: 2026 })).toEqual([ask]);
+    expect(questionsFor(totalPersonWide("Gesamt"), { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3, 4], year: 2026 }))
+      .toEqual([{ field: "continuation", candidates: [2, 3], samples: ["Gesamt", "Ist"] }]);
+  });
+
+  it("a blank-person row holding a total word still does not ask", () => {
+    const rows = [TOTAL_WIDE_HEADER, ...PEOPLE.map((p) => [p, "Plan", "10", "20", "30"]), ["", "Summe", "60", "120", "180"]];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+    expect(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3, 4], year: 2026 })).toEqual([]);
+  });
+});
+
+// §500 final review 4, I2: the long twin of final review 3's I1. Excel keeps a
+// merged `Stunden` header's text in its LEFT cell, so `Name | Monat | Stunden |
+// (blank)` read the left sub-column (Ist, or the costs) with no question.
+const LONG_MONTHS_CSV = ["Jan 2026", "Feb 2026", "Mär 2026"];
+const LONG_MONTHS_SERIAL = ["46023", "46054", "46082"];
+
+/** `Name | Monat | Stunden | (blank)` over an optional sub-header row, one row per person and month. */
+function mergedHours(months: readonly string[], sub: readonly [string, string] | null, values: readonly [string, string]): string[][] {
+  const rows = PEOPLE.flatMap((p) => months.map((m) => [p, m, ...values]));
+  return [["Name", "Monat", "Stunden", ""], ...(sub === null ? [] : [["", "", ...sub]]), ...rows];
+}
+
+describe("final review 4, I2 — an hours header merged over two sub-columns asks for the hours", () => {
+  it.each([
+    ["CSV, Ist first", LONG_MONTHS_CSV, ["Ist", "Plan"], ["10", "100"], "text"],
+    ["CSV, Plan first", LONG_MONTHS_CSV, ["Plan", "Ist"], ["100", "10"], "text"],
+    ["CSV, € | Std", LONG_MONTHS_CSV, ["€", "Std"], ["500", "40"], "text"],
+    ["workbook serials, Ist first", LONG_MONTHS_SERIAL, ["Ist", "Plan"], ["10", "100"], "dot"],
+    ["workbook serials, Plan first", LONG_MONTHS_SERIAL, ["Plan", "Ist"], ["100", "10"], "dot"],
+    ["workbook serials, € | Std", LONG_MONTHS_SERIAL, ["€", "Std"], ["500", "40"], "dot"],
+  ] as const)("%s: detection and a Claude mapping both ask, the blank-headed column a candidate", (_label, months, sub, values, numbers) => {
+    const rows = mergedHours(months, sub, values);
+    const detected = detectLayout(rows, { numbers: numbers as NumberOrigin, defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", headerRow: 0, person: 0, period: 1, hours: 2 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    const claude = { layout: "long" as const, headerRow: 0, person: 0, period: 1, hours: 2, year: 2026 };
+    expect(questionsFor(rows, claude, { numbers: numbers as NumberOrigin })).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  it("with no sub-header row it asks the same", () => {
+    expect(detectLayout(mergedHours(LONG_MONTHS_CSV, null, ["10", "100"]), { defaultYear: 2026 }).ambiguous)
+      .toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  it("a plain long sheet with no blank-headed number column stays clear", () => {
+    const rows = [["Name", "Monat", "Stunden"], ...PEOPLE.flatMap((p) => LONG_MONTHS_CSV.map((m) => [p, m, "10"]))];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+    expect(questionsFor(rows, { layout: "long", headerRow: 0, person: 0, period: 1, hours: 2, year: 2026 })).toEqual([]);
+    const notes = [["Name", "Monat", "Stunden", ""], ...PEOPLE.flatMap((p) => LONG_MONTHS_CSV.map((m) => [p, m, "10", "ok"]))];
+    expect(detectLayout(notes, { defaultYear: 2026 }).ambiguous).toEqual([]);
+  });
+});
+
 describe("M4 — an N/YYYY header run that continues past 12 asks", () => {
   const header = (n: number): string[] => Array.from({ length: n }, (_, i) => `${String(i + 1).padStart(2, "0")}/2026`);
 

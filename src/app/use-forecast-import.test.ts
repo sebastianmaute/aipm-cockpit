@@ -1360,6 +1360,85 @@ describe("useForecastImport — merged cells and several detectable sheets (fina
     expect(hoursWrittenBy(deps)).toEqual({ "2026-01": 9, "2026-02": 9, "2026-03": 9 });
   });
 
+  // Final review 4, I1: a total word beside the person (`Ann Lee | Gesamt`)
+  // once hid the blank-person Ist and Plan rows below it, and Ann's Gesamt was
+  // written as her forecast with no question.
+  const TOTAL_WIDE: string[][] = [
+    ["Name", "Art", "Jan 2026", "Feb 2026", "Mär 2026"],
+    ["Ann Lee", "Gesamt", "110", "130", "150"], ["", "Ist", "10", "20", "30"], ["", "Plan", "100", "110", "120"],
+    ...PEOPLE.slice(1).map((p) => [p, "Plan", "10", "20", "30"]),
+  ];
+  const TOTAL_LONG: string[][] = [
+    ["Name", "Monat", "Art", "Stunden"],
+    ["Ann Lee", "Jan 2026", "Gesamt", "110"], ["", "Jan 2026", "Ist", "10"], ["", "Jan 2026", "Plan", "100"],
+    ...PEOPLE.slice(1).map((p) => [p, "Jan 2026", "Plan", "10"]),
+  ];
+  const ALL_TOTALS_WIDE: string[][] = [
+    ["Name", "Art", "Jan 2026", "Feb 2026", "Mär 2026"],
+    ...PEOPLE.flatMap((p) => [[p, "Gesamt", "110", "130", "150"], ["", "Ist", "10", "20", "30"], ["", "Plan", "100", "110", "120"]]),
+  ];
+  const ALL_TOTALS_LONG: string[][] = [
+    ["Name", "Monat", "Art", "Stunden"],
+    ...PEOPLE.flatMap((p) => [[p, "Jan 2026", "Gesamt", "110"], ["", "Jan 2026", "Ist", "10"], ["", "Jan 2026", "Plan", "100"]]),
+  ];
+  const ALL_TOTALS_ROWS = PEOPLE.flatMap((_, i) => [2 + 3 * i, 3 + 3 * i]);
+
+  it.each([
+    ["wide", TOTAL_WIDE],
+    ["long", TOTAL_LONG],
+  ] as const)("final review 4 I1, hand route, %s: a Gesamt person row asks the continuation question, Apply refused", async (_label, grid) => {
+    const deps = depsOf({ resources });
+    const { result } = await loadFileNow(deps, csvFile(csvOf(grid)));
+    expect(result.current.ambiguous).toEqual([{ field: "continuation", candidates: [2, 3], samples: ["Gesamt", "Ist"] }]);
+    refusedBeforeConfirmation(result, deps);
+  });
+
+  it.each([
+    ["wide", ALL_TOTALS_WIDE, { layout: "wide", headerRow: 1, person: "A", periodCols: ["C", "D", "E"] }],
+    ["long", ALL_TOTALS_LONG, { layout: "long", headerRow: 1, person: "A", period: "B", hours: "D" }],
+  ] as const)("final review 4 I1, Claude route, %s: every person on a Gesamt row asks, Apply refused", async (_label, grid, mapping) => {
+    claudeResponds(mapping);
+    const deps = depsOf({ resources });
+    const { result } = await loadFileNow(deps, csvFile(csvOf(grid)));
+    await askClaudeNow(result);
+    expect(result.current.ambiguous).toEqual([{ field: "continuation", candidates: ALL_TOTALS_ROWS, samples: ["Gesamt", "Ist"] }]);
+    refusedBeforeConfirmation(result, deps);
+  });
+
+  // Final review 4, I2: the long twin of final review 3's I1 — a merged
+  // `Stunden` header over two sub-columns read the left one unasked.
+  const mergedHours = (months: readonly string[], sub: readonly [string, string], values: readonly [string, string]): string[][] => [
+    ["Name", "Monat", "Stunden", ""],
+    ["", "", ...sub],
+    ...PEOPLE.flatMap((p) => months.map((m) => [p, m, ...values])),
+  ];
+  const MERGED_HOURS_CASES = [
+    ["CSV, Ist first", "csv", ["Jan 2026", "Feb 2026", "Mär 2026"], ["Ist", "Plan"], ["10", "100"]],
+    ["CSV, Plan first", "csv", ["Jan 2026", "Feb 2026", "Mär 2026"], ["Plan", "Ist"], ["100", "10"]],
+    ["CSV, € | Std", "csv", ["Jan 2026", "Feb 2026", "Mär 2026"], ["€", "Std"], ["500", "40"]],
+    ["workbook, Ist first", "xlsx", ["46023", "46054", "46082"], ["Ist", "Plan"], ["10", "100"]],
+    ["workbook, Plan first", "xlsx", ["46023", "46054", "46082"], ["Plan", "Ist"], ["100", "10"]],
+    ["workbook, € | Std", "xlsx", ["46023", "46054", "46082"], ["€", "Std"], ["500", "40"]],
+  ] as const;
+  const mergedHoursFile = async (kind: "csv" | "xlsx", grid: string[][]): Promise<File> => (kind === "csv" ? csvFile(csvOf(grid)) : workbook([{ name: "Plan", grid }]));
+
+  it.each(MERGED_HOURS_CASES)("final review 4 I2, hand route, %s: asks for the hours, Apply refused", async (_label, kind, months, sub, values) => {
+    const deps = depsOf({ resources });
+    const { result } = await loadFileNow(deps, await mergedHoursFile(kind, mergedHours(months, sub, values)));
+    expect(result.current.mapping).toMatchObject({ layout: "long", hours: 2 });
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    refusedBeforeConfirmation(result, deps);
+  });
+
+  it.each(MERGED_HOURS_CASES)("final review 4 I2, Claude route, %s: asks for the hours, Apply refused", async (_label, kind, months, sub, values) => {
+    claudeResponds({ layout: "long", headerRow: 1, person: "A", period: "B", hours: "C" });
+    const deps = depsOf({ resources });
+    const { result } = await loadFileNow(deps, await mergedHoursFile(kind, mergedHours(months, sub, values)));
+    await askClaudeNow(result);
+    expect(result.current.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+    refusedBeforeConfirmation(result, deps);
+  });
+
   it("M1: one detectable sheet behaves as today", async () => {
     const deps = depsOf();
     const { result } = await loadFileNow(deps, await workbook([{ name: "Notes", grid: [["just", "words"]] }, { name: "Forecast", grid: SAME_SHAPE("12") }]));
