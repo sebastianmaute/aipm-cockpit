@@ -719,6 +719,7 @@ const enUS = {
   burndownToday: "today",
   budgetReportTitle: "Budget Report",
   forecastTitle: "Forecast",
+  navForecast: "Forecast",
   forecastViewLabel: "Forecast reading",
   forecastWhatIs: "What is {0}?",
   forecastWhatMeans: "What does {0} mean?",

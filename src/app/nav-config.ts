@@ -126,7 +126,7 @@ const LABEL_KEYS: Record<Exclude<AppView, "learning-insights">, TranslationKey> 
   "raid-report": "raidReportTitle",
   changes: "navChanges",
   "change-report": "changeReportTitle",
-  forecast: "forecastTitle",
+  forecast: "navForecast",
   stakeholders: "navStakeholders",
   raci: "stakeholderRaciTitle",
   "stakeholder-map": "stakeholderMapTitle",

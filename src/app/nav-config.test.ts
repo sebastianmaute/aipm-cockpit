@@ -84,7 +84,7 @@ describe("nav-config", () => {
     expect(navLabelKey("budget-report")).toBe("budgetReportTitle");
     expect(navLabelKey("raid-report")).toBe("raidReportTitle");
     expect(subTabsFor("forecast")).toEqual(reportKids);
-    expect(navLabelKey("forecast")).toBe("forecastTitle");
+    expect(navLabelKey("forecast")).toBe("navForecast");
     expect(buildHash("forecast")).toBe("#forecast");
   });
 
