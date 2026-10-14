@@ -15,7 +15,7 @@ longer carries its own changelog comment.
 - **You can close TimeLog months, and a later change to a closed month is flagged.** Settings → Integrations →
   TimeLog has a Closed months block. Closing the next month saves each linked person's daily hours on the
   fetched TimeLog projects for that month; Reopen steps back one month, after a confirmation. The close
-  belongs to the set of TimeLog projects fetched when the first month was closed. A sixth guardrail,
+  belongs to the set of TimeLog projects fetched when the first month was closed. To change that set, reopen every closed month; their saved hours are discarded. A sixth guardrail,
   `timelogClosedMonth`, compares the next fetch of the same projects with what was saved and raises one
   finding per person whose hours changed by 0.01 h or more on any day, with the net change. Hours on other
   TimeLog projects are not checked. Nothing is blocked, and budget actuals are untouched. A month cannot be

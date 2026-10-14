@@ -1775,7 +1775,7 @@ export const de: Record<TranslationKey, string> = {
   timelogGuardrailsHint:
     "Markiert Buchungen, die gegen diese Regeln verstoßen. Cockpit ändert keine Buchung — es weist nur darauf hin. Alle Regeln sind aus, bis Sie sie einschalten.",
   timelogCloseTitle: "Abgeschlossene Monate",
-  timelogCloseHelp: "Beim Abschluss eines Monats werden die TimeLog-Stunden jeder verknüpften Person gespeichert. Solange ein Monat abgeschlossen ist, meldet Cockpit spätere Änderungen daran.",
+  timelogCloseHelp: "Beim Abschluss eines Monats werden die TimeLog-Stunden jeder verknüpften Person auf den abgerufenen TimeLog-Projekten gespeichert. Solange ein Monat abgeschlossen ist, meldet Cockpit spätere Änderungen daran. Der Abschluss gilt für die TimeLog-Projekte, die für den ersten abgeschlossenen Monat abgerufen wurden; um sie zu ändern, öffnen Sie alle abgeschlossenen Monate wieder, wobei deren gespeicherte Stunden verloren gehen.",
   timelogCloseThrough: "Abgeschlossen bis {0}",
   timelogCloseNone: "Kein Monat ist abgeschlossen.",
   timelogCloseFirstMonth: "Erster abzuschließender Monat",

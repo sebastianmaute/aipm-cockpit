@@ -374,6 +374,11 @@ describe("ActualsCacheEntry.dailyProjects", () => {
     expect(loadActualsCache("dp1")?.dailyProjects).toEqual([9, 12]);
   });
 
+  it("reads a stored list back as unique ascending", () => {
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, { dp0: { ...BASE, dailyUsers: [7], dailyProjects: [12, 9, 12] } });
+    expect(loadActualsCache("dp0")?.dailyProjects).toEqual([9, 12]);
+  });
+
   it("loads an entry with no dailyProjects as absent", () => {
     saveActualsCache("dp2", BASE);
     const e = loadActualsCache("dp2");

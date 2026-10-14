@@ -232,15 +232,22 @@ function withCheckedDailyUsers(e: StoredEntry): StoredEntry {
 /** §699 — the project half of the scope claim, checked by the same
  *  all-or-nothing rule as `dailyUsers`: anything but a list of positive
  *  integers drops the field, which reads as "project scope unknown", and a
- *  closed month is then not checked (the recoverable direction). Order and
- *  duplicates are not judged here: the closed-month rule compares sets. */
+ *  closed month is then not checked (the recoverable direction). A valid list
+ *  is normalised to unique ascending, the documented shape, so a hand-edited
+ *  `[12, 9, 12]` reads back as `[9, 12]`. */
 function withCheckedDailyProjects(e: StoredEntry): StoredEntry {
   const p: unknown = e.dailyProjects;
   if (p === undefined) return e;
-  if (isPositiveIdList(p)) return e;
-  const copy = { ...e };
-  delete copy.dailyProjects;
-  return copy;
+  if (!isPositiveIdList(p)) {
+    const copy = { ...e };
+    delete copy.dailyProjects;
+    return copy;
+  }
+  const ids = p as number[];
+  const normalised = [...new Set(ids)].sort((a, b) => a - b);
+  const alreadyNormal =
+    normalised.length === ids.length && normalised.every((n, i) => n === ids[i]);
+  return alreadyNormal ? e : { ...e, dailyProjects: normalised };
 }
 
 /** Pack for storage. Identity when there is nothing to pack. */
