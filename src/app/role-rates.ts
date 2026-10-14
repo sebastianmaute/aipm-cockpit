@@ -15,7 +15,7 @@ import type { Role } from "./types";
 /** Fallback conversion factor when the configured workday hours are invalid. */
 export const DEFAULT_WORKDAY_HOURS = 8;
 
-function round2(n: number): number {
+export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 

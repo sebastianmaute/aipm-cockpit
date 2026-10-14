@@ -4,7 +4,7 @@
  * `fixedPriceAmount` or `fxRateOverride`.
  */
 import { crossRate, type BaselineEntry } from "./baseline-currency";
-import { materializeRoleRates } from "./role-rates";
+import { materializeRoleRates, round2 } from "./role-rates";
 import type { BudgetBucket, BudgetCurrency, ChangeItem, FxRates, Role } from "./types";
 
 export type SwitchRow = {
@@ -42,11 +42,6 @@ type PlanInput = {
 
 const ROLE_FIELDS = ["internalRate", "externalRate", "internalRateDay", "externalRateDay"] as const;
 const BUCKET_FIELDS = ["rateOverrideInternal", "rateOverrideExternal"] as const;
-
-// Same definition as role-rates.ts (not exported there).
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
 
 function convertRole(role: Role, rate: number, workdayHours: number): Role {
   const next: Role = { ...role };
