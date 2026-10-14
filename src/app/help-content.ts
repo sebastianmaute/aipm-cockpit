@@ -82,6 +82,7 @@ const HELP_ENTRIES_LITERAL = [
   { id: "concept-knowledge", group: "concepts", titleKey: "helpConceptKnowledgeTitle", bodyKey: "helpConceptKnowledgeBody", primerKey: "helpConceptKnowledgePrimer", relatedViews: ["knowledge"], relatedConcepts: ["concept-stakeholder"] },
 
   // ── Workflows (numbered guides) ──
+  { id: "workflow-getting-started", group: "workflows", titleKey: "helpWorkflowGettingStartedTitle", bodyKey: "helpWorkflowGettingStartedBody", relatedViews: ["budget", "resources", "timelog"], relatedConcepts: ["concept-budget", "concept-resource"] },
   { id: "workflow-end-to-end", group: "workflows", titleKey: "helpWorkflowEndToEndTitle", bodyKey: "helpWorkflowEndToEndBody", relatedViews: ["dashboard", "open-points", "milestones"], relatedConcepts: ["concept-milestone", "concept-task-status"] },
   { id: "workflow-plan", group: "workflows", titleKey: "helpWorkflowPlanTitle", bodyKey: "helpWorkflowPlanBody", relatedViews: ["milestones", "gantt"], relatedConcepts: ["concept-milestone", "concept-dependency"] },
   { id: "workflow-risk", group: "workflows", titleKey: "helpWorkflowRiskTitle", bodyKey: "helpWorkflowRiskBody", relatedViews: ["raid"], relatedConcepts: ["concept-raid"] },

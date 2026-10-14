@@ -25,6 +25,14 @@ describe("help-content backbone", () => {
     }
   });
 
+  it("lists Getting started first among the workflows, before the budget workflow", () => {
+    const workflows = HELP_ENTRIES.filter((e) => e.group === "workflows").map((e) => e.id);
+    expect(workflows[0]).toBe("workflow-getting-started");
+    const entry = HELP_ENTRIES.find((e) => e.id === "workflow-getting-started")!;
+    expect(entry.titleKey).toBe("helpWorkflowGettingStartedTitle");
+    expect(entry.relatedViews).toEqual(["budget", "resources", "timelog"]);
+  });
+
   it("every group in HELP_GROUP_ORDER has a label", () => {
     for (const g of HELP_GROUP_ORDER) expect(HELP_GROUP_LABEL[g]).toBeTruthy();
   });
