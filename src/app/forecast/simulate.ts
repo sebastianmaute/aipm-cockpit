@@ -37,7 +37,8 @@ export function dayDrawer(samples: readonly number[], o: SimOptions): DayDrawer 
     if (o.rng.skip) o.rng.skip(days * callsPerDay);
     else for (let i = 0; i < days * callsPerDay; i += 1) o.rng();
   };
-  if (!o.integer) return { draw: () => scaled[Math.floor(rng() * n)], max: Math.max(...scaled), skipDays };
+  // A reduce, not `Math.max(...)`: a spread throws a RangeError past the engine's argument limit.
+  if (!o.integer) return { draw: () => scaled[Math.floor(rng() * n)], max: scaled.reduce((a, x) => Math.max(a, x), 0), skipDays };
   const whole = scaled.map((x) => Math.floor(x));
   const frac = scaled.map((x, i) => x - whole[i]);
   // A whole sample cannot round up (`rng() < 0` is never true), so its rounding draw is skipped, not computed.
@@ -52,7 +53,7 @@ export function dayDrawer(samples: readonly number[], o: SimOptions): DayDrawer 
       }
       return whole[i] + (rng() < frac[i] ? 1 : 0);
     },
-    max: Math.max(...whole.map((w, i) => w + (frac[i] > 0 ? 1 : 0))),
+    max: whole.reduce((a, w, i) => Math.max(a, w + (frac[i] > 0 ? 1 : 0)), 0),
     skipDays,
   };
 }

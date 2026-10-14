@@ -63,7 +63,7 @@ export function milestoneChances(args: Args): MilestoneChance[] {
       targets.push({
         id: m.id,
         days: countWorkingDays(addCalendarDays(today, 1), addCalendarDays(m.date, 1), holidaySet),
-        position: Math.max(...open.map((id) => cumulative.get(id) ?? 0)),
+        position: open.reduce((a, id) => Math.max(a, cumulative.get(id) ?? 0), 0),
         positionPrioritised: open.reduce((s, id) => s + (sizes.get(id) ?? 0), 0),
       });
     }
