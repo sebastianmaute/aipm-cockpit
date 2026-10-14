@@ -182,3 +182,17 @@ The final branch review found that the TimeLog panel fetches only by project (`f
 The linked-later warning names a linked person missing from ANY saved month, not only the last.
 
 **Residues added.** Changes on a person's other TimeLog projects are not seen. Adding or removing a TimeLog project after a close freezes the check until the selection matches again. A flag whose span the cache only partly covers is narrowed to the covered part when re-detected (the same shape as the other five rules). IndexedDB and both Turso layouts are not round-tripped by a test of their own; they decode through `sanitizeTimelogLinks`.
+
+## 10. Revision 2026-10-14: everyone who booked, negative hours, accepting a change (owner decisions)
+
+A fresh pre-merge review found four Important gaps. This section replaces the conflicting parts of sections 2–6 and 9.
+
+**Who is saved and checked: every booker, not only linked people.** Stored `userLinks` hold only manual pins; people the panel matches automatically were never saved or checked, so a team matched by email closed months that protected nobody. A complete project fetch already returns every booking on its projects, so the close saves every positive TimeLog user id with a booking in that month, and the rule checks, per covered closed month, every user id in `saved[month]` or in the current roll for that month. A user with no `saved[month]` entry is compared against `{}`, so a new booker in a closed month is a change. Links are not consulted, and the "linked after the close" warning is removed. The violation names the person the way the other five rules name an unlinked booker.
+
+**Hours may be negative.** TimeLog corrections can make a day total negative. The saved copy records what the fetch showed, so the sanitizer accepts any finite number; it still drops a non-number whole.
+
+**Inactive TimeLog users.** Bookings are resolved to people against the whole TimeLog directory, inactive users included, so a person deactivated after a close is not read as having deleted every booking.
+
+**Accepting a reviewed change.** Each closed month can be accepted: `acceptMonth(close, month, cache)` re-saves `saved[month]` from the current cache under the same coverage rules as a close (window spans the month, not partial, same project set), keeps `through` and `projectIds`, and refuses otherwise with the same refusal reasons. The panel offers "Accept current hours for {month}" for a chosen closed month, behind an in-page confirmation. After it, the flag for that month clears on the next evaluation and later changes compare against the accepted hours.
+
+**Smaller corrections.** The change threshold is `|Δ| >= 0.01` with a float epsilon, not hundredths rounding. The close guards each copied cell as readable. The panel lists the close's TimeLog projects by name from the cached project refs. The first-month choices reach back to the start of the cached window when it is older than 12 months. A corrupted cell stripped by the cache reads as zero, not as unreadable (recorded residue). The 512 KB roll trim can narrow `dailyWindow` so the earliest closed months freeze (recorded residue).
