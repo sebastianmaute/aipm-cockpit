@@ -897,10 +897,10 @@ describe("recommendation.historyLength (§476)", () => {
     expect(insightsMateriallyEqual([a], [{ ...a, recommendation: { ...a.recommendation!, historyLength: 2 } }])).toBe(false);
     expect(insightsMateriallyEqual([a], [{ ...a, recommendation: { ...a.recommendation!, historyLength: undefined } }])).toBe(false);
   });
-  it("counts a changed last-entry stamp as a material change", () => {
+  it("counts a changed history digest as a material change", () => {
     const a = stored("a", {
-      recommendation: { summary: "s", proposedCalls: [], generatedAt: "2026-01-09", status: "proposed", historyLength: 1, historyLastAt: "x" },
+      recommendation: { summary: "s", proposedCalls: [], generatedAt: "2026-01-09", status: "proposed", historyLength: 1, historyDigest: "x" },
     });
-    expect(insightsMateriallyEqual([a], [{ ...a, recommendation: { ...a.recommendation!, historyLastAt: "y" } }])).toBe(false);
+    expect(insightsMateriallyEqual([a], [{ ...a, recommendation: { ...a.recommendation!, historyDigest: "y" } }])).toBe(false);
   });
 });

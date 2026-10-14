@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TOOL_DEFS } from "../chat-tool-defs";
-import { ALLOWED_REC_TOOLS, REC_MONEY_ARGS, recommendationPredatesSwitch, type InsightRecommendation } from "./insight";
+import { ALLOWED_REC_TOOLS, REC_MONEY_ARGS, baselineHistoryDigest, recommendationPredatesSwitch, type InsightRecommendation } from "./insight";
 import type { BaselineEntry } from "../baseline-currency";
 
 type Prop = { type?: string | string[]; items?: Prop; properties?: Record<string, Prop> };
@@ -115,20 +115,38 @@ describe("recommendationPredatesSwitch (§476)", () => {
     expect(recommendationPredatesSwitch(rec({ id: 1, costImpact: 10 }, 1), [])).toBe(true);
   });
 
-  it("an equal-length history whose last entry differs from the stamp is refused: it was replaced and regrown", () => {
-    const r = { ...rec({ id: 1, costImpact: 10 }, 1), historyLastAt: "2026-09-03T10:00:00.000Z" };
+  const stampedWith = (history: readonly BaselineEntry[]): InsightRecommendation => ({
+    ...rec({ id: 1, costImpact: 10 }, history.length), historyDigest: baselineHistoryDigest(history),
+  });
+
+  it("an equal-length history with different entries is refused: it was replaced and regrown", () => {
+    const r = stampedWith([sw("2026-09-03")]);
     expect(recommendationPredatesSwitch(r, [sw("2026-09-03")])).toBe(false);
     expect(recommendationPredatesSwitch(r, [sw("2026-09-07")])).toBe(true);
     // A length-only stamp (an earlier build of this feature) keeps the length rule alone.
     expect(recommendationPredatesSwitch(rec({ id: 1, costImpact: 10 }, 1), [sw("2026-09-07")])).toBe(false);
   });
 
-  it("the stamped last entry may sit anywhere in an equal-length history: a reload sorts it by `at`", () => {
+  it("refuses a history that kept the stamped last entry but swapped another one (an import)", () => {
+    // [e1, e2] became [e2, e3]: same length, e2 still present, e1 dropped, e3 added.
+    const r = stampedWith([sw("2026-09-01"), sw("2026-09-02")]);
+    expect(recommendationPredatesSwitch(r, [sw("2026-09-02"), sw("2026-09-03")])).toBe(true);
+  });
+
+  it("the same entries in another order are the same history: a reload sorts it by `at`", () => {
     // Appended in memory with an `at` older than an existing entry (a device clock behind), then
-    // reloaded: `sanitizeBaselineHistory` orders by `at`, so the stamped entry is no longer last.
-    const r = { ...rec({ id: 1, costImpact: 10 }, 2), historyLastAt: sw("2026-09-02").at };
-    expect(recommendationPredatesSwitch(r, [sw("2026-09-05"), sw("2026-09-02")])).toBe(false);
+    // reloaded: `sanitizeBaselineHistory` orders by `at`.
+    const r = stampedWith([sw("2026-09-05"), sw("2026-09-02")]);
     expect(recommendationPredatesSwitch(r, [sw("2026-09-02"), sw("2026-09-05")])).toBe(false);
+    expect(recommendationPredatesSwitch(r, [sw("2026-09-05"), sw("2026-09-02")])).toBe(false);
+  });
+
+  it("the digest is order-independent and tells different histories apart", () => {
+    const a = baselineHistoryDigest([sw("2026-09-02"), sw("2026-09-05")]);
+    expect(a).toMatch(/^[0-9a-f]{16}$/);
+    expect(baselineHistoryDigest([sw("2026-09-05"), sw("2026-09-02")])).toBe(a);
+    expect(baselineHistoryDigest([sw("2026-09-02"), sw("2026-09-06")])).not.toBe(a);
+    expect(baselineHistoryDigest([])).not.toBe(baselineHistoryDigest([sw("2026-09-02")]));
   });
 
   it("a money argument nested in an object or array argument counts", () => {

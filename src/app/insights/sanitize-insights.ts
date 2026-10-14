@@ -83,8 +83,9 @@ function sanitizeRecommendation(v: unknown): InsightRecommendation | undefined {
     typeof o.historyLength === "number" && Number.isSafeInteger(o.historyLength) && o.historyLength >= 0
       ? o.historyLength
       : undefined;
-  // §476: the `at` of the history's last entry at generation — a non-empty string, else dropped.
-  const historyLastAt = isoOr(o.historyLastAt, "");
+  // §476: the baseline-history digest at generation — 16 lowercase hex characters, else dropped.
+  const historyDigest =
+    typeof o.historyDigest === "string" && /^[0-9a-f]{16}$/.test(o.historyDigest) ? o.historyDigest : undefined;
   return {
     summary,
     proposedCalls: calls,
@@ -94,7 +95,7 @@ function sanitizeRecommendation(v: unknown): InsightRecommendation | undefined {
     ...(appliedAt ? { appliedAt } : {}),
     ...(refusedCalls !== undefined ? { refusedCalls } : {}),
     ...(historyLength !== undefined ? { historyLength } : {}),
-    ...(historyLastAt ? { historyLastAt } : {}),
+    ...(historyDigest !== undefined ? { historyDigest } : {}),
   };
 }
 /** Numeric coercion for persisted metric values. An EMPTY/whitespace string must

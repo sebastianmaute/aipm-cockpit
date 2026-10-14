@@ -31,7 +31,7 @@ import {
   type Settings,
 } from "./settings-types";
 import type { Insight, InsightActions, InsightRecommendation } from "./insights/insight";
-import { ALLOWED_REC_TOOLS, recommendationPredatesSwitch } from "./insights/insight";
+import { ALLOWED_REC_TOOLS, baselineHistoryDigest, recommendationPredatesSwitch } from "./insights/insight";
 import type { BaselineEntry } from "./baseline-currency";
 import { metricAtActionPatch } from "./insights/outcome";
 import type { ScopeEpochReader } from "./scope-epoch";
@@ -243,10 +243,10 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // §476 — the baseline-history length rides the same snapshot, so a switch made while the
   // model was answering still counts as AFTER the recommendation (`recommendationPredatesSwitch`).
   const historyLength = baselineHistory.length;
-  const historyLastAt = baselineHistory[historyLength - 1]?.at;
+  const historyDigest = useMemo(() => baselineHistoryDigest(baselineHistory), [baselineHistory]);
   const snapshotEntities = useCallback(
-    (): RecommendSnapshot => ({ tasks, raid, changes, milestones, stakeholders, historyLength, historyLastAt }),
-    [tasks, raid, changes, milestones, stakeholders, historyLength, historyLastAt],
+    (): RecommendSnapshot => ({ tasks, raid, changes, milestones, stakeholders, historyLength, historyDigest }),
+    [tasks, raid, changes, milestones, stakeholders, historyLength, historyDigest],
   );
   const applyInsightRecommendation = useCallback(
     (id: number, rec: InsightRecommendation, snapshot?: RecommendSnapshot) => {
@@ -258,17 +258,16 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       // edit made while the model was answering reads as a change and the confirm
       // refuses. The live arrays are the fallback for a caller that passed none.
       // §476 — both history stamps come from ONE source: the snapshot when given, else the live
-      // values. Mixing them would pair a prompt-time length with a later last entry.
-      const historyStamp = snapshot ?? { historyLength, historyLastAt };
-      const lastAt = historyStamp.historyLastAt;
+      // values. Mixing them would pair a prompt-time length with a later history.
+      const historyStamp = snapshot ?? { historyLength, historyDigest };
       const stamped = {
         ...stampRecommendationTokens(rec, snapshot ?? { tasks, raid, changes, milestones, stakeholders }),
         historyLength: historyStamp.historyLength,
-        ...(lastAt !== undefined ? { historyLastAt: lastAt } : {}),
+        historyDigest: historyStamp.historyDigest,
       };
       setInsights((prev) => (prev ?? []).map((i) => (i.id === id ? { ...i, recommendation: stamped } : i)));
     },
-    [setInsights, tasks, raid, changes, milestones, stakeholders, loadPending, historyLength, historyLastAt],
+    [setInsights, tasks, raid, changes, milestones, stakeholders, loadPending, historyLength, historyDigest],
   );
   const {
     generatingId: insightGeneratingId,

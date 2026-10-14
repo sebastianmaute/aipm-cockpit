@@ -3,6 +3,7 @@
 // module is language-neutral.
 import type { AppView } from "../nav-config";
 import type { BaselineEntry } from "../baseline-currency";
+import { hash } from "../token-hash";
 import { TIMELOG_RULE_IDS } from "../timelog-types";
 
 export const INSIGHT_TYPES = [
@@ -96,11 +97,10 @@ export interface InsightRecommendation {
    *  A different length at apply means a switch or a replaced history, and a money call is refused
    *  (`recommendationPredatesSwitch`). Absent on one made by an older build. */
   readonly historyLength?: number;
-  /** §476: the `at` of the history's LAST entry when the prompt was built, beside
+  /** §476: `baselineHistoryDigest` of the history when the prompt was built, beside
    *  `historyLength`: a length alone cannot tell a history that was replaced and grew back to
-   *  the same length from the one the recommendation saw. Absent when the history was empty,
-   *  and on one made by an older build. */
-  readonly historyLastAt?: string;
+   *  the same length from the one the recommendation saw. Absent on one made by an older build. */
+  readonly historyDigest?: string;
 }
 
 export const INSIGHT_OUTCOME_DIRECTIONS = ["improved", "unchanged", "worsened"] as const;
@@ -177,11 +177,12 @@ export const REC_MONEY_ARGS: readonly string[] = ["costImpact"];
  *  generated, so those amounts are in the old currency. "After" is decided by the history
  *  LENGTH stamped at generation (`historyLength`): a switch only appends, so a longer history
  *  means a later switch; a SHORTER one means the history was replaced since, and the currency
- *  the amounts were written in is unknown, so it is refused too. An equal length that no longer
- *  holds an entry with the stamped `historyLastAt` was replaced and regrown, and is refused as
- *  well (a stamp without `historyLastAt` keeps the length rule alone). The stamped entry is
- *  looked for ANYWHERE, not only last: a switch appends in memory, but a reload orders the
- *  history by `at`, so an entry from a device whose clock runs behind is no longer last. Never
+ *  the amounts were written in is unknown, so it is refused too. An equal length whose
+ *  `baselineHistoryDigest` differs from the stamped `historyDigest` was replaced and regrown
+ *  (an import that dropped one entry and added another), and is refused as well; a stamp without
+ *  `historyDigest` keeps the length rule alone. The digest ignores ORDER: a switch appends in
+ *  memory, but a reload orders the history by `at`, so an entry from a device whose clock runs
+ *  behind moves, and the same entries must still read as the same history. Never
  *  by `generatedAt`, which is a DAY — a recommendation regenerated on the day of a switch, as
  *  the refusal asks, would be refused for the rest of that day. A money argument counts at any
  *  depth of a call's input. An UNSTAMPED recommendation (an older build) is refused once the
@@ -194,9 +195,18 @@ export function recommendationPredatesSwitch(
   if (!rec.proposedCalls.some((c) => carriesMoney(c.input))) return false;
   if (rec.historyLength !== undefined) {
     if (history.length !== rec.historyLength) return true;
-    return rec.historyLastAt !== undefined && !history.some((e) => e.at === rec.historyLastAt);
+    return rec.historyDigest !== undefined && baselineHistoryDigest(history) !== rec.historyDigest;
   }
   return history.some((e) => e.perPrevious !== undefined);
+}
+
+/** §476 — an order-independent digest of a baseline history: each entry's `at`, currency and
+ *  `perPrevious`, sorted, hashed (`hash`, 16 hex characters; not cryptographic, it only tells
+ *  one stored history from another). Sorted because a reload orders entries by `at` while a
+ *  switch appends, so the same entries arrive in either order. */
+export function baselineHistoryDigest(history: readonly BaselineEntry[]): string {
+  const keys = history.map((e) => `${e.at}|${e.currency}|${e.perPrevious ?? ""}`).sort();
+  return hash(keys.join("\n"));
 }
 
 /** True when `value` holds a `REC_MONEY_ARGS` key at any depth of its objects and arrays. */

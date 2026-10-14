@@ -305,24 +305,24 @@ describe("sanitizeInsights — loggedRaidId (§515)", () => {
   });
 });
 
-describe("sanitizeInsights — recommendation.historyLastAt (§476)", () => {
-  const raw = (historyLastAt: unknown) => ({
+describe("sanitizeInsights — recommendation.historyDigest (§476)", () => {
+  const raw = (historyDigest: unknown) => ({
     id: 1, key: "k", type: "overdueTrend", severity: "low", status: "active", data: {},
     firstSeenAt: "2026-01-01", lastSeenAt: "2026-01-01", occurrences: 1,
     recommendation: {
       summary: "s", status: "proposed", generatedAt: "2026-01-01",
       proposedCalls: [{ name: "update_task", input: { id: 1 } }],
-      historyLength: 1, historyLastAt,
+      historyLength: 1, historyDigest,
     },
   });
-  test("keeps a non-empty string", () => {
-    expect(sanitizeInsights([raw("2026-09-03T10:00:00.000Z")])[0]?.recommendation?.historyLastAt).toBe("2026-09-03T10:00:00.000Z");
+  test("keeps a 16-character lowercase hex digest", () => {
+    expect(sanitizeInsights([raw("0123456789abcdef")])[0]?.recommendation?.historyDigest).toBe("0123456789abcdef");
   });
   test("drops anything else and omits the key, keeping the recommendation", () => {
-    for (const v of ["", "  ", 5, null, undefined, {}]) {
+    for (const v of ["", "  ", 5, null, undefined, {}, "0123456789ABCDEF", "0123456789abcde", "0123456789abcdef0", "2026-09-03T10:00:00.000Z"]) {
       const rec = sanitizeInsights([raw(v)])[0]?.recommendation;
       expect(rec?.historyLength).toBe(1);
-      expect(rec && "historyLastAt" in rec).toBe(false);
+      expect(rec && "historyDigest" in rec).toBe(false);
     }
   });
 });
