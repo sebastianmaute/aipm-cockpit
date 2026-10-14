@@ -247,27 +247,92 @@ Help entry opens the demo.
 ## Phase 3 — §476 project baseline currency
 
 Owner choice: option D — the full configurable baseline, not a role-rate picker. EUR stays the default at
-creation. The register entry §476 holds the analysis; this section fixes the design decisions it left open.
+creation. The register entry §476 holds the analysis and the rejected readings A and B; this section fixes
+the design. **Amended 2026-10-14** after the brainstorm that settled the decisions the first draft left open
+(the first draft's bullets are folded in below, not kept beside them).
 
-- **Field:** reuse `plan.currency` as the baseline (the register leans this way since §473 settled it as the
-  role-rate currency). Its meaning widens from "currency rates are typed in" to "unit the engine computes and
-  displays in"; a stored value other than EUR is already valid.
-- **Where it is set:** project creation (wizard details step) and Edit project.
-- **Changing it on an in-flight project** uses semantics C, re-confirmed by the owner on 2026-10-13: going
-  forward, history pinned.
-  - The change is **blocked until ECB rates are fetched** in this session (no rate-1 fallback can become a
-    write).
-  - The rate used is **pinned** into the workspace as a baseline-history record
-    `{ from: ISO date, currency, perEur: number }`; past figures are valued with the baseline and pinned rate
-    in force on their date, so a past month's reported cost never moves on a later settings edit.
-  - A real confirmation names the old and new currency, the rate, and that past figures keep their values.
-- **Engine:** the rate table stays EUR-based; a cross rate is derived (`ecb[bucket] / ecb[base]`).
-  `resolveRate`'s short-circuit becomes `bucket.currency === base`.
-- **Display:** the EUR money formatters move to the baseline (the register's witness lists them).
-- **Persistence:** the baseline-history record is a new workspace field → all six write paths.
+**Witnesses re-run 2026-10-14 against `origin/main`, all unchanged since the 2026-10-09 re-check:**
+`git grep -n 'bucket.currency === "EUR"' origin/main -- src/app/fx.ts` → 1;
+`SUPPORTED_CURRENCIES.map` in a non-test `.tsx` → `budget-bucket-modal.tsx` alone;
+`input.base !== "EUR"` in `sanitize-entities.ts` → 1; `formatCurrency(…"EUR")` sites → 8;
+non-test, non-i18n `"EUR"` literals in `src/app` → 29; `asOfRate\|rateStamp` → 0.
 
-Before planning phase 3: re-run the register's witnesses, and decide whether the history record is a
-meta-blob slice or part of the plan.
+### Data and persistence
+
+- **Field:** `plan.currency` IS the baseline. Its meaning widens from "the currency rates are typed in"
+  (§473) to "the unit the engine computes and displays money in". EUR stays the default.
+- **Plan-currency money is rates only.** The only stored amounts in the plan currency are each role's
+  `internalRate` / `externalRate` / `internalRateDay` / `externalRateDay` and each bucket's
+  `rateOverrideInternal` / `rateOverrideExternal`. Hours are hours; `fixedPriceAmount` is in its
+  bucket's currency. Roles are a per-project workspace entity, so a switch reaches one project only.
+- **Rates are converted once at a switch (owner decision 2026-10-14).** Every rate above is multiplied by
+  the cross rate `perPrevious` (new currency per 1 unit of the old, `ecb[new] / ecb[old]` from this
+  session's table, EUR as 1) and rounded to 2 decimals; a role whose
+  `rateBasis` is `"day"` converts its day rates and re-derives the hourly ones, never converting both.
+  Past months then show the same amounts in the new currency, so the switch moves no history. Rejected at
+  the same time: keeping the typed numbers and asking the user to retype them (figures wrong by the
+  exchange rate until they do), and giving each rate its own currency (§476's rejected option B again).
+  ★ Rates are not dated: editing a rate re-values every past month, as it does today. The "history
+  pinned" promise covers a currency switch, not a rate edit.
+- **Baseline-history record:** `Workspace.baselineHistory: { from: "YYYY-MM-DD"; currency: BudgetCurrency;
+  perPrevious?: number }[]`, appended at every switch. `perPrevious` is the pinned cross rate from the
+  previous baseline; it is absent only on a creation entry, which has no previous. ★ It replaces the first
+  draft's `perEur`: converting GBP history into USD needs BOTH rates at the moment of the switch, and a
+  per-EUR figure pins only the new one. The cross rate is also exactly the factor the rates were converted by. It is a **meta-blob** slice (one JSON row in `meta`, like
+  `insights` and `activityLog`), not a column on the `plan` table: `PLAN_COLUMNS` are scalars, and a JSON
+  column would need an `ALTER` plus new CSV and Markdown plan sections for no gain. It rides all six write
+  paths by hand — the Turso TENANT path is the one `activityLog` missed. Absent or empty means "the current
+  `plan.currency` since the start", so existing workspaces need no migration.
+- **What the record is for:** saved snapshots (Turso Trends) store `planned_cost` / `actual_cost` /
+  `remaining_cost` with no currency, so after a switch the trend line would mix currencies; and it is the
+  audit line ("switched EUR → GBP on 2026-10-14 at 0.8520").
+
+### The switch
+
+- **At creation:** a currency picker on the create-project wizard's details step, EUR by default. A new
+  project has no rates, so nothing converts and no ECB fetch is needed; a non-EUR choice writes one history
+  entry `{ from: plan start, currency }` with no `perPrevious`.
+- **Later:** a picker in the Budget panel, beside the ECB rate refresh. Not in Edit project: that modal
+  edits `ProjectMeta`, and `plan` is budget data.
+  1. **Disabled until ECB rates are fetched in this session.** A table cached from an earlier session does
+     not count. The hint names the refresh control beside it. No rate-1 fallback can become a write.
+  2. **A real confirmation dialog** (Cancel is the default; never `window.confirm`) names the old and new
+     currency, the cross rate and its ECB date, lists every converted value before → after, says past
+     months keep their values, and says the switch cannot be undone — switching back is the way out.
+  3. **One write** sets `plan.currency`, converts the rates and appends the history entry
+     `{ from: today, currency: new, perPrevious: the pinned cross rate }`.
+- **Guards:** no picker in a popout (read-only); disabled while `loadPending`; a switch back to EUR is the
+  same guarded, recorded switch; **not undoable** (an undo would be a second, unrecorded re-denomination);
+  no AI tool writes `plan.currency`, today or after this.
+
+### Engine, display and Trends
+
+- **The engine computes in the baseline.** `resolveRate` takes the base: 1 when `bucket.currency === base`
+  (a manual `fxRateOverride` still wins), otherwise `ecb[bucket] / ecb[base]` with EUR as 1. The rate table
+  stays EUR-based and `sanitizeFxRates` keeps rejecting a non-EUR base. `currencyToEur` / `eurToCurrency`
+  become `currencyToBase` / `baseToCurrency`; `planCurrencyPerEur` collapses to 1 and is removed.
+- **Behaviour-neutral at EUR:** with `base = "EUR"` every existing budget, earned-value and forecast test
+  passes unchanged. That is the refactor's safety net and is stated as a plan gate.
+- **Display sweep:** the 8 `formatCurrency(…"EUR")` sites and every assumption among the 29 `"EUR"`
+  literals take the baseline. The plan labels each literal KEEP (load-path coercion, `SUPPORTED_CURRENCIES`,
+  `DEFAULT_CURRENCY`, the ECB table) or CHANGE. The picker's help says cross rates are triangulated through
+  EUR: fine for project budgeting, not for treasury.
+- **Trends:** a snapshot's costs are read as being in the baseline in force on its capture date and
+  converted to today's by multiplying the `perPrevious` of every switch after that date. The snapshot schema does not
+  change.
+
+### Tests
+
+Cross-rate unit tests; switch conversion (hourly and day rates, overrides, rounding); the blocked-without-
+rates guard, with a fixture holding a CACHED-only table so the "fetched this session" rule is what the test
+sees; `baselineHistory` through all six write paths, tenant included; Trends conversion across a switch;
+axe on the Budget view with the picker present.
+
+### Out of scope
+
+§474 (a bucket at rate 1 because no rate was fetched, summed at par) — this work makes that state more
+common, and the plan says so where it touches `resolveRate`; per-role currencies; re-denominating stored
+snapshots.
 
 ---
 
@@ -277,4 +342,4 @@ meta-blob slice or part of the plan.
 2. §712 — the banner shows on every project until dismissed or the demo has been opened (simpler than
    detecting a "new" project).
 3. §705 — the splash picks EN or DE from the OS locale.
-4. §476 — reuse `plan.currency`, and the baseline-history record shape.
+4. §476 — reuse `plan.currency`, and the baseline-history record shape. Settled 2026-10-14 (Phase 3 above).
