@@ -7,6 +7,8 @@
 import type { Workspace } from "./workspace";
 import { COLLECTION_SPECS, type RecordId, type VersionChange } from "./version-diff";
 import { PRE_FORMAT_2_BLIND_SLICES } from "./version-capture-format";
+import { DEFAULT_WORKDAY_HOURS, materializeRoleRates } from "./role-rates";
+import type { Role } from "./types";
 
 /** Selection keyed by changeKey(collection, recordId); value is "all" (whole
  *  record / all changed fields) or an explicit list of field names. */
@@ -44,6 +46,28 @@ function mergeFields(target: Rec, source: Rec, fields: string[] | "all", allChan
   return next;
 }
 
+/** §476 A3 — a day-basis role's day rate and the hourly rate derived from it are ONE
+ *  value in two units, so a field selection takes them as a PAIR: picking either side
+ *  restores both, and the merged role is re-materialised at the CURRENT workday hours.
+ *  Restoring one alone would store an hourly that is not day / workdayHours. */
+const DAY_RATE_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ["internalRate", "internalRateDay"],
+  ["externalRate", "externalRateDay"],
+];
+
+function restoreRoleFields(target: Rec, source: Rec, fields: string[] | "all", allChanged: string[], workdayHours: number): Rec {
+  const picks = fields === "all" ? allChanged : fields;
+  const basis = picks.includes("rateBasis") && "rateBasis" in source ? source.rateBasis : target.rateBasis;
+  if (basis !== "day") return mergeFields(target, source, fields, allChanged);
+  const paired = new Set(picks);
+  for (const [hour, day] of DAY_RATE_PAIRS) {
+    // Only a side the version carries: picking an absent one would DELETE it.
+    if (paired.has(hour) || paired.has(day)) for (const f of [hour, day]) if (f in source) paired.add(f);
+  }
+  const merged = mergeFields(target, source, [...paired], allChanged);
+  return materializeRoleRates(merged as unknown as Role, workdayHours) as unknown as Rec;
+}
+
 /** ★ `versionSpeaksForEmptySlices` mirrors `diffWorkspaces`' option and must be
  *  given the SAME value: pass `speaksForEmptySlices(readCaptureFormat(payload))`
  *  for the stored capture. Defaults to FALSE — the safe reading. */
@@ -52,7 +76,7 @@ export function applyRestore(
   version: Workspace,
   changes: VersionChange[],
   selection: RestoreSelection,
-  opts?: { versionSpeaksForEmptySlices?: boolean },
+  opts?: { versionSpeaksForEmptySlices?: boolean; workdayHours?: number },
 ): Workspace {
   const changeByKey = new Map(changes.map((c) => [changeKey(c.collection, c.recordId), c]));
   const result: Record<string, unknown> = { ...(current as unknown as Record<string, unknown>) };
@@ -113,7 +137,9 @@ export function applyRestore(
         } else {
           const verRec = ver.get(id) ?? {};
           const allChanged = change.fields.map((f) => f.field);
-          cur.set(id, mergeFields(cur.get(id) ?? {}, verRec, sel, allChanged));
+          cur.set(id, key === "roles"
+            ? restoreRoleFields(cur.get(id) ?? {}, verRec, sel, allChanged, opts?.workdayHours ?? DEFAULT_WORKDAY_HOURS)
+            : mergeFields(cur.get(id) ?? {}, verRec, sel, allChanged));
           touched = true;
         }
       }

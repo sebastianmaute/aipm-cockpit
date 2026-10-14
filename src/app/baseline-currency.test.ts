@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  crossRate, rebaseBudgetHistory, rebaseFactor, rebaseSnapshots, sanitizeBaselineHistory,
+  crossRate, laterSwitchRates, rebaseBudgetHistory, rebaseFactor, rebaseSnapshots, sanitizeBaselineHistory,
   type BaselineEntry,
 } from "./baseline-currency";
 import type { FxRates } from "./types";
@@ -33,6 +33,13 @@ describe("sanitizeBaselineHistory", () => {
     expect(sanitizeBaselineHistory([{ ...good, perPrevious: 1e200 }, { ...good, perPrevious: 1e-9 }])).toEqual([]);
     expect(sanitizeBaselineHistory([{ ...good, currency: "INR", perPrevious: 105 }])).toEqual([{ ...good, currency: "INR", perPrevious: 105 }]);
     expect(sanitizeBaselineHistory([{ ...good, perPrevious: 1e-4 }, { ...good, at: T2, perPrevious: 1e4 }])).toHaveLength(2); // the bounds are inclusive
+  });
+  // B1 — `at` must be exactly `toISOString()` output: ms precision and a Z suffix.
+  test("drops an at without milliseconds and one with an offset", () => {
+    expect(sanitizeBaselineHistory([
+      { ...good, at: "2026-10-14T09:00:00Z" },
+      { ...good, at: "2026-10-14T09:00:00.000+02:00" },
+    ])).toEqual([]);
   });
   test("keeps a creation entry without perPrevious", () => {
     const c = { from: "2026-10-14", at: T1, currency: "EUR" };
@@ -67,6 +74,24 @@ describe("rebaseFactor", () => {
     expect(rebaseFactor(history, ms(T1, 1))).toBeCloseTo(1.3);
     expect(rebaseFactor(history, ms(T2, 1))).toBe(1);
     expect(rebaseFactor([], T1)).toBe(1);
+  });
+  // B1 — a three-switch chain, EUR→GBP→USD→EUR: every switch strictly later than the record.
+  const T3 = "2026-11-20T09:00:00.000Z";
+  const three: BaselineEntry[] = [...history, { from: "2026-11-20", at: T3, currency: "EUR", perPrevious: 0.9 }];
+  test("a three-switch chain multiplies every later switch, and drops each as the record passes it", () => {
+    expect(rebaseFactor(three, ms(T1, -1))).toBeCloseTo(0.85 * 1.3 * 0.9, 12);
+    expect(rebaseFactor(three, ms(T2, -1))).toBeCloseTo(1.3 * 0.9, 12);
+    expect(rebaseFactor(three, ms(T3, -1))).toBeCloseTo(0.9, 12);
+    expect(rebaseFactor(three, T3)).toBe(1);
+    expect(laterSwitchRates(three, ms(T1, -1))).toEqual([0.85, 1.3, 0.9]);
+  });
+  test("a record stamped AT a switch is not converted by it (strict >)", () => {
+    expect(rebaseFactor(history, T1)).toBeCloseTo(1.3, 12);
+    expect(rebaseFactor(history, T2)).toBe(1);
+    expect(laterSwitchRates(history, T1)).toEqual([1.3]);
+  });
+  test("laterSwitchRates orders by at, whatever the input order, and skips a creation entry", () => {
+    expect(laterSwitchRates([history[1], { from: "2026-10-01", at: ms(T1, -5), currency: "EUR" }, history[0]], ms(T1, -10))).toEqual([0.85, 1.3]);
   });
   test("creation entry contributes nothing", () => {
     expect(rebaseFactor([{ from: "2026-10-14", at: T1, currency: "EUR" }], ms(T1, -1))).toBe(1);

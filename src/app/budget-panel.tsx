@@ -397,7 +397,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
               disabled:opacity-50` in its base class — do not re-declare them
               here. The className is layout only, appended after the variant. */}
           {!isPopout && props.fxSessionRates !== undefined ? (
-            <BaselineCurrencyControl lang={lang} sessionRates={props.fxSessionRates} workdayHours={workdayHours} />
+            <BaselineCurrencyControl lang={lang} sessionRates={props.fxSessionRates} workdayHours={workdayHours} today={today} />
           ) : null}
           <Button
             variant="secondary"

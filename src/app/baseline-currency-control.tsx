@@ -6,7 +6,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { useWorkspace } from "./workspace-context";
 import { useActivityLog } from "./use-activity-log";
 import { crossRate, roundRate } from "./baseline-currency";
-import { planBaselineSwitch } from "./baseline-switch";
+import { convertBucket, convertChange, convertRole, planBaselineSwitch } from "./baseline-switch";
 import { roleLabel } from "./resource-foundation";
 import { BaselineSwitchDialog } from "./baseline-switch-dialog";
 import { SUPPORTED_CURRENCIES, isBudgetCurrency, type BudgetCurrency, type FxRates } from "./types";
@@ -18,6 +18,8 @@ export interface BaselineCurrencyControlProps {
    *  once, at today's rate, so a months-old cached table must not drive it. */
   sessionRates: FxRates | null;
   workdayHours: number;
+  /** The project day (`clock.today`, via `BudgetPanel`), which a switch's history entry starts on. */
+  today: string;
 }
 
 /**
@@ -36,7 +38,7 @@ export interface BaselineCurrencyControlProps {
  * tree, this control included, is unmounted while a load is pending (§548), so
  * it can never be operated mid-load.
  */
-export function BaselineCurrencyControl({ lang, sessionRates, workdayHours }: BaselineCurrencyControlProps) {
+export function BaselineCurrencyControl({ lang, sessionRates, workdayHours, today }: BaselineCurrencyControlProps) {
   const ws = useWorkspace();
   // The Confirm click is a user gesture all the way down, so the leaf names the actor.
   const { logActivityUser } = useActivityLog();
@@ -57,12 +59,18 @@ export function BaselineCurrencyControl({ lang, sessionRates, workdayHours }: Ba
       workdayHours,
       roleLabel: (r) => roleLabel(r, disciplines, grades),
       nowIso,
+      today,
     });
 
   // The preview's history entry is never written: Confirm re-plans from the
   // live state with its own event-time timestamp. "" keeps `new Date()` out of
   // the render body.
   const preview = pendingTo && sessionRates ? buildPlan(pendingTo, sessionRates, "") : null;
+  // A pending choice that is no longer a switch (a peer tab already made it, or the
+  // session table went away) is DROPPED, not merely hidden: kept, it would bring the
+  // dialog back on its own once the currency changed again. Render-time reconcile —
+  // `set-state-in-effect` is banned here.
+  if (pendingTo !== null && preview === null) setPendingTo(null);
 
   const cancel = () => setPendingTo(null);
 
@@ -71,9 +79,13 @@ export function BaselineCurrencyControl({ lang, sessionRates, workdayHours }: Ba
     const result = buildPlan(pendingTo, sessionRates, new Date().toISOString());
     setPendingTo(null);
     if (!result) return;
-    ws.setRoles(result.roles);
-    ws.setBudgets(result.buckets);
-    ws.setChanges(result.changes);
+    // FUNCTIONAL setters that convert `prev` at the plan's rate (AGENTS.md "N saves in one
+    // tick"): a record another writer queued in the same tick is converted too, never
+    // overwritten by the snapshot this render planned from. One history append.
+    const { rate } = result;
+    ws.setRoles((prev) => prev.map((r) => convertRole(r, rate, workdayHours)));
+    ws.setBudgets((prev) => prev.map((b) => convertBucket(b, rate)));
+    ws.setChanges((prev) => prev.map((c) => convertChange(c, rate)));
     ws.setPlan((p) => ({ ...p, currency: result.to }));
     ws.setBaselineHistory((h) => [...h, result.entry]);
     logActivityUser("plan.currencySwitched", result.from, result.to, roundRate(result.rate), result.fxDate);

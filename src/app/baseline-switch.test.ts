@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { planBaselineSwitch, prepareRestoredVersion } from "./baseline-switch";
 import type { BaselineEntry } from "./baseline-currency";
+import { materializeRoleRates, round2 } from "./role-rates";
+import { diffWorkspaces } from "./version-diff";
+import { applyRestore, changeKey } from "./version-restore";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { BudgetBucket, BudgetCurrency, ChangeItem, FxRates, Role } from "./types";
 
@@ -22,7 +25,7 @@ const change = (over: Partial<ChangeItem> = {}): ChangeItem => ({
 function plan(over: Partial<Parameters<typeof planBaselineSwitch>[0]> = {}) {
   return planBaselineSwitch({
     from: "EUR", to: "GBP", sessionRates: FX, roles: [], buckets: [], changes: [],
-    workdayHours: 8, roleLabel: (r) => `role-${r.id}`, nowIso: NOW, ...over,
+    workdayHours: 8, roleLabel: (r) => `role-${r.id}`, nowIso: NOW, today: "2026-10-15", ...over,
   });
 }
 
@@ -73,7 +76,8 @@ describe("planBaselineSwitch", () => {
     expect(p.rows).toContainEqual({ kind: "role", id: 1, label: "role-1", field: "internalRate", before: 100, after: 85.2 });
     expect(p.rows).toContainEqual({ kind: "bucket", id: 1, label: "Alpha", field: "rateOverrideInternal", before: 90, after: 76.68 });
     expect(p.rows).toContainEqual({ kind: "change", id: 7, label: "C", field: "costImpact", before: 5000, after: 4260 });
-    expect(p.entry).toEqual({ from: "2026-10-14", at: NOW, currency: "GBP", perPrevious: 0.852 });
+    // `from` is the project day handed in, never the UTC day of `at` (A2).
+    expect(p.entry).toEqual({ from: "2026-10-15", at: NOW, currency: "GBP", perPrevious: 0.852 });
     expect(p.rate).toBe(0.852);
     expect(p.fxDate).toBe("2026-10-01");
     expect(p.from).toBe("EUR");
@@ -154,5 +158,110 @@ describe("prepareRestoredVersion", () => {
     const out = prep(ws(), [S1], "GBP", null);
     expect(out.plan.currency).toBe("GBP");
     expect(out.roles[0].internalRate).toBe(100);
+  });
+});
+
+// §476 A3 — a day-basis role's day and hourly rates restore as a PAIR, re-materialised at the
+// CURRENT workday hours, so neither a compare nor a per-field restore can split them.
+describe("restore of a day-basis role (A3)", () => {
+  const dayRole = (over: Partial<Role> = {}): Role => ({
+    id: 5, disciplineId: 1, gradeId: 1, rateBasis: "day",
+    internalRateDay: 800, externalRateDay: 1000, internalRate: 100, externalRate: 125, ...over,
+  });
+  const at = (roles: Role[]): Workspace => ({ ...emptyWorkspace(), roles });
+  const prepNow = (v: Workspace, wdh: number) =>
+    prepareRestoredVersion(v, { history: [], capturedAt: "2026-10-01T08:00:00.000Z", currency: "EUR", workdayHours: wdh });
+
+  it("an unchanged day rate shows no hourly row, though the workday hours changed since", () => {
+    const version = at([dayRole()]); // captured at 8 h
+    const now = at([materializeRoleRates(dayRole(), 7.5)]); // same day rate, live at 7.5 h
+    expect(now.roles[0].internalRate).toBe(106.67); // control: the stored hourly really differs
+    const rows = diffWorkspaces(prepNow(version, 7.5), now).filter((c) => c.collection === "roles");
+    expect(rows).toEqual([]);
+  });
+
+  it("selecting only the hourly field restores the version's day rate and its derived hourly", () => {
+    const version = prepNow(at([dayRole({ internalRateDay: 640, internalRate: 80 })]), 8);
+    const now = at([dayRole()]);
+    const changes = diffWorkspaces(version, now);
+    const out = applyRestore(now, version, changes, { [changeKey("roles", 5)]: ["internalRate"] }, { workdayHours: 8 });
+    expect(out.roles[0]).toMatchObject({ internalRateDay: 640, internalRate: 80, externalRateDay: 1000, externalRate: 125 });
+  });
+
+  it("selecting only the day field restores the derived hourly with it, at the current workday hours", () => {
+    const version = prepNow(at([dayRole({ externalRateDay: 900, externalRate: 112.5 })]), 7.5);
+    const now = at([materializeRoleRates(dayRole(), 7.5)]);
+    const changes = diffWorkspaces(version, now);
+    const out = applyRestore(now, version, changes, { [changeKey("roles", 5)]: ["externalRateDay"] }, { workdayHours: 7.5 });
+    expect(out.roles[0]).toMatchObject({ externalRateDay: 900, externalRate: 120, internalRateDay: 800, internalRate: 106.67 });
+  });
+
+  it("an hour-basis role still restores one field alone", () => {
+    const version = at([{ ...hourRole, internalRate: 90 }]);
+    const now = at([hourRole]);
+    const out = applyRestore(now, version, diffWorkspaces(version, now), { [changeKey("roles", 1)]: ["internalRate"] }, { workdayHours: 8 });
+    expect(out.roles[0]).toMatchObject({ internalRate: 90, internalRateDay: 800 });
+  });
+});
+
+// §476 A4 — a restore converts through every later switch IN ORDER, rounding at each step
+// exactly as the successive switches did, so a value untouched since the version comes back
+// to the cent. Expected values come from chaining the planner itself, not from hand arithmetic.
+describe("restore conversion chains the switches (A4)", () => {
+  const FX_GBP: FxRates = { base: "EUR", date: "2026-10-01", fetchedAt: "2026-10-01T08:00:00.000Z", rates: { GBP: 0.852 } };
+  const FX_USD: FxRates = { base: "EUR", date: "2026-10-05", fetchedAt: "2026-10-05T08:00:00.000Z", rates: { GBP: 1, USD: 1.27 } };
+  const odd: Role = { id: 9, disciplineId: 1, gradeId: 1, internalRate: 33.33, externalRate: 77.77, internalRateDay: 266.64, externalRateDay: 622.16 };
+  const oddDay: Role = { id: 10, disciplineId: 1, gradeId: 1, rateBasis: "day", internalRateDay: 333.33, externalRateDay: 555.55, internalRate: 44.44, externalRate: 74.07 };
+  const versionWs: Workspace = {
+    ...emptyWorkspace(),
+    plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" },
+    roles: [odd, oddDay],
+    budgets: [bucket({ rateOverrideInternal: 33.33 })],
+    changes: [change({ costImpact: 333.33 })],
+  };
+  const s1 = plan({ from: "EUR", to: "GBP", sessionRates: FX_GBP, roles: versionWs.roles, buckets: versionWs.budgets, changes: versionWs.changes, workdayHours: 7.5, nowIso: "2026-10-02T08:00:00.000Z" })!;
+  const s2 = plan({ from: "GBP", to: "USD", sessionRates: FX_USD, roles: s1.roles, buckets: s1.buckets, changes: s1.changes, workdayHours: 7.5, nowIso: "2026-10-06T08:00:00.000Z" })!;
+  const history: BaselineEntry[] = [s1.entry, s2.entry];
+  const live: Workspace = { ...versionWs, plan: { ...versionWs.plan, currency: "USD" }, roles: s2.roles, budgets: s2.buckets, changes: s2.changes };
+  const prepared = prepareRestoredVersion(versionWs, { history, capturedAt: "2026-10-01T08:00:00.000Z", currency: "USD", workdayHours: 7.5 });
+
+  it("uses rates whose single compound rounding would differ from the stepwise one (control)", () => {
+    expect(s1.rate).toBe(0.852);
+    expect(s2.rate).toBe(1.27);
+    expect(round2(odd.internalRate * 0.852 * 1.27)).not.toBe(s2.roles[0].internalRate);
+  });
+
+  it("a record untouched since the pre-switch version shows no compare row", () => {
+    expect(diffWorkspaces(prepared, live).filter((c) => ["roles", "budgets", "changes", "plan"].includes(c.collection))).toEqual([]);
+  });
+
+  it("restoring it writes the identical live values", () => {
+    expect(prepared.roles).toEqual(live.roles);
+    expect(prepared.budgets).toEqual(live.budgets);
+    expect(prepared.changes).toEqual(live.changes);
+  });
+});
+
+// §476 B2/B3 — the review's row-filter, missing-day-field and identity pins.
+describe("planBaselineSwitch — rows and edge records (B2, B3)", () => {
+  it("a value the rate leaves unchanged (zero) produces no row", () => {
+    const zero: Role = { id: 11, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 140 };
+    const p = plan({ roles: [zero], changes: [change({ costImpact: 0 })], buckets: [bucket({ rateOverrideInternal: 0 })] })!;
+    expect(p.rows).toEqual([{ kind: "role", id: 11, label: "role-11", field: "externalRate", before: 140, after: 119.28 }]);
+  });
+
+  it("a change whose costImpact converts to the same value keeps its identity", () => {
+    const zero = change({ costImpact: 0 });
+    expect(plan({ changes: [zero] })!.changes[0]).toBe(zero);
+  });
+
+  // Ruling: a day-basis role missing one day field keeps that side's money. Its day rate is
+  // derived from the CONVERTED hourly before re-materialising, so the side is neither zeroed
+  // (what `materializeRoleRates` alone would do) nor left inconsistent.
+  it("a day-basis role missing one day field converts that side from its hourly instead of zeroing it", () => {
+    const partial: Role = { id: 12, disciplineId: 1, gradeId: 1, rateBasis: "day", internalRateDay: 800, internalRate: 100, externalRate: 150 };
+    const p = plan({ roles: [partial] })!;
+    expect(p.roles[0]).toMatchObject({ internalRateDay: 681.6, internalRate: 85.2, externalRateDay: 1022.4, externalRate: 127.8 });
+    expect(p.rows).toContainEqual({ kind: "role", id: 12, label: "role-12", field: "externalRate", before: 150, after: 127.8 });
   });
 });

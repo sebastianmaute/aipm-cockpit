@@ -66,6 +66,19 @@ export function rebaseFactor(history: readonly BaselineEntry[], atIso: string): 
   return factor;
 }
 
+/**
+ * Every later switch's `perPrevious` (entries with `at > atIso`), in the order they were
+ * made. A RESTORE converts through these one at a time, rounding at each step exactly as
+ * the successive switches did (§476 A4); `rebaseFactor` is their product, for the
+ * unrounded read-time rebase of snapshots and budget history.
+ */
+export function laterSwitchRates(history: readonly BaselineEntry[], atIso: string): number[] {
+  return [...history]
+    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
+    .filter((e) => e.at > atIso && e.perPrevious !== undefined)
+    .map((e) => e.perPrevious as number);
+}
+
 /** A cross rate rounded to 6 decimals, as the activity log records it (§476). */
 export const roundRate = (rate: number): number => Math.round(rate * 1e6) / 1e6;
 

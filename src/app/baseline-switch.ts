@@ -3,8 +3,8 @@
  * stored money rate once by the cross rate, rounded to 2 decimals. Never touches
  * `fixedPriceAmount` or `fxRateOverride`.
  */
-import { crossRate, rebaseFactor, type BaselineEntry } from "./baseline-currency";
-import { materializeRoleRates, round2 } from "./role-rates";
+import { crossRate, laterSwitchRates, type BaselineEntry } from "./baseline-currency";
+import { dayFromHour, materializeRoleRates, rematerializeDayBasisRoles, round2 } from "./role-rates";
 import type { BudgetBucket, BudgetCurrency, ChangeItem, FxRates, Role } from "./types";
 import type { Workspace } from "./workspace";
 
@@ -39,22 +39,32 @@ type PlanInput = {
   workdayHours: number;
   roleLabel: (r: Role) => string;
   nowIso: string;
+  /** The project day (`clock.today`, local to the project zone) the entry starts on —
+   *  never `nowIso.slice(0, 10)`, which is the UTC day and is a day early after
+   *  local midnight east of Greenwich. */
+  today: string;
 };
 
 /** The money fields a switch converts — and a restore, from a version captured before one. */
 export const ROLE_FIELDS = ["internalRate", "externalRate", "internalRateDay", "externalRateDay"] as const;
 export const BUCKET_FIELDS = ["rateOverrideInternal", "rateOverrideExternal"] as const;
 
-function convertRole(role: Role, rate: number, workdayHours: number): Role {
+export function convertRole(role: Role, rate: number, workdayHours: number): Role {
   const next: Role = { ...role };
   for (const f of ROLE_FIELDS) {
     const v = role[f];
     if (typeof v === "number") next[f] = round2(v * rate);
   }
-  return role.rateBasis === "day" ? materializeRoleRates(next, workdayHours) : next;
+  if (role.rateBasis !== "day") return next;
+  // A day-basis role missing one day field (the sanitizer allows it) would have that side
+  // ZEROED by `materializeRoleRates`; derive its day rate from the converted hourly first,
+  // so the switch keeps the money and leaves the pair consistent (§476 B2).
+  if (typeof next.internalRateDay !== "number" && typeof next.internalRate === "number") next.internalRateDay = dayFromHour(next.internalRate, workdayHours);
+  if (typeof next.externalRateDay !== "number" && typeof next.externalRate === "number") next.externalRateDay = dayFromHour(next.externalRate, workdayHours);
+  return materializeRoleRates(next, workdayHours);
 }
 
-function convertBucket(bucket: BudgetBucket, rate: number): BudgetBucket {
+export function convertBucket(bucket: BudgetBucket, rate: number): BudgetBucket {
   const next: BudgetBucket = { ...bucket };
   let changed = false;
   for (const f of BUCKET_FIELDS) {
@@ -67,12 +77,15 @@ function convertBucket(bucket: BudgetBucket, rate: number): BudgetBucket {
   return changed ? next : bucket;
 }
 
-function convertChange(change: ChangeItem, rate: number): ChangeItem {
-  return typeof change.costImpact === "number" ? { ...change, costImpact: round2(change.costImpact * rate) } : change;
+/** A change whose `costImpact` is absent or converts to the same value keeps its identity, like a bucket. */
+export function convertChange(change: ChangeItem, rate: number): ChangeItem {
+  if (typeof change.costImpact !== "number") return change;
+  const costImpact = round2(change.costImpact * rate);
+  return costImpact === change.costImpact ? change : { ...change, costImpact };
 }
 
 export function planBaselineSwitch(input: PlanInput): BaselineSwitchPlan | null {
-  const { from, to, sessionRates, workdayHours, roleLabel, nowIso } = input;
+  const { from, to, sessionRates, workdayHours, roleLabel, nowIso, today } = input;
   if (from === to) return null;
   const rate = crossRate(sessionRates, from, to);
   if (rate === null) return null;
@@ -119,7 +132,7 @@ export function planBaselineSwitch(input: PlanInput): BaselineSwitchPlan | null 
     roles,
     buckets,
     changes,
-    entry: { from: nowIso.slice(0, 10), at: nowIso, currency: to, perPrevious: rate },
+    entry: { from: today, at: nowIso, currency: to, perPrevious: rate },
     rows,
   };
 }
@@ -131,27 +144,38 @@ export function planBaselineSwitch(input: PlanInput): BaselineSwitchPlan | null 
  *    the guarded Budget-panel switch is the only way to do that. Every other plan
  *    field restores normally.
  *  - every money field the planner converts (`ROLE_FIELDS`, `BUCKET_FIELDS`, a
- *    change's `costImpact`) is multiplied by `rebaseFactor(history, capturedAt)` —
- *    every switch made since the version was captured — rounded to 2 decimals.
- *    A day-basis role re-derives its hourly rates from the converted day rates via
- *    `materializeRoleRates`, as the planner does, so restoring only its hourly
- *    field takes the hourly value consistent with the version's converted day rate.
+ *    change's `costImpact`) is converted through every switch made since the
+ *    version was captured (`laterSwitchRates`), ONE STEP AT A TIME with round2 and
+ *    a day-basis re-derive at each step — exactly what the successive
+ *    `planBaselineSwitch` calls did, so a value untouched since the version comes
+ *    back to the cent (one compound factor rounded once drifts by 0.01, §476 A4).
+ *  - a day-basis role's hourly rates are re-derived from its day rates at the
+ *    CURRENT workday hours even when no switch intervened, so a compare against now
+ *    shows no hourly row for an unchanged day rate, and `applyRestore` (which takes
+ *    the pair together) writes a consistent pair (§476 A3).
  *  - `fixedPriceAmount` and `fxRateOverride` are never converted.
- * An unknown `capturedAt` converts nothing (factor 1) but still pins the currency.
+ * An unknown `capturedAt` converts nothing (no switch rates) but still pins the
+ * currency and re-derives day-basis hourly rates.
  * Returns `version` itself when there is nothing to change.
  */
 export function prepareRestoredVersion(
   version: Workspace,
   opts: { history: readonly BaselineEntry[]; capturedAt: string | null; currency: BudgetCurrency; workdayHours: number },
 ): Workspace {
-  const factor = opts.capturedAt === null ? 1 : rebaseFactor(opts.history, opts.capturedAt);
+  const rates = opts.capturedAt === null ? [] : laterSwitchRates(opts.history, opts.capturedAt);
   const plan = version.plan && version.plan.currency !== opts.currency ? { ...version.plan, currency: opts.currency } : version.plan;
   const pinned = plan === version.plan ? version : { ...version, plan };
-  if (factor === 1) return pinned;
+  const wdh = opts.workdayHours;
+  if (rates.length === 0) {
+    if (!Array.isArray(version.roles)) return pinned;
+    const roles = rematerializeDayBasisRoles(version.roles, wdh);
+    return roles === version.roles ? pinned : { ...pinned, roles };
+  }
+  const chain = <T>(x: T, step: (v: T, rate: number) => T): T => rates.reduce(step, x);
   return {
     ...pinned,
-    roles: Array.isArray(version.roles) ? version.roles.map((r) => convertRole(r, factor, opts.workdayHours)) : version.roles,
-    budgets: Array.isArray(version.budgets) ? version.budgets.map((b) => convertBucket(b, factor)) : version.budgets,
-    changes: Array.isArray(version.changes) ? version.changes.map((c) => convertChange(c, factor)) : version.changes,
+    roles: Array.isArray(version.roles) ? version.roles.map((r) => chain(r, (v, k) => convertRole(v, k, wdh))) : version.roles,
+    budgets: Array.isArray(version.budgets) ? version.budgets.map((b) => chain(b, convertBucket)) : version.budgets,
+    changes: Array.isArray(version.changes) ? version.changes.map((c) => chain(c, convertChange)) : version.changes,
   };
 }

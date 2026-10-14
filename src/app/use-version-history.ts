@@ -31,6 +31,9 @@ export interface UseVersionHistoryArgs {
    *  (null when the version is not in the loaded list). The wiring passes `prepareRestoredVersion`:
    *  version money is converted into the current currency, and `plan.currency` never changes. */
   prepareVersion: (version: Workspace, capturedAt: string | null) => Workspace;
+  /** §476 A3 — `settings.resources.workdayHours`: a day-basis role restored by field is
+   *  re-materialised at it (`applyRestore`). */
+  workdayHours?: number;
   logActivity?: (kind: "history.restore", ...args: (string | number)[]) => void;
 }
 
@@ -101,7 +104,7 @@ export function isEmptyWorkspacePayload(json: string): boolean {
 }
 
 export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistoryResult {
-  const { config, projectId, enabled, idleMs, retention, getPayload, onError, applyWorkspace, prepareVersion, logActivity } = args;
+  const { config, projectId, enabled, idleMs, retention, getPayload, onError, applyWorkspace, prepareVersion, logActivity, workdayHours } = args;
   const [versions, setVersions] = useState<ProjectVersionMeta[]>([]);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -291,14 +294,14 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       // here, as a load (it has no before-image either), and log it; handed to the
       // setter raw it would be broken against the CURRENT state and logged as a write.
       // Before the capture, so the auto version records what the app then holds.
-      const merged = applyRestore(now, version, changes, selection, { versionSpeaksForEmptySlices: speaks });
+      const merged = applyRestore(now, version, changes, selection, { versionSpeaksForEmptySlices: speaks, workdayHours });
       const restored = { ...merged, raid: repairLoadedRaid(merged.raid) };
       await capturePayload(workspaceToJson(restored), "auto", null);
       applyWorkspace?.(restored);
       logActivity?.("history.restore", count, versionLabel);
       return true;
     } catch (err) { onError?.(err); return false; }
-  }, [active, config, projectId, getPayload, capturePayload, applyWorkspace, prepareAgainstNow, logActivity, onError]);
+  }, [active, config, projectId, getPayload, capturePayload, applyWorkspace, prepareAgainstNow, logActivity, onError, workdayHours]);
 
   const loadDiff = useCallback(async (fromId: string, to: string | "now"): Promise<VersionChange[]> => {
     if (!active) return [];

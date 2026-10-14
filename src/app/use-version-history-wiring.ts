@@ -173,6 +173,7 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
     getPayload: getVersionPayload,
     applyWorkspace: applyRestoredWorkspace,
     prepareVersion,
+    workdayHours,
     logActivity: logActivityUser,
     onError: handleVersionError,
   });

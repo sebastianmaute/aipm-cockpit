@@ -1,10 +1,11 @@
-import { describe, expect, test } from "vitest";
-import { useEffect, type ReactNode } from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, test, vi } from "vitest";
+import { useEffect, useRef, type ReactNode } from "react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { BaselineCurrencyControl } from "./baseline-currency-control";
+import { createProjectClock, resolveTimezone } from "./timezone";
 import type { FxRates, ResourcePlan, Role } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
@@ -33,8 +34,18 @@ function Probe() {
       <span data-testid="history">{JSON.stringify(baselineHistory)}</span>
       <span data-testid="cached">{fxRates ? "cached" : "none"}</span>
       <span data-testid="log">{JSON.stringify(activityLog)}</span>
+      <span data-testid="roles">{JSON.stringify(r.map((x) => ({ id: x.id, internalRate: x.internalRate })))}</span>
     </>
   );
+}
+
+// Exposes the live workspace setters so a test can act as a PEER writer.
+const live: { current: ReturnType<typeof useWorkspace> | null } = { current: null };
+function Driver() {
+  const ws = useWorkspace();
+  const ref = useRef(live);
+  useEffect(() => { ref.current.current = ws; });
+  return null;
 }
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -43,14 +54,15 @@ function wrapper({ children }: { children: ReactNode }) {
       <WorkspaceProvider>
         <Seeder />
         <Probe />
+        <Driver />
         {children}
       </WorkspaceProvider>
     </FiltersProvider>
   );
 }
 
-const renderControl = (sessionRates: FxRates | null) =>
-  render(<BaselineCurrencyControl lang="en-US" sessionRates={sessionRates} workdayHours={8} />, { wrapper });
+const renderControl = (sessionRates: FxRates | null, today = "2026-10-14") =>
+  render(<BaselineCurrencyControl lang="en-US" sessionRates={sessionRates} workdayHours={8} today={today} />, { wrapper });
 
 async function openSwitchToGbp() {
   renderControl(session);
@@ -131,5 +143,53 @@ describe("BaselineCurrencyControl", () => {
     expect(screen.getByTestId("currency").textContent).toBe("EUR");
     expect(screen.getByTestId("rate").textContent).toBe("100");
     expect(screen.getByTestId("history").textContent).toBe("[]");
+  });
+  // §476 A2 — the entry's `from` is the PROJECT day (the clock the app renders `today`
+  // from), not the UTC day `toISOString` gives; `at` stays the ISO instant.
+  describe("switch date", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+    test("at 00:30 Berlin on the 1st (UTC: the previous day) the entry starts on the local day", async () => {
+      const instant = new Date("2026-10-31T23:30:00.000Z");
+      const today = createProjectClock(resolveTimezone("Europe/Berlin", undefined), instant).today;
+      expect(today).toBe("2026-11-01"); // control: the zone really is a day ahead of UTC here
+      vi.useFakeTimers({ toFake: ["Date"], now: instant });
+      renderControl(session, today);
+      await waitFor(() => expect(screen.getByTestId("rate").textContent).toBe("100"));
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Project currency" }), "GBP");
+      await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Switch to GBP" }));
+      const history = JSON.parse(screen.getByTestId("history").textContent ?? "[]") as Array<{ from: string; at: string }>;
+      expect(history).toHaveLength(1);
+      expect(history[0].from).toBe("2026-11-01");
+      expect(history[0].at).toBe("2026-10-31T23:30:00.000Z");
+    });
+  });
+
+  // §476 A6 — a pending choice that stops being a switch (a peer already switched) is
+  // dropped, so the dialog cannot come back on its own later.
+  test("a peer switch to the pending currency closes the dialog, and it does not reappear on a switch back", async () => {
+    await openSwitchToGbp();
+    act(() => live.current?.setPlan((p) => ({ ...p, currency: "GBP" })));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    act(() => live.current?.setPlan((p) => ({ ...p, currency: "EUR" })));
+    await waitFor(() => expect(screen.getByTestId("currency").textContent).toBe("EUR"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  // §476 A7 — Confirm writes through FUNCTIONAL setters, so a role added in the same tick
+  // (AGENTS.md "N saves in one tick") survives the switch, converted like the rest.
+  test("a role added in the same tick as Confirm survives, converted", async () => {
+    const dialog = await openSwitchToGbp();
+    const confirm = within(dialog).getByRole("button", { name: "Switch to GBP" });
+    act(() => {
+      live.current?.setRoles((prev) => [...prev, { id: 4, disciplineId: 1, gradeId: 1, internalRate: 200, externalRate: 300 }]);
+      confirm.click();
+    });
+    await waitFor(() => expect(screen.getByTestId("currency").textContent).toBe("GBP"));
+    const ids = JSON.parse(screen.getByTestId("roles").textContent ?? "[]") as Array<{ id: number; internalRate: number }>;
+    expect(ids).toEqual([{ id: 3, internalRate: 85.2 }, { id: 4, internalRate: 170.4 }]);
+    const history = JSON.parse(screen.getByTestId("history").textContent ?? "[]") as unknown[];
+    expect(history).toHaveLength(1);
   });
 });
