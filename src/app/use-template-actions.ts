@@ -24,6 +24,7 @@ import { templateFromWorkspace, type SaveTemplateInput } from "./templates";
 import { applyTemplate } from "./template-apply";
 import { useCurrentWorkspace } from "./use-current-workspace";
 import { ALL_MODULE_IDS } from "./feature-modules";
+import { sanitizeFieldVisibility } from "./field-visibility";
 import { summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";
 import { useWorkspace } from "./workspace-context";
 import type { Settings } from "./settings-types";
@@ -66,7 +67,10 @@ export function useTemplateActions({ lang, showToast, features }: TemplateAction
       if (!tpl) return;
       const current = buildCurrentWorkspace();
       const next = applyTemplate(current, tpl, opts);
-      setFieldVisibility(next.fieldVisibility);
+      // A template's visibility is sanitised when it is loaded or saved, but `updateTemplate` takes
+      // a raw patch and this is the one place it enters the workspace: re-run the sanitiser so a
+      // stored set can never hide a required field or carry an unknown id.
+      setFieldVisibility(sanitizeFieldVisibility(next.fieldVisibility) ?? {});
       // Apply the template's functions to the current project too (reactive via
       // useFeaturesSync, persisted via autosave). Filter through ALL_MODULE_IDS so
       // only valid ids in registry order are set — mirrors creation behavior.

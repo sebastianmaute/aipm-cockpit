@@ -389,6 +389,10 @@ export interface WorkspaceSectionProps {
   onOpenLearningSettings?: () => void;
   /** Deep-link the Dashboard to a specific Settings section (e.g. Settings → AI). */
   onOpenSettingsSection?: (id: SettingsSectionId) => void;
+  /** §706 — Settings -> Functions asks the Projects view to open Edit project on Functions: a monotonic
+   *  number, `null` = none. The view clears it through `onProjectFunctionsRequestConsumed`. */
+  projectFunctionsRequest?: number | null;
+  onProjectFunctionsRequestConsumed?: () => void;
   /** SP4 themed tours: launch a tour by id (Help view); modern non-popout only. */
   onStartTour?: (id: string) => void;
   /** SP4: tours available under the current feature set. */

@@ -2,9 +2,9 @@
 <meta charset="utf-8" />
 <title>AI PM Cockpit</title>
 <!--
-  GENERATED, NOT HAND-WRITTEN. The artwork below is inlined from
-  public/splash-aipm-cockpit.svg with its <metadata> C2PA manifest removed.
-  Edit the SVG and regenerate; do not edit this markup.
+  The artwork below was inlined BY HAND from public/splash-aipm-cockpit.svg with its
+  <metadata> C2PA manifest removed. No script generates this page, so edit it directly;
+  if the SVG changes, copy the new artwork in the same way (manifest stripped).
 
   Why inlined: electron-builder's files: globs cannot reach outside desktop/,
   and a resource placed beside the asar is not reachable by a relative
@@ -15,8 +15,16 @@
   dead bytes (56% of the asset) into every package. The tracked SVG keeps it.
 
   ★ The artwork carries its own wordmark, tagline and animated progress
-  dots, so this page adds no status line of its own -- an earlier revision
-  inlined a static banner and needed one.
+  dots, but nothing in it says WHAT is happening, and on the first start
+  after an install or an update the background service can take up to a
+  minute. An artwork-only window reads as a hang, so the page owns two text
+  lines OUTSIDE the SVG (#splash-status, #splash-slow) and the setter
+  window.__splash. desktop/src/main.ts drives them through executeJavaScript
+  with scripts built by desktop/src/lib/splash-status.ts, which is also where
+  the EN/DE strings live -- the page carries none, so it needs no locale
+  logic. No Content-Security-Policy applies to this file:// page, so the
+  inline script below is allowed. The text lines are hand-maintained, not
+  generated: regenerating the artwork must keep them.
 -->
 <style>
   /* The artwork paints its own #003459 ground across the full viewBox, so the
@@ -36,6 +44,19 @@
   /* The SVG declares width/height AND a viewBox; the max-width lets it shrink
      if the window is ever opened narrower than the artwork. */
   .splash { width: 640px; max-width: 100%; height: auto; display: block; }
+  /* Status lines sit in the artwork's empty strip under the progress dots.
+     #e2e6e7 is the artwork's tagline colour: AA against the #003459 ground. */
+  .status, .slow {
+    margin: 0 auto;
+    max-width: 480px;
+    text-align: center;
+    color: #e2e6e7;
+    font-family: Arial, 'Liberation Sans', Helvetica, sans-serif;
+  }
+  .status { margin-top: -36px; min-height: 1.4em; font-size: 15px; letter-spacing: .5px; }
+  /* The slow line's space is reserved from the start (two lines, the longest EN/DE text): showing it
+     later would otherwise grow the page and re-centre the artwork by about 25px. */
+  .slow   { margin-top: 12px; font-size: 13px; line-height: 1.4; opacity: .85; min-height: 2.8em; visibility: hidden; }
 </style>
   <svg class="splash" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400"
        role="img" aria-label="AI PM Cockpit is starting" xmlns:c2pa="http://c2pa.org/manifest">
@@ -154,3 +175,17 @@
       <circle class="dot" cx="344" cy="330" r="5" fill="#e84663" opacity=".7"/>
     </g>
   </svg>
+  <p id="splash-status" class="status" role="status"></p>
+  <p id="splash-slow" class="slow"></p>
+  <script>
+    // Called by main.ts via executeJavaScript. textContent only: the text is
+    // data, never markup.
+    window.__splash = {
+      status: function (t) { document.getElementById("splash-status").textContent = t; },
+      slow: function (t) {
+        var el = document.getElementById("splash-slow");
+        el.textContent = t;
+        el.style.visibility = "visible";
+      },
+    };
+  </script>

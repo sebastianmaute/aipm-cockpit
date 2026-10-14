@@ -1,6 +1,6 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { addProject, removeProject, setCurrentProject, renameProject,
-  emptyRegistry, loadRegistry, saveRegistry,
+  emptyRegistry, loadRegistry, saveRegistry, readBrowserProject,
   type ProjectRegistryEntry } from "./projects-registry";
 
 const entry = (id: string): ProjectRegistryEntry =>
@@ -69,5 +69,30 @@ describe("projects-registry (IO)", () => {
       throw new DOMException("quota exceeded", "QuotaExceededError");
     });
     expect(saveRegistry(addProject(emptyRegistry(), entry("1"), true))).toBe(false);
+  });
+});
+
+describe("readBrowserProject (M10)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("parses the stored registry once while its text is unchanged, and again once it changes", () => {
+    const browser: ProjectRegistryEntry = { id: "b", name: "Acme", code: "AC", storageConfig: { kind: "browser" } };
+    saveRegistry(addProject(emptyRegistry(), entry("1"), true));
+    const parse = vi.spyOn(JSON, "parse");
+    expect(readBrowserProject()).toBeNull();
+    expect(readBrowserProject()).toBeNull();
+    expect(parse).toHaveBeenCalledTimes(1);
+    saveRegistry(addProject(loadRegistry(), browser, false));
+    parse.mockClear();
+    expect(readBrowserProject()).toEqual(browser);
+    expect(readBrowserProject()).toEqual(browser);
+    expect(parse).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns null with no stored registry", () => {
+    expect(readBrowserProject()).toBeNull();
   });
 });

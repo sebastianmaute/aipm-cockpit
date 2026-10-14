@@ -1,5 +1,6 @@
 // src/app/field-visibility.test.ts
 import { describe, expect, it } from "vitest";
+import { MODAL_FIELDS, MODAL_IDS } from "./modal-fields";
 import {
   applyTier, sanitizeFieldVisibility, tierFields, tierOf, toggleField, visibleFields,
 } from "./field-visibility";
@@ -28,7 +29,17 @@ describe("visibleFields", () => {
     const vis = visibleFields("milestone", { fields: ["name", "ghost"] });
     expect(vis.has("name")).toBe(true);
     expect(vis.has("ghost")).toBe(false);
-    expect(vis.has("targetDate")).toBe(false);
+    expect(vis.has("description")).toBe(false);
+  });
+  it("always includes the required ids, whatever the stored config says", () => {
+    // targetDate is required on a milestone; this stored set omits it (and everything else).
+    expect(visibleFields("milestone", { fields: ["name"] }).has("targetDate")).toBe(true);
+    expect(visibleFields("milestone", { fields: [] }).has("name")).toBe(true);
+    // Every modal: an empty stored config still yields exactly its required fields.
+    for (const id of MODAL_IDS) {
+      const required = MODAL_FIELDS[id].filter((f) => f.required).map((f) => f.id);
+      expect([...visibleFields(id, { fields: [] })].sort()).toEqual([...required].sort());
+    }
   });
   it("shows budget detailed-planning (role/discipline allocations) at the default Advanced tier", () => {
     // 0.169.4: planningDetail moved full→advanced so the allocation UI is not
@@ -42,6 +53,19 @@ describe("applyTier / tierOf", () => {
   it("applyTier produces a config whose tierOf is that tier", () => {
     const cfg = applyTier("milestone", "simple");
     expect(tierOf("milestone", cfg)).toBe("simple");
+  });
+  // The label describes what the form SHOWS (visibleFields adds the required ids), so a stored
+  // config that merely omits a required id is still the tier it otherwise equals.
+  it("labels a stored config equal to a tier minus a required id with that tier, not custom", () => {
+    const simple = tierFields("resource", "simple");
+    expect(simple).toContain("email"); // required since §708
+    const withoutEmail = { fields: simple.filter((id) => id !== "email") };
+    expect(tierOf("resource", withoutEmail)).toBe("simple");
+  });
+  it("still labels a genuinely custom config custom", () => {
+    const advanced = tierFields("resource", "advanced");
+    const extra = tierFields("resource", "full").find((id) => !advanced.includes(id))!;
+    expect(tierOf("resource", { fields: [...tierFields("resource", "simple"), extra] })).toBe("custom");
   });
   it("tierOf(undefined) is advanced (the default)", () => {
     expect(tierOf("milestone", undefined)).toBe("advanced");

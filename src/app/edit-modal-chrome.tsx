@@ -151,15 +151,17 @@ export function EditModalShell({
 
 interface ModalFieldErrorProps {
   error: string;
+  /** Lets a field point at the banner with `aria-describedby`. */
+  id?: string;
 }
 
 /**
  * The inline validation-error banner shown in a modal form grid. Caller guards
  * on `error` being non-empty (`{error && <ModalFieldError error={error} />}`).
  */
-export function ModalFieldError({ error }: ModalFieldErrorProps) {
+export function ModalFieldError({ error, id }: ModalFieldErrorProps) {
   return (
-    <Banner severity="error" role="alert" className="sm:col-span-2">
+    <Banner id={id} severity="error" role="alert" className="sm:col-span-2">
       {error}
     </Banner>
   );

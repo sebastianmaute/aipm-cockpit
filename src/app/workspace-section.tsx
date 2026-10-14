@@ -51,6 +51,9 @@ import {
 import {
   DashboardPanel,
 } from "./dashboard-panel";
+import { DemoBanner } from "./demo-banner";
+import { isLocalDemoBlocked, isTursoUsable } from "./demo-project";
+import { readBrowserProject } from "./projects-registry";
 import { pickHeroGroup, topGroupPrimaries } from "./next-actions/group";
 import {
   MilestonesPanel,
@@ -218,6 +221,8 @@ export function WorkspaceSection({
   expertMode,
   onOpenLearningSettings,
   onOpenSettingsSection,
+  projectFunctionsRequest,
+  onProjectFunctionsRequestConsumed,
   onStartTour,
   catalogTours,
   completedTours,
@@ -798,6 +803,8 @@ export function WorkspaceSection({
               actualsByBucket={budgetActuals.byBucket} actualsFetchedAt={budgetActuals.fetchedAt}
               timelogProjectId={currentProjectId ?? "default"} onGoToTimelog={() => setActiveTab("timelog")}
               onOpenBudgetReport={isPopout ? undefined : () => setActiveTab("budget-report")}
+              onSetupGo={isPopout ? undefined : setActiveTab} onStartTour={isPopout ? undefined : onStartTour} onLoadDemo={isPopout || isLocalDemoBlocked(isTursoUsable(mode, chatTursoConfig), readBrowserProject()) ? undefined : onLoadDemo}
+              features={features} onCommitFeatures={isPopout ? undefined : workspace.setFeatures}
               onChangeBuckets={onChangeBudgets}
               onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
               onRefreshFx={onRefreshFx}
@@ -880,6 +887,7 @@ export function WorkspaceSection({
 
         {activeTab === "dashboard" && (
           <div id="panel-dashboard" role="tabpanel" className={panelScrollClass}>
+            {!isPopout && onLoadDemo && <DemoBanner lang={lang} tursoUsable={isTursoUsable(mode, chatTursoConfig)} project={currentProject} onExplore={onLoadDemo} />}
             <DashboardPanel
               lang={lang}
               tasks={tasks}
@@ -1042,7 +1050,7 @@ export function WorkspaceSection({
 
         {activeTab === "timelog" && (
           <div id="panel-timelog" role="tabpanel" className={panelClass}>
-            <TimelogPanel lang={lang} isPopout={isPopout} projectKey={currentProjectId ?? "default"} onConfigureTimelog={!isPopout && onOpenSettingsSection ? () => onOpenSettingsSection("integrations") : undefined} />
+            <TimelogPanel lang={lang} isPopout={isPopout} projectKey={currentProjectId ?? "default"} onConfigureTimelog={!isPopout && onOpenSettingsSection ? () => onOpenSettingsSection("integrations") : undefined} features={settings.features} onCommitFeatures={isPopout ? undefined : workspace.setFeatures} />
           </div>
         )}
 
@@ -1063,6 +1071,8 @@ export function WorkspaceSection({
               onSwitch={onSwitchProject}
               onCreate={onCreateProject}
               onUpdateCurrent={onUpdateCurrentProject}
+              features={features}
+              onCommitFeatures={workspace.setFeatures}
               onDelete={onDeleteProject}
               onExportCurrent={onExportCurrentProject}
               onLoadFromFile={onLoadProjectFromFile}
@@ -1072,6 +1082,8 @@ export function WorkspaceSection({
               onRestore={onRestoreProject}
               onHardDelete={onHardDeleteProject}
               mode={mode}
+              projectFunctionsRequest={projectFunctionsRequest}
+              onProjectFunctionsRequestConsumed={onProjectFunctionsRequestConsumed}
             />
           </div>
         )}

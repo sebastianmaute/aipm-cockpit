@@ -1,17 +1,8 @@
 import { useEffect } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useWorkspace } from "./workspace-context";
-import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
+import { ALL_MODULE_IDS, sameFeatureSet } from "./feature-modules";
 import type { Settings } from "./settings-types";
-
-function sameFeatureSet(
-  a: readonly FeatureModuleId[],
-  b: readonly FeatureModuleId[],
-): boolean {
-  if (a.length !== b.length) return false;
-  const sa = new Set(a);
-  return b.every((x) => sa.has(x));
-}
 
 /**
  * Keep the reactive `settings.features` synced to the current project's

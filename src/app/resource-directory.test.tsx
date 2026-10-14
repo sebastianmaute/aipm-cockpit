@@ -216,6 +216,47 @@ describe("ResourceDirectory", () => {
     expect(screen.getByRole("button", { name: "Copy night@acme.com" })).toBeInTheDocument();
   });
 
+  // §708 — Timelog bookings match on any of a person's emails, so the marker shows only when
+  // there is neither a primary nor a non-blank extra address.
+  describe("no-email marker", () => {
+    const person = (over: Partial<Resource>): Resource => ({
+      id: 1, firstName: "Ada", lastName: "Byte", roleId: null, utilizationMode: "percent", utilization: {}, ...over,
+    });
+    const marker = t("en-US", "resourceNoEmailMarker");
+
+    it("marks a person with no email at all", () => {
+      render(<ResourceDirectory {...common} resources={[person({})]} />);
+      expect(screen.getByText(marker)).toBeInTheDocument();
+      expect(marker).toBe("No email — cannot match Timelog");
+    });
+
+    it("marks a person whose only emails are blank", () => {
+      render(<ResourceDirectory {...common} resources={[person({ email: "  ", emails: ["", "   "] })]} />);
+      expect(screen.getByText(marker)).toBeInTheDocument();
+    });
+
+    it("does not mark a person with a primary email", () => {
+      render(<ResourceDirectory {...common} resources={[person({ email: "ada@acme.test" })]} />);
+      expect(screen.queryByText(marker)).toBeNull();
+    });
+
+    it("does not mark a person who has only an extra email", () => {
+      render(<ResourceDirectory {...common} resources={[person({ emails: ["ada@acme.test"] })]} />);
+      expect(screen.queryByText(marker)).toBeNull();
+      expect(screen.getByRole("button", { name: "Copy ada@acme.test" })).toBeInTheDocument();
+    });
+
+    it("marks only the rows that lack an email", () => {
+      render(
+        <ResourceDirectory
+          {...common}
+          resources={[person({ email: "ada@acme.test" }), person({ id: 2, firstName: "Bo" })]}
+        />,
+      );
+      expect(screen.getAllByText(marker)).toHaveLength(1);
+    });
+  });
+
   it("shows no checkbox column without bulk handlers", () => {
     render(<ResourceDirectory {...common} resources={twoResources} />);
     expect(screen.queryByRole("checkbox", { name: /select all/i })).toBeNull();

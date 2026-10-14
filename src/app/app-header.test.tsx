@@ -154,3 +154,19 @@ describe("AppHeader", () => {
     });
   });
 });
+
+describe("AppHeader — §712 the Help demo entry", () => {
+  it("hands onLoadDemo to the Help menu", () => {
+    const onLoadDemo = vi.fn();
+    render(<AppHeader {...makeProps({ onLoadDemo })} />, { wrapper: Wrapper });
+    fireEvent.click(screen.getByRole("button", { name: "Help" }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "helpExploreDemo") }));
+    expect(onLoadDemo).toHaveBeenCalledTimes(1);
+  });
+
+  it("omits the entry without onLoadDemo", () => {
+    render(<AppHeader {...makeProps()} />, { wrapper: Wrapper });
+    fireEvent.click(screen.getByRole("button", { name: "Help" }));
+    expect(screen.queryByRole("button", { name: t("en-US", "helpExploreDemo") })).toBeNull();
+  });
+});

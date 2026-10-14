@@ -25,6 +25,8 @@ import { InfoTooltip } from "../info-tooltip";
 import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../portfolio-mode";
 import { getTursoConfig, isEnvTokenRejected, isUsableTursoUrl } from "../turso-config";
 import { testTursoConnection } from "../turso-pipeline";
+import { tursoSetupState } from "../turso-setup-state";
+import { TursoSetupSteps } from "./turso-setup-steps";
 import { tursoErrorKind } from "../storage-error";
 import { SECRET_MERGE_TIMEOUT_MS, writeSettings } from "../use-settings";
 import { loadRegistry } from "../projects-registry";
@@ -341,6 +343,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   //   is the newer intent, and Apply then writes it. Without the guard an outside write
   //   (another settings surface, a hydration) silently replaced what was being typed.
   const tursoIsLive = settings.storageConfig?.kind === "turso";
+  // The Apply button's own render condition (the Turso test step below), shared with step 4's copy.
+  const showTursoApply = tursoIsLive && !(envTursoUrlUsable && hideTokenField);
   const [tursoUrl, setTursoUrl] = useState(turso.databaseUrl);
   const [tursoToken, setTursoToken] = useState(turso.authToken);
   const [prevStoredTursoUrl, setPrevStoredTursoUrl] = useState(turso.databaseUrl);
@@ -996,216 +1000,233 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
       {turso.enabled && (
         <div className="mt-2 space-y-2 border-l-2 border-line pl-3">
-          {envTursoUrlUsable && (
-            <div className="block text-xs">
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                {t(lang, "integrationsTursoUrl")}
-                <InfoTooltip text={t(lang, "integrationsTursoUrlTooltip")} />
-              </span>
-              <FieldHint className="mt-1">{t(lang, "integrationsTursoUrlFromEnv")}</FieldHint>
-            </div>
-          )}
-          {!envTursoUrlUsable && (
-            // ★★ THE NOTICE SITS OUTSIDE THE <label> ON PURPOSE. An implicit
-            // label (no `for`/`id`) contributes its WHOLE SUBTREE to the
-            // control's accessible name, so a FieldNotice nested inside it made
-            // the field announce as "Database URL, <tooltip>,
-            // NEXT_PUBLIC_TURSO_DATABASE_URL is set but is not a usable Turso
-            // URL, …" — a paragraph as a name. Outside the label plus
-            // `aria-describedby` makes it a DESCRIPTION, which is what it is,
-            // and it is also what makes FieldNotice's own `role="status"`
-            // meaningful rather than decorative here.
-            // ★ axe cannot see any of this (no rule covers a bloated accessible
-            // name), so nothing but this comment and a unit test guards it.
-            <div className="text-xs">
-              {/* ★★ The tooltip is outside the label too (open-followups §386),
-                  for the same reason as the notice above. */}
-              <HintedLabel
-                hint={<InfoTooltip text={t(lang, "integrationsTursoUrlTooltip")} />}
-                caption={<span className="inline-flex items-center gap-1 text-muted-foreground">{t(lang, "integrationsTursoUrl")}</span>}
-              >
-                <Input
-                  size="xs"
-                  type="text"
-                  value={tursoUrl ?? ""}
-                  onChange={(e) => handleTursoUrlChange(e.target.value)}
-                  onKeyDown={handleTursoFieldKeyDown}
-                  placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
-                  className="w-full"
-                  aria-describedby={envTursoUrlSet ? tursoUrlEnvNoticeId : undefined}
-                />
-              </HintedLabel>
-              {envTursoUrlSet && (
-                <FieldNotice id={tursoUrlEnvNoticeId}>
-                  {t(lang, "integrationsTursoUrlEnvUnusable")}
-                </FieldNotice>
-              )}
-            </div>
-          )}
-          {hideTokenField && (
-            <div className="block text-xs">
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                {t(lang, "integrationsTursoToken")}
-                <InfoTooltip text={t(lang, "integrationsTursoTokenTooltip")} />
-              </span>
-              <FieldHint className="mt-1">{t(lang, "integrationsTursoTokenFromEnv")}</FieldHint>
-            </div>
-          )}
-          {!hideTokenField && (
-            // ★★ Tooltip AND storage notice sit outside the naming <label>
-            // (open-followups §386; the notice for the same reason as the URL
-            // notice above). The notice is now the field's description.
-            <div className="text-xs">
-              <HintedLabel
-                hint={<InfoTooltip text={t(lang, "integrationsTursoTokenTooltip")} />}
-                caption={<span className="inline-flex items-center gap-1 text-muted-foreground">{t(lang, "integrationsTursoToken")}</span>}
-              >
-                <Input
-                  size="xs"
-                  type="password"
-                  value={tursoToken ?? ""}
-                  onChange={(e) => handleTursoTokenChange(e.target.value)}
-                  onKeyDown={handleTursoFieldKeyDown}
-                  placeholder={t(lang, "integrationsTursoTokenPlaceholder")}
-                  className="w-full"
-                  aria-describedby={tursoTokenNoteId}
-                />
-              </HintedLabel>
-              <FieldNotice id={tursoTokenNoteId}>{t(lang, "credentialStorageNote")}</FieldNotice>
-              {envTokenRejected && (
-                <FieldNotice>{t(lang, "integrationsTursoTokenEnvRejected")}</FieldNotice>
-              )}
-            </div>
-          )}
-          {!hideTokenField && (
-            <div className="mt-1">
-              <label className="flex items-center gap-2">
-                <Checkbox
-                  aria-label={t(lang, "secretLockPassphrase")}
-                  checked={tokenWrap === "passphrase"}
-                  onChange={(e) => handleTokenLockToggle(e.target.checked)}
-                />
-                <span className="text-xs text-foreground">{t(lang, "secretLockPassphrase")}</span>
-              </label>
-              {tokenWrap === "passphrase" && (
-                <div className="mt-2 flex flex-col gap-2">
-                  <Input
-                    size="xs"
-                    type="password"
-                    autoComplete="off"
-                    aria-label={t(lang, "secretPassphrasePlaceholder")}
-                    placeholder={t(lang, "secretPassphrasePlaceholder")}
-                    value={tokenPassphrase}
-                    onChange={(e) => handleTokenPassphraseChange(e.target.value)}
-                    className="w-full"
-                  />
-                  <Input
-                    size="xs"
-                    type="password"
-                    autoComplete="off"
-                    aria-label={t(lang, "secretPassphraseConfirm")}
-                    placeholder={t(lang, "secretPassphraseConfirm")}
-                    value={tokenConfirm}
-                    onChange={(e) => handleTokenConfirmChange(e.target.value)}
-                    className="w-full"
-                  />
-                  {tokenPassphraseMismatch && (
-                    <Banner severity="error">{t(lang, "secretPassphraseMismatch")}</Banner>
-                  )}
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    className="self-start whitespace-nowrap"
-                    disabled={!(sealableTursoToken ?? "").trim() || !tokenPassphrase || tokenPassphrase !== tokenConfirm}
-                    onClick={handleTokenLockConfirm}
-                  >
-                    {t(lang, "secretPassphraseSave")}
-                  </Button>
-                  <FieldHint>{t(lang, "secretLockWarning")}</FieldHint>
+          <TursoSetupSteps
+            lang={lang}
+            canApply={showTursoApply}
+            state={tursoSetupState({
+              url: tursoUrl ?? "",
+              token: tursoToken ?? "",
+              urlFromEnv: envTursoUrlUsable,
+              tokenFromEnv: hideTokenField,
+              testConfirmed: tursoTestConfirmed,
+            })}
+            urlStep={<>
+              {envTursoUrlUsable && (
+                <div className="block text-xs">
+                  <span className="inline-flex items-center gap-1 text-muted-foreground">
+                    {t(lang, "integrationsTursoUrl")}
+                    <InfoTooltip text={t(lang, "integrationsTursoUrlTooltip")} />
+                  </span>
+                  <FieldHint className="mt-1">{t(lang, "integrationsTursoUrlFromEnv")}</FieldHint>
                 </div>
               )}
-              {tokenStored && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => void handleRemoveToken()}
-                  title={t(lang, "secretPassphraseRemoveHint")}
-                >
-                  {t(lang, "secretPassphraseRemove")}
-                </Button>
+              {!envTursoUrlUsable && (
+                // ★★ THE NOTICE SITS OUTSIDE THE <label> ON PURPOSE. An implicit
+                // label (no `for`/`id`) contributes its WHOLE SUBTREE to the
+                // control's accessible name, so a FieldNotice nested inside it made
+                // the field announce as "Database URL, <tooltip>,
+                // NEXT_PUBLIC_TURSO_DATABASE_URL is set but is not a usable Turso
+                // URL, …" — a paragraph as a name. Outside the label plus
+                // `aria-describedby` makes it a DESCRIPTION, which is what it is,
+                // and it is also what makes FieldNotice's own `role="status"`
+                // meaningful rather than decorative here.
+                // ★ axe cannot see any of this (no rule covers a bloated accessible
+                // name), so nothing but this comment and a unit test guards it.
+                <div className="text-xs">
+                  {/* ★★ The tooltip is outside the label too (open-followups §386),
+                      for the same reason as the notice above. */}
+                  <HintedLabel
+                    hint={<InfoTooltip text={t(lang, "integrationsTursoUrlTooltip")} />}
+                    caption={<span className="inline-flex items-center gap-1 text-muted-foreground">{t(lang, "integrationsTursoUrl")}</span>}
+                  >
+                    <Input
+                      size="xs"
+                      type="text"
+                      value={tursoUrl ?? ""}
+                      onChange={(e) => handleTursoUrlChange(e.target.value)}
+                      onKeyDown={handleTursoFieldKeyDown}
+                      placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
+                      className="w-full"
+                      aria-describedby={envTursoUrlSet ? tursoUrlEnvNoticeId : undefined}
+                    />
+                  </HintedLabel>
+                  {envTursoUrlSet && (
+                    <FieldNotice id={tursoUrlEnvNoticeId}>
+                      {t(lang, "integrationsTursoUrlEnvUnusable")}
+                    </FieldNotice>
+                  )}
+                </div>
               )}
-            </div>
-          )}
-          {/* ★★ §548 — Apply exists ONLY on Turso storage, the one kind where committing the
-              credentials rebuilds the backend (see `tursoIsLive`). Hidden when NEITHER field is
-              editable: there is nothing to draft.
-              ★★★ §337 (token half, controller ruling) — THE TOKEN HALF OF THIS GUARD RIDES
-              `hideTokenField`, NOT `envTursoTokenSet`. A present-but-REJECTED env token makes
-              `hideTokenField` false (the token input reappears, see above), and a visible,
-              editable field with no way to commit it would defeat the whole point of showing it.
-              Before this ruling the guard read `envTursoUrlUsable && envTursoTokenSet` and stayed
-              true (Apply hidden) in exactly that state — only the Enter-key path
-              (`handleTursoFieldKeyDown`, which checks `canApplyTurso` directly and never this
-              guard) still worked, which is a discoverability gap, not a fix.
-              ★★ AN ENABLED APPLY MEANS AN UNAPPLIED CHANGE, BUT NOT THE CONVERSE — this comment
-              used to claim "disabled ⟺ the drafts equal the stored values", which is false about
-              reachable state. `canApplyTurso` ANDs three further conjuncts (`tokenSealBlocked`,
-              `passphraseVerifying`, `switchBusy`), so a dirty draft sits behind a disabled button
-              whenever a changed token cannot yet be sealed under a typed passphrase, or while
-              Apply or "Save & switch" is verifying one. That is exactly why those states render
-              their own blocked hint / FieldError instead of leaning on the button's state — the
-              button cannot say WHY it is dead. The SharePoint Apply has the same asymmetry for a
-              different reason (an emptied field); `storage-config.tsx` states its own predicate. */}
-          <div className="flex flex-wrap gap-2">
-          {tursoIsLive && !(envTursoUrlUsable && hideTokenField) && (
-            // ★ Same `size` as "Test connection" beside it; the transparent border matches the
-            //   secondary variant's 1px border, so the two buttons are the same height.
-            <Button
-              variant="primary"
-              size="xs"
-              className="whitespace-nowrap border border-transparent"
-              disabled={!canApplyTurso}
-              onClick={() => void applyTursoDrafts()}
-              aria-label={t(lang, "integrationsTursoApplyLabel")}
-              aria-busy={passphraseVerifying}
-              aria-describedby={applyDescribedBy}
-            >
-              {t(lang, "integrationsTursoApply")}
-            </Button>
-          )}
-          <Button
-            variant="secondary"
-            size="xs"
-            className="whitespace-nowrap"
-            onClick={() => void runTursoTest()}
-            disabled={tursoTesting || !tursoConfigured}
-            aria-label={t(lang, "integrationsTursoTestLabel")}
-          >
-            {t(lang, "integrationsTursoTest")}
-          </Button>
-          </div>
-          {tokenSealBlocked && (
-            <FieldHint id={applyBlockedHintId}>{t(lang, tokenSealBlockedHintKey)}</FieldHint>
-          )}
-          {/* ★ `FieldError` (role="alert"), as in `secret-unlock-gate.tsx`: focus stays on Apply,
-              and a changed description is not re-announced, so the failed verify announces itself. */}
-          {passphraseVerifyFailedAt === "apply" && (
-            <FieldError id={applyVerifyFailedId}>{t(lang, "secretUnlockFailed")}</FieldError>
-          )}
-          <p role="status" className="text-xs text-muted-foreground">
-            {/* ★ No `?.` — `tursoTestFresh` opens with `tursoTest !== null`, and
-                TS narrows through the aliased const, so the optional chain would
-                only paper over a broken invariant by rendering nothing. */}
-            {tursoTestFresh
-              ? t(
-                  lang,
-                  tursoTest.kind === "ok"
-                    ? "integrationsTursoTestOk"
-                    : TURSO_TEST_FAIL_KEYS[tursoTest.reason],
-                )
-              : null}
-          </p>
+            </>}
+            tokenStep={<>
+              {hideTokenField && (
+                <div className="block text-xs">
+                  <span className="inline-flex items-center gap-1 text-muted-foreground">
+                    {t(lang, "integrationsTursoToken")}
+                    <InfoTooltip text={t(lang, "integrationsTursoTokenTooltip")} />
+                  </span>
+                  <FieldHint className="mt-1">{t(lang, "integrationsTursoTokenFromEnv")}</FieldHint>
+                </div>
+              )}
+              {!hideTokenField && (
+                // ★★ Tooltip AND storage notice sit outside the naming <label>
+                // (open-followups §386; the notice for the same reason as the URL
+                // notice above). The notice is now the field's description.
+                <div className="text-xs">
+                  <HintedLabel
+                    hint={<InfoTooltip text={t(lang, "integrationsTursoTokenTooltip")} />}
+                    caption={<span className="inline-flex items-center gap-1 text-muted-foreground">{t(lang, "integrationsTursoToken")}</span>}
+                  >
+                    <Input
+                      size="xs"
+                      type="password"
+                      value={tursoToken ?? ""}
+                      onChange={(e) => handleTursoTokenChange(e.target.value)}
+                      onKeyDown={handleTursoFieldKeyDown}
+                      placeholder={t(lang, "integrationsTursoTokenPlaceholder")}
+                      className="w-full"
+                      aria-describedby={tursoTokenNoteId}
+                    />
+                  </HintedLabel>
+                  <FieldNotice id={tursoTokenNoteId}>{t(lang, "credentialStorageNote")}</FieldNotice>
+                  {envTokenRejected && (
+                    <FieldNotice>{t(lang, "integrationsTursoTokenEnvRejected")}</FieldNotice>
+                  )}
+                </div>
+              )}
+              {!hideTokenField && (
+                <div className="mt-1">
+                  <label className="flex items-center gap-2">
+                    <Checkbox
+                      aria-label={t(lang, "secretLockPassphrase")}
+                      checked={tokenWrap === "passphrase"}
+                      onChange={(e) => handleTokenLockToggle(e.target.checked)}
+                    />
+                    <span className="text-xs text-foreground">{t(lang, "secretLockPassphrase")}</span>
+                  </label>
+                  {tokenWrap === "passphrase" && (
+                    <div className="mt-2 flex flex-col gap-2">
+                      <Input
+                        size="xs"
+                        type="password"
+                        autoComplete="off"
+                        aria-label={t(lang, "secretPassphrasePlaceholder")}
+                        placeholder={t(lang, "secretPassphrasePlaceholder")}
+                        value={tokenPassphrase}
+                        onChange={(e) => handleTokenPassphraseChange(e.target.value)}
+                        className="w-full"
+                      />
+                      <Input
+                        size="xs"
+                        type="password"
+                        autoComplete="off"
+                        aria-label={t(lang, "secretPassphraseConfirm")}
+                        placeholder={t(lang, "secretPassphraseConfirm")}
+                        value={tokenConfirm}
+                        onChange={(e) => handleTokenConfirmChange(e.target.value)}
+                        className="w-full"
+                      />
+                      {tokenPassphraseMismatch && (
+                        <Banner severity="error">{t(lang, "secretPassphraseMismatch")}</Banner>
+                      )}
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="self-start whitespace-nowrap"
+                        disabled={!(sealableTursoToken ?? "").trim() || !tokenPassphrase || tokenPassphrase !== tokenConfirm}
+                        onClick={handleTokenLockConfirm}
+                      >
+                        {t(lang, "secretPassphraseSave")}
+                      </Button>
+                      <FieldHint>{t(lang, "secretLockWarning")}</FieldHint>
+                    </div>
+                  )}
+                  {tokenStored && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => void handleRemoveToken()}
+                      title={t(lang, "secretPassphraseRemoveHint")}
+                    >
+                      {t(lang, "secretPassphraseRemove")}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </>}
+            testStep={<>
+              {/* ★★ §548 — Apply exists ONLY on Turso storage, the one kind where committing the
+                  credentials rebuilds the backend (see `tursoIsLive`). Hidden when NEITHER field is
+                  editable: there is nothing to draft.
+                  ★★★ §337 (token half, controller ruling) — THE TOKEN HALF OF THIS GUARD RIDES
+                  `hideTokenField`, NOT `envTursoTokenSet`. A present-but-REJECTED env token makes
+                  `hideTokenField` false (the token input reappears, see above), and a visible,
+                  editable field with no way to commit it would defeat the whole point of showing it.
+                  Before this ruling the guard read `envTursoUrlUsable && envTursoTokenSet` and stayed
+                  true (Apply hidden) in exactly that state — only the Enter-key path
+                  (`handleTursoFieldKeyDown`, which checks `canApplyTurso` directly and never this
+                  guard) still worked, which is a discoverability gap, not a fix.
+                  ★★ AN ENABLED APPLY MEANS AN UNAPPLIED CHANGE, BUT NOT THE CONVERSE — this comment
+                  used to claim "disabled ⟺ the drafts equal the stored values", which is false about
+                  reachable state. `canApplyTurso` ANDs three further conjuncts (`tokenSealBlocked`,
+                  `passphraseVerifying`, `switchBusy`), so a dirty draft sits behind a disabled button
+                  whenever a changed token cannot yet be sealed under a typed passphrase, or while
+                  Apply or "Save & switch" is verifying one. That is exactly why those states render
+                  their own blocked hint / FieldError instead of leaning on the button's state — the
+                  button cannot say WHY it is dead. The SharePoint Apply has the same asymmetry for a
+                  different reason (an emptied field); `storage-config.tsx` states its own predicate. */}
+              <div className="flex flex-wrap gap-2">
+                {showTursoApply && (
+                  // ★ Same `size` as "Test connection" beside it; the transparent border matches the
+                  //   secondary variant's 1px border, so the two buttons are the same height.
+                  <Button
+                    variant="primary"
+                    size="xs"
+                    className="whitespace-nowrap border border-transparent"
+                    disabled={!canApplyTurso}
+                    onClick={() => void applyTursoDrafts()}
+                    aria-label={t(lang, "integrationsTursoApplyLabel")}
+                    aria-busy={passphraseVerifying}
+                    aria-describedby={applyDescribedBy}
+                  >
+                    {t(lang, "integrationsTursoApply")}
+                  </Button>
+                )}
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  className="whitespace-nowrap"
+                  onClick={() => void runTursoTest()}
+                  disabled={tursoTesting || !tursoConfigured}
+                  aria-label={t(lang, "integrationsTursoTestLabel")}
+                >
+                  {t(lang, "integrationsTursoTest")}
+                </Button>
+              </div>
+              {tokenSealBlocked && (
+                <FieldHint id={applyBlockedHintId}>{t(lang, tokenSealBlockedHintKey)}</FieldHint>
+              )}
+              {/* ★ `FieldError` (role="alert"), as in `secret-unlock-gate.tsx`: focus stays on Apply,
+                  and a changed description is not re-announced, so the failed verify announces itself. */}
+              {passphraseVerifyFailedAt === "apply" && (
+                <FieldError id={applyVerifyFailedId}>{t(lang, "secretUnlockFailed")}</FieldError>
+              )}
+              <p role="status" className="text-xs text-muted-foreground">
+                {/* ★ No `?.` — `tursoTestFresh` opens with `tursoTest !== null`, and
+                    TS narrows through the aliased const, so the optional chain would
+                    only paper over a broken invariant by rendering nothing. */}
+                {tursoTestFresh
+                  ? t(
+                      lang,
+                      tursoTest.kind === "ok"
+                        ? "integrationsTursoTestOk"
+                        : TURSO_TEST_FAIL_KEYS[tursoTest.reason],
+                    )
+                  : null}
+              </p>
+            </>}
+          />
           {/* Primary action: carry the current project into Turso.
               ★ `canMoveToTurso` stays a RENDER gate — with the portfolio already
               on Turso, or no project to move, there is nothing to migrate and a

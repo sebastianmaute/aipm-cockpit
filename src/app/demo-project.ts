@@ -7,6 +7,7 @@
 
 import { useCallback } from "react";
 import demoSnapshots from "../../sample-demo-snapshots.json";
+import { markDemoBannerDone } from "./demo-banner-state";
 import { clearDemoCreatedLocally, setDemoCreatedLocally } from "./demo-intent";
 import { buildDemoWorkspace, DEMO_AS_OF } from "./demo-workspace";
 import { shiftDemoSnapshots, thinForCadence } from "./demo-snapshot-shift";
@@ -50,10 +51,31 @@ export function demoHistoryWeeks(today: string): number {
  *  loaded. `demo-project.test.ts` pins it to the master. The copy (`demoCardBody`) names it too. */
 export const DEMO_SAMPLE_NAME = "Customer Identity Platform";
 
+/** The sample master's `project.code`. A literal for the same reason as the name: importing the
+ *  master here would pull it into the main bundle. `demo-project.test.ts` pins it to the master. */
+export const DEMO_SAMPLE_CODE = "CIP-2026";
+
 /** The one predicate for "the demo goes to Turso" (AGENTS.md "Turso-gated features"): the card's
  *  variant, the boot note and the create all read it. */
 export function isTursoUsable(portfolioMode: PortfolioMode, tursoConfig: TursoConfig | null): boolean {
   return portfolioMode === "turso" && tursoConfig !== null;
+}
+
+/** The one predicate for "the local demo would overwrite a browser-backed project, so the create
+ *  refuses it" (`local-blocked`). `createDemo` decides by it and the dashboard banner hides by it,
+ *  so the banner is never offered where its button can only end in the refusal toast.
+ *  `tursoUsable` is `isTursoUsable(...)`; `browserProject` is `browserProjectIn(...)`. */
+export function isLocalDemoBlocked(tursoUsable: boolean, browserProject: ProjectRegistryEntry | null): boolean {
+  return !tursoUsable && browserProject !== null;
+}
+
+/** True for the Turso demo project itself: its name, whichever language created it (the EN and
+ *  DE `demoProjectName` differ only in the case of "(demo)", so the match ignores case), OR the
+ *  sample's project code, which the create keeps and a rename leaves alone. */
+export function isDemoProject(project: Pick<ProjectMeta, "name" | "code"> | undefined): boolean {
+  if (project === undefined) return false;
+  if (project.code.trim() === DEMO_SAMPLE_CODE) return true;
+  return project.name.trim().toLowerCase() === t("en-US", "demoProjectName", DEMO_SAMPLE_NAME).toLowerCase();
 }
 
 export type DemoVariant = { kind: "local" } | { kind: "turso"; projectName: string };
@@ -116,8 +138,12 @@ function historyFor(
 
 export async function createDemo(deps: CreateDemoDeps): Promise<DemoOutcome> {
   const { ws } = deps;
-  if (!deps.tursoUsable || !ws.project) {
-    if (deps.browserProject) return "local-blocked";
+  const { project } = ws;
+  // The Turso create runs only for a usable Turso AND a sample that carries a project; anything
+  // else is the local path, which is exactly when the browser-project refusal applies.
+  const usesTurso = deps.tursoUsable && !!project;
+  if (!usesTurso) {
+    if (isLocalDemoBlocked(usesTurso, deps.browserProject)) return "local-blocked";
     await deps.createLocal(ws);
     return "local";
   }
@@ -133,9 +159,12 @@ export async function createDemo(deps: CreateDemoDeps): Promise<DemoOutcome> {
       // reported as "turso-without-history" below
     }
   };
-  const id = await deps.createTursoProject({ ...ws.project, name: deps.projectName }, { importedWorkspace: ws, seedSnapshots });
+  const id = await deps.createTursoProject({ ...project, name: deps.projectName }, { importedWorkspace: ws, seedSnapshots });
   if (id === null) {
     if (deps.tursoProjectsExist) return "turso-failed";
+    // Not `isLocalDemoBlocked(deps.tursoUsable, …)`: Turso IS usable here, which would read as "not
+    // blocked". The Turso create just failed, so the local create is what runs next and the
+    // browser-project refusal applies unconditionally.
     if (deps.browserProject) return "local-blocked";
     deps.onLocalFallback?.();
     await deps.createLocal(ws);
@@ -171,7 +200,8 @@ export interface UseLoadDemoDeps {
  *  the project is what flips the empty-state gate off so the views and the tour overlay mount.
  *  The entry is reachable while projects exist (the Projects panel), so the local create, which
  *  rewrites the one shared browser store, is refused while the registry holds a browser-backed
- *  project (`browserProjectIn`, read at click time). Errors toast, never crash. */
+ *  project (`browserProjectIn`, read at click time). Errors toast, never crash. A demo that opened also retires the dashboard banner
+ *  (`markDemoBannerDone`), so every entry point (Help, header, Projects, empty state, boot intent, tour) does. */
 export function useLoadDemo(deps: UseLoadDemoDeps): () => Promise<void> {
   const {
     lang, showToast, startTour, createDemoProject, createTursoProject, refreshTursoProjects,
@@ -196,7 +226,8 @@ export function useLoadDemo(deps: UseLoadDemoDeps): () => Promise<void> {
         appendSnapshots,
         browserProject,
         tursoProjectsExist: hasTursoProjects,
-        onLocalFallback: setDemoCreatedLocally,
+        // The fallback create reloads the app, so the banner mark rides the same early hook.
+        onLocalFallback: () => { setDemoCreatedLocally(); markDemoBannerDone(); },
       });
       if (outcome === "local-blocked") {
         showToast("error", t(lang, "demoLocalBlocked", browserProject?.name ?? ""));
@@ -206,6 +237,9 @@ export function useLoadDemo(deps: UseLoadDemoDeps): () => Promise<void> {
         showToast("error", t(lang, "tourDemoError"));
         return;
       }
+      // The project exists from here on: spend the dashboard banner BEFORE the re-fetch, so a throw in
+      // it (caught below, error toast) cannot leave a created demo still being suggested.
+      markDemoBannerDone(); // the one place every entry point shares
       if (outcome === "turso" || outcome === "turso-without-history") await refreshTursoProjects();
       // The fallback that worked moved the portfolio to file mode and is reloading; the next boot
       // shows the stored notice. Still on Turso means it did not (it failed and said so, or it

@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { ProjectEditModal, ProjectModalShell } from "./project-edit-modal";
 import { t } from "./i18n";
+import { ALL_MODULE_IDS, FEATURE_MODULES, type FeatureModuleId } from "./feature-modules";
 import type { ProjectMeta } from "./types";
 
 const META = {
@@ -48,6 +49,7 @@ describe("ProjectEditModal", () => {
         stakeholderNames={[]}
         addressBook={[]}
         resources={[]}
+        features={[]}
         sizeKey="test:pem"
         onSubmit={onSubmit}
         onCancel={vi.fn()}
@@ -64,5 +66,111 @@ describe("ProjectEditModal", () => {
     await user.click(screen.getByRole("button", { name: t("en-US", "projectsEdit") }));
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ name: "Apollo", code: "APL" });
+  });
+
+  // --- §706: the Functions part -------------------------------------------------
+  const FEATURES: FeatureModuleId[] = ["dashboard", "gantt"];
+  const labelOf = (id: FeatureModuleId) =>
+    t("en-US", FEATURE_MODULES.find((m) => m.id === id)!.labelKey);
+
+  function renderEdit(extra: Partial<React.ComponentProps<typeof ProjectEditModal>> = {}) {
+    const onSubmit = vi.fn();
+    const onCancel = vi.fn();
+    render(
+      <ProjectEditModal
+        lang="en-US"
+        initial={META}
+        stakeholderNames={[]}
+        addressBook={[]}
+        resources={[]}
+        features={FEATURES}
+        sizeKey="test:pem"
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+        {...extra}
+      />,
+    );
+    return { onSubmit, onCancel };
+  }
+  const saveButton = () => screen.getByRole("button", { name: t("en-US", "projectsEdit") });
+
+  test("toggling a function then Save submits the meta and the new set", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEdit();
+    await user.click(screen.getByRole("checkbox", { name: labelOf("milestones") }));
+    await user.click(saveButton());
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ name: "Apollo" });
+    const next = onSubmit.mock.calls[0][1] as FeatureModuleId[];
+    expect(new Set(next)).toEqual(new Set<FeatureModuleId>([...FEATURES, "milestones"]));
+    expect(next.length).toBe(FEATURES.length + 1);
+  });
+
+  test("Save without touching the functions submits null for them", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEdit();
+    await user.click(saveButton());
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0][1]).toBeNull();
+  });
+
+  test("a function toggled on and off again compares equal as a set, so Save submits null", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEdit();
+    const box = screen.getByRole("checkbox", { name: labelOf("milestones") });
+    await user.click(box);
+    await user.click(box);
+    await user.click(saveButton());
+    expect(onSubmit.mock.calls[0][1]).toBeNull();
+  });
+
+  test("a different order of the same functions still counts as unchanged", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEdit({ features: ["gantt", "dashboard"] });
+    await user.click(saveButton());
+    expect(onSubmit.mock.calls[0][1]).toBeNull();
+  });
+
+  test("toggling a function then Cancel calls onCancel and never onSubmit", async () => {
+    const user = userEvent.setup();
+    const { onSubmit, onCancel } = renderEdit();
+    await user.click(screen.getByRole("checkbox", { name: labelOf("milestones") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  test("the Functions part is a labelled section headed 'Functions', below the form fields", () => {
+    renderEdit();
+    const section = screen.getByRole("region", { name: t("en-US", "editProjectFunctionsHeading") });
+    expect(section).toContainElement(screen.getByRole("checkbox", { name: labelOf("gantt") }));
+    expect(screen.getByRole("checkbox", { name: labelOf("gantt") })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: labelOf("milestones") })).not.toBeChecked();
+    const nameInput = screen.getByDisplayValue("Apollo");
+    expect(nameInput.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  test("focusFunctions moves focus to the Functions heading after mount", async () => {
+    renderEdit({ focusFunctions: true });
+    const heading = screen.getByRole("heading", { name: t("en-US", "editProjectFunctionsHeading") });
+    expect(heading).toHaveAttribute("tabindex", "-1");
+    // The Modal runs its own initial focus in a frame; the heading must still win it.
+    await waitFor(() => expect(heading).toHaveFocus());
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    expect(heading).toHaveFocus();
+  });
+
+  test("without focusFunctions focus does not land on the Functions heading", async () => {
+    renderEdit();
+    const heading = screen.getByRole("heading", { name: t("en-US", "editProjectFunctionsHeading") });
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    expect(heading).not.toHaveFocus();
+  });
+
+  test("the draft is seeded from the features prop (every module can be on)", () => {
+    renderEdit({ features: ALL_MODULE_IDS });
+    for (const id of ALL_MODULE_IDS) {
+      expect(screen.getByRole("checkbox", { name: labelOf(id) })).toBeChecked();
+    }
   });
 });

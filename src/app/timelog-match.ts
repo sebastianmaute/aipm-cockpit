@@ -17,6 +17,27 @@ export function displayableUsers(users: readonly TimelogUser[]): TimelogUser[] {
   return users.filter(isDisplayableUser);
 }
 
+/** Whether a person can be matched to a Timelog user at all: a non-blank primary OR additional
+ *  email, since `matchByEmail` reads both. The one rule behind the resource form's required email
+ *  and the directory's "no email" marker (§708). */
+export function hasMatchableEmail(r: Pick<Resource, "email" | "emails">): boolean {
+  return [r.email, ...(r.emails ?? [])].some((e) => (e ?? "").trim() !== "");
+}
+
+/** The resource a Timelog email belongs to: a PRIMARY-email match beats an
+ *  extra-email (`Resource.emails`) match, and each pass is case-insensitive and
+ *  trimmed (§708). Two passes rather than one scan, so the answer never depends
+ *  on array order. A blank email matches nothing — blank entries in either list
+ *  are skipped, never compared. */
+function matchByEmail(email: string, resources: readonly Resource[]): Resource | undefined {
+  const wanted = norm(email);
+  if (!wanted) return undefined;
+  return (
+    resources.find((r) => r.email !== undefined && norm(r.email) === wanted) ??
+    resources.find((r) => (r.emails ?? []).some((e) => norm(e) === wanted))
+  );
+}
+
 export function autoMatchUsers(
   tlUsers: readonly TimelogUser[],
   resources: readonly Resource[],
@@ -27,8 +48,7 @@ export function autoMatchUsers(
   const out: TimelogUserLink[] = [...manual];
   for (const u of tlUsers) {
     if (pinned.has(u.userId)) continue;
-    let match: Resource | undefined;
-    if (u.email) match = resources.find((r) => r.email && norm(r.email) === norm(u.email));
+    let match = matchByEmail(u.email, resources);
     if (!match && u.initials) {
       const ini = norm(u.initials);
       if (ini) match = resources.find((r) => norm(`${r.firstName[0] ?? ""}${r.lastName[0] ?? ""}`) === ini);

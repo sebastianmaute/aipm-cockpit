@@ -26,11 +26,14 @@ export function tierFields(modalId: ModalId, tier: FieldTier): string[] {
   return MODAL_FIELDS[modalId].filter((f) => TIER_RANK[f.tier] <= rank).map((f) => f.id);
 }
 
-/** Visible field ids for a modal given its config (undefined → Advanced default). */
+/** Visible field ids for a modal given its config (undefined → Advanced default). Required ids
+ *  are always visible: the stored config is trusted for everything else, but no stored value —
+ *  an old save, a hand-edited file, a template written by an earlier build — can hide the
+ *  fields a form cannot be submitted without. */
 export function visibleFields(modalId: ModalId, cfg?: ModalVisibility): Set<string> {
   const known = knownIds(modalId);
   if (!cfg) return new Set(tierFields(modalId, DEFAULT_TIER));
-  return new Set(cfg.fields.filter((id) => known.has(id)));
+  return new Set([...cfg.fields.filter((id) => known.has(id)), ...requiredIds(modalId)]);
 }
 
 /** Build a config from a tier baseline. */
@@ -54,10 +57,10 @@ export function toggleField(
   return { fields: ordered };
 }
 
-/** Derive the segmented-control label: a named tier if the set matches it exactly, else "custom". */
+/** Derive the segmented-control label: a named tier if the set the form actually shows
+ *  (`visibleFields`, required ids included) matches it exactly, else "custom". */
 export function tierOf(modalId: ModalId, cfg?: ModalVisibility): FieldTier | "custom" {
-  const have = cfg ? new Set(cfg.fields.filter((id) => knownIds(modalId).has(id)))
-                   : new Set(tierFields(modalId, DEFAULT_TIER));
+  const have = visibleFields(modalId, cfg);
   for (const tier of TIERS) {
     const want = new Set(tierFields(modalId, tier));
     if (want.size === have.size && [...want].every((id) => have.has(id))) return tier;
