@@ -64,10 +64,15 @@ describe("dailyThroughput", () => {
     expect(total(60)).toBe(90);
   });
 
-  test("attributes a non-working completion after today to today when today works, else drops it", () => {
-    // Today Friday 16th; Saturday 17th is in the future -> invalid. Use today = Sat 17th instead.
+  test("a shift that would pass today counts on the window's last working day, never dropped", () => {
+    // Today Saturday 17th, done today: Monday 19th is past today, so it counts on Friday 16th.
     const sat = run([done(1, "2026-10-17")], 5, "tasks", "2026-10-17");
-    expect(sat.finished).toBe(0);
+    expect(sat.finished, "a weekend completion on a weekend today is counted").toBe(1);
+    expect(sat.days[sat.days.length - 1]).toBe("2026-10-16");
+    expect(sat.samples[sat.days.indexOf("2026-10-16")]).toBe(1);
+    // Today the Monday holiday 12th, done Sunday 11th: Tuesday 13th is past today, so Friday 9th.
+    const holiday = run([done(1, "2026-10-11")], 5, "tasks", "2026-10-12");
+    expect(holiday.samples[holiday.days.indexOf("2026-10-09")], "a holiday today counts on the day before").toBe(1);
     // Completion on Sunday with today Monday: next working day is today, counted there.
     const mon = run([done(1, "2026-10-18")], 5, "tasks", "2026-10-19");
     expect(mon.samples[mon.days.indexOf("2026-10-19")]).toBe(1);

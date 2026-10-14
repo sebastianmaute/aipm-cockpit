@@ -21,11 +21,13 @@ export function isValidIsoDate(s: string | undefined): s is string {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
 }
 
-/** The working day a completion counts on, or null when it is dropped. */
-function attributedDay(completed: string, today: string, holidaySet: ReadonlySet<string>): string | null {
+/**
+ * The working day a completion (on or before today) counts on: itself, or the next working day, but
+ * never after the window's end — a shift that would pass today counts on the window's last working day.
+ */
+function attributedDay(completed: string, today: string, holidaySet: ReadonlySet<string>): string {
   const day = isWorkingDay(completed, holidaySet) ? completed : nthWorkingDayAfter(completed, 1, holidaySet);
-  if (day <= today) return day;
-  return isWorkingDay(today, holidaySet) ? today : null;
+  return day <= today ? day : windowEnd(today, holidaySet);
 }
 
 function windowEnd(today: string, holidaySet: ReadonlySet<string>): string {
@@ -72,8 +74,10 @@ export function dailyThroughput(args: {
       continue;
     }
     if (!isValidIsoDate(t.completedDate) || t.completedDate > today) continue;
-    const day = attributedDay(t.completedDate, today, holidaySet);
-    if (day !== null) completions.push({ day, weight: unit === "effort" ? effortWeight(t, unestimatedSize) : 1 });
+    completions.push({
+      day: attributedDay(t.completedDate, today, holidaySet),
+      weight: unit === "effort" ? effortWeight(t, unestimatedSize) : 1,
+    });
   }
   const earliest = completions.reduce<string | null>((m, c) => (m === null || c.day < m ? c.day : m), null);
   const days = windowDays(window, today, holidaySet, earliest);
