@@ -59,8 +59,13 @@ export function UsesNotice({
   if (missing.length === 0) return null;
   const sentenceKey = USES_SENTENCE_KEY[moduleId];
   const names = moduleNames(lang, missing);
+  // "Both" only fits two; three or more are named, joined by the same list rule as the button.
   const offText =
-    missing.length === 1 ? t(lang, "functionsUsesOneOff", names) : t(lang, "functionsUsesBothOff");
+    missing.length === 1
+      ? t(lang, "functionsUsesOneOff", names)
+      : missing.length === 2
+        ? t(lang, "functionsUsesBothOff")
+        : t(lang, "functionsUsesManyOff", names);
   return (
     <div id={id} role="status" className="ml-6 flex flex-col items-start gap-1.5 text-sm text-muted-foreground">
       <p>

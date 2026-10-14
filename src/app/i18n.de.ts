@@ -4446,6 +4446,7 @@ export const de: Record<TranslationKey, string> = {
   functionsUsesTimelog: "Zeitbuchungen nutzen Ressourcen (um Buchungen Personen zuzuordnen) und Budget (um sie zu bewerten).",
   functionsUsesOneOff: "{0} ist aus.",
   functionsUsesBothOff: "Beide sind aus.",
+  functionsUsesManyOff: "{0} sind aus.",
   functionsUsesTurnOn: "Einschalten",
   functionsUsesTurnOnLabel: "{0} einschalten",
   functionsUsesJoin: "{0} und {1}",

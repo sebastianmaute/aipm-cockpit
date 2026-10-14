@@ -4723,6 +4723,7 @@ const enUS = {
   functionsUsesTimelog: "Time bookings uses Resources (to match bookings to people) and Budget (to cost them).",
   functionsUsesOneOff: "{0} is off.",
   functionsUsesBothOff: "Both are off.",
+  functionsUsesManyOff: "{0} are off.",
   functionsUsesTurnOn: "Turn on",
   functionsUsesTurnOnLabel: "Turn on {0}",
   functionsUsesJoin: "{0} and {1}",

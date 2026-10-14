@@ -142,6 +142,19 @@ describe("UsesNotice", () => {
     render(<UsesNotice lang="de" moduleId="timelog" missing={missing} onTurnOn={() => {}} />);
     expect(screen.getByRole("button", { name: "Ressourcen, Budget und Gantt einschalten" })).toBeInTheDocument();
   });
+  it("M8: names three or more missing modules instead of saying \"Both\"", () => {
+    const missing = ["resources", "budget", "gantt"] as const;
+    const { unmount } = render(<UsesNotice lang="en-US" moduleId="timelog" missing={missing} />);
+    expect(screen.getByRole("status")).toHaveTextContent(/Resources, Budget, and Gantt are off\.$/);
+    expect(screen.getByRole("status")).not.toHaveTextContent(/Both/);
+    unmount();
+    render(<UsesNotice lang="de" moduleId="timelog" missing={missing} />);
+    expect(screen.getByRole("status")).toHaveTextContent(/Ressourcen, Budget und Gantt sind aus\.$/);
+  });
+  it("keeps \"Both are off.\" for exactly two", () => {
+    render(<UsesNotice lang="en-US" moduleId="timelog" missing={["resources", "budget"]} />);
+    expect(screen.getByRole("status")).toHaveTextContent(/ Both are off\.$/);
+  });
   it("renders nothing when nothing is missing", () => {
     const { container } = render(<UsesNotice lang="en-US" moduleId="timelog" missing={[]} />);
     expect(container).toBeEmptyDOMElement();
