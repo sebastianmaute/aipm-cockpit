@@ -954,6 +954,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§714](#714-follow-up-with-the-uk-pilot-user-fixes-before-their-2026-10-22-review-the-api-key-cost-question-and-a-project-intake-session--open) | Follow-up with the UK pilot user: fixes before their 2026-10-22 review, the API-key cost question, and a project-intake session | — | — | open |
 | [§715](#715-no-recorded-walk-through-shows-a-new-user-downloading-installing-and-setting-up-the-desktop-app--open) | No recorded walk-through shows a new user downloading, installing and setting up the desktop app | — | — | open |
 | [§728](#728-the-first-start-splashs-status-text-has-not-been-eye-checked-on-a-packaged-desktop-build--open) | The first-start splash's status text has not been eye-checked on a packaged desktop build | — | — | open |
+| [§729](#729-the-install-guide-describes-the-browser-download-prompt-and-the-windows-protection-box-without-pictures--open) | The install guide describes the browser download prompt and the Windows protection box without pictures | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44942,7 +44943,7 @@ Size XS.
 
 **Status:** CLOSED 2026-10-14 on `feat/pilot-onboarding-phase2` (GitHub #702). The install guide now covers the browser's own download warning and **Keep**, the slow first start (a start screen, and Windows' brief "Not responding"), that a Claude subscription does not include API use and credit is bought separately, and a new "Setting up your first budget" section; it carries nine pictures (`grep -c "assets/guide/" docs/desktop-rollout.md` → 9). The app points to it from the Help panel's footer and the About panel (`installGuideLink`, through `INSTALL_GUIDE_URL`), beside the Turso steps' link from §711, and Help has a new workflow, "Getting started: set up a budget", listed first. The pictures and 16 of the README's 17 gallery images are written by one opt-in spec, `npm run docs:guide-shots`, never run in CI; `scripts/doc-image-refs.test.mjs` fails when an image the README or the guide shows is missing.
 
-Left as they were, on purpose: no amounts, top-up or expense advice for API credit (decided at design approval); `version-history.png` stays hand-captured, since its view needs Turso storage; the browser download prompt and Windows' box are described in text until hand-captured pictures are added; there is no demo-banner picture, because the banner hides wherever the demo would be refused, which is the screenshot spec's own state.
+Left as they were, on purpose: no amounts, top-up or expense advice for API credit (decided at design approval); `version-history.png` stays hand-captured, since its view needs Turso storage; the browser download prompt and Windows' box are described in text until hand-captured pictures are added (§729); there is no demo-banner picture, because the banner hides wherever the demo would be refused, which is the screenshot spec's own state.
 
 ★ The text below is the record as opened, before the fix: its measured greps and its "Proposed" paragraph describe the old guide, not what shipped.
 
@@ -45029,3 +45030,17 @@ Close this with what was seen, or file each defect found as its own entry.
 Size S.
 
 **Source:** owner decision at the phase-1 merge, 2026-10-14.
+
+## 729. The install guide describes the browser download prompt and the Windows protection box without pictures — OPEN
+
+**Status:** OPEN 2026-10-14 — both steps are text only; no hand-captured picture is in the guide yet (`grep -c "manual.png" docs/desktop-rollout.md` → 0).
+
+**Work item:** #721
+
+Two steps of the install guide's "Installing" section have no picture: the browser's "isn't commonly downloaded" warning with **Keep**, and Windows' "Windows protected your PC" box with **More info** → **Run anyway**. Both happen outside the web page, so `npm run docs:guide-shots` (§713) cannot take them. They were left out on purpose until they exist (plan ruling R8): an image line pointing at a missing file would fail `scripts/doc-image-refs.test.mjs`.
+
+To close: capture both on Windows while downloading and running a real release installer; save them as `docs/assets/guide/download-keep.manual.png` and `docs/assets/guide/smartscreen.manual.png` (the spec never writes a `.manual.png`); embed each at its step with alt text that says what it shows; crop out anything personal (user name, other downloads, paths). The image test then checks both files exist.
+
+Size S.
+
+**Source:** final review of the §713 install-guide work, 2026-10-14.
