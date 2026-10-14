@@ -5,8 +5,10 @@ import { isTaskClosed } from "../task-closed";
 import { addCalendarDays, countWorkingDays, nthWorkingDayAfter } from "../working-days";
 import {
   EFFORT_MODE_MIN_COVERAGE,
+  FORECAST_DAY_BUDGET,
   FORECAST_PERCENTILES,
   FORECAST_TRIALS,
+  FORECAST_TRIALS_REDUCED,
   MAX_HORIZON_WORKING_DAYS,
   MIN_FINISHED_TASKS,
   MIN_HISTORY_WORKING_DAYS,
@@ -14,9 +16,9 @@ import {
   type HistoryWindow,
 } from "./constants";
 import { milestoneChances, orderBacklog, type MilestoneChance } from "./milestones";
-import { mulberry32, seedFrom } from "./rng";
+import { mulberry32, seedFrom, type Rng } from "./rng";
 import { percentile, simulateHowMany, simulateWhen, type SimOptions } from "./simulate";
-import { dailyThroughput, type ThroughputHistory } from "./throughput";
+import { dailyThroughput, isValidIsoDate, type ThroughputHistory } from "./throughput";
 
 export type WhatIf = { scopeTasks: number; scopePercent: number; capacityPercent: number };
 
@@ -122,7 +124,7 @@ function resultUnit(requested: ForecastUnit, open: readonly Task[]): ForecastUni
   return requested === "effort" && effortCoverage(open) >= EFFORT_MODE_MIN_COVERAGE ? "effort" : "tasks";
 }
 
-function simOptions(rng: () => number, trials: number, capacityPercent: number, unit: ForecastUnit): SimOptions {
+function simOptions(rng: Rng, trials: number, capacityPercent: number, unit: ForecastUnit): SimOptions {
   return { trials, rng, capacity: capacityPercent / 100, horizon: MAX_HORIZON_WORKING_DAYS, integer: unit === "tasks" };
 }
 
@@ -139,9 +141,49 @@ export function lastForecastableDay(today: string, holidaySet: ReadonlySet<strin
   return nthWorkingDayAfter(today, MAX_HORIZON_WORKING_DAYS, holidaySet);
 }
 
+/** What `trialCount` estimates the cost from; every field comes from the inputs, never from a draw. */
+type CostBasis = {
+  samples: readonly number[];
+  capacity: number;
+  /** Post-what-if backlog (When, How many), in the samples' unit. */
+  backlog: number;
+  /** Real backlog before the what-if (milestones use the real linked tasks, R9). */
+  base: number;
+  howManyDays: number;
+  /** Working days to the latest milestone still to forecast, 0 when none. */
+  milestoneDays: number;
+};
+
+/** Days one trial walks to cover `work` at the mean pace, at most `cap`. */
+function daysAtPace(work: number, pace: number, cap: number): number {
+  if (work <= 0 || cap <= 0) return 0;
+  return pace > 0 ? Math.min(cap, Math.ceil(work / pace)) : cap;
+}
+
+/**
+ * `FORECAST_TRIALS`, dropping to `FORECAST_TRIALS_REDUCED` when the simulated days the three outputs
+ * would walk at the full count, estimated at the history's mean pace, exceed `FORECAST_DAY_BUDGET`
+ * (spec §5 Performance). The estimate reads only the inputs, so the same inputs always run the same trials.
+ */
+export function trialCount(c: CostBasis): number {
+  const pace = (c.samples.reduce((s, v) => s + v, 0) / Math.max(1, c.samples.length)) * c.capacity;
+  const perTrial =
+    daysAtPace(c.backlog, pace, MAX_HORIZON_WORKING_DAYS) +
+    daysAtPace(c.backlog, pace, c.howManyDays) +
+    daysAtPace(c.base, pace, c.milestoneDays);
+  return perTrial * FORECAST_TRIALS > FORECAST_DAY_BUDGET ? FORECAST_TRIALS_REDUCED : FORECAST_TRIALS;
+}
+
+/** Working days to the latest unachieved, validly dated milestone on or after today, capped at the horizon. */
+function latestMilestoneDays(milestones: readonly Milestone[], today: string, lastDay: string, holidaySet: ReadonlySet<string>): number {
+  const dates = milestones.filter((m) => !m.achievedDate && isValidIsoDate(m.date) && m.date >= today).map((m) => m.date);
+  if (dates.length === 0) return 0;
+  const latest = dates.reduce((a, b) => (b > a ? b : a));
+  return countWorkingDays(addCalendarDays(today, 1), addCalendarDays(latest < lastDay ? latest : lastDay, 1), holidaySet);
+}
+
 export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleForecastResult {
   const { tasks, milestones, today, holidaySet, window } = input;
-  const trials = Math.max(1, Math.floor(input.trials ?? FORECAST_TRIALS));
   const open = tasks.filter((t) => !isTaskClosed(t));
   const unit = resultUnit(input.unit, open);
   const whatIf = clampWhatIf(input.whatIf, open.length);
@@ -173,14 +215,25 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
     whatIf.scopePercent,
     whatIf.capacityPercent,
   ];
-  // One stream per output, so no result depends on whether another ran first.
-  const stream = (name: string) => simOptions(mulberry32(seedFrom([...seedParts, name])), trials, whatIf.capacityPercent, unit);
-
-  const when = simulateWhen(history.samples, backlog, stream("when"));
   // R15: capped at the horizon like When, so a far (or mistyped) target cannot stall the render.
   const lastDay = lastForecastableDay(today, holidaySet);
   const target = input.howManyTarget < lastDay ? input.howManyTarget : lastDay;
   const targetDays = countWorkingDays(addCalendarDays(today, 1), addCalendarDays(target, 1), holidaySet);
+  const trials =
+    input.trials === undefined
+      ? trialCount({
+          samples: history.samples,
+          capacity: whatIf.capacityPercent / 100,
+          backlog,
+          base,
+          howManyDays: targetDays,
+          milestoneDays: latestMilestoneDays(milestones, today, lastDay, holidaySet),
+        })
+      : Math.max(1, Math.floor(input.trials));
+  // One stream per output, so no result depends on whether another ran first.
+  const stream = (name: string) => simOptions(mulberry32(seedFrom([...seedParts, name])), trials, whatIf.capacityPercent, unit);
+
+  const when = simulateWhen(history.samples, backlog, stream("when"));
   const reached = simulateHowMany(history.samples, targetDays, backlog, stream("howMany"));
   const chances = milestoneChances({
     milestones,

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { Milestone, Task } from "../types";
 import { orderBacklog, milestoneChances } from "./milestones";
 import { mulberry32 } from "./rng";
-import type { SimOptions } from "./simulate";
+import { drawDay, type SimOptions } from "./simulate";
 
 const TODAY = "2026-10-12"; // a Monday
 
@@ -105,5 +105,55 @@ describe("milestoneChances", () => {
     // tasks 2 and 10 sit at queue positions 2 and 10; 1/day over 5 working days reaches 5
     const [r] = run([ms(1, "2026-10-19", [2, 10])], twenty);
     expect(r).toEqual({ id: 1, state: "chance", chance: 0, chancePrioritised: 1 });
+  });
+
+  test("the early exits (all reached, none reachable) give exactly the chances of walking to the last day", () => {
+    // Reference: every trial draws every day up to the last milestone's day from the same stream.
+    type T = { id: number; days: number; position: number; prio: number };
+    function walked(targets: T[], samples: number[], o: SimOptions) {
+      const lastDay = Math.max(...targets.map((t) => t.days));
+      const due = new Map(targets.map((t) => [t.id, 0]));
+      const prio = new Map(targets.map((t) => [t.id, 0]));
+      for (let trial = 0; trial < o.trials; trial += 1) {
+        let done = 0;
+        for (let d = 0; d <= lastDay; d += 1) {
+          if (d > 0) done += drawDay(samples, o);
+          for (const t of targets.filter((x) => x.days === d)) {
+            if (done >= t.position) due.set(t.id, (due.get(t.id) ?? 0) + 1);
+            if (done >= t.prio) prio.set(t.id, (prio.get(t.id) ?? 0) + 1);
+          }
+        }
+      }
+      return targets.map((t) => ({ id: t.id, state: "chance", chance: (due.get(t.id) ?? 0) / o.trials, chancePrioritised: (prio.get(t.id) ?? 0) / o.trials }));
+    }
+    const forty = Array.from({ length: 40 }, (_, i) => task(i + 1));
+    const samples = [0, 0, 3];
+    // Monday 2026-10-12: Oct 14 is 2 working days ahead, Oct 16 is 4, Oct 23 is 9, Nov 6 is 19, Nov 20 is 29.
+    const scenarios: [Milestone[], T[]][] = [
+      [
+        [ms(1, "2026-10-14", [1]), ms(2, "2026-10-23", [2, 3]), ms(3, "2026-11-06", [30]), ms(4, "2026-11-20", [5, 25])],
+        [
+          { id: 1, days: 2, position: 1, prio: 1 },
+          { id: 2, days: 9, position: 3, prio: 2 },
+          { id: 3, days: 19, position: 30, prio: 1 },
+          { id: 4, days: 29, position: 25, prio: 2 },
+        ],
+      ],
+      // 4 days at most 3 a day cannot reach position 40: none reachable from day 0.
+      [[ms(5, "2026-10-16", [40]), ms(6, "2026-10-14", [39])], [{ id: 6, days: 2, position: 39, prio: 1 }, { id: 5, days: 4, position: 40, prio: 1 }]],
+      // Mid-trial: after day 2, below 6 done the 12 of milestone 8 are out of reach, so later trials hang on the skip.
+      [
+        [ms(7, "2026-10-14", [2]), ms(8, "2026-10-16", Array.from({ length: 12 }, (_, i) => i + 1))],
+        [{ id: 7, days: 2, position: 2, prio: 1 }, { id: 8, days: 4, position: 12, prio: 12 }],
+      ],
+    ];
+    for (const [milestones, targets] of scenarios) {
+      const args = { ordered: forty, closedIds: new Set<number>(), sizeOf: () => 1, samples, today: TODAY, holidaySet: new Set<string>() };
+      const fast = milestoneChances({ ...args, milestones, o: opts({ trials: 300, rng: mulberry32(9) }) });
+      const slow = walked(targets, samples, opts({ trials: 300, rng: mulberry32(9) }));
+      expect(fast, `early exits are exact for ${milestones.map((m) => m.id).join(",")}`).toEqual(
+        milestones.map((m) => slow.find((s) => s.id === m.id)),
+      );
+    }
   });
 });

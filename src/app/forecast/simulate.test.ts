@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { mulberry32 } from "./rng";
-import { drawDay, percentile, simulateHowMany, simulateWhen, type SimOptions } from "./simulate";
+import { dayDrawer, drawDay, percentile, simulateHowMany, simulateWhen, type SimOptions } from "./simulate";
 
 /** A backlog no test in this file reaches, for the cases that are not about the cap. */
 const UNCAPPED = Number.MAX_SAFE_INTEGER;
@@ -43,6 +43,43 @@ describe("simulateWhen", () => {
   test("empty samples are treated as zero per day", () => {
     const { beyondShare } = simulateWhen([], 5, opts({ horizon: 10 }));
     expect(beyondShare).toBe(1);
+  });
+
+  test("the certain-beyond early exit gives exactly the days of walking every trial to the horizon", () => {
+    // Reference: the plain loop, a short trial drawing every day up to the horizon from the same stream.
+    function walked(samples: number[], backlog: number, o: SimOptions): number[] {
+      const out: number[] = [];
+      for (let t = 0; t < o.trials; t += 1) {
+        let done = 0;
+        let d = 0;
+        while (done < backlog && d < o.horizon) {
+          d += 1;
+          done += drawDay(samples, o);
+        }
+        out.push(done < backlog ? o.horizon + 1 : d);
+      }
+      return out.sort((a, b) => a - b);
+    }
+    const cases: [number[], number, Partial<SimOptions>][] = [
+      [[0, 0, 10], 30, { capacity: 0.1, horizon: 120 }],
+      // 0.7 and 2.8 round up to 1 and 3: the best day is 3, not the whole part 2.
+      [[0, 1, 4], 95, { capacity: 0.7, horizon: 80 }],
+      [[0, 2.5, 7.25], 300, { integer: false, horizon: 90 }],
+    ];
+    for (const [samples, backlog, over] of cases) {
+      const fast = simulateWhen(samples, backlog, opts({ ...over, rng: mulberry32(5) }));
+      const slow = walked(samples, backlog, opts({ ...over, rng: mulberry32(5) }));
+      const beyond = (over.horizon ?? 0) + 1;
+      expect(fast.days.includes(beyond) && fast.days.some((d) => d < beyond), "the case has both outcomes").toBe(true);
+      expect(Array.from(fast.days), `early exit is exact for ${JSON.stringify(samples)}`).toEqual(slow);
+    }
+  });
+
+  test("an rng without skip draws and drops instead, with the same result", () => {
+    const plain = mulberry32(5);
+    const fast = simulateWhen([0, 0, 10], 30, opts({ capacity: 0.1, horizon: 120, rng: mulberry32(5) }));
+    const dropped = simulateWhen([0, 0, 10], 30, opts({ capacity: 0.1, horizon: 120, rng: () => plain() }));
+    expect(Array.from(dropped.days)).toEqual(Array.from(fast.days));
   });
 
   test("capacity 0.5 roughly doubles the days", () => {
@@ -97,6 +134,22 @@ describe("simulateHowMany", () => {
 describe("drawDay", () => {
   test("empty samples draw 0", () => {
     expect(drawDay([], opts())).toBe(0);
+  });
+
+  test("the hoisted drawer draws the plain formula's values from the same stream, both units", () => {
+    // Plain: sample x capacity, stochastic-rounded with a second draw (which a whole value cannot pass).
+    const samples = [0, 1, 3, 10, 2.5];
+    for (const integer of [true, false]) {
+      const ref = mulberry32(11);
+      const expected = Array.from({ length: 500 }, () => {
+        const x = samples[Math.floor(ref() * samples.length)] * 0.7;
+        if (!integer) return x;
+        const whole = Math.floor(x);
+        return whole + (ref() < x - whole ? 1 : 0);
+      });
+      const { draw } = dayDrawer(samples, opts({ capacity: 0.7, integer, rng: mulberry32(11) }));
+      expect(Array.from({ length: 500 }, draw), `integer: ${integer}`).toEqual(expected);
+    }
   });
 });
 

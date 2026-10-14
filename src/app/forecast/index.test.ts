@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { Milestone, Task } from "../types";
-import { clampWhatIf, computeScheduleForecast, effortCoverage, type ScheduleForecastInput, type WhatIf } from "./index";
+import { clampWhatIf, computeScheduleForecast, effortCoverage, trialCount, type ScheduleForecastInput, type WhatIf } from "./index";
+import { FORECAST_DAY_BUDGET, FORECAST_TRIALS, FORECAST_TRIALS_REDUCED } from "./constants";
 
 // 2026-10-14 is a Wednesday.
 const TODAY = "2026-10-14";
@@ -211,6 +212,54 @@ describe("computeScheduleForecast effort what-if and history", () => {
   test("trials below 1 is clamped", () => {
     const r = computeScheduleForecast(input([...open(3), ...recentDone(10)], { trials: 0 }));
     expect(r).toMatchObject({ kind: "forecast", trials: 1 });
+  });
+});
+
+describe("trial count (spec §5 Performance)", () => {
+  const basis = { samples: [1], capacity: 1, base: 0, howManyDays: 0, milestoneDays: 0 };
+
+  test("drops to 5,000 only above the day budget", () => {
+    // 1 a day: a backlog of 800 is 800 days x 10,000 trials, the budget exactly.
+    expect(FORECAST_DAY_BUDGET).toBe(800 * FORECAST_TRIALS);
+    expect(trialCount({ ...basis, backlog: 800 })).toBe(FORECAST_TRIALS);
+    expect(trialCount({ ...basis, backlog: 801 })).toBe(FORECAST_TRIALS_REDUCED);
+  });
+
+  test("adds the days of all three outputs, each at its own cap", () => {
+    // When 400 + How many 300 (its target) + milestones 100 = 800: on the budget; one more milestone day is over.
+    const c = { ...basis, backlog: 400, howManyDays: 300, base: 500, milestoneDays: 100 };
+    expect(trialCount(c)).toBe(FORECAST_TRIALS);
+    expect(trialCount({ ...c, milestoneDays: 101 })).toBe(FORECAST_TRIALS_REDUCED);
+    // At 10 % capacity a large backlog runs to the 1,300-day horizon.
+    expect(trialCount({ ...basis, backlog: 200, capacity: 0.1 })).toBe(FORECAST_TRIALS_REDUCED);
+  });
+
+  test("an ordinary forecast runs 10,000 trials, a What-if extreme 5,000, the same on every call", () => {
+    const tasks = [...open(5), ...recentDone(10)];
+    const ordinary = computeScheduleForecast(input(tasks, { trials: undefined }));
+    expect(ordinary).toMatchObject({ kind: "forecast", trials: FORECAST_TRIALS });
+    const extreme = { scopeTasks: 1000, scopePercent: 0, capacityPercent: 10 };
+    const a = computeScheduleForecast(input(tasks, { trials: undefined, whatIf: extreme }));
+    const b = computeScheduleForecast(input(tasks, { trials: undefined, whatIf: extreme }));
+    if (a.kind !== "forecast" || b.kind !== "forecast") throw new Error("expected forecast");
+    expect(a.trials, "the What-if extreme drops to the reduced count").toBe(FORECAST_TRIALS_REDUCED);
+    expect(a.distribution).toHaveLength(FORECAST_TRIALS_REDUCED);
+    expect(b).toEqual(a);
+    // An explicit count is honoured as given.
+    expect(computeScheduleForecast(input(tasks, { whatIf: extreme }))).toMatchObject({ trials: 300 });
+  });
+
+  test("the latest milestone still to forecast counts toward the budget; achieved, invalid and past ones do not", () => {
+    // 1 a day, 500 open: When 500 + How many 5 days = 505 per trial, under the 800 budget; a milestone
+    // 500 working days out adds 500 more and tips it.
+    const tasks = [...open(500), ...recentDone(10)];
+    const run = (milestones: Milestone[]) => computeScheduleForecast(input(tasks, { trials: undefined, milestones }));
+    const far = (over: Partial<Milestone> = {}): Milestone => ({ id: 1, name: "M", date: "2028-12-29", linkedTaskIds: [500], ...over });
+    expect(run([]).trials).toBe(FORECAST_TRIALS);
+    expect(run([far()]).trials, "a far open milestone tips the budget").toBe(FORECAST_TRIALS_REDUCED);
+    expect(run([far({ achievedDate: "2026-10-01" })]).trials, "achieved").toBe(FORECAST_TRIALS);
+    expect(run([far({ date: "2028-02-30" })]).trials, "invalid date").toBe(FORECAST_TRIALS);
+    expect(run([far({ date: "2026-10-01" })]).trials, "past date").toBe(FORECAST_TRIALS);
   });
 });
 

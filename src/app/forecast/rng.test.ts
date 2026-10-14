@@ -15,6 +15,16 @@ describe("mulberry32", () => {
     expect(Array.from({ length: 5 }, () => a())).not.toEqual(Array.from({ length: 5 }, () => b()));
   });
 
+  test("skip(n) leaves the stream exactly where n draws would", () => {
+    for (const n of [0, 1, 2, 7, 2600, 123457]) {
+      const drawn = mulberry32(99);
+      for (let i = 0; i < n; i += 1) drawn();
+      const skipped = mulberry32(99);
+      skipped.skip(n);
+      expect(Array.from({ length: 3 }, () => skipped()), `skip(${n})`).toEqual(Array.from({ length: 3 }, () => drawn()));
+    }
+  });
+
   test("draws stay in [0, 1) with a mean near one half", () => {
     const r = mulberry32(7);
     let sum = 0;

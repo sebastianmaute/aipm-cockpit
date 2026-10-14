@@ -2,7 +2,7 @@
 
 import { PRIORITIES, type Milestone, type Task } from "../types";
 import { addCalendarDays, countWorkingDays } from "../working-days";
-import { drawDay, type SimOptions } from "./simulate";
+import { cannotReach, dayDrawer, type SimOptions } from "./simulate";
 import { isValidIsoDate } from "./throughput";
 
 export type MilestoneChance =
@@ -83,27 +83,58 @@ export function milestoneChances(args: Args): MilestoneChance[] {
   return milestones.flatMap((m) => results.get(m.id) ?? []);
 }
 
-/** One pass: each trial walks the days once and checks every milestone on its own day. */
+/**
+ * One pass: each trial walks the days once and checks every milestone on its own day. A trial stops
+ * early once every milestone still ahead is certainly reached (its done work already covers both
+ * positions) or certainly missed (even the best possible days cannot cover the smallest one), and skips
+ * the draws it would have made, so every count is the same as walking to the last milestone's day.
+ */
 function tally(targets: readonly Target[], { samples, o }: Args): Map<number, { due: number; prio: number }> {
   const hits = new Map(targets.map((t) => [t.id, { due: 0, prio: 0 }]));
   if (targets.length === 0) return hits;
-  const byDay = new Map<number, Target[]>();
-  for (const t of targets) {
-    const day = Math.min(t.days, o.horizon);
-    byDay.set(day, [...(byDay.get(day) ?? []), t]);
+  const queue = targets.map((t) => ({ t, day: Math.min(t.days, o.horizon) })).sort((a, b) => a.day - b.day);
+  const n = queue.length;
+  // From queue index i on: the largest position (reached by all) and the smallest (missed by all).
+  const allReachedAt = new Float64Array(n + 1);
+  const noneReachedBelow = new Float64Array(n + 1).fill(Infinity);
+  for (let i = n - 1; i >= 0; i -= 1) {
+    const { position, positionPrioritised } = queue[i].t;
+    allReachedAt[i] = Math.max(allReachedAt[i + 1], position, positionPrioritised);
+    noneReachedBelow[i] = Math.min(noneReachedBelow[i + 1], position, positionPrioritised);
   }
-  const lastDay = Math.max(...byDay.keys());
+  const due = new Int32Array(n);
+  const prio = new Int32Array(n);
+  const lastDay = queue[n - 1].day;
+  const { draw, max, skipDays } = dayDrawer(samples, o);
   for (let trial = 0; trial < o.trials; trial += 1) {
     let done = 0;
+    let i = 0;
     for (let d = 0; d <= lastDay; d += 1) {
-      if (d > 0) done += drawDay(samples, o);
-      for (const t of byDay.get(d) ?? []) {
-        const h = hits.get(t.id);
-        if (!h) continue;
-        if (done >= t.position) h.due += 1;
-        if (done >= t.positionPrioritised) h.prio += 1;
+      if (d > 0) done += draw();
+      for (; i < n && queue[i].day === d; i += 1) {
+        if (done >= queue[i].t.position) due[i] += 1;
+        if (done >= queue[i].t.positionPrioritised) prio[i] += 1;
+      }
+      if (i === n) break;
+      if (done >= allReachedAt[i]) {
+        for (let j = i; j < n; j += 1) {
+          due[j] += 1;
+          prio[j] += 1;
+        }
+        skipDays(lastDay - d);
+        break;
+      }
+      if (cannotReach(done, lastDay - d, max, noneReachedBelow[i])) {
+        skipDays(lastDay - d);
+        break;
       }
     }
   }
+  queue.forEach(({ t }, i) => {
+    const h = hits.get(t.id);
+    if (!h) return;
+    h.due += due[i];
+    h.prio += prio[i];
+  });
   return hits;
 }
