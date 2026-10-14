@@ -9,6 +9,7 @@ import {
   APP_RELEASES_URL,
   APP_REPO_URL,
   APP_SPONSOR_URL,
+  INSTALL_GUIDE_URL,
 } from "./version";
 
 const ELECTRON_UA =
@@ -60,6 +61,9 @@ describe("VersionInfo", () => {
       expect(link).toHaveAttribute("target", "_blank");
       expect(link).toHaveAttribute("rel", "noopener noreferrer");
     }
+    const guide = screen.getByRole("link", { name: "Installation & setup guide" });
+    expect(guide).toHaveAttribute("href", INSTALL_GUIDE_URL);
+    expect(guide).toHaveAttribute("target", "_blank");
     expect(APP_REPO_URL).toBe("https://github.com/sebastianmaute/aipm-cockpit");
     expect(APP_AUTHOR_URL).toBe("https://www.linkedin.com/in/sebastian-maute/");
     expect(APP_SPONSOR_URL).toBe("https://github.com/sponsors/sebastianmaute");

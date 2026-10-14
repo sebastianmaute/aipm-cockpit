@@ -1600,6 +1600,7 @@ export const de: Record<TranslationKey, string> = {
   versionLicenseName: "European Union Public Licence v1.2 (EUPL-1.2)",
   versionAuthor: "Erstellt von Sebastian Maute",
   versionBuiltWith: "Entwickelt mit Claude Code",
+  installGuideLink: "Installations- und Einrichtungsanleitung",
   versionGithubLink: "Quellcode auf GitHub",
   versionLinkedInLink: "Sebastian Maute auf LinkedIn",
   versionSponsorLink: "Auf GitHub unterstützen",

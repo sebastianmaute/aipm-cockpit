@@ -1692,6 +1692,7 @@ const enUS = {
   versionLicenseName: "European Union Public Licence v1.2 (EUPL-1.2)",
   versionAuthor: "Created by Sebastian Maute",
   versionBuiltWith: "Built with Claude Code",
+  installGuideLink: "Installation & setup guide",
   versionGithubLink: "Source on GitHub",
   versionLinkedInLink: "Sebastian Maute on LinkedIn",
   versionSponsorLink: "Sponsor on GitHub",
