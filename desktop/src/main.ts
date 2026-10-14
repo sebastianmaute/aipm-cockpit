@@ -46,7 +46,7 @@ import {
 import { resolveLogDir } from "./lib/log-paths";
 import { isPrintCancellation, pickPrintTarget } from "./lib/print-target";
 import { STARTUP_CHECK_DELAY_MS } from "./lib/update-policy";
-import { SPLASH_SLOW_MS, splashMessages, splashScript } from "./lib/splash-status";
+import { splashMessages, splashScript, splashSequence } from "./lib/splash-status";
 import { liveWindow } from "./lib/window-liveness";
 import { waitForReady } from "./lib/readiness";
 import { killServer, spawnServer } from "./server-child";
@@ -489,13 +489,13 @@ async function start(): Promise<void> {
       .executeJavaScript(splashScript(kind, text))
       .catch((err: unknown) => log(`splash ${kind} not shown: ${String(err)}`));
   };
-  // ★★ Cleared on EVERY way out of start() that leaves the splash: the try/finally below covers
-  // a normal fall-through to loadURL, each failStart return AND a throw from probePort,
-  // spawnServer or waitForReady. A timer left running would fire into whatever the window
-  // shows next.
-  const slowTimer = setTimeout(() => sendSplash("slow", splashText.slow), SPLASH_SLOW_MS);
+  // ★★ The reassurance timer (splashSequence, which a test drives with fake timers) is stopped on
+  // EVERY way out of start() that leaves the splash: the try/finally below covers a normal
+  // fall-through to loadURL, each failStart return AND a throw from probePort, spawnServer or
+  // waitForReady. A timer left running would fire into whatever the window shows next.
+  const splash = splashSequence(sendSplash, splashText, { setTimeout, clearTimeout });
   const failStart = (title: string, message: string): void => {
-    clearTimeout(slowTimer);
+    splash.stop();
     fail(title, message);
   };
   try {
@@ -536,7 +536,7 @@ async function start(): Promise<void> {
     if (owner === "free") {
       // Only a launch that really starts the service says so: when this build already serves the
       // port ("ours") nothing is starting, and the splash goes straight to "Opening…" below.
-      sendSplash("status", splashText.starting);
+      splash.starting();
       serverChild = spawnServer(process.resourcesPath);
       // Both streams are piped, so both are drained: an unread pipe fills and
       // stalls the server on its next write.
@@ -570,10 +570,10 @@ async function start(): Promise<void> {
       }
     }
   } finally {
-    clearTimeout(slowTimer);
+    splash.stop();
   }
 
-  sendSplash("status", splashText.opening);
+  splash.opening();
   await win.loadURL(APP_ORIGIN);
   setTimeout(() => updater?.check("startup"), STARTUP_CHECK_DELAY_MS);
 }

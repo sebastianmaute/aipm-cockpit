@@ -44,3 +44,46 @@ export function splashMessages(locale: string): SplashMessages {
 export function splashScript(kind: "status" | "slow", text: string): string {
   return `window.__splash && window.__splash.${kind}(${JSON.stringify(text)})`;
 }
+
+/** The timer functions `splashSequence` schedules with; main.ts passes the globals. */
+export interface SplashTimers<H> {
+  setTimeout(fn: () => void, ms: number): H;
+  clearTimeout(handle: H): void;
+}
+
+export interface SplashSequence {
+  /** "Starting the background service…": only a launch that really spawns the server says it. */
+  starting(): void;
+  /** Stops the reassurance timer, then "Opening…" as the window navigates to the app. */
+  opening(): void;
+  /** Stops the reassurance timer without a message (a failed start). Safe to call twice. */
+  stop(): void;
+}
+
+/**
+ * The splash's status sequence. The reassurance line is scheduled at once and fires after
+ * SPLASH_SLOW_MS unless `opening` or `stop` ran first: a timer left running would fire into
+ * whatever the window shows next. main.ts calls `stop` on every way out of its startup, so the
+ * order and the clearing live here, where a test with fake timers can reach them.
+ */
+export function splashSequence<H>(
+  send: (kind: "status" | "slow", text: string) => void,
+  text: SplashMessages,
+  timers: SplashTimers<H>,
+): SplashSequence {
+  const handle = timers.setTimeout(() => send("slow", text.slow), SPLASH_SLOW_MS);
+  let stopped = false;
+  const stop = (): void => {
+    if (stopped) return;
+    stopped = true;
+    timers.clearTimeout(handle);
+  };
+  return {
+    starting: () => send("status", text.starting),
+    opening: () => {
+      stop();
+      send("status", text.opening);
+    },
+    stop,
+  };
+}

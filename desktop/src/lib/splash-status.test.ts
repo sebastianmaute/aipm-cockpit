@@ -1,6 +1,6 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
-import { SPLASH_SLOW_MS, splashMessages, splashScript } from "./splash-status";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SPLASH_SLOW_MS, splashMessages, splashScript, splashSequence } from "./splash-status";
 
 describe("splashMessages", () => {
   it.each(["de-DE", "de", "de-AT"])("returns German for %s", (locale) => {
@@ -30,7 +30,7 @@ describe("splashMessages", () => {
     expect(m.slow).toContain(" – ");
   });
 
-  it("shows the reassurance after 10 seconds", () => {
+  it("sets the reassurance delay to 10 seconds", () => {
     expect(SPLASH_SLOW_MS).toBe(10_000);
   });
 });
@@ -48,7 +48,8 @@ describe("splashScript", () => {
   });
 
   it("round-trips quotes, backslashes, a closing script tag and a newline", () => {
-    const text = 'say "hi" \ </script><b>\nnext line';
+    const text = 'say "hi" \\ </script><b>\nnext line';
+    expect(text).toContain("\\");
     const script = splashScript("status", text);
     expect(JSON.parse(argumentOf(script, "status"))).toBe(text);
     // The newline must be escaped, so the script stays on one line.
@@ -59,5 +60,57 @@ describe("splashScript", () => {
     const text = '");alert(1);("';
     const script = splashScript("slow", text);
     expect(JSON.parse(argumentOf(script, "slow"))).toBe(text);
+  });
+});
+
+describe("splashSequence", () => {
+  const TEXT = splashMessages("en-US");
+  let sent: string[];
+  const send = (kind: "status" | "slow", text: string): void => {
+    sent.push(`${kind}:${text}`);
+  };
+  // Resolved at call time, so the fake timers installed in beforeEach are the ones used.
+  const timers = {
+    setTimeout: (fn: () => void, ms: number) => setTimeout(fn, ms),
+    clearTimeout: (handle: ReturnType<typeof setTimeout>) => clearTimeout(handle),
+  };
+
+  beforeEach(() => {
+    sent = [];
+    vi.useFakeTimers();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("sends the status updates in order", () => {
+    const splash = splashSequence(send, TEXT, timers);
+    splash.starting();
+    splash.opening();
+    expect(sent).toEqual([`status:${TEXT.starting}`, `status:${TEXT.opening}`]);
+  });
+
+  it("shows the reassurance line once SPLASH_SLOW_MS has passed, not before", () => {
+    const splash = splashSequence(send, TEXT, timers);
+    splash.starting();
+    vi.advanceTimersByTime(SPLASH_SLOW_MS - 1);
+    expect(sent).toEqual([`status:${TEXT.starting}`]);
+    vi.advanceTimersByTime(1);
+    expect(sent).toEqual([`status:${TEXT.starting}`, `slow:${TEXT.slow}`]);
+  });
+
+  it("clears the reassurance timer when the app opens", () => {
+    const splash = splashSequence(send, TEXT, timers);
+    vi.advanceTimersByTime(SPLASH_SLOW_MS - 1);
+    splash.opening();
+    vi.advanceTimersByTime(SPLASH_SLOW_MS * 3);
+    expect(sent).toEqual([`status:${TEXT.opening}`]);
+  });
+
+  it("clears it on a failed start too, and a second stop is harmless", () => {
+    const splash = splashSequence(send, TEXT, timers);
+    splash.stop();
+    splash.stop();
+    vi.advanceTimersByTime(SPLASH_SLOW_MS * 3);
+    expect(sent).toEqual([]);
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
