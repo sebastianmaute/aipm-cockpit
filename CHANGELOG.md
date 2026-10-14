@@ -68,7 +68,8 @@ longer carries its own changelog comment.
   through the ECB rates, and a bucket card still shows its own currency. The Budget view can switch an
   existing project to another currency once the ECB rates have been refreshed in the same session: a
   confirmation lists every rate and cost impact before and after, converted once at that day's rate, and
-  the switch cannot be undone (switch back instead). Fixed-price amounts and manual bucket rates are not
+  the switch cannot be undone (switch back instead). Role rates, a bucket's own hourly rates and change
+  cost impacts are converted once; fixed-price amounts and a bucket's manual exchange rate are not
   changed. Past Trends snapshots and budget history are shown in the new currency at the rate of each
   switch. The switch is not offered in a pop-out window.
 

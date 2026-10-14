@@ -119,9 +119,9 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   absent from the version-restore funnel ([`activity-log.md`](activity-log.md)).
 - ★★★ **STORED HISTORY IS NEVER REWRITTEN; IT IS REBASED AT READ TIME.** Snapshots and
   `budgetHistory` entries stay in the currency they were captured in. `rebaseFactor` multiplies the
-  `perPrevious` of every switch LATER than a record's timestamp, and `rebaseSnapshots` (in
-  `use-snapshots.ts`) and `rebaseBudgetHistory` (in `budget-forecast-bundle.ts`) apply it before any
-  reader sees the record. A new reader of either must go through those two call sites, never the raw
+  `perPrevious` of every switch LATER than a record's timestamp, and `rebaseSnapshots` and
+  `rebaseBudgetHistory` (both defined in `baseline-currency.ts`) apply it before any reader sees the
+  record; they are CALLED FROM `use-snapshots.ts` and `budget-forecast-bundle.ts` respectively. A new reader of either must go through those two call sites, never the raw
   slice: `git grep -n "rebaseSnapshots(\|rebaseBudgetHistory(" -- src/app ':!*.test.*'`.
 
 ## Where the rates come from, and rounding
