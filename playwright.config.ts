@@ -159,8 +159,8 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         timezoneId: "UTC",
         locale: "en-US",
-        colorScheme: "light",
-        reducedMotion: "reduce",
+        colorScheme: "light" as const,
+        reducedMotion: "reduce" as const,
         viewport: { width: 1280, height: 800 },
         deviceScaleFactor: 2,
         // Native date inputs format by the BROWSER's language, not the page locale: pin it too.
