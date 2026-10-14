@@ -12,6 +12,14 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **A Monte Carlo schedule forecast under Reports → Forecast (§502, first slice).** It replays your completed
+  tasks' daily pace thousands of times to show when the open work is likely to finish (50 %, 80 % and 95 % dates),
+  how many tasks fit by a date you pick, and each milestone's chance of landing on its date, with the chance if
+  its tasks were worked first. Switch the unit to effort when at least 70 % of open tasks carry an estimate. The
+  What-if mode adds or removes scope and changes team capacity; scope changes move the dates and the count, not
+  the milestone chances. With fewer than 10 completed tasks in the history window the view says what is missing
+  instead of guessing. Done tasks without a completion date are left out and counted. The inputs are not saved,
+  and Ask Claude cannot quote the figures yet.
 - **A "Getting started: set up a budget" Help entry, and the install guide one click away.** Help lists
   the new entry first under Workflows: turn on the functions, rate the roles, add the people with their
   Timelog email, add buckets, import the hours. The Help panel's footer and the About panel link the

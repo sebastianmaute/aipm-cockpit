@@ -128,8 +128,8 @@ async function settleHash(page: Page, hash: string, name: string): Promise<void>
 // re-measured when the Reports cumulative scan was added (§557), and 131/133
 // when the two Turso-storage tests were (§548), and 138/140 when the pink-count-badge
 // scans were (§681), and 145/147 when the RAG-letter-chip scans were (§683). Reproduce (no browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 147 total
-//   …then `grep -c "a11y:"` over that output       # 145 (+1 unprefixed)
+//   npx playwright test e2e/a11y.spec.ts --list   # 154 total
+//   …then `grep -c "a11y:"` over that output       # 152 (+1 unprefixed)
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },

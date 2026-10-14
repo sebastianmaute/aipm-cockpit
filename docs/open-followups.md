@@ -38607,7 +38607,9 @@ Size M — terminology and hints first, the S-curve chart as a second slice.
 
 ## 502. There is no probabilistic Monte Carlo forecast with scenarios and confidence levels — OPEN
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. One claim is stale: the BUDGET forecast now has a linear extrapolation to replace — `budget-forecast.ts`'s current-pace forecast (24bbfa40e) carries a 20-working-day burn rate to the plan end and a run-out date (`grep -n "burnRatePerDay =" src/app/budget-forecast.ts`). The schedule forecast still has none.
+**Status:** **Update 2026-10-14 (slice 1 shipped; entry stays OPEN):** the first of five slices is built — a Monte Carlo schedule forecast under Reports → Forecast: When (P50/P80/P95), How many by a date, and a per-milestone chance, with a What-if mode for scope and capacity (`grep -rln "simulateWhen" src/app/forecast`; reference in `docs/AGENTS/forecast.md`). It reads completed-task throughput only and saves nothing. Slices 2–5 remain open: saved scenarios, a Dashboard tile, a Gantt marker, and the AI read tool `get_forecast` with its Ask-Claude chips (spec: `docs/superpowers/specs/2026-10-14-monte-carlo-forecast-design.md`).
+
+**Earlier:** **Update 2026-10-12 (§138 P2 probe):** still open. One claim is stale: the BUDGET forecast now has a linear extrapolation to replace — `budget-forecast.ts`'s current-pace forecast (24bbfa40e) carries a 20-working-day burn rate to the plan end and a run-out date (`grep -n "burnRatePerDay =" src/app/budget-forecast.ts`). The schedule forecast still has none.
 
 **Earlier:** OPEN 2026-09-13 — `grep -rlniE "monte.?carlo|percentile|quantile" src/app --include=*.ts --include=*.tsx` → no output.
 

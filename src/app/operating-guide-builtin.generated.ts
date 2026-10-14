@@ -63,7 +63,7 @@ export const BUILTIN_FEATURE_GUIDES: { id: string; name: string; content: string
   {
     "id": "builtin-feature-reports",
     "name": "Feature: Reports",
-    "content": "## Reports\n\n\n- Composable budget, RAID, and change reports for sharing and export.\n- Layout and section ordering are user-configured per report.\n- Forecast: a Monte Carlo schedule forecast from completed-task throughput — when the open work finishes (P50/P80/P95), how many tasks fit by a date, and each milestone's chance; a What-if mode adjusts scope and capacity. Its inputs are not saved to the project.\n- AI: can read the underlying records to answer questions; cannot change report layout (user UI action). No tool returns the Forecast's simulated dates or chances, so it must not quote them.",
+    "content": "## Reports\n\n\n- Composable budget, RAID, and change reports for sharing and export.\n- Layout and section ordering are user-configured per report.\n- Forecast: a Monte Carlo schedule forecast from completed-task throughput — when the open work finishes (P50/P80/P95), how many tasks fit by a date, and each milestone's chance; a What-if mode adjusts scope and capacity. Effort mode needs at least 70 % of open tasks estimated, and the view reports too little history (under 10 finished tasks) instead of guessing. Scope changes in What-if move the dates and the count but not the milestone chances. Its inputs are not saved to the project.\n- AI: can read the underlying records to answer questions; cannot change report layout (user UI action). No tool returns the Forecast's simulated dates or chances, so it must not quote them.",
     "scope": {
       "views": [
         "reports",

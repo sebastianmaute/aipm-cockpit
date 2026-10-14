@@ -86,4 +86,10 @@ describe("milestoneChances", () => {
     const res = run([ms(1, "2026-10-14", [2]), ms(2, "2026-10-14", [3])], twenty);
     expect(res.map((r) => (r.state === "chance" ? r.chance : -1))).toEqual([1, 0]);
   });
+
+  test("a milestone waits for the LAST of its open linked tasks in the queue, not the first", () => {
+    // tasks 2 and 10 sit at queue positions 2 and 10; 1/day over 5 working days reaches 5
+    const [r] = run([ms(1, "2026-10-19", [2, 10])], twenty);
+    expect(r).toEqual({ id: 1, state: "chance", chance: 0, chancePrioritised: 1 });
+  });
 });
