@@ -78,6 +78,11 @@ describe("planBaselineSwitch", () => {
     expect(p.to).toBe("GBP");
   });
 
+  it("rounds converted rates to two decimals", () => {
+    const odd: Role = { id: 3, disciplineId: 1, gradeId: 1, internalRate: 33.33, externalRate: 50 };
+    expect(plan({ roles: [odd] })!.roles[0].internalRate).toBe(28.4);
+  });
+
   it("returns null for the same currency or a missing rate", () => {
     expect(plan({ to: "EUR" })).toBeNull();
     expect(plan({ to: "INR" })).toBeNull();
