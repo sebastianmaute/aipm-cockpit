@@ -218,6 +218,13 @@ describe("final review 4, I2 — an hours header merged over two sub-columns ask
       .toEqual([{ field: "hours", candidates: [2, 3] }]);
   });
 
+  it("the labelled column stays preselected over a blank-headed one with a higher number share", () => {
+    const rows = [["Name", "Monat", "Plan", ""], ...PEOPLE.flatMap((p, i) => LONG_MONTHS_CSV.map((m, j) => [p, m, i === 0 && j === 0 ? "-" : "10", "100"]))];
+    const detected = detectLayout(rows, { defaultYear: 2026 });
+    expect(detected.mapping).toMatchObject({ layout: "long", hours: 2 });
+    expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
   it("a plain long sheet with no blank-headed number column stays clear", () => {
     const rows = [["Name", "Monat", "Stunden"], ...PEOPLE.flatMap((p) => LONG_MONTHS_CSV.map((m) => [p, m, "10"]))];
     expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
