@@ -1,11 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { evaluateTimelogPolicy } from "./timelog-policy";
-import { dailyKey, TIMELOG_RULE_IDS, type TimelogDailyRoll, type TimelogPolicy, type TimelogRuleId } from "./timelog-types";
+import {
+  CLOSED_MONTH_TOLERANCE_HOURS,
+  closedMonthCertifies,
+  evaluateTimelogPolicy,
+  type TimelogPolicyInput,
+  type TimelogPolicyResult,
+} from "./timelog-policy";
+import {
+  dailyKey,
+  TIMELOG_RULE_IDS,
+  type TimelogDailyRoll,
+  type TimelogMonthClose,
+  type TimelogPolicy,
+  type TimelogRuleId,
+} from "./timelog-types";
 import { INSIGHT_TYPES, type InsightType } from "./insights/insight";
 import { MAX_HOURS_PER_DAY, type Absence, type AbsenceType, type Resource, type Shift, type WeekHours } from "./types";
 import type { TimelogUserLink } from "./timelog-types";
 
 const NO_HOLIDAYS: ReadonlySet<string> = new Set();
+
+/** The five policy rules, seen without the closed-month rule (§699). These
+ *  suites predate it and pin the policy rules alone: with `close: null` the
+ *  closed-month rule is evaluated in every one of these calls (nothing closed is
+ *  a certain clean), so it is filtered out of `evaluated` here. Its own
+ *  behaviour, including that very membership, is pinned in the
+ *  "timelogClosedMonth (§699)" describe below, which calls the engine directly. */
+function evaluatePolicyRules(
+  input: Omit<TimelogPolicyInput, "close" | "dailyWindow" | "dailyUsers">,
+): TimelogPolicyResult {
+  const res = evaluateTimelogPolicy({ ...input, close: null, dailyWindow: undefined, dailyUsers: undefined });
+  return { ...res, evaluated: res.evaluated.filter((r) => r !== "timelogClosedMonth") };
+}
 
 function roll(cells: Record<string, [hours: number, max: number, count: number]>): TimelogDailyRoll {
   const out: TimelogDailyRoll = {};
@@ -31,7 +57,7 @@ const SAT = "2026-09-05";
 describe("evaluateTimelogPolicy", () => {
   it("reports no violations and an empty evaluated set when the roll is null", () => {
     const policy: TimelogPolicy = { timelogCapPerDay: { enabled: true, threshold: 8 } };
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: null, policy, holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
     });
     expect(res.violations).toEqual([]);
@@ -39,7 +65,7 @@ describe("evaluateTimelogPolicy", () => {
   });
 
   it("does not evaluate a rule that is enabled without a threshold", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogCapPerDay: { enabled: true } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
@@ -60,7 +86,7 @@ describe("evaluateTimelogPolicy", () => {
   const OVER_CAP = roll({ [dailyKey(7, TUE)]: [25, 25, 1] });
 
   it("does not evaluate a rule whose threshold is above MAX_HOURS_PER_DAY", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: OVER_CAP,
       policy: { timelogCapPerDay: { enabled: true, threshold: MAX_HOURS_PER_DAY + 1 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
@@ -70,7 +96,7 @@ describe("evaluateTimelogPolicy", () => {
   });
 
   it("evaluates a rule whose threshold is exactly MAX_HOURS_PER_DAY", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: OVER_CAP,
       policy: { timelogCapPerDay: { enabled: true, threshold: MAX_HOURS_PER_DAY } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
@@ -85,7 +111,7 @@ describe("evaluateTimelogPolicy", () => {
   });
 
   it("does not evaluate a disabled rule even when the roll is present", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogCapPerDay: { enabled: false, threshold: 8 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
@@ -99,7 +125,7 @@ describe("evaluateTimelogPolicy", () => {
   // fixture whose sum also exceeded the cap would pass with `maxEntryHours`
   // replaced by `hours`, unpinning the entire reason the field exists.
   it("flags an entry over the cap on a day whose total is under the daily cap", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [7, 6.5, 2] }),
       policy: {
         timelogCapPerEntry: { enabled: true, threshold: 6 },
@@ -114,7 +140,7 @@ describe("evaluateTimelogPolicy", () => {
   });
 
   it("does not flag a value exactly at the cap", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [8, 8, 1] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
@@ -136,7 +162,7 @@ describe("evaluateTimelogPolicy", () => {
   // unpinned. timelogNonWorkingDay reads it once — its condition is on the
   // DATE, not on hours — so for that rule `worstHours` is the entire claim.
   it("flags the daily cap on the day's total, not on its largest single entry", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [9, 5, 2] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
@@ -148,7 +174,7 @@ describe("evaluateTimelogPolicy", () => {
   });
 
   it("reports the day's total on a non-working day, not its largest single entry", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [3, 2, 2] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
       holidaySet: new Set([TUE]), holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
@@ -162,7 +188,7 @@ describe("evaluateTimelogPolicy", () => {
   // The shift's TUESDAY slot carries 6 (see the note on the shift fixture
   // below), so 12h breaches a defined day the 5h largest entry clears.
   it("compares the day's total against the defined hours, not its largest single entry", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [12, 5, 3] }),
       policy: { timelogWorkingHours: { enabled: true } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
@@ -187,7 +213,7 @@ describe("evaluateTimelogPolicy", () => {
   // violators, would differ from this expectation. 8 books over any plausible
   // day and is still absent, because absence here is about the LINK.
   it("reports only the people whose link resolves, not everyone in the roll", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1], [dailyKey(8, TUE)]: [14, 14, 1] }),
       policy: { timelogWorkingHours: { enabled: true } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
@@ -205,7 +231,7 @@ describe("evaluateTimelogPolicy", () => {
   // person who breaches NOTHING is still reported as covered, because the
   // question is "could the rule see them", not "did they breach".
   it("reports a linked person who violated nothing", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [4, 4, 1] }),
       policy: { timelogWorkingHours: { enabled: true } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
@@ -225,7 +251,7 @@ describe("evaluateTimelogPolicy", () => {
   // assertion is what proves the rule RAN and chose not to flag, which is why
   // every at-threshold case here (and the capPerDay one above) carries both.
   it("does not flag an entry exactly at the per-entry cap", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [7, 6, 2] }),
       policy: { timelogCapPerEntry: { enabled: true, threshold: 6 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
@@ -237,7 +263,7 @@ describe("evaluateTimelogPolicy", () => {
   // No shift, so the day resolves through DEFAULT_WEEK_HOURS — a contracted 8h
   // Tuesday booked to exactly 8h, which is what the `>=` mutant would flag.
   it("does not flag a day booked exactly to the defined working hours", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [8, 8, 1] }),
       policy: { timelogWorkingHours: { enabled: true } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
@@ -253,7 +279,7 @@ describe("evaluateTimelogPolicy", () => {
   // than sorting numerically. Seeded 7-first, the expected order below is
   // reached whether or not anything sorts, and deleting the sort passes.
   it("aggregates per user, ordered by TimeLog id, reporting the worst value and the day count", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({
         [dailyKey(9, TUE)]: [9, 9, 1],
         [dailyKey(7, TUE)]: [10, 10, 1],
@@ -282,7 +308,7 @@ describe("evaluateTimelogPolicy", () => {
     const MON = "2026-08-31";
     const THU = "2026-09-03";
     const FRI = "2026-09-04";
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({
         [dailyKey(7, FRI)]: [5, 5, 1],   // scanned, clean, AFTER the last breach
         [dailyKey(7, THU)]: [11, 11, 1], // breach — the LATE end
@@ -304,7 +330,7 @@ describe("evaluateTimelogPolicy", () => {
   // A single breaching day is a real violation, and both ends are that day —
   // the pair is never absent, which is why the fields are REQUIRED.
   it("reports the same day at both ends when only one day violated", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, WED)]: [12, 12, 1] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [], shifts: [],
@@ -317,7 +343,7 @@ describe("evaluateTimelogPolicy", () => {
   // is clean, so a range shared across users would give both the same answer.
   it("tracks a separate violating range per user", () => {
     const THU = "2026-09-03";
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({
         [dailyKey(7, TUE)]: [10, 10, 1],
         [dailyKey(7, WED)]: [11, 11, 1],
@@ -336,7 +362,7 @@ describe("evaluateTimelogPolicy", () => {
   // per-day breach fall on different days for the same person, so a range
   // shared across rules would report one of them wrongly.
   it("tracks a separate violating range per rule for the same user", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({
         [dailyKey(7, TUE)]: [7, 6.5, 2],  // per-ENTRY breach only (sum under the daily cap)
         [dailyKey(7, WED)]: [12, 4, 3],   // per-DAY breach only (no entry over 6)
@@ -354,7 +380,7 @@ describe("evaluateTimelogPolicy", () => {
   });
 
   it("flags a booking on a holiday with no link required", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [4, 4, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
       holidaySet: new Set([TUE]), holidaysReady: true, absences: [], resources: [],
@@ -375,7 +401,7 @@ describe("evaluateTimelogPolicy", () => {
   // shift. (2) keeps the weekend but drops the shift → reachable ONLY via the
   // default. Neither can stand in for the other.
   it("flags a booking on a weekday the shift zeroes, which the default week would allow", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, WED)]: [3, 3, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
@@ -388,7 +414,7 @@ describe("evaluateTimelogPolicy", () => {
   });
 
   it("flags a weekend booking against the default week when the link has no shift", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, SAT)]: [3, 3, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
@@ -403,7 +429,7 @@ describe("evaluateTimelogPolicy", () => {
   // ★★ FIXTURE (c-i) — DARK. No link at all: the rule must not be evaluated,
   // so nothing downstream can read its silence as "no violations".
   it("does not evaluate working hours when no user link exists", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogWorkingHours: { enabled: true } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
@@ -416,7 +442,7 @@ describe("evaluateTimelogPolicy", () => {
   // ★★ FIXTURE (c-ii) — DEFAULTED. A link but no shift: the rule IS evaluated,
   // against DEFAULT_WEEK_HOURS. Distinct from (c-i); one does not imply the other.
   it("evaluates working hours against the default week when a link has no shift", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogWorkingHours: { enabled: true } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
@@ -434,7 +460,7 @@ describe("evaluateTimelogPolicy", () => {
   // other weekday leaves Tuesday at the default and the assertion below could
   // not tell shift resolution from the default week.
   it("leaves an unlinked user unchecked while the rule is evaluated for a linked one", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({
         [dailyKey(7, TUE)]: [12, 12, 1],
         [dailyKey(8, TUE)]: [12, 12, 1],
@@ -460,7 +486,7 @@ describe("evaluateTimelogPolicy", () => {
   // must not flag the weekend half either — a partial answer published as a
   // whole one is the same defect one degree quieter.
   it("does not evaluate the non-working-day rule while holidays are not ready", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       // A Saturday, i.e. reachable through `definedHours === 0` with NO holiday
       // set at all. If the floor gated the holiday LOOKUP instead of the whole
       // rule, this booking would still be flagged and `evaluated` would still
@@ -480,7 +506,7 @@ describe("evaluateTimelogPolicy", () => {
   // (r-iii) both survive: gating on emptiness would make the rule permanently
   // dark for such a user, silently resolving their insights forever.
   it("evaluates the non-working-day rule when ready with an empty holiday set", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, SAT)]: [3, 3, 1] }),
       policy: { timelogNonWorkingDay: { enabled: true } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
@@ -502,8 +528,8 @@ describe("evaluateTimelogPolicy", () => {
       absences: [], resources: [],
       userLinks: [], shifts: [],
     };
-    expect(evaluateTimelogPolicy({ ...args, holidaysReady: false }).evaluated).toEqual([]);
-    const ready = evaluateTimelogPolicy({ ...args, holidaysReady: true });
+    expect(evaluatePolicyRules({ ...args, holidaysReady: false }).evaluated).toEqual([]);
+    const ready = evaluatePolicyRules({ ...args, holidaysReady: true });
     expect(ready.evaluated).toEqual(["timelogNonWorkingDay"]);
     expect(ready.violations).toHaveLength(1);
   });
@@ -512,7 +538,7 @@ describe("evaluateTimelogPolicy", () => {
   // term into the shared `if (daily === null …)` early return would pass every
   // assertion above while darkening every rule.
   it("leaves the other three rules evaluated while holidays are not ready", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, SAT)]: [12, 12, 1] }),
       policy: {
         timelogCapPerDay: { enabled: true, threshold: 8 },
@@ -545,7 +571,7 @@ describe("evaluateTimelogPolicy", () => {
       [dailyKey(9, TUE)]: [12, 12, 1],
       [dailyKey(8, TUE)]: { hours: 12, maxEntryHours: 12, entryCount: 1 },
     } as unknown as TimelogDailyRoll;
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily,
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
@@ -562,7 +588,7 @@ describe("evaluateTimelogPolicy", () => {
 
   it("does not throw when every cell in the roll is malformed", () => {
     const daily = { [dailyKey(7, TUE)]: undefined } as unknown as TimelogDailyRoll;
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily,
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [],
@@ -599,7 +625,7 @@ describe("evaluateTimelogPolicy", () => {
   // day that happens not to breach. That is what makes every bound below a real
   // assertion rather than a coincidence.
   it("keeps a malformed-date cell out of the violation bounds and withholds the rule", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1], "7|tomorrow": [99, 99, 1] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [link(7, 1)], shifts: [],
@@ -624,7 +650,7 @@ describe("evaluateTimelogPolicy", () => {
   // ★ Same 12h-over-8h breach as the fixtures above, so a green here is the
   // rule working, not the booking being innocent.
   it("evaluates the rule and reports its violation when no cell is skipped", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1] }),
       policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], userLinks: [link(7, 1)], shifts: [],
@@ -646,7 +672,7 @@ describe("evaluateTimelogPolicy", () => {
   // an empty `evaluated` here can only be the withholding and never a rule that
   // was never enabled.
   it("withholds EVERY enabled rule from evaluated when one cell is skipped", () => {
-    const res = evaluateTimelogPolicy({
+    const res = evaluatePolicyRules({
       daily: roll({ [dailyKey(7, TUE)]: [12, 12, 1], "no-pipe": [99, 99, 1] }),
       policy: {
         timelogCapPerEntry: { enabled: true, threshold: 8 },
@@ -674,7 +700,7 @@ describe("timelogAbsenceDay", () => {
   }
 
   function run(daily: TimelogDailyRoll, absences: Absence[], opts: { links?: TimelogUserLink[]; resources?: Resource[]; policy?: TimelogPolicy } = {}) {
-    return evaluateTimelogPolicy({
+    return evaluatePolicyRules({
       daily,
       policy: opts.policy ?? ON,
       holidaySet: NO_HOLIDAYS, holidaysReady: true,
@@ -840,7 +866,7 @@ describe("rule ids are insight types", () => {
   // Renaming either side turns tsc red.
   it("every rule id is assignable to InsightType", () => {
     const ids: readonly InsightType[] = TIMELOG_RULE_IDS;
-    expect(ids).toHaveLength(5);
+    expect(ids).toHaveLength(6);
   });
 
   it("every rule id survives insight sanitisation", () => {
@@ -848,5 +874,273 @@ describe("rule ids are insight types", () => {
       const rule: TimelogRuleId = id;
       expect(INSIGHT_TYPES).toContain(rule);
     }
+  });
+});
+
+describe("timelogClosedMonth (§699)", () => {
+  const SEP_12 = "2026-09-12";
+  const SEP_19 = "2026-09-19";
+  // Ann (TimeLog 7) had two days when September was closed; user 9 was linked
+  // and covered with no bookings, so the close saved `{}` for them.
+  const CLOSE: TimelogMonthClose = {
+    through: "2026-09",
+    saved: { "2026-09": { "7": { [SEP_12]: 8, [SEP_19]: 4 }, "9": {} } },
+  };
+  const SEPTEMBER = { from: "2026-09-01", to: "2026-09-30" };
+  const LINKS = [link(7, 40), link(9, 41)];
+  /** Ann's roll exactly as it was at the close. */
+  const AS_CLOSED = { [dailyKey(7, SEP_12)]: [8, 8, 1], [dailyKey(7, SEP_19)]: [4, 4, 1] } as const;
+
+  function run(
+    cells: Record<string, readonly [number, number, number]>,
+    opts: Partial<TimelogPolicyInput> = {},
+  ): TimelogPolicyResult {
+    const daily = roll(Object.fromEntries(Object.entries(cells).map(([k, v]) => [k, [...v] as [number, number, number]])));
+    return evaluateTimelogPolicy({
+      daily,
+      policy: undefined,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], shifts: [],
+      userLinks: LINKS,
+      close: CLOSE,
+      dailyWindow: SEPTEMBER,
+      dailyUsers: [7, 9],
+      ...opts,
+    });
+  }
+  const closedViolations = (res: TimelogPolicyResult) => res.violations.filter((v) => v.rule === "timelogClosedMonth");
+
+  it("matches the roll at the close: evaluated, clean, September covered", () => {
+    const res = run(AS_CLOSED);
+    expect(res.evaluated).toEqual(["timelogClosedMonth"]);
+    expect(res.violations).toEqual([]);
+    expect(res.closedMonthsCovered).toEqual(["2026-09"]);
+  });
+
+  it("flags a day added", () => {
+    const res = run({ ...AS_CLOSED, [dailyKey(7, "2026-09-20")]: [3, 3, 1] });
+    expect(res.evaluated).toEqual(["timelogClosedMonth"]);
+    expect(res.violations).toEqual([{
+      rule: "timelogClosedMonth", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 3, threshold: 0,
+      firstViolationDate: "2026-09-20", lastViolationDate: "2026-09-20", netHours: 3,
+    }]);
+  });
+
+  it("flags a day deleted", () => {
+    const res = run({ [dailyKey(7, SEP_12)]: [8, 8, 1] });
+    expect(res.violations).toEqual([{
+      rule: "timelogClosedMonth", timelogUserId: 7, resourceId: 40, count: 1, worstHours: 4, threshold: 0,
+      firstViolationDate: SEP_19, lastViolationDate: SEP_19, netHours: -4,
+    }]);
+  });
+
+  it("flags hours moved with no net change", () => {
+    const res = run({
+      [dailyKey(7, SEP_12)]: [4, 4, 1],
+      [dailyKey(7, "2026-09-13")]: [4, 4, 1],
+      [dailyKey(7, SEP_19)]: [4, 4, 1],
+    });
+    expect(closedViolations(res)).toEqual([expect.objectContaining({
+      timelogUserId: 7, count: 2, worstHours: 4, netHours: 0,
+      firstViolationDate: SEP_12, lastViolationDate: "2026-09-13",
+    })]);
+  });
+
+  it("ignores rounding", () => {
+    const res = run({ [dailyKey(7, SEP_12)]: [8.004, 8.004, 1], [dailyKey(7, SEP_19)]: [4, 4, 1] });
+    expect(res.evaluated).toEqual(["timelogClosedMonth"]);
+    expect(res.violations).toEqual([]);
+  });
+
+  // ★ The boundary half of the tolerance: a change of EXACTLY the tolerance is a
+  // change. Measured against a saved 0 (a person saved empty), because 0.01 is
+  // exactly representable as a difference from 0 and not from most other values.
+  it("flags a change of exactly the tolerance", () => {
+    const res = run({ ...AS_CLOSED, [dailyKey(9, "2026-09-05")]: [CLOSED_MONTH_TOLERANCE_HOURS, CLOSED_MONTH_TOLERANCE_HOURS, 1] });
+    expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 9, count: 1 })]);
+  });
+
+  it("flags bookings by a person saved empty", () => {
+    const res = run({ ...AS_CLOSED, [dailyKey(9, "2026-09-05")]: [2, 2, 1] });
+    expect(res.violations).toEqual([{
+      rule: "timelogClosedMonth", timelogUserId: 9, resourceId: 41, count: 1, worstHours: 2, threshold: 0,
+      firstViolationDate: "2026-09-05", lastViolationDate: "2026-09-05", netHours: 2,
+    }]);
+  });
+
+  it("flags bookings by a person linked after the close", () => {
+    const res = run(
+      { ...AS_CLOSED, [dailyKey(11, "2026-09-08")]: [5, 5, 1] },
+      { userLinks: [...LINKS, link(11, 42)], dailyUsers: [7, 9, 11] },
+    );
+    expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 11, resourceId: 42, count: 1, netHours: 5 })]);
+  });
+
+  it("does not check an unlinked person's bookings", () => {
+    const res = run({ ...AS_CLOSED, [dailyKey(13, "2026-09-08")]: [5, 5, 1] }, { dailyUsers: [7, 9, 13] });
+    expect(res.violations).toEqual([]);
+  });
+
+  // ★★★ A person missing from the fetch must never read as "all deleted".
+  it("skips a saved person absent from dailyUsers", () => {
+    const res = run({}, { dailyUsers: [9] });
+    expect(res.evaluated).toEqual(["timelogClosedMonth"]);
+    expect(res.violations).toEqual([]);
+  });
+
+  it("skips a month not fully covered", () => {
+    const res = run({ [dailyKey(7, "2026-09-20")]: [3, 3, 1] }, { dailyWindow: { from: "2026-09-02", to: "2026-09-30" } });
+    expect(res.violations).toEqual([]);
+    expect(res.closedMonthsCovered).toEqual([]);
+  });
+
+  it("skips a month whose end is not covered", () => {
+    const res = run({ [dailyKey(7, "2026-09-20")]: [3, 3, 1] }, { dailyWindow: { from: "2026-09-01", to: "2026-09-29" } });
+    expect(res.violations).toEqual([]);
+    expect(res.closedMonthsCovered).toEqual([]);
+  });
+
+  it("covers nothing without a window", () => {
+    const res = run({ [dailyKey(7, "2026-09-20")]: [3, 3, 1] }, { dailyWindow: undefined });
+    expect(res.violations).toEqual([]);
+    expect(res.closedMonthsCovered).toEqual([]);
+  });
+
+  it("reports one violation per person over every covered closed month", () => {
+    const close: TimelogMonthClose = {
+      through: "2026-10",
+      saved: { ...CLOSE.saved, "2026-10": { "7": {}, "9": {} } },
+    };
+    const res = run(
+      { ...AS_CLOSED, [dailyKey(7, "2026-09-20")]: [3, 3, 1], [dailyKey(7, "2026-10-02")]: [1, 1, 1] },
+      { close, dailyWindow: { from: "2026-08-15", to: "2026-10-31" } },
+    );
+    expect(res.closedMonthsCovered).toEqual(["2026-09", "2026-10"]);
+    expect(res.violations).toEqual([{
+      rule: "timelogClosedMonth", timelogUserId: 7, resourceId: 40, count: 2, worstHours: 3, threshold: 0,
+      firstViolationDate: "2026-09-20", lastViolationDate: "2026-10-02", netHours: 4,
+    }]);
+  });
+
+  it("rounds netHours to two decimals", () => {
+    const res = run({
+      ...AS_CLOSED,
+      [dailyKey(7, "2026-09-20")]: [0.1, 0.1, 1],
+      [dailyKey(7, "2026-09-21")]: [0.2, 0.2, 1],
+    });
+    expect(closedViolations(res)[0]?.netHours).toBe(0.3);
+  });
+
+  it("runs without a policy", () => {
+    const res = run({ ...AS_CLOSED, [dailyKey(7, "2026-09-20")]: [3, 3, 1] }, { policy: undefined });
+    expect(res.evaluated).toEqual(["timelogClosedMonth"]);
+    expect(closedViolations(res)).toHaveLength(1);
+    // ★★ The runner's per-person certification reads this, so it must be
+    // populated even when no policy rule ran.
+    expect(res.linkedUsers).toEqual([7, 9]);
+  });
+
+  it("is evaluated LAST, after the policy rules", () => {
+    const res = run(AS_CLOSED, { policy: { timelogCapPerDay: { enabled: true, threshold: 10 } } });
+    expect(res.evaluated).toEqual(["timelogCapPerDay", "timelogClosedMonth"]);
+  });
+
+  it("no close is evaluated and clean", () => {
+    const res = run({}, { close: null, daily: null });
+    expect(res.evaluated).toEqual(["timelogClosedMonth"]);
+    expect(res.violations).toEqual([]);
+    expect(res.closedMonthsCovered).toEqual([]);
+  });
+
+  it("is not evaluated with a close and no roll", () => {
+    const res = run({}, { daily: null });
+    expect(res.evaluated).toEqual([]);
+    expect(res.violations).toEqual([]);
+  });
+
+  // The same readiness floor the policy rules have: an unreadable cell might be
+  // a changed closed-month day, so the rule may not certify a clean. What it did
+  // observe is still reported.
+  it("withholds evaluation, not violations, when a cell is unreadable", () => {
+    const res = evaluateTimelogPolicy({
+      daily: { ...roll({ [dailyKey(7, SEP_12)]: [8, 8, 1] }), "garbage": { hours: 1, maxEntryHours: 1, entryCount: 1 } },
+      policy: undefined,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], shifts: [],
+      userLinks: LINKS, close: CLOSE, dailyWindow: SEPTEMBER, dailyUsers: [7, 9],
+    });
+    expect(res.evaluated).toEqual([]);
+    expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 7, count: 1, netHours: -4 })]);
+  });
+});
+
+describe("closedMonthCertifies (§699)", () => {
+  const CLOSE: TimelogMonthClose = {
+    through: "2026-09",
+    saved: { "2026-09": { "7": { "2026-09-12": 8 } } },
+  };
+  const BASE = {
+    first: "2026-09-12",
+    last: "2026-09-19",
+    userId: 7,
+    close: CLOSE as TimelogMonthClose | null,
+    closedMonthsCovered: ["2026-09"] as readonly string[],
+    partial: false,
+    dailyUsers: [7, 9] as readonly number[] | undefined,
+    linkedUsers: [7, 9] as readonly number[],
+  };
+
+  it("is true when every condition holds", () => {
+    expect(closedMonthCertifies(BASE)).toBe(true);
+  });
+
+  it("is true for close null, whatever else holds", () => {
+    expect(closedMonthCertifies({ ...BASE, close: null, closedMonthsCovered: [], partial: true, dailyUsers: undefined, linkedUsers: [] })).toBe(true);
+  });
+
+  it("is true for a month after through (reopened), even uncovered", () => {
+    const reopened: TimelogMonthClose = { through: "2026-08", saved: { "2026-08": { "7": {} } } };
+    expect(closedMonthCertifies({ ...BASE, close: reopened, closedMonthsCovered: [] })).toBe(true);
+  });
+
+  it("is false when partial", () => {
+    expect(closedMonthCertifies({ ...BASE, partial: true })).toBe(false);
+  });
+
+  it("is false for a person missing from dailyUsers", () => {
+    expect(closedMonthCertifies({ ...BASE, dailyUsers: [9] })).toBe(false);
+    expect(closedMonthCertifies({ ...BASE, dailyUsers: undefined })).toBe(false);
+  });
+
+  it("is false for an unlinked person", () => {
+    expect(closedMonthCertifies({ ...BASE, linkedUsers: [9] })).toBe(false);
+  });
+
+  // A span that cannot be walked month by month certifies nothing; without the
+  // guard the walk runs zero times and reports every month as passing.
+  it("is false for an unreadable or inverted span", () => {
+    expect(closedMonthCertifies({ ...BASE, first: "garbage" })).toBe(false);
+    expect(closedMonthCertifies({ ...BASE, first: "2026-09-19", last: "2026-09-12" })).toBe(false);
+  });
+
+  it("is false for a month not in closedMonthsCovered", () => {
+    expect(closedMonthCertifies({ ...BASE, closedMonthsCovered: [] })).toBe(false);
+  });
+
+  const TWO_MONTHS: TimelogMonthClose = {
+    through: "2026-10",
+    saved: { "2026-09": { "7": {} }, "2026-10": { "7": {} } },
+  };
+  const SPAN = { ...BASE, close: TWO_MONTHS, first: "2026-09-12", last: "2026-10-03" };
+
+  it("is true when all months in the span pass", () => {
+    expect(closedMonthCertifies({ ...SPAN, closedMonthsCovered: ["2026-09", "2026-10"] })).toBe(true);
+  });
+
+  it("is false when one of two months fails", () => {
+    expect(closedMonthCertifies({ ...SPAN, closedMonthsCovered: ["2026-09"] })).toBe(false);
+    expect(closedMonthCertifies({ ...SPAN, closedMonthsCovered: ["2026-10"] })).toBe(false);
+  });
+
+  it("passes a span whose later month was reopened", () => {
+    expect(closedMonthCertifies({ ...SPAN, close: CLOSE, closedMonthsCovered: ["2026-09"] })).toBe(true);
   });
 });

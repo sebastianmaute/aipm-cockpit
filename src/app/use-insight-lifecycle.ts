@@ -134,6 +134,12 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         shifts,
         absences,
         resources,
+        // §699 — the close is withheld until `isEvaluated` certifies the
+        // closed-month rule per person (`closedMonthCertifies`). With
+        // `close: null` the rule is a certain clean and mints nothing.
+        close: null,
+        dailyWindow: actuals?.dailyWindow,
+        dailyUsers: actuals?.dailyUsers,
       });
       const detected = detectInsights(
         { ...buildInsightInput(), timelogViolations: policyResult.violations },

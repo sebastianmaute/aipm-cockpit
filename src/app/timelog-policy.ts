@@ -1,4 +1,5 @@
-// Pure, i18n-free. The five TimeLog guardrail rules.
+// Pure, i18n-free. The six TimeLog guardrail rules: five policy rules here, and
+// `timelogClosedMonth` (§699) in `timelog-closed-month.ts`, merged in below.
 //
 // ★★★ REVIEW-TIME, NOT CREATE-TIME. OpenProject's equivalents are validations on
 // entries its own users write. Cockpit never writes a time entry, so these flag
@@ -17,12 +18,17 @@ import {
   isDailyCell,
   parseDailyKey,
   type TimelogDailyRoll,
+  type TimelogMonthClose,
   type TimelogPolicy,
   type TimelogRuleId,
   type TimelogUserLink,
 } from "./timelog-types";
+import type { TimelogRollWindow } from "./timelog-actuals-store";
+import { evaluateClosedMonth } from "./timelog-closed-month";
 import { absencesForResource } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, MAX_HOURS_PER_DAY, type Absence, type AbsenceType, type Resource, type Shift } from "./types";
+
+export { CLOSED_MONTH_TOLERANCE_HOURS, closedMonthCertifies } from "./timelog-closed-month";
 
 /** §700 — the absence types a booking may not fall on. `other` is left out:
  *  it covers anything from a half day to an off-site, so a booking on it says
@@ -63,6 +69,9 @@ export interface TimelogViolation {
    *  window check these exist for. */
   readonly firstViolationDate: string;
   readonly lastViolationDate: string;
+  /** §699 — the signed sum of the changes, rounded to 2 decimals, for the text
+   *  only. Set only for `timelogClosedMonth`. */
+  readonly netHours?: number;
 }
 
 export interface TimelogPolicyInput {
@@ -86,6 +95,15 @@ export interface TimelogPolicyInput {
   /** Only for matching an absence that has no `resourceId` to a linked person
    *  by name, the way `absencesForResource` does everywhere else. */
   readonly resources: readonly Resource[];
+  /** §699 — the closed months, or null when nothing is closed. REQUIRED, like
+   *  `holidaysReady`: a caller that forgot it would certify every closed
+   *  month clean. The rule runs whether or not `policy` is set. */
+  readonly close: TimelogMonthClose | null;
+  /** §699 — the window and the people the roll covers. A closed month is
+   *  checked only when the window holds all of it, and a person only when
+   *  they are in `dailyUsers`. */
+  readonly dailyWindow: TimelogRollWindow | undefined;
+  readonly dailyUsers: readonly number[] | undefined;
 }
 
 export interface TimelogPolicyResult {
@@ -121,9 +139,14 @@ export interface TimelogPolicyResult {
    *  answer for them — the same rule as an unreadable roll cell, scoped to the
    *  one person it belongs to. */
   readonly absenceUsers: readonly number[];
+  /** §699 — closed months fully inside `dailyWindow`, ascending. Read by
+   *  `closedMonthCertifies`. */
+  readonly closedMonthsCovered: readonly string[];
 }
 
-const EMPTY: TimelogPolicyResult = { violations: [], evaluated: [], linkedUsers: [], absenceUsers: [] };
+type PolicyRulesResult = Omit<TimelogPolicyResult, "closedMonthsCovered">;
+
+const EMPTY: PolicyRulesResult = { violations: [], evaluated: [], linkedUsers: [], absenceUsers: [] };
 
 /** The threshold window this engine accepts, deliberately IDENTICAL to the one
  *  `sanitizeTimelogPolicy` enforces on LOAD (`> 0 && <= MAX_HOURS_PER_DAY`).
@@ -233,7 +256,26 @@ function drain(rule: TimelogRuleId, m: Map<number, Accum>): TimelogViolation[] {
     }));
 }
 
+/** ★★ The closed-month rule runs INDEPENDENTLY of `policy`: closing a month is
+ *  its opt-in, so the policy rules' early return must not swallow it. It is
+ *  appended LAST, which keeps `evaluated` in `TIMELOG_RULE_IDS` order.
+ *  ★★ `linkedUsers` is filled whenever a roll exists, policy or not: the
+ *  runner's closed-month certification reads it. */
 export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyResult {
+  const rules = evaluatePolicyRules(input);
+  const closed = evaluateClosedMonth(input);
+  const linkedUsers = input.daily === null ? [] : [...new Set(input.userLinks.map((l) => l.timelogUserId))];
+  return {
+    violations: [...rules.violations, ...closed.violations],
+    evaluated: closed.evaluated ? [...rules.evaluated, "timelogClosedMonth"] : rules.evaluated,
+    linkedUsers,
+    absenceUsers: rules.absenceUsers,
+    closedMonthsCovered: closed.closedMonthsCovered,
+  };
+}
+
+/** The five policy rules. */
+function evaluatePolicyRules(input: TimelogPolicyInput): PolicyRulesResult {
   const { daily, policy, holidaySet, holidaysReady, userLinks, shifts, absences, resources } = input;
   if (daily === null || policy === undefined) return EMPTY;
 
@@ -421,6 +463,8 @@ export function evaluateTimelogPolicy(input: TimelogPolicyInput): TimelogPolicyR
     timelogNonWorkingDay: { on: doNonWorking, acc: perNonWorking },
     timelogWorkingHours: { on: doWorking, acc: perWorking },
     timelogAbsenceDay: { on: doAbsent, acc: perAbsent },
+    // §699 — evaluated separately, in `timelog-closed-month.ts`.
+    timelogClosedMonth: { on: false, acc: new Map() },
   };
   for (const rule of TIMELOG_RULE_IDS) {
     const { on, acc } = byRule[rule];

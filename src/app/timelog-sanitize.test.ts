@@ -192,6 +192,18 @@ describe("sanitizeTimelogLinks policy", () => {
     });
   });
 
+  // §699 — the closed-month rule has no toggle and no threshold: closing a month
+  // is its opt-in. A stored key for it is meaningless and is dropped.
+  it("drops a policy key for timelogClosedMonth", () => {
+    const out = sanitizeTimelogLinks({
+      ...base,
+      policy: { timelogClosedMonth: { enabled: true, threshold: 3 }, timelogNonWorkingDay: { enabled: true } },
+    });
+    expect(out?.policy).toEqual({ timelogNonWorkingDay: { enabled: true } });
+    const alone = sanitizeTimelogLinks({ ...base, policy: { timelogClosedMonth: { enabled: true } } });
+    expect(JSON.stringify(alone)).toBe('{"userLinks":[],"projectLinks":[]}');
+  });
+
   it("ignores a non-object policy without dropping the links", () => {
     const out = sanitizeTimelogLinks({ ...base, policy: "yes" });
     expect(out).toEqual({ userLinks: [], projectLinks: [] });

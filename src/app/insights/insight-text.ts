@@ -33,6 +33,7 @@ export const INSIGHT_TYPE_LABEL_KEY: Record<InsightType, TranslationKey> = {
   timelogNonWorkingDay: "insightTimelogNonWorkingDayTitle",
   timelogWorkingHours: "insightTimelogWorkingHoursTitle",
   timelogAbsenceDay: "insightTimelogAbsenceDayTitle",
+  timelogClosedMonth: "insightTimelogClosedMonthTitle",
 };
 
 // Read a `data` field with a graceful fallback (a detector may omit a field).
@@ -43,6 +44,14 @@ function str(data: Insight["data"], key: string, fallback = "—"): string {
 function num(data: Insight["data"], key: string): number {
   const v = data[key];
   return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+/** A signed figure for the text: "+6", "\u22122" (U+2212 MINUS SIGN, not a
+ *  hyphen), and "0" with no sign. */
+function signed(n: number): string {
+  if (n > 0) return `+${n}`;
+  if (n < 0) return `\u2212${Math.abs(n)}`;
+  return "0";
 }
 
 /** Short headline for an insight (type-driven, i18n). */
@@ -89,5 +98,7 @@ export function insightDetail(insight: Insight, lang: Lang): string {
       return tPlural(lang, "insightTimelogWorkingHoursDetail", num(d, "count"), str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
     case "timelogAbsenceDay":
       return tPlural(lang, "insightTimelogAbsenceDayDetail", num(d, "count"), str(d, "person"), num(d, "count"), num(d, "worstHours"), num(d, "threshold"));
+    case "timelogClosedMonth":
+      return tPlural(lang, "insightTimelogClosedMonthDetail", num(d, "count"), str(d, "person"), num(d, "count"), signed(num(d, "netHours")), num(d, "worstHours"));
   }
 }

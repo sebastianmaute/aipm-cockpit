@@ -70,13 +70,16 @@ export type TimelogLinks = {
 /** The guardrail rules. These literals are ALSO the guardrail `InsightType`
  *  members — deliberately identical, so no rule→type lookup table exists to
  *  drift. `timelog-policy.test.ts` pins the identity. The first four are
- *  OpenProject's; `timelogAbsenceDay` (§700) is Cockpit's own. */
+ *  OpenProject's; `timelogAbsenceDay` (§700) and `timelogClosedMonth` (§699)
+ *  are Cockpit's own. `timelogClosedMonth` has no policy entry: closing a month
+ *  is its opt-in, so `sanitizeTimelogPolicy` drops a stored key for it. */
 export type TimelogRuleId =
   | "timelogCapPerEntry"
   | "timelogCapPerDay"
   | "timelogNonWorkingDay"
   | "timelogWorkingHours"
-  | "timelogAbsenceDay";
+  | "timelogAbsenceDay"
+  | "timelogClosedMonth";
 
 export const TIMELOG_RULE_IDS: readonly TimelogRuleId[] = [
   "timelogCapPerEntry",
@@ -84,6 +87,7 @@ export const TIMELOG_RULE_IDS: readonly TimelogRuleId[] = [
   "timelogNonWorkingDay",
   "timelogWorkingHours",
   "timelogAbsenceDay",
+  "timelogClosedMonth",
 ];
 
 /** `threshold` is hours. Absent on the three rules that compare against

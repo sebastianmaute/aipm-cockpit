@@ -123,6 +123,61 @@ describe("guardrail insight text", () => {
   }
 });
 
+// §699 — the closed-month sentence carries a SIGNED net change in {2} and the
+// largest single-day change in {3}. The sign is the point: "+6" and "−2"
+// (U+2212) read differently, and "0" carries none.
+function closedIns(count: number, netHours: number, worstHours: number): Insight {
+  return {
+    id: 1,
+    key: "timelog:timelogClosedMonth:7",
+    type: "timelogClosedMonth",
+    severity: "medium",
+    data: { person: "Ann Lee", count, netHours, worstHours, threshold: 0 },
+    status: "active",
+    firstSeenAt: "2026-10-01",
+    lastSeenAt: "2026-10-01",
+    occurrences: 1,
+  };
+}
+
+describe("timelogClosedMonth insight text (§699)", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("renders the title in en-US and de", () => {
+    expect(insightTitle(closedIns(3, 6, 8), "en-US")).toBe("TimeLog changed in a closed month");
+    expect(insightTitle(closedIns(3, 6, 8), "de")).toBe("TimeLog in einem abgeschlossenen Monat geändert");
+  });
+
+  it("renders a positive net with a plus sign", () => {
+    expect(insightDetail(closedIns(3, 6, 8), "en-US")).toBe(
+      "Ann Lee: 3 days in closed months changed since the close (net +6 h, largest 8 h).",
+    );
+  });
+
+  it("renders a negative net with a minus sign, and the singular", () => {
+    expect(insightDetail(closedIns(1, -2, 2), "en-US")).toBe(
+      "Ann Lee: 1 day in closed months changed since the close (net \u22122 h, largest 2 h).",
+    );
+  });
+
+  it("renders a zero net with no sign", () => {
+    expect(insightDetail(closedIns(2, 0, 4), "en-US")).toBe(
+      "Ann Lee: 2 days in closed months changed since the close (net 0 h, largest 4 h).",
+    );
+  });
+
+  it("renders the German singular and plural", () => {
+    expect(insightDetail(closedIns(1, -2, 2), "de")).toBe(
+      "Ann Lee: 1 Tag in abgeschlossenen Monaten seit dem Abschluss geändert (netto \u22122 h, größte Änderung 2 h).",
+    );
+    expect(insightDetail(closedIns(3, 6, 8), "de")).toBe(
+      "Ann Lee: 3 Tage in abgeschlossenen Monaten seit dem Abschluss geändert (netto +6 h, größte Änderung 8 h).",
+    );
+  });
+});
+
 // overdueTrend/stalledWork singular forms — pins the tPlural conversion.
 // `current`/`count` select the form; the other two overdueTrend numbers
 // (delta, prior) are NOT counts and stay at their own placeholders in both

@@ -101,6 +101,9 @@ function sanitizeTimelogPolicy(raw: unknown): TimelogPolicy | undefined {
   const r = raw as Record<string, unknown>;
   const out: TimelogPolicy = {};
   for (const rule of TIMELOG_RULE_IDS) {
+    // §699 — no toggle and no threshold: closing a month is the opt-in, so a
+    // stored key for it means nothing and is dropped.
+    if (rule === "timelogClosedMonth") continue;
     const v = r[rule];
     if (!v || typeof v !== "object" || Array.isArray(v)) continue;
     const o = v as Record<string, unknown>;
