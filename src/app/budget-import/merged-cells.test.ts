@@ -177,6 +177,18 @@ describe("final review 4, I1 — a total word beside the person does not hide th
       .toEqual([{ field: "continuation", candidates: [2, 3], samples: ["Gesamt", "Ist"] }]);
   });
 
+  // rr15 N1: a row whose PERSON cell is a total label is never the person row
+  // the blank-person rows below it continue.
+  it("a Summe row in the person column is no person row: the blank-person row under it does not ask", () => {
+    const rows = [
+      TOTAL_WIDE_HEADER,
+      ["Summe", "", "60", "120", "180"], ["", "Ist", "10", "20", "30"],
+      ...PEOPLE.map((p) => [p, "Plan", "10", "20", "30"]),
+    ];
+    expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
+    expect(questionsFor(rows, { layout: "wide", headerRow: 0, person: 0, periodCols: [2, 3, 4], year: 2026 })).toEqual([]);
+  });
+
   it("a blank-person row holding a total word still does not ask", () => {
     const rows = [TOTAL_WIDE_HEADER, ...PEOPLE.map((p) => [p, "Plan", "10", "20", "30"]), ["", "Summe", "60", "120", "180"]];
     expect(detectLayout(rows, { defaultYear: 2026 }).ambiguous).toEqual([]);
@@ -223,6 +235,13 @@ describe("final review 4, I2 — an hours header merged over two sub-columns ask
     const detected = detectLayout(rows, { defaultYear: 2026 });
     expect(detected.mapping).toMatchObject({ layout: "long", hours: 2 });
     expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
+  });
+
+  // rr15 N2: a blank-headed column is an hours CANDIDATE only; it never scores
+  // a header row, so a sheet whose only number column is blank-headed finds no layout.
+  it("a blank-headed column alone never makes a long header: Name | Monat | (blank) is unknown", () => {
+    const rows = [["Name", "Monat", ""], ...PEOPLE.flatMap((p) => LONG_MONTHS_CSV.map((m) => [p, m, "10"]))];
+    expect(detectLayout(rows, { defaultYear: 2026 })).toMatchObject({ kind: "unknown", mapping: null });
   });
 
   it("a plain long sheet with no blank-headed number column stays clear", () => {
