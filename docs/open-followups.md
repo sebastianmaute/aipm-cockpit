@@ -954,7 +954,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§714](#714-follow-up-with-the-uk-pilot-user-fixes-before-their-2026-10-22-review-the-api-key-cost-question-and-a-project-intake-session--open) | Follow-up with the UK pilot user: fixes before their 2026-10-22 review, the API-key cost question, and a project-intake session | — | — | open |
 | [§715](#715-no-recorded-walk-through-shows-a-new-user-downloading-installing-and-setting-up-the-desktop-app--open) | No recorded walk-through shows a new user downloading, installing and setting up the desktop app | — | — | open |
 | [§728](#728-the-first-start-splashs-status-text-has-not-been-eye-checked-on-a-packaged-desktop-build--open) | The first-start splash's status text has not been eye-checked on a packaged desktop build | — | — | open |
-| [§729](#729-the-install-guide-describes-the-browser-download-prompt-and-the-windows-protection-box-without-pictures--open) | The install guide describes the browser download prompt and the Windows protection box without pictures | — | — | open |
+| [§729](#729-the-install-guide-describes-the-browser-download-prompt-and-the-windows-protection-box-without-pictures--closed-2026-10-14) | The install guide describes the browser download prompt and the Windows protection box without pictures | — | — | **CLOSED** 2026-10-14 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45031,11 +45031,11 @@ Size S.
 
 **Source:** owner decision at the phase-1 merge, 2026-10-14.
 
-## 729. The install guide describes the browser download prompt and the Windows protection box without pictures — OPEN
+## 729. The install guide describes the browser download prompt and the Windows protection box without pictures — CLOSED 2026-10-14
 
-**Status:** OPEN 2026-10-14 — both steps are text only; no hand-captured picture is in the guide yet (`grep -c "manual.png" docs/desktop-rollout.md` → 0).
+**Status:** CLOSED 2026-10-14 on `docs/guide-manual-pictures` (GitHub #721). Both install steps now carry hand-captured pictures, four in all (`grep -c "manual.png" docs/desktop-rollout.md` → 4): Edge's download warning with **Keep**, its second warning with **Keep anyway** (a step the guide had not described), and Windows' protection box before and after **More info**. The Windows pictures were taken on a German Windows, by the owner's choice; the step's text names the German labels beside the English ones. `scripts/doc-image-refs.test.mjs` checks the files exist; its floor for the guide rose from 9 to 13.
 
-**Work item:** #721
+★ The text below is the record as opened: it names two pictures, before Edge's second warning was found.
 
 Two steps of the install guide's "Installing" section have no picture: the browser's "isn't commonly downloaded" warning with **Keep**, and Windows' "Windows protected your PC" box with **More info** → **Run anyway**. Both happen outside the web page, so `npm run docs:guide-shots` (§713) cannot take them. They were left out on purpose until they exist (plan ruling R8): an image line pointing at a missing file would fail `scripts/doc-image-refs.test.mjs`.
 
