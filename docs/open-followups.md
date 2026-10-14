@@ -941,6 +941,18 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§701](#701-ai-actions-other-than-the-chat-ignore-operating-guides--closed-2026-10-12) | AI actions other than the chat ignore operating guides | — | — | **CLOSED** 2026-10-12 |
 | [§702](#702-the-ai-chat-still-sends-the-current-views-guides-as-a-system-block-so-a-view-switch-invalidates-the-cached-transcript-build-slice-g2-in-the-app--open) | The AI chat still sends the current view's guides as a system block, so a view switch invalidates the cached transcript (build slice G2 in the app) | — | — | open |
 | [§703](#703-an-ask-claude-press-that-mounts-the-chat-panel-tells-claude-it-is-on-the-chat-tab-not-the-page-it-was-pressed-on--closed-2026-10-13) | An Ask Claude press that mounts the chat panel tells Claude it is on the chat tab, not the page it was pressed on | — | — | **CLOSED** 2026-10-13 |
+| [§716](#716-an-xlsx-hours-cell-formatted-as-a-duration-imports-as-a-fraction-of-a-day--open) | An xlsx hours cell formatted as a duration imports as a fraction of a day | — | — | open |
+| [§717](#717-forecast-import-shows-ask-claude-disabled-when-the-anthropic-key-was-unlocked-in-another-settings-instance--open) | Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance | — | — | open |
+| [§718](#718-no-e2e-or-axe-run-opens-the-forecast-import-modal--open) | No e2e or axe run opens the forecast import modal | — | — | open |
+| [§719](#719-forecast-import-has-no-target-bucket-picker--open) | Forecast import has no target-bucket picker | — | — | open |
+| [§720](#720-forecast-import-drops-e-notation-numbers-and-merges-namesakes-with-different-emails--open) | Forecast import drops E-notation numbers and merges namesakes with different emails | — | — | open |
+| [§721](#721-forecast-import-misreads-some-number-and-date-cells--open) | Forecast import misreads some number and date cells | — | — | open |
+| [§722](#722-forecast-import-picks-the-wrong-period-or-asks-on-several-sheet-shapes--open) | Forecast import picks the wrong period, or asks, on several sheet shapes | — | — | open |
+| [§723](#723-forecast-import-reads-one-block-per-sheet-so-stacked-blocks-and-second-headers-are-cut-or-summed--open) | Forecast import reads one block per sheet, so stacked blocks and second headers are cut or summed | — | — | open |
+| [§724](#724-forecast-imports-total-and-continuation-rules-ask-about-or-drop-legitimate-rows--open) | Forecast import's total and continuation rules ask about or drop legitimate rows | — | — | open |
+| [§725](#725-forecast-imports-mapping-step-cannot-express-some-corrections--open) | Forecast import's mapping step cannot express some corrections | — | — | open |
+| [§726](#726-forecast-import-cannot-route-some-matched-people-and-its-notes-name-namesakes-inconsistently--open) | Forecast import cannot route some matched people, and its notes name namesakes inconsistently | — | — | open |
+| [§727](#727-forecast-plants-mixes-matching-and-apply-and-should-split-before-it-grows--open) | forecast-plan.ts mixes matching and apply and should split before it grows | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38533,6 +38545,8 @@ Fix wave 2 (2026-10-13) fixed how a period is assigned to a cell, in ONE module 
 
 Known residue, accepted (not exhaustive — other deferred minors are in the branch's review record): (1) no e2e or axe run covers the modal — the Budget view is in `A11Y_VIEWS`, but the scan never opens the modal and no e2e spec drives an import; its accessible names are pinned only by `forecast-import-modal.test.tsx`. (2) The hook reads settings through its own `useSettings()` instance, so an Anthropic key sealed behind a passphrase and unlocked elsewhere stays blank there and "Ask Claude" shows disabled until the key is unlocked in that instance — the same pre-existing gap as `raci-panel.tsx`; fixing it needs a settings prop path into the budget panel. (3) A CSV column that mixes conventions reads by the column's style: an English thousands mark (`1,234`) flips it to German, where a dot is read only as a thousands mark in groups of three, so a stray `2.5` is dropped as not a number (it read 25 until the final review). A workbook (`SheetGrid.numbers` "dot") is exempt: Excel stores every number cell with a dot, so those cells are read with a dot and never vote on the style. (4) Total labels are a fixed word list (Total, Subtotal, Grand total, Sum, Summe, Zwischensumme, Gesamt, Gesamtsumme, Σ); any other spelling imports as a person, visible in the preview as unmatched. (5) One unresolved entry per name can hide a namesake row's different failure, and one override then routes both. (6) `forecast-plan.ts` is 499 lines by the `size:check` count (429 before final review 3 added routing by line, M3, the not-matched note of fix 10b and its widening by final review 4, M2; reproduce: `node -e "console.log(require('fs').readFileSync('src/app/budget-import/forecast-plan.ts','utf8').split('\n').length)"`); the next growth should split matching from apply. (7) The spec's source step has a target-bucket picker (preselected); the modal instead imports into the bucket whose card opened it, with no picker. (8) Deferred by ruling: namesakes with different emails merge into one unresolved entry; E-notation numbers (`1E2`, `7.4999999999999997E-2`) read as null in every decimal style and in workbooks too, a visible `bad-number` drop (tightened by final review 3, M6); a workbook TEXT cell `1.234` reads 1.234, since the grid cannot tell text cells from number cells. (9) Stacked year blocks with two or more people per block keep the first block's header (its period columns are numeric enough), so on the hand route the later block's rows sum into the first block's year, shown only under "Combined rows" — narrowed by fix 9 OOS-c: the second header row now makes detection ask (the `header` ambiguity), so the hand route waits for the user; only a user who confirms header row 1 still gets the sum — closed by round 5 for blocks under the same person label: the second block's header is a repeated header, the reading stops before it; residue (28) keeps a block whose header names the person column differently. (10) A long workbook with three serial date columns (`Start | Ende | Datum | Stunden`) is read wide from a data row (its dates as period headers), and now asks the `header` question before anything is applied, every scanned row that reads as a header among the candidates; the date cells it would read as hours exceed 744 h and are rejected, so nothing is written (re-measured 2026-10-13 on a five-person workbook: header row 5 preselected, candidates rows 1–5, three cells read, none accepted). (11) A year-less long sheet whose period column sits beside another column of month names (`Name | Phase | Wann | Stunden` with `Mai` under Phase and `Jan` under Wann) takes the first month column as the period; the labelled variant reads correctly. (12) Two numeric code cells beside year-less month labels no longer anchor the months' year, but still read as their own dates (`40100` is 2009-10), so a code column holding numbers would show as hours outside the bucket's periods. (14) A two-column date header more than 92 days apart (half-year) is read as a range, not periods. (15) Dates beside year-less month labels no longer roll the labels' year: `01.11.2026 | 01.12.2026 | Jan | Feb` reads Jan and Feb as 2026, not 2027 (the assumed-year notice is shown). (16) Data rows above the header row with no period header of their own are not counted in `rowsAboveHeader` (`Ann Lee | 10 | 20 | 30` directly above the header gives 0). (19) The mapping step's header-row select stops at row 50, and a wide sheet's period columns are derived from the header row and cannot be picked or unpicked one by one. (21) An hours column headed by a bare month or week (`Mai`, `W1`) is never a long sheet's hours (final review I4), so such a sheet detects as unknown and opens on the mapping step — visible, and the column can be set by hand (rr6 N6). (24) Either route (widened by fix 8): sprint-date sheets with a `Start` date column now collide and block Apply — date columns finer than the period on a row that also holds any date cell of its own (a `Start` or `Eintritt` column, labelled or not) are not summed as sub-periods, because a metadata row's January dates over `Stunden | Ist` look the same and once summed the two — also where detection takes such a metadata row for a clear wide header. Before fix 8 a `Start` column the header row labelled was exempt and summed. (25) The mapping step's layout round-trip, Wide then Long, rebuilds the long columns from the defaults on a clear sheet too: on `Name | Rolle | Monat | Stunden` (read as Monat and Stunden) the period becomes column B and the hours column C, and a year column is dropped, with no notice; the selects and the sample show it, and an ambiguous sheet keeps its confirmation gate: a confirmation belongs to its layout and the column it confirmed, so a round-trip that resets a confirmed column re-arms it (fix 9 m-a). (26) Either route (fix 8 round 2, corrected by fix 9): a wide sheet whose data rows hold ANY period-shaped cell outside the period and person columns (a `Start` or `Eintritt` date, a long sheet's `Monat` under a metadata row that detection takes for the header, a notes column with one date; in a workbook also any column of 5-digit integers, such as a `PersNr`, a postal code or a cost centre, which read as serial dates), or a year column beside year-less month headers, asks for the period, so such sheets open on the mapping step and Apply waits until the user confirms the columns (a Claude mapping is asked the same); a wide sheet without such a column does not ask. (28) Either route (fix 9 OOS-c, narrowed by rounds 5 and 6): a repeated header row now ends the reading and makes detection ask whatever the block sizes. It holds no number in the hours or period columns and repeats the person label, or has a person header word in the person column, or (wide) two or more period labels, or (long) an hours word in the hours column or a period word in the period column, so stacked blocks under `Name`, `Mitarbeiter` or any label with month labels import only the chosen block. What is left (probed in round 6): a second header made of unrelated words that match none of these (`Wer | Wann | Wieviel` over `Team | Zeit | Menge`). With one row per block it does not ask and reads the later block (Ist) silently; with more rows it asks, but header row 1 then reads on through the second block and sums both under "Combined rows". (30) Either route (parked, round 7): a placeholder person row in a wide sheet (`Ressource`, `Person`, `Mitarbeiter` or `Name` with blank months, a TBD hire) is a repeated header by rule (b), and so is a long hours cell such as `Stunden folgen` by rule (d): the reading stops there, visibly ("rows below a repeated header row were not read"), and no mapping reads the rows on both sides. (32) Either route (round 9): one person on several rows (on a long sheet, in one period) that differ in a text column the mapping does not read asks before the rows are summed (`differingRows`), so a sheet with a task description or a comment per line opens on the mapping step and Apply waits until the user confirms (a Claude mapping is asked the same); the notice quotes the first such person's values only, rows that differ only in a number or a date do not ask, and changing the person or period column re-arms the question with the columns detection named. (33) Either route (2026-10-13, the owner's decision): a sheet that no one mapping describes — several tables on one sheet, or a second header the repeated-header rule does not recognise (28) — cannot be imported by either route, since Claude now only proposes a mapping and the reader reads one block with it; split the sheet first. (34) Either route, pre-existing (final review 2, M8): the xlsx reader reads a cell's stored value and never its number format (`styles.xml`), so an hours cell formatted as a duration (`8:00`, stored as 0.333…) imports as 0.33 h without a notice; the preview's old → new shows the figure. (35) Hand route (final review 2b, N1): setting the email or rate column to a period column and back to none leaves that period out of the period columns; nothing asks, but no wrong number is written: the month is not imported and the preview lists the column as left out by the mapping. Re-detect restores it. (36) Either route (final review 3, I1): a wide sheet with a column of numbers whose header is blank, among the period columns or in the blank-headed columns right after them (a month header merged over `Ist | Plan`, `Actual | Forecast` or `€ | Std` sub-columns), asks for the period, whichever sub-column comes first, so a `Plan | Ist` order asks too, with a notice of its own that names the unread columns and the columns read (rr14 N1); confirmed, the import reads the LEFT sub-column under each month, because neither route can pick the right one (period columns come from the header row, residue 19). Split or relabel such a sheet. A blank-headed number column further right, past a labelled column, does not ask and is listed as not read. On a LONG sheet (final review 4, I2) a column holding a number with a blank header, anywhere, asks for the hours with that column among the candidates (a `Stunden` header merged over `Ist | Plan` or `€ | Std`, either order); the labelled column stays preselected, and unlike wide the user can pick the blank-headed one in the Hours select. The cost: an unlabelled column of numbers, such as a row index written by a script, asks too. (37) Either route (final review 3, I2): a row of the reading with no person but a number in a read column, below a person row, asks (`continuation`, `continuationRows`), and confirmed it is not read, as before; the person is never carried down, so an unlabelled total row at the bottom asks rather than being summed into the last person. The notice names the first five such rows and the first one's differing text. The cost: a long sheet that writes each name once over several month rows (a name merged down) asks and, confirmed, reads one row per person; fill the names in. A row with no person holding a total label in any cell, a row whose person cell is a total label, and a spacer with no number, do not ask; a person row with a total word in another column (`Ann Lee | Gesamt`) is still the person row the rows below it continue, so they ask (final review 4, I1). (38) Either route (final review 3, M1, owner decision 2026-10-13): a workbook with two or more sheets that detect a layout opens on the mapping step with the `sheet` question; choosing a sheet in the Sheet select or "These columns are right" confirms it, and Detect columns and Ask Claude ask it again. Choosing the sheet already shown fires no change, so the button is the confirmation then. (39) Either route (final review 3, M4): a header run of `N/YYYY` (or `N.YYYY`) that goes past 12 asks for the period, with a notice of its own saying that 01–12 will be read as months (rr14 N1); confirmed, 01–12 still read as months and the higher numbers are listed as not read — there is no week reading of that notation. A run that stops at 12 or below reads as months unasked. (40) Either route (final review 3, M3, owner decision 2026-10-13): a matched person on exactly one line of the target bucket (in its planning mode) is routed to that line whatever its role, and a sheet rate is compared with that line's role; on several lines they are unresolved (`several-lines`): the picker can name another resource or Skip, picking the same resource keeps them unresolved, and the import cannot choose between the lines — edit the bucket's lines first. Another member's figure still replaces a shared cell of such a line (spec §1, replace covered cells); since fix 10b (rr14 M3a) its note names the unresolved person as "in the sheet, not matched" (`unmatchedOnLine`), no longer as "not in the sheet for this period". A resource without a role stays `no-role` even when one line lists them. (41) Either route (final review 3, M7): a 1904-system workbook (`workbookPr date1904`) has every cell of five digits (an optional fraction) moved by 1,462 days to the 1900 system, in any column and whether stored as a number or as text, since the grid holds no cell types. In a period or header cell that corrects the date; in an hours, rate or person column it changes a value no import uses: such hours exceed 744 and are rejected, and rates are never written (corrected after rr14 N3). (42) Either route (final review 4, M1): once a resource is picked for an unresolved person, the picker row shows the reason of the plan computed with the overrides (a resource on several lines: "the chosen resource is on more than one line of this bucket"); the list of rows itself is still computed without overrides, so the row stays and can be re-picked or skipped. (43) Either route (final review 4, M2): every candidate of an unresolved person (`ambiguous` namesakes, a `no-role` match) on a shared line is named "in the sheet, not matched"; once a pick routes that person elsewhere or leaves them on several lines, the namesakes not picked are again named "not in the sheet for this period". (44) Either route (final review 4, I1, clarified after rr15 N3): detection's row sample runs before the person column is known, so it drops a row only when the row's FIRST non-blank cell, in whatever column, is a total label. Two shapes follow, both probed 2026-10-14. (a) A label column LEFT of the person column holds the total: with a header `Art | Name | Jan 2026 …` and groups `Gesamt | Ann Lee | 110 …` over `Ist | (blank) | 10 …` and `Plan | (blank) | 100 …`, every person row is dropped from the sample, detection takes `Art` (column A) as the person column and asks nothing, and the reader then reads the people `Ist` and `Plan`, which match no resource: they are unresolved and nothing is written for anyone. A mapping with `Name` (column B) as the person column, Claude's or the user's, asks the continuation question for all 12 blank-person rows. (b) The total sits in the person column RIGHT of another filled column: with a header `Team | Name | Jan 2026 …` and a row `Team A | Summe | 60 …`, the first non-blank cell is `Team A`, so the row stays in the sample that chooses the columns; detection still takes `Name` as the person column, and the reader drops that row as a total (its person cell is `Summe`). The continuation question never asks about a blank-person row holding a total word, and a person-cell total row is never the person row the rows below continue.
 
+★ Update 2026-10-14: residues (34), (2), (1), (7) and (8) are now open entries of their own: §716, §717, §718, §719 and §720. Every other item is in one of seven themed entries, each listing its items by number: §721 number and date cells (3, 12, 41), §722 period assignment (10, 11, 14, 15, 21, 24, 26, 39), §723 blocks and headers (9, 16, 28, 30, 33, 36), §724 total and continuation rows (4, 32, 37, 44), §725 the mapping step (19, 25, 35, 38), §726 person matching and routing (5, 40, 42, 43) and §727 the size of forecast-plan.ts (6). The list above is unchanged as the record of what was accepted at closure.
+
 **Status before closure:** OPEN 2026-09-13 — never machine-verified. The issue's 2026-09-11 code check searched the budget panel, the bucket
 modal and `src/app` for an importer by hand and found none.
 
@@ -44794,3 +44808,174 @@ What is known:
 Size S.
 
 **Source:** §702 (the view-switch counter's review, 2026-10-13).
+
+## 716. An xlsx hours cell formatted as a duration imports as a fraction of a day — OPEN
+
+**Status:** OPEN 2026-10-14, filed from §500's residue (34). Reproduce the cause with `grep -c "styles.xml\|numFmt" src/app/xlsx-extract.ts`, which prints 0: the reader never looks at a cell's number format.
+
+**Work item:** #708
+
+The forecast import (§500) reads an xlsx cell's stored value through `readSheetFile` (`src/app/budget-import/sheet-grid.ts`, over `xlsx-extract.ts`). An hours cell shown as `8:00` is stored as 0.333…, so it imports as 0.33 h with no notice; only the preview's old → new figure shows it. This is the one §500 residue that writes a wrong number without asking. A fix reads the cell's `s` style index, resolves it through `styles.xml` `numFmts`/`cellXfs`, and either converts a duration format to hours (× 24) or refuses the column with a notice.
+
+**Source:** §500's "Known residue, accepted" list, item (34), filed 2026-10-14 on the owner's word.
+
+## 717. Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance — OPEN
+
+**Status:** OPEN 2026-10-14, filed from §500's residue (2). Reproduce with `grep -n "useSettings()" src/app/use-forecast-import.ts src/app/raci-panel.tsx`, which shows each reading settings through its own instance.
+
+**Work item:** #709
+
+`useForecastImport` calls `useSettings()` itself. An Anthropic key sealed behind a passphrase is hydrated only in the instance where it was unlocked, so in the import's instance it stays blank and "Ask Claude" shows disabled until the key is unlocked there too. `raci-panel.tsx` has the same pre-existing gap. A fix threads the live settings (or the key) into the budget panel as a prop, the way other panels receive them from `workspace-section`.
+
+**Source:** §500's "Known residue, accepted" list, item (2), filed 2026-10-14 on the owner's word.
+
+## 718. No e2e or axe run opens the forecast import modal — OPEN
+
+**Status:** OPEN 2026-10-14, filed from §500's residue (1). Reproduce with `grep -rln "ForecastImportModal\|Import forecast" e2e`, which returns nothing.
+
+**Work item:** #710
+
+The Budget view is in `A11Y_VIEWS`, but the axe scan never opens the forecast import modal, and no e2e spec drives an import. The modal's accessible names are pinned only by `forecast-import-modal.test.tsx`, and the unit suite never runs axe, so a contrast or labelling failure in the modal reaches no gate.
+
+**Source:** §500's "Known residue, accepted" list, item (1), filed 2026-10-14 on the owner's word.
+
+## 719. Forecast import has no target-bucket picker — OPEN
+
+**Status:** OPEN 2026-10-14, filed from §500's residue (7); never machine-verified.
+
+**Work item:** #711
+
+The §500 spec's source step has a target-bucket picker, preselected to the bucket whose card opened it. `ForecastImportModal` instead imports into that bucket only (`forecastImportTarget` names it), with no way to change it short of closing and reopening the import from another card.
+
+**Source:** §500's "Known residue, accepted" list, item (7), filed 2026-10-14 on the owner's word.
+
+## 720. Forecast import drops E-notation numbers and merges namesakes with different emails — OPEN
+
+**Status:** OPEN 2026-10-14, filed from §500's residue (8), which was deferred by ruling; never machine-verified.
+
+**Work item:** #712
+
+Three gaps in the reader, each visible in the preview rather than silent: E-notation numbers (`1E2`, `7.4999999999999997E-2`) read as null in every decimal style and in workbooks too, a `bad-number` drop (`parseNumberCell`, `src/app/budget-import/forecast-rows.ts`); namesakes with different emails merge into one unresolved entry; and a workbook TEXT cell `1.234` reads 1.234, since the grid cannot tell text cells from number cells.
+
+**Source:** §500's "Known residue, accepted" list, item (8), filed 2026-10-14 on the owner's word.
+
+## 721. Forecast import misreads some number and date cells — OPEN
+
+**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
+
+**Work item:** #713
+
+The reader turns cell text into numbers and dates with rules that some real sheets break. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
+
+- (3) A CSV column that mixes conventions reads by the column's style: one English thousands mark (`1,234`) flips it to German, and a stray `2.5` is then dropped as not a number. Workbooks are exempt.
+- (12) Numeric code cells beside year-less month labels still read as their own dates (`40100` is 2009-10), so a code column of numbers would show as hours outside the bucket's periods.
+- (41) A 1904-system workbook moves every five-digit cell by 1,462 days in any column, since the grid holds no cell types; outside period and header cells this changes a value no import uses.
+
+The entry closes when every item is fixed or closed by an owner decision.
+
+**Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
+
+## 722. Forecast import picks the wrong period, or asks, on several sheet shapes — OPEN
+
+**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
+
+**Work item:** #714
+
+How a period is assigned to a cell (`period-assign.ts`, `layout-detect.ts`) misreads or questions these shapes. Most ask the user rather than write a wrong number. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
+
+- (10) A long workbook with three serial date columns (`Start | Ende | Datum | Stunden`) is read wide from a data row and asks the `header` question; the date cells it would read as hours exceed 744 h and are rejected.
+- (11) A year-less long sheet with two month-name columns (`Name | Phase | Wann | Stunden`) takes the first as the period.
+- (14) A two-column date header more than 92 days apart (half-year) is read as a range, not periods.
+- (15) Dates beside year-less month labels no longer roll the labels' year: `01.11.2026 | 01.12.2026 | Jan | Feb` reads Jan and Feb as 2026 (the assumed-year notice is shown).
+- (21) An hours column headed by a bare month or week (`Mai`, `W1`) is never a long sheet's hours, so the sheet opens on the mapping step.
+- (24) Sprint-date sheets with a `Start` date column collide and block Apply: date columns finer than the period on a row that holds its own date cell are not summed as sub-periods.
+- (26) A wide sheet whose data rows hold any period-shaped cell outside the period and person columns (a `Start` date, a five-digit `PersNr` in a workbook), or a year column beside year-less month headers, asks for the period.
+- (39) A header run of `N/YYYY` past 12 asks; confirmed, 01–12 read as months and higher numbers are not read. There is no week reading of that notation.
+
+The entry closes when every item is fixed or closed by an owner decision.
+
+**Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
+
+## 723. Forecast import reads one block per sheet, so stacked blocks and second headers are cut or summed — OPEN
+
+**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
+
+**Work item:** #715
+
+The reader reads one block with one mapping. Sheets with several blocks, unusual headers or merged sub-columns lose rows or sum them. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
+
+- (9) Stacked year blocks with two or more people per block, whose second header names the person column differently, still sum into the first block's year if the user confirms header row 1.
+- (16) Data rows above the header row with no period header of their own are not counted in `rowsAboveHeader`.
+- (28) A second header of unrelated words (`Wer | Wann | Wieviel`) is not seen as a repeated header: with one row per block the later block is read silently; with more rows header row 1 reads through both and sums them.
+- (30) A placeholder person row (`Ressource` with blank months) or a long hours cell such as `Stunden folgen` counts as a repeated header and stops the reading, visibly.
+- (33) A sheet that no one mapping describes (several tables, an unrecognised second header) cannot be imported by either route; the user must split it first. Owner decision 2026-10-13.
+- (36) A month header merged over `Ist | Plan` sub-columns asks, and confirmed reads the LEFT sub-column, since period columns come from the header row; on a long sheet an unlabelled number column (a script's row index) asks too.
+
+The entry closes when every item is fixed or closed by an owner decision.
+
+**Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
+
+## 724. Forecast import's total and continuation rules ask about or drop legitimate rows — OPEN
+
+**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
+
+**Work item:** #716
+
+Total rows, rows without a person and repeated people are decided by fixed rules that misfire on some layouts. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
+
+- (4) Total labels are a fixed word list (Total, Subtotal, Grand total, Sum, Summe, Zwischensumme, Gesamt, Gesamtsumme, Σ); any other spelling imports as a person, visible as unmatched.
+- (32) One person on several rows that differ only in an unread text column (a task description) asks before summing; the notice quotes the first person only.
+- (37) A name written once over several month rows (merged down) asks, and confirmed reads one row per person; the person is never carried down.
+- (44) Detection drops a sample row only when its FIRST non-blank cell is a total label, so a total in a label column left of the person column makes detection pick that column and nothing is written; probed 2026-10-14.
+
+The entry closes when every item is fixed or closed by an owner decision.
+
+**Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
+
+## 725. Forecast import's mapping step cannot express some corrections — OPEN
+
+**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
+
+**Work item:** #717
+
+The hand mapping step (`ForecastImportModal`) has controls that reset or hide choices. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
+
+- (19) The header-row select stops at row 50, and a wide sheet's period columns come from the header row and cannot be picked or unpicked one by one.
+- (25) Switching layout Wide then Long rebuilds the long columns from the defaults, even on a clear sheet, and drops a year column with no notice.
+- (35) Setting the email or rate column to a period column and back to none leaves that period out; nothing asks, Re-detect restores it.
+- (38) With two or more sheets that detect a layout, choosing the sheet already shown fires no change, so the button is the only confirmation.
+
+The entry closes when every item is fixed or closed by an owner decision.
+
+**Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
+
+## 726. Forecast import cannot route some matched people, and its notes name namesakes inconsistently — OPEN
+
+**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
+
+**Work item:** #718
+
+Matching sheet people to bucket lines (`forecast-plan.ts`) leaves these cases unresolved or mislabelled. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
+
+- (5) One unresolved entry per name can hide a namesake row's different failure, and one override then routes both.
+- (40) A person on several lines of the bucket is unresolved (`several-lines`), and the import cannot choose between the lines; a resource without a role stays `no-role` even when one line lists them. Owner decision 2026-10-13.
+- (42) After a pick, the picker row shows the reason computed with the overrides, but the list of rows is still computed without them.
+- (43) Once a pick routes an unresolved person elsewhere, the namesakes not picked are again named "not in the sheet for this period".
+
+The entry closes when every item is fixed or closed by an owner decision.
+
+**Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
+
+## 727. forecast-plan.ts mixes matching and apply and should split before it grows — OPEN
+
+**Status:** OPEN 2026-10-14, filed from §500's residue list; `grep -c "" src/app/budget-import/forecast-plan.ts` prints 498 on 2026-10-14, which is 499 by the `size:check` count (lines + 1).
+
+**Work item:** #719
+
+`src/app/budget-import/forecast-plan.ts` grew from 429 to 499 lines in §500's last review rounds. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
+
+- (6) The next growth should split matching from apply.
+
+The entry closes when every item is fixed or closed by an owner decision.
+
+**Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
