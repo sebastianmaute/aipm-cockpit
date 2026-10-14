@@ -68,6 +68,20 @@ describe("milestoneChances", () => {
     expect(r).toEqual({ id: 1, state: "overdue" });
   });
 
+  test("overdue with every linked task closed reads 1/1, not overdue (T3b)", () => {
+    // All-closed is checked before the date, so a late milestone whose work is done is certain.
+    const [r] = run([ms(1, "2026-10-01", [90, 91])], twenty, { closedIds: [90, 91] });
+    expect(r).toEqual({ id: 1, state: "chance", chance: 1, chancePrioritised: 1 });
+  });
+
+  test("a milestone with no valid date is omitted (R16)", () => {
+    // Load repairs an invalid milestone date to "" (requiredIsoDateOnLoad); "" < today would read overdue.
+    for (const date of ["", "garbage", "2026-02-30"]) {
+      expect(run([ms(1, date, [3])], twenty)).toEqual([]);
+      expect(run([ms(1, date, [90])], [], { closedIds: [90] })).toEqual([]);
+    }
+  });
+
   test("milestone with no linked tasks reports no-linked-tasks", () => {
     expect(run([ms(1, "2026-11-01", [])], twenty)).toEqual([{ id: 1, state: "no-linked-tasks" }]);
   });

@@ -66,6 +66,17 @@ describe("simulateHowMany", () => {
     expect(Array.from(out).every((v) => Number.isInteger(v) && v >= 2 && v <= 4)).toBe(true);
   });
 
+  test("stochastic rounding averages to the fraction, both ways (T2b)", () => {
+    // 1 x 0.5 per day: each day rounds to 0 or 1, and the mean over many draws is 0.5.
+    // A floor-only rounding would make every draw 0 (80 % capacity on 1-task days would never finish).
+    const out = Array.from(simulateHowMany([1], 1, opts({ trials: 4000, capacity: 0.5 })));
+    const mean = out.reduce((a, b) => a + b, 0) / out.length;
+    expect(out).toContain(0);
+    expect(out).toContain(1);
+    expect(mean).toBeGreaterThan(0.46);
+    expect(mean).toBeLessThan(0.54);
+  });
+
   test("results are sorted ascending", () => {
     const out = simulateHowMany([0, 4], 5, opts());
     expect(Array.from(out)).toEqual(Array.from(out).sort((x, y) => x - y));

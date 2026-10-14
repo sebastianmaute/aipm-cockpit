@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { ForecastPanel } from "./forecast-panel";
 import { loadI18n, t } from "./i18n";
 import type { Milestone, ResourcePlan, Task } from "./types";
-import { workingDaysBefore } from "./working-days";
+import { nthWorkingDayAfter, workingDaysBefore } from "./working-days";
+import { MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
 import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
 
 // 2026-10-14 is a Wednesday.
@@ -134,6 +135,46 @@ describe("ForecastPanel", () => {
     fireEvent.change(input, { target: { value: TODAY } });
     expect(screen.queryByText("Not a valid value; the previous one is kept.")).toBeNull();
     expect(screen.getByRole("columnheader", { name: "At least, by Oct 14, 2026" })).toBeTruthy();
+  });
+
+  test("a How many target past the 1300-working-day horizon is refused (R15)", () => {
+    renderPanel([...open(5), ...steadyDone(60)]);
+    const input = screen.getByLabelText("How many by") as HTMLInputElement;
+    const max = nthWorkingDayAfter(TODAY, MAX_HORIZON_WORKING_DAYS, NO_HOLIDAYS);
+    expect(input.getAttribute("max")).toBe(max);
+    fireEvent.change(input, { target: { value: "2206-10-14" } });
+    expect(screen.getByText("Not a valid value; the previous one is kept.")).toBeTruthy();
+    expect(input.value).toBe("2026-12-31");
+    fireEvent.change(input, { target: { value: max } });
+    expect(screen.queryByText("Not a valid value; the previous one is kept.")).toBeNull();
+    expect(input.value).toBe(max);
+  });
+
+  test("a stored target is re-clamped when today moves past it (T5e)", () => {
+    const tasks = [...open(5), ...steadyDone(60)];
+    const { rerender } = renderPanel(tasks);
+    fireEvent.change(screen.getByLabelText("How many by"), { target: { value: TODAY } });
+    expect(screen.getByRole("columnheader", { name: "At least, by Oct 14, 2026" })).toBeTruthy();
+    rerender(
+      <ForecastPanel lang="en-US" tasks={tasks} milestones={NO_MILESTONES} plan={PLAN} today="2026-10-16" holidaySet={NO_HOLIDAYS} />,
+    );
+    expect(screen.getByRole("columnheader", { name: "At least, by Oct 16, 2026" })).toBeTruthy();
+    expect((screen.getByLabelText("How many by") as HTMLInputElement).value).toBe("2026-10-16");
+  });
+
+  test("a default target past the horizon is clamped to it (T5e)", () => {
+    const far = { ...PLAN, endDate: "2206-10-14" } as ResourcePlan;
+    render(<ForecastPanel lang="en-US" tasks={[...open(5), ...steadyDone(60)]} milestones={NO_MILESTONES} plan={far} today={TODAY} holidaySet={NO_HOLIDAYS} />);
+    const max = nthWorkingDayAfter(TODAY, MAX_HORIZON_WORKING_DAYS, NO_HOLIDAYS);
+    expect((screen.getByLabelText("How many by") as HTMLInputElement).value).toBe(max);
+  });
+
+  test("a milestone with a blank date does not crash the view (R16)", () => {
+    // Load repairs an invalid milestone date to ""; the engine omits it, so no row is formatted.
+    const blank: Milestone[] = [{ id: 1, name: "Broken", date: "", linkedTaskIds: [1] }];
+    render(<ForecastPanel lang="en-US" tasks={[...open(5), ...steadyDone(60)]} milestones={blank} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} />);
+    expect(screen.queryByRole("rowheader", { name: /Broken/ })).toBeNull();
+    expect(screen.getByText(t("en-US", "forecastNoMilestones"))).toBeTruthy();
   });
 
   test("toolbar keeps the trailing group contiguous", () => {

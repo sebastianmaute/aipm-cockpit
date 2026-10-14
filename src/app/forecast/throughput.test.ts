@@ -20,13 +20,14 @@ function run(tasks: Task[], window: number | "all" = 5, unit: "tasks" | "effort"
 
 describe("dailyThroughput", () => {
   test("counts Done tasks per working day and keeps zero days", () => {
-    // 5-day window ending Wed 14th: Oct 8, 9, 13, 14 are working; the 12th is a holiday -> 8,9,13,14 + 7
-    const h = run([done(1, "2026-10-13"), done(2, "2026-10-13"), done(3, "2026-10-14")]);
+    // 5-day window ending Wed 14th: Oct 8, 9, 13, 14 are working; the 12th is a holiday -> 8,9,13,14 + 7.
+    // The completion on the 7th opens the window there (R14), so the 8th and 9th are real zero days.
+    const h = run([done(1, "2026-10-13"), done(2, "2026-10-13"), done(3, "2026-10-14"), done(4, "2026-10-07")]);
     expect(h.samples).toHaveLength(5);
-    expect(h.samples.reduce((a, b) => a + b, 0)).toBe(3);
+    expect(h.samples.reduce((a, b) => a + b, 0)).toBe(4);
     expect(h.samples).toContain(0);
     expect(h.days[h.days.length - 1]).toBe(TODAY);
-    expect(h.finished).toBe(3);
+    expect(h.finished).toBe(4);
   });
 
   test("excludes Cancelled tasks", () => {
@@ -99,9 +100,30 @@ describe("dailyThroughput", () => {
   });
 
   test("a non-working today ends the window on the previous working day", () => {
-    const h = run([done(1, "2026-10-16")], 3, "tasks", "2026-10-17");
+    const h = run([done(1, "2026-10-16"), done(2, "2026-10-14")], 3, "tasks", "2026-10-17");
     expect(h.days).toEqual(["2026-10-14", "2026-10-15", "2026-10-16"]);
-    expect(h.samples).toEqual([0, 0, 1]);
+    expect(h.samples).toEqual([1, 0, 1]);
+  });
+
+  test("a fixed window starts no earlier than the first completion (R14)", () => {
+    // Window 30 asks for 30 working days, but the team first finished on Thu 8th: the days before
+    // are not real zero days. Oct 8, 9, 13, 14 remain (the 12th is a holiday).
+    const h = run([done(1, "2026-10-08"), done(2, "2026-10-14")], 30);
+    expect(h.days).toEqual(["2026-10-08", "2026-10-09", "2026-10-13", "2026-10-14"]);
+    expect(h.samples).toEqual([1, 0, 0, 1]);
+  });
+
+  test("window 30 is 30 working days ending today when history is older (T1c)", () => {
+    const h = run([done(1, "2026-06-01"), done(2, "2026-10-14")], 30);
+    expect(h.days).toHaveLength(30);
+    expect(h.days[29]).toBe(TODAY);
+    // 30 working days back from Wed 14th, skipping the holiday on the 12th, starts on Wed 2 Sep.
+    expect(h.days[0]).toBe("2026-09-02");
+    expect(h.finished).toBe(1);
+  });
+
+  test("a fixed window with no completions is empty", () => {
+    expect(run([], 30)).toEqual({ samples: [], days: [], finished: 0, doneWithoutDate: 0 });
   });
 
   test("window 'all' with no completions yields an empty history", () => {

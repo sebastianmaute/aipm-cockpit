@@ -52,6 +52,22 @@ describe("MilestoneTable", () => {
     expect(within(row).getByText("100%")).toBeTruthy();
   });
 
+  test("a row whose date is not a valid day renders a blank date, never throws (R16)", () => {
+    // The engine omits such a milestone; the table still must not format "" (RangeError: Invalid time value).
+    render(
+      <MilestoneTable
+        lang="en-US"
+        milestones={[ms(1, "Blank", ""), ms(2, "Feb30", "2026-02-30")]}
+        chances={[{ id: 1, state: "overdue" }, chance(2, 0.5)]}
+        whatIf={false}
+      />,
+    );
+    for (const name of [/Blank/, /Feb30/]) {
+      const [dateCell] = within(screen.getByRole("row", { name })).getAllByRole("cell");
+      expect(dateCell.textContent).toBe("");
+    }
+  });
+
   test("shows the scope note only in What-if", () => {
     const { rerender } = render(<MilestoneTable lang="en-US" milestones={[ms(1, "M")]} chances={[chance(1, 0.5)]} whatIf={false} />);
     expect(screen.queryByText(/does not change milestone chances/)).toBeNull();

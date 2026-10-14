@@ -134,6 +134,11 @@ function whenRows(days: Int32Array, today: string, holidaySet: ReadonlySet<strin
   });
 }
 
+/** The last date a How-many target may name: `MAX_HORIZON_WORKING_DAYS` working days after today (R15). */
+export function lastForecastableDay(today: string, holidaySet: ReadonlySet<string>): string {
+  return nthWorkingDayAfter(today, MAX_HORIZON_WORKING_DAYS, holidaySet);
+}
+
 export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleForecastResult {
   const { tasks, milestones, today, holidaySet, window } = input;
   const trials = Math.max(1, Math.floor(input.trials ?? FORECAST_TRIALS));
@@ -170,7 +175,10 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
   const stream = (name: string) => simOptions(mulberry32(seedFrom([...seedParts, name])), trials, whatIf.capacityPercent, unit);
 
   const when = simulateWhen(history.samples, backlog, stream("when"));
-  const targetDays = countWorkingDays(addCalendarDays(today, 1), addCalendarDays(input.howManyTarget, 1), holidaySet);
+  // R15: capped at the horizon like When, so a far (or mistyped) target cannot stall the render.
+  const lastDay = lastForecastableDay(today, holidaySet);
+  const target = input.howManyTarget < lastDay ? input.howManyTarget : lastDay;
+  const targetDays = countWorkingDays(addCalendarDays(today, 1), addCalendarDays(target, 1), holidaySet);
   const reached = simulateHowMany(history.samples, targetDays, stream("howMany"));
   const chances = milestoneChances({
     milestones,

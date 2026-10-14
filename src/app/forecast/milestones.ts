@@ -3,6 +3,7 @@
 import { PRIORITIES, type Milestone, type Task } from "../types";
 import { addCalendarDays, countWorkingDays } from "../working-days";
 import { drawDay, type SimOptions } from "./simulate";
+import { isValidIsoDate } from "./throughput";
 
 export type MilestoneChance =
   | { id: number; state: "chance"; chance: number; chancePrioritised: number }
@@ -48,7 +49,8 @@ export function milestoneChances(args: Args): MilestoneChance[] {
   const results = new Map<number, MilestoneChance>();
   const targets: Target[] = [];
   for (const m of milestones) {
-    if (m.achievedDate) continue;
+    // R16: a milestone with no valid date (load repairs a bad one to "") has nothing to forecast.
+    if (m.achievedDate || !isValidIsoDate(m.date)) continue;
     const open = m.linkedTaskIds.filter((id) => cumulative.has(id));
     const closed = m.linkedTaskIds.filter((id) => !cumulative.has(id) && closedIds.has(id));
     if (open.length === 0 && closed.length === 0) {

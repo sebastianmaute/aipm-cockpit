@@ -10,6 +10,7 @@ import { formatDayMonthYear, formatHours } from "./forecast-format";
 import type { ScheduleForecast } from "./forecast";
 import type { MilestoneChance } from "./forecast/milestones";
 import type { ForecastUnit } from "./forecast/constants";
+import { isValidIsoDate } from "./forecast/throughput";
 import type { Milestone } from "./types";
 import { DataTable } from "./data-table";
 import { Input } from "./form-controls";
@@ -46,12 +47,15 @@ export function PercentileTable({
   forecast,
   target,
   today,
+  maxTarget,
   onTargetChange,
 }: {
   lang: Lang;
   forecast: ScheduleForecast;
   target: string;
   today: string;
+  /** Last accepted target, the forecast horizon (R15). */
+  maxTarget: string;
   onTargetChange: (iso: string) => void;
 }) {
   const [invalid, setInvalid] = useState(false);
@@ -68,13 +72,15 @@ export function PercentileTable({
             size="xs"
             value={target}
             min={today}
+            max={maxTarget}
             invalid={invalid}
             aria-describedby={invalid ? messageId : undefined}
             onChange={(e) => {
               const iso = e.target.value;
               if (!ISO_DATE.test(iso)) return;
-              // A target before today counts no working days; refuse it like an invalid What-if value.
-              const accepted = iso >= today;
+              // A target before today counts no working days, and one past the horizon is capped (R15):
+              // refuse both like an invalid What-if value.
+              const accepted = iso >= today && iso <= maxTarget;
               setInvalid(!accepted);
               if (accepted) onTargetChange(iso);
             }}
@@ -193,7 +199,7 @@ export function MilestoneTable({
                   <th scope="row" aria-label={tokens.get(row.id) ?? row.name} className={`${CELL} font-medium text-foreground`}>
                     {row.name}
                   </th>
-                  <td className={`${CELL} tabular-nums text-muted-foreground`}>{formatDayMonthYear(row.date, locale)}</td>
+                  <td className={`${CELL} tabular-nums text-muted-foreground`}>{isValidIsoDate(row.date) ? formatDayMonthYear(row.date, locale) : ""}</td>
                   {text === null ? (
                     <>
                       <td className={`${CELL} text-right tabular-nums`}>{formatChance(chanceOf(row), lang)}</td>

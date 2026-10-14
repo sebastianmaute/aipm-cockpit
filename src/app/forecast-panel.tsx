@@ -12,6 +12,7 @@ import {
   clampWhatIf,
   computeScheduleForecast,
   effortCoverage,
+  lastForecastableDay,
   type ForecastInsufficient,
   type ScheduleForecast,
   type WhatIf,
@@ -43,6 +44,12 @@ export function defaultHowManyTarget(
   if (upcoming.length > 0) return upcoming[0];
   if (plan.endDate >= today) return plan.endDate;
   return nthWorkingDayAfter(today, FALLBACK_TARGET_WORKING_DAYS, holidaySet);
+}
+
+/** A stored or default target held inside [today, maxTarget], so a passing midnight or a far plan end re-clamps it (R15). */
+export function clampHowManyTarget(target: string, today: string, maxTarget: string): string {
+  if (target < today) return today;
+  return target > maxTarget ? maxTarget : target;
 }
 
 /**
@@ -82,7 +89,8 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
     () => defaultHowManyTarget(milestones, plan, today, holidaySet),
     [milestones, plan, today, holidaySet],
   );
-  const howManyTarget = target ?? fallbackTarget;
+  const maxTarget = useMemo(() => lastForecastableDay(today, holidaySet), [today, holidaySet]);
+  const howManyTarget = clampHowManyTarget(target ?? fallbackTarget, today, maxTarget);
   // Quick always runs the plain forecast, whatever the What-if fields still hold.
   const appliedWhatIf = mode === "whatif" ? whatIf : DEFAULT_WHAT_IF;
 
@@ -131,7 +139,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         <>
           <ForecastCaption lang={lang} forecast={result} historyWindow={historyWindow} />
           <ForecastChart lang={lang} forecast={result} today={today} holidaySet={holidaySet} />
-          <PercentileTable lang={lang} forecast={result} target={howManyTarget} today={today} onTargetChange={setTarget} />
+          <PercentileTable lang={lang} forecast={result} target={howManyTarget} today={today} maxTarget={maxTarget} onTargetChange={setTarget} />
           <MilestoneTable lang={lang} milestones={milestones} chances={result.milestones} whatIf={mode === "whatif"} />
         </>
       )}

@@ -14,7 +14,8 @@ export type ThroughputHistory = {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-function isValidIsoDate(s: string | undefined): s is string {
+/** Strict YYYY-MM-DD: the shape and a real calendar day. */
+export function isValidIsoDate(s: string | undefined): s is string {
   if (typeof s !== "string" || !ISO_DATE.test(s)) return false;
   const d = new Date(`${s}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
@@ -37,11 +38,14 @@ function windowDays(
   holidaySet: ReadonlySet<string>,
   earliest: string | null,
 ): string[] {
+  if (earliest === null) return [];
   const end = windowEnd(today, holidaySet);
-  if (window === "all") return earliest === null ? [] : workingDaysInRange(earliest, end, holidaySet);
-  return isWorkingDay(today, holidaySet)
+  if (window === "all") return workingDaysInRange(earliest, end, holidaySet);
+  const fixed = isWorkingDay(today, holidaySet)
     ? [...workingDaysBefore(today, window - 1, holidaySet), today]
     : workingDaysBefore(today, window, holidaySet);
+  // R14: days before the first completion are not real zero days, so a young project is not padded.
+  return fixed.filter((d) => d >= earliest);
 }
 
 function effortWeight(t: Task, unestimatedSize: number): number {

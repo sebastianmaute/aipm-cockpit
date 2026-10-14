@@ -18,6 +18,14 @@ function recentDone(n: number, minutes?: number): Task[] {
   const days = ["2026-10-14", "2026-10-13", "2026-10-12", "2026-10-09", "2026-10-08", "2026-10-07", "2026-10-06", "2026-10-05", "2026-10-02", "2026-10-01", "2026-09-30", "2026-09-29"];
   return Array.from({ length: n }, (_, i) => done(1000 + i, days[i % days.length], minutes));
 }
+/** The last n weekdays up to and including TODAY, oldest first. */
+function steadyDays(n: number): string[] {
+  const out: string[] = [];
+  for (let d = new Date(`${TODAY}T00:00:00Z`); out.length < n; d.setUTCDate(d.getUTCDate() - 1)) {
+    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) out.unshift(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
 function open(n: number, over: Partial<Task> = {}): Task[] {
   return Array.from({ length: n }, (_, i) => task(i + 1, over));
 }
@@ -52,6 +60,22 @@ describe("computeScheduleForecast floor", () => {
     const tasks = [...open(5), ...old];
     expect(computeScheduleForecast(input(tasks, { window: 60 })).kind).toBe("insufficient");
     expect(computeScheduleForecast(input(tasks, { window: "all" })).kind).toBe("forecast");
+  });
+
+  test("a young project is forecast from its own days, not padded to the window (R14)", () => {
+    // The reviewer probe: 15 working days at 2 a day, 60 open tasks, the default window 60.
+    // Padding the window with 45 pre-project zero days put P50 at about 119 days instead of 30.
+    const history = steadyDays(15).flatMap((d, i) => [done(5000 + 2 * i, d), done(5001 + 2 * i, d)]);
+    const r = computeScheduleForecast(input([...open(60), ...history], { window: 60 }));
+    if (r.kind !== "forecast") throw new Error("expected forecast");
+    expect(r.windowDays).toBe(15);
+    expect(r.when.map((w) => w.daysAhead)).toEqual([30, 30, 30]);
+  });
+
+  test("the days floor bites on a fixed window too (R14)", () => {
+    const fiveDays = steadyDays(5).flatMap((d, i) => [done(6000 + 2 * i, d), done(6001 + 2 * i, d)]);
+    const r = computeScheduleForecast(input([...open(5), ...fiveDays], { window: 30 }));
+    expect(r).toMatchObject({ kind: "insufficient", finished: 10, days: 5, neededDays: 10 });
   });
 
   test("insufficient carries the Done-without-date count", () => {
@@ -90,7 +114,8 @@ describe("computeScheduleForecast backlog", () => {
   });
 
   test("huge backlog reports beyond without hanging", () => {
-    const r = computeScheduleForecast(input([...open(1000), ...recentDone(10)], { trials: 100 }));
+    // 1 task a day over 10 days of history (R14): 2000 tasks need 2000 days, past the 1300-day horizon.
+    const r = computeScheduleForecast(input([...open(2000), ...recentDone(10)], { trials: 100 }));
     if (r.kind !== "forecast") throw new Error("expected forecast");
     expect(r.when[0].daysAhead).toBe("beyond");
     expect(r.when[0].date).toBeNull();
@@ -206,8 +231,18 @@ describe("computeScheduleForecast how many", () => {
     expect(r.howMany.map((h) => h.amount)).toEqual([0, 0, 0]);
   });
 
+  test("a far target is capped at the horizon (R15)", () => {
+    // A year-2206 typo would otherwise simulate ~47,000 days per trial; 2 a day x 1300 days = 2600.
+    const tasks = [...open(5), ...steadyTwoPerDay()];
+    const r = computeScheduleForecast(input(tasks, { today: "2026-10-17", howManyTarget: "2206-10-14", trials: 3 }));
+    if (r.kind !== "forecast") throw new Error("expected forecast");
+    expect(r.howMany.map((h) => h.amount)).toEqual([2600, 2600, 2600]);
+  });
+
   test("higher confidence promises no more than lower confidence", () => {
-    const r = computeScheduleForecast(input([...open(5), ...recentDone(12)], { howManyTarget: "2026-11-13" }));
+    // Uneven days (3, 2, then 1s): since R14 the window holds no pre-history zeros to spread the draws.
+    const uneven = [done(1500, "2026-10-14"), done(1501, "2026-10-14"), done(1502, "2026-10-13")];
+    const r = computeScheduleForecast(input([...open(5), ...recentDone(12), ...uneven], { howManyTarget: "2026-11-13" }));
     if (r.kind !== "forecast") throw new Error("expected forecast");
     const [p50, p80, p95] = r.howMany.map((h) => h.amount);
     expect(p95).toBeLessThanOrEqual(p80);
