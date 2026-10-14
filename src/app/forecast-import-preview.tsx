@@ -38,6 +38,12 @@ const WHY_KEY: Record<UnresolvedPerson["why"], TranslationKey> = {
   "no-role": "forecastImportWhyNoRole",
   "several-lines": "forecastImportWhySeveralLines",
 };
+/** Why a resource picked for an unresolved person did not take: the plan's
+ *  reason computed WITH the overrides (final review 4, M1). */
+const PICK_WHY_KEY: Record<UnresolvedPerson["why"], TranslationKey> = {
+  ...WHY_KEY,
+  "several-lines": "forecastImportPickSeveralLines",
+};
 const REJECT_KEY: Record<RejectedRow["reason"], TranslationKey> = {
   shape: "forecastImportRejectShape",
   hours: "forecastImportRejectHours",
@@ -273,6 +279,8 @@ function UnresolvedSection({ lang, fi, resources, roles }: {
     .filter((r) => r.active !== false && r.roleId != null && roleIds.has(r.roleId))
     .sort((a, b) => resourceDisplayName(a).localeCompare(resourceDisplayName(b), undefined, { sensitivity: "base" }));
   const tokens = buildRowTokens(fi.unresolvedPeople.map((p) => ({ id: normalisePerson(p.person), name: p.person })));
+  // The plan WITH the overrides: a pick that left the person unresolved says so.
+  const planned = new Map((fi.importPlan?.unresolved ?? []).map((u) => [normalisePerson(u.person), u.why]));
   return (
     <Section title={t(lang, "forecastImportUnresolved")}>
       <p className="text-muted-foreground">{t(lang, "forecastImportUnresolvedHint")}</p>
@@ -280,6 +288,7 @@ function UnresolvedSection({ lang, fi, resources, roles }: {
         {fi.unresolvedPeople.map((p) => {
           const key = normalisePerson(p.person);
           const value = fi.overrides.get(key) ?? "skip";
+          const pickWhy = typeof value === "number" ? planned.get(key) : undefined;
           // Candidates first: an ambiguous name is most likely one of them.
           const first = pickable.filter((r) => p.candidates.includes(r.id));
           const rest = pickable.filter((r) => !p.candidates.includes(r.id));
@@ -288,7 +297,7 @@ function UnresolvedSection({ lang, fi, resources, roles }: {
               <span className="min-w-0">
                 <span className="font-medium text-foreground">{p.person}</span>
                 {p.email ? <span className="text-muted-foreground"> · {p.email}</span> : null}
-                <span className="block text-xs text-muted-foreground">{t(lang, WHY_KEY[p.why])}</span>
+                <span className="block text-xs text-muted-foreground">{t(lang, pickWhy === undefined ? WHY_KEY[p.why] : PICK_WHY_KEY[pickWhy])}</span>
               </span>
               <Select
                 size="xs"

@@ -2448,6 +2448,7 @@ export const de: Record<TranslationKey, string> = {
   forecastImportWhyAmbiguous: "mehrere Ressourcen passen",
   forecastImportWhyNoRole: "die Ressource hat keine Rolle",
   forecastImportWhySeveralLines: "die Ressource steht auf mehr als einer Zeile dieses Budgets",
+  forecastImportPickSeveralLines: "die gewählte Ressource steht auf mehr als einer Zeile dieses Budgets, daher wird für diese Person nichts importiert",
   forecastImportMatchPerson: "Person zuordnen",
   forecastImportSkip: "Überspringen",
   forecastImportRateNotes: "Sätze, die von der Rolle abweichen",

@@ -2599,6 +2599,7 @@ const enUS = {
   forecastImportWhyAmbiguous: "several resources match",
   forecastImportWhyNoRole: "the resource has no role",
   forecastImportWhySeveralLines: "the resource is on more than one line of this bucket",
+  forecastImportPickSeveralLines: "the chosen resource is on more than one line of this bucket, so nothing is imported for this person",
   forecastImportMatchPerson: "Match person",
   forecastImportSkip: "Skip",
   forecastImportRateNotes: "Rates that differ from the role",
