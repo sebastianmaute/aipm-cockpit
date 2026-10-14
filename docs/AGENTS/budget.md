@@ -1,7 +1,8 @@
-# Budget — the EUR boundary, earned value, and the Budget panel's cell layer
+# Budget — the baseline currency, earned value, and the Budget panel's cell layer
 
-Owns the budget engine's money: the FX boundary (`fx.ts`) and the rule that the engine treats every
-figure as EUR, how the plan's and a bucket's currency are sanitised on load, the budget-follows-plan
+Owns the budget engine's money: the FX boundary (`fx.ts`) and the rule that the engine computes every
+figure in the project's BASELINE currency (`plan.currency`, §476), the baseline switch and its
+history, how the plan's and a bucket's currency are sanitised on load, the budget-follows-plan
 mirroring rule the panel and the engine share, bucket earned value (Phase C EVM), the Budget
 panel's module map and column arithmetic, and the forecast import (§500).
 
@@ -10,15 +11,18 @@ Does NOT own the dashboard's budget tiles ([`dashboard.md`](dashboard.md)), the 
 ([`platform.md`](platform.md) "Rate card = DAY rates"), the six-write-paths rule (`AGENTS.md`), or
 the shared table header `SortResizeTh` ([`ui-shell.md`](ui-shell.md)). One fact, one doc.
 
-★★★ **EVERY BUDGET FIGURE IS EUR, AND THERE ARE EXACTLY TWO CONVERSION POINTS.** Role rates and
-per-bucket rate overrides are in the PLAN currency (decided §473, 2026-10-02); `bucketRateRows`
-divides them by `planCurrencyPerEur` (`fx.ts`) at the one place every money consumer reads them —
-report, burndown, rate mix, forecast. `BudgetBucket.fixedPriceAmount` is stored in the BUCKET's
-currency and passes through `currencyToEur`. A new money term built from `bucketRateRows` or from
-`fixedPriceAmount` is EUR already; converting it again is a second conversion. A term built from
-role rates ANY OTHER WAY is plan currency and must divide by `planCurrencyPerEur` itself — the EVM
-tiles' blended rate (`budget-report-panel.tsx`) is the one such site today. The Resources views
-format rate-derived money in `plan.currency`, which is now correct rather than a contradiction.
+★★★ **EVERY BUDGET FIGURE IS IN THE BASELINE (`plan.currency`), AND THERE IS EXACTLY ONE CONVERSION
+POINT INTO IT** (§476, closed 2026-10-14; it replaced the EUR-only engine of §473). Role rates,
+per-bucket rate overrides and a change's `costImpact` are STORED in the baseline, so `bucketRateRows`
+passes them through unconverted to every money consumer — report, burndown, rate mix, forecast. The
+one stored money field in another currency is `BudgetBucket.fixedPriceAmount`, in the BUCKET's
+currency, and it passes through `currencyToBase`; the conversion sites are listed in "The FX
+boundary" below. A new money term built from `bucketRateRows`, from role rates or from
+`fixedPriceAmount` after `currencyToBase` is baseline already; converting it again is a second
+conversion. The one conversion OUT is display: `baseToCurrency`, for a bucket card shown in the
+bucket's own currency. The EVM tiles' blended rate (`budget-report-panel.tsx`) needs no conversion
+any more, and the Resources views, the Budget panel's project row, the report and the dashboard all
+format in `plan.currency`.
 
 ★★ **THREE BUDGET TYPES, TWO PRICED BY CONTRACT** (§488, 2026-10-02). `BUDGET_TYPES` is
 `tm` · `fixed` · `e2e`; ask `isContractPriced(type)` (`types.ts`), never `type === "fixed"`, for
@@ -34,44 +38,91 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
 
 ## The FX boundary (`fx.ts`)
 
-- **The rate means units of the bucket's currency per 1 EUR.** `currencyToEur` divides by it,
-  `eurToCurrency` multiplies. Both read `resolveRate`, and `resolveRate` and `resolveRateSource`
-  read ONE private precedence walk so the two cannot disagree: EUR bucket → 1; a positive
-  `fxRateOverride`; a positive cached ECB rate; else 1, reported as source `"unresolved"`.
+- **The rate means units of the bucket's currency per 1 unit of the BASELINE.** `currencyToBase`
+  divides by it, `baseToCurrency` multiplies. Both read `resolveRate(bucket, fxRates, base)`, whose
+  `base` argument is REQUIRED (pass `plan.currency`), and `resolveRate` and `resolveRateSource` read
+  ONE private precedence walk so the two cannot disagree: a bucket in the baseline → 1, source
+  `"base"`; otherwise both sides are resolved against EUR, the unit of the cached ECB table — the
+  baseline side from the cached rate (EUR itself is 1), the bucket side from a positive
+  `fxRateOverride`, else the cached rate (an EUR bucket is 1) — and the rate is the CROSS RATE
+  bucket-per-EUR ÷ baseline-per-EUR, with the bucket side's source (`"override"` or `"cached"`); when
+  either side has no rate, 1, source `"unresolved"`.
+- ★★ **`fxRateOverride` STILL MEANS "UNITS OF THE BUCKET'S CURRENCY PER 1 EUR"**, whatever the
+  baseline. Its stored meaning did not change with §476, so a baseline switch never touches it; the
+  cross rate divides it by the baseline's own EUR rate at read time. Do not "convert it to the
+  baseline" in a switch or a migration.
 - ★★ **THE EUR CASE IS DECIDED BEFORE THE OVERRIDE, AT READ TIME.** It used to be decided after, so
   a stale override left on an EUR bucket divided the contract (an 80,000 EUR contract with a stale
   1.1 printed 72,727). Fixed in 1.0.2 by `020ab762b`. The bucket modal now drops the override on
   save when the currency is EUR (§475, closed), but buckets nobody re-saves still carry theirs.
-  Only the read-time rule repairs those, so do not "simplify" it away on the grounds that the modal
-  already clears the field.
-- ★★ **`"unresolved"` AND `"eur"` BOTH RETURN 1, AND SO CAN A REAL RATE.** Never infer "unresolved"
+  Only the read-time rule repairs those (`bucketPerEur` in `fx.ts` ignores the override on an EUR
+  bucket), so do not "simplify" it away on the grounds that the modal already clears the field.
+- ★★ **`"unresolved"` AND `"base"` BOTH RETURN 1, AND SO CAN A REAL RATE.** Never infer "unresolved"
   from `resolveRate(...) === 1`. Ask `resolveRateSource`. `bucketCurrencyLabel`
   (`budget-currency-label.ts`) is shared by the Budget panel and the Budget report so both
   surfaces decide the `(×rate)` / no-rate marker from the SOURCE (§474, closed).
 - ★ **Only a FIXED-PRICE bucket's OWN rate can put it at par.** A T&M bucket's money is hours × role
-  rates, which convert from the PLAN currency, so the bucket's own missing rate changes none of its
-  figures. ★ A non-EUR plan with no cached rate converts its rates at par instead, and no notice
-  counts that today — an EUR plan (every shipped sample) never reaches it.
+  rates, which are stored in the baseline, so the bucket's own missing rate changes none of its
+  figures. A baseline other than EUR with no cached rate leaves EVERY bucket in another currency
+  unresolved (the baseline side of the cross rate is missing), and the count says so.
   `countUnresolvedBuckets` counts fixed-price buckets only, and `BudgetFxRollupNotice` renders that
-  count under the EUR project rollup. The report's detail table (`detailRowRateSource` and the
+  count under the baseline project rollup. The report's detail table (`detailRowRateSource` and the
   `currencyLabel` in `BucketDetailTable`) renders an UNRESOLVED T&M row bare for the same reason; a
   T&M row with a resolved rate still gets `bucketCurrencyLabel`'s `(×rate)` suffix. The Budget
   panel's bucket CARD keeps the marker for T&M too, because the card displays through
-  `eurToCurrency` at that same rate.
-- **The conversion sites.** Every `currencyToEur` call converts `fixedPriceAmount`:
+  `baseToCurrency` at that same rate.
+- **The conversion sites.** Every `currencyToBase` call converts `fixedPriceAmount`:
   `computeBucketReport`, `computeBurndownSeries` and the forecast (`budget-forecast.ts`).
   Re-derive rather than trust this list:
-  `git grep -n "currencyToEur(" -- src/app ':!*.test.*'`.
+  `git grep -n "currencyToBase(" -- src/app ':!*.test.*'`. The one `baseToCurrency` caller is the
+  bucket card (`git grep -n "baseToCurrency(" -- src/app ':!*.test.*'`).
 - ★★ **`fxRates` IS A REQUIRED LAST PARAMETER** on `computeBucketReport`, `computeSpillover` and
-  `computeBudgetReport` (`0221e4bab`), so `tsc` lists every call site. Do not give it a default. An
-  all-EUR caller passes `null`, which is behaviour-preserving because `resolveRate` returns 1 there.
-  The budget-variance detector in `insights/detect.ts` passes an explicit `null` because it
-  reads hours only. Its comment says to thread a rate first if it ever reads a money term.
-- **Display.** The Budget panel's project row and the Budget report format in EUR (`projCur` and
-  the report's `money` helper are the literal `"EUR"`). A bucket card converts the engine's EUR
-  outward with `eurToCurrency` for display in the bucket's own currency. Trends labels
-  `remainingCost` as EUR at the reader, because snapshots no longer carry a currency (§469, closed).
-  The dead `currency` column still sits in existing Turso `snapshot` tables. Dropping it is §551.
+  `computeBudgetReport` (`0221e4bab`), so `tsc` lists every call site. Do not give it a default. A
+  caller whose buckets are all in the baseline passes `null`, which is behaviour-preserving because
+  `resolveRate` returns 1 there. The budget-variance detector in `insights/detect.ts` passes an
+  explicit `null` because it reads hours only. Its comment says to thread a rate first if it ever
+  reads a money term.
+- **Display.** The Budget panel's project row and the Budget report format in the baseline
+  (`projCur` in `budget-panel.tsx` and the report's `money` helper both read `plan.currency`). A
+  bucket card converts the engine's baseline figures outward with `baseToCurrency` for display in the
+  bucket's own currency. The dashboard model carries `currency` (`plan.currency`), and the
+  assistant's dashboard snapshot puts it at the top level (`ai-dashboard-snapshot.ts`) so the model
+  is told which unit every money figure is in. Trends labels `remainingCost` in the baseline at the
+  reader, because snapshots carry no currency (§469, closed) — they are rebased first (below). The
+  dead `currency` column still sits in existing Turso `snapshot` tables. Dropping it is §551.
+
+## The baseline currency and its history (§476)
+
+- **Chosen at creation.** The create-project wizard (`create-project-wizard.tsx`) offers the
+  currency; `new-project-workspace.ts` sets `plan.currency` and, for a currency other than the
+  default, stamps a CREATION entry (no `perPrevious`) in `baselineHistory`. An imported workspace's
+  own plan currency wins over the wizard's choice.
+- **Switched from the Budget panel.** `BaselineCurrencyControl` (`baseline-currency-control.tsx`)
+  sits in the Budget panel's toolbar, never in a popout (`!isPopout`). ★★ It is DISABLED until a
+  rate refresh succeeds in THIS session: it reads `useFxRates().sessionRates`, never the cached
+  `workspace.fxRates`, because the switch converts every stored rate once at today's rate and a
+  months-old cached table must not drive it. Choosing a currency opens `BaselineSwitchDialog`
+  (`baseline-switch-dialog.tsx`), which lists every converted value; only Confirm writes.
+- **`planBaselineSwitch` (`baseline-switch.ts`) is the pure planner.** It multiplies every stored
+  baseline money rate ONCE by the cross rate (`crossRate` in `baseline-currency.ts`: units of the new
+  baseline per 1 unit of the old, via the EUR table), rounded to 2 decimals — the four role rates
+  (day-based roles re-materialised), the two bucket rate overrides and every change's `costImpact`.
+  ★★ It NEVER touches `fixedPriceAmount` (stored in the bucket's currency) or `fxRateOverride`
+  (per EUR, above). Confirm re-plans from LIVE state and writes through five setters (`setRoles`,
+  `setBudgets`, `setChanges`, `setPlan`, `setBaselineHistory`).
+- ★★ **THE SWITCH IS NOT UNDOABLE.** It captures no undo entry; the dialog says so, and switching
+  back is the way back (at that day's rate, so a round trip need not restore the old figures exactly).
+- **`baselineHistory` (`Workspace.baselineHistory`, entries `BaselineEntry`: `from`, `at`,
+  `currency`, `perPrevious?`).** Every switch appends one entry whose `perPrevious` is the cross rate
+  it used. It is a meta-blob slice on all six write paths
+  (`grep -c "baselineHistory" src/app/turso-tenant-schema.ts` → 3) and, like `budgetHistory`, is
+  absent from the version-restore funnel ([`activity-log.md`](activity-log.md)).
+- ★★★ **STORED HISTORY IS NEVER REWRITTEN; IT IS REBASED AT READ TIME.** Snapshots and
+  `budgetHistory` entries stay in the currency they were captured in. `rebaseFactor` multiplies the
+  `perPrevious` of every switch LATER than a record's timestamp, and `rebaseSnapshots` (in
+  `use-snapshots.ts`) and `rebaseBudgetHistory` (in `budget-forecast-bundle.ts`) apply it before any
+  reader sees the record. A new reader of either must go through those two call sites, never the raw
+  slice: `git grep -n "rebaseSnapshots(\|rebaseBudgetHistory(" -- src/app ':!*.test.*'`.
 
 ## Where the rates come from, and rounding
 
@@ -102,12 +153,12 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   `"month"`) and a start or end date that does not parse (each replaced ALONE by the default's —
   which can itself produce a reversed window, left unswapped like any stored one). The suite pins
   each shape with its own fixture.
-- ★★ **A NON-EUR PLAN: RATES ARE IN ITS CURRENCY (§473, closed 2026-10-02).** When the plan and a
-  fixed-price bucket share one non-EUR currency, `planCurrencyPerEur` reuses the BUCKET's rate
-  resolution (its `fxRateOverride` included), so the contract and the cost divide by the same number
-  and the margin is the contract-currency margin, converted — it was wrong from 1.0.2 until then.
-  Otherwise the plan currency resolves from the cached ECB rate (it has no override of its own).
-  A configurable baseline currency is §476.
+- ★★ **THE PLAN CURRENCY IS THE BASELINE (§473 closed 2026-10-02, §476 closed 2026-10-14).** §473
+  decided that rates are in the plan's currency and converted them to EUR; §476 made that currency
+  the unit the engine computes in, so rates are no longer converted at all. A fixed-price bucket in
+  the baseline is at par by definition (source `"base"`), so its contract and its cost share one unit
+  and the margin is the contract-currency margin — the case §473 had to fix by reusing the bucket's
+  rate resolution, a helper that is now removed.
 
 ## Budget follows plan
 
@@ -540,8 +591,7 @@ engines live in `src/app/budget-import/` (no i18n, no React).
 
 ## Open register entries
 
-§473 (a non-EUR plan) · §476 (the
-baseline currency is hardcoded EUR) · §551 (the dead snapshot
-`currency` column). This list was read off the register on 2026-09-27 and is not gated (§500 removed
-on its closure, 2026-10-12). Re-check
+§551 (the dead snapshot `currency` column). This list was read off the register on 2026-09-27 and is
+not gated (§500 removed on its closure, 2026-10-12; §473, closed 2026-10-02, and §476, closed
+2026-10-14, removed on 2026-10-14). Re-check
 it against the headings, since a `budget` search also returns entries about other budgets.

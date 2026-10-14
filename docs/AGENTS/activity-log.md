@@ -86,9 +86,10 @@ newest entries until the next save.
   diffs the funnels off to distrust the doc or to "complete the pattern" on the rest. ★★★ **THAT
   SENTENCE HAS NOW BEEN OVERTAKEN THREE TIMES BY SLICES THAT NEVER OPENED THIS FILE** —
   `documentAssets` joined `applyWorkspaceFromLoad` with S3c-1, `budgetHistory` with the budget-history
-  persistence slice, and nothing here moved either time (`baselineHistory` was added here in its own commit). Do not repair it by writing FIVE and walking
+  persistence slice, and nothing here moved either time. (`baselineHistory`, §476, is the exception: the
+  commit that persisted that slice on all six write paths also named it here.) Do not repair it by writing FIVE and walking
   away; re-derive, which is why the commands sit below rather than the count. ★★ That diff returns
-  EIGHT names, not six — the sixth and seventh are `setLoadedBackend` and `setSettledBackend`: the load
+  EIGHT names, not six — the seventh and eighth are `setLoadedBackend` and `setSettledBackend`: the load
   GATE (`workspaceLoaded` derives from the first) and the §548 load-hold signal (`loadPending` derives
   from the second), not workspace slices. The comment above `applyRestoredWorkspace` already says the
   restore funnel deliberately omits the first; a restore settles no load, so it omits the second too.
@@ -108,10 +109,10 @@ newest entries until the next save.
   and the command COULD go back into the source comment. The reason to keep it HERE is unchanged and
   is the one that always mattered: prose describing a command is not a command, and a comment that
   gets condensed loses it again. Read the paragraph above as the rationale, not the line count.
-  `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **31**
+  `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **32**
   `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/use-version-history-wiring.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
   `comm -23 <(sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/use-version-history-wiring.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
-  → `setActivityLog(` `setBudgetHistory(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(` `setSettledBackend(`
+  → `setActivityLog(` `setBaselineHistory(` `setBudgetHistory(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(` `setSettledBackend(`
   ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
   `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
   end anchor there ran 676 lines and reported 39 while it lived in `task-manager.tsx`. Since §491 moved
