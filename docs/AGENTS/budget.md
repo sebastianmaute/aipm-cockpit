@@ -150,13 +150,21 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
     modals because the save hooks (`commitBuckets`, `handleSaveChange`) have no notion of when an
     editor opened.
   - **A stored AI insight recommendation.** `recommendationPredatesSwitch` (`insights/insight.ts`)
-    is true when some switch entry (one with `perPrevious`) starts on or after the recommendation's
-    `generatedAt` and a proposed call carries a money argument (`REC_MONEY_ARGS`, today only
-    `costImpact`; `insight-money-args.test.ts` derives the set from the tool schemas, so a new money
-    argument on an allowed tool fails it until listed). `confirmInsightRecommendation` then refuses the
-    WHOLE apply: nothing is written, the insight stays `proposed`, and the toast
-    (`insightRecommendationCurrencyChanged`) asks for a new recommendation. `generatedAt` is a DAY, so a
-    switch on the same day refuses too. Calls without money arguments apply as before.
+    is true when a proposed call carries a money argument (`REC_MONEY_ARGS`, today only `costImpact`)
+    and a switch was made after the recommendation was generated. ★ "After" is the history LENGTH, not
+    the day: the stored recommendation is stamped with `baselineHistory.length` as it was when its
+    prompt was built (`historyLength`, carried on the generators' prompt-time snapshot,
+    `RecommendSnapshot`, and stamped in `useInsightRecommendations`' store callback), and a longer
+    history at apply means a switch since. `generatedAt` is only a day, so comparing it would refuse a
+    recommendation regenerated on the day of a switch for the rest of that day. A recommendation with
+    no stamp (an older build) is refused once the history holds any switch entry (one with
+    `perPrevious`; the creation entry is not one). The stamp is persisted (`sanitizeInsights` keeps a
+    non-negative integer) and counts as a material change in `insightsMateriallyEqual`.
+    `insight-money-args.test.ts` makes every number argument of an allowed tool either a money
+    argument or one named in its explicit non-money list, so a new one must be classified.
+    `confirmInsightRecommendation` then refuses the WHOLE apply: nothing is written, the insight stays
+    `proposed`, and the toast (`insightRecommendationCurrencyChanged`) asks for a new recommendation.
+    Calls without money arguments apply as before.
 - **The switch is LOGGED** (owner requirement): Confirm writes ONE `plan.currencySwitched` activity entry, actor
   `"user"`, args `[from, to, rate, ECB date]` (rate rounded by `roundRate` to 6 decimals). The stored
   args never change; the activity PANEL formats the rate and the date in the viewer's locale at render
