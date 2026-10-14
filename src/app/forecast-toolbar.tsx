@@ -96,6 +96,11 @@ export function ForecastToolbar({
   onResetSize: () => void;
 }) {
   const effortAvailable = coverage >= EFFORT_MODE_MIN_COVERAGE;
+  const effortReasonId = useId();
+  // Visible as well as the title: a disabled radio takes no focus and a title shows only on hover.
+  const effortReason = effortAvailable
+    ? undefined
+    : t(lang, "forecastEffortUnavailable", Math.round(EFFORT_MODE_MIN_COVERAGE * 100), Math.round(coverage * 100));
   const field = (f: WhatIfField, labelKey: TranslationKey) => (
     <WhatIfNumberField lang={lang} label={t(lang, labelKey)} value={whatIf[f]} onCommit={(raw) => onCommitWhatIf(f, raw)} />
   );
@@ -115,16 +120,18 @@ export function ForecastToolbar({
         value={effortAvailable ? unit : "tasks"}
         onChange={onUnitChange}
         disabled={!effortAvailable}
-        title={
-          effortAvailable
-            ? undefined
-            : t(lang, "forecastEffortUnavailable", Math.round(EFFORT_MODE_MIN_COVERAGE * 100), Math.round(coverage * 100))
-        }
+        title={effortReason}
+        ariaDescribedBy={effortReason ? effortReasonId : undefined}
         options={[
           { value: "tasks", label: t(lang, "forecastUnitTasks") },
           { value: "effort", label: t(lang, "forecastUnitEffort") },
         ]}
       />
+      {effortReason && (
+        <span id={effortReasonId} className="text-xs text-muted-foreground">
+          {effortReason}
+        </span>
+      )}
       <label className="flex items-center gap-1 text-xs text-muted-foreground">
         {t(lang, "forecastWindowLabel")}
         <Select size="xs" value={windowValue(historyWindow)} onChange={(e) => onWindowChange(parseWindow(e.target.value))}>

@@ -72,14 +72,21 @@ describe("ForecastPanel", () => {
   test("effort toggle is disabled with a reason under 70% coverage", () => {
     renderPanel([...open(5), ...steadyDone(60)]);
     expect((screen.getByRole("radio", { name: "Effort" }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByRole("radiogroup", { name: "Forecast unit" }).getAttribute("title")).toBe(
-      "Effort needs an estimate on 70% of open tasks; 0% have one.",
-    );
+    const reason = "Effort needs an estimate on 70% of open tasks; 0% have one.";
+    const group = screen.getByRole("radiogroup", { name: "Forecast unit" });
+    expect(group.getAttribute("title")).toBe(reason);
+    // Visible text too (a disabled radio cannot be focused to reveal a title), and the group's description.
+    const hint = screen.getByText(reason);
+    expect(hint.closest("[title]"), "the hint is its own visible node, not the title").toBeNull();
+    expect(group.getAttribute("aria-describedby")).toBe(hint.id);
+    expect(hint.id).not.toBe("");
   });
 
   test("effort toggle is enabled at full coverage", () => {
     renderPanel([...open(5, { originalEstimateMinutes: 60 }), ...steadyDone(60, 60)]);
     expect((screen.getByRole("radio", { name: "Effort" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByRole("radiogroup", { name: "Forecast unit" }).hasAttribute("aria-describedby")).toBe(false);
+    expect(screen.queryByText(/Effort needs an estimate/)).toBeNull();
   });
 
   test("an invalid capacity reverts and shows the message", async () => {
