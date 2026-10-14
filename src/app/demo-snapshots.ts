@@ -27,6 +27,7 @@ import {
   type RaidItem, type RaidStatus, type Task,
 } from "./types";
 import { DEMO_AS_OF } from "./demo-workspace";
+import { rebaseFactor, scaleSnapshotMoney } from "./baseline-currency";
 import type { Workspace } from "./workspace";
 
 /** Hour of the replayed capture, matching an end-of-day Friday auto-capture. */
@@ -224,7 +225,13 @@ export function demoSnapshotFridays(startDate: string, asOf: string): string[] {
 }
 
 /** One record per replay Friday, captured at that Friday's `CAPTURE_TIME`; the first
- *  is the baseline. Mirrors `useTrendSnapshots`' `buildContext` call for call. */
+ *  is the baseline. Mirrors `useTrendSnapshots`' `buildContext` call for call.
+ *  ★ §476 B8: the replay computes every figure from TODAY's rates, so in the CURRENT
+ *  baseline, but stamps a PAST `capturedAt` — and `useSnapshots` rebases each stored record
+ *  by every switch after its capture (`rebaseSnapshots`). Emitted as computed, a record from
+ *  before a switch would be converted a second time. So each record's money is divided by
+ *  `rebaseFactor(baselineHistory, capturedAt)`: stored in the currency in force at its
+ *  capture, like a live record, and read back as computed. */
 export function buildDemoSnapshots(ws: Workspace, asOf: string): SnapshotRecord[] {
   return demoSnapshotFridays(ws.plan.startDate, asOf).map((friday, i) => {
     const w = workspaceAsOf(ws, friday, asOf);
@@ -249,10 +256,12 @@ export function buildDemoSnapshots(ws: Workspace, asOf: string): SnapshotRecord[
         null,
       ),
     );
+    const capturedAt = `${friday}${CAPTURE_TIME}`;
     const record = buildSnapshot({
       model, tasks, milestones, buckets: budgets, planEndDate: w.plan.endDate,
-      capturedAt: `${friday}${CAPTURE_TIME}`, cadence: "weekly", trigger: "auto",
+      capturedAt, cadence: "weekly", trigger: "auto",
     });
-    return { ...record, isBaseline: i === 0 };
+    const inForce = scaleSnapshotMoney(record, 1 / rebaseFactor(ws.baselineHistory ?? [], capturedAt));
+    return { ...inForce, isBaseline: i === 0 };
   });
 }

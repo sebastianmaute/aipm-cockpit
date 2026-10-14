@@ -84,24 +84,28 @@ export const roundRate = (rate: number): number => Math.round(rate * 1e6) / 1e6;
 
 const scale = (v: number | null, f: number): number | null => (v === null ? null : v * f);
 
+/** A snapshot with every money figure multiplied by `f` (`remainingCost` and the series'
+ *  planned/actual cost). The one definition of "a snapshot's money", shared by the read-time
+ *  rebase and the demo builder (which divides, §476 B8). */
+export function scaleSnapshotMoney(s: SnapshotRecord, f: number): SnapshotRecord {
+  if (f === 1) return s;
+  return {
+    ...s,
+    remainingCost: scale(s.remainingCost, f),
+    series: s.series.map((p) => ({
+      ...p,
+      plannedCost: p.plannedCost * f,
+      actualCost: scale(p.actualCost, f),
+    })),
+  };
+}
+
 export function rebaseSnapshots(
   snaps: readonly SnapshotRecord[],
   history: readonly BaselineEntry[],
 ): SnapshotRecord[] {
   if (history.length === 0) return snaps as SnapshotRecord[];
-  return snaps.map((s) => {
-    const f = rebaseFactor(history, s.capturedAt);
-    if (f === 1) return s;
-    return {
-      ...s,
-      remainingCost: scale(s.remainingCost, f),
-      series: s.series.map((p) => ({
-        ...p,
-        plannedCost: p.plannedCost * f,
-        actualCost: scale(p.actualCost, f),
-      })),
-    };
-  });
+  return snaps.map((s) => scaleSnapshotMoney(s, rebaseFactor(history, s.capturedAt)));
 }
 
 export function rebaseBudgetHistory(
