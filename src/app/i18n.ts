@@ -781,8 +781,15 @@ const enUS = {
   forecastInsufficientDays: "{0} of {1} working days of history — {2} more needed",
   forecastInsufficientDaysCut:
     "{0} of {1} working days of history — {2} more needed. The window was shortened to start at the first completion, {3}.",
-  forecastBasis: "{0} runs of your last {1} working days ({2} finished tasks)",
-  forecastBasisAll: "{0} runs of all {1} working days of history ({2} finished tasks)",
+  // Two counts, so the sentence takes one plural fragment per noun (§450):
+  // {1} is a forecastBasisWindow*/forecastBasisWindowAll* fragment, {2} a forecastBasisFinished one.
+  forecastBasis: "{0} runs of {1} ({2})",
+  forecastBasisWindow: "your last {0} working days",
+  forecastBasisWindowOne: "your last {0} working day",
+  forecastBasisWindowAll: "all {0} working days of history",
+  forecastBasisWindowAllOne: "{0} working day of history",
+  forecastBasisFinished: "{0} finished tasks",
+  forecastBasisFinishedOne: "{0} finished task",
   forecastDoneWithoutDate: "{0} done tasks have no completion date and are not counted.",
   forecastDoneWithoutDateOne: "{0} done task has no completion date and is not counted.",
   forecastBeyondShare: "{0} of runs take longer than 5 years.",
@@ -804,6 +811,7 @@ const enUS = {
   forecastColChancePrioritised: "Chance if prioritised",
   forecastColGap: "Gap",
   forecastGapPoints: "{0} pts",
+  forecastGapPointsOne: "{0} pt",
   forecastWhatIfMilestoneNote: "What-if scope does not change milestone chances; they use the real linked tasks.",
   forecastGapInfo: "The pace and efficiency forecasts differ by {0} ({1} of budget).",
   forecastGapWarning: "Warning: the pace and efficiency forecasts differ by {0} ({1} of budget).",

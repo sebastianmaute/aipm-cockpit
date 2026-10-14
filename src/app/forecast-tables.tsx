@@ -60,8 +60,24 @@ export function PercentileTable({
   onTargetChange: (iso: string) => void;
 }) {
   const [invalid, setInvalid] = useState(false);
+  // Typing and arrow-stepping edit a draft; only blur or Enter commits it, so the forecast reruns once
+  // per accepted date, as the What-if fields do. `base` is the target the draft was started from.
+  const [draft, setDraft] = useState<{ base: string; text: string } | null>(null);
+  // Render-time reconcile: a target changed from outside (midnight re-clamp) drops a draft begun against the old one.
+  if (draft !== null && draft.base !== target) setDraft(null);
   const messageId = useId();
   const targetText = formatDayMonthYear(target, localeFor(lang));
+  const commit = () => {
+    if (draft === null) return;
+    setDraft(null);
+    const iso = draft.text;
+    if (!ISO_DATE.test(iso)) return;
+    // A target before today counts no working days, and one past the horizon is capped (R15):
+    // refuse both like an invalid What-if value.
+    const accepted = iso >= today && iso <= maxTarget;
+    setInvalid(!accepted);
+    if (accepted) onTargetChange(iso);
+  };
   return (
     <Section title={t(lang, "forecastPercentilesTitle")}>
       <div className="mb-2 flex flex-wrap items-center gap-4 text-sm">
@@ -71,19 +87,15 @@ export function PercentileTable({
           <Input
             type="date"
             size="xs"
-            value={target}
+            value={draft?.text ?? target}
             min={today}
             max={maxTarget}
             invalid={invalid}
             aria-describedby={invalid ? messageId : undefined}
-            onChange={(e) => {
-              const iso = e.target.value;
-              if (!ISO_DATE.test(iso)) return;
-              // A target before today counts no working days, and one past the horizon is capped (R15):
-              // refuse both like an invalid What-if value.
-              const accepted = iso >= today && iso <= maxTarget;
-              setInvalid(!accepted);
-              if (accepted) onTargetChange(iso);
+            onChange={(e) => setDraft({ base: target, text: e.target.value })}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
             }}
           />
         </label>
@@ -146,7 +158,8 @@ function stateText(result: MilestoneChance, lang: Lang): string | null {
 
 function formatGap(points: number, lang: Lang): string {
   const signed = points > 0 ? `+${points}` : String(points);
-  return t(lang, "forecastGapPoints", signed);
+  // The magnitude selects the form: tPlural reads any negative as plural, and "-1 pt" is singular too.
+  return tPlural(lang, "forecastGapPoints", Math.abs(points), signed);
 }
 
 export function MilestoneTable({

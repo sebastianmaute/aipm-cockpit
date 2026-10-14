@@ -121,11 +121,15 @@ forecast's formatter) rather than owning a formatter of its own.
 - **Capacity** is `capacityPercent / 100` on every draw, clamped to 10–300 %.
 - **Trial count.** Always `FORECAST_TRIALS` (10,000). Owner decision 2026-10-14: there is no adaptive
   fallback to 5,000 (it was removed; the early exits that came with it stay and are result-identical).
-  What-if extremes are user-triggered (an opt-in mode, committed on blur or Enter), so a one-off pause
-  of about 600 ms (see "Performance") is accepted, and there is no worker. `result.trials` carries the
-  count and the caption prints it ("10,000 runs …"). An explicit `input.trials` (the tests) is used as
-  given. Pinned by "always FORECAST_TRIALS, a What-if extreme included, the same on every call" in
-  `index.test.ts` and the panel's caption test.
+  What-if extremes are user-triggered (an opt-in mode), so a one-off pause of about 600 ms (see
+  "Performance") per recompute is accepted, and there is no worker. Exactly four inputs commit on blur
+  or Enter rather than per change: the three What-if number fields
+  (`grep -c '{field("' src/app/forecast-toolbar.tsx` = 3) and the How-many target date. The History
+  `<select>` and the Quick/What-if and unit toggles recompute on change — each is one discrete choice
+  among a few options, not a value stepped through — so with an extreme applied every such choice costs
+  one pause. `result.trials` carries the count and the caption prints it ("10,000 runs …"). An explicit
+  `input.trials` (the tests) is used as given. Pinned by "always FORECAST_TRIALS, a What-if extreme
+  included, the same on every call" in `index.test.ts` and the panel's caption test.
 
 ## Effort unit
 
@@ -180,7 +184,12 @@ the engine once per input change in a `useMemo`. Quick always runs the plain for
 What-if fields hold. None of this is saved to the project. The How-many target, stored or defaulted, is
 clamped into [`today`, `lastForecastableDay`] on every render by `clampHowManyTarget`, so a passing
 midnight or a far plan end re-clamps it. The date input carries the same `min` and `max` and refuses a
-date outside them with `forecastInputInvalid` (R15). The default window is 60 working days; the
+date outside them with `forecastInputInvalid` (R15). Typing or arrow-stepping the date edits a draft in
+`PercentileTable`; blur or Enter commits it, so the forecast reruns once per accepted date. A draft
+remembers the target it began from, and a render-time reconcile drops it when the committed target
+changes underneath (a new plan end, a midnight re-clamp). Pinned by "the How many target commits on
+blur or Enter, not on each change (M5)" and "a draft target is dropped when the committed target
+changes from outside (M5)" (`forecast-panel.test.tsx`). The default window is 60 working days; the
 axe spec selects **"All history" (R13)** and waits for the chart so axe sees the forecast state, not
 only the empty state.
 

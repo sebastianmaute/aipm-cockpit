@@ -52,6 +52,22 @@ describe("MilestoneTable", () => {
     expect(within(row).getByText("100%")).toBeTruthy();
   });
 
+  test("a one-point gap reads in the singular, either sign (M7)", () => {
+    render(
+      <MilestoneTable
+        lang="en-US"
+        milestones={[ms(1, "Up"), ms(2, "Down"), ms(3, "Flat"), ms(4, "Wide")]}
+        chances={[chance(1, 0.5, 0.51), chance(2, 0.51, 0.5), chance(3, 0.5, 0.5), chance(4, 0.5, 0.62)]}
+        whatIf={false}
+      />,
+    );
+    const gap = (name: string) => within(screen.getByRole("row", { name: new RegExp(name) })).getAllByRole("cell").at(-1)?.textContent;
+    expect(gap("Up")).toBe("+1 pt");
+    expect(gap("Down")).toBe("-1 pt");
+    expect(gap("Flat")).toBe("0 pts");
+    expect(gap("Wide")).toBe("+12 pts");
+  });
+
   test("a row whose date is not a valid day renders a blank date, never throws (R16)", () => {
     // The engine omits such a milestone; the table still must not format "" (RangeError: Invalid time value).
     render(

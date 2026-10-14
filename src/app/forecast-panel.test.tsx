@@ -31,6 +31,11 @@ function renderPanel(tasks: Task[], holidaySet: ReadonlySet<string> = NO_HOLIDAY
   );
 }
 const p50 = () => within(screen.getByRole("row", { name: /^P50/ })).getAllByRole("cell")[0].textContent;
+/** The How-many date commits on blur or Enter only (M5): type a value, then leave the field. */
+function commitTarget(input: HTMLElement, value: string) {
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+}
 
 describe("ForecastPanel", () => {
   beforeAll(async () => {
@@ -119,6 +124,55 @@ describe("ForecastPanel", () => {
     expect(screen.getByText("1 done task has no completion date and is not counted.")).toBeTruthy();
   });
 
+  test("an empty backlog captions its 0 or 1 counts grammatically, EN and DE (M4)", async () => {
+    const user = userEvent.setup();
+    // The floor is skipped for an empty backlog, so one finish today still forecasts.
+    const one = steadyDone(1);
+    const { unmount } = renderPanel(one);
+    expect(screen.getByText("10,000 runs of your last 1 working day (1 finished task)")).toBeTruthy();
+    await user.selectOptions(screen.getByLabelText("History"), "all");
+    expect(screen.getByText("10,000 runs of 1 working day of history (1 finished task)")).toBeTruthy();
+    unmount();
+    const { unmount: unmountEmpty } = renderPanel([]);
+    expect(screen.getByText("10,000 runs of your last 0 working days (0 finished tasks)")).toBeTruthy();
+    unmountEmpty();
+    render(<ForecastPanel lang="de" tasks={one} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} />);
+    expect(screen.getByText("10.000 Durchläufe über Ihren letzten 1 Arbeitstag (1 erledigte Aufgabe)")).toBeTruthy();
+  });
+
+  test("the caption reads in German with many days and tasks", () => {
+    render(<ForecastPanel lang="de" tasks={[...open(5), ...steadyDone(60)]} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} />);
+    expect(screen.getByText("10.000 Durchläufe über Ihre letzten 60 Arbeitstage (60 erledigte Aufgaben)")).toBeTruthy();
+  });
+
+  test("the How many target commits on blur or Enter, not on each change (M5)", () => {
+    renderPanel([...open(5), ...steadyDone(60)]);
+    const input = screen.getByLabelText("How many by") as HTMLInputElement;
+    const header = (name: string) => screen.queryByRole("columnheader", { name });
+    fireEvent.change(input, { target: { value: "2026-11-02" } });
+    expect(input.value, "the draft shows while typing").toBe("2026-11-02");
+    expect(header("At least, by Dec 31, 2026"), "no recompute before the commit").toBeTruthy();
+    fireEvent.blur(input);
+    expect(header("At least, by Nov 2, 2026"), "blur commits").toBeTruthy();
+    fireEvent.change(input, { target: { value: "2026-11-09" } });
+    expect(header("At least, by Nov 2, 2026"), "still no recompute per change").toBeTruthy();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(header("At least, by Nov 9, 2026"), "Enter commits").toBeTruthy();
+  });
+
+  test("a draft target is dropped when the committed target changes from outside (M5)", () => {
+    const tasks = [...open(5), ...steadyDone(60)];
+    const { rerender } = renderPanel(tasks);
+    const input = screen.getByLabelText("How many by") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "2026-11-02" } });
+    // The default target follows the plan end; a new plan end replaces it under the uncommitted draft.
+    const later = { ...PLAN, endDate: "2026-12-18" } as ResourcePlan;
+    rerender(<ForecastPanel lang="en-US" tasks={tasks} milestones={NO_MILESTONES} plan={later} today={TODAY} holidaySet={NO_HOLIDAYS} />);
+    expect(input.value).toBe("2026-12-18");
+    fireEvent.blur(input);
+    expect(screen.getByRole("columnheader", { name: "At least, by Dec 18, 2026" })).toBeTruthy();
+  });
+
   test("percentile lines sit on the tick of their own date", () => {
     // Every run finishes on day 5 (Oct 21), the end of week 0: tick 0 and the first curve point.
     const { container } = renderPanel([...open(5), ...steadyDone(60)]);
@@ -134,12 +188,12 @@ describe("ForecastPanel", () => {
     renderPanel([...open(5), ...steadyDone(60)]);
     const input = screen.getByLabelText("How many by") as HTMLInputElement;
     expect(input.value).toBe("2026-12-31");
-    fireEvent.change(input, { target: { value: "2026-10-01" } });
+    commitTarget(input, "2026-10-01");
     expect(screen.getByText("Not a valid value; the previous one is kept.")).toBeTruthy();
     expect(input.getAttribute("aria-invalid")).toBe("true");
     expect(input.value).toBe("2026-12-31");
     expect(screen.getByRole("columnheader", { name: "At least, by Dec 31, 2026" })).toBeTruthy();
-    fireEvent.change(input, { target: { value: TODAY } });
+    commitTarget(input, TODAY);
     expect(screen.queryByText("Not a valid value; the previous one is kept.")).toBeNull();
     expect(screen.getByRole("columnheader", { name: "At least, by Oct 14, 2026" })).toBeTruthy();
   });
@@ -149,10 +203,10 @@ describe("ForecastPanel", () => {
     const input = screen.getByLabelText("How many by") as HTMLInputElement;
     const max = nthWorkingDayAfter(TODAY, MAX_HORIZON_WORKING_DAYS, NO_HOLIDAYS);
     expect(input.getAttribute("max")).toBe(max);
-    fireEvent.change(input, { target: { value: "2206-10-14" } });
+    commitTarget(input, "2206-10-14");
     expect(screen.getByText("Not a valid value; the previous one is kept.")).toBeTruthy();
     expect(input.value).toBe("2026-12-31");
-    fireEvent.change(input, { target: { value: max } });
+    commitTarget(input, max);
     expect(screen.queryByText("Not a valid value; the previous one is kept.")).toBeNull();
     expect(input.value).toBe(max);
   });
@@ -160,7 +214,7 @@ describe("ForecastPanel", () => {
   test("a stored target is re-clamped when today moves past it (T5e)", () => {
     const tasks = [...open(5), ...steadyDone(60)];
     const { rerender } = renderPanel(tasks);
-    fireEvent.change(screen.getByLabelText("How many by"), { target: { value: TODAY } });
+    commitTarget(screen.getByLabelText("How many by"), TODAY);
     expect(screen.getByRole("columnheader", { name: "At least, by Oct 14, 2026" })).toBeTruthy();
     rerender(
       <ForecastPanel lang="en-US" tasks={tasks} milestones={NO_MILESTONES} plan={PLAN} today="2026-10-16" holidaySet={NO_HOLIDAYS} />,

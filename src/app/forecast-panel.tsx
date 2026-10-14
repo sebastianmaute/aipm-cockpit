@@ -188,10 +188,11 @@ function InsufficientState({ lang, result }: { lang: Lang; result: ForecastInsuf
 function ForecastCaption({ lang, forecast, historyWindow }: { lang: Lang; forecast: ScheduleForecast; historyWindow: HistoryWindow }) {
   const locale = localeFor(lang);
   const runs = new Intl.NumberFormat(locale).format(forecast.trials);
-  const basis =
-    historyWindow === "all"
-      ? t(lang, "forecastBasisAll", runs, forecast.windowDays, forecast.finished)
-      : t(lang, "forecastBasis", runs, forecast.windowDays, forecast.finished);
+  // An empty backlog skips the history floor, so either count can be 0 or 1 here.
+  const days = forecast.windowDays;
+  const windowText = tPlural(lang, historyWindow === "all" ? "forecastBasisWindowAll" : "forecastBasisWindow", days, days);
+  const finishedText = tPlural(lang, "forecastBasisFinished", forecast.finished, forecast.finished);
+  const basis = t(lang, "forecastBasis", runs, windowText, finishedText);
   const beyond = t(lang, "forecastPercent", forecast.beyondShare < 0.01 ? "< 1" : Math.round(forecast.beyondShare * 100));
   return (
     <div className="space-y-0.5 text-xs text-muted-foreground">
