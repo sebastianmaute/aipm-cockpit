@@ -24,6 +24,7 @@ import type { SuggestedAction } from "./next-actions/types";
 import { groupNextActions, pickHeroGroup } from "./next-actions/group";
 import { t } from "./i18n";
 import { markDemoBannerDone } from "./demo-banner-state";
+import { DEMO_SAMPLE_NAME } from "./demo-project";
 import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 
 vi.mock("./use-settings", () => ({
@@ -1410,5 +1411,53 @@ describe("WorkspaceSection — the dashboard demo banner (§712)", () => {
     markDemoBannerDone();
     renderAtDashboard(vi.fn());
     expect(screen.queryByText(TEXT())).toBeNull();
+  });
+
+  it("M3: is hidden on the demo project itself", () => {
+    const currentProject = { name: t("en-US", "demoProjectName", DEMO_SAMPLE_NAME) } as WorkspaceSectionProps["currentProject"];
+    render(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps({ onLoadDemo: vi.fn(), currentProject })} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-dashboard"));
+    expect(screen.queryByText(TEXT())).toBeNull();
+  });
+});
+
+describe("WorkspaceSection — the budget checklist offers the demo only where it can open (§712, M2)", () => {
+  function TabProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-budget" onClick={() => setActiveTab("budget")} />;
+  }
+  const renderAtBudget = async (onLoadDemo: () => void) => {
+    render(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps({ onLoadDemo })} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-budget"));
+    await screen.findByTestId("budget-panel");
+    return budgetPanelMock.props.at(-1)!;
+  };
+
+  beforeEach(() => {
+    budgetPanelMock.props.length = 0;
+    window.localStorage.clear();
+  });
+  afterEach(() => window.localStorage.clear());
+
+  it("passes the demo handler when the demo can open", async () => {
+    const onLoadDemo = vi.fn();
+    expect((await renderAtBudget(onLoadDemo)).onLoadDemo).toBe(onLoadDemo);
+  });
+
+  it("withholds it when the local demo is refused: a browser-backed project and no usable Turso", async () => {
+    saveRegistry(addProject(emptyRegistry(), { id: "p1", name: "Acme", code: "AC", storageConfig: { kind: "browser" } }, true));
+    expect((await renderAtBudget(vi.fn())).onLoadDemo).toBeUndefined();
   });
 });

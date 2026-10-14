@@ -65,6 +65,13 @@ export function isLocalDemoBlocked(tursoUsable: boolean, browserProject: Project
   return !tursoUsable && browserProject !== null;
 }
 
+/** True for the Turso demo project itself, whichever language created it: the EN and DE names
+ *  (`demoProjectName`) differ only in the case of "(demo)", so the match ignores case. */
+export function isDemoProjectName(name: string | undefined): boolean {
+  if (name === undefined) return false;
+  return name.trim().toLowerCase() === t("en-US", "demoProjectName", DEMO_SAMPLE_NAME).toLowerCase();
+}
+
 export type DemoVariant = { kind: "local" } | { kind: "turso"; projectName: string };
 
 export function demoVariantFor(lang: Lang, portfolioMode: PortfolioMode, tursoConfig: TursoConfig | null): DemoVariant {

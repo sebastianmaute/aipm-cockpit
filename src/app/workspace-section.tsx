@@ -52,7 +52,8 @@ import {
   DashboardPanel,
 } from "./dashboard-panel";
 import { DemoBanner } from "./demo-banner";
-import { isTursoUsable } from "./demo-project";
+import { isLocalDemoBlocked, isTursoUsable } from "./demo-project";
+import { readBrowserProject } from "./projects-registry";
 import { pickHeroGroup, topGroupPrimaries } from "./next-actions/group";
 import {
   MilestonesPanel,
@@ -802,7 +803,7 @@ export function WorkspaceSection({
               actualsByBucket={budgetActuals.byBucket} actualsFetchedAt={budgetActuals.fetchedAt}
               timelogProjectId={currentProjectId ?? "default"} onGoToTimelog={() => setActiveTab("timelog")}
               onOpenBudgetReport={isPopout ? undefined : () => setActiveTab("budget-report")}
-              onSetupGo={isPopout ? undefined : setActiveTab} onStartTour={isPopout ? undefined : onStartTour} onLoadDemo={isPopout ? undefined : onLoadDemo}
+              onSetupGo={isPopout ? undefined : setActiveTab} onStartTour={isPopout ? undefined : onStartTour} onLoadDemo={isPopout || isLocalDemoBlocked(isTursoUsable(mode, chatTursoConfig), readBrowserProject()) ? undefined : onLoadDemo}
               features={features} onCommitFeatures={isPopout ? undefined : workspace.setFeatures}
               onChangeBuckets={onChangeBudgets}
               onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
@@ -886,7 +887,7 @@ export function WorkspaceSection({
 
         {activeTab === "dashboard" && (
           <div id="panel-dashboard" role="tabpanel" className={panelScrollClass}>
-            {!isPopout && onLoadDemo && <DemoBanner lang={lang} tursoUsable={isTursoUsable(mode, chatTursoConfig)} onExplore={onLoadDemo} />}
+            {!isPopout && onLoadDemo && <DemoBanner lang={lang} tursoUsable={isTursoUsable(mode, chatTursoConfig)} projectName={currentProject?.name} onExplore={onLoadDemo} />}
             <DashboardPanel
               lang={lang}
               tasks={tasks}

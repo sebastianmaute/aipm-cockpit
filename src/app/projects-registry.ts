@@ -206,6 +206,25 @@ export function loadRegistry(): ProjectsRegistry {
   }
 }
 
+// Keyed on the stored TEXT, so a changed registry is re-read at once and an unchanged one is not
+// parsed again: the demo offers (the dashboard banner, the budget checklist) read it on every render.
+let browserProjectCache: { raw: string | null; entry: ProjectRegistryEntry | null } | null = null;
+
+/** `browserProjectIn(loadRegistry().projects)`, parsed once per distinct stored registry. */
+export function readBrowserProject(): ProjectRegistryEntry | null {
+  if (typeof window === "undefined") return null;
+  let raw: string | null;
+  try {
+    raw = window.localStorage.getItem(REGISTRY_KEY);
+  } catch {
+    return null;
+  }
+  if (browserProjectCache !== null && browserProjectCache.raw === raw) return browserProjectCache.entry;
+  const entry = browserProjectIn(loadRegistry().projects);
+  browserProjectCache = { raw, entry };
+  return entry;
+}
+
 /**
  * Persist the registry to localStorage.
  *

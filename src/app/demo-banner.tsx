@@ -13,16 +13,24 @@ import { IconButton } from "./icon-button";
 import { XMarkIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { markDemoBannerDone, readDemoBannerDone } from "./demo-banner-state";
-import { isLocalDemoBlocked } from "./demo-project";
-import { browserProjectIn, loadRegistry } from "./projects-registry";
+import { isDemoProjectName, isLocalDemoBlocked } from "./demo-project";
+import { readBrowserProject } from "./projects-registry";
 
-/** `tursoUsable` is `isTursoUsable(portfolioMode, tursoConfig)`, as the demo create reads it. */
-export function DemoBanner({ lang, tursoUsable, onExplore }: { lang: Lang; tursoUsable: boolean; onExplore: () => void }) {
+/** `tursoUsable` is `isTursoUsable(portfolioMode, tursoConfig)`, as the demo create reads it.
+ *  `projectName` is the current project's: the banner never shows on the demo itself, which a
+ *  device that opened the demo before the "done" marker existed would otherwise see (M3). */
+export function DemoBanner({ lang, tursoUsable, projectName, onExplore }: {
+  lang: Lang;
+  tursoUsable: boolean;
+  projectName?: string;
+  onExplore: () => void;
+}) {
   const [hidden, setHidden] = useState(false);
   // Read at render, not seeded once: the demo can be opened from Help while this is mounted.
-  if (hidden || readDemoBannerDone()) return null;
+  if (hidden || readDemoBannerDone() || isDemoProjectName(projectName)) return null;
   // Read at render for the same reason: the registry changes while the dashboard stays mounted.
-  if (isLocalDemoBlocked(tursoUsable, browserProjectIn(loadRegistry().projects))) return null;
+  // `readBrowserProject` parses only when the stored registry text changed.
+  if (isLocalDemoBlocked(tursoUsable, readBrowserProject())) return null;
   const done = (): void => {
     markDemoBannerDone();
     setHidden(true);
