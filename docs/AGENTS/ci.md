@@ -370,3 +370,363 @@ Trigger: `push` of tags matching `v*`. Design: `docs/superpowers/specs/2026-09-2
 - **`release-publish-lib.mjs`** — pure decisions only, unit-tested by `release-publish-lib.test.mjs`: `installerName`/`releaseTitle`/`releaseNotes` (the CHANGELOG section for the version, plus a fixed unsigned-installer notice; throws if the section is missing) / `expectedAssets` / `checkLatestYml`. It does NOT cross-check `release.yml` or `desktop/electron-builder.yml` against itself — that structural half lives in `scripts/ci-workflow.test.mjs`'s `describe("release.yml", ...)` (the upload paths equal `expectedAssets` under `INSTALLER_DIR`) and `describe("electron-builder.yml agrees with the release library", ...)` (electron-builder's `artifactName`/`directories.output` match `installerName`/`INSTALLER_DIR`).
 
 The whole `.gitlab-ci.yml` was removed at sub-project 5; the GitLab project only mirrors GitHub through `ci/gitlab-sync.yml`.
+
+## Gate gotchas — the full notes behind AGENTS.md's Commands block
+
+Moved verbatim from AGENTS.md on 2026-10-14. AGENTS.md keeps one line per command with its main trap; every
+measurement, failure story and reproduce command behind those lines is here. Read the entry before relying
+on, or editing, the gate it describes.
+
+```bash
+npm run dev                 # next dev (public next, pinned EXACTLY; version in package.json — a caret here would let a
+                            # lockfile merge resolved the wrong way move the framework silently. Framework-coupled
+                            # packages are exact-pinned; the rule and its reasoning live in CONTRIBUTING.md
+                            # under "Dependencies". Read node_modules/next/dist/docs for version behavior.)
+npm run build               # next build (prebuild checks script-docs are in sync)
+npm run lint                # eslint --max-warnings=0 — ★★★ EVERY warning is now FATAL, and that is 25
+                            # rules, not one: `@typescript-eslint/no-unused-vars` is still severity 1 and
+                            # `noUnusedLocals` still does not exist in tsconfig.json, but the flag makes
+                            # both moot. `_`-prefixed params are NOT exempt (no argsIgnorePattern), so an
+                            # unused param from an extract now FAILS rather than warning. Verify severity:
+                            #   npx eslint --print-config src/app/icons.ts   (read .rules)
+                            # react-hooks/exhaustive-deps (severity 1 — FATAL since --max-warnings=0) rejects an `obj.member` dep (e.g.
+                            # [snapshots.rebaselineNow]) — hoist it to a local const and depend on that.
+                            # A react-hooks PURITY rule bans `Date.now()`/`Math.random()`/`new Date()`
+                            # in a component RENDER body too (not just useMemo) — capture via a lazy
+                            # `useState(() => Date.now())`, or read it inside an effect/callback.
+                            # `react-hooks/set-state-in-effect` is BANNED (fatal) — to sync state to a
+                            # changed prop, use the render-time reconcile pattern (`if (prop !== handled)
+                            # { setState(...) }` guarded by a nonce/last-seen state), NOT a useEffect.)
+                            # ★ `npx eslint --max-warnings=0 src/app` now matches CI's STRICTNESS but not
+                            # its SCOPE — CI lints the whole repo, this lints one directory.
+npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next build` does NOT
+                            # typecheck *.test.tsx and vitest never typechecks — a test-only type
+                            # error (e.g. an invalid getByRole `{exact:...}`; a string `name` is
+                            # ALREADY an exact match) passes build + tests but FAILS tsc (CI). Run
+                            # `npx tsc --noEmit` after editing ANY test.
+                            # ★★ THAT RULE IS TESTING-LIBRARY ONLY (`*.test.tsx`), AND PLAYWRIGHT IS
+                            # THE EXACT OPPOSITE — reading it as universal cost three debug cycles on
+                            # 2026-08-26. RTL's string `name` is a whole-string match and has no
+                            # `exact` option; Playwright's `getByRole` takes one and it DEFAULTS TO
+                            # FALSE, so a bare `name` is a case-INSENSITIVE SUBSTRING. Verify, don't
+                            # trust this line: `grep -n "exact?: boolean" -B 8
+                            # node_modules/playwright-core/types/types.d.ts` prints "Whether to find
+                            # an exact match: case-sensitive and whole-string. Default to false."
+                            # ★★ In `e2e/` that bites TWO ways and the second is silent. LOUD: a bare
+                            # title matches every per-row control named `"<verb> – <title>"` (six
+                            # elements in `documents-list.tsx`) → a strict-mode violation that names
+                            # itself. SILENT: a bare `"Rename"` on a modal's commit button ALSO
+                            # matches the row trigger behind the open modal, so the click lands on
+                            # whichever the engine resolves first. Pass `exact: true` in e2e specs.
+                            # fast-check gotchas that pass
+                            # vitest but FAIL tsc/the test: `fc.date()` can emit an Invalid Date →
+                            # `.toISOString()` throws — pass `{noInvalidDate:true}` or map an integer
+                            # ms range to `new Date(ms)`; the regex `/s` (dotAll) flag fails tsc
+                            # (target < es2018) — use `[\s\S]` instead.
+                            # ★★ TIPTAP COMMANDS ARE TYPED BY MODULE AUGMENTATION, and this is the same
+                            # vitest-green/tsc-red shape from the other direction. Each extension
+                            # declares its own commands with `declare module '@tiptap/core'` INSIDE its
+                            # package (verify: `grep -n "declare module" node_modules/@tiptap/
+                            # extension-highlight/dist/index.d.ts`), so `toggleHighlight` /
+                            # `toggleSuperscript` / `toggleSubscript` do not exist on Tiptap's chained-
+                            # commands type (deliberately un-backticked — it is an UPSTREAM type, and
+                            # backticking it would make docs:symbols:check flag this file, which is the
+                            # gate working) until some file in the TS PROGRAM imports that module. A toolbar calling
+                            # them while only the EDITOR imports the extensions works at RUNTIME either
+                            # way — the command is registered on the live editor — so vitest is green
+                            # and only tsc objects. Run tsc after touching either file.
+                            # ★ The IDE language-server's inline diagnostics are MID-EDIT snapshots —
+                            # after a multi-file edit they routinely show phantom "Cannot find module"/
+                            # "implicitly any" that a real `npx tsc --noEmit` (exit 0) contradicts. Trust
+                            # tsc, not the squiggles.
+                            # ★★ A PASS IS EXIT 0 WITH ZERO ERRORS IN TOTAL — never "0 errors in src/".
+                            # One syntax error anywhere, e.g. in a corrupt generated `.next` types file
+                            # that the gitignored `next-env.d.ts` imports, suppresses the real type
+                            # errors while tsc still exits 2, so a src/-filtered count reads green. The
+                            # checked-file count goes UP in that case, so it cannot detect it either.
+                            # Fix: stop the dev server, delete `.next` (that alone regenerates nothing),
+                            # then regenerate with `npx next typegen`, `npm run dev` or `npm run build`.
+npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout = 20s
+                            # (raised from the 5s default in vitest.config) — the CPU-heavy
+                            # fast-check property suites (`*.property.test.ts`, ~100 runs each) +
+                            # fake-indexeddb setup can starve a worker past 5s under full-suite
+                            # parallel load on a slow machine → a RARE, non-deterministic timeout
+                            # that never repros in isolation or in CI. Don't "fix" such a flake by
+                            # editing the property logic before ruling out a load timeout (run the
+                            # property thousands of times in isolation first; logic bugs repro there).
+                            # ★ `--minWorkers` DOES NOT EXIST in vitest 4.1.11 or 5.0.2 either — it exits with a CACError
+                            # before running anything, which reads like a broken suite. `--maxWorkers=N` DOES
+                            # exist and is the fix when a saturated machine kills the fork pool (measured: 8x
+                            # "Failed to start forks worker" reported as `Test Files no tests` at EXIT=1 —
+                            # ground rule 2's false-green shape, but red).
+                            # ★ `--reporter=basic` DOES NOT EXIST in vitest 4.1.11 or 5.0.2 — it fails to load a
+                            # reporter module and errors at startup, which reads like a broken test run.
+                            # Use `--reporter=dot`.
+                            # ★★ `onTestFailed` runs AFTER every `afterEach`, and `afterEach` is LIFO — by
+                            # the time it fires, vitest.setup.ts's RTL cleanup() and the test file's own
+                            # vi.clearAllMocks() have both already run, so the capture reads zeroed mocks
+                            # and an empty document.body. Measured, not theorised: a capture written the
+                            # obvious way printed `{"fetchCalls":0,"toastCalls":[],…}` on a run where the
+                            # fetch HAD fired and the toast HAD rendered — which would have falsely
+                            # CONFIRMED the already-suspected hypothesis with fabricated evidence. That is
+                            # worse than no capture: one that agrees with your prior is the one you stop
+                            # checking. The working pattern is a describe-scoped afterEach holding a
+                            # closure the test body assigns, guarded on ctx.task.result?.state === "fail"
+                            # — registered LAST, so it runs FIRST, while mocks and DOM are still live.
+                            # `timelog-panel.test.tsx` and `use-tasks-dedup.test.tsx` carry that pattern
+                            # with a warning comment (open-followups §73).
+                            # ★★★ A StrictMode test is VACUOUS-BUT-GREEN in the obvious shape. React's
+                            # double-invoke walk descends each branch to the topmost fiber FLAGGED FOR
+                            # PLACEMENT and fires there only if StrictMode is at or above it. On a first
+                            # mount the only placed fibers are the root's direct children, so nothing may
+                            # sit between the root and StrictMode on that branch: `wrapper: StrictMode` and
+                            # RTL's `reactStrictMode: true` satisfy that; composing it inside a wrapper
+                            # (`({children}) => <StrictMode>{children}</StrictMode>`) does NOT, and the test
+                            # then passes with the line it claims to pin DELETED — that shape is the likely
+                            # source of §85's "StrictMode single-invokes here" (the 2026-08-04 run's shape
+                            # was never recovered) and was measured vacuous for `use-storage-backend`; the
+                            # other two `mountedRef` re-sets simply shipped with no StrictMode test at all.
+                            # ★★ That is the MOUNT case only, and it is a corollary — the rule turns on
+                            # which fiber carries the PLACEMENT flag (since React 19.3.0, a NEW fiber only). Three
+                            # successive wordings of it shipped over-general, each measured at one shape and
+                            # written as if it held everywhere, so do NOT extend this summary by reasoning:
+                            # `src/app/strictmode.meta.test.tsx` states the rule in full and pins every edge
+                            # but one, which it flags as stated-not-pinned. Read it before writing a
+                            # StrictMode test, and mutation-test the guard.
+npm run test:shuffle        # the SAME command CI's `unit-shuffled` job runs, pinned seed (BLOCKING).
+                            # ★ Run this before pushing anything that adds or reorders tests — it is
+                            # the ONLY local reproduction of that gate. `--sequence.shuffle` as a bare
+                            # boolean shuffles BOTH file order and test order WITHIN a file, so it
+                            # catches intra-file order dependence (open-followups §75), not just
+                            # cross-file leakage. A red run here is deterministic and re-runnable;
+                            # the weekly random-seed job echoes its own seed for the same purpose.
+npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts are BLOCKING in CI
+                            # (global lines 92/funcs 91/branch 80/stmts 89 + per-engine globs), and
+                            # `test:run` does NOT enforce them — a new coverage-gated `.ts` file (a
+                            # pure engine, or an extracted `use*` hook that wasn't added to
+                            # coverage.exclude) can be green locally and fail the unit job.
+npm run e2e                 # playwright (incl. the 17-view axe a11y gate)
+npm run e2e:smoke           # fast subset. e2e:visual / e2e:visual:update drive the visual-regression
+                            # specs; e2e:ui opens the Playwright UI; e2e:install fetches browsers.
+                            # ★ The visual project pins its own frozen clock (`VISUAL_FROZEN_NOW` in
+                            # `e2e/visual.spec.ts`, passed through `gotoApp`'s `time` param) so a
+                            # `FROZEN_NOW` bump in `e2e/seed.ts` no longer forces a re-baseline (§573).
+npm run e2e:smoke:prod      # smoke against a REAL production server (build FIRST — it does not build).
+                            # ★★★ THE ONLY LOCAL REPRODUCTION OF THE PROD CSP. `e2e:smoke` starts no
+                            # server, so it is only ever pointed at a dev server — and dev grants
+                            # 'unsafe-inline' on style-src-elem while prod is nonce-only (src/proxy.ts).
+                            # A prod-only defect that rendered EVERY rich-text editor unstyled shipped
+                            # unnoticed behind exactly that gap (open-followups §54). Run it before
+                            # shipping anything touching CSP, layout.tsx, or a dependency that injects a
+                            # <style>. ★ Owns port 3200 and REFUSES to run if something else holds it —
+                            # it would otherwise mistake a foreign server for its own and kill it.
+npm run dup:check           # jscpd duplication GATE (--threshold in package.json dup:check; BLOCKING in CI)
+                            # ★★ IT COMPARES ONE NUMBER: the TOTAL duplicated-LINE percentage across all
+                            # formats — NOT per-format, and NOT tokens. 1.11% (2297/207417 lines) against a
+                            # 1.75 threshold on 2026-09-26, jscpd 5.3.2 (it was 1.19% on 2026-08-08). The
+                            # console table prints six cells and flags none; the eye-catching per-format
+                            # token figure is never read. Bisect by exit code — it is the only witness. Run
+                            # dup:check's own command with the threshold overridden: on 2026-09-26 1.11
+                            # exits 0 and 1.10 exits 1; on 2026-08-08, 1.60 and 1.52 both exited 0, ruling
+                            # out per-format tokens and total tokens. See open-followups.md §116.
+                            # ★ docs/baselines/jscpd-2026-07.json is a RETAINED July-2026 report, NOT a
+                            # gate input — dup:check passes only --threshold and there is no .jscpd.json.
+npm run size:check          # file-size ratchet — fails on a NEW file over the LIMIT, or a baselined file that grew
+                            # ★★★ THE LIMIT IS 1600, DOUBLED FROM 800 ON 2026-09-03, and every entry in
+                            # `docs/baselines/file-sizes.json` was doubled in the same change — the ratchet was
+                            # biting on routine work. Read the number from `scripts/check-file-sizes.mjs` (`LIMIT`)
+                            # rather than any prose, this line included. ★★★ `--update` DISCARDS THE DOUBLING, AND
+                            # IT DELETES RATHER THAN HALVES: it writes only files ABOVE the LIMIT, so at 1600 it
+                            # emits `task-manager.tsx` ALONE and the other three entries VANISH. Running it (which
+                            # the gate's own failure message still recommends) restores a no-headroom ratchet and
+                            # makes "re-double by hand" impossible for the dropped rows without git archaeology.
+                            # ★ CONSEQUENCE: three of the four baseline entries are ALREADY INERT, because a file is
+                            # only compared against its entry when it is over the LIMIT — chat-panel,
+                            # tasks-section and workspace-section are governed by the LIMIT alone until they pass
+                            # 1600. Only `task-manager.tsx` is still consulted, and since 2026-10-04 its entry is its
+                            # measured length with NO headroom (§491), so any growth fails the gate — read the
+                            # other three as recorded intent, not as live limits.
+                            # ★★ IT COUNTS `wc -l` + 1. The script measures `readFileSync().split("\n").length`,
+                            # which for a newline-terminated file is one MORE than `wc -l`. So a file at `wc -l`
+                            # 1599 is already AT the limit with ZERO headroom. The same +1 applies to a baselined
+                            # file, which is how an `--update`-derived baseline lands one above `wc -l`.
+                            # Budgeting a change from `wc -l` overstates your room by exactly one
+                            # line and the gate fails on the commit — it cost a build on `use-storage-backend.ts`.
+                            # Read the real number with:
+                            #   node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"
+npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when a doc gains a NEW
+                            # `path:LINE` citation, or cites a line that cannot exist. This is the
+                            # enforcement the ★★★ "cite the SYMBOL, not a line range" rule never had.
+                            # ★★ IT CANNOT TELL YOU A CITATION IS CORRECT, and nothing can — the doc
+                            # never records what was supposed to be at that line. It proves only that
+                            # the line COULD exist and that the count is not growing. A cite silently
+                            # shifted by an insertion still passes: measured on the very row that
+                            # motivated the gate, where `jira/_helpers.ts:181` sat 64 lines off the
+                            # actual `console.error` and passed the range check while
+                            # `timelog/_helpers.ts:185` (one line past EOF) was caught. Two wrong
+                            # cites, one detectable. Do NOT read green as "the citations are right".
+                            # ★★ It reads CONTINUATION cites too — "`use-resource-planner.ts:710` and
+                            # `:723`, returned at `:1023`/`:1025`" is FOUR citations, and the first cut saw
+                            # ONE of them while the three bare ones (all broken) were invisible.
+                            # Widening found 55 more citations and raised out-of-range 5 → 8.
+                            # ★★★ A bare `:NNN` is resolved ONLY from a file mentioned EARLIER ON THE
+                            # SAME LINE, and the anchor is the nearest preceding file MENTION, not the
+                            # nearest preceding `path:LINE` — a full-cite anchor skipped a colon-less
+                            # `task-manager.tsx` and hung four of its line numbers on a 152-citable-line file,
+                            # reporting violations that did not exist. The ~113 bare cites whose path
+                            # sits on a PREVIOUS line stay out of scope (100 of 156): the form is ambiguous
+                            # (AGENTS.md's own `:3000` is a PORT), and a gate that invents a citation
+                            # is worse than one with a known blind spot.
+                            # ★ Grandfathered breakage in docs/baselines/doc-line-cites.json is down
+                            # from 11 unresolvable + 8 out-of-range, and every survivor sits in one of
+                            # two DATED SNAPSHOTS: docs/security/findings-2026-07.md (an audit) and
+                            # docs/handrolled-ui-inventory.md (archived 2026-09-13; its two survivors
+                            # point past the end of `tasks-section.tsx` after the §492 split). Both are
+                            # bannered as such and deliberately NOT renumbered, because rewriting a
+                            # dated record to match today's tree destroys the only thing it is good
+                            # for. Read today's counts off the gate's own summary line, not off here.
+                            # A third bucket, `thirdParty`, holds cites into dompurify/
+                            # prosemirror/vitest/eslint internals: unresolvable BY DESIGN, not repo
+                            # debt, classified so the debt number stays worth reading. ★★ ITS SIZE IS
+                            # DELIBERATELY NOT QUOTED HERE — this line said 10 and the gate printed 9
+                            # (disproved 2026-08-17 by a reviewer passing through). Read it off the
+                            # gate's own summary line, which prints every bucket:
+                            # `npm run docs:claims:check`. ★★ Not
+                            # harmless though — they rot on any upgrade, and the vitest one carries a
+                            # CONTENT HASH in its filename, so it WILL break and nothing will say so.
+                            # Re-baseline ONLY after REMOVING citations or converting them to
+                            # symbols: `node scripts/check-doc-claims.mjs --update`. Re-baselining to
+                            # admit a new one defeats the only thing it checks.
+                            # ★★★ WHAT THE CLEAN-UP MEASURED, and it is the argument for the whole
+                            # rule: ONE row of docs/handrolled-ui-inventory.md carried SEVEN line
+                            # numbers and FIVE were wrong — two off by 3 and 6, two off by 8, and one
+                            # naming a file the code had left — while the CLAIM they supported was
+                            # still true at every site. The gate caught ONE, the only one past EOF.
+                            # Two more rows ended up naming a file the code had LEFT (`export-pptx.ts`
+                            # for an element now emitted by `pptxTextBox`; `chat-panel.tsx` for a caret
+                            # now in `chat-tool-block.tsx`). ★★ BOTH were EXACT when written and were
+                            # broken by a later EXTRACTION commit — verify with `git log -S` on the
+                            # moved string, which names the refactor in each case. An earlier revision
+                            # here called them wrong-file-outright authoring errors and contrasted them
+                            # with the line-number drift; they are the SAME drift, one directory up, and
+                            # no gate can see either. A wrong line number is a SYMPTOM — go
+                            # re-verify the claim, never renumber it.
+                            # ★ Citations inside ``` fences are ignored on purpose — a stack trace or
+                            # sample command is an example, not a claim about this repo.
+                            # ★★ The PARSING lives in `scripts/doc-claims-lib.mjs` and HAS A UNIT
+                            # TEST (`doc-claims-lib.test.mjs`) — every defect this gate has shipped
+                            # was a regex defect, and both were found by running it against the real
+                            # docs, never by reading it. ★★★ A COLD REVIEW THEN FOUND FIVE MORE, TWO
+                            # OF WHICH COULD FAIL A GOOD BRANCH: `@` was missing from the citation
+                            # char classes, so a scoped package (`@tiptap/...`) parsed with the `@`
+                            # stripped and was counted as REPO DEBT rather than third-party; and
+                            # `stripFencedBlocks` was a parity toggle that missed BLOCKQUOTED and
+                            # TILDE fences, inverted on an inline ``` span, and let NESTED fences
+                            # leak — a `> ```bash` block exists in README.md today. Also: bare
+                            # RANGES (`:113-116`) were invisible, a URL with a line anchor parsed as
+                            # a citation, and the range check counted one line too many so a cite to
+                            # exactly one past EOF passed. All five fixed; the four REGEX ones are
+                            # mutation-proved (4/4), the `stripFencedBlocks` rewrite by its own cases
+                            # rather than by a mutant — which is why that 4 sits under a 5. Details in
+                            # open-followups §131. ★ Fixing them made the gate STRICTER and it found
+                            # more at once (a second broken cite in the snapshot). ★★ The "537 → 541
+                            # cites" that used to sit here was a MOMENT'S total, not a property of
+                            # the fix, and it had drifted to 532 by 2026-08-17 — every citation
+                            # added or removed anywhere moves it. Quote the DIRECTION, never the
+                            # totals; `npm run docs:claims:check` prints today's.
+                            # `vitest.config.ts` `include` now covers
+                            # `scripts/**/*.{test,spec}.mjs` so the CI gates themselves are testable;
+                            # coverage `include` deliberately stays `src/**`, so a script test raises
+                            # no floor. ★★★ THE TWO TRUNCATION GUARDS ARE NOT INTERCHANGEABLE, and
+                            # this line said they were: PATH_RE's `(?!...)` lookahead is LOAD-BEARING
+                            # ALONE (drop it and `foo.tsxx` yields a phantom anchor to `foo.tsx`),
+                            # while the longest-first extension order really is redundant (dropping
+                            # it changes NO output). ★ Both are pinned by a differential test in
+                            # `doc-claims-lib.test.mjs` that builds each mutant from the exported
+                            # `SOURCE_EXT` — run it, don't trust a number here; this line used to
+                            # quote a review's corpus size, which nothing could reproduce.
+                            # The lookahead mutant survived the first
+                            # suite only because nothing fed it an extension-SUFFIXED name — a test
+                            # gap recorded as proof of redundancy, i.e. licence to delete a live
+                            # guard. ★★ A surviving mutant is a QUESTION: "equivalent mutant" and
+                            # "missing test" look identical from the harness, and separating them
+                            # needs an input the suite does not have. Go find one.
+npm run stop                # kill ONLY the dev server bound to the app port (default 3000; PORT-overridable)
+                            # via scripts/stop-dev.mjs — port-scoped (netstat/taskkill on win, lsof/kill on
+                            # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a
+                            # scriptsDescriptions entry or docs:scripts:check fails.
+                            # ★★★ WHICH docs it regenerates is DISCOVERED, NEVER NAMED, so no grep over the
+                            # script can enumerate them: `findDocs` walks top-level `*.md` plus
+                            # `docs/**/*.md`, and `syncFile` returns "no-marker" for any file lacking the
+                            # pair `<!-- AUTO-GENERATED from package.json scripts -->` … `<!-- END
+                            # AUTO-GENERATED -->`. CONSEQUENCE: `grep README scripts/sync-script-docs.mjs`
+                            # returns nothing whether README participates or not — it CANNOT answer the
+                            # question, and on 2026-09-10 an empty result was read as proof that it does
+                            # not, in a plan that then prescribed that grep as the verification. An empty
+                            # grep confirms whatever you already believed. Enumerate the participants
+                            # instead, which is one command:
+                            #   git grep -lE "<!-- END AUTO-GENERATED --[>]" -- "*.md"
+                            # (grep the END marker: the start marker alone also sits in this file and two
+                            # superpowers plans, which do not participate; `[>]` stops a self-match.)
+                            # ★★ It returns CONTRIBUTING.md ALONE today, so this is a TWO-file change
+                            # (package.json + CONTRIBUTING.md) — read that off the grep, never off this
+                            # line. ★ README carried the pair from the initial commit until `7723c3d2`
+                            # curated its table down to six hand-picked commands; a standing note calling
+                            # it a three-file change was true when written and was falsified by that
+                            # commit. Re-adding the markers to README would silently put it back under the
+                            # generator and replace the curated list with the full one.
+npm run followups:check     # REPORT, not a gate — it runs in NO CI job and exits 0 even with missing
+                            # symbols (measured: exit 0 while printing SYMBOL_MISSING=10). Classifies every
+                            # `docs/open-followups.md` entry by whether the names/paths/line numbers it
+                            # cites still EXIST: CLEAN · SYMBOL_MISSING · PATH_MISSING · *_THIRD_PARTY ·
+                            # NO_MACHINE_CLAIM. ★★ CLEAN does NOT mean the entry is still valid — the
+                            # script's own header says so: it can describe a behaviour fixed two releases
+                            # ago. It rules claims OUT, never IN, and a verdict routes work to a probe
+                            # rather than closing anything. `--run-repro` also executes the allowlisted
+                            # reproduce commands; `--json <out>` writes a snapshot.
+npm run followups:index:check # heading ⟺ index-row GATE over docs/open-followups.md (BLOCKING in CI)
+                            # ★★ Exit 1 = DRIFT (a heading with no row, a row with no heading, a
+                            # §number used twice, or a table that is not exactly what a rebuild writes);
+                            # exit 2 = the gate COULD NOT SCAN (markers missing or duplicated, either set
+                            # empty, a row the rebuild cannot parse, or under its 50-per-axis floor). A scan that reads nothing passes everything, so
+                            # 2 is the load-bearing code and demands the opposite response to 1.
+                            # ★★ That 50 counts EVERY heading, closed ones included, so it never falls
+                            # on a closure. The gates that count OPEN entries (claims · status ·
+                            # workitems · github) import ONE floor instead, `MIN_OPEN_ENTRIES` in
+                            # `followup-claims-lib.mjs` — 50 until 2026-10-08, when 50 linked entries
+                            # meant the next closure would turn CI red. Read it there, not here:
+                            #   grep -n "MIN_OPEN_ENTRIES =" scripts/followup-claims-lib.mjs
+                            # ★★★ THE MARKER MATCH IS WHOLE-LINE AND THAT IS LOAD-BEARING. The marker
+                            # strings have also appeared inside fenced code samples above the real
+                            # table, and `src.indexOf(INDEX_BEGIN)` then slices the SAMPLE, which holds
+                            # 0 rows, and the gate calls every heading missing. Count today's copies:
+                            #   grep -c "<!-- INDEX:BEGIN -->" docs/open-followups.md
+                            # Pinned by a regression test in `followup-index-lib.test.mjs` either way.
+                            # ★★ The table is GENERATED by `node scripts/rebuild-followup-index.mjs`; this
+                            # gate (in `static`) and a test in `unit` both fail when the committed table
+                            # differs from a rebuild. `--check` on the script runs the same drift check.
+                            # ★★ It compares SETS, so it is blind to a duplicate on its own — a pasted row
+                            # leaves both differences empty while the counts disagree. That is why the
+                            # duplicate axes are reported separately; do not "simplify" them away.
+                            # ★ Parsing is pure (`followup-index-lib.mjs`, unit-tested, NO shebang — a `#!`
+                            # on an imported .mjs makes vitest throw naming the WRONG file); the CLI
+                            # `check-followup-index.mjs` owns the I/O and the exit codes.
+npm run src:symbols:check   # REPORT, not a gate — backticked names cited in `src/` COMMENTS that resolve
+                            # nowhere in the CODE. ★★★ IT COVERS THE HALF `docs:symbols:check` CANNOT SEE:
+                            # that gate reads AGENTS.md + `docs/AGENTS/*.md` and NOTHING else, so an
+                            # invented identifier inside a source docstring is ungated forever. Live
+                            # instance: a reproduce command naming a function that never existed, which
+                            # STILL RETURNED THE RIGHT ANSWER because a substring matched the real call —
+                            # so it read as verified, and it arrived in a round that was CORRECTING a
+                            # different claim in the same docstring. ★★ Its universe EXCLUDES comment text,
+                            # which the GATE considered and deliberately REJECTED for itself (literal/key
+                            # names would produce false findings, and a gate that cries wolf gets switched
+                            # off). That trade is right for a report a human triages once and wrong for a
+                            # blocking gate — do NOT "align" the two. ★★ A first cut built the universe from
+                            # raw text like the gate does and reported 0 findings over 516 names; the same
+                            # corpus reports 13 once comments are excluded, because an invented name
+                            # resolves against its own docstring. ★ Every finding is a QUESTION — an
+                            # upstream API, a spec field, a deliberately hypothetical name and an invented
+                            # one all look identical; correct it or say near it that it is absent (the
+                            # gate's `ABSENCE_MARKERS` suppress it). `--since <ref>` scopes it to one branch.
+```

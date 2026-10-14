@@ -9835,7 +9835,7 @@ Recorded so a reader who remembers "two lines" does not go looking for a change 
 
 ## 116. The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** still untriggered. Re-measured on jscpd 5.4.0 (not 5.3.2): `npm run dup:check` total duplicated lines 2636 / 227202 = 1.16% against the 1.75 threshold; running its jscpd command with the threshold overridden exits 1 at 1.16 and 0 at 1.17, and 0 at 1.36 (total tokens are 1.37%), so the gate still reads the TOTAL duplicated-LINE percentage. AGENTS.md's dup:check comment still quotes the older 1.11% / 5.3.2 figures.
+**Status:** **Update 2026-10-12 (§138 P2 probe):** still untriggered. Re-measured on jscpd 5.4.0 (not 5.3.2): `npm run dup:check` total duplicated lines 2636 / 227202 = 1.16% against the 1.75 threshold; running its jscpd command with the threshold overridden exits 1 at 1.16 and 0 at 1.17, and 0 at 1.36 (total tokens are 1.37%), so the gate still reads the TOTAL duplicated-LINE percentage. The `dup:check` note (in AGENTS.md until 2026-10-14, now in docs/AGENTS/ci.md "Gate gotchas") still quotes the older 1.11% / 5.3.2 figures.
 
 **Earlier:** open — an accepted decision about what the duplication gate measures, kept as a decision record (#144 closed 2026-09-26: nothing to fix). Re-measured 2026-09-26 on jscpd 5.3.2: `npm run dup:check` exits 0 with Total duplicated lines **2297 / 207417 = 1.11%** against the 1.75 threshold (0.64pp headroom), and a threshold bisect gives exit 0 at 1.11 and exit 1 at 1.10, so the gate still compares the TOTAL duplicated-LINE percentage. The trigger this entry sets (1.50%) has not fired. Earlier figures below (1.19%, jscpd 5.0.11) are dated.
 
@@ -9896,7 +9896,7 @@ warning before the 1.75 threshold), or when any single slice is expected to add 
 of near-duplicate `.tsx`. Until one of those holds, the correct action is "nothing" and this entry
 is a reference, not a task. ★ The measurement above is dated **2026-08-08** and is NOT re-run here —
 read the live figure off `npm run dup:check`, and read the table above for which of its six printed
-cells the gate actually compares. ★★ AGENTS.md's `dup:check` line carries the same 2026-08-08
+cells the gate actually compares. ★★ The `dup:check` note in docs/AGENTS/ci.md "Gate gotchas" carries the same 2026-08-08
 reading; if it and this entry ever disagree, neither is a measurement — re-run the gate.
 
 ---
