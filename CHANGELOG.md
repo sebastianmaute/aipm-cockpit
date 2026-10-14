@@ -28,7 +28,8 @@ longer carries its own changelog comment.
   one column per month, and an ID, row-number or year column is never taken for the hours. When more than one
   column could hold the hours or the period (on a sheet of one row per month, any two columns holding
   numbers, however few, such as `Plan | Ist`, `Stunden | Ist`, `Stunden | Kosten` or `Forecast | Iststunden`,
-  whatever their headers, or `Datum | Eintritt`; on a sheet of month columns, a column of numbers with a
+  whatever their headers, a blank one included, as under an hours header merged over `Ist | Plan` or
+  `€ | Std` sub-columns, or `Datum | Eintritt`; on a sheet of month columns, a column of numbers with a
   blank header among or right after the month columns, as under a month header merged over `Ist | Plan`,
   `Actual | Forecast` or `€ | Std` sub-columns, any date of the rows' own outside the month columns, such as
   a `Start` or a notes column, a year column beside months without a year, or a header run such as
@@ -36,7 +37,8 @@ longer carries its own changelog comment.
   the header row repeated further down), or one person has several rows (in one month, on a sheet of one
   row per month) that differ in another text column, such as a Plan and an Ist row or a task per row, whose
   hours would be added together, or a row below a person's row holds hours but no person (a name merged
-  over two rows, or an unlabelled total row), which is not read, or more than one sheet of a workbook holds
+  over two rows, also below a person's row that says `Gesamt` or `Total` in another column, or an
+  unlabelled total row), which is not read, or more than one sheet of a workbook holds
   a forecast, the column step opens with a note naming the candidates (for a merged month header or a run
   past 12, it also says what confirming will read), and Apply waits until you choose the column or the sheet
   or confirm that the columns are right; confirming moves the keyboard focus to Show preview. German exports read correctly (`1.234,5`, `Jan. 2026`, `KW03 2026`, `Mrz 26`),
@@ -69,7 +71,8 @@ longer carries its own changelog comment.
   weekly plan (and weekly over a monthly one) by working days, keeping the total exact. A person's hours go
   to the one line of the bucket that already lists them, whatever its role, and otherwise to the line of
   their role; a person listed on several lines is shown as not matched. The preview lists
-  every cell that would change, people it could not match (you can pick or skip each one; archived
+  every cell that would change, people it could not match (you can pick or skip each one, and a pick that
+  cannot be used, such as a resource listed on several lines, says so; archived
   resources are neither matched nor offered, and "Müller, Hans" matches Hans Müller), hours outside the
   bucket's periods, rates that differ from the rate card, periods the sheet covers only in part, cells on a
   line shared with people the sheet does not list for that period (or lists but could not match), and rows combined from several sheet rows. Nothing is

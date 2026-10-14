@@ -373,8 +373,13 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   number in a read column below a person row (`continuationRows` in `row-differences.ts`, `{ field:
   "continuation", candidates: [rows], samples }`, I2: `Ann Lee | Ist` over `(blank) | Plan` read Ann's Ist
   row and dropped the Plan row). ★★ The person is NEVER carried down: an unlabelled total row at the
-  bottom would then be summed into the last person; it asks instead. A row holding a total label in any
-  cell and a spacer with no number do not ask; confirmed, such rows are not read, as before. All three
+  bottom would then be summed into the last person; it asks instead. A row with no person holding a total
+  label in any cell, a row whose person cell is a total label, and a spacer with no number do not ask;
+  confirmed, such rows are not read, as before. ★★ Only the PERSON cell makes a person row, as in the reader
+  and `differingRows` (final review 4, I1): an any-cell total check skipped `Ann Lee | Gesamt`, so the Ist and
+  Plan rows below it asked nothing and her Gesamt was written. Detection's row sample (`isTotalRow` in
+  `layout-detect.ts`, which runs before the person column is known) drops a row only when its FIRST non-blank
+  cell is a total label, so a sheet of `Gesamt / Ist / Plan` groups keeps `Name` as the person column. All three
   sit in `wideAmbiguity` / `withMappingQuestions`, so `questionsFor` asks them of a Claude mapping too, and
   only "These columns are right" confirms the continuation (`confirmsField`). A workbook with two or more
   sheets that detect a layout asks which one (`{ field: "sheet", candidates: [sheets] }`, M1, owner
@@ -384,7 +389,11 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   since it unmounts its own notice (M5). ★ The I1 and M4 reasons travel on the period question
   (`blankHeaded`, `pastTwelve`, and `alsoUnsure` when another reason asks too), so each has a notice of its
   own saying what the press reads, and the generic Wide notice ("Check the mapping, then confirm", with no
-  period control to check) shows only for the other reasons (rr14 N1). Residue (36)–(39).
+  period control to check) shows only for the other reasons (rr14 N1). ★★ The LONG twin (final review 4,
+  I2): a blank-headed column holding a number is an hours candidate (`numericColumns`, `any` only), so
+  `Name | Monat | Stunden | (blank)` over `Ist | Plan` or `€ | Std` asks for the hours on either route; it
+  never scores a header row (`strong`) and a labelled column is preselected before it (`preselectHours`).
+  Residue (36)–(39).
 - ★★ **Which period a cell is: ONE module, `period-assign.ts`**, read by the reader and detection alike, so
   the two cannot disagree. A single cell is `parsePeriodLabel` (a date is
   its month). A WIDE header row is read as a RUN (`assignRunPeriods` / `assignRunDetailed`): a cell that
@@ -500,7 +509,10 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   its own; the picker may name another resource, or Skip); on none, to their role's line (blended: its
   discipline), as the spec first said. Such a person's resource is recorded (`unmatchedIds`), and a changed
   cell of a line they sit on names them apart (`unmatchedOnLine`, "in the sheet, not matched"), never under
-  `othersOnLine` (rr14 M3a). Routing by role alone once created a Dev line beside Ann's Senior
+  `othersOnLine` (rr14 M3a); so does every candidate of an `ambiguous` or `no-role` person (final review 4,
+  M2). The picker row shows the reason of the plan computed WITH the overrides once a resource is picked, so a
+  pick that lands on a resource on several lines says so (`forecastImportPickSeveralLines`, final review 4
+  M1); `unresolvedPeople` itself is still computed without them. Routing by role alone once created a Dev line beside Ann's Senior
   line and counted her January twice. Residue (40). Blockers: `follows-plan`
   (budget follows plan is on), `closed`, `same-row-period` (a validator collision), `nothing-to-apply`.
 - **`applyForecastImport` is the only writer**, and it writes only budget hours and allocation
