@@ -80,19 +80,19 @@ newest entries until the next save.
   ★★ **`applyRestoredWorkspace` (`use-version-history-wiring.ts`, the SECOND load funnel) deliberately does NOT set
   `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
   `activityLog`, so fanning it out would blank the audit trail on every version restore.
-  ★★ It is ONE OF FIVE slices on which the two funnels disagree, NOT the only one — `features`,
-  `fieldVisibility`, `documentAssets` and `budgetHistory` are also absent from the restore fan-out. An
+  ★★ It is ONE OF SIX slices on which the two funnels disagree, NOT the only one — `features`,
+  `fieldVisibility`, `documentAssets`, `budgetHistory` and `baselineHistory` (§476) are also absent from the restore fan-out. An
   earlier revision said "the one slice" and its successors said THREE and FOUR; each sends a reader who
   diffs the funnels off to distrust the doc or to "complete the pattern" on the rest. ★★★ **THAT
   SENTENCE HAS NOW BEEN OVERTAKEN THREE TIMES BY SLICES THAT NEVER OPENED THIS FILE** —
   `documentAssets` joined `applyWorkspaceFromLoad` with S3c-1, `budgetHistory` with the budget-history
-  persistence slice, and nothing here moved either time. Do not repair it by writing FIVE and walking
+  persistence slice, and nothing here moved either time (`baselineHistory` was added here in its own commit). Do not repair it by writing FIVE and walking
   away; re-derive, which is why the commands sit below rather than the count. ★★ That diff returns
-  SEVEN names, not five — the sixth and seventh are `setLoadedBackend` and `setSettledBackend`: the load
+  EIGHT names, not six — the sixth and seventh are `setLoadedBackend` and `setSettledBackend`: the load
   GATE (`workspaceLoaded` derives from the first) and the §548 load-hold signal (`loadPending` derives
   from the second), not workspace slices. The comment above `applyRestoredWorkspace` already says the
   restore funnel deliberately omits the first; a restore settles no load, so it omits the second too.
-  Five SLICES, seven NAMES; a reader who stops at the count will think this line is wrong. ★ A range
+  Six SLICES, eight NAMES; a reader who stops at the count will think this line is wrong. ★ A range
   that stops at `setCalendarEvents` hides both — they are deliberately the LAST two setters in
   `applyWorkspaceFromLoad` (only the §586 save-gate call `allowSavesTo`, which the `set` grep does not match,
   follows them), so end the range at the function's close brace. ★ It does NOT hide
@@ -414,3 +414,9 @@ split, REPLACE by default.
 next-only ids — rather than a timestamp sort; it is **never capped**; and it has its own
 `useBroadcastSync("budgetHistory", …)` channel beside the log's. The hook-level pins (the `outgoing`
 literal, the save deps, the load, the channel) are in `budget-history-persistence.test.ts`.
+
+`Workspace.baselineHistory` (§476, `baseline-currency.ts`) is a third sibling with the same rules —
+meta key `baselineHistory`, `CSV_SECTION_BASELINE_HISTORY`, a `## Baseline History` block,
+`sanitizeBaselineHistory` on load, excluded from both counters, absent from the restore fan-out —
+except that `applyWorkspace` ALWAYS replaces it (no merge branch). Its six-path and hook pins are in
+`baseline-history-persistence.test.ts`.

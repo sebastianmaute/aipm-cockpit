@@ -91,6 +91,7 @@ const KV_DOCUMENTS_KEY = IDB_OPTIONAL_KV_KEYS.documents;
 const KV_DOCUMENT_VERSIONS_KEY = IDB_OPTIONAL_KV_KEYS.documentVersions;
 const KV_ACTIVITY_LOG_KEY = IDB_OPTIONAL_KV_KEYS.activityLog;
 const KV_BUDGET_HISTORY_KEY = IDB_OPTIONAL_KV_KEYS.budgetHistory;
+const KV_BASELINE_HISTORY_KEY = IDB_OPTIONAL_KV_KEYS.baselineHistory;
 const KV_DOCUMENT_ASSETS_KEY = IDB_OPTIONAL_KV_KEYS.documentAssets;
 // §4 — the integer save revision this backend stamps on every successful
 // save (see `save()` below); missing on load → 0.
@@ -103,6 +104,7 @@ import {
 } from "./workspace";
 import { sanitizeActivityLog } from "./activity-log";
 import { sanitizeBudgetHistory } from "./budget-history";
+import { sanitizeBaselineHistory } from "./baseline-currency";
 import { SaveConflictError } from "./storage-error";
 import { requiredIsoDateOnLoad } from "./sanitize-load-date";
 
@@ -228,6 +230,7 @@ export class BrowserBackend implements StorageBackend {
     let documentVersions: Workspace["documentVersions"] | undefined;
     let activityLog: Workspace["activityLog"] | undefined;
     let budgetHistory: Workspace["budgetHistory"] | undefined;
+    let baselineHistory: Workspace["baselineHistory"] | undefined;
     let documentAssets: Workspace["documentAssets"] | undefined;
     // §4 — stamped by `save()`; missing (never saved yet) → 0.
     let revision = 0;
@@ -291,6 +294,7 @@ export class BrowserBackend implements StorageBackend {
         idbActivityLog,
         idbDocumentAssets,
         idbBudgetHistory,
+        idbBaselineHistory,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -321,6 +325,7 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_ACTIVITY_LOG_KEY),
         idbGet(KV_DOCUMENT_ASSETS_KEY),
         idbGet(KV_BUDGET_HISTORY_KEY),
+        idbGet(KV_BASELINE_HISTORY_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
@@ -403,7 +408,7 @@ export class BrowserBackend implements StorageBackend {
       // it needs its OWN catch, exactly like `jsonToWorkspace` (workspace.ts).
       // Without one, a throw here reached the outer `catch` below, which treats
       // it as "IDB unavailable" and falls through — so `documentVersions`,
-      // `activityLog`, `budgetHistory` and `documentAssets` (every slice
+      // `activityLog`, `budgetHistory`, `baselineHistory` and `documentAssets` (every slice
       // processed AFTER this one) never even got sanitized that load, nothing
       // was recorded, saving was not paused, and the next save deleted all of
       // them from IDB for good. Scoped to THIS pass only, never widened: a
@@ -459,6 +464,12 @@ export class BrowserBackend implements StorageBackend {
         const history = sanitizeBudgetHistory(idbBudgetHistory);
         noteIfDropped("budgetHistory", idbBudgetHistory, history);
         budgetHistory = history.length ? history : undefined;
+      }
+      // Same optional-list shape for the baseline-currency history (§476).
+      {
+        const baseline = sanitizeBaselineHistory(idbBaselineHistory);
+        noteIfDropped("baselineHistory", idbBaselineHistory, baseline);
+        baselineHistory = baseline.length ? baseline : undefined;
       }
       // Optional list: garbage rows dropped individually (sanitizeDocumentAsset
       // never throws); junk/empty list sanitizes to [] → keep undefined.
@@ -537,6 +548,7 @@ export class BrowserBackend implements StorageBackend {
     if (documentVersions) raw.documentVersions = documentVersions;
     if (activityLog) raw.activityLog = activityLog;
     if (budgetHistory) raw.budgetHistory = budgetHistory;
+    if (baselineHistory) raw.baselineHistory = baselineHistory;
     if (documentAssets) raw.documentAssets = documentAssets;
     const ws = migrateWorkspaceV10(raw);
 
@@ -703,6 +715,7 @@ export class BrowserBackend implements StorageBackend {
       [KV_DOCUMENT_VERSIONS_KEY, ws.documentVersions && ws.documentVersions.length ? ws.documentVersions : undefined],
       [KV_ACTIVITY_LOG_KEY, ws.activityLog && ws.activityLog.length ? ws.activityLog : undefined],
       [KV_BUDGET_HISTORY_KEY, ws.budgetHistory && ws.budgetHistory.length ? ws.budgetHistory : undefined],
+      [KV_BASELINE_HISTORY_KEY, ws.baselineHistory && ws.baselineHistory.length ? ws.baselineHistory : undefined],
       [KV_DOCUMENT_ASSETS_KEY, ws.documentAssets && ws.documentAssets.length ? ws.documentAssets : undefined],
     ];
     let newRevision = 0;

@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it, vi, onTestFinished } from "vitest";
 import {
   CSV_SECTION_ACTIVITY,
   CSV_SECTION_BUDGET_HISTORY,
+  CSV_SECTION_BASELINE_HISTORY,
   CSV_SECTION_DOCUMENTS,
   CSV_SECTION_DOCUMENT_VERSIONS,
   CSV_SECTION_FIELD_VIS,
@@ -75,9 +76,10 @@ const MARKERS: Record<BlobKey, string> = {
   documentVersions: CSV_SECTION_DOCUMENT_VERSIONS,
   activityLog: CSV_SECTION_ACTIVITY,
   budgetHistory: CSV_SECTION_BUDGET_HISTORY,
+  baselineHistory: CSV_SECTION_BASELINE_HISTORY,
 };
 
-/** The shared eleven blob cases, each with its CSV section marker. */
+/** The shared twelve blob cases, each with its CSV section marker. */
 const BLOB_CASES = META_BLOB_CASES.map((c) => ({ ...c, marker: MARKERS[c.key] }));
 
 /** An empty workspace's CSV with one extra `marker` section holding `body`. */
@@ -150,7 +152,7 @@ describe("csvToWorkspace — a meta slice it could not keep is reported (§630)"
     expect(load(workspaceToCsv(emptyWorkspace())).failed).toEqual([]);
   });
 
-  it("records nothing for genuine values of all thirteen slices, and decodes each as before", () => {
+  it("records nothing for genuine values of all fourteen slices, and decodes each as before", () => {
     const full = fullMetaWorkspace();
     const { ws, failed, bare } = load(workspaceToCsv(full));
     expect(failed).toEqual([]);

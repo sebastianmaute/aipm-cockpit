@@ -374,6 +374,12 @@ describe("fingerprintWorkspace", () => {
       };
       return { ...ws, budgetHistory: [...arr, nextEntry] } as Workspace;
     }
+    if (key === "baselineHistory") {
+      // §476 — a valid entry `sanitizeBaselineHistory` keeps (strict ISO-ms `at`).
+      const arr = Array.isArray(current) ? current : [];
+      const nextEntry = { from: "2026-01-02", at: `2026-01-02T00:00:0${arr.length % 10}.000Z`, currency: "GBP" };
+      return { ...ws, baselineHistory: [...arr, nextEntry] } as Workspace;
+    }
     if (Array.isArray(current) && current.length > 0) {
       const last = current[current.length - 1] as Record<string, unknown>;
       const clone = { ...(JSON.parse(JSON.stringify(last)) as Record<string, unknown>), id: bumpId(last.id) };
@@ -403,13 +409,13 @@ describe("fingerprintWorkspace", () => {
     disciplines: true, grades: true, plan: true, budgets: true, fxRates: true, status: true,
     milestones: true, changes: true, stakeholders: true, project: true, fieldVisibility: true,
     features: true, steeringCommittee: true, timelogLinks: true, knowledgeItems: true,
-    insights: true, activityLog: true, budgetHistory: true, documents: true, documentVersions: true,
+    insights: true, activityLog: true, budgetHistory: true, baselineHistory: true, documents: true, documentVersions: true,
     settingsOverrides: true, calendarEvents: true, documentAssets: true,
   } satisfies Record<keyof Workspace, true>;
   const slices = Object.keys(ALL_WORKSPACE_KEYS) as (keyof Workspace)[];
 
-  it("covers the full 29-key Workspace surface (counted in the fix-round-1 report)", () => {
-    expect(slices.length).toBe(29);
+  it("covers the full 30-key Workspace surface (29 in the fix-round-1 report, + baselineHistory §476)", () => {
+    expect(slices.length).toBe(30);
   });
 
   it("every mutation actually changes workspaceToJson (no case is vacuous)", () => {

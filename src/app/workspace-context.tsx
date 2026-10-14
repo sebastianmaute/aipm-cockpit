@@ -54,6 +54,7 @@ import type { SettingsOverrides } from "./settings-types";
 import type { CalendarEvent } from "./calendar-event";
 import type { ActivityEntry } from "./activity-log";
 import type { BudgetHistoryEntry } from "./budget-history";
+import type { BaselineEntry } from "./baseline-currency";
 import type { DocumentAsset } from "./document-asset";
 
 /** Workspace-section state is `readonly X[]` on purpose: these arrays become
@@ -183,6 +184,10 @@ interface WorkspaceValue {
    *  undefined — `recordBudgetChange` appends to it; replace, never `push`. */
   budgetHistory: readonly BudgetHistoryEntry[];
   setBudgetHistory: Dispatch<SetStateAction<readonly BudgetHistoryEntry[]>>;
+  /** Baseline-currency history (§476; meta-blob sibling of `budgetHistory`).
+   *  Never undefined; replace, never `push`. */
+  baselineHistory: readonly BaselineEntry[];
+  setBaselineHistory: Dispatch<SetStateAction<readonly BaselineEntry[]>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -247,6 +252,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [documentAssets, setDocumentAssets] = useState<readonly DocumentAsset[] | undefined>(undefined);
   const [activityLog, setActivityLog] = useState<readonly ActivityEntry[]>([]);
   const [budgetHistory, setBudgetHistory] = useState<readonly BudgetHistoryEntry[]>([]);
+  const [baselineHistory, setBaselineHistory] = useState<readonly BaselineEntry[]>([]);
 
   // ★★★ THE BEFORE-IMAGE CANNOT BE COMPUTED INSIDE A FUNCTIONAL SETTER.
   // `documents` and `documentVersions` are two separate setters, and the
@@ -507,6 +513,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       documentAssets, setDocumentAssets,
       activityLog, setActivityLog,
       budgetHistory, setBudgetHistory,
+      baselineHistory, setBaselineHistory,
     }),
     [
       tasks,
@@ -547,6 +554,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       documentAssets,
       activityLog,
       budgetHistory,
+      baselineHistory,
     ],
   );
 

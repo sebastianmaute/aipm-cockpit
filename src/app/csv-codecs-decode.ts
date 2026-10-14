@@ -80,6 +80,7 @@ import {
   CSV_SECTION_DOCUMENT_ASSETS,
   CSV_SECTION_ACTIVITY,
   CSV_SECTION_BUDGET_HISTORY,
+  CSV_SECTION_BASELINE_HISTORY,
   buildCalendarEventFromObj,
   buildChangeFromObj,
   buildMilestoneFromObj,
@@ -105,6 +106,7 @@ import {
   csvToDocumentVersions,
   csvToActivityLog,
   csvToBudgetHistory,
+  csvToBaselineHistory,
 } from "./csv-codecs-config";
 
 
@@ -211,6 +213,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   documentAssetsText: string;
   activityLogText: string;
   budgetHistoryText: string;
+  baselineHistoryText: string;
 } {
   // ★★★ QUOTE-AWARE, NOT `csv.split(/\r?\n/)`. A raw split breaks a quoted
   // cell across physical lines, and a continuation that begins with a section
@@ -312,7 +315,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   // csv-section-split.test.ts — the outcome assertions there all survive the
   // mutation, so only that one closes it.
   const lines = scan.unterminatedQuote ? csv.split(/\r?\n/) : scan.lines;
-  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | "documentVersions" | "documentAssets" | "activityLog" | "budgetHistory" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | "documentVersions" | "documentAssets" | "activityLog" | "budgetHistory" | "baselineHistory" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -342,6 +345,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   const documentAssetsLines: string[] = [];
   const activityLogLines: string[] = [];
   const budgetHistoryLines: string[] = [];
+  const baselineHistoryLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     // ★★ ORDER IS LOAD-BEARING because these are `startsWith` tests, not
@@ -381,6 +385,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
     if (trimmed.startsWith(CSV_SECTION_DOCUMENT_ASSETS)) { mode = "documentAssets"; continue; }
     if (trimmed.startsWith(CSV_SECTION_ACTIVITY)) { mode = "activityLog"; continue; }
     if (trimmed.startsWith(CSV_SECTION_BUDGET_HISTORY)) { mode = "budgetHistory"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_BASELINE_HISTORY)) { mode = "baselineHistory"; continue; }
     if (trimmed.startsWith(CSV_SECTION_PROJECT)) { mode = "project"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
@@ -415,6 +420,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
     else if (mode === "documentAssets") documentAssetsLines.push(line);
     else if (mode === "activityLog") activityLogLines.push(line);
     else if (mode === "budgetHistory") budgetHistoryLines.push(line);
+    else if (mode === "baselineHistory") baselineHistoryLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -450,6 +456,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
     documentAssetsText: documentAssetsLines.join("\r\n"),
     activityLogText: activityLogLines.join("\r\n"),
     budgetHistoryText: budgetHistoryLines.join("\r\n"),
+    baselineHistoryText: baselineHistoryLines.join("\r\n"),
   };
 }
 
@@ -709,6 +716,10 @@ export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
   if (s.budgetHistoryText.trim()) {
     const history = csvToBudgetHistory(s.budgetHistoryText, diag);
     if (history) ws.budgetHistory = history;
+  }
+  if (s.baselineHistoryText.trim()) {
+    const baseline = csvToBaselineHistory(s.baselineHistoryText, diag);
+    if (baseline) ws.baselineHistory = baseline;
   }
   return migrateWorkspaceV10(ws);
 }

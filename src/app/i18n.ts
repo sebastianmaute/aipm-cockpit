@@ -3436,7 +3436,7 @@ const enUS = {
   //   grep -o 'reportUnreadableSlice("[a-zA-Z_]*"' src/app/turso-schema.ts
   // Today that is: project_status, project_meta, field_visibility, features,
   // steering_committee, timelog_links, knowledge_items, insights, activityLog,
-  // budgetHistory, documents, documentVersions, settings_overrides — so a
+  // budgetHistory, baselineHistory, documents, documentVersions, settings_overrides — so a
   // corrupt steering-committee blob in a project with NO documents used to be
   // announced as document data, and the user made a PERMANENT discard decision on a screen that misnamed
   // what was being discarded. These two are the cause-aware alternative, and
