@@ -553,16 +553,57 @@ describe("TimelogSettings — address field (§704, §709)", () => {
     expect(defaultTimelogConfig.host).toBe("");
   });
 
-  it("fills host and tenant from a pasted address", () => {
+  it("fills host and tenant from a typed address once the field is left", () => {
     const onChange = vi.fn();
     const cfg = { ...defaultTimelogConfig, enabled: true };
     render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
-    fireEvent.change(screen.getByLabelText(t("en-US", "timelogAddress")), {
-      target: { value: "https://app.timelog.com/acme/registration/week" },
-    });
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.change(input, { target: { value: "https://app.timelog.com/acme/registration/week" } });
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith({ ...cfg, host: "app.timelog.com", tenant: "acme" });
     expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
+  });
+
+  it("M1: typing an address saves nothing mid-word, even when every prefix parses", () => {
+    const onChange = vi.fn();
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "app2.timelog.com", tenant: "acme" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.focus(input);
+    for (const value of ["https://app.timelog.com/a", "https://app.timelog.com/ac", "https://app.timelog.com/acm"]) {
+      fireEvent.change(input, { target: { value } });
+    }
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("M1: typing then leaving the field commits only the final address, once", () => {
+    function Harness({ spy }: { spy: (c: typeof defaultTimelogConfig) => void }) {
+      const [cfg, setCfg] = useState({ ...defaultTimelogConfig, enabled: true });
+      return (
+        <TimelogSettings
+          lang="en-US"
+          config={cfg}
+          onChange={(next) => {
+            spy(next);
+            setCfg(next);
+          }}
+        />
+      );
+    }
+    const spy = vi.fn();
+    render(<Harness spy={spy} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "https://app.timelog.com/ac" } });
+    fireEvent.change(input, { target: { value: "https://app.timelog.com/acme" } });
+    fireEvent.blur(input);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toMatchObject({ host: "app.timelog.com", tenant: "acme" });
+    // Leaving the field again with the same text writes nothing more.
+    fireEvent.focus(input);
+    fireEvent.blur(input);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it("shows an error and writes nothing for an address that is not a Timelog one", () => {

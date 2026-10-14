@@ -101,6 +101,15 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
     errorId: emailErrorId,
   } = useEmailDraft(config.email);
 
+  // Writes the parsed host + tenant on paste or blur. An unparseable address writes nothing, and
+  // one that matches the stored values is not written again (a second blur, a re-paste).
+  function commitAddress(text: string) {
+    const parsed = parseTimelogAddress(text);
+    if (parsed === null) return;
+    if (parsed.host !== config.host || parsed.tenant !== config.tenant) set(parsed);
+    setSeparateOpen(true);
+  }
+
   function handleToken(value: string) {
     set({ apiToken: value, tokenInvalidAt: undefined });
     // §565: a blank token REMOVES the sealed record. Sealing "" left a ciphertext that
@@ -190,17 +199,19 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange }
               placeholder="https://app.timelog.com/acme/…"
               onChange={(e) => {
                 const next = e.target.value;
+                const pasted = pastedRef.current;
                 setAddressDraft(next);
-                setShowAddressError(pastedRef.current);
+                setShowAddressError(pasted);
                 pastedRef.current = false;
-                const parsed = parseTimelogAddress(next);
-                if (parsed !== null) {
-                  set(parsed);
-                  setSeparateOpen(true);
-                }
+                // M1: only a paste commits here. Every prefix of a typed address can parse
+                // (`…/a`, `…/ac`), so committing per keystroke replaced a working tenant mid-word.
+                if (pasted) commitAddress(next);
               }}
               onFocus={() => setShowAddressError(false)}
-              onBlur={() => setShowAddressError(true)}
+              onBlur={() => {
+                setShowAddressError(true);
+                commitAddress(addressDraft);
+              }}
               onPaste={() => {
                 pastedRef.current = true;
               }}
