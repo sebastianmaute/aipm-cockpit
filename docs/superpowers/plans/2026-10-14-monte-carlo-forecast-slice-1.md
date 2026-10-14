@@ -152,7 +152,7 @@
 - [ ] **Step 2: Run; expect FAIL.**
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run all `src/app/forecast/*.test.ts`; expect PASS.** Lint + tsc.
-- [ ] **Step 5: Performance probe (not a test).** In a scratch script (session scratchpad, never the repo), load `src/app/__fixtures__`/the `-huge` sample workspace (`grep -rn "sample-workspace-huge" src e2e scripts` to find the path), call `computeScheduleForecast` with window `"all"` and record the wall time of 5 runs in the report. If the median exceeds 100 ms, set `FORECAST_TRIALS = 5000` and say so in the report and the commit body.
+- [ ] **Step 5: Performance probe (not a test).** In a scratch script (session scratchpad, never the repo), load `src/app/__fixtures__`/the `-huge` sample workspace (`grep -rn "sample-workspace-huge" src e2e scripts` to find the path), call `computeScheduleForecast` with window `"all"` and record the wall time of 5 runs in the report. If the median exceeds 100 ms, set `FORECAST_TRIALS = 5000` and say so in the report and the commit body. Superseded 2026-10-14 (owner decision): the forecast always runs 10,000 trials; see docs/AGENTS/forecast.md 'Trial count'.
 - [ ] **Step 6: Commit** — `feat: computeScheduleForecast with history floor, effort mode and what-if (§502)`.
 
 ### Task 5: Forecast panel components
@@ -234,3 +234,8 @@ Dated record; the tasks above are left as written.
   task the milestones keep their own states (all linked closed reads 100 %, no linked tasks reads
   `no-linked-tasks`, an achieved one is omitted). The floor applies when `open.length > 0 || backlog > 0`
   (`backlog` after the what-if), so only no open task AND no added scope skips it.
+- **P4 — the 5,000-trial fallback is dropped (owner decision 2026-10-14).** The performance step
+  and spec §5 prescribed `FORECAST_TRIALS = 5000` above the ≈ 100 ms budget, and an adaptive
+  fallback was briefly built. The owner decided the forecast always runs 10,000 trials and accepts
+  the about-600 ms What-if extremes; 5aae55267 removed the fallback. Both prescribing sentences
+  carry a dated "Superseded" note.

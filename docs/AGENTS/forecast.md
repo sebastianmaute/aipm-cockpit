@@ -216,12 +216,12 @@ The early exits (commit 28dda4652) change no result: at the same trial count the
 them gave identical result digests in every case. No before/after timing is quoted: the only "before"
 figures were taken in a different process on a shared machine and cannot be compared with these.
 
-★★ **The What-if extremes miss the ~150 ms target, at about 600 ms, and that is accepted.** At 10 % capacity no
+★★ **The What-if extremes miss the spec's "budget ≈ 100 ms" (spec §5, Performance), at about 600 ms, and that is accepted.** At 10 % capacity no
 trial reaches a +500 % backlog, so When walks most of the 1,300-day horizon before `beyond` is certain,
 and How many walks all of it, because a trial that never reaches the backlog must draw every day of the
 target. Both are bound by the rng (one draw per simulated day at least, about 7 ns each on this
 machine). The levers left are a worker, or fewer trials; the owner decided against both (see "Trial count").
-Reproduce the "after" column from the repo root (single runs, so expect noise; delete the file
+Reproduce the table from the repo root (single runs, so expect noise; delete the file
 afterwards):
 
 ```bash

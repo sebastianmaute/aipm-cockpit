@@ -140,6 +140,8 @@ Pure, i18n-free, no React, in `src/app/forecast/`. The engine returns codes and 
   existing today hook (rolls at midnight).
 - **Performance:** measure once on `sample-workspace-huge.json` while implementing and record the result in the
   plan ledger; budget ≈ 100 ms. Above it, `FORECAST_TRIALS` drops to 5 000. No timing assertion in tests.
+  Superseded 2026-10-14 (owner decision): the forecast always runs 10,000 trials; see
+  docs/AGENTS/forecast.md 'Trial count'.
 
 ## 6. Slice 1 — testing
 
