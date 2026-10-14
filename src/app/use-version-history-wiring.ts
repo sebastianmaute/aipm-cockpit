@@ -28,11 +28,12 @@ import { seedMintFromWorkspace } from "./id-mint-session";
 import { useVersionHistory, type UseVersionHistoryArgs, type UseVersionHistoryResult } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { useWorkspace } from "./workspace-context";
-import { restoreSwitchEntry } from "./baseline-currency";
+import { currentBaselineCurrency, restoreSwitchEntry, roundRate } from "./baseline-currency";
 import { logDiag } from "./diagnostics";
 import { workspaceToJson, type Workspace } from "./workspace";
 import type { CalendarEvent } from "./calendar-event";
 import type { Settings } from "./settings-types";
+import type { ActivityKind } from "./activity-log";
 import type { Stakeholder } from "./types";
 
 // Idle window before an auto version is captured after a save. Coalesces a
@@ -50,7 +51,8 @@ export interface VersionHistoryWiringDeps {
   features: Settings["features"];
   versionHistoryRetention: Settings["versionHistoryRetention"];
   isPopout: boolean;
-  logActivityUser: UseVersionHistoryArgs["logActivity"];
+  /** The user-stamped logger: the restore's own `history.restore` row, and its §476 currency switch back. */
+  logActivityUser: (kind: ActivityKind, ...args: (string | number)[]) => void;
   /** task-manager's storage-status bridge; a version error raises its banner. */
   reportStorageOutcome: (err: unknown | null) => void;
   /** task-manager's save-success bridge, filled here with `notifySaved`. */
@@ -70,7 +72,7 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
     steeringCommittee, setSteeringCommittee, timelogLinks, setTimelogLinks,
     knowledgeItems, setKnowledgeItems, insights, setInsights, documents, setDocuments,
     documentVersions, setDocumentVersions, settingsOverrides, setSettingsOverrides, setCalendarEvents,
-    setBaselineHistory,
+    baselineHistory, setBaselineHistory,
   } = useWorkspace();
   const planCurrency = plan.currency;
 
@@ -111,7 +113,11 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
     const versionAt = meta.capturedAt;
     if (versionAt !== null) {
       const nowIso = new Date().toISOString();
-      setBaselineHistory((h) => { const e = restoreSwitchEntry(h, restoredCurrency, planCurrency, versionAt, nowIso); return e ? [...h, e] : h; });
+      const e = restoreSwitchEntry(baselineHistory, restoredCurrency, planCurrency, versionAt, nowIso);
+      if (e?.perPrevious !== undefined) {
+        setBaselineHistory((h) => [...h, e]);
+        logActivityUser("plan.currencyRestored", currentBaselineCurrency(baselineHistory, planCurrency), e.currency, roundRate(e.perPrevious));
+      }
     } else if (restoredCurrency !== planCurrency) logDiag("warn", "history.restoreCurrencyUnrecorded", { restoredCurrency });
     setTasks(dropDanglingDependencies(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? []))); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
@@ -123,7 +129,7 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
     // snapshot can't be reused this session. Side-effecting; runs on restore
     // (callback), not during render.
     seedMintFromWorkspace(w, "raise");
-  }, [planCurrency, setBaselineHistory, setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setSettingsOverrides, setCalendarEvents]);
+  }, [planCurrency, baselineHistory, logActivityUser, setBaselineHistory, setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setSettingsOverrides, setCalendarEvents]);
 
   // Stable onError so useVersionHistory's `refresh` callback keeps a stable
   // identity — an inline arrow here re-creates refresh every render, re-running

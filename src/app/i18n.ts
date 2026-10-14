@@ -688,6 +688,8 @@ const enUS = {
   activityBudgetCreated: "Budget bucket created: {0}",
   activityBudgetUpdated: "Budget bucket updated: {0}",
   activityBudgetDeleted: "Budget bucket deleted: {0}",
+  activityPlanCurrencySwitched: "Project currency switched from {0} to {1} at {2} (ECB rates of {3})",
+  activityPlanCurrencyRestored: "Project currency switched back from {0} to {1} at {2} by a version restore",
   taskBudgetBucket: "Budget bucket",
   budgetBucketNone: "— none —",
   budgetBucketsCount: "{0} buckets",

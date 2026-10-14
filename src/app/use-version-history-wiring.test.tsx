@@ -193,6 +193,20 @@ describe("useVersionHistoryWiring — a restore keeps baselineHistory in step wi
     expect(hist[1]).toMatchObject({ currency: "EUR", perPrevious: 1 / 0.85 });
     expect(hist[1].at > T_SWITCH).toBe(true);
   });
+  // §476 owner requirement — the switch back is recorded through the wiring's user logger, once.
+  it("records the switch back in the activity log: from, to and the rate (6 decimals)", () => {
+    const h = afterGbpSwitch();
+    const restored: Workspace = { ...emptyWorkspace(), plan: { ...h.result.current.ws.plan, currency: "EUR" } };
+    act(() => { args().applyWorkspace?.(restored, { capturedAt: T_VERSION }); });
+    const calls = (h.deps.logActivityUser as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls).toEqual([["plan.currencyRestored", "GBP", "EUR", 1.176471]]);
+  });
+  it("logs nothing when the restore keeps the currency", () => {
+    const h = afterGbpSwitch();
+    const restored: Workspace = { ...emptyWorkspace(), plan: { ...h.result.current.ws.plan, currency: "GBP" } };
+    act(() => { args().applyWorkspace?.(restored, { capturedAt: T_VERSION }); });
+    expect(h.deps.logActivityUser).not.toHaveBeenCalled();
+  });
   it("a restore whose capture time is unknown appends nothing (it cannot compute the factor)", () => {
     const h = afterGbpSwitch();
     const before = h.result.current.ws.baselineHistory;

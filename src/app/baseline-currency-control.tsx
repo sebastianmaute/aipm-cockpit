@@ -4,7 +4,8 @@ import { type Lang, t } from "./i18n";
 import { Select } from "./form-controls";
 import { InfoTooltip } from "./info-tooltip";
 import { useWorkspace } from "./workspace-context";
-import { crossRate } from "./baseline-currency";
+import { useActivityLog } from "./use-activity-log";
+import { crossRate, roundRate } from "./baseline-currency";
 import { planBaselineSwitch } from "./baseline-switch";
 import { roleLabel } from "./resource-foundation";
 import { BaselineSwitchDialog } from "./baseline-switch-dialog";
@@ -25,7 +26,8 @@ export interface BaselineCurrencyControlProps {
  * five workspace setters, and it captures NO undo entry (the dialog says the
  * switch cannot be undone; switching back is the way back). Every undo/redo
  * entry captured BEFORE it is retired too — its images hold old-currency
- * amounts — through `useDenominationEpoch`'s share of the undo epoch.
+ * amounts — through `useDenominationEpoch`'s share of the undo epoch. Confirm
+ * also records ONE `plan.currencySwitched` activity entry (actor "user").
  *
  * ★ Reads `useWorkspace()` itself so `BudgetPanel` need not (it is not memo'd
  * today, but keeping the context read here keeps the panel's props the only
@@ -36,6 +38,8 @@ export interface BaselineCurrencyControlProps {
  */
 export function BaselineCurrencyControl({ lang, sessionRates, workdayHours }: BaselineCurrencyControlProps) {
   const ws = useWorkspace();
+  // The Confirm click is a user gesture all the way down, so the leaf names the actor.
+  const { logActivityUser } = useActivityLog();
   const { plan, roles, budgets, changes, disciplines, grades } = ws;
   const [pendingTo, setPendingTo] = useState<BudgetCurrency | null>(null);
   const selectId = useId();
@@ -72,6 +76,7 @@ export function BaselineCurrencyControl({ lang, sessionRates, workdayHours }: Ba
     ws.setChanges(result.changes);
     ws.setPlan((p) => ({ ...p, currency: result.to }));
     ws.setBaselineHistory((h) => [...h, result.entry]);
+    logActivityUser("plan.currencySwitched", result.from, result.to, roundRate(result.rate), result.fxDate);
   };
 
   const disabled = sessionRates === null;

@@ -62,6 +62,11 @@ export function rebaseFactor(history: readonly BaselineEntry[], atIso: string): 
   return factor;
 }
 
+/** The currency the history says money is in now: the latest entry's, or `planCurrency` while it is empty. */
+export function currentBaselineCurrency(history: readonly BaselineEntry[], planCurrency: BudgetCurrency): BudgetCurrency {
+  return history.length > 0 ? history[history.length - 1].currency : planCurrency;
+}
+
 /**
  * §476 — the entry a VERSION RESTORE appends when the restored `plan.currency`
  * differs from the current one, so the read-time rebase stays in step with the plan.
@@ -80,10 +85,12 @@ export function restoreSwitchEntry(
   versionCapturedAt: string,
   nowIso: string,
 ): BaselineEntry | null {
-  const current = history.length > 0 ? history[history.length - 1].currency : planCurrency;
-  if (restoredCurrency === current) return null;
+  if (restoredCurrency === currentBaselineCurrency(history, planCurrency)) return null;
   return { from: nowIso.slice(0, 10), at: nowIso, currency: restoredCurrency, perPrevious: 1 / rebaseFactor(history, versionCapturedAt) };
 }
+
+/** A cross rate rounded to 6 decimals, as the activity log records it (§476). */
+export const roundRate = (rate: number): number => Math.round(rate * 1e6) / 1e6;
 
 const scale = (v: number | null, f: number): number | null => (v === null ? null : v * f);
 

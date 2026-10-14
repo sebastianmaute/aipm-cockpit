@@ -117,6 +117,10 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   ★★ It also RETIRES every undo/redo entry captured before it, in this tab and in any peer tab its
   sync reaches: their images hold old-currency amounts. Mechanism: [`undo.md`](undo.md) "Gates on the stack"
   (`useDenominationEpoch`).
+- **The switch is LOGGED** (owner requirement): Confirm writes ONE `plan.currencySwitched` activity entry, actor
+  `"user"`, args `[from, to, rate, ECB date]` (rate rounded by `roundRate` to 6 decimals). A version restore that
+  appends a switch back logs `plan.currencyRestored` `[from, to, rate]` through the wiring's `logActivityUser`. The
+  completion trend reads neither (pinned in `completion-trend.test.ts`, "§476").
 - **`baselineHistory` (`Workspace.baselineHistory`, entries `BaselineEntry`: `from`, `at`,
   `currency`, `perPrevious?`).** Every switch appends one entry whose `perPrevious` is the cross rate
   it used. It is a meta-blob slice on all six write paths

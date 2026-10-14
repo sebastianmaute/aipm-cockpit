@@ -626,6 +626,8 @@ export const de: Record<TranslationKey, string> = {
   activityBudgetCreated: "Budgetposition erstellt: {0}",
   activityBudgetUpdated: "Budgetposition aktualisiert: {0}",
   activityBudgetDeleted: "Budgetposition gelöscht: {0}",
+  activityPlanCurrencySwitched: "Projektwährung von {0} auf {1} umgestellt, Kurs {2} (EZB-Kurse vom {3})",
+  activityPlanCurrencyRestored: "Projektwährung durch eine Versionswiederherstellung von {0} auf {1} zurückgestellt, Kurs {2}",
   taskBudgetBucket: "Budgetposition",
   budgetBucketNone: "— keine —",
   budgetBucketsCount: "{0} Buckets",

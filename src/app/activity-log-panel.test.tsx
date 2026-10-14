@@ -940,6 +940,25 @@ describe("ActivityLogPanel sortable column headers", () => {
  * the same keys on a hardcoded "en-US", so it cannot produce a German defect at
  * all — the DE case below is reachable from here and nowhere else.
  */
+// §476 — a baseline-currency switch, and a restore that switched the currency back, render readably.
+describe("ActivityLogPanel — project currency entries (§476)", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+  const switched = entry({ id: "1", kind: "plan.currencySwitched", args: ["EUR", "GBP", 0.852, "2026-10-13"], actor: "user" });
+  const restored = entry({ id: "2", kind: "plan.currencyRestored", args: ["GBP", "EUR", 1.173709], actor: "user" });
+  it("renders both in English", () => {
+    renderPanel(<ActivityLogPanel lang="en-US" entries={[switched, restored]} onClear={() => {}} />);
+    expect(screen.getByText("Project currency switched from EUR to GBP at 0.852 (ECB rates of 2026-10-13)")).toBeInTheDocument();
+    expect(screen.getByText("Project currency switched back from GBP to EUR at 1.173709 by a version restore")).toBeInTheDocument();
+  });
+  it("renders both in German", () => {
+    renderPanel(<ActivityLogPanel lang="de" entries={[switched, restored]} onClear={() => {}} />);
+    expect(screen.getByText("Projektwährung von EUR auf GBP umgestellt, Kurs 0.852 (EZB-Kurse vom 2026-10-13)")).toBeInTheDocument();
+    expect(screen.getByText("Projektwährung durch eine Versionswiederherstellung von GBP auf EUR zurückgestellt, Kurs 1.173709")).toBeInTheDocument();
+  });
+});
+
 describe("ActivityLogPanel — count agreement on map-routed keys", () => {
   beforeAll(async () => {
     await loadI18n("de");

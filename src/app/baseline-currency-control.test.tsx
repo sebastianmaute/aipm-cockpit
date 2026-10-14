@@ -25,13 +25,14 @@ function Seeder() {
 }
 
 function Probe() {
-  const { plan: p, roles: r, baselineHistory, fxRates } = useWorkspace();
+  const { plan: p, roles: r, baselineHistory, fxRates, activityLog } = useWorkspace();
   return (
     <>
       <span data-testid="currency">{p.currency}</span>
       <span data-testid="rate">{String(r[0]?.internalRate ?? "")}</span>
       <span data-testid="history">{JSON.stringify(baselineHistory)}</span>
       <span data-testid="cached">{fxRates ? "cached" : "none"}</span>
+      <span data-testid="log">{JSON.stringify(activityLog)}</span>
     </>
   );
 }
@@ -102,6 +103,24 @@ describe("BaselineCurrencyControl", () => {
     expect(history[0].currency).toBe("GBP");
     expect(history[0].perPrevious).toBe(0.852);
     expect(screen.getByRole("combobox", { name: "Project currency" })).toHaveValue("GBP");
+  });
+
+  // §476 owner requirement — the switch is recorded in the activity log, by the user, once.
+  const logOf = () => JSON.parse(screen.getByTestId("log").textContent ?? "[]") as Array<{ kind: string; args: unknown[]; actor?: string }>;
+  test("Confirm appends exactly one activity entry: from, to, the cross rate and the ECB date", async () => {
+    const dialog = await openSwitchToGbp();
+    expect(logOf()).toEqual([]); // control: opening the dialog logs nothing
+    await userEvent.click(within(dialog).getByRole("button", { name: "Switch to GBP" }));
+    const log = logOf();
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatchObject({ kind: "plan.currencySwitched", args: ["EUR", "GBP", 0.852, "2026-10-13"], actor: "user" });
+  });
+
+  test("Cancel appends no activity entry", async () => {
+    const dialog = await openSwitchToGbp();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(logOf()).toEqual([]);
   });
 
   test("Escape closes the dialog like Cancel", async () => {
