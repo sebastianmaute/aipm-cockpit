@@ -573,4 +573,30 @@ describe("a pre-switch recommendation carrying money is refused after a currency
     await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
     expect(store.read()[0].recommendation?.historyLength).toBe(2);
   });
+
+  // Driven through the BACKGROUND RUNNER on purpose, like the §350 token test above: it reads the
+  // store callback from a ref at ANSWER time, so only the prompt-time snapshot keeps the stamp at
+  // the length the prompt saw. (The on-demand generate captures its callback at START, so a
+  // test through it passes even when the snapshot is ignored.)
+  it("a switch landing while the model answers does not move the stamp: it is the prompt-time length", async () => {
+    let answer!: (r: InsightRecommendation) => void;
+    vi.spyOn(recommendCall, "runInsightRecommendation").mockReturnValue(
+      new Promise<InsightRecommendation>((r) => { answer = r; }),
+    );
+    const store = mkStore([mkInsight()]);
+    const runnerSettings = {
+      ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: true },
+    } as unknown as InsightRecommendationDeps["settings"];
+    const { rerender } = renderHook(
+      (p: { history: InsightRecommendationDeps["baselineHistory"] }) =>
+        useInsightRecommendations(mkDeps({ settings: runnerSettings, insights: store.read(), setInsights: store.setInsights, baselineHistory: p.history })),
+      { initialProps: { history: [CREATION] } },
+    );
+    await act(async () => { await Promise.resolve(); });
+    expect(recommendCall.runInsightRecommendation).toHaveBeenCalledTimes(1); // the runner's mount tick
+    rerender({ history: [CREATION, SWITCH] });
+    await act(async () => { answer(mkRec({ id: 42, status: "In Progress" })); });
+    expect(store.read()[0].recommendation, "no recommendation was stored").toBeDefined();
+    expect(store.read()[0].recommendation?.historyLength).toBe(1);
+  });
 });

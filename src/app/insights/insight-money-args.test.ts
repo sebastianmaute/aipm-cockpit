@@ -3,7 +3,7 @@ import { TOOL_DEFS } from "../chat-tool-defs";
 import { ALLOWED_REC_TOOLS, REC_MONEY_ARGS, recommendationPredatesSwitch, type InsightRecommendation } from "./insight";
 import type { BaselineEntry } from "../baseline-currency";
 
-type Prop = { type?: string | string[]; items?: Prop };
+type Prop = { type?: string | string[]; items?: Prop; properties?: Record<string, Prop> };
 type Def = { name: string; input_schema: { properties?: Record<string, Prop> } };
 
 /**
@@ -30,14 +30,22 @@ const isNumber = (p: Prop): boolean => {
   return p.items !== undefined && isNumber(p.items);
 };
 
+/** Adds every number-typed (or number-array) property, at any depth: inside an object argument
+ *  and inside the objects of an array argument, because `recommendationPredatesSwitch` looks
+ *  for a money argument at any depth too. */
+function collectNumberArgs(properties: Record<string, Prop>, found: Set<string>): void {
+  for (const [arg, prop] of Object.entries(properties)) {
+    if (isNumber(prop)) found.add(arg);
+    if (prop.properties) collectNumberArgs(prop.properties, found);
+    if (prop.items?.properties) collectNumberArgs(prop.items.properties, found);
+  }
+}
+
 /** Every number-typed (or number-array) argument of every `ALLOWED_REC_TOOLS` tool. */
 function numberArgsOfAllowedTools(defs: readonly Def[]): Set<string> {
   const found = new Set<string>();
   for (const def of defs) {
-    if (!ALLOWED_REC_TOOLS.has(def.name)) continue;
-    for (const [arg, prop] of Object.entries(def.input_schema.properties ?? {})) {
-      if (isNumber(prop)) found.add(arg);
-    }
+    if (ALLOWED_REC_TOOLS.has(def.name)) collectNumberArgs(def.input_schema.properties ?? {}, found);
   }
   return found;
 }
@@ -67,6 +75,19 @@ describe("REC_MONEY_ARGS (§476)", () => {
     const fake: Def = { name: "create_change", input_schema: { properties: { feeAmount: { type: "number" } } } };
     expect(unclassified(numberArgsOfAllowedTools([...defs, fake]))).toEqual(["feeAmount"]);
   });
+
+  it("a number argument nested in an object or array-of-objects argument is found too (control)", () => {
+    const fake: Def = {
+      name: "create_change",
+      input_schema: {
+        properties: {
+          lines: { type: "array", items: { type: "object", properties: { unitPrice: { type: "number" } } } },
+          meta: { type: "object", properties: { fee: { type: "number" } } },
+        },
+      },
+    };
+    expect(unclassified(numberArgsOfAllowedTools([...defs, fake]))).toEqual(["fee", "unitPrice"]);
+  });
 });
 
 describe("recommendationPredatesSwitch (§476)", () => {
@@ -77,10 +98,21 @@ describe("recommendationPredatesSwitch (§476)", () => {
   const sw = (from: string): BaselineEntry => ({ from, at: `${from}T10:00:00.000Z`, currency: "GBP", perPrevious: 0.85 });
   const creation: BaselineEntry = { from: "2026-09-01", at: "2026-09-01T10:00:00.000Z", currency: "EUR" };
 
-  it("a stamped recommendation is refused only when the history grew since it was stamped", () => {
+  it("a stamped recommendation is refused when the history grew since it was stamped", () => {
     expect(recommendationPredatesSwitch(rec({ id: 1, costImpact: 10 }, 0), [sw("2026-09-03")])).toBe(true);
     expect(recommendationPredatesSwitch(rec({ id: 1, costImpact: 10 }, 1), [sw("2026-09-03")])).toBe(false);
     expect(recommendationPredatesSwitch(rec({ id: 1, costImpact: 10 }, 1), [sw("2026-09-03"), sw("2026-09-03")])).toBe(true);
+  });
+
+  it("a history SHORTER than the stamp is refused: the denomination it was made in is unknown", () => {
+    expect(recommendationPredatesSwitch(rec({ id: 1, costImpact: 10 }, 2), [sw("2026-09-03")])).toBe(true);
+    expect(recommendationPredatesSwitch(rec({ id: 1, costImpact: 10 }, 1), [])).toBe(true);
+  });
+
+  it("a money argument nested in an object or array argument counts", () => {
+    expect(recommendationPredatesSwitch(rec({ id: 1, lines: [{ costImpact: 10 }] }, 0), [sw("2026-09-03")])).toBe(true);
+    expect(recommendationPredatesSwitch(rec({ id: 1, meta: { costImpact: 10 } }, 0), [sw("2026-09-03")])).toBe(true);
+    expect(recommendationPredatesSwitch(rec({ id: 1, lines: [{ title: "x" }] }, 0), [sw("2026-09-03")])).toBe(false);
   });
 
   it("never refuses a recommendation without a money argument", () => {

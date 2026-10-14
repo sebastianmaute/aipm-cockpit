@@ -170,18 +170,27 @@ export const REC_MONEY_ARGS: readonly string[] = ["costImpact"];
 /** §476 — true when this recommendation must not be replayed: some proposed call carries a
  *  money argument (`REC_MONEY_ARGS`) AND a baseline-currency switch was made after it was
  *  generated, so those amounts are in the old currency. "After" is decided by the history
- *  LENGTH stamped at generation (`historyLength`): the history only grows, so a longer one
- *  means a later switch. Never by `generatedAt`, which is a DAY — a recommendation regenerated
- *  on the day of a switch, as the refusal asks, would be refused for the rest of that day.
+ *  LENGTH stamped at generation (`historyLength`): a switch only appends, so a longer history
+ *  means a later switch; a SHORTER one means the history was replaced since, and the currency
+ *  the amounts were written in is unknown, so it is refused too. Never by `generatedAt`, which
+ *  is a DAY — a recommendation regenerated on the day of a switch, as the refusal asks, would be
+ *  refused for the rest of that day. A money argument counts at any depth of a call's input.
  *  An UNSTAMPED recommendation (an older build) is refused once the history holds any switch
  *  (an entry with `perPrevious`; the creation entry converts nothing and is not one). */
 export function recommendationPredatesSwitch(
   rec: InsightRecommendation,
   history: readonly BaselineEntry[],
 ): boolean {
-  if (!rec.proposedCalls.some((c) => REC_MONEY_ARGS.some((arg) => c.input[arg] !== undefined))) return false;
-  if (rec.historyLength !== undefined) return history.length > rec.historyLength;
+  if (!rec.proposedCalls.some((c) => carriesMoney(c.input))) return false;
+  if (rec.historyLength !== undefined) return history.length !== rec.historyLength;
   return history.some((e) => e.perPrevious !== undefined);
+}
+
+/** True when `value` holds a `REC_MONEY_ARGS` key at any depth of its objects and arrays. */
+function carriesMoney(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(carriesMoney);
+  if (typeof value !== "object" || value === null) return false;
+  return Object.entries(value).some(([k, v]) => (REC_MONEY_ARGS.includes(k) && v !== undefined) || carriesMoney(v));
 }
 
 /** Lifecycle callbacks a surface (dashboard card, Insights view) invokes to
