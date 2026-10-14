@@ -34,7 +34,7 @@ import { FieldError } from "./field-feedback";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { aiKeyIfEnabled, type Settings } from "./settings-types";
 import { type ProjectTemplate } from "./templates";
-import { type ProjectMeta, type Resource } from "./types";
+import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES, isBudgetCurrency, type BudgetCurrency, type ProjectMeta, type Resource } from "./types";
 import { useTemplates } from "./use-templates";
 import { useProjectProposal, type ProposalContent } from "./use-project-proposal";
 import { proposalToDraftPatch, proposalToSeed, seedHasContent } from "./ai-project-proposal";
@@ -46,7 +46,7 @@ import type { Workspace } from "./workspace";
 import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 import { WizardStepIndicator } from "./wizard-step-indicator";
-import { Checkbox } from "./form-controls";
+import { Checkbox, Select } from "./form-controls";
 import { FunctionsPicker } from "./functions-picker";
 import { Badge } from "./badge";
 import { Button } from "./button";
@@ -173,6 +173,7 @@ export function CreateProjectWizard({
   const [format, setFormat] = useState<CreateFormat>("json");
   const [storage, setStorage] = useState<"file" | "turso">("file");
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
+  const [currency, setCurrency] = useState<BudgetCurrency>(DEFAULT_CURRENCY);
   const [features, setFeatures] = useState<FeatureModuleId[]>([...ALL_MODULE_IDS]);
   const [includeSeed, setIncludeSeed] = useState(false);
 
@@ -319,6 +320,8 @@ export function CreateProjectWizard({
       includeSeed,
       aiSeed: selectedTemplate === null ? aiSeed : undefined,
       storage,
+      currency,
+      nowIso: new Date().toISOString(),
     });
   };
 
@@ -426,6 +429,23 @@ export function CreateProjectWizard({
               initialDraftPatch={meta ? undefined : draftPatch}
               initialFormat={format}
             />
+            {!imported && (
+              <label className="mt-3 flex items-center gap-2 text-sm">
+                <span>{t(lang, "baselineCurrencyLabel")}</span>
+                <Select
+                  value={currency}
+                  onChange={(e) => {
+                    if (isBudgetCurrency(e.target.value)) setCurrency(e.target.value);
+                  }}
+                >
+                  {SUPPORTED_CURRENCIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            )}
           </>
         )}
 

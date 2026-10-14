@@ -68,6 +68,33 @@ describe("buildNewProjectWorkspace", () => {
     expect(ws.tasks).toHaveLength(0);
   });
 
+  it("currency GBP → plan.currency and one creation baseline entry without perPrevious", () => {
+    const nowIso = "2026-10-14T08:30:00.000Z";
+    const ws = buildNewProjectWorkspace(meta, { currency: "GBP", nowIso });
+    expect(ws.plan.currency).toBe("GBP");
+    expect(ws.baselineHistory).toEqual([{ from: ws.plan.startDate, at: nowIso, currency: "GBP" }]);
+    expect(ws.baselineHistory?.[0]).not.toHaveProperty("perPrevious");
+  });
+
+  it("no currency (or EUR) → EUR plan and no baselineHistory", () => {
+    const none = buildNewProjectWorkspace(meta, {});
+    expect(none.plan.currency ?? "EUR").toBe("EUR");
+    expect(none.baselineHistory).toBeUndefined();
+    const eur = buildNewProjectWorkspace(meta, { currency: "EUR", nowIso: "2026-10-14T08:30:00.000Z" });
+    expect(eur.baselineHistory).toBeUndefined();
+  });
+
+  it("an imported workspace keeps its own plan currency and history", () => {
+    const imported: Workspace = { ...emptyWorkspace(), plan: { ...emptyWorkspace().plan, currency: "USD" } };
+    const ws = buildNewProjectWorkspace(meta, {
+      importedWorkspace: imported,
+      currency: "GBP",
+      nowIso: "2026-10-14T08:30:00.000Z",
+    });
+    expect(ws.plan.currency).toBe("USD");
+    expect(ws.baselineHistory).toBeUndefined();
+  });
+
   it("no opts → today's behavior (no features override)", () => {
     const ws = buildNewProjectWorkspace(meta, {});
     expect(ws.features).toBeUndefined();

@@ -193,6 +193,23 @@ describe("CreateProjectWizard", () => {
     expect(opts.includeSeed).toBe(true);
   });
 
+  it("choosing GBP in the currency select passes currency GBP and a creation clock to onCreate", () => {
+    const { onCreate } = setup();
+    fillRequired({});
+    fireEvent.change(screen.getByLabelText(t("en-US", "baselineCurrencyLabel")), { target: { value: "GBP" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create project" }));
+    const [, , opts] = onCreate.mock.calls[0];
+    expect(opts.currency).toBe("GBP");
+    expect(opts.nowIso).toMatch(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/);
+  });
+
+  it("defaults the currency select to EUR", () => {
+    setup();
+    expect((screen.getByLabelText(t("en-US", "baselineCurrencyLabel")) as HTMLSelectElement).value).toBe("EUR");
+  });
+
   it("Blank template enables all modules and creates with no template", () => {
     const { onCreate } = setup();
 
