@@ -125,9 +125,10 @@ async function settleHash(page: Page, hash: string, name: string): Promise<void>
 // derived, in the commit that added the umber-dark combo, and 129/130
 // re-measured when the Reports cumulative scan was added (§557), and 131/133
 // when the two Turso-storage tests were (§548), and 138/140 when the pink-count-badge
-// scans were (§681), and 145/147 when the RAG-letter-chip scans were (§683). Reproduce (no browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 147 total
-//   …then `grep -c "a11y:"` over that output       # 145 (+1 unprefixed)
+// scans were (§681), and 145/147 when the RAG-letter-chip scans were (§683), and 146/148 when
+// the harbor-light Budget currency-switch dialog scan was (§476). Reproduce (no browsers needed):
+//   npx playwright test e2e/a11y.spec.ts --list   # 148 total
+//   …then `grep -c "a11y:"` over that output       # 146 (+1 unprefixed)
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },
@@ -533,6 +534,63 @@ test("a11y: harbor-light — Reports (budget chart, cumulative)", async ({ page 
     .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
     .join("\n");
   expect(blocking, `Reports cumulative budget chart a11y violations:\n${summary}`).toEqual([]);
+});
+
+// §476: the baseline-currency switch dialog opens only after an ECB refresh succeeds in THIS
+// session and a currency is chosen, so the Budget scan in the A11Y_VIEWS loop never renders it.
+// The `/api/ecb` fetch is answered by a route stub (no network), the dialog is scanned OPEN, and
+// Cancel then closes it without writing anything.
+// ★ Same axe configuration as every scan above; harbor-light only, like the scans before it.
+test("a11y: harbor-light — Budget (baseline-currency switch dialog)", async ({ page }) => {
+  await page.route("**/api/ecb", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        base: "EUR", date: "2026-10-13", fetchedAt: "2026-10-13T08:00:00.000Z",
+        rates: { EUR: 1, USD: 1.08, GBP: 0.852, INR: 91 },
+      }),
+    }),
+  );
+  await page.addInitScript(seedScript(COMBOS[0]));
+
+  await gotoApp(page);
+  await openView(page, "Budget");
+  // DOM-click (mirrors the scans above) so the auto-launched guided tour overlay cannot
+  // intercept a real pointer click. Assert it was found so a renamed control fails loudly.
+  const clickedRefresh = await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find(
+      (b) => (b.getAttribute("aria-label") || b.textContent || "").trim() === "Refresh ECB rates",
+    );
+    if (!btn) return false;
+    (btn as HTMLElement).click();
+    return true;
+  });
+  expect(clickedRefresh, "Refresh ECB rates button not found in Budget").toBe(true);
+  const currency = page.getByRole("combobox", { name: "Project currency", exact: true });
+  // Enabled only once the stubbed refresh succeeded — proves the session table arrived.
+  await expect(currency).toBeEnabled();
+  await currency.selectOption("GBP");
+  const dialog = page.getByRole("dialog", { name: "Switch project currency to GBP?", exact: true });
+  await expect(dialog).toBeVisible();
+  await waitForViewSettled(page);
+
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+
+  const blocking = results.violations.filter(
+    (v) => v.impact === "critical" || v.impact === "serious",
+  );
+  const summary = blocking
+    .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
+    .join("\n");
+  expect(blocking, `Budget currency switch dialog a11y violations:\n${summary}`).toEqual([]);
+
+  // DOM-click again: the guided tour overlay sits above the dialog and would take a pointer click.
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).evaluate((b) => (b as HTMLElement).click());
+  await expect(dialog).toHaveCount(0);
+  await expect(currency).toHaveValue("EUR");
 });
 
 // Chart hover/keyboard readout (chart-hover-readout branch): the box and its
