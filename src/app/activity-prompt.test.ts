@@ -168,3 +168,11 @@ describe("renderActivityEntry — count agreement on map-routed keys", () => {
     );
   });
 });
+
+// §476 fix round 1 — the AI prompt is a MACHINE path: the stored ISO ECB date and raw rate.
+describe("renderActivityEntry — plan.currencySwitched stays raw (§476)", () => {
+  it("renders the ISO date and the raw rate", () => {
+    const r = renderActivityEntry(entry({ kind: "plan.currencySwitched", args: ["EUR", "GBP", 0.852, "2026-10-13"] }));
+    expect(r.summary).toBe("Project currency switched from EUR to GBP at 0.852 (ECB rates of 2026-10-13)");
+  });
+});

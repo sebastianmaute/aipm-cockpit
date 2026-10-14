@@ -183,34 +183,38 @@ describe("activityMessage — plan.currencySwitched formats its rate and date (�
   const args = ["EUR", "GBP", 0.852, "2026-10-13"];
 
   it("renders the rate with a decimal comma and a German date in German", () => {
-    const msg = activityMessage("de", "plan.currencySwitched", args);
+    const msg = activityMessage("de", "plan.currencySwitched", args, { display: true });
     expect(msg).toContain("Kurs 0,852 ");
     expect(msg).not.toContain("2026-10-13");
     expect(msg).toContain(formatExpiryDate("2026-10-13", "de"));
   });
 
   it("renders the rate with a decimal point and an English date in English", () => {
-    const msg = activityMessage("en-US", "plan.currencySwitched", args);
+    const msg = activityMessage("en-US", "plan.currencySwitched", args, { display: true });
     expect(msg).toBe(`Project currency switched from EUR to GBP at 0.852 (ECB rates of ${formatExpiryDate("2026-10-13", "en-US")})`);
     expect(msg).not.toContain("2026-10-13");
   });
 
   it("formats a rate the panel already stringified", () => {
-    expect(activityMessage("de", "plan.currencySwitched", ["EUR", "GBP", "0.852", "2026-10-13"])).toContain("Kurs 0,852 ");
+    expect(activityMessage("de", "plan.currencySwitched", ["EUR", "GBP", "0.852", "2026-10-13"], { display: true })).toContain("Kurs 0,852 ");
   });
 
   it("leaves an unparseable rate and date as stored", () => {
-    const msg = activityMessage("en-US", "plan.currencySwitched", ["EUR", "GBP", "n/a", "someday"]);
+    const msg = activityMessage("en-US", "plan.currencySwitched", ["EUR", "GBP", "n/a", "someday"], { display: true });
     expect(msg).toBe("Project currency switched from EUR to GBP at n/a (ECB rates of someday)");
   });
 
   it("does not touch another kind's numeric args", () => {
-    expect(activityMessage("de", "history.restore", [1, "0.5"])).toBe("1 Änderung aus Version 0.5 wiederhergestellt");
+    expect(activityMessage("de", "history.restore", [1, "0.5"], { display: true })).toBe("1 Änderung aus Version 0.5 wiederhergestellt");
+  });
+
+  it("without the display option (the audit and prompt paths) renders the stored values", () => {
+    expect(activityMessage("de", "plan.currencySwitched", args)).toContain("Kurs 0.852 (EZB-Kurse vom 2026-10-13)");
   });
 
   it("does not mutate the args it is given", () => {
     const stored = ["EUR", "GBP", 0.852, "2026-10-13"];
-    activityMessage("de", "plan.currencySwitched", stored);
+    activityMessage("de", "plan.currencySwitched", stored, { display: true });
     expect(stored).toEqual(["EUR", "GBP", 0.852, "2026-10-13"]);
   });
 });

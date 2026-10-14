@@ -90,7 +90,9 @@ export function activityPluralBase(kind: ActivityKind): PluralBaseKey | undefine
 
 /**
  * §476 — per-kind DISPLAY formatting of stored args, applied by `activityMessage`
- * on the non-plural path only (a count slot is never formatted before `Number`
+ * ONLY when the caller passes `{ display: true }` (the activity panel: a person reads
+ * it), never for the audit download or the AI prompt, which keep the stored values;
+ * and on the non-plural path only (a count slot is never formatted before `Number`
  * reads it) and to a COPY (the stored entry never changes). A kind absent here
  * renders its args exactly as before.
  * ★ `plan.currencySwitched` stores `[from, to, rate, ECB date]` with the rate a
@@ -125,7 +127,12 @@ const ACTIVITY_ARG_DISPLAY: Partial<Record<ActivityKind, (lang: Lang, args: (str
  * throwing: an entry written by a newer release must still render on an older
  * client, which is the same forward-compat trade `sanitizeActivityEntry` makes.
  */
-export function activityMessage(lang: Lang, kind: string, args: (string | number)[]): string {
+export function activityMessage(
+  lang: Lang,
+  kind: string,
+  args: (string | number)[],
+  opts?: { display?: boolean },
+): string {
   const key = activityMessageKey(kind);
   if (!key) return t(lang, "activityUnknownKind", kind);
 
@@ -154,6 +161,6 @@ export function activityMessage(lang: Lang, kind: string, args: (string | number
     return tPlural(lang, plural.base, Number(raw), ...args);
   }
 
-  const display = ACTIVITY_ARG_DISPLAY[kind as ActivityKind];
+  const display = opts?.display ? ACTIVITY_ARG_DISPLAY[kind as ActivityKind] : undefined;
   return t(lang, key, ...(display ? display(lang, args) : args));
 }

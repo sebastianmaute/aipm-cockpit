@@ -278,7 +278,8 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
           // ★ `activityMessage` selects the plural form from this SAME list, so
           //   `changeText` must keep a count recoverable by `Number` — see its
           //   docstring before introducing any numeric formatting here.
-          message: activityMessage(lang, kind, args),
+          // `display`: this is the one HUMAN reader, so per-kind locale formatting applies (§476).
+          message: activityMessage(lang, kind, args, { display: true }),
           group: activityGroupOf(kind as ActivityKind),
         };
       }),
