@@ -563,7 +563,7 @@ export const de: Record<TranslationKey, string> = {
   baselineCurrencyNeedsRates: "Aktualisieren Sie zuerst die EZB-Kurse: Die Umstellung rechnet Ihre Sätze zum heutigen Kurs um.",
   baselineSwitchTitle: "Projektwährung auf {0} umstellen?",
   baselineSwitchRate: "1 {0} = {1} {2} (EZB, {3})",
-  baselineSwitchPast: "Vergangene Monate, Snapshots und der Budgetverlauf behalten ihre Werte.",
+  baselineSwitchPast: "Vergangene Monate, Snapshots und der Budgetverlauf werden zu diesem Kurs umgerechnet angezeigt.",
   baselineSwitchNoUndo: "Dies kann nicht rückgängig gemacht werden. Um zurückzukehren, stellen Sie die Währung erneut um.",
   baselineSwitchColItem: "Posten",
   baselineSwitchColBefore: "Vorher",

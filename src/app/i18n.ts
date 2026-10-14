@@ -593,7 +593,7 @@ const enUS = {
   baselineCurrencyNeedsRates: "Refresh the ECB rates first: the switch converts your rates at today's rate.",
   baselineSwitchTitle: "Switch project currency to {0}?",
   baselineSwitchRate: "1 {0} = {1} {2} (ECB, {3})",
-  baselineSwitchPast: "Past months, snapshots and budget history keep their values.",
+  baselineSwitchPast: "Past months, snapshots and budget history are shown converted at this rate.",
   baselineSwitchNoUndo: "This cannot be undone. To go back, switch the currency again.",
   baselineSwitchColItem: "Item",
   baselineSwitchColBefore: "Before",
