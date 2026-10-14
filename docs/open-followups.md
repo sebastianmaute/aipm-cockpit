@@ -952,6 +952,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§712](#712-the-demo-project-is-easy-to-miss-once-the-tour-is-skipped-and-a-project-is-created-from-a-template--closed-2026-10-13) | The demo project is easy to miss once the tour is skipped and a project is created from a template | — | — | **CLOSED** 2026-10-13 |
 | [§713](#713-the-install-guide-leaves-out-what-a-non-technical-pilot-user-needed-and-nothing-in-the-app-points-to-it--open) | The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it | — | — | open |
 | [§714](#714-follow-up-with-the-uk-pilot-user-fixes-before-their-2026-10-22-review-the-api-key-cost-question-and-a-project-intake-session--open) | Follow-up with the UK pilot user: fixes before their 2026-10-22 review, the API-key cost question, and a project-intake session | — | — | open |
+| [§715](#715-no-recorded-walk-through-shows-a-new-user-downloading-installing-and-setting-up-the-desktop-app--open) | No recorded walk-through shows a new user downloading, installing and setting up the desktop app | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -44973,3 +44974,34 @@ Commitments and open questions from the session:
 Size S (process).
 
 **Source:** owner's onboarding session with a UK pilot user, 2026-10-13.
+
+## 715. No recorded walk-through shows a new user downloading, installing and setting up the desktop app — OPEN
+
+**Status:** OPEN 2026-10-14 — nothing recorded yet: the README embeds one clip, the product tour (`grep -c "public/demos/" README.md` → 1), and the install guide none (`grep -cE ".(webm|mp4)" docs/desktop-rollout.md` → 0).
+
+**Work item:** #707
+
+The install guide (§713) explains each step in text with cropped stills. A non-technical user who has never seen the app still has to map the stills onto a live screen. The owner decided on 2026-10-14 to add a recorded demo of the whole first-run journey, made with the `ecc:ui-demo` skill (Playwright video with an injected cursor, rehearsed before it is recorded).
+
+What the demo should show, in order:
+
+- downloading the installer from the Releases page;
+- the browser's "uncommon download" prompt and **Keep**, then Windows' "protected your PC" box;
+- installing, and the slow first start with its splash (§705);
+- connecting storage: a file project, or Turso with the numbered steps (§711);
+- the AI key field, and the Timelog address pasted in (§704);
+- Edit project → Functions with the Time bookings notice (§706, §707);
+- roles and rates, a person with an email (§708), a budget bucket, and the budget setup checklist (§710);
+- where the demo project is (§712).
+
+Constraints:
+
+- **Only the web app can be recorded by the skill.** Playwright records a page, so the browser's download bar, SmartScreen and the installer are outside it. Those parts are recorded by hand and spliced in, or shown as the §713 hand-captured stills.
+- **No real secrets or names.** Key fields carry obvious fakes; a Turso connection uses the throwaway database, and its URL is masked on screen. The project is fictional ("Acme"); the repo is public.
+- **Shows phase-1 UI**, so it is recorded after §704–§712 ship and after §713's guide, whose order it follows.
+
+Placement follows the product tour: a GitHub-hosted embed in the README (and here, in the guide) with a download link to a WebM in `public/demos/`. Open for the owner: whether it has narration or captions (the tour has neither).
+
+Size M.
+
+**Source:** owner decision, 2026-10-14, while approving the §713 design.
