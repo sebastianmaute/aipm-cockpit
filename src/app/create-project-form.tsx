@@ -36,6 +36,10 @@ const CREATE_FORMAT_LABEL: Record<CreateFormat, string> = {
   md: "Markdown",
 };
 
+/** The layout of a field this form renders above `ProjectForm` (the storage selector,
+ *  and the wizard's `extraFields`), so the two cannot drift apart. */
+export const CREATE_FIELD_LABEL_CLASS = "mb-4 flex flex-col gap-1 text-sm";
+
 export interface CreateProjectFormProps {
   lang: Lang;
   stakeholderNames: string[];
@@ -66,6 +70,9 @@ export interface CreateProjectFormProps {
   initialFormat?: CreateFormat;
   /** Footer bottom-left slot, forwarded to ProjectForm. */
   footerLeft?: React.ReactNode;
+  /** Fields rendered after the storage selector, in the same layout (use
+   *  `CREATE_FIELD_LABEL_CLASS`) — the wizard's project currency (§476). */
+  extraFields?: React.ReactNode;
 }
 
 export function CreateProjectForm({
@@ -83,6 +90,7 @@ export function CreateProjectForm({
   initialDraftPatch,
   initialFormat,
   footerLeft,
+  extraFields,
 }: CreateProjectFormProps) {
   const [selection, setSelection] = useState<StorageSelection>(
     initialFormat ?? "json",
@@ -107,7 +115,7 @@ export function CreateProjectForm({
   return (
     <>
       {!hideFormat && (
-        <label className="mb-4 flex flex-col gap-1 text-sm">
+        <label className={CREATE_FIELD_LABEL_CLASS}>
           <span className="font-medium text-foreground">
             {t(lang, "projectStorage")}
           </span>
@@ -132,6 +140,7 @@ export function CreateProjectForm({
           </p>
         </label>
       )}
+      {extraFields}
       <ProjectForm
         initial={initialMeta}
         initialDraftPatch={initialDraftPatch}

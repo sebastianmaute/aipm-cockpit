@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sanitizeAiRichText } from "./ai-rich-text";
-import { aiSeedUnsafeEmails, buildNewProjectWorkspace } from "./new-project-workspace";
+import { aiSeedUnsafeEmails, buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
 import { appendSeed } from "./template-apply";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
 import type { ProjectMeta, Task } from "./types";
@@ -70,7 +70,7 @@ describe("buildNewProjectWorkspace", () => {
 
   it("currency GBP → plan.currency and one creation baseline entry without perPrevious", () => {
     const nowIso = "2026-10-14T08:30:00.000Z";
-    const ws = buildNewProjectWorkspace(meta, { currency: "GBP", nowIso });
+    const ws = buildNewProjectWorkspace(meta, { baseline: { currency: "GBP", nowIso } });
     expect(ws.plan.currency).toBe("GBP");
     expect(ws.baselineHistory).toEqual([{ from: ws.plan.startDate, at: nowIso, currency: "GBP" }]);
     expect(ws.baselineHistory?.[0]).not.toHaveProperty("perPrevious");
@@ -80,7 +80,7 @@ describe("buildNewProjectWorkspace", () => {
     const none = buildNewProjectWorkspace(meta, {});
     expect(none.plan.currency ?? "EUR").toBe("EUR");
     expect(none.baselineHistory).toBeUndefined();
-    const eur = buildNewProjectWorkspace(meta, { currency: "EUR", nowIso: "2026-10-14T08:30:00.000Z" });
+    const eur = buildNewProjectWorkspace(meta, { baseline: { currency: "EUR", nowIso: "2026-10-14T08:30:00.000Z" } });
     expect(eur.baselineHistory).toBeUndefined();
   });
 
@@ -88,11 +88,18 @@ describe("buildNewProjectWorkspace", () => {
     const imported: Workspace = { ...emptyWorkspace(), plan: { ...emptyWorkspace().plan, currency: "USD" } };
     const ws = buildNewProjectWorkspace(meta, {
       importedWorkspace: imported,
-      currency: "GBP",
-      nowIso: "2026-10-14T08:30:00.000Z",
+      baseline: { currency: "GBP", nowIso: "2026-10-14T08:30:00.000Z" },
     });
     expect(ws.plan.currency).toBe("USD");
     expect(ws.baselineHistory).toBeUndefined();
+  });
+
+  // §476 A5 — a currency without its creation instant used to be dropped silently; the two
+  // now travel as one object, so the invalid combination does not type-check.
+  it("a baseline without its creation instant is a type error", () => {
+    // @ts-expect-error -- `nowIso` is required beside `currency`
+    const opts: NewProjectOpts = { baseline: { currency: "GBP" } };
+    expect(opts.baseline?.currency).toBe("GBP");
   });
 
   it("no opts → today's behavior (no features override)", () => {

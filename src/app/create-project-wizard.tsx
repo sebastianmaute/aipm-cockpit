@@ -21,7 +21,7 @@
 import { useMemo, useRef, useState } from "react";
 import { XMarkIcon } from "./icons";
 import { type Contact } from "./contacts";
-import { CreateProjectForm } from "./create-project-form";
+import { CREATE_FIELD_LABEL_CLASS, CreateProjectForm } from "./create-project-form";
 import { suggestTemplate } from "./template-suggest";
 import {
   ALL_MODULE_IDS,
@@ -320,8 +320,7 @@ export function CreateProjectWizard({
       includeSeed,
       aiSeed: selectedTemplate === null ? aiSeed : undefined,
       storage,
-      currency,
-      nowIso: new Date().toISOString(),
+      baseline: { currency, nowIso: new Date().toISOString() },
     });
   };
 
@@ -428,24 +427,24 @@ export function CreateProjectWizard({
               initialMeta={meta ?? undefined}
               initialDraftPatch={meta ? undefined : draftPatch}
               initialFormat={format}
+              extraFields={!imported && (
+                <label className={CREATE_FIELD_LABEL_CLASS}>
+                  <span className="font-medium text-foreground">{t(lang, "baselineCurrencyLabel")}</span>
+                  <Select
+                    value={currency}
+                    onChange={(e) => {
+                      if (isBudgetCurrency(e.target.value)) setCurrency(e.target.value);
+                    }}
+                  >
+                    {SUPPORTED_CURRENCIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              )}
             />
-            {!imported && (
-              <label className="mt-3 flex items-center gap-2 text-sm">
-                <span>{t(lang, "baselineCurrencyLabel")}</span>
-                <Select
-                  value={currency}
-                  onChange={(e) => {
-                    if (isBudgetCurrency(e.target.value)) setCurrency(e.target.value);
-                  }}
-                >
-                  {SUPPORTED_CURRENCIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-            )}
           </>
         )}
 
