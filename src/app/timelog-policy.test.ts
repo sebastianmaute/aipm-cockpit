@@ -27,9 +27,9 @@ const NO_HOLIDAYS: ReadonlySet<string> = new Set();
  *  behaviour, including that very membership, is pinned in the
  *  "timelogClosedMonth (§699)" describe below, which calls the engine directly. */
 function evaluatePolicyRules(
-  input: Omit<TimelogPolicyInput, "close" | "dailyWindow" | "dailyUsers">,
+  input: Omit<TimelogPolicyInput, "close" | "dailyWindow" | "dailyUsers" | "partial">,
 ): TimelogPolicyResult {
-  const res = evaluateTimelogPolicy({ ...input, close: null, dailyWindow: undefined, dailyUsers: undefined });
+  const res = evaluateTimelogPolicy({ ...input, close: null, dailyWindow: undefined, dailyUsers: undefined, partial: false });
   return { ...res, evaluated: res.evaluated.filter((r) => r !== "timelogClosedMonth") };
 }
 
@@ -904,6 +904,7 @@ describe("timelogClosedMonth (§699)", () => {
       close: CLOSE,
       dailyWindow: SEPTEMBER,
       dailyUsers: [7, 9],
+      partial: false,
       ...opts,
     });
   }
@@ -956,6 +957,45 @@ describe("timelogClosedMonth (§699)", () => {
   // exactly representable as a difference from 0 and not from most other values.
   it("flags a change of exactly the tolerance", () => {
     const res = run({ ...AS_CLOSED, [dailyKey(9, "2026-09-05")]: [CLOSED_MONTH_TOLERANCE_HOURS, CLOSED_MONTH_TOLERANCE_HOURS, 1] });
+    expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 9, count: 1 })]);
+  });
+
+  // §699 fix 3 — the boundary in floating point: 8.01 - 8 is 0.00999…, which a
+  // plain `>= 0.01` misses. Compared in hundredths it is a change.
+  it("flags 8 → 8.01 as a change", () => {
+    const res = run({ [dailyKey(7, SEP_12)]: [8.01, 8.01, 1], [dailyKey(7, SEP_19)]: [4, 4, 1] });
+    expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 7, count: 1, netHours: 0.01, worstHours: 0.01 })]);
+  });
+
+  // ★★★ A partial or cancelled fetch keeps every requested person in
+  // dailyUsers, fetched or not. Ann has no cells here, so without the guard
+  // both her saved days read as deleted.
+  it("a partial roll emits no closed-month violation", () => {
+    const res = run({}, { partial: true });
+    expect(res.violations).toEqual([]);
+    expect(res.evaluated).toEqual([]);
+    // Not vacuous: the same roll, not partial, does raise it.
+    expect(closedViolations(run({}, { partial: false }))).toEqual([expect.objectContaining({ timelogUserId: 7, count: 2, netHours: -12 })]);
+  });
+
+  it("a partial roll still treats nothing closed as a certain clean", () => {
+    expect(run({}, { partial: true, close: null }).evaluated).toEqual(["timelogClosedMonth"]);
+  });
+
+  // ★★ A parseable key with an unreadable value is an UNKNOWN day, not a
+  // deleted one: no violation for that person and month. Other people and
+  // other months are still checked, and the rule is not evaluated.
+  it("raises nothing for a person-month holding an unreadable cell", () => {
+    const daily = {
+      ...roll({ [dailyKey(7, SEP_12)]: [8, 8, 1], [dailyKey(9, "2026-09-05")]: [2, 2, 1] }),
+      [dailyKey(7, SEP_19)]: { hours: "4" } as unknown as TimelogDailyRoll[string],
+    };
+    const res = evaluateTimelogPolicy({
+      daily, policy: undefined,
+      holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], shifts: [],
+      userLinks: LINKS, close: CLOSE, dailyWindow: SEPTEMBER, dailyUsers: [7, 9], partial: false,
+    });
+    expect(res.evaluated).toEqual([]);
     expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 9, count: 1 })]);
   });
 
@@ -1065,7 +1105,7 @@ describe("timelogClosedMonth (§699)", () => {
       daily: { ...roll({ [dailyKey(7, SEP_12)]: [8, 8, 1] }), "garbage": { hours: 1, maxEntryHours: 1, entryCount: 1 } },
       policy: undefined,
       holidaySet: NO_HOLIDAYS, holidaysReady: true, absences: [], resources: [], shifts: [],
-      userLinks: LINKS, close: CLOSE, dailyWindow: SEPTEMBER, dailyUsers: [7, 9],
+      userLinks: LINKS, close: CLOSE, dailyWindow: SEPTEMBER, dailyUsers: [7, 9], partial: false,
     });
     expect(res.evaluated).toEqual([]);
     expect(closedViolations(res)).toEqual([expect.objectContaining({ timelogUserId: 7, count: 1, netHours: -4 })]);

@@ -104,6 +104,10 @@ export interface TimelogPolicyInput {
    *  they are in `dailyUsers`. */
   readonly dailyWindow: TimelogRollWindow | undefined;
   readonly dailyUsers: readonly number[] | undefined;
+  /** §699 — REQUIRED: whether the roll is partial, normalised (any non-false
+   *  stored value is true). Read only by the closed-month rule; see
+   *  `ClosedMonthInput.partial`. */
+  readonly partial: boolean;
 }
 
 export interface TimelogPolicyResult {

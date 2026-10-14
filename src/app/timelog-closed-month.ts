@@ -33,6 +33,12 @@ export interface ClosedMonthInput {
   readonly dailyWindow: TimelogRollWindow | undefined;
   readonly dailyUsers: readonly number[] | undefined;
   readonly userLinks: readonly TimelogUserLink[];
+  /** ★★★ REQUIRED. A partial or cancelled fetch keeps every requested person
+   *  in `dailyUsers`, including one whose fetch failed or never ran. That
+   *  person has no cells, so every saved day would read as deleted. While this
+   *  is true the rule emits nothing and is not evaluated. Pass the normalised
+   *  flag: any non-false stored value is true. */
+  readonly partial: boolean;
 }
 
 export interface ClosedMonthResult {
@@ -54,27 +60,47 @@ function coveredClosedMonths(close: TimelogMonthClose, window: TimelogRollWindow
     .sort();
 }
 
-/** The readable cells of the covered months, per user, per day. `unreadable`
- *  is set by ANY cell the loop cannot read, wherever it is: an unparseable key
- *  could belong to a closed month, so the rule may not certify a clean. */
+/** A change of at least `CLOSED_MONTH_TOLERANCE_HOURS`, compared in whole
+ *  hundredths. A plain `>= 0.01` misses 8 → 8.01, because `8.01 - 8` is
+ *  0.00999… in floating point. 0.004 still rounds to 0 and stays unflagged. */
+function isChange(change: number): boolean {
+  return Math.round(Math.abs(change) * 100) >= Math.round(CLOSED_MONTH_TOLERANCE_HOURS * 100);
+}
+
+/** "userId|YYYY-MM": a person's month that holds a cell this loop cannot read. */
+const personMonth = (userId: number, month: string): string => `${userId}|${month}`;
+
+/** The readable cells of the covered months, per user, per day.
+ *  `unreadable` is set by ANY cell the loop cannot read, wherever it is: an
+ *  unparseable key could belong to a closed month, so the rule may not certify
+ *  a clean. ★★ `unreadableMonths` holds the person-months where the key parsed
+ *  but the value did not. That day is unknown, not deleted, so no violation
+ *  may be raised for that person and month. */
 function currentHours(
   daily: TimelogDailyRoll,
   covered: ReadonlySet<string>,
-): { byUser: Map<number, Map<string, number>>; unreadable: boolean } {
+): { byUser: Map<number, Map<string, number>>; unreadable: boolean; unreadableMonths: Set<string> } {
   const byUser = new Map<number, Map<string, number>>();
+  const unreadableMonths = new Set<string>();
   let unreadable = false;
   for (const [key, cell] of Object.entries(daily)) {
     const parsed = parseDailyKey(key);
-    if (parsed === null || !isDailyCell(cell)) {
+    if (parsed === null) {
       unreadable = true;
       continue;
     }
-    if (!covered.has(parsed.date.slice(0, 7))) continue;
+    const month = parsed.date.slice(0, 7);
+    if (!isDailyCell(cell)) {
+      unreadable = true;
+      if (covered.has(month)) unreadableMonths.add(personMonth(parsed.userId, month));
+      continue;
+    }
+    if (!covered.has(month)) continue;
     const days = byUser.get(parsed.userId) ?? new Map<string, number>();
     days.set(parsed.date, cell.hours);
     byUser.set(parsed.userId, days);
   }
-  return { byUser, unreadable };
+  return { byUser, unreadable, unreadableMonths };
 }
 
 /** One person's changed days across every covered closed month, or null when
@@ -87,6 +113,7 @@ function personViolation(
   close: TimelogMonthClose,
   covered: readonly string[],
   current: ReadonlyMap<string, number>,
+  unreadableMonths: ReadonlySet<string>,
 ): TimelogViolation | null {
   let count = 0;
   let worst = 0;
@@ -94,12 +121,13 @@ function personViolation(
   let first = "";
   let last = "";
   for (const month of covered) {
+    if (unreadableMonths.has(personMonth(link.timelogUserId, month))) continue;
     const saved = close.saved[month]?.[String(link.timelogUserId)] ?? {};
     const days = new Set<string>(Object.keys(saved));
     for (const day of current.keys()) if (day.startsWith(`${month}-`)) days.add(day);
     for (const day of [...days].sort()) {
       const change = (current.get(day) ?? 0) - (saved[day] ?? 0);
-      if (Math.abs(change) < CLOSED_MONTH_TOLERANCE_HOURS) continue;
+      if (!isChange(change)) continue;
       count += 1;
       worst = Math.max(worst, Math.abs(change));
       net += change;
@@ -126,20 +154,25 @@ function personViolation(
  *  when a roll exists and every cell of it is readable. A person is checked
  *  only if linked and in `dailyUsers`: ★★★ a person the fetch did not cover has
  *  no cells, and comparing that against their saved hours would read as "every
- *  booking deleted". Unlinked people are not checked at all. */
+ *  booking deleted". Unlinked people are not checked at all.
+ *  ★★★ A PARTIAL roll emits nothing and is not evaluated, for the same reason:
+ *  its `dailyUsers` still lists people it never fetched (see `partial`).
+ *  ★ Nothing closed stays evaluated even then: with no close no change can
+ *  exist, whatever the fetch did. */
 export function evaluateClosedMonth(input: ClosedMonthInput): ClosedMonthResult {
-  const { daily, close, dailyWindow, dailyUsers, userLinks } = input;
+  const { daily, close, dailyWindow, dailyUsers, userLinks, partial } = input;
   if (close === null) return { evaluated: true, violations: [], closedMonthsCovered: [] };
   if (daily === null) return { evaluated: false, violations: [], closedMonthsCovered: [] };
   const covered = coveredClosedMonths(close, dailyWindow);
-  const { byUser, unreadable } = currentHours(daily, new Set(covered));
+  if (partial) return { evaluated: false, violations: [], closedMonthsCovered: covered };
+  const { byUser, unreadable, unreadableMonths } = currentHours(daily, new Set(covered));
   const fetched = new Set(dailyUsers ?? []);
   const seen = new Set<number>();
   const violations: TimelogViolation[] = [];
   for (const link of [...userLinks].sort((a, b) => a.timelogUserId - b.timelogUserId)) {
     if (seen.has(link.timelogUserId) || !fetched.has(link.timelogUserId)) continue;
     seen.add(link.timelogUserId);
-    const v = personViolation(link, close, covered, byUser.get(link.timelogUserId) ?? new Map());
+    const v = personViolation(link, close, covered, byUser.get(link.timelogUserId) ?? new Map(), unreadableMonths);
     if (v !== null) violations.push(v);
   }
   return { evaluated: !unreadable, violations, closedMonthsCovered: covered };
