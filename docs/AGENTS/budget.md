@@ -112,8 +112,9 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   baseline money rate ONCE by the cross rate (`crossRate` in `baseline-currency.ts`: units of the new
   baseline per 1 unit of the old, via the EUR table), rounded to 2 decimals — the four role rates
   (day-based roles re-materialised), the two bucket rate overrides and every change's `costImpact`.
-  ★ A day-basis role missing one day field (the sanitizer allows it) gets that side's day rate derived
-  from its CONVERTED hourly before re-materialising, so the switch neither zeroes nor splits it.
+  ★ A day-basis role missing one day field (the sanitizer allows it) keeps that side's CONVERTED hourly
+  rate and gets no invented day rate, where `materializeRoleRates` alone would zero it. The rule is
+  `materializeDayBasisRole` (`role-rates.ts`), shared with both restore paths below.
   The history entry's `from` is the PROJECT day (`today`, i.e. `clock.today` through `BudgetPanel`),
   never `nowIso.slice(0, 10)`, the UTC day; `at` stays the ISO instant.
   ★★ It NEVER touches `fixedPriceAmount` (stored in the bucket's currency) or `fxRateOverride`
@@ -130,8 +131,10 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   (`useDenominationEpoch`).
 - **The switch is LOGGED** (owner requirement): Confirm writes ONE `plan.currencySwitched` activity entry, actor
   `"user"`, args `[from, to, rate, ECB date]` (rate rounded by `roundRate` to 6 decimals). The stored
-  args never change; `activityMessage` formats the rate and the date in the viewer's locale at render
-  (`ACTIVITY_ARG_DISPLAY` in `activity-message.ts`, a per-kind hook no other kind uses). The
+  args never change; the activity PANEL formats the rate and the date in the viewer's locale at render
+  (`activityMessage` with `{ display: true }`, `ACTIVITY_ARG_DISPLAY` in `activity-message.ts`, a
+  per-kind hook no other kind uses). The audit download and the AI prompt omit the option and keep the
+  stored ISO date and raw rate. The
   completion trend does not read it (pinned in `completion-trend.test.ts`, "§476").
 - **`baselineHistory` (`Workspace.baselineHistory`, entries `BaselineEntry`: `from`, `at`,
   `currency`, `perPrevious?`).** Every switch appends one entry whose `perPrevious` is the cross rate
@@ -155,7 +158,8 @@ switching the type in the modal; the amount is kept. Labels come from `BUDGET_TY
   appends no history entry and logs no currency row. ★ A compare against NOW runs the same
   conversion (`loadDiff`), so its rows, the selections built from them and the values written agree, and
   no currency row appears; a version-to-version compare stays RAW (no single denomination). A capture
-  time missing from the loaded list falls back to factor 1 and logs `version.captureTimeUnknown`.
+  time missing from the loaded list applies no switch rates (no money is converted), still re-derives
+  day-basis roles' hourly rates at the current workday hours, and logs `version.captureTimeUnknown`.
   ★ `sanitizeBaselineHistory` drops a `perPrevious` outside [1e-4, 1e4]: one absurd entry would push
   `rebaseFactor` to Infinity or 0 for every earlier record.
 - ★★★ **STORED HISTORY IS NEVER REWRITTEN; IT IS REBASED AT READ TIME.** Snapshots and
