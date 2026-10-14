@@ -21,6 +21,10 @@ import type { TimelogLinks } from "./timelog-types";
 /** How many fully ended months the first-month select offers at least. */
 const FIRST_MONTH_CHOICES = 12;
 
+/** How many months back the first-month select reaches at most, whatever the
+ *  cached window says: its dates are shape-checked, not sense-checked. */
+const MAX_MONTH_CHOICES = 60;
+
 const REFUSAL_KEY: Record<MonthCloseRefusal, TranslationKey> = {
   "no-roll": "timelogCloseRefuseNoRoll",
   "not-ended": "timelogCloseRefuseNotEnded",
@@ -46,7 +50,10 @@ function monthLabel(month: string, lang: Lang): string {
 function endedMonths(today: string, oldest: string | undefined): string[] {
   const months: string[] = [];
   let month = previousMonth(today.slice(0, 7));
-  while (months.length < FIRST_MONTH_CHOICES || (oldest !== undefined && month >= oldest)) {
+  while (
+    months.length < FIRST_MONTH_CHOICES ||
+    (months.length < MAX_MONTH_CHOICES && oldest !== undefined && month >= oldest)
+  ) {
     months.push(month);
     month = previousMonth(month);
   }

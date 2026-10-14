@@ -132,6 +132,13 @@ describe("TimelogMonthClosePanel", () => {
     expect(select.options[18].value).toBe("2025-03");
   });
 
+  it("caps how far back the first months reach for an implausible window start", () => {
+    mockCache({ ...FULL, dailyWindow: { from: "0001-01-01", to: "2026-10-14" } });
+    renderPanel();
+    const select = screen.getByLabelText(t("en-US", "timelogCloseFirstMonth")) as HTMLSelectElement;
+    expect(select.options).toHaveLength(60);
+  });
+
   it("closes the selected month from a covering cache", () => {
     const onChange = renderPanel();
     fireEvent.change(screen.getByLabelText(t("en-US", "timelogCloseFirstMonth")), { target: { value: "2026-08" } });

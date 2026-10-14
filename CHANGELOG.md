@@ -30,7 +30,7 @@ longer carries its own changelog comment.
   person deactivated in TimeLog after the close is still matched to their bookings, so they do not read as
   having deleted them. After reviewing a change you can accept a closed month's current hours, after a
   confirmation; later changes are then compared against them. Hours on other TimeLog projects are not
-  checked. Nothing is blocked, and budget actuals are untouched. A month cannot be closed or accepted while
+  checked. Nothing is blocked, and closing a month does not change budget actuals (hours of a TimeLog user deactivated after being pinned to a resource now count for that resource instead of showing as unattributed). A month cannot be closed or accepted while
   the fetched window does not cover all of it, while the fetch was partial, before TimeLog projects have been
   fetched, or when the last fetch covers different TimeLog projects than the closed months, and cannot be
   closed while it has not ended. A finding is not cleared by a fetch that covers only part of its month or
