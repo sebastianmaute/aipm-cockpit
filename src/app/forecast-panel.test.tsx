@@ -255,20 +255,6 @@ describe("ForecastPanel", () => {
     expect(screen.getByText("Open work: 0 tasks")).toBeTruthy();
   });
 
-  test("the caption prints the trial count the forecast ran, 5,000 at a What-if extreme", async () => {
-    const user = userEvent.setup();
-    renderPanel([...open(5), ...steadyDone(60)]);
-    expect(screen.getByText("10,000 runs of your last 60 working days (60 finished tasks)")).toBeTruthy();
-    await user.click(screen.getByRole("radio", { name: "What-if" }));
-    const capacity = screen.getByLabelText("Capacity (%)");
-    await user.clear(capacity);
-    await user.type(capacity, "10{Enter}");
-    const scope = screen.getByLabelText("Scope change (tasks)");
-    await user.clear(scope);
-    await user.type(scope, "1000{Enter}");
-    expect(screen.getByText("5,000 runs of your last 60 working days (60 finished tasks)")).toBeTruthy();
-  });
-
   test("toolbar keeps the trailing group contiguous", () => {
     const { container } = renderPanel([...open(5), ...steadyDone(60)]);
     expectButtonOrder(["printHint", "tableResetSizeHint"], { contiguous: true });

@@ -15,12 +15,12 @@ forecast's formatter) rather than owning a formatter of its own.
 
 | File | Owns |
 |---|---|
-| `forecast/constants.ts` | `FORECAST_TRIALS` (10,000), `FORECAST_TRIALS_REDUCED` (5,000), `FORECAST_DAY_BUDGET` (8,000,000), `MIN_FINISHED_TASKS` (10), `MIN_HISTORY_WORKING_DAYS` (10), `EFFORT_MODE_MIN_COVERAGE` (0.7), `MAX_HORIZON_WORKING_DAYS` (1300), `HISTORY_WINDOWS`, `DEFAULT_HISTORY_WINDOW` (60) |
+| `forecast/constants.ts` | `FORECAST_TRIALS` (10,000), `MIN_FINISHED_TASKS` (10), `MIN_HISTORY_WORKING_DAYS` (10), `EFFORT_MODE_MIN_COVERAGE` (0.7), `MAX_HORIZON_WORKING_DAYS` (1300), `HISTORY_WINDOWS`, `DEFAULT_HISTORY_WINDOW` (60) |
 | `forecast/rng.ts` | `mulberry32` (seeded PRNG, with `skip(n)` to jump `n` draws) and `seedFrom` (FNV-1a over the parts joined by `\|`) |
 | `forecast/throughput.ts` | `dailyThroughput`: completions per working day, zero days kept, `cutAtFirstCompletion`; `isValidIsoDate` (strict `YYYY-MM-DD`) |
 | `forecast/simulate.ts` | `SimOptions`, `dayDrawer` (with `drawDay` over it), `cannotReach`, `simulateWhen`, `simulateHowMany`, `percentile` |
 | `forecast/milestones.ts` | `orderBacklog`, `milestoneChances` |
-| `forecast/index.ts` | `computeScheduleForecast`: floor, backlog, effort mode, what-if, streams; `trialCount` (the adaptive trial count); `lastForecastableDay` (the How-many horizon) |
+| `forecast/index.ts` | `computeScheduleForecast`: floor, backlog, effort mode, what-if, streams, the fixed trial count; `lastForecastableDay` (the How-many horizon) |
 
 ## Landmines
 
@@ -119,14 +119,13 @@ forecast's formatter) rather than owning a formatter of its own.
   When is. Uncapped, a year-2206 target took about 14 s in the final review's probe. The panel enforces
   the same bound (see "What the panel owns").
 - **Capacity** is `capacityPercent / 100` on every draw, clamped to 10–300 %.
-- **Trial count (spec §5 Performance).** `FORECAST_TRIALS` normally; `trialCount` drops it to
-  `FORECAST_TRIALS_REDUCED` when the working days the three outputs would walk at the full count,
-  estimated at the history's mean pace × capacity (When to the backlog or the horizon, How many to the
-  backlog or the target, milestones to the real backlog or the latest milestone), exceed
-  `FORECAST_DAY_BUDGET`. It reads only the inputs, so the same inputs run the same trials and give the
-  same numbers. `result.trials` carries the count and the caption prints it ("5,000 runs …"). An explicit
-  `input.trials` (the tests) is used as given. Pinned by the "trial count" tests in `index.test.ts`
-  (both branches, the budget boundary, all three terms) and the panel's caption test.
+- **Trial count.** Always `FORECAST_TRIALS` (10,000). Owner decision 2026-10-14: there is no adaptive
+  fallback to 5,000 (it was removed; the early exits that came with it stay and are result-identical).
+  What-if extremes are user-triggered (an opt-in mode, committed on blur or Enter), so a one-off pause
+  of about 600 ms (see "Performance") is accepted, and there is no worker. `result.trials` carries the
+  count and the caption prints it ("10,000 runs …"). An explicit `input.trials` (the tests) is used as
+  given. Pinned by "always FORECAST_TRIALS, a What-if extreme included, the same on every call" in
+  `index.test.ts` and the panel's caption test.
 
 ## Effort unit
 
@@ -204,29 +203,29 @@ only the empty state.
 The engine runs on the main thread, in the panel's render-time `useMemo`, on every input change. There
 is no worker. Measured 2026-10-14 in Node through `vite-node`, on `sample-workspace-huge.json` (repo
 root: 270 tasks, 100 open, 60 milestones), the default window 60 and `today` 2026-10-14. "Before" is the
-engine as it stood before the early exits and the adaptive trial count (commit a9d7dee87), run in the
-same process as "after", alternating, median of 7 runs after one warm-up, on a shared machine. It is a
-probe, not a benchmark gate:
+engine as it stood before the early exits (commit a9d7dee87), run in the same process as "after", alternating,
+median of 7 runs after one warm-up, on a shared machine. "After" was re-measured separately at
+10,000 trials in every case (median of 5, one warm-up), so the two columns are not from one process. It
+is a probe, not a benchmark gate:
 
-| Case | Before (10,000 trials) | After | Trials after |
-|---|---|---|---|
-| Default call (How-many target 2026-11-01) | 21 ms | 23 ms | 10,000 |
-| How-many target at the horizon (`lastForecastableDay`) | 36 ms | 41 ms | 10,000 |
-| Capacity 10 % + scope +500 % + horizon target | 453 ms | 207 ms | 5,000 |
-| The same, plus one milestone dated at the horizon | 1,251 ms | 317 ms | 5,000 |
+| Case | Before | After (10,000 trials) |
+|---|---|---|
+| Default call (How-many target 2026-11-01) | 21 ms | 29 ms |
+| How-many target at the horizon (`lastForecastableDay`) | 36 ms | 50 ms |
+| Capacity 10 % + scope +500 % + horizon target | 453 ms | 597 ms |
+| The same, plus one milestone dated at the horizon | 1,251 ms | 595 ms |
 
-At the SAME 10,000 trials the early exits alone took the last two cases from 591 to 553 ms and from
-1,177 to 645 ms, with identical results; the rest is the halved trial count. A milestone at the horizon
-at ordinary capacity (300 %) went from about 810 ms to about 30 ms, because every trial now stops once
-that milestone is reached.
+The early exits changed the results of none of these (identical digests). The small cases and the third
+read higher than "Before" on this run; the machine was shared and the columns come from different
+processes, so treat differences under about 50 % as noise. The milestone at the horizon at ordinary
+capacity (300 %) went from about 810 ms to about 30 ms, because every trial now stops once that
+milestone is reached.
 
-★★ **The What-if extremes still miss the ~150 ms target, at about 200–300 ms.** At 10 % capacity no
+★★ **The What-if extremes miss the ~150 ms target, at about 600 ms, and that is accepted.** At 10 % capacity no
 trial reaches a +500 % backlog, so When walks most of the 1,300-day horizon before `beyond` is certain,
 and How many walks all of it, because a trial that never reaches the backlog must draw every day of the
 target. Both are bound by the rng (one draw per simulated day at least, about 7 ns each on this
-machine). The two remaining levers are outside the rules of this slice: a worker, or fewer trials than
-the spec's 5,000. The default case's 1–5 ms difference is within this machine's run-to-run noise
-(repeated runs measured 20.0 → 21.3, 19.8 → 20.5 and 24.6 → 25.8 ms); its numbers are unchanged.
+machine). The levers left are a worker, or fewer trials; the owner decided against both (see "Trial count").
 Reproduce the "after" column from the repo root (single runs, so expect noise; delete the file
 afterwards):
 
@@ -281,7 +280,6 @@ The pre-PR fix-all round (2026-10-14), each mutant applied alone and reverted:
 | a whole sample's rounding draw dropped, not skipped | `forecast/simulate.ts` | "the hoisted drawer draws the plain formula's values from the same stream, both units" |
 | the all-reached or none-reachable milestone exit skips one day too few; the two bounds swapped | `forecast/milestones.ts` | "the early exits (all reached, none reachable) give exactly the chances of walking to the last day" |
 | `skip(n)` jumps `n − 1` | `forecast/rng.ts` | "skip(n) leaves the stream exactly where n draws would" |
-| `>` changed to `>=` in `trialCount`; the milestone term dropped; the adaptive count bypassed | `forecast/index.ts` | the three "trial count" tests |
 | a shift past today counts on `today` again (dropped when today is off) | `forecast/throughput.ts` | "a shift that would pass today counts on the window's last working day, never dropped" |
 | `windowCutAt` always `null`; `"all"` flagged as cut; `<=` for `<` | `forecast/index.ts`, `forecast/throughput.ts` | "the days floor bites on a fixed window too (R14)", the cut-window panel tests, the T1c test |
 | tasks amount without `tPlural`, or without the unit word | `forecast-tables.tsx` | "tasks carry the unit word with a real singular …" and the panel's amount tests |
