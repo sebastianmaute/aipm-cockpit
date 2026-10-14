@@ -545,3 +545,244 @@ describe("TimelogSettings — email draft persists only a valid value", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("TimelogSettings — address field (§704, §709)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("ships with no built-in host", () => {
+    expect(defaultTimelogConfig.host).toBe("");
+  });
+
+  it("fills host and tenant from a typed address once the field is left", () => {
+    const onChange = vi.fn();
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.change(input, { target: { value: "https://app.timelog.com/acme/registration/week" } });
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith({ ...cfg, host: "app.timelog.com", tenant: "acme" });
+    expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
+  });
+
+  it("M1: typing an address saves nothing mid-word, even when every prefix parses", () => {
+    const onChange = vi.fn();
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "app2.timelog.com", tenant: "acme" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.focus(input);
+    for (const value of ["https://app.timelog.com/a", "https://app.timelog.com/ac", "https://app.timelog.com/acm"]) {
+      fireEvent.change(input, { target: { value } });
+    }
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("N1: leaving the address field after a paste does not write the pasted tenant back over a later edit", () => {
+    function Harness() {
+      const [cfg, setCfg] = useState({ ...defaultTimelogConfig, enabled: true });
+      return <TimelogSettings lang="en-US" config={cfg} onChange={setCfg} />;
+    }
+    render(<Harness />);
+    const address = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.focus(address);
+    fireEvent.paste(address);
+    fireEvent.change(address, { target: { value: "https://app.timelog.com/acme" } });
+    fireEvent.blur(address);
+    const tenant = screen.getByLabelText(t("en-US", "timelogTenant")) as HTMLInputElement;
+    expect(tenant.value).toBe("acme");
+    fireEvent.change(tenant, { target: { value: "acme2" } });
+    fireEvent.focus(address);
+    fireEvent.blur(address);
+    expect(tenant.value).toBe("acme2");
+  });
+
+  it("M1: typing then leaving the field commits only the final address, once", () => {
+    function Harness({ spy }: { spy: (c: typeof defaultTimelogConfig) => void }) {
+      const [cfg, setCfg] = useState({ ...defaultTimelogConfig, enabled: true });
+      return (
+        <TimelogSettings
+          lang="en-US"
+          config={cfg}
+          onChange={(next) => {
+            spy(next);
+            setCfg(next);
+          }}
+        />
+      );
+    }
+    const spy = vi.fn();
+    render(<Harness spy={spy} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "https://app.timelog.com/ac" } });
+    fireEvent.change(input, { target: { value: "https://app.timelog.com/acme" } });
+    fireEvent.blur(input);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toMatchObject({ host: "app.timelog.com", tenant: "acme" });
+    // Leaving the field again with the same text writes nothing more.
+    fireEvent.focus(input);
+    fireEvent.blur(input);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an error and writes nothing for an address that is not a Timelog one", () => {
+    const onChange = vi.fn();
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.change(input, { target: { value: "https://eviltimelog.com/acme" } });
+    fireEvent.blur(input);
+    expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("says nothing while a full address is still being typed, and only after blur", () => {
+    const onChange = vi.fn();
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.change(input, { target: { value: "https://app.time" } });
+    expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
+    expect(input).not.toHaveAttribute("aria-invalid");
+    fireEvent.blur(input);
+    expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("hides the error again while the user is typing, and shows it again on the next blur", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "https://app.time" } });
+    fireEvent.blur(input);
+    expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "https://app.timelog" } });
+    expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
+    expect(input).not.toHaveAttribute("aria-invalid");
+    fireEvent.blur(input);
+    expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+  });
+
+  it("flags an invalid paste at once, without waiting for blur", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.focus(input);
+    fireEvent.paste(input);
+    fireEvent.change(input, { target: { value: "https://eviltimelog.com/acme" } });
+    expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+    // ...and typing after the paste hides it again.
+    fireEvent.change(input, { target: { value: "https://eviltimelog.com/acm" } });
+    expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
+  });
+
+  it("a valid paste fills host and tenant, shows no error and opens the separate fields", () => {
+    const onChange = vi.fn();
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    const { container } = render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.paste(input);
+    fireEvent.change(input, { target: { value: "https://app.timelog.com/acme/registration/week" } });
+    expect(onChange).toHaveBeenLastCalledWith({ ...cfg, host: "app.timelog.com", tenant: "acme" });
+    expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
+    expect(container.querySelector("details")?.open).toBe(true);
+  });
+
+  it("clears the error once the field is emptied again", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    const input = screen.getByLabelText(t("en-US", "timelogAddress"));
+    fireEvent.change(input, { target: { value: "nonsense" } });
+    fireEvent.blur(input);
+    expect(screen.getByText(t("en-US", "timelogAddressInvalid"))).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "" } });
+    expect(screen.queryByText(t("en-US", "timelogAddressInvalid"))).toBeNull();
+  });
+
+  it("rendering a stored config writes nothing and shows the stored host and tenant", () => {
+    const onChange = vi.fn();
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "app2.timelog.com", tenant: "acme" };
+    const { container } = render(<TimelogSettings lang="en-US" config={cfg} onChange={onChange} />);
+    expect(onChange).not.toHaveBeenCalled();
+    expect((screen.getByLabelText(t("en-US", "timelogHost")) as HTMLInputElement).value).toBe("app2.timelog.com");
+    expect((screen.getByLabelText(t("en-US", "timelogTenant")) as HTMLInputElement).value).toBe("acme");
+    expect(container.querySelector("details")?.open).toBe(true);
+    // The address field is local state: it is NOT back-filled from the stored values.
+    expect((screen.getByLabelText(t("en-US", "timelogAddress")) as HTMLInputElement).value).toBe("");
+  });
+
+  it("keeps host and tenant under a closed disclosure while both are blank", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true };
+    const { container } = render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    expect(container.querySelector("details")?.open).toBe(false);
+  });
+
+  it("B1: the disclosure stays open while both stored values are emptied under the cursor", () => {
+    function Harness() {
+      const [cfg, setCfg] = useState({ ...defaultTimelogConfig, enabled: true, host: "app.timelog.com", tenant: "acme" });
+      return <TimelogSettings lang="en-US" config={cfg} onChange={setCfg} />;
+    }
+    const { container } = render(<Harness />);
+    expect(container.querySelector("details")?.open).toBe(true);
+    fireEvent.change(screen.getByLabelText(t("en-US", "timelogHost")), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText(t("en-US", "timelogTenant")), { target: { value: "" } });
+    expect(container.querySelector("details")?.open).toBe(true);
+    expect((screen.getByLabelText(t("en-US", "timelogHost")) as HTMLInputElement).value).toBe("");
+  });
+
+  it("B1: opens when stored values arrive after mount, unless the user closed it", () => {
+    const empty = { ...defaultTimelogConfig, enabled: true };
+    const filled = { ...empty, host: "app.timelog.com", tenant: "acme" };
+    const view = render(<TimelogSettings lang="en-US" config={empty} onChange={vi.fn()} />);
+    expect(view.container.querySelector("details")?.open).toBe(false);
+    view.rerender(<TimelogSettings lang="en-US" config={filled} onChange={vi.fn()} />);
+    expect(view.container.querySelector("details")?.open).toBe(true);
+    view.unmount();
+
+    const closed = render(<TimelogSettings lang="en-US" config={empty} onChange={vi.fn()} />);
+    const details = closed.container.querySelector("details") as HTMLDetailsElement;
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+    details.open = false;
+    fireEvent(details, new Event("toggle"));
+    closed.rerender(<TimelogSettings lang="en-US" config={filled} onChange={vi.fn()} />);
+    expect(closed.container.querySelector("details")?.open).toBe(false);
+  });
+
+  it("explains the tenant field", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "app.timelog.com", tenant: "acme" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "timelogTenantHint"))).toBeInTheDocument();
+  });
+
+  it("'Test connection' names the tenant and host on a 404", async () => {
+    vi.mocked(timelogApi.listUsers).mockRejectedValue(Object.assign(new Error("nope"), { status: 404 }));
+    vi.mocked(timelogApi.getPrivileges).mockRejectedValue(Object.assign(new Error("nope"), { status: 404 }));
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "app2.timelog.com", tenant: "acme", apiToken: "tok" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }));
+    expect(await screen.findByText(t("en-US", "timelogTest404", "acme", "app2.timelog.com"))).toBeInTheDocument();
+    expect(screen.getByText(/no tenant "acme" on app2\.timelog\.com/)).toBeInTheDocument();
+  });
+
+  it("'Test connection' keeps the generic text for other statuses", async () => {
+    vi.mocked(timelogApi.listUsers).mockRejectedValue(Object.assign(new Error("boom"), { status: 500 }));
+    vi.mocked(timelogApi.getPrivileges).mockRejectedValue(Object.assign(new Error("boom"), { status: 500 }));
+    const cfg = { ...defaultTimelogConfig, enabled: true, host: "app.timelog.com", tenant: "acme", apiToken: "tok" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }));
+    expect(await screen.findByText(t("en-US", "timelogTestFail", "500"))).toBeInTheDocument();
+  });
+
+  it("'Test connection' sends nothing while no host is set", () => {
+    const cfg = { ...defaultTimelogConfig, enabled: true, tenant: "acme", apiToken: "tok" };
+    render(<TimelogSettings lang="en-US" config={cfg} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogTestLabel") }));
+    expect(screen.getByText(t("en-US", "timelogTestNoHost"))).toBeInTheDocument();
+    expect(timelogApi.listUsers).not.toHaveBeenCalled();
+    expect(timelogApi.getPrivileges).not.toHaveBeenCalled();
+  });
+});

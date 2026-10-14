@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { autoMatchUsers, autoMatchProjects, isDisplayableUser, displayableUsers, resolveCustomerByName, timelogProjectLabel } from "./timelog-match";
+import { autoMatchUsers, autoMatchProjects, hasMatchableEmail, isDisplayableUser, displayableUsers, resolveCustomerByName, timelogProjectLabel } from "./timelog-match";
 import type { TimelogUser, TimelogLinks } from "./timelog-types";
 import type { Resource, BudgetBucket } from "./types";
 
@@ -26,6 +26,53 @@ describe("autoMatchUsers", () => {
   it("does not emit a link when nothing matches", () => {
     const links = autoMatchUsers([tlUser(8, "nobody@x.com")], [res(2, "Ada", "L", "ada@acme.com")], { userLinks: [], projectLinks: [] });
     expect(links.find((l) => l.timelogUserId === 8)).toBeUndefined();
+  });
+});
+
+describe("autoMatchUsers — every email of a person (§708)", () => {
+  const none: TimelogLinks = { userLinks: [], projectLinks: [] };
+  const withEmails = (r: Resource, emails: string[]): Resource => ({ ...r, emails });
+
+  it("matches a Timelog user on an extra email, case-insensitively and trimmed", () => {
+    const person = withEmails(res(2, "Ada", "L", "ada@acme.com"), ["ada.l@work.example", "  Ada.L@Home.Example "]);
+    const links = autoMatchUsers([tlUser(5, "ADA.l@home.example ")], [person], none);
+    expect(links).toContainEqual({ timelogUserId: 5, resourceId: 2, manual: false });
+  });
+
+  it("matches on an extra email when the person has no primary email", () => {
+    const person = withEmails(res(2, "Ada", "L"), ["ada@work.example"]);
+    const links = autoMatchUsers([tlUser(5, "ada@work.example")], [person], none);
+    expect(links).toContainEqual({ timelogUserId: 5, resourceId: 2, manual: false });
+  });
+
+  it("a primary-email match beats an extra-email match, whatever the array order", () => {
+    // The extra-email resource comes FIRST so a plain `find` over the array
+    // would pick it: only a primary-first pass can pick resource 3.
+    const viaExtra = withEmails(res(2, "Bea", "M", "bea@acme.com"), ["shared@acme.com"]);
+    const viaPrimary = res(3, "Cy", "N", "shared@acme.com");
+    const links = autoMatchUsers([tlUser(5, "shared@acme.com")], [viaExtra, viaPrimary], none);
+    expect(links.filter((l) => l.timelogUserId === 5)).toEqual([
+      { timelogUserId: 5, resourceId: 3, manual: false },
+    ]);
+  });
+
+  it("still lets a manual link win over an extra-email match", () => {
+    const person = withEmails(res(2, "Ada", "L", "ada@acme.com"), ["ada@work.example"]);
+    const existing: TimelogLinks = { userLinks: [{ timelogUserId: 5, resourceId: 99, manual: true }], projectLinks: [] };
+    const links = autoMatchUsers([tlUser(5, "ada@work.example")], [person], existing);
+    expect(links.filter((l) => l.timelogUserId === 5)).toEqual([{ timelogUserId: 5, resourceId: 99, manual: true }]);
+  });
+
+  it("never matches a blank Timelog email against blank extra entries", () => {
+    const person = withEmails(res(2, "Ada", "L", "ada@acme.com"), ["", "   "]);
+    expect(autoMatchUsers([tlUser(5, "")], [person], none).find((l) => l.timelogUserId === 5)).toBeUndefined();
+    expect(autoMatchUsers([tlUser(6, "   ")], [person], none).find((l) => l.timelogUserId === 6)).toBeUndefined();
+  });
+
+  it("still falls through to initials and name when no email of anyone matches", () => {
+    const person = withEmails(res(2, "Ada", "Lovelace", "ada@acme.com"), ["ada@work.example"]);
+    const links = autoMatchUsers([tlUser(5, "other@x.com", "AL")], [person], none);
+    expect(links).toContainEqual({ timelogUserId: 5, resourceId: 2, manual: false });
   });
 });
 
@@ -101,5 +148,14 @@ describe("timelogProjectLabel (§316)", () => {
   });
   it("is the bare name when the project has no number", () => {
     expect(timelogProjectLabel({ id: 1, name: "Support", no: "" })).toBe("Support");
+  });
+});
+
+describe("hasMatchableEmail (M6)", () => {
+  it("is true for a primary or any non-blank additional email, and false for blanks only", () => {
+    expect(hasMatchableEmail({ email: "a@acme.test" })).toBe(true);
+    expect(hasMatchableEmail({ email: undefined, emails: ["", "b@acme.test"] })).toBe(true);
+    expect(hasMatchableEmail({ email: "  ", emails: [" "] })).toBe(false);
+    expect(hasMatchableEmail({})).toBe(false);
   });
 });

@@ -20,6 +20,30 @@ longer carries its own changelog comment.
   more often than about one in 46 API requests. It only measures: how the chat sends its prompt does not
   change, and the counts are stored apart from the token limits, which they never affect. With operating
   guides off, the panel says no view guides are sent instead.
+- **You can choose a project's functions without expert mode.** Edit project now has a Functions choice
+  with a short description of each function, and a note that data is kept when you switch one off. Settings
+  → Functions points to it for the current project instead of hiding the choice behind expert mode.
+- **Time bookings says what it needs.** While Resources or Budget is off, the Time bookings view (also
+  before Timelog is set up) and the Functions choice say so, and offer to turn them on.
+- **The Budget view walks you through setting up a budget.** An empty Budget shows four steps in order:
+  give a role a rate, add the people, create a bucket, and record actual hours (for example by importing time bookings from Timelog). Each step
+  ticks itself off and links to the right place; where the link's function is switched off for the
+  project, it says so and offers to turn it on. It folds to "Budget setup: N of 4" once the first bucket
+  exists, and the folded list can be hidden.
+- **The Turso settings list the setup steps.** Create the database, copy its URL, create a token without
+  an expiry, then test the connection, with a link to the step-by-step guide.
+- **The demo project is easier to find.** A one-time banner on the dashboard and an entry in Help open
+  the demo project. The banner goes away when you dismiss it or open the demo once on this device, and
+  it is not shown where the demo cannot open (a project stored in this browser, with no Turso connected).
+- **The desktop app says what it is doing while it starts.** The start screen shows that the background
+  service is starting and, after ten seconds, that the first start after installing or updating can take
+  up to a minute.
+
+### Changed
+
+- **The resource form puts what Timelog needs first.** First name, last name and email come first in a
+  "Needed" group, the rest sits under "More details", and a person now needs an email to be saved: it is
+  how Timelog bookings reach them. People saved earlier without one are asked for it only when you edit them.
 
 - **Import a budget forecast from a spreadsheet (§500).** "Import forecast…" on a budget bucket's card reads
   planned hours per person from an `.xlsx`, `.xlsm` or `.csv` file (comma, semicolon or tab) into that bucket. Detect columns finds the
@@ -82,6 +106,12 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Timelog works for any region.** The connection no longer assumes one Timelog address. Paste your
+  Timelog address from the browser and the app reads the host and tenant from it; the separate fields
+  stay available, with a hint where the tenant is written. If Test connection finds no such tenant, it
+  now says which tenant and address it tried. Existing connections keep their stored address.
+- **Timelog people are matched on any of a person's email addresses.** Someone whose Timelog account uses
+  their second address was left unmatched; the primary address still wins when both match.
 - **"Ask Claude" now always tells Claude which page you asked from.** A press on Open Points, or one
   made on another page in the first moments after the app opened, told Claude it was on the chat tab, so
   a prompt about "this page" reached it without the page, and from Open Points without the summary of the

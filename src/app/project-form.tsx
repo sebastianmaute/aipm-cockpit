@@ -47,6 +47,9 @@ export interface ProjectFormProps {
   /** Optional content rendered at the footer's bottom-left (e.g. a
    *  "Configure M365 integration" button). */
   footerLeft?: React.ReactNode;
+  /** Optional content rendered inside the form, below the fields and above the
+   *  footer buttons (Edit project's Functions part, §706). */
+  extraSection?: React.ReactNode;
   /** Create-mode prefill (e.g. the AI fast-path). Applied over emptyProjectDraft().
    *  Ignored when `initial` (edit mode) is provided. */
   initialDraftPatch?: Partial<ProjectFormDraft>;
@@ -101,6 +104,7 @@ export function ProjectForm({
   onCancel,
   submitLabel,
   footerLeft,
+  extraSection,
   initialDraftPatch,
 }: ProjectFormProps) {
   const [draft, setDraft] = useState<ProjectFormDraft>(() =>
@@ -194,6 +198,8 @@ export function ProjectForm({
           <OptionalDetailsFields {...fieldsProps} />
         </div>
       </details>
+
+      {extraSection}
 
       <div className="flex items-center justify-between gap-2 border-t border-line pt-4">
         <div className="flex items-center gap-2">{footerLeft}</div>

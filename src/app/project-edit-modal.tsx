@@ -1,14 +1,16 @@
 "use client";
 
-// The project modal host, shared by the Projects panel (create + edit) and the
-// Settings → General project block (edit). Extracted so Settings does not have
-// to copy the Modal + panel + header + scroller block — dup:check is blocking,
-// and two copies would drift on chrome, sizing and dismissal behaviour.
+// The project modal host: the Projects panel mounts it for both create and edit (Settings →
+// Functions reaches the edit through a request that panel consumes). Extracted so the Modal + panel + header + scroller
+// block is not copied per flow — dup:check is blocking, and two copies would drift on chrome,
+// sizing and dismissal behaviour.
 //
 // Presentational: every value and handler is a prop.
 
-import type { ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { type Contact } from "./contacts";
+import { ALL_MODULE_IDS, type FeatureModuleId, sameFeatureSet } from "./feature-modules";
+import { FunctionsPicker } from "./functions-picker";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -68,16 +70,59 @@ interface ProjectEditModalProps {
   addressBook: Contact[];
   /** Registry resources for the link-only contact-person picker. */
   resources: readonly Resource[];
+  /** The project's enabled functions (feature modules); seeds the Functions draft. */
+  features: readonly FeatureModuleId[];
+  /** Scroll the Functions part into view and focus its heading on mount. */
+  focusFunctions?: boolean;
   sizeKey: string;
-  onSubmit: (meta: ProjectMeta) => void;
+  /** `features` is `null` when the functions equal the `features` prop as a set. */
+  onSubmit: (meta: ProjectMeta, features: FeatureModuleId[] | null) => void;
   onCancel: () => void;
 }
 
+/** The Functions part of Edit project: the shared picker over a LOCAL draft. The
+ *  draft is written nowhere until the form is saved. */
+function FunctionsSection({
+  lang, draft, onChange, focusOnMount,
+}: {
+  lang: Lang;
+  draft: readonly FeatureModuleId[];
+  onChange: (next: FeatureModuleId[]) => void;
+  focusOnMount: boolean;
+}) {
+  const headingId = useId();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  // Runs before the Modal's own initial-focus frame; that frame leaves focus alone
+  // when a control inside the dialog already holds it (modal.tsx), so this wins.
+  useEffect(() => {
+    if (!focusOnMount) return;
+    const heading = headingRef.current;
+    heading?.scrollIntoView?.({ block: "start" });
+    heading?.focus({ preventScroll: true });
+    // Mount-only: the request is a property of how the dialog was opened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <section aria-labelledby={headingId} className="flex flex-col gap-3 border-t border-line pt-4">
+      <h3 id={headingId} ref={headingRef} tabIndex={-1} className="text-base font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ui-green">
+        {t(lang, "editProjectFunctionsHeading")}
+      </h3>
+      <FunctionsPicker lang={lang} features={draft} onChange={onChange} />
+    </section>
+  );
+}
+
 /** The shell wrapped around a prefilled `ProjectForm` — the edit flow, mounted
- *  from both the Projects panel and Settings → General. */
+ *  by the Projects panel (`projects-panel.tsx`). */
 export function ProjectEditModal({
-  lang, initial, stakeholderNames, addressBook, resources, sizeKey, onSubmit, onCancel,
+  lang, initial, stakeholderNames, addressBook, resources, features, focusFunctions, sizeKey, onSubmit, onCancel,
 }: ProjectEditModalProps) {
+  const [draft, setDraft] = useState<FeatureModuleId[]>(() => [...features]);
+  const handleSubmit = (meta: ProjectMeta) =>
+    onSubmit(
+      meta,
+      sameFeatureSet(draft, features) ? null : ALL_MODULE_IDS.filter((id) => draft.includes(id)),
+    );
   return (
     <ProjectModalShell lang={lang} title={t(lang, "projectsEdit")} sizeKey={sizeKey} onClose={onCancel}>
       <ProjectForm
@@ -86,8 +131,16 @@ export function ProjectEditModal({
         addressBook={addressBook}
         resources={resources}
         lang={lang}
-        onSubmit={onSubmit}
+        onSubmit={handleSubmit}
         onCancel={onCancel}
+        extraSection={
+          <FunctionsSection
+            lang={lang}
+            draft={draft}
+            onChange={setDraft}
+            focusOnMount={focusFunctions === true}
+          />
+        }
       />
     </ProjectModalShell>
   );

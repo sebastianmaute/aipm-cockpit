@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { beforeAll, describe, it, expect, vi } from "vitest";
 import { useEffect, useRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -40,6 +40,8 @@ const base: Resource = {
   id: 1,
   firstName: "Sofia",
   lastName: "Ramirez",
+  // §708 — the form requires an email, so the shared fixture carries one.
+  email: "sofia@acme.test",
   roleId: null,
   utilizationMode: "percent",
   utilization: {},
@@ -365,7 +367,7 @@ describe("ResourceEditModal", () => {
 
   it("renders an InfoTooltip for the Email field (accessible by hint text as aria-label)", () => {
     setupFull();
-    expect(screen.getByRole("button", { name: t("en-US", "resourceEmailHint") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "resourceEmailTimelogHint") })).toBeInTheDocument();
   });
 
   describe("field visibility", () => {
@@ -442,5 +444,281 @@ describe("ResourceEditModal Add email on the shared Button", () => {
     expect(screen.getByRole("button", { name: /Add email/ }).className).toBe(
       buttonClassFor({ variant: "secondary", size: "xs", className: "self-start" }),
     );
+  });
+});
+
+// §708 — the fields Timelog needs lead the form, and the form insists on an email.
+describe("ResourceEditModal — Needed group and required email (§708)", () => {
+  const blankPerson: Resource = { ...base, firstName: "", lastName: "", email: undefined };
+
+  function submitForm() {
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+  }
+
+  /** Field visibility with the email field switched OFF (everything else on). */
+  function HideEmail() {
+    const { setFieldVisibility } = useWorkspace();
+    const seeded = useRef(false);
+    useEffect(() => {
+      if (seeded.current) return;
+      seeded.current = true;
+      setFieldVisibility(() => ({
+        resource: { fields: applyTier("resource", "full").fields.filter((id) => id !== "email") },
+      }));
+    }, [setFieldVisibility]);
+    return null;
+  }
+
+  it("groups first name, last name and email under Needed, ahead of More details", () => {
+    setup({ resource: blankPerson, isNew: true });
+    const group = screen.getByRole("group", { name: t("en-US", "resourceNeededHeading") });
+    expect(within(group).getByRole("textbox", { name: t("en-US", "resourceFirstName") })).toBeInTheDocument();
+    expect(within(group).getByRole("textbox", { name: t("en-US", "resourceLastName") })).toBeInTheDocument();
+    expect(within(group).getByRole("textbox", { name: t("en-US", "resourceEmail") })).toBeInTheDocument();
+    expect(within(group).queryByRole("textbox", { name: t("en-US", "resourceJobTitle") })).toBeNull();
+    const details = document.querySelector("details")!;
+    expect(group.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(details.contains(screen.getByRole("textbox", { name: t("en-US", "resourceJobTitle") }))).toBe(true);
+  });
+
+  it("explains the email with the Timelog hint", () => {
+    setup({ resource: blankPerson, isNew: true });
+    expect(screen.getByRole("button", { name: t("en-US", "resourceEmailTimelogHint") })).toBeInTheDocument();
+    expect(t("en-US", "resourceEmailTimelogHint")).toBe(
+      "Matches Timelog bookings, calendar and contacts — use the address the person signs into Timelog with.",
+    );
+  });
+
+  it("refuses to save without an email, says why, and does not call onSave", () => {
+    const onSave = vi.fn();
+    setup({ resource: { ...blankPerson, firstName: "Sofia" }, isNew: true, onSave });
+    submitForm();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Enter the person's email — it is how Timelog bookings reach them.",
+    );
+    expect(screen.getByRole("textbox", { name: t("en-US", "resourceEmail") })).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("treats a whitespace-only email as missing", () => {
+    const onSave = vi.fn();
+    setup({ resource: { ...blankPerson, firstName: "Sofia", email: "   " }, isNew: true, onSave });
+    submitForm();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorEmailRequired"));
+  });
+
+  it("M6: saves a person whose only email is an additional one", () => {
+    const onSave = vi.fn();
+    setup({ resource: { ...blankPerson, firstName: "Sofia", emails: ["sofia.alt@acme.test"] }, isNew: true, onSave });
+    submitForm();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ firstName: "Sofia", email: undefined, emails: ["sofia.alt@acme.test"] });
+  });
+
+  it("M6: a blank additional email does not count", () => {
+    const onSave = vi.fn();
+    setup({ resource: { ...blankPerson, firstName: "Sofia", emails: ["   "] }, isNew: true, onSave });
+    submitForm();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorEmailRequired"));
+  });
+
+  it("checks the name before the email", () => {
+    const onSave = vi.fn();
+    setup({ resource: blankPerson, isNew: true, onSave });
+    submitForm();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorName"));
+  });
+
+  it("saves once an email is entered", () => {
+    const onSave = vi.fn();
+    setup({ resource: { ...blankPerson, firstName: "Sofia" }, isNew: true, onSave });
+    fireEvent.change(screen.getByRole("textbox", { name: t("en-US", "resourceEmail") }), {
+      target: { value: " sofia@acme.test " },
+    });
+    submitForm();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ firstName: "Sofia", email: "sofia@acme.test" });
+  });
+
+  it("still renders and enforces the email when field visibility hides it", () => {
+    const onSave = vi.fn();
+    render(
+      <>
+        <HideEmail />
+        <ResourceEditModal
+          lang="en-US"
+          resource={{ ...blankPerson, firstName: "Sofia" }}
+          isNew
+          onSave={onSave}
+          onDelete={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </>,
+      { wrapper },
+    );
+    expect(screen.getByRole("textbox", { name: t("en-US", "resourceEmail") })).toBeInTheDocument();
+    submitForm();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorEmailRequired"));
+  });
+
+  it("keeps Additional emails reachable when a stored visibility config lacks email", () => {
+    render(
+      <>
+        <HideEmail />
+        <ResourceEditModal
+          lang="en-US"
+          resource={{ ...base, emails: ["sofia.alt@acme.test"] }}
+          isNew={false}
+          onSave={vi.fn()}
+          onDelete={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </>,
+      { wrapper },
+    );
+    // Email is required now and its checkbox is locked on, so the extras cannot be gated on it:
+    // §708 matches bookings on them, and a person unticked Email before that landed keeps this config.
+    expect(screen.getByRole("textbox", { name: `${t("en-US", "resourceEmailsLabel")} 1` })).toHaveValue("sofia.alt@acme.test");
+    expect(screen.getByRole("button", { name: /Add email/ })).toBeInTheDocument();
+  });
+
+  describe("More details disclosure", () => {
+    it("is named and closed for a new person", () => {
+      setup({ resource: { ...blankPerson, email: "sofia@acme.test" }, isNew: true });
+      const details = document.querySelector("details")!;
+      expect(details.open).toBe(false);
+      expect(within(details).getByText(t("en-US", "resourceMoreDetails")).tagName).toBe("SUMMARY");
+    });
+
+    it("is open when an existing person already has a job title", () => {
+      setup({ resource: { ...base, email: "sofia@acme.test", title: "Engineer" } });
+      expect(document.querySelector("details")!.open).toBe(true);
+    });
+
+    it("is open when an existing person has only extra emails or the external flag", () => {
+      const { unmount } = setup({ resource: { ...base, email: "sofia@acme.test", emails: ["alt@acme.test"] } });
+      expect(document.querySelector("details")!.open).toBe(true);
+      unmount();
+      setup({ resource: { ...base, email: "sofia@acme.test", isExternal: true } });
+      expect(document.querySelector("details")!.open).toBe(true);
+    });
+
+    it("is closed for an existing person with nothing in it", () => {
+      setup({ resource: { ...base, email: "sofia@acme.test" } });
+      expect(document.querySelector("details")!.open).toBe(false);
+    });
+  });
+});
+
+// §708 — the required-email refusal is tied to the email field, and driven by a flag rather than
+// by comparing the banner's text to a translation.
+describe("ResourceEditModal — required-email refusal wiring (§708)", () => {
+  beforeAll(() => loadI18n("de"));
+  const noEmail: Resource = { ...base, email: undefined };
+  const emailBox = () => screen.getByRole("textbox", { name: t("en-US", "resourceEmail") });
+  const submitForm = () =>
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+
+  it("describes the email input by the refusal while it shows", () => {
+    setup({ resource: noEmail, isNew: true });
+    expect(emailBox()).not.toHaveAccessibleDescription(/Timelog bookings reach them/);
+    submitForm();
+    const alert = screen.getByRole("alert");
+    expect(alert.id).not.toBe("");
+    expect(emailBox().getAttribute("aria-describedby")!.split(" ")).toContain(alert.id);
+    expect(emailBox()).toHaveAccessibleDescription(/it is how Timelog bookings reach them/);
+  });
+
+  it("M6: marks the primary required only while no additional email satisfies the rule", () => {
+    const { props, rerender } = setup({ resource: { ...noEmail, emails: undefined }, isNew: true });
+    expect(emailBox()).toHaveAttribute("aria-required", "true");
+    rerender(<ResourceEditModal {...props} resource={{ ...noEmail, emails: ["sofia.alt@acme.test"] }} key="extra" />);
+    expect(emailBox()).not.toHaveAttribute("aria-required");
+    rerender(<ResourceEditModal {...props} resource={{ ...noEmail, emails: ["   "] }} key="blank" />);
+    expect(emailBox()).toHaveAttribute("aria-required", "true");
+  });
+
+  it("drops the flag and the description as soon as the user edits the email", () => {
+    setup({ resource: noEmail, isNew: true });
+    submitForm();
+    expect(emailBox()).toHaveAttribute("aria-invalid", "true");
+    fireEvent.change(emailBox(), { target: { value: "sofia@acme.test" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(emailBox()).not.toHaveAttribute("aria-invalid");
+    expect(emailBox().getAttribute("aria-describedby") ?? "").not.toContain("required-error");
+  });
+
+  it("does not flag the email for an unrelated banner error", () => {
+    setup({ resource: { ...noEmail, firstName: "", lastName: "" }, isNew: true });
+    submitForm();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "resourceErrorName"));
+    expect(emailBox()).not.toHaveAttribute("aria-invalid");
+    expect(emailBox().getAttribute("aria-describedby") ?? "").not.toContain("required-error");
+  });
+
+  // A text comparison would lose the flag here: the banner still holds the English sentence while
+  // `t("de", …)` now returns the German one. The state flag does not depend on the wording.
+  it("keeps flagging the email when the language changes under a showing refusal", () => {
+    const { props, rerender } = setup({ resource: noEmail, isNew: true });
+    submitForm();
+    expect(emailBox()).toHaveAttribute("aria-invalid", "true");
+    rerender(<ResourceEditModal {...props} lang="de" />);
+    expect(screen.getByRole("textbox", { name: t("de", "resourceEmail") })).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("forgets the refusal when the modal is pointed at another person", () => {
+    const { props, rerender } = setup({ resource: noEmail, isNew: true });
+    submitForm();
+    expect(emailBox()).toHaveAttribute("aria-invalid", "true");
+    rerender(<ResourceEditModal {...props} resource={{ ...base, id: 2 }} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(emailBox()).not.toHaveAttribute("aria-invalid");
+  });
+});
+
+// §708 — "More details" starts open when the person already has anything in it.
+describe("ResourceEditModal — More details disclosure follows the person (§708)", () => {
+  const plain: Resource = { ...base };
+  const withTitle: Resource = { ...base, id: 2, title: "Engineer" };
+  const details = () => document.querySelector("details")!;
+  /** What the browser does when the user clicks the summary. */
+  const userSetsOpen = (open: boolean) => {
+    details().open = open;
+    fireEvent(details(), new Event("toggle"));
+  };
+
+  it("re-seeds open when the resource changes to a person who has details, and closed for one who has none", () => {
+    const { props, rerender } = setup({ resource: plain });
+    expect(details().open).toBe(false);
+    rerender(<ResourceEditModal {...props} resource={withTitle} />);
+    expect(details().open).toBe(true);
+    rerender(<ResourceEditModal {...props} resource={{ ...plain, id: 3 }} />);
+    expect(details().open).toBe(false);
+  });
+
+  it("re-seeds even over a disclosure the user closed", () => {
+    const { props, rerender } = setup({ resource: withTitle });
+    userSetsOpen(false);
+    expect(details().open).toBe(false);
+    rerender(<ResourceEditModal {...props} resource={{ ...withTitle, id: 4 }} />);
+    expect(details().open).toBe(true);
+  });
+
+  it("keeps a disclosure the user closed closed across a re-render with the same person", () => {
+    const { props, rerender } = setup({ resource: withTitle });
+    expect(details().open).toBe(true);
+    userSetsOpen(false);
+    rerender(<ResourceEditModal {...props} resource={withTitle} onClose={vi.fn()} />);
+    expect(details().open).toBe(false);
+  });
+
+  it("keeps a disclosure the user opened open across a re-render with the same person", () => {
+    const { props, rerender } = setup({ resource: plain });
+    userSetsOpen(true);
+    rerender(<ResourceEditModal {...props} resource={plain} onClose={vi.fn()} />);
+    expect(details().open).toBe(true);
   });
 });

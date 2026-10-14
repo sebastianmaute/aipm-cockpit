@@ -55,6 +55,7 @@ function Harness({
         setBuckets(next);
       }}
       onRefreshFx={vi.fn()}
+      timelogProjectId="acme"
     />
   );
 }

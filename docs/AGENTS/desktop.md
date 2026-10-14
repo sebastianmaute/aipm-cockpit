@@ -65,6 +65,14 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   (`lib/exit-reporting.ts`) reports only when `quitting` is false and a window is alive.
 - **The log.** `resolveLogDir` gives `%LOCALAPPDATA%\aipm-cockpit\logs` (then `TEMP`, `TMP`, `.`), and
   `main.ts`'s `log` appends to `launch.log` there and never throws. Dialogs name that path.
+- **The splash says what it is doing (§705).** `start()` sends "Starting the background service…" only when it
+  spawns the server (a port this build already serves goes straight to "Opening…"), then
+  "Opening…" just before `loadURL`, and a reassurance line after `SPLASH_SLOW_MS` (10 s). The strings
+  and the `executeJavaScript` scripts are in `lib/splash-status.ts` (German when `app.getLocale()`
+  starts with `de`); `splash.html` owns the two text lines and `window.__splash`. The slow timer is
+  cleared before `loadURL` and in every `failStart`; a send into a window that has moved on is a no-op.
+  The order and the timer live in `splashSequence` (same file), which `splash-status.test.ts` drives with
+  fake timers; `main.ts` only calls it. Eye-verify the page itself on a packaged build: nothing else runs it.
 - **One instance.** A second launch focuses the existing window and sets `#dashboard` through
   `helpHashScript(DASHBOARD_VIEW_HASH)`, a hash change rather than a reload, so unsaved work survives.
 - ★★ **Only `start()` has a catch-all.** `app.whenReady().then(start).catch(...)` turns a startup throw

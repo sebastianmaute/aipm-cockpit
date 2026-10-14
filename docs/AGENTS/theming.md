@@ -495,12 +495,12 @@
 - **Settings sections:** each window shows a uniform pane `<h2>` (its rail label); `mode`/`templates`/
   `commTemplates` are excluded (they self-head + carry an intro line). Appearance is its OWN rail section
   (un-folded from General; General now folds only Storage).
-- **Feature-module guidance (Settings → Mode — the section is titled "Mode"; only its intro copy calls the toggles "functions"):** `mode-section.tsx` renders each `FEATURE_MODULES`
-  toggle with an optional `descKey` description under the label (use case + when to enable). ★ Adding a
-  module ⇒ give it a `descKey` + EN/DE i18n string (all 12 now have one). ★★ a11y: the description is a
-  SEPARATE `<span id>` linked via `aria-describedby` — do NOT nest it inside the `<label>` (that folds it
-  into the checkbox's accessible name and breaks exact-name `getByRole` queries). The checkbox `id` +
-  `aria-describedby` ids are `useId`-scoped so a settings pop-out can't collide.
+- **Feature-module guidance (rendered by `FunctionsPicker`, `functions-picker.tsx` — shared by Edit project, the create wizard and Time bookings; Settings → Functions is only a pointer, §706):** the picker renders each `FEATURE_MODULES`
+  toggle with an optional `descKey` description (use case + when to enable) and one `modeRetentionNote` line under the list
+  ("existing data is kept"). ★ Adding a module ⇒ give it a `descKey` + EN/DE i18n string (all 12 have one). ★★ a11y: the
+  description is a SEPARATE `<span id>` linked via `aria-describedby` — do NOT nest it inside the `<label>` (that folds it
+  into the checkbox's accessible name and breaks exact-name `getByRole` queries). The ids are `useId`-scoped so two
+  mounted pickers can't collide.
 - **Knowledge view (renamed from Documents, v0.190.0):** the `documents` AppView + feature module were
   renamed to `knowledge` across nav / help / operating-guide / i18n, and the files renamed
   (`documents-panel`→`knowledge-panel`, `document-meta`→`knowledge-meta`, `documents.ts`→`knowledge.ts`,

@@ -49,6 +49,8 @@ export interface AppHeaderProps {
   onSettingsMenuOpenChange?: (open: boolean) => void;
   /** §545 — the budget forecast for the Export menu (null with the budget module off). */
   exportForecast?: ForecastBundle | null;
+  /** §712 — the Help menu's "Explore the demo project" entry (omitted ⇒ no entry). */
+  onLoadDemo?: () => void;
 }
 
 export function AppHeader({
@@ -79,6 +81,7 @@ export function AppHeader({
   settingsMenuOpen,
   onSettingsMenuOpenChange,
   exportForecast = null,
+  onLoadDemo,
 }: AppHeaderProps) {
   return (
     <header className="mb-8 flex items-start justify-between gap-4">
@@ -164,6 +167,7 @@ export function AppHeader({
             exportFooter={exportFooterText(settings.branding)}
             exportForecast={exportForecast}
             expertMode={settings.expertMode}
+            onLoadDemo={onLoadDemo}
           />
           <SettingsMenu
             settings={settings}

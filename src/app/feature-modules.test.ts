@@ -8,8 +8,11 @@ import {
   enabledNavViews,
   isModuleEnabled,
   isViewEnabled,
+  missingUses,
   moduleForView,
+  MODE_LABEL_KEY,
   reportForModule,
+  sameFeatureSet,
   sanitizeFeatures,
   visibleReports,
 } from "./feature-modules";
@@ -133,5 +136,49 @@ describe("documents view ownership", () => {
   it("still omits a module-owned view when that module is off", () => {
     expect(isViewEnabled("history", [])).toBe(false);
     expect(enabledNavViews([])).not.toContain("history");
+  });
+});
+
+describe("§707 uses", () => {
+  it("only timelog declares uses: resources then budget", () => {
+    expect(FEATURE_MODULES.filter((m) => m.uses).map((m) => m.id)).toEqual(["timelog"]);
+    expect(FEATURE_MODULES.find((m) => m.id === "timelog")!.uses).toEqual(["resources", "budget"]);
+  });
+  it("every declared use is a real module id", () => {
+    for (const m of FEATURE_MODULES) for (const u of m.uses ?? []) expect(ALL_MODULE_IDS).toContain(u);
+  });
+  it("missingUses names what is off, in order", () => {
+    expect(missingUses("timelog", ["timelog"])).toEqual(["resources", "budget"]);
+    expect(missingUses("timelog", ["timelog", "resources"])).toEqual(["budget"]);
+    expect(missingUses("timelog", ["timelog", "resources", "budget"])).toEqual([]);
+  });
+  it("is empty when the module itself is off or declares nothing", () => {
+    expect(missingUses("timelog", [])).toEqual([]);
+    expect(missingUses("budget", ["budget"])).toEqual([]);
+  });
+});
+
+describe("sameFeatureSet (A5)", () => {
+  it("ignores order", () => {
+    expect(sameFeatureSet(["raid", "gantt"], ["gantt", "raid"])).toBe(true);
+  });
+  it("ignores duplicates: a repeated id is the same set, not a different one", () => {
+    expect(sameFeatureSet(["raid", "raid", "gantt"], ["gantt", "raid"])).toBe(true);
+  });
+  it("tells different sets of the same length apart", () => {
+    expect(sameFeatureSet(["raid", "gantt"], ["raid", "budget"])).toBe(false);
+  });
+  it("tells a subset from its superset", () => {
+    expect(sameFeatureSet(["raid"], ["raid", "gantt"])).toBe(false);
+    expect(sameFeatureSet(["raid", "raid"], ["raid", "gantt"])).toBe(false);
+  });
+  it("treats two empty lists as equal", () => {
+    expect(sameFeatureSet([], [])).toBe(true);
+  });
+});
+
+describe("MODE_LABEL_KEY (A1)", () => {
+  it("has one label key per mode", () => {
+    expect(MODE_LABEL_KEY).toEqual({ simple: "modeSimple", modular: "modeModular", advanced: "modeAdvanced" });
   });
 });
