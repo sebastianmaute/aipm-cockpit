@@ -6,7 +6,9 @@
    page — pick the newest release and click its asset link,
    `aipm-cockpit-<version>-setup.exe (Windows installer)`. No sign-in is needed once the repository
    is public.
-2. Run it.
+2. Your browser may warn that the file "isn't commonly downloaded" and hold it back. Open the
+   browser's download list, then choose **Keep** on the installer (some browsers ask twice, the
+   second time under **Show more**). Then run it.
 3. Windows will show a blue **"Windows protected your PC"** box. This is expected: the app is not code-signed. Click **More info**, then **Run anyway**.
 4. The app installs for your user only — you do **not** need admin rights.
 5. Optional: verify the download carries this repository's build provenance —
@@ -18,6 +20,12 @@ itself — a short delay after it starts, or any time from **Help → Check for 
 before downloading or installing anything; it never updates silently.
 
 ## The first time you open it
+
+The first start after installing or updating can take up to a minute while the app prepares
+itself. A start screen says so, and Windows may briefly label the window **"Not responding"**.
+Wait; do not close it.
+
+![The start screen while the app prepares itself, with the note that the first start can take up to a minute](assets/guide/01-splash.png)
 
 The desktop app keeps its data separately from your web browser, so **it starts empty even if you used the app in your browser before.** Nothing has been lost; the browser version still has its own copy.
 
@@ -59,7 +67,9 @@ features are off until you turn them on.
    already has an Anthropic account, ask its administrator to invite you instead, so usage is
    billed to the organisation.
 2. Make sure the account has credit: **Settings → Billing** in the console. Without credit every
-   request is refused.
+   request is refused. A Claude.ai subscription (Pro, Max or Team) does not include API use: API
+   credit is bought separately, on the console's
+   [Billing page](https://console.anthropic.com/settings/billing).
 3. Open **Settings → API keys** (<https://console.anthropic.com/settings/keys>) and click
    **Create key**. Give it a name you will recognise later, such as "AI PM Cockpit – laptop".
 4. Copy the key straight away. It starts with `sk-ant-`, and the console shows it **only once**.
@@ -75,6 +85,8 @@ features are off until you turn them on.
      Check it in the console, or use a different key.
    - **"Enter a valid Anthropic API key to load available models." stays:** the check has not
      finished yet, or could not reach Anthropic (for example, a company network blocks it).
+
+   ![Settings, AI Assistant: Enable AI assistant ticked and a key pasted into the Anthropic API key field, which shows dots](assets/guide/03-ai-key.png)
 
    This check does not show whether the account has credit. If the key is accepted but chat
    requests fail, check **Settings → Billing** in the console (step 2).
@@ -104,7 +116,10 @@ section if you work from a project file.
      command creates a token that never expires, which is what the app expects.
 5. In the app, open **Settings → Integrations**, turn on **Turso storage backend**, paste the URL
    into **Database URL** and the token into **Auth token**, then click **Test connection**. It
-   should answer "Connected." Click **Apply**.
+   should answer "Connected." Click **Apply**. The app numbers these same steps beside the fields,
+   with a link back to this guide:
+
+   ![Settings, Integrations: Turso storage backend turned on, with the four numbered setup steps and the Step-by-step guide link](assets/guide/02-turso-steps.png)
 6. Open **Settings → Storage** and choose **Turso database**.
 
 Use a token for this one database, not an account-wide or organisation token. If the test says
@@ -145,6 +160,8 @@ you can apply them to the Budget.
    address into **Your Timelog address** (it fills in the host and the tenant), then fill in
    **Account email** and **Personal access token**. **Edit host and tenant separately** is there
    if you need to correct either by hand.
+
+   ![Settings, Integrations: a Timelog address pasted into Your Timelog address, with the host and tenant filled in from it](assets/guide/04-timelog-address.png)
 5. Click **Test connection**. It reports how many people it can see and a scope: `self` (your own
    bookings) or `org` (the whole organisation's). With **Data scope** on **Auto-detect**, the
    default, that scope comes from your Timelog permissions. With **My bookings only** or **Whole
@@ -158,6 +175,35 @@ Optional, and only for **cloud** dictation. The default dictation engine is the 
 one, which needs no key. To use a cloud engine instead, open **Settings → Dictation engine**, choose
 **Cloud (OpenAI-compatible)**, and enter the **Transcription endpoint base URL**, **Model** and
 **API key** your provider gives you. Recorded audio is sent to that endpoint.
+
+## Setting up your first budget
+
+The app walks you through this itself: open **Help** (the **?** at the top) and choose
+**Getting started: set up a budget**. The pictures below show where each step happens. The same
+Help panel has a link back to this guide at the bottom, and **Explore the demo project**, which
+opens a fully filled-in sample project to look around in. With Turso storage it opens any time;
+otherwise only while no project uses the app's built-in storage (**Settings → Storage**: **Browser only**,
+which the app calls "this browser's storage" even on the desktop), because the demo would replace that
+project. A project kept in a file does not count.
+
+![The Help panel showing Getting started: set up a budget, with the Installation & setup guide link at the bottom](assets/guide/09-help-entry.png)
+
+Turn on the functions you need under **Projects → Edit project → Functions**. If a function needs
+another one, the app says which and offers to turn it on:
+
+![Functions: Time bookings ticked, and the note under it saying Time bookings uses Resources and Budget and Resources is off, with a Turn on button](assets/guide/05-functions.png)
+
+An empty Budget view shows a checklist; each step ticks itself off as you go:
+
+![The Set up your budget checklist: give roles a rate, add the people, create a bucket, record actual hours](assets/guide/08-budget-checklist.png)
+
+**Manage roles** opens the rate card, where each role gets its hourly rate:
+
+![The rate card: each discipline and grade with its internal and external rates per hour and per day](assets/guide/06-roles.png)
+
+Add each person with the email they use in Timelog, so their bookings can be matched to them:
+
+![The New resource form with first name, last name and email filled in, the email field highlighted](assets/guide/07-resource-form.png)
 
 ## Everyday use
 

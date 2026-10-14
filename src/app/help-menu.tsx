@@ -13,7 +13,7 @@ import { useDraggableWindow, type ComputeInitialPos } from "./use-draggable-wind
 import { ResetSizeButton } from "./task-manager-ui";
 import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
 import { usePanelInitialFocus } from "./use-panel-focus";
-import { APP_LICENSE_URL } from "./version";
+import { APP_LICENSE_URL, INSTALL_GUIDE_URL } from "./version";
 import { useSettings } from "./use-settings";
 
 const STORAGE_KEY_POS = "aipm-cockpit:help-pos";
@@ -238,10 +238,18 @@ export function HelpMenu({
 
           <HelpContentPane lang={lang} query={query} readingLevel={settings.helpReadingLevel ?? "standard"} />
 
-          <div className="flex shrink-0 items-center justify-end gap-4 border-t border-line px-4 py-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1 border-t border-line px-4 py-2">
             {onLoadDemo && (
               <Button variant="ghost" size="xs" onClick={onLoadDemo}>{t(lang, "helpExploreDemo")}</Button>
             )}
+            <a
+              href={INSTALL_GUIDE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue"
+            >
+              {t(lang, "installGuideLink")} ↗
+            </a>
             <a
               href={APP_LICENSE_URL}
               target="_blank"

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { HelpMenu } from "./help-menu";
 import { loadI18n, t } from "./i18n";
+import { INSTALL_GUIDE_URL } from "./version";
 
 function openPanel() {
   // The toggle button's accessible name is the translated "help" key ("Help").
@@ -46,6 +47,24 @@ describe("HelpMenu floating panel", () => {
     // Grouped Help content renders (no tabs — content-pane only).
     expect(screen.getAllByText("Concepts").length).toBeGreaterThan(0);
     expect(screen.queryByRole("tablist")).toBeNull();
+  });
+
+  it("links the install guide in a new tab, before the License link (§713)", () => {
+    render(<HelpMenu lang="en-US" />);
+    openPanel();
+    const guide = screen.getByRole("link", { name: "Installation & setup guide ↗" });
+    expect(guide).toHaveAttribute("href", INSTALL_GUIDE_URL);
+    expect(guide).toHaveAttribute("target", "_blank");
+    expect(guide).toHaveAttribute("rel", "noopener noreferrer");
+    const license = screen.getByRole("link", { name: `${t("en-US", "versionLicense")} ↗` });
+    expect(guide.compareDocumentPosition(license) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("lets the footer's links wrap, so a narrow panel never scrolls sideways (§713)", () => {
+    render(<HelpMenu lang="en-US" />);
+    openPanel();
+    const footer = screen.getByRole("link", { name: "Installation & setup guide ↗" }).parentElement!;
+    expect(footer.className.split(/\s+/)).toContain("flex-wrap");
   });
 
   // The panel is drag-resizable and persists its size, so a dragged-oversize

@@ -950,8 +950,9 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§710](#710-an-empty-budget-view-offers-only-add-bucket-with-no-word-on-the-setup-order--closed-2026-10-13) | An empty Budget view offers only "Add bucket", with no word on the setup order | — | — | **CLOSED** 2026-10-13 |
 | [§711](#711-the-turso-settings-give-one-line-of-help-for-a-setup-that-needs-two-browser-round-trips--closed-2026-10-13) | The Turso settings give one line of help for a setup that needs two browser round trips | — | — | **CLOSED** 2026-10-13 |
 | [§712](#712-the-demo-project-is-easy-to-miss-once-the-tour-is-skipped-and-a-project-is-created-from-a-template--closed-2026-10-13) | The demo project is easy to miss once the tour is skipped and a project is created from a template | — | — | **CLOSED** 2026-10-13 |
-| [§713](#713-the-install-guide-leaves-out-what-a-non-technical-pilot-user-needed-and-nothing-in-the-app-points-to-it--open) | The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it | — | — | open |
+| [§713](#713-the-install-guide-leaves-out-what-a-non-technical-pilot-user-needed-and-nothing-in-the-app-points-to-it--closed-2026-10-14) | The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it | — | — | **CLOSED** 2026-10-14 |
 | [§714](#714-follow-up-with-the-uk-pilot-user-fixes-before-their-2026-10-22-review-the-api-key-cost-question-and-a-project-intake-session--open) | Follow-up with the UK pilot user: fixes before their 2026-10-22 review, the API-key cost question, and a project-intake session | — | — | open |
+| [§715](#715-no-recorded-walk-through-shows-a-new-user-downloading-installing-and-setting-up-the-desktop-app--open) | No recorded walk-through shows a new user downloading, installing and setting up the desktop app | — | — | open |
 | [§716](#716-an-xlsx-hours-cell-formatted-as-a-duration-imports-as-a-fraction-of-a-day--open) | An xlsx hours cell formatted as a duration imports as a fraction of a day | — | — | open |
 | [§717](#717-forecast-import-shows-ask-claude-disabled-when-the-anthropic-key-was-unlocked-in-another-settings-instance--open) | Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance | — | — | open |
 | [§718](#718-no-e2e-or-axe-run-opens-the-forecast-import-modal--open) | No e2e or axe run opens the forecast import modal | — | — | open |
@@ -964,6 +965,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§725](#725-forecast-imports-mapping-step-cannot-express-some-corrections--open) | Forecast import's mapping step cannot express some corrections | — | — | open |
 | [§726](#726-forecast-import-cannot-route-some-matched-people-and-its-notes-name-namesakes-inconsistently--open) | Forecast import cannot route some matched people, and its notes name namesakes inconsistently | — | — | open |
 | [§727](#727-forecast-plants-mixes-matching-and-apply-and-should-split-before-it-grows--open) | forecast-plan.ts mixes matching and apply and should split before it grows | — | — | open |
+| [§728](#728-the-first-start-splashs-status-text-has-not-been-eye-checked-on-a-packaged-desktop-build--open) | The first-start splash's status text has not been eye-checked on a packaged desktop build | — | — | open |
+| [§729](#729-the-install-guide-describes-the-browser-download-prompt-and-the-windows-protection-box-without-pictures--open) | The install guide describes the browser download prompt and the Windows protection box without pictures | — | — | open |
 | [§730](#730-the-timelog-view-gives-no-guided-setup-for-its-connection-links-and-first-fetch--open) | The TimeLog view gives no guided setup for its connection, links and first fetch | — | — | open |
 | [§731](#731-an-empty-resources-view-says-only-no-contacts-available-and-gives-no-setup-order--open) | An empty Resources view says only "No contacts available." and gives no setup order | — | — | open |
 | [§732](#732-the-jira-integration-gives-no-guided-setup-for-site-token-project-and-first-sync--open) | The Jira integration gives no guided setup for site, token, project and first sync | — | — | open |
@@ -44957,11 +44960,13 @@ Size XS.
 
 **Source:** owner's onboarding session with a UK pilot user, 2026-10-13.
 
-## 713. The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it — OPEN
+## 713. The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it — CLOSED 2026-10-14
 
-**Status:** OPEN 2026-10-13 — the guide exists and the README links it (`grep -c "desktop-rollout" README.md` → 2), but no app or desktop file does (`grep -rn "desktop-rollout" src desktop --include=*.ts --include=*.tsx --include=*.html | wc -l` → 0).
+**Status:** CLOSED 2026-10-14 on `feat/pilot-onboarding-phase2` (GitHub #702). The install guide now covers the browser's own download warning and **Keep**, the slow first start (a start screen, and Windows' brief "Not responding"), that a Claude subscription does not include API use and credit is bought separately, and a new "Setting up your first budget" section; it carries nine pictures (`grep -c "assets/guide/" docs/desktop-rollout.md` → 9). The app points to it from the Help panel's footer and the About panel (`installGuideLink`, through `INSTALL_GUIDE_URL`), beside the Turso steps' link from §711, and Help has a new workflow, "Getting started: set up a budget", listed first. The pictures and 16 of the README's 17 gallery images are written by one opt-in spec, `npm run docs:guide-shots`, never run in CI; `scripts/doc-image-refs.test.mjs` fails when an image the README or the guide shows is missing.
 
-**Work item:** #702
+Left as they were, on purpose: no amounts, top-up or expense advice for API credit (decided at design approval); `version-history.png` stays hand-captured, since its view needs Turso storage; the browser download prompt and Windows' box are described in text until hand-captured pictures are added (§729); there is no demo-banner picture, because the banner hides wherever the demo would be refused, which is the screenshot spec's own state.
+
+★ The text below is the record as opened, before the fix: its measured greps and its "Proposed" paragraph describe the old guide, not what shipped.
 
 `docs/desktop-rollout.md` already covers downloading from the Releases page, the "Windows protected your PC" box, and the Claude, Turso, Jira and Timelog keys (Timelog's host and tenant included). It was not in front of the pilot user, and it misses what that session needed:
 
@@ -44994,6 +44999,37 @@ Commitments and open questions from the session:
 Size S (process).
 
 **Source:** owner's onboarding session with a UK pilot user, 2026-10-13.
+
+## 715. No recorded walk-through shows a new user downloading, installing and setting up the desktop app — OPEN
+
+**Status:** OPEN 2026-10-14 — nothing recorded yet: the README embeds one clip, the product tour (`grep -c "public/demos/" README.md` → 1), and the install guide none (`grep -cE ".(webm|mp4)" docs/desktop-rollout.md` → 0).
+
+**Work item:** #707
+
+The install guide (§713) explains each step in text with cropped stills. A non-technical user who has never seen the app still has to map the stills onto a live screen. The owner decided on 2026-10-14 to add a recorded demo of the whole first-run journey, made with the `ecc:ui-demo` skill (Playwright video with an injected cursor, rehearsed before it is recorded).
+
+What the demo should show, in order:
+
+- downloading the installer from the Releases page;
+- the browser's "uncommon download" prompt and **Keep**, then Windows' "protected your PC" box;
+- installing, and the slow first start with its splash (§705);
+- connecting storage: a file project, or Turso with the numbered steps (§711);
+- the AI key field, and the Timelog address pasted in (§704);
+- Edit project → Functions with the Time bookings notice (§706, §707);
+- roles and rates, a person with an email (§708), a budget bucket, and the budget setup checklist (§710);
+- where the demo project is (§712).
+
+Constraints:
+
+- **Only the web app can be recorded by the skill.** Playwright records a page, so the browser's download bar, SmartScreen and the installer are outside it. Those parts are recorded by hand and spliced in, or shown as the §713 hand-captured stills.
+- **No real secrets or names.** Key fields carry obvious fakes; a Turso connection uses the throwaway database, and its URL is masked on screen. The project is fictional ("Acme"); the repo is public.
+- **Shows phase-1 UI**, so it is recorded after §704–§712 ship and after §713's guide, whose order it follows.
+
+Placement follows the product tour: a GitHub-hosted embed in the README (and here, in the guide) with a download link to a WebM in `public/demos/`. Open for the owner: whether it has narration or captions (the tour has neither).
+
+Size M.
+
+**Source:** owner decision, 2026-10-14, while approving the §713 design.
 
 ## 716. An xlsx hours cell formatted as a duration imports as a fraction of a day — OPEN
 
@@ -45165,6 +45201,41 @@ The entry closes when every item is fixed or closed by an owner decision.
 The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
+
+## 728. The first-start splash's status text has not been eye-checked on a packaged desktop build — OPEN
+
+**Status:** OPEN 2026-10-14 — the timing is unit-tested (`grep -n "SPLASH_SLOW_MS = " desktop/src/lib/splash-status.ts` → 10 000 ms, driven with fake timers by `splash-status.test.ts`), but no test renders the packaged window.
+
+**Work item:** #720
+
+§705 added status text to the desktop splash: "Starting…" while the local service starts, a reassurance line after `SPLASH_SLOW_MS`, and "Opening…" once it is up. The unit tests cover the sequence; only a person looking at a packaged build can see the rest. The owner merged phase 1 (PR #706) on 2026-10-14 with this check deferred.
+
+To check, install a packaged build on Windows and:
+
+- **First launch:** the status text sits clear of the artwork, legible on its ground, and not clipped.
+- **At 10 seconds:** the reassurance line appears without the text block jumping or reflowing.
+- **Relaunch** while the service is already up: the splash goes straight to "Opening…" with no "Starting…" flash.
+- **German OS locale:** the DE strings fit the same space.
+
+Close this with what was seen, or file each defect found as its own entry.
+
+Size S.
+
+**Source:** owner decision at the phase-1 merge, 2026-10-14.
+
+## 729. The install guide describes the browser download prompt and the Windows protection box without pictures — OPEN
+
+**Status:** OPEN 2026-10-14 — both steps are text only; no hand-captured picture is in the guide yet (`grep -c "manual.png" docs/desktop-rollout.md` → 0).
+
+**Work item:** #721
+
+Two steps of the install guide's "Installing" section have no picture: the browser's "isn't commonly downloaded" warning with **Keep**, and Windows' "Windows protected your PC" box with **More info** → **Run anyway**. Both happen outside the web page, so `npm run docs:guide-shots` (§713) cannot take them. They were left out on purpose until they exist (plan ruling R8): an image line pointing at a missing file would fail `scripts/doc-image-refs.test.mjs`.
+
+To close: capture both on Windows while downloading and running a real release installer; save them as `docs/assets/guide/download-keep.manual.png` and `docs/assets/guide/smartscreen.manual.png` (the spec never writes a `.manual.png`); embed each at its step with alt text that says what it shows; crop out anything personal (user name, other downloads, paths). The image test then checks both files exist.
+
+Size S.
+
+**Source:** final review of the §713 install-guide work, 2026-10-14.
 
 ## 730. The TimeLog view gives no guided setup for its connection, links and first fetch — OPEN
 
