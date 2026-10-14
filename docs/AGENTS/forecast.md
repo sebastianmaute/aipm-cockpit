@@ -15,12 +15,12 @@ forecast's formatter) rather than owning a formatter of its own.
 
 | File | Owns |
 |---|---|
-| `forecast/constants.ts` | `FORECAST_TRIALS` (10,000), `MIN_FINISHED_TASKS` (10), `MIN_HISTORY_WORKING_DAYS` (10), `EFFORT_MODE_MIN_COVERAGE` (0.7), `MAX_HORIZON_WORKING_DAYS` (1300), `HISTORY_WINDOWS`, `DEFAULT_HISTORY_WINDOW` (60) |
-| `forecast/rng.ts` | `mulberry32` (seeded PRNG) and `seedFrom` (FNV-1a over the parts joined by `\|`) |
-| `forecast/throughput.ts` | `dailyThroughput`: completions per working day, zero days kept; `isValidIsoDate` (strict `YYYY-MM-DD`) |
-| `forecast/simulate.ts` | `SimOptions`, `drawDay`, `simulateWhen`, `simulateHowMany`, `percentile` |
+| `forecast/constants.ts` | `FORECAST_TRIALS` (10,000), `FORECAST_TRIALS_REDUCED` (5,000), `FORECAST_DAY_BUDGET` (8,000,000), `MIN_FINISHED_TASKS` (10), `MIN_HISTORY_WORKING_DAYS` (10), `EFFORT_MODE_MIN_COVERAGE` (0.7), `MAX_HORIZON_WORKING_DAYS` (1300), `HISTORY_WINDOWS`, `DEFAULT_HISTORY_WINDOW` (60) |
+| `forecast/rng.ts` | `mulberry32` (seeded PRNG, with `skip(n)` to jump `n` draws) and `seedFrom` (FNV-1a over the parts joined by `\|`) |
+| `forecast/throughput.ts` | `dailyThroughput`: completions per working day, zero days kept, `cutAtFirstCompletion`; `isValidIsoDate` (strict `YYYY-MM-DD`) |
+| `forecast/simulate.ts` | `SimOptions`, `dayDrawer` (with `drawDay` over it), `cannotReach`, `simulateWhen`, `simulateHowMany`, `percentile` |
 | `forecast/milestones.ts` | `orderBacklog`, `milestoneChances` |
-| `forecast/index.ts` | `computeScheduleForecast`: floor, backlog, effort mode, what-if, streams; `lastForecastableDay` (the How-many horizon) |
+| `forecast/index.ts` | `computeScheduleForecast`: floor, backlog, effort mode, what-if, streams; `trialCount` (the adaptive trial count); `lastForecastableDay` (the How-many horizon) |
 
 ## Landmines
 
@@ -65,17 +65,43 @@ forecast's formatter) rather than owning a formatter of its own.
   forecast from its own days, not padded to the window (R14)" in `index.test.ts`). The cost of the rule:
   a team that genuinely idled before its first finish gets an optimistic forecast. Because of the cut, the
   days floor (`MIN_HISTORY_WORKING_DAYS`) now bites on a fixed window too, not only on `"all"`.
+- ★ **The empty state names the cut.** `dailyThroughput` sets `cutAtFirstCompletion` when R14 shortened a
+  fixed window (it then holds fewer than `window` days), and the `insufficient` result carries
+  `windowCutAt` (the first completion's day, else `null`). The view then reads
+  `forecastInsufficientDaysCut` ("… The window was shortened to start at the first completion, Oct 5,
+  2026."), so "8 of 10 working days" on window 60 does not read as a broken window. `"all"` always starts
+  at the first completion and is never flagged.
 - **Next-working-day shift.** A completion on a non-working day counts on the NEXT working day
-  (`attributedDay`), capped at `today` (dropped when `today` is itself non-working and the shift passes it).
+  (`attributedDay`), but never after the window's end: a shift that would pass `today` counts on the
+  window's last working day (`today` when it is a working day, else the working day before it). So a
+  completion on Saturday read on that Saturday counts on Friday; before this rule it was dropped. Pinned
+  by "a shift that would pass today counts on the window's last working day, never dropped"
+  (`throughput.test.ts`, with a holiday-today case).
 
 ## Simulation
 
 - **`SimOptions` (R1).** `{ trials, rng, capacity, horizon, integer }`. `integer: true` is the tasks unit:
   each simulated day is stochastically rounded to whole tasks. `integer: false` is effort: the fraction
   is kept.
-- **`drawDay` (R2)** is the one place a simulated day is drawn (bootstrap sample × capacity, rounded when
-  `integer`). `simulateWhen`, `simulateHowMany` and `milestoneChances` all call it, so the rounding rule
-  lives once. An empty history draws 0.
+- **`dayDrawer` (R2)** is the one place a simulated day is drawn (bootstrap sample × capacity, rounded when
+  `integer`); `drawDay` is a one-shot wrapper over it. `simulateWhen`, `simulateHowMany` and
+  `milestoneChances` all take their `draw` from it, so the rounding rule lives once. It hoists the
+  per-sample arithmetic out of the loop and skips (rather than computes) the rounding draw of a whole
+  sample, which can never round up; the values and the stream are those of the plain formula (pinned by
+  "the hoisted drawer draws the plain formula's values from the same stream, both units"). An empty
+  history draws 0.
+- ★★ **Early exits are EXACT, because the stream can jump.** A trial stops drawing once its outcome is
+  certain — When: even the best possible day (`dayDrawer`'s `max`) every remaining day cannot reach the
+  backlog (`cannotReach`), so it is `beyond`; milestones: every milestone still ahead is already reached,
+  or none can be — and then calls `skipDays`, which jumps the stream (`mulberry32`'s `skip`, its state
+  only adds a constant per draw) to where drawing those days would have left it. So every later trial
+  draws the same numbers and every result is unchanged: on the four probe cases below plus three more
+  (effort, capacity 300 %), the result digests before and after are identical at the same trial count.
+  Pinned against plain full-walk reference loops by "the certain-beyond early exit gives exactly the
+  days of walking every trial to the horizon" (`simulate.test.ts`) and "the early exits (all reached,
+  none reachable) give exactly the chances of walking to the last day" (`milestones.test.ts`). An rng
+  without `skip` draws and drops instead. ★ Never add an exit that does not skip its draws: it shifts the
+  stream for every later trial and changes the numbers.
 - **When.** Working days until the backlog is done, per trial; a trial still short after
   `MAX_HORIZON_WORKING_DAYS` is `horizon + 1` and reported as `"beyond"` (with `beyondShare`). Dates come
   from `nthWorkingDayAfter(today, days, holidaySet)`; day 0 is `today`.
@@ -93,6 +119,14 @@ forecast's formatter) rather than owning a formatter of its own.
   When is. Uncapped, a year-2206 target took about 14 s in the final review's probe. The panel enforces
   the same bound (see "What the panel owns").
 - **Capacity** is `capacityPercent / 100` on every draw, clamped to 10–300 %.
+- **Trial count (spec §5 Performance).** `FORECAST_TRIALS` normally; `trialCount` drops it to
+  `FORECAST_TRIALS_REDUCED` when the working days the three outputs would walk at the full count,
+  estimated at the history's mean pace × capacity (When to the backlog or the horizon, How many to the
+  backlog or the target, milestones to the real backlog or the latest milestone), exceed
+  `FORECAST_DAY_BUDGET`. It reads only the inputs, so the same inputs run the same trials and give the
+  same numbers. `result.trials` carries the count and the caption prints it ("5,000 runs …"). An explicit
+  `input.trials` (the tests) is used as given. Pinned by the "trial count" tests in `index.test.ts`
+  (both branches, the budget boundary, all three terms) and the panel's caption test.
 
 ## Effort unit
 
@@ -155,31 +189,49 @@ only the empty state.
   chip could not be answered. A test in `ask-claude-prompts.test.ts` pins the absence; the feature guide
   tells the AI not to quote the Forecast.
 - Percent strings go through i18n keys (EN `{0}%`, DE `{0} %`; R10).
+- **Amounts carry their unit.** `formatAmount` writes tasks as `forecastAmountTasks` through `tPlural`
+  ("1 task", "5 tasks"; DE "1 Aufgabe", "5 Aufgaben") and effort as whole hours ("12 h"), for the
+  open-work line and every How-many cell. Milestone figures are chances and already read in `%`.
+- ★ **The What-if fields show the values the engine uses.** The panel derives `usedWhatIf =
+  clampWhatIf(whatIf, open.length)` at render and hands it to both the toolbar and the engine. A
+  committed scope of −5 therefore reads −3 once two of the five open tasks close elsewhere, instead of
+  showing −5 while the forecast removes 3. The raw state is kept (no write-back, no effect), so the field
+  returns to −5 if the tasks reopen. Pinned by "a committed scope removal shows the clamped value the
+  forecast uses once tasks close (M8)" in `forecast-panel.test.tsx`.
 
 ## Performance
 
 The engine runs on the main thread, in the panel's render-time `useMemo`, on every input change. There
-is no worker. Measured 2026-10-14 after the How-many backlog cap, in Node through `vite-node`, on
-`sample-workspace-huge.json` (repo root: 270 tasks, 100 open, 60 milestones), at 10,000 trials, the
-default window 60 and `today` 2026-10-14. Each figure is the median of 5 runs after one warm-up, on a
-shared machine. It is a probe, not a benchmark gate:
+is no worker. Measured 2026-10-14 in Node through `vite-node`, on `sample-workspace-huge.json` (repo
+root: 270 tasks, 100 open, 60 milestones), the default window 60 and `today` 2026-10-14. "Before" is the
+engine as it stood before the early exits and the adaptive trial count (commit a9d7dee87), run in the
+same process as "after", alternating, median of 7 runs after one warm-up, on a shared machine. It is a
+probe, not a benchmark gate:
 
-| Case | Median |
-|---|---|
-| Default call (How-many target 2026-11-01) | 21 ms |
-| How-many target at the horizon (`lastForecastableDay`) | 33 ms |
-| Capacity 10 % + scope +500 % + horizon target | 382 ms |
-| The same, plus one milestone dated at the horizon | 929 ms |
+| Case | Before (10,000 trials) | After | Trials after |
+|---|---|---|---|
+| Default call (How-many target 2026-11-01) | 21 ms | 23 ms | 10,000 |
+| How-many target at the horizon (`lastForecastableDay`) | 36 ms | 41 ms | 10,000 |
+| Capacity 10 % + scope +500 % + horizon target | 453 ms | 207 ms | 5,000 |
+| The same, plus one milestone dated at the horizon | 1,251 ms | 317 ms | 5,000 |
 
-★★ **The everyday case is fast; the extremes the What-if allows are NOT.** At 10 % capacity every When
-trial runs to the 1,300-day horizon (`beyond`), and a milestone at the horizon makes `milestoneChances`
-walk the same distance. So the What-if fields can stall a render for around a second on a large
-project. Before the cap, the horizon target alone cost about 220 ms (the pre-PR review's probe), because
-How-many drew every day up to the target. Reproduce from the repo root (single runs, so expect noise;
-delete the file afterwards):
+At the SAME 10,000 trials the early exits alone took the last two cases from 591 to 553 ms and from
+1,177 to 645 ms, with identical results; the rest is the halved trial count. A milestone at the horizon
+at ordinary capacity (300 %) went from about 810 ms to about 30 ms, because every trial now stops once
+that milestone is reached.
+
+★★ **The What-if extremes still miss the ~150 ms target, at about 200–300 ms.** At 10 % capacity no
+trial reaches a +500 % backlog, so When walks most of the 1,300-day horizon before `beyond` is certain,
+and How many walks all of it, because a trial that never reaches the backlog must draw every day of the
+target. Both are bound by the rng (one draw per simulated day at least, about 7 ns each on this
+machine). The two remaining levers are outside the rules of this slice: a worker, or fewer trials than
+the spec's 5,000. The default case's 1–5 ms difference is within this machine's run-to-run noise
+(repeated runs measured 20.0 → 21.3, 19.8 → 20.5 and 24.6 → 25.8 ms); its numbers are unchanged.
+Reproduce the "after" column from the repo root (single runs, so expect noise; delete the file
+afterwards):
 
 ```bash
-cat > forecast-probe.ts <<'EOF'
+cat > forecast-probe.ts <<'EOF2'
 import { readFileSync } from "node:fs";
 import { computeScheduleForecast, lastForecastableDay, DEFAULT_WHAT_IF } from "./src/app/forecast/index";
 const ws = JSON.parse(readFileSync("sample-workspace-huge.json", "utf8"));
@@ -189,10 +241,10 @@ const far = [...ws.milestones, { id: 999999, name: "far", date: max, linkedTaskI
 const extreme = { scopeTasks: 0, scopePercent: 500, capacityPercent: 10 };
 for (const over of [{}, { howManyTarget: max }, { howManyTarget: max, whatIf: extreme }, { howManyTarget: max, whatIf: extreme, milestones: far }]) {
   const t0 = performance.now();
-  computeScheduleForecast({ tasks: ws.tasks, milestones: ws.milestones, today, holidaySet, window: 60, unit: "tasks", whatIf: DEFAULT_WHAT_IF, howManyTarget: "2026-11-01", ...over });
-  console.log(Math.round(performance.now() - t0), "ms");
+  const r = computeScheduleForecast({ tasks: ws.tasks, milestones: ws.milestones, today, holidaySet, window: 60, unit: "tasks", whatIf: DEFAULT_WHAT_IF, howManyTarget: "2026-11-01", ...over });
+  console.log(Math.round(performance.now() - t0), "ms", r.kind === "forecast" ? r.trials : r.kind, "trials");
 }
-EOF
+EOF2
 npx vite-node forecast-probe.ts; rm forecast-probe.ts
 ```
 
@@ -219,3 +271,22 @@ Two more from the final-review fix wave, each killed by a test added for it:
 
 ★ The fourth mutant SURVIVED until that test was added: no earlier test linked a milestone to two open
 tasks at different queue positions.
+
+The pre-PR fix-all round (2026-10-14), each mutant applied alone and reverted:
+
+| Mutant | File | Killing test |
+|---|---|---|
+| the When early exit skips one day too few | `forecast/simulate.ts` | "the certain-beyond early exit gives exactly the days of walking every trial to the horizon" |
+| best day taken as the whole part only (drops the round-up) | `forecast/simulate.ts` | the same, on the 0.7 capacity case |
+| a whole sample's rounding draw dropped, not skipped | `forecast/simulate.ts` | "the hoisted drawer draws the plain formula's values from the same stream, both units" |
+| the all-reached or none-reachable milestone exit skips one day too few; the two bounds swapped | `forecast/milestones.ts` | "the early exits (all reached, none reachable) give exactly the chances of walking to the last day" |
+| `skip(n)` jumps `n − 1` | `forecast/rng.ts` | "skip(n) leaves the stream exactly where n draws would" |
+| `>` changed to `>=` in `trialCount`; the milestone term dropped; the adaptive count bypassed | `forecast/index.ts` | the three "trial count" tests |
+| a shift past today counts on `today` again (dropped when today is off) | `forecast/throughput.ts` | "a shift that would pass today counts on the window's last working day, never dropped" |
+| `windowCutAt` always `null`; `"all"` flagged as cut; `<=` for `<` | `forecast/index.ts`, `forecast/throughput.ts` | "the days floor bites on a fixed window too (R14)", the cut-window panel tests, the T1c test |
+| tasks amount without `tPlural`, or without the unit word | `forecast-tables.tsx` | "tasks carry the unit word with a real singular …" and the panel's amount tests |
+| the toolbar shown the raw What-if instead of `usedWhatIf` | `forecast-panel.tsx` | "a committed scope removal shows the clamped value the forecast uses once tasks close (M8)" |
+
+★ Two survivors, both equivalent: `<=` for `<` in `cannotReach` (the `FLOAT_SLACK` factor makes an exact
+tie unreachable in practice), and handing the engine the raw What-if instead of `usedWhatIf` (the engine
+runs the same `clampWhatIf`, which is idempotent).

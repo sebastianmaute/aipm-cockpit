@@ -219,3 +219,18 @@
   4. use the first instead of the last open linked task for the queue position (`milestones.ts`).
   Each must turn a test red with its own message. Put the 4/4 table in the report.
 - [ ] **Step 3: Commit** — `docs: Forecast engine reference, register status and changelog (§502)`.
+
+## Corrections (2026-10-14, post-review)
+
+Dated record; the tasks above are left as written.
+
+- **P1 — the coverage floor step was missing.** No task added a `src/app/forecast/**` threshold to
+  `vitest.config.ts`, so the new engine had no coverage gate. It was added in f8ac7878b (lines 98,
+  branches 86, the measured values rounded down minus 2).
+- **P2 — the performance probe swept one case only.** The default call alone hid the What-if extremes.
+  `docs/AGENTS/forecast.md` § Performance now measures four cases (default, horizon target, capacity
+  10 % + scope +500 % + horizon target, the same plus a horizon milestone), with a reproduce block.
+- **P3 — "every unfinished-milestone chance 1" on an empty backlog is wrong.** R3 governs: with no open
+  task the milestones keep their own states (all linked closed reads 100 %, no linked tasks reads
+  `no-linked-tasks`, an achieved one is omitted). The floor applies when `open.length > 0 || backlog > 0`
+  (`backlog` after the what-if), so only no open task AND no added scope skips it.

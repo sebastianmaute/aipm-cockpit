@@ -19,8 +19,8 @@ longer carries its own changelog comment.
   What-if mode adds or removes scope and changes team capacity; scope changes move the dates and the count, not
   the milestone chances. With fewer than 10 completed tasks in the history window the view says what is missing
   instead of guessing. The history window starts no earlier than the first completed task, so a young
-  project is not judged by days before its work began. Done tasks without a completion date are left out and counted. The inputs are not saved,
-  and Ask Claude cannot quote the figures yet.
+  project is not judged by days before its work began. Done tasks without a completion date are left out
+  and counted. The inputs are not saved, and Ask Claude cannot quote the figures yet.
 - **A "Getting started: set up a budget" Help entry, and the install guide one click away.** Help lists
   the new entry first under Workflows: turn on the functions, rate the roles, add the people with their
   Timelog email, add buckets, import the hours. The Help panel's footer and the About panel link the
