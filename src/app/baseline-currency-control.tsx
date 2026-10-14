@@ -1,5 +1,6 @@
 "use client";
 import { useId, useState } from "react";
+import { flushSync } from "react-dom";
 import { type Lang, t } from "./i18n";
 import { Select } from "./form-controls";
 import { InfoTooltip } from "./info-tooltip";
@@ -79,6 +80,17 @@ export function BaselineCurrencyControl({ lang, sessionRates, workdayHours, toda
     const result = buildPlan(pendingTo, sessionRates, new Date().toISOString());
     setPendingTo(null);
     if (!result) return;
+    // §476 — decide against the LIVE currency, not the one this render planned from: a
+    // peer tab's switch can be queued in the same tick, before this tab re-renders, and
+    // converting on top of it would convert the money twice. The probe updater returns
+    // `p` unchanged (pure under StrictMode's double invoke); `flushSync` makes it run
+    // now, after every update queued before it, so `held` is final when read.
+    let held = false;
+    flushSync(() => ws.setPlan((p) => {
+      held = p.currency === result.from;
+      return p;
+    }));
+    if (!held) return;
     // FUNCTIONAL setters that convert `prev` at the plan's rate (AGENTS.md "N saves in one
     // tick"): a record another writer queued in the same tick is converted too, never
     // overwritten by the snapshot this render planned from. One history append.

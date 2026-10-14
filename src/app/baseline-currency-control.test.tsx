@@ -192,4 +192,23 @@ describe("BaselineCurrencyControl", () => {
     const history = JSON.parse(screen.getByTestId("history").textContent ?? "[]") as unknown[];
     expect(history).toHaveLength(1);
   });
+
+  // §476 final fix 2, item 4 — a peer tab's switch to the same currency that lands in the
+  // same tick, BEFORE this tab re-renders, must not be converted a second time: Confirm
+  // decides against the LIVE currency, not the one its render planned from.
+  test("a peer switch queued before Confirm in the same tick: no second conversion, history entry or activity entry", async () => {
+    const dialog = await openSwitchToGbp();
+    const confirm = within(dialog).getByRole("button", { name: "Switch to GBP" });
+    const peerEntry = { from: "2026-10-14", at: "2026-10-14T08:00:00.000Z", currency: "GBP" as const, perPrevious: 0.852 };
+    act(() => {
+      live.current?.setPlan((p) => ({ ...p, currency: "GBP" }));
+      live.current?.setRoles((prev) => prev.map((r) => ({ ...r, internalRate: 85.2 })));
+      live.current?.setBaselineHistory((h) => [...h, peerEntry]);
+      confirm.click();
+    });
+    await waitFor(() => expect(screen.getByTestId("currency").textContent).toBe("GBP"));
+    expect(screen.getByTestId("rate").textContent).toBe("85.2");
+    expect(JSON.parse(screen.getByTestId("history").textContent ?? "[]")).toEqual([peerEntry]);
+    expect(logOf()).toEqual([]);
+  });
 });
