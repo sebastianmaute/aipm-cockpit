@@ -299,6 +299,8 @@ function collect(rows: readonly ForecastRow[], ctx: ImportCtx, ix: Indexes, acti
   for (const row of rows) {
     const res = resolveAndRoute(row, ix, ctx);
     if (res.kind !== "routed" && res.resourceId !== undefined) out.unmatchedIds.add(res.resourceId);
+    // An unresolved name's candidates (namesakes, a role-less match) are in the sheet too (final review 4, M2).
+    if (res.kind === "unresolved") res.candidates.forEach((id) => out.unmatchedIds.add(id));
     if (res.kind === "skip") {
       const key = normalisePerson(row.person);
       if (!out.skipped.has(key)) out.skipped.set(key, row.person);
