@@ -49,6 +49,14 @@ describe("useForecastHistoryRecorder", () => {
 
   it("writes today's entry through a functional updater when ready", () => {
     const set = run();
+    expect(compute).toHaveBeenCalledWith({
+      tasks: TASKS, milestones: MILESTONES, planEnd: "2026-12-31", today: TODAY, holidaySet: HOLIDAYS,
+    });
+    // The engine memo keys on references: the SAME arrays/set must reach it.
+    const args = compute.mock.calls[0][0];
+    expect(args.tasks).toBe(TASKS);
+    expect(args.milestones).toBe(MILESTONES);
+    expect(args.holidaySet).toBe(HOLIDAYS);
     expect(set).toHaveBeenCalledTimes(1);
     const updater = set.mock.calls[0][0] as (p: readonly ForecastHistoryEntry[]) => ForecastHistoryEntry[];
     expect(updater([])).toEqual([ENTRY]);
