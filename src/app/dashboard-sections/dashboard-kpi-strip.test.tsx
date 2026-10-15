@@ -1,10 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { computeDashboard, buildDashboardInput } from "../dashboard";
 import { densityClasses } from "../dashboard-density";
 import { computeMetricTrends } from "../dashboard-trends";
 import { DashboardKpiStrip, KPI_STRIP_COLS } from "./dashboard-kpi-strip";
-import { t } from "../i18n";
+import { t, loadI18n } from "../i18n";
+import { formatDayMonthYear } from "../forecast-format";
+import type { KpiSimulation } from "../kpi-simulation";
 
 const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const };
 
@@ -440,5 +443,172 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
     render(<DashboardKpiStrip lang="en-US" model={modelFor(CPI_ONLY_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
     expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "evmSpi"))).toBeNull();
+  });
+});
+
+// ── §502: simulated P80 finish + chance on time ─────────────────────────────
+const EVM_TASKS_BOTH = [
+  { ...taskFixture(1, "Done", "2026-06-02"), dueDate: "2026-06-02", originalEstimateMinutes: 4800, timeSpentMinutes: 6000 },
+  { ...taskFixture(2, "To Do"), dueDate: "2026-06-02", originalEstimateMinutes: 2400 },
+];
+
+describe("DashboardKpiStrip — simulated cells (§502)", () => {
+  const SIM: KpiSimulation = {
+    p80: "2026-11-20",
+    chanceOnTime: 0.34,
+    estimateCoverage: 0.41,
+    divergent: false,
+    explainer: { windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000, markers: { p50: 5, p80: 10, p95: 15 } },
+  };
+  const labels = (container: HTMLElement) =>
+    Array.from(container.firstElementChild!.firstElementChild!.children, (c) => c.querySelector("p")!.textContent);
+  const dc = densityClasses("comfortable");
+
+  it("renders exactly the cells it always did without a simulation", () => {
+    const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} />);
+    expect(labels(container)).toEqual([
+      t("en-US", "dashboardKpiComplete"), "R / A / G", t("en-US", "dashboardKpiOverdue"), t("en-US", "dashboardKpiOpenRaid"),
+    ]);
+    expect(container.querySelector("[data-sim]")).toBeNull();
+    expect(screen.queryByText(/Estimates cover/)).toBeNull();
+  });
+
+  it("adds the Safe to commit and On time cells, each simulated with an explainer", () => {
+    const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={SIM} />);
+    expect(labels(container).slice(4)).toEqual([t("en-US", "simSafeToCommit"), t("en-US", "kpiOnTime")]);
+    const p80 = screen.getByRole("group", { name: "Safe to commit, simulated" });
+    expect(p80).toHaveTextContent(formatDayMonthYear("2026-11-20", "en-US"));
+    const chance = screen.getByRole("group", { name: "On time, simulated" });
+    // EN writes a percent unspaced, like the neighbouring "62%" cells; DE keeps "34 %" (below).
+    expect(chance).toHaveTextContent("34%");
+    expect(chance).not.toHaveTextContent("34 %");
+    const p80Info = within(p80).getByRole("button", { name: t("en-US", "simExplainerOpenFor", "Safe to commit") });
+    const chanceInfo = within(chance).getByRole("button", { name: t("en-US", "simExplainerOpenFor", "On time") });
+    expect(p80Info.getAttribute("aria-label")).not.toBe(chanceInfo.getAttribute("aria-label"));
+  });
+
+  it("explains the chance cell as a share of runs, not as a P80 date", async () => {
+    const user = userEvent.setup();
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={SIM} />);
+    await user.click(screen.getByRole("button", { name: "How to read this: On time" }));
+    expect(screen.getByText(t("en-US", "simExplainerLineChance"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "simExplainerLine1"))).toBeNull();
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button", { name: "How to read this: Safe to commit" }));
+    expect(screen.getByText(t("en-US", "simExplainerLine1"))).toBeInTheDocument();
+  });
+
+  it("omits the chance cell when chance on time is null, keeping the P80 cell", () => {
+    const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, chanceOnTime: null }} />);
+    expect(labels(container).slice(4)).toEqual([t("en-US", "simSafeToCommit")]);
+    expect(screen.queryByRole("group", { name: "On time, simulated" })).toBeNull();
+    expect(screen.getByRole("group", { name: "Safe to commit, simulated" })).toBeInTheDocument();
+  });
+
+  it("shows the estimate-coverage cue", () => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={SIM} />);
+    expect(screen.getByText("Estimates cover 41% of remaining work")).toBeInTheDocument();
+  });
+
+  it("never rounds the coverage cue to 100% or 0%", () => {
+    const { rerender } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, estimateCoverage: 299 / 300 }} />);
+    expect(screen.getByText("Estimates cover >99% of remaining work")).toBeInTheDocument();
+    rerender(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, estimateCoverage: 1 / 300 }} />);
+    expect(screen.getByText("Estimates cover <1% of remaining work")).toBeInTheDocument();
+  });
+
+  it("hides the estimate-coverage cue when nothing is open", () => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, estimateCoverage: null }} />);
+    expect(screen.queryByText(/Estimates cover/)).toBeNull();
+    expect(screen.getByRole("group", { name: "On time, simulated" })).toBeInTheDocument();
+  });
+
+  it.each([
+    [0.996, ">99%"],
+    [0.994, "99%"],
+    [1, "100%"],
+    [0.004, "<1%"],
+    [0.006, "1%"],
+    [0, "0%"],
+  ] as const)("shows a chance of %s as %s, never rounding a simulation to certainty", (chanceOnTime, text) => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, chanceOnTime }} />);
+    // Exact match on the value span: "99%" does not match ">99%", nor "100%" ">99%".
+    expect(within(screen.getByRole("group", { name: "On time, simulated" })).getByText(text, { exact: true })).toBeInTheDocument();
+  });
+
+  it("shows the divergence copy as visible text only when divergent", () => {
+    const { rerender } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={SIM} />);
+    const copy = t("en-US", "kpiSimDivergence");
+    expect(screen.queryByText(copy)).toBeNull();
+    rerender(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, divergent: true }} />);
+    expect(screen.getByText(copy)).toBeVisible();
+    expect(copy).toMatch(/^These metrics use different units\./);
+  });
+
+  it("widens the grid classes for the extra cells", () => {
+    const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS_BOTH)} trends={trends} dc={dc} simulation={SIM} />);
+    const grid = container.firstElementChild!.firstElementChild as HTMLElement;
+    expect(grid.children).toHaveLength(8);
+    expect(grid.className.split(/\s+/)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[8].split(" ")));
+  });
+
+  it("reads in German", async () => {
+    await loadI18n("de");
+    render(<DashboardKpiStrip lang="de" model={model()} trends={trends} dc={dc} simulation={SIM} />);
+    expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "simSafeToCommit")) })).toBeInTheDocument();
+    expect(screen.getByText(t("de", "kpiSimCoverage", "41 %"))).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "kpiOnTime")) })).toHaveTextContent("34 %");
+  });
+
+  it("clamps a near-certain chance in German too", async () => {
+    await loadI18n("de");
+    const { rerender } = render(<DashboardKpiStrip lang="de" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, chanceOnTime: 0.996 }} />);
+    const group = () => screen.getByRole("group", { name: t("de", "simValueSr", t("de", "kpiOnTime")) });
+    expect(group()).toHaveTextContent("> 99 %");
+    rerender(<DashboardKpiStrip lang="de" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, chanceOnTime: 0.004 }} />);
+    expect(group()).toHaveTextContent("< 1 %");
+  });
+});
+
+describe("DashboardKpiStrip — switch on, nothing simulated (§502)", () => {
+  const dc = densityClasses("comfortable");
+  const cells = (container: HTMLElement) => container.firstElementChild!.firstElementChild!.children.length;
+
+  it.each([
+    ["too few finished tasks", { kind: "finished", finished: 4, needed: 10 }, "Not enough history to simulate yet: 4 finished, needs 10."],
+    ["too short a window", { kind: "days", days: 6, needed: 10 }, "Not enough history to simulate yet: 6 working days of history, needs 10."],
+    ["P80 beyond the horizon", { kind: "beyond" }, "The simulated finish is beyond the 1,300-working-day horizon."],
+  ] as const)("says why when %s, as plain muted text and no extra cell", (_label, gap, text) => {
+    const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulationGap={gap} />);
+    const line = screen.getByText(text);
+    expect(line).toHaveClass("text-muted-foreground");
+    expect(line.closest("[data-sim]")).toBeNull();
+    expect(container.querySelector("[data-sim]")).toBeNull();
+    expect(cells(container)).toBe(4);
+  });
+
+  it("groups the horizon by the language's locale (DE)", async () => {
+    await loadI18n("de");
+    render(<DashboardKpiStrip lang="de" model={model()} trends={trends} dc={dc} simulationGap={{ kind: "beyond" }} />);
+    expect(screen.getByText(/1\.300 Arbeitstagen/)).toBeInTheDocument();
+  });
+
+  it("shows no note while the switch is off (no gap passed)", () => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} />);
+    expect(screen.queryByText(/Not enough history|beyond the/)).toBeNull();
+  });
+
+  it("prefers the simulated cells over a gap when both are given", () => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc}
+      simulation={{ p80: "2026-11-20", chanceOnTime: null, estimateCoverage: 1, divergent: false,
+        explainer: { windowDays: 60, distribution: Int32Array.from([5]), trials: 1, markers: { p50: 5, p80: 5, p95: 5 } } }}
+      simulationGap={{ kind: "beyond" }} />);
+    expect(screen.queryByText(/beyond the/)).toBeNull();
+  });
+
+  it("reads in German", async () => {
+    await loadI18n("de");
+    render(<DashboardKpiStrip lang="de" model={model()} trends={trends} dc={dc} simulationGap={{ kind: "finished", finished: 4, needed: 10 }} />);
+    expect(screen.getByText("Noch zu wenig Verlauf für eine Simulation: 4 erledigt, nötig sind 10.")).toBeInTheDocument();
   });
 });

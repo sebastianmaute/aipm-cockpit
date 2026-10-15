@@ -380,6 +380,12 @@ describe("fingerprintWorkspace", () => {
       const nextEntry = { from: "2026-01-02", at: `2026-01-02T00:00:0${arr.length % 10}.000Z`, currency: "GBP" };
       return { ...ws, baselineHistory: [...arr, nextEntry] } as Workspace;
     }
+    if (key === "forecastHistory") {
+      // §502 — a valid entry `sanitizeForecastHistory` keeps (a real calendar date, one per day).
+      const arr = Array.isArray(current) ? current : [];
+      const nextEntry = { date: `2026-01-${String(arr.length + 1).padStart(2, "0")}`, p50: "2026-03-02", p80: null, p95: null, chanceOnTime: 0.5 };
+      return { ...ws, forecastHistory: [...arr, nextEntry] } as Workspace;
+    }
     if (Array.isArray(current) && current.length > 0) {
       const last = current[current.length - 1] as Record<string, unknown>;
       const clone = { ...(JSON.parse(JSON.stringify(last)) as Record<string, unknown>), id: bumpId(last.id) };
@@ -409,13 +415,13 @@ describe("fingerprintWorkspace", () => {
     disciplines: true, grades: true, plan: true, budgets: true, fxRates: true, status: true,
     milestones: true, changes: true, stakeholders: true, project: true, fieldVisibility: true,
     features: true, steeringCommittee: true, timelogLinks: true, knowledgeItems: true,
-    insights: true, activityLog: true, budgetHistory: true, baselineHistory: true, documents: true, documentVersions: true,
+    insights: true, activityLog: true, budgetHistory: true, baselineHistory: true, forecastHistory: true, documents: true, documentVersions: true,
     settingsOverrides: true, calendarEvents: true, documentAssets: true,
   } satisfies Record<keyof Workspace, true>;
   const slices = Object.keys(ALL_WORKSPACE_KEYS) as (keyof Workspace)[];
 
-  it("covers the full 30-key Workspace surface (29 in the fix-round-1 report, + baselineHistory §476)", () => {
-    expect(slices.length).toBe(30);
+  it("covers the full 31-key Workspace surface (29 in the fix-round-1 report, + baselineHistory §476, + forecastHistory §502)", () => {
+    expect(slices.length).toBe(31);
   });
 
   it("every mutation actually changes workspaceToJson (no case is vacuous)", () => {

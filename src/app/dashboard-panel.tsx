@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReportCard } from "./report-table";
 import { buildDashboardInput, computeDashboard, hasNoActiveScope } from "./dashboard";
 import { useWorkspace } from "./workspace-context";
+import { useSettings } from "./use-settings";
+import { ToggleButton } from "./toggle-button";
+import { SimulationIntro } from "./simulation-intro";
+import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";
+import { isViewEnabled } from "./feature-modules";
+import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { type Lang, t } from "./i18n";
 import type { Health } from "./health";
 import type { Absence, BudgetBucket, ChangeItem, Discipline, Grade, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
@@ -38,6 +44,8 @@ import { DashboardTileMenu } from "./dashboard-tile-menu";
 import { DashboardShelf, DASHBOARD_SHELF_TRAY_ID } from "./dashboard-shelf";
 import { DashboardHiddenBadge } from "./dashboard-hidden-badge";
 import { buildTileBodies } from "./dashboard-tile-bodies";
+import { computeAppForecast } from "./forecast/app-forecast";
+import { kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
 import { useDashboardLayout } from "./use-dashboard-layout";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { tileById, type DashboardTileId, type TileGateInput, type TileHeight } from "./dashboard-tiles";
@@ -48,6 +56,7 @@ import type { PlacedTile } from "./dashboard-layout";
 // fallback would mint a fresh array every render, invalidating the `model`
 // memo's `snapshots` dependency for no input change (AGENTS.md memo bullet).
 const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
+const EMPTY_MILESTONES: readonly Milestone[] = [];
 
 /** Stable empty for the hero's CTA bundle — see `heroHandlers` below. */
 const NO_HANDLERS: Omit<ActionHandlers, "onOpen"> = {};
@@ -91,6 +100,8 @@ interface DashboardPanelProps {
   tursoActive?: boolean;
   projectId?: string;
   isPopout?: boolean;
+  /** Opens Help at a concept id (the simulation intro's "Show me"). Absent in a popout. */
+  onOpenHelp?: (conceptId: string) => void;
   onOpenChange?: (id: number) => void;
   onNavigate?: (view: AppView, section?: SettingsSectionId) => void;
   aiConfigured?: boolean;
@@ -112,7 +123,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const density: DashboardDensity = props.density ?? "comfortable";
   const dc = densityClasses(density);
   const varianceRows = props.variance ?? [];
-  const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory, baselineHistory } = useWorkspace();
+  const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory, baselineHistory, settingsOverrides, setSettingsOverrides } = useWorkspace();
+  const { settings, setSettings, hydrated: settingsHydrated } = useSettings();
+  const forecastViewEnabled = isViewEnabled("forecast", settings.features);
+  const simulationOn = isSimulationActive(settingsOverrides, settings.features);
+  const simSwitchRef = useRef<HTMLDivElement>(null);
+  const showSimulationIntro = simulationOn && settingsHydrated && !settings.simulationIntroSeen && !props.isPopout;
+  const markSimulationIntroSeen = () => setSettings((s) => ({ ...s, simulationIntroSeen: true }));
   // Hoisted above the `model` useMemo below: it depends on this, and it must
   // keep a stable identity when `props.snapshots` is absent so that memo
   // never invalidates for no input change.
@@ -343,9 +360,23 @@ export function DashboardPanel(props: DashboardPanelProps) {
     disabled: arrangement.readOnly,
   });
 
+  // §502 — the simulated KPI cells. Off → null and the engine never runs. The SAME collection
+  // references and plan end the history recorder passes, so both share `computeAppForecast`'s memo.
+  const milestonesForSim = props.milestones ?? EMPTY_MILESTONES;
+  const planEnd = props.plan.endDate;
+  // The gap is why the switch is on but no simulated cell shows (too little history, P80 beyond the horizon).
+  const { kpiSim, kpiSimGap } = useMemo(() => {
+    if (!simulationOn) return { kpiSim: null, kpiSimGap: null };
+    const f = computeAppForecast({ tasks: props.tasks, milestones: milestonesForSim, planEnd, today, holidaySet: props.holidaySet });
+    return { kpiSim: kpiSimulation(f, model.evm.spi), kpiSimGap: kpiSimulationGap(f) };
+  }, [simulationOn, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi]);
+
   const bodies = buildTileBodies({
     lang, dc, model,
     trends,
+    simulation: kpiSim ?? undefined,
+    simulationGap: kpiSimGap ?? undefined,
+    onOpenHelp: props.onOpenHelp,
     // ★★ `plan.currency`, the project baseline (§476): this labels the engine's
     // burn-down series (`budgetHours × role.rates.external`), and role rates are
     // entered in the baseline. Until §476 the engine unit was a fixed EUR and
@@ -416,6 +447,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const measured = useMeasuredHeights({
     density,
     resetNonce,
+    // The KPI tile grows by cells and text lines when the simulation appears or flips divergent,
+    // and by the one-line note when the switch is on but nothing can be simulated.
+    contentKey: kpiContentKey(kpiSim, simulationOn, kpiSimGap),
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };
@@ -614,13 +648,26 @@ export function DashboardPanel(props: DashboardPanelProps) {
             />
           }
           controls={
-            // ★ `gap-2` here is MOVED, unchanged, from this same control stack
-            // before spec C — not a new literal (D7 binds new spacing to `dc.*`).
-            // ★ Two columns — Print | Reset layout, then Reset size | badge. Each
+            // ★ The "Show simulation" switch leads the stack (before the trailing Print
+            // group); its wrapper is the Escape anchor for the one-time intro, so Escape
+            // still dismisses the note while focus stays on the switch that opened it.
+            // ★ Below it, two columns — Print | Reset layout, then Reset size | badge. Each
             // control is PINNED to its cell: auto-placement would slide Reset size
             // up beside Print in a popout, where Reset layout and the badge are
             // absent. DOM order is unchanged, so Tab order still reads row by row.
-            <div className="grid shrink-0 grid-cols-[auto_auto] gap-2 self-start print:hidden">
+            <div className={`flex shrink-0 flex-col items-end ${dc.kpiGap} self-start print:hidden`}>
+            {!props.isPopout && forecastViewEnabled && (
+              <div ref={simSwitchRef}>
+                <ToggleButton
+                  lang={lang}
+                  pressed={simulationOn}
+                  onToggle={() => setSettingsOverrides((prev) => withSimulation(prev, !isSimulationOn(prev)))}
+                >
+                  {t(lang, "simulationShow")}
+                </ToggleButton>
+              </div>
+            )}
+            <div className="grid shrink-0 grid-cols-[auto_auto] gap-2">
               <div data-stack-cell className="col-start-1 row-start-1">
                 <PrintButton lang={lang} />
               </div>
@@ -653,8 +700,19 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 </div>
               )}
             </div>
+            </div>
           }
         />
+
+        {showSimulationIntro && (
+          <SimulationIntro
+            lang={lang}
+            anchorRef={simSwitchRef}
+            onGotIt={markSimulationIntroSeen}
+            // "Show me" counts as acknowledging the intro too, so it is gone when the user comes back from Help.
+            onShowMe={props.onOpenHelp ? () => { markSimulationIntroSeen(); props.onOpenHelp!(FORECAST_SIM_HELP_ID); } : undefined}
+          />
+        )}
 
         {/* The hidden-tiles tray, directly under row 1 (spec C). The wrapper is
             `hidden` while the tray is shut, so the `space-y` flow gains no empty

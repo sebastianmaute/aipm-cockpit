@@ -526,6 +526,8 @@ export interface SettingsOverrides {
   nextActions?: Partial<NextActionsConfig>;
   notifications?: Partial<NotificationsConfig>;
   timezone?: { timezone?: string; additionalTimezones?: string[] };
+  /** Forecast simulation policy. Off is stored as ABSENCE, never `false`. */
+  forecast?: { showSimulation?: boolean };
 }
 
 export type LearningStoreKind = "local" | "turso";
@@ -754,6 +756,8 @@ export type Settings = {
   branding?: BrandingConfig;
   /** Per-device: the guided tour has been seen/skipped (suppresses auto-launch). */
   tourSeen?: boolean;
+  /** Per-device: the one-time "Simulation is on" note has been dismissed (the switch itself is per project). */
+  simulationIntroSeen?: boolean;
   /** Per-device: ids of guided tours the user has completed (✓ badge in the
    *  Help catalog). Separate from `tourSeen` (which gates first-run auto-launch). */
   completedTours?: readonly string[];

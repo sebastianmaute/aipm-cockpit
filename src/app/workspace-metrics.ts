@@ -57,6 +57,8 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     //     reading as non-empty. Pinned by workspace.test.ts ("ONLY budgetHistory").
     // ★★ baselineHistory (§476) is ABSENT for the same reason: one confirmed
     //     currency switch leaves an entry forever. Pinned by is-workspace-empty.test.ts.
+    // ★★ forecastHistory (§502) is ABSENT for the same reason: a day with the simulation on
+    //     leaves an entry, recorded as a side effect. Pinned by is-workspace-empty.test.ts.
 }
 
 /** ★★★ WHICH SLICES COUNT, AND WHY THE EXCLUSIONS ARE LOAD-BEARING.
@@ -78,6 +80,8 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
  *     same inversion as activityLog, for the same reason.
  *   - baselineHistory: appended by a confirmed baseline-currency switch (§476)
  *     and never emptied by use — the same inversion again.
+ *   - forecastHistory: recorded once per day the simulation is on (§502) as a
+ *     side record — the same inversion again.
  *   - documentVersions: auto-captured and pruned by retention, so counting it
  *     would make an ordinary prune read as a mass deletion and refuse a
  *     legitimate save.

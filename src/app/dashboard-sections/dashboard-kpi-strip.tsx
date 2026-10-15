@@ -8,6 +8,13 @@ import { hasNoActiveScope, type KpiStripModel } from "../dashboard";
 import type { MetricKey, MetricTrend } from "../dashboard-trends";
 import type { DensityClasses } from "../dashboard-density";
 import type { AppView } from "../nav-config";
+import { chanceText } from "../chance-text";
+import { type KpiSimulation, type KpiSimulationGap } from "../kpi-simulation";
+import { MAX_HORIZON_WORKING_DAYS } from "../forecast/constants";
+import { SimValue } from "../sim-value";
+import { percentileWord } from "../percentile-words";
+import { localeFor } from "../date-format";
+import { formatDayMonthYear } from "../forecast-format";
 
 interface DashboardKpiStripProps {
   lang: Lang;
@@ -16,10 +23,27 @@ interface DashboardKpiStripProps {
   trends?: Record<MetricKey, MetricTrend>;
   onNavigate?: (view: AppView) => void;
   dc: DensityClasses;
+  /** Simulated P80 finish + chance on time (§502). Absent (switch off, Reports) → exactly the cells below. */
+  simulation?: KpiSimulation;
+  /** The switch is on but nothing could be simulated: one muted line says why. Ignored when
+   *  `simulation` is set; absent while the switch is off, so the off strip is unchanged. */
+  simulationGap?: KpiSimulationGap;
+  /** Opens Help at a concept id; forwarded to the explainers. */
+  onOpenHelp?: (conceptId: string) => void;
 }
 
-/** How many KPI cells render: the four fixed ones, plus SPI and/or CPI. */
-export type KpiCellCount = 4 | 5 | 6;
+/** The line shown in place of the simulated cells. Plain muted text, NOT sim-styled: it is a
+ *  statement about the data, not a simulated value. */
+function simulationGapText(lang: Lang, gap: KpiSimulationGap): string {
+  switch (gap.kind) {
+    case "finished": return t(lang, "kpiSimNeedsFinished", gap.finished, gap.needed);
+    case "days": return t(lang, "kpiSimNeedsDays", gap.days, gap.needed);
+    case "beyond": return t(lang, "kpiSimBeyondHorizon", MAX_HORIZON_WORKING_DAYS.toLocaleString(localeFor(lang)));
+  }
+}
+
+/** How many KPI cells render: the four fixed ones, plus SPI and/or CPI, plus the simulated P80 and chance cells. */
+export type KpiCellCount = 4 | 5 | 6 | 7 | 8;
 
 /**
  * The strip's columns, per VISIBLE cell count (§581) — so no count ever leaves
@@ -59,6 +83,12 @@ export const KPI_STRIP_COLS: Record<KpiCellCount, string> = {
   4: "@2xs:grid-cols-2 @[34rem]:grid-cols-4",
   5: "@[25rem]:grid-cols-6 @[25rem]:*:col-span-2 @[25rem]:*:nth-last-[-n+2]:col-span-3 @2xl:grid-cols-5 @2xl:*:col-span-1 @2xl:*:nth-last-[-n+2]:col-span-1",
   6: "@2xs:grid-cols-2 @[25rem]:grid-cols-3 @[51rem]:grid-cols-6",
+  // ★ 7 and 8 exist only with the simulated cells (§502). The same 127px per cell and 8px gap:
+  // 7 → 7 × 127 + 6 × 8 = 937px → `@[59rem]` (944px); 8 → 1072px → `@[68rem]` (1088px). ARITHMETIC, not
+  // measured — below them the cells wrap onto rows of 3 (7) or 4 (8). The simulated layouts are NOT
+  // yet covered by `e2e/dashboard-grid.spec.ts`; the panel re-measures the KPI tile when they appear.
+  7: "@2xs:grid-cols-2 @[25rem]:grid-cols-3 @[59rem]:grid-cols-7",
+  8: "@2xs:grid-cols-2 @[34rem]:grid-cols-4 @[68rem]:grid-cols-8",
 };
 
 /** Standalone "at a glance" KPI card: completion (with count) · R/A/G ·
@@ -71,7 +101,7 @@ export const KPI_STRIP_COLS: Record<KpiCellCount, string> = {
  *  ★ NO BOX OF ITS OWN — the arrangeable tile chrome (`dashboard-tile.tsx`)
  *  draws the border and the title ("At a glance"). A `Card boxed` here would
  *  nest a second bordered surface inside the first. */
-export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: DashboardKpiStripProps) {
+export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulation, simulationGap, onOpenHelp }: DashboardKpiStripProps) {
   const noActiveScope = hasNoActiveScope(model.progress);
   // ★ Spec C decision 8, user's ruling: each index is shown whenever IT can
   // move a value the user sees — never gated on the Budget module. SPI feeds
@@ -85,7 +115,10 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
   const showCpi = model.evm.cpi !== null;
   const openBudget = onNavigate ? () => onNavigate("budget") : undefined;
   const openTasks = onNavigate ? () => onNavigate("open-points") : undefined;
-  const cellCount = (4 + (showSpi ? 1 : 0) + (showCpi ? 1 : 0)) as KpiCellCount;
+  const showChance = !!simulation && simulation.chanceOnTime !== null;
+  const cellCount = (4 + (showSpi ? 1 : 0) + (showCpi ? 1 : 0) + (simulation ? 1 : 0) + (showChance ? 1 : 0)) as KpiCellCount;
+  const p80Label = t(lang, percentileWord(80));
+  const onTimeLabel = t(lang, "kpiOnTime");
   return (
     <div className={`@container ${dc.kpiPad}`}>
       <div className={`grid grid-cols-1 auto-rows-fr ${KPI_STRIP_COLS[cellCount]} ${dc.kpiGap}`}>
@@ -163,7 +196,36 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
             activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
           />
         )}
+        {simulation && (
+          <Tile fill
+            label={p80Label}
+            value={
+              <SimValue lang={lang} label={p80Label} value={formatDayMonthYear(simulation.p80, localeFor(lang))}
+                explainer={{ ...simulation.explainer, label: p80Label }} onOpenHelp={onOpenHelp} />
+            }
+          />
+        )}
+        {simulation && simulation.chanceOnTime !== null && (
+          <Tile fill
+            label={onTimeLabel}
+            value={
+              <SimValue lang={lang} label={onTimeLabel} value={chanceText(lang, simulation.chanceOnTime)}
+                explainer={{ ...simulation.explainer, label: onTimeLabel, kind: "chance" }} onOpenHelp={onOpenHelp} />
+            }
+          />
+        )}
       </div>
+      {simulation && (
+        <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+          {simulation.estimateCoverage !== null && (
+            <p>{t(lang, "kpiSimCoverage", chanceText(lang, simulation.estimateCoverage))}</p>
+          )}
+          {simulation.divergent && <p>{t(lang, "kpiSimDivergence")}</p>}
+        </div>
+      )}
+      {!simulation && simulationGap && (
+        <p className="mt-1 text-xs text-muted-foreground">{simulationGapText(lang, simulationGap)}</p>
+      )}
     </div>
   );
 }

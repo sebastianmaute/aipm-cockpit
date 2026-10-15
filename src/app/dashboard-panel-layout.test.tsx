@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { showForecastView } from "../test/forecast-view";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
@@ -257,6 +258,20 @@ describe("DashboardPanel Reset layout re-measures (adaptive heights)", () => {
     expect(afterFirst).not.toBe(initial);
     await user.click(reset);
     expect(lastNonce()).not.toBe(afterFirst);
+  });
+
+  // §502 — simulated cells and lines change the KPI tile's content height with no density, tile-set or
+  // flag change, so the switch must reach the measure key.
+  it("hands the measure hook a different content key once the simulation switch is on", async () => {
+    const user = userEvent.setup();
+    const shown = showForecastView();
+    const spy = vi.mocked(useMeasuredHeights);
+    const lastKey = () => spy.mock.calls[spy.mock.calls.length - 1][0].contentKey;
+    render(<DashboardPanel {...baseProps} projectId="p-content-key" />, { wrapper });
+    const off = lastKey();
+    await user.click(screen.getByRole("button", { name: new RegExp(t(EN, "simulationShow")) }));
+    expect(lastKey()).not.toBe(off);
+    shown.mockRestore();
   });
 });
 

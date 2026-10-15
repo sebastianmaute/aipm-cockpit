@@ -61,9 +61,10 @@ const HEADINGS: Record<BlobKey, string> = {
   activityLog: "## Activity Log",
   budgetHistory: "## Budget History",
   baselineHistory: "## Baseline History",
+  forecastHistory: "## Forecast History",
 };
 
-/** The shared twelve blob cases, each with its fenced-JSON heading. */
+/** The shared thirteen blob cases, each with its fenced-JSON heading. */
 const BLOB_CASES = META_BLOB_CASES.map((c) => ({ ...c, heading: HEADINGS[c.key] }));
 
 /** An empty workspace's Markdown with one extra section appended. */
@@ -132,7 +133,7 @@ describe("markdownToWorkspace — a meta slice it could not keep is reported (§
     expect(load(workspaceToMarkdown(emptyWorkspace())).failed).toEqual([]);
   });
 
-  it("records nothing for genuine values of all fourteen slices, and decodes each as before", () => {
+  it("records nothing for genuine values of all fifteen slices, and decodes each as before", () => {
     const full = fullMetaWorkspace();
     const { ws, failed, bare } = load(workspaceToMarkdown(full));
     expect(failed).toEqual([]);

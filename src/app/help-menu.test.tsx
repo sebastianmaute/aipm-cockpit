@@ -1,4 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { showForecastView } from "../test/forecast-view";
+import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
+import { helpSectionId } from "./help-content-pane";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { HelpMenu } from "./help-menu";
 import { loadI18n, t } from "./i18n";
@@ -8,6 +11,25 @@ function openPanel() {
   // The toggle button's accessible name is the translated "help" key ("Help").
   fireEvent.click(screen.getByRole("button", { name: "Help" }));
 }
+
+describe("HelpMenu with the forecast view held back (§502)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("lists the simulation entry while the view is shown, and drops it, with its search hit, once held back", () => {
+    const shown = showForecastView();
+    const { unmount } = render(<HelpMenu lang="en-US" />);
+    openPanel();
+    expect(document.getElementById(helpSectionId(FORECAST_SIM_HELP_ID))).not.toBeNull();
+    unmount();
+
+    shown.mockRestore();
+    render(<HelpMenu lang="en-US" />);
+    openPanel();
+    expect(document.getElementById(helpSectionId(FORECAST_SIM_HELP_ID))).toBeNull();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: t("en-US", "helpConceptForecastSimTitle") } });
+    expect(document.getElementById(helpSectionId(FORECAST_SIM_HELP_ID))).toBeNull();
+  });
+});
 
 describe("HelpMenu floating panel", () => {
   // The close button's aria-label was the hardcoded English "Close", so German

@@ -74,6 +74,7 @@ import {
   markdownToActivityLog,
   markdownToBudgetHistory,
   markdownToBaselineHistory,
+  markdownToForecastHistory,
   markdownToSettingsOverrides,
   mdUnescape,
   splitMdRow,
@@ -448,6 +449,9 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   // And for the baseline-currency history (§476), emitted after it.
   const baselineHistory = markdownToBaselineHistory(md, diag);
   if (baselineHistory) ws.baselineHistory = baselineHistory;
+  // And for the forecast history (§502), emitted after it.
+  const forecastHistory = markdownToForecastHistory(md, diag);
+  if (forecastHistory) ws.forecastHistory = forecastHistory;
   return migrateWorkspaceV10(ws);
 }
 

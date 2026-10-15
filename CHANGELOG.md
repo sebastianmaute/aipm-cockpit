@@ -10,6 +10,14 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Notes
+
+- **The Dashboard simulation is built but held back with the forecast (§502, part 1).** An optional,
+  per-project "Show simulation" switch on the Dashboard adds simulated KPI cells (the P80 finish date and the
+  chance of finishing by the plan end), each marked as simulated and able to explain itself, and keeps one
+  forecast per day for later comparison. It stays hidden while the Forecast view is held back, and appears
+  with it.
+
 ## [1.19.0] - 2026-10-15 "Nesbø"
 
 A feature release. Each project keeps its budget in its own currency, EUR, USD, GBP or INR, chosen when it is

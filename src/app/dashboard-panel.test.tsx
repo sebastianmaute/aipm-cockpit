@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -10,11 +10,15 @@ import { RaidRegisterCard } from "./dashboard-sections/registers-band";
 import { t, tPlural } from "./i18n";
 import { healthColorName } from "./health";
 import * as dashboardModule from "./dashboard";
+import * as appForecastModule from "./forecast/app-forecast";
 import type { ActivityEntry } from "./activity-log";
 import type { SnapshotRecord } from "./snapshot";
 import type { BudgetHistoryEntry } from "./budget-history";
 import type { BudgetBucket, RaidItem, Milestone, ChangeItem } from "./types";
 import { expectButtonOrder } from "../test/toolbar-order";
+import { isSimulationOn } from "./forecast-simulation";
+import { showForecastView } from "../test/forecast-view";
+import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { saveLayout } from "./dashboard-layout-store";
 import { DEFAULT_LAYOUT } from "./dashboard-layout";
 import { rateMixTileChipText, rateMixWhyName } from "./budget-rate-mix-text";
@@ -1744,5 +1748,204 @@ describe("DashboardPanel health inputs are unchanged by spec C", () => {
     // Adjust-health <details>, and the title IS their accessible name.
     expect(screen.getByTitle(`${t("en-US", "dashboardSubSchedule")}: ${healthColorName("R", "en-US")}`)).toBeInTheDocument();
     expect(screen.getByTitle(`${t("en-US", "dashboardSubBudget")}: ${healthColorName("A", "en-US")}`)).toBeInTheDocument();
+  });
+});
+
+// ── §502: the "Show simulation" switch and its one-time intro ──────────────────
+describe("DashboardPanel simulation switch", () => {
+  function SimProbe() {
+    const { settingsOverrides } = useWorkspace();
+    return <output data-testid="sim-probe">{String(isSimulationOn(settingsOverrides))}|{String(settingsOverrides === undefined)}</output>;
+  }
+  const simName = () => t(EN, "simulationShow");
+  // useSettings flips `hydrated` after a microtask; an absence check run before
+  // that is vacuous (the intro's hydration gate would hide it anyway).
+  const settleSettings = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+
+  beforeEach(() => { showForecastView(); });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("renders an unpressed switch for a project with no override", async () => {
+    render(<><DashboardPanel {...fullProps} projectId="p-sim-off" /><SimProbe /></>, { wrapper });
+    await settleSettings();
+    const sw = screen.getByRole("button", { name: new RegExp(simName()) });
+    expect(sw).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+  });
+
+  it("turns simulation on, then off again so the override folds away", async () => {
+    const user = userEvent.setup();
+    render(<><DashboardPanel {...fullProps} projectId="p-sim-toggle" /><SimProbe /></>, { wrapper });
+    const sw = () => screen.getByRole("button", { name: new RegExp(simName()) });
+    await user.click(sw());
+    expect(screen.getByTestId("sim-probe")).toHaveTextContent("true|false");
+    expect(sw()).toHaveAttribute("aria-pressed", "true");
+    await user.click(sw());
+    expect(screen.getByTestId("sim-probe")).toHaveTextContent("false|true");
+  });
+
+  it("sits before the trailing Print group", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-sim-order" />, { wrapper });
+    expectButtonOrder(["simulationShow", "printHint"]);
+    expectButtonOrder(["printHint", "arrangementResetLayout", "tableResetSizeHint"], { contiguous: true });
+  });
+
+  it("is not rendered in a popout", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-sim-popout" isPopout />, { wrapper });
+    expect(screen.queryByRole("button", { name: new RegExp(simName()) })).toBeNull();
+  });
+
+  it("shows the intro once the switch turns on and Got it hides it for good", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<DashboardPanel {...fullProps} projectId="p-sim-intro" />, { wrapper });
+    await settleSettings();
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+    await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
+    expect(await screen.findByText(t(EN, "simulationIntroText"))).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: t(EN, "simulationIntroGotIt") }));
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+    unmount();
+    render(<DashboardPanel {...fullProps} projectId="p-sim-intro" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+  });
+
+  it("Escape with focus left on the switch dismisses the intro like Got it", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-sim-esc" />, { wrapper });
+    await settleSettings();
+    await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
+    expect(await screen.findByText(t(EN, "simulationIntroText"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: new RegExp(simName()) })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+    expect(JSON.parse(localStorage.getItem("aipm-cockpit:settings") ?? "{}").simulationIntroSeen).toBe(true);
+  });
+
+  it("Show me opens Help at the simulation entry and marks the intro seen", async () => {
+    const user = userEvent.setup();
+    const onOpenHelp = vi.fn();
+    const seen = () => JSON.parse(localStorage.getItem("aipm-cockpit:settings") ?? "{}").simulationIntroSeen;
+    render(<DashboardPanel {...fullProps} projectId="p-sim-showme" onOpenHelp={onOpenHelp} />, { wrapper });
+    await settleSettings();
+    await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
+    const showMe = await screen.findByRole("button", { name: t(EN, "simulationIntroShowMe") });
+    expect(seen()).not.toBe(true);
+    await user.click(showMe);
+    expect(onOpenHelp).toHaveBeenCalledWith(FORECAST_SIM_HELP_ID);
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+    expect(seen()).toBe(true);
+  });
+});
+
+// ── §502: hiding the Forecast view hides every simulation surface ──────────────
+describe("DashboardPanel with the forecast view held back (RELEASE_HIDDEN_VIEWS)", () => {
+  const simName = () => new RegExp(t(EN, "simulationShow"));
+  const FORECAST: appForecastModule.AppForecast = {
+    kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
+    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
+    markers: { p50: 5, p80: 10, p95: 15 },
+  };
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("drops the switch, the simulated cells and the intro though the stored switch stays on", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    // Turn the switch on while the view is shown, then let the REAL hold-back take it away.
+    const shown = showForecastView();
+    // A fresh element each time: re-rendering the SAME element object would bail out.
+    const ui = () => <DashboardPanel {...fullProps} projectId="p-sim-hidden" />;
+    const { rerender } = render(ui(), { wrapper });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(await screen.findByText(t(EN, "simulationIntroText"))).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Safe to commit, simulated" })).toBeInTheDocument();
+
+    shown.mockRestore();
+    rerender(ui());
+    expect(screen.queryByRole("button", { name: simName() })).toBeNull();
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+    expect(screen.queryByRole("group", { name: "Safe to commit, simulated" })).toBeNull();
+
+    // Nothing was written: showing the view again restores the user's choice.
+    showForecastView();
+    rerender(ui());
+    expect(screen.getByRole("button", { name: simName() })).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+// ── §502: the KPI strip's simulated cells follow the switch ────────────────────
+describe("DashboardPanel simulated KPI cells", () => {
+  const simName = () => new RegExp(t(EN, "simulationShow"));
+  const FORECAST: appForecastModule.AppForecast = {
+    kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
+    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
+    markers: { p50: 5, p80: 10, p95: 15 },
+  };
+  beforeEach(() => { showForecastView(); });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("renders no simulated cell and never runs the engine while the switch is off", () => {
+    const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-off" />, { wrapper });
+    expect(screen.queryByRole("group", { name: "Safe to commit, simulated" })).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("renders the simulated cells once the switch is on, and drops them when it goes off", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-on" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(screen.getByRole("group", { name: "Safe to commit, simulated" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "On time, simulated" })).toHaveTextContent("34%");
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(screen.queryByRole("group", { name: "Safe to commit, simulated" })).toBeNull();
+  });
+
+  it("says why, and adds no simulated cell, when the forecast is insufficient — only while the switch is on", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({
+      kind: "insufficient", finished: 4, neededFinished: 10, days: 30, neededDays: 10,
+    });
+    render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-insufficient" />, { wrapper });
+    const note = "Not enough history to simulate yet: 4 finished, needs 10.";
+    expect(screen.queryByText(note)).toBeNull();
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(screen.queryByRole("group", { name: /simulated/ })).toBeNull();
+    expect(screen.getByText(note)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(screen.queryByText(note)).toBeNull();
+  });
+
+  it("says the finish is beyond the horizon when P80 is", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({ ...FORECAST, p80: null });
+    render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-beyond" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(screen.queryByRole("group", { name: /simulated/ })).toBeNull();
+    expect(screen.getByText("The simulated finish is beyond the 1,300-working-day horizon.")).toBeInTheDocument();
+  });
+
+  it("hands the engine the panel's own collections and the plan end", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-args" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    const a = spy.mock.calls.at(-1)![0];
+    expect(a.tasks).toBe(fullProps.tasks);
+    expect(a.milestones).toBe(fullProps.milestones);
+    expect(a.holidaySet).toBe(fullProps.holidaySet);
+    expect(a.planEnd).toBe(fullProps.plan.endDate);
+    expect(a.today).toBe(fullProps.today);
   });
 });

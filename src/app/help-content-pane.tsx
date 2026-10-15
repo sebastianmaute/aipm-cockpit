@@ -16,20 +16,44 @@ import { RELEASE_HIDDEN_VIEWS } from "./feature-modules";
 import { INTERACTIVE } from "./interaction-styles";
 import { TextButton } from "./text-button";
 import { smoothScrollBehavior } from "./reduced-motion";
+import { isViewEnabled, type FeatureModuleId } from "./feature-modules";
+import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 
 /** DOM id for an entry's content section — shared so the in-pane view's
  *  relations map + deep-link scroll can target sections this component renders. */
 export const helpSectionId = (id: string) => `help-sec-${id}`;
+
+/** An extra control drawn under one Help entry. */
+export interface HelpEntryAction {
+  label: string;
+  onActivate: () => void;
+}
+
+const NO_HIDDEN_ENTRIES: ReadonlySet<string> = new Set();
+const SIMULATION_HIDDEN_ENTRIES: ReadonlySet<string> = new Set([FORECAST_SIM_HELP_ID]);
+
+/** The entry ids withheld under this feature set: the simulation entry teaches the Forecast view's
+ *  switch, so it goes while that view is hidden. EVERY host of the pane passes this. */
+export function hiddenHelpEntryIds(features: readonly FeatureModuleId[]): ReadonlySet<string> {
+  return isViewEnabled("forecast", features) ? NO_HIDDEN_ENTRIES : SIMULATION_HIDDEN_ENTRIES;
+}
 
 export function HelpContentPane({
   lang,
   query,
   onNavigateView,
   readingLevel = "standard",
+  entryActions,
+  hiddenEntryIds,
 }: {
   lang: Lang;
   query: string;
   onNavigateView?: (view: AppView) => void;
+  /** One extra action per entry id, rendered under that entry (e.g. reopening an
+   *  introduction). The PARENT decides when an action exists; this pane only draws it. */
+  entryActions?: Readonly<Record<string, HelpEntryAction>>;
+  /** Entry ids withheld because the view they teach is hidden (not listed, searched or linked). */
+  hiddenEntryIds?: ReadonlySet<string>;
   /** How much teaching to do — see `Settings.helpReadingLevel`. Defaults to
    *  "standard" so a caller that has not wired settings (and every existing
    *  test) renders exactly today's Help. */
@@ -48,6 +72,7 @@ export function HelpContentPane({
 
   const groups = useMemo(() => {
     const matched = HELP_ENTRIES.filter((e) => {
+      if (hiddenEntryIds?.has(e.id)) return false;
       const primer = showPrimers && e.primerKey ? t(lang, e.primerKey) : "";
       // ★ STRIPPED, not raw: searching the raw body would let a query match
       // `[[` markup that is never rendered.
@@ -60,7 +85,7 @@ export function HelpContentPane({
         entries: matched.filter((e) => e.group === group),
       }))
       .filter((g) => g.entries.length > 0);
-  }, [lang, query, readingLevel, showPrimers]);
+  }, [lang, query, readingLevel, showPrimers, hiddenEntryIds]);
 
   // Stable key of the rendered section ids → re-create the observer when the
   // filtered set changes (search). Hoisted scalar avoids the exhaustive-deps
@@ -192,7 +217,7 @@ export function HelpContentPane({
                       <span className="font-medium">{t(lang, "helpRelated")}:</span>{" "}
                       {e.relatedConcepts?.map((rid, idx) => {
                         const target = HELP_ENTRIES.find((x) => x.id === rid);
-                        if (!target) return null;
+                        if (!target || hiddenEntryIds?.has(rid)) return null;
                         return (
                           <span key={rid}>
                             {idx > 0 ? ", " : ""}
@@ -220,6 +245,11 @@ export function HelpContentPane({
                       )}
                     </p>
                   ) : null}
+                  {entryActions?.[e.id] && (
+                    <p className="mt-1.5 text-xs">
+                      <TextButton onClick={entryActions[e.id].onActivate}>{entryActions[e.id].label}</TextButton>
+                    </p>
+                  )}
                 </section>
               ))}
             </div>

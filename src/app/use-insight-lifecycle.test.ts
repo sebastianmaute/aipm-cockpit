@@ -5,10 +5,18 @@
 import { act, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { showForecastView } from "../test/forecast-view";
 import type { Insight } from "./insights/insight";
 import { saveActualsCache } from "./timelog-actuals-store";
 import { dailyKey, type TimelogLinks } from "./timelog-types";
+import { defaultResourcePlan } from "./resource-foundation";
 import { type InsightLifecycleDeps, useInsightLifecycle } from "./use-insight-lifecycle";
+
+const computeForecast = vi.hoisted(() => vi.fn());
+vi.mock("./forecast/app-forecast", async (orig) => ({
+  ...(await orig<typeof import("./forecast/app-forecast")>()),
+  computeAppForecast: computeForecast,
+}));
 
 const TODAY = "2026-10-05";
 const insight = (id: number, over: Partial<Insight> = {}): Insight => ({
@@ -42,6 +50,7 @@ function setup(isPopout = false) {
       insights,
       setInsights: (u) => { setSpy(u); setInsights(u); },
       requestOpen,
+      settingsOverrides: undefined, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0,
     };
     return { insights, handlers: useInsightLifecycle(deps) };
   });
@@ -125,6 +134,7 @@ describe("useInsightLifecycle runner → timelogClosedMonth", () => {
         tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], plan: null,
         holidaySet: new Set<string>(), holidaysReady: true, shifts: [], absences: [], timelogLinks,
         insights, setInsights, requestOpen: vi.fn(),
+        settingsOverrides: undefined, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0,
       };
       useInsightLifecycle(deps);
       return insights;
@@ -132,5 +142,24 @@ describe("useInsightLifecycle runner → timelogClosedMonth", () => {
     act(() => { vi.advanceTimersByTime(4_000); });
     expect(result.current?.map((i) => i.key)).toEqual(["timelog:timelogClosedMonth:7"]);
     expect(result.current?.[0]?.data).toMatchObject({ netHours: -2, timelogUserId: 7 });
+  });
+
+  it("feeds the forecast recorder the plan end date when simulation is on", () => {
+    computeForecast.mockReturnValue({ kind: "insufficient" });
+    const shown = showForecastView();
+    const plan = { ...defaultResourcePlan(TODAY), endDate: "2027-03-31" };
+    renderHook(() => {
+      const [insights, setInsights] = useState<readonly Insight[] | undefined>([]);
+      useInsightLifecycle({
+        hydrated: true, isPopout: false, loadPending: false, today: TODAY,
+        currentProjectId: "p1", landingProjectId: "p1",
+        tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], plan,
+        holidaySet: new Set<string>(), holidaysReady: true, shifts: [], absences: [], timelogLinks: undefined,
+        insights, setInsights, requestOpen: vi.fn(),
+        settingsOverrides: { forecast: { showSimulation: true } }, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0,
+      });
+    });
+    expect(computeForecast).toHaveBeenCalledWith(expect.objectContaining({ planEnd: "2027-03-31", today: TODAY }));
+    shown.mockRestore();
   });
 });

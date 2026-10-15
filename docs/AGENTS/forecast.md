@@ -2,8 +2,11 @@
 
 The Forecast view under Reports answers three questions from the project's own completion history:
 **When** does the open work finish (P50/P80/P95), **How many** tasks (or minutes) fit by a chosen date,
-and what is each milestone's **chance** of landing on its date. Slices 2–5 (saved scenarios, Dashboard
-tile, Gantt marker, AI tool) are open — see §502 in [`../open-followups.md`](../open-followups.md).
+and what is each milestone's **chance** of landing on its date. Part 1 of the surfaces design
+(`docs/superpowers/specs/2026-10-15-forecast-simulation-surfaces-design.md`) adds the Dashboard
+Show-simulation switch (`SettingsOverrides.forecast`) and a daily recorder that persists
+`Workspace.forecastHistory` (a meta-blob on all six write paths). It replaced the old slices 2 and 5;
+saved scenarios, the AI tool and parts 2–4 are open — see §502 in [`../open-followups.md`](../open-followups.md).
 Reproduce the file list: `ls src/app/forecast`.
 
 ★★ **HELD BACK FROM THE RELEASE.** `"forecast"` sits in `RELEASE_HIDDEN_VIEWS` (`feature-modules.ts`), so
@@ -14,6 +17,13 @@ it: drop it from that list, then put back what the hiding commit took out of the
 with `git log -S RELEASE_HIDDEN_VIEWS --oneline` — namely its CHANGELOG "Added" entry, the Forecast
 sentence of `helpSecReportsBody` (EN and DE) and its lines in `lib/app-feature-guide.md` (then run
 `node scripts/gen-operating-guide.mjs`), and re-measure the scan count in `e2e/a11y.spec.ts`.
+★★ Part 1 of the surfaces design is held back WITH it, through the same `isViewEnabled("forecast", …)` gate
+(`isSimulationActive`, `hiddenHelpEntryIds`): the Show-simulation switch, the simulated KPI cells, the intro, the
+Help entry and the history recorder all vanish. Shipping the view also means: turn part 1's CHANGELOG
+`[Unreleased]` Notes line ("built but held back with the forecast") into an Added entry, and expect the
+held-back tests to FAIL by design — each asserts that a surface is hidden while `"forecast"` sits in
+`RELEASE_HIDDEN_VIEWS` (`grep -rl "held back" src/app --include=*.test.ts* | xargs grep -li simulation`); invert or delete them, and drop the
+`showForecastView()` spy (`src/test/forecast-view.ts`) from the tests that use it.
 
 ## Module map
 
@@ -263,6 +273,84 @@ EOF2
 npx vite-node forecast-probe.ts; rm forecast-probe.ts
 ```
 
+## Simulation across the app — part 1
+
+The Dashboard can show simulated numbers beside its measured ones. Part 1 is the KPI strip's P80 finish and
+chance on time; the dated history it records is the input to later surfaces. Files: `forecast-simulation.ts`, `forecast-history.ts`, `use-forecast-history-recorder.ts`, `forecast/app-forecast.ts`,
+`kpi-simulation.ts`, `sim-value.tsx`, `sim-explainer.tsx`, `simulation-intro.tsx`, `percentile-words.ts`.
+
+- **The switch** is `SettingsOverrides.forecast.showSimulation` (`settings-types.ts`), read with
+  `isSimulationOn` and written with `withSimulation` (`forecast-simulation.ts`). ★★ OFF IS ABSENCE: turning it
+  off deletes the key and folds an empty override to `undefined`, so a project that never used it serialises
+  byte-for-byte as before. Never store `false`. It is per PROJECT and rides the six write paths with the other
+  overrides. `Settings.simulationIntroSeen` is the opposite scope: per DEVICE (the one-time note).
+- **`Workspace.forecastHistory`** (`forecast-history.ts`) is a **meta-blob** slice like `baselineHistory`: no
+  `ENTITY_SPECS` row, absent from `TABLE_NAMES` because it has no table, and written by hand on all six paths
+  (`src/app/forecast-history-persistence.test.ts` pins the round trips). One entry per day (`date`, `p50`,
+  `p80`, `p95`, `chanceOnTime`); `sanitizeForecastHistory` drops malformed rows, keeps the LAST per date and
+  sorts; `upsertForecastHistory` is immutable.
+- **The recorder** (`use-forecast-history-recorder.ts`) is called from inside `useInsightLifecycle`, not from
+  `task-manager.tsx` (no size-ratchet headroom). It writes only when the switch is on AND `hydrated`,
+  not `isPopout`, not `loadPending` (§548), `holidaysReady` and the forecast is sufficient. ★★★ WHETHER to
+  write is decided against THIS TAB's own last-recorded entry (a `useRef`), not against the stored one: it
+  writes when nothing is stored for today, when it has not recorded today yet and the stored entry differs, or
+  when its own computed entry changed since it last recorded. A stored entry equal to the computed one is
+  adopted as its own. The stored-only compare it replaced let two tabs that compute different entries (per-device
+  holidays, an old and a new build) overwrite each other for ever, since `forecastHistory` is broadcast between
+  tabs; now a peer's later entry is left alone (last writer of the day wins) for as long as the project in scope
+  stays the same. Pinned by "two tabs that disagree settle" in `use-forecast-history-recorder.test.ts` (exactly
+  one write per tab). ★★ The SCOPE RULE: the ref stores `{ scope, entry }`, with `scope` read from
+  `getScopeEpoch()` (`scope-epoch.ts`), and a memory from another epoch counts as nothing recorded. It is NOT
+  cleared on `loadPending`: a same-project reload (the conflict banner's Reload is a held "same-scope" op) also
+  raises `loadPending`, and clearing there made the tab answer a peer's entry after every reload, one extra
+  Turso revision and a conflict pause for the other user each time. The epoch moves only when another
+  project's data is applied, so the memory still never suppresses a write for another project. It keys on the
+  epoch, not `currentProjectId`, because in Turso portfolio mode the open project is `tursoProjectId`. Pinned
+  by "keeps what it recorded across a SAME-project reload" and "forgets what it recorded when the scope epoch
+  moves". ★★ The effect is SYNCHRONOUS, which is why it needs no `dropStaleScopeWrite` (it reads the epoch
+  only as a key): an `await` added to it would need a captured start epoch and that drop. It writes through the context setter, so there
+  is no undo capture and no activity-log entry. It is not debounced (the insight runner is); it reruns the
+  simulation on every `tasks` change while the switch is on.
+- **`computeAppForecast`** (`forecast/app-forecast.ts`) is the one default run for app surfaces: window
+  `DEFAULT_HISTORY_WINDOW`, unit `"tasks"`, `DEFAULT_WHAT_IF`. It returns `{kind: "insufficient"}` (carrying
+  the engine's `finished`/`neededFinished`/`days`/`neededDays`) or a
+  forecast with `p50`/`p80`/`p95` (null beyond the horizon), `chanceOnTime`, `estimateCoverage`, `windowDays`,
+  `distribution`, `trials` and `markers` (working days ahead per percentile, horizon + 1 beyond it).
+  `chanceOnTime` is `null` for an invalid plan end, `1` when nothing is open, `0` when the plan end is before
+  today, else the share of trials done within the plan's working days (a beyond-horizon trial is never on
+  time). ★★ It keeps a SINGLE-ENTRY module memo keyed by reference identity of `tasks`, `milestones`,
+  `holidaySet` plus the `planEnd` and `today` strings: a caller must pass the context's OWN references
+  unchanged (a `.filter()` copy defeats it and reruns 10,000 trials per render). `milestones` is in the key but
+  unused by the result. ★★ `distribution` is the memoised `Int32Array` itself — READ-ONLY; copy before sorting
+  or mutating. The Forecast view (`forecast-panel.tsx`) keeps its own settings and says so once, through
+  `forecastDashboardDefaultsNote`, when the switch is on and a setting differs from these defaults.
+- **Look and explainer.** `SimValue` (`sim-value.tsx`) is the one look for a simulated number (dashed outline,
+  `aria-hidden` badge, accessible name `label, simulated`); `SimExplainer` (`sim-explainer.tsx`, a
+  `PopoverPanel`) shows the histogram with the P50/P80/P95 cut lines and, given `onOpenHelp`, a link to
+  `FORECAST_SIM_HELP_ID` (Help entry `concept-forecast-simulation`). `kind` is `"date"` or `"chance"`; the
+  accessible names carry the cell's label so two explainers on one strip stay distinct. Percentile wording
+  comes from `percentileWord` (`percentile-words.ts`), never hand-written. `SimulationIntro`
+  (`simulation-intro.tsx`) is a non-modal `role="note"`; Escape is "Got it" and is claimed from the switch
+  too, because focus stays there after the press. "Show me" also marks it seen (the same functional settings
+  write as "Got it") before it opens Help, so the note is gone when the user comes back. Once it was dismissed, the in-pane Help view (`help-view.tsx`)
+  offers "Show the simulation introduction again" under the simulation entry (through `HelpContentPane`'s
+  `entryActions`): it clears `Settings.simulationIntroSeen` and goes to the Dashboard, where the note shows again
+  while the switch is on. The floating Help panel (`help-menu.tsx`) does not offer it. The histogram's accessible
+  label names a percentile past `MAX_HORIZON_WORKING_DAYS` as "beyond the horizon", never as horizon + 1 days.
+- **KPI cells** (`kpi-simulation.ts`): `kpiSimulation(forecast, spi)` is `null` when the forecast is
+  insufficient or P80 is beyond the horizon; `kpiSimulationGap(forecast)` then says which (too few finished
+  tasks, named first when both floors are short; too few window days; or beyond the horizon), and the strip
+  shows it as one muted, non-sim-styled line. `isDivergent` is true for SPI ≥ 1.0 with chance < 0.5, or SPI <
+  0.9 with chance ≥ 0.8 (named constants in the file); the strip then adds a divergence line, always visible.
+  `chancePercent` keeps a simulated chance from reading as certainty: one that rounds to 100 but is under 1
+  shows `>99%` (DE `> 99 %`), one that rounds to 0 but is over 0 shows `<1%`; exactly 1 and 0 stay 100% and 0%.
+  `estimateCoverage` is `null` when nothing is open, and the strip then shows no coverage line.
+  Details of the cells and the re-measure are in [`dashboard.md`](dashboard.md) "KPI strip simulation cells".
+- ★★ The 7- and 8-cell KPI layouts are unmeasured and not covered by `e2e/dashboard-grid.spec.ts`; the full statement is in
+  [`dashboard.md`](dashboard.md) "KPI strip simulation cells". Check the switch and the note by eye and run
+  `npx playwright test e2e/a11y.spec.ts --project=chromium -g "Dashboard"` (CI runs it too).
+- ★ Switch OFF → no recorder, no simulation prop, no cells, and nothing else on the Dashboard changes.
+
 ## Mutation proof (slice 1)
 
 Four mutants for the slice, run one at a time, each turned red by its own test:
@@ -304,3 +392,18 @@ The pre-PR fix-all round (2026-10-14), each mutant applied alone and reverted:
 ★ Two survivors, both equivalent: `<=` for `<` in `cannotReach` (the `FLOAT_SLACK` factor makes an exact
 tie unreachable in practice), and handing the engine the raw What-if instead of `usedWhatIf` (the engine
 runs the same `clampWhatIf`, which is idempotent).
+
+## Hiding the Forecast view hides part 1's surfaces
+
+★★ Every part-1 simulation surface is gated on `isSimulationActive(overrides, features)`
+(`forecast-simulation.ts`) = `isViewEnabled("forecast", features)` AND the stored switch, so a release that
+hides the Forecast view cannot show simulated numbers with no view behind them. The gated surfaces: the
+Dashboard toolbar switch, the simulated KPI cells and the intro (`dashboard-panel.tsx`), the daily recorder
+(`use-forecast-history-recorder.ts`, fed `features` by `useInsightLifecycle`), and the Help entry
+`FORECAST_SIM_HELP_ID` with its reopen action (`help-view.tsx`, via `HelpContentPane`'s `hiddenEntryIds`).
+`isSimulationOn` stays the RAW stored read for the writer: the stored value is never touched, so showing the
+view again restores the user's choice. A new part-1 surface must read the helper, never `isSimulationOn`.
+★ `HelpContentPane` has TWO hosts (`help-view.tsx` and the floating `help-menu.tsx`); both pass
+`hiddenHelpEntryIds(features)`, which also filters search hits and Related links. `help-icon-button.tsx` and
+`view-callouts.ts` resolve concept ids straight from `HELP_ENTRIES`, so a new link to the simulation entry from
+either bypasses the gate and must check `isSimulationActive` / `isViewEnabled` itself.

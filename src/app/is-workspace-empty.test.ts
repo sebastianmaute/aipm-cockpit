@@ -120,6 +120,20 @@ describe("the save-time counters deliberately exclude auto-grown slices", () => 
     expect(isWorkspaceEmpty({ ...ws, baselineHistory: history })).toBe(true);
   });
 
+  it("forecastHistory is excluded — the same inversion as budgetHistory (§502)", () => {
+    // Recorded once per day the simulation is on and never emptied by use. Adding it changes
+    // NOTHING against a counting base, exactly as baselineHistory above.
+    const history = [{ date: "2026-10-01", p50: "2026-11-02", p80: null, p95: null, chanceOnTime: 0.5 }] as never;
+    const base = { ...ws, tasks: [{ id: 1 }] as never };
+    expect(nonEmptyCollectionCount(base)).toBe(1);
+    expect(workspaceRecordCount(base)).toBe(1);
+    expect(nonEmptyCollectionCount({ ...base, forecastHistory: history })).toBe(1);
+    expect(workspaceRecordCount({ ...base, forecastHistory: history })).toBe(1);
+    expect(nonEmptyCollectionCount({ ...ws, forecastHistory: history })).toBe(0);
+    expect(workspaceRecordCount({ ...ws, forecastHistory: history })).toBe(0);
+    expect(isWorkspaceEmpty({ ...ws, forecastHistory: history })).toBe(true);
+  });
+
   it("documentVersions is excluded, so a retention prune is not a mass deletion", () => {
     const versioned = { ...ws, documentVersions: Array.from({ length: 50 }, (_, i) => ({ id: `v${i}` })) as never };
     expect(nonEmptyCollectionCount(versioned)).toBe(0);

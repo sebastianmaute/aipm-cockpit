@@ -8,6 +8,7 @@ import { ADAPTIVE_BLOCKS, REPORT_BLOCKS, reportBlockById } from "./report-blocks
 import { rowsForHeight } from "./arrangement-measure";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import { t } from "./i18n";
+import * as appForecastModule from "./forecast/app-forecast";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { controlNames, expectButtonOrder } from "../test/toolbar-order";
 import { buttonClassFor } from "../test/button-variant";
@@ -1181,5 +1182,17 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     // tree in the document. Measured — it failed with the received node being
     // `normal`'s Add report control (a `<select>` at the time).
     expect(within(popout.container).queryByTestId("add-report-button")).toBeNull();
+  });
+});
+
+describe("ReportsPanel — At a glance stays unsimulated (§502)", () => {
+  it("passes the strip no simulation: no simulated cell and no forecast run", () => {
+    const spy = vi.spyOn(appForecastModule, "computeAppForecast");
+    renderReports([makeTask({ id: 1, assignee: "A" })]);
+    const block = screen.getByTestId("report-block-stats");
+    expect(block.querySelector("[data-sim]")).toBeNull();
+    expect(within(block).queryByText(/Estimates cover/)).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

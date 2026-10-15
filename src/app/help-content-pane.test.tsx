@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, expect, test, vi } from "vitest";
-import { HelpContentPane, helpSectionId } from "./help-content-pane";
+import { HelpContentPane, helpSectionId, hiddenHelpEntryIds } from "./help-content-pane";
+import { showForecastView } from "../test/forecast-view";
+import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { HELP_ENTRIES } from "./help-content";
 import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -220,4 +222,11 @@ test("related links render the shared TextButton", () => {
   if (!section) throw new Error("section not rendered");
   const conceptLink = within(section).getByRole("button", { name: t("en-US", target.titleKey) });
   expect(conceptLink.className).toBe(primitiveClassFor(<TextButton>x</TextButton>));
+});
+
+test("hiddenHelpEntryIds withholds the simulation entry while the forecast view is held back, and not once it is shown (§502)", () => {
+  expect([...hiddenHelpEntryIds([])]).toEqual([FORECAST_SIM_HELP_ID]);
+  const shown = showForecastView();
+  expect(hiddenHelpEntryIds([]).size).toBe(0);
+  shown.mockRestore();
 });

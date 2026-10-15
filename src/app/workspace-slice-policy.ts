@@ -43,7 +43,7 @@ export interface SlicePolicy {
 }
 
 /** Every array-typed member of `Workspace`, with its save-guard decision.
- *  Twenty-two slices as of 2026-10-14; the test fails on any addition or
+ *  Twenty-three slices as of 2026-10-15; the test fails on any addition or
  *  removal. ★ The number rots — recount rather than trusting it, with
  *  `grep -cE "^  [a-zA-Z]+: \{" src/app/workspace-slice-policy.ts`, whose every
  *  match is a key of this object and nothing else in the file. */
@@ -97,6 +97,11 @@ export const SLICE_POLICY: Readonly<Record<string, SlicePolicy>> = {
     counted: false,
     reason:
       "Appended only by a confirmed baseline-currency switch (§476), so a project that ever switched always holds an entry; counting it would keep a wiped project reading as non-empty, the same inversion as budgetHistory. Not counting it does not make it expendable: losing it re-labels every older snapshot and budget-history figure in the wrong currency — it is protected by riding all six write paths, not by the record-count guards.",
+  },
+  forecastHistory: {
+    counted: false,
+    reason:
+      "Recorded once per day the forecast simulation is on (§502), as a side record; counting it would keep a wiped project reading as non-empty, the same inversion as budgetHistory. It is only a trend record: losing it costs the day-over-day comparison, not project data, and it is protected by riding all six write paths.",
   },
   documentVersions: {
     counted: false,

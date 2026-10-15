@@ -148,6 +148,10 @@ export function sanitizeSettingsOverrides(raw: unknown): SettingsOverrides {
   if (notifications) out.notifications = notifications;
   const timezone = sanitizeTimezoneOverride(raw.timezone);
   if (timezone) out.timezone = timezone;
+  // Off is absence: only an explicit true is kept.
+  if (isObject(raw.forecast) && raw.forecast.showSimulation === true) {
+    out.forecast = { showSimulation: true };
+  }
   return out;
 }
 
@@ -155,7 +159,10 @@ export function sanitizeSettingsOverrides(raw: unknown): SettingsOverrides {
 export function hasAnyOverride(o?: SettingsOverrides): boolean {
   return (
     !!o &&
-    (o.nextActions !== undefined || o.notifications !== undefined || o.timezone !== undefined)
+    (o.nextActions !== undefined ||
+      o.notifications !== undefined ||
+      o.timezone !== undefined ||
+      o.forecast !== undefined)
   );
 }
 

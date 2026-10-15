@@ -3,6 +3,7 @@ import { SCHEMA_DDL, TABLE_NAMES, ENTITY_SPECS, selectStatements, workspaceToSta
 import { emptyWorkspace } from "./storage";
 import type { ActivityEntry } from "./activity-log";
 import { recordBudgetChange, type BudgetHistoryEntry } from "./budget-history";
+import type { ForecastHistoryEntry } from "./forecast-history";
 import type { ProjectMeta } from "./types";
 
 function resultsFromStatements(stmts: { sql: string; args?: { value?: string }[] }[]): PipelineResultLike[] {
@@ -341,6 +342,13 @@ describe("turso budgetHistory (meta KV)", () => {
     const prev = { ...emptyWorkspace(), budgetHistory: [] as BudgetHistoryEntry[] };
     expect(dirtyWorkspaceTables(prev, { ...prev }).has("meta")).toBe(false);
     expect(dirtyWorkspaceTables(prev, { ...prev, budgetHistory: sampleHistory }).has("meta")).toBe(true);
+  });
+
+  it("marks meta dirty when forecastHistory changes by reference (and not when it does not) (§502)", () => {
+    const prev = { ...emptyWorkspace(), forecastHistory: [] as ForecastHistoryEntry[] };
+    const entry: ForecastHistoryEntry = { date: "2026-10-01", p50: "2026-11-02", p80: null, p95: null, chanceOnTime: 0.5 };
+    expect(dirtyWorkspaceTables(prev, { ...prev }).has("meta")).toBe(false);
+    expect(dirtyWorkspaceTables(prev, { ...prev, forecastHistory: [entry] }).has("meta")).toBe(true);
   });
 
   it("keeps budgetHistory OUT of TABLE_NAMES (it rides meta, no table of its own)", () => {
