@@ -975,8 +975,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§735](#735-ai-documents-give-no-guided-setup-for-the-api-key-templates-and-a-first-document--open) | AI documents give no guided setup for the API key, templates and a first document | — | — | open |
 | [§736](#736-an-empty-gantt-chart-names-only-the-first-missing-input--open) | An empty Gantt chart names only the first missing input | — | — | open |
 | [§737](#737-chart-labels-sit-directly-on-their-line-and-are-partly-hidden-or-hard-to-read--open) | Chart labels sit directly on their line and are partly hidden or hard to read | — | — | open |
-| [§738](#738-a-workday-hours-change-zeroes-the-hourly-rate-on-a-day-basis-roles-side-that-has-no-day-rate--open) | A workday-hours change zeroes the hourly rate on a day-basis role's side that has no day rate | — | — | open |
-| [§739](#739-a-new-projects-plan-start-date-is-the-utc-day-not-the-local-day--open) | A new project's plan start date is the UTC day, not the local day | — | — | open |
+| [§738](#738-a-workday-hours-change-zeroes-the-hourly-rate-on-a-day-basis-roles-side-that-has-no-day-rate--closed-2026-10-15) | A workday-hours change zeroes the hourly rate on a day-basis role's side that has no day rate | — | — | **CLOSED** 2026-10-15 |
+| [§739](#739-a-new-projects-plan-start-date-is-the-utc-day-not-the-local-day--closed-2026-10-15) | A new project's plan start date is the UTC day, not the local day | — | — | **CLOSED** 2026-10-15 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45215,6 +45215,8 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Status:** OPEN 2026-10-14 — the timing is unit-tested (`grep -n "SPLASH_SLOW_MS = " desktop/src/lib/splash-status.ts` → 10 000 ms, driven with fake timers by `splash-status.test.ts`), but no test renders the packaged window.
 
+★ 2026-10-15: the owner installed a local build of `fix/738-739-rate-and-start-date` (`npm run desktop:build` then `npm run desktop:package`); the app started in under `SPLASH_SLOW_MS`, so the reassurance line could not be seen, and the check was postponed. The other three checks do not need a slow start.
+
 **Work item:** #720
 
 §705 added status text to the desktop splash: "Starting…" while the local service starts, a reassurance line after `SPLASH_SLOW_MS`, and "Opening…" once it is up. The unit tests cover the sequence; only a person looking at a packaged build can see the rest. The owner merged phase 1 (PR #706) on 2026-10-14 with this check deferred.
@@ -45358,11 +45360,13 @@ Size S–M.
 
 **Source:** owner request 2026-10-14 ("in charts the breakouts should not sit directly next to their line and get partially hidden or difficult to read").
 
-## 738. A workday-hours change zeroes the hourly rate on a day-basis role's side that has no day rate — OPEN
+## 738. A workday-hours change zeroes the hourly rate on a day-basis role's side that has no day rate — CLOSED 2026-10-15
 
-**Status:** OPEN 2026-10-14. `rematerializeDayBasisRoles` still maps day-basis roles through plain `materializeRoleRates` (`grep -n "materializeRoleRates(r, workdayHours)" src/app/role-rates.ts` → 1 hit), while the §476 switch and restore paths use `materializeDayBasisRole` (`grep -rln "materializeDayBasisRole(" src/app --include=*.ts | grep -v test` → 3 files).
+**Status:** CLOSED 2026-10-15 on `fix/738-739-rate-and-start-date`. `rematerializeDayBasisRoles` now maps day-basis roles through `materializeDayBasisRole` (`grep -n "materializeDayBasisRole(r, workdayHours)" src/app/role-rates.ts` → 1 hit), so a workday-hours change, the baseline switch and version restore share one rule. The example below is pinned in `role-rates.test.ts` ("keeps the hourly rate on a day-basis side that has no day rate"), red before the fix (`externalRate` 0, expected 150).
 
-**Work item:** #734
+★ The text below is the record as opened.
+
+**Opened:** OPEN 2026-10-14. `rematerializeDayBasisRoles` still maps day-basis roles through plain `materializeRoleRates` (`grep -n "materializeRoleRates(r, workdayHours)" src/app/role-rates.ts` → 1 hit), while the §476 switch and restore paths use `materializeDayBasisRole` (`grep -rln "materializeDayBasisRole(" src/app --include=*.ts | grep -v test` → 3 files).
 
 A change of workday hours sets the hourly rate to 0 on a day-basis role's side that has no day rate. `task-manager.tsx` calls `rematerializeDayBasisRoles(prev, workdayHoursNow)` on that change, and plain `materializeRoleRates` reads a missing `internalRateDay`/`externalRateDay` as 0 and derives the hourly from it. The sanitizer allows a day-basis role with one day field missing. Example: `{rateBasis:"day", internalRateDay:800, externalRate:150}` → after a workday-hours change `externalRate` is 0 and `externalRateDay` is 0.
 
@@ -45374,11 +45378,13 @@ Size S.
 
 **Source:** found in review of the §476 fix round, 2026-10-14; filed on the owner's word.
 
-## 739. A new project's plan start date is the UTC day, not the local day — OPEN
+## 739. A new project's plan start date is the UTC day, not the local day — CLOSED 2026-10-15
 
-**Status:** OPEN 2026-10-14. `emptyWorkspace()` builds the plan from the UTC date (`grep -n "defaultResourcePlan(new Date().toISOString().slice(0, 10))" src/app/workspace.ts` → 2 hits: `emptyWorkspace()` and the `migrateWorkspaceV5` fallback for a workspace with no plan).
+**Status:** CLOSED 2026-10-15 on `fix/738-739-rate-and-start-date`. `buildNewProjectWorkspace` re-dates the plan from the local day (`grep -n "defaultResourcePlan(localDay)" src/app/new-project-workspace.ts` → 1 hit): `todayInZone` in the project's operating zone, else the browser's (`resolveTimezone(undefined, meta.operatingTimezone)`), at the wizard's creation instant when it passes one, so the creation `baselineHistory` entry carries the same day. The case was worse than filed, and two-sided: `defaultResourcePlan` snaps to the first of the month, so whenever the UTC day and the local day fall in different months the plan is a whole MONTH off — early east of UTC (00:30 on the 1st in Berlin), late west of it (20:00 on 31 October in New York is already 1 November in UTC). Pinned in `new-project-workspace.test.ts` (Berlin, 00:30 on 1 November → plan starts 2026-11-01; red before the fix with 2026-10-01). ★ A per-device timezone override is not applied here (the builder has no settings); the project's own zone, then the browser's, decide. `emptyWorkspace()` and the `migrateWorkspaceV5` fallback keep the UTC day: both are blank fallbacks where no user picks a date.
 
-**Work item:** #735
+★ The text below is the record as opened.
+
+**Opened:** OPEN 2026-10-14. `emptyWorkspace()` builds the plan from the UTC date (`grep -n "defaultResourcePlan(new Date().toISOString().slice(0, 10))" src/app/workspace.ts` → 2 hits: `emptyWorkspace()` and the `migrateWorkspaceV5` fallback for a workspace with no plan).
 
 `emptyWorkspace()` (`workspace.ts`) builds the plan with `defaultResourcePlan(new Date().toISOString().slice(0, 10))`. Between local midnight and the UTC day change (00:00–02:00 in Berlin in summer) that is yesterday's date. `buildNewProjectWorkspace` (`new-project-workspace.ts`) starts from `emptyWorkspace()`, and since §476 its creation `baselineHistory` entry takes `from: ws.plan.startDate`, so that entry carries the same early date.
 

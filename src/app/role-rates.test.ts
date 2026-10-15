@@ -90,4 +90,12 @@ describe("rematerializeDayBasisRoles (workday-hours change reconcile)", () => {
     const roles = [hourRole];
     expect(rematerializeDayBasisRoles(roles, 10)).toBe(roles);
   });
+
+  it("keeps the hourly rate on a day-basis side that has no day rate, and invents no day rate for it (§738)", () => {
+    const halfDay: Role = { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150, internalRateDay: 800, rateBasis: "day" };
+    const out = rematerializeDayBasisRoles([halfDay], 10);
+    expect(out[0].internalRate).toBe(80); // the side with a day rate still re-derives
+    expect(out[0].externalRate).toBe(150);
+    expect(out[0]).not.toHaveProperty("externalRateDay");
+  });
 });

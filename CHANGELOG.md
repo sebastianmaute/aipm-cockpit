@@ -154,6 +154,13 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Changing the workday hours no longer zeroes a day-rate role's other rate (§738).** A role priced by the
+  day with only one day rate set, say an internal day rate and an external hourly rate, lost the hourly rate
+  on the side without a day rate when the workday hours changed. That side now keeps its hourly rate.
+- **A new project's plan starts in the right month around midnight (§739).** A project created while the UTC
+  day differed from the local day took its plan dates from the UTC day, so at a month boundary the plan
+  started a whole month early (east of UTC, just after midnight on the 1st) or late (west of UTC, on the
+  evening of the last day). It now uses the project's own timezone, else the computer's.
 - **Timelog works for any region.** The connection no longer assumes one Timelog address. Paste your
   Timelog address from the browser and the app reads the host and tenant from it; the separate fields
   stay available, with a hint where the tenant is written. If Test connection finds no such tenant, it
