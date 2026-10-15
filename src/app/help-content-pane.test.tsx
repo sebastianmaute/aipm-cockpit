@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, expect, test, vi } from "vitest";
 import { HelpContentPane, helpSectionId, hiddenHelpEntryIds } from "./help-content-pane";
-import * as featureModules from "./feature-modules";
+import { showForecastView } from "../test/forecast-view";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { HELP_ENTRIES } from "./help-content";
 import { loadI18n, t } from "./i18n";
@@ -224,9 +224,9 @@ test("related links render the shared TextButton", () => {
   expect(conceptLink.className).toBe(primitiveClassFor(<TextButton>x</TextButton>));
 });
 
-test("hiddenHelpEntryIds withholds the simulation entry only while the forecast view is disabled (§502)", () => {
-  expect(hiddenHelpEntryIds([]).size).toBe(0);
-  const spy = vi.spyOn(featureModules, "isViewEnabled").mockReturnValue(false);
+test("hiddenHelpEntryIds withholds the simulation entry while the forecast view is held back, and not once it is shown (§502)", () => {
   expect([...hiddenHelpEntryIds([])]).toEqual([FORECAST_SIM_HELP_ID]);
-  spy.mockRestore();
+  const shown = showForecastView();
+  expect(hiddenHelpEntryIds([]).size).toBe(0);
+  shown.mockRestore();
 });

@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { loadI18n, t } from "./i18n";
@@ -7,7 +7,7 @@ import { HelpView } from "./help-view";
 import { helpSectionId } from "./help-content-pane";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { SETTINGS_KEY } from "./use-settings";
-import * as featureModules from "./feature-modules";
+import { showForecastView } from "../test/forecast-view";
 
 describe("HelpView (grouped)", () => {
   it("renders the group headers", () => {
@@ -150,7 +150,11 @@ describe("HelpView — every tab has its own name (§672)", () => {
 
 describe("HelpView — reopening the simulation intro (§502)", () => {
   const LABEL = "Show the simulation introduction again";
-  afterEach(() => localStorage.removeItem(SETTINGS_KEY));
+  beforeEach(() => { showForecastView(); });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.removeItem(SETTINGS_KEY);
+  });
 
   it("offers nothing while the intro has never been dismissed", async () => {
     render(<HelpView lang="en-US" onNavigateView={vi.fn()} />);
@@ -172,14 +176,13 @@ describe("HelpView — reopening the simulation intro (§502)", () => {
   });
 });
 
-describe("HelpView — forecast view disabled (§502)", () => {
+describe("HelpView — forecast view held back (§502)", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     localStorage.removeItem(SETTINGS_KEY);
   });
 
   it("lists no simulation entry, no reopen action and no graph node", async () => {
-    vi.spyOn(featureModules, "isViewEnabled").mockReturnValue(false);
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ simulationIntroSeen: true }));
     render(<HelpView lang="en-US" onNavigateView={vi.fn()} />);
     expect(await screen.findByRole("heading", { name: t("en-US", "helpConceptMilestoneTitle") })).toBeInTheDocument();

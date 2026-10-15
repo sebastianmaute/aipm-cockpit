@@ -5,6 +5,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { showForecastView } from "../test/forecast-view";
 import type { Insight } from "./insights/insight";
 import { saveActualsCache } from "./timelog-actuals-store";
 import { dailyKey, type TimelogLinks } from "./timelog-types";
@@ -145,6 +146,7 @@ describe("useInsightLifecycle runner → timelogClosedMonth", () => {
 
   it("feeds the forecast recorder the plan end date when simulation is on", () => {
     computeForecast.mockReturnValue({ kind: "insufficient" });
+    const shown = showForecastView();
     const plan = { ...defaultResourcePlan(TODAY), endDate: "2027-03-31" };
     renderHook(() => {
       const [insights, setInsights] = useState<readonly Insight[] | undefined>([]);
@@ -158,5 +160,6 @@ describe("useInsightLifecycle runner → timelogClosedMonth", () => {
       });
     });
     expect(computeForecast).toHaveBeenCalledWith(expect.objectContaining({ planEnd: "2027-03-31", today: TODAY }));
+    shown.mockRestore();
   });
 });

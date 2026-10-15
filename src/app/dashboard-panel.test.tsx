@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect, type ReactNode } from "react";
@@ -17,7 +17,7 @@ import type { BudgetHistoryEntry } from "./budget-history";
 import type { BudgetBucket, RaidItem, Milestone, ChangeItem } from "./types";
 import { expectButtonOrder } from "../test/toolbar-order";
 import { isSimulationOn } from "./forecast-simulation";
-import * as featureModules from "./feature-modules";
+import { showForecastView } from "../test/forecast-view";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { saveLayout } from "./dashboard-layout-store";
 import { DEFAULT_LAYOUT } from "./dashboard-layout";
@@ -1762,7 +1762,9 @@ describe("DashboardPanel simulation switch", () => {
   // that is vacuous (the intro's hydration gate would hide it anyway).
   const settleSettings = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 
+  beforeEach(() => { showForecastView(); });
   afterEach(() => {
+    vi.restoreAllMocks();
     localStorage.clear();
   });
 
@@ -1840,7 +1842,7 @@ describe("DashboardPanel simulation switch", () => {
 });
 
 // ── §502: hiding the Forecast view hides every simulation surface ──────────────
-describe("DashboardPanel with the forecast view disabled", () => {
+describe("DashboardPanel with the forecast view held back (RELEASE_HIDDEN_VIEWS)", () => {
   const simName = () => new RegExp(t(EN, "simulationShow"));
   const FORECAST: appForecastModule.AppForecast = {
     kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
@@ -1855,6 +1857,8 @@ describe("DashboardPanel with the forecast view disabled", () => {
   it("drops the switch, the simulated cells and the intro though the stored switch stays on", async () => {
     const user = userEvent.setup();
     vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    // Turn the switch on while the view is shown, then let the REAL hold-back take it away.
+    const shown = showForecastView();
     // A fresh element each time: re-rendering the SAME element object would bail out.
     const ui = () => <DashboardPanel {...fullProps} projectId="p-sim-hidden" />;
     const { rerender } = render(ui(), { wrapper });
@@ -1863,14 +1867,14 @@ describe("DashboardPanel with the forecast view disabled", () => {
     expect(await screen.findByText(t(EN, "simulationIntroText"))).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Safe to commit, simulated" })).toBeInTheDocument();
 
-    const enabled = vi.spyOn(featureModules, "isViewEnabled").mockReturnValue(false);
+    shown.mockRestore();
     rerender(ui());
     expect(screen.queryByRole("button", { name: simName() })).toBeNull();
     expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
     expect(screen.queryByRole("group", { name: "Safe to commit, simulated" })).toBeNull();
 
-    // Nothing was written: re-enabling the view restores the user's choice.
-    enabled.mockRestore();
+    // Nothing was written: showing the view again restores the user's choice.
+    showForecastView();
     rerender(ui());
     expect(screen.getByRole("button", { name: simName() })).toHaveAttribute("aria-pressed", "true");
   });
@@ -1884,6 +1888,7 @@ describe("DashboardPanel simulated KPI cells", () => {
     estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
     markers: { p50: 5, p80: 10, p95: 15 },
   };
+  beforeEach(() => { showForecastView(); });
   afterEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();

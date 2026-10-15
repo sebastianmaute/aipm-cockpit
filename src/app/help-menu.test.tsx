@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
-import * as featureModules from "./feature-modules";
+import { showForecastView } from "../test/forecast-view";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { helpSectionId } from "./help-content-pane";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
@@ -12,16 +12,17 @@ function openPanel() {
   fireEvent.click(screen.getByRole("button", { name: "Help" }));
 }
 
-describe("HelpMenu with the forecast view disabled (§502)", () => {
+describe("HelpMenu with the forecast view held back (§502)", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("lists the simulation entry while the view is enabled, and drops it, with its search hit, when disabled", () => {
+  it("lists the simulation entry while the view is shown, and drops it, with its search hit, once held back", () => {
+    const shown = showForecastView();
     const { unmount } = render(<HelpMenu lang="en-US" />);
     openPanel();
     expect(document.getElementById(helpSectionId(FORECAST_SIM_HELP_ID))).not.toBeNull();
     unmount();
 
-    vi.spyOn(featureModules, "isViewEnabled").mockReturnValue(false);
+    shown.mockRestore();
     render(<HelpMenu lang="en-US" />);
     openPanel();
     expect(document.getElementById(helpSectionId(FORECAST_SIM_HELP_ID))).toBeNull();

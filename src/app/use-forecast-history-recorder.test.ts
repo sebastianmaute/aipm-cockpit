@@ -3,7 +3,7 @@
 import { renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as featureModules from "./feature-modules";
+import { showForecastView } from "../test/forecast-view";
 import type { ForecastHistoryEntry } from "./forecast-history";
 import {
   type ForecastHistoryRecorderDeps,
@@ -51,12 +51,13 @@ describe("useForecastHistoryRecorder", () => {
   beforeEach(() => {
     compute.mockReset();
     compute.mockReturnValue(FORECAST);
+    showForecastView();
   });
 
   afterEach(() => vi.restoreAllMocks());
 
-  it("does not write while the forecast view is disabled, even with the switch stored on", () => {
-    vi.spyOn(featureModules, "isViewEnabled").mockReturnValue(false);
+  it("does not write while the forecast view is held back, even with the switch stored on", () => {
+    vi.restoreAllMocks();
     expect(run()).not.toHaveBeenCalled();
     expect(compute).not.toHaveBeenCalled();
   });

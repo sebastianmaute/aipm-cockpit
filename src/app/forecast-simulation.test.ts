@@ -3,7 +3,7 @@
 
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";
-import * as featureModules from "./feature-modules";
+import { showForecastView } from "../test/forecast-view";
 import { hasAnyOverride, sanitizeSettingsOverrides } from "./settings-overrides";
 import type { SettingsOverrides } from "./settings-types";
 
@@ -76,15 +76,14 @@ describe("isSimulationActive", () => {
   const ON: SettingsOverrides = { forecast: { showSimulation: true } };
   afterEach(() => vi.restoreAllMocks());
 
-  it("follows the stored switch while the forecast view is enabled", () => {
+  it("follows the stored switch while the forecast view is shown", () => {
+    showForecastView();
     expect(isSimulationActive(ON, [])).toBe(true);
     expect(isSimulationActive(undefined, [])).toBe(false);
   });
 
-  it("is false when the forecast view is disabled, even with the switch stored on", () => {
-    const spy = vi.spyOn(featureModules, "isViewEnabled").mockReturnValue(false);
+  it("is false while the forecast view is held back, even with the switch stored on", () => {
     expect(isSimulationActive(ON, [])).toBe(false);
-    expect(spy).toHaveBeenCalledWith("forecast", []);
     // The raw stored read is untouched, so re-enabling restores the choice.
     expect(isSimulationOn(ON)).toBe(true);
   });
