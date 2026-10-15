@@ -94,7 +94,7 @@ describe("SimExplainer", () => {
     const user = userEvent.setup();
     setup({ markers: { p50: 10, p80: 14, p95: MAX_HORIZON_WORKING_DAYS } });
     await user.click(screen.getByRole("button", { name: "How to read this" }));
-    expect(screen.getByRole("img", { name: new RegExp(`cautious in ${MAX_HORIZON_WORKING_DAYS} working days\.$`) })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: new RegExp(`cautious in ${MAX_HORIZON_WORKING_DAYS.toLocaleString("en-US")} working days\.$`) })).toBeInTheDocument();
   });
 
   it("excludes beyond-horizon trials from the bars and says so", async () => {

@@ -38,7 +38,7 @@ function simulationGapText(lang: Lang, gap: KpiSimulationGap): string {
   switch (gap.kind) {
     case "finished": return t(lang, "kpiSimNeedsFinished", gap.finished, gap.needed);
     case "days": return t(lang, "kpiSimNeedsDays", gap.days, gap.needed);
-    case "beyond": return t(lang, "kpiSimBeyondHorizon", MAX_HORIZON_WORKING_DAYS);
+    case "beyond": return t(lang, "kpiSimBeyondHorizon", MAX_HORIZON_WORKING_DAYS.toLocaleString(localeFor(lang)));
   }
 }
 

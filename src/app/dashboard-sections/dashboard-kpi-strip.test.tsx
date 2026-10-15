@@ -577,7 +577,7 @@ describe("DashboardKpiStrip — switch on, nothing simulated (§502)", () => {
   it.each([
     ["too few finished tasks", { kind: "finished", finished: 4, needed: 10 }, "Not enough history to simulate yet: 4 finished, needs 10."],
     ["too short a window", { kind: "days", days: 6, needed: 10 }, "Not enough history to simulate yet: 6 working days of history, needs 10."],
-    ["P80 beyond the horizon", { kind: "beyond" }, "The simulated finish is beyond the 1300-working-day horizon."],
+    ["P80 beyond the horizon", { kind: "beyond" }, "The simulated finish is beyond the 1,300-working-day horizon."],
   ] as const)("says why when %s, as plain muted text and no extra cell", (_label, gap, text) => {
     const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulationGap={gap} />);
     const line = screen.getByText(text);
