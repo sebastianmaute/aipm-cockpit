@@ -14,9 +14,19 @@
 // that awaited would need `dropStaleScopeWrite`). It is skipped while a load or
 // swap is pending (§548), in a popout, and until holidays are ready.
 //
-// ★ No write when today's stored entry already equals the computed one: that is
-// both the cheap path and what stops a write → re-render → write loop.
-import { useEffect, type Dispatch, type SetStateAction } from "react";
+// ★★ Whether to write is decided against THIS tab's own last entry for the day,
+// not against the stored one. The history is broadcast between tabs, and two tabs
+// can compute different entries (holidays are a per-device setting that is not
+// synced; an old and a new tab can run different engine code). Comparing with the
+// stored entry made each tab overwrite the other's for ever, re-arming the
+// autosave every round. A tab now writes when nothing is stored for today, when
+// it has not recorded today yet and the stored entry differs, or when its OWN
+// computed entry changed since it last recorded. A peer's differing entry is left
+// alone: the peer wrote last ("last writer of the day wins"). A stored entry equal
+// to the computed one is adopted as this tab's own, so a later peer write is not
+// answered either. The memory is cleared while a load or swap is pending, so it
+// never carries over to another project.
+import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { computeAppForecast, toHistoryEntry } from "./forecast/app-forecast";
 import { upsertForecastHistory, type ForecastHistoryEntry } from "./forecast-history";
 import { isSimulationOn } from "./forecast-simulation";
@@ -54,7 +64,9 @@ export function useForecastHistoryRecorder(d: ForecastHistoryRecorderDeps): void
     planEnd, holidaySet, settingsOverrides, forecastHistory, setForecastHistory,
   } = d;
   const on = isSimulationOn(settingsOverrides);
+  const recorded = useRef<ForecastHistoryEntry | null>(null);
   useEffect(() => {
+    if (loadPending) recorded.current = null;
     if (!on || !hydrated || isPopout || loadPending || !holidaysReady) return;
     const entry = toHistoryEntry(
       computeAppForecast({ tasks, milestones, planEnd, today, holidaySet }),
@@ -62,7 +74,13 @@ export function useForecastHistoryRecorder(d: ForecastHistoryRecorderDeps): void
     );
     if (!entry) return;
     const stored = forecastHistory.find((e) => e.date === today);
-    if (stored && sameEntry(stored, entry)) return;
+    if (stored && sameEntry(stored, entry)) {
+      recorded.current = entry;
+      return;
+    }
+    const own = recorded.current;
+    if (stored && own && sameEntry(own, entry)) return;
+    recorded.current = entry;
     setForecastHistory((prev) => upsertForecastHistory(prev, entry));
   }, [
     on, hydrated, isPopout, loadPending, holidaysReady, today, tasks, milestones,

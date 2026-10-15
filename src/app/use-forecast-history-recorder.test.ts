@@ -1,6 +1,7 @@
 // §502 — the background forecast-history recorder. The forecast engine is
 // stubbed: this pins WHEN a row is written and HOW, not the simulation.
 import { renderHook } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ForecastHistoryEntry } from "./forecast-history";
 import {
@@ -29,15 +30,19 @@ const TASKS: ForecastHistoryRecorderDeps["tasks"] = [];
 const MILESTONES: ForecastHistoryRecorderDeps["milestones"] = [];
 const HOLIDAYS = new Set<string>();
 
-function run(over: Partial<ForecastHistoryRecorderDeps> = {}) {
-  const setForecastHistory = vi.fn();
-  const deps: ForecastHistoryRecorderDeps = {
+function deps(over: Partial<ForecastHistoryRecorderDeps> = {}): ForecastHistoryRecorderDeps {
+  return {
     hydrated: true, isPopout: false, loadPending: false, holidaysReady: true,
     today: TODAY, tasks: TASKS, milestones: MILESTONES, planEnd: "2026-12-31",
     holidaySet: HOLIDAYS, settingsOverrides: { forecast: { showSimulation: true } },
-    forecastHistory: [], setForecastHistory, ...over,
+    forecastHistory: [], setForecastHistory: vi.fn(), ...over,
   };
-  renderHook(() => useForecastHistoryRecorder(deps));
+}
+
+function run(over: Partial<ForecastHistoryRecorderDeps> = {}) {
+  const setForecastHistory = vi.fn();
+  const d = deps({ setForecastHistory, ...over });
+  renderHook(() => useForecastHistoryRecorder(d));
   return setForecastHistory;
 }
 
@@ -91,5 +96,89 @@ describe("useForecastHistoryRecorder", () => {
     const set = run({ forecastHistory: [old, stale] });
     const updater = set.mock.calls[0][0] as (p: readonly ForecastHistoryEntry[]) => ForecastHistoryEntry[];
     expect(updater([old, stale])).toEqual([old, ENTRY]);
+  });
+  it.each([
+    ["p80", { p80: "2026-11-11" }],
+    ["p95", { p95: "2026-11-21" }],
+    ["chanceOnTime", { chanceOnTime: 0.4 }],
+  ] as const)("writes when today's stored entry differs only in %s", (_label, diff) => {
+    expect(run({ forecastHistory: [{ ...ENTRY, ...diff }] })).toHaveBeenCalledTimes(1);
+  });
+
+  it("with a real stateful history, writes exactly once and then stops", () => {
+    const writes = vi.fn();
+    renderHook(() => {
+      const [history, setHistory] = useState<readonly ForecastHistoryEntry[]>([]);
+      const setForecastHistory: ForecastHistoryRecorderDeps["setForecastHistory"] = (u) => {
+        writes();
+        setHistory(u);
+      };
+      useForecastHistoryRecorder(deps({ forecastHistory: history, setForecastHistory }));
+      return history;
+    });
+    expect(writes).toHaveBeenCalledTimes(1);
+  });
+
+  it("two tabs that disagree settle: the later writer of the day wins, no ping-pong", () => {
+    // Two recorders share ONE stored history (what the cross-tab broadcast amounts
+    // to) but compute different entries, e.g. different holiday settings per device.
+    const holidaysA = new Set<string>();
+    const holidaysB = new Set<string>(["2026-10-20"]);
+    compute.mockImplementation((a: { holidaySet: ReadonlySet<string> }) =>
+      a.holidaySet === holidaysB ? { ...FORECAST, p50: "2026-11-02" } : FORECAST);
+    const writes = vi.fn();
+    const { result } = renderHook(() => {
+      const [history, setHistory] = useState<readonly ForecastHistoryEntry[]>([]);
+      const writer = (tab: string): ForecastHistoryRecorderDeps["setForecastHistory"] => (u) => {
+        writes(tab);
+        setHistory(u);
+      };
+      useForecastHistoryRecorder(deps({ holidaySet: holidaysA, forecastHistory: history, setForecastHistory: writer("A") }));
+      useForecastHistoryRecorder(deps({ holidaySet: holidaysB, forecastHistory: history, setForecastHistory: writer("B") }));
+      return history;
+    });
+    expect(writes.mock.calls.length).toBeLessThanOrEqual(2);
+    expect(result.current).toHaveLength(1);
+    expect(result.current[0].p50).toBe("2026-11-02");
+  });
+  it("leaves a peer's later differing entry alone once this tab recorded today", () => {
+    const set = vi.fn();
+    const { rerender } = renderHook((h: readonly ForecastHistoryEntry[]) =>
+      useForecastHistoryRecorder(deps({ forecastHistory: h, setForecastHistory: set })), { initialProps: [] as readonly ForecastHistoryEntry[] });
+    expect(set).toHaveBeenCalledTimes(1);
+    rerender([{ ...ENTRY, p50: "2026-11-02" }]);
+    expect(set).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes again when its own computed entry changes after it recorded today", () => {
+    const set = vi.fn();
+    const peer = [{ ...ENTRY, p50: "2026-11-02" }];
+    const { rerender } = renderHook((tasks: ForecastHistoryRecorderDeps["tasks"]) =>
+      useForecastHistoryRecorder(deps({ tasks, forecastHistory: peer, setForecastHistory: set })), { initialProps: TASKS });
+    expect(set).toHaveBeenCalledTimes(1);
+    compute.mockReturnValue({ ...FORECAST, p50: "2026-11-03" });
+    rerender([]);
+    expect(set).toHaveBeenCalledTimes(2);
+  });
+
+  it("rewrites today's entry when it is missing from the stored history", () => {
+    const set = vi.fn();
+    const { rerender } = renderHook((h: readonly ForecastHistoryEntry[]) =>
+      useForecastHistoryRecorder(deps({ forecastHistory: h, setForecastHistory: set })), { initialProps: [] as readonly ForecastHistoryEntry[] });
+    rerender([ENTRY]);
+    rerender([]);
+    expect(set).toHaveBeenCalledTimes(2);
+  });
+
+  it("forgets what it recorded across a load or swap, so another project's entry is not mistaken for its own", () => {
+    const set = vi.fn();
+    const other = [{ ...ENTRY, p50: "2026-11-09" }];
+    const { rerender } = renderHook((p: { h: readonly ForecastHistoryEntry[]; loadPending: boolean }) =>
+      useForecastHistoryRecorder(deps({ forecastHistory: p.h, loadPending: p.loadPending, setForecastHistory: set })),
+      { initialProps: { h: [] as readonly ForecastHistoryEntry[], loadPending: false } });
+    expect(set).toHaveBeenCalledTimes(1);
+    rerender({ h: [], loadPending: true });
+    rerender({ h: other, loadPending: false });
+    expect(set).toHaveBeenCalledTimes(2);
   });
 });
