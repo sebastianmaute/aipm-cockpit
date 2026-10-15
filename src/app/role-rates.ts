@@ -86,11 +86,13 @@ export function materializeDayBasisRole(role: Role, workdayHours: number): Role 
 /**
  * Re-derive the hourly cost rate on every DAY-basis role from `workdayHours`.
  * Hour-basis roles are untouched (their hourly is authoritative; the day figure
- * is display-only). Returns the SAME array reference when there are no day-basis
+ * is display-only). A day-basis side with no day rate keeps its hourly rate and gets
+ * no invented day rate — the rule the §476 switch and restore share
+ * (`materializeDayBasisRole`, §738). Returns the SAME array reference when there are no day-basis
  * roles, so a React caller can skip a needless state update / re-render.
  */
 export function rematerializeDayBasisRoles(roles: readonly Role[], workdayHours: number): Role[] {
   return roles.some((r) => r.rateBasis === "day")
-    ? roles.map((r) => (r.rateBasis === "day" ? materializeRoleRates(r, workdayHours) : r))
+    ? roles.map((r) => (r.rateBasis === "day" ? materializeDayBasisRole(r, workdayHours) : r))
     : (roles as Role[]);
 }
