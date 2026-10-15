@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { BurndownChainWarning } from "./budget-chain-warning";
+import { act, render, screen } from "@testing-library/react";
+import { BurndownChainChip, BurndownChainWarning } from "./budget-chain-warning";
 
 describe("BurndownChainWarning", () => {
   it("renders nothing for a resolved chain", () => {
@@ -64,5 +64,50 @@ describe("BurndownChainWarning", () => {
       <BurndownChainWarning lang="en-US" chain={{ kind: "broken", reason: "unreachable", offenders: [] }} />,
     );
     expect(container.firstChild).toBeNull();
+  });
+});
+
+// The dashboard tile's compact form: a chip that opens the full sentence.
+describe("BurndownChainChip", () => {
+  const broken = (n: number) => ({
+    kind: "broken" as const, reason: "multiple-roots" as const,
+    offenders: Array.from({ length: n }, (_, i) => ({ id: i + 1, name: `B${i + 1}` })),
+  });
+
+  it("renders nothing for a resolved chain, unchained buckets, no offenders or no chain", () => {
+    for (const chain of [
+      { kind: "chain" as const, start: "2026-01-01", end: "2026-03-31", order: [1] },
+      { kind: "unchained" as const },
+      { kind: "broken" as const, reason: "unreachable" as const, offenders: [] },
+      null,
+    ]) {
+      const { container, unmount } = render(<BurndownChainChip lang="en-US" chain={chain} />);
+      expect(container.firstChild).toBeNull();
+      unmount();
+    }
+  });
+
+  it("counts the buckets to check, singular and plural", () => {
+    const { unmount } = render(<BurndownChainChip lang="en-US" chain={broken(1)} />);
+    expect(screen.getByRole("button", { name: (n: string) => n.startsWith("1 bucket to check") })).toBeInTheDocument();
+    unmount();
+    render(<BurndownChainChip lang="en-US" chain={broken(5)} />);
+    expect(screen.getByRole("button", { name: (n: string) => n.startsWith("5 buckets to check") })).toBeInTheDocument();
+  });
+
+  // The sentence is only on screen in the bubble, so the trigger's name carries it for a screen
+  // reader; the visible chip text comes first (WCAG 2.5.3 label-in-name).
+  it("names the chip with its text and then the full warning", () => {
+    render(<BurndownChainChip lang="en-US" chain={broken(2)} />);
+    const name = screen.getByRole("button").getAttribute("aria-label")!;
+    expect(name.startsWith("2 buckets to check: ")).toBe(true);
+    expect(name).toContain("not linked into one chain (B1, B2)");
+  });
+
+  it("opens the full warning, naming the buckets, on focus", () => {
+    render(<BurndownChainChip lang="en-US" chain={broken(2)} />);
+    expect(screen.queryByText(/not linked into one chain \(B1, B2\)/)).toBeNull();
+    act(() => screen.getByRole("button", { name: (n: string) => n.startsWith("2 buckets to check") }).focus());
+    expect(screen.getByText(/not linked into one chain \(B1, B2\)/)).toBeInTheDocument();
   });
 });

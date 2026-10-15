@@ -825,3 +825,10 @@ describe("NarrativeEditor commits via pagehide (E1)", () => {
     expect(commits).toHaveLength(0);
   });
 });
+
+describe("NarrativeSummary updated date", () => {
+  it("sits on the right of the summary box", () => {
+    render(<Summary status={{ narrative: "All on track", narrativeUpdatedAt: "2026-06-20T10:00:00.000Z" }} />);
+    expect(screen.getByText(/Updated 2026-06-20/)).toHaveClass("text-right");
+  });
+});

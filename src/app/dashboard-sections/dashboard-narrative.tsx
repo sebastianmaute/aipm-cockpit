@@ -85,7 +85,7 @@ export function NarrativeSummary({ lang, status, setStatus, readOnly }: {
     <>
       <RichTextView html={rendered} />
       {status.narrativeUpdatedAt ? (
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-right text-xs text-muted-foreground">
           {t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))}
         </p>
       ) : null}

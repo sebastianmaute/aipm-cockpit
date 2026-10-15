@@ -89,6 +89,14 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Dashboard polish: the tip card shows a lightbulb instead of the word "Tip".** The icon sits in the
+  vertical middle of the card, beside the tip and its buttons, and screen readers still hear "Tip". The
+  status summary's "Updated" date now sits at the right of its box.
+- **The dashboard's Budget burn tile no longer scrolls.** The yellow bucket-chain warning is now a small
+  chip beside the chart switches (for example "5 buckets to check") that shows the full text on hover or focus, and the
+  notes under the legend sit behind an ⓘ next to the chart caption. A new "Open in Budget →" button in the
+  same row opens the Budget view. Printing the dashboard still shows the full warning and notes, and the
+  Budget view itself is unchanged.
 - **The resource form puts what Timelog needs first.** First name, last name and email come first in a
   "Needed" group, the rest sits under "More details", and a person now needs an email to be saved: it is
   how Timelog bookings reach them. People saved earlier without one are asked for it only when you edit them.

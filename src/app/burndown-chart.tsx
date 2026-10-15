@@ -9,6 +9,7 @@ import { type Lang, t, localeFor } from "./i18n";
 import { currencySymbol, formatCurrency } from "./resource-cost";
 import { formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { TermTooltip } from "./budget-forecast-tooltip";
+import { InfoTooltip } from "./info-tooltip";
 import {
   estimatedLabelWidth, fitJoinLabel, layoutMarkerLabels, markerBandHeight, markerLabelBoxes, scaleDate, scaleValue,
   type BacMarker, type ChartModel, type ChartOrientation, type ChartPoint, type ChartUnit,
@@ -26,7 +27,7 @@ const X0 = PAD_L, X1 = W - PAD_R;
 
 const DASH = { planned: "5 4", pace: "7 4", efficiency: "2 3", evLine: "6 2 1 2", evPartial: "2 4", bac: "4 4", today: "3 3" } as const;
 
-/** §737 — every label carries a halo in the card's `surface` colour (`paint-order="stroke"`
+/** §737 — every label except the y-axis ticks carries a halo in the card's `surface` colour (`paint-order="stroke"`
  *  draws the stroke under the fill), so a line passing close by does not cut the letters. */
 const HALO = { paintOrder: "stroke", strokeWidth: 3, strokeLinejoin: "round" } as const;
 /** §737 — baseline offsets, from a label's usual spot, of the spots it moves to when a line or
@@ -69,15 +70,19 @@ function Swatch({ className, dash, width = 2.5 }: { className: string; dash?: st
 
 export function BurndownChart(props: {
   lang: Lang; currency: string; model: ChartModel; unit: ChartUnit; orientation: ChartOrientation; periods: readonly string[];
+  /** The dashboard tile: the notes under the legend move behind one info trigger beside the caption
+   *  (they still print). The Budget view leaves this off and shows them as lines. */
+  notesAsInfo?: boolean;
 }) {
   if (props.model.empty) return <p className="text-sm text-muted-foreground">{t(props.lang, "dashboardNoBudget")}</p>;
   return <BurndownChartBody {...props} />;
 }
 
 function BurndownChartBody({
-  lang, currency, model, unit, orientation, periods,
+  lang, currency, model, unit, orientation, periods, notesAsInfo = false,
 }: {
   lang: Lang; currency: string; model: ChartModel; unit: ChartUnit; orientation: ChartOrientation; periods: readonly string[];
+  notesAsInfo?: boolean;
 }) {
   // The SVG's own `aria-label` (below) is the chart's whole non-visual summary;
   // `aria-describedby` folds it into the trigger button's accessible DESCRIPTION
@@ -152,6 +157,13 @@ function BurndownChartBody({
   for (const names of new Set(model.evPartialNames.map((p) => p.names))) aria.push(t(lang, "burndownAriaEvPartial", names));
   const partialCaptions = [...new Set(model.evPartialNames.map((p) =>
     t(lang, p.created ? "burndownEvPartialCreated" : "burndownEvPartialNotRecorded", p.names)))];
+  // The notes under the legend, in the order they always had. Two have no full stop of their own.
+  const sentence = (note: string) => (/[.!?…]$/.test(note) ? note : `${note}.`);
+  const notes = [
+    ...(model.frameDiffers ? [t(lang, "burndownFrameNote")] : []),
+    ...partialCaptions,
+    ...(model.evUnavailable ? [t(lang, "burndownEvHistoryUnavailable", model.evUnavailable.join(", "))] : []),
+  ];
   const hasPartial = model.evSegments?.some((seg) => seg.partial) ?? false;
   // The solid "Earned value" entry names only a line that is drawn: an empty
   // list, or one whose every segment is partial, draws no solid span.
@@ -242,7 +254,15 @@ function BurndownChartBody({
   return (
     <div className="space-y-2">
       <div>
-        <div className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">{caption}</div>
+        <div className="mb-1 flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
+          {caption}
+          {/* The notes are on screen only in the bubble, so the trigger's name carries them too. */}
+          {notesAsInfo && notes.length > 0 && (
+            <span className="print:hidden">
+              <InfoTooltip text={notes.map(sentence).join(" ")} label={`${t(lang, "burndownNotesLabel")}: ${notes.map(sentence).join(" ")}`} />
+            </span>
+          )}
+        </div>
         <button
           type="button"
           {...readout.triggerProps}
@@ -389,10 +409,10 @@ function BurndownChartBody({
         {model.runOut && <span className="inline-flex items-center gap-1.5"><svg width="10" height="10" aria-hidden="true"><circle cx="5" cy="5" r="4" className="fill-ui-pink" /></svg>{t(lang, "forecastRunOut")}</span>}
         {model.today && <span className="inline-flex items-center gap-1.5"><Swatch className="stroke-muted-foreground" dash={DASH.today} width={1} />{t(lang, "burndownToday")}</span>}
       </div>
-      {model.frameDiffers && <p className="text-xs text-muted-foreground">{t(lang, "burndownFrameNote")}</p>}
-      {partialCaptions.map((caption) => <p key={caption} className="text-xs text-muted-foreground">{caption}</p>)}
-      {model.evUnavailable && (
-        <p className="text-xs text-muted-foreground">{t(lang, "burndownEvHistoryUnavailable", model.evUnavailable.join(", "))}</p>
+      {notes.length > 0 && (
+        <div className={notesAsInfo ? "hidden space-y-2 print:block" : "space-y-2"}>
+          {notes.map((note) => <p key={note} className="text-xs text-muted-foreground">{note}</p>)}
+        </div>
       )}
     </div>
   );

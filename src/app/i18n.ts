@@ -172,6 +172,7 @@ const enUS = {
   dashboardOpenTasksView: "Open the tasks list",
   dashboardOpenRaidView: "Open the RAID register",
   dashboardOpenBudgetView: "Open the budget",
+  dashboardOpenBudget: "Open in Budget",
   dashboardOpenTrendsView: "Open trends",
   dashboardOpenChangeItem: "Open change {0}",
   dashboardActivityOpenView: "Open {0}",
@@ -914,6 +915,9 @@ const enUS = {
   burndownFrameNote:
     "Chart totals differ from the forecast figures (fixed-price or bucket window); the figures above are authoritative.",
   burndownEvHistoryUnavailable: "No earned-value history yet for {0}.",
+  burndownNotesLabel: "Notes on this chart",
+  burndownChainChipOne: "{0} bucket to check",
+  burndownChainChip: "{0} buckets to check",
   burndownEvPartial: "Partial earned value",
   burndownEvPartialNotRecorded: "Partial: {0} not recorded",
   burndownEvPartialCreated: "Partial: {0} created later",

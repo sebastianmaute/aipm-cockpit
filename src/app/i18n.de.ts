@@ -175,6 +175,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardOpenTasksView: "Aufgabenliste öffnen",
   dashboardOpenRaidView: "RAID-Register öffnen",
   dashboardOpenBudgetView: "Budget öffnen",
+  dashboardOpenBudget: "Im Budget öffnen",
   dashboardOpenTrendsView: "Trends öffnen",
   dashboardOpenChangeItem: "Änderung {0} öffnen",
   dashboardActivityOpenView: "{0} öffnen",
@@ -843,6 +844,9 @@ export const de: Record<TranslationKey, string> = {
   burndownFrameNote:
     "Die Diagrammsummen weichen von den Prognosewerten ab (Festpreis oder Budgetzeitraum); maßgeblich sind die Werte oben.",
   burndownEvHistoryUnavailable: "Noch kein Verlauf des Earned Value für {0}.",
+  burndownNotesLabel: "Hinweise zu diesem Diagramm",
+  burndownChainChipOne: "{0} Bucket prüfen",
+  burndownChainChip: "{0} Buckets prüfen",
   burndownEvPartial: "Unvollständiger Earned Value",
   burndownEvPartialNotRecorded: "Unvollständig: {0} nicht erfasst",
   burndownEvPartialCreated: "Unvollständig: {0} später angelegt",

@@ -5,6 +5,7 @@ import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
+import type { AppView } from "./nav-config";
 import { RaidRegisterCard } from "./dashboard-sections/registers-band";
 import { t, tPlural } from "./i18n";
 import { healthColorName } from "./health";
@@ -1580,13 +1581,14 @@ describe("DashboardPanel currency labelling", () => {
     },
   ] as unknown as BudgetBucket[];
 
-  function renderUsdDashboard() {
+  function renderUsdDashboard(onNavigate?: (view: AppView) => void, budgets: BudgetBucket[] = ratedBudget) {
     render(
       <DashboardPanel
+        onNavigate={onNavigate}
         lang="en-US"
         tasks={[]}
         raid={[]}
-        budgets={ratedBudget}
+        budgets={budgets}
         plan={{ ...plan, currency: "USD" }}
         roles={ratedRoles}
         resources={[]}
@@ -1598,6 +1600,44 @@ describe("DashboardPanel currency labelling", () => {
       { wrapper },
     );
   }
+
+  // The Budget burn tile needs a drawable chart for its switches' row, so these use this fixture.
+  it("opens the Budget view from the Budget burn tile's Open in Budget button", () => {
+    const onNavigate = vi.fn();
+    renderUsdDashboard(onNavigate);
+    fireEvent.click(screen.getByRole("button", { name: "Open in Budget" }));
+    expect(onNavigate).toHaveBeenCalledWith("budget");
+  });
+
+  it("offers Open in Budget on the tile when there is no budget to draw", () => {
+    const onNavigate = vi.fn();
+    renderUsdDashboard(onNavigate, []);
+    const button = screen.getByRole("button", { name: "Open in Budget" });
+    // Its own row above the no-budget line, as when a series exists but neither unit has a budget.
+    expect(button.parentElement!.textContent).not.toContain("No budget");
+    fireEvent.click(button);
+    expect(onNavigate).toHaveBeenCalledWith("budget");
+  });
+
+  it("shows a broken bucket chain as a chip on the tile, and the full banner only in print", () => {
+    // A → B is declared, C stands alone: two roots, so the chain is broken.
+    const chained = [
+      { ...ratedBudget[0], id: 1, name: "Alpha", successorId: 2 },
+      { ...ratedBudget[0], id: 2, name: "Beta" },
+      { ...ratedBudget[0], id: 3, name: "Gamma" },
+    ] as unknown as BudgetBucket[];
+    renderUsdDashboard(undefined, chained);
+    const chip = screen.getByRole("button", { name: (n: string) => / to check: /.test(n) });
+    expect(chip.getAttribute("aria-label")).toContain("Gamma");
+    const banner = screen.getByText((_, el) => el?.getAttribute("role") === "status" && (el.textContent ?? "").includes("Gamma"));
+    expect(banner.closest('[class~="hidden"][class~="print:block"]')).not.toBeNull();
+  });
+
+  it("offers no Open in Budget button without navigation (a popout)", () => {
+    renderUsdDashboard();
+    expect(screen.getByRole("radiogroup", { name: "Chart orientation" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open in Budget" })).toBeNull();
+  });
 
   it("labels the burn-down value axis in the plan's baseline currency (§476)", () => {
     renderUsdDashboard();

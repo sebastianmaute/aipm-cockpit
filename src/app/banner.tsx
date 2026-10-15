@@ -21,7 +21,7 @@ export type BannerSeverity = "info" | "warn" | "success" | "error";
 // Severity → sanctioned token tint. border/40 + bg/10-15 keep the box subtle;
 // the text colour is AA-safe on the tint (ui-*-strong on surface, foreground
 // on the neutral/amber tints).
-const SEVERITY_CLASS: Record<BannerSeverity, string> = {
+export const SEVERITY_CLASS: Record<BannerSeverity, string> = {
   info: "border-ui-dark-blue/40 bg-ui-dark-blue/10 text-foreground dark:border-ui-dark-blue/60 dark:bg-ui-dark-blue/15",
   warn: "border-[var(--rag-amber)]/40 bg-[var(--rag-amber)]/15 text-foreground dark:border-[var(--rag-amber)]/50 dark:bg-[var(--rag-amber)]/20",
   success: "border-ui-green/40 bg-ui-green/10 text-ui-green-strong dark:border-ui-green/60 dark:bg-ui-green/15",

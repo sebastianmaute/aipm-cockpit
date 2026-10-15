@@ -4,7 +4,7 @@ import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { TIPS, tipIndexForDay } from "./tips";
 import type { DensityClasses } from "./dashboard-density";
-import { XMarkIcon } from "./icons";
+import { LightBulbIcon, XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { useSettings } from "./use-settings";
 import { Button } from "./button";
@@ -69,9 +69,12 @@ export function DashboardTipCard({ lang, dc, isPopout = false }: DashboardTipCar
 
   return (
     <div className={`rounded-lg border border-line bg-surface ${dc.cardPad} shadow-[var(--shadow-card)]`}>
-      <div className="flex items-start gap-2">
-        <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-ui-dark-blue dark:text-ui-light-grey">
-          {t(lang, "dashboardTipLabel")}
+      <div className="flex items-center gap-2">
+        {/* The label is a lightbulb on screen; the word stays for screen readers. The row is
+            centred, so the icon sits in the vertical middle of the box beside a wrapped tip. */}
+        <span className="flex shrink-0 items-center text-ui-dark-blue dark:text-ui-light-grey">
+          <LightBulbIcon className="h-4 w-4" aria-hidden="true" />
+          <span className="sr-only">{t(lang, "dashboardTipLabel")}</span>
         </span>
         <p className="flex-1 text-sm text-foreground">{TIPS[index]}</p>
         <div className="flex shrink-0 items-center gap-1">
