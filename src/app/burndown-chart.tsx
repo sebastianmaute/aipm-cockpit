@@ -13,7 +13,7 @@ import {
   estimatedLabelWidth, fitJoinLabel, layoutMarkerLabels, markerBandHeight, markerLabelBoxes, scaleDate, scaleValue,
   type BacMarker, type ChartModel, type ChartOrientation, type ChartPoint, type ChartUnit,
 } from "./burndown-geometry";
-import { placeLabels, polylineSegments, type Box, type LabelRequest, type Segment } from "./chart-label-placement";
+import { labelBox, placeLabels, polylineSegments, type Box, type LabelRequest, type Segment } from "./chart-label-placement";
 import { ChartReadout, readoutSentence } from "./chart-readout";
 import { readoutAt, readoutStops } from "./burndown-readout";
 import { useChartReadout } from "./use-chart-readout";
@@ -187,13 +187,16 @@ function BurndownChartBody({
     // Each budget-change tick, and the leader from its label in the band down to it.
     ...(model.bacSteps ? model.bacMarkers.map((marker, i) => ({ x1: x(marker.date), y1: markerLabels[i].baseline + 2, x2: x(marker.date), y2: y(marker.value) + 4 })) : []),
     ...(model.today ? [upright(model.today)] : []),
-    upright(model.planEnd),
+    // The plan-end line at X1 is the plot's right edge, which every right-anchored label touches.
+    ...(x(model.planEnd) < X1 - 0.5 ? [upright(model.planEnd)] : []),
     ...(belowZero ? [across(0)] : []),
   ];
   const marks: Box[] = [
     ...(model.ev ? [{ left: x(model.ev.date) - 5, top: y(model.ev.value) - 5, right: x(model.ev.date) + 5, bottom: y(model.ev.value) + 5 }] : []),
     ...(model.runOut ? [{ left: x(model.runOut.date) - 4, top: y(model.runOut.value) - 4, right: x(model.runOut.date) + 4, bottom: y(model.runOut.value) + 4 }] : []),
     ...markerLabels,
+    // The "Over" label in the below-zero band keeps its fixed spot.
+    ...(belowZero ? [labelBox({ x: X0 + 4, baseline: yBottom - 4 }, estimatedLabelWidth(t(lang, "burndownOver")), "start")] : []),
   ];
   type PlotLabel = { key: string; text: string; request: LabelRequest; data?: string; strong?: boolean; title?: string };
   const pointLabel = (key: string, text: string, point: { x: number; y: number }, spot: { x: number; baseline: number }, anchor: "start" | "end"): PlotLabel =>
@@ -226,8 +229,9 @@ function BurndownChartBody({
   } else if (model.bacLine !== null) {
     plotLabels.push(lineLabel("bac", t(lang, "burndownBac", fmt(model.bacLine)), X0 + 4, y(model.bacLine), "start", false));
   }
-  // The plot, plus the top margin the flat BAC label has always used; the marker band is `marks`.
-  const placed = placeLabels(plotLabels.map((l) => l.request), segments, { left: X0, top: 0, right: X1, bottom: yBottom }, marks);
+  // The plot, plus the top margin the flat BAC label has always used (the marker band is `marks`),
+  // plus the 1px box margin of a label anchored at the plot's right edge.
+  const placed = placeLabels(plotLabels.map((l) => l.request), segments, { left: X0, top: 0, right: X1 + 1, bottom: yBottom }, marks);
   // `readoutStops` walks the whole model, so memoize it on the model's own identity.
   const stops = useMemo(() => readoutStops(model), [model]);
   const readout = useChartReadout({ stops, xDomain: model.xDomain, x0: X0, x1: X1, viewBoxWidth: W });
@@ -291,7 +295,7 @@ function BurndownChartBody({
                 // Same order as the ticks `markerLayout` was built from.
                 const label = markerLabels[i];
                 return (
-                  <text key={marker.date} data-bac-marker-label="" x={label.x} y={label.baseline} textAnchor={label.anchor} paintOrder="stroke" strokeWidth={3} strokeLinejoin="round" className="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">
+                  <text key={marker.date} data-bac-marker-label="" x={label.x} y={label.baseline} textAnchor={label.anchor} {...HALO} className="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">
                     {markerLabel(marker)}
                   </text>
                 );
@@ -317,15 +321,17 @@ function BurndownChartBody({
             <line x1={x(model.today)} y1={yTop} x2={x(model.today)} y2={yBottom} className="stroke-muted-foreground" strokeWidth={1} strokeDasharray={DASH.today} />
           )}
           <line x1={x(model.planEnd)} y1={yTop} x2={x(model.planEnd)} y2={yBottom} className="stroke-line" strokeWidth={1} />
+          {/* §737 — a moved label's leader, under the marks, so the EV diamond covers its start. */}
+          {placed.map((spot, i) => spot.leader && (
+            <line key={plotLabels[i].key} data-label-leader="" x1={spot.leader.x1} y1={spot.leader.y1} x2={spot.leader.x2} y2={spot.leader.y2} className="stroke-line" strokeWidth={0.75} />
+          ))}
           {model.ev && (
             <path d={`M ${x(model.ev.date)} ${y(model.ev.value) - 5} l 5 5 l -5 5 l -5 -5 z`} className="fill-[var(--rag-amber)]" />
           )}
           {model.runOut && <circle cx={x(model.runOut.date)} cy={y(model.runOut.value)} r={4} className="fill-ui-pink" />}
-          {/* §737 — every label after every line and mark, so its halo covers whatever runs
-              near it; the leaders first, so a leader never crosses a label's letters. */}
-          {placed.map((spot, i) => spot.leader && (
-            <line key={plotLabels[i].key} data-label-leader="" x1={spot.leader.x1} y1={spot.leader.y1} x2={spot.leader.x2} y2={spot.leader.y2} className="stroke-muted-foreground" strokeWidth={0.75} />
-          ))}
+          {/* §737 — the placed labels, the end figures, "Over" and the period labels after every
+              plotted line and mark, so each halo covers whatever runs near it. The budget-change
+              labels in the band above the plot are drawn with their ticks, earlier. */}
           {plotLabels.map((label, i) => (
             <text
               key={label.key} {...(label.data ? { [label.data]: "" } : {})} x={placed[i].x} y={placed[i].baseline} textAnchor={label.request.anchor} {...HALO}

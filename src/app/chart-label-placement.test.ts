@@ -89,6 +89,19 @@ describe("placeLabels", () => {
     expect(placed.baseline).toBe(38);
   });
 
+  it("treats an earlier label's leader as an obstacle for a later one", () => {
+    const line = { x1: 0, y1: 46, x2: 200, y2: 46 };
+    // The first label moves up to 38 and draws a leader from (107, 57) to (101, 41).
+    const first = request();
+    // The second label's only near spot sits across that leader (x 102..133, y 42..53 would
+    // miss it; this one, at x 75..106, y 47..58, crosses it), and its far spot is clear.
+    const second = request({
+      anchor: "start", near: [{ x: 76, baseline: 55 }], far: [{ x: 140, baseline: 80 }], point: { x: 150, y: 90 },
+    });
+    const [, b] = placeLabels([first, second], [line], BOUNDS);
+    expect(b.baseline).toBe(80);
+  });
+
   it("draws no leader when the label has no point to tie back to", () => {
     const line = { x1: 0, y1: 46, x2: 200, y2: 46 };
     const [placed] = placeLabels([request({ point: null })], [line], BOUNDS);

@@ -422,8 +422,7 @@ describe("BurndownChart", () => {
       const steps = container.querySelector("polyline[data-bac-steps]")!;
       const endY = Number(steps.getAttribute("points")!.trim().split(/\s+/).pop()!.split(",")[1]);
       // The polyline's points are rounded to 0.1px; the label's y is not.
-      const labelY = Number(label.getAttribute("y"));
-      expect(Math.min(Math.abs(labelY - (endY + 9)), Math.abs(labelY - (endY - 4)))).toBeLessThan(0.1);
+      expect(Number(label.getAttribute("y"))).toBeCloseTo(endY - 4, 1);
       // It is its own element, not the baseline reference's label.
       expect(label).not.toBe(screen.getByText("Budget at start of recording"));
       // Anti-vacuity: the stepped label is absent without history, where the
@@ -690,10 +689,22 @@ describe("BurndownChart — label placement (§737)", () => {
     expect(Number(leader.getAttribute("y1"))).toBeCloseTo(ev.y, 5);
   });
 
-  it("draws no leader when every label's usual spot is clear", () => {
-    // No actual line, no forecasts, no EV: nothing but the BAC line and its label.
-    const { container } = drawModel({ ...MODEL, actual: [], pace: null, efficiency: null, ev: null, runOut: null });
+  it("keeps the work-left label at its usual spot, with no leader, when nothing covers it", () => {
+    // The same EV point with the lines that crossed its label taken away.
+    const { container } = drawModel({ ...MODEL, planned: [], actual: [], pace: null, efficiency: null, runOut: null });
+    const svg = container.querySelector("svg[role='img']")!;
+    const label = [...svg.querySelectorAll("text")].find((el) => el.textContent?.startsWith("work left"))!;
+    expect(Number(label.getAttribute("y"))).toBeCloseTo(evPoint(svg).y - 7, 5);
     expect(container.querySelector("line[data-label-leader]")).toBeNull();
+  });
+
+  it("draws each leader before the EV diamond, so the diamond covers the leader's start", () => {
+    const { container } = drawModel();
+    const svg = container.querySelector("svg[role='img']")!;
+    const leader = svg.querySelector("line[data-label-leader]")!;
+    const diamond = svg.querySelector("path[class*='rag-amber']")!;
+    expect(leader.compareDocumentPosition(diamond) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(leader).toHaveClass("stroke-line");
   });
 
   it("haloes every label in the chart and paints every label after every plotted line", () => {

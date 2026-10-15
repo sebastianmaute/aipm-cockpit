@@ -54,7 +54,7 @@ const inside = (a: Box, bounds: Box) =>
   a.left >= bounds.left && a.right <= bounds.right && a.top >= bounds.top && a.bottom <= bounds.bottom;
 
 /**
- * Places the labels in order; each placed label is an obstacle for the ones after it. A spot is
+ * Places the labels in order; each placed label, and its leader, is an obstacle for the ones after it. A spot is
  * clear when its box is inside `bounds` and meets no segment, no `taken` box and no earlier label. With no clear
  * spot the label takes the one meeting the fewest (leaving the plot counts as one), the earliest
  * on a tie, so it is never dropped.
@@ -63,13 +63,14 @@ export function placeLabels(
   requests: readonly LabelRequest[], segments: readonly Segment[], bounds: Box, taken: readonly Box[] = [],
 ): PlacedLabel[] {
   const placed: PlacedLabel[] = [];
+  const lines = [...segments];
   for (const req of requests) {
     const spots = [...req.near.map((spot) => ({ spot, far: false })), ...req.far.map((spot) => ({ spot, far: true }))];
     let best: { spot: LabelSpot; far: boolean; box: Box; cost: number } | null = null;
     for (const { spot, far } of spots) {
       const box = labelBox(spot, req.width, req.anchor);
       const cost = (inside(box, bounds) ? 0 : 1)
-        + segments.filter((s) => segmentHitsBox(s, box)).length
+        + lines.filter((s) => segmentHitsBox(s, box)).length
         + placed.filter((p) => boxesOverlap(p.box, box)).length
         + taken.filter((t) => boxesOverlap(t, box)).length;
       if (best === null || cost < best.cost) best = { spot, far, box, cost };
@@ -83,6 +84,7 @@ export function placeLabels(
       }
       : null;
     placed.push({ ...spot, box, leader });
+    if (leader) lines.push(leader);
   }
   return placed;
 }
