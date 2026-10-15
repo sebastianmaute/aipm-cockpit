@@ -119,6 +119,19 @@ describe("computeAppForecast", () => {
     expect(computeAppForecast({ ...a, tasks: [...tasks] })).not.toBe(first);
   });
 
+  // Each memo key on its own: a dropped `today` check would record yesterday's forecast under today's date.
+  test.each([
+    ["milestones", { milestones: [] }],
+    ["holidaySet", { holidaySet: new Set<string>() }],
+    ["planEnd", { planEnd: "2027-04-30" }],
+    ["today", { today: "2026-10-15" }],
+  ] as const)("recomputes when only %s changes", (_key, change) => {
+    const a = args([...finished(20), ...openTasks(10)]);
+    const first = computeAppForecast(a);
+    expect(computeAppForecast({ ...a })).toBe(first);
+    expect(computeAppForecast({ ...a, ...change })).not.toBe(first);
+  });
+
   test("is deterministic across un-memoised runs", () => {
     const a = computeAppForecast(args([...finished(20), ...openTasks(10)]));
     const b = computeAppForecast(args([...finished(20), ...openTasks(10)]));
