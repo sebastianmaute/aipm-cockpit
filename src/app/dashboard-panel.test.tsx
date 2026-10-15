@@ -15,6 +15,8 @@ import type { SnapshotRecord } from "./snapshot";
 import type { BudgetHistoryEntry } from "./budget-history";
 import type { BudgetBucket, RaidItem, Milestone, ChangeItem } from "./types";
 import { expectButtonOrder } from "../test/toolbar-order";
+import { isSimulationOn } from "./forecast-simulation";
+import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { saveLayout } from "./dashboard-layout-store";
 import { DEFAULT_LAYOUT } from "./dashboard-layout";
 import { rateMixTileChipText, rateMixWhyName } from "./budget-rate-mix-text";
@@ -1744,5 +1746,70 @@ describe("DashboardPanel health inputs are unchanged by spec C", () => {
     // Adjust-health <details>, and the title IS their accessible name.
     expect(screen.getByTitle(`${t("en-US", "dashboardSubSchedule")}: ${healthColorName("R", "en-US")}`)).toBeInTheDocument();
     expect(screen.getByTitle(`${t("en-US", "dashboardSubBudget")}: ${healthColorName("A", "en-US")}`)).toBeInTheDocument();
+  });
+});
+
+// ── §502: the "Show simulation" switch and its one-time intro ──────────────────
+describe("DashboardPanel simulation switch", () => {
+  function SimProbe() {
+    const { settingsOverrides } = useWorkspace();
+    return <output data-testid="sim-probe">{String(isSimulationOn(settingsOverrides))}|{String(settingsOverrides === undefined)}</output>;
+  }
+  const simName = () => t(EN, "simulationShow");
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it("renders an unpressed switch for a project with no override", () => {
+    render(<><DashboardPanel {...fullProps} projectId="p-sim-off" /><SimProbe /></>, { wrapper });
+    const sw = screen.getByRole("button", { name: new RegExp(simName()) });
+    expect(sw).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+  });
+
+  it("turns simulation on, then off again so the override folds away", async () => {
+    const user = userEvent.setup();
+    render(<><DashboardPanel {...fullProps} projectId="p-sim-toggle" /><SimProbe /></>, { wrapper });
+    const sw = () => screen.getByRole("button", { name: new RegExp(simName()) });
+    await user.click(sw());
+    expect(screen.getByTestId("sim-probe")).toHaveTextContent("true|false");
+    expect(sw()).toHaveAttribute("aria-pressed", "true");
+    await user.click(sw());
+    expect(screen.getByTestId("sim-probe")).toHaveTextContent("false|true");
+  });
+
+  it("sits before the trailing Print group", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-sim-order" />, { wrapper });
+    expectButtonOrder(["simulationShow", "printHint"]);
+    expectButtonOrder(["printHint", "arrangementResetLayout", "tableResetSizeHint"], { contiguous: true });
+  });
+
+  it("is not rendered in a popout", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-sim-popout" isPopout />, { wrapper });
+    expect(screen.queryByRole("button", { name: new RegExp(simName()) })).toBeNull();
+  });
+
+  it("shows the intro once the switch turns on and Got it hides it for good", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<DashboardPanel {...fullProps} projectId="p-sim-intro" />, { wrapper });
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+    await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
+    expect(await screen.findByText(t(EN, "simulationIntroText"))).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: t(EN, "simulationIntroGotIt") }));
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+    unmount();
+    render(<DashboardPanel {...fullProps} projectId="p-sim-intro" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+  });
+
+  it("Show me opens Help at the simulation entry", async () => {
+    const user = userEvent.setup();
+    const onOpenHelp = vi.fn();
+    render(<DashboardPanel {...fullProps} projectId="p-sim-showme" onOpenHelp={onOpenHelp} />, { wrapper });
+    await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
+    await user.click(await screen.findByRole("button", { name: t(EN, "simulationIntroShowMe") }));
+    expect(onOpenHelp).toHaveBeenCalledWith(FORECAST_SIM_HELP_ID);
   });
 });

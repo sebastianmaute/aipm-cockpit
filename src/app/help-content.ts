@@ -78,6 +78,7 @@ const HELP_ENTRIES_LITERAL = [
   { id: "concept-steering", group: "concepts", titleKey: "helpConceptSteeringTitle", bodyKey: "helpConceptSteeringBody", primerKey: "helpConceptSteeringPrimer", relatedViews: ["steering-committee"], relatedConcepts: ["concept-stakeholder"] },
   { id: "concept-task-status", group: "concepts", titleKey: "helpConceptTaskStatusTitle", bodyKey: "helpConceptTaskStatusBody", primerKey: "helpConceptTaskStatusPrimer", relatedViews: ["open-points"], relatedConcepts: ["concept-milestone"] },
   { id: "concept-baseline", group: "concepts", titleKey: "helpConceptBaselineTitle", bodyKey: "helpConceptBaselineBody", primerKey: "helpConceptBaselinePrimer", relatedViews: ["trends"], relatedConcepts: ["concept-milestone", "concept-budget"] },
+  { id: "concept-forecast-simulation", group: "concepts", titleKey: "helpConceptForecastSimTitle", bodyKey: "helpConceptForecastSimBody", primerKey: "helpConceptForecastSimPrimer", relatedViews: ["forecast", "dashboard"], relatedConcepts: ["concept-milestone", "concept-budget"] },
   { id: "concept-dependency", group: "concepts", titleKey: "helpConceptDependencyTitle", bodyKey: "helpConceptDependencyBody", primerKey: "helpConceptDependencyPrimer", relatedViews: ["gantt", "open-points"], relatedConcepts: ["concept-milestone"] },
   { id: "concept-knowledge", group: "concepts", titleKey: "helpConceptKnowledgeTitle", bodyKey: "helpConceptKnowledgeBody", primerKey: "helpConceptKnowledgePrimer", relatedViews: ["knowledge"], relatedConcepts: ["concept-stakeholder"] },
 

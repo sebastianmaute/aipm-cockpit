@@ -942,6 +942,7 @@ export function WorkspaceSection({
               // handlers `ActionsPanel` gets below — one bag, not ten props.
               // The panel itself drops the bag in a popout.
               heroGroup={pickHeroGroup(nextActionGroups)}
+              onOpenHelp={isPopout ? undefined : requestHelpConcept}
               actionHandlers={{
                 onSnooze, onCreateTask, onDraftMessage, assignOwner, escalate,
                 rebaseline, reschedule, onMarkDone, onClearBlocker, onLogAsRaid,

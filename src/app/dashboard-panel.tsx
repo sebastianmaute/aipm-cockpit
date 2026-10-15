@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReportCard } from "./report-table";
 import { buildDashboardInput, computeDashboard, hasNoActiveScope } from "./dashboard";
 import { useWorkspace } from "./workspace-context";
+import { useSettings } from "./use-settings";
+import { ToggleButton } from "./toggle-button";
+import { SimulationIntro } from "./simulation-intro";
+import { isSimulationOn, withSimulation } from "./forecast-simulation";
+import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { type Lang, t } from "./i18n";
 import type { Health } from "./health";
 import type { Absence, BudgetBucket, ChangeItem, Discipline, Grade, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
@@ -91,6 +96,8 @@ interface DashboardPanelProps {
   tursoActive?: boolean;
   projectId?: string;
   isPopout?: boolean;
+  /** Opens Help at a concept id (the simulation intro's "Show me"). Absent in a popout. */
+  onOpenHelp?: (conceptId: string) => void;
   onOpenChange?: (id: number) => void;
   onNavigate?: (view: AppView, section?: SettingsSectionId) => void;
   aiConfigured?: boolean;
@@ -112,7 +119,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const density: DashboardDensity = props.density ?? "comfortable";
   const dc = densityClasses(density);
   const varianceRows = props.variance ?? [];
-  const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory, baselineHistory } = useWorkspace();
+  const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory, baselineHistory, settingsOverrides, setSettingsOverrides } = useWorkspace();
+  const { settings, setSettings, hydrated: settingsHydrated } = useSettings();
+  const simulationOn = isSimulationOn(settingsOverrides);
+  const showSimulationIntro = simulationOn && settingsHydrated && !settings.simulationIntroSeen && !props.isPopout;
   // Hoisted above the `model` useMemo below: it depends on this, and it must
   // keep a stable identity when `props.snapshots` is absent so that memo
   // never invalidates for no input change.
@@ -620,7 +630,17 @@ export function DashboardPanel(props: DashboardPanelProps) {
             // control is PINNED to its cell: auto-placement would slide Reset size
             // up beside Print in a popout, where Reset layout and the badge are
             // absent. DOM order is unchanged, so Tab order still reads row by row.
-            <div className="grid shrink-0 grid-cols-[auto_auto] gap-2 self-start print:hidden">
+            <div className="flex shrink-0 flex-col items-end gap-2 self-start print:hidden">
+            {!props.isPopout && (
+              <ToggleButton
+                lang={lang}
+                pressed={simulationOn}
+                onToggle={() => setSettingsOverrides((prev) => withSimulation(prev, !isSimulationOn(prev)))}
+              >
+                {t(lang, "simulationShow")}
+              </ToggleButton>
+            )}
+            <div className="grid shrink-0 grid-cols-[auto_auto] gap-2 print:hidden">
               <div data-stack-cell className="col-start-1 row-start-1">
                 <PrintButton lang={lang} />
               </div>
@@ -653,8 +673,17 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 </div>
               )}
             </div>
+            </div>
           }
         />
+
+        {showSimulationIntro && (
+          <SimulationIntro
+            lang={lang}
+            onGotIt={() => setSettings((s) => ({ ...s, simulationIntroSeen: true }))}
+            onShowMe={props.onOpenHelp ? () => props.onOpenHelp!(FORECAST_SIM_HELP_ID) : undefined}
+          />
+        )}
 
         {/* The hidden-tiles tray, directly under row 1 (spec C). The wrapper is
             `hidden` while the tray is shut, so the `space-y` flow gains no empty
