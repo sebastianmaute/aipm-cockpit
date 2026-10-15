@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sanitizeAiRichText } from "./ai-rich-text";
 import { aiSeedUnsafeEmails, buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
 import { appendSeed } from "./template-apply";
@@ -74,6 +74,28 @@ describe("buildNewProjectWorkspace", () => {
     expect(ws.plan.currency).toBe("GBP");
     expect(ws.baselineHistory).toEqual([{ from: ws.plan.startDate, at: nowIso, currency: "GBP" }]);
     expect(ws.baselineHistory?.[0]).not.toHaveProperty("perPrevious");
+  });
+
+  describe("plan start date at 00:30 local on the 1st, still the 31st in UTC (§739)", () => {
+    const berlin: ProjectMeta = { ...meta, operatingTimezone: "Europe/Berlin" };
+    const nowIso = "2026-10-31T23:30:00.000Z"; // 2026-11-01 00:30 in Berlin (CET)
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(nowIso));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("a new project's plan starts on the project's local day, not the UTC day", () => {
+      expect(buildNewProjectWorkspace(berlin, {}).plan.startDate).toBe("2026-11-01");
+    });
+
+    it("the creation baseline entry carries the same local day", () => {
+      const ws = buildNewProjectWorkspace(berlin, { baseline: { currency: "GBP", nowIso } });
+      expect(ws.plan.startDate).toBe("2026-11-01");
+      expect(ws.baselineHistory?.[0].from).toBe("2026-11-01");
+    });
   });
 
   it("no currency (or EUR) → EUR plan and no baselineHistory", () => {

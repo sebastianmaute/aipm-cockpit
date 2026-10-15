@@ -3,6 +3,8 @@ import { applyTemplate, appendSeed, remapSeed } from "./template-apply";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
 import type { BudgetCurrency, ProjectMeta } from "./types";
 import { DEFAULT_CURRENCY } from "./types";
+import { defaultResourcePlan } from "./resource-foundation";
+import { resolveTimezone, todayInZone } from "./timezone";
 import type { FeatureModuleId } from "./feature-modules";
 import { emailWriteRefusal, summarizeUnsafeEmailRecords } from "./sanitize";
 
@@ -37,12 +39,16 @@ export interface NewProjectOpts {
 /** Assemble a new project's Workspace: base + meta, optionally apply a template
  *  (field-visibility + optional seed), then set per-project features if configured.
  *
- *  When `opts` is empty this reproduces today's create behavior exactly:
- *  `{ ...emptyWorkspace(), project: meta }` with no field-visibility override
- *  (undefined) and no features override (undefined). */
+ *  When `opts` is empty the result is `{ ...emptyWorkspace(), project: meta }` with the
+ *  plan re-dated to the local day (§739), no field-visibility override (undefined) and
+ *  no features override (undefined). */
 export function buildNewProjectWorkspace(meta: ProjectMeta, opts: NewProjectOpts): Workspace {
   if (opts.importedWorkspace) return { ...opts.importedWorkspace, project: meta };
-  let ws: Workspace = { ...emptyWorkspace(), project: meta };
+  // §739: the plan starts in the month of the project's LOCAL day (its operating zone, else the
+  // browser's), not the UTC day `emptyWorkspace()` uses; one instant, shared with the baseline entry.
+  const now = opts.baseline ? new Date(opts.baseline.nowIso) : new Date();
+  const localDay = todayInZone(now, resolveTimezone(undefined, meta.operatingTimezone));
+  let ws: Workspace = { ...emptyWorkspace(), plan: defaultResourcePlan(localDay), project: meta };
   if (opts.template) {
     ws = applyTemplate(ws, opts.template, { includeSeed: !!opts.includeSeed });
   } else if (opts.aiSeed && opts.includeSeed) {

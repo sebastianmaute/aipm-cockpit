@@ -193,8 +193,8 @@ export function isoInZone(iso: string, tz: string): string {
  *  ★★ THE SOLE PRODUCER OF `TimeZone`, and the brand is minted here rather than
  *  at any call site precisely because every branch below has already proved the
  *  value is a real zone (`isValidTimeZone`, or `browserTimeZone`'s own "UTC"
- *  fallback). Its three production callers — task-manager, workspace-section,
- *  use-bulk-operations — get branded values for free. */
+ *  fallback). Its production callers get branded values for free; list them with
+ *  `grep -rn "resolveTimezone(" src/app --include=*.ts --include=*.tsx | grep -v test`. */
 export function resolveTimezone(overrideTz: string | undefined, projectTz: string | undefined): TimeZone {
   if (overrideTz && isValidTimeZone(overrideTz)) return brandZone(overrideTz);
   if (projectTz && isValidTimeZone(projectTz)) return brandZone(projectTz);
