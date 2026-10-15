@@ -208,10 +208,12 @@ describe("createDemo", () => {
     expect(d.createTursoProject).not.toHaveBeenCalled();
   });
 
+  // The refusal is reported as the Turso failure it follows: Turso IS set up, so "local-blocked"
+  // (whose message says to set Turso up) would name the wrong cause.
   it("does not fall back to the local demo after a failed Turso create while a browser-backed project is registered", async () => {
     const onLocalFallback = vi.fn();
     const d = deps({ createTursoProject: fakeCreate(null), browserProject: BROWSER_PROJECT, onLocalFallback });
-    await expect(createDemo(d)).resolves.toBe("local-blocked");
+    await expect(createDemo(d)).resolves.toBe("turso-failed");
     expect(d.createLocal).not.toHaveBeenCalled();
     expect(onLocalFallback).not.toHaveBeenCalled();
   });
@@ -441,7 +443,9 @@ describe("useLoadDemo", () => {
     await run(d);
     expect(d.createDemoProject).not.toHaveBeenCalled();
     expect(readDemoCreatedLocally()).toBe(false);
-    expect(d.showToast).toHaveBeenCalledWith("error", t("en-US", "demoLocalBlocked", "Mercury"));
+    expect(d.showToast).toHaveBeenCalledWith("error", t("en-US", "demoTursoFailed"));
+    expect(d.showToast).toHaveBeenCalledTimes(1);
+    expect(d.startTour).not.toHaveBeenCalled();
   });
 
   it("from the Projects panel of a Turso portfolio, a failed create toasts and stays in Turso", async () => {
@@ -449,7 +453,7 @@ describe("useLoadDemo", () => {
     await run(d);
     expect(d.createDemoProject).not.toHaveBeenCalled();
     expect(readDemoCreatedLocally()).toBe(false);
-    expect(d.showToast).toHaveBeenCalledWith("error", t("en-US", "tourDemoError"));
+    expect(d.showToast).toHaveBeenCalledWith("error", t("en-US", "demoTursoFailed"));
     expect(d.refreshTursoProjects).not.toHaveBeenCalled();
     expect(d.startTour).not.toHaveBeenCalled();
   });
