@@ -980,4 +980,6 @@ See [`forecast.md`](forecast.md) "Simulation across the app — part 1" for the 
   null (so the tile re-measures when the gap line appears or changes). ★ It encodes only those inputs: another future simulated element
   that changes height must extend the key, or the tile will not re-measure.
 - The Dashboard toolbar's "Show simulation" `ToggleButton` leads the right-hand control stack; the one-time
-  `SimulationIntro` renders under it while the switch is on, hydrated, not seen and not a popout.
+  `SimulationIntro` renders under it while the switch is on, hydrated, not seen and not a popout. ★ Both, and
+  the simulated KPI cells, also need `isViewEnabled("forecast", features)`: while the Forecast view is held back
+  (`RELEASE_HIDDEN_VIEWS`) none of them renders, whatever the stored switch says (`isSimulationActive`).

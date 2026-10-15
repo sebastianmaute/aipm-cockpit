@@ -17,6 +17,13 @@ it: drop it from that list, then put back what the hiding commit took out of the
 with `git log -S RELEASE_HIDDEN_VIEWS --oneline` — namely its CHANGELOG "Added" entry, the Forecast
 sentence of `helpSecReportsBody` (EN and DE) and its lines in `lib/app-feature-guide.md` (then run
 `node scripts/gen-operating-guide.mjs`), and re-measure the scan count in `e2e/a11y.spec.ts`.
+★★ Part 1 of the surfaces design is held back WITH it, through the same `isViewEnabled("forecast", …)` gate
+(`isSimulationActive`, `hiddenHelpEntryIds`): the Show-simulation switch, the simulated KPI cells, the intro, the
+Help entry and the history recorder all vanish. Shipping the view also means: turn part 1's CHANGELOG
+`[Unreleased]` Notes line ("built but held back with the forecast") into an Added entry, and expect the
+held-back tests to FAIL by design — each asserts that a surface is hidden while `"forecast"` sits in
+`RELEASE_HIDDEN_VIEWS` (`grep -rl "held back" src/app --include=*.test.ts* | xargs grep -li simulation`); invert or delete them, and drop the
+`showForecastView()` spy (`src/test/forecast-view.ts`) from the tests that use it.
 
 ## Module map
 
