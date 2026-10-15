@@ -281,14 +281,21 @@ chance on time; the dated history it records is the input to later surfaces. Fil
   sorts; `upsertForecastHistory` is immutable.
 - **The recorder** (`use-forecast-history-recorder.ts`) is called from inside `useInsightLifecycle`, not from
   `task-manager.tsx` (no size-ratchet headroom). It writes only when the switch is on AND `hydrated`,
-  not `isPopout`, not `loadPending` (§548), `holidaysReady`, the forecast is sufficient, and today's stored
-  entry differs from the computed one. ★★★ The skip-when-unchanged compare is what stops a write → re-render →
-  write loop; do not remove it. ★★ The effect is SYNCHRONOUS, which is why it needs no `getScopeEpoch` /
+  not `isPopout`, not `loadPending` (§548), `holidaysReady` and the forecast is sufficient. ★★★ WHETHER to
+  write is decided against THIS TAB's own last-recorded entry (a `useRef`), not against the stored one: it
+  writes when nothing is stored for today, when it has not recorded today yet and the stored entry differs, or
+  when its own computed entry changed since it last recorded. A stored entry equal to the computed one is
+  adopted as its own. The stored-only compare it replaced let two tabs that compute different entries (per-device
+  holidays, an old and a new build) overwrite each other for ever, since `forecastHistory` is broadcast between
+  tabs; now a peer's later entry is left alone (last writer of the day wins). Pinned by "two tabs that disagree
+  settle" in `use-forecast-history-recorder.test.ts`. The ref is cleared while `loadPending` is true, so it
+  never suppresses a write for another project. ★★ The effect is SYNCHRONOUS, which is why it needs no `getScopeEpoch` /
   `dropStaleScopeWrite`: an `await` added to it would need both. It writes through the context setter, so there
   is no undo capture and no activity-log entry. It is not debounced (the insight runner is); it reruns the
   simulation on every `tasks` change while the switch is on.
 - **`computeAppForecast`** (`forecast/app-forecast.ts`) is the one default run for app surfaces: window
-  `DEFAULT_HISTORY_WINDOW`, unit `"tasks"`, `DEFAULT_WHAT_IF`. It returns `{kind: "insufficient"}` or a
+  `DEFAULT_HISTORY_WINDOW`, unit `"tasks"`, `DEFAULT_WHAT_IF`. It returns `{kind: "insufficient"}` (carrying
+  the engine's `finished`/`neededFinished`/`days`/`neededDays`) or a
   forecast with `p50`/`p80`/`p95` (null beyond the horizon), `chanceOnTime`, `estimateCoverage`, `windowDays`,
   `distribution`, `trials` and `markers` (working days ahead per percentile, horizon + 1 beyond it).
   `chanceOnTime` is `null` for an invalid plan end, `1` when nothing is open, `0` when the plan end is before
@@ -306,9 +313,15 @@ chance on time; the dated history it records is the input to later surfaces. Fil
   accessible names carry the cell's label so two explainers on one strip stay distinct. Percentile wording
   comes from `percentileWord` (`percentile-words.ts`), never hand-written. `SimulationIntro`
   (`simulation-intro.tsx`) is a non-modal `role="note"`; Escape is "Got it" and is claimed from the switch
-  too, because focus stays there after the press.
+  too, because focus stays there after the press. Once it was dismissed, the in-pane Help view (`help-view.tsx`)
+  offers "Show the simulation introduction again" under the simulation entry (through `HelpContentPane`'s
+  `entryActions`): it clears `Settings.simulationIntroSeen` and goes to the Dashboard, where the note shows again
+  while the switch is on. The floating Help panel (`help-menu.tsx`) does not offer it. The histogram's accessible
+  label names a percentile past `MAX_HORIZON_WORKING_DAYS` as "beyond the horizon", never as horizon + 1 days.
 - **KPI cells** (`kpi-simulation.ts`): `kpiSimulation(forecast, spi)` is `null` when the forecast is
-  insufficient or P80 is beyond the horizon. `isDivergent` is true for SPI ≥ 1.0 with chance < 0.5, or SPI <
+  insufficient or P80 is beyond the horizon; `kpiSimulationGap(forecast)` then says which (too few finished
+  tasks, named first when both floors are short; too few window days; or beyond the horizon), and the strip
+  shows it as one muted, non-sim-styled line. `isDivergent` is true for SPI ≥ 1.0 with chance < 0.5, or SPI <
   0.9 with chance ≥ 0.8 (named constants in the file); the strip then adds a divergence line, always visible.
   Details of the cells and the re-measure are in [`dashboard.md`](dashboard.md) "KPI strip simulation cells".
 - ★★ The 7- and 8-cell KPI layouts are unmeasured and not covered by `e2e/dashboard-grid.spec.ts`; the full statement is in

@@ -7,9 +7,10 @@
 //
 // Turso is exercised through the REAL engine (`node:sqlite`), the way
 // `turso-schema.execute.test.ts` does — string-matching the generated SQL cannot
-// see a row that is written but never read back. IndexedDB is driven through
-// the storage HOOK over `fake-indexeddb`, the way
-// `budget-history-persistence.test.ts` does, because the slice is OPTIONAL on
+// see a row that is written but never read back. The IndexedDB round-trips call
+// `BrowserBackend` directly over `fake-indexeddb`; the last describe then drives
+// the storage HOOK, the way `budget-history-persistence.test.ts` does, because
+// the backend alone cannot see the hook's wiring — the slice is OPTIONAL on
 // `Workspace`: dropping it from `outgoing`, the save deps or `applyWorkspace`
 // compiles clean and silently loses it on the next autosave.
 import "fake-indexeddb/auto";

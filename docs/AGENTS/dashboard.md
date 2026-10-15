@@ -963,6 +963,11 @@ IS in axe `A11Y_VIEWS`. Built as slices:
 and `onOpenHelp`. Absent — switch off, or the strip on Reports — it renders exactly the old cells. Present, it adds
 a P80 finish cell and, when `chanceOnTime` is not null, a chance-on-time cell, each a `SimValue` with its own
 `SimExplainer`; a line under the grid states the estimate coverage and, when `divergent`, the divergence line.
+With the switch on but `simulation` null, the panel passes `simulationGap` (`kpiSimulationGap`) instead and the
+strip adds ONE muted, non-sim-styled line under the unchanged cells: "Not enough history to simulate yet: N
+finished, needs 10." (or the window-days variant), or "The simulated finish is beyond the 1300-working-day
+horizon." The panel computes neither while the switch is off, so the off strip stays exactly the old one. EN
+writes the cells' percent unspaced (`kpiSimPercent` `"{0}%"`, like the "62%" completion cell); DE keeps `"{0} %"`.
 See [`forecast.md`](forecast.md) "Simulation across the app — part 1" for the forecast, the switch and the rules.
 
 - ★★ `KpiCellCount` is 4 | 5 | 6 | 7 | 8 (`grep -n "type KpiCellCount" src/app/dashboard-sections/dashboard-kpi-strip.tsx`): the fixed four, plus SPI and/or CPI, plus one or two simulated cells. The
@@ -970,7 +975,8 @@ See [`forecast.md`](forecast.md) "Simulation across the app — part 1" for the 
   measured, and `e2e/dashboard-grid.spec.ts` does NOT cover them. Eye-verify before trusting them.
 - ★★ The KPI tile's height changes when the cells wrap or the divergence line appears, with no change in density,
   tiles or flags, so `useMeasuredHeights` takes a `contentKey`; `dashboard-panel.tsx` passes a signature of
-  `divergent` and whether the chance cell exists, or just the switch state while the simulation is null. ★ It encodes only those inputs: another future simulated element
+  `divergent` and whether the chance cell exists, or the switch state plus the gap's `kind` while the simulation is
+  null (so the tile re-measures when the gap line appears or changes). ★ It encodes only those inputs: another future simulated element
   that changes height must extend the key, or the tile will not re-measure.
 - The Dashboard toolbar's "Show simulation" `ToggleButton` leads the right-hand control stack; the one-time
   `SimulationIntro` renders under it while the switch is on, hydrated, not seen and not a popout.
