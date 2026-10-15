@@ -79,8 +79,8 @@ interface ProjectEditModalProps {
   sizeKey: string;
   /** The stored Monte Carlo switch (§502); absent hides the control (held back, or a popout). */
   simulation?: boolean;
-  /** `features` is `null` when the functions equal the `features` prop as a set; `simulation` is
-   *  `null` when the switch is unchanged or not shown. */
+  /** `features` is `null` when the functions equal, as a set, the `features` prop seen at open;
+   *  `simulation` is `null` when the switch is unchanged since open or not shown. */
   onSubmit: (meta: ProjectMeta, features: FeatureModuleId[] | null, simulation: boolean | null) => void;
   onCancel: () => void;
 }
@@ -122,15 +122,17 @@ function FunctionsSection({
 export function ProjectEditModal({
   lang, initial, stakeholderNames, addressBook, resources, features, focusFunctions, simulation, sizeKey, onSubmit, onCancel,
 }: ProjectEditModalProps) {
-  const [draft, setDraft] = useState<FeatureModuleId[]>(() => [...features]);
-  // Compared against the value seen at OPEN, not the live prop: a write elsewhere while the dialog
-  // is open (another tab, the AI) must survive a Save that left the switch untouched.
+  // Both drafts compare against the value seen at OPEN, not the live prop: a write elsewhere while the
+  // dialog is open (another tab, the AI) must survive a Save that left that part untouched. A draft
+  // moved away and back again also counts as untouched, so the outside write wins then too.
+  const [featuresAtOpen] = useState<FeatureModuleId[]>(() => [...features]);
+  const [draft, setDraft] = useState<FeatureModuleId[]>(() => [...featuresAtOpen]);
   const [simAtOpen] = useState(simulation === true);
   const [simDraft, setSimDraft] = useState(simAtOpen);
   const handleSubmit = (meta: ProjectMeta) =>
     onSubmit(
       meta,
-      sameFeatureSet(draft, features) ? null : ALL_MODULE_IDS.filter((id) => draft.includes(id)),
+      sameFeatureSet(draft, featuresAtOpen) ? null : ALL_MODULE_IDS.filter((id) => draft.includes(id)),
       simulation === undefined || simDraft === simAtOpen ? null : simDraft,
     );
   return (

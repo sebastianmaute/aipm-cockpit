@@ -236,4 +236,20 @@ describe("ProjectEditModal", () => {
     await user.click(saveButton());
     expect(onSubmit.mock.calls[0][2]).toBeNull();
   });
+
+  // Same class for the Functions: an untouched list must not write the open-time set back.
+  test("a functions change while open survives a Save that left the Functions untouched", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const props = {
+      lang: "en-US" as const, initial: META, stakeholderNames: [], addressBook: [], resources: [],
+      sizeKey: "test:pem", onSubmit, onCancel: vi.fn(),
+    };
+    const { rerender } = render(<ProjectEditModal {...props} features={FEATURES} />);
+    rerender(<ProjectEditModal {...props} features={[...FEATURES, "milestones"]} />);
+    // Positive control: the list still shows the set seen at open.
+    expect(screen.getByRole("checkbox", { name: labelOf("milestones") })).not.toBeChecked();
+    await user.click(saveButton());
+    expect(onSubmit.mock.calls[0][1]).toBeNull();
+  });
 });
