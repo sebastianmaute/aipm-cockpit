@@ -85,16 +85,11 @@ panel, which disables its button with the reason)
 and `"turso-failed"` (the create returned no id and the fallback may not run: Turso projects exist, i.e. from the Projects panel,
 or the registry holds a `browser` project. Toast `demoTursoFailed` — ★ NOT `demoLocalBlocked`, whose "set up Turso" is wrong
 when Turso is set up and failing, e.g. on a rejected token; no fallback, no portfolio switch; the fallback is the empty
-state's alone). ★ A null id does not always mean a bad connection: `createTursoProject` also returns null on a save
-conflict while flushing the outgoing project, so the message says "if this keeps happening". ★★ Toasts are single-slot, and
-`createTursoProject` usually toasts its own cause before returning null (`projectsTursoUnreachable`, the flush's conflict
-toast, or `reportProjectError`), so `demoTursoFailed` REPLACES that cause on screen. Some null paths toast nothing:
-`reportProjectError` is silent on an abort, a user-activation error and `StorageNotImplementedError`, and `guardTurso`
-returns null silently in a popout. Deliberately kept: the cause's own text can be misleading for a create
-(`reportProjectError` says "Couldn't load tasks: …"), a rejected token stays on the storage banner, and the flush's
-conflict ("your changes are not saved") also raises the persistent pause banner (`emitConflictPause`), so no data-loss
-warning is lost with the toast. Showing the precise cause needs `createTursoProject` to return it. The message names
-Settings → Integrations, where the Turso URL and token fields live; Storage has no rail entry of its own. `useLoadDemo` owns the callback, so
+state's alone). The message names Settings → Integrations, where the Turso URL and token fields live; Storage has no
+rail entry of its own. ★★ Toasts are single-slot, so `demoTursoFailed` replaces any cause toast `createTursoProject`
+showed before returning null. For a rejected token that toast is `storageNotReady` ("pick a file in Settings"), which is
+why the demo's own message is the better one to leave on screen. Showing the precise cause needs `createTursoProject` to
+return it. `useLoadDemo` owns the callback, so
 task-manager (size ratchet, zero headroom) only calls it. Turso stays unmutated on the local paths.
 
 ★ **The history is a committed file, not computed at runtime.** `scripts/generate-demo-snapshots.ts` (run with `npx vite-node`)

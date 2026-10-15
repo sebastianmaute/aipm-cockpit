@@ -157,7 +157,7 @@ longer carries its own changelog comment.
 - **"Explore a demo project" now says when Turso is the problem.** With Turso set up but failing, for example
   on a rejected auth token, and a local project already in this browser, the demo was refused with "set up
   Turso" and told you to delete a project the Turso project list does not show. It now says the demo could
-  not be created in Turso and, if that keeps happening, points at the Turso connection in Settings → Integrations. The same message replaces
+  not be created in Turso and points at the Turso connection in Settings → Integrations. The same message replaces
   the generic "Couldn't load the demo project." when the create fails from the Projects panel.
 - **Changing the workday hours no longer zeroes a day-rate role's other rate (§738).** A role priced by the
   day with only one day rate set, say an internal day rate and an external hourly rate, lost the hourly rate
