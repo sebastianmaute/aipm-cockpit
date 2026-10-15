@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AppForecast } from "./forecast/app-forecast";
-import { chancePercent, isDivergent, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
+import { chancePercent, isDivergent, kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
 
 const INSUFFICIENT: Extract<AppForecast, { kind: "insufficient" }> = { kind: "insufficient", finished: 4, neededFinished: 10, days: 30, neededDays: 10 };
 
@@ -89,5 +89,18 @@ describe("chancePercent — a simulated chance never reads as certainty", () => 
     [0, { kind: "exact", percent: 0 }],
   ] as const)("%s -> %o", (chance, expected) => {
     expect(chancePercent(chance)).toEqual(expected);
+  });
+});
+
+describe("kpiContentKey", () => {
+  it("changes when the coverage line disappears because nothing is open", () => {
+    const open = kpiSimulation(forecast({ estimateCoverage: 0.41 }), 1)!;
+    const closed = kpiSimulation(forecast({ estimateCoverage: null }), 1)!;
+    expect(kpiContentKey(closed, true, null)).not.toBe(kpiContentKey(open, true, null));
+  });
+
+  it("keys the gap kind while the simulation is null", () => {
+    expect(kpiContentKey(null, true, { kind: "beyond" })).not.toBe(kpiContentKey(null, true, null));
+    expect(kpiContentKey(null, false, null)).not.toBe(kpiContentKey(null, true, null));
   });
 });

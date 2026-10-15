@@ -8,7 +8,8 @@ import { hasNoActiveScope, type KpiStripModel } from "../dashboard";
 import type { MetricKey, MetricTrend } from "../dashboard-trends";
 import type { DensityClasses } from "../dashboard-density";
 import type { AppView } from "../nav-config";
-import { chancePercent, type KpiSimulation, type KpiSimulationGap } from "../kpi-simulation";
+import { chanceText } from "../chance-text";
+import { type KpiSimulation, type KpiSimulationGap } from "../kpi-simulation";
 import { MAX_HORIZON_WORKING_DAYS } from "../forecast/constants";
 import { SimValue } from "../sim-value";
 import { percentileWord } from "../percentile-words";
@@ -33,13 +34,6 @@ interface DashboardKpiStripProps {
 
 /** The line shown in place of the simulated cells. Plain muted text, NOT sim-styled: it is a
  *  statement about the data, not a simulated value. */
-function chanceText(lang: Lang, chance: number): string {
-  const c = chancePercent(chance);
-  if (c.kind === "above99") return t(lang, "kpiSimPercentAbove99");
-  if (c.kind === "below1") return t(lang, "kpiSimPercentBelow1");
-  return t(lang, "kpiSimPercent", c.percent);
-}
-
 function simulationGapText(lang: Lang, gap: KpiSimulationGap): string {
   switch (gap.kind) {
     case "finished": return t(lang, "kpiSimNeedsFinished", gap.finished, gap.needed);

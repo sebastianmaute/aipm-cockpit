@@ -975,8 +975,8 @@ See [`forecast.md`](forecast.md) "Simulation across the app — part 1" for the 
   7- and 8-cell column breakpoints (`@[59rem]`, `@[68rem]`) are ARITHMETIC from 127px cells and 8px gaps, never
   measured, and `e2e/dashboard-grid.spec.ts` does NOT cover them. Eye-verify before trusting them.
 - ★★ The KPI tile's height changes when the cells wrap or the divergence line appears, with no change in density,
-  tiles or flags, so `useMeasuredHeights` takes a `contentKey`; `dashboard-panel.tsx` passes a signature of
-  `divergent` and whether the chance cell exists, or the switch state plus the gap's `kind` while the simulation is
+  tiles or flags, so `useMeasuredHeights` takes a `contentKey`; `dashboard-panel.tsx` passes `kpiContentKey` (`kpi-simulation.ts`): `divergent`, whether the chance cell exists and whether the
+  coverage line exists (`estimateCoverage` is null once nothing is open), or the switch state plus the gap's `kind` while the simulation is
   null (so the tile re-measures when the gap line appears or changes). ★ It encodes only those inputs: another future simulated element
   that changes height must extend the key, or the tile will not re-measure.
 - The Dashboard toolbar's "Show simulation" `ToggleButton` leads the right-hand control stack; the one-time

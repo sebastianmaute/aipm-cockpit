@@ -2,6 +2,7 @@
 
 import { useCallback, useId, useRef, useState } from "react";
 import { Button } from "./button";
+import { chanceText } from "./chance-text";
 import { IconButton } from "./icon-button";
 import { InformationCircleIcon, XMarkIcon } from "./icons";
 import { type Lang, t } from "./i18n";
@@ -162,7 +163,7 @@ export function SimExplainer({
   const panelId = useId();
   const close = useCallback(() => setOpen(false), []);
   const { bins, beyond } = buildHistogramBins(distribution, MAX_BINS);
-  const beyondPct = trials > 0 ? Math.round((beyond / trials) * 100) : 0;
+  const beyondShare = beyond > 0 && trials > 0 ? chanceText(lang, beyond / trials) : "";
   const name = label ? t(lang, "simExplainerOpenFor", label) : t(lang, "simExplainerOpen");
   return (
     <>
@@ -210,7 +211,7 @@ export function SimExplainer({
             </li>
           ))}
         </ul>
-        {beyond > 0 && <p className="block text-muted-foreground">{t(lang, "simBeyondHorizon", beyondPct)}</p>}
+        {beyond > 0 && <p className="block text-muted-foreground">{t(lang, "simBeyondHorizon", beyondShare)}</p>}
         {onOpenHelp && (
           <Button variant="ghost" size="xs" onClick={() => onOpenHelp(FORECAST_SIM_HELP_ID)}>
             {t(lang, "simExplainerHelp")}

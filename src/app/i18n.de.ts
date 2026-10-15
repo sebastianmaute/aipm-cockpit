@@ -3416,7 +3416,7 @@ export const de: Record<TranslationKey, string> = {
   simHistogramAria: "Verteilung der simulierten Fertigstellung. Gleiche Chancen {0}, sicher zusagbar {1}, vorsichtig {2}.",
   simHistogramIn: "in {0} Arbeitstagen",
   simHistogramBeyond: "jenseits des Horizonts",
-  simBeyondHorizon: "{0} % der Durchläufe wurden innerhalb des Horizonts nicht fertig.",
+  simBeyondHorizon: "{0} der Durchläufe wurden innerhalb des Horizonts nicht fertig.",
   simEvenOdds: "Gleiche Chancen",
   simSafeToCommit: "Sicher zusagbar",
   simCautious: "Vorsichtig",

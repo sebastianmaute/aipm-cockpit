@@ -38,6 +38,16 @@ export function chancePercent(chance: number): ChancePercent {
   return { kind: "exact", percent };
 }
 
+/** The signature of everything that changes the KPI tile's height with the simulation on: the chance
+ *  cell, the divergence line and the coverage line (absent when nothing is open). While the simulation
+ *  is null it is the switch state plus the gap's kind, so the gap line's appearance re-measures too.
+ *  `useMeasuredHeights` has no ResizeObserver, so an input missing here leaves the tile at a stale height. */
+export function kpiContentKey(sim: KpiSimulation | null, simulationOn: boolean, gap: KpiSimulationGap | null): string {
+  return sim
+    ? `sim:${sim.divergent}:${sim.chanceOnTime !== null}:${sim.estimateCoverage !== null}`
+    : `sim:${simulationOn}:${gap?.kind ?? "none"}`;
+}
+
 /** Why the switch is on but the strip shows no simulated cell. */
 export type KpiSimulationGap =
   | { kind: "finished"; finished: number; needed: number }

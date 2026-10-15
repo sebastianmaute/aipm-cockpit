@@ -3702,7 +3702,7 @@ const enUS = {
   simHistogramAria: "Spread of simulated finish times. Even odds {0}, safe to commit {1}, cautious {2}.",
   simHistogramIn: "in {0} working days",
   simHistogramBeyond: "beyond the horizon",
-  simBeyondHorizon: "{0}% of runs did not finish within the horizon.",
+  simBeyondHorizon: "{0} of runs did not finish within the horizon.",
   simEvenOdds: "Even odds",
   simSafeToCommit: "Safe to commit",
   simCautious: "Cautious",

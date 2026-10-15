@@ -44,7 +44,7 @@ import { DashboardShelf, DASHBOARD_SHELF_TRAY_ID } from "./dashboard-shelf";
 import { DashboardHiddenBadge } from "./dashboard-hidden-badge";
 import { buildTileBodies } from "./dashboard-tile-bodies";
 import { computeAppForecast } from "./forecast/app-forecast";
-import { kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
+import { kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
 import { useDashboardLayout } from "./use-dashboard-layout";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { tileById, type DashboardTileId, type TileGateInput, type TileHeight } from "./dashboard-tiles";
@@ -447,9 +447,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     resetNonce,
     // The KPI tile grows by cells and text lines when the simulation appears or flips divergent,
     // and by the one-line note when the switch is on but nothing can be simulated.
-    contentKey: kpiSim
-      ? `sim:${kpiSim.divergent}:${kpiSim.chanceOnTime !== null}`
-      : `sim:${simulationOn}:${kpiSimGap?.kind ?? "none"}`,
+    contentKey: kpiContentKey(kpiSim, simulationOn, kpiSimGap),
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };

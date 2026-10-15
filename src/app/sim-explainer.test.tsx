@@ -105,6 +105,17 @@ describe("SimExplainer", () => {
     expect(screen.getByText("10% of runs did not finish within the horizon.")).toBeInTheDocument();
   });
 
+  it.each([
+    [1, 10000, "<1% of runs did not finish within the horizon."],
+    [9960, 10000, ">99% of runs did not finish within the horizon."],
+  ])("never rounds a beyond-horizon share of %s in %s to certainty", async (beyondRuns, trials, text) => {
+    const user = userEvent.setup();
+    const dist = [...Array(trials - beyondRuns).fill(5), ...Array(beyondRuns).fill(HORIZON_SENTINEL)];
+    setup({ distribution: dist, trials });
+    await user.click(screen.getByRole("button", { name: "How to read this" }));
+    expect(screen.getByText(text)).toBeInTheDocument();
+  });
+
   it("omits the beyond-horizon note when every run finished", async () => {
     const user = userEvent.setup();
     setup();
