@@ -10,10 +10,16 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Changed
+
+- **The demo project has more recent history (§502).** Eight more tasks, finished ones from July to
+  September and two open ones before Rollout, and tasks linked to the open milestones, so the demo has enough
+  recent completions to forecast from. The demo still opens with simulation off.
+
 ### Notes
 
 - **The Dashboard simulation is built but held back with the forecast (§502, part 1).** An optional,
-  per-project "Show simulation" switch on the Dashboard adds simulated KPI cells (the P80 finish date and the
+  per-project "Use Monte Carlo forecasting" switch, in the Dashboard's Budget burn tile and in Edit project, adds simulated KPI cells (the P80 finish date and the
   chance of finishing by the plan end), each marked as simulated and able to explain itself, and keeps one
   forecast per day for later comparison. It stays hidden while the Forecast view is held back, and appears
   with it.
