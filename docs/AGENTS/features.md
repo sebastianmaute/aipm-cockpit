@@ -79,10 +79,12 @@ project's first snapshot load sees it instead of racing it. Outcomes are the `De
 `"turso-without-history"` (the seed failed and the project exists; a toast says so), `"local-after-turso-failure"` (the create
 returned no id, so `createLocal` ran and, in Turso mode, reloaded), `"local"`, and two refusals that write nothing and toast:
 `"local-blocked"` (the registry already holds a `browser` project; browser storage is ONE IndexedDB store and the local demo
-writes it blind, so it would replace that project — `browserProjectIn`, checked by `createDemo` on the local path AND before the
-Turso fallback, by `createDemoProject` at the write site, and by the Projects panel, which disables its button with the reason)
-and `"turso-failed"` (the create returned no id while Turso projects exist, i.e. from the Projects panel: `tourDemoError`, no
-fallback, no portfolio switch; the fallback is the empty state's alone). `useLoadDemo` owns the callback, so
+writes it blind, so it would replace that project — `browserProjectIn`, checked by `createDemo` on the local path, by
+`createDemoProject` at the write site, and by the Projects panel, which disables its button with the reason)
+and `"turso-failed"` (the create returned no id and the fallback may not run: Turso projects exist, i.e. from the Projects panel,
+or the registry holds a `browser` project. Toast `demoTursoFailed`, which points at the Turso connection — ★ NOT
+`demoLocalBlocked`, whose "set up Turso" is wrong when Turso is set up and failing, e.g. on a rejected token; no fallback, no
+portfolio switch; the fallback is the empty state's alone). `useLoadDemo` owns the callback, so
 task-manager (size ratchet, zero headroom) only calls it. Turso stays unmutated on the local paths.
 
 ★ **The history is a committed file, not computed at runtime.** `scripts/generate-demo-snapshots.ts` (run with `npx vite-node`)

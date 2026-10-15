@@ -164,8 +164,9 @@ export async function createDemo(deps: CreateDemoDeps): Promise<DemoOutcome> {
     if (deps.tursoProjectsExist) return "turso-failed";
     // Not `isLocalDemoBlocked(deps.tursoUsable, …)`: Turso IS usable here, which would read as "not
     // blocked". The Turso create just failed, so the local create is what runs next and the
-    // browser-project refusal applies unconditionally.
-    if (deps.browserProject) return "local-blocked";
+    // browser-project refusal applies unconditionally. It reports as the Turso failure it follows,
+    // not as "local-blocked", whose message tells a user with Turso already set up to set it up.
+    if (deps.browserProject) return "turso-failed";
     deps.onLocalFallback?.();
     await deps.createLocal(ws);
     return "local-after-turso-failure";
@@ -234,7 +235,7 @@ export function useLoadDemo(deps: UseLoadDemoDeps): () => Promise<void> {
         return;
       }
       if (outcome === "turso-failed") {
-        showToast("error", t(lang, "tourDemoError"));
+        showToast("error", t(lang, "demoTursoFailed"));
         return;
       }
       // The project exists from here on: spend the dashboard banner BEFORE the re-fetch, so a throw in
