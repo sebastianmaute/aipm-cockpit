@@ -59,9 +59,11 @@ export function useMeasuredHeights(args: {
   tiles: readonly MeasuredTile[];
   /** Bumped by the panel on every Reset layout. See the key comment below. */
   resetNonce: number;
+  /** A signature of content that changes a tile's HEIGHT without changing density, tiles or flags (the KPI tile's simulated cells). A change re-measures. */
+  contentKey?: string;
 }): ReadonlyMap<string, BlockHeight> {
   const [measured, setMeasured] = useState<ReadonlyMap<string, BlockHeight>>(() => new Map());
-  const { density, tiles, resetNonce } = args;
+  const { density, tiles, resetNonce, contentKey = "" } = args;
   // ★★ The re-measure key covers density, WHICH tiles are present, each tile's FLAG and the reset
   // nonce — never a height, which would loop, and never a WIDTH (a width change alone does not
   // re-measure; a widened tile is picked up at the next trigger of any kind). The flag is in the key
@@ -114,7 +116,7 @@ export function useMeasuredHeights(args: {
       cancelAnimationFrame(raf);
       cancelAnimationFrame(fontRaf);
     };
-  }, [density, tileKey, resetNonce]);
+  }, [density, tileKey, resetNonce, contentKey]);
 
   return measured;
 }

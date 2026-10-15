@@ -446,6 +446,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const measured = useMeasuredHeights({
     density,
     resetNonce,
+    // The KPI tile grows by cells and text lines when the simulation appears or flips divergent.
+    contentKey: kpiSim ? `sim:${kpiSim.divergent}:${kpiSim.chanceOnTime !== null}` : `sim:${simulationOn}`,
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { computeDashboard, buildDashboardInput } from "../dashboard";
 import { densityClasses } from "../dashboard-density";
 import { computeMetricTrends } from "../dashboard-trends";
@@ -479,8 +480,20 @@ describe("DashboardKpiStrip — simulated cells (§502)", () => {
     expect(p80).toHaveTextContent(formatDayMonthYear("2026-11-20", "en-US"));
     const chance = screen.getByRole("group", { name: "On time, simulated" });
     expect(chance).toHaveTextContent("34 %");
-    expect(within(p80).getByRole("button", { name: t("en-US", "simExplainerOpen") })).toBeInTheDocument();
-    expect(within(chance).getByRole("button", { name: t("en-US", "simExplainerOpen") })).toBeInTheDocument();
+    const p80Info = within(p80).getByRole("button", { name: t("en-US", "simExplainerOpenFor", "Safe to commit") });
+    const chanceInfo = within(chance).getByRole("button", { name: t("en-US", "simExplainerOpenFor", "On time") });
+    expect(p80Info.getAttribute("aria-label")).not.toBe(chanceInfo.getAttribute("aria-label"));
+  });
+
+  it("explains the chance cell as a share of runs, not as a P80 date", async () => {
+    const user = userEvent.setup();
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={SIM} />);
+    await user.click(screen.getByRole("button", { name: "How to read this: On time" }));
+    expect(screen.getByText(t("en-US", "simExplainerLineChance"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "simExplainerLine1"))).toBeNull();
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button", { name: "How to read this: Safe to commit" }));
+    expect(screen.getByText(t("en-US", "simExplainerLine1"))).toBeInTheDocument();
   });
 
   it("omits the chance cell when chance on time is null, keeping the P80 cell", () => {

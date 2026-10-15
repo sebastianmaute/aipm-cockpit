@@ -70,8 +70,8 @@ export const KPI_STRIP_COLS: Record<KpiCellCount, string> = {
   6: "@2xs:grid-cols-2 @[25rem]:grid-cols-3 @[51rem]:grid-cols-6",
   // ★ 7 and 8 exist only with the simulated cells (§502). The same 127px per cell and 8px gap:
   // 7 → 7 × 127 + 6 × 8 = 937px → `@[59rem]` (944px); 8 → 1072px → `@[68rem]` (1088px). ARITHMETIC, not
-  // measured — below them the cells wrap onto rows of 3 (7) or 4 (8), so a 2-row tile may need the
-  // user to enlarge it; `e2e/dashboard-grid.spec.ts` is the check.
+  // measured — below them the cells wrap onto rows of 3 (7) or 4 (8). The simulated layouts are NOT
+  // yet covered by `e2e/dashboard-grid.spec.ts`; the panel re-measures the KPI tile when they appear.
   7: "@2xs:grid-cols-2 @[25rem]:grid-cols-3 @[59rem]:grid-cols-7",
   8: "@2xs:grid-cols-2 @[34rem]:grid-cols-4 @[68rem]:grid-cols-8",
 };
@@ -186,7 +186,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulat
             label={p80Label}
             value={
               <SimValue lang={lang} label={p80Label} value={formatDayMonthYear(simulation.p80, localeFor(lang))}
-                explainer={simulation.explainer} onOpenHelp={onOpenHelp} />
+                explainer={{ ...simulation.explainer, label: p80Label }} onOpenHelp={onOpenHelp} />
             }
           />
         )}
@@ -195,7 +195,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulat
             label={onTimeLabel}
             value={
               <SimValue lang={lang} label={onTimeLabel} value={t(lang, "kpiSimPercent", Math.round(simulation.chanceOnTime * 100))}
-                explainer={simulation.explainer} onOpenHelp={onOpenHelp} />
+                explainer={{ ...simulation.explainer, label: onTimeLabel, kind: "chance" }} onOpenHelp={onOpenHelp} />
             }
           />
         )}

@@ -3693,6 +3693,8 @@ const enUS = {
   simValueSr: "{0}, simulated",
   simBadge: "sim",
   simExplainerOpen: "How to read this",
+  simExplainerOpenFor: "How to read this: {0}",
+  simExplainerLineChance: "The app replayed your team's real past days 10,000 times. This is the share of those runs that finished by the plan end.",
   simExplainerTitle: "How to read simulated values",
   simExplainerLine1: "The app replayed your team's real past days 10,000 times. P80 = 8 in 10 of those runs finished by this date.",
   simExplainerWindow: "Based on the last {0} working days.",

@@ -134,6 +134,8 @@ export function SimExplainer({
   distribution,
   trials,
   markers,
+  label,
+  kind = "date",
   onOpenHelp,
 }: {
   lang: Lang;
@@ -142,6 +144,10 @@ export function SimExplainer({
   distribution: ArrayLike<number>;
   trials: number;
   markers: SimMarkers;
+  /** Names the (i) after its value, so two on one screen are told apart. Absent → the plain name. */
+  label?: string;
+  /** What the value is: a finish `date` (default) or the `chance` of finishing by the plan end. */
+  kind?: "date" | "chance";
   /** Renders the Help link when given. */
   onOpenHelp?: (conceptId: string) => void;
 }) {
@@ -151,7 +157,7 @@ export function SimExplainer({
   const close = useCallback(() => setOpen(false), []);
   const { bins, beyond } = buildHistogramBins(distribution, MAX_BINS);
   const beyondPct = trials > 0 ? Math.round((beyond / trials) * 100) : 0;
-  const name = t(lang, "simExplainerOpen");
+  const name = label ? t(lang, "simExplainerOpenFor", label) : t(lang, "simExplainerOpen");
   return (
     <>
       <IconButton
@@ -181,7 +187,7 @@ export function SimExplainer({
             <XMarkIcon aria-hidden="true" className="h-3.5 w-3.5" />
           </IconButton>
         </span>
-        <p className="block text-foreground">{t(lang, "simExplainerLine1")}</p>
+        <p className="block text-foreground">{t(lang, kind === "chance" ? "simExplainerLineChance" : "simExplainerLine1")}</p>
         <p className="block text-muted-foreground">{t(lang, "simExplainerWindow", windowDays)}</p>
         {bins.length > 0 && (
           <Chart

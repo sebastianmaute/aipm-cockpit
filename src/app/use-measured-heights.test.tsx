@@ -7,8 +7,9 @@ import { rowsForHeight } from "./arrangement-measure";
 const TILE_A: MeasuredTile = { id: "a", minH: 2, maxH: 4, flagged: false };
 
 function Probe({
-  onResult, density, tiles = [TILE_A], resetNonce = 0, extra,
+  onResult, density, tiles = [TILE_A], resetNonce = 0, extra, contentKey,
 }: {
+  contentKey?: string;
   onResult: (m: ReadonlyMap<string, number>) => void;
   density: string;
   tiles?: MeasuredTile[];
@@ -16,7 +17,7 @@ function Probe({
   /** More direct children of the body, after the measured one. */
   extra?: ReactNode;
 }) {
-  const m = useMeasuredHeights({ density, tiles, resetNonce });
+  const m = useMeasuredHeights({ density, tiles, resetNonce, contentKey });
   onResult(m);
   return (
     <div data-arrangement-grid="" style={{ gridAutoRows: "80px", rowGap: "16px" }}>
@@ -155,6 +156,25 @@ describe("useMeasuredHeights", () => {
     await flushRaf();
     expect(last.get("a")).toBe(2);
 
+  });
+
+  it("re-measures when the content key changes, and not when it stays", async () => {
+    stubLayout(CHILD);
+    const spy = vi.spyOn(window, "requestAnimationFrame");
+    let last: ReadonlyMap<string, number> = new Map();
+    const onResult = (m: ReadonlyMap<string, number>) => { last = m; };
+    const { rerender } = render(<Probe onResult={onResult} density="comfortable" contentKey="sim:false" />);
+    await flushRaf();
+    const afterMount = spy.mock.calls.length;
+    rerender(<Probe onResult={onResult} density="comfortable" contentKey="sim:false" />);
+    await flushRaf();
+    expect(spy.mock.calls.length - afterMount).toBe(1); // flushRaf's own frame only
+
+    vi.restoreAllMocks();
+    stubLayout(20);
+    rerender(<Probe onResult={onResult} density="comfortable" contentKey="sim:true:true" />);
+    await flushRaf();
+    expect(last.get("a")).toBe(2);
   });
 
   it("re-measures on a Reset nonce alone — a width-only board has no flag to clear", async () => {

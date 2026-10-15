@@ -1878,6 +1878,7 @@ describe("DashboardPanel simulated KPI cells", () => {
     await user.click(screen.getByRole("button", { name: simName() }));
     const a = spy.mock.calls.at(-1)![0];
     expect(a.tasks).toBe(fullProps.tasks);
+    expect(a.milestones).toBe(fullProps.milestones);
     expect(a.holidaySet).toBe(fullProps.holidaySet);
     expect(a.planEnd).toBe(fullProps.plan.endDate);
     expect(a.today).toBe(fullProps.today);

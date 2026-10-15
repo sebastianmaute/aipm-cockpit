@@ -3407,6 +3407,8 @@ export const de: Record<TranslationKey, string> = {
   simValueSr: "{0}, simuliert",
   simBadge: "sim",
   simExplainerOpen: "So lesen Sie das",
+  simExplainerOpenFor: "So lesen Sie das: {0}",
+  simExplainerLineChance: "Die App hat die tatsächlichen vergangenen Tage Ihres Teams 10.000-mal durchgespielt. Das ist der Anteil dieser Durchläufe, die bis zum Planende fertig wurden.",
   simExplainerTitle: "So lesen Sie simulierte Werte",
   simExplainerLine1: "Die App hat die tatsächlichen vergangenen Tage Ihres Teams 10.000-mal durchgespielt. P80 = 8 von 10 dieser Durchläufe waren bis zu diesem Datum fertig.",
   simExplainerWindow: "Basierend auf den letzten {0} Arbeitstagen.",
