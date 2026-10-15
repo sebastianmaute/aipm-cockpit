@@ -36,7 +36,7 @@ import { RagBadge } from "./rag-badge";
 import { changeImpactRag } from "./change-log";
 import { BurndownChartPanel } from "./burndown-chart-panel";
 import { Button } from "./button";
-import { BurndownChainChip, BurndownChainWarning } from "./budget-chain-warning";
+import { BurndownChainChip, BurndownChainWarning, isChainBroken } from "./budget-chain-warning";
 import { VarianceSummary } from "./variance-summary";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { Sparkline } from "./sparkline";
@@ -208,18 +208,20 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
           planEnd={model.chartDates.planEnd}
           currency={a.currency}
           compact
-          toolbarEnd={(
+          // Undefined when neither control renders, so the panel draws no empty row.
+          toolbarEnd={isChainBroken(model.bucketChain) || openBudget ? (
             <>
               <BurndownChainChip lang={lang} chain={model.bucketChain} />
               {openBudget}
             </>
-          )}
+          ) : undefined}
         />
       </>
     ) : (
-      <div className="flex flex-wrap items-center gap-2">
+      // The button on its own row above the line, as the panel places it when neither unit has a budget.
+      <div className="flex flex-col gap-2">
+        {openBudget && <div className="flex flex-wrap items-center gap-2 print:hidden">{openBudget}</div>}
         <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
-        {openBudget}
       </div>
     ),
 

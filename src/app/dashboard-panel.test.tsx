@@ -1612,7 +1612,10 @@ describe("DashboardPanel currency labelling", () => {
   it("offers Open in Budget on the tile when there is no budget to draw", () => {
     const onNavigate = vi.fn();
     renderUsdDashboard(onNavigate, []);
-    fireEvent.click(screen.getByRole("button", { name: "Open in Budget" }));
+    const button = screen.getByRole("button", { name: "Open in Budget" });
+    // Its own row above the no-budget line, as when a series exists but neither unit has a budget.
+    expect(button.parentElement!.textContent).not.toContain("No budget");
+    fireEvent.click(button);
     expect(onNavigate).toHaveBeenCalledWith("budget");
   });
 

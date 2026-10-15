@@ -17,6 +17,11 @@ const REASON_KEY: Record<BucketChainBreak, TranslationKey> = {
   "outside-plan": "burndownChainOutsidePlan",
 };
 
+/** Whether the banner and the chip render: a broken chain with at least one bucket to name. */
+export function isChainBroken(chain: BucketChain | null): boolean {
+  return brokenChain(chain) !== null;
+}
+
 function brokenChain(chain: BucketChain | null): Extract<BucketChain, { kind: "broken" }> | null {
   return chain && chain.kind === "broken" && chain.offenders.length > 0 ? chain : null;
 }

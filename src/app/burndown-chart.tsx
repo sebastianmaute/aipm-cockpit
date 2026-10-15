@@ -27,7 +27,7 @@ const X0 = PAD_L, X1 = W - PAD_R;
 
 const DASH = { planned: "5 4", pace: "7 4", efficiency: "2 3", evLine: "6 2 1 2", evPartial: "2 4", bac: "4 4", today: "3 3" } as const;
 
-/** §737 — every label carries a halo in the card's `surface` colour (`paint-order="stroke"`
+/** §737 — every label except the y-axis ticks carries a halo in the card's `surface` colour (`paint-order="stroke"`
  *  draws the stroke under the fill), so a line passing close by does not cut the letters. */
 const HALO = { paintOrder: "stroke", strokeWidth: 3, strokeLinejoin: "round" } as const;
 /** §737 — baseline offsets, from a label's usual spot, of the spots it moves to when a line or
