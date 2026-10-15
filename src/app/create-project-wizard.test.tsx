@@ -11,6 +11,7 @@ import { SETTINGS_KEY } from "./use-settings";
 import { loadI18n, t } from "./i18n";
 import { BUILT_IN_TEMPLATES } from "./templates-builtin";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { expectButtonOrder } from "../test/toolbar-order";
 
 const sampleText = readFileSync(
   join(import.meta.dirname, "..", "..", "sample-workspace-small.json"),
@@ -656,7 +657,7 @@ describe("CreateProjectWizard AI Step 0", () => {
   it("a new AI proposal after Back supersedes an earlier workspace import", async () => {
     generateMock.mockResolvedValue({ meta: { name: "Proposed Project" }, features: [], seed: undefined });
     const { onCreate } = renderWithKey();
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateSkip") }));
+    // The picker sits on Step 0 beside Skip; importing advances to Step 1 by itself.
     const picker = screen
       .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
       .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
@@ -678,6 +679,38 @@ describe("CreateProjectWizard AI Step 0", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create project" }));
     await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
     expect(onCreate.mock.calls[0][2].importedWorkspace).toBeUndefined();
+  });
+
+  // The workspace import sits on Step 0, directly right of Skip; Step 1 no longer repeats it.
+  it("offers the workspace import beside Skip on Step 0, not on Step 1", () => {
+    renderWithKey();
+    expectButtonOrder(["aiCreateSkip", "wizardImportWorkspaceButton"], { contiguous: true });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateSkip") }));
+    expect(screen.queryByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })).toBeNull();
+  });
+
+  it("importing a workspace from Step 0 advances to Step 1 with the import notice", async () => {
+    renderWithKey();
+    const picker = screen
+      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
+      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(picker, {
+      target: { files: [new File([sampleText], "sample.json", { type: "application/json" })] },
+    });
+    expect(await screen.findByText(/Importing sample\.json: \d+ tasks/)).toBeInTheDocument();
+  });
+
+  it("shows a Step-0 import error on Step 0 and clears it on Skip", async () => {
+    renderWithKey();
+    const picker = screen
+      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
+      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(picker, { target: { files: [new File(["{ not json"], "bad.json", { type: "application/json" })] } });
+    const msg = t("en-US", "wizardImportWorkspaceInvalid", "bad.json");
+    expect(await screen.findByText(msg)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "aiCreateSkip") })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateSkip") }));
+    expect(screen.queryByText(msg)).toBeNull();
   });
 
   it("hides SharePoint without M365 and Confluence without Jira config", () => {

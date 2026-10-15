@@ -231,9 +231,9 @@ describe("ProjectsPanel", () => {
     }) as HTMLInputElement;
     expect(nameInput.value).toBe("Apollo");
 
-    // Edit-mode submit button uses the "Edit project" label.
+    // Edit-mode submit button uses the "Save" label.
     fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Edit project" }),
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }),
     );
     expect(onUpdateCurrent).toHaveBeenCalledTimes(1);
     expect(onUpdateCurrent.mock.calls[0][0].name).toBe("Apollo");
@@ -244,7 +244,7 @@ describe("ProjectsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
     const dialog = within(screen.getByRole("dialog"));
     fireEvent.click(dialog.getByRole("checkbox", { name: t("en-US", "navMilestones") }));
-    fireEvent.click(dialog.getByRole("button", { name: "Edit project" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Save" }));
     expect(onUpdateCurrent).toHaveBeenCalledTimes(1);
     expect(onCommitFeatures).toHaveBeenCalledTimes(1);
     const next = onCommitFeatures.mock.calls[0][0] as string[];
@@ -255,7 +255,7 @@ describe("ProjectsPanel", () => {
     const { onUpdateCurrent, onCommitFeatures } = setup();
     fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
     fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Edit project" }),
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }),
     );
     expect(onUpdateCurrent).toHaveBeenCalledTimes(1);
     expect(onCommitFeatures).not.toHaveBeenCalled();
@@ -268,7 +268,7 @@ describe("ProjectsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
     const dialog = within(screen.getByRole("dialog"));
     fireEvent.click(dialog.getByRole("button", { name: new RegExp(t("en-US", "simulationShow")) }));
-    fireEvent.click(dialog.getByRole("button", { name: "Edit project" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Save" }));
     expect(onCommitSimulation).toHaveBeenCalledTimes(1);
     expect(onCommitSimulation).toHaveBeenCalledWith(true);
   });
@@ -277,7 +277,7 @@ describe("ProjectsPanel", () => {
     const onCommitSimulation = vi.fn();
     setup({ simulation: true, onCommitSimulation });
     fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Edit project" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
     expect(onCommitSimulation).not.toHaveBeenCalled();
   });
 

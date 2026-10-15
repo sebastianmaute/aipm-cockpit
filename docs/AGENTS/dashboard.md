@@ -982,8 +982,8 @@ See [`forecast.md`](forecast.md) "Simulation across the app — part 1" for the 
 - The "Use Monte Carlo forecasting" switch (`SimulationSwitch`, a `ToggleButton`) sits in the Budget burn tile,
   directly left of "Open in Budget", in both the chart and the no-budget layout: `dashboard-panel.tsx` builds it
   (its wrapper is the intro's Escape anchor) and hands it to `buildTileBodies` as `simSwitch`. ★ The burn tile
-  exists only with the Budget module on, so Edit project (`project-edit-modal.tsx`, a "Forecasting" section, applied
-  on Save) carries the same switch. The one-time `SimulationIntro` renders while the switch is on, hydrated, not
+  exists only with the Budget module on, so Edit project (`project-edit-modal.tsx`: a "Forecasting" field beside
+  Project manager, through `ProjectForm`'s `projectManagerAside` slot, applied on Save) carries the same switch. The one-time `SimulationIntro` renders while the switch is on, hydrated, not
   seen and not a popout. ★ Both, and
   the simulated KPI cells, also need `isViewEnabled("forecast", features)`: while the Forecast view is held back
   (`RELEASE_HIDDEN_VIEWS`) none of them renders, whatever the stored switch says (`isSimulationActive`).

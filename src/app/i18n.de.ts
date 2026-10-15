@@ -4661,6 +4661,8 @@ export const de: Record<TranslationKey, string> = {
   projectsEdit: "Projekt bearbeiten",
   editProjectFunctionsHeading: "Funktionen",
   editProjectForecastHeading: "Prognose",
+  projectEditSave: "Speichern",
+  tipForecasting: "Simuliert aus den tatsächlichen vergangenen Arbeitstagen Ihres Teams, wann die offene Arbeit fertig wird. Simulierte Werte tragen einen gestrichelten türkisen Rahmen. Gilt für das ganze Projekt.",
   projectsExport: "Projekt exportieren",
   projectFileFormat: "Dateiformat",
   projectStorage: "Speicher",

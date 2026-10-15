@@ -327,11 +327,20 @@ export function CreateProjectWizard({
   const aiSeedActive = selectedTemplate === null && seedHasContent(aiSeed);
   const offerSeed = hasSeedContent(selectedTemplate) || aiSeedActive;
 
+  // The KEY-FREE workspace-import picker. It sits beside Skip on Step 0 when AI is on, and only
+  // falls back to Step 1's footer when AI is off, because Step 0 never renders then.
+  const workspacePicker = (
+    <FilePickerButton
+      label={t(lang, "wizardImportWorkspaceButton")}
+      accept="application/json,.json"
+      onFile={(f) => { void onWorkspaceFile(f); }}
+    />
+  );
+
   // Step-1 footer left slot: an optional Back-to-Describe button (only on the
   // AI fast-path, before details are captured — without it, an AI user who
-  // lands on Step 1 has no way back to re-describe, only Cancel) plus the
-  // workspace-import picker, which is the KEY-FREE route and therefore always
-  // rendered, AI-enabled or not.
+  // lands on Step 1 has no way back to re-describe, only Cancel), or the
+  // workspace-import picker when AI is off.
   const step1FooterLeft = (
     <div className="flex items-center gap-2">
       {aiEnabled && !meta && (
@@ -339,11 +348,7 @@ export function CreateProjectWizard({
           {t(lang, "wizardBack")}
         </Button>
       )}
-      <FilePickerButton
-        label={t(lang, "wizardImportWorkspaceButton")}
-        accept="application/json,.json"
-        onFile={(f) => { void onWorkspaceFile(f); }}
-      />
+      {!aiEnabled && workspacePicker}
     </div>
   );
 
@@ -360,6 +365,7 @@ export function CreateProjectWizard({
 
       {/* Step 0 — Describe / import (AI fast-path; only when an API key is set).
           The panel owns its own pinned footer (Skip / Cancel / Generate). */}
+      {step === 0 && importMsg && <FieldError>{importMsg}</FieldError>}
       {step === 0 && (
         <Step0ImportPanel
           lang={lang}
@@ -368,9 +374,10 @@ export function CreateProjectWizard({
           aiError={aiError}
           onIngest={runIngest}
           onResetAi={resetAi}
-          onSkip={() => setStep(1)}
+          onSkip={() => { setImportMsg(null); setStep(1); }}
           onCancel={onCancel}
           onImportWorkspace={acceptImport}
+          footerStart={workspacePicker}
         />
       )}
 

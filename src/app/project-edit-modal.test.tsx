@@ -57,13 +57,10 @@ describe("ProjectEditModal", () => {
     );
     expect(screen.getByDisplayValue("Apollo")).toBeInTheDocument();
     // Headline claim: the WRITE direction reaches the caller.
-    // ★★ EXACT name, never the unanchored /edit project/i this used to carry.
-    // The header now renders a help icon named "Help – Edit project"
-    // (`MODAL_HELP.projectEdit`), built from the SAME `projectsEdit` string the
-    // submit wears — so a substring match finds two buttons and the query
-    // throws. An RTL string `name` is a whole-string match, so this selects the
-    // submit alone, and composing it from the i18n key keeps a DE run resolving.
-    await user.click(screen.getByRole("button", { name: t("en-US", "projectsEdit") }));
+    // ★★ EXACT name: the submit reads "Save" (`projectEditSave`), and an RTL string `name` is a
+    // whole-string match, so no other button containing "Save" can be selected by accident.
+    // Composing it from the i18n key keeps a DE run resolving.
+    await user.click(screen.getByRole("button", { name: t("en-US", "projectEditSave") }));
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ name: "Apollo", code: "APL" });
   });
@@ -92,7 +89,7 @@ describe("ProjectEditModal", () => {
     );
     return { onSubmit, onCancel };
   }
-  const saveButton = () => screen.getByRole("button", { name: t("en-US", "projectsEdit") });
+  const saveButton = () => screen.getByRole("button", { name: t("en-US", "projectEditSave") });
 
   test("toggling a function then Save submits the meta and the new set", async () => {
     const user = userEvent.setup();
@@ -180,17 +177,22 @@ describe("ProjectEditModal", () => {
   test("without a simulation prop there is no Forecasting section (held back, or a popout)", async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderEdit();
-    expect(screen.queryByRole("region", { name: t("en-US", "editProjectForecastHeading") })).toBeNull();
+    expect(screen.queryByRole("group", { name: t("en-US", "editProjectForecastHeading") })).toBeNull();
     expect(screen.queryByRole("button", { name: new RegExp(t("en-US", "simulationShow")) })).toBeNull();
     await user.click(saveButton());
     expect(onSubmit.mock.calls[0][2]).toBeNull();
   });
 
-  test("the switch sits in a Forecasting section, seeded from the stored value", () => {
+  test("the switch is a Forecasting field directly after Project manager, seeded from the stored value", () => {
     renderEdit({ simulation: true });
-    const section = screen.getByRole("region", { name: t("en-US", "editProjectForecastHeading") });
-    expect(section).toContainElement(simSwitch());
+    const field = screen.getByRole("group", { name: t("en-US", "editProjectForecastHeading") });
+    expect(field).toContainElement(simSwitch());
     expect(simSwitch()).toHaveAttribute("aria-pressed", "true");
+    // The grid cell beside Project manager: the PM field's wrapper is the field's previous sibling.
+    const pm = screen.getByRole("textbox", { name: new RegExp(`^${t("en-US", "projectManager")}`) });
+    expect(field.previousElementSibling).toContainElement(pm);
+    // The toggle keeps its own name; a <label> caption would have replaced it.
+    expect(simSwitch()).toHaveAccessibleName(new RegExp(`^${t("en-US", "simulationShow")}`));
   });
 
   test("toggling the switch then Save submits the new value", async () => {

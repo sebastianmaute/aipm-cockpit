@@ -147,6 +147,9 @@ export interface ProjectFieldsProps {
   stakeholderNames: string[];
   addressBook: Contact[];
   resources: readonly Resource[];
+  /** A field rendered beside Project manager, in the grid's otherwise empty column (Edit project's
+   *  Monte Carlo switch, §502). Only the Identity · People group renders it. */
+  projectManagerAside?: React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -161,6 +164,7 @@ export function IdentityPeopleFields({
   lang,
   addressBook,
   resources,
+  projectManagerAside,
 }: ProjectFieldsProps) {
   return (
     <FormSection title={`${t(lang, "projectFormIdentity")} · ${t(lang, "projectFormPeople")}`}>
@@ -194,6 +198,7 @@ export function IdentityPeopleFields({
           className={inputClass}
         />
       </Field>
+      {projectManagerAside}
 
       {/* Contacts are optional (O-1). Consumes registry resources + the address
           book via the link-only ResourcePicker. */}

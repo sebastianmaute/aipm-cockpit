@@ -10,6 +10,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { type Contact } from "./contacts";
 import { ALL_MODULE_IDS, type FeatureModuleId, sameFeatureSet } from "./feature-modules";
+import { Field } from "./form-field";
 import { FunctionsPicker } from "./functions-picker";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
@@ -116,19 +117,6 @@ function FunctionsSection({
   );
 }
 
-/** The per-project Monte Carlo switch (§502) over a LOCAL draft, written only on Save. */
-function ForecastSection({ lang, on, onChange }: { lang: Lang; on: boolean; onChange: (on: boolean) => void }) {
-  const headingId = useId();
-  return (
-    <section aria-labelledby={headingId} className="flex flex-col items-start gap-3 border-t border-line pt-4">
-      <h3 id={headingId} className="text-base font-semibold text-foreground">
-        {t(lang, "editProjectForecastHeading")}
-      </h3>
-      <SimulationSwitch lang={lang} pressed={on} onToggle={() => onChange(!on)} />
-    </section>
-  );
-}
-
 /** The shell wrapped around a prefilled `ProjectForm` — the edit flow, mounted
  *  by the Projects panel (`projects-panel.tsx`). */
 export function ProjectEditModal({
@@ -152,16 +140,21 @@ export function ProjectEditModal({
         lang={lang}
         onSubmit={handleSubmit}
         onCancel={onCancel}
+        submitLabel={t(lang, "projectEditSave")}
+        // The per-project Monte Carlo switch (§502) over a LOCAL draft, written only on Save. `group`:
+        // a <label> would bind to the toggle and replace its accessible name with the caption.
+        projectManagerAside={simulation !== undefined && (
+          <Field label={t(lang, "editProjectForecastHeading")} hint={t(lang, "tipForecasting")} group>
+            <SimulationSwitch lang={lang} pressed={simDraft} onToggle={() => setSimDraft(!simDraft)} />
+          </Field>
+        )}
         extraSection={
-          <>
-            <FunctionsSection
-              lang={lang}
-              draft={draft}
-              onChange={setDraft}
-              focusOnMount={focusFunctions === true}
-            />
-            {simulation !== undefined && <ForecastSection lang={lang} on={simDraft} onChange={setSimDraft} />}
-          </>
+          <FunctionsSection
+            lang={lang}
+            draft={draft}
+            onChange={setDraft}
+            focusOnMount={focusFunctions === true}
+          />
         }
       />
     </ProjectModalShell>

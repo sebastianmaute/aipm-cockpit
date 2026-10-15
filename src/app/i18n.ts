@@ -4941,6 +4941,8 @@ const enUS = {
   projectsEdit: "Edit project",
   editProjectFunctionsHeading: "Functions",
   editProjectForecastHeading: "Forecasting",
+  projectEditSave: "Save",
+  tipForecasting: "Simulates when the open work will finish, from your team's real past working days. Simulated numbers are marked with a dashed teal outline. Applies to the whole project.",
   projectsExport: "Export project",
   projectFileFormat: "File format",
   projectStorage: "Storage",

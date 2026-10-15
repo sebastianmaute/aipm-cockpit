@@ -50,6 +50,8 @@ export interface ProjectFormProps {
   /** Optional content rendered inside the form, below the fields and above the
    *  footer buttons (Edit project's Functions part, §706). */
   extraSection?: React.ReactNode;
+  /** A field placed beside Project manager (see `ProjectFieldsProps.projectManagerAside`). */
+  projectManagerAside?: React.ReactNode;
   /** Create-mode prefill (e.g. the AI fast-path). Applied over emptyProjectDraft().
    *  Ignored when `initial` (edit mode) is provided. */
   initialDraftPatch?: Partial<ProjectFormDraft>;
@@ -105,6 +107,7 @@ export function ProjectForm({
   submitLabel,
   footerLeft,
   extraSection,
+  projectManagerAside,
   initialDraftPatch,
 }: ProjectFormProps) {
   const [draft, setDraft] = useState<ProjectFormDraft>(() =>
@@ -181,6 +184,7 @@ export function ProjectForm({
     stakeholderNames,
     addressBook,
     resources,
+    projectManagerAside,
   };
 
   return (
