@@ -977,6 +977,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§737](#737-chart-labels-sit-directly-on-their-line-and-are-partly-hidden-or-hard-to-read--closed-2026-10-15) | Chart labels sit directly on their line and are partly hidden or hard to read | — | — | **CLOSED** 2026-10-15 |
 | [§738](#738-a-workday-hours-change-zeroes-the-hourly-rate-on-a-day-basis-roles-side-that-has-no-day-rate--closed-2026-10-15) | A workday-hours change zeroes the hourly rate on a day-basis role's side that has no day rate | — | — | **CLOSED** 2026-10-15 |
 | [§739](#739-a-new-projects-plan-start-date-is-the-utc-day-not-the-local-day--closed-2026-10-15) | A new project's plan start date is the UTC day, not the local day | — | — | **CLOSED** 2026-10-15 |
+| [§740](#740-a-project-created-on-turso-storage-outside-turso-mode-reopens-as-an-empty-browser-workspace--closed-2026-10-15) | A project created on Turso storage outside Turso mode reopens as an empty browser workspace | — | — | **CLOSED** 2026-10-15 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45401,3 +45402,17 @@ Proposed: take the start date from the app's local today (the clock the rest of 
 Size S.
 
 **Source:** found in review of the §476 fix round, 2026-10-14 (pre-existing); filed on the owner's word.
+
+## 740. A project created on Turso storage outside Turso mode reopens as an empty browser workspace — CLOSED 2026-10-15
+
+**Status:** CLOSED 2026-10-15 on `fix/740-cross-mode-turso-create`. A cross-mode create now switches through `commitTursoPortfolioSwitch` (`grep -n "commitTursoPortfolioSwitch(settings, createdId)" src/app/use-turso-projects.ts` → 1 hit), which persists the portfolio mode, the new project id and `storageConfig` "turso" together before the reload, the same writes `turso-project-picker.tsx` makes. A create that fails (`createTursoProject` resolves null, having reported it) no longer switches or reloads; before, it reloaded into Turso mode anyway. Pinned in `use-turso-projects.test.ts` on what is persisted, since that is all the reload reads: both cases were red before the fix (storage kind `undefined`; a reload after a failed create). Checked live against the throwaway database: the new project opens with its name and a Turso storage label, and creating the demo project from it shows no conflict banner.
+
+★ The text below is the record as found.
+
+**Found:** 2026-10-15, rehearsing the §715 demo on a fresh browser with the throwaway database. In the empty state's new-project wizard, with the app not yet in Turso mode, pick "Turso database" as storage and create the project. After the reload the header reads "Current project" instead of the name, the sidebar reads "IndexedDB", and **Edit project** does nothing. Creating the demo project from that state then raises "This project was changed in another tab or on another device" with one tab open.
+
+**Cause:** `handleCreateProjectByMode` (`use-turso-projects.ts`) handled a cross-mode create with `savePortfolioMode("turso")` and a reload, and never wrote `storageConfig`. `createBackend` builds the tenant `TursoBackend` only for kind "turso", so the reload came back on a `BrowserBackend` and loaded an empty workspace with no `project`: the switcher's name, the storage label and Edit project all read that. The `projects` row itself was written correctly. Every other writer of the portfolio mode keeps the two together (`commitTursoPortfolioSwitch`, `migrateCurrentProjectToTurso`, `finishPortfolioModeSwitch`, and the two switches back to file mode in `use-storage-file-ops.ts`), and two of them name the rule in a comment. The banner followed from the same state: setting only `storageConfig.kind` to "turso" and reloading restored the name and the label, and the demo then created without a banner; with the state left broken, the banner appeared. That second link was observed, not traced step by step.
+
+Size S.
+
+**Source:** the §715 rehearsal, 2026-10-15; investigated and fixed on the owner's word.

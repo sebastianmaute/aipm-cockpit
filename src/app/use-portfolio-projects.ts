@@ -44,6 +44,7 @@ export interface PortfolioProjectsDeps
     | "tursoDatabaseUrl"
     | "tursoAuthToken"
     | "tursoProjectId"
+    | "settings"
     | "switchToTursoProject"
     | "createTursoProject"
     | "archiveTursoProject"
@@ -83,6 +84,7 @@ export function usePortfolioProjects(deps: PortfolioProjectsDeps) {
     tursoDatabaseUrl,
     tursoAuthToken,
     tursoProjectId,
+    settings,
     switchToProject,
     createProject,
     loadProjectFromFile,
@@ -262,6 +264,7 @@ export function usePortfolioProjects(deps: PortfolioProjectsDeps) {
     tursoDatabaseUrl,
     tursoAuthToken,
     tursoProjectId,
+    settings,
     switchToTursoProject,
     createTursoProject,
     archiveTursoProject,

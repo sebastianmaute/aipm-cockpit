@@ -11,6 +11,7 @@ import type { ProjectMeta } from "./types";
 import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { ProjectRegistryEntry, ProjectsRegistry } from "./projects-registry";
 import { usePortfolioProjects, type PortfolioProjectsDeps } from "./use-portfolio-projects";
+import { defaultSettings } from "./settings-types";
 
 const { saveRegistry, deleteHandle, saveKeyFactsSnapshot, removeKeyFactsSnapshot } = vi.hoisted(() => ({
   saveRegistry: vi.fn<(reg: unknown) => boolean>(),
@@ -57,6 +58,7 @@ function setup(over: Partial<PortfolioProjectsDeps> = {}) {
     tursoDatabaseUrl: undefined,
     tursoAuthToken: undefined,
     tursoProjectId: null,
+    settings: defaultSettings,
     switchToProject: vi.fn(async () => {}),
     createProject: vi.fn(async () => {}),
     loadProjectFromFile: vi.fn(async () => {}),

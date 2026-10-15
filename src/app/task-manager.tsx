@@ -1157,6 +1157,7 @@ function TaskManagerInner() {
     tursoDatabaseUrl: settings.integrations?.turso?.databaseUrl,
     tursoAuthToken: settings.integrations?.turso?.authToken,
     tursoProjectId,
+    settings,
     switchToProject,
     createProject,
     loadProjectFromFile,

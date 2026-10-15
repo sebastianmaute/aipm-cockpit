@@ -18,17 +18,22 @@ vi.mock("./turso-portfolio", () => ({
 vi.mock("./turso-config", () => ({
   getTursoConfig: vi.fn(() => ({ httpUrl: "https://db.example", authToken: "tok" })),
 }));
-vi.mock("./portfolio-mode", () => ({
-  savePortfolioMode: vi.fn(),
-}));
 vi.mock("./project-key-facts-cache", () => ({
   removeKeyFactsSnapshot: vi.fn(),
 }));
 
 import { listProjects, updateProjectMeta } from "./turso-portfolio";
 import { getTursoConfig } from "./turso-config";
-import { savePortfolioMode } from "./portfolio-mode";
 import { removeKeyFactsSnapshot } from "./project-key-facts-cache";
+import { loadCurrentTursoProjectId, loadPortfolioMode } from "./portfolio-mode";
+import { SETTINGS_KEY } from "./use-settings";
+import { defaultSettings } from "./settings-types";
+
+/** The storage kind the NEXT boot builds its backend from (what survives the reload). */
+function persistedStorageKind(): string | undefined {
+  const raw = window.localStorage.getItem(SETTINGS_KEY);
+  return raw ? (JSON.parse(raw) as { storageConfig?: { kind?: string } }).storageConfig?.kind : undefined;
+}
 
 // Stub window.location.reload so a cross-mode create does not actually reload jsdom.
 const reloadSpy = vi.fn();
@@ -47,6 +52,7 @@ function makeArgs(overrides: Partial<UseTursoProjectsArgs> = {}): UseTursoProjec
     tursoDatabaseUrl: "libsql://db.example",
     tursoAuthToken: "tok",
     tursoProjectId: "p-1",
+    settings: { ...defaultSettings, storageConfig: { kind: "browser" } },
     switchToTursoProject: vi.fn(async () => {}),
     createTursoProject: vi.fn(async () => null),
     archiveTursoProject: vi.fn(async () => {}),
@@ -66,6 +72,8 @@ beforeEach(() => {
   vi.mocked(updateProjectMeta).mockReset().mockResolvedValue(undefined);
   vi.mocked(getTursoConfig).mockClear();
   vi.mocked(removeKeyFactsSnapshot).mockClear();
+  reloadSpy.mockClear();
+  window.localStorage.clear();
 });
 
 describe("useTursoProjects — create", () => {
@@ -119,15 +127,34 @@ describe("useTursoProjects — create", () => {
     expect(args.createTursoProject).not.toHaveBeenCalled();
   });
 
-  it("file mode + opts.storage 'turso': routes to the Turso backend, persists the mode switch, reloads", async () => {
-    const args = makeArgs({ portfolioMode: "file" });
+  // §740 — the reload must come back as a TURSO backend on the new project. Saving the portfolio
+  // mode alone left storageConfig "browser", so the next boot built a BrowserBackend and loaded an
+  // empty workspace: no project name, an IndexedDB label, an inert Edit project. Asserted on what
+  // is persisted, since that is all the reload reads.
+  it("file mode + opts.storage 'turso': persists Turso mode, the Turso storage kind and the new project, then reloads (§740)", async () => {
+    const args = makeArgs({ portfolioMode: "file", createTursoProject: vi.fn(async () => "new-id") });
     const { result } = renderHook(() => useTursoProjects(args));
     result.current.handleCreateProjectByMode(META, "json", { storage: "turso" });
-    await waitFor(() => expect(args.createTursoProject).toHaveBeenCalledWith(META, { storage: "turso" }));
+    await waitFor(() => expect(reloadSpy).toHaveBeenCalledTimes(1));
+    expect(args.createTursoProject).toHaveBeenCalledWith(META, { storage: "turso" });
     expect(args.createFileProject).not.toHaveBeenCalled();
-    await waitFor(() => expect(args.refreshTursoProjects).toHaveBeenCalled());
-    expect(savePortfolioMode).toHaveBeenCalledWith("turso");
-    expect(reloadSpy).toHaveBeenCalled();
+    expect(args.refreshTursoProjects).toHaveBeenCalled();
+    expect(loadPortfolioMode()).toBe("turso");
+    expect(persistedStorageKind()).toBe("turso");
+    expect(loadCurrentTursoProjectId()).toBe("new-id");
+  });
+
+  it("file mode + opts.storage 'turso': a failed create switches nothing and does not reload (§740)", async () => {
+    // createTursoProject resolves null on failure, having already reported it.
+    const args = makeArgs({ portfolioMode: "file", createTursoProject: vi.fn(async () => null) });
+    const { result } = renderHook(() => useTursoProjects(args));
+    result.current.handleCreateProjectByMode(META, "json", { storage: "turso" });
+    await waitFor(() => expect(args.createTursoProject).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(reloadSpy).not.toHaveBeenCalled();
+    expect(loadPortfolioMode()).toBe("file");
+    expect(persistedStorageKind()).toBeUndefined();
+    expect(loadCurrentTursoProjectId()).toBeNull();
   });
 });
 

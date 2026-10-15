@@ -19,7 +19,8 @@ import { getTursoConfig } from "./turso-config";
 import { tursoErrorMessageKey } from "./storage-error";
 import { removeKeyFactsSnapshot } from "./project-key-facts-cache";
 import { listProjects, updateProjectMeta as tursoUpdateMeta } from "./turso-portfolio";
-import { savePortfolioMode, type PortfolioMode } from "./portfolio-mode";
+import { commitTursoPortfolioSwitch, type PortfolioMode } from "./portfolio-mode";
+import type { Settings } from "./settings-types";
 import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { NewProjectOpts } from "./new-project-workspace";
 import type { ProjectMeta } from "./types";
@@ -36,6 +37,8 @@ export interface UseTursoProjectsArgs {
   tursoAuthToken: string | undefined;
   /** Active Turso project id (null when none is selected yet). */
   tursoProjectId: string | null;
+  /** The live settings; a cross-mode create persists them with storageConfig "turso" (§740). */
+  settings: Settings;
   // Turso backend operations (from useStorageBackend / refresh callback).
   switchToTursoProject: (id: string) => Promise<void>;
   createTursoProject: (meta: ProjectMeta, opts?: NewProjectOpts) => Promise<string | null>;
@@ -87,6 +90,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
     tursoDatabaseUrl,
     tursoAuthToken,
     tursoProjectId,
+    settings,
     switchToTursoProject,
     createTursoProject,
     archiveTursoProject,
@@ -109,15 +113,15 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
         const crossMode = portfolioMode !== "turso";
         void (async () => {
           try {
-            await createTursoProject(meta, opts);
+            const createdId = await createTursoProject(meta, opts);
             await refreshTursoProjects();
             // Cross-mode create (global mode is "file" but the user chose Turso
-            // storage for this project): persist the mode switch and reload so the
-            // newly created Turso project becomes the active, visible portfolio.
-            if (crossMode) {
-              savePortfolioMode("turso");
-              window.location.reload();
-            }
+            // storage for this project): switch to the Turso portfolio on the new
+            // project and reload. §740 — through `commitTursoPortfolioSwitch`, which
+            // also persists storageConfig "turso"; saving the portfolio mode alone
+            // brought the reload back on a BrowserBackend with an empty workspace.
+            // A null id is a failed create, already reported: switch nothing.
+            if (crossMode && createdId) commitTursoPortfolioSwitch(settings, createdId);
           } catch (err) {
             showToast("error", t(lang, "projectCreateFailed", errorText(err, lang)));
           }
@@ -126,7 +130,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
         void createFileProject(meta, format, opts);
       }
     },
-    [portfolioMode, createTursoProject, refreshTursoProjects, createFileProject, showToast, lang],
+    [portfolioMode, settings, createTursoProject, refreshTursoProjects, createFileProject, showToast, lang],
   );
 
   // Update current project meta — Turso writes the projects-table row, mirrors
