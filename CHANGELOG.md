@@ -12,16 +12,6 @@ longer carries its own changelog comment.
 
 ### Added
 
-- **A Monte Carlo schedule forecast under Reports → Forecast (§502, first slice).** It replays your completed
-  tasks' daily pace thousands of times to show when the open work is likely to finish (50 %, 80 % and 95 % dates),
-  how many tasks fit by a date you pick, and each milestone's chance of landing on its date, with the chance if
-  its tasks were worked first. Switch the unit to effort when at least 70 % of open tasks carry an estimate. The
-  What-if mode adds or removes scope and changes team capacity; scope changes move the dates and the count, not
-  the milestone chances. With fewer than 10 completed tasks in the history window the view says what is missing
-  instead of guessing. The history window starts no earlier than the first completed task, so a young
-  project is not judged by days before its work began. Done tasks without a completion date are left out
-  and counted. A typed target date or What-if value applies when you press Enter or leave the field. The
-  inputs are not saved, and Ask Claude cannot quote the figures yet.
 - **A "Getting started: set up a budget" Help entry, and the install guide one click away.** Help lists
   the new entry first under Workflows: turn on the functions, rate the roles, add the people with their
   Timelog email, add buckets, import the hours. The Help panel's footer and the About panel link the
@@ -205,6 +195,9 @@ longer carries its own changelog comment.
 
 ### Notes
 
+- **The schedule forecast is held back (§502).** The Monte Carlo schedule forecast is built and tested but
+  switched off in this release: Reports shows no Forecast tab, and a `#forecast` link no longer opens it.
+  It ships in a later release.
 - **Project currency (§476).** An older build does not know a project's currency history. Its next
   save drops it, and it records new Trends snapshots in EUR. Update every client that shares a project,
   especially a Turso one, before switching its currency.

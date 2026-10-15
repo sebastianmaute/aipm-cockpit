@@ -139,7 +139,14 @@ export function moduleForView(view: AppView): FeatureModuleId | null {
   return VIEW_TO_MODULE.get(view) ?? null;
 }
 
+/** Views that are built but held back from the current release. No mode or module turns them
+ *  on: `isViewEnabled` answers false for them, so the sidebar, the sub-tabs, hash links, the
+ *  guided tour and the disabled-view redirect all treat them as off. Shipping one takes more than
+ *  dropping it here: its user-facing text was cut too (docs/AGENTS/forecast.md, "HELD BACK"). */
+export const RELEASE_HIDDEN_VIEWS: readonly AppView[] = ["forecast"];
+
 export function isViewEnabled(view: AppView, features: readonly FeatureModuleId[]): boolean {
+  if (RELEASE_HIDDEN_VIEWS.includes(view)) return false;
   const mod = VIEW_TO_MODULE.get(view);
   if (!mod) return true; // core view
   return features.includes(mod);

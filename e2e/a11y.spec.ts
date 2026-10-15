@@ -11,6 +11,7 @@ import {
 import { resolveSchemeColors } from "../src/app/scheme-tokens";
 import type { SchemeColorMap } from "../src/app/scheme-apply";
 import { APP_VERSION } from "../src/app/version";
+import { RELEASE_HIDDEN_VIEWS } from "../src/app/feature-modules";
 import {
   BOOT_NONCE_ENV,
   checkoutToken,
@@ -129,9 +130,10 @@ async function settleHash(page: Page, hash: string, name: string): Promise<void>
 // when the two Turso-storage tests were (§548), and 138/140 when the pink-count-badge
 // scans were (§681), and 145/147 when the RAG-letter-chip scans were (§683), and 146/148 when
 // the harbor-light Budget currency-switch dialog scan was (§476), and 153/155 when the Forecast
-// view scans were (§502). Reproduce (no browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 155 total
-//   …then `grep -c "a11y:"` over that output       # 153 (+1 unprefixed)
+// view scans were (§502), and 146/148 when the Forecast was held back by RELEASE_HIDDEN_VIEWS.
+// Reproduce (no browsers needed):
+//   npx playwright test e2e/a11y.spec.ts --list   # 148 total
+//   …then `grep -c "a11y:"` over that output       # 146 (+1 unprefixed)
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },
@@ -269,7 +271,8 @@ function seedScript(combo: (typeof COMBOS)[number]): string {
 }
 
 for (const combo of COMBOS) {
-  for (const name of A11Y_VIEWS) {
+  // A view held back by RELEASE_HIDDEN_VIEWS cannot be routed to, so it is skipped until it ships.
+  for (const name of A11Y_VIEWS.filter((v) => !(v === "Forecast" && RELEASE_HIDDEN_VIEWS.includes("forecast")))) {
     test(`a11y: ${comboLabel(combo)} — ${name}`, async ({ page }) => {
       // Seed localStorage BEFORE the app navigates so the no-flash boot script
       // in layout.tsx reads the right style/theme and sets data-style/.dark.

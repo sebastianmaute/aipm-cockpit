@@ -5,7 +5,7 @@ import {
   parseHash, buildHash,
   type AppView,
 } from "./nav-config";
-import { ALL_MODULE_IDS } from "./feature-modules";
+import { ALL_MODULE_IDS, RELEASE_HIDDEN_VIEWS } from "./feature-modules";
 
 describe("nav-config", () => {
   it("every nav item has a unique slug", () => {
@@ -74,7 +74,9 @@ describe("nav-config", () => {
   });
 
   it("exposes budget-report, raid-report, change-report and forecast as children of reports", () => {
-    const reportKids = [{ view: "budget-report" }, { view: "raid-report" }, { view: "change-report" }, { view: "forecast" }];
+    // forecast is in NAV_GROUPS but drops out of the sub-tabs while it sits in RELEASE_HIDDEN_VIEWS.
+    const reportKids = [{ view: "budget-report" }, { view: "raid-report" }, { view: "change-report" }, { view: "forecast" }]
+      .filter((c) => !RELEASE_HIDDEN_VIEWS.includes(c.view as AppView));
     expect(subTabsFor("reports")).toEqual(reportKids);
     expect(subTabsFor("budget-report")).toEqual(reportKids);
     expect(subTabsFor("raid-report")).toEqual(reportKids);
@@ -97,14 +99,34 @@ describe("nav-config", () => {
     // change-report now lives beside budget-report/raid-report under the reports
     // group; changes is a standalone register entry with no children.
     expect(subTabsFor("changes")).toEqual([]);
-    expect(subTabsFor("change-report")).toEqual([
-      { view: "budget-report" },
-      { view: "raid-report" },
-      { view: "change-report" },
-      { view: "forecast" },
-    ]);
+    expect(subTabsFor("change-report")).toEqual(
+      [{ view: "budget-report" }, { view: "raid-report" }, { view: "change-report" }, { view: "forecast" }]
+        .filter((c) => !RELEASE_HIDDEN_VIEWS.includes(c.view as AppView)),
+    );
     expect(navLabelKey("changes")).toBe("navChanges");
     expect(navLabelKey("change-report")).toBe("changeReportTitle");
+  });
+});
+
+describe("release-hidden views", () => {
+  it("holds the Forecast back from this release", () => {
+    expect(RELEASE_HIDDEN_VIEWS).toEqual(["forecast"]);
+  });
+
+  it("prunes a hidden view from the sidebar and the sub-tabs in every mode", () => {
+    const sidebar = filterNavGroups(ALL_MODULE_IDS, "turso").flatMap((g) =>
+      g.items.flatMap((item) => [item.view, ...(item.children ?? []).map((c) => c.view)]),
+    );
+    expect(sidebar).toContain("budget-report");
+    expect(sidebar).not.toContain("forecast");
+    expect(subTabsFor("reports", ALL_MODULE_IDS).map((c) => c.view)).not.toContain("forecast");
+    expect(subTabsFor("reports").map((c) => c.view)).not.toContain("forecast");
+    expect(isViewReachable("forecast", ALL_MODULE_IDS, "turso")).toBe(false);
+  });
+
+  it("keeps the hidden view's hash and label, so turning it back on is one line", () => {
+    expect(allNavViews()).toContain("forecast");
+    expect(parseHash("#forecast").view).toBe("forecast");
   });
 });
 

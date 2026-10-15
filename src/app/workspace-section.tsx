@@ -28,6 +28,7 @@ import {
 } from "./nav-config";
 import {
   isModuleEnabled,
+  isViewEnabled,
 } from "./feature-modules";
 import {
   DEFAULT_EXTRA_REPORTS,
@@ -735,7 +736,7 @@ export function WorkspaceSection({
           </div>
         )}
 
-        {activeTab === "forecast" && (
+        {activeTab === "forecast" && isViewEnabled("forecast", features) && (
           <div id="panel-forecast" role="tabpanel" className={panelScrollClass}>
             <ForecastPanel lang={lang} tasks={tasks} milestones={milestones} plan={plan} today={today} holidaySet={holidaySet} isPopout={isPopout} />
           </div>

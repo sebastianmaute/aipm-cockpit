@@ -8,6 +8,7 @@ import {
   enabledNavViews,
   isModuleEnabled,
   isViewEnabled,
+  RELEASE_HIDDEN_VIEWS,
   missingUses,
   moduleForView,
   MODE_LABEL_KEY,
@@ -65,6 +66,13 @@ describe("deriveMode", () => {
 });
 
 describe("isViewEnabled", () => {
+  it("a release-hidden view is off in every mode, though no module owns it", () => {
+    expect(RELEASE_HIDDEN_VIEWS).toContain("forecast");
+    expect(moduleForView("forecast")).toBeNull();
+    expect(isViewEnabled("forecast", ALL_MODULE_IDS)).toBe(false);
+    expect(isViewEnabled("forecast", [])).toBe(false);
+    expect(isViewEnabled("budget-report", ALL_MODULE_IDS)).toBe(true);
+  });
   it("core views are always enabled, even in Simple", () => {
     for (const v of CORE_VIEWS) expect(isViewEnabled(v, [])).toBe(true);
   });
