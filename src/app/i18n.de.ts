@@ -846,7 +846,7 @@ export const de: Record<TranslationKey, string> = {
   burndownEvHistoryUnavailable: "Noch kein Verlauf des Earned Value für {0}.",
   burndownNotesLabel: "Hinweise zu diesem Diagramm",
   burndownChainChipOne: "{0} Bucket prüfen",
-  burndownChainChipMany: "{0} Buckets prüfen",
+  burndownChainChip: "{0} Buckets prüfen",
   burndownEvPartial: "Unvollständiger Earned Value",
   burndownEvPartialNotRecorded: "Unvollständig: {0} nicht erfasst",
   burndownEvPartialCreated: "Unvollständig: {0} später angelegt",

@@ -917,7 +917,7 @@ const enUS = {
   burndownEvHistoryUnavailable: "No earned-value history yet for {0}.",
   burndownNotesLabel: "Notes on this chart",
   burndownChainChipOne: "{0} bucket to check",
-  burndownChainChipMany: "{0} buckets to check",
+  burndownChainChip: "{0} buckets to check",
   burndownEvPartial: "Partial earned value",
   burndownEvPartialNotRecorded: "Partial: {0} not recorded",
   burndownEvPartialCreated: "Partial: {0} created later",

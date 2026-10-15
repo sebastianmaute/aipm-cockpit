@@ -5,7 +5,7 @@
 // BucketChain itself, so this needs no bucket list.
 import { Banner, SEVERITY_CLASS } from "./banner";
 import { InfoTooltip } from "./info-tooltip";
-import { type Lang, type TranslationKey, t } from "./i18n";
+import { type Lang, type TranslationKey, t, tPlural } from "./i18n";
 import type { BucketChain, BucketChainBreak } from "./budget-bucket-chain";
 
 const REASON_KEY: Record<BucketChainBreak, TranslationKey> = {
@@ -58,7 +58,7 @@ export function BurndownChainChip({ lang, chain }: { lang: Lang; chain: BucketCh
   const broken = brokenChain(chain);
   if (!broken) return null;
   const n = broken.offenders.length;
-  const label = t(lang, n === 1 ? "burndownChainChipOne" : "burndownChainChipMany", String(n));
+  const label = tPlural(lang, "burndownChainChip", n, String(n));
   const text = warningText(lang, broken);
   return (
     <InfoTooltip text={text} label={`${label}: ${text}`}>
