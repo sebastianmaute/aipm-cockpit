@@ -194,7 +194,7 @@ export function isoInZone(iso: string, tz: string): string {
  *  at any call site precisely because every branch below has already proved the
  *  value is a real zone (`isValidTimeZone`, or `browserTimeZone`'s own "UTC"
  *  fallback). Its production callers get branded values for free; list them with
- *  `grep -rn "resolveTimezone(" src/app --include=*.ts --include=*.tsx | grep -v test`. */
+ *  `grep -rn "resolveTimezone(" src/app --include=*.ts --include=*.tsx | grep -v "test|export function|//"`. */
 export function resolveTimezone(overrideTz: string | undefined, projectTz: string | undefined): TimeZone {
   if (overrideTz && isValidTimeZone(overrideTz)) return brandZone(overrideTz);
   if (projectTz && isValidTimeZone(projectTz)) return brandZone(projectTz);
