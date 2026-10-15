@@ -266,8 +266,8 @@ npx vite-node forecast-probe.ts; rm forecast-probe.ts
 ## Simulation across the app — part 1
 
 The Dashboard can show simulated numbers beside its measured ones. Part 1 is the KPI strip's P80 finish and
-chance on time; the dated history it records is the input to later surfaces. Reproduce the change set:
-`git diff 6c510bfe5..HEAD --stat`.
+chance on time; the dated history it records is the input to later surfaces. Files: `forecast-simulation.ts`, `forecast-history.ts`, `use-forecast-history-recorder.ts`, `forecast/app-forecast.ts`,
+`kpi-simulation.ts`, `sim-value.tsx`, `sim-explainer.tsx`, `simulation-intro.tsx`, `percentile-words.ts`.
 
 - **The switch** is `SettingsOverrides.forecast.showSimulation` (`settings-types.ts`), read with
   `isSimulationOn` and written with `withSimulation` (`forecast-simulation.ts`). ★★ OFF IS ABSENCE: turning it
@@ -311,9 +311,9 @@ chance on time; the dated history it records is the input to later surfaces. Rep
   insufficient or P80 is beyond the horizon. `isDivergent` is true for SPI ≥ 1.0 with chance < 0.5, or SPI <
   0.9 with chance ≥ 0.8 (named constants in the file); the strip then adds a divergence line, always visible.
   Details of the cells and the re-measure are in [`dashboard.md`](dashboard.md) "KPI strip simulation cells".
-- ★★ **`e2e/dashboard-grid.spec.ts` does NOT cover the 7- and 8-cell KPI layouts.** Their breakpoints are
-  arithmetic, not measured, and the Dashboard axe pass has not run on the switch or the note locally. Check
-  both by eye before relying on them.
+- ★★ The 7- and 8-cell KPI layouts are unmeasured and not covered by `e2e/dashboard-grid.spec.ts`; the full statement is in
+  [`dashboard.md`](dashboard.md) "KPI strip simulation cells". Check the switch and the note by eye and run
+  `npx playwright test e2e/a11y.spec.ts --project=chromium -g "Dashboard"` (CI runs it too).
 - ★ Switch OFF → no recorder, no simulation prop, no cells, and nothing else on the Dashboard changes.
 
 ## Mutation proof (slice 1)

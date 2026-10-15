@@ -965,12 +965,12 @@ a P80 finish cell and, when `chanceOnTime` is not null, a chance-on-time cell, e
 `SimExplainer`; a line under the grid states the estimate coverage and, when `divergent`, the divergence line.
 See [`forecast.md`](forecast.md) "Simulation across the app — part 1" for the forecast, the switch and the rules.
 
-- ★★ `KpiCellCount` is 4 | 5 | 6 | 7 | 8: the fixed four, plus SPI and/or CPI, plus one or two simulated cells. The
+- ★★ `KpiCellCount` is 4 | 5 | 6 | 7 | 8 (`grep -n "type KpiCellCount" src/app/dashboard-sections/dashboard-kpi-strip.tsx`): the fixed four, plus SPI and/or CPI, plus one or two simulated cells. The
   7- and 8-cell column breakpoints (`@[59rem]`, `@[68rem]`) are ARITHMETIC from 127px cells and 8px gaps, never
   measured, and `e2e/dashboard-grid.spec.ts` does NOT cover them. Eye-verify before trusting them.
 - ★★ The KPI tile's height changes when the cells wrap or the divergence line appears, with no change in density,
   tiles or flags, so `useMeasuredHeights` takes a `contentKey`; `dashboard-panel.tsx` passes a signature of
-  `divergent` and whether the chance cell exists. ★ It encodes only those two: another future simulated element
+  `divergent` and whether the chance cell exists, or just the switch state while the simulation is null. ★ It encodes only those inputs: another future simulated element
   that changes height must extend the key, or the tile will not re-measure.
 - The Dashboard toolbar's "Show simulation" `ToggleButton` leads the right-hand control stack; the one-time
   `SimulationIntro` renders under it while the switch is on, hydrated, not seen and not a popout.
