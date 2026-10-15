@@ -92,6 +92,7 @@ const KV_DOCUMENT_VERSIONS_KEY = IDB_OPTIONAL_KV_KEYS.documentVersions;
 const KV_ACTIVITY_LOG_KEY = IDB_OPTIONAL_KV_KEYS.activityLog;
 const KV_BUDGET_HISTORY_KEY = IDB_OPTIONAL_KV_KEYS.budgetHistory;
 const KV_BASELINE_HISTORY_KEY = IDB_OPTIONAL_KV_KEYS.baselineHistory;
+const KV_FORECAST_HISTORY_KEY = IDB_OPTIONAL_KV_KEYS.forecastHistory;
 const KV_DOCUMENT_ASSETS_KEY = IDB_OPTIONAL_KV_KEYS.documentAssets;
 // §4 — the integer save revision this backend stamps on every successful
 // save (see `save()` below); missing on load → 0.
@@ -105,6 +106,7 @@ import {
 import { sanitizeActivityLog } from "./activity-log";
 import { sanitizeBudgetHistory } from "./budget-history";
 import { sanitizeBaselineHistory } from "./baseline-currency";
+import { sanitizeForecastHistory } from "./forecast-history";
 import { SaveConflictError } from "./storage-error";
 import { requiredIsoDateOnLoad } from "./sanitize-load-date";
 
@@ -231,6 +233,7 @@ export class BrowserBackend implements StorageBackend {
     let activityLog: Workspace["activityLog"] | undefined;
     let budgetHistory: Workspace["budgetHistory"] | undefined;
     let baselineHistory: Workspace["baselineHistory"] | undefined;
+    let forecastHistory: Workspace["forecastHistory"] | undefined;
     let documentAssets: Workspace["documentAssets"] | undefined;
     // §4 — stamped by `save()`; missing (never saved yet) → 0.
     let revision = 0;
@@ -295,6 +298,7 @@ export class BrowserBackend implements StorageBackend {
         idbDocumentAssets,
         idbBudgetHistory,
         idbBaselineHistory,
+        idbForecastHistory,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -326,6 +330,7 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_DOCUMENT_ASSETS_KEY),
         idbGet(KV_BUDGET_HISTORY_KEY),
         idbGet(KV_BASELINE_HISTORY_KEY),
+        idbGet(KV_FORECAST_HISTORY_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
@@ -408,7 +413,7 @@ export class BrowserBackend implements StorageBackend {
       // it needs its OWN catch, exactly like `jsonToWorkspace` (workspace.ts).
       // Without one, a throw here reached the outer `catch` below, which treats
       // it as "IDB unavailable" and falls through — so `documentVersions`,
-      // `activityLog`, `budgetHistory`, `baselineHistory` and `documentAssets` (every slice
+      // `activityLog`, `budgetHistory`, `baselineHistory`, `forecastHistory` and `documentAssets` (every slice
       // processed AFTER this one) never even got sanitized that load, nothing
       // was recorded, saving was not paused, and the next save deleted all of
       // them from IDB for good. Scoped to THIS pass only, never widened: a
@@ -470,6 +475,12 @@ export class BrowserBackend implements StorageBackend {
         const baseline = sanitizeBaselineHistory(idbBaselineHistory);
         noteIfDropped("baselineHistory", idbBaselineHistory, baseline);
         baselineHistory = baseline.length ? baseline : undefined;
+      }
+      // And for the forecast history (§502).
+      {
+        const forecast = sanitizeForecastHistory(idbForecastHistory);
+        noteIfDropped("forecastHistory", idbForecastHistory, forecast);
+        forecastHistory = forecast.length ? forecast : undefined;
       }
       // Optional list: garbage rows dropped individually (sanitizeDocumentAsset
       // never throws); junk/empty list sanitizes to [] → keep undefined.
@@ -549,6 +560,7 @@ export class BrowserBackend implements StorageBackend {
     if (activityLog) raw.activityLog = activityLog;
     if (budgetHistory) raw.budgetHistory = budgetHistory;
     if (baselineHistory) raw.baselineHistory = baselineHistory;
+    if (forecastHistory) raw.forecastHistory = forecastHistory;
     if (documentAssets) raw.documentAssets = documentAssets;
     const ws = migrateWorkspaceV10(raw);
 
@@ -716,6 +728,7 @@ export class BrowserBackend implements StorageBackend {
       [KV_ACTIVITY_LOG_KEY, ws.activityLog && ws.activityLog.length ? ws.activityLog : undefined],
       [KV_BUDGET_HISTORY_KEY, ws.budgetHistory && ws.budgetHistory.length ? ws.budgetHistory : undefined],
       [KV_BASELINE_HISTORY_KEY, ws.baselineHistory && ws.baselineHistory.length ? ws.baselineHistory : undefined],
+      [KV_FORECAST_HISTORY_KEY, ws.forecastHistory && ws.forecastHistory.length ? ws.forecastHistory : undefined],
       [KV_DOCUMENT_ASSETS_KEY, ws.documentAssets && ws.documentAssets.length ? ws.documentAssets : undefined],
     ];
     let newRevision = 0;

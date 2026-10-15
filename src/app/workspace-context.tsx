@@ -55,6 +55,7 @@ import type { CalendarEvent } from "./calendar-event";
 import type { ActivityEntry } from "./activity-log";
 import type { BudgetHistoryEntry } from "./budget-history";
 import type { BaselineEntry } from "./baseline-currency";
+import type { ForecastHistoryEntry } from "./forecast-history";
 import type { DocumentAsset } from "./document-asset";
 
 /** Workspace-section state is `readonly X[]` on purpose: these arrays become
@@ -188,6 +189,10 @@ interface WorkspaceValue {
    *  Never undefined; replace, never `push`. */
   baselineHistory: readonly BaselineEntry[];
   setBaselineHistory: Dispatch<SetStateAction<readonly BaselineEntry[]>>;
+  /** Daily forecast history (§502; meta-blob sibling of `baselineHistory`).
+   *  Never undefined; replace, never `push`. */
+  forecastHistory: readonly ForecastHistoryEntry[];
+  setForecastHistory: Dispatch<SetStateAction<readonly ForecastHistoryEntry[]>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -253,6 +258,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [activityLog, setActivityLog] = useState<readonly ActivityEntry[]>([]);
   const [budgetHistory, setBudgetHistory] = useState<readonly BudgetHistoryEntry[]>([]);
   const [baselineHistory, setBaselineHistory] = useState<readonly BaselineEntry[]>([]);
+  const [forecastHistory, setForecastHistory] = useState<readonly ForecastHistoryEntry[]>([]);
 
   // ★★★ THE BEFORE-IMAGE CANNOT BE COMPUTED INSIDE A FUNCTIONAL SETTER.
   // `documents` and `documentVersions` are two separate setters, and the
@@ -514,6 +520,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       activityLog, setActivityLog,
       budgetHistory, setBudgetHistory,
       baselineHistory, setBaselineHistory,
+      forecastHistory, setForecastHistory,
     }),
     [
       tasks,
@@ -555,6 +562,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       activityLog,
       budgetHistory,
       baselineHistory,
+      forecastHistory,
     ],
   );
 

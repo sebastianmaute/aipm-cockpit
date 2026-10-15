@@ -49,6 +49,7 @@ import { sanitizeActivityLog } from "./activity-log";
 import type { ActivityEntry } from "./activity-log";
 import { sanitizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
 import { sanitizeBaselineHistory, type BaselineEntry } from "./baseline-currency";
+import { sanitizeForecastHistory, type ForecastHistoryEntry } from "./forecast-history";
 import {
   type ImportDiag,
   type ImportSectionKey,
@@ -361,6 +362,18 @@ export function markdownToBaselineHistory(md: string, diag?: DocTruncationDiag):
   const body = readFencedJsonSection(md, "Baseline History");
   if (body === undefined) return undefined;
   const history = decodeMetaJson(body, sanitizeBaselineHistory, "baselineHistory", diag);
+  return history?.length ? history : undefined;
+}
+
+/** Forecast history (§502) — same fenced json blob and storage-only gate as above. */
+export function forecastHistoryToMarkdown(history: readonly ForecastHistoryEntry[]): string {
+  return ["## Forecast History", "", "```json", JSON.stringify(history, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToForecastHistory(md: string, diag?: DocTruncationDiag): ForecastHistoryEntry[] | undefined {
+  const body = readFencedJsonSection(md, "Forecast History");
+  if (body === undefined) return undefined;
+  const history = decodeMetaJson(body, sanitizeForecastHistory, "forecastHistory", diag);
   return history?.length ? history : undefined;
 }
 
@@ -757,6 +770,9 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // Baseline-currency history (§476) — same gate, emitted last (golden fixtures).
   if (config === undefined && ws.baselineHistory && ws.baselineHistory.length)
     mdParts.push(baselineHistoryToMarkdown(ws.baselineHistory));
+  // Forecast history (§502) — same gate, emitted last (golden fixtures).
+  if (config === undefined && ws.forecastHistory && ws.forecastHistory.length)
+    mdParts.push(forecastHistoryToMarkdown(ws.forecastHistory));
   const out = mdParts.join("\n");
   return out;
 }
