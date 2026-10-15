@@ -410,8 +410,9 @@ simulated KPI cells and the intro (`dashboard-panel.tsx`), the daily recorder
 view again restores the user's choice. A new part-1 surface must read the helper, never `isSimulationOn`.
 ★ The two WRITER surfaces are the exception, because they must show the switch while it is off: the burn-tile
 switch (`dashboard-panel.tsx`) and the Edit project "Forecasting" field (`project-edit-modal.tsx`, wired in
-`workspace-section.tsx`) gate on `isViewEnabled("forecast", features)` alone (plus not-popout) and read the
-raw `isSimulationOn` for their pressed state.
+`workspace-section.tsx`) gate on `isViewEnabled("forecast", features)` alone (plus not-popout) and write
+from the raw `isSimulationOn`. The burn-tile switch's pressed state reads `isSimulationActive`, which equals
+the raw value wherever that switch renders; the Edit project field seeds from the raw value.
 ★ `HelpContentPane` has TWO hosts (`help-view.tsx` and the floating `help-menu.tsx`); both pass
 `hiddenHelpEntryIds(features)`, which also filters search hits and Related links. `help-icon-button.tsx` and
 `view-callouts.ts` resolve concept ids straight from `HELP_ENTRIES`, so a new link to the simulation entry from
