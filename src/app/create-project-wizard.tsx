@@ -177,12 +177,12 @@ export function CreateProjectWizard({
   const [features, setFeatures] = useState<FeatureModuleId[]>([...ALL_MODULE_IDS]);
   const [includeSeed, setIncludeSeed] = useState(false);
 
-  // Native workspace JSON import (Step 0's file router, or Step 1's own
-  // key-free picker): when set, it IS the new project's content — Step 1's
+  // Native workspace JSON import (Step 0's file router, or the key-free picker
+  // beside Skip — on Step 1 when AI is off): when set, it IS the new project's content — Step 1's
   // Create shortcut bypasses Template/Functions entirely (see handleDetails).
   const [imported, setImported] = useState<{ ws: Workspace; fileName: string; ignored: string[] } | null>(null);
-  // A Step-1-local import error (invalid / not-a-workspace); distinct from
-  // Step 0's own `importError`, which unmounts once the wizard advances.
+  // The key-free picker's import error (invalid / not-a-workspace), shown on the step that holds
+  // the picker; distinct from Step 0's own `importError`. Cleared on every way off Step 0.
   const [importMsg, setImportMsg] = useState<string | null>(null);
   // Bumped on every accepted import so Step 1's already-mounted CreateProjectForm
   // remounts and re-derives its initial draft from the fresh draftPatch — a
@@ -233,11 +233,13 @@ export function CreateProjectWizard({
     const seed = proposalToSeed(p, today);
     setAiSeed(seed);
     setIncludeSeed(seedHasContent(seed));
+    // A picker error from Step 0 must not follow the proposal onto Step 1.
+    setImportMsg(null);
     setStep(1);
   };
 
   // Accepts a workspace parsed from EITHER route (Step 0's file router or
-  // Step 1's own picker) — the only two call sites, and both only ever pass a
+  // the key-free picker) — the only two call sites, and both only ever pass a
   // `parseNativeWorkspace` result of kind "workspace". Pre-fills Step 1 from
   // the file's own project meta and forces a remount (importNonce) so an
   // already-mounted Step 1 (the key-free route) picks it up.
@@ -253,7 +255,7 @@ export function CreateProjectWizard({
     setStep(1);
   };
 
-  // Step 1's own key-free picker: parses locally (no model call) and routes
+  // The key-free picker (Step 0 beside Skip; Step 1 when AI is off): parses locally (no model call) and routes
   // through the same acceptImport as Step 0's file router.
   const onWorkspaceFile = async (file: File) => {
     // Same per-file ceiling the ingest path enforces, checked BEFORE the read
@@ -327,11 +329,20 @@ export function CreateProjectWizard({
   const aiSeedActive = selectedTemplate === null && seedHasContent(aiSeed);
   const offerSeed = hasSeedContent(selectedTemplate) || aiSeedActive;
 
+  // The KEY-FREE workspace-import picker. It sits beside Skip on Step 0 when AI is on, and only
+  // falls back to Step 1's footer when AI is off, because Step 0 never renders then.
+  const workspacePicker = (
+    <FilePickerButton
+      label={t(lang, "wizardImportWorkspaceButton")}
+      accept="application/json,.json"
+      onFile={(f) => { void onWorkspaceFile(f); }}
+    />
+  );
+
   // Step-1 footer left slot: an optional Back-to-Describe button (only on the
   // AI fast-path, before details are captured — without it, an AI user who
-  // lands on Step 1 has no way back to re-describe, only Cancel) plus the
-  // workspace-import picker, which is the KEY-FREE route and therefore always
-  // rendered, AI-enabled or not.
+  // lands on Step 1 has no way back to re-describe, only Cancel), or the
+  // workspace-import picker when AI is off.
   const step1FooterLeft = (
     <div className="flex items-center gap-2">
       {aiEnabled && !meta && (
@@ -339,11 +350,7 @@ export function CreateProjectWizard({
           {t(lang, "wizardBack")}
         </Button>
       )}
-      <FilePickerButton
-        label={t(lang, "wizardImportWorkspaceButton")}
-        accept="application/json,.json"
-        onFile={(f) => { void onWorkspaceFile(f); }}
-      />
+      {!aiEnabled && workspacePicker}
     </div>
   );
 
@@ -360,6 +367,7 @@ export function CreateProjectWizard({
 
       {/* Step 0 — Describe / import (AI fast-path; only when an API key is set).
           The panel owns its own pinned footer (Skip / Cancel / Generate). */}
+      {step === 0 && importMsg && <FieldError>{importMsg}</FieldError>}
       {step === 0 && (
         <Step0ImportPanel
           lang={lang}
@@ -368,9 +376,10 @@ export function CreateProjectWizard({
           aiError={aiError}
           onIngest={runIngest}
           onResetAi={resetAi}
-          onSkip={() => setStep(1)}
+          onSkip={() => { setImportMsg(null); setStep(1); }}
           onCancel={onCancel}
           onImportWorkspace={acceptImport}
+          afterSkip={workspacePicker}
         />
       )}
 

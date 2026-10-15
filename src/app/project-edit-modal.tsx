@@ -10,6 +10,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { type Contact } from "./contacts";
 import { ALL_MODULE_IDS, type FeatureModuleId, sameFeatureSet } from "./feature-modules";
+import { Field } from "./form-field";
 import { FunctionsPicker } from "./functions-picker";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
@@ -17,6 +18,7 @@ import { ModalHeader } from "./modal-header";
 import { MODAL_HELP } from "./help-content";
 import { ProjectForm } from "./project-form";
 import { ResetSizeButton } from "./task-manager-ui";
+import { SimulationSwitch } from "./simulation-switch";
 import { useResizable } from "./use-resizable";
 import { type ProjectMeta, type Resource } from "./types";
 
@@ -75,8 +77,11 @@ interface ProjectEditModalProps {
   /** Scroll the Functions part into view and focus its heading on mount. */
   focusFunctions?: boolean;
   sizeKey: string;
-  /** `features` is `null` when the functions equal the `features` prop as a set. */
-  onSubmit: (meta: ProjectMeta, features: FeatureModuleId[] | null) => void;
+  /** The stored Monte Carlo switch (§502); absent hides the control (held back, or a popout). */
+  simulation?: boolean;
+  /** `features` is `null` when the functions equal, as a set, the `features` prop seen at open;
+   *  `simulation` is `null` when the switch is unchanged since open or not shown. */
+  onSubmit: (meta: ProjectMeta, features: FeatureModuleId[] | null, simulation: boolean | null) => void;
   onCancel: () => void;
 }
 
@@ -115,13 +120,20 @@ function FunctionsSection({
 /** The shell wrapped around a prefilled `ProjectForm` — the edit flow, mounted
  *  by the Projects panel (`projects-panel.tsx`). */
 export function ProjectEditModal({
-  lang, initial, stakeholderNames, addressBook, resources, features, focusFunctions, sizeKey, onSubmit, onCancel,
+  lang, initial, stakeholderNames, addressBook, resources, features, focusFunctions, simulation, sizeKey, onSubmit, onCancel,
 }: ProjectEditModalProps) {
-  const [draft, setDraft] = useState<FeatureModuleId[]>(() => [...features]);
+  // Both drafts compare against the value seen at OPEN, not the live prop: a write elsewhere while the
+  // dialog is open (another tab, the AI) must survive a Save that left that part untouched. A draft
+  // moved away and back again also counts as untouched, so the outside write wins then too.
+  const [featuresAtOpen] = useState<FeatureModuleId[]>(() => [...features]);
+  const [draft, setDraft] = useState<FeatureModuleId[]>(() => [...featuresAtOpen]);
+  const [simAtOpen] = useState(simulation === true);
+  const [simDraft, setSimDraft] = useState(simAtOpen);
   const handleSubmit = (meta: ProjectMeta) =>
     onSubmit(
       meta,
-      sameFeatureSet(draft, features) ? null : ALL_MODULE_IDS.filter((id) => draft.includes(id)),
+      sameFeatureSet(draft, featuresAtOpen) ? null : ALL_MODULE_IDS.filter((id) => draft.includes(id)),
+      simulation === undefined || simDraft === simAtOpen ? null : simDraft,
     );
   return (
     <ProjectModalShell lang={lang} title={t(lang, "projectsEdit")} sizeKey={sizeKey} onClose={onCancel}>
@@ -133,6 +145,14 @@ export function ProjectEditModal({
         lang={lang}
         onSubmit={handleSubmit}
         onCancel={onCancel}
+        submitLabel={t(lang, "projectEditSave")}
+        // The per-project Monte Carlo switch (§502) over a LOCAL draft, written only on Save. `group`:
+        // a <label> would bind to the toggle and replace its accessible name with the caption.
+        projectManagerAside={simulation !== undefined && (
+          <Field label={t(lang, "editProjectForecastHeading")} hint={t(lang, "tipForecasting")} group>
+            <SimulationSwitch lang={lang} pressed={simDraft} onToggle={() => setSimDraft(!simDraft)} />
+          </Field>
+        )}
         extraSection={
           <FunctionsSection
             lang={lang}

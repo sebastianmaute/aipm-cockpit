@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
+import { showForecastView } from "../test/forecast-view";
 import type React from "react";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
@@ -712,6 +713,56 @@ describe("WorkspaceSection — demo entry on the Projects panel", () => {
     window.history.replaceState(null, "", "/?popout=budget");
     await renderAtProjects(vi.fn());
     expect(screen.queryByRole("button", { name: "Explore a demo project" })).toBeNull();
+  });
+});
+
+// §502 — the Monte Carlo switch in Edit project: wired only while the Forecast view is shown and not in a popout.
+describe("WorkspaceSection — Monte Carlo switch in Edit project", () => {
+  function TabProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-projects" onClick={() => setActiveTab("projects")} />;
+  }
+  const currentProject = {
+    name: "Apollo", code: "APL", projectManager: "Jane PM", keyStakeholdersInternal: [], keyStakeholdersExternal: [],
+    identityTypes: [], contactPersons: [], regulatory: [],
+  } as unknown as WorkspaceSectionProps["currentProject"];
+  const openEdit = async () => {
+    render(
+      <>
+        <TabProbe />
+        {/* A pending Functions request opens Edit project on mount (§706), with no project list needed. */}
+        <WorkspaceSection {...makeProps({ currentProject, projectFunctionsRequest: 1 })} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-projects"));
+    return within(await screen.findByRole("dialog"));
+  };
+  const simName = () => new RegExp(t("en-US", "simulationShow"));
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("offers the switch while the Forecast view is shown", async () => {
+    showForecastView();
+    const dialog = await openEdit();
+    expect(dialog.getByRole("button", { name: simName() })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  // Mutation: dropping the `isViewEnabled("forecast", …)` half of the guard turns this red.
+  it("hides the switch while the Forecast view is held back", async () => {
+    const dialog = await openEdit();
+    expect(dialog.queryByRole("button", { name: simName() })).toBeNull();
+  });
+
+  // Mutation: dropping the `!isPopout` half of the guard turns this red.
+  it("hides the switch in a popout", async () => {
+    showForecastView();
+    window.history.replaceState(null, "", "/?popout=budget");
+    const dialog = await openEdit();
+    expect(dialog.queryByRole("button", { name: simName() })).toBeNull();
   });
 });
 

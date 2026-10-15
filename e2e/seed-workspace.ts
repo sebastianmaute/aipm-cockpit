@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-// Real sample workspace (27 tasks, RAID, budgets, milestones, …) — gives the
+// Real sample workspace (35 tasks, RAID, budgets, milestones, …) — gives the
 // a11y/nav specs realistic data so colour-coded states (RAG amber/red, budget
 // over/under, completed-task greens, etc.) actually render and get scanned.
 const SAMPLE_WORKSPACE = JSON.parse(
@@ -333,6 +333,5 @@ export const SEED_UNSEEDED_BY_DESIGN: Readonly<Record<string, string>> = {
   fieldVisibility: "per-project field hiding; absent means every field shows, the state the specs assert on",
   features: "per-project module switches; absent means the defaults, which the navigation specs rely on",
   settingsOverrides: "per-project settings overrides; absent means the device settings the specs set up",
-  forecastHistory: "per-project daily forecast history (§502); recorded while the simulation is on, so absent means no day has been recorded and the specs see an empty trend",
   baselineHistory: "per-project baseline-currency switches (§476); absent means no switch was ever confirmed, so no stored figure is rebased and the budget specs' authored figures stay as they are",
 };

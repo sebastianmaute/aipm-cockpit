@@ -231,9 +231,9 @@ describe("ProjectsPanel", () => {
     }) as HTMLInputElement;
     expect(nameInput.value).toBe("Apollo");
 
-    // Edit-mode submit button uses the "Edit project" label.
+    // Edit-mode submit button uses the "Save" label.
     fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Edit project" }),
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }),
     );
     expect(onUpdateCurrent).toHaveBeenCalledTimes(1);
     expect(onUpdateCurrent.mock.calls[0][0].name).toBe("Apollo");
@@ -244,7 +244,7 @@ describe("ProjectsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
     const dialog = within(screen.getByRole("dialog"));
     fireEvent.click(dialog.getByRole("checkbox", { name: t("en-US", "navMilestones") }));
-    fireEvent.click(dialog.getByRole("button", { name: "Edit project" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Save" }));
     expect(onUpdateCurrent).toHaveBeenCalledTimes(1);
     expect(onCommitFeatures).toHaveBeenCalledTimes(1);
     const next = onCommitFeatures.mock.calls[0][0] as string[];
@@ -255,10 +255,36 @@ describe("ProjectsPanel", () => {
     const { onUpdateCurrent, onCommitFeatures } = setup();
     fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
     fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", { name: "Edit project" }),
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }),
     );
     expect(onUpdateCurrent).toHaveBeenCalledTimes(1);
     expect(onCommitFeatures).not.toHaveBeenCalled();
+  });
+
+  // §502 — the Monte Carlo switch rides the same Save as the functions.
+  it("Save with the switch toggled calls onCommitSimulation with the new value (§502)", () => {
+    const onCommitSimulation = vi.fn();
+    setup({ simulation: false, onCommitSimulation });
+    fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.click(dialog.getByRole("button", { name: new RegExp(t("en-US", "simulationShow")) }));
+    fireEvent.click(dialog.getByRole("button", { name: "Save" }));
+    expect(onCommitSimulation).toHaveBeenCalledTimes(1);
+    expect(onCommitSimulation).toHaveBeenCalledWith(true);
+  });
+
+  it("Save with the switch untouched never calls onCommitSimulation (§502)", () => {
+    const onCommitSimulation = vi.fn();
+    setup({ simulation: true, onCommitSimulation });
+    fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
+    expect(onCommitSimulation).not.toHaveBeenCalled();
+  });
+
+  it("hides the switch when no onCommitSimulation is wired (§502)", () => {
+    setup({ simulation: true });
+    fireEvent.click(screen.getByRole("button", { name: "Edit project" }));
+    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: new RegExp(t("en-US", "simulationShow")) })).toBeNull();
   });
 
   // §706 — Settings -> Functions deep-links here. The view switch MOUNTS the panel fresh, so a pending

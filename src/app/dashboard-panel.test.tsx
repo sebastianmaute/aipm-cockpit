@@ -1637,6 +1637,22 @@ describe("DashboardPanel currency labelling", () => {
     expect(banner.closest('[class~="hidden"][class~="print:block"]')).not.toBeNull();
   });
 
+  // §502 — the "Use Monte Carlo forecasting" switch sits directly left of Open in Budget, in both layouts.
+  it.each([
+    ["a drawable chart", ratedBudget],
+    ["no budget to draw", []],
+  ] as const)("puts the simulation switch directly left of Open in Budget with %s", (_label, budgets) => {
+    const shown = showForecastView();
+    try {
+      renderUsdDashboard(vi.fn(), [...budgets]);
+      const tile = screen.getByTestId("tile-burn");
+      expect(within(tile).getByRole("button", { name: new RegExp(t(EN, "simulationShow")) })).toBeInTheDocument();
+      expectButtonOrder(["simulationShow", "dashboardOpenBudget"], { contiguous: true });
+    } finally {
+      shown.mockRestore();
+    }
+  });
+
   it("offers no Open in Budget button without navigation (a popout)", () => {
     renderUsdDashboard();
     expect(screen.getByRole("radiogroup", { name: "Chart orientation" })).toBeInTheDocument();
@@ -1787,9 +1803,9 @@ describe("DashboardPanel simulation switch", () => {
     expect(screen.getByTestId("sim-probe")).toHaveTextContent("false|true");
   });
 
-  it("sits before the trailing Print group", () => {
+  it("sits in the Budget burn tile, not in the toolbar stack", () => {
     render(<DashboardPanel {...fullProps} projectId="p-sim-order" />, { wrapper });
-    expectButtonOrder(["simulationShow", "printHint"]);
+    expect(within(screen.getByTestId("tile-burn")).getByRole("button", { name: new RegExp(simName()) })).toBeInTheDocument();
     expectButtonOrder(["printHint", "arrangementResetLayout", "tableResetSizeHint"], { contiguous: true });
   });
 

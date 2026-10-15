@@ -8,5 +8,9 @@ export const DEMO_AS_OF = "2026-09-18";
 
 export function buildDemoWorkspace(raw: unknown, today: string): Workspace {
   const ws = jsonToWorkspace(JSON.stringify(raw), { strict: true });
-  return shiftWorkspaceDates(ws, demoShiftFor(DEMO_AS_OF, today, ws.plan.granularity));
+  const shifted = shiftWorkspaceDates(ws, demoShiftFor(DEMO_AS_OF, today, ws.plan.granularity));
+  // The shift moves whole months (or weeks), so the master's latest forecast-history days (§502) can
+  // land after the real today. A recorded forecast from the future is impossible: drop those days.
+  const history = shifted.forecastHistory?.filter((e) => e.date <= today);
+  return history === undefined ? shifted : { ...shifted, forecastHistory: history };
 }

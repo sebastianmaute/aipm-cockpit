@@ -10,6 +10,15 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Changed
+
+- **Edit project saves with a Save button**, no longer a second "Edit project" label.
+- **New project offers Import workspace file on its first window**, beside Skip, so importing a saved project
+  no longer needs Skip first. With AI off it stays on the details step, which is then the first window.
+- **The demo project has more recent history (§502).** Eight more tasks, finished ones from July to
+  September and two open ones before Rollout, and tasks linked to the open milestones, so the demo has enough
+  recent completions to forecast from. The demo still opens with simulation off.
+
 ### Fixed
 
 - **A project created on Turso storage while the app was still using local projects now opens as itself (§740).**
@@ -20,7 +29,7 @@ longer carries its own changelog comment.
 ### Notes
 
 - **The Dashboard simulation is built but held back with the forecast (§502, part 1).** An optional,
-  per-project "Show simulation" switch on the Dashboard adds simulated KPI cells (the P80 finish date and the
+  per-project "Use Monte Carlo forecasting" switch, in the Dashboard's Budget burn tile and in Edit project, adds simulated KPI cells (the P80 finish date and the
   chance of finishing by the plan end), each marked as simulated and able to explain itself, and keeps one
   forecast per day for later comparison. It stays hidden while the Forecast view is held back, and appears
   with it.

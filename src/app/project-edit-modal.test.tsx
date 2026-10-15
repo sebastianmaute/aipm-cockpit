@@ -57,13 +57,10 @@ describe("ProjectEditModal", () => {
     );
     expect(screen.getByDisplayValue("Apollo")).toBeInTheDocument();
     // Headline claim: the WRITE direction reaches the caller.
-    // ★★ EXACT name, never the unanchored /edit project/i this used to carry.
-    // The header now renders a help icon named "Help – Edit project"
-    // (`MODAL_HELP.projectEdit`), built from the SAME `projectsEdit` string the
-    // submit wears — so a substring match finds two buttons and the query
-    // throws. An RTL string `name` is a whole-string match, so this selects the
-    // submit alone, and composing it from the i18n key keeps a DE run resolving.
-    await user.click(screen.getByRole("button", { name: t("en-US", "projectsEdit") }));
+    // ★★ EXACT name: the submit reads "Save" (`projectEditSave`), and an RTL string `name` is a
+    // whole-string match, so no other button containing "Save" can be selected by accident.
+    // Composing it from the i18n key keeps a DE run resolving.
+    await user.click(screen.getByRole("button", { name: t("en-US", "projectEditSave") }));
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ name: "Apollo", code: "APL" });
   });
@@ -92,7 +89,7 @@ describe("ProjectEditModal", () => {
     );
     return { onSubmit, onCancel };
   }
-  const saveButton = () => screen.getByRole("button", { name: t("en-US", "projectsEdit") });
+  const saveButton = () => screen.getByRole("button", { name: t("en-US", "projectEditSave") });
 
   test("toggling a function then Save submits the meta and the new set", async () => {
     const user = userEvent.setup();
@@ -172,5 +169,87 @@ describe("ProjectEditModal", () => {
     for (const id of ALL_MODULE_IDS) {
       expect(screen.getByRole("checkbox", { name: labelOf(id) })).toBeChecked();
     }
+  });
+
+  // --- §502: the Monte Carlo switch ----------------------------------------------
+  const simSwitch = () => screen.getByRole("button", { name: new RegExp(t("en-US", "simulationShow")) });
+
+  test("without a simulation prop there is no Forecasting section (held back, or a popout)", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEdit();
+    expect(screen.queryByRole("group", { name: t("en-US", "editProjectForecastHeading") })).toBeNull();
+    expect(screen.queryByRole("button", { name: new RegExp(t("en-US", "simulationShow")) })).toBeNull();
+    await user.click(saveButton());
+    expect(onSubmit.mock.calls[0][2]).toBeNull();
+  });
+
+  test("the switch is a Forecasting field directly after Project manager, seeded from the stored value", () => {
+    renderEdit({ simulation: true });
+    const field = screen.getByRole("group", { name: t("en-US", "editProjectForecastHeading") });
+    expect(field).toContainElement(simSwitch());
+    expect(simSwitch()).toHaveAttribute("aria-pressed", "true");
+    // The grid cell beside Project manager: the PM field's wrapper is the field's previous sibling.
+    const pm = screen.getByRole("textbox", { name: new RegExp(`^${t("en-US", "projectManager")}`) });
+    expect(field.previousElementSibling).toContainElement(pm);
+    // The toggle keeps its own name; a <label> caption would have replaced it.
+    expect(simSwitch()).toHaveAccessibleName(new RegExp(`^${t("en-US", "simulationShow")}`));
+  });
+
+  test("toggling the switch then Save submits the new value", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEdit({ simulation: false });
+    await user.click(simSwitch());
+    expect(simSwitch()).toHaveAttribute("aria-pressed", "true");
+    await user.click(saveButton());
+    expect(onSubmit.mock.calls[0][2]).toBe(true);
+  });
+
+  test("Save with the switch untouched, or toggled back, submits null for it", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEdit({ simulation: true });
+    await user.click(simSwitch());
+    await user.click(simSwitch());
+    await user.click(saveButton());
+    expect(onSubmit.mock.calls[0][2]).toBeNull();
+  });
+
+  test("toggling the switch then Cancel submits nothing", async () => {
+    const user = userEvent.setup();
+    const { onSubmit, onCancel } = renderEdit({ simulation: false });
+    await user.click(simSwitch());
+    await user.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  // Review finding: the stored switch can change while the dialog is open (another tab, the AI).
+  // An untouched switch must not write the value seen at open back over it.
+  test("a stored change while open survives a Save that left the switch untouched", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const props = {
+      lang: "en-US" as const, initial: META, stakeholderNames: [], addressBook: [], resources: [],
+      features: FEATURES, sizeKey: "test:pem", onSubmit, onCancel: vi.fn(),
+    };
+    const { rerender } = render(<ProjectEditModal {...props} simulation={false} />);
+    rerender(<ProjectEditModal {...props} simulation={true} />);
+    await user.click(saveButton());
+    expect(onSubmit.mock.calls[0][2]).toBeNull();
+  });
+
+  // Same class for the Functions: an untouched list must not write the open-time set back.
+  test("a functions change while open survives a Save that left the Functions untouched", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const props = {
+      lang: "en-US" as const, initial: META, stakeholderNames: [], addressBook: [], resources: [],
+      sizeKey: "test:pem", onSubmit, onCancel: vi.fn(),
+    };
+    const { rerender } = render(<ProjectEditModal {...props} features={FEATURES} />);
+    rerender(<ProjectEditModal {...props} features={[...FEATURES, "milestones"]} />);
+    // Positive control: the list still shows the set seen at open.
+    expect(screen.getByRole("checkbox", { name: labelOf("milestones") })).not.toBeChecked();
+    await user.click(saveButton());
+    expect(onSubmit.mock.calls[0][1]).toBeNull();
   });
 });

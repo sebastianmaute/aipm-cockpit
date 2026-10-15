@@ -29,6 +29,14 @@
 | 25 | MVP demo to the customer | Maya Patel | maya.patel@example.com | 2026-07-13 | 2026-07-17 | 2026-08-21 | 2026-06-01 | Medium | Done |  |  | 2026-08-21 | 0 | MVP | governance | FS:24 |  |  |  |  |  | 4 | 480 | 480 |  |  |  |  | [{"id":1,"timestamp":"2026-07-14T09:00:00.000Z","html":"<p>Demo moved to August with the customer's agreement while the SDK is late.</p>","text":"Demo moved to August with the customer's agreement while the SDK is late.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
 | 26 | Pilot cohort selection | Ava Thompson | ava.thompson@example.com | 2026-08-03 | 2026-08-28 | 2026-08-27 | 2026-07-27 | Medium | Done |  |  | 2026-08-27 | 0 | MVP | pilot |  |  |  |  |  |  | 3 | 960 | 900 |  |  |  |  |  |  |
 | 27 | Pilot customer comms pack | Maya Patel | maya.patel@example.com | 2026-08-31 | 2026-09-11 | 2026-09-15 | 2026-08-24 | Medium | In Progress |  |  |  | 0 | MVP | pilot\|comms | FS:26 |  |  |  |  |  | 4 | 1440 | 600 |  |  |  |  |  |  |
+| 28 | Login pages accessibility check | Maya Patel | maya.patel@example.com | 2026-07-13 | 2026-07-21 | 2026-07-22 | 2026-07-06 | Medium | Done |  |  | 2026-07-22 | 0 | Auth Migration | accessibility |  |  |  |  |  |  | 4 | 600 | 660 |  |  |  |  |  |  |
+| 29 | Session timeout policy | Noah Bennett | noah.bennett@example.com | 2026-08-10 | 2026-08-14 | 2026-08-18 | 2026-07-27 | Medium | Done |  |  | 2026-08-18 | 0 | Auth Migration | security |  |  |  |  |  |  | 2 | 480 | 540 |  |  |  |  |  |  |
+| 30 | Pilot environment provisioning | Liam Foster | liam.foster@example.com | 2026-08-24 | 2026-09-01 | 2026-09-02 | 2026-08-10 | High | Done |  |  | 2026-09-02 | 0 | MVP | pilot |  |  |  |  |  |  | 5 | 960 | 1020 |  |  |  |  |  |  |
+| 31 | Monthly steering report (August) | Sofia Ramirez | sofia.ramirez@example.com | 2026-09-01 | 2026-09-04 | 2026-09-04 | 2026-08-28 | Low | Done |  |  | 2026-09-04 | 0 | Operations | reporting |  |  |  |  |  |  | 1 | 240 | 240 |  |  |  |  |  |  |
+| 32 | Pilot support runbook | Ava Thompson | ava.thompson@example.com | 2026-09-01 | 2026-09-08 | 2026-09-09 | 2026-08-17 | Medium | Done |  |  | 2026-09-09 | 0 | MVP | pilot |  |  |  |  |  |  | 3 | 720 | 780 |  |  |  |  |  |  |
+| 33 | Password reset flow | Maya Patel | maya.patel@example.com | 2026-09-02 | 2026-09-11 | 2026-09-15 | 2026-08-17 | High | Done |  |  | 2026-09-15 | 0 | MVP | pilot |  |  |  |  |  |  | 4 | 1440 | 1560 |  |  |  |  |  |  |
+| 34 | Pilot feedback fixes | Noah Bennett | noah.bennett@example.com | 2026-10-26 | 2026-11-13 | 2026-09-14 | 2026-09-14 | High | To Do |  |  |  | 0 | MVP | pilot |  |  |  |  |  |  | 2 | 1920 |  |  |  |  |  |  |  |
+| 35 | Hypercare plan | Liam Foster | liam.foster@example.com | 2026-11-09 | 2026-11-27 | 2026-09-14 | 2026-09-14 | Medium | To Do |  |  |  | 0 | Operations | rollout |  |  |  |  |  |  | 5 | 960 |  |  |  |  |  |  |  |
 
 # RAID Log
 
@@ -149,11 +157,11 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
 | ID | Name | Date | Description | Achieved | LinkedTasks | LocalModified | KnowledgeLinks | OutlookEventId | CalendarOptOut |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Design Sign-off | 2026-05-29 |  | 2026-06-02 | 22 |  | [{"id":"dl-4","name":"Design Sign-off Minutes.docx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Design-Signoff-Minutes.docx","kind":"file"}] |  | true |
-| 2 | Pilot Go-Live | 2026-10-23 | <p>Pilot go-live for the first customer cohort. Entry criteria are a green regression cycle and a completed hypercare rehearsal; the four-hour maintenance window is already agreed with comms.</p><p><em>Not</em> a go/no-go gate for MFA — that rides the change request.</p> |  |  |  |  |  |  |
-| 3 | Rollout | 2026-12-11 |  |  |  |  |  |  |  |
+| 2 | Pilot Go-Live | 2026-10-23 | <p>Pilot go-live for the first customer cohort. Entry criteria are a green regression cycle and a completed hypercare rehearsal; the four-hour maintenance window is already agreed with comms.</p><p><em>Not</em> a go/no-go gate for MFA — that rides the change request.</p> |  | 4\|5\|6\|27\|7\|8 |  |  |  |  |
+| 3 | Rollout | 2026-12-11 |  |  | 10\|34\|35 |  |  |  |  |
 | 4 | Kickoff | 2026-03-06 |  | 2026-03-06 | 15 |  |  |  |  |
 | 5 | MVP target | 2026-07-17 | <p>First customer on self-registration through the vendor SDK. Slipped from 17 July to 21 August while the vendor's SDK was late (RAID #14).</p> | 2026-08-21 | 23\|24\|25 |  |  |  |  |
-| 6 | Closure | 2027-02-26 |  |  |  |  |  |  |  |
+| 6 | Closure | 2027-02-26 |  |  | 9\|12 |  |  |  |  |
 
 ## Changes
 
@@ -876,6 +884,48 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
       "Hypercare on-call rota"
     ],
     "actor": "user"
+  }
+]
+```
+
+## Forecast History
+
+```json
+[
+  {
+    "date": "2026-08-21",
+    "p50": "2026-11-03",
+    "p80": "2026-11-24",
+    "p95": "2026-12-16",
+    "chanceOnTime": 0.9999
+  },
+  {
+    "date": "2026-08-28",
+    "p50": "2026-12-10",
+    "p80": "2027-01-04",
+    "p95": "2027-01-28",
+    "chanceOnTime": 0.9908
+  },
+  {
+    "date": "2026-09-04",
+    "p50": "2026-11-25",
+    "p80": "2026-12-15",
+    "p95": "2027-01-06",
+    "chanceOnTime": 0.9994
+  },
+  {
+    "date": "2026-09-11",
+    "p50": "2026-11-25",
+    "p80": "2026-12-15",
+    "p95": "2027-01-04",
+    "chanceOnTime": 0.9996
+  },
+  {
+    "date": "2026-09-18",
+    "p50": "2026-12-03",
+    "p80": "2026-12-21",
+    "p95": "2027-01-11",
+    "chanceOnTime": 0.9993
   }
 ]
 ```

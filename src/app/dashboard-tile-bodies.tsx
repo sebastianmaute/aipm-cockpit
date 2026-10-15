@@ -106,6 +106,9 @@ export interface TileBodyArgs {
   simulationGap?: KpiSimulationGap;
   /** Opens Help at a concept id; the simulated cells' explainers link to it. */
   onOpenHelp?: (conceptId: string) => void;
+  /** The "Use Monte Carlo forecasting" switch (§502), placed left of "Open in Budget" in the burn
+   *  tile. Built by the panel, which owns its intro anchor; absent in a popout and while held back. */
+  simSwitch?: ReactNode;
   /** Currency label for the burn-down axis — the baseline (`plan.currency`): the engine's burn-down series
    *  is `budgetHours × role.rates.external` and converts nothing — see the
    *  `currency` argument in `dashboard-panel.tsx`. */
@@ -144,9 +147,16 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
   // The Budget burn tile's way to the full Budget view, with or without a chart to draw. Only
   // where navigation is wired, so never in a popout.
   const openBudget = a.onNavigate && (
-    <Button variant="secondary" size="xs" className="ml-auto" onClick={() => a.onNavigate!("budget")}>
+    <Button variant="secondary" size="xs" onClick={() => a.onNavigate!("budget")}>
       {t(lang, "dashboardOpenBudget")}<span aria-hidden="true"> →</span>
     </Button>
+  );
+  // The simulation switch sits directly left of "Open in Budget"; the pair is pushed right as one.
+  const burnActions = (a.simSwitch || openBudget) && (
+    <div className="ml-auto flex flex-wrap items-center gap-2">
+      {a.simSwitch}
+      {openBudget}
+    </div>
   );
 
   return {
@@ -216,10 +226,10 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
           currency={a.currency}
           compact
           // Undefined when neither control renders, so the panel draws no empty row.
-          toolbarEnd={isChainBroken(model.bucketChain) || openBudget ? (
+          toolbarEnd={isChainBroken(model.bucketChain) || burnActions ? (
             <>
               <BurndownChainChip lang={lang} chain={model.bucketChain} />
-              {openBudget}
+              {burnActions}
             </>
           ) : undefined}
         />
@@ -227,7 +237,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
     ) : (
       // The button on its own row above the line, as the panel places it when neither unit has a budget.
       <div className="flex flex-col gap-2">
-        {openBudget && <div className="flex flex-wrap items-center gap-2 print:hidden">{openBudget}</div>}
+        {burnActions && <div className="flex flex-wrap items-center gap-2 print:hidden">{burnActions}</div>}
         <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
       </div>
     ),

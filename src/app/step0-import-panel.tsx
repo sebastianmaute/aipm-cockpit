@@ -60,6 +60,8 @@ export interface Step0ImportPanelProps {
    *  `ignored` names any other file(s) dropped in the same multi-upload —
    *  a workspace file is imported on its own. */
   onImportWorkspace: (ws: Workspace, fileName: string, ignored: string[]) => void;
+  /** Rendered right of Skip in the pinned footer (the wizard's workspace-import picker). */
+  afterSkip?: React.ReactNode;
 }
 
 export function Step0ImportPanel({
@@ -70,6 +72,7 @@ export function Step0ImportPanel({
   onIngest,
   onResetAi,
   onSkip,
+  afterSkip,
   onCancel,
   onImportWorkspace,
 }: Step0ImportPanelProps) {
@@ -437,6 +440,7 @@ export function Step0ImportPanel({
           <Button variant="secondary" onClick={() => { onResetAi(); onSkip(); }}>
             {t(lang, "aiCreateSkip")}
           </Button>
+          {afterSkip}
         </div>
         <div className="flex gap-2">
           {onCancel && (

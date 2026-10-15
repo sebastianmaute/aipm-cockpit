@@ -289,6 +289,11 @@ chance on time; the dated history it records is the input to later surfaces. Fil
   (`src/app/forecast-history-persistence.test.ts` pins the round trips). One entry per day (`date`, `p50`,
   `p80`, `p95`, `chanceOnTime`); `sanitizeForecastHistory` drops malformed rows, keeps the LAST per date and
   sorts; `upsertForecastHistory` is immutable.
+- **The sample master carries history.** `sample-workspace-small.json` holds weekly `forecastHistory` entries up to
+  `DEMO_AS_OF`, computed by the real engine over the tasks as they stood on each day, and its open milestones link
+  tasks so the demo shows one milestone below 50 %, one borderline and one safe. ★ The demo shift moves whole
+  months, so `buildDemoWorkspace` drops entries that land after the real today. `scaleWorkspace` copies the
+  series unreplicated, so the big and huge samples' live forecast does not match it. The switch stays OFF in the data.
 - **The recorder** (`use-forecast-history-recorder.ts`) is called from inside `useInsightLifecycle`, not from
   `task-manager.tsx` (no size-ratchet headroom). It writes only when the switch is on AND `hydrated`,
   not `isPopout`, not `loadPending` (§548), `holidaysReady` and the forecast is sufficient. ★★★ WHETHER to
@@ -398,11 +403,16 @@ runs the same `clampWhatIf`, which is idempotent).
 ★★ Every part-1 simulation surface is gated on `isSimulationActive(overrides, features)`
 (`forecast-simulation.ts`) = `isViewEnabled("forecast", features)` AND the stored switch, so a release that
 hides the Forecast view cannot show simulated numbers with no view behind them. The gated surfaces: the
-Dashboard toolbar switch, the simulated KPI cells and the intro (`dashboard-panel.tsx`), the daily recorder
+simulated KPI cells and the intro (`dashboard-panel.tsx`), the daily recorder
 (`use-forecast-history-recorder.ts`, fed `features` by `useInsightLifecycle`), and the Help entry
 `FORECAST_SIM_HELP_ID` with its reopen action (`help-view.tsx`, via `HelpContentPane`'s `hiddenEntryIds`).
 `isSimulationOn` stays the RAW stored read for the writer: the stored value is never touched, so showing the
 view again restores the user's choice. A new part-1 surface must read the helper, never `isSimulationOn`.
+★ The two WRITER surfaces are the exception, because they must show the switch while it is off: the burn-tile
+switch (`dashboard-panel.tsx`) and the Edit project "Forecasting" field (`project-edit-modal.tsx`, wired in
+`workspace-section.tsx`) gate on `isViewEnabled("forecast", features)` alone (plus not-popout) and write
+from the raw `isSimulationOn`. The burn-tile switch's pressed state reads `isSimulationActive`, which equals
+the raw value wherever that switch renders; the Edit project field seeds from the raw value.
 ★ `HelpContentPane` has TWO hosts (`help-view.tsx` and the floating `help-menu.tsx`); both pass
 `hiddenHelpEntryIds(features)`, which also filters search hits and Related links. `help-icon-button.tsx` and
 `view-callouts.ts` resolve concept ids straight from `HELP_ENTRIES`, so a new link to the simulation entry from
