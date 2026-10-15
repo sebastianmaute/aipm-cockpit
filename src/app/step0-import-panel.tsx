@@ -61,7 +61,7 @@ export interface Step0ImportPanelProps {
    *  a workspace file is imported on its own. */
   onImportWorkspace: (ws: Workspace, fileName: string, ignored: string[]) => void;
   /** Rendered right of Skip in the pinned footer (the wizard's workspace-import picker). */
-  footerStart?: React.ReactNode;
+  afterSkip?: React.ReactNode;
 }
 
 export function Step0ImportPanel({
@@ -72,7 +72,7 @@ export function Step0ImportPanel({
   onIngest,
   onResetAi,
   onSkip,
-  footerStart,
+  afterSkip,
   onCancel,
   onImportWorkspace,
 }: Step0ImportPanelProps) {
@@ -440,7 +440,7 @@ export function Step0ImportPanel({
           <Button variant="secondary" onClick={() => { onResetAi(); onSkip(); }}>
             {t(lang, "aiCreateSkip")}
           </Button>
-          {footerStart}
+          {afterSkip}
         </div>
         <div className="flex gap-2">
           {onCancel && (

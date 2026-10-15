@@ -713,6 +713,25 @@ describe("CreateProjectWizard AI Step 0", () => {
     expect(screen.queryByText(msg)).toBeNull();
   });
 
+  // Review finding: Generate also leaves Step 0, and the picker's error must not follow it.
+  it("clears a Step-0 import error when Generate advances to Step 1", async () => {
+    generateMock.mockResolvedValue({ meta: { name: "Proposed Project" }, features: [], seed: undefined });
+    renderWithKey();
+    const picker = screen
+      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
+      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(picker, { target: { files: [new File(["{ not json"], "bad.json", { type: "application/json" })] } });
+    const msg = t("en-US", "wizardImportWorkspaceInvalid", "bad.json");
+    expect(await screen.findByText(msg)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(t("en-US", "aiCreateDescribeLabel")), {
+      target: { value: "a crm project" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateGenerate") }));
+    // Positive control: this IS Step 1, carrying the proposal.
+    await waitFor(() => expect(screen.getByDisplayValue("Proposed Project")).toBeInTheDocument());
+    expect(screen.queryByText(msg)).toBeNull();
+  });
+
   it("hides SharePoint without M365 and Confluence without Jira config", () => {
     // defaultSettings: M365 disabled + no jira creds.
     renderWithKey();

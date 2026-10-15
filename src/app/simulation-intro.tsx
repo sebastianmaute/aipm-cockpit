@@ -17,8 +17,8 @@ interface SimulationIntroProps {
   anchorRef?: RefObject<HTMLElement | null>;
 }
 
-/** One-time, NON-modal note shown under the Dashboard toolbar when the
- *  "Show simulation" switch is first turned on. No focus trap; Escape dismisses
+/** One-time, NON-modal note shown at the top of the Dashboard when the
+ *  "Use Monte Carlo forecasting" switch (burn tile) is first turned on. No focus trap; Escape dismisses
  *  it only while focus is inside it, on its anchor (or nowhere), so it never steals the key
  *  from a field the user is typing in. Escape is "Got it". */
 export function SimulationIntro({ lang, onGotIt, onShowMe, anchorRef }: SimulationIntroProps) {

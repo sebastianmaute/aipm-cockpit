@@ -221,4 +221,19 @@ describe("ProjectEditModal", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onSubmit).not.toHaveBeenCalled();
   });
+
+  // Review finding: the stored switch can change while the dialog is open (another tab, the AI).
+  // An untouched switch must not write the value seen at open back over it.
+  test("a stored change while open survives a Save that left the switch untouched", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const props = {
+      lang: "en-US" as const, initial: META, stakeholderNames: [], addressBook: [], resources: [],
+      features: FEATURES, sizeKey: "test:pem", onSubmit, onCancel: vi.fn(),
+    };
+    const { rerender } = render(<ProjectEditModal {...props} simulation={false} />);
+    rerender(<ProjectEditModal {...props} simulation={true} />);
+    await user.click(saveButton());
+    expect(onSubmit.mock.calls[0][2]).toBeNull();
+  });
 });

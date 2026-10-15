@@ -123,12 +123,15 @@ export function ProjectEditModal({
   lang, initial, stakeholderNames, addressBook, resources, features, focusFunctions, simulation, sizeKey, onSubmit, onCancel,
 }: ProjectEditModalProps) {
   const [draft, setDraft] = useState<FeatureModuleId[]>(() => [...features]);
-  const [simDraft, setSimDraft] = useState(simulation === true);
+  // Compared against the value seen at OPEN, not the live prop: a write elsewhere while the dialog
+  // is open (another tab, the AI) must survive a Save that left the switch untouched.
+  const [simAtOpen] = useState(simulation === true);
+  const [simDraft, setSimDraft] = useState(simAtOpen);
   const handleSubmit = (meta: ProjectMeta) =>
     onSubmit(
       meta,
       sameFeatureSet(draft, features) ? null : ALL_MODULE_IDS.filter((id) => draft.includes(id)),
-      simulation === undefined || simDraft === simulation ? null : simDraft,
+      simulation === undefined || simDraft === simAtOpen ? null : simDraft,
     );
   return (
     <ProjectModalShell lang={lang} title={t(lang, "projectsEdit")} sizeKey={sizeKey} onClose={onCancel}>
