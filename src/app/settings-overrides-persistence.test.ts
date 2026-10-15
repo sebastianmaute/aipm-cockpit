@@ -13,6 +13,7 @@ import { workspaceToMarkdown, markdownToWorkspace } from "./markdown-codecs";
 import type { SettingsOverrides } from "./settings-types";
 
 const SAMPLE_OVERRIDES: SettingsOverrides = {
+  forecast: { showSimulation: true },
   nextActions: { scopePendingRed: 8, staticPenalty: 30 },
   notifications: { dueSoonWorkdays: 5, birthday: { enabled: false, leadDays: 10 } },
   timezone: { timezone: "Europe/Berlin", additionalTimezones: ["UTC", "America/New_York"] },

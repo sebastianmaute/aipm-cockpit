@@ -526,6 +526,8 @@ export interface SettingsOverrides {
   nextActions?: Partial<NextActionsConfig>;
   notifications?: Partial<NotificationsConfig>;
   timezone?: { timezone?: string; additionalTimezones?: string[] };
+  /** Forecast simulation policy. Off is stored as ABSENCE, never `false`. */
+  forecast?: { showSimulation?: boolean };
 }
 
 export type LearningStoreKind = "local" | "turso";
