@@ -190,7 +190,7 @@ export function SimExplainer({
       >
         <span className="flex items-start justify-between gap-2">
           <span className="font-medium text-foreground">{t(lang, "simExplainerTitle")}</span>
-          <IconButton label={t(lang, "alertModalClose")} onClick={close} size="xs">
+          <IconButton label={t(lang, "alertModalClose")} title={t(lang, "alertModalClose")} onClick={close} size="xs">
             <XMarkIcon aria-hidden="true" className="h-3.5 w-3.5" />
           </IconButton>
         </span>
