@@ -96,6 +96,12 @@ describe("buildNewProjectWorkspace", () => {
       expect(ws.plan.startDate).toBe("2026-11-01");
       expect(ws.baselineHistory?.[0].from).toBe("2026-11-01");
     });
+
+    it("the day is read from the wizard's creation instant, not a later clock", () => {
+      vi.setSystemTime(new Date("2026-12-15T12:00:00.000Z")); // the create lands later than the wizard's click
+      const ws = buildNewProjectWorkspace(berlin, { baseline: { currency: "GBP", nowIso } });
+      expect(ws.plan.startDate).toBe("2026-11-01");
+    });
   });
 
   it("no currency (or EUR) → EUR plan and no baselineHistory", () => {

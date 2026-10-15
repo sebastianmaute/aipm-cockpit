@@ -45366,8 +45366,6 @@ Size S–M.
 
 **Opened:** OPEN 2026-10-14. `rematerializeDayBasisRoles` still maps day-basis roles through plain `materializeRoleRates` (`grep -n "materializeRoleRates(r, workdayHours)" src/app/role-rates.ts` → 1 hit), while the §476 switch and restore paths use `materializeDayBasisRole` (`grep -rln "materializeDayBasisRole(" src/app --include=*.ts | grep -v test` → 3 files).
 
-**Work item:** #734
-
 A change of workday hours sets the hourly rate to 0 on a day-basis role's side that has no day rate. `task-manager.tsx` calls `rematerializeDayBasisRoles(prev, workdayHoursNow)` on that change, and plain `materializeRoleRates` reads a missing `internalRateDay`/`externalRateDay` as 0 and derives the hourly from it. The sanitizer allows a day-basis role with one day field missing. Example: `{rateBasis:"day", internalRateDay:800, externalRate:150}` → after a workday-hours change `externalRate` is 0 and `externalRateDay` is 0.
 
 The baseline switch and version restore already avoid this (§476): a side with no day rate keeps its hourly rate and gets no invented day rate.
@@ -45385,8 +45383,6 @@ Size S.
 ★ The text below is the record as opened.
 
 **Opened:** OPEN 2026-10-14. `emptyWorkspace()` builds the plan from the UTC date (`grep -n "defaultResourcePlan(new Date().toISOString().slice(0, 10))" src/app/workspace.ts` → 2 hits: `emptyWorkspace()` and the `migrateWorkspaceV5` fallback for a workspace with no plan).
-
-**Work item:** #735
 
 `emptyWorkspace()` (`workspace.ts`) builds the plan with `defaultResourcePlan(new Date().toISOString().slice(0, 10))`. Between local midnight and the UTC day change (00:00–02:00 in Berlin in summer) that is yesterday's date. `buildNewProjectWorkspace` (`new-project-workspace.ts`) starts from `emptyWorkspace()`, and since §476 its creation `baselineHistory` entry takes `from: ws.plan.startDate`, so that entry carries the same early date.
 
