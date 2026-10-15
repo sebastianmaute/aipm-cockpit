@@ -1,5 +1,5 @@
 import type { TranslationKey } from "./i18n";
-import { isViewEnabled, type FeatureModuleId } from "./feature-modules";
+import { isViewEnabled, RELEASE_HIDDEN_VIEWS, type FeatureModuleId } from "./feature-modules";
 import type { StorageKind } from "./workspace";
 
 // Superset of the popout tab union (POPOUT_TABS in broadcast-sync.ts). "open-points"
@@ -201,7 +201,8 @@ export function filterNavGroups(
 /** The sub-tab children of the nav section that contains `view` (matched as the
  *  section's own view OR one of its children). Empty when the section has no
  *  children. Drives the classic layout's secondary sub-tab row.
- *  When `features` is supplied, children are filtered to enabled views only.
+ *  When `features` is supplied, children are filtered to enabled views only;
+ *  without it, RELEASE_HIDDEN_VIEWS are still dropped.
  *  `onTurso` (default true) gates TURSO_ONLY_VIEWS so e.g. the `trends` sub-entry
  *  is pruned on a file backend — mirroring `filterNavGroups` for the sidebar. */
 export function subTabsFor(
@@ -217,7 +218,7 @@ export function subTabsFor(
         const children = item.children ?? [];
         return children.filter(
           (c) =>
-            (!features || isViewEnabled(c.view, features)) &&
+            (features ? isViewEnabled(c.view, features) : !RELEASE_HIDDEN_VIEWS.includes(c.view)) &&
             (onTurso || !TURSO_ONLY_VIEWS.includes(c.view)),
         );
       }

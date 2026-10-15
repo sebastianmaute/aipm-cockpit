@@ -11,6 +11,9 @@ describe("disabled-view redirect rule (disabledViewRedirect)", () => {
   it("redirects a disabled view to dashboard when dashboard is on", () => {
     expect(disabledViewRedirect("raid", ["dashboard"], "modern", false)).toBe("dashboard");
   });
+  it("moves a stale Forecast tab off the release-hidden view, even with every module on", () => {
+    expect(disabledViewRedirect("forecast", ["dashboard", "budget"], "modern", false)).toBe("dashboard");
+  });
   it("falls back to open-points when dashboard is also off", () => {
     expect(disabledViewRedirect("raid", [], "modern", false)).toBe("open-points");
   });

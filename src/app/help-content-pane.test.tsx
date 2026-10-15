@@ -7,7 +7,9 @@ import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { stripHelpMarkers } from "./help-body-markup";
 import { TextButton } from "./text-button";
+import { navLabelKey } from "./nav-config";
 import { primitiveClassFor } from "../test/primitive-class";
+import { RELEASE_HIDDEN_VIEWS } from "./feature-modules";
 
 // jsdom has no IntersectionObserver; the scroll-spy effect only needs the
 // constructor to exist (the observer path itself is not exercised without
@@ -61,6 +63,17 @@ test("a Related view link fires onNavigateView", async () => {
   expect(links.length).toBeGreaterThan(0);
   await userEvent.click(links[0]);
   expect(onNavigateView).toHaveBeenCalled();
+});
+
+test("draws no Related link to a release-hidden view", () => {
+  const entry = HELP_ENTRIES.find((e) => e.id === "feature-reports");
+  expect(entry?.relatedViews).toContain("forecast");
+  render(<HelpContentPane lang="en-US" query="" onNavigateView={vi.fn()} />);
+  const section = document.getElementById(helpSectionId("feature-reports"));
+  if (!section) throw new Error("section not rendered");
+  const goTo = (view: "forecast" | "budget-report") => t("en-US", "helpRelationsGoToView", t("en-US", navLabelKey(view)));
+  expect(within(section).getByRole("button", { name: goTo("budget-report") })).toBeInTheDocument();
+  expect(within(section).queryByRole("button", { name: goTo("forecast") })).toBeNull();
 });
 
 // jsdom has no layout → the IntersectionObserver path is not exercised; we
@@ -187,7 +200,8 @@ test.each(["en-US", "de"] as const)("names every Related link within an entry di
   for (const e of withRelations) {
     const section = document.getElementById(helpSectionId(e.id));
     expect(section).not.toBeNull();
-    const links = (e.relatedConcepts ?? []).filter((rid) => HELP_ENTRIES.some((x) => x.id === rid)).length + (e.relatedViews?.length ?? 0);
+    const links = (e.relatedConcepts ?? []).filter((rid) => HELP_ENTRIES.some((x) => x.id === rid)).length
+      + (e.relatedViews ?? []).filter((v) => !RELEASE_HIDDEN_VIEWS.includes(v)).length;
     expectRowUniqueNames({ minControls: links, scope: section as HTMLElement });
   }
 });

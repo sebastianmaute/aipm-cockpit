@@ -84,12 +84,11 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 ## Reports
 
-<!-- views: reports,budget-report,raid-report,change-report,forecast -->
+<!-- views: reports,budget-report,raid-report,change-report -->
 
 - Composable budget, RAID, and change reports for sharing and export.
 - Layout and section ordering are user-configured per report.
-- Forecast: a Monte Carlo schedule forecast from completed-task throughput — when the open work finishes (P50/P80/P95), how many tasks fit by a date, and each milestone's chance; a What-if mode adjusts scope and capacity. Effort mode needs at least 70 % of open tasks estimated, and the view reports too little history (under 10 finished tasks) instead of guessing. Scope changes in What-if move the dates and the count but not the milestone chances. Its inputs are not saved to the project.
-- AI: can read the underlying records to answer questions; cannot change report layout (user UI action). No tool returns the Forecast's simulated dates or chances, so it must not quote them.
+- AI: can read the underlying records to answer questions; cannot change report layout (user UI action).
 
 ## RAID
 

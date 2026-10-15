@@ -649,6 +649,27 @@ describe("WorkspaceSection — budget forecast link wiring", () => {
     expect(document.getElementById("panel-budget-report")).toBeInTheDocument();
   });
 
+  // Mutation: dropping the `isViewEnabled("forecast", features)` guard renders the panel.
+  it("renders no Forecast panel while the view is release-hidden", () => {
+    function Go({ view }: { view: AppView }) {
+      const { setActiveTab } = useWorkspaceTab();
+      return <button data-testid={`go-${view}`} onClick={() => setActiveTab(view)} />;
+    }
+    render(
+      <>
+        <Go view="forecast" />
+        <Go view="change-report" />
+        <WorkspaceSection {...makeProps()} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("go-change-report"));
+    expect(document.getElementById("panel-change-report")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("go-forecast"));
+    expect(document.getElementById("panel-change-report")).not.toBeInTheDocument();
+    expect(document.getElementById("panel-forecast")).not.toBeInTheDocument();
+  });
+
   // Mutation: dropping the `isPopout ? undefined :` guard in
   // workspace-section.tsx turns this red.
   it("omits the callback in a popout", async () => {

@@ -6,6 +6,15 @@ and what is each milestone's **chance** of landing on its date. Slices 2–5 (sa
 tile, Gantt marker, AI tool) are open — see §502 in [`../open-followups.md`](../open-followups.md).
 Reproduce the file list: `ls src/app/forecast`.
 
+★★ **HELD BACK FROM THE RELEASE.** `"forecast"` sits in `RELEASE_HIDDEN_VIEWS` (`feature-modules.ts`), so
+`isViewEnabled` answers false for it in every mode: no sidebar entry, no Reports sub-tab, a `#forecast` hash
+is ignored, a stale active tab is redirected, `workspace-section.tsx` renders nothing for it, Help draws no
+"Go to Forecast" link and `e2e/a11y.spec.ts` skips its scans. The code and its unit tests stay live. To ship
+it: drop it from that list, then put back what the hiding commit took out of the user-facing text — find it
+with `git log -S RELEASE_HIDDEN_VIEWS --oneline` — namely its CHANGELOG "Added" entry, the Forecast
+sentence of `helpSecReportsBody` (EN and DE) and its lines in `lib/app-feature-guide.md` (then run
+`node scripts/gen-operating-guide.mjs`), and re-measure the scan count in `e2e/a11y.spec.ts`.
+
 ## Module map
 
 The engine lives in `src/app/forecast/` and is PURE and i18n-free: it returns numbers and codes, never

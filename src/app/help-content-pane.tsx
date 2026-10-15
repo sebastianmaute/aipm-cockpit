@@ -12,6 +12,7 @@ import { matchesQuery } from "./help-search";
 import { stripHelpMarkers } from "./help-body-markup";
 import { HelpBodyText, Highlighted } from "./help-body-text";
 import { navLabelKey, type AppView } from "./nav-config";
+import { RELEASE_HIDDEN_VIEWS } from "./feature-modules";
 import { INTERACTIVE } from "./interaction-styles";
 import { TextButton } from "./text-button";
 import { smoothScrollBehavior } from "./reduced-motion";
@@ -201,7 +202,7 @@ export function HelpContentPane({
                           </span>
                         );
                       })}
-                      {e.relatedViews?.map((v) =>
+                      {e.relatedViews?.filter((v) => !RELEASE_HIDDEN_VIEWS.includes(v)).map((v) =>
                         onNavigateView ? (
                           <TextButton
                             key={v}
