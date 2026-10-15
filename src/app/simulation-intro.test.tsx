@@ -1,3 +1,4 @@
+import { createRef } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -42,6 +43,37 @@ describe("SimulationIntro", () => {
     render(<SimulationIntro lang="en-US" onGotIt={onGotIt} onShowMe={vi.fn()} />);
     await userEvent.keyboard("{Escape}");
     expect(onGotIt).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SimulationIntro Escape ownership", () => {
+  it("dismisses while focus is on the anchor control", async () => {
+    const onGotIt = vi.fn();
+    const anchorRef = createRef<HTMLDivElement>();
+    render(
+      <>
+        <div ref={anchorRef}><button type="button">Anchor</button></div>
+        <SimulationIntro lang="en-US" onGotIt={onGotIt} anchorRef={anchorRef} />
+      </>,
+    );
+    screen.getByRole("button", { name: "Anchor" }).focus();
+    await userEvent.keyboard("{Escape}");
+    expect(onGotIt).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not take Escape from a text field elsewhere", async () => {
+    const onGotIt = vi.fn();
+    const anchorRef = createRef<HTMLDivElement>();
+    render(
+      <>
+        <div ref={anchorRef}><button type="button">Anchor</button></div>
+        <input aria-label="Elsewhere" />
+        <SimulationIntro lang="en-US" onGotIt={onGotIt} anchorRef={anchorRef} />
+      </>,
+    );
+    screen.getByRole("textbox", { name: "Elsewhere" }).focus();
+    await userEvent.keyboard("{Escape}");
+    expect(onGotIt).not.toHaveBeenCalled();
   });
 });
 

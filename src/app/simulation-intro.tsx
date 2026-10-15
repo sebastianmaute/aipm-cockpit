@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useCallback, useRef, type RefObject } from "react";
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
-import { useDismissable, useClaimsWhenFocusWithin } from "./use-dismissable";
+import { useDismissable } from "./use-dismissable";
 
 interface SimulationIntroProps {
   lang: Lang;
@@ -12,15 +12,23 @@ interface SimulationIntroProps {
   /** Open Help at the simulation entry. Absent where Help cannot be opened
    *  (a popout), in which case the button is not rendered. */
   onShowMe?: () => void;
+  /** The control that opened the note. Focus stays on it after the press, so
+   *  Escape must be claimed there too, or the note would decline its own key. */
+  anchorRef?: RefObject<HTMLElement | null>;
 }
 
 /** One-time, NON-modal note shown under the Dashboard toolbar when the
  *  "Show simulation" switch is first turned on. No focus trap; Escape dismisses
- *  it only while focus is inside it (or nowhere), so it never steals the key
- *  from a field the user is typing in. */
-export function SimulationIntro({ lang, onGotIt, onShowMe }: SimulationIntroProps) {
+ *  it only while focus is inside it, on its anchor (or nowhere), so it never steals the key
+ *  from a field the user is typing in. Escape is "Got it". */
+export function SimulationIntro({ lang, onGotIt, onShowMe, anchorRef }: SimulationIntroProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const claims = useClaimsWhenFocusWithin(ref);
+  // Read at event time, so the refs are live DOM reads (see `useDismissable`).
+  const claims = useCallback(() => {
+    const focused = document.activeElement;
+    if (focused === null || focused === document.body) return true;
+    return (ref.current?.contains(focused) ?? false) || (anchorRef?.current?.contains(focused) ?? false);
+  }, [anchorRef]);
   useDismissable({ open: true, kind: "layer", onDismiss: onGotIt, claims });
   return (
     <div

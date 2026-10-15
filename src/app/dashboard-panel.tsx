@@ -122,6 +122,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory, baselineHistory, settingsOverrides, setSettingsOverrides } = useWorkspace();
   const { settings, setSettings, hydrated: settingsHydrated } = useSettings();
   const simulationOn = isSimulationOn(settingsOverrides);
+  const simSwitchRef = useRef<HTMLDivElement>(null);
   const showSimulationIntro = simulationOn && settingsHydrated && !settings.simulationIntroSeen && !props.isPopout;
   // Hoisted above the `model` useMemo below: it depends on this, and it must
   // keep a stable identity when `props.snapshots` is absent so that memo
@@ -624,23 +625,26 @@ export function DashboardPanel(props: DashboardPanelProps) {
             />
           }
           controls={
-            // ★ `gap-2` here is MOVED, unchanged, from this same control stack
-            // before spec C — not a new literal (D7 binds new spacing to `dc.*`).
-            // ★ Two columns — Print | Reset layout, then Reset size | badge. Each
+            // ★ The "Show simulation" switch leads the stack (before the trailing Print
+            // group); its wrapper is the Escape anchor for the one-time intro, so Escape
+            // still dismisses the note while focus stays on the switch that opened it.
+            // ★ Below it, two columns — Print | Reset layout, then Reset size | badge. Each
             // control is PINNED to its cell: auto-placement would slide Reset size
             // up beside Print in a popout, where Reset layout and the badge are
             // absent. DOM order is unchanged, so Tab order still reads row by row.
-            <div className="flex shrink-0 flex-col items-end gap-2 self-start print:hidden">
+            <div className={`flex shrink-0 flex-col items-end ${dc.kpiGap} self-start print:hidden`}>
             {!props.isPopout && (
-              <ToggleButton
-                lang={lang}
-                pressed={simulationOn}
-                onToggle={() => setSettingsOverrides((prev) => withSimulation(prev, !isSimulationOn(prev)))}
-              >
-                {t(lang, "simulationShow")}
-              </ToggleButton>
+              <div ref={simSwitchRef}>
+                <ToggleButton
+                  lang={lang}
+                  pressed={simulationOn}
+                  onToggle={() => setSettingsOverrides((prev) => withSimulation(prev, !isSimulationOn(prev)))}
+                >
+                  {t(lang, "simulationShow")}
+                </ToggleButton>
+              </div>
             )}
-            <div className="grid shrink-0 grid-cols-[auto_auto] gap-2 print:hidden">
+            <div className="grid shrink-0 grid-cols-[auto_auto] gap-2">
               <div data-stack-cell className="col-start-1 row-start-1">
                 <PrintButton lang={lang} />
               </div>
@@ -680,6 +684,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
         {showSimulationIntro && (
           <SimulationIntro
             lang={lang}
+            anchorRef={simSwitchRef}
             onGotIt={() => setSettings((s) => ({ ...s, simulationIntroSeen: true }))}
             onShowMe={props.onOpenHelp ? () => props.onOpenHelp!(FORECAST_SIM_HELP_ID) : undefined}
           />

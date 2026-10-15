@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -1756,13 +1756,17 @@ describe("DashboardPanel simulation switch", () => {
     return <output data-testid="sim-probe">{String(isSimulationOn(settingsOverrides))}|{String(settingsOverrides === undefined)}</output>;
   }
   const simName = () => t(EN, "simulationShow");
+  // useSettings flips `hydrated` after a microtask; an absence check run before
+  // that is vacuous (the intro's hydration gate would hide it anyway).
+  const settleSettings = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
 
   afterEach(() => {
     localStorage.clear();
   });
 
-  it("renders an unpressed switch for a project with no override", () => {
+  it("renders an unpressed switch for a project with no override", async () => {
     render(<><DashboardPanel {...fullProps} projectId="p-sim-off" /><SimProbe /></>, { wrapper });
+    await settleSettings();
     const sw = screen.getByRole("button", { name: new RegExp(simName()) });
     expect(sw).toHaveAttribute("aria-pressed", "false");
     expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
@@ -1793,6 +1797,7 @@ describe("DashboardPanel simulation switch", () => {
   it("shows the intro once the switch turns on and Got it hides it for good", async () => {
     const user = userEvent.setup();
     const { unmount } = render(<DashboardPanel {...fullProps} projectId="p-sim-intro" />, { wrapper });
+    await settleSettings();
     expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
     await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
     expect(await screen.findByText(t(EN, "simulationIntroText"))).toBeInTheDocument();
@@ -1802,6 +1807,18 @@ describe("DashboardPanel simulation switch", () => {
     render(<DashboardPanel {...fullProps} projectId="p-sim-intro" />, { wrapper });
     await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
     expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+  });
+
+  it("Escape with focus left on the switch dismisses the intro like Got it", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-sim-esc" />, { wrapper });
+    await settleSettings();
+    await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
+    expect(await screen.findByText(t(EN, "simulationIntroText"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: new RegExp(simName()) })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+    expect(JSON.parse(localStorage.getItem("aipm-cockpit:settings") ?? "{}").simulationIntroSeen).toBe(true);
   });
 
   it("Show me opens Help at the simulation entry", async () => {
