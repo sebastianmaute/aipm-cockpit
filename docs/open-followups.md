@@ -45215,6 +45215,8 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Status:** OPEN 2026-10-14 — the timing is unit-tested (`grep -n "SPLASH_SLOW_MS = " desktop/src/lib/splash-status.ts` → 10 000 ms, driven with fake timers by `splash-status.test.ts`), but no test renders the packaged window.
 
+★ 2026-10-15: the owner installed a local build of `fix/738-739-rate-and-start-date` (`npm run desktop:build` then `npm run desktop:package`); the app started in under `SPLASH_SLOW_MS`, so the reassurance line could not be seen, and the check was postponed. The other three checks do not need a slow start.
+
 **Work item:** #720
 
 §705 added status text to the desktop splash: "Starting…" while the local service starts, a reassurance line after `SPLASH_SLOW_MS`, and "Opening…" once it is up. The unit tests cover the sequence; only a person looking at a packaged build can see the rest. The owner merged phase 1 (PR #706) on 2026-10-14 with this check deferred.
@@ -45378,7 +45380,7 @@ Size S.
 
 ## 739. A new project's plan start date is the UTC day, not the local day — CLOSED 2026-10-15
 
-**Status:** CLOSED 2026-10-15 on `fix/738-739-rate-and-start-date`. `buildNewProjectWorkspace` re-dates the plan from the local day: `todayInZone` in the project's operating zone, else the browser's (`resolveTimezone(undefined, meta.operatingTimezone)`), at the wizard's creation instant when it passes one, so the creation `baselineHistory` entry carries the same day. The case was worse than filed, and two-sided: `defaultResourcePlan` snaps to the first of the month, so whenever the UTC day and the local day fall in different months the plan is a whole MONTH off — early east of UTC (00:30 on the 1st in Berlin), late west of it (20:00 on 31 October in New York is already 1 November in UTC). Pinned in `new-project-workspace.test.ts` (Berlin, 00:30 on 1 November → plan starts 2026-11-01; red before the fix with 2026-10-01). ★ A per-device timezone override is not applied here (the builder has no settings); the project's own zone, then the browser's, decide. `emptyWorkspace()` and the `migrateWorkspaceV5` fallback keep the UTC day: both are blank fallbacks where no user picks a date.
+**Status:** CLOSED 2026-10-15 on `fix/738-739-rate-and-start-date`. `buildNewProjectWorkspace` re-dates the plan from the local day (`grep -n "defaultResourcePlan(localDay)" src/app/new-project-workspace.ts` → 1 hit): `todayInZone` in the project's operating zone, else the browser's (`resolveTimezone(undefined, meta.operatingTimezone)`), at the wizard's creation instant when it passes one, so the creation `baselineHistory` entry carries the same day. The case was worse than filed, and two-sided: `defaultResourcePlan` snaps to the first of the month, so whenever the UTC day and the local day fall in different months the plan is a whole MONTH off — early east of UTC (00:30 on the 1st in Berlin), late west of it (20:00 on 31 October in New York is already 1 November in UTC). Pinned in `new-project-workspace.test.ts` (Berlin, 00:30 on 1 November → plan starts 2026-11-01; red before the fix with 2026-10-01). ★ A per-device timezone override is not applied here (the builder has no settings); the project's own zone, then the browser's, decide. `emptyWorkspace()` and the `migrateWorkspaceV5` fallback keep the UTC day: both are blank fallbacks where no user picks a date.
 
 ★ The text below is the record as opened.
 
