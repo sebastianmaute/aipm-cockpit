@@ -3889,7 +3889,7 @@ const enUS = {
   demoCreatedLocallyToast: "Turso could not be reached, so the demo was created as a local project without Trends history.",
   demoTrendsSeedFailedToast: "The demo project was created, but its Trends history could not be added.",
   demoLocalBlocked: "The local demo would replace \"{0}\", which already uses this browser's storage. Delete that project or set up Turso to explore the demo.",
-  demoTursoFailed: "The demo project could not be created in Turso. If this keeps happening, check the Turso connection in Settings → Storage.",
+  demoTursoFailed: "The demo project could not be created in Turso. If this keeps happening, check the Turso connection in Settings → Integrations.",
   tourSkip: "Skip",
   tourNext: "Next",
   tourBack: "Back",
