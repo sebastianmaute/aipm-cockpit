@@ -16,6 +16,8 @@ import { RELEASE_HIDDEN_VIEWS } from "./feature-modules";
 import { INTERACTIVE } from "./interaction-styles";
 import { TextButton } from "./text-button";
 import { smoothScrollBehavior } from "./reduced-motion";
+import { isViewEnabled, type FeatureModuleId } from "./feature-modules";
+import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 
 /** DOM id for an entry's content section — shared so the in-pane view's
  *  relations map + deep-link scroll can target sections this component renders. */
@@ -25,6 +27,15 @@ export const helpSectionId = (id: string) => `help-sec-${id}`;
 export interface HelpEntryAction {
   label: string;
   onActivate: () => void;
+}
+
+const NO_HIDDEN_ENTRIES: ReadonlySet<string> = new Set();
+const SIMULATION_HIDDEN_ENTRIES: ReadonlySet<string> = new Set([FORECAST_SIM_HELP_ID]);
+
+/** The entry ids withheld under this feature set: the simulation entry teaches the Forecast view's
+ *  switch, so it goes while that view is hidden. EVERY host of the pane passes this. */
+export function hiddenHelpEntryIds(features: readonly FeatureModuleId[]): ReadonlySet<string> {
+  return isViewEnabled("forecast", features) ? NO_HIDDEN_ENTRIES : SIMULATION_HIDDEN_ENTRIES;
 }
 
 export function HelpContentPane({

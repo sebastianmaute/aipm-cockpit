@@ -396,3 +396,7 @@ Dashboard toolbar switch, the simulated KPI cells and the intro (`dashboard-pane
 `FORECAST_SIM_HELP_ID` with its reopen action (`help-view.tsx`, via `HelpContentPane`'s `hiddenEntryIds`).
 `isSimulationOn` stays the RAW stored read for the writer: the stored value is never touched, so showing the
 view again restores the user's choice. A new part-1 surface must read the helper, never `isSimulationOn`.
+★ `HelpContentPane` has TWO hosts (`help-view.tsx` and the floating `help-menu.tsx`); both pass
+`hiddenHelpEntryIds(features)`, which also filters search hits and Related links. `help-icon-button.tsx` and
+`view-callouts.ts` resolve concept ids straight from `HELP_ENTRIES`, so a new link to the simulation entry from
+either bypasses the gate and must check `isSimulationActive` / `isViewEnabled` itself.

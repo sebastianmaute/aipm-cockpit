@@ -5,7 +5,7 @@ import { QuestionMarkCircleIcon, XMarkIcon } from "./icons";
 import { Button } from "./button";
 import { IconButton } from "./icon-button";
 import { type Lang, t } from "./i18n";
-import { HelpContentPane, helpSectionId } from "./help-content-pane";
+import { HelpContentPane, helpSectionId, hiddenHelpEntryIds } from "./help-content-pane";
 import { smoothScrollBehavior } from "./reduced-motion";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { useResizable } from "./use-resizable";
@@ -236,7 +236,7 @@ export function HelpMenu({
             </ClearableSearchInput>
           </div>
 
-          <HelpContentPane lang={lang} query={query} readingLevel={settings.helpReadingLevel ?? "standard"} />
+          <HelpContentPane lang={lang} query={query} readingLevel={settings.helpReadingLevel ?? "standard"} hiddenEntryIds={hiddenHelpEntryIds(settings.features)} />
 
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1 border-t border-line px-4 py-2">
             {onLoadDemo && (

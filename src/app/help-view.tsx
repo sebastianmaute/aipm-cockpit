@@ -5,7 +5,7 @@ import { type Lang, t, type TranslationKey } from "./i18n";
 import { HELP_ENTRIES } from "./help-content";
 import { type AppView } from "./nav-config";
 import { buildRelationsGraph } from "./relations-graph";
-import { HelpContentPane, type HelpEntryAction, helpSectionId } from "./help-content-pane";
+import { HelpContentPane, type HelpEntryAction, helpSectionId, hiddenHelpEntryIds } from "./help-content-pane";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { isViewEnabled } from "./feature-modules";
 import { Select, Input } from "./form-controls";
@@ -24,8 +24,6 @@ import { INTERACTIVE, FOCUS_RING } from "./interaction-styles";
 import { smoothScrollBehavior } from "./reduced-motion";
 
 type HelpTab = "help" | "tours" | "connects" | "flows";
-
-const NO_HIDDEN_ENTRIES: ReadonlySet<string> = new Set();
 
 /** In-pane Help view (sidebar nav entry, below Settings). Mirrors the floating
  *  Help panel's layout: a tablist in the header (Help · Guided tours · How it
@@ -67,10 +65,7 @@ export function HelpView({
   // The simulation teaches the Forecast view's switch: hide the entry (and its reopen action)
   // while that view is hidden.
   const forecastViewEnabled = isViewEnabled("forecast", settings.features);
-  const hiddenEntryIds = useMemo<ReadonlySet<string>>(
-    () => (forecastViewEnabled ? NO_HIDDEN_ENTRIES : new Set([FORECAST_SIM_HELP_ID])),
-    [forecastViewEnabled],
-  );
+  const hiddenEntryIds = hiddenHelpEntryIds(settings.features);
   const entryActions: Record<string, HelpEntryAction> | undefined = settings.simulationIntroSeen && forecastViewEnabled
     ? {
         [FORECAST_SIM_HELP_ID]: {
