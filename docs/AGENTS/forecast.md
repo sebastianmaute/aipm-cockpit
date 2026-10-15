@@ -287,10 +287,18 @@ chance on time; the dated history it records is the input to later surfaces. Fil
   when its own computed entry changed since it last recorded. A stored entry equal to the computed one is
   adopted as its own. The stored-only compare it replaced let two tabs that compute different entries (per-device
   holidays, an old and a new build) overwrite each other for ever, since `forecastHistory` is broadcast between
-  tabs; now a peer's later entry is left alone (last writer of the day wins). Pinned by "two tabs that disagree
-  settle" in `use-forecast-history-recorder.test.ts`. The ref is cleared while `loadPending` is true, so it
-  never suppresses a write for another project. ★★ The effect is SYNCHRONOUS, which is why it needs no `getScopeEpoch` /
-  `dropStaleScopeWrite`: an `await` added to it would need both. It writes through the context setter, so there
+  tabs; now a peer's later entry is left alone (last writer of the day wins) for as long as the project in scope
+  stays the same. Pinned by "two tabs that disagree settle" in `use-forecast-history-recorder.test.ts` (exactly
+  one write per tab). ★★ The SCOPE RULE: the ref stores `{ scope, entry }`, with `scope` read from
+  `getScopeEpoch()` (`scope-epoch.ts`), and a memory from another epoch counts as nothing recorded. It is NOT
+  cleared on `loadPending`: a same-project reload (the conflict banner's Reload is a held "same-scope" op) also
+  raises `loadPending`, and clearing there made the tab answer a peer's entry after every reload, one extra
+  Turso revision and a conflict pause for the other user each time. The epoch moves only when another
+  project's data is applied, so the memory still never suppresses a write for another project. It keys on the
+  epoch, not `currentProjectId`, because in Turso portfolio mode the open project is `tursoProjectId`. Pinned
+  by "keeps what it recorded across a SAME-project reload" and "forgets what it recorded when the scope epoch
+  moves". ★★ The effect is SYNCHRONOUS, which is why it needs no `dropStaleScopeWrite` (it reads the epoch
+  only as a key): an `await` added to it would need a captured start epoch and that drop. It writes through the context setter, so there
   is no undo capture and no activity-log entry. It is not debounced (the insight runner is); it reruns the
   simulation on every `tasks` change while the switch is on.
 - **`computeAppForecast`** (`forecast/app-forecast.ts`) is the one default run for app surfaces: window
@@ -313,7 +321,8 @@ chance on time; the dated history it records is the input to later surfaces. Fil
   accessible names carry the cell's label so two explainers on one strip stay distinct. Percentile wording
   comes from `percentileWord` (`percentile-words.ts`), never hand-written. `SimulationIntro`
   (`simulation-intro.tsx`) is a non-modal `role="note"`; Escape is "Got it" and is claimed from the switch
-  too, because focus stays there after the press. Once it was dismissed, the in-pane Help view (`help-view.tsx`)
+  too, because focus stays there after the press. "Show me" also marks it seen (the same functional settings
+  write as "Got it") before it opens Help, so the note is gone when the user comes back. Once it was dismissed, the in-pane Help view (`help-view.tsx`)
   offers "Show the simulation introduction again" under the simulation entry (through `HelpContentPane`'s
   `entryActions`): it clears `Settings.simulationIntroSeen` and goes to the Dashboard, where the note shows again
   while the switch is on. The floating Help panel (`help-menu.tsx`) does not offer it. The histogram's accessible
@@ -323,6 +332,9 @@ chance on time; the dated history it records is the input to later surfaces. Fil
   tasks, named first when both floors are short; too few window days; or beyond the horizon), and the strip
   shows it as one muted, non-sim-styled line. `isDivergent` is true for SPI ≥ 1.0 with chance < 0.5, or SPI <
   0.9 with chance ≥ 0.8 (named constants in the file); the strip then adds a divergence line, always visible.
+  `chancePercent` keeps a simulated chance from reading as certainty: one that rounds to 100 but is under 1
+  shows `>99%` (DE `> 99 %`), one that rounds to 0 but is over 0 shows `<1%`; exactly 1 and 0 stay 100% and 0%.
+  `estimateCoverage` is `null` when nothing is open, and the strip then shows no coverage line.
   Details of the cells and the re-measure are in [`dashboard.md`](dashboard.md) "KPI strip simulation cells".
 - ★★ The 7- and 8-cell KPI layouts are unmeasured and not covered by `e2e/dashboard-grid.spec.ts`; the full statement is in
   [`dashboard.md`](dashboard.md) "KPI strip simulation cells". Check the switch and the note by eye and run

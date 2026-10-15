@@ -35,7 +35,7 @@ function deps(over: Partial<ForecastHistoryRecorderDeps> = {}): ForecastHistoryR
     hydrated: true, isPopout: false, loadPending: false, holidaysReady: true,
     today: TODAY, tasks: TASKS, milestones: MILESTONES, planEnd: "2026-12-31",
     holidaySet: HOLIDAYS, settingsOverrides: { forecast: { showSimulation: true } },
-    forecastHistory: [], setForecastHistory: vi.fn(), ...over,
+    forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0, ...over,
   };
 }
 
@@ -137,7 +137,8 @@ describe("useForecastHistoryRecorder", () => {
       useForecastHistoryRecorder(deps({ holidaySet: holidaysB, forecastHistory: history, setForecastHistory: writer("B") }));
       return history;
     });
-    expect(writes.mock.calls.length).toBeLessThanOrEqual(2);
+    // A writes first, B answers once, and nobody writes again: exactly [A, B].
+    expect(writes.mock.calls).toEqual([["A"], ["B"]]);
     expect(result.current).toHaveLength(1);
     expect(result.current[0].p50).toBe("2026-11-02");
   });
@@ -170,15 +171,35 @@ describe("useForecastHistoryRecorder", () => {
     expect(set).toHaveBeenCalledTimes(2);
   });
 
-  it("forgets what it recorded across a load or swap, so another project's entry is not mistaken for its own", () => {
+  it("keeps what it recorded across a SAME-project reload, so a peer's entry is still left alone", () => {
+    // The conflict banner's Reload holds the load (loadPending true -> false) without
+    // changing the project, so the scope epoch does not move.
     const set = vi.fn();
-    const other = [{ ...ENTRY, p50: "2026-11-09" }];
+    const peer = [{ ...ENTRY, p50: "2026-11-02" }];
     const { rerender } = renderHook((p: { h: readonly ForecastHistoryEntry[]; loadPending: boolean }) =>
       useForecastHistoryRecorder(deps({ forecastHistory: p.h, loadPending: p.loadPending, setForecastHistory: set })),
       { initialProps: { h: [] as readonly ForecastHistoryEntry[], loadPending: false } });
     expect(set).toHaveBeenCalledTimes(1);
+    rerender({ h: peer, loadPending: false });
+    rerender({ h: peer, loadPending: true });
+    rerender({ h: peer, loadPending: false });
+    expect(set).toHaveBeenCalledTimes(1);
+  });
+
+  it("forgets what it recorded when the scope epoch moves, so another project's entry is not mistaken for its own", () => {
+    const set = vi.fn();
+    let epoch = 0;
+    const getScopeEpoch = () => epoch;
+    const other = [{ ...ENTRY, p50: "2026-11-09" }];
+    const { rerender } = renderHook((p: { h: readonly ForecastHistoryEntry[]; loadPending: boolean }) =>
+      useForecastHistoryRecorder(deps({ forecastHistory: p.h, loadPending: p.loadPending, setForecastHistory: set, getScopeEpoch })),
+      { initialProps: { h: [] as readonly ForecastHistoryEntry[], loadPending: false } });
+    expect(set).toHaveBeenCalledTimes(1);
     rerender({ h: [], loadPending: true });
+    epoch = 1;
     rerender({ h: other, loadPending: false });
     expect(set).toHaveBeenCalledTimes(2);
+    const updater = set.mock.calls[1][0] as (p: readonly ForecastHistoryEntry[]) => ForecastHistoryEntry[];
+    expect(updater(other)).toEqual([ENTRY]);
   });
 });

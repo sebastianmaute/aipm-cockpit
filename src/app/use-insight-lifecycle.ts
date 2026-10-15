@@ -31,6 +31,7 @@ import { metricAtActionPatch } from "./insights/outcome";
 import { applyInsightLoggedAsRaid } from "./insights/log-as-raid";
 import type { ForecastHistoryEntry } from "./forecast-history";
 import type { SettingsOverrides } from "./settings-types";
+import type { ScopeEpochReader } from "./scope-epoch";
 import { useForecastHistoryRecorder } from "./use-forecast-history-recorder";
 
 // Debounce before the insights detect→reconcile runner fires, so a burst of
@@ -59,6 +60,8 @@ export interface InsightLifecycleDeps
   settingsOverrides: SettingsOverrides | undefined;
   forecastHistory: readonly ForecastHistoryEntry[];
   setForecastHistory: Dispatch<SetStateAction<readonly ForecastHistoryEntry[]>>;
+  /** §502 — keys the recorder's memory to the project in scope. */
+  getScopeEpoch: ScopeEpochReader;
 }
 
 export interface InsightLifecycleHandlers {
@@ -74,11 +77,11 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
     tasks, milestones, raid, budgets, roles, resources, plan,
     holidaySet, holidaysReady, shifts, absences, timelogLinks,
     insights, setInsights, requestOpen,
-    settingsOverrides, forecastHistory, setForecastHistory,
+    settingsOverrides, forecastHistory, setForecastHistory, getScopeEpoch,
   } = deps;
   useForecastHistoryRecorder({
     hydrated, isPopout, loadPending, holidaysReady, today, tasks, milestones,
-    planEnd: plan?.endDate ?? "", holidaySet, settingsOverrides, forecastHistory, setForecastHistory,
+    planEnd: plan?.endDate ?? "", holidaySet, settingsOverrides, forecastHistory, setForecastHistory, getScopeEpoch,
   });
   // Assemble the detection input from live entities. `plan` is always present
   // here (workspace-context seeds defaultResourcePlan) so it is passed as-is;

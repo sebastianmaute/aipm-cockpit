@@ -10,8 +10,8 @@
 // derivations over the same inputs (tasks, milestones, plan, holidays, today).
 //
 // ★ Writes through the context setter only: no undo capture, no activity-log
-// entry. The call is synchronous, so no scope-epoch handling is needed (a write
-// that awaited would need `dropStaleScopeWrite`). It is skipped while a load or
+// entry. The call is synchronous, so it needs no `dropStaleScopeWrite` (a write
+// that awaited would); the scope epoch is read only as the key described below. It is skipped while a load or
 // swap is pending (§548), in a popout, and until holidays are ready.
 //
 // ★★ Whether to write is decided against THIS tab's own last entry for the day,
@@ -24,12 +24,22 @@
 // computed entry changed since it last recorded. A peer's differing entry is left
 // alone: the peer wrote last ("last writer of the day wins"). A stored entry equal
 // to the computed one is adopted as this tab's own, so a later peer write is not
-// answered either. The memory is cleared while a load or swap is pending, so it
-// never carries over to another project.
+// answered either.
+//
+// ★★ The memory is keyed by the SCOPE EPOCH (`scope-epoch.ts`), not cleared on
+// `loadPending`. A same-project reload (the conflict banner's Reload, a held
+// same-scope op) also raises `loadPending`; clearing there made the tab answer a
+// peer's entry after every reload, one extra Turso revision and a conflict pause
+// for the other user each time. The epoch moves only when another project's data
+// is applied, so a memory from another epoch counts as "nothing recorded". It is
+// keyed on the epoch rather than `currentProjectId` because that id is the file
+// registry's: in Turso portfolio mode the open project is `tursoProjectId` (see
+// `landingProjectId` in task-manager.tsx), so a Turso swap would not move it.
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { computeAppForecast, toHistoryEntry } from "./forecast/app-forecast";
 import { upsertForecastHistory, type ForecastHistoryEntry } from "./forecast-history";
 import { isSimulationOn } from "./forecast-simulation";
+import type { ScopeEpochReader } from "./scope-epoch";
 import type { SettingsOverrides } from "./settings-types";
 import type { Milestone, Task } from "./types";
 
@@ -46,6 +56,14 @@ export interface ForecastHistoryRecorderDeps {
   settingsOverrides: SettingsOverrides | undefined;
   forecastHistory: readonly ForecastHistoryEntry[];
   setForecastHistory: Dispatch<SetStateAction<readonly ForecastHistoryEntry[]>>;
+  /** Keys this tab's memory of its own entry to the project in scope (§548). */
+  getScopeEpoch: ScopeEpochReader;
+}
+
+/** This tab's own last entry, and the scope epoch it was recorded under. */
+interface RecordedEntry {
+  scope: number;
+  entry: ForecastHistoryEntry;
 }
 
 function sameEntry(a: ForecastHistoryEntry, b: ForecastHistoryEntry): boolean {
@@ -61,29 +79,29 @@ function sameEntry(a: ForecastHistoryEntry, b: ForecastHistoryEntry): boolean {
 export function useForecastHistoryRecorder(d: ForecastHistoryRecorderDeps): void {
   const {
     hydrated, isPopout, loadPending, holidaysReady, today, tasks, milestones,
-    planEnd, holidaySet, settingsOverrides, forecastHistory, setForecastHistory,
+    planEnd, holidaySet, settingsOverrides, forecastHistory, setForecastHistory, getScopeEpoch,
   } = d;
   const on = isSimulationOn(settingsOverrides);
-  const recorded = useRef<ForecastHistoryEntry | null>(null);
+  const recorded = useRef<RecordedEntry | null>(null);
   useEffect(() => {
-    if (loadPending) recorded.current = null;
     if (!on || !hydrated || isPopout || loadPending || !holidaysReady) return;
     const entry = toHistoryEntry(
       computeAppForecast({ tasks, milestones, planEnd, today, holidaySet }),
       today,
     );
     if (!entry) return;
+    const scope = getScopeEpoch();
     const stored = forecastHistory.find((e) => e.date === today);
     if (stored && sameEntry(stored, entry)) {
-      recorded.current = entry;
+      recorded.current = { scope, entry };
       return;
     }
-    const own = recorded.current;
+    const own = recorded.current?.scope === scope ? recorded.current.entry : null;
     if (stored && own && sameEntry(own, entry)) return;
-    recorded.current = entry;
+    recorded.current = { scope, entry };
     setForecastHistory((prev) => upsertForecastHistory(prev, entry));
   }, [
     on, hydrated, isPopout, loadPending, holidaysReady, today, tasks, milestones,
-    planEnd, holidaySet, forecastHistory, setForecastHistory,
+    planEnd, holidaySet, forecastHistory, setForecastHistory, getScopeEpoch,
   ]);
 }
