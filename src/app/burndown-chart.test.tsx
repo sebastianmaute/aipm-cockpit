@@ -412,15 +412,17 @@ describe("BurndownChart", () => {
       expect(flat.container.querySelector("polyline[data-bac-steps]")).toBeNull();
     });
 
-    it("names the stepped line with its final BAC, below the line, so it never rides stroke weight alone", () => {
+    it("names the stepped line with its final BAC, beside the line end, so it never rides stroke weight alone", () => {
       const { container } = stepped();
       // The last recorded entry's own stored BAC, not an increment.
       const label = screen.getByText(`BAC ${eur(11_200)}`);
       expect(label.getAttribute("text-anchor")).toBe("end");
-      // Placed BELOW its line end: the last marker's tick sits on that level.
+      // Beside its line end: below it (+9) by default, above it (−4) when a plotted line covers
+      // the spot below (§737). Here the efficiency line ends inside the spot below, so it is above.
       const steps = container.querySelector("polyline[data-bac-steps]")!;
       const endY = Number(steps.getAttribute("points")!.trim().split(/\s+/).pop()!.split(",")[1]);
-      expect(Number(label.getAttribute("y"))).toBeGreaterThan(endY);
+      // The polyline's points are rounded to 0.1px; the label's y is not.
+      expect(Number(label.getAttribute("y"))).toBeCloseTo(endY - 4, 1);
       // It is its own element, not the baseline reference's label.
       expect(label).not.toBe(screen.getByText("Budget at start of recording"));
       // Anti-vacuity: the stepped label is absent without history, where the
@@ -658,5 +660,66 @@ describe("BurndownChart — join labels stay clear of the baseline label (§665)
     expect(join.querySelector("title")).toBeNull();
     expect(join.textContent).toContain("Hypercare");
     expect(join.textContent).not.toContain("…");
+  });
+});
+
+// §737 — the labels inside the plot sat a few pixels from the line they name, so other lines ran
+// through them. `MODEL` puts the "work left" label (beside the EV diamond, up and left) on the
+// actual and planned lines, which both pass just left of and above the EV point.
+describe("BurndownChart — label placement (§737)", () => {
+  const drawModel = (model: ChartModel = MODEL) =>
+    render(<BurndownChart lang="en-US" currency="EUR" model={model} unit="eur" orientation="burndown" periods={["Jan", "Mar"]} />);
+  const evPoint = (svg: Element) => {
+    // The diamond's path starts 5px above the EV point: "M x y-5 …".
+    const d = svg.querySelector("path[class*='rag-amber']")!.getAttribute("d")!;
+    const [, mx, my] = d.match(/^M ([\d.]+) ([\d.]+)/)!;
+    return { x: Number(mx), y: Number(my) + 5 };
+  };
+
+  it("moves the work-left label off the lines that cross its usual spot and ties it to the EV point with a leader", () => {
+    const { container } = drawModel();
+    const svg = container.querySelector("svg[role='img']")!;
+    const label = [...svg.querySelectorAll("text")].find((el) => el.textContent?.startsWith("work left"))!;
+    const ev = evPoint(svg);
+    // Its usual spot is 7px up and left of the point.
+    expect(Number(label.getAttribute("y"))).not.toBe(ev.y - 7);
+    const leader = svg.querySelector("line[data-label-leader]")!;
+    expect(leader).not.toBeNull();
+    expect(Number(leader.getAttribute("x1"))).toBeCloseTo(ev.x, 5);
+    expect(Number(leader.getAttribute("y1"))).toBeCloseTo(ev.y, 5);
+  });
+
+  it("keeps the work-left label at its usual spot, with no leader, when nothing covers it", () => {
+    // The same EV point with the lines that crossed its label taken away.
+    const { container } = drawModel({ ...MODEL, planned: [], actual: [], pace: null, efficiency: null, runOut: null });
+    const svg = container.querySelector("svg[role='img']")!;
+    const label = [...svg.querySelectorAll("text")].find((el) => el.textContent?.startsWith("work left"))!;
+    expect(Number(label.getAttribute("y"))).toBeCloseTo(evPoint(svg).y - 7, 5);
+    expect(container.querySelector("line[data-label-leader]")).toBeNull();
+  });
+
+  it("draws each leader before the EV diamond, so the diamond covers the leader's start", () => {
+    const { container } = drawModel();
+    const svg = container.querySelector("svg[role='img']")!;
+    const leader = svg.querySelector("line[data-label-leader]")!;
+    const diamond = svg.querySelector("path[class*='rag-amber']")!;
+    expect(leader.compareDocumentPosition(diamond) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(leader).toHaveClass("stroke-line");
+  });
+
+  it("haloes every label in the chart and paints every label after every plotted line", () => {
+    const { container } = drawModel();
+    const svg = container.querySelector("svg[role='img']")!;
+    const labels = [...svg.querySelectorAll("text:not([data-axis])")];
+    expect(labels.length).toBeGreaterThan(3);
+    for (const label of labels) {
+      expect(label.getAttribute("paint-order")).toBe("stroke");
+      expect(label).toHaveClass("stroke-surface");
+    }
+    const lines = [...svg.querySelectorAll("polyline, line:not([data-label-leader]):not([data-readout-guide])")];
+    const lastLine = lines[lines.length - 1];
+    for (const label of labels) {
+      expect(lastLine.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
   });
 });
