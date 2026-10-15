@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BurndownChart } from "./burndown-chart";
 import { buildChartModel, estimatedLabelWidth, type ChartInput, type ChartModel } from "./burndown-geometry";
@@ -721,5 +721,35 @@ describe("BurndownChart — label placement (§737)", () => {
     for (const label of labels) {
       expect(lastLine.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }
+  });
+});
+
+// The dashboard tile keeps its notes behind one info trigger beside the caption.
+describe("BurndownChart — notes behind an info trigger", () => {
+  const FRAME = /Chart totals differ from the forecast figures/;
+  const withNotes = { ...MODEL, frameDiffers: true, evUnavailable: ["Design"] };
+  const drawNotes = (model: ChartModel, notesAsInfo?: boolean) =>
+    render(<BurndownChart lang="en-US" currency="EUR" model={model} unit="eur" orientation="burndown" periods={["Jan", "Mar"]} notesAsInfo={notesAsInfo} />);
+
+  it("shows the notes as lines under the legend by default", () => {
+    drawNotes(withNotes);
+    expect(screen.getByText(FRAME).closest(".hidden")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Notes on this chart" })).toBeNull();
+  });
+
+  it("puts every note behind one trigger beside the caption, and keeps them for print", () => {
+    drawNotes(withNotes, true);
+    // Only the print copy is in the page until the trigger opens.
+    for (const el of screen.getAllByText(FRAME)) expect(el.closest(".hidden.print\\:block")).not.toBeNull();
+    const trigger = screen.getByRole("button", { name: "Notes on this chart" });
+    act(() => trigger.focus());
+    const shown = screen.getAllByText(FRAME).filter((el) => el.closest(".hidden") === null);
+    expect(shown).toHaveLength(1);
+    expect(shown[0].textContent).toContain("No earned-value history yet for Design.");
+  });
+
+  it("renders no trigger when there is no note", () => {
+    drawNotes(MODEL, true);
+    expect(screen.queryByRole("button", { name: "Notes on this chart" })).toBeNull();
   });
 });

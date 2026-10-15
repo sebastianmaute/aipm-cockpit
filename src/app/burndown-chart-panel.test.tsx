@@ -208,3 +208,32 @@ describe("BurndownChangeTableBlock", () => {
     expect(screen.getByRole("table", { name: /Budget changes/ })).toBeInTheDocument();
   });
 });
+
+describe("BurndownChartPanel — dashboard tile row", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("puts the caller's controls in the switches' row", async () => {
+    render(
+      <BurndownChartPanel
+        lang="en-US" series={CHART_SERIES} bundle={bundle} today="2026-02-14" planEnd="2026-03-31" currency="EUR"
+        compact toolbarEnd={<button type="button">Extra</button>}
+      />,
+    );
+    await act(async () => {});
+    const row = screen.getByRole("radiogroup", { name: "Chart orientation" }).parentElement!;
+    expect(within(row).getByRole("button", { name: "Extra" })).toBeInTheDocument();
+  });
+
+  it("puts the chart notes behind the info trigger when compact, and under the legend otherwise", async () => {
+    const frameBundle = { ...bundle, eur: { ...CHART_FORECAST, facts: { ...CHART_FORECAST.facts, bac: 9_500 } } };
+    const { unmount } = render(
+      <BurndownChartPanel lang="en-US" series={CHART_SERIES} bundle={frameBundle} today="2026-02-14" planEnd="2026-03-31" currency="EUR" compact />,
+    );
+    await act(async () => {});
+    expect(screen.getByRole("button", { name: "Notes on this chart" })).toBeInTheDocument();
+    unmount();
+    render(<BurndownChartPanel lang="en-US" series={CHART_SERIES} bundle={frameBundle} today="2026-02-14" planEnd="2026-03-31" currency="EUR" />);
+    await act(async () => {});
+    expect(screen.queryByRole("button", { name: "Notes on this chart" })).toBeNull();
+  });
+});

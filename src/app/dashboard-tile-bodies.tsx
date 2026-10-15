@@ -35,7 +35,8 @@ import type { ReactNode } from "react";
 import { RagBadge } from "./rag-badge";
 import { changeImpactRag } from "./change-log";
 import { BurndownChartPanel } from "./burndown-chart-panel";
-import { BurndownChainWarning } from "./budget-chain-warning";
+import { Button } from "./button";
+import { BurndownChainChip, BurndownChainWarning } from "./budget-chain-warning";
 import { VarianceSummary } from "./variance-summary";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { Sparkline } from "./sparkline";
@@ -183,11 +184,15 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
     // ★★ Spec C decision 7: CHART-ONLY. The forecast headline, the Spent and
     // hours tiles, the FX rollup notice and the Effort SPI/CPI tiles all left:
     // the indices moved to the KPI tile (decision 8); the rest live on the
-    // Budget view and report. `compact` still suppresses the change table. The
-    // chain warning stays because it qualifies the chart it heads.
+    // Budget view and report. `compact` still suppresses the change table and
+    // puts the chart's notes behind an info trigger. The chain warning stays
+    // because it qualifies the chart it heads, but as a chip in the switches' row
+    // so the chart is not pushed down; the full banner is the printed copy.
     burn: model.burndown ? (
       <>
-        <BurndownChainWarning lang={lang} chain={model.bucketChain} />
+        <div className="hidden print:block">
+          <BurndownChainWarning lang={lang} chain={model.bucketChain} />
+        </div>
         <BurndownChartPanel
           lang={lang}
           series={model.burndown}
@@ -196,6 +201,16 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
           planEnd={model.chartDates.planEnd}
           currency={a.currency}
           compact
+          toolbarEnd={(
+            <>
+              <BurndownChainChip lang={lang} chain={model.bucketChain} />
+              {a.onNavigate && (
+                <Button variant="secondary" size="xs" className="ml-auto" onClick={() => a.onNavigate!("budget")}>
+                  {t(lang, "dashboardOpenBudget")}<span aria-hidden="true"> →</span>
+                </Button>
+              )}
+            </>
+          )}
         />
       </>
     ) : (

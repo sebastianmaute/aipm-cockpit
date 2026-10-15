@@ -230,8 +230,12 @@ content. That is this design's normal mode, not a regression.
 
 ★★ **The `burn` tile is CHART-ONLY (spec C decision 7).** Its body is the compact
 `BurndownChartPanel` (the component the Budget report mounts, with the device settings
-`budgetChartView` / `budgetChartUnit`) headed by `BurndownChainWarning`, or `dashboardNoBudget` with no
-burn-down series. The forecast headline, the Spent and hours tiles, the FX rollup notice, the caption
+`budgetChartView` / `budgetChartUnit`), or `dashboardNoBudget` with no burn-down series. ★ So the chart is not
+pushed down, the chain warning is a chip (`BurndownChainChip`, the full sentence on hover or focus) in the
+switches' row, passed in through the panel's `toolbarEnd` beside an "Open in Budget" button (`dashboardOpenBudget`,
+only when `onNavigate` is wired, so never in a popout); the full `BurndownChainWarning` banner still renders for
+print only. `compact` also sets the chart's `notesAsInfo`, which puts the notes under the legend behind one ⓘ
+beside the caption and keeps them as lines in print. The Budget view keeps the banner and the note lines. The forecast headline, the Spent and hours tiles, the FX rollup notice, the caption
 and the Effort SPI/CPI tiles all left it; `ForecastHeadline` (`budget-forecast-headline.tsx`) is now
 DELETED — its only production caller was this tile's headline — along with its test and four i18n keys
 (`forecastTileActuals`, `forecastTileRange`, `forecastTileSingle`, `forecastTileRunsOut`) that had no

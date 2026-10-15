@@ -55,7 +55,7 @@ function changeTableFor({
 }
 
 export function BurndownChartPanel({
-  lang, series, bundle, today, planEnd, currency, compact = false, detachChangeTable = false,
+  lang, series, bundle, today, planEnd, currency, compact = false, detachChangeTable = false, toolbarEnd,
 }: {
   lang: Lang; series: BurndownSeries; bundle: PanelBundle | null;
   today: string; planEnd: string; currency: string;
@@ -77,6 +77,10 @@ export function BurndownChartPanel({
    *  (forecast-switch spec B, Decisions 6 and 7). Default false — the dashboard
    *  tile (`compact`) and any other caller are unchanged. */
   detachChangeTable?: boolean;
+  /** Controls the caller adds to the end of the switches' row — the dashboard tile's chain chip
+   *  and its "Open in Budget" button. The row wraps, so on a narrow tile they move under the
+   *  switches. Not printed, like the switches. */
+  toolbarEnd?: ReactNode;
 }) {
   const { settings, setSettings } = useSettings();
   const orientation: ChartOrientation = settings.budgetChartView ?? "burndown";
@@ -122,6 +126,7 @@ export function BurndownChartPanel({
           onChange={(v) => setSettings((s) => ({ ...s, budgetChartUnit: v }))}
           ariaLabel={t(lang, "burndownUnitLabel")}
         />
+        {toolbarEnd}
       </div>
       {/* The table sits BELOW the chart, at full width, and moves beside it
           only from `2xl` (1536px viewport) up, where both fit. Measured in
@@ -136,7 +141,7 @@ export function BurndownChartPanel({
           breakpoint has nothing to place beside it. */}
       <div className="flex flex-col gap-3 2xl:flex-row">
         <div className="min-w-0 flex-1">
-          <BurndownChart lang={lang} currency={currency} model={model} unit={unit} orientation={orientation} periods={series.periods} />
+          <BurndownChart lang={lang} currency={currency} model={model} unit={unit} orientation={orientation} periods={series.periods} notesAsInfo={compact} />
         </div>
         {changeTable && <div className="min-w-0 2xl:w-[30rem] 2xl:shrink-0">{changeTable}</div>}
       </div>

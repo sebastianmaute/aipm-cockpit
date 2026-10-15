@@ -843,6 +843,10 @@ export const de: Record<TranslationKey, string> = {
   burndownFrameNote:
     "Die Diagrammsummen weichen von den Prognosewerten ab (Festpreis oder Budgetzeitraum); maßgeblich sind die Werte oben.",
   burndownEvHistoryUnavailable: "Noch kein Verlauf des Earned Value für {0}.",
+  burndownNotesLabel: "Hinweise zu diesem Diagramm",
+  burndownChainChipOne: "{0} Bucket prüfen",
+  burndownChainChipMany: "{0} Buckets prüfen",
+  dashboardOpenBudget: "Im Budget öffnen",
   burndownEvPartial: "Unvollständiger Earned Value",
   burndownEvPartialNotRecorded: "Unvollständig: {0} nicht erfasst",
   burndownEvPartialCreated: "Unvollständig: {0} später angelegt",

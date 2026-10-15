@@ -5,6 +5,7 @@ import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
+import type { AppView } from "./nav-config";
 import { RaidRegisterCard } from "./dashboard-sections/registers-band";
 import { t, tPlural } from "./i18n";
 import { healthColorName } from "./health";
@@ -1580,9 +1581,10 @@ describe("DashboardPanel currency labelling", () => {
     },
   ] as unknown as BudgetBucket[];
 
-  function renderUsdDashboard() {
+  function renderUsdDashboard(onNavigate?: (view: AppView) => void) {
     render(
       <DashboardPanel
+        onNavigate={onNavigate}
         lang="en-US"
         tasks={[]}
         raid={[]}
@@ -1598,6 +1600,20 @@ describe("DashboardPanel currency labelling", () => {
       { wrapper },
     );
   }
+
+  // The Budget burn tile needs a drawable chart for its switches' row, so these use this fixture.
+  it("opens the Budget view from the Budget burn tile's Open in Budget button", () => {
+    const onNavigate = vi.fn();
+    renderUsdDashboard(onNavigate);
+    fireEvent.click(screen.getByRole("button", { name: "Open in Budget" }));
+    expect(onNavigate).toHaveBeenCalledWith("budget");
+  });
+
+  it("offers no Open in Budget button without navigation (a popout)", () => {
+    renderUsdDashboard();
+    expect(screen.getByRole("radiogroup", { name: "Chart orientation" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open in Budget" })).toBeNull();
+  });
 
   it("labels the burn-down value axis in the plan's baseline currency (§476)", () => {
     renderUsdDashboard();
