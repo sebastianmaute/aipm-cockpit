@@ -17,6 +17,7 @@ import { ModalHeader } from "./modal-header";
 import { MODAL_HELP } from "./help-content";
 import { ProjectForm } from "./project-form";
 import { ResetSizeButton } from "./task-manager-ui";
+import { SimulationSwitch } from "./simulation-switch";
 import { useResizable } from "./use-resizable";
 import { type ProjectMeta, type Resource } from "./types";
 
@@ -75,8 +76,11 @@ interface ProjectEditModalProps {
   /** Scroll the Functions part into view and focus its heading on mount. */
   focusFunctions?: boolean;
   sizeKey: string;
-  /** `features` is `null` when the functions equal the `features` prop as a set. */
-  onSubmit: (meta: ProjectMeta, features: FeatureModuleId[] | null) => void;
+  /** The stored Monte Carlo switch (§502); absent hides the control (held back, or a popout). */
+  simulation?: boolean;
+  /** `features` is `null` when the functions equal the `features` prop as a set; `simulation` is
+   *  `null` when the switch is unchanged or not shown. */
+  onSubmit: (meta: ProjectMeta, features: FeatureModuleId[] | null, simulation: boolean | null) => void;
   onCancel: () => void;
 }
 
@@ -112,16 +116,31 @@ function FunctionsSection({
   );
 }
 
+/** The per-project Monte Carlo switch (§502) over a LOCAL draft, written only on Save. */
+function ForecastSection({ lang, on, onChange }: { lang: Lang; on: boolean; onChange: (on: boolean) => void }) {
+  const headingId = useId();
+  return (
+    <section aria-labelledby={headingId} className="flex flex-col items-start gap-3 border-t border-line pt-4">
+      <h3 id={headingId} className="text-base font-semibold text-foreground">
+        {t(lang, "editProjectForecastHeading")}
+      </h3>
+      <SimulationSwitch lang={lang} pressed={on} onToggle={() => onChange(!on)} />
+    </section>
+  );
+}
+
 /** The shell wrapped around a prefilled `ProjectForm` — the edit flow, mounted
  *  by the Projects panel (`projects-panel.tsx`). */
 export function ProjectEditModal({
-  lang, initial, stakeholderNames, addressBook, resources, features, focusFunctions, sizeKey, onSubmit, onCancel,
+  lang, initial, stakeholderNames, addressBook, resources, features, focusFunctions, simulation, sizeKey, onSubmit, onCancel,
 }: ProjectEditModalProps) {
   const [draft, setDraft] = useState<FeatureModuleId[]>(() => [...features]);
+  const [simDraft, setSimDraft] = useState(simulation === true);
   const handleSubmit = (meta: ProjectMeta) =>
     onSubmit(
       meta,
       sameFeatureSet(draft, features) ? null : ALL_MODULE_IDS.filter((id) => draft.includes(id)),
+      simulation === undefined || simDraft === simulation ? null : simDraft,
     );
   return (
     <ProjectModalShell lang={lang} title={t(lang, "projectsEdit")} sizeKey={sizeKey} onClose={onCancel}>
@@ -134,12 +153,15 @@ export function ProjectEditModal({
         onSubmit={handleSubmit}
         onCancel={onCancel}
         extraSection={
-          <FunctionsSection
-            lang={lang}
-            draft={draft}
-            onChange={setDraft}
-            focusOnMount={focusFunctions === true}
-          />
+          <>
+            <FunctionsSection
+              lang={lang}
+              draft={draft}
+              onChange={setDraft}
+              focusOnMount={focusFunctions === true}
+            />
+            {simulation !== undefined && <ForecastSection lang={lang} on={simDraft} onChange={setSimDraft} />}
+          </>
         }
       />
     </ProjectModalShell>

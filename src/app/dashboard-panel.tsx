@@ -5,7 +5,7 @@ import { ReportCard } from "./report-table";
 import { buildDashboardInput, computeDashboard, hasNoActiveScope } from "./dashboard";
 import { useWorkspace } from "./workspace-context";
 import { useSettings } from "./use-settings";
-import { ToggleButton } from "./toggle-button";
+import { SimulationSwitch } from "./simulation-switch";
 import { SimulationIntro } from "./simulation-intro";
 import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";
 import { isViewEnabled } from "./feature-modules";
@@ -377,6 +377,17 @@ export function DashboardPanel(props: DashboardPanelProps) {
     simulation: kpiSim ?? undefined,
     simulationGap: kpiSimGap ?? undefined,
     onOpenHelp: props.onOpenHelp,
+    // ★ The wrapper is the Escape anchor for the one-time intro, so Escape still dismisses
+    // the note while focus stays on the switch that opened it.
+    simSwitch: !props.isPopout && forecastViewEnabled ? (
+      <div ref={simSwitchRef} className="print:hidden">
+        <SimulationSwitch
+          lang={lang}
+          pressed={simulationOn}
+          onToggle={() => setSettingsOverrides((prev) => withSimulation(prev, !isSimulationOn(prev)))}
+        />
+      </div>
+    ) : undefined,
     // ★★ `plan.currency`, the project baseline (§476): this labels the engine's
     // burn-down series (`budgetHours × role.rates.external`), and role rates are
     // entered in the baseline. Until §476 the engine unit was a fixed EUR and
@@ -648,25 +659,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
             />
           }
           controls={
-            // ★ The "Show simulation" switch leads the stack (before the trailing Print
-            // group); its wrapper is the Escape anchor for the one-time intro, so Escape
-            // still dismisses the note while focus stays on the switch that opened it.
-            // ★ Below it, two columns — Print | Reset layout, then Reset size | badge. Each
+            // ★ Two columns — Print | Reset layout, then Reset size | badge. Each
             // control is PINNED to its cell: auto-placement would slide Reset size
             // up beside Print in a popout, where Reset layout and the badge are
             // absent. DOM order is unchanged, so Tab order still reads row by row.
             <div className={`flex shrink-0 flex-col items-end ${dc.kpiGap} self-start print:hidden`}>
-            {!props.isPopout && forecastViewEnabled && (
-              <div ref={simSwitchRef}>
-                <ToggleButton
-                  lang={lang}
-                  pressed={simulationOn}
-                  onToggle={() => setSettingsOverrides((prev) => withSimulation(prev, !isSimulationOn(prev)))}
-                >
-                  {t(lang, "simulationShow")}
-                </ToggleButton>
-              </div>
-            )}
             <div className="grid shrink-0 grid-cols-[auto_auto] gap-2">
               <div data-stack-cell className="col-start-1 row-start-1">
                 <PrintButton lang={lang} />

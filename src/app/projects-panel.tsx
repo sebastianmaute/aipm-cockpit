@@ -94,6 +94,10 @@ export interface ProjectsPanelProps {
   features: readonly FeatureModuleId[];
   /** Commit an edited functions set — called only when Save changed it. */
   onCommitFeatures: (features: FeatureModuleId[]) => void;
+  /** The stored Monte Carlo switch (§502); absent hides it in Edit project (held back, or a popout). */
+  simulation?: boolean;
+  /** Commit an edited switch — called only when Save changed it. */
+  onCommitSimulation?: (on: boolean) => void;
   /** De-register a project (the confirm dialog is handled here). */
   onDelete: (id: string) => void;
   /** Export the CURRENT project's workspace in the given format. */
@@ -163,6 +167,8 @@ export function ProjectsPanel({
   onUpdateCurrent,
   features,
   onCommitFeatures,
+  simulation,
+  onCommitSimulation,
   onDelete,
   onExportCurrent,
   onLoadFromFile,
@@ -327,9 +333,10 @@ export function ProjectsPanel({
     closeModal();
   };
 
-  const handleEditSubmit = (meta: ProjectMeta, nextFeatures: FeatureModuleId[] | null) => {
+  const handleEditSubmit = (meta: ProjectMeta, nextFeatures: FeatureModuleId[] | null, nextSimulation: boolean | null) => {
     onUpdateCurrent(meta);
     if (nextFeatures !== null) onCommitFeatures(nextFeatures);
+    if (nextSimulation !== null) onCommitSimulation?.(nextSimulation);
     closeModal();
   };
 
@@ -734,6 +741,7 @@ export function ProjectsPanel({
           resources={resources}
           features={features}
           focusFunctions={focusFunctions}
+          simulation={onCommitSimulation ? simulation : undefined}
           sizeKey="aipm-cockpit:create-modal-size"
           onSubmit={handleEditSubmit}
           onCancel={closeModal}

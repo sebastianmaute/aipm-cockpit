@@ -2,7 +2,7 @@
 import type React from "react";
 import { liveAssetPartitionKey } from "./asset-partition-live";
 import { isSafeMode } from "./safe-mode";
-import { isSimulationActive } from "./forecast-simulation";
+import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";
 import {
   useCallback,
   useMemo,
@@ -1088,6 +1088,8 @@ export function WorkspaceSection({
               onUpdateCurrent={onUpdateCurrentProject}
               features={features}
               onCommitFeatures={workspace.setFeatures}
+              simulation={isSimulationOn(workspace.settingsOverrides)}
+              onCommitSimulation={!isPopout && isViewEnabled("forecast", features) ? (on) => workspace.setSettingsOverrides((prev) => withSimulation(prev, on)) : undefined}
               onDelete={onDeleteProject}
               onExportCurrent={onExportCurrentProject}
               onLoadFromFile={onLoadProjectFromFile}

@@ -173,4 +173,50 @@ describe("ProjectEditModal", () => {
       expect(screen.getByRole("checkbox", { name: labelOf(id) })).toBeChecked();
     }
   });
+
+  // --- §502: the Monte Carlo switch ----------------------------------------------
+  const simSwitch = () => screen.getByRole("button", { name: new RegExp(t("en-US", "simulationShow")) });
+
+  test("without a simulation prop there is no Forecasting section (held back, or a popout)", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEdit();
+    expect(screen.queryByRole("region", { name: t("en-US", "editProjectForecastHeading") })).toBeNull();
+    expect(screen.queryByRole("button", { name: new RegExp(t("en-US", "simulationShow")) })).toBeNull();
+    await user.click(saveButton());
+    expect(onSubmit.mock.calls[0][2]).toBeNull();
+  });
+
+  test("the switch sits in a Forecasting section, seeded from the stored value", () => {
+    renderEdit({ simulation: true });
+    const section = screen.getByRole("region", { name: t("en-US", "editProjectForecastHeading") });
+    expect(section).toContainElement(simSwitch());
+    expect(simSwitch()).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("toggling the switch then Save submits the new value", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEdit({ simulation: false });
+    await user.click(simSwitch());
+    expect(simSwitch()).toHaveAttribute("aria-pressed", "true");
+    await user.click(saveButton());
+    expect(onSubmit.mock.calls[0][2]).toBe(true);
+  });
+
+  test("Save with the switch untouched, or toggled back, submits null for it", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderEdit({ simulation: true });
+    await user.click(simSwitch());
+    await user.click(simSwitch());
+    await user.click(saveButton());
+    expect(onSubmit.mock.calls[0][2]).toBeNull();
+  });
+
+  test("toggling the switch then Cancel submits nothing", async () => {
+    const user = userEvent.setup();
+    const { onSubmit, onCancel } = renderEdit({ simulation: false });
+    await user.click(simSwitch());
+    await user.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 });
