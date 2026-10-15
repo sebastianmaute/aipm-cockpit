@@ -61,7 +61,7 @@ import type { AppView } from "./nav-config";
 import type { ChangeStatus } from "./types";
 import { buildRowTokens } from "./row-tokens";
 import { CELL_BUTTON } from "./control-classes";
-import type { KpiSimulation } from "./kpi-simulation";
+import type { KpiSimulation, KpiSimulationGap } from "./kpi-simulation";
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
   Proposed: "changeStatusProposed",
@@ -102,6 +102,8 @@ export interface TileBodyArgs {
   trends: Record<MetricKey, MetricTrend>;
   /** Simulated KPI cells (§502); absent while the switch is off. */
   simulation?: KpiSimulation;
+  /** Why the switch is on but there are no simulated cells; absent while the switch is off. */
+  simulationGap?: KpiSimulationGap;
   /** Opens Help at a concept id; the simulated cells' explainers link to it. */
   onOpenHelp?: (conceptId: string) => void;
   /** Currency label for the burn-down axis — the baseline (`plan.currency`): the engine's burn-down series
@@ -149,7 +151,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
 
   return {
     kpi: (
-      <DashboardKpiStrip lang={lang} model={model} trends={a.trends} onNavigate={a.onNavigate} dc={dc} simulation={a.simulation} onOpenHelp={a.onOpenHelp} />
+      <DashboardKpiStrip lang={lang} model={model} trends={a.trends} onNavigate={a.onNavigate} dc={dc} simulation={a.simulation} simulationGap={a.simulationGap} onOpenHelp={a.onOpenHelp} />
     ),
 
     topActions: (

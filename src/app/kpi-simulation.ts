@@ -25,6 +25,23 @@ export function isDivergent(spi: number | null, chance: number | null): boolean 
   return (spi >= SPI_AHEAD && chance < DIVERGENT_LOW_CHANCE) || (spi < SPI_BEHIND && chance >= DIVERGENT_HIGH_CHANCE);
 }
 
+/** Why the switch is on but the strip shows no simulated cell. */
+export type KpiSimulationGap =
+  | { kind: "finished"; finished: number; needed: number }
+  | { kind: "days"; days: number; needed: number }
+  | { kind: "beyond" };
+
+/** The reason `kpiSimulation` returns null, or null when it does not. Too few
+ *  finished tasks is named first when both floors are short. */
+export function kpiSimulationGap(f: AppForecast): KpiSimulationGap | null {
+  if (f.kind === "insufficient") {
+    return f.finished < f.neededFinished
+      ? { kind: "finished", finished: f.finished, needed: f.neededFinished }
+      : { kind: "days", days: f.days, needed: f.neededDays };
+  }
+  return f.p80 === null ? { kind: "beyond" } : null;
+}
+
 /** The strip's simulation, or null when the forecast is insufficient or P80 lies beyond the horizon. */
 export function kpiSimulation(f: AppForecast, spi: number | null): KpiSimulation | null {
   if (f.kind !== "forecast" || f.p80 === null) return null;

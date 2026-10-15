@@ -1858,17 +1858,33 @@ describe("DashboardPanel simulated KPI cells", () => {
     render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-on" />, { wrapper });
     await user.click(screen.getByRole("button", { name: simName() }));
     expect(screen.getByRole("group", { name: "Safe to commit, simulated" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "On time, simulated" })).toHaveTextContent("34 %");
+    expect(screen.getByRole("group", { name: "On time, simulated" })).toHaveTextContent("34%");
     await user.click(screen.getByRole("button", { name: simName() }));
     expect(screen.queryByRole("group", { name: "Safe to commit, simulated" })).toBeNull();
   });
 
-  it("renders nothing extra when the forecast is insufficient", async () => {
+  it("says why, and adds no simulated cell, when the forecast is insufficient — only while the switch is on", async () => {
     const user = userEvent.setup();
-    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({ kind: "insufficient" });
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({
+      kind: "insufficient", finished: 4, neededFinished: 10, days: 30, neededDays: 10,
+    });
     render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-insufficient" />, { wrapper });
+    const note = "Not enough history to simulate yet: 4 finished, needs 10.";
+    expect(screen.queryByText(note)).toBeNull();
     await user.click(screen.getByRole("button", { name: simName() }));
     expect(screen.queryByRole("group", { name: /simulated/ })).toBeNull();
+    expect(screen.getByText(note)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(screen.queryByText(note)).toBeNull();
+  });
+
+  it("says the finish is beyond the horizon when P80 is", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({ ...FORECAST, p80: null });
+    render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-beyond" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(screen.queryByRole("group", { name: /simulated/ })).toBeNull();
+    expect(screen.getByText("The simulated finish is beyond the 1300-working-day horizon.")).toBeInTheDocument();
   });
 
   it("hands the engine the panel's own collections and the plan end", async () => {

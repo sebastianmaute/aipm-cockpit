@@ -3,9 +3,11 @@ import type { ComponentProps } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SimExplainer, FORECAST_SIM_HELP_ID, buildHistogramBins } from "./sim-explainer";
-import { loadI18n, t } from "./i18n";
+import { loadI18n } from "./i18n";
+import { MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
 
-const HORIZON_SENTINEL = 1301;
+// The engine's encoding of a trial (or a percentile) that never finished inside the horizon.
+const HORIZON_SENTINEL = MAX_HORIZON_WORKING_DAYS + 1;
 const markers = { p50: 10, p80: 14, p95: 20 };
 // 100 runs spread over days 5..24, all inside the horizon.
 const distribution = Array.from({ length: 100 }, (_, i) => 5 + (i % 20));
@@ -69,11 +71,30 @@ describe("SimExplainer", () => {
     const user = userEvent.setup();
     setup();
     await user.click(screen.getByRole("button", { name: "How to read this" }));
-    const img = screen.getByRole("img", { name: t("en-US", "simHistogramAria", 10, 14, 20) });
+    const img = screen.getByRole("img", {
+      name: "Spread of simulated finish times. Even odds in 10 working days, safe to commit in 14 working days, cautious in 20 working days.",
+    });
     const bars = img.querySelectorAll("rect[data-bin]");
     expect(bars.length).toBeGreaterThan(0);
     expect(bars.length).toBeLessThanOrEqual(20);
     expect(img.querySelectorAll("line[data-cut]")).toHaveLength(3);
+  });
+
+  it("names a beyond-horizon percentile as such, never as an impossible day count", async () => {
+    const user = userEvent.setup();
+    setup({ markers: { p50: 10, p80: 14, p95: HORIZON_SENTINEL } });
+    await user.click(screen.getByRole("button", { name: "How to read this" }));
+    const img = screen.getByRole("img", {
+      name: "Spread of simulated finish times. Even odds in 10 working days, safe to commit in 14 working days, cautious beyond the horizon.",
+    });
+    expect(img.getAttribute("aria-label")).not.toContain(String(HORIZON_SENTINEL));
+  });
+
+  it("still names the last day inside the horizon as a day count", async () => {
+    const user = userEvent.setup();
+    setup({ markers: { p50: 10, p80: 14, p95: MAX_HORIZON_WORKING_DAYS } });
+    await user.click(screen.getByRole("button", { name: "How to read this" }));
+    expect(screen.getByRole("img", { name: new RegExp(`cautious in ${MAX_HORIZON_WORKING_DAYS} working days\.$`) })).toBeInTheDocument();
   });
 
   it("excludes beyond-horizon trials from the bars and says so", async () => {
@@ -81,7 +102,7 @@ describe("SimExplainer", () => {
     const dist = [...distribution.slice(0, 90), ...Array(10).fill(HORIZON_SENTINEL)];
     setup({ distribution: dist, trials: 100 });
     await user.click(screen.getByRole("button", { name: "How to read this" }));
-    expect(screen.getByText("10 % of runs did not finish within the horizon.")).toBeInTheDocument();
+    expect(screen.getByText("10% of runs did not finish within the horizon.")).toBeInTheDocument();
   });
 
   it("omits the beyond-horizon note when every run finished", async () => {
@@ -113,7 +134,8 @@ describe("SimExplainer", () => {
 
 describe("buildHistogramBins", () => {
   it("never exceeds the bin cap and counts every in-horizon trial once", () => {
-    const { bins, beyond } = buildHistogramBins([1, 2, 3, 400, 800, 1300, 1301, 1301], 20);
+    const H = MAX_HORIZON_WORKING_DAYS;
+    const { bins, beyond } = buildHistogramBins([1, 2, 3, 400, 800, H, HORIZON_SENTINEL, HORIZON_SENTINEL], 20);
     expect(bins.length).toBeLessThanOrEqual(20);
     expect(bins.reduce((s, b) => s + b.count, 0)).toBe(6);
     expect(beyond).toBe(2);

@@ -8,7 +8,8 @@ import { hasNoActiveScope, type KpiStripModel } from "../dashboard";
 import type { MetricKey, MetricTrend } from "../dashboard-trends";
 import type { DensityClasses } from "../dashboard-density";
 import type { AppView } from "../nav-config";
-import type { KpiSimulation } from "../kpi-simulation";
+import type { KpiSimulation, KpiSimulationGap } from "../kpi-simulation";
+import { MAX_HORIZON_WORKING_DAYS } from "../forecast/constants";
 import { SimValue } from "../sim-value";
 import { percentileWord } from "../percentile-words";
 import { localeFor } from "../date-format";
@@ -23,8 +24,21 @@ interface DashboardKpiStripProps {
   dc: DensityClasses;
   /** Simulated P80 finish + chance on time (§502). Absent (switch off, Reports) → exactly the cells below. */
   simulation?: KpiSimulation;
+  /** The switch is on but nothing could be simulated: one muted line says why. Ignored when
+   *  `simulation` is set; absent while the switch is off, so the off strip is unchanged. */
+  simulationGap?: KpiSimulationGap;
   /** Opens Help at a concept id; forwarded to the explainers. */
   onOpenHelp?: (conceptId: string) => void;
+}
+
+/** The line shown in place of the simulated cells. Plain muted text, NOT sim-styled: it is a
+ *  statement about the data, not a simulated value. */
+function simulationGapText(lang: Lang, gap: KpiSimulationGap): string {
+  switch (gap.kind) {
+    case "finished": return t(lang, "kpiSimNeedsFinished", gap.finished, gap.needed);
+    case "days": return t(lang, "kpiSimNeedsDays", gap.days, gap.needed);
+    case "beyond": return t(lang, "kpiSimBeyondHorizon", MAX_HORIZON_WORKING_DAYS);
+  }
 }
 
 /** How many KPI cells render: the four fixed ones, plus SPI and/or CPI, plus the simulated P80 and chance cells. */
@@ -86,7 +100,7 @@ export const KPI_STRIP_COLS: Record<KpiCellCount, string> = {
  *  ★ NO BOX OF ITS OWN — the arrangeable tile chrome (`dashboard-tile.tsx`)
  *  draws the border and the title ("At a glance"). A `Card boxed` here would
  *  nest a second bordered surface inside the first. */
-export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulation, onOpenHelp }: DashboardKpiStripProps) {
+export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulation, simulationGap, onOpenHelp }: DashboardKpiStripProps) {
   const noActiveScope = hasNoActiveScope(model.progress);
   // ★ Spec C decision 8, user's ruling: each index is shown whenever IT can
   // move a value the user sees — never gated on the Budget module. SPI feeds
@@ -205,6 +219,9 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulat
           <p>{t(lang, "kpiSimCoverage", Math.round(simulation.estimateCoverage * 100))}</p>
           {simulation.divergent && <p>{t(lang, "kpiSimDivergence")}</p>}
         </div>
+      )}
+      {!simulation && simulationGap && (
+        <p className="mt-1 text-xs text-muted-foreground">{simulationGapText(lang, simulationGap)}</p>
       )}
     </div>
   );

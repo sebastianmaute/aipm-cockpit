@@ -3,6 +3,7 @@ import type { Task } from "../types";
 import { addCalendarDays, countWorkingDays } from "../working-days";
 import { effortCoverage } from "./index";
 import { computeAppForecast, toHistoryEntry } from "./app-forecast";
+import { MIN_FINISHED_TASKS, MIN_HISTORY_WORKING_DAYS } from "./constants";
 
 // 2026-10-14 is a Wednesday.
 const TODAY = "2026-10-14";
@@ -43,6 +44,11 @@ describe("computeAppForecast", () => {
   test("is insufficient below the history floor and has no history entry", () => {
     const r = computeAppForecast(args([...finished(5), ...openTasks(10)]));
     expect(r.kind).toBe("insufficient");
+    if (r.kind !== "insufficient") throw new Error("expected insufficient");
+    // The engine's floor figures ride along, so the strip can say what is short.
+    expect(r.finished).toBe(5);
+    expect(r.neededFinished).toBe(MIN_FINISHED_TASKS);
+    expect(r.neededDays).toBe(MIN_HISTORY_WORKING_DAYS);
     expect(toHistoryEntry(r, TODAY)).toBeNull();
   });
 

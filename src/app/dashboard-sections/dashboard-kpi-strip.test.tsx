@@ -479,7 +479,9 @@ describe("DashboardKpiStrip — simulated cells (§502)", () => {
     const p80 = screen.getByRole("group", { name: "Safe to commit, simulated" });
     expect(p80).toHaveTextContent(formatDayMonthYear("2026-11-20", "en-US"));
     const chance = screen.getByRole("group", { name: "On time, simulated" });
-    expect(chance).toHaveTextContent("34 %");
+    // EN writes a percent unspaced, like the neighbouring "62%" cells; DE keeps "34 %" (below).
+    expect(chance).toHaveTextContent("34%");
+    expect(chance).not.toHaveTextContent("34 %");
     const p80Info = within(p80).getByRole("button", { name: t("en-US", "simExplainerOpenFor", "Safe to commit") });
     const chanceInfo = within(chance).getByRole("button", { name: t("en-US", "simExplainerOpenFor", "On time") });
     expect(p80Info.getAttribute("aria-label")).not.toBe(chanceInfo.getAttribute("aria-label"));
@@ -505,7 +507,7 @@ describe("DashboardKpiStrip — simulated cells (§502)", () => {
 
   it("shows the estimate-coverage cue", () => {
     render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={SIM} />);
-    expect(screen.getByText("Estimates cover 41 % of remaining work")).toBeInTheDocument();
+    expect(screen.getByText("Estimates cover 41% of remaining work")).toBeInTheDocument();
   });
 
   it("shows the divergence copy as visible text only when divergent", () => {
@@ -530,5 +532,42 @@ describe("DashboardKpiStrip — simulated cells (§502)", () => {
     expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "simSafeToCommit")) })).toBeInTheDocument();
     expect(screen.getByText(t("de", "kpiSimCoverage", "41"))).toBeInTheDocument();
     expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "kpiOnTime")) })).toHaveTextContent("34 %");
+  });
+});
+
+describe("DashboardKpiStrip — switch on, nothing simulated (§502)", () => {
+  const dc = densityClasses("comfortable");
+  const cells = (container: HTMLElement) => container.firstElementChild!.firstElementChild!.children.length;
+
+  it.each([
+    ["too few finished tasks", { kind: "finished", finished: 4, needed: 10 }, "Not enough history to simulate yet: 4 finished, needs 10."],
+    ["too short a window", { kind: "days", days: 6, needed: 10 }, "Not enough history to simulate yet: 6 working days of history, needs 10."],
+    ["P80 beyond the horizon", { kind: "beyond" }, "The simulated finish is beyond the 1300-working-day horizon."],
+  ] as const)("says why when %s, as plain muted text and no extra cell", (_label, gap, text) => {
+    const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulationGap={gap} />);
+    const line = screen.getByText(text);
+    expect(line).toHaveClass("text-muted-foreground");
+    expect(line.closest("[data-sim]")).toBeNull();
+    expect(container.querySelector("[data-sim]")).toBeNull();
+    expect(cells(container)).toBe(4);
+  });
+
+  it("shows no note while the switch is off (no gap passed)", () => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} />);
+    expect(screen.queryByText(/Not enough history|beyond the/)).toBeNull();
+  });
+
+  it("prefers the simulated cells over a gap when both are given", () => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc}
+      simulation={{ p80: "2026-11-20", chanceOnTime: null, estimateCoverage: 1, divergent: false,
+        explainer: { windowDays: 60, distribution: Int32Array.from([5]), trials: 1, markers: { p50: 5, p80: 5, p95: 5 } } }}
+      simulationGap={{ kind: "beyond" }} />);
+    expect(screen.queryByText(/beyond the/)).toBeNull();
+  });
+
+  it("reads in German", async () => {
+    await loadI18n("de");
+    render(<DashboardKpiStrip lang="de" model={model()} trends={trends} dc={dc} simulationGap={{ kind: "finished", finished: 4, needed: 10 }} />);
+    expect(screen.getByText("Noch zu wenig Verlauf für eine Simulation: 4 erledigt, nötig sind 10.")).toBeInTheDocument();
   });
 });

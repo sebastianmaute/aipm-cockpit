@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { AppForecast } from "./forecast/app-forecast";
-import { isDivergent, kpiSimulation } from "./kpi-simulation";
+import { isDivergent, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
+
+const INSUFFICIENT: Extract<AppForecast, { kind: "insufficient" }> = { kind: "insufficient", finished: 4, neededFinished: 10, days: 30, neededDays: 10 };
 
 const forecast = (over: Partial<Extract<AppForecast, { kind: "forecast" }>> = {}): AppForecast => ({
   kind: "forecast",
@@ -31,7 +33,7 @@ describe("isDivergent", () => {
 
 describe("kpiSimulation", () => {
   it("is null for an insufficient forecast", () => {
-    expect(kpiSimulation({ kind: "insufficient" }, 1)).toBeNull();
+    expect(kpiSimulation(INSUFFICIENT, 1)).toBeNull();
   });
 
   it("is null when the P80 date is beyond the horizon", () => {
@@ -52,5 +54,24 @@ describe("kpiSimulation", () => {
 
   it("is not divergent when SPI is unknown", () => {
     expect(kpiSimulation(forecast(), null)?.divergent).toBe(false);
+  });
+});
+
+describe("kpiSimulationGap", () => {
+  it("names too few finished tasks first, even when the window is short too", () => {
+    expect(kpiSimulationGap({ ...INSUFFICIENT, finished: 4, days: 3 })).toEqual({ kind: "finished", finished: 4, needed: 10 });
+  });
+
+  it("names the window when only the working days are short", () => {
+    expect(kpiSimulationGap({ ...INSUFFICIENT, finished: 12, days: 6 })).toEqual({ kind: "days", days: 6, needed: 10 });
+  });
+
+  it("is beyond the horizon when the P80 date is", () => {
+    expect(kpiSimulationGap(forecast({ p80: null }))).toEqual({ kind: "beyond" });
+  });
+
+  it("is null whenever kpiSimulation has cells to show", () => {
+    expect(kpiSimulationGap(forecast())).toBeNull();
+    expect(kpiSimulation(forecast(), 1)).not.toBeNull();
   });
 });

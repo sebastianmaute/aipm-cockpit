@@ -44,7 +44,7 @@ import { DashboardShelf, DASHBOARD_SHELF_TRAY_ID } from "./dashboard-shelf";
 import { DashboardHiddenBadge } from "./dashboard-hidden-badge";
 import { buildTileBodies } from "./dashboard-tile-bodies";
 import { computeAppForecast } from "./forecast/app-forecast";
-import { kpiSimulation } from "./kpi-simulation";
+import { kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
 import { useDashboardLayout } from "./use-dashboard-layout";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { tileById, type DashboardTileId, type TileGateInput, type TileHeight } from "./dashboard-tiles";
@@ -361,20 +361,18 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // references and plan end the history recorder passes, so both share `computeAppForecast`'s memo.
   const milestonesForSim = props.milestones ?? EMPTY_MILESTONES;
   const planEnd = props.plan.endDate;
-  const kpiSim = useMemo(
-    () => simulationOn
-      ? kpiSimulation(
-          computeAppForecast({ tasks: props.tasks, milestones: milestonesForSim, planEnd, today, holidaySet: props.holidaySet }),
-          model.evm.spi,
-        )
-      : null,
-    [simulationOn, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi],
-  );
+  // The gap is why the switch is on but no simulated cell shows (too little history, P80 beyond the horizon).
+  const { kpiSim, kpiSimGap } = useMemo(() => {
+    if (!simulationOn) return { kpiSim: null, kpiSimGap: null };
+    const f = computeAppForecast({ tasks: props.tasks, milestones: milestonesForSim, planEnd, today, holidaySet: props.holidaySet });
+    return { kpiSim: kpiSimulation(f, model.evm.spi), kpiSimGap: kpiSimulationGap(f) };
+  }, [simulationOn, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi]);
 
   const bodies = buildTileBodies({
     lang, dc, model,
     trends,
     simulation: kpiSim ?? undefined,
+    simulationGap: kpiSimGap ?? undefined,
     onOpenHelp: props.onOpenHelp,
     // ★★ `plan.currency`, the project baseline (§476): this labels the engine's
     // burn-down series (`budgetHours × role.rates.external`), and role rates are
@@ -446,8 +444,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const measured = useMeasuredHeights({
     density,
     resetNonce,
-    // The KPI tile grows by cells and text lines when the simulation appears or flips divergent.
-    contentKey: kpiSim ? `sim:${kpiSim.divergent}:${kpiSim.chanceOnTime !== null}` : `sim:${simulationOn}`,
+    // The KPI tile grows by cells and text lines when the simulation appears or flips divergent,
+    // and by the one-line note when the switch is on but nothing can be simulated.
+    contentKey: kpiSim
+      ? `sim:${kpiSim.divergent}:${kpiSim.chanceOnTime !== null}`
+      : `sim:${simulationOn}:${kpiSimGap?.kind ?? "none"}`,
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };

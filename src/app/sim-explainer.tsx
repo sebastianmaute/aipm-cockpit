@@ -7,15 +7,21 @@ import { InformationCircleIcon, XMarkIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { percentileWord, type SimPercentile } from "./percentile-words";
 import { PopoverPanel } from "./popover-panel";
+import { MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
 
 /** Help concept the explainer's link opens. The entry itself is created
  *  elsewhere; consumers wire `onOpenHelp` (typically `requestHelpConcept`). */
 export const FORECAST_SIM_HELP_ID = "concept-forecast-simulation";
 
-/** Engine horizon in working days. A trial that never finished is encoded in
- *  the distribution as `HORIZON_DAYS + 1`. */
-const HORIZON_DAYS = 1300;
+/** The engine's horizon in working days. A trial that never finished is encoded
+ *  in the distribution, and a beyond-horizon marker as, this plus one. */
+const HORIZON_DAYS = MAX_HORIZON_WORKING_DAYS;
 const MAX_BINS = 20;
+
+/** One marker for the histogram's accessible label: a day count, or "beyond the horizon". */
+function markerPhrase(lang: Lang, days: number): string {
+  return days > HORIZON_DAYS ? t(lang, "simHistogramBeyond") : t(lang, "simHistogramIn", days);
+}
 
 /** P50/P80/P95 cut values, in working days ahead. */
 export interface SimMarkers {
@@ -193,7 +199,8 @@ export function SimExplainer({
           <Chart
             bins={bins}
             markers={markers}
-            ariaLabel={t(lang, "simHistogramAria", markers.p50, markers.p80, markers.p95)}
+            ariaLabel={t(lang, "simHistogramAria",
+              markerPhrase(lang, markers.p50), markerPhrase(lang, markers.p80), markerPhrase(lang, markers.p95))}
           />
         )}
         <ul className="m-0 list-none p-0 text-muted-foreground">

@@ -22,7 +22,14 @@ export type AppForecast =
       /** The engine's working days ahead per percentile (beyond the horizon: horizon + 1), for the explainer's cut lines. */
       markers: { p50: number; p80: number; p95: number };
     }
-  | { kind: "insufficient" };
+  | {
+      kind: "insufficient";
+      /** The engine's floor figures, so a surface can say which one is short. */
+      finished: number;
+      neededFinished: number;
+      days: number;
+      neededDays: number;
+    };
 
 export type AppForecastArgs = {
   tasks: readonly Task[];
@@ -76,7 +83,13 @@ export function computeAppForecast(a: AppForecastArgs): AppForecast {
   });
   let result: AppForecast;
   if (r.kind !== "forecast") {
-    result = { kind: "insufficient" };
+    result = {
+      kind: "insufficient",
+      finished: r.finished,
+      neededFinished: r.neededFinished,
+      days: r.days,
+      neededDays: r.neededDays,
+    };
   } else {
     const open = a.tasks.filter((t) => !isTaskClosed(t));
     const row = (p: number) => r.when.find((w) => w.p === p);
