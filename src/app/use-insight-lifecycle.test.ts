@@ -42,6 +42,7 @@ function setup(isPopout = false) {
       insights,
       setInsights: (u) => { setSpy(u); setInsights(u); },
       requestOpen,
+      settingsOverrides: undefined, forecastHistory: [], setForecastHistory: vi.fn(),
     };
     return { insights, handlers: useInsightLifecycle(deps) };
   });
@@ -125,6 +126,7 @@ describe("useInsightLifecycle runner → timelogClosedMonth", () => {
         tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], plan: null,
         holidaySet: new Set<string>(), holidaysReady: true, shifts: [], absences: [], timelogLinks,
         insights, setInsights, requestOpen: vi.fn(),
+        settingsOverrides: undefined, forecastHistory: [], setForecastHistory: vi.fn(),
       };
       useInsightLifecycle(deps);
       return insights;

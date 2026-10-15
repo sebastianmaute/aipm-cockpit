@@ -29,6 +29,9 @@ import { loadActualsCache } from "./timelog-actuals-store";
 import { closedMonthCertifies, evaluateTimelogPolicy } from "./timelog-policy";
 import { metricAtActionPatch } from "./insights/outcome";
 import { applyInsightLoggedAsRaid } from "./insights/log-as-raid";
+import type { ForecastHistoryEntry } from "./forecast-history";
+import type { SettingsOverrides } from "./settings-types";
+import { useForecastHistoryRecorder } from "./use-forecast-history-recorder";
 
 // Debounce before the insights detect→reconcile runner fires, so a burst of
 // edits collapses into one recompute (#6B Insights → Action Loop, SP1).
@@ -52,6 +55,10 @@ export interface InsightLifecycleDeps
   insights: readonly Insight[] | undefined;
   setInsights: Dispatch<SetStateAction<readonly Insight[] | undefined>>;
   requestOpen: (view: AppView, id: number) => void;
+  /** §502 — the daily forecast recorder runs here (see use-forecast-history-recorder.ts). */
+  settingsOverrides: SettingsOverrides | undefined;
+  forecastHistory: readonly ForecastHistoryEntry[];
+  setForecastHistory: Dispatch<SetStateAction<readonly ForecastHistoryEntry[]>>;
 }
 
 export interface InsightLifecycleHandlers {
@@ -67,7 +74,12 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
     tasks, milestones, raid, budgets, roles, resources, plan,
     holidaySet, holidaysReady, shifts, absences, timelogLinks,
     insights, setInsights, requestOpen,
+    settingsOverrides, forecastHistory, setForecastHistory,
   } = deps;
+  useForecastHistoryRecorder({
+    hydrated, isPopout, loadPending, holidaysReady, today, tasks, milestones,
+    planEnd: plan?.endDate ?? "", holidaySet, settingsOverrides, forecastHistory, setForecastHistory,
+  });
   // Assemble the detection input from live entities. `plan` is always present
   // here (workspace-context seeds defaultResourcePlan) so it is passed as-is;
   // `budgets` are forwarded raw (the budgetVariance detector self-gates on an
