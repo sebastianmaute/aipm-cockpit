@@ -62,3 +62,19 @@ describe("DashboardTipCard buttons at the shared xs height", () => {
     expect(dismiss.querySelector("svg")?.getAttribute("class")).toMatch(/(^|\s)h-4 w-4(\s|$)/);
   });
 });
+
+
+describe('DashboardTipCard label', () => {
+  beforeEach(() => localStorage.clear());
+
+  // The word "Tip" became an icon; the word stays for screen readers only.
+  it('shows a lightbulb icon in place of the word, keeps the word for screen readers, and centres the row', () => {
+    const { container } = render(<DashboardTipCard lang='en-US' dc={dc} />);
+    const word = screen.getByText('Tip');
+    expect(word).toHaveClass('sr-only');
+    const icon = word.parentElement!.querySelector('svg');
+    expect(icon).not.toBeNull();
+    expect(icon!.getAttribute('aria-hidden')).toBe('true');
+    expect(container.querySelector('.items-center')).toContainElement(word);
+  });
+});
