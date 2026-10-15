@@ -20,6 +20,7 @@ import { reportAiKeyUnreadable } from "./ai-key-status";
 import { dropLegacyActivityLog } from "./activity-log";
 import { sanitizeJiraExtraProjects } from "./jira-projects";
 import { logDiag } from "./diagnostics";
+import { settingsSealedForReload } from "./settings-reload-seal";
 
 export const SETTINGS_KEY = "aipm-cockpit:settings";
 
@@ -30,6 +31,7 @@ export const SETTINGS_KEY = "aipm-cockpit:settings";
  *  disabled) so the caller can surface it — a swallowed failure silently
  *  reverts settings on the next reload. */
 export function writeSettings(settings: Settings): boolean {
+  if (settingsSealedForReload()) return true; // §740 — sealed for a reload: skipped, not failed
   const turso = settings.integrations?.turso;
   const persistable: Settings = {
     ...settings,

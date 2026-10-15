@@ -29,6 +29,7 @@ import { tursoSetupState } from "../turso-setup-state";
 import { TursoSetupSteps } from "./turso-setup-steps";
 import { tursoErrorKind } from "../storage-error";
 import { SECRET_MERGE_TIMEOUT_MS, writeSettings } from "../use-settings";
+import { sealSettingsUntilReload } from "../settings-reload-seal";
 import { loadRegistry } from "../projects-registry";
 import { defaultStorageConfig } from "../workspace";
 import { saveSecretValue, setSecretPassphrase, unlockSecret } from "../use-secrets";
@@ -795,6 +796,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     } else if (base !== settings) {
       writeSettings(base);
     }
+    sealSettingsUntilReload(); // §740 — no stale persist-effect write may land before the reload
     window.location.reload();
   }
 

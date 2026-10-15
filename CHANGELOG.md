@@ -10,6 +10,13 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A project created on Turso storage while the app was still using local projects now opens as itself (§740).**
+  After the switch to Turso, the app came back with an empty workspace: no project name in the header, a
+  browser-storage label, and Edit project doing nothing. Creating the demo project from there also showed a
+  false "changed in another tab" warning. A create that fails now leaves the app where it was.
+
 ### Notes
 
 - **The Dashboard simulation is built but held back with the forecast (§502, part 1).** An optional,

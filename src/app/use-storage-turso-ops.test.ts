@@ -70,6 +70,9 @@ vi.mock("./turso-portfolio", () => ({
   hardDeleteProject: vi.fn(async () => {}),
 }));
 vi.mock("./use-settings", () => ({ writeSettings: vi.fn() }));
+vi.mock("./settings-reload-seal", () => ({ sealSettingsUntilReload: vi.fn() }));
+import { writeSettings } from "./use-settings";
+import { sealSettingsUntilReload } from "./settings-reload-seal";
 
 import { logDiag } from "./diagnostics";
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
@@ -438,6 +441,32 @@ describe("useTursoProjectOps — §4 hand-over and blind writes", () => {
     })));
     await act(async () => { await result.current.migrateCurrentProjectToTurso(); });
     expect(guardedWrite).toHaveBeenCalledWith(expect.anything(), expect.anything(), { force: true });
+  });
+
+  // §740 — a stale persist-effect write landing before the migration's reload must not take the
+  // storage kind back to the file the project just left.
+  // The seal's own effect is pinned in portfolio-mode.test.ts; here, that this path seals after its
+  // final settings write and before the reload (use-settings is mocked in this file).
+  it("migrateCurrentProjectToTurso seals settings writes after its last write, before the reload (§740)", async () => {
+    const order: string[] = [];
+    vi.mocked(writeSettings).mockImplementation(() => { order.push("write"); return true; });
+    vi.mocked(sealSettingsUntilReload).mockImplementation(() => { order.push("seal"); });
+    const reload = vi.fn(() => { order.push("reload"); });
+    const original = window.location;
+    Object.defineProperty(window, "location", { configurable: true, value: { ...original, reload } });
+    try {
+      const { result } = renderHook(() => useTursoProjectOps(makeDeps({
+        currentWorkspace: wsWithProject,
+        truncationOps: { ...makeDeps().truncationOps, guardedWrite: vi.fn(async () => true) },
+      })));
+      await act(async () => { await result.current.migrateCurrentProjectToTurso(); });
+      expect(vi.mocked(writeSettings).mock.calls.at(-1)?.[0]).toMatchObject({ storageConfig: { kind: "turso" } });
+      expect(order).toEqual(["write", "seal", "reload"]);
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: original });
+      vi.mocked(writeSettings).mockReset();
+      vi.mocked(sealSettingsUntilReload).mockReset();
+    }
   });
 });
 
