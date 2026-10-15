@@ -3714,7 +3714,7 @@ const enUS = {
   kpiSimNeedsFinished: "Not enough history to simulate yet: {0} finished, needs {1}.",
   kpiSimNeedsDays: "Not enough history to simulate yet: {0} working days of history, needs {1}.",
   kpiSimBeyondHorizon: "The simulated finish is beyond the {0}-working-day horizon.",
-  kpiSimDivergence: "These metrics use different units. SPI uses estimated effort completed versus planned effort due. Chance on time uses the observed completion rate. A project can look ahead on SPI and still have low date confidence if many remaining items are small, unestimated, or finishing slowly.",
+  kpiSimDivergence: "These metrics use different units. Effort SPI uses estimated effort completed versus planned effort due. Chance on time uses the observed completion rate. A project can look ahead on Effort SPI and still have low date confidence if many remaining items are small, unestimated, or finishing slowly.",
   forecastDashboardDefaultsNote: "The Dashboard uses the default settings",
   simulationShow: "Show simulation",
   simulationIntroText: "Simulation is on. Dashed teal numbers are simulated, not measured. \"P80\" means 8 in 10 simulated runs reached it.",

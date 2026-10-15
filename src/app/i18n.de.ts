@@ -3428,7 +3428,7 @@ export const de: Record<TranslationKey, string> = {
   kpiSimNeedsFinished: "Noch zu wenig Verlauf für eine Simulation: {0} erledigt, nötig sind {1}.",
   kpiSimNeedsDays: "Noch zu wenig Verlauf für eine Simulation: {0} Arbeitstage Verlauf, nötig sind {1}.",
   kpiSimBeyondHorizon: "Das simulierte Ende liegt jenseits des Horizonts von {0} Arbeitstagen.",
-  kpiSimDivergence: "Diese Kennzahlen verwenden unterschiedliche Einheiten. Der SPI vergleicht den geschätzten Aufwand der erledigten Arbeit mit dem geplanten, fälligen Aufwand. Die Termin-Wahrscheinlichkeit nutzt die beobachtete Abschlussrate. Ein Projekt kann beim SPI vorn liegen und trotzdem wenig Terminsicherheit haben, wenn viele offene Punkte klein, ungeschätzt oder langsam im Abschluss sind.",
+  kpiSimDivergence: "Diese Kennzahlen verwenden unterschiedliche Einheiten. Der Aufwands-SPI vergleicht den geschätzten Aufwand der erledigten Arbeit mit dem geplanten, fälligen Aufwand. Die Termin-Wahrscheinlichkeit nutzt die beobachtete Abschlussrate. Ein Projekt kann beim Aufwands-SPI vorn liegen und trotzdem wenig Terminsicherheit haben, wenn viele offene Punkte klein, ungeschätzt oder langsam im Abschluss sind.",
   forecastDashboardDefaultsNote: "Das Dashboard verwendet die Standardeinstellungen",
   simulationShow: "Simulation anzeigen",
   simulationIntroText: "Die Simulation ist an. Gestrichelte türkise Zahlen sind simuliert, nicht gemessen. „P80“ bedeutet: 8 von 10 simulierten Durchläufen haben es erreicht.",
