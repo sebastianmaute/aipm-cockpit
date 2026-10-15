@@ -587,6 +587,12 @@ describe("DashboardKpiStrip — switch on, nothing simulated (§502)", () => {
     expect(cells(container)).toBe(4);
   });
 
+  it("groups the horizon by the language's locale (DE)", async () => {
+    await loadI18n("de");
+    render(<DashboardKpiStrip lang="de" model={model()} trends={trends} dc={dc} simulationGap={{ kind: "beyond" }} />);
+    expect(screen.getByText(/1\.300 Arbeitstagen/)).toBeInTheDocument();
+  });
+
   it("shows no note while the switch is off (no gap passed)", () => {
     render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} />);
     expect(screen.queryByText(/Not enough history|beyond the/)).toBeNull();
