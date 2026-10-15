@@ -154,6 +154,11 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Labels in the budget burn-down chart are no longer covered by its lines (§737).** Each label now has a
+  halo in the card's colour and is drawn on top of the lines. When a line runs through a label's usual
+  spot, the label moves to the nearest clear spot and a thin leader line ties it back to its point; the
+  BAC labels swap to the other side of their line instead. Labels stay inside the plot. This shows on
+  the dashboard's Budget burn tile and in the Budget view.
 - **"Explore a demo project" now says when Turso is the problem.** With Turso set up but failing, for example
   on a rejected auth token, and a local project already in this browser, the demo was refused with "set up
   Turso" and told you to delete a project the Turso project list does not show. It now says the demo could

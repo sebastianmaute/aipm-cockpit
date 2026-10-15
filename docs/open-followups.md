@@ -974,7 +974,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§734](#734-an-empty-raci-matrix-names-one-missing-input-at-a-time--open) | An empty RACI matrix names one missing input at a time | — | — | open |
 | [§735](#735-ai-documents-give-no-guided-setup-for-the-api-key-templates-and-a-first-document--open) | AI documents give no guided setup for the API key, templates and a first document | — | — | open |
 | [§736](#736-an-empty-gantt-chart-names-only-the-first-missing-input--open) | An empty Gantt chart names only the first missing input | — | — | open |
-| [§737](#737-chart-labels-sit-directly-on-their-line-and-are-partly-hidden-or-hard-to-read--open) | Chart labels sit directly on their line and are partly hidden or hard to read | — | — | open |
+| [§737](#737-chart-labels-sit-directly-on-their-line-and-are-partly-hidden-or-hard-to-read--closed-2026-10-15) | Chart labels sit directly on their line and are partly hidden or hard to read | — | — | **CLOSED** 2026-10-15 |
 | [§738](#738-a-workday-hours-change-zeroes-the-hourly-rate-on-a-day-basis-roles-side-that-has-no-day-rate--closed-2026-10-15) | A workday-hours change zeroes the hourly rate on a day-basis role's side that has no day rate | — | — | **CLOSED** 2026-10-15 |
 | [§739](#739-a-new-projects-plan-start-date-is-the-utc-day-not-the-local-day--closed-2026-10-15) | A new project's plan start date is the UTC day, not the local day | — | — | **CLOSED** 2026-10-15 |
 <!-- INDEX:END -->
@@ -45348,11 +45348,13 @@ Size S.
 
 **Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
 
-## 737. Chart labels sit directly on their line and are partly hidden or hard to read — OPEN
+## 737. Chart labels sit directly on their line and are partly hidden or hard to read — CLOSED 2026-10-15
 
-**Status:** OPEN 2026-10-14. In `burndown-chart.tsx` only the BAC marker labels draw a halo (`grep -c 'paintOrder="stroke"' src/app/burndown-chart.tsx` → 1) while the chart draws more in-chart labels than that (`grep -c "<text" src/app/burndown-chart.tsx` → 12, axis ticks included).
+**Status:** CLOSED 2026-10-15 on `fix/737-chart-label-placement`. Every label in and beside the burn-down plot now carries a surface-colour halo and is drawn after every line; the budget-change labels in the band above the plot already had their halo and keep their place (`grep -c "{...HALO}" src/app/burndown-chart.tsx` → 6). The work-left, EV join and BAC labels are placed by `placeLabels` (`chart-label-placement.ts`): a label keeps its usual spot when that is clear, and otherwise moves to the first spot clear of every plotted line, the marks and the other labels, inside the plot. A point label that moves keeps a thin leader to its point (`data-label-leader`, the owner's choice over a backing alone); a BAC label only swaps to the other side of its line. Pinned by `chart-label-placement.test.ts` and the "label placement (§737)" tests in `burndown-chart.test.tsx` (the `MODEL` work-left case, red before the fix). The Trends charts draw only axis labels (`grep -c "<text" src/app/trend-chart.tsx` → 2), so they were left as they are. The two end figures sit right of the plot, where no line runs, and keep `endLabelYs`.
 
-**Work item:** #733
+★ The text below is the record as opened.
+
+**Opened:** OPEN 2026-10-14. In `burndown-chart.tsx` only the BAC marker labels draw a halo (`grep -c 'paintOrder="stroke"' src/app/burndown-chart.tsx` → 1) while the chart draws more in-chart labels than that (`grep -c "<text" src/app/burndown-chart.tsx` → 12, axis ticks included).
 
 In-chart labels ("breakouts") sit a few pixels from the line they name, so that line and other marks cover them and they are hard to read. In the burndown chart: the BAC label (`y(model.bacLine) - 4`), the BAC-baseline and BAC-step labels (`+ 9`), the work-left label at the EV point (`- 7`), the EV join labels (`- 6`) and the two end figures at `X1 + 4`. `endLabelYs` separates the two end figures from each other only, not from the lines or other labels.
 

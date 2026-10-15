@@ -13,6 +13,7 @@ import {
   estimatedLabelWidth, fitJoinLabel, layoutMarkerLabels, markerBandHeight, markerLabelBoxes, scaleDate, scaleValue,
   type BacMarker, type ChartModel, type ChartOrientation, type ChartPoint, type ChartUnit,
 } from "./burndown-geometry";
+import { placeLabels, polylineSegments, type Box, type LabelRequest, type Segment } from "./chart-label-placement";
 import { ChartReadout, readoutSentence } from "./chart-readout";
 import { readoutAt, readoutStops } from "./burndown-readout";
 import { useChartReadout } from "./use-chart-readout";
@@ -24,6 +25,13 @@ const W = 640, H = 240, PAD_L = 64, PAD_R = 80, PAD_T = 16, PAD_B = 28;
 const X0 = PAD_L, X1 = W - PAD_R;
 
 const DASH = { planned: "5 4", pace: "7 4", efficiency: "2 3", evLine: "6 2 1 2", evPartial: "2 4", bac: "4 4", today: "3 3" } as const;
+
+/** §737 — every label carries a halo in the card's `surface` colour (`paint-order="stroke"`
+ *  draws the stroke under the fill), so a line passing close by does not cut the letters. */
+const HALO = { paintOrder: "stroke", strokeWidth: 3, strokeLinejoin: "round" } as const;
+/** §737 — baseline offsets, from a label's usual spot, of the spots it moves to when a line or
+ *  another label covers that spot: alternately up and down, further each time. */
+const FAR_OFFSETS = [-12, 20, -24, 32, -36, 44] as const;
 
 /** Baseline offset of an end label below its line end (8px text). */
 const END_LABEL_OFFSET = 3;
@@ -162,6 +170,64 @@ function BurndownChartBody({
     model.efficiency ? y(model.efficiency.to.value) + END_LABEL_OFFSET : null,
     yTop, yBottom,
   );
+  // §737 — the labels inside the plot, placed clear of every plotted line, of the marks and of
+  // each other (`placeLabels`). A point label that has to move keeps a leader to its point; a
+  // label that runs along a line only swaps sides of it.
+  const at = (p: ChartPoint) => ({ x: x(p.date), y: y(p.value) });
+  const across = (v: number): Segment => ({ x1: X0, y1: y(v), x2: X1, y2: y(v) });
+  const upright = (date: string): Segment => ({ x1: x(date), y1: yTop, x2: x(date), y2: yBottom });
+  const segments: Segment[] = [
+    ...polylineSegments(model.planned.map(at)),
+    ...(model.actual.length > 1 ? polylineSegments(model.actual.map(at)) : []),
+    ...(model.evSegments ?? []).flatMap((seg) => polylineSegments(seg.points.map(at))),
+    ...[model.pace, model.efficiency].flatMap((f) => (f ? [{ x1: x(f.from.date), y1: y(f.from.value), x2: x(f.to.date), y2: y(f.to.value) }] : [])),
+    ...(model.bacSteps
+      ? [...polylineSegments(model.bacSteps.map(at)), ...(model.bacBaseline !== null ? [across(model.bacBaseline)] : [])]
+      : model.bacLine !== null ? [across(model.bacLine)] : []),
+    // Each budget-change tick, and the leader from its label in the band down to it.
+    ...(model.bacSteps ? model.bacMarkers.map((marker, i) => ({ x1: x(marker.date), y1: markerLabels[i].baseline + 2, x2: x(marker.date), y2: y(marker.value) + 4 })) : []),
+    ...(model.today ? [upright(model.today)] : []),
+    upright(model.planEnd),
+    ...(belowZero ? [across(0)] : []),
+  ];
+  const marks: Box[] = [
+    ...(model.ev ? [{ left: x(model.ev.date) - 5, top: y(model.ev.value) - 5, right: x(model.ev.date) + 5, bottom: y(model.ev.value) + 5 }] : []),
+    ...(model.runOut ? [{ left: x(model.runOut.date) - 4, top: y(model.runOut.value) - 4, right: x(model.runOut.date) + 4, bottom: y(model.runOut.value) + 4 }] : []),
+    ...markerLabels,
+  ];
+  type PlotLabel = { key: string; text: string; request: LabelRequest; data?: string; strong?: boolean; title?: string };
+  const pointLabel = (key: string, text: string, point: { x: number; y: number }, spot: { x: number; baseline: number }, anchor: "start" | "end"): PlotLabel =>
+    ({ key, text, request: { width: estimatedLabelWidth(text), anchor, near: [spot], far: FAR_OFFSETS.map((d) => ({ x: spot.x, baseline: spot.baseline + d })), point } });
+  // Below the line first (+9) or above it first (−4); either way the label stays beside its line.
+  const lineLabel = (key: string, text: string, lx: number, lineY: number, anchor: "start" | "end", belowFirst: boolean): PlotLabel => {
+    const below = { x: lx, baseline: lineY + 9 }, above = { x: lx, baseline: lineY - 4 };
+    return { key, text, request: { width: estimatedLabelWidth(text), anchor, near: belowFirst ? [below, above] : [above, below], far: [], point: null } };
+  };
+  const plotLabels: PlotLabel[] = [];
+  if (model.ev && down) {
+    const ev = at(model.ev);
+    plotLabels.push(pointLabel("work-left", t(lang, "burndownWorkLeft", fmt(model.ev.value)), ev, { x: ev.x - 7, baseline: ev.y - 7 }, "end"));
+  }
+  for (const j of model.evJoins) {
+    // §665 — kept inside the plot and clear of the baseline label, which sits at the plot's left edge.
+    const fitted = fitJoinLabel((name) => t(lang, joinKey(j.count), name, joinAmount(j.amount)), j.label, x(j.date), (X0 + X1) / 2, joinBounds);
+    const point = { x: x(j.date), y: y(j.value) };
+    plotLabels.push({
+      ...pointLabel(`join-${j.date}`, fitted.text, point, { x: point.x, baseline: point.y - 6 }, fitted.anchor),
+      data: "data-ev-join-label", strong: true,
+      title: fitted.truncated ? t(lang, joinKey(j.count), j.label, joinAmount(j.amount)) : undefined,
+    });
+  }
+  // The stepped line's two labels sit BELOW their line first: the marker ticks sit ON the stepped
+  // line (see the comment at the steps below). The flat line's label sits above it first.
+  if (model.bacSteps) {
+    if (model.bacBaseline !== null) plotLabels.push(lineLabel("bac-baseline", t(lang, "burndownBacBaseline"), X0 + 4, y(model.bacBaseline), "start", true));
+    if (bacStepEnd !== null) plotLabels.push(lineLabel("bac-end", t(lang, "burndownBac", fmt(bacStepEnd)), X1, y(bacStepEnd), "end", true));
+  } else if (model.bacLine !== null) {
+    plotLabels.push(lineLabel("bac", t(lang, "burndownBac", fmt(model.bacLine)), X0 + 4, y(model.bacLine), "start", false));
+  }
+  // The plot, plus the top margin the flat BAC label has always used; the marker band is `marks`.
+  const placed = placeLabels(plotLabels.map((l) => l.request), segments, { left: X0, top: 0, right: X1, bottom: yBottom }, marks);
   // `readoutStops` walks the whole model, so memoize it on the model's own identity.
   const stops = useMemo(() => readoutStops(model), [model]);
   const readout = useChartReadout({ stops, xDomain: model.xDomain, x0: X0, x1: X1, viewBoxWidth: W });
@@ -187,15 +253,6 @@ function BurndownChartBody({
           {yTicks.map((v) => (
             <text key={v} data-axis="y" x={X0 - 4} y={y(v) + 3} textAnchor="end" className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">{fmt(v)}</text>
           ))}
-          {belowZero && (
-            <text x={X0 + 4} y={yBottom - 4} className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownOver")}</text>
-          )}
-          {periods.length > 0 && (
-            <>
-              <text x={X0} y={height - 8} textAnchor="start" className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">{periods[0]}</text>
-              <text x={X1} y={height - 8} textAnchor="end" className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">{periods[periods.length - 1]}</text>
-            </>
-          )}
           {/* Recorded budget changes replace the flat BAC line with a stepped
               one plus a dashed reference at the baseline. The two share
               `DASH.bac` and `stroke-muted-foreground` and differ only by stroke
@@ -203,23 +260,21 @@ function BurndownChartBody({
               weight alone: `burndownBacBaseline` at the left end of the
               reference, `burndownBac` (with the stepped line's FINAL level, the
               last recorded entry's own BAC) at the right end of the steps.
-              Both labels sit BELOW their line: the marker ticks sit ON the
-              stepped line, and whenever the last period's group yields a
+              Both labels sit BELOW their line by default: the marker ticks sit
+              ON the stepped line, and whenever the last period's group yields a
               marker, its tick is at this final level, so an above-placed label
-              would crowd it. The marker labels themselves sit in the band
-              above the plot (`layoutMarkerLabels`). */}
+              would crowd it. §737: they go above only when a plotted line covers
+              the spot below, and the ticks count as lines there. The labels are
+              drawn in the label layer at the end. The marker labels themselves
+              sit in the band above the plot (`layoutMarkerLabels`). */}
           {model.bacSteps ? (
             <>
               {model.bacBaseline !== null && (
                 <>
                   <line data-bac-baseline="" x1={X0} y1={y(model.bacBaseline)} x2={X1} y2={y(model.bacBaseline)} className="stroke-muted-foreground" strokeWidth={1} strokeDasharray={DASH.bac} />
-                  <text x={X0 + 4} y={y(model.bacBaseline) + 9} className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownBacBaseline")}</text>
                 </>
               )}
               <polyline data-bac-steps="" points={pts(model.bacSteps)} fill="none" className="stroke-muted-foreground" strokeWidth={1.5} strokeDasharray={DASH.bac} />
-              {bacStepEnd !== null && (
-                <text x={X1} y={y(bacStepEnd) + 9} textAnchor="end" className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownBac", fmt(bacStepEnd))}</text>
-              )}
               {/* Ticks and leaders first, then every label, so a leader that runs
                   down through a lower row passes BEHIND that row's label. Each
                   label carries a halo in the card's own `surface` colour
@@ -245,35 +300,18 @@ function BurndownChartBody({
           ) : model.bacLine !== null && (
             <>
               <line data-bac-line="" x1={X0} y1={y(model.bacLine)} x2={X1} y2={y(model.bacLine)} className="stroke-muted-foreground" strokeWidth={1.5} strokeDasharray={DASH.bac} />
-              <text x={X0 + 4} y={y(model.bacLine) - 4} className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownBac", fmt(model.bacLine))}</text>
             </>
           )}
           <polyline points={pts(model.planned)} fill="none" className="stroke-muted-foreground" strokeWidth={2} strokeDasharray={DASH.planned} />
           {model.evSegments?.map((seg, i) => (
             <polyline key={i} points={pts(seg.points)} fill="none" className="stroke-[var(--rag-amber)]" strokeWidth={2} strokeDasharray={seg.partial ? DASH.evPartial : DASH.evLine} />
           ))}
-          {model.evJoins.map((j) => {
-            // §665 — kept inside the plot and clear of the baseline label, which sits at the plot's left edge.
-            const fitted = fitJoinLabel((name) => t(lang, joinKey(j.count), name, joinAmount(j.amount)), j.label, x(j.date), (X0 + X1) / 2, joinBounds);
-            return (
-              <text key={j.date} data-ev-join-label="" x={x(j.date)} y={y(j.value) - 6} textAnchor={fitted.anchor} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">
-                {fitted.truncated && <title>{t(lang, joinKey(j.count), j.label, joinAmount(j.amount))}</title>}
-                {fitted.text}
-              </text>
-            );
-          })}
           {model.actual.length > 1 && <polyline points={pts(model.actual)} fill="none" className={actualClass} strokeWidth={2.5} />}
           {model.pace && (
-            <>
-              <line x1={x(model.pace.from.date)} y1={y(model.pace.from.value)} x2={x(model.pace.to.date)} y2={y(model.pace.to.value)} className="stroke-ui-dark-blue" strokeWidth={2.5} strokeDasharray={DASH.pace} />
-              <text x={X1 + 4} y={labelY.pace ?? undefined} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">{fmt(model.pace.endFigure)}</text>
-            </>
+            <line x1={x(model.pace.from.date)} y1={y(model.pace.from.value)} x2={x(model.pace.to.date)} y2={y(model.pace.to.value)} className="stroke-ui-dark-blue" strokeWidth={2.5} strokeDasharray={DASH.pace} />
           )}
           {model.efficiency && (
-            <>
-              <line x1={x(model.efficiency.from.date)} y1={y(model.efficiency.from.value)} x2={x(model.efficiency.to.date)} y2={y(model.efficiency.to.value)} className="stroke-ui-purple" strokeWidth={2.5} strokeDasharray={DASH.efficiency} />
-              <text x={X1 + 4} y={labelY.efficiency ?? undefined} className="fill-foreground text-[8px] tabular-nums" aria-hidden="true">{fmt(model.efficiency.endFigure)}</text>
-            </>
+            <line x1={x(model.efficiency.from.date)} y1={y(model.efficiency.from.value)} x2={x(model.efficiency.to.date)} y2={y(model.efficiency.to.value)} className="stroke-ui-purple" strokeWidth={2.5} strokeDasharray={DASH.efficiency} />
           )}
           {model.today && (
             <line x1={x(model.today)} y1={yTop} x2={x(model.today)} y2={yBottom} className="stroke-muted-foreground" strokeWidth={1} strokeDasharray={DASH.today} />
@@ -282,10 +320,30 @@ function BurndownChartBody({
           {model.ev && (
             <path d={`M ${x(model.ev.date)} ${y(model.ev.value) - 5} l 5 5 l -5 5 l -5 -5 z`} className="fill-[var(--rag-amber)]" />
           )}
-          {model.ev && down && (
-            <text x={x(model.ev.date) - 7} y={y(model.ev.value) - 7} textAnchor="end" className="fill-muted-foreground text-[8px]" aria-hidden="true">{t(lang, "burndownWorkLeft", fmt(model.ev.value))}</text>
-          )}
           {model.runOut && <circle cx={x(model.runOut.date)} cy={y(model.runOut.value)} r={4} className="fill-ui-pink" />}
+          {/* §737 — every label after every line and mark, so its halo covers whatever runs
+              near it; the leaders first, so a leader never crosses a label's letters. */}
+          {placed.map((spot, i) => spot.leader && (
+            <line key={plotLabels[i].key} data-label-leader="" x1={spot.leader.x1} y1={spot.leader.y1} x2={spot.leader.x2} y2={spot.leader.y2} className="stroke-muted-foreground" strokeWidth={0.75} />
+          ))}
+          {plotLabels.map((label, i) => (
+            <text
+              key={label.key} {...(label.data ? { [label.data]: "" } : {})} x={placed[i].x} y={placed[i].baseline} textAnchor={label.request.anchor} {...HALO}
+              className={`${label.strong ? "fill-foreground tabular-nums" : "fill-muted-foreground"} stroke-surface text-[8px]`} aria-hidden="true"
+            >
+              {label.title && <title>{label.title}</title>}
+              {label.text}
+            </text>
+          ))}
+          {model.pace && <text x={X1 + 4} y={labelY.pace ?? undefined} {...HALO} className="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{fmt(model.pace.endFigure)}</text>}
+          {model.efficiency && <text x={X1 + 4} y={labelY.efficiency ?? undefined} {...HALO} className="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{fmt(model.efficiency.endFigure)}</text>}
+          {belowZero && <text x={X0 + 4} y={yBottom - 4} {...HALO} className="fill-muted-foreground stroke-surface text-[8px]" aria-hidden="true">{t(lang, "burndownOver")}</text>}
+          {periods.length > 0 && (
+            <>
+              <text x={X0} y={height - 8} textAnchor="start" {...HALO} className="fill-muted-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{periods[0]}</text>
+              <text x={X1} y={height - 8} textAnchor="end" {...HALO} className="fill-muted-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{periods[periods.length - 1]}</text>
+            </>
+          )}
           {activeX !== null && active && (
             <g aria-hidden="true" className="pointer-events-none print:hidden">
               <line data-readout-guide="" x1={activeX} y1={yTop} x2={activeX} y2={yBottom} className="stroke-foreground" strokeWidth={1} />
