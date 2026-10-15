@@ -29,7 +29,15 @@ export function SimulationIntro({ lang, onGotIt, onShowMe, anchorRef }: Simulati
     if (focused === null || focused === document.body) return true;
     return (ref.current?.contains(focused) ?? false) || (anchorRef?.current?.contains(focused) ?? false);
   }, [anchorRef]);
-  useDismissable({ open: true, kind: "layer", onDismiss: onGotIt, claims });
+  // Dismissing from a control inside the note would drop focus to <body>, so hand it back to the switch first.
+  const dismiss = useCallback(() => {
+    if (ref.current?.contains(document.activeElement)) {
+      // The anchor is the switch's wrapper, so focus the control inside it.
+      anchorRef?.current?.querySelector<HTMLElement>("button, input, [role='switch']")?.focus();
+    }
+    onGotIt();
+  }, [anchorRef, onGotIt]);
+  useDismissable({ open: true, kind: "layer", onDismiss: dismiss, claims });
   return (
     <div
       ref={ref}
@@ -43,7 +51,7 @@ export function SimulationIntro({ lang, onGotIt, onShowMe, anchorRef }: Simulati
             {t(lang, "simulationIntroShowMe")}
           </Button>
         )}
-        <Button onClick={onGotIt} variant="secondary" size="xs">
+        <Button onClick={dismiss} variant="secondary" size="xs">
           {t(lang, "simulationIntroGotIt")}
         </Button>
       </div>

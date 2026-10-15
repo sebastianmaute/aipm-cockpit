@@ -1,4 +1,4 @@
-import { createRef } from "react";
+import { createRef, useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -59,6 +59,27 @@ describe("SimulationIntro Escape ownership", () => {
     screen.getByRole("button", { name: "Anchor" }).focus();
     await userEvent.keyboard("{Escape}");
     expect(onGotIt).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns focus to the anchor when Got it is activated from inside the note", async () => {
+    const user = userEvent.setup();
+    const anchorRef = createRef<HTMLDivElement>();
+    function Harness() {
+      const [open, setOpen] = useState(true);
+      return (
+        <>
+          <div ref={anchorRef}><button type="button">Anchor</button></div>
+          {open && <SimulationIntro lang="en-US" onGotIt={() => setOpen(false)} anchorRef={anchorRef} />}
+        </>
+      );
+    }
+    render(<Harness />);
+    await user.tab();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Got it" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(screen.getByRole("button", { name: "Anchor" })).toHaveFocus();
   });
 
   it("does not take Escape from a text field elsewhere", async () => {

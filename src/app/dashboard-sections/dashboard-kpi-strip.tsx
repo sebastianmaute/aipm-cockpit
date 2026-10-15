@@ -218,7 +218,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulat
       {simulation && (
         <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
           {simulation.estimateCoverage !== null && (
-            <p>{t(lang, "kpiSimCoverage", Math.round(simulation.estimateCoverage * 100))}</p>
+            <p>{t(lang, "kpiSimCoverage", chanceText(lang, simulation.estimateCoverage))}</p>
           )}
           {simulation.divergent && <p>{t(lang, "kpiSimDivergence")}</p>}
         </div>

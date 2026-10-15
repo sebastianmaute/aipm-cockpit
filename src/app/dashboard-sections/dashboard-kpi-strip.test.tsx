@@ -510,6 +510,13 @@ describe("DashboardKpiStrip — simulated cells (§502)", () => {
     expect(screen.getByText("Estimates cover 41% of remaining work")).toBeInTheDocument();
   });
 
+  it("never rounds the coverage cue to 100% or 0%", () => {
+    const { rerender } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, estimateCoverage: 299 / 300 }} />);
+    expect(screen.getByText("Estimates cover >99% of remaining work")).toBeInTheDocument();
+    rerender(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, estimateCoverage: 1 / 300 }} />);
+    expect(screen.getByText("Estimates cover <1% of remaining work")).toBeInTheDocument();
+  });
+
   it("hides the estimate-coverage cue when nothing is open", () => {
     render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, estimateCoverage: null }} />);
     expect(screen.queryByText(/Estimates cover/)).toBeNull();
@@ -549,7 +556,7 @@ describe("DashboardKpiStrip — simulated cells (§502)", () => {
     await loadI18n("de");
     render(<DashboardKpiStrip lang="de" model={model()} trends={trends} dc={dc} simulation={SIM} />);
     expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "simSafeToCommit")) })).toBeInTheDocument();
-    expect(screen.getByText(t("de", "kpiSimCoverage", "41"))).toBeInTheDocument();
+    expect(screen.getByText(t("de", "kpiSimCoverage", "41 %"))).toBeInTheDocument();
     expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "kpiOnTime")) })).toHaveTextContent("34 %");
   });
 

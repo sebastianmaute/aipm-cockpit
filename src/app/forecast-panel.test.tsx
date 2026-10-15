@@ -350,7 +350,7 @@ describe("ForecastPanel", () => {
 });
 
 describe("ForecastPanel — the Dashboard-defaults note (§502)", () => {
-  const NOTE = "The Dashboard uses the default settings";
+  const NOTE = "The Dashboard uses the default settings.";
   const history = [...open(5), ...steadyDone(60)];
   const renderOn = (showSimulation: boolean) =>
     render(

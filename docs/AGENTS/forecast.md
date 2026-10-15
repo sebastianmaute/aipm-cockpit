@@ -2,8 +2,11 @@
 
 The Forecast view under Reports answers three questions from the project's own completion history:
 **When** does the open work finish (P50/P80/P95), **How many** tasks (or minutes) fit by a chosen date,
-and what is each milestone's **chance** of landing on its date. Slices 2–5 (saved scenarios, Dashboard
-tile, Gantt marker, AI tool) are open — see §502 in [`../open-followups.md`](../open-followups.md).
+and what is each milestone's **chance** of landing on its date. Part 1 of the surfaces design
+(`docs/superpowers/specs/2026-10-15-forecast-simulation-surfaces-design.md`) adds the Dashboard
+Show-simulation switch (`SettingsOverrides.forecast`) and a daily recorder that persists
+`Workspace.forecastHistory` (a meta-blob on all six write paths). It replaced the old slices 2 and 5;
+saved scenarios, the AI tool and parts 2–4 are open — see §502 in [`../open-followups.md`](../open-followups.md).
 Reproduce the file list: `ls src/app/forecast`.
 
 ★★ **HELD BACK FROM THE RELEASE.** `"forecast"` sits in `RELEASE_HIDDEN_VIEWS` (`feature-modules.ts`), so
