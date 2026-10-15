@@ -734,14 +734,22 @@ describe("BurndownChart — notes behind an info trigger", () => {
   it("shows the notes as lines under the legend by default", () => {
     drawNotes(withNotes);
     expect(screen.getByText(FRAME).closest(".hidden")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Notes on this chart" })).toBeNull();
+    expect(screen.queryByRole("button", { name: (n: string) => n.startsWith("Notes on this chart") })).toBeNull();
+  });
+
+  // The notes are only on screen in the bubble, so the trigger's name carries them, each a sentence.
+  it("names the trigger with every note, each ending in a full stop", () => {
+    drawNotes({ ...withNotes, evPartialNames: [{ names: "Vendor", created: false }] }, true);
+    const name = screen.getByRole("button", { name: (n: string) => n.startsWith("Notes on this chart") }).getAttribute("aria-label")!;
+    expect(name).toContain("Notes on this chart: Chart totals differ");
+    expect(name).toContain("Partial: Vendor not recorded. No earned-value history yet for Design.");
   });
 
   it("puts every note behind one trigger beside the caption, and keeps them for print", () => {
     drawNotes(withNotes, true);
     // Only the print copy is in the page until the trigger opens.
     for (const el of screen.getAllByText(FRAME)) expect(el.closest(".hidden.print\\:block")).not.toBeNull();
-    const trigger = screen.getByRole("button", { name: "Notes on this chart" });
+    const trigger = screen.getByRole("button", { name: (n: string) => n.startsWith("Notes on this chart") });
     act(() => trigger.focus());
     const shown = screen.getAllByText(FRAME).filter((el) => el.closest(".hidden") === null);
     expect(shown).toHaveLength(1);
@@ -750,6 +758,6 @@ describe("BurndownChart — notes behind an info trigger", () => {
 
   it("renders no trigger when there is no note", () => {
     drawNotes(MODEL, true);
-    expect(screen.queryByRole("button", { name: "Notes on this chart" })).toBeNull();
+    expect(screen.queryByRole("button", { name: (n: string) => n.startsWith("Notes on this chart") })).toBeNull();
   });
 });

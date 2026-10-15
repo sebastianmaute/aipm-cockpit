@@ -230,10 +230,23 @@ describe("BurndownChartPanel — dashboard tile row", () => {
       <BurndownChartPanel lang="en-US" series={CHART_SERIES} bundle={frameBundle} today="2026-02-14" planEnd="2026-03-31" currency="EUR" compact />,
     );
     await act(async () => {});
-    expect(screen.getByRole("button", { name: "Notes on this chart" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: (n: string) => n.startsWith("Notes on this chart") })).toBeInTheDocument();
     unmount();
     render(<BurndownChartPanel lang="en-US" series={CHART_SERIES} bundle={frameBundle} today="2026-02-14" planEnd="2026-03-31" currency="EUR" />);
     await act(async () => {});
-    expect(screen.queryByRole("button", { name: "Notes on this chart" })).toBeNull();
+    expect(screen.queryByRole("button", { name: (n: string) => n.startsWith("Notes on this chart") })).toBeNull();
+  });
+
+  it("keeps the caller's controls when neither unit has a budget to draw", async () => {
+    const empty = { ...CHART_SERIES, totalBudgetValue: 0, totalBudgetHours: 0 };
+    render(
+      <BurndownChartPanel
+        lang="en-US" series={empty} bundle={bundle} today="2026-02-14" planEnd="2026-03-31" currency="EUR"
+        compact toolbarEnd={<button type="button">Extra</button>}
+      />,
+    );
+    await act(async () => {});
+    expect(screen.queryByRole("radiogroup", { name: "Chart orientation" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Extra" })).toBeInTheDocument();
   });
 });

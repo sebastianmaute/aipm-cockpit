@@ -1581,14 +1581,14 @@ describe("DashboardPanel currency labelling", () => {
     },
   ] as unknown as BudgetBucket[];
 
-  function renderUsdDashboard(onNavigate?: (view: AppView) => void) {
+  function renderUsdDashboard(onNavigate?: (view: AppView) => void, budgets: BudgetBucket[] = ratedBudget) {
     render(
       <DashboardPanel
         onNavigate={onNavigate}
         lang="en-US"
         tasks={[]}
         raid={[]}
-        budgets={ratedBudget}
+        budgets={budgets}
         plan={{ ...plan, currency: "USD" }}
         roles={ratedRoles}
         resources={[]}
@@ -1607,6 +1607,27 @@ describe("DashboardPanel currency labelling", () => {
     renderUsdDashboard(onNavigate);
     fireEvent.click(screen.getByRole("button", { name: "Open in Budget" }));
     expect(onNavigate).toHaveBeenCalledWith("budget");
+  });
+
+  it("offers Open in Budget on the tile when there is no budget to draw", () => {
+    const onNavigate = vi.fn();
+    renderUsdDashboard(onNavigate, []);
+    fireEvent.click(screen.getByRole("button", { name: "Open in Budget" }));
+    expect(onNavigate).toHaveBeenCalledWith("budget");
+  });
+
+  it("shows a broken bucket chain as a chip on the tile, and the full banner only in print", () => {
+    // A → B is declared, C stands alone: two roots, so the chain is broken.
+    const chained = [
+      { ...ratedBudget[0], id: 1, name: "Alpha", successorId: 2 },
+      { ...ratedBudget[0], id: 2, name: "Beta" },
+      { ...ratedBudget[0], id: 3, name: "Gamma" },
+    ] as unknown as BudgetBucket[];
+    renderUsdDashboard(undefined, chained);
+    const chip = screen.getByRole("button", { name: (n: string) => / to check: /.test(n) });
+    expect(chip.getAttribute("aria-label")).toContain("Gamma");
+    const banner = screen.getByText((_, el) => el?.getAttribute("role") === "status" && (el.textContent ?? "").includes("Gamma"));
+    expect(banner.closest('[class~="hidden"][class~="print:block"]')).not.toBeNull();
   });
 
   it("offers no Open in Budget button without navigation (a popout)", () => {

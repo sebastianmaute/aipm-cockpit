@@ -89,16 +89,25 @@ describe("BurndownChainChip", () => {
 
   it("counts the buckets to check, singular and plural", () => {
     const { unmount } = render(<BurndownChainChip lang="en-US" chain={broken(1)} />);
-    expect(screen.getByRole("button", { name: "1 bucket to check" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: (n: string) => n.startsWith("1 bucket to check") })).toBeInTheDocument();
     unmount();
     render(<BurndownChainChip lang="en-US" chain={broken(5)} />);
-    expect(screen.getByRole("button", { name: "5 buckets to check" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: (n: string) => n.startsWith("5 buckets to check") })).toBeInTheDocument();
+  });
+
+  // The sentence is only on screen in the bubble, so the trigger's name carries it for a screen
+  // reader; the visible chip text comes first (WCAG 2.5.3 label-in-name).
+  it("names the chip with its text and then the full warning", () => {
+    render(<BurndownChainChip lang="en-US" chain={broken(2)} />);
+    const name = screen.getByRole("button").getAttribute("aria-label")!;
+    expect(name.startsWith("2 buckets to check: ")).toBe(true);
+    expect(name).toContain("not linked into one chain (B1, B2)");
   });
 
   it("opens the full warning, naming the buckets, on focus", () => {
     render(<BurndownChainChip lang="en-US" chain={broken(2)} />);
     expect(screen.queryByText(/not linked into one chain \(B1, B2\)/)).toBeNull();
-    act(() => screen.getByRole("button", { name: "2 buckets to check" }).focus());
+    act(() => screen.getByRole("button", { name: (n: string) => n.startsWith("2 buckets to check") }).focus());
     expect(screen.getByText(/not linked into one chain \(B1, B2\)/)).toBeInTheDocument();
   });
 });

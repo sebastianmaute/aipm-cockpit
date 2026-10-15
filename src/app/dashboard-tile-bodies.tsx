@@ -134,6 +134,12 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
   // §316 — two pending changes can share a title, so each row button is named
   // by a row-unique token.
   const changeTokens = buildRowTokens(model.topChanges.map((c) => ({ id: c.id, name: c.title })));
+  // The Budget burn tile's way to the full Budget view, with or without a chart to draw.
+  const openBudget = a.onNavigate && (
+    <Button variant="secondary" size="xs" className="ml-auto" onClick={() => a.onNavigate!("budget")}>
+      {t(lang, "dashboardOpenBudget")}<span aria-hidden="true"> →</span>
+    </Button>
+  );
 
   return {
     kpi: (
@@ -188,6 +194,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
     // puts the chart's notes behind an info trigger. The chain warning stays
     // because it qualifies the chart it heads, but as a chip in the switches' row
     // so the chart is not pushed down; the full banner is the printed copy.
+    // Only where navigation is wired, so never in a popout.
     burn: model.burndown ? (
       <>
         <div className="hidden print:block">
@@ -204,17 +211,16 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
           toolbarEnd={(
             <>
               <BurndownChainChip lang={lang} chain={model.bucketChain} />
-              {a.onNavigate && (
-                <Button variant="secondary" size="xs" className="ml-auto" onClick={() => a.onNavigate!("budget")}>
-                  {t(lang, "dashboardOpenBudget")}<span aria-hidden="true"> →</span>
-                </Button>
-              )}
+              {openBudget}
             </>
           )}
         />
       </>
     ) : (
-      <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
+        {openBudget}
+      </div>
     ),
 
     milestones: (

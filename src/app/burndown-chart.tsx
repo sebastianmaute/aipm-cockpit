@@ -157,7 +157,8 @@ function BurndownChartBody({
   for (const names of new Set(model.evPartialNames.map((p) => p.names))) aria.push(t(lang, "burndownAriaEvPartial", names));
   const partialCaptions = [...new Set(model.evPartialNames.map((p) =>
     t(lang, p.created ? "burndownEvPartialCreated" : "burndownEvPartialNotRecorded", p.names)))];
-  // The notes under the legend, in the order they always had.
+  // The notes under the legend, in the order they always had. Two have no full stop of their own.
+  const sentence = (note: string) => (/[.!?…]$/.test(note) ? note : `${note}.`);
   const notes = [
     ...(model.frameDiffers ? [t(lang, "burndownFrameNote")] : []),
     ...partialCaptions,
@@ -255,7 +256,12 @@ function BurndownChartBody({
       <div>
         <div className="mb-1 flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
           {caption}
-          {notesAsInfo && notes.length > 0 && <span className="print:hidden"><InfoTooltip text={notes.join(" ")} label={t(lang, "burndownNotesLabel")} /></span>}
+          {/* The notes are on screen only in the bubble, so the trigger's name carries them too. */}
+          {notesAsInfo && notes.length > 0 && (
+            <span className="print:hidden">
+              <InfoTooltip text={notes.map(sentence).join(" ")} label={`${t(lang, "burndownNotesLabel")}: ${notes.map(sentence).join(" ")}`} />
+            </span>
+          )}
         </div>
         <button
           type="button"

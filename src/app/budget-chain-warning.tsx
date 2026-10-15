@@ -3,7 +3,7 @@
 // Explains why the burn-down x-axis covers the whole plan period instead of the
 // budget window. Presentational: the offending bucket names travel on the
 // BucketChain itself, so this needs no bucket list.
-import { Banner } from "./banner";
+import { Banner, SEVERITY_CLASS } from "./banner";
 import { InfoTooltip } from "./info-tooltip";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { BucketChain, BucketChainBreak } from "./budget-bucket-chain";
@@ -46,16 +46,18 @@ export function BurndownChainWarning({ lang, chain }: { lang: Lang; chain: Bucke
 
 /** The dashboard tile's compact form of the same warning: a chip counting the buckets to check,
  *  which opens the full sentence on hover or focus. Renders nothing exactly when the banner does.
- *  The chip does not print; the tile prints the banner instead. */
+ *  The sentence is on screen only in the bubble, so the trigger's name carries it too, after the
+ *  chip's own text (WCAG 2.5.3). The chip does not print; the tile prints the banner instead. */
 export function BurndownChainChip({ lang, chain }: { lang: Lang; chain: BucketChain | null }) {
   const broken = brokenChain(chain);
   if (!broken) return null;
   const n = broken.offenders.length;
   const label = t(lang, n === 1 ? "burndownChainChipOne" : "burndownChainChipMany", String(n));
+  const text = warningText(lang, broken);
   return (
     <span className="print:hidden">
-      <InfoTooltip text={warningText(lang, broken)} label={label}>
-        <span className="inline-flex items-center gap-1 rounded-full border border-[var(--rag-amber)]/40 bg-[var(--rag-amber)]/15 px-2 py-0.5 text-xs text-foreground dark:border-[var(--rag-amber)]/50 dark:bg-[var(--rag-amber)]/20">
+      <InfoTooltip text={text} label={`${label}: ${text}`}>
+        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${SEVERITY_CLASS.warn}`}>
           <span aria-hidden="true">⚠</span>{label}
         </span>
       </InfoTooltip>

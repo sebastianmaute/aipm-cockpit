@@ -233,8 +233,9 @@ content. That is this design's normal mode, not a regression.
 `budgetChartView` / `budgetChartUnit`), or `dashboardNoBudget` with no burn-down series. ★ So the chart is not
 pushed down, the chain warning is a chip (`BurndownChainChip`, the full sentence on hover or focus) in the
 switches' row, passed in through the panel's `toolbarEnd` beside an "Open in Budget" button (`dashboardOpenBudget`,
-only when `onNavigate` is wired, so never in a popout); the full `BurndownChainWarning` banner still renders for
-print only. `compact` also sets the chart's `notesAsInfo`, which puts the notes under the legend behind one ⓘ
+only when `onNavigate` is wired, so never in a popout; with no budget to draw it sits beside `dashboardNoBudget`);
+the full `BurndownChainWarning` banner still renders for print only. ★ The chip's and the notes trigger's
+accessible names carry the full sentence after their visible text: on screen it exists only in the bubble. `compact` also sets the chart's `notesAsInfo`, which puts the notes under the legend behind one ⓘ
 beside the caption and keeps them as lines in print. The Budget view keeps the banner and the note lines. The forecast headline, the Spent and hours tiles, the FX rollup notice, the caption
 and the Effort SPI/CPI tiles all left it; `ForecastHeadline` (`budget-forecast-headline.tsx`) is now
 DELETED — its only production caller was this tile's headline — along with its test and four i18n keys
