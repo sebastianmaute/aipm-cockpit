@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-10-03 at bb60aa715 | App 1.18.0 "Larsson" | Files scanned: 2347 (src/**/*.{ts,tsx}, incl. 1216 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-10-03 at bb60aa715 | App 1.19.0 "Nesbø" | Files scanned: 2347 (src/**/*.{ts,tsx}, incl. 1216 tests) | Token estimate: ~950 -->
 
 # Architecture
 

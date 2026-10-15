@@ -10,6 +10,19 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-10-15 "Nesbø"
+
+A feature release. Each project keeps its budget in its own currency, EUR, USD, GBP or INR, chosen when it is
+created and switchable later. An empty Budget view walks you through four setup steps, and Import forecast reads
+planned hours per person from a spreadsheet into a bucket. TimeLog months can be closed, with later changes to
+them flagged; the TimeLog connection works for any region and matches people on any of their email addresses.
+Help, a dashboard banner for the demo project, the Turso setup steps and the desktop start screen make the first
+steps easier. The dashboard's Budget burn tile no longer scrolls, and its chart labels are no longer covered by
+its lines. Fixes: a day-rate role keeps its hourly rate when the workday hours change, a new project's plan starts
+in the right month around midnight, and Ask Claude always names the page you asked from. The Monte Carlo schedule
+forecast is built but held back from this release. Update every device that shares a project before switching
+its currency; see the Notes below.
+
 ### Added
 
 - **A "Getting started: set up a budget" Help entry, and the install guide one click away.** Help lists

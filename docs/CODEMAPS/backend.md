@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 1.18.0 "Larsson" | Files scanned: src/proxy.ts + 12 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 1.19.0 "Nesbø" | Files scanned: src/proxy.ts + 12 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
 
 # Backend
 
