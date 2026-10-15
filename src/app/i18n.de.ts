@@ -3666,7 +3666,7 @@ export const de: Record<TranslationKey, string> = {
   demoCreatedLocallyToast: "Turso war nicht erreichbar, daher wurde die Demo als lokales Projekt ohne Trends-Verlauf angelegt.",
   demoTrendsSeedFailedToast: "Das Demo-Projekt wurde angelegt, aber sein Trends-Verlauf konnte nicht hinzugefügt werden.",
   demoLocalBlocked: "Die lokale Demo würde „{0}“ ersetzen, das bereits den Speicher dieses Browsers nutzt. Löschen Sie dieses Projekt oder richten Sie Turso ein, um die Demo zu erkunden.",
-  demoTursoFailed: "Das Demo-Projekt konnte nicht in Turso angelegt werden. Prüfen Sie die Turso-Verbindung in den Speichereinstellungen und versuchen Sie es dann erneut.",
+  demoTursoFailed: "Das Demo-Projekt konnte nicht in Turso angelegt werden. Wenn das wiederholt passiert, prüfen Sie die Turso-Verbindung unter Einstellungen → Speicher.",
   tourSkip: "Überspringen",
   tourNext: "Weiter",
   tourBack: "Zurück",
