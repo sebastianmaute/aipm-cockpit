@@ -79,9 +79,11 @@ interface Props {
   holidaySet: ReadonlySet<string>;
   /** Accepted for the view contract; the panel writes nothing, so a popout needs no guard. */
   isPopout?: boolean;
+  /** The project's "show simulation" switch. On, the Dashboard's simulated cells use the engine defaults, so this view says so once its own settings differ. */
+  showSimulation?: boolean;
 }
 
-export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet }: Props) {
+export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, showSimulation = false }: Props) {
   const [mode, setMode] = useState<ForecastMode>("quick");
   const [unit, setUnit] = useState<ForecastUnit>("tasks");
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>(DEFAULT_HISTORY_WINDOW);
@@ -102,6 +104,13 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
   const usedWhatIf = useMemo(() => clampWhatIf(whatIf, open.length), [whatIf, open.length]);
   // Quick always runs the plain forecast, whatever the What-if fields still hold.
   const appliedWhatIf = mode === "whatif" ? usedWhatIf : DEFAULT_WHAT_IF;
+  const differsFromDashboard =
+    showSimulation &&
+    (historyWindow !== DEFAULT_HISTORY_WINDOW ||
+      unit !== "tasks" ||
+      appliedWhatIf.scopeTasks !== DEFAULT_WHAT_IF.scopeTasks ||
+      appliedWhatIf.scopePercent !== DEFAULT_WHAT_IF.scopePercent ||
+      appliedWhatIf.capacityPercent !== DEFAULT_WHAT_IF.capacityPercent);
 
   const result = useMemo(
     () =>
@@ -141,6 +150,9 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
           onCommitWhatIf={commitWhatIf}
           onResetSize={reset}
         />
+        {differsFromDashboard && (
+          <p className="mb-2 text-xs text-muted-foreground print:hidden">{t(lang, "forecastDashboardDefaultsNote")}</p>
+        )}
       </div>
       {result.kind === "insufficient" ? (
         <InsufficientState lang={lang} result={result} />

@@ -43,6 +43,8 @@ import { DashboardTileMenu } from "./dashboard-tile-menu";
 import { DashboardShelf, DASHBOARD_SHELF_TRAY_ID } from "./dashboard-shelf";
 import { DashboardHiddenBadge } from "./dashboard-hidden-badge";
 import { buildTileBodies } from "./dashboard-tile-bodies";
+import { computeAppForecast } from "./forecast/app-forecast";
+import { kpiSimulation } from "./kpi-simulation";
 import { useDashboardLayout } from "./use-dashboard-layout";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { tileById, type DashboardTileId, type TileGateInput, type TileHeight } from "./dashboard-tiles";
@@ -53,6 +55,7 @@ import type { PlacedTile } from "./dashboard-layout";
 // fallback would mint a fresh array every render, invalidating the `model`
 // memo's `snapshots` dependency for no input change (AGENTS.md memo bullet).
 const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
+const EMPTY_MILESTONES: readonly Milestone[] = [];
 
 /** Stable empty for the hero's CTA bundle — see `heroHandlers` below. */
 const NO_HANDLERS: Omit<ActionHandlers, "onOpen"> = {};
@@ -354,9 +357,25 @@ export function DashboardPanel(props: DashboardPanelProps) {
     disabled: arrangement.readOnly,
   });
 
+  // §502 — the simulated KPI cells. Off → null and the engine never runs. The SAME collection
+  // references and plan end the history recorder passes, so both share `computeAppForecast`'s memo.
+  const milestonesForSim = props.milestones ?? EMPTY_MILESTONES;
+  const planEnd = props.plan.endDate;
+  const kpiSim = useMemo(
+    () => simulationOn
+      ? kpiSimulation(
+          computeAppForecast({ tasks: props.tasks, milestones: milestonesForSim, planEnd, today, holidaySet: props.holidaySet }),
+          model.evm.spi,
+        )
+      : null,
+    [simulationOn, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi],
+  );
+
   const bodies = buildTileBodies({
     lang, dc, model,
     trends,
+    simulation: kpiSim ?? undefined,
+    onOpenHelp: props.onOpenHelp,
     // ★★ `plan.currency`, the project baseline (§476): this labels the engine's
     // burn-down series (`budgetHours × role.rates.external`), and role rates are
     // entered in the baseline. Until §476 the engine unit was a fixed EUR and

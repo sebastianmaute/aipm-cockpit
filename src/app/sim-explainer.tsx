@@ -38,8 +38,9 @@ export interface Histogram {
 
 /** Bin finished-trial days into at most `maxBins` equal-width bins. Trials
  *  beyond the horizon are counted separately and excluded from the bars. */
-export function buildHistogramBins(distribution: readonly number[], maxBins: number): Histogram {
-  const finished = distribution.filter((d) => d <= HORIZON_DAYS);
+export function buildHistogramBins(distribution: ArrayLike<number>, maxBins: number): Histogram {
+  const finished: number[] = [];
+  for (let i = 0; i < distribution.length; i += 1) if (distribution[i] <= HORIZON_DAYS) finished.push(distribution[i]);
   const beyond = distribution.length - finished.length;
   if (finished.length === 0) return { bins: [], beyond };
   const min = Math.min(...finished);
@@ -137,7 +138,8 @@ export function SimExplainer({
 }: {
   lang: Lang;
   windowDays: number;
-  distribution: readonly number[];
+  /** Working days per trial; the engine's `Int32Array` is passed as is. */
+  distribution: ArrayLike<number>;
   trials: number;
   markers: SimMarkers;
   /** Renders the Help link when given. */

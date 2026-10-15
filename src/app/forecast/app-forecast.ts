@@ -19,6 +19,8 @@ export type AppForecast =
       windowDays: number;
       distribution: Int32Array;
       trials: number;
+      /** The engine's working days ahead per percentile (beyond the horizon: horizon + 1), for the explainer's cut lines. */
+      markers: { p50: number; p80: number; p95: number };
     }
   | { kind: "insufficient" };
 
@@ -77,7 +79,12 @@ export function computeAppForecast(a: AppForecastArgs): AppForecast {
     result = { kind: "insufficient" };
   } else {
     const open = a.tasks.filter((t) => !isTaskClosed(t));
-    const date = (p: number): string | null => r.when.find((w) => w.p === p)?.date ?? null;
+    const row = (p: number) => r.when.find((w) => w.p === p);
+    const date = (p: number): string | null => row(p)?.date ?? null;
+    const ahead = (p: number): number => {
+      const d = row(p)?.daysAhead;
+      return typeof d === "number" ? d : MAX_HORIZON_WORKING_DAYS + 1;
+    };
     result = {
       kind: "forecast",
       p50: date(50),
@@ -88,6 +95,7 @@ export function computeAppForecast(a: AppForecastArgs): AppForecast {
       windowDays: r.windowDays,
       distribution: r.distribution,
       trials: r.trials,
+      markers: { p50: ahead(50), p80: ahead(80), p95: ahead(95) },
     };
   }
   memo = { args: a, result };

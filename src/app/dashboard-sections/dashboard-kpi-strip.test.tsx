@@ -4,7 +4,9 @@ import { computeDashboard, buildDashboardInput } from "../dashboard";
 import { densityClasses } from "../dashboard-density";
 import { computeMetricTrends } from "../dashboard-trends";
 import { DashboardKpiStrip, KPI_STRIP_COLS } from "./dashboard-kpi-strip";
-import { t } from "../i18n";
+import { t, loadI18n } from "../i18n";
+import { formatDayMonthYear } from "../forecast-format";
+import type { KpiSimulation } from "../kpi-simulation";
 
 const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const };
 
@@ -440,5 +442,80 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
     render(<DashboardKpiStrip lang="en-US" model={modelFor(CPI_ONLY_TASKS)} trends={trends} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
     expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "evmSpi"))).toBeNull();
+  });
+});
+
+// ── §502: simulated P80 finish + chance on time ─────────────────────────────
+const EVM_TASKS_BOTH = [
+  { ...taskFixture(1, "Done", "2026-06-02"), dueDate: "2026-06-02", originalEstimateMinutes: 4800, timeSpentMinutes: 6000 },
+  { ...taskFixture(2, "To Do"), dueDate: "2026-06-02", originalEstimateMinutes: 2400 },
+];
+
+describe("DashboardKpiStrip — simulated cells (§502)", () => {
+  const SIM: KpiSimulation = {
+    p80: "2026-11-20",
+    chanceOnTime: 0.34,
+    estimateCoverage: 0.41,
+    divergent: false,
+    explainer: { windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000, markers: { p50: 5, p80: 10, p95: 15 } },
+  };
+  const labels = (container: HTMLElement) =>
+    Array.from(container.firstElementChild!.firstElementChild!.children, (c) => c.querySelector("p")!.textContent);
+  const dc = densityClasses("comfortable");
+
+  it("renders exactly the cells it always did without a simulation", () => {
+    const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} />);
+    expect(labels(container)).toEqual([
+      t("en-US", "dashboardKpiComplete"), "R / A / G", t("en-US", "dashboardKpiOverdue"), t("en-US", "dashboardKpiOpenRaid"),
+    ]);
+    expect(container.querySelector("[data-sim]")).toBeNull();
+    expect(screen.queryByText(/Estimates cover/)).toBeNull();
+  });
+
+  it("adds the Safe to commit and On time cells, each simulated with an explainer", () => {
+    const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={SIM} />);
+    expect(labels(container).slice(4)).toEqual([t("en-US", "simSafeToCommit"), t("en-US", "kpiOnTime")]);
+    const p80 = screen.getByRole("group", { name: "Safe to commit, simulated" });
+    expect(p80).toHaveTextContent(formatDayMonthYear("2026-11-20", "en-US"));
+    const chance = screen.getByRole("group", { name: "On time, simulated" });
+    expect(chance).toHaveTextContent("34 %");
+    expect(within(p80).getByRole("button", { name: t("en-US", "simExplainerOpen") })).toBeInTheDocument();
+    expect(within(chance).getByRole("button", { name: t("en-US", "simExplainerOpen") })).toBeInTheDocument();
+  });
+
+  it("omits the chance cell when chance on time is null, keeping the P80 cell", () => {
+    const { container } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, chanceOnTime: null }} />);
+    expect(labels(container).slice(4)).toEqual([t("en-US", "simSafeToCommit")]);
+    expect(screen.queryByRole("group", { name: "On time, simulated" })).toBeNull();
+    expect(screen.getByRole("group", { name: "Safe to commit, simulated" })).toBeInTheDocument();
+  });
+
+  it("shows the estimate-coverage cue", () => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={SIM} />);
+    expect(screen.getByText("Estimates cover 41 % of remaining work")).toBeInTheDocument();
+  });
+
+  it("shows the divergence copy as visible text only when divergent", () => {
+    const { rerender } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={SIM} />);
+    const copy = t("en-US", "kpiSimDivergence");
+    expect(screen.queryByText(copy)).toBeNull();
+    rerender(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, divergent: true }} />);
+    expect(screen.getByText(copy)).toBeVisible();
+    expect(copy).toMatch(/^These metrics use different units\./);
+  });
+
+  it("widens the grid classes for the extra cells", () => {
+    const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS_BOTH)} trends={trends} dc={dc} simulation={SIM} />);
+    const grid = container.firstElementChild!.firstElementChild as HTMLElement;
+    expect(grid.children).toHaveLength(8);
+    expect(grid.className.split(/\s+/)).toEqual(expect.arrayContaining(KPI_STRIP_COLS[8].split(" ")));
+  });
+
+  it("reads in German", async () => {
+    await loadI18n("de");
+    render(<DashboardKpiStrip lang="de" model={model()} trends={trends} dc={dc} simulation={SIM} />);
+    expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "simSafeToCommit")) })).toBeInTheDocument();
+    expect(screen.getByText(t("de", "kpiSimCoverage", "41"))).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "kpiOnTime")) })).toHaveTextContent("34 %");
   });
 });

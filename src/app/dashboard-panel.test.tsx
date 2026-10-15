@@ -10,6 +10,7 @@ import { RaidRegisterCard } from "./dashboard-sections/registers-band";
 import { t, tPlural } from "./i18n";
 import { healthColorName } from "./health";
 import * as dashboardModule from "./dashboard";
+import * as appForecastModule from "./forecast/app-forecast";
 import type { ActivityEntry } from "./activity-log";
 import type { SnapshotRecord } from "./snapshot";
 import type { BudgetHistoryEntry } from "./budget-history";
@@ -1828,5 +1829,57 @@ describe("DashboardPanel simulation switch", () => {
     await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
     await user.click(await screen.findByRole("button", { name: t(EN, "simulationIntroShowMe") }));
     expect(onOpenHelp).toHaveBeenCalledWith(FORECAST_SIM_HELP_ID);
+  });
+});
+
+// ── §502: the KPI strip's simulated cells follow the switch ────────────────────
+describe("DashboardPanel simulated KPI cells", () => {
+  const simName = () => new RegExp(t(EN, "simulationShow"));
+  const FORECAST: appForecastModule.AppForecast = {
+    kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
+    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
+    markers: { p50: 5, p80: 10, p95: 15 },
+  };
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("renders no simulated cell and never runs the engine while the switch is off", () => {
+    const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-off" />, { wrapper });
+    expect(screen.queryByRole("group", { name: "Safe to commit, simulated" })).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("renders the simulated cells once the switch is on, and drops them when it goes off", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-on" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(screen.getByRole("group", { name: "Safe to commit, simulated" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "On time, simulated" })).toHaveTextContent("34 %");
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(screen.queryByRole("group", { name: "Safe to commit, simulated" })).toBeNull();
+  });
+
+  it("renders nothing extra when the forecast is insufficient", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({ kind: "insufficient" });
+    render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-insufficient" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(screen.queryByRole("group", { name: /simulated/ })).toBeNull();
+  });
+
+  it("hands the engine the panel's own collections and the plan end", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-args" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    const a = spy.mock.calls.at(-1)![0];
+    expect(a.tasks).toBe(fullProps.tasks);
+    expect(a.holidaySet).toBe(fullProps.holidaySet);
+    expect(a.planEnd).toBe(fullProps.plan.endDate);
+    expect(a.today).toBe(fullProps.today);
   });
 });

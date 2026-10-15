@@ -348,3 +348,55 @@ describe("ForecastPanel", () => {
     expect(buttonNames(toolbar).slice(-2)).toEqual([t("en-US", "printHint"), t("en-US", "tableResetSizeHint")]);
   });
 });
+
+describe("ForecastPanel — the Dashboard-defaults note (§502)", () => {
+  const NOTE = "The Dashboard uses the default settings";
+  const history = [...open(5), ...steadyDone(60)];
+  const renderOn = (showSimulation: boolean) =>
+    render(
+      <ForecastPanel lang="en-US" tasks={history} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} showSimulation={showSimulation} />,
+    );
+
+  test("is absent on the default toolbar", () => {
+    renderOn(true);
+    expect(screen.queryByText(NOTE)).toBeNull();
+  });
+
+  test("appears once the history window differs from the default", async () => {
+    const user = userEvent.setup();
+    renderOn(true);
+    await user.selectOptions(screen.getByLabelText("History"), "90");
+    expect(screen.getByText(NOTE)).toBeTruthy();
+    await user.selectOptions(screen.getByLabelText("History"), "60");
+    expect(screen.queryByText(NOTE)).toBeNull();
+  });
+
+  test("appears when a What-if value differs, and not for Quick over edited fields", async () => {
+    const user = userEvent.setup();
+    renderOn(true);
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    expect(screen.queryByText(NOTE)).toBeNull();
+    const capacity = screen.getByLabelText("Capacity (%)");
+    fireEvent.change(capacity, { target: { value: "80" } });
+    fireEvent.blur(capacity);
+    expect(screen.getByText(NOTE)).toBeTruthy();
+    await user.click(screen.getByRole("radio", { name: "Quick" }));
+    expect(screen.queryByText(NOTE)).toBeNull();
+  });
+
+  test("is absent while the simulation switch is off, whatever the settings", async () => {
+    const user = userEvent.setup();
+    renderOn(false);
+    await user.selectOptions(screen.getByLabelText("History"), "90");
+    expect(screen.queryByText(NOTE)).toBeNull();
+  });
+
+  test("reads in German", async () => {
+    const user = userEvent.setup();
+    render(
+      <ForecastPanel lang="de" tasks={history} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} showSimulation />,
+    );
+    await user.selectOptions(screen.getByLabelText("Verlauf"), "90");
+    expect(screen.getByText(t("de", "forecastDashboardDefaultsNote"))).toBeTruthy();
+  });
+});

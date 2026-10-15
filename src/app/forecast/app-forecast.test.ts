@@ -114,4 +114,13 @@ describe("computeAppForecast", () => {
     expect(a).not.toBe(b);
     expect([b.p50, b.p80, b.p95, b.chanceOnTime]).toEqual([a.p50, a.p80, a.p95, a.chanceOnTime]);
   });
+
+  test("carries the engine working-days-ahead for each percentile as markers", () => {
+    const r = computeAppForecast(args([...finished(20), ...openTasks(10)]));
+    if (r.kind !== "forecast") throw new Error("expected forecast");
+    const sorted = [...r.distribution].sort((a, b) => a - b);
+    const nearestRank = (p: number) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1))];
+    expect(r.markers).toEqual({ p50: nearestRank(50), p80: nearestRank(80), p95: nearestRank(95) });
+    expect(r.markers.p50 <= r.markers.p80 && r.markers.p80 <= r.markers.p95).toBe(true);
+  });
 });

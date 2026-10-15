@@ -2,6 +2,7 @@
 import type React from "react";
 import { liveAssetPartitionKey } from "./asset-partition-live";
 import { isSafeMode } from "./safe-mode";
+import { isSimulationOn } from "./forecast-simulation";
 import {
   useCallback,
   useMemo,
@@ -738,7 +739,7 @@ export function WorkspaceSection({
 
         {activeTab === "forecast" && isViewEnabled("forecast", features) && (
           <div id="panel-forecast" role="tabpanel" className={panelScrollClass}>
-            <ForecastPanel lang={lang} tasks={tasks} milestones={milestones} plan={plan} today={today} holidaySet={holidaySet} isPopout={isPopout} />
+            <ForecastPanel lang={lang} tasks={tasks} milestones={milestones} plan={plan} today={today} holidaySet={holidaySet} isPopout={isPopout} showSimulation={isSimulationOn(workspace.settingsOverrides)} />
           </div>
         )}
 

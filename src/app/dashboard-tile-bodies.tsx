@@ -61,6 +61,7 @@ import type { AppView } from "./nav-config";
 import type { ChangeStatus } from "./types";
 import { buildRowTokens } from "./row-tokens";
 import { CELL_BUTTON } from "./control-classes";
+import type { KpiSimulation } from "./kpi-simulation";
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
   Proposed: "changeStatusProposed",
@@ -99,6 +100,10 @@ export interface TileBodyArgs {
   dc: DensityClasses;
   model: DashboardModel;
   trends: Record<MetricKey, MetricTrend>;
+  /** Simulated KPI cells (§502); absent while the switch is off. */
+  simulation?: KpiSimulation;
+  /** Opens Help at a concept id; the simulated cells' explainers link to it. */
+  onOpenHelp?: (conceptId: string) => void;
   /** Currency label for the burn-down axis — the baseline (`plan.currency`): the engine's burn-down series
    *  is `budgetHours × role.rates.external` and converts nothing — see the
    *  `currency` argument in `dashboard-panel.tsx`. */
@@ -144,7 +149,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
 
   return {
     kpi: (
-      <DashboardKpiStrip lang={lang} model={model} trends={a.trends} onNavigate={a.onNavigate} dc={dc} />
+      <DashboardKpiStrip lang={lang} model={model} trends={a.trends} onNavigate={a.onNavigate} dc={dc} simulation={a.simulation} onOpenHelp={a.onOpenHelp} />
     ),
 
     topActions: (
