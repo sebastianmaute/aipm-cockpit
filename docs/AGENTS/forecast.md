@@ -263,6 +263,59 @@ EOF2
 npx vite-node forecast-probe.ts; rm forecast-probe.ts
 ```
 
+## Simulation across the app — part 1
+
+The Dashboard can show simulated numbers beside its measured ones. Part 1 is the KPI strip's P80 finish and
+chance on time; the dated history it records is the input to later surfaces. Reproduce the change set:
+`git diff 6c510bfe5..HEAD --stat`.
+
+- **The switch** is `SettingsOverrides.forecast.showSimulation` (`settings-types.ts`), read with
+  `isSimulationOn` and written with `withSimulation` (`forecast-simulation.ts`). ★★ OFF IS ABSENCE: turning it
+  off deletes the key and folds an empty override to `undefined`, so a project that never used it serialises
+  byte-for-byte as before. Never store `false`. It is per PROJECT and rides the six write paths with the other
+  overrides. `Settings.simulationIntroSeen` is the opposite scope: per DEVICE (the one-time note).
+- **`Workspace.forecastHistory`** (`forecast-history.ts`) is a **meta-blob** slice like `baselineHistory`: no
+  `ENTITY_SPECS` row, absent from `TABLE_NAMES` because it has no table, and written by hand on all six paths
+  (`src/app/forecast-history-persistence.test.ts` pins the round trips). One entry per day (`date`, `p50`,
+  `p80`, `p95`, `chanceOnTime`); `sanitizeForecastHistory` drops malformed rows, keeps the LAST per date and
+  sorts; `upsertForecastHistory` is immutable.
+- **The recorder** (`use-forecast-history-recorder.ts`) is called from inside `useInsightLifecycle`, not from
+  `task-manager.tsx` (no size-ratchet headroom). It writes only when the switch is on AND `hydrated`,
+  not `isPopout`, not `loadPending` (§548), `holidaysReady`, the forecast is sufficient, and today's stored
+  entry differs from the computed one. ★★★ The skip-when-unchanged compare is what stops a write → re-render →
+  write loop; do not remove it. ★★ The effect is SYNCHRONOUS, which is why it needs no `getScopeEpoch` /
+  `dropStaleScopeWrite`: an `await` added to it would need both. It writes through the context setter, so there
+  is no undo capture and no activity-log entry. It is not debounced (the insight runner is); it reruns the
+  simulation on every `tasks` change while the switch is on.
+- **`computeAppForecast`** (`forecast/app-forecast.ts`) is the one default run for app surfaces: window
+  `DEFAULT_HISTORY_WINDOW`, unit `"tasks"`, `DEFAULT_WHAT_IF`. It returns `{kind: "insufficient"}` or a
+  forecast with `p50`/`p80`/`p95` (null beyond the horizon), `chanceOnTime`, `estimateCoverage`, `windowDays`,
+  `distribution`, `trials` and `markers` (working days ahead per percentile, horizon + 1 beyond it).
+  `chanceOnTime` is `null` for an invalid plan end, `1` when nothing is open, `0` when the plan end is before
+  today, else the share of trials done within the plan's working days (a beyond-horizon trial is never on
+  time). ★★ It keeps a SINGLE-ENTRY module memo keyed by reference identity of `tasks`, `milestones`,
+  `holidaySet` plus the `planEnd` and `today` strings: a caller must pass the context's OWN references
+  unchanged (a `.filter()` copy defeats it and reruns 10,000 trials per render). `milestones` is in the key but
+  unused by the result. ★★ `distribution` is the memoised `Int32Array` itself — READ-ONLY; copy before sorting
+  or mutating. The Forecast view (`forecast-panel.tsx`) keeps its own settings and says so once, through
+  `forecastDashboardDefaultsNote`, when the switch is on and a setting differs from these defaults.
+- **Look and explainer.** `SimValue` (`sim-value.tsx`) is the one look for a simulated number (dashed outline,
+  `aria-hidden` badge, accessible name `label, simulated`); `SimExplainer` (`sim-explainer.tsx`, a
+  `PopoverPanel`) shows the histogram with the P50/P80/P95 cut lines and, given `onOpenHelp`, a link to
+  `FORECAST_SIM_HELP_ID` (Help entry `concept-forecast-simulation`). `kind` is `"date"` or `"chance"`; the
+  accessible names carry the cell's label so two explainers on one strip stay distinct. Percentile wording
+  comes from `percentileWord` (`percentile-words.ts`), never hand-written. `SimulationIntro`
+  (`simulation-intro.tsx`) is a non-modal `role="note"`; Escape is "Got it" and is claimed from the switch
+  too, because focus stays there after the press.
+- **KPI cells** (`kpi-simulation.ts`): `kpiSimulation(forecast, spi)` is `null` when the forecast is
+  insufficient or P80 is beyond the horizon. `isDivergent` is true for SPI ≥ 1.0 with chance < 0.5, or SPI <
+  0.9 with chance ≥ 0.8 (named constants in the file); the strip then adds a divergence line, always visible.
+  Details of the cells and the re-measure are in [`dashboard.md`](dashboard.md) "KPI strip simulation cells".
+- ★★ **`e2e/dashboard-grid.spec.ts` does NOT cover the 7- and 8-cell KPI layouts.** Their breakpoints are
+  arithmetic, not measured, and the Dashboard axe pass has not run on the switch or the note locally. Check
+  both by eye before relying on them.
+- ★ Switch OFF → no recorder, no simulation prop, no cells, and nothing else on the Dashboard changes.
+
 ## Mutation proof (slice 1)
 
 Four mutants for the slice, run one at a time, each turned red by its own test:
