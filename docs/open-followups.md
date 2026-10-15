@@ -45217,6 +45217,8 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 ★ 2026-10-15: the owner installed a local build of `fix/738-739-rate-and-start-date` (`npm run desktop:build` then `npm run desktop:package`); the app started in under `SPLASH_SLOW_MS`, so the reassurance line could not be seen, and the check was postponed. The other three checks do not need a slow start.
 
+★ 2026-10-15, later: on a slower start of the same build the owner confirmed three of the four checks below — the first-launch status text looks correct, the reassurance line appears at 10 seconds, and a relaunch is correct. Only the **German OS locale** check remains, postponed by the owner. Untried way to see it without switching Windows: quit the app fully, then start it with Chromium's locale switch, `& "$env:LOCALAPPDATA\Programs\aipm-cockpit\AI PM Cockpit\AI PM Cockpit.exe" --lang=de` (the splash picks its strings from `app.getLocale()`, `grep -n "splashMessages(app.getLocale())" desktop/src/main.ts` → 1 hit). The long German reassurance line shows only on a start slower than `SPLASH_SLOW_MS`, such as the first start after a reinstall.
+
 **Work item:** #720
 
 §705 added status text to the desktop splash: "Starting…" while the local service starts, a reassurance line after `SPLASH_SLOW_MS`, and "Opening…" once it is up. The unit tests cover the sequence; only a person looking at a packaged build can see the rest. The owner merged phase 1 (PR #706) on 2026-10-14 with this check deferred.
