@@ -10,15 +10,16 @@ import type { Workspace } from "../src/app/workspace";
 export const OUT = "eye-verify-output/perf";
 export const RUNS = 3;
 export const SEED_TASKS = (SEED_WORKSPACE.tasks as unknown[]).length;
-// The seed has 27 tasks; these factors give 513, 999 and 1998.
+// The seed has 35 tasks; these factors give 490, 1015 and 1995.
+// Reproduce: node -e "console.log(require('./sample-workspace-small.json').tasks.length)"
 export const SIZES = [
-  { size: 500, factor: 19 },
-  { size: 1000, factor: 37 },
-  { size: 2000, factor: 74 },
+  { size: 500, factor: 14 },
+  { size: 1000, factor: 29 },
+  { size: 2000, factor: 57 },
 ] as const;
 export const SEARCH = "Search task name, assignee, blockers, notes…";
 // ★ "a" matches EVERY seed task (each assignee name holds one), so a search for it times
-// the keystroke's re-render, not a filter. "Noah" matches 7 of the 27 seed tasks.
+// the keystroke's re-render, not a filter. "Noah" matches 9 of the 35 seed tasks.
 export const FILTER = "Noah";
 // ★ Twice the search debounce (150 ms, filters-context.tsx): a count read twice this far
 // apart cannot be a count from before the debounce fired.

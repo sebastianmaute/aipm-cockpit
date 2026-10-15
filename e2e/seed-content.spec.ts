@@ -24,8 +24,8 @@
 // into a loud, named failure.
 //
 // ★ SCOPED AS THE SEED'S GUARD, not any one view's. Since §99 the seed carries
-// every optional kv slice except three configuration slices (SEED_UNSEEDED_BY_DESIGN
-// in e2e/seed-workspace.ts); a rendering check for a slice belongs in THIS file
+// every optional kv slice except the configuration slices listed in SEED_UNSEEDED_BY_DESIGN
+// (e2e/seed-workspace.ts); a rendering check for a slice belongs in THIS file
 // rather than a spec of its own. Not every seeded slice has one yet.
 //
 // ★ Asserts CONTENT, never "the seed ran". A seed that runs and writes nothing

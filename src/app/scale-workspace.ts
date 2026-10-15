@@ -300,5 +300,8 @@ export function scaleWorkspace(ws: Workspace, factor: number): Workspace {
     //   console.log((s.documentVersions||[]).filter(v=>!live.has(v.documentId)))'
     // — an empty array is the no-dangling-FK proof (checked against -big/-huge
     // by running the same snippet over those files).
+    // ★ forecastHistory (§502) rides the spread too: it is ONE project-wide series of daily forecasts,
+    // so copies would only collide on their dates. Its values were computed for the 1x master, so a
+    // scaled sample's live forecast will not match them; nothing reads them as a check.
   };
 }

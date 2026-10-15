@@ -1030,6 +1030,202 @@
       "knowledgeLinks": []
     },
     {
+      "id": 28,
+      "taskName": "Login pages accessibility check",
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "createdDate": "2026-07-06",
+      "startDate": "2026-07-13",
+      "dueDate": "2026-07-21",
+      "originalEstimateMinutes": 600,
+      "timeSpentMinutes": 660,
+      "lastUpdateDate": "2026-07-22",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-07-22",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "accessibility"
+      ],
+      "dependencies": [],
+      "resourceId": 4,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 29,
+      "taskName": "Session timeout policy",
+      "assignee": "Noah Bennett",
+      "assigneeEmail": "noah.bennett@example.com",
+      "createdDate": "2026-07-27",
+      "startDate": "2026-08-10",
+      "dueDate": "2026-08-14",
+      "originalEstimateMinutes": 480,
+      "timeSpentMinutes": 540,
+      "lastUpdateDate": "2026-08-18",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-08-18",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "security"
+      ],
+      "dependencies": [],
+      "resourceId": 2,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 30,
+      "taskName": "Pilot environment provisioning",
+      "assignee": "Liam Foster",
+      "assigneeEmail": "liam.foster@example.com",
+      "createdDate": "2026-08-10",
+      "startDate": "2026-08-24",
+      "dueDate": "2026-09-01",
+      "originalEstimateMinutes": 960,
+      "timeSpentMinutes": 1020,
+      "lastUpdateDate": "2026-09-02",
+      "priority": "High",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-09-02",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 5,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 31,
+      "taskName": "Monthly steering report (August)",
+      "assignee": "Sofia Ramirez",
+      "assigneeEmail": "sofia.ramirez@example.com",
+      "createdDate": "2026-08-28",
+      "startDate": "2026-09-01",
+      "dueDate": "2026-09-04",
+      "originalEstimateMinutes": 240,
+      "timeSpentMinutes": 240,
+      "lastUpdateDate": "2026-09-04",
+      "priority": "Low",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-09-04",
+      "inquiriesSent": 0,
+      "group": "Operations",
+      "labels": [
+        "reporting"
+      ],
+      "dependencies": [],
+      "resourceId": 1,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 32,
+      "taskName": "Pilot support runbook",
+      "assignee": "Ava Thompson",
+      "assigneeEmail": "ava.thompson@example.com",
+      "createdDate": "2026-08-17",
+      "startDate": "2026-09-01",
+      "dueDate": "2026-09-08",
+      "originalEstimateMinutes": 720,
+      "timeSpentMinutes": 780,
+      "lastUpdateDate": "2026-09-09",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-09-09",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 3,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 33,
+      "taskName": "Password reset flow",
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "createdDate": "2026-08-17",
+      "startDate": "2026-09-02",
+      "dueDate": "2026-09-11",
+      "originalEstimateMinutes": 1440,
+      "timeSpentMinutes": 1560,
+      "lastUpdateDate": "2026-09-15",
+      "priority": "High",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-09-15",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 4,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 34,
+      "taskName": "Pilot feedback fixes",
+      "assignee": "Noah Bennett",
+      "assigneeEmail": "noah.bennett@example.com",
+      "createdDate": "2026-09-14",
+      "startDate": "2026-10-26",
+      "dueDate": "2026-11-13",
+      "originalEstimateMinutes": 1920,
+      "lastUpdateDate": "2026-09-14",
+      "priority": "High",
+      "status": "To Do",
+      "blockers": "",
+      "description": "",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 2,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 35,
+      "taskName": "Hypercare plan",
+      "assignee": "Liam Foster",
+      "assigneeEmail": "liam.foster@example.com",
+      "createdDate": "2026-09-14",
+      "startDate": "2026-11-09",
+      "dueDate": "2026-11-27",
+      "originalEstimateMinutes": 960,
+      "lastUpdateDate": "2026-09-14",
+      "priority": "Medium",
+      "status": "To Do",
+      "blockers": "",
+      "description": "",
+      "inquiriesSent": 0,
+      "group": "Operations",
+      "labels": [
+        "rollout"
+      ],
+      "dependencies": [],
+      "resourceId": 5,
+      "knowledgeLinks": []
+    },
+    {
       "id": 100001,
       "taskName": "Design SSO architecture — Payments",
       "assignee": "Sofia Ramirez",
@@ -2058,6 +2254,202 @@
       "knowledgeLinks": []
     },
     {
+      "id": 100028,
+      "taskName": "Login pages accessibility check — Payments",
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "createdDate": "2026-07-06",
+      "startDate": "2026-07-13",
+      "dueDate": "2026-07-21",
+      "originalEstimateMinutes": 600,
+      "timeSpentMinutes": 660,
+      "lastUpdateDate": "2026-07-22",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-07-22",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "accessibility"
+      ],
+      "dependencies": [],
+      "resourceId": 4,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 100029,
+      "taskName": "Session timeout policy — Payments",
+      "assignee": "Noah Bennett",
+      "assigneeEmail": "noah.bennett@example.com",
+      "createdDate": "2026-07-27",
+      "startDate": "2026-08-10",
+      "dueDate": "2026-08-14",
+      "originalEstimateMinutes": 480,
+      "timeSpentMinutes": 540,
+      "lastUpdateDate": "2026-08-18",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-08-18",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "security"
+      ],
+      "dependencies": [],
+      "resourceId": 2,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 100030,
+      "taskName": "Pilot environment provisioning — Payments",
+      "assignee": "Liam Foster",
+      "assigneeEmail": "liam.foster@example.com",
+      "createdDate": "2026-08-10",
+      "startDate": "2026-08-24",
+      "dueDate": "2026-09-01",
+      "originalEstimateMinutes": 960,
+      "timeSpentMinutes": 1020,
+      "lastUpdateDate": "2026-09-02",
+      "priority": "High",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-09-02",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 5,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 100031,
+      "taskName": "Monthly steering report (August) — Payments",
+      "assignee": "Sofia Ramirez",
+      "assigneeEmail": "sofia.ramirez@example.com",
+      "createdDate": "2026-08-28",
+      "startDate": "2026-09-01",
+      "dueDate": "2026-09-04",
+      "originalEstimateMinutes": 240,
+      "timeSpentMinutes": 240,
+      "lastUpdateDate": "2026-09-04",
+      "priority": "Low",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-09-04",
+      "inquiriesSent": 0,
+      "group": "Operations",
+      "labels": [
+        "reporting"
+      ],
+      "dependencies": [],
+      "resourceId": 1,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 100032,
+      "taskName": "Pilot support runbook — Payments",
+      "assignee": "Ava Thompson",
+      "assigneeEmail": "ava.thompson@example.com",
+      "createdDate": "2026-08-17",
+      "startDate": "2026-09-01",
+      "dueDate": "2026-09-08",
+      "originalEstimateMinutes": 720,
+      "timeSpentMinutes": 780,
+      "lastUpdateDate": "2026-09-09",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-09-09",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 3,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 100033,
+      "taskName": "Password reset flow — Payments",
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "createdDate": "2026-08-17",
+      "startDate": "2026-09-02",
+      "dueDate": "2026-09-11",
+      "originalEstimateMinutes": 1440,
+      "timeSpentMinutes": 1560,
+      "lastUpdateDate": "2026-09-15",
+      "priority": "High",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-09-15",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 4,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 100034,
+      "taskName": "Pilot feedback fixes — Payments",
+      "assignee": "Noah Bennett",
+      "assigneeEmail": "noah.bennett@example.com",
+      "createdDate": "2026-09-14",
+      "startDate": "2026-10-26",
+      "dueDate": "2026-11-13",
+      "originalEstimateMinutes": 1920,
+      "lastUpdateDate": "2026-09-14",
+      "priority": "High",
+      "status": "To Do",
+      "blockers": "",
+      "description": "",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 2,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 100035,
+      "taskName": "Hypercare plan — Payments",
+      "assignee": "Liam Foster",
+      "assigneeEmail": "liam.foster@example.com",
+      "createdDate": "2026-09-14",
+      "startDate": "2026-11-09",
+      "dueDate": "2026-11-27",
+      "originalEstimateMinutes": 960,
+      "lastUpdateDate": "2026-09-14",
+      "priority": "Medium",
+      "status": "To Do",
+      "blockers": "",
+      "description": "",
+      "inquiriesSent": 0,
+      "group": "Operations",
+      "labels": [
+        "rollout"
+      ],
+      "dependencies": [],
+      "resourceId": 5,
+      "knowledgeLinks": []
+    },
+    {
       "id": 200001,
       "taskName": "Design SSO architecture — Mobile App",
       "assignee": "Sofia Ramirez",
@@ -3083,6 +3475,202 @@
         }
       ],
       "resourceId": 4,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 200028,
+      "taskName": "Login pages accessibility check — Mobile App",
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "createdDate": "2026-07-06",
+      "startDate": "2026-07-13",
+      "dueDate": "2026-07-21",
+      "originalEstimateMinutes": 600,
+      "timeSpentMinutes": 660,
+      "lastUpdateDate": "2026-07-22",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-07-22",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "accessibility"
+      ],
+      "dependencies": [],
+      "resourceId": 4,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 200029,
+      "taskName": "Session timeout policy — Mobile App",
+      "assignee": "Noah Bennett",
+      "assigneeEmail": "noah.bennett@example.com",
+      "createdDate": "2026-07-27",
+      "startDate": "2026-08-10",
+      "dueDate": "2026-08-14",
+      "originalEstimateMinutes": 480,
+      "timeSpentMinutes": 540,
+      "lastUpdateDate": "2026-08-18",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-08-18",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "security"
+      ],
+      "dependencies": [],
+      "resourceId": 2,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 200030,
+      "taskName": "Pilot environment provisioning — Mobile App",
+      "assignee": "Liam Foster",
+      "assigneeEmail": "liam.foster@example.com",
+      "createdDate": "2026-08-10",
+      "startDate": "2026-08-24",
+      "dueDate": "2026-09-01",
+      "originalEstimateMinutes": 960,
+      "timeSpentMinutes": 1020,
+      "lastUpdateDate": "2026-09-02",
+      "priority": "High",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-09-02",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 5,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 200031,
+      "taskName": "Monthly steering report (August) — Mobile App",
+      "assignee": "Sofia Ramirez",
+      "assigneeEmail": "sofia.ramirez@example.com",
+      "createdDate": "2026-08-28",
+      "startDate": "2026-09-01",
+      "dueDate": "2026-09-04",
+      "originalEstimateMinutes": 240,
+      "timeSpentMinutes": 240,
+      "lastUpdateDate": "2026-09-04",
+      "priority": "Low",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-09-04",
+      "inquiriesSent": 0,
+      "group": "Operations",
+      "labels": [
+        "reporting"
+      ],
+      "dependencies": [],
+      "resourceId": 1,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 200032,
+      "taskName": "Pilot support runbook — Mobile App",
+      "assignee": "Ava Thompson",
+      "assigneeEmail": "ava.thompson@example.com",
+      "createdDate": "2026-08-17",
+      "startDate": "2026-09-01",
+      "dueDate": "2026-09-08",
+      "originalEstimateMinutes": 720,
+      "timeSpentMinutes": 780,
+      "lastUpdateDate": "2026-09-09",
+      "priority": "Medium",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-09-09",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 3,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 200033,
+      "taskName": "Password reset flow — Mobile App",
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "createdDate": "2026-08-17",
+      "startDate": "2026-09-02",
+      "dueDate": "2026-09-11",
+      "originalEstimateMinutes": 1440,
+      "timeSpentMinutes": 1560,
+      "lastUpdateDate": "2026-09-15",
+      "priority": "High",
+      "status": "Done",
+      "blockers": "",
+      "description": "",
+      "completedDate": "2026-09-15",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 4,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 200034,
+      "taskName": "Pilot feedback fixes — Mobile App",
+      "assignee": "Noah Bennett",
+      "assigneeEmail": "noah.bennett@example.com",
+      "createdDate": "2026-09-14",
+      "startDate": "2026-10-26",
+      "dueDate": "2026-11-13",
+      "originalEstimateMinutes": 1920,
+      "lastUpdateDate": "2026-09-14",
+      "priority": "High",
+      "status": "To Do",
+      "blockers": "",
+      "description": "",
+      "inquiriesSent": 0,
+      "group": "MVP",
+      "labels": [
+        "pilot"
+      ],
+      "dependencies": [],
+      "resourceId": 2,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 200035,
+      "taskName": "Hypercare plan — Mobile App",
+      "assignee": "Liam Foster",
+      "assigneeEmail": "liam.foster@example.com",
+      "createdDate": "2026-09-14",
+      "startDate": "2026-11-09",
+      "dueDate": "2026-11-27",
+      "originalEstimateMinutes": 960,
+      "lastUpdateDate": "2026-09-14",
+      "priority": "Medium",
+      "status": "To Do",
+      "blockers": "",
+      "description": "",
+      "inquiriesSent": 0,
+      "group": "Operations",
+      "labels": [
+        "rollout"
+      ],
+      "dependencies": [],
+      "resourceId": 5,
       "knowledgeLinks": []
     }
   ],
@@ -6519,14 +7107,25 @@
       "id": 2,
       "name": "Pilot Go-Live",
       "date": "2026-10-23",
-      "linkedTaskIds": [],
+      "linkedTaskIds": [
+        4,
+        5,
+        6,
+        27,
+        7,
+        8
+      ],
       "description": "<p>Pilot go-live for the first customer cohort. Entry criteria are a green regression cycle and a completed hypercare rehearsal; the four-hour maintenance window is already agreed with comms.</p><p><em>Not</em> a go/no-go gate for MFA — that rides the change request.</p>"
     },
     {
       "id": 3,
       "name": "Rollout",
       "date": "2026-12-11",
-      "linkedTaskIds": []
+      "linkedTaskIds": [
+        10,
+        34,
+        35
+      ]
     },
     {
       "id": 4,
@@ -6553,7 +7152,10 @@
       "id": 6,
       "name": "Closure",
       "date": "2027-02-26",
-      "linkedTaskIds": []
+      "linkedTaskIds": [
+        9,
+        12
+      ]
     },
     {
       "id": 100001,
@@ -6577,14 +7179,25 @@
       "id": 100002,
       "name": "Pilot Go-Live — Payments",
       "date": "2026-10-23",
-      "linkedTaskIds": [],
+      "linkedTaskIds": [
+        100004,
+        100005,
+        100006,
+        100027,
+        100007,
+        100008
+      ],
       "description": "<p>Pilot go-live for the first customer cohort. Entry criteria are a green regression cycle and a completed hypercare rehearsal; the four-hour maintenance window is already agreed with comms.</p><p><em>Not</em> a go/no-go gate for MFA — that rides the change request.</p>"
     },
     {
       "id": 100003,
       "name": "Rollout — Payments",
       "date": "2026-12-11",
-      "linkedTaskIds": []
+      "linkedTaskIds": [
+        100010,
+        100034,
+        100035
+      ]
     },
     {
       "id": 100004,
@@ -6611,7 +7224,10 @@
       "id": 100006,
       "name": "Closure — Payments",
       "date": "2027-02-26",
-      "linkedTaskIds": []
+      "linkedTaskIds": [
+        100009,
+        100012
+      ]
     },
     {
       "id": 200001,
@@ -6635,14 +7251,25 @@
       "id": 200002,
       "name": "Pilot Go-Live — Mobile App",
       "date": "2026-10-23",
-      "linkedTaskIds": [],
+      "linkedTaskIds": [
+        200004,
+        200005,
+        200006,
+        200027,
+        200007,
+        200008
+      ],
       "description": "<p>Pilot go-live for the first customer cohort. Entry criteria are a green regression cycle and a completed hypercare rehearsal; the four-hour maintenance window is already agreed with comms.</p><p><em>Not</em> a go/no-go gate for MFA — that rides the change request.</p>"
     },
     {
       "id": 200003,
       "name": "Rollout — Mobile App",
       "date": "2026-12-11",
-      "linkedTaskIds": []
+      "linkedTaskIds": [
+        200010,
+        200034,
+        200035
+      ]
     },
     {
       "id": 200004,
@@ -6669,7 +7296,10 @@
       "id": 200006,
       "name": "Closure — Mobile App",
       "date": "2027-02-26",
-      "linkedTaskIds": []
+      "linkedTaskIds": [
+        200009,
+        200012
+      ]
     }
   ],
   "changes": [
@@ -7829,6 +8459,43 @@
         "Hypercare on-call rota"
       ],
       "actor": "user"
+    }
+  ],
+  "forecastHistory": [
+    {
+      "date": "2026-08-21",
+      "p50": "2026-11-03",
+      "p80": "2026-11-24",
+      "p95": "2026-12-16",
+      "chanceOnTime": 0.9999
+    },
+    {
+      "date": "2026-08-28",
+      "p50": "2026-12-10",
+      "p80": "2027-01-04",
+      "p95": "2027-01-28",
+      "chanceOnTime": 0.9908
+    },
+    {
+      "date": "2026-09-04",
+      "p50": "2026-11-25",
+      "p80": "2026-12-15",
+      "p95": "2027-01-06",
+      "chanceOnTime": 0.9994
+    },
+    {
+      "date": "2026-09-11",
+      "p50": "2026-11-25",
+      "p80": "2026-12-15",
+      "p95": "2027-01-04",
+      "chanceOnTime": 0.9996
+    },
+    {
+      "date": "2026-09-18",
+      "p50": "2026-12-03",
+      "p80": "2026-12-21",
+      "p95": "2027-01-11",
+      "chanceOnTime": 0.9993
     }
   ],
   "documents": [

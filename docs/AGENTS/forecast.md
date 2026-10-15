@@ -289,6 +289,11 @@ chance on time; the dated history it records is the input to later surfaces. Fil
   (`src/app/forecast-history-persistence.test.ts` pins the round trips). One entry per day (`date`, `p50`,
   `p80`, `p95`, `chanceOnTime`); `sanitizeForecastHistory` drops malformed rows, keeps the LAST per date and
   sorts; `upsertForecastHistory` is immutable.
+- **The sample master carries history.** `sample-workspace-small.json` holds weekly `forecastHistory` entries up to
+  `DEMO_AS_OF`, computed by the real engine over the tasks as they stood on each day, and its open milestones link
+  tasks so the demo shows one milestone below 50 %, one borderline and one safe. ★ The demo shift moves whole
+  months, so `buildDemoWorkspace` drops entries that land after the real today. `scaleWorkspace` copies the
+  series unreplicated, so the big and huge samples' live forecast does not match it. The switch stays OFF in the data.
 - **The recorder** (`use-forecast-history-recorder.ts`) is called from inside `useInsightLifecycle`, not from
   `task-manager.tsx` (no size-ratchet headroom). It writes only when the switch is on AND `hydrated`,
   not `isPopout`, not `loadPending` (§548), `holidaysReady` and the forecast is sufficient. ★★★ WHETHER to
