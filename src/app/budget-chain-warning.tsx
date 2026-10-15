@@ -52,7 +52,8 @@ export function BurndownChainWarning({ lang, chain }: { lang: Lang; chain: Bucke
 /** The dashboard tile's compact form of the same warning: a chip counting the buckets to check,
  *  which opens the full sentence on hover or focus. Renders nothing exactly when the banner does.
  *  The sentence is on screen only in the bubble, so the trigger's name carries it too, after the
- *  chip's own text (WCAG 2.5.3). The chip does not print; the tile prints the banner instead. */
+ *  chip's own text (WCAG 2.5.3). It sits in a print-hidden row, so it does not print; the tile
+ *  prints the banner instead. */
 export function BurndownChainChip({ lang, chain }: { lang: Lang; chain: BucketChain | null }) {
   const broken = brokenChain(chain);
   if (!broken) return null;
@@ -60,12 +61,10 @@ export function BurndownChainChip({ lang, chain }: { lang: Lang; chain: BucketCh
   const label = t(lang, n === 1 ? "burndownChainChipOne" : "burndownChainChipMany", String(n));
   const text = warningText(lang, broken);
   return (
-    <span className="print:hidden">
-      <InfoTooltip text={text} label={`${label}: ${text}`}>
-        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${SEVERITY_CLASS.warn}`}>
-          <span aria-hidden="true">⚠</span>{label}
-        </span>
-      </InfoTooltip>
-    </span>
+    <InfoTooltip text={text} label={`${label}: ${text}`}>
+      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${SEVERITY_CLASS.warn}`}>
+        <span aria-hidden="true">⚠</span>{label}
+      </span>
+    </InfoTooltip>
   );
 }

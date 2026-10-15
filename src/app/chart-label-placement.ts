@@ -6,7 +6,7 @@
 
 export type Box = { left: number; top: number; right: number; bottom: number };
 export type Segment = { x1: number; y1: number; x2: number; y2: number };
-export type LabelSpot = { x: number; baseline: number };
+type LabelSpot = { x: number; baseline: number };
 export type LabelRequest = {
   width: number;
   anchor: "start" | "end";
@@ -17,7 +17,7 @@ export type LabelRequest = {
   /** What the label names, for the leader; null for a label that runs along a line instead. */
   point: { x: number; y: number } | null;
 };
-export type PlacedLabel = LabelSpot & { box: Box; leader: Segment | null };
+type PlacedLabel = LabelSpot & { box: Box; leader: Segment | null };
 
 /** Above and below the baseline of the charts' 8px text, plus a 1px margin all round. */
 const ASCENT = 7, DESCENT = 2, MARGIN = 1;
