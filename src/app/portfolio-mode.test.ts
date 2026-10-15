@@ -10,13 +10,14 @@ import {
 } from "./portfolio-mode";
 import { __resetSafeModeCache } from "./safe-mode";
 import { defaultSettings } from "./settings-types";
-import { SETTINGS_KEY } from "./use-settings";
+import { SETTINGS_KEY, writeSettings, __resetSettingsReloadSeal } from "./use-settings";
 
 describe("portfolio-mode", () => {
   const originalLocation = window.location;
 
   beforeEach(() => window.localStorage.clear());
   afterEach(() => {
+    __resetSettingsReloadSeal();
     Object.defineProperty(window, "location", {
       configurable: true,
       value: originalLocation,
@@ -55,6 +56,20 @@ describe("portfolio-mode", () => {
     expect(loadPortfolioMode()).toBe("turso");
     expect(loadCurrentTursoProjectId()).toBe("p1");
     expect(reloadSpy).toHaveBeenCalledTimes(1);
+    const persisted = JSON.parse(window.localStorage.getItem(SETTINGS_KEY)!);
+    expect(persisted.storageConfig).toEqual({ kind: "turso" });
+  });
+
+  // §740 — the reload is asynchronous, and useSettings' persist effect writes the IN-MEMORY
+  // settings (still "browser") on any settings change in between. Measured live: 60 ms after the
+  // switch wrote "turso", that effect wrote "browser" back, and the reload built a BrowserBackend.
+  it("commitTursoPortfolioSwitch: a stale settings write before the reload cannot undo the switch (§740)", () => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, reload: vi.fn() },
+    });
+    commitTursoPortfolioSwitch(defaultSettings, "p1");
+    expect(writeSettings({ ...defaultSettings, storageConfig: { kind: "browser" } })).toBe(true); // not a failure: no toast
     const persisted = JSON.parse(window.localStorage.getItem(SETTINGS_KEY)!);
     expect(persisted.storageConfig).toEqual({ kind: "turso" });
   });

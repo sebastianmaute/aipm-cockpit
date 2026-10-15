@@ -53,7 +53,7 @@ import { aiSeedUnsafeEmails, buildNewProjectWorkspace, type NewProjectOpts } fro
 import { resetMintState, snapshotMintState, restoreMintState, seedMintFromWorkspace } from "./id-mint-session";
 import type { ProjectMeta, RaidItem, Task } from "./types";
 import { loadPortfolioMode, savePortfolioMode } from "./portfolio-mode";
-import { writeSettings } from "./use-settings";
+import { sealSettingsUntilReload, writeSettings } from "./use-settings";
 import type { TruncationOps } from "./use-load-truncation";
 import { getTursoConfig } from "./turso-config";
 import { isSaveConflict, isSaveLockTimeout, isTursoLockTimeout } from "./storage-error";
@@ -335,6 +335,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       if (opts?.switchPortfolioToFileOnSuccess) {
         writeSettings({ ...deps.settingsRef.current, storageConfig });
         savePortfolioMode("file");
+        sealSettingsUntilReload(); // §740 — no stale persist-effect write may land before the reload
         window.location.reload();
       }
     } catch (err) {
@@ -404,6 +405,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
         saveRegistry(registry);
         writeSettings({ ...deps.settingsRef.current, storageConfig });
         savePortfolioMode("file");
+        sealSettingsUntilReload(); // §740 — no stale persist-effect write may land before the reload
         if (typeof window !== "undefined") window.location.reload();
         return;
       }

@@ -28,7 +28,7 @@ import {
   restoreProject as portfolioRestore,
   hardDeleteProject as portfolioHardDelete,
 } from "./turso-portfolio";
-import { writeSettings } from "./use-settings";
+import { sealSettingsUntilReload, writeSettings } from "./use-settings";
 import { summarizeUnsafeEmailRecords } from "./sanitize";
 import { logDiag } from "./diagnostics";
 import { isSaveConflict } from "./storage-error";
@@ -242,6 +242,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       // "Storage not ready". portfolioMode === "turso" must imply storageConfig
       // kind "turso".
       writeSettings({ ...deps.settingsRef.current, storageConfig: { kind: "turso" } });
+      sealSettingsUntilReload(); // §740 — no stale persist-effect write may land before the reload
       window.location.reload();
     } catch (err) {
       deps.reportProjectError(err);

@@ -4,8 +4,11 @@ import { clearAppConfig, resetAppToCleanSlate } from "./app-reset";
 import { beginSealedWrite, SECRETS_KEY } from "./secrets-store";
 import { sealDevice } from "./secrets";
 import { keptProjectKey, UNLOAD_JOURNAL_PREFIX } from "./unload-journal";
+import { writeSettings, __resetSettingsReloadSeal } from "./use-settings";
+import { defaultSettings } from "./settings-types";
 
 afterEach(() => {
+  __resetSettingsReloadSeal();
   localStorage.clear();
   vi.restoreAllMocks();
 });
@@ -70,5 +73,14 @@ describe("resetAppToCleanSlate", () => {
     resetAppToCleanSlate(reload);
     expect(localStorage.getItem("aipm-cockpit:settings")).toBeNull();
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  // §740 — the same race as the portfolio switch: a persist-effect write landing between the
+  // clear and the reload would put the old settings back.
+  it("a stale settings write before the reload cannot restore the cleared settings (§740)", () => {
+    localStorage.setItem("aipm-cockpit:settings", "{}");
+    resetAppToCleanSlate(vi.fn());
+    writeSettings(defaultSettings);
+    expect(localStorage.getItem("aipm-cockpit:settings")).toBeNull();
   });
 });

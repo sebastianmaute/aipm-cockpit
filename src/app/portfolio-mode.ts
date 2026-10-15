@@ -6,7 +6,7 @@
 
 import { isSafeMode } from "./safe-mode";
 import { type Settings } from "./settings-types";
-import { writeSettings } from "./use-settings";
+import { sealSettingsUntilReload, writeSettings } from "./use-settings";
 
 export type PortfolioMode = "file" | "turso";
 
@@ -66,5 +66,6 @@ export function commitTursoPortfolioSwitch(settings: Settings, projectId: string
   savePortfolioMode("turso");
   saveCurrentTursoProjectId(projectId);
   writeSettings({ ...settings, storageConfig: { kind: "turso" } });
+  sealSettingsUntilReload(); // §740 — no stale persist-effect write may land before the reload
   window.location.reload();
 }
