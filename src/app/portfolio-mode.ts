@@ -7,6 +7,7 @@
 import { isSafeMode } from "./safe-mode";
 import { type Settings } from "./settings-types";
 import { writeSettings } from "./use-settings";
+import { sealSettingsUntilReload } from "./settings-reload-seal";
 
 export type PortfolioMode = "file" | "turso";
 
@@ -54,8 +55,9 @@ export function saveCurrentTursoProjectId(id: string | null): void {
 }
 
 /** Switch the portfolio to Turso and land directly on `projectId` after
- *  reload — the "load an existing Turso project" shortcut used by the
- *  TursoProjectPicker. Same two writes `confirmPortfolioModeSwitch`
+ *  reload. Two callers: the "load an existing Turso project" shortcut in the
+ *  TursoProjectPicker, and a cross-mode create in `useTursoProjects` (a new
+ *  project given Turso storage while the portfolio is in file mode, §740). Same two writes `confirmPortfolioModeSwitch`
  *  (integrations-section.tsx) already does when switching TO Turso
  *  (`savePortfolioMode` + `writeSettings`), plus a third write
  *  pre-selecting which project to land on. Left as a plain export here
@@ -66,5 +68,6 @@ export function commitTursoPortfolioSwitch(settings: Settings, projectId: string
   savePortfolioMode("turso");
   saveCurrentTursoProjectId(projectId);
   writeSettings({ ...settings, storageConfig: { kind: "turso" } });
+  sealSettingsUntilReload(); // §740 — no stale persist-effect write may land before the reload
   window.location.reload();
 }

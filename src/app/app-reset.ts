@@ -11,6 +11,7 @@
 // the user can re-open them later via Load / Create.
 
 import { invalidateAllSealedWrites } from "./secrets-store";
+import { sealSettingsUntilReload } from "./settings-reload-seal";
 
 const LOP_APP_PREFIX = "aipm-cockpit:";
 /** IndexedDB databases a full reset removes. These hold CONFIG, not project
@@ -63,5 +64,6 @@ export function resetAppToCleanSlate(
   reload: () => void = () => window.location.reload(),
 ): void {
   clearAppConfig();
+  sealSettingsUntilReload(); // §740 — a stale persist-effect write would put the settings back
   reload();
 }

@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
 import { cleanup, configure } from "@testing-library/react";
 import { server } from "./src/test/msw-server";
 import { parseClockOffsetDays, registerClockOffset } from "./src/test/clock-offset";
+import { __resetSettingsReloadSeal } from "./src/app/settings-reload-seal";
 
 // §149 — off unless VITEST_CLOCK_OFFSET_DAYS is set (the weekly
 // `unit-future-clock` job); then every test runs with `Date` moved that many
@@ -94,6 +95,9 @@ afterEach(() => {
   // so a test that dispatches `pagehide` would otherwise make every later save
   // in the same file flush at once instead of debouncing.
   if (typeof window !== "undefined") window.dispatchEvent(new Event("pageshow"));
+  // §740 — a portfolio switch or reset seals settings writes until a reload jsdom never
+  // performs, so without this every later settings write in the same file is skipped.
+  __resetSettingsReloadSeal();
 });
 
 afterAll(() => server.close());
