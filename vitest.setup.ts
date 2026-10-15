@@ -79,7 +79,7 @@ if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
 // unhandled request surfaces accidental live requests / missing handlers.
 // Tests that still replace fetch via `vi.stubGlobal` bypass msw entirely and
 // are unaffected.
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 
 afterEach(() => {
   cleanup();
