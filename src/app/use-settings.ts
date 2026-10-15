@@ -23,7 +23,6 @@ import { logDiag } from "./diagnostics";
 import { settingsSealedForReload } from "./settings-reload-seal";
 
 export const SETTINGS_KEY = "aipm-cockpit:settings";
-export { sealSettingsUntilReload, __resetSettingsReloadSeal } from "./settings-reload-seal";
 
 /** Synchronously write settings to localStorage WITH the at-rest secrets
  *  blanked. Secret ciphertext is persisted separately (secrets-store) on change;

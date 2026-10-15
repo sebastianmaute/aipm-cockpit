@@ -4,7 +4,8 @@ import { clearAppConfig, resetAppToCleanSlate } from "./app-reset";
 import { beginSealedWrite, SECRETS_KEY } from "./secrets-store";
 import { sealDevice } from "./secrets";
 import { keptProjectKey, UNLOAD_JOURNAL_PREFIX } from "./unload-journal";
-import { writeSettings, __resetSettingsReloadSeal } from "./use-settings";
+import { writeSettings } from "./use-settings";
+import { __resetSettingsReloadSeal } from "./settings-reload-seal";
 import { defaultSettings } from "./settings-types";
 
 afterEach(() => {

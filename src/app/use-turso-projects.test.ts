@@ -52,7 +52,7 @@ function makeArgs(overrides: Partial<UseTursoProjectsArgs> = {}): UseTursoProjec
     tursoDatabaseUrl: "libsql://db.example",
     tursoAuthToken: "tok",
     tursoProjectId: "p-1",
-    settings: { ...defaultSettings, storageConfig: { kind: "browser" } },
+    getSettings: () => ({ ...defaultSettings, storageConfig: { kind: "browser" } }),
     switchToTursoProject: vi.fn(async () => {}),
     createTursoProject: vi.fn(async () => null),
     archiveTursoProject: vi.fn(async () => {}),

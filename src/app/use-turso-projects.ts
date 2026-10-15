@@ -37,8 +37,9 @@ export interface UseTursoProjectsArgs {
   tursoAuthToken: string | undefined;
   /** Active Turso project id (null when none is selected yet). */
   tursoProjectId: string | null;
-  /** The live settings; a cross-mode create persists them with storageConfig "turso" (§740). */
-  settings: Settings;
+  /** Reads the settings LIVE: a cross-mode create persists them with storageConfig "turso" after
+   *  several awaits, so a value captured at the click could overwrite a change made since (§740). */
+  getSettings: () => Settings;
   // Turso backend operations (from useStorageBackend / refresh callback).
   switchToTursoProject: (id: string) => Promise<void>;
   createTursoProject: (meta: ProjectMeta, opts?: NewProjectOpts) => Promise<string | null>;
@@ -90,7 +91,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
     tursoDatabaseUrl,
     tursoAuthToken,
     tursoProjectId,
-    settings,
+    getSettings,
     switchToTursoProject,
     createTursoProject,
     archiveTursoProject,
@@ -121,7 +122,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
             // also persists storageConfig "turso"; saving the portfolio mode alone
             // brought the reload back on a BrowserBackend with an empty workspace.
             // A null id is a failed create, already reported: switch nothing.
-            if (crossMode && createdId) commitTursoPortfolioSwitch(settings, createdId);
+            if (crossMode && createdId) commitTursoPortfolioSwitch(getSettings(), createdId);
           } catch (err) {
             showToast("error", t(lang, "projectCreateFailed", errorText(err, lang)));
           }
@@ -130,7 +131,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
         void createFileProject(meta, format, opts);
       }
     },
-    [portfolioMode, settings, createTursoProject, refreshTursoProjects, createFileProject, showToast, lang],
+    [portfolioMode, getSettings, createTursoProject, refreshTursoProjects, createFileProject, showToast, lang],
   );
 
   // Update current project meta — Turso writes the projects-table row, mirrors

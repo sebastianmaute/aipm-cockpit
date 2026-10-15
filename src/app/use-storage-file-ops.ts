@@ -53,7 +53,8 @@ import { aiSeedUnsafeEmails, buildNewProjectWorkspace, type NewProjectOpts } fro
 import { resetMintState, snapshotMintState, restoreMintState, seedMintFromWorkspace } from "./id-mint-session";
 import type { ProjectMeta, RaidItem, Task } from "./types";
 import { loadPortfolioMode, savePortfolioMode } from "./portfolio-mode";
-import { sealSettingsUntilReload, writeSettings } from "./use-settings";
+import { writeSettings } from "./use-settings";
+import { sealSettingsUntilReload } from "./settings-reload-seal";
 import type { TruncationOps } from "./use-load-truncation";
 import { getTursoConfig } from "./turso-config";
 import { isSaveConflict, isSaveLockTimeout, isTursoLockTimeout } from "./storage-error";

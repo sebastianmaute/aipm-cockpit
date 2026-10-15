@@ -26,7 +26,7 @@ import {
 } from "../settings-types";
 import type { StorageConfig } from "../storage";
 import { saveSecretValue, setSecretPassphrase, unlockSecret } from "../use-secrets";
-import { SECRET_MERGE_TIMEOUT_MS } from "../use-settings";
+import { SECRET_MERGE_TIMEOUT_MS, writeSettings } from "../use-settings";
 import { loadPortfolioMode, savePortfolioMode } from "../portfolio-mode";
 import { loadSealed, saveSealed } from "../secrets-store";
 import { sealDevice, sealPassphrase } from "../secrets";
@@ -211,6 +211,9 @@ describe("A5 — Save & switch applies the drafts and waits (bounded) for the to
 
     await act(async () => release());
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(persisted().storageConfig?.kind).toBe("turso");
+    // §740 — a stale persist-effect write before the reload lands must not undo the switch.
+    writeSettings({ ...defaultSettings, storageConfig: { kind: "browser" } });
     expect(persisted().storageConfig?.kind).toBe("turso");
   });
 

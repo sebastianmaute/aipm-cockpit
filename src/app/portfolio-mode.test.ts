@@ -10,7 +10,8 @@ import {
 } from "./portfolio-mode";
 import { __resetSafeModeCache } from "./safe-mode";
 import { defaultSettings } from "./settings-types";
-import { SETTINGS_KEY, writeSettings, __resetSettingsReloadSeal } from "./use-settings";
+import { SETTINGS_KEY, writeSettings } from "./use-settings";
+import { __resetSettingsReloadSeal } from "./settings-reload-seal";
 
 describe("portfolio-mode", () => {
   const originalLocation = window.location;

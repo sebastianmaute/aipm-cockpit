@@ -22,7 +22,8 @@
 // ★ Coverage-GATED on purpose (not in `coverage.exclude`): the delete handler's
 // survivor switch, the mode-aware list mapping and the snapshot gate are real
 // logic, not glue. `use-portfolio-projects.test.ts` pins them.
-import { useCallback, useEffect, useMemo, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
+import type { Settings } from "./settings-types";
 import { t } from "./i18n";
 import type { ProjectMeta } from "./types";
 import type { AppView } from "./nav-config";
@@ -44,7 +45,6 @@ export interface PortfolioProjectsDeps
     | "tursoDatabaseUrl"
     | "tursoAuthToken"
     | "tursoProjectId"
-    | "settings"
     | "switchToTursoProject"
     | "createTursoProject"
     | "archiveTursoProject"
@@ -53,6 +53,8 @@ export interface PortfolioProjectsDeps
     | "refreshTursoProjects"
   > {
   showToast: (kind: ToastKind, text: string) => void;
+  /** The current settings; handed to `useTursoProjects` as a live getter (§740). */
+  settings: Settings;
   isPopout: boolean;
   setActiveTab: Dispatch<SetStateAction<AppView>>;
   project: ProjectMeta | undefined;
@@ -95,6 +97,15 @@ export function usePortfolioProjects(deps: PortfolioProjectsDeps) {
     hardDeleteTursoProject,
     refreshTursoProjects,
   } = deps;
+
+  // §740 — a live read for the cross-mode create, which persists the settings only after several
+  // awaits; mirrors `settingsRef` in use-storage-backend.ts. A stable getter also keeps
+  // `handleCreateProjectByMode`'s identity across settings changes.
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+  const getSettings = useCallback(() => settingsRef.current, []);
 
   // --- Multi-project panel callbacks ----------------------------------
   //
@@ -264,7 +275,7 @@ export function usePortfolioProjects(deps: PortfolioProjectsDeps) {
     tursoDatabaseUrl,
     tursoAuthToken,
     tursoProjectId,
-    settings,
+    getSettings,
     switchToTursoProject,
     createTursoProject,
     archiveTursoProject,

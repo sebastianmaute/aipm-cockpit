@@ -28,7 +28,8 @@ import {
   restoreProject as portfolioRestore,
   hardDeleteProject as portfolioHardDelete,
 } from "./turso-portfolio";
-import { sealSettingsUntilReload, writeSettings } from "./use-settings";
+import { writeSettings } from "./use-settings";
+import { sealSettingsUntilReload } from "./settings-reload-seal";
 import { summarizeUnsafeEmailRecords } from "./sanitize";
 import { logDiag } from "./diagnostics";
 import { isSaveConflict } from "./storage-error";

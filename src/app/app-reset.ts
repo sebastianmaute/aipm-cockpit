@@ -11,7 +11,7 @@
 // the user can re-open them later via Load / Create.
 
 import { invalidateAllSealedWrites } from "./secrets-store";
-import { sealSettingsUntilReload } from "./use-settings";
+import { sealSettingsUntilReload } from "./settings-reload-seal";
 
 const LOP_APP_PREFIX = "aipm-cockpit:";
 /** IndexedDB databases a full reset removes. These hold CONFIG, not project
