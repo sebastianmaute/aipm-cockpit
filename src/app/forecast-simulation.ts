@@ -6,12 +6,24 @@
 // empty override to undefined, so a project that never turned it on serialises
 // byte-for-byte as before.
 
+import { isViewEnabled } from "./feature-modules";
+import type { FeatureModuleId } from "./feature-modules";
 import { hasAnyOverride } from "./settings-overrides";
 import type { SettingsOverrides } from "./settings-types";
 
 /** True only for an explicit `forecast.showSimulation === true`. */
 export function isSimulationOn(o: SettingsOverrides | undefined): boolean {
   return o?.forecast?.showSimulation === true;
+}
+
+/** The switch as every simulation surface must read it: hiding the Forecast view hides the
+ *  simulation with it, whatever is stored. The stored value is never touched, so showing the
+ *  view again restores the user's choice. `isSimulationOn` stays the raw read for the writer. */
+export function isSimulationActive(
+  o: SettingsOverrides | undefined,
+  features: readonly FeatureModuleId[],
+): boolean {
+  return isViewEnabled("forecast", features) && isSimulationOn(o);
 }
 
 /** Return a NEW override with the switch set; `undefined` when none is left. */

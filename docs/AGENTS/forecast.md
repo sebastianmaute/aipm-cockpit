@@ -385,3 +385,14 @@ The pre-PR fix-all round (2026-10-14), each mutant applied alone and reverted:
 ★ Two survivors, both equivalent: `<=` for `<` in `cannotReach` (the `FLOAT_SLACK` factor makes an exact
 tie unreachable in practice), and handing the engine the raw What-if instead of `usedWhatIf` (the engine
 runs the same `clampWhatIf`, which is idempotent).
+
+## Hiding the Forecast view hides part 1's surfaces
+
+★★ Every part-1 simulation surface is gated on `isSimulationActive(overrides, features)`
+(`forecast-simulation.ts`) = `isViewEnabled("forecast", features)` AND the stored switch, so a release that
+hides the Forecast view cannot show simulated numbers with no view behind them. The gated surfaces: the
+Dashboard toolbar switch, the simulated KPI cells and the intro (`dashboard-panel.tsx`), the daily recorder
+(`use-forecast-history-recorder.ts`, fed `features` by `useInsightLifecycle`), and the Help entry
+`FORECAST_SIM_HELP_ID` with its reopen action (`help-view.tsx`, via `HelpContentPane`'s `hiddenEntryIds`).
+`isSimulationOn` stays the RAW stored read for the writer: the stored value is never touched, so showing the
+view again restores the user's choice. A new part-1 surface must read the helper, never `isSimulationOn`.

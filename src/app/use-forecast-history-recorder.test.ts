@@ -2,7 +2,8 @@
 // stubbed: this pins WHEN a row is written and HOW, not the simulation.
 import { renderHook } from "@testing-library/react";
 import { useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as featureModules from "./feature-modules";
 import type { ForecastHistoryEntry } from "./forecast-history";
 import {
   type ForecastHistoryRecorderDeps,
@@ -34,7 +35,7 @@ function deps(over: Partial<ForecastHistoryRecorderDeps> = {}): ForecastHistoryR
   return {
     hydrated: true, isPopout: false, loadPending: false, holidaysReady: true,
     today: TODAY, tasks: TASKS, milestones: MILESTONES, planEnd: "2026-12-31",
-    holidaySet: HOLIDAYS, settingsOverrides: { forecast: { showSimulation: true } },
+    holidaySet: HOLIDAYS, settingsOverrides: { forecast: { showSimulation: true } }, features: [],
     forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0, ...over,
   };
 }
@@ -50,6 +51,14 @@ describe("useForecastHistoryRecorder", () => {
   beforeEach(() => {
     compute.mockReset();
     compute.mockReturnValue(FORECAST);
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("does not write while the forecast view is disabled, even with the switch stored on", () => {
+    vi.spyOn(featureModules, "isViewEnabled").mockReturnValue(false);
+    expect(run()).not.toHaveBeenCalled();
+    expect(compute).not.toHaveBeenCalled();
   });
 
   it("writes today's entry through a functional updater when ready", () => {

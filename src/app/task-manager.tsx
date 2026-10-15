@@ -659,7 +659,7 @@ function TaskManagerInner() {
     hydrated, isPopout, loadPending, today, currentProjectId, landingProjectId,
     tasks, milestones, raid, budgets, roles, resources, plan,
     holidaySet, holidaysReady, shifts, absences, timelogLinks,
-    insights, setInsights, requestOpen, settingsOverrides, forecastHistory, setForecastHistory, getScopeEpoch,
+    insights, setInsights, requestOpen, settingsOverrides, features: settings.features, forecastHistory, setForecastHistory, getScopeEpoch,
   });
   // The SP2 generate/apply/reject handlers (+ the `insightActions` assembly
   // that references them) live in `useInsightRecommendations`

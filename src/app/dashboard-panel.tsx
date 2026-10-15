@@ -7,7 +7,8 @@ import { useWorkspace } from "./workspace-context";
 import { useSettings } from "./use-settings";
 import { ToggleButton } from "./toggle-button";
 import { SimulationIntro } from "./simulation-intro";
-import { isSimulationOn, withSimulation } from "./forecast-simulation";
+import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";
+import { isViewEnabled } from "./feature-modules";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { type Lang, t } from "./i18n";
 import type { Health } from "./health";
@@ -124,7 +125,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const varianceRows = props.variance ?? [];
   const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory, baselineHistory, settingsOverrides, setSettingsOverrides } = useWorkspace();
   const { settings, setSettings, hydrated: settingsHydrated } = useSettings();
-  const simulationOn = isSimulationOn(settingsOverrides);
+  const forecastViewEnabled = isViewEnabled("forecast", settings.features);
+  const simulationOn = isSimulationActive(settingsOverrides, settings.features);
   const simSwitchRef = useRef<HTMLDivElement>(null);
   const showSimulationIntro = simulationOn && settingsHydrated && !settings.simulationIntroSeen && !props.isPopout;
   const markSimulationIntroSeen = () => setSettings((s) => ({ ...s, simulationIntroSeen: true }));
@@ -654,7 +656,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             // up beside Print in a popout, where Reset layout and the badge are
             // absent. DOM order is unchanged, so Tab order still reads row by row.
             <div className={`flex shrink-0 flex-col items-end ${dc.kpiGap} self-start print:hidden`}>
-            {!props.isPopout && (
+            {!props.isPopout && forecastViewEnabled && (
               <div ref={simSwitchRef}>
                 <ToggleButton
                   lang={lang}

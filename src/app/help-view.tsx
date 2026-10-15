@@ -7,6 +7,7 @@ import { type AppView } from "./nav-config";
 import { buildRelationsGraph } from "./relations-graph";
 import { HelpContentPane, type HelpEntryAction, helpSectionId } from "./help-content-pane";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
+import { isViewEnabled } from "./feature-modules";
 import { Select, Input } from "./form-controls";
 import type { HelpReadingLevel } from "./help-content";
 import { ClearableSearchInput } from "./clearable-search-input";
@@ -23,6 +24,8 @@ import { INTERACTIVE, FOCUS_RING } from "./interaction-styles";
 import { smoothScrollBehavior } from "./reduced-motion";
 
 type HelpTab = "help" | "tours" | "connects" | "flows";
+
+const NO_HIDDEN_ENTRIES: ReadonlySet<string> = new Set();
 
 /** In-pane Help view (sidebar nav entry, below Settings). Mirrors the floating
  *  Help panel's layout: a tablist in the header (Help · Guided tours · How it
@@ -61,7 +64,14 @@ export function HelpView({
   const { settings, setSettings } = useSettings();
   // §502 spec §3.3 — the simulation intro is re-openable from Help. Offered only once it was
   // dismissed; clearing the flag lets the Dashboard show it again whenever the switch is on there.
-  const entryActions: Record<string, HelpEntryAction> | undefined = settings.simulationIntroSeen
+  // The simulation teaches the Forecast view's switch: hide the entry (and its reopen action)
+  // while that view is hidden.
+  const forecastViewEnabled = isViewEnabled("forecast", settings.features);
+  const hiddenEntryIds = useMemo<ReadonlySet<string>>(
+    () => (forecastViewEnabled ? NO_HIDDEN_ENTRIES : new Set([FORECAST_SIM_HELP_ID])),
+    [forecastViewEnabled],
+  );
+  const entryActions: Record<string, HelpEntryAction> | undefined = settings.simulationIntroSeen && forecastViewEnabled
     ? {
         [FORECAST_SIM_HELP_ID]: {
           label: t(lang, "helpShowSimulationIntro"),
@@ -73,7 +83,10 @@ export function HelpView({
       }
     : undefined;
   const { ref, reset } = useResizable("aipm-cockpit:help-view-size");
-  const graph = useMemo(() => buildRelationsGraph(HELP_ENTRIES), []);
+  const graph = useMemo(
+    () => buildRelationsGraph(HELP_ENTRIES.filter((e) => !hiddenEntryIds.has(e.id))),
+    [hiddenEntryIds],
+  );
 
   const tabs: { key: HelpTab; labelKey: TranslationKey }[] = [
     { key: "help", labelKey: "navHelp" },
@@ -208,6 +221,7 @@ export function HelpView({
               onNavigateView={onNavigateView}
               readingLevel={settings.helpReadingLevel ?? "standard"}
               entryActions={entryActions}
+              hiddenEntryIds={hiddenEntryIds}
             />
           </div>
         )}

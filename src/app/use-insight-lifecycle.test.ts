@@ -49,7 +49,7 @@ function setup(isPopout = false) {
       insights,
       setInsights: (u) => { setSpy(u); setInsights(u); },
       requestOpen,
-      settingsOverrides: undefined, forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0,
+      settingsOverrides: undefined, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0,
     };
     return { insights, handlers: useInsightLifecycle(deps) };
   });
@@ -133,7 +133,7 @@ describe("useInsightLifecycle runner → timelogClosedMonth", () => {
         tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], plan: null,
         holidaySet: new Set<string>(), holidaysReady: true, shifts: [], absences: [], timelogLinks,
         insights, setInsights, requestOpen: vi.fn(),
-        settingsOverrides: undefined, forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0,
+        settingsOverrides: undefined, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0,
       };
       useInsightLifecycle(deps);
       return insights;
@@ -154,7 +154,7 @@ describe("useInsightLifecycle runner → timelogClosedMonth", () => {
         tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], plan,
         holidaySet: new Set<string>(), holidaysReady: true, shifts: [], absences: [], timelogLinks: undefined,
         insights, setInsights, requestOpen: vi.fn(),
-        settingsOverrides: { forecast: { showSimulation: true } }, forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0,
+        settingsOverrides: { forecast: { showSimulation: true } }, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0,
       });
     });
     expect(computeForecast).toHaveBeenCalledWith(expect.objectContaining({ planEnd: "2027-03-31", today: TODAY }));

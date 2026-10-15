@@ -1,8 +1,9 @@
 // src/app/forecast-simulation.test.ts
 // The per-project "show simulation" policy override (§502): off is ABSENCE.
 
-import { describe, it, expect } from "vitest";
-import { isSimulationOn, withSimulation } from "./forecast-simulation";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";
+import * as featureModules from "./feature-modules";
 import { hasAnyOverride, sanitizeSettingsOverrides } from "./settings-overrides";
 import type { SettingsOverrides } from "./settings-types";
 
@@ -67,5 +68,24 @@ describe("sanitizeSettingsOverrides — forecast", () => {
 
   it("hasAnyOverride sees the forecast key", () => {
     expect(hasAnyOverride({ forecast: { showSimulation: true } })).toBe(true);
+  });
+});
+
+// §502 — the Forecast view being hidden takes every simulation surface with it.
+describe("isSimulationActive", () => {
+  const ON: SettingsOverrides = { forecast: { showSimulation: true } };
+  afterEach(() => vi.restoreAllMocks());
+
+  it("follows the stored switch while the forecast view is enabled", () => {
+    expect(isSimulationActive(ON, [])).toBe(true);
+    expect(isSimulationActive(undefined, [])).toBe(false);
+  });
+
+  it("is false when the forecast view is disabled, even with the switch stored on", () => {
+    const spy = vi.spyOn(featureModules, "isViewEnabled").mockReturnValue(false);
+    expect(isSimulationActive(ON, [])).toBe(false);
+    expect(spy).toHaveBeenCalledWith("forecast", []);
+    // The raw stored read is untouched, so re-enabling restores the choice.
+    expect(isSimulationOn(ON)).toBe(true);
   });
 });

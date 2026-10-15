@@ -7,6 +7,7 @@ import { HelpView } from "./help-view";
 import { helpSectionId } from "./help-content-pane";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { SETTINGS_KEY } from "./use-settings";
+import * as featureModules from "./feature-modules";
 
 describe("HelpView (grouped)", () => {
   it("renders the group headers", () => {
@@ -168,5 +169,21 @@ describe("HelpView — reopening the simulation intro (§502)", () => {
     await waitFor(() =>
       expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").simulationIntroSeen).toBe(false));
     expect(screen.queryByRole("button", { name: LABEL })).toBeNull();
+  });
+});
+
+describe("HelpView — forecast view disabled (§502)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.removeItem(SETTINGS_KEY);
+  });
+
+  it("lists no simulation entry, no reopen action and no graph node", async () => {
+    vi.spyOn(featureModules, "isViewEnabled").mockReturnValue(false);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ simulationIntroSeen: true }));
+    render(<HelpView lang="en-US" onNavigateView={vi.fn()} />);
+    expect(await screen.findByRole("heading", { name: t("en-US", "helpConceptMilestoneTitle") })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: t("en-US", "helpConceptForecastSimTitle") })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show the simulation introduction again" })).toBeNull();
   });
 });

@@ -31,6 +31,7 @@ import { metricAtActionPatch } from "./insights/outcome";
 import { applyInsightLoggedAsRaid } from "./insights/log-as-raid";
 import type { ForecastHistoryEntry } from "./forecast-history";
 import type { SettingsOverrides } from "./settings-types";
+import type { FeatureModuleId } from "./feature-modules";
 import type { ScopeEpochReader } from "./scope-epoch";
 import { useForecastHistoryRecorder } from "./use-forecast-history-recorder";
 
@@ -58,6 +59,8 @@ export interface InsightLifecycleDeps
   requestOpen: (view: AppView, id: number) => void;
   /** §502 — the daily forecast recorder runs here (see use-forecast-history-recorder.ts). */
   settingsOverrides: SettingsOverrides | undefined;
+  /** Enabled feature modules (the forecast recorder stops when the Forecast view is hidden). */
+  features: readonly FeatureModuleId[];
   forecastHistory: readonly ForecastHistoryEntry[];
   setForecastHistory: Dispatch<SetStateAction<readonly ForecastHistoryEntry[]>>;
   /** §502 — keys the recorder's memory to the project in scope. */
@@ -77,11 +80,11 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
     tasks, milestones, raid, budgets, roles, resources, plan,
     holidaySet, holidaysReady, shifts, absences, timelogLinks,
     insights, setInsights, requestOpen,
-    settingsOverrides, forecastHistory, setForecastHistory, getScopeEpoch,
+    settingsOverrides, features, forecastHistory, setForecastHistory, getScopeEpoch,
   } = deps;
   useForecastHistoryRecorder({
     hydrated, isPopout, loadPending, holidaysReady, today, tasks, milestones,
-    planEnd: plan?.endDate ?? "", holidaySet, settingsOverrides, forecastHistory, setForecastHistory, getScopeEpoch,
+    planEnd: plan?.endDate ?? "", holidaySet, settingsOverrides, features, forecastHistory, setForecastHistory, getScopeEpoch,
   });
   // Assemble the detection input from live entities. `plan` is always present
   // here (workspace-context seeds defaultResourcePlan) so it is passed as-is;

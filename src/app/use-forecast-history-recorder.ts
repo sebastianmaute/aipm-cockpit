@@ -38,7 +38,8 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { computeAppForecast, toHistoryEntry } from "./forecast/app-forecast";
 import { upsertForecastHistory, type ForecastHistoryEntry } from "./forecast-history";
-import { isSimulationOn } from "./forecast-simulation";
+import { isSimulationActive } from "./forecast-simulation";
+import type { FeatureModuleId } from "./feature-modules";
 import type { ScopeEpochReader } from "./scope-epoch";
 import type { SettingsOverrides } from "./settings-types";
 import type { Milestone, Task } from "./types";
@@ -54,6 +55,8 @@ export interface ForecastHistoryRecorderDeps {
   planEnd: string;
   holidaySet: ReadonlySet<string>;
   settingsOverrides: SettingsOverrides | undefined;
+  /** Enabled feature modules: hiding the Forecast view stops the recorder. */
+  features: readonly FeatureModuleId[];
   forecastHistory: readonly ForecastHistoryEntry[];
   setForecastHistory: Dispatch<SetStateAction<readonly ForecastHistoryEntry[]>>;
   /** Keys this tab's memory of its own entry to the project in scope (§548). */
@@ -79,9 +82,9 @@ function sameEntry(a: ForecastHistoryEntry, b: ForecastHistoryEntry): boolean {
 export function useForecastHistoryRecorder(d: ForecastHistoryRecorderDeps): void {
   const {
     hydrated, isPopout, loadPending, holidaysReady, today, tasks, milestones,
-    planEnd, holidaySet, settingsOverrides, forecastHistory, setForecastHistory, getScopeEpoch,
+    planEnd, holidaySet, settingsOverrides, features, forecastHistory, setForecastHistory, getScopeEpoch,
   } = d;
-  const on = isSimulationOn(settingsOverrides);
+  const on = isSimulationActive(settingsOverrides, features);
   const recorded = useRef<RecordedEntry | null>(null);
   useEffect(() => {
     if (!on || !hydrated || isPopout || loadPending || !holidaysReady) return;
