@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AppForecast } from "./forecast/app-forecast";
-import { isDivergent, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
+import { chancePercent, isDivergent, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
 
 const INSUFFICIENT: Extract<AppForecast, { kind: "insufficient" }> = { kind: "insufficient", finished: 4, neededFinished: 10, days: 30, neededDays: 10 };
 
@@ -73,5 +73,21 @@ describe("kpiSimulationGap", () => {
   it("is null whenever kpiSimulation has cells to show", () => {
     expect(kpiSimulationGap(forecast())).toBeNull();
     expect(kpiSimulation(forecast(), 1)).not.toBeNull();
+  });
+});
+
+describe("chancePercent — a simulated chance never reads as certainty", () => {
+  it.each([
+    [1, { kind: "exact", percent: 100 }],
+    [0.996, { kind: "above99" }],
+    [0.995, { kind: "above99" }],
+    [0.994, { kind: "exact", percent: 99 }],
+    [0.34, { kind: "exact", percent: 34 }],
+    [0.006, { kind: "exact", percent: 1 }],
+    [0.004, { kind: "below1" }],
+    [0.0001, { kind: "below1" }],
+    [0, { kind: "exact", percent: 0 }],
+  ] as const)("%s -> %o", (chance, expected) => {
+    expect(chancePercent(chance)).toEqual(expected);
   });
 });

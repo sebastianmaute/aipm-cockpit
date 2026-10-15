@@ -14,7 +14,8 @@ export type KpiSimulation = {
   /** ISO date by which 8 in 10 simulated runs finished. */
   p80: string;
   chanceOnTime: number | null;
-  estimateCoverage: number;
+  /** Null when nothing is open: there is no remaining work to cover. */
+  estimateCoverage: number | null;
   divergent: boolean;
   explainer: { windowDays: number; distribution: Int32Array; trials: number; markers: SimMarkers };
 };
@@ -23,6 +24,18 @@ export type KpiSimulation = {
 export function isDivergent(spi: number | null, chance: number | null): boolean {
   if (spi === null || chance === null) return false;
   return (spi >= SPI_AHEAD && chance < DIVERGENT_LOW_CHANCE) || (spi < SPI_BEHIND && chance >= DIVERGENT_HIGH_CHANCE);
+}
+
+/** A simulated chance as a whole percent. A chance that rounds to 100 but is under 1
+ *  is "above 99", one that rounds to 0 but is over 0 is "below 1": a simulation must
+ *  not read as certainty. Exactly 1 and exactly 0 stay 100 and 0. */
+export type ChancePercent = { kind: "exact"; percent: number } | { kind: "above99" } | { kind: "below1" };
+
+export function chancePercent(chance: number): ChancePercent {
+  const percent = Math.round(chance * 100);
+  if (percent >= 100 && chance < 1) return { kind: "above99" };
+  if (percent <= 0 && chance > 0) return { kind: "below1" };
+  return { kind: "exact", percent };
 }
 
 /** Why the switch is on but the strip shows no simulated cell. */

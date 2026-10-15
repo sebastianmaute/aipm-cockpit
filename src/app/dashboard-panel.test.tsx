@@ -1822,13 +1822,19 @@ describe("DashboardPanel simulation switch", () => {
     expect(JSON.parse(localStorage.getItem("aipm-cockpit:settings") ?? "{}").simulationIntroSeen).toBe(true);
   });
 
-  it("Show me opens Help at the simulation entry", async () => {
+  it("Show me opens Help at the simulation entry and marks the intro seen", async () => {
     const user = userEvent.setup();
     const onOpenHelp = vi.fn();
+    const seen = () => JSON.parse(localStorage.getItem("aipm-cockpit:settings") ?? "{}").simulationIntroSeen;
     render(<DashboardPanel {...fullProps} projectId="p-sim-showme" onOpenHelp={onOpenHelp} />, { wrapper });
+    await settleSettings();
     await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
-    await user.click(await screen.findByRole("button", { name: t(EN, "simulationIntroShowMe") }));
+    const showMe = await screen.findByRole("button", { name: t(EN, "simulationIntroShowMe") });
+    expect(seen()).not.toBe(true);
+    await user.click(showMe);
     expect(onOpenHelp).toHaveBeenCalledWith(FORECAST_SIM_HELP_ID);
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+    expect(seen()).toBe(true);
   });
 });
 

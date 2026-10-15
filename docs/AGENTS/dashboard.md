@@ -962,7 +962,8 @@ IS in axe `A11Y_VIEWS`. Built as slices:
 `DashboardKpiStrip` takes an optional `simulation` (`KpiSimulation`, from `kpiSimulation` in `kpi-simulation.ts`)
 and `onOpenHelp`. Absent — switch off, or the strip on Reports — it renders exactly the old cells. Present, it adds
 a P80 finish cell and, when `chanceOnTime` is not null, a chance-on-time cell, each a `SimValue` with its own
-`SimExplainer`; a line under the grid states the estimate coverage and, when `divergent`, the divergence line.
+`SimExplainer`; a line under the grid states the estimate coverage (absent when `estimateCoverage` is null, i.e. nothing
+is open) and, when `divergent`, the divergence line.
 With the switch on but `simulation` null, the panel passes `simulationGap` (`kpiSimulationGap`) instead and the
 strip adds ONE muted, non-sim-styled line under the unchanged cells: "Not enough history to simulate yet: N
 finished, needs 10." (or the window-days variant), or "The simulated finish is beyond the 1300-working-day

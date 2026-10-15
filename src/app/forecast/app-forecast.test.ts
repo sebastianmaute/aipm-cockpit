@@ -98,6 +98,12 @@ describe("computeAppForecast", () => {
     expect(r.chanceOnTime).toBe(0);
   });
 
+  test("estimateCoverage is null when nothing is open (no remaining work to cover)", () => {
+    const r = computeAppForecast(args(finished(20)));
+    if (r.kind !== "forecast") throw new Error("expected forecast");
+    expect(r.estimateCoverage).toBeNull();
+  });
+
   test("estimateCoverage equals effortCoverage of the open tasks", () => {
     const open = [...openTasks(3, { originalEstimateMinutes: 60 }), task(50)];
     const r = computeAppForecast(args([...finished(20), ...open]));

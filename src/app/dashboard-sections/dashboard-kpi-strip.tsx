@@ -8,7 +8,7 @@ import { hasNoActiveScope, type KpiStripModel } from "../dashboard";
 import type { MetricKey, MetricTrend } from "../dashboard-trends";
 import type { DensityClasses } from "../dashboard-density";
 import type { AppView } from "../nav-config";
-import type { KpiSimulation, KpiSimulationGap } from "../kpi-simulation";
+import { chancePercent, type KpiSimulation, type KpiSimulationGap } from "../kpi-simulation";
 import { MAX_HORIZON_WORKING_DAYS } from "../forecast/constants";
 import { SimValue } from "../sim-value";
 import { percentileWord } from "../percentile-words";
@@ -33,6 +33,13 @@ interface DashboardKpiStripProps {
 
 /** The line shown in place of the simulated cells. Plain muted text, NOT sim-styled: it is a
  *  statement about the data, not a simulated value. */
+function chanceText(lang: Lang, chance: number): string {
+  const c = chancePercent(chance);
+  if (c.kind === "above99") return t(lang, "kpiSimPercentAbove99");
+  if (c.kind === "below1") return t(lang, "kpiSimPercentBelow1");
+  return t(lang, "kpiSimPercent", c.percent);
+}
+
 function simulationGapText(lang: Lang, gap: KpiSimulationGap): string {
   switch (gap.kind) {
     case "finished": return t(lang, "kpiSimNeedsFinished", gap.finished, gap.needed);
@@ -208,7 +215,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulat
           <Tile fill
             label={onTimeLabel}
             value={
-              <SimValue lang={lang} label={onTimeLabel} value={t(lang, "kpiSimPercent", Math.round(simulation.chanceOnTime * 100))}
+              <SimValue lang={lang} label={onTimeLabel} value={chanceText(lang, simulation.chanceOnTime)}
                 explainer={{ ...simulation.explainer, label: onTimeLabel, kind: "chance" }} onOpenHelp={onOpenHelp} />
             }
           />
@@ -216,7 +223,9 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulat
       </div>
       {simulation && (
         <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-          <p>{t(lang, "kpiSimCoverage", Math.round(simulation.estimateCoverage * 100))}</p>
+          {simulation.estimateCoverage !== null && (
+            <p>{t(lang, "kpiSimCoverage", Math.round(simulation.estimateCoverage * 100))}</p>
+          )}
           {simulation.divergent && <p>{t(lang, "kpiSimDivergence")}</p>}
         </div>
       )}

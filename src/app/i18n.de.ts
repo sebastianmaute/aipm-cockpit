@@ -3422,6 +3422,8 @@ export const de: Record<TranslationKey, string> = {
   simCautious: "Vorsichtig",
   kpiOnTime: "Termingerecht",
   kpiSimPercent: "{0} %",
+  kpiSimPercentAbove99: "> 99 %",
+  kpiSimPercentBelow1: "< 1 %",
   kpiSimCoverage: "Schätzungen decken {0} % der verbleibenden Arbeit ab",
   kpiSimNeedsFinished: "Noch zu wenig Verlauf für eine Simulation: {0} erledigt, nötig sind {1}.",
   kpiSimNeedsDays: "Noch zu wenig Verlauf für eine Simulation: {0} Arbeitstage Verlauf, nötig sind {1}.",

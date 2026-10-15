@@ -15,7 +15,8 @@ export type AppForecast =
       p80: string | null;
       p95: string | null;
       chanceOnTime: number | null;
-      estimateCoverage: number;
+      /** Share of open tasks carrying an estimate; null when nothing is open (no remaining work to cover). */
+      estimateCoverage: number | null;
       windowDays: number;
       distribution: Int32Array;
       trials: number;
@@ -104,7 +105,7 @@ export function computeAppForecast(a: AppForecastArgs): AppForecast {
       p80: date(80),
       p95: date(95),
       chanceOnTime: chanceOnTime(a.planEnd, a.today, a.holidaySet, r.distribution, open.length > 0),
-      estimateCoverage: effortCoverage(open),
+      estimateCoverage: open.length > 0 ? effortCoverage(open) : null,
       windowDays: r.windowDays,
       distribution: r.distribution,
       trials: r.trials,

@@ -127,6 +127,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const simulationOn = isSimulationOn(settingsOverrides);
   const simSwitchRef = useRef<HTMLDivElement>(null);
   const showSimulationIntro = simulationOn && settingsHydrated && !settings.simulationIntroSeen && !props.isPopout;
+  const markSimulationIntroSeen = () => setSettings((s) => ({ ...s, simulationIntroSeen: true }));
   // Hoisted above the `model` useMemo below: it depends on this, and it must
   // keep a stable identity when `props.snapshots` is absent so that memo
   // never invalidates for no input change.
@@ -707,8 +708,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
           <SimulationIntro
             lang={lang}
             anchorRef={simSwitchRef}
-            onGotIt={() => setSettings((s) => ({ ...s, simulationIntroSeen: true }))}
-            onShowMe={props.onOpenHelp ? () => props.onOpenHelp!(FORECAST_SIM_HELP_ID) : undefined}
+            onGotIt={markSimulationIntroSeen}
+            // "Show me" counts as acknowledging the intro too, so it is gone when the user comes back from Help.
+            onShowMe={props.onOpenHelp ? () => { markSimulationIntroSeen(); props.onOpenHelp!(FORECAST_SIM_HELP_ID); } : undefined}
           />
         )}
 

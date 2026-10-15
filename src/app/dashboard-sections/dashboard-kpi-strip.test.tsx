@@ -510,6 +510,25 @@ describe("DashboardKpiStrip — simulated cells (§502)", () => {
     expect(screen.getByText("Estimates cover 41% of remaining work")).toBeInTheDocument();
   });
 
+  it("hides the estimate-coverage cue when nothing is open", () => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, estimateCoverage: null }} />);
+    expect(screen.queryByText(/Estimates cover/)).toBeNull();
+    expect(screen.getByRole("group", { name: "On time, simulated" })).toBeInTheDocument();
+  });
+
+  it.each([
+    [0.996, ">99%"],
+    [0.994, "99%"],
+    [1, "100%"],
+    [0.004, "<1%"],
+    [0.006, "1%"],
+    [0, "0%"],
+  ] as const)("shows a chance of %s as %s, never rounding a simulation to certainty", (chanceOnTime, text) => {
+    render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, chanceOnTime }} />);
+    // Exact match on the value span: "99%" does not match ">99%", nor "100%" ">99%".
+    expect(within(screen.getByRole("group", { name: "On time, simulated" })).getByText(text, { exact: true })).toBeInTheDocument();
+  });
+
   it("shows the divergence copy as visible text only when divergent", () => {
     const { rerender } = render(<DashboardKpiStrip lang="en-US" model={model()} trends={trends} dc={dc} simulation={SIM} />);
     const copy = t("en-US", "kpiSimDivergence");
@@ -532,6 +551,15 @@ describe("DashboardKpiStrip — simulated cells (§502)", () => {
     expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "simSafeToCommit")) })).toBeInTheDocument();
     expect(screen.getByText(t("de", "kpiSimCoverage", "41"))).toBeInTheDocument();
     expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "kpiOnTime")) })).toHaveTextContent("34 %");
+  });
+
+  it("clamps a near-certain chance in German too", async () => {
+    await loadI18n("de");
+    const { rerender } = render(<DashboardKpiStrip lang="de" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, chanceOnTime: 0.996 }} />);
+    const group = () => screen.getByRole("group", { name: t("de", "simValueSr", t("de", "kpiOnTime")) });
+    expect(group()).toHaveTextContent("> 99 %");
+    rerender(<DashboardKpiStrip lang="de" model={model()} trends={trends} dc={dc} simulation={{ ...SIM, chanceOnTime: 0.004 }} />);
+    expect(group()).toHaveTextContent("< 1 %");
   });
 });
 

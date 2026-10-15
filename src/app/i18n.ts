@@ -3708,6 +3708,8 @@ const enUS = {
   simCautious: "Cautious",
   kpiOnTime: "On time",
   kpiSimPercent: "{0}%",
+  kpiSimPercentAbove99: ">99%",
+  kpiSimPercentBelow1: "<1%",
   kpiSimCoverage: "Estimates cover {0}% of remaining work",
   kpiSimNeedsFinished: "Not enough history to simulate yet: {0} finished, needs {1}.",
   kpiSimNeedsDays: "Not enough history to simulate yet: {0} working days of history, needs {1}.",
