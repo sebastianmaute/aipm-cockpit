@@ -110,10 +110,10 @@ newest entries until the next save.
   and the command COULD go back into the source comment. The reason to keep it HERE is unchanged and
   is the one that always mattered: prose describing a command is not a command, and a comment that
   gets condensed loses it again. Read the paragraph above as the rationale, not the line count.
-  `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **32**
+  `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **33**
   `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/use-version-history-wiring.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
   `comm -23 <(sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/use-version-history-wiring.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
-  → `setActivityLog(` `setBaselineHistory(` `setBudgetHistory(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(` `setSettledBackend(`
+  → `setActivityLog(` `setBaselineHistory(` `setBudgetHistory(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setForecastHistory(` `setLoadedBackend(` `setSettledBackend(`
   ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
   `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
   end anchor there ran 676 lines and reported 39 while it lived in `task-manager.tsx`. Since §491 moved
