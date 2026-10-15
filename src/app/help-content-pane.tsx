@@ -21,15 +21,25 @@ import { smoothScrollBehavior } from "./reduced-motion";
  *  relations map + deep-link scroll can target sections this component renders. */
 export const helpSectionId = (id: string) => `help-sec-${id}`;
 
+/** An extra control drawn under one Help entry. */
+export interface HelpEntryAction {
+  label: string;
+  onActivate: () => void;
+}
+
 export function HelpContentPane({
   lang,
   query,
   onNavigateView,
   readingLevel = "standard",
+  entryActions,
 }: {
   lang: Lang;
   query: string;
   onNavigateView?: (view: AppView) => void;
+  /** One extra action per entry id, rendered under that entry (e.g. reopening an
+   *  introduction). The PARENT decides when an action exists; this pane only draws it. */
+  entryActions?: Readonly<Record<string, HelpEntryAction>>;
   /** How much teaching to do — see `Settings.helpReadingLevel`. Defaults to
    *  "standard" so a caller that has not wired settings (and every existing
    *  test) renders exactly today's Help. */
@@ -220,6 +230,11 @@ export function HelpContentPane({
                       )}
                     </p>
                   ) : null}
+                  {entryActions?.[e.id] && (
+                    <p className="mt-1.5 text-xs">
+                      <TextButton onClick={entryActions[e.id].onActivate}>{entryActions[e.id].label}</TextButton>
+                    </p>
+                  )}
                 </section>
               ))}
             </div>

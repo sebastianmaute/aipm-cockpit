@@ -5,7 +5,8 @@ import { type Lang, t, type TranslationKey } from "./i18n";
 import { HELP_ENTRIES } from "./help-content";
 import { type AppView } from "./nav-config";
 import { buildRelationsGraph } from "./relations-graph";
-import { HelpContentPane, helpSectionId } from "./help-content-pane";
+import { HelpContentPane, type HelpEntryAction, helpSectionId } from "./help-content-pane";
+import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { Select, Input } from "./form-controls";
 import type { HelpReadingLevel } from "./help-content";
 import { ClearableSearchInput } from "./clearable-search-input";
@@ -58,6 +59,19 @@ export function HelpView({
   // needed by exactly this subtree, and `use-settings.ts` keeps every live
   // instance in step, so it cannot go stale against the Settings pane.
   const { settings, setSettings } = useSettings();
+  // §502 spec §3.3 — the simulation intro is re-openable from Help. Offered only once it was
+  // dismissed; clearing the flag lets the Dashboard show it again whenever the switch is on there.
+  const entryActions: Record<string, HelpEntryAction> | undefined = settings.simulationIntroSeen
+    ? {
+        [FORECAST_SIM_HELP_ID]: {
+          label: t(lang, "helpShowSimulationIntro"),
+          onActivate: () => {
+            setSettings((s) => ({ ...s, simulationIntroSeen: false }));
+            onNavigateView?.("dashboard");
+          },
+        },
+      }
+    : undefined;
   const { ref, reset } = useResizable("aipm-cockpit:help-view-size");
   const graph = useMemo(() => buildRelationsGraph(HELP_ENTRIES), []);
 
@@ -193,6 +207,7 @@ export function HelpView({
               query={query}
               onNavigateView={onNavigateView}
               readingLevel={settings.helpReadingLevel ?? "standard"}
+              entryActions={entryActions}
             />
           </div>
         )}

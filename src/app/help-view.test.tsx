@@ -1,9 +1,12 @@
-import { beforeAll, describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { afterEach, beforeAll, describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { HelpView } from "./help-view";
+import { helpSectionId } from "./help-content-pane";
+import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
+import { SETTINGS_KEY } from "./use-settings";
 
 describe("HelpView (grouped)", () => {
   it("renders the group headers", () => {
@@ -141,5 +144,29 @@ describe("HelpView — every tab has its own name (§672)", () => {
   it.each(["en-US", "de"] as const)("names every tab distinctly in %s", (lang) => {
     render(<HelpView lang={lang} onStartTour={vi.fn()} />);
     expectRowUniqueNames({ minControls: 4, roles: ["tab"], scope: screen.getByRole("tablist") });
+  });
+});
+
+describe("HelpView — reopening the simulation intro (§502)", () => {
+  const LABEL = "Show the simulation introduction again";
+  afterEach(() => localStorage.removeItem(SETTINGS_KEY));
+
+  it("offers nothing while the intro has never been dismissed", async () => {
+    render(<HelpView lang="en-US" onNavigateView={vi.fn()} />);
+    expect(await screen.findByRole("heading", { name: t("en-US", "helpConceptForecastSimTitle") })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: LABEL })).toBeNull();
+  });
+
+  it("under the simulation entry, clears the seen flag and goes to the Dashboard", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ simulationIntroSeen: true }));
+    const onNavigateView = vi.fn();
+    render(<HelpView lang="en-US" onNavigateView={onNavigateView} />);
+    const button = await screen.findByRole("button", { name: LABEL });
+    expect(button.closest("section")?.id).toBe(helpSectionId(FORECAST_SIM_HELP_ID));
+    await userEvent.click(button);
+    expect(onNavigateView).toHaveBeenCalledWith("dashboard");
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").simulationIntroSeen).toBe(false));
+    expect(screen.queryByRole("button", { name: LABEL })).toBeNull();
   });
 });
