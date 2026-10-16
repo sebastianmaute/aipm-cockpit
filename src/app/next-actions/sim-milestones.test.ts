@@ -12,7 +12,7 @@ import { SIM_UNLIKELY_BELOW, buildSimMilestoneActions, mergeSimActions } from ".
 function forecast(milestones: readonly MilestoneChance[]): AppForecast {
   return {
     kind: "forecast", p50: null, p80: null, p95: null, chanceOnTime: null, estimateCoverage: null,
-    windowDays: 30, distribution: new Int32Array(0), trials: 0,
+    windowDays: 30, distribution: new Int32Array(0), trialDays: new Int32Array(0), windowDates: [], trials: 0,
     markers: { p50: 0, p80: 0, p95: 0 }, milestones,
   };
 }

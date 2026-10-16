@@ -14,7 +14,7 @@ const NO_HOLIDAYS: ReadonlySet<string> = new Set();
 
 const FORECAST: Extract<AppForecast, { kind: "forecast" }> = {
   kind: "forecast", p50: "2027-01-28", p80: "2027-02-12", p95: "2027-03-03", chanceOnTime: 0.31,
-  estimateCoverage: 0.5, windowDays: 60, distribution: Int32Array.from([60, 80, 95]), trials: 10000,
+  estimateCoverage: 0.5, windowDays: 60, distribution: Int32Array.from([60, 80, 95]), trialDays: Int32Array.from([60, 80, 95]), windowDates: [], trials: 10000,
   markers: { p50: 60, p80: 80, p95: 95 },
   milestones: [],
 };

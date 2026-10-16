@@ -10,6 +10,13 @@ function opts(over: Partial<SimOptions> = {}): SimOptions {
 }
 
 describe("simulateWhen", () => {
+  test("trialDays is the unsorted per-trial result and sorts to days", () => {
+    const r = simulateWhen([0, 1, 2, 3], 20, opts({ rng: mulberry32(7) }));
+    expect(r.trialDays).toHaveLength(r.days.length);
+    expect(Array.from(r.trialDays).sort((a, b) => a - b)).toEqual(Array.from(r.days));
+    expect(Array.from(r.trialDays)).not.toEqual(Array.from(r.days)); // trial order, not sorted
+  });
+
   test("constant throughput of 2/day finishes 10 tasks in exactly 5 days", () => {
     const { days, beyondShare } = simulateWhen([2], 10, opts());
     expect(days).toHaveLength(200);

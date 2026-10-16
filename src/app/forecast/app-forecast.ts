@@ -22,6 +22,10 @@ export type AppForecast =
       estimateCoverage: number | null;
       windowDays: number;
       distribution: Int32Array;
+      /** Per-trial finish days in trial order (horizon + 1 = beyond). */
+      trialDays: Int32Array;
+      /** The history window's working days. */
+      windowDates: readonly string[];
       trials: number;
       /** The engine's working days ahead per percentile (beyond the horizon: horizon + 1), for the explainer's cut lines. */
       markers: { p50: number; p80: number; p95: number };
@@ -113,6 +117,8 @@ export function computeAppForecast(a: AppForecastArgs): AppForecast {
       estimateCoverage: open.length > 0 ? effortCoverage(open) : null,
       windowDays: r.windowDays,
       distribution: r.distribution,
+      trialDays: r.trialDays,
+      windowDates: r.windowDates,
       trials: r.trials,
       markers: { p50: ahead(50), p80: ahead(80), p95: ahead(95) },
       milestones: r.milestones,

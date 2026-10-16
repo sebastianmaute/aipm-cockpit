@@ -12,7 +12,7 @@ const forecast = (over: Partial<Extract<AppForecast, { kind: "forecast" }>> = {}
   chanceOnTime: 0.34,
   estimateCoverage: 0.41,
   windowDays: 60,
-  distribution: Int32Array.from([5, 10, 15]),
+  distribution: Int32Array.from([5, 10, 15]), trialDays: Int32Array.from([5, 10, 15]), windowDates: [],
   trials: 10000,
   markers: { p50: 10, p80: 20, p95: 30 },
   milestones: [],
