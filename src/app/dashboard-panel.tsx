@@ -705,6 +705,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
           <SimulationIntro
             lang={lang}
             anchorRef={simSwitchRef}
+            burnTileShown={visibleIds.includes("burn")}
             onGotIt={markSimulationIntroSeen}
             // "Show me" counts as acknowledging the intro too, so it is gone when the user comes back from Help.
             onShowMe={props.onOpenHelp ? () => { markSimulationIntroSeen(); props.onOpenHelp!(FORECAST_SIM_HELP_ID); } : undefined}

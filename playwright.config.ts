@@ -62,6 +62,9 @@ const LIVE_TURSO_DESTRUCTIVE = /(?:^|[\\/])(turso-ddl-probe-live|turso-revision-
 // E2E_LIVE_APP (so a plain run never sees the specs twice). live-turso.yml runs that script. What
 // may be listed here, and what must be, is pinned by ci-workflow.test.mjs ("runs exactly the live
 // specs ...").
+// ★ One exception to "partition-scoped": demo-trends-live deletes EVERY project before it starts
+// (a stray one opens instead of the start card), so it skips unless E2E_LIVE_APP is set, i.e. it
+// runs only in the one-worker `live-turso-app` project, never in the fullyParallel `chromium`.
 const LIVE_TURSO_APP = /(?:^|[\\/])(documents-images-interactive|meta-decode-loss|version-history-documents|version-compare-live|demo-trends-live|unload-journal-turso-live)\.spec\.ts$/;
 
 // ★★★ NO TRACE AND NO VIDEO WHEN THE APP CARRIES A TURSO TOKEN. With

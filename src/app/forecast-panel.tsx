@@ -79,7 +79,7 @@ interface Props {
   holidaySet: ReadonlySet<string>;
   /** Accepted for the view contract; the panel writes nothing, so a popout needs no guard. */
   isPopout?: boolean;
-  /** The project's "show simulation" switch. On, the Dashboard's simulated cells use the engine defaults, so this view says so once its own settings differ. */
+  /** The project's "Use Monte Carlo forecasting" switch. On, the Dashboard's simulated cells use the engine defaults, so this view says so once its own settings differ. */
   showSimulation?: boolean;
 }
 

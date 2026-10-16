@@ -1,6 +1,6 @@
 // src/app/forecast-simulation.ts
 //
-// The per-project "show simulation" switch (§502). It rides
+// The per-project "Use Monte Carlo forecasting" switch (§502). It rides
 // Workspace.settingsOverrides.forecast, so it travels with the project on all
 // six write paths. OFF IS ABSENCE: turning it off deletes the key and folds an
 // empty override to undefined, so a project that never turned it on serialises

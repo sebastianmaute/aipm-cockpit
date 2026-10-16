@@ -62,6 +62,8 @@ export interface Step0ImportPanelProps {
   onImportWorkspace: (ws: Workspace, fileName: string, ignored: string[]) => void;
   /** Rendered right of Skip in the pinned footer (the wizard's workspace-import picker). */
   afterSkip?: React.ReactNode;
+  /** An error from the footer's own controls (the import picker), rendered right above the footer. */
+  footerError?: React.ReactNode;
 }
 
 export function Step0ImportPanel({
@@ -73,6 +75,7 @@ export function Step0ImportPanel({
   onResetAi,
   onSkip,
   afterSkip,
+  footerError,
   onCancel,
   onImportWorkspace,
 }: Step0ImportPanelProps) {
@@ -434,6 +437,7 @@ export function Step0ImportPanel({
         )}
       </div>
 
+      {footerError}
       {/* Pinned footer: Skip / Cancel / Generate. */}
       <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
         <div className="flex gap-2">

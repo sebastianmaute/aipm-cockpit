@@ -713,6 +713,41 @@ describe("CreateProjectWizard AI Step 0", () => {
     expect(screen.queryByText(msg)).toBeNull();
   });
 
+  // Final-review finding: a failed Generate is a new attempt too; its aiError must not sit beside a stale picker error.
+  it("clears a Step-0 import error when a new Generate starts, even if it fails", async () => {
+    generateMock.mockResolvedValue(null);
+    renderWithKey();
+    const picker = screen
+      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
+      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(picker, { target: { files: [new File(["{ not json"], "bad.json", { type: "application/json" })] } });
+    const msg = t("en-US", "wizardImportWorkspaceInvalid", "bad.json");
+    const err = await screen.findByText(msg);
+    // The error sits right above the footer that holds the picker, below the describe field, not at the top.
+    const follows = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    expect(follows(screen.getByLabelText(t("en-US", "aiCreateDescribeLabel")), err)).toBe(true);
+    expect(follows(err, screen.getByRole("button", { name: t("en-US", "aiCreateSkip") }))).toBe(true);
+    fireEvent.change(screen.getByLabelText(t("en-US", "aiCreateDescribeLabel")), {
+      target: { value: "a crm project" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateGenerate") }));
+    await waitFor(() => expect(generateMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByText(msg)).toBeNull());
+    // Positive control: still Step 0 — the failed proposal did not advance.
+    expect(screen.getByLabelText(t("en-US", "aiCreateDescribeLabel"))).toBeInTheDocument();
+  });
+
+  // Final-review finding: once details are captured, Step 1 hides Back to Describe, so it offers the picker itself.
+  it("offers the workspace import on Step 1 once Back to Describe is gone", () => {
+    renderWithKey();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateSkip") }));
+    expect(screen.queryByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })).toBeNull();
+    completeStep1();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.queryByRole("button", { name: t("en-US", "wizardBack") })).toBeNull();
+    expect(screen.getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })).toBeInTheDocument();
+  });
+
   // Review finding: Generate also leaves Step 0, and the picker's error must not follow it.
   it("clears a Step-0 import error when Generate advances to Step 1", async () => {
     generateMock.mockResolvedValue({ meta: { name: "Proposed Project" }, features: [], seed: undefined });

@@ -29,6 +29,38 @@ describe("buildDemoWorkspace", () => {
     expect(dates.length).toBeLessThan(raw.forecastHistory.length);
     expect(dates.every((d) => d <= today)).toBe(true);
   });
+  // Final-review finding: the shift moves completions too; none may land after today.
+  it("clamps completions the month shift moved past today to today", () => {
+    const today = "2026-10-01";
+    const ws = buildDemoWorkspace(raw, today);
+    const done = ws.tasks.filter((t) => t.completedDate);
+    // Positive control: the master's 2026-09-15 completion lands on 10-15, so at least one task is clamped.
+    expect(done.some((t) => t.completedDate === today)).toBe(true);
+    expect(done.every((t) => t.completedDate! <= today)).toBe(true);
+    expect(done.every((t) => t.status === "Done")).toBe(true);
+  });
+  it("keeps creation and last update in the past, so no task is finished before it was touched", () => {
+    const today = "2026-10-01";
+    const ws = buildDemoWorkspace(raw, today);
+    // Positive controls: the shift moves at least one update and one creation past today, so both are clamped.
+    expect(ws.tasks.some((t) => t.lastUpdateDate === today)).toBe(true);
+    expect(ws.tasks.some((t) => t.createdDate === today)).toBe(true);
+    expect(ws.tasks.every((t) => t.lastUpdateDate <= today && (t.createdDate ?? "") <= today)).toBe(true);
+    // A clamp never adds a field the task did not have. Open tasks (no completedDate) get clamped too, so this
+    // can fail. createdDate and startDate cannot be checked this way: every master task has a createdDate, and
+    // no clamped task lacks a startDate.
+    expect(ws.tasks.every((t) => !("completedDate" in t) || t.completedDate !== undefined)).toBe(true);
+  });
+  it("starts no finished task after it finished", () => {
+    const today = "2026-10-01";
+    const ws = buildDemoWorkspace(raw, today);
+    const done = ws.tasks.filter((t) => t.completedDate && t.startDate);
+    // Task 33 starts on the master's 09-02, which the shift moves to 10-02, after its completion clamped to today.
+    const t33 = ws.tasks.find((t) => t.id === 33);
+    expect(t33?.completedDate).toBe(today);
+    expect(t33?.startDate).toBe(today);
+    expect(done.every((t) => t.startDate! <= t.completedDate!)).toBe(true);
+  });
   it("rejects a corrupt master loudly (strict decode)", () => {
     expect(() => buildDemoWorkspace({ tasks: 1 }, DEMO_AS_OF)).toThrow();
   });
