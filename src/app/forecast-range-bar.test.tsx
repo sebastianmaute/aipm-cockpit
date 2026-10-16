@@ -65,4 +65,18 @@ describe("ForecastRangeBar", () => {
     expect(band).toHaveAttribute("data-open-end", "true");
     expect(num(band, "x") + num(band, "width")).toBeGreaterThan(num(container.querySelector("[data-p80]"), "x1"));
   });
+
+  it.each([
+    ["at the right edge (P80 = P95, the latest date)", { p50: "2027-01-28", p80: "2027-03-03", p95: "2027-03-03", planEnd: "2027-02-01" }],
+    ["at the left edge (P80 = today, the earliest date)", { p50: "2026-10-16", p80: "2026-10-16", p95: "2027-03-03", planEnd: "2027-02-01" }],
+  ])("keeps the P80 label inside the chart with the mark %s", (_label, dates) => {
+    // "P80" at font size 8 is about 13 units wide: centred on the edge mark it would clip by a unit or so.
+    const { container } = render(<ForecastRangeBar {...BASE} {...dates} />);
+    const width = Number(container.querySelector("svg")!.getAttribute("viewBox")!.split(" ")[2]);
+    const mark = num(container.querySelector("[data-p80]"), "x1");
+    const label = num(container.querySelector("[data-p80-label]"), "x");
+    expect(Math.min(mark, width - mark)).toBeLessThan(8);
+    expect(label).toBeGreaterThanOrEqual(8);
+    expect(label).toBeLessThanOrEqual(width - 8);
+  });
 });
