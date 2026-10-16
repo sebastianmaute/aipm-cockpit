@@ -28,7 +28,7 @@ export const committeeInfoProvider: ActionProvider = {
         // is available to call it directly. The count is `r.daysLeft`, which
         // fills `{2}` — the singular key keeps `{0}`/`{1}` and hardcodes only
         // the day count, same as `actionCommitteeInfoWhyOne`'s dictionary value.
-        why: { key: r.daysLeft === 1 ? "actionCommitteeInfoWhyOne" as const : "actionCommitteeInfoWhy" as const, params: [r.dueDate, r.meetingTitle, r.daysLeft] },
+        why: { key: r.daysLeft === 1 ? "actionCommitteeInfoWhyOne" as const : "actionCommitteeInfoWhy" as const, params: [{ date: r.dueDate }, r.meetingTitle, r.daysLeft] },
         score,
         tier: bandTier(score),
         cta: { kind: "open", view: "steering-committee", id: r.meetingId },

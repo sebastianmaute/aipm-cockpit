@@ -403,7 +403,9 @@ Dashboard picture: a Forecast tile, a chance chip per milestone and a Next-actio
   offers only Open Forecast and Snooze (`action-cta.ts` drops Create task and Log as RAID for it). It needs the
   Milestones module, as the tile's at-risk section does, and the holidays. Its why-line carries the milestone date
   as an `I18nDateParam` (`{ date }`), which every surface renders through `actionText` (`action-text.ts`, with
-  `formatDayMonthYear`), so it reads "Dec 1, 2026" / "1. Dez. 2026", never the ISO string. Open Forecast lands on
+  `formatDayMonthYear`), so it reads "Dec 1, 2026" / "1. Dez. 2026", never the ISO string. The steering-committee
+  info-pack action (`committee-info.ts`) passes its due date the same way, so the two rows agree (enumerate the
+  providers that do with `grep -rn "{ date:" src/app/next-actions/providers`). Open Forecast lands on
   `ForecastPanelDeepLinked` (`forecast-panel.tsx`), which scrolls that milestone's row in the chances table into view
   and flashes it (`useDeepLinkRowFlash`), then consumes the request; focus stays on the main region, as for every
   deep-link that opens no editor. ★ Rulings: the group counts in the Soon tier, the Top actions tile
