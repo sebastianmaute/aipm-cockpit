@@ -6,7 +6,10 @@ import type { ForecastHistoryEntry } from "../forecast-history";
 import { addCalendarDays, countWorkingDays } from "../working-days";
 import { DEFAULT_HISTORY_WINDOW, MAX_HORIZON_WORKING_DAYS } from "./constants";
 import { DEFAULT_WHAT_IF, computeScheduleForecast, effortCoverage } from "./index";
+import type { MilestoneChance } from "./milestones";
 import { isValidIsoDate } from "./throughput";
+
+export type { MilestoneChance };
 
 export type AppForecast =
   | {
@@ -22,6 +25,8 @@ export type AppForecast =
       trials: number;
       /** The engine's working days ahead per percentile (beyond the horizon: horizon + 1), for the explainer's cut lines. */
       markers: { p50: number; p80: number; p95: number };
+      /** The engine's per-milestone chances from this same run. */
+      milestones: readonly MilestoneChance[];
     }
   | {
       kind: "insufficient";
@@ -110,6 +115,7 @@ export function computeAppForecast(a: AppForecastArgs): AppForecast {
       distribution: r.distribution,
       trials: r.trials,
       markers: { p50: ahead(50), p80: ahead(80), p95: ahead(95) },
+      milestones: r.milestones,
     };
   }
   memo = { args: a, result };

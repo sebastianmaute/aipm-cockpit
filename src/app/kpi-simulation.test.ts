@@ -15,6 +15,7 @@ const forecast = (over: Partial<Extract<AppForecast, { kind: "forecast" }>> = {}
   distribution: Int32Array.from([5, 10, 15]),
   trials: 10000,
   markers: { p50: 10, p80: 20, p95: 30 },
+  milestones: [],
   ...over,
 });
 
