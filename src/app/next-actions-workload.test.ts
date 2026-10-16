@@ -103,6 +103,13 @@ describe("buildWorkloadAlerts", () => {
       expect(overAlloc({ ...base, resources, plan: longPlan, today: "2026-02-10" }).map((a) => a.value)).toEqual([120]);
     });
 
+    it("raises nothing after the end date, even inside the plan's last month", () => {
+      const plan: ResourcePlan = { ...longPlan, endDate: "2026-12-15" };
+      const resources = [res(1, "Ava", { utilization: { "2026-12": 150 } })];
+      expect(overAlloc({ ...base, resources, plan, today: "2026-12-15" }).map((a) => a.value)).toEqual([150]);
+      expect(overAlloc({ ...base, resources, plan, today: "2026-12-20" })).toEqual([]);
+    });
+
     it("raises nothing once the plan has ended", () => {
       const resources = [res(1, "Ava", { utilization: { "2026-12": 150 } })];
       expect(overAlloc({ ...base, resources, plan: longPlan, today: "2027-01-15" })).toEqual([]);

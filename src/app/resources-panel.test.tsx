@@ -407,16 +407,6 @@ describe("ResourcesPanel", () => {
     expect(screen.queryByText(/Bob Ext/)).not.toBeInTheDocument();
   });
 
-  // Workload lists the same people as planning but had no way to drop
-  // contractors, so a team with many externals could not be read at a glance.
-  //
-  // ★★ The external MUST own work here. `buildResourceWorkload` builds its
-  // managed/name lookups from the `resources` argument ALONE, so filtering that
-  // argument does not hide the external — it makes their tasks miss both
-  // lookups and fall through to `ensureUnlinked`, re-rendering them under
-  // "Unlinked", whose "Clear unlinked" control DELETES matching absences and
-  // shifts outright. With a work-less fixture nothing reaches that path and the
-  // test passes for the wrong reason.
   // §747: "Util (now)" edits the period containing today — the one the
   // over-allocation alert flags — not the plan's first period.
   test("the Util (now) cell edits the current period of a plan that started months ago", () => {
@@ -441,6 +431,16 @@ describe("ResourcesPanel", () => {
     expect(onSetUtilization).toHaveBeenCalledWith(1, "2026-09", 90);
   });
 
+  // Workload lists the same people as planning but had no way to drop
+  // contractors, so a team with many externals could not be read at a glance.
+  //
+  // ★★ The external MUST own work here. `buildResourceWorkload` builds its
+  // managed/name lookups from the `resources` argument ALONE, so filtering that
+  // argument does not hide the external — it makes their tasks miss both
+  // lookups and fall through to `ensureUnlinked`, re-rendering them under
+  // "Unlinked", whose "Clear unlinked" control DELETES matching absences and
+  // shifts outright. With a work-less fixture nothing reaches that path and the
+  // test passes for the wrong reason.
   test("toggling 'Hide external' hides the external entirely — never as an unlinked row", () => {
     const resources = [
       { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent" as const, utilization: {} },

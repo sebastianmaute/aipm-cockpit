@@ -35,7 +35,7 @@ longer carries its own changelog comment.
   check, and the Workload view's "Util (now)" cell beside it, read the plan's first month (or week) instead of
   the one containing today, so once a project was past its first period nobody was ever flagged and the cell
   edited a long-past period. Both now use the period containing today; before the plan starts they use its
-  first period, and after it ends the alert stays quiet and the cell shows a dash.
+  first period, and after its end date the alert stays quiet and the cell shows a dash.
 - **A project created on Turso storage while the app was still using local projects now opens as itself (§740).**
   After the switch to Turso, the app came back with an empty workspace: no project name in the header, a
   browser-storage label, and Edit project doing nothing. Creating the demo project from there also showed a

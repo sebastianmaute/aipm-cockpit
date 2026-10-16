@@ -43,10 +43,11 @@ const OVER_ALLOCATED_PCT = 100;
 /**
  * The near-term period keys: the period that contains `today` (§747), not the
  * plan's first period. Before the plan starts its first period is the next one;
- * after it ends there is none. Shared with the Workload view's "Util (now)"
+ * after its end date there is none, even inside its last month or week. Shared with the Workload view's "Util (now)"
  * editor (`resources-panel.tsx`) so the cell edits the period the alert flags.
  */
 export function nearTermPeriodKeys(periods: readonly Period[], plan: ResourcePlan, today: string): string[] {
+  if (today > plan.endDate) return [];
   const todayKey = periodKeyForDate(today, plan.granularity);
   const first = today < plan.startDate ? 0 : periods.findIndex((p) => p.key === todayKey);
   return first < 0 ? [] : periods.slice(first, first + NEAR_TERM_PERIODS).map((p) => p.key);

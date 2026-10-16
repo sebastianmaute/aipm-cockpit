@@ -456,8 +456,8 @@ function ResourcesPanelInner({
       return { resource: r, name: resourceDisplayName(r), totalHours, cost, capacityDays: totalHours / workdayHours, internalCost: cost.internal, externalCost: cost.external, margin: cost.margin };
     });
   }, [visibleResources, absences, roles, plan.startDate, plan.endDate, plan.granularity, viewGranularity, workdayHours, holidaySet]);
-  // Near-term (period[0]) utilization for the workload over-allocation editor —
-  // Same period as the over-allocation alert: `nearTermPeriodKeys` is shared
+  // Near-term utilization for the workload over-allocation editor — the same
+  // period as the over-allocation alert: `nearTermPeriodKeys` is shared
   // with next-actions-workload.ts (the period containing today, §747), so the
   // inline editor targets the SAME period the alert flags.
   const nearTerm = useMemo(() => {
