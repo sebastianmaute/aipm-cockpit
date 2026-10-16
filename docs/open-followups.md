@@ -433,7 +433,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§186](#186-the-block-editor-conflict-reason-reaches-users-untranslated--closed-2026-10-02) | The block-editor conflict reason reaches users untranslated | — | — | **CLOSED** 2026-10-02 |
 | [§187](#187-usedocumenttools-has-no-test-file-and-one-guard-there-is-unpinned--closed-2026-10-03) | `useDocumentTools` has no test file, and one guard there is unpinned | — | — | **CLOSED** 2026-10-03 |
 | [§188](#188-a-block-refusal-notice-outlives-the-attempt-it-describes--closed-2026-10-02) | A block refusal notice outlives the attempt it describes | — | — | **CLOSED** 2026-10-02 |
-| [§189](#189-adopt-prettier-at-printwidth-120-and-raise-the-size-cap-to-900) | Adopt Prettier at `printWidth: 120` and raise the size cap to 900 | — | — | open |
+| [§189](#189-adopt-prettier-at-printwidth-120-the-size-limit-is-already-1600-so-no-cap-change-rides-with-it) | Adopt Prettier at `printWidth: 120` (the size LIMIT is already 1600, so no cap change rides with it) | — | — | open |
 | [§190](#190-the-block-refusal-notice-is-inserted-together-with-its-text-which-is-the-unreliable-half-of-the-live-region-contract--closed-2026-10-02) | The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract | — | — | **CLOSED** 2026-10-02 |
 | [§191](#191-a-block-draft-over-a-storage-cap-refuses-silently-and-the-add-controls-do-not-stop-you-reaching-that-state--closed-2026-09-28) | A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state | — | — | **CLOSED** 2026-09-28 |
 | [§192](#192-appendtext-prepends-when-the-editor-has-never-been-focused--and-which-of-its-two-branches-runs-is-decided-by-the-network--closed-2026-08-20) | `appendText` PREPENDS when the editor has never been focused — and which of its two branches runs is decided by the NETWORK | — | — | **CLOSED** 2026-08-20 |
@@ -592,7 +592,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§345](#345-document-block-selectionts-promises-a-dom-free-i18n-free-module-and-nothing-enforces-it--closed-2026-09-30) | `document-block-selection.ts` promises a DOM-free, i18n-free module and nothing enforces it | found 2026-09-02 in the §199 cold review | S | **CLOSED** 2026-09-30 |
 | [§346](#346-no-mcp-server--the-ai-can-only-act-from-inside-the-app--open) | No MCP server — the AI can only act from inside the app | found 2026-09-03 benchmarking OpenProject 17.8 | L (architecture decision first) | open |
 | [§347](#347-no-global-guardrails-on-time-entries--roadmap-after-the-ai-write-safety-slice--closed-2026-10-11) | No global guardrails on time entries — roadmap, after the AI-write-safety slice | found 2026-09-03 benchmarking OpenProject 17.8 | L | **CLOSED** 2026-10-11 |
-| [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns--roadmap-after-347--open) | A meeting's activity is invisible from the work it concerns — roadmap, after §347 | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
+| [§348](#348-a-meetings-activity-is-invisible-from-the-work-it-concerns-and-no-meeting-to-work-link-exists-in-the-data-yet--roadmap--open) | A meeting's activity is invisible from the work it concerns, and no meeting-to-work link exists in the data yet — roadmap | found 2026-09-03 benchmarking OpenProject 17.8 | M | open |
 | [§349](#349-update_document-has-no-staleness-guard-and-docopexpect-is-not-advertised-to-the-model--closed-2026-09-03) | ~~`update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model~~ | found 2026-09-03 in the AI write-concurrency slice | S–M | **CLOSED** 2026-09-03 (per-block `expectHash` on the three guarded engine arms, required at the tool boundary, tokens handed out by `get_document`; the concurrent-edit RACE itself is still not reproduced end to end) |
 | [§350](#350-the-insight-recommendation-token-does-not-cover-the-model-round-trip--closed-2026-10-02) | The insight recommendation token does not cover the model round-trip | found 2026-09-03 in the AI write-concurrency slice | M | **CLOSED** 2026-10-02 |
 | [§351](#351-a-pre-slice-recommendation-with-a-mixed-createupdate-plan-loses-its-update-half-unretryably-at-upgrade--closed-2026-09-25) | A pre-slice recommendation with a MIXED create+update plan loses its update half unretryably at upgrade | found 2026-09-03 in the AI write-concurrency slice | S | closed |
@@ -731,7 +731,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§488](#488-the-390-h-booked-vs-104-h-planned-gap-seen-in-the-demo-is-unexplained-and-a-fixed-price-contract-converted-to-end-to-end-responsibility-has-no-model--closed-2026-10-02) | The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model | GitLab #42 (F-5, demo 2026-09-11); its currency lead became #77 / §465 (closed 2026-09-12), and its external-resources lead was refuted in the issue's own comments | M — reproduce the gap on the demo data first; modelling an end-to-end contract type is the open design question | **CLOSED** 2026-10-02 |
 | [§489](#489-the-floating-helpmenu-has-no-deep-link-input-and-nothing-calls-for-one-yet--closed-2026-10-03) | The floating HelpMenu has no deep-link input, and nothing calls for one yet | split 2026-09-13 from §424 (gap 4), whose modal half shipped as a popover and so never needed this route | S–M once a caller exists — a request prop following the remount-swallow rule | **CLOSED** 2026-10-03 |
 | [§490](#490-six-write-path-persistence-is-mitigated-per-slice-only-and-the-unified-codec-and-schema-rewrite-stays-deferred--open) | Six-write-path persistence is mitigated per slice only, and the unified codec and schema rewrite stays deferred | tech-debt-register TD-2 (Phase 3 T10), moved into the register 2026-09-13 | L if ever built — a unified codec/schema layer across JSON, CSV, Markdown, both Turso layouts and IndexedDB; the near-term work is the decision | open |
-| [§491](#491-task-managertsx-is-2037-lines-over-the-1600-size-limit--open) | task-manager.tsx is 2037 lines, over the 1600 size LIMIT | tech-debt-register TD-5 (Phase 3 T5), moved into the register 2026-09-13 | M — consolidate the top-level hooks and effects, not a render-tree slice; re-baseline only after a real reduction | open |
+| [§491](#491-task-managertsx-is-2025-lines-about-127-times-the-1600-size-limit--open) | task-manager.tsx is 2025 lines, about 1.27 times the 1600 size LIMIT | tech-debt-register TD-5 (Phase 3 T5), moved into the register 2026-09-13 | M — consolidate the top-level hooks and effects, not a render-tree slice; re-baseline only after a real reduction | open |
 | [§492](#492-tasks-sectiontsx-is-still-one-fat-pane-owning-the-tasks-filters-table-board-and-calendar-glue-and-its-split-stays-deferred--closed-2026-10-05) | tasks-section.tsx is still one fat pane owning the tasks filters, table, board and calendar glue, and its split stays deferred | tech-debt-register TD-7 (inline-ai-edit SP1, 2026-07-03), moved into the register 2026-09-13 | M — a table / board / toolbar split on the gantt and reports precedent | **CLOSED** 2026-10-05 |
 | [§493](#493-eslint-config-next-is-exact-pinned-at-1626-while-next-is-at-1634-and-both-have-since-published-1635--closed-2026-09-25) | eslint-config-next is exact-pinned at 16.2.6 while next is at 16.3.4, and both have since published 16.3.5 | tech-debt-register TD-1 notes and its exact-pinned list, moved into the register 2026-09-13 | S — a bump that keeps the `settings.react.version` pin, run through the browser gates | closed |
 | [§494](#494-typescript-7-has-been-published-and-nothing-has-been-run-against-it--closed-2026-10-03) | TypeScript 7 has been published and nothing has been run against it | tech-debt-register deferred major dependency table, moved into the register 2026-09-13 | S to assess (a `npx tsc --noEmit` run on a branch); unknown to land until that run exists | **CLOSED** 2026-10-03 |
@@ -742,7 +742,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§499](#499-the-four-executive-budget-figures-are-not-all-surfaced-because-etc-eac-and-vac-are-computed-nowhere--closed-2026-09-15) | The four executive budget figures are not all surfaced, because ETC, EAC and VAC are computed nowhere | AI PM Cockpit demo 2026-09-11 (F-1), GitLab #38; mirrored into the register 2026-09-13 | M — one agreed formula, then the Budget panel, Budget report and Dashboard | **CLOSED** 2026-09-15 |
 | [§500](#500-budget-forecast-hours-cannot-be-imported-from-a-spreadsheet-and-must-be-re-entered-by-hand--closed-2026-10-12) | Budget forecast hours cannot be imported from a spreadsheet and must be re-entered by hand | AI PM Cockpit demo 2026-09-11 (F-2), GitLab #39; mirrored into the register 2026-09-13 | M — an importer for resource × month × hours × rate that writes bucket allocations | **CLOSED** 2026-10-12 |
 | [§501](#501-evm-terminology-is-incomplete-across-the-app-with-no-bac-eac-or-etc-labels-and-no-time-phased-s-curve--closed-2026-09-15) | EVM terminology is incomplete across the app, with no BAC, EAC or ETC labels and no time-phased S-curve | AI PM Cockpit demo 2026-09-11 (F-3), GitLab #40; mirrored into the register 2026-09-13 | M — terminology and hints first, the S-curve chart as a second slice | **CLOSED** 2026-09-15 |
-| [§502](#502-there-is-no-probabilistic-monte-carlo-forecast-with-scenarios-and-confidence-levels--open) | There is no probabilistic Monte Carlo forecast with scenarios and confidence levels | AI PM Cockpit demo 2026-09-11 (F-4), GitLab #41; mirrored into the register 2026-09-13 | L — a simulation engine, scenario inputs and P50/P80-style output on the forecast surfaces | open |
+| [§502](#502-the-monte-carlo-forecast-built-held-back-still-lacks-saved-scenarios-the-ai-read-tool-and-surface-parts-24--open) | The Monte Carlo forecast (built, held back) still lacks saved scenarios, the AI read tool and surface parts 2–4 | AI PM Cockpit demo 2026-09-11 (F-4), GitLab #41; mirrored into the register 2026-09-13 | L — a simulation engine, scenario inputs and P50/P80-style output on the forecast surfaces | open |
 | [§503](#503-task-effort-and-over-budget-handling-misbehaved-during-the-demo-and-no-reproduction-was-recorded--closed-2026-10-11) | Task effort and over-budget handling misbehaved during the demo, and no reproduction was recorded | AI PM Cockpit demo 2026-09-11 (F-6), GitLab #43; mirrored into the register 2026-09-13 | unestimated (product backlog) — nothing can be sized until the live misbehaviour is reproduced | **CLOSED** 2026-10-11 |
 | [§504](#504-the-burn-down-draws-no-forecast-line-and-is-not-aligned-with-the-internal-employer-project-burndown-standard--closed-2026-09-15) | The burn-down draws no forecast line and is not aligned with the internal employer Project Burndown standard | AI PM Cockpit demo 2026-09-11 (F-7), GitLab #44; mirrored into the register 2026-09-13 | M — once the full article has been read | **CLOSED** 2026-09-15 |
 | [§505](#505-there-is-no-project-governance-module-that-weights-health-by-engagement-type--open) | There is no project governance module that weights health by engagement type | AI PM Cockpit demo 2026-09-11 (G-1), GitLab #45; mirrored into the register 2026-09-13 | L — engagement type on the project, a weight profile and a weighted health engine | open |
@@ -750,7 +750,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§507](#507-multi-tenancy-is-not-built-at-the-app-layer-no-identity-no-hosted-deployment-and-no-pm-dimension-in-the-portfolio-view--open) | Multi-tenancy is not built at the app layer: no identity, no hosted deployment and no PM dimension in the portfolio view | AI PM Cockpit demo 2026-09-11 (M-1), GitLab #47; mirrored into the register 2026-09-13 | L — identity and login, ownership, access control, hosting, then the portfolio dimension | open |
 | [§508](#508-no-admin-role-can-lock-a-tenant-level-policy-of-mandatory-and-suppressed-fields--open) | No admin role can lock a tenant-level policy of mandatory and suppressed fields | AI PM Cockpit demo 2026-09-11 (M-2), GitLab #48; mirrored into the register 2026-09-13 | L — depends on the identity work in §507 | open |
 | [§509](#509-there-is-no-central-target-for-exporting-project-data-to-consolidate-by-hand--open-filename-half-done-2026-10-05) | There is no central target for exporting project data to consolidate by hand — OPEN (filename half done 2026-10-05) | AI PM Cockpit demo 2026-09-11 (M-3), GitLab #49; mirrored into the register 2026-09-13 | M — a SharePoint folder upload over the existing Graph code (project codes in filenames shipped 2026-10-05) | open |
-| [§510](#510-the-per-project-activity-log-cannot-be-extracted-centrally-in-the-app-keeps-only-500-entries-and-names-no-pm--open) | The per-project activity log cannot be extracted centrally in the app, keeps only 500 entries and names no PM | AI PM Cockpit demo 2026-09-11 (M-4), GitLab #50; mirrored into the register 2026-09-13 | S–M — a decision first; close if raw Turso SQL access is accepted as the answer | open |
+| [§510](#510-the-per-project-activity-log-keeps-only-500-entries-names-no-pm-and-can-be-cleared-by-the-pm-central-extraction-shipped-2026-10-04--open) | The per-project activity log keeps only 500 entries, names no PM and can be cleared by the PM (central extraction shipped 2026-10-04) | AI PM Cockpit demo 2026-09-11 (M-4), GitLab #50; mirrored into the register 2026-09-13 | S–M — a decision first; close if raw Turso SQL access is accepted as the answer | open |
 | [§511](#511-documents-cannot-be-generated-through-employer-word-or-powerpoint-templates-picked-from-a-drive-folder--open) | Documents cannot be generated through employer Word or PowerPoint templates picked from a drive folder | AI PM Cockpit demo 2026-09-11 (D-1), GitLab #51; mirrored into the register 2026-09-13 | L — template reading for both renderers, plus a picker over SharePoint, OneDrive or a folder | open |
 | [§512](#512-the-word-export-is-unpolished-squeezing-every-storage-column-to-equal-width-under-raw-key-headers-with-no-branded-header-or-footer--closed-2026-10-08) | The Word export is unpolished, squeezing every storage column to equal width under raw key headers with no branded header or footer | AI PM Cockpit demo 2026-09-11 (D-2), GitLab #52; mirrored into the register 2026-09-13 | M — curated columns and labels, content-aware widths, a logo header and footer | **CLOSED** 2026-10-08 |
 | [§513](#513-existing-sharepoint-documents-cannot-be-updated-from-app-data--open) | Existing SharePoint documents cannot be updated from app data | AI PM Cockpit demo 2026-09-11 (D-3), GitLab #53; mirrored into the register 2026-09-13 | unestimated (product backlog) — build it, or close it in favour of the Claude Desktop or Word plugin route | open |
@@ -759,7 +759,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§516](#516-stakeholder-management-lacks-a-decision-log-and-engagement-or-contact-tracking--open) | Stakeholder management lacks a decision log and engagement or contact tracking | AI PM Cockpit demo 2026-09-11 (R-3), GitLab #57; mirrored into the register 2026-09-13 | M — a decision register (or a Decision category beside RAID) and contact tracking on stakeholders | open |
 | [§517](#517-the-simple-view-principle-is-not-applied-app-wide-and-no-chromeless-view-shows-only-the-top-one-to-three-next-actions--open) | The simple-view principle is not applied app-wide, and no chromeless view shows only the top one to three next actions | AI PM Cockpit demo 2026-09-11 (U-1), GitLab #58; mirrored into the register 2026-09-13 | M–L — the chromeless next-actions view first, then the principle across overviews | open |
 | [§518](#518-there-is-no-single-action-focus-mode-that-steps-through-the-next-actions-one-at-a-time--open) | There is no single-action focus mode that steps through the next actions one at a time | AI PM Cockpit demo 2026-09-11 (U-2), GitLab #59; mirrored into the register 2026-09-13 | M — a one-at-a-time mode with position dots and complete-to-advance for every action type | open |
-| [§519](#519-unrecognised-voice-commands-are-not-routed-to-the-ai-assistant-so-interaction-stays-form-and-button-first--open) | Unrecognised voice commands are not routed to the AI assistant, so interaction stays form-and-button first | AI PM Cockpit demo 2026-09-11 (U-5), GitLab #62; mirrored into the register 2026-09-13 | S–M for routing unknown voice commands; the wider intent-driven principle is unestimated | open |
+| [§519](#519-interaction-stays-form-and-button-first-the-intent-first-principle-is-unestimated-unknown-voice-commands-already-reach-the-ai-chat--open) | Interaction stays form-and-button first; the intent-first principle is unestimated (unknown voice commands already reach the AI chat) | AI PM Cockpit demo 2026-09-11 (U-5), GitLab #62; mirrored into the register 2026-09-13 | S–M for routing unknown voice commands; the wider intent-driven principle is unestimated | open |
 | [§520](#520-the-screen-reader-claim-has-never-been-tested-by-hand-and-several-surfaces-sit-outside-the-axe-scan--closed-2026-10-08) | The screen-reader claim has never been tested by hand, and several surfaces sit outside the axe scan | AI PM Cockpit demo 2026-09-11 (U-6), GitLab #63; mirrored into the register 2026-09-13 | M — a written NVDA/VoiceOver audit of the main flows, then axe on the unscanned surfaces | **CLOSED** 2026-10-08 |
 | [§521](#521-a-project-cannot-be-created-from-a-name-alone-and-relaxing-the-eleven-required-fields-needs-the-sanitizer-as-well-as-the-form--closed-2026-09-13) | A project cannot be created from a name alone, and relaxing the eleven required fields needs the sanitizer as well as the form | AI PM Cockpit demo 2026-09-11 (O-1), GitLab #64; mirrored into the register 2026-09-13 | M–L — five layers: type, sanitizer, validation, blank-value consumers and i18n | **CLOSED** 2026-09-13 |
 | [§522](#522-missing-project-data-is-not-flagged-where-a-feature-needs-it-because-project-creation-gates-on-it-instead--closed-2026-10-03) | Missing project data is not flagged where a feature needs it, because project creation gates on it instead | AI PM Cockpit demo 2026-09-11 (O-2), GitLab #65; mirrored into the register 2026-09-13 | M — a next-actions provider plus a Projects-list completeness indicator backed by a per-device cache | **CLOSED** 2026-10-03 |
@@ -850,13 +850,13 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§607](#607-the-timelog-and-ecb-proxies-log-a-raw-error-object-on-upstream-failure--closed-2026-09-21) | The Timelog and ECB proxies log a raw error object on upstream failure | found 2026-09-21 reviewing §566 on `fix/backlog-sweep`, filed and closed on the same branch | S — one shared helper (`describeUpstreamError`) moved and reused at two more call sites | closed |
 | [§608](#608-the-diagnostics-secret-patterns-take-quadratic-time-on-a-long-run-that-fails-them--closed-2026-10-02) | The diagnostics secret patterns take quadratic time on a long run that fails them | final-review M6 on `fix/backlog-sweep`, measured 2026-09-21 reviewing §606; GitLab #389 | M — bound backtracking or the input length before matching (see §578) | **CLOSED** 2026-10-02 |
 | [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--closed-2026-09-28) | A late seal can resurrect a sealed secret the user just cleared | — | — | **CLOSED** 2026-09-28 |
-| [§610](#610-fork-prs-cannot-run-the-leak-gate--decide-the-rule-at-the-visibility-flip--open) | Fork PRs cannot run the leak gate — decide the rule at the visibility flip | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
+| [§610](#610-fork-prs-cannot-run-the-leak-gate--the-rule-chosen-at-the-flip-option-2-awaits-a-first-real-fork-pr--open) | Fork PRs cannot run the leak gate — the rule chosen at the flip (option 2) awaits a first real fork PR | deferred by the sub-project 3 spec (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`); GitLab #392 | S — decide the rule at the flip; prove it with a fork PR | open |
 | [§611](#611-the-weekly-zap-jobs-docker-run-images-float-unpinned--pin-them-by-digest--closed-2026-09-23) | The weekly ZAP job's docker run images float unpinned — pin them by digest | final review of sub-project 3 on `ci/sp3-actions-workflows` (the plan's unrecorded "follow-up"); GitLab #393 | S — pin both images by `@sha256:` digest and record how to re-resolve them | closed |
 | [§612](#612-a-scaling-guard-went-red-in-ci-on-correct-code--shrink-the-memory-bound-fixtures--closed-2026-10-03) | A scaling guard went red in CI on correct code — shrink the memory-bound fixtures | GitHub Actions run 35844783726, job `unit-shuffled`, on `main`; GitLab #394 | S — hedged on `fix/scaling-flake-ci` (smaller n, `repeats: 5`: no shown effect on the failure; readable CI log); close after green `unit-shuffled` runs on `main` | **CLOSED** 2026-10-03 |
 | [§613](#613-semgreps-blocking-gate-misses-code-injection-in-typescript--widen-the-rule-set-or-block-on-warning--closed-2026-09-23) | Semgrep's blocking gate misses code injection in TypeScript — widen the rule set or block on WARNING | sub-project 3 control plant, GitHub Actions run 35868367110 (job `semgrep` stayed green); GitLab #395 | S — a local rule file (`.semgrep/injection.yml`) added to both semgrep steps; plant red (3 findings), tracked tree 0 findings | closed |
 | [§614](#614-use-weight-suggestionstesttsx-is-order-dependent--its-shared-mock-is-never-reset--closed-2026-09-23) | use-weight-suggestions.test.tsx is order-dependent — its shared mock is never reset | scheduled run 35875601416, job `unit-shuffled-random` (seed 35875601416); GitLab #396 | S — clear the mock before each test; reproduces in isolation | closed |
 | [§615](#615-tiptaps-deferred-editor-destroy-throws-window-is-not-defined-after-a-test-environment-is-torn-down--open) | TipTap's deferred editor destroy throws window is not defined after a test environment is torn down | scheduled run 35875601416, job `unit-shuffled-random` (unhandled error); GitLab #397 | S — hedged with a global 10 ms `afterAll` flush in `vitest.setup.ts`, unverified against the actual race; close after 4 consecutive clean weekly `unit-shuffled-random` runs | open |
-| [§616](#616-timelog-exposes-no-approvereject-write-so-the-review-front-end-is-read-only-until-someone-probes-for-the-undocumented-one--open) | TimeLog exposes no approve/reject WRITE, so the review front-end is read-only until someone probes for the undocumented one | TL1 spec (2026-08-23), a sweep of TimeLog's 63 documented services; GitLab #391 | S — a devtools probe at a workstation | open |
+| [§616](#616-timelog-documents-no-approvereject-write-so-a-booking-review-front-end-unmerged-tl1-branch-could-only-read-verdicts-until-someone-probes-for-the-undocumented-one--open) | TimeLog documents no approve/reject WRITE, so a booking-review front-end (unmerged TL1 branch) could only read verdicts until someone probes for the undocumented one | TL1 spec (2026-08-23), a sweep of TimeLog's 63 documented services; GitLab #391 | S — a devtools probe at a workstation | open |
 | [§617](#617-a-meta-slice-whose-sanitizer-returns-nothing-is-dropped-silently-and-the-next-save-deletes-its-row--closed-2026-09-26) | A meta slice whose sanitizer returns nothing is dropped silently, and the next save deletes its row | split out of §538 on 2026-09-26 (the PR #425 review) | S–M — audit each meta slice's falsy-return path and report it like a throw | **CLOSED** 2026-09-26 |
 | [§618](#618-the-classic-header-overflows-between-lg-and-1390px-so-the-page-scrolls-sideways--closed-2026-09-27) | The classic header overflows between lg and ~1390px, so the page scrolls sideways | split out of §468 on 2026-09-26 (#425 window-layout probe) | S — let the classic search shrink from lg up with a min width; measure 1024/1100/1390/1600 | **CLOSED** 2026-09-27 |
 | [§619](#619-dashboard-narratives-heading-menu-escape-test-failed-once-in-unit-shuffled--focus-never-reached-the-menu--closed-2026-09-26) | dashboard-narrative's heading-menu Escape test failed once in unit-shuffled — focus never reached the menu | — | — | **CLOSED** 2026-09-26 |
@@ -869,7 +869,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§626](#626-async-commit-editors-chat-thread-rename-comm-templates-dictation-key-still-lose-an-unblurred-draft-on-window-close--closed-2026-09-29) | Async-commit editors (chat thread rename, comm templates, dictation key) still lose an unblurred draft on window close | — | — | **CLOSED** 2026-09-29 |
 | [§627](#627-several-dirty-drafts-at-pagehide-start-unserialised-full-saves-so-on-filesharepoint-an-older-snapshot-can-finish-last--closed-2026-09-28) | Several dirty drafts at pagehide start unserialised full saves, so on file/SharePoint an older snapshot can finish last | — | — | **CLOSED** 2026-09-28 |
 | [§628](#628-the-undo-stack-survives-a-project-switch-so-an-undo-writes-the-previous-projects-rows-into-the-current-one--closed-2026-09-27) | The undo stack survives a project switch, so an undo writes the previous project's rows into the current one | — | — | **CLOSED** 2026-09-27 |
-| [§629](#629-the-unload-journal-is-unverified-on-the-packaged-desktop-close-and-on-the-file-sharepoint-and-turso-backends-and-a-restore-the-mass-deletion-guard-refuses-repeats-on-every-reload--open) | The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends, and a restore the mass-deletion guard refuses repeats on every reload | — | — | open |
+| [§629](#629-the-unload-journal-is-unverified-on-the-packaged-desktop-close-and-on-sharepoint-tursos-restore-branch-is-unrecorded-and-the-guard-refusal-loops-discard-exit-is-unverified-in-a-real-browser--open) | The unload journal is unverified on the packaged desktop close and on SharePoint, Turso's restore branch is unrecorded, and the guard-refusal loop's Discard exit is unverified in a real browser | — | — | open |
 | [§630](#630-csv-and-markdown-project-files-still-drop-an-all-invalid-meta-slice-silently-on-load-620-covers-json-and-indexeddb-only--closed-2026-09-28) | CSV and Markdown project files still drop an all-invalid meta slice silently on load (§620 covers JSON and IndexedDB only) | — | — | **CLOSED** 2026-09-28 |
 | [§631](#631-the-desktop-shell-reuses-a-leftover-server-without-checking-its-version-so-an-orphan-could-serve-an-old-build-after-an-update--closed-2026-09-28) | The desktop shell reuses a leftover server without checking its version, so an orphan could serve an old build after an update | — | — | **CLOSED** 2026-09-28 |
 | [§632](#632-unload-journals-whose-project-key-is-never-loaded-again-are-never-swept-so-they-can-fill-browser-storage--closed-2026-09-28) | Unload journals whose project key is never loaded again are never swept, so they can fill browser storage | — | — | **CLOSED** 2026-09-28 |
@@ -965,12 +965,12 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§725](#725-forecast-imports-mapping-step-cannot-express-some-corrections--open) | Forecast import's mapping step cannot express some corrections | — | — | open |
 | [§726](#726-forecast-import-cannot-route-some-matched-people-and-its-notes-name-namesakes-inconsistently--open) | Forecast import cannot route some matched people, and its notes name namesakes inconsistently | — | — | open |
 | [§727](#727-forecast-plants-mixes-matching-and-apply-and-should-split-before-it-grows--open) | forecast-plan.ts mixes matching and apply and should split before it grows | — | — | open |
-| [§728](#728-the-first-start-splashs-status-text-has-not-been-eye-checked-on-a-packaged-desktop-build--open) | The first-start splash's status text has not been eye-checked on a packaged desktop build | — | — | open |
+| [§728](#728-the-first-start-splashs-german-locale-text-has-not-been-eye-checked-on-a-packaged-desktop-build-three-of-four-checks-seen--open) | The first-start splash's German-locale text has not been eye-checked on a packaged desktop build (three of four checks seen) | — | — | open |
 | [§729](#729-the-install-guide-describes-the-browser-download-prompt-and-the-windows-protection-box-without-pictures--closed-2026-10-14) | The install guide describes the browser download prompt and the Windows protection box without pictures | — | — | **CLOSED** 2026-10-14 |
 | [§730](#730-the-timelog-view-gives-no-guided-setup-for-its-connection-links-and-first-fetch--open) | The TimeLog view gives no guided setup for its connection, links and first fetch | — | — | open |
 | [§731](#731-an-empty-resources-view-says-only-no-contacts-available-and-gives-no-setup-order--open) | An empty Resources view says only "No contacts available." and gives no setup order | — | — | open |
 | [§732](#732-the-jira-integration-gives-no-guided-setup-for-site-token-project-and-first-sync--open) | The Jira integration gives no guided setup for site, token, project and first sync | — | — | open |
-| [§733](#733-the-outlook-calendar-integration-gives-no-guided-setup-for-sign-in-calendar-and-sync--open) | The Outlook calendar integration gives no guided setup for sign-in, calendar and sync | — | — | open |
+| [§733](#733-the-outlook-calendar-integration-gives-no-guided-setup-for-sign-in-write-back-types-and-sync--open) | The Outlook calendar integration gives no guided setup for sign-in, write-back types and sync | — | — | open |
 | [§734](#734-an-empty-raci-matrix-names-one-missing-input-at-a-time--open) | An empty RACI matrix names one missing input at a time | — | — | open |
 | [§735](#735-ai-documents-give-no-guided-setup-for-the-api-key-templates-and-a-first-document--open) | AI documents give no guided setup for the API key, templates and a first document | — | — | open |
 | [§736](#736-an-empty-gantt-chart-names-only-the-first-missing-input--open) | An empty Gantt chart names only the first missing input | — | — | open |
@@ -3262,7 +3262,9 @@ assignment was refused") *was* false there and was fixed. Closing it is one prop
 
 ## 44. The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. Two citations moved: the entity-type union is `CalendarEntityType` (`grep -n "export type CalendarEntityType" src/app/settings-types.ts` → line 626, not 493) and the Graph event shape is `GraphEvent` in `outlook-calendar-write.ts`, not lines 17–19. The S6 task "entity-qualify the Push/Pull names (= §42)" has shipped separately (bf16ecc5e; §42 closed 2026-09-14), so drop it when S6 is executed.
+**Status:** **Update 2026-10-16:** still open; S6 unbuilt (`graph-recurrence.ts` and `use-event-calendar-push.ts` still absent), S7 undesigned; `grep -n "export type CalendarEntityType" src/app/settings-types.ts` still shows no `"event"`. The body below now cites symbols instead of line numbers (the 2026-10-12 fix "line 626" had itself moved to 628), and the shipped §42 task is marked in the S6 list.
+
+**Earlier:** **Update 2026-10-12 (§138 P2 probe):** still open. Two citations moved: the entity-type union is `CalendarEntityType` (`grep -n "export type CalendarEntityType" src/app/settings-types.ts` → line 626, not 493) and the Graph event shape is `GraphEvent` in `outlook-calendar-write.ts`, not lines 17–19. The S6 task "entity-qualify the Push/Pull names (= §42)" has shipped separately (bf16ecc5e; §42 closed 2026-09-14), so drop it when S6 is executed.
 
 **Earlier:** open — two UX-roadmap slices — S6 designed and planned but unexecuted, S7 undesigned. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
@@ -3285,7 +3287,7 @@ shipped slice B instead.
 The tasks: `graph-recurrence.ts` · `calendar-event-attendees.ts` · widen
 `GraphEvent` · `eventToGraphEvent` · `exceptionPlan` · freeze/`afterPush` on the shared reconcile ·
 `replayExceptions` · `"event"` as a calendar entity type · i18n EN+DE · settings row for meeting
-series · entity-qualify the Push/Pull names (**= §42 — see there**) · wire the push in
+series · entity-qualify the Push/Pull names (**= §42, shipped separately in bf16ecc5e — drop this task**) · wire the push in
 `use-calendar-integrations` · thread the bag to the Resources pane · the attendee field · mount the
 field + confirm + invitation-aware delete · **security review of the invitation path** · release chain.
 
@@ -3306,10 +3308,12 @@ doesn't have to re-probe these five by hand.
 `durationMinutes`, `attendeeResourceIds`, `sendInvitations` and `outlookEventId` across all six write
 paths. **No migration is owed.** Three blockers remain, all re-verified 2026-07-31:
 `graph-recurrence.ts` / `use-event-calendar-push.ts` / `calendar-event-pull.ts` /
-`use-event-calendar-pull.ts` are all **missing**; `CalendarEntityType` (`settings-types.ts:493`) is
-still `"task" | "raid" | "change" | "absence"` with no `"event"`; and `GraphEvent`
-(`outlook-calendar-write.ts:17-19`) pins `isAllDay: true` and `timeZone: "UTC"` as **literal types**,
-so a timed event is currently inexpressible.
+`use-event-calendar-pull.ts` are all **missing**; `CalendarEntityType`
+(`grep -n "export type CalendarEntityType" src/app/settings-types.ts`) is still
+`"task" | "raid" | "change" | "absence"` with no `"event"`; and `GraphEvent`
+(`grep -n "export interface GraphEvent" -A5 src/app/outlook-calendar-write.ts`) pins `isAllDay: true` and
+`timeZone: "UTC"` as **literal types**, so a timed event is currently inexpressible. (Re-verified
+2026-10-16; line cites replaced by symbol greps.)
 
 ★★ **Invitations are in scope and are the ONLY surface in this app that emails third parties.**
 `sendInvitations` defaults false; enabling it must show a confirm naming the resolved recipient count
@@ -7050,7 +7054,7 @@ one, on a call the user did not directly initiate.
 
 `VIEW_AI_SCOPE.timelog.reading` tells the model outright that it cannot read booked time entries, so it
 says so rather than estimating. `ASK_CLAUDE_PROMPTS` deliberately has no `timelog` entry — pinned by
-`ask-claude-prompts.test.ts` ("has no chips for the views whose read tools are deferred") — because a
+`ask-claude-prompts.test.ts` ("has no chip for timelog, whose read tool is deferred") — because a
 chip there would be a dead prompt.
 
 ---
@@ -11933,24 +11937,28 @@ a reader trusts.
 
 ## 138. The open-followups consolidation: P2 and P3 done, P4 (the extraction and strip) remains
 
-**Status:** **Update 2026-10-12, P2 and P3 done:** P2 probed the 48 open entries other than §138, §483 and §491 (those three were in flight), with six read-only agents in batches, each handed its entries verbatim. Verdicts: no entry was found done, so nothing closes; 34 entries got a dated `**Update 2026-10-12 (§138 P2 probe):**` note recording a stale claim, a partial delivery or a fresh measurement, each re-checked by hand before it was written, and the rest were confirmed still open with nothing to add. P3 is those 34 notes, applied serially; each prior Status stays verbatim under `**Earlier:**`. Cold reviews then re-ran a sample and caught errors in five entries, all corrected before merge: §138's own claim that the tech-debt register was never folded in (it was, on 2026-09-13), §116's bisect boundary, §563 (its release range, a missed stale comment, and a grep citation that dropped its second hit), §456's count, and §413's unscoped pickaxe. `npm run followups:status:check` → all 51 open entries conforming. P4's tech-debt part was already done when this ran: a32a20867 folded `tech-debt-register.md`'s open rows into §486 and §490–§498 and archived the file on 2026-09-13, and the owner confirmed that fold on 2026-10-12 (see the P4 section). P4's other three parts remain.
+**Status:** **Update 2026-10-16:** the body now agrees with the heading (it still said "P2–P4 are not started"). P4's remaining input, re-measured: open-state markers are **0** in `AGENTS.md` and **10** across 5 of the 20 `docs/AGENTS/*.md` files (`grep -c -iE "STILL OPEN|left open|not fixed|unverified" AGENTS.md docs/AGENTS/*.md`; activity-log 2, ai-assistant 2, dashboard 1, documents 3, rich-text 2).
+
+**Earlier:** **Update 2026-10-12, P2 and P3 done:** P2 probed the 48 open entries other than §138, §483 and §491 (those three were in flight), with six read-only agents in batches, each handed its entries verbatim. Verdicts: no entry was found done, so nothing closes; 34 entries got a dated `**Update 2026-10-12 (§138 P2 probe):**` note recording a stale claim, a partial delivery or a fresh measurement, each re-checked by hand before it was written, and the rest were confirmed still open with nothing to add. P3 is those 34 notes, applied serially; each prior Status stays verbatim under `**Earlier:**`. Cold reviews then re-ran a sample and caught errors in five entries, all corrected before merge: §138's own claim that the tech-debt register was never folded in (it was, on 2026-09-13), §116's bisect boundary, §563 (its release range, a missed stale comment, and a grep citation that dropped its second hit), §456's count, and §413's unscoped pickaxe. `npm run followups:status:check` → all 51 open entries conforming. P4's tech-debt part was already done when this ran: a32a20867 folded `tech-debt-register.md`'s open rows into §486 and §490–§498 and archived the file on 2026-09-13, and the owner confirmed that fold on 2026-10-12 (see the P4 section). P4's other three parts remain.
 
 **Earlier:** open — a deferred consolidation — P2 to P4 unstarted, scope measured. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Work item:** #154
 
 The 2026-08-10 slice that produced `scripts/check-followup-claims.mjs` (npm `followups:check`) was
-phase P0+P1 of a five-phase consolidation. **P2–P4 are not started.** The spec and plan that defined
+phase P0+P1 of a five-phase consolidation. **P2 and P3 were done on 2026-10-12, and P4's tech-debt
+fold on 2026-09-13; P4's other three parts are not started** (see the status). The spec and plan that defined
 them are under `docs/superpowers/`, which was un-ignored in `0.253.0 "Schroeder"` (2026-08-21) and the
 whole corpus committed — they are tracked and readable in the repo now, so this entry's earlier
 self-description as "the only durable record" no longer holds. It remains written to be resumable
-without them, and the P2–P4 scope stays open.
+without them, and the rest of P4 stays open.
 
 ★★★ **THE ORIGINATING PREMISE WAS FALSE AND MEASURING IT FIRST IS WHAT SAVED THE SLICE.** The request
 was "extract the open TODOs out of the app files into one place". This repo has **zero**
 `TODO`/`FIXME`/`HACK` markers. ★★ Re-run 2026-08-25 and it now prints **one** hit, which is NOT a
 marker: `scripts/agents-symbols-lib.mjs` discusses the word `TODO` as an example of a name its
-mixed-case rule rejects. Open the hit before reading the count as a refutation —
+mixed-case rule rejects. On 2026-10-16 it prints **two**, neither a marker: that one, and a comment in
+`src/app/ai-entity-token.test.ts` that uses the word. Open the hits before reading the count as a refutation —
 `grep -rnE "\b(TODO|FIXME|HACK)\b" src scripts e2e`. Open work was already centralised — here. What the code holds is not
 to-dos but CITATIONS: at the time, 289 `§NN` references across `src`/`scripts`/`e2e`, of which
 **197 pointed at CLOSED entries**. Those are provenance — the recorded reason a guard, a test or an
@@ -16322,9 +16330,11 @@ whole change is a couple of lines inside `useBlockDraft`, which still lives
 there. §189 carries the re-reading and the commands. Whatever the reason to defer
 this is, it is not the size cap.
 
-## 189. Adopt Prettier at `printWidth: 120` and raise the size cap to 900
+## 189. Adopt Prettier at `printWidth: 120` (the size LIMIT is already 1600, so no cap change rides with it)
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. Two implementation notes are stale. `__fixtures__/` holds two `.ts` files since 2026-09-03 (`find src -path '*__fixtures__*' -name '*.ts'` → `cfbf-writer.ts`, `minimal-outlook.msg.base64.ts`), which a `.ts`-scoped Prettier run DOES reach, so exclude `**/__fixtures__/**` explicitly. `eslint.config.mjs` now adds one rule of its own (`no-restricted-imports`, not stylistic) beside the presets and `globalIgnores`. Prettier is still not adopted: `grep -c '"prettier"' package.json` → 0.
+**Status:** **Update 2026-10-16:** still open; Prettier is not adopted. The heading no longer asks to "raise the size cap to 900": the LIMIT has been 1600 since 2026-09-03 (`grep -n "^const LIMIT" scripts/check-file-sizes.mjs`), so 900 would lower it. Four files are still baselined over the LIMIT (`chat-panel.tsx`, `task-manager.tsx`, `tasks-section.tsx`, `workspace-section.tsx`; read `docs/baselines/file-sizes.json`). The implementation note that said to regenerate the baseline with `--update` is corrected below: AGENTS.md forbids `--update`, which drops the headroom and deletes rows.
+
+**Earlier:** **Update 2026-10-12 (§138 P2 probe):** still open. Two implementation notes are stale. `__fixtures__/` holds two `.ts` files since 2026-09-03 (`find src -path '*__fixtures__*' -name '*.ts'` → `cfbf-writer.ts`, `minimal-outlook.msg.base64.ts`), which a `.ts`-scoped Prettier run DOES reach, so exclude `**/__fixtures__/**` explicitly. `eslint.config.mjs` now adds one rule of its own (`no-restricted-imports`, not stylistic) beside the presets and `globalIgnores`. Prettier is still not adopted: `grep -c '"prettier"' package.json` → 0.
 
 **Earlier:** open, DECIDED but deliberately not implemented. **Severity:** low
 (no defect — a tooling decision plus its migration cost). **Decided:**
@@ -16467,9 +16477,14 @@ tree today has no prettier, so re-install before reproducing anything here.
 - **`globals.css` deliberately excluded** from the first cut. It is the file the
   palette and Tailwind-v4 constraints bear on hardest, and formatting it buys
   the least.
-- **The size baseline must be regenerated** (`node scripts/check-file-sizes.mjs
-  --update`) after the reformat: the four baselined files all grow, and a grown
-  baselined file fails the ratchet exactly like a new oversized one.
+- **The size baseline must be adjusted BY HAND** after the reformat: the four
+  baselined files all grow, and a grown baselined file fails the ratchet exactly
+  like a new oversized one. Edit each row of `docs/baselines/file-sizes.json` to
+  the measured length, with the gate's own `wc -l` + 1 count. ★★★ Never run
+  `check-file-sizes.mjs --update` (AGENTS.md, Commands): it drops the baseline
+  headroom and deletes rows. (Corrected 2026-10-16; this note first said to
+  regenerate with `--update`.) A file that would end under the 1600 LIMIT simply
+  loses its row.
 - **ESLint conflict looks unlikely but was NOT audited.** `eslint.config.mjs`
   adds no stylistic rules of its own — it is `eslint-config-next`'s
   core-web-vitals + typescript presets plus `globalIgnores`. Whether those
@@ -16485,12 +16500,14 @@ tree today has no prettier, so re-install before reproducing anything here.
 
 ### Not decided
 
-Whether a `format:check` job joins the CI quality stage. Without one the
+Whether a `format:check` gate joins the blocking `static` group (`scripts/gate-local.mjs`, the one gate list CI's
+`static` job runs). Without one the
 formatting drifts back within weeks; with one, every in-flight branch goes red
 until rebased. Deliberately left to whoever runs the slice.
 
 **To close:** run it as its own branch — answer the citation question first,
-then config + reformat + cap + baseline in one reviewable change set.
+then config + reformat + hand-adjusted baseline in one reviewable change set (no cap change: see the
+superseded note above).
 
 ## 190. The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract — CLOSED 2026-10-02
 
@@ -20921,24 +20938,19 @@ failure mode this register keeps recording.
 
 **Work item:** #203
 
-**RACI.** `Stakeholder.raci` is a required field on the entity, and neither summary the chat read
-tools return carries it:
+**RACI — no longer a gap (read done 2026-10-04, write deliberate 2026-10-05).** As filed, neither
+summary the chat read tools return carried `Stakeholder.raci`. Since 2026-10-04 `StakeholderSummary`
+carries it, so general chat can answer "who is Accountable for milestone X":
 
 ```bash
-grep -n "raci" src/app/chat-tools.ts src/app/chat-tool-summaries.ts   # no output
+grep -n "raci" src/app/chat-tools.ts src/app/chat-tool-summaries.ts   # the summary type and its copy
 grep -n "raci" src/app/types.ts                                       # the control: the field exists
 ```
 
-★★ **ONE PATH CAN READ IT, so "the AI cannot see RACI" flatly is wrong.** The purpose-built
-`propose_raci` call reads existing assignments before suggesting:
-
-```bash
-grep -n "raci" src/app/raci-suggest/raci-suggest.ts
-```
-
-The gap is therefore specific: general chat cannot answer "who is Accountable for milestone X" while
-a dedicated tool in the same app reads that very data. `createStakeholder` also hardcodes `raci: {}`,
-so the model cannot write one either.
+The purpose-built `propose_raci` call also reads existing assignments before suggesting
+(`grep -n "raci" src/app/raci-suggest/raci-suggest.ts`). Chat still cannot WRITE RACI —
+`createStakeholder` forces `raci: {}` and an update drops the field — and that is deliberate and
+disclosed to the model (see the status): the RACI view is the reviewed write path.
 
 **Cross-project.** `get_dashboard_snapshot` is active-project-only and there is no cross-project
 tool. Unlike the RACI gap, this one is DISCLOSED to the model rather than merely absent:
@@ -29047,8 +29059,9 @@ not carry it, and adding untasked guards to a fix commit is how a slice stops be
 
 Filed after benchmarking OpenProject 17.8 (2026-09-02), which extended its MCP server so external
 assistants can create and update work packages, write comments and manage relations. Cockpit's AI
-surface is larger than theirs — 33 tools spanning create/update/delete over tasks, RAID, changes,
-milestones, stakeholders and resources, unpaywalled where OpenProject gates writes behind
+surface is larger than theirs — 54 tools on 2026-10-12 (33 when filed; count method in the status) spanning
+create/update/delete over tasks, RAID, changes, milestones, stakeholders, resources, absences, calendar
+events and documents, unpaywalled where OpenProject gates writes behind
 Professional/Premium/Corporate — but it is reachable ONLY from the in-app assistant. No external
 MCP client (Claude Desktop, an IDE, another agent) can see a Cockpit workspace.
 
@@ -29145,7 +29158,7 @@ is the strongest signal available and `AbsenceType` even separates `training` (l
 from `vacation`/`sick` — but it is not one of OpenProject's five, and this entry is scoped to parity.
 Worth its own entry when someone takes it.
 
-## 348. A meeting's activity is invisible from the work it concerns — roadmap, after §347 — open
+## 348. A meeting's activity is invisible from the work it concerns, and no meeting-to-work link exists in the data yet — roadmap — open
 
 **Status:** **Update 2026-10-12 (§138 P2 probe):** still open, and further from built than the body says: neither `CalendarEvent` nor `CommitteeMeeting` carries a task, RAID or milestone reference (`grep -n "interface CommitteeMeeting" -A8 src/app/types.ts`), so there is no link in the data yet either. Building it means a new persisted relation first (six write paths). §347 is closed (2026-10-11), so the "after §347" sequencing is met.
 
@@ -29155,9 +29168,11 @@ Worth its own entry when someone takes it.
 
 OpenProject 17.8 surfaces meeting activity directly in a work package. Cockpit has calendar events
 and the steering committee, but a task's own history says nothing about the meetings that discussed
-it, so the connection exists in the data and not in the surface a user reads.
+it. The connection does not exist in the data either: neither `CalendarEvent` nor `CommitteeMeeting`
+carries a task, RAID or milestone reference (`grep -n "interface CommitteeMeeting" -A8 src/app/types.ts`),
+so building this starts with a new persisted relation across the six write paths.
 
-★ Read the ordering as a preference, not a dependency — nothing in §347 blocks this.
+★ The filed ordering "after §347" was a preference, not a dependency, and §347 closed on 2026-10-11.
 
 ## 349. `update_document` has no staleness guard, and `DocOp.expect` is not advertised to the model — CLOSED 2026-09-03
 
@@ -36572,15 +36587,18 @@ can be checked instead of assumed.
   built `target=snap` and `target=AppImage` under that name (the wine-runner spike,
   `docs/superpowers/specs/_probes/2026-09-10-wine-runner-and-artifact-size.md`, "Measured").
   ★★ A per-target name is currently FORBIDDEN by a test, not merely absent:
-  `release-publish-lib.test.mjs` fails on ANY indented `artifactName:` line in that file — its guard
-  against an `nsis:`/`win:` override drifting from `installerName()` — so a `linux:` block carrying its
-  own name turns it red. Narrow that assertion to the Windows blocks in the same change; do not delete
-  it. Witness: `grep -n "artifactName:" scripts/release-publish-lib.test.mjs`.
+  `scripts/ci-workflow.test.mjs` ("writes installerName() into INSTALLER_DIR, with no nested
+  artifactName") fails on ANY indented `artifactName:` line in that file — its guard against an
+  `nsis:`/`win:` override drifting from `installerName()` — so a `linux:` block carrying its own name
+  turns it red. Narrow that assertion to the Windows blocks in the same change; do not delete it.
+  Witness: `grep -n "no nested artifactName" scripts/ci-workflow.test.mjs`. (Corrected 2026-10-16: this
+  bullet named `release-publish-lib.test.mjs`, where the guard no longer lives.)
 - **One target.** The only platform block is `win:` with `target: nsis`; there is no `linux:`
   (`grep -n "^linux:" desktop/electron-builder.yml` prints nothing).
 - **One platform flag.** Root `package.json`'s `desktop:package` passes `--win` — added in MR !469
-  because without a flag electron-builder packages for the HOST, which on CI is the Linux runner. A Linux
-  build needs its own script; `--win` must stay on the Windows one.
+  because without a flag electron-builder packages for the HOST. Releases now build on `windows-latest`
+  (`grep -n "runs-on" .github/workflows/release.yml`), so the flag is belt and braces there, but a Linux
+  build still needs its own script; `--win` must stay on the Windows one.
 - **A Windows-shaped log path.** `resolveLogDir` (`desktop/src/lib/log-paths.ts`) takes the first
   non-empty of `LOCALAPPDATA`, `TEMP` and `TMP`, else `"."`, and joins it with a HARD-CODED backslash
   (`${base}\\${APP_DIR}\\logs`). On Linux a backslash is an ordinary filename character. So — reasoned
@@ -36588,12 +36606,14 @@ can be checked instead of assumed.
   `main.ts`'s `mkdirSync` creates ONE directory literally named `.\aipm-cockpit\logs` in whatever the
   launcher's working directory is. With `TEMP=/tmp` set, the path is `/tmp\aipm-cockpit\logs`, a single
   entry directly under `/` that an ordinary user cannot create: `log()` swallows the error and there is
-  no log at all. App DATA is not hand-rolled — nothing else under `desktop/src` builds a path
-  (`grep -rn "getPath\|userData" desktop/src` finds nothing), so it lives wherever Electron's default
-  `userData` puts it; whether that is XDG-conformant is Electron's choice and is not checked here.
-- **One Release asset.** `publish-release` publishes a single link: `ARTIFACT_JOB` in
-  `scripts/release-publish-lib.mjs` names `desktop-package-tag`, the per-tag URL embeds that job and
-  `installerName()`, and the payload check throws unless there is exactly ONE asset link.
+  no log at all. App DATA is not hand-rolled — the one other path `desktop/src` builds is the updater's
+  skip file, joined onto Electron's `userData` with `path.join` (`grep -n "getPath" desktop/src/updater.ts`),
+  so data lives wherever Electron's default `userData` puts it; whether that is XDG-conformant is
+  Electron's choice and is not checked here.
+- **A fixed Release asset list.** `expectedAssets()` in `scripts/release-publish-lib.mjs` pins exactly
+  the Windows exe, its blockmap and `latest.yml` (`grep -n "export function expectedAssets" -A3 scripts/release-publish-lib.mjs`);
+  a Linux package must be added to that list. (Corrected 2026-10-16: this bullet described the GitLab-era
+  `ARTIFACT_JOB` / `desktop-package-tag` single-link check, which is gone.)
 - **A Windows-only rollout doc.** `docs/desktop-rollout.md` walks the reader through the SmartScreen
   "Windows protected your PC" prompt and gives the log as `%LOCALAPPDATA%\aipm-cockpit\logs\launch.log`
   (`grep -n "LOCALAPPDATA" docs/desktop-rollout.md`).
@@ -36603,21 +36623,19 @@ can be checked instead of assumed.
 
 What a Linux build would need:
 
-1. An AppImage and/or `.deb` target, built NATIVELY on the Linux runner — no wine.
-2. Its OWN CI job, not a second target on `.desktop-package`: GitLab's artifact size limit applies per
-   job, and the Windows job had ~1.3 MB of headroom before the sharp filter (if the limit is the
-   100 MiB default). ★★ Even alone it may not fit: the one Linux package this CI has produced (job
-   29451, before the sharp filter; snap and AppImage wrote the same filename, so which one it was is not
-   established) was 134,289,527 B, above a 100 MiB (104,857,600 B) limit. How much a `.deb`, or the
-   filter, would take off is unmeasured.
-3. Nothing for sharp. The Linux prebuilt that the root `npm ci` in the `install` job puts in
-   `node_modules/` WOULD be the right binary on Linux, but it would still have no caller (nothing
-   reaches `/_next/image` — the spike doc's "The size gap" section), and the sharp `filter` sits on the
-   shared top-level `extraResources`, so it drops the top-level sharp packages from a Linux package too.
-   That is the correct outcome; do not scope the filter to Windows. The sharp guard in
-   `.desktop-package` walks `win-unpacked/` for sharp at any depth, so a Linux job needs the same walk
-   against its own unpacked tree.
-4. A second Release asset link and a Linux-specific `artifactName` (both above).
+1. An AppImage and/or `.deb` target, built NATIVELY on a Linux runner — no wine.
+2. Its OWN job in `.github/workflows/release.yml` (`runs-on: ubuntu-latest`), beside the Windows
+   `build` job. (Corrected 2026-10-16: this item argued from GitLab's per-job artifact size limit and the
+   `.desktop-package` job, both gone since the GitHub cut-over. For scale only: the one Linux package the
+   GitLab CI produced, job 29451, before the sharp filter, was 134,289,527 B.)
+3. Nothing for sharp. The Linux prebuilt that a root `npm ci` puts in `node_modules/` WOULD be the
+   right binary on Linux, but it would still have no caller (nothing reaches `/_next/image` — the spike
+   doc's "The size gap" section), and the sharp `filter` sits on the shared top-level `extraResources`,
+   so it drops the top-level sharp packages from a Linux package too. That is the correct outcome; do
+   not scope the filter to Windows. The sharp guard in `release.yml`'s `build` job ("The package holds
+   the three files and no sharp") walks `win-unpacked/` for sharp at any depth, so a Linux job needs the
+   same walk against its own unpacked tree.
+4. The Linux package added to `expectedAssets()`, and a Linux-specific `artifactName` (both above).
 5. XDG-conformant log paths — `$XDG_STATE_HOME`, defaulting to `~/.local/state` — instead of the
    backslash join above.
 6. A Linux section in `docs/desktop-rollout.md`: how to run the AppImage or install the `.deb`, and
@@ -38199,7 +38217,7 @@ class as `outlookEventId`'s write-through race and is not specific to this fix.
 
 ## 487. The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning — OPEN
 
-**Status:** **Update 2026-10-13 (pilot onboarding):** seen live: a pilot user had to choose **Keep** on the browser's download warning twice before Windows' box appeared, and asked whether the file was safe. `docs/desktop-rollout.md` names only the Windows box (§713). **Update 2026-10-12 (§138 P2 probe):** still open; the job name is stale. Sign in `release.yml`'s `build` job (a GitHub Actions secret), not a `desktop-package-tag` job (`grep -rn desktop-package-tag .github scripts` → nothing). Since f12056ea1, release.yml's "The packaged app actually contains electron-updater" step fails a release whose app.asar lacks the module, which covers MISSING only; a present-but-broken module or a wiring failure is still unchecked.
+**Status:** **Update 2026-10-13 (pilot onboarding):** seen live: a pilot user had to choose **Keep** on the browser's download warning twice before Windows' box appeared, and asked whether the file was safe. `docs/desktop-rollout.md` then named only the Windows box; §713 (closed 2026-10-14) added the browser's **Keep** and **Keep anyway** steps (`grep -n "Keep anyway" docs/desktop-rollout.md`), so the guide now covers both warnings — signing is what would remove them. **Update 2026-10-12 (§138 P2 probe):** still open; the job name is stale. Sign in `release.yml`'s `build` job (a GitHub Actions secret), not a `desktop-package-tag` job (`grep -rn desktop-package-tag .github scripts` → nothing). Since f12056ea1, release.yml's "The packaged app actually contains electron-updater" step fails a release whose app.asar lacks the module, which covers MISSING only; a present-but-broken module or a wiring failure is still unchecked.
 
 **Earlier:** OPEN 2026-09-13 — `grep -n "No certificate is available" desktop/electron-builder.yml` → 1
 hit, `grep -n "signExecutable: false" desktop/electron-builder.yml` → 2 hits (the key itself and the comment
@@ -38214,16 +38232,18 @@ shows the unknown-publisher SmartScreen warning.
 
 The work:
 - Obtain a certificate. This is an organisational decision, not code.
-- Store it as a protected CI variable.
-- Sign in the tag pipeline's `desktop-package-tag` job.
+- Store it as a GitHub Actions secret.
+- Sign in `.github/workflows/release.yml`'s `build` job (the GitLab `desktop-package-tag` job this line
+  first named is gone).
 
 ★★ Keep resource editing on. The comment block above `signExecutable` in `desktop/electron-builder.yml`
 explains that setting `signAndEditExecutable: false` skips resource editing as well as signing. That is
 the step that stamps the icon and the VersionInfo strings into the exe. Enable signing without
 reintroducing that key.
 
-★ This also affects §480. Until builds are signed, an updater has no integrity control except the
-share's ACL.
+★ As filed this also affected §480 (a share-based updater whose only integrity control was the share's
+ACL). §480 is closed and updates now come from GitHub Releases; the guards that stand in for signing
+are listed in the 2026-09-24 decision below.
 
 **2026-09-24 (owner decision):** auto-update ships unsigned. `electron-updater` now checks
 `sebastianmaute/aipm-cockpit`'s GitHub Releases and installs only after the user agrees (never
@@ -38324,9 +38344,11 @@ Size L if built.
 
 **Source:** `docs/tech-debt-register.md` (TD-2)
 
-## 491. task-manager.tsx is 2037 lines, over the 1600 size LIMIT — OPEN
+## 491. task-manager.tsx is 2025 lines, about 1.27 times the 1600 size LIMIT — OPEN
 
-**Status:** **Update 2026-10-12, eighteenth step:** the banner stack `bannersEl` moved out of `task-manager.tsx` into the plain builder `buildAppBanners` (`app-banners-block.tsx`): the reminder banners, the storage error, the AI key verdict, the three unload-journal banners and the three saving-paused causes. It calls no hook, so it is a `build*` function, not a `use*` hook (extraction convention 1), and it returns a fresh fragment each render, as the inline JSX was. Move-only; the five popout gates moved with the JSX, and so did the comment on why the saving-paused causes are siblings; the stale header comment that had sat above the block was dropped. Every deps key is required. `task-manager.tsx` measures **2037** (was 2073) and the baseline followed it down (`grep -n "task-manager.tsx" docs/baselines/file-sizes.json`). Pinned by `app-banners-block.test.tsx` (18 tests; mutants 23/23 killed, each by an assertion: each of the five popout gates removed, the storage dismissal read from the wrong source and written for one source only, the AI switch and the AI dismissal dropped, the AI banner opening Settings without its section, the conflict banner and the expired list ungated, `canRestore` dropped, the truncation footer flag inverted and its reopen re-dismissing, the load pause's two reloads swapped, Overwrite and Download made unconditional, the load cause always reading conflict, the destructive discard saving instead of reloading, the destructive and truncation dismissed flags ignored, the reminders dropped) and the 28 `task-manager*.test.tsx` files (green). Still over the LIMIT, so the entry stays open.
+**Status:** **Update 2026-10-16:** `task-manager.tsx` measures **2025** by the gate's count (`git show origin/main:src/app/task-manager.tsx | wc -l` → 2024, plus 1), and its baseline is **2025** (`grep -n "task-manager.tsx" docs/baselines/file-sizes.json`; lowered by 541e99c4a on 2026-10-14). 2025 / 1600 ≈ 1.27, so 425 lines over the LIMIT (`grep -n "^const LIMIT" scripts/check-file-sizes.mjs` → 1600). Still open.
+
+**Earlier:** **Update 2026-10-12, eighteenth step:** the banner stack `bannersEl` moved out of `task-manager.tsx` into the plain builder `buildAppBanners` (`app-banners-block.tsx`): the reminder banners, the storage error, the AI key verdict, the three unload-journal banners and the three saving-paused causes. It calls no hook, so it is a `build*` function, not a `use*` hook (extraction convention 1), and it returns a fresh fragment each render, as the inline JSX was. Move-only; the five popout gates moved with the JSX, and so did the comment on why the saving-paused causes are siblings; the stale header comment that had sat above the block was dropped. Every deps key is required. `task-manager.tsx` measures **2037** (was 2073) and the baseline followed it down (`grep -n "task-manager.tsx" docs/baselines/file-sizes.json`). Pinned by `app-banners-block.test.tsx` (18 tests; mutants 23/23 killed, each by an assertion: each of the five popout gates removed, the storage dismissal read from the wrong source and written for one source only, the AI switch and the AI dismissal dropped, the AI banner opening Settings without its section, the conflict banner and the expired list ungated, `canRestore` dropped, the truncation footer flag inverted and its reopen re-dismissing, the load pause's two reloads swapped, Overwrite and Download made unconditional, the load cause always reading conflict, the destructive discard saving instead of reloading, the destructive and truncation dismissed flags ignored, the reminders dropped) and the 28 `task-manager*.test.tsx` files (green). Still over the LIMIT, so the entry stays open.
 
 **Earlier:** **Update 2026-10-12, optimize_wbs wiring (§3):** `task-manager.tsx` measures **2073** lines by the size gate's count (was 2079), and the baseline followed it down. The `useWbsPlan` import and call added two lines (the modal slot, the toolbar button and the hook's `today`/`holidaySet` ride existing lines); a 13-line history note on the chat dispatcher's `undo` argument was cut to the 5 lines that state the rule, a net reduction of 6. Comment-only, so it does not shrink the hooks this entry is about. **Update 2026-10-11, seventeenth step:** the overlay layer `modalsBlock` moved out of `task-manager.tsx` into the plain builder `buildAppModalsBlock` (`app-modals-block.tsx`): the Version modal, the insight recommendation review, the calendar pull summaries, the comm send preview, both Outlook import modals, `AppModals`, the new linked-task modal, the note-log and blocker windows and the "Log as RAID" editor. It calls no hook, so it is a `build*` function, not a `use*` hook (extraction convention 1), and it returns a fresh fragment each render, as the inline JSX was. Move-only; the four popout gates and the two popout-`undefined` address-book creators moved with the JSX. ★ Every deps key is REQUIRED, optional `AppModals` props included, so dropping one — `budgetLink` is optional at every hop below and was once lost that way — is a tsc error at the call site rather than a missing control. Ten import lines (eleven components: `RaidCreateHost` left a line that stays for `useRaidCreate`) left `task-manager.tsx` with it. `task-manager.tsx` measures **2079** (was 2215) and the baseline followed it down (`grep -n "task-manager.tsx" docs/baselines/file-sizes.json`). Pinned by `app-modals-block.test.tsx` (13 tests; mutants 19/19 killed: each of the four popout gates removed, the review modal's plan conjunct dropped, both address-book creators made unconditional, notes offered for a new draft, the blockers opener calling notes, cancel keeping the review id, the second Jira issue type passed, the contacts import closing the calendar modal, the linked-task modal always mounted, the RAID jump's arguments changed, `tasksForDeps` emptied, the absence sync flag swapped for the task one, a label key swapped, `lang` hard-coded on AppModals and on the RAID editor) and the 27 `task-manager*.test.tsx` files (green). Still over the LIMIT, so the entry stays open.
 
@@ -38369,8 +38391,8 @@ newlines, which is `wc -l` + 1) → **3162**. `grep -n "task-manager.tsx" docs/b
 
 **Work item:** #312
 
-The root orchestrator is more than twice the size LIMIT. Only its baseline entry governs it. That
-entry was doubled to 6040 on 2026-09-03, leaving 2878 lines of headroom, and the file grew by 305 lines
+The root orchestrator was about twice the size LIMIT when filed (3162 lines) and is about 1.27 times it now
+(2025, see the status). Only its baseline entry governs it. That entry was doubled to 6040 on 2026-09-03, leaving 2878 lines of headroom, and the file grew by 305 lines
 unnoticed before the entry was lowered to its measured length on 2026-10-04.
 
 TD-5's recorded judgement still stands. The move-only extractions listed in AGENTS.md's "task-manager
@@ -38517,7 +38539,9 @@ Size S–M.
 
 ## 498. The MSAL sign-in flow has never been smoke-tested against a real Microsoft 365 tenant — OPEN
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** still owed, and the consequence warned of has happened: the specifier is `^5.24.0` (`grep -n "@azure/msal-browser" package.json`), bumped from 5.23.0 by Dependabot e8f83cae6 on 2026-10-11 with no recorded RUNBOOK smoke.
+**Status:** **Update 2026-10-16:** still owed; a second bump has landed unexercised: Dependabot 0cf7967cf (2026-10-15) moved the specifier from `^5.24.0` to `^5.25.0` (`grep -n "@azure/msal-browser" package.json`), again with no recorded RUNBOOK smoke. The manual smoke procedure exists (`docs/RUNBOOK.md`, "Microsoft 365 sign-in smoke (manual)"); what is owed is a first real run against a tenant, recorded here.
+
+**Earlier:** **Update 2026-10-12 (§138 P2 probe):** still owed, and the consequence warned of has happened: the specifier was then `^5.24.0` (`grep -n "@azure/msal-browser" package.json`), bumped from 5.23.0 by Dependabot e8f83cae6 on 2026-10-11 with no recorded RUNBOOK smoke.
 
 **Earlier:** **Update 2026-10-05:** the packaged-desktop leg of this smoke also verifies the §547 refactor, which moved the sign-in popup's auth-flow state machine and its Electron listeners out of `desktop/src/main.ts` into `desktop/src/lib/auth-flow-tracker.ts` (merged at `091ad6312`). It is covered by `npx vitest run desktop/src/lib/auth-flow-tracker.test.ts` and `npm run desktop:typecheck`, but no packaged sign-in run has exercised it yet. **Update 2026-10-03:** the manual smoke is now documented — `docs/RUNBOOK.md` "Microsoft 365 sign-in smoke (manual)" (sign in, one Graph read, reload, sign out, console clean; browser AND packaged desktop), required on every `@azure/msal-browser` bump by CONTRIBUTING's Dependencies section. Still owed: a first real run against a tenant, recorded here (date, app version, msal version, browser or desktop); keep this entry open until then. A CI tenant with a gated e2e stays unscoped. OPEN 2026-09-13 — never machine-verified against a tenant. `grep -rln "msal" e2e` → no output,
 and `grep -rln "msal-browser" src/app --include=*.test.tsx` → 2 files (`use-ms-auth.test.tsx`,
@@ -38527,11 +38551,11 @@ and `grep -rln "msal-browser" src/app --include=*.test.tsx` → 2 files (`use-ms
 
 `@azure/msal-browser` moved to 5.x on 2026-07-03 and went green, but no CI tenant exists. So the live
 Microsoft 365 token flow (the Outlook calendar integrations depend on it) has never been exercised by
-anything the pipeline runs. `npm view @azure/msal-browser version` → `5.21.0`, against the `^5.16.0`
-specifier, so the next bump will also land unexercised.
+anything the pipeline runs. When filed, `npm view @azure/msal-browser version` → `5.21.0`, against a `^5.16.0`
+specifier; bumps have since landed unexercised, as warned (the specifier is `^5.25.0` on 2026-10-16, see the status).
 
-Either document a manual real-tenant smoke in `docs/RUNBOOK.md` and run it on every MSAL bump, or
-provision a test tenant and add a gated e2e.
+Either document a manual real-tenant smoke in `docs/RUNBOOK.md` and run it on every MSAL bump (the
+document half is done, 2026-10-03; no run is recorded), or provision a test tenant and add a gated e2e.
 
 Size S–M.
 
@@ -38613,9 +38637,11 @@ Size M — terminology and hints first, the S-curve chart as a second slice.
 
 **Source:** GitLab #40 (F-3, source::demo-2026-09-11)
 
-## 502. There is no probabilistic Monte Carlo forecast with scenarios and confidence levels — OPEN
+## 502. The Monte Carlo forecast (built, held back) still lacks saved scenarios, the AI read tool and surface parts 2–4 — OPEN
 
-**Status:** **Update 2026-10-15 (part 1 of the surfaces design built, held back with the Forecast view; entry stays OPEN):** part 1 of `docs/superpowers/specs/2026-10-15-forecast-simulation-surfaces-design.md` is built, and hidden while `"forecast"` sits in `RELEASE_HIDDEN_VIEWS` (see `docs/AGENTS/forecast.md`, "HELD BACK"). That spec replaced the old slices 2 and 5 and took slice 4's export line. It persists `Workspace.forecastHistory` (a meta-blob on all six write paths, written by a daily recorder) and the per-project Show-simulation switch `SettingsOverrides.forecast`, so the line below that the forecast "saves nothing" no longer holds (`grep -n "forecastHistory" src/app/turso-schema.ts`). Saved scenarios, the AI read tool and parts 2–4 of the spec remain open, so the entry stays OPEN.
+**Status:** **Update 2026-10-16 (#754 merged; entry stays OPEN):** before part 2, the per-project switch moved by owner decision 2026-10-15: now labelled "Use Monte Carlo forecasting", it sits in the Budget burn tile left of "Open in Budget" and in Edit project as a Forecasting field beside Project manager, applied on Save, and is gone from the Dashboard toolbar (`grep -rln "SimulationSwitch" src/app --include=*.tsx`; 21f50944b, fedea61fd). The sample and demo project gained enough finished tasks, milestone-linked tasks and weekly `forecastHistory` to simulate (9dd30907c). Part 2 is designed in `docs/superpowers/specs/2026-10-15-forecast-simulation-part-2-design.md` (a Dashboard Forecast tile, a chance chip per milestone, a Next-actions signal below 50 %, and the fixes deferred from part 1); it is not built. Still held back while `"forecast"` is in `RELEASE_HIDDEN_VIEWS` (`grep -n "RELEASE_HIDDEN_VIEWS =" src/app/feature-modules.ts`). Parts 2–4, saved scenarios and the `get_forecast` AI tool remain; that spec's §7 keeps §502 OPEN until saved scenarios and the AI tool ship.
+
+**Earlier:** **Update 2026-10-15 (part 1 of the surfaces design built, held back with the Forecast view; entry stays OPEN):** part 1 of `docs/superpowers/specs/2026-10-15-forecast-simulation-surfaces-design.md` is built, and hidden while `"forecast"` sits in `RELEASE_HIDDEN_VIEWS` (see `docs/AGENTS/forecast.md`, "HELD BACK"). That spec replaced the old slices 2 and 5 and took slice 4's export line. It persists `Workspace.forecastHistory` (a meta-blob on all six write paths, written by a daily recorder) and the per-project Show-simulation switch `SettingsOverrides.forecast`, so the line below that the forecast "saves nothing" no longer holds (`grep -n "forecastHistory" src/app/turso-schema.ts`). Saved scenarios, the AI read tool and parts 2–4 of the spec remain open, so the entry stays OPEN.
 
 **Earlier:** **Update 2026-10-14 (slice 1 shipped; entry stays OPEN):** the first of five slices is built — a Monte Carlo schedule forecast under Reports → Forecast: When (P50/P80/P95), How many by a date, and a per-milestone chance, with a What-if mode for scope and capacity (`grep -rln "simulateWhen" src/app/forecast`; reference in `docs/AGENTS/forecast.md`). It reads completed-task throughput only and saves nothing. Slices 2–5 remain open: saved scenarios, a Dashboard tile, a Gantt marker, and the AI read tool `get_forecast` with its Ask-Claude chips (spec: `docs/superpowers/specs/2026-10-14-monte-carlo-forecast-design.md`).
 
@@ -38627,14 +38653,16 @@ Kai Mindermann asked for Monte Carlo forecasting with scenarios and confidence l
 is neither linear nor exponential. He called it his strongest functional ask and made it three times (twice on
 the call, once in writing). The issue cites ActionableAgile's "Monte Carlo: How Many" page.
 
-The code check corrected the premise: there is no linear extrapolation to replace. The app's forecast end
-date (`forecastEndDate`, in `snapshot.ts`) is the latest due date of open tasks and milestones, and the
-burn-down's actual line stops at today. No trace of the earlier investigation mentioned on the call exists in
-the repo.
+The code check (2026-09-13) corrected the premise: there was no linear SCHEDULE extrapolation to replace. The
+app's forecast end date (`forecastEndDate`, in `snapshot.ts`) is the latest due date of open tasks and
+milestones, and the burn-down's actual line stops at today. The BUDGET forecast has since gained a linear
+current-pace extrapolation (see the 2026-10-12 update). No trace of the earlier investigation mentioned on the
+call exists in the repo.
 
 Related: §504 (align with the internal burndown standard), §466 (help promises a forecast line).
 
-Size L — a simulation engine, scenario inputs and P50/P80-style output on the forecast surfaces.
+Size L — the simulation engine, What-if inputs and P50/P80/P95 output exist (part 1, held back); what remains is
+saved scenarios, the AI read tool and the surfaces in parts 2–4.
 
 **Source:** GitLab #41 (F-4, source::demo-2026-09-11)
 
@@ -38694,8 +38722,8 @@ The code check found no contract or engagement type on the project. Overall heal
 a manual RAG override, unweighted, and every "weight" or "penalty" hit in code belongs to next-actions
 scoring. The acronym transcribed as "PPN" is unresolved and must be confirmed with Michael before any build.
 
-Related: §506 (a second governance lens, possibly a child of this), §488 (an end-to-end contract type has no
-model).
+Related: §506 (a second governance lens, possibly a child of this), §488 (closed 2026-10-02: it added the
+per-bucket `e2e` budget type, a revenue switch, not an engagement type on the project).
 
 Size L — engagement type on the project, a weight profile and a weighted health engine.
 
@@ -38713,7 +38741,8 @@ steering committee.
 Michael Leather said delivery projects must plug into the customer's governance alongside the employer's. It was
 acknowledged on the call, with no commitment.
 
-The workspace carries one steering committee with internal members only. A stakeholder can be categorised as
+The workspace carries one steering committee whose members are resources (`memberResourceIds`); a resource
+flagged `isExternal` can sit on it, but there is no customer-side body. A stakeholder can be categorised as
 Customer, but that is not tied to any governance body. The issue notes this may become a child of §505.
 
 Size unestimated (product backlog) — likely scoped together with §505.
@@ -38734,7 +38763,9 @@ multi-tenant capable, and the app layer as deliberately deprioritised.
 
 Multi-project Turso storage and a Portfolio health view exist. But "tenant" means project: there is no user,
 owner or organisation column, one Turso URL and token per device, no login, and no PM dimension in the
-portfolio rows. Server routes are only the integration proxies.
+portfolio rows. (A free-text `ProjectMeta.projectManager` exists, `grep -n "projectManager: string" src/app/types.ts`,
+and could feed that dimension, but `portfolio-rollup.ts` does not read it.) Server routes are only the
+integration proxies.
 
 The 2026-09-13 housekeeping audit folded three items into the issue: the RUNBOOK's missing monitoring and
 alerting for a deployed instance (`docs/RUNBOOK.md`, "Monitoring & alerting"), the unbuilt cross-project
@@ -38783,8 +38814,9 @@ Michael Leather asked for an interim consolidation path until §507 lands: expor
 central location for manual aggregation. Raw export in several formats with configurable scope already exists,
 but no central target is defined.
 
-Export output is a browser download only. Filenames carry no project code, so files from different PMs
-collide. The SharePoint storage backend could serve as an interim shared location.
+Export output is a browser download only. Filenames carried no project code at filing, so files from different
+PMs collided; since 2026-10-05 they lead with the project code when one is set (see the Status). The SharePoint
+storage backend could serve as an interim shared location.
 
 Related: §463 (export drops enabled sections, which the issue's code check found), §468 (PDF export never
 prints in the desktop app).
@@ -38795,7 +38827,7 @@ Size M — a SharePoint folder upload over the existing Graph code (the project 
 
 **Work item:** #49
 
-## 510. The per-project activity log cannot be extracted centrally in the app, keeps only 500 entries and names no PM — OPEN
+## 510. The per-project activity log keeps only 500 entries, names no PM and can be cleared by the PM (central extraction shipped 2026-10-04) — OPEN
 
 **Status:** **Update 2026-10-12 (§138 P2 probe):** PARTIAL, as the Status says; one remainder is unlisted: the PM can still clear the log from the Activity panel (`grep -n "activityClear" src/app/activity-log-panel.tsx`), so a central extract sees only what survived the last clear.
 
@@ -38805,15 +38837,17 @@ Michael Leather asked to confirm that each PM's activity and audit log can be re
 that was confirmed as available and extractable.
 
 The code check qualified it. The log is stored per project (a Turso `meta` row, JSON files, device-only
-IndexedDB), and a shared Turso database can be queried with SQL across projects. But the app offers no
-extraction (the Activity panel has Print and Clear only), keeps the last 500 entries, records the actor only as
-user, AI or integration, and lets the PM clear it.
+IndexedDB), and a shared Turso database can be queried with SQL across projects. At filing the app offered no
+extraction; since 2026-10-04 Settings → Storage (expert mode) downloads it (`activity-audit.ts`, see the Status).
+It still keeps the last 500 entries (`grep -n "ACTIVITY_MAX_ENTRIES = " src/app/activity-log.ts`), records the
+actor only as user, AI or integration (`grep -n "export type ActivityActor" src/app/activity-log.ts`), and lets
+the PM clear it.
 
 ★★ The missing export key is deliberate: `docs/AGENTS/activity-log.md` records the log as storage-only on every
 path, because an entry's changes carry old and new values that must never reach a client-facing document. A
 central extraction must be an admin path, not an ordinary export section.
 
-Size S–M — a decision first; close if raw Turso SQL access is accepted as the answer.
+Size S–M — a decision first on the remainder (cap, PM identity, clearing); close if the shipped extraction plus raw Turso SQL access is accepted as the answer.
 
 **Source:** GitLab #50 (M-4, source::demo-2026-09-11)
 
@@ -38862,7 +38896,9 @@ Size M — curated columns and labels, content-aware widths, a logo header and f
 
 ## 513. Existing SharePoint documents cannot be updated from app data — OPEN
 
-**Status:** OPEN 2026-09-13 — never machine-verified beyond the issue's code check, which found the SharePoint storage save as the
+**Status:** **Update 2026-10-16:** still open, and still a build-or-close owner decision. The only Graph file write is still the SharePoint storage save (`grep -rn "method: \"PUT\"" src/app/sharepoint-backend.ts`; the one other PUT in `src/app` is the Jira update-issue proxy), and `src/app` holds no Office add-in.
+
+**Earlier:** OPEN 2026-09-13 — never machine-verified beyond the issue's code check, which found the SharePoint storage save as the
 only Graph file write.
 
 Michael Leather asked to update existing SharePoint documents from app data. On the call the only route named
@@ -38944,7 +38980,8 @@ principle across the app, especially overviews and actions. The concrete target:
 the top one to three next actions, and a toggle to expert view. It was the first point in his written notes;
 the next-actions view listed 73 items in the demo.
 
-Simple view exists as field tiers; expert mode only reveals advanced settings. Next actions show a hero card
+Simple view exists as field tiers; expert mode adds rather than removes: it reveals advanced settings and, on
+next actions, each row's score and a learning-settings button. Next actions show a hero card
 plus up to five rows per tier. No layout hides both the nav and the top bar; the sidebar only collapses to a
 rail. The issue cites three Smashing Magazine data-visualisation articles.
 
@@ -38977,7 +39014,7 @@ Size M — a one-at-a-time mode with position dots and complete-to-advance for e
 
 **Work item:** #59
 
-## 519. Unrecognised voice commands are not routed to the AI assistant, so interaction stays form-and-button first — OPEN
+## 519. Interaction stays form-and-button first; the intent-first principle is unestimated (unknown voice commands already reach the AI chat) — OPEN
 
 **Status:** **Update 2026-10-04:** an unrecognised voice command no longer stops at the error toast while the AI assistant is on: `useBulkOperations` takes a `routeUnknownVoice` route, and `task-manager.tsx` passes one that PREFILLS the assistant's message box (`requestChat(text, false)`, never an auto-send, by owner ruling 2026-10-04) only when `isAiEnabled(settings.ai)` and not in a popout; with the assistant off the toast is unchanged. The transcript is clipped by `sanitizeVoiceTranscript`. A prefill now goes on a new line after a draft the user is typing instead of replacing it (`chat-panel.tsx`; the chat panel stays mounted, so a misheard command could otherwise destroy typed text). Verified by `npx vitest run src/app/use-bulk-operations.test.tsx src/app/chat-panel.test.tsx src/app/i18n-encoding.test.ts --maxWorkers=1` (3 files, 162 tests, exit 0); mutants (no route, no clip, no info toast, a recognised command routed, a prefill replacing the draft, a prefill applied twice under StrictMode) each turn a test red. The task-manager gate line itself has no unit test. What stays OPEN is the wider intent-first principle the entry records, which is still unestimated. OPEN 2026-09-13 — `grep -rn "export function parseCommand" src/app` → `voice.ts`, a fixed grammar. The unknown-command
 toast is never machine-verified beyond the issue's code check. **Known behaviour, accepted (post-merge review 2026-10-04):** an unrecognised command switches the view to the AI assistant (`requestChat` sets the tab), and repeated misheard phrases each add a line to the draft.
@@ -38987,10 +39024,11 @@ Magazine's "death of the button" article. It was brainstorming input, not priori
 noted as already present.
 
 The AI assistant is the intent path (create, update and delete tools for most registers), but it sits behind
-the AI master switch, which is off by default. Voice commands are a fixed task-scoped grammar, and an unknown
-command shows an error toast instead of reaching the assistant.
+the AI master switch, which is off by default. Voice commands are a fixed task-scoped grammar. Since 2026-10-04 an
+unknown command prefills the assistant's message box when the assistant is on (`grep -n "routeUnknownVoice" src/app/task-manager.tsx`);
+with it off, the error toast remains.
 
-Size S–M for routing unknown voice commands; the wider intent-driven principle is unestimated.
+The routing of unknown voice commands shipped 2026-10-04 (it was sized S–M); the wider intent-driven principle is unestimated.
 
 **Source:** GitLab #62 (U-5, source::demo-2026-09-11)
 
@@ -40240,9 +40278,12 @@ That slice deletes `SnapshotRecord.currency` from the app (closing §469), but t
 existing Turso `snapshot` table. Dropping the column is simple in itself: it is a plain nullable `TEXT` column with
 no index and no key. The risk is **older clients still writing to the same database**. A desktop build or an
 unreloaded browser tab from before the slice still sends an INSERT that names `currency`, and against a dropped
-column that statement fails. A libSQL pipeline batch does not abort on a failing statement, so
-`appendStatements` would commit the `snapshot_series` rows **without their `snapshot` row**, which leaves
-orphaned series data. That is worse than a failed capture.
+column that statement fails. Those older clients send their append as separate pipeline requests, which do not
+abort on a failing statement, so their `appendStatements` would commit the `snapshot_series` rows **without their
+`snapshot` row**, which leaves orphaned series data. That is worse than a failed capture. Today's client is not the
+risk: since §637 it sends the append through `runTursoPipeline` as one all-or-nothing batch
+(`grep -n "all-or-nothing" src/app/snapshot-schema.ts`), and it no longer writes `currency`. Every client that still
+writes the column predates §637 (see the status).
 
 The drop is safe only with an enforceable guarantee that no client which writes the column can reach the database,
 for example a minimum client version recorded in the database and checked before any write. Waiting some number of
@@ -42393,21 +42434,24 @@ same guard, so a seal already in flight at clear time is discarded instead of ra
 Related: §565 (final-review M7, the finding that raised this while reviewing the §565 fix; pre-existing
 across the family and not closed by that fix).
 
-## 610. Fork PRs cannot run the leak gate — decide the rule at the visibility flip — open
+## 610. Fork PRs cannot run the leak gate — the rule chosen at the flip (option 2) awaits a first real fork PR — open
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** still owed. The repository is PUBLIC (`gh repo view --json visibility`), and 0 of 208 PRs are cross-repository, so no fork PR has shown the red check yet. The mechanism differs from the body: `ci.yml` writes the empty `LEAK_LIST` secret to a file and exports `LEAK_LIST_FILE` anyway, so `leaks:check` exits 2 on "holds no entries", not on an unset variable. Same red outcome. `grep -n "LEAK_LIST_FILE" .github/workflows/ci.yml` → line 54, the unconditional export.
+**Status:** **Update 2026-10-16:** still owed; 0 of 242 PRs are cross-repository (`gh pr list --state all --limit 1000 --json isCrossRepository`), so no fork PR has shown the red check yet. The unconditional export is unchanged (`grep -n "LEAK_LIST_FILE" .github/workflows/ci.yml` → line 54).
+
+**Earlier:** **Update 2026-10-12 (§138 P2 probe):** still owed. The repository is PUBLIC (`gh repo view --json visibility`), and 0 of 208 PRs are cross-repository, so no fork PR has shown the red check yet. The mechanism differs from the body: `ci.yml` writes the empty `LEAK_LIST` secret to a file and exports `LEAK_LIST_FILE` anyway, so `leaks:check` exits 2 on "holds no entries", not on an unset variable. Same red outcome. `grep -n "LEAK_LIST_FILE" .github/workflows/ci.yml` → line 54, the unconditional export.
 
 **Earlier:** open 2026-09-23 — never machine-verified; undecidable until the repository is public,
 because a private repository cannot receive fork PRs.
 
 **Work item:** #392
 
-GitHub gives a pull request from a fork no secrets, so the `static` job's `LEAK_LIST_FILE` is
-unset there and `gate:local` (under `CI`) fails `leaks:check` with code 2 — every outside
-contribution would be red. Deferred by the sub-project 3 spec
+GitHub gives a pull request from a fork no secrets, so the `static` job's `LEAK_LIST` secret is
+empty there; `ci.yml` still writes it to a file and exports `LEAK_LIST_FILE` (`grep -n "LEAK_LIST_FILE" .github/workflows/ci.yml`),
+and `gate:local` (under `CI`) fails `leaks:check` with code 2 on a list that holds no entries — every
+outside contribution would be red. Deferred by the sub-project 3 spec
 (`docs/superpowers/specs/2026-09-23-github-actions-ci-design.md`, "Leak gate on fork PRs").
 
-Options, undecided:
+Options (decided 2026-09-25, see below):
 1. skip `leaks:check` on fork PRs and rely on the push-to-`main` run — a fork's leak is caught only
    after the merge, when a public repository has already published it;
 2. keep fork PRs red until a maintainer re-runs the change from a branch in this repository.
@@ -42606,7 +42650,9 @@ too (`ci/followups-611-613-615`) — a straight swap, not additive, since `test:
 
 ## 615. TipTap's deferred editor destroy throws window is not defined after a test environment is torn down — open
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** weekly tally 3 of 4. Scheduled run 38234101549 (2026-10-12, `522e038e1`): `unit-shuffled-random` passed 1359 files, and `gh run view 38234101549 --log | grep -c ReferenceError` → 0, with no `window is not defined` and every "unhandled" hit an MSW request notice. It failed only on `audit-full` (§671) and `register-sync`. A manual dispatch run, 38074547272 (2026-10-10), was also clean but is not a weekly run. One more clean weekly run closes this. The hedge is still in place: `grep -n "isFakeTimers" vitest.setup.ts` → line 118.
+**Status:** **Update 2026-10-16:** tally still 3 of 4; no scheduled run since 2026-10-12, the next is due about 2026-10-19. The hedge now sits at line 122 (`grep -n "isFakeTimers" vitest.setup.ts`).
+
+**Earlier:** **Update 2026-10-12 (§138 P2 probe):** weekly tally 3 of 4. Scheduled run 38234101549 (2026-10-12, `522e038e1`): `unit-shuffled-random` passed 1359 files, and `gh run view 38234101549 --log | grep -c ReferenceError` → 0, with no `window is not defined` and every "unhandled" hit an MSW request notice. It failed only on `audit-full` (§671) and `register-sync`. A manual dispatch run, 38074547272 (2026-10-10), was also clean but is not a weekly run. One more clean weekly run closes this. The hedge is still in place: `grep -n "isFakeTimers" vitest.setup.ts` → line 118.
 
 **Earlier:** **Update 2026-10-06 — weekly tally 2 of 4.** Scheduled run 37293040675 (2026-10-05, seed 37293040675) is the second clean run for this entry: its full log has no `ReferenceError`, no `window is not defined` and no `Unhandled Error`/`Unhandled Rejection` line (`gh run view 37293040675 --log | grep -c ReferenceError` → 0). The run itself failed, for two reasons unrelated to this entry: one `use-jira-sync.test.tsx` test that a leaked `…Once` stub broke under that seed (fixed 2026-10-06 by resetting every mocked `jira-api` export before each test), and the `braces` advisory (§671). Two more clean weekly runs close this. **Update 2026-10-04 — weekly tally 1 of 4.** One `unit-shuffled-random` run exists since the hedge: scheduled run 36402242735 (2026-09-28, seed 36402242735, `b472cdb68`) passed 1212 files and 20441 tests with no `Errors` line and no `ReferenceError` in its log (`gh run view 36402242735 --log | grep -c ReferenceError` → 0). The seven "unhandled" hits that grep finds are MSW notices for unmatched requests, not unhandled errors. Three more clean weekly runs close this; a run with the `window is not defined` stack reopens the investigation below. Original status: open 2026-09-23 — a hedge landed on `ci/followups-611-613-615`: `vitest.setup.ts` gained
 one global `afterAll(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); })`,
@@ -42662,7 +42708,7 @@ mounted the editor that leaked.
 lazy wrapper (`git grep -l -E "from \"\.\.?/rich-text-editor(-lazy)?\"" -- "src/**/*.tsx" "src/**/*.ts"`,
 excluding tests). The test files that name the editor module or `@tiptap/react` directly are the
 first candidates: `git grep -l -E "rich-text-editor|@tiptap/react" -- "src/**/*.test.tsx" "src/**/*.test.ts"`
-lists 18, and 5 of them `vi.mock` an editor module. More tests reach the editor transitively, for
+lists 20 on 2026-10-16 (18 when filed), and 5 of them `vi.mock` an editor module. More tests reach the editor transitively, for
 example through `task-form-fields.tsx` or `change-edit-modal.tsx`, and they are not enumerated here.
 
 The job was already red on §614's test, so this run cannot show whether the error alone would have
@@ -42670,9 +42716,11 @@ failed it. Next step: find which file leaks, for example by running the candidat
 time under the same seed and watching for the unhandled error. Only then choose a fix, such as
 letting the editor's deferred destroy run before that file's environment is torn down.
 
-## 616. TimeLog exposes no approve/reject WRITE, so the review front-end is read-only until someone probes for the undocumented one — open
+## 616. TimeLog documents no approve/reject WRITE, so a booking-review front-end (unmerged TL1 branch) could only read verdicts until someone probes for the undocumented one — open
 
-**Status:** open 2026-08-23 — an investigation, not a defect. Nothing misbehaves today. The service
+**Status:** **Update 2026-10-16:** two owner questions are open: run the probe below, and say whether TL1 is still alive. The booking-review front-end and its design spec exist only on the unmerged branch `feat/timelog-booking-review-tl1` (last commit 881fc76b7, 2026-09-24; `git merge-base --is-ancestor origin/feat/timelog-booking-review-tl1 origin/main` exits 1). `main` has no review front-end at all (`grep -rn "RejectedRegistrations" src/app` → no output), so nothing on `main` is read-only for this reason.
+
+**Earlier:** open 2026-08-23 — an investigation, not a defect. Nothing misbehaves today. The service
 sweep below was a hand-run `curl`; the missing write is otherwise never machine-verified. First filed as 225 on a branch
 cut 2026-08-23, renumbered to 610 at the GitHub cut-over because main had since given 225 to another entry,
 and renumbered again to 616 on 2026-09-24 because main gave 610 to the fork-PR entry "Fork PRs cannot run
@@ -43447,9 +43495,11 @@ the cross-project behaviour unmeasured; the review answered it with a code trace
 over `undo-stack.ts` (A deletes task 2 and edits task 3; after a swap to B = [1, 3, 7] an undo gave
 `[B1, A2-deleted, A3-before-edit, B7]`). It was not driven in a browser.
 
-## 629. The unload journal is unverified on the packaged desktop close and on the file, SharePoint and Turso backends, and a restore the mass-deletion guard refuses repeats on every reload — open
+## 629. The unload journal is unverified on the packaged desktop close and on SharePoint, Turso's restore branch is unrecorded, and the guard-refusal loop's Discard exit is unverified in a real browser — open
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** still open; the remainder is real-target work. The code claims hold. The Turso spec keeps passing on main (live-turso run 38277358747, 16 of 16 drive-app tests), but the log carries no `restore branch` annotation (`gh run view 38277358747 --log | grep -c "restore branch"` → 0), so which branch of `restoreOnLoad` ran is still unrecorded; recording it needs the report uploaded on success or the annotation echoed to stdout. The single restore call is still guarded: `grep -n "lastLoadWasIncomplete(backend) ? null" src/app/use-storage-backend.ts` → line 805.
+**Status:** **Update 2026-10-16:** the heading now names only what remains. Measured or fixed since filing: the local file (§661, 2026-10-08), Turso's live spec passing in CI (both tests, `e2e/unload-journal-turso-live.spec.ts`), and a Discard exit from the guard-refusal loop (2026-10-03). Still owed: SharePoint, the packaged-desktop window close, which `restoreOnLoad` branch the Turso tests took, and the loop plus its Discard exit in a real browser. The restore call's guard now sits at line 810 (`grep -n "lastLoadWasIncomplete(backend) ? null" src/app/use-storage-backend.ts`).
+
+**Earlier:** **Update 2026-10-12 (§138 P2 probe):** still open; the remainder is real-target work. The code claims hold. The Turso spec keeps passing on main (live-turso run 38277358747, 16 of 16 drive-app tests), but the log carries no `restore branch` annotation (`gh run view 38277358747 --log | grep -c "restore branch"` → 0), so which branch of `restoreOnLoad` ran is still unrecorded; recording it needs the report uploaded on success or the annotation echoed to stdout. The single restore call is still guarded: `grep -n "lastLoadWasIncomplete(backend) ? null" src/app/use-storage-backend.ts` → line 805.
 
 **Earlier:** **Update 2026-10-11 — the local file is measured; Turso's live spec passed in CI.** (1) **Local file (local-json): measured by §661 on 2026-10-08**, in installed Chrome with an Origin Private File System handle: a tab closed right after a task-name edit committed with Enter, inside the save debounce, never reached the file (the close-time save was still waiting on its Web Lock when the tab went), the journal held it, and reopening the project restored the edit and saved it to the file within 4 s, in 3 of 3 headed runs and the committed spec's run. Reproduce with `$env:LOCAL_FILE_PROBE=1; npx playwright test e2e/local-file-close-save.spec.ts --project=chromium --workers=1` (opt-in, skipped in CI). Not measured there: an unblurred draft (the pagehide commit), a reload, and the CSV and Markdown file formats, which share the backend and the journal but not the serializer. (2) **Turso: `e2e/unload-journal-turso-live.spec.ts`**, in `LIVE_TURSO_APP`, so `live-turso.yml` runs it through `npm run e2e:live-app`. On a portfolio Turso project of its own it types an unblurred task-name draft, then reloads (one test) or closes the tab (the other), and asserts that the journal held the draft (on the reload, read by an init script as the new document starts, before any app code; on the tab close, read by a same-origin page that runs no app code, with a poll), that the stored `taskName`, read from the test process, holds the draft, and that the load consumed the journal (`aipm-cockpit:unload-journal:<project id>`) with no conflict notice; the premise that the draft is NOT stored before the unload is asserted first. `npx playwright test --project=live-turso-app --list` (with `E2E_LIVE_APP=1`) lists both tests. It cannot run locally (the local throwaway token is rejected, HTTP 401), so its runs are the pull request's `live-turso` job: run 38126224414 failed the tab-close test before any assertion, because the reader page's navigation to `/favicon.ico` was aborted (`net::ERR_ABORTED`) on both attempts while the reload test passed; with a route-served blank reader page, run 38128296706 passed both (16 of 16 live app tests; `gh run view 38128296706 -R sebastianmaute/aipm-cockpit --json conclusion` prints `success`). No mutant has been run against it, and which branch each passing test took was not recorded (the report is uploaded only on failure). Each test records which branch of `restoreOnLoad` ran as a `restore branch` annotation in the run's report; if both read "no restore toast seen", the unload's own save landed and the restore-and-save-back path on Turso is still unmeasured. Still owed after that run, and outside what code here can settle: SharePoint, the packaged-desktop window close, and the guard-refusal loop with its Discard exit in a real browser. **Update 2026-10-03:** the guard-refusal loop now has a Discard: the destructive `SavingPausedBanner` offers "Discard this deletion" (`storageDestructiveDiscard`), which after its own confirmation runs `reloadCurrentProject` — reload from storage, refusal cleared, journal dropped — and `storageRefusedWipe` plus both destructive confirm bodies (EN/DE) point to it instead of a page reload, which re-applied the journal. Pinned by the "Discard on a refused deletion (§629)" describe in `notifications.test.tsx` and the Discard wiring test in `task-manager.truncation-banner.test.tsx` (no confirm gate, no button, no wiring, the old copy: each red). That the exit ends the LOOP is pinned in `use-unload-journal.restore.test.tsx` ("refused restore → Reload project (the banner's Discard) removes the journal"): restored, refused, `reloadCurrentProject` → the journal key is gone (`dropUnconfirmed`, which matches because `retagToThisTab` lifted `lastSavedAt` to the record), and the next page load restores nothing and refuses nothing; red with the `dropUnconfirmed` call removed. The banner offers Discard for every destructive refusal, not only a journal save-back. Still owed, and code cannot settle them: the loop and the Discard exit in a real browser, the packaged-desktop window close, and the file, SharePoint and Turso backends. open 2026-09-27, narrowed twice on 2026-09-27 — FIXED on `fix/defect-batch-8` for a RELOAD AND a TAB CLOSE on the default backend by the unload journal: `pagehide` writes the unconfirmed outgoing workspace to localStorage synchronously (`src/app/unload-journal.ts`, `src/app/use-unload-journal.ts`), and the next load clears it silently when its content is what the backend returned (its save landed), restores it when its base fingerprint matches, or shows a conflict notice (Restore anyway, Discard) otherwise. MEASURED with `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1` (Chromium, IndexedDB), 10 of 10 passed in each of 3 runs, with no `test.fail`. The spec drives two editors: a document heading (`useBlockDraft`) and a task-name inline cell (`useInlineCellEdit`). Negative control: with the `restoreOnLoad` call in `use-storage-backend.ts` replaced by `null`, 8 of the 10 failed (the 3 reload cases and the heading tab close at "the draft must have landed in IndexedDB", the cell tab close and the landed-journal case at "the load must consume the journal", the 2 mismatch cases at the notice), and the 2 "page stays" cases passed. STILL OWED, and the only reasons this stays open: (1) the packaged desktop (Electron) window close; (2) real-browser runs of the file, SharePoint and Turso backends; (3) the guard-refused save-back loop recorded under "final review" below (added 2026-09-27). The journal itself is backend-agnostic, so (1) and (2) check localStorage durability and each backend's load and fingerprint on the real target, never machine-verified.
 
@@ -43474,7 +43524,7 @@ Throwaway probes on 2026-09-27 (not kept in the repo; raw output in the PR #444 
 
 An instrumented `IDBDatabase.prototype.transaction` (counters written to `localStorage`, which is synchronous) showed that on a tab close the save CREATED 20 readwrite transactions after `pagehide` and none fired `complete` or `abort`; on a reload none was created after `pagehide` before the page went. So the loss is not specific to the pagehide commit: it is the unload path of every save on that backend, including §185's flush-on-hide.
 
-Owed: a packaged-desktop window-close check, and the file, SharePoint and Turso backends in a real browser. The fix needs a save that completes or survives the unload: a synchronous fallback (for example a localStorage journal of the unsaved workspace, replayed on the next load) or `keepalive` / `sendBeacon` for the network backends. §626 (async editors) and §627 (unserialised saves at unload) are the same unload path.
+Owed (as filed; see the status for what is measured since): a packaged-desktop window-close check, and the file, SharePoint and Turso backends in a real browser. The fix needs a save that completes or survives the unload: a synchronous fallback (for example a localStorage journal of the unsaved workspace, replayed on the next load) or `keepalive` / `sendBeacon` for the network backends. §626 (async editors) and §627 (unserialised saves at unload) are the same unload path.
 
 **2026-09-27, with the journal in place.** Measured by the spec above, plus a throwaway probe (not kept)
 that completed 2 runs:
@@ -43582,8 +43632,8 @@ that completed 2 runs:
   re-tagged journal at once, since it carries this tab's id (the pre-merge fix below; before it, the
   record stayed until a later save's confirmation, `noteSaveConfirmed`, cleared it); this drops the
   draft, and (c) is read from the code, never machine-verified. Corrected 2026-09-27: this line first listed "a project reload
-  followed by a confirmed save" and "a later confirmed save of any edit" as exits. This path offers no
-  Discard. Read from the load effect in `src/app/use-storage-backend.ts`; the refusal itself is pinned
+  followed by a confirmed save" and "a later confirmed save of any edit" as exits. This path offered no
+  Discard then; the banner's "Discard this deletion" was added 2026-10-03 (see the status). Read from the load effect in `src/app/use-storage-backend.ts`; the refusal itself is pinned
   by the unit test "match: the restored workspace meets the destructive guard, measured against what
   the backend RETURNED", the loop on reload is never machine-verified. A fix could offer Discard
   beside the refusal when the refused save is a journal save-back.
@@ -44035,7 +44085,7 @@ SharePoint Online allows `#` and `%` in file and folder names. For such a name, 
 
 **Work item:** #491
 
-The SharePoint backends (`sp-json`, `sp-csv`) have unit tests only. Those use MSW, which serves every response same-origin, so they cannot show CSP, CORS, or how Graph answers `If-Match` and create-only uploads. On `main`, a browser load is therefore probably blocked outright. The §4 branch (`feat/two-tab-conflict`) changes the load to an item-metadata request plus the `@microsoft.graph.downloadUrl` link, adds `If-Match` and create-only (`@microsoft.graph.conflictBehavior=fail`) saves, and allows `https://*.sharepoint.com` and `https://*.files.1drv.com` in `connect-src`. None of that has run against a real tenant either. Manual check, with a real SharePoint file: (1) a load succeeds and the backend reports a non-null revision; (2) the browser can fetch the download URL cross-origin; (3) a save with a stale eTag gets HTTP 412 and saving pauses; (4) creating a file that already exists after a 404 load gets HTTP 409. If (3) or (4) fails, implement the §4 spec's fallback: a metadata GET of the eTag and a compare under a Web Lock before the PUT.
+The SharePoint backends (`sp-json`, `sp-csv`) have unit tests only. Those use MSW, which serves every response same-origin, so they cannot show CSP, CORS, or how Graph answers `If-Match` and create-only uploads. Before §4 a browser load was probably blocked outright. §4 (merged 2026-09-30, 8b8146b44) changed the load to an item-metadata request plus the `@microsoft.graph.downloadUrl` link (`grep -n "ITEM_METADATA_QUERY =" src/app/sharepoint-backend.ts`), added `If-Match` and create-only (`@microsoft.graph.conflictBehavior=fail`) saves, and allows `https://*.sharepoint.com` and `https://*.files.1drv.com` in `connect-src` (`grep -n "sharepoint.com" src/proxy.ts`). None of that has run against a real tenant. Manual check, with a real SharePoint file: (1) a load succeeds and the backend reports a non-null revision; (2) the browser can fetch the download URL cross-origin; (3) a save with a stale eTag gets HTTP 412 and saving pauses; (4) creating a file that already exists after a 404 load gets HTTP 409; (5) a successful PUT's response body carries `eTag` (see below). If (3) or (4) fails, implement the §4 spec's fallback: a metadata GET of the eTag and a compare under a Web Lock before the PUT.
 
 **Still owed after §4 closed (2026-09-30):** none of (1) to (4) has run; they are the §4 plan's Task 4 Step 6. Also owed (added by the final review, m3): (5) a successful PUT's response BODY carries `eTag`. The `ETag` header is not CORS-exposed, so without the body field the backend spends one metadata GET to read the stored eTag, and if that read fails too it refuses the next save rather than saving without `If-Match`. §4 was closed on its unit and browser-storage evidence only, so on SharePoint the conflict check is unverified until this entry closes.
 
@@ -44338,13 +44388,15 @@ regressing either way.
 
 ## 671. The weekly full audit fails on a `braces` advisory that has no patched release, reached only through `eslint-config-next` — OPEN
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** still waiting on upstream. The path is now `eslint-config-next@16.3.8` › `@next/eslint-plugin-next@16.3.8` (`grep -n "eslint-config-next" package.json`), and `npm view @next/eslint-plugin-next@latest` (16.4.0) and `@canary` (16.5.0-canary.8) both still pin fast-glob 3.3.1; braces 3.0.3 is still the newest. The audit-full logs of runs 38234101549 and 38074547272 show this advisory alone.
+**Status:** **Update 2026-10-16:** still waiting on upstream. `main` now pins `eslint-config-next` 16.4.0 (`grep -n '"eslint-config-next"' package.json`; cc8d6f087), and the lockfile's `@next/eslint-plugin-next` 16.4.0 still pins `fast-glob` 3.3.1. `npm view @next/eslint-plugin-next@latest version dependencies.fast-glob` → 16.4.2, 3.3.1; `@canary` → 16.5.0-canary.15, 3.3.1; `npm view braces version` → 3.0.3, still the newest.
+
+**Earlier:** **Update 2026-10-12 (§138 P2 probe):** still waiting on upstream. The path was then `eslint-config-next@16.3.8` › `@next/eslint-plugin-next@16.3.8` (`grep -n "eslint-config-next" package.json`), and `npm view @next/eslint-plugin-next@latest` (16.4.0) and `@canary` (16.5.0-canary.8) both still pin fast-glob 3.3.1; braces 3.0.3 is still the newest. The audit-full logs of runs 38234101549 and 38074547272 show this advisory alone.
 
 **Earlier:** OPEN 2026-10-06 — measured with `npm audit --audit-level=low` (exit 1, "5 high severity vulnerabilities", all one advisory) and `npm audit --omit=dev --audit-level=high` (exit 0). The advisory is GHSA-vfj7-8cjw-p6xm (published 2026-09-18), whose vulnerable range is `braces <= 3.0.3` with no first patched version (`gh api advisories/GHSA-vfj7-8cjw-p6xm`). `grep -n '"fast-glob"' node_modules/@next/eslint-plugin-next/package.json` prints `"fast-glob": "3.3.1"`, an exact pin, and `npm ls braces --all` shows one path: `eslint-config-next@16.3.6` › `@next/eslint-plugin-next@16.3.6` › `fast-glob@3.3.1` › `micromatch@4.0.8` › `braces@3.0.3`.
 
 **Work item:** #581
 
-★ **Nothing local can fix it.** `braces@3.0.3` is the newest release, so an `overrides` entry has nothing to move to. `npm audit fix --force` only proposes a breaking `eslint-config-next` change, and that pin holds in the `latest` (16.3.8) and `canary` (16.4.0-canary.61) plugin releases too (`npm view @next/eslint-plugin-next@canary dependencies`).
+★ **Nothing local can fix it.** `braces@3.0.3` is the newest release, so an `overrides` entry has nothing to move to. `npm audit fix --force` only proposes a breaking `eslint-config-next` change, and that pin holds in the `latest` and `canary` plugin releases too (16.4.2 and 16.5.0-canary.15 on 2026-10-16; `npm view @next/eslint-plugin-next@canary dependencies`).
 
 ★ **What it breaks today.** The dependency is dev-only (lint tooling), so the required `audit` check in `ci.yml` (`--omit=dev --audit-level=high`) stays green and no shipped code contains it. The weekly `audit-full` job in `scheduled.yml` (`--audit-level=low`, dev included) fails every week until upstream ships a fix: first seen in scheduled run 37293040675 (2026-10-05); the previous run, 36402242735 (2026-09-28), passed `audit-full` although the advisory was already published, so npm's audit data picked it up in between. A red `audit-full` therefore says nothing new until this closes; read its log for a SECOND advisory before writing it off.
 
@@ -44740,7 +44792,7 @@ With a usable Turso config the demo is created as a Turso project and its weekly
 1. **RunAsNode refusal, in behaviour.** `ELECTRON_RUN_AS_NODE=1 "AI PM Cockpit.exe" -e "console.log(1)"` must not run as Node. Only the fuse read supports this so far.
 2. **A positive control for the M-6 `NODE_OPTIONS` probe.** The marker-file probe found no marker with the scrub in `server-child.ts` (`scrubbedEnv`) or without it, and its only positive control was plain `node`. Rerun it on an unfused or unpackaged (`electron .`) build, where the marker should appear through Electron. Without that, the earlier no-marker result cannot be attributed to the fuse.
 3. **`killServer` (`desktop/src/server-child.ts`) is unproven.** `npm run e2e:desktop` stays green with it made a no-op, because the window's teardown frees the port anyway. It needs a probe that can tell the two apart, such as the child's own exit log, or a quit fired while a spawn is still pending.
-4. **`desktop/src/server-child.ts` is outside the blocking typecheck.** The root `tsconfig.json` `exclude` list names it (with `main.ts`, §547), because it imports `utilityProcess` from `electron`, which the root install does not carry. Reproduce with `grep -n "server-child" tsconfig.json`. Bringing it back needs the fork injected from `main.ts` or a desktop typecheck job in CI.
+4. **`desktop/src/server-child.ts` and the blocking typecheck — ANSWERED 2026-10-12, nothing owed.** The root `tsconfig.json` `exclude` list names it (with `main.ts`, §547), because it imports `utilityProcess` from `electron`, which the root install does not carry (`grep -n "server-child" tsconfig.json`). But it IS typechecked by the blocking `desktop:typecheck` gate in the `static` group (`grep -n "desktop:typecheck" scripts/gate-local.mjs`), measured red on an injected type error (see the status). The root exclude is not a gap.
 
 **How to measure items 1 to 3 (added 2026-10-12).** Each needs a packaged Windows build, which no gate makes; about ten minutes on the next release build.
 
@@ -44814,7 +44866,7 @@ What is known:
 
 - **Answers.** The cost harness measured G2 on 2026-10-12 and it passed: the relocated guide is still read, and no other probed block moved. The harness's `g2` variant (`scripts/ai-eval.ts`) is the reference layout.
 - **Placement.** The app must put the guide where the harness measured it: at the head of the turn context, after the question. `scripts/ai-eval.test.ts` pins that position for the harness.
-- **Cost.** The saving is MODELLED, not measured. The spec's break-even is about one view switch per 46 turns, which it calls effectively always for this app. The usage meter stores daily token totals only and counts no view switches, so measuring the saving needs a counter first (view switches per conversation). ★ OPEN DECISION (owner): build on the modelled break-even, or add that counter and measure first. The owner chose the split on 2026-10-12 with the counter offered as an option inside this entry, not as a precondition; which way it goes is still theirs to decide. ★ Superseded the same day: the owner chose to measure first, and the counter exists (see the status).
+- **Cost.** The saving is MODELLED, not measured. The spec's break-even is about one view switch per 46 turns, which it calls effectively always for this app. Since 2026-10-12 the usage meter also counts warm view switches per day (`grep -n "G2_BREAK_EVEN_REQUESTS_PER_SWITCH" src/app/ai-view-switch.ts`; see the status), and only a send started outside the chat tab can count as one (§703). ★ OPEN DECISION (owner): the owner chose on 2026-10-12 to measure before building; what remains is to let a week or more of real sends accumulate, then compare the measured switch rate and the switch sends' excess cache writes with the model, and decide whether to build G2.
 
 ★ Moving text from `system` to a `user` message is the role change the eval exists to gate; it passed for reachability only. If G2 ships, re-run the eval whenever the turn layout changes.
 
@@ -44997,7 +45049,7 @@ Size S–M.
 
 ## 714. Follow-up with the UK pilot user: fixes before their 2026-10-22 review, the API-key cost question, and a project-intake session — OPEN
 
-**Status:** OPEN 2026-10-13 — a process item; `never machine-verified`, there is nothing in the repo to check.
+**Status:** OPEN 2026-10-13 — a process item; `never machine-verified`, there is nothing in the repo to check. **Update 2026-10-16:** the fixes shipped as release 1.19.0 on 2026-10-15, two days after the session (`gh release list --limit 3`; `grep -n "APP_VERSION =" src/app/version.ts`), carrying the §704–§713 work (all closed 2026-10-13/14). Whether the update reached the pilot user is not recorded: the owner confirms that, then the first bullet is done; the rest waits on the 2026-10-22 review.
 
 **Work item:** #703
 
@@ -45035,7 +45087,7 @@ Constraints:
 
 - **Only the web app can be recorded by the skill.** Playwright records a page, so the browser's download bar, SmartScreen and the installer are outside it. Those parts are recorded by hand and spliced in, or shown as the §713 hand-captured stills.
 - **No real secrets or names.** Key fields carry obvious fakes; a Turso connection uses the throwaway database, and its URL is masked on screen. The project is fictional ("Acme"); the repo is public.
-- **Shows phase-1 UI**, so it is recorded after §704–§712 ship and after §713's guide, whose order it follows.
+- **Shows phase-1 UI**, so it is recorded after §704–§712 ship and after §713's guide, whose order it follows. Met: §704–§713 all closed 2026-10-13/14 and shipped in 1.19.0 (2026-10-15), so the recording is unblocked.
 
 Placement follows the product tour: a GitHub-hosted embed in the README (and here, in the guide) with a download link to a WebM in `public/demos/`. Open for the owner: whether it has narration or captions (the tour has neither).
 
@@ -45214,9 +45266,9 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
 
-## 728. The first-start splash's status text has not been eye-checked on a packaged desktop build — OPEN
+## 728. The first-start splash's German-locale text has not been eye-checked on a packaged desktop build (three of four checks seen) — OPEN
 
-**Status:** OPEN 2026-10-14 — the timing is unit-tested (`grep -n "SPLASH_SLOW_MS = " desktop/src/lib/splash-status.ts` → 10 000 ms, driven with fake timers by `splash-status.test.ts`), but no test renders the packaged window.
+**Status:** OPEN 2026-10-14, updated 2026-10-16: three of the four checks below were seen by the owner on 2026-10-15; only the German OS locale check remains (see the second ★ note). The timing is unit-tested (`grep -n "SPLASH_SLOW_MS = " desktop/src/lib/splash-status.ts` → 10 000 ms, driven with fake timers by `splash-status.test.ts`), but no test renders the packaged window.
 
 ★ 2026-10-15: the owner installed a local build of `fix/738-739-rate-and-start-date` (`npm run desktop:build` then `npm run desktop:package`); the app started in under `SPLASH_SLOW_MS`, so the reassurance line could not be seen, and the check was postponed. The other three checks do not need a slow start.
 
@@ -45228,10 +45280,10 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 To check, install a packaged build on Windows and:
 
-- **First launch:** the status text sits clear of the artwork, legible on its ground, and not clipped.
-- **At 10 seconds:** the reassurance line appears without the text block jumping or reflowing.
-- **Relaunch** while the service is already up: the splash goes straight to "Opening…" with no "Starting…" flash.
-- **German OS locale:** the DE strings fit the same space.
+- **First launch** (seen 2026-10-15): the status text sits clear of the artwork, legible on its ground, and not clipped.
+- **At 10 seconds** (seen 2026-10-15): the reassurance line appears without the text block jumping or reflowing.
+- **Relaunch** (seen 2026-10-15) while the service is already up: the splash goes straight to "Opening…" with no "Starting…" flash.
+- **German OS locale** (still owed): the DE strings fit the same space.
 
 Close this with what was seen, or file each defect found as its own entry.
 
@@ -45273,7 +45325,7 @@ Size M (S once the shared component exists).
 
 **Work item:** #724
 
-Resource planning depends on reference data that must exist first: roles (with rates for the budget), disciplines and grades, then the people, then capacity and absences, then allocations. The empty view says "No contacts available." and nothing about that order. Steps 1–2 overlap with the budget checklist (§710), which already ticks "Give your roles a rate" and "Add the people".
+Resource planning depends on reference data that must exist first: roles (with rates for the budget), disciplines and grades, then the people, then capacity and absences, then allocations. The empty view says "No contacts available." and nothing about that order. Steps 1–2 overlap with the budget checklist (§710), which already ticks "Give your roles a rate" and "Add the people who do the work".
 
 Proposed: a checklist in the §710 shape on the shared component (see §730).
 
@@ -45295,13 +45347,13 @@ Size S.
 
 **Source:** owner request 2026-10-14 ("file for all"), from a survey of which views need several setup steps in a fixed order.
 
-## 733. The Outlook calendar integration gives no guided setup for sign-in, calendar and sync — OPEN
+## 733. The Outlook calendar integration gives no guided setup for sign-in, write-back types and sync — OPEN
 
-**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n "outlookSignInRequired" src/app/i18n.ts` shows sign-in is reported only once an import is tried.
+**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -rn "outlookSignInRequired" src/app/use-outlook-calendar.ts src/app/use-outlook-contacts.ts` shows sign-in is reported only once a calendar or contacts action is tried. **Update 2026-10-16:** corrected the steps — there is no calendar choice: write-back and the pull use the signed-in user's default calendar (`grep -n "/me/events" src/app/outlook-calendar-write.ts`). The key's English text still names contacts only ("Sign in with Microsoft to import Outlook contacts.", `grep -n "outlookSignInRequired:" src/app/i18n.ts`) although the calendar hook throws it too.
 
 **Work item:** #726
 
-Outlook write-back and the two-way pull need a Microsoft sign-in (M365 client and tenant ids), a calendar choice and a first sync. The need to sign in is only reported when an action is tried.
+Outlook write-back and the two-way pull need a Microsoft sign-in (M365 client and tenant ids), then write-back enabled per item type (tasks, RAID, change decisions, absences; optionally "Keep in sync automatically", `grep -n "calendarSyncEntity" src/app/i18n.ts`), then a first sync. The need to sign in is only reported when an action is tried.
 
 Proposed: a short checklist in the §710 shape on the shared component (see §730).
 
@@ -45325,11 +45377,11 @@ Size S.
 
 ## 735. AI documents give no guided setup for the API key, templates and a first document — OPEN
 
-**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -rln '"documentsNoneYet"' src/app --include=*.tsx` lists `documents-list.tsx`, whose empty state is the single line "No documents yet.".
+**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -rln '"documentsNoneYet"' src/app --include=*.tsx` lists `documents-list.tsx`. **Update 2026-10-16:** corrected the empty-state claim — when the list is editable it shows "No documents yet." with a "+ Create your first document…" button (`AddFirstItemButton`, `grep -n "documentsCreateFirst" src/app/documents-list.tsx`); only the read-only branch is the single line. Neither says anything about the key or templates.
 
 **Work item:** #728
 
-Generating a document needs an Anthropic API key (and the AI master switch on), then a template, then a first generation. Without the key the feature is blocked, and the empty documents list says only "No documents yet."
+Generating a document needs an Anthropic API key (and the AI master switch on), then a template, then a first generation. Without the key the feature is blocked, and the empty documents list offers only "No documents yet." and a create-first button, with no word on the key or templates.
 
 Proposed: a checklist in the §710 shape on the shared component (see §730), with the key step linking to Settings → AI.
 
