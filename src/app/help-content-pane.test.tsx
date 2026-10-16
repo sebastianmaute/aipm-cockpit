@@ -230,3 +230,16 @@ test("hiddenHelpEntryIds withholds the simulation entry while the forecast view 
   expect(hiddenHelpEntryIds([]).size).toBe(0);
   shown.mockRestore();
 });
+
+test("an entry action with a note renders the note as text instead of a button (§502)", () => {
+  render(
+    <HelpContentPane
+      lang="en-US"
+      query=""
+      hiddenEntryIds={new Set()}
+      entryActions={{ [FORECAST_SIM_HELP_ID]: { label: "Reopen it", note: "Needs the switch first." } }}
+    />,
+  );
+  expect(screen.getByText("Needs the switch first.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Reopen it" })).toBeNull();
+});

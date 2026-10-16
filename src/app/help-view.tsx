@@ -40,8 +40,12 @@ export function HelpView({
   onStartTour,
   catalogTours,
   completedTours,
+  simulationActive = false,
 }: {
   lang: Lang;
+  /** The per-project Monte Carlo switch as `isSimulationActive` reads it. A prop, not
+   *  `useWorkspace()`: HelpView is rendered bare in tests and the switch lives in the workspace. */
+  simulationActive?: boolean;
   /** A concept id deep-linked from a per-view callout (SP2) — scroll to it. */
   pendingHelpConcept?: string | null;
   onHelpConceptConsumed?: () => void;
@@ -66,16 +70,17 @@ export function HelpView({
   // while that view is hidden.
   const forecastViewEnabled = isViewEnabled("forecast", settings.features);
   const hiddenEntryIds = hiddenHelpEntryIds(settings.features);
-  const entryActions: Record<string, HelpEntryAction> | undefined = settings.simulationIntroSeen && forecastViewEnabled
+  const reopenSimulationIntro: HelpEntryAction = simulationActive
     ? {
-        [FORECAST_SIM_HELP_ID]: {
-          label: t(lang, "helpShowSimulationIntro"),
-          onActivate: () => {
-            setSettings((s) => ({ ...s, simulationIntroSeen: false }));
-            onNavigateView?.("dashboard");
-          },
+        label: t(lang, "helpShowSimulationIntro"),
+        onActivate: () => {
+          setSettings((s) => ({ ...s, simulationIntroSeen: false }));
+          onNavigateView?.("dashboard");
         },
       }
+    : { label: t(lang, "helpShowSimulationIntro"), note: t(lang, "helpSimulationIntroNeedsSwitch") };
+  const entryActions: Record<string, HelpEntryAction> | undefined = settings.simulationIntroSeen && forecastViewEnabled
+    ? { [FORECAST_SIM_HELP_ID]: reopenSimulationIntro }
     : undefined;
   const { ref, reset } = useResizable("aipm-cockpit:help-view-size");
   const graph = useMemo(

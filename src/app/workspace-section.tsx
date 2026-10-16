@@ -686,6 +686,7 @@ export function WorkspaceSection({
               onStartTour={onStartTour}
               catalogTours={catalogTours}
               completedTours={completedTours}
+              simulationActive={isSimulationActive(workspace.settingsOverrides, features)}
             />
           </div>
         )}

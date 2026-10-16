@@ -26,7 +26,10 @@ export const helpSectionId = (id: string) => `help-sec-${id}`;
 /** An extra control drawn under one Help entry. */
 export interface HelpEntryAction {
   label: string;
-  onActivate: () => void;
+  /** The control's handler. Omitted when `note` stands in for the button. */
+  onActivate?: () => void;
+  /** Muted text rendered INSTEAD of the button — the action exists but cannot run yet. */
+  note?: string;
 }
 
 const NO_HIDDEN_ENTRIES: ReadonlySet<string> = new Set();
@@ -247,7 +250,11 @@ export function HelpContentPane({
                   ) : null}
                   {entryActions?.[e.id] && (
                     <p className="mt-1.5 text-xs">
-                      <TextButton onClick={entryActions[e.id].onActivate}>{entryActions[e.id].label}</TextButton>
+                      {entryActions[e.id].note !== undefined ? (
+                        <span className="text-muted-foreground">{entryActions[e.id].note}</span>
+                      ) : (
+                        <TextButton onClick={entryActions[e.id].onActivate}>{entryActions[e.id].label}</TextButton>
+                      )}
                     </p>
                   )}
                 </section>
