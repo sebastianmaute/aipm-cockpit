@@ -198,6 +198,17 @@ describe("SimExplainer popover and chart fixes (§502)", () => {
     if (m.p50 === m.p80) expect(new Set(labels.map((l) => l.y)).size).toBe(3);
   });
 
+  it("three distinct cut-offs within 2 x LABEL_HALF_W of each other take three rows (§502)", async () => {
+    const labels = await openChart({ markers: { p50: 10, p80: 10.5, p95: 11 } });
+    // The fixture's premise, checked rather than assumed: no two cuts equal, every pair too close to share a row.
+    const xs = labels.map((l) => l.x);
+    expect(new Set(xs).size).toBe(3);
+    for (let i = 0; i < xs.length; i += 1) {
+      for (let j = i + 1; j < xs.length; j += 1) expect(Math.abs(xs[i] - xs[j])).toBeLessThan(2 * LABEL_HALF_W);
+    }
+    expect(new Set(labels.map((l) => l.y)).size).toBe(3);
+  });
+
   it("every label sits inside the viewBox and above the bars", async () => {
     const labels = await openChart({ markers: { p50: 10, p80: 10, p95: 10 } });
     for (const l of labels) {
