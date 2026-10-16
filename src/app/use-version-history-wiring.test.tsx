@@ -6,7 +6,7 @@
 // the actual context state. task-manager.version-history-wiring.test.tsx and
 // task-manager.restore-backfill.test.tsx still pin the same wiring through the
 // mounted component.
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -212,6 +212,10 @@ describe("useVersionHistoryWiring — a restore converts version money and keeps
 describe("useVersionHistoryWiring — prepareVersion and the simulation switch (§502)", () => {
   const ON = { forecast: { showSimulation: true } };
   const TZ = { timezone: { timezone: "Europe/Berlin" } };
+  // The end-to-end test spies the version store; restoring in afterEach also runs when an assertion fails.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   function withLiveSwitchOn() {
     const h = mount();
     act(() => { h.result.current.ws.setSettingsOverrides({ ...TZ, ...ON }); });
@@ -265,6 +269,5 @@ describe("useVersionHistoryWiring — prepareVersion and the simulation switch (
     expect(ok).toBe(true);
     expect(h.result.current.ws.tasks.map((t) => t.id)).toEqual([1]);
     expect(h.result.current.ws.settingsOverrides).toEqual({ ...TZ, ...ON });
-    vi.restoreAllMocks();
   });
 });
