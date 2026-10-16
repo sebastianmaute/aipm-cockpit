@@ -3445,6 +3445,7 @@ export const de: Record<TranslationKey, string> = {
   burndownAriaSimP95Beyond: "Der späteste wahrscheinliche Abschluss (P95) liegt jenseits des Horizonts.",
   burndownAriaSimP80PastChart: "Der Abschluss (P80) liegt hinter dem Ende des Diagramms.",
   burndownAriaSimP95PastChart: "Der späteste wahrscheinliche Abschluss (P95), {0}, liegt hinter dem Ende des Diagramms.",
+  burndownSimPastChartCue: "später →",
   burndownAriaSim: "Simuliert: Abschluss (P80) {0}, Kosten zum Abschluss (P80) {1}.",
   burndownAriaSimFinish: "Simuliert: Abschluss (P80) {0}.",
   burndownAriaSimHours: "Simuliert: Abschluss (P80) {0}, Stunden zum Abschluss (P80) {1}.",

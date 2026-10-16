@@ -131,6 +131,25 @@ describe("BudgetChangeTable", () => {
     expect(screen.getByText("Split against the pace forecast.")).toBeInTheDocument();
   });
 
+  // Their values sit in the running-total column, which they are not (§502, as the simulated row below).
+  it("associates each split value with its own row header alone, never the running-total column", () => {
+    const { container } = draw();
+    const foot = container.querySelector("tfoot") as HTMLElement;
+    for (const [term, value] of [["Performance", eur(-500)], ["Added scope", `+${eur(2_200)}`], ["Unexplained budget change", eur(-2_700)]]) {
+      const cell = within(foot).getByText(value).closest("td") as HTMLElement;
+      const headerIds = (cell.getAttribute("headers") ?? "").split(" ").filter(Boolean);
+      expect(headerIds.map((id) => document.getElementById(id))).toEqual([within(foot).getByRole("rowheader", { name: term })]);
+    }
+  });
+
+  it("gives the split's row headers ids unique across two tables on one page", () => {
+    draw();
+    draw({ unit: "hours" });
+    const ids = [...document.querySelectorAll("tfoot th[id]")].map((th) => th.id);
+    expect(ids).toHaveLength(6);
+    expect(new Set(ids).size).toBe(6);
+  });
+
   it("drops the footer when no pace split is available, keeping the rows", () => {
     const { container } = draw({ split: null });
     expect(container.querySelector("tfoot")).toBeNull();

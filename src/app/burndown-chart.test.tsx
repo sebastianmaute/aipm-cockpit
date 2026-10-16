@@ -847,6 +847,27 @@ describe("BurndownChart — simulated bands (§502)", () => {
     expect(ariaOf(draw({ sim: CHART_SIM }).container)).not.toContain("beyond the chart");
   });
 
+  // A clamped band ends at the plot's right edge, which reads as the date: a cue in words says it runs on.
+  it("marks a finish the cap clamps with a visible cue at the right edge, hidden from the text alternative", async () => {
+    const cue = (container: HTMLElement) => [...container.querySelectorAll("[data-sim-past-chart]")];
+    const far = { ...CHART_SIM, finish: { p50: "2026-05-15", p80: "2028-01-10", p95: "2031-06-30" } };
+    const [shown] = cue(draw({ sim: far }).container);
+    expect(shown).toHaveTextContent("later →");
+    expect(shown).toHaveAttribute("aria-hidden", "true");
+    expect(shown).toHaveAttribute("text-anchor", "end");
+    expect(Number(shown.getAttribute("x"))).toBeCloseTo(558);
+    // P95 alone past the cap still clamps the band's end.
+    expect(cue(draw({ sim: { ...CHART_SIM, finish: { ...CHART_SIM.finish, p95: "2029-01-01" } } }).container)).toHaveLength(1);
+    // Inside the cap, and with the switch off, there is none.
+    expect(cue(draw({ sim: CHART_SIM }).container)).toHaveLength(0);
+    expect(cue(draw().container)).toHaveLength(0);
+    await loadI18n("de");
+    const de = render(
+      <BurndownChart lang="de" currency="EUR" model={buildChartModel({ ...base, sim: far })} unit="eur" orientation="burndown" periods={base.series.periods} />,
+    );
+    expect(cue(de.container)[0]).toHaveTextContent("später →");
+  });
+
   // The x domain runs on to the simulated P95 (2026-05-01) while the segments end at plan end (2026-03-31),
   // which is also the plan's last period end: the labels must follow what they mark, not the plot's right
   // edge (X1 = 560).

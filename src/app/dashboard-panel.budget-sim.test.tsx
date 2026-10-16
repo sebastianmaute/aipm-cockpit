@@ -63,10 +63,10 @@ function wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-function renderDashboard() {
+function renderDashboard(over: { tasks?: Task[]; plan?: typeof PLAN } = {}) {
   render(
     <DashboardPanel
-      lang={EN} tasks={TASKS} raid={[]} budgets={[BUCKET]} plan={PLAN} roles={[ROLE]} resources={[]} absences={[]}
+      lang={EN} tasks={over.tasks ?? TASKS} raid={[]} budgets={[BUCKET]} plan={over.plan ?? PLAN} roles={[ROLE]} resources={[]} absences={[]}
       holidaySet={NONE} workdayHours={8} today={TODAY} projectId="p-budget-sim"
     />,
     { wrapper },
@@ -121,11 +121,28 @@ describe("DashboardPanel budget simulation (§502 part 3)", () => {
   it("hands the measure hook the burn tile's simulation state in the content key", () => {
     const lastKey = () => vi.mocked(useMeasuredHeights).mock.calls.at(-1)?.[0].contentKey ?? "";
     renderDashboard();
-    expect(lastKey().endsWith(`|${budgetSimContentKey(undefined)}`)).toBe(true);
+    expect(lastKey().endsWith(`|${budgetSimContentKey(undefined)}|cap:off`)).toBe(true);
     turnOn();
     const sim = lastBundle()?.sim;
     expect(sim?.eur.kind).toBe("sim");
-    expect(lastKey().endsWith(`|${budgetSimContentKey(sim)}`)).toBe(true);
+    expect(lastKey().endsWith(`|${budgetSimContentKey(sim)}|cap:false:false`)).toBe(true);
     expect(budgetSimContentKey(sim)).not.toBe(budgetSimContentKey(undefined));
+  });
+
+  // The x-domain cap leaves the cost wedge, and its legend entry, out of the chart; the Dashboard builds no
+  // chart model, so the key carries the cap's own predicate (`simCapContentKey`).
+  it("hands the measure hook whether the x-domain cap leaves out the burn chart's cost range", () => {
+    const lastKey = () => vi.mocked(useMeasuredHeights).mock.calls.at(-1)?.[0].contentKey ?? "";
+    // A long backlog puts P80 far out; a plan starting just before the booked hours makes the cap one short plan length.
+    const backlog = [
+      ...TASKS,
+      ...Array.from({ length: 400 }, (_, i) => ({ id: 1_000 + i, title: `more ${i}`, status: "Open", dueDate: "", priority: "Medium" })),
+    ] as unknown as Task[];
+    renderDashboard({ tasks: backlog, plan: { ...PLAN, startDate: "2026-08-01" } });
+    turnOn();
+    const sim = lastBundle()?.sim;
+    // Positive control: a real cost range the cap leaves out, not a missing one.
+    expect(sim?.eur.kind).toBe("sim");
+    expect(lastKey().endsWith(`|${budgetSimContentKey(sim)}|cap:true:true`)).toBe(true);
   });
 });

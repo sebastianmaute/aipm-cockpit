@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   buildChartModel, daysBetweenUtc, scaleDate, scaleValue, layoutMarkerLabels, markerBandHeight, markerLabelBoxes,
-  MARKER_LABEL_FONT_PX, estimatedLabelWidth, fitJoinLabel, simDomainCap, type ChartInput,
+  MARKER_LABEL_FONT_PX, estimatedLabelWidth, fitJoinLabel, simCapContentKey, simDomainCap, simP80PastChart, type ChartInput,
 } from "./burndown-geometry";
 import { CHART_SERIES, CHART_FORECAST, CHART_FORECAST_HOURS, CHART_SIM } from "../test/chart-fixtures";
 import type { BurndownSeries } from "./budget-burndown";
+import type { BudgetSim } from "./budget-sim";
 import type { BudgetForecast } from "./budget-forecast";
 import type { EvHistoryPoint, EvJoin, EvPartialBucket } from "./budget-ev-history";
 import type { BudgetHistoryEntry, BudgetHistorySummary } from "./budget-history";
@@ -670,6 +671,19 @@ describe("buildChartModel — simulated bands (§502)", () => {
     it("measures the plan length from planStart when given, from the last period end when that is later", () => {
       expect(buildChartModel({ ...base, planStart: "2026-03-01", sim: FAR }).xDomain).toEqual(["2026-01-01", "2026-04-30"]);
       expect(simDomainCap("2026-05-31", "2026-03-31", "2026-03-01")).toBe("2026-06-30");
+    });
+
+    // The Dashboard's burn-tile height key reads the same predicate the model drops the wedge on.
+    it("exposes the cap predicate the wedge is dropped on, for both units in the tile's height key", () => {
+      const at = (sim: BudgetSim) => ({ series: base.series, unit: "eur" as const, planEnd: base.planEnd, planStart: "2026-01-01", sim });
+      expect(simP80PastChart(at(FAR))).toBe(true);
+      expect(buildChartModel({ ...base, sim: FAR }).simCost).toBeNull();
+      expect(simP80PastChart(at(CHART_SIM))).toBe(false);
+      expect(buildChartModel({ ...base, sim: CHART_SIM }).simCost).not.toBeNull();
+      expect(simCapContentKey(base.series, base.planEnd, "2026-01-01", FAR)).toBe("cap:true:true");
+      expect(simCapContentKey(base.series, base.planEnd, "2026-01-01", CHART_SIM)).toBe("cap:false:false");
+      expect(simCapContentKey(null, base.planEnd, "2026-01-01", FAR)).toBe("cap:off");
+      expect(simCapContentKey(base.series, base.planEnd, "2026-01-01", null)).toBe("cap:off");
     });
 
     it("leaves the switch-off model untouched by planStart", () => {

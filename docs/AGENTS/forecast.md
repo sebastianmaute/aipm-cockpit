@@ -525,12 +525,17 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
     `p80PastChart` / `p95PastChart` flag the clamp, so the text alternative names the real dates and adds
     `burndownAriaSimP80PastChart` / `burndownAriaSimP95PastChart` ("… is beyond the chart's end"). The cost wedge
     is drawn only when its P80 date is inside the domain (else left out, like a beyond one); its P80 cost stays in the
-    text through `simCostP80`.
+    text through `simCostP80`. One predicate decides that: `simP80PastChart` (`burndown-geometry.ts`), which also
+    sets `p80PastChart`. ★ A clamped band ends at the plot's right edge, which a sighted reader would take for the
+    date, so the chart draws a visible `burndownSimPastChartCue` ("later →", `data-sim-past-chart`, `aria-hidden`)
+    at that edge whenever P80 or P95 is clamped (WCAG 1.4.1: words, not colour).
   - Tile (`burndown-chart-panel.tsx`, compact mode): one line "Cost at finish (P80) … · … chance over budget"; in the
     hours unit it reads "Hours at finish (P80) …" (`burndownSimTileLineHours`), as does the chart's text
     alternative (`burndownAriaSimHours`). When unavailable, the muted missing line. ★ The line changes the tile's
     height, so `budgetSimContentKey` (`budget-sim.ts`: on/off, band drawn, and per unit the range with or without the
-    chance or the missing-input reason) is part of the Dashboard's measured-height `contentKey`.
+    chance or the missing-input reason) is part of the Dashboard's measured-height `contentKey`. ★★ So is
+    `simCapContentKey` (`simP80PastChart` for both units): the cap drops the legend's cost-range entry, and the
+    Dashboard builds no chart model, so without it that change left the tile at a stale height.
   - ★ Copy decisions (review fixes): the P50/P80/P95 row labels are composed in `costRangeRows` from
     `percentileWord(p)` (`percentile-words.ts`) plus "(Pxx)", so the P95 row reads "Cautious (P95)" / "Vorsichtig (P95)"
     from the `simCautious` key itself, the words the KPI strip and the explainer already use; there is no separate
@@ -540,7 +545,9 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
     (`burndownSimHoursRange`) and the change-table row (`budgetChangeSimRowHours`).
   - Change table (`budget-change-table.tsx`): a footer row "Cost at finish (sim, P50–P95)" ("Hours at finish (sim, P50–P95)" in the hours unit) with the range; ABSENT when
     the range is unavailable (the card and tile say why). Its value cell sits in the running-total column, so it
-    carries `headers` naming its own row header alone and is never announced under that column's heading.
+    carries `headers` naming its own row header alone and is never announced under that column's heading. The
+    three pace-split footer rows (performance, added scope, unexplained) sit in the same column and do the same, with
+    `useId`-based ids so the table rendering twice on one page cannot collide.
   - Forecast view (`forecast-panel.tsx`, `CostTable` in `forecast-tables.tsx`): a cost card computed from the view's OWN
     What-if-adjusted run, so moving scope moves it (capacity scales spend too, so alone it barely moves it; see above). It is hidden when the Budget module is off
     (`budgetEnabled`) and shows "Add a budget" (`budgetSimAddBudget`) when there are no buckets or `bac` is 0.

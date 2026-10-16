@@ -49,6 +49,7 @@ export function BudgetChangeTable({
 }) {
   const captionId = useId();
   const simTermId = useId();
+  const footTermId = useId();
   const locale = localeFor(lang);
   const eurUnit = unit === "eur";
   const fmt = (v: number) => (eurUnit ? formatCurrency(v, currency, locale) : formatHours(v, locale));
@@ -130,12 +131,15 @@ export function BudgetChangeTable({
         </tbody>
         {(footRows.length > 0 || simRange !== null) && (
           <tfoot className="border-t border-line">
+            {/* The split's values also sit in the running-total column ("Added scope to date"), which they are
+                not: like the simulated row below, each `headers` names its own row header alone. The ids are
+                `useId`-based, so the table rendering twice on one page cannot collide. */}
             {footRows.map((row) => (
               <tr key={row.key}>
-                <th scope="row" colSpan={3} className={`${TD_CLASS} text-left font-normal text-muted-foreground`}>
+                <th id={`${footTermId}-${row.key}`} scope="row" colSpan={3} className={`${TD_CLASS} text-left font-normal text-muted-foreground`}>
                   {row.term}
                 </th>
-                <td className={TD_NUM_CLASS}>{signed(row.value)}</td>
+                <td headers={`${footTermId}-${row.key}`} className={TD_NUM_CLASS}>{signed(row.value)}</td>
               </tr>
             ))}
             {/* §502 — the simulated range beside the calculated split, never in its place. Its value sits in

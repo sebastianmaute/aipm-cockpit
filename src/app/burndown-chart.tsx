@@ -237,6 +237,12 @@ function BurndownChartBody({
     ...(x(model.planEnd) < X1 - 0.5 ? [upright(model.planEnd)] : []),
     ...(belowZero ? [across(0)] : []),
   ];
+  // §502 — a finish the cap clamped is drawn at the plot's right edge, which a sighted reader would take for
+  // its date. This cue at that edge says the range runs on past it, in words, not by colour; the text
+  // alternative already says so, so the cue is hidden from it.
+  const pastChartCue = model.simFinish && (model.simFinish.p80PastChart || model.simFinish.p95PastChart)
+    ? { x: X1 - 2, baseline: yTop + 9, text: t(lang, "burndownSimPastChartCue") }
+    : null;
   const marks: Box[] = [
     ...(model.ev ? [{ left: x(model.ev.date) - 5, top: y(model.ev.value) - 5, right: x(model.ev.date) + 5, bottom: y(model.ev.value) + 5 }] : []),
     ...(model.runOut ? [{ left: x(model.runOut.date) - 4, top: y(model.runOut.value) - 4, right: x(model.runOut.date) + 4, bottom: y(model.runOut.value) + 4 }] : []),
@@ -245,6 +251,7 @@ function BurndownChartBody({
     ...endFigureBoxes,
     // The "Over" label in the below-zero band keeps its fixed spot.
     ...(belowZero ? [labelBox({ x: X0 + 4, baseline: yBottom - 4 }, estimatedLabelWidth(t(lang, "burndownOver")), "start")] : []),
+    ...(pastChartCue ? [labelBox(pastChartCue, estimatedLabelWidth(pastChartCue.text), "end")] : []),
   ];
   type PlotLabel = { key: string; text: string; request: LabelRequest; data?: string; strong?: boolean; title?: string };
   const pointLabel = (key: string, text: string, point: { x: number; y: number }, spot: { x: number; baseline: number }, anchor: "start" | "end"): PlotLabel =>
@@ -418,6 +425,11 @@ function BurndownChartBody({
           {model.pace && <text x={endFigureX} y={labelY.pace ?? undefined} {...HALO} className="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{fmt(model.pace.endFigure)}</text>}
           {model.efficiency && <text x={endFigureX} y={labelY.efficiency ?? undefined} {...HALO} className="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{fmt(model.efficiency.endFigure)}</text>}
           {belowZero && <text x={X0 + 4} y={yBottom - 4} {...HALO} className="fill-muted-foreground stroke-surface text-[8px]" aria-hidden="true">{t(lang, "burndownOver")}</text>}
+          {pastChartCue && (
+            <text data-sim-past-chart="" x={pastChartCue.x} y={pastChartCue.baseline} textAnchor="end" {...HALO} className="fill-foreground stroke-surface text-[8px]" aria-hidden="true">
+              {pastChartCue.text}
+            </text>
+          )}
           {periods.length > 0 && (
             <>
               <text x={X0} y={height - 8} textAnchor="start" {...HALO} className="fill-muted-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{periods[0]}</text>

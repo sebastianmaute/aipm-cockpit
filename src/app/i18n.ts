@@ -3731,6 +3731,8 @@ const enUS = {
   burndownAriaSimP95Beyond: "The latest likely finish (P95) is beyond the horizon.",
   burndownAriaSimP80PastChart: "The finish (P80) is beyond the chart's end.",
   burndownAriaSimP95PastChart: "The latest likely finish (P95), {0}, is beyond the chart's end.",
+  /** §502 — drawn at the chart's right edge when the cap clamps a simulated finish, so the clamped band end is not read as the date. */
+  burndownSimPastChartCue: "later →",
   burndownAriaSim: "Simulated: finish (P80) {0}, cost at finish (P80) {1}.",
   burndownAriaSimFinish: "Simulated: finish (P80) {0}.",
   burndownAriaSimHours: "Simulated: finish (P80) {0}, hours at finish (P80) {1}.",

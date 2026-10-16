@@ -382,6 +382,40 @@ export function simDomainCap(lastEnd: string, planEnd: string, planStart: string
   return addCalendarDays(from, Math.max(0, daysBetweenUtc(planStart, planEnd)));
 }
 
+type DomainInput = Pick<ChartInput, "series" | "unit" | "planEnd" | "planStart" | "sim">;
+
+/** The x domain, the unit's cost range and finish dates, and whether the cap clamped the P80 finish. */
+function chartXDomain({ series, unit, planEnd, planStart, sim }: DomainInput) {
+  const n = series.periods.length;
+  const start = n > 0 ? series.periodStarts[0] : planEnd;
+  const lastEnd = n > 0 ? series.periodEnds[n - 1] : planEnd;
+  const simCostUnit = sim ? (unit === "eur" ? sim.eur : sim.hours) : null;
+  const finishDates = simFinishDates(sim, simCostUnit);
+  // The x domain opens to the latest simulated finish within the horizon, so the band is drawn inside the
+  // plot, but never past `simDomainCap`; off, it is exactly what it always was.
+  const uncapped = [lastEnd, ...(finishDates ?? [])].reduce((latest, date) => (date > latest ? date : latest), planEnd);
+  const cap = finishDates === null ? null : simDomainCap(lastEnd, planEnd, planStart ?? start);
+  const end = cap !== null && uncapped > cap ? cap : uncapped;
+  const p80 = finishDates === null ? null : sim?.finish.p80 ?? null;
+  return { start, end, simCostUnit, finishDates, p80PastChart: p80 !== null && p80 > end };
+}
+
+/** §502 — whether the cap clamps the simulated P80 finish: the ONE predicate behind `simFinish.p80PastChart`
+ *  and behind leaving out the cost wedge, and with it the legend's cost-range entry. The Dashboard builds no
+ *  chart model, so its burn-tile height key calls this to see that entry come and go. */
+export function simP80PastChart(input: DomainInput): boolean {
+  return chartXDomain(input).p80PastChart;
+}
+
+/** §502 — `simP80PastChart` for both units, as the burn tile's height key: a unit switch needs no extra input. */
+export function simCapContentKey(
+  series: BurndownSeries | null, planEnd: string, planStart: string, sim: BudgetSim | null | undefined,
+): string {
+  if (series === null || sim == null) return "cap:off";
+  const past = (unit: ChartUnit) => simP80PastChart({ series, unit, planEnd, planStart, sim });
+  return `cap:${past("eur")}:${past("hours")}`;
+}
+
 /** The P50..P95 cost wedge from the last actual point (see `ChartModel.simCost`). */
 function simCostWedge(
   cost: CostAtFinish | null, last: ChartPoint | null, ac: number | null, down: boolean, at: string | null,
@@ -395,7 +429,7 @@ function simCostWedge(
 }
 
 export function buildChartModel(input: ChartInput): ChartModel {
-  const { series, unit, orientation, forecast, evHistory, history, today, planEnd, planStart, sim } = input;
+  const { series, unit, orientation, forecast, evHistory, history, today, planEnd, sim } = input;
   const eurUnit = unit === "eur";
   const down = orientation === "burndown";
   const total = eurUnit ? series.totalBudgetValue : series.totalBudgetHours;
@@ -403,15 +437,7 @@ export function buildChartModel(input: ChartInput): ChartModel {
   const actualRemaining = eurUnit ? series.actualRemainingValue : series.actualRemainingHours;
   const fromCumulative = (cumulative: number) => (down ? total - cumulative : cumulative);
   const n = series.periods.length;
-  const start = n > 0 ? series.periodStarts[0] : planEnd;
-  const lastEnd = n > 0 ? series.periodEnds[n - 1] : planEnd;
-  const simCostUnit = sim ? (eurUnit ? sim.eur : sim.hours) : null;
-  const finishDates = simFinishDates(sim, simCostUnit);
-  // The x domain opens to the latest simulated finish within the horizon, so the band is drawn inside the
-  // plot, but never past `simDomainCap`; off, it is exactly what it always was.
-  const uncapped = [lastEnd, ...(finishDates ?? [])].reduce((latest, date) => (date > latest ? date : latest), planEnd);
-  const cap = finishDates === null ? null : simDomainCap(lastEnd, planEnd, planStart ?? start);
-  const end = cap !== null && uncapped > cap ? cap : uncapped;
+  const { start, end, simCostUnit, finishDates, p80PastChart } = chartXDomain(input);
   const drawn = (date: string | null) => (date === null || date > end ? end : date);
   const xDomain: readonly [string, string] = [start, end];
   const origin: ChartPoint = { date: start, value: fromCumulative(0) };
@@ -457,11 +483,11 @@ export function buildChartModel(input: ChartInput): ChartModel {
     from: drawn(sim.finish.p50), to: drawn(sim.finish.p95), p80: drawn(sim.finish.p80),
     p80Beyond: sim.finish.p80 === null, p95Beyond: sim.finish.p95 === null,
     p80Date: sim.finish.p80, p95Date: sim.finish.p95,
-    p80PastChart: pastChart(sim.finish.p80), p95PastChart: pastChart(sim.finish.p95),
+    p80PastChart, p95PastChart: pastChart(sim.finish.p95),
   };
   const wedge = simCostWedge(simCostUnit, last, forecast ? forecast.facts.ac : null, down, finishDates === null ? null : sim?.finish.p80 ?? null);
   // A wedge whose P80 date is past the chart's end is left out, as a beyond one is; its P80 cost stays in the text.
-  const simCost = wedge !== null && wedge.at <= end ? wedge : null;
+  const simCost = wedge !== null && !p80PastChart ? wedge : null;
 
   const evFields = !down && evHistory ? evHistoryFields(evHistory, eurUnit, origin) : NO_EV;
   const bacF = !down && history ? bacFields(history, eurUnit, series, xDomain[0], xDomain[1]) : NO_BAC;
