@@ -11,7 +11,7 @@
 // the over-allocated signal reads the plan for the periods, then each Resource
 // for its own near-term utilization.
 import { buildResourceWorkload } from "./resource-workload-rows";
-import { generatePeriods, convertUtilization, periodKeyForDate, type Period } from "./resource-capacity";
+import { generatePeriods, convertUtilization, nearTermPeriodKeys } from "./resource-capacity";
 import { resourceDisplayName } from "./resource-foundation";
 import type { Resource, ResourcePlan, Task, Absence, Shift, RaidItem } from "./types";
 
@@ -37,21 +37,7 @@ export interface BuildWorkloadAlertsArgs {
 }
 
 const DEFAULT_OVERDUE_THRESHOLD = 3;
-const NEAR_TERM_PERIODS = 1; // check the period containing `today` only
 const OVER_ALLOCATED_PCT = 100;
-
-/**
- * The near-term period keys: the period that contains `today` (§747), not the
- * plan's first period. Before the plan starts its first period is the next one;
- * after its end date there is none, even inside its last month or week. Shared with the Workload view's "Util (now)"
- * editor (`resources-panel.tsx`) so the cell edits the period the alert flags.
- */
-export function nearTermPeriodKeys(periods: readonly Period[], plan: ResourcePlan, today: string): string[] {
-  if (today > plan.endDate) return [];
-  const todayKey = periodKeyForDate(today, plan.granularity);
-  const first = today < plan.startDate ? 0 : periods.findIndex((p) => p.key === todayKey);
-  return first < 0 ? [] : periods.slice(first, first + NEAR_TERM_PERIODS).map((p) => p.key);
-}
 
 export function buildWorkloadAlerts(a: BuildWorkloadAlertsArgs): WorkloadAlert[] {
   const threshold = a.overdueThreshold ?? DEFAULT_OVERDUE_THRESHOLD;

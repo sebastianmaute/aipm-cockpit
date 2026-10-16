@@ -25,8 +25,7 @@ import type { CalendarEvent } from "./calendar-event";
 import { buildMoveOccurrenceHandler } from "./calendar-event-move-handler";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ResourceWorkload, WORKLOAD_COL_WIDTHS, type WorkloadCol } from "./resource-workload";
-import { generatePeriods, displayCapacityHours, absencesForResource, convertUtilization } from "./resource-capacity";
-import { nearTermPeriodKeys } from "./next-actions-workload";
+import { generatePeriods, displayCapacityHours, absencesForResource, convertUtilization, nearTermPeriodKeys } from "./resource-capacity";
 import { periodCost } from "./resource-cost";
 import {
   type Absence,
@@ -457,8 +456,8 @@ function ResourcesPanelInner({
     });
   }, [visibleResources, absences, roles, plan.startDate, plan.endDate, plan.granularity, viewGranularity, workdayHours, holidaySet]);
   // Near-term utilization for the workload over-allocation editor — the same
-  // period as the over-allocation alert: `nearTermPeriodKeys` is shared
-  // with next-actions-workload.ts (the period containing today, §747), so the
+  // period as the over-allocation alert: `nearTermPeriodKeys` (resource-capacity.ts)
+  // is shared with next-actions-workload.ts (the period containing today, §747), so the
   // inline editor targets the SAME period the alert flags.
   const nearTerm = useMemo(() => {
     const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);

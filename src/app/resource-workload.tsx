@@ -93,7 +93,7 @@ interface Props {
     existing: Shift | null,
     assignee: { display: string; email: string },
   ) => void;
-  /** Near-term period key from `nearTermPeriodKeys` (the period containing
+  /** Near-term period key from `nearTermPeriodKeys` (resource-capacity.ts; the period containing
    *  today) — the one the over-allocation alert flags; null when there's no plan
    *  period to edit (no periods, or the plan has ended). */
   nearTermPeriodKey: string | null;
