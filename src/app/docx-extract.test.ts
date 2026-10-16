@@ -92,6 +92,9 @@ describe("extractDocx", () => {
     // ~4x per doubling of the open count (measured before 2026-09-19).
     // Measured 2026-09-19 (ratio large / small, limit 8): 4.8–5.3 green,
     // 17.2 with that regex restored in headingDigit.
+    // ★ This site failed in CI on correct code (PR #755, a scripts-only change): pair ratios
+    // 6.75, 8.03 and 8.29 at the default limit of 8. Now repeats 5 and maxRatio 10. Measured
+    // 2026-10-16: green 3 of 3; 15.40 with the regex restored (pairs 13.40–18.91), so still red.
     expectLinearScaling({
       label: "unclosed <w:pStyle opens",
       // Untimed: the fixture INCLUDING its TextEncoder step and entries Map.
@@ -105,6 +108,8 @@ describe("extractDocx", () => {
       // The paragraph's one run survives the unclosed opens, with no heading.
       check: (out) => expect(out).toBe("x"),
       n: 10_000,
+      repeats: 5,
+      maxRatio: 10,
     });
   });
 
