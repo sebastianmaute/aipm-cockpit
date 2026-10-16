@@ -40,6 +40,7 @@ export function SimValue({
   explainer,
   onOpenHelp,
   wrap = false,
+  glyph,
 }: {
   lang: Lang;
   /** What the number is; becomes the accessible name with ", simulated". */
@@ -50,6 +51,8 @@ export function SimValue({
   onOpenHelp?: (conceptId: string) => void;
   /** A sentence-length value: the outline spans its line and the hint, badge and (i) wrap below it. */
   wrap?: boolean;
+  /** A decorative lead mark (the Forecast tile's ▲/▼), inside the outline and `aria-hidden`: the words carry it. */
+  glyph?: string;
 }) {
   return (
     <span
@@ -58,7 +61,7 @@ export function SimValue({
       data-sim="true"
       className={`${wrap ? "flex flex-wrap" : "inline-flex"} items-center gap-1.5 ${SIM_OUTLINE_CLASS}`}
     >
-      <span className="text-sm font-medium text-foreground">{value}</span>
+      <span className="text-sm font-medium text-foreground">{glyph && <span aria-hidden="true">{glyph} </span>}{value}</span>
       {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
       <SimBadge lang={lang} />
       {explainer && <SimExplainer lang={lang} onOpenHelp={onOpenHelp} {...explainer} />}

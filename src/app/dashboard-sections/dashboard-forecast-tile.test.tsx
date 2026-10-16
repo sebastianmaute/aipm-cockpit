@@ -70,6 +70,15 @@ describe("DashboardForecastTile", () => {
       expect(within(changeLine(container) as HTMLElement).getByText("▲")).toHaveAttribute("aria-hidden", "true");
     });
 
+    it("the glyph sits inside the sim outline, and the group's name is unchanged (§502)", () => {
+      const { container } = renderTile({ history: [entry("2026-10-09", "2027-02-16")] });
+      const group = screen.getByRole("group", { name: "Change since last week, simulated" });
+      const glyph = within(changeLine(container) as HTMLElement).getByText("▼");
+      expect(glyph.closest("[data-sim]")).toBe(group);
+      expect(glyph).toHaveAttribute("aria-hidden", "true");
+      expect(group).toHaveTextContent("▼ 2 working days earlier than last week");
+    });
+
     it("one working day reads singular", () => {
       const { container } = renderTile({ history: [entry("2026-10-09", "2027-02-11")] });
       expect(changeLine(container)).toHaveTextContent("▲ 1 working day later than last week");
@@ -116,6 +125,25 @@ describe("DashboardForecastTile", () => {
     expect(container.querySelector("[data-forecast-change]")).toHaveTextContent("Change unavailable: beyond the forecast horizon");
     expect(screen.getByText("12 open tasks")).toBeInTheDocument();
     expect(screen.getByText("Milestones at risk")).toBeInTheDocument();
+  });
+
+  it("a P50 without a P80 renders no headline and no empty line (§502)", () => {
+    // Unreachable by percentile order (P50 <= P80), but the type allows it: the guard renders nothing.
+    const { container } = renderTile({ forecast: { ...FORECAST, p50: null } });
+    expect(screen.queryByRole("group", { name: /^8 in 10 runs finish by/ })).toBeNull();
+    expect(screen.queryByRole("img")).toBeNull();
+    const empty = [...container.querySelectorAll("p")].filter((n) => n.textContent === "");
+    expect(empty).toHaveLength(0);
+  });
+
+  it("the headline wraps: its outline is a full-width flex row, the change line's is inline (§502)", () => {
+    renderTile({ history: [entry("2026-10-09", "2027-02-16")] });
+    const headline = screen.getByRole("group", { name: /^8 in 10 runs finish by/ });
+    expect(headline.className).toMatch(/(^| )flex flex-wrap( |$)/);
+    expect(headline.className).not.toContain("inline-flex");
+    const change = screen.getByRole("group", { name: "Change since last week, simulated" });
+    expect(change.className).toContain("inline-flex");
+    expect(change.className).not.toContain("flex-wrap");
   });
 
   it("open tasks are not marked sim", () => {

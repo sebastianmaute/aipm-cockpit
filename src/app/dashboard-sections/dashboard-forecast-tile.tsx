@@ -57,13 +57,13 @@ function changeText(lang: Lang, change: WeeklyChange, fmt: (iso: string) => stri
   }
 }
 
-/** The change since last week. The arrow is decorative; the words carry the direction. */
+/** The change since last week. The arrow is decorative; the words carry the direction. Only a sim
+ *  form has one, and it sits inside the outline with the words it marks. */
 function ChangeLine({ lang, change, fmt }: { lang: Lang; change: WeeklyChange; fmt: (iso: string) => string }) {
   const { glyph, text, sim } = changeText(lang, change, fmt);
   return (
     <p data-forecast-change className={MUTED_LINE}>
-      {glyph && <><span aria-hidden="true">{glyph}</span> </>}
-      {sim ? <SimValue lang={lang} label={t(lang, "forecastTileChangeLabel")} value={text} /> : text}
+      {sim ? <SimValue lang={lang} label={t(lang, "forecastTileChangeLabel")} value={text} glyph={glyph ?? undefined} /> : text}
     </p>
   );
 }
@@ -123,9 +123,10 @@ export function DashboardForecastTile(props: DashboardForecastTileProps) {
         <div className="min-w-0 space-y-1.5">
           {!ready ? (
             <SimPlaceholder />
-          ) : forecast.p80 === null || forecast.p50 === null ? (
-            <p className={MUTED_LINE}>{gap && simulationGapText(lang, gap)}</p>
-          ) : (
+          ) : forecast.p80 === null ? (
+            // `kpiSimulationGap` is "beyond" whenever P80 is null, so this line is never empty.
+            gap && <p className={MUTED_LINE}>{simulationGapText(lang, gap)}</p>
+          ) : forecast.p50 === null ? null /* unreachable: P50 <= P80 — the type cannot say so */ : (
             <>
               <SimValue
                 lang={lang}
