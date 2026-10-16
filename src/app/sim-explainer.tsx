@@ -135,6 +135,12 @@ function Chart({
   );
 }
 
+const LINE_KEY = {
+  date: "simExplainerLine1",
+  chance: "simExplainerLineChance",
+  milestone: "simExplainerLineMilestone",
+} as const;
+
 /** The (i) beside a simulated value: a popover saying how to read it. */
 export function SimExplainer({
   lang,
@@ -148,14 +154,15 @@ export function SimExplainer({
 }: {
   lang: Lang;
   windowDays: number;
-  /** Working days per trial; the engine's `Int32Array` is passed as is. */
-  distribution: ArrayLike<number>;
-  trials: number;
-  markers: SimMarkers;
+  /** Working days per trial; the engine's `Int32Array` is passed as is. Not used by `kind: "milestone"`. */
+  distribution?: ArrayLike<number>;
+  trials?: number;
+  markers?: SimMarkers;
   /** Names the (i) after its value, so two on one screen are told apart. Absent → the plain name. */
   label?: string;
-  /** What the value is: a finish `date` (default) or the `chance` of finishing by the plan end. */
-  kind?: "date" | "chance";
+  /** What the value is: a finish `date` (default), the `chance` of finishing by the plan end, or the
+   *  per-`milestone` chances (no histogram, no percentile list: the line, the window and the Help link). */
+  kind?: "date" | "chance" | "milestone";
   /** Renders the Help link when given. */
   onOpenHelp?: (conceptId: string) => void;
 }) {
@@ -163,8 +170,9 @@ export function SimExplainer({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelId = useId();
   const close = useCallback(() => setOpen(false), []);
-  const { bins, beyond } = buildHistogramBins(distribution, MAX_BINS);
-  const beyondShare = beyond > 0 && trials > 0 ? chanceText(lang, beyond / trials) : "";
+  const isMilestone = kind === "milestone";
+  const { bins, beyond } = isMilestone || !distribution ? { bins: [], beyond: 0 } : buildHistogramBins(distribution, MAX_BINS);
+  const beyondShare = beyond > 0 && trials !== undefined && trials > 0 ? chanceText(lang, beyond / trials) : "";
   const name = label ? t(lang, "simExplainerOpenFor", label) : t(lang, "simExplainerOpen");
   return (
     <>
@@ -195,9 +203,9 @@ export function SimExplainer({
             <XMarkIcon aria-hidden="true" className="h-3.5 w-3.5" />
           </IconButton>
         </span>
-        <p className="block text-foreground">{t(lang, kind === "chance" ? "simExplainerLineChance" : "simExplainerLine1")}</p>
+        <p className="block text-foreground">{t(lang, LINE_KEY[kind])}</p>
         <p className="block text-muted-foreground">{t(lang, "simExplainerWindow", windowDays)}</p>
-        {bins.length > 0 && (
+        {bins.length > 0 && markers && (
           <Chart
             bins={bins}
             markers={markers}
@@ -205,13 +213,15 @@ export function SimExplainer({
               markerPhrase(lang, markers.p50), markerPhrase(lang, markers.p80), markerPhrase(lang, markers.p95))}
           />
         )}
-        <ul className="m-0 list-none p-0 text-muted-foreground">
-          {CUTS.map((c) => (
-            <li key={c.p}>
-              {c.label} · {t(lang, percentileWord(c.p))}
-            </li>
-          ))}
-        </ul>
+        {!isMilestone && (
+          <ul className="m-0 list-none p-0 text-muted-foreground">
+            {CUTS.map((c) => (
+              <li key={c.p}>
+                {c.label} · {t(lang, percentileWord(c.p))}
+              </li>
+            ))}
+          </ul>
+        )}
         {beyond > 0 && <p className="block text-muted-foreground">{t(lang, "simBeyondHorizon", beyondShare)}</p>}
         {onOpenHelp && (
           <Button variant="ghost" size="xs" onClick={() => onOpenHelp(FORECAST_SIM_HELP_ID)}>

@@ -39,6 +39,7 @@ import { Button } from "./button";
 import { BurndownChainChip, BurndownChainWarning, isChainBroken } from "./budget-chain-warning";
 import { VarianceSummary } from "./variance-summary";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
+import { SimExplainer } from "./sim-explainer";
 import { Sparkline } from "./sparkline";
 import { formatDayMonth } from "./forecast-format";
 import { localeFor } from "./date-format";
@@ -62,7 +63,7 @@ import type { ChangeStatus } from "./types";
 import { buildRowTokens } from "./row-tokens";
 import { CELL_BUTTON } from "./control-classes";
 import type { KpiSimulation, KpiSimulationGap } from "./kpi-simulation";
-import type { AppForecast } from "./forecast/app-forecast";
+import type { AppForecast, MilestoneChance } from "./forecast/app-forecast";
 import { DashboardForecastTile, type DashboardForecastTileProps } from "./dashboard-sections/dashboard-forecast-tile";
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
@@ -95,6 +96,13 @@ function ActivateBody({
   ) : (
     <div className={className}>{children}</div>
   );
+}
+
+/** id → chance for the milestones the engine gave a chance (overdue and no-linked-task ones get none). */
+function chancesById(rows: readonly MilestoneChance[]): ReadonlyMap<number, number> {
+  const out = new Map<number, number>();
+  for (const r of rows) if (r.state === "chance") out.set(r.id, r.chance);
+  return out;
 }
 
 export interface TileBodyArgs {
@@ -149,6 +157,9 @@ export interface TileBodyArgs {
  */
 export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId, ReactNode>> {
   const { lang, dc, model } = a;
+  // §502 — the strip's chance chips come from the SAME run as the KPI strip and the Forecast tile;
+  // `a.forecast` is null while the switch is off, held back or waiting for holidays.
+  const milestoneChances = a.forecast?.kind === "forecast" ? chancesById(a.forecast.milestones) : undefined;
   // §316 — two pending changes can share a title, so each row button is named
   // by a row-unique token.
   const changeTokens = buildRowTokens(model.topChanges.map((c) => ({ id: c.id, name: c.title })));
@@ -251,7 +262,22 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
     ),
 
     milestones: (
-      <MilestoneHorizonStrip lang={lang} buckets={a.milestoneBuckets} onOpenMilestone={a.onOpenMilestone} />
+      <MilestoneHorizonStrip
+        lang={lang}
+        buckets={a.milestoneBuckets}
+        onOpenMilestone={a.onOpenMilestone}
+        chances={milestoneChances}
+        simPending={a.simulationPending}
+        explainer={a.forecast?.kind === "forecast" && milestoneChances ? (
+          <SimExplainer
+            lang={lang}
+            kind="milestone"
+            windowDays={a.forecast.windowDays}
+            label={t(lang, "milestoneChancesAbout")}
+            onOpenHelp={a.onOpenHelp}
+          />
+        ) : undefined}
+      />
     ),
 
     changes: (

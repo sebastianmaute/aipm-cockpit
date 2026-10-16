@@ -2167,3 +2167,73 @@ describe("DashboardPanel Forecast tile", () => {
     expect(onNavigate).toHaveBeenCalledWith("forecast");
   });
 });
+
+// ── §502 part 2: the chance chip on each Milestones-tile entry ─────────────────
+describe("DashboardPanel milestone chance chips", () => {
+  const simName = () => new RegExp(t(EN, "simulationShow"));
+  const FORECAST: appForecastModule.AppForecast = {
+    kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
+    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
+    markers: { p50: 5, p80: 10, p95: 15 },
+    milestones: [{ id: 1, state: "chance", chance: 0.62, chancePrioritised: 0.7 }],
+  };
+  const about = () => screen.queryAllByRole("button", { name: /About these chances/ });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("switch on: a chip with the percent and one About these chances explainer; off again: none", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    render(<DashboardPanel {...fullProps} projectId="p-mc-chip" />, { wrapper });
+    expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(about()).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: simName() }));
+    const chips = document.querySelectorAll("[data-sim-chip]");
+    expect(chips).toHaveLength(1);
+    expect(chips[0]).toHaveTextContent("62%");
+    expect(screen.getByText(/62% chance on time, simulated/)).toBeInTheDocument();
+    expect(about()).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(about()).toHaveLength(0);
+  });
+
+  it("no chip and no explainer when no milestone has a chance", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({
+      ...FORECAST, milestones: [{ id: 1, state: "overdue" }],
+    } as appForecastModule.AppForecast);
+    render(<DashboardPanel {...fullProps} projectId="p-mc-none" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(about()).toHaveLength(0);
+  });
+
+  it("held back: no chip while the view is hidden though the stored switch is on", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    const shown = showForecastView();
+    const ui = () => <DashboardPanel {...fullProps} projectId="p-mc-held" />;
+    const { rerender } = render(ui(), { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(1);
+    shown.mockRestore();
+    rerender(ui());
+    expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(about()).toHaveLength(0);
+  });
+
+  it("holidays pending: placeholders, no percent, the engine does not run", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    render(<DashboardPanel {...fullProps} holidaysReady={false} projectId="p-mc-pending" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});

@@ -170,3 +170,17 @@ describe("SimExplainer in German", () => {
     expect(screen.getByText("Basierend auf den letzten 60 Arbeitstagen.")).toBeInTheDocument();
   });
 });
+
+describe("SimExplainer kind milestone (§502)", () => {
+  it("says the milestone line and the window, draws no histogram and no percentile list", async () => {
+    const user = userEvent.setup();
+    const { baseElement } = render(<SimExplainer lang="en-US" kind="milestone" windowDays={60} label="About these chances" onOpenHelp={() => {}} />);
+    await user.click(screen.getByRole("button", { name: "How to read this: About these chances" }));
+    expect(screen.getByText(/share of the 10,000 runs that finished the milestone's last linked task by its date/)).toBeInTheDocument();
+    expect(screen.getByText(/also shows the chance if the milestone's tasks went first/)).toBeInTheDocument();
+    expect(screen.getByText("Based on the last 60 working days.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Learn more in Help" })).toBeInTheDocument();
+    expect(baseElement.querySelector("svg[role='img']")).toBeNull();
+    expect(screen.queryByText(/P50|P80|P95/)).toBeNull();
+  });
+});

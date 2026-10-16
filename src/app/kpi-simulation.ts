@@ -58,6 +58,12 @@ export function forecastTileContentKey(forecast: AppForecast | null, atRiskCount
   return `fc:${forecast.p80 === null ? "beyond" : "p80"}:${forecast.p95 === null}:${atRiskCount}`;
 }
 
+/** The Milestones tile's chips and explainer line: how many chips draw (0 = no chip, no explainer). */
+export function milestoneChipsContentKey(forecast: AppForecast | null): string {
+  const n = forecast?.kind === "forecast" ? forecast.milestones.filter((m) => m.state === "chance").length : 0;
+  return `ms:${n}`;
+}
+
 /** Why the switch is on but the strip shows no simulated cell. */
 export type KpiSimulationGap =
   | { kind: "finished"; finished: number; needed: number }
