@@ -461,7 +461,7 @@ function ResourcesPanelInner({
   // inline editor targets the SAME period the alert flags.
   const nearTerm = useMemo(() => {
     const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
-    const key = nearTermPeriodKeys(periods, plan, today)[0] ?? null;
+    const key = nearTermPeriodKeys(periods, { startDate: plan.startDate, endDate: plan.endDate, granularity: plan.granularity }, today)[0] ?? null;
     const pctByResource = new Map<number, number>();
     if (key) {
       for (const r of resources) {
@@ -472,7 +472,7 @@ function ResourcesPanelInner({
       }
     }
     return { key, pctByResource };
-  }, [resources, plan, today, workdayHours, holidaySet]);
+  }, [resources, plan.startDate, plan.endDate, plan.granularity, today, workdayHours, holidaySet]);
   const getPlanValue = useCallback((row: typeof planRows[number], k: PlanSortKey): string | number => {
     const values: Record<PlanSortKey, string | number> = {
       assignee: row.name,
