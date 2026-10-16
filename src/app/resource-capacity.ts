@@ -1,4 +1,4 @@
-import type { Absence, PlanGranularity, Resource } from "./types";
+import type { Absence, PlanGranularity, Resource, ResourcePlan } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 
 /** A planning period. Dates are inclusive "YYYY-MM-DD". */
@@ -85,6 +85,27 @@ export function generatePeriods(
 ): Period[] {
   if (startDate > endDate) return [];
   return granularity === "week" ? weekPeriods(startDate, endDate) : monthPeriods(startDate, endDate);
+}
+
+const NEAR_TERM_PERIODS = 1; // the period containing `today` only
+
+/**
+ * The near-term period keys: the period that contains `today` (§747), not the
+ * plan's first period. Before the plan starts its first period is the next one;
+ * after its end date there is none, even inside its last month or week. Used by
+ * the over-allocation next action (`buildWorkloadAlerts`) AND the Workload
+ * view's "Util (now)" editor (`resources-panel.tsx`), so the cell edits the
+ * period the alert flags.
+ */
+export function nearTermPeriodKeys(
+  periods: readonly Period[],
+  plan: Pick<ResourcePlan, "startDate" | "endDate" | "granularity">,
+  today: string,
+): string[] {
+  if (today > plan.endDate) return [];
+  const todayKey = periodKeyForDate(today, plan.granularity);
+  const first = today < plan.startDate ? 0 : periods.findIndex((p) => p.key === todayKey);
+  return first < 0 ? [] : periods.slice(first, first + NEAR_TERM_PERIODS).map((p) => p.key);
 }
 
 function isWorkday(d: Date, holidaySet: ReadonlySet<string>): boolean {

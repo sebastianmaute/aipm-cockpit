@@ -407,6 +407,49 @@ describe("ResourcesPanel", () => {
     expect(screen.queryByText(/Bob Ext/)).not.toBeInTheDocument();
   });
 
+  // §747: "Util (now)" edits the period containing today — the one the
+  // over-allocation alert flags — not the plan's first period.
+  test("the Util (now) cell edits the current period of a plan that started months ago", () => {
+    const onSetUtilization = vi.fn();
+    const resources = [
+      { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-03": 50, "2026-09": 135 } },
+    ];
+    render(
+      <ResourcesPanel
+        {...baseProps}
+        view="workload"
+        lang="en-US"
+        resources={resources}
+        today="2026-09-21"
+        plan={{ startDate: "2026-03-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" }}
+        onSetUtilization={onSetUtilization}
+      />,
+    );
+    const cell = screen.getByRole("spinbutton", { name: t("en-US", "workloadNearTermUtilLabel", "Sofia Ramirez") });
+    expect(cell).toHaveValue(135);
+    fireEvent.change(cell, { target: { value: "90" } });
+    expect(onSetUtilization).toHaveBeenCalledWith(1, "2026-09", 90);
+  });
+
+  test("the Util (now) cell shows a dash once the plan's end date has passed (§747)", () => {
+    const resources = [
+      { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-12": 135 } },
+    ];
+    render(
+      <ResourcesPanel
+        {...baseProps}
+        view="workload"
+        lang="en-US"
+        resources={resources}
+        today="2026-12-20"
+        plan={{ startDate: "2026-03-01", endDate: "2026-12-15", granularity: "month", currency: "EUR" }}
+      />,
+    );
+    expect(screen.queryByRole("spinbutton", { name: t("en-US", "workloadNearTermUtilLabel", "Sofia Ramirez") })).toBeNull();
+    // Positive half: the row is rendered, so the missing cell is not a missing row.
+    expect(screen.getByText(/Sofia Ramirez/)).toBeInTheDocument();
+  });
+
   // Workload lists the same people as planning but had no way to drop
   // contractors, so a team with many externals could not be read at a glance.
   //

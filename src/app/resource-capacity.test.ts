@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { generatePeriods, periodKeyForDate, workdaysInRange, absencesForResource, absenceWorkdays, periodCapacityHours, displayCapacityHours, convertUtilization } from "./resource-capacity";
+import { generatePeriods, nearTermPeriodKeys, periodKeyForDate, workdaysInRange, absencesForResource, absenceWorkdays, periodCapacityHours, displayCapacityHours, convertUtilization } from "./resource-capacity";
 import type { Absence, Resource } from "./types";
 import type { Period } from "./resource-capacity";
 
@@ -217,5 +217,32 @@ describe("month-entry → week-view borrow", () => {
     );
     // 100% × 5 workdays × 8h = 40h
     expect(total).toBe(40);
+  });
+});
+
+// §747: the near-term period is the one containing today.
+describe("nearTermPeriodKeys", () => {
+  const keys = (startDate: string, endDate: string, granularity: "month" | "week", today: string) =>
+    nearTermPeriodKeys(generatePeriods(startDate, endDate, granularity), { startDate, endDate, granularity }, today);
+
+  test("today on the plan's start date is its first period", () => {
+    expect(keys("2026-03-11", "2026-12-31", "month", "2026-03-11")).toEqual(["2026-03"]);
+    expect(keys("2026-03-11", "2026-12-31", "week", "2026-03-11")).toEqual(["2026-W11"]);
+  });
+
+  test("today on the plan's end date is still inside it", () => {
+    expect(keys("2026-03-01", "2026-12-15", "month", "2026-12-15")).toEqual(["2026-12"]);
+  });
+
+  test("crosses the ISO week-year boundary the way generatePeriods keys it", () => {
+    expect(keys("2026-12-01", "2027-02-28", "week", "2026-12-24")).toEqual(["2026-W52"]);
+    // 2027-01-01 is a Friday in ISO week 2026-W53.
+    expect(keys("2026-12-01", "2027-02-28", "week", "2027-01-01")).toEqual(["2026-W53"]);
+    expect(keys("2026-12-01", "2027-02-28", "week", "2027-01-04")).toEqual(["2027-W01"]);
+  });
+
+  test("before the start it is the first period; after the end date there is none", () => {
+    expect(keys("2026-03-11", "2026-12-31", "month", "2026-01-05")).toEqual(["2026-03"]);
+    expect(keys("2026-03-01", "2026-12-15", "month", "2026-12-16")).toEqual([]);
   });
 });
