@@ -415,9 +415,10 @@ comments).
 ## The simulated cost range sits beside the calculated pace (§502 part 3)
 
 ★★ The calculated "at current pace" forecast is unchanged by the simulation. It still drives the Budget health dot
-(`paceVacHealth`), the forecast gap and the export pace leg; the simulated cost at finish (`ForecastBundle.sim`)
-sits beside it on the pace card, the burn charts, the tile and the Forecast view, and nothing downstream of those
-three reads it. A change that makes a health figure read `sim` changes what a held-back, opt-in estimate does to a
+(`paceVacHealth`), the forecast gap and the export pace leg. The simulated cost at finish on the bundle
+(`ForecastBundle.sim`) sits beside it on the pace card, the burn charts, the tile and the change table, and nothing
+downstream of those four reads it. The Forecast view's cost card does NOT read `ForecastBundle.sim`: it computes its
+own range from the view's What-if-adjusted run (`simulateCostFromRun` in `forecast-panel.tsx`). A change that makes a health figure read `sim` changes what a held-back, opt-in estimate does to a
 colour users act on. Detail: [`forecast.md`](forecast.md) "Budget simulation — part 3".
 
 ## Forecast import (§500)

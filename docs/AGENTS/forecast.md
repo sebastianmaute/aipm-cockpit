@@ -451,25 +451,41 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
   the earliest `date` with a non-zero value ANYWHERE in `dated`, not only in the window; samples start at
   max(window start, first booking), so a booking before the window means every window day is a sample, and a young
   project's idle days before its first booking are not counted as zero spend. A zero entry is not a booking.
-  `simulateCostAtFinish` then walks each trial: `ac` plus one random sample per finish day.
+  `simulateCostAtFinish` then walks each trial: `ac` plus one random sample per finish day, each sample multiplied by
+  the optional `spendScale` (default 1).
+- ★★ **What-if capacity scales spend (Forecast view only).** Capacity is team availability (the scenarios design uses
+  it for contractors and holidays), so burn scales with headcount: the Forecast view passes
+  `capacityPercent / 100` as `spendScale` through `simulateCostFromRun`. Alone, capacity is therefore about
+  cost-neutral (the finish moves one way, spend per day the other); scope is what drives cost. The seed ignores
+  `spendScale`, so at 1 every pinned value is unchanged and a scaled run draws the same days. The Dashboard and the
+  Budget report pass nothing (the default What-if). ★ If the owner reads capacity as efficiency instead, this is
+  the one parameter to drop.
+- ★ **Nothing open short-circuits.** When every trial's finish day is 0, the result is `{ kind: "sim" }` with
+  P50 = P80 = P95 = `ac` (the chance over budget by `bac`) even below the spend floor: the exact answer needs no
+  history.
 - ★★ **Beyond trials.** A trial whose finish day is past `MAX_HORIZON_WORKING_DAYS` costs `Infinity`: it counts as over
   budget (`chanceOverBudget`, null when `bac <= 0`) and a percentile that lands on it reads `"beyond"`, never a number.
   Such a trial draws nothing, which is why a capacity extreme is cheap and a finish just inside the horizon is the
   expensive case (see the measured cost below).
 - ★★ **The floors.** The cost range needs BOTH the schedule floor (the schedule run is a `"forecast"`, not
-  insufficient) and the spend floor: at least `MIN_SPEND_WORKING_DAYS` samples, not all zero. Below either it is
-  `{ kind: "unavailable", reason: "schedule-floor" | "spend-history", spendDays, neededSpendDays }`, and every surface
-  shows today's figures plus a line naming which is missing (`budgetSimMissingSchedule` / `budgetSimMissingSpend`).
+  insufficient) and the spend floor: at least `MIN_SPEND_WORKING_DAYS` samples. Below either it is
+  `{ kind: "unavailable", reason: "schedule-floor" | "spend-history", spendDays, neededSpendDays }`. With enough
+  samples that are ALL zero (bookings exist before the window, none inside it) the reason is `"no-spend"`. Every
+  surface shows today's figures plus a line naming which is missing, worded in ONE place: `costUnavailableText`
+  (`budget-sim-text.ts`; `budgetSimMissingSchedule` / `budgetSimMissingSpend` / `budgetSimNoSpend`), used by the
+  pace card, the tile and the Forecast view, which also share the P50/P80/P95/chance rows (`costRangeRows`).
 - **Seeded.** The rng seed is `seedFrom([...samples, ac, bac, seedTag, "cost"])`, so a rerun is identical and EUR and
   hours draw from different streams (`seedTag` "eur" / "hours"). It is separate from the schedule's streams, so the
   cost pass moves no schedule number.
 - **`src/app/budget-sim.ts`.** `computeBudgetSim(forecast, facts)` returns `BudgetSim` (`finish` P50/P80/P95 dates, and
   `eur` / `hours` `CostAtFinish`), null when the forecast is null (switch off), and `BELOW_SCHEDULE_FLOOR` for both
   units when the run is insufficient; a single-entry memo is keyed on the `forecast` and `facts` identities.
-  `withBudgetSim(bundle, forecast)` returns a NEW bundle with `sim` added. `simulateCostFromRun(run, facts, seedTag)`
-  takes only `{ trialDays, windowDates }`, so the Forecast view can pass its own What-if-adjusted run.
+  `withBudgetSim(bundle, forecast)` returns a NEW bundle with `sim` added. `simulateCostFromRun(run, facts, seedTag,
+  spendScale = 1)` takes only `{ trialDays, windowDates }` of the run, so the Forecast view can pass its own
+  What-if-adjusted run and its capacity.
 - **The bundle.** `ForecastBundle` (`budget-forecast-bundle.ts`) gains `facts` (REQUIRED: the per-unit facts the
-  forecasts were built from, via `computeProjectForecastFacts`) and `sim` (absent, or null, when the simulation is
+  forecasts were built from, via `forecastFactsByUnit`; only the Forecast view's facts come from
+  `computeProjectForecastFacts`, in `workspace-section.tsx`) and `sim` (absent, or null, when the simulation is
   off). A new `ForecastBundle` literal in a test needs `facts` (`FIXTURE_FACTS` in `src/test/forecast-bundle-fixture.ts`).
 - ★★★ **One shared run, a new caller.** `useAppForecast` (`use-app-forecast.ts`) wraps `computeAppForecast` in a
   `useMemo` and never calls the engine while `active` is false. `workspace-section.tsx` calls it ONCE and feeds both the
@@ -483,15 +499,18 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
     hours, rendered ONLY inside the pace-available branch, i.e. only beside a calculated figure. With no calculated
     figure the card keeps its unavailable message.
   - Burn charts (`burndown-geometry.ts`, `burndown-chart.tsx`): a finish band (P50 to P95), a P80 line and a cost wedge.
-    ★ With the simulation on, the x domain stretches to the simulated P95 finish (a beyond one clamps to the last date),
-    and the end figures and last period label anchor at plan end; with it off the chart is byte-identical to before.
-    A beyond P95 draws no cost wedge.
-  - Tile (`burndown-chart-panel.tsx`, compact mode): one line "Cost at finish (P80) … · … chance over budget"; when
-    unavailable, the muted missing line.
+    ★ Only when a finish band is drawn (the simulation on AND the run above the schedule floor) does the x domain
+    stretch to the simulated finish dates and do the end figures and last period label anchor at plan end; a beyond
+    P95 falls back to the domain end computed from the other dates (the last period end, plan end and the in-horizon
+    finishes). Below the schedule floor, or with the switch off, the chart is byte-identical to before. A beyond P95
+    draws no cost wedge.
+  - Tile (`burndown-chart-panel.tsx`, compact mode): one line "Cost at finish (P80) … · … chance over budget"; in the
+    hours unit it reads "Hours at finish (P80) …" (`burndownSimTileLineHours`), as does the chart's text
+    alternative (`burndownAriaSimHours`). When unavailable, the muted missing line.
   - Change table (`budget-change-table.tsx`): a footer row "Cost at finish (sim)" with the P50 – P95 range; ABSENT when
     the range is unavailable (the card and tile say why).
   - Forecast view (`forecast-panel.tsx`, `CostTable` in `forecast-tables.tsx`): a cost card computed from the view's OWN
-    What-if-adjusted run, so moving capacity or scope moves it. It is hidden when the Budget module is off
+    What-if-adjusted run, so moving scope moves it (capacity scales spend too, so alone it barely moves it; see above). It is hidden when the Budget module is off
     (`budgetEnabled`) and shows "Add a budget" (`budgetSimAddBudget`) when there are no buckets or `bac` is 0.
     `workspace-section.tsx` computes its facts only on the Forecast tab with the simulation active and the Budget module on.
 - Every simulated figure is a `SimValue` (the sim marking), except the pace card's P50/P80/P95 rows, which sit inside
