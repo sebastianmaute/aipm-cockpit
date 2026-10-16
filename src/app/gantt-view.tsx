@@ -23,7 +23,7 @@ import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { type Milestone, type Task } from "./types";
 import { type UndoStackApi } from "./undo/use-undo-stack";
-import { moveMilestoneDate, type MilestoneUpdateDeps } from "./milestone-update";
+import { moveMilestoneBy, type MilestoneUpdateDeps } from "./milestone-update";
 import { reportSilentFailure } from "./guard-feedback";
 import { useToastContext } from "./toast-context";
 
@@ -43,6 +43,8 @@ export interface GanttViewProps {
   onCaptureFieldEdit?: UndoStackApi["captureFieldEdit"];
   logActivity?: MilestoneUpdateDeps["logActivity"];
   logActivityChanges?: MilestoneUpdateDeps["logActivityChanges"];
+  /** §596 swap discriminator, for a keyboard move pending at teardown. */
+  isSwapInFlight?: () => boolean;
 }
 
 export function GanttView({
@@ -58,6 +60,7 @@ export function GanttView({
   onCaptureFieldEdit,
   logActivity,
   logActivityChanges,
+  isSwapInFlight,
 }: GanttViewProps) {
   const { settings, lang } = useSettings();
   const { tasks, setTasks, absences, resources, milestones, setMilestones } = useWorkspace();
@@ -88,9 +91,9 @@ export function GanttView({
     triggerQualifier: t(lang, "tabGantt"),
   });
 
-  function moveMilestone(id: number, date: string) {
+  function moveMilestone(id: number, days: number) {
     const deps = { setMilestones, captureFieldEdit: onCaptureFieldEdit, logActivity, logActivityChanges };
-    if (moveMilestoneDate(milestones, id, date, deps) === "vanished") {
+    if (moveMilestoneBy(milestones, id, days, deps) === "vanished") {
       reportSilentFailure(showToast, lang, "milestone.moveVanished", "concurrent delete during drag", "guardEditVanished");
     }
   }
@@ -109,6 +112,7 @@ export function GanttView({
         onAddMilestone={onAddMilestone}
         onEditMilestone={onEditMilestone}
         onMoveMilestone={milestonesEnabled && !isPopout ? moveMilestone : undefined}
+        isSwapInFlight={isSwapInFlight}
         showHints={showHints}
         isPopout={isPopout}
         onLearnMore={requestHelpConcept}

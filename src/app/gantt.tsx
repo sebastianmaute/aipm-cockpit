@@ -79,6 +79,7 @@ export function GanttPanel({
   onAddMilestone,
   onEditMilestone,
   onMoveMilestone,
+  isSwapInFlight,
   showHints,
   isPopout,
   onLearnMore,
@@ -97,7 +98,10 @@ export function GanttPanel({
   onAddMilestone?: () => void;
   onEditMilestone?: (m: Milestone) => void;
   /** Move a milestone to a new date (§715 project D); absent = milestones stay put. */
-  onMoveMilestone?: (id: number, date: string) => void;
+  onMoveMilestone?: (id: number, days: number) => void;
+  /** Live §596 discriminator: a keyboard move still pending when a project swap
+   *  tears the chart down is dropped instead of written into the outgoing project. */
+  isSwapInFlight?: () => boolean;
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
@@ -496,9 +500,10 @@ export function GanttPanel({
   // in the row's onDragStart to suppress native HTML5 row-reorder.
   const { barDrag, barDragDeltaDays, interactingWithBarRef, previewDates, startBarDrag } =
     useGanttBarDrag(onUpdateBar);
-  // Milestone drag (§715 project D): pointer drag commits on release, arrow keys per press.
+  // Milestone drag (§715 project D): a pointer drag commits on release; arrow
+  // presses move the preview and commit once, on a pause, Enter or blur.
   const { milestoneDrag, startMilestoneDrag, onMilestoneKeyDown, onMilestoneBlur } =
-    useGanttMilestoneDrag(onMoveMilestone);
+    useGanttMilestoneDrag(onMoveMilestone, { isSwapInFlight });
 
   function handleDrop(fromId: number, toId: number) {
     setDraggingId(null);

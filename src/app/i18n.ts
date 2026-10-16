@@ -1494,7 +1494,7 @@ const enUS = {
   ganttBarResizeStart: "Drag to change start date",
   ganttBarResizeEnd: "Drag to change due date",
   ganttMilestoneMove: "Move milestone",
-  ganttMilestoneMoveHint: "Drag, or press the arrow keys: one day, with Shift one week. Escape cancels",
+  ganttMilestoneMoveHint: "Drag, or press the arrow keys: one day, with Shift one week. Enter saves at once, Escape cancels",
   ganttCriticalPath: "Critical path",
   ganttCriticalPathHint:
     "Highlight the chain of zero-slack tasks that drive the project end date.",

@@ -893,8 +893,8 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   `use-gantt-milestone-drag.ts` (milestone drag, §715 project D — the same window-listener shape; the
   handle is a SLIDER whose arrow presses move only the preview and commit once, on a pause, Enter or blur,
   and the chart keeps the handle scrolled into view; focus survives the re-sort a commit causes because React
-  refocuses a node its commit moved and the row window keeps a focused row mounted; the date commits through `moveMilestoneDate` in `milestone-update.ts`, the one
-  update path the Milestones editor's save shares, so a chart move gets the same undo entry and activity
+  refocuses a node its commit moved and the row window keeps a focused row mounted; a day OFFSET commits through `moveMilestoneBy` in `milestone-update.ts`, resolved against the milestone's live date so a change that landed meanwhile is moved, not overwritten, and a keyboard move pending when a project swap tears the chart down is dropped (`isSwapInFlight`);
+  `commitMilestoneUpdate` there is the one update path the Milestones editor's save shares, so a chart move gets the same undo entry and activity
   row) and
   `use-gantt-prefs.ts` (sort/filter prefs state + localStorage hydrate/persist + setters); presentational
   `gantt-chrome.tsx` (`GanttToolbar`, `GanttHeader` axis, `GanttDependencyLayer` SVG arrows + milestone

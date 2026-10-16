@@ -38,6 +38,12 @@ function ShowDate() {
       {milestones.map((m) => <output key={m.id} data-testid="date">{m.date}</output>)}
       {/* A concurrent writer deleting every milestone. */}
       <button type="button" aria-label="delete-all" onClick={() => setMilestones([])} />
+      {/* A concurrent writer moving the first milestone to 2026-11-01. */}
+      <button
+        type="button"
+        aria-label="shift-date"
+        onClick={() => setMilestones((prev) => prev.map((m, i) => (i === 0 ? { ...m, date: "2026-11-01" } : m)))}
+      />
     </>
   );
 }
@@ -122,6 +128,32 @@ describe("GanttView — milestone move", () => {
     // lands after the pause, against the live list, and finds nothing.
     act(() => { vi.advanceTimersByTime(MILESTONE_KEY_COMMIT_DELAY_MS); });
     expect(showToast).toHaveBeenCalledWith("error", "This item was deleted elsewhere — your change wasn't saved.");
+  });
+
+  it("moves from the date a concurrent writer set, not the one the presses started on", () => {
+    renderView();
+    const slider = screen.getByRole("slider", { name: HANDLE });
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+    fireEvent.click(screen.getByRole("button", { name: "shift-date" }));
+    fireEvent.keyDown(screen.getByRole("slider", { name: HANDLE }), { key: "Enter" });
+    expect(screen.getAllByTestId("date")[0].textContent).toBe("2026-11-02");
+  });
+
+  it("lands a pending move when the chart unmounts on navigation, and drops it during a project swap", () => {
+    for (const [swapping, expected] of [[false, "2026-10-24"], [true, "2026-10-23"]] as const) {
+      const ui = (show: boolean) => (
+        <>
+          <Seed list={MS} />
+          <ShowDate />
+          {show && <GanttView milestonesEnabled isSwapInFlight={() => swapping} />}
+        </>
+      );
+      const { rerender, unmount } = render(ui(true), { wrapper: Wrapper });
+      fireEvent.keyDown(screen.getByRole("slider", { name: HANDLE }), { key: "ArrowRight" });
+      rerender(ui(false));
+      expect(screen.getAllByTestId("date")[0].textContent).toBe(expected);
+      unmount();
+    }
   });
 
   it("offers no handle in the read-only pop-out", () => {

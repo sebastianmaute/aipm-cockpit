@@ -36,7 +36,7 @@ describe("GanttMilestoneRow — drag handle", () => {
     // The handle covers the diamond, so its tooltip carries the timeline's name and date too.
     expect(handle).toHaveAttribute(
       "title",
-      `Pilot Go-Live · ${fmtFull(new Date(Date.UTC(2026, 5, 20)), "en-US")} — Drag, or press the arrow keys: one day, with Shift one week. Escape cancels`,
+      `Pilot Go-Live · ${fmtFull(new Date(Date.UTC(2026, 5, 20)), "en-US")} — Drag, or press the arrow keys: one day, with Shift one week. Enter saves at once, Escape cancels`,
     );
     // A slider whose value text is the date: what a screen reader announces after a move.
     expect(handle).toHaveAttribute("aria-valuetext", fmtFull(new Date(Date.UTC(2026, 5, 20)), "en-US"));
@@ -113,7 +113,7 @@ describe("GanttPanel — milestone move wiring", () => {
     expect(slider).toHaveAttribute("aria-valuetext", fmtFull(new Date(Date.UTC(2026, 5, 22)), "en-US"));
     fireEvent.keyDown(slider, { key: "Enter" });
     expect(onMoveMilestone).toHaveBeenCalledTimes(1);
-    expect(onMoveMilestone).toHaveBeenCalledWith(100, "2026-06-22");
+    expect(onMoveMilestone).toHaveBeenCalledWith(100, 2);
   });
 
   it("keeps the handle scrolled into view while arrow presses move it", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { commitMilestoneUpdate, moveMilestoneDate, type MilestoneUpdateDeps } from "./milestone-update";
+import { commitMilestoneUpdate, moveMilestoneBy, moveMilestoneDate, type MilestoneUpdateDeps } from "./milestone-update";
 import type { Milestone } from "./types";
 
 const STAMP = "2026-10-16T10:00:00.000Z";
@@ -92,5 +92,33 @@ describe("moveMilestoneDate", () => {
     expect(moveMilestoneDate([a], 1, "2026-10-23", h.deps)).toBe("unchanged");
     expect(h.logActivityChanges).not.toHaveBeenCalled();
     expect(h.captureFieldEdit).not.toHaveBeenCalled();
+  });
+});
+
+describe("moveMilestoneBy", () => {
+  it("offsets from the date the milestone has now, not one captured earlier", () => {
+    // The list a commit sees after another writer moved Pilot Go-Live to 2026-10-26.
+    const moved = { ...a, date: "2026-10-26" };
+    const h = harness([moved, b]);
+    expect(moveMilestoneBy([moved, b], 1, 2, h.deps, () => STAMP)).toBe("moved");
+    expect(h.read()[0].date).toBe("2026-10-28");
+  });
+
+  it("reports a milestone that is gone", () => {
+    const h = harness([b]);
+    expect(moveMilestoneBy([b], 1, 2, h.deps)).toBe("vanished");
+  });
+
+  it("does not move an achieved milestone", () => {
+    const done = { ...a, achievedDate: "2026-10-20" };
+    const h = harness([done]);
+    expect(moveMilestoneBy([done], 1, 2, h.deps)).toBe("achieved");
+  });
+
+  it("leaves a milestone whose stored date does not parse", () => {
+    const bad = { ...a, date: "soon" };
+    const h = harness([bad]);
+    expect(moveMilestoneBy([bad], 1, 2, h.deps)).toBe("unchanged");
+    expect(h.read()).toEqual([bad]);
   });
 });

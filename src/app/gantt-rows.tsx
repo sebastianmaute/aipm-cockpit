@@ -10,7 +10,6 @@ import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS } from "./mile
 import { isTaskClosed } from "./task-closed";
 import { rowLabel } from "./row-tokens";
 import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
-import { shiftIsoDate } from "./use-gantt-milestone-drag";
 import { FOCUS_RING } from "./interaction-styles";
 import {
   absenceBandBg,
@@ -26,6 +25,7 @@ import {
   milestoneDiamondProps,
   parseISO,
   priorityFillClass,
+  shiftIsoDate,
   ROW_HEIGHT_PX,
 } from "./gantt-engine";
 import { CELL_BUTTON } from "./control-classes";

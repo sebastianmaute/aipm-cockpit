@@ -11,6 +11,7 @@ import { captureFieldChanges } from "./undo/capture-field-changes";
 import { MILESTONE_UNDO_GROUPS } from "./undo/field-groups";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 import type { Milestone } from "./types";
+import { shiftIsoDate } from "./gantt-engine";
 
 export interface MilestoneUpdateDeps {
   setMilestones: Dispatch<SetStateAction<readonly Milestone[]>>;
@@ -59,6 +60,26 @@ export function commitMilestoneUpdate(
 }
 
 export type MilestoneMoveOutcome = "moved" | "unchanged" | "achieved" | "vanished";
+
+/**
+ * Move milestone `id` by `days` from the date it has NOW in `milestones` — not
+ * from a date captured when the drag or the key presses began, so a change that
+ * landed meanwhile (an AI write, undo, another tab, a just-saved keyboard move)
+ * is moved, never overwritten. This is the date the chart previews, too.
+ */
+export function moveMilestoneBy(
+  milestones: readonly Milestone[],
+  id: number,
+  days: number,
+  deps: MilestoneUpdateDeps,
+  now?: () => string,
+): MilestoneMoveOutcome {
+  const current = milestones.find((m) => m.id === id);
+  if (!current) return "vanished";
+  const date = shiftIsoDate(current.date, days);
+  if (!date) return "unchanged";
+  return moveMilestoneDate(milestones, id, date, deps, now);
+}
 
 /**
  * Move milestone `id` to `date` (YYYY-MM-DD) through `commitMilestoneUpdate`.

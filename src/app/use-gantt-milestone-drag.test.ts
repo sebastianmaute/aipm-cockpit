@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type React from "react";
 import { act, renderHook } from "@testing-library/react";
-import { DAY_WIDTH_PX } from "./gantt-engine";
+import { DAY_WIDTH_PX, shiftIsoDate } from "./gantt-engine";
 import {
-  MILESTONE_KEY_COMMIT_DELAY_MS, milestoneKeyStep, pxToDays, shiftIsoDate, useGanttMilestoneDrag,
+  MILESTONE_KEY_COMMIT_DELAY_MS, milestoneKeyStep, pxToDays, useGanttMilestoneDrag,
 } from "./use-gantt-milestone-drag";
 import type { Milestone } from "./types";
 
@@ -72,7 +72,7 @@ describe("useGanttMilestoneDrag — pointer", () => {
 
     act(() => windowPointer("pointerup", 100 + DAY_WIDTH_PX * 5));
     expect(onMove).toHaveBeenCalledTimes(1);
-    expect(onMove).toHaveBeenCalledWith(4, "2026-10-28");
+    expect(onMove).toHaveBeenCalledWith(4, 5);
     expect(result.current.milestoneDrag).toBeNull();
 
     // The listeners are gone: a later release commits nothing more.
@@ -143,6 +143,20 @@ describe("useGanttMilestoneDrag — pointer", () => {
 });
 
 describe("useGanttMilestoneDrag — pointer Escape", () => {
+  it("leaves the drag alone when another surface already handled the Escape", () => {
+    const onMove = vi.fn();
+    const { result } = renderHook(() => useGanttMilestoneDrag(onMove));
+    act(() => result.current.startMilestoneDrag(pointerDown(100), m));
+    act(() => windowPointer("pointermove", 100 + DAY_WIDTH_PX * 2));
+    act(() => {
+      const ev = new KeyboardEvent("keydown", { key: "Escape", cancelable: true });
+      ev.preventDefault();
+      window.dispatchEvent(ev);
+    });
+    act(() => windowPointer("pointerup", 100 + DAY_WIDTH_PX * 2));
+    expect(onMove).toHaveBeenCalledWith(4, 2);
+  });
+
   it("cancels the drag without committing", () => {
     const onMove = vi.fn();
     const { result } = renderHook(() => useGanttMilestoneDrag(onMove));
@@ -174,7 +188,7 @@ describe("useGanttMilestoneDrag — keyboard", () => {
     expect(onMove).not.toHaveBeenCalled();
     act(() => { vi.advanceTimersByTime(1); });
     expect(onMove).toHaveBeenCalledTimes(1);
-    expect(onMove).toHaveBeenCalledWith(4, "2026-11-01");
+    expect(onMove).toHaveBeenCalledWith(4, 9);
     expect(result.current.milestoneDrag).toBeNull();
   });
 
@@ -187,7 +201,7 @@ describe("useGanttMilestoneDrag — keyboard", () => {
     act(() => { vi.advanceTimersByTime(MILESTONE_KEY_COMMIT_DELAY_MS - 100); });
     expect(onMove).not.toHaveBeenCalled();
     act(() => { vi.advanceTimersByTime(100); });
-    expect(onMove).toHaveBeenCalledWith(4, "2026-10-21");
+    expect(onMove).toHaveBeenCalledWith(4, -2);
   });
 
   it("commits at once on Enter", () => {
@@ -197,7 +211,7 @@ describe("useGanttMilestoneDrag — keyboard", () => {
     const enter = keyDown("Enter");
     act(() => result.current.onMilestoneKeyDown(enter, m));
     expect(enter.preventDefault).toHaveBeenCalled();
-    expect(onMove).toHaveBeenCalledWith(4, "2026-10-30");
+    expect(onMove).toHaveBeenCalledWith(4, 7);
     act(() => { vi.advanceTimersByTime(MILESTONE_KEY_COMMIT_DELAY_MS); });
     expect(onMove).toHaveBeenCalledTimes(1);
   });
@@ -217,7 +231,7 @@ describe("useGanttMilestoneDrag — keyboard", () => {
     const { result } = renderHook(() => useGanttMilestoneDrag(onMove));
     act(() => result.current.onMilestoneKeyDown(keyDown("ArrowRight"), m));
     act(() => result.current.onMilestoneBlur(m));
-    expect(onMove).toHaveBeenCalledWith(4, "2026-10-24");
+    expect(onMove).toHaveBeenCalledWith(4, 1);
   });
 
   it("lands a pending move before a key press on another milestone", () => {
@@ -226,7 +240,7 @@ describe("useGanttMilestoneDrag — keyboard", () => {
     const { result } = renderHook(() => useGanttMilestoneDrag(onMove));
     act(() => result.current.onMilestoneKeyDown(keyDown("ArrowRight"), m));
     act(() => result.current.onMilestoneKeyDown(keyDown("ArrowLeft"), other));
-    expect(onMove).toHaveBeenCalledWith(4, "2026-10-24");
+    expect(onMove).toHaveBeenCalledWith(4, 1);
     expect(result.current.milestoneDrag).toEqual({ milestoneId: 9, deltaDays: -1, mode: "keys" });
   });
 
@@ -235,7 +249,40 @@ describe("useGanttMilestoneDrag — keyboard", () => {
     const { result, unmount } = renderHook(() => useGanttMilestoneDrag(onMove));
     act(() => result.current.onMilestoneKeyDown(keyDown("ArrowRight"), m));
     unmount();
-    expect(onMove).toHaveBeenCalledWith(4, "2026-10-24");
+    expect(onMove).toHaveBeenCalledWith(4, 1);
+  });
+
+  it("drops a pending move when a project swap tears the chart down", () => {
+    const onMove = vi.fn();
+    const { result, unmount } = renderHook(() => useGanttMilestoneDrag(onMove, { isSwapInFlight: () => true }));
+    act(() => result.current.onMilestoneKeyDown(keyDown("ArrowRight"), m));
+    unmount();
+    expect(onMove).not.toHaveBeenCalled();
+  });
+
+  it("lands a pending move first when a pointer drag starts", () => {
+    const onMove = vi.fn();
+    const { result } = renderHook(() => useGanttMilestoneDrag(onMove));
+    act(() => result.current.onMilestoneKeyDown(keyDown("ArrowRight"), m));
+    act(() => result.current.startMilestoneDrag(pointerDown(100), m));
+    expect(onMove).toHaveBeenCalledWith(4, 1);
+    act(() => windowPointer("pointerup", 100 + DAY_WIDTH_PX * 2));
+    // The drag commits its own offset; the caller adds it to the date the key move produced.
+    expect(onMove).toHaveBeenLastCalledWith(4, 2);
+    expect(onMove).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores keys while a pointer drag is running", () => {
+    const onMove = vi.fn();
+    const { result } = renderHook(() => useGanttMilestoneDrag(onMove));
+    act(() => result.current.startMilestoneDrag(pointerDown(100), m));
+    act(() => windowPointer("pointermove", 100 + DAY_WIDTH_PX * 3));
+    act(() => result.current.onMilestoneKeyDown(keyDown("ArrowRight"), m));
+    expect(result.current.milestoneDrag).toEqual({ milestoneId: 4, deltaDays: 3, mode: "pointer" });
+    act(() => windowPointer("pointerup", 100 + DAY_WIDTH_PX * 3));
+    act(() => { vi.advanceTimersByTime(MILESTONE_KEY_COMMIT_DELAY_MS); });
+    expect(onMove).toHaveBeenCalledTimes(1);
+    expect(onMove).toHaveBeenCalledWith(4, 3);
   });
 
   it("leaves other keys and modified arrows alone", () => {

@@ -532,6 +532,7 @@ export function WorkspaceSection({
               onCaptureFieldEdit={onCaptureFieldEdit}
               logActivity={logActivity}
               logActivityChanges={logActivityChanges}
+              isSwapInFlight={isSwapInFlight}
             />
           </div>
         )}

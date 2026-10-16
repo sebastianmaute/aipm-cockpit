@@ -377,6 +377,13 @@ export function toISODay(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** `iso` (YYYY-MM-DD) moved by `days`; null when `iso` does not parse. */
+export function shiftIsoDate(iso: string, days: number): string | null {
+  const d = parseISO(iso);
+  if (!d) return null;
+  return toISODay(addDays(d, days));
+}
+
 export function fmtFull(d: Date, lang: Lang): string {
   return d.toLocaleDateString(lang === "de" ? "de-DE" : "en-US", {
     year: "numeric",
