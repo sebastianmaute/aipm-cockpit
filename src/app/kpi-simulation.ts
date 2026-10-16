@@ -51,15 +51,16 @@ export function kpiContentKey(sim: KpiSimulation | null, simulationOn: boolean, 
 }
 
 /** The same for the Forecast tile: which of its slots exist (placeholders, the gap line alone, the
- *  headline and bar or the beyond-horizon line, the P95 wording), how many at-risk rows render, and
+ *  headline and bar or the beyond-horizon line, the P95 wording), how many at-risk rows render (null =
+ *  the at-risk section is off with the Milestones module — no heading either, so not "0"), and
  *  whether the weekly change shows as a simulated value (later, earlier, same: outlined and badged,
  *  so taller) or as a plain line (pending, beyond). Null = waiting for holidays (or the switch off,
  *  when the tile is not rendered at all). */
-export function forecastTileContentKey(forecast: AppForecast | null, atRiskCount: number, change: WeeklyChange | null): string {
+export function forecastTileContentKey(forecast: AppForecast | null, atRiskCount: number | null, change: WeeklyChange | null): string {
   if (forecast === null) return "fc:pending";
   if (forecast.kind === "insufficient") return "fc:insufficient";
   const changeForm = change === null ? "none" : change.kind === "pending" || change.kind === "beyond" ? "plain" : "sim";
-  return `fc:${forecast.p80 === null ? "beyond" : "p80"}:${forecast.p95 === null}:${atRiskCount}:${changeForm}`;
+  return `fc:${forecast.p80 === null ? "beyond" : "p80"}:${forecast.p95 === null}:${atRiskCount === null ? "off" : atRiskCount}:${changeForm}`;
 }
 
 /** Why the switch is on but the strip shows no simulated cell. */

@@ -104,6 +104,23 @@ describe("kpiContentKey", () => {
     expect(kpiContentKey(null, true, { kind: "beyond" })).not.toBe(kpiContentKey(null, true, null));
     expect(kpiContentKey(null, false, null)).not.toBe(kpiContentKey(null, true, null));
   });
+
+  it("pending differs from every non-pending key (§502)", () => {
+    const sim = kpiSimulation(forecast(), 1)!;
+    const nonPending = [
+      kpiContentKey(sim, true, null),
+      kpiContentKey(kpiSimulation(forecast({ estimateCoverage: null }), 1)!, true, null),
+      kpiContentKey(null, true, null),
+      kpiContentKey(null, false, null),
+      kpiContentKey(null, true, { kind: "beyond" }),
+      kpiContentKey(null, true, { kind: "finished", finished: 4, needed: 10 }),
+      kpiContentKey(null, true, { kind: "days", days: 4, needed: 10 }),
+    ];
+    // Whatever else is passed, pending yields one key, and it is none of the others.
+    const pending = kpiContentKey(sim, true, null, true);
+    expect(kpiContentKey(null, true, { kind: "beyond" }, true)).toBe(pending);
+    for (const k of nonPending) expect(k).not.toBe(pending);
+  });
 });
 
 describe("forecastTileContentKey", () => {
@@ -118,6 +135,13 @@ describe("forecastTileContentKey", () => {
       forecastTileContentKey(forecast(), 3, { kind: "same" }),
     ];
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("tells '0 at risk' apart from the at-risk section being off (§502)", () => {
+    const change = { kind: "same" } as const;
+    expect(forecastTileContentKey(forecast(), 0, change)).not.toBe(forecastTileContentKey(forecast(), null, change));
+    // Off is one state, whatever the count would have been.
+    expect(forecastTileContentKey(forecast(), null, change)).not.toBe(forecastTileContentKey(forecast(), 3, change));
   });
 
   it("keys the change line by its form, not by its value", () => {
