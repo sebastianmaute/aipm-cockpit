@@ -26,6 +26,7 @@ import { buildMoveOccurrenceHandler } from "./calendar-event-move-handler";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ResourceWorkload, WORKLOAD_COL_WIDTHS, type WorkloadCol } from "./resource-workload";
 import { generatePeriods, displayCapacityHours, absencesForResource, convertUtilization } from "./resource-capacity";
+import { nearTermPeriodKeys } from "./next-actions-workload";
 import { periodCost } from "./resource-cost";
 import {
   type Absence,
@@ -456,12 +457,12 @@ function ResourcesPanelInner({
     });
   }, [visibleResources, absences, roles, plan.startDate, plan.endDate, plan.granularity, viewGranularity, workdayHours, holidaySet]);
   // Near-term (period[0]) utilization for the workload over-allocation editor —
-  // MIRRORS next-actions-workload.ts (same canonical-granularity slice[0] + the
-  // convert-to-percent), so the inline editor targets the SAME period the
-  // over-allocation alert flags.
+  // Same period as the over-allocation alert: `nearTermPeriodKeys` is shared
+  // with next-actions-workload.ts (the period containing today, §747), so the
+  // inline editor targets the SAME period the alert flags.
   const nearTerm = useMemo(() => {
     const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
-    const key = periods.length > 0 ? periods[0].key : null;
+    const key = nearTermPeriodKeys(periods, plan, today)[0] ?? null;
     const pctByResource = new Map<number, number>();
     if (key) {
       for (const r of resources) {
@@ -472,7 +473,7 @@ function ResourcesPanelInner({
       }
     }
     return { key, pctByResource };
-  }, [resources, plan.startDate, plan.endDate, plan.granularity, workdayHours, holidaySet]);
+  }, [resources, plan, today, workdayHours, holidaySet]);
   const getPlanValue = useCallback((row: typeof planRows[number], k: PlanSortKey): string | number => {
     const values: Record<PlanSortKey, string | number> = {
       assignee: row.name,

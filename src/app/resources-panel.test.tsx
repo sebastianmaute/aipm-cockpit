@@ -417,6 +417,30 @@ describe("ResourcesPanel", () => {
   // "Unlinked", whose "Clear unlinked" control DELETES matching absences and
   // shifts outright. With a work-less fixture nothing reaches that path and the
   // test passes for the wrong reason.
+  // §747: "Util (now)" edits the period containing today — the one the
+  // over-allocation alert flags — not the plan's first period.
+  test("the Util (now) cell edits the current period of a plan that started months ago", () => {
+    const onSetUtilization = vi.fn();
+    const resources = [
+      { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-03": 50, "2026-09": 135 } },
+    ];
+    render(
+      <ResourcesPanel
+        {...baseProps}
+        view="workload"
+        lang="en-US"
+        resources={resources}
+        today="2026-09-21"
+        plan={{ startDate: "2026-03-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" }}
+        onSetUtilization={onSetUtilization}
+      />,
+    );
+    const cell = screen.getByRole("spinbutton", { name: t("en-US", "workloadNearTermUtilLabel", "Sofia Ramirez") });
+    expect(cell).toHaveValue(135);
+    fireEvent.change(cell, { target: { value: "90" } });
+    expect(onSetUtilization).toHaveBeenCalledWith(1, "2026-09", 90);
+  });
+
   test("toggling 'Hide external' hides the external entirely — never as an unlinked row", () => {
     const resources = [
       { id: 1, firstName: "Sofia", lastName: "Ramirez", roleId: null, utilizationMode: "percent" as const, utilization: {} },
