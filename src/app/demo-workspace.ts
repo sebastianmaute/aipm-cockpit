@@ -17,13 +17,14 @@ export function buildDemoWorkspace(raw: unknown, today: string): Workspace {
   // Creation and last update are records of the past too, so they get the same bound, which keeps a clamped
   // task created and updated no later than it was finished. Planned dates (`startDate`) stay in the future.
   const tasks = shifted.tasks.map((task) => {
-    const clamped = {
-      completedDate: notAfter(task.completedDate, today),
-      createdDate: notAfter(task.createdDate, today),
-      lastUpdateDate: notAfter(task.lastUpdateDate, today) ?? task.lastUpdateDate,
-    };
-    const changed = (Object.keys(clamped) as (keyof typeof clamped)[]).some((k) => clamped[k] !== task[k]);
-    return changed ? { ...task, ...clamped } : task;
+    const completedDate = notAfter(task.completedDate, today);
+    const createdDate = notAfter(task.createdDate, today);
+    const lastUpdateDate = notAfter(task.lastUpdateDate, today) ?? task.lastUpdateDate;
+    if (completedDate === task.completedDate && createdDate === task.createdDate && lastUpdateDate === task.lastUpdateDate) {
+      return task;
+    }
+    // Override only the fields the task has, so a missing one does not come back as an explicit `undefined`.
+    return { ...task, lastUpdateDate, ...(completedDate && { completedDate }), ...(createdDate && { createdDate }) };
   });
   return history === undefined ? { ...shifted, tasks } : { ...shifted, tasks, forecastHistory: history };
 }

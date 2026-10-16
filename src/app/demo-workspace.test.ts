@@ -46,6 +46,9 @@ describe("buildDemoWorkspace", () => {
     expect(ws.tasks.some((t) => t.lastUpdateDate === today)).toBe(true);
     expect(ws.tasks.some((t) => t.createdDate === today)).toBe(true);
     expect(ws.tasks.every((t) => t.lastUpdateDate <= today && (t.createdDate ?? "") <= today)).toBe(true);
+    // A clamp never adds a field the task did not have.
+    expect(ws.tasks.every((t) => !("createdDate" in t) || t.createdDate !== undefined)).toBe(true);
+    expect(ws.tasks.every((t) => !("completedDate" in t) || t.completedDate !== undefined)).toBe(true);
   });
   it("rejects a corrupt master loudly (strict decode)", () => {
     expect(() => buildDemoWorkspace({ tasks: 1 }, DEMO_AS_OF)).toThrow();

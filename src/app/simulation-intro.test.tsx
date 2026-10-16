@@ -65,6 +65,8 @@ describe("SimulationIntro", () => {
       const anchorRef = createRef<HTMLDivElement>();
       return (
         <>
+          {/* Far before: a loop that never stops on success would end here, not on Before. */}
+          <button type="button">Far before</button>
           <button type="button">Before</button>
           {open && <SimulationIntro lang="en-US" onGotIt={() => setOpen(false)} anchorRef={anchorRef} />}
           <button type="button" aria-hidden="true">Shadowed after</button>
