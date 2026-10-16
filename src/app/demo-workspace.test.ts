@@ -46,9 +46,18 @@ describe("buildDemoWorkspace", () => {
     expect(ws.tasks.some((t) => t.lastUpdateDate === today)).toBe(true);
     expect(ws.tasks.some((t) => t.createdDate === today)).toBe(true);
     expect(ws.tasks.every((t) => t.lastUpdateDate <= today && (t.createdDate ?? "") <= today)).toBe(true);
-    // A clamp never adds a field the task did not have.
-    expect(ws.tasks.every((t) => !("createdDate" in t) || t.createdDate !== undefined)).toBe(true);
+    // A clamp never adds a field the task did not have. Open tasks (no completedDate) get clamped too, so this
+    // can fail. createdDate and startDate cannot be checked this way: every master task has a createdDate, and
+    // no clamped task lacks a startDate.
     expect(ws.tasks.every((t) => !("completedDate" in t) || t.completedDate !== undefined)).toBe(true);
+  });
+  it("starts no finished task after it finished", () => {
+    const today = "2026-10-01";
+    const ws = buildDemoWorkspace(raw, today);
+    const done = ws.tasks.filter((t) => t.completedDate && t.startDate);
+    // Positive control: on the 1st, a clamped completion (today) meets a start shifted to the 2nd.
+    expect(done.some((t) => t.startDate === t.completedDate && t.completedDate === today)).toBe(true);
+    expect(done.every((t) => t.startDate! <= t.completedDate!)).toBe(true);
   });
   it("rejects a corrupt master loudly (strict decode)", () => {
     expect(() => buildDemoWorkspace({ tasks: 1 }, DEMO_AS_OF)).toThrow();

@@ -38,7 +38,7 @@ function focusNearestOutside(el: HTMLElement): void {
 }
 
 /** One-time, NON-modal note shown at the top of the Dashboard when the
- *  "Use Monte Carlo forecasting" switch (burn tile) is first turned on. No focus trap; Escape dismisses
+ *  "Use Monte Carlo forecasting" switch is first turned on (from the burn tile or Edit project). No focus trap; Escape dismisses
  *  it only while focus is inside it, on its anchor (or nowhere), so it never steals the key
  *  from a field the user is typing in. Escape is "Got it". */
 export function SimulationIntro({ lang, onGotIt, onShowMe, anchorRef, burnTileShown = true }: SimulationIntroProps) {
@@ -52,7 +52,7 @@ export function SimulationIntro({ lang, onGotIt, onShowMe, anchorRef, burnTileSh
   // Dismissing from a control inside the note would drop focus to <body>, so hand it back to the switch first.
   // ★ The switch lives in the Budget burn tile, which is absent with Budget off or the tile on the shelf
   // (the switch can still be turned on from Edit project). Then focus moves on to the next control after
-  // the note, where Tab would have taken it, or back to the last one before it when nothing follows.
+  // the note that takes it, where Tab would have gone, or else back to the nearest one before it.
   const dismiss = useCallback(() => {
     const note = ref.current;
     if (note?.contains(document.activeElement)) {

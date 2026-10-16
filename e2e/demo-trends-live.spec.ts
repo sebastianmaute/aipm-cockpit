@@ -216,6 +216,10 @@ async function createAndVerify(
 test.describe("§696 — the demo's Trends history on a live Turso database", () => {
   test.skip(!LIVE, SKIP_NO_THROWAWAY);
   test.skip(() => !appIsThrowaway(), SKIP_APP_NOT_THROWAWAY);
+  // ★ This file deletes EVERY project in the shared throwaway database, so it must never run beside the
+  // other live specs. Only `npm run e2e:live-app` (one worker, sets E2E_LIVE_APP) guarantees that; the
+  // `chromium` project also lists it and is fullyParallel, so a plain local run skips it.
+  test.skip(process.env.E2E_LIVE_APP !== "1", "wipes every project: run it through npm run e2e:live-app (one worker)");
   test.describe.configure({ mode: "serial" });
   // Two app loads, the demo's own creation and two Trends visits per test.
   test.setTimeout(240_000);

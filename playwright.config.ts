@@ -57,7 +57,9 @@ const LIVE_TURSO_DESTRUCTIVE = /(?:^|[\\/])(turso-ddl-probe-live|turso-revision-
 
 // The live-Turso specs that DRIVE THE APP, partition-scoped, so they share the throwaway database
 // safely with each other (one worker) but never with LIVE_TURSO_DESTRUCTIVE. `chromium` still
-// runs them, where they skip without the throwaway pair. `npm run e2e:live-app` runs exactly this
+// runs them, where they skip without the throwaway pair. ★ One exception: demo-trends-live deletes
+// EVERY project before it starts (a stray one opens instead of the start card), so it skips unless
+// E2E_LIVE_APP is set, i.e. it runs only in the one-worker `live-turso-app` project. `npm run e2e:live-app` runs exactly this
 // list, through the `live-turso-app` project, which exists only when that script sets
 // E2E_LIVE_APP (so a plain run never sees the specs twice). live-turso.yml runs that script. What
 // may be listed here, and what must be, is pinned by ci-workflow.test.mjs ("runs exactly the live
