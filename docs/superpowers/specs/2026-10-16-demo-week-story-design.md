@@ -119,7 +119,7 @@ cancel → **Explore the demo**.
 
 | Manual | Then AI |
 |---|---|
-| Dashboard: read the hero (MVP target, overdue) and its reasons | **Digest**: "what changed since Friday" |
+| Dashboard: read the hero (MVP target, overdue) and its reasons; read the delta strip — what changed since Friday (`dashboard-delta.ts`) | **Digest** → **Generate now**: Claude's status narrative of the project as it stands (current RAG, overdue, RAID, milestones — the digest shows no deltas) |
 | Next actions: read Now / Soon / Monitor | **Analyze with AI** on Next actions |
 | Open Points **Table**: open "Integrate CRM provisioning", add the blocker "CRM API rejects erasure calls" (it is not in the data), move its due date to Thursday | — |
 | Knowledge: search "CRM" → the CRM interface decision from design sign-off → jump to it | — |
@@ -133,8 +133,8 @@ cancel → **Explore the demo**.
 | Delete one of the double-logged follow-ups by hand | **Deduplicate & unify** merges the rest |
 | New change request "Add a CRM provisioning connector", one-line impact typed | **Ask Claude** on the impact field |
 | Next actions: the row "Update stakeholder: Maya Patel" (linked to the pending MFA change) → **Draft message** (template email, as Monday) | **AI Assistant**: "Stakeholder update" again, asked to cover the MFA change and the re-plan |
-| Add milestone "MVP re-demo" (Friday 2 October), linked to the demo task | **Ask Claude** on its description |
-| Read the forecast as it stands | **Forecast import** of the team's re-plan spreadsheet |
+| Add milestone "MVP re-demo" (Friday 2 October), linked to the demo task; move task 25 "MVP demo to the customer" to 2 October | **Ask Claude** on its description |
+| Budget: open the bucket "Identity Platform – T&M" and read its planned hours per person | **Forecast import** on that bucket: the team's re-plan spreadsheet, columns mapped by **Ask Claude** |
 
 ### Wednesday — people (chapter 5)
 
@@ -145,7 +145,7 @@ cancel → **Explore the demo**.
 | Noah's planned vacation next week (he owns the CRM integration) | — |
 | Workload: Maya's "Util (now)" cell is pink (over-allocated this month) → lower it by hand | — |
 | Planning: the new member's capacity for one month | **Plan with AI** proposes the rest |
-| Open Points **Swimlanes** by person: drag one of the CRM follow-up cards into the new member's lane — a lane exists only for a person with tasks, so this is what gives them one | — |
+| Open Points **Swimlanes** by person: **Add person lane** → the new member (a person with no tasks has no lane until it is added), then drag one of the CRM follow-up cards into it | — |
 
 ### Thursday — risks, stakeholders, money (chapter 6)
 
@@ -167,8 +167,8 @@ cancel → **Explore the demo**.
 | Open Points **Table**: mark "Integrate CRM provisioning" Done (erasure verified end to end); the GDPR RAID issue → Resolved (an Issue has no "Mitigated"; `ISSUE_STATUSES`) | — |
 | Dashboard: the hero has changed | — |
 | Insights: read them | **Generate recommendation** on one → act on it |
-| Re-order the pilot tasks by hand | **Optimize with AI** restructures them |
-| Trends, Activity (this week, day by day), History (Monday's version against today's) | **Digest** of the week — closes the video |
+| Restructure one pilot task by hand: split "Pilot feedback fixes" into two tasks and link them | **Optimize with AI** restructures the rest (splits, regroups, adds tasks, sets estimates, links dependencies) |
+| Trends, Activity (this week, day by day), History (Monday's version against today's) | **Digest** → **Generate now**: the status narrative at the week's end — closes the video |
 | Help: where the walk-through, the demo and these videos live (A's former chapter 8) | — |
 
 About 17 real Claude calls per full take (prologue 1, Monday 3, Tuesday 5, Wednesday 1, Thursday 4,
@@ -182,13 +182,20 @@ Friday 3; Draft message is a template, not a call). Rough length 20–25 minutes
   3 Monday, 4 Tuesday, 5 Wednesday, 6 Thursday, 7 Friday. Seven, each one take and one command.
 - **Where a chapter starts (owner: replay off camera).** Every take still creates the demo fresh.
   Before chapter N records, the recorder replays the manual steps of the days before it, fast and
-  off camera, with no AI calls: where a day's change came from an AI step (Deduplicate, Suggest
-  RACI, Plan with AI, the chat task, Optimize), the replay makes the same change by hand. The page
+  off camera, with no AI calls: where a day's change came from an AI step, the replay applies a
+  FIXED outcome for it, written once in the recorder's definitions beside that step — the merged
+  duplicates, the impact and description texts, the new member's allocation, the RACI cells, the
+  mitigation text, the chat's task, the imported hours, the acted-on recommendation and the
+  restructured pilot tasks. AI output varies between takes; the replayed state does not. The page
   clock follows the replay day by day, so activity, versions and History are dated as in the big
   take. Each chapter stays its own command and its own retake.
-- **The digest's "since Friday".** The digest compares against a per-device record (`DigestPrior`),
-  not workspace data, so a fresh browser context has nothing to compare. The recorder seeds that
-  record off camera with the clock at Friday 2026-09-18 before Monday records.
+- **"Since Friday" is the Dashboard delta strip, not the digest.** The strip compares against a
+  per-device record (`landing-state.ts`, one localStorage key, not workspace data), so a fresh
+  browser context has nothing to compare. The recorder seeds it off camera with the clock at Friday
+  2026-09-18 (open the Dashboard once) before Monday records.
+- **The digest is off by default** (`DEFAULT_DIGEST_CONFIG`). The recorder switches it on off
+  camera, and the take presses **Generate now** itself on Monday and Friday — with the cadence set so
+  it is not due on its own when the Dashboard mounts, so no uncounted call happens.
 - **Clips (tiers 3 and 4):** unchanged.
 - **`T0`:** as in "Dates". A's note that chapter 7 moves three weeks forward is replaced by the
   per-day clock, and A's "E checks its data at `T0` and `T0 + 3 weeks`" becomes: E checks it on each
@@ -210,15 +217,19 @@ Numbers are the master's ids today; the builder keeps ids stable where the exist
 - **Task 25 "MVP demo to the customer":** To Do, due `2026-09-18`, its `completedDate` cleared (today
   Done on 2026-08-21; `status` and `completedDate` must agree), a note that it was called off on
   Friday because provisioning to the CRM fails.
-- **Stakeholders Elena Fischer and Maya Patel** get a fictional `email` (`@example.com`), so Draft
-  message opens the mail client instead of the `window.prompt` for an address.
+- **Stakeholder Elena Fischer** gets a fictional `email` (`@example.com`), so Draft message opens the
+  mail client instead of the `window.prompt` for an address. Maya Patel already resolves to one
+  through her linked resource (`stakeholderEmail`).
+- **The forecast re-plan spreadsheet** (fixture) targets the bucket "Identity Platform – T&M"; its
+  column headers are chosen so **Detect columns** cannot map them, which is what makes Ask Claude
+  the step.
 - **New task "Integrate CRM provisioning":** **To Do** (Tuesday drags it to In Progress), owner Noah Bennett, due `2026-09-16`
   (overdue on Monday), depends on 24; task 25 depends on it. **No blocker text** — Monday adds it
   on camera.
 - **Pilot chain:** the tasks between the MVP and Pilot Go-Live (today 4–8, 27 and the pilot tasks)
   re-dated so they start after the MVP and none is overdue at T0 except what the story intends.
   Pilot Go-Live (milestone 2) stays on 2026-10-23, and **at least one of its linked tasks must end
-  after that date**, so its "at risk" row fires (`isAtRisk`); the forecast shows the squeeze. The
+  after that date**, so its "at risk" row fires (`isAtRisk`). The
   chain's dependency links (4→5 and 4→7, 5 and 6→8, 7 and 8→10) stay — they are why a slip ripples —
   and they raise the dep-blocked rows listed below.
 - **Tasks 23 and 24** stay Done, completed before the 18th.
@@ -231,15 +242,15 @@ T0. Intended:
 | Tier | Item | Source (score today) |
 |---|---|---|
 | Now — hero | MVP target overdue | milestone (67) |
-| Now | "Board info pack" for Thursday's steering meeting due (`leadDays: 3`) | committee-info (60) |
+| Now | "Board info pack" for Thursday's steering meeting due (`leadDays: 3`) | committee (60; provider file `committee-info.ts`) |
 | Soon | "Integrate CRM provisioning" (To Do) overdue | task-due (55) |
 | Soon | "MVP demo to the customer" (task 25) overdue, +1 reason: blocked by the CRM task | task-due (55) + task-attention dep-blocked (35), one row: both open `open-points:25`, so `groupNextActions` merges them |
 | Soon | Maya over-allocated this period | workload (52 at ≥130 %; needs §747 fixed) |
 | Soon | red issue "GDPR erasure requests do not reach the CRM", no owner yet | RAID (45) |
 | Soon | change request "Add MFA to SSO scope" pending (High impact) | change-pending (45) |
 | Soon | Pilot Go-Live at risk (a linked task now ends after it) — the slip's knock-on | milestone (42) |
-| Soon | "Message Elena Fischer" — the sponsor, linked to change 1 and RAID 2 and 11 (owner: part of the story, acted on Monday) | stakeholder-comms (45) |
-| Soon | "Message Maya Patel" — linked to change 1 (owner: part of the story, acted on Tuesday); today also to RAID 13, a link that goes once 13 is Delivered | stakeholder-comms (45) |
+| Soon | "Update stakeholder: Elena Fischer" — the sponsor, linked to change 1 and RAID 2 and 11 (owner: part of the story, acted on Monday) | stakeholder-comms (45) |
+| Soon | "Update stakeholder: Maya Patel" — linked to change 1 (owner: part of the story, acted on Tuesday); today also to RAID 13, a link that goes once 13 is Delivered | stakeholder-comms (45) |
 | Soon | pilot tasks waiting on an unfinished predecessor (today 5, 7, 8, 10) — the ripple of the slip | task-attention dep-blocked (35 each) |
 | Monitor | the schedule item (SPI between 0.8 and 0.9) | schedule (5); the builder keeps SPI ≥ 0.8 so it does not rise to Soon (45), and below 0.9 so it fires at all |
 | Monitor | Medium RAID items with an owner (today 2, 4, 11) — or resolved; the builder decides per item | RAID severity (22) |
@@ -285,11 +296,13 @@ and PR (`nearTermPeriodKeys`); E starts only once that fix is on main.
 - **Near-duplicate follow-ups:** 2–3 pairs logged by two people on Friday after the called-off demo
   ("Fix CRM sync for new registrations" / "CRM provisioning fails for sign-ups", and so on). One pair
   is deleted by hand on Tuesday; Deduplicate must still find the rest. Each new open task gets an
-  assignee and a `lastUpdateDate` on the Friday, or it raises its own unassigned or stale row.
+  assignee, a `lastUpdateDate` on the Friday and a due date after the week, or it raises its own
+  unassigned, stale or overdue row.
 - **Knowledge:** an item about the CRM interface decision, reachable by searching "CRM" on Monday.
 - **Maya over-allocated** in the period containing T0 (September, at month granularity), planted in
-  her `utilization` (the only thing the alert reads — `buildWorkloadAlerts` never looks at task
-  assignments, so reassigning a task cannot relieve it). Wednesday relieves it on screen through her
+  her `utilization` (the only thing the over-allocated reason of `buildWorkloadAlerts` reads; its
+  other reason, overload, counts overdue tasks — so reassigning a task cannot relieve an
+  over-allocation). Wednesday relieves it on screen through her
   "Util (now)" cell first, then Plan with AI plans the new member.
 - **Maya present at T0:** her absence on 21–22 Sept ("Offsite leadership summit") moves out of the
   week. Noah's existing vacation (9–13 Nov) stays; it does not clash with "next week".
@@ -331,7 +344,8 @@ Monday's blocker on the CRM task. Only the Senior grade must exist; the discipli
   connector change is the one Tuesday adds.
 - Pilot Go-Live "at risk" stays in Soon as the slip's visible knock-on.
 - Maya's 21–22 Sept absence moves out of the week; Noah's November vacation stays.
-- The recorder seeds the digest's per-device "Friday" record off camera.
+- The recorder seeds the delta strip's per-device "Friday" record off camera; the digest is switched
+  on off camera and generated on camera only.
 - Friday reuses the Table view (three task views for four days).
 - The prologue (wizard + AI proposal + Explore the demo) closes chapter 2, so Monday opens straight
   on the Dashboard.
@@ -342,6 +356,10 @@ Monday's blocker on the CRM task. Only the Senior grade must exist; the discipli
 - The new role is Integration Engineer × Senior; the discipline is added on camera.
 - Draft message is the manual step (a template email, not AI); the AI step is the AI Assistant's
   "Stakeholder update" starter. Elena and Maya get example emails so no address prompt appears.
-- The new member gets their Swimlanes lane from a dragged CRM follow-up card.
+- The new member's Swimlanes lane is added with "Add person lane", then a CRM follow-up card is
+  dragged into it.
+- Task 25 moves to 2 October with the re-demo on Tuesday. The intended Friday hero is "Pilot Go-Live"
+  at risk — the slip's knock-on still standing once the MVP is back on track; E pins it in a Friday
+  test as it pins Monday's.
 - The MVP target moves to Thursday 1 October; "MVP re-demo" stays Friday 2 October.
 - The CRM blocker is added on camera on Monday, so it is not in the data.
