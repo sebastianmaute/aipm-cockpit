@@ -113,3 +113,11 @@ describe("canLogAsRaid (§515)", () => {
       .toEqual(["createTask", "logAsRaid", "snooze"]);
   });
 });
+
+describe("forecast-sim action (§502)", () => {
+  it("offers only snooze in the overflow, and Open as the primary, with every capability wired", () => {
+    const sim = a("forecast-sim", "actionForecastSimWhy", "forecast");
+    expect(pickPrimaryCta(sim, ALL)).toBe("open");
+    expect(overflowCtas(sim, ALL)).toEqual(["snooze"]);
+  });
+});

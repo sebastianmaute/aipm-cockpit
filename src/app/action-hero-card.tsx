@@ -7,6 +7,7 @@ import { ActionPrimaryCta, ActionOverflowMenu, useActionCaps, type ActionHandler
 import { TIER_RAG } from "./next-actions/action-cta";
 import { InfoTooltip } from "./info-tooltip";
 import { rowLabel } from "./row-tokens";
+import { SimBadge } from "./sim-value";
 
 interface ActionHeroCardProps extends ActionHandlers {
   lang: Lang;
@@ -58,7 +59,11 @@ export function ActionHeroCard(props: ActionHeroCardProps) {
           </span>
         )}
       </div>
-      <h3 className="mt-1 text-base font-semibold text-foreground">{title}</h3>
+      <h3 className="mt-1 text-base font-semibold text-foreground">
+        {title}
+        {/* §502 — a simulated signal is marked as such (decorative; the why-line says "Simulated"). */}
+        {action.source === "forecast-sim" && <>{" "}<SimBadge lang={lang} /></>}
+      </h3>
       <p className="mt-0.5 text-sm text-muted-foreground">{why}</p>
       <ActionReasons lang={lang} action={action} extraReasons={group.extra} rowToken={rowToken} />
       {action.learning?.moved && (

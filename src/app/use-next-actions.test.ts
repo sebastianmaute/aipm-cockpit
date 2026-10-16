@@ -4,7 +4,7 @@
 // and the group-aware snooze. The engine itself (`computeNextActions`), the
 // assembler and the workload builder are mocked — they have their own tests —
 // so this file sees only the wiring. The snooze store is the real one.
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { SuggestedAction } from "./next-actions";
 import type { DashboardModel } from "./dashboard";
@@ -21,8 +21,31 @@ const { computeNextActions, buildActionInput, buildWorkloadAlerts } = vi.hoisted
 vi.mock("./next-actions", async (orig) => ({ ...(await orig<typeof import("./next-actions")>()), computeNextActions }));
 vi.mock("./next-actions-input", () => ({ buildActionInput }));
 vi.mock("./next-actions-workload", () => ({ buildWorkloadAlerts }));
+// Call-through spies: the forecast runs for real; the spies only count and, for
+// one test, substitute a run with a milestone chance. The real functions are
+// stashed so beforeEach can re-arm the passthrough after vi.restoreAllMocks().
+const fc = vi.hoisted(() => ({
+  engine: vi.fn(),
+  app: vi.fn(),
+  realEngine: null as null | ((...a: never[]) => unknown),
+  realApp: null as null | ((...a: never[]) => unknown),
+}));
+vi.mock("./forecast/index", async (orig) => {
+  const real = await orig<typeof import("./forecast/index")>();
+  fc.realEngine = real.computeScheduleForecast as never;
+  return { ...real, computeScheduleForecast: fc.engine };
+});
+vi.mock("./forecast/app-forecast", async (orig) => {
+  const real = await orig<typeof import("./forecast/app-forecast")>();
+  fc.realApp = real.computeAppForecast as never;
+  return { ...real, computeAppForecast: fc.app };
+});
 
 import { useNextActions, type NextActionsDeps } from "./use-next-actions";
+import { groupNextActions } from "./next-actions/group";
+import { computeAppForecast, type AppForecast } from "./forecast/app-forecast";
+import { showForecastView } from "../test/forecast-view";
+import type { Milestone } from "./types";
 
 function action(id: string, over: Partial<SuggestedAction> = {}): SuggestedAction {
   return {
@@ -64,6 +87,8 @@ function makeDeps(over: Partial<NextActionsDeps> = {}): NextActionsDeps {
     today: "2026-10-05",
     workdayHours: 8,
     holidaySet: new Set<string>(),
+    holidaysReady: true,
+    settingsOverrides: undefined,
     effectiveNotifications: defaultSettings.notifications,
     effectiveNextActions: { ...defaultNextActionsConfig, workloadOverdueThreshold: 5, workloadAllocatedPct: 120, scopePendingRed: 3 },
     actionTrends: undefined,
@@ -89,6 +114,8 @@ beforeEach(() => {
   localStorage.clear();
   computeNextActions.mockReturnValue([]);
   buildWorkloadAlerts.mockReturnValue(ALERTS);
+  fc.engine.mockImplementation(fc.realEngine!);
+  fc.app.mockImplementation(fc.realApp!);
 });
 
 describe("useNextActions — engine input", () => {
@@ -221,5 +248,96 @@ describe("useNextActions — snooze", () => {
     expect(deps.recordLearning).toHaveBeenCalledTimes(1);
     expect(deps.recordLearning).toHaveBeenCalledWith(primary, "snoozed");
     expect(lastInput().dismissed).toEqual(new Set(["a", "b", "c"]));
+  });
+});
+
+describe("useNextActions — simulated 'unlikely on time' signal (§502)", () => {
+  const SIM_ON = { forecast: { showSimulation: true } } as NextActionsDeps["settingsOverrides"];
+  const MILESTONES = [{ id: 7, name: "Go-live", date: "2026-12-01", linkedTaskIds: [] } as unknown as Milestone];
+  const FAKE: AppForecast = {
+    kind: "forecast", p50: null, p80: null, p95: null, chanceOnTime: null, estimateCoverage: null,
+    windowDays: 30, distribution: new Int32Array(0), trials: 0, markers: { p50: 0, p80: 0, p95: 0 },
+    milestones: [{ id: 7, state: "chance", chance: 0.31, chancePrioritised: 0.31 }],
+  };
+  const SIM_ID = "forecast-sim:milestone:7";
+  const hasSim = (groups: ReturnType<typeof useNextActions>["nextActionGroups"]) =>
+    groups.some((g) => g.primary.id === SIM_ID || g.extra.some((e) => e.id === SIM_ID));
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("with the switch off, the groups are exactly the grouped engine list and the forecast never runs", () => {
+    fc.app.mockReturnValue(FAKE);
+    const list = [action("a"), action("b", { score: 5, cta: { kind: "open", view: "raid", id: 2 } })];
+    computeNextActions.mockReturnValue(list);
+    showForecastView();
+    const { result } = setup({ milestones: MILESTONES });
+    expect(result.current.nextActionGroups).toEqual(groupNextActions(list));
+    expect(fc.app).not.toHaveBeenCalled();
+  });
+
+  it("with the switch on but the Forecast view held back, shows no simulated group", () => {
+    fc.app.mockReturnValue(FAKE);
+    const { result } = setup({ milestones: MILESTONES, settingsOverrides: SIM_ON });
+    expect(hasSim(result.current.nextActionGroups)).toBe(false);
+    expect(fc.app).not.toHaveBeenCalled();
+  });
+
+  it("with the switch on and the view shown, adds the sim group but keeps it out of the flat list", () => {
+    fc.app.mockReturnValue(FAKE);
+    showForecastView();
+    const { result, deps } = setup({ milestones: MILESTONES, settingsOverrides: SIM_ON, plan: { ...PLAN, endDate: "2026-12-31" } });
+    expect(hasSim(result.current.nextActionGroups)).toBe(true);
+    expect(result.current.nextActions.some((a) => a.source === "forecast-sim")).toBe(false);
+    expect(result.current.nowCount).toBe(0);
+    expect(fc.app).toHaveBeenCalledWith({
+      tasks: deps.tasks, milestones: deps.milestones, planEnd: "2026-12-31", today: "2026-10-05", holidaySet: deps.holidaySet,
+    });
+  });
+
+  it("drops a snoozed sim action", () => {
+    fc.app.mockReturnValue(FAKE);
+    showForecastView();
+    const { result } = setup({ milestones: MILESTONES, settingsOverrides: SIM_ON });
+    const sim = result.current.nextActionGroups[0].primary;
+    expect(sim.id).toBe(SIM_ID);
+    act(() => result.current.snoozeAction(sim, 60_000));
+    expect(hasSim(result.current.nextActionGroups)).toBe(false);
+  });
+
+  it("does not record learning for a sim snooze, but still snoozes it", () => {
+    fc.app.mockReturnValue(FAKE);
+    showForecastView();
+    const { result, deps } = setup({ milestones: MILESTONES, settingsOverrides: SIM_ON });
+    const sim = result.current.nextActionGroups[0].primary;
+    act(() => result.current.snoozeAction(sim, 60_000));
+    expect(deps.recordLearning).not.toHaveBeenCalled();
+    expect(lastInput().dismissed).toEqual(new Set([SIM_ID]));
+  });
+
+  it("shows no sim group while the holidays are not ready", () => {
+    fc.app.mockReturnValue(FAKE);
+    showForecastView();
+    const { result } = setup({ milestones: MILESTONES, settingsOverrides: SIM_ON, holidaysReady: false });
+    expect(hasSim(result.current.nextActionGroups)).toBe(false);
+    expect(fc.app).not.toHaveBeenCalled();
+  });
+
+  it("shows no sim group with the milestones module off", () => {
+    fc.app.mockReturnValue(FAKE);
+    showForecastView();
+    const features = defaultSettings.features.filter((f) => f !== "milestones");
+    const { result } = setup({ milestones: MILESTONES, settingsOverrides: SIM_ON, features });
+    expect(hasSim(result.current.nextActionGroups)).toBe(false);
+  });
+
+  it("shares the Dashboard's run", () => {
+    showForecastView();
+    const deps = makeDeps({ milestones: MILESTONES, settingsOverrides: SIM_ON, plan: { ...PLAN, endDate: "2026-12-31" } });
+    // What the Dashboard does: the same references, the same plan end and day.
+    computeAppForecast({ tasks: deps.tasks, milestones: deps.milestones, planEnd: "2026-12-31", today: deps.today, holidaySet: deps.holidaySet });
+    const engineRuns = fc.engine.mock.calls.length;
+    renderHook((d: NextActionsDeps) => useNextActions(d), { initialProps: deps });
+    expect(fc.app).toHaveBeenCalledTimes(2);
+    expect(fc.engine.mock.calls.length).toBe(engineRuns);
   });
 });

@@ -17,6 +17,13 @@ describe("executeActionCta", () => {
     expect(d.resetFilterValues).not.toHaveBeenCalled();
   });
 
+  // §502 — the simulated "unlikely on time" signal opens the Forecast view.
+  it("opens the Forecast view for a forecast CTA", () => {
+    const d = deps();
+    executeActionCta({ kind: "open", view: "forecast", id: 7 }, d);
+    expect(d.requestOpen).toHaveBeenCalledWith("forecast", 7);
+  });
+
   // Ruling 4: a string id (a project id) cannot be a numeric deep-link —
   // Number("p1") is NaN and would push #projects/NaN.
   it("navigates without a deep-link when the open CTA carries a string id", () => {

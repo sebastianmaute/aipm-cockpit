@@ -11,7 +11,10 @@ import type { ActionTrends } from "./trends";
 export type ActionTier = "now" | "soon" | "monitor";
 export type ActionSource =
   | "task-due" | "raid" | "change-pending" | "milestone" | "budget" | "stakeholder-comms"
-  | "schedule" | "workload" | "committee" | "task-attention" | "project-meta";
+  | "schedule" | "workload" | "committee" | "task-attention" | "project-meta"
+  // §502 — the simulated "unlikely on time" milestone signal. Surface-only: it is merged into
+  // the GROUPS after grouping and never enters the flat engine list (next-actions/sim-milestones.ts).
+  | "forecast-sim";
 
 /** Translated by the surface (SP2); the engine stays i18n-free. */
 export interface I18nText {

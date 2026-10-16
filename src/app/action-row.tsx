@@ -11,6 +11,7 @@ import {
 } from "./action-cta-controls";
 import { TIER_RAG } from "./next-actions/action-cta";
 import { rowLabel } from "./row-tokens";
+import { SimBadge } from "./sim-value";
 
 export type { AssignOwnerBundle };
 
@@ -58,6 +59,8 @@ export function ActionRow(props: ActionRowProps) {
             </span>
           )}
           <span className="truncate text-sm font-medium text-foreground">{title}</span>
+          {/* §502 — a simulated signal is marked as such; the why-line says "Simulated" in words. */}
+          {action.source === "forecast-sim" && <span className="shrink-0"><SimBadge lang={lang} /></span>}
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
           <b className="font-semibold uppercase tracking-wide">{sourceLabel}</b> · {why}

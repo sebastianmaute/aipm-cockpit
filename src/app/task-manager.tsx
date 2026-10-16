@@ -679,7 +679,7 @@ function TaskManagerInner() {
     isPopout, tasks, raid, changes, milestones, stakeholders, steeringCommittee,
     resources, absences, shifts, plan, dashboardModel, commsReminders: comms.items,
     features: settings.features, project, portfolioCurrentId, today,
-    workdayHours: settings.resources.workdayHours, holidaySet,
+    workdayHours: settings.resources.workdayHours, holidaySet, holidaysReady, settingsOverrides,
     effectiveNotifications, effectiveNextActions, actionTrends,
     learnedBias: learning.bias, recordLearning: learning.record, requestOpen,
   });

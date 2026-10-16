@@ -15,4 +15,5 @@ export const ACTION_SOURCE_LABEL: Record<ActionSource, TranslationKey> = {
   committee: "actionSourceCommittee",
   "task-attention": "actionSourceAttention",
   "project-meta": "actionSourceProjectMeta",
+  "forecast-sim": "actionSourceForecastSim",
 };
