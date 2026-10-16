@@ -11,6 +11,7 @@ import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { GanttView } from "./gantt-view";
 import { defaultSettings } from "./settings-types";
 import type { Milestone } from "./types";
+import { fmtFull } from "./gantt-engine";
 
 vi.mock("./use-resizable", () => ({
   useResizable: () => ({ ref: { current: null }, size: 400 }),
@@ -20,7 +21,7 @@ vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
 import { useSettings } from "./use-settings";
 
 const MS: Milestone[] = [{ id: 3, name: "Pilot Go-Live", date: "2026-10-23", linkedTaskIds: [] }];
-const HANDLE = "Move milestone (changes its date) – Pilot Go-Live";
+const HANDLE = "Move milestone – Pilot Go-Live";
 
 function Seed() {
   const { setMilestones } = useWorkspace();
@@ -66,8 +67,11 @@ describe("GanttView — milestone move", () => {
     const onCaptureFieldEdit = vi.fn();
     const logActivityChanges = vi.fn();
     renderView({ onCaptureFieldEdit, logActivityChanges });
-    fireEvent.keyDown(screen.getByRole("button", { name: HANDLE }), { key: "ArrowRight", shiftKey: true });
+    fireEvent.keyDown(screen.getByRole("slider", { name: HANDLE }), { key: "ArrowRight", shiftKey: true });
     expect(screen.getByTestId("date").textContent).toBe("2026-10-30");
+    // The control announces the date it now holds.
+    expect(screen.getByRole("slider", { name: HANDLE }).getAttribute("aria-valuetext"))
+      .toBe(fmtFull(new Date(Date.UTC(2026, 9, 30)), "en-US"));
     expect(onCaptureFieldEdit).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "milestone.updated", id: 3, before: { date: "2026-10-23" }, after: { date: "2026-10-30" } }),
     );
@@ -82,6 +86,6 @@ describe("GanttView — milestone move", () => {
     window.history.replaceState(null, "", "/?popout=gantt");
     renderView();
     expect(screen.getAllByText("Pilot Go-Live").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: HANDLE })).toBeNull();
+    expect(screen.queryByRole("slider", { name: HANDLE })).toBeNull();
   });
 });

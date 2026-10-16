@@ -7,7 +7,7 @@
 // Keyboard: ArrowLeft/ArrowRight move one day, with Shift one week, and each
 // press commits — there is no "release" to wait for.
 import { useEffect, useRef, useState } from "react";
-import { addDays, DAY_WIDTH_PX, parseISO } from "./gantt-engine";
+import { addDays, DAY_WIDTH_PX, parseISO, toISODay } from "./gantt-engine";
 import type { Milestone } from "./types";
 
 export const MILESTONE_KEY_STEP_DAYS = 1;
@@ -28,7 +28,7 @@ export interface GanttMilestoneDrag {
 export function shiftIsoDate(iso: string, days: number): string | null {
   const d = parseISO(iso);
   if (!d) return null;
-  return addDays(d, days).toISOString().slice(0, 10);
+  return toISODay(addDays(d, days));
 }
 
 /** Whole days a horizontal pointer travel of `px` stands for. */
@@ -77,7 +77,9 @@ export function useGanttMilestoneDrag(
 
     function onMove(ev: PointerEvent) {
       if (ev.pointerId !== pointerId) return;
-      setMilestoneDrag({ milestoneId: m.id, deltaDays: pxToDays(ev.clientX - startX) });
+      const deltaDays = pxToDays(ev.clientX - startX);
+      // Same day as last time: keep the object, so React skips the re-render.
+      setMilestoneDrag((p) => (p && p.deltaDays === deltaDays ? p : { milestoneId: m.id, deltaDays }));
     }
     function onEnd(ev: PointerEvent) {
       if (ev.pointerId !== pointerId) return;

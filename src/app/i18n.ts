@@ -1493,7 +1493,7 @@ const enUS = {
   ganttBarMove: "Move task (changes start and due date)",
   ganttBarResizeStart: "Drag to change start date",
   ganttBarResizeEnd: "Drag to change due date",
-  ganttMilestoneMove: "Move milestone (changes its date)",
+  ganttMilestoneMove: "Move milestone",
   ganttMilestoneMoveHint: "Drag, or press the arrow keys: one day, with Shift one week",
   ganttCriticalPath: "Critical path",
   ganttCriticalPathHint:

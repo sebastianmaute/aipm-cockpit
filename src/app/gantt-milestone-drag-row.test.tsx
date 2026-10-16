@@ -21,7 +21,7 @@ const base = {
   rowToken: m.name,
   rowKey: `m-${m.id}`,
 };
-const HANDLE_NAME = "Move milestone (changes its date) – Pilot Go-Live";
+const HANDLE_NAME = "Move milestone – Pilot Go-Live";
 
 function liveDiamond(c: HTMLElement): SVGRectElement {
   // [0] is the name column's gutter icon; [1] the timeline diamond.
@@ -31,27 +31,34 @@ function liveDiamond(c: HTMLElement): SVGRectElement {
 describe("GanttMilestoneRow — drag handle", () => {
   it("renders a focusable, row-unique handle when the milestone can move", () => {
     render(<GanttMilestoneRow m={m} {...base} onStartDrag={vi.fn()} onKeyMove={vi.fn()} />);
-    const handle = screen.getByRole("button", { name: HANDLE_NAME });
+    const handle = screen.getByRole("slider", { name: HANDLE_NAME });
     expect(handle).toHaveAttribute("tabindex", "0");
-    expect(handle).toHaveAttribute("title", "Drag, or press the arrow keys: one day, with Shift one week");
+    // The handle covers the diamond, so its tooltip carries the timeline's name and date too.
+    expect(handle).toHaveAttribute(
+      "title",
+      `Pilot Go-Live · ${fmtFull(new Date(Date.UTC(2026, 5, 20)), "en-US")} — Drag, or press the arrow keys: one day, with Shift one week`,
+    );
+    // A slider whose value text is the date: what a screen reader announces after a move.
+    expect(handle).toHaveAttribute("aria-valuetext", fmtFull(new Date(Date.UTC(2026, 5, 20)), "en-US"));
+    expect(handle).toHaveAttribute("aria-valuenow", "19");
   });
 
   it("renders no handle without a move handler (read-only pop-out)", () => {
     render(<GanttMilestoneRow m={m} {...base} />);
     expect(screen.getByText("Pilot Go-Live")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: HANDLE_NAME })).toBeNull();
+    expect(screen.queryByRole("slider", { name: HANDLE_NAME })).toBeNull();
   });
 
   it("renders no handle for an achieved milestone", () => {
     render(<GanttMilestoneRow m={{ ...m, achievedDate: "2026-06-19" }} {...base} onStartDrag={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: HANDLE_NAME })).toBeNull();
+    expect(screen.queryByRole("slider", { name: HANDLE_NAME })).toBeNull();
   });
 
   it("hands pointer-down and key presses to the drag hook with the milestone", () => {
     const onStartDrag = vi.fn();
     const onKeyMove = vi.fn();
     render(<GanttMilestoneRow m={m} {...base} onStartDrag={onStartDrag} onKeyMove={onKeyMove} />);
-    const handle = screen.getByRole("button", { name: HANDLE_NAME });
+    const handle = screen.getByRole("slider", { name: HANDLE_NAME });
     fireEvent.pointerDown(handle, { clientX: 10 });
     fireEvent.keyDown(handle, { key: "ArrowRight" });
     expect(onStartDrag).toHaveBeenCalledWith(expect.anything(), m);
@@ -66,6 +73,12 @@ describe("GanttMilestoneRow — drag preview", () => {
     expect(liveDiamond(container).getAttribute("transform")).toBe(`rotate(45 616 ${ROW_HEIGHT_PX / 2})`);
     const preview = container.querySelector("[data-gantt-milestone-preview]");
     expect(preview?.textContent).toBe(fmtFull(new Date(Date.UTC(2026, 5, 23)), "en-US"));
+  });
+
+  it("announces the previewed date while dragging", () => {
+    render(<GanttMilestoneRow m={m} {...base} onStartDrag={vi.fn()} dragDeltaDays={3} />);
+    expect(screen.getByRole("slider", { name: HANDLE_NAME }))
+      .toHaveAttribute("aria-valuetext", fmtFull(new Date(Date.UTC(2026, 5, 23)), "en-US"));
   });
 
   it("shows no preview label when nothing is being dragged", () => {
@@ -93,13 +106,13 @@ describe("GanttPanel — milestone move wiring", () => {
   it("moves a milestone one day per arrow press through onMoveMilestone", () => {
     const onMoveMilestone = vi.fn();
     render(<GanttPanel {...props} onMoveMilestone={onMoveMilestone} />);
-    fireEvent.keyDown(screen.getByRole("button", { name: "Move milestone (changes its date) – Beta" }), { key: "ArrowRight" });
+    fireEvent.keyDown(screen.getByRole("slider", { name: "Move milestone – Beta" }), { key: "ArrowRight" });
     expect(onMoveMilestone).toHaveBeenCalledWith(100, "2026-06-21");
   });
 
   it("offers no handle when the caller passes no onMoveMilestone", () => {
     render(<GanttPanel {...props} />);
     expect(screen.getAllByText("Beta").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: /^Move milestone/ })).toBeNull();
+    expect(screen.queryByRole("slider", { name: /^Move milestone/ })).toBeNull();
   });
 });

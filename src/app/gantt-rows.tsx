@@ -495,6 +495,9 @@ export function GanttMilestoneRow({
   const achieved = isAchieved(m);
   const atRisk = mstatus === "at-risk";
   const movable = !!onStartDrag && !achieved;
+  const timelineTitle = showGhost
+    ? `${m.name} · ${fmtFull(liveDate, lang)} · baseline ${bd ? fmtFull(bd, lang) : baselineDate} (${slipLabel})`
+    : `${m.name} · ${fmtFull(liveDate, lang)}`;
   return (
     <div
       data-gantt-row={rowKey}
@@ -555,11 +558,7 @@ export function GanttMilestoneRow({
       <div
         className="relative"
         style={{ width: timelineWidthPx, height: ROW_HEIGHT_PX }}
-        title={
-          showGhost
-            ? `${m.name} · ${fmtFull(liveDate, lang)} · baseline ${bd ? fmtFull(bd, lang) : baselineDate} (${slipLabel})`
-            : `${m.name} · ${fmtFull(liveDate, lang)}`
-        }
+        title={timelineTitle}
       >
         <svg
           className="h-full w-full overflow-visible"
@@ -626,13 +625,23 @@ export function GanttMilestoneRow({
         )}
         {movable && onStartDrag && (
           // ★ Focusable on purpose — the keyboard path to the same move
-          // (§742 records that the task bars still lack one). Its name carries
-          // the row token: N milestones would otherwise be N identical buttons.
+          // (§742 records that the task bars still lack one). A SLIDER, not a
+          // button: its value text is the date, so a screen reader announces
+          // the new date after every arrow press (a button would say nothing,
+          // and would promise an Enter/Space action it does not have). The
+          // value is the day offset on the timeline. Its name carries the row
+          // token: N milestones would otherwise be N identically-named controls.
+          // The title repeats the timeline tooltip it covers, plus the hint.
           <div
-            role="button"
+            role="slider"
             tabIndex={0}
             aria-label={rowLabel(t(lang, "ganttMilestoneMove"), rowToken)}
-            title={t(lang, "ganttMilestoneMoveHint")}
+            aria-valuemin={0}
+            aria-valuemax={Math.round(timelineWidthPx / DAY_WIDTH_PX)}
+            aria-valuenow={diffDays(range.min, liveDate)}
+            aria-valuetext={fmtFull(liveDate, lang)}
+            aria-orientation="horizontal"
+            title={`${timelineTitle} — ${t(lang, "ganttMilestoneMoveHint")}`}
             data-gantt-milestone-handle="1"
             className={`absolute top-0 h-full cursor-grab touch-none rounded-sm active:cursor-grabbing ${FOCUS_RING}`}
             style={{ left: mx - MILESTONE_HANDLE_PX / 2, width: MILESTONE_HANDLE_PX }}

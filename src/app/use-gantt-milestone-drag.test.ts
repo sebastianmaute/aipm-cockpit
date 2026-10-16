@@ -73,6 +73,16 @@ describe("useGanttMilestoneDrag — pointer", () => {
     expect(onMove).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the same drag state while the pointer stays within one day", () => {
+    const { result } = renderHook(() => useGanttMilestoneDrag(vi.fn()));
+    act(() => result.current.startMilestoneDrag(pointerDown(100), m));
+    act(() => windowPointer("pointermove", 100 + DAY_WIDTH_PX * 2));
+    const first = result.current.milestoneDrag;
+    act(() => windowPointer("pointermove", 100 + DAY_WIDTH_PX * 2 + 3));
+    expect(result.current.milestoneDrag).toBe(first);
+    act(() => windowPointer("pointerup", 100 + DAY_WIDTH_PX * 2));
+  });
+
   it("commits nothing when released where it started", () => {
     const onMove = vi.fn();
     const { result } = renderHook(() => useGanttMilestoneDrag(onMove));
