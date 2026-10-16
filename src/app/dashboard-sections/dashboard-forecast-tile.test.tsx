@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DashboardForecastTile } from "./dashboard-forecast-tile";
@@ -6,6 +6,7 @@ import type { AppForecast } from "../forecast/app-forecast";
 import type { ForecastHistoryEntry } from "../forecast-history";
 import type { Milestone } from "../types";
 import { milestonesAtRisk } from "../forecast-tile-model";
+import { loadI18n, t } from "../i18n";
 
 const EN = "en-US" as const;
 const TODAY = "2026-10-16"; // a Friday
@@ -212,6 +213,27 @@ describe("DashboardForecastTile", () => {
     renderTile({ onOpenForecast });
     await userEvent.setup().click(screen.getByRole("button", { name: "Open Forecast" }));
     expect(onOpenForecast).toHaveBeenCalledTimes(1);
+  });
+
+  describe("German (§502 part 2 keys)", () => {
+    beforeAll(() => loadI18n("de"));
+
+    it("renders the new tile strings in German, with real umlauts", () => {
+      renderTile({ lang: "de", history: [entry("2026-10-09", "2027-02-12")], onOpenForecast: () => {} });
+      expect(screen.getByText("Keine Änderung seit letzter Woche")).toBeInTheDocument();
+      expect(screen.getByText("Gefährdete Meilensteine")).toBeInTheDocument();
+      expect(screen.getByText("Keine gefährdeten Meilensteine")).toBeInTheDocument();
+      expect(screen.getByText("12 offene Aufgaben")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Prognose öffnen" })).toBeInTheDocument();
+    });
+
+    it("words the beyond-horizon change and the switch note in German", () => {
+      const { container } = renderTile({ lang: "de", forecast: { ...FORECAST, p80: null, p95: null } });
+      expect(container.querySelector("[data-forecast-change]")).toHaveTextContent("Änderung nicht verfügbar: jenseits des Prognosehorizonts");
+      expect(t("de", "helpSimulationIntroNeedsSwitch")).toBe(
+        "Die Einführung erscheint im Dashboard, sobald „Monte-Carlo-Prognose verwenden“ für dieses Projekt eingeschaltet ist.",
+      );
+    });
   });
 
   it("placeholder while forecast is null", () => {
