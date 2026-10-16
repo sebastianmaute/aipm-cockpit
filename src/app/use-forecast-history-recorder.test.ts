@@ -30,13 +30,16 @@ const ENTRY: ForecastHistoryEntry = {
 const TASKS: ForecastHistoryRecorderDeps["tasks"] = [];
 const MILESTONES: ForecastHistoryRecorderDeps["milestones"] = [];
 const HOLIDAYS = new Set<string>();
+// One stable reader, as production passes: a fresh closure per render would re-run
+// the effect on every rerender.
+const EPOCH_0 = () => 0;
 
 function deps(over: Partial<ForecastHistoryRecorderDeps> = {}): ForecastHistoryRecorderDeps {
   return {
     hydrated: true, isPopout: false, loadPending: false, holidaysReady: true,
     today: TODAY, tasks: TASKS, milestones: MILESTONES, planEnd: "2026-12-31",
     holidaySet: HOLIDAYS, settingsOverrides: { forecast: { showSimulation: true } }, features: [],
-    forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0, ...over,
+    forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: EPOCH_0, ...over,
   };
 }
 
@@ -231,7 +234,8 @@ describe("useForecastHistoryRecorder", () => {
   });
 
   it("adopts a peer's entry for a new day even though it recorded yesterday", () => {
-    // Its memory of yesterday's entry is not a record of today.
+    // Its memory of yesterday's entry is not a record of today, even when the peer's
+    // entry for today carries the same values as the one it wrote yesterday.
     const set = vi.fn();
     const tomorrow = "2026-10-16";
     const { rerender } = renderHook((p: { today: string; tasks: ForecastHistoryRecorderDeps["tasks"]; h: readonly ForecastHistoryEntry[] }) =>
@@ -239,7 +243,8 @@ describe("useForecastHistoryRecorder", () => {
       { initialProps: { today: TODAY, tasks: TASKS, h: [] as readonly ForecastHistoryEntry[] } });
     expect(set).toHaveBeenCalledTimes(1);
     // A tasks change too, so this is not the idle day change (which never writes).
-    rerender({ today: tomorrow, tasks: [], h: [ENTRY, { ...ENTRY, date: tomorrow, p50: "2026-11-02" }] });
+    compute.mockReturnValue({ ...FORECAST, p50: "2026-11-03" });
+    rerender({ today: tomorrow, tasks: [], h: [ENTRY, { ...ENTRY, date: tomorrow }] });
     expect(set).toHaveBeenCalledTimes(1);
   });
 
@@ -252,9 +257,65 @@ describe("useForecastHistoryRecorder", () => {
     expect(set).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps what it recorded across a SAME-project reload, so a peer's entry is still left alone", () => {
+  describe("a stored entry that is not this tab's to answer (fix round 1)", () => {
+    const X = FORECAST;
+    const Y = { ...FORECAST, p50: "2026-11-02" };
+    const asEntry = (f: typeof FORECAST): ForecastHistoryEntry => ({
+      date: TODAY, p50: f.p50, p80: f.p80, p95: f.p95, chanceOnTime: f.chanceOnTime,
+    });
+    function mountRecorded() {
+      const set = vi.fn();
+      const { rerender } = renderHook((p: { tasks: ForecastHistoryRecorderDeps["tasks"]; h: readonly ForecastHistoryEntry[] }) =>
+        useForecastHistoryRecorder(deps({ tasks: p.tasks, forecastHistory: p.h, setForecastHistory: set })),
+        { initialProps: { tasks: TASKS, h: [] as readonly ForecastHistoryEntry[] } });
+      expect(set).toHaveBeenCalledTimes(1); // baseline X, written
+      return { set, rerender };
+    }
+
+    it("(i) does not write again when the stored entry already equals its new forecast", () => {
+      const { set, rerender } = mountRecorded();
+      compute.mockReturnValue(Y);
+      rerender({ tasks: [], h: [asEntry(Y)] });
+      expect(set).toHaveBeenCalledTimes(1);
+    });
+
+    it("(i-b) does not rewrite a SEEN entry its new forecast now equals", () => {
+      // Adopt a peer's Y while computing a different entry; then its own forecast
+      // moves to Y. The stored Y is SEEN and its forecast changed, but writing Y
+      // again would change nothing but the array.
+      const set = vi.fn();
+      compute.mockReturnValue({ ...FORECAST, p50: "2026-11-04" });
+      const { rerender } = renderHook((tasks: ForecastHistoryRecorderDeps["tasks"]) =>
+        useForecastHistoryRecorder(deps({ tasks, forecastHistory: [asEntry(Y)], setForecastHistory: set })), { initialProps: TASKS });
+      expect(set).not.toHaveBeenCalled();
+      compute.mockReturnValue(Y);
+      rerender([]);
+      expect(set).not.toHaveBeenCalled();
+    });
+
+    it("(ii) adopts a peer's entry that arrives with a remote edit, though its own forecast changed too", () => {
+      const { set, rerender } = mountRecorded();
+      compute.mockReturnValue({ ...FORECAST, p50: "2026-11-04" }); // different holidays
+      rerender({ tasks: [], h: [asEntry(Y)] });
+      expect(set).toHaveBeenCalledTimes(1);
+      // and again on the next remote edit with the peer's next entry
+      compute.mockReturnValue({ ...FORECAST, p50: "2026-11-06" });
+      rerender({ tasks: [], h: [asEntry({ ...FORECAST, p50: "2026-11-05" })] });
+      expect(set).toHaveBeenCalledTimes(1);
+    });
+
+    it("(iii) writes a local edit over its own stored entry", () => {
+      const { set, rerender } = mountRecorded();
+      compute.mockReturnValue({ ...FORECAST, p50: "2026-11-07" });
+      rerender({ tasks: [], h: [asEntry(X)] });
+      expect(set).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("writes nothing after a SAME-project reload that brings a peer's differing entry", () => {
     // The conflict banner's Reload holds the load (loadPending true -> false) without
-    // changing the project, so the scope epoch does not move.
+    // changing the project, so the scope epoch does not move. A behavioural pin only:
+    // the peer's entry is adopted whether or not the memory survived the reload.
     const set = vi.fn();
     const peer = [{ ...ENTRY, p50: "2026-11-02" }];
     const { rerender } = renderHook((p: { h: readonly ForecastHistoryEntry[]; loadPending: boolean }) =>
@@ -267,11 +328,28 @@ describe("useForecastHistoryRecorder", () => {
     expect(set).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps what it recorded across a SAME-project reload, so its own changed forecast is still written", () => {
+    // The reload leaves today's stored entry as the one this tab wrote, and the
+    // reloaded tasks change its forecast. A memory cleared on loadPending would adopt.
+    const set = vi.fn();
+    const { rerender } = renderHook((p: { tasks: ForecastHistoryRecorderDeps["tasks"]; h: readonly ForecastHistoryEntry[]; loadPending: boolean }) =>
+      useForecastHistoryRecorder(deps({ tasks: p.tasks, forecastHistory: p.h, loadPending: p.loadPending, setForecastHistory: set })),
+      { initialProps: { tasks: TASKS, h: [] as readonly ForecastHistoryEntry[], loadPending: false } });
+    expect(set).toHaveBeenCalledTimes(1);
+    rerender({ tasks: TASKS, h: [ENTRY], loadPending: false });
+    rerender({ tasks: TASKS, h: [ENTRY], loadPending: true });
+    compute.mockReturnValue({ ...FORECAST, p50: "2026-11-03" });
+    rerender({ tasks: [], h: [ENTRY], loadPending: false });
+    expect(set).toHaveBeenCalledTimes(2);
+  });
+
   it("forgets what it recorded when the scope epoch moves, so another project's entry is not mistaken for its own", () => {
     const set = vi.fn();
     let epoch = 0;
     const getScopeEpoch = () => epoch;
-    const other = [{ ...ENTRY, p50: "2026-11-09" }];
+    // The other project's stored entry happens to equal the one this tab wrote for
+    // the first project: remembered, it would read as SEEN.
+    const other = [ENTRY];
     const { rerender } = renderHook((p: { h: readonly ForecastHistoryEntry[]; loadPending: boolean }) =>
       useForecastHistoryRecorder(deps({ forecastHistory: p.h, loadPending: p.loadPending, setForecastHistory: set, getScopeEpoch })),
       { initialProps: { h: [] as readonly ForecastHistoryEntry[], loadPending: false } });
@@ -279,8 +357,8 @@ describe("useForecastHistoryRecorder", () => {
     rerender({ h: [], loadPending: true });
     epoch = 1;
     // The other project computes its own entry, different from the one recorded under
-    // epoch 0. Remembered across the move, that old entry would read as "my own
-    // forecast changed" and overwrite the entry stored for the other project; forgotten,
+    // epoch 0. Remembered across the move, that would read as "my own forecast
+    // changed" over a SEEN entry and overwrite the other project's entry; forgotten,
     // the stored entry is adopted.
     compute.mockReturnValue({ ...FORECAST, p50: "2026-11-05" });
     rerender({ h: other, loadPending: false });

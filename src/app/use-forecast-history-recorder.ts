@@ -19,36 +19,52 @@
 // day: every stored field (p50/p80/p95/chanceOnTime) is computed in
 // holiday-adjusted working days, holidays are a per-device setting that is not
 // synced, and an old and a new tab can run different engine code. No stored
-// field is holiday-immune, so a tab never compares its entry with a PEER's, only
-// with its own earlier computation (its baseline, the ref below). Comparing with
-// the stored entry once made two clients overwrite each other for ever; answering
+// field is holiday-immune, so a peer's differing entry is never a reason to write:
+// a tab writes only when its OWN forecast changed (against its baseline, below)
+// or nothing is stored for today. Writing whenever the stored entry differed
+// once made two clients overwrite each other for ever; answering
 // a peer's entry once still cost every disagreeing client an extra write (a Turso
 // revision) per day.
+// The ref below remembers, per scope epoch, the tab's BASELINE (its own last
+// computed entry) and SEEN (the stored entry for today it last saw or wrote).
 // Per effect run that passes the gates above:
 //   1. An IDLE DAY CHANGE writes nothing: `today` moved and `tasks`, `milestones`,
 //      `planEnd`, `holidaySet` (by reference) and the scope epoch all equal the
 //      previous run's. An idle tab at midnight would otherwise race every other
-//      open client to write the new day. The next input change or load records it.
-//      The first run after mount, and the first after any gated run (switch off,
-//      load pending, popout, holidays not ready), has no previous run: it is a
-//      load and may write.
+//      open client to write the new day. ANY later run that is not an idle day
+//      change records the day under rules 2-5 (an input change, a load, even a
+//      history-only change after the skip). The first run after mount, and the
+//      first after any gated run (switch off, load pending, popout, holidays not
+//      ready), has no previous run: it is a load and may write.
 //   2. Nothing stored for today: write (also when this tab's own entry for today
 //      went missing from the stored history).
-//   3. A stored entry for today that this tab has no baseline for today against
-//      (it did not record it, or its baseline is from an earlier day or another
-//      scope): ADOPT it. No write; the tab's own computed entry becomes its
-//      baseline, so a later peer write is not answered either.
-//   4. A stored entry and a baseline for today: write only when the computed entry
-//      differs from the baseline (this tab's own forecast changed); the computed
-//      entry becomes the new baseline. Otherwise nothing.
+//   3. The stored entry for today EQUALS the computed one: no write (a second
+//      write of the same values is still a new array, an autosave and a Turso
+//      revision).
+//   4. ADOPT, no write, when the tab has no baseline for today (none, an earlier
+//      day's, or another epoch's) or the stored entry is not SEEN (a peer wrote
+//      it since this tab's last run). A peer's entry usually arrives together
+//      with the peer's edit, which changes this tab's inputs too; answering it
+//      would cost one write per remote edit from every client whose holidays
+//      differ.
+//   5. Otherwise (stored is SEEN and differs from the computed entry): write only
+//      when the computed entry differs from the baseline, i.e. this tab's own
+//      forecast changed.
+//   Every run that computes an entry rebaselines to it; SEEN becomes what was
+//   written, or the stored entry when nothing was.
 //
-// ★★ The baseline is keyed by the SCOPE EPOCH (`scope-epoch.ts`), not cleared on
+// ★★ The memory is keyed by the SCOPE EPOCH (`scope-epoch.ts`), not cleared on
 // `loadPending`. The epoch moves only when another project's data is applied, and
-// a baseline from another epoch counts as none (rule 3): kept across the swap, the
-// old project's entry would read as "my own forecast changed" and overwrite the
-// entry stored for the new project. A same-project reload (the conflict banner's
-// Reload, a held same-scope op) raises `loadPending` without moving the epoch, so
-// the baseline survives it; only the previous run's INPUTS (rule 1) are dropped. It is
+// a memory from another epoch counts as none (rule 4): kept across the swap, an
+// entry stored for the new project that happens to equal the one this tab wrote
+// for the old project would read as SEEN, and the new project's forecast as "my
+// own forecast changed", overwriting it. A same-project reload (the conflict
+// banner's Reload, a held same-scope op) raises `loadPending` without moving the
+// epoch, so the memory survives it (only the previous run's INPUTS, rule 1, are
+// dropped). That changes a write decision in one case only: the reload leaves
+// today's stored entry as the one this tab saw and its own forecast changed, so
+// it writes (rule 5) where a cleared memory would adopt. A reload that brings a
+// peer's differing entry writes nothing either way (rule 4). It is
 // keyed on the epoch rather than `currentProjectId` because that id is the file
 // registry's: in Turso portfolio mode the open project is `tursoProjectId` (see
 // `landingProjectId` in task-manager.tsx), so a Turso swap would not move it.
@@ -80,10 +96,13 @@ export interface ForecastHistoryRecorderDeps {
   getScopeEpoch: ScopeEpochReader;
 }
 
-/** This tab's own last computed entry (its baseline), and the scope epoch it was computed under. */
+/** The tab's memory under one scope epoch: its BASELINE and the SEEN stored entry. */
 interface RecordedEntry {
   scope: number;
+  /** This tab's own last computed entry. */
   entry: ForecastHistoryEntry;
+  /** The stored entry for `entry.date` this tab last saw, or wrote. */
+  seen: ForecastHistoryEntry;
 }
 
 /** The inputs of the previous effect run that passed the gates (rule 1). */
@@ -107,6 +126,18 @@ function isIdleDayChange(prev: RunInputs | null, next: RunInputs): boolean {
     prev.holidaySet === next.holidaySet &&
     prev.scope === next.scope
   );
+}
+
+/**
+ * Rules 2-5. `own` is the memory in this scope, or null. An earlier day's memory
+ * needs no check of its own: SEEN carries its date, so it never equals today's
+ * stored entry and rule 4 adopts.
+ */
+function shouldWrite(own: RecordedEntry | null, stored: ForecastHistoryEntry | undefined, entry: ForecastHistoryEntry): boolean {
+  if (!stored) return true;
+  if (sameEntry(stored, entry)) return false;
+  if (!own || !sameEntry(own.seen, stored)) return false;
+  return !sameEntry(own.entry, entry);
 }
 
 function sameEntry(a: ForecastHistoryEntry, b: ForecastHistoryEntry): boolean {
@@ -143,12 +174,11 @@ export function useForecastHistoryRecorder(d: ForecastHistoryRecorderDeps): void
     );
     if (!entry) return;
     const stored = forecastHistory.find((e) => e.date === today);
-    const base = recorded.current;
-    const own = base && base.scope === scope && base.entry.date === today ? base.entry : null;
-    recorded.current = { scope, entry };
-    // Rule 3 (no baseline for today: adopt) or rule 4 (own forecast unchanged).
-    if (stored && (!own || sameEntry(own, entry))) return;
-    setForecastHistory((prev) => upsertForecastHistory(prev, entry));
+    const mem = recorded.current;
+    const own = mem && mem.scope === scope ? mem : null;
+    const write = shouldWrite(own, stored, entry);
+    recorded.current = { scope, entry, seen: write || !stored ? entry : stored };
+    if (write) setForecastHistory((prev) => upsertForecastHistory(prev, entry));
   }, [
     on, hydrated, isPopout, loadPending, holidaysReady, today, tasks, milestones,
     planEnd, holidaySet, forecastHistory, setForecastHistory, getScopeEpoch,
