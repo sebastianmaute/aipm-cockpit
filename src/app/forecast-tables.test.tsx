@@ -139,7 +139,7 @@ describe("CostTable", () => {
     expect(box.getByRole("heading", { name: "Cost at finish" })).toBeTruthy();
     expect(within(box.getByRole("row", { name: /^Even odds \(P50\)/ })).getByText(money(250000))).toBeTruthy();
     expect(within(box.getByRole("row", { name: /^Safe to commit \(P80\)/ })).getByText(money(262000))).toBeTruthy();
-    expect(within(box.getByRole("row", { name: /^Worst likely \(P95\)/ })).getByText(money(281000))).toBeTruthy();
+    expect(within(box.getByRole("row", { name: /^Cautious \(P95\)/ })).getByText(money(281000))).toBeTruthy();
     expect(within(box.getByRole("row", { name: /^Chance over budget/ })).getByText("80%")).toBeTruthy();
     expect(card().getAttribute("data-sim")).toBe("true");
     expect(box.getAllByText("sim").length).toBeGreaterThan(0);
@@ -147,7 +147,7 @@ describe("CostTable", () => {
 
   test("reads a beyond percentile as beyond the horizon", () => {
     render(<CostTable lang="en-US" cost={{ ...SIM, p95: "beyond" }} currency="EUR" bac={240000} />);
-    const row = within(card()).getByRole("row", { name: /^Worst likely \(P95\)/ });
+    const row = within(card()).getByRole("row", { name: /^Cautious \(P95\)/ });
     expect(within(row).getByText(t("en-US", "simHistogramBeyond"))).toBeTruthy();
   });
 
@@ -175,7 +175,7 @@ describe("CostTable", () => {
 
   test("below the schedule floor says so", () => {
     render(<CostTable lang="en-US" cost={{ kind: "unavailable", reason: "schedule-floor", spendDays: 0, neededSpendDays: 10 }} currency="EUR" bac={240000} />);
-    expect(within(card()).getByText("Not enough finished tasks to simulate the finish yet.")).toBeTruthy();
+    expect(within(card()).getByText("Not enough finished-task history to simulate the finish yet.")).toBeTruthy();
   });
 
   test("reads in German", async () => {

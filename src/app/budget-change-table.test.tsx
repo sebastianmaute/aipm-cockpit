@@ -150,16 +150,22 @@ describe("BudgetChangeTable", () => {
 
 describe("BudgetChangeTable — simulated cost at finish (§502)", () => {
   const SIM: CostAtFinish = { kind: "sim", p50: 9_500, p80: 10_200, p95: 11_000, chanceOverBudget: 0.7, spendDays: 20 };
-  const simRow = () => screen.queryByRole("group", { name: "Cost at finish (sim), simulated" });
+  const simRow = () => screen.queryByRole("group", { name: "Cost at finish (sim, P50–P95), simulated" });
 
   it("adds one row with the P50 – P95 range beside the calculated split, marked sim", () => {
     const { container } = draw({ sim: SIM });
     const foot = container.querySelector("tfoot") as HTMLElement;
-    expect(within(foot).getByRole("rowheader", { name: "Cost at finish (sim)" })).toBeInTheDocument();
-    expect(within(foot).getByRole("group", { name: "Cost at finish (sim), simulated" })).toHaveAttribute("data-sim", "true");
+    expect(within(foot).getByRole("rowheader", { name: "Cost at finish (sim, P50–P95)" })).toBeInTheDocument();
+    expect(within(foot).getByRole("group", { name: "Cost at finish (sim, P50–P95), simulated" })).toHaveAttribute("data-sim", "true");
     expect(simRow()).toHaveTextContent(`${eur(9_500)} – ${eur(11_000)}`);
     // The calculated split stays as it was.
     expect(within(foot).getByRole("rowheader", { name: "Added scope" })).toBeInTheDocument();
+  });
+
+  it("labels the row as hours in the hours unit, never as cost", () => {
+    draw({ unit: "hours", sim: SIM });
+    expect(screen.getByRole("group", { name: "Hours at finish (sim, P50–P95), simulated" })).toBeInTheDocument();
+    expect(screen.queryByText(/Cost at finish/)).toBeNull();
   });
 
   it("names a P95 beyond the horizon in words", () => {
@@ -176,7 +182,7 @@ describe("BudgetChangeTable — simulated cost at finish (§502)", () => {
   it("has no simulated row when the simulation is off or the range is unavailable", () => {
     const { unmount } = draw({ sim: null });
     expect(simRow()).toBeNull();
-    expect(screen.queryByText("Cost at finish (sim)")).toBeNull();
+    expect(screen.queryByText("Cost at finish (sim, P50–P95)")).toBeNull();
     unmount();
     draw({ sim: { kind: "unavailable", reason: "spend-history", spendDays: 4, neededSpendDays: 10 } });
     expect(simRow()).toBeNull();

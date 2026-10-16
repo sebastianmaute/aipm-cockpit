@@ -470,10 +470,13 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
 - ★★ **The floors.** The cost range needs BOTH the schedule floor (the schedule run is a `"forecast"`, not
   insufficient) and the spend floor: at least `MIN_SPEND_WORKING_DAYS` samples. Below either it is
   `{ kind: "unavailable", reason: "schedule-floor" | "spend-history", spendDays, neededSpendDays }`. With enough
-  samples that are ALL zero (bookings exist before the window, none inside it) the reason is `"no-spend"`. Every
-  surface shows today's figures plus a line naming which is missing, worded in ONE place: `costUnavailableText`
-  (`budget-sim-text.ts`; `budgetSimMissingSchedule` / `budgetSimMissingSpend` / `budgetSimNoSpend`), used by the
-  pace card, the tile and the Forecast view, which also share the P50/P80/P95/chance rows (`costRangeRows`).
+  samples that are ALL zero (bookings exist before the window, none inside it) the reason is `"no-spend"`. The
+  missing-input line is worded in ONE place: `costUnavailableText` (`budget-sim-text.ts`; `budgetSimMissingSchedule` /
+  `budgetSimMissingSpend` / `budgetSimNoSpend`), used by the pace card, the tile and the Forecast view, which also
+  share the P50/P80/P95/chance rows (`costRangeRows`). Not every surface shows it: the change table adds no row when
+  the range is unavailable, and the pace card shows the sim block only beside an available calculated figure.
+  `budgetSimMissingSchedule` names no single cause ("not enough finished-task history") because the schedule floor
+  also trips on too few history working days.
 - **Seeded.** The rng seed is `seedFrom([...samples, ac, bac, seedTag, "cost"])`, so a rerun is identical and EUR and
   hours draw from different streams (`seedTag` "eur" / "hours"). It is separate from the schedule's streams, so the
   cost pass moves no schedule number.
@@ -507,7 +510,12 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
   - Tile (`burndown-chart-panel.tsx`, compact mode): one line "Cost at finish (P80) … · … chance over budget"; in the
     hours unit it reads "Hours at finish (P80) …" (`burndownSimTileLineHours`), as does the chart's text
     alternative (`burndownAriaSimHours`). When unavailable, the muted missing line.
-  - Change table (`budget-change-table.tsx`): a footer row "Cost at finish (sim)" with the P50 – P95 range; ABSENT when
+  - ★ Copy decisions (review fixes): the P95 row uses the app's established word, "Cautious (P95)" / "Vorsichtig (P95)"
+    (`simCautious`), matching the P50/P80 labels already shared with the Forecast view. The chart's text alternative adds
+    `burndownAriaSimP95Beyond` when only the P95 finish is past the horizon (`simFinish.p95Beyond`, beside `p80Beyond`),
+    so a band edge sitting on P80 is not read as P95 = P80. The hours unit says hours everywhere, including the legend
+    (`burndownSimHoursRange`) and the change-table row (`budgetChangeSimRowHours`).
+  - Change table (`budget-change-table.tsx`): a footer row "Cost at finish (sim, P50–P95)" ("Hours at finish (sim, P50–P95)" in the hours unit) with the range; ABSENT when
     the range is unavailable (the card and tile say why).
   - Forecast view (`forecast-panel.tsx`, `CostTable` in `forecast-tables.tsx`): a cost card computed from the view's OWN
     What-if-adjusted run, so moving scope moves it (capacity scales spend too, so alone it barely moves it; see above). It is hidden when the Budget module is off
@@ -518,8 +526,8 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
 
 ### Measured cost of the cost pass
 
-The extra pass is `simulateCostFromRun` alone, on the main thread, once per committed What-if change (memoised on the
-run). Measured 2026-10-16 in Node through `vite-node` on a synthetic fixture (200 open tasks, a 60-working-day history
+The extra pass is `simulateCostFromRun` alone, on the main thread, whenever the view's run changes, i.e. a committed What-if
+change or a How-many target change (memoised on the run). Measured 2026-10-16 in Node through `vite-node` on a synthetic fixture (200 open tasks, a 60-working-day history
 of about 1.33 finished tasks per day, 60 booking days), median of 7 after one warm-up, on a shared machine. A probe,
 not a gate. The cost is 10,000 trials times the days each draws, so it peaks when finish days sit just inside the
 horizon.

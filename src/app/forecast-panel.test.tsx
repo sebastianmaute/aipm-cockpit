@@ -465,7 +465,7 @@ describe("ForecastPanel — cost at finish (§502)", () => {
 
   test("below the schedule floor says which input is missing", () => {
     renderCost(FULL, true, [...open(4), ...steadyDone(3)]);
-    expect(within(card()).getByText("Not enough finished tasks to simulate the finish yet.")).toBeTruthy();
+    expect(within(card()).getByText("Not enough finished-task history to simulate the finish yet.")).toBeTruthy();
   });
 
   test("the cost card is absent without the simulation switch", () => {

@@ -73,8 +73,8 @@ export type ChartModel = {
   bacLine: number | null; today: string | null; planEnd: string; frameDiffers: boolean;
   /** §502 — the simulated P50–P95 finish dates as a faint full-height band, P80 as a dashed line. An end
    *  beyond the horizon clamps to the chart's last date; `p80Beyond` says the P80 one did, so the text
-   *  alternative names the horizon instead of the clamped date. Null when off or below the schedule floor. */
-  simFinish: { from: string; to: string; p80: string; p80Beyond: boolean } | null;
+   *  alternative names the horizon instead of the clamped date; `p95Beyond` likewise for the band edge. Null when off or below the schedule floor. */
+  simFinish: { from: string; to: string; p80: string; p80Beyond: boolean; p95Beyond: boolean } | null;
   /** §502 — a wedge from the last actual point to the P80 finish date spanning the P50..P95 cost, in the
    *  chart's unit and orientation; `low`/`high` are the lower and upper of the two plotted values. Like the
    *  forecast segments it extends the last point by the simulated cost still to come (cost − AC), so it
@@ -427,7 +427,7 @@ export function buildChartModel(input: ChartInput): ChartModel {
   }
 
   const simFinish: ChartModel["simFinish"] = finishDates === null || !sim ? null : {
-    from: sim.finish.p50 ?? end, to: sim.finish.p95 ?? end, p80: sim.finish.p80 ?? end, p80Beyond: sim.finish.p80 === null,
+    from: sim.finish.p50 ?? end, to: sim.finish.p95 ?? end, p80: sim.finish.p80 ?? end, p80Beyond: sim.finish.p80 === null, p95Beyond: sim.finish.p95 === null,
   };
   const simCost = simCostWedge(simCostUnit, last, forecast ? forecast.facts.ac : null, down, finishDates === null ? null : sim?.finish.p80 ?? null);
 

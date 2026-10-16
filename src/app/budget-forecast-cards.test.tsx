@@ -585,7 +585,7 @@ describe("ForecastCards — simulated cost at finish (§502)", () => {
     const block = within(costBlock());
     expect(block.getByText("Even odds (P50)")).toBeInTheDocument();
     expect(block.getByText("Safe to commit (P80)")).toBeInTheDocument();
-    expect(block.getByText("Worst likely (P95)")).toBeInTheDocument();
+    expect(block.getByText("Cautious (P95)")).toBeInTheDocument();
     expect(block.getByText("Chance over budget")).toBeInTheDocument();
     expect(block.getByText(money(262000))).toBeInTheDocument();
     expect(block.getByText("80%")).toBeInTheDocument();
@@ -620,7 +620,7 @@ describe("ForecastCards — simulated cost at finish (§502)", () => {
   it("names the missing finished tasks when below the schedule floor", () => {
     const sim: BudgetSim = { ...SIM_ON, eur: { kind: "unavailable", reason: "schedule-floor", spendDays: 0, neededSpendDays: 20 } };
     render(<Cards lang="en-US" forecast={AVAILABLE} sim={sim} />);
-    expect(screen.getByText("Not enough finished tasks to simulate the finish yet.")).toBeInTheDocument();
+    expect(screen.getByText("Not enough finished-task history to simulate the finish yet.")).toBeInTheDocument();
   });
 
   it("hides the chance row without a budget", () => {

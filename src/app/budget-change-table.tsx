@@ -78,7 +78,7 @@ export function BudgetChangeTable({
     { key: "attributed", term: t(lang, "forecastSplitScope"), value: split.attributed },
     { key: "unattributed", term: t(lang, "forecastSplitUnattributed"), value: split.unattributed },
   ];
-  const simTerm = t(lang, "budgetChangeSimRow");
+  const simTerm = t(lang, eurUnit ? "budgetChangeSimRow" : "budgetChangeSimRowHours");
   const simFigure = (v: number | "beyond") => (v === "beyond" ? t(lang, "simHistogramBeyond") : fmt(v));
   const simRange = sim !== null && sim.kind === "sim"
     ? t(lang, "budgetChangeSimRange", simFigure(sim.p50), simFigure(sim.p95))

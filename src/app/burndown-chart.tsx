@@ -134,6 +134,8 @@ function BurndownChartBody({
     // The hours unit says "hours at finish": "cost" beside an "h" figure misreads.
     const simKey = unit === "eur" ? "burndownAriaSim" : "burndownAriaSimHours";
     aria.push(model.simCost ? t(lang, simKey, finish, fmt(model.simCost.p80)) : t(lang, "burndownAriaSimFinish", finish));
+    // The band edge sits on P80 when P95 is past the horizon, so say so rather than let it read as P95 = P80.
+    if (model.simFinish.p95Beyond && !model.simFinish.p80Beyond) aria.push(t(lang, "burndownAriaSimP95Beyond"));
   }
   // A marker reads "+€3,000 Vendor", or "−€800 Ops removed" when every entry
   // behind it deleted its bucket. The pure model carries the amount and the
@@ -450,7 +452,7 @@ function BurndownChartBody({
         {model.simCost && (
           <span className="inline-flex items-center gap-1.5">
             <svg width="22" height="10" aria-hidden="true"><path d="M 0 5 L 22 0 L 22 10 z" fillOpacity={SIM_COST_OPACITY} className={SIM_FILL} /></svg>
-            {t(lang, "burndownSimCostRange")}
+            {t(lang, unit === "eur" ? "burndownSimCostRange" : "burndownSimHoursRange")}
           </span>
         )}
         {hasSolid && (

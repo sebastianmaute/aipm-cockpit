@@ -585,7 +585,7 @@ describe("buildChartModel — simulated bands (§502)", () => {
 
   it("draws the P50–P95 finish band with the P80 line and opens the x domain to the P95 date", () => {
     const m = buildChartModel({ ...base, sim: CHART_SIM });
-    expect(m.simFinish).toEqual({ from: "2026-03-20", to: "2026-05-01", p80: "2026-04-10", p80Beyond: false });
+    expect(m.simFinish).toEqual({ from: "2026-03-20", to: "2026-05-01", p80: "2026-04-10", p80Beyond: false, p95Beyond: false });
     expect(m.xDomain).toEqual(["2026-01-01", "2026-05-01"]);
   });
 
@@ -626,13 +626,13 @@ describe("buildChartModel — simulated bands (§502)", () => {
 
   it("beyond finish clamps to the last date", () => {
     const p95Beyond = buildChartModel({ ...base, sim: { ...CHART_SIM, finish: { ...CHART_SIM.finish, p95: null } } });
-    expect(p95Beyond.simFinish).toEqual({ from: "2026-03-20", to: "2026-04-10", p80: "2026-04-10", p80Beyond: false });
+    expect(p95Beyond.simFinish).toEqual({ from: "2026-03-20", to: "2026-04-10", p80: "2026-04-10", p80Beyond: false, p95Beyond: true });
     expect(p95Beyond.xDomain).toEqual(["2026-01-01", "2026-04-10"]);
     const beyond = { kind: "sim" as const, p50: 9_500, p80: "beyond" as const, p95: "beyond" as const, chanceOverBudget: 1, spendDays: 20 };
     const m = buildChartModel({
       ...base, sim: { finish: { p50: "2026-03-20", p80: null, p95: null }, eur: beyond, hours: beyond },
     });
-    expect(m.simFinish).toEqual({ from: "2026-03-20", to: "2026-03-31", p80: "2026-03-31", p80Beyond: true });
+    expect(m.simFinish).toEqual({ from: "2026-03-20", to: "2026-03-31", p80: "2026-03-31", p80Beyond: true, p95Beyond: true });
     expect(m.xDomain).toEqual(["2026-01-01", "2026-03-31"]);
     expect(m.simCost).toBeNull();
   });

@@ -323,6 +323,6 @@ describe("BurndownChartPanel — simulated cost on the burn tile (§502)", () =>
     await act(async () => {});
     expect(tileLine()).toBeNull();
     const table = screen.getByRole("table");
-    expect(within(table).getByRole("group", { name: "Cost at finish (sim), simulated" })).toHaveTextContent("€9,500 – €11,000");
+    expect(within(table).getByRole("group", { name: "Cost at finish (sim, P50–P95), simulated" })).toHaveTextContent("€9,500 – €11,000");
   });
 });

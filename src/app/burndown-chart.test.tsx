@@ -794,6 +794,12 @@ describe("BurndownChart — simulated bands (§502)", () => {
     expect(screen.getByText("Cost range (sim)")).toBeInTheDocument();
   });
 
+  it("names the range as hours in the hours unit", () => {
+    draw({ sim: CHART_SIM, unit: "hours" });
+    expect(screen.getByText("Hours range (sim)")).toBeInTheDocument();
+    expect(screen.queryByText("Cost range (sim)")).toBeNull();
+  });
+
   it("leaves the cost entry out of the legend when no wedge is drawn", () => {
     draw({ sim: { ...CHART_SIM, eur: { ...CHART_SIM.eur, p95: "beyond" } } });
     expect(screen.getByText("Finish range (sim)")).toBeInTheDocument();
@@ -810,6 +816,12 @@ describe("BurndownChart — simulated bands (§502)", () => {
     const aria = ariaOf(draw({ sim: CHART_SIM, unit: "hours" }).container);
     expect(aria).toContain("Simulated: finish (P80) Apr 10, 2026, hours at finish (P80) ");
     expect(aria).not.toContain("cost at finish");
+  });
+
+  it("says the P95 finish is beyond the horizon when only P95 is, so the band edge is not read as P95 = P80", () => {
+    const aria = ariaOf(draw({ sim: { ...CHART_SIM, finish: { ...CHART_SIM.finish, p95: null } } }).container);
+    expect(aria).toContain("The latest likely finish (P95) is beyond the horizon.");
+    expect(ariaOf(draw({ sim: CHART_SIM }).container)).not.toContain("latest likely finish");
   });
 
   it("says the P80 finish is beyond the horizon rather than naming the clamped date", () => {
