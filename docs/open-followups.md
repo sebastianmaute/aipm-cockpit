@@ -985,6 +985,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§745](#745-video-guides-no-guided-tour-for-each-feature-and-ai-clip--open) | Video guides: no guided tour for each feature and AI clip | — | — | open |
 | [§746](#746-video-guides-no-guided-tour-per-project-function--open) | Video guides: no guided tour per project Function | — | — | open |
 | [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--open) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | open |
+| [§748](#748-the-monte-carlo-forecast-may-move-to-a-background-worker--open) | The Monte Carlo forecast may move to a background worker | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45594,3 +45595,17 @@ Proposed: pick the period that contains `a.today` (and the next one, if `NEAR_TE
 Size S. The owner decided on 2026-10-16 to fix it before the §715 demo data (project E), which plants an overload that depends on it.
 
 **Source:** found 2026-10-16 by a builder check of `docs/superpowers/specs/2026-10-16-demo-week-story-design.md`.
+
+## 748. The Monte Carlo forecast may move to a background worker — OPEN
+
+**Status:** OPEN 2026-10-16. `grep -rn "new Worker" src/app/forecast src/app/use-app-forecast.ts src/app/budget-sim.ts` → no output: the forecast runs on the main thread.
+
+**Work item:** #772
+
+The Monte Carlo forecast (§502) runs synchronously in render-time memos. The measured costs are in [`docs/AGENTS/forecast.md`](AGENTS/forecast.md), each with a reproduce command: about 30 ms for the schedule forecast by default and about 600 ms at the What-if extremes, plus about 260 ms for the two-unit budget simulation (EUR and hours) near the horizon, which runs on the Dashboard and the Budget report. The owner earlier decided against a worker (forecast.md, "Trial count"). On 2026-10-16 the owner asked to file that a background worker may be introduced.
+
+Proposed: decide at the un-hide of the Forecast view, after the owner's eye check. A worker would take the engine's pure inputs and return the percentile results; the seed rule keeps results identical across threads.
+
+Size M.
+
+**Source:** owner request 2026-10-16, during the §502 part-3 pre-merge fixes.

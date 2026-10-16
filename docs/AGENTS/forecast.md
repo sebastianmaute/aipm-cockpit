@@ -253,7 +253,7 @@ figures were taken in a different process on a shared machine and cannot be comp
 trial reaches a +500 % backlog, so When walks most of the 1,300-day horizon before `beyond` is certain,
 and How many walks all of it, because a trial that never reaches the backlog must draw every day of the
 target. Both are bound by the rng (one draw per simulated day at least, about 7 ns each on this
-machine). The levers left are a worker, or fewer trials; the owner decided against both (see "Trial count").
+machine). The levers left are a worker, or fewer trials; the owner decided against both (see "Trial count"). On 2026-10-16 the owner reopened the worker as an option: register §748.
 Reproduce the table from the repo root (single runs, so expect noise; delete the file
 afterwards):
 
