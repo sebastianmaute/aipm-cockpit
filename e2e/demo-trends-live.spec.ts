@@ -19,7 +19,8 @@
 // creates and deletes one project per test; `afterAll` removes any demo a failed
 // run left behind. Trace and video are off (the app carries the token).
 // ★ The start-card test needs a database with NO Turso project in it: the card
-// shows only then. With other projects present it fails (it cannot pass falsely).
+// shows only then. `beforeAll` therefore hard-deletes EVERY project in the throwaway
+// database, and the test fails at once, naming any project still there.
 // Run it alone, against a fresh server:
 //   PORT=3100 npx playwright test e2e/demo-trends-live.spec.ts --project=chromium --workers=1
 // The Trends screenshot lands in each test's output directory (test-results/…).
@@ -115,6 +116,21 @@ async function removeAll(): Promise<void> {
   await hardDeleteProject(CONFIG, HOST_ID);
 }
 
+/** Every project row in the database, whoever wrote it: id and name. */
+async function allProjects(): Promise<{ id: string; name: string }[]> {
+  const [res] = await pipeline([{ sql: "SELECT id, name FROM projects", args: [] }]);
+  expect(res?.type, "the projects query failed").toBe("ok");
+  return rowsOf(res).map((r) => ({ id: r[0]?.value ?? "", name: r[1]?.value ?? "" }));
+}
+
+/** ★★ The start-card test needs a database with NO project in it. A project another spec leaked (or a
+ *  cancelled run left) made it time out behind the tour on every later run (CI, 2026-10-15). The
+ *  database is the throwaway one (`appIsThrowaway` gates this whole file), so clear it with the app's own
+ *  hard delete, every workspace and side table per project, rather than only what this file made. */
+async function removeEveryProject(): Promise<void> {
+  for (const { id } of await allProjects()) await hardDeleteProject(CONFIG, id);
+}
+
 /** Turso portfolio mode, with `current` open (or no project). `tourSeen` is set only when a host
  *  project is open, so the demo is what starts the tour. Installed once per page, so a reload
  *  keeps whatever the app has stored since. */
@@ -157,6 +173,11 @@ async function createAndVerify(
   startFrom: () => Promise<void>,
   shotName: string,
 ): Promise<void> {
+  if (current === null) {
+    // Fail at once and name the strays, instead of timing out behind the tour four minutes later.
+    const strays = (await allProjects()).map((p) => `${p.id} (${p.name})`);
+    expect(strays, "the start card needs an empty database; these projects are still in it").toEqual([]);
+  }
   await installPortfolioTursoMode(page, current);
   await page.goto("/");
   await startFrom();
@@ -210,7 +231,7 @@ test.describe("§696 — the demo's Trends history on a live Turso database", ()
   test.beforeAll(async () => {
     if (!appIsThrowaway()) return;
     await ensureTenantSchema();
-    await removeAll();
+    await removeEveryProject();
   });
   test.afterAll(async () => {
     if (!appIsThrowaway()) return;
