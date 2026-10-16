@@ -52,8 +52,11 @@ export interface GanttMilestoneDragOptions {
    * Read when the chart unmounts with a keyboard move still pending. True only
    * while an op that replaces this workspace with another project's is in
    * flight (`isSwapInFlight`, the chat panel's §596 discriminator): the move is
-   * then dropped, since it belongs to the outgoing project. On an ordinary
-   * unmount — the user navigated away — the move still lands.
+   * then dropped, since it belongs to the outgoing project. Every other unmount
+   * lands it — navigation, and also the load-hold (§548) teardowns that keep the
+   * project: a same-project Reload, a Save-As, a cancelled file dialog. Whether a
+   * move landed during a Reload survives the load that follows is up to that
+   * load; this hook cannot see it. The chat panel accepts the same residual.
    */
   isSwapInFlight?: () => boolean;
 }

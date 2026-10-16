@@ -62,6 +62,7 @@ import {
   parseISO,
   type PlacedMilestone,
   type PlacedTask,
+  shiftIsoDate,
   toISODay,
 } from "./gantt-engine";
 
@@ -545,6 +546,9 @@ export function GanttPanel({
     return m;
   }, [absences, resourcesById]);
 
+  const keyPreviewId = milestoneDrag?.mode === "keys" ? milestoneDrag.milestoneId : null;
+  const keyPreviewDays = milestoneDrag?.mode === "keys" ? milestoneDrag.deltaDays : 0;
+
   // Date range for the time axis.
   const range = useMemo(() => {
     const today = localTodayUTC();
@@ -562,9 +566,14 @@ export function GanttPanel({
       if (bar.end.getTime() > max.getTime()) max = bar.end;
     }
     // Fold milestone dates into the range so their diamonds are never
-    // clipped. An empty milestones list leaves min/max untouched.
+    // clipped. An empty milestones list leaves min/max untouched. A pending
+    // KEYBOARD move counts at its previewed date, so arrow presses past the
+    // edge widen the axis: the handle stays reachable and its slider value in
+    // range. A pointer drag does not: widening under the pointer would shift
+    // the chart away from it.
     for (const m of milestones) {
-      const d = parseISO(m.date);
+      const iso = m.id === keyPreviewId ? (shiftIsoDate(m.date, keyPreviewDays) ?? m.date) : m.date;
+      const d = parseISO(iso);
       if (!d) continue;
       if (!initialized) {
         min = d;
@@ -606,7 +615,7 @@ export function GanttPanel({
     }
     const days = Math.max(1, diffDays(min, max) + 1);
     return { min, max, days };
-  }, [layout.bars, milestones, baselineMilestoneDates, showBaselinePref]);
+  }, [layout.bars, milestones, baselineMilestoneDates, showBaselinePref, keyPreviewId, keyPreviewDays]);
 
   // Same expression the holiday shading and the day grid use — shared so the
   // marker cannot drift off the day column it is supposed to sit on.

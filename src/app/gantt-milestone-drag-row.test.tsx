@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { GanttMilestoneRow } from "./gantt-rows";
 import { GanttPanel } from "./gantt";
-import { fmtFull, ROW_HEIGHT_PX } from "./gantt-engine";
+import { fmtFull, LEFT_GUTTER_PX, ROW_HEIGHT_PX } from "./gantt-engine";
 import type { Milestone, Task } from "./types";
 
 // §715 project D — the milestone row's drag handle and its live preview.
@@ -116,18 +116,41 @@ describe("GanttPanel — milestone move wiring", () => {
     expect(onMoveMilestone).toHaveBeenCalledWith(100, 2);
   });
 
-  it("keeps the handle scrolled into view while arrow presses move it", () => {
-    const scrollIntoView = vi.fn();
-    const original = HTMLElement.prototype.scrollIntoView;
-    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+  it("widens the axis for a keyboard move past its first day, so the value stays in range", () => {
+    render(<GanttPanel {...props} onMoveMilestone={vi.fn()} />);
+    const slider = screen.getByRole("slider", { name: "Move milestone – Beta" });
+    // Beta is the earliest item: the axis starts two days before it.
+    expect(slider).toHaveAttribute("aria-valuenow", "2");
+    fireEvent.keyDown(slider, { key: "PageDown" });
+    fireEvent.keyDown(slider, { key: "PageDown" });
+    expect(slider).toHaveAttribute("aria-valuetext", fmtFull(new Date(Date.UTC(2026, 5, 6)), "en-US"));
+    expect(slider).toHaveAttribute("aria-valuenow", "2");
+    expect(Number(slider.getAttribute("aria-valuenow"))).toBeLessThanOrEqual(Number(slider.getAttribute("aria-valuemax")));
+  });
+
+  it("keeps the handle and its preview date clear of the sticky name column while arrow presses move it", () => {
+    // jsdom has no layout: place the handle at viewport x 60 and its preview
+    // label at x 30, both inside the scrollport but under the name column.
+    const rects = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const at = (left: number, width: number) => ({ left, right: left + width, top: 100, bottom: 130, width, height: 30, x: left, y: 100, toJSON: () => ({}) }) as DOMRect;
+      if (this.hasAttribute("data-gantt-milestone-handle")) return at(60, 20);
+      if (this.hasAttribute("data-gantt-milestone-preview")) return at(30, 60);
+      return at(0, 0);
+    });
     try {
       render(<GanttPanel {...props} onMoveMilestone={vi.fn()} />);
-      scrollIntoView.mockClear();
-      fireEvent.keyDown(screen.getByRole("slider", { name: "Move milestone – Beta" }), { key: "PageUp" });
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
-      expect(scrollIntoView.mock.contexts.at(-1)).toBe(screen.getByRole("slider", { name: "Move milestone – Beta" }));
+      const slider = screen.getByRole("slider", { name: "Move milestone – Beta" });
+      const scroller = slider.closest<HTMLElement>(".overflow-auto")!;
+      Object.defineProperty(scroller, "clientWidth", { configurable: true, value: 800 });
+      Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 400 });
+      scroller.scrollLeft = 400;
+      fireEvent.keyDown(slider, { key: "PageUp" });
+      // Content x of the label = 30 + 400 = 430; it must start right of the
+      // name column, so the chart scrolls to 430 - LEFT_GUTTER_PX.
+      expect(scroller.scrollLeft).toBe(430 - LEFT_GUTTER_PX);
+      expect(scroller.scrollTop).toBe(0);
     } finally {
-      HTMLElement.prototype.scrollIntoView = original;
+      rects.mockRestore();
     }
   });
 

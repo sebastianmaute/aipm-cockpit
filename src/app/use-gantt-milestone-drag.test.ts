@@ -234,6 +234,18 @@ describe("useGanttMilestoneDrag — keyboard", () => {
     expect(onMove).toHaveBeenCalledWith(4, 1);
   });
 
+  it("saves once when the commit's own re-sort blurs the handle", () => {
+    // In a browser, the commit re-sorts the rows and moving the focused row
+    // can fire blur on the handle from inside the commit. That blur must find
+    // the move already taken, not save it a second time.
+    const onMove = vi.fn(() => { hook.result.current.onMilestoneBlur(m); });
+    const hook = renderHook(() => useGanttMilestoneDrag(onMove));
+    const { result } = hook;
+    act(() => result.current.onMilestoneKeyDown(keyDown("ArrowRight"), m));
+    act(() => result.current.onMilestoneKeyDown(keyDown("Enter"), m));
+    expect(onMove).toHaveBeenCalledTimes(1);
+  });
+
   it("lands a pending move before a key press on another milestone", () => {
     const onMove = vi.fn();
     const other: Milestone = { ...m, id: 9, date: "2026-12-01" };

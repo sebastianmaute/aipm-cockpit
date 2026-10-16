@@ -892,7 +892,9 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar),
   `use-gantt-milestone-drag.ts` (milestone drag, §715 project D — the same window-listener shape; the
   handle is a SLIDER whose arrow presses move only the preview and commit once, on a pause, Enter or blur,
-  and the chart keeps the handle scrolled into view; focus survives the re-sort a commit causes because React
+  and the chart keeps the handle and its preview date in view through `revealInGantt` (`gantt-reveal.ts`) — ★ not
+  `scrollIntoView`, which counts a span under the sticky name column, header or footer as visible (WCAG 2.4.11) —
+  while a pending keyboard move also widens the axis (`gantt.tsx` range memo) so the slider value stays in range; focus survives the re-sort a commit causes because React
   refocuses a node its commit moved and the row window keeps a focused row mounted; a day OFFSET commits through `moveMilestoneBy` in `milestone-update.ts`, resolved against the milestone's live date so a change that landed meanwhile is moved, not overwritten, and a keyboard move pending when a project swap tears the chart down is dropped (`isSwapInFlight`);
   `commitMilestoneUpdate` there is the one update path the Milestones editor's save shares, so a chart move gets the same undo entry and activity
   row) and

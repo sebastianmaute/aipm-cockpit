@@ -44,6 +44,12 @@ function ShowDate() {
         aria-label="shift-date"
         onClick={() => setMilestones((prev) => prev.map((m, i) => (i === 0 ? { ...m, date: "2026-11-01" } : m)))}
       />
+      {/* A concurrent writer signing the first milestone off. */}
+      <button
+        type="button"
+        aria-label="sign-off"
+        onClick={() => setMilestones((prev) => prev.map((m, i) => (i === 0 ? { ...m, achievedDate: "2026-10-16" } : m)))}
+      />
     </>
   );
 }
@@ -128,6 +134,20 @@ describe("GanttView — milestone move", () => {
     // lands after the pause, against the live list, and finds nothing.
     act(() => { vi.advanceTimersByTime(MILESTONE_KEY_COMMIT_DELAY_MS); });
     expect(showToast).toHaveBeenCalledWith("error", "This item was deleted elsewhere — your change wasn't saved.");
+  });
+
+  it("tells the user when the milestone was signed off before the move landed", () => {
+    vi.useFakeTimers();
+    const showToast = vi.fn();
+    renderView({ withToast: showToast });
+    fireEvent.keyDown(screen.getByRole("slider", { name: HANDLE }), { key: "ArrowRight" });
+    fireEvent.click(screen.getByRole("button", { name: "sign-off" }));
+    act(() => { vi.advanceTimersByTime(MILESTONE_KEY_COMMIT_DELAY_MS); });
+    expect(screen.getAllByTestId("date")[0].textContent).toBe("2026-10-23");
+    expect(showToast).toHaveBeenCalledWith(
+      "error",
+      "This milestone was marked achieved elsewhere — it stays on its date, so your move wasn't saved.",
+    );
   });
 
   it("moves from the date a concurrent writer set, not the one the presses started on", () => {

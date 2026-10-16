@@ -93,8 +93,13 @@ export function GanttView({
 
   function moveMilestone(id: number, days: number) {
     const deps = { setMilestones, captureFieldEdit: onCaptureFieldEdit, logActivity, logActivityChanges };
-    if (moveMilestoneBy(milestones, id, days, deps) === "vanished") {
+    const outcome = moveMilestoneBy(milestones, id, days, deps);
+    if (outcome === "vanished") {
       reportSilentFailure(showToast, lang, "milestone.moveVanished", "concurrent delete during drag", "guardEditVanished");
+    } else if (outcome === "achieved") {
+      // Signed off by another writer while the move was pending: the diamond
+      // snaps back, so say why rather than let the move vanish.
+      reportSilentFailure(showToast, lang, "milestone.moveAchieved", "concurrent sign-off during drag", "ganttMilestoneMoveAchieved");
     }
   }
 

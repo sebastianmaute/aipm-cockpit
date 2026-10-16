@@ -1399,6 +1399,7 @@ export const de: Record<TranslationKey, string> = {
   ganttBarResizeEnd: "Ziehen, um Fälligkeitsdatum zu ändern",
   ganttMilestoneMove: "Meilenstein verschieben",
   ganttMilestoneMoveHint: "Ziehen oder Pfeiltasten drücken: ein Tag, mit Umschalt eine Woche. Enter speichert sofort, Escape bricht ab",
+  ganttMilestoneMoveAchieved: "Dieser Meilenstein wurde an anderer Stelle als erreicht markiert — er bleibt auf seinem Datum, Ihre Verschiebung wurde nicht gespeichert.",
   ganttCriticalPath: "Kritischer Pfad",
   ganttCriticalPathHint:
     "Hebt die Kette der Aufgaben ohne Puffer hervor, die das Projektende bestimmen.",
