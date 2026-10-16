@@ -75,6 +75,7 @@ describe("WorkspaceSection — the Forecast view's budget facts", () => {
     const facts = (await openForecast(["sim-on", "add-bucket"])) as { eur: { dated: unknown[] } } | null;
     expect(facts).not.toBeNull();
     expect(Array.isArray(facts?.eur.dated)).toBe(true);
+    expect(forecastPanelMock.props.at(-1)?.budgetEnabled).toBe(true);
   });
 
   // Mutation: dropping the `isSimulationActive(...)` conjunct of `forecastCostOn` turns this red.
@@ -90,5 +91,6 @@ describe("WorkspaceSection — the Forecast view's budget facts", () => {
   it("passes null while the Budget module is off", async () => {
     mockFeatures(["dashboard", "milestones", "resources"]);
     expect(await openForecast(["sim-on", "add-bucket"])).toBeNull();
+    expect(forecastPanelMock.props.at(-1)?.budgetEnabled).toBe(false);
   });
 });

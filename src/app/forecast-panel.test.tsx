@@ -416,9 +416,9 @@ describe("ForecastPanel — cost at finish (§502)", () => {
     return { eur: f, hours: { ...f, bac: 1000, ac: 400 } };
   }
   const FULL = facts(60);
-  const renderCost = (budgetFacts: ForecastFactsByUnit | null, showSimulation = true, tasks: Task[] = history) =>
+  const renderCost = (budgetFacts: ForecastFactsByUnit | null, showSimulation = true, tasks: Task[] = history, budgetEnabled = true) =>
     render(
-      <ForecastPanel lang="en-US" tasks={tasks} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} showSimulation={showSimulation} budgetFacts={budgetFacts} />,
+      <ForecastPanel lang="en-US" tasks={tasks} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} showSimulation={showSimulation} budgetFacts={budgetFacts} budgetEnabled={budgetEnabled} />,
     );
   const card = () => screen.getByRole("group", { name: "Cost at finish, simulated" });
   const p80Cost = (): number => {
@@ -458,5 +458,12 @@ describe("ForecastPanel — cost at finish (§502)", () => {
     renderCost(FULL, false);
     expect(screen.queryByRole("group", { name: "Cost at finish, simulated" })).toBeNull();
     expect(screen.queryByText("Cost at finish")).toBeNull();
+  });
+
+  // Mutation: dropping the `budgetEnabled` conjunct of `costCard` turns this red.
+  test("Budget module off: no cost card, not even the add-a-budget line", () => {
+    renderCost(null, true, history, false);
+    expect(screen.queryByRole("group", { name: "Cost at finish, simulated" })).toBeNull();
+    expect(screen.queryByText("Add a budget to see the cost at finish.")).toBeNull();
   });
 });

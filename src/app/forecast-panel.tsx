@@ -87,6 +87,8 @@ interface Props {
   showSimulation?: boolean;
   /** The pace forecast's facts (`computeProjectForecastFacts`) for the cost-at-finish card; null when the Budget module is off or there are no buckets. */
   budgetFacts?: ForecastFactsByUnit | null;
+  /** The Budget module is on. Off, the cost card does not render at all (no add-a-budget line for a module the user turned off). */
+  budgetEnabled?: boolean;
   /** Deep-link target (`ForecastPanelDeepLinked`): the milestone row to flash, and the box it is queried in. */
   flashMilestoneId?: number | null;
   milestonesRef?: React.Ref<HTMLDivElement>;
@@ -109,7 +111,7 @@ export function ForecastPanelDeepLinked(props: Omit<Props, "flashMilestoneId" | 
   return <ForecastPanel {...props} flashMilestoneId={flashId} milestonesRef={containerRef} />;
 }
 
-export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, showSimulation = false, budgetFacts = null, flashMilestoneId = null, milestonesRef }: Props) {
+export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, showSimulation = false, budgetFacts = null, budgetEnabled = false, flashMilestoneId = null, milestonesRef }: Props) {
   const [mode, setMode] = useState<ForecastMode>("quick");
   const [unit, setUnit] = useState<ForecastUnit>("tasks");
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>(DEFAULT_HISTORY_WINDOW);
@@ -156,10 +158,10 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
   // §502 part 3 — cost at finish from THIS run, so What-if capacity and scope move it; money unit only.
   // Nothing runs while the simulation switch is off.
   const cost = useMemo(() => {
-    if (!showSimulation || budgetFacts === null) return null;
+    if (!showSimulation || !budgetEnabled || budgetFacts === null) return null;
     return result.kind === "forecast" ? simulateCostFromRun(result, budgetFacts.eur, "eur") : BELOW_SCHEDULE_FLOOR;
-  }, [showSimulation, budgetFacts, result]);
-  const costCard = showSimulation && (
+  }, [showSimulation, budgetEnabled, budgetFacts, result]);
+  const costCard = showSimulation && budgetEnabled && (
     <CostTable lang={lang} cost={cost} currency={plan.currency} bac={budgetFacts?.eur.bac ?? 0} />
   );
 

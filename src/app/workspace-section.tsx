@@ -324,7 +324,8 @@ export function WorkspaceSection({
   });
   // §502 part 3 — the pace forecast's facts for the Forecast view's cost card, built as the Budget view does
   // (`computeProjectForecastFacts`); only on that tab with the simulation on and the Budget module enabled.
-  const forecastCostOn = activeTab === "forecast" && isSimulationActive(workspace.settingsOverrides, features) && isModuleEnabled("budget", features);
+  const budgetEnabled = isModuleEnabled("budget", features);
+  const forecastCostOn = activeTab === "forecast" && isSimulationActive(workspace.settingsOverrides, features) && budgetEnabled;
   const workdayHours = settings.resources.workdayHours;
   const forecastBudgetFacts = useMemo(
     () => (forecastCostOn ? computeProjectForecastFacts({ buckets: budgets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today }) : null),
@@ -765,7 +766,7 @@ export function WorkspaceSection({
 
         {activeTab === "forecast" && isViewEnabled("forecast", features) && (
           <div id="panel-forecast" role="tabpanel" className={panelScrollClass}>
-            <ForecastPanel lang={lang} tasks={tasks} milestones={milestones} plan={plan} today={today} holidaySet={holidaySet} isPopout={isPopout} showSimulation={isSimulationActive(workspace.settingsOverrides, features)} budgetFacts={forecastBudgetFacts} />
+            <ForecastPanel lang={lang} tasks={tasks} milestones={milestones} plan={plan} today={today} holidaySet={holidaySet} isPopout={isPopout} showSimulation={isSimulationActive(workspace.settingsOverrides, features)} budgetFacts={forecastBudgetFacts} budgetEnabled={budgetEnabled} />
           </div>
         )}
 
