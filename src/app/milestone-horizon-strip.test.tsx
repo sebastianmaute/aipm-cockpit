@@ -1,7 +1,7 @@
 import { describe, expect, it, test, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SimExplainer } from "./sim-explainer";
-import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
+import { MilestoneHorizonStrip, milestonesContentKey } from "./milestone-horizon-strip";
 import type { MilestoneHorizonBuckets } from "./milestones";
 import type { Milestone } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -11,6 +11,37 @@ const m = (id: number, date: string): Milestone => ({ id, name: `M${id}`, date, 
 function buckets(over: Partial<MilestoneHorizonBuckets> = {}): MilestoneHorizonBuckets {
   return { overdue: [], thisWeek: [], next2Weeks: [], later: [], ...over };
 }
+
+describe("milestonesContentKey (§502)", () => {
+  const linked = (id: number): Milestone => ({ ...m(id, "2026-08-01"), linkedTaskIds: [id] });
+  const ON_TRACK = (id: number) => ({ milestone: linked(id), status: "on-track" as const });
+
+  it("tells pending placeholders apart from none, and one placeholder from two", () => {
+    const two = buckets({ later: [ON_TRACK(1), ON_TRACK(2)] });
+    const one = buckets({ later: [ON_TRACK(1)] });
+    const idle = milestonesContentKey(two, undefined, false);
+    expect(milestonesContentKey(two, undefined, true)).not.toBe(idle);
+    expect(milestonesContentKey(two, undefined, true)).not.toBe(milestonesContentKey(one, undefined, true));
+  });
+
+  it("counts only the entries that draw a placeholder: not overdue, linked, inside the cap", () => {
+    const noDraw = buckets({
+      overdue: [{ milestone: linked(1), status: "overdue" }],
+      later: [{ milestone: m(2, "2026-08-01"), status: "on-track" }],
+    });
+    expect(milestonesContentKey(noDraw, undefined, true)).toBe(milestonesContentKey(noDraw, undefined, false));
+    const six = buckets({ later: [1, 2, 3, 4, 5, 6].map(ON_TRACK) });
+    const five = buckets({ later: [1, 2, 3, 4, 5].map(ON_TRACK) });
+    expect(milestonesContentKey(six, undefined, true)).toBe(milestonesContentKey(five, undefined, true));
+  });
+
+  it("still tells real chips apart, and a chip from a placeholder", () => {
+    const b = buckets({ later: [ON_TRACK(1)] });
+    const chips = new Map([[1, 0.4]]);
+    expect(milestonesContentKey(b, chips, false)).not.toBe(milestonesContentKey(b, undefined, false));
+    expect(milestonesContentKey(b, chips, false)).not.toBe(milestonesContentKey(b, undefined, true));
+  });
+});
 
 describe("MilestoneHorizonStrip", () => {
   test("all buckets empty → 'No upcoming milestones'", () => {

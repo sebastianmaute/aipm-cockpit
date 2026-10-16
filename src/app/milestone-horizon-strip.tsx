@@ -68,6 +68,26 @@ export function visibleChipCount(buckets: MilestoneHorizonBuckets, chances: Read
   return ORDER.reduce((n, k) => n + buckets[k].slice(0, MAX_PER_BUCKET).filter((e) => chances.has(e.milestone.id)).length, 0);
 }
 
+/** While the simulation waits for holidays, a not-overdue milestone with linked tasks holds a
+ *  `SimPlaceholder` where its chip will go — the entries the engine will give a chance. */
+function drawsPlaceholder(e: HorizonEntry, simPending: boolean | undefined): boolean {
+  return !!simPending && e.status !== "overdue" && (e.milestone.linkedTaskIds?.length ?? 0) > 0;
+}
+
+/** The Milestones tile's part of the Dashboard's re-measure key: the chips that draw AND the pending
+ *  placeholders (which take height too), each counted inside the bucket cap. */
+export function milestonesContentKey(
+  buckets: MilestoneHorizonBuckets,
+  chances: ReadonlyMap<number, number> | undefined,
+  simPending: boolean | undefined,
+): string {
+  const placeholders = ORDER.reduce(
+    (n, k) => n + buckets[k].slice(0, MAX_PER_BUCKET).filter((e) => !chances?.has(e.milestone.id) && drawsPlaceholder(e, simPending)).length,
+    0,
+  );
+  return `ms:${visibleChipCount(buckets, chances)}:${placeholders}`;
+}
+
 export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone, chances, simPending, explainer }: MilestoneHorizonStripProps) {
   const total = ORDER.reduce((n, k) => n + buckets[k].length, 0);
   // §669 — two milestones can share a name and a date. Bare, not memoised: at
@@ -95,7 +115,7 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone, chances,
               const chanceSr = chance === undefined ? undefined : t(lang, "milestoneChanceChipSr", chanceText(lang, chance));
               const chip = chance !== undefined
                 ? <ChanceChip lang={lang} chance={chance} />
-                : simPending && e.status !== "overdue" && (e.milestone.linkedTaskIds?.length ?? 0) > 0
+                : drawsPlaceholder(e, simPending)
                   ? <SimPlaceholder />
                   : null;
               return (
