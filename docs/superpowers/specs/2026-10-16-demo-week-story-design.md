@@ -119,7 +119,7 @@ cancel → **Explore the demo**.
 
 | Manual | Then AI |
 |---|---|
-| Dashboard: read the hero (MVP target, overdue) and its reasons; read the delta strip — what changed since Friday (`dashboard-delta.ts`) | **Digest** → **Generate now**: Claude's status narrative of the project as it stands (current RAG, overdue, RAID, milestones — the digest shows no deltas) |
+| Dashboard: read the hero (MVP target, overdue) and its reasons; read the delta strip — what changed since Friday (`dashboard-delta.ts`) | **Digest** → **Generate now**: Claude's status narrative of the project as it stands (current RAG, overdue, RAID, milestones; its own deltas compare against its previous run, which the seed below sets) |
 | Next actions: read Now / Soon / Monitor | **Analyze with AI** on Next actions |
 | Open Points **Table**: open "Integrate CRM provisioning", add the blocker "CRM API rejects erasure calls" (it is not in the data), move its due date to Thursday | — |
 | Knowledge: search "CRM" → the CRM interface decision from design sign-off → jump to it | — |
@@ -134,7 +134,7 @@ cancel → **Explore the demo**.
 | New change request "Add a CRM provisioning connector", one-line impact typed | **Ask Claude** on the impact field |
 | Next actions: the row "Update stakeholder: Maya Patel" (linked to the pending MFA change) → **Draft message** (template email, as Monday) | **AI Assistant**: "Stakeholder update" again, asked to cover the MFA change and the re-plan |
 | Add milestone "MVP re-demo" (Friday 2 October), linked to the demo task; move task 25 "MVP demo to the customer" to 2 October | **Ask Claude** on its description |
-| Budget: open the bucket "Identity Platform – T&M" and read its planned hours per person | **Forecast import** on that bucket: the team's re-plan spreadsheet, columns mapped by **Ask Claude** |
+| Budget: open the bucket "Identity Platform – T&M" and read its planned hours per person | **Import forecast…** on that bucket: the team's re-plan spreadsheet, columns mapped by **Ask Claude** |
 
 ### Wednesday — people (chapter 5)
 
@@ -155,7 +155,7 @@ cancel → **Explore the demo**.
 | New stakeholder: Northwind's data protection officer (DPO) | — |
 | RACI: set the DPO's cell on "MVP re-demo" | **Suggest RACI** fills the matrix |
 | Stakeholder map: drag the DPO to high influence / high interest | — |
-| Steering meeting (Thursday): open it and its agenda | **Draft with AI** writes the report |
+| Steering meeting (Thursday): open it and its agenda; the meeting approves the connector change AND the pending MFA change "Add MFA to SSO scope" (scheduled after the pilot) — set both to Approved | **Draft with AI** writes the report |
 | The connector change is approved → Budget: new bucket "CRM connector (CR)" | — |
 | Open Points: add the task "Order the connector licence" | **AI Assistant chat** creates "Confirm licence delivery" |
 | Gantt: drag the MVP target to Thursday 1 October, the day the MVP is to be operational again (project D); "MVP re-demo" on Friday 2 October is the customer demo the day after | — |
@@ -165,14 +165,14 @@ cancel → **Explore the demo**.
 | Manual | Then AI |
 |---|---|
 | Open Points **Table**: mark "Integrate CRM provisioning" Done (erasure verified end to end); the GDPR RAID issue → Resolved (an Issue has no "Mitigated"; `ISSUE_STATUSES`) | — |
-| Dashboard: the hero has changed | — |
+| Dashboard: the hero is now "Update stakeholder: <the DPO>" — the re-demo on 2 October falls inside the DPO's 14-day lead (high influence / high interest, set Thursday) → **Draft message** to tell the DPO the erasure fix is verified | **AI Assistant**: "Stakeholder update" for the DPO |
 | Insights: read them | **Generate recommendation** on one → act on it |
-| Restructure one pilot task by hand: split "Pilot feedback fixes" into two tasks and link them | **Optimize with AI** restructures the rest (splits, regroups, adds tasks, sets estimates, links dependencies) |
+| Restructure one rollout task by hand: split task 34 "Pilot feedback fixes" (linked to Rollout, milestone 3) into two tasks and link them | **Optimize with AI** restructures the rest (splits, regroups, adds tasks, sets estimates, links dependencies) |
 | Trends, Activity (this week, day by day), History (Monday's version against today's) | **Digest** → **Generate now**: the status narrative at the week's end — closes the video |
 | Help: where the walk-through, the demo and these videos live (A's former chapter 8) | — |
 
-About 17 real Claude calls per full take (prologue 1, Monday 3, Tuesday 5, Wednesday 1, Thursday 4,
-Friday 3; Draft message is a template, not a call). Rough length 20–25 minutes.
+About 18 real Claude calls per full take (prologue 1, Monday 3, Tuesday 5, Wednesday 1, Thursday 4,
+Friday 4; Draft message is a template, not a call). Rough length 20–25 minutes.
 
 ## What changes in A
 
@@ -190,12 +190,19 @@ Friday 3; Draft message is a template, not a call). Rough length 20–25 minutes
   clock follows the replay day by day, so activity, versions and History are dated as in the big
   take. Each chapter stays its own command and its own retake.
 - **"Since Friday" is the Dashboard delta strip, not the digest.** The strip compares against a
-  per-device record (`landing-state.ts`, one localStorage key, not workspace data), so a fresh
-  browser context has nothing to compare. The recorder seeds it off camera with the clock at Friday
-  2026-09-18 (open the Dashboard once) before Monday records.
-- **The digest is off by default** (`DEFAULT_DIGEST_CONFIG`). The recorder switches it on off
-  camera, and the take presses **Generate now** itself on Monday and Friday — with the cadence set so
-  it is not due on its own when the Dashboard mounts, so no uncounted call happens.
+  per-device record keyed by PROJECT ID (`landing-state.ts`, key `aipm-cockpit:landing-state`, not
+  workspace data). Explore the demo mints a new id at the end of chapter 2, so no Friday visit can
+  exist; and a first Dashboard visit saves a Monday record after a few seconds, after which the strip
+  shows nothing. So the recorder, right after the demo is created and BEFORE any Dashboard mount,
+  writes that key off camera for the new id: `lastVisitAt` Friday 2026-09-18 plus a Friday RAG and
+  metrics snapshot. The strip then shows task 25 newly overdue and any RAG flip; activity counts may be
+  zero. The builder states the exact expected strip.
+- **The digest is off by default** (`DEFAULT_DIGEST_CONFIG`), and with no saved digest state the
+  mount effect treats it as due and generates by itself (`use-digest.ts`) — an uncounted Claude
+  call. So the recorder also writes `aipm-cockpit:digest-state` (`digest-state.ts`) off camera with
+  a `nextDueAt` after Friday 25 September, switches the digest on, and the take presses **Generate
+  now** itself on Monday and Friday. The seeded state's prior RAG and metrics feed Monday's digest
+  deltas; Friday's compare against Monday's run.
 - **Clips (tiers 3 and 4):** unchanged.
 - **`T0`:** as in "Dates". A's note that chapter 7 moves three weeks forward is replaced by the
   per-day clock, and A's "E checks its data at `T0` and `T0 + 3 weeks`" becomes: E checks it on each
@@ -211,7 +218,9 @@ Numbers are the master's ids today; the builder keeps ids stable where the exist
 ### The slip
 
 - **Milestone 5 "MVP target":** date `2026-09-18`, `achievedDate` removed, linked tasks 23, 24, 25 and
-  the new CRM task. Its description (today "Slipped from 17 July to 21 August while the vendor's SDK
+  the new CRM task. On Tuesday, when "MVP re-demo" is added, task 25 moves to that milestone and off
+  this one, so after Thursday's drag (MVP target → 1 October) no linked task ends after it and it is
+  not "at risk" on Friday. Its description (today "Slipped from 17 July to 21 August while the vendor's SDK
   was late") is rewritten for the new story: the MVP is the customer lifecycle working end to end,
   and it was not operational on the 18th.
 - **Task 25 "MVP demo to the customer":** To Do, due `2026-09-18`, its `completedDate` cleared (today
@@ -222,7 +231,9 @@ Numbers are the master's ids today; the builder keeps ids stable where the exist
   through her linked resource (`stakeholderEmail`).
 - **The forecast re-plan spreadsheet** (fixture) targets the bucket "Identity Platform – T&M"; its
   column headers are chosen so **Detect columns** cannot map them, which is what makes Ask Claude
-  the step.
+  the step. The bucket ends 2026-09-30 today, and hours outside its dates are skipped
+  (`forecastImportOutOfRange`), so E extends its end date to cover the fixture's months (October
+  at least).
 - **New task "Integrate CRM provisioning":** **To Do** (Tuesday drags it to In Progress), owner Noah Bennett, due `2026-09-16`
   (overdue on Monday), depends on 24; task 25 depends on it. **No blocker text** — Monday adds it
   on camera.
@@ -316,8 +327,14 @@ and PR (`nearTermPeriodKeys`); E starts only once that fix is on main.
 - **A's clip list** (A's "What A needs from project E" table) still holds; the items above cover most
   of it. The builder re-checks each row against the new data.
 - **The week, day by day:** RAID 4, 11 and 7 have target dates of 22, 24 and 25 September, so each
-  turns into an overdue review during the week. Move them past the 25th, or let them in and list them
-  in that day's check; E checks Monday to Friday, not only Monday.
+  turns into an overdue review during the week — and RAID 11's would keep Elena's stakeholder row
+  alive on Friday. Move all three past the 25th. E checks Monday to Friday, not only Monday.
+- **Friday at 2026-09-25 (after the week's steps).** A stakeholder row stays while its source is live
+  (a pending change, an overdue RAID item, a milestone inside the lead), not until a message is sent.
+  With both changes approved on Thursday and RAID 4/7/11 moved, the Elena and Maya rows and the
+  change-pending row are gone. Intended Friday rows, top first: "Update stakeholder: <the DPO>" (45,
+  the hero — the re-demo inside the DPO's 14-day lead), then "Pilot Go-Live" at risk (42). E pins
+  Friday's grouped rows in a test, as it pins Monday's.
 - **Forecast simulation off at T0.** Its "unlikely on time" rows (`mergeSimActions`) join the
   grouped list only when Show simulation is on; it is off by default, and the takes leave it off.
 - **The schedule row** fires only while SPI is at least 0.8 and below 0.9 (Monitor, 5); the builder
@@ -344,8 +361,6 @@ Monday's blocker on the CRM task. Only the Senior grade must exist; the discipli
   connector change is the one Tuesday adds.
 - Pilot Go-Live "at risk" stays in Soon as the slip's visible knock-on.
 - Maya's 21–22 Sept absence moves out of the week; Noah's November vacation stays.
-- The recorder seeds the delta strip's per-device "Friday" record off camera; the digest is switched
-  on off camera and generated on camera only.
 - Friday reuses the Table view (three task views for four days).
 - The prologue (wizard + AI proposal + Explore the demo) closes chapter 2, so Monday opens straight
   on the Dashboard.
@@ -355,11 +370,16 @@ Monday's blocker on the CRM task. Only the Senior grade must exist; the discipli
 - The CRM task is planted To Do, so Tuesday's Board drag is a real change.
 - The new role is Integration Engineer × Senior; the discipline is added on camera.
 - Draft message is the manual step (a template email, not AI); the AI step is the AI Assistant's
-  "Stakeholder update" starter. Elena and Maya get example emails so no address prompt appears.
+  "Stakeholder update" starter. Elena gets an example email so no address prompt appears; Maya
+  already resolves to one through her linked resource.
 - The new member's Swimlanes lane is added with "Add person lane", then a CRM follow-up card is
   dragged into it.
-- Task 25 moves to 2 October with the re-demo on Tuesday. The intended Friday hero is "Pilot Go-Live"
-  at risk — the slip's knock-on still standing once the MVP is back on track; E pins it in a Friday
-  test as it pins Monday's.
+- Task 25 moves to 2 October and onto the "MVP re-demo" milestone on Tuesday, so the MVP target is
+  not at risk once it is moved.
+- The owner left the MFA change to me: Thursday's steering approves it, scheduled after the pilot.
+  That clears its change row and the Elena and Maya rows it raised.
+- The intended Friday hero is "Update stakeholder: <the DPO>": tell the DPO the erasure fix is
+  verified (Draft message, then the AI "Stakeholder update"). "Pilot Go-Live" at risk follows it.
+- The recorder seeds the landing-state and digest-state keys for the new project id off camera.
 - The MVP target moves to Thursday 1 October; "MVP re-demo" stays Friday 2 October.
 - The CRM blocker is added on camera on Monday, so it is not in the data.
