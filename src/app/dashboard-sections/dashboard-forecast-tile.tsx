@@ -31,6 +31,9 @@ export interface DashboardForecastTileProps {
   history: readonly ForecastHistoryEntry[];
   /** The milestones most at risk (`milestonesAtRisk`), computed ONCE by the panel from this forecast. */
   atRisk: readonly AtRiskMilestone[];
+  /** False when the Milestones module is off: the at-risk section is not rendered at all, since its
+   *  buttons would open a disabled view. Defaults to true. */
+  showAtRisk?: boolean;
   planEnd: string;
   today: string;
   holidaySet: ReadonlySet<string>;
@@ -100,7 +103,7 @@ function AtRiskList({
 }
 
 export function DashboardForecastTile(props: DashboardForecastTileProps) {
-  const { lang, forecast, onOpenForecast } = props;
+  const { lang, forecast, onOpenForecast, showAtRisk = true } = props;
   const fmt = (iso: string) => formatDayMonthYear(iso, localeFor(lang));
   const gap = forecast ? kpiSimulationGap(forecast) : null;
 
@@ -116,7 +119,7 @@ export function DashboardForecastTile(props: DashboardForecastTileProps) {
 
   return (
     <div className="@container">
-      <div className="grid grid-cols-1 gap-3 @2xl:grid-cols-2">
+      <div className={showAtRisk ? "grid grid-cols-1 gap-3 @2xl:grid-cols-2" : "grid grid-cols-1 gap-3"}>
         <div className="min-w-0 space-y-1.5">
           {!ready ? (
             <SimPlaceholder />
@@ -154,14 +157,16 @@ export function DashboardForecastTile(props: DashboardForecastTileProps) {
           {change ? <ChangeLine lang={lang} change={change} fmt={fmt} /> : <SimPlaceholder />}
           <p className="text-sm text-foreground">{tPlural(lang, "forecastTileOpenTasks", props.openTaskCount, props.openTaskCount)}</p>
         </div>
-        <div className="min-w-0 space-y-1.5">
-          <h4 className="text-xs font-semibold uppercase text-muted-foreground">{t(lang, "forecastTileAtRisk")}</h4>
-          {ready ? (
-            <AtRiskList lang={lang} rows={props.atRisk} fmt={fmt} onOpenMilestone={props.onOpenMilestone} />
-          ) : (
-            <SimPlaceholder />
-          )}
-        </div>
+        {showAtRisk && (
+          <div className="min-w-0 space-y-1.5">
+            <h4 className="text-xs font-semibold uppercase text-muted-foreground">{t(lang, "forecastTileAtRisk")}</h4>
+            {ready ? (
+              <AtRiskList lang={lang} rows={props.atRisk} fmt={fmt} onOpenMilestone={props.onOpenMilestone} />
+            ) : (
+              <SimPlaceholder />
+            )}
+          </div>
+        )}
       </div>
       {onOpenForecast && (
         <Button variant="ghost" size="xs" className="mt-2 underline-offset-2 hover:underline" onClick={onOpenForecast}>

@@ -25,12 +25,19 @@ export function weeklyChange(args: {
   holidaySet: ReadonlySet<string>;
 }): WeeklyChange {
   const { history, today, p80, holidaySet } = args;
-  const earlier = entryOnOrBefore(history, addCalendarDays(today, -WEEK_BACK_DAYS));
+  const weekBack = addCalendarDays(today, -WEEK_BACK_DAYS);
+  const earlier = entryOnOrBefore(history, weekBack);
   const usable = earlier !== null && earlier.date >= addCalendarDays(today, -WEEK_BACK_MAX_DAYS) ? earlier : null;
   if (usable === null) {
     if (p80 === null) return { kind: "beyond" };
-    const first = history.reduce<string | null>((m, h) => (m === null || h.date < m ? h.date : m), null);
-    return { kind: "pending", from: addCalendarDays(first ?? today, WEEK_BACK_DAYS) };
+    // The first entry that will become a comparison is the earliest one newer
+    // than a week back; entries at or before it are already too old to count,
+    // so dating "from" off them would name a day in the past.
+    const next = history.reduce<string | null>(
+      (m, h) => (h.date > weekBack && (m === null || h.date < m) ? h.date : m),
+      null,
+    );
+    return { kind: "pending", from: addCalendarDays(next ?? today, WEEK_BACK_DAYS) };
   }
   if (p80 === null || usable.p80 === null) return { kind: "beyond" };
   if (p80 === usable.p80) return { kind: "same" };

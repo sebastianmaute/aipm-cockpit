@@ -2162,6 +2162,32 @@ describe("DashboardPanel Forecast tile", () => {
     expect(within(list).getByRole("group", { name: "30% chance on time – Go-Live, simulated" })).toBeInTheDocument();
   });
 
+  // Final-review finding: with the Milestones module off the tile listed milestones whose buttons
+  // opened a disabled view. The section is gone; the engine still runs once on the context's
+  // milestones so the memo stays shared with the history recorder.
+  it("with the Milestones module off: no at-risk section, the engine still runs once on the same milestones", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({
+      ...FORECAST,
+      milestones: [{ id: 1, state: "chance", chance: 0.3, chancePrioritised: 0.3 }],
+    } as appForecastModule.AppForecast);
+    const onOpenMilestone = vi.fn();
+    render(
+      <DashboardPanel {...fullProps} showMilestones={false} onOpenMilestone={onOpenMilestone} projectId="p-fc-risk-off" />,
+      { wrapper },
+    );
+    await user.click(screen.getByRole("button", { name: simName() }));
+    // Positive control: the tile itself is there and shows its forecast.
+    expect(within(tile()!).getByText("8 in 10 simulated runs finish by Nov 20, 2026.")).toBeInTheDocument();
+    expect(within(tile()!).queryByText(t(EN, "forecastTileAtRisk"))).toBeNull();
+    expect(within(tile()!).queryByText(t(EN, "forecastTileNoneAtRisk"))).toBeNull();
+    expect(within(tile()!).queryByRole("list", { name: t(EN, "forecastTileAtRisk") })).toBeNull();
+    expect(within(tile()!).queryByText("Go-Live")).toBeNull();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]![0].milestones).toBe(fullProps.milestones);
+  });
+
   it("Open Forecast navigates to the Forecast view", async () => {
     showForecastView();
     const user = userEvent.setup();

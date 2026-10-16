@@ -125,11 +125,12 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
   // whole-record and per-field restores are covered alike; `baselineHistory` itself is neither captured nor restored.
   const planCurrency = plan.currency;
   const prepareVersion = useCallback(
-    (version: Workspace, capturedAt: string | null) => {
+    (version: Workspace, capturedAt: string | null, speaksForEmptySlices: boolean) => {
       const converted = prepareRestoredVersion(version, { history: baselineHistory, capturedAt, currency: planCurrency, workdayHours });
-      // §502: pin the switch so a compare shows no row for it. ONLY when the version carries overrides — setting
-      // the key on an unstamped capture's `undefined` would defeat the blind-capture guard and blank the rest.
-      return converted.settingsOverrides === undefined
+      // §502: pin the switch so a compare shows no row for it. On a STAMPED capture an absent `settingsOverrides`
+      // means "no overrides", so it is pinned too. On an UNSTAMPED capture an absent one stays absent — setting the
+      // key on its `undefined` would defeat the blind-capture guard and blank the rest.
+      return converted.settingsOverrides === undefined && !speaksForEmptySlices
         ? converted
         : { ...converted, settingsOverrides: keepSimulationSwitch(converted.settingsOverrides, settingsOverrides) };
     },

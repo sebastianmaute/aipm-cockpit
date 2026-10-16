@@ -360,9 +360,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const { kpiSim, kpiSimGap, forecast, atRisk } = useMemo(() => {
     if (!simulationOn || simulationPending) return { kpiSim: null, kpiSimGap: null, forecast: null, atRisk: NO_AT_RISK };
     const f = computeAppForecast({ tasks: props.tasks, milestones: milestonesForSim, planEnd, today, holidaySet: props.holidaySet });
-    const rows = f.kind === "forecast" ? milestonesAtRisk(f.milestones, milestonesForSim) : NO_AT_RISK;
+    // The engine always runs on the context's milestones (shared memo); only the at-risk LIST follows
+    // the Milestones module — its buttons would open a disabled view.
+    const rows = showMilestones && f.kind === "forecast" ? milestonesAtRisk(f.milestones, milestonesForSim) : NO_AT_RISK;
     return { kpiSim: kpiSimulation(f, model.evm.spi), kpiSimGap: kpiSimulationGap(f), forecast: f, atRisk: rows };
-  }, [simulationOn, simulationPending, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi]);
+  }, [simulationOn, simulationPending, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi, showMilestones]);
 
   // ★★ THE GATE DECIDES WHAT RENDERS, NEVER WHAT IS STORED. `useDashboardLayout`
   // deliberately takes no `gate` — a gated-off tile keeps its stored position, so
@@ -432,6 +434,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     forecastTile: {
       history: forecastHistory,
       atRisk,
+      showAtRisk: showMilestones,
       planEnd,
       today,
       holidaySet: props.holidaySet,

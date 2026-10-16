@@ -30,8 +30,10 @@ export interface UseVersionHistoryArgs {
   applyWorkspace?: (ws: Workspace) => void;
   /** §476 — applied to the parsed VERSION before it is diffed and merged, with its capture time
    *  (null when the version is not in the loaded list). The wiring passes `prepareRestoredVersion`:
-   *  version money is converted into the current currency, and `plan.currency` never changes. */
-  prepareVersion: (version: Workspace, capturedAt: string | null) => Workspace;
+   *  version money is converted into the current currency, and `plan.currency` never changes.
+   *  `speaksForEmptySlices` is whether the capture is stamped (format ≥ 2): §502 pins the simulation
+   *  switch onto an ABSENT `settingsOverrides` only then, since an unstamped absence cannot speak. */
+  prepareVersion: (version: Workspace, capturedAt: string | null, speaksForEmptySlices: boolean) => Workspace;
   /** §476 A3 — `settings.resources.workdayHours`: a day-basis role restored by field is
    *  re-materialised at it (`applyRestore`). */
   workdayHours?: number;
@@ -265,10 +267,10 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
   // denomination (`prepareVersion`), so the compare rows, the selections built from them and the
   // values a restore writes all come from the same converted version. A missing capture time
   // falls back to factor 1 and is logged.
-  const prepareAgainstNow = useCallback((parsed: Workspace, versionId: string): Workspace => {
+  const prepareAgainstNow = useCallback((parsed: Workspace, versionId: string, speaks: boolean): Workspace => {
     const capturedAt = versions.find((v) => v.id === versionId)?.capturedAt ?? null;
     if (capturedAt === null) logDiag("warn", "version.captureTimeUnknown", { versionId });
-    return prepareVersion(parsed, capturedAt);
+    return prepareVersion(parsed, capturedAt, speaks);
   }, [versions, prepareVersion]);
 
   const restore = useCallback(async (versionId: string, selection: RestoreSelection, versionLabel: string): Promise<boolean> => {
@@ -287,9 +289,9 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       // misleading diff but a wipe: every live record reads as "added" and the
       // restore deletes it. `emptyWorkspace()` carries the nine core lists as
       // `[]`, so the absent-key guard below cannot catch that shape.
-      const version = prepareAgainstNow(jsonToWorkspace(verStr, { strict: true }), versionId);
-      const now = jsonToWorkspace(getPayload());
       const speaks = speaksForEmptySlices(readCaptureFormat(verStr));
+      const version = prepareAgainstNow(jsonToWorkspace(verStr, { strict: true }), versionId, speaks);
+      const now = jsonToWorkspace(getPayload());
       const changes = diffWorkspaces(version, now, { olderSpeaksForEmptySlices: speaks });
       // §674: a version saved before the cause-cycle guard can hold a loop. Repair it
       // here, as a load (it has no before-image either), and log it; handed to the
@@ -332,10 +334,11 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         // ★ Only a vs-NOW compare is converted. A version-to-version compare stays RAW: the two
         // sides have no single denomination to convert into, and nothing is restored from it.
         const older = jsonToWorkspace(fromStr, { strict: true });
+        const speaks = speaksForEmptySlices(readCaptureFormat(fromStr));
         return diffWorkspaces(
-          to === "now" ? prepareAgainstNow(older, fromId) : older,
+          to === "now" ? prepareAgainstNow(older, fromId, speaks) : older,
           jsonToWorkspace(toStr, { strict: true }),
-          { olderSpeaksForEmptySlices: speaksForEmptySlices(readCaptureFormat(fromStr)) },
+          { olderSpeaksForEmptySlices: speaks },
         );
       } catch (parseErr) {
         // A parse throw here = a truncated/malformed payload (e.g. a big version

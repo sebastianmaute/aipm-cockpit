@@ -23,7 +23,21 @@ describe("weeklyChange", () => {
 
   it("falls back to the nearest earlier entry 7–13 days back", () => {
     expect(change([entry("2026-10-05", "2027-02-01")], "2027-02-12")).toEqual({ kind: "later", workingDays: 9 });
-    expect(change([entry("2026-10-02", "2027-02-01")], "2027-02-12")).toEqual({ kind: "pending", from: "2026-10-09" });
+    expect(change([entry("2026-10-02", "2027-02-01")], "2027-02-12")).toEqual({ kind: "pending", from: "2026-10-23" });
+  });
+
+  it("uses an entry exactly 13 days back (the window's far edge)", () => {
+    expect(change([entry("2026-10-03", "2027-02-01")], "2027-02-12")).toEqual({ kind: "later", workingDays: 9 });
+  });
+
+  it("history older than the window never reads pending from a past date", () => {
+    const history = [entry("2026-09-01", "2027-02-01"), entry("2026-09-16", "2027-02-01")];
+    expect(change(history, "2027-02-12")).toEqual({ kind: "pending", from: "2026-10-23" });
+  });
+
+  it("pending dates from the earliest entry newer than 7 days, ignoring older ones", () => {
+    const history = [entry("2026-09-16", "2027-02-01"), entry("2026-10-13", "2027-02-01"), entry("2026-10-11", "2027-02-01")];
+    expect(change(history, "2027-02-12")).toEqual({ kind: "pending", from: "2026-10-18" });
   });
 
   it("an entry newer than 7 days is never the comparison", () => {

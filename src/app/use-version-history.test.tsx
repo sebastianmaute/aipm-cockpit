@@ -411,8 +411,25 @@ describe("useVersionHistory", () => {
       const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => nowGbp, prepareVersion })));
       await act(async () => { await vi.advanceTimersByTimeAsync(0); });
       await act(async () => { await result.current.loadDiff("v1", "now"); });
-      expect(prepareVersion).toHaveBeenCalledWith(expect.anything(), null);
+      expect(prepareVersion).toHaveBeenCalledWith(expect.anything(), null, false);
       expect(diagnostics.logDiag).toHaveBeenCalledWith("warn", "version.captureTimeUnknown", { versionId: "v1" });
+    });
+
+    // §502 final review: the wiring pins an ABSENT settingsOverrides only on a stamped capture, so the
+    // hook must tell it which kind it holds — on the vs-now compare and on the restore alike.
+    it("tells prepareVersion whether the capture is stamped, on the vs-now compare and the restore", async () => {
+      const stamped = version.replace("{", `{"captureFormat":${CAPTURE_FORMAT},`);
+      vi.spyOn(store, "loadVersionPayload").mockResolvedValue(stamped);
+      vi.spyOn(store, "listVersionMeta").mockResolvedValue([meta]);
+      const prepareVersion = vi.fn((v: Workspace) => v);
+      const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => nowGbp, prepareVersion, applyWorkspace: vi.fn() })));
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      await act(async () => { await result.current.loadDiff("v1", "now"); });
+      expect(prepareVersion).toHaveBeenLastCalledWith(expect.anything(), V1_AT, true);
+      prepareVersion.mockClear();
+      await act(async () => { await result.current.restore("v1", { [changeKey("roles", 3)]: "all" }, "l"); });
+      expect(prepareVersion).toHaveBeenCalledTimes(1);
+      expect(prepareVersion).toHaveBeenLastCalledWith(expect.anything(), V1_AT, true);
     });
 
     it("a version-to-version compare stays raw", async () => {
