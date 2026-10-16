@@ -22,7 +22,7 @@ export const committeeInfoProvider: ActionProvider = {
         // This engine is i18n-free (no Lang in scope — see `I18nText`'s
         // docstring in ../types), so it cannot call `tPlural`; it picks the
         // plural/singular KEY directly instead, for the surface's later
-        // `t(lang, key, ...params)` to render. `count === 1` matches
+        // `actionText(lang, text)` to render. `count === 1` matches
         // `tPlural`'s own category selection for en-US/en-GB/de today (see its
         // docstring) — this is the same equivalence, applied where no `Lang`
         // is available to call it directly. The count is `r.daysLeft`, which

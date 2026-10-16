@@ -405,7 +405,9 @@ Dashboard picture: a Forecast tile, a chance chip per milestone and a Next-actio
   as an `I18nDateParam` (`{ date }`), which every surface renders through `actionText` (`action-text.ts`, with
   `formatDayMonthYear`), so it reads "Dec 1, 2026" / "1. Dez. 2026", never the ISO string. The steering-committee
   info-pack action (`committee-info.ts`) passes its due date the same way, so the two rows agree (enumerate the
-  providers that do with `grep -rn "{ date:" src/app/next-actions/providers`). Open Forecast lands on
+  providers that do with `grep -rn "{ date:" src/app/next-actions/providers`). ★ The Steering committee panel's own
+  reminder line (`steering-committee-panel.tsx`, `tPlural` straight from the reminder engine, not from the action)
+  still shows the ISO date; it never went through `actionText`. Open Forecast lands on
   `ForecastPanelDeepLinked` (`forecast-panel.tsx`), which scrolls that milestone's row in the chances table into view
   and flashes it (`useDeepLinkRowFlash`), then consumes the request; focus stays on the main region, as for every
   deep-link that opens no editor. ★ Rulings: the group counts in the Soon tier, the Top actions tile

@@ -5,6 +5,7 @@ import type { ActionInput } from "../types";
 import type { SteeringCommittee } from "../../types";
 import { ACTION_WEIGHTS, scoreAction } from "../score";
 import { actionText } from "../../action-text";
+import { loadI18n } from "../../i18n";
 
 const W = ACTION_WEIGHTS;
 const TODAY = "2026-06-20";
@@ -107,6 +108,13 @@ describe("committeeInfoProvider — soon vs upcoming", () => {
     const acts = committeeInfoProvider.provide(input(committee("2026-06-21", 0)));
     expect(actionText("en-US", acts[0].why)).toContain("Jun 21, 2026");
     expect(actionText("en-US", acts[0].why)).not.toContain("2026-06-21");
+  });
+
+  it("renders the due date in German too (§502)", async () => {
+    await loadI18n("de");
+    const acts = committeeInfoProvider.provide(input(committee("2026-06-21", 0)));
+    expect(actionText("de", acts[0].why)).toContain("21. Juni 2026");
+    expect(actionText("de", acts[0].why)).not.toContain("2026-06-21");
   });
 });
 
