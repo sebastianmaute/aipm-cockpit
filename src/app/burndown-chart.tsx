@@ -25,7 +25,14 @@ import { useChartReadout } from "./use-chart-readout";
 const W = 640, H = 240, PAD_L = 64, PAD_R = 80, PAD_T = 16, PAD_B = 28;
 const X0 = PAD_L, X1 = W - PAD_R;
 
-const DASH = { planned: "5 4", pace: "7 4", efficiency: "2 3", evLine: "6 2 1 2", evPartial: "2 4", bac: "4 4", today: "3 3" } as const;
+const DASH = { planned: "5 4", pace: "7 4", efficiency: "2 3", evLine: "6 2 1 2", evPartial: "2 4", bac: "4 4", today: "3 3", simP80: "6 3" } as const;
+
+/** §502 — the simulated ranges wear the sim teal (the Forecast range bar's fill), the finish band faint enough that
+ *  every line reads clearly over it, the cost wedge a little stronger. */
+const SIM_FILL = "fill-ui-green-strong dark:fill-ui-green";
+const SIM_STROKE = "stroke-ui-green-strong dark:stroke-ui-green";
+const SIM_FINISH_OPACITY = 0.12;
+const SIM_COST_OPACITY = 0.25;
 
 /** §737 — every label except the y-axis ticks carries a halo in the card's `surface` colour (`paint-order="stroke"`
  *  draws the stroke under the fill), so a line passing close by does not cut the letters. */
@@ -121,6 +128,11 @@ function BurndownChartBody({
     // without this branch that forecast's name carries no end figure at all.
     aria.push(t(lang, "burndownAriaEndEfficiency", fmt(model.efficiency.vac)));
   }
+  // §502 — the bands are drawn shapes only, so the simulated P80 figures reach a screen reader here.
+  if (model.simFinish) {
+    const finish = model.simFinish.p80Beyond ? t(lang, "simHistogramBeyond") : formatDayMonthYear(model.simFinish.p80, locale);
+    aria.push(model.simCost ? t(lang, "burndownAriaSim", finish, fmt(model.simCost.p80)) : t(lang, "burndownAriaSimFinish", finish));
+  }
   // A marker reads "+€3,000 Vendor", or "−€800 Ops removed" when every entry
   // behind it deleted its bucket. The pure model carries the amount and the
   // names apart (it is i18n- and formatter-free), so the sentence is composed
@@ -199,6 +211,7 @@ function BurndownChartBody({
     // Each budget-change tick, and the leader from its label in the band down to it.
     ...(model.bacSteps ? model.bacMarkers.map((marker, i) => ({ x1: x(marker.date), y1: markerLabels[i].baseline + 2, x2: x(marker.date), y2: y(marker.value) + 4 })) : []),
     ...(model.today ? [upright(model.today)] : []),
+    ...(model.simFinish ? [upright(model.simFinish.p80)] : []),
     // The plan-end line at X1 is the plot's right edge, which every right-anchored label touches.
     ...(x(model.planEnd) < X1 - 0.5 ? [upright(model.planEnd)] : []),
     ...(belowZero ? [across(0)] : []),
@@ -272,6 +285,21 @@ function BurndownChartBody({
         >
           <svg id={svgDescId} viewBox={`0 0 ${W} ${height}`} className="w-full" role="img" aria-label={aria.join(" ")}>
           {belowZero && <rect x={X0} y={zeroY} width={X1 - X0} height={yBottom - zeroY} className="fill-ui-pink/10" />}
+          {/* §502 — the simulated finish band (P50–P95) and cost wedge sit behind every line. */}
+          {model.simFinish && (
+            <rect
+              data-sim-finish="" x={x(model.simFinish.from)} y={yTop} width={Math.max(1, x(model.simFinish.to) - x(model.simFinish.from))}
+              height={yBottom - yTop} fillOpacity={SIM_FINISH_OPACITY} className={SIM_FILL}
+            />
+          )}
+          {model.simCost && (
+            <polygon
+              data-sim-cost=""
+              points={[at(model.simCost.from), { x: x(model.simCost.at), y: y(model.simCost.low) }, { x: x(model.simCost.at), y: y(model.simCost.high) }]
+                .map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}
+              fillOpacity={SIM_COST_OPACITY} className={SIM_FILL}
+            />
+          )}
           <line x1={X0} y1={yTop} x2={X0} y2={yBottom} className="stroke-line" strokeWidth={1} />
           <line x1={X0} y1={zeroY} x2={X1} y2={zeroY} className="stroke-line" strokeWidth={1} />
           {yTicks.map((v) => (
@@ -341,6 +369,9 @@ function BurndownChartBody({
             <line x1={x(model.today)} y1={yTop} x2={x(model.today)} y2={yBottom} className="stroke-muted-foreground" strokeWidth={1} strokeDasharray={DASH.today} />
           )}
           <line x1={x(model.planEnd)} y1={yTop} x2={x(model.planEnd)} y2={yBottom} className="stroke-line" strokeWidth={1} />
+          {model.simFinish && (
+            <line data-sim-p80="" x1={x(model.simFinish.p80)} y1={yTop} x2={x(model.simFinish.p80)} y2={yBottom} className={SIM_STROKE} strokeWidth={2} strokeDasharray={DASH.simP80} />
+          )}
           {/* §737 — a moved label's leader, under the marks, so the EV diamond covers its start. */}
           {placed.map((spot, i) => spot.leader && (
             <line key={plotLabels[i].key} data-label-leader="" x1={spot.leader.x1} y1={spot.leader.y1} x2={spot.leader.x2} y2={spot.leader.y2} className="stroke-line" strokeWidth={0.75} />
@@ -392,6 +423,21 @@ function BurndownChartBody({
         {model.actual.length > 1 && <span className="inline-flex items-center gap-1.5"><Swatch className={actualClass} />{t(lang, "burndownActual")}</span>}
         {model.pace && <span className="inline-flex items-center gap-1.5"><Swatch className="stroke-ui-dark-blue" dash={DASH.pace} />{t(lang, "forecastPaceTitle")}</span>}
         {model.efficiency && <span className="inline-flex items-center gap-1.5"><Swatch className="stroke-ui-purple" dash={DASH.efficiency} />{t(lang, "forecastEfficiencyTitle")}</span>}
+        {model.simFinish && (
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="22" height="10" aria-hidden="true">
+              <rect x="0" y="0" width="22" height="10" fillOpacity={SIM_FINISH_OPACITY} className={SIM_FILL} />
+              <line x1="11" y1="0" x2="11" y2="10" className={SIM_STROKE} strokeWidth={2} strokeDasharray="3 2" />
+            </svg>
+            {t(lang, "burndownSimFinishRange")}
+          </span>
+        )}
+        {model.simCost && (
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="22" height="10" aria-hidden="true"><path d="M 0 5 L 22 0 L 22 10 z" fillOpacity={SIM_COST_OPACITY} className={SIM_FILL} /></svg>
+            {t(lang, "burndownSimCostRange")}
+          </span>
+        )}
         {hasSolid && (
           <span className="inline-flex items-center gap-1.5">
             <Swatch className="stroke-[var(--rag-amber)]" dash={DASH.evLine} width={2} />{t(lang, "burndownEvHistory")}

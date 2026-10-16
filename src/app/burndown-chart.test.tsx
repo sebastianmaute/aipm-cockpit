@@ -7,7 +7,7 @@ import { formatCurrency } from "./resource-cost";
 import { loadI18n } from "./i18n";
 import type { EvHistory } from "./budget-ev-history";
 import type { BudgetHistorySummary } from "./budget-history";
-import { CHART_FORECAST, CHART_FORECAST_HOURS, CHART_SERIES } from "../test/chart-fixtures";
+import { CHART_FORECAST, CHART_FORECAST_HOURS, CHART_SERIES, CHART_SIM } from "../test/chart-fixtures";
 
 const eur = (v: number) => formatCurrency(v, "EUR", "en-US");
 
@@ -60,6 +60,8 @@ const MODEL: ChartModel = {
   today: "2026-02-01",
   planEnd: "2026-03-01",
   frameDiffers: false,
+  simFinish: null,
+  simCost: null,
 };
 
 describe("BurndownChart", () => {
@@ -759,5 +761,54 @@ describe("BurndownChart — notes behind an info trigger", () => {
   it("renders no trigger when there is no note", () => {
     drawNotes(MODEL, true);
     expect(screen.queryByRole("button", { name: (n: string) => n.startsWith("Notes on this chart") })).toBeNull();
+  });
+});
+
+// §502 part 3 — the simulated bands. The snapshot below was captured from the code BEFORE the bands existed
+// (vitest wrote it on the first run, at aa08a3ec8), so it pins that a model built with the switch off draws
+// byte-for-byte what it always drew. `useId` values depend on render order, so they are blanked.
+const stableHtml = (container: HTMLElement) => container.innerHTML.replace(/_r_[0-9a-z]+_|«r[0-9a-z]+»|:r[0-9a-z]+:/g, "ID");
+describe("BurndownChart — simulated bands (§502)", () => {
+  it("switch off renders exactly as before", () => {
+    const { container } = draw();
+    expect(stableHtml(container)).toMatchInlineSnapshot(`"<div class="space-y-2"><div><div class="mb-1 flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">Budget remaining</div><button type="button" aria-label="Read the chart's values: press the left and right arrow keys to step through each recorded point." aria-describedby="ID" class="block w-full cursor-crosshair rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green print:cursor-auto"><svg id="ID" viewBox="0 0 640 240" class="w-full" role="img" aria-label="Budget remaining in €. Runs out Mar 20, 2026 at current pace. Variance at plan end: -€1,000 at current pace, -€2,000 at current efficiency."><rect x="64" y="176.36363636363637" width="496" height="35.636363636363626" class="fill-ui-pink/10"></rect><line x1="64" y1="16" x2="64" y2="212" class="stroke-line" stroke-width="1"></line><line x1="64" y1="176.36363636363637" x2="560" y2="176.36363636363637" class="stroke-line" stroke-width="1"></line><text data-axis="y" x="60" y="215" text-anchor="end" class="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">-€2,000</text><text data-axis="y" x="60" y="179.36363636363637" text-anchor="end" class="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">€0</text><text data-axis="y" x="60" y="99.18181818181817" text-anchor="end" class="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">€4,500</text><text data-axis="y" x="60" y="19" text-anchor="end" class="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">€9,000</text><polyline points="64.0,16.0 231.2,69.5 387.2,122.9 560.0,176.4" fill="none" class="stroke-muted-foreground" stroke-width="2" stroke-dasharray="5 4"></polyline><polyline points="64.0,16.0 231.2,51.6 309.2,87.3" fill="none" class="stroke-ui-green" stroke-width="2.5"></polyline><line x1="309.2134831460674" y1="87.27272727272728" x2="560" y2="194.1818181818182" class="stroke-ui-dark-blue" stroke-width="2.5" stroke-dasharray="7 4"></line><line x1="309.2134831460674" y1="87.27272727272728" x2="560" y2="212" class="stroke-ui-purple" stroke-width="2.5" stroke-dasharray="2 3"></line><line x1="309.2134831460674" y1="16" x2="309.2134831460674" y2="212" class="stroke-muted-foreground" stroke-width="1" stroke-dasharray="3 3"></line><line x1="560" y1="16" x2="560" y2="212" class="stroke-line" stroke-width="1"></line><line data-label-leader="" x1="309.2134831460674" y1="80.14545454545456" x2="303.2134831460674" y2="97.14545454545456" class="stroke-line" stroke-width="0.75"></line><path d="M 309.2134831460674 75.14545454545456 l 5 5 l -5 5 l -5 -5 z" class="fill-[var(--rag-amber)]"></path><circle cx="498.69662921348316" cy="176.36363636363637" r="4" class="fill-ui-pink"></circle><text x="302.2134831460674" y="105.14545454545456" text-anchor="end" paint-order="stroke" stroke-width="3" stroke-linejoin="round" class="fill-muted-foreground stroke-surface text-[8px]" aria-hidden="true">work left €5,400</text><text x="564" y="197.1818181818182" paint-order="stroke" stroke-width="3" stroke-linejoin="round" class="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">-€1,000</text><text x="564" y="215" paint-order="stroke" stroke-width="3" stroke-linejoin="round" class="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">-€2,000</text><text x="68" y="208" paint-order="stroke" stroke-width="3" stroke-linejoin="round" class="fill-muted-foreground stroke-surface text-[8px]" aria-hidden="true">over</text><text x="64" y="232" text-anchor="start" paint-order="stroke" stroke-width="3" stroke-linejoin="round" class="fill-muted-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">2026-01</text><text x="560" y="232" text-anchor="end" paint-order="stroke" stroke-width="3" stroke-linejoin="round" class="fill-muted-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">2026-03</text></svg></button><span data-readout-live="" aria-live="polite" class="sr-only"></span></div><div class="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground"><span class="inline-flex items-center gap-1.5"><svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" class="stroke-muted-foreground" stroke-width="2" stroke-dasharray="5 4"></line></svg>Planned</span><span class="inline-flex items-center gap-1.5"><svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" class="stroke-ui-green" stroke-width="2.5"></line></svg>Actual</span><span class="inline-flex items-center gap-1.5"><svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" class="stroke-ui-dark-blue" stroke-width="2.5" stroke-dasharray="7 4"></line></svg>At current pace</span><span class="inline-flex items-center gap-1.5"><svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" class="stroke-ui-purple" stroke-width="2.5" stroke-dasharray="2 3"></line></svg>At current efficiency</span><span class="inline-flex items-center gap-1.5"><svg width="10" height="10" aria-hidden="true"><path d="M 5 0 l 5 5 l -5 5 l -5 -5 z" class="fill-[var(--rag-amber)]"></path></svg>Earned value (today)</span><span class="inline-flex items-center gap-1.5"><svg width="10" height="10" aria-hidden="true"><circle cx="5" cy="5" r="4" class="fill-ui-pink"></circle></svg>Runs out</span><span class="inline-flex items-center gap-1.5"><svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" class="stroke-muted-foreground" stroke-width="1" stroke-dasharray="3 3"></line></svg>today</span></div></div>"`);
+  });
+
+  it("renders the same with a null simulation as with none", () => {
+    const html = stableHtml(draw().container);
+    expect(stableHtml(draw({ sim: null }).container)).toBe(html);
+  });
+
+  it("draws the finish band, the P80 line and the cost wedge only with a simulation", () => {
+    const off = draw().container;
+    expect(off.querySelector("[data-sim-finish], [data-sim-p80], [data-sim-cost]")).toBeNull();
+    const on = draw({ sim: CHART_SIM }).container;
+    expect(on.querySelectorAll("[data-sim-finish]")).toHaveLength(1);
+    expect(on.querySelectorAll("[data-sim-p80]")).toHaveLength(1);
+    expect(on.querySelectorAll("[data-sim-cost]")).toHaveLength(1);
+  });
+
+  it("names the two simulated ranges in the legend, marked sim", () => {
+    draw({ sim: CHART_SIM });
+    expect(screen.getByText("Finish range (sim)")).toBeInTheDocument();
+    expect(screen.getByText("Cost range (sim)")).toBeInTheDocument();
+  });
+
+  it("leaves the cost entry out of the legend when no wedge is drawn", () => {
+    draw({ sim: { ...CHART_SIM, eur: { ...CHART_SIM.eur, p95: "beyond" } } });
+    expect(screen.getByText("Finish range (sim)")).toBeInTheDocument();
+    expect(screen.queryByText("Cost range (sim)")).toBeNull();
+  });
+
+  it("adds one sentence with the P80 finish and the P80 cost to the text alternative", () => {
+    const aria = ariaOf(draw({ sim: CHART_SIM }).container);
+    expect(aria).toContain(`Simulated: finish (P80) Apr 10, 2026, cost at finish (P80) ${eur(10_200)}.`);
+    expect(ariaOf(draw().container)).not.toContain("Simulated");
+  });
+
+  it("says the P80 finish is beyond the horizon rather than naming the clamped date", () => {
+    const beyond = { kind: "sim" as const, p50: 9_500, p80: "beyond" as const, p95: "beyond" as const, chanceOverBudget: 1, spendDays: 20 };
+    const aria = ariaOf(draw({ sim: { finish: { p50: "2026-03-20", p80: null, p95: null }, eur: beyond, hours: beyond } }).container);
+    expect(aria).toContain("Simulated: finish (P80) beyond the horizon.");
   });
 });

@@ -3,7 +3,7 @@ import {
   buildChartModel, daysBetweenUtc, scaleDate, scaleValue, layoutMarkerLabels, markerBandHeight, markerLabelBoxes,
   MARKER_LABEL_FONT_PX, estimatedLabelWidth, fitJoinLabel, type ChartInput,
 } from "./burndown-geometry";
-import { CHART_SERIES, CHART_FORECAST, CHART_FORECAST_HOURS } from "../test/chart-fixtures";
+import { CHART_SERIES, CHART_FORECAST, CHART_FORECAST_HOURS, CHART_SIM } from "../test/chart-fixtures";
 import type { BurndownSeries } from "./budget-burndown";
 import type { BudgetForecast } from "./budget-forecast";
 import type { EvHistoryPoint, EvJoin, EvPartialBucket } from "./budget-ev-history";
@@ -540,5 +540,117 @@ describe("fitJoinLabel (§665)", () => {
 
   it("falls back to a bare ellipsis for the name when there is no room for any of it", () => {
     expect(fitJoinLabel(compose, "Discovery", 120, 330, { left: 100, right: 130 }).text).toBe(compose("…"));
+  });
+});
+
+// §502 part 3 — the simulated finish band and cost wedge.
+describe("buildChartModel — simulated bands (§502)", () => {
+  // Captured from `buildChartModel(base)` BEFORE the simulated fields existed (vite-node at aa08a3ec8,
+  // JSON.stringify of the whole model), so this pins that the switch off leaves the model as it was.
+  const PRE_CHANGE_BASE = {
+    empty: false,
+    xDomain: ["2026-01-01", "2026-03-31"],
+    yDomain: [-2000, 9000],
+    total: 9000,
+    planned: [{ date: "2026-01-01", value: 9000 }, { date: "2026-01-31", value: 6000 }, { date: "2026-02-28", value: 3000 }, { date: "2026-03-31", value: 0 }],
+    actual: [{ date: "2026-01-01", value: 9000 }, { date: "2026-01-31", value: 7000 }, { date: "2026-02-14", value: 5000 }],
+    over: false,
+    pace: { from: { date: "2026-02-14", value: 5000 }, to: { date: "2026-03-31", value: -1000 }, endFigure: -1000, vac: -1000 },
+    efficiency: { from: { date: "2026-02-14", value: 5000 }, to: { date: "2026-03-31", value: -2000 }, endFigure: -2000, vac: -2000 },
+    runOut: { date: "2026-03-20", value: 0 },
+    ev: { date: "2026-02-14", value: 5400 },
+    evSegments: null,
+    evJoins: [],
+    evPartialNames: [],
+    evUnavailable: null,
+    bacSteps: null,
+    bacBaseline: null,
+    bacMarkers: [],
+    bacLine: null,
+    today: "2026-02-14",
+    planEnd: "2026-03-31",
+    frameDiffers: false,
+  };
+  const withoutSim = (m: ReturnType<typeof buildChartModel>) =>
+    Object.fromEntries(Object.entries(m).filter(([key]) => key !== "simFinish" && key !== "simCost"));
+
+  it("no sim → simFinish and simCost null and the model equals today's", () => {
+    for (const sim of [undefined, null]) {
+      const m = buildChartModel({ ...base, sim });
+      expect(m.simFinish).toBeNull();
+      expect(m.simCost).toBeNull();
+      expect(withoutSim(m)).toEqual(PRE_CHANGE_BASE);
+    }
+  });
+
+  it("draws the P50–P95 finish band with the P80 line and opens the x domain to the P95 date", () => {
+    const m = buildChartModel({ ...base, sim: CHART_SIM });
+    expect(m.simFinish).toEqual({ from: "2026-03-20", to: "2026-05-01", p80: "2026-04-10", p80Beyond: false });
+    expect(m.xDomain).toEqual(["2026-01-01", "2026-05-01"]);
+  });
+
+  it("leaves the calculated pace and efficiency segments as they are", () => {
+    const off = buildChartModel(base);
+    const on = buildChartModel({ ...base, sim: CHART_SIM });
+    expect(on.pace).toEqual(off.pace);
+    expect(on.efficiency).toEqual(off.efficiency);
+    expect(on.runOut).toEqual(off.runOut);
+  });
+
+  it("burndown orientation maps cost to BAC − cost", () => {
+    // Last actual point: 5,000 left with 4,000 spent, so a cost C lands at 5,000 − (C − 4,000) = 9,000 − C.
+    expect(buildChartModel({ ...base, sim: CHART_SIM }).simCost).toEqual({
+      from: { date: "2026-02-14", value: 5_000 }, at: "2026-04-10", low: -2_000, high: -500, p80: 10_200,
+    });
+  });
+
+  it("cumulative maps to cost", () => {
+    expect(buildChartModel({ ...base, orientation: "cumulative", sim: CHART_SIM }).simCost).toEqual({
+      from: { date: "2026-02-14", value: 4_000 }, at: "2026-04-10", low: 9_500, high: 11_000, p80: 10_200,
+    });
+  });
+
+  it("hours unit uses the hours simulation", () => {
+    // 50 h left with 40 h spent: a cost C lands at 90 − C.
+    expect(buildChartModel({ ...base, unit: "hours", forecast: CHART_FORECAST_HOURS, sim: CHART_SIM }).simCost).toEqual({
+      from: { date: "2026-02-14", value: 50 }, at: "2026-04-10", low: -22, high: -6, p80: 103,
+    });
+  });
+
+  it("beyond P95 cost draws no wedge", () => {
+    const sim = { ...CHART_SIM, eur: { ...CHART_SIM.eur, p95: "beyond" as const } };
+    const m = buildChartModel({ ...base, sim });
+    expect(m.simCost).toBeNull();
+    expect(m.simFinish).not.toBeNull();
+  });
+
+  it("beyond finish clamps to the last date", () => {
+    const p95Beyond = buildChartModel({ ...base, sim: { ...CHART_SIM, finish: { ...CHART_SIM.finish, p95: null } } });
+    expect(p95Beyond.simFinish).toEqual({ from: "2026-03-20", to: "2026-04-10", p80: "2026-04-10", p80Beyond: false });
+    expect(p95Beyond.xDomain).toEqual(["2026-01-01", "2026-04-10"]);
+    const beyond = { kind: "sim" as const, p50: 9_500, p80: "beyond" as const, p95: "beyond" as const, chanceOverBudget: 1, spendDays: 20 };
+    const m = buildChartModel({
+      ...base, sim: { finish: { p50: "2026-03-20", p80: null, p95: null }, eur: beyond, hours: beyond },
+    });
+    expect(m.simFinish).toEqual({ from: "2026-03-20", to: "2026-03-31", p80: "2026-03-31", p80Beyond: true });
+    expect(m.xDomain).toEqual(["2026-01-01", "2026-03-31"]);
+    expect(m.simCost).toBeNull();
+  });
+
+  it("domain includes the wedge", () => {
+    const sim = { ...CHART_SIM, eur: { ...CHART_SIM.eur, p95: 13_000 } };
+    expect(buildChartModel({ ...base, sim }).yDomain).toEqual([-4_000, 9_000]);
+    expect(buildChartModel({ ...base, orientation: "cumulative", sim }).yDomain[1]).toBe(13_000);
+  });
+
+  it("draws nothing below the schedule floor, and only the finish band without spend history", () => {
+    const floor = { kind: "unavailable" as const, reason: "schedule-floor" as const, spendDays: 0, neededSpendDays: 10 };
+    const below = buildChartModel({ ...base, sim: { finish: { p50: null, p80: null, p95: null }, eur: floor, hours: floor } });
+    expect(below.simFinish).toBeNull();
+    expect(below.simCost).toBeNull();
+    const spend = { kind: "unavailable" as const, reason: "spend-history" as const, spendDays: 4, neededSpendDays: 10 };
+    const noSpend = buildChartModel({ ...base, sim: { ...CHART_SIM, eur: spend } });
+    expect(noSpend.simFinish).not.toBeNull();
+    expect(noSpend.simCost).toBeNull();
   });
 });

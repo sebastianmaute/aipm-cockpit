@@ -7,7 +7,9 @@
 // chosen view; the switches themselves do not print.
 import { useMemo, type ReactNode } from "react";
 import { type Lang, t, localeFor } from "./i18n";
-import { currencySymbol } from "./resource-cost";
+import { currencySymbol, formatCurrency } from "./resource-cost";
+import { formatHours, formatShare } from "./forecast-format";
+import { SimValue } from "./sim-value";
 import { useSettings } from "./use-settings";
 import { SegmentedControl } from "./segmented-control";
 import { BurndownChart } from "./burndown-chart";
@@ -17,8 +19,42 @@ import { isPaceAvailable } from "./budget-forecast";
 import { splitVariance } from "./budget-history";
 import type { BurndownSeries } from "./budget-burndown";
 import type { ForecastBundle } from "./budget-forecast-bundle";
+import type { CostAtFinish } from "./forecast/cost";
 
-type PanelBundle = Pick<ForecastBundle, "eur" | "hours" | "evHistory" | "history">;
+type PanelBundle = Pick<ForecastBundle, "eur" | "hours" | "evHistory" | "history" | "sim">;
+
+/** The simulated cost range in the displayed unit, or null when the simulation is off (`sim` absent or null). */
+function simCostFor(bundle: PanelBundle | null, unit: ChartUnit): CostAtFinish | null {
+  const sim = bundle?.sim ?? null;
+  return sim === null ? null : sim[unit];
+}
+
+/** §502 — the burn tile's one simulated line under the chart: the P80 cost at finish and the chance
+ *  over budget, marked sim; the missing-input line when the range is unavailable; nothing when off. */
+function SimTileLine({ lang, cost, unit, currency }: { lang: Lang; cost: CostAtFinish | null; unit: ChartUnit; currency: string }) {
+  if (cost === null) return null;
+  if (cost.kind === "unavailable") {
+    return (
+      <p className="text-xs text-muted-foreground">
+        {cost.reason === "schedule-floor"
+          ? t(lang, "budgetSimMissingSchedule")
+          : t(lang, "budgetSimMissingSpend", String(cost.neededSpendDays), String(cost.spendDays))}
+      </p>
+    );
+  }
+  const locale = localeFor(lang);
+  const p80 = cost.p80 === "beyond"
+    ? t(lang, "simHistogramBeyond")
+    : unit === "eur" ? formatCurrency(cost.p80, currency, locale) : formatHours(cost.p80, locale);
+  const line = cost.chanceOverBudget === null
+    ? t(lang, "burndownSimTileLineNoChance", p80)
+    : t(lang, "burndownSimTileLine", p80, formatShare(cost.chanceOverBudget, locale));
+  return (
+    <div>
+      <SimValue lang={lang} label={t(lang, "budgetSimCostAtFinish")} value={line} wrap />
+    </div>
+  );
+}
 
 /** Either unit has a budget to draw. With neither, the switches could not reach
  *  a drawable chart, so only the "no budget" hint renders (the twin charts' rule). */
@@ -51,7 +87,7 @@ function changeTableFor({
       forecast.facts.bac, forecast.pace.eac,
     )
     : null;
-  return <BudgetChangeTable lang={lang} history={history} split={split} unit={unit} currency={currency} />;
+  return <BudgetChangeTable lang={lang} history={history} split={split} unit={unit} currency={currency} sim={simCostFor(bundle, unit)} />;
 }
 
 export function BurndownChartPanel({
@@ -93,6 +129,7 @@ export function BurndownChartPanel({
       forecast: bundle ? bundle[unit] : null,
       evHistory: bundle ? bundle.evHistory : null,
       history,
+      sim: bundle ? bundle.sim : null,
     }),
     [series, unit, orientation, today, planEnd, bundle, history],
   );
@@ -148,6 +185,7 @@ export function BurndownChartPanel({
       <div className="flex flex-col gap-3 2xl:flex-row">
         <div className="min-w-0 flex-1">
           <BurndownChart lang={lang} currency={currency} model={model} unit={unit} orientation={orientation} periods={series.periods} notesAsInfo={compact} />
+          {compact && <SimTileLine lang={lang} cost={simCostFor(bundle, unit)} unit={unit} currency={currency} />}
         </div>
         {changeTable && <div className="min-w-0 2xl:w-[30rem] 2xl:shrink-0">{changeTable}</div>}
       </div>

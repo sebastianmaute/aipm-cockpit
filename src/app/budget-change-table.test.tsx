@@ -4,6 +4,7 @@ import { BudgetChangeTable } from "./budget-change-table";
 import { formatCurrency } from "./resource-cost";
 import { loadI18n } from "./i18n";
 import type { BudgetHistoryEntry, BudgetHistorySummary, VarianceSplit } from "./budget-history";
+import type { CostAtFinish } from "./forecast/cost";
 
 const eur = (v: number) => formatCurrency(v, "EUR", "en-US");
 
@@ -31,7 +32,7 @@ const HISTORY: BudgetHistorySummary = {
 
 const SPLIT: VarianceSplit = { vac: -1_000, performance: -500, attributed: 2_200, unattributed: -2_700 };
 
-function draw(over: { lang?: "en-US" | "de"; split?: VarianceSplit | null; unit?: "eur" | "hours" } = {}) {
+function draw(over: { lang?: "en-US" | "de"; split?: VarianceSplit | null; unit?: "eur" | "hours"; sim?: CostAtFinish | null } = {}) {
   return render(
     <BudgetChangeTable
       lang={over.lang ?? "en-US"}
@@ -39,6 +40,7 @@ function draw(over: { lang?: "en-US" | "de"; split?: VarianceSplit | null; unit?
       split={over.split === undefined ? SPLIT : over.split}
       unit={over.unit ?? "eur"}
       currency="EUR"
+      sim={over.sim}
     />,
   );
 }
@@ -143,5 +145,40 @@ describe("BudgetChangeTable", () => {
     expect(screen.getByRole("columnheader", { name: "Änderung" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Zusätzlicher Umfang bisher" })).toBeInTheDocument();
     expect(screen.getByText("Aufteilung gegen die Tempo-Prognose.")).toBeInTheDocument();
+  });
+});
+
+describe("BudgetChangeTable — simulated cost at finish (§502)", () => {
+  const SIM: CostAtFinish = { kind: "sim", p50: 9_500, p80: 10_200, p95: 11_000, chanceOverBudget: 0.7, spendDays: 20 };
+  const simRow = () => screen.queryByRole("group", { name: "Cost at finish (sim), simulated" });
+
+  it("adds one row with the P50 – P95 range beside the calculated split, marked sim", () => {
+    const { container } = draw({ sim: SIM });
+    const foot = container.querySelector("tfoot") as HTMLElement;
+    expect(within(foot).getByRole("rowheader", { name: "Cost at finish (sim)" })).toBeInTheDocument();
+    expect(within(foot).getByRole("group", { name: "Cost at finish (sim), simulated" })).toHaveAttribute("data-sim", "true");
+    expect(simRow()).toHaveTextContent(`${eur(9_500)} – ${eur(11_000)}`);
+    // The calculated split stays as it was.
+    expect(within(foot).getByRole("rowheader", { name: "Added scope" })).toBeInTheDocument();
+  });
+
+  it("names a P95 beyond the horizon in words", () => {
+    draw({ sim: { ...SIM, p95: "beyond" } });
+    expect(simRow()).toHaveTextContent(`${eur(9_500)} – beyond the horizon`);
+  });
+
+  it("keeps the row when no pace split is available", () => {
+    const { container } = draw({ split: null, sim: SIM });
+    expect(container.querySelector("tfoot")).not.toBeNull();
+    expect(simRow()).not.toBeNull();
+  });
+
+  it("has no simulated row when the simulation is off or the range is unavailable", () => {
+    const { unmount } = draw({ sim: null });
+    expect(simRow()).toBeNull();
+    expect(screen.queryByText("Cost at finish (sim)")).toBeNull();
+    unmount();
+    draw({ sim: { kind: "unavailable", reason: "spend-history", spendDays: 4, neededSpendDays: 10 } });
+    expect(simRow()).toBeNull();
   });
 });

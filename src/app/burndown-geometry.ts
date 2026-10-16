@@ -20,6 +20,8 @@ import { isEfficiencyAvailable, isPaceAvailable, type BudgetForecast } from "./b
 import { actualPointDates, type BurndownSeries } from "./budget-burndown";
 import { orderBudgetChanges, type BudgetHistoryEntry, type BudgetHistorySummary } from "./budget-history";
 import type { EvHistory, EvHistoryPoint, EvPartialBucket } from "./budget-ev-history";
+import type { BudgetSim } from "./budget-sim";
+import type { CostAtFinish } from "./forecast/cost";
 
 export type ChartUnit = "eur" | "hours";
 export type ChartOrientation = "burndown" | "cumulative";
@@ -69,6 +71,17 @@ export type ChartModel = {
    *  shows as 0 in the current unit is left out (the Task 9 join rule). */
   bacMarkers: readonly BacMarker[];
   bacLine: number | null; today: string | null; planEnd: string; frameDiffers: boolean;
+  /** §502 — the simulated P50–P95 finish dates as a faint full-height band, P80 as a dashed line. An end
+   *  beyond the horizon clamps to the chart's last date; `p80Beyond` says the P80 one did, so the text
+   *  alternative names the horizon instead of the clamped date. Null when off or below the schedule floor. */
+  simFinish: { from: string; to: string; p80: string; p80Beyond: boolean } | null;
+  /** §502 — a wedge from the last actual point to the P80 finish date spanning the P50..P95 cost, in the
+   *  chart's unit and orientation; `low`/`high` are the lower and upper of the two plotted values. Like the
+   *  forecast segments it extends the last point by the simulated cost still to come (cost − AC), so it
+   *  meets the actual line with no jump; with matching frames that is BAC − cost in burn-down and the cost
+   *  in cumulative. `p80` is the P80 cost itself, for the text alternative. Null when off, when the range
+   *  is unavailable, or when its P95 is beyond the horizon (nothing to draw honestly). */
+  simCost: { from: ChartPoint; at: string; low: number; high: number; p80: number } | null;
 };
 /** `label` is the bucket names joined with ", "; `amount` their summed delta in
  *  the current unit; `removed` is true only when EVERY entry behind the tick
@@ -83,6 +96,8 @@ export type ChartInput = {
   series: BurndownSeries; unit: ChartUnit; orientation: ChartOrientation;
   forecast: BudgetForecast | null; evHistory: EvHistory | null;
   history: BudgetHistorySummary | null; today: string; planEnd: string;
+  /** §502 — the budget simulation from the forecast bundle; absent or null when the switch is off. */
+  sim?: BudgetSim | null;
 };
 
 const utc = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
@@ -337,8 +352,27 @@ export function markerLabelBoxes(
   });
 }
 
+/** The simulated finish dates the x domain must reach (the ones within the horizon), or null when no
+ *  finish band is drawn: the switch is off, or the schedule is below its floor. */
+function simFinishDates(sim: BudgetSim | null | undefined, cost: CostAtFinish | null): string[] | null {
+  if (!sim || cost === null || (cost.kind === "unavailable" && cost.reason === "schedule-floor")) return null;
+  return [sim.finish.p50, sim.finish.p80, sim.finish.p95].filter((date): date is string => date !== null);
+}
+
+/** The P50..P95 cost wedge from the last actual point (see `ChartModel.simCost`). */
+function simCostWedge(
+  cost: CostAtFinish | null, last: ChartPoint | null, ac: number | null, down: boolean, at: string | null,
+): ChartModel["simCost"] {
+  if (cost === null || cost.kind !== "sim" || last === null || ac === null || at === null || at <= last.date) return null;
+  const { p50, p80, p95 } = cost;
+  if (p50 === "beyond" || p80 === "beyond" || p95 === "beyond") return null;
+  const place = (c: number) => (down ? last.value - (c - ac) : last.value + (c - ac));
+  const [a, b] = [place(p50), place(p95)];
+  return { from: last, at, low: Math.min(a, b), high: Math.max(a, b), p80 };
+}
+
 export function buildChartModel(input: ChartInput): ChartModel {
-  const { series, unit, orientation, forecast, evHistory, history, today, planEnd } = input;
+  const { series, unit, orientation, forecast, evHistory, history, today, planEnd, sim } = input;
   const eurUnit = unit === "eur";
   const down = orientation === "burndown";
   const total = eurUnit ? series.totalBudgetValue : series.totalBudgetHours;
@@ -348,7 +382,12 @@ export function buildChartModel(input: ChartInput): ChartModel {
   const n = series.periods.length;
   const start = n > 0 ? series.periodStarts[0] : planEnd;
   const lastEnd = n > 0 ? series.periodEnds[n - 1] : planEnd;
-  const xDomain: readonly [string, string] = [start, lastEnd > planEnd ? lastEnd : planEnd];
+  const simCostUnit = sim ? (eurUnit ? sim.eur : sim.hours) : null;
+  const finishDates = simFinishDates(sim, simCostUnit);
+  // The x domain opens to the latest simulated finish within the horizon, so the band is drawn inside the
+  // plot; off, it is exactly what it always was.
+  const end = [lastEnd, ...(finishDates ?? [])].reduce((latest, date) => (date > latest ? date : latest), planEnd);
+  const xDomain: readonly [string, string] = [start, end];
   const origin: ChartPoint = { date: start, value: fromCumulative(0) };
 
   const planned: ChartPoint[] = n === 0 ? [] : [
@@ -387,6 +426,11 @@ export function buildChartModel(input: ChartInput): ChartModel {
     if (forecast.facts.ev !== null) ev = { date: last.date, value: fromCumulative(forecast.facts.ev) };
   }
 
+  const simFinish: ChartModel["simFinish"] = finishDates === null || !sim ? null : {
+    from: sim.finish.p50 ?? end, to: sim.finish.p95 ?? end, p80: sim.finish.p80 ?? end, p80Beyond: sim.finish.p80 === null,
+  };
+  const simCost = simCostWedge(simCostUnit, last, forecast ? forecast.facts.ac : null, down, finishDates === null ? null : sim?.finish.p80 ?? null);
+
   const evFields = !down && evHistory ? evHistoryFields(evHistory, eurUnit, origin) : NO_EV;
   const bacF = !down && history ? bacFields(history, eurUnit, series, xDomain[0], xDomain[1]) : NO_BAC;
 
@@ -404,6 +448,7 @@ export function buildChartModel(input: ChartInput): ChartModel {
     // baseline), so the domain has to open for it or the steps leave the plot.
     ...(bacF.bacSteps ?? []).map((pt) => pt.value),
     ...[pace?.to.value, efficiency?.to.value, ev?.value].filter((v): v is number => v !== undefined),
+    ...(simCost ? [simCost.low, simCost.high] : []),
   ];
   const yMin = Math.min(...values);
   const yMaxRaw = Math.max(...values);
@@ -414,6 +459,6 @@ export function buildChartModel(input: ChartInput): ChartModel {
     planned, actual, over, pace, efficiency, runOut, ev, ...evFields, ...bacF,
     bacLine: down ? null : total,
     today: dates.length > 0 ? dates[dates.length - 1] : null,
-    planEnd, frameDiffers,
+    planEnd, frameDiffers, simFinish, simCost,
   };
 }
