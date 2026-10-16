@@ -139,8 +139,8 @@ export function BudgetChangeTable({
               </tr>
             ))}
             {/* §502 — the simulated range beside the calculated split, never in its place. Its value sits in
-                the "Cumulative" column, which it is not: `headers` names its own row header alone, so a
-                screen reader announces "Cost at finish (sim, P50–P95)" for it, never "Cumulative". */}
+                the running-total column ("Added scope to date"), which it is not: `headers` names its own row
+                header alone, so a screen reader announces "Cost at finish (sim, P50–P95)" for it, never that column. */}
             {simRange !== null && (
               <tr>
                 <th id={simTermId} scope="row" colSpan={3} className={`${TD_CLASS} text-left font-normal text-muted-foreground`}>
