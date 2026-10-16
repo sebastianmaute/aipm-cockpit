@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { emptyWorkspace, type Workspace } from "./workspace";
+import { diffWorkspaces } from "./version-diff";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import type { UseVersionHistoryArgs } from "./use-version-history";
 import { useVersionHistoryWiring, type VersionHistoryWiringDeps } from "./use-version-history-wiring";
@@ -198,5 +199,32 @@ describe("useVersionHistoryWiring — a restore converts version money and keeps
     act(() => { args().applyWorkspace?.({ ...emptyWorkspace(), plan: { ...h.result.current.ws.plan } }); });
     expect(h.result.current.ws.baselineHistory).toBe(before);
     expect(h.deps.logActivityUser).not.toHaveBeenCalled();
+  });
+});
+
+// §502 — the simulation switch is a viewing choice. `prepareVersion` pins it on the version for compares, but
+// ONLY when the version carries overrides: an unstamped capture's `undefined` is what lets the blind-capture
+// guard skip the slice, and a pinned `{forecast}` would make it look like a real (empty) override set.
+describe("useVersionHistoryWiring — prepareVersion and the simulation switch (§502)", () => {
+  const ON = { forecast: { showSimulation: true } };
+  const TZ = { timezone: { timezone: "Europe/Berlin" } };
+  function withLiveSwitchOn() {
+    const h = mount();
+    act(() => { h.result.current.ws.setSettingsOverrides({ ...TZ, ...ON }); });
+    return h;
+  }
+
+  it("leaves an absent settingsOverrides absent, so the blind-capture guard still sees it", () => {
+    withLiveSwitchOn();
+    const out = args().prepareVersion?.({ ...emptyWorkspace(), settingsOverrides: undefined }, null);
+    expect(out?.settingsOverrides).toBeUndefined();
+  });
+
+  it("pins the live switch on a version that has overrides, so a compare shows no switch row", () => {
+    const h = withLiveSwitchOn();
+    const version = args().prepareVersion?.({ ...emptyWorkspace(), settingsOverrides: TZ }, null);
+    expect(version?.settingsOverrides).toEqual({ ...TZ, ...ON });
+    const now: Workspace = { ...emptyWorkspace(), settingsOverrides: h.result.current.ws.settingsOverrides };
+    expect(diffWorkspaces(version as Workspace, now).filter((c) => c.collection === "settingsOverrides")).toEqual([]);
   });
 });
