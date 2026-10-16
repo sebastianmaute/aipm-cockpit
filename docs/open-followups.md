@@ -45508,7 +45508,7 @@ Size S.
 
 ## 742. Gantt task bars cannot be moved or resized from the keyboard — OPEN
 
-**Status:** OPEN 2026-10-16, filed on the owner's word while scoping the milestone drag (project D of §715).
+**Status:** OPEN 2026-10-16, filed on the owner's word while scoping the milestone drag (project D of §715). `grep -c "startBarDrag(e, task, bar" src/app/gantt-rows.tsx` prints 3, one `onPointerDown` per handle, with no key handler beside them.
 
 **Work item:** #761
 
