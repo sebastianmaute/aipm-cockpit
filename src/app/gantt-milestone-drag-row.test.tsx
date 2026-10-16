@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { GanttMilestoneRow } from "./gantt-rows";
 import { GanttPanel } from "./gantt";
-import { fmtFull, HEADER_HEIGHT_PX, LEFT_GUTTER_PX, ROW_HEIGHT_PX } from "./gantt-engine";
+import { fmtFull, HEADER_HEIGHT_PX, LEFT_GUTTER_PX, MILESTONE_DIAMOND_PX, ROW_HEIGHT_PX } from "./gantt-engine";
 import type { Milestone, Task } from "./types";
 
 // §715 project D — the milestone row's drag handle and its live preview.
@@ -73,6 +73,16 @@ describe("GanttMilestoneRow — drag preview", () => {
     expect(liveDiamond(container).getAttribute("transform")).toBe(`rotate(45 616 ${ROW_HEIGHT_PX / 2})`);
     const preview = container.querySelector("[data-gantt-milestone-preview]");
     expect(preview?.textContent).toBe(fmtFull(new Date(Date.UTC(2026, 5, 23)), "en-US"));
+    // Left of the diamond, clear of the slip label on its right.
+    expect(preview).toHaveAttribute("data-gantt-milestone-preview", "left");
+  });
+
+  it("puts the preview date right of the diamond near the first day, where no scroll could uncover a left label", () => {
+    // 2026-06-02 is one day after the range start: x = 28.
+    const { container } = render(<GanttMilestoneRow m={m} {...base} onStartDrag={vi.fn()} dragDeltaDays={-18} />);
+    const preview = container.querySelector<HTMLElement>("[data-gantt-milestone-preview]");
+    expect(preview).toHaveAttribute("data-gantt-milestone-preview", "right");
+    expect(preview?.style.left).toBe(`${28 + MILESTONE_DIAMOND_PX}px`);
   });
 
   it("announces the previewed date while dragging", () => {
@@ -124,10 +134,19 @@ describe("GanttPanel — milestone move wiring", () => {
     fireEvent.keyDown(slider, { key: "PageDown" });
     fireEvent.keyDown(slider, { key: "PageDown" });
     expect(slider).toHaveAttribute("aria-valuetext", fmtFull(new Date(Date.UTC(2026, 5, 6)), "en-US"));
-    // Four days before the previewed date: room for its date label, which
-    // sits left of the diamond.
-    expect(slider).toHaveAttribute("aria-valuenow", "4");
+    expect(slider).toHaveAttribute("aria-valuenow", "2");
     expect(Number(slider.getAttribute("aria-valuenow"))).toBeLessThanOrEqual(Number(slider.getAttribute("aria-valuemax")));
+  });
+
+  it("previews on the same axis the saved date is drawn on, so the chart does not shift on save", () => {
+    const { rerender } = render(<GanttPanel {...props} onMoveMilestone={vi.fn()} />);
+    const slider = () => screen.getByRole("slider", { name: "Move milestone – Beta" });
+    fireEvent.keyDown(slider(), { key: "PageDown" });
+    const during = [slider().getAttribute("aria-valuenow"), slider().getAttribute("aria-valuemax")];
+    fireEvent.keyDown(slider(), { key: "Enter" });
+    // The workspace now holds the saved date.
+    rerender(<GanttPanel {...props} milestones={[{ ...ms[0], date: "2026-06-13" }]} onMoveMilestone={vi.fn()} />);
+    expect([slider().getAttribute("aria-valuenow"), slider().getAttribute("aria-valuemax")]).toEqual(during);
   });
 
   it("does not widen the axis under a pointer drag", () => {
@@ -209,6 +228,34 @@ describe("GanttPanel — milestone move wiring", () => {
       box.handleLeft = 1500;
       fireEvent.keyDown(slider, { key: "Escape" });
       expect(scroller.scrollLeft).toBe(1520 - 800);
+    });
+
+    it("does not scroll when a pointer press focuses the handle", () => {
+      box.handleLeft = 60;
+      const { slider, scroller } = setup(400);
+      fireEvent.pointerDown(slider, { button: 0, clientX: 70, pointerId: 1 });
+      act(() => slider.focus());
+      expect(scroller.scrollLeft).toBe(400);
+    });
+
+    it("does not scroll back to a keyboard move that a pointer drag ended", () => {
+      Object.assign(box, { handleLeft: 500, previewLeft: 420 });
+      const { slider, scroller } = setup(0);
+      act(() => slider.focus());
+      fireEvent.keyDown(slider, { key: "PageDown" });
+      box.handleLeft = 1500;
+      fireEvent.pointerDown(slider, { button: 0, clientX: 1510, pointerId: 1 });
+      expect(scroller.scrollLeft).toBe(0);
+    });
+
+    it("does not scroll back to a keyboard move that ended because focus left", () => {
+      Object.assign(box, { handleLeft: 500, previewLeft: 420 });
+      const { slider, scroller } = setup(0);
+      act(() => slider.focus());
+      fireEvent.keyDown(slider, { key: "PageDown" });
+      box.handleLeft = 1500;
+      act(() => slider.blur());
+      expect(scroller.scrollLeft).toBe(0);
     });
 
     it("scrolls a handle reached by Tab out from under the name column", () => {

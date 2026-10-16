@@ -7,6 +7,10 @@
 //      the rows re-sort, or cancelled with Escape, so it jumps back to where it
 //      started, which can be a viewport away from where the presses took it;
 //   3. Tab lands on a handle sitting under the sticky name column.
+// None of them applies to the POINTER: a mouse press focuses the handle too,
+// and a scroll then would slide the chart out from under the pointer for the
+// whole drag. So a focus that follows a pointer press reveals nothing, and a
+// keyboard move that ends because a pointer drag starts reveals nothing.
 // Each is answered with `revealInGantt`, which scrolls clear of the sticky name
 // column, header and footer (a plain `scrollIntoView` counts a handle under
 // them as visible — WCAG 2.4.11).
@@ -15,7 +19,7 @@
 // while its handle has focus, and an achieved milestone renders no handle. The
 // browser drops focus to <body>; this moves it to the row's name button, so
 // the user keeps their place in the chart.
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { HEADER_HEIGHT_PX } from "./gantt-engine";
 import { revealInGantt } from "./gantt-reveal";
 import type { MilestoneDragState } from "./use-gantt-milestone-drag";
@@ -62,12 +66,27 @@ export function useGanttMilestoneFocus({
 }: GanttMilestoneFocusOptions): GanttMilestoneFocus {
   const keyMoveId = milestoneDrag?.mode === "keys" ? milestoneDrag.milestoneId : null;
   const keyMoveDays = milestoneDrag?.mode === "keys" ? milestoneDrag.deltaDays : 0;
+  const pointerDragging = milestoneDrag?.mode === "pointer";
   // The milestone whose handle has focus. Set and cleared by focus/blur; NOT
   // cleared when the handle unmounts, because React reports no blur for a
   // removed node — which is exactly what the restore below relies on.
   const focusedRef = useRef<number | null>(null);
   // The keyboard move seen at the last commit, to notice the one that ended.
   const lastKeyMoveRef = useRef<number | null>(null);
+  // Whether the last input was a pointer press rather than a key. Window
+  // listeners, because the key that moves focus INTO the chart (Tab) is
+  // pressed while focus is still outside it.
+  const pointerInputRef = useRef(false);
+  useEffect(() => {
+    const onPointer = () => { pointerInputRef.current = true; };
+    const onKey = () => { pointerInputRef.current = false; };
+    window.addEventListener("pointerdown", onPointer, true);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("pointerdown", onPointer, true);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const scroller = scrollRef.current;
@@ -76,10 +95,10 @@ export function useGanttMilestoneFocus({
     if (!scroller) return;
     if (keyMoveId !== null) {
       revealHandle(scroller, keyMoveId, nameColWidth, footerRef.current);
-    } else if (ended !== null && focusedRef.current === ended) {
+    } else if (ended !== null && focusedRef.current === ended && !pointerDragging) {
       revealHandle(scroller, ended, nameColWidth, footerRef.current);
     }
-  }, [keyMoveId, keyMoveDays, scrollRef, footerRef, nameColWidth]);
+  }, [keyMoveId, keyMoveDays, pointerDragging, scrollRef, footerRef, nameColWidth]);
 
   // Every commit: a focused handle that is gone while its row remains (signed
   // off) hands focus to that row's name button. Cheap — one lookup, and only
@@ -100,7 +119,7 @@ export function useGanttMilestoneFocus({
       if (id === null) return;
       focusedRef.current = id;
       const scroller = scrollRef.current;
-      if (scroller) revealHandle(scroller, id, nameColWidth, footerRef.current);
+      if (scroller && !pointerInputRef.current) revealHandle(scroller, id, nameColWidth, footerRef.current);
     },
     onBlur: (e) => {
       if (handleId(e.target) !== null) focusedRef.current = null;

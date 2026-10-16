@@ -4,7 +4,7 @@
 // the read-only pop-out, not with the Milestones function off).
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, fireEvent } from "@testing-library/react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider } from "./workspace-tab-context";
@@ -33,8 +33,20 @@ function Seed({ list }: { list: readonly Milestone[] }) {
 }
 function ShowDate() {
   const { milestones, setMilestones } = useWorkspace();
+  const [note, setNote] = useState(false);
   return (
     <>
+      {/* A sign-off that opens a field which takes focus in the same commit. */}
+      <button
+        type="button"
+        aria-label="sign-off-and-note"
+        onClick={() => {
+          setNote(true);
+          setMilestones((prev) => prev.map((m, i) => (i === 0 ? { ...m, achievedDate: "2026-10-16" } : m)));
+        }}
+      />
+      {/* Takes focus on mount: the focus a sign-off must not steal. */}
+      {note && <input aria-label="note" autoFocus />}
       {milestones.map((m) => <output key={m.id} data-testid="date">{m.date}</output>)}
       {/* A concurrent writer deleting every milestone. */}
       <button type="button" aria-label="delete-all" onClick={() => setMilestones([])} />
@@ -158,6 +170,14 @@ describe("GanttView — milestone move", () => {
     expect(screen.queryByRole("slider", { name: HANDLE })).toBeNull();
     expect(document.activeElement?.tagName).toBe("BUTTON");
     expect(document.activeElement?.textContent).toBe("Pilot Go-Live");
+  });
+
+  it("leaves focus alone when something else took it in the commit that removed the handle", () => {
+    renderView({ onEditMilestone: vi.fn() });
+    act(() => screen.getByRole("slider", { name: HANDLE }).focus());
+    fireEvent.click(screen.getByRole("button", { name: "sign-off-and-note" }));
+    expect(screen.queryByRole("slider", { name: HANDLE })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "note" }));
   });
 
   it("moves from the date a concurrent writer set, not the one the presses started on", () => {

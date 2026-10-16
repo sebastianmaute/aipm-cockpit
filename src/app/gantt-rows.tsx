@@ -615,11 +615,19 @@ export function GanttMilestoneRow({
         )}
         {dragDeltaDays !== 0 && (
           // The date the milestone lands on if released now, left of the
-          // diamond so it never collides with the slip label on its right.
+          // diamond so it never collides with the slip label on its right —
+          // except near the first day, where a left label would start under
+          // the sticky name column and no scroll could uncover it. There it
+          // goes right; the axis stays put rather than grow room for it.
           <span
-            data-gantt-milestone-preview="1"
+            data-gantt-milestone-preview={mx < MILESTONE_PREVIEW_LABEL_ROOM_PX ? "right" : "left"}
             className="pointer-events-none absolute -translate-y-1/2 whitespace-nowrap text-[10px] font-medium text-foreground"
-            style={{ right: timelineWidthPx - mx + MILESTONE_DIAMOND_PX, top: ROW_HEIGHT_PX / 2 }}
+            style={{
+              ...(mx < MILESTONE_PREVIEW_LABEL_ROOM_PX
+                ? { left: mx + MILESTONE_DIAMOND_PX }
+                : { right: timelineWidthPx - mx + MILESTONE_DIAMOND_PX }),
+              top: ROW_HEIGHT_PX / 2,
+            }}
             aria-hidden="true"
           >
             {fmtFull(liveDate, lang)}
@@ -662,3 +670,7 @@ export function GanttMilestoneRow({
 
 /** Hit width of a milestone's drag handle: wider than the diamond so it is easy to grab. */
 const MILESTONE_HANDLE_PX = 20;
+/** Timeline px a preview date label needs LEFT of its diamond (§715): about
+ *  "Oct 12, 2026" at 10px plus the diamond gap. Closer to the first day, the
+ *  label goes right of the diamond. */
+const MILESTONE_PREVIEW_LABEL_ROOM_PX = 96;
