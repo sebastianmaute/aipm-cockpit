@@ -31,8 +31,8 @@ export type ForecastBundle = {
    *  `ac`, `bac` and `dated` values rather than converting again (§502). */
   facts: ForecastFactsByUnit;
   /** The simulated cost at finish (§502, `budget-sim.ts`): absent from a freshly
-   *  computed bundle, set only by `withBudgetSim` on a copy; null while the
-   *  simulation is off. Nothing reads it for health — `paceVacHealth` stays on `eur`. */
+   *  computed bundle, set only by `withBudgetSim` on a copy; absent (or null)
+   *  while the simulation is off. Nothing reads it for health — `paceVacHealth` stays on `eur`. */
   sim?: BudgetSim | null;
 };
 export type ForecastBundleInput = BudgetForecastInput & {

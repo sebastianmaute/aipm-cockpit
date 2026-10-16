@@ -13,10 +13,11 @@ import type { Settings } from "./settings-types";
 import { SegmentedControl } from "./segmented-control";
 import { RagBadge } from "./rag-badge";
 import { formatCurrency } from "./resource-cost";
-import { formatSignedPercent, formatDayMonth, formatDayMonthYear, formatHours, formatShare, signedFigure } from "./forecast-format";
+import { formatSignedPercent, formatDayMonth, formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { SimBadge, SimValue } from "./sim-value";
 import type { BudgetSim } from "./budget-sim";
 import type { CostAtFinish } from "./forecast/cost";
+import { costRangeRows, costUnavailableText } from "./budget-sim-text";
 import { TermTooltip } from "./budget-forecast-tooltip";
 import { InfoTooltip } from "./info-tooltip";
 import { RateMixChip } from "./budget-rate-mix-chip";
@@ -195,7 +196,6 @@ function mixChip(lang: Lang, mix: RateMix | null, eur: BudgetForecast, hours: Bu
  *  decorative). The calculated figure above it is untouched. */
 function SimCostBlock({ lang, cost, money }: { lang: Lang; cost: CostAtFinish; money: Money }) {
   const heading = t(lang, "budgetSimCostAtFinish");
-  const figure = (v: number | "beyond") => (v === "beyond" ? t(lang, "simHistogramBeyond") : money(v));
   return (
     <div role="group" aria-label={t(lang, "simValueSr", heading)} data-sim="true" className="mt-3 border-t border-dashed border-line pt-2">
       <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -203,19 +203,12 @@ function SimCostBlock({ lang, cost, money }: { lang: Lang; cost: CostAtFinish; m
         <SimBadge lang={lang} />
       </p>
       {cost.kind === "unavailable" ? (
-        <p className="mt-1 text-sm text-muted-foreground">
-          {cost.reason === "schedule-floor"
-            ? t(lang, "budgetSimMissingSchedule")
-            : t(lang, "budgetSimMissingSpend", String(cost.neededSpendDays), String(cost.spendDays))}
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{costUnavailableText(lang, cost)}</p>
       ) : (
         <dl className="mt-1 space-y-1 text-sm">
-          <HoursRow term={t(lang, "budgetSimP50")}>{figure(cost.p50)}</HoursRow>
-          <HoursRow term={t(lang, "budgetSimP80")}>{figure(cost.p80)}</HoursRow>
-          <HoursRow term={t(lang, "budgetSimP95")}>{figure(cost.p95)}</HoursRow>
-          {cost.chanceOverBudget !== null && (
-            <HoursRow term={t(lang, "budgetSimChanceOver")}>{formatShare(cost.chanceOverBudget, localeFor(lang))}</HoursRow>
-          )}
+          {costRangeRows(lang, cost, money).map(([term, value]) => (
+            <HoursRow key={term} term={term}>{value}</HoursRow>
+          ))}
         </dl>
       )}
     </div>

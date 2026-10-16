@@ -28,9 +28,10 @@ export const BELOW_SCHEDULE_FLOOR: CostAtFinish = {
 let memo: { forecast: AppForecast; facts: ForecastFactsByUnit; result: BudgetSim } | null = null;
 
 /** One unit's cost range from a schedule run: each trial's finish day draws spend from the run's own
- *  history window. Shared with the Forecast view, which passes its What-if-adjusted run. */
+ *  history window. Shared with the Forecast view, which passes its What-if-adjusted run and its What-if
+ *  capacity as `spendScale` (capacityPercent / 100); the bundle passes nothing (default 1). */
 export function simulateCostFromRun(
-  run: { trialDays: Int32Array; windowDates: readonly string[] }, f: ForecastFacts, seedTag: string,
+  run: { trialDays: Int32Array; windowDates: readonly string[] }, f: ForecastFacts, seedTag: string, spendScale = 1,
 ): CostAtFinish {
   return simulateCostAtFinish({
     trialDays: run.trialDays,
@@ -39,6 +40,7 @@ export function simulateCostFromRun(
     bac: f.bac,
     seedTag,
     horizon: MAX_HORIZON_WORKING_DAYS,
+    spendScale,
   });
 }
 

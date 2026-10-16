@@ -407,10 +407,10 @@ describe("ForecastPanel — cost at finish (§502)", () => {
   const history = [...open(5), ...steadyDone(60)];
   const WINDOW = [...workingDaysBefore(TODAY, 59, NO_HOLIDAYS), TODAY];
   /** Spend booked on the last `days` window days, varied so the percentiles spread. */
-  function facts(days: number, bac = 100_000): ForecastFactsByUnit {
+  function facts(days: number, bac = 100_000, ac = 40_000): ForecastFactsByUnit {
     const dated: DatedValue[] = WINDOW.slice(-days).map((date, i) => ({ date, bookedFrom: date, value: 500 + (i % 7) * 150, spread: false }));
     const f: ForecastFacts = {
-      bac, ac: 40_000, ev: null, pv: 0, bucketsMissingPercent: [], dated,
+      bac, ac, ev: null, pv: 0, bucketsMissingPercent: [], dated,
       planEnd: PLAN.endDate, today: TODAY, holidaySet: NO_HOLIDAYS, hasFixedPrice: false,
     };
     return { eur: f, hours: { ...f, bac: 1000, ac: 400 } };
@@ -426,17 +426,31 @@ describe("ForecastPanel — cost at finish (§502)", () => {
     return Number((within(row).getByRole("cell").textContent ?? "").replace(/[^0-9.]/g, ""));
   };
 
-  test("a What-if capacity of 200 % lowers the P80 cost", async () => {
+  // Capacity is team availability: the finish comes sooner but each day burns twice as much, so the
+  // cost barely moves. AC 0 and 30 open tasks make the drawn spend the whole figure, so dropping
+  // `* scale` in the cost loop (which halves it) turns this red — mutation-checked.
+  test("a What-if capacity of 200 % leaves the P80 cost within ±10 % of the default", async () => {
     const user = userEvent.setup();
-    renderCost(FULL);
+    renderCost(facts(60, 100_000, 0), true, [...open(30), ...steadyDone(60)]);
     const before = p80Cost();
-    expect(before).toBeGreaterThan(40_000);
+    expect(before).toBeGreaterThan(0);
     await user.click(screen.getByRole("radio", { name: "What-if" }));
     const capacity = screen.getByLabelText("Capacity (%)");
     await user.clear(capacity);
     await user.type(capacity, "200{Enter}");
-    expect(p80Cost()).toBeLessThan(before);
-    expect(p80Cost()).toBeGreaterThan(40_000);
+    expect(p80Cost()).toBeGreaterThan(before * 0.9);
+    expect(p80Cost()).toBeLessThan(before * 1.1);
+  });
+
+  test("a What-if scope of +100 % raises the P80 cost", async () => {
+    const user = userEvent.setup();
+    renderCost(FULL);
+    const before = p80Cost();
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    const scope = screen.getByLabelText("Scope change (%)");
+    await user.clear(scope);
+    await user.type(scope, "100{Enter}");
+    expect(p80Cost()).toBeGreaterThan(before);
   });
 
   test("no budget shows the add-a-budget line", () => {
@@ -446,7 +460,7 @@ describe("ForecastPanel — cost at finish (§502)", () => {
 
   test("below the spend floor names the counts", () => {
     renderCost(facts(4));
-    expect(within(card()).getByText("Needs 10 working days with bookings in the window (has 4).")).toBeTruthy();
+    expect(within(card()).getByText("Needs 10 working days of booking history in the window (has 4).")).toBeTruthy();
   });
 
   test("below the schedule floor says which input is missing", () => {

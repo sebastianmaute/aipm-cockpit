@@ -131,7 +131,9 @@ function BurndownChartBody({
   // §502 — the bands are drawn shapes only, so the simulated P80 figures reach a screen reader here.
   if (model.simFinish) {
     const finish = model.simFinish.p80Beyond ? t(lang, "simHistogramBeyond") : formatDayMonthYear(model.simFinish.p80, locale);
-    aria.push(model.simCost ? t(lang, "burndownAriaSim", finish, fmt(model.simCost.p80)) : t(lang, "burndownAriaSimFinish", finish));
+    // The hours unit says "hours at finish": "cost" beside an "h" figure misreads.
+    const simKey = unit === "eur" ? "burndownAriaSim" : "burndownAriaSimHours";
+    aria.push(model.simCost ? t(lang, simKey, finish, fmt(model.simCost.p80)) : t(lang, "burndownAriaSimFinish", finish));
   }
   // A marker reads "+€3,000 Vendor", or "−€800 Ops removed" when every entry
   // behind it deleted its bucket. The pure model carries the amount and the

@@ -20,6 +20,7 @@ import { splitVariance } from "./budget-history";
 import type { BurndownSeries } from "./budget-burndown";
 import type { ForecastBundle } from "./budget-forecast-bundle";
 import type { CostAtFinish } from "./forecast/cost";
+import { costUnavailableText } from "./budget-sim-text";
 
 type PanelBundle = Pick<ForecastBundle, "eur" | "hours" | "evHistory" | "history" | "sim">;
 
@@ -35,23 +36,21 @@ function SimTileLine({ lang, cost, unit, currency }: { lang: Lang; cost: CostAtF
   if (cost === null) return null;
   if (cost.kind === "unavailable") {
     return (
-      <p className="text-xs text-muted-foreground">
-        {cost.reason === "schedule-floor"
-          ? t(lang, "budgetSimMissingSchedule")
-          : t(lang, "budgetSimMissingSpend", String(cost.neededSpendDays), String(cost.spendDays))}
-      </p>
+      <p className="text-xs text-muted-foreground">{costUnavailableText(lang, cost)}</p>
     );
   }
   const locale = localeFor(lang);
   const p80 = cost.p80 === "beyond"
     ? t(lang, "simHistogramBeyond")
     : unit === "eur" ? formatCurrency(cost.p80, currency, locale) : formatHours(cost.p80, locale);
+  // The hours unit says "Hours at finish": "Cost" beside an "h" figure misreads.
+  const hours = unit === "hours";
   const line = cost.chanceOverBudget === null
-    ? t(lang, "burndownSimTileLineNoChance", p80)
-    : t(lang, "burndownSimTileLine", p80, formatShare(cost.chanceOverBudget, locale));
+    ? t(lang, hours ? "burndownSimTileLineHoursNoChance" : "burndownSimTileLineNoChance", p80)
+    : t(lang, hours ? "burndownSimTileLineHours" : "burndownSimTileLine", p80, formatShare(cost.chanceOverBudget, locale));
   return (
     <div>
-      <SimValue lang={lang} label={t(lang, "budgetSimCostAtFinish")} value={line} wrap />
+      <SimValue lang={lang} label={t(lang, hours ? "budgetSimHoursAtFinish" : "budgetSimCostAtFinish")} value={line} wrap />
     </div>
   );
 }

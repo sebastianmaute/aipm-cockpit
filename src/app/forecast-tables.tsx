@@ -6,8 +6,9 @@
 import { useId, useMemo, useState } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { localeFor } from "./date-format";
-import { formatDayMonthYear, formatHours, formatShare } from "./forecast-format";
+import { formatDayMonthYear, formatHours } from "./forecast-format";
 import type { CostAtFinish } from "./forecast/cost";
+import { costRangeRows, costUnavailableText } from "./budget-sim-text";
 import { formatCurrency } from "./resource-cost";
 import { SimValue } from "./sim-value";
 import type { ScheduleForecast } from "./forecast";
@@ -257,25 +258,13 @@ export function MilestoneTable({
 export function CostTable({ lang, cost, currency, bac }: { lang: Lang; cost: CostAtFinish | null; currency: BudgetCurrency; bac: number }) {
   const locale = localeFor(lang);
   const heading = t(lang, "budgetSimCostAtFinish");
-  const figure = (v: number | "beyond") => (v === "beyond" ? t(lang, "simHistogramBeyond") : formatCurrency(v, currency, locale));
   let body: React.ReactNode;
   if (cost === null || bac <= 0) {
     body = <p className="text-sm text-muted-foreground">{t(lang, "budgetSimAddBudget")}</p>;
   } else if (cost.kind === "unavailable") {
-    body = (
-      <p className="text-sm text-muted-foreground">
-        {cost.reason === "schedule-floor"
-          ? t(lang, "budgetSimMissingSchedule")
-          : t(lang, "budgetSimMissingSpend", String(cost.neededSpendDays), String(cost.spendDays))}
-      </p>
-    );
+    body = <p className="text-sm text-muted-foreground">{costUnavailableText(lang, cost)}</p>;
   } else {
-    const rows: [string, string][] = [
-      [t(lang, "budgetSimP50"), figure(cost.p50)],
-      [t(lang, "budgetSimP80"), figure(cost.p80)],
-      [t(lang, "budgetSimP95"), figure(cost.p95)],
-    ];
-    if (cost.chanceOverBudget !== null) rows.push([t(lang, "budgetSimChanceOver"), formatShare(cost.chanceOverBudget, locale)]);
+    const rows = costRangeRows(lang, cost, (v) => formatCurrency(v, currency, locale));
     body = (
       <div className="overflow-x-auto rounded-md border border-line">
         <table className="min-w-full text-left text-sm">

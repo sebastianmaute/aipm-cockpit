@@ -281,14 +281,25 @@ describe("BurndownChartPanel — simulated cost on the burn tile (§502)", () =>
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, budgetChartUnit: "hours" }));
     renderTile(CHART_SIM);
     await act(async () => {});
-    expect(tileLine()).toHaveTextContent("Cost at finish (P80) 103 h · 65% chance over budget");
+    // "Hours at finish": "Cost" beside an "h" figure misreads (§502 fix 4).
+    const line = screen.getByRole("group", { name: "Hours at finish, simulated" });
+    expect(line).toHaveTextContent("Hours at finish (P80) 103 h · 65% chance over budget");
+    expect(tileLine()).toBeNull();
+    expect(screen.queryByText(/Cost at finish/)).toBeNull();
   });
 
   it("shows the missing-input line instead when the cost range is unavailable", async () => {
     renderTile({ ...CHART_SIM, eur: { kind: "unavailable", reason: "spend-history", spendDays: 4, neededSpendDays: 10 } });
     await act(async () => {});
     expect(tileLine()).toBeNull();
-    expect(screen.getByText("Needs 10 working days with bookings in the window (has 4).")).toBeInTheDocument();
+    expect(screen.getByText("Needs 10 working days of booking history in the window (has 4).")).toBeInTheDocument();
+  });
+
+  it("shows the no-spend line when the window holds no bookings", async () => {
+    renderTile({ ...CHART_SIM, eur: { kind: "unavailable", reason: "no-spend", spendDays: 60, neededSpendDays: 10 } });
+    await act(async () => {});
+    expect(tileLine()).toBeNull();
+    expect(screen.getByText("No bookings in the history window yet.")).toBeInTheDocument();
   });
 
   it("shows nothing simulated when the simulation is off, and no tile line outside the tile", async () => {

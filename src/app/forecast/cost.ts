@@ -9,7 +9,7 @@ export type CostAtFinish =
   | { kind: "sim"; p50: number | "beyond"; p80: number | "beyond"; p95: number | "beyond";
       /** Share of trials whose cost exceeds BAC (a beyond trial counts as over); null when BAC <= 0. */
       chanceOverBudget: number | null; spendDays: number }
-  | { kind: "unavailable"; reason: "schedule-floor" | "spend-history"; spendDays: number; neededSpendDays: number };
+  | { kind: "unavailable"; reason: "schedule-floor" | "spend-history" | "no-spend"; spendDays: number; neededSpendDays: number };
 
 /** Per-working-day spend in the window, from the first booking on (days before it are not samples). */
 export function spendSamples(dated: readonly DatedValue[], windowDates: readonly string[]): number[] {
@@ -30,12 +30,28 @@ function toPercentile(sorted: Float64Array, p: number): number | "beyond" {
   return v === Infinity ? "beyond" : v;
 }
 
+/** `spendScale` multiplies every drawn spend sample (the Forecast view's What-if capacity: burn scales
+ *  with team availability); the seed ignores it, so every
+ *  pinned value stays and a scaled run draws the same days as the unscaled one. */
 export function simulateCostAtFinish(a: {
   trialDays: Int32Array; samples: readonly number[]; ac: number; bac: number; seedTag: string; horizon: number;
+  spendScale?: number;
 }): CostAtFinish {
   const { trialDays, samples, ac, bac, seedTag, horizon } = a;
-  if (samples.length < MIN_SPEND_WORKING_DAYS || samples.every((s) => s === 0)) {
+  const scale = a.spendScale ?? 1;
+  // Nothing left open: every trial finishes today, so the cost is exactly AC — no history needed.
+  if (trialDays.length > 0 && trialDays.every((d) => d === 0)) {
+    return {
+      kind: "sim", p50: ac, p80: ac, p95: ac,
+      chanceOverBudget: bac > 0 ? (ac > bac ? 1 : 0) : null, spendDays: samples.length,
+    };
+  }
+  if (samples.length < MIN_SPEND_WORKING_DAYS) {
     return { kind: "unavailable", reason: "spend-history", spendDays: samples.length, neededSpendDays: MIN_SPEND_WORKING_DAYS };
+  }
+  // Bookings exist before the window, none inside it: enough days, but nothing to draw.
+  if (samples.every((s) => s === 0)) {
+    return { kind: "unavailable", reason: "no-spend", spendDays: samples.length, neededSpendDays: MIN_SPEND_WORKING_DAYS };
   }
   const rng = mulberry32(seedFrom([...samples, ac, bac, seedTag, "cost"]));
   const costs = new Float64Array(trialDays.length);
@@ -44,7 +60,7 @@ export function simulateCostAtFinish(a: {
     const days = trialDays[t];
     let cost = ac;
     if (days > horizon) cost = Infinity;
-    else for (let i = 0; i < days; i += 1) cost += samples[Math.floor(rng() * samples.length)];
+    else for (let i = 0; i < days; i += 1) cost += samples[Math.floor(rng() * samples.length)] * scale;
     costs[t] = cost;
     if (cost > bac) over += 1;
   }

@@ -37,6 +37,20 @@ describe("simulateCostAtFinish", () => {
     const r = simulateCostAtFinish({ trialDays: new Int32Array(5), samples: Array(12).fill(7), ac: 420, bac: 400, seedTag: "eur", horizon: 1300 });
     expect(r).toMatchObject({ p50: 420, p80: 420, p95: 420, chanceOverBudget: 1 });
   });
+  it("nothing open short-circuits to AC even below the spend floor (§502 fix 3)", () => {
+    const none = simulateCostAtFinish({ trialDays: new Int32Array(4), samples: [], ac: 300, bac: 500, seedTag: "eur", horizon: 1300 });
+    expect(none).toEqual({ kind: "sim", p50: 300, p80: 300, p95: 300, chanceOverBudget: 0, spendDays: 0 });
+    const zeros = simulateCostAtFinish({ trialDays: new Int32Array(4), samples: Array(12).fill(0), ac: 300, bac: 0, seedTag: "eur", horizon: 1300 });
+    expect(zeros).toMatchObject({ kind: "sim", p80: 300, chanceOverBudget: null });
+  });
+  it("spendScale multiplies each trial's added spend exactly; AC is not scaled (§502 fix 1)", () => {
+    const at = (spendScale?: number) => simulateCostAtFinish({ trialDays: Int32Array.from([0, 10, 20]), samples: Array(12).fill(100), ac: 1000, bac: 1e9, seedTag: "eur", horizon: 1300, spendScale });
+    expect(at(2)).toMatchObject({ p50: 1000 + 2 * 1000, p80: 1000 + 2 * 2000, p95: 1000 + 2 * 2000 });
+    expect(at(1)).toEqual(at());
+    const samples = [10, 0, 30, 5, 50, 0, 20, 10, 40, 15, 25, 35];
+    const varied = (spendScale?: number) => simulateCostAtFinish({ trialDays: Int32Array.from(Array(200).fill(30)), samples, ac: 100, bac: 1e9, seedTag: "eur", horizon: 1300, spendScale });
+    expect(varied(2)).toMatchObject({ p50: 100 + 2 * 600, p80: 100 + 2 * 690, p95: 100 + 2 * 750 }); // same draws as the pinned unscaled run
+  });
   it("no budget: chance over budget is null", () => {
     expect(simulateCostAtFinish({ trialDays: Int32Array.from([3]), samples: Array(12).fill(5), ac: 0, bac: 0, seedTag: "eur", horizon: 1300 })).toMatchObject({ chanceOverBudget: null });
   });
@@ -44,9 +58,9 @@ describe("simulateCostAtFinish", () => {
     expect(simulateCostAtFinish({ trialDays: Int32Array.from([3]), samples: Array(9).fill(5), ac: 0, bac: 10, seedTag: "eur", horizon: 1300 }))
       .toEqual({ kind: "unavailable", reason: "spend-history", spendDays: 9, neededSpendDays: 10 });
   });
-  it("all-zero spend is unavailable", () => {
+  it("all-zero spend (bookings only before the window) is its own reason, no-spend", () => {
     expect(simulateCostAtFinish({ trialDays: Int32Array.from([3]), samples: Array(12).fill(0), ac: 0, bac: 10, seedTag: "eur", horizon: 1300 }))
-      .toMatchObject({ kind: "unavailable", reason: "spend-history", spendDays: 12 });
+      .toEqual({ kind: "unavailable", reason: "no-spend", spendDays: 12, neededSpendDays: 10 });
   });
   it("varied spend is seeded: repeatable, pinned, and the seed tag changes the draws", () => {
     const samples = [10, 0, 30, 5, 50, 0, 20, 10, 40, 15, 25, 35];

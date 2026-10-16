@@ -806,6 +806,12 @@ describe("BurndownChart — simulated bands (§502)", () => {
     expect(ariaOf(draw().container)).not.toContain("Simulated");
   });
 
+  it("says hours at finish, not cost, in the hours unit (§502 fix 4)", () => {
+    const aria = ariaOf(draw({ sim: CHART_SIM, unit: "hours" }).container);
+    expect(aria).toContain("Simulated: finish (P80) Apr 10, 2026, hours at finish (P80) ");
+    expect(aria).not.toContain("cost at finish");
+  });
+
   it("says the P80 finish is beyond the horizon rather than naming the clamped date", () => {
     const beyond = { kind: "sim" as const, p50: 9_500, p80: "beyond" as const, p95: "beyond" as const, chanceOverBudget: 1, spendDays: 20 };
     const aria = ariaOf(draw({ sim: { finish: { p50: "2026-03-20", p80: null, p95: null }, eur: beyond, hours: beyond } }).container);

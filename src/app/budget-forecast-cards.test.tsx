@@ -607,7 +607,14 @@ describe("ForecastCards — simulated cost at finish (§502)", () => {
   it("names the missing spend history with both counts", () => {
     const sim: BudgetSim = { ...SIM_ON, eur: { kind: "unavailable", reason: "spend-history", spendDays: 7, neededSpendDays: 20 } };
     render(<Cards lang="en-US" forecast={AVAILABLE} sim={sim} />);
-    expect(screen.getByText("Needs 20 working days with bookings in the window (has 7).")).toBeInTheDocument();
+    expect(screen.getByText("Needs 20 working days of booking history in the window (has 7).")).toBeInTheDocument();
+  });
+
+  it("says no bookings fell in the window when every sample is zero (no-spend)", () => {
+    const sim: BudgetSim = { ...SIM_ON, eur: { kind: "unavailable", reason: "no-spend", spendDays: 60, neededSpendDays: 20 } };
+    render(<Cards lang="en-US" forecast={AVAILABLE} sim={sim} />);
+    expect(within(costBlock()).getByText("No bookings in the history window yet.")).toBeInTheDocument();
+    expect(screen.queryByText(/working days of booking history/)).toBeNull();
   });
 
   it("names the missing finished tasks when below the schedule floor", () => {

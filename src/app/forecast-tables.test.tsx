@@ -170,7 +170,7 @@ describe("CostTable", () => {
 
   test("below the spend floor names both counts", () => {
     render(<CostTable lang="en-US" cost={{ kind: "unavailable", reason: "spend-history", spendDays: 7, neededSpendDays: 10 }} currency="EUR" bac={240000} />);
-    expect(within(card()).getByText("Needs 10 working days with bookings in the window (has 7).")).toBeTruthy();
+    expect(within(card()).getByText("Needs 10 working days of booking history in the window (has 7).")).toBeTruthy();
   });
 
   test("below the schedule floor says so", () => {

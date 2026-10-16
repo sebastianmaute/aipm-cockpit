@@ -155,12 +155,14 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
     [tasks, milestones, today, holidaySet, historyWindow, unit, appliedWhatIf, howManyTarget],
   );
 
-  // §502 part 3 — cost at finish from THIS run, so What-if capacity and scope move it; money unit only.
-  // Nothing runs while the simulation switch is off.
+  // §502 part 3 — cost at finish from THIS run, so What-if scope moves it; money unit only. Capacity is team
+  // availability, so it also scales each drawn spend day (burn scales with headcount): alone it is about
+  // cost-neutral — the finish moves, the spend per day moves the other way. Nothing runs while the switch is off.
+  const spendScale = appliedWhatIf.capacityPercent / 100;
   const cost = useMemo(() => {
     if (!showSimulation || !budgetEnabled || budgetFacts === null) return null;
-    return result.kind === "forecast" ? simulateCostFromRun(result, budgetFacts.eur, "eur") : BELOW_SCHEDULE_FLOOR;
-  }, [showSimulation, budgetEnabled, budgetFacts, result]);
+    return result.kind === "forecast" ? simulateCostFromRun(result, budgetFacts.eur, "eur", spendScale) : BELOW_SCHEDULE_FLOOR;
+  }, [showSimulation, budgetEnabled, budgetFacts, result, spendScale]);
   const costCard = showSimulation && budgetEnabled && (
     <CostTable lang={lang} cost={cost} currency={plan.currency} bac={budgetFacts?.eur.bac ?? 0} />
   );
