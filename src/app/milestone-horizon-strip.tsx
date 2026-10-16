@@ -7,6 +7,7 @@ import { SimBadge, SimPlaceholder, SIM_OUTLINE_CLASS } from "./sim-value";
 import { RagBadge } from "./rag-badge";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import type { MilestoneHorizon, MilestoneHorizonBuckets, HorizonEntry } from "./milestones";
+import type { MilestoneChance } from "./forecast/app-forecast";
 import { Button } from "./button";
 
 interface MilestoneHorizonStripProps {
@@ -53,6 +54,20 @@ function ChanceChip({ lang, chance }: { lang: Lang; chance: number }) {
   );
 }
 
+/** id -> chance for the milestones the engine gave a chance (overdue and no-linked-task ones get none). */
+export function chancesById(rows: readonly MilestoneChance[]): ReadonlyMap<number, number> {
+  const out = new Map<number, number>();
+  for (const r of rows) if (r.state === "chance") out.set(r.id, r.chance);
+  return out;
+}
+
+/** How many chance chips DRAW: only the entries inside each bucket's cap count, so a chance on a
+ *  "+N more" milestone leaves no chip and therefore no explainer. */
+export function visibleChipCount(buckets: MilestoneHorizonBuckets, chances: ReadonlyMap<number, number> | undefined): number {
+  if (!chances) return 0;
+  return ORDER.reduce((n, k) => n + buckets[k].slice(0, MAX_PER_BUCKET).filter((e) => chances.has(e.milestone.id)).length, 0);
+}
+
 export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone, chances, simPending, explainer }: MilestoneHorizonStripProps) {
   const total = ORDER.reduce((n, k) => n + buckets[k].length, 0);
   // §669 — two milestones can share a name and a date. Bare, not memoised: at
@@ -63,7 +78,7 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone, chances,
   if (total === 0) {
     return <p className="text-sm text-muted-foreground">{t(lang, "milestoneHorizonEmpty")}</p>;
   }
-  const hasChip = chances !== undefined && chances.size > 0;
+  const hasChip = visibleChipCount(buckets, chances) > 0;
   return (
     <div className="space-y-3">
       {hasChip && explainer}

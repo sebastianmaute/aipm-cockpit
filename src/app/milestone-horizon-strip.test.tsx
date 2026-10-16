@@ -1,6 +1,6 @@
 import { describe, expect, it, test, vi } from "vitest";
-import { SimExplainer } from "./sim-explainer";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { SimExplainer } from "./sim-explainer";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import type { MilestoneHorizonBuckets } from "./milestones";
 import type { Milestone } from "./types";
@@ -182,6 +182,14 @@ describe("MilestoneHorizonStrip chance chip (§502)", () => {
     const { container } = render(<MilestoneHorizonStrip lang="en-US" buckets={fixture()} simPending onOpenMilestone={() => {}} />);
     expect(container.querySelectorAll("[data-sim-placeholder]")).toHaveLength(2);
     expect(container).not.toHaveTextContent("%");
+  });
+
+  test("a chance only on a milestone behind the +N more cap draws no chip and no explainer", () => {
+    const six = Array.from({ length: 6 }, (_, i) => ({ milestone: lm(i + 1, `2026-09-0${i + 1}`), status: "on-track" as const }));
+    const explainer = <SimExplainer lang="en-US" kind="milestone" windowDays={60} label="About these chances" />;
+    const { container } = render(<MilestoneHorizonStrip lang="en-US" buckets={buckets({ later: six })} chances={new Map([[6, 0.5]])} explainer={explainer} />);
+    expect(container.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: /About these chances/ })).toBeNull();
   });
 
   test("the explainer node renders above the buckets only when given and a chip shows", () => {

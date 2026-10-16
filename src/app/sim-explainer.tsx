@@ -142,37 +142,40 @@ const LINE_KEY = {
 } as const;
 
 /** The (i) beside a simulated value: a popover saying how to read it. */
-export function SimExplainer({
-  lang,
-  windowDays,
-  distribution,
-  trials,
-  markers,
-  label,
-  kind = "date",
-  onOpenHelp,
-}: {
+type SimExplainerBase = {
   lang: Lang;
   windowDays: number;
-  /** Working days per trial; the engine's `Int32Array` is passed as is. Not used by `kind: "milestone"`. */
-  distribution?: ArrayLike<number>;
-  trials?: number;
-  markers?: SimMarkers;
   /** Names the (i) after its value, so two on one screen are told apart. Absent → the plain name. */
   label?: string;
-  /** What the value is: a finish `date` (default), the `chance` of finishing by the plan end, or the
-   *  per-`milestone` chances (no histogram, no percentile list: the line, the window and the Help link). */
-  kind?: "date" | "chance" | "milestone";
   /** Renders the Help link when given. */
   onOpenHelp?: (conceptId: string) => void;
-}) {
+};
+
+/** A finish `date` (default) or the `chance` of finishing by the plan end: both draw the histogram, so the
+ *  distribution is required. The per-`milestone` variant draws none (the line, the window, the Help link). */
+export type SimExplainerProps =
+  | (SimExplainerBase & {
+      kind?: "date" | "chance";
+      /** Working days per trial; the engine's `Int32Array` is passed as is. */
+      distribution: ArrayLike<number>;
+      trials: number;
+      markers: SimMarkers;
+    })
+  | (SimExplainerBase & { kind: "milestone"; distribution?: never; trials?: never; markers?: never });
+
+/** The props of the histogram variants, for a caller that passes the rest through (`SimValue`). */
+export type SimValueExplainerProps = Extract<SimExplainerProps, { distribution: ArrayLike<number> }>;
+
+export function SimExplainer(props: SimExplainerProps) {
+  const { lang, windowDays, label, onOpenHelp } = props;
+  const kind = props.kind ?? "date";
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelId = useId();
   const close = useCallback(() => setOpen(false), []);
-  const isMilestone = kind === "milestone";
-  const { bins, beyond } = isMilestone || !distribution ? { bins: [], beyond: 0 } : buildHistogramBins(distribution, MAX_BINS);
-  const beyondShare = beyond > 0 && trials !== undefined && trials > 0 ? chanceText(lang, beyond / trials) : "";
+  const isMilestone = props.kind === "milestone";
+  const { bins, beyond } = isMilestone ? { bins: [], beyond: 0 } : buildHistogramBins(props.distribution, MAX_BINS);
+  const beyondShare = !isMilestone && beyond > 0 && props.trials > 0 ? chanceText(lang, beyond / props.trials) : "";
   const name = label ? t(lang, "simExplainerOpenFor", label) : t(lang, "simExplainerOpen");
   return (
     <>
@@ -205,12 +208,12 @@ export function SimExplainer({
         </span>
         <p className="block text-foreground">{t(lang, LINE_KEY[kind])}</p>
         <p className="block text-muted-foreground">{t(lang, "simExplainerWindow", windowDays)}</p>
-        {bins.length > 0 && markers && (
+        {!isMilestone && bins.length > 0 && (
           <Chart
             bins={bins}
-            markers={markers}
+            markers={props.markers}
             ariaLabel={t(lang, "simHistogramAria",
-              markerPhrase(lang, markers.p50), markerPhrase(lang, markers.p80), markerPhrase(lang, markers.p95))}
+              markerPhrase(lang, props.markers.p50), markerPhrase(lang, props.markers.p80), markerPhrase(lang, props.markers.p95))}
           />
         )}
         {!isMilestone && (

@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import type { ComponentProps } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { SimExplainer, FORECAST_SIM_HELP_ID, buildHistogramBins } from "./sim-explainer";
+import { SimExplainer, FORECAST_SIM_HELP_ID, buildHistogramBins, type SimValueExplainerProps } from "./sim-explainer";
 import { loadI18n } from "./i18n";
 import { MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
 
@@ -12,7 +11,7 @@ const markers = { p50: 10, p80: 14, p95: 20 };
 // 100 runs spread over days 5..24, all inside the horizon.
 const distribution = Array.from({ length: 100 }, (_, i) => 5 + (i % 20));
 
-function setup(props: Partial<ComponentProps<typeof SimExplainer>> = {}) {
+function setup(props: Partial<SimValueExplainerProps> = {}) {
   return render(
     <SimExplainer lang="en-US" windowDays={60} distribution={distribution} trials={100} markers={markers} {...props} />,
   );

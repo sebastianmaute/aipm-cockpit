@@ -1,10 +1,9 @@
 "use client";
 
-import type { ComponentProps } from "react";
 import { type Lang, t } from "./i18n";
-import { SimExplainer } from "./sim-explainer";
+import { SimExplainer, type SimValueExplainerProps } from "./sim-explainer";
 
-type ExplainerProps = Omit<ComponentProps<typeof SimExplainer>, "lang" | "onOpenHelp">;
+type ExplainerProps = Omit<SimValueExplainerProps, "lang" | "onOpenHelp">;
 
 /** A simulated slot that is waiting for its inputs (holidays still loading): neutral, empty and
  *  `aria-hidden`, with the height of a `SimValue` (`h-6`) so the layout does not jump when the

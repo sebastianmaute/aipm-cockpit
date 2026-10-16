@@ -2231,9 +2231,10 @@ describe("DashboardPanel milestone chance chips", () => {
     showForecastView();
     const user = userEvent.setup();
     const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
-    render(<DashboardPanel {...fullProps} holidaysReady={false} projectId="p-mc-pending" />, { wrapper });
+    render(<DashboardPanel {...fullProps} milestones={[{ id: 2, name: "Beta", date: "2026-07-01", linkedTaskIds: [1] }] as Milestone[]} holidaysReady={false} projectId="p-mc-pending" />, { wrapper });
     await user.click(screen.getByRole("button", { name: simName() }));
     expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(screen.getByTestId("tile-milestones").querySelectorAll("[data-sim-placeholder]").length).toBeGreaterThan(0);
     expect(spy).not.toHaveBeenCalled();
   });
 });

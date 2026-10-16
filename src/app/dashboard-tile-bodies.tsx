@@ -38,7 +38,7 @@ import { BurndownChartPanel } from "./burndown-chart-panel";
 import { Button } from "./button";
 import { BurndownChainChip, BurndownChainWarning, isChainBroken } from "./budget-chain-warning";
 import { VarianceSummary } from "./variance-summary";
-import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
+import { MilestoneHorizonStrip, chancesById } from "./milestone-horizon-strip";
 import { SimExplainer } from "./sim-explainer";
 import { Sparkline } from "./sparkline";
 import { formatDayMonth } from "./forecast-format";
@@ -63,7 +63,7 @@ import type { ChangeStatus } from "./types";
 import { buildRowTokens } from "./row-tokens";
 import { CELL_BUTTON } from "./control-classes";
 import type { KpiSimulation, KpiSimulationGap } from "./kpi-simulation";
-import type { AppForecast, MilestoneChance } from "./forecast/app-forecast";
+import type { AppForecast } from "./forecast/app-forecast";
 import { DashboardForecastTile, type DashboardForecastTileProps } from "./dashboard-sections/dashboard-forecast-tile";
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
@@ -96,13 +96,6 @@ function ActivateBody({
   ) : (
     <div className={className}>{children}</div>
   );
-}
-
-/** id → chance for the milestones the engine gave a chance (overdue and no-linked-task ones get none). */
-function chancesById(rows: readonly MilestoneChance[]): ReadonlyMap<number, number> {
-  const out = new Map<number, number>();
-  for (const r of rows) if (r.state === "chance") out.set(r.id, r.chance);
-  return out;
 }
 
 export interface TileBodyArgs {

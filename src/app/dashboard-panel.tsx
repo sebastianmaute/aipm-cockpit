@@ -44,8 +44,9 @@ import { DashboardTileMenu } from "./dashboard-tile-menu";
 import { DashboardShelf, DASHBOARD_SHELF_TRAY_ID } from "./dashboard-shelf";
 import { DashboardHiddenBadge } from "./dashboard-hidden-badge";
 import { buildTileBodies } from "./dashboard-tile-bodies";
+import { chancesById, visibleChipCount } from "./milestone-horizon-strip";
 import { computeAppForecast } from "./forecast/app-forecast";
-import { forecastTileContentKey, kpiContentKey, milestoneChipsContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
+import { forecastTileContentKey, kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
 import { milestonesAtRisk, type AtRiskMilestone } from "./forecast-tile-model";
 import { isTaskClosed } from "./task-closed";
 import { useDashboardLayout } from "./use-dashboard-layout";
@@ -488,7 +489,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     // The KPI tile grows by cells and text lines when the simulation appears or flips divergent,
     // and by the one-line note when the switch is on but nothing can be simulated.
     // The Forecast tile likewise, by its slots and its at-risk row count.
-    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, atRisk.length)}|${milestoneChipsContentKey(forecast)}`,
+    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, atRisk.length)}|ms:${visibleChipCount(milestoneBuckets, forecast?.kind === "forecast" ? chancesById(forecast.milestones) : undefined)}`,
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };
