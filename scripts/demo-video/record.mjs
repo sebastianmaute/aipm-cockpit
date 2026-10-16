@@ -234,7 +234,7 @@ async function skipTour(page, waitMs = 0) {
       await click(page, d.getByRole('button', { name: 'Next', exact: true }), 'Next');
       await click(page, d.getByRole('button', { name: /^Standard PM/ }), 'Standard PM');
       await click(page, d.getByRole('button', { name: 'Next', exact: true }), 'Next');
-      console.log('FUNCTIONS', JSON.stringify(await d.getByRole('checkbox').evaluateAll((els) => els.map((e) => (e.getAttribute('aria-label') || e.closest('label')?.textContent || '').trim().slice(0, 30) + '=' + e.checked))));
+      console.log('FUNCTIONS', mask(JSON.stringify(await d.getByRole('checkbox').evaluateAll((els) => els.map((e) => (e.getAttribute('aria-label') || e.closest('label')?.textContent || '').trim().slice(0, 30) + '=' + e.checked)))));
       for (const f of ['Resources', 'Budget']) { const c = d.getByRole('checkbox', { name: f, exact: true }); if (!(await c.isChecked())) await click(page, c, f, 300); }
       const sc = d.getByRole('checkbox', { name: 'Include starter content' });
       if (await sc.isChecked()) await click(page, sc, 'starter content off', 300);
@@ -243,7 +243,7 @@ async function skipTour(page, waitMs = 0) {
     });
 
     if (process.argv.includes('--probe')) {
-      console.log('NAV', JSON.stringify([...new Set(await L.navItems(page))]));
+      console.log('NAV', mask(JSON.stringify([...new Set(await L.navItems(page))])));
       console.log('DIALOGS', await page.locator(DLG).count(), mask((await page.locator(DLG).last().innerText().catch(() => '')).slice(0, 200)).replace(/\n+/g, ' | '));
       await page.screenshot({ path: path.join(OUT, 'probe-after-create.png') });
       throw new Error('probe stop');

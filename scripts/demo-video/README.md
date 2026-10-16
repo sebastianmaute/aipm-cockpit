@@ -44,6 +44,6 @@ The video is written to `.superpowers/tmp/demo-video/aipm-cockpit-getting-starte
 ## When a re-take breaks
 
 - **A selector no longer matches.** The UI changed. Run `--rehearse`, open the `warn-*.png` screenshot, and fix the label in `record.mjs`.
-- **A nav click lands during a reload.** `nav()` clicks again, up to three times, while the page title does not change.
+- **A nav click lands during a reload.** `nav()` tries up to three times while the page title does not change.
 - **A nav item was renamed or removed.** `nav()` waits 60 seconds for it, then the scene fails with a timeout. Fix the name in `record.mjs`.
 - **The demo project's tour covers the screen.** `skipTour` waits up to 30 seconds for its Skip button. The tour is visible for about 15 seconds before that, so trim it in the edit.

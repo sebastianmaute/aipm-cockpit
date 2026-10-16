@@ -8,6 +8,7 @@ export const NAV = 'aside a, aside button, nav a, nav button, [role="tab"]';
 export const BASE = process.env.QA_BASE_URL || 'http://localhost:3300';
 // The pinned "today" of the recording (09:00 in Berlin, where the browser runs); chapter 7 jumps
 // three weeks past it. The explicit offset keeps day() independent of this machine's time zone.
+// +01:00 is Berlin winter time; for a date between late March and late October use +02:00.
 export const T0 = new Date('2026-11-02T09:00:00+01:00');
 export const OUT = process.env.DEMO_VIDEO_DIR || path.join(ROOT, '.superpowers', 'tmp', 'demo-video');
 
