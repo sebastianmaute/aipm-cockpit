@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BurndownChart } from "./burndown-chart";
-import { buildChartModel, estimatedLabelWidth, type ChartInput, type ChartModel } from "./burndown-geometry";
+import { buildChartModel, estimatedLabelWidth, scaleDate, type ChartInput, type ChartModel } from "./burndown-geometry";
 import { formatCurrency } from "./resource-cost";
 import { loadI18n } from "./i18n";
 import type { EvHistory } from "./budget-ev-history";
@@ -810,5 +810,32 @@ describe("BurndownChart — simulated bands (§502)", () => {
     const beyond = { kind: "sim" as const, p50: 9_500, p80: "beyond" as const, p95: "beyond" as const, chanceOverBudget: 1, spendDays: 20 };
     const aria = ariaOf(draw({ sim: { finish: { p50: "2026-03-20", p80: null, p95: null }, eur: beyond, hours: beyond } }).container);
     expect(aria).toContain("Simulated: finish (P80) beyond the horizon.");
+  });
+
+  // The x domain runs on to the simulated P95 (2026-05-01) while the segments end at plan end (2026-03-31),
+  // which is also the plan's last period end: the labels must follow what they mark, not the plot's right
+  // edge (X1 = 560).
+  const labelX = (container: HTMLElement, text: string) => {
+    const found = [...container.querySelectorAll("svg[role='img'] text:not([data-axis])")].filter((el) => el.textContent === text);
+    expect(found).toHaveLength(1);
+    return Number(found[0].getAttribute("x"));
+  };
+  const planEndX = scaleDate("2026-03-31", ["2026-01-01", "2026-05-01"], 64, 560);
+
+  it("anchors the end figures at the segments' end, plan end, when the x domain runs on to the simulated finish", () => {
+    const { container } = draw({ sim: CHART_SIM });
+    expect(labelX(container, eur(-1_000))).toBeCloseTo(planEndX + 4);
+    expect(labelX(container, eur(-2_000))).toBeCloseTo(planEndX + 4);
+  });
+
+  it("puts the last period label at that period's end, not at the stretched right edge", () => {
+    const { container } = draw({ sim: CHART_SIM });
+    expect(labelX(container, "2026-03")).toBeCloseTo(planEndX);
+  });
+
+  it("keeps both labels at the right edge with the switch off", () => {
+    const { container } = draw();
+    expect(labelX(container, eur(-1_000))).toBe(564);
+    expect(labelX(container, "2026-03")).toBe(560);
   });
 });

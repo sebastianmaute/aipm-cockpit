@@ -194,6 +194,15 @@ function BurndownChartBody({
     model.efficiency ? y(model.efficiency.to.value) + END_LABEL_OFFSET : null,
     yTop, yBottom,
   );
+  // §502 — with the simulation on, the x domain runs on past plan end to the simulated finish dates, so X1 is
+  // no longer where the pace and efficiency segments end or where the plan's last period ends. Their labels
+  // follow what they mark instead of the right edge. Off, both stay exactly where they always were.
+  const endFigureX = model.simFinish ? x(model.planEnd) + 4 : X1 + 4;
+  const lastPeriodX = model.simFinish ? x(model.planned.at(-1)?.date ?? model.planEnd) : X1;
+  const endFigureBoxes: Box[] = model.simFinish
+    ? ([[model.pace, labelY.pace], [model.efficiency, labelY.efficiency]] as const).flatMap(([seg, baseline]) =>
+      (seg && baseline !== null ? [labelBox({ x: endFigureX, baseline }, estimatedLabelWidth(fmt(seg.endFigure)), "start")] : []))
+    : [];
   // §737 — the labels inside the plot, placed clear of every plotted line, of the marks and of
   // each other (`placeLabels`). A point label that has to move keeps a leader to its point; a
   // label that runs along a line only swaps sides of it.
@@ -212,7 +221,9 @@ function BurndownChartBody({
     ...(model.bacSteps ? model.bacMarkers.map((marker, i) => ({ x1: x(marker.date), y1: markerLabels[i].baseline + 2, x2: x(marker.date), y2: y(marker.value) + 4 })) : []),
     ...(model.today ? [upright(model.today)] : []),
     ...(model.simFinish ? [upright(model.simFinish.p80)] : []),
-    // The plan-end line at X1 is the plot's right edge, which every right-anchored label touches.
+    // The plan-end line counts only when it is inside the plot. At X1 (the usual case with the simulation
+    // off) it is the plot's right edge, which every right-anchored label touches; a series running past
+    // plan end, or the simulated finish dates (§502), move it inside.
     ...(x(model.planEnd) < X1 - 0.5 ? [upright(model.planEnd)] : []),
     ...(belowZero ? [across(0)] : []),
   ];
@@ -220,6 +231,8 @@ function BurndownChartBody({
     ...(model.ev ? [{ left: x(model.ev.date) - 5, top: y(model.ev.value) - 5, right: x(model.ev.date) + 5, bottom: y(model.ev.value) + 5 }] : []),
     ...(model.runOut ? [{ left: x(model.runOut.date) - 4, top: y(model.runOut.value) - 4, right: x(model.runOut.date) + 4, bottom: y(model.runOut.value) + 4 }] : []),
     ...markerLabels,
+    // Inside the plot only with the simulation on; off, the end figures sit in the right margin.
+    ...endFigureBoxes,
     // The "Over" label in the below-zero band keeps its fixed spot.
     ...(belowZero ? [labelBox({ x: X0 + 4, baseline: yBottom - 4 }, estimatedLabelWidth(t(lang, "burndownOver")), "start")] : []),
   ];
@@ -392,13 +405,13 @@ function BurndownChartBody({
               {label.text}
             </text>
           ))}
-          {model.pace && <text x={X1 + 4} y={labelY.pace ?? undefined} {...HALO} className="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{fmt(model.pace.endFigure)}</text>}
-          {model.efficiency && <text x={X1 + 4} y={labelY.efficiency ?? undefined} {...HALO} className="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{fmt(model.efficiency.endFigure)}</text>}
+          {model.pace && <text x={endFigureX} y={labelY.pace ?? undefined} {...HALO} className="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{fmt(model.pace.endFigure)}</text>}
+          {model.efficiency && <text x={endFigureX} y={labelY.efficiency ?? undefined} {...HALO} className="fill-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{fmt(model.efficiency.endFigure)}</text>}
           {belowZero && <text x={X0 + 4} y={yBottom - 4} {...HALO} className="fill-muted-foreground stroke-surface text-[8px]" aria-hidden="true">{t(lang, "burndownOver")}</text>}
           {periods.length > 0 && (
             <>
               <text x={X0} y={height - 8} textAnchor="start" {...HALO} className="fill-muted-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{periods[0]}</text>
-              <text x={X1} y={height - 8} textAnchor="end" {...HALO} className="fill-muted-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{periods[periods.length - 1]}</text>
+              <text x={lastPeriodX} y={height - 8} textAnchor="end" {...HALO} className="fill-muted-foreground stroke-surface text-[8px] tabular-nums" aria-hidden="true">{periods[periods.length - 1]}</text>
             </>
           )}
           {activeX !== null && active && (
