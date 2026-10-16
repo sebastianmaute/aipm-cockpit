@@ -73,6 +73,8 @@ interface DashboardPanelProps {
   disciplines?: readonly Discipline[];
   grades?: readonly Grade[];
   holidaySet: ReadonlySet<string>;
+  /** False while the holiday calendar is still loading; the simulated slots wait for it (§502). Default true. */
+  holidaysReady?: boolean;
   workdayHours: number;
   today: string;
   milestones?: readonly Milestone[];
@@ -127,6 +129,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const { settings, setSettings, hydrated: settingsHydrated } = useSettings();
   const forecastViewEnabled = isViewEnabled("forecast", settings.features);
   const simulationOn = isSimulationActive(settingsOverrides, settings.features);
+  // A forecast run before the holiday calendar arrives would be recomputed and flash the gap line.
+  const simulationPending = simulationOn && props.holidaysReady === false;
   const simSwitchRef = useRef<HTMLDivElement>(null);
   const showSimulationIntro = simulationOn && settingsHydrated && !settings.simulationIntroSeen && !props.isPopout;
   const markSimulationIntroSeen = () => setSettings((s) => ({ ...s, simulationIntroSeen: true }));
@@ -366,16 +370,17 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const planEnd = props.plan.endDate;
   // The gap is why the switch is on but no simulated cell shows (too little history, P80 beyond the horizon).
   const { kpiSim, kpiSimGap } = useMemo(() => {
-    if (!simulationOn) return { kpiSim: null, kpiSimGap: null };
+    if (!simulationOn || simulationPending) return { kpiSim: null, kpiSimGap: null };
     const f = computeAppForecast({ tasks: props.tasks, milestones: milestonesForSim, planEnd, today, holidaySet: props.holidaySet });
     return { kpiSim: kpiSimulation(f, model.evm.spi), kpiSimGap: kpiSimulationGap(f) };
-  }, [simulationOn, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi]);
+  }, [simulationOn, simulationPending, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi]);
 
   const bodies = buildTileBodies({
     lang, dc, model,
     trends,
     simulation: kpiSim ?? undefined,
     simulationGap: kpiSimGap ?? undefined,
+    simulationPending: simulationPending || undefined,
     onOpenHelp: props.onOpenHelp,
     // ★ The wrapper is the Escape anchor for the one-time intro, so Escape still dismisses
     // the note while focus stays on the switch that opened it.
@@ -460,7 +465,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     resetNonce,
     // The KPI tile grows by cells and text lines when the simulation appears or flips divergent,
     // and by the one-line note when the switch is on but nothing can be simulated.
-    contentKey: kpiContentKey(kpiSim, simulationOn, kpiSimGap),
+    contentKey: kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending),
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };

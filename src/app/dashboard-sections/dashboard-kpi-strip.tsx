@@ -11,7 +11,7 @@ import type { AppView } from "../nav-config";
 import { chanceText } from "../chance-text";
 import { type KpiSimulation, type KpiSimulationGap } from "../kpi-simulation";
 import { MAX_HORIZON_WORKING_DAYS } from "../forecast/constants";
-import { SimValue } from "../sim-value";
+import { SimPlaceholder, SimValue } from "../sim-value";
 import { percentileWord } from "../percentile-words";
 import { localeFor } from "../date-format";
 import { formatDayMonthYear } from "../forecast-format";
@@ -28,6 +28,8 @@ interface DashboardKpiStripProps {
   /** The switch is on but nothing could be simulated: one muted line says why. Ignored when
    *  `simulation` is set; absent while the switch is off, so the off strip is unchanged. */
   simulationGap?: KpiSimulationGap;
+  /** Waiting for holidays: both simulated cells are placeholders and the gap line is withheld. */
+  simulationPending?: boolean;
   /** Opens Help at a concept id; forwarded to the explainers. */
   onOpenHelp?: (conceptId: string) => void;
 }
@@ -101,7 +103,7 @@ export const KPI_STRIP_COLS: Record<KpiCellCount, string> = {
  *  ★ NO BOX OF ITS OWN — the arrangeable tile chrome (`dashboard-tile.tsx`)
  *  draws the border and the title ("At a glance"). A `Card boxed` here would
  *  nest a second bordered surface inside the first. */
-export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulation, simulationGap, onOpenHelp }: DashboardKpiStripProps) {
+export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulation, simulationGap, simulationPending, onOpenHelp }: DashboardKpiStripProps) {
   const noActiveScope = hasNoActiveScope(model.progress);
   // ★ Spec C decision 8, user's ruling: each index is shown whenever IT can
   // move a value the user sees — never gated on the Budget module. SPI feeds
@@ -116,7 +118,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulat
   const openBudget = onNavigate ? () => onNavigate("budget") : undefined;
   const openTasks = onNavigate ? () => onNavigate("open-points") : undefined;
   const showChance = !!simulation && simulation.chanceOnTime !== null;
-  const cellCount = (4 + (showSpi ? 1 : 0) + (showCpi ? 1 : 0) + (simulation ? 1 : 0) + (showChance ? 1 : 0)) as KpiCellCount;
+  const cellCount = (4 + (showSpi ? 1 : 0) + (showCpi ? 1 : 0) + (simulation ? 1 : 0) + (showChance ? 1 : 0) + (simulationPending ? 2 : 0)) as KpiCellCount;
   const p80Label = t(lang, percentileWord(80));
   const onTimeLabel = t(lang, "kpiOnTime");
   return (
@@ -195,6 +197,12 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulat
             onActivate={openBudget}
             activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
           />
+        )}
+        {simulationPending && (
+          <>
+            <Tile fill label={p80Label} value={<SimPlaceholder />} />
+            <Tile fill label={onTimeLabel} value={<SimPlaceholder />} />
+          </>
         )}
         {simulation && (
           <Tile fill

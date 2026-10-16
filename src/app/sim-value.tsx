@@ -6,6 +6,13 @@ import { SimExplainer } from "./sim-explainer";
 
 type ExplainerProps = Omit<ComponentProps<typeof SimExplainer>, "lang" | "onOpenHelp">;
 
+/** A simulated slot that is waiting for its inputs (holidays still loading): neutral, empty and
+ *  `aria-hidden`, with the height of a `SimValue` (`h-6`) so the layout does not jump when the
+ *  value arrives. No text, so it can never read as a measured or simulated figure. */
+export function SimPlaceholder() {
+  return <span aria-hidden="true" data-sim-placeholder="true" className="inline-block h-6 w-12" />;
+}
+
 /** The one look for a simulated number: dashed teal outline plus a "sim" badge,
  *  so it cannot be mistaken for a measured value. Calculated values never use
  *  this. The badge is decorative (`aria-hidden`); the group's accessible name

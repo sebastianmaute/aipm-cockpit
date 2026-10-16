@@ -1992,6 +1992,42 @@ describe("DashboardPanel simulated KPI cells", () => {
     expect(screen.getByText("The simulated finish is beyond the 1,300-working-day horizon.")).toBeInTheDocument();
   });
 
+  it("holds the simulated cells as placeholders until holidays are ready", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    const ui = (ready: boolean) => <DashboardPanel {...fullProps} holidaysReady={ready} projectId="p-kpi-sim-wait" />;
+    const { container, rerender } = render(ui(false), { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(container.querySelectorAll("[data-sim-placeholder]").length).toBeGreaterThanOrEqual(1);
+    expect(container.querySelector("[data-sim]")).toBeNull();
+    expect(screen.queryByText(/Not enough history to simulate|beyond the 1,300/)).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+    rerender(ui(true));
+    expect(spy).toHaveBeenCalled();
+    expect(container.querySelector("[data-sim-placeholder]")).toBeNull();
+    expect(screen.getByRole("group", { name: "On time, simulated" })).toHaveTextContent("34%");
+  });
+
+  it("holds the gap line too: an insufficient forecast shows no note while holidays are pending", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({
+      kind: "insufficient", finished: 4, neededFinished: 10, days: 30, neededDays: 10,
+    });
+    const note = "Not enough history to simulate yet: 4 finished, needs 10.";
+    const ui = (ready: boolean) => <DashboardPanel {...fullProps} holidaysReady={ready} projectId="p-kpi-sim-wait-gap" />;
+    const { rerender } = render(ui(false), { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(screen.queryByText(note)).toBeNull();
+    rerender(ui(true));
+    expect(screen.getByText(note)).toBeInTheDocument();
+  });
+
+  it("switch off: no placeholder, even while holidays are pending", () => {
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    const { container } = render(<DashboardPanel {...fullProps} holidaysReady={false} projectId="p-kpi-sim-wait-off" />, { wrapper });
+    expect(container.querySelectorAll("[data-sim-placeholder]")).toHaveLength(0);
+  });
+
   it("hands the engine the panel's own collections and the plan end", async () => {
     const user = userEvent.setup();
     const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);

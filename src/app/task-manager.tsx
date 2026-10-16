@@ -1319,7 +1319,7 @@ function TaskManagerInner() {
   // fullBleed) and modern (fullBleed) renders so the long prop list lives once.
   const workspaceProps = {
     today, exportForecast, // §545 — documents embed the forecast
-    holidaySet,
+    holidaySet, holidaysReady,
     workspaceRef,
     resetWorkspaceSize,
     workspaceCollapsed,

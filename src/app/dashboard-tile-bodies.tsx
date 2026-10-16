@@ -104,6 +104,8 @@ export interface TileBodyArgs {
   simulation?: KpiSimulation;
   /** Why the switch is on but there are no simulated cells; absent while the switch is off. */
   simulationGap?: KpiSimulationGap;
+  /** Switch on, holidays still loading: the simulated cells render as placeholders (§502). */
+  simulationPending?: boolean;
   /** Opens Help at a concept id; the simulated cells' explainers link to it. */
   onOpenHelp?: (conceptId: string) => void;
   /** The "Use Monte Carlo forecasting" switch (§502), placed left of "Open in Budget" in the burn
@@ -161,7 +163,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
 
   return {
     kpi: (
-      <DashboardKpiStrip lang={lang} model={model} trends={a.trends} onNavigate={a.onNavigate} dc={dc} simulation={a.simulation} simulationGap={a.simulationGap} onOpenHelp={a.onOpenHelp} />
+      <DashboardKpiStrip lang={lang} model={model} trends={a.trends} onNavigate={a.onNavigate} dc={dc} simulation={a.simulation} simulationGap={a.simulationGap} simulationPending={a.simulationPending} onOpenHelp={a.onOpenHelp} />
     ),
 
     topActions: (
