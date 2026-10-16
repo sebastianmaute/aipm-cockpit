@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { GanttMilestoneRow } from "./gantt-rows";
 import { GanttPanel } from "./gantt";
+import { POINTER_FOCUS_WINDOW_MS } from "./use-gantt-milestone-focus";
 import { fmtFull, HEADER_HEIGHT_PX, LEFT_GUTTER_PX, MILESTONE_DIAMOND_PX, ROW_HEIGHT_PX } from "./gantt-engine";
 import type { Milestone, Task } from "./types";
 
@@ -83,6 +84,26 @@ describe("GanttMilestoneRow — drag preview", () => {
     const preview = container.querySelector<HTMLElement>("[data-gantt-milestone-preview]");
     expect(preview).toHaveAttribute("data-gantt-milestone-preview", "right");
     expect(preview?.style.left).toBe(`${28 + MILESTONE_DIAMOND_PX}px`);
+  });
+
+  it("folds the baseline slip into a preview date drawn right of the diamond, so the two never overlap", () => {
+    // Live 2026-06-02 (x 28, near the first day), baseline 2026-06-01 (x 0): +1d.
+    render(
+      <GanttMilestoneRow m={m} {...base} baselineDate="2026-06-01" showBaseline onStartDrag={vi.fn()} dragDeltaDays={-18} />,
+    );
+    const preview = screen.getByText(`${fmtFull(new Date(Date.UTC(2026, 5, 2)), "en-US")} · +1d`);
+    expect(preview).toHaveAttribute("data-gantt-milestone-preview", "right");
+    expect(preview.style.left).toBe(`${28 + MILESTONE_DIAMOND_PX}px`);
+    expect(screen.queryByText("+1d")).toBeNull();
+  });
+
+  it("starts the folded label after the ghost when the baseline lies later", () => {
+    // Live 2026-06-02 (x 28), baseline 2026-06-03 (x 56): pulled in, −1d.
+    render(
+      <GanttMilestoneRow m={m} {...base} baselineDate="2026-06-03" showBaseline onStartDrag={vi.fn()} dragDeltaDays={-18} />,
+    );
+    const preview = screen.getByText(`${fmtFull(new Date(Date.UTC(2026, 5, 2)), "en-US")} · −1d`);
+    expect(preview.style.left).toBe(`${56 + MILESTONE_DIAMOND_PX}px`);
   });
 
   it("announces the previewed date while dragging", () => {
@@ -256,6 +277,20 @@ describe("GanttPanel — milestone move wiring", () => {
       box.handleLeft = 1500;
       act(() => slider.blur());
       expect(scroller.scrollLeft).toBe(0);
+    });
+
+    it("scrolls a handle focused well after an earlier pointer press", () => {
+      box.handleLeft = 60;
+      const { slider, scroller } = setup(400);
+      const now = vi.spyOn(performance, "now").mockReturnValue(1000);
+      try {
+        fireEvent.pointerDown(document.body, { button: 0, pointerId: 1 });
+        now.mockReturnValue(1000 + POINTER_FOCUS_WINDOW_MS);
+        act(() => slider.focus());
+        expect(scroller.scrollLeft).toBe(460 - LEFT_GUTTER_PX);
+      } finally {
+        now.mockRestore();
+      }
     });
 
     it("scrolls a handle reached by Tab out from under the name column", () => {

@@ -487,6 +487,13 @@ export function GanttMilestoneRow({
   const showGhost = bd !== null && slip !== null && slip !== 0;
   const bx = bd ? diffDays(range.min, bd) * DAY_WIDTH_PX : 0;
   const slipLabel = slip !== null ? `${slip > 0 ? "+" : "−"}${Math.abs(slip)}d` : "";
+  // The preview date label's side: left of the diamond, or right of it near
+  // the first day, where a left label would start under the sticky name
+  // column and no scroll could uncover it (the axis stays put rather than
+  // grow room for it). On the right it would land on the slip label, so the
+  // two are then drawn as ONE label, after the rightmost diamond.
+  const previewSide = dragDeltaDays === 0 ? null : mx < MILESTONE_PREVIEW_LABEL_ROOM_PX ? "right" : "left";
+  const previewTakesSlip = previewSide === "right" && showGhost;
   const mstatus = milestoneStatus(
     live,
     tasksById,
@@ -601,7 +608,7 @@ export function GanttMilestoneRow({
             {...milestoneDiamondProps(achieved, atRisk)}
           />
         </svg>
-        {showGhost && (
+        {showGhost && !previewTakesSlip && (
           <span
             className="pointer-events-none absolute -translate-y-1/2 text-[10px] text-muted-foreground"
             // Right of whichever diamond is rightmost — for a negative (pulled-in)
@@ -613,24 +620,21 @@ export function GanttMilestoneRow({
             {slipLabel}
           </span>
         )}
-        {dragDeltaDays !== 0 && (
-          // The date the milestone lands on if released now, left of the
-          // diamond so it never collides with the slip label on its right —
-          // except near the first day, where a left label would start under
-          // the sticky name column and no scroll could uncover it. There it
-          // goes right; the axis stays put rather than grow room for it.
+        {previewSide !== null && (
+          // The date the milestone lands on if released now, on the side
+          // `previewSide` picked: left, clear of the slip label on the right.
           <span
-            data-gantt-milestone-preview={mx < MILESTONE_PREVIEW_LABEL_ROOM_PX ? "right" : "left"}
+            data-gantt-milestone-preview={previewSide}
             className="pointer-events-none absolute -translate-y-1/2 whitespace-nowrap text-[10px] font-medium text-foreground"
             style={{
-              ...(mx < MILESTONE_PREVIEW_LABEL_ROOM_PX
-                ? { left: mx + MILESTONE_DIAMOND_PX }
+              ...(previewSide === "right"
+                ? { left: (previewTakesSlip ? Math.max(mx, bx) : mx) + MILESTONE_DIAMOND_PX }
                 : { right: timelineWidthPx - mx + MILESTONE_DIAMOND_PX }),
               top: ROW_HEIGHT_PX / 2,
             }}
             aria-hidden="true"
           >
-            {fmtFull(liveDate, lang)}
+            {previewTakesSlip ? `${fmtFull(liveDate, lang)} · ${slipLabel}` : fmtFull(liveDate, lang)}
           </span>
         )}
         {movable && onStartDrag && (

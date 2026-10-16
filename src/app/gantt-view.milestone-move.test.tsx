@@ -173,6 +173,10 @@ describe("GanttView — milestone move", () => {
   });
 
   it("leaves focus alone when something else took it in the commit that removed the handle", () => {
+    // ★ Valid only because renderView puts <ShowDate /> BEFORE <GanttView />:
+    // the note field's autoFocus then lands before the chart's layout effect
+    // runs. Swap them and the effect would run first, and this test would
+    // pass with the focus guard deleted.
     renderView({ onEditMilestone: vi.fn() });
     act(() => screen.getByRole("slider", { name: HANDLE }).focus());
     fireEvent.click(screen.getByRole("button", { name: "sign-off-and-note" }));

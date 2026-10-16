@@ -11,6 +11,9 @@
 // and a scroll then would slide the chart out from under the pointer for the
 // whole drag. So a focus that follows a pointer press reveals nothing, and a
 // keyboard move that ends because a pointer drag starts reveals nothing.
+// "Follows" is a time window, not a flag kept until the next key press: a
+// screen reader's browse mode moves focus without any key reaching the page,
+// and a flag would leave it stuck on "pointer" after one click.
 // Each is answered with `revealInGantt`, which scrolls clear of the sticky name
 // column, header and footer (a plain `scrollIntoView` counts a handle under
 // them as visible — WCAG 2.4.11).
@@ -23,6 +26,9 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { HEADER_HEIGHT_PX } from "./gantt-engine";
 import { revealInGantt } from "./gantt-reveal";
 import type { MilestoneDragState } from "./use-gantt-milestone-drag";
+
+/** A focus this soon after a pointer press is taken to be caused by it. */
+export const POINTER_FOCUS_WINDOW_MS = 500;
 
 /** The footer's height when it cannot be measured (jsdom): its `minHeight`. */
 export const GANTT_FOOTER_MIN_PX = 22;
@@ -73,19 +79,13 @@ export function useGanttMilestoneFocus({
   const focusedRef = useRef<number | null>(null);
   // The keyboard move seen at the last commit, to notice the one that ended.
   const lastKeyMoveRef = useRef<number | null>(null);
-  // Whether the last input was a pointer press rather than a key. Window
-  // listeners, because the key that moves focus INTO the chart (Tab) is
-  // pressed while focus is still outside it.
-  const pointerInputRef = useRef(false);
+  // When the last pointer press happened (`performance.now()`), anywhere:
+  // a capture listener on the window sees it before the focus it causes.
+  const lastPointerDownRef = useRef(Number.NEGATIVE_INFINITY);
   useEffect(() => {
-    const onPointer = () => { pointerInputRef.current = true; };
-    const onKey = () => { pointerInputRef.current = false; };
+    const onPointer = () => { lastPointerDownRef.current = performance.now(); };
     window.addEventListener("pointerdown", onPointer, true);
-    window.addEventListener("keydown", onKey, true);
-    return () => {
-      window.removeEventListener("pointerdown", onPointer, true);
-      window.removeEventListener("keydown", onKey, true);
-    };
+    return () => window.removeEventListener("pointerdown", onPointer, true);
   }, []);
 
   useLayoutEffect(() => {
@@ -119,7 +119,8 @@ export function useGanttMilestoneFocus({
       if (id === null) return;
       focusedRef.current = id;
       const scroller = scrollRef.current;
-      if (scroller && !pointerInputRef.current) revealHandle(scroller, id, nameColWidth, footerRef.current);
+      const byPointer = performance.now() - lastPointerDownRef.current < POINTER_FOCUS_WINDOW_MS;
+      if (scroller && !byPointer) revealHandle(scroller, id, nameColWidth, footerRef.current);
     },
     onBlur: (e) => {
       if (handleId(e.target) !== null) focusedRef.current = null;
