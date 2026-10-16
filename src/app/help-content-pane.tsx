@@ -24,13 +24,12 @@ import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 export const helpSectionId = (id: string) => `help-sec-${id}`;
 
 /** An extra control drawn under one Help entry. */
-export interface HelpEntryAction {
-  label: string;
-  /** The control's handler. Omitted when `note` stands in for the button. */
-  onActivate?: () => void;
-  /** Muted text rendered INSTEAD of the button — the action exists but cannot run yet. */
-  note?: string;
-}
+/** Exactly one of the two: a button with its handler, or a note in its place. Neither would render
+ *  an inert button; both would hide a handler that could never run. */
+export type HelpEntryAction = { label: string } & (
+  | { /** The control's handler. */ onActivate: () => void; note?: never }
+  | { /** Muted text rendered INSTEAD of the button — the action exists but cannot run yet. */ note: string; onActivate?: never }
+);
 
 const NO_HIDDEN_ENTRIES: ReadonlySet<string> = new Set();
 const SIMULATION_HIDDEN_ENTRIES: ReadonlySet<string> = new Set([FORECAST_SIM_HELP_ID]);
@@ -39,6 +38,18 @@ const SIMULATION_HIDDEN_ENTRIES: ReadonlySet<string> = new Set([FORECAST_SIM_HEL
  *  switch, so it goes while that view is hidden. EVERY host of the pane passes this. */
 export function hiddenHelpEntryIds(features: readonly FeatureModuleId[]): ReadonlySet<string> {
   return isViewEnabled("forecast", features) ? NO_HIDDEN_ENTRIES : SIMULATION_HIDDEN_ENTRIES;
+}
+
+function EntryActionLine({ action }: { action: HelpEntryAction }) {
+  return (
+    <p className="mt-1.5 text-xs">
+      {action.note !== undefined ? (
+        <span className="text-muted-foreground">{action.note}</span>
+      ) : (
+        <TextButton onClick={action.onActivate}>{action.label}</TextButton>
+      )}
+    </p>
+  );
 }
 
 export function HelpContentPane({
@@ -248,15 +259,7 @@ export function HelpContentPane({
                       )}
                     </p>
                   ) : null}
-                  {entryActions?.[e.id] && (
-                    <p className="mt-1.5 text-xs">
-                      {entryActions[e.id].note !== undefined ? (
-                        <span className="text-muted-foreground">{entryActions[e.id].note}</span>
-                      ) : (
-                        <TextButton onClick={entryActions[e.id].onActivate}>{entryActions[e.id].label}</TextButton>
-                      )}
-                    </p>
-                  )}
+                  {entryActions?.[e.id] && <EntryActionLine action={entryActions[e.id]} />}
                 </section>
               ))}
             </div>
