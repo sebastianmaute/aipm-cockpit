@@ -6,8 +6,9 @@ import { fileURLToPath } from 'node:url';
 export const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const NAV = 'aside a, aside button, nav a, nav button, [role="tab"]';
 export const BASE = process.env.QA_BASE_URL || 'http://localhost:3300';
-// The pinned "today" of the recording; chapter 7 jumps three weeks past it.
-export const T0 = new Date('2026-11-02T09:00:00');
+// The pinned "today" of the recording (09:00 in Berlin, where the browser runs); chapter 7 jumps
+// three weeks past it. The explicit offset keeps day() independent of this machine's time zone.
+export const T0 = new Date('2026-11-02T09:00:00+01:00');
 export const OUT = process.env.DEMO_VIDEO_DIR || path.join(ROOT, '.superpowers', 'tmp', 'demo-video');
 
 // Reads one key from the repo's .env.local. Values are returned, never printed.
@@ -21,15 +22,23 @@ export function throwaway() {
   const url = readEnv('TURSO_THROWAWAY_DATABASE_URL');
   const token = readEnv('TURSO_THROWAWAY_AUTH_TOKEN');
   if (!url || !token) throw new Error('TURSO_THROWAWAY_DATABASE_URL / TURSO_THROWAWAY_AUTH_TOKEN not set in .env.local');
-  return { url, token, host: new URL(url.replace(/^libsql:\/\//, 'https://')).host };
+  let host;
+  try {
+    host = new URL(url.replace(/^libsql:\/\//, 'https://')).host;
+  } catch {
+    // The URL error carries its input; keep the address out of the output.
+    throw new Error('TURSO_THROWAWAY_DATABASE_URL is not a valid URL');
+  }
+  return { url, token, host };
 }
 
-// Aborts any Turso request that is not the throwaway database.
-export async function guardTurso(page, host) {
-  await page.route(/\.turso\.io\//, (r) => {
+// Aborts any Turso request that is not the throwaway database, on every page of the context.
+export async function guardTurso(context, host, onBlocked = () => {}) {
+  await context.route(/\.turso\.io\//, (r) => {
     const h = new URL(r.request().url()).host;
     if (h !== host) {
       console.error('GUARD: blocked non-throwaway Turso host');
+      onBlocked();
       return r.abort();
     }
     return r.continue();

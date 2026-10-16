@@ -86,16 +86,17 @@ async function nav(page, name) {
     const after = await title();
     // A reload landing just after the click resets the view: retry until the title moves.
     if (after !== before || before === name) return;
-    console.log('nav retry', name, 'title still', before);
+    console.log('nav retry', name, 'title still', mask(before));
     await page.waitForLoadState('load'); await page.waitForTimeout(2000);
   }
   throw new Error('nav did not reach ' + name);
 }
+const firstLine = (e) => mask(String(e?.message ?? e).split('\n')[0]);
 let PAGE;
 async function scene(label, fn) {
   try { await fn(); console.log('OK   ', label); }
   catch (e) {
-    warnings++; console.error('WARN ', label, '-', mask(e.message.split('\n')[0]));
+    warnings++; console.error('WARN ', label, '-', firstLine(e));
     if (PAGE) await PAGE.screenshot({ path: path.join(OUT, 'warn-' + label.split(' ')[0] + '.png') }).catch(() => {});
   }
 }
@@ -177,7 +178,7 @@ async function skipTour(page, waitMs = 0) {
   await page.clock.install({ time: L.T0 });
   await page.addInitScript(() => { if (!localStorage.getItem('aipm-cockpit:settings')) localStorage.setItem('aipm-cockpit:settings', JSON.stringify({ tourSeen: true })); });
   await page.addInitScript(OVERLAY, T.host);
-  await L.guardTurso(page, T.host);
+  await L.guardTurso(context, T.host, () => { warnings++; });
   page.on('pageerror', (e) => console.log('PAGEERROR', mask(e.message.slice(0, 200))));
   try {
     await page.goto(L.BASE + '/');
@@ -407,7 +408,7 @@ async function skipTour(page, waitMs = 0) {
       await page.waitForTimeout(P(2000));
     });
   } catch (e) {
-    warnings++; console.error('DEMO ERROR', mask(e.message.split('\n')[0]));
+    warnings++; console.error('DEMO ERROR', firstLine(e));
   } finally {
     const video = page.video();
     await context.close();
@@ -418,5 +419,6 @@ async function skipTour(page, waitMs = 0) {
     }
     await browser.close();
     console.log('WARNINGS', warnings);
+    process.exitCode = warnings ? 1 : 0;
   }
 })();
