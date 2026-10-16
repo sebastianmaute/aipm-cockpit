@@ -7,6 +7,8 @@ export const FORECAST_TRIALS = 10000;
 /** Fewer finished tasks inside the history window than this and the forecast is "insufficient". */
 export const MIN_FINISHED_TASKS = 10;
 export const MIN_HISTORY_WORKING_DAYS = 10;
+/** Fewer spend days than this (or all-zero spend) and the simulated cost range is "unavailable". */
+export const MIN_SPEND_WORKING_DAYS = 10;
 export const HISTORY_WINDOWS: readonly HistoryWindow[] = [30, 60, 90, "all"];
 export const DEFAULT_HISTORY_WINDOW: HistoryWindow = 60;
 /** Share of open tasks that must carry an estimate before the effort unit is offered. */
