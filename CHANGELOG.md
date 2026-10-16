@@ -27,6 +27,14 @@ longer carries its own changelog comment.
   browser-storage label, and Edit project doing nothing. Creating the demo project from there also showed a
   false "changed in another tab" warning. A create that fails now leaves the app where it was.
 
+### Development
+
+- **Demo video recorder (§715).** `scripts/demo-video/` records the browser part of the getting-started
+  video (storage and AI key setup, the first project, tasks, people, RAID, budget, the dashboard three weeks
+  on, and Help) as one WebM, against a local dev server and the throwaway Turso database. `--rehearse` runs
+  the same flow without video, and `cleanup.mjs` removes the recording's projects afterwards. Setup and the
+  order of commands are in its `README.md`.
+
 ### Notes
 
 - **The Dashboard simulation is built but held back with the forecast (§502, part 1).** An optional,
