@@ -24,6 +24,7 @@ import { GanttGridLayer, GanttNonWorkingLayer } from "./gantt-overlays";
 import { GanttMilestoneRow, GanttTaskRow } from "./gantt-rows";
 import { type Absence, type Milestone, type Resource, type Task } from "./types";
 import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
+import { type GanttMilestoneDrag, type MilestoneDragState } from "./use-gantt-milestone-drag";
 import { useGanttRowWindow } from "./use-gantt-row-window";
 import {
   fmtFull,
@@ -32,6 +33,7 @@ import {
   type GanttRow,
   ROW_HEIGHT_PX,
 } from "./gantt-engine";
+import { GANTT_FOOTER_MIN_PX, useGanttMilestoneFocus } from "./use-gantt-milestone-focus";
 
 /**
  * The row-token map's key for one row.
@@ -103,6 +105,10 @@ export function GanttChart({
   onUpdateBar,
   onEditTask,
   onEditMilestone,
+  milestoneDrag,
+  startMilestoneDrag,
+  onMilestoneKeyDown,
+  onMilestoneBlur,
   onAddTask,
   baselineMilestoneDates,
 }: {
@@ -156,6 +162,12 @@ export function GanttChart({
   onUpdateBar?: (edit: GanttBarEdit) => void;
   onEditTask?: (task: Task) => void;
   onEditMilestone?: (m: Milestone) => void;
+  /** The in-flight milestone drag, if any (§715 project D). */
+  milestoneDrag?: MilestoneDragState | null;
+  /** Present only when milestones may be moved on the chart. */
+  startMilestoneDrag?: GanttMilestoneDrag["startMilestoneDrag"];
+  onMilestoneKeyDown?: GanttMilestoneDrag["onMilestoneKeyDown"];
+  onMilestoneBlur?: GanttMilestoneDrag["onMilestoneBlur"];
   onAddTask?: () => void;
   baselineMilestoneDates?: ReadonlyMap<number, string>;
 }) {
@@ -172,6 +184,16 @@ export function GanttChart({
     [draggingId, barDragTaskId],
   );
   const rowWindow = useGanttRowWindow({ keys: rowKeys, scrollRef, pinnedKeys });
+
+  // §715 project D — keep a focused milestone handle visible (while arrow
+  // presses move it, when the move ends, on Tab) and focused (when another
+  // writer signs it off). Focus needs no help when a commit re-sorts the rows:
+  // React restores focus to the moved node itself, and the row window keeps a
+  // focused row mounted.
+  const footerRef = useRef<HTMLDivElement | null>(null);
+  const milestoneFocus = useGanttMilestoneFocus({
+    scrollRef, footerRef, nameColWidth, milestoneDrag: milestoneDrag ?? null,
+  });
 
   const renderRow = (row: GanttRow) => {
     // ★★ No lookup and no skip here, for either kind (§273): each row
@@ -232,6 +254,10 @@ export function GanttChart({
         tasksById={tasksById}
         todayISO={todayISO}
         onEditMilestone={onEditMilestone}
+        dragDeltaDays={milestoneDrag?.milestoneId === m.id ? milestoneDrag.deltaDays : 0}
+        onStartDrag={startMilestoneDrag}
+        onKeyMove={onMilestoneKeyDown}
+        onHandleBlur={onMilestoneBlur}
         baselineDate={baselineMilestoneDates?.get(m.id)}
         showBaseline={prefs.showBaseline}
       />
@@ -241,6 +267,8 @@ export function GanttChart({
   return (
     <div
       ref={scrollRef}
+      onFocus={milestoneFocus.onFocus}
+      onBlur={milestoneFocus.onBlur}
       className="min-h-[240px] w-full min-w-[480px] flex-1 overflow-auto rounded-md border border-line pr-2"
     >
       <div
@@ -379,8 +407,9 @@ export function GanttChart({
 
         {/* --- Footer with the date range so it's visible without hover -- */}
         <div
+          ref={footerRef}
           className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-line bg-surface-muted px-3 py-1 text-[11px] text-muted-foreground"
-          style={{ minHeight: 22 }}
+          style={{ minHeight: GANTT_FOOTER_MIN_PX }}
         >
           <span>
             {t(lang, "ganttRange", fmtFull(range.min, lang), fmtFull(range.max, lang))}

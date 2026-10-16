@@ -10,6 +10,15 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Added
+
+- **Drag a milestone in the Gantt (§715).** Drag its diamond to another date, or focus it and press the
+  arrow keys (one day; with Shift, or Page Up / Page Down, one week). The new date and, when there is a baseline,
+  the slip update while you move it; a milestone moved before its linked work turns at risk on the spot. A
+  keyboard move is saved once, when you pause, press Enter or move on, so it is one undo step; Escape cancels a
+  drag or a keyboard move. Signed-off milestones stay put, and a move is undoable and logged like an edit in the
+  milestone editor.
+
 ### Changed
 
 - **Edit project saves with a Save button**, no longer a second "Edit project" label.

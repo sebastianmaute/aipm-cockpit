@@ -529,6 +529,10 @@ export function WorkspaceSection({
               milestonesEnabled={milestonesEnabled}
               baselineMilestoneDates={baselineMilestoneDates}
               onCaptureUndo={onCaptureUndo}
+              onCaptureFieldEdit={onCaptureFieldEdit}
+              logActivity={logActivity}
+              logActivityChanges={logActivityChanges}
+              isSwapInFlight={isSwapInFlight}
             />
           </div>
         )}

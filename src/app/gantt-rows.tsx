@@ -10,6 +10,7 @@ import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS } from "./mile
 import { isTaskClosed } from "./task-closed";
 import { rowLabel } from "./row-tokens";
 import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
+import { FOCUS_RING } from "./interaction-styles";
 import {
   absenceBandBg,
   BAR_HEIGHT_PX,
@@ -24,6 +25,7 @@ import {
   milestoneDiamondProps,
   parseISO,
   priorityFillClass,
+  shiftIsoDate,
   ROW_HEIGHT_PX,
 } from "./gantt-engine";
 import { CELL_BUTTON } from "./control-classes";
@@ -432,6 +434,10 @@ export function GanttMilestoneRow({
   onEditMilestone,
   baselineDate,
   showBaseline,
+  dragDeltaDays = 0,
+  onStartDrag,
+  onKeyMove,
+  onHandleBlur,
 }: {
   m: Milestone;
   /**
@@ -459,18 +465,40 @@ export function GanttMilestoneRow({
   onEditMilestone?: (m: Milestone) => void;
   baselineDate?: string;
   showBaseline?: boolean;
+  /** Whole days this milestone is being dragged by right now (0 = not dragging). */
+  dragDeltaDays?: number;
+  /** Present when the milestone may be moved on the chart (not in a popout). */
+  onStartDrag?: (e: React.PointerEvent<HTMLElement>, m: Milestone) => void;
+  onKeyMove?: (e: React.KeyboardEvent<HTMLElement>, m: Milestone) => void;
+  onHandleBlur?: (m: Milestone) => void;
 }) {
-  const mx = diffDays(range.min, md) * DAY_WIDTH_PX;
+  // While a drag is in flight everything on the row — the diamond, its
+  // at-risk colour, the baseline slip — reads the date it WOULD get on release,
+  // so moving it before linked work shows the conflict live.
+  const liveIso = dragDeltaDays !== 0 ? (shiftIsoDate(m.date, dragDeltaDays) ?? m.date) : m.date;
+  const live = liveIso === m.date ? m : { ...m, date: liveIso };
+  const liveDate = parseISO(liveIso) ?? md;
+  const mx = diffDays(range.min, liveDate) * DAY_WIDTH_PX;
   // Baseline ghost: a hollow diamond at the committed baseline date, a dotted
   // connector to the live diamond, and a signed slip label. Only when enabled,
   // a baseline exists, it is parseable, and the slip is non-zero.
   const bd = showBaseline && baselineDate ? parseISO(baselineDate) : null;
-  const slip = bd ? milestoneSlipDays(baselineDate!, m.date) : null;
+  const slip = bd ? milestoneSlipDays(baselineDate!, live.date) : null;
   const showGhost = bd !== null && slip !== null && slip !== 0;
   const bx = bd ? diffDays(range.min, bd) * DAY_WIDTH_PX : 0;
   const slipLabel = slip !== null ? `${slip > 0 ? "+" : "−"}${Math.abs(slip)}d` : "";
+  // The preview date label's side: left of the diamond, or right of it near
+  // the first day, where a left label would start under the sticky name
+  // column and no scroll could uncover it (the axis stays put rather than
+  // grow room for it). On the right it would land on the slip label, so the
+  // two are then drawn as ONE label, after the rightmost diamond. On the
+  // left it ends before the LEFTMOST diamond, so a ghost left of the live
+  // diamond (a later slip) and its connector stay clear of it too.
+  const previewLeftEdge = showGhost ? Math.min(mx, bx) : mx;
+  const previewSide = dragDeltaDays === 0 ? null : previewLeftEdge < MILESTONE_PREVIEW_LABEL_ROOM_PX ? "right" : "left";
+  const previewTakesSlip = previewSide === "right" && showGhost;
   const mstatus = milestoneStatus(
-    m,
+    live,
     tasksById,
     todayISO,
     EMPTY_HOLIDAY_SET,
@@ -478,6 +506,10 @@ export function GanttMilestoneRow({
   );
   const achieved = isAchieved(m);
   const atRisk = mstatus === "at-risk";
+  const movable = !!onStartDrag && !achieved;
+  const timelineTitle = showGhost
+    ? `${m.name} · ${fmtFull(liveDate, lang)} · baseline ${bd ? fmtFull(bd, lang) : baselineDate} (${slipLabel})`
+    : `${m.name} · ${fmtFull(liveDate, lang)}`;
   return (
     <div
       data-gantt-row={rowKey}
@@ -487,7 +519,7 @@ export function GanttMilestoneRow({
       <div
         className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 truncate border-r border-line bg-surface pr-3 text-xs"
         style={{ width: nameColWidth }}
-        title={`${m.name} · ${fmtFull(md, lang)}`}
+        title={`${m.name} · ${fmtFull(liveDate, lang)}`}
       >
         {/* Gutter diamond icon — intentionally fixed 16-viewBox size,
             independent of chart scale (icon, not a chart element). */}
@@ -514,7 +546,7 @@ export function GanttMilestoneRow({
             // and two milestones sharing a name render two identical buttons.
             // This row renders no id, so nothing else disambiguates it.
             aria-label={rowToken}
-            title={`${m.name} · ${fmtFull(md, lang)} — ${t(lang, "clickToEdit")}`}
+            title={`${m.name} · ${fmtFull(liveDate, lang)} — ${t(lang, "clickToEdit")}`}
             className={`${CELL_BUTTON} truncate px-2 py-0.5 text-left ${
               achieved
                 ? "text-muted-foreground line-through"
@@ -538,11 +570,7 @@ export function GanttMilestoneRow({
       <div
         className="relative"
         style={{ width: timelineWidthPx, height: ROW_HEIGHT_PX }}
-        title={
-          showGhost
-            ? `${m.name} · ${fmtFull(md, lang)} · baseline ${bd ? fmtFull(bd, lang) : baselineDate} (${slipLabel})`
-            : `${m.name} · ${fmtFull(md, lang)}`
-        }
+        title={timelineTitle}
       >
         <svg
           className="h-full w-full overflow-visible"
@@ -583,7 +611,7 @@ export function GanttMilestoneRow({
             {...milestoneDiamondProps(achieved, atRisk)}
           />
         </svg>
-        {showGhost && (
+        {showGhost && !previewTakesSlip && (
           <span
             className="pointer-events-none absolute -translate-y-1/2 text-[10px] text-muted-foreground"
             // Right of whichever diamond is rightmost — for a negative (pulled-in)
@@ -595,7 +623,61 @@ export function GanttMilestoneRow({
             {slipLabel}
           </span>
         )}
+        {previewSide !== null && (
+          // The date the milestone lands on if released now, on the side
+          // `previewSide` picked: left, clear of the ghost and of the slip label on the right.
+          <span
+            data-gantt-milestone-preview={previewSide}
+            className="pointer-events-none absolute -translate-y-1/2 whitespace-nowrap text-[10px] font-medium text-foreground"
+            style={{
+              ...(previewSide === "right"
+                ? { left: (previewTakesSlip ? Math.max(mx, bx) : mx) + MILESTONE_DIAMOND_PX }
+                : { right: timelineWidthPx - previewLeftEdge + MILESTONE_DIAMOND_PX }),
+              top: ROW_HEIGHT_PX / 2,
+            }}
+            aria-hidden="true"
+          >
+            {previewTakesSlip ? `${fmtFull(liveDate, lang)} · ${slipLabel}` : fmtFull(liveDate, lang)}
+          </span>
+        )}
+        {movable && onStartDrag && (
+          // ★ Focusable on purpose — the keyboard path to the same move
+          // (§742 records that the task bars still lack one). A SLIDER, not a
+          // button: its value text is the date, so a screen reader announces
+          // the new date after every arrow press (a button would say nothing,
+          // and would promise an Enter/Space action it does not have). The
+          // value is the day offset on the timeline. Its name carries the row
+          // token: N milestones would otherwise be N identically-named controls.
+          // The title repeats the timeline tooltip it covers, plus the hint.
+          <div
+            role="slider"
+            tabIndex={0}
+            aria-label={rowLabel(t(lang, "ganttMilestoneMove"), rowToken)}
+            // The value is the day offset from the chart's first day, so it
+            // shifts when the range does; `aria-valuetext` (the date) is what
+            // a screen reader speaks, and that stays exact.
+            aria-valuemin={0}
+            aria-valuemax={Math.round(timelineWidthPx / DAY_WIDTH_PX)}
+            aria-valuenow={diffDays(range.min, liveDate)}
+            aria-valuetext={fmtFull(liveDate, lang)}
+            aria-orientation="horizontal"
+            title={`${timelineTitle} — ${t(lang, "ganttMilestoneMoveHint")}`}
+            data-gantt-milestone-handle={m.id}
+            className={`absolute top-0 h-full cursor-grab touch-none rounded-sm active:cursor-grabbing ${FOCUS_RING}`}
+            style={{ left: mx - MILESTONE_HANDLE_PX / 2, width: MILESTONE_HANDLE_PX }}
+            onPointerDown={(e) => onStartDrag(e, m)}
+            onKeyDown={(e) => onKeyMove?.(e, m)}
+            onBlur={() => onHandleBlur?.(m)}
+          />
+        )}
       </div>
     </div>
   );
 }
+
+/** Hit width of a milestone's drag handle: wider than the diamond so it is easy to grab. */
+const MILESTONE_HANDLE_PX = 20;
+/** Timeline px a preview date label needs LEFT of its diamond (§715): about
+ *  "Oct 12, 2026" at 10px plus the diamond gap. Closer to the first day, the
+ *  label goes right of the diamond. */
+const MILESTONE_PREVIEW_LABEL_ROOM_PX = 96;

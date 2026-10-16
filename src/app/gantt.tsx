@@ -32,6 +32,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { useResizable } from "./use-resizable";
 import { useGanttBarDrag } from "./use-gantt-bar-drag";
+import { useGanttMilestoneDrag } from "./use-gantt-milestone-drag";
 import { useGanttPrefs } from "./use-gantt-prefs";
 import { GanttToolbar } from "./gantt-chrome";
 import { GanttChart, ganttRowKey } from "./gantt-chart";
@@ -61,6 +62,7 @@ import {
   parseISO,
   type PlacedMilestone,
   type PlacedTask,
+  shiftIsoDate,
   toISODay,
 } from "./gantt-engine";
 
@@ -77,6 +79,8 @@ export function GanttPanel({
   onEditTask,
   onAddMilestone,
   onEditMilestone,
+  onMoveMilestone,
+  isSwapInFlight,
   showHints,
   isPopout,
   onLearnMore,
@@ -94,6 +98,11 @@ export function GanttPanel({
   onEditTask?: (task: Task) => void;
   onAddMilestone?: () => void;
   onEditMilestone?: (m: Milestone) => void;
+  /** Move a milestone to a new date (§715 project D); absent = milestones stay put. */
+  onMoveMilestone?: (id: number, days: number) => void;
+  /** Live §596 discriminator: a keyboard move still pending when a project swap
+   *  tears the chart down is dropped instead of written into the outgoing project. */
+  isSwapInFlight?: () => boolean;
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
@@ -492,6 +501,10 @@ export function GanttPanel({
   // in the row's onDragStart to suppress native HTML5 row-reorder.
   const { barDrag, barDragDeltaDays, interactingWithBarRef, previewDates, startBarDrag } =
     useGanttBarDrag(onUpdateBar);
+  // Milestone drag (§715 project D): a pointer drag commits on release; arrow
+  // presses move the preview and commit once, on a pause, Enter or blur.
+  const { milestoneDrag, startMilestoneDrag, onMilestoneKeyDown, onMilestoneBlur } =
+    useGanttMilestoneDrag(onMoveMilestone, { isSwapInFlight });
 
   function handleDrop(fromId: number, toId: number) {
     setDraggingId(null);
@@ -533,6 +546,9 @@ export function GanttPanel({
     return m;
   }, [absences, resourcesById]);
 
+  const keyPreviewId = milestoneDrag?.mode === "keys" ? milestoneDrag.milestoneId : null;
+  const keyPreviewDays = milestoneDrag?.mode === "keys" ? milestoneDrag.deltaDays : 0;
+
   // Date range for the time axis.
   const range = useMemo(() => {
     const today = localTodayUTC();
@@ -550,9 +566,14 @@ export function GanttPanel({
       if (bar.end.getTime() > max.getTime()) max = bar.end;
     }
     // Fold milestone dates into the range so their diamonds are never
-    // clipped. An empty milestones list leaves min/max untouched.
+    // clipped. An empty milestones list leaves min/max untouched. A pending
+    // KEYBOARD move counts at its previewed date, so arrow presses past the
+    // edge widen the axis: the handle stays reachable and its slider value in
+    // range. A pointer drag does not: widening under the pointer would shift
+    // the chart away from it.
     for (const m of milestones) {
-      const d = parseISO(m.date);
+      const iso = m.id === keyPreviewId ? (shiftIsoDate(m.date, keyPreviewDays) ?? m.date) : m.date;
+      const d = parseISO(iso);
       if (!d) continue;
       if (!initialized) {
         min = d;
@@ -594,7 +615,7 @@ export function GanttPanel({
     }
     const days = Math.max(1, diffDays(min, max) + 1);
     return { min, max, days };
-  }, [layout.bars, milestones, baselineMilestoneDates, showBaselinePref]);
+  }, [layout.bars, milestones, baselineMilestoneDates, showBaselinePref, keyPreviewId, keyPreviewDays]);
 
   // Same expression the holiday shading and the day grid use — shared so the
   // marker cannot drift off the day column it is supposed to sit on.
@@ -783,6 +804,10 @@ export function GanttPanel({
         onUpdateBar={onUpdateBar}
         onEditTask={onEditTask}
         onEditMilestone={onEditMilestone}
+        milestoneDrag={milestoneDrag}
+        startMilestoneDrag={onMoveMilestone ? startMilestoneDrag : undefined}
+        onMilestoneKeyDown={onMilestoneKeyDown}
+        onMilestoneBlur={onMilestoneBlur}
         onAddTask={onAddTask}
         baselineMilestoneDates={baselineMilestoneDates}
       />

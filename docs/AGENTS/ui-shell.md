@@ -889,7 +889,20 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   derive-bar) and `gantt-status-buckets.ts` (`taskStatusBuckets`/`milestoneStatusBucket` — which
   status-filter buckets an entity belongs to; `today` passed in, no clock). React pieces: hooks
   `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
-  lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar) and
+  lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar),
+  `use-gantt-milestone-drag.ts` (milestone drag, §715 project D — the same window-listener shape; the
+  handle is a SLIDER whose arrow presses move only the preview and commit once, on a pause, Enter or blur,
+  and `use-gantt-milestone-focus.ts` keeps a FOCUSED handle and its preview date in view — while arrow presses move it, when the move
+  saves or Escape cancels it, and on Tab, never on a focus within `POINTER_FOCUS_WINDOW_MS` of a pointer press (a scroll would slide the chart from under the drag; a time window, not a flag, so screen-reader browse mode is not stuck on "pointer") — through `revealInGantt` (`gantt-reveal.ts`), and hands focus to the row's name
+  button when a concurrent sign-off removes the focused handle — ★ not
+  `scrollIntoView`, which counts a span under the sticky name column, header or footer as visible (WCAG 2.4.11) —
+  while a pending keyboard move also widens the axis (`gantt.tsx` range memo, the normal two-day pad, so preview and saved
+  axes agree and nothing shifts on save) so the slider value stays in range — a pointer drag deliberately does not; near the
+  first day the preview date label goes RIGHT of the diamond (`MILESTONE_PREVIEW_LABEL_ROOM_PX`) rather than grow the axis, and there
+  absorbs the baseline slip label it would otherwise overlap; focus survives the re-sort a commit causes because React
+  refocuses a node its commit moved and the row window keeps a focused row mounted; a day OFFSET commits through `moveMilestoneBy` in `milestone-update.ts`, resolved against the milestone's live date so a change that landed meanwhile is moved, not overwritten, and a keyboard move pending when a project swap tears the chart down is dropped (`isSwapInFlight`);
+  `commitMilestoneUpdate` there is the one update path the Milestones editor's save shares, so a chart move gets the same undo entry and activity
+  row) and
   `use-gantt-prefs.ts` (sort/filter prefs state + localStorage hydrate/persist + setters); presentational
   `gantt-chrome.tsx` (`GanttToolbar`, `GanttHeader` axis, `GanttDependencyLayer` SVG arrows + milestone
   connectors), `gantt-rows.tsx` (`GanttTaskRow`, `GanttMilestoneRow`), `gantt-chart.tsx` (`GanttChart` —
