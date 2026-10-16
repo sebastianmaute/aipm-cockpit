@@ -1,7 +1,7 @@
 // src/app/use-forecast-history-recorder.ts
 //
 // Background recorder for the daily forecast history (§502). While a project is
-// open with "show simulation" on, today's default forecast is written as ONE
+// open with "Use Monte Carlo forecasting" on, today's default forecast is written as ONE
 // history entry (last writer of the day wins), so a later surface can show the
 // change over a week.
 //

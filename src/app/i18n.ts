@@ -3717,7 +3717,7 @@ const enUS = {
   kpiSimDivergence: "These metrics use different units. Effort SPI uses estimated effort completed versus planned effort due. \"On time\" uses the observed completion rate. A project can look ahead on Effort SPI and still have low date confidence if many remaining items are small, unestimated, or finishing slowly.",
   forecastDashboardDefaultsNote: "The Dashboard uses the default settings.",
   simulationShow: "Use Monte Carlo forecasting",
-  simulationIntroText: "Simulation is on. Dashed teal numbers are simulated, not measured. \"P80\" means 8 in 10 simulated runs reached it.",
+  simulationIntroText: "Simulation is on. Dashed teal numbers are simulated, not measured. \"P80\" means 8 in 10 simulated runs reached it. Switch it off in the Budget burn tile or in Edit project.",
   simulationIntroShowMe: "Show me",
   simulationIntroGotIt: "Got it",
   helpConceptForecastSimTitle: "Forecast simulation",

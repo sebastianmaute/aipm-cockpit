@@ -1767,7 +1767,7 @@ describe("DashboardPanel health inputs are unchanged by spec C", () => {
   });
 });
 
-// ── §502: the "Show simulation" switch and its one-time intro ──────────────────
+// ── §502: the "Use Monte Carlo forecasting" switch and its one-time intro ───────
 describe("DashboardPanel simulation switch", () => {
   function SimProbe() {
     const { settingsOverrides } = useWorkspace();
@@ -1827,6 +1827,25 @@ describe("DashboardPanel simulation switch", () => {
     render(<DashboardPanel {...fullProps} projectId="p-sim-intro" />, { wrapper });
     await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
     expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+  });
+
+  // Final-review finding: the switch lives in the burn tile, which is gone with Budget off (and when the
+  // tile is shelved), while the switch can still be on from Edit project. Got it must not drop focus.
+  it("without the burn tile, Got it moves focus on rather than dropping it to the page", async () => {
+    const user = userEvent.setup();
+    const ui = (showBudget: boolean) => <DashboardPanel {...fullProps} projectId="p-sim-noburn" showBudget={showBudget} />;
+    const { rerender } = render(ui(true), { wrapper });
+    await settleSettings();
+    await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
+    expect(await screen.findByText(t(EN, "simulationIntroText"))).toBeInTheDocument();
+    rerender(ui(false));
+    // Positive control: the tile, and with it the switch, is really gone while the intro stays.
+    expect(screen.queryByTestId("tile-burn")).toBeNull();
+    expect(screen.queryByRole("button", { name: new RegExp(simName()) })).toBeNull();
+    await user.click(screen.getByRole("button", { name: t(EN, "simulationIntroGotIt") }));
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBeInstanceOf(HTMLElement);
   });
 
   it("Escape with focus left on the switch dismisses the intro like Got it", async () => {

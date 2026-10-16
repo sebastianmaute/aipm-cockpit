@@ -12,5 +12,10 @@ export function buildDemoWorkspace(raw: unknown, today: string): Workspace {
   // The shift moves whole months (or weeks), so the master's latest forecast-history days (§502) can
   // land after the real today. A recorded forecast from the future is impossible: drop those days.
   const history = shifted.forecastHistory?.filter((e) => e.date <= today);
-  return history === undefined ? shifted : { ...shifted, forecastHistory: history };
+  // The same shift can move a task's completion past today, and the forecast and coaching would then count
+  // work finished in the future. Clamp it to today: the task stays Done (status ⟺ completedDate holds).
+  const tasks = shifted.tasks.map((task) =>
+    task.completedDate && task.completedDate > today ? { ...task, completedDate: today } : task,
+  );
+  return history === undefined ? { ...shifted, tasks } : { ...shifted, tasks, forecastHistory: history };
 }

@@ -1,5 +1,5 @@
 // src/app/forecast-simulation.test.ts
-// The per-project "show simulation" policy override (§502): off is ABSENCE.
+// The per-project "Use Monte Carlo forecasting" policy override (§502): off is ABSENCE.
 
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";

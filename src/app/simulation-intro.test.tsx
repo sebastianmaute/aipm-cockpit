@@ -12,7 +12,7 @@ describe("SimulationIntro", () => {
     render(<SimulationIntro lang="en-US" onGotIt={vi.fn()} onShowMe={vi.fn()} />);
     expect(
       screen.getByText(
-        'Simulation is on. Dashed teal numbers are simulated, not measured. "P80" means 8 in 10 simulated runs reached it.',
+        'Simulation is on. Dashed teal numbers are simulated, not measured. "P80" means 8 in 10 simulated runs reached it. Switch it off in the Budget burn tile or in Edit project.',
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show me" })).toBeInTheDocument();
@@ -36,6 +36,25 @@ describe("SimulationIntro", () => {
   it("omits Show me when no Help opener is available", () => {
     render(<SimulationIntro lang="en-US" onGotIt={vi.fn()} />);
     expect(screen.queryByRole("button", { name: "Show me" })).toBeNull();
+  });
+
+  // Without the switch on screen (burn tile absent), Got it hands focus to the next control, never to <body>.
+  it("moves focus to the next control when the anchor holds no control", async () => {
+    function Host() {
+      const [open, setOpen] = useState(true);
+      const anchorRef = createRef<HTMLDivElement>();
+      return (
+        <>
+          {open && <SimulationIntro lang="en-US" onGotIt={() => setOpen(false)} anchorRef={anchorRef} />}
+          <button type="button" hidden>Hidden after</button>
+          <button type="button">After</button>
+        </>
+      );
+    }
+    render(<Host />);
+    await userEvent.click(screen.getByRole("button", { name: "Got it" }));
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(screen.getByRole("button", { name: "After" })).toHaveFocus();
   });
 
   it("dismisses on Escape", async () => {

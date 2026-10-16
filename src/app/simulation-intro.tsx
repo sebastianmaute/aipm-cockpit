@@ -4,6 +4,7 @@ import { useCallback, useRef, type RefObject } from "react";
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
 import { useDismissable } from "./use-dismissable";
+import { FOCUSABLE_SELECTOR } from "./focusables";
 
 interface SimulationIntroProps {
   lang: Lang;
@@ -15,6 +16,16 @@ interface SimulationIntroProps {
   /** The control that opened the note. Focus stays on it after the press, so
    *  Escape must be claimed there too, or the note would decline its own key. */
   anchorRef?: RefObject<HTMLElement | null>;
+}
+
+/** The first keyboard-reachable control after `el` in document order, outside it. `hidden`/`inert`
+ *  subtrees are skipped; layout-hidden ones cannot be (jsdom has no layout — see `focusables.ts`). */
+function nextFocusableAfter(el: HTMLElement): HTMLElement | null {
+  for (const c of Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))) {
+    if (el.contains(c) || c.closest("[hidden],[inert]")) continue;
+    if (el.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING) return c;
+  }
+  return null;
 }
 
 /** One-time, NON-modal note shown at the top of the Dashboard when the
@@ -30,10 +41,15 @@ export function SimulationIntro({ lang, onGotIt, onShowMe, anchorRef }: Simulati
     return (ref.current?.contains(focused) ?? false) || (anchorRef?.current?.contains(focused) ?? false);
   }, [anchorRef]);
   // Dismissing from a control inside the note would drop focus to <body>, so hand it back to the switch first.
+  // ★ The switch lives in the Budget burn tile, which is absent with Budget off or the tile on the shelf
+  // (the switch can still be turned on from Edit project). Then focus moves on to the next control after
+  // the note, where Tab would have taken it.
   const dismiss = useCallback(() => {
-    if (ref.current?.contains(document.activeElement)) {
+    const note = ref.current;
+    if (note?.contains(document.activeElement)) {
       // The anchor is the switch's wrapper, so focus the control inside it.
-      anchorRef?.current?.querySelector<HTMLElement>("button, input, [role='switch']")?.focus();
+      const target = anchorRef?.current?.querySelector<HTMLElement>("button, input, [role='switch']") ?? nextFocusableAfter(note);
+      target?.focus();
     }
     onGotIt();
   }, [anchorRef, onGotIt]);

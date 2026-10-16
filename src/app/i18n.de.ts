@@ -3431,7 +3431,7 @@ export const de: Record<TranslationKey, string> = {
   kpiSimDivergence: "Diese Kennzahlen verwenden unterschiedliche Einheiten. Der Aufwands-SPI vergleicht den geschätzten Aufwand der erledigten Arbeit mit dem geplanten, fälligen Aufwand. „Termingerecht“ nutzt die beobachtete Abschlussrate. Ein Projekt kann beim Aufwands-SPI vorn liegen und trotzdem wenig Terminsicherheit haben, wenn viele offene Punkte klein, ungeschätzt oder langsam im Abschluss sind.",
   forecastDashboardDefaultsNote: "Das Dashboard verwendet die Standardeinstellungen.",
   simulationShow: "Monte-Carlo-Prognose verwenden",
-  simulationIntroText: "Die Simulation ist an. Gestrichelte türkise Zahlen sind simuliert, nicht gemessen. „P80“ bedeutet: 8 von 10 simulierten Durchläufen haben es erreicht.",
+  simulationIntroText: "Die Simulation ist an. Gestrichelte türkise Zahlen sind simuliert, nicht gemessen. „P80“ bedeutet: 8 von 10 simulierten Durchläufen haben es erreicht. Ausschalten können Sie sie in der Kachel „Budgetverbrauch“ oder unter „Projekt bearbeiten“.",
   simulationIntroShowMe: "Zeig es mir",
   simulationIntroGotIt: "Verstanden",
   helpConceptForecastSimTitle: "Prognose-Simulation",

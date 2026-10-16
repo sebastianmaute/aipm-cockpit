@@ -217,6 +217,9 @@ export function CreateProjectWizard({
   // SharePoint, Confluence) funnels its content through this. The model output
   // populates the Step-1 form draft + feature set + starter seed and advances.
   const runIngest = async (content: ProposalContent, signal?: AbortSignal) => {
+    // A new attempt (Generate, or a file the panel routed here) supersedes a picker error from before it,
+    // whether the proposal then succeeds or fails into aiError.
+    setImportMsg(null);
     const p = await generate(content, signal);
     if (!p) return; // error surfaced via aiError
     // A fresh proposal supersedes an earlier workspace import (reachable via
@@ -233,8 +236,6 @@ export function CreateProjectWizard({
     const seed = proposalToSeed(p, today);
     setAiSeed(seed);
     setIncludeSeed(seedHasContent(seed));
-    // A picker error from Step 0 must not follow the proposal onto Step 1.
-    setImportMsg(null);
     setStep(1);
   };
 
@@ -342,7 +343,8 @@ export function CreateProjectWizard({
   // Step-1 footer left slot: an optional Back-to-Describe button (only on the
   // AI fast-path, before details are captured — without it, an AI user who
   // lands on Step 1 has no way back to re-describe, only Cancel), or the
-  // workspace-import picker when AI is off.
+  // workspace-import picker. With AI on the picker sits on Step 0, so Step 1 offers it only once Back is gone
+  // (details captured): without it an AI user past Step 1 could import a file only by cancelling the wizard.
   const step1FooterLeft = (
     <div className="flex items-center gap-2">
       {aiEnabled && !meta && (
@@ -350,7 +352,7 @@ export function CreateProjectWizard({
           {t(lang, "wizardBack")}
         </Button>
       )}
-      {!aiEnabled && workspacePicker}
+      {(!aiEnabled || meta) && workspacePicker}
     </div>
   );
 
@@ -367,7 +369,6 @@ export function CreateProjectWizard({
 
       {/* Step 0 — Describe / import (AI fast-path; only when an API key is set).
           The panel owns its own pinned footer (Skip / Cancel / Generate). */}
-      {step === 0 && importMsg && <FieldError>{importMsg}</FieldError>}
       {step === 0 && (
         <Step0ImportPanel
           lang={lang}
@@ -380,6 +381,8 @@ export function CreateProjectWizard({
           onCancel={onCancel}
           onImportWorkspace={acceptImport}
           afterSkip={workspacePicker}
+          // Shown just above the footer that holds the picker which raised it.
+          footerError={importMsg ? <FieldError>{importMsg}</FieldError> : undefined}
         />
       )}
 

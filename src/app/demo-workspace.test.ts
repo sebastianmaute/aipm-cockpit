@@ -29,6 +29,16 @@ describe("buildDemoWorkspace", () => {
     expect(dates.length).toBeLessThan(raw.forecastHistory.length);
     expect(dates.every((d) => d <= today)).toBe(true);
   });
+  // Final-review finding: the shift moves completions too; none may land after today.
+  it("clamps completions the month shift moved past today to today", () => {
+    const today = "2026-10-01";
+    const ws = buildDemoWorkspace(raw, today);
+    const done = ws.tasks.filter((t) => t.completedDate);
+    // Positive control: the master's 2026-09-15 completion lands on 10-15, so at least one task is clamped.
+    expect(done.some((t) => t.completedDate === today)).toBe(true);
+    expect(done.every((t) => t.completedDate! <= today)).toBe(true);
+    expect(done.every((t) => t.status === "Done")).toBe(true);
+  });
   it("rejects a corrupt master loudly (strict decode)", () => {
     expect(() => buildDemoWorkspace({ tasks: 1 }, DEMO_AS_OF)).toThrow();
   });
