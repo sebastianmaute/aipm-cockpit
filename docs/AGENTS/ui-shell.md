@@ -890,8 +890,10 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   status-filter buckets an entity belongs to; `today` passed in, no clock). React pieces: hooks
   `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
   lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar),
-  `use-gantt-milestone-drag.ts` (milestone drag, §715 project D — the same window-listener shape, plus
-  arrow keys per press; the date commits through `moveMilestoneDate` in `milestone-update.ts`, the one
+  `use-gantt-milestone-drag.ts` (milestone drag, §715 project D — the same window-listener shape; the
+  handle is a SLIDER whose arrow presses move only the preview and commit once, on a pause, Enter or blur,
+  and the chart keeps the handle scrolled into view; focus survives the re-sort a commit causes because React
+  refocuses a node its commit moved and the row window keeps a focused row mounted; the date commits through `moveMilestoneDate` in `milestone-update.ts`, the one
   update path the Milestones editor's save shares, so a chart move gets the same undo entry and activity
   row) and
   `use-gantt-prefs.ts` (sort/filter prefs state + localStorage hydrate/persist + setters); presentational

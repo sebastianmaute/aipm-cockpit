@@ -3,7 +3,7 @@
 // Milestones editor, and is offered only where milestones may change (not in
 // the read-only pop-out, not with the Milestones function off).
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -12,6 +12,9 @@ import { GanttView } from "./gantt-view";
 import { defaultSettings } from "./settings-types";
 import type { Milestone } from "./types";
 import { fmtFull } from "./gantt-engine";
+import { ToastProvider } from "./toast-context";
+import { MILESTONE_KEY_COMMIT_DELAY_MS } from "./use-gantt-milestone-drag";
+import type { ToastKind } from "./use-toast";
 
 vi.mock("./use-resizable", () => ({
   useResizable: () => ({ ref: { current: null }, size: 400 }),
@@ -23,14 +26,20 @@ import { useSettings } from "./use-settings";
 const MS: Milestone[] = [{ id: 3, name: "Pilot Go-Live", date: "2026-10-23", linkedTaskIds: [] }];
 const HANDLE = "Move milestone – Pilot Go-Live";
 
-function Seed() {
+function Seed({ list }: { list: readonly Milestone[] }) {
   const { setMilestones } = useWorkspace();
-  useEffect(() => { setMilestones(MS); }, [setMilestones]);
+  useEffect(() => { setMilestones(list); }, [setMilestones, list]);
   return null;
 }
 function ShowDate() {
-  const { milestones } = useWorkspace();
-  return <output data-testid="date">{milestones[0]?.date}</output>;
+  const { milestones, setMilestones } = useWorkspace();
+  return (
+    <>
+      {milestones.map((m) => <output key={m.id} data-testid="date">{m.date}</output>)}
+      {/* A concurrent writer deleting every milestone. */}
+      <button type="button" aria-label="delete-all" onClick={() => setMilestones([])} />
+    </>
+  );
 }
 function Wrapper({ children }: { children: ReactNode }) {
   return (
@@ -41,13 +50,21 @@ function Wrapper({ children }: { children: ReactNode }) {
     </FiltersProvider>
   );
 }
-function renderView(props: Partial<React.ComponentProps<typeof GanttView>> = {}) {
-  return render(
+function renderView(
+  { seed = MS, withToast, ...props }: Partial<React.ComponentProps<typeof GanttView>> & {
+    seed?: readonly Milestone[];
+    withToast?: (kind: ToastKind, text: string) => void;
+  } = {},
+) {
+  const tree = (
     <>
-      <Seed />
+      <Seed list={seed} />
       <ShowDate />
       <GanttView milestonesEnabled {...props} />
-    </>,
+    </>
+  );
+  return render(
+    withToast ? <ToastProvider value={{ showToast: withToast, showToastAction: vi.fn() }}>{tree}</ToastProvider> : tree,
     { wrapper: Wrapper },
   );
 }
@@ -59,6 +76,7 @@ describe("GanttView — milestone move", () => {
     } as unknown as ReturnType<typeof useSettings>);
   });
   afterEach(() => {
+    vi.useRealTimers();
     window.history.replaceState(null, "", "/");
     vi.restoreAllMocks();
   });
@@ -68,7 +86,8 @@ describe("GanttView — milestone move", () => {
     const logActivityChanges = vi.fn();
     renderView({ onCaptureFieldEdit, logActivityChanges });
     fireEvent.keyDown(screen.getByRole("slider", { name: HANDLE }), { key: "ArrowRight", shiftKey: true });
-    expect(screen.getByTestId("date").textContent).toBe("2026-10-30");
+    fireEvent.keyDown(screen.getByRole("slider", { name: HANDLE }), { key: "Enter" });
+    expect(screen.getAllByTestId("date")[0].textContent).toBe("2026-10-30");
     // The control announces the date it now holds.
     expect(screen.getByRole("slider", { name: HANDLE }).getAttribute("aria-valuetext"))
       .toBe(fmtFull(new Date(Date.UTC(2026, 9, 30)), "en-US"));
@@ -80,6 +99,29 @@ describe("GanttView — milestone move", () => {
       expect.arrayContaining([expect.objectContaining({ field: "date", from: "2026-10-23", to: "2026-10-30" })]),
       3,
     );
+  });
+
+  it("keeps focus on the moved milestone when the move re-sorts the rows", () => {
+    renderView({ seed: [...MS, { id: 8, name: "Rollout", date: "2026-10-25", linkedTaskIds: [] }] });
+    const slider = screen.getByRole("slider", { name: HANDLE });
+    slider.focus();
+    fireEvent.keyDown(slider, { key: "PageUp" }); // 2026-10-30: now after Rollout
+    fireEvent.keyDown(slider, { key: "Enter" });
+    expect(screen.getAllByTestId("date").map((n) => n.textContent)).toContain("2026-10-30");
+    expect(document.activeElement).toBe(screen.getByRole("slider", { name: HANDLE }));
+  });
+
+  it("tells the user when the milestone was deleted before the move landed", () => {
+    vi.useFakeTimers();
+    const showToast = vi.fn();
+    renderView({ withToast: showToast });
+    const slider = screen.getByRole("slider", { name: HANDLE });
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+    fireEvent.click(screen.getByRole("button", { name: "delete-all" }));
+    // The row (and its handle) is gone, so no blur arrives; the pending move
+    // lands after the pause, against the live list, and finds nothing.
+    act(() => { vi.advanceTimersByTime(MILESTONE_KEY_COMMIT_DELAY_MS); });
+    expect(showToast).toHaveBeenCalledWith("error", "This item was deleted elsewhere — your change wasn't saved.");
   });
 
   it("offers no handle in the read-only pop-out", () => {

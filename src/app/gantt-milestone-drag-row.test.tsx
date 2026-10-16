@@ -36,7 +36,7 @@ describe("GanttMilestoneRow — drag handle", () => {
     // The handle covers the diamond, so its tooltip carries the timeline's name and date too.
     expect(handle).toHaveAttribute(
       "title",
-      `Pilot Go-Live · ${fmtFull(new Date(Date.UTC(2026, 5, 20)), "en-US")} — Drag, or press the arrow keys: one day, with Shift one week`,
+      `Pilot Go-Live · ${fmtFull(new Date(Date.UTC(2026, 5, 20)), "en-US")} — Drag, or press the arrow keys: one day, with Shift one week. Escape cancels`,
     );
     // A slider whose value text is the date: what a screen reader announces after a move.
     expect(handle).toHaveAttribute("aria-valuetext", fmtFull(new Date(Date.UTC(2026, 5, 20)), "en-US"));
@@ -103,11 +103,32 @@ describe("GanttPanel — milestone move wiring", () => {
   const ms: Milestone[] = [{ id: 100, name: "Beta", date: "2026-06-20", linkedTaskIds: [] }];
   const props = { lang: "en-US" as const, tasks: [] as Task[], absences: [] as const, milestones: ms };
 
-  it("moves a milestone one day per arrow press through onMoveMilestone", () => {
+  it("previews arrow presses on the slider and commits them on Enter", () => {
     const onMoveMilestone = vi.fn();
     render(<GanttPanel {...props} onMoveMilestone={onMoveMilestone} />);
-    fireEvent.keyDown(screen.getByRole("slider", { name: "Move milestone – Beta" }), { key: "ArrowRight" });
-    expect(onMoveMilestone).toHaveBeenCalledWith(100, "2026-06-21");
+    const slider = screen.getByRole("slider", { name: "Move milestone – Beta" });
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+    expect(onMoveMilestone).not.toHaveBeenCalled();
+    expect(slider).toHaveAttribute("aria-valuetext", fmtFull(new Date(Date.UTC(2026, 5, 22)), "en-US"));
+    fireEvent.keyDown(slider, { key: "Enter" });
+    expect(onMoveMilestone).toHaveBeenCalledTimes(1);
+    expect(onMoveMilestone).toHaveBeenCalledWith(100, "2026-06-22");
+  });
+
+  it("keeps the handle scrolled into view while arrow presses move it", () => {
+    const scrollIntoView = vi.fn();
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    try {
+      render(<GanttPanel {...props} onMoveMilestone={vi.fn()} />);
+      scrollIntoView.mockClear();
+      fireEvent.keyDown(screen.getByRole("slider", { name: "Move milestone – Beta" }), { key: "PageUp" });
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+      expect(scrollIntoView.mock.contexts.at(-1)).toBe(screen.getByRole("slider", { name: "Move milestone – Beta" }));
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+    }
   });
 
   it("offers no handle when the caller passes no onMoveMilestone", () => {

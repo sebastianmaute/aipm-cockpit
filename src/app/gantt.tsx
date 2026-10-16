@@ -497,7 +497,8 @@ export function GanttPanel({
   const { barDrag, barDragDeltaDays, interactingWithBarRef, previewDates, startBarDrag } =
     useGanttBarDrag(onUpdateBar);
   // Milestone drag (§715 project D): pointer drag commits on release, arrow keys per press.
-  const { milestoneDrag, startMilestoneDrag, onMilestoneKeyDown } = useGanttMilestoneDrag(onMoveMilestone);
+  const { milestoneDrag, startMilestoneDrag, onMilestoneKeyDown, onMilestoneBlur } =
+    useGanttMilestoneDrag(onMoveMilestone);
 
   function handleDrop(fromId: number, toId: number) {
     setDraggingId(null);
@@ -792,6 +793,7 @@ export function GanttPanel({
         milestoneDrag={milestoneDrag}
         startMilestoneDrag={onMoveMilestone ? startMilestoneDrag : undefined}
         onMilestoneKeyDown={onMilestoneKeyDown}
+        onMilestoneBlur={onMilestoneBlur}
         onAddTask={onAddTask}
         baselineMilestoneDates={baselineMilestoneDates}
       />

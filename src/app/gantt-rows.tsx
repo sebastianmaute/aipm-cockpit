@@ -437,6 +437,7 @@ export function GanttMilestoneRow({
   dragDeltaDays = 0,
   onStartDrag,
   onKeyMove,
+  onHandleBlur,
 }: {
   m: Milestone;
   /**
@@ -469,8 +470,9 @@ export function GanttMilestoneRow({
   /** Present when the milestone may be moved on the chart (not in a popout). */
   onStartDrag?: (e: React.PointerEvent<HTMLElement>, m: Milestone) => void;
   onKeyMove?: (e: React.KeyboardEvent<HTMLElement>, m: Milestone) => void;
+  onHandleBlur?: (m: Milestone) => void;
 }) {
-  // While a drag is in flight everything on the timeline — the diamond, its
+  // While a drag is in flight everything on the row — the diamond, its
   // at-risk colour, the baseline slip — reads the date it WOULD get on release,
   // so moving it before linked work shows the conflict live.
   const liveIso = dragDeltaDays !== 0 ? (shiftIsoDate(m.date, dragDeltaDays) ?? m.date) : m.date;
@@ -507,7 +509,7 @@ export function GanttMilestoneRow({
       <div
         className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 truncate border-r border-line bg-surface pr-3 text-xs"
         style={{ width: nameColWidth }}
-        title={`${m.name} · ${fmtFull(md, lang)}`}
+        title={`${m.name} · ${fmtFull(liveDate, lang)}`}
       >
         {/* Gutter diamond icon — intentionally fixed 16-viewBox size,
             independent of chart scale (icon, not a chart element). */}
@@ -534,7 +536,7 @@ export function GanttMilestoneRow({
             // and two milestones sharing a name render two identical buttons.
             // This row renders no id, so nothing else disambiguates it.
             aria-label={rowToken}
-            title={`${m.name} · ${fmtFull(md, lang)} — ${t(lang, "clickToEdit")}`}
+            title={`${m.name} · ${fmtFull(liveDate, lang)} — ${t(lang, "clickToEdit")}`}
             className={`${CELL_BUTTON} truncate px-2 py-0.5 text-left ${
               achieved
                 ? "text-muted-foreground line-through"
@@ -636,17 +638,21 @@ export function GanttMilestoneRow({
             role="slider"
             tabIndex={0}
             aria-label={rowLabel(t(lang, "ganttMilestoneMove"), rowToken)}
+            // The value is the day offset from the chart's first day, so it
+            // shifts when the range does; `aria-valuetext` (the date) is what
+            // a screen reader speaks, and that stays exact.
             aria-valuemin={0}
             aria-valuemax={Math.round(timelineWidthPx / DAY_WIDTH_PX)}
             aria-valuenow={diffDays(range.min, liveDate)}
             aria-valuetext={fmtFull(liveDate, lang)}
             aria-orientation="horizontal"
             title={`${timelineTitle} — ${t(lang, "ganttMilestoneMoveHint")}`}
-            data-gantt-milestone-handle="1"
+            data-gantt-milestone-handle={m.id}
             className={`absolute top-0 h-full cursor-grab touch-none rounded-sm active:cursor-grabbing ${FOCUS_RING}`}
             style={{ left: mx - MILESTONE_HANDLE_PX / 2, width: MILESTONE_HANDLE_PX }}
             onPointerDown={(e) => onStartDrag(e, m)}
             onKeyDown={(e) => onKeyMove?.(e, m)}
+            onBlur={() => onHandleBlur?.(m)}
           />
         )}
       </div>
