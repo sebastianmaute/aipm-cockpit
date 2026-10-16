@@ -35,6 +35,10 @@ node scripts/demo-video/cleanup.mjs
 
 The video is written to `.superpowers/tmp/demo-video/aipm-cockpit-getting-started.webm`, which git ignores. Set `DEMO_VIDEO_DIR` to write somewhere else. Each failed scene logs `WARN` and leaves a `warn-<scene>.png` screenshot in the same folder. The run continues, so check the count at the end: the script exits 1 when it is not 0. A request to any Turso host other than the throwaway database is blocked and counts as a warning too.
 
+## Fixtures
+
+- `fixtures/replan-forecast.csv` is the team's re-plan spreadsheet that the demo week imports into the bucket "Identity Platform – T&M" with **Import forecast…**. Its headers are chosen so Detect columns cannot map them, which is what makes **Ask Claude** the step; `replan-fixture.test.ts` fails if that changes.
+
 ## On screen
 
 - The database address is blurred wherever it appears. The token and the key are password fields.

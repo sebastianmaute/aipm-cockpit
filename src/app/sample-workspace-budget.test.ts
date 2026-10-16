@@ -21,8 +21,8 @@ describe("sample-workspace budgets", () => {
     const r1 = b.allocations.find((a) => a.roleId === 1)!;
     // The buckets are a staggered chain (9 -> 5 -> 1 -> 4 -> 3 -> 2, and 7 -> 3), so
     // each one carries hours only in the periods its own window covers. Bucket 1
-    // runs 2026-07-01..2026-10-31 (June is the Discovery bucket 5's; October is the
-    // window the demo week's re-plan import fills, §715) and is the
+    // runs 2026-07-01..2026-10-31 (June is the Discovery bucket 5's; September and October are the
+    // months the demo week's re-plan import fills, §715) and is the
     // CURRENT bucket on DEMO_AS_OF (2026-09-18): July-August are hand-entered
     // month totals, September is TimeLog-applied day keys up to the as-of date.
     // The stored budget equals Sofia Ramirez's planned capacity (the plan's budget
