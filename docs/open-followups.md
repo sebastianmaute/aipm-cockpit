@@ -985,7 +985,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§745](#745-video-guides-no-guided-tour-for-each-feature-and-ai-clip--open) | Video guides: no guided tour for each feature and AI clip | — | — | open |
 | [§746](#746-video-guides-no-guided-tour-per-project-function--open) | Video guides: no guided tour per project Function | — | — | open |
 | [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--open) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | open |
-| [§748](#748-the-monte-carlo-forecast-may-move-to-a-background-worker--open) | The Monte Carlo forecast may move to a background worker | — | — | open |
+| [§748](#748-background-workers-may-help-across-the-app-starting-with-the-monte-carlo-forecast--open) | Background workers may help across the app, starting with the Monte Carlo forecast | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45596,16 +45596,20 @@ Size S. The owner decided on 2026-10-16 to fix it before the §715 demo data (pr
 
 **Source:** found 2026-10-16 by a builder check of `docs/superpowers/specs/2026-10-16-demo-week-story-design.md`.
 
-## 748. The Monte Carlo forecast may move to a background worker — OPEN
+## 748. Background workers may help across the app, starting with the Monte Carlo forecast — OPEN
 
-**Status:** OPEN 2026-10-16. `grep -rn "new Worker" src/app/forecast src/app/use-app-forecast.ts src/app/budget-sim.ts` → no output: the forecast runs on the main thread.
+**Status:** OPEN 2026-10-16, scope widened 2026-10-17. `grep -rln "new Worker(" src --include=*.ts --include=*.tsx` → no output: the app runs no Web Worker anywhere.
 
 **Work item:** #772
 
-The Monte Carlo forecast (§502) runs synchronously in render-time memos. The measured costs are in [`docs/AGENTS/forecast.md`](AGENTS/forecast.md), each with a reproduce command: about 30 ms for the schedule forecast by default and about 600 ms at the What-if extremes, plus about 260 ms for the two-unit budget simulation (EUR and hours) near the horizon, which runs on the Dashboard and the Budget report. The owner earlier decided against a worker (forecast.md, "Trial count"). On 2026-10-16 the owner asked to file that a background worker may be introduced.
+Owner request 2026-10-17: explore where background workers can help in every part of the app, not only the forecast.
 
-Proposed: decide at the un-hide of the Forecast view, after the owner's eye check. A worker would take the engine's pure inputs and return the percentile results; the seed rule keeps results identical across threads.
+**Measured so far — the Monte Carlo forecast (§502).** It runs synchronously in render-time memos. The costs are in [`docs/AGENTS/forecast.md`](AGENTS/forecast.md), each with a reproduce command: about 30 ms for the schedule forecast by default and about 600 ms at the What-if extremes, plus about 260 ms for the two-unit budget simulation (EUR and hours) near the horizon, which runs on the Dashboard and the Budget report. The owner earlier decided against a worker (forecast.md, "Trial count") and reopened it on 2026-10-16.
 
-Size M.
+**To explore.** Candidates to measure, none measured yet: attachment ingest and the mail parsers, document and export rendering (DOCX, PDF, slides), the CSV and Markdown serializers on save, insight detection, and loading or scaling a large workspace. For each: measure the main-thread time on `sample-workspace-huge.json`, and judge whether its inputs and outputs can cross a worker boundary (plain data, no DOM, no live React state). A worker only helps where a measured cost is large enough to be felt and the work is pure.
 
-**Source:** owner request 2026-10-16, during the §502 part-3 pre-merge fixes.
+Proposed: a survey first (a measured table with a reproduce command per row), then one worker for the largest pure cost; the forecast decision is due at the un-hide of the Forecast view, after the owner's eye check. Any worker must also load under the production CSP (`src/proxy.ts`), checked with `npm run e2e:smoke:prod`.
+
+Size L (the survey is M).
+
+**Source:** owner requests 2026-10-16 (file the forecast worker) and 2026-10-17 (widen to the whole app), during the §502 part-3 pre-merge fixes.
