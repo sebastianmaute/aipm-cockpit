@@ -366,6 +366,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
     const rows = showMilestones && f.kind === "forecast" ? milestonesAtRisk(f.milestones, milestonesForSim) : NO_AT_RISK;
     return { kpiSim: kpiSimulation(f, model.evm.spi), kpiSimGap: kpiSimulationGap(f), forecast: f, atRisk: rows };
   }, [simulationOn, simulationPending, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi, showMilestones]);
+  // The Forecast tile's open-work line: one pass over the tasks per tasks change, not per render.
+  const openTaskCount = useMemo(() => props.tasks.filter((task) => !isTaskClosed(task)).length, [props.tasks]);
 
   // ★★ THE GATE DECIDES WHAT RENDERS, NEVER WHAT IS STORED. `useDashboardLayout`
   // deliberately takes no `gate` — a gated-off tile keeps its stored position, so
@@ -439,7 +441,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
       planEnd,
       today,
       holidaySet: props.holidaySet,
-      openTaskCount: props.tasks.filter((task) => !isTaskClosed(task)).length,
+      openTaskCount,
       onOpenMilestone: props.onOpenMilestone,
       onOpenForecast: props.onNavigate ? () => props.onNavigate!("forecast") : undefined,
       onOpenHelp: props.onOpenHelp,
