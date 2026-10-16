@@ -63,11 +63,14 @@ export function buildHistogramBins(distribution: ArrayLike<number>, maxBins: num
 
 const CHART_W = 240;
 const CHART_H = 72;
-const CHART_TOP = 10;
 /** Half the width of a cut label ("P95" at 8px); a label centred closer than this to an edge would be clipped. */
-const LABEL_HALF_W = 8;
-/** Baselines of the two label rows; the second sits inside the viewBox, over the bars. */
-const LABEL_ROW_Y = [CHART_TOP - 3, CHART_TOP + 7] as const;
+export const LABEL_HALF_W = 8;
+export const LABEL_FONT_SIZE = 8;
+/** One label row per cut, so three labels always fit: each takes the first row with no label within 2 x LABEL_HALF_W. */
+const CUT_COUNT = 3;
+const LABEL_ROW_Y = Array.from({ length: CUT_COUNT }, (_, i) => LABEL_FONT_SIZE + i * LABEL_FONT_SIZE);
+/** The bars start below the last label row, so no label sits on a bar. */
+export const CHART_TOP = LABEL_ROW_Y[CUT_COUNT - 1] + 4;
 const CUTS: ReadonlyArray<{ p: SimPercentile; key: keyof SimMarkers; label: string }> = [
   { p: 50, key: "p50", label: "P50" },
   { p: 80, key: "p80", label: "P80" },
@@ -80,9 +83,8 @@ function layoutLabels(xs: number[]): Array<{ x: number; y: number }> {
   return xs.map((raw) => {
     const x = Math.min(CHART_W - LABEL_HALF_W, Math.max(LABEL_HALF_W, raw));
     const free = rows.findIndex((row) => row.every((o) => Math.abs(o - x) >= 2 * LABEL_HALF_W));
-    const rowIndex = free === -1 ? rows.length - 1 : free;
-    rows[rowIndex].push(x);
-    return { x, y: LABEL_ROW_Y[rowIndex] };
+    rows[free].push(x);
+    return { x, y: LABEL_ROW_Y[free] };
   });
 }
 
@@ -140,7 +142,7 @@ function Chart({
               x={labelAt[i].x}
               y={labelAt[i].y}
               textAnchor="middle"
-              fontSize={8}
+              fontSize={LABEL_FONT_SIZE}
               className="fill-ui-dark-blue dark:fill-ui-light-grey"
             >
               {c.label}

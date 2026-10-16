@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { SimExplainer, FORECAST_SIM_HELP_ID, buildHistogramBins, type SimValueExplainerProps } from "./sim-explainer";
+import { SimExplainer, FORECAST_SIM_HELP_ID, LABEL_HALF_W, LABEL_FONT_SIZE, CHART_TOP, buildHistogramBins, type SimValueExplainerProps } from "./sim-explainer";
 import { loadI18n } from "./i18n";
 import { MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
 
@@ -143,6 +143,11 @@ describe("SimExplainer", () => {
 });
 
 describe("SimExplainer popover and chart fixes (§502)", () => {
+  const expectNoOverlap = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+    const apartX = Math.abs(a.x - b.x) >= 2 * LABEL_HALF_W;
+    const apartY = Math.abs(a.y - b.y) >= LABEL_FONT_SIZE;
+    expect(apartX || apartY).toBe(true);
+  };
   const openChart = async (props: Partial<SimValueExplainerProps>) => {
     const user = userEvent.setup();
     setup(props);
@@ -177,11 +182,27 @@ describe("SimExplainer popover and chart fixes (§502)", () => {
   it("labels of cut-offs in neighbouring bins do not overlap", async () => {
     const labels = await openChart({ markers: { p50: 10, p80: 11, p95: 20 } });
     for (let i = 0; i < labels.length; i += 1) {
-      for (let j = i + 1; j < labels.length; j += 1) {
-        const apartX = Math.abs(labels[i].x - labels[j].x) >= 16;
-        const apartY = Math.abs(labels[i].y - labels[j].y) >= 8;
-        expect(apartX || apartY).toBe(true);
-      }
+      for (let j = i + 1; j < labels.length; j += 1) expectNoOverlap(labels[i], labels[j]);
+    }
+  });
+
+  it.each([
+    ["all three cut-offs equal", { p50: 10, p80: 10, p95: 10 }],
+    ["three cut-offs within one label width", { p50: 10, p80: 10.4, p95: 10.8 }],
+    ["three cut-offs clamped at the right edge", { p50: 22, p80: 23, p95: 24 }],
+  ])("%s: labels sit on distinct rows and never overlap", async (_n, m) => {
+    const labels = await openChart({ markers: m });
+    for (let i = 0; i < labels.length; i += 1) {
+      for (let j = i + 1; j < labels.length; j += 1) expectNoOverlap(labels[i], labels[j]);
+    }
+    if (m.p50 === m.p80) expect(new Set(labels.map((l) => l.y)).size).toBe(3);
+  });
+
+  it("every label sits inside the viewBox and above the bars", async () => {
+    const labels = await openChart({ markers: { p50: 10, p80: 10, p95: 10 } });
+    for (const l of labels) {
+      expect(l.y - LABEL_FONT_SIZE).toBeGreaterThanOrEqual(0);
+      expect(l.y).toBeLessThanOrEqual(CHART_TOP);
     }
   });
 });
