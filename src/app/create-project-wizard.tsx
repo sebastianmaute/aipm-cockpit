@@ -345,6 +345,8 @@ export function CreateProjectWizard({
   // lands on Step 1 has no way back to re-describe, only Cancel), or the
   // workspace-import picker. With AI on the picker sits on Step 0, so Step 1 offers it only once Back is gone
   // (details captured): without it an AI user past Step 1 could import a file only by cancelling the wizard.
+  // ★ An import from here replaces the details (`acceptImport` clears `meta`), so Back to Describe returns
+  // and the picker goes away until details are captured again; to swap files, import again from Step 0.
   const step1FooterLeft = (
     <div className="flex items-center gap-2">
       {aiEnabled && !meta && (

@@ -3718,6 +3718,7 @@ const enUS = {
   forecastDashboardDefaultsNote: "The Dashboard uses the default settings.",
   simulationShow: "Use Monte Carlo forecasting",
   simulationIntroText: "Simulation is on. Dashed teal numbers are simulated, not measured. \"P80\" means 8 in 10 simulated runs reached it. Switch it off in the Budget burn tile or in Edit project.",
+  simulationIntroTextNoTile: "Simulation is on. Dashed teal numbers are simulated, not measured. \"P80\" means 8 in 10 simulated runs reached it. Switch it off in Edit project.",
   simulationIntroShowMe: "Show me",
   simulationIntroGotIt: "Got it",
   helpConceptForecastSimTitle: "Forecast simulation",

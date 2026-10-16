@@ -14,8 +14,20 @@ export function buildDemoWorkspace(raw: unknown, today: string): Workspace {
   const history = shifted.forecastHistory?.filter((e) => e.date <= today);
   // The same shift can move a task's completion past today, and the forecast and coaching would then count
   // work finished in the future. Clamp it to today: the task stays Done (status ⟺ completedDate holds).
-  const tasks = shifted.tasks.map((task) =>
-    task.completedDate && task.completedDate > today ? { ...task, completedDate: today } : task,
-  );
+  // Creation and last update are records of the past too, so they get the same bound, which keeps a clamped
+  // task created and updated no later than it was finished. Planned dates (`startDate`) stay in the future.
+  const tasks = shifted.tasks.map((task) => {
+    const clamped = {
+      completedDate: notAfter(task.completedDate, today),
+      createdDate: notAfter(task.createdDate, today),
+      lastUpdateDate: notAfter(task.lastUpdateDate, today) ?? task.lastUpdateDate,
+    };
+    const changed = (Object.keys(clamped) as (keyof typeof clamped)[]).some((k) => clamped[k] !== task[k]);
+    return changed ? { ...task, ...clamped } : task;
+  });
   return history === undefined ? { ...shifted, tasks } : { ...shifted, tasks, forecastHistory: history };
+}
+
+function notAfter(date: string | undefined, bound: string): string | undefined {
+  return date && date > bound ? bound : date;
 }

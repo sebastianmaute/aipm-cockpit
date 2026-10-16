@@ -39,6 +39,14 @@ describe("buildDemoWorkspace", () => {
     expect(done.every((t) => t.completedDate! <= today)).toBe(true);
     expect(done.every((t) => t.status === "Done")).toBe(true);
   });
+  it("keeps creation and last update in the past, so no task is finished before it was touched", () => {
+    const today = "2026-10-01";
+    const ws = buildDemoWorkspace(raw, today);
+    // Positive controls: the shift moves at least one update and one creation past today, so both are clamped.
+    expect(ws.tasks.some((t) => t.lastUpdateDate === today)).toBe(true);
+    expect(ws.tasks.some((t) => t.createdDate === today)).toBe(true);
+    expect(ws.tasks.every((t) => t.lastUpdateDate <= today && (t.createdDate ?? "") <= today)).toBe(true);
+  });
   it("rejects a corrupt master loudly (strict decode)", () => {
     expect(() => buildDemoWorkspace({ tasks: 1 }, DEMO_AS_OF)).toThrow();
   });

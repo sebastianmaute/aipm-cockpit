@@ -1843,10 +1843,28 @@ describe("DashboardPanel simulation switch", () => {
     // Positive control: the tile, and with it the switch, is really gone while the intro stays.
     expect(screen.queryByTestId("tile-burn")).toBeNull();
     expect(screen.queryByRole("button", { name: new RegExp(simName()) })).toBeNull();
-    await user.click(screen.getByRole("button", { name: t(EN, "simulationIntroGotIt") }));
+    // The text no longer points at a tile that is not there.
     expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+    expect(screen.getByText(t(EN, "simulationIntroTextNoTile"))).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: t(EN, "simulationIntroGotIt") }));
+    expect(screen.queryByText(t(EN, "simulationIntroTextNoTile"))).toBeNull();
     expect(document.activeElement).not.toBe(document.body);
     expect(document.activeElement?.matches(FOCUSABLE_SELECTOR)).toBe(true);
+  });
+
+  it("names Edit project alone once the burn tile is on the shelf", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-sim-shelved" />, { wrapper });
+    await settleSettings();
+    await user.click(screen.getByRole("button", { name: new RegExp(simName()) }));
+    expect(await screen.findByText(t(EN, "simulationIntroText"))).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: kebab(t(EN, "dashboardBudgetBurn")) }));
+    const menu = screen.getByRole("dialog", { name: kebab(t(EN, "dashboardBudgetBurn")) });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
+    // Positive control: the tile is really shelved, not merely re-rendered.
+    expect(screen.queryByTestId("tile-burn")).toBeNull();
+    expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
+    expect(screen.getByText(t(EN, "simulationIntroTextNoTile"))).toBeInTheDocument();
   });
 
   it("Escape with focus left on the switch dismisses the intro like Got it", async () => {

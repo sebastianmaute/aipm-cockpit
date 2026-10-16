@@ -3432,6 +3432,7 @@ export const de: Record<TranslationKey, string> = {
   forecastDashboardDefaultsNote: "Das Dashboard verwendet die Standardeinstellungen.",
   simulationShow: "Monte-Carlo-Prognose verwenden",
   simulationIntroText: "Die Simulation ist an. Gestrichelte türkise Zahlen sind simuliert, nicht gemessen. „P80“ bedeutet: 8 von 10 simulierten Durchläufen haben es erreicht. Ausschalten können Sie sie in der Kachel „Budgetverbrauch“ oder unter „Projekt bearbeiten“.",
+  simulationIntroTextNoTile: "Die Simulation ist an. Gestrichelte türkise Zahlen sind simuliert, nicht gemessen. „P80“ bedeutet: 8 von 10 simulierten Durchläufen haben es erreicht. Ausschalten können Sie sie unter „Projekt bearbeiten“.",
   simulationIntroShowMe: "Zeig es mir",
   simulationIntroGotIt: "Verstanden",
   helpConceptForecastSimTitle: "Prognose-Simulation",

@@ -722,7 +722,11 @@ describe("CreateProjectWizard AI Step 0", () => {
       .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(picker, { target: { files: [new File(["{ not json"], "bad.json", { type: "application/json" })] } });
     const msg = t("en-US", "wizardImportWorkspaceInvalid", "bad.json");
-    expect(await screen.findByText(msg)).toBeInTheDocument();
+    const err = await screen.findByText(msg);
+    // The error sits right above the footer that holds the picker, below the describe field, not at the top.
+    const follows = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    expect(follows(screen.getByLabelText(t("en-US", "aiCreateDescribeLabel")), err)).toBe(true);
+    expect(follows(err, screen.getByRole("button", { name: t("en-US", "aiCreateSkip") }))).toBe(true);
     fireEvent.change(screen.getByLabelText(t("en-US", "aiCreateDescribeLabel")), {
       target: { value: "a crm project" },
     });
