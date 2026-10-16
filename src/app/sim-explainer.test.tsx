@@ -142,6 +142,50 @@ describe("SimExplainer", () => {
   });
 });
 
+describe("SimExplainer popover and chart fixes (§502)", () => {
+  const openChart = async (props: Partial<SimValueExplainerProps>) => {
+    const user = userEvent.setup();
+    setup(props);
+    await user.click(screen.getByRole("button", { name: "How to read this" }));
+    const svg = screen.getByRole("img", { name: /Spread of simulated finish times/ });
+    return Array.from(svg.querySelectorAll("text")).map((el) => ({
+      x: Number(el.getAttribute("x")),
+      y: Number(el.getAttribute("y")),
+    }));
+  };
+
+  it("following the Help link closes the popover, then opens Help", async () => {
+    const user = userEvent.setup();
+    const onOpenHelp = vi.fn();
+    setup({ onOpenHelp });
+    await user.click(screen.getByRole("button", { name: "How to read this" }));
+    await user.click(screen.getByRole("button", { name: "Learn more in Help" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onOpenHelp).toHaveBeenCalledTimes(1);
+    expect(onOpenHelp).toHaveBeenCalledWith(FORECAST_SIM_HELP_ID);
+  });
+
+  it("cut labels stay inside the chart at both ends", async () => {
+    const labels = await openChart({ markers: { p50: 5, p80: 24, p95: 24 } });
+    expect(labels).toHaveLength(3);
+    for (const l of labels) {
+      expect(l.x).toBeGreaterThanOrEqual(8);
+      expect(l.x).toBeLessThanOrEqual(232);
+    }
+  });
+
+  it("labels of cut-offs in neighbouring bins do not overlap", async () => {
+    const labels = await openChart({ markers: { p50: 10, p80: 11, p95: 20 } });
+    for (let i = 0; i < labels.length; i += 1) {
+      for (let j = i + 1; j < labels.length; j += 1) {
+        const apartX = Math.abs(labels[i].x - labels[j].x) >= 16;
+        const apartY = Math.abs(labels[i].y - labels[j].y) >= 8;
+        expect(apartX || apartY).toBe(true);
+      }
+    }
+  });
+});
+
 describe("buildHistogramBins", () => {
   it("never exceeds the bin cap and counts every in-horizon trial once", () => {
     const H = MAX_HORIZON_WORKING_DAYS;

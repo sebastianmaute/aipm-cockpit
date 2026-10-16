@@ -64,11 +64,27 @@ export function buildHistogramBins(distribution: ArrayLike<number>, maxBins: num
 const CHART_W = 240;
 const CHART_H = 72;
 const CHART_TOP = 10;
+/** Half the width of a cut label ("P95" at 8px); a label centred closer than this to an edge would be clipped. */
+const LABEL_HALF_W = 8;
+/** Baselines of the two label rows; the second sits inside the viewBox, over the bars. */
+const LABEL_ROW_Y = [CHART_TOP - 3, CHART_TOP + 7] as const;
 const CUTS: ReadonlyArray<{ p: SimPercentile; key: keyof SimMarkers; label: string }> = [
   { p: 50, key: "p50", label: "P50" },
   { p: 80, key: "p80", label: "P80" },
   { p: 95, key: "p95", label: "P95" },
 ];
+
+/** Clamp each label centre inside the chart, then put a label on the first row where it clears every label already there. */
+function layoutLabels(xs: number[]): Array<{ x: number; y: number }> {
+  const rows: number[][] = LABEL_ROW_Y.map(() => []);
+  return xs.map((raw) => {
+    const x = Math.min(CHART_W - LABEL_HALF_W, Math.max(LABEL_HALF_W, raw));
+    const free = rows.findIndex((row) => row.every((o) => Math.abs(o - x) >= 2 * LABEL_HALF_W));
+    const rowIndex = free === -1 ? rows.length - 1 : free;
+    rows[rowIndex].push(x);
+    return { x, y: LABEL_ROW_Y[rowIndex] };
+  });
+}
 
 function Chart({
   bins,
@@ -85,6 +101,7 @@ function Chart({
   const slot = CHART_W / Math.max(1, bins.length);
   const peak = Math.max(1, ...bins.map((b) => b.count));
   const xFor = (day: number) => Math.min(CHART_W, Math.max(0, ((day - first) / domain) * CHART_W));
+  const labelAt = layoutLabels(CUTS.map((c) => xFor(markers[c.key])));
   return (
     <svg
       role="img"
@@ -106,7 +123,7 @@ function Chart({
           />
         );
       })}
-      {CUTS.map((c) => {
+      {CUTS.map((c, i) => {
         const x = xFor(markers[c.key]);
         return (
           <g key={c.p}>
@@ -120,8 +137,8 @@ function Chart({
               className="stroke-ui-dark-blue dark:stroke-ui-light-grey"
             />
             <text
-              x={x}
-              y={CHART_TOP - 3}
+              x={labelAt[i].x}
+              y={labelAt[i].y}
               textAnchor="middle"
               fontSize={8}
               className="fill-ui-dark-blue dark:fill-ui-light-grey"
@@ -227,7 +244,10 @@ export function SimExplainer(props: SimExplainerProps) {
         )}
         {beyond > 0 && <p className="block text-muted-foreground">{t(lang, "simBeyondHorizon", beyondShare)}</p>}
         {onOpenHelp && (
-          <Button variant="ghost" size="xs" onClick={() => onOpenHelp(FORECAST_SIM_HELP_ID)}>
+          <Button variant="ghost" size="xs" onClick={() => {
+            close();
+            onOpenHelp(FORECAST_SIM_HELP_ID);
+          }}>
             {t(lang, "simExplainerHelp")}
           </Button>
         )}
