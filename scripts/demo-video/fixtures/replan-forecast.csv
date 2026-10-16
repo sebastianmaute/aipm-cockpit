@@ -1,5 +1,15 @@
-Re-plan after the MVP slip (team call 22 Sep) - planned effort per person,,,,
-Who,Function,Re-plan hrs (rest of Sep),Re-plan hrs (Oct),Of which CRM work
+Re-plan after the MVP slip - team call Tue 22 Sep,,,,
+,,,,
+Assumptions,,,,
+- MVP operational again by Thu 1 Oct; customer re-demo Fri 2 Oct,,,,
+- CRM provisioning via the vendor connector (change request pending),,,,
+- September hours are the rest of the month from 22 Sep,,,,
+- Noah is on vacation 28 Sep - 2 Oct and is not in this bucket,,,,
+- Pilot Go-Live stays on 23 Oct,,,,
+- Hours are planned effort; actuals come from TimeLog,,,,
+Owner: Maya Patel,,,,
+,,,,
+Who,Function,Sep 2026,Oct 2026,Of which CRM work
 Sofia Ramirez,Developer,60,150,40
 Ava Thompson,Advisor,40,96,0
 Maya Patel,Project Manager,48,120,24

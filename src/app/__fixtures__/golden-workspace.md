@@ -72,6 +72,7 @@
 | 1 | Sofia Ramirez | sofia.ramirez@example.com | 2026-08-10 | 2026-08-21 | vacation | Family trip |  | 1 |  |  |
 | 2 | Noah Bennett | noah.bennett@example.com | 2026-09-15 | 2026-09-15 | sick |  |  | 2 |  |  |
 | 3 | Ava Thompson | ava.thompson@example.com | 2026-09-28 | 2026-09-30 | training | Kubernetes cert |  | 3 |  |  |
+| 4 | Maya Patel | maya.patel@example.com | 2026-10-19 | 2026-10-20 | other | Offsite leadership summit |  | 4 |  |  |
 | 5 | Noah Bennett | noah.bennett@example.com | 2026-11-09 | 2026-11-13 | vacation | Summer holiday |  | 2 |  |  |
 
 ## Calendar Events
@@ -785,16 +786,6 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
   {
     "id": "demo-seed-029",
     "timestamp": "2026-08-21T16:40:00.000Z",
-    "kind": "task.completed",
-    "args": [
-      25,
-      "MVP demo to the customer"
-    ],
-    "actor": "user"
-  },
-  {
-    "id": "demo-seed-030",
-    "timestamp": "2026-08-21T17:00:00.000Z",
     "kind": "milestone.updated",
     "args": [
       5
@@ -802,9 +793,9 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
     "actor": "user",
     "changes": [
       {
-        "field": "achievedDate",
-        "from": "",
-        "to": "2026-08-21"
+        "field": "date",
+        "from": "2026-07-17",
+        "to": "2026-09-18"
       }
     ]
   },
@@ -907,6 +898,17 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
     "kind": "doc.linkAdded",
     "args": [
       "Hypercare on-call rota"
+    ],
+    "actor": "user"
+  },
+  {
+    "id": "demo-seed-030",
+    "timestamp": "2026-09-18T15:10:00.000Z",
+    "kind": "raid.created",
+    "args": [
+      15,
+      "I",
+      "GDPR erasure requests do not reach the CRM"
     ],
     "actor": "user"
   }

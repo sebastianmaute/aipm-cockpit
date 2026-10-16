@@ -37,7 +37,7 @@ The video is written to `.superpowers/tmp/demo-video/aipm-cockpit-getting-starte
 
 ## Fixtures
 
-- `fixtures/replan-forecast.csv` is the team's re-plan spreadsheet that the demo week imports into the bucket "Identity Platform – T&M" with **Import forecast…**. Its headers are chosen so Detect columns cannot map them, which is what makes **Ask Claude** the step; `replan-fixture.test.ts` fails if that changes.
+- `fixtures/replan-forecast.csv` is the team's re-plan spreadsheet that the demo week imports into the bucket "Identity Platform – T&M" with **Import forecast…**. Its table sits below an assumptions block, past the ten rows Detect columns scans for a header, so Detect finds nothing and **Ask Claude** maps it; its month headers stay readable, so that mapping imports every hour. `replan-fixture.test.ts` checks both halves.
 
 ## On screen
 

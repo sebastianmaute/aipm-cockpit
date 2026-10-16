@@ -6,8 +6,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": true,
-    "remainingHours": 4370.2,
-    "remainingCost": 632182.0273752458,
+    "remainingHours": 4354.2,
+    "remainingCost": 629782.0273752458,
     "pctComplete": 2,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -64,51 +64,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
+        "plannedHours": 4027.3999999999996,
         "actualHours": null,
-        "plannedCost": 587146.0273752458,
+        "plannedCost": 584746.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
+        "plannedHours": 3719,
         "actualHours": null,
-        "plannedCost": 544258.0273752458,
+        "plannedCost": 541858.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
+        "plannedHours": 3176.6,
         "actualHours": null,
-        "plannedCost": 474330.0273752458,
+        "plannedCost": 471930.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -155,8 +155,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 4370.2,
-    "remainingCost": 632182.0273752458,
+    "remainingHours": 4354.2,
+    "remainingCost": 629782.0273752458,
     "pctComplete": 2,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -213,51 +213,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
+        "plannedHours": 4027.3999999999996,
         "actualHours": null,
-        "plannedCost": 587146.0273752458,
+        "plannedCost": 584746.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
+        "plannedHours": 3719,
         "actualHours": null,
-        "plannedCost": 544258.0273752458,
+        "plannedCost": 541858.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
+        "plannedHours": 3176.6,
         "actualHours": null,
-        "plannedCost": 474330.0273752458,
+        "plannedCost": 471930.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -304,8 +304,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 4370.2,
-    "remainingCost": 632182.0273752458,
+    "remainingHours": 4354.2,
+    "remainingCost": 629782.0273752458,
     "pctComplete": 5,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -362,51 +362,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
+        "plannedHours": 4027.3999999999996,
         "actualHours": null,
-        "plannedCost": 587146.0273752458,
+        "plannedCost": 584746.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
+        "plannedHours": 3719,
         "actualHours": null,
-        "plannedCost": 544258.0273752458,
+        "plannedCost": 541858.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
+        "plannedHours": 3176.6,
         "actualHours": null,
-        "plannedCost": 474330.0273752458,
+        "plannedCost": 471930.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -453,8 +453,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 4054.2,
-    "remainingCost": 588627.0273752458,
+    "remainingHours": 4038.2,
+    "remainingCost": 586227.0273752458,
     "pctComplete": 7,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -511,51 +511,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
+        "plannedHours": 3719,
         "actualHours": null,
-        "plannedCost": 544258.0273752458,
+        "plannedCost": 541858.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
+        "plannedHours": 3176.6,
         "actualHours": null,
-        "plannedCost": 474330.0273752458,
+        "plannedCost": 471930.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -602,8 +602,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 4054.2,
-    "remainingCost": 588627.0273752458,
+    "remainingHours": 4038.2,
+    "remainingCost": 586227.0273752458,
     "pctComplete": 7,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -660,51 +660,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
+        "plannedHours": 3719,
         "actualHours": null,
-        "plannedCost": 544258.0273752458,
+        "plannedCost": 541858.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
+        "plannedHours": 3176.6,
         "actualHours": null,
-        "plannedCost": 474330.0273752458,
+        "plannedCost": 471930.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -751,8 +751,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 4054.2,
-    "remainingCost": 588627.0273752458,
+    "remainingHours": 4038.2,
+    "remainingCost": 586227.0273752458,
     "pctComplete": 10,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -809,51 +809,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
+        "plannedHours": 3719,
         "actualHours": null,
-        "plannedCost": 544258.0273752458,
+        "plannedCost": 541858.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
+        "plannedHours": 3176.6,
         "actualHours": null,
-        "plannedCost": 474330.0273752458,
+        "plannedCost": 471930.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -900,8 +900,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 4054.2,
-    "remainingCost": 588627.0273752458,
+    "remainingHours": 4038.2,
+    "remainingCost": 586227.0273752458,
     "pctComplete": 10,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -958,51 +958,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
+        "plannedHours": 3719,
         "actualHours": null,
-        "plannedCost": 544258.0273752458,
+        "plannedCost": 541858.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
+        "plannedHours": 3176.6,
         "actualHours": null,
-        "plannedCost": 474330.0273752458,
+        "plannedCost": 471930.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -1049,8 +1049,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 3753.2,
-    "remainingCost": 546772.0273752458,
+    "remainingHours": 3737.2,
+    "remainingCost": 544372.0273752458,
     "pctComplete": 12,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -1107,51 +1107,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
+        "plannedHours": 3176.6,
         "actualHours": null,
-        "plannedCost": 474330.0273752458,
+        "plannedCost": 471930.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -1198,8 +1198,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 3753.2,
-    "remainingCost": 546772.0273752458,
+    "remainingHours": 3737.2,
+    "remainingCost": 544372.0273752458,
     "pctComplete": 14,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -1256,51 +1256,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
+        "plannedHours": 3176.6,
         "actualHours": null,
-        "plannedCost": 474330.0273752458,
+        "plannedCost": 471930.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -1347,8 +1347,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 3753.2,
-    "remainingCost": 546772.0273752458,
+    "remainingHours": 3737.2,
+    "remainingCost": 544372.0273752458,
     "pctComplete": 17,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -1405,51 +1405,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
+        "plannedHours": 3176.6,
         "actualHours": null,
-        "plannedCost": 474330.0273752458,
+        "plannedCost": 471930.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -1496,8 +1496,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 3753.2,
-    "remainingCost": 546772.0273752458,
+    "remainingHours": 3737.2,
+    "remainingCost": 544372.0273752458,
     "pctComplete": 17,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -1554,51 +1554,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
+        "plannedHours": 3176.6,
         "actualHours": null,
-        "plannedCost": 474330.0273752458,
+        "plannedCost": 471930.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -1645,8 +1645,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 3753.2,
-    "remainingCost": 546772.0273752458,
+    "remainingHours": 3737.2,
+    "remainingCost": 544372.0273752458,
     "pctComplete": 19,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -1703,51 +1703,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
+        "plannedHours": 3176.6,
         "actualHours": null,
-        "plannedCost": 474330.0273752458,
+        "plannedCost": 471930.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -1794,8 +1794,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 3244.2,
-    "remainingCost": 481207.0273752458,
+    "remainingHours": 3228.2,
+    "remainingCost": 478807.0273752458,
     "pctComplete": 19,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -1856,51 +1856,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -1947,8 +1947,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 3244.2,
-    "remainingCost": 481207.0273752458,
+    "remainingHours": 3228.2,
+    "remainingCost": 478807.0273752458,
     "pctComplete": 21,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -2009,51 +2009,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -2100,8 +2100,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 3244.2,
-    "remainingCost": 481207.0273752458,
+    "remainingHours": 3228.2,
+    "remainingCost": 478807.0273752458,
     "pctComplete": 24,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -2162,51 +2162,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -2253,8 +2253,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 3244.2,
-    "remainingCost": 481207.0273752458,
+    "remainingHours": 3228.2,
+    "remainingCost": 478807.0273752458,
     "pctComplete": 24,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -2315,51 +2315,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
+        "plannedHours": 2749,
         "actualHours": null,
-        "plannedCost": 412218.0273752458,
+        "plannedCost": 409818.0273752458,
         "actualCost": null
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -2406,8 +2406,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 2833.2,
-    "remainingCost": 421017.0273752458,
+    "remainingHours": 2817.2,
+    "remainingCost": 418617.0273752458,
     "pctComplete": 24,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -2472,51 +2472,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
-        "actualHours": 2833.2,
-        "plannedCost": 412218.0273752458,
-        "actualCost": 421017.0273752458
+        "plannedHours": 2749,
+        "actualHours": 2817.2,
+        "plannedCost": 409818.0273752458,
+        "actualCost": 418617.0273752458
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -2563,8 +2563,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 2833.2,
-    "remainingCost": 421017.0273752458,
+    "remainingHours": 2817.2,
+    "remainingCost": 418617.0273752458,
     "pctComplete": 26,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -2629,51 +2629,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
-        "actualHours": 2833.2,
-        "plannedCost": 412218.0273752458,
-        "actualCost": 421017.0273752458
+        "plannedHours": 2749,
+        "actualHours": 2817.2,
+        "plannedCost": 409818.0273752458,
+        "actualCost": 418617.0273752458
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -2720,8 +2720,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 2833.2,
-    "remainingCost": 421017.0273752458,
+    "remainingHours": 2817.2,
+    "remainingCost": 418617.0273752458,
     "pctComplete": 26,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -2786,51 +2786,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
-        "actualHours": 2833.2,
-        "plannedCost": 412218.0273752458,
-        "actualCost": 421017.0273752458
+        "plannedHours": 2749,
+        "actualHours": 2817.2,
+        "plannedCost": 409818.0273752458,
+        "actualCost": 418617.0273752458
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -2877,8 +2877,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 2833.2,
-    "remainingCost": 421017.0273752458,
+    "remainingHours": 2817.2,
+    "remainingCost": 418617.0273752458,
     "pctComplete": 29,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -2943,51 +2943,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
-        "actualHours": 2833.2,
-        "plannedCost": 412218.0273752458,
-        "actualCost": 421017.0273752458
+        "plannedHours": 2749,
+        "actualHours": 2817.2,
+        "plannedCost": 409818.0273752458,
+        "actualCost": 418617.0273752458
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -3034,8 +3034,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 2833.2,
-    "remainingCost": 421017.0273752458,
+    "remainingHours": 2817.2,
+    "remainingCost": 418617.0273752458,
     "pctComplete": 31,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -3104,51 +3104,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
-        "actualHours": 2833.2,
-        "plannedCost": 412218.0273752458,
-        "actualCost": 421017.0273752458
+        "plannedHours": 2749,
+        "actualHours": 2817.2,
+        "plannedCost": 409818.0273752458,
+        "actualCost": 418617.0273752458
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
+        "plannedHours": 2424.2,
         "actualHours": null,
-        "plannedCost": 365247.2563740951,
+        "plannedCost": 362847.2563740951,
         "actualCost": null
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -3195,8 +3195,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 2601.2,
-    "remainingCost": 388851.60570830514,
+    "remainingHours": 2585.2,
+    "remainingCost": 386451.60570830514,
     "pctComplete": 36,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -3269,51 +3269,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
-        "actualHours": 2833.2,
-        "plannedCost": 412218.0273752458,
-        "actualCost": 421017.0273752458
+        "plannedHours": 2749,
+        "actualHours": 2817.2,
+        "plannedCost": 409818.0273752458,
+        "actualCost": 418617.0273752458
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
-        "actualHours": 2601.2,
-        "plannedCost": 365247.2563740951,
-        "actualCost": 388851.60570830514
+        "plannedHours": 2424.2,
+        "actualHours": 2585.2,
+        "plannedCost": 362847.2563740951,
+        "actualCost": 386451.60570830514
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -3360,8 +3360,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 2577.2,
-    "remainingCost": 384906.1840413645,
+    "remainingHours": 2561.2,
+    "remainingCost": 382506.1840413645,
     "pctComplete": 38,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -3434,51 +3434,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
-        "actualHours": 2833.2,
-        "plannedCost": 412218.0273752458,
-        "actualCost": 421017.0273752458
+        "plannedHours": 2749,
+        "actualHours": 2817.2,
+        "plannedCost": 409818.0273752458,
+        "actualCost": 418617.0273752458
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
-        "actualHours": 2577.2,
-        "plannedCost": 365247.2563740951,
-        "actualCost": 384906.1840413645
+        "plannedHours": 2424.2,
+        "actualHours": 2561.2,
+        "plannedCost": 362847.2563740951,
+        "actualCost": 382506.1840413645
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -3525,8 +3525,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 2551.2,
-    "remainingCost": 380631.9772355121,
+    "remainingHours": 2535.2,
+    "remainingCost": 378231.9772355121,
     "pctComplete": 40,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -3599,51 +3599,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
-        "actualHours": 2833.2,
-        "plannedCost": 412218.0273752458,
-        "actualCost": 421017.0273752458
+        "plannedHours": 2749,
+        "actualHours": 2817.2,
+        "plannedCost": 409818.0273752458,
+        "actualCost": 418617.0273752458
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
-        "actualHours": 2551.2,
-        "plannedCost": 365247.2563740951,
-        "actualCost": 380631.9772355121
+        "plannedHours": 2424.2,
+        "actualHours": 2535.2,
+        "plannedCost": 362847.2563740951,
+        "actualCost": 378231.9772355121
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -3690,8 +3690,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 2526.2,
-    "remainingCost": 376522.16299911565,
+    "remainingHours": 2510.2,
+    "remainingCost": 374122.16299911565,
     "pctComplete": 43,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -3764,51 +3764,51 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
-        "actualHours": 2833.2,
-        "plannedCost": 412218.0273752458,
-        "actualCost": 421017.0273752458
+        "plannedHours": 2749,
+        "actualHours": 2817.2,
+        "plannedCost": 409818.0273752458,
+        "actualCost": 418617.0273752458
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
-        "actualHours": 2526.2,
-        "plannedCost": 365247.2563740951,
-        "actualCost": 376522.16299911565
+        "plannedHours": 2424.2,
+        "actualHours": 2510.2,
+        "plannedCost": 362847.2563740951,
+        "actualCost": 374122.16299911565
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
+        "plannedHours": 1826.6,
         "actualHours": null,
-        "plannedCost": 275140.4853729444,
+        "plannedCost": 272740.4853729444,
         "actualCost": null
       },
       {
@@ -3855,8 +3855,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 2435.2,
-    "remainingCost": 362736.741332175,
+    "remainingHours": 2419.2,
+    "remainingCost": 360336.741332175,
     "pctComplete": 48,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -3933,52 +3933,52 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
-        "actualHours": 2833.2,
-        "plannedCost": 412218.0273752458,
-        "actualCost": 421017.0273752458
+        "plannedHours": 2749,
+        "actualHours": 2817.2,
+        "plannedCost": 409818.0273752458,
+        "actualCost": 418617.0273752458
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
-        "actualHours": 2520.2,
-        "plannedCost": 365247.2563740951,
-        "actualCost": 375535.8075823805
+        "plannedHours": 2424.2,
+        "actualHours": 2504.2,
+        "plannedCost": 362847.2563740951,
+        "actualCost": 373135.8075823805
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
-        "actualHours": 2435.2,
-        "plannedCost": 275140.4853729444,
-        "actualCost": 362736.741332175
+        "plannedHours": 1826.6,
+        "actualHours": 2419.2,
+        "plannedCost": 272740.4853729444,
+        "actualCost": 360336.741332175
       },
       {
         "period": "2026-10",
@@ -4024,8 +4024,8 @@
     "cadence": "weekly",
     "trigger": "auto",
     "isBaseline": false,
-    "remainingHours": 2326.2,
-    "remainingCost": 346281.31966523436,
+    "remainingHours": 2310.2,
+    "remainingCost": 343881.31966523436,
     "pctComplete": 50,
     "forecastEndDate": "2027-02-26",
     "planEndDate": "2027-02-26",
@@ -4102,52 +4102,52 @@
     "series": [
       {
         "period": "2026-03",
-        "plannedHours": 4364.599999999999,
-        "actualHours": 4370.2,
-        "plannedCost": 631410.0273752458,
-        "actualCost": 632182.0273752458
+        "plannedHours": 4348.599999999999,
+        "actualHours": 4354.2,
+        "plannedCost": 629010.0273752458,
+        "actualCost": 629782.0273752458
       },
       {
         "period": "2026-04",
-        "plannedHours": 4043.3999999999996,
-        "actualHours": 4054.2,
-        "plannedCost": 587146.0273752458,
-        "actualCost": 588627.0273752458
+        "plannedHours": 4027.3999999999996,
+        "actualHours": 4038.2,
+        "plannedCost": 584746.0273752458,
+        "actualCost": 586227.0273752458
       },
       {
         "period": "2026-05",
-        "plannedHours": 3735,
-        "actualHours": 3753.2,
-        "plannedCost": 544258.0273752458,
-        "actualCost": 546772.0273752458
+        "plannedHours": 3719,
+        "actualHours": 3737.2,
+        "plannedCost": 541858.0273752458,
+        "actualCost": 544372.0273752458
       },
       {
         "period": "2026-06",
-        "plannedHours": 3192.6,
-        "actualHours": 3244.2,
-        "plannedCost": 474330.0273752458,
-        "actualCost": 481207.0273752458
+        "plannedHours": 3176.6,
+        "actualHours": 3228.2,
+        "plannedCost": 471930.0273752458,
+        "actualCost": 478807.0273752458
       },
       {
         "period": "2026-07",
-        "plannedHours": 2765,
-        "actualHours": 2833.2,
-        "plannedCost": 412218.0273752458,
-        "actualCost": 421017.0273752458
+        "plannedHours": 2749,
+        "actualHours": 2817.2,
+        "plannedCost": 409818.0273752458,
+        "actualCost": 418617.0273752458
       },
       {
         "period": "2026-08",
-        "plannedHours": 2440.2,
-        "actualHours": 2520.2,
-        "plannedCost": 365247.2563740951,
-        "actualCost": 375535.8075823805
+        "plannedHours": 2424.2,
+        "actualHours": 2504.2,
+        "plannedCost": 362847.2563740951,
+        "actualCost": 373135.8075823805
       },
       {
         "period": "2026-09",
-        "plannedHours": 1842.6,
-        "actualHours": 2326.2,
-        "plannedCost": 275140.4853729444,
-        "actualCost": 346281.31966523436
+        "plannedHours": 1826.6,
+        "actualHours": 2310.2,
+        "plannedCost": 272740.4853729444,
+        "actualCost": 343881.31966523436
       },
       {
         "period": "2026-10",

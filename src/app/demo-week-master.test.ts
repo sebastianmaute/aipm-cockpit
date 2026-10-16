@@ -56,6 +56,20 @@ describe("the demo master (§715)", () => {
     }
   });
 
+  it("keeps the activity log on the story: the MVP was never delivered", () => {
+    const log = ws.activityLog ?? [];
+    const demoTask = ws.tasks.find((t) => t.taskName === "MVP demo to the customer")!;
+    expect(log.filter((e) => e.kind === "task.completed" && e.args[0] === demoTask.id)).toEqual([]);
+    expect(log.filter((e) => e.kind === "milestone.updated" && e.args[0] === 5
+      && (e.changes ?? []).some((c) => c.field === "achievedDate" && c.to !== ""))).toEqual([]);
+  });
+
+  it("moves Maya's offsite out of the week rather than dropping it", () => {
+    const offsite = ws.absences.find((a) => a.note === "Offsite leadership summit");
+    expect(offsite).toBeDefined();
+    expect(offsite!.endDate < DEMO_WEEK_DATES.mon || offsite!.startDate > DEMO_WEEK_DATES.fri).toBe(true);
+  });
+
   it("holds the week's material", () => {
     for (const pair of DEMO_DUPLICATE_PAIRS) {
       const rows = pair.map((n) => ws.tasks.find((t) => t.taskName === n));

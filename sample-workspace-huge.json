@@ -18455,6 +18455,16 @@
       "resourceId": 3
     },
     {
+      "id": 4,
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "startDate": "2026-10-19",
+      "endDate": "2026-10-20",
+      "type": "other",
+      "note": "Offsite leadership summit",
+      "resourceId": 4
+    },
+    {
       "id": 5,
       "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
@@ -18492,6 +18502,16 @@
       "type": "training",
       "note": "Kubernetes cert",
       "resourceId": 3
+    },
+    {
+      "id": 100004,
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "startDate": "2026-10-19",
+      "endDate": "2026-10-20",
+      "type": "other",
+      "note": "Offsite leadership summit",
+      "resourceId": 4
     },
     {
       "id": 100005,
@@ -18533,6 +18553,16 @@
       "resourceId": 3
     },
     {
+      "id": 200004,
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "startDate": "2026-10-19",
+      "endDate": "2026-10-20",
+      "type": "other",
+      "note": "Offsite leadership summit",
+      "resourceId": 4
+    },
+    {
       "id": 200005,
       "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
@@ -18570,6 +18600,16 @@
       "type": "training",
       "note": "Kubernetes cert",
       "resourceId": 3
+    },
+    {
+      "id": 300004,
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "startDate": "2026-10-19",
+      "endDate": "2026-10-20",
+      "type": "other",
+      "note": "Offsite leadership summit",
+      "resourceId": 4
     },
     {
       "id": 300005,
@@ -18611,6 +18651,16 @@
       "resourceId": 3
     },
     {
+      "id": 400004,
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "startDate": "2026-10-19",
+      "endDate": "2026-10-20",
+      "type": "other",
+      "note": "Offsite leadership summit",
+      "resourceId": 4
+    },
+    {
       "id": 400005,
       "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
@@ -18648,6 +18698,16 @@
       "type": "training",
       "note": "Kubernetes cert",
       "resourceId": 3
+    },
+    {
+      "id": 500004,
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "startDate": "2026-10-19",
+      "endDate": "2026-10-20",
+      "type": "other",
+      "note": "Offsite leadership summit",
+      "resourceId": 4
     },
     {
       "id": 500005,
@@ -18689,6 +18749,16 @@
       "resourceId": 3
     },
     {
+      "id": 600004,
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "startDate": "2026-10-19",
+      "endDate": "2026-10-20",
+      "type": "other",
+      "note": "Offsite leadership summit",
+      "resourceId": 4
+    },
+    {
       "id": 600005,
       "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
@@ -18726,6 +18796,16 @@
       "type": "training",
       "note": "Kubernetes cert",
       "resourceId": 3
+    },
+    {
+      "id": 700004,
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "startDate": "2026-10-19",
+      "endDate": "2026-10-20",
+      "type": "other",
+      "note": "Offsite leadership summit",
+      "resourceId": 4
     },
     {
       "id": 700005,
@@ -18767,6 +18847,16 @@
       "resourceId": 3
     },
     {
+      "id": 800004,
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "startDate": "2026-10-19",
+      "endDate": "2026-10-20",
+      "type": "other",
+      "note": "Offsite leadership summit",
+      "resourceId": 4
+    },
+    {
       "id": 800005,
       "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
@@ -18804,6 +18894,16 @@
       "type": "training",
       "note": "Kubernetes cert",
       "resourceId": 3
+    },
+    {
+      "id": 900004,
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "startDate": "2026-10-19",
+      "endDate": "2026-10-20",
+      "type": "other",
+      "note": "Offsite leadership summit",
+      "resourceId": 4
     },
     {
       "id": 900005,
@@ -27965,16 +28065,6 @@
     {
       "id": "demo-seed-029",
       "timestamp": "2026-08-21T16:40:00.000Z",
-      "kind": "task.completed",
-      "args": [
-        25,
-        "MVP demo to the customer"
-      ],
-      "actor": "user"
-    },
-    {
-      "id": "demo-seed-030",
-      "timestamp": "2026-08-21T17:00:00.000Z",
       "kind": "milestone.updated",
       "args": [
         5
@@ -27982,9 +28072,9 @@
       "actor": "user",
       "changes": [
         {
-          "field": "achievedDate",
-          "from": "",
-          "to": "2026-08-21"
+          "field": "date",
+          "from": "2026-07-17",
+          "to": "2026-09-18"
         }
       ]
     },
@@ -28087,6 +28177,17 @@
       "kind": "doc.linkAdded",
       "args": [
         "Hypercare on-call rota"
+      ],
+      "actor": "user"
+    },
+    {
+      "id": "demo-seed-030",
+      "timestamp": "2026-09-18T15:10:00.000Z",
+      "kind": "raid.created",
+      "args": [
+        15,
+        "I",
+        "GDPR erasure requests do not reach the CRM"
       ],
       "actor": "user"
     }
