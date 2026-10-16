@@ -50,6 +50,7 @@ import { RaidRegisterCard, UpcomingCard } from "./dashboard-sections/registers-b
 import { InsightsCard } from "./dashboard-sections/insights-card";
 import { t, type Lang, type TranslationKey } from "./i18n";
 import type { DashboardModel } from "./dashboard";
+import type { ForecastBundle } from "./budget-forecast-bundle";
 import type { DashboardTileId } from "./dashboard-tiles";
 import type { DensityClasses } from "./dashboard-density";
 import type { MetricKey, MetricTrend } from "./dashboard-trends";
@@ -139,6 +140,10 @@ export interface TileBodyArgs {
   onOpenAction?: (a: SuggestedAction) => void;
   /** The ONE forecast run the panel shares with the KPI strip (§502); null while off or pending. */
   forecast: AppForecast | null;
+  /** `model.forecastBundle`, with the budget simulation from that same run attached while it is on
+   *  (`withBudgetSim`, §502). The tiles read this in place of the model's; the model and the budget
+   *  RAG never see the simulation. */
+  forecastBundle: ForecastBundle | null;
   /** The rest of the Forecast tile's props, built whatever the switch says; its gate decides whether it renders. */
   forecastTile: Omit<DashboardForecastTileProps, "lang" | "forecast">;
 }
@@ -232,9 +237,10 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
         <BurndownChartPanel
           lang={lang}
           series={model.burndown}
-          bundle={model.forecastBundle}
+          bundle={a.forecastBundle}
           today={model.chartDates.today}
           planEnd={model.chartDates.planEnd}
+          planStart={model.chartDates.planStart}
           currency={a.currency}
           compact
           // Undefined when neither control renders, so the panel draws no empty row.

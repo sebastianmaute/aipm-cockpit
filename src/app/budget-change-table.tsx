@@ -20,6 +20,8 @@ import { currencySymbol, formatCurrency } from "./resource-cost";
 import { formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
 import { orderBudgetChanges, type BudgetHistorySummary, type VarianceSplit } from "./budget-history";
 import type { ChartUnit } from "./burndown-geometry";
+import type { CostAtFinish } from "./forecast/cost";
+import { SimValue } from "./sim-value";
 
 const TH_CLASS = "px-2 py-1 text-left text-xs font-medium text-muted-foreground";
 const TH_NUM_CLASS = "px-2 py-1 text-right text-xs font-medium text-muted-foreground";
@@ -32,7 +34,7 @@ const TD_DATE_CLASS = `${TD_CLASS} whitespace-nowrap`;
 const TD_NUM_CLASS = "px-2 py-1 text-right align-top tabular-nums whitespace-nowrap";
 
 export function BudgetChangeTable({
-  lang, history, split, unit, currency,
+  lang, history, split, unit, currency, sim = null,
 }: {
   lang: Lang;
   history: BudgetHistorySummary;
@@ -41,8 +43,13 @@ export function BudgetChangeTable({
   split: VarianceSplit | null;
   unit: ChartUnit;
   currency: string;
+  /** §502 — the simulated cost at finish in the DISPLAYED unit; null (the default) when the simulation is
+   *  off. Only an available range adds a footer row; the missing-input note lives on the cards and tile. */
+  sim?: CostAtFinish | null;
 }) {
   const captionId = useId();
+  const simTermId = useId();
+  const footTermId = useId();
   const locale = localeFor(lang);
   const eurUnit = unit === "eur";
   const fmt = (v: number) => (eurUnit ? formatCurrency(v, currency, locale) : formatHours(v, locale));
@@ -73,6 +80,11 @@ export function BudgetChangeTable({
     { key: "attributed", term: t(lang, "forecastSplitScope"), value: split.attributed },
     { key: "unattributed", term: t(lang, "forecastSplitUnattributed"), value: split.unattributed },
   ];
+  const simTerm = t(lang, eurUnit ? "budgetChangeSimRow" : "budgetChangeSimRowHours");
+  const simFigure = (v: number | "beyond") => (v === "beyond" ? t(lang, "simHistogramBeyond") : fmt(v));
+  const simRange = sim !== null && sim.kind === "sim"
+    ? t(lang, "budgetChangeSimRange", simFigure(sim.p50), simFigure(sim.p95))
+    : null;
 
   return (
     // ★ `tabIndex={0}` is an accessibility fix: this wrapper scrolls and its
@@ -117,16 +129,32 @@ export function BudgetChangeTable({
             </tr>
           ))}
         </tbody>
-        {footRows.length > 0 && (
+        {(footRows.length > 0 || simRange !== null) && (
           <tfoot className="border-t border-line">
+            {/* The split's values also sit in the running-total column ("Added scope to date"), which they are
+                not: like the simulated row below, each `headers` names its own row header alone. The ids are
+                `useId`-based, so the table rendering twice on one page cannot collide. */}
             {footRows.map((row) => (
               <tr key={row.key}>
-                <th scope="row" colSpan={3} className={`${TD_CLASS} text-left font-normal text-muted-foreground`}>
+                <th id={`${footTermId}-${row.key}`} scope="row" colSpan={3} className={`${TD_CLASS} text-left font-normal text-muted-foreground`}>
                   {row.term}
                 </th>
-                <td className={TD_NUM_CLASS}>{signed(row.value)}</td>
+                <td headers={`${footTermId}-${row.key}`} className={TD_NUM_CLASS}>{signed(row.value)}</td>
               </tr>
             ))}
+            {/* §502 — the simulated range beside the calculated split, never in its place. Its value sits in
+                the running-total column ("Added scope to date"), which it is not: `headers` names its own row
+                header alone, so a screen reader announces "Cost at finish (sim, P50–P95)" for it, never that column. */}
+            {simRange !== null && (
+              <tr>
+                <th id={simTermId} scope="row" colSpan={3} className={`${TD_CLASS} text-left font-normal text-muted-foreground`}>
+                  {simTerm}
+                </th>
+                <td headers={simTermId} className={TD_NUM_CLASS}>
+                  <SimValue lang={lang} label={simTerm} value={simRange} />
+                </td>
+              </tr>
+            )}
           </tfoot>
         )}
       </table>

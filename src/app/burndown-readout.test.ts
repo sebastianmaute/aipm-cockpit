@@ -31,6 +31,9 @@ const BASE: ChartModel = {
   today: "2026-02-01",
   planEnd: "2026-03-01",
   frameDiffers: false,
+  simFinish: null,
+  simCost: null,
+  simCostP80: null,
 };
 const model = (over: Partial<ChartModel>): ChartModel => ({ ...BASE, ...over });
 

@@ -4,6 +4,7 @@ import { buildDashboardInput, computeDashboard, type DashboardModel } from "./da
 import { type ProjectReport } from "./budget-report";
 import type { BudgetForecast } from "./budget-forecast";
 import type { ForecastBundle } from "./budget-forecast-bundle";
+import { FIXTURE_FACTS } from "../test/forecast-bundle-fixture";
 import type { BudgetHistoryEntry } from "./budget-history";
 import type { RateMix, RateMixRow } from "./budget-rate-mix";
 
@@ -219,7 +220,7 @@ describe("budget forecast (open-followups §545)", () => {
   function bundle(changeCount: number): ForecastBundle {
     return {
       eur: eurForecast, hours: hoursForecast, mix,
-      evHistory: { available: true, points: [] }, currency: "EUR",
+      evHistory: { available: true, points: [] }, currency: "EUR", facts: FIXTURE_FACTS,
       history: changeCount < 0 ? null : {
         baselineDate: "2026-04-01",
         baseline: { hours: 100, value: 10000 },

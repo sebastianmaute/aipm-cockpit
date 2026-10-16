@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { bucketProgressSeries, computeEvHistory, type BucketProgressRecord, type EvHistoryInput, type EvHistoryTask } from "./budget-ev-history";
 import { computeBudgetReport, type BudgetReport } from "./budget-report";
-import { computeBudgetForecastsByUnit, type BudgetForecastInput } from "./budget-forecast";
+import { forecastFactsByUnit, type BudgetForecastInput } from "./budget-forecast";
 import { actualPointDates, computeBurndownSeries } from "./budget-burndown";
 import type { BudgetBucket, ResourcePlan, Role } from "./types";
 
@@ -45,12 +45,12 @@ describe("computeEvHistory", () => {
     const today = "2026-09-14";
     const burndown = computeBurndownSeries(b, plan, roles, [], 8, none, [], today, null);
     const inp: BudgetForecastInput = { report: report(b), buckets: b, roles, fxRates: null, tasks, plan, burndown, holidaySet: none, today };
-    const { eur, hours } = computeBudgetForecastsByUnit(inp);
+    const { eur, hours } = forecastFactsByUnit(inp);
     const h = computeEvHistory({ report: inp.report, buckets: b, tasks, dates, today, progress: NO_PROGRESS });
     if (!h.available) throw new Error("unavailable");
     const last = h.points[h.points.length - 1];
-    expect(last.eur).toBeCloseTo(eur.facts.ev!, 9);
-    expect(last.hours).toBeCloseTo(hours.facts.ev!, 9);
+    expect(last.eur).toBeCloseTo(eur.ev!, 9);
+    expect(last.hours).toBeCloseTo(hours.ev!, 9);
   });
 
   it("ends at the forecast's EV when today is past the last plan period (overdue project)", () => {
@@ -68,15 +68,15 @@ describe("computeEvHistory", () => {
     const pointDates = actualPointDates(burndown, today);
     expect(pointDates[pointDates.length - 1] < today).toBe(true);
     const inp: BudgetForecastInput = { report: rep, buckets: b, roles, fxRates: null, tasks: withLate, plan: overduePlan, burndown, holidaySet: none, today };
-    const { eur, hours } = computeBudgetForecastsByUnit(inp);
+    const { eur, hours } = forecastFactsByUnit(inp);
     const h = computeEvHistory({ report: rep, buckets: b, tasks: withLate, dates: pointDates, today, progress: NO_PROGRESS });
     if (!h.available) throw new Error("unavailable");
     const last = h.points[h.points.length - 1];
     // 3 of 4 linked tasks finished (Done, Cancelled, late Done) → 75% of 10,000 € / 100 h.
     expect(last.eur).toBeCloseTo(7_500, 9);
     expect(last.hours).toBeCloseTo(75, 9);
-    expect(last.eur).toBeCloseTo(eur.facts.ev!, 9);
-    expect(last.hours).toBeCloseTo(hours.facts.ev!, 9);
+    expect(last.eur).toBeCloseTo(eur.ev!, 9);
+    expect(last.hours).toBeCloseTo(hours.ev!, 9);
   });
 
   it("draws a hand-entered bucket with no record as partial, not as unavailable (rule 1A′)", () => {
@@ -155,9 +155,9 @@ describe("computeEvHistory — own-basis re-basing (§550)", () => {
     const { report: bucketReport, buckets, tasks, forecastInput } = spilloverFixture();
     const h = computeEvHistory({ report: bucketReport, buckets, tasks, dates: [TODAY], today: TODAY, progress: NO_PROGRESS });
     if (!h.available) throw new Error("expected available");
-    const f = computeBudgetForecastsByUnit(forecastInput);
-    expect(h.points.at(-1)!.eur).toBeCloseTo(f.eur.facts.ev!, 6);
-    expect(h.points.at(-1)!.hours).toBeCloseTo(f.hours.facts.ev!, 6);
+    const f = forecastFactsByUnit(forecastInput);
+    expect(h.points.at(-1)!.eur).toBeCloseTo(f.eur.ev!, 6);
+    expect(h.points.at(-1)!.hours).toBeCloseTo(f.hours.ev!, 6);
   });
 });
 // Rule 1A′ (spec §5.1) — a task-linked bucket whose links resolve to no tasks:

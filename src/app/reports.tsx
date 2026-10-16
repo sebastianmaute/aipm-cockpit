@@ -58,6 +58,7 @@ import { type Lang, t } from "./i18n";
 import { type Task } from "./types";
 import { RaidReportPanel } from "./raid-report-panel";
 import { BudgetReportPanel } from "./budget-report-panel";
+import type { AppForecast } from "./forecast/app-forecast";
 import { ResourcesReportPanel } from "./resources-report";
 import { StakeholderReportPanel } from "./stakeholder-report-panel";
 import { ADDABLE_REPORTS, type AddableReportId } from "./addable-reports";
@@ -108,6 +109,7 @@ export function ReportsPanel({
   snapshots = EMPTY_SNAPSHOTS,
   budgetHistory = EMPTY_BUDGET_HISTORY,
   baselineHistory = EMPTY_BASELINE_HISTORY,
+  budgetSimulation = null,
 }: {
   tasks: readonly Task[];
   today: string;
@@ -169,6 +171,9 @@ export function ReportsPanel({
   budgetHistory?: readonly BudgetHistoryEntry[];
   /** The project's baseline-currency switches (`useWorkspace()`, §476). */
   baselineHistory?: readonly BaselineEntry[];
+  /** The shared schedule run for the embedded Budget report's budget simulation (§502) —
+   *  computed ONCE by workspace-section through `useAppForecast`; null while the simulation is off. */
+  budgetSimulation?: AppForecast | null;
 }) {
   // id -> Resource lookup so the by-assignee grouping keys off each linked
   // task's LIVE resource name (the stored `assignee` cache goes stale on rename).
@@ -461,7 +466,7 @@ export function ReportsPanel({
 
   const renderEmbedded = (id: AddableReportId) => {
     if (id === "raid-report") return <RaidReportPanel embedded lang={lang} items={raid} today={today} resourcesById={resourcesById} />;
-    if (id === "budget-report") return plan ? <BudgetReportPanel embedded lang={lang} buckets={buckets} plan={plan} roles={roles} disciplines={disciplines} grades={grades} resources={resources} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} fxRates={fxRates} tasks={tasks} today={today} snapshots={snapshots} budgetHistory={budgetHistory} baselineHistory={baselineHistory} /> : null;
+    if (id === "budget-report") return plan ? <BudgetReportPanel embedded lang={lang} buckets={buckets} plan={plan} roles={roles} disciplines={disciplines} grades={grades} resources={resources} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} fxRates={fxRates} tasks={tasks} today={today} snapshots={snapshots} budgetHistory={budgetHistory} baselineHistory={baselineHistory} simulation={budgetSimulation} /> : null;
     if (id === "resource-report") return plan ? <ResourcesReportPanel embedded lang={lang} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} /> : null;
     if (id === "stakeholder-report") return <StakeholderReportPanel embedded lang={lang} stakeholders={stakeholders} milestones={milestones} />;
     return null;

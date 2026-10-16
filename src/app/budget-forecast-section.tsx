@@ -31,7 +31,7 @@ export function ForecastSection({
   const [focusNonce, setFocusNonce] = useState(0);
   const { settings, setSettings } = useSettings();
   const view: ForecastView = settings.budgetForecastView ?? "pace";
-  const { eur, hours, mix, history, currency } = bundle;
+  const { eur, hours, mix, history, currency, sim } = bundle;
   const showMix = () => {
     setMixOpen(true);
     setFocusNonce((n) => n + 1);
@@ -45,7 +45,7 @@ export function ForecastSection({
       <div className="flex flex-col gap-3 xl:flex-row">
         <div className="xl:w-[30%]">
           <ForecastCards
-            lang={lang} currency={currency} forecast={eur} hours={hours} mix={mix} history={history}
+            lang={lang} currency={currency} forecast={eur} hours={hours} mix={mix} history={history} sim={sim}
             view={view}
             onViewChange={(v) => setSettings((s) => ({ ...s, budgetForecastView: v }))}
           />

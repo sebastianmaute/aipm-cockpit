@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { ForecastPanel } from "./forecast-panel";
 import { loadI18n, t } from "./i18n";
 import type { Milestone, ResourcePlan, Task } from "./types";
+import type { DatedValue, ForecastFacts, ForecastFactsByUnit } from "./budget-forecast";
 import { nthWorkingDayAfter, workingDaysBefore } from "./working-days";
 import { MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
 import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
@@ -398,5 +399,89 @@ describe("ForecastPanel — the Dashboard-defaults note (§502)", () => {
     );
     await user.selectOptions(screen.getByLabelText("Verlauf"), "90");
     expect(screen.getByText(t("de", "forecastDashboardDefaultsNote"))).toBeTruthy();
+  });
+});
+
+// ---- §502 part 3: cost at finish from the view's own (What-if-adjusted) run ----
+describe("ForecastPanel — cost at finish (§502)", () => {
+  const history = [...open(5), ...steadyDone(60)];
+  const WINDOW = [...workingDaysBefore(TODAY, 59, NO_HOLIDAYS), TODAY];
+  /** Spend booked on the last `days` window days, varied so the percentiles spread. */
+  function facts(days: number, bac = 100_000, ac = 40_000): ForecastFactsByUnit {
+    const dated: DatedValue[] = WINDOW.slice(-days).map((date, i) => ({ date, bookedFrom: date, value: 500 + (i % 7) * 150, spread: false }));
+    const f: ForecastFacts = {
+      bac, ac, ev: null, pv: 0, bucketsMissingPercent: [], dated,
+      planEnd: PLAN.endDate, today: TODAY, holidaySet: NO_HOLIDAYS, hasFixedPrice: false,
+    };
+    return { eur: f, hours: { ...f, bac: 1000, ac: 400 } };
+  }
+  const FULL = facts(60);
+  const renderCost = (budgetFacts: ForecastFactsByUnit | null, showSimulation = true, tasks: Task[] = history, budgetEnabled = true) =>
+    render(
+      <ForecastPanel lang="en-US" tasks={tasks} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} showSimulation={showSimulation} budgetFacts={budgetFacts} budgetEnabled={budgetEnabled} />,
+    );
+  const card = () => screen.getByRole("group", { name: "Cost at finish, simulated" });
+  const p80Cost = (): number => {
+    const row = within(card()).getByRole("row", { name: /^Safe to commit \(P80\)/ });
+    return Number((within(row).getByRole("cell").textContent ?? "").replace(/[^0-9.]/g, ""));
+  };
+
+  // Capacity is team availability: the finish comes sooner but each day burns twice as much, so the
+  // cost barely moves. AC 0 and 30 open tasks make the drawn spend the whole figure, so dropping
+  // `* scale` in the cost loop (which halves it) turns this red — mutation-checked.
+  test("a What-if capacity of 200 % leaves the P80 cost within ±10 % of the default", async () => {
+    const user = userEvent.setup();
+    renderCost(facts(60, 100_000, 0), true, [...open(30), ...steadyDone(60)]);
+    const before = p80Cost();
+    expect(before).toBeGreaterThan(0);
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    const capacity = screen.getByLabelText("Capacity (%)");
+    await user.clear(capacity);
+    await user.type(capacity, "200{Enter}");
+    expect(p80Cost()).toBeGreaterThan(before * 0.9);
+    expect(p80Cost()).toBeLessThan(before * 1.1);
+  });
+
+  test("a What-if scope of +100 % raises the P80 cost", async () => {
+    const user = userEvent.setup();
+    renderCost(FULL);
+    const before = p80Cost();
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    const scope = screen.getByLabelText("Scope change (%)");
+    await user.clear(scope);
+    await user.type(scope, "100{Enter}");
+    expect(p80Cost()).toBeGreaterThan(before);
+  });
+
+  test("no budget shows the add-a-budget line", () => {
+    renderCost(null);
+    expect(within(card()).getByText("Add a budget to see the cost at finish.")).toBeTruthy();
+  });
+
+  test("below the spend floor names the counts", () => {
+    renderCost(facts(4));
+    expect(within(card()).getByText("Needs 10 working days of booking history in the window (has 4).")).toBeTruthy();
+  });
+
+  // One message, not two: the insufficient state already names the shortfall, so the cost card (and its
+  // missing-schedule line) is not rendered below it.
+  test("below the schedule floor shows only the insufficient state, no cost card", () => {
+    renderCost(FULL, true, [...open(4), ...steadyDone(3)]);
+    expect(screen.getByText("3 of 10 finished tasks — 7 more needed")).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Cost at finish, simulated" })).toBeNull();
+    expect(screen.queryByText(t("en-US", "budgetSimMissingSchedule"))).toBeNull();
+  });
+
+  test("the cost card is absent without the simulation switch", () => {
+    renderCost(FULL, false);
+    expect(screen.queryByRole("group", { name: "Cost at finish, simulated" })).toBeNull();
+    expect(screen.queryByText("Cost at finish")).toBeNull();
+  });
+
+  // Mutation: dropping the `budgetEnabled` conjunct of `costCard` turns this red.
+  test("Budget module off: no cost card, not even the add-a-budget line", () => {
+    renderCost(null, true, history, false);
+    expect(screen.queryByRole("group", { name: "Cost at finish, simulated" })).toBeNull();
+    expect(screen.queryByText("Add a budget to see the cost at finish.")).toBeNull();
   });
 });

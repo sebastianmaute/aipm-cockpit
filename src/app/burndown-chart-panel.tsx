@@ -7,7 +7,9 @@
 // chosen view; the switches themselves do not print.
 import { useMemo, type ReactNode } from "react";
 import { type Lang, t, localeFor } from "./i18n";
-import { currencySymbol } from "./resource-cost";
+import { currencySymbol, formatCurrency } from "./resource-cost";
+import { formatHours } from "./forecast-format";
+import { SimValue } from "./sim-value";
 import { useSettings } from "./use-settings";
 import { SegmentedControl } from "./segmented-control";
 import { BurndownChart } from "./burndown-chart";
@@ -17,8 +19,41 @@ import { isPaceAvailable } from "./budget-forecast";
 import { splitVariance } from "./budget-history";
 import type { BurndownSeries } from "./budget-burndown";
 import type { ForecastBundle } from "./budget-forecast-bundle";
+import type { CostAtFinish } from "./forecast/cost";
+import { costUnavailableText, formatChanceOverBudget } from "./budget-sim-text";
 
-type PanelBundle = Pick<ForecastBundle, "eur" | "hours" | "evHistory" | "history">;
+type PanelBundle = Pick<ForecastBundle, "eur" | "hours" | "evHistory" | "history" | "sim">;
+
+/** The simulated cost range in the displayed unit, or null when the simulation is off (`sim` absent or null). */
+function simCostFor(bundle: PanelBundle | null, unit: ChartUnit): CostAtFinish | null {
+  const sim = bundle?.sim ?? null;
+  return sim === null ? null : sim[unit];
+}
+
+/** §502 — the burn tile's one simulated line under the chart: the P80 cost at finish and the chance
+ *  over budget, marked sim; the missing-input line when the range is unavailable; nothing when off. */
+function SimTileLine({ lang, cost, unit, currency }: { lang: Lang; cost: CostAtFinish | null; unit: ChartUnit; currency: string }) {
+  if (cost === null) return null;
+  if (cost.kind === "unavailable") {
+    return (
+      <p className="text-xs text-muted-foreground">{costUnavailableText(lang, cost)}</p>
+    );
+  }
+  const locale = localeFor(lang);
+  const p80 = cost.p80 === "beyond"
+    ? t(lang, "simHistogramBeyond")
+    : unit === "eur" ? formatCurrency(cost.p80, currency, locale) : formatHours(cost.p80, locale);
+  // The hours unit says "Hours at finish": "Cost" beside an "h" figure misreads.
+  const hours = unit === "hours";
+  const line = cost.chanceOverBudget === null
+    ? t(lang, hours ? "burndownSimTileLineHoursNoChance" : "burndownSimTileLineNoChance", p80)
+    : t(lang, hours ? "burndownSimTileLineHours" : "burndownSimTileLine", p80, formatChanceOverBudget(cost.chanceOverBudget, locale));
+  return (
+    <div>
+      <SimValue lang={lang} label={t(lang, hours ? "budgetSimHoursAtFinish" : "budgetSimCostAtFinish")} value={line} wrap />
+    </div>
+  );
+}
 
 /** Either unit has a budget to draw. With neither, the switches could not reach
  *  a drawable chart, so only the "no budget" hint renders (the twin charts' rule). */
@@ -51,14 +86,16 @@ function changeTableFor({
       forecast.facts.bac, forecast.pace.eac,
     )
     : null;
-  return <BudgetChangeTable lang={lang} history={history} split={split} unit={unit} currency={currency} />;
+  return <BudgetChangeTable lang={lang} history={history} split={split} unit={unit} currency={currency} sim={simCostFor(bundle, unit)} />;
 }
 
 export function BurndownChartPanel({
-  lang, series, bundle, today, planEnd, currency, compact = false, detachChangeTable = false, toolbarEnd,
+  lang, series, bundle, today, planEnd, planStart, currency, compact = false, detachChangeTable = false, toolbarEnd,
 }: {
   lang: Lang; series: BurndownSeries; bundle: PanelBundle | null;
   today: string; planEnd: string; currency: string;
+  /** The plan's start: the length of the x-domain cap with the simulation on (`simDomainCap`). */
+  planStart?: string;
   /** True inside the dashboard tile. Spec §5.2 — "the dashboard tile shows the
    *  headline only", with D7 naming "tile carries the split too" as the
    *  REJECTED alternative — so the recorded-change table and its variance
@@ -89,12 +126,13 @@ export function BurndownChartPanel({
   const history = bundle ? bundle.history : null;
   const model = useMemo(
     () => buildChartModel({
-      series, unit, orientation, today, planEnd,
+      series, unit, orientation, today, planEnd, planStart,
       forecast: bundle ? bundle[unit] : null,
       evHistory: bundle ? bundle.evHistory : null,
       history,
+      sim: bundle ? bundle.sim : null,
     }),
-    [series, unit, orientation, today, planEnd, bundle, history],
+    [series, unit, orientation, today, planEnd, planStart, bundle, history],
   );
   // Spec §5.2: headline only in the tile — see the `compact` prop doc. A
   // detached table is the caller's to place — see `detachChangeTable`.
@@ -148,6 +186,7 @@ export function BurndownChartPanel({
       <div className="flex flex-col gap-3 2xl:flex-row">
         <div className="min-w-0 flex-1">
           <BurndownChart lang={lang} currency={currency} model={model} unit={unit} orientation={orientation} periods={series.periods} notesAsInfo={compact} />
+          {compact && <SimTileLine lang={lang} cost={simCostFor(bundle, unit)} unit={unit} currency={currency} />}
         </div>
         {changeTable && <div className="min-w-0 2xl:w-[30rem] 2xl:shrink-0">{changeTable}</div>}
       </div>

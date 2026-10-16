@@ -1906,7 +1906,7 @@ describe("DashboardPanel with the forecast view held back (RELEASE_HIDDEN_VIEWS)
   const simName = () => new RegExp(t(EN, "simulationShow"));
   const FORECAST: appForecastModule.AppForecast = {
     kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
-    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
+    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trialDays: Int32Array.from([5, 10, 15]), windowDates: [], trials: 10000,
     markers: { p50: 5, p80: 10, p95: 15 },
     milestones: [],
   };
@@ -1946,7 +1946,7 @@ describe("DashboardPanel simulated KPI cells", () => {
   const simName = () => new RegExp(t(EN, "simulationShow"));
   const FORECAST: appForecastModule.AppForecast = {
     kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
-    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
+    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trialDays: Int32Array.from([5, 10, 15]), windowDates: [], trials: 10000,
     markers: { p50: 5, p80: 10, p95: 15 },
     milestones: [],
   };
@@ -2054,7 +2054,7 @@ describe("DashboardPanel Forecast tile", () => {
   const simName = () => new RegExp(t(EN, "simulationShow"));
   const FORECAST: appForecastModule.AppForecast = {
     kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
-    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
+    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trialDays: Int32Array.from([5, 10, 15]), windowDates: [], trials: 10000,
     markers: { p50: 5, p80: 10, p95: 15 },
     milestones: [],
   };
@@ -2205,7 +2205,7 @@ describe("DashboardPanel milestone chance chips", () => {
   const simName = () => new RegExp(t(EN, "simulationShow"));
   const FORECAST: appForecastModule.AppForecast = {
     kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
-    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
+    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trialDays: Int32Array.from([5, 10, 15]), windowDates: [], trials: 10000,
     markers: { p50: 5, p80: 10, p95: 15 },
     milestones: [{ id: 1, state: "chance", chance: 0.62, chancePrioritised: 0.7 }],
   };

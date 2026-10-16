@@ -8,6 +8,8 @@
 // SVG-renderer test so both layers assert against one set of numbers.
 import type { BurndownSeries } from "../app/budget-burndown";
 import type { BudgetForecast } from "../app/budget-forecast";
+import type { BudgetSim } from "../app/budget-sim";
+import type { CostAtFinish } from "../app/forecast/cost";
 
 export const CHART_SERIES: BurndownSeries = {
   periods: ["2026-01", "2026-02", "2026-03"],
@@ -48,4 +50,15 @@ export const CHART_FORECAST_HOURS: BudgetForecast = {
   efficiency: { pv: 45, cpi: 0.9, spi: 0.8, etc: 70, eac: 110, vac: -20 },
   gap: null,
   hasFixedPrice: false,
+};
+
+// A simulated budget (§502 part 3) beside CHART_FORECAST: finish dates past the plan end (2026-03-31), a
+// cost range above BAC, and an hours twin that is NOT the € range divided by 100, so a surface reading the
+// wrong unit cannot pass by coincidence. Both ranges are typed as the "sim" variant, so a test can spread
+// one and override a single field.
+type SimRange = Extract<CostAtFinish, { kind: "sim" }>;
+export const CHART_SIM: BudgetSim & { eur: SimRange; hours: SimRange } = {
+  finish: { p50: "2026-03-20", p80: "2026-04-10", p95: "2026-05-01" },
+  eur: { kind: "sim", p50: 9_500, p80: 10_200, p95: 11_000, chanceOverBudget: 0.7, spendDays: 20 },
+  hours: { kind: "sim", p50: 96, p80: 103, p95: 112, chanceOverBudget: 0.65, spendDays: 20 },
 };
