@@ -1,0 +1,280 @@
+# Video guides — the demo week (project E, and what it changes in A)
+
+## Why
+
+The owner's test for a demo video: a video is fake or thin when it does not show a working
+workflow, the app being used for its intended purpose. A's first design
+(`2026-10-16-video-guides-recorder-design.md`) organised the big video as a tour of views, one
+feature after another. Nothing in it shows a project lead's real week: a problem arrives, you act on
+it, and the actions ripple through the plan, the people, the risks and the money.
+
+This document does two things:
+
+1. **Designs project E**, the demo data, around one story that a week of work can follow.
+2. **Replaces A's big video and chapter videos** with that week. A's 35 short clips (tiers 3 and 4)
+   stay as they are, recorded on the same data.
+
+## The programme after this document
+
+| Project | What | Status |
+|---|---|---|
+| D | Milestone drag in the Gantt | merged (#763) |
+| §747 | Workload signal reads the current period (defect) | first — its own PR |
+| **E** | **Demo data for the week story — this document** | **after §747** |
+| A | The recorder — its big video and chapters now follow "The week" below | after E; A's spec stays authoritative for everything this document does not replace |
+| B, C | Upload, in-app links | unchanged |
+
+Filed on the owner's word while designing this, for later: §743 (early warning before a milestone
+slips), §744 (a weekend activity still open on Monday), §745 (a guided tour per clip), §746 (a guided
+tour per project Function). Found by the builder check and to be fixed **before** E (owner): §747
+(the workload signal reads the plan's first period, not the current one).
+
+## Goals
+
+- **The story (owner):** the demo stays the customer identity project "Customer Identity Platform"
+  for Northwind Retail Group. Its MVP was due last Friday and was not delivered because it is not
+  operational.
+- **What "operational" means (owner, carried to customer identity):** a working installation of the
+  customer lifecycle end to end — register (the customer "joiner": sign-up, email verification, MFA
+  enrolment), change (the "mover": email or profile change, a B2B user moving company account),
+  delete (the "leaver": account closure, GDPR erasure) — with existing customers read from the legacy
+  shop database (the source) and every lifecycle event provisioned to the CRM and the customer
+  directory (the targets).
+- **Why it failed (owner-approved):** registration works on screen, but provisioning to the CRM
+  fails: new customers never reach the CRM, and erasure requests do not propagate — a GDPR exposure
+  as well as a slip. The MVP demo to the customer was called off.
+- **Monday opens on the slip (owner):** on Monday morning the Dashboard hero is the MVP milestone,
+  overdue. "Slipped" means the date has already passed (owner).
+- **The week is the big video (owner):** Monday to Friday, each day a chapter, each day using a
+  different Open Points view, with the actions the owner listed (see "The week").
+- **Manual first, then AI (owner):** each action is shown done by hand, then done with the AI
+  function that does the same job.
+- **Every Next-actions item at T0 is intended.** The list on Monday must look triaged: a short Now
+  tier, a Soon tier fed by several different sources, a few monitor items — and nothing that does not
+  belong to the story.
+
+## Non-goals
+
+- Reframing the demo as a workforce identity project (HR → Entra ID Joiner/Mover/Leaver). The owner
+  chose to keep customer identity.
+- An app change to make an "at risk" milestone win the hero (that is §743). The hero here comes from
+  the overdue rule as it is.
+- The guided tours of §745 and §746.
+- A's 35 short clips: unchanged, except that they now run on the reworked data.
+
+## Anti-goals (a failure even if it technically works)
+
+- A Monday list cluttered with overdue tasks that have nothing to do with the story. Today's data
+  would show four of them at a Monday T0 (tasks 4, 5, 6 and 27).
+- Anything the video adds by hand already existing in the data (a second "Integration engineer" role,
+  Noah's vacation already logged, the DPO already a stakeholder). The viewer must see it appear.
+- Real personal or client names. The repo is public; fictional names only.
+- A week that only works at the recorder's pinned date. The demo is also what real users open with
+  **Explore the demo**; it must still read as a coherent project on any day (see "Dates").
+
+## Constraints
+
+- **One master file.** `sample-workspace-small.json` is the only hand-edited sample. `-big` and
+  `-huge` are regenerated with `npx vite-node scripts/generate-sample-workspace.ts`, then the golden
+  fixtures (`src/app/__fixtures__/golden-*`) are regenerated through the serializers — a legitimate
+  input change, so regenerating them is correct here.
+- **Tests that read the sample** must be found repo-wide (`grep -rln "sample-workspace-small" src e2e
+  scripts`) and each labelled keep / migrate / recompute before editing; `e2e/seed-workspace.ts`
+  reads it at module top level.
+- **Dates move with `DEMO_AS_OF`** (`demo-workspace.ts`, today `2026-09-18`, a Friday) by whole
+  months (`demoShiftFor`, plan granularity `month`), so weekdays are not preserved by the shift.
+- **No schema change.** Everything here is data in existing fields. If a need turns out to require a
+  new field, stop and bring it back.
+
+## Dates
+
+The recorder pins the clock. A's spec sets `T0 = 2026-11-02 09:00 +01:00`; at that T0 the demo
+shifts by +2 months and "last Friday" maps to a Sunday in the master.
+
+**My call:** move the recorder's `T0` to **Monday 2026-09-21, 08:30 +02:00**. The shift is then 0,
+master dates are what the viewer sees, and the master's `DEMO_AS_OF` (Friday 2026-09-18) is exactly
+"last Friday" — the MVP's due date. The week runs Monday 21 to Friday 25 September; the demo is
+created once on Monday, and each later day advances the page clock (`page.clock.setSystemTime`) to
+08:30 that day, so overdue counts, next actions, activity dates and saved versions move with it.
+
+For real users opening the demo on another day the month shift applies as today. On days 1–17 of a
+month the MVP is not yet overdue and the hero shows the next-best item; that is acceptable (the
+project still reads as coherent) and is not fixed here.
+
+## The week (the big video; owner-approved)
+
+Each day starts with a caption card ("Monday — a milestone slipped"). Each **manual → AI** pair shows
+the hand action first, then the AI function. Owner's list of actions per week, placed by day:
+
+### Chapter 2 end — prologue
+
+Connect Turso and the Claude key (as today) → the wizard to its last step, with **AI proposal** →
+cancel → **Explore the demo**.
+
+### Monday — a milestone slipped (chapter 3)
+
+| Manual | Then AI |
+|---|---|
+| Dashboard: read the hero (MVP target, overdue) and its reasons | **Digest**: "what changed since Friday" |
+| Next actions: read Now / Soon / Monitor | **Analyze with AI** on Next actions |
+| Open Points **Table**: open "Integrate CRM provisioning", add the blocker, move its due date to Thursday | — |
+| Knowledge: search "CRM" → the CRM interface decision from design sign-off → jump to it | — |
+
+### Tuesday — re-plan (chapter 4)
+
+| Manual | Then AI |
+|---|---|
+| Open Points **Board**: drag the CRM task to In Progress, the called-off demo back to To Do | — |
+| Delete one of the double-logged follow-ups by hand | **Deduplicate & unify** merges the rest |
+| New change request "Add a CRM provisioning connector", one-line impact typed | **Ask Claude** on the impact field |
+| Add milestone "MVP re-demo" (Friday 2 October), linked to the demo task | **Ask Claude** on its description |
+| Read the forecast as it stands | **Forecast import** of the team's re-plan spreadsheet |
+
+### Wednesday — people (chapter 5)
+
+| Manual | Then AI |
+|---|---|
+| New role "Integration engineer" with an internal and an external rate | — |
+| New team member from the vendor's partner, in that role | — |
+| Noah's planned vacation next week (he owns the CRM integration) | — |
+| Planning: the new member's capacity for one month | **Plan with AI** proposes the rest |
+| Workload: Maya's overloaded week → reassign one task to the new member | (covered by Plan with AI) |
+| Open Points **Swimlanes** by person: the new member's lane has work | — |
+
+### Thursday — risks, stakeholders, money (chapter 6)
+
+| Manual | Then AI |
+|---|---|
+| RAID: the GDPR erasure issue gets an owner and a status; add the risk "connector licence lead time" | **Ask Claude** on the issue's mitigation |
+| New stakeholder: Northwind's data protection officer (DPO) | — |
+| RACI: set the DPO's cell on "MVP re-demo" | **Suggest RACI** fills the matrix |
+| Stakeholder map: drag the DPO to high influence / high interest | — |
+| Steering meeting (Thursday): open it and its agenda | **Draft with AI** writes the report |
+| The connector change is approved → Budget: new bucket "CRM connector (CR)" | — |
+| Open Points: add the task "Order the connector licence" | **AI Assistant chat** creates "Confirm licence delivery" |
+| Gantt: drag the MVP target to its new date (project D) | — |
+
+### Friday — close the week (chapter 7)
+
+| Manual | Then AI |
+|---|---|
+| Open Points **Table**: mark "Integrate CRM provisioning" Done (erasure verified end to end); RAID issue → Mitigated | — |
+| Dashboard: the hero has changed | — |
+| Insights: read them | **Generate recommendation** on one → act on it |
+| Re-order the pilot tasks by hand | **Optimize with AI** restructures them |
+| Trends, Activity (this week, day by day), History (Monday's version against today's) | **Digest** of the week — closes the video |
+| Help: where the walk-through, the demo and these videos live (A's former chapter 8) | — |
+
+About 14 real Claude calls per full take. Rough length 20–25 minutes.
+
+## What changes in A
+
+- **Big video:** chapters 2–7 joined, as "The week" above. A's former chapters 3–8 and their contents
+  table are replaced.
+- **Chapter videos (owner):** 1 Install (by hand), 2 Connect storage and Claude (with the prologue),
+  3 Monday, 4 Tuesday, 5 Wednesday, 6 Thursday, 7 Friday. Seven, each one take and one command.
+- **Where a chapter starts (owner: replay off camera).** Every take still creates the demo fresh.
+  Before chapter N records, the recorder replays the manual steps of the days before it, fast and
+  off camera, with no AI calls: where a day's change came from an AI step (Deduplicate, Suggest
+  RACI, Plan with AI, the chat task, Optimize), the replay makes the same change by hand. The page
+  clock follows the replay day by day, so activity, versions and History are dated as in the big
+  take. Each chapter stays its own command and its own retake.
+- **The digest's "since Friday".** The digest compares against a per-device record (`DigestPrior`),
+  not workspace data, so a fresh browser context has nothing to compare. The recorder seeds that
+  record off camera with the clock at Friday 2026-09-18 before Monday records.
+- **Clips (tiers 3 and 4):** unchanged.
+- **`T0`:** as in "Dates". A's note that chapter 7 moves three weeks forward is replaced by the
+  per-day clock.
+- A's spec gets a short banner pointing here; its other sections stay authoritative.
+
+## What E puts in the data
+
+Numbers are the master's ids today; the builder keeps ids stable where the existing rows are reused.
+
+### The slip
+
+- **Milestone 5 "MVP target":** date `2026-09-18`, `achievedDate` removed, linked tasks 23, 24, 25 and
+  the new CRM task.
+- **Task 25 "MVP demo to the customer":** To Do, due `2026-09-18`, a note that it was called off on
+  Friday because provisioning to the CRM fails.
+- **New task "Integrate CRM provisioning":** In Progress, owner Noah Bennett, due `2026-09-16`
+  (overdue on Monday), depends on 24; task 25 depends on it. Blocker text, e.g. "CRM API rejects
+  erasure calls".
+- **Pilot chain:** the tasks between the MVP and Pilot Go-Live (today 4–8, 27 and the pilot tasks)
+  re-dated so they start after the MVP and none is overdue at T0 except what the story intends.
+  Pilot Go-Live (milestone 2) stays on its date and becomes visibly tight; the forecast shows it.
+- **Tasks 23 and 24** stay Done, completed before the 18th.
+
+### Signals at T0 (Monday 2026-09-21)
+
+The builder pins the Monday list with a unit test over `computeNextActions` on the shifted demo at
+T0. Intended:
+
+| Tier | Item | Source (score today) |
+|---|---|---|
+| Now — hero | MVP target overdue | milestone (67) |
+| Now | "Board info pack" for Thursday's steering meeting due (`leadDays: 3`) | committee-info (60) |
+| Soon | "Integrate CRM provisioning" overdue | task-due (55) |
+| Soon | Maya over-allocated this period | workload (52 at ≥130 %; needs §747 fixed) |
+| Soon | red issue "GDPR erasure requests do not reach the CRM", no owner yet | RAID (45) |
+| Soon | change request "Add MFA to SSO scope" pending (High impact) | change-pending (45) |
+| Soon | Pilot Go-Live at risk (a linked task now ends after it) — the slip's knock-on | milestone (42) |
+| Monitor | one or two RAID items whose review is stale | RAID review |
+
+Scores checked against the providers by the builder check (2026-10-16). A single pending change
+scores 45, not 60 (60 is the aggregate at `SCOPE_PENDING_RED = 5`); a stakeholder comms nudge
+scores 45 and an overdue RAID review adds urgency 40, so neither is a Monitor item — the data must
+not trigger them unless the builder argues them into the story. Anything else that fires at T0 is
+either removed from the data or argued into the story.
+
+**Depends on §747.** The workload item reads the plan's first period today
+(`next-actions-workload.ts`), so Maya's overload can never fire at T0. The owner decided (2026-10-16)
+to fix §747 first, as its own defect and PR; E plants the overload after it lands.
+
+### What the week needs to exist
+
+- **Near-duplicate follow-ups:** 2–3 pairs logged by two people on Friday after the called-off demo
+  ("Fix CRM sync for new registrations" / "CRM provisioning fails for sign-ups", and so on). One pair
+  is deleted by hand on Tuesday; Deduplicate must still find the rest.
+- **Knowledge:** an item about the CRM interface decision, reachable by searching "CRM" on Monday.
+- **Maya over-allocated** in the period containing T0 (September, at month granularity), from
+  resource allocation; the overload Wednesday's reassignment relieves.
+- **Maya present at T0:** her absence on 21–22 Sept ("Offsite leadership summit") moves out of the
+  week. Noah's existing vacation (9–13 Nov) stays; it does not clash with "next week".
+- **Steering committee:** a meeting on Thursday 2026-09-24 with an agenda (the existing meeting on
+  2026-10-13 can stay). Its "Board info pack" reminder (`leadDays: 3`) falls due on Monday and is
+  the second Now item — intended.
+- **Insights** on Friday: at least one the recommendation can act on (`milestoneSlip` fits).
+- **Pilot tasks** loose enough for Optimize with AI to restructure on Friday.
+- **Forecast re-plan spreadsheet:** a fixture file shipped beside the recorder (path the builder's
+  call, under `scripts/demo-video/`), with columns Claude has to map.
+- **A's clip list** (A's "What A needs from project E" table) still holds; the items above cover most
+  of it. The builder re-checks each row against the new data.
+
+### What must NOT exist (the video adds it)
+
+The "Integration engineer" role, the new team member, Noah's vacation next week, the DPO stakeholder,
+the connector change request, the "MVP re-demo" milestone, the "CRM connector (CR)" budget bucket,
+and the two licence tasks. The role's discipline and grade must exist so the form can pick them.
+
+## Left to the builder
+
+- Exact dates, texts and ids of the re-dated pilot chain, the duplicates and the knowledge item.
+- Whether Maya's overload comes from task estimates or resource allocation.
+- How the Monday-list test reaches the shifted demo (through `buildDemoWorkspace` or equivalent).
+- The fixture spreadsheet's format and contents.
+
+## Calls I made (for the owner to check)
+
+- `T0` moves to Monday 2026-09-21 so the shift is 0 and "last Friday" is the master's as-of date.
+- Monday's second Now item is the steering "Board info pack" reminder, kept because Thursday's
+  meeting is in the story; the existing "Add MFA to SSO scope" change stays pending in Soon, and the
+  connector change is the one Tuesday adds.
+- Pilot Go-Live "at risk" stays in Soon as the slip's visible knock-on.
+- Maya's 21–22 Sept absence moves out of the week; Noah's November vacation stays.
+- The recorder seeds the digest's per-device "Friday" record off camera.
+- Friday reuses the Table view (three task views for four days).
+- The prologue (wizard + AI proposal + Explore the demo) closes chapter 2, so Monday opens straight
+  on the Dashboard.
+- Help, A's chapter 8, closes Friday.
+- Real users opening the demo on days 1–17 of a month see a different hero; not fixed here.

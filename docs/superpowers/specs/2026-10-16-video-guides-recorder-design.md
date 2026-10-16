@@ -2,6 +2,10 @@
 
 Status: draft for owner review, 2026-10-16. Register: §715.
 
+> **Amended 2026-10-16:** the big video, the chapter videos, `T0` and the demo data are replaced by
+> `2026-10-16-demo-week-story-design.md` (the demo week). The clips (tiers 3 and 4) and everything
+> else here stand.
+
 ## Why
 
 New users learn the app faster from short videos than from reading help text. Today there is one

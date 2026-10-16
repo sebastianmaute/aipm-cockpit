@@ -980,6 +980,11 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§740](#740-a-project-created-on-turso-storage-outside-turso-mode-reopens-as-an-empty-browser-workspace--closed-2026-10-15) | A project created on Turso storage outside Turso mode reopens as an empty browser workspace | — | — | **CLOSED** 2026-10-15 |
 | [§741](#741-the-desktop-smoke-test-never-loads-the-packaged-apps-updater-so-a-release-with-a-broken-electron-updater-goes-unnoticed--open) | The desktop smoke test never loads the packaged app's updater, so a release with a broken electron-updater goes unnoticed | — | — | open |
 | [§742](#742-gantt-task-bars-cannot-be-moved-or-resized-from-the-keyboard--open) | Gantt task bars cannot be moved or resized from the keyboard | — | — | open |
+| [§743](#743-next-actions-gives-no-early-warning-that-a-milestone-will-slip--open) | Next actions gives no early warning that a milestone will slip | — | — | open |
+| [§744](#744-a-weekend-activity-still-open-on-monday-is-not-asked-about--open) | A weekend activity still open on Monday is not asked about | — | — | open |
+| [§745](#745-video-guides-no-guided-tour-for-each-feature-and-ai-clip--open) | Video guides: no guided tour for each feature and AI clip | — | — | open |
+| [§746](#746-video-guides-no-guided-tour-per-project-function--open) | Video guides: no guided tour per project Function | — | — | open |
+| [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--open) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45519,3 +45524,69 @@ Proposed: match the milestone drag that project D builds — the move handle foc
 Size S.
 
 **Source:** found 2026-10-16 while designing the Gantt milestone drag for the §715 video guides (`docs/superpowers/specs/2026-10-16-video-guides-recorder-design.md`).
+
+## 743. Next actions gives no early warning that a milestone will slip — OPEN
+
+**Status:** OPEN 2026-10-16, filed on the owner's word. `grep -c "risk: W.riskHigh, impact: W.impactBlocksMilestone" src/app/next-actions/providers/milestone.ts` prints 1: the "at risk" action scores 15 + 20 + 7 = 42, below `TIER_NOW` (60).
+
+**Work item:** #764
+
+Before a milestone's date passes, the only signal is "at risk" (`milestoneProvider`, from `isAtRisk`): a linked task ends after the milestone date. It scores 42, so it loses the Dashboard hero to an overdue task (55), a critical overload (52) or an unowned red RAID item (45), and in a realistic project never leads. Nothing in `src/app/next-actions/` reads the critical path or a baseline, and the reason text `actionMilestoneWhyAtRisk` ("a blocking task is red or the date slipped") names checks `isAtRisk` does not make. The owner's Monday hero is "a milestone slipped and the critical path is at risk"; today the app can only show it once the date has passed (overdue, 67).
+
+Proposed: an early-warning signal for a milestone whose critical-path predecessors push past its date, scored to compete for the hero, with a reason text that says what was checked.
+
+Size M.
+
+**Source:** found 2026-10-16 while designing the demo week for the §715 video guides (`docs/superpowers/specs/2026-10-16-demo-week-story-design.md`).
+
+## 744. A weekend activity still open on Monday is not asked about — OPEN
+
+**Status:** OPEN 2026-10-16, filed on the owner's word. `grep -rlic "weekend" src/app/next-actions` finds nothing.
+
+**Work item:** #765
+
+A cutover, migration or go-live that ran over the weekend and is still open on Monday shows in Next actions as an ordinary overdue task (`taskDueProvider`, 55, Soon tier). Nothing marks it as weekend work, and nothing asks the question a project lead has on Monday morning: did it finish, and did it work? The owner named this as one of the two things a Monday hero should show. Not needed for the §715 demo, which opens on the milestone slip.
+
+Proposed: a signal for a task due on a non-working day before today and still open, phrased as a check ("confirm the weekend's cutover"), with a CTA to mark it done or log what went wrong.
+
+Size S–M.
+
+**Source:** found 2026-10-16 while designing the demo week for the §715 video guides (`docs/superpowers/specs/2026-10-16-demo-week-story-design.md`).
+
+## 745. Video guides: no guided tour for each feature and AI clip — OPEN
+
+**Status:** OPEN 2026-10-16, an idea filed on the owner's word for a later implementation; never machine-verified (the clips are not built yet).
+
+**Work item:** #767
+
+The §715 video guides give each of 20 features and 15 AI functions a short clip: an opening line, a few steps shown live, a closing beat. A clip shows how to use a function but barely says what it is for. Idea: turn each clip into a guided tour that first explains every part of the view (what it shows, what drives it, where it surfaces elsewhere), then walks through using it.
+
+Size L.
+
+**Source:** found 2026-10-16 while designing the demo week for the §715 video guides (`docs/superpowers/specs/2026-10-16-demo-week-story-design.md`).
+
+## 746. Video guides: no guided tour per project Function — OPEN
+
+**Status:** OPEN 2026-10-16, an idea filed on the owner's word for a later implementation; never machine-verified (the clips are not built yet).
+
+**Work item:** #768
+
+Idea: one guided-tour video per entry in Edit project → Functions (the 12 in `FEATURE_MODULES`), each covering every view the function owns, its AI parts included: what the function is for, what each part of the view means, and how to use it. Complements §745's per-clip tours.
+
+Size L.
+
+**Source:** found 2026-10-16 while designing the demo week for the §715 video guides (`docs/superpowers/specs/2026-10-16-demo-week-story-design.md`).
+
+## 747. Next-actions over-allocation checks the plan's first period, not the current one — OPEN
+
+**Status:** OPEN 2026-10-16. `grep -n "periods.slice(0, NEAR_TERM_PERIODS)" src/app/next-actions-workload.ts` shows the slice taken from `generatePeriods(a.plan.startDate, …)`, so the first period of the plan.
+
+**Work item:** #769
+
+`buildWorkloadAlerts` (`src/app/next-actions-workload.ts`) raises the "over-allocated" workload item from `periods.slice(0, NEAR_TERM_PERIODS)` of `generatePeriods(a.plan.startDate, a.plan.endDate, a.plan.granularity)`: the plan's FIRST period, whatever `a.today` is, although the constant's comment says "check the current/next period only". Once a project is past its first month (or week), an over-allocated person never raises the item. The overdue-count "overload" path is unaffected.
+
+Proposed: pick the period that contains `a.today` (and the next one, if `NEAR_TERM_PERIODS` is meant to cover it), with a test at a today well past the plan start.
+
+Size S. The owner decided on 2026-10-16 to fix it before the §715 demo data (project E), which plants an overload that depends on it.
+
+**Source:** found 2026-10-16 by a builder check of `docs/superpowers/specs/2026-10-16-demo-week-story-design.md`.
