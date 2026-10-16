@@ -48,6 +48,14 @@ describe("simulateCostAtFinish", () => {
     expect(simulateCostAtFinish({ trialDays: Int32Array.from([3]), samples: Array(12).fill(0), ac: 0, bac: 10, seedTag: "eur", horizon: 1300 }))
       .toMatchObject({ kind: "unavailable", reason: "spend-history", spendDays: 12 });
   });
+  it("varied spend is seeded: repeatable, pinned, and the seed tag changes the draws", () => {
+    const samples = [10, 0, 30, 5, 50, 0, 20, 10, 40, 15, 25, 35];
+    const run = (seedTag: string) => simulateCostAtFinish({ trialDays: Int32Array.from(Array(200).fill(30)), samples, ac: 100, bac: 1e9, seedTag, horizon: 1300 });
+    expect(run("eur")).toEqual(run("eur"));
+    expect(run("eur")).toEqual({ kind: "sim", p50: 700, p80: 790, p95: 850, chanceOverBudget: 0, spendDays: 12 });
+    expect(run("usd")).not.toEqual(run("eur"));
+  });
+
   it("a slow trial costs more than a fast one on varied spend (same runs drive both)", () => {
     const samples = [10, 0, 30, 5, 50, 0, 20, 10, 40, 15, 25, 35];
     const fastSlow = simulateCostAtFinish({ trialDays: Int32Array.from(Array(1000).fill(5).concat(Array(1000).fill(50))), samples, ac: 0, bac: 1e9, seedTag: "eur", horizon: 1300 });
