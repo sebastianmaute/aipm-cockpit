@@ -116,6 +116,17 @@ describe("GanttMilestoneRow — drag preview", () => {
     expect(preview?.style.right).toBe(`${base.timelineWidthPx - 532 + MILESTONE_DIAMOND_PX}px`);
   });
 
+  it("folds the date right when the diamond is far from the first day but its ghost is near it", () => {
+    // Live 2026-06-06 (x 140), baseline 2026-06-02 (x 28): +4d. A left label
+    // ending before the ghost would start under the sticky name column.
+    render(
+      <GanttMilestoneRow m={m} {...base} baselineDate="2026-06-02" showBaseline onStartDrag={vi.fn()} dragDeltaDays={-14} />,
+    );
+    const preview = screen.getByText(`${fmtFull(new Date(Date.UTC(2026, 5, 6)), "en-US")} · +4d`);
+    expect(preview).toHaveAttribute("data-gantt-milestone-preview", "right");
+    expect(preview.style.left).toBe(`${140 + MILESTONE_DIAMOND_PX}px`);
+  });
+
   it("announces the previewed date while dragging", () => {
     render(<GanttMilestoneRow m={m} {...base} onStartDrag={vi.fn()} dragDeltaDays={3} />);
     expect(screen.getByRole("slider", { name: HANDLE_NAME }))
