@@ -65,13 +65,15 @@ export function canDraft(a: SuggestedAction, c: ActionCaps): boolean {
 export function canMarkDone(a: SuggestedAction, c: ActionCaps): boolean {
   return c.markDone && onPoints(a);
 }
+// §502 — a simulated signal (`forecast-sim`) offers neither Create task nor Log as RAID:
+// turning a simulated chance into a task or a risk would make it read as measured.
 export function canCreateTask(a: SuggestedAction, c: ActionCaps): boolean {
-  return c.createTask && a.source !== "task-due";
+  return c.createTask && a.source !== "task-due" && a.source !== "forecast-sim";
 }
 /** §515 — any signal except a RAID-sourced one (it already is a RAID item) or a
  *  project key-facts nudge (a missing key fact is a task, not a risk). */
 export function canLogAsRaid(a: SuggestedAction, c: ActionCaps): boolean {
-  return c.logAsRaid && a.source !== "raid" && a.source !== "project-meta";
+  return c.logAsRaid && a.source !== "raid" && a.source !== "project-meta" && a.source !== "forecast-sim";
 }
 
 /** Highest-priority applicable verb; "open" is the always-available fallback. */

@@ -321,6 +321,41 @@ describe("useVersionHistory", () => {
     expect(logActivity).toHaveBeenCalledWith("history.restore", 1, "v1-label");
   });
 
+  // §502 — the simulation switch is a viewing choice: a restore never flips it.
+  describe("§502 — restore keeps the current simulation switch", () => {
+    const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
+      grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };
+    const ON = { forecast: { showSimulation: true } };
+    const TZ = { timezone: { timezone: "Europe/Berlin" } };
+    const UTC = { timezone: { timezone: "UTC" } };
+    async function restoreOverrides(version: object, now: object, stamped = true) {
+      const raw = JSON.stringify({ ...base, tasks: [], ...version });
+      vi.spyOn(store, "loadVersionPayload").mockResolvedValue(stamped ? raw.replace("{", `{"captureFormat":${CAPTURE_FORMAT},`) : raw);
+      vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+      const applyWorkspace = vi.fn();
+      const nowStr = JSON.stringify({ ...base, tasks: [], ...now });
+      const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => nowStr, applyWorkspace })));
+      await act(async () => { await result.current.restore("v1", { [changeKey("settingsOverrides", null)]: "all" }, "l"); });
+      expect(applyWorkspace).toHaveBeenCalledTimes(1);
+      return applyWorkspace.mock.calls[0][0] as Workspace;
+    }
+
+    it("keeps the switch on when restoring a version where it was off", async () => {
+      const out = await restoreOverrides({ settingsOverrides: TZ }, { settingsOverrides: { ...UTC, ...ON } });
+      expect(out.settingsOverrides).toEqual({ ...TZ, ...ON });
+    });
+
+    it("keeps it off when restoring a version where it was on", async () => {
+      const out = await restoreOverrides({ settingsOverrides: { ...TZ, ...ON } }, { settingsOverrides: UTC });
+      expect(out.settingsOverrides).toEqual(TZ);
+    });
+
+    it("an unstamped capture with the switch on keeps the project's timezone override", async () => {
+      const out = await restoreOverrides({}, { settingsOverrides: { ...TZ, ...ON } }, false);
+      expect(out.settingsOverrides).toEqual({ ...TZ, ...ON });
+    });
+  });
+
   // §476 pre-merge ruling — a restore converts the money it takes from a version into the CURRENT
   // currency (the switches made since the version's capture) and never changes `plan.currency`. The
   // hook hands the parsed version and its capture time to `prepareVersion` BEFORE the diff and the
@@ -376,8 +411,25 @@ describe("useVersionHistory", () => {
       const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => nowGbp, prepareVersion })));
       await act(async () => { await vi.advanceTimersByTimeAsync(0); });
       await act(async () => { await result.current.loadDiff("v1", "now"); });
-      expect(prepareVersion).toHaveBeenCalledWith(expect.anything(), null);
+      expect(prepareVersion).toHaveBeenCalledWith(expect.anything(), null, false);
       expect(diagnostics.logDiag).toHaveBeenCalledWith("warn", "version.captureTimeUnknown", { versionId: "v1" });
+    });
+
+    // §502 final review: the wiring pins an ABSENT settingsOverrides only on a stamped capture, so the
+    // hook must tell it which kind it holds — on the vs-now compare and on the restore alike.
+    it("tells prepareVersion whether the capture is stamped, on the vs-now compare and the restore", async () => {
+      const stamped = version.replace("{", `{"captureFormat":${CAPTURE_FORMAT},`);
+      vi.spyOn(store, "loadVersionPayload").mockResolvedValue(stamped);
+      vi.spyOn(store, "listVersionMeta").mockResolvedValue([meta]);
+      const prepareVersion = vi.fn((v: Workspace) => v);
+      const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => nowGbp, prepareVersion, applyWorkspace: vi.fn() })));
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      await act(async () => { await result.current.loadDiff("v1", "now"); });
+      expect(prepareVersion).toHaveBeenLastCalledWith(expect.anything(), V1_AT, true);
+      prepareVersion.mockClear();
+      await act(async () => { await result.current.restore("v1", { [changeKey("roles", 3)]: "all" }, "l"); });
+      expect(prepareVersion).toHaveBeenCalledTimes(1);
+      expect(prepareVersion).toHaveBeenLastCalledWith(expect.anything(), V1_AT, true);
     });
 
     it("a version-to-version compare stays raw", async () => {

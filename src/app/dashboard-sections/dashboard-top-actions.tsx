@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { type Lang, t } from "../i18n";
+import type { Lang } from "../i18n";
 import { ActionRow } from "../action-row";
 import { buildRowTokens } from "../row-tokens";
 import type { SuggestedAction } from "../next-actions/types";
 import type { DensityClasses } from "../dashboard-density";
+import { actionText } from "../action-text";
 
 export interface DashboardTopActionsProps {
   lang: Lang;
@@ -38,7 +39,7 @@ export function DashboardTopActions({ lang, topActions, onOpenAction, dc }: Dash
   const tokens = useMemo(
     () => buildRowTokens((topActions ?? []).map((a) => ({
       id: a.id,
-      name: t(lang, a.title.key, ...(a.title.params ?? [])),
+      name: actionText(lang, a.title),
     }))),
     [topActions, lang],
   );

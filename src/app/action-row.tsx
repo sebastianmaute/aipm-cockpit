@@ -11,6 +11,8 @@ import {
 } from "./action-cta-controls";
 import { TIER_RAG } from "./next-actions/action-cta";
 import { rowLabel } from "./row-tokens";
+import { SimBadge } from "./sim-value";
+import { actionText } from "./action-text";
 
 export type { AssignOwnerBundle };
 
@@ -30,8 +32,8 @@ export function ActionRow(props: ActionRowProps) {
   const { lang, action, extraReasons, expertMode, rowToken } = props;
   const caps = useActionCaps(props);
   const rag = TIER_RAG[action.tier];
-  const title = t(lang, action.title.key, ...(action.title.params ?? []));
-  const why = t(lang, action.why.key, ...(action.why.params ?? []));
+  const title = actionText(lang, action.title);
+  const why = actionText(lang, action.why);
   const sourceLabel = t(lang, ACTION_SOURCE_LABEL[action.source]);
   // §582 fix round — without a handler this div did nothing on click but still
   // wore `cursor-pointer` + the hover tint, so it looked clickable and was not.
@@ -58,6 +60,8 @@ export function ActionRow(props: ActionRowProps) {
             </span>
           )}
           <span className="truncate text-sm font-medium text-foreground">{title}</span>
+          {/* §502 — a simulated signal is marked as such; the why-line says "Simulated" in words. */}
+          {action.source === "forecast-sim" && <span className="shrink-0"><SimBadge lang={lang} /></span>}
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
           <b className="font-semibold uppercase tracking-wide">{sourceLabel}</b> · {why}

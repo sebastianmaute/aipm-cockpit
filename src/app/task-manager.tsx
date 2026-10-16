@@ -659,7 +659,7 @@ function TaskManagerInner() {
     hydrated, isPopout, loadPending, today, currentProjectId, landingProjectId,
     tasks, milestones, raid, budgets, roles, resources, plan,
     holidaySet, holidaysReady, shifts, absences, timelogLinks,
-    insights, setInsights, requestOpen, settingsOverrides, features: settings.features, forecastHistory, setForecastHistory, getScopeEpoch,
+    insights, setInsights, requestOpen, settingsOverrides, features: settings.features, forecastHistory, setForecastHistory, getScopeEpoch, storageKind: settings.storageConfig.kind, portfolioMode,
   });
   // The SP2 generate/apply/reject handlers (+ the `insightActions` assembly
   // that references them) live in `useInsightRecommendations`
@@ -679,7 +679,7 @@ function TaskManagerInner() {
     isPopout, tasks, raid, changes, milestones, stakeholders, steeringCommittee,
     resources, absences, shifts, plan, dashboardModel, commsReminders: comms.items,
     features: settings.features, project, portfolioCurrentId, today,
-    workdayHours: settings.resources.workdayHours, holidaySet,
+    workdayHours: settings.resources.workdayHours, holidaySet, holidaysReady, settingsOverrides,
     effectiveNotifications, effectiveNextActions, actionTrends,
     learnedBias: learning.bias, recordLearning: learning.record, requestOpen,
   });
@@ -1319,7 +1319,7 @@ function TaskManagerInner() {
   // fullBleed) and modern (fullBleed) renders so the long prop list lives once.
   const workspaceProps = {
     today, exportForecast, // §545 — documents embed the forecast
-    holidaySet,
+    holidaySet, holidaysReady,
     workspaceRef,
     resetWorkspaceSize,
     workspaceCollapsed,

@@ -165,7 +165,7 @@ describe("HelpView — reopening the simulation intro (§502)", () => {
   it("under the simulation entry, clears the seen flag and goes to the Dashboard", async () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ simulationIntroSeen: true }));
     const onNavigateView = vi.fn();
-    render(<HelpView lang="en-US" onNavigateView={onNavigateView} />);
+    render(<HelpView lang="en-US" simulationActive onNavigateView={onNavigateView} />);
     const button = await screen.findByRole("button", { name: LABEL });
     expect(button.closest("section")?.id).toBe(helpSectionId(FORECAST_SIM_HELP_ID));
     await userEvent.click(button);
@@ -173,6 +173,38 @@ describe("HelpView — reopening the simulation intro (§502)", () => {
     await waitFor(() =>
       expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").simulationIntroSeen).toBe(false));
     expect(screen.queryByRole("button", { name: LABEL })).toBeNull();
+  });
+});
+
+describe("HelpView — reopening the intro with the switch off (§502)", () => {
+  const LABEL = "Show the simulation introduction again";
+  beforeEach(() => { showForecastView(); });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.removeItem(SETTINGS_KEY);
+  });
+
+  it("shows a note instead of a button and changes nothing", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ simulationIntroSeen: true }));
+    const onNavigateView = vi.fn();
+    render(<HelpView lang="en-US" simulationActive={false} onNavigateView={onNavigateView} />);
+    expect(await screen.findByText(t("en-US", "helpSimulationIntroNeedsSwitch"))).toBeInTheDocument();
+    expect(t("en-US", "helpSimulationIntroNeedsSwitch")).toContain("once Use Monte Carlo forecasting is switched on for this project");
+    expect(screen.queryByRole("button", { name: LABEL })).toBeNull();
+    expect(onNavigateView).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").simulationIntroSeen).toBe(true);
+  });
+
+  it("names the new surfaces and the horizon in the body, EN and DE", async () => {
+    expect(t("en-US", "helpConceptForecastSimBody")).toContain("beyond the forecast horizon");
+    expect(t("en-US", "helpConceptForecastSimBody")).toContain("Forecast tile");
+    await loadI18n("de");
+    const de = t("de", "helpConceptForecastSimBody");
+    expect(de).toContain("Prognosehorizont");
+    expect(de).toContain("Prognose-Kachel");
+    expect(de).toContain("Nächste Schritte");
+    expect(de).not.toBe(t("en-US", "helpConceptForecastSimBody"));
+    expect(t("de", "helpSimulationIntroNeedsSwitch")).not.toBe(t("en-US", "helpSimulationIntroNeedsSwitch"));
   });
 });
 

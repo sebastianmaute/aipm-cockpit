@@ -36,3 +36,14 @@ export function withSimulation(
   if (on) next.forecast = { showSimulation: true };
   return hasAnyOverride(next) ? next : undefined;
 }
+
+/** Pin `target`'s switch to `current`'s. The switch is a viewing choice, not project data, so a
+ *  version restore must neither turn it on nor off. Returns `target` itself when they agree. */
+export function keepSimulationSwitch(
+  target: SettingsOverrides | undefined,
+  current: SettingsOverrides | undefined,
+): SettingsOverrides | undefined {
+  const on = isSimulationOn(current);
+  if (isSimulationOn(target) === on) return target;
+  return withSimulation(target, on);
+}

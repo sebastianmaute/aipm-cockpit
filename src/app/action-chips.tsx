@@ -7,6 +7,7 @@ import { TIER_RAG } from "./next-actions/action-cta";
 import { Dot } from "./dot";
 import { buildRowTokens } from "./row-tokens";
 import { Button } from "./button";
+import { actionText } from "./action-text";
 
 const MAX_CHIPS = 3;
 
@@ -51,7 +52,7 @@ export function ActionChips({ lang, actions, onOpen, onShowMore, className }: Ac
   // §669 — two actions about entities sharing a name read alike, so each chip is
   // named by a row token. Bare, not memoised: at most MAX_CHIPS rows, and
   // `shown` is a fresh array every render, so a memo would never hit.
-  const titleOf = (a: SuggestedAction) => t(lang, a.title.key, ...(a.title.params ?? []));
+  const titleOf = (a: SuggestedAction) => actionText(lang, a.title);
   const tokens = buildRowTokens(shown.map((a) => ({ id: a.id, name: titleOf(a) })));
   return (
     <div
@@ -69,7 +70,7 @@ export function ActionChips({ lang, actions, onOpen, onShowMore, className }: Ac
           size="xs"
           onClick={() => onOpen(action)}
           aria-label={tokens.get(action.id) ?? titleOf(action)}
-          title={t(lang, action.why.key, ...(action.why.params ?? []))}
+          title={actionText(lang, action.why)}
           className="inline-flex items-center gap-1.5"
         >
           <Dot color={TIER_RAG[action.tier as "now" | "soon"].dot} size="xs" />

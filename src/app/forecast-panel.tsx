@@ -4,7 +4,7 @@
 // inputs, runs the pure engine (`./forecast`) once per input change in a useMemo,
 // and hands the result to the presentational toolbar, chart and tables.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { localeFor } from "./date-format";
 import { formatDayMonthYear } from "./forecast-format";
@@ -28,6 +28,8 @@ import { isValidIsoDate } from "./forecast/throughput";
 import { isTaskClosed } from "./task-closed";
 import type { Milestone, ResourcePlan, Task } from "./types";
 import { useResizable } from "./use-resizable";
+import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
+import { useWorkspaceTab } from "./workspace-tab-context";
 import { nthWorkingDayAfter } from "./working-days";
 
 const FALLBACK_TARGET_WORKING_DAYS = 30;
@@ -81,9 +83,29 @@ interface Props {
   isPopout?: boolean;
   /** The project's "Use Monte Carlo forecasting" switch. On, the Dashboard's simulated cells use the engine defaults, so this view says so once its own settings differ. */
   showSimulation?: boolean;
+  /** Deep-link target (`ForecastPanelDeepLinked`): the milestone row to flash, and the box it is queried in. */
+  flashMilestoneId?: number | null;
+  milestonesRef?: React.Ref<HTMLDivElement>;
 }
 
-export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, showSimulation = false }: Props) {
+/**
+ * The view as the workspace mounts it. The sim next-action opens
+ * `{ view: "forecast", id }`; this scrolls that milestone's chances row into view
+ * and flashes it (`useDeepLinkRowFlash`, as the Milestones and Changes panels do)
+ * and consumes the request. Focus stays where the shell puts it on a view change
+ * (the main region) — like every other deep-link that opens no editor.
+ * ★ The view mounts fresh on each visit, so an unconsumed request would re-flash on the next one.
+ */
+export function ForecastPanelDeepLinked(props: Omit<Props, "flashMilestoneId" | "milestonesRef">) {
+  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { flashId, containerRef } = useDeepLinkRowFlash("forecast");
+  useEffect(() => {
+    if (pendingOpen?.view === "forecast") clearPendingOpen();
+  }, [pendingOpen, clearPendingOpen]);
+  return <ForecastPanel {...props} flashMilestoneId={flashId} milestonesRef={containerRef} />;
+}
+
+export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, showSimulation = false, flashMilestoneId = null, milestonesRef }: Props) {
   const [mode, setMode] = useState<ForecastMode>("quick");
   const [unit, setUnit] = useState<ForecastUnit>("tasks");
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>(DEFAULT_HISTORY_WINDOW);
@@ -161,7 +183,9 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
           <ForecastCaption lang={lang} forecast={result} historyWindow={historyWindow} />
           <ForecastChart lang={lang} forecast={result} today={today} holidaySet={holidaySet} />
           <PercentileTable lang={lang} forecast={result} target={howManyTarget} today={today} maxTarget={maxTarget} onTargetChange={setTarget} />
-          <MilestoneTable lang={lang} milestones={milestones} chances={result.milestones} whatIf={mode === "whatif"} />
+          <div ref={milestonesRef}>
+            <MilestoneTable lang={lang} milestones={milestones} chances={result.milestones} whatIf={mode === "whatif"} flashId={flashMilestoneId} />
+          </div>
         </>
       )}
     </ReportCard>

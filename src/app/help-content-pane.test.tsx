@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, expect, test, vi } from "vitest";
-import { HelpContentPane, helpSectionId, hiddenHelpEntryIds } from "./help-content-pane";
+import { HelpContentPane, helpSectionId, hiddenHelpEntryIds, type HelpEntryAction } from "./help-content-pane";
 import { showForecastView } from "../test/forecast-view";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { HELP_ENTRIES } from "./help-content";
@@ -229,4 +229,27 @@ test("hiddenHelpEntryIds withholds the simulation entry while the forecast view 
   const shown = showForecastView();
   expect(hiddenHelpEntryIds([]).size).toBe(0);
   shown.mockRestore();
+});
+
+test("an entry action is a button or a note, exactly one: the type refuses neither and both (§502)", () => {
+  // @ts-expect-error -- neither a handler nor a note would render an inert button
+  const neither: HelpEntryAction = { label: "Reopen it" };
+  // @ts-expect-error -- a note replaces the button, so a handler beside it could never run
+  const both: HelpEntryAction = { label: "Reopen it", note: "Needs the switch first.", onActivate: () => {} };
+  const button: HelpEntryAction = { label: "Reopen it", onActivate: () => {} };
+  const note: HelpEntryAction = { label: "Reopen it", note: "Needs the switch first." };
+  expect([neither, both, button, note]).toHaveLength(4);
+});
+
+test("an entry action with a note renders the note as text instead of a button (§502)", () => {
+  render(
+    <HelpContentPane
+      lang="en-US"
+      query=""
+      hiddenEntryIds={new Set()}
+      entryActions={{ [FORECAST_SIM_HELP_ID]: { label: "Reopen it", note: "Needs the switch first." } }}
+    />,
+  );
+  expect(screen.getByText("Needs the switch first.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Reopen it" })).toBeNull();
 });

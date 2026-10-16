@@ -55,7 +55,7 @@ export type TileHeight = BlockHeight;
 
 export type DashboardTileId =
   | "kpi" | "topActions" | "insights" | "raid" | "upcoming"
-  | "trends" | "burn" | "milestones" | "changes" | "completionTrend";
+  | "trends" | "burn" | "milestones" | "changes" | "completionTrend" | "forecast";
 
 /** Which module flags must be on for a tile to exist for this project. */
 export interface TileGateInput {
@@ -67,6 +67,8 @@ export interface TileGateInput {
   hasTopActions: boolean;
   hasInsights: boolean;
   hasCompletionTrend: boolean;
+  /** The simulation is ACTIVE (`isSimulationActive`: switch on AND the Forecast view enabled), §502. */
+  simulationActive: boolean;
 }
 
 /** ★ Named TileSpec, NOT DashboardTile — `dashboard-tile.tsx` exports a COMPONENT
@@ -126,6 +128,10 @@ export const DASHBOARD_TILES: readonly TileSpec[] = [
   { id: "milestones",      labelKey: "dashboardMilestones",     w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showMilestones },
   { id: "changes",         labelKey: "dashboardChangesHeading", w: 2, h: 2, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.showChanges },
   { id: "completionTrend", labelKey: "dashboardCompletionTrend", hintKey: "dashboardCompletionTrendHint", w: 2, h: 2, minW: 2, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.hasCompletionTrend },
+  // ★ §502 part 2: LAST, so a stored layout gains it after every existing tile (`reconcile` never
+  // reorders). Gated on the ACTIVE simulation: with the switch off it is neither on the board nor on
+  // the shelf, while its stored placement stays (a gate decides what renders, never what is stored).
+  { id: "forecast",        labelKey: "dashboardForecast",       w: 2, h: 3, minW: 1, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.simulationActive },
 ];
 
 /** ★ DELEGATES to the engine's `specById` rather than re-implementing the find.

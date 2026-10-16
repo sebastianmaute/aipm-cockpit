@@ -113,12 +113,14 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, rowToken, promi
   // it); a button that calls nothing on click is worse than no button, so hide
   // it entirely rather than fall back to a no-op handler.
   const onOpenHandler = handlers.onOpen;
+  // §502 — the simulated signal opens the Forecast view, and says so.
+  const openLabel = t(lang, action.cta.kind === "open" && action.cta.view === "forecast" ? "actionOpenForecast" : "actionOpen");
   const open = onOpenHandler ? (
     <Button variant={kind === "open" ? "primary" : "secondary"} size={kind === "open" ? directSize : ROW_SIZE}
       className={kind === "open" ? directBorder : undefined}
       onClick={(e) => { stop(e); onOpenHandler(action); }}
-      aria-label={rowLabel(t(lang, "actionOpen"), rowToken)}>
-      {t(lang, "actionOpen")}
+      aria-label={rowLabel(openLabel, rowToken)}>
+      {openLabel}
     </Button>
   ) : null;
 

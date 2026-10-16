@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { t, tPlural, type Lang } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import { buildNotificationPlan, newUrgentActions, nextSeenIds } from "./action-notifications";
+import { actionText } from "./action-text";
 
 const SEEN_KEY = "aipm-cockpit:notified-urgent";
 const SUMMARY_TAG = "urgent-summary";
@@ -94,8 +95,8 @@ export function useActionNotifications({
         try {
           if (plan.kind === "single") {
             const a = plan.action;
-            const n = new Notification(t(l, a.title.key, ...(a.title.params ?? [])), {
-              body: t(l, a.why.key, ...(a.why.params ?? [])),
+            const n = new Notification(actionText(l, a.title), {
+              body: actionText(l, a.why),
               tag: a.id,
             });
             n.onclick = () => {

@@ -38,7 +38,8 @@ import { BurndownChartPanel } from "./burndown-chart-panel";
 import { Button } from "./button";
 import { BurndownChainChip, BurndownChainWarning, isChainBroken } from "./budget-chain-warning";
 import { VarianceSummary } from "./variance-summary";
-import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
+import { MilestoneHorizonStrip, chancesById } from "./milestone-horizon-strip";
+import { SimExplainer } from "./sim-explainer";
 import { Sparkline } from "./sparkline";
 import { formatDayMonth } from "./forecast-format";
 import { localeFor } from "./date-format";
@@ -62,6 +63,8 @@ import type { ChangeStatus } from "./types";
 import { buildRowTokens } from "./row-tokens";
 import { CELL_BUTTON } from "./control-classes";
 import type { KpiSimulation, KpiSimulationGap } from "./kpi-simulation";
+import type { AppForecast } from "./forecast/app-forecast";
+import { DashboardForecastTile, type DashboardForecastTileProps } from "./dashboard-sections/dashboard-forecast-tile";
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
   Proposed: "changeStatusProposed",
@@ -104,6 +107,8 @@ export interface TileBodyArgs {
   simulation?: KpiSimulation;
   /** Why the switch is on but there are no simulated cells; absent while the switch is off. */
   simulationGap?: KpiSimulationGap;
+  /** Switch on, holidays still loading: the simulated cells render as placeholders (§502). */
+  simulationPending?: boolean;
   /** Opens Help at a concept id; the simulated cells' explainers link to it. */
   onOpenHelp?: (conceptId: string) => void;
   /** The "Use Monte Carlo forecasting" switch (§502), placed left of "Open in Budget" in the burn
@@ -132,6 +137,10 @@ export interface TileBodyArgs {
   onOpenMilestone?: (id: number) => void;
   onOpenChange?: (id: number) => void;
   onOpenAction?: (a: SuggestedAction) => void;
+  /** The ONE forecast run the panel shares with the KPI strip (§502); null while off or pending. */
+  forecast: AppForecast | null;
+  /** The rest of the Forecast tile's props, built whatever the switch says; its gate decides whether it renders. */
+  forecastTile: Omit<DashboardForecastTileProps, "lang" | "forecast">;
 }
 
 /**
@@ -141,6 +150,9 @@ export interface TileBodyArgs {
  */
 export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId, ReactNode>> {
   const { lang, dc, model } = a;
+  // §502 — the strip's chance chips come from the SAME run as the KPI strip and the Forecast tile;
+  // `a.forecast` is null while the switch is off, held back or waiting for holidays.
+  const milestoneChances = a.forecast?.kind === "forecast" ? chancesById(a.forecast.milestones) : undefined;
   // §316 — two pending changes can share a title, so each row button is named
   // by a row-unique token.
   const changeTokens = buildRowTokens(model.topChanges.map((c) => ({ id: c.id, name: c.title })));
@@ -161,7 +173,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
 
   return {
     kpi: (
-      <DashboardKpiStrip lang={lang} model={model} trends={a.trends} onNavigate={a.onNavigate} dc={dc} simulation={a.simulation} simulationGap={a.simulationGap} onOpenHelp={a.onOpenHelp} />
+      <DashboardKpiStrip lang={lang} model={model} trends={a.trends} onNavigate={a.onNavigate} dc={dc} simulation={a.simulation} simulationGap={a.simulationGap} simulationPending={a.simulationPending} onOpenHelp={a.onOpenHelp} />
     ),
 
     topActions: (
@@ -243,7 +255,22 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
     ),
 
     milestones: (
-      <MilestoneHorizonStrip lang={lang} buckets={a.milestoneBuckets} onOpenMilestone={a.onOpenMilestone} />
+      <MilestoneHorizonStrip
+        lang={lang}
+        buckets={a.milestoneBuckets}
+        onOpenMilestone={a.onOpenMilestone}
+        chances={milestoneChances}
+        simPending={a.simulationPending}
+        explainer={a.forecast?.kind === "forecast" && milestoneChances ? (
+          <SimExplainer
+            lang={lang}
+            kind="milestone"
+            windowDays={a.forecast.windowDays}
+            label={t(lang, "milestoneChancesAbout")}
+            onOpenHelp={a.onOpenHelp}
+          />
+        ) : undefined}
+      />
     ),
 
     changes: (
@@ -301,6 +328,8 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
         <CompletionTrendBody lang={lang} points={a.completionSeries} today={a.model.chartDates.today} />
       </ActivateBody>
     ) : null,
+
+    forecast: <DashboardForecastTile lang={lang} forecast={a.forecast} {...a.forecastTile} />,
   };
 }
 

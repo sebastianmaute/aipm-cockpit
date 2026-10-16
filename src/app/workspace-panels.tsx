@@ -63,7 +63,8 @@ export const ChangeReportPanel = dynamic(
   { ssr: false, loading },
 );
 export const ForecastPanel = dynamic(
-  () => import("./forecast-panel").then((m) => m.ForecastPanel),
+  // The deep-linked wrapper: the sim next-action opens a milestone here (forecast-panel.tsx).
+  () => import("./forecast-panel").then((m) => m.ForecastPanelDeepLinked),
   { ssr: false, loading },
 );
 export const StakeholdersPanel = dynamic(

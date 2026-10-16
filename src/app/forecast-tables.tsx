@@ -18,6 +18,7 @@ import { Section, SortResizeTh, useSortableFilter, useSortHeaderProps, type Sort
 import { sortValueGetter } from "./sort-value-getter";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useRowTokens } from "./use-row-tokens";
+import { flashOutlineClass } from "./use-deeplink-row-flash";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -175,11 +176,14 @@ export function MilestoneTable({
   milestones,
   chances,
   whatIf,
+  flashId = null,
 }: {
   lang: Lang;
   milestones: readonly Milestone[];
   chances: readonly MilestoneChance[];
   whatIf: boolean;
+  /** The milestone a deep-link just opened (`useDeepLinkRowFlash`): its row carries the flash outline. */
+  flashId?: number | null;
 }) {
   const [sort, setSort] = useState<{ key: MilestoneSortKey; dir: SortDir }>({ key: "date", dir: "asc" });
   const rows = useMemo(() => {
@@ -216,7 +220,7 @@ export function MilestoneTable({
             {sorted.map((row) => {
               const text = stateText(row.result, lang);
               return (
-                <tr key={row.id}>
+                <tr key={row.id} data-deeplink-row={row.id} className={flashOutlineClass(flashId === row.id) || undefined}>
                   {/* The token can't miss: every rendered row went through useRowTokens above. */}
                   <th scope="row" aria-label={tokens.get(row.id) ?? row.name} className={`${CELL} font-medium text-foreground`}>
                     {row.name}

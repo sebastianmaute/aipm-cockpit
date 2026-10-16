@@ -63,12 +63,32 @@ export function buildHistogramBins(distribution: ArrayLike<number>, maxBins: num
 
 const CHART_W = 240;
 const CHART_H = 72;
-const CHART_TOP = 10;
+/** Half the width of a cut label ("P95" at 8px); a label centred closer than this to an edge would be clipped. */
+export const LABEL_HALF_W = 8;
+export const LABEL_FONT_SIZE = 8;
+/** One label row per cut, so three labels always fit: each takes the first row with no label within 2 x LABEL_HALF_W. */
+const CUT_COUNT = 3;
+const LABEL_ROW_Y = Array.from({ length: CUT_COUNT }, (_, i) => LABEL_FONT_SIZE + i * LABEL_FONT_SIZE);
+/** Space between the last label row's baseline and the top of the bars, so a label's descent clears them. */
+const LABEL_BAR_GAP = 4;
+/** The bars start below the last label row, so no label sits on a bar. */
+export const CHART_TOP = LABEL_ROW_Y[CUT_COUNT - 1] + LABEL_BAR_GAP;
 const CUTS: ReadonlyArray<{ p: SimPercentile; key: keyof SimMarkers; label: string }> = [
   { p: 50, key: "p50", label: "P50" },
   { p: 80, key: "p80", label: "P80" },
   { p: 95, key: "p95", label: "P95" },
 ];
+
+/** Clamp each label centre inside the chart, then put a label on the first row where it clears every label already there. */
+function layoutLabels(xs: number[]): Array<{ x: number; y: number }> {
+  const rows: number[][] = LABEL_ROW_Y.map(() => []);
+  return xs.map((raw) => {
+    const x = Math.min(CHART_W - LABEL_HALF_W, Math.max(LABEL_HALF_W, raw));
+    const free = rows.findIndex((row) => row.every((o) => Math.abs(o - x) >= 2 * LABEL_HALF_W));
+    rows[free].push(x);
+    return { x, y: LABEL_ROW_Y[free] };
+  });
+}
 
 function Chart({
   bins,
@@ -85,6 +105,7 @@ function Chart({
   const slot = CHART_W / Math.max(1, bins.length);
   const peak = Math.max(1, ...bins.map((b) => b.count));
   const xFor = (day: number) => Math.min(CHART_W, Math.max(0, ((day - first) / domain) * CHART_W));
+  const labelAt = layoutLabels(CUTS.map((c) => xFor(markers[c.key])));
   return (
     <svg
       role="img"
@@ -106,7 +127,7 @@ function Chart({
           />
         );
       })}
-      {CUTS.map((c) => {
+      {CUTS.map((c, i) => {
         const x = xFor(markers[c.key]);
         return (
           <g key={c.p}>
@@ -120,10 +141,10 @@ function Chart({
               className="stroke-ui-dark-blue dark:stroke-ui-light-grey"
             />
             <text
-              x={x}
-              y={CHART_TOP - 3}
+              x={labelAt[i].x}
+              y={labelAt[i].y}
               textAnchor="middle"
-              fontSize={8}
+              fontSize={LABEL_FONT_SIZE}
               className="fill-ui-dark-blue dark:fill-ui-light-grey"
             >
               {c.label}
@@ -135,36 +156,47 @@ function Chart({
   );
 }
 
+const LINE_KEY = {
+  date: "simExplainerLine1",
+  chance: "simExplainerLineChance",
+  milestone: "simExplainerLineMilestone",
+} as const;
+
 /** The (i) beside a simulated value: a popover saying how to read it. */
-export function SimExplainer({
-  lang,
-  windowDays,
-  distribution,
-  trials,
-  markers,
-  label,
-  kind = "date",
-  onOpenHelp,
-}: {
+type SimExplainerBase = {
   lang: Lang;
   windowDays: number;
-  /** Working days per trial; the engine's `Int32Array` is passed as is. */
-  distribution: ArrayLike<number>;
-  trials: number;
-  markers: SimMarkers;
   /** Names the (i) after its value, so two on one screen are told apart. Absent → the plain name. */
   label?: string;
-  /** What the value is: a finish `date` (default) or the `chance` of finishing by the plan end. */
-  kind?: "date" | "chance";
   /** Renders the Help link when given. */
   onOpenHelp?: (conceptId: string) => void;
-}) {
+};
+
+/** A finish `date` (default) or the `chance` of finishing by the plan end: both draw the histogram, so the
+ *  distribution is required. The per-`milestone` variant draws none (the line, the window, the Help link). */
+export type SimExplainerProps =
+  | (SimExplainerBase & {
+      kind?: "date" | "chance";
+      /** Working days per trial; the engine's `Int32Array` is passed as is. */
+      distribution: ArrayLike<number>;
+      trials: number;
+      markers: SimMarkers;
+    })
+  | (SimExplainerBase & { kind: "milestone"; distribution?: never; trials?: never; markers?: never });
+
+/** The props of the histogram variants, for a caller that passes the rest through (`SimValue`). */
+export type SimValueExplainerProps = Extract<SimExplainerProps, { distribution: ArrayLike<number> }>;
+
+export function SimExplainer(props: SimExplainerProps) {
+  const { lang, windowDays, label, onOpenHelp } = props;
+  const kind = props.kind ?? "date";
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelId = useId();
   const close = useCallback(() => setOpen(false), []);
-  const { bins, beyond } = buildHistogramBins(distribution, MAX_BINS);
-  const beyondShare = beyond > 0 && trials > 0 ? chanceText(lang, beyond / trials) : "";
+  const isMilestone = props.kind === "milestone";
+  const { bins, beyond } = isMilestone ? { bins: [], beyond: 0 } : buildHistogramBins(props.distribution, MAX_BINS);
+  const beyondShare = !isMilestone && beyond > 0 && props.trials > 0 ? chanceText(lang, beyond / props.trials) : "";
   const name = label ? t(lang, "simExplainerOpenFor", label) : t(lang, "simExplainerOpen");
   return (
     <>
@@ -195,26 +227,31 @@ export function SimExplainer({
             <XMarkIcon aria-hidden="true" className="h-3.5 w-3.5" />
           </IconButton>
         </span>
-        <p className="block text-foreground">{t(lang, kind === "chance" ? "simExplainerLineChance" : "simExplainerLine1")}</p>
+        <p className="block text-foreground">{t(lang, LINE_KEY[kind])}</p>
         <p className="block text-muted-foreground">{t(lang, "simExplainerWindow", windowDays)}</p>
-        {bins.length > 0 && (
+        {!isMilestone && bins.length > 0 && (
           <Chart
             bins={bins}
-            markers={markers}
+            markers={props.markers}
             ariaLabel={t(lang, "simHistogramAria",
-              markerPhrase(lang, markers.p50), markerPhrase(lang, markers.p80), markerPhrase(lang, markers.p95))}
+              markerPhrase(lang, props.markers.p50), markerPhrase(lang, props.markers.p80), markerPhrase(lang, props.markers.p95))}
           />
         )}
-        <ul className="m-0 list-none p-0 text-muted-foreground">
-          {CUTS.map((c) => (
-            <li key={c.p}>
-              {c.label} · {t(lang, percentileWord(c.p))}
-            </li>
-          ))}
-        </ul>
+        {!isMilestone && (
+          <ul className="m-0 list-none p-0 text-muted-foreground">
+            {CUTS.map((c) => (
+              <li key={c.p}>
+                {c.label} · {t(lang, percentileWord(c.p))}
+              </li>
+            ))}
+          </ul>
+        )}
         {beyond > 0 && <p className="block text-muted-foreground">{t(lang, "simBeyondHorizon", beyondShare)}</p>}
         {onOpenHelp && (
-          <Button variant="ghost" size="xs" onClick={() => onOpenHelp(FORECAST_SIM_HELP_ID)}>
+          <Button variant="ghost" size="xs" onClick={() => {
+            close();
+            onOpenHelp(FORECAST_SIM_HELP_ID);
+          }}>
             {t(lang, "simExplainerHelp")}
           </Button>
         )}

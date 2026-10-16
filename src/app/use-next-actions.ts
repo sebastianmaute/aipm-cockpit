@@ -24,7 +24,11 @@ import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder, SteeringCommit
 import type { DashboardModel } from "./dashboard";
 import type { StakeholderCommsReminder } from "./stakeholder-comms";
 import type { ActionTrends } from "./next-actions/trends";
-import type { FeatureModuleId } from "./feature-modules";
+import { isModuleEnabled, type FeatureModuleId } from "./feature-modules";
+import type { SettingsOverrides } from "./settings-types";
+import { isSimulationActive } from "./forecast-simulation";
+import { computeAppForecast } from "./forecast/app-forecast";
+import { buildSimMilestoneActions, mergeSimActions } from "./next-actions/sim-milestones";
 import { computeNextActions, type SuggestedAction } from "./next-actions";
 import { groupNextActions } from "./next-actions/group";
 import { buildActionInput } from "./next-actions-input";
@@ -55,6 +59,10 @@ export interface NextActionsDeps {
   today: string;
   workdayHours: number;
   holidaySet: ReadonlySet<string>;
+  /** §502 — the simulated signal waits for the holidays, exactly as the Dashboard does. */
+  holidaysReady: boolean;
+  /** §502 — carries the per-project simulation switch. */
+  settingsOverrides: SettingsOverrides | undefined;
   effectiveNotifications: Settings["notifications"];
   effectiveNextActions: Settings["nextActions"];
   actionTrends: ActionTrends | undefined;
@@ -67,7 +75,7 @@ export function useNextActions(deps: NextActionsDeps) {
   const {
     isPopout, tasks, raid, changes, milestones, stakeholders, steeringCommittee,
     resources, absences, shifts, plan, dashboardModel, commsReminders, features,
-    project, portfolioCurrentId, today, workdayHours, holidaySet,
+    project, portfolioCurrentId, today, workdayHours, holidaySet, holidaysReady, settingsOverrides,
     effectiveNotifications, effectiveNextActions, actionTrends, learnedBias,
     recordLearning, requestOpen,
   } = deps;
@@ -133,7 +141,18 @@ export function useNextActions(deps: NextActionsDeps) {
   // Both the Next-actions page and the Dashboard (its hero and Top actions tile)
   // read this array, so the two surfaces cannot pick different heroes. The flat
   // list keeps flowing to everything that wants it (notifications, chips, AI).
-  const nextActionGroups = useMemo(() => groupNextActions(nextActions), [nextActions]);
+  // ★ §502 — the simulated "unlikely on time" signal is merged into the GROUPS only,
+  // AFTER grouping: the flat list (notifications, learning, AI context, nowCount)
+  // never holds it. It reads the ONE shared forecast run — the same references the
+  // Dashboard passes, so both hit `computeAppForecast`'s memo and the engine runs once.
+  const simOn = isSimulationActive(settingsOverrides, features) && isModuleEnabled("milestones", features) && holidaysReady;
+  const planEnd = plan.endDate;
+  const nextActionGroups = useMemo(() => {
+    const groups = groupNextActions(nextActions);
+    if (!simOn) return groups;
+    const forecast = computeAppForecast({ tasks, milestones, planEnd, today, holidaySet });
+    return mergeSimActions(groups, buildSimMilestoneActions({ forecast, milestones, dismissed: actionSnooze.dismissed }));
+  }, [nextActions, simOn, tasks, milestones, planEnd, today, holidaySet, actionSnooze.dismissed]);
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   // Stakeholder ids with a pending stakeholder-comms next-action. Feeds the
   // influence/interest matrix's "needs communication" jump-to-Action-Center icon.
@@ -162,7 +181,8 @@ export function useNextActions(deps: NextActionsDeps) {
   // against the store (`snoozeGroupIds`), bypassing recordLearning.
   const snoozeAction = useCallback(
     (a: SuggestedAction, ms: number, extraIds?: readonly string[]) => {
-      void recordLearning(a, "snoozed");
+      // §502 — a simulated signal never teaches learning; its snooze still goes to the store.
+      if (a.source !== "forecast-sim") void recordLearning(a, "snoozed");
       snoozeGroupIds(snoozeFn, a.id, ms, extraIds);
     },
     [snoozeFn, recordLearning],

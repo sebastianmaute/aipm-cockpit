@@ -29,6 +29,7 @@ import { useVersionHistory, type UseVersionHistoryArgs, type UseVersionHistoryRe
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { useWorkspace } from "./workspace-context";
 import { prepareRestoredVersion } from "./baseline-switch";
+import { keepSimulationSwitch } from "./forecast-simulation";
 import { workspaceToJson, type Workspace } from "./workspace";
 import type { CalendarEvent } from "./calendar-event";
 import type { Settings } from "./settings-types";
@@ -103,6 +104,9 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
   // above as well: this hook does not destructure `setBudgetHistory` (task-manager does). The budget commit boundary is the series' only writer; undo and
   // version restore do not go through it, so a restore's BAC movement surfaces as unattributed variance
   // instead, and a restore never blanks the recorded series either.
+  // ★★ The simulation switch (`settingsOverrides.forecast`) is carried from the CURRENT workspace, not the version: it is a
+  // viewing choice rather than project data. It is pinned in `restore` (`use-version-history.ts`) after the merge, and in
+  // `prepareVersion` below so a compare offers no switch row.
   const applyRestoredWorkspace = useCallback((w: Workspace) => {
     setTasks(dropDanglingDependencies(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? []))); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
@@ -121,9 +125,16 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
   // whole-record and per-field restores are covered alike; `baselineHistory` itself is neither captured nor restored.
   const planCurrency = plan.currency;
   const prepareVersion = useCallback(
-    (version: Workspace, capturedAt: string | null) =>
-      prepareRestoredVersion(version, { history: baselineHistory, capturedAt, currency: planCurrency, workdayHours }),
-    [baselineHistory, planCurrency, workdayHours],
+    (version: Workspace, capturedAt: string | null, speaksForEmptySlices: boolean) => {
+      const converted = prepareRestoredVersion(version, { history: baselineHistory, capturedAt, currency: planCurrency, workdayHours });
+      // §502: pin the switch so a compare shows no row for it. On a STAMPED capture an absent `settingsOverrides`
+      // means "no overrides", so it is pinned too. On an UNSTAMPED capture an absent one stays absent — setting the
+      // key on its `undefined` would defeat the blind-capture guard and blank the rest.
+      return converted.settingsOverrides === undefined && !speaksForEmptySlices
+        ? converted
+        : { ...converted, settingsOverrides: keepSimulationSwitch(converted.settingsOverrides, settingsOverrides) };
+    },
+    [baselineHistory, planCurrency, workdayHours, settingsOverrides],
   );
 
   // Stable onError so useVersionHistory's `refresh` callback keeps a stable

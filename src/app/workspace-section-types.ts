@@ -129,6 +129,8 @@ export interface WorkspaceSectionProps {
    *  the document leaves through `ExportExtrasProvider`. */
   exportForecast?: ForecastBundle | null;
   holidaySet: Set<string>;
+  /** False while the holiday calendar loads; the Dashboard's simulated slots wait for it. */
+  holidaysReady?: boolean;
   workspaceRef: React.RefObject<HTMLElement | null>;
   resetWorkspaceSize: () => void;
   workspaceCollapsed: boolean;

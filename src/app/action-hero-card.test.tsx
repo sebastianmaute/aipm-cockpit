@@ -104,3 +104,25 @@ describe("ActionHeroCard — the box (spec C)", () => {
     expect(region.className).not.toContain("mb-4");
   });
 });
+
+describe("ActionHeroCard — simulated signal (§502)", () => {
+  const sim: SuggestedAction = {
+    id: "forecast-sim:milestone:7", source: "forecast-sim", moduleId: "milestones",
+    title: { key: "actionForecastSimTitle", params: ["Go-live", 31] },
+    why: { key: "actionForecastSimWhy", params: [31, "2026-12-01"] },
+    score: 40, tier: "soon", cta: { kind: "open", view: "forecast", id: 7 },
+  };
+  it("shows the sim badge beside the title and an Open Forecast button", () => {
+    const g: ActionGroup = { key: sim.id, primary: sim, extra: [], score: 40, tier: "soon" };
+    render(<ActionHeroCard rowToken="Row" lang="en-US" group={g} onOpen={() => {}} />);
+    const heading = screen.getByRole("heading", { level: 3 });
+    expect(heading.textContent).toContain("Go-live is unlikely on time — 31% chance");
+    expect([...heading.querySelectorAll('[aria-hidden="true"]')].some((n) => n.textContent === "sim")).toBe(true);
+    expect(screen.getByRole("button", { name: "Open Forecast – Row" })).toBeInTheDocument();
+  });
+  it("shows no sim badge on a measured hero", () => {
+    render(<ActionHeroCard rowToken="Row" lang="en-US" group={group(noOwner)} onOpen={() => {}} />);
+    const heading = screen.getByRole("heading", { level: 3 });
+    expect([...heading.querySelectorAll('[aria-hidden="true"]')].some((n) => n.textContent === "sim")).toBe(false);
+  });
+});
