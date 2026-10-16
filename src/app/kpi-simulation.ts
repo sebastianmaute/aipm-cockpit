@@ -1,6 +1,7 @@
 // The KPI strip's simulated cells (§502): pure, i18n-free, React-free.
 
 import type { AppForecast } from "./forecast/app-forecast";
+import type { WeeklyChange } from "./forecast-tile-model";
 import type { SimMarkers } from "./sim-explainer";
 
 /** SPI at or above this with a chance on time under `DIVERGENT_LOW_CHANCE` reads as ahead-but-doubtful. */
@@ -50,12 +51,15 @@ export function kpiContentKey(sim: KpiSimulation | null, simulationOn: boolean, 
 }
 
 /** The same for the Forecast tile: which of its slots exist (placeholders, the gap line alone, the
- *  headline and bar or the beyond-horizon line, the P95 wording) and how many at-risk rows render.
- *  Null = waiting for holidays (or the switch off, when the tile is not rendered at all). */
-export function forecastTileContentKey(forecast: AppForecast | null, atRiskCount: number): string {
+ *  headline and bar or the beyond-horizon line, the P95 wording), how many at-risk rows render, and
+ *  whether the weekly change shows as a simulated value (later, earlier, same: outlined and badged,
+ *  so taller) or as a plain line (pending, beyond). Null = waiting for holidays (or the switch off,
+ *  when the tile is not rendered at all). */
+export function forecastTileContentKey(forecast: AppForecast | null, atRiskCount: number, change: WeeklyChange | null): string {
   if (forecast === null) return "fc:pending";
   if (forecast.kind === "insufficient") return "fc:insufficient";
-  return `fc:${forecast.p80 === null ? "beyond" : "p80"}:${forecast.p95 === null}:${atRiskCount}`;
+  const changeForm = change === null ? "none" : change.kind === "pending" || change.kind === "beyond" ? "plain" : "sim";
+  return `fc:${forecast.p80 === null ? "beyond" : "p80"}:${forecast.p95 === null}:${atRiskCount}:${changeForm}`;
 }
 
 /** Why the switch is on but the strip shows no simulated cell. */

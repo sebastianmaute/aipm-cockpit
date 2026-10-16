@@ -47,7 +47,7 @@ import { buildTileBodies } from "./dashboard-tile-bodies";
 import { chancesById, visibleChipCount } from "./milestone-horizon-strip";
 import { computeAppForecast } from "./forecast/app-forecast";
 import { forecastTileContentKey, kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
-import { milestonesAtRisk, type AtRiskMilestone } from "./forecast-tile-model";
+import { milestonesAtRisk, weeklyChange, type AtRiskMilestone } from "./forecast-tile-model";
 import { isTaskClosed } from "./task-closed";
 import { useDashboardLayout } from "./use-dashboard-layout";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
@@ -486,13 +486,17 @@ export function DashboardPanel(props: DashboardPanelProps) {
     arrangement.reset();
     setResetNonce((n) => n + 1);
   };
+  // The same call the Forecast tile makes, so the key sees the change line's form (simulated or plain).
+  const forecastChange = forecast?.kind === "forecast"
+    ? weeklyChange({ history: forecastHistory, today, p80: forecast.p80, holidaySet: props.holidaySet })
+    : null;
   const measured = useMeasuredHeights({
     density,
     resetNonce,
     // The KPI tile grows by cells and text lines when the simulation appears or flips divergent,
     // and by the one-line note when the switch is on but nothing can be simulated.
-    // The Forecast tile likewise, by its slots and its at-risk row count.
-    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, atRisk.length)}|ms:${visibleChipCount(milestoneBuckets, forecast?.kind === "forecast" ? chancesById(forecast.milestones) : undefined)}`,
+    // The Forecast tile likewise, by its slots, its at-risk row count and its change line's form.
+    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, atRisk.length, forecastChange)}|ms:${visibleChipCount(milestoneBuckets, forecast?.kind === "forecast" ? chancesById(forecast.milestones) : undefined)}`,
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };

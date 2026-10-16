@@ -1004,8 +1004,10 @@ rules and the run they share are in [`forecast.md`](forecast.md) "Simulation acr
   height of a `SimValue`, no text, so a placeholder never reads as a figure. Without it the first render ran the forecast
   before the holiday calendar arrived and flashed the gap line. `kpiContentKey` takes a `pending` flag for the same reason.
 - **The tile's measured content key.** `dashboard-panel.tsx` passes `useMeasuredHeights` a `contentKey` joined from three
-  parts: `kpiContentKey(...)`, `forecastTileContentKey(forecast, atRisk.length)` (`kpi-simulation.ts`: pending,
-  insufficient, or P80 beyond / present, whether P95 exists, and the at-risk row count) and `ms:<visibleChipCount>`. ★ It
+  parts: `kpiContentKey(...)`, `forecastTileContentKey(forecast, atRisk.length, forecastChange)` (`kpi-simulation.ts`:
+  pending, insufficient, or P80 beyond / present, whether P95 exists, the at-risk row count, and whether the weekly
+  change shows as a simulated value or a plain line; `forecastChange` is the same `weeklyChange` call the tile makes)
+  and `ms:<visibleChipCount>`. ★ It
   encodes only those inputs: a new simulated element that changes a tile's height must extend it.
 - **Milestone chips.** `MilestoneHorizonStrip` draws a chip (percent plus the decorative "sim" badge) beside each
   milestone in `chances`, which `buildTileBodies` builds with `chancesById` from the SAME run (only `state: "chance"`

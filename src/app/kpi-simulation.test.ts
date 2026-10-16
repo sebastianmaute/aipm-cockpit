@@ -109,13 +109,23 @@ describe("kpiContentKey", () => {
 describe("forecastTileContentKey", () => {
   it("tells apart every state that changes the Forecast tile's height", () => {
     const keys = [
-      forecastTileContentKey(null, 0),
-      forecastTileContentKey(INSUFFICIENT, 0),
-      forecastTileContentKey(forecast({ p80: null, p95: null }), 0),
-      forecastTileContentKey(forecast({ p95: null }), 0),
-      forecastTileContentKey(forecast(), 0),
-      forecastTileContentKey(forecast(), 3),
+      forecastTileContentKey(null, 0, null),
+      forecastTileContentKey(INSUFFICIENT, 0, null),
+      forecastTileContentKey(forecast({ p80: null, p95: null }), 0, { kind: "beyond" }),
+      forecastTileContentKey(forecast({ p95: null }), 0, { kind: "pending", from: "2026-10-22" }),
+      forecastTileContentKey(forecast(), 0, { kind: "pending", from: "2026-10-22" }),
+      forecastTileContentKey(forecast(), 3, { kind: "pending", from: "2026-10-22" }),
+      forecastTileContentKey(forecast(), 3, { kind: "same" }),
     ];
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("keys the change line by its form, not by its value", () => {
+    // The simulated forms (later, earlier, same) are outlined and badged; pending and beyond are plain text.
+    const key = (change: Parameters<typeof forecastTileContentKey>[2]) => forecastTileContentKey(forecast(), 0, change);
+    expect(key({ kind: "later", workingDays: 2 })).toBe(key({ kind: "earlier", workingDays: 5 }));
+    expect(key({ kind: "later", workingDays: 2 })).toBe(key({ kind: "same" }));
+    expect(key({ kind: "pending", from: "2026-10-22" })).toBe(key({ kind: "beyond" }));
+    expect(key({ kind: "pending", from: "2026-10-22" })).not.toBe(key({ kind: "same" }));
   });
 });
