@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  computeBudgetForecast, computeBudgetForecastsByUnit, computeForecastFromFacts, computeProjectForecast,
+  computeBudgetForecast, computeBudgetForecastsByUnit, computeForecastFromFacts, computeProjectForecast, computeProjectForecastFacts,
   forecastFacts, forecastFactsByUnit, forecastGap,
   isEfficiencyAvailable, isPaceAvailable, paceVacHealth,
   type BudgetForecastInput, type DatedValue, type EfficiencyForecast, type ForecastFacts, type PaceForecast,
@@ -443,6 +443,13 @@ describe("forecastFacts", () => {
 describe("computeProjectForecast", () => {
   it("is null without buckets", () => {
     expect(computeProjectForecast({ buckets: [], plan, roles, resources: [], workdayHours: 8, holidaySet: none, absences: [], tasks: [], fxRates: null, today: "2026-09-14" })).toBeNull();
+  });
+
+  it("computeProjectForecastFacts is null without buckets and holds both units' facts of the same inputs", () => {
+    const args = { plan, roles, resources: [], workdayHours: 8, holidaySet: none, absences: [], tasks: [], fxRates: null, today: "2026-09-14" };
+    expect(computeProjectForecastFacts({ ...args, buckets: [] })).toBeNull();
+    const b = [withActual(1, { "2026-06-10": 8 })];
+    expect(computeProjectForecastFacts({ ...args, buckets: b })).toEqual(forecastFactsByUnit(input(b)));
   });
 
   it("matches computeBudgetForecast on the same inputs", () => {

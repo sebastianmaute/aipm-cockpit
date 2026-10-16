@@ -3,6 +3,7 @@ import type React from "react";
 import { liveAssetPartitionKey } from "./asset-partition-live";
 import { isSafeMode } from "./safe-mode";
 import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";
+import { useAppForecast } from "./use-app-forecast";
 import {
   useCallback,
   useMemo,
@@ -311,6 +312,15 @@ export function WorkspaceSection({
   const [milestoneCreateNonce, setMilestoneCreateNonce] = useState(0);
   const subTabs = subTabsFor(activeTab, features, trends.active);
   const milestonesEnabled = isModuleEnabled("milestones", features);
+  // §502 — the shared schedule run for the Budget report's budget simulation (both the tab and the
+  // block on Reports). The context's `tasks`/`milestones` and task-manager's `holidaySet`/`today` are
+  // the references the history recorder and `useNextActions` pass, so `computeAppForecast`'s memo is
+  // shared; like them it waits for the holiday calendar. Null on every other tab.
+  const budgetSimulation = useAppForecast({
+    tasks, milestones, planEnd: plan.endDate, today, holidaySet,
+    active: isSimulationActive(workspace.settingsOverrides, features) && holidaysReady !== false
+      && (activeTab === "budget-report" || activeTab === "reports"),
+  });
 
   // Per-milestone committed baseline dates for the Gantt ghost overlay — only
   // when snapshots are live (Turso). Off Turso `trends.active` is false → empty
@@ -503,6 +513,7 @@ export function WorkspaceSection({
               snapshots={trendsActive ? trendsSnapshots : EMPTY_SNAPSHOTS}
               budgetHistory={budgetHistory}
               baselineHistory={baselineHistory}
+              budgetSimulation={budgetSimulation}
             />
           </div>
         )}
@@ -855,6 +866,7 @@ export function WorkspaceSection({
               snapshots={trendsActive ? trendsSnapshots : EMPTY_SNAPSHOTS}
               budgetHistory={budgetHistory}
               baselineHistory={baselineHistory}
+              simulation={budgetSimulation}
             />
           </div>
         )}

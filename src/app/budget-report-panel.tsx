@@ -35,6 +35,8 @@ import { BurndownChainWarning } from "./budget-chain-warning";
 import { EmptyState } from "./empty-state";
 import { ViewCallout } from "./view-callout";
 import { computeForecastBundle } from "./budget-forecast-bundle";
+import { withBudgetSim } from "./budget-sim";
+import type { AppForecast } from "./forecast/app-forecast";
 import { bucketProgressSeries } from "./budget-ev-history";
 import { ForecastFactsRow } from "./budget-forecast-facts";
 import { ForecastSection } from "./budget-forecast-section";
@@ -88,12 +90,15 @@ interface Props {
   /** The project's baseline-currency switches (`useWorkspace()`, §476): the
    *  recorded budget history is rebased into the current baseline with them. */
   baselineHistory?: readonly BaselineEntry[];
+  /** The shared schedule run (§502, `useAppForecast` at the render site); absent or null while the
+   *  simulation is off. Its budget simulation rides the bundle; the pace figures never change. */
+  simulation?: AppForecast | null;
 }
 
 export function BudgetReportPanel({
   lang, buckets, plan, roles, disciplines, grades = NO_GRADES, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
   showHints, isPopout, onLearnMore, snapshots = NO_SNAPSHOTS, budgetHistory = NO_BUDGET_HISTORY,
-  baselineHistory = NO_BASELINE_HISTORY,
+  baselineHistory = NO_BASELINE_HISTORY, simulation = null,
 }: Props) {
   // Hooks are called unconditionally before the empty-state early return (rules of hooks).
   const report = useMemo(
@@ -127,13 +132,18 @@ export function BudgetReportPanel({
     [buckets, plan, roles, resources, workdayHours, holidaySet, absences, today, fxRates, bucketChain],
   );
   const progress = useMemo(() => bucketProgressSeries(snapshots), [snapshots]);
-  const bundle = useMemo(
+  const plainBundle = useMemo(
     () => computeForecastBundle({
       report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today,
       resources, workdayHours, absences, disciplines, grades,
       progress, budgetHistory, baselineHistory,
     }),
     [report, buckets, roles, fxRates, tasks, plan, burndown, holidaySet, today, resources, workdayHours, absences, disciplines, grades, progress, budgetHistory, baselineHistory],
+  );
+  // §502 — the budget simulation from the shared run, on a copy; off → the plain bundle, untouched.
+  const bundle = useMemo(
+    () => (simulation === null ? plainBundle : withBudgetSim(plainBundle, simulation)),
+    [plainBundle, simulation],
   );
   const forecast = bundle.eur;
   const { ref, reset } = useResizable("aipm-cockpit:budget-report-size");

@@ -334,9 +334,10 @@ export type ProjectForecastArgs = {
   tasks: readonly Pick<Task, "id" | "status">[]; fxRates: FxRates | null; today: string;
 };
 
-/** Builds report, bucket chain and burn-down the way `budget-report-panel.tsx`
- *  does; null without buckets — there is nothing to forecast. */
-export function computeProjectForecast(a: ProjectForecastArgs): BudgetForecast | null {
+/** The facts half of `computeProjectForecast`, both units: builds report, bucket
+ *  chain and burn-down the way `budget-report-panel.tsx` does; null without
+ *  buckets — there is nothing to forecast. */
+export function computeProjectForecastFacts(a: ProjectForecastArgs): ForecastFactsByUnit | null {
   if (a.buckets.length === 0) return null;
   const report = computeBudgetReport(a.buckets, a.plan, a.roles, a.resources, a.workdayHours, a.holidaySet, a.absences, [], a.fxRates);
   const chain = resolveBucketChain(a.buckets, { start: a.plan.startDate, end: a.plan.endDate });
@@ -344,8 +345,14 @@ export function computeProjectForecast(a: ProjectForecastArgs): BudgetForecast |
     a.buckets, a.plan, a.roles, a.resources, a.workdayHours, a.holidaySet, a.absences, a.today, a.fxRates,
     chain.kind === "chain" ? { start: chain.start, end: chain.end } : undefined,
   );
-  return computeBudgetForecast({
+  return forecastFactsByUnit({
     report, buckets: a.buckets, roles: a.roles, fxRates: a.fxRates, tasks: a.tasks, plan: a.plan, burndown,
     holidaySet: a.holidaySet, today: a.today,
   });
+}
+
+/** The money forecast from `computeProjectForecastFacts`; null without buckets. */
+export function computeProjectForecast(a: ProjectForecastArgs): BudgetForecast | null {
+  const facts = computeProjectForecastFacts(a);
+  return facts === null ? null : computeForecastFromFacts(facts.eur);
 }

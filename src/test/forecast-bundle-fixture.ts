@@ -1,6 +1,6 @@
 // A hand-built `ForecastBundle` for export tests (open-followups §545): both
 // forecasts available, a warning-level gap, and a rate mix with no driver.
-import type { BudgetForecast } from "../app/budget-forecast";
+import type { BudgetForecast, ForecastFacts } from "../app/budget-forecast";
 import type { ForecastBundle } from "../app/budget-forecast-bundle";
 import type { RateMix } from "../app/budget-rate-mix";
 
@@ -31,9 +31,20 @@ export const FIXTURE_RATE_MIX = {
   budgetValue: 21000, bookedValue: 9450, rows: [], driver: null, excludedActualHours: 0,
 } as unknown as RateMix;
 
+// The facts the budget simulation reads (§502): the same BAC and AC as the two forecasts, no bookings.
+function fixtureFacts(f: BudgetForecast["facts"]): ForecastFacts {
+  return {
+    bac: f.bac, ac: f.ac, ev: f.ev, pv: 0, bucketsMissingPercent: [], dated: [],
+    planEnd: "2026-12-31", today: "2026-06-30", holidaySet: new Set<string>(), hasFixedPrice: false,
+  };
+}
+export const FIXTURE_FACTS: ForecastBundle["facts"] = {
+  eur: fixtureFacts(FIXTURE_EUR_FORECAST.facts), hours: fixtureFacts(FIXTURE_HOURS_FORECAST.facts),
+};
+
 export function forecastBundleFixture(over: Partial<ForecastBundle> = {}): ForecastBundle {
   return {
     eur: FIXTURE_EUR_FORECAST, hours: FIXTURE_HOURS_FORECAST, mix: FIXTURE_RATE_MIX,
-    evHistory: { available: true, points: [] }, history: null, currency: "EUR", ...over,
+    evHistory: { available: true, points: [] }, history: null, currency: "EUR", facts: FIXTURE_FACTS, ...over,
   } as ForecastBundle;
 }

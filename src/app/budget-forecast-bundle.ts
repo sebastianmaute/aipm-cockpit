@@ -7,7 +7,10 @@
  * `budget-earned-value`, `task-status`, `budget-report`, `types` and
  * `snapshot` (type-only, for `SnapshotRecord`).
  */
-import { computeBudgetForecastsByUnit, type BudgetForecast, type BudgetForecastInput } from "./budget-forecast";
+import {
+  computeForecastFromFacts, forecastFactsByUnit, type BudgetForecast, type BudgetForecastInput, type ForecastFactsByUnit,
+} from "./budget-forecast";
+import type { BudgetSim } from "./budget-sim";
 import { actualPointDates } from "./budget-burndown";
 import { computeEvHistory, type BucketProgressRecord, type EvHistory } from "./budget-ev-history";
 import { computeRateMix, type RateMix } from "./budget-rate-mix";
@@ -24,6 +27,13 @@ export type ForecastBundle = {
   /** The baseline every money figure above is in (`plan.currency`, §476), so a
    *  surface formats the bundle without being handed the plan separately. */
   currency: BudgetCurrency;
+  /** The facts `eur`/`hours` were computed from — the budget simulation reads their
+   *  `ac`, `bac` and `dated` values rather than converting again (§502). */
+  facts: ForecastFactsByUnit;
+  /** The simulated cost at finish (§502, `budget-sim.ts`): absent from a freshly
+   *  computed bundle, set only by `withBudgetSim` on a copy; null while the
+   *  simulation is off. Nothing reads it for health — `paceVacHealth` stays on `eur`. */
+  sim?: BudgetSim | null;
 };
 export type ForecastBundleInput = BudgetForecastInput & {
   tasks: readonly Pick<Task, "id" | "status" | "completedDate">[];
@@ -40,7 +50,9 @@ export type ForecastBundleInput = BudgetForecastInput & {
 };
 
 export function computeForecastBundle(input: ForecastBundleInput): ForecastBundle {
-  const { eur, hours } = computeBudgetForecastsByUnit(input);
+  const facts = forecastFactsByUnit(input);
+  const eur = computeForecastFromFacts(facts.eur);
+  const hours = computeForecastFromFacts(facts.hours);
   const mix = computeRateMix({
     buckets: input.buckets, roles: input.roles, disciplines: input.disciplines, grades: input.grades,
     plan: input.plan, resources: input.resources, workdayHours: input.workdayHours,
@@ -52,5 +64,5 @@ export function computeForecastBundle(input: ForecastBundleInput): ForecastBundl
     progress: input.progress,
   });
   const history = summarizeBudgetHistory(rebaseBudgetHistory(input.budgetHistory, input.baselineHistory));
-  return { eur, hours, mix, evHistory, history, currency: input.plan.currency };
+  return { eur, hours, mix, evHistory, history, currency: input.plan.currency, facts };
 }

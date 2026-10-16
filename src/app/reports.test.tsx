@@ -9,6 +9,7 @@ import { rowsForHeight } from "./arrangement-measure";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import { t } from "./i18n";
 import * as appForecastModule from "./forecast/app-forecast";
+import * as budgetSimModule from "./budget-sim";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { controlNames, expectButtonOrder } from "../test/toolbar-order";
 import { buttonClassFor } from "../test/button-variant";
@@ -237,6 +238,23 @@ describe("ReportsPanel — composed reports", () => {
     renderComposed(["raid-report", "budget-report"]);
     expect(screen.getByRole("heading", { name: /raid report/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /budget report/i })).toBeInTheDocument();
+  });
+
+  // §502 part 3 — Mutation: dropping `simulation={budgetSimulation}` from the embedded panel turns this red.
+  it("hands the embedded Budget report the shared run it is given", () => {
+    const spy = vi.spyOn(budgetSimModule, "withBudgetSim");
+    const run = { kind: "insufficient", finished: 0, neededFinished: 10, days: 0, neededDays: 10 } as const;
+    render(
+      <ReportsPanel
+        tasks={[makeTask({ id: 1, assignee: "A" })]} today={TODAY} holidaySet={new Set()} lang="en-US"
+        buckets={brBuckets} plan={brPlan} roles={brRoles} disciplines={[{ id: 1, name: "Consulting" }]}
+        grades={[{ id: 1, name: "Junior" }]} resources={[]} absences={[]} workdayHours={8} fxRates={null} raid={[]}
+        extraReports={["budget-report"]} budgetSimulation={run}
+      />,
+    );
+    expect(screen.getByText(/project total/i)).toBeInTheDocument(); // the embedded panel rendered
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ currency: brPlan.currency }), run);
+    spy.mockRestore();
   });
 
   it("renders an appended report's content when in extraReports", () => {

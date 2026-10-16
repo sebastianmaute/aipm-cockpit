@@ -22,8 +22,10 @@ function facts(bac: number, ac: number, ev: number, pv: number, windowValue: num
   };
 }
 
-export const EUR_FORECAST: BudgetForecast = computeForecastFromFacts(facts(240_000, 168_000, 148_800, 176_000, 27_000));
-export const HOURS_FORECAST_HOURS_WORSE: BudgetForecast = computeForecastFromFacts(facts(2_000, 1_450, 1_240, 176_000 / 120, 220));
+const EUR_FACTS = facts(240_000, 168_000, 148_800, 176_000, 27_000);
+const HOURS_FACTS_HOURS_WORSE = facts(2_000, 1_450, 1_240, 176_000 / 120, 220);
+export const EUR_FORECAST: BudgetForecast = computeForecastFromFacts(EUR_FACTS);
+export const HOURS_FORECAST_HOURS_WORSE: BudgetForecast = computeForecastFromFacts(HOURS_FACTS_HOURS_WORSE);
 export const HOURS_FORECAST_EUR_WORSE: BudgetForecast = computeForecastFromFacts(facts(2_000, 1_350, 1_240, 176_000 / 120, 205));
 
 function row(id: number, name: string, rate: number, budget: number, booked: number, totalBooked: number): RateMixRow {
@@ -69,4 +71,5 @@ export const EV_HISTORY: EvHistory = {
 // budget change, i.e. "no history yet").
 export const BUNDLE_HOURS_WORSE: ForecastBundle = {
   eur: EUR_FORECAST, hours: HOURS_FORECAST_HOURS_WORSE, mix: MIX_HOURS_WORSE, evHistory: EV_HISTORY, history: null, currency: "EUR",
+  facts: { eur: EUR_FACTS, hours: HOURS_FACTS_HOURS_WORSE },
 };

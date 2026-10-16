@@ -15,7 +15,7 @@ import { useSettings } from "./use-settings";
 import { SINGLE_TENANT_ASSET_PARTITION } from "./document-assets-schema";
 import { __resetSafeModeCache } from "./safe-mode";
 import { defaultSettings } from "./settings-types";
-import { createRef } from "react";
+import { createRef, useEffect } from "react";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
 import type { Absence, Shift } from "./types";
@@ -27,6 +27,7 @@ import { t } from "./i18n";
 import { markDemoBannerDone } from "./demo-banner-state";
 import { DEMO_SAMPLE_CODE } from "./demo-project";
 import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
+import { computeAppForecast } from "./forecast/app-forecast";
 
 vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
@@ -68,7 +69,15 @@ vi.mock("./chat-panel", async () => {
     },
   };
 });
-vi.mock("./reports", () => ({ ReportsPanel: () => <div data-testid="reports-panel" /> }));
+// Captures its props for the §502 budget-simulation wiring test; same stub div as before.
+const reportsPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./reports", () => ({
+  ReportsPanel: (p: Record<string, unknown>) => { reportsPanelMock.props.push(p); return <div data-testid="reports-panel" />; },
+}));
+const budgetReportPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./budget-report-panel", () => ({
+  BudgetReportPanel: (p: Record<string, unknown>) => { budgetReportPanelMock.props.push(p); return <div data-testid="budget-report-panel" />; },
+}));
 vi.mock("./gantt", () => ({ GanttPanel: () => <div data-testid="gantt-panel" /> }));
 // Exposes the task backlink it was handed, for the scope-epoch test below.
 vi.mock("./raid-panel", () => ({
@@ -645,8 +654,8 @@ describe("WorkspaceSection — budget forecast link wiring", () => {
     expect(typeof props.onOpenBudgetReport).toBe("function");
     act(() => (props.onOpenBudgetReport as () => void)());
     // `id`, not `data-testid` — matches how workspace-section.tsx marks this
-    // tabpanel. BudgetReportPanel itself is not mocked in this file, so this
-    // only asserts the tab switch happened, not its contents.
+    // tabpanel. BudgetReportPanel is a stub in this file, so this only asserts
+    // the tab switch happened, not its contents.
     expect(document.getElementById("panel-budget-report")).toBeInTheDocument();
   });
 
@@ -763,6 +772,54 @@ describe("WorkspaceSection — Monte Carlo switch in Edit project", () => {
     window.history.replaceState(null, "", "/?popout=budget");
     const dialog = await openEdit();
     expect(dialog.queryByRole("button", { name: simName() })).toBeNull();
+  });
+});
+
+// §502 part 3 — the Budget report block on Reports gets the ONE shared run, computed here with the
+// context's collections and the section's holiday set (the references the recorder passes).
+describe("WorkspaceSection — budget simulation for Reports", () => {
+  const seen: { refs?: Parameters<typeof computeAppForecast>[0] } = {};
+  function Probe({ holidaySet, today }: { holidaySet: ReadonlySet<string>; today: string }) {
+    const { setActiveTab } = useWorkspaceTab();
+    const { tasks, milestones, plan, setSettingsOverrides } = useWorkspace();
+    // The references this render handed the section, recorded after commit.
+    useEffect(() => { seen.refs = { tasks, milestones, planEnd: plan.endDate, today, holidaySet }; });
+    return (
+      <>
+        <button data-testid="go-reports" onClick={() => setActiveTab("reports")} />
+        <button data-testid="go-budget-report" onClick={() => setActiveTab("budget-report")} />
+        <button data-testid="sim-on" onClick={() => setSettingsOverrides({ forecast: { showSimulation: true } })} />
+      </>
+    );
+  }
+  beforeEach(() => { reportsPanelMock.props.length = 0; budgetReportPanelMock.props.length = 0; });
+  afterEach(() => { vi.restoreAllMocks(); localStorage.clear(); });
+
+  // Mutation: passing `null` (or a run of copied collections) for `budgetSimulation` turns this red.
+  it("passes null while the simulation is off and the shared run once it is on", async () => {
+    showForecastView();
+    const props = makeProps();
+    render(<><Probe holidaySet={props.holidaySet} today={props.today} /><WorkspaceSection {...props} /></>, { wrapper: Wrapper });
+    fireEvent.click(screen.getByTestId("go-reports"));
+    await screen.findByTestId("reports-panel"); // a dynamic() panel
+    expect(reportsPanelMock.props.at(-1)?.budgetSimulation).toBeNull();
+    fireEvent.click(screen.getByTestId("sim-on"));
+    const passed = reportsPanelMock.props.at(-1)?.budgetSimulation;
+    expect(passed).not.toBeNull();
+    expect(passed).toBe(computeAppForecast(seen.refs!));
+  });
+
+  // Mutation: dropping `simulation={budgetSimulation}` from the Budget report tab turns this red.
+  it("passes the same run to the Budget report tab", async () => {
+    showForecastView();
+    const props = makeProps();
+    render(<><Probe holidaySet={props.holidaySet} today={props.today} /><WorkspaceSection {...props} /></>, { wrapper: Wrapper });
+    fireEvent.click(screen.getByTestId("sim-on"));
+    fireEvent.click(screen.getByTestId("go-budget-report"));
+    await screen.findByTestId("budget-report-panel"); // a dynamic() panel
+    const passed = budgetReportPanelMock.props.at(-1)?.simulation;
+    expect(passed).not.toBeNull();
+    expect(passed).toBe(computeAppForecast(seen.refs!));
   });
 });
 
