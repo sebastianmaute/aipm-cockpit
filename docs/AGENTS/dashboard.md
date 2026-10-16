@@ -383,7 +383,7 @@ React ELEMENTS (`burn` chooses between two elements), and an element whose compo
 (`hasCompletionTrend` = `completionSeries.length >= 2 && !noActiveScope`) is STRICTLY STRONGER than the
 body's own `length >= 2`, so the gate has already excluded every null case. Count the two shapes:
 `awk '/^export function buildTileBodies/,0' src/app/dashboard-tile-bodies.tsx | grep -cE '^    [a-zA-Z]+: '`
-returns 11 keys (measured 2026-10-16, after the `forecast` tile joined as the eleventh), and the same awk piped to
+returns 11 keys (measured 2026-10-16, after the `forecast` tile joined), and the same awk piped to
 `grep -c ') : null'` returns 1, the `completionTrend` ternary; the stricter `: \(` shape matches only 8, because
 `burn` and `completionTrend` open with a ternary and `forecast` is a one-line element. It is KEPT as the other half of a two-sided contract
 — a body that turns conditional without its gate following would otherwise render empty tile chrome —
