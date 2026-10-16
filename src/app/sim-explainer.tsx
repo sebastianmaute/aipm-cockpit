@@ -69,8 +69,10 @@ export const LABEL_FONT_SIZE = 8;
 /** One label row per cut, so three labels always fit: each takes the first row with no label within 2 x LABEL_HALF_W. */
 const CUT_COUNT = 3;
 const LABEL_ROW_Y = Array.from({ length: CUT_COUNT }, (_, i) => LABEL_FONT_SIZE + i * LABEL_FONT_SIZE);
+/** Space between the last label row's baseline and the top of the bars, so a label's descent clears them. */
+const LABEL_BAR_GAP = 4;
 /** The bars start below the last label row, so no label sits on a bar. */
-export const CHART_TOP = LABEL_ROW_Y[CUT_COUNT - 1] + 4;
+export const CHART_TOP = LABEL_ROW_Y[CUT_COUNT - 1] + LABEL_BAR_GAP;
 const CUTS: ReadonlyArray<{ p: SimPercentile; key: keyof SimMarkers; label: string }> = [
   { p: 50, key: "p50", label: "P50" },
   { p: 80, key: "p80", label: "P80" },
