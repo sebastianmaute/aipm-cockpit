@@ -82,7 +82,9 @@ tour per project Function). Found by the builder check and to be fixed **before*
   scripts`) and each labelled keep / migrate / recompute before editing; `e2e/seed-workspace.ts`
   reads it at module top level.
 - **Dates move with `DEMO_AS_OF`** (`demo-workspace.ts`, today `2026-09-18`, a Friday) by whole
-  months (`demoShiftFor`, plan granularity `month`), so weekdays are not preserved by the shift.
+  months (`demoShiftFor`, plan granularity `month`). `shiftDate` keeps a shifted date on a
+  working day, but which weekday it lands on changes, so "Friday" in the master is not Friday after
+  a non-zero shift.
 - **No schema change.** Everything here is data in existing fields. If a need turns out to require a
   new field, stop and bring it back.
 
@@ -120,6 +122,7 @@ cancel → **Explore the demo**.
 | Next actions: read Now / Soon / Monitor | **Analyze with AI** on Next actions |
 | Open Points **Table**: open "Integrate CRM provisioning", add the blocker "CRM API rejects erasure calls" (it is not in the data), move its due date to Thursday | — |
 | Knowledge: search "CRM" → the CRM interface decision from design sign-off → jump to it | — |
+| Next actions: "Message Elena Fischer" (the sponsor must hear about the slip) → open her in Stakeholders, read what links her to the project | **Draft** (the row's primary button) writes the message about the slip |
 
 ### Tuesday — re-plan (chapter 4)
 
@@ -128,6 +131,7 @@ cancel → **Explore the demo**.
 | Open Points **Board**: drag the CRM task to In Progress, the called-off demo back to To Do | — |
 | Delete one of the double-logged follow-ups by hand | **Deduplicate & unify** merges the rest |
 | New change request "Add a CRM provisioning connector", one-line impact typed | **Ask Claude** on the impact field |
+| Next actions: "Message Maya Patel" → open her in Stakeholders (she is linked to the pending MFA change) | **Draft** the message: the MFA change and the re-plan |
 | Add milestone "MVP re-demo" (Friday 2 October), linked to the demo task | **Ask Claude** on its description |
 | Read the forecast as it stands | **Forecast import** of the team's re-plan spreadsheet |
 
@@ -159,7 +163,7 @@ cancel → **Explore the demo**.
 
 | Manual | Then AI |
 |---|---|
-| Open Points **Table**: mark "Integrate CRM provisioning" Done (erasure verified end to end); RAID issue → Mitigated | — |
+| Open Points **Table**: mark "Integrate CRM provisioning" Done (erasure verified end to end); the GDPR RAID issue → Resolved (an Issue has no "Mitigated"; `ISSUE_STATUSES`) | — |
 | Dashboard: the hero has changed | — |
 | Insights: read them | **Generate recommendation** on one → act on it |
 | Re-order the pilot tasks by hand | **Optimize with AI** restructures them |
@@ -185,7 +189,10 @@ About 14 real Claude calls per full take. Rough length 20–25 minutes.
   record off camera with the clock at Friday 2026-09-18 before Monday records.
 - **Clips (tiers 3 and 4):** unchanged.
 - **`T0`:** as in "Dates". A's note that chapter 7 moves three weeks forward is replaced by the
-  per-day clock.
+  per-day clock, and A's "E checks its data at `T0` and `T0 + 3 weeks`" becomes: E checks it on each
+  day, Monday 21 to Friday 25 September.
+- **Video count:** 1 big video + 7 chapters + 15 AI clips + 20 feature clips = 43 videos; chapter 1
+  (Install) is recorded by hand, so `--all` records 42. A's counts change accordingly.
 - A's spec gets a short banner pointing here; its other sections stay authoritative.
 
 ## What E puts in the data
@@ -203,7 +210,10 @@ Numbers are the master's ids today; the builder keeps ids stable where the exist
   on camera.
 - **Pilot chain:** the tasks between the MVP and Pilot Go-Live (today 4–8, 27 and the pilot tasks)
   re-dated so they start after the MVP and none is overdue at T0 except what the story intends.
-  Pilot Go-Live (milestone 2) stays on its date and becomes visibly tight; the forecast shows it.
+  Pilot Go-Live (milestone 2) stays on 2026-10-23, and **at least one of its linked tasks must end
+  after that date**, so its "at risk" row fires (`isAtRisk`); the forecast shows the squeeze. The
+  chain's dependency links (4→5 and 4→7, 5 and 6→8, 7 and 8→10) stay — they are why a slip ripples —
+  and they raise the dep-blocked rows listed below.
 - **Tasks 23 and 24** stay Done, completed before the 18th.
 
 ### Signals at T0 (Monday 2026-09-21)
@@ -221,12 +231,18 @@ T0. Intended:
 | Soon | red issue "GDPR erasure requests do not reach the CRM", no owner yet | RAID (45) |
 | Soon | change request "Add MFA to SSO scope" pending (High impact) | change-pending (45) |
 | Soon | Pilot Go-Live at risk (a linked task now ends after it) — the slip's knock-on | milestone (42) |
-| Monitor | one or two RAID items whose review is stale | RAID review |
+| Soon | "Message Elena Fischer" — the sponsor, linked to change 1 and RAID 2 and 11 (owner: part of the story, acted on Monday) | stakeholder-comms (45) |
+| Soon | "Message Maya Patel" — linked to change 1 (owner: part of the story, acted on Tuesday) | stakeholder-comms (45) |
+| Soon | pilot tasks waiting on an unfinished predecessor (today 5, 7, 8, 10) — the ripple of the slip | task-attention dep-blocked (35 each) |
+| Monitor | the schedule item (SPI between 0.8 and 0.9) | schedule (5); the builder keeps SPI ≥ 0.8 so it does not rise to Soon (45) |
+| Monitor | Medium RAID items with an owner (today 2, 4, 11) — or resolved; the builder decides per item | RAID severity (22) |
 
-Scores checked against the providers by the builder check (2026-10-16). A single pending change
-scores 45, not 60 (60 is the aggregate at `SCOPE_PENDING_RED = 5`); a stakeholder comms nudge
-scores 45 and an overdue RAID review adds urgency 40, so neither is a Monitor item — the data must
-not trigger them unless the builder argues them into the story.
+Scores checked against the providers by the builder check and two reviews (2026-10-16; the second
+ran the real engine on today's master at 2026-09-21). A single pending change scores 45, not 60 (60
+is the aggregate at `SCOPE_PENDING_RED = 5`). The two stakeholder messages come from change 1's
+stakeholder links and stay on the owner's word: on the Monday after a slip the sponsor must hear about
+it. Assert on the GROUPED rows (`groupNextActions`, with their extra reasons), not the flat list —
+rows are what the viewer sees.
 
 **The rest of today's data must be cleaned so it does not fire** (checked by the review of
 2026-10-16; the builder re-derives it on the reworked data):
@@ -236,8 +252,14 @@ not trigger them unless the builder argues them into the story.
   except any the builder argues into the story.
 - **Blocked tasks 4 and 6** (task-attention "blocked", 30): drop their blocker text when the pilot
   chain is re-dated.
-- **Owned High RAID items 8, 9 and 13** (37 each, Soon): resolve, close or lower them, so the GDPR
-  issue is the one red RAID item on Monday.
+- **RAID 8, 9 and 13** fire first as OVERDUE REVIEWS (55, 54 and 52, Soon), with their High severity
+  (37) only an extra reason, so lowering the severity does not remove them. Resolve them (Issues 8
+  and 9 → `Resolved`, Dependency 13 → `Delivered`) or clear their review dates, so the GDPR issue
+  is the one red RAID item on Monday.
+- **RAID 1** (High risk, status Mitigated, which still counts as open: 37, Soon): close it, or lower
+  it to a Monitor-level item.
+- **Task 11 "Quarterly OKR review"** (due 2026-09-21, 45 Soon): move its due date off the week, or
+  mark it Done.
 
 The rule the Monday test enforces: **every action at T0 is a row of the table above, and every row
 fires.** Anything else is removed from the data or added to the table with its reason.
