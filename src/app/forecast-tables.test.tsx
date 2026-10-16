@@ -1,8 +1,10 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { render, screen, within } from "@testing-library/react";
-import { MilestoneTable, formatAmount, formatChance } from "./forecast-tables";
-import { loadI18n } from "./i18n";
+import { CostTable, MilestoneTable, formatAmount, formatChance } from "./forecast-tables";
+import { loadI18n, t } from "./i18n";
 import type { MilestoneChance } from "./forecast/milestones";
+import type { CostAtFinish } from "./forecast/cost";
+import { formatCurrency } from "./resource-cost";
 import type { Milestone } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
@@ -122,5 +124,65 @@ describe("formatChance", () => {
   test("German puts a space before the percent sign (R10)", () => {
     expect(formatChance(0.424, "de")).toBe("42 %");
     expect(formatChance(0.996, "de")).toBe("≥ 99 %");
+  });
+});
+
+// ---- §502 part 3: the Forecast view's cost-at-finish card ----
+describe("CostTable", () => {
+  const SIM: CostAtFinish = { kind: "sim", p50: 250000, p80: 262000, p95: 281000, chanceOverBudget: 0.8, spendDays: 60 };
+  const money = (n: number) => formatCurrency(n, "EUR", "en-US");
+  const card = () => screen.getByRole("group", { name: "Cost at finish, simulated" });
+
+  test("shows P50/P80/P95 and the chance over budget, each figure marked simulated", () => {
+    render(<CostTable lang="en-US" cost={SIM} currency="EUR" bac={240000} />);
+    const box = within(card());
+    expect(box.getByRole("heading", { name: "Cost at finish" })).toBeTruthy();
+    expect(within(box.getByRole("row", { name: /^Even odds \(P50\)/ })).getByText(money(250000))).toBeTruthy();
+    expect(within(box.getByRole("row", { name: /^Safe to commit \(P80\)/ })).getByText(money(262000))).toBeTruthy();
+    expect(within(box.getByRole("row", { name: /^Cautious \(P95\)/ })).getByText(money(281000))).toBeTruthy();
+    expect(within(box.getByRole("row", { name: /^Chance over budget/ })).getByText("80%")).toBeTruthy();
+    expect(card().getAttribute("data-sim")).toBe("true");
+    expect(box.getAllByText("sim").length).toBeGreaterThan(0);
+  });
+
+  test("reads a beyond percentile as beyond the horizon", () => {
+    render(<CostTable lang="en-US" cost={{ ...SIM, p95: "beyond" }} currency="EUR" bac={240000} />);
+    const row = within(card()).getByRole("row", { name: /^Cautious \(P95\)/ });
+    expect(within(row).getByText(t("en-US", "simHistogramBeyond"))).toBeTruthy();
+  });
+
+  test("uses the baseline currency", () => {
+    render(<CostTable lang="en-US" cost={SIM} currency="USD" bac={240000} />);
+    expect(within(card()).getByText(formatCurrency(262000, "USD", "en-US"))).toBeTruthy();
+  });
+
+  test("no budget shows the add-a-budget line and no figures", () => {
+    render(<CostTable lang="en-US" cost={null} currency="EUR" bac={0} />);
+    expect(within(card()).getByText("Add a budget to see the cost at finish.")).toBeTruthy();
+    expect(screen.queryByRole("row")).toBeNull();
+  });
+
+  test("a zero budget is no budget", () => {
+    render(<CostTable lang="en-US" cost={{ ...SIM, chanceOverBudget: null }} currency="EUR" bac={0} />);
+    expect(within(card()).getByText("Add a budget to see the cost at finish.")).toBeTruthy();
+    expect(screen.queryByText(money(262000))).toBeNull();
+  });
+
+  test("below the spend floor names both counts", () => {
+    render(<CostTable lang="en-US" cost={{ kind: "unavailable", reason: "spend-history", spendDays: 7, neededSpendDays: 10 }} currency="EUR" bac={240000} />);
+    expect(within(card()).getByText("Needs 10 working days of booking history in the window (has 7).")).toBeTruthy();
+  });
+
+  test("below the schedule floor says so", () => {
+    render(<CostTable lang="en-US" cost={{ kind: "unavailable", reason: "schedule-floor", spendDays: 0, neededSpendDays: 10 }} currency="EUR" bac={240000} />);
+    expect(within(card()).getByText("Not enough finished-task history to simulate the finish yet.")).toBeTruthy();
+  });
+
+  test("reads in German", async () => {
+    await loadI18n("de");
+    render(<CostTable lang="de" cost={null} currency="EUR" bac={0} />);
+    expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "budgetSimCostAtFinish")) })).toBeTruthy();
+    expect(screen.getByText(t("de", "budgetSimAddBudget"))).toBeTruthy();
+    expect(t("de", "budgetSimAddBudget")).not.toBe("Add a budget to see the cost at finish.");
   });
 });

@@ -51,6 +51,13 @@ describe("computeScheduleForecast floor", () => {
     expect(r).toMatchObject({ kind: "insufficient", finished: 9, neededFinished: 10, neededDays: 10 });
   });
 
+  test("exposes trialDays and the history window dates without changing any result", () => {
+    const f = computeScheduleForecast(input([...open(5), ...recentDone(10)], { window: "all" }));
+    if (f.kind !== "forecast") throw new Error("expected forecast");
+    expect(f.windowDates).toHaveLength(f.windowDays);
+    expect(Array.from(f.trialDays).sort((a, b) => a - b)).toEqual(Array.from(f.distribution));
+  });
+
   test("forecasts at exactly 10 finished and 10 days", () => {
     const r = computeScheduleForecast(input([...open(5), ...recentDone(10)], { window: "all" }));
     expect(r).toMatchObject({ kind: "forecast", finished: 10, windowDays: 10 });

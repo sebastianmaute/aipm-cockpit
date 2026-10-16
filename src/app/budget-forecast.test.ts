@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  computeBudgetForecast, computeBudgetForecastsByUnit, computeForecastFromFacts, computeProjectForecast,
+  computeBudgetForecast, computeForecastFromFacts, computeProjectForecast, computeProjectForecastFacts,
   forecastFacts, forecastFactsByUnit, forecastGap,
   isEfficiencyAvailable, isPaceAvailable, paceVacHealth,
   type BudgetForecastInput, type DatedValue, type EfficiencyForecast, type ForecastFacts, type PaceForecast,
@@ -445,6 +445,13 @@ describe("computeProjectForecast", () => {
     expect(computeProjectForecast({ buckets: [], plan, roles, resources: [], workdayHours: 8, holidaySet: none, absences: [], tasks: [], fxRates: null, today: "2026-09-14" })).toBeNull();
   });
 
+  it("computeProjectForecastFacts is null without buckets and holds both units' facts of the same inputs", () => {
+    const args = { plan, roles, resources: [], workdayHours: 8, holidaySet: none, absences: [], tasks: [], fxRates: null, today: "2026-09-14" };
+    expect(computeProjectForecastFacts({ ...args, buckets: [] })).toBeNull();
+    const b = [withActual(1, { "2026-06-10": 8 })];
+    expect(computeProjectForecastFacts({ ...args, buckets: b })).toEqual(forecastFactsByUnit(input(b)));
+  });
+
   it("matches computeBudgetForecast on the same inputs", () => {
     const b = [withActual(1, { "2026-06-10": 8 })];
     const direct = computeBudgetForecast(input(b));
@@ -603,12 +610,13 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
     expect(hours.bucketsMissingPercent).toEqual([{ id: 1, name: "Design" }]);
   });
 
-  it("forecastFacts still returns the € facts, and the pair wrapper runs both", () => {
+  it("forecastFacts still returns the € facts, and each unit's facts forecast on their own", () => {
     const inp = input([withActual(1, { "2026-06-10": 8 })]);
-    expect(forecastFacts(inp)).toEqual(forecastFactsByUnit(inp).eur);
-    const both = computeBudgetForecastsByUnit(inp);
-    expect(both.eur).toEqual(computeBudgetForecast(inp));
-    expect(both.hours.facts.bac).toBe(100);
+    const both = forecastFactsByUnit(inp);
+    expect(forecastFacts(inp)).toEqual(both.eur);
+    // The production path (`computeForecastBundle`) forecasts each unit's facts this way.
+    expect(computeForecastFromFacts(both.eur)).toEqual(computeBudgetForecast(inp));
+    expect(computeForecastFromFacts(both.hours).facts.bac).toBe(100);
   });
 });
 

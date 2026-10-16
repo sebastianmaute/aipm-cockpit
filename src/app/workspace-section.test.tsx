@@ -4,21 +4,18 @@ import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 import { showForecastView } from "../test/forecast-view";
+import { Wrapper, makeProps } from "../test/workspace-section-harness";
 import type React from "react";
-import { WorkspaceProvider, useWorkspace } from "./workspace-context";
-import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
+import { useWorkspace } from "./workspace-context";
+import { useWorkspaceTab } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
-import { FiltersProvider, useFilters } from "./filters-context";
+import { useFilters } from "./filters-context";
 import { WorkspaceSection } from "./workspace-section";
 import type { WorkspaceSectionProps } from "./workspace-section";
 import { useSettings } from "./use-settings";
 import { SINGLE_TENANT_ASSET_PARTITION } from "./document-assets-schema";
 import { __resetSafeModeCache } from "./safe-mode";
-import { defaultSettings } from "./settings-types";
-import { createRef } from "react";
-import type { ToolDispatcher } from "./chat-tools";
-import type { ActivityEntry } from "./activity-log";
-import type { Absence, Shift } from "./types";
+import { useEffect } from "react";
 import { saveActualsCache } from "./timelog-actuals-store";
 import type { FeatureModuleId } from "./feature-modules";
 import type { SuggestedAction } from "./next-actions/types";
@@ -27,6 +24,7 @@ import { t } from "./i18n";
 import { markDemoBannerDone } from "./demo-banner-state";
 import { DEMO_SAMPLE_CODE } from "./demo-project";
 import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
+import { computeAppForecast } from "./forecast/app-forecast";
 
 vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
@@ -68,7 +66,15 @@ vi.mock("./chat-panel", async () => {
     },
   };
 });
-vi.mock("./reports", () => ({ ReportsPanel: () => <div data-testid="reports-panel" /> }));
+// Captures its props for the §502 budget-simulation wiring test; same stub div as before.
+const reportsPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./reports", () => ({
+  ReportsPanel: (p: Record<string, unknown>) => { reportsPanelMock.props.push(p); return <div data-testid="reports-panel" />; },
+}));
+const budgetReportPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./budget-report-panel", () => ({
+  BudgetReportPanel: (p: Record<string, unknown>) => { budgetReportPanelMock.props.push(p); return <div data-testid="budget-report-panel" />; },
+}));
 vi.mock("./gantt", () => ({ GanttPanel: () => <div data-testid="gantt-panel" /> }));
 // Exposes the task backlink it was handed, for the scope-epoch test below.
 vi.mock("./raid-panel", () => ({
@@ -121,123 +127,6 @@ vi.mock("./budget-panel", () => ({
     return <div data-testid="budget-panel" />;
   },
 }));
-
-function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSectionProps {
-  return {
-    today: "2030-01-01",
-    // Required on the pane contract, so a missed thread from task-manager is a
-    // typecheck error rather than a silently badge-less register.
-    documentsByEntity: new Map(),
-    holidaySet: new Set<string>(),
-    workspaceRef: createRef<HTMLElement | null>(),
-    resetWorkspaceSize: vi.fn(),
-    workspaceCollapsed: false,
-    setWorkspaceCollapsed: vi.fn(),
-    dispatcher: {} as ToolDispatcher,
-    // §548/§596 — required on the pane contract for the same reason as the line
-    // above: an optional scope reader that nobody threads is a silently
-    // unguarded chat turn, not a visible failure.
-    getScopeEpoch: () => 0,
-    isSwapInFlight: () => false,
-    handleGanttBarUpdate: vi.fn(),
-    handleCancelEdit: vi.fn(),
-    setTaskModalOpen: vi.fn(),
-    contactsList: [],
-    onCreateResource: vi.fn(() => 1),
-    handleClearRaidTaskFilter: vi.fn(),
-    handleClearChangeTaskFilter: vi.fn(),
-    handleSaveRaidItem: vi.fn(),
-    handleDeleteRaidItem: vi.fn(),
-    changes: [],
-    handleSaveChange: vi.fn(),
-    handleDeleteChange: vi.fn(),
-    handleChangeStatusChange: vi.fn(),
-    stakeholders: [],
-    handleSaveStakeholder: vi.fn(),
-    handleDeleteStakeholder: vi.fn(),
-    handleCreateMitigationTaskFromRaid: vi.fn() as (raidId: number) => number | null,
-    handleJumpToTaskFromRaid: vi.fn(),
-    onOpenNotes: vi.fn(),
-    onOpenChangeNotes: vi.fn(),
-    activityLog: [] as ActivityEntry[],
-    logActivity: vi.fn(),
-    logActivityChanges: vi.fn(),
-    logActivityAs: vi.fn(),
-    handleClearActivityLog: vi.fn(),
-    handleOpenAddAbsence: vi.fn(),
-    handleEditAbsence: vi.fn() as (absence: Absence) => void,
-    handleOpenShiftEditor: vi.fn() as (existingShift: Shift | null, assignee: { display: string; email: string }) => void,
-    onAssignRoleById: vi.fn(),
-    onSetUtilization: vi.fn(),
-    overAllocatedPct: 100,
-    onReassignTask: vi.fn(),
-    onRescheduleTask: vi.fn(),
-    onSetAllUtilizationMode: vi.fn(),
-    onSetAbsenceOverride: vi.fn(),
-    onSetPlanWindow: vi.fn(),
-    onSetBudgetFollowsPlan: vi.fn(),
-    onEditResource: vi.fn(),
-    onAddResource: vi.fn(),
-    onChangeBudgets: vi.fn(),
-    onRefreshFx: vi.fn(),
-    mode: "file",
-    projects: [],
-    currentProjectId: null,
-    projectStakeholderNames: [],
-    projectAddressBook: [],
-    projectResources: [],
-    projectSettings: defaultSettings,
-    onChangeProjectSettings: vi.fn(),
-    onSwitchProject: vi.fn(),
-    onCreateProject: vi.fn(),
-    onUpdateCurrentProject: vi.fn(),
-    onDeleteProject: vi.fn(),
-    onExportCurrentProject: vi.fn(),
-    onLoadProjectFromFile: vi.fn(),
-    onMigrateProjectToTurso: vi.fn(),
-    trends: {
-      active: false,
-      snapshots: [],
-      baseline: null,
-      latest: null,
-      variance: [],
-      gaps: [],
-      busy: false,
-      captureNow: vi.fn(async () => {}),
-      rebaselineNow: vi.fn(async () => {}),
-      setBaseline: vi.fn(async () => {}),
-      deleteSnapshot: vi.fn(async () => {}),
-      deleteSnapshots: vi.fn(async () => {}),
-    },
-    versionHistory: {
-      versions: [],
-      busy: false,
-      // See the note in workspace-section.characterization.test.tsx: `true`
-      // preserves the pre-`active` rendered output for an empty list.
-      active: true,
-      notifySaved: vi.fn(),
-      captureNow: vi.fn(async () => {}),
-      loadDiff: vi.fn().mockResolvedValue([]),
-      restore: vi.fn(async () => true),
-      remove: vi.fn(async () => true),
-      refresh: vi.fn(async () => {}),
-    },
-    nextActions: [],
-    nextActionGroups: [],
-    onOpenAction: vi.fn(),
-    ...overrides,
-  };
-}
-
-function Wrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <FiltersProvider>
-      <WorkspaceProvider>
-        <WorkspaceTabProvider>{children}</WorkspaceTabProvider>
-      </WorkspaceProvider>
-    </FiltersProvider>
-  );
-}
 
 describe("WorkspaceSection — documents tab routing", () => {
   // ★★ Navigation happens from a CLICK HANDLER, which is the only lint-legal
@@ -645,8 +534,8 @@ describe("WorkspaceSection — budget forecast link wiring", () => {
     expect(typeof props.onOpenBudgetReport).toBe("function");
     act(() => (props.onOpenBudgetReport as () => void)());
     // `id`, not `data-testid` — matches how workspace-section.tsx marks this
-    // tabpanel. BudgetReportPanel itself is not mocked in this file, so this
-    // only asserts the tab switch happened, not its contents.
+    // tabpanel. BudgetReportPanel is a stub in this file, so this only asserts
+    // the tab switch happened, not its contents.
     expect(document.getElementById("panel-budget-report")).toBeInTheDocument();
   });
 
@@ -763,6 +652,54 @@ describe("WorkspaceSection — Monte Carlo switch in Edit project", () => {
     window.history.replaceState(null, "", "/?popout=budget");
     const dialog = await openEdit();
     expect(dialog.queryByRole("button", { name: simName() })).toBeNull();
+  });
+});
+
+// §502 part 3 — the Budget report block on Reports gets the ONE shared run, computed here with the
+// context's collections and the section's holiday set (the references the recorder passes).
+describe("WorkspaceSection — budget simulation for Reports", () => {
+  const seen: { refs?: Parameters<typeof computeAppForecast>[0] } = {};
+  function Probe({ holidaySet, today }: { holidaySet: ReadonlySet<string>; today: string }) {
+    const { setActiveTab } = useWorkspaceTab();
+    const { tasks, milestones, plan, setSettingsOverrides } = useWorkspace();
+    // The references this render handed the section, recorded after commit.
+    useEffect(() => { seen.refs = { tasks, milestones, planEnd: plan.endDate, today, holidaySet }; });
+    return (
+      <>
+        <button data-testid="go-reports" onClick={() => setActiveTab("reports")} />
+        <button data-testid="go-budget-report" onClick={() => setActiveTab("budget-report")} />
+        <button data-testid="sim-on" onClick={() => setSettingsOverrides({ forecast: { showSimulation: true } })} />
+      </>
+    );
+  }
+  beforeEach(() => { reportsPanelMock.props.length = 0; budgetReportPanelMock.props.length = 0; });
+  afterEach(() => { vi.restoreAllMocks(); localStorage.clear(); });
+
+  // Mutation: passing `null` (or a run of copied collections) for `budgetSimulation` turns this red.
+  it("passes null while the simulation is off and the shared run once it is on", async () => {
+    showForecastView();
+    const props = makeProps();
+    render(<><Probe holidaySet={props.holidaySet} today={props.today} /><WorkspaceSection {...props} /></>, { wrapper: Wrapper });
+    fireEvent.click(screen.getByTestId("go-reports"));
+    await screen.findByTestId("reports-panel"); // a dynamic() panel
+    expect(reportsPanelMock.props.at(-1)?.budgetSimulation).toBeNull();
+    fireEvent.click(screen.getByTestId("sim-on"));
+    const passed = reportsPanelMock.props.at(-1)?.budgetSimulation;
+    expect(passed).not.toBeNull();
+    expect(passed).toBe(computeAppForecast(seen.refs!));
+  });
+
+  // Mutation: dropping `simulation={budgetSimulation}` from the Budget report tab turns this red.
+  it("passes the same run to the Budget report tab", async () => {
+    showForecastView();
+    const props = makeProps();
+    render(<><Probe holidaySet={props.holidaySet} today={props.today} /><WorkspaceSection {...props} /></>, { wrapper: Wrapper });
+    fireEvent.click(screen.getByTestId("sim-on"));
+    fireEvent.click(screen.getByTestId("go-budget-report"));
+    await screen.findByTestId("budget-report-panel"); // a dynamic() panel
+    const passed = budgetReportPanelMock.props.at(-1)?.simulation;
+    expect(passed).not.toBeNull();
+    expect(passed).toBe(computeAppForecast(seen.refs!));
   });
 });
 

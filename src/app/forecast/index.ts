@@ -45,6 +45,10 @@ export type ScheduleForecast = {
   milestones: MilestoneChance[];
   /** simulateWhen's sorted days, for the chart. */
   distribution: Int32Array;
+  /** The same per-trial days in trial order (unsorted), so a later pass can pair a trial with its own finish day. */
+  trialDays: Int32Array;
+  /** The history's working days (`history.days`), the window the samples were drawn from. */
+  windowDates: readonly string[];
   beyondShare: number;
   finished: number;
   windowDays: number;
@@ -204,6 +208,8 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
     howMany: FORECAST_PERCENTILES.map((p) => ({ p, amount: percentile(reached, 100 - p) })),
     milestones: chances,
     distribution: when.days,
+    trialDays: when.trialDays,
+    windowDates: history.days,
     beyondShare: when.beyondShare,
     finished: history.finished,
     windowDays,

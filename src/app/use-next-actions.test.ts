@@ -256,7 +256,7 @@ describe("useNextActions — simulated 'unlikely on time' signal (§502)", () =>
   const MILESTONES = [{ id: 7, name: "Go-live", date: "2026-12-01", linkedTaskIds: [] } as unknown as Milestone];
   const FAKE: AppForecast = {
     kind: "forecast", p50: null, p80: null, p95: null, chanceOnTime: null, estimateCoverage: null,
-    windowDays: 30, distribution: new Int32Array(0), trials: 0, markers: { p50: 0, p80: 0, p95: 0 },
+    windowDays: 30, distribution: new Int32Array(0), trialDays: new Int32Array(0), windowDates: [], trials: 0, markers: { p50: 0, p80: 0, p95: 0 },
     milestones: [{ id: 7, state: "chance", chance: 0.31, chancePrioritised: 0.31 }],
   };
   const SIM_ID = "forecast-sim:milestone:7";

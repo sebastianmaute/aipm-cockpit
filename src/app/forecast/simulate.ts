@@ -72,7 +72,8 @@ export function cannotReach(done: number, days: number, max: number, target: num
 }
 
 /**
- * Working days until `backlog` is done, per trial, sorted ascending; `horizon + 1` = beyond. A trial
+ * Working days until `backlog` is done, per trial, sorted ascending (`days`) and in trial order
+ * (`trialDays`); `horizon + 1` = beyond. A trial
  * that cannot reach the backlog even at the best possible day stops and skips its remaining draws, so
  * the result is the same as walking it to the horizon.
  */
@@ -80,7 +81,7 @@ export function simulateWhen(
   samples: readonly number[],
   backlog: number,
   o: SimOptions,
-): { days: Int32Array; beyondShare: number } {
+): { days: Int32Array; trialDays: Int32Array; beyondShare: number } {
   const days = new Int32Array(o.trials);
   let beyond = 0;
   const { draw, max, skipDays } = dayDrawer(samples, o);
@@ -106,8 +107,9 @@ export function simulateWhen(
       }
     }
   }
+  const trialDays = days.slice();
   days.sort();
-  return { days, beyondShare: o.trials === 0 ? 0 : beyond / o.trials };
+  return { days, trialDays, beyondShare: o.trials === 0 ? 0 : beyond / o.trials };
 }
 
 /**

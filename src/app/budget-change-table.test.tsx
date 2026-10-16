@@ -4,6 +4,7 @@ import { BudgetChangeTable } from "./budget-change-table";
 import { formatCurrency } from "./resource-cost";
 import { loadI18n } from "./i18n";
 import type { BudgetHistoryEntry, BudgetHistorySummary, VarianceSplit } from "./budget-history";
+import type { CostAtFinish } from "./forecast/cost";
 
 const eur = (v: number) => formatCurrency(v, "EUR", "en-US");
 
@@ -31,7 +32,7 @@ const HISTORY: BudgetHistorySummary = {
 
 const SPLIT: VarianceSplit = { vac: -1_000, performance: -500, attributed: 2_200, unattributed: -2_700 };
 
-function draw(over: { lang?: "en-US" | "de"; split?: VarianceSplit | null; unit?: "eur" | "hours" } = {}) {
+function draw(over: { lang?: "en-US" | "de"; split?: VarianceSplit | null; unit?: "eur" | "hours"; sim?: CostAtFinish | null } = {}) {
   return render(
     <BudgetChangeTable
       lang={over.lang ?? "en-US"}
@@ -39,6 +40,7 @@ function draw(over: { lang?: "en-US" | "de"; split?: VarianceSplit | null; unit?
       split={over.split === undefined ? SPLIT : over.split}
       unit={over.unit ?? "eur"}
       currency="EUR"
+      sim={over.sim}
     />,
   );
 }
@@ -129,6 +131,25 @@ describe("BudgetChangeTable", () => {
     expect(screen.getByText("Split against the pace forecast.")).toBeInTheDocument();
   });
 
+  // Their values sit in the running-total column, which they are not (§502, as the simulated row below).
+  it("associates each split value with its own row header alone, never the running-total column", () => {
+    const { container } = draw();
+    const foot = container.querySelector("tfoot") as HTMLElement;
+    for (const [term, value] of [["Performance", eur(-500)], ["Added scope", `+${eur(2_200)}`], ["Unexplained budget change", eur(-2_700)]]) {
+      const cell = within(foot).getByText(value).closest("td") as HTMLElement;
+      const headerIds = (cell.getAttribute("headers") ?? "").split(" ").filter(Boolean);
+      expect(headerIds.map((id) => document.getElementById(id))).toEqual([within(foot).getByRole("rowheader", { name: term })]);
+    }
+  });
+
+  it("gives the split's row headers ids unique across two tables on one page", () => {
+    draw();
+    draw({ unit: "hours" });
+    const ids = [...document.querySelectorAll("tfoot th[id]")].map((th) => th.id);
+    expect(ids).toHaveLength(6);
+    expect(new Set(ids).size).toBe(6);
+  });
+
   it("drops the footer when no pace split is available, keeping the rows", () => {
     const { container } = draw({ split: null });
     expect(container.querySelector("tfoot")).toBeNull();
@@ -143,5 +164,59 @@ describe("BudgetChangeTable", () => {
     expect(screen.getByRole("columnheader", { name: "Änderung" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Zusätzlicher Umfang bisher" })).toBeInTheDocument();
     expect(screen.getByText("Aufteilung gegen die Tempo-Prognose.")).toBeInTheDocument();
+  });
+});
+
+describe("BudgetChangeTable — simulated cost at finish (§502)", () => {
+  const SIM: CostAtFinish = { kind: "sim", p50: 9_500, p80: 10_200, p95: 11_000, chanceOverBudget: 0.7, spendDays: 20 };
+  const simRow = () => screen.queryByRole("group", { name: "Cost at finish (sim, P50–P95), simulated" });
+
+  it("adds one row with the P50 – P95 range beside the calculated split, marked sim", () => {
+    const { container } = draw({ sim: SIM });
+    const foot = container.querySelector("tfoot") as HTMLElement;
+    expect(within(foot).getByRole("rowheader", { name: "Cost at finish (sim, P50–P95)" })).toBeInTheDocument();
+    expect(within(foot).getByRole("group", { name: "Cost at finish (sim, P50–P95), simulated" })).toHaveAttribute("data-sim", "true");
+    expect(simRow()).toHaveTextContent(`${eur(9_500)} – ${eur(11_000)}`);
+    // The calculated split stays as it was.
+    expect(within(foot).getByRole("rowheader", { name: "Added scope" })).toBeInTheDocument();
+  });
+
+  it("labels the row as hours in the hours unit, never as cost", () => {
+    draw({ unit: "hours", sim: SIM });
+    expect(screen.getByRole("group", { name: "Hours at finish (sim, P50–P95), simulated" })).toBeInTheDocument();
+    expect(screen.queryByText(/Cost at finish/)).toBeNull();
+  });
+
+  it("associates the value cell with its own row header alone, never the running-total column", () => {
+    for (const [unit, term] of [["eur", "Cost at finish (sim, P50–P95)"], ["hours", "Hours at finish (sim, P50–P95)"]] as const) {
+      const { unmount } = draw({ unit, sim: SIM });
+      const cell = screen.getByRole("group", { name: `${term}, simulated` }).closest("td") as HTMLElement;
+      const headerIds = (cell.getAttribute("headers") ?? "").split(" ").filter(Boolean);
+      // Exactly one header, and it is the row's own: the name a screen reader reads for the cell.
+      expect(headerIds.map((id) => document.getElementById(id)?.textContent?.trim())).toEqual([term]);
+      expect(headerIds.map((id) => document.getElementById(id))).toEqual([screen.getByRole("rowheader", { name: term })]);
+      expect(headerIds.map((id) => document.getElementById(id))).not.toContain(screen.getByRole("columnheader", { name: "Added scope to date" }));
+      unmount();
+    }
+  });
+
+  it("names a P95 beyond the horizon in words", () => {
+    draw({ sim: { ...SIM, p95: "beyond" } });
+    expect(simRow()).toHaveTextContent(`${eur(9_500)} – beyond the horizon`);
+  });
+
+  it("keeps the row when no pace split is available", () => {
+    const { container } = draw({ split: null, sim: SIM });
+    expect(container.querySelector("tfoot")).not.toBeNull();
+    expect(simRow()).not.toBeNull();
+  });
+
+  it("has no simulated row when the simulation is off or the range is unavailable", () => {
+    const { unmount } = draw({ sim: null });
+    expect(simRow()).toBeNull();
+    expect(screen.queryByText("Cost at finish (sim, P50–P95)")).toBeNull();
+    unmount();
+    draw({ sim: { kind: "unavailable", reason: "spend-history", spendDays: 4, neededSpendDays: 10 } });
+    expect(simRow()).toBeNull();
   });
 });

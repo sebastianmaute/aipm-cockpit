@@ -20,7 +20,7 @@ function finishingOn(day: number): ScheduleForecast {
     ],
     howMany: [],
     milestones: [],
-    distribution: Int32Array.from({ length: 20 }, () => day),
+    distribution: Int32Array.from({ length: 20 }, () => day), trialDays: Int32Array.from({ length: 20 }, () => day), windowDates: [],
     beyondShare: 0,
     finished: 20,
     windowDays: 20,

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { computeForecastBundle, type ForecastBundleInput } from "./budget-forecast-bundle";
-import { computeBudgetForecastsByUnit } from "./budget-forecast";
+import { computeForecastFromFacts, forecastFactsByUnit } from "./budget-forecast";
 import { computeBudgetReport } from "./budget-report";
 import { computeBurndownSeries } from "./budget-burndown";
 import { summarizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
@@ -26,10 +26,16 @@ const bucket = {
 } as BudgetBucket;
 
 describe("computeForecastBundle", () => {
-  it("carries the by-unit forecasts unchanged", () => {
+  it("carries the by-unit forecasts unchanged, each built from its own unit's facts", () => {
     const inp = input([bucket]);
     const b = computeForecastBundle(inp);
-    expect({ eur: b.eur, hours: b.hours }).toEqual(computeBudgetForecastsByUnit(inp));
+    const facts = forecastFactsByUnit(inp);
+    expect(b.facts).toEqual(facts);
+    expect(b.eur).toEqual(computeForecastFromFacts(facts.eur));
+    expect(b.hours).toEqual(computeForecastFromFacts(facts.hours));
+    // Not the same figure twice: the hours forecast runs on the hours facts.
+    expect(b.hours.facts.bac).toBe(100);
+    expect(b.eur.facts.bac).not.toBe(b.hours.facts.bac);
   });
   it("attaches the rate mix and the earned-value history", () => {
     const b = computeForecastBundle(input([bucket]));

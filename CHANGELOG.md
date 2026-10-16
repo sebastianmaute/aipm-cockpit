@@ -59,6 +59,13 @@ longer carries its own changelog comment.
   "About these chances" explainer, and a Next-actions suggestion for a milestone with under 50% chance on time,
   all marked as simulated. Restoring an earlier version keeps your current switch. It stays hidden while the
   Forecast view is held back, and appears with it.
+- **The Budget simulation is built but held back with the forecast (§502, part 3).** With "Use Monte Carlo
+  forecasting" on, the Budget forecast also shows a simulated cost at finish (P50, P80, P95 and the chance of going
+  over budget) beside the calculated "at current pace" figure, which does not change and still sets the Budget health
+  dot. It appears on the pace card, as finish and cost bands on the burn charts, as one line on the Dashboard's burn tile,
+  as a row in the change table, and as a cost card in the Forecast view that moves with What-if. It needs the same
+  history as the schedule forecast plus at least ten working days of booked spend, and says which is missing when it
+  does not have them. It stays hidden while the Forecast view is held back.
 
 ## [1.19.0] - 2026-10-15 "Nesbø"
 

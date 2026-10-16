@@ -42,6 +42,14 @@ describe("computeAppForecast", () => {
     expect(r.p80! <= r.p95!).toBe(true);
   });
 
+  test("carries the per-trial finish days and the window dates from the same run", () => {
+    const r = computeAppForecast(args([...finished(20), ...openTasks(10)]));
+    if (r.kind !== "forecast") throw new Error("expected forecast");
+    expect(r.windowDates).toHaveLength(r.windowDays);
+    expect(r.trialDays).toHaveLength(r.trials);
+    expect(Array.from(r.trialDays).sort((a, b) => a - b)).toEqual(Array.from(r.distribution));
+  });
+
   test("is insufficient below the history floor and has no history entry", () => {
     const r = computeAppForecast(args([...finished(5), ...openTasks(10)]));
     expect(r.kind).toBe("insufficient");
