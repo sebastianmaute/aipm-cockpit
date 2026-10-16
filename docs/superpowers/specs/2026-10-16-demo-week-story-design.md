@@ -123,7 +123,7 @@ cancel → **Explore the demo**.
 | Next actions: read Now / Soon / Monitor | **Analyze with AI** on Next actions |
 | Open Points **Table**: open "Integrate CRM provisioning", add the blocker "CRM API rejects erasure calls" (it is not in the data), move its due date to Thursday | — |
 | Knowledge: search "CRM" → the CRM interface decision from design sign-off → jump to it | — |
-| Next actions: "Message Elena Fischer" (the sponsor must hear about the slip) → open her in Stakeholders, read what links her to the project | **Draft** (the row's primary button) writes the message about the slip |
+| Next actions: the row "Update stakeholder: Elena Fischer" (`actionCommsTitle`; the sponsor must hear about the slip) → **Draft message**, which fills the stakeholder-update email template and opens it in the mail client (`handleDraftMessageFromAction`; not AI) | **AI Assistant**: the starter prompt "Stakeholder update" (`CHAT_STARTER_PROMPTS`) writes the update from the project's current state, slip included |
 
 ### Tuesday — re-plan (chapter 4)
 
@@ -132,7 +132,7 @@ cancel → **Explore the demo**.
 | Open Points **Board**: drag "Integrate CRM provisioning" from To Do to In Progress — work restarts with the blocker known (the data plants it To Do) | — |
 | Delete one of the double-logged follow-ups by hand | **Deduplicate & unify** merges the rest |
 | New change request "Add a CRM provisioning connector", one-line impact typed | **Ask Claude** on the impact field |
-| Next actions: "Message Maya Patel" → open her in Stakeholders (she is linked to the pending MFA change) | **Draft** the message: the MFA change and the re-plan |
+| Next actions: the row "Update stakeholder: Maya Patel" (linked to the pending MFA change) → **Draft message** (template email, as Monday) | **AI Assistant**: "Stakeholder update" again, asked to cover the MFA change and the re-plan |
 | Add milestone "MVP re-demo" (Friday 2 October), linked to the demo task | **Ask Claude** on its description |
 | Read the forecast as it stands | **Forecast import** of the team's re-plan spreadsheet |
 
@@ -143,9 +143,9 @@ cancel → **Explore the demo**.
 | Roles: **Add discipline** "Integration Engineer", then a new role Integration Engineer × Senior with an internal and an external rate (a role is discipline × grade and has no name of its own; `Role` in `types.ts`) | — |
 | New team member from the vendor's partner, in that role | — |
 | Noah's planned vacation next week (he owns the CRM integration) | — |
+| Workload: Maya's "Util (now)" cell is pink (over-allocated this month) → lower it by hand | — |
 | Planning: the new member's capacity for one month | **Plan with AI** proposes the rest |
-| Workload: Maya's "Util (now)" cell is pink (over-allocated this month) → lower it by hand | (covered by Plan with AI) |
-| Open Points **Swimlanes** by person: the new member's lane has work | — |
+| Open Points **Swimlanes** by person: drag one of the CRM follow-up cards into the new member's lane — a lane exists only for a person with tasks, so this is what gives them one | — |
 
 ### Thursday — risks, stakeholders, money (chapter 6)
 
@@ -158,7 +158,7 @@ cancel → **Explore the demo**.
 | Steering meeting (Thursday): open it and its agenda | **Draft with AI** writes the report |
 | The connector change is approved → Budget: new bucket "CRM connector (CR)" | — |
 | Open Points: add the task "Order the connector licence" | **AI Assistant chat** creates "Confirm licence delivery" |
-| Gantt: drag the MVP target to its new date (project D) | — |
+| Gantt: drag the MVP target to Thursday 1 October, the day the MVP is to be operational again (project D); "MVP re-demo" on Friday 2 October is the customer demo the day after | — |
 
 ### Friday — close the week (chapter 7)
 
@@ -171,7 +171,8 @@ cancel → **Explore the demo**.
 | Trends, Activity (this week, day by day), History (Monday's version against today's) | **Digest** of the week — closes the video |
 | Help: where the walk-through, the demo and these videos live (A's former chapter 8) | — |
 
-About 14 real Claude calls per full take. Rough length 20–25 minutes.
+About 17 real Claude calls per full take (prologue 1, Monday 3, Tuesday 5, Wednesday 1, Thursday 4,
+Friday 3; Draft message is a template, not a call). Rough length 20–25 minutes.
 
 ## What changes in A
 
@@ -203,9 +204,14 @@ Numbers are the master's ids today; the builder keeps ids stable where the exist
 ### The slip
 
 - **Milestone 5 "MVP target":** date `2026-09-18`, `achievedDate` removed, linked tasks 23, 24, 25 and
-  the new CRM task.
-- **Task 25 "MVP demo to the customer":** To Do, due `2026-09-18`, a note that it was called off on
+  the new CRM task. Its description (today "Slipped from 17 July to 21 August while the vendor's SDK
+  was late") is rewritten for the new story: the MVP is the customer lifecycle working end to end,
+  and it was not operational on the 18th.
+- **Task 25 "MVP demo to the customer":** To Do, due `2026-09-18`, its `completedDate` cleared (today
+  Done on 2026-08-21; `status` and `completedDate` must agree), a note that it was called off on
   Friday because provisioning to the CRM fails.
+- **Stakeholders Elena Fischer and Maya Patel** get a fictional `email` (`@example.com`), so Draft
+  message opens the mail client instead of the `window.prompt` for an address.
 - **New task "Integrate CRM provisioning":** **To Do** (Tuesday drags it to In Progress), owner Noah Bennett, due `2026-09-16`
   (overdue on Monday), depends on 24; task 25 depends on it. **No blocker text** — Monday adds it
   on camera.
@@ -235,7 +241,7 @@ T0. Intended:
 | Soon | "Message Elena Fischer" — the sponsor, linked to change 1 and RAID 2 and 11 (owner: part of the story, acted on Monday) | stakeholder-comms (45) |
 | Soon | "Message Maya Patel" — linked to change 1 (owner: part of the story, acted on Tuesday); today also to RAID 13, a link that goes once 13 is Delivered | stakeholder-comms (45) |
 | Soon | pilot tasks waiting on an unfinished predecessor (today 5, 7, 8, 10) — the ripple of the slip | task-attention dep-blocked (35 each) |
-| Monitor | the schedule item (SPI between 0.8 and 0.9) | schedule (5); the builder keeps SPI ≥ 0.8 so it does not rise to Soon (45) |
+| Monitor | the schedule item (SPI between 0.8 and 0.9) | schedule (5); the builder keeps SPI ≥ 0.8 so it does not rise to Soon (45), and below 0.9 so it fires at all |
 | Monitor | Medium RAID items with an owner (today 2, 4, 11) — or resolved; the builder decides per item | RAID severity (22) |
 
 Scores checked against the providers by the builder check and two reviews (2026-10-16; the second
@@ -255,7 +261,8 @@ rows are what the viewer sees.
   chain is re-dated.
 - **RAID 13, 8 and 9** fire first as OVERDUE REVIEWS (55, 54 and 52 respectively, Soon), with their High severity
   (37) only an extra reason, so lowering the severity does not remove them. Resolve them (Issues 8
-  and 9 → `Resolved`, Dependency 13 → `Delivered`) or clear their review dates, so the GDPR issue
+  and 9 → `Resolved`, Dependency 13 → `Delivered`) or move their `targetDate` (the field the overdue
+  review reads) past the week, so the GDPR issue
   is the one red RAID item on Monday.
 - **RAID 1** (High risk, status Mitigated, which still counts as open: 37, Soon): close it, or lower
   it to a Monitor-level item.
@@ -283,7 +290,7 @@ and PR (`nearTermPeriodKeys`); E starts only once that fix is on main.
 - **Maya over-allocated** in the period containing T0 (September, at month granularity), planted in
   her `utilization` (the only thing the alert reads — `buildWorkloadAlerts` never looks at task
   assignments, so reassigning a task cannot relieve it). Wednesday relieves it on screen through her
-  "Util (now)" cell, then Plan with AI.
+  "Util (now)" cell first, then Plan with AI plans the new member.
 - **Maya present at T0:** her absence on 21–22 Sept ("Offsite leadership summit") moves out of the
   week. Noah's existing vacation (9–13 Nov) stays; it does not clash with "next week".
 - **Steering committee:** a meeting on Thursday 2026-09-24 with an agenda (the existing meeting on
@@ -295,12 +302,20 @@ and PR (`nearTermPeriodKeys`); E starts only once that fix is on main.
   call, under `scripts/demo-video/`), with columns Claude has to map.
 - **A's clip list** (A's "What A needs from project E" table) still holds; the items above cover most
   of it. The builder re-checks each row against the new data.
+- **The week, day by day:** RAID 4, 11 and 7 have target dates of 22, 24 and 25 September, so each
+  turns into an overdue review during the week. Move them past the 25th, or let them in and list them
+  in that day's check; E checks Monday to Friday, not only Monday.
+- **Forecast simulation off at T0.** Its "unlikely on time" rows (`mergeSimActions`) join the
+  grouped list only when Show simulation is on; it is off by default, and the takes leave it off.
+- **The schedule row** fires only while SPI is at least 0.8 and below 0.9 (Monitor, 5); the builder
+  keeps SPI in that band after re-dating, or drops the row from the table.
 
 ### What must NOT exist (the video adds it)
 
-The "Integration Engineer" discipline and its role, the new team member, Noah's vacation next week, the DPO stakeholder,
-the connector change request, the "MVP re-demo" milestone, the "CRM connector (CR)" budget bucket,
-and the two licence tasks. The role's discipline and grade must exist so the form can pick them.
+The "Integration Engineer" discipline and its role, the new team member, Noah's vacation next week,
+the DPO stakeholder, the connector change request, the "MVP re-demo" milestone, the "CRM connector
+(CR)" budget bucket, the two licence tasks, Thursday's risk "connector licence lead time", and
+Monday's blocker on the CRM task. Only the Senior grade must exist; the discipline is added on camera.
 
 ## Left to the builder
 
@@ -325,4 +340,8 @@ and the two licence tasks. The role's discipline and grade must exist so the for
   see a different hero (a milestone dated today is not yet overdue); not fixed here.
 - The CRM task is planted To Do, so Tuesday's Board drag is a real change.
 - The new role is Integration Engineer × Senior; the discipline is added on camera.
+- Draft message is the manual step (a template email, not AI); the AI step is the AI Assistant's
+  "Stakeholder update" starter. Elena and Maya get example emails so no address prompt appears.
+- The new member gets their Swimlanes lane from a dragged CRM follow-up card.
+- The MVP target moves to Thursday 1 October; "MVP re-demo" stays Friday 2 October.
 - The CRM blocker is added on camera on Monday, so it is not in the data.
