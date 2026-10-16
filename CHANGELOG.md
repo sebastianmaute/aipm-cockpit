@@ -42,7 +42,7 @@ longer carries its own changelog comment.
   chance of finishing by the plan end), each marked as simulated and able to explain itself, and keeps one
   forecast per day for later comparison. Part 2 adds a Forecast tile on the Dashboard (the P80 finish, the change
   since last week, a range bar and the milestones most at risk), a simulated chance chip on each milestone with one
-  "About these chances" explainer, and a Next-actions suggestion for a milestone with under 50 % chance on time,
+  "About these chances" explainer, and a Next-actions suggestion for a milestone with under 50% chance on time,
   all marked as simulated. Restoring an earlier version keeps your current switch. It stays hidden while the
   Forecast view is held back, and appears with it.
 

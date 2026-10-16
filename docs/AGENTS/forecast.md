@@ -380,6 +380,9 @@ Dashboard picture: a Forecast tile, a chance chip per milestone and a Next-actio
   `weeklyChange` compares today's P80 with the history entry from 7 to 13 days back (`WEEK_BACK_DAYS`,
   `WEEK_BACK_MAX_DAYS`) in working days, and answers `pending` (with the date it becomes available) or `beyond`
   instead of inventing a figure. The comparison and the range bar wear the sim marking; `pending`/`beyond` stay plain.
+  ★ `pending`'s date is the earliest entry newer than 7 days back plus 7, or today plus 7 when there is none, so it
+  is always after today; entries older than the window never date it. With the Milestones module off the engine still
+  runs on the context's milestones (the memo stays shared), but the at-risk section is not rendered at all.
 - **The chips** come from `chancesById` over the same run. ONE explainer for the strip, "About these chances"
   (`SimExplainer` `kind="milestone"`: no histogram, the props are a union), shown only when `visibleChipCount` is above
   zero, so a chance hidden behind a bucket's "+N more" cap never leaves an explainer with no chip.
@@ -390,7 +393,7 @@ Dashboard picture: a Forecast tile, a chance chip per milestone and a Next-actio
   `groupNextActions`' own comparators. `computeNextActions`' flat list, and so notifications, the AI context and
   `nowCount`, never hold it; `use-action-learning.ts` skips the source, and a snooze of it does not teach either. It
   offers only Open Forecast and Snooze (`action-cta.ts` drops Create task and Log as RAID for it). It needs the
-  Milestones module and the holidays, like the tile. ★ Rulings: the group counts in the Soon tier, the Top actions tile
+  Milestones module, as the tile's at-risk section does, and the holidays. ★ Rulings: the group counts in the Soon tier, the Top actions tile
   and the greeting's needs-you count, because it is a Next-actions signal shown with the sim badge; only flat-list
   consumers are excluded.
 - ★★ **Holidays pending.** With the switch on and `holidaysReady` false, the panel computes no forecast and the
@@ -398,8 +401,10 @@ Dashboard picture: a Forecast tile, a chance chip per milestone and a Next-actio
 - ★★ **Restore keeps the switch.** `keepSimulationSwitch` (`forecast-simulation.ts`) pins the version's
   `settingsOverrides` switch to the CURRENT value, because the switch is a viewing choice, not project data. `restore`
   (`use-version-history.ts`) pins AFTER the merge, so the blind-capture guard still sees the version's own `undefined`;
-  `prepareVersion` (`use-version-history-wiring.ts`) pins for the compare view and ONLY when the version carries
-  overrides, since setting the key on an unstamped capture would defeat that guard and blank the other fields.
+  `prepareVersion` (`use-version-history-wiring.ts`) pins for the vs-now compare view when the version carries
+  overrides OR the capture is stamped (format 2 or later, `speaksForEmptySlices`, which the hook passes in): a stamped
+  absence means "no overrides". An UNSTAMPED capture's absent overrides stay absent, since setting the key there would
+  defeat that guard and blank the other fields.
 - **Explainer label rows.** The histogram's P50/P80/P95 labels sit in three rows ABOVE the bars (`CHART_TOP`),
   each label taking the first row with no label within `2 * LABEL_HALF_W`, so three equal or near-equal cut-offs
   (common for a narrow distribution) never overprint.

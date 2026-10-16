@@ -379,7 +379,7 @@ a rendered body, so a catalogue-order list is a different function, not a sharea
 ★★ THAT SECOND CONJUNCT IS REDUNDANT AT EVERY TILE TODAY — it is not, as this file and the predicate's
 own docstring both used to say, a safety net. `buildTileBodies` builds TEN of its eleven bodies as
 React ELEMENTS (`burn` chooses between two elements), and an element whose component renders `null` is still non-null, so
-`bodies[id] != null` cannot see it; the eleventh, `completionTrend`, is the one ternary that can be null, and its gate
+`bodies[id] != null` cannot see it; the other, `completionTrend` (the tenth key in source order; `forecast` is the eleventh), is the one ternary that can be null, and its gate
 (`hasCompletionTrend` = `completionSeries.length >= 2 && !noActiveScope`) is STRICTLY STRONGER than the
 body's own `length >= 2`, so the gate has already excluded every null case. Count the two shapes:
 `awk '/^export function buildTileBodies/,0' src/app/dashboard-tile-bodies.tsx | grep -cE '^    [a-zA-Z]+: '`
@@ -997,7 +997,7 @@ rules and the run they share are in [`forecast.md`](forecast.md) "Simulation acr
   `forecast-tile-model.ts`); `ForecastRangeBar`; the open-task count (calculated, NOT sim-styled); the up-to-3
   milestones most at risk (`milestonesAtRisk`, `AT_RISK_LIMIT`, row-unique names through `buildRowTokens`/`rowLabel`); and
   "Open Forecast". Only a comparison of two simulated dates (later / earlier / same) and the range bar wear the sim
-  marking; the "available from <date>" and "beyond the horizon" forms of the change line are statements about the data
+  marking; the "Change shown from <date>" and "beyond the horizon" forms of the change line are statements about the data
   and stay plain, like the gap line. An insufficient forecast shows the KPI strip's gap line ALONE, not sim-styled.
 - ★★ **Holidays pending** (`holidaysReady === false` with the switch on): the panel computes no forecast, so the KPI
   cells, the tile's simulated slots and each chip are `SimPlaceholder` (`sim-value.tsx`): empty, `aria-hidden`, the
