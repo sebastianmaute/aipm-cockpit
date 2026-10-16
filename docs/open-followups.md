@@ -45533,7 +45533,7 @@ Size S.
 
 **Work item:** #764
 
-Before a milestone's date passes, the only signal is "at risk" (`milestoneProvider`, from `isAtRisk`): a linked task ends after the milestone date. It scores 42, so it loses the Dashboard hero to an overdue task (55), a critical overload (52) or an unowned red RAID item (45), and in a realistic project never leads. Nothing in `src/app/next-actions/` reads the critical path or a baseline, and the reason text `actionMilestoneWhyAtRisk` ("a blocking task is red or the date slipped") names checks `isAtRisk` does not make. The owner's Monday hero is "a milestone slipped and the critical path is at risk"; today the app can only show it once the date has passed (overdue, 67).
+Before a milestone's date passes, the only signal is "at risk" (`milestoneProvider`, from `isAtRisk`): a linked task ends after the milestone date. It scores 42, so it loses the Dashboard hero to an overdue task (55), a person over-allocated at 130 % or more (52) or an unowned red RAID item (45), and in a realistic project never leads. Nothing in `src/app/next-actions/` reads the critical path or a baseline, and the reason text `actionMilestoneWhyAtRisk` ("a blocking task is red or the date slipped") names checks `isAtRisk` does not make. The owner's Monday hero is "a milestone slipped and the critical path is at risk"; today the app can only show it once the date has passed (overdue, 67).
 
 Proposed: an early-warning signal for a milestone whose critical-path predecessors push past its date, scored to compete for the hero, with a reason text that says what was checked.
 

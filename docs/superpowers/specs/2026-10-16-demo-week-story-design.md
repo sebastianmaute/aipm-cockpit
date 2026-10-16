@@ -66,7 +66,7 @@ tour per project Function). Found by the builder check and to be fixed **before*
 
 - A Monday list cluttered with overdue tasks that have nothing to do with the story. Today's data
   would show four of them at a Monday T0 (tasks 4, 5, 6 and 27).
-- Anything the video adds by hand already existing in the data (a second "Integration engineer" role,
+- Anything the video adds by hand already existing in the data (an "Integration Engineer" discipline or role,
   Noah's vacation already logged, the DPO already a stakeholder). The viewer must see it appear.
 - Real personal or client names. The repo is public; fictional names only.
 - A week that only works at the recorder's pinned date. The demo is also what real users open with
@@ -100,7 +100,8 @@ master dates are what the viewer sees, and the master's `DEMO_AS_OF` (Friday 202
 created once on Monday, and each later day advances the page clock (`page.clock.setSystemTime`) to
 08:30 that day, so overdue counts, next actions, activity dates and saved versions move with it.
 
-For real users opening the demo on another day the month shift applies as today. On days 1–18 of a
+For real users opening the demo on another day the month shift applies as today. Until the shifted
+due date (the 18th, or the next working day the shift rolls it to) of a
 month the MVP is not yet overdue and the hero shows the next-best item; that is acceptable (the
 project still reads as coherent) and is not fixed here.
 
@@ -128,7 +129,7 @@ cancel → **Explore the demo**.
 
 | Manual | Then AI |
 |---|---|
-| Open Points **Board**: drag the CRM task to In Progress, the called-off demo back to To Do | — |
+| Open Points **Board**: drag "Integrate CRM provisioning" from To Do to In Progress — work restarts with the blocker known (the data plants it To Do) | — |
 | Delete one of the double-logged follow-ups by hand | **Deduplicate & unify** merges the rest |
 | New change request "Add a CRM provisioning connector", one-line impact typed | **Ask Claude** on the impact field |
 | Next actions: "Message Maya Patel" → open her in Stakeholders (she is linked to the pending MFA change) | **Draft** the message: the MFA change and the re-plan |
@@ -139,7 +140,7 @@ cancel → **Explore the demo**.
 
 | Manual | Then AI |
 |---|---|
-| New role "Integration engineer" with an internal and an external rate | — |
+| Roles: **Add discipline** "Integration Engineer", then a new role Integration Engineer × Senior with an internal and an external rate (a role is discipline × grade and has no name of its own; `Role` in `types.ts`) | — |
 | New team member from the vendor's partner, in that role | — |
 | Noah's planned vacation next week (he owns the CRM integration) | — |
 | Planning: the new member's capacity for one month | **Plan with AI** proposes the rest |
@@ -205,7 +206,7 @@ Numbers are the master's ids today; the builder keeps ids stable where the exist
   the new CRM task.
 - **Task 25 "MVP demo to the customer":** To Do, due `2026-09-18`, a note that it was called off on
   Friday because provisioning to the CRM fails.
-- **New task "Integrate CRM provisioning":** In Progress, owner Noah Bennett, due `2026-09-16`
+- **New task "Integrate CRM provisioning":** **To Do** (Tuesday drags it to In Progress), owner Noah Bennett, due `2026-09-16`
   (overdue on Monday), depends on 24; task 25 depends on it. **No blocker text** — Monday adds it
   on camera.
 - **Pilot chain:** the tasks between the MVP and Pilot Go-Live (today 4–8, 27 and the pilot tasks)
@@ -225,14 +226,14 @@ T0. Intended:
 |---|---|---|
 | Now — hero | MVP target overdue | milestone (67) |
 | Now | "Board info pack" for Thursday's steering meeting due (`leadDays: 3`) | committee-info (60) |
-| Soon | "Integrate CRM provisioning" overdue | task-due (55) |
+| Soon | "Integrate CRM provisioning" (To Do) overdue | task-due (55) |
 | Soon | "MVP demo to the customer" (task 25) overdue, +1 reason: blocked by the CRM task | task-due (55) + task-attention dep-blocked (35), one row: both open `open-points:25`, so `groupNextActions` merges them |
 | Soon | Maya over-allocated this period | workload (52 at ≥130 %; needs §747 fixed) |
 | Soon | red issue "GDPR erasure requests do not reach the CRM", no owner yet | RAID (45) |
 | Soon | change request "Add MFA to SSO scope" pending (High impact) | change-pending (45) |
 | Soon | Pilot Go-Live at risk (a linked task now ends after it) — the slip's knock-on | milestone (42) |
 | Soon | "Message Elena Fischer" — the sponsor, linked to change 1 and RAID 2 and 11 (owner: part of the story, acted on Monday) | stakeholder-comms (45) |
-| Soon | "Message Maya Patel" — linked to change 1 (owner: part of the story, acted on Tuesday) | stakeholder-comms (45) |
+| Soon | "Message Maya Patel" — linked to change 1 (owner: part of the story, acted on Tuesday); today also to RAID 13, a link that goes once 13 is Delivered | stakeholder-comms (45) |
 | Soon | pilot tasks waiting on an unfinished predecessor (today 5, 7, 8, 10) — the ripple of the slip | task-attention dep-blocked (35 each) |
 | Monitor | the schedule item (SPI between 0.8 and 0.9) | schedule (5); the builder keeps SPI ≥ 0.8 so it does not rise to Soon (45) |
 | Monitor | Medium RAID items with an owner (today 2, 4, 11) — or resolved; the builder decides per item | RAID severity (22) |
@@ -252,7 +253,7 @@ rows are what the viewer sees.
   except any the builder argues into the story.
 - **Blocked tasks 4 and 6** (task-attention "blocked", 30): drop their blocker text when the pilot
   chain is re-dated.
-- **RAID 8, 9 and 13** fire first as OVERDUE REVIEWS (55, 54 and 52, Soon), with their High severity
+- **RAID 13, 8 and 9** fire first as OVERDUE REVIEWS (55, 54 and 52 respectively, Soon), with their High severity
   (37) only an extra reason, so lowering the severity does not remove them. Resolve them (Issues 8
   and 9 → `Resolved`, Dependency 13 → `Delivered`) or clear their review dates, so the GDPR issue
   is the one red RAID item on Monday.
@@ -260,6 +261,10 @@ rows are what the viewer sees.
   it to a Monitor-level item.
 - **Task 11 "Quarterly OKR review"** (due 2026-09-21, 45 Soon): move its due date off the week, or
   mark it Done.
+- **Stale RAID reviews:** RAID 3 and 7 fire `stale` review rows (15, Monitor), and RAID 1, 2, 4 and
+  11 carry stale-review extra reasons, because their last touch (`localModifiedAt`, else
+  `raisedDate`; `raid-review.ts`) is older than the review interval (default 14 days). Give every
+  open RAID item a `localModifiedAt` within the fortnight before T0.
 
 The rule the Monday test enforces: **every action at T0 is a row of the table above, and every row
 fires.** Anything else is removed from the data or added to the table with its reason.
@@ -272,7 +277,8 @@ and PR (`nearTermPeriodKeys`); E starts only once that fix is on main.
 
 - **Near-duplicate follow-ups:** 2–3 pairs logged by two people on Friday after the called-off demo
   ("Fix CRM sync for new registrations" / "CRM provisioning fails for sign-ups", and so on). One pair
-  is deleted by hand on Tuesday; Deduplicate must still find the rest.
+  is deleted by hand on Tuesday; Deduplicate must still find the rest. Each new open task gets an
+  assignee and a `lastUpdateDate` on the Friday, or it raises its own unassigned or stale row.
 - **Knowledge:** an item about the CRM interface decision, reachable by searching "CRM" on Monday.
 - **Maya over-allocated** in the period containing T0 (September, at month granularity), planted in
   her `utilization` (the only thing the alert reads — `buildWorkloadAlerts` never looks at task
@@ -292,7 +298,7 @@ and PR (`nearTermPeriodKeys`); E starts only once that fix is on main.
 
 ### What must NOT exist (the video adds it)
 
-The "Integration engineer" role, the new team member, Noah's vacation next week, the DPO stakeholder,
+The "Integration Engineer" discipline and its role, the new team member, Noah's vacation next week, the DPO stakeholder,
 the connector change request, the "MVP re-demo" milestone, the "CRM connector (CR)" budget bucket,
 and the two licence tasks. The role's discipline and grade must exist so the form can pick them.
 
@@ -315,6 +321,8 @@ and the two licence tasks. The role's discipline and grade must exist so the for
 - The prologue (wizard + AI proposal + Explore the demo) closes chapter 2, so Monday opens straight
   on the Dashboard.
 - Help, A's chapter 8, closes Friday.
-- Real users opening the demo on days 1–18 of a month see a different hero (a milestone dated today
-  is not yet overdue); not fixed here.
+- Real users opening the demo before the shifted MVP date (the 18th, or the working day it rolls to)
+  see a different hero (a milestone dated today is not yet overdue); not fixed here.
+- The CRM task is planted To Do, so Tuesday's Board drag is a real change.
+- The new role is Integration Engineer × Senior; the discipline is added on camera.
 - The CRM blocker is added on camera on Monday, so it is not in the data.
