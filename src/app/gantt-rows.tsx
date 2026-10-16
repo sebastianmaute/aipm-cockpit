@@ -491,8 +491,11 @@ export function GanttMilestoneRow({
   // the first day, where a left label would start under the sticky name
   // column and no scroll could uncover it (the axis stays put rather than
   // grow room for it). On the right it would land on the slip label, so the
-  // two are then drawn as ONE label, after the rightmost diamond.
-  const previewSide = dragDeltaDays === 0 ? null : mx < MILESTONE_PREVIEW_LABEL_ROOM_PX ? "right" : "left";
+  // two are then drawn as ONE label, after the rightmost diamond. On the
+  // left it ends before the LEFTMOST diamond, so a ghost left of the live
+  // diamond (a later slip) and its connector stay clear of it too.
+  const previewLeftEdge = showGhost ? Math.min(mx, bx) : mx;
+  const previewSide = dragDeltaDays === 0 ? null : previewLeftEdge < MILESTONE_PREVIEW_LABEL_ROOM_PX ? "right" : "left";
   const previewTakesSlip = previewSide === "right" && showGhost;
   const mstatus = milestoneStatus(
     live,
@@ -622,14 +625,14 @@ export function GanttMilestoneRow({
         )}
         {previewSide !== null && (
           // The date the milestone lands on if released now, on the side
-          // `previewSide` picked: left, clear of the slip label on the right.
+          // `previewSide` picked: left, clear of the ghost and of the slip label on the right.
           <span
             data-gantt-milestone-preview={previewSide}
             className="pointer-events-none absolute -translate-y-1/2 whitespace-nowrap text-[10px] font-medium text-foreground"
             style={{
               ...(previewSide === "right"
                 ? { left: (previewTakesSlip ? Math.max(mx, bx) : mx) + MILESTONE_DIAMOND_PX }
-                : { right: timelineWidthPx - mx + MILESTONE_DIAMOND_PX }),
+                : { right: timelineWidthPx - previewLeftEdge + MILESTONE_DIAMOND_PX }),
               top: ROW_HEIGHT_PX / 2,
             }}
             aria-hidden="true"

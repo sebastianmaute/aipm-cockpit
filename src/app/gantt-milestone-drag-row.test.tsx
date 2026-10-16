@@ -106,6 +106,16 @@ describe("GanttMilestoneRow — drag preview", () => {
     expect(preview.style.left).toBe(`${56 + MILESTONE_DIAMOND_PX}px`);
   });
 
+  it("ends a left preview date before a ghost that lies left of the diamond", () => {
+    // Live 2026-06-24 (x 644), baseline 2026-06-20 (x 532): +4d, ghost on the left.
+    const { container } = render(
+      <GanttMilestoneRow m={m} {...base} baselineDate="2026-06-20" showBaseline onStartDrag={vi.fn()} dragDeltaDays={4} />,
+    );
+    const preview = container.querySelector<HTMLElement>("[data-gantt-milestone-preview]");
+    expect(preview).toHaveAttribute("data-gantt-milestone-preview", "left");
+    expect(preview?.style.right).toBe(`${base.timelineWidthPx - 532 + MILESTONE_DIAMOND_PX}px`);
+  });
+
   it("announces the previewed date while dragging", () => {
     render(<GanttMilestoneRow m={m} {...base} onStartDrag={vi.fn()} dragDeltaDays={3} />);
     expect(screen.getByRole("slider", { name: HANDLE_NAME }))

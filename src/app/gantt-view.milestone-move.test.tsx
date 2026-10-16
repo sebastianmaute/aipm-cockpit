@@ -181,7 +181,12 @@ describe("GanttView — milestone move", () => {
     act(() => screen.getByRole("slider", { name: HANDLE }).focus());
     fireEvent.click(screen.getByRole("button", { name: "sign-off-and-note" }));
     expect(screen.queryByRole("slider", { name: HANDLE })).toBeNull();
-    expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "note" }));
+    const note = screen.getByRole("textbox", { name: "note" });
+    expect(document.activeElement).toBe(note);
+    // Pin the precondition the comment above names: the note field renders
+    // BEFORE the chart, so a reorder fails here instead of going vacuous.
+    const chart = document.querySelector(".overflow-auto")!;
+    expect(note.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("moves from the date a concurrent writer set, not the one the presses started on", () => {
