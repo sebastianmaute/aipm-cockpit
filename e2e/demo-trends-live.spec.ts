@@ -24,6 +24,8 @@
 // Run it alone, against a fresh server, in the one-worker live project (it skips without E2E_LIVE_APP;
 // set it for this command only, never in your shell):
 //   E2E_LIVE_APP=1 PORT=3100 npx playwright test e2e/demo-trends-live.spec.ts --project=live-turso-app
+// Never run it at the same time as the demo video recorder (scripts/demo-video/) on the same throwaway
+// database: this wipe would delete the recording's project mid-take.
 // The Trends screenshot lands in each test's output directory (test-results/…).
 
 import { test, expect, type Page } from "@playwright/test";
