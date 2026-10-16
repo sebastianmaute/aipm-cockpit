@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AppForecast } from "./forecast/app-forecast";
-import { chancePercent, isDivergent, kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
+import { chancePercent, forecastTileContentKey, isDivergent, kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
 
 const INSUFFICIENT: Extract<AppForecast, { kind: "insufficient" }> = { kind: "insufficient", finished: 4, neededFinished: 10, days: 30, neededDays: 10 };
 
@@ -103,5 +103,19 @@ describe("kpiContentKey", () => {
   it("keys the gap kind while the simulation is null", () => {
     expect(kpiContentKey(null, true, { kind: "beyond" })).not.toBe(kpiContentKey(null, true, null));
     expect(kpiContentKey(null, false, null)).not.toBe(kpiContentKey(null, true, null));
+  });
+});
+
+describe("forecastTileContentKey", () => {
+  it("tells apart every state that changes the Forecast tile's height", () => {
+    const keys = [
+      forecastTileContentKey(null, 0),
+      forecastTileContentKey(INSUFFICIENT, 0),
+      forecastTileContentKey(forecast({ p80: null, p95: null }), 0),
+      forecastTileContentKey(forecast({ p95: null }), 0),
+      forecastTileContentKey(forecast(), 0),
+      forecastTileContentKey(forecast(), 3),
+    ];
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });

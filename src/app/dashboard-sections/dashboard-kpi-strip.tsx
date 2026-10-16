@@ -10,7 +10,7 @@ import type { DensityClasses } from "../dashboard-density";
 import type { AppView } from "../nav-config";
 import { chanceText } from "../chance-text";
 import { type KpiSimulation, type KpiSimulationGap } from "../kpi-simulation";
-import { MAX_HORIZON_WORKING_DAYS } from "../forecast/constants";
+import { simulationGapText } from "../kpi-simulation-text";
 import { SimPlaceholder, SimValue } from "../sim-value";
 import { percentileWord } from "../percentile-words";
 import { localeFor } from "../date-format";
@@ -34,15 +34,6 @@ interface DashboardKpiStripProps {
   onOpenHelp?: (conceptId: string) => void;
 }
 
-/** The line shown in place of the simulated cells. Plain muted text, NOT sim-styled: it is a
- *  statement about the data, not a simulated value. */
-function simulationGapText(lang: Lang, gap: KpiSimulationGap): string {
-  switch (gap.kind) {
-    case "finished": return t(lang, "kpiSimNeedsFinished", gap.finished, gap.needed);
-    case "days": return t(lang, "kpiSimNeedsDays", gap.days, gap.needed);
-    case "beyond": return t(lang, "kpiSimBeyondHorizon", MAX_HORIZON_WORKING_DAYS.toLocaleString(localeFor(lang)));
-  }
-}
 
 /** How many KPI cells render: the four fixed ones, plus SPI and/or CPI, plus the simulated P80 and chance cells. */
 export type KpiCellCount = 4 | 5 | 6 | 7 | 8;

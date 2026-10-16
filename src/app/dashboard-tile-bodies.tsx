@@ -62,6 +62,8 @@ import type { ChangeStatus } from "./types";
 import { buildRowTokens } from "./row-tokens";
 import { CELL_BUTTON } from "./control-classes";
 import type { KpiSimulation, KpiSimulationGap } from "./kpi-simulation";
+import type { AppForecast } from "./forecast/app-forecast";
+import { DashboardForecastTile, type DashboardForecastTileProps } from "./dashboard-sections/dashboard-forecast-tile";
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
   Proposed: "changeStatusProposed",
@@ -134,6 +136,10 @@ export interface TileBodyArgs {
   onOpenMilestone?: (id: number) => void;
   onOpenChange?: (id: number) => void;
   onOpenAction?: (a: SuggestedAction) => void;
+  /** The ONE forecast run the panel shares with the KPI strip (§502); null while off or pending. */
+  forecast: AppForecast | null;
+  /** The rest of the Forecast tile's props, built whatever the switch says; its gate decides whether it renders. */
+  forecastTile: Omit<DashboardForecastTileProps, "lang" | "forecast">;
 }
 
 /**
@@ -303,6 +309,8 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
         <CompletionTrendBody lang={lang} points={a.completionSeries} today={a.model.chartDates.today} />
       </ActivateBody>
     ) : null,
+
+    forecast: <DashboardForecastTile lang={lang} forecast={a.forecast} {...a.forecastTile} />,
   };
 }
 

@@ -49,6 +49,15 @@ export function kpiContentKey(sim: KpiSimulation | null, simulationOn: boolean, 
     : `sim:${simulationOn}:${gap?.kind ?? "none"}`;
 }
 
+/** The same for the Forecast tile: which of its slots exist (placeholders, the gap line alone, the
+ *  headline and bar or the beyond-horizon line, the P95 wording) and how many at-risk rows render.
+ *  Null = waiting for holidays (or the switch off, when the tile is not rendered at all). */
+export function forecastTileContentKey(forecast: AppForecast | null, atRiskCount: number): string {
+  if (forecast === null) return "fc:pending";
+  if (forecast.kind === "insufficient") return "fc:insufficient";
+  return `fc:${forecast.p80 === null ? "beyond" : "p80"}:${forecast.p95 === null}:${atRiskCount}`;
+}
+
 /** Why the switch is on but the strip shows no simulated cell. */
 export type KpiSimulationGap =
   | { kind: "finished"; finished: number; needed: number }

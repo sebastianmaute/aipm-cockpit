@@ -45,7 +45,9 @@ import { DashboardShelf, DASHBOARD_SHELF_TRAY_ID } from "./dashboard-shelf";
 import { DashboardHiddenBadge } from "./dashboard-hidden-badge";
 import { buildTileBodies } from "./dashboard-tile-bodies";
 import { computeAppForecast } from "./forecast/app-forecast";
-import { kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
+import { forecastTileContentKey, kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
+import { milestonesAtRisk } from "./forecast-tile-model";
+import { isTaskClosed } from "./task-closed";
 import { useDashboardLayout } from "./use-dashboard-layout";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { tileById, type DashboardTileId, type TileGateInput, type TileHeight } from "./dashboard-tiles";
@@ -125,7 +127,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const density: DashboardDensity = props.density ?? "comfortable";
   const dc = densityClasses(density);
   const varianceRows = props.variance ?? [];
-  const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory, baselineHistory, settingsOverrides, setSettingsOverrides } = useWorkspace();
+  const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory, baselineHistory, settingsOverrides, setSettingsOverrides, forecastHistory } = useWorkspace();
   const { settings, setSettings, hydrated: settingsHydrated } = useSettings();
   const forecastViewEnabled = isViewEnabled("forecast", settings.features);
   const simulationOn = isSimulationActive(settingsOverrides, settings.features);
@@ -317,24 +319,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
   };
 
   // ── Arrangeable tile grid ───────────────────────────────────────────────────
-  // ★★ THE GATE DECIDES WHAT RENDERS, NEVER WHAT IS STORED. `useDashboardLayout`
-  // deliberately takes no `gate` — a gated-off tile keeps its stored position, so
-  // switching Budget off and on again does not lose the burn tile's place. The
-  // old masonry's inline conditions (`topActions?.length`, `activeInsightCount`,
-  // …) live here now instead of wrapping the JSX.
-  const gate: TileGateInput = {
-    showRaid,
-    showBudget,
-    showChanges,
-    showMilestones,
-    tursoActive: !!props.tursoActive,
-    hasTopActions: !!topActions?.length,
-    hasInsights: activeInsightCount > 0,
-    // ★ `&& !noActiveScope` is NOT in the plan and is load-bearing: the old card
-    // carried both conditions, and dropping the second would put a flat 0%
-    // trajectory beside a completion tile reading "No active scope".
-    hasCompletionTrend: completionSeries.length >= 2 && !noActiveScope,
-  };
   const arrangement = useDashboardLayout({
     projectId: props.projectId ?? "default",
     isPopout: props.isPopout,
@@ -369,11 +353,35 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const milestonesForSim = props.milestones ?? EMPTY_MILESTONES;
   const planEnd = props.plan.endDate;
   // The gap is why the switch is on but no simulated cell shows (too little history, P80 beyond the horizon).
-  const { kpiSim, kpiSimGap } = useMemo(() => {
-    if (!simulationOn || simulationPending) return { kpiSim: null, kpiSimGap: null };
+  // ONE run feeds the strip AND the Forecast tile; `forecast` stays null while off or pending.
+  const { kpiSim, kpiSimGap, forecast, atRiskCount } = useMemo(() => {
+    if (!simulationOn || simulationPending) return { kpiSim: null, kpiSimGap: null, forecast: null, atRiskCount: 0 };
     const f = computeAppForecast({ tasks: props.tasks, milestones: milestonesForSim, planEnd, today, holidaySet: props.holidaySet });
-    return { kpiSim: kpiSimulation(f, model.evm.spi), kpiSimGap: kpiSimulationGap(f) };
+    const atRisk = f.kind === "forecast" ? milestonesAtRisk(f.milestones, milestonesForSim).length : 0;
+    return { kpiSim: kpiSimulation(f, model.evm.spi), kpiSimGap: kpiSimulationGap(f), forecast: f, atRiskCount: atRisk };
   }, [simulationOn, simulationPending, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi]);
+
+  // ★★ THE GATE DECIDES WHAT RENDERS, NEVER WHAT IS STORED. `useDashboardLayout`
+  // deliberately takes no `gate` — a gated-off tile keeps its stored position, so
+  // switching Budget off and on again does not lose the burn tile's place. The
+  // old masonry's inline conditions (`topActions?.length`, `activeInsightCount`,
+  // …) live here now instead of wrapping the JSX.
+  // ★ Declared AFTER the forecast memo: capturing `simulationOn` in this object before the memo made
+  // the React Compiler treat the memo dependency as mutable and skip the whole component.
+  const gate: TileGateInput = {
+    showRaid,
+    showBudget,
+    showChanges,
+    showMilestones,
+    tursoActive: !!props.tursoActive,
+    hasTopActions: !!topActions?.length,
+    hasInsights: activeInsightCount > 0,
+    // ★ `&& !noActiveScope` is NOT in the plan and is load-bearing: the old card
+    // carried both conditions, and dropping the second would put a flat 0%
+    // trajectory beside a completion tile reading "No active scope".
+    hasCompletionTrend: completionSeries.length >= 2 && !noActiveScope,
+    simulationActive: simulationOn,
+  };
 
   const bodies = buildTileBodies({
     lang, dc, model,
@@ -417,6 +425,18 @@ export function DashboardPanel(props: DashboardPanelProps) {
     onOpenMilestone: props.onOpenMilestone,
     onOpenChange: props.onOpenChange,
     onOpenAction,
+    forecast,
+    forecastTile: {
+      history: forecastHistory,
+      milestones: milestonesForSim,
+      planEnd,
+      today,
+      holidaySet: props.holidaySet,
+      openTaskCount: props.tasks.filter((task) => !isTaskClosed(task)).length,
+      onOpenMilestone: props.onOpenMilestone,
+      onOpenForecast: props.onNavigate ? () => props.onNavigate!("forecast") : undefined,
+      onOpenHelp: props.onOpenHelp,
+    },
   });
 
   // ★★ RENDER previewOrder, NOT layout.board. The grid packs densely, so an edge
@@ -465,7 +485,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
     resetNonce,
     // The KPI tile grows by cells and text lines when the simulation appears or flips divergent,
     // and by the one-line note when the switch is on but nothing can be simulated.
-    contentKey: kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending),
+    // The Forecast tile likewise, by its slots and its at-risk row count.
+    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, atRiskCount)}`,
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };
