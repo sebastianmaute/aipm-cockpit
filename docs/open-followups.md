@@ -330,7 +330,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§83](#83-emailname-disagreement-in-the-fk-backfill-resolves-silently-to-email--closed-2026-09-25) | Email/name disagreement in the FK backfill resolves silently to email | found post-0.214.0 | XS | closed |
 | [§84](#84-a-third-order-dependent-test-in-use-storage-backendtesttsx--different-mechanism-from-75--closed-false-same-mechanism-measured-on-a-partially-fixed-tree) | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED**, FALSE: same mechanism, measured on a partially-fixed tree |
 | [§85](#85-strictmode-does-not-double-invoke-effects-under-vitest--cause-unknown-so-every-strictmode-dependent-test-may-be-vacuous--closed-false-premise-it-does-double-invoke-here-whether-it-does-on-a-given-mount-depends-on-the-wrapper-shape-and-the-rule-is-pinned-by-a-meta-test) | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous~~ | pre-existing, found in the slice-3 review | M | **CLOSED**, FALSE PREMISE: it does double-invoke here; whether it does on a given mount depends on the wrapper shape, and the rule is pinned by a meta-test |
-| [§86](#86-ai-cannot-read-timelog-entries--deliberate-no-tool-exposes-them) | AI cannot read timelog entries — deliberate, no tool exposes them | view-scoped AI prompts, unreleased | — | open |
+| [§86](#86-ai-cannot-read-timelog-entries--deliberate-no-tool-exposes-them--closed-2026-10-16) | AI cannot read timelog entries — deliberate, no tool exposes them | view-scoped AI prompts, unreleased | — | **CLOSED** 2026-10-16 |
 | [§87](#87-ai-cannot-read-the-activity-log--closed-2026-09-13) | AI cannot read the activity log | view-scoped AI prompts, unreleased | — | **CLOSED** 2026-09-13 |
 | [§88](#88-ai-sectiontsxs-own-sub-section-titles-are-not-real-headings--closed-2026-08-31) | `ai-section.tsx`'s own sub-section titles are not real headings | found during view-scoped AI prompts review, unreleased | S | **CLOSED** 2026-08-31 |
 | [§89](#89-ai-cannot-read-absences-and-the-resource-calendar-view-renders-them-beside-meetings--closed-2026-09-30) | AI cannot read absences, and the Resource-calendar view renders them beside meetings | view-scoped AI prompts, unreleased | S | **CLOSED** 2026-09-30 |
@@ -978,6 +978,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§738](#738-a-workday-hours-change-zeroes-the-hourly-rate-on-a-day-basis-roles-side-that-has-no-day-rate--closed-2026-10-15) | A workday-hours change zeroes the hourly rate on a day-basis role's side that has no day rate | — | — | **CLOSED** 2026-10-15 |
 | [§739](#739-a-new-projects-plan-start-date-is-the-utc-day-not-the-local-day--closed-2026-10-15) | A new project's plan start date is the UTC day, not the local day | — | — | **CLOSED** 2026-10-15 |
 | [§740](#740-a-project-created-on-turso-storage-outside-turso-mode-reopens-as-an-empty-browser-workspace--closed-2026-10-15) | A project created on Turso storage outside Turso mode reopens as an empty browser workspace | — | — | **CLOSED** 2026-10-15 |
+| [§741](#741-the-desktop-smoke-test-never-loads-the-packaged-apps-updater-so-a-release-with-a-broken-electron-updater-goes-unnoticed--open) | The desktop smoke test never loads the packaged app's updater, so a release with a broken electron-updater goes unnoticed | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -7031,13 +7032,15 @@ in the wrapper argument, one line away from the thing being measured.
 
 ---
 
-## 86. AI cannot read timelog entries — deliberate, no tool exposes them
+## 86. AI cannot read timelog entries — deliberate, no tool exposes them — CLOSED 2026-10-16
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** still open, deliberately. The pin's test is now named "has no chip for timelog, whose read tool is deferred" (`grep -n "has no chip for timelog" src/app/ask-claude-prompts.test.ts` → line 57).
+**Status:** CLOSED 2026-10-16 as a decision record, on the owner's decision: the AI gets no Timelog read tool. Booked time stays outside `Workspace` and is fetched live over the `/api/timelog` proxy, and a model-triggered authenticated call to a third-party host is a risk class the app does not take on. The pin stays: `grep -n "has no chip for timelog" src/app/ask-claude-prompts.test.ts`. Reopen only on a new owner decision.
+
+★ The text below is the record as it stood open.
+
+**Last open status:** **Update 2026-10-12 (§138 P2 probe):** still open, deliberately. The pin's test is now named "has no chip for timelog, whose read tool is deferred" (`grep -n "has no chip for timelog" src/app/ask-claude-prompts.test.ts` → line 57).
 
 **Earlier:** open — an AI capability gap, no timelog read tool. Reproduced 2026-08-28 by `grep -n "timelog" src/app/ask-claude-prompts.ts`.
-
-**Work item:** #124
 
 `Workspace` holds only `timelogLinks?: Readonly<TimelogLinks>` (`workspace.ts`) — user→resource and
 project→bucket LINK mappings, additive and optional. The real booked-time entries never enter
@@ -12112,7 +12115,9 @@ tooling gets no static help at all, so it needs the same behavioural probe as an
 
 ## 139. The entity-side attach door was designed and deliberately NOT built — documents S4 shipped one door of two
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** still open. A third look-alike now exists: `DocumentBadge` on task, RAID, change and milestone rows (6ee0c675e, b35f51900) shows the linked-document count and opens Documents. It reads and navigates; it does not attach. The entity editors still import nothing from `document-ref.ts` (`grep -c "document-ref" src/app/task-form-fields.tsx` → 0).
+**Status:** **Update 2026-10-16 (owner decision):** build it. Its design settles the cap semantics first: what the per-document cap counts when a document is attached from an entity's side. Not started (`grep -c "document-ref" src/app/task-form-fields.tsx` → 0).
+
+**Earlier:** **Update 2026-10-12 (§138 P2 probe):** still open. A third look-alike now exists: `DocumentBadge` on task, RAID, change and milestone rows (6ee0c675e, b35f51900) shows the linked-document count and opens Documents. It reads and navigates; it does not attach. The entity editors still import nothing from `document-ref.ts` (`grep -c "document-ref" src/app/task-form-fields.tsx` → 0).
 
 **Earlier:** open — the entity-side attach door is not built. Reproduced 2026-08-28 by `grep -rn "linkedEntities" src/app --include=*.tsx`.
 
@@ -29049,7 +29054,9 @@ not carry it, and adding untasked guards to a fix commit is how a slice stops be
 
 ## 346. No MCP server — the AI can only act from inside the app — open
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** still open; the owner's decision on a server-side surface is untouched. The tool count is stale: 54, not 33 — `awk 'NR>=285' src/app/chat-tool-defs.ts | grep -cE '^\s{4}name: "'` → 49 in `TOOL_DEFS` plus 5 `DOCUMENT_TOOL_DEFS` — now also covering absences, calendar events and documents. The documents half: `grep -cE '^\s{4}name: "' src/app/chat-tool-defs-documents.ts` → 5.
+**Status:** **Update 2026-10-16 (owner decision):** keep open for later. A server-side AI surface is wanted eventually but is not scheduled; no MCP code exists (`grep -rln "modelcontextprotocol" src package.json` → no hits).
+
+**Earlier:** **Update 2026-10-12 (§138 P2 probe):** still open; the owner's decision on a server-side surface is untouched. The tool count is stale: 54, not 33 — `awk 'NR>=285' src/app/chat-tool-defs.ts | grep -cE '^\s{4}name: "'` → 49 in `TOOL_DEFS` plus 5 `DOCUMENT_TOOL_DEFS` — now also covering absences, calendar events and documents. The documents half: `grep -cE '^\s{4}name: "' src/app/chat-tool-defs-documents.ts` → 5.
 
 **Earlier:** open — **never machine-verified** (2026-09-03). Reproduce the absence with
 `grep -rli "modelcontextprotocol\|mcp-server" src package.json` (no hits) and `ls src/app/api`
@@ -38217,7 +38224,9 @@ class as `outlookEventId`'s write-through race and is not specific to this fix.
 
 ## 487. The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning — OPEN
 
-**Status:** **Update 2026-10-13 (pilot onboarding):** seen live: a pilot user had to choose **Keep** on the browser's download warning twice before Windows' box appeared, and asked whether the file was safe. `docs/desktop-rollout.md` then named only the Windows box; §713 (closed 2026-10-14) added the browser's **Keep** and **Keep anyway** steps (`grep -n "Keep anyway" docs/desktop-rollout.md`), so the guide now covers both warnings — signing is what would remove them. **Update 2026-10-12 (§138 P2 probe):** still open; the job name is stale. Sign in `release.yml`'s `build` job (a GitHub Actions secret), not a `desktop-package-tag` job (`grep -rn desktop-package-tag .github scripts` → nothing). Since f12056ea1, release.yml's "The packaged app actually contains electron-updater" step fails a release whose app.asar lacks the module, which covers MISSING only; a present-but-broken module or a wiring failure is still unchecked.
+**Status:** **Update 2026-10-16 (owner decision):** the unknown-publisher warning is accepted for the pilot phase. No certificate is bought now; the entry stays open to revisit before a wider rollout. Meanwhile the rollout guide walks users through both warnings (`grep -n "Keep anyway" docs/desktop-rollout.md`). The updater smoke-test gap recorded below is now its own entry, §741.
+
+**Earlier:** **Update 2026-10-13 (pilot onboarding):** seen live: a pilot user had to choose **Keep** on the browser's download warning twice before Windows' box appeared, and asked whether the file was safe. `docs/desktop-rollout.md` then named only the Windows box; §713 (closed 2026-10-14) added the browser's **Keep** and **Keep anyway** steps (`grep -n "Keep anyway" docs/desktop-rollout.md`), so the guide now covers both warnings — signing is what would remove them. **Update 2026-10-12 (§138 P2 probe):** still open; the job name is stale. Sign in `release.yml`'s `build` job (a GitHub Actions secret), not a `desktop-package-tag` job (`grep -rn desktop-package-tag .github scripts` → nothing). Since f12056ea1, release.yml's "The packaged app actually contains electron-updater" step fails a release whose app.asar lacks the module, which covers MISSING only; a present-but-broken module or a wiring failure is still unchecked.
 
 **Earlier:** OPEN 2026-09-13 — `grep -n "No certificate is available" desktop/electron-builder.yml` → 1
 hit, `grep -n "signExecutable: false" desktop/electron-builder.yml` → 2 hits (the key itself and the comment
@@ -38269,8 +38278,7 @@ on it — automatic checks go silent, and `allowDowngrade: false` means there is
 to a working version, only a fresh manual install. Proposed fix: a mode that loads and wires the real
 updater but skips the network call (`autoUpdater.checkForUpdates()`/`downloadUpdate()`), plus a smoke
 assertion that `launch.log` carries neither `"failed to load"` nor `"failed to wire"` (the two log
-lines `updater.ts` emits on that fallback). Not filed as its own work item — no GitHub issue exists for
-it yet; recorded here pending one.
+lines `updater.ts` emits on that fallback). Filed as its own entry, §741, on 2026-10-16 (#759).
 
 **Source:** `desktop/electron-builder.yml`, `docs/desktop-rollout.md`; audit candidate 10
 
@@ -38324,7 +38332,9 @@ Size S–M, once a caller exists.
 
 ## 490. Six-write-path persistence is mitigated per slice only, and the unified codec and schema rewrite stays deferred — OPEN
 
-**Status:** OPEN 2026-09-13 — never machine-verified; this is a deferred design choice, not an observed
+**Status:** **Update 2026-10-16 (owner decision):** plan the rewrite. The unified codec and schema rewrite is no longer deferred indefinitely; the next step is a design (brainstorm, then a spec in `docs/superpowers/specs/`). No spec exists yet (`grep -rln "unified codec" docs/superpowers/specs` → no hits).
+
+**Earlier:** OPEN 2026-09-13 — never machine-verified; this is a deferred design choice, not an observed
 defect. `grep -n "^| TD-2" docs/tech-debt-register.md` → the row, deferred since Phase 3 T10, and
 `grep -c "ENTITY_SPECS" src/app/turso-schema.ts` → 6, so the spec registry that carries part of the
 mitigation still exists.
@@ -38896,7 +38906,9 @@ Size M — curated columns and labels, content-aware widths, a logo header and f
 
 ## 513. Existing SharePoint documents cannot be updated from app data — OPEN
 
-**Status:** **Update 2026-10-16:** still open, and still a build-or-close owner decision. The only Graph file write is still the SharePoint storage save (`grep -rn "method: \"PUT\"" src/app/sharepoint-backend.ts`; the one other PUT in `src/app` is the Jira update-issue proxy), and `src/app` holds no Office add-in.
+**Status:** **Update 2026-10-16 (owner decision):** keep open and build it in the app later; the Claude Desktop or Word route is not taken as the answer. Not scheduled; the only Graph file write is still the SharePoint storage save (`grep -rn "method: \"PUT\"" src/app/sharepoint-backend.ts`).
+
+**Earlier:** **Update 2026-10-16:** still open, and still a build-or-close owner decision. The only Graph file write is still the SharePoint storage save (`grep -rn "method: \"PUT\"" src/app/sharepoint-backend.ts`; the one other PUT in `src/app` is the Jira update-issue proxy), and `src/app` holds no Office add-in.
 
 **Earlier:** OPEN 2026-09-13 — never machine-verified beyond the issue's code check, which found the SharePoint storage save as the
 only Graph file write.
@@ -42718,7 +42730,9 @@ letting the editor's deferred destroy run before that file's environment is torn
 
 ## 616. TimeLog documents no approve/reject WRITE, so a booking-review front-end (unmerged TL1 branch) could only read verdicts until someone probes for the undocumented one — open
 
-**Status:** **Update 2026-10-16:** two owner questions are open: run the probe below, and say whether TL1 is still alive. The booking-review front-end and its design spec exist only on the unmerged branch `feat/timelog-booking-review-tl1` (last commit 881fc76b7, 2026-09-24; `git merge-base --is-ancestor origin/feat/timelog-booking-review-tl1 origin/main` exits 1). `main` has no review front-end at all (`grep -rn "RejectedRegistrations" src/app` → no output), so nothing on `main` is read-only for this reason.
+**Status:** **Update 2026-10-16 (owner decision):** ship the booking-review front-end read-only: verdicts can be read, nothing approves or rejects. The approve/reject write stays open until someone probes for an undocumented one with a TimeLog login. Not shipped yet: `main` has no review front-end (`grep -rln "booking-review\|bookingReview" src/app` → no hits), and the TL1 branch needs rebasing onto current `main` first.
+
+**Earlier:** **Update 2026-10-16:** two owner questions are open: run the probe below, and say whether TL1 is still alive. The booking-review front-end and its design spec exist only on the unmerged branch `feat/timelog-booking-review-tl1` (last commit 881fc76b7, 2026-09-24; `git merge-base --is-ancestor origin/feat/timelog-booking-review-tl1 origin/main` exits 1). `main` has no review front-end at all (`grep -rn "RejectedRegistrations" src/app` → no output), so nothing on `main` is read-only for this reason.
 
 **Earlier:** open 2026-08-23 — an investigation, not a defect. Nothing misbehaves today. The service
 sweep below was a hand-run `curl`; the missing write is otherwise never machine-verified. First filed as 225 on a branch
@@ -45049,7 +45063,9 @@ Size S–M.
 
 ## 714. Follow-up with the UK pilot user: fixes before their 2026-10-22 review, the API-key cost question, and a project-intake session — OPEN
 
-**Status:** OPEN 2026-10-13 — a process item; `never machine-verified`, there is nothing in the repo to check. **Update 2026-10-16:** the fixes shipped as release 1.19.0 on 2026-10-15, two days after the session (`gh release list --limit 3`; `grep -n "APP_VERSION =" src/app/version.ts`), carrying the §704–§713 work (all closed 2026-10-13/14). Whether the update reached the pilot user is not recorded: the owner confirms that, then the first bullet is done; the rest waits on the 2026-10-22 review.
+**Status:** **Update 2026-10-16 (owner decision):** the fixes bullet is done: they shipped as release 1.19.0 on 2026-10-15 (`grep -n "APP_VERSION =" src/app/version.ts`). Still open: the API-key cost question and the project-intake session.
+
+**Earlier:** OPEN 2026-10-13 — a process item; `never machine-verified`, there is nothing in the repo to check. **Update 2026-10-16:** the fixes shipped as release 1.19.0 on 2026-10-15, two days after the session (`gh release list --limit 3`; `grep -n "APP_VERSION =" src/app/version.ts`), carrying the §704–§713 work (all closed 2026-10-13/14). Whether the update reached the pilot user is not recorded: the owner confirms that, then the first bullet is done; the rest waits on the 2026-10-22 review.
 
 **Work item:** #703
 
@@ -45066,7 +45082,9 @@ Size S (process).
 
 ## 715. No recorded walk-through shows a new user downloading, installing and setting up the desktop app — OPEN
 
-**Status:** OPEN 2026-10-14 — nothing recorded yet: the README embeds one clip, the product tour (`grep -c "public/demos/" README.md` → 1), and the install guide none (`grep -cE ".(webm|mp4)" docs/desktop-rollout.md` → 0).
+**Status:** **Update 2026-10-16 (#755 merged, 255c5aae9):** the web-app chapters (2.2, 2.4, 2.5 and 3–8) are scripted in `scripts/demo-video/` (`record.mjs`, `cleanup.mjs`, `lib.mjs`, `README.md`; `grep -rln "Customer Identity Platform" scripts/demo-video` → `cleanup.mjs`), and a take exists locally, git-ignored and not placed. Still open: the hand-recorded parts (install, 2.1 Turso database creation, 2.3 Anthropic key) and the placement (a README embed plus a WebM in `public/demos/`).
+
+**Earlier:** OPEN 2026-10-14 — nothing recorded yet: the README embeds one clip, the product tour (`grep -c "public/demos/" README.md` → 1), and the install guide none (`grep -cE ".(webm|mp4)" docs/desktop-rollout.md` → 0).
 
 **Work item:** #707
 
@@ -45391,7 +45409,9 @@ Size S.
 
 ## 736. An empty Gantt chart names only the first missing input — OPEN
 
-**Status:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n -A1 "ganttEmpty:" src/app/i18n.ts` shows the empty text "Add at least one task with a due date to see it on the Gantt chart.".
+**Status:** **Update 2026-10-16 (owner decision):** build soon. The owner moved this from "build last or not at all" to the next onboarding builds; not started (`grep -n -A1 "ganttEmpty:" src/app/i18n.ts` still shows the one-input text).
+
+**Earlier:** OPEN 2026-10-14, filed on the owner's word after the Budget setup checklist (§710) shipped; `grep -n -A1 "ganttEmpty:" src/app/i18n.ts` shows the empty text "Add at least one task with a due date to see it on the Gantt chart.".
 
 **Work item:** #729
 
@@ -45470,3 +45490,17 @@ Size S.
 Size S.
 
 **Source:** the §715 rehearsal, 2026-10-15; investigated and fixed on the owner's word.
+
+## 741. The desktop smoke test never loads the packaged app's updater, so a release with a broken electron-updater goes unnoticed — OPEN
+
+**Status:** OPEN 2026-10-16, split out of §487 on the owner's word. `e2e/desktop-smoke.spec.ts` launches the packaged app with `AIPM_DISABLE_UPDATE_CHECK=1` (`grep -n "AIPM_DISABLE_UPDATE_CHECK" e2e/desktop-smoke.spec.ts`), and `createUpdater` returns its no-op before the dynamic `import("electron-updater")` when that flag is set (`grep -n "checksDisabled()" desktop/src/updater.ts`).
+
+**Work item:** #759
+
+No automated check proves that a PACKAGED release loads `electron-updater` and wires `pickAutoUpdater`'s real singleton; only a one-off manual launch did, on 2026-09-24. `release.yml`'s "The packaged app actually contains electron-updater" step fails a release whose `app.asar` lacks the module, which covers a MISSING module only: a present-but-broken module, or a wiring failure, still ships. A release that falls back to the no-op updater strands every installed copy on it. Automatic checks go silent, and `allowDowngrade: false` leaves no way back except a fresh manual install.
+
+Proposed: a mode that loads and wires the real updater but skips the network calls (`checkForUpdates()`/`downloadUpdate()`), plus a smoke assertion that the launch log carries neither "failed to load" nor "failed to wire up" (the two lines `updater.ts` logs on that fallback).
+
+Size S.
+
+**Source:** recorded in §487 on 2026-09-24 (gap found while verifying the unsigned auto-update decision); filed as its own entry after the 2026-10-16 issue audit.
