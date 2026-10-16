@@ -378,12 +378,14 @@ claim. ★ Do not reintroduce it: the panel filters PLACEMENTS in board order an
 a rendered body, so a catalogue-order list is a different function, not a shareable one.
 ★★ THAT SECOND CONJUNCT IS REDUNDANT AT EVERY TILE TODAY — it is not, as this file and the predicate's
 own docstring both used to say, a safety net. `buildTileBodies` builds TEN of its eleven bodies as
-React ELEMENTS unconditionally, and an element whose component renders `null` is still non-null, so
-`bodies[id] != null` cannot see it; the eleventh, `completionTrend`, is the one ternary, and its gate
+React ELEMENTS (`burn` chooses between two elements), and an element whose component renders `null` is still non-null, so
+`bodies[id] != null` cannot see it; the eleventh, `completionTrend`, is the one ternary that can be null, and its gate
 (`hasCompletionTrend` = `completionSeries.length >= 2 && !noActiveScope`) is STRICTLY STRONGER than the
 body's own `length >= 2`, so the gate has already excluded every null case. Count the two shapes:
-`awk '/^export function buildTileBodies/,0' src/app/dashboard-tile-bodies.tsx | grep -cE '^    [a-zA-Z]+: \('`
-returns 10 against 11 keys (measured 2026-08-15). It is KEPT as the other half of a two-sided contract
+`awk '/^export function buildTileBodies/,0' src/app/dashboard-tile-bodies.tsx | grep -cE '^    [a-zA-Z]+: '`
+returns 11 keys (measured 2026-10-16, after the `forecast` tile joined as the eleventh), and the same awk piped to
+`grep -c ') : null'` returns 1, the `completionTrend` ternary; the stricter `: \(` shape matches only 8, because
+`burn` and `completionTrend` open with a ternary and `forecast` is a one-line element. It is KEPT as the other half of a two-sided contract
 — a body that turns conditional without its gate following would otherwise render empty tile chrome —
 but NOTHING enforces the redundancy, so a new tile still has to get its gate right.
 
@@ -979,6 +981,39 @@ See [`forecast.md`](forecast.md) "Simulation across the app — part 1" for the 
   coverage line exists (`estimateCoverage` is null once nothing is open), or the switch state plus the gap's `kind` while the simulation is
   null (so the tile re-measures when the gap line appears or changes). ★ It encodes only those inputs: another future simulated element
   that changes height must extend the key, or the tile will not re-measure.
+### Forecast tile and milestone chips (§502 part 2)
+
+Both are simulated surfaces, so both need `isSimulationActive` (switch on AND the Forecast view enabled); the
+rules and the run they share are in [`forecast.md`](forecast.md) "Simulation across the app — part 2".
+
+- ★★ **The `forecast` tile** is the last row of `DASHBOARD_TILES` (`grep -n '"forecast"' src/app/dashboard-tiles.ts`):
+  default size `w: 2, h: 3` (min 1 x 2, max 4 x 4), gated on `TileGateInput.simulationActive`. Because it is last,
+  a stored layout gains it after every existing tile. ★ THE GATE DECIDES WHAT RENDERS, NOT WHAT IS STORED: with the
+  switch off the tile is on neither the board nor the shelf, but `useDashboardLayout` still takes no gate, so its
+  stored placement stays and returns when the switch does. `DashboardForecastTile`
+  (`dashboard-sections/dashboard-forecast-tile.tsx`) is presentational and unboxed (the tile chrome owns the frame and
+  the "Forecast" heading); its body is `forecast` in `buildTileBodies`, fed by the panel's single forecast run.
+  Contents: the P80 headline as ONE `SimValue` with the one explainer; the change since last week (`weeklyChange`,
+  `forecast-tile-model.ts`); `ForecastRangeBar`; the open-task count (calculated, NOT sim-styled); the up-to-3
+  milestones most at risk (`milestonesAtRisk`, `AT_RISK_LIMIT`, row-unique names through `buildRowTokens`/`rowLabel`); and
+  "Open Forecast". Only a comparison of two simulated dates (later / earlier / same) and the range bar wear the sim
+  marking; the "available from <date>" and "beyond the horizon" forms of the change line are statements about the data
+  and stay plain, like the gap line. An insufficient forecast shows the KPI strip's gap line ALONE, not sim-styled.
+- ★★ **Holidays pending** (`holidaysReady === false` with the switch on): the panel computes no forecast, so the KPI
+  cells, the tile's simulated slots and each chip are `SimPlaceholder` (`sim-value.tsx`): empty, `aria-hidden`, the
+  height of a `SimValue`, no text, so a placeholder never reads as a figure. Without it the first render ran the forecast
+  before the holiday calendar arrived and flashed the gap line. `kpiContentKey` takes a `pending` flag for the same reason.
+- **The tile's measured content key.** `dashboard-panel.tsx` passes `useMeasuredHeights` a `contentKey` joined from three
+  parts: `kpiContentKey(...)`, `forecastTileContentKey(forecast, atRisk.length)` (`kpi-simulation.ts`: pending,
+  insufficient, or P80 beyond / present, whether P95 exists, and the at-risk row count) and `ms:<visibleChipCount>`. ★ It
+  encodes only those inputs: a new simulated element that changes a tile's height must extend it.
+- **Milestone chips.** `MilestoneHorizonStrip` draws a chip (percent plus the decorative "sim" badge) beside each
+  milestone in `chances`, which `buildTileBodies` builds with `chancesById` from the SAME run (only `state: "chance"`
+  rows). There is ONE explainer for the whole strip, "About these chances" (`SimExplainer` `kind="milestone"`, no
+  histogram), and it renders only when a chip draws: `visibleChipCount` counts the entries inside each bucket's
+  `MAX_PER_BUCKET` cap, so a chance on a "+N more" milestone leaves neither a chip nor an explainer. ★ The accessible
+  name lives on the chip's host (the button's `aria-label` or the sr-only span), not on the chip.
+
 - The "Use Monte Carlo forecasting" switch (`SimulationSwitch`, a `ToggleButton`) sits in the Budget burn tile,
   directly left of "Open in Budget", in both the chart and the no-budget layout: `dashboard-panel.tsx` builds it
   (its wrapper is the intro's Escape anchor) and hands it to `buildTileBodies` as `simSwitch`. ★ The burn tile

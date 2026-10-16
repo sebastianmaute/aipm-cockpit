@@ -11,7 +11,7 @@
 //
 // ★ Writes through the context setter only: no undo capture, no activity-log
 // entry. The call is synchronous, so it needs no `dropStaleScopeWrite` (a write
-// that awaited would); the scope epoch is read only as a key (the baseline's, and rule 1's). It is skipped while a load or
+// that awaited would); the scope epoch is read only as a key (it keys the memory, the baseline and the last-seen stored entry, and rule 1 compares it). It is skipped while a load or
 // swap is pending (§548), in a popout, and until holidays are ready.
 //
 // ★★ ONE WRITE PER DAY ACROSS DEVICES. The history is broadcast between tabs and

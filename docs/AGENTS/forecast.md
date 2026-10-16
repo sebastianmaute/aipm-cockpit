@@ -6,7 +6,7 @@ and what is each milestone's **chance** of landing on its date. Part 1 of the su
 (`docs/superpowers/specs/2026-10-15-forecast-simulation-surfaces-design.md`) adds the Dashboard
 Show-simulation switch (`SettingsOverrides.forecast`) and a daily recorder that persists
 `Workspace.forecastHistory` (a meta-blob on all six write paths). It replaced the old slices 2 and 5;
-saved scenarios, the AI tool and parts 2–4 are open — see §502 in [`../open-followups.md`](../open-followups.md).
+part 2 (the Dashboard picture, below) is built; saved scenarios, the AI tool and parts 3–4 are open — see §502 in [`../open-followups.md`](../open-followups.md).
 Reproduce the file list: `ls src/app/forecast`.
 
 ★★ **HELD BACK FROM THE RELEASE.** `"forecast"` sits in `RELEASE_HIDDEN_VIEWS` (`feature-modules.ts`), so
@@ -19,7 +19,9 @@ sentence of `helpSecReportsBody` (EN and DE) and its lines in `lib/app-feature-g
 `node scripts/gen-operating-guide.mjs`), and re-measure the scan count in `e2e/a11y.spec.ts`.
 ★★ Part 1 of the surfaces design is held back WITH it, through the same `isViewEnabled("forecast", …)` gate
 (`isSimulationActive`, `hiddenHelpEntryIds`): the Show-simulation switch, the simulated KPI cells, the intro, the
-Help entry and the history recorder all vanish. Shipping the view also means: turn part 1's CHANGELOG
+Help entry and the history recorder all vanish. ★★ Part 2 goes with it: the Dashboard Forecast tile (off the board
+AND the shelf), the milestone chance chips and their explainer, the Next-actions "unlikely on time" signal and the
+Forecast-tile placeholders, all through `isSimulationActive`. Shipping the view also means: turn part 1's CHANGELOG
 `[Unreleased]` Notes line ("built but held back with the forecast") into an Added entry, and expect the
 held-back tests to FAIL by design — each asserts that a surface is hidden while `"forecast"` sits in
 `RELEASE_HIDDEN_VIEWS` (`grep -rl "held back" src/app --include=*.test.ts* | xargs grep -li simulation`); invert or delete them, and drop the
@@ -297,14 +299,18 @@ chance on time; the dated history it records is the input to later surfaces. Fil
 - **The recorder** (`use-forecast-history-recorder.ts`) is called from inside `useInsightLifecycle`, not from
   `task-manager.tsx` (no size-ratchet headroom). It writes only when the switch is on AND `hydrated`,
   not `isPopout`, not `loadPending` (§548), `holidaysReady` and the forecast is sufficient. ★★★ WHETHER to
-  write is decided against THIS TAB's own last-recorded entry (a `useRef`), not against the stored one: it
-  writes when nothing is stored for today, when it has not recorded today yet and the stored entry differs, or
-  when its own computed entry changed since it last recorded. A stored entry equal to the computed one is
-  adopted as its own. The stored-only compare it replaced let two tabs that compute different entries (per-device
-  holidays, an old and a new build) overwrite each other for ever, since `forecastHistory` is broadcast between
-  tabs; now a peer's later entry is left alone (last writer of the day wins) for as long as the project in scope
-  stays the same. Pinned by "two tabs that disagree settle" in `use-forecast-history-recorder.test.ts` (exactly
-  one write per tab). ★★ The SCOPE RULE: the ref stores `{ scope, entry }`, with `scope` read from
+  write is decided against THIS TAB's own memory (a `useRef`), not against the stored entry alone. The five
+  rules are numbered in the file header; in short: a day change with every input unchanged writes nothing (an
+  idle tab must not race the others at midnight); nothing stored for today writes; a stored entry EQUAL to the
+  computed one writes nothing; a stored entry this tab has not SEEN (a peer wrote it since the tab's last run),
+  or a tab with no baseline for today, ADOPTS it without writing; otherwise (the stored entry is the one the tab
+  last saw and differs) it writes only when its OWN computed entry differs from its baseline. The stored-only
+  compare it replaced let two tabs that compute different entries (per-device holidays, an old and a new build)
+  overwrite each other for ever, since `forecastHistory` is broadcast between tabs. Pinned by "two tabs that
+  disagree settle" in `use-forecast-history-recorder.test.ts` (exactly one write per tab). ★ The cost the rule
+  accepts: when the tasks and the history arrive in SEPARATE deliveries (a remote edit followed by the peer's
+  entry, or the reverse), a tab can write once for what is one edit; it is bounded, because the next run adopts
+  or finds the stored entry equal. ★★ The SCOPE RULE: the ref stores `{ scope, entry, seen }`, with `scope` read from
   `getScopeEpoch()` (`scope-epoch.ts`), and a memory from another epoch counts as nothing recorded. It is NOT
   cleared on `loadPending`: a same-project reload (the conflict banner's Reload is a held "same-scope" op) also
   raises `loadPending`, and clearing there made the tab answer a peer's entry after every reload, one extra
@@ -356,6 +362,51 @@ chance on time; the dated history it records is the input to later surfaces. Fil
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "Dashboard"` (CI runs it too).
 - ★ Switch OFF → no recorder, no simulation prop, no cells, and nothing else on the Dashboard changes.
 
+## Simulation across the app — part 2
+
+Part 2 of the surfaces design (`docs/superpowers/specs/2026-10-15-forecast-simulation-part-2-design.md`) is the
+Dashboard picture: a Forecast tile, a chance chip per milestone and a Next-actions signal. Files:
+`forecast-tile-model.ts`, `forecast-range-bar.tsx`, `dashboard-sections/dashboard-forecast-tile.tsx`,
+`milestone-horizon-strip.tsx`, `next-actions/sim-milestones.ts`; the layout side is in
+[`dashboard.md`](dashboard.md) "Forecast tile and milestone chips". Every surface here gates on
+`isSimulationActive`, never `isSimulationOn`, and has a held-back test (`showForecastView()` from
+`src/test/forecast-view.ts`).
+
+- ★★★ **ONE shared run.** `computeAppForecast` now also returns `milestones` (the engine's per-milestone chances,
+  from the same trials). The Dashboard panel runs it ONCE per render set and feeds the KPI strip, the Forecast tile
+  and the chips; `use-next-actions.ts` calls it with the same context references, so both hit the single-entry memo
+  and the engine runs once. A caller that passes a `.filter()` copy reruns 10,000 trials per surface.
+- **The tile** shows the P80 headline, the change since last week, a range bar and the milestones most at risk;
+  `weeklyChange` compares today's P80 with the history entry from 7 to 13 days back (`WEEK_BACK_DAYS`,
+  `WEEK_BACK_MAX_DAYS`) in working days, and answers `pending` (with the date it becomes available) or `beyond`
+  instead of inventing a figure. The comparison and the range bar wear the sim marking; `pending`/`beyond` stay plain.
+- **The chips** come from `chancesById` over the same run. ONE explainer for the strip, "About these chances"
+  (`SimExplainer` `kind="milestone"`: no histogram, the props are a union), shown only when `visibleChipCount` is above
+  zero, so a chance hidden behind a bucket's "+N more" cap never leaves an explainer with no chip.
+- ★★★ **The Next-actions signal never enters the flat list.** `buildSimMilestoneActions` makes one
+  `forecast-sim` action (`SIM_UNLIKELY_BELOW` = 0.5, soon band) per not-achieved milestone under 50 %; `mergeSimActions`
+  adds them to the GROUPS after `groupNextActions` (a measured group for the same milestone takes the action as an
+  extra reason and keeps its own primary, score and tier; otherwise it forms its own group), sorted with
+  `groupNextActions`' own comparators. `computeNextActions`' flat list, and so notifications, the AI context and
+  `nowCount`, never hold it; `use-action-learning.ts` skips the source, and a snooze of it does not teach either. It
+  offers only Open Forecast and Snooze (`action-cta.ts` drops Create task and Log as RAID for it). It needs the
+  Milestones module and the holidays, like the tile. ★ Rulings: the group counts in the Soon tier, the Top actions tile
+  and the greeting's needs-you count, because it is a Next-actions signal shown with the sim badge; only flat-list
+  consumers are excluded.
+- ★★ **Holidays pending.** With the switch on and `holidaysReady` false, the panel computes no forecast and the
+  simulated slots (KPI cells, tile, chips) are `SimPlaceholder`s: neutral, `aria-hidden`, no text. Off stays untouched.
+- ★★ **Restore keeps the switch.** `keepSimulationSwitch` (`forecast-simulation.ts`) pins the version's
+  `settingsOverrides` switch to the CURRENT value, because the switch is a viewing choice, not project data. `restore`
+  (`use-version-history.ts`) pins AFTER the merge, so the blind-capture guard still sees the version's own `undefined`;
+  `prepareVersion` (`use-version-history-wiring.ts`) pins for the compare view and ONLY when the version carries
+  overrides, since setting the key on an unstamped capture would defeat that guard and blank the other fields.
+- **Explainer label rows.** The histogram's P50/P80/P95 labels sit in three rows ABOVE the bars (`CHART_TOP`),
+  each label taking the first row with no label within `2 * LABEL_HALF_W`, so three equal or near-equal cut-offs
+  (common for a narrow distribution) never overprint.
+- **Help.** The "Show the simulation introduction again" action becomes a note ("needs the switch") when the
+  switch is off; Help names the new surfaces.
+- ★ Switch OFF → no tile (board or shelf), no chips, no sim action, no recorder; nothing else changes.
+
 ## Mutation proof (slice 1)
 
 Four mutants for the slice, run one at a time, each turned red by its own test:
@@ -406,7 +457,9 @@ hides the Forecast view cannot show simulated numbers with no view behind them. 
 simulated KPI cells and the intro (`dashboard-panel.tsx`), the daily recorder
 (`use-forecast-history-recorder.ts`, fed `features` by `useInsightLifecycle`), and the Help entry
 `FORECAST_SIM_HELP_ID` with its reopen action (`help-view.tsx`, via `HelpContentPane`'s `hiddenEntryIds`).
-`isSimulationOn` stays the RAW stored read for the writer: the stored value is never touched, so showing the
+★ Part 2's surfaces are gated the same way: the Dashboard Forecast tile (`TileGateInput.simulationActive`, so it leaves
+the board and the shelf but keeps its stored placement), the milestone chips and their explainer, and the Next-actions
+signal (`use-next-actions.ts`). `isSimulationOn` stays the RAW stored read for the writer: the stored value is never touched, so showing the
 view again restores the user's choice. A new part-1 surface must read the helper, never `isSimulationOn`.
 ★ The two WRITER surfaces are the exception, because they must show the switch while it is off: the burn-tile
 switch (`dashboard-panel.tsx`) and the Edit project "Forecasting" field (`project-edit-modal.tsx`, wired in
