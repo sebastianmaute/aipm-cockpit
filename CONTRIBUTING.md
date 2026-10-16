@@ -493,6 +493,10 @@ npm run e2e:ui        # UI mode (useful while writing tests)
 Artifacts (`/test-results`, `/playwright-report`, `/playwright/.cache`,
 `/blob-report`) are gitignored.
 
+The getting-started demo video is recorded with Playwright too, by a standalone script outside the
+test suite: see [`scripts/demo-video/README.md`](scripts/demo-video/README.md). It writes to the
+throwaway Turso database, so never run it while an `e2e:live-*` run uses the same database.
+
 ### Pre-merge verification
 
 In addition to running the suites:
