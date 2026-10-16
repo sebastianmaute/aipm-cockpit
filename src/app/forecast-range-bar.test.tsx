@@ -29,6 +29,13 @@ describe("ForecastRangeBar", () => {
     expect(num(tick, "x1")).toBeLessThan(num(container.querySelector("[data-p80]"), "x1"));
   });
 
+  it("wears the sim marking: the img sits inside a dashed outline named simulated", () => {
+    render(<ForecastRangeBar {...BASE} />);
+    const img = screen.getByRole("img");
+    expect(img.closest("[data-sim]")).not.toBeNull();
+    expect(screen.getByRole("group", { name: "Forecast range, simulated" })).toContainElement(img);
+  });
+
   it("draws no plan-end tick when the plan end is not a valid date", () => {
     const { container } = render(<ForecastRangeBar {...BASE} planEnd="" />);
     expect(container.querySelector("[data-plan-end]")).toBeNull();

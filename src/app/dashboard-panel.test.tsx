@@ -2142,6 +2142,20 @@ describe("DashboardPanel Forecast tile", () => {
     expect(within(tile()!).getByText("1 open task").closest("[data-sim]")).toBeNull();
   });
 
+  it("hands the tile the milestones at risk from the same run", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({
+      ...FORECAST,
+      milestones: [{ id: 1, state: "chance", chance: 0.3, chancePrioritised: 0.3 }],
+    } as appForecastModule.AppForecast);
+    render(<DashboardPanel {...fullProps} projectId="p-fc-risk" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    const list = within(tile()!).getByRole("list", { name: t(EN, "forecastTileAtRisk") });
+    expect(within(list).getByText("Go-Live")).toBeInTheDocument();
+    expect(within(list).getByRole("group", { name: "30% chance on time – Go-Live, simulated" })).toBeInTheDocument();
+  });
+
   it("Open Forecast navigates to the Forecast view", async () => {
     showForecastView();
     const user = userEvent.setup();

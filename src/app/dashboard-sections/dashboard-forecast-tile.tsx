@@ -7,13 +7,12 @@ import type { AppForecast } from "../forecast/app-forecast";
 import { formatDayMonthYear } from "../forecast-format";
 import type { ForecastHistoryEntry } from "../forecast-history";
 import { ForecastRangeBar } from "../forecast-range-bar";
-import { milestonesAtRisk, weeklyChange, type AtRiskMilestone, type WeeklyChange } from "../forecast-tile-model";
+import { weeklyChange, type AtRiskMilestone, type WeeklyChange } from "../forecast-tile-model";
 import { type Lang, t, tPlural } from "../i18n";
 import { kpiSimulationGap } from "../kpi-simulation";
 import { simulationGapText } from "../kpi-simulation-text";
 import { buildRowTokens, rowLabel } from "../row-tokens";
 import { SimPlaceholder, SimValue } from "../sim-value";
-import type { Milestone } from "../types";
 
 /**
  * The Dashboard's Forecast tile (§502 part 2). Presentational: the panel runs the ONE forecast it
@@ -30,7 +29,8 @@ export interface DashboardForecastTileProps {
   /** Null = waiting for holidays; the simulated slots render as placeholders. */
   forecast: AppForecast | null;
   history: readonly ForecastHistoryEntry[];
-  milestones: readonly Milestone[];
+  /** The milestones most at risk (`milestonesAtRisk`), computed ONCE by the panel from this forecast. */
+  atRisk: readonly AtRiskMilestone[];
   planEnd: string;
   today: string;
   holidaySet: ReadonlySet<string>;
@@ -42,23 +42,25 @@ export interface DashboardForecastTileProps {
 
 const MUTED_LINE = "text-xs text-muted-foreground";
 
-function changeText(lang: Lang, change: WeeklyChange, fmt: (iso: string) => string): { glyph: string | null; text: string } {
+/** `sim`: a comparison of two simulated dates, so it wears the sim marking. The pending and beyond
+ *  forms say why there is no comparison — a statement about the data, plain like the gap line. */
+function changeText(lang: Lang, change: WeeklyChange, fmt: (iso: string) => string): { glyph: string | null; text: string; sim: boolean } {
   switch (change.kind) {
-    case "later": return { glyph: "▲", text: tPlural(lang, "forecastTileLater", change.workingDays, change.workingDays) };
-    case "earlier": return { glyph: "▼", text: tPlural(lang, "forecastTileEarlier", change.workingDays, change.workingDays) };
-    case "same": return { glyph: null, text: t(lang, "forecastTileNoChange") };
-    case "pending": return { glyph: null, text: t(lang, "forecastTileChangeFrom", fmt(change.from)) };
-    case "beyond": return { glyph: null, text: t(lang, "forecastTileChangeBeyond") };
+    case "later": return { glyph: "▲", text: tPlural(lang, "forecastTileLater", change.workingDays, change.workingDays), sim: true };
+    case "earlier": return { glyph: "▼", text: tPlural(lang, "forecastTileEarlier", change.workingDays, change.workingDays), sim: true };
+    case "same": return { glyph: null, text: t(lang, "forecastTileNoChange"), sim: true };
+    case "pending": return { glyph: null, text: t(lang, "forecastTileChangeFrom", fmt(change.from)), sim: false };
+    case "beyond": return { glyph: null, text: t(lang, "forecastTileChangeBeyond"), sim: false };
   }
 }
 
 /** The change since last week. The arrow is decorative; the words carry the direction. */
 function ChangeLine({ lang, change, fmt }: { lang: Lang; change: WeeklyChange; fmt: (iso: string) => string }) {
-  const { glyph, text } = changeText(lang, change, fmt);
+  const { glyph, text, sim } = changeText(lang, change, fmt);
   return (
     <p data-forecast-change className={MUTED_LINE}>
       {glyph && <><span aria-hidden="true">{glyph}</span> </>}
-      {text}
+      {sim ? <SimValue lang={lang} label={t(lang, "forecastTileChangeLabel")} value={text} /> : text}
     </p>
   );
 }
@@ -110,7 +112,6 @@ export function DashboardForecastTile(props: DashboardForecastTileProps) {
   const change = ready
     ? weeklyChange({ history: props.history, today: props.today, p80: forecast.p80, holidaySet: props.holidaySet })
     : null;
-  const atRisk = ready ? milestonesAtRisk(forecast.milestones, props.milestones) : [];
   const forecastLabel = t(lang, "dashboardForecast");
 
   return (
@@ -156,7 +157,7 @@ export function DashboardForecastTile(props: DashboardForecastTileProps) {
         <div className="min-w-0 space-y-1.5">
           <h4 className="text-xs font-semibold uppercase text-muted-foreground">{t(lang, "forecastTileAtRisk")}</h4>
           {ready ? (
-            <AtRiskList lang={lang} rows={atRisk} fmt={fmt} onOpenMilestone={props.onOpenMilestone} />
+            <AtRiskList lang={lang} rows={props.atRisk} fmt={fmt} onOpenMilestone={props.onOpenMilestone} />
           ) : (
             <SimPlaceholder />
           )}

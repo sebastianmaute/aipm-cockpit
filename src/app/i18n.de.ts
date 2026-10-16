@@ -3446,6 +3446,8 @@ export const de: Record<TranslationKey, string> = {
   forecastRangeAriaBeyond: "Die Hälfte bis {0}, 8 von 10 bis {1}, fast alle erst jenseits des Prognosehorizonts. Planende {2}.",
   forecastRangeAriaBeyondNoPlanEnd: "Die Hälfte bis {0}, 8 von 10 bis {1}, fast alle erst jenseits des Prognosehorizonts.",
   forecastRangePlanEnd: "Planende",
+  forecastTileChangeLabel: "Änderung seit letzter Woche",
+  forecastRangeLabel: "Prognosespanne",
   forecastTileOpenTasks: "{0} offene Aufgaben",
   forecastTileOpenTasksOne: "1 offene Aufgabe",
   forecastTileAtRisk: "Gefährdete Meilensteine",

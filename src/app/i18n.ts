@@ -3732,6 +3732,8 @@ const enUS = {
   forecastRangeAriaBeyond: "Half by {0}, 8 in 10 by {1}, almost all only beyond the forecast horizon. Plan end {2}.",
   forecastRangeAriaBeyondNoPlanEnd: "Half by {0}, 8 in 10 by {1}, almost all only beyond the forecast horizon.",
   forecastRangePlanEnd: "Plan end",
+  forecastTileChangeLabel: "Change since last week",
+  forecastRangeLabel: "Forecast range",
   forecastTileOpenTasks: "{0} open tasks",
   forecastTileOpenTasksOne: "1 open task",
   forecastTileAtRisk: "Milestones at risk",

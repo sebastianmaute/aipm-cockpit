@@ -46,7 +46,7 @@ import { DashboardHiddenBadge } from "./dashboard-hidden-badge";
 import { buildTileBodies } from "./dashboard-tile-bodies";
 import { computeAppForecast } from "./forecast/app-forecast";
 import { forecastTileContentKey, kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
-import { milestonesAtRisk } from "./forecast-tile-model";
+import { milestonesAtRisk, type AtRiskMilestone } from "./forecast-tile-model";
 import { isTaskClosed } from "./task-closed";
 import { useDashboardLayout } from "./use-dashboard-layout";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
@@ -59,6 +59,8 @@ import type { PlacedTile } from "./dashboard-layout";
 // memo's `snapshots` dependency for no input change (AGENTS.md memo bullet).
 const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
 const EMPTY_MILESTONES: readonly Milestone[] = [];
+/** Stable empty at-risk list for the memo while the simulation is off, pending or insufficient. */
+const NO_AT_RISK: readonly AtRiskMilestone[] = [];
 
 /** Stable empty for the hero's CTA bundle — see `heroHandlers` below. */
 const NO_HANDLERS: Omit<ActionHandlers, "onOpen"> = {};
@@ -354,11 +356,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const planEnd = props.plan.endDate;
   // The gap is why the switch is on but no simulated cell shows (too little history, P80 beyond the horizon).
   // ONE run feeds the strip AND the Forecast tile; `forecast` stays null while off or pending.
-  const { kpiSim, kpiSimGap, forecast, atRiskCount } = useMemo(() => {
-    if (!simulationOn || simulationPending) return { kpiSim: null, kpiSimGap: null, forecast: null, atRiskCount: 0 };
+  const { kpiSim, kpiSimGap, forecast, atRisk } = useMemo(() => {
+    if (!simulationOn || simulationPending) return { kpiSim: null, kpiSimGap: null, forecast: null, atRisk: NO_AT_RISK };
     const f = computeAppForecast({ tasks: props.tasks, milestones: milestonesForSim, planEnd, today, holidaySet: props.holidaySet });
-    const atRisk = f.kind === "forecast" ? milestonesAtRisk(f.milestones, milestonesForSim).length : 0;
-    return { kpiSim: kpiSimulation(f, model.evm.spi), kpiSimGap: kpiSimulationGap(f), forecast: f, atRiskCount: atRisk };
+    const rows = f.kind === "forecast" ? milestonesAtRisk(f.milestones, milestonesForSim) : NO_AT_RISK;
+    return { kpiSim: kpiSimulation(f, model.evm.spi), kpiSimGap: kpiSimulationGap(f), forecast: f, atRisk: rows };
   }, [simulationOn, simulationPending, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi]);
 
   // ★★ THE GATE DECIDES WHAT RENDERS, NEVER WHAT IS STORED. `useDashboardLayout`
@@ -428,7 +430,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     forecast,
     forecastTile: {
       history: forecastHistory,
-      milestones: milestonesForSim,
+      atRisk,
       planEnd,
       today,
       holidaySet: props.holidaySet,
@@ -486,7 +488,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     // The KPI tile grows by cells and text lines when the simulation appears or flips divergent,
     // and by the one-line note when the switch is on but nothing can be simulated.
     // The Forecast tile likewise, by its slots and its at-risk row count.
-    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, atRiskCount)}`,
+    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, atRisk.length)}`,
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };

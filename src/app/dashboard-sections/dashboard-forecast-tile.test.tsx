@@ -5,6 +5,7 @@ import { DashboardForecastTile } from "./dashboard-forecast-tile";
 import type { AppForecast } from "../forecast/app-forecast";
 import type { ForecastHistoryEntry } from "../forecast-history";
 import type { Milestone } from "../types";
+import { milestonesAtRisk } from "../forecast-tile-model";
 
 const EN = "en-US" as const;
 const TODAY = "2026-10-16"; // a Friday
@@ -25,7 +26,7 @@ function renderTile(over: Partial<Parameters<typeof DashboardForecastTile>[0]> =
       lang={EN}
       forecast={FORECAST}
       history={[]}
-      milestones={[]}
+      atRisk={[]}
       planEnd="2027-02-01"
       today={TODAY}
       holidaySet={NO_HOLIDAYS}
@@ -38,7 +39,7 @@ function renderTile(over: Partial<Parameters<typeof DashboardForecastTile>[0]> =
 describe("DashboardForecastTile", () => {
   it("headline names P80, then P50 and P95, marked simulated", () => {
     const { container } = renderTile();
-    const group = screen.getByRole("group", { name: /, simulated$/ });
+    const group = screen.getByRole("group", { name: /^8 in 10 runs finish by .*, simulated$/ });
     expect(group).toHaveTextContent("8 in 10 simulated runs finish by Feb 12, 2027.");
     expect(group).toHaveTextContent("Half by Jan 28, 2027 · almost all (19 in 20) by Mar 3, 2027.");
     expect(group.textContent!.indexOf("Feb 12, 2027")).toBeLessThan(group.textContent!.indexOf("Jan 28, 2027"));
@@ -49,7 +50,7 @@ describe("DashboardForecastTile", () => {
 
   it("P95 beyond the horizon reads 'only beyond the forecast horizon'", () => {
     renderTile({ forecast: { ...FORECAST, p95: null } });
-    expect(screen.getByRole("group", { name: /, simulated$/ }))
+    expect(screen.getByRole("group", { name: /^8 in 10 runs finish by .*, simulated$/ }))
       .toHaveTextContent("Half by Jan 28, 2027 · almost all (19 in 20) only beyond the forecast horizon.");
   });
 
@@ -63,6 +64,9 @@ describe("DashboardForecastTile", () => {
         history: [entry("2026-10-09", "2027-01-29")],
       });
       expect(changeLine(container)).toHaveTextContent("▲ 9 working days later than last week");
+      // A comparison of two simulated dates: it wears the sim marking.
+      expect(screen.getByText("9 working days later than last week").closest("[data-sim]")).not.toBeNull();
+      expect(screen.getByRole("group", { name: "Change since last week, simulated" })).toBeInTheDocument();
       expect(within(changeLine(container) as HTMLElement).getByText("▲")).toHaveAttribute("aria-hidden", "true");
     });
 
@@ -84,11 +88,14 @@ describe("DashboardForecastTile", () => {
     it("pending names the first date a change can be shown", () => {
       const { container } = renderTile({ history: [entry("2026-10-14", "2027-02-12")] });
       expect(changeLine(container)).toHaveTextContent("Change shown from Oct 21, 2026");
+      // No comparison yet: a statement about the data, plain like the gap line.
+      expect(screen.getByText("Change shown from Oct 21, 2026").closest("[data-sim]")).toBeNull();
     });
 
     it("beyond", () => {
       const { container } = renderTile({ history: [entry("2026-10-09", null)] });
       expect(changeLine(container)).toHaveTextContent("Change unavailable: beyond the forecast horizon");
+      expect(screen.getByText("Change unavailable: beyond the forecast horizon").closest("[data-sim]")).toBeNull();
     });
   });
 
@@ -140,7 +147,7 @@ describe("DashboardForecastTile", () => {
 
     it("top 3 at risk, worst first, row-unique names", async () => {
       const onOpenMilestone = vi.fn();
-      renderTile({ forecast: chances, milestones, onOpenMilestone });
+      renderTile({ forecast: chances, atRisk: milestonesAtRisk(chances.milestones, milestones), onOpenMilestone });
       const list = screen.getByRole("list", { name: "Milestones at risk" });
       const rows = within(list).getAllByRole("listitem");
       expect(rows).toHaveLength(3);
@@ -156,14 +163,14 @@ describe("DashboardForecastTile", () => {
     });
 
     it("names are plain text without a navigator", () => {
-      renderTile({ forecast: chances, milestones });
+      renderTile({ forecast: chances, atRisk: milestonesAtRisk(chances.milestones, milestones) });
       const list = screen.getByRole("list", { name: "Milestones at risk" });
       expect(within(list).queryByRole("button")).toBeNull();
       expect(within(list).getByText("Pilot")).toBeInTheDocument();
     });
 
     it("none at risk", () => {
-      renderTile({ forecast: { ...FORECAST, milestones: [{ id: 5, state: "chance", chance: 1, chancePrioritised: 1 }] }, milestones });
+      renderTile({ forecast: chances, atRisk: [] });
       expect(screen.getByText("No milestones at risk")).toBeInTheDocument();
       expect(screen.queryByRole("list", { name: "Milestones at risk" })).toBeNull();
     });
