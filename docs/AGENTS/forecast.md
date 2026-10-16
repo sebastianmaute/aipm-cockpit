@@ -306,8 +306,8 @@ chance on time; the dated history it records is the input to later surfaces. Fil
   or a tab with no baseline for today, ADOPTS it without writing; otherwise (the stored entry is the one the tab
   last saw and differs) it writes only when its OWN computed entry differs from its baseline. The stored-only
   compare it replaced let two tabs that compute different entries (per-device holidays, an old and a new build)
-  overwrite each other for ever, since `forecastHistory` is broadcast between tabs. Pinned by "two tabs that
-  disagree settle" in `use-forecast-history-recorder.test.ts` (exactly one write per tab). ★ The cost the rule
+  overwrite each other for ever, since `forecastHistory` is broadcast between tabs. Pinned by "two clients
+  with different holiday sets write once per day" in `use-forecast-history-recorder.test.ts` (one write in total). ★ The cost the rule
   accepts: when the tasks and the history arrive in SEPARATE deliveries (a remote edit followed by the peer's
   entry, or the reverse), a tab can write once for what is one edit; it is bounded, because the next run adopts
   or finds the stored entry equal. ★★ The SCOPE RULE: the ref stores `{ scope, entry, seen }`, with `scope` read from

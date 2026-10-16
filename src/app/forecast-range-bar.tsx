@@ -23,6 +23,8 @@ const BAND_Y = 16;
 const BAND_H = 10;
 /** Room past the last date when the band is open-ended, as a share of the axis span. */
 const OPEN_END_PAD = 0.15;
+/** Half the width of the "P80" label at font size 8; its centre is kept this far from either edge so it never clips. */
+const P80_LABEL_HALF_W = 8;
 
 /** Days since the epoch for an ISO day, read in UTC. Pure: no clock is read. */
 function dayNumber(iso: string): number {
@@ -92,7 +94,7 @@ export function ForecastRangeBar({
           className="fill-ui-green-strong dark:fill-ui-green"
         />
         <line data-p80 x1={markX} x2={markX} y1={BAND_Y - 4} y2={AXIS_Y} strokeWidth={2} className="stroke-ui-dark-blue dark:stroke-ui-light-grey" />
-        <text x={markX} y={BAND_Y - 6} textAnchor="middle" fontSize={8} className="fill-ui-dark-blue dark:fill-ui-light-grey">
+        <text x={Math.min(W - P80_LABEL_HALF_W, Math.max(P80_LABEL_HALF_W, markX))} y={BAND_Y - 6} textAnchor="middle" fontSize={8} className="fill-ui-dark-blue dark:fill-ui-light-grey">
           P80
         </text>
         {planX !== null && (
