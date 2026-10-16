@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AppForecast } from "./forecast/app-forecast";
-import { chancePercent, isDivergent, kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
+import { chancePercent, forecastTileContentKey, isDivergent, kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
 
 const INSUFFICIENT: Extract<AppForecast, { kind: "insufficient" }> = { kind: "insufficient", finished: 4, neededFinished: 10, days: 30, neededDays: 10 };
 
@@ -15,6 +15,7 @@ const forecast = (over: Partial<Extract<AppForecast, { kind: "forecast" }>> = {}
   distribution: Int32Array.from([5, 10, 15]),
   trials: 10000,
   markers: { p50: 10, p80: 20, p95: 30 },
+  milestones: [],
   ...over,
 });
 
@@ -102,5 +103,53 @@ describe("kpiContentKey", () => {
   it("keys the gap kind while the simulation is null", () => {
     expect(kpiContentKey(null, true, { kind: "beyond" })).not.toBe(kpiContentKey(null, true, null));
     expect(kpiContentKey(null, false, null)).not.toBe(kpiContentKey(null, true, null));
+  });
+
+  it("pending differs from every non-pending key (§502)", () => {
+    const sim = kpiSimulation(forecast(), 1)!;
+    const nonPending = [
+      kpiContentKey(sim, true, null),
+      kpiContentKey(kpiSimulation(forecast({ estimateCoverage: null }), 1)!, true, null),
+      kpiContentKey(null, true, null),
+      kpiContentKey(null, false, null),
+      kpiContentKey(null, true, { kind: "beyond" }),
+      kpiContentKey(null, true, { kind: "finished", finished: 4, needed: 10 }),
+      kpiContentKey(null, true, { kind: "days", days: 4, needed: 10 }),
+    ];
+    // Whatever else is passed, pending yields one key, and it is none of the others.
+    const pending = kpiContentKey(sim, true, null, true);
+    expect(kpiContentKey(null, true, { kind: "beyond" }, true)).toBe(pending);
+    for (const k of nonPending) expect(k).not.toBe(pending);
+  });
+});
+
+describe("forecastTileContentKey", () => {
+  it("tells apart every state that changes the Forecast tile's height", () => {
+    const keys = [
+      forecastTileContentKey(null, 0, null),
+      forecastTileContentKey(INSUFFICIENT, 0, null),
+      forecastTileContentKey(forecast({ p80: null, p95: null }), 0, { kind: "beyond" }),
+      forecastTileContentKey(forecast({ p95: null }), 0, { kind: "pending", from: "2026-10-22" }),
+      forecastTileContentKey(forecast(), 0, { kind: "pending", from: "2026-10-22" }),
+      forecastTileContentKey(forecast(), 3, { kind: "pending", from: "2026-10-22" }),
+      forecastTileContentKey(forecast(), 3, { kind: "same" }),
+    ];
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("tells '0 at risk' apart from the at-risk section being off (§502)", () => {
+    const change = { kind: "same" } as const;
+    expect(forecastTileContentKey(forecast(), 0, change)).not.toBe(forecastTileContentKey(forecast(), null, change));
+    // Off is one state, whatever the count would have been.
+    expect(forecastTileContentKey(forecast(), null, change)).not.toBe(forecastTileContentKey(forecast(), 3, change));
+  });
+
+  it("keys the change line by its form, not by its value", () => {
+    // The simulated forms (later, earlier, same) are outlined and badged; pending and beyond are plain text.
+    const key = (change: Parameters<typeof forecastTileContentKey>[2]) => forecastTileContentKey(forecast(), 0, change);
+    expect(key({ kind: "later", workingDays: 2 })).toBe(key({ kind: "earlier", workingDays: 5 }));
+    expect(key({ kind: "later", workingDays: 2 })).toBe(key({ kind: "same" }));
+    expect(key({ kind: "pending", from: "2026-10-22" })).toBe(key({ kind: "beyond" }));
+    expect(key({ kind: "pending", from: "2026-10-22" })).not.toBe(key({ kind: "same" }));
   });
 });

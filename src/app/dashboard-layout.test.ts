@@ -168,7 +168,7 @@ describe("reconcile", () => {
     // and every gated tile in the catalogue survives an empty stored board
     const gated = DASHBOARD_TILES.filter((t) => !t.gate({
       showRaid: false, showBudget: false, showChanges: false, showMilestones: false,
-      tursoActive: false, hasTopActions: false, hasInsights: false, hasCompletionTrend: false,
+      tursoActive: false, hasTopActions: false, hasInsights: false, hasCompletionTrend: false, simulationActive: false,
     }));
     expect(gated.length).toBeGreaterThan(0);
     const ids = reconcile({ v: 1, board: [], hidden: [] }).board.map((t) => t.id);

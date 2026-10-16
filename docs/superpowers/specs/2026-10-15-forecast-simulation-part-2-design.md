@@ -1,7 +1,6 @@
 # Forecast simulation across the app, part 2: the Dashboard picture (§502)
 
-**Status:** written 2026-10-15 and waiting for the owner's review. The owner eye-checks part 1 before this file is
-committed.
+**Status:** approved by the owner 2026-10-16; built on `feat/502-sim-part-2`.
 **Register:** §502 (work item #41). This is part 2 of
 `docs/superpowers/specs/2026-10-15-forecast-simulation-surfaces-design.md` (the "surfaces design"), which stays the
 authority. This file **narrows** it to one PR and records the part-2 calls. It does not repeat the surfaces design's

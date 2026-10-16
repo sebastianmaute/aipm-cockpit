@@ -46,11 +46,14 @@ longer carries its own changelog comment.
 
 ### Notes
 
-- **The Dashboard simulation is built but held back with the forecast (§502, part 1).** An optional,
+- **The Dashboard simulation is built but held back with the forecast (§502, parts 1 and 2).** An optional,
   per-project "Use Monte Carlo forecasting" switch, in the Dashboard's Budget burn tile and in Edit project, adds simulated KPI cells (the P80 finish date and the
   chance of finishing by the plan end), each marked as simulated and able to explain itself, and keeps one
-  forecast per day for later comparison. It stays hidden while the Forecast view is held back, and appears
-  with it.
+  forecast per day for later comparison. Part 2 adds a Forecast tile on the Dashboard (the P80 finish, the change
+  since last week, a range bar and the milestones most at risk), a simulated chance chip on each milestone with one
+  "About these chances" explainer, and a Next-actions suggestion for a milestone with under 50% chance on time,
+  all marked as simulated. Restoring an earlier version keeps your current switch. It stays hidden while the
+  Forecast view is held back, and appears with it.
 
 ## [1.19.0] - 2026-10-15 "Nesbø"
 

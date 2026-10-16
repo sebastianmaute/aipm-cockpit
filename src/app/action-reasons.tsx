@@ -1,10 +1,11 @@
 // src/app/action-reasons.tsx
 "use client";
 import { useState } from "react";
-import { type Lang, t, tPlural } from "./i18n";
+import { type Lang, tPlural } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { rowLabel } from "./row-tokens";
+import { actionText } from "./action-text";
 
 interface ActionReasonsProps {
   lang: Lang;
@@ -39,7 +40,7 @@ export function ActionReasons({ lang, action, extraReasons, rowToken }: ActionRe
       <span id={`action-reasons-${action.id}`} hidden={!open} className="mt-0.5 block">
         {extraReasons.map((ex) => (
           <span key={ex.id} className="block truncate text-xs text-muted-foreground">
-            {t(lang, ex.why.key, ...(ex.why.params ?? []))}
+            {actionText(lang, ex.why)}
           </span>
         ))}
       </span>

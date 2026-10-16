@@ -1,6 +1,7 @@
 import { describe, expect, it, test, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
+import { SimExplainer } from "./sim-explainer";
+import { MilestoneHorizonStrip, milestonesContentKey } from "./milestone-horizon-strip";
 import type { MilestoneHorizonBuckets } from "./milestones";
 import type { Milestone } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -10,6 +11,37 @@ const m = (id: number, date: string): Milestone => ({ id, name: `M${id}`, date, 
 function buckets(over: Partial<MilestoneHorizonBuckets> = {}): MilestoneHorizonBuckets {
   return { overdue: [], thisWeek: [], next2Weeks: [], later: [], ...over };
 }
+
+describe("milestonesContentKey (§502)", () => {
+  const linked = (id: number): Milestone => ({ ...m(id, "2026-08-01"), linkedTaskIds: [id] });
+  const ON_TRACK = (id: number) => ({ milestone: linked(id), status: "on-track" as const });
+
+  it("tells pending placeholders apart from none, and one placeholder from two", () => {
+    const two = buckets({ later: [ON_TRACK(1), ON_TRACK(2)] });
+    const one = buckets({ later: [ON_TRACK(1)] });
+    const idle = milestonesContentKey(two, undefined, false);
+    expect(milestonesContentKey(two, undefined, true)).not.toBe(idle);
+    expect(milestonesContentKey(two, undefined, true)).not.toBe(milestonesContentKey(one, undefined, true));
+  });
+
+  it("counts only the entries that draw a placeholder: not overdue, linked, inside the cap", () => {
+    const noDraw = buckets({
+      overdue: [{ milestone: linked(1), status: "overdue" }],
+      later: [{ milestone: m(2, "2026-08-01"), status: "on-track" }],
+    });
+    expect(milestonesContentKey(noDraw, undefined, true)).toBe(milestonesContentKey(noDraw, undefined, false));
+    const six = buckets({ later: [1, 2, 3, 4, 5, 6].map(ON_TRACK) });
+    const five = buckets({ later: [1, 2, 3, 4, 5].map(ON_TRACK) });
+    expect(milestonesContentKey(six, undefined, true)).toBe(milestonesContentKey(five, undefined, true));
+  });
+
+  it("still tells real chips apart, and a chip from a placeholder", () => {
+    const b = buckets({ later: [ON_TRACK(1)] });
+    const chips = new Map([[1, 0.4]]);
+    expect(milestonesContentKey(b, chips, false)).not.toBe(milestonesContentKey(b, undefined, false));
+    expect(milestonesContentKey(b, chips, false)).not.toBe(milestonesContentKey(b, undefined, true));
+  });
+});
 
 describe("MilestoneHorizonStrip", () => {
   test("all buckets empty → 'No upcoming milestones'", () => {
@@ -129,3 +161,93 @@ describe("MilestoneHorizonStrip read-only chips at the xs size", () => {
     expect(screen.getByText(/\+3 more/).className).toBe("rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground");
   });
 });
+// §502 part 2 — the simulated chance chip. Captured from the component BEFORE the chip existed.
+const PRE_CHIP_BUTTONS = "<div class=\"space-y-3\"><div><p class=\"mb-1 text-xs font-semibold uppercase text-muted-foreground\">Overdue (1)</p><ul class=\"flex flex-wrap gap-2\"><li><button type=\"button\" class=\"cursor-pointer rounded-md font-medium disabled:cursor-not-allowed disabled:opacity-50 px-2.5 py-1.5 text-xs border border-line bg-surface text-foreground hover:bg-surface-muted transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ui-green active:translate-y-px inline-flex items-center gap-1\" aria-label=\"⚠ M1 · 2026-06-01\"><span aria-hidden=\"true\"><span role=\"img\" aria-label=\"Red\" title=\"Red\" data-rag-chip=\"R\" class=\"inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold [-webkit-print-color-adjust:exact] [print-color-adjust:exact] bg-[var(--rag-badge-red)] text-white\">R</span></span>⚠ M1 · 2026-06-01</button></li></ul></div><div><p class=\"mb-1 text-xs font-semibold uppercase text-muted-foreground\">This week (1)</p><ul class=\"flex flex-wrap gap-2\"><li><button type=\"button\" class=\"cursor-pointer rounded-md font-medium disabled:cursor-not-allowed disabled:opacity-50 px-2.5 py-1.5 text-xs border border-line bg-surface text-foreground hover:bg-surface-muted transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ui-green active:translate-y-px inline-flex items-center gap-1\" aria-label=\"⚠ M2 · 2026-06-28\"><span aria-hidden=\"true\"><span role=\"img\" aria-label=\"Amber\" title=\"Amber\" data-rag-chip=\"A\" class=\"inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold [-webkit-print-color-adjust:exact] [print-color-adjust:exact] bg-[var(--rag-amber)] text-[var(--rag-badge-amber-ink)]\">A</span></span>⚠ M2 · 2026-06-28</button></li></ul></div><div><p class=\"mb-1 text-xs font-semibold uppercase text-muted-foreground\">Later (1)</p><ul class=\"flex flex-wrap gap-2\"><li><button type=\"button\" class=\"cursor-pointer rounded-md font-medium disabled:cursor-not-allowed disabled:opacity-50 px-2.5 py-1.5 text-xs border border-line bg-surface text-foreground hover:bg-surface-muted transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ui-green active:translate-y-px inline-flex items-center gap-1\" aria-label=\"M3 · 2026-08-01\">M3 · 2026-08-01</button></li></ul></div></div>";
+const PRE_CHIP_SPANS = "<div class=\"space-y-3\"><div><p class=\"mb-1 text-xs font-semibold uppercase text-muted-foreground\">Overdue (1)</p><ul class=\"flex flex-wrap gap-2\"><li><span class=\"inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground\"><span aria-hidden=\"true\"><span role=\"img\" aria-label=\"Red\" title=\"Red\" data-rag-chip=\"R\" class=\"inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold [-webkit-print-color-adjust:exact] [print-color-adjust:exact] bg-[var(--rag-badge-red)] text-white\">R</span></span>⚠ M1 · 2026-06-01</span></li></ul></div><div><p class=\"mb-1 text-xs font-semibold uppercase text-muted-foreground\">This week (1)</p><ul class=\"flex flex-wrap gap-2\"><li><span class=\"inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground\"><span aria-hidden=\"true\"><span role=\"img\" aria-label=\"Amber\" title=\"Amber\" data-rag-chip=\"A\" class=\"inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold [-webkit-print-color-adjust:exact] [print-color-adjust:exact] bg-[var(--rag-amber)] text-[var(--rag-badge-amber-ink)]\">A</span></span>⚠ M2 · 2026-06-28</span></li></ul></div><div><p class=\"mb-1 text-xs font-semibold uppercase text-muted-foreground\">Later (1)</p><ul class=\"flex flex-wrap gap-2\"><li><span class=\"inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1.5 text-xs text-muted-foreground\">M3 · 2026-08-01</span></li></ul></div></div>";
+const lm = (id: number, date: string): Milestone => ({ id, name: `M${id}`, date, linkedTaskIds: [1] } as Milestone);
+function fixture(): MilestoneHorizonBuckets {
+  return buckets({
+    overdue: [{ milestone: lm(1, "2026-06-01"), status: "overdue" }],
+    thisWeek: [{ milestone: lm(2, "2026-06-28"), status: "at-risk" }],
+    later: [{ milestone: lm(3, "2026-08-01"), status: "on-track" }],
+  });
+}
+
+describe("MilestoneHorizonStrip chance chip (§502)", () => {
+  test("without chances the markup is byte-identical to the pre-chip render (button and span chips)", () => {
+    const withButtons = render(<MilestoneHorizonStrip lang="en-US" buckets={fixture()} onOpenMilestone={() => {}} />);
+    expect(withButtons.container.innerHTML).toBe(PRE_CHIP_BUTTONS);
+    const withSpans = render(<MilestoneHorizonStrip lang="en-US" buckets={fixture()} />);
+    expect(withSpans.container.innerHTML).toBe(PRE_CHIP_SPANS);
+  });
+
+  test("a chance milestone shows 62% and its name says so, simulated; overdue shows none", () => {
+    render(<MilestoneHorizonStrip lang="en-US" buckets={fixture()} chances={new Map([[3, 0.62]])} onOpenMilestone={() => {}} />);
+    const chip = screen.getByRole("button", { name: /M3 · 2026-08-01, 62% chance on time, simulated/ });
+    expect(chip).toHaveTextContent("62%");
+    expect(chip.querySelector("[data-sim-chip]")).not.toBeNull();
+    expect(chip.querySelector("[data-sim-chip]")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("button", { name: /M1/ })).not.toHaveTextContent("%");
+    expect(screen.getByRole("button", { name: /M2/ })).not.toHaveTextContent("%");
+  });
+
+  test("the chip's name carries every visible word, in order (WCAG 2.5.3 label in name)", () => {
+    // Visible: the label, then "62%", then the "sim" badge. Name: "<label>, 62% chance on time,
+    // simulated". A speech user saying what they see must hit the name, so each visible piece has to
+    // occur in it after the one before; "sim" is the start of "simulated".
+    render(<MilestoneHorizonStrip lang="en-US" buckets={fixture()} chances={new Map([[3, 0.62]])} onOpenMilestone={() => {}} />);
+    const chip = screen.getByRole("button", { name: /M3/ });
+    const name = chip.getAttribute("aria-label")!;
+    expect(chip).toHaveTextContent(/M3 · 2026-08-01\s*62%\s*sim/);
+    let from = 0;
+    for (const piece of ["M3 · 2026-08-01", "62%", "sim"]) {
+      const at = name.indexOf(piece, from);
+      expect(at, `"${piece}" after index ${from} in "${name}"`).toBeGreaterThanOrEqual(from);
+      from = at + piece.length;
+    }
+    expect(name.startsWith("M3 · 2026-08-01")).toBe(true);
+  });
+
+  test("the non-button chip shows the same visible chip with the sentence visually hidden", () => {
+    render(<MilestoneHorizonStrip lang="en-US" buckets={fixture()} chances={new Map([[3, 0.62]])} />);
+    expect(screen.queryByRole("button")).toBeNull();
+    const li = screen.getByText(/M3 · 2026-08-01/).closest("li")!;
+    expect(li.querySelector("[data-sim-chip]")).toHaveTextContent("62%");
+    expect(li.querySelector(".sr-only")).toHaveTextContent("62% chance on time, simulated");
+  });
+
+  test("rows with equal names and dates stay uniquely named with chips on", () => {
+    const b = buckets({ later: [
+      { milestone: lm(5, "2026-08-01"), status: "on-track" },
+      { milestone: { ...lm(6, "2026-08-01"), name: "M5" }, status: "on-track" },
+    ] });
+    render(<MilestoneHorizonStrip lang="en-US" buckets={b} chances={new Map([[5, 0.4], [6, 0.7]])} onOpenMilestone={() => {}} />);
+    const names = screen.getAllByRole("button").map((x) => x.getAttribute("aria-label"));
+    expect(new Set(names).size).toBe(2);
+  });
+
+  test("simPending puts a placeholder on each linked, not-overdue chip and no percent", () => {
+    const { container } = render(<MilestoneHorizonStrip lang="en-US" buckets={fixture()} simPending onOpenMilestone={() => {}} />);
+    expect(container.querySelectorAll("[data-sim-placeholder]")).toHaveLength(2);
+    expect(container).not.toHaveTextContent("%");
+  });
+
+  test("a chance only on a milestone behind the +N more cap draws no chip and no explainer", () => {
+    const six = Array.from({ length: 6 }, (_, i) => ({ milestone: lm(i + 1, `2026-09-0${i + 1}`), status: "on-track" as const }));
+    const explainer = <SimExplainer lang="en-US" kind="milestone" windowDays={60} label="About these chances" />;
+    const { container } = render(<MilestoneHorizonStrip lang="en-US" buckets={buckets({ later: six })} chances={new Map([[6, 0.5]])} explainer={explainer} />);
+    expect(container.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: /About these chances/ })).toBeNull();
+  });
+
+  test("the explainer node renders above the buckets only when given and a chip shows", () => {
+    const { container, rerender } = render(<MilestoneHorizonStrip lang="en-US" buckets={fixture()} />);
+    expect(screen.queryByRole("button", { name: /About these chances/ })).toBeNull();
+    rerender(<MilestoneHorizonStrip lang="en-US" buckets={fixture()} chances={new Map([[3, 0.5]])} explainer={<SimExplainer lang="en-US" kind="milestone" windowDays={60} label="About these chances" />} />);
+    const btn = screen.getByRole("button", { name: /About these chances/ });
+    expect(container.firstElementChild!.firstElementChild!.contains(btn)).toBe(true);
+    rerender(<MilestoneHorizonStrip lang="en-US" buckets={fixture()} explainer={<SimExplainer lang="en-US" kind="milestone" windowDays={60} label="About these chances" />} />);
+    expect(screen.queryByRole("button", { name: /About these chances/ })).toBeNull();
+  });
+});
+

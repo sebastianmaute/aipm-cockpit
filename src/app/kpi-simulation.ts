@@ -1,6 +1,7 @@
 // The KPI strip's simulated cells (§502): pure, i18n-free, React-free.
 
 import type { AppForecast } from "./forecast/app-forecast";
+import type { WeeklyChange } from "./forecast-tile-model";
 import type { SimMarkers } from "./sim-explainer";
 
 /** SPI at or above this with a chance on time under `DIVERGENT_LOW_CHANCE` reads as ahead-but-doubtful. */
@@ -42,10 +43,24 @@ export function chancePercent(chance: number): ChancePercent {
  *  cell, the divergence line and the coverage line (absent when nothing is open). While the simulation
  *  is null it is the switch state plus the gap's kind, so the gap line's appearance re-measures too.
  *  `useMeasuredHeights` has no ResizeObserver, so an input missing here leaves the tile at a stale height. */
-export function kpiContentKey(sim: KpiSimulation | null, simulationOn: boolean, gap: KpiSimulationGap | null): string {
+export function kpiContentKey(sim: KpiSimulation | null, simulationOn: boolean, gap: KpiSimulationGap | null, pending = false): string {
+  if (pending) return "sim:pending";
   return sim
     ? `sim:${sim.divergent}:${sim.chanceOnTime !== null}:${sim.estimateCoverage !== null}`
     : `sim:${simulationOn}:${gap?.kind ?? "none"}`;
+}
+
+/** The same for the Forecast tile: which of its slots exist (placeholders, the gap line alone, the
+ *  headline and bar or the beyond-horizon line, the P95 wording), how many at-risk rows render (null =
+ *  the at-risk section is off with the Milestones module — no heading either, so not "0"), and
+ *  whether the weekly change shows as a simulated value (later, earlier, same: outlined and badged,
+ *  so taller) or as a plain line (pending, beyond). Null = waiting for holidays (or the switch off,
+ *  when the tile is not rendered at all). */
+export function forecastTileContentKey(forecast: AppForecast | null, atRiskCount: number | null, change: WeeklyChange | null): string {
+  if (forecast === null) return "fc:pending";
+  if (forecast.kind === "insufficient") return "fc:insufficient";
+  const changeForm = change === null ? "none" : change.kind === "pending" || change.kind === "beyond" ? "plain" : "sim";
+  return `fc:${forecast.p80 === null ? "beyond" : "p80"}:${forecast.p95 === null}:${atRiskCount === null ? "off" : atRiskCount}:${changeForm}`;
 }
 
 /** Why the switch is on but the strip shows no simulated cell. */

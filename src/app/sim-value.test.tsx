@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { SimValue } from "./sim-value";
+import { SimPlaceholder, SimValue } from "./sim-value";
 
 describe("SimValue", () => {
   it("exposes the accessible name '<label>, simulated'", () => {
@@ -42,5 +42,15 @@ describe("SimValue", () => {
     await user.click(screen.getByRole("button", { name: "How to read this" }));
     await user.click(screen.getByRole("button", { name: "Learn more in Help" }));
     expect(onOpenHelp).toHaveBeenCalledWith("concept-forecast-simulation");
+  });
+});
+
+describe("SimPlaceholder", () => {
+  it("is an empty, aria-hidden, fixed-height marker with no text", () => {
+    const { container } = render(<SimPlaceholder />);
+    const el = container.querySelector("[data-sim-placeholder]")!;
+    expect(el).toHaveAttribute("aria-hidden", "true");
+    expect(el).toBeEmptyDOMElement();
+    expect(el.className).toContain("h-6");
   });
 });

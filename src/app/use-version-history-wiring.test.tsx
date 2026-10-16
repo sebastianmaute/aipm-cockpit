@@ -6,14 +6,17 @@
 // the actual context state. task-manager.version-history-wiring.test.tsx and
 // task-manager.restore-backfill.test.tsx still pin the same wiring through the
 // mounted component.
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { emptyWorkspace, type Workspace } from "./workspace";
+import { diffWorkspaces } from "./version-diff";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import type { UseVersionHistoryArgs } from "./use-version-history";
+import * as store from "./version-store";
+import { changeKey } from "./version-restore";
 import { useVersionHistoryWiring, type VersionHistoryWiringDeps } from "./use-version-history-wiring";
 import type { Milestone, Stakeholder, Task } from "./types";
 import type { CalendarEvent } from "./calendar-event";
@@ -31,6 +34,8 @@ const stable = vi.hoisted(() => ({
   remove: async () => false,
   refresh: async () => {},
 }));
+// Real implementations; spied per test where a test runs the REAL `useVersionHistory` (the §502 end-to-end pin).
+vi.mock("./version-store", { spy: true });
 vi.mock("./use-version-history", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./use-version-history")>()),
   useVersionHistory: (args: UseVersionHistoryArgs) => {
@@ -188,7 +193,7 @@ describe("useVersionHistoryWiring — a restore converts version money and keeps
   it("prepareVersion pins the live currency and converts by the live history, day rates over the settings' workday", () => {
     const h = afterGbpSwitch({ workdayHours: 10 });
     const version: Workspace = { ...emptyWorkspace(), plan: { ...h.result.current.ws.plan, currency: "EUR" }, roles: [dayRole] };
-    const out = args().prepareVersion?.(version, T_VERSION);
+    const out = args().prepareVersion?.(version, T_VERSION, false);
     expect(out?.plan.currency).toBe("GBP");
     expect(out?.roles[0]).toMatchObject({ internalRateDay: 680, externalRateDay: 850, internalRate: 68, externalRate: 85 });
   });
@@ -198,5 +203,71 @@ describe("useVersionHistoryWiring — a restore converts version money and keeps
     act(() => { args().applyWorkspace?.({ ...emptyWorkspace(), plan: { ...h.result.current.ws.plan } }); });
     expect(h.result.current.ws.baselineHistory).toBe(before);
     expect(h.deps.logActivityUser).not.toHaveBeenCalled();
+  });
+});
+
+// §502 — the simulation switch is a viewing choice. `prepareVersion` pins it on the version for compares, but
+// ONLY when the version carries overrides: an unstamped capture's `undefined` is what lets the blind-capture
+// guard skip the slice, and a pinned `{forecast}` would make it look like a real (empty) override set.
+describe("useVersionHistoryWiring — prepareVersion and the simulation switch (§502)", () => {
+  const ON = { forecast: { showSimulation: true } };
+  const TZ = { timezone: { timezone: "Europe/Berlin" } };
+  // The end-to-end test spies the version store; restoring in afterEach also runs when an assertion fails.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+  function withLiveSwitchOn() {
+    const h = mount();
+    act(() => { h.result.current.ws.setSettingsOverrides({ ...TZ, ...ON }); });
+    return h;
+  }
+
+  it("leaves an UNSTAMPED capture's absent settingsOverrides absent, so the blind-capture guard still sees it", () => {
+    withLiveSwitchOn();
+    const out = args().prepareVersion?.({ ...emptyWorkspace(), settingsOverrides: undefined }, null, false);
+    expect(out?.settingsOverrides).toBeUndefined();
+  });
+
+  it("pins the live switch on a version that has overrides, so a compare shows no switch row", () => {
+    const h = withLiveSwitchOn();
+    const version = args().prepareVersion?.({ ...emptyWorkspace(), settingsOverrides: TZ }, null, true);
+    expect(version?.settingsOverrides).toEqual({ ...TZ, ...ON });
+    const now: Workspace = { ...emptyWorkspace(), settingsOverrides: h.result.current.ws.settingsOverrides };
+    expect(diffWorkspaces(version as Workspace, now).filter((c) => c.collection === "settingsOverrides")).toEqual([]);
+  });
+
+  // Final-review finding: a STAMPED capture speaks for the slice, so its absence means "no overrides" — and
+  // without the pin a compare against it offered a no-op switch row (the restore pins it back anyway).
+  it("pins the switch on a STAMPED capture without overrides, so a compare shows no switch row", () => {
+    const h = mount();
+    act(() => { h.result.current.ws.setSettingsOverrides(ON); });
+    const version = args().prepareVersion?.({ ...emptyWorkspace(), settingsOverrides: undefined }, null, true);
+    expect(version?.settingsOverrides).toEqual(ON);
+    const now: Workspace = { ...emptyWorkspace(), settingsOverrides: h.result.current.ws.settingsOverrides };
+    const rows = diffWorkspaces(version as Workspace, now, { olderSpeaksForEmptySlices: true });
+    expect(rows.filter((c) => c.collection === "settingsOverrides")).toEqual([]);
+  });
+
+  // End to end: the REAL wiring `prepareVersion`, `getPayload` and `applyWorkspace` driving the REAL
+  // `useVersionHistory` restore of an UNSTAMPED capture. Pinning the switch onto its absent overrides
+  // would make the blind slice look like a real (switch-only) set, and the restore would blank the timezone.
+  it("a real restore of an unstamped capture keeps the timezone override and the switch", async () => {
+    const h = withLiveSwitchOn();
+    const real = await vi.importActual<typeof import("./use-version-history")>("./use-version-history");
+    const unstamped = JSON.stringify({ ...emptyWorkspace(), tasks: [mkTask(1)], settingsOverrides: undefined }, null, 2);
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(unstamped);
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    vi.spyOn(store, "appendVersion").mockResolvedValue();
+    vi.spyOn(store, "pruneVersions").mockResolvedValue();
+    const wired = args();
+    const engine = renderHook(() => real.useVersionHistory(wired));
+    let ok = false;
+    await act(async () => {
+      ok = await engine.result.current.restore("v1", { [changeKey("tasks", 1)]: "all", [changeKey("settingsOverrides", null)]: "all" }, "l");
+    });
+    // Positive control: the restore really ran and fanned its workspace into the context.
+    expect(ok).toBe(true);
+    expect(h.result.current.ws.tasks.map((t) => t.id)).toEqual([1]);
+    expect(h.result.current.ws.settingsOverrides).toEqual({ ...TZ, ...ON });
   });
 });

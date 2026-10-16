@@ -247,6 +247,8 @@ describe("HelpMenu search clear", () => {
 // (`pendingHelpConcept` + `onHelpConceptConsumed`). No production caller passes
 // it yet; these pin the input itself.
 describe("HelpMenu deep-link (§489)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   const TARGET = "concept-raid";
 
   /** The elements `scrollIntoView` was called on, in call order. */

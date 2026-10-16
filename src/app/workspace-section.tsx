@@ -112,6 +112,7 @@ export function WorkspaceSection({
   today,
   exportForecast,
   holidaySet,
+  holidaysReady,
   workspaceRef,
   resetWorkspaceSize,
   workspaceCollapsed,
@@ -689,6 +690,7 @@ export function WorkspaceSection({
               onStartTour={onStartTour}
               catalogTours={catalogTours}
               completedTours={completedTours}
+              simulationActive={isSimulationActive(workspace.settingsOverrides, features)}
             />
           </div>
         )}
@@ -918,6 +920,7 @@ export function WorkspaceSection({
               disciplines={disciplines}
               grades={grades}
               holidaySet={holidaySet}
+              holidaysReady={holidaysReady}
               workdayHours={settings.resources.workdayHours}
               today={today}
               milestones={milestones}

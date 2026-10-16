@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { t } from "./i18n";
+import { actionText } from "./action-text";
 import type { ComponentProps } from "react";
 import { ActionsPanel as GroupedActionsPanel } from "./actions-panel";
 import { groupNextActions, pickHeroGroup } from "./next-actions/group";
@@ -417,7 +418,7 @@ describe("ActionsPanel — fed grouped data from above (spec C)", () => {
     render(<GroupedActionsPanel lang="en-US" groups={groups} onOpen={() => {}} />);
     const expected = pickHeroGroup(groups)!;
     const hero = screen.getByRole("region", { name: /Do this first/i });
-    expect(hero).toHaveTextContent(t("en-US", expected.primary.title.key, ...(expected.primary.title.params ?? [])));
+    expect(hero).toHaveTextContent(actionText("en-US", expected.primary.title));
   });
   // §584(a) — `mk`'s own score table always puts a `now` action on top, so the
   // test above cannot tell `pickHeroGroup` apart from a naive `groups[0]` rule:

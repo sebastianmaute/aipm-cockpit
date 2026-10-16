@@ -50,6 +50,21 @@ describe("useActionLearning", () => {
     await act(async () => { await result.current.reset(); });
     await waitFor(() => expect(result.current.bias).toEqual({}));
   });
+  // §502 — a simulated signal must never teach the learning layer: it is not a
+  // measured signal, and the flat list (which learning keys on) never holds it.
+  it("records nothing for a forecast-sim action", async () => {
+    const save = vi.fn(async () => {});
+    vi.mocked(pickLearningStore).mockReturnValue({ load: async () => ({ state: {}, overrides: {} }), save });
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    await act(async () => { await result.current.record(action("forecast-sim", "actionForecastSimWhy"), "snoozed"); });
+    expect(result.current.state).toEqual({});
+    expect(save).not.toHaveBeenCalled();
+    // Control: the same call for a measured source does write.
+    await act(async () => { await result.current.record(action("milestone", "actionMilestoneWhyAtRisk"), "snoozed"); });
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(Object.keys(result.current.state)).toEqual(["milestone:actionMilestoneWhyAtRisk"]);
+  });
+
   it("does not record in a popout", async () => {
     const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: true }));
     await act(async () => { await result.current.record(action("raid", "wk"), "dismissed"); });

@@ -44,19 +44,25 @@ import { DashboardTileMenu } from "./dashboard-tile-menu";
 import { DashboardShelf, DASHBOARD_SHELF_TRAY_ID } from "./dashboard-shelf";
 import { DashboardHiddenBadge } from "./dashboard-hidden-badge";
 import { buildTileBodies } from "./dashboard-tile-bodies";
+import { chancesById, milestonesContentKey } from "./milestone-horizon-strip";
 import { computeAppForecast } from "./forecast/app-forecast";
-import { kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
+import { forecastTileContentKey, kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
+import { milestonesAtRisk, weeklyChange, type AtRiskMilestone } from "./forecast-tile-model";
+import { isTaskClosed } from "./task-closed";
 import { useDashboardLayout } from "./use-dashboard-layout";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { tileById, type DashboardTileId, type TileGateInput, type TileHeight } from "./dashboard-tiles";
 import { useMeasuredHeights } from "./use-measured-heights";
 import type { PlacedTile } from "./dashboard-layout";
+import { actionText } from "./action-text";
 
 // A stable identity for the "no snapshots yet" default — an inline `[]`
 // fallback would mint a fresh array every render, invalidating the `model`
 // memo's `snapshots` dependency for no input change (AGENTS.md memo bullet).
 const EMPTY_SNAPSHOTS: readonly SnapshotRecord[] = [];
 const EMPTY_MILESTONES: readonly Milestone[] = [];
+/** Stable empty at-risk list for the memo while the simulation is off, pending or insufficient. */
+const NO_AT_RISK: readonly AtRiskMilestone[] = [];
 
 /** Stable empty for the hero's CTA bundle — see `heroHandlers` below. */
 const NO_HANDLERS: Omit<ActionHandlers, "onOpen"> = {};
@@ -73,6 +79,8 @@ interface DashboardPanelProps {
   disciplines?: readonly Discipline[];
   grades?: readonly Grade[];
   holidaySet: ReadonlySet<string>;
+  /** False while the holiday calendar is still loading; the simulated slots wait for it (§502). Default true. */
+  holidaysReady?: boolean;
   workdayHours: number;
   today: string;
   milestones?: readonly Milestone[];
@@ -123,10 +131,12 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const density: DashboardDensity = props.density ?? "comfortable";
   const dc = densityClasses(density);
   const varianceRows = props.variance ?? [];
-  const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory, baselineHistory, settingsOverrides, setSettingsOverrides } = useWorkspace();
+  const { status, setStatus, insights, activityLog: activity, fxRates, budgetHistory, baselineHistory, settingsOverrides, setSettingsOverrides, forecastHistory } = useWorkspace();
   const { settings, setSettings, hydrated: settingsHydrated } = useSettings();
   const forecastViewEnabled = isViewEnabled("forecast", settings.features);
   const simulationOn = isSimulationActive(settingsOverrides, settings.features);
+  // A forecast run before the holiday calendar arrives would be recomputed and flash the gap line.
+  const simulationPending = simulationOn && props.holidaysReady === false;
   const simSwitchRef = useRef<HTMLDivElement>(null);
   const showSimulationIntro = simulationOn && settingsHydrated && !settings.simulationIntroSeen && !props.isPopout;
   const markSimulationIntroSeen = () => setSettings((s) => ({ ...s, simulationIntroSeen: true }));
@@ -264,7 +274,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
       expertMode={props.expertMode}
       rowToken={rowLabel(
         t(lang, "actionHeroEyebrow"),
-        t(lang, heroGroup.primary.title.key, ...(heroGroup.primary.title.params ?? [])),
+        actionText(lang, heroGroup.primary.title),
       )}
       className="h-full"
     />
@@ -313,24 +323,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
   };
 
   // ── Arrangeable tile grid ───────────────────────────────────────────────────
-  // ★★ THE GATE DECIDES WHAT RENDERS, NEVER WHAT IS STORED. `useDashboardLayout`
-  // deliberately takes no `gate` — a gated-off tile keeps its stored position, so
-  // switching Budget off and on again does not lose the burn tile's place. The
-  // old masonry's inline conditions (`topActions?.length`, `activeInsightCount`,
-  // …) live here now instead of wrapping the JSX.
-  const gate: TileGateInput = {
-    showRaid,
-    showBudget,
-    showChanges,
-    showMilestones,
-    tursoActive: !!props.tursoActive,
-    hasTopActions: !!topActions?.length,
-    hasInsights: activeInsightCount > 0,
-    // ★ `&& !noActiveScope` is NOT in the plan and is load-bearing: the old card
-    // carried both conditions, and dropping the second would put a flat 0%
-    // trajectory beside a completion tile reading "No active scope".
-    hasCompletionTrend: completionSeries.length >= 2 && !noActiveScope,
-  };
   const arrangement = useDashboardLayout({
     projectId: props.projectId ?? "default",
     isPopout: props.isPopout,
@@ -365,17 +357,46 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const milestonesForSim = props.milestones ?? EMPTY_MILESTONES;
   const planEnd = props.plan.endDate;
   // The gap is why the switch is on but no simulated cell shows (too little history, P80 beyond the horizon).
-  const { kpiSim, kpiSimGap } = useMemo(() => {
-    if (!simulationOn) return { kpiSim: null, kpiSimGap: null };
+  // ONE run feeds the strip AND the Forecast tile; `forecast` stays null while off or pending.
+  const { kpiSim, kpiSimGap, forecast, atRisk } = useMemo(() => {
+    if (!simulationOn || simulationPending) return { kpiSim: null, kpiSimGap: null, forecast: null, atRisk: NO_AT_RISK };
     const f = computeAppForecast({ tasks: props.tasks, milestones: milestonesForSim, planEnd, today, holidaySet: props.holidaySet });
-    return { kpiSim: kpiSimulation(f, model.evm.spi), kpiSimGap: kpiSimulationGap(f) };
-  }, [simulationOn, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi]);
+    // The engine always runs on the context's milestones (shared memo); only the at-risk LIST follows
+    // the Milestones module — its buttons would open a disabled view.
+    const rows = showMilestones && f.kind === "forecast" ? milestonesAtRisk(f.milestones, milestonesForSim) : NO_AT_RISK;
+    return { kpiSim: kpiSimulation(f, model.evm.spi), kpiSimGap: kpiSimulationGap(f), forecast: f, atRisk: rows };
+  }, [simulationOn, simulationPending, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi, showMilestones]);
+  // The Forecast tile's open-work line: one pass over the tasks per tasks change, not per render.
+  const openTaskCount = useMemo(() => props.tasks.filter((task) => !isTaskClosed(task)).length, [props.tasks]);
+
+  // ★★ THE GATE DECIDES WHAT RENDERS, NEVER WHAT IS STORED. `useDashboardLayout`
+  // deliberately takes no `gate` — a gated-off tile keeps its stored position, so
+  // switching Budget off and on again does not lose the burn tile's place. The
+  // old masonry's inline conditions (`topActions?.length`, `activeInsightCount`,
+  // …) live here now instead of wrapping the JSX.
+  // ★ Declared AFTER the forecast memo: capturing `simulationOn` in this object before the memo made
+  // the React Compiler treat the memo dependency as mutable and skip the whole component.
+  const gate: TileGateInput = {
+    showRaid,
+    showBudget,
+    showChanges,
+    showMilestones,
+    tursoActive: !!props.tursoActive,
+    hasTopActions: !!topActions?.length,
+    hasInsights: activeInsightCount > 0,
+    // ★ `&& !noActiveScope` is NOT in the plan and is load-bearing: the old card
+    // carried both conditions, and dropping the second would put a flat 0%
+    // trajectory beside a completion tile reading "No active scope".
+    hasCompletionTrend: completionSeries.length >= 2 && !noActiveScope,
+    simulationActive: simulationOn,
+  };
 
   const bodies = buildTileBodies({
     lang, dc, model,
     trends,
     simulation: kpiSim ?? undefined,
     simulationGap: kpiSimGap ?? undefined,
+    simulationPending: simulationPending || undefined,
     onOpenHelp: props.onOpenHelp,
     // ★ The wrapper is the Escape anchor for the one-time intro, so Escape still dismisses
     // the note while focus stays on the switch that opened it.
@@ -412,6 +433,19 @@ export function DashboardPanel(props: DashboardPanelProps) {
     onOpenMilestone: props.onOpenMilestone,
     onOpenChange: props.onOpenChange,
     onOpenAction,
+    forecast,
+    forecastTile: {
+      history: forecastHistory,
+      atRisk,
+      showAtRisk: showMilestones,
+      planEnd,
+      today,
+      holidaySet: props.holidaySet,
+      openTaskCount,
+      onOpenMilestone: props.onOpenMilestone,
+      onOpenForecast: props.onNavigate ? () => props.onNavigate!("forecast") : undefined,
+      onOpenHelp: props.onOpenHelp,
+    },
   });
 
   // ★★ RENDER previewOrder, NOT layout.board. The grid packs densely, so an edge
@@ -455,12 +489,17 @@ export function DashboardPanel(props: DashboardPanelProps) {
     arrangement.reset();
     setResetNonce((n) => n + 1);
   };
+  // The same call the Forecast tile makes, so the key sees the change line's form (simulated or plain).
+  const forecastChange = forecast?.kind === "forecast"
+    ? weeklyChange({ history: forecastHistory, today, p80: forecast.p80, holidaySet: props.holidaySet })
+    : null;
   const measured = useMeasuredHeights({
     density,
     resetNonce,
     // The KPI tile grows by cells and text lines when the simulation appears or flips divergent,
     // and by the one-line note when the switch is on but nothing can be simulated.
-    contentKey: kpiContentKey(kpiSim, simulationOn, kpiSimGap),
+    // The Forecast tile likewise, by its slots, its at-risk row count and its change line's form.
+    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, showMilestones ? atRisk.length : null, forecastChange)}|${milestonesContentKey(milestoneBuckets, forecast?.kind === "forecast" ? chancesById(forecast.milestones) : undefined, simulationPending)}`,
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };

@@ -1527,6 +1527,8 @@ describe("DashboardPanel activity log source (activity-log-workspace-data, task 
 // (via `buildDashboardInput`'s `snapshots`/`budgetHistory` entities): `snapshots`
 // only reaches it while Turso trends are active, `budgetHistory` always does.
 describe("DashboardPanel forecast bundle wiring (snapshots / budgetHistory)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   function SeedBudgetHistory({ budgetHistory }: { budgetHistory: readonly BudgetHistoryEntry[] }) {
     const { setBudgetHistory } = useWorkspace();
     useEffect(() => {
@@ -1574,6 +1576,8 @@ describe("DashboardPanel forecast bundle wiring (snapshots / budgetHistory)", ()
 // — renders figures that came out of the budget engine and convert NOTHING.
 // (Spec C removed the second one, the Budget tile's Spent figure.)
 describe("DashboardPanel currency labelling", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   // Rated roles + budgeted AND actual hours are both required: with no rate
   // card every value is 0, the burn-down renders its "no budget" line instead
   // of an axis, and the assertions below would have nothing to read.
@@ -1679,6 +1683,8 @@ describe("DashboardPanel currency labelling", () => {
 
 // ── Spec C decision 7: the burn tile is chart-only ──────────────────────────
 describe("DashboardPanel burn tile is chart-only (spec C)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   const ratedRoles = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
   const ratedBucket = {
     id: 1, name: "PO", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-12-31", status: "open",
@@ -1902,6 +1908,7 @@ describe("DashboardPanel with the forecast view held back (RELEASE_HIDDEN_VIEWS)
     kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
     estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
     markers: { p50: 5, p80: 10, p95: 15 },
+    milestones: [],
   };
   afterEach(() => {
     vi.restoreAllMocks();
@@ -1941,6 +1948,7 @@ describe("DashboardPanel simulated KPI cells", () => {
     kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
     estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
     markers: { p50: 5, p80: 10, p95: 15 },
+    milestones: [],
   };
   beforeEach(() => { showForecastView(); });
   afterEach(() => {
@@ -1976,7 +1984,8 @@ describe("DashboardPanel simulated KPI cells", () => {
     expect(screen.queryByText(note)).toBeNull();
     await user.click(screen.getByRole("button", { name: simName() }));
     expect(screen.queryByRole("group", { name: /simulated/ })).toBeNull();
-    expect(screen.getByText(note)).toBeInTheDocument();
+    // The Forecast tile says the same; this test is about the strip.
+    expect(within(screen.getByTestId("tile-kpi")).getByText(note)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: simName() }));
     expect(screen.queryByText(note)).toBeNull();
   });
@@ -1987,7 +1996,43 @@ describe("DashboardPanel simulated KPI cells", () => {
     render(<DashboardPanel {...fullProps} projectId="p-kpi-sim-beyond" />, { wrapper });
     await user.click(screen.getByRole("button", { name: simName() }));
     expect(screen.queryByRole("group", { name: /simulated/ })).toBeNull();
-    expect(screen.getByText("The simulated finish is beyond the 1,300-working-day horizon.")).toBeInTheDocument();
+    expect(within(screen.getByTestId("tile-kpi")).getByText("The simulated finish is beyond the 1,300-working-day horizon.")).toBeInTheDocument();
+  });
+
+  it("holds the simulated cells as placeholders until holidays are ready", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    const ui = (ready: boolean) => <DashboardPanel {...fullProps} holidaysReady={ready} projectId="p-kpi-sim-wait" />;
+    const { container, rerender } = render(ui(false), { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(container.querySelectorAll("[data-sim-placeholder]").length).toBeGreaterThanOrEqual(1);
+    expect(container.querySelector("[data-sim]")).toBeNull();
+    expect(screen.queryByText(/Not enough history to simulate|beyond the 1,300/)).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+    rerender(ui(true));
+    expect(spy).toHaveBeenCalled();
+    expect(container.querySelector("[data-sim-placeholder]")).toBeNull();
+    expect(screen.getByRole("group", { name: "On time, simulated" })).toHaveTextContent("34%");
+  });
+
+  it("holds the gap line too: an insufficient forecast shows no note while holidays are pending", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({
+      kind: "insufficient", finished: 4, neededFinished: 10, days: 30, neededDays: 10,
+    });
+    const note = "Not enough history to simulate yet: 4 finished, needs 10.";
+    const ui = (ready: boolean) => <DashboardPanel {...fullProps} holidaysReady={ready} projectId="p-kpi-sim-wait-gap" />;
+    const { rerender } = render(ui(false), { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(screen.queryByText(note)).toBeNull();
+    rerender(ui(true));
+    expect(within(screen.getByTestId("tile-kpi")).getByText(note)).toBeInTheDocument();
+  });
+
+  it("switch off: no placeholder, even while holidays are pending", () => {
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    const { container } = render(<DashboardPanel {...fullProps} holidaysReady={false} projectId="p-kpi-sim-wait-off" />, { wrapper });
+    expect(container.querySelectorAll("[data-sim-placeholder]")).toHaveLength(0);
   });
 
   it("hands the engine the panel's own collections and the plan end", async () => {
@@ -2001,5 +2046,227 @@ describe("DashboardPanel simulated KPI cells", () => {
     expect(a.holidaySet).toBe(fullProps.holidaySet);
     expect(a.planEnd).toBe(fullProps.plan.endDate);
     expect(a.today).toBe(fullProps.today);
+  });
+});
+
+// ── §502 part 2: the Forecast tile follows the switch ──────────────────────────
+describe("DashboardPanel Forecast tile", () => {
+  const simName = () => new RegExp(t(EN, "simulationShow"));
+  const FORECAST: appForecastModule.AppForecast = {
+    kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
+    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
+    markers: { p50: 5, p80: 10, p95: 15 },
+    milestones: [],
+  };
+  const tile = () => screen.queryByTestId("tile-forecast");
+  const chip = `${t(EN, "arrangementTileRestore")} – ${t(EN, "dashboardForecast")}`;
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("the Forecast tile exists only while the switch is active", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    render(<DashboardPanel {...fullProps} projectId="p-fc-gate" />, { wrapper });
+    expect(tile()).toBeNull();
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(tile()).not.toBeNull();
+    expect(within(tile()!).getByText("8 in 10 simulated runs finish by Nov 20, 2026.")).toBeInTheDocument();
+
+    // Hidden on the shelf while on, then the switch goes off: no tile and no chip either.
+    await user.click(screen.getByRole("button", { name: kebab(t(EN, "dashboardForecast")) }));
+    const menu = screen.getByRole("dialog", { name: kebab(t(EN, "dashboardForecast")) });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "arrangementTileHide") }));
+    await user.click(screen.getByRole("button", { name: badgeName(1) }));
+    expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(tile()).toBeNull();
+    expect(screen.queryByRole("button", { name: chip })).toBeNull();
+    expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();
+  });
+
+  it("held back: no Forecast tile while the view is hidden though the stored switch is on", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    const shown = showForecastView();
+    const ui = () => <DashboardPanel {...fullProps} projectId="p-fc-held" />;
+    const { rerender } = render(ui(), { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(tile()).not.toBeNull();
+    shown.mockRestore();
+    rerender(ui());
+    expect(tile()).toBeNull();
+  });
+
+  it("a stored placement survives the switch going off and on", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    const projectId = "p-fc-place";
+    saveLayout(projectId, {
+      ...DEFAULT_LAYOUT,
+      board: [{ id: "forecast", w: 4, h: 2 }, ...DEFAULT_LAYOUT.board.filter((p) => p.id !== "forecast")],
+    });
+    const stored = () => {
+      const all = JSON.parse(localStorage.getItem("aipm-cockpit:dashboard-layout") ?? "{}");
+      return (all[projectId]?.board ?? []).find((p: { id: string }) => p.id === "forecast");
+    };
+    render(<DashboardPanel {...fullProps} projectId={projectId} />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    const first = () => screen.getByTestId("dashboard-grid").querySelector('[data-testid^="tile-"]');
+    expect(first()).toHaveAttribute("data-testid", "tile-forecast");
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(tile()).toBeNull();
+    expect(stored()).toMatchObject({ id: "forecast", w: 4 });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(first()).toHaveAttribute("data-testid", "tile-forecast");
+  });
+
+  it("passes no forecast while holidays are pending: the tile shows placeholders, the engine does not run", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    render(<DashboardPanel {...fullProps} holidaysReady={false} projectId="p-fc-pending" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(tile()!.querySelectorAll("[data-sim-placeholder]")).toHaveLength(3);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("counts open tasks, closed ones excluded, without marking them simulated", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    const tasks = [
+      { id: 1, title: "a", status: "Open", health: "G", linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [] },
+      { id: 2, title: "b", status: "Done", completedDate: "2026-06-01", health: "G", linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [] },
+      { id: 3, title: "c", status: "Cancelled", health: "G", linkedRaidIds: [], subtaskIds: [], parentId: null, assigneeIds: [] },
+    ] as never[];
+    render(<DashboardPanel {...fullProps} tasks={tasks} projectId="p-fc-open" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(within(tile()!).getByText("1 open task").closest("[data-sim]")).toBeNull();
+  });
+
+  it("hands the tile the milestones at risk from the same run", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({
+      ...FORECAST,
+      milestones: [{ id: 1, state: "chance", chance: 0.3, chancePrioritised: 0.3 }],
+    } as appForecastModule.AppForecast);
+    render(<DashboardPanel {...fullProps} projectId="p-fc-risk" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    const list = within(tile()!).getByRole("list", { name: t(EN, "forecastTileAtRisk") });
+    expect(within(list).getByText("Go-Live")).toBeInTheDocument();
+    expect(within(list).getByRole("group", { name: "30% chance on time – Go-Live, simulated" })).toBeInTheDocument();
+  });
+
+  // Final-review finding: with the Milestones module off the tile listed milestones whose buttons
+  // opened a disabled view. The section is gone; the engine still runs once on the context's
+  // milestones so the memo stays shared with the history recorder.
+  it("with the Milestones module off: no at-risk section, the engine still runs once on the same milestones", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({
+      ...FORECAST,
+      milestones: [{ id: 1, state: "chance", chance: 0.3, chancePrioritised: 0.3 }],
+    } as appForecastModule.AppForecast);
+    const onOpenMilestone = vi.fn();
+    render(
+      <DashboardPanel {...fullProps} showMilestones={false} onOpenMilestone={onOpenMilestone} projectId="p-fc-risk-off" />,
+      { wrapper },
+    );
+    await user.click(screen.getByRole("button", { name: simName() }));
+    // Positive control: the tile itself is there and shows its forecast.
+    expect(within(tile()!).getByText("8 in 10 simulated runs finish by Nov 20, 2026.")).toBeInTheDocument();
+    expect(within(tile()!).queryByText(t(EN, "forecastTileAtRisk"))).toBeNull();
+    expect(within(tile()!).queryByText(t(EN, "forecastTileNoneAtRisk"))).toBeNull();
+    expect(within(tile()!).queryByRole("list", { name: t(EN, "forecastTileAtRisk") })).toBeNull();
+    expect(within(tile()!).queryByText("Go-Live")).toBeNull();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]![0].milestones).toBe(fullProps.milestones);
+  });
+
+  it("Open Forecast navigates to the Forecast view", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} projectId="p-fc-nav" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    await user.click(within(tile()!).getByRole("button", { name: t(EN, "forecastTileOpen") }));
+    expect(onNavigate).toHaveBeenCalledWith("forecast");
+  });
+});
+
+// ── §502 part 2: the chance chip on each Milestones-tile entry ─────────────────
+describe("DashboardPanel milestone chance chips", () => {
+  const simName = () => new RegExp(t(EN, "simulationShow"));
+  const FORECAST: appForecastModule.AppForecast = {
+    kind: "forecast", p50: "2026-11-02", p80: "2026-11-20", p95: "2026-12-10", chanceOnTime: 0.34,
+    estimateCoverage: 0.41, windowDays: 60, distribution: Int32Array.from([5, 10, 15]), trials: 10000,
+    markers: { p50: 5, p80: 10, p95: 15 },
+    milestones: [{ id: 1, state: "chance", chance: 0.62, chancePrioritised: 0.7 }],
+  };
+  const about = () => screen.queryAllByRole("button", { name: /About these chances/ });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("switch on: a chip with the percent and one About these chances explainer; off again: none", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    render(<DashboardPanel {...fullProps} projectId="p-mc-chip" />, { wrapper });
+    expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(about()).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: simName() }));
+    const chips = document.querySelectorAll("[data-sim-chip]");
+    expect(chips).toHaveLength(1);
+    expect(chips[0]).toHaveTextContent("62%");
+    expect(screen.getByText(/62% chance on time, simulated/)).toBeInTheDocument();
+    expect(about()).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(about()).toHaveLength(0);
+  });
+
+  it("no chip and no explainer when no milestone has a chance", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue({
+      ...FORECAST, milestones: [{ id: 1, state: "overdue" }],
+    } as appForecastModule.AppForecast);
+    render(<DashboardPanel {...fullProps} projectId="p-mc-none" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(about()).toHaveLength(0);
+  });
+
+  it("held back: no chip while the view is hidden though the stored switch is on", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    const shown = showForecastView();
+    const ui = () => <DashboardPanel {...fullProps} projectId="p-mc-held" />;
+    const { rerender } = render(ui(), { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(1);
+    shown.mockRestore();
+    rerender(ui());
+    expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(about()).toHaveLength(0);
+  });
+
+  it("holidays pending: placeholders, no percent, the engine does not run", async () => {
+    showForecastView();
+    const user = userEvent.setup();
+    const spy = vi.spyOn(appForecastModule, "computeAppForecast").mockReturnValue(FORECAST);
+    render(<DashboardPanel {...fullProps} milestones={[{ id: 2, name: "Beta", date: "2026-07-01", linkedTaskIds: [1] }] as Milestone[]} holidaysReady={false} projectId="p-mc-pending" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: simName() }));
+    expect(document.querySelectorAll("[data-sim-chip]")).toHaveLength(0);
+    expect(screen.getByTestId("tile-milestones").querySelectorAll("[data-sim-placeholder]").length).toBeGreaterThan(0);
+    expect(spy).not.toHaveBeenCalled();
   });
 });

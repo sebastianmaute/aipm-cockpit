@@ -1,6 +1,7 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import type { Task } from "../types";
 import { addCalendarDays, countWorkingDays } from "../working-days";
+import * as indexModule from "./index";
 import { effortCoverage } from "./index";
 import { computeAppForecast, toHistoryEntry } from "./app-forecast";
 import { MIN_FINISHED_TASKS, MIN_HISTORY_WORKING_DAYS } from "./constants";
@@ -147,5 +148,35 @@ describe("computeAppForecast", () => {
     const nearestRank = (p: number) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1))];
     expect(r.markers).toEqual({ p50: nearestRank(50), p80: nearestRank(80), p95: nearestRank(95) });
     expect(r.markers.p50 <= r.markers.p80 && r.markers.p80 <= r.markers.p95).toBe(true);
+  });
+
+  describe("milestone chances", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    function milestoneArgs() {
+      const tasks = [...finished(20), ...openTasks(10)];
+      const milestones = [{ id: 7, name: "M", date: "2027-01-31", linkedTaskIds: [1, 2] }];
+      return args(tasks, { milestones });
+    }
+
+    test("carries the engine's milestone chances from the same run", () => {
+      const spy = vi.spyOn(indexModule, "computeScheduleForecast");
+      const f = computeAppForecast(milestoneArgs());
+      if (f.kind !== "forecast") throw new Error("expected forecast");
+      const engine = spy.mock.results[0].value;
+      if (engine.kind !== "forecast") throw new Error("expected engine forecast");
+      expect(f.milestones).toBe(engine.milestones);
+      expect(f.milestones.map((m) => m.id)).toEqual([7]);
+      expect(spy).toHaveBeenCalledTimes(1);
+    });
+
+    test("a second call with the same references reuses the run", () => {
+      const spy = vi.spyOn(indexModule, "computeScheduleForecast");
+      const a = milestoneArgs();
+      const f1 = computeAppForecast(a);
+      const f2 = computeAppForecast({ ...a });
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(f2).toBe(f1);
+    });
   });
 });

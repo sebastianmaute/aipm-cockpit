@@ -21,6 +21,7 @@ import { insightDetail, insightTitle } from "./insights/insight-text";
 import type { OutcomeType } from "./action-learning";
 import type { RaidItem, RaidStatus, Resource, RiskScale, Stakeholder, Task } from "./types";
 import type { Contact } from "./contacts";
+import { actionText } from "./action-text";
 
 export type RaidCreateOrigin =
   | { kind: "insight"; insightId: number }
@@ -71,12 +72,12 @@ export function useRaidCreate(deps: RaidCreateDeps): RaidCreateController {
     (action: SuggestedAction) => {
       open(
         buildRaidSeedFromSignal({
-          title: t(lang, action.title.key, ...(action.title.params ?? [])),
+          title: actionText(lang, action.title),
           note: t(
             lang,
             "actionCreatedFromNote",
             t(lang, ACTION_SOURCE_LABEL[action.source]),
-            t(lang, action.why.key, ...(action.why.params ?? [])),
+            actionText(lang, action.why),
           ),
         }),
         { kind: "action", action },

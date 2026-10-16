@@ -50,7 +50,7 @@ function setup(isPopout = false) {
       insights,
       setInsights: (u) => { setSpy(u); setInsights(u); },
       requestOpen,
-      settingsOverrides: undefined, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0,
+      settingsOverrides: undefined, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0, storageKind: "browser", portfolioMode: "file",
     };
     return { insights, handlers: useInsightLifecycle(deps) };
   });
@@ -134,7 +134,7 @@ describe("useInsightLifecycle runner → timelogClosedMonth", () => {
         tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], plan: null,
         holidaySet: new Set<string>(), holidaysReady: true, shifts: [], absences: [], timelogLinks,
         insights, setInsights, requestOpen: vi.fn(),
-        settingsOverrides: undefined, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0,
+        settingsOverrides: undefined, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0, storageKind: "browser", portfolioMode: "file",
       };
       useInsightLifecycle(deps);
       return insights;
@@ -156,10 +156,40 @@ describe("useInsightLifecycle runner → timelogClosedMonth", () => {
         tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], plan,
         holidaySet: new Set<string>(), holidaysReady: true, shifts: [], absences: [], timelogLinks: undefined,
         insights, setInsights, requestOpen: vi.fn(),
-        settingsOverrides: { forecast: { showSimulation: true } }, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0,
+        settingsOverrides: { forecast: { showSimulation: true } }, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0, storageKind: "browser", portfolioMode: "file",
       });
     });
     expect(computeForecast).toHaveBeenCalledWith(expect.objectContaining({ planEnd: "2027-03-31", today: TODAY }));
+    shown.mockRestore();
+  });
+
+  it.each([
+    ["turso", "file", 1],
+    ["local-json", "file", 1],
+    ["browser", "turso", 1],
+    ["browser", "file", 2],
+  ] as const)("hands the recorder the storage: %s storage in %s portfolio mode writes %i time(s) across an idle day change", (storageKind, portfolioMode, writes) => {
+    // §502 spec §4.1: another device can write every storage but the browser's, so an idle day change
+    // records nothing there; on browser storage the idle tab records the new day.
+    computeForecast.mockReturnValue({ kind: "forecast", p50: "2027-01-10", p80: "2027-01-20", p95: "2027-02-01", chanceOnTime: 0.5 });
+    const shown = showForecastView();
+    const plan = { ...defaultResourcePlan(TODAY), endDate: "2027-03-31" };
+    const stable = {
+      tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], holidaySet: new Set<string>(),
+      shifts: [], absences: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0, requestOpen: vi.fn(),
+      settingsOverrides: { forecast: { showSimulation: true } },
+    };
+    const { rerender } = renderHook((today: string) => {
+      const [insights, setInsights] = useState<readonly Insight[] | undefined>([]);
+      useInsightLifecycle({
+        hydrated: true, isPopout: false, loadPending: false, today,
+        currentProjectId: "p1", landingProjectId: "p1", plan, holidaysReady: true, timelogLinks: undefined,
+        insights, setInsights, features: [], forecastHistory: [], storageKind, portfolioMode, ...stable,
+      });
+    }, { initialProps: TODAY });
+    expect(stable.setForecastHistory).toHaveBeenCalledTimes(1);
+    rerender("2026-10-06");
+    expect(stable.setForecastHistory).toHaveBeenCalledTimes(writes);
     shown.mockRestore();
   });
 });

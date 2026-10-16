@@ -33,7 +33,9 @@ import type { ForecastHistoryEntry } from "./forecast-history";
 import type { SettingsOverrides } from "./settings-types";
 import type { FeatureModuleId } from "./feature-modules";
 import type { ScopeEpochReader } from "./scope-epoch";
-import { useForecastHistoryRecorder } from "./use-forecast-history-recorder";
+import { isSharedStorage, useForecastHistoryRecorder } from "./use-forecast-history-recorder";
+import type { StorageConfig } from "./storage-config-kind";
+import type { PortfolioMode } from "./portfolio-mode";
 
 // Debounce before the insights detect→reconcile runner fires, so a burst of
 // edits collapses into one recompute (#6B Insights → Action Loop, SP1).
@@ -65,6 +67,9 @@ export interface InsightLifecycleDeps
   setForecastHistory: Dispatch<SetStateAction<readonly ForecastHistoryEntry[]>>;
   /** §502 — keys the recorder's memory to the project in scope. */
   getScopeEpoch: ScopeEpochReader;
+  /** §502 — with `portfolioMode`, decides whether other devices write this project (the recorder's rule 1). */
+  storageKind: StorageConfig["kind"];
+  portfolioMode: PortfolioMode;
 }
 
 export interface InsightLifecycleHandlers {
@@ -81,10 +86,12 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
     holidaySet, holidaysReady, shifts, absences, timelogLinks,
     insights, setInsights, requestOpen,
     settingsOverrides, features, forecastHistory, setForecastHistory, getScopeEpoch,
+    storageKind, portfolioMode,
   } = deps;
   useForecastHistoryRecorder({
     hydrated, isPopout, loadPending, holidaysReady, today, tasks, milestones,
     planEnd: plan?.endDate ?? "", holidaySet, settingsOverrides, features, forecastHistory, setForecastHistory, getScopeEpoch,
+    sharedStorage: isSharedStorage(storageKind, portfolioMode),
   });
   // Assemble the detection input from live entities. `plan` is always present
   // here (workspace-context seeds defaultResourcePlan) so it is passed as-is;

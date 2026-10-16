@@ -110,6 +110,8 @@ export function useActionLearning({
   const record = useCallback(
     async (action: SuggestedAction, type: OutcomeType) => {
       if (!argsRef.current.config.enabled || argsRef.current.isPopout) return;
+      // §502 — a simulated signal never teaches the learning layer (it is not measured).
+      if (action.source === "forecast-sim") return;
       persist({
         ...snapRef.current,
         state: recordOutcome(snapRef.current.state, kindOf(action), type, Date.now()),
