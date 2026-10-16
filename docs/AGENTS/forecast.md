@@ -425,8 +425,9 @@ Dashboard picture: a Forecast tile, a chance chip per milestone and a Next-actio
   switch is off; Help names the new surfaces. `HelpEntryAction` (`help-content-pane.tsx`) is a union: a handler OR
   a note, exactly one, so an action can no longer render as an inert button.
 - **The tile's change line and headline.** The weekly change's ▲/▼ sits inside its `SimValue` outline (`glyph`,
-  `aria-hidden`). A P50 without a P80 cannot happen (P50 ≤ P80); the tile renders nothing for it rather than an
-  empty line.
+  `aria-hidden`). A P80 without a P50 cannot happen (P50 ≤ P80, so a P80 inside the horizon
+  means a P50 inside it too); the tile renders nothing for it rather than an empty line. A P50 without a P80 is
+  the ordinary beyond-horizon case and shows the gap line.
 - ★ Switch OFF → no tile (board or shelf), no chips, no sim action, no recorder; nothing else changes.
 
 ## Mutation proof (slice 1)

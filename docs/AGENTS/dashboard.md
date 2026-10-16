@@ -752,7 +752,7 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   re-request re-fire) + `flashOutlineClass(isFlashed)`. Each deep-linkable panel
   (eight files on 2026-10-16, including documents, the resource directory and the Forecast view's milestone
   chances table through `ForecastPanelDeepLinked` — this line said "five" for a while; enumerate with `grep -rln "useDeepLinkRowFlash(" src/app --include=*.tsx | grep -v test`) attaches `containerRef` to its `overflow-auto` scroll
-  container and adds `data-deeplink-row={id}` + `flashOutlineClass(flashId===id)` to rows; static
+  container (the Forecast view: a plain wrapper around the chances table, which has no scroll container of its own) and adds `data-deeplink-row={id}` + `flashOutlineClass(flashId===id)` to rows; static
   `outline-ui-green` (no bg → never fights row `bg-*` state classes; palette-safe). Fires ALONGSIDE the
   editor-open effect and does NOT clear `pendingOpen` (the panel's own effect does — both fire in the same
   commit; the side-effect is keyed on `flashId` NOT `pendingOpen` so `clearPendingOpen` can't cancel the

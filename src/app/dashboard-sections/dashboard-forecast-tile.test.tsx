@@ -128,7 +128,7 @@ describe("DashboardForecastTile", () => {
     expect(screen.getByText("Milestones at risk")).toBeInTheDocument();
   });
 
-  it("a P50 without a P80 renders no headline and no empty line (§502)", () => {
+  it("a P80 without a P50 (cannot happen: P50 <= P80) renders no headline and no empty line (§502)", () => {
     // Unreachable by percentile order (P50 <= P80), but the type allows it: the guard renders nothing.
     const { container } = renderTile({ forecast: { ...FORECAST, p50: null } });
     expect(screen.queryByRole("group", { name: /^8 in 10 runs finish by/ })).toBeNull();
