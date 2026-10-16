@@ -525,8 +525,8 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
     `p80PastChart` / `p95PastChart` flag the clamp, so the text alternative names the real dates and adds
     `burndownAriaSimP80PastChart` / `burndownAriaSimP95PastChart` ("… is beyond the chart's end"). The cost wedge
     is drawn only when its P80 date is inside the domain (else left out, like a beyond one); its P80 cost stays in the
-    text through `simCostP80`. One predicate decides that: `simP80PastChart` (`burndown-geometry.ts`), which also
-    sets `p80PastChart`. ★ A clamped band ends at the plot's right edge, which a sighted reader would take for the
+    text through `simCostP80`. One computation decides that: the private x-domain helper in `burndown-geometry.ts`,
+    which sets `p80PastChart` and is exported for the tile key as `simP80PastChart`. ★ A clamped band ends at the plot's right edge, which a sighted reader would take for the
     date, so the chart draws a visible `burndownSimPastChartCue` ("later →", `data-sim-past-chart`, `aria-hidden`)
     at that edge whenever P80 or P95 is clamped (WCAG 1.4.1: words, not colour).
   - Tile (`burndown-chart-panel.tsx`, compact mode): one line "Cost at finish (P80) … · … chance over budget"; in the
