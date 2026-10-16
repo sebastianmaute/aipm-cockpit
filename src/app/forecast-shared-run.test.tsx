@@ -22,7 +22,9 @@ vi.mock("./next-actions", async (orig) => ({ ...(await orig<typeof import("./nex
 vi.mock("./next-actions-input", () => ({ buildActionInput }));
 vi.mock("./next-actions-workload", () => ({ buildWorkloadAlerts }));
 // Call-through spies: the forecast runs for real, the spies only count.
-const fc = vi.hoisted(() => ({ engine: vi.fn(), app: vi.fn() }));
+// `callers` records which module asked, from the call stack, so the test can tell the three surfaces apart.
+const fc = vi.hoisted(() => ({ engine: vi.fn(), app: vi.fn(), callers: [] as string[] }));
+const SURFACES = vi.hoisted(() => ["dashboard-panel", "use-next-actions", "use-forecast-history-recorder"]);
 vi.mock("./forecast/index", async (orig) => {
   const real = await orig<typeof import("./forecast/index")>();
   fc.engine.mockImplementation(real.computeScheduleForecast as never);
@@ -30,7 +32,14 @@ vi.mock("./forecast/index", async (orig) => {
 });
 vi.mock("./forecast/app-forecast", async (orig) => {
   const real = await orig<typeof import("./forecast/app-forecast")>();
-  fc.app.mockImplementation(real.computeAppForecast as never);
+  fc.app.mockImplementation(((args: Parameters<typeof real.computeAppForecast>[0]) => {
+    // The innermost frame that names a surface is the caller.
+    const frames = (new Error().stack ?? "").split("\n");
+    const frame = frames.find((l) => SURFACES.some((m) => l.includes(m)));
+    const hit = frame && SURFACES.find((m) => frame.includes(m));
+    if (hit) fc.callers.push(hit);
+    return real.computeAppForecast(args);
+  }) as never);
   return { ...real, computeAppForecast: fc.app };
 });
 
@@ -67,7 +76,7 @@ function AllSurfaces({ tasks }: { tasks: readonly Task[] }) {
   useForecastHistoryRecorder({
     hydrated: true, isPopout: false, loadPending: false, holidaysReady: true, today: TODAY, tasks,
     milestones: MILESTONES, planEnd: PLAN.endDate ?? "", holidaySet: HOLIDAYS, settingsOverrides,
-    features: defaultSettings.features, forecastHistory, setForecastHistory, getScopeEpoch: EPOCH_0,
+    features: defaultSettings.features, forecastHistory, setForecastHistory, getScopeEpoch: EPOCH_0, sharedStorage: false,
   });
   return (
     <>
@@ -86,6 +95,7 @@ describe("one forecast run shared by every simulation surface (§502 spec §3.4)
     showForecastView();
     fc.engine.mockClear();
     fc.app.mockClear();
+    fc.callers.length = 0;
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -97,12 +107,12 @@ describe("one forecast run shared by every simulation surface (§502 spec §3.4)
     const { rerender } = render(<AllSurfaces tasks={tasks} />, { wrapper });
     expect(fc.engine).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "turn on" }));
-    // Dashboard, next actions and recorder each asked: at least three calls, one engine run.
-    expect(fc.app.mock.calls.length).toBeGreaterThanOrEqual(3);
+    // Dashboard, next actions and recorder each asked; the engine ran once.
+    expect(new Set(fc.callers)).toEqual(new Set(SURFACES));
     expect(fc.engine).toHaveBeenCalledTimes(1);
-    const asked = fc.app.mock.calls.length;
+    fc.callers.length = 0;
     rerender(<AllSurfaces tasks={[]} />);
-    expect(fc.app.mock.calls.length - asked).toBeGreaterThanOrEqual(3);
+    expect(new Set(fc.callers)).toEqual(new Set(SURFACES));
     expect(fc.engine).toHaveBeenCalledTimes(2);
   });
 });

@@ -299,21 +299,25 @@ chance on time; the dated history it records is the input to later surfaces. Fil
 - **The recorder** (`use-forecast-history-recorder.ts`) is called from inside `useInsightLifecycle`, not from
   `task-manager.tsx` (no size-ratchet headroom). It writes only when the switch is on AND `hydrated`,
   not `isPopout`, not `loadPending` (§548), `holidaysReady` and the forecast is sufficient. ★★★ WHETHER to
-  write is decided against THIS TAB's own memory (a `useRef`), not against the stored entry alone. The four
-  rules are numbered in the file header; in short: nothing stored for today writes; a stored entry EQUAL to the
+  write is decided against THIS TAB's own memory (a `useRef`), not against the stored entry alone. The five
+  rules are numbered in the file header; in short: ON SHARED STORAGE ONLY (`isSharedStorage`: Turso, SharePoint,
+  the Turso portfolio), a day change with every input unchanged writes nothing (an idle device must not write the
+  new day over a revision another device already moved, spec §4.1); nothing stored for today writes; a stored entry EQUAL to the
   computed one writes nothing; a stored entry this tab has not SEEN (a peer wrote it since the tab's last run),
   or a tab with no baseline for today, ADOPTS it without writing; otherwise (the stored entry is the one the tab
   last saw and differs) it writes only when its OWN computed entry differs from its baseline. The stored-only
   compare it replaced let two tabs that compute different entries (per-device holidays, an old and a new build)
   overwrite each other for ever, since `forecastHistory` is broadcast between tabs. Pinned by "two clients
-  with different holiday sets write once per day" in `use-forecast-history-recorder.test.ts` (one write in total). ★ The cost the rule
+  with different holiday sets write once per day" in `use-forecast-history-recorder.test.ts` (one write in total
+  when the second client comes up after the first recorded; two open across midnight are the "rule 1 applies on
+  shared storage only" tests). ★ On browser storage and a local file an idle tab DOES record the new day (only
+  when nothing is stored for today yet; a peer tab's entry is adopted), so several tabs open at midnight can each
+  write once. Skipping there left a window open for days with no edits recording nothing, and after a week the
+  tile's "Change shown from" date moved forward every day; on shared storage an idle window still does that
+  until its next edit or reload. ★ The cost the rule
   accepts: when the tasks and the history arrive in SEPARATE deliveries (a remote edit followed by the peer's
   entry, or the reverse), a tab can write once for what is one edit; it is bounded, because the next run adopts
-  or finds the stored entry equal. ★ A DAY CHANGE IN AN IDLE TAB RECORDS THE DAY (written only when nothing
-  is stored for today, adopted otherwise), so several tabs open at midnight can each write once. An earlier rule
-  skipped the idle day change to avoid that, and a window left open for days with no edits then never recorded a
-  day: after a week the tile's "Change shown from" date moved forward daily. Pinned by "an idle tab records the
-  new day at the day change". ★★ The SCOPE RULE: the ref stores `{ scope, entry, seen }`, with `scope` read from
+  or finds the stored entry equal. ★★ The SCOPE RULE: the ref stores `{ scope, entry, seen }`, with `scope` read from
   `getScopeEpoch()` (`scope-epoch.ts`), and a memory from another epoch counts as nothing recorded. It is NOT
   cleared on `loadPending`: a same-project reload (the conflict banner's Reload is a held "same-scope" op) also
   raises `loadPending`, and clearing there made the tab answer a peer's entry after every reload, one extra

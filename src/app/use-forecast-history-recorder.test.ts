@@ -1,12 +1,13 @@
 // §502 — the background forecast-history recorder. The forecast engine is
 // stubbed: this pins WHEN a row is written and HOW, not the simulation.
 import { renderHook } from "@testing-library/react";
-import { useState } from "react";
+import { useState, type SetStateAction } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { showForecastView } from "../test/forecast-view";
 import type { ForecastHistoryEntry } from "./forecast-history";
 import {
   type ForecastHistoryRecorderDeps,
+  isSharedStorage,
   useForecastHistoryRecorder,
 } from "./use-forecast-history-recorder";
 
@@ -39,7 +40,7 @@ function deps(over: Partial<ForecastHistoryRecorderDeps> = {}): ForecastHistoryR
     hydrated: true, isPopout: false, loadPending: false, holidaysReady: true,
     today: TODAY, tasks: TASKS, milestones: MILESTONES, planEnd: "2026-12-31",
     holidaySet: HOLIDAYS, settingsOverrides: { forecast: { showSimulation: true } }, features: [],
-    forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: EPOCH_0, ...over,
+    forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: EPOCH_0, sharedStorage: true, ...over,
   };
 }
 
@@ -144,9 +145,10 @@ describe("useForecastHistoryRecorder", () => {
   });
 
   it("two clients with different holiday sets write once per day", () => {
-    // Two recorders share ONE stored history (what the cross-tab broadcast and the
-    // Turso save amount to) but compute different entries, because holidays are a
-    // per-device setting. Client B comes up only after A recorded the day.
+    // Two recorders share ONE stored history (what the cross-tab broadcast, or a
+    // device that loads after another saved, amounts to) but compute different entries,
+    // because holidays are a per-device setting. Client B comes up only after A recorded
+    // the day; two open across midnight are the "rule 1 applies on shared storage only" tests.
     const holidaysA = new Set<string>();
     const holidaysB = new Set<string>(["2026-10-20"]);
     compute.mockImplementation((a: { holidaySet: ReadonlySet<string> }) =>
@@ -169,40 +171,18 @@ describe("useForecastHistoryRecorder", () => {
     expect(result.current).toEqual([ENTRY]);
   });
 
-  it("an idle tab records the new day at the day change", () => {
-    // A window left open for days with no edits must still record each day, or the
-    // tile's weekly change falls back to a "Change shown from" date that keeps moving.
+  it("an idle tab writes nothing at the day change, and records the day on its next input change", () => {
     const set = vi.fn();
-    const { rerender } = renderHook((p: { today: string }) =>
-      useForecastHistoryRecorder(deps({ today: p.today, setForecastHistory: set })),
-      { initialProps: { today: TODAY } });
+    const { rerender } = renderHook((p: { today: string; tasks: ForecastHistoryRecorderDeps["tasks"] }) =>
+      useForecastHistoryRecorder(deps({ today: p.today, tasks: p.tasks, setForecastHistory: set })),
+      { initialProps: { today: TODAY, tasks: TASKS } });
     expect(set).toHaveBeenCalledTimes(1);
-    rerender({ today: "2026-10-16" });
+    rerender({ today: "2026-10-16", tasks: TASKS });
+    expect(set).toHaveBeenCalledTimes(1);
+    rerender({ today: "2026-10-16", tasks: [] });
     expect(set).toHaveBeenCalledTimes(2);
     const updater = set.mock.calls[1][0] as (p: readonly ForecastHistoryEntry[]) => ForecastHistoryEntry[];
     expect(updater([ENTRY])).toEqual([ENTRY, { ...ENTRY, date: "2026-10-16" }]);
-  });
-
-  it("an idle tab adopts a peer's entry for the new day instead of writing", () => {
-    const set = vi.fn();
-    const tomorrow = "2026-10-16";
-    const { rerender } = renderHook((p: { today: string; h: readonly ForecastHistoryEntry[] }) =>
-      useForecastHistoryRecorder(deps({ today: p.today, forecastHistory: p.h, setForecastHistory: set })),
-      { initialProps: { today: TODAY, h: [] as readonly ForecastHistoryEntry[] } });
-    expect(set).toHaveBeenCalledTimes(1);
-    rerender({ today: tomorrow, h: [ENTRY, { ...ENTRY, date: tomorrow, p50: "2026-11-02" }] });
-    expect(set).toHaveBeenCalledTimes(1);
-  });
-
-  it("with a real stateful history, an idle tab writes the new day exactly once", () => {
-    const { result, rerender } = renderHook((today: string) => {
-      const [h, setH] = useState<readonly ForecastHistoryEntry[]>([]);
-      useForecastHistoryRecorder(deps({ today, forecastHistory: h, setForecastHistory: setH }));
-      return h;
-    }, { initialProps: TODAY });
-    rerender("2026-10-16");
-    rerender("2026-10-16");
-    expect(result.current.map((e) => e.date)).toEqual([TODAY, "2026-10-16"]);
   });
 
   it.each([
@@ -211,7 +191,7 @@ describe("useForecastHistoryRecorder", () => {
     ["planEnd", { planEnd: "2027-01-31" }],
     ["holidaySet", { holidaySet: new Set<string>() }],
     ["scope epoch", { getScopeEpoch: () => 1 }],
-  ] as const)("a day change together with a %s change records the day", (_label, over) => {
+  ] as const)("a day change together with a %s change is not idle and records the day", (_label, over) => {
     const set = vi.fn();
     const { rerender } = renderHook((p: Partial<ForecastHistoryRecorderDeps>) =>
       useForecastHistoryRecorder(deps({ setForecastHistory: set, ...p })), { initialProps: {} });
@@ -220,8 +200,9 @@ describe("useForecastHistoryRecorder", () => {
     expect(set).toHaveBeenCalledTimes(2);
   });
 
-  it("a gate that reopens after the day changed records the day", () => {
-    // Switch the simulation off overnight and on again the next morning.
+  it("a gate that reopens after the day changed counts as a load and records the day", () => {
+    // Switch the simulation off overnight and on again the next morning: the inputs
+    // are the same references, but this is not an idle tab at midnight.
     const set = vi.fn();
     const { rerender } = renderHook((p: Partial<ForecastHistoryRecorderDeps>) =>
       useForecastHistoryRecorder(deps({ setForecastHistory: set, ...p })), { initialProps: {} });
@@ -263,7 +244,7 @@ describe("useForecastHistoryRecorder", () => {
       useForecastHistoryRecorder(deps({ today: p.today, tasks: p.tasks, forecastHistory: p.h, setForecastHistory: set })),
       { initialProps: { today: TODAY, tasks: TASKS, h: [] as readonly ForecastHistoryEntry[] } });
     expect(set).toHaveBeenCalledTimes(1);
-    // Its own forecast moved overnight too; the peer's entry still wins.
+    // A tasks change too, so this is not the idle day change (which never writes).
     compute.mockReturnValue({ ...FORECAST, p50: "2026-11-03" });
     rerender({ today: tomorrow, tasks: [], h: [ENTRY, { ...ENTRY, date: tomorrow }] });
     expect(set).toHaveBeenCalledTimes(1);
@@ -384,5 +365,97 @@ describe("useForecastHistoryRecorder", () => {
     compute.mockReturnValue({ ...FORECAST, p50: "2026-11-05" });
     rerender({ h: other, loadPending: false });
     expect(set).toHaveBeenCalledTimes(1);
+  });
+  describe("rule 1 applies on shared storage only", () => {
+    it("isSharedStorage: Turso, SharePoint and the Turso portfolio are shared; browser and local files are not", () => {
+      expect(isSharedStorage("turso", "file")).toBe(true);
+      expect(isSharedStorage("sp-json", "file")).toBe(true);
+      expect(isSharedStorage("sp-csv", "file")).toBe(true);
+      expect(isSharedStorage("browser", "turso")).toBe(true);
+      expect(isSharedStorage("browser", "file")).toBe(false);
+      expect(isSharedStorage("local-json", "file")).toBe(false);
+      expect(isSharedStorage("local-csv", "file")).toBe(false);
+      expect(isSharedStorage("local-md", "file")).toBe(false);
+    });
+
+    it("two devices on shared storage, both open across midnight, write nothing at the day change", () => {
+      // Spec §4.1: each DEVICE has its own copy of the history (no broadcast between devices), so a
+      // midnight write from both would land on a revision the other already moved and pause a save.
+      const holidaysB = new Set<string>(["2026-10-20"]);
+      compute.mockImplementation((a: { holidaySet: ReadonlySet<string> }) =>
+        a.holidaySet === holidaysB ? { ...FORECAST, p50: "2026-11-02" } : FORECAST);
+      const writes = vi.fn();
+      const writer = (tab: string, set: (u: SetStateAction<readonly ForecastHistoryEntry[]>) => void): ForecastHistoryRecorderDeps["setForecastHistory"] => (u) => {
+        writes(tab);
+        set(u);
+      };
+      const { rerender } = renderHook((today: string) => {
+        const [historyA, setA] = useState<readonly ForecastHistoryEntry[]>([]);
+        const [historyB, setB] = useState<readonly ForecastHistoryEntry[]>([]);
+        // Stable writers, as the context setter is: a fresh one per render would re-run the effect.
+        const [writeA] = useState(() => writer("A", setA));
+        const [writeB] = useState(() => writer("B", setB));
+        useForecastHistoryRecorder(deps({ today, forecastHistory: historyA, setForecastHistory: writeA }));
+        useForecastHistoryRecorder(deps({ today, holidaySet: holidaysB, forecastHistory: historyB, setForecastHistory: writeB }));
+      }, { initialProps: TODAY });
+      const atLoad = writes.mock.calls.length;
+      rerender("2026-10-16");
+      rerender("2026-10-16");
+      expect(writes.mock.calls.length).toBe(atLoad);
+    });
+
+    it("on single-device storage an idle tab records the new day at the day change", () => {
+      const set = vi.fn();
+      const { rerender } = renderHook((p: { today: string }) =>
+        useForecastHistoryRecorder(deps({ today: p.today, setForecastHistory: set, sharedStorage: false })),
+        { initialProps: { today: TODAY } });
+      expect(set).toHaveBeenCalledTimes(1);
+      rerender({ today: "2026-10-16" });
+      expect(set).toHaveBeenCalledTimes(2);
+      const updater = set.mock.calls[1][0] as (p: readonly ForecastHistoryEntry[]) => ForecastHistoryEntry[];
+      expect(updater([ENTRY])).toEqual([ENTRY, { ...ENTRY, date: "2026-10-16" }]);
+    });
+
+    it("on single-device storage an idle tab adopts a peer tab's entry for the new day", () => {
+      const set = vi.fn();
+      const tomorrow = "2026-10-16";
+      const { rerender } = renderHook((p: { today: string; h: readonly ForecastHistoryEntry[] }) =>
+        useForecastHistoryRecorder(deps({ today: p.today, forecastHistory: p.h, setForecastHistory: set, sharedStorage: false })),
+        { initialProps: { today: TODAY, h: [] as readonly ForecastHistoryEntry[] } });
+      expect(set).toHaveBeenCalledTimes(1);
+      rerender({ today: tomorrow, h: [ENTRY, { ...ENTRY, date: tomorrow, p50: "2026-11-02" }] });
+      expect(set).toHaveBeenCalledTimes(1);
+    });
+
+    it("two tabs on single-device storage, both open across midnight, write at most once each and settle", () => {
+      // The tabs share ONE history (the broadcast), but both effects can run before either write lands.
+      const holidaysB = new Set<string>(["2026-10-20"]);
+      compute.mockImplementation((a: { holidaySet: ReadonlySet<string> }) =>
+        a.holidaySet === holidaysB ? { ...FORECAST, p50: "2026-11-02" } : FORECAST);
+      const writes = vi.fn();
+      const writer = (tab: string, set: (u: SetStateAction<readonly ForecastHistoryEntry[]>) => void): ForecastHistoryRecorderDeps["setForecastHistory"] => (u) => {
+        writes(tab);
+        set(u);
+      };
+      const { result, rerender } = renderHook((today: string) => {
+        const [history, setHistory] = useState<readonly ForecastHistoryEntry[]>([]);
+        const [writeA] = useState(() => writer("A", setHistory));
+        const [writeB] = useState(() => writer("B", setHistory));
+        useForecastHistoryRecorder(deps({ today, forecastHistory: history, setForecastHistory: writeA, sharedStorage: false }));
+        useForecastHistoryRecorder(deps({ today, holidaySet: holidaysB, forecastHistory: history, setForecastHistory: writeB, sharedStorage: false }));
+        return history;
+      }, { initialProps: TODAY });
+      const atLoad = writes.mock.calls.length;
+      rerender("2026-10-16");
+      rerender("2026-10-16");
+      const midnight = writes.mock.calls.slice(atLoad).map((c) => c[0]);
+      expect(midnight.filter((t) => t === "A").length).toBeLessThanOrEqual(1);
+      expect(midnight.filter((t) => t === "B").length).toBeLessThanOrEqual(1);
+      expect(midnight.length).toBeGreaterThanOrEqual(1);
+      expect(result.current.filter((e) => e.date === "2026-10-16")).toHaveLength(1);
+      const settled = writes.mock.calls.length;
+      rerender("2026-10-16");
+      expect(writes.mock.calls.length).toBe(settled);
+    });
   });
 });
