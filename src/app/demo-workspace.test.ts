@@ -55,8 +55,10 @@ describe("buildDemoWorkspace", () => {
     const today = "2026-10-01";
     const ws = buildDemoWorkspace(raw, today);
     const done = ws.tasks.filter((t) => t.completedDate && t.startDate);
-    // Positive control: on the 1st, a clamped completion (today) meets a start shifted to the 2nd.
-    expect(done.some((t) => t.startDate === t.completedDate && t.completedDate === today)).toBe(true);
+    // Task 33 starts on the master's 09-02, which the shift moves to 10-02, after its completion clamped to today.
+    const t33 = ws.tasks.find((t) => t.id === 33);
+    expect(t33?.completedDate).toBe(today);
+    expect(t33?.startDate).toBe(today);
     expect(done.every((t) => t.startDate! <= t.completedDate!)).toBe(true);
   });
   it("rejects a corrupt master loudly (strict decode)", () => {

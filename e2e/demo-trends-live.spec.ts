@@ -21,8 +21,9 @@
 // ★ The start-card test needs a database with NO Turso project in it: the card
 // shows only then. `beforeAll` therefore hard-deletes EVERY project in the throwaway
 // database, and the test fails at once, naming any project still there.
-// Run it alone, against a fresh server:
-//   PORT=3100 npx playwright test e2e/demo-trends-live.spec.ts --project=chromium --workers=1
+// Run it alone, against a fresh server, in the one-worker live project (it skips without E2E_LIVE_APP;
+// set it for this command only, never in your shell):
+//   E2E_LIVE_APP=1 PORT=3100 npx playwright test e2e/demo-trends-live.spec.ts --project=live-turso-app
 // The Trends screenshot lands in each test's output directory (test-results/…).
 
 import { test, expect, type Page } from "@playwright/test";
