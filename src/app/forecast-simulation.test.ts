@@ -2,7 +2,7 @@
 // The per-project "Use Monte Carlo forecasting" policy override (§502): off is ABSENCE.
 
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";
+import { isSimulationActive, isSimulationOn, keepSimulationSwitch, withSimulation } from "./forecast-simulation";
 import { showForecastView } from "../test/forecast-view";
 import { hasAnyOverride, sanitizeSettingsOverrides } from "./settings-overrides";
 import type { SettingsOverrides } from "./settings-types";
@@ -86,5 +86,32 @@ describe("isSimulationActive", () => {
     expect(isSimulationActive(ON, [])).toBe(false);
     // The raw stored read is untouched, so re-enabling restores the choice.
     expect(isSimulationOn(ON)).toBe(true);
+  });
+});
+
+// §502 — a restore keeps the CURRENT switch: it is a viewing choice, not project data.
+describe("keepSimulationSwitch", () => {
+  const ON: SettingsOverrides = { forecast: { showSimulation: true } };
+  const TZ: SettingsOverrides = { timezone: { timezone: "Europe/Berlin" } };
+
+  it("turns the switch on in a target that has it off or absent", () => {
+    expect(keepSimulationSwitch(TZ, ON)).toEqual({ ...TZ, ...ON });
+    expect(keepSimulationSwitch(undefined, ON)).toEqual(ON);
+  });
+
+  it("turns the switch off in a target that has it on, keeping the other overrides", () => {
+    expect(keepSimulationSwitch({ ...TZ, ...ON }, undefined)).toEqual(TZ);
+    expect(keepSimulationSwitch({ ...TZ, ...ON }, TZ)).toEqual(TZ);
+  });
+
+  it("folds an override holding only the switch to undefined when it goes off", () => {
+    expect(keepSimulationSwitch(ON, undefined)).toBeUndefined();
+  });
+
+  it("returns the target itself when the switch already agrees", () => {
+    expect(keepSimulationSwitch(TZ, undefined)).toBe(TZ);
+    const both = { ...TZ, ...ON };
+    expect(keepSimulationSwitch(both, ON)).toBe(both);
+    expect(keepSimulationSwitch(undefined, undefined)).toBeUndefined();
   });
 });

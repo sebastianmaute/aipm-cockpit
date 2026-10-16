@@ -11,6 +11,7 @@ import type { VersionChange } from "./version-diff";
 import { jsonToWorkspace, workspaceToJson } from "./workspace";
 import type { Workspace } from "./workspace";
 import { applyRestore } from "./version-restore";
+import { keepSimulationSwitch } from "./forecast-simulation";
 import type { RestoreSelection } from "./version-restore";
 import type { TursoConfig } from "./turso-config";
 import { logDiag } from "./diagnostics";
@@ -295,7 +296,13 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       // setter raw it would be broken against the CURRENT state and logged as a write.
       // Before the capture, so the auto version records what the app then holds.
       const merged = applyRestore(now, version, changes, selection, { versionSpeaksForEmptySlices: speaks, workdayHours });
-      const restored = { ...merged, raid: repairLoadedRaid(merged.raid) };
+      // §502: the simulation switch is a viewing choice, so it stays at the CURRENT value. Pinned AFTER the
+      // merge so the blind-capture guard still saw the version's own `undefined`.
+      const restored = {
+        ...merged,
+        raid: repairLoadedRaid(merged.raid),
+        settingsOverrides: keepSimulationSwitch(merged.settingsOverrides, now.settingsOverrides),
+      };
       await capturePayload(workspaceToJson(restored), "auto", null);
       applyWorkspace?.(restored);
       logActivity?.("history.restore", count, versionLabel);
