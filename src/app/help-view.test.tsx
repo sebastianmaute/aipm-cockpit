@@ -200,7 +200,9 @@ describe("HelpView — reopening the intro with the switch off (§502)", () => {
     expect(t("en-US", "helpConceptForecastSimBody")).toContain("Forecast tile");
     await loadI18n("de");
     const de = t("de", "helpConceptForecastSimBody");
-    expect(de).toContain("Prognose");
+    expect(de).toContain("Prognosehorizont");
+    expect(de).toContain("Prognose-Kachel");
+    expect(de).toContain("Nächste Schritte");
     expect(de).not.toBe(t("en-US", "helpConceptForecastSimBody"));
     expect(t("de", "helpSimulationIntroNeedsSwitch")).not.toBe(t("en-US", "helpSimulationIntroNeedsSwitch"));
   });

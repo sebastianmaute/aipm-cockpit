@@ -1527,6 +1527,8 @@ describe("DashboardPanel activity log source (activity-log-workspace-data, task 
 // (via `buildDashboardInput`'s `snapshots`/`budgetHistory` entities): `snapshots`
 // only reaches it while Turso trends are active, `budgetHistory` always does.
 describe("DashboardPanel forecast bundle wiring (snapshots / budgetHistory)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   function SeedBudgetHistory({ budgetHistory }: { budgetHistory: readonly BudgetHistoryEntry[] }) {
     const { setBudgetHistory } = useWorkspace();
     useEffect(() => {
@@ -1574,6 +1576,8 @@ describe("DashboardPanel forecast bundle wiring (snapshots / budgetHistory)", ()
 // — renders figures that came out of the budget engine and convert NOTHING.
 // (Spec C removed the second one, the Budget tile's Spent figure.)
 describe("DashboardPanel currency labelling", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   // Rated roles + budgeted AND actual hours are both required: with no rate
   // card every value is 0, the burn-down renders its "no budget" line instead
   // of an axis, and the assertions below would have nothing to read.
@@ -1679,6 +1683,8 @@ describe("DashboardPanel currency labelling", () => {
 
 // ── Spec C decision 7: the burn tile is chart-only ──────────────────────────
 describe("DashboardPanel burn tile is chart-only (spec C)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   const ratedRoles = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
   const ratedBucket = {
     id: 1, name: "PO", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-12-31", status: "open",
