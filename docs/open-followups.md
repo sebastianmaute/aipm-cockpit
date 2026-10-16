@@ -45543,7 +45543,7 @@ Size M.
 
 ## 744. A weekend activity still open on Monday is not asked about — OPEN
 
-**Status:** OPEN 2026-10-16, filed on the owner's word. `grep -rlic "weekend" src/app/next-actions` finds nothing.
+**Status:** OPEN 2026-10-16, filed on the owner's word. `grep -rli "weekend" src/app/next-actions` finds nothing.
 
 **Work item:** #765
 

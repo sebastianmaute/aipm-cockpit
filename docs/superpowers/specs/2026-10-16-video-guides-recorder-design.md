@@ -2,9 +2,9 @@
 
 Status: draft for owner review, 2026-10-16. Register: §715.
 
-> **Amended 2026-10-16:** the big video, the chapter videos, `T0` and the demo data are replaced by
-> `2026-10-16-demo-week-story-design.md` (the demo week). The clips (tiers 3 and 4) and everything
-> else here stand.
+> **Amended 2026-10-16:** the big video, the chapter videos and `T0` are replaced, and the demo data
+> amended, by `2026-10-16-demo-week-story-design.md` (the demo week). The clips (tiers 3 and 4), the
+> "What A needs from project E" table and everything else here stand.
 
 ## Why
 

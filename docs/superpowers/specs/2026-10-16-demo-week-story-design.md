@@ -27,7 +27,7 @@ This document does two things:
 Filed on the owner's word while designing this, for later: §743 (early warning before a milestone
 slips), §744 (a weekend activity still open on Monday), §745 (a guided tour per clip), §746 (a guided
 tour per project Function). Found by the builder check and to be fixed **before** E (owner): §747
-(the workload signal reads the plan's first period, not the current one).
+(the workload signal read the plan's first period, not the current one).
 
 ## Goals
 
@@ -88,7 +88,8 @@ tour per project Function). Found by the builder check and to be fixed **before*
 
 ## Dates
 
-The recorder pins the clock. A's spec sets `T0 = 2026-11-02 09:00 +01:00`; at that T0 the demo
+The recorder pins the clock. Its `T0` lives in `scripts/demo-video/lib.mjs` (today
+`2026-11-02T09:00:00+01:00`, as A's spec also says); at that T0 the demo
 shifts by +2 months and "last Friday" maps to a Sunday in the master.
 
 **My call:** move the recorder's `T0` to **Monday 2026-09-21, 08:30 +02:00**. The shift is then 0,
@@ -97,7 +98,7 @@ master dates are what the viewer sees, and the master's `DEMO_AS_OF` (Friday 202
 created once on Monday, and each later day advances the page clock (`page.clock.setSystemTime`) to
 08:30 that day, so overdue counts, next actions, activity dates and saved versions move with it.
 
-For real users opening the demo on another day the month shift applies as today. On days 1–17 of a
+For real users opening the demo on another day the month shift applies as today. On days 1–18 of a
 month the MVP is not yet overdue and the hero shows the next-best item; that is acceptable (the
 project still reads as coherent) and is not fixed here.
 
@@ -117,7 +118,7 @@ cancel → **Explore the demo**.
 |---|---|
 | Dashboard: read the hero (MVP target, overdue) and its reasons | **Digest**: "what changed since Friday" |
 | Next actions: read Now / Soon / Monitor | **Analyze with AI** on Next actions |
-| Open Points **Table**: open "Integrate CRM provisioning", add the blocker, move its due date to Thursday | — |
+| Open Points **Table**: open "Integrate CRM provisioning", add the blocker "CRM API rejects erasure calls" (it is not in the data), move its due date to Thursday | — |
 | Knowledge: search "CRM" → the CRM interface decision from design sign-off → jump to it | — |
 
 ### Tuesday — re-plan (chapter 4)
@@ -138,7 +139,7 @@ cancel → **Explore the demo**.
 | New team member from the vendor's partner, in that role | — |
 | Noah's planned vacation next week (he owns the CRM integration) | — |
 | Planning: the new member's capacity for one month | **Plan with AI** proposes the rest |
-| Workload: Maya's overloaded week → reassign one task to the new member | (covered by Plan with AI) |
+| Workload: Maya's "Util (now)" cell is pink (over-allocated this month) → lower it by hand | (covered by Plan with AI) |
 | Open Points **Swimlanes** by person: the new member's lane has work | — |
 
 ### Thursday — risks, stakeholders, money (chapter 6)
@@ -198,8 +199,8 @@ Numbers are the master's ids today; the builder keeps ids stable where the exist
 - **Task 25 "MVP demo to the customer":** To Do, due `2026-09-18`, a note that it was called off on
   Friday because provisioning to the CRM fails.
 - **New task "Integrate CRM provisioning":** In Progress, owner Noah Bennett, due `2026-09-16`
-  (overdue on Monday), depends on 24; task 25 depends on it. Blocker text, e.g. "CRM API rejects
-  erasure calls".
+  (overdue on Monday), depends on 24; task 25 depends on it. **No blocker text** — Monday adds it
+  on camera.
 - **Pilot chain:** the tasks between the MVP and Pilot Go-Live (today 4–8, 27 and the pilot tasks)
   re-dated so they start after the MVP and none is overdue at T0 except what the story intends.
   Pilot Go-Live (milestone 2) stays on its date and becomes visibly tight; the forecast shows it.
@@ -215,6 +216,7 @@ T0. Intended:
 | Now — hero | MVP target overdue | milestone (67) |
 | Now | "Board info pack" for Thursday's steering meeting due (`leadDays: 3`) | committee-info (60) |
 | Soon | "Integrate CRM provisioning" overdue | task-due (55) |
+| Soon | "MVP demo to the customer" (task 25) overdue, +1 reason: blocked by the CRM task | task-due (55) + task-attention dep-blocked (35), one row: both open `open-points:25`, so `groupNextActions` merges them |
 | Soon | Maya over-allocated this period | workload (52 at ≥130 %; needs §747 fixed) |
 | Soon | red issue "GDPR erasure requests do not reach the CRM", no owner yet | RAID (45) |
 | Soon | change request "Add MFA to SSO scope" pending (High impact) | change-pending (45) |
@@ -224,12 +226,25 @@ T0. Intended:
 Scores checked against the providers by the builder check (2026-10-16). A single pending change
 scores 45, not 60 (60 is the aggregate at `SCOPE_PENDING_RED = 5`); a stakeholder comms nudge
 scores 45 and an overdue RAID review adds urgency 40, so neither is a Monitor item — the data must
-not trigger them unless the builder argues them into the story. Anything else that fires at T0 is
-either removed from the data or argued into the story.
+not trigger them unless the builder argues them into the story.
 
-**Depends on §747.** The workload item reads the plan's first period today
-(`next-actions-workload.ts`), so Maya's overload can never fire at T0. The owner decided (2026-10-16)
-to fix §747 first, as its own defect and PR; E plants the overload after it lands.
+**The rest of today's data must be cleaned so it does not fire** (checked by the review of
+2026-10-16; the builder re-derives it on the reworked data):
+
+- **Stale tasks:** 9 open tasks have `lastUpdateDate` 14 or more days before T0 and would fill
+  Monitor (`STALE_DAYS = 14`). Bring every open task's `lastUpdateDate` within the fortnight,
+  except any the builder argues into the story.
+- **Blocked tasks 4 and 6** (task-attention "blocked", 30): drop their blocker text when the pilot
+  chain is re-dated.
+- **Owned High RAID items 8, 9 and 13** (37 each, Soon): resolve, close or lower them, so the GDPR
+  issue is the one red RAID item on Monday.
+
+The rule the Monday test enforces: **every action at T0 is a row of the table above, and every row
+fires.** Anything else is removed from the data or added to the table with its reason.
+
+**Depends on §747.** Before its fix the workload item read the plan's first period, so Maya's
+overload could never fire at T0. The owner decided (2026-10-16) to fix §747 first, as its own defect
+and PR (`nearTermPeriodKeys`); E starts only once that fix is on main.
 
 ### What the week needs to exist
 
@@ -237,8 +252,10 @@ to fix §747 first, as its own defect and PR; E plants the overload after it lan
   ("Fix CRM sync for new registrations" / "CRM provisioning fails for sign-ups", and so on). One pair
   is deleted by hand on Tuesday; Deduplicate must still find the rest.
 - **Knowledge:** an item about the CRM interface decision, reachable by searching "CRM" on Monday.
-- **Maya over-allocated** in the period containing T0 (September, at month granularity), from
-  resource allocation; the overload Wednesday's reassignment relieves.
+- **Maya over-allocated** in the period containing T0 (September, at month granularity), planted in
+  her `utilization` (the only thing the alert reads — `buildWorkloadAlerts` never looks at task
+  assignments, so reassigning a task cannot relieve it). Wednesday relieves it on screen through her
+  "Util (now)" cell, then Plan with AI.
 - **Maya present at T0:** her absence on 21–22 Sept ("Offsite leadership summit") moves out of the
   week. Noah's existing vacation (9–13 Nov) stays; it does not clash with "next week".
 - **Steering committee:** a meeting on Thursday 2026-09-24 with an agenda (the existing meeting on
@@ -260,7 +277,6 @@ and the two licence tasks. The role's discipline and grade must exist so the for
 ## Left to the builder
 
 - Exact dates, texts and ids of the re-dated pilot chain, the duplicates and the knowledge item.
-- Whether Maya's overload comes from task estimates or resource allocation.
 - How the Monday-list test reaches the shifted demo (through `buildDemoWorkspace` or equivalent).
 - The fixture spreadsheet's format and contents.
 
@@ -277,4 +293,6 @@ and the two licence tasks. The role's discipline and grade must exist so the for
 - The prologue (wizard + AI proposal + Explore the demo) closes chapter 2, so Monday opens straight
   on the Dashboard.
 - Help, A's chapter 8, closes Friday.
-- Real users opening the demo on days 1–17 of a month see a different hero; not fixed here.
+- Real users opening the demo on days 1–18 of a month see a different hero (a milestone dated today
+  is not yet overdue); not fixed here.
+- The CRM blocker is added on camera on Monday, so it is not in the data.
