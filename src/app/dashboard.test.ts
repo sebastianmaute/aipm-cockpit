@@ -437,7 +437,7 @@ describe("computeDashboard", () => {
     // rated role and actual hours, so these are real figures, not 0 === 0.
     expect(m.forecastBundle!.hours.facts.bac).toBeGreaterThan(0);
     expect(m.forecastBundle!.eur.facts.bac).toBeGreaterThan(0);
-    expect(m.chartDates).toEqual({ today: "2026-06-02", planEnd: "2026-12-31" });
+    expect(m.chartDates).toEqual({ today: "2026-06-02", planEnd: "2026-12-31", planStart: "2026-01-01" });
   });
 
   it("has no forecast bundle without budgets", () => {

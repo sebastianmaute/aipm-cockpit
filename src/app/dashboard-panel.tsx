@@ -46,7 +46,7 @@ import { DashboardHiddenBadge } from "./dashboard-hidden-badge";
 import { buildTileBodies } from "./dashboard-tile-bodies";
 import { chancesById, milestonesContentKey } from "./milestone-horizon-strip";
 import { computeAppForecast } from "./forecast/app-forecast";
-import { withBudgetSim } from "./budget-sim";
+import { budgetSimContentKey, withBudgetSim } from "./budget-sim";
 import { forecastTileContentKey, kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
 import { milestonesAtRisk, weeklyChange, type AtRiskMilestone } from "./forecast-tile-model";
 import { isTaskClosed } from "./task-closed";
@@ -504,7 +504,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
     // The KPI tile grows by cells and text lines when the simulation appears or flips divergent,
     // and by the one-line note when the switch is on but nothing can be simulated.
     // The Forecast tile likewise, by its slots, its at-risk row count and its change line's form.
-    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, showMilestones ? atRisk.length : null, forecastChange)}|${milestonesContentKey(milestoneBuckets, forecast?.kind === "forecast" ? chancesById(forecast.milestones) : undefined, simulationPending)}`,
+    // The burn tile by its simulated line (on/off, the range or which missing input) and its finish band.
+    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, showMilestones ? atRisk.length : null, forecastChange)}|${milestonesContentKey(milestoneBuckets, forecast?.kind === "forecast" ? chancesById(forecast.milestones) : undefined, simulationPending)}|${budgetSimContentKey(forecastBundle?.sim)}`,
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };

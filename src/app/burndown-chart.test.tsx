@@ -62,6 +62,7 @@ const MODEL: ChartModel = {
   frameDiffers: false,
   simFinish: null,
   simCost: null,
+  simCostP80: null,
 };
 
 describe("BurndownChart", () => {
@@ -828,6 +829,22 @@ describe("BurndownChart — simulated bands (§502)", () => {
     const beyond = { kind: "sim" as const, p50: 9_500, p80: "beyond" as const, p95: "beyond" as const, chanceOverBudget: 1, spendDays: 20 };
     const aria = ariaOf(draw({ sim: { finish: { p50: "2026-03-20", p80: null, p95: null }, eur: beyond, hours: beyond } }).container);
     expect(aria).toContain("Simulated: finish (P80) beyond the horizon.");
+  });
+
+  // The cap (one plan length past plan end: 2026-06-28 here) clamps the drawing, never the words.
+  it("names the real P80 and P95 dates and says they are beyond the chart when the cap clamps them", () => {
+    const far = { ...CHART_SIM, finish: { p50: "2026-05-15", p80: "2028-01-10", p95: "2031-06-30" } };
+    const { container } = draw({ sim: far });
+    const aria = ariaOf(container);
+    // The wedge is left out (its P80 date is past the chart), but the P80 cost still reaches the text.
+    expect(aria).toContain(`Simulated: finish (P80) Jan 10, 2028, cost at finish (P80) ${eur(10_200)}.`);
+    expect(aria).toContain("The finish (P80) is beyond the chart's end.");
+    expect(aria).toContain("The latest likely finish (P95), Jun 30, 2031, is beyond the chart's end.");
+    expect(aria).not.toContain("Jun 28, 2026");
+    expect(container.querySelector("[data-sim-cost]")).toBeNull();
+    expect(screen.queryByText("Cost range (sim)")).toBeNull();
+    // Inside the cap nothing is added.
+    expect(ariaOf(draw({ sim: CHART_SIM }).container)).not.toContain("beyond the chart");
   });
 
   // The x domain runs on to the simulated P95 (2026-05-01) while the segments end at plan end (2026-03-31),

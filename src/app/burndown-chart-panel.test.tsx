@@ -277,6 +277,32 @@ describe("BurndownChartPanel — simulated cost on the burn tile (§502)", () =>
     expect(tileLine()?.querySelector("span.text-sm")).toHaveTextContent(/^Cost at finish \(P80\) €10,200$/);
   });
 
+  it("reads a chance that rounds to 0 % or 100 % as <1 % / >99 %, and an exact 0 or 1 as itself", async () => {
+    for (const [chance, shown] of [[0.001, "<1%"], [0.997, ">99%"], [0, "0%"], [1, "100%"]] as const) {
+      const { unmount } = renderTile({ ...CHART_SIM, eur: { ...CHART_SIM.eur, chanceOverBudget: chance } });
+      await act(async () => {});
+      expect(tileLine()).toHaveTextContent(`Cost at finish (P80) €10,200 · ${shown} chance over budget`);
+      unmount();
+    }
+  });
+
+  // The cap length is plan start → plan end: a later plan start shortens it, so the same finish falls past the chart.
+  it("passes the plan start to the chart's x-domain cap", async () => {
+    const far = { ...CHART_SIM, finish: { ...CHART_SIM.finish, p95: "2026-05-15" } };
+    const { container, unmount } = render(
+      <BurndownChartPanel lang="en-US" series={CHART_SERIES} bundle={{ ...bundle, sim: far }} today="2026-02-14" planEnd="2026-03-31" currency="EUR" />,
+    );
+    await act(async () => {});
+    const aria = () => container.querySelector("svg[role='img']")?.getAttribute("aria-label") ?? "";
+    expect(aria()).not.toContain("beyond the chart");
+    unmount();
+    const late = render(
+      <BurndownChartPanel lang="en-US" series={CHART_SERIES} bundle={{ ...bundle, sim: far }} today="2026-02-14" planEnd="2026-03-31" planStart="2026-03-01" currency="EUR" />,
+    );
+    await act(async () => {});
+    expect(late.container.querySelector("svg[role='img']")?.getAttribute("aria-label")).toContain("The latest likely finish (P95), May 15, 2026, is beyond the chart's end.");
+  });
+
   it("reads the hours simulation in the hours unit", async () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, budgetChartUnit: "hours" }));
     renderTile(CHART_SIM);
@@ -299,7 +325,7 @@ describe("BurndownChartPanel — simulated cost on the burn tile (§502)", () =>
     renderTile({ ...CHART_SIM, eur: { kind: "unavailable", reason: "no-spend", spendDays: 60, neededSpendDays: 10 } });
     await act(async () => {});
     expect(tileLine()).toBeNull();
-    expect(screen.getByText("No bookings in the history window yet.")).toBeInTheDocument();
+    expect(screen.getByText("No bookings in the history window.")).toBeInTheDocument();
   });
 
   it("shows nothing simulated when the simulation is off, and no tile line outside the tile", async () => {

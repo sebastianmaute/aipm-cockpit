@@ -130,12 +130,18 @@ function BurndownChartBody({
   }
   // §502 — the bands are drawn shapes only, so the simulated P80 figures reach a screen reader here.
   if (model.simFinish) {
-    const finish = model.simFinish.p80Beyond ? t(lang, "simHistogramBeyond") : formatDayMonthYear(model.simFinish.p80, locale);
+    const sf = model.simFinish;
+    // The REAL P80 date, never the capped one the line is drawn at.
+    const finish = sf.p80Date === null ? t(lang, "simHistogramBeyond") : formatDayMonthYear(sf.p80Date, locale);
     // The hours unit says "hours at finish": "cost" beside an "h" figure misreads.
     const simKey = unit === "eur" ? "burndownAriaSim" : "burndownAriaSimHours";
-    aria.push(model.simCost ? t(lang, simKey, finish, fmt(model.simCost.p80)) : t(lang, "burndownAriaSimFinish", finish));
+    aria.push(model.simCostP80 !== null ? t(lang, simKey, finish, fmt(model.simCostP80)) : t(lang, "burndownAriaSimFinish", finish));
     // The band edge sits on P80 when P95 is past the horizon, so say so rather than let it read as P95 = P80.
-    if (model.simFinish.p95Beyond && !model.simFinish.p80Beyond) aria.push(t(lang, "burndownAriaSimP95Beyond"));
+    if (sf.p95Beyond && !sf.p80Beyond) aria.push(t(lang, "burndownAriaSimP95Beyond"));
+    // A finish past the chart's end is drawn at the end: say so, with the real P95 date, so the capped
+    // edge is not read as a date.
+    if (sf.p80PastChart) aria.push(t(lang, "burndownAriaSimP80PastChart"));
+    if (sf.p95PastChart && sf.p95Date !== null) aria.push(t(lang, "burndownAriaSimP95PastChart", formatDayMonthYear(sf.p95Date, locale)));
   }
   // A marker reads "+€3,000 Vendor", or "−€800 Ops removed" when every entry
   // behind it deleted its bucket. The pure model carries the amount and the

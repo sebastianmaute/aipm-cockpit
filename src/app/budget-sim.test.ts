@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { DatedValue, ForecastFacts, ForecastFactsByUnit } from "./budget-forecast";
 import type { AppForecast } from "./forecast/app-forecast";
 import { MIN_SPEND_WORKING_DAYS } from "./forecast/constants";
-import { computeBudgetSim, withBudgetSim } from "./budget-sim";
+import { BELOW_SCHEDULE_FLOOR, budgetSimContentKey, computeBudgetSim, withBudgetSim, type BudgetSim } from "./budget-sim";
+import type { CostAtFinish } from "./forecast/cost";
 import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 
 const WINDOW = Array.from({ length: 12 }, (_, i) => `2026-10-${String(i + 1).padStart(2, "0")}`);
@@ -81,5 +82,31 @@ describe("withBudgetSim", () => {
 
   it("carries a null sim while the simulation is off", () => {
     expect(withBudgetSim(forecastBundleFixture({ facts: FACTS }), null).sim).toBeNull();
+  });
+});
+
+describe("budgetSimContentKey (§502)", () => {
+  const SIM: CostAtFinish = { kind: "sim", p50: 1, p80: 2, p95: 3, chanceOverBudget: 0.5, spendDays: 20 };
+  const sim = (eur: CostAtFinish, hours: CostAtFinish = SIM, p50: string | null = "2026-11-02"): BudgetSim => ({
+    finish: { p50, p80: p50, p95: p50 }, eur, hours,
+  });
+
+  it("gives every state that changes the burn tile's height its own key", () => {
+    const keys = [
+      budgetSimContentKey(undefined),
+      budgetSimContentKey(sim(SIM)),
+      budgetSimContentKey(sim({ ...SIM, chanceOverBudget: null })),
+      budgetSimContentKey(sim({ ...SIM, p80: "beyond" })),
+      budgetSimContentKey(sim({ kind: "unavailable", reason: "spend-history", spendDays: 2, neededSpendDays: 10 })),
+      budgetSimContentKey(sim({ kind: "unavailable", reason: "no-spend", spendDays: 20, neededSpendDays: 10 })),
+      budgetSimContentKey(sim(BELOW_SCHEDULE_FLOOR, BELOW_SCHEDULE_FLOOR, null)),
+      budgetSimContentKey(sim(SIM, { ...SIM, chanceOverBudget: null })),
+    ];
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("reads off for both an absent and a null sim, and ignores the figures themselves", () => {
+    expect(budgetSimContentKey(null)).toBe(budgetSimContentKey(undefined));
+    expect(budgetSimContentKey(sim({ ...SIM, p50: 999, chanceOverBudget: 0.9 }))).toBe(budgetSimContentKey(sim(SIM)));
   });
 });

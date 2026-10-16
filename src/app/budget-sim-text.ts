@@ -6,6 +6,7 @@
 import { localeFor, t, type Lang } from "./i18n";
 import { formatShare } from "./forecast-format";
 import type { CostAtFinish } from "./forecast/cost";
+import { percentileWord, type SimPercentile } from "./percentile-words";
 
 type Unavailable = Extract<CostAtFinish, { kind: "unavailable" }>;
 type Sim = Extract<CostAtFinish, { kind: "sim" }>;
@@ -22,15 +23,28 @@ export function costUnavailableText(lang: Lang, cost: Unavailable): string {
   }
 }
 
+/** The chance over budget as a share. A chance that rounds to 0 % or 100 % without being exactly that reads
+ *  "<1 %" / ">99 %", so a small risk never shows as none and a near-certain overrun never as certain. */
+export function formatChanceOverBudget(chance: number, locale: string): string {
+  if (chance > 0 && chance < 0.005) return `<${formatShare(0.01, locale)}`;
+  if (chance >= 0.995 && chance < 1) return `>${formatShare(0.99, locale)}`;
+  return formatShare(chance, locale);
+}
+
+/** A percentile row label: the plain word, then "(Pxx)", e.g. "Safe to commit (P80)". */
+function percentileLabel(lang: Lang, p: SimPercentile): string {
+  return `${t(lang, percentileWord(p))} (P${p})`;
+}
+
 /** [term, value] rows: P50, P80, P95, then the chance over budget when there is a budget. `figure`
  *  formats an amount in the surface's unit; a beyond-horizon percentile reads "beyond the horizon". */
 export function costRangeRows(lang: Lang, cost: Sim, figure: (v: number) => string): [string, string][] {
   const show = (v: number | "beyond") => (v === "beyond" ? t(lang, "simHistogramBeyond") : figure(v));
   const rows: [string, string][] = [
-    [t(lang, "budgetSimP50"), show(cost.p50)],
-    [t(lang, "budgetSimP80"), show(cost.p80)],
-    [t(lang, "budgetSimP95"), show(cost.p95)],
+    [percentileLabel(lang, 50), show(cost.p50)],
+    [percentileLabel(lang, 80), show(cost.p80)],
+    [percentileLabel(lang, 95), show(cost.p95)],
   ];
-  if (cost.chanceOverBudget !== null) rows.push([t(lang, "budgetSimChanceOver"), formatShare(cost.chanceOverBudget, localeFor(lang))]);
+  if (cost.chanceOverBudget !== null) rows.push([t(lang, "budgetSimChanceOver"), formatChanceOverBudget(cost.chanceOverBudget, localeFor(lang))]);
   return rows;
 }

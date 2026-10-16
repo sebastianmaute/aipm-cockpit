@@ -23,7 +23,7 @@ import { ForecastToolbar, type ForecastMode, type WhatIfField } from "./forecast
 import { ForecastChart } from "./forecast-chart";
 import { CostTable, MilestoneTable, PercentileTable } from "./forecast-tables";
 import type { ForecastFactsByUnit } from "./budget-forecast";
-import { BELOW_SCHEDULE_FLOOR, simulateCostFromRun } from "./budget-sim";
+import { simulateCostFromRun } from "./budget-sim";
 import { ReportCard } from "./report-table";
 import { EmptyState } from "./empty-state";
 import { isValidIsoDate } from "./forecast/throughput";
@@ -158,10 +158,11 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
   // §502 part 3 — cost at finish from THIS run, so What-if scope moves it; money unit only. Capacity is team
   // availability, so it also scales each drawn spend day (burn scales with headcount): alone it is about
   // cost-neutral — the finish moves, the spend per day moves the other way. Nothing runs while the switch is off.
+  // Below the schedule floor there is no card at all: `InsufficientState` already says the history is short.
   const spendScale = appliedWhatIf.capacityPercent / 100;
   const cost = useMemo(() => {
-    if (!showSimulation || !budgetEnabled || budgetFacts === null) return null;
-    return result.kind === "forecast" ? simulateCostFromRun(result, budgetFacts.eur, "eur", spendScale) : BELOW_SCHEDULE_FLOOR;
+    if (!showSimulation || !budgetEnabled || budgetFacts === null || result.kind !== "forecast") return null;
+    return simulateCostFromRun(result, budgetFacts.eur, "eur", spendScale);
   }, [showSimulation, budgetEnabled, budgetFacts, result, spendScale]);
   const costCard = showSimulation && budgetEnabled && (
     <CostTable lang={lang} cost={cost} currency={plan.currency} bac={budgetFacts?.eur.bac ?? 0} />
@@ -195,10 +196,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         )}
       </div>
       {result.kind === "insufficient" ? (
-        <>
-          <InsufficientState lang={lang} result={result} />
-          {costCard}
-        </>
+        <InsufficientState lang={lang} result={result} />
       ) : (
         <>
           <ForecastCaption lang={lang} forecast={result} historyWindow={historyWindow} />

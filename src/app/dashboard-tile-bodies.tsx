@@ -240,6 +240,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
           bundle={a.forecastBundle}
           today={model.chartDates.today}
           planEnd={model.chartDates.planEnd}
+          planStart={model.chartDates.planStart}
           currency={a.currency}
           compact
           // Undefined when neither control renders, so the panel draws no empty row.

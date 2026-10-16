@@ -33,6 +33,7 @@ const BASE: ChartModel = {
   frameDiffers: false,
   simFinish: null,
   simCost: null,
+  simCostP80: null,
 };
 const model = (over: Partial<ChartModel>): ChartModel => ({ ...BASE, ...over });
 

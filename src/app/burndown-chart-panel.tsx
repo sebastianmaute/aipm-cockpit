@@ -8,7 +8,7 @@
 import { useMemo, type ReactNode } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { currencySymbol, formatCurrency } from "./resource-cost";
-import { formatHours, formatShare } from "./forecast-format";
+import { formatHours } from "./forecast-format";
 import { SimValue } from "./sim-value";
 import { useSettings } from "./use-settings";
 import { SegmentedControl } from "./segmented-control";
@@ -20,7 +20,7 @@ import { splitVariance } from "./budget-history";
 import type { BurndownSeries } from "./budget-burndown";
 import type { ForecastBundle } from "./budget-forecast-bundle";
 import type { CostAtFinish } from "./forecast/cost";
-import { costUnavailableText } from "./budget-sim-text";
+import { costUnavailableText, formatChanceOverBudget } from "./budget-sim-text";
 
 type PanelBundle = Pick<ForecastBundle, "eur" | "hours" | "evHistory" | "history" | "sim">;
 
@@ -47,7 +47,7 @@ function SimTileLine({ lang, cost, unit, currency }: { lang: Lang; cost: CostAtF
   const hours = unit === "hours";
   const line = cost.chanceOverBudget === null
     ? t(lang, hours ? "burndownSimTileLineHoursNoChance" : "burndownSimTileLineNoChance", p80)
-    : t(lang, hours ? "burndownSimTileLineHours" : "burndownSimTileLine", p80, formatShare(cost.chanceOverBudget, locale));
+    : t(lang, hours ? "burndownSimTileLineHours" : "burndownSimTileLine", p80, formatChanceOverBudget(cost.chanceOverBudget, locale));
   return (
     <div>
       <SimValue lang={lang} label={t(lang, hours ? "budgetSimHoursAtFinish" : "budgetSimCostAtFinish")} value={line} wrap />
@@ -90,10 +90,12 @@ function changeTableFor({
 }
 
 export function BurndownChartPanel({
-  lang, series, bundle, today, planEnd, currency, compact = false, detachChangeTable = false, toolbarEnd,
+  lang, series, bundle, today, planEnd, planStart, currency, compact = false, detachChangeTable = false, toolbarEnd,
 }: {
   lang: Lang; series: BurndownSeries; bundle: PanelBundle | null;
   today: string; planEnd: string; currency: string;
+  /** The plan's start: the length of the x-domain cap with the simulation on (`simDomainCap`). */
+  planStart?: string;
   /** True inside the dashboard tile. Spec §5.2 — "the dashboard tile shows the
    *  headline only", with D7 naming "tile carries the split too" as the
    *  REJECTED alternative — so the recorded-change table and its variance
@@ -124,13 +126,13 @@ export function BurndownChartPanel({
   const history = bundle ? bundle.history : null;
   const model = useMemo(
     () => buildChartModel({
-      series, unit, orientation, today, planEnd,
+      series, unit, orientation, today, planEnd, planStart,
       forecast: bundle ? bundle[unit] : null,
       evHistory: bundle ? bundle.evHistory : null,
       history,
       sim: bundle ? bundle.sim : null,
     }),
-    [series, unit, orientation, today, planEnd, bundle, history],
+    [series, unit, orientation, today, planEnd, planStart, bundle, history],
   );
   // Spec §5.2: headline only in the tile — see the `compact` prop doc. A
   // detached table is the caller's to place — see `detachChangeTable`.

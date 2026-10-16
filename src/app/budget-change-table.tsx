@@ -48,6 +48,7 @@ export function BudgetChangeTable({
   sim?: CostAtFinish | null;
 }) {
   const captionId = useId();
+  const simTermId = useId();
   const locale = localeFor(lang);
   const eurUnit = unit === "eur";
   const fmt = (v: number) => (eurUnit ? formatCurrency(v, currency, locale) : formatHours(v, locale));
@@ -137,13 +138,15 @@ export function BudgetChangeTable({
                 <td className={TD_NUM_CLASS}>{signed(row.value)}</td>
               </tr>
             ))}
-            {/* §502 — the simulated range beside the calculated split, never in its place. */}
+            {/* §502 — the simulated range beside the calculated split, never in its place. Its value sits in
+                the "Cumulative" column, which it is not: `headers` names its own row header alone, so a
+                screen reader announces "Cost at finish (sim, P50–P95)" for it, never "Cumulative". */}
             {simRange !== null && (
               <tr>
-                <th scope="row" colSpan={3} className={`${TD_CLASS} text-left font-normal text-muted-foreground`}>
+                <th id={simTermId} scope="row" colSpan={3} className={`${TD_CLASS} text-left font-normal text-muted-foreground`}>
                   {simTerm}
                 </th>
-                <td className={TD_NUM_CLASS}>
+                <td headers={simTermId} className={TD_NUM_CLASS}>
                   <SimValue lang={lang} label={simTerm} value={simRange} />
                 </td>
               </tr>

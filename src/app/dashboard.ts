@@ -272,7 +272,7 @@ export type DashboardModel = {
    *  budgets, or the report/burndown pair could not be built). */
   forecastBundle: ForecastBundle | null;
   /** Dates the burn-down chart needs beyond the series (MR 3 date axis). */
-  chartDates: { today: string; planEnd: string };
+  chartDates: { today: string; planEnd: string; planStart: string };
   /** The buckets' successor-chain resolution — drives the burn-down x-axis span
    *  and the "not one chain" warning. Null when there are no budgets. */
   bucketChain: BucketChain | null;
@@ -502,7 +502,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     burndown,
     currency: input.plan.currency,
     forecastBundle,
-    chartDates: { today, planEnd: input.plan.endDate },
+    chartDates: { today, planEnd: input.plan.endDate, planStart: input.plan.startDate },
     bucketChain,
     evm,
     topRaid: selectTopRaid(input.raid, topRaidN),

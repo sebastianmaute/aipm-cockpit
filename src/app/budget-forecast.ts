@@ -323,11 +323,6 @@ export function computeBudgetForecast(input: BudgetForecastInput): BudgetForecas
   return computeForecastFromFacts(forecastFacts(input));
 }
 
-export function computeBudgetForecastsByUnit(input: BudgetForecastInput): { eur: BudgetForecast; hours: BudgetForecast } {
-  const facts = forecastFactsByUnit(input);
-  return { eur: computeForecastFromFacts(facts.eur), hours: computeForecastFromFacts(facts.hours) };
-}
-
 export type ProjectForecastArgs = {
   buckets: readonly BudgetBucket[]; plan: ResourcePlan; roles: readonly Role[]; resources: readonly Resource[];
   workdayHours: number; holidaySet: ReadonlySet<string>; absences: readonly Absence[];

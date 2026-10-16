@@ -61,6 +61,16 @@ export function computeBudgetSim(forecast: AppForecast | null, facts: ForecastFa
   return result;
 }
 
+/** The signature of everything the budget simulation changes in the burn tile's HEIGHT: whether it is on,
+ *  whether a finish band is drawn, and per unit which line the tile shows (the range with or without the
+ *  chance, or which missing-input reason). Both units, so a unit switch needs no extra input.
+ *  `useMeasuredHeights` has no ResizeObserver, so a state missing here leaves the tile at a stale height. */
+export function budgetSimContentKey(sim: BudgetSim | null | undefined): string {
+  if (sim == null) return "bs:off";
+  const unit = (c: CostAtFinish) => (c.kind === "sim" ? `sim:${c.chanceOverBudget !== null}:${c.p80 === "beyond"}` : c.reason);
+  return `bs:${sim.finish.p50 !== null}:${unit(sim.eur)}:${unit(sim.hours)}`;
+}
+
 /** A NEW bundle with `sim` set; the input bundle is never mutated. */
 export function withBudgetSim(bundle: ForecastBundle, forecast: AppForecast | null): ForecastBundle {
   return { ...bundle, sim: computeBudgetSim(forecast, bundle.facts) };

@@ -223,7 +223,7 @@ export function BudgetReportPanel({
                   chart is near its 640px floor, so the panel's `2xl` side-by-side
                   placement is unreachable here, and the table goes full width
                   below the row instead (spec B, Decision 7). */}
-              <BurndownChartPanel lang={lang} series={burndown} bundle={bundle} today={today} planEnd={plan.endDate} currency={planCurrency} detachChangeTable />
+              <BurndownChartPanel lang={lang} series={burndown} bundle={bundle} today={today} planEnd={plan.endDate} planStart={plan.startDate} currency={planCurrency} detachChangeTable />
               <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
             </>
           }

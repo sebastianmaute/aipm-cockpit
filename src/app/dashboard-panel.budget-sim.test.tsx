@@ -12,6 +12,8 @@ import type { ForecastBundle } from "./budget-forecast-bundle";
 import type { BudgetBucket, Role, Task } from "./types";
 import { workingDaysBefore } from "./working-days";
 import { showForecastView } from "../test/forecast-view";
+import { useMeasuredHeights } from "./use-measured-heights";
+import { budgetSimContentKey } from "./budget-sim";
 
 const seen = vi.hoisted(() => ({ bundles: [] as (ForecastBundle | null)[] }));
 vi.mock("./burndown-chart-panel", async (orig) => {
@@ -22,6 +24,12 @@ vi.mock("./burndown-chart-panel", async (orig) => {
     return <real.BurndownChartPanel {...p} />;
   }
   return { ...real, BurndownChartPanel: Recording };
+});
+
+// A pass-through spy: the real hook runs, and its arguments are observable.
+vi.mock("./use-measured-heights", async (orig) => {
+  const m = await orig<typeof import("./use-measured-heights")>();
+  return { ...m, useMeasuredHeights: vi.fn(m.useMeasuredHeights) };
 });
 
 import { DashboardPanel } from "./dashboard-panel";
@@ -105,5 +113,19 @@ describe("DashboardPanel budget simulation (§502 part 3)", () => {
     // Positive control: the simulation is really on and simulated a cost range.
     expect(lastBundle()?.sim?.eur.kind).toBe("sim");
     expect(screen.getByTitle(budgetDot("R"))).toBeInTheDocument();
+  });
+
+  // The simulated line under the burn chart changes the tile's height with no density, tile-set or flag
+  // change, so the burn tile's own state must reach the measure key (the KPI strip's part changing too
+  // would hide a missing segment, hence the exact suffix).
+  it("hands the measure hook the burn tile's simulation state in the content key", () => {
+    const lastKey = () => vi.mocked(useMeasuredHeights).mock.calls.at(-1)?.[0].contentKey ?? "";
+    renderDashboard();
+    expect(lastKey().endsWith(`|${budgetSimContentKey(undefined)}`)).toBe(true);
+    turnOn();
+    const sim = lastBundle()?.sim;
+    expect(sim?.eur.kind).toBe("sim");
+    expect(lastKey().endsWith(`|${budgetSimContentKey(sim)}`)).toBe(true);
+    expect(budgetSimContentKey(sim)).not.toBe(budgetSimContentKey(undefined));
   });
 });

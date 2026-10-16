@@ -168,6 +168,19 @@ describe("BudgetChangeTable — simulated cost at finish (§502)", () => {
     expect(screen.queryByText(/Cost at finish/)).toBeNull();
   });
 
+  it("associates the value cell with its own row header alone, never the running-total column", () => {
+    for (const [unit, term] of [["eur", "Cost at finish (sim, P50–P95)"], ["hours", "Hours at finish (sim, P50–P95)"]] as const) {
+      const { unmount } = draw({ unit, sim: SIM });
+      const cell = screen.getByRole("group", { name: `${term}, simulated` }).closest("td") as HTMLElement;
+      const headerIds = (cell.getAttribute("headers") ?? "").split(" ").filter(Boolean);
+      // Exactly one header, and it is the row's own: the name a screen reader reads for the cell.
+      expect(headerIds.map((id) => document.getElementById(id)?.textContent?.trim())).toEqual([term]);
+      expect(headerIds.map((id) => document.getElementById(id))).toEqual([screen.getByRole("rowheader", { name: term })]);
+      expect(headerIds.map((id) => document.getElementById(id))).not.toContain(screen.getByRole("columnheader", { name: "Added scope to date" }));
+      unmount();
+    }
+  });
+
   it("names a P95 beyond the horizon in words", () => {
     draw({ sim: { ...SIM, p95: "beyond" } });
     expect(simRow()).toHaveTextContent(`${eur(9_500)} – beyond the horizon`);

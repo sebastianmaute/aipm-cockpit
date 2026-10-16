@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildChartModel, daysBetweenUtc, scaleDate, scaleValue, layoutMarkerLabels, markerBandHeight, markerLabelBoxes,
-  MARKER_LABEL_FONT_PX, estimatedLabelWidth, fitJoinLabel, type ChartInput,
+  MARKER_LABEL_FONT_PX, estimatedLabelWidth, fitJoinLabel, simDomainCap, type ChartInput,
 } from "./burndown-geometry";
 import { CHART_SERIES, CHART_FORECAST, CHART_FORECAST_HOURS, CHART_SIM } from "../test/chart-fixtures";
 import type { BurndownSeries } from "./budget-burndown";
@@ -572,20 +572,21 @@ describe("buildChartModel — simulated bands (§502)", () => {
     frameDiffers: false,
   };
   const withoutSim = (m: ReturnType<typeof buildChartModel>) =>
-    Object.fromEntries(Object.entries(m).filter(([key]) => key !== "simFinish" && key !== "simCost"));
+    Object.fromEntries(Object.entries(m).filter(([key]) => key !== "simFinish" && key !== "simCost" && key !== "simCostP80"));
 
   it("no sim → simFinish and simCost null and the model equals today's", () => {
     for (const sim of [undefined, null]) {
       const m = buildChartModel({ ...base, sim });
       expect(m.simFinish).toBeNull();
       expect(m.simCost).toBeNull();
+      expect(m.simCostP80).toBeNull();
       expect(withoutSim(m)).toEqual(PRE_CHANGE_BASE);
     }
   });
 
   it("draws the P50–P95 finish band with the P80 line and opens the x domain to the P95 date", () => {
     const m = buildChartModel({ ...base, sim: CHART_SIM });
-    expect(m.simFinish).toEqual({ from: "2026-03-20", to: "2026-05-01", p80: "2026-04-10", p80Beyond: false, p95Beyond: false });
+    expect(m.simFinish).toEqual({ from: "2026-03-20", to: "2026-05-01", p80: "2026-04-10", p80Beyond: false, p95Beyond: false, p80Date: "2026-04-10", p95Date: "2026-05-01", p80PastChart: false, p95PastChart: false });
     expect(m.xDomain).toEqual(["2026-01-01", "2026-05-01"]);
   });
 
@@ -626,15 +627,54 @@ describe("buildChartModel — simulated bands (§502)", () => {
 
   it("beyond finish clamps to the last date", () => {
     const p95Beyond = buildChartModel({ ...base, sim: { ...CHART_SIM, finish: { ...CHART_SIM.finish, p95: null } } });
-    expect(p95Beyond.simFinish).toEqual({ from: "2026-03-20", to: "2026-04-10", p80: "2026-04-10", p80Beyond: false, p95Beyond: true });
+    expect(p95Beyond.simFinish).toEqual({ from: "2026-03-20", to: "2026-04-10", p80: "2026-04-10", p80Beyond: false, p95Beyond: true, p80Date: "2026-04-10", p95Date: null, p80PastChart: false, p95PastChart: false });
     expect(p95Beyond.xDomain).toEqual(["2026-01-01", "2026-04-10"]);
     const beyond = { kind: "sim" as const, p50: 9_500, p80: "beyond" as const, p95: "beyond" as const, chanceOverBudget: 1, spendDays: 20 };
     const m = buildChartModel({
       ...base, sim: { finish: { p50: "2026-03-20", p80: null, p95: null }, eur: beyond, hours: beyond },
     });
-    expect(m.simFinish).toEqual({ from: "2026-03-20", to: "2026-03-31", p80: "2026-03-31", p80Beyond: true, p95Beyond: true });
+    expect(m.simFinish).toEqual({ from: "2026-03-20", to: "2026-03-31", p80: "2026-03-31", p80Beyond: true, p95Beyond: true, p80Date: null, p95Date: null, p80PastChart: false, p95PastChart: false });
     expect(m.xDomain).toEqual(["2026-01-01", "2026-03-31"]);
     expect(m.simCost).toBeNull();
+  });
+
+  // Owner-delegated cap: the domain ends at most one plan length past max(last period end, plan end).
+  // The base series runs 2026-01-01 → 2026-03-31 (89 days) with plan end 2026-03-31, so the cap is 2026-06-28.
+  describe("x-domain cap (simDomainCap)", () => {
+    const FAR = { ...CHART_SIM, finish: { p50: "2026-05-15", p80: "2028-01-10", p95: "2031-06-30" } };
+
+    it("caps the domain at one plan length past plan end, and clamps the drawn band to it", () => {
+      expect(simDomainCap("2026-03-31", "2026-03-31", "2026-01-01")).toBe("2026-06-28");
+      const m = buildChartModel({ ...base, sim: FAR });
+      expect(m.xDomain).toEqual(["2026-01-01", "2026-06-28"]);
+      expect(m.simFinish).toMatchObject({ from: "2026-05-15", to: "2026-06-28", p80: "2026-06-28" });
+    });
+
+    it("keeps the real P80 and P95 dates in the model for the text, flagged as past the chart", () => {
+      expect(buildChartModel({ ...base, sim: FAR }).simFinish).toMatchObject({
+        p80Date: "2028-01-10", p95Date: "2031-06-30", p80PastChart: true, p95PastChart: true, p80Beyond: false, p95Beyond: false,
+      });
+      const p95Only = buildChartModel({ ...base, sim: { ...CHART_SIM, finish: { ...CHART_SIM.finish, p95: "2029-01-01" } } });
+      expect(p95Only.simFinish).toMatchObject({ p80: "2026-04-10", p80PastChart: false, p95Date: "2029-01-01", p95PastChart: true, to: "2026-06-28" });
+    });
+
+    it("omits the cost wedge when its P80 date is past the cap, keeping the P80 cost for the text", () => {
+      const m = buildChartModel({ ...base, sim: FAR });
+      expect(m.simCost).toBeNull();
+      expect(m.simCostP80).toBe(10_200);
+      // The wedge is still drawn when only P95 is past the cap: its P80 date is inside the domain.
+      const p95Only = buildChartModel({ ...base, sim: { ...CHART_SIM, finish: { ...CHART_SIM.finish, p95: "2029-01-01" } } });
+      expect(p95Only.simCost).toMatchObject({ at: "2026-04-10" });
+    });
+
+    it("measures the plan length from planStart when given, from the last period end when that is later", () => {
+      expect(buildChartModel({ ...base, planStart: "2026-03-01", sim: FAR }).xDomain).toEqual(["2026-01-01", "2026-04-30"]);
+      expect(simDomainCap("2026-05-31", "2026-03-31", "2026-03-01")).toBe("2026-06-30");
+    });
+
+    it("leaves the switch-off model untouched by planStart", () => {
+      expect(buildChartModel({ ...base, planStart: "2026-03-01" })).toEqual(buildChartModel(base));
+    });
   });
 
   it("domain includes the wedge", () => {

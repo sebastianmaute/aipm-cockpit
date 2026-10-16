@@ -463,9 +463,13 @@ describe("ForecastPanel — cost at finish (§502)", () => {
     expect(within(card()).getByText("Needs 10 working days of booking history in the window (has 4).")).toBeTruthy();
   });
 
-  test("below the schedule floor says which input is missing", () => {
+  // One message, not two: the insufficient state already names the shortfall, so the cost card (and its
+  // missing-schedule line) is not rendered below it.
+  test("below the schedule floor shows only the insufficient state, no cost card", () => {
     renderCost(FULL, true, [...open(4), ...steadyDone(3)]);
-    expect(within(card()).getByText("Not enough finished-task history to simulate the finish yet.")).toBeTruthy();
+    expect(screen.getByText("3 of 10 finished tasks — 7 more needed")).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Cost at finish, simulated" })).toBeNull();
+    expect(screen.queryByText(t("en-US", "budgetSimMissingSchedule"))).toBeNull();
   });
 
   test("the cost card is absent without the simulation switch", () => {

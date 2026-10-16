@@ -613,7 +613,7 @@ describe("ForecastCards — simulated cost at finish (§502)", () => {
   it("says no bookings fell in the window when every sample is zero (no-spend)", () => {
     const sim: BudgetSim = { ...SIM_ON, eur: { kind: "unavailable", reason: "no-spend", spendDays: 60, neededSpendDays: 20 } };
     render(<Cards lang="en-US" forecast={AVAILABLE} sim={sim} />);
-    expect(within(costBlock()).getByText("No bookings in the history window yet.")).toBeInTheDocument();
+    expect(within(costBlock()).getByText("No bookings in the history window.")).toBeInTheDocument();
     expect(screen.queryByText(/working days of booking history/)).toBeNull();
   });
 
