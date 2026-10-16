@@ -101,7 +101,13 @@ describe("the demo week's next actions (§715)", () => {
   // The morning of each day, before its own steps. A row is identified by source and entity: its tier
   // and extra reasons may move during the week (a reminder comes due, a reason clears), its subject may
   // not. A row that belongs to the story but to neither Monday nor Friday goes in DAY_EXTRAS with why.
-  const DAY_EXTRAS: Record<"tue" | "wed" | "thu", string[]> = { tue: [], wed: [], thu: [] };
+  const MIDWEEK = [
+    // Task 25 moved to 2 October on Tuesday: no longer overdue, it waits on the CRM task until Friday.
+    "task-attention open-points:25",
+    // The CRM task carries the blocker Monday adds on camera until it is done on Friday.
+    "task-attention open-points:36",
+  ];
+  const DAY_EXTRAS: Record<"tue" | "wed" | "thu", string[]> = { tue: MIDWEEK, wed: MIDWEEK, thu: MIDWEEK };
   const PREVIOUS: Record<"tue" | "wed" | "thu", DemoDay> = { tue: "mon", wed: "tue", thu: "wed" };
   const subject = (sig: string) => sig.split(" ").slice(1, 3).join(" ");
 

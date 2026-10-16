@@ -1260,6 +1260,150 @@
       "localModifiedAt": "2026-09-18T15:00:00.000Z",
       "resourceId": 2,
       "knowledgeLinks": []
+    },
+    {
+      "id": 37,
+      "taskName": "Fix CRM sync for new registrations",
+      "assignee": "Noah Bennett",
+      "assigneeEmail": "noah.bennett@example.com",
+      "createdDate": "2026-09-18",
+      "startDate": "2026-09-21",
+      "dueDate": "2026-10-09",
+      "originalEstimateMinutes": 240,
+      "lastUpdateDate": "2026-09-18",
+      "priority": "High",
+      "status": "To Do",
+      "blockers": "",
+      "description": "<p>Follow-up from the called-off MVP demo on 18 September.</p>",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "follow-up"
+      ],
+      "dependencies": [],
+      "localModifiedAt": "2026-09-18T16:00:00.000Z",
+      "resourceId": 2,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 38,
+      "taskName": "CRM provisioning fails for sign-ups",
+      "assignee": "Sofia Ramirez",
+      "assigneeEmail": "sofia.ramirez@example.com",
+      "createdDate": "2026-09-18",
+      "startDate": "2026-09-21",
+      "dueDate": "2026-10-09",
+      "originalEstimateMinutes": 240,
+      "lastUpdateDate": "2026-09-18",
+      "priority": "High",
+      "status": "To Do",
+      "blockers": "",
+      "description": "<p>Follow-up from the called-off MVP demo on 18 September.</p>",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "follow-up"
+      ],
+      "dependencies": [],
+      "localModifiedAt": "2026-09-18T16:00:00.000Z",
+      "resourceId": 1,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 39,
+      "taskName": "Erasure requests not reaching the CRM",
+      "assignee": "Sofia Ramirez",
+      "assigneeEmail": "sofia.ramirez@example.com",
+      "createdDate": "2026-09-18",
+      "startDate": "2026-09-21",
+      "dueDate": "2026-10-09",
+      "originalEstimateMinutes": 240,
+      "lastUpdateDate": "2026-09-18",
+      "priority": "High",
+      "status": "To Do",
+      "blockers": "",
+      "description": "<p>Follow-up from the called-off MVP demo on 18 September.</p>",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "follow-up"
+      ],
+      "dependencies": [],
+      "localModifiedAt": "2026-09-18T16:00:00.000Z",
+      "resourceId": 1,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 40,
+      "taskName": "GDPR delete does not propagate to the CRM",
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "createdDate": "2026-09-18",
+      "startDate": "2026-09-21",
+      "dueDate": "2026-10-09",
+      "originalEstimateMinutes": 240,
+      "lastUpdateDate": "2026-09-18",
+      "priority": "High",
+      "status": "To Do",
+      "blockers": "",
+      "description": "<p>Follow-up from the called-off MVP demo on 18 September.</p>",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "follow-up"
+      ],
+      "dependencies": [],
+      "localModifiedAt": "2026-09-18T16:00:00.000Z",
+      "resourceId": 4,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 41,
+      "taskName": "Re-run the MVP demo checklist",
+      "assignee": "Maya Patel",
+      "assigneeEmail": "maya.patel@example.com",
+      "createdDate": "2026-09-18",
+      "startDate": "2026-09-21",
+      "dueDate": "2026-10-09",
+      "originalEstimateMinutes": 240,
+      "lastUpdateDate": "2026-09-18",
+      "priority": "High",
+      "status": "To Do",
+      "blockers": "",
+      "description": "<p>Follow-up from the called-off MVP demo on 18 September.</p>",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "follow-up"
+      ],
+      "dependencies": [],
+      "localModifiedAt": "2026-09-18T16:00:00.000Z",
+      "resourceId": 4,
+      "knowledgeLinks": []
+    },
+    {
+      "id": 42,
+      "taskName": "Prepare the MVP demo re-run",
+      "assignee": "Ava Thompson",
+      "assigneeEmail": "ava.thompson@example.com",
+      "createdDate": "2026-09-18",
+      "startDate": "2026-09-21",
+      "dueDate": "2026-10-09",
+      "originalEstimateMinutes": 240,
+      "lastUpdateDate": "2026-09-18",
+      "priority": "High",
+      "status": "To Do",
+      "blockers": "",
+      "description": "<p>Follow-up from the called-off MVP demo on 18 September.</p>",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "follow-up"
+      ],
+      "dependencies": [],
+      "localModifiedAt": "2026-09-18T16:00:00.000Z",
+      "resourceId": 3,
+      "knowledgeLinks": []
     }
   ],
   "raid": [
@@ -2128,7 +2272,7 @@
       "type": "tm",
       "currency": "EUR",
       "startDate": "2026-07-01",
-      "endDate": "2026-09-30",
+      "endDate": "2026-10-31",
       "status": "open",
       "allocations": [
         {
@@ -3128,6 +3272,17 @@
       "kind": "file",
       "linkKind": "url",
       "addedAt": "2026-09-17T16:05:00.000Z"
+    },
+    {
+      "id": "dl-10",
+      "name": "CRM interface decision (design sign-off)",
+      "url": "https://example.com/cip/crm-interface-decision",
+      "kind": "file",
+      "linkKind": "url",
+      "addedAt": "2026-05-29T15:00:00.000Z",
+      "taskIds": [
+        36
+      ]
     }
   ],
   "insights": [
@@ -3138,7 +3293,7 @@
       "severity": "medium",
       "data": {
         "name": "Identity Platform – T&M",
-        "variancePct": 22,
+        "variancePct": 32,
         "buckets": 3
       },
       "status": "active",
