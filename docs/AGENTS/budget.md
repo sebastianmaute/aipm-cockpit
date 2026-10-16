@@ -412,6 +412,14 @@ comments).
 - ★ A new derived section goes into `DERIVED_EXPORT_SECTION_KEYS`; `SLICE_EXPORT_SECTION_KEYS` is every key
   minus those, and `export-workspace.test.ts` fails if a key is in neither list, because it is not a slice.
 
+## The simulated cost range sits beside the calculated pace (§502 part 3)
+
+★★ The calculated "at current pace" forecast is unchanged by the simulation. It still drives the Budget health dot
+(`paceVacHealth`), the forecast gap and the export pace leg; the simulated cost at finish (`ForecastBundle.sim`)
+sits beside it on the pace card, the burn charts, the tile and the Forecast view, and nothing downstream of those
+three reads it. A change that makes a health figure read `sim` changes what a held-back, opt-in estimate does to a
+colour users act on. Detail: [`forecast.md`](forecast.md) "Budget simulation — part 3".
+
 ## Forecast import (§500)
 
 A bucket card's "Import forecast" opens `ForecastImportModal`; all logic is `useForecastImport`, and the

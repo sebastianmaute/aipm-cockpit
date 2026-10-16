@@ -434,6 +434,125 @@ Dashboard picture: a Forecast tile, a chance chip per milestone and a Next-actio
   the ordinary beyond-horizon case and shows the gap line.
 - ★ Switch OFF → no tile (board or shelf), no chips, no sim action, no recorder; nothing else changes.
 
+## Budget simulation — part 3
+
+Part 3 of the surfaces design (`docs/superpowers/specs/2026-10-15-forecast-simulation-surfaces-design.md`) adds a
+simulated COST AT FINISH beside the Budget forecast's calculated one. Held back with the Forecast view like parts 1
+and 2; nothing renders or runs while `isSimulationActive` is false. Storage is untouched (nothing new is persisted).
+
+- ★★★ **The calculated figure does not move.** The pace forecast ("at current pace") still drives the Budget health
+  dot (`paceVacHealth`), the forecast gap and the export pace leg; the simulation sits BESIDE it. See
+  [`budget.md`](budget.md) "The forecast in exports (§545)".
+- **The engine is `src/app/forecast/cost.ts`** (i18n-free, React-free). `simulateWhen` now also returns each trial's
+  finish day (`trialDays`, a copy taken before the sort; "beyond" = horizon + 1), and `ScheduleForecast` /
+  `AppForecast` carry `trialDays` and `windowDates` (the history window's working days). `spendSamples(dated,
+  windowDates)` turns the pace forecast's own `dated` values (baseline currency, contract basis, never converted again)
+  into per-working-day spend over the SAME window the schedule used (60 working days by default). ★ **First booking** =
+  the earliest `date` with a non-zero value ANYWHERE in `dated`, not only in the window; samples start at
+  max(window start, first booking), so a booking before the window means every window day is a sample, and a young
+  project's idle days before its first booking are not counted as zero spend. A zero entry is not a booking.
+  `simulateCostAtFinish` then walks each trial: `ac` plus one random sample per finish day.
+- ★★ **Beyond trials.** A trial whose finish day is past `MAX_HORIZON_WORKING_DAYS` costs `Infinity`: it counts as over
+  budget (`chanceOverBudget`, null when `bac <= 0`) and a percentile that lands on it reads `"beyond"`, never a number.
+  Such a trial draws nothing, which is why a capacity extreme is cheap and a finish just inside the horizon is the
+  expensive case (see the measured cost below).
+- ★★ **The floors.** The cost range needs BOTH the schedule floor (the schedule run is a `"forecast"`, not
+  insufficient) and the spend floor: at least `MIN_SPEND_WORKING_DAYS` samples, not all zero. Below either it is
+  `{ kind: "unavailable", reason: "schedule-floor" | "spend-history", spendDays, neededSpendDays }`, and every surface
+  shows today's figures plus a line naming which is missing (`budgetSimMissingSchedule` / `budgetSimMissingSpend`).
+- **Seeded.** The rng seed is `seedFrom([...samples, ac, bac, seedTag, "cost"])`, so a rerun is identical and EUR and
+  hours draw from different streams (`seedTag` "eur" / "hours"). It is separate from the schedule's streams, so the
+  cost pass moves no schedule number.
+- **`src/app/budget-sim.ts`.** `computeBudgetSim(forecast, facts)` returns `BudgetSim` (`finish` P50/P80/P95 dates, and
+  `eur` / `hours` `CostAtFinish`), null when the forecast is null (switch off), and `BELOW_SCHEDULE_FLOOR` for both
+  units when the run is insufficient; a single-entry memo is keyed on the `forecast` and `facts` identities.
+  `withBudgetSim(bundle, forecast)` returns a NEW bundle with `sim` added. `simulateCostFromRun(run, facts, seedTag)`
+  takes only `{ trialDays, windowDates }`, so the Forecast view can pass its own What-if-adjusted run.
+- **The bundle.** `ForecastBundle` (`budget-forecast-bundle.ts`) gains `facts` (REQUIRED: the per-unit facts the
+  forecasts were built from, via `computeProjectForecastFacts`) and `sim` (absent, or null, when the simulation is
+  off). A new `ForecastBundle` literal in a test needs `facts` (`FIXTURE_FACTS` in `src/test/forecast-bundle-fixture.ts`).
+- ★★★ **One shared run, a new caller.** `useAppForecast` (`use-app-forecast.ts`) wraps `computeAppForecast` in a
+  `useMemo` and never calls the engine while `active` is false. `workspace-section.tsx` calls it ONCE and feeds both the
+  Budget report tab (`simulation` on `BudgetReportPanel`) and Reports (`budgetSimulation`, forwarded to its embedded
+  Budget report). `active` = the simulation is active AND the holidays are ready AND the tab is `budget-report` or
+  `reports`. The Dashboard's existing run feeds its burn tile through `withBudgetSim`, with no second
+  `computeAppForecast`. All callers pass the SAME collection references; `forecast-shared-run.test.tsx` pins it, and a
+  `.filter()` copy reruns 10,000 trials.
+- **Surfaces.**
+  - Pace card (`budget-forecast-cards.tsx`): a block with P50/P80/P95 cost and the chance over budget, plus the P80
+    hours, rendered ONLY inside the pace-available branch, i.e. only beside a calculated figure. With no calculated
+    figure the card keeps its unavailable message.
+  - Burn charts (`burndown-geometry.ts`, `burndown-chart.tsx`): a finish band (P50 to P95), a P80 line and a cost wedge.
+    ★ With the simulation on, the x domain stretches to the simulated P95 finish (a beyond one clamps to the last date),
+    and the end figures and last period label anchor at plan end; with it off the chart is byte-identical to before.
+    A beyond P95 draws no cost wedge.
+  - Tile (`burndown-chart-panel.tsx`, compact mode): one line "Cost at finish (P80) … · … chance over budget"; when
+    unavailable, the muted missing line.
+  - Change table (`budget-change-table.tsx`): a footer row "Cost at finish (sim)" with the P50 – P95 range; ABSENT when
+    the range is unavailable (the card and tile say why).
+  - Forecast view (`forecast-panel.tsx`, `CostTable` in `forecast-tables.tsx`): a cost card computed from the view's OWN
+    What-if-adjusted run, so moving capacity or scope moves it. It is hidden when the Budget module is off
+    (`budgetEnabled`) and shows "Add a budget" (`budgetSimAddBudget`) when there are no buckets or `bac` is 0.
+    `workspace-section.tsx` computes its facts only on the Forecast tab with the simulation active and the Budget module on.
+- Every simulated figure is a `SimValue` (the sim marking), except the pace card's P50/P80/P95 rows, which sit inside
+  one marked group.
+
+### Measured cost of the cost pass
+
+The extra pass is `simulateCostFromRun` alone, on the main thread, once per committed What-if change (memoised on the
+run). Measured 2026-10-16 in Node through `vite-node` on a synthetic fixture (200 open tasks, a 60-working-day history
+of about 1.33 finished tasks per day, 60 booking days), median of 7 after one warm-up, on a shared machine. A probe,
+not a gate. The cost is 10,000 trials times the days each draws, so it peaks when finish days sit just inside the
+horizon.
+
+| Case | Time |
+|---|---|
+| Default What-if | 13 ms |
+| Capacity 10 % (most trials beyond, so they draw nothing) | 2 ms |
+| Scope +300 % | 56 ms |
+| Scope +300 % with capacity 50 % (worst found) | about 110 ms |
+
+Reproduce from the repo root (expect noise, a few ms either way; the command deletes the file):
+
+```bash
+cat > cost-probe.ts <<'EOF3'
+import { computeScheduleForecast, DEFAULT_WHAT_IF, type WhatIf } from "./src/app/forecast";
+import { simulateCostFromRun } from "./src/app/budget-sim";
+import type { ForecastFacts } from "./src/app/budget-forecast";
+import type { Task } from "./src/app/types";
+import { workingDaysBefore } from "./src/app/working-days";
+const TODAY = "2026-10-14", H: ReadonlySet<string> = new Set();
+const days = [...workingDaysBefore(TODAY, 59, H), TODAY];
+const mk = (id: number, status: string, completedDate?: string) => ({ id, title: "t", dueDate: "", priority: "Medium", status, completedDate }) as Task;
+const tasks = [
+  ...Array.from({ length: 200 }, (_, i) => mk(i + 1, "Open")),
+  ...days.map((d, i) => mk(10_000 + i, "Done", d)),
+  ...days.filter((_, i) => i % 3 === 0).map((d, i) => mk(20_000 + i, "Done", d)),
+];
+const facts: ForecastFacts = {
+  bac: 500_000, ac: 200_000, ev: null, pv: 0, bucketsMissingPercent: [],
+  dated: days.map((date, i) => ({ date, bookedFrom: date, value: 800 + (i % 7) * 120, spread: false })),
+  planEnd: "2027-06-30", today: TODAY, holidaySet: H, hasFixedPrice: false,
+};
+const cases: [string, WhatIf][] = [
+  ["default", DEFAULT_WHAT_IF],
+  ["capacity 10 %", { ...DEFAULT_WHAT_IF, capacityPercent: 10 }],
+  ["scope +300 %", { ...DEFAULT_WHAT_IF, scopePercent: 300 }],
+  ["scope +300 % cap 50 %", { ...DEFAULT_WHAT_IF, scopePercent: 300, capacityPercent: 50 }],
+];
+for (const [label, whatIf] of cases) {
+  const run = computeScheduleForecast({ tasks, milestones: [], today: TODAY, holidaySet: H, window: 60, unit: "tasks", whatIf, howManyTarget: "2026-12-31" });
+  if (run.kind !== "forecast") throw new Error("insufficient");
+  simulateCostFromRun(run, facts, "eur");
+  const ms: number[] = [];
+  for (let i = 0; i < 7; i += 1) { const t0 = performance.now(); simulateCostFromRun(run, facts, "eur"); ms.push(performance.now() - t0); }
+  ms.sort((a, b) => a - b);
+  console.log(label.padEnd(24), "median", ms[3].toFixed(1), "ms");
+}
+EOF3
+npx vite-node cost-probe.ts; rm cost-probe.ts
+```
+
 ## Mutation proof (slice 1)
 
 Four mutants for the slice, run one at a time, each turned red by its own test:
