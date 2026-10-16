@@ -137,13 +137,13 @@
       "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-08-03",
-      "startDate": "2026-08-03",
-      "dueDate": "2026-08-17",
+      "startDate": "2026-09-22",
+      "dueDate": "2026-10-02",
       "originalEstimateMinutes": 1800,
-      "lastUpdateDate": "2026-08-19",
+      "lastUpdateDate": "2026-09-17",
       "priority": "Urgent",
       "status": "To Do",
-      "blockers": "Waiting on database schema review from DBA team.",
+      "blockers": "",
       "description": "",
       "inquiriesSent": 3,
       "group": "Auth Migration",
@@ -186,10 +186,10 @@
       "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "createdDate": "2026-08-21",
-      "startDate": "2026-08-24",
-      "dueDate": "2026-09-07",
+      "startDate": "2026-10-05",
+      "dueDate": "2026-10-09",
       "originalEstimateMinutes": 1080,
-      "lastUpdateDate": "2026-08-21",
+      "lastUpdateDate": "2026-09-17",
       "priority": "High",
       "status": "To Do",
       "blockers": "",
@@ -224,13 +224,13 @@
       "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-08-17",
-      "startDate": "2026-08-17",
-      "dueDate": "2026-09-10",
+      "startDate": "2026-09-22",
+      "dueDate": "2026-10-09",
       "originalEstimateMinutes": 600,
-      "lastUpdateDate": "2026-08-24",
+      "lastUpdateDate": "2026-09-17",
       "priority": "High",
       "status": "To Do",
-      "blockers": "Pending DBA approval on dry-run plan.",
+      "blockers": "",
       "blockerLog": [
         {
           "id": 1,
@@ -279,10 +279,10 @@
       "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-08-24",
-      "startDate": "2026-09-01",
-      "dueDate": "2026-09-24",
+      "startDate": "2026-10-05",
+      "dueDate": "2026-10-16",
       "originalEstimateMinutes": 1920,
-      "lastUpdateDate": "2026-08-24",
+      "lastUpdateDate": "2026-09-17",
       "priority": "Medium",
       "status": "To Do",
       "blockers": "",
@@ -316,10 +316,10 @@
       "assignee": "Noah Bennett",
       "assigneeEmail": "noah.bennett@example.com",
       "createdDate": "2026-08-24",
-      "startDate": "2026-09-25",
-      "dueDate": "2026-10-05",
+      "startDate": "2026-10-12",
+      "dueDate": "2026-10-28",
       "originalEstimateMinutes": 1440,
-      "lastUpdateDate": "2026-08-24",
+      "lastUpdateDate": "2026-09-17",
       "priority": "Medium",
       "status": "To Do",
       "blockers": "",
@@ -357,9 +357,9 @@
       "assignee": "Ava Thompson",
       "assigneeEmail": "ava.thompson@example.com",
       "createdDate": "2026-08-13",
-      "dueDate": "2026-10-13",
+      "dueDate": "2026-10-30",
       "originalEstimateMinutes": 1200,
-      "lastUpdateDate": "2026-08-13",
+      "lastUpdateDate": "2026-09-17",
       "priority": "Low",
       "status": "To Do",
       "blockers": "",
@@ -391,7 +391,8 @@
           "html": "<p>Update Confluence runbook + internal API docs. Add a runbook for token rotation incidents.</p>",
           "text": "Update Confluence runbook + internal API docs. Add a runbook for token rotation incidents."
         }
-      ]
+      ],
+      "startDate": "2026-10-20"
     },
     {
       "id": 10,
@@ -399,9 +400,9 @@
       "assignee": "Sofia Ramirez",
       "assigneeEmail": "sofia.ramirez@example.com",
       "createdDate": "2026-08-24",
-      "dueDate": "2026-10-20",
+      "dueDate": "2026-11-04",
       "originalEstimateMinutes": 960,
-      "lastUpdateDate": "2026-08-24",
+      "lastUpdateDate": "2026-09-17",
       "priority": "Urgent",
       "status": "To Do",
       "blockers": "",
@@ -431,7 +432,8 @@
           "html": "<p>Maintenance window: Sun 02:00-06:00 UTC. Rollback via DNS flip (60s TTL pre-staged). Status page banner from -30min.</p>",
           "text": "Maintenance window: Sun 02:00-06:00 UTC. Rollback via DNS flip (60s TTL pre-staged). Status page banner from -30min."
         }
-      ]
+      ],
+      "startDate": "2026-10-29"
     },
     {
       "id": 11,
@@ -439,9 +441,9 @@
       "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-08-10",
-      "dueDate": "2026-09-21",
+      "dueDate": "2026-10-12",
       "originalEstimateMinutes": 480,
-      "lastUpdateDate": "2026-08-10",
+      "lastUpdateDate": "2026-09-17",
       "priority": "Medium",
       "status": "To Do",
       "blockers": "",
@@ -472,7 +474,7 @@
       "createdDate": "2026-08-24",
       "dueDate": "2026-11-05",
       "originalEstimateMinutes": 240,
-      "lastUpdateDate": "2026-08-24",
+      "lastUpdateDate": "2026-09-17",
       "priority": "Low",
       "status": "To Do",
       "blockers": "",
@@ -934,15 +936,14 @@
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-06-01",
       "startDate": "2026-07-13",
-      "dueDate": "2026-07-17",
+      "dueDate": "2026-09-18",
       "originalEstimateMinutes": 480,
       "timeSpentMinutes": 480,
-      "lastUpdateDate": "2026-08-21",
+      "lastUpdateDate": "2026-09-18",
       "priority": "Medium",
-      "status": "Done",
+      "status": "To Do",
       "blockers": "",
       "description": "",
-      "completedDate": "2026-08-21",
       "inquiriesSent": 0,
       "group": "MVP",
       "labels": [
@@ -951,6 +952,10 @@
       "dependencies": [
         {
           "taskId": 24,
+          "type": "FS"
+        },
+        {
+          "taskId": 36,
           "type": "FS"
         }
       ],
@@ -962,6 +967,14 @@
           "timestamp": "2026-07-14T09:00:00.000Z",
           "html": "<p>Demo moved to August with the customer's agreement while the SDK is late.</p>",
           "text": "Demo moved to August with the customer's agreement while the SDK is late.",
+          "authorResourceId": 4,
+          "authorName": "Maya Patel"
+        },
+        {
+          "id": 2,
+          "timestamp": "2026-09-18T15:00:00.000Z",
+          "html": "<p>Demo called off this morning: provisioning to the CRM fails, so a new registration never reaches the CRM.</p>",
+          "text": "Demo called off this morning: provisioning to the CRM fails, so a new registration never reaches the CRM.",
           "authorResourceId": 4,
           "authorName": "Maya Patel"
         }
@@ -998,8 +1011,8 @@
       "assignee": "Maya Patel",
       "assigneeEmail": "maya.patel@example.com",
       "createdDate": "2026-08-24",
-      "startDate": "2026-08-31",
-      "dueDate": "2026-09-11",
+      "startDate": "2026-09-28",
+      "dueDate": "2026-10-07",
       "originalEstimateMinutes": 1440,
       "timeSpentMinutes": 600,
       "lastUpdateDate": "2026-09-15",
@@ -1217,6 +1230,36 @@
       "dependencies": [],
       "resourceId": 5,
       "knowledgeLinks": []
+    },
+    {
+      "id": 36,
+      "taskName": "Integrate CRM provisioning",
+      "assignee": "Noah Bennett",
+      "assigneeEmail": "noah.bennett@example.com",
+      "createdDate": "2026-09-01",
+      "startDate": "2026-09-01",
+      "dueDate": "2026-09-16",
+      "originalEstimateMinutes": 7200,
+      "lastUpdateDate": "2026-09-18",
+      "priority": "Urgent",
+      "status": "To Do",
+      "blockers": "",
+      "description": "<p>Provision every customer lifecycle event (register, change, delete) from the identity platform to the CRM.</p>",
+      "inquiriesSent": 0,
+      "group": "Auth Migration",
+      "labels": [
+        "backend",
+        "crm"
+      ],
+      "dependencies": [
+        {
+          "taskId": 24,
+          "type": "FS"
+        }
+      ],
+      "localModifiedAt": "2026-09-18T15:00:00.000Z",
+      "resourceId": 2,
+      "knowledgeLinks": []
     }
   ],
   "raid": [
@@ -1228,7 +1271,7 @@
       "severity": "High",
       "probability": 3,
       "impact": 5,
-      "status": "Mitigated",
+      "status": "Closed",
       "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
@@ -1257,7 +1300,8 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
-      ]
+      ],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 2,
@@ -1276,7 +1320,6 @@
       "raisedDate": "2026-07-27",
       "causedByRaidIds": [],
       "stakeholderIds": [
-        1,
         6
       ],
       "knowledgeLinks": [],
@@ -1289,7 +1332,8 @@
           "authorResourceId": 4,
           "authorName": "Maya Patel"
         }
-      ]
+      ],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 3,
@@ -1320,7 +1364,8 @@
           "authorResourceId": 2,
           "authorName": "Noah Bennett"
         }
-      ]
+      ],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 4,
@@ -1339,10 +1384,11 @@
         5
       ],
       "raisedDate": "2026-08-17",
-      "targetDate": "2026-09-22",
+      "targetDate": "2026-10-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "knowledgeLinks": []
+      "knowledgeLinks": [],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 5,
@@ -1358,7 +1404,8 @@
       "raisedDate": "2026-08-04",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "knowledgeLinks": []
+      "knowledgeLinks": [],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 6,
@@ -1377,7 +1424,8 @@
       "closedDate": "2026-08-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "knowledgeLinks": []
+      "knowledgeLinks": [],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 7,
@@ -1392,10 +1440,11 @@
         8
       ],
       "raisedDate": "2026-08-13",
-      "targetDate": "2026-09-25",
+      "targetDate": "2026-10-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "knowledgeLinks": []
+      "knowledgeLinks": [],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 8,
@@ -1403,7 +1452,7 @@
       "title": "SSO redirect loop on Safari",
       "description": "SameSite=Strict cookie + cross-origin redirect chain triggers Safari ITP loop — surfaced in testing.",
       "severity": "High",
-      "status": "In Progress",
+      "status": "Resolved",
       "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
@@ -1428,7 +1477,8 @@
           "authorResourceId": 4,
           "authorName": "Maya Patel"
         }
-      ]
+      ],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 9,
@@ -1436,7 +1486,7 @@
       "title": "Rate-limit counter not resetting correctly",
       "description": "Sliding-window counter in Redis does not reset on TTL expiry under high concurrency; causes spurious 429s.",
       "severity": "High",
-      "status": "Open",
+      "status": "Resolved",
       "owner": "Noah Bennett",
       "ownerEmail": "noah.bennett@example.com",
       "ownerResourceId": 2,
@@ -1468,7 +1518,8 @@
           "authorResourceId": 4,
           "authorName": "Maya Patel"
         }
-      ]
+      ],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 10,
@@ -1488,7 +1539,8 @@
       "closedDate": "2026-08-25",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "knowledgeLinks": []
+      "knowledgeLinks": [],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 11,
@@ -1504,10 +1556,9 @@
         7
       ],
       "raisedDate": "2026-08-13",
-      "targetDate": "2026-09-24",
+      "targetDate": "2026-10-15",
       "causedByRaidIds": [],
       "stakeholderIds": [
-        1,
         5
       ],
       "knowledgeLinks": [],
@@ -1520,7 +1571,8 @@
           "authorResourceId": 4,
           "authorName": "Maya Patel"
         }
-      ]
+      ],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 12,
@@ -1541,7 +1593,8 @@
       "closedDate": "2026-08-13",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "knowledgeLinks": []
+      "knowledgeLinks": [],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 13,
@@ -1549,7 +1602,7 @@
       "title": "DBA schema approval for migration tables",
       "description": "DBA must approve 3 new tables + 2 indexes before migration script can run in prod.",
       "severity": "High",
-      "status": "Open",
+      "status": "Delivered",
       "owner": "Maya Patel",
       "ownerEmail": "maya.patel@example.com",
       "ownerResourceId": 4,
@@ -1574,7 +1627,8 @@
           "authorResourceId": 4,
           "authorName": "Maya Patel"
         }
-      ]
+      ],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
     },
     {
       "id": 14,
@@ -1627,7 +1681,24 @@
           "authorResourceId": 1,
           "authorName": "Sofia Ramirez"
         }
-      ]
+      ],
+      "localModifiedAt": "2026-09-17T10:00:00.000Z"
+    },
+    {
+      "id": 15,
+      "category": "I",
+      "title": "GDPR erasure requests do not reach the CRM",
+      "description": "Account deletions are executed in the customer directory, but the CRM keeps the customer record: provisioning to the CRM fails.",
+      "severity": "High",
+      "status": "Open",
+      "linkedTaskIds": [
+        36
+      ],
+      "raisedDate": "2026-09-18",
+      "causedByRaidIds": [],
+      "stakeholderIds": [],
+      "knowledgeLinks": [],
+      "localModifiedAt": "2026-09-18T15:00:00.000Z"
     }
   ],
   "absences": [
@@ -1662,17 +1733,6 @@
       "note": "Kubernetes cert",
       "localModifiedAt": "",
       "resourceId": 3
-    },
-    {
-      "id": 4,
-      "assignee": "Maya Patel",
-      "assigneeEmail": "maya.patel@example.com",
-      "startDate": "2026-09-21",
-      "endDate": "2026-09-22",
-      "type": "other",
-      "note": "Offsite leadership summit",
-      "localModifiedAt": "",
-      "resourceId": 4
     },
     {
       "id": 5,
@@ -1891,20 +1951,20 @@
       "firstName": "Maya",
       "lastName": "Patel",
       "roleId": 4,
-      "utilizationMode": "percent",
+      "utilizationMode": "hours",
       "utilization": {
-        "2026-03": 50,
-        "2026-04": 50,
-        "2026-05": 50,
-        "2026-06": 50,
-        "2026-07": 50,
-        "2026-08": 50,
-        "2026-09": 60,
-        "2026-10": 60,
-        "2026-11": 40,
-        "2026-12": 30,
-        "2027-01": 40,
-        "2027-02": 40
+        "2026-03": 88,
+        "2026-04": 88,
+        "2026-05": 84,
+        "2026-06": 88,
+        "2026-07": 92,
+        "2026-08": 84,
+        "2026-09": 240,
+        "2026-10": 106,
+        "2026-11": 67,
+        "2026-12": 55,
+        "2027-01": 67,
+        "2027-02": 64
       },
       "email": "maya.patel@example.com",
       "title": "Project Manager",
@@ -2654,14 +2714,14 @@
     {
       "id": 5,
       "name": "MVP target",
-      "date": "2026-07-17",
-      "achievedDate": "2026-08-21",
+      "date": "2026-09-18",
       "linkedTaskIds": [
         23,
         24,
-        25
+        25,
+        36
       ],
-      "description": "<p>First customer on self-registration through the vendor SDK. Slipped from 17 July to 21 August while the vendor's SDK was late (RAID #14).</p>"
+      "description": "<p>The MVP is the customer lifecycle working end to end: register (sign-up, email verification, MFA enrolment), change (email or profile change, a B2B user moving company account) and delete (account closure, GDPR erasure), with existing customers read from the legacy shop database and every lifecycle event provisioned to the CRM and the customer directory.</p><p>It was <strong>not operational</strong> on 18 September: registration works on screen, but provisioning to the CRM fails, so new customers never reach the CRM and erasure requests do not propagate.</p>"
     },
     {
       "id": 6,
@@ -2781,7 +2841,8 @@
           "url": "https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Steering-Deck-Q2.pptx",
           "kind": "file"
         }
-      ]
+      ],
+      "email": "elena.fischer@example.com"
     },
     {
       "id": 2,
@@ -2928,6 +2989,13 @@
         "date": "2026-10-13",
         "title": "Q4 steering review",
         "agenda": "Migration readiness, load-test results, go-live gate decision.",
+        "location": "Teams"
+      },
+      {
+        "id": 2,
+        "date": "2026-09-24",
+        "title": "Steering — MVP slip",
+        "agenda": "MVP slip and recovery plan, CRM provisioning connector change, MFA change for the SSO scope.",
         "location": "Teams"
       }
     ],

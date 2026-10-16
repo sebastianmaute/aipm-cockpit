@@ -1,6 +1,6 @@
 // §715 E — the demo week's on-camera steps as a data fixture.
 import { describe, expect, it } from "vitest";
-import { applyDemoWeek, DEMO_DUPLICATE_PAIRS, DEMO_WEEK_DATES } from "./demo-week";
+import { applyDemoWeek, DEMO_DUPLICATE_PAIRS, DEMO_MAYA_RELIEVED_HOURS, DEMO_WEEK_DATES } from "./demo-week";
 
 interface Row { id: number; [k: string]: unknown }
 interface Raw {
@@ -28,7 +28,7 @@ function tinyRaw(): Raw {
     stakeholders: [{ id: 1, name: "Elena Fischer", influence: "High", interest: "High", raci: {} }],
     resources: [
       { id: 2, firstName: "Noah", lastName: "Bennett", roleId: 1, utilization: {} },
-      { id: 4, firstName: "Maya", lastName: "Patel", roleId: 1, utilization: { "2026-09": 140 } },
+      { id: 4, firstName: "Maya", lastName: "Patel", roleId: 1, utilizationMode: "hours", utilization: { "2026-09": 240 } },
     ],
     roles: [{ id: 1, disciplineId: 1, gradeId: 4, internalRate: 95, externalRate: 145 }],
     disciplines: [{ id: 1, name: "Developer" }],
@@ -66,7 +66,7 @@ describe("applyDemoWeek", () => {
     expect(fri.changes.every((c) => c.status === "Approved")).toBe(true);
     expect(byName(fri.raid, "title", "GDPR erasure requests do not reach the CRM")).toMatchObject({ status: "Resolved", owner: "Noah Bennett" });
     expect(byName(fri.raid, "title", "connector licence lead time")).toMatchObject({ severity: "Medium", status: "Open" });
-    expect(fri.resources.find((r) => r.id === 4)!.utilization).toMatchObject({ "2026-09": 100 });
+    expect(fri.resources.find((r) => r.id === 4)!.utilization).toMatchObject({ "2026-09": DEMO_MAYA_RELIEVED_HOURS });
   });
 
   it("leaves one task of each duplicate pair after Tuesday", () => {

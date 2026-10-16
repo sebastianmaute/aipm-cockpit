@@ -24,6 +24,7 @@ export const DEMO_GDPR_ISSUE = "GDPR erasure requests do not reach the CRM";
 export const DEMO_NEW_MEMBER = { firstName: "Lukas", lastName: "Brandt" } as const;
 export const DEMO_DPO = "Northwind DPO";
 export const DEMO_LICENCE_RISK = "connector licence lead time";
+export const DEMO_MAYA_RELIEVED_HOURS = 160;
 
 const ORDER: readonly DemoDay[] = ["mon", "tue", "wed", "thu", "fri"];
 
@@ -86,8 +87,10 @@ const DAYS: Record<DemoDay, (ws: Ws) => void> = {
       startDate: "2026-09-28", endDate: "2026-10-02", type: "vacation", note: "Planned vacation",
       localModifiedAt: "", resourceId: noah.id,
     });
+    // Maya is planned in hours (percent mode caps at 100 %, so it cannot over-allocate): 160 h of
+    // September's 176 working hours relieves her over-allocation.
     const maya = findResource(ws, "Maya", "Patel");
-    maya.utilization = { ...(maya.utilization as Record<string, number>), "2026-09": 100 };
+    maya.utilization = { ...(maya.utilization as Record<string, number>), "2026-09": DEMO_MAYA_RELIEVED_HOURS };
     Object.assign(find(ws, "tasks", "taskName", DEMO_DUPLICATE_PAIRS[0][1]), {
       assignee: `${DEMO_NEW_MEMBER.firstName} ${DEMO_NEW_MEMBER.lastName}`, resourceId: memberId, lastUpdateDate: "2026-09-23",
     });
