@@ -14,7 +14,8 @@ longer carries its own changelog comment.
 
 - **Edit project saves with a Save button**, no longer a second "Edit project" label.
 - **New project offers Import workspace file on its first window**, beside Skip, so importing a saved project
-  no longer needs Skip first. With AI off it stays on the details step, which is then the first window.
+  no longer needs Skip first. With AI off it stays on the details step, which is then the first window; with AI
+  on, the details step offers it again once you have filled them in and come back.
 - **The demo project has more recent history (§502).** Eight more tasks, finished ones from July to
   September and two open ones before Rollout, and tasks linked to the open milestones, so the demo has enough
   recent completions to forecast from. The demo still opens with simulation off.
