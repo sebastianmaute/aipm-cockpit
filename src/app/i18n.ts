@@ -3725,6 +3725,7 @@ const enUS = {
   budgetSimHoursP80: "Hours at finish (P80)",
   budgetSimMissingSchedule: "Not enough finished tasks to simulate the finish yet.",
   budgetSimMissingSpend: "Needs {0} working days with bookings in the window (has {1}).",
+  budgetSimAddBudget: "Add a budget to see the cost at finish.",
   burndownSimFinishRange: "Finish range (sim)",
   burndownSimCostRange: "Cost range (sim)",
   burndownAriaSim: "Simulated: finish (P80) {0}, cost at finish (P80) {1}.",

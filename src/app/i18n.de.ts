@@ -3439,6 +3439,7 @@ export const de: Record<TranslationKey, string> = {
   budgetSimHoursP80: "Stunden zum Abschluss (P80)",
   budgetSimMissingSchedule: "Noch nicht genug abgeschlossene Aufgaben, um den Abschluss zu simulieren.",
   budgetSimMissingSpend: "Benötigt {0} Arbeitstage mit Buchungen im Zeitraum (vorhanden: {1}).",
+  budgetSimAddBudget: "Legen Sie ein Budget an, um die Kosten zum Abschluss zu sehen.",
   burndownSimFinishRange: "Abschlussspanne (sim)",
   burndownSimCostRange: "Kostenspanne (sim)",
   burndownAriaSim: "Simuliert: Abschluss (P80) {0}, Kosten zum Abschluss (P80) {1}.",

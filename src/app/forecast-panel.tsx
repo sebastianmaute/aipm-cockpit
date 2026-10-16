@@ -21,7 +21,9 @@ import {
 import { DEFAULT_HISTORY_WINDOW, type ForecastUnit, type HistoryWindow } from "./forecast/constants";
 import { ForecastToolbar, type ForecastMode, type WhatIfField } from "./forecast-toolbar";
 import { ForecastChart } from "./forecast-chart";
-import { MilestoneTable, PercentileTable } from "./forecast-tables";
+import { CostTable, MilestoneTable, PercentileTable } from "./forecast-tables";
+import type { ForecastFactsByUnit } from "./budget-forecast";
+import { BELOW_SCHEDULE_FLOOR, simulateCostFromRun } from "./budget-sim";
 import { ReportCard } from "./report-table";
 import { EmptyState } from "./empty-state";
 import { isValidIsoDate } from "./forecast/throughput";
@@ -83,6 +85,8 @@ interface Props {
   isPopout?: boolean;
   /** The project's "Use Monte Carlo forecasting" switch. On, the Dashboard's simulated cells use the engine defaults, so this view says so once its own settings differ. */
   showSimulation?: boolean;
+  /** The pace forecast's facts (`computeProjectForecastFacts`) for the cost-at-finish card; null when the Budget module is off or there are no buckets. */
+  budgetFacts?: ForecastFactsByUnit | null;
   /** Deep-link target (`ForecastPanelDeepLinked`): the milestone row to flash, and the box it is queried in. */
   flashMilestoneId?: number | null;
   milestonesRef?: React.Ref<HTMLDivElement>;
@@ -105,7 +109,7 @@ export function ForecastPanelDeepLinked(props: Omit<Props, "flashMilestoneId" | 
   return <ForecastPanel {...props} flashMilestoneId={flashId} milestonesRef={containerRef} />;
 }
 
-export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, showSimulation = false, flashMilestoneId = null, milestonesRef }: Props) {
+export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, showSimulation = false, budgetFacts = null, flashMilestoneId = null, milestonesRef }: Props) {
   const [mode, setMode] = useState<ForecastMode>("quick");
   const [unit, setUnit] = useState<ForecastUnit>("tasks");
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>(DEFAULT_HISTORY_WINDOW);
@@ -149,6 +153,16 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
     [tasks, milestones, today, holidaySet, historyWindow, unit, appliedWhatIf, howManyTarget],
   );
 
+  // §502 part 3 — cost at finish from THIS run, so What-if capacity and scope move it; money unit only.
+  // Nothing runs while the simulation switch is off.
+  const cost = useMemo(() => {
+    if (!showSimulation || budgetFacts === null) return null;
+    return result.kind === "forecast" ? simulateCostFromRun(result, budgetFacts.eur, "eur") : BELOW_SCHEDULE_FLOOR;
+  }, [showSimulation, budgetFacts, result]);
+  const costCard = showSimulation && (
+    <CostTable lang={lang} cost={cost} currency={plan.currency} bac={budgetFacts?.eur.bac ?? 0} />
+  );
+
   const commitWhatIf = (field: WhatIfField, raw: string): boolean => {
     const next = parseWhatIf(whatIf, field, raw, open.length);
     if (next) setWhatIf(next);
@@ -177,12 +191,20 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         )}
       </div>
       {result.kind === "insufficient" ? (
-        <InsufficientState lang={lang} result={result} />
+        <>
+          <InsufficientState lang={lang} result={result} />
+          {costCard}
+        </>
       ) : (
         <>
           <ForecastCaption lang={lang} forecast={result} historyWindow={historyWindow} />
           <ForecastChart lang={lang} forecast={result} today={today} holidaySet={holidaySet} />
-          <PercentileTable lang={lang} forecast={result} target={howManyTarget} today={today} maxTarget={maxTarget} onTargetChange={setTarget} />
+          <div className="flex flex-col gap-4 lg:flex-row">
+            <div className="min-w-0 flex-1">
+              <PercentileTable lang={lang} forecast={result} target={howManyTarget} today={today} maxTarget={maxTarget} onTargetChange={setTarget} />
+            </div>
+            {costCard && <div className="min-w-0 lg:w-96">{costCard}</div>}
+          </div>
           <div ref={milestonesRef}>
             <MilestoneTable lang={lang} milestones={milestones} chances={result.milestones} whatIf={mode === "whatif"} flashId={flashMilestoneId} />
           </div>

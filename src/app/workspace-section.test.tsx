@@ -4,21 +4,18 @@ import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 import { showForecastView } from "../test/forecast-view";
+import { Wrapper, makeProps } from "../test/workspace-section-harness";
 import type React from "react";
-import { WorkspaceProvider, useWorkspace } from "./workspace-context";
-import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
+import { useWorkspace } from "./workspace-context";
+import { useWorkspaceTab } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
-import { FiltersProvider, useFilters } from "./filters-context";
+import { useFilters } from "./filters-context";
 import { WorkspaceSection } from "./workspace-section";
 import type { WorkspaceSectionProps } from "./workspace-section";
 import { useSettings } from "./use-settings";
 import { SINGLE_TENANT_ASSET_PARTITION } from "./document-assets-schema";
 import { __resetSafeModeCache } from "./safe-mode";
-import { defaultSettings } from "./settings-types";
-import { createRef, useEffect } from "react";
-import type { ToolDispatcher } from "./chat-tools";
-import type { ActivityEntry } from "./activity-log";
-import type { Absence, Shift } from "./types";
+import { useEffect } from "react";
 import { saveActualsCache } from "./timelog-actuals-store";
 import type { FeatureModuleId } from "./feature-modules";
 import type { SuggestedAction } from "./next-actions/types";
@@ -130,123 +127,6 @@ vi.mock("./budget-panel", () => ({
     return <div data-testid="budget-panel" />;
   },
 }));
-
-function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSectionProps {
-  return {
-    today: "2030-01-01",
-    // Required on the pane contract, so a missed thread from task-manager is a
-    // typecheck error rather than a silently badge-less register.
-    documentsByEntity: new Map(),
-    holidaySet: new Set<string>(),
-    workspaceRef: createRef<HTMLElement | null>(),
-    resetWorkspaceSize: vi.fn(),
-    workspaceCollapsed: false,
-    setWorkspaceCollapsed: vi.fn(),
-    dispatcher: {} as ToolDispatcher,
-    // §548/§596 — required on the pane contract for the same reason as the line
-    // above: an optional scope reader that nobody threads is a silently
-    // unguarded chat turn, not a visible failure.
-    getScopeEpoch: () => 0,
-    isSwapInFlight: () => false,
-    handleGanttBarUpdate: vi.fn(),
-    handleCancelEdit: vi.fn(),
-    setTaskModalOpen: vi.fn(),
-    contactsList: [],
-    onCreateResource: vi.fn(() => 1),
-    handleClearRaidTaskFilter: vi.fn(),
-    handleClearChangeTaskFilter: vi.fn(),
-    handleSaveRaidItem: vi.fn(),
-    handleDeleteRaidItem: vi.fn(),
-    changes: [],
-    handleSaveChange: vi.fn(),
-    handleDeleteChange: vi.fn(),
-    handleChangeStatusChange: vi.fn(),
-    stakeholders: [],
-    handleSaveStakeholder: vi.fn(),
-    handleDeleteStakeholder: vi.fn(),
-    handleCreateMitigationTaskFromRaid: vi.fn() as (raidId: number) => number | null,
-    handleJumpToTaskFromRaid: vi.fn(),
-    onOpenNotes: vi.fn(),
-    onOpenChangeNotes: vi.fn(),
-    activityLog: [] as ActivityEntry[],
-    logActivity: vi.fn(),
-    logActivityChanges: vi.fn(),
-    logActivityAs: vi.fn(),
-    handleClearActivityLog: vi.fn(),
-    handleOpenAddAbsence: vi.fn(),
-    handleEditAbsence: vi.fn() as (absence: Absence) => void,
-    handleOpenShiftEditor: vi.fn() as (existingShift: Shift | null, assignee: { display: string; email: string }) => void,
-    onAssignRoleById: vi.fn(),
-    onSetUtilization: vi.fn(),
-    overAllocatedPct: 100,
-    onReassignTask: vi.fn(),
-    onRescheduleTask: vi.fn(),
-    onSetAllUtilizationMode: vi.fn(),
-    onSetAbsenceOverride: vi.fn(),
-    onSetPlanWindow: vi.fn(),
-    onSetBudgetFollowsPlan: vi.fn(),
-    onEditResource: vi.fn(),
-    onAddResource: vi.fn(),
-    onChangeBudgets: vi.fn(),
-    onRefreshFx: vi.fn(),
-    mode: "file",
-    projects: [],
-    currentProjectId: null,
-    projectStakeholderNames: [],
-    projectAddressBook: [],
-    projectResources: [],
-    projectSettings: defaultSettings,
-    onChangeProjectSettings: vi.fn(),
-    onSwitchProject: vi.fn(),
-    onCreateProject: vi.fn(),
-    onUpdateCurrentProject: vi.fn(),
-    onDeleteProject: vi.fn(),
-    onExportCurrentProject: vi.fn(),
-    onLoadProjectFromFile: vi.fn(),
-    onMigrateProjectToTurso: vi.fn(),
-    trends: {
-      active: false,
-      snapshots: [],
-      baseline: null,
-      latest: null,
-      variance: [],
-      gaps: [],
-      busy: false,
-      captureNow: vi.fn(async () => {}),
-      rebaselineNow: vi.fn(async () => {}),
-      setBaseline: vi.fn(async () => {}),
-      deleteSnapshot: vi.fn(async () => {}),
-      deleteSnapshots: vi.fn(async () => {}),
-    },
-    versionHistory: {
-      versions: [],
-      busy: false,
-      // See the note in workspace-section.characterization.test.tsx: `true`
-      // preserves the pre-`active` rendered output for an empty list.
-      active: true,
-      notifySaved: vi.fn(),
-      captureNow: vi.fn(async () => {}),
-      loadDiff: vi.fn().mockResolvedValue([]),
-      restore: vi.fn(async () => true),
-      remove: vi.fn(async () => true),
-      refresh: vi.fn(async () => {}),
-    },
-    nextActions: [],
-    nextActionGroups: [],
-    onOpenAction: vi.fn(),
-    ...overrides,
-  };
-}
-
-function Wrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <FiltersProvider>
-      <WorkspaceProvider>
-        <WorkspaceTabProvider>{children}</WorkspaceTabProvider>
-      </WorkspaceProvider>
-    </FiltersProvider>
-  );
-}
 
 describe("WorkspaceSection — documents tab routing", () => {
   // ★★ Navigation happens from a CLICK HANDLER, which is the only lint-legal

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { ForecastPanel } from "./forecast-panel";
 import { loadI18n, t } from "./i18n";
 import type { Milestone, ResourcePlan, Task } from "./types";
+import type { DatedValue, ForecastFacts, ForecastFactsByUnit } from "./budget-forecast";
 import { nthWorkingDayAfter, workingDaysBefore } from "./working-days";
 import { MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
 import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
@@ -398,5 +399,64 @@ describe("ForecastPanel — the Dashboard-defaults note (§502)", () => {
     );
     await user.selectOptions(screen.getByLabelText("Verlauf"), "90");
     expect(screen.getByText(t("de", "forecastDashboardDefaultsNote"))).toBeTruthy();
+  });
+});
+
+// ---- §502 part 3: cost at finish from the view's own (What-if-adjusted) run ----
+describe("ForecastPanel — cost at finish (§502)", () => {
+  const history = [...open(5), ...steadyDone(60)];
+  const WINDOW = [...workingDaysBefore(TODAY, 59, NO_HOLIDAYS), TODAY];
+  /** Spend booked on the last `days` window days, varied so the percentiles spread. */
+  function facts(days: number, bac = 100_000): ForecastFactsByUnit {
+    const dated: DatedValue[] = WINDOW.slice(-days).map((date, i) => ({ date, bookedFrom: date, value: 500 + (i % 7) * 150, spread: false }));
+    const f: ForecastFacts = {
+      bac, ac: 40_000, ev: null, pv: 0, bucketsMissingPercent: [], dated,
+      planEnd: PLAN.endDate, today: TODAY, holidaySet: NO_HOLIDAYS, hasFixedPrice: false,
+    };
+    return { eur: f, hours: { ...f, bac: 1000, ac: 400 } };
+  }
+  const FULL = facts(60);
+  const renderCost = (budgetFacts: ForecastFactsByUnit | null, showSimulation = true, tasks: Task[] = history) =>
+    render(
+      <ForecastPanel lang="en-US" tasks={tasks} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} showSimulation={showSimulation} budgetFacts={budgetFacts} />,
+    );
+  const card = () => screen.getByRole("group", { name: "Cost at finish, simulated" });
+  const p80Cost = (): number => {
+    const row = within(card()).getByRole("row", { name: /^Safe to commit \(P80\)/ });
+    return Number((within(row).getByRole("cell").textContent ?? "").replace(/[^0-9.]/g, ""));
+  };
+
+  test("a What-if capacity of 200 % lowers the P80 cost", async () => {
+    const user = userEvent.setup();
+    renderCost(FULL);
+    const before = p80Cost();
+    expect(before).toBeGreaterThan(40_000);
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    const capacity = screen.getByLabelText("Capacity (%)");
+    await user.clear(capacity);
+    await user.type(capacity, "200{Enter}");
+    expect(p80Cost()).toBeLessThan(before);
+    expect(p80Cost()).toBeGreaterThan(40_000);
+  });
+
+  test("no budget shows the add-a-budget line", () => {
+    renderCost(null);
+    expect(within(card()).getByText("Add a budget to see the cost at finish.")).toBeTruthy();
+  });
+
+  test("below the spend floor names the counts", () => {
+    renderCost(facts(4));
+    expect(within(card()).getByText("Needs 10 working days with bookings in the window (has 4).")).toBeTruthy();
+  });
+
+  test("below the schedule floor says which input is missing", () => {
+    renderCost(FULL, true, [...open(4), ...steadyDone(3)]);
+    expect(within(card()).getByText("Not enough finished tasks to simulate the finish yet.")).toBeTruthy();
+  });
+
+  test("the cost card is absent without the simulation switch", () => {
+    renderCost(FULL, false);
+    expect(screen.queryByRole("group", { name: "Cost at finish, simulated" })).toBeNull();
+    expect(screen.queryByText("Cost at finish")).toBeNull();
   });
 });

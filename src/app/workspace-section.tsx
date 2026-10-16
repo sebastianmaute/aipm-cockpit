@@ -4,6 +4,7 @@ import { liveAssetPartitionKey } from "./asset-partition-live";
 import { isSafeMode } from "./safe-mode";
 import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";
 import { useAppForecast } from "./use-app-forecast";
+import { computeProjectForecastFacts } from "./budget-forecast";
 import {
   useCallback,
   useMemo,
@@ -321,6 +322,14 @@ export function WorkspaceSection({
     active: isSimulationActive(workspace.settingsOverrides, features) && holidaysReady !== false
       && (activeTab === "budget-report" || activeTab === "reports"),
   });
+  // §502 part 3 — the pace forecast's facts for the Forecast view's cost card, built as the Budget view does
+  // (`computeProjectForecastFacts`); only on that tab with the simulation on and the Budget module enabled.
+  const forecastCostOn = activeTab === "forecast" && isSimulationActive(workspace.settingsOverrides, features) && isModuleEnabled("budget", features);
+  const workdayHours = settings.resources.workdayHours;
+  const forecastBudgetFacts = useMemo(
+    () => (forecastCostOn ? computeProjectForecastFacts({ buckets: budgets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today }) : null),
+    [forecastCostOn, budgets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today],
+  );
 
   // Per-milestone committed baseline dates for the Gantt ghost overlay — only
   // when snapshots are live (Turso). Off Turso `trends.active` is false → empty
@@ -756,7 +765,7 @@ export function WorkspaceSection({
 
         {activeTab === "forecast" && isViewEnabled("forecast", features) && (
           <div id="panel-forecast" role="tabpanel" className={panelScrollClass}>
-            <ForecastPanel lang={lang} tasks={tasks} milestones={milestones} plan={plan} today={today} holidaySet={holidaySet} isPopout={isPopout} showSimulation={isSimulationActive(workspace.settingsOverrides, features)} />
+            <ForecastPanel lang={lang} tasks={tasks} milestones={milestones} plan={plan} today={today} holidaySet={holidaySet} isPopout={isPopout} showSimulation={isSimulationActive(workspace.settingsOverrides, features)} budgetFacts={forecastBudgetFacts} />
           </div>
         )}
 

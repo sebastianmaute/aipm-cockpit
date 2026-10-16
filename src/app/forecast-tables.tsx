@@ -1,17 +1,20 @@
 "use client";
 
-// Schedule forecast tables (§502): the P50/P80/P95 When + How-many table and the
-// milestone chance table. Presentational — the panel owns the engine call.
+// Schedule forecast tables (§502): the P50/P80/P95 When + How-many table, the
+// cost-at-finish card and the milestone chance table. Presentational — the panel owns the engine call.
 
 import { useId, useMemo, useState } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { localeFor } from "./date-format";
-import { formatDayMonthYear, formatHours } from "./forecast-format";
+import { formatDayMonthYear, formatHours, formatShare } from "./forecast-format";
+import type { CostAtFinish } from "./forecast/cost";
+import { formatCurrency } from "./resource-cost";
+import { SimValue } from "./sim-value";
 import type { ScheduleForecast } from "./forecast";
 import type { MilestoneChance } from "./forecast/milestones";
 import type { ForecastUnit } from "./forecast/constants";
 import { isValidIsoDate } from "./forecast/throughput";
-import type { Milestone } from "./types";
+import type { BudgetCurrency, Milestone } from "./types";
 import { DataTable } from "./data-table";
 import { Input } from "./form-controls";
 import { Section, SortResizeTh, useSortableFilter, useSortHeaderProps, type SortDir } from "./report-table";
@@ -243,5 +246,57 @@ export function MilestoneTable({
       )}
       {whatIf && <p className="mt-2 text-xs text-muted-foreground">{t(lang, "forecastWhatIfMilestoneNote")}</p>}
     </Section>
+  );
+}
+
+/**
+ * The Forecast view's "Cost at finish" card (§502 part 3): P50/P80/P95 and the chance over budget from the
+ * view's own run, each figure a `SimValue`. `cost` null (no buckets) or a budget of 0 reads as no budget;
+ * below the schedule or spend floor, one line names the missing input. Money in the baseline currency.
+ */
+export function CostTable({ lang, cost, currency, bac }: { lang: Lang; cost: CostAtFinish | null; currency: BudgetCurrency; bac: number }) {
+  const locale = localeFor(lang);
+  const heading = t(lang, "budgetSimCostAtFinish");
+  const figure = (v: number | "beyond") => (v === "beyond" ? t(lang, "simHistogramBeyond") : formatCurrency(v, currency, locale));
+  let body: React.ReactNode;
+  if (cost === null || bac <= 0) {
+    body = <p className="text-sm text-muted-foreground">{t(lang, "budgetSimAddBudget")}</p>;
+  } else if (cost.kind === "unavailable") {
+    body = (
+      <p className="text-sm text-muted-foreground">
+        {cost.reason === "schedule-floor"
+          ? t(lang, "budgetSimMissingSchedule")
+          : t(lang, "budgetSimMissingSpend", String(cost.neededSpendDays), String(cost.spendDays))}
+      </p>
+    );
+  } else {
+    const rows: [string, string][] = [
+      [t(lang, "budgetSimP50"), figure(cost.p50)],
+      [t(lang, "budgetSimP80"), figure(cost.p80)],
+      [t(lang, "budgetSimP95"), figure(cost.p95)],
+    ];
+    if (cost.chanceOverBudget !== null) rows.push([t(lang, "budgetSimChanceOver"), formatShare(cost.chanceOverBudget, locale)]);
+    body = (
+      <div className="overflow-x-auto rounded-md border border-line">
+        <table className="min-w-full text-left text-sm">
+          <tbody className="divide-y divide-line">
+            {rows.map(([term, value]) => (
+              <tr key={term}>
+                <th scope="row" className={`${CELL} font-medium text-foreground`}>{term}</th>
+                <td className={`${CELL} text-right tabular-nums`}>
+                  <SimValue lang={lang} label={term} value={value} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+  return (
+    <div role="group" aria-label={t(lang, "simValueSr", heading)} data-sim="true">
+      <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{heading}</h3>
+      {body}
+    </div>
   );
 }

@@ -20,16 +20,21 @@ export type BudgetSim = {
   hours: CostAtFinish;
 };
 
-const BELOW_SCHEDULE_FLOOR: CostAtFinish = {
+/** The cost range when the schedule run is below its history floor (no trials to pair spend with). */
+export const BELOW_SCHEDULE_FLOOR: CostAtFinish = {
   kind: "unavailable", reason: "schedule-floor", spendDays: 0, neededSpendDays: MIN_SPEND_WORKING_DAYS,
 };
 
 let memo: { forecast: AppForecast; facts: ForecastFactsByUnit; result: BudgetSim } | null = null;
 
-function simulateUnit(forecast: Extract<AppForecast, { kind: "forecast" }>, f: ForecastFacts, seedTag: string): CostAtFinish {
+/** One unit's cost range from a schedule run: each trial's finish day draws spend from the run's own
+ *  history window. Shared with the Forecast view, which passes its What-if-adjusted run. */
+export function simulateCostFromRun(
+  run: { trialDays: Int32Array; windowDates: readonly string[] }, f: ForecastFacts, seedTag: string,
+): CostAtFinish {
   return simulateCostAtFinish({
-    trialDays: forecast.trialDays,
-    samples: spendSamples(f.dated, forecast.windowDates),
+    trialDays: run.trialDays,
+    samples: spendSamples(f.dated, run.windowDates),
     ac: f.ac,
     bac: f.bac,
     seedTag,
@@ -46,8 +51,8 @@ export function computeBudgetSim(forecast: AppForecast | null, facts: ForecastFa
   const result: BudgetSim = forecast.kind === "forecast"
     ? {
         finish: { p50: forecast.p50, p80: forecast.p80, p95: forecast.p95 },
-        eur: simulateUnit(forecast, facts.eur, "eur"),
-        hours: simulateUnit(forecast, facts.hours, "hours"),
+        eur: simulateCostFromRun(forecast, facts.eur, "eur"),
+        hours: simulateCostFromRun(forecast, facts.hours, "hours"),
       }
     : { finish: { p50: null, p80: null, p95: null }, eur: BELOW_SCHEDULE_FLOOR, hours: BELOW_SCHEDULE_FLOOR };
   memo = { forecast, facts, result };
