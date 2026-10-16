@@ -34,6 +34,14 @@ function groupKey(a: SuggestedAction): string {
   return a.id;
 }
 
+/** Member order inside a group: score desc, then id asc. Shared with
+ *  `mergeSimActions` (sim-milestones.ts) so a merged group cannot sort differently. */
+export const byScoreThenId = (x: SuggestedAction, y: SuggestedAction): number =>
+  y.score - x.score || x.id.localeCompare(y.id);
+/** Group order: score desc, then key asc. Shared with `mergeSimActions`. */
+export const byScoreThenKey = (x: ActionGroup, y: ActionGroup): number =>
+  y.score - x.score || x.key.localeCompare(y.key);
+
 /** Collapse a flat (already deduped + dismissed-filtered) action list into
  *  per-entity groups, sorted score desc then key asc. */
 export function groupNextActions(actions: readonly SuggestedAction[]): ActionGroup[] {
@@ -46,11 +54,11 @@ export function groupNextActions(actions: readonly SuggestedAction[]): ActionGro
   }
   const groups: ActionGroup[] = [];
   for (const [key, members] of byKey) {
-    const sorted = [...members].sort((x, y) => y.score - x.score || x.id.localeCompare(y.id));
+    const sorted = [...members].sort(byScoreThenId);
     const [primary, ...extra] = sorted;
     groups.push({ key, primary, extra, score: primary.score, tier: primary.tier });
   }
-  return groups.sort((x, y) => y.score - x.score || x.key.localeCompare(y.key));
+  return groups.sort(byScoreThenKey);
 }
 
 /** The primaries of the top `n` groups, in group rank order. For a compact

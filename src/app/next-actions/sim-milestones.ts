@@ -8,7 +8,7 @@
 import type { AppForecast } from "../forecast/app-forecast";
 import { chancePercent } from "../kpi-simulation";
 import type { Milestone } from "../types";
-import type { ActionGroup } from "./group";
+import { byScoreThenId, byScoreThenKey, type ActionGroup } from "./group";
 import { TIER_NOW, TIER_SOON } from "./score";
 import type { SuggestedAction } from "./types";
 
@@ -64,9 +64,6 @@ export function buildSimMilestoneActions(args: {
   }
   return out;
 }
-
-const byScoreThenId = (x: SuggestedAction, y: SuggestedAction) => y.score - x.score || x.id.localeCompare(y.id);
-const byScoreThenKey = (x: ActionGroup, y: ActionGroup) => y.score - x.score || x.key.localeCompare(y.key);
 
 /** Merge the sim actions into already-built groups. A group for the same
  *  milestone (`milestones:<id>`) takes the action as an extra reason — its

@@ -112,6 +112,17 @@ describe("mergeSimActions", () => {
     expect(g.extra.map((e) => e.id)).toEqual(["forecast-sim:milestone:7", "milestone:7:b"]);
   });
 
+  it("breaks an extras score tie by id asc, with groupNextActions' comparator", () => {
+    const groups = groupNextActions([
+      measured("milestone:7:a", { score: 90 }),
+      measured("milestone:7:b", { score: 53 }),
+    ]);
+    const sim = build([chance(7, 0.1)]); // score 53 — ties with milestone:7:b
+    expect(sim[0].score).toBe(53);
+    const [g] = mergeSimActions(groups, sim);
+    expect(g.extra.map((e) => e.id)).toEqual(["forecast-sim:milestone:7", "milestone:7:b"]);
+  });
+
   it("gives an unmatched sim action its own group, after every now group", () => {
     const groups = groupNextActions([
       measured("raid:1", { score: 60, cta: { kind: "open", view: "raid", id: 1 } }),

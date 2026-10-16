@@ -284,11 +284,14 @@ describe("useNextActions — simulated 'unlikely on time' signal (§502)", () =>
 
   it("with the switch on and the view shown, adds the sim group but keeps it out of the flat list", () => {
     fc.app.mockReturnValue(FAKE);
+    // One measured now action on another entity: the sim group must not change the count.
+    computeNextActions.mockReturnValue([action("raid:1", { score: 70, cta: { kind: "open", view: "raid", id: 1 } })]);
     showForecastView();
     const { result, deps } = setup({ milestones: MILESTONES, settingsOverrides: SIM_ON, plan: { ...PLAN, endDate: "2026-12-31" } });
     expect(hasSim(result.current.nextActionGroups)).toBe(true);
     expect(result.current.nextActions.some((a) => a.source === "forecast-sim")).toBe(false);
-    expect(result.current.nowCount).toBe(0);
+    expect(result.current.nowCount).toBe(1);
+    expect(result.current.nextActionGroups.map((g) => g.key)).toEqual(["raid:1", SIM_ID]);
     expect(fc.app).toHaveBeenCalledWith({
       tasks: deps.tasks, milestones: deps.milestones, planEnd: "2026-12-31", today: "2026-10-05", holidaySet: deps.holidaySet,
     });
