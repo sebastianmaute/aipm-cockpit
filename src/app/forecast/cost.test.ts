@@ -51,6 +51,11 @@ describe("simulateCostAtFinish", () => {
   it("a slow trial costs more than a fast one on varied spend (same runs drive both)", () => {
     const samples = [10, 0, 30, 5, 50, 0, 20, 10, 40, 15, 25, 35];
     const fastSlow = simulateCostAtFinish({ trialDays: Int32Array.from(Array(1000).fill(5).concat(Array(1000).fill(50))), samples, ac: 0, bac: 1e9, seedTag: "eur", horizon: 1300 });
-    expect(fastSlow.kind === "sim" && fastSlow.p95 !== "beyond" && fastSlow.p95 > 50 * 10).toBe(true);
+    expect(fastSlow.kind).toBe("sim");
+    if (fastSlow.kind !== "sim") return;
+    expect(fastSlow.p50).not.toBe("beyond");
+    expect(fastSlow.p95).not.toBe("beyond");
+    expect(fastSlow.p50 as number).toBeLessThan(300); // fast cluster: 5 days, about 100
+    expect(fastSlow.p95 as number).toBeGreaterThan(800); // slow cluster: 50 days, about 1000
   });
 });
