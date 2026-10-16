@@ -151,7 +151,7 @@ cancel → **Explore the demo**.
 
 | Manual | Then AI |
 |---|---|
-| RAID: the GDPR erasure issue gets an owner and a status; add the risk "connector licence lead time" | **Ask Claude** on the issue's mitigation |
+| RAID: the GDPR erasure issue gets an owner and a status; add the risk "connector licence lead time", severity **Medium** (a Monitor item, so Friday's list stays as stated) | **Ask Claude** on the issue's mitigation |
 | New stakeholder: Northwind's data protection officer (DPO) | — |
 | RACI: set the DPO's cell on "MVP re-demo" | **Suggest RACI** fills the matrix |
 | Stakeholder map: drag the DPO to high influence / high interest | — |
@@ -199,7 +199,7 @@ Friday 4; Draft message is a template, not a call). Rough length 20–25 minutes
   zero. The builder states the exact expected strip.
 - **The digest is off by default** (`DEFAULT_DIGEST_CONFIG`), and with no saved digest state the
   mount effect treats it as due and generates by itself (`use-digest.ts`) — an uncounted Claude
-  call. So the recorder also writes `aipm-cockpit:digest-state` (`digest-state.ts`) off camera with
+  call. So the recorder also writes `aipm-cockpit:digest-state` (`src/app/digest/digest-state.ts`) off camera with
   a `nextDueAt` after Friday 25 September, switches the digest on, and the take presses **Generate
   now** itself on Monday and Friday. The seeded state's prior RAG and metrics feed Monday's digest
   deltas; Friday's compare against Monday's run.
@@ -260,7 +260,7 @@ T0. Intended:
 | Soon | red issue "GDPR erasure requests do not reach the CRM", no owner yet | RAID (45) |
 | Soon | change request "Add MFA to SSO scope" pending (High impact) | change-pending (45) |
 | Soon | Pilot Go-Live at risk (a linked task now ends after it) — the slip's knock-on | milestone (42) |
-| Soon | "Update stakeholder: Elena Fischer" — the sponsor, linked to change 1 and RAID 2 and 11 (owner: part of the story, acted on Monday) | stakeholder-comms (45) |
+| Soon | "Update stakeholder: Elena Fischer" — the sponsor, linked to change 1 (E unlinks her from RAID 2 and 11; see "Friday") (owner: part of the story, acted on Monday) | stakeholder-comms (45) |
 | Soon | "Update stakeholder: Maya Patel" — linked to change 1 (owner: part of the story, acted on Tuesday); today also to RAID 13, a link that goes once 13 is Delivered | stakeholder-comms (45) |
 | Soon | pilot tasks waiting on an unfinished predecessor (today 5, 7, 8, 10) — the ripple of the slip | task-attention dep-blocked (35 each) |
 | Monitor | the schedule item (SPI between 0.8 and 0.9) | schedule (5); the builder keeps SPI ≥ 0.8 so it does not rise to Soon (45), and below 0.9 so it fires at all |
@@ -327,14 +327,24 @@ and PR (`nearTermPeriodKeys`); E starts only once that fix is on main.
 - **A's clip list** (A's "What A needs from project E" table) still holds; the items above cover most
   of it. The builder re-checks each row against the new data.
 - **The week, day by day:** RAID 4, 11 and 7 have target dates of 22, 24 and 25 September, so each
-  turns into an overdue review during the week — and RAID 11's would keep Elena's stakeholder row
-  alive on Friday. Move all three past the 25th. E checks Monday to Friday, not only Monday.
-- **Friday at 2026-09-25 (after the week's steps).** A stakeholder row stays while its source is live
-  (a pending change, an overdue RAID item, a milestone inside the lead), not until a message is sent.
-  With both changes approved on Thursday and RAID 4/7/11 moved, the Elena and Maya rows and the
-  change-pending row are gone. Intended Friday rows, top first: "Update stakeholder: <the DPO>" (45,
-  the hero — the re-demo inside the DPO's 14-day lead), then "Pilot Go-Live" at risk (42). E pins
-  Friday's grouped rows in a test, as it pins Monday's.
+  turns into an overdue review during the week. Move all three past the 25th. E checks Monday to
+  Friday, not only Monday.
+- **Friday at 2026-09-25 (after the week's steps).** A stakeholder row stays while its source is live,
+  not until a message is sent. Sources depend on the stakeholder's quadrant (`POLICY` in
+  `stakeholder-comms.ts`): a pending linked change; a linked milestone inside the lead; and a linked
+  open RAID item at or above the quadrant's `minRaidSeverity` — for high influence / high interest
+  ("manage closely", Elena's quadrant) that is **Medium, overdue or not**. So moving RAID 2 and 11's
+  dates does not clear Elena's row: E **unlinks Elena (stakeholder 1) from RAID 2 and 11**
+  (`stakeholderIds`). With that, both changes approved on Thursday and RAID 4/7/11 moved, the Elena
+  and Maya rows and the change-pending row are gone (checked by a review probe on 2026-10-16).
+  Intended Friday rows, top first:
+  - "Update stakeholder: <the DPO>" (45, the hero — the re-demo inside the DPO's 14-day lead);
+  - "Pilot Go-Live" at risk (42);
+  - dep-blocked rows for tasks 5, 7, 8 and 10 (35 — the pilot chain still waits on its predecessors);
+  - task 25 (the re-demo on 2 October) and task 4 due soon (30);
+  - Monitor: the Medium RAID items with an owner (2, 4, 11) and Thursday's Medium licence risk (22).
+
+  E pins Friday's grouped rows in a test, as it pins Monday's.
 - **Forecast simulation off at T0.** Its "unlikely on time" rows (`mergeSimActions`) join the
   grouped list only when Show simulation is on; it is off by default, and the takes leave it off.
 - **The schedule row** fires only while SPI is at least 0.8 and below 0.9 (Monitor, 5); the builder
@@ -377,7 +387,9 @@ Monday's blocker on the CRM task. Only the Senior grade must exist; the discipli
 - Task 25 moves to 2 October and onto the "MVP re-demo" milestone on Tuesday, so the MVP target is
   not at risk once it is moved.
 - The owner left the MFA change to me: Thursday's steering approves it, scheduled after the pilot.
-  That clears its change row and the Elena and Maya rows it raised.
+  That clears its change row and Maya's row; Elena's also needs her links to RAID 2 and 11 removed
+  in the data (a Medium RAID item keeps a "manage closely" stakeholder's row alive).
+- Thursday's licence risk is Medium.
 - The intended Friday hero is "Update stakeholder: <the DPO>": tell the DPO the erasure fix is
   verified (Draft message, then the AI "Stakeholder update"). "Pilot Go-Live" at risk follows it.
 - The recorder seeds the landing-state and digest-state keys for the new project id off camera.
