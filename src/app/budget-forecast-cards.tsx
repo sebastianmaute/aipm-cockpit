@@ -13,7 +13,10 @@ import type { Settings } from "./settings-types";
 import { SegmentedControl } from "./segmented-control";
 import { RagBadge } from "./rag-badge";
 import { formatCurrency } from "./resource-cost";
-import { formatSignedPercent, formatDayMonth, formatDayMonthYear, formatHours, signedFigure } from "./forecast-format";
+import { formatSignedPercent, formatDayMonth, formatDayMonthYear, formatHours, formatShare, signedFigure } from "./forecast-format";
+import { SimBadge, SimValue } from "./sim-value";
+import type { BudgetSim } from "./budget-sim";
+import type { CostAtFinish } from "./forecast/cost";
 import { TermTooltip } from "./budget-forecast-tooltip";
 import { InfoTooltip } from "./info-tooltip";
 import { RateMixChip } from "./budget-rate-mix-chip";
@@ -187,11 +190,54 @@ function mixChip(lang: Lang, mix: RateMix | null, eur: BudgetForecast, hours: Bu
   );
 }
 
+/** The simulated cost range under the calculated EAC (§502): P50/P80/P95 and the chance over budget,
+ *  or one muted line naming the missing input. The group name carries ", simulated" (the badge is
+ *  decorative). The calculated figure above it is untouched. */
+function SimCostBlock({ lang, cost, money }: { lang: Lang; cost: CostAtFinish; money: Money }) {
+  const heading = t(lang, "budgetSimCostAtFinish");
+  const figure = (v: number | "beyond") => (v === "beyond" ? t(lang, "simHistogramBeyond") : money(v));
+  return (
+    <div role="group" aria-label={t(lang, "simValueSr", heading)} data-sim="true" className="mt-3 border-t border-dashed border-line pt-2">
+      <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {heading}
+        <SimBadge lang={lang} />
+      </p>
+      {cost.kind === "unavailable" ? (
+        <p className="mt-1 text-sm text-muted-foreground">
+          {cost.reason === "schedule-floor"
+            ? t(lang, "budgetSimMissingSchedule")
+            : t(lang, "budgetSimMissingSpend", String(cost.neededSpendDays), String(cost.spendDays))}
+        </p>
+      ) : (
+        <dl className="mt-1 space-y-1 text-sm">
+          <HoursRow term={t(lang, "budgetSimP50")}>{figure(cost.p50)}</HoursRow>
+          <HoursRow term={t(lang, "budgetSimP80")}>{figure(cost.p80)}</HoursRow>
+          <HoursRow term={t(lang, "budgetSimP95")}>{figure(cost.p95)}</HoursRow>
+          {cost.chanceOverBudget !== null && (
+            <HoursRow term={t(lang, "budgetSimChanceOver")}>{formatShare(cost.chanceOverBudget, localeFor(lang))}</HoursRow>
+          )}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+/** The hours-line row for the simulated P80 hours; nothing unless the hours range exists. */
+function SimHoursRow({ lang, cost, locale }: { lang: Lang; cost: CostAtFinish; locale: string }) {
+  if (cost.kind !== "sim") return null;
+  const label = t(lang, "budgetSimHoursP80");
+  return (
+    <HoursRow term={label}>
+      <SimValue lang={lang} label={label} value={cost.p80 === "beyond" ? t(lang, "simHistogramBeyond") : formatHours(cost.p80, locale)} />
+    </HoursRow>
+  );
+}
+
 function PaceCard({
-  lang, pace, facts, money, currency, locale, hasFixedPrice, eur, hours, mix, history,
+  lang, pace, facts, money, currency, locale, hasFixedPrice, eur, hours, mix, history, sim,
 }: {
   lang: Lang; pace: BudgetForecast["pace"]; facts: Facts; money: Money; currency: BudgetCurrency; locale: string; hasFixedPrice: boolean;
-  eur: BudgetForecast; hours: BudgetForecast | null; mix: RateMix | null; history: BudgetHistorySummary | null;
+  eur: BudgetForecast; hours: BudgetForecast | null; mix: RateMix | null; history: BudgetHistorySummary | null; sim: BudgetSim | null;
 }) {
   const titleId = useId();
   const paceTitle = t(lang, "forecastPaceTitle");
@@ -211,6 +257,7 @@ function PaceCard({
             tip={t(lang, "forecastTipEac", money(facts.ac), money(pace.etc), money(pace.eac))}
             value={money(pace.eac)}
           />
+          {sim && <SimCostBlock lang={lang} cost={sim.eur} money={money} />}
           <dl className="mt-2 space-y-1 text-sm">
             <MetricRow
               lang={lang}
@@ -260,6 +307,7 @@ function PaceCard({
                 <HoursRow term={t(lang, "forecastRunOutHours")}>
                   {hours.pace.runOutDate === null ? t(lang, "forecastRunOutAlready") : formatDayMonthYear(hours.pace.runOutDate, locale)}
                 </HoursRow>
+                {sim && <SimHoursRow lang={lang} cost={sim.hours} locale={locale} />}
               </HoursLine>
               <VarianceSplitRows
                 lang={lang} locale={locale} history={history}
@@ -403,7 +451,7 @@ function GapLine({
 }
 
 export function ForecastCards({
-  lang, currency, forecast, view, onViewChange, hours = null, mix = null, history = null,
+  lang, currency, forecast, view, onViewChange, hours = null, mix = null, history = null, sim = null,
 }: {
   lang: Lang;
   /** The baseline every money figure in the cards is in (`plan.currency`, §476). */
@@ -414,6 +462,8 @@ export function ForecastCards({
   onViewChange: (view: ForecastView) => void;
   hours?: BudgetForecast | null; mix?: RateMix | null;
   history?: BudgetHistorySummary | null;
+  /** The simulated cost at finish (§502); absent or null renders the card exactly as without it. */
+  sim?: BudgetSim | null;
 }) {
   const locale = localeFor(lang);
   const money: Money = (n) => formatCurrency(n, currency, locale);
@@ -438,7 +488,7 @@ export function ForecastCards({
         />
       </div>
       {view === "pace" ? (
-        <PaceCard lang={lang} pace={pace} facts={facts} money={money} currency={currency} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} />
+        <PaceCard lang={lang} pace={pace} facts={facts} money={money} currency={currency} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} sim={sim} />
       ) : (
         <EfficiencyCard lang={lang} efficiency={efficiency} facts={facts} money={money} currency={currency} locale={locale} hasFixedPrice={hasFixedPrice} eur={forecast} hours={hours} mix={mix} history={history} />
       )}

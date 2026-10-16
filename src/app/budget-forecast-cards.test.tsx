@@ -11,6 +11,8 @@ import { EUR_FORECAST, HOURS_FORECAST_HOURS_WORSE, MIX_HOURS_WORSE, MIX_ON_PLAN 
 import { rateMixExplanation } from "./budget-rate-mix-text";
 import type { BudgetForecast, PaceForecast, PaceUnavailable, EfficiencyUnavailable } from "./budget-forecast";
 import type { BudgetHistorySummary } from "./budget-history";
+import type { BudgetSim } from "./budget-sim";
+import type { CostAtFinish } from "./forecast/cost";
 
 const locale = localeFor("en-US");
 const money = (n: number) => formatCurrency(n, "EUR", locale);
@@ -553,5 +555,88 @@ describe("ForecastCards — three-part variance split (task 11)", () => {
   it("renders the DE added-scope label", () => {
     render(<Cards lang="de" forecast={eurSplitForecast(170000)} history={HISTORY} />);
     expect(screen.getAllByText("Zusätzlicher Umfang").length).toBeGreaterThan(0);
+  });
+});
+
+// ---- §502 part 3: the simulated cost at finish on the pace card ----
+const SIM_OFF_HTML: string = "<div><div class=\"mb-2 print:hidden\"><div role=\"radiogroup\" aria-label=\"Forecast reading\" class=\"inline-flex flex-wrap rounded-md border border-line bg-[var(--segment-track-bg)]  \"><button type=\"button\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" class=\"inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium focus:outline-none focus:relative focus:z-10 focus:ring-2 focus:ring-ui-green rounded-l-md bg-[var(--segment-active-bg)] text-[var(--segment-active-fg)] shadow-[var(--shadow-control)]\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check h-3 w-3 shrink-0\" aria-hidden=\"true\" data-selected-marker=\"on\"><path d=\"M20 6 9 17l-5-5\"></path></svg>At current pace</button><button type=\"button\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" class=\"inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium focus:outline-none focus:relative focus:z-10 focus:ring-2 focus:ring-ui-green rounded-r-md border-l border-line text-foreground enabled:hover:bg-surface-muted disabled:cursor-not-allowed\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check h-3 w-3 shrink-0 invisible\" aria-hidden=\"true\" data-selected-marker=\"off\"><path d=\"M20 6 9 17l-5-5\"></path></svg>At current efficiency</button></div></div><section aria-labelledby=\"_r_0_\" class=\"rounded-lg border border-line bg-surface p-3\"><h4 class=\"flex items-center text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey\"><span id=\"_r_0_\">At current pace</span><span class=\"ml-1.5 inline-flex\"><span role=\"img\" aria-label=\"Amber\" title=\"Amber\" data-rag-chip=\"A\" class=\"inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold [-webkit-print-color-adjust:exact] [print-color-adjust:exact] bg-[var(--rag-amber)] text-[var(--rag-badge-amber-ink)]\">A</span></span><span class=\"print:hidden ml-1\"><span class=\"relative inline-flex items-center align-middle\"><span role=\"button\" tabindex=\"0\" data-info-tooltip-trigger=\"\" aria-label=\"What does At current pace mean?\" class=\"flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[10px] font-semibold normal-case leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green\">i</span></span></span></h4><p class=\"text-xs text-muted-foreground\">spending continues as in the last 20 working days</p><div class=\"mt-2\"><p class=\"flex items-center text-xs uppercase tracking-wide text-muted-foreground\">EAC at current pace<span class=\"print:hidden ml-1\"><span class=\"relative inline-flex items-center align-middle\"><span role=\"button\" tabindex=\"0\" data-info-tooltip-trigger=\"\" aria-label=\"What is EAC at current pace?\" class=\"flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[10px] font-semibold normal-case leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green\">i</span></span></span></p><p class=\"text-2xl font-semibold tabular-nums text-ui-dark-blue dark:text-ui-light-grey\">€261,150</p></div><dl class=\"mt-2 space-y-1 text-sm\"><div class=\"flex items-baseline justify-between gap-2\"><dt class=\"flex items-center text-muted-foreground\">VAC at current pace<span class=\"print:hidden ml-1\"><span class=\"relative inline-flex items-center align-middle\"><span role=\"button\" tabindex=\"0\" data-info-tooltip-trigger=\"\" aria-label=\"What is VAC at current pace?\" class=\"flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[10px] font-semibold normal-case leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green\">i</span></span></span></dt><dd class=\"tabular-nums font-medium text-foreground\">-€21,150 (-8.8%)</dd></div><div class=\"flex items-baseline justify-between gap-2\"><dt class=\"flex items-center text-muted-foreground\">ETC at current pace<span class=\"print:hidden ml-1\"><span class=\"relative inline-flex items-center align-middle\"><span role=\"button\" tabindex=\"0\" data-info-tooltip-trigger=\"\" aria-label=\"What is ETC at current pace?\" class=\"flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[10px] font-semibold normal-case leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green\">i</span></span></span></dt><dd class=\"tabular-nums font-medium text-foreground\">€93,150</dd></div><div class=\"flex items-baseline justify-between gap-2\"><dt class=\"flex items-center text-muted-foreground\">Burn rate<span class=\"print:hidden ml-1\"><span class=\"relative inline-flex items-center align-middle\"><span role=\"button\" tabindex=\"0\" data-info-tooltip-trigger=\"\" aria-label=\"What is Burn rate?\" class=\"flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[10px] font-semibold normal-case leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green\">i</span></span></span></dt><dd class=\"tabular-nums font-medium text-foreground\">€1,350/day</dd></div><div class=\"flex items-baseline justify-between gap-2\"><dt class=\"flex items-center text-muted-foreground\">Runs out<span class=\"print:hidden ml-1\"><span class=\"relative inline-flex items-center align-middle\"><span role=\"button\" tabindex=\"0\" data-info-tooltip-trigger=\"\" aria-label=\"What does Runs out mean?\" class=\"flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[10px] font-semibold normal-case leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green\">i</span></span></span></dt><dd class=\"tabular-nums font-medium text-foreground\">Nov 27, 2026, 21 days before plan end</dd></div></dl><p class=\"mt-2 text-xs text-muted-foreground\">The split into performance and added scope starts with the first recorded budget change.</p><p class=\"mt-2 text-xs text-muted-foreground\">Burn rate from Aug 17 – Sep 11 (20 working days)</p></section><p class=\"mt-3 text-sm\">The pace and efficiency forecasts differ by €9,818 (4.1% of budget). At current efficiency the work needs 8 working days beyond the planned end; the pace forecast assumes it finishes on time.<span class=\"print:hidden ml-1\"><span class=\"relative inline-flex items-center align-middle\"><span role=\"button\" tabindex=\"0\" data-info-tooltip-trigger=\"\" aria-label=\"What does Extra working days mean?\" class=\"flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[10px] font-semibold normal-case leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green\">i</span></span></span></p></div>";
+const normIds = (html: string) => html.replace(/(id|aria-labelledby|aria-describedby|aria-controls)="[^"]*"/g, "$1=\"\"");
+
+const SIM_ON: BudgetSim = {
+  finish: { p50: "2026-11-20", p80: "2026-12-04", p95: "2026-12-30" },
+  eur: { kind: "sim", p50: 250000, p80: 262000, p95: 281000, chanceOverBudget: 0.8, spendDays: 60 },
+  hours: { kind: "sim", p50: 1900, p80: 2050, p95: 2300, chanceOverBudget: 0.8, spendDays: 60 },
+};
+const costBlock = () => screen.getByRole("group", { name: "Cost at finish, simulated" });
+
+describe("ForecastCards — simulated cost at finish (§502)", () => {
+  it("switch off renders exactly as before", () => {
+    const { container } = render(<Cards lang="en-US" forecast={EUR_FORECAST} />);
+    expect(normIds(container.innerHTML)).toBe(normIds(SIM_OFF_HTML));
+  });
+
+  it("renders nothing extra for a null sim", () => {
+    const { container } = render(<Cards lang="en-US" forecast={EUR_FORECAST} sim={null} />);
+    expect(normIds(container.innerHTML)).toBe(normIds(SIM_OFF_HTML));
+  });
+
+  it("shows P50/P80/P95 and the chance with the sim marking", () => {
+    render(<Cards lang="en-US" forecast={AVAILABLE} sim={SIM_ON} />);
+    const block = within(costBlock());
+    expect(block.getByText("Even odds (P50)")).toBeInTheDocument();
+    expect(block.getByText("Safe to commit (P80)")).toBeInTheDocument();
+    expect(block.getByText("Worst likely (P95)")).toBeInTheDocument();
+    expect(block.getByText("Chance over budget")).toBeInTheDocument();
+    expect(block.getByText(money(262000))).toBeInTheDocument();
+    expect(block.getByText("80%")).toBeInTheDocument();
+    expect(block.getAllByText("sim").length).toBeGreaterThan(0);
+  });
+
+  it("marks the hours row as simulated", () => {
+    render(<Cards lang="en-US" forecast={AVAILABLE} hours={HOURS_FORECAST_HOURS_WORSE} sim={SIM_ON} />);
+    const row = screen.getByRole("group", { name: "Hours at finish (P80), simulated" });
+    expect(row).toHaveTextContent(formatHours(2050, locale));
+  });
+
+  it("reads beyond as beyond", () => {
+    const sim: BudgetSim = { ...SIM_ON, eur: { ...(SIM_ON.eur as CostAtFinish & { kind: "sim" }), p95: "beyond" } };
+    render(<Cards lang="en-US" forecast={AVAILABLE} sim={sim} />);
+    expect(within(costBlock()).getByText(t("en-US", "simHistogramBeyond"))).toBeInTheDocument();
+  });
+
+  it("names the missing spend history with both counts", () => {
+    const sim: BudgetSim = { ...SIM_ON, eur: { kind: "unavailable", reason: "spend-history", spendDays: 7, neededSpendDays: 20 } };
+    render(<Cards lang="en-US" forecast={AVAILABLE} sim={sim} />);
+    expect(screen.getByText("Needs 20 working days with bookings in the window (has 7).")).toBeInTheDocument();
+  });
+
+  it("names the missing finished tasks when below the schedule floor", () => {
+    const sim: BudgetSim = { ...SIM_ON, eur: { kind: "unavailable", reason: "schedule-floor", spendDays: 0, neededSpendDays: 20 } };
+    render(<Cards lang="en-US" forecast={AVAILABLE} sim={sim} />);
+    expect(screen.getByText("Not enough finished tasks to simulate the finish yet.")).toBeInTheDocument();
+  });
+
+  it("hides the chance row without a budget", () => {
+    const sim: BudgetSim = { ...SIM_ON, eur: { ...(SIM_ON.eur as CostAtFinish & { kind: "sim" }), chanceOverBudget: null } };
+    render(<Cards lang="en-US" forecast={AVAILABLE} sim={sim} />);
+    expect(screen.queryByText("Chance over budget")).toBeNull();
+    expect(screen.getByText("Safe to commit (P80)")).toBeInTheDocument();
+  });
+
+  it("leaves the calculated EAC figure unchanged with the simulation on", () => {
+    render(<Cards lang="en-US" forecast={AVAILABLE} sim={SIM_ON} />);
+    expect(screen.getByText(money(261150))).toBeInTheDocument();
+    expect(screen.getByText(`${money(-21150)} (${formatSignedPercent(-21150 / 240000, locale, 1)})`)).toBeInTheDocument();
+  });
+
+  it("does not show the block on the efficiency card", () => {
+    render(<Cards lang="en-US" view="efficiency" forecast={AVAILABLE} sim={SIM_ON} />);
+    expect(screen.queryByRole("group", { name: "Cost at finish, simulated" })).toBeNull();
+  });
+
+  it("renders the German heading", () => {
+    render(<Cards lang="de" forecast={AVAILABLE} sim={SIM_ON} />);
+    expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "budgetSimCostAtFinish")) })).toBeInTheDocument();
+    expect(t("de", "budgetSimCostAtFinish")).not.toBe("Cost at finish");
   });
 });
