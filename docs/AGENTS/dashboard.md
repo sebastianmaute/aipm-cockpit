@@ -379,7 +379,8 @@ a rendered body, so a catalogue-order list is a different function, not a sharea
 ★★ THAT SECOND CONJUNCT IS REDUNDANT AT EVERY TILE TODAY — it is not, as this file and the predicate's
 own docstring both used to say, a safety net. `buildTileBodies` builds TEN of its eleven bodies as
 React ELEMENTS (`burn` chooses between two elements), and an element whose component renders `null` is still non-null, so
-`bodies[id] != null` cannot see it; the other, `completionTrend` (the tenth key in source order; `forecast` is the eleventh), is the one ternary that can be null, and its gate
+`bodies[id] != null` cannot see it; the other, `completionTrend` (no ordinal — list the keys in source order with
+`awk '/^export function buildTileBodies/,0' src/app/dashboard-tile-bodies.tsx | grep -oE '^    [a-zA-Z]+:'`), is the one ternary that can be null, and its gate
 (`hasCompletionTrend` = `completionSeries.length >= 2 && !noActiveScope`) is STRICTLY STRONGER than the
 body's own `length >= 2`, so the gate has already excluded every null case. Count the two shapes:
 `awk '/^export function buildTileBodies/,0' src/app/dashboard-tile-bodies.tsx | grep -cE '^    [a-zA-Z]+: '`
