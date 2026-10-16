@@ -160,6 +160,23 @@ describe("MilestoneHorizonStrip chance chip (§502)", () => {
     expect(screen.getByRole("button", { name: /M2/ })).not.toHaveTextContent("%");
   });
 
+  test("the chip's name carries every visible word, in order (WCAG 2.5.3 label in name)", () => {
+    // Visible: the label, then "62%", then the "sim" badge. Name: "<label>, 62% chance on time,
+    // simulated". A speech user saying what they see must hit the name, so each visible piece has to
+    // occur in it after the one before; "sim" is the start of "simulated".
+    render(<MilestoneHorizonStrip lang="en-US" buckets={fixture()} chances={new Map([[3, 0.62]])} onOpenMilestone={() => {}} />);
+    const chip = screen.getByRole("button", { name: /M3/ });
+    const name = chip.getAttribute("aria-label")!;
+    expect(chip).toHaveTextContent(/M3 · 2026-08-01\s*62%\s*sim/);
+    let from = 0;
+    for (const piece of ["M3 · 2026-08-01", "62%", "sim"]) {
+      const at = name.indexOf(piece, from);
+      expect(at, `"${piece}" after index ${from} in "${name}"`).toBeGreaterThanOrEqual(from);
+      from = at + piece.length;
+    }
+    expect(name.startsWith("M3 · 2026-08-01")).toBe(true);
+  });
+
   test("the non-button chip shows the same visible chip with the sentence visually hidden", () => {
     render(<MilestoneHorizonStrip lang="en-US" buckets={fixture()} chances={new Map([[3, 0.62]])} />);
     expect(screen.queryByRole("button")).toBeNull();
