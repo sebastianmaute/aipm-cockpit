@@ -18,14 +18,20 @@ interface SimulationIntroProps {
   anchorRef?: RefObject<HTMLElement | null>;
 }
 
-/** The first keyboard-reachable control after `el` in document order, outside it. `hidden`/`inert`
- *  subtrees are skipped; layout-hidden ones cannot be (jsdom has no layout — see `focusables.ts`). */
-function nextFocusableAfter(el: HTMLElement): HTMLElement | null {
-  for (const c of Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))) {
-    if (el.contains(c) || c.closest("[hidden],[inert]")) continue;
-    if (el.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING) return c;
+/** Focus the nearest keyboard-reachable control outside `el`: the first one after it in document order,
+ *  else the last one before it. `hidden`/`inert`/`aria-hidden` subtrees are skipped by selector; a
+ *  layout-hidden candidate (jsdom has no layout — see `focusables.ts`) refuses `focus()`, so each try is
+ *  checked against `activeElement` and the next candidate is tried. */
+function focusNearestOutside(el: HTMLElement): void {
+  const all = Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (c) => !el.contains(c) && !c.closest("[hidden],[inert],[aria-hidden='true']"),
+  );
+  const after = all.filter((c) => el.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const before = all.filter((c) => el.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_PRECEDING).reverse();
+  for (const c of [...after, ...before]) {
+    c.focus();
+    if (document.activeElement === c) return;
   }
-  return null;
 }
 
 /** One-time, NON-modal note shown at the top of the Dashboard when the
@@ -43,13 +49,14 @@ export function SimulationIntro({ lang, onGotIt, onShowMe, anchorRef }: Simulati
   // Dismissing from a control inside the note would drop focus to <body>, so hand it back to the switch first.
   // ★ The switch lives in the Budget burn tile, which is absent with Budget off or the tile on the shelf
   // (the switch can still be turned on from Edit project). Then focus moves on to the next control after
-  // the note, where Tab would have taken it.
+  // the note, where Tab would have taken it, or back to the last one before it when nothing follows.
   const dismiss = useCallback(() => {
     const note = ref.current;
     if (note?.contains(document.activeElement)) {
       // The anchor is the switch's wrapper, so focus the control inside it.
-      const target = anchorRef?.current?.querySelector<HTMLElement>("button, input, [role='switch']") ?? nextFocusableAfter(note);
-      target?.focus();
+      const target = anchorRef?.current?.querySelector<HTMLElement>("button, input, [role='switch']");
+      if (target) target.focus();
+      else focusNearestOutside(note);
     }
     onGotIt();
   }, [anchorRef, onGotIt]);

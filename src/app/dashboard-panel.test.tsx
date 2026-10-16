@@ -19,6 +19,7 @@ import { expectButtonOrder } from "../test/toolbar-order";
 import { isSimulationOn } from "./forecast-simulation";
 import { showForecastView } from "../test/forecast-view";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
+import { FOCUSABLE_SELECTOR } from "./focusables";
 import { saveLayout } from "./dashboard-layout-store";
 import { DEFAULT_LAYOUT } from "./dashboard-layout";
 import { rateMixTileChipText, rateMixWhyName } from "./budget-rate-mix-text";
@@ -1845,7 +1846,7 @@ describe("DashboardPanel simulation switch", () => {
     await user.click(screen.getByRole("button", { name: t(EN, "simulationIntroGotIt") }));
     expect(screen.queryByText(t(EN, "simulationIntroText"))).toBeNull();
     expect(document.activeElement).not.toBe(document.body);
-    expect(document.activeElement).toBeInstanceOf(HTMLElement);
+    expect(document.activeElement?.matches(FOCUSABLE_SELECTOR)).toBe(true);
   });
 
   it("Escape with focus left on the switch dismisses the intro like Got it", async () => {

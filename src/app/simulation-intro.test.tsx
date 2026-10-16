@@ -57,6 +57,29 @@ describe("SimulationIntro", () => {
     expect(screen.getByRole("button", { name: "After" })).toHaveFocus();
   });
 
+  // A candidate that refuses focus (layout-hidden in a browser) is passed over; with nothing after the
+  // note, focus goes back to the last control before it.
+  it("skips a control that refuses focus and falls back to the control before the note", async () => {
+    function Host() {
+      const [open, setOpen] = useState(true);
+      const anchorRef = createRef<HTMLDivElement>();
+      return (
+        <>
+          <button type="button">Before</button>
+          {open && <SimulationIntro lang="en-US" onGotIt={() => setOpen(false)} anchorRef={anchorRef} />}
+          <button type="button" aria-hidden="true">Shadowed after</button>
+          <button type="button">Refuses</button>
+        </>
+      );
+    }
+    render(<Host />);
+    const refuses = screen.getByRole("button", { name: "Refuses" });
+    refuses.focus = () => {};
+    await userEvent.click(screen.getByRole("button", { name: "Got it" }));
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(screen.getByRole("button", { name: "Before" })).toHaveFocus();
+  });
+
   it("dismisses on Escape", async () => {
     const onGotIt = vi.fn();
     render(<SimulationIntro lang="en-US" onGotIt={onGotIt} onShowMe={vi.fn()} />);
