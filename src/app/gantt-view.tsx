@@ -23,6 +23,9 @@ import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { type Milestone, type Task } from "./types";
 import { type UndoStackApi } from "./undo/use-undo-stack";
+import { moveMilestoneDate, type MilestoneUpdateDeps } from "./milestone-update";
+import { reportSilentFailure } from "./guard-feedback";
+import { useToastContext } from "./toast-context";
 
 export interface GanttViewProps {
   onUpdateBar?: (edit: GanttBarEdit) => void;
@@ -35,6 +38,11 @@ export interface GanttViewProps {
   baselineMilestoneDates?: ReadonlyMap<number, string>;
   /** Single-entry undo capture — only the call site holds the undo stack. */
   onCaptureUndo?: UndoStackApi["capture"];
+  /** Milestone drag (§715 project D): the same undo + activity hooks the
+   *  Milestones panel's editor uses, so a chart move is undoable and logged. */
+  onCaptureFieldEdit?: UndoStackApi["captureFieldEdit"];
+  logActivity?: MilestoneUpdateDeps["logActivity"];
+  logActivityChanges?: MilestoneUpdateDeps["logActivityChanges"];
 }
 
 export function GanttView({
@@ -47,9 +55,13 @@ export function GanttView({
   milestonesEnabled,
   baselineMilestoneDates,
   onCaptureUndo,
+  onCaptureFieldEdit,
+  logActivity,
+  logActivityChanges,
 }: GanttViewProps) {
   const { settings, lang } = useSettings();
-  const { tasks, setTasks, absences, resources, milestones } = useWorkspace();
+  const { tasks, setTasks, absences, resources, milestones, setMilestones } = useWorkspace();
+  const showToast = useToastContext();
   const { isPopout, requestHelpConcept } = useWorkspaceTab();
   const logActivityAs = useActivityLogger();
   // Deliberately a SECOND derivation rather than a prop threaded from
@@ -76,6 +88,13 @@ export function GanttView({
     triggerQualifier: t(lang, "tabGantt"),
   });
 
+  function moveMilestone(id: number, date: string) {
+    const deps = { setMilestones, captureFieldEdit: onCaptureFieldEdit, logActivity, logActivityChanges };
+    if (moveMilestoneDate(milestones, id, date, deps) === "vanished") {
+      reportSilentFailure(showToast, lang, "milestone.moveVanished", "concurrent delete during drag", "guardEditVanished");
+    }
+  }
+
   return (
     <>
       <GanttPanel
@@ -89,6 +108,7 @@ export function GanttView({
         onEditTask={onEditTask}
         onAddMilestone={onAddMilestone}
         onEditMilestone={onEditMilestone}
+        onMoveMilestone={milestonesEnabled && !isPopout ? moveMilestone : undefined}
         showHints={showHints}
         isPopout={isPopout}
         onLearnMore={requestHelpConcept}

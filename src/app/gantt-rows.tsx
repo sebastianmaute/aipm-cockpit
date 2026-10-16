@@ -10,6 +10,8 @@ import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS } from "./mile
 import { isTaskClosed } from "./task-closed";
 import { rowLabel } from "./row-tokens";
 import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
+import { shiftIsoDate } from "./use-gantt-milestone-drag";
+import { FOCUS_RING } from "./interaction-styles";
 import {
   absenceBandBg,
   BAR_HEIGHT_PX,
@@ -432,6 +434,9 @@ export function GanttMilestoneRow({
   onEditMilestone,
   baselineDate,
   showBaseline,
+  dragDeltaDays = 0,
+  onStartDrag,
+  onKeyMove,
 }: {
   m: Milestone;
   /**
@@ -459,18 +464,29 @@ export function GanttMilestoneRow({
   onEditMilestone?: (m: Milestone) => void;
   baselineDate?: string;
   showBaseline?: boolean;
+  /** Whole days this milestone is being dragged by right now (0 = not dragging). */
+  dragDeltaDays?: number;
+  /** Present when the milestone may be moved on the chart (not in a popout). */
+  onStartDrag?: (e: React.PointerEvent<HTMLElement>, m: Milestone) => void;
+  onKeyMove?: (e: React.KeyboardEvent<HTMLElement>, m: Milestone) => void;
 }) {
-  const mx = diffDays(range.min, md) * DAY_WIDTH_PX;
+  // While a drag is in flight everything on the timeline — the diamond, its
+  // at-risk colour, the baseline slip — reads the date it WOULD get on release,
+  // so moving it before linked work shows the conflict live.
+  const liveIso = dragDeltaDays !== 0 ? (shiftIsoDate(m.date, dragDeltaDays) ?? m.date) : m.date;
+  const live = liveIso === m.date ? m : { ...m, date: liveIso };
+  const liveDate = parseISO(liveIso) ?? md;
+  const mx = diffDays(range.min, liveDate) * DAY_WIDTH_PX;
   // Baseline ghost: a hollow diamond at the committed baseline date, a dotted
   // connector to the live diamond, and a signed slip label. Only when enabled,
   // a baseline exists, it is parseable, and the slip is non-zero.
   const bd = showBaseline && baselineDate ? parseISO(baselineDate) : null;
-  const slip = bd ? milestoneSlipDays(baselineDate!, m.date) : null;
+  const slip = bd ? milestoneSlipDays(baselineDate!, live.date) : null;
   const showGhost = bd !== null && slip !== null && slip !== 0;
   const bx = bd ? diffDays(range.min, bd) * DAY_WIDTH_PX : 0;
   const slipLabel = slip !== null ? `${slip > 0 ? "+" : "−"}${Math.abs(slip)}d` : "";
   const mstatus = milestoneStatus(
-    m,
+    live,
     tasksById,
     todayISO,
     EMPTY_HOLIDAY_SET,
@@ -478,6 +494,7 @@ export function GanttMilestoneRow({
   );
   const achieved = isAchieved(m);
   const atRisk = mstatus === "at-risk";
+  const movable = !!onStartDrag && !achieved;
   return (
     <div
       data-gantt-row={rowKey}
@@ -540,8 +557,8 @@ export function GanttMilestoneRow({
         style={{ width: timelineWidthPx, height: ROW_HEIGHT_PX }}
         title={
           showGhost
-            ? `${m.name} · ${fmtFull(md, lang)} · baseline ${bd ? fmtFull(bd, lang) : baselineDate} (${slipLabel})`
-            : `${m.name} · ${fmtFull(md, lang)}`
+            ? `${m.name} · ${fmtFull(liveDate, lang)} · baseline ${bd ? fmtFull(bd, lang) : baselineDate} (${slipLabel})`
+            : `${m.name} · ${fmtFull(liveDate, lang)}`
         }
       >
         <svg
@@ -595,7 +612,38 @@ export function GanttMilestoneRow({
             {slipLabel}
           </span>
         )}
+        {dragDeltaDays !== 0 && (
+          // The date the milestone lands on if released now, left of the
+          // diamond so it never collides with the slip label on its right.
+          <span
+            data-gantt-milestone-preview="1"
+            className="pointer-events-none absolute -translate-y-1/2 whitespace-nowrap text-[10px] font-medium text-foreground"
+            style={{ right: timelineWidthPx - mx + MILESTONE_DIAMOND_PX, top: ROW_HEIGHT_PX / 2 }}
+            aria-hidden="true"
+          >
+            {fmtFull(liveDate, lang)}
+          </span>
+        )}
+        {movable && onStartDrag && (
+          // ★ Focusable on purpose — the keyboard path to the same move
+          // (§742 records that the task bars still lack one). Its name carries
+          // the row token: N milestones would otherwise be N identical buttons.
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={rowLabel(t(lang, "ganttMilestoneMove"), rowToken)}
+            title={t(lang, "ganttMilestoneMoveHint")}
+            data-gantt-milestone-handle="1"
+            className={`absolute top-0 h-full cursor-grab touch-none rounded-sm active:cursor-grabbing ${FOCUS_RING}`}
+            style={{ left: mx - MILESTONE_HANDLE_PX / 2, width: MILESTONE_HANDLE_PX }}
+            onPointerDown={(e) => onStartDrag(e, m)}
+            onKeyDown={(e) => onKeyMove?.(e, m)}
+          />
+        )}
       </div>
     </div>
   );
 }
+
+/** Hit width of a milestone's drag handle: wider than the diamond so it is easy to grab. */
+const MILESTONE_HANDLE_PX = 20;

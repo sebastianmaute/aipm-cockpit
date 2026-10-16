@@ -889,7 +889,11 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   derive-bar) and `gantt-status-buckets.ts` (`taskStatusBuckets`/`milestoneStatusBucket` — which
   status-filter buckets an entity belongs to; `today` passed in, no clock). React pieces: hooks
   `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
-  lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar) and
+  lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar),
+  `use-gantt-milestone-drag.ts` (milestone drag, §715 project D — the same window-listener shape, plus
+  arrow keys per press; the date commits through `moveMilestoneDate` in `milestone-update.ts`, the one
+  update path the Milestones editor's save shares, so a chart move gets the same undo entry and activity
+  row) and
   `use-gantt-prefs.ts` (sort/filter prefs state + localStorage hydrate/persist + setters); presentational
   `gantt-chrome.tsx` (`GanttToolbar`, `GanttHeader` axis, `GanttDependencyLayer` SVG arrows + milestone
   connectors), `gantt-rows.tsx` (`GanttTaskRow`, `GanttMilestoneRow`), `gantt-chart.tsx` (`GanttChart` —

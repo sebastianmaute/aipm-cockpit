@@ -32,6 +32,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { useResizable } from "./use-resizable";
 import { useGanttBarDrag } from "./use-gantt-bar-drag";
+import { useGanttMilestoneDrag } from "./use-gantt-milestone-drag";
 import { useGanttPrefs } from "./use-gantt-prefs";
 import { GanttToolbar } from "./gantt-chrome";
 import { GanttChart, ganttRowKey } from "./gantt-chart";
@@ -77,6 +78,7 @@ export function GanttPanel({
   onEditTask,
   onAddMilestone,
   onEditMilestone,
+  onMoveMilestone,
   showHints,
   isPopout,
   onLearnMore,
@@ -94,6 +96,8 @@ export function GanttPanel({
   onEditTask?: (task: Task) => void;
   onAddMilestone?: () => void;
   onEditMilestone?: (m: Milestone) => void;
+  /** Move a milestone to a new date (§715 project D); absent = milestones stay put. */
+  onMoveMilestone?: (id: number, date: string) => void;
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
@@ -492,6 +496,8 @@ export function GanttPanel({
   // in the row's onDragStart to suppress native HTML5 row-reorder.
   const { barDrag, barDragDeltaDays, interactingWithBarRef, previewDates, startBarDrag } =
     useGanttBarDrag(onUpdateBar);
+  // Milestone drag (§715 project D): pointer drag commits on release, arrow keys per press.
+  const { milestoneDrag, startMilestoneDrag, onMilestoneKeyDown } = useGanttMilestoneDrag(onMoveMilestone);
 
   function handleDrop(fromId: number, toId: number) {
     setDraggingId(null);
@@ -783,6 +789,9 @@ export function GanttPanel({
         onUpdateBar={onUpdateBar}
         onEditTask={onEditTask}
         onEditMilestone={onEditMilestone}
+        milestoneDrag={milestoneDrag}
+        startMilestoneDrag={onMoveMilestone ? startMilestoneDrag : undefined}
+        onMilestoneKeyDown={onMilestoneKeyDown}
         onAddTask={onAddTask}
         baselineMilestoneDates={baselineMilestoneDates}
       />

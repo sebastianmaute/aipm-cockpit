@@ -54,9 +54,9 @@ import { useRowSelection } from "./use-row-selection";
 import { BulkEditBar } from "./bulk-edit-bar";
 import { BulkEditPanel, dateField, type BulkField } from "./bulk-edit-panel";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
-import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
+import { type ActivityKind, type FieldChange } from "./activity-log";
 import type { Milestone } from "./types";
-import { captureFieldChanges } from "./undo/capture-field-changes";
+import { commitMilestoneUpdate } from "./milestone-update";
 import { MILESTONE_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
 import { CELL_BUTTON } from "./control-classes";
 
@@ -340,29 +340,12 @@ function MilestonesPanelBody({
       setEditing(null);
       return;
     }
-    setMilestones((prev) =>
-      create ? [...prev, finalItem] : prev.map((m) => (m.id === id ? finalItem : m)),
-    );
-    if (!create && previous && !opts?.suppressFieldUndo) {
-      captureFieldChanges(captureFieldEdit, {
-        setter: setMilestones, kind: "milestone.updated", id,
-        prev: previous, next: finalItem, groups: MILESTONE_UNDO_GROUPS,
-        // §289 names THREE paths, not two: the apply, this single-row capture,
-        // and the bulk capture above. Omitting it here once the apply started
-        // stamping would CREATE the §181 defect rather than close it — undo
-        // would revert the content and leave the apply's fresh timestamp
-        // standing, on a row whose content no longer matches it.
-        // `changedFieldGroups` can never carry the field back (it is in
-        // `NEVER_CAPTURE`), so `stampField` is the only thing that refreshes it.
-        stampField: "localModifiedAt", name: finalItem.name,
-      });
-    }
     if (create) {
+      setMilestones((prev) => [...prev, finalItem]);
       logActivity?.("milestone.created", id, finalItem.name);
-    } else if (previous && logActivityChanges) {
-      logActivityChanges("milestone.updated", diffFields(previous, finalItem), id);
-    } else {
-      logActivity?.("milestone.updated", id);
+    } else if (previous) {
+      // The one update path, shared with the Gantt's milestone drag.
+      commitMilestoneUpdate(previous, finalItem, { setMilestones, captureFieldEdit, logActivity, logActivityChanges }, opts);
     }
     setEditing(null);
   }

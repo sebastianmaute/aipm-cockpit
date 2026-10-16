@@ -24,6 +24,7 @@ import { GanttGridLayer, GanttNonWorkingLayer } from "./gantt-overlays";
 import { GanttMilestoneRow, GanttTaskRow } from "./gantt-rows";
 import { type Absence, type Milestone, type Resource, type Task } from "./types";
 import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
+import { type GanttMilestoneDrag, type MilestoneDragState } from "./use-gantt-milestone-drag";
 import { useGanttRowWindow } from "./use-gantt-row-window";
 import {
   fmtFull,
@@ -103,6 +104,9 @@ export function GanttChart({
   onUpdateBar,
   onEditTask,
   onEditMilestone,
+  milestoneDrag,
+  startMilestoneDrag,
+  onMilestoneKeyDown,
   onAddTask,
   baselineMilestoneDates,
 }: {
@@ -156,6 +160,11 @@ export function GanttChart({
   onUpdateBar?: (edit: GanttBarEdit) => void;
   onEditTask?: (task: Task) => void;
   onEditMilestone?: (m: Milestone) => void;
+  /** The in-flight milestone drag, if any (§715 project D). */
+  milestoneDrag?: MilestoneDragState | null;
+  /** Present only when milestones may be moved on the chart. */
+  startMilestoneDrag?: GanttMilestoneDrag["startMilestoneDrag"];
+  onMilestoneKeyDown?: GanttMilestoneDrag["onMilestoneKeyDown"];
   onAddTask?: () => void;
   baselineMilestoneDates?: ReadonlyMap<number, string>;
 }) {
@@ -232,6 +241,9 @@ export function GanttChart({
         tasksById={tasksById}
         todayISO={todayISO}
         onEditMilestone={onEditMilestone}
+        dragDeltaDays={milestoneDrag?.milestoneId === m.id ? milestoneDrag.deltaDays : 0}
+        onStartDrag={startMilestoneDrag}
+        onKeyMove={onMilestoneKeyDown}
         baselineDate={baselineMilestoneDates?.get(m.id)}
         showBaseline={prefs.showBaseline}
       />
