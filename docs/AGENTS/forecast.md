@@ -401,7 +401,12 @@ Dashboard picture: a Forecast tile, a chance chip per milestone and a Next-actio
   `groupNextActions`' own comparators. `computeNextActions`' flat list, and so notifications, the AI context and
   `nowCount`, never hold it; `use-action-learning.ts` skips the source, and a snooze of it does not teach either. It
   offers only Open Forecast and Snooze (`action-cta.ts` drops Create task and Log as RAID for it). It needs the
-  Milestones module, as the tile's at-risk section does, and the holidays. ★ Rulings: the group counts in the Soon tier, the Top actions tile
+  Milestones module, as the tile's at-risk section does, and the holidays. Its why-line carries the milestone date
+  as an `I18nDateParam` (`{ date }`), which every surface renders through `actionText` (`action-text.ts`, with
+  `formatDayMonthYear`), so it reads "Dec 1, 2026" / "1. Dez. 2026", never the ISO string. Open Forecast lands on
+  `ForecastPanelDeepLinked` (`forecast-panel.tsx`), which scrolls that milestone's row in the chances table into view
+  and flashes it (`useDeepLinkRowFlash`), then consumes the request; focus stays on the main region, as for every
+  deep-link that opens no editor. ★ Rulings: the group counts in the Soon tier, the Top actions tile
   and the greeting's needs-you count, because it is a Next-actions signal shown with the sim badge; only flat-list
   consumers are excluded.
 - ★★ **Holidays pending.** With the switch on and `holidaysReady` false, the panel computes no forecast and the
@@ -417,7 +422,11 @@ Dashboard picture: a Forecast tile, a chance chip per milestone and a Next-actio
   each label taking the first row with no label within `2 * LABEL_HALF_W`, so three equal or near-equal cut-offs
   (common for a narrow distribution) never overprint.
 - **Help.** The "Show the simulation introduction again" action becomes a note ("needs the switch") when the
-  switch is off; Help names the new surfaces.
+  switch is off; Help names the new surfaces. `HelpEntryAction` (`help-content-pane.tsx`) is a union: a handler OR
+  a note, exactly one, so an action can no longer render as an inert button.
+- **The tile's change line and headline.** The weekly change's ▲/▼ sits inside its `SimValue` outline (`glyph`,
+  `aria-hidden`). A P50 without a P80 cannot happen (P50 ≤ P80); the tile renders nothing for it rather than an
+  empty line.
 - ★ Switch OFF → no tile (board or shelf), no chips, no sim action, no recorder; nothing else changes.
 
 ## Mutation proof (slice 1)

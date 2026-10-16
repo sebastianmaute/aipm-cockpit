@@ -749,8 +749,9 @@ IS in axe `A11Y_VIEWS`. Built as slices:
 - **Deep-link row flash:** shared `use-deeplink-row-flash.ts` — `useDeepLinkRowFlash(view)` (render-time
   reconcile sets `flashId` + a monotonic `flashSeq` nonce; an effect keyed on `[flashId, flashSeq]` does the
   rAF `scrollIntoView({block:"center"})` + a `DEEPLINK_FLASH_MS=1800` auto-clear; the nonce makes a same-id
-  re-request re-fire) + `flashOutlineClass(isFlashed)`. Each of the five deep-linkable panels
-  (raid/milestones/changes/stakeholders/tasks) attaches `containerRef` to its `overflow-auto` scroll
+  re-request re-fire) + `flashOutlineClass(isFlashed)`. Each deep-linkable panel
+  (eight files on 2026-10-16, including documents, the resource directory and the Forecast view's milestone
+  chances table through `ForecastPanelDeepLinked` — this line said "five" for a while; enumerate with `grep -rln "useDeepLinkRowFlash(" src/app --include=*.tsx | grep -v test`) attaches `containerRef` to its `overflow-auto` scroll
   container and adds `data-deeplink-row={id}` + `flashOutlineClass(flashId===id)` to rows; static
   `outline-ui-green` (no bg → never fights row `bg-*` state classes; palette-safe). Fires ALONGSIDE the
   editor-open effect and does NOT clear `pendingOpen` (the panel's own effect does — both fire in the same
@@ -998,17 +999,20 @@ rules and the run they share are in [`forecast.md`](forecast.md) "Simulation acr
   `forecast-tile-model.ts`); `ForecastRangeBar`; the open-task count (calculated, NOT sim-styled); the up-to-3
   milestones most at risk (`milestonesAtRisk`, `AT_RISK_LIMIT`, row-unique names through `buildRowTokens`/`rowLabel`); and
   "Open Forecast". Only a comparison of two simulated dates (later / earlier / same) and the range bar wear the sim
-  marking; the "Change shown from <date>" and "beyond the horizon" forms of the change line are statements about the data
+  marking, and the change's ▲/▼ sits INSIDE that outline (`SimValue`'s `glyph`, `aria-hidden`: the words carry the
+  direction); the "Change shown from <date>" and "beyond the horizon" forms of the change line are statements about the data
   and stay plain, like the gap line. An insufficient forecast shows the KPI strip's gap line ALONE, not sim-styled.
 - ★★ **Holidays pending** (`holidaysReady === false` with the switch on): the panel computes no forecast, so the KPI
   cells, the tile's simulated slots and each chip are `SimPlaceholder` (`sim-value.tsx`): empty, `aria-hidden`, the
   height of a `SimValue`, no text, so a placeholder never reads as a figure. Without it the first render ran the forecast
   before the holiday calendar arrived and flashed the gap line. `kpiContentKey` takes a `pending` flag for the same reason.
 - **The tile's measured content key.** `dashboard-panel.tsx` passes `useMeasuredHeights` a `contentKey` joined from three
-  parts: `kpiContentKey(...)`, `forecastTileContentKey(forecast, atRisk.length, forecastChange)` (`kpi-simulation.ts`:
-  pending, insufficient, or P80 beyond / present, whether P95 exists, the at-risk row count, and whether the weekly
-  change shows as a simulated value or a plain line; `forecastChange` is the same `weeklyChange` call the tile makes)
-  and `ms:<visibleChipCount>`. ★ It
+  parts: `kpiContentKey(...)`, `forecastTileContentKey(forecast, showMilestones ? atRisk.length : null, forecastChange)`
+  (`kpi-simulation.ts`: pending, insufficient, or P80 beyond / present, whether P95 exists, the at-risk row count — or
+  "off" when the Milestones module hides the section, which is not the same height as "0 at risk" — and whether the
+  weekly change shows as a simulated value or a plain line; `forecastChange` is the same `weeklyChange` call the tile
+  makes) and `milestonesContentKey` (`milestone-horizon-strip.tsx`: the chips that draw AND, while holidays are
+  pending, the `SimPlaceholder`s that hold their place, both inside the bucket cap). ★ It
   encodes only those inputs: a new simulated element that changes a tile's height must extend it.
 - **Milestone chips.** `MilestoneHorizonStrip` draws a chip (percent plus the decorative "sim" badge) beside each
   milestone in `chances`, which `buildTileBodies` builds with `chancesById` from the SAME run (only `state: "chance"`
