@@ -21,4 +21,12 @@ describe("actionText", () => {
       .toBe("Go-live is unlikely on time — 31% chance");
     expect(actionText("en-US", { key: "actionMilestoneWhyAtRisk" })).not.toContain("{0}");
   });
+
+  it("shows a date param that is not a valid ISO day as it is, instead of throwing", () => {
+    for (const date of ["", "soon", "2026-13-40"]) {
+      const why = { key: "actionForecastSimWhyBelow1" as const, params: [{ date }] };
+      expect(() => actionText("en-US", why)).not.toThrow();
+      expect(actionText("en-US", why)).toBe(`Simulated: <1% chance of finishing by ${date}`);
+    }
+  });
 });
