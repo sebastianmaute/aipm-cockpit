@@ -979,6 +979,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§739](#739-a-new-projects-plan-start-date-is-the-utc-day-not-the-local-day--closed-2026-10-15) | A new project's plan start date is the UTC day, not the local day | — | — | **CLOSED** 2026-10-15 |
 | [§740](#740-a-project-created-on-turso-storage-outside-turso-mode-reopens-as-an-empty-browser-workspace--closed-2026-10-15) | A project created on Turso storage outside Turso mode reopens as an empty browser workspace | — | — | **CLOSED** 2026-10-15 |
 | [§741](#741-the-desktop-smoke-test-never-loads-the-packaged-apps-updater-so-a-release-with-a-broken-electron-updater-goes-unnoticed--open) | The desktop smoke test never loads the packaged app's updater, so a release with a broken electron-updater goes unnoticed | — | — | open |
+| [§742](#742-gantt-task-bars-cannot-be-moved-or-resized-from-the-keyboard--open) | Gantt task bars cannot be moved or resized from the keyboard | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45504,3 +45505,17 @@ Proposed: a mode that loads and wires the real updater but skips the network cal
 Size S.
 
 **Source:** recorded in §487 on 2026-09-24 (gap found while verifying the unsigned auto-update decision); filed as its own entry after the 2026-10-16 issue audit.
+
+## 742. Gantt task bars cannot be moved or resized from the keyboard — OPEN
+
+**Status:** OPEN 2026-10-16, filed on the owner's word while scoping the milestone drag (project D of §715). `grep -c "startBarDrag(e, task, bar" src/app/gantt-rows.tsx` prints 3, one `onPointerDown` per handle, with no key handler beside them.
+
+**Work item:** #761
+
+A task bar's three drag handles in `gantt-rows.tsx` (move, resize start, resize end; their names are `ganttBarMove`, `ganttBarResizeStart` and `ganttBarResizeEnd`) are `role="button"` divs with a row-unique accessible name but no `tabIndex` and no key handler (`grep -n "startBarDrag(e, task, bar" src/app/gantt-rows.tsx` shows the three `onPointerDown` handlers and nothing else). They cannot be reached or operated from the keyboard. A keyboard user can still change a task's dates in the task editor, so no date is out of reach, but the chart itself is pointer-only, and an element exposed as a button that cannot be focused is a WCAG 2.1.1 failure the axe gate does not report.
+
+Proposed: match the milestone drag that project D builds — the move handle focusable, arrow keys ±1 day and Shift+arrow ±7 days for move, and a modifier (or the two edge handles made focusable) for start and end, each key press committing through `onUpdateBar`.
+
+Size S.
+
+**Source:** found 2026-10-16 while designing the Gantt milestone drag for the §715 video guides (`docs/superpowers/specs/2026-10-16-video-guides-recorder-design.md`).
