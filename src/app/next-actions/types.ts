@@ -16,10 +16,16 @@ export type ActionSource =
   // the GROUPS after grouping and never enters the flat engine list (next-actions/sim-milestones.ts).
   | "forecast-sim";
 
-/** Translated by the surface (SP2); the engine stays i18n-free. */
+/** An ISO `yyyy-mm-dd` day the SURFACE formats for the reader's language
+ *  (`actionText`, src/app/action-text.ts). The engine cannot: it has no `Lang`. */
+export interface I18nDateParam {
+  date: string;
+}
+
+/** Translated by the surface (SP2) through `actionText`; the engine stays i18n-free. */
 export interface I18nText {
   key: TranslationKey;
-  params?: (string | number)[];
+  params?: (string | number | I18nDateParam)[];
 }
 
 /** A serializable description of the primary action — the surface executes it. */

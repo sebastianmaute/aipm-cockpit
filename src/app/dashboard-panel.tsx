@@ -54,6 +54,7 @@ import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { tileById, type DashboardTileId, type TileGateInput, type TileHeight } from "./dashboard-tiles";
 import { useMeasuredHeights } from "./use-measured-heights";
 import type { PlacedTile } from "./dashboard-layout";
+import { actionText } from "./action-text";
 
 // A stable identity for the "no snapshots yet" default — an inline `[]`
 // fallback would mint a fresh array every render, invalidating the `model`
@@ -273,7 +274,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
       expertMode={props.expertMode}
       rowToken={rowLabel(
         t(lang, "actionHeroEyebrow"),
-        t(lang, heroGroup.primary.title.key, ...(heroGroup.primary.title.params ?? [])),
+        actionText(lang, heroGroup.primary.title),
       )}
       className="h-full"
     />

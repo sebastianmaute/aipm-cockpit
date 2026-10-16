@@ -38,7 +38,7 @@ describe("buildSimMilestoneActions", () => {
     expect(a.tier).toBe("soon");
     expect(a.cta).toEqual({ kind: "open", view: "forecast", id: 7 });
     expect(a.title).toEqual({ key: "actionForecastSimTitle", params: ["Go-live", 31] });
-    expect(a.why).toEqual({ key: "actionForecastSimWhy", params: [31, "2026-12-01"] });
+    expect(a.why).toEqual({ key: "actionForecastSimWhy", params: [31, { date: "2026-12-01" }] });
     expect(a.score).toBeGreaterThanOrEqual(TIER_SOON);
     expect(a.score).toBeLessThan(TIER_NOW);
   });
@@ -69,7 +69,7 @@ describe("buildSimMilestoneActions", () => {
   it("uses the <1% keys for a chance that rounds to zero but is not zero", () => {
     const [a] = build([chance(7, 0.003)]);
     expect(a.title).toEqual({ key: "actionForecastSimTitleBelow1", params: ["Go-live"] });
-    expect(a.why).toEqual({ key: "actionForecastSimWhyBelow1", params: ["2026-12-01"] });
+    expect(a.why).toEqual({ key: "actionForecastSimWhyBelow1", params: [{ date: "2026-12-01" }] });
   });
 
   it("scores a lower chance higher, spanning exactly the soon band", () => {

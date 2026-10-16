@@ -495,7 +495,7 @@ describe("ActionRow — simulated 'unlikely on time' signal (§502)", () => {
   const simAction: SuggestedAction = {
     id: "forecast-sim:milestone:7", source: "forecast-sim", moduleId: "milestones",
     title: { key: "actionForecastSimTitle", params: ["Go-live", 31] },
-    why: { key: "actionForecastSimWhy", params: [31, "2026-12-01"] },
+    why: { key: "actionForecastSimWhy", params: [31, { date: "2026-12-01" }] },
     score: 40, tier: "soon", cta: { kind: "open", view: "forecast", id: 7 },
   };
 
@@ -503,7 +503,7 @@ describe("ActionRow — simulated 'unlikely on time' signal (§502)", () => {
     const onOpen = vi.fn();
     const { container } = render(<ActionRow rowToken="Row" lang="en-US" action={simAction} onOpen={onOpen} />);
     expect(screen.getByText("Go-live is unlikely on time — 31% chance")).toBeTruthy();
-    expect(screen.getByText(/Simulated: 31% chance of finishing by 2026-12-01/)).toBeTruthy();
+    expect(screen.getByText(/Simulated: 31% chance of finishing by Dec 1, 2026/)).toBeTruthy();
     const badge = [...container.querySelectorAll('[aria-hidden="true"]')].find((n) => n.textContent === "sim");
     expect(badge).toBeTruthy();
     const open = screen.getByRole("button", { name: "Open Forecast – Row" });

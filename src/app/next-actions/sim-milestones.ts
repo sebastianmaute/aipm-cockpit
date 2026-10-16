@@ -35,8 +35,8 @@ function simAction(m: Milestone, chance: number): SuggestedAction {
       ? { key: "actionForecastSimTitleBelow1", params: [m.name] }
       : { key: "actionForecastSimTitle", params: [m.name, percent] },
     why: below1
-      ? { key: "actionForecastSimWhyBelow1", params: [m.date] }
-      : { key: "actionForecastSimWhy", params: [percent, m.date] },
+      ? { key: "actionForecastSimWhyBelow1", params: [{ date: m.date }] }
+      : { key: "actionForecastSimWhy", params: [percent, { date: m.date }] },
     score: simScore(chance),
     tier: "soon",
     cta: { kind: "open", view: "forecast", id: m.id },

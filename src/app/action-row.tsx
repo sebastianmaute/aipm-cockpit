@@ -12,6 +12,7 @@ import {
 import { TIER_RAG } from "./next-actions/action-cta";
 import { rowLabel } from "./row-tokens";
 import { SimBadge } from "./sim-value";
+import { actionText } from "./action-text";
 
 export type { AssignOwnerBundle };
 
@@ -31,8 +32,8 @@ export function ActionRow(props: ActionRowProps) {
   const { lang, action, extraReasons, expertMode, rowToken } = props;
   const caps = useActionCaps(props);
   const rag = TIER_RAG[action.tier];
-  const title = t(lang, action.title.key, ...(action.title.params ?? []));
-  const why = t(lang, action.why.key, ...(action.why.params ?? []));
+  const title = actionText(lang, action.title);
+  const why = actionText(lang, action.why);
   const sourceLabel = t(lang, ACTION_SOURCE_LABEL[action.source]);
   // §582 fix round — without a handler this div did nothing on click but still
   // wore `cursor-pointer` + the hover tint, so it looked clickable and was not.

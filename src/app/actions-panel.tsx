@@ -29,6 +29,7 @@ import { buildRowTokens } from "./row-tokens";
 import { Dot } from "./dot";
 import { aiKeyMessageKeyForStatusToken } from "./ai-key-status";
 import { Button } from "./button";
+import { actionText } from "./action-text";
 
 const TIERS: { tier: ActionTier; labelKey: TranslationKey }[] = [
   { tier: "now", labelKey: "actionTierNow" },
@@ -109,7 +110,7 @@ export function ActionsPanel({ lang, groups, onOpen, onSnooze, onCreateTask, ass
   const actionTokens = useMemo(
     () => buildRowTokens(groups.map((g) => ({
       id: g.key,
-      name: t(lang, g.primary.title.key, ...(g.primary.title.params ?? [])),
+      name: actionText(lang, g.primary.title),
     }))),
     [groups, lang],
   );

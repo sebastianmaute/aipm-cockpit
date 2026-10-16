@@ -8,6 +8,7 @@ import { TIER_RAG } from "./next-actions/action-cta";
 import { InfoTooltip } from "./info-tooltip";
 import { rowLabel } from "./row-tokens";
 import { SimBadge } from "./sim-value";
+import { actionText } from "./action-text";
 
 interface ActionHeroCardProps extends ActionHandlers {
   lang: Lang;
@@ -37,8 +38,8 @@ export function ActionHeroCard(props: ActionHeroCardProps) {
   const action = group.primary;
   const caps = useActionCaps(props);
   const rag = TIER_RAG[group.tier];
-  const title = t(lang, action.title.key, ...(action.title.params ?? []));
-  const why = t(lang, action.why.key, ...(action.why.params ?? []));
+  const title = actionText(lang, action.title);
+  const why = actionText(lang, action.why);
   return (
     <section
       aria-label={t(lang, "actionHeroEyebrow")}

@@ -36,6 +36,7 @@ import { useScheduledJobs } from "./use-scheduled-jobs";
 import { useScheduledJobRunner } from "./use-scheduled-job-runner";
 import { type OperatingGuide } from "./operating-guide";
 import { useGuideTextFrom } from "./action-guides-context";
+import { actionText } from "./action-text";
 
 const MAX_LEARNING_SUMMARY_ENTRIES = 20;
 
@@ -123,8 +124,8 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
         changes: changes.map((x) => ({ id: x.id, title: x.title })),
         stakeholders: stakeholders.map((x) => ({ id: x.id, name: x.name })),
         queue: nextActions.map((a) => ({
-          title: t(lang, a.title.key, ...(a.title.params ?? [])),
-          why: t(lang, a.why.key, ...(a.why.params ?? [])),
+          title: actionText(lang, a.title),
+          why: actionText(lang, a.why),
           tier: a.tier,
         })),
       }),
