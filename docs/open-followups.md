@@ -984,7 +984,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§744](#744-a-weekend-activity-still-open-on-monday-is-not-asked-about--open) | A weekend activity still open on Monday is not asked about | — | — | open |
 | [§745](#745-video-guides-no-guided-tour-for-each-feature-and-ai-clip--open) | Video guides: no guided tour for each feature and AI clip | — | — | open |
 | [§746](#746-video-guides-no-guided-tour-per-project-function--open) | Video guides: no guided tour per project Function | — | — | open |
-| [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--open) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | open |
+| [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--closed-2026-10-16) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | **CLOSED** 2026-10-16 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45579,11 +45579,9 @@ Size L.
 
 **Source:** found 2026-10-16 while designing the demo week for the §715 video guides (`docs/superpowers/specs/2026-10-16-demo-week-story-design.md`).
 
-## 747. Next-actions over-allocation checks the plan's first period, not the current one — OPEN
+## 747. Next-actions over-allocation checks the plan's first period, not the current one — CLOSED 2026-10-16
 
-**Status:** OPEN 2026-10-16. `grep -n "periods.slice(0, NEAR_TERM_PERIODS)" src/app/next-actions-workload.ts` shows the slice taken from `generatePeriods(a.plan.startDate, …)`, so the first period of the plan.
-
-**Work item:** #769
+**Status:** CLOSED 2026-10-16 on `fix/747-workload-current-period`. `nearTermPeriodKeys` in `src/app/resource-capacity.ts` picks the period containing today (the plan's first period before it starts, none after its end date), and both the over-allocation next action and the Workload view's "Util (now)" cell use it (`grep -rn "nearTermPeriodKeys(" src/app --include=*.ts --include=*.tsx | grep -v test` → 3 hits: the definition, `next-actions-workload.ts`, `resources-panel.tsx`). The cell had mirrored the first-period slice on purpose, so fixing the alert alone would have split them. Tests in `resource-capacity.test.ts`, `next-actions-workload.test.ts` and `resources-panel.test.tsx`; three were red before the fix, and mutants of the start, end and panel branches were each killed.
 
 `buildWorkloadAlerts` (`src/app/next-actions-workload.ts`) raises the "over-allocated" workload item from `periods.slice(0, NEAR_TERM_PERIODS)` of `generatePeriods(a.plan.startDate, a.plan.endDate, a.plan.granularity)`: the plan's FIRST period, whatever `a.today` is, although the constant's comment says "check the current/next period only". Once a project is past its first month (or week), an over-allocated person never raises the item. The overdue-count "overload" path is unaffected.
 

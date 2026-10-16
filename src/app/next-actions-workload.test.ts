@@ -72,6 +72,50 @@ describe("buildWorkloadAlerts", () => {
     expect(buildWorkloadAlerts({ ...base, resources, plan, overAllocatedPct: 110 }).some((a) => a.reason === "over-allocated")).toBe(false);
   });
 
+  // §747: the near-term period is the one containing `today`, not the plan's first.
+  describe("reads the period that contains today (§747)", () => {
+    const longPlan: ResourcePlan = {
+      startDate: "2026-03-01", endDate: "2026-12-31", granularity: "month", currency: "EUR",
+    };
+    const overAlloc = (args: Parameters<typeof buildWorkloadAlerts>[0]) =>
+      buildWorkloadAlerts(args).filter((a) => a.reason === "over-allocated");
+
+    it("flags an overload in the current month of a plan that started months ago", () => {
+      const resources = [res(1, "Ava", { utilization: { "2026-03": 50, "2026-09": 135 } })];
+      expect(overAlloc({ ...base, resources, plan: longPlan, today: "2026-09-21" })).toEqual([
+        { resourceId: 1, resourceName: expect.any(String), reason: "over-allocated", value: 135 },
+      ]);
+    });
+
+    it("ignores an overload that sits only in the plan's first month", () => {
+      const resources = [res(1, "Ava", { utilization: { "2026-03": 135, "2026-09": 50 } })];
+      expect(overAlloc({ ...base, resources, plan: longPlan, today: "2026-09-21" })).toEqual([]);
+    });
+
+    it("reads the current ISO week at week granularity", () => {
+      const plan: ResourcePlan = { ...longPlan, granularity: "week" };
+      const resources = [res(1, "Ava", { utilization: { "2026-W10": 50, "2026-W39": 140 } })];
+      expect(overAlloc({ ...base, resources, plan, today: "2026-09-21" }).map((a) => a.value)).toEqual([140]);
+    });
+
+    it("reads the first period while the plan has not started yet", () => {
+      const resources = [res(1, "Ava", { utilization: { "2026-03": 120 } })];
+      expect(overAlloc({ ...base, resources, plan: longPlan, today: "2026-02-10" }).map((a) => a.value)).toEqual([120]);
+    });
+
+    it("raises nothing after the end date, even inside the plan's last month", () => {
+      const plan: ResourcePlan = { ...longPlan, endDate: "2026-12-15" };
+      const resources = [res(1, "Ava", { utilization: { "2026-12": 150 } })];
+      expect(overAlloc({ ...base, resources, plan, today: "2026-12-15" }).map((a) => a.value)).toEqual([150]);
+      expect(overAlloc({ ...base, resources, plan, today: "2026-12-20" })).toEqual([]);
+    });
+
+    it("raises nothing once the plan has ended", () => {
+      const resources = [res(1, "Ava", { utilization: { "2026-12": 150 } })];
+      expect(overAlloc({ ...base, resources, plan: longPlan, today: "2027-01-15" })).toEqual([]);
+    });
+  });
+
   it("returns nothing for a healthy resource", () => {
     expect(buildWorkloadAlerts(base)).toEqual([]);
   });

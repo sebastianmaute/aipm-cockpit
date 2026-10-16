@@ -93,8 +93,9 @@ interface Props {
     existing: Shift | null,
     assignee: { display: string; email: string },
   ) => void;
-  /** Canonical near-term period key (periods[0]) — the one the over-allocation
-   *  alert flags; null when there's no plan. */
+  /** Near-term period key from `nearTermPeriodKeys` (resource-capacity.ts; the period containing
+   *  today) — the one the over-allocation alert flags; null when there's no plan
+   *  period to edit (no periods, or the plan has ended). */
   nearTermPeriodKey: string | null;
   /** resource.id → near-term utilization percent (for the over-allocation highlight). */
   nearTermPctByResource: ReadonlyMap<number, number>;
