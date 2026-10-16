@@ -148,7 +148,9 @@ describe("TaskManager portfolio mode (Turso)", () => {
     const note = t("en-US", "demoTursoConnectedNote", DEMO_WEEKS);
     expect(await screen.findByText(note, undefined, { timeout: 40000 })).toBeTruthy();
     expect(screen.getByText(t("en-US", "demoCardTrendsIncluded", DEMO_WEEKS, t("en-US", "demoProjectName", DEMO_SAMPLE_NAME)))).toBeTruthy();
-    expect(window.localStorage.getItem(DEMO_INTENT_KEY)).toBeNull();
+    // The note renders in the same commit as the empty state; useDemoIntentOnBoot spends the intent
+    // in an effect after it, so a check made straight after the note appears can still see it.
+    await waitFor(() => expect(window.localStorage.getItem(DEMO_INTENT_KEY)).toBeNull(), { timeout: 5000 });
   }, 45000);
 
   // A failed list fetch (a mistyped token) is not "projects present": no "Turso connected" offer
