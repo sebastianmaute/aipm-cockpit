@@ -169,18 +169,40 @@ describe("useForecastHistoryRecorder", () => {
     expect(result.current).toEqual([ENTRY]);
   });
 
-  it("an idle tab writes nothing at the day change, and records the day on its next input change", () => {
+  it("an idle tab records the new day at the day change", () => {
+    // A window left open for days with no edits must still record each day, or the
+    // tile's weekly change falls back to a "Change shown from" date that keeps moving.
     const set = vi.fn();
-    const { rerender } = renderHook((p: { today: string; tasks: ForecastHistoryRecorderDeps["tasks"] }) =>
-      useForecastHistoryRecorder(deps({ today: p.today, tasks: p.tasks, setForecastHistory: set })),
-      { initialProps: { today: TODAY, tasks: TASKS } });
+    const { rerender } = renderHook((p: { today: string }) =>
+      useForecastHistoryRecorder(deps({ today: p.today, setForecastHistory: set })),
+      { initialProps: { today: TODAY } });
     expect(set).toHaveBeenCalledTimes(1);
-    rerender({ today: "2026-10-16", tasks: TASKS });
-    expect(set).toHaveBeenCalledTimes(1);
-    rerender({ today: "2026-10-16", tasks: [] });
+    rerender({ today: "2026-10-16" });
     expect(set).toHaveBeenCalledTimes(2);
     const updater = set.mock.calls[1][0] as (p: readonly ForecastHistoryEntry[]) => ForecastHistoryEntry[];
     expect(updater([ENTRY])).toEqual([ENTRY, { ...ENTRY, date: "2026-10-16" }]);
+  });
+
+  it("an idle tab adopts a peer's entry for the new day instead of writing", () => {
+    const set = vi.fn();
+    const tomorrow = "2026-10-16";
+    const { rerender } = renderHook((p: { today: string; h: readonly ForecastHistoryEntry[] }) =>
+      useForecastHistoryRecorder(deps({ today: p.today, forecastHistory: p.h, setForecastHistory: set })),
+      { initialProps: { today: TODAY, h: [] as readonly ForecastHistoryEntry[] } });
+    expect(set).toHaveBeenCalledTimes(1);
+    rerender({ today: tomorrow, h: [ENTRY, { ...ENTRY, date: tomorrow, p50: "2026-11-02" }] });
+    expect(set).toHaveBeenCalledTimes(1);
+  });
+
+  it("with a real stateful history, an idle tab writes the new day exactly once", () => {
+    const { result, rerender } = renderHook((today: string) => {
+      const [h, setH] = useState<readonly ForecastHistoryEntry[]>([]);
+      useForecastHistoryRecorder(deps({ today, forecastHistory: h, setForecastHistory: setH }));
+      return h;
+    }, { initialProps: TODAY });
+    rerender("2026-10-16");
+    rerender("2026-10-16");
+    expect(result.current.map((e) => e.date)).toEqual([TODAY, "2026-10-16"]);
   });
 
   it.each([
@@ -189,7 +211,7 @@ describe("useForecastHistoryRecorder", () => {
     ["planEnd", { planEnd: "2027-01-31" }],
     ["holidaySet", { holidaySet: new Set<string>() }],
     ["scope epoch", { getScopeEpoch: () => 1 }],
-  ] as const)("a day change together with a %s change is not idle and records the day", (_label, over) => {
+  ] as const)("a day change together with a %s change records the day", (_label, over) => {
     const set = vi.fn();
     const { rerender } = renderHook((p: Partial<ForecastHistoryRecorderDeps>) =>
       useForecastHistoryRecorder(deps({ setForecastHistory: set, ...p })), { initialProps: {} });
@@ -198,9 +220,8 @@ describe("useForecastHistoryRecorder", () => {
     expect(set).toHaveBeenCalledTimes(2);
   });
 
-  it("a gate that reopens after the day changed counts as a load and records the day", () => {
-    // Switch the simulation off overnight and on again the next morning: the inputs
-    // are the same references, but this is not an idle tab at midnight.
+  it("a gate that reopens after the day changed records the day", () => {
+    // Switch the simulation off overnight and on again the next morning.
     const set = vi.fn();
     const { rerender } = renderHook((p: Partial<ForecastHistoryRecorderDeps>) =>
       useForecastHistoryRecorder(deps({ setForecastHistory: set, ...p })), { initialProps: {} });
@@ -242,7 +263,7 @@ describe("useForecastHistoryRecorder", () => {
       useForecastHistoryRecorder(deps({ today: p.today, tasks: p.tasks, forecastHistory: p.h, setForecastHistory: set })),
       { initialProps: { today: TODAY, tasks: TASKS, h: [] as readonly ForecastHistoryEntry[] } });
     expect(set).toHaveBeenCalledTimes(1);
-    // A tasks change too, so this is not the idle day change (which never writes).
+    // Its own forecast moved overnight too; the peer's entry still wins.
     compute.mockReturnValue({ ...FORECAST, p50: "2026-11-03" });
     rerender({ today: tomorrow, tasks: [], h: [ENTRY, { ...ENTRY, date: tomorrow }] });
     expect(set).toHaveBeenCalledTimes(1);
