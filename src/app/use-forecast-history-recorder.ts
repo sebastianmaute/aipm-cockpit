@@ -28,8 +28,8 @@
 // The ref below remembers, per scope epoch, the tab's BASELINE (its own last
 // computed entry) and SEEN (the stored entry for today it last saw or wrote).
 // Per effect run that passes the gates above:
-//   1. On SHARED STORAGE (`sharedStorage`: Turso, SharePoint, the Turso portfolio),
-//      an IDLE DAY CHANGE writes nothing: `today` moved and `tasks`, `milestones`,
+//   1. On SHARED STORAGE (`sharedStorage`: everything but browser storage, see
+//      `isSharedStorage`), an IDLE DAY CHANGE writes nothing: `today` moved and `tasks`, `milestones`,
 //      `planEnd`, `holidaySet` (by reference) and the scope epoch all equal the
 //      previous run's. A device there never sees another device's entry until it
 //      reloads (the history is broadcast between tabs, not between devices), so an
@@ -40,7 +40,7 @@
 //      The first run after mount, and the first after any gated run (switch off,
 //      load pending, popout, holidays not ready), has no previous run: it is a load
 //      and may write.
-//      ★ On SINGLE-DEVICE storage (browser, local file) the rule does not apply: an
+//      ★ On SINGLE-DEVICE storage (browser storage) the rule does not apply: an
 //      idle tab records the new day, writing only when nothing is stored for today
 //      yet and adopting a peer tab's entry otherwise (rules 2 and 4; its baseline is
 //      yesterday's). Several tabs open at midnight can each write once before the
@@ -91,11 +91,13 @@ import type { Milestone, Task } from "./types";
 import type { StorageConfig } from "./storage-config-kind";
 import type { PortfolioMode } from "./portfolio-mode";
 
-/** Rule 1's switch: storage other devices write too. Turso (a single database, or the Turso portfolio,
- *  whose projects live in the shared database whatever the per-project kind says) and SharePoint are;
- *  browser storage and a local file are written from this device alone. */
+/** Rule 1's switch: storage another DEVICE can write too. Only browser storage (IndexedDB, one browser
+ *  profile) is this device's alone. Turso and SharePoint are shared by design, and a local file can sit
+ *  on a shared drive (`docs/storage.md` suggests it), where a second machine's save trips the file's
+ *  revision check just as a Turso save does. The portfolio-mode term is defensive: switching to the Turso
+ *  portfolio also sets the kind to "turso". */
 export function isSharedStorage(kind: StorageConfig["kind"], portfolioMode: PortfolioMode): boolean {
-  return portfolioMode === "turso" || kind === "turso" || kind === "sp-json" || kind === "sp-csv";
+  return portfolioMode === "turso" || kind !== "browser";
 }
 
 export interface ForecastHistoryRecorderDeps {
@@ -115,7 +117,7 @@ export interface ForecastHistoryRecorderDeps {
   setForecastHistory: Dispatch<SetStateAction<readonly ForecastHistoryEntry[]>>;
   /** Keys this tab's memory of its own entry to the project in scope (§548). */
   getScopeEpoch: ScopeEpochReader;
-  /** True when other DEVICES write the same project (Turso, SharePoint): rule 1 applies only then. */
+  /** True when another DEVICE can write the same project (`isSharedStorage`): rule 1 applies only then. */
   sharedStorage: boolean;
 }
 

@@ -367,15 +367,15 @@ describe("useForecastHistoryRecorder", () => {
     expect(set).toHaveBeenCalledTimes(1);
   });
   describe("rule 1 applies on shared storage only", () => {
-    it("isSharedStorage: Turso, SharePoint and the Turso portfolio are shared; browser and local files are not", () => {
+    it("isSharedStorage: only browser storage is single-device; a local file can sit on a shared drive", () => {
       expect(isSharedStorage("turso", "file")).toBe(true);
       expect(isSharedStorage("sp-json", "file")).toBe(true);
       expect(isSharedStorage("sp-csv", "file")).toBe(true);
       expect(isSharedStorage("browser", "turso")).toBe(true);
       expect(isSharedStorage("browser", "file")).toBe(false);
-      expect(isSharedStorage("local-json", "file")).toBe(false);
-      expect(isSharedStorage("local-csv", "file")).toBe(false);
-      expect(isSharedStorage("local-md", "file")).toBe(false);
+      expect(isSharedStorage("local-json", "file")).toBe(true);
+      expect(isSharedStorage("local-csv", "file")).toBe(true);
+      expect(isSharedStorage("local-md", "file")).toBe(true);
     });
 
     it("two devices on shared storage, both open across midnight, write nothing at the day change", () => {

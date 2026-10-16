@@ -300,9 +300,10 @@ chance on time; the dated history it records is the input to later surfaces. Fil
   `task-manager.tsx` (no size-ratchet headroom). It writes only when the switch is on AND `hydrated`,
   not `isPopout`, not `loadPending` (§548), `holidaysReady` and the forecast is sufficient. ★★★ WHETHER to
   write is decided against THIS TAB's own memory (a `useRef`), not against the stored entry alone. The five
-  rules are numbered in the file header; in short: ON SHARED STORAGE ONLY (`isSharedStorage`: Turso, SharePoint,
-  the Turso portfolio), a day change with every input unchanged writes nothing (an idle device must not write the
-  new day over a revision another device already moved, spec §4.1); nothing stored for today writes; a stored entry EQUAL to the
+  rules are numbered in the file header; in short: ON SHARED STORAGE ONLY (`isSharedStorage`: everything but
+  browser storage, since a local file can sit on a shared drive and trips its revision check like Turso), a day
+  change with every input unchanged writes nothing (an idle device must not write the new day over a revision
+  another device already moved, spec §4.1); nothing stored for today writes; a stored entry EQUAL to the
   computed one writes nothing; a stored entry this tab has not SEEN (a peer wrote it since the tab's last run),
   or a tab with no baseline for today, ADOPTS it without writing; otherwise (the stored entry is the one the tab
   last saw and differs) it writes only when its OWN computed entry differs from its baseline. The stored-only
@@ -310,7 +311,7 @@ chance on time; the dated history it records is the input to later surfaces. Fil
   overwrite each other for ever, since `forecastHistory` is broadcast between tabs. Pinned by "two clients
   with different holiday sets write once per day" in `use-forecast-history-recorder.test.ts` (one write in total
   when the second client comes up after the first recorded; two open across midnight are the "rule 1 applies on
-  shared storage only" tests). ★ On browser storage and a local file an idle tab DOES record the new day (only
+  shared storage only" tests). ★ On browser storage an idle tab DOES record the new day (only
   when nothing is stored for today yet; a peer tab's entry is adopted), so several tabs open at midnight can each
   write once. Skipping there left a window open for days with no edits recording nothing, and after a week the
   tile's "Change shown from" date moved forward every day; on shared storage an idle window still does that
