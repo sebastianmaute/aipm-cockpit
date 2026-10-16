@@ -66,6 +66,9 @@ import {
   toISODay,
 } from "./gantt-engine";
 
+/** Days the axis keeps before a keyboard-previewed milestone: room for its date label (§715). */
+const KEY_PREVIEW_LEFT_ROOM_DAYS = 4;
+
 // ---------- panel component ------------------------------------------------
 
 export function GanttPanel({
@@ -571,10 +574,12 @@ export function GanttPanel({
     // edge widen the axis: the handle stays reachable and its slider value in
     // range. A pointer drag does not: widening under the pointer would shift
     // the chart away from it.
+    let keyPreviewDate: Date | null = null;
     for (const m of milestones) {
       const iso = m.id === keyPreviewId ? (shiftIsoDate(m.date, keyPreviewDays) ?? m.date) : m.date;
       const d = parseISO(iso);
       if (!d) continue;
+      if (m.id === keyPreviewId) keyPreviewDate = d;
       if (!initialized) {
         min = d;
         max = d;
@@ -612,6 +617,13 @@ export function GanttPanel({
       // the gutter / chart edge.
       min = addDays(min, -2);
       max = addDays(max, 3);
+      // The keyboard preview's date label sits LEFT of its diamond, so a
+      // preview near the first day needs more room than the two-day pad, or
+      // the label starts under the sticky name column where no scroll reaches.
+      if (keyPreviewDate) {
+        const room = addDays(keyPreviewDate, -KEY_PREVIEW_LEFT_ROOM_DAYS);
+        if (room.getTime() < min.getTime()) min = room;
+      }
     }
     const days = Math.max(1, diffDays(min, max) + 1);
     return { min, max, days };

@@ -150,6 +150,16 @@ describe("GanttView — milestone move", () => {
     );
   });
 
+  it("hands focus to the milestone's name when a sign-off removes its focused handle", () => {
+    renderView({ onEditMilestone: vi.fn() });
+    const slider = screen.getByRole("slider", { name: HANDLE });
+    act(() => slider.focus());
+    fireEvent.click(screen.getByRole("button", { name: "sign-off" }));
+    expect(screen.queryByRole("slider", { name: HANDLE })).toBeNull();
+    expect(document.activeElement?.tagName).toBe("BUTTON");
+    expect(document.activeElement?.textContent).toBe("Pilot Go-Live");
+  });
+
   it("moves from the date a concurrent writer set, not the one the presses started on", () => {
     renderView();
     const slider = screen.getByRole("slider", { name: HANDLE });

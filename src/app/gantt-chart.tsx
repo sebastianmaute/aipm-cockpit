@@ -16,7 +16,7 @@
 // whole-pane empty state shows the same copy and a second inline copy of that
 // ternary is how the two drift.
 
-import { Fragment, useLayoutEffect, useMemo, useRef } from "react";
+import { Fragment, useMemo, useRef } from "react";
 import { PlusIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { GanttDependencyLayer, GanttHeader } from "./gantt-chrome";
@@ -31,13 +31,9 @@ import {
   type GanttBarEdit,
   type GanttPrefs,
   type GanttRow,
-  HEADER_HEIGHT_PX,
   ROW_HEIGHT_PX,
 } from "./gantt-engine";
-import { revealInGantt } from "./gantt-reveal";
-
-/** The sticky footer's height: the range line under the chart. */
-const GANTT_FOOTER_MIN_PX = 22;
+import { GANTT_FOOTER_MIN_PX, useGanttMilestoneFocus } from "./use-gantt-milestone-focus";
 
 /**
  * The row-token map's key for one row.
@@ -189,25 +185,15 @@ export function GanttChart({
   );
   const rowWindow = useGanttRowWindow({ keys: rowKeys, scrollRef, pinnedKeys });
 
-  // §715 project D — while arrow presses are pending, keep the milestone's
-  // handle (which moves with the preview) and its preview date in view —
-  // clear of the sticky name column, header and footer, which a plain
-  // `scrollIntoView` would leave them under (`gantt-reveal.ts`). Focus needs
-  // no help when a commit re-sorts the rows: React restores focus to the moved
-  // node itself, and the row window keeps a focused row mounted.
-  const handleSelector = (id: number) => `[data-gantt-milestone-handle="${id}"]`;
-  const keyMoveId = milestoneDrag?.mode === "keys" ? milestoneDrag.milestoneId : null;
-  const keyMoveDays = milestoneDrag?.mode === "keys" ? milestoneDrag.deltaDays : 0;
-  useLayoutEffect(() => {
-    const scroller = scrollRef.current;
-    if (keyMoveId === null || !scroller) return;
-    const handle = scroller.querySelector<HTMLElement>(handleSelector(keyMoveId));
-    if (!handle) return;
-    const preview = handle.parentElement?.querySelector<HTMLElement>("[data-gantt-milestone-preview]");
-    revealInGantt(scroller, preview ? [handle, preview] : [handle], {
-      left: nameColWidth, top: HEADER_HEIGHT_PX, bottom: GANTT_FOOTER_MIN_PX,
-    });
-  }, [keyMoveId, keyMoveDays, scrollRef, nameColWidth]);
+  // §715 project D — keep a focused milestone handle visible (while arrow
+  // presses move it, when the move ends, on Tab) and focused (when another
+  // writer signs it off). Focus needs no help when a commit re-sorts the rows:
+  // React restores focus to the moved node itself, and the row window keeps a
+  // focused row mounted.
+  const footerRef = useRef<HTMLDivElement | null>(null);
+  const milestoneFocus = useGanttMilestoneFocus({
+    scrollRef, footerRef, nameColWidth, milestoneDrag: milestoneDrag ?? null,
+  });
 
   const renderRow = (row: GanttRow) => {
     // ★★ No lookup and no skip here, for either kind (§273): each row
@@ -281,6 +267,8 @@ export function GanttChart({
   return (
     <div
       ref={scrollRef}
+      onFocus={milestoneFocus.onFocus}
+      onBlur={milestoneFocus.onBlur}
       className="min-h-[240px] w-full min-w-[480px] flex-1 overflow-auto rounded-md border border-line pr-2"
     >
       <div
@@ -419,6 +407,7 @@ export function GanttChart({
 
         {/* --- Footer with the date range so it's visible without hover -- */}
         <div
+          ref={footerRef}
           className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-line bg-surface-muted px-3 py-1 text-[11px] text-muted-foreground"
           style={{ minHeight: GANTT_FOOTER_MIN_PX }}
         >

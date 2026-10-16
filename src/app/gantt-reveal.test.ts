@@ -69,4 +69,11 @@ describe("revealInGantt", () => {
     expect(c.scrollTop).toBe(164);
     expect(c.scrollLeft).toBe(0);
   });
+
+  it("keeps a row clear of the sticky footer", () => {
+    const c = container(0, 0);
+    // Viewport y 395..425 = content 375..405, past a 400px port with a 22px footer.
+    revealInGantt(c, [target(rect(500, 395, 20, 30))], { left: 300, top: 56, bottom: 22 });
+    expect(c.scrollTop).toBe(405 - 400 + 22);
+  });
 });

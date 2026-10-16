@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { GanttMilestoneRow } from "./gantt-rows";
 import { GanttPanel } from "./gantt";
-import { fmtFull, LEFT_GUTTER_PX, ROW_HEIGHT_PX } from "./gantt-engine";
+import { fmtFull, HEADER_HEIGHT_PX, LEFT_GUTTER_PX, ROW_HEIGHT_PX } from "./gantt-engine";
 import type { Milestone, Task } from "./types";
 
 // §715 project D — the milestone row's drag handle and its live preview.
@@ -124,34 +124,99 @@ describe("GanttPanel — milestone move wiring", () => {
     fireEvent.keyDown(slider, { key: "PageDown" });
     fireEvent.keyDown(slider, { key: "PageDown" });
     expect(slider).toHaveAttribute("aria-valuetext", fmtFull(new Date(Date.UTC(2026, 5, 6)), "en-US"));
-    expect(slider).toHaveAttribute("aria-valuenow", "2");
+    // Four days before the previewed date: room for its date label, which
+    // sits left of the diamond.
+    expect(slider).toHaveAttribute("aria-valuenow", "4");
     expect(Number(slider.getAttribute("aria-valuenow"))).toBeLessThanOrEqual(Number(slider.getAttribute("aria-valuemax")));
   });
 
-  it("keeps the handle and its preview date clear of the sticky name column while arrow presses move it", () => {
-    // jsdom has no layout: place the handle at viewport x 60 and its preview
-    // label at x 30, both inside the scrollport but under the name column.
-    const rects = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
-      const at = (left: number, width: number) => ({ left, right: left + width, top: 100, bottom: 130, width, height: 30, x: left, y: 100, toJSON: () => ({}) }) as DOMRect;
-      if (this.hasAttribute("data-gantt-milestone-handle")) return at(60, 20);
-      if (this.hasAttribute("data-gantt-milestone-preview")) return at(30, 60);
-      return at(0, 0);
+  it("does not widen the axis under a pointer drag", () => {
+    render(<GanttPanel {...props} onMoveMilestone={vi.fn()} />);
+    const slider = screen.getByRole("slider", { name: "Move milestone – Beta" });
+    const max = slider.getAttribute("aria-valuemax");
+    fireEvent.pointerDown(slider, { button: 0, clientX: 1000, pointerId: 1 });
+    const move = new Event("pointermove") as Event & { clientX: number; pointerId: number };
+    move.clientX = 1000 - 28 * 20;
+    move.pointerId = 1;
+    act(() => { window.dispatchEvent(move); });
+    expect(slider).toHaveAttribute("aria-valuemax", max);
+  });
+
+  describe("keeping the focused handle in view", () => {
+    // jsdom has no layout. The scroller sits at the viewport origin, 800×400;
+    // the handle and its preview label get the boxes in `box`, which a test
+    // may change between steps; everything else is an empty box at the origin.
+    const box = { handleLeft: 0, previewLeft: 0, top: 100 };
+    let rects: { mockRestore: () => void };
+    beforeEach(() => {
+      Object.assign(box, { handleLeft: 0, previewLeft: 0, top: 100 });
+      rects = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+        const at = (left: number, top: number, width: number, height: number) =>
+          ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+        if (this.hasAttribute("data-gantt-milestone-handle")) return at(box.handleLeft, box.top, 20, 30);
+        if (this.hasAttribute("data-gantt-milestone-preview")) return at(box.previewLeft, box.top, 60, 30);
+        return at(0, 0, 0, 0);
+      });
     });
-    try {
+    afterEach(() => rects.mockRestore());
+
+    function setup(scrollLeft: number, scrollTop = 0) {
       render(<GanttPanel {...props} onMoveMilestone={vi.fn()} />);
       const slider = screen.getByRole("slider", { name: "Move milestone – Beta" });
       const scroller = slider.closest<HTMLElement>(".overflow-auto")!;
       Object.defineProperty(scroller, "clientWidth", { configurable: true, value: 800 });
       Object.defineProperty(scroller, "clientHeight", { configurable: true, value: 400 });
-      scroller.scrollLeft = 400;
+      scroller.scrollLeft = scrollLeft;
+      scroller.scrollTop = scrollTop;
+      return { slider, scroller };
+    }
+
+    it("keeps the handle and its preview date clear of the sticky name column while arrow presses move it", () => {
+      // Both inside the scrollport, both under the name column.
+      Object.assign(box, { handleLeft: 60, previewLeft: 30 });
+      const { slider, scroller } = setup(400);
       fireEvent.keyDown(slider, { key: "PageUp" });
       // Content x of the label = 30 + 400 = 430; it must start right of the
       // name column, so the chart scrolls to 430 - LEFT_GUTTER_PX.
       expect(scroller.scrollLeft).toBe(430 - LEFT_GUTTER_PX);
       expect(scroller.scrollTop).toBe(0);
-    } finally {
-      rects.mockRestore();
-    }
+    });
+
+    it("keeps the handle clear of the sticky header", () => {
+      // Viewport y 30 = content y 230 at scrollTop 200: under the header.
+      Object.assign(box, { handleLeft: 500, previewLeft: 420, top: 30 });
+      const { slider, scroller } = setup(0, 200);
+      fireEvent.keyDown(slider, { key: "ArrowRight" });
+      expect(scroller.scrollTop).toBe(230 - HEADER_HEIGHT_PX);
+    });
+
+    it("keeps the handle clear of the sticky footer, at its measured height", () => {
+      Object.assign(box, { handleLeft: 500, previewLeft: 420, top: 380 });
+      const { slider, scroller } = setup(0, 0);
+      const footer = scroller.querySelector<HTMLElement>(".sticky.bottom-0")!;
+      Object.defineProperty(footer, "offsetHeight", { configurable: true, value: 26 });
+      fireEvent.keyDown(slider, { key: "ArrowRight" });
+      // Content bottom 410 must end above the 26px footer of a 400px port.
+      expect(scroller.scrollTop).toBe(410 - 400 + 26);
+    });
+
+    it("brings the handle back into view when Escape cancels a long move", () => {
+      Object.assign(box, { handleLeft: 500, previewLeft: 420 });
+      const { slider, scroller } = setup(0);
+      act(() => slider.focus());
+      fireEvent.keyDown(slider, { key: "PageDown" });
+      // Escape puts the diamond back on its own date, here past the right edge.
+      box.handleLeft = 1500;
+      fireEvent.keyDown(slider, { key: "Escape" });
+      expect(scroller.scrollLeft).toBe(1520 - 800);
+    });
+
+    it("scrolls a handle reached by Tab out from under the name column", () => {
+      box.handleLeft = 60;
+      const { slider, scroller } = setup(400);
+      act(() => slider.focus());
+      expect(scroller.scrollLeft).toBe(460 - LEFT_GUTTER_PX);
+    });
   });
 
   it("offers no handle when the caller passes no onMoveMilestone", () => {
