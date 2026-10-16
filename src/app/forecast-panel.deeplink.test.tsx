@@ -67,6 +67,18 @@ describe("ForecastPanelDeepLinked", () => {
     expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts[0]).toBe(rowOf("Go-live"));
   });
 
+  it("honours a request already pending when the panel mounts fresh (the remount-swallow path)", () => {
+    // The real order: the action is clicked on another view, so the request is pending BEFORE the
+    // Forecast view mounts. A handled-ref seeded from the live request would swallow it.
+    const { rerender } = render(<WorkspaceTabProvider><Harness mounted={false} /></WorkspaceTabProvider>);
+    fireEvent.click(screen.getByText("open-7"));
+    expect(screen.getByTestId("pending").textContent).toBe("forecast:7");
+    rerender(<WorkspaceTabProvider><Harness /></WorkspaceTabProvider>);
+    expect(rowOf("Go-live").className).toContain(FLASH);
+    expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts[0]).toBe(rowOf("Go-live"));
+    expect(screen.getByTestId("pending").textContent).toBe("none");
+  });
+
   it("consumes the request, so a later fresh mount does not flash again", () => {
     const { rerender } = render(<WorkspaceTabProvider><Harness /></WorkspaceTabProvider>);
     fireEvent.click(screen.getByText("open-7"));
