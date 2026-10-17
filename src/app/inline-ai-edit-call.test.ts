@@ -3,6 +3,8 @@ import { asTimeZoneForTests } from "./timezone";
 import * as chatApi from "./chat-api";
 import { callInlineEdit, type InlineEditArgs } from "./inline-ai-edit-call";
 import { PLANNABLE_TOOL_NAMES } from "./inline-ai-edit/plan";
+import { VIEW_AI_SCOPE } from "./view-ai-scope";
+import type { AppView } from "./nav-config";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -271,6 +273,32 @@ describe("the tools an inline edit offers (§715 D1)", () => {
     expect(names.filter((n) => !PLANNABLE_TOOL_NAMES.has(n))).toEqual([]);
     expect(names).toEqual(expect.arrayContaining(["update_milestone", "update_raid_item", "update_task", "create_task"]));
     expect(names.some((n) => /^(list_|get_|search_)/.test(n))).toBe(false);
+  });
+});
+
+// The prompt must advertise only what the request carries: a view's "Relevant tools here" naming
+// list_milestones invites the exact unanswerable call the narrowed list exists to prevent.
+describe("the tools an inline edit's prompt names (§715 D1)", () => {
+  it("are tools the request carries, on every view", async () => {
+    const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
+    const views = Object.keys(VIEW_AI_SCOPE) as AppView[];
+    // Precondition: views DO hint tools, so the loop below has lines to judge before the narrowing.
+    expect(views.filter((v) => (VIEW_AI_SCOPE[v].toolHints ?? []).length > 0).length).toBeGreaterThan(0);
+    for (const currentView of views) {
+      spy.mockClear();
+      await callInlineEdit({ apiKey: "k", model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot: { ...snapshot, currentView }, guides: [], groundInGuides: false });
+      const carried = new Set((spy.mock.calls[0][6] as { name: string }[]).map((t) => t.name));
+      const text = chatApi.systemBlocksText(spy.mock.calls[0][2]);
+      // Control: the view scope block itself still ran for this view.
+      expect(text, currentView).toContain(`VIEW SCOPE — the user is looking at the "${currentView}" view.`);
+      const line = /Relevant tools here: ([^\n]*)\./.exec(text);
+      const named = line ? line[1].split(", ") : [];
+      expect(named.filter((n) => !carried.has(n)), currentView).toEqual([]);
+      // The line is there exactly when a hint survives — so a reworded line cannot pass by absence.
+      const surviving = (VIEW_AI_SCOPE[currentView].toolHints ?? []).filter((h) => carried.has(h));
+      expect(named, currentView).toEqual(surviving);
+    }
   });
 });
 

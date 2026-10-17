@@ -104,8 +104,8 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   // tool leaves the trap armed for any instruction that invites a look
   // backwards ("put this back the way it was last week"). The kill switch is
   // honoured a fortiori: off stays off, and on is off HERE too. ★ The cost is
-  // real and accepted — this path always sends its own `toolsFor` variant,
-  // so it no longer shares a prompt-cache prefix with the chat panel, costing
+  // real and accepted — this path always sends its own `toolsNamed` list
+  // (§715 D1: only the plannable tools), so it no longer shares a prompt-cache prefix with the chat panel, costing
   // one extra cache write per 5-minute window in an interleaved chat/inline-edit
   // session. A silent no-op edit is worse than a cache miss. ★ There is
   // deliberately no `historySearch` field on `InlineEditArgs` any more: a
@@ -116,9 +116,14 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   // `toolHints` do name broad tools the scope block then forbids acting on
   // beyond this item; that tension is accepted because the scope block is
   // adjacent and explicit, where a list of real neighbouring ids is not.
-  // ★ Passing the same `NO_RECALL_TOOLS` to `buildSystemPrompt` keeps that block
-  // honest: it filters its hints against the tools this request carries, so
-  // Activity's `search_history` hint disappears with the tool.
+  // ★ Passing `buildSystemPrompt` the NAMES of the `tools` list below keeps that
+  // block honest: it filters its hints against the tools this request carries,
+  // so a read-tool hint (`list_milestones`, Activity's `search_history`)
+  // disappears with the tool. `NO_RECALL_TOOLS` alone would not: it names every
+  // tool but the two recall ones.
+  // §715 D1 — only the tools the plan can act on: a read tool here is a call nobody answers.
+  const tools = toolsNamed(PLANNABLE_TOOL_NAMES);
+  const offered = new Set(tools.map((d) => d.name));
   const system: SystemBlock[] = [
     ...buildSystemPrompt(
       args.lang,
@@ -131,6 +136,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
       args.guides,
       args.groundInGuides,
       NO_RECALL_TOOLS,
+      offered,
     ),
     scopeBlock(args.entity, args.item, args.itemLabel),
   ];
@@ -149,8 +155,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
     [{ role: "user", content: args.instruction }],
     NO_RECALL_TOOLS,
     args.signal,
-    // §715 D1 — only the tools the plan can act on: a read tool here is a call nobody answers.
-    toolsNamed(PLANNABLE_TOOL_NAMES),
+    tools,
   );
   const blocks = res.content.filter(
     (b: ContentBlock): b is ToolUseBlock => b.type === "tool_use",

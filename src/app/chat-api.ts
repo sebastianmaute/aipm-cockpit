@@ -275,10 +275,12 @@ export function buildTurnContext(
    *  prompt advertises exactly the tools the request carries. See
    *  `toolNamesFor`; only an explicit false drops one. */
   toolFlags: ToolFlags,
+  /** The names a narrower `callClaude` `tools` list carries (§715 D1); absent, the flags' names. */
+  offered?: ReadonlySet<string>,
 ): string {
   // ★★ Resolved ONCE and shared by both advertising surfaces below. Two
   //    independent reads of the setting is how they drifted apart before.
-  const offeredTools = toolNamesFor(toolFlags);
+  const offeredTools = offered ?? toolNamesFor(toolFlags);
   const groups = (snapshot.knownGroups ?? []).join(", ") || "(none)";
   const labels = (snapshot.knownLabels ?? []).join(", ") || "(none)";
 
@@ -347,10 +349,12 @@ export function buildSystemPrompt(
    *  prompt advertises exactly the tools the request carries. See
    *  `toolNamesFor`; only an explicit false drops one. */
   toolFlags: ToolFlags,
+  /** See `buildTurnContext`: the names a narrower `tools` list carries. */
+  offered?: ReadonlySet<string>,
 ): SystemBlock[] {
   return [
     ...buildStableSystemBlocks(lang, snapshot, guides, groundInGuides, toolFlags),
-    { type: "text", text: buildTurnContext(lang, snapshot, guides, groundInGuides, toolFlags) },
+    { type: "text", text: buildTurnContext(lang, snapshot, guides, groundInGuides, toolFlags, offered) },
   ];
 }
 
