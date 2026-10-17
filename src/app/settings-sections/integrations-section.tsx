@@ -177,6 +177,10 @@ interface IntegrationsSectionProps {
    *  wizard leaves its storage step and commits the switch on Finish, §715 D2). Absent: kept here. */
   pendingPortfolioMode?: PortfolioMode;
   onPendingPortfolioModeChange?: (mode: PortfolioMode) => void;
+  /** Whether the Turso URL/token hold drafts not yet applied (Turso storage only; elsewhere every
+   *  keystroke commits). Reported clean on unmount, which discards them. For a host that unmounts
+   *  this section and must not do so silently (the setup wizard's Next, §715 D2). */
+  onTursoDraftsDirtyChange?: (dirty: boolean) => void;
 }
 
 /** One calendar write-back entity row (label + an Enable and an Auto-sync toggle
@@ -271,7 +275,7 @@ function CalendarSyncEntityRow({
   );
 }
 
-export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira, noCurrentProject, timelogLinks, onTimelogLinksChange, timelogCacheProjectId, pendingPortfolioMode, onPendingPortfolioModeChange }: IntegrationsSectionProps) {
+export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira, noCurrentProject, timelogLinks, onTimelogLinksChange, timelogCacheProjectId, pendingPortfolioMode, onPendingPortfolioModeChange, onTursoDraftsDirtyChange }: IntegrationsSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
   const confirm = useConfirm();
   // Busy flags for the two genuinely-async buttons (M365 sign-in, portfolio
@@ -450,6 +454,11 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   }
 
   const tursoDraftsDirty = tursoUrl !== turso.databaseUrl || tursoToken !== turso.authToken;
+  // §715 D2 — tell a host that unmounts this section (the wizard's Next) that drafts would be lost.
+  useEffect(() => {
+    onTursoDraftsDirtyChange?.(tursoDraftsDirty);
+  }, [onTursoDraftsDirtyChange, tursoDraftsDirty]);
+  useEffect(() => () => onTursoDraftsDirtyChange?.(false), [onTursoDraftsDirtyChange]);
   // ★★ §548 — THE TOKEN THE PASSPHRASE ACTIONS SEAL. On Turso storage it is the COMMITTED token,
   //   never the draft: `hydrateSecretsInto` restores `authToken` from the sealed store at boot, so
   //   sealing an unapplied draft would silently apply it on the next reload. Off Turso storage the

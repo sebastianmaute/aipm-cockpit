@@ -4773,6 +4773,8 @@ export const de: Record<TranslationKey, string> = {
   setupWizardConfigured: "Konfiguriert",
   setupWizardNotConfigured: "Nicht konfiguriert",
   setupWizardFinish: "Fertigstellen",
+  setupWizardTursoDraftsDiscard: "Ihre Änderungen an Turso-URL oder -Token sind noch nicht übernommen. Wenn Sie diesen Schritt verlassen, werden sie verworfen.",
+  setupWizardTursoDraftsDiscardConfirm: "Änderungen verwerfen",
   wizardBlankTemplate: "Leer — Funktionen selbst auswählen",
   wizardIncludeContent: "Beispielinhalte einschließen",
   wizardCreate: "Projekt erstellen",

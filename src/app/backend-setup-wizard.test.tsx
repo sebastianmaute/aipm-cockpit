@@ -15,18 +15,25 @@ import { t } from "./i18n";
 const commitPortfolioModeSwitch = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("./settings-sections/integrations-section", () => ({
   commitPortfolioModeSwitch,
-  IntegrationsSection: ({ hidePortfolioSwitch, pendingPortfolioMode, onPendingPortfolioModeChange }: {
+  IntegrationsSection: ({ hidePortfolioSwitch, pendingPortfolioMode, onPendingPortfolioModeChange, onTursoDraftsDirtyChange }: {
     hidePortfolioSwitch?: boolean;
     pendingPortfolioMode?: string;
     onPendingPortfolioModeChange?: (m: "file" | "turso") => void;
+    onTursoDraftsDirtyChange?: (dirty: boolean) => void;
   }) => (
     <div data-testid="integrations-section">
       Integrations
       <span data-testid="portfolio-switch-hidden">{String(!!hidePortfolioSwitch)}</span>
       <span data-testid="pending-portfolio">{String(pendingPortfolioMode)}</span>
       <button type="button" onClick={() => onPendingPortfolioModeChange?.("turso")}>pick turso</button>
+      <button type="button" onClick={() => onTursoDraftsDirtyChange?.(true)}>type a draft</button>
     </div>
   ),
+}));
+const confirm = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("./confirm-dialog", async (importActual) => ({
+  ...(await importActual<typeof import("./confirm-dialog")>()),
+  useConfirm: () => confirm,
 }));
 
 vi.mock("./settings-sections/ai-section", () => ({
@@ -313,5 +320,39 @@ describe("BackendSetupWizard — a portfolio switch picked on the storage step (
     await act(async () => { fireEvent.click(finishBtn()); });
     expect(commitPortfolioModeSwitch).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+// On Turso storage the step's URL/token are drafts until Apply, and the section discards them when it
+// unmounts — which Next does. Leaving with unapplied drafts asks first, so nothing vanishes silently
+// (and a Finish that switches portfolio never lands on credentials the user meant to replace).
+describe("BackendSetupWizard — unapplied Turso drafts on the storage step (§715 D2)", () => {
+  beforeEach(() => { confirm.mockClear(); });
+
+  it("asks before Next discards them, and stays when the user keeps them", async () => {
+    confirm.mockResolvedValueOnce(false);
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "type a draft" }));
+    await act(async () => { fireEvent.click(nextBtn()); });
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
+      message: t("en-US", "setupWizardTursoDraftsDiscard"),
+      confirmLabel: t("en-US", "setupWizardTursoDraftsDiscardConfirm"),
+    }));
+    expect(screen.getByTestId("integrations-section")).toBeInTheDocument();
+  });
+
+  it("moves on when the user discards them", async () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "type a draft" }));
+    await act(async () => { fireEvent.click(nextBtn()); });
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("integrations-section")).toBeNull();
+  });
+
+  it("does not ask when there is nothing unapplied", async () => {
+    setup();
+    await act(async () => { fireEvent.click(nextBtn()); });
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("integrations-section")).toBeNull();
   });
 });

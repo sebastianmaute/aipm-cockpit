@@ -16,7 +16,7 @@
 //   • Settings → Integrations section (isPopout-gated)
 //   • Create-project wizard (always available)
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -34,6 +34,7 @@ import { JiraSettingsSection } from "./jira-settings";
 import { type Settings } from "./settings-types";
 import { Button } from "./button";
 import { Banner } from "./banner";
+import { useConfirm } from "./confirm-dialog";
 import { WizardStepIndicator } from "./wizard-step-indicator";
 import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 
@@ -170,7 +171,22 @@ export function BackendSetupWizard({
     setStep((s) => clampStep(s - 1, TOTAL));
   }
 
-  function handleNext() {
+  // On Turso storage the step's URL/token are drafts until Apply, and the section discards them when
+  // Next unmounts it. The section reports them here so leaving with unapplied drafts asks first — and
+  // a Finish that switches portfolio then never lands on credentials the user meant to replace.
+  const tursoDraftsDirtyRef = useRef(false);
+  // Stable, so the section's report effect does not re-run on every wizard render.
+  const reportTursoDraftsDirty = useCallback((dirty: boolean) => { tursoDraftsDirtyRef.current = dirty; }, []);
+  const confirm = useConfirm();
+  async function handleNext() {
+    if (currentStep.key === "storage" && tursoDraftsDirtyRef.current) {
+      const discard = await confirm({
+        message: t(lang, "setupWizardTursoDraftsDiscard"),
+        confirmLabel: t(lang, "setupWizardTursoDraftsDiscardConfirm"),
+      });
+      if (!discard) return;
+      tursoDraftsDirtyRef.current = false;
+    }
     setStep((s) => clampStep(s + 1, TOTAL));
     nextButtonRef.current?.focus();
   }
@@ -221,6 +237,7 @@ export function BackendSetupWizard({
               noCurrentProject={noCurrentProject}
               pendingPortfolioMode={pendingPortfolioMode}
               onPendingPortfolioModeChange={setPendingPortfolioMode}
+              onTursoDraftsDirtyChange={reportTursoDraftsDirty}
               hideJira
             />
           )}
@@ -264,7 +281,7 @@ export function BackendSetupWizard({
           {/* Right cluster: Skip (integration steps) + Next / Finish */}
           <div className="flex items-center gap-2">
             {currentStep.skippable && (
-              <Button variant="secondary" onClick={handleNext}>
+              <Button variant="secondary" onClick={() => void handleNext()}>
                 {t(lang, "setupWizardSkip")}
               </Button>
             )}
@@ -275,7 +292,7 @@ export function BackendSetupWizard({
             <Button
               ref={nextButtonRef}
               variant="primary"
-              onClick={isLast ? () => void handleFinish() : handleNext}
+              onClick={isLast ? () => void handleFinish() : () => void handleNext()}
             >
               {t(lang, isLast ? "setupWizardFinish" : "wizardNext")}
             </Button>

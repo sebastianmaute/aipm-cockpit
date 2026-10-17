@@ -5054,6 +5054,8 @@ const enUS = {
   setupWizardConfigured: "Configured",
   setupWizardNotConfigured: "Not configured",
   setupWizardFinish: "Finish",
+  setupWizardTursoDraftsDiscard: "Your Turso URL or token changes are not applied yet. Leaving this step discards them.",
+  setupWizardTursoDraftsDiscardConfirm: "Discard changes",
   wizardBlankTemplate: "Blank — choose functions yourself",
   wizardIncludeContent: "Include starter content",
   wizardCreate: "Create project",

@@ -124,6 +124,30 @@ describe("IntegrationsSection with a controlled pending portfolio mode (§715 D2
   });
 });
 
+describe("IntegrationsSection reports unapplied Turso drafts to its host (§715 D2)", () => {
+  it("reports dirty once a draft differs on Turso storage, clean again when it matches", () => {
+    const onDirty = vi.fn();
+    const settings = { ...tursoSettings("test-token"), storageConfig: { kind: "turso" as const } };
+    render(<IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} onTursoDraftsDirtyChange={onDirty} />);
+    expect(onDirty).toHaveBeenLastCalledWith(false);
+    const url = screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder"));
+    const stored = (url as HTMLInputElement).value;
+    fireEvent.change(url, { target: { value: `${stored}x` } });
+    expect(onDirty).toHaveBeenLastCalledWith(true);
+    fireEvent.change(url, { target: { value: stored } });
+    expect(onDirty).toHaveBeenLastCalledWith(false);
+  });
+
+  it("reports clean on unmount, so a host never keeps a dirty flag for drafts that are gone", () => {
+    const onDirty = vi.fn();
+    const settings = { ...tursoSettings("test-token"), storageConfig: { kind: "turso" as const } };
+    const { unmount } = render(<IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} onTursoDraftsDirtyChange={onDirty} />);
+    fireEvent.change(screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")), { target: { value: "libsql://other-fictional.turso.io" } });
+    unmount();
+    expect(onDirty).toHaveBeenLastCalledWith(false);
+  });
+});
+
 describe("IntegrationsSection portfolio switch label", () => {
   it("shows the default 'Save & switch portfolio' label when a project is loaded", () => {
     render(
