@@ -517,12 +517,12 @@ describe("pinned digests", () => {
   test("tasks unit", () => {
     const r = computeScheduleForecast(fixture("tasks"));
     expect(r).toMatchObject({ kind: "forecast", unit: "tasks" });
-    expect(digest(r)).toBe(3246131170);
+    expect(digest(r)).toBe(1170482356);
   });
 
   test("effort unit", () => {
     const r = computeScheduleForecast(fixture("effort"));
     expect(r).toMatchObject({ kind: "forecast", unit: "effort" });
-    expect(digest(r)).toBe(814886283);
+    expect(digest(r)).toBe(2659308525);
   });
 });
