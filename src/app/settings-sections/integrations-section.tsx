@@ -8,7 +8,12 @@ import {
   noteTokenSealed,
   unsealedPassphraseTokenSnapshot,
 } from "../turso-token-marker";
-import { tokenSealsSettled, trackTokenSeal, useHasUnsealedPassphraseToken } from "../turso-token-seals";
+import {
+  type OwnSealProbe,
+  probeOwnSeal,
+  trackTokenSeal,
+  useHasUnsealedPassphraseToken,
+} from "../turso-token-seals";
 import { ArrowPathIcon, CalendarDaysIcon } from "../icons";
 import { ToggleButton } from "../toggle-button";
 import { type Lang, t } from "../i18n";
@@ -29,18 +34,15 @@ import {
 import type { SnapshotCadence } from "../snapshot";
 import { useMsAuth } from "../use-ms-auth";
 import { InfoTooltip } from "../info-tooltip";
-import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../portfolio-mode";
+import { loadPortfolioMode, type PortfolioMode } from "../portfolio-mode";
 import { getTursoConfig, isEnvTokenRejected, isUsableTursoUrl } from "../turso-config";
 import { testTursoConnection } from "../turso-pipeline";
 import { tursoSetupState } from "../turso-setup-state";
 import { TursoSetupSteps } from "./turso-setup-steps";
 import { tursoErrorKind } from "../storage-error";
-import { writeSettings } from "../use-settings";
-import { sealSettingsUntilReload } from "../settings-reload-seal";
-import { loadRegistry } from "../projects-registry";
-import { defaultStorageConfig } from "../workspace";
 import { saveSecretValue, setSecretPassphrase, unlockSecret } from "../use-secrets";
-import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
+import { isPassphraseLocked, loadSealed, removeSealed, snapshotSealedWrite } from "../secrets-store";
+import type { SealedSecret } from "../secrets";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { Button } from "../button";
 import { Checkbox, HintedLabel, Input, Select } from "../form-controls";
@@ -66,55 +68,8 @@ const TURSO_TEST_FAIL_KEYS = {
   generic: "integrationsTursoTestFailGeneric",
 } as const;
 
-/** Commits a portfolio switch and reloads onto it: this section's "Save & switch", and the setup
- *  wizard's Finish when the switch was picked on its storage step (§715 D2 — the wizard unmounts this
- *  section on the next step, so the choice used to be dropped). `base` is the settings to persist
- *  (with any Turso drafts already folded in). Resolves `false` — nothing written, no reload — when
- *  the durability gate below refuses, or `ownSealRefuses` does after the wait; `true` once the
- *  reload is under way. */
-export async function commitPortfolioModeSwitch(
-  base: Settings,
-  mode: PortfolioMode,
-  ownSealRefuses?: () => boolean,
-): Promise<boolean> {
-  // ★★★ A RELOAD BEFORE THE SEAL SETTLES LOSES THE TOKEN: `writeSettings` blanks it, so the
-  // device-sealed copy is the only one that survives. Wait for every in-flight seal (this
-  // switch's, an Apply's or a keystroke commit's — possibly from an instance a hold already
-  // remounted away), bounded by `tokenSealsSettled`. No wait — not even a yield — when nothing is
-  // in flight.
-  const seals = tokenSealsSettled();
-  if (seals) await seals;
-  // ★★ §715 — THE DURABILITY GATE, shared with `migrateCurrentProjectToTurso`: a token committed in
-  //   passphrase mode that no seal covers (none started, or it failed or timed out) is lost to the
-  //   reload, so refuse — `false`, nothing written — and let the caller say how to save it.
-  if (hasUnsealedPassphraseToken(base.integrations?.turso?.authToken)) return false;
-  // The caller's own seal of a token the marker does not hold (a draft on Turso storage), read after
-  // the same single wait.
-  if (ownSealRefuses?.()) return false;
-  savePortfolioMode(mode);
-  // Keep the workspace storage backend aligned with the portfolio: switching TO
-  // Turso must also persist storageConfig.kind "turso" (synchronously, so it
-  // survives the reload), or the backend memo rebuilds a file/browser backend
-  // and the workspace keeps loading the local file while the project list +
-  // snapshots talk to Turso. (portfolioMode === "turso" ⟺ storageConfig "turso".)
-  if (mode === "turso") {
-    writeSettings({ ...base, storageConfig: { kind: "turso" } });
-  } else if (base.storageConfig?.kind === "turso") {
-    // Leaving Turso for the File portfolio: a leftover "turso" storageConfig
-    // would keep the backend memo pointed at Turso after reload (no file-mode
-    // bootstrap reconciles it), stranding the user. Restore the File portfolio's
-    // current-project backend config (registry is its source of truth), or the
-    // browser default if none.
-    const reg = loadRegistry();
-    const current = reg.projects.find((p) => p.id === reg.currentProjectId);
-    writeSettings({ ...base, storageConfig: current?.storageConfig ?? defaultStorageConfig });
-  } else {
-    writeSettings(base);
-  }
-  sealSettingsUntilReload(); // §740 — no stale persist-effect write may land before the reload
-  window.location.reload();
-  return true;
-}
+export { commitPortfolioModeSwitch } from "../portfolio-mode-switch";
+import { commitPortfolioModeSwitch } from "../portfolio-mode-switch";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -263,6 +218,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   //   seal failed; it shows only while that token is current, so a later keystroke hides it.
   const [switchRefusal, setSwitchRefusal] = useState<{ token: string; device: boolean } | null>(null);
   const tokenNowRef = useRef<string>("");
+  // The URL draft the same way, so a check after an await reads what the banner reads.
+  const urlNowRef = useRef<string>("");
   const integrations = settings.integrations ?? defaultIntegrations;
   const m365 = integrations.m365 ?? defaultM365Integrations;
   const turso = integrations.turso ?? defaultTursoIntegrations;
@@ -450,6 +407,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   useEffect(() => {
     tokenNowRef.current = tursoToken ?? "";
   }, [tursoToken]);
+  useEffect(() => {
+    urlNowRef.current = tursoUrl ?? "";
+  }, [tursoUrl]);
   // §715 D2 — tell a host that unmounts this section (the wizard's Next) that drafts would be lost.
   useEffect(() => {
     onTursoDraftsDirtyChange?.(tursoDraftsDirty);
@@ -496,6 +456,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // draft left dirty when the kind moved away from Turso is not stranded without an Apply button.
   function handleTursoUrlChange(value: string) {
     setTursoUrl(value);
+    urlNowRef.current = value;
     if (!tursoIsLive) commitTurso(value, tursoToken);
   }
 
@@ -859,9 +820,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // (`tursoConfigured`). Switching to the portfolio the fields show and then reloading onto
     // the OLD credentials would be the surprise; so fold the drafts in and seal the token here.
     const tokenDirty = tursoToken !== turso.authToken;
-    // The switch's own seal of the token, read after the gate's single wait (see `ownSealProbe`).
-    let ownSealRefuses: (() => boolean) | undefined;
+      // The switch's own seal, read after the gate's wait (`probeOwnSeal`).
+    let ownSeal: OwnSealProbe | undefined;
+    const tokenNow = () => tokenNowRef.current;
     let ownSealIsDevice = false;
+    // The record this switch's own seal replaces, put back if the switch stops (see `putBackRecord`).
+    const recordBefore = loadSealed("tursoAuthToken");
     if (tokenDirty && (tursoToken ?? "").trim() === "") {
       // §565: same blank-first rule as `commitTurso` — a cleared token removes the seal rather
       // than resealing "".
@@ -872,7 +836,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       //   seal's result after its one wait. A device seal opens the IndexedDB device key and can hang:
       //   one still running at the deadline goes ahead, as the wait always did (the token may then
       //   be lost, and a diagnostic is logged); only a seal that FAILED refuses.
-      ownSealRefuses = ownSealProbe(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"), false);
+      ownSeal = probeOwnSeal(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"), false, tokenNow);
       ownSealIsDevice = true;
     } else if ((tokenDirty || tokenUnsealed) && passphraseReady) {
       // §715 — on Turso storage the edited token is a DRAFT, so the marker never holds it and the
@@ -880,7 +844,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       //   its one wait, and refuses on anything but a seal that landed — one still running at the
       //   deadline included (a passphrase seal is WebCrypto into the localStorage store, with no
       //   IndexedDB, so that should never happen).
-      ownSealRefuses = ownSealProbe(sealUnderTypedPassphrase(tursoToken ?? ""), true);
+      ownSeal = probeOwnSeal(sealUnderTypedPassphrase(tursoToken ?? ""), true, tokenNow);
     } else if ((tokenDirty || tokenUnsealed) && wrapNow() === "passphrase") {
       // A STALE render: passphrase mode at event time (another section or tab saved a record since)
       //   but no passphrase was typed, because the fields were not shown. Nothing can seal the token
@@ -901,21 +865,30 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         : settings;
     // §715 — a token cleared meanwhile leaves no Turso config: stop rather than land in an empty Turso
     //   portfolio. No message of its own — the section's "needs config" banner already shows.
-    const nowUnconfigured = () => pendingMode === "turso" && !getTursoConfig(tursoUrl, tokenNowRef.current);
-    if (!(await commitPortfolioModeSwitch(base, pendingMode, () => nowUnconfigured() || !!ownSealRefuses?.()))) {
+    const nowUnconfigured = () =>
+      pendingMode === "turso" && !getTursoConfig(urlNowRef.current, tokenNowRef.current);
+    // §715 — a keystroke during the seal (off Turso storage) commits a NEWER token in passphrase mode;
+    //   the click-time token the gate checks no longer covers it.
+    const newerTokenUnsealed = () => hasUnsealedPassphraseToken(tokenNowRef.current);
+    const stops = () => nowUnconfigured() || newerTokenUnsealed() || !!ownSeal?.refuses();
+    if (!(await commitPortfolioModeSwitch(base, pendingMode, stops))) {
+      // On Turso storage a stopped switch must not leave its own seal of an unapplied draft behind:
+      //   the next boot would restore it. Put back the record it replaced — now, or when it lands.
+      if (tursoIsLive) ownSeal?.whenLanded(() => putBackRecord(recordBefore));
       if (nowUnconfigured()) setSwitchBusy(false);
-      else refuseSwitch(ownSealIsDevice && ownSealRefuses?.() === true);
+      else refuseSwitch(ownSealIsDevice && ownSeal?.refuses() === true);
     }
   }
 
-  // Tracks a switch's own seal and returns a check for after the wait: true (refuse) when it failed,
-  // was superseded, or — with `unsettledRefuses` — is still running, while a token is still there to
-  // lose; false when it landed or when the token was cleared meanwhile (§609: the clear wins).
-  function ownSealProbe(seal: Promise<boolean>, unsettledRefuses: boolean): () => boolean {
-    let landed: boolean | undefined;
-    trackTokenSeal(seal.then((ok) => { landed = ok; }, (err: unknown) => { landed = false; throw err; }));
-    return () => (landed === undefined ? unsettledRefuses : !landed) && tokenNowRef.current.trim() !== "";
+  // Restores the sealed record a stopped switch's own seal replaced. `snapshotSealedWrite` yields to
+  // any newer write or clear (§609): a retried switch's seal, or the user's own, wins.
+  function putBackRecord(record: SealedSecret | null) {
+    if (record) snapshotSealedWrite("tursoAuthToken")(record);
+    else removeSealed("tursoAuthToken");
+    setTokenStored(loadSealed("tursoAuthToken") != null);
+    showStoredWrap();
   }
+
 
   function refuseSwitch(device: boolean) {
     setSwitchBusy(false);

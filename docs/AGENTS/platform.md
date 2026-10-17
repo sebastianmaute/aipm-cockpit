@@ -219,7 +219,10 @@
   marker never holds, so Save & switch reads its own seal of that draft after the same single wait:
   a passphrase seal refuses unless it landed; a device seal refuses only if it FAILED (one still
   running at the deadline goes ahead, as the wait always did). A token cleared meanwhile wins (§609)
-  and, leaving no Turso config, stops the switch under the section's "needs config" banner. A refusal
+  and, on a switch TO Turso with no config left, stops it under the section's "needs config" banner
+  (a switch to File goes ahead). A keystroke during the seal commits a newer token, which the switch
+  checks too. A stopped switch on Turso storage puts back the record its own seal replaced, now or
+  when the seal lands. A refusal
   names the token it refused and shows only while it is still true. The
   wizard refuses either direction of switch: the reload loses the token whichever way it goes.
   "Test connection" probes the drafts without committing.

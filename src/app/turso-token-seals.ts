@@ -72,6 +72,45 @@ async function settleAll(first: Promise<void>[]): Promise<void> {
   if (timedOut) logDiag("warn", "settings.tursoTokenSealWaitTimedOut", { ms: SECRET_MERGE_TIMEOUT_MS });
 }
 
+/** A "Save & switch"'s own seal of the token, read after the gate's wait. */
+export interface OwnSealProbe {
+  /** True (refuse) when the seal failed, was superseded, or — with `unsettledRefuses` — is still
+   *  running, while a token is still there to lose; false when it landed or when the token was
+   *  cleared meanwhile (§609: the clear wins). */
+  refuses: () => boolean;
+  /** Runs `fn` once the seal has landed — at once if it already has. */
+  whenLanded: (fn: () => void) => void;
+}
+
+/** Tracks `seal` (`trackTokenSeal`) and returns its probe. `tokenNow` reads the field's live token. */
+export function probeOwnSeal(
+  seal: Promise<boolean>,
+  unsettledRefuses: boolean,
+  tokenNow: () => string,
+): OwnSealProbe {
+  let landed: boolean | undefined;
+  let onLanded: (() => void) | null = null;
+  trackTokenSeal(
+    seal.then(
+      (ok) => {
+        landed = ok;
+        if (ok) onLanded?.();
+      },
+      (err: unknown) => {
+        landed = false;
+        throw err;
+      },
+    ),
+  );
+  return {
+    refuses: () => (landed === undefined ? unsettledRefuses : !landed) && tokenNow().trim() !== "",
+    whenLanded: (fn) => {
+      if (landed === true) fn();
+      else onLanded = fn;
+    },
+  };
+}
+
 /** `hasUnsealedPassphraseToken` for a render: re-renders when the marker changes, so a seal that
  *  lands after the section remounted clears its blocked state without a keystroke. */
 export function useHasUnsealedPassphraseToken(authToken: string | undefined): boolean {
