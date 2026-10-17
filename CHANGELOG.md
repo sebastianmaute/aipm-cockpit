@@ -41,7 +41,7 @@ longer carries its own changelog comment.
   one-shot edit cannot answer. It is now offered only the changes it can make.
 - **The setup wizard keeps a portfolio switch (§715).** Choosing Turso under Portfolio storage and finishing
   the wizard left the app on browser storage; Finish now switches to the portfolio you picked. The review
-  step says the switch reloads the app, and without a working Turso connection Finish takes you back to the
+  step says the switch reloads the app, and without a saved Turso URL and token Finish takes you back to the
   storage step instead of switching, and the review step says so. On Turso storage, leaving that step or
   closing the wizard with Turso changes you have not applied now asks before they are discarded.
 - **Switching to the Turso portfolio, or moving a project there, no longer loses a token protected by a passphrase (§715).** Off Turso

@@ -12,7 +12,8 @@ import { t } from "./i18n";
 // shell behaviour (step navigation, footer buttons, close).
 // ---------------------------------------------------------------------------
 
-const commitPortfolioModeSwitch = vi.hoisted(() => vi.fn(async () => {}));
+// Resolves true: the switch went ahead (and would reload). False is the durability gate refusing.
+const commitPortfolioModeSwitch = vi.hoisted(() => vi.fn(async (): Promise<boolean> => true));
 const hasUnsealedPassphraseToken = vi.hoisted(() => vi.fn<(token: string | undefined) => boolean>(() => false));
 // A plain function stands in for the subscribed reader: the tests set its answer per case.
 vi.mock("./turso-token-seals", () => ({ useHasUnsealedPassphraseToken: hasUnsealedPassphraseToken }));
@@ -283,7 +284,7 @@ describe("BackendSetupWizard — a portfolio switch picked on the storage step (
     expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "portfolioModeSwitchNote"));
   });
 
-  // Without a working Turso connection Finish goes back instead of switching, so promising a reload
+  // Without a saved Turso URL and token Finish goes back instead of switching, so promising a reload
   // would be false — the review step says what is missing instead.
   it("says the Turso connection is missing instead of promising a reload it will not do", () => {
     setup();
@@ -332,7 +333,7 @@ describe("BackendSetupWizard — a portfolio switch picked on the storage step (
 
   it("commits once when Finish is clicked again while the switch is under way", async () => {
     let release: () => void = () => {};
-    commitPortfolioModeSwitch.mockImplementationOnce(() => new Promise<void>((r) => { release = r; }));
+    commitPortfolioModeSwitch.mockImplementationOnce(() => new Promise<boolean>((r) => { release = () => r(true); }));
     setup({ settings: tursoReady });
     fireEvent.click(screen.getByRole("button", { name: "pick turso" }));
     toReview();
@@ -340,6 +341,22 @@ describe("BackendSetupWizard — a portfolio switch picked on the storage step (
     await act(async () => { fireEvent.click(finishBtn()); });
     expect(commitPortfolioModeSwitch).toHaveBeenCalledTimes(1);
     await act(async () => { release(); });
+  });
+
+  // §715 — the shared durability gate refuses when the token's seal failed or timed out; Finish must
+  // not sit there as if it had switched, and must stay usable once the token is saved.
+  // MU25 — ignore the commit's answer → goes red (no bounce; a second Finish does nothing).
+  it("goes back to the storage step when the switch is refused, and can finish again", async () => {
+    commitPortfolioModeSwitch.mockResolvedValueOnce(false);
+    const { onClose } = setup({ settings: tursoReady });
+    fireEvent.click(screen.getByRole("button", { name: "pick turso" }));
+    toReview();
+    await act(async () => { fireEvent.click(finishBtn()); });
+    expect(screen.getByTestId("integrations-section")).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    toReview();
+    await act(async () => { fireEvent.click(finishBtn()); });
+    expect(commitPortfolioModeSwitch).toHaveBeenCalledTimes(2);
   });
 
   it("keeps the choice while the user moves between steps", () => {

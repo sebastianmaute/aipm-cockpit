@@ -172,7 +172,12 @@ export function BackendSetupWizard({
         return;
       }
       finishingRef.current = true;
-      await commitPortfolioModeSwitch(settings, pendingPortfolioMode);
+      // §715 — the shared durability gate can still refuse (a seal that failed or timed out): back to
+      // the storage step, whose section now shows the passphrase fields that save the token.
+      if (!(await commitPortfolioModeSwitch(settings, pendingPortfolioMode))) {
+        finishingRef.current = false;
+        setStep(STORAGE_STEP);
+      }
       return;
     }
     handleClose();

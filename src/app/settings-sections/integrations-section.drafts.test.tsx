@@ -12,7 +12,7 @@
 import "fake-indexeddb/auto";
 import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IntegrationsSection } from "./integrations-section";
 import { hasUnsealedPassphraseToken } from "../turso-token-marker";
@@ -997,5 +997,70 @@ describe("§715 — an unsealed passphrase-mode token survives a remount and a m
     await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokLx", "pw"));
     expect(hasUnsealedPassphraseToken("tokL")).toBe(false);
     await waitFor(() => expect(hasUnsealedPassphraseToken("tokLx")).toBe(false));
+  });
+});
+
+// §715 — ONE token state for every mounted section, and ONE durability gate for every reload.
+// Settings → Integrations stays mounted under the setup wizard, which mounts a second section. The
+// marker is module-wide, so every section must read passphrase mode from it, not from its own lock
+// state alone; and a switch whose seal failed must refuse rather than reload onto the old record.
+//   MU21 — the wrap ignores the marker (`tokenWrap` alone) → (m) goes red (the switch underneath is enabled).
+//   MU22 — `commitPortfolioModeSwitch` skips the durability gate → (n) goes red (it reloads).
+describe("§715 — every mounted section and every reload path read one token state", () => {
+  const lockLabel = t("en-US", "secretLockPassphrase");
+  const switchName = t("en-US", "portfolioModeSwitchConfirm");
+  let reload: ReturnType<typeof vi.fn>;
+  const originalLocation = window.location;
+  beforeEach(() => {
+    reload = vi.fn();
+    Object.defineProperty(window, "location", { configurable: true, value: { ...originalLocation, reload } });
+    savePortfolioMode("file");
+  });
+  afterEach(() => {
+    Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+  });
+
+  function Two() {
+    const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "", BROWSER));
+    return (
+      <>
+        <div data-testid="under"><IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} /></div>
+        <div data-testid="over"><IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} /></div>
+      </>
+    );
+  }
+
+  it("(m) a token typed in passphrase mode in one section holds the switch in the other", async () => {
+    const user = userEvent.setup();
+    render(<Two />);
+    const over = within(screen.getByTestId("over"));
+    const under = within(screen.getByTestId("under"));
+    await user.click(over.getByLabelText(lockLabel));
+    await user.type(over.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder")), "tokM");
+    await user.selectOptions(under.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    expect(under.getByLabelText(lockLabel)).toBeChecked();
+    expect(under.getByRole("button", { name: switchName })).toBeDisabled();
+  });
+
+  function Controlled() {
+    const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "", BROWSER));
+    return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+  }
+
+  it("(n) a switch whose passphrase seal fails refuses instead of reloading onto the old record", async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.click(screen.getByLabelText(lockLabel));
+    await user.type(tokenField(), "tokN");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder")), "pw");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    vi.mocked(setSecretPassphrase).mockResolvedValueOnce(false);
+    await user.click(screen.getByRole("button", { name: switchName }));
+    expect(
+      await screen.findByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", t("en-US", "secretPassphraseSave"))),
+    ).toBeInTheDocument();
+    expect(reload).not.toHaveBeenCalled();
+    expect(hasUnsealedPassphraseToken("tokN")).toBe(true);
   });
 });

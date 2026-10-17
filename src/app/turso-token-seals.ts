@@ -38,13 +38,24 @@ export function trackTokenSeal(seal: Promise<unknown>): void {
  *  is a local IndexedDB + WebCrypto write that normally takes well under a second; one that never
  *  settles (an IDB open queued behind another tab's connection) must not leave a reload path busy
  *  forever. On timeout the caller proceeds and a diagnostic is logged — the token may then be lost
- *  to the reload, which beats a button that never finishes.
+ *  to the reload, which beats a button that never finishes. It also waits for a seal that STARTS
+ *  while it waits (a keystroke during a switch), each batch under its own bound, and stops once
+ *  only seals it already waited out remain.
  *  ★ `null` when nothing is in flight, so the caller stays SYNCHRONOUS in the common case: an
  *    `await` on an empty wait still yields, which moved "Save & switch"'s settings write past the
  *    click (`integrations-snapshots.test.tsx` pins it). Write `const w = …; if (w) await w;`. */
 export function tokenSealsSettled(): Promise<void> | null {
   const inFlight = tokenSealsInFlight();
-  return inFlight.length === 0 ? null : waitBounded(Promise.all(inFlight));
+  return inFlight.length === 0 ? null : settleAll(inFlight);
+}
+
+async function settleAll(first: Promise<void>[]): Promise<void> {
+  const seen = new Set(first);
+  for (let batch = first; batch.length > 0; ) {
+    await waitBounded(Promise.all(batch));
+    batch = tokenSealsInFlight().filter((seal) => !seen.has(seal));
+    for (const seal of batch) seen.add(seal);
+  }
 }
 
 async function waitBounded(seals: Promise<unknown>): Promise<void> {

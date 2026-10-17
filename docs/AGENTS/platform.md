@@ -210,6 +210,12 @@
   Apply without a dirty draft (`canApplyTurso`; the passphrase must still be typed), and Apply seals it
   under it. The marker holds the latest committed token or nothing, and an untick device-seals
   whatever it holds, until it holds nothing, before it flips the wrap to device.
+  ★★ ONE STATE, ONE GATE: the wrap each section shows is DERIVED (`effectiveWrap` — passphrase whenever
+  the marker holds this token), because Settings → Integrations stays mounted under the setup wizard,
+  whose own section can commit the token. Every reload path then runs the same durability gate —
+  `tokenSealsSettled` (which also waits for seals that start meanwhile), then refuse while
+  `hasUnsealedPassphraseToken` holds: `commitPortfolioModeSwitch` (Save & switch, the wizard's Finish)
+  returns `false`, and `migrateCurrentProjectToTurso` toasts.
   "Test connection" probes the drafts without committing.
   (`integrations-section.backend-hold.test.tsx` pins both models against the real hook.)
   ★★ The blur-commit design this replaced — commit when focus left the credentials group — lost a

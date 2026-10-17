@@ -467,6 +467,8 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
           ),
       );
       deselectIdRef.current(id);
+      // ★ The CLICK-time `editingId`, read after the await: safe only because the confirm is modal, so
+      //   the editor cannot change while it is open. A non-modal confirm would need a ref here.
       if (editingId === id) handleCancelEditRef.current();
       logActivityRef.current("task.deleted", id, deletedName);
     },
