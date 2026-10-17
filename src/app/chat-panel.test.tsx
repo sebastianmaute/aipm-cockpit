@@ -2699,6 +2699,66 @@ describe("historySearch reaches the request body", () => {
   });
 });
 
+// §502 — the seam chat-api.test.ts cannot see: chat-panel.tsx builds toolFlags.forecast from the
+// snapshot's forecastSimulation and hands the ONE value to callClaude (the schemas) and to the two prompt
+// builders (the advertisement). Read both halves of the request body, as the historySearch block above does.
+describe("the forecast flag reaches the request body", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  async function requestFor(forecastSimulation: boolean) {
+    const base = makeDispatcher();
+    const dispatcher = {
+      ...base,
+      getSnapshot: vi.fn(() => ({ ...base.getSnapshot(), forecastSimulation, forecastView: true })),
+    } as unknown as ToolDispatcher;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () => Promise.resolve({
+          content: [{ type: "text", text: "ok" }], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+      } as unknown as Response));
+    const view = render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "when do we finish" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    const body = JSON.parse(String((fetchSpy.mock.calls[0][1] as RequestInit).body)) as {
+      tools: { name: string }[];
+      system: { text: string }[];
+      messages: { content: { text?: string }[] | string }[];
+    };
+    view.unmount();
+    fetchSpy.mockRestore();
+    const last = body.messages[body.messages.length - 1];
+    const lastText = Array.isArray(last.content) ? last.content.map((b) => b.text ?? "").join("\n") : String(last.content);
+    return {
+      tools: body.tools.map((tool) => tool.name),
+      prompt: [...body.system.map((b) => b.text), lastText].join("\n"),
+    };
+  }
+
+  it("offers the three forecast tools and the quoting rules when the snapshot says true", async () => {
+    const { tools, prompt } = await requestFor(true);
+    expect(tools).toEqual(expect.arrayContaining(["get_forecast", "create_forecast_scenario", "update_forecast_scenario"]));
+    expect(prompt).toContain("safe to commit");
+  });
+
+  it("offers none of them, and says forecasting is off, when the snapshot says false", async () => {
+    const off = await requestFor(false);
+    expect(off.tools).not.toContain("get_forecast");
+    expect(off.tools).not.toContain("create_forecast_scenario");
+    expect(off.prompt).toContain("forecasting is off");
+    expect(off.prompt).not.toContain("get_forecast");
+    // CONTROL: the list was not gutted, exactly the three forecast tools are the difference.
+    const on = await requestFor(true);
+    expect(off.tools).toHaveLength(on.tools.length - 3);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Structural single-flight under a same-tick double dispatch (§321, was §312)
 // ---------------------------------------------------------------------------
