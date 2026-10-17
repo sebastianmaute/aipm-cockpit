@@ -109,7 +109,7 @@ How "Add people" is computed (owner: directory or placeholder; team-average thro
   `currencyToBase` does inside.
 - **Externals (owner, 2026-10-17).** A directory person with `isExternal` **follows the flag**: they add delivery and
   **no cost**, matching every other cost figure in the app (`Resource.isExternal` = "excluded from all cost figures";
-  `budget-report.ts` skips them). The editor says so on the row ("no cost — external in the directory"). Paid
+  `budget-report.ts` skips them). The editor says so on the row ("no cost — external in the directory"), and the person picker marks such people the same way before one is picked (designer's call). Paid
   contractors who should cost money are entered as placeholders.
 - **Who and hours.** A directory row carries `hoursPerWeek` (1–60), so a person can join part-time ("from January,
   20 h on our project"). It is prefilled from the person's `Shift` (`Shift.hoursPerWeekday`, joined by `resourceId`
