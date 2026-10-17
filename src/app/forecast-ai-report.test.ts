@@ -131,6 +131,18 @@ describe("buildForecastReport", () => {
     expect(typeof (col.cost as { p80: unknown }).p80).toBe("number");
   });
 
+  it("an overdue milestone appears with its state and no chance", () => {
+    const overdue: Milestone = { id: 3, name: "Gone", date: "2026-10-01", linkedTaskIds: OPEN.slice(35, 40).map((x) => x.id) };
+    const col = forecastColumn(buildForecastReport(reportInput({ milestones: [...MILESTONES, overdue] }), null).asIs);
+    expect(col.milestones.find((m) => m.id === 3)).toEqual({ id: 3, name: "Gone", date: "2026-10-01", state: "overdue" });
+    expect(col.milestones.find((m) => m.id === 1)).toHaveProperty("chance");
+  });
+
+  it("reports the window exactly as run", () => {
+    expect(buildForecastReport(reportInput({ window: 30 }), null).settings.historyWindowWorkingDays).toBe(30);
+    expect(buildForecastReport(reportInput({ window: "all" }), null).settings.historyWindowWorkingDays).toBe("all");
+  });
+
   it("cost is null when the cost switch is off", () => {
     expect(forecastColumn(buildForecastReport(reportInput({ costOn: false }), null).asIs).cost).toBeNull();
   });

@@ -17,8 +17,10 @@ import type { ForecastScenario, ScenarioChange, ValidationContext } from "./fore
 import { weeklyChange, type WeeklyChange } from "./forecast-tile-model";
 import type { BudgetCurrency } from "./types";
 
-/** The caller always runs the default 60-day window; an unexpected `"all"` is reported as that default. */
-const REPORT_WINDOW_DAYS = 60;
+/** A milestone with a chance, or one the engine gives none (overdue, or no linked tasks). */
+export type MilestoneReport =
+  | { id: number; name: string; date: string; chance: number }
+  | { id: number; name: string; date: string; state: "overdue" | "no-linked-tasks" };
 
 /** A cost in the baseline currency, or "beyond" (a trial past the horizon). */
 export type Pct = number | "beyond";
@@ -28,7 +30,7 @@ export type ColumnReport =
       status: "forecast"; p50: string | "beyond"; p80: string | "beyond"; p95: string | "beyond";
       /** 0–1, by plan end. */
       chanceOnTime: number | null;
-      milestones: { id: number; name: string; date: string; chance: number }[];
+      milestones: MilestoneReport[];
       cost: { p50: Pct; p80: Pct; p95: Pct; chanceOverBudget: number | null } | { unavailable: string } | null;
     }
   | { status: "insufficient"; finished: number; neededFinished: number; days: number; neededDays: number; reason: string };
@@ -45,7 +47,7 @@ export type RowReport =
 export type ForecastReport = {
   simulated: true;
   settings: {
-    historyWindowWorkingDays: number; unit: "tasks"; trials: number; currency: BudgetCurrency; planEnd: string; today: string;
+    historyWindowWorkingDays: number | "all"; unit: "tasks"; trials: number; currency: BudgetCurrency; planEnd: string; today: string;
   };
   asIs: ColumnReport;
   weeklyChange: WeeklyChange;
@@ -89,11 +91,12 @@ function columnReport(column: ScenarioColumn, run: ScenarioRunInput): ColumnRepo
       reason: insufficientReason(f),
     };
   }
-  const milestones: { id: number; name: string; date: string; chance: number }[] = [];
+  const milestones: MilestoneReport[] = [];
   for (const m of f.milestones) {
-    if (m.state !== "chance") continue;
     const row = run.milestones.find((x) => x.id === m.id);
-    if (row !== undefined) milestones.push({ id: m.id, name: row.name, date: row.date, chance: m.chance });
+    if (row === undefined) continue;
+    const { id, name, date } = row;
+    milestones.push(m.state === "chance" ? { id, name, date, chance: m.chance } : { id, name, date, state: m.state });
   }
   return {
     status: "forecast", p50: finishDate(f, 50), p80: finishDate(f, 80), p95: finishDate(f, 95),
@@ -129,7 +132,7 @@ export function buildForecastReport(input: ForecastReportInput, whatIf: readonly
   const report: ForecastReport = {
     simulated: true,
     settings: {
-      historyWindowWorkingDays: typeof run.window === "number" ? run.window : REPORT_WINDOW_DAYS, unit: "tasks",
+      historyWindowWorkingDays: run.window, unit: "tasks",
       trials: asIs.forecast.kind === "forecast" ? asIs.forecast.trials : FORECAST_TRIALS,
       currency, planEnd: run.planEnd, today: run.today,
     },
