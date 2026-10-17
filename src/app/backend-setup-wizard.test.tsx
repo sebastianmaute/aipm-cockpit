@@ -1,7 +1,7 @@
 // src/app/backend-setup-wizard.test.tsx
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { BackendSetupWizard } from "./backend-setup-wizard";
 import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
@@ -11,11 +11,19 @@ import { t } from "./i18n";
 // shell behaviour (step navigation, footer buttons, close).
 // ---------------------------------------------------------------------------
 
+const commitPortfolioModeSwitch = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("./settings-sections/integrations-section", () => ({
-  IntegrationsSection: ({ hidePortfolioSwitch }: { hidePortfolioSwitch?: boolean }) => (
+  commitPortfolioModeSwitch,
+  IntegrationsSection: ({ hidePortfolioSwitch, pendingPortfolioMode, onPendingPortfolioModeChange }: {
+    hidePortfolioSwitch?: boolean;
+    pendingPortfolioMode?: string;
+    onPendingPortfolioModeChange?: (m: "file" | "turso") => void;
+  }) => (
     <div data-testid="integrations-section">
       Integrations
       <span data-testid="portfolio-switch-hidden">{String(!!hidePortfolioSwitch)}</span>
+      <span data-testid="pending-portfolio">{String(pendingPortfolioMode)}</span>
+      <button type="button" onClick={() => onPendingPortfolioModeChange?.("turso")}>pick turso</button>
     </div>
   ),
 }));
@@ -224,5 +232,35 @@ describe("BackendSetupWizard", () => {
     for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
     expect(screen.getAllByText(t("en-US", "setupWizardConfigured")).length).toBeGreaterThan(0);
     expect(screen.getAllByText(t("en-US", "setupWizardNotConfigured")).length).toBeGreaterThan(0);
+  });
+});
+
+describe("BackendSetupWizard — a portfolio switch picked on the storage step (§715 D2)", () => {
+  beforeEach(() => { commitPortfolioModeSwitch.mockClear(); localStorage.clear(); });
+
+  it("is applied on Finish, not dropped", async () => {
+    const { onClose } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "pick turso" }));
+    for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
+    await act(async () => { fireEvent.click(finishBtn()); });
+    expect(commitPortfolioModeSwitch).toHaveBeenCalledTimes(1);
+    expect(commitPortfolioModeSwitch).toHaveBeenCalledWith(defaultSettings, "turso");
+    expect(onClose).not.toHaveBeenCalled(); // the switch reloads the app
+  });
+
+  it("keeps the choice while the user moves between steps", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "pick turso" }));
+    fireEvent.click(nextBtn());
+    fireEvent.click(backBtn());
+    expect(screen.getByTestId("pending-portfolio")).toHaveTextContent("turso");
+  });
+
+  it("just closes on Finish when nothing was switched", async () => {
+    const { onClose } = setup();
+    for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
+    await act(async () => { fireEvent.click(finishBtn()); });
+    expect(commitPortfolioModeSwitch).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

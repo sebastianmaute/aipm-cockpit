@@ -106,6 +106,41 @@ function waitForTokenSeals(seals: Promise<unknown>): Promise<void> {
   });
 }
 
+/** Commits a portfolio switch and reloads onto it: this section's "Save & switch", and the setup
+ *  wizard's Finish when the switch was picked on its storage step (§715 D2 — the wizard unmounts this
+ *  section on the next step, so the choice used to be dropped). `base` is the settings to persist
+ *  (with any Turso drafts already folded in). */
+export async function commitPortfolioModeSwitch(base: Settings, mode: PortfolioMode): Promise<void> {
+  // ★★★ A RELOAD BEFORE THE SEAL SETTLES LOSES THE TOKEN: `writeSettings` blanks it, so the
+  // device-sealed copy is the only one that survives. Wait for every in-flight seal (this
+  // switch's, an Apply's or a keystroke commit's — possibly from an instance a hold already
+  // remounted away), bounded by `waitForTokenSeals`. No wait when nothing is in flight.
+  const seals = pendingTokenSeals();
+  if (seals) await waitForTokenSeals(seals);
+  savePortfolioMode(mode);
+  // Keep the workspace storage backend aligned with the portfolio: switching TO
+  // Turso must also persist storageConfig.kind "turso" (synchronously, so it
+  // survives the reload), or the backend memo rebuilds a file/browser backend
+  // and the workspace keeps loading the local file while the project list +
+  // snapshots talk to Turso. (portfolioMode === "turso" ⟺ storageConfig "turso".)
+  if (mode === "turso") {
+    writeSettings({ ...base, storageConfig: { kind: "turso" } });
+  } else if (base.storageConfig?.kind === "turso") {
+    // Leaving Turso for the File portfolio: a leftover "turso" storageConfig
+    // would keep the backend memo pointed at Turso after reload (no file-mode
+    // bootstrap reconciles it), stranding the user. Restore the File portfolio's
+    // current-project backend config (registry is its source of truth), or the
+    // browser default if none.
+    const reg = loadRegistry();
+    const current = reg.projects.find((p) => p.id === reg.currentProjectId);
+    writeSettings({ ...base, storageConfig: current?.storageConfig ?? defaultStorageConfig });
+  } else {
+    writeSettings(base);
+  }
+  sealSettingsUntilReload(); // §740 — no stale persist-effect write may land before the reload
+  window.location.reload();
+}
+
 interface IntegrationsSectionProps {
   lang: Lang;
   settings: Settings;
@@ -138,6 +173,10 @@ interface IntegrationsSectionProps {
   onTimelogLinksChange?: (next: TimelogLinks) => void;
   /** Actuals-cache key for the Closed months block; set only where a project is open. */
   timelogCacheProjectId?: string;
+  /** The portfolio picked but not yet switched, held by a host that unmounts this section (the setup
+   *  wizard leaves its storage step and commits the switch on Finish, §715 D2). Absent: kept here. */
+  pendingPortfolioMode?: PortfolioMode;
+  onPendingPortfolioModeChange?: (mode: PortfolioMode) => void;
 }
 
 /** One calendar write-back entity row (label + an Enable and an Auto-sync toggle
@@ -232,7 +271,7 @@ function CalendarSyncEntityRow({
   );
 }
 
-export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira, noCurrentProject, timelogLinks, onTimelogLinksChange, timelogCacheProjectId }: IntegrationsSectionProps) {
+export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira, noCurrentProject, timelogLinks, onTimelogLinksChange, timelogCacheProjectId, pendingPortfolioMode, onPendingPortfolioModeChange }: IntegrationsSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
   const confirm = useConfirm();
   // Busy flags for the two genuinely-async buttons (M365 sign-in, portfolio
@@ -710,7 +749,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // migrate the current project (each portfolio is a separate store), so the
   // surprise reload landed them in the OTHER (often empty) portfolio.
   const portfolioMode = loadPortfolioMode();
-  const [pendingMode, setPendingMode] = useState<PortfolioMode>(portfolioMode);
+  const [ownPendingMode, setOwnPendingMode] = useState<PortfolioMode>(portfolioMode);
+  const pendingMode = pendingPortfolioMode ?? ownPendingMode;
+  const setPendingMode = (mode: PortfolioMode) => { setOwnPendingMode(mode); onPendingPortfolioModeChange?.(mode); };
   // Turso portfolio mode is only safe once Turso resolves a config (URL + token,
   // or env vars). Disable it until then so a switch can't land in a dead portfolio.
   const tursoConfigured = !!getTursoConfig(tursoUrl, tursoToken);
@@ -763,41 +804,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             },
           }
         : settings;
-    // ★★★ A RELOAD BEFORE THE SEAL SETTLES LOSES THE TOKEN: `writeSettings` blanks it, so the
-    // device-sealed copy is the only one that survives. Wait for every in-flight seal (this
-    // switch's, an Apply's or a keystroke commit's — possibly from an instance a hold already
-    // remounted away), bounded by `waitForTokenSeals`. Synchronous when nothing is in flight.
-    const seals = pendingTokenSeals();
-    if (seals) {
-      void waitForTokenSeals(seals).then(() => finishPortfolioModeSwitch(base));
-      return;
-    }
-    finishPortfolioModeSwitch(base);
-  }
-
-  function finishPortfolioModeSwitch(base: Settings) {
-    savePortfolioMode(pendingMode);
-    // Keep the workspace storage backend aligned with the portfolio: switching TO
-    // Turso must also persist storageConfig.kind "turso" (synchronously, so it
-    // survives the reload), or the backend memo rebuilds a file/browser backend
-    // and the workspace keeps loading the local file while the project list +
-    // snapshots talk to Turso. (portfolioMode === "turso" ⟺ storageConfig "turso".)
-    if (pendingMode === "turso") {
-      writeSettings({ ...base, storageConfig: { kind: "turso" } });
-    } else if (settings.storageConfig?.kind === "turso") {
-      // Leaving Turso for the File portfolio: a leftover "turso" storageConfig
-      // would keep the backend memo pointed at Turso after reload (no file-mode
-      // bootstrap reconciles it), stranding the user. Restore the File portfolio's
-      // current-project backend config (registry is its source of truth), or the
-      // browser default if none.
-      const reg = loadRegistry();
-      const current = reg.projects.find((p) => p.id === reg.currentProjectId);
-      writeSettings({ ...base, storageConfig: current?.storageConfig ?? defaultStorageConfig });
-    } else if (base !== settings) {
-      writeSettings(base);
-    }
-    sealSettingsUntilReload(); // §740 — no stale persist-effect write may land before the reload
-    window.location.reload();
+    void commitPortfolioModeSwitch(base, pendingMode);
   }
 
   function updateM365(patch: Partial<M365IntegrationsSettings>) {

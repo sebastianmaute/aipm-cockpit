@@ -26,7 +26,8 @@ import {
   clampStep,
   summarizeBackendSetup,
 } from "./backend-setup-steps";
-import { IntegrationsSection } from "./settings-sections/integrations-section";
+import { commitPortfolioModeSwitch, IntegrationsSection } from "./settings-sections/integrations-section";
+import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { AiSection } from "./settings-sections/ai-section";
 import { JiraSettingsSection } from "./jira-settings";
 import { type Settings } from "./settings-types";
@@ -138,6 +139,18 @@ export function BackendSetupWizard({
     onClose();
   }
 
+  // §715 D2 — the storage step's "Portfolio storage" choice is held here: the step unmounts its
+  // section on Next, which used to drop a picked-but-unswitched portfolio. Finish commits it (and the
+  // commit reloads the app onto it); with nothing picked, Finish just closes.
+  const [pendingPortfolioMode, setPendingPortfolioMode] = useState<PortfolioMode>(() => loadPortfolioMode());
+  async function handleFinish() {
+    if (pendingPortfolioMode !== loadPortfolioMode()) {
+      await commitPortfolioModeSwitch(settings, pendingPortfolioMode);
+      return;
+    }
+    handleClose();
+  }
+
   function handleBack() {
     setStep((s) => clampStep(s - 1, TOTAL));
   }
@@ -191,6 +204,8 @@ export function BackendSetupWizard({
               onMigrateToTurso={onMigrateToTurso}
               hidePortfolioSwitch={hidePortfolioSwitch}
               noCurrentProject={noCurrentProject}
+              pendingPortfolioMode={pendingPortfolioMode}
+              onPendingPortfolioModeChange={setPendingPortfolioMode}
               hideJira
             />
           )}
@@ -239,7 +254,7 @@ export function BackendSetupWizard({
             <Button
               ref={nextButtonRef}
               variant="primary"
-              onClick={isLast ? handleClose : handleNext}
+              onClick={isLast ? () => void handleFinish() : handleNext}
             >
               {t(lang, isLast ? "setupWizardFinish" : "wizardNext")}
             </Button>
