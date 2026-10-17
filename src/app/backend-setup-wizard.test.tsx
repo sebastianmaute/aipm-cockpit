@@ -13,8 +13,10 @@ import { t } from "./i18n";
 // ---------------------------------------------------------------------------
 
 const commitPortfolioModeSwitch = vi.hoisted(() => vi.fn(async () => {}));
+const hasUnsealedPassphraseToken = vi.hoisted(() => vi.fn<(token: string | undefined) => boolean>(() => false));
 vi.mock("./settings-sections/integrations-section", () => ({
   commitPortfolioModeSwitch,
+  hasUnsealedPassphraseToken,
   IntegrationsSection: ({ hidePortfolioSwitch, pendingPortfolioMode, onPendingPortfolioModeChange, onTursoDraftsDirtyChange }: {
     hidePortfolioSwitch?: boolean;
     pendingPortfolioMode?: string;
@@ -246,7 +248,12 @@ describe("BackendSetupWizard", () => {
 });
 
 describe("BackendSetupWizard — a portfolio switch picked on the storage step (§715 D2)", () => {
-  beforeEach(() => { commitPortfolioModeSwitch.mockClear(); localStorage.clear(); });
+  beforeEach(() => {
+    commitPortfolioModeSwitch.mockClear();
+    hasUnsealedPassphraseToken.mockReset();
+    hasUnsealedPassphraseToken.mockReturnValue(false);
+    localStorage.clear();
+  });
 
   const tursoReady = {
     ...defaultSettings,
@@ -302,6 +309,24 @@ describe("BackendSetupWizard — a portfolio switch picked on the storage step (
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByTestId("integrations-section")).toBeInTheDocument();
     expect(nextBtn()).toHaveFocus(); // keyboard users are not dropped to <body> by the bounce
+  });
+
+  // §715 — a token typed again in passphrase mode off Turso storage is not sealed yet; the reload a
+  // switch does would restore the old record and lose it. Finish goes back to the storage step,
+  // whose own switch seals it under the passphrase, and the review step says so.
+  it("refuses a switch that would lose a token no passphrase seal covers yet", async () => {
+    hasUnsealedPassphraseToken.mockImplementation((token) => token === "token-fictional");
+    const { onClose } = setup({ settings: tursoReady });
+    fireEvent.click(screen.getByRole("button", { name: "pick turso" }));
+    toReview();
+    expect(screen.queryByText(t("en-US", "portfolioModeSwitchNote"))).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      t("en-US", "setupWizardTursoTokenNeedsPassphrase", t("en-US", "portfolioModeSwitchConfirm")),
+    );
+    await act(async () => { fireEvent.click(finishBtn()); });
+    expect(commitPortfolioModeSwitch).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId("integrations-section")).toBeInTheDocument();
   });
 
   it("commits once when Finish is clicked again while the switch is under way", async () => {

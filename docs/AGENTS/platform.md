@@ -197,7 +197,12 @@
   silently apply it on the next reload.
   On any OTHER kind each keystroke commits (`commitTurso`) with no rebuild, and no Apply renders —
   that covers the hosts that configure Turso before switching the kind to it (the setup wizard,
-  `BackendConfigModal` from create-project). "Test connection" probes the drafts without committing.
+  `BackendConfigModal` from create-project). ★★ In passphrase mode such a keystroke commit seals NOTHING (no
+  passphrase in memory), and the reload a portfolio switch does would restore the OLD record (§715). The
+  token is held, by value and at module scope, until a seal covers it (`hasUnsealedPassphraseToken`), and
+  `tokenSealBlocked` then applies off Turso storage too: "Save & switch" waits for the passphrase,
+  verifies it and seals the typed token; the setup wizard's Finish, which has no passphrase, refuses
+  the switch and goes back to the storage step. "Test connection" probes the drafts without committing.
   (`integrations-section.backend-hold.test.tsx` pins both models against the real hook.)
   ★★ The blur-commit design this replaced — commit when focus left the credentials group — lost a
   click (WebKit does not focus a clicked button), a focus (Tab out dropped it to `<body>` after the

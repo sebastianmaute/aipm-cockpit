@@ -737,3 +737,81 @@ describe("Enter applies the Turso drafts on Turso storage", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 });
+
+// §715 — OFF Turso storage each keystroke commits the token, but in passphrase mode nothing seals
+// it: the passphrase is never in memory. "Save & switch" then reloaded onto the OLD sealed record
+// (`writeSettings` blanks the in-memory token), losing the token just typed — including one typed
+// again because the stored one was still locked. The switch now waits for the passphrase exactly
+// as it does on Turso storage, verifies it against the record, and seals the typed token under it.
+//   MU1 — drop the unsealed-edit conjunct from `tokenSealBlocked` → (a) goes red.
+//   MU2 — drop it from the switch's seal branch → (b) goes red (no seal).
+describe("§715 — off Turso storage, Save & switch seals a token typed in passphrase mode", () => {
+  const passphraseField = () => screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder"));
+  const confirmField = () => screen.getByLabelText(t("en-US", "secretPassphraseConfirm"));
+  const switchBtn = () => screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") });
+  let reload: ReturnType<typeof vi.fn>;
+  const originalLocation = window.location;
+  beforeEach(async () => {
+    saveSealed(await sealPassphrase("tursoAuthToken", "tok", "pw"));
+    reload = vi.fn();
+    Object.defineProperty(window, "location", { configurable: true, value: { ...originalLocation, reload } });
+    savePortfolioMode("file");
+  });
+  afterEach(() => {
+    Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+  });
+  function Controlled() {
+    // Locked at boot: the in-memory token is empty until the user types it again.
+    const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "", BROWSER));
+    return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+  }
+
+  it("(a) is disabled for a typed token until the current passphrase is typed", async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.type(tokenField(), "tok");
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    expect(switchBtn()).toBeDisabled();
+    expect(switchBtn()).toHaveAccessibleDescription(t("en-US", "integrationsTursoApplyNeedsPassphrase"));
+    await user.type(passphraseField(), "pw");
+    await user.type(confirmField(), "pw");
+    expect(switchBtn()).toBeEnabled();
+  });
+
+  it("(b) with the passphrase, seals the typed token under it before reloading", async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.type(tokenField(), "tok");
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    await user.type(passphraseField(), "pw");
+    await user.type(confirmField(), "pw");
+    await user.click(switchBtn());
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tok", "pw");
+  });
+
+  it("(c) a wrong passphrase switches nothing", async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.type(tokenField(), "tok");
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    await user.type(passphraseField(), "nope");
+    await user.type(confirmField(), "nope");
+    await user.click(switchBtn());
+    expect(await screen.findByRole("alert")).toHaveTextContent(t("en-US", "secretUnlockFailed"));
+    expect(reload).not.toHaveBeenCalled();
+    expect(setSecretPassphrase).not.toHaveBeenCalled();
+  });
+
+  it("(d) control: with no token typed the switch needs no passphrase", async () => {
+    const user = userEvent.setup();
+    function Unlocked() {
+      // A token the earlier cases left unsealed is keyed by value, so this one differs from it.
+      const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "tokOK", BROWSER));
+      return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+    }
+    render(<Unlocked />);
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    expect(switchBtn()).toBeEnabled();
+  });
+});

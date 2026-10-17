@@ -26,7 +26,11 @@ import {
   clampStep,
   summarizeBackendSetup,
 } from "./backend-setup-steps";
-import { commitPortfolioModeSwitch, IntegrationsSection } from "./settings-sections/integrations-section";
+import {
+  commitPortfolioModeSwitch,
+  hasUnsealedPassphraseToken,
+  IntegrationsSection,
+} from "./settings-sections/integrations-section";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { getTursoConfig } from "./turso-config";
 import { AiSection } from "./settings-sections/ai-section";
@@ -155,8 +159,12 @@ export function BackendSetupWizard({
   // promises a reload Finish will not do.
   const switchPending = pendingPortfolioMode !== loadPortfolioMode();
   const savedTurso = settings.integrations?.turso;
-  const switchBlocked =
-    switchPending && pendingPortfolioMode === "turso" && !getTursoConfig(savedTurso?.databaseUrl, savedTurso?.authToken);
+  const switchingToTurso = switchPending && pendingPortfolioMode === "turso";
+  const tursoConfigMissing = switchingToTurso && !getTursoConfig(savedTurso?.databaseUrl, savedTurso?.authToken);
+  // A token typed again in passphrase mode is not sealed yet, and the reload would bring back the old
+  // record. The storage step's own switch seals it under the passphrase; Finish cannot (no passphrase).
+  const tokenWouldBeLost = switchingToTurso && hasUnsealedPassphraseToken(savedTurso?.authToken);
+  const switchBlocked = tursoConfigMissing || tokenWouldBeLost;
   async function handleFinish() {
     if (finishingRef.current) return;
     if (switchPending) {
@@ -287,8 +295,16 @@ export function BackendSetupWizard({
             <>
               <ReviewStep lang={lang} settings={settings} />
               {/* The storage step's own reload note unmounted with it; Finish is what reloads now. */}
-              {switchBlocked ? (
+              {tursoConfigMissing ? (
                 <Banner severity="error" className="mt-3">{t(lang, "setupWizardTursoNeedsConfig")}</Banner>
+              ) : tokenWouldBeLost ? (
+                <Banner severity="error" className="mt-3">
+                  {t(
+                    lang,
+                    "setupWizardTursoTokenNeedsPassphrase",
+                    t(lang, noCurrentProject ? "portfolioModeSwitchConfirmNoProject" : "portfolioModeSwitchConfirm"),
+                  )}
+                </Banner>
               ) : switchPending && (
                 <Banner severity="warn" className="mt-3">{t(lang, "portfolioModeSwitchNote")}</Banner>
               )}

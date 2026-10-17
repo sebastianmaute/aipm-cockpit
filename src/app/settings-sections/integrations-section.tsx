@@ -87,6 +87,29 @@ function pendingTokenSeals(): Promise<unknown> | null {
   return inFlightTokenSeals.size > 0 ? Promise.all([...inFlightTokenSeals]) : null;
 }
 
+// §715 — OFF Turso storage each keystroke commits the token, but in passphrase mode nothing can seal it
+// (the passphrase is never in memory), and a reload restores the OLD sealed record. This holds the
+// token committed that way until a seal covers it. MODULE scope, like the seals above, because the
+// setup wizard unmounts this section on Next and still has to refuse a Finish that would lose it.
+// Keyed by VALUE: it applies only while the settings still hold that very token.
+let unsealedPassphraseToken: string | null = null;
+
+/** True when `authToken` was committed in passphrase mode and no seal covers it yet, so a reload
+ *  (a portfolio switch) would lose it. */
+export function hasUnsealedPassphraseToken(authToken: string | undefined): boolean {
+  return unsealedPassphraseToken !== null && unsealedPassphraseToken === authToken;
+}
+
+/** Records `token` as committed in passphrase mode with no seal over it; `null` forgets it. */
+function markUnsealedPassphraseToken(token: string | null): void {
+  unsealedPassphraseToken = token;
+}
+
+/** A seal of `token` landed, so a reload restores it: it is no longer at risk. */
+function noteTokenSealed(token: string | undefined): void {
+  if (unsealedPassphraseToken === token) unsealedPassphraseToken = null;
+}
+
 /** Resolves when `seals` settles or after `SECRET_MERGE_TIMEOUT_MS`, whichever comes first — the
  *  same bound the settings hydration puts on the secret store. A seal is a local IndexedDB +
  *  WebCrypto write that normally takes well under a second; one that never settles (an IDB open
@@ -423,7 +446,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       // button ON right after the user cleared the field.
       removeSealed("tursoAuthToken");
       setTokenStored(false);
+      markUnsealedPassphraseToken(null);
     } else if (tokenChanged && tokenWrap === "device") {
+      markUnsealedPassphraseToken(null);
       // §609: a seal superseded by a clear or a newer commit resolves false — no "stored" flag.
       trackTokenSeal(
         saveSecretValue("tursoAuthToken", tokenValue, "device").then((stored) => {
@@ -432,6 +457,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       );
     } else if (tokenChanged && tursoIsLive && passphraseReady) {
       trackTokenSeal(sealUnderTypedPassphrase(tokenValue));
+    } else if (tokenChanged) {
+      markUnsealedPassphraseToken(tokenValue); // passphrase mode, nothing to seal it with yet
     }
   }
 
@@ -446,6 +473,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   //   cannot silently become the new one — "Save passphrase" stays the only way to CHANGE it.
   async function sealUnderTypedPassphrase(token: string) {
     if (await setSecretPassphrase("tursoAuthToken", token, tokenPassphrase)) {
+      noteTokenSealed(token);
       setTokenStored(true);
       setTokenWrap("passphrase"); // §609: the record IS passphrase-wrapped now (see the untick)
     }
@@ -518,12 +546,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const passphraseReady = tokenPassphrase !== "" && tokenPassphrase === tokenConfirm;
   // A changed token in passphrase mode can only be sealed under a typed passphrase (see
   // `sealUnderTypedPassphrase`); until then Apply and "Save & switch" are disabled.
-  const tokenSealBlocked =
-    tursoIsLive && tokenWrap === "passphrase" && tursoToken !== turso.authToken && !passphraseReady;
+  // §715 — off Turso storage the draft IS committed, so the changed token is the one no seal covers.
+  const tokenUnsealed = tursoIsLive ? tursoToken !== turso.authToken : hasUnsealedPassphraseToken(turso.authToken);
+  const tokenSealBlocked = tokenWrap === "passphrase" && tokenUnsealed && !passphraseReady;
   // The action about to seal a changed token under the typed passphrase (Apply's and "Save &
   // switch"'s passphrase branch) — the case that must verify an existing record first.
-  const tokenSealsUnderTypedPassphrase =
-    tokenWrap === "passphrase" && tursoToken !== turso.authToken && passphraseReady;
+  const tokenSealsUnderTypedPassphrase = tokenWrap === "passphrase" && tokenUnsealed && passphraseReady;
   // ★ Read at render, like `chat-panel.tsx`'s unlock gate: derived, so a seal elsewhere cannot
   //   leave it stale. Picks the blocked hint's wording (current vs new passphrase).
   const tokenHasPassphraseRecord = isPassphraseLocked("tursoAuthToken");
@@ -710,6 +738,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           setTokenStored(loadSealed("tursoAuthToken") != null);
           return;
         }
+        noteTokenSealed(sealableTursoToken);
         setTokenStored(true);
       } else if (isPassphraseLocked("tursoAuthToken")) {
         removeSealed("tursoAuthToken");
@@ -724,6 +753,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   function handleTokenLockConfirm() {
     trackTokenSeal((async () => {
       if (await setSecretPassphrase("tursoAuthToken", sealableTursoToken ?? "", tokenPassphrase)) {
+        noteTokenSealed(sealableTursoToken);
         setTokenStored(true);
         setTokenWrap("passphrase"); // §609: the record IS passphrase-wrapped now (see the untick)
       }
@@ -800,7 +830,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       setTokenStored(false);
     } else if (tokenDirty && tokenWrap === "device") {
       trackTokenSeal(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"));
-    } else if (tokenDirty && passphraseReady) {
+    } else if ((tokenDirty || tokenUnsealed) && passphraseReady) {
       trackTokenSeal(sealUnderTypedPassphrase(tursoToken ?? ""));
     }
     const base: Settings =
