@@ -281,11 +281,15 @@ export interface ApplyProposalArgs {
 /** The real id a create tool's result carries, or `undefined` when it carries
  *  none usable.
  *
- *  ★★ ENUMERATED, NOT ASSUMED. All seven creates return an object with a numeric
- *   `id`: `create_task` a `Task`, the five register creates their `*Summary`
- *   (`RaidSummary`/`ChangeSummary`/`MilestoneSummary`/`StakeholderSummary`/
- *   `ResourceSummary`, each declaring `id: number`), and `create_document` the
- *   `{ id, title, blockCount }` its own dispatcher entry declares. `runTool`
+ *  ★★ ENUMERATED, NOT ASSUMED. All ten creates return an object with a numeric
+ *   `id` (reproduce the count:
+ *   `grep -oE 'name: "create_[a-z_]+"' src/app/chat-tool-defs*.ts | sort -u | wc -l` → 10):
+ *   `create_task` a `Task`; the five register creates, `create_absence` and
+ *   `create_calendar_event` their `*Summary` (`RaidSummary`/`ChangeSummary`/`MilestoneSummary`/
+ *   `StakeholderSummary`/`ResourceSummary`/`AbsenceSummary`/
+ *   `CalendarEventSummary`, each declaring `id: number`); `create_document` the
+ *   `{ id, title, blockCount }` its own dispatcher entry declares; and
+ *   `create_forecast_scenario` a `ForecastScenarioResult`. `runTool`
  *   erases all of that to `Promise<unknown>`, so the read is a runtime one.
  *
  *  ★ STRICTLY `typeof === "number"`, deliberately NOT `Number(id)`. A create

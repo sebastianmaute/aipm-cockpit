@@ -399,9 +399,12 @@ export function shouldStage(calls: readonly ProposedCall[]): boolean {
 /** True for a tool that MINTS a row rather than addressing an existing one.
  *
  *  ★ The prefix IS the whole rule — verified against the live `TOOL_DEFS`: all
- *   seven `create_*` tools are entity writes, and nothing else in the 45 is
- *   named `create_*`. `chat-proposal.test.ts` partitions the live array against
- *   a literal list of the seven, so a new `create_*` tool goes red there.
+ *   ten `create_*` tools are entity writes, and nothing else in the 57 is
+ *   named `create_*`. Reproduce both counts:
+ *   `grep -oE 'name: "create_[a-z_]+"' src/app/chat-tool-defs*.ts | sort -u | wc -l` (10) and
+ *   `grep -oE 'name: "[a-z_]+"' src/app/chat-tool-defs*.ts | sort -u | wc -l` (57).
+ *   `chat-proposal.test.ts` partitions the live array against a literal list
+ *   of the ten (`CREATE_NAMES`), so a new `create_*` tool goes red there.
  *
  *  ★★ Exported because `buildPlanRows` consumes exactly one minted id per create
  *   and the CALLER has to mint that many. A caller re-deriving "is this a
