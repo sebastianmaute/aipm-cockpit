@@ -11,7 +11,7 @@ import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import type { WhatIf } from "./forecast";
 import { EFFORT_MODE_MIN_COVERAGE, HISTORY_WINDOWS, type ForecastUnit, type HistoryWindow } from "./forecast/constants";
 
-export type ForecastMode = "quick" | "whatif";
+export type ForecastMode = "quick" | "whatif" | "scenarios";
 export type WhatIfField = keyof WhatIf;
 
 const windowValue = (w: HistoryWindow): string => String(w);
@@ -81,6 +81,7 @@ export function ForecastToolbar({
   whatIf,
   onCommitWhatIf,
   onResetSize,
+  showScenarios = false,
 }: {
   lang: Lang;
   mode: ForecastMode;
@@ -94,6 +95,8 @@ export function ForecastToolbar({
   whatIf: WhatIf;
   onCommitWhatIf: (field: WhatIfField, raw: string) => boolean;
   onResetSize: () => void;
+  /** Offer the Scenarios segment (§502); off without saved-scenario support (tests, older callers). */
+  showScenarios?: boolean;
 }) {
   const effortAvailable = coverage >= EFFORT_MODE_MIN_COVERAGE;
   const effortReasonId = useId();
@@ -113,6 +116,7 @@ export function ForecastToolbar({
         options={[
           { value: "quick", label: t(lang, "forecastModeQuick") },
           { value: "whatif", label: t(lang, "forecastModeWhatIf") },
+          ...(showScenarios ? [{ value: "scenarios" as const, label: t(lang, "forecastModeScenarios") }] : []),
         ]}
       />
       <SegmentedControl<ForecastUnit>

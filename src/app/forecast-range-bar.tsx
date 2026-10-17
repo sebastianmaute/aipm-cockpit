@@ -13,6 +13,8 @@ import { SIM_OUTLINE_CLASS, SimBadge } from "./sim-value";
  * With P95 beyond the horizon the band runs open to the right edge.
  * ★ Every date on it is simulated, so it wears the sim marking (§3.2): `SimValue`'s dashed outline
  * and "sim" badge, in a group named "<label>, simulated".
+ * `axis` (Scenarios mode, §502): one date axis for every bar in a stack, so the same date sits at the same x in
+ * each row; a date outside it is held at the edge. Absent, the bar spans its own dates as it always has.
  */
 
 const W = 240;
@@ -39,6 +41,8 @@ export function ForecastRangeBar({
   p95,
   planEnd,
   today,
+  axis,
+  label,
 }: {
   lang: Lang;
   p50: string;
@@ -48,17 +52,23 @@ export function ForecastRangeBar({
   /** Null or an invalid date drops the plan-end tick and its sentence. */
   planEnd: string | null;
   today: string;
+  /** One shared axis for every row; absent = the bar's own axis. */
+  axis?: { lo: string; hi: string };
+  /** The group's name before ", simulated"; absent = "Forecast range". A stack of bars passes a row-unique one. */
+  label?: string;
 }) {
   const locale = localeFor(lang);
   const fmt = (iso: string) => formatDayMonthYear(iso, locale);
   const plan = planEnd !== null && isValidIsoDate(planEnd) ? planEnd : null;
 
   const points = [today, p50, p80, ...(p95 ? [p95] : []), ...(plan ? [plan] : [])].map(dayNumber);
-  const lo = Math.min(...points);
+  const lo = axis ? dayNumber(axis.lo) : Math.min(...points);
   const last = Math.max(...points);
-  const hi = p95 ? last : last + Math.max(1, (last - lo) * OPEN_END_PAD);
+  const hi = axis ? dayNumber(axis.hi) : p95 ? last : last + Math.max(1, (last - lo) * OPEN_END_PAD);
   const span = Math.max(1, hi - lo);
-  const xFor = (iso: string) => INSET + ((dayNumber(iso) - lo) / span) * (W - 2 * INSET);
+  const share = (iso: string) => (dayNumber(iso) - lo) / span;
+  // Only a shared axis can leave a date outside it; the bar's own axis holds every date by construction.
+  const xFor = (iso: string) => INSET + (axis ? Math.min(1, Math.max(0, share(iso))) : share(iso)) * (W - 2 * INSET);
 
   const bandLeft = xFor(p50);
   const bandRight = p95 ? xFor(p95) : W - INSET;
@@ -76,7 +86,7 @@ export function ForecastRangeBar({
   return (
     <div
       role="group"
-      aria-label={t(lang, "simValueSr", t(lang, "forecastRangeLabel"))}
+      aria-label={t(lang, "simValueSr", label ?? t(lang, "forecastRangeLabel"))}
       data-sim="true"
       className={`flex items-center gap-1.5 ${SIM_OUTLINE_CLASS}`}
     >

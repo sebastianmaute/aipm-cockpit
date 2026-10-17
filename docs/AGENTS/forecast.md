@@ -584,7 +584,9 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
     dropped (the engine gives `chanceOverBudget: null` at `bac <= 0`, and `costRangeRows` leaves the row out),
     so the pace card, the tile and the Forecast view agree. The side-by-side wrapper around `PercentileTable` is
     rendered only with the cost card, so the view without one is the markup it always was.
-    `workspace-section.tsx` computes its facts only on the Forecast tab with the simulation active and the Budget module on.
+    `workspace-section.tsx` computes its facts (`forecastFactsOn`) only on the Forecast tab with the Budget module on,
+    NOT gated on the simulation switch: Scenarios mode sizes added people from the booked hours with the switch off
+    too. The cost card and the Scenarios cost rows still need the switch (`showSimulation && budgetEnabled` in the panel).
     ★ A How-many target change rebuilds the run but cannot change a trial day (it draws from its own stream), so the
     view calls `simulateCostFromRunMemo` (`budget-sim.ts`), a single-entry memo keyed on the trial days and window
     dates BY VALUE, and the cost pass does not rerun.

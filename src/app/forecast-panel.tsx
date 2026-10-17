@@ -2,19 +2,18 @@
 
 // Monte Carlo schedule forecast view (§502), orchestrator only: holds the mode and
 // inputs, runs the pure engine (`./forecast`) once per input change in a useMemo,
-// and hands the result to the presentational toolbar, chart and tables.
+// and hands the result to the presentational toolbar, chart and tables. Scenarios mode hands its inputs to
+// `ForecastScenariosView` instead and runs none of this view's own forecast or cost pass.
 
 import { useEffect, useMemo, useState } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { localeFor } from "./date-format";
-import { formatDayMonthYear } from "./forecast-format";
 import {
   DEFAULT_WHAT_IF,
   clampWhatIf,
   computeScheduleForecast,
   effortCoverage,
   lastForecastableDay,
-  type ForecastInsufficient,
   type ScheduleForecast,
   type WhatIf,
 } from "./forecast";
@@ -25,7 +24,9 @@ import { CostTable, MilestoneTable, PercentileTable } from "./forecast-tables";
 import type { ForecastFactsByUnit } from "./budget-forecast";
 import { simulateCostFromRunMemo } from "./budget-sim";
 import { ReportCard } from "./report-table";
-import { EmptyState } from "./empty-state";
+import { InsufficientState } from "./forecast-insufficient";
+import { ForecastScenariosView, type ForecastScenariosProps } from "./forecast-scenarios-view";
+import type { ScenarioRunInput } from "./forecast-scenario-compare";
 import { isValidIsoDate } from "./forecast/throughput";
 import { isTaskClosed } from "./task-closed";
 import type { Milestone, ResourcePlan, Task } from "./types";
@@ -33,6 +34,9 @@ import { useResizable } from "./use-resizable";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { nthWorkingDayAfter } from "./working-days";
+
+export { InsufficientState };
+export type { ForecastScenariosProps };
 
 const FALLBACK_TARGET_WORKING_DAYS = 30;
 
@@ -92,6 +96,8 @@ interface Props {
   /** Deep-link target (`ForecastPanelDeepLinked`): the milestone row to flash, and the box it is queried in. */
   flashMilestoneId?: number | null;
   milestonesRef?: React.Ref<HTMLDivElement>;
+  /** Saved scenarios (§502); absent (tests, older callers) = no Scenarios segment. */
+  scenarios?: ForecastScenariosProps;
 }
 
 /**
@@ -111,7 +117,7 @@ export function ForecastPanelDeepLinked(props: Omit<Props, "flashMilestoneId" | 
   return <ForecastPanel {...props} flashMilestoneId={flashId} milestonesRef={containerRef} />;
 }
 
-export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, showSimulation = false, budgetFacts = null, budgetEnabled = false, flashMilestoneId = null, milestonesRef }: Props) {
+export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, showSimulation = false, budgetFacts = null, budgetEnabled = false, flashMilestoneId = null, milestonesRef, scenarios }: Props) {
   const [mode, setMode] = useState<ForecastMode>("quick");
   const [unit, setUnit] = useState<ForecastUnit>("tasks");
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>(DEFAULT_HISTORY_WINDOW);
@@ -140,9 +146,11 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
       appliedWhatIf.scopePercent !== DEFAULT_WHAT_IF.scopePercent ||
       appliedWhatIf.capacityPercent !== DEFAULT_WHAT_IF.capacityPercent);
 
+  const inScenarios = mode === "scenarios" && scenarios !== undefined;
+  // Scenarios mode runs As is + one forecast per scenario in the view, so this view's own run is skipped there.
   const result = useMemo(
     () =>
-      computeScheduleForecast({
+      inScenarios ? null : computeScheduleForecast({
         tasks,
         milestones,
         today,
@@ -152,7 +160,17 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         whatIf: appliedWhatIf,
         howManyTarget,
       }),
-    [tasks, milestones, today, holidaySet, historyWindow, unit, appliedWhatIf, howManyTarget],
+    [inScenarios, tasks, milestones, today, holidaySet, historyWindow, unit, appliedWhatIf, howManyTarget],
+  );
+  // The comparison's inputs; a new object only when one of them changes, so the view's one memo keys on it.
+  const planEnd = plan.endDate;
+  const directory = scenarios?.directory;
+  const costOn = showSimulation && budgetEnabled;
+  const scenarioInput = useMemo<ScenarioRunInput | null>(
+    () => (directory === undefined ? null : {
+      tasks, milestones, today, holidaySet, window: historyWindow, unit, planEnd, directory, budgetFacts, costOn,
+    }),
+    [tasks, milestones, today, holidaySet, historyWindow, unit, planEnd, directory, budgetFacts, costOn],
   );
 
   // §502 part 3 — cost at finish from THIS run, so What-if scope moves it; money unit only. Capacity is team
@@ -163,14 +181,14 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
   // `simulateCostFromRunMemo` then hands back the last range instead of running the pass again.
   const spendScale = appliedWhatIf.capacityPercent / 100;
   const cost = useMemo(() => {
-    if (!showSimulation || !budgetEnabled || budgetFacts === null || result.kind !== "forecast") return null;
+    if (!showSimulation || !budgetEnabled || budgetFacts === null || result?.kind !== "forecast") return null;
     return simulateCostFromRunMemo(result, budgetFacts.eur, "eur", spendScale);
   }, [showSimulation, budgetEnabled, budgetFacts, result, spendScale]);
-  const costCard = showSimulation && budgetEnabled && (
+  const costCard = !inScenarios && showSimulation && budgetEnabled && (
     <CostTable lang={lang} cost={cost} currency={plan.currency} />
   );
 
-  const percentileTable = result.kind === "forecast" && (
+  const percentileTable = result?.kind === "forecast" && (
     <PercentileTable lang={lang} forecast={result} target={howManyTarget} today={today} maxTarget={maxTarget} onTargetChange={setTarget} />
   );
 
@@ -196,12 +214,15 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
           whatIf={usedWhatIf}
           onCommitWhatIf={commitWhatIf}
           onResetSize={reset}
+          showScenarios={scenarios !== undefined}
         />
         {differsFromDashboard && (
           <p className="mb-2 text-xs text-muted-foreground print:hidden">{t(lang, "forecastDashboardDefaultsNote")}</p>
         )}
       </div>
-      {result.kind === "insufficient" ? (
+      {inScenarios && scenarioInput ? (
+        <ForecastScenariosView lang={lang} input={scenarioInput} scenarios={scenarios} />
+      ) : result === null ? null : result.kind === "insufficient" ? (
         <InsufficientState lang={lang} result={result} />
       ) : (
         <>
@@ -220,35 +241,6 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         </>
       )}
     </ReportCard>
-  );
-}
-
-/** The history floor is not met: say which shortfall(s), in counts the user can act on. */
-function InsufficientState({ lang, result }: { lang: Lang; result: ForecastInsufficient }) {
-  const lines: string[] = [];
-  if (result.finished < result.neededFinished) {
-    lines.push(t(lang, "forecastInsufficient", result.finished, result.neededFinished, result.neededFinished - result.finished));
-  }
-  if (result.days < result.neededDays) {
-    const args = [result.days, result.neededDays, result.neededDays - result.days] as const;
-    // R14 cut a fixed window at the first completion: say so, or "8 of 10 days" reads as a wrong window.
-    lines.push(
-      result.windowCutAt === null
-        ? t(lang, "forecastInsufficientDays", ...args)
-        : t(lang, "forecastInsufficientDaysCut", ...args, formatDayMonthYear(result.windowCutAt, localeFor(lang))),
-    );
-  }
-  if (result.doneWithoutDate > 0) lines.push(tPlural(lang, "forecastDoneWithoutDate", result.doneWithoutDate, result.doneWithoutDate));
-  const [first, ...rest] = lines;
-  return (
-    <div className="pb-6">
-      <EmptyState title={t(lang, "forecastInsufficientTitle")} description={first} />
-      {rest.map((line) => (
-        <p key={line} className="text-center text-xs text-muted-foreground">
-          {line}
-        </p>
-      ))}
-    </div>
   );
 }
 
