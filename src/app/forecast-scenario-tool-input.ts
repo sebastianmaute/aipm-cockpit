@@ -1,7 +1,9 @@
 /** Strict input for the forecast scenario AI tools (§502) — pure, i18n-free, DOM-free. Strings here are
  *  model-facing English. */
 import {
-  DEFAULT_RAMP_WEEKS, MAX_FORECAST_SCENARIOS, MAX_SCENARIO_CHANGES, REFERENCE_ERRORS, SCENARIO_NAME_MAX,
+  ADDED_COUNT_MAX, ADDED_HOURS_MAX, ADDED_HOURS_MIN, AVAILABILITY_MAX, AVAILABILITY_MIN, DEFAULT_RAMP_WEEKS,
+  MAX_FORECAST_SCENARIOS, MAX_SCENARIO_CHANGES, PLACEHOLDER_RATE_MAX, RAMP_WEEKS_MAX, REFERENCE_ERRORS,
+  SCENARIO_NAME_MAX, SCOPE_TASKS_MAX,
   keepsAnyStoredReference, validateScenarioChange, validateScenarioDraft,
   type AddedPeopleWho, type ForecastScenario, type ScenarioChange, type ScenarioChangeError, type ScenarioError,
   type ValidationContext,
@@ -137,14 +139,14 @@ function rowText(error: ScenarioChangeError, c: ScenarioChange): string {
   switch (error) {
     case "date": return "dates must be YYYY-MM-DD";
     case "until-before-from": return "until must be on or after from";
-    case "percent": return "percent must be between 10 and 300";
-    case "hours": return "hoursPerWeek must be between 1 and 60";
-    case "count": return "count must be a whole number from 1 to 20";
-    case "ramp": return "rampWeeks must be a whole number from 0 to 26";
-    case "rate": return "rate must be between 0 and 100000";
+    case "percent": return `percent must be between ${AVAILABILITY_MIN} and ${AVAILABILITY_MAX}`;
+    case "hours": return `hoursPerWeek must be between ${ADDED_HOURS_MIN} and ${ADDED_HOURS_MAX}`;
+    case "count": return `count must be a whole number from 1 to ${ADDED_COUNT_MAX}`;
+    case "ramp": return `rampWeeks must be a whole number from 0 to ${RAMP_WEEKS_MAX}`;
+    case "rate": return `rate must be between 0 and ${PLACEHOLDER_RATE_MAX}`;
     case "currency": return `currency must be one of ${SUPPORTED_CURRENCIES.join(", ")}`;
     case "label": return `label must be 1 to ${SCENARIO_NAME_MAX} characters`;
-    case "tasks": return "tasks must be a non-zero whole number between -1000 and 1000";
+    case "tasks": return `tasks must be a non-zero whole number between -${SCOPE_TASKS_MAX} and ${SCOPE_TASKS_MAX}`;
     case "milestone-unknown": return `milestone ${milestone} does not exist`;
     case "milestone-finished": return `milestone ${milestone} is already achieved or cancelled`;
     case "resource-unknown": return `resource ${resource} does not exist`;

@@ -4,7 +4,7 @@
 
 import { expectedTokenField } from "./chat-tools-updates";
 import { DEFAULT_HISTORY_WINDOW, MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
-import { MAX_FORECAST_SCENARIOS } from "./forecast-scenarios";
+import { AVAILABILITY_MAX, AVAILABILITY_MIN, DEFAULT_RAMP_WEEKS, MAX_FORECAST_SCENARIOS } from "./forecast-scenarios";
 
 /** 1300 → "1,300", fixed to en-US so the model-facing text does not follow the machine's locale. */
 const HORIZON = MAX_HORIZON_WORKING_DAYS.toLocaleString("en-US");
@@ -14,7 +14,7 @@ const HORIZON = MAX_HORIZON_WORKING_DAYS.toLocaleString("en-US");
 const changeSchema = {
   type: "object" as const,
   description:
-    'One dated change. availability: {kind:"availability",percent:10-300,from,until} scales the whole team\'s capacity. addPeople: {kind:"addPeople",who,from,until,rampWeeks?} adds capacity; who is either {resourceId,hoursPerWeek} for a person on the resource list, or {label,count,rate,currency,hoursPerWeek} for a placeholder. scope: {kind:"scope",tasks,on,milestoneId?} adds (positive) or removes (negative) tasks on a date. Dates are YYYY-MM-DD; until:"" means to the end; rampWeeks defaults to 4.',
+    `One dated change. availability: {kind:"availability",percent:${AVAILABILITY_MIN}-${AVAILABILITY_MAX},from,until} scales the whole team's capacity. addPeople: {kind:"addPeople",who,from,until,rampWeeks?} adds capacity; who is either {resourceId,hoursPerWeek} for a person on the resource list, or {label,count,rate,currency,hoursPerWeek} for a placeholder. scope: {kind:"scope",tasks,on,milestoneId?} adds (positive) or removes (negative) tasks on a date. Dates are YYYY-MM-DD; until:"" means to the end; rampWeeks defaults to ${DEFAULT_RAMP_WEEKS}.`,
   properties: {
     kind: { type: "string" as const, enum: ["availability", "addPeople", "scope"] },
     percent: { type: "number" as const },
