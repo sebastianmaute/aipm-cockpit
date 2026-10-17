@@ -558,7 +558,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const applyVerifyFailedId = `${useId()}-turso-apply-wrong-passphrase`;
   const switchVerifyFailedId = `${useId()}-turso-switch-wrong-passphrase`;
   const switchRefusedId = `${useId()}-turso-switch-token-unsealed`;
-  const switchRefusalShown = switchRefusal !== null && switchRefusal.token === (tursoToken ?? "");
+  // Shown only while it is still true: for the token it refused, and — unless a DEVICE seal failed —
+  // while that token is still unsealed, so a passphrase Save clears it rather than turning it false.
+  const switchRefusalShown =
+    switchRefusal !== null &&
+    switchRefusal.token === (tursoToken ?? "") &&
+    (switchRefusal.device || tokenUnsealed);
   const tokenSealBlockedHintKey = tokenHasPassphraseRecord
     ? "integrationsTursoApplyNeedsPassphrase"
     : "integrationsTursoApplyNeedsNewPassphrase";
@@ -1504,7 +1509,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   <FieldError id={switchRefusedId}>
                     {t(
                       lang,
-                      switchRefusal?.device || !tokenUnsealed
+                      switchRefusal?.device
                         ? "integrationsTursoSwitchTokenNotSaved"
                         : "integrationsTursoSwitchTokenUnsealed",
                       t(lang, "portfolioModeSwitchConfirm"),

@@ -1186,6 +1186,8 @@ describe("§715 — every mounted section and every reload path read one token s
     expect(
       screen.queryByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", switchName)),
     ).toBeNull();
+    // Nor any other refusal: the token is saved now, so "not saved" would be false.
+    expect(screen.queryByText(t("en-US", "integrationsTursoSwitchTokenNotSaved", switchName))).toBeNull();
   });
 
   // On Turso storage an edited token is a DRAFT, so the marker never holds it: the switch must read
