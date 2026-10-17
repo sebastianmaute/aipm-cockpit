@@ -24,6 +24,9 @@ export function orderBacklog(open: readonly Task[]): Task[] {
 
 type Target = { id: number; days: number; position: number; positionPrioritised: number };
 
+/** A removal that moves a target: it lowers that target's arrived work from `day` on. */
+type Drop = { day: number; amount: number };
+
 type AttributedChange = { day: number; amount: number; milestoneId: number };
 
 type Args = {
@@ -38,7 +41,11 @@ type Args = {
   o: SimOptions;
   /** Dated scope changes on a milestone's own work (amounts in the forecast unit). Absent = none. */
   attributed?: readonly AttributedChange[];
-  /** The work that has arrived by each day; caps each trial's done count. Absent = no cap. */
+  /**
+   * Base + every addition by day, no removals; caps each trial's done count. Each target's own cap is this
+   * lowered by the attributed removals that move it (a removal on a later milestone does not), so no target is
+   * capped below the work its unmoved position needs. Absent = no cap.
+   */
   cap?: Arrivals;
 };
 
@@ -52,7 +59,7 @@ export function isAttributableMilestone(m: Milestone): boolean {
  * A milestone's place in the queue: `position` and `date` order it, `own` is its remaining work. `days` is
  * null for an overdue milestone (no figures, but attributed scope on it still moves later ones).
  */
-type Keyed = { id: number; date: string; days: number | null; position: number; own: number; dead: boolean };
+type Keyed = { id: number; date: string; days: number | null; position: number; own: number; dead: boolean; drops: Drop[] };
 
 /** A milestone's own work after its attributed changes, in day order, each removal stopping at zero. */
 function addedOwnWork(changes: readonly AttributedChange[], id: number): number {
@@ -85,6 +92,17 @@ export function clampAttributedRemovals<T extends AttributedChange>(changes: rea
   return out;
 }
 
+/** `cap` lowered by each drop from its day on, never below zero. */
+function lowered(cap: Arrivals, drops: readonly Drop[]): Arrivals {
+  if (drops.length === 0) return cap;
+  const arrivedAt = Float64Array.from(cap.arrivedAt);
+  for (const { day, amount } of drops) for (let d = day; d < arrivedAt.length; d += 1) arrivedAt[d] += amount;
+  for (let d = 0; d < arrivedAt.length; d += 1) arrivedAt[d] = Math.max(0, arrivedAt[d]);
+  const suffixMin = Float64Array.from(arrivedAt);
+  for (let d = suffixMin.length - 2; d >= 0; d -= 1) suffixMin[d] = Math.min(suffixMin[d], suffixMin[d + 1]);
+  return { arrivedAt, suffixMin, lastPositiveDay: cap.lastPositiveDay };
+}
+
 /** Day order, input order within a day. */
 function byDay(changes: readonly AttributedChange[] | undefined): AttributedChange[] {
   return [...(changes ?? [])].sort((a, b) => a.day - b.day);
@@ -94,7 +112,8 @@ function byDay(changes: readonly AttributedChange[] | undefined): AttributedChan
  * Applies the attributed changes in day order: an addition of `a` to N adds `a` to N's own work and to the
  * position of N and of every milestone whose key `(base position, date)` comes after N's; a removal does the
  * same with `-min(a, N's own work)`. Milestone M counts only changes with `day ≤ M.days`, except that an
- * addition to M itself after its date makes M unreachable (`dead`). The prioritised figure is `own`.
+ * addition to M itself after its date makes M unreachable (`dead`). The prioritised figure is `own`. Each
+ * removal that moves M is recorded in `M.drops`, for M's own cap.
  */
 function applyAttributed(keyed: readonly Keyed[], changes: readonly AttributedChange[]): void {
   const byId = new Map(keyed.map((k) => [k.id, k]));
@@ -117,11 +136,13 @@ function applyAttributed(keyed: readonly Keyed[], changes: readonly AttributedCh
         if (c.day <= m.days) {
           m.position += e;
           m.own += e;
+          if (e < 0) m.drops.push({ day: c.day, amount: e });
         } else if (c.amount > 0) {
           m.dead = true;
         }
       } else if (c.day <= m.days && after(m, n)) {
         m.position += e;
+        if (e < 0) m.drops.push({ day: c.day, amount: e });
       }
     }
   }
@@ -161,6 +182,7 @@ export function milestoneChances(args: Args): MilestoneChance[] {
         position: open.reduce((a, id) => Math.max(a, cumulative.get(id) ?? 0), 0),
         own: open.reduce((s, id) => s + (sizes.get(id) ?? 0), 0),
         dead: false,
+        drops: [],
       });
     }
   }
@@ -172,6 +194,7 @@ export function milestoneChances(args: Args): MilestoneChance[] {
     position: keyed.reduce((a, k) => (k.date <= m.date ? Math.max(a, k.position) : a), 0),
     own: 0,
     dead: false,
+    drops: [],
   }));
   const all = [...keyed, ...placed];
   applyAttributed(all, changes);
@@ -181,11 +204,11 @@ export function milestoneChances(args: Args): MilestoneChance[] {
     if (k.days === null) results.set(k.id, { id: k.id, state: "overdue" });
     else if (k.dead) results.set(k.id, { id: k.id, state: "chance", chance: 0, chancePrioritised: 0 });
   }
-  const targets: Target[] = all.flatMap((k) =>
-    k.days === null || k.dead ? [] : [{ id: k.id, days: k.days, position: k.position, positionPrioritised: k.own }],
-  );
+  const live = all.filter((k) => k.days !== null && !k.dead);
+  const targets: Target[] = live.map((k) => ({ id: k.id, days: k.days ?? 0, position: k.position, positionPrioritised: k.own }));
+  const { cap } = args;
 
-  const hits = tally(targets, args);
+  const hits = tally(targets, args, cap ? live.map((k) => lowered(cap, k.drops)) : undefined);
   for (const t of targets) {
     const h = hits.get(t.id) ?? { due: 0, prio: 0 };
     const n = o.trials;
@@ -204,12 +227,33 @@ export function milestoneChances(args: Args): MilestoneChance[] {
  * early once every milestone still ahead is certainly reached (its done work already covers both
  * positions) or certainly missed (even the best possible days cannot cover the smallest one), and skips
  * the draws it would have made, so every count is the same as walking to the last milestone's day.
- * With `cap`, a day's done count may not exceed the work that has arrived by that day.
+ * With `caps` (one per target), each target keeps its own done count, capped by its own arrived work.
  */
-function tally(targets: readonly Target[], { samples, o, cap }: Args): Map<number, { due: number; prio: number }> {
+function tally(
+  targets: readonly Target[],
+  { samples, o }: Args,
+  caps?: readonly Arrivals[],
+): Map<number, { due: number; prio: number }> {
   const hits = new Map(targets.map((t) => [t.id, { due: 0, prio: 0 }]));
   if (targets.length === 0) return hits;
-  const queue = targets.map((t) => ({ t, day: Math.min(t.days, o.horizon) })).sort((a, b) => a.day - b.day);
+  const queue = targets
+    .map((t, k) => ({ t, day: Math.min(t.days, o.horizon), cap: caps?.[k] }))
+    .sort((a, b) => a.day - b.day);
+  const counts = caps ? walkCapped(queue, samples, o) : walkShared(queue, samples, o);
+  queue.forEach(({ t }, i) => {
+    const h = hits.get(t.id);
+    if (!h) return;
+    h.due += counts.due[i];
+    h.prio += counts.prio[i];
+  });
+  return hits;
+}
+
+type Queued = { t: Target; day: number; cap?: Arrivals };
+type Counts = { due: Int32Array; prio: Int32Array };
+
+/** No cap: every target reads the same done count. */
+function walkShared(queue: readonly Queued[], samples: readonly number[], o: SimOptions): Counts {
   const n = queue.length;
   // From queue index i on: the largest position (reached by all) and the smallest (missed by all).
   const allReachedAt = new Float64Array(n + 1);
@@ -227,14 +271,13 @@ function tally(targets: readonly Target[], { samples, o, cap }: Args): Map<numbe
     let done = 0;
     let i = 0;
     for (let d = 0; d <= lastDay; d += 1) {
-      if (d > 0) done = cap ? Math.min(done + draw(d), cap.arrivedAt[d]) : done + draw(d);
+      if (d > 0) done += draw(d);
       for (; i < n && queue[i].day === d; i += 1) {
         if (done >= queue[i].t.position) due[i] += 1;
         if (done >= queue[i].t.positionPrioritised) prio[i] += 1;
       }
       if (i === n) break;
-      // Under a cap done falls when the arrived work does, so "all reached" also needs the cap to stay above.
-      if (done >= allReachedAt[i] && (!cap || cap.suffixMin[d + 1] >= allReachedAt[i])) {
+      if (done >= allReachedAt[i]) {
         for (let j = i; j < n; j += 1) {
           due[j] += 1;
           prio[j] += 1;
@@ -248,11 +291,64 @@ function tally(targets: readonly Target[], { samples, o, cap }: Args): Map<numbe
       }
     }
   }
-  queue.forEach(({ t }, i) => {
-    const h = hits.get(t.id);
-    if (!h) return;
-    h.due += due[i];
-    h.prio += prio[i];
-  });
-  return hits;
+  return { due, prio };
+}
+
+/**
+ * A cap per target: target j's done is `min(done_j + draw(d), cap_j.arrivedAt[d])`, the same draw for all. The
+ * exits ask every target still ahead: all certainly reached (done covers both positions and the cap cannot fall
+ * below them later, since a falling cap pulls done down) or all certainly missed.
+ */
+function walkCapped(queue: readonly Queued[], samples: readonly number[], o: SimOptions): Counts {
+  const n = queue.length;
+  const need = queue.map(({ t }) => Math.max(t.position, t.positionPrioritised));
+  const least = queue.map(({ t }) => Math.min(t.position, t.positionPrioritised));
+  const caps = queue.map((q) => q.cap);
+  const due = new Int32Array(n);
+  const prio = new Int32Array(n);
+  const done = new Float64Array(n);
+  const lastDay = queue[n - 1].day;
+  const { draw, bestBetween, skipDays } = dayDrawer(samples, o);
+  const allReached = (i: number, d: number) => {
+    for (let j = i; j < n; j += 1) {
+      const cap = caps[j];
+      if (done[j] < need[j] || (cap && cap.suffixMin[d + 1] < need[j])) return false;
+    }
+    return true;
+  };
+  const noneReachable = (i: number, best: number) => {
+    for (let j = i; j < n; j += 1) if (!cannotReach(done[j], 1, best, least[j])) return false;
+    return true;
+  };
+  for (let trial = 0; trial < o.trials; trial += 1) {
+    done.fill(0);
+    let i = 0;
+    for (let d = 0; d <= lastDay; d += 1) {
+      if (d > 0) {
+        const x = draw(d);
+        for (let j = i; j < n; j += 1) {
+          const cap = caps[j];
+          done[j] = cap ? Math.min(done[j] + x, cap.arrivedAt[d]) : done[j] + x;
+        }
+      }
+      for (; i < n && queue[i].day === d; i += 1) {
+        if (done[i] >= queue[i].t.position) due[i] += 1;
+        if (done[i] >= queue[i].t.positionPrioritised) prio[i] += 1;
+      }
+      if (i === n) break;
+      if (allReached(i, d)) {
+        for (let j = i; j < n; j += 1) {
+          due[j] += 1;
+          prio[j] += 1;
+        }
+        skipDays(lastDay - d);
+        break;
+      }
+      if (noneReachable(i, bestBetween(d, lastDay))) {
+        skipDays(lastDay - d);
+        break;
+      }
+    }
+  }
+  return { due, prio };
 }

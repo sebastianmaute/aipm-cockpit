@@ -155,7 +155,10 @@ type DatedScope = {
   arrivals: Arrivals;
   /** The arrivals on an attributable milestone, in the forecast unit. */
   attributed: { day: number; amount: number; milestoneId: number }[];
-  /** Base + every addition + attributed removals: unattributed removals come off the queue's end, not its front. */
+  /**
+   * Base + every addition. The tally lowers it per milestone by the attributed removals that move that milestone;
+   * unattributed removals come off the queue's end, so they cap no milestone.
+   */
   cap: Arrivals;
 };
 
@@ -184,7 +187,7 @@ function datedScope(
   return {
     arrivals: buildArrivals(base, steps, MAX_HORIZON_WORKING_DAYS),
     attributed: clamped.map(({ day, amount, milestoneId }) => ({ day, amount, milestoneId })),
-    cap: buildArrivals(base, steps.filter((s) => s.amount > 0 || s.milestoneId !== null), MAX_HORIZON_WORKING_DAYS),
+    cap: buildArrivals(base, steps.filter((s) => s.amount > 0), MAX_HORIZON_WORKING_DAYS),
   };
 }
 

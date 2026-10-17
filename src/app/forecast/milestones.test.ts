@@ -262,9 +262,9 @@ describe("attributed scope", () => {
   });
 
   test("an attributed removal stops at the milestone's own work", () => {
-    // M1 owns 1 task, so -3 removes 1: M1 position 4, M2 position 9 (not 7).
+    // M1 owns 1 task, so -3 removes 1: M1 position 4, M2 position 9 (not 7). The cap carries additions only.
     const removal = [{ day: 0, amount: -3, milestoneId: 1 }];
-    const r = scoped([ms(1, day(4), [5]), ms(2, day(7), [10])], removal, [{ day: 0, amount: -3 }]);
+    const r = scoped([ms(1, day(4), [5]), ms(2, day(7), [10])], removal, []);
     expect(figures(r, 1)).toMatchObject({ chance: 1 });
     expect(figures(r, 2)).toMatchObject({ chance: 0 });
     // Position exactly 9: reached on day 9, not on day 8 (no cap, so only the position decides).
@@ -287,16 +287,66 @@ describe("attributed scope", () => {
   });
 
   test("the all-reached exit respects a cap that falls later", () => {
-    // 2 a day. M2 (day 14) owns 1 task, so -3 on day 12 moves it to 9; the cap falls 10 -> 7 that day.
-    // Done reaches 10 on day 5, past every position, but the cap holds it at 7 from day 12: M2 is missed.
+    // 2 a day; a cap handed in that falls 10 -> 7 on day 12. Done reaches 10 on day 5, past every position,
+    // but the cap holds it at 7 from day 12, so M2 (position 10, day 14) is missed.
     const r = milestoneChances({
       milestones: [ms(1, day(4), [5]), ms(2, day(14), [10])],
       ordered: ten, closedIds: new Set<number>(), sizeOf: () => 1, samples: [2], today: TODAY, holidaySet: new Set<string>(), o: opts(),
-      attributed: [{ day: 12, amount: -3, milestoneId: 2 }],
       cap: buildArrivals(10, [{ day: 12, amount: -3 }], 1300),
     });
     expect(figures(r, 1)).toEqual({ chance: 1, chancePrioritised: 1 });
     expect(figures(r, 2)).toEqual({ chance: 0, chancePrioritised: 1 });
+  });
+
+  test("a removal on a later milestone does not cap an earlier one", () => {
+    // L owns tasks 1 and 11 (position 11), M owns task 10 (position 10). -2 on L moves L, not M, so M's cap stays 11.
+    const eleven = Array.from({ length: 11 }, (_, i) => task(i + 1));
+    const r = milestoneChances({
+      milestones: [ms(1, day(12), [10]), ms(2, day(30), [1, 11])],
+      ordered: eleven, closedIds: new Set<number>(), sizeOf: () => 1, samples: [1], today: TODAY, holidaySet: new Set<string>(), o: opts(),
+      attributed: [{ day: 0, amount: -2, milestoneId: 2 }],
+      cap: buildArrivals(11, [], 1300),
+    });
+    expect(figures(r, 1)).toEqual({ chance: 1, chancePrioritised: 1 });
+    expect(figures(r, 2)).toEqual({ chance: 1, chancePrioritised: 1 });
+  });
+
+  test("the early exits stay exact with a cap per milestone", () => {
+    // 12 tasks; M1 owns [10] (day 8), M2 owns every other task (day 9). -2 on M2 on day 3 moves only M2 (12 -> 10,
+    // own 11 -> 9);
+    // +6 on M1 on day 6 moves M1 (10 -> 16, own 7) and M2 (10 -> 16). Shared cap: 12, 18 from day 6.
+    // M1's cap: 12, 18 from day 6. M2's cap: 12, 10 from day 3, 16 from day 6.
+    const twelve = Array.from({ length: 12 }, (_, i) => task(i + 1));
+    const samples = [0, 1, 3];
+    const capOf = (steps: { day: number; amount: number }[]) => buildArrivals(12, steps, 1300).arrivedAt;
+    const targets = [
+      { id: 1, days: 8, position: 16, prio: 7, cap: capOf([{ day: 6, amount: 6 }]) },
+      { id: 2, days: 9, position: 16, prio: 9, cap: capOf([{ day: 3, amount: -2 }, { day: 6, amount: 6 }]) },
+    ];
+    const o = opts({ trials: 300, rng: mulberry32(9) });
+    const due = [0, 0];
+    const prio = [0, 0];
+    for (let trial = 0; trial < o.trials; trial += 1) {
+      const done = [0, 0];
+      for (let d = 1; d <= 9; d += 1) {
+        const x = drawDay(samples, o, d);
+        targets.forEach((t, k) => {
+          done[k] = Math.min(done[k] + x, t.cap[d]);
+          if (t.days !== d) return;
+          if (done[k] >= t.position) due[k] += 1;
+          if (done[k] >= t.prio) prio[k] += 1;
+        });
+      }
+    }
+    expect(due.every((c) => c > 0 && c < o.trials), "some trials reach and some miss each milestone").toBe(true);
+    const fast = milestoneChances({
+      milestones: [ms(1, day(8), [10]), ms(2, day(9), [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12])],
+      ordered: twelve, closedIds: new Set<number>(), sizeOf: () => 1, samples, today: TODAY, holidaySet: new Set<string>(),
+      o: opts({ trials: 300, rng: mulberry32(9) }),
+      attributed: [{ day: 3, amount: -2, milestoneId: 2 }, { day: 6, amount: 6, milestoneId: 1 }],
+      cap: buildArrivals(12, [{ day: 6, amount: 6 }], 1300),
+    });
+    expect(fast).toEqual(targets.map((t, k) => ({ id: t.id, state: "chance", chance: due[k] / o.trials, chancePrioritised: prio[k] / o.trials })));
   });
 
   test("scope on a milestone with no open linked tasks is placed by its date", () => {

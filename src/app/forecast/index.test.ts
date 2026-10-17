@@ -391,6 +391,20 @@ describe("computeScheduleForecast with dated changes", () => {
     expect(r.backlog).toBe(9);
   });
 
+  test("a removal on a later milestone does not make an earlier one unreachable", () => {
+    // 11 open tasks at positions 1..11, exactly 1 done a day. M owns task 10 (day 12); L owns tasks 1 and 11
+    // (position 11, day 30). -2 on L moves L only: M keeps position 10 and the work ahead of it, as if unattributed.
+    const ms: Milestone[] = [
+      { id: 1, name: "M", date: nthWorkingDayAfter(TODAY, 12, NO_HOLIDAYS), linkedTaskIds: [10] },
+      { id: 2, name: "L", date: nthWorkingDayAfter(TODAY, 30, NO_HOLIDAYS), linkedTaskIds: [1, 11] },
+    ];
+    const run = (milestoneId: number | null) =>
+      chances(computeScheduleForecast(input([...open(11), ...recentDone(12)], { milestones: ms, changes: { capacityByDay: FLAT(), arrivals: [{ day: 0, tasks: -2, milestoneId }] } })));
+    const m = (r: ReturnType<typeof run>) => r.find((x) => x.id === 1);
+    expect(m(run(2))).toEqual({ id: 1, state: "chance", chance: 1, chancePrioritised: 1 });
+    expect(m(run(2))).toEqual(m(run(null)));
+  });
+
   test("arrivals alone still need the history floor", () => {
     const changes = (n: number) => ({ capacityByDay: FLAT(), arrivals: n === 0 ? [] : [{ day: 2, tasks: n, milestoneId: null }] });
     expect(computeScheduleForecast(input(recentDone(3), { changes: changes(0) })).kind, "no work at all skips the floor").toBe("forecast");
