@@ -6,25 +6,21 @@
 // the recorder's off-camera replay uses. Rows are looked up by name, and a missing one throws, so a
 // master edit that renames a row fails here instead of silently skipping its step.
 
+import * as story from "../../scripts/demo-video/week-story.mjs";
+
 export type DemoDay = "mon" | "tue" | "wed" | "thu" | "fri";
 
-export const DEMO_WEEK_DATES: Record<DemoDay, string> = {
-  mon: "2026-09-21", tue: "2026-09-22", wed: "2026-09-23", thu: "2026-09-24", fri: "2026-09-25",
-};
-
+// The names live in the recorder's `week-story.mjs`, so the video and this fixture share one copy. They
+// are re-exported here as the SAME objects (`week-story.test.ts` checks identity), typed for TS callers.
+export const DEMO_WEEK_DATES: Readonly<Record<DemoDay, string>> = story.DEMO_WEEK_DATES;
 /** The near-duplicate follow-ups the master plants on Friday 18th; Tuesday leaves one of each pair. */
-export const DEMO_DUPLICATE_PAIRS: ReadonlyArray<readonly [string, string]> = [
-  ["Fix CRM sync for new registrations", "CRM provisioning fails for sign-ups"],
-  ["Erasure requests not reaching the CRM", "GDPR delete does not propagate to the CRM"],
-  ["Re-run the MVP demo checklist", "Prepare the MVP demo re-run"],
-];
-
-export const DEMO_CRM_TASK = "Integrate CRM provisioning";
-export const DEMO_GDPR_ISSUE = "GDPR erasure requests do not reach the CRM";
-export const DEMO_NEW_MEMBER = { firstName: "Lukas", lastName: "Brandt" } as const;
-export const DEMO_DPO = "Northwind DPO";
-export const DEMO_LICENCE_RISK = "connector licence lead time";
-export const DEMO_MAYA_RELIEVED_HOURS = 160;
+export const DEMO_DUPLICATE_PAIRS = story.DEMO_DUPLICATE_PAIRS as ReadonlyArray<readonly [string, string]>;
+export const DEMO_CRM_TASK: string = story.DEMO_CRM_TASK;
+export const DEMO_GDPR_ISSUE: string = story.DEMO_GDPR_ISSUE;
+export const DEMO_NEW_MEMBER: Readonly<{ firstName: string; lastName: string }> = story.DEMO_NEW_MEMBER;
+export const DEMO_DPO: string = story.DEMO_DPO;
+export const DEMO_LICENCE_RISK: string = story.DEMO_LICENCE_RISK;
+export const DEMO_MAYA_RELIEVED_HOURS: number = story.DEMO_MAYA_RELIEVED_HOURS;
 
 const ORDER: readonly DemoDay[] = ["mon", "tue", "wed", "thu", "fri"];
 
