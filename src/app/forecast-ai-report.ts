@@ -5,12 +5,13 @@
  * common random numbers, and a `whatIf` equal to a saved scenario reproduces that scenario's result exactly.
  */
 import { entityToken } from "./ai-entity-token";
+import type { ScheduleContext } from "./forecast-added-people";
 import { FORECAST_TRIALS } from "./forecast/constants";
 import type { ForecastInsufficient, ScheduleForecast } from "./forecast";
 import type { CostAtFinish } from "./forecast/cost";
 import type { ForecastHistoryEntry } from "./forecast-history";
 import {
-  computeScenarioColumn, computeScenarioComparison, type ScenarioColumn, type ScenarioRunInput,
+  computeScenarioColumn, computeScenarioComparison, type ScenarioColumn, type ScenarioComparison, type ScenarioRunInput,
 } from "./forecast-scenario-compare";
 import type { ScenarioRowStatus } from "./forecast-scenario-schedule";
 import type { ForecastScenario, ScenarioChange, ValidationContext } from "./forecast-scenarios";
@@ -50,7 +51,8 @@ export type ForecastReport = {
     historyWindowWorkingDays: number | "all"; unit: "tasks"; trials: number; currency: BudgetCurrency; planEnd: string; today: string;
   };
   asIs: ColumnReport;
-  weeklyChange: WeeklyChange;
+  /** null when As is is insufficient: there is no P80 to compare, and "beyond" would claim one past the horizon. */
+  weeklyChange: WeeklyChange | null;
   scenarios: {
     id: number; name: string; expectedToken: string; changes: readonly ScenarioChange[]; result: ColumnReport; rows: RowReport[];
   }[];
@@ -81,6 +83,11 @@ function costReport(cost: CostAtFinish | null): Extract<ColumnReport, { status: 
 
 function finishDate(f: ScheduleForecast, p: 50 | 80 | 95): string | "beyond" {
   return f.when.find((w) => w.p === p)?.date ?? "beyond";
+}
+
+/** P80 as `weeklyChange` takes it: null for a trial past the horizon. */
+function finishOrNull(f: ScheduleForecast): string | null {
+  return f.when.find((w) => w.p === 80)?.date ?? null;
 }
 
 function columnReport(column: ScenarioColumn, run: ScenarioRunInput): ColumnReport {
@@ -122,13 +129,17 @@ function rowsOf(column: ScenarioColumn): RowReport[] {
   return (column.schedule?.rows ?? []).map(rowReport);
 }
 
-/** As is, every saved scenario, and optionally one unsaved `whatIf` change list, as one JSON report. */
-export function buildForecastReport(input: ForecastReportInput, whatIf: readonly ScenarioChange[] | null): ForecastReport {
-  const { run, history, scenarios, currency } = input;
-  const comparison = computeScenarioComparison(run, scenarios);
+/** As is, every saved scenario, and optionally one unsaved `whatIf` change list, as one JSON report.
+ *  ★ `comparison` must be `computeScenarioComparison(input.run, input.scenarios)`: `getForecast` builds it first so
+ *  the `whatIf` check reads its context, and the As-is run is paid once per call. */
+export function buildForecastReport(
+  input: ForecastReportInput,
+  whatIf: readonly ScenarioChange[] | null,
+  comparison: ScenarioComparison = computeScenarioComparison(input.run, input.scenarios),
+): ForecastReport {
+  const { run, history, currency } = input;
   const { asIs } = comparison;
   const asIsReport = columnReport(asIs, run);
-  const p80 = asIs.forecast.kind === "forecast" ? asIs.forecast.when.find((w) => w.p === 80)?.date ?? null : null;
   const report: ForecastReport = {
     simulated: true,
     settings: {
@@ -137,7 +148,9 @@ export function buildForecastReport(input: ForecastReportInput, whatIf: readonly
       currency, planEnd: run.planEnd, today: run.today,
     },
     asIs: asIsReport,
-    weeklyChange: weeklyChange({ history, today: run.today, p80, holidaySet: run.holidaySet }),
+    weeklyChange: asIs.forecast.kind === "forecast"
+      ? weeklyChange({ history, today: run.today, p80: finishOrNull(asIs.forecast), holidaySet: run.holidaySet })
+      : null,
     scenarios: comparison.scenarios.map(({ scenario, column }) => ({
       id: scenario.id, name: scenario.name, expectedToken: entityToken("forecastScenario", scenario),
       changes: scenario.changes, result: columnReport(column, run), rows: rowsOf(column),
@@ -148,8 +161,11 @@ export function buildForecastReport(input: ForecastReportInput, whatIf: readonly
   return { ...report, whatIf: { result: columnReport(column, run), rows: rowsOf(column) } };
 }
 
-/** What `validateScenarioChange` needs: the run's lists and the As-is run's on-team set. */
-export function scenarioValidationContext(input: ForecastReportInput): ValidationContext {
-  const { context } = computeScenarioComparison(input.run, []);
+/** What `validateScenarioChange` needs: the run's lists and the As-is run's on-team set. Pass the `context` of a
+ *  comparison already built for this input to skip a second As-is run; without it, this builds one. */
+export function scenarioValidationContext(
+  input: ForecastReportInput,
+  context: ScheduleContext = computeScenarioComparison(input.run, []).context,
+): ValidationContext {
   return { milestones: input.run.milestones, resources: input.run.directory.resources, onTeam: context.onTeam };
 }

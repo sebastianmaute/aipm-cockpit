@@ -18,6 +18,7 @@ import type { LogActivityAsFn } from "./activity-log-context";
 import { entityToken } from "./ai-entity-token";
 import type { ForecastScenarioResult, ForecastToolDispatcher } from "./chat-tools-forecast";
 import { buildForecastReport, scenarioValidationContext, type ForecastReportInput } from "./forecast-ai-report";
+import { computeScenarioComparison } from "./forecast-scenario-compare";
 import { checkToolDraft, checkToolRows } from "./forecast-scenario-tool-input";
 import {
   addScenario,
@@ -51,10 +52,22 @@ function sameRows(a: readonly ScenarioChange[], b: readonly ScenarioChange[]): b
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** Stored rows with no `JSON.stringify`-equal row in `next`: what a replace drops. */
+/** Stored rows not kept unchanged in `next`, as a multiset: each stored row consumes at most one
+ *  `JSON.stringify`-equal new row, so a dropped duplicate counts and an edited row counts as removed. */
 function countRemovedRows(stored: readonly ScenarioChange[], next: readonly ScenarioChange[]): number {
-  const kept = new Set(next.map((c) => JSON.stringify(c)));
-  return stored.filter((c) => !kept.has(JSON.stringify(c))).length;
+  const available = new Map<string, number>();
+  for (const c of next) {
+    const key = JSON.stringify(c);
+    available.set(key, (available.get(key) ?? 0) + 1);
+  }
+  let removed = 0;
+  for (const c of stored) {
+    const key = JSON.stringify(c);
+    const left = available.get(key) ?? 0;
+    if (left === 0) removed += 1;
+    else available.set(key, left - 1);
+  }
+  return removed;
 }
 
 function toResult(row: ForecastScenario): ForecastScenarioResult {
@@ -97,10 +110,14 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
 
       getForecast: (whatIf) => {
         const input = requireInput();
+        // ★ ONE As-is run: the report's own comparison supplies the context the what-if check needs.
+        const comparison = computeScenarioComparison(input.run, input.scenarios);
         // ★ Same rules as a save: a what-if row the save path refuses is never simulated or quoted.
-        const refusal = whatIf === null ? null : checkToolRows(whatIf, scenarioValidationContext(input), []);
+        const refusal = whatIf === null
+          ? null
+          : checkToolRows(whatIf, scenarioValidationContext(input, comparison.context), []);
         if (refusal !== null) throw new Error(`whatIf ${refusal}`);
-        return buildForecastReport(input, whatIf);
+        return buildForecastReport(input, whatIf, comparison);
       },
 
       getForecastScenarioRow: (id) => scenariosRef.current.find((s) => s.id === id) ?? null,
@@ -123,15 +140,15 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
 
       updateForecastScenario: (id, patch) => {
         if (isReadOnly) throw readOnlyError();
-        const input = requireInput();
+        // ★ A rename keeps the stored rows: nothing is checked against the forecast, so it needs no input (it
+        //   works while holidays load) and pays no As-is run.
+        const ctx = patch.changes === undefined ? null : scenarioValidationContext(requireInput());
         const list = scenariosRef.current;
         const stored = list.find((s) => s.id === id);
         if (!stored) throw new Error(`forecast scenario ${id} not found`);
         const name = patch.name ?? stored.name;
         const changes = patch.changes ?? stored.changes;
-        const refusal = checkToolDraft({
-          name, changes, list, exceptId: id, stored: stored.changes, ctx: scenarioValidationContext(input),
-        });
+        const refusal = checkToolDraft({ name, changes, list, exceptId: id, stored: stored.changes, ctx });
         if (refusal !== null) throw new Error(refusal);
         // Keep the stored references for what did not change (as use-forecast-scenarios.ts does), so an
         // update that changes nothing writes, logs and captures nothing.

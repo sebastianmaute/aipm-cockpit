@@ -154,19 +154,21 @@ function rowText(error: ScenarioChangeError, c: ScenarioChange): string {
 }
 
 /** Null when the draft may be saved, or the model-facing refusal. A reference that a stored row of the same
- *  scenario already kept is accepted even if it has gone stale since (spec §4.1/§4.1a). */
+ *  scenario already kept is accepted even if it has gone stale since (spec §4.1/§4.1a).
+ *  ★ `ctx: null` checks the draft half only: a rename-only update keeps the stored rows, so nothing is checked
+ *  against the forecast and no As-is run is needed. */
 export function checkToolDraft(a: {
   name: string;
   changes: readonly ScenarioChange[];
   list: readonly ForecastScenario[];
   exceptId: number | null;
   stored: readonly ScenarioChange[];
-  ctx: ValidationContext;
+  ctx: ValidationContext | null;
 }): string | null {
   const draft = validateScenarioDraft({ name: a.name, changes: a.changes }, a.list, a.exceptId);
   if (draft === "name-taken") return `A scenario named "${a.name.trim()}" already exists. Choose another name.`;
   if (draft !== null) return DRAFT_TEXT[draft];
-  return checkToolRows(a.changes, a.ctx, a.stored);
+  return a.ctx === null ? null : checkToolRows(a.changes, a.ctx, a.stored);
 }
 
 /** The ROW half of `checkToolDraft`: null when every row passes the save path's range, date and reference

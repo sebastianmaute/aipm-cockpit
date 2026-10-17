@@ -3,7 +3,7 @@ import type { ForecastFacts, ForecastFactsByUnit } from "./budget-forecast";
 import { entityToken } from "./ai-entity-token";
 import type { ScenarioDirectory } from "./forecast-added-people";
 import { buildForecastReport, scenarioValidationContext, type ColumnReport, type ForecastReportInput } from "./forecast-ai-report";
-import type { ScenarioRunInput } from "./forecast-scenario-compare";
+import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
 import type { ForecastScenario, ScenarioChange } from "./forecast-scenarios";
 import type { Milestone, Resource, Role, Shift, Task } from "./types";
 import { workingDaysBefore } from "./working-days";
@@ -168,6 +168,10 @@ describe("buildForecastReport", () => {
         : `Not enough history: ${days} of ${neededDays} working days in the window.`,
     );
     expect(report.settings.trials).toBe(10000);
+    // ★ Not "beyond": that means past the horizon, and below the floor there is no P80 to compare.
+    expect(report.weeklyChange).toBeNull();
+    // CONTROL: a forecast reports a change (pending, with no week-old history), so null is the floor's alone.
+    expect(buildForecastReport(reportInput(), null).weeklyChange).toMatchObject({ kind: "pending" });
   });
 
   it("an addPeople placeholder row carries its sizing; a team member is inert", () => {
@@ -198,6 +202,12 @@ describe("buildForecastReport", () => {
     expect(buildForecastReport(reportInput({}, [s]), null).scenarios[0].expectedToken).toBe(entityToken("forecastScenario", s));
   });
 
+  it("a precomputed comparison gives the same report as one built inside", () => {
+    const inp = reportInput({}, [scenario(1, [availability(130)])]);
+    const comparison = computeScenarioComparison(inp.run, inp.scenarios);
+    expect(buildForecastReport(inp, [availability(90)], comparison)).toEqual(buildForecastReport(inp, [availability(90)]));
+  });
+
   it("is JSON-safe", () => {
     const report = buildForecastReport(reportInput({}, [scenario(1, [availability(120), addPerson(PER)])]), [availability(90)]);
     expect(JSON.parse(JSON.stringify(report))).toEqual(report);
@@ -205,6 +215,14 @@ describe("buildForecastReport", () => {
 });
 
 describe("scenarioValidationContext", () => {
+  it("built from a given comparison context, equals the one it builds itself", () => {
+    const inp = reportInput();
+    const { context } = computeScenarioComparison(inp.run, []);
+    const ctx = scenarioValidationContext(inp, context);
+    expect(ctx).toEqual(scenarioValidationContext(inp));
+    expect(ctx.onTeam).toBe(context.onTeam);
+  });
+
   it("takes onTeam from the As-is run and the lists from the run", () => {
     const ctx = scenarioValidationContext(reportInput());
     expect(ctx.onTeam.has(OLA)).toBe(true);
