@@ -5,7 +5,9 @@ import { TOKEN_REQUIRED_TOOLS } from "./chat-proposal-apply";
 import { runTool } from "./chat-tools";
 import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { FORECAST_OFF_MESSAGE, NOT_FORECAST_TOOL, runForecastTool, type ForecastToolDispatcher } from "./chat-tools-forecast";
-import type { ForecastScenario } from "./forecast-scenarios";
+import { FORECAST_TOOL_DEFS } from "./chat-tool-defs-forecast";
+import { DEFAULT_HISTORY_WINDOW, MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
+import { MAX_FORECAST_SCENARIOS, type ForecastScenario } from "./forecast-scenarios";
 
 const FORECAST_NAMES = ["get_forecast", "create_forecast_scenario", "update_forecast_scenario"];
 
@@ -48,6 +50,40 @@ describe("the forecast tool variant bit", () => {
 
   it("declares the update token as required", () => {
     expect(TOKEN_REQUIRED_TOOLS.has("update_forecast_scenario")).toBe(true);
+  });
+});
+
+describe("the model-facing texts", () => {
+  const description = (name: string) => FORECAST_TOOL_DEFS.find((d) => d.name === name)?.description ?? "";
+
+  // ★ The Forecast view runs the simulation whatever the switch says, so the refusal must not claim
+  //   forecasting itself is off; it sends the user to the view instead.
+  it("the off refusal points to the Forecast view and never says forecasting is off", () => {
+    expect(FORECAST_OFF_MESSAGE).toBe(
+      'The assistant cannot read or write this project\'s forecast: the project\'s "Use Monte Carlo forecasting" switch is off, or the Forecast view is hidden. While the view is shown it still displays the simulation to the user; point them there, and never estimate forecast dates yourself. Nothing was read or written.',
+    );
+  });
+
+  it("templates the constants into the descriptions", () => {
+    expect(description("get_forecast")).toContain(`(${DEFAULT_HISTORY_WINDOW}-working-day history, tasks unit)`);
+    expect(description("get_forecast")).toContain('"beyond" means past the 1,300-working-day horizon');
+    expect(MAX_HORIZON_WORKING_DAYS).toBe(1300);
+    expect(description("create_forecast_scenario")).toContain(`(at most ${MAX_FORECAST_SCENARIOS} per project)`);
+  });
+
+  it("states when cost is null or unavailable, and when weeklyChange is null", () => {
+    const text = description("get_forecast");
+    expect(text).toContain(
+      "cost is null when the Budget module is off, the project has no budget buckets, or the simulation switch is off; cost is {unavailable: reason} when a cost exists but cannot be simulated yet",
+    );
+    expect(text).not.toContain("cost basis");
+    expect(text).toContain('weeklyChange is null when asIs is "insufficient"');
+  });
+
+  it("says what removedRows counts", () => {
+    expect(description("update_forecast_scenario")).toContain(
+      "removedRows: stored rows not kept unchanged (an edited row counts as removed and re-added)",
+    );
   });
 });
 

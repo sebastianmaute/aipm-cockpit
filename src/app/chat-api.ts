@@ -329,7 +329,7 @@ export function buildTurnContext(
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
     appContext,
     viewScopeBlock,
-    buildForecastBlock(offeredTools, snapshot.forecastView === true),
+    buildForecastBlock(offeredTools, snapshot.forecastView === true, snapshot.forecastSimulation === true),
     viewStateBlock,
     insightsBlock,
     activityBlock,

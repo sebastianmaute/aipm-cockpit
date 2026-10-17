@@ -498,7 +498,8 @@ export type ToolDispatcher = {
      *  regression rather than the tidy-up it looks like. */
     timezone: TimeZone;
     /** Is Monte Carlo forecasting live (Forecast view shown and the project switch on)? Only an explicit
-     *  true offers the forecast tools; see `ToolFlags.forecast`. */
+     *  true offers the forecast tools; see `ToolFlags.forecast`. It also picks the prompt block's on or off
+     *  text; see `buildForecastBlock`. */
     forecastSimulation?: boolean;
     /** Is the Forecast view enabled at all (not held back by `RELEASE_HIDDEN_VIEWS`, module on)? Only an
      *  explicit true lets the prompt mention forecasting; see `buildForecastBlock`. */

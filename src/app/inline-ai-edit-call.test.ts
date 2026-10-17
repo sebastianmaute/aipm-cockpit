@@ -255,3 +255,42 @@ describe("callInlineEdit guide text", () => {
     expect(await systemBlocks("")).toHaveLength(without.length);
   });
 });
+
+// §502 — inline edit carries no forecast tool, but the snapshot's switch is the chat's. The forecast block must
+// follow the switch: no "switch is off" claim while it is on, and the off text (which names no tool) while it is off.
+describe("callInlineEdit forecast block", () => {
+  const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = {
+    content: [],
+    stop_reason: "end_turn",
+    usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+  };
+  async function systemText(forecastSimulation: boolean): Promise<string> {
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
+    await callInlineEdit({
+      apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", lang: "en-US",
+      entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done",
+      snapshot: { ...snapshot, forecastView: true, forecastSimulation }, guides: [], groundInGuides: false,
+    });
+    return (spy.mock.calls[0][2] as { text: string }[]).map((b) => b.text).join("\n");
+  }
+
+  it("CONTROL: the chat path with the same snapshot carries the quoting rules", () => {
+    const chatText = chatApi
+      .buildSystemPrompt("en-US", { ...snapshot, forecastView: true, forecastSimulation: true }, [], false, { forecast: true })
+      .map((b) => b.text)
+      .join("\n");
+    expect(chatText).toContain("safe to commit");
+  });
+
+  it("switch on: no forecast block at all, so no claim that the switch is off", async () => {
+    const text = await systemText(true);
+    expect(text).not.toContain("FORECAST");
+    expect(text).toContain("Today is 2026-07-03"); // buildSystemPrompt still ran
+  });
+
+  it("switch off: the off text, naming no forecast tool", async () => {
+    const text = await systemText(false);
+    expect(text).toContain('its "Use Monte Carlo forecasting" switch is off');
+    expect(text).not.toMatch(/get_forecast|create_forecast_scenario|update_forecast_scenario/);
+  });
+});

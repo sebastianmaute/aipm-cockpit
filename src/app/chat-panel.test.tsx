@@ -2747,11 +2747,11 @@ describe("the forecast flag reaches the request body", () => {
     expect(prompt).toContain("safe to commit");
   });
 
-  it("offers none of them, and says forecasting is off, when the snapshot says false", async () => {
+  it("offers none of them, and says the switch is off, when the snapshot says false", async () => {
     const off = await requestFor(false);
     expect(off.tools).not.toContain("get_forecast");
     expect(off.tools).not.toContain("create_forecast_scenario");
-    expect(off.prompt).toContain("forecasting is off");
+    expect(off.prompt).toContain('its "Use Monte Carlo forecasting" switch is off');
     expect(off.prompt).not.toContain("get_forecast");
     // CONTROL: the list was not gutted, exactly the three forecast tools are the difference.
     const on = await requestFor(true);

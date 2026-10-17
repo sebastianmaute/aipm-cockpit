@@ -31,8 +31,10 @@ export type ForecastToolDispatcher = {
 /** Returned by `runForecastTool` for a name that is not one of the three. */
 export const NOT_FORECAST_TOOL = Symbol("not-forecast-tool");
 
+// ★ Never "forecasting is off": the Forecast view runs the simulation whatever the switch says (see
+//   forecast-ai-prompt.ts), so the refusal sends the user there instead.
 export const FORECAST_OFF_MESSAGE =
-  'Monte Carlo forecasting is off for this project (the Forecast view is hidden or the project\'s "Use Monte Carlo forecasting" switch is off). Nothing was read or written.';
+  'The assistant cannot read or write this project\'s forecast: the project\'s "Use Monte Carlo forecasting" switch is off, or the Forecast view is hidden. While the view is shown it still displays the simulation to the user; point them there, and never estimate forecast dates yourself. Nothing was read or written.';
 
 // ★ A LOCAL literal, not derived from FORECAST_TOOL_DEFS (import-cycle reasoning as chat-tools-documents.ts).
 const FORECAST_TOOLS = new Set(["get_forecast", "create_forecast_scenario", "update_forecast_scenario"]);
