@@ -215,7 +215,9 @@
   whose own section can commit the token. Every reload path then runs the same durability gate —
   `tokenSealsSettled` (which also waits for seals that start meanwhile), then refuse while
   `hasUnsealedPassphraseToken` holds: `commitPortfolioModeSwitch` (Save & switch, the wizard's Finish)
-  returns `false`, and `migrateCurrentProjectToTurso` toasts.
+  returns `false`, and `migrateCurrentProjectToTurso` toasts. On Turso storage an edited token is a DRAFT the
+  marker never holds, so Save & switch also refuses unless its own seal of that draft landed. The
+  wizard refuses either direction of switch: the reload loses the token whichever way it goes.
   "Test connection" probes the drafts without committing.
   (`integrations-section.backend-hold.test.tsx` pins both models against the real hook.)
   ★★ The blur-commit design this replaced — commit when focus left the credentials group — lost a
@@ -227,9 +229,9 @@
   offers is enabled by the drafts, and the reload means no hold can swallow anything) and waits for
   every in-flight token seal before reloading — tracked at MODULE scope (`trackTokenSeal`, in `turso-token-seals.ts`),
   because the instance that started a seal may already be remounted away, and BOUNDED by
-  `tokenSealsSettled` (`SECRET_MERGE_TIMEOUT_MS`; `null`, so no `await` at all, when nothing is in
-  flight; on timeout it proceeds and logs
-  `settings.tursoTokenSealWaitTimedOut`); and the render-time reconcile resyncs a CLEAN draft only,
+  `tokenSealsSettled` (ONE `SECRET_MERGE_TIMEOUT_MS` deadline over the whole wait, seals that start
+  meanwhile included; `null`, so no `await` at all, when nothing is in flight; on timeout it logs
+  `settings.tursoTokenSealWaitTimedOut` and the durability gate above decides); and the render-time reconcile resyncs a CLEAN draft only,
   keeping a dirty one when the stored value moves.
 - ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
   (`use-insight-lifecycle.ts`), the recommendation store `applyInsightRecommendation`

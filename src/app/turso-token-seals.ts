@@ -40,8 +40,8 @@ export function trackTokenSeal(seal: Promise<unknown>): void {
  *  settles (an IDB open queued behind another tab's connection) must not leave a reload path busy
  *  forever. On timeout the caller proceeds and a diagnostic is logged — the token may then be lost
  *  to the reload, which beats a button that never finishes. It also waits for a seal that STARTS
- *  while it waits (a keystroke during a switch), each batch under its own bound, and stops once
- *  only seals it already waited out remain.
+ *  while it waits (a keystroke during a switch), under the SAME deadline: the bound is on the
+ *  whole wait, however many seals start meanwhile.
  *  ★ `null` when nothing is in flight, so the caller stays SYNCHRONOUS in the common case: an
  *    `await` on an empty wait still yields, which moved "Save & switch"'s settings write past the
  *    click (`integrations-snapshots.test.tsx` pins it). Write `const w = …; if (w) await w;`. */
@@ -51,24 +51,23 @@ export function tokenSealsSettled(): Promise<void> | null {
 }
 
 async function settleAll(first: Promise<void>[]): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), SECRET_MERGE_TIMEOUT_MS);
+  });
   const seen = new Set(first);
+  let timedOut = false;
   for (let batch = first; batch.length > 0; ) {
-    await waitBounded(Promise.all(batch));
+    const outcome = await Promise.race([Promise.all(batch).then(() => "settled" as const), deadline]);
+    if (outcome === "timeout") {
+      timedOut = true;
+      break;
+    }
     batch = tokenSealsInFlight().filter((seal) => !seen.has(seal));
     for (const seal of batch) seen.add(seal);
   }
-}
-
-async function waitBounded(seals: Promise<unknown>): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<"timeout">((resolve) => {
-    timer = setTimeout(() => resolve("timeout"), SECRET_MERGE_TIMEOUT_MS);
-  });
-  const outcome = await Promise.race([seals.then(() => "settled" as const), timeout]);
   clearTimeout(timer);
-  if (outcome === "timeout") {
-    logDiag("warn", "settings.tursoTokenSealWaitTimedOut", { ms: SECRET_MERGE_TIMEOUT_MS });
-  }
+  if (timedOut) logDiag("warn", "settings.tursoTokenSealWaitTimedOut", { ms: SECRET_MERGE_TIMEOUT_MS });
 }
 
 /** `hasUnsealedPassphraseToken` for a render: re-renders when the marker changes, so a seal that

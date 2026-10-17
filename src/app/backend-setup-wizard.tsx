@@ -162,7 +162,8 @@ export function BackendSetupWizard({
   // record. The storage step's own switch seals it under the passphrase; Finish cannot (no passphrase).
   // Subscribed, so a seal landing while the review step shows lifts the refusal at once.
   const tokenHeldUnsealed = useHasUnsealedPassphraseToken(savedTurso?.authToken);
-  const tokenWouldBeLost = switchingToTurso && tokenHeldUnsealed;
+  // Either direction: the reload loses the token whichever way the portfolio goes.
+  const tokenWouldBeLost = switchPending && tokenHeldUnsealed;
   const switchBlocked = tursoConfigMissing || tokenWouldBeLost;
   async function handleFinish() {
     if (finishingRef.current) return;
@@ -172,8 +173,9 @@ export function BackendSetupWizard({
         return;
       }
       finishingRef.current = true;
-      // §715 — the shared durability gate can still refuse (a seal that failed or timed out): back to
-      // the storage step, whose section now shows the passphrase fields that save the token.
+      // §715 — the shared durability gate can still refuse what this render could not see: a token
+      // marked while the gate waited for seals. Back to the storage step, whose section shows the
+      // passphrase fields that save it.
       if (!(await commitPortfolioModeSwitch(settings, pendingPortfolioMode))) {
         finishingRef.current = false;
         setStep(STORAGE_STEP);

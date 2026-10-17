@@ -1095,5 +1095,38 @@ describe("§715 — every mounted section and every reload path read one token s
     ).toBeInTheDocument();
     expect(reload).not.toHaveBeenCalled();
     expect(hasUnsealedPassphraseToken("tokN")).toBe(true);
+    // MU29 — the refusal shows until the next click → goes red: it outlives the seal it asked for.
+    // What it asks for: the failed seal cleared the passphrase fields, so type it again and save.
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder")), "pw");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.click(screen.getByRole("button", { name: t("en-US", "secretPassphraseSave") }));
+    await waitFor(() => expect(hasUnsealedPassphraseToken("tokN")).toBe(false));
+    expect(
+      screen.queryByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", t("en-US", "secretPassphraseSave"))),
+    ).toBeNull();
+  });
+
+  // On Turso storage an edited token is a DRAFT, so the marker never holds it: the switch must read
+  // its own seal's result, or a failed seal reloads onto the old record.
+  // MU30 — the switch ignores its own seal's result → (p) goes red (it reloads).
+  it("(p) on Turso storage, a switch whose own seal of the edited token fails does not reload", async () => {
+    const user = userEvent.setup();
+    function OnTurso() {
+      const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "old", TURSO));
+      return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+    }
+    render(<OnTurso />);
+    await user.click(screen.getByLabelText(lockLabel));
+    await user.clear(tokenField());
+    await user.type(tokenField(), "tokP");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder")), "pw");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    vi.mocked(setSecretPassphrase).mockRejectedValueOnce(new Error("idb gone"));
+    await user.click(screen.getByRole("button", { name: switchName }));
+    expect(
+      await screen.findByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", t("en-US", "secretPassphraseSave"))),
+    ).toBeInTheDocument();
+    expect(reload).not.toHaveBeenCalled();
   });
 });

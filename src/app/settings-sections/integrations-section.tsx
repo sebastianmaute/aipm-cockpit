@@ -250,7 +250,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // pending state.
   const [signInBusy, setSignInBusy] = useState(false);
   const [switchBusy, setSwitchBusy] = useState(false);
-  // §715 — the last switch was refused by the durability gate (its seal failed or timed out).
+  // §715 — the last switch was refused by the durability gate (its seal failed or timed out). Shown
+  //   only while the token is still unsealed, so it never outlives the seal it asks for.
   const [switchRefusedUnsealed, setSwitchRefusedUnsealed] = useState(false);
   const integrations = settings.integrations ?? defaultIntegrations;
   const m365 = integrations.m365 ?? defaultM365Integrations;
@@ -420,14 +421,18 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // ★★ When a passphrase-sealed record ALREADY exists, both actions first VERIFY that the typed
   //   passphrase opens it (`typedPassphraseOpensRecord`), so a mistyped or different passphrase
   //   cannot silently become the new one — "Save passphrase" stays the only way to CHANGE it.
-  async function sealUnderTypedPassphrase(token: string) {
-    if (await setSecretPassphrase("tursoAuthToken", token, tokenPassphrase)) {
+  // Resolves whether the seal landed (false when superseded); rejects when it failed, keeping the
+  // typed passphrase for a retry.
+  async function sealUnderTypedPassphrase(token: string): Promise<boolean> {
+    const sealed = await setSecretPassphrase("tursoAuthToken", token, tokenPassphrase);
+    if (sealed) {
       noteTokenSealed(token);
       setTokenStored(true);
       setTokenWrap("passphrase"); // §609: the record IS passphrase-wrapped now (see the untick)
     }
     setTokenPassphrase("");
     setTokenConfirm("");
+    return sealed;
   }
 
   const tursoDraftsDirty = tursoUrl !== turso.databaseUrl || tursoToken !== turso.authToken;
@@ -551,7 +556,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     [
       tokenSealBlocked && switchBlockedHintId,
       passphraseVerifyFailedAt === "switch" && switchVerifyFailedId,
-      switchRefusedUnsealed && switchRefusedId,
+      switchRefusedUnsealed && tokenUnsealed && switchRefusedId,
     ]
       .filter(Boolean)
       .join(" ") || undefined;
@@ -840,7 +845,16 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     } else if (tokenDirty && wrapNow() === "device") {
       trackTokenSeal(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"));
     } else if ((tokenDirty || tokenUnsealed) && passphraseReady) {
-      trackTokenSeal(sealUnderTypedPassphrase(tursoToken ?? ""));
+      // §715 — on Turso storage the edited token is a DRAFT, so the marker never holds it and the
+      //   shared gate cannot see a failed seal of it: read this seal's own result, and refuse on
+      //   anything but a seal that landed.
+      const ownSeal = sealUnderTypedPassphrase(tursoToken ?? "");
+      trackTokenSeal(ownSeal);
+      if (!(await ownSeal.catch(() => false))) {
+        setSwitchBusy(false);
+        setSwitchRefusedUnsealed(true);
+        return;
+      }
     }
     const base: Settings =
       tokenDirty || tursoUrl !== turso.databaseUrl
@@ -1446,7 +1460,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 {passphraseVerifyFailedAt === "switch" && (
                   <FieldError id={switchVerifyFailedId}>{t(lang, "secretUnlockFailed")}</FieldError>
                 )}
-                {switchRefusedUnsealed && (
+                {switchRefusedUnsealed && tokenUnsealed && (
                   <FieldError id={switchRefusedId}>
                     {t(lang, "integrationsTursoSwitchTokenUnsealed", t(lang, "secretPassphraseSave"))}
                   </FieldError>

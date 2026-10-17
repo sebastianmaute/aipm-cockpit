@@ -6,6 +6,7 @@ import { BackendSetupWizard } from "./backend-setup-wizard";
 import { defaultSettings } from "./settings-types";
 import { BACKEND_SETUP_STEPS } from "./backend-setup-steps";
 import { t } from "./i18n";
+import { savePortfolioMode } from "./portfolio-mode";
 
 // ---------------------------------------------------------------------------
 // Mocks — stub out heavy section components so this test focuses on wizard
@@ -30,6 +31,7 @@ vi.mock("./settings-sections/integrations-section", () => ({
       <span data-testid="portfolio-switch-hidden">{String(!!hidePortfolioSwitch)}</span>
       <span data-testid="pending-portfolio">{String(pendingPortfolioMode)}</span>
       <button type="button" onClick={() => onPendingPortfolioModeChange?.("turso")}>pick turso</button>
+      <button type="button" onClick={() => onPendingPortfolioModeChange?.("file")}>pick file</button>
       <button type="button" onClick={() => onTursoDraftsDirtyChange?.(true)}>type a draft</button>
     </div>
   ),
@@ -328,6 +330,23 @@ describe("BackendSetupWizard — a portfolio switch picked on the storage step (
     await act(async () => { fireEvent.click(finishBtn()); });
     expect(commitPortfolioModeSwitch).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId("integrations-section")).toBeInTheDocument();
+  });
+
+  // The reload loses the token whichever way the portfolio goes, so the review step refuses a switch
+  // back to File too, and says why, instead of bouncing with no word.
+  // MU31 — the refusal counts only a switch to Turso → goes red (no alert; Finish commits).
+  it("refuses a switch back to File that would lose an unsealed token, and says why", async () => {
+    savePortfolioMode("turso");
+    hasUnsealedPassphraseToken.mockImplementation((token) => token === "token-fictional");
+    setup({ settings: tursoReady });
+    fireEvent.click(screen.getByRole("button", { name: "pick file" }));
+    toReview();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      t("en-US", "setupWizardTursoTokenNeedsPassphrase", t("en-US", "portfolioModeSwitchConfirm")),
+    );
+    await act(async () => { fireEvent.click(finishBtn()); });
+    expect(commitPortfolioModeSwitch).not.toHaveBeenCalled();
     expect(screen.getByTestId("integrations-section")).toBeInTheDocument();
   });
 

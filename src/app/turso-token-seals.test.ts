@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import {
   __resetTursoTokenState,
@@ -28,6 +28,8 @@ describe("__resetTursoTokenState", () => {
 
 // MU23 — the wait covers only the seals in flight when it starts → goes red (it settles before B).
 describe("tokenSealsSettled", () => {
+  afterEach(() => { vi.useRealTimers(); });
+
   it("also waits for a seal that starts while it waits", async () => {
     let landA: () => void = () => {};
     let landB: () => void = () => {};
@@ -40,6 +42,18 @@ describe("tokenSealsSettled", () => {
     expect(settled).toBe(false);
     landB();
     for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(settled).toBe(true);
+  });
+
+  // MU28 — each batch gets its own bound → goes red (still waiting at 5 s for the late seal).
+  it("gives up after one SECRET_MERGE_TIMEOUT_MS in total, however many seals start meanwhile", async () => {
+    vi.useFakeTimers();
+    trackTokenSeal(new Promise<void>((resolve) => { setTimeout(resolve, 3_000); })); // lands at 3 s
+    let settled = false;
+    void tokenSealsSettled()?.then(() => { settled = true; });
+    await vi.advanceTimersByTimeAsync(1_000);
+    trackTokenSeal(new Promise<void>(() => {})); // starts at 1 s, never settles
+    await vi.advanceTimersByTimeAsync(4_001); // 5 s in: a per-batch bound would wait until 8 s
     expect(settled).toBe(true);
   });
 });
