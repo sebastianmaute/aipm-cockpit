@@ -6,6 +6,7 @@
 import {
   buildSystemPrompt,
   callClaude,
+  toolsNamed,
   type ApiUsage,
   type ContentBlock,
   type SystemBlock,
@@ -23,6 +24,7 @@ import { type ToolDispatcher } from "./chat-tools";
 import { type Lang } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
 import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
+import { PLANNABLE_TOOL_NAMES } from "./inline-ai-edit/plan";
 
 export interface InlineEditArgs {
   apiKey: string;
@@ -147,6 +149,8 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
     [{ role: "user", content: args.instruction }],
     NO_RECALL_TOOLS,
     args.signal,
+    // §715 D1 — only the tools the plan can act on: a read tool here is a call nobody answers.
+    toolsNamed(PLANNABLE_TOOL_NAMES),
   );
   const blocks = res.content.filter(
     (b: ContentBlock): b is ToolUseBlock => b.type === "tool_use",

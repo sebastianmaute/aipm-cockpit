@@ -617,6 +617,20 @@ export function toolNamesFor(flags: ToolFlags): ReadonlySet<string> {
   return built;
 }
 
+const NAMED_VARIANTS = new Map<string, ReturnType<typeof withCacheBreakpoint>>();
+
+/** The definitions of exactly the named tools, for a path that must not offer the rest (§715 D1: the
+ *  single-shot inline edit, where a read tool can never be answered). One array per name set, like
+ *  `toolsFor`, with the cache breakpoint recomputed for the subset. */
+export function toolsNamed(names: ReadonlySet<string>): ReturnType<typeof withCacheBreakpoint> {
+  const key = [...names].sort().join(",");
+  const cached = NAMED_VARIANTS.get(key);
+  if (cached) return cached;
+  const built = withCacheBreakpoint(TOOL_DEFS.filter((d) => names.has(d.name)));
+  NAMED_VARIANTS.set(key, built);
+  return built;
+}
+
 export async function callClaude(
   apiKey: string,
   model: string,
@@ -625,6 +639,8 @@ export async function callClaude(
   /** `settings.ai`'s tool flags — only an explicit false drops a tool. */
   toolFlags: ToolFlags,
   signal?: AbortSignal,
+  /** A narrower tool list than the flags give (`toolsNamed`); absent, the flags' list. */
+  tools?: ReturnType<typeof withCacheBreakpoint>,
 ): Promise<{
   content: ContentBlock[];
   stop_reason: string;
@@ -643,7 +659,7 @@ export async function callClaude(
       max_tokens: maxOutputTokensFor(model),
       system: system,
       messages,
-      tools: toolsFor(toolFlags),
+      tools: tools ?? toolsFor(toolFlags),
     }),
     signal,
   });

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { asTimeZoneForTests } from "./timezone";
 import * as chatApi from "./chat-api";
 import { callInlineEdit, type InlineEditArgs } from "./inline-ai-edit-call";
+import { PLANNABLE_TOOL_NAMES } from "./inline-ai-edit/plan";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -253,5 +254,32 @@ describe("callInlineEdit guide text", () => {
     const without = await systemBlocks();
     vi.restoreAllMocks();
     expect(await systemBlocks("")).toHaveLength(without.length);
+  });
+});
+
+// §715 D1 — this path is single-shot: a READ tool call (list_milestones, get_task…) can never be
+// answered, and the plan matches only update/create/delete tools, so a model that looks first yields an
+// empty plan ("No changes to apply"). Measured live: a milestone description edit answered list_milestones.
+describe("the tools an inline edit offers (§715 D1)", () => {
+  it("are exactly the tools its plan can act on", async () => {
+    const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
+    await callInlineEdit({ apiKey: "k", model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    const tools = spy.mock.calls[0][6] as { name: string }[] | undefined;
+    expect(tools, "a tool list is passed").toBeDefined();
+    const names = tools!.map((t) => t.name);
+    expect(names.filter((n) => !PLANNABLE_TOOL_NAMES.has(n))).toEqual([]);
+    expect(names).toEqual(expect.arrayContaining(["update_milestone", "update_raid_item", "update_task", "create_task"]));
+    expect(names.some((n) => /^(list_|get_|search_)/.test(n))).toBe(false);
+  });
+});
+
+describe("toolsNamed (§715 D1)", () => {
+  it("keeps only the named tools, one array per set, with one cache breakpoint", () => {
+    const wanted = new Set(["update_task", "update_milestone"]);
+    const a = chatApi.toolsNamed(wanted);
+    expect(a.map((t) => t.name).sort()).toEqual(["update_milestone", "update_task"]);
+    expect(chatApi.toolsNamed(new Set(wanted))).toBe(a);
+    expect(a.filter((t) => "cache_control" in t)).toHaveLength(1);
   });
 });
