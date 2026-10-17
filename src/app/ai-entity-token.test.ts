@@ -314,3 +314,27 @@ describe("the model cannot write Task.blockerLog", () => {
       .not.toBe(entityToken("task", base));
   });
 });
+
+describe("the forecastScenario token", () => {
+  const row = { id: 1, name: "Plan", changes: [{ kind: "availability", percent: 50, from: "2026-11-02", until: "" }] };
+
+  it("ignores key order, which sanitizing normalises", () => {
+    const reordered = {
+      changes: [{ until: "", from: "2026-11-02", percent: 50, kind: "availability" }],
+      name: "Plan",
+      id: 1,
+    };
+    expect(entityToken("forecastScenario", reordered)).toBe(entityToken("forecastScenario", row));
+  });
+
+  it("moves when a covered value changes", () => {
+    const edited = { ...row, changes: [{ ...row.changes[0], percent: 60 }] };
+    expect(entityToken("forecastScenario", edited)).not.toBe(entityToken("forecastScenario", row));
+    expect(entityToken("forecastScenario", { ...row, name: "Other" })).not.toBe(entityToken("forecastScenario", row));
+  });
+
+  it("excludes nothing, and a row that sanitizes away still yields a token", () => {
+    expect(TOKEN_EXCLUDED.forecastScenario).toEqual([]);
+    expect(typeof entityToken("forecastScenario", { id: 0 })).toBe("string");
+  });
+});

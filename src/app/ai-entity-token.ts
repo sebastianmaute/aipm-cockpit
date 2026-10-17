@@ -37,11 +37,16 @@ import type {
   Absence, ChangeItem, Milestone, RaidItem, Resource, Stakeholder, Task,
 } from "./types";
 import type { CalendarEvent } from "./calendar-event";
+import { sanitizeForecastScenarios } from "./forecast-scenarios";
 import { hash } from "./token-hash";
 
 export type TokenEntity =
   | "task" | "raid" | "milestone" | "change" | "stakeholder" | "resource"
-  | "absence" | "calendarEvent";
+  | "absence" | "calendarEvent" | "forecastScenario";
+
+/** The kinds derived from a CSV projection. `forecastScenario` is a meta-blob slice with no CSV columns, so it
+ *  has no row in `PROJECTORS` or `ProjectedRows` and is projected by `scenarioProjection` instead. */
+type CsvTokenEntity = Exclude<TokenEntity, "forecastScenario">;
 
 /** Columns deliberately OUTSIDE the token, per entity.
  *
@@ -142,6 +147,8 @@ export const TOKEN_EXCLUDED: Readonly<Record<TokenEntity, readonly string[]>> = 
   // PERMIT the rule above describes.
   absence: ["localModifiedAt", "outlookEventId", "calendarOptOut"],
   calendarEvent: ["localModifiedAt", "outlookEventId"],
+  // A saved scenario carries no bookkeeping: every field is model-writable through the scenario tools.
+  forecastScenario: [],
 };
 
 /** A column list and a renderer BOUND TO THE SAME ENTITY TYPE.
@@ -192,7 +199,7 @@ function projector<T>(p: Projector<T>): ErasedProjector {
   return p as unknown as ErasedProjector;
 }
 
-const PROJECTORS: Readonly<Record<TokenEntity, ErasedProjector>> = {
+const PROJECTORS: Readonly<Record<CsvTokenEntity, ErasedProjector>> = {
   task: projector<Task>({ columns: CSV_COLUMNS, render: fieldToString }),
   raid: projector<RaidItem>({ columns: RAID_CSV_COLUMNS, render: raidFieldToString }),
   milestone: projector<Milestone>({ columns: MILESTONES_CSV_COLUMNS, render: milestoneFieldToString }),
@@ -304,12 +311,20 @@ type ProjectedRows = {
  *  Exported only so both are used bindings — these are types, so they cost zero
  *  runtime bytes; nothing should import this. */
 export type ProjectionCoverage = ProjectedRows & {
-  everyTokenEntityHasARow: Assert<[TokenEntity] extends [keyof ProjectedRows] ? true : false>;
+  everyTokenEntityHasARow: Assert<[CsvTokenEntity] extends [keyof ProjectedRows] ? true : false>;
 };
+
+/** A saved scenario's projection. Re-sanitizing fixes the key order, so two rows equal in value but built in
+ *  a different key order share one token. A row that sanitizes away projects to "" (a fixed token). */
+function scenarioProjection(entity: object): string {
+  const row = sanitizeForecastScenarios([entity])[0];
+  return row === undefined ? "" : JSON.stringify(row);
+}
 
 /** The concurrency token for one entity. Equal tokens mean no covered field
  *  changed; different tokens mean at least one did. */
 export function entityToken(kind: TokenEntity, entity: object): string {
+  if (kind === "forecastScenario") return hash(scenarioProjection(entity));
   const { columns, render } = PROJECTORS[kind];
   const excluded = new Set(TOKEN_EXCLUDED[kind]);
   const parts: string[] = [];
