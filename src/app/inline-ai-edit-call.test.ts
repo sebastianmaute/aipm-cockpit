@@ -305,6 +305,19 @@ describe("the tools an inline edit's prompt names (§715 D1)", () => {
   });
 });
 
+// Guidance the inline path cannot filter (the stable prompt's "call the matching list_ tool", a view's
+// `reading`) still names read tools; the scope block, which the model reads last, says they are absent.
+describe("the inline scope block (§715 D1)", () => {
+  it("says the request carries no read tools", async () => {
+    const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
+    await callInlineEdit({ apiKey: "k", model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    const system = spy.mock.calls[0][2];
+    const scope = system.find((b) => b.text.startsWith("INLINE EDIT MODE."));
+    expect(scope?.text).toContain("This request carries no read tools");
+  });
+});
+
 describe("toolsNamed (§715 D1)", () => {
   it("keeps only the named tools, one array per set, with one cache breakpoint", () => {
     const wanted = new Set(["update_task", "update_milestone"]);

@@ -63,7 +63,9 @@ function scopeBlock(entity: InlineEntity, item: Record<string, unknown>, itemLab
       `make the user's requested change: the ${entity}'s update tool for this item's fields, and you may ` +
       "create related items (create_task / create_raid_item / create_change / " +
       "create_milestone / create_stakeholder) when asked. Do NOT update or delete any OTHER item. Do NOT " +
-      `chat or explain unless you cannot proceed without more detail. Target ${entity}:\n` +
+      "chat or explain unless you cannot proceed without more detail. This request carries no read tools " +
+      "(no list_, get_ or search_ calls), whatever other guidance above suggests: the target's fields are " +
+      `below, so act on them directly. Target ${entity}:\n` +
       fields,
   };
 }
