@@ -82,6 +82,9 @@ Rules (designer's calls, apply everywhere — UI, engine, AI writes):
   `get_forecast` returns both, so "What would get X on time?" can answer with prioritising as one lever.
 - A milestone that is achieved, has no valid date, or does not exist when the scenario is shown makes its scope rows
   count as unattributed; the editor marks those rows "milestone gone".
+- **A milestone with no open linked tasks** (all closed, or all dangling) that receives attributed added scope
+  (owner, 2026-10-17): the work is placed in the queue by the milestone's date, among the other milestones in due
+  order, not at the front of the queue. Only milestones that come after it move back.
 - At most **20 changes** per scenario; names 1–60 characters, unique per project (case-insensitive).
 
 ### 4.1a Two kinds of capacity (owner, 2026-10-17)
@@ -170,8 +173,9 @@ How "Add people" is computed (owner: directory or placeholder; team-average thro
 - **Scenarios mode** shows:
   1. **Range bars**: one row per column ("As is" first, then scenarios in saved order), each the existing
      `ForecastRangeBar` shape (P50–P95 band, P80 tick) on one shared date axis, with the plan-end line.
-  2. **The table**: columns As is + scenarios; rows Even odds (P50) · Safe to commit (P80) · Worst likely (P95) ·
-     On time by plan end · Cost at finish (P80) · Chance over budget.
+  2. **The table**: columns As is + scenarios; rows Even odds (P50) · Safe to commit (P80) · Cautious (P95) ·
+     On time by plan end · Cost at finish (P80) · Chance over budget. (Owner, 2026-10-17: the P95 row reads
+     "Cautious (P95)" from `percentileWord`, as on every other simulated surface.)
   3. **Milestones**: one row per unfinished milestone with a date, chance on time per column, sorted by the As-is chance,
      worst first; states that are not a chance ("overdue", "no linked tasks") read as today.
   4. Per scenario: **Edit** (opens the editor), **Rename**, **Delete** (the shared confirm pattern; deleting is undoable).
@@ -186,7 +190,10 @@ How "Add people" is computed (owner: directory or placeholder; team-average thro
 ### 4.3 Persistence
 
 - New persisted `Workspace` field **`forecastScenarios`**, a **meta-blob** slice like `forecastHistory`, on **all six
-  write paths** (JSON, CSV, Markdown, Turso single, Turso tenant, IndexedDB) and both load funnels. Sanitised on read:
+  write paths** (JSON, CSV, Markdown, Turso single, Turso tenant, IndexedDB), applied by the load funnel
+  (`applyWorkspaceFromLoad`, which always replaces it). The version-restore funnel (`applyRestoredWorkspace`) does not
+  carry it: a version restore leaves today's scenarios as they are, as it does `forecastHistory` (owner, 2026-10-17).
+  Sanitised on read:
   bad rows dropped, values clamped by the §4.1 rules, unknown keys dropped. For an Add-people row (designer's call):
   `who` is exactly one of `{ resourceId: integer, hoursPerWeek: 1–60 }` or `{ label: 1–60 chars, count: integer 1–20,
   rate: finite, 0–100000, currency ∈ SUPPORTED_CURRENCIES, hoursPerWeek: 1–60 }`; `rampWeeks` is an integer 0–26
