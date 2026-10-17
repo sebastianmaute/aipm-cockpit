@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { ForecastRangeBar } from "./forecast-range-bar";
 
 const EN = "en-US" as const;
@@ -64,6 +64,73 @@ describe("ForecastRangeBar", () => {
     const band = container.querySelector("[data-band]");
     expect(band).toHaveAttribute("data-open-end", "true");
     expect(num(band, "x") + num(band, "width")).toBeGreaterThan(num(container.querySelector("[data-p80]"), "x1"));
+  });
+
+  it("without axis the bar is unchanged", () => {
+    const { container } = render(<ForecastRangeBar {...BASE} />);
+    expect(container.innerHTML).toMatchInlineSnapshot(`"<div role="group" aria-label="Forecast range, simulated" data-sim="true" class="flex items-center gap-1.5 rounded-md border border-dashed border-ui-green-strong px-1.5 py-0.5 dark:border-ui-green"><svg role="img" aria-label="Half by Jan 28, 2027, 8 in 10 by Feb 12, 2027, almost all by Mar 3, 2027. Plan end Feb 1, 2027." viewBox="0 0 240 40" class="h-10 min-w-0 flex-1"><line x1="6" x2="234" y1="28" y2="28" stroke-width="1" class="stroke-ui-dark-blue dark:stroke-ui-light-grey"></line><rect data-band="true" x="177.82608695652175" y="16" width="56.17391304347825" height="10" rx="2" fill-opacity="0.45" class="fill-ui-green-strong dark:fill-ui-green"></rect><line data-p80="true" x1="202.60869565217394" x2="202.60869565217394" y1="12" y2="28" stroke-width="2" class="stroke-ui-dark-blue dark:stroke-ui-light-grey"></line><text data-p80-label="true" x="202.60869565217394" y="10" text-anchor="middle" font-size="8" class="fill-ui-dark-blue dark:fill-ui-light-grey">P80</text><g><line data-plan-end="true" x1="184.43478260869566" x2="184.43478260869566" y1="14" y2="31" stroke-width="1.5" stroke-dasharray="2 2" class="stroke-ui-dark-blue dark:stroke-ui-light-grey"></line><text x="184.43478260869566" y="39" text-anchor="end" font-size="8" class="fill-ui-dark-blue dark:fill-ui-light-grey">Plan end</text></g></svg><span aria-hidden="true" class="rounded bg-ui-green/15 px-1 text-[10px] font-medium leading-4 text-ui-green-strong dark:text-ui-green">sim</span></div>"`);
+  });
+
+  it("a shared axis places the same date at the same x in two bars", () => {
+    // lo before today, so a bar that ignored the axis start would place every date differently.
+    const axis = { lo: "2026-09-01", hi: "2027-06-30" };
+    const a = render(<ForecastRangeBar {...BASE} axis={axis} />).container;
+    const b = render(<ForecastRangeBar {...BASE} p50="2027-02-12" p80="2027-04-01" p95="2027-06-30" axis={axis} />).container;
+    // BASE's P80 is b's P50: on one axis the mark and the band's left edge sit at the same x.
+    expect(num(a.querySelector("[data-p80]"), "x1")).toBeCloseTo(num(b.querySelector("[data-band]"), "x"), 6);
+    // And the axis is the given one: P80 sits at its share of [lo, hi] across the 240-wide, 6-inset chart.
+    const day = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))) / 86_400_000;
+    const share = (day("2027-02-12") - day(axis.lo)) / (day(axis.hi) - day(axis.lo));
+    expect(num(a.querySelector("[data-p80]"), "x1")).toBeCloseTo(6 + share * (240 - 12), 6);
+    // The plan end is the same date in both, so the same x.
+    expect(num(a.querySelector("[data-plan-end]"), "x1")).toBeCloseTo(num(b.querySelector("[data-plan-end]"), "x1"), 6);
+    // Positive control: without the axis each bar spans its own dates, so the plan end moves.
+    const c = render(<ForecastRangeBar {...BASE} />).container;
+    expect(num(c.querySelector("[data-plan-end]"), "x1")).not.toBeCloseTo(num(a.querySelector("[data-plan-end]"), "x1"), 1);
+  });
+
+  // Final review Minor 3: on a shared axis an open band and the band whose P95 sets the right edge both end there.
+  it("on a shared axis an open band says \"later →\" at the edge in words; the bar that sets the edge does not", () => {
+    const axis = { lo: "2026-10-16", hi: "2027-03-03" };
+    const open = render(<ForecastRangeBar {...BASE} p95={null} axis={axis} label="Open" />).container;
+    const edge = render(<ForecastRangeBar {...BASE} axis={axis} label="Edge" />).container;
+    // Both bands end at the same x, so the band alone cannot tell them apart.
+    const right = (c: HTMLElement) => num(c.querySelector("[data-band]"), "x") + num(c.querySelector("[data-band]"), "width");
+    expect(right(open)).toBeCloseTo(right(edge), 6);
+    const cue = open.querySelector("[data-open-end-cue]");
+    expect(cue).toHaveTextContent("later →");
+    expect(cue).toHaveAttribute("aria-hidden", "true");
+    expect(edge.querySelector("[data-open-end-cue]")).toBeNull();
+    // Its accessible text is the img's own name, which says beyond the horizon.
+    expect(within(screen.getByRole("group", { name: "Open, simulated" })).getByRole("img").getAttribute("aria-label"))
+      .toContain("only beyond the forecast horizon");
+    // Off a shared axis the open-end pad already shows it, so no cue (the own-axis bar is unchanged).
+    expect(render(<ForecastRangeBar {...BASE} p95={null} />).container.querySelector("[data-open-end-cue]")).toBeNull();
+  });
+
+  // Re-review N1: with the plan-end label right-anchored the cue rose to the P80 label's row and could overlap it.
+  it.each([
+    ["P80 and plan end both late", { p80: "2027-03-01", planEnd: "2027-02-28" }, "none"],
+    ["plan end late, P80 early", { p80: "2026-11-20", planEnd: "2027-02-28" }, "top"],
+    ["P80 late, plan end early", { p80: "2027-03-01", planEnd: "2026-11-01" }, "bottom"],
+  ])("the open-end cue never shares a row with a label whose x range it could overlap: %s", (_name, dates, where) => {
+    const axis = { lo: "2026-10-16", hi: "2027-03-03" };
+    const { container } = render(<ForecastRangeBar {...BASE} p50="2026-11-10" p95={null} {...dates} axis={axis} />);
+    const cue = container.querySelector("[data-open-end-cue]");
+    const p80 = container.querySelector("[data-p80-label]");
+    // Room the bar keeps for each label at font size 8: the cue 40 wide right-anchored, "P80" 8 either side of centre.
+    const cueX: [number, number] = [num(cue, "x") - 40, num(cue, "x")];
+    const p80X: [number, number] = [num(p80, "x") - 8, num(p80, "x") + 8];
+    const overlapX = cue !== null && cueX[0] < p80X[1] && p80X[0] < cueX[1];
+    if (overlapX) expect(num(cue, "y")).not.toBe(num(p80, "y"));
+    // Where it lands, so a test that drops the cue every time cannot pass the two cases that have room for it.
+    if (where === "none") expect(cue).toBeNull();
+    else expect(num(cue, "y")).toBe(where === "top" ? num(p80, "y") : 39);
+  });
+
+  it("names its group with the given label", () => {
+    render(<ForecastRangeBar {...BASE} label="Finish range – As is" />);
+    expect(screen.getByRole("group", { name: "Finish range – As is, simulated" })).toBeInTheDocument();
   });
 
   it.each([

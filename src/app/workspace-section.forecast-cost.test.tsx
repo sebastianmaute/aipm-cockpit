@@ -1,6 +1,6 @@
-// §502 part 3 — the Forecast view's cost card reads `budgetFacts` from the section: the pace forecast's
-// facts (`computeProjectForecastFacts`), computed only on the Forecast tab with the simulation on and the
-// Budget module enabled. Its own file because workspace-section.test.tsx sits at the size ratchet.
+// §502 part 3 — the Forecast view reads `budgetFacts` from the section: the pace forecast's facts
+// (`computeProjectForecastFacts`), computed only on the Forecast tab with the Budget module enabled (the
+// simulation switch gates only the cost card and cost rows, inside the panel). Its own file because workspace-section.test.tsx sits at the size ratchet.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { showForecastView } from "../test/forecast-view";
@@ -78,9 +78,21 @@ describe("WorkspaceSection — the Forecast view's budget facts", () => {
     expect(forecastPanelMock.props.at(-1)?.budgetEnabled).toBe(true);
   });
 
-  // Mutation: dropping the `isSimulationActive(...)` conjunct of `forecastCostOn` turns this red.
-  it("passes null while the simulation is off", async () => {
-    expect(await openForecast(["add-bucket"])).toBeNull();
+  // Added-people sizing (§502 build step 2) needs the booked hours with the switch off too; the panel keeps
+  // the cost card behind `showSimulation`, which the section passes as false here.
+  it("passes the facts while the simulation is off (added-people sizing needs booked hours); the cost card stays hidden", async () => {
+    const facts = (await openForecast(["add-bucket"])) as { hours: { dated: unknown[] } } | null;
+    expect(facts).not.toBeNull();
+    expect(Array.isArray(facts?.hours.dated)).toBe(true);
+    expect(forecastPanelMock.props.at(-1)?.showSimulation).toBe(false);
+  });
+
+  it("passes the saved-scenario support, writable outside a popout", async () => {
+    await openForecast([]);
+    const scenarios = forecastPanelMock.props.at(-1)?.scenarios as { api: { scenarios: unknown[] }; directory: { baseCurrency: string }; readOnly: boolean };
+    expect(scenarios.api.scenarios).toEqual([]);
+    expect(scenarios.directory.baseCurrency).toBe("EUR");
+    expect(scenarios.readOnly).toBe(false);
   });
 
   it("passes null without buckets", async () => {

@@ -174,6 +174,10 @@ export function tenantWorkspaceToStatements(
     if (ws.forecastHistory && ws.forecastHistory.length) {
       out.push(tenantInsert("meta", ["key", "value"], ["forecastHistory", JSON.stringify(ws.forecastHistory)], projectId));
     }
+    // forecastScenarios (§502): same shared-load reasoning as activityLog above.
+    if (ws.forecastScenarios && ws.forecastScenarios.length) {
+      out.push(tenantInsert("meta", ["key", "value"], ["forecastScenarios", JSON.stringify(ws.forecastScenarios)], projectId));
+    }
     // Documents ride `meta` here too. BOTH backends need this — the load side is
     // shared (rowsToWorkspace), so a save added on only one of them drops the
     // data silently on the other.

@@ -112,6 +112,7 @@ describe("seedMintFromWorkspace", () => {
     documentVersions: [
       { id: 32, documentId: 29, title: "v", blocks: [], savedAt: "2026-01-01", source: "user", op: "update" },
     ],
+    forecastScenarios: [{ id: 34, name: "a", changes: [] }, { id: 36, name: "b", changes: [] }],
   } as unknown as Parameters<typeof seedMintFromWorkspace>[0];
 
   it("seeds every kind so a subsequent mint exceeds the loaded max", () => {
@@ -132,10 +133,19 @@ describe("seedMintFromWorkspace", () => {
       calendarEvent: 28,
       document: 30,
       documentVersion: 33,
+      forecastScenario: 37,
     };
     for (const [kind, next] of Object.entries(expected) as [MintKind, number][]) {
       expect(mintId(kind, [])).toBe(next);
     }
+  });
+
+  it("a loaded workspace seeds the scenario id minter, so the next mint is above its largest id (§502)", () => {
+    seedMintFromWorkspace(
+      { forecastScenarios: [{ id: 4, name: "a", changes: [] }, { id: 2, name: "b", changes: [] }] } as unknown as Parameters<typeof seedMintFromWorkspace>[0],
+      "reset",
+    );
+    expect(mintId("forecastScenario", [])).toBe(5);
   });
 
   it("flat-maps nested budget buckets when present", () => {

@@ -34,7 +34,7 @@ import {
   type ActivityEntry,
   MAX_FIELD_CHANGES,
 } from "./activity-log";
-import { activityMessage } from "./activity-message";
+import { activityChangeValues, activityMessage } from "./activity-message";
 
 export interface RenderedActivity {
   /** The entry's ISO timestamp, verbatim. */
@@ -115,7 +115,12 @@ export function renderActivityEntry(entry: ActivityEntry): RenderedActivity {
   //   the renderer dropped a value rather than the value having been blank.
   const detail = changes
     .slice(0, MAX_FIELD_CHANGES)
-    .map((c) => `${c.field}: ${c.from || "—"} → ${c.to || "—"}`)
+    .map((c) => {
+      // The same wording as the panel for the one synthetic value (a scenario's row count, §502: "1 row → 3
+      // rows"), in the prompt's language — the stored bare digits read to a model as an unexplained number.
+      const v = activityChangeValues("en-US", entry.kind, c);
+      return `${c.field}: ${v.from || "—"} → ${v.to || "—"}`;
+    })
     .join("; ");
   return { ...base, detail };
 }

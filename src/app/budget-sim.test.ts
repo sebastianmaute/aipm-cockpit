@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { DatedValue, ForecastFacts, ForecastFactsByUnit } from "./budget-forecast";
 import type { AppForecast } from "./forecast/app-forecast";
-import { MIN_SPEND_WORKING_DAYS } from "./forecast/constants";
-import { BELOW_SCHEDULE_FLOOR, budgetSimContentKey, computeBudgetSim, withBudgetSim, type BudgetSim } from "./budget-sim";
+import { MAX_HORIZON_WORKING_DAYS, MIN_SPEND_WORKING_DAYS } from "./forecast/constants";
+import {
+  BELOW_SCHEDULE_FLOOR, budgetSimContentKey, computeBudgetSim, simulateCostFromRun, simulateCostFromRunMemo,
+  withBudgetSim, type BudgetSim,
+} from "./budget-sim";
 import type { CostAtFinish } from "./forecast/cost";
 import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 
@@ -67,6 +70,36 @@ describe("computeBudgetSim", () => {
     expect(computeBudgetSim(RUN, FACTS)).toBe(a);
     // A different facts identity is a new input, even with equal contents.
     expect(computeBudgetSim(RUN, { ...FACTS })).not.toBe(a);
+  });
+});
+
+describe("simulateCostFromRunMemo (§502)", () => {
+  const SIM_RUN = { trialDays: Int32Array.from([0, 5, 10, 15, 20, 25, 30, 1301]), windowDates: WINDOW };
+  const perDay = (value: number) => new Float64Array(MAX_HORIZON_WORKING_DAYS + 1).fill(value);
+
+  it("a different addedCost array is not answered from the memo", () => {
+    const zero = perDay(0);
+    const five = perDay(5);
+    const a = simulateCostFromRunMemo(SIM_RUN, FACTS.eur, "eur", 1, zero);
+    expect(simulateCostFromRunMemo(SIM_RUN, FACTS.eur, "eur", 1, zero)).toBe(a);
+    const b = simulateCostFromRunMemo(SIM_RUN, FACTS.eur, "eur", 1, five);
+    expect(b).not.toBe(a);
+    expect(b).toEqual(simulateCostFromRun(SIM_RUN, FACTS.eur, "eur", 1, five));
+    expect(b).not.toEqual(a);
+    // Dropping the added cost is a new input too.
+    expect(simulateCostFromRunMemo(SIM_RUN, FACTS.eur, "eur", 1)).not.toBe(b);
+  });
+
+  it("keys a per-day spend scale by identity and a number by value", () => {
+    const half = perDay(0.5);
+    const a = simulateCostFromRunMemo(SIM_RUN, FACTS.eur, "eur", half);
+    expect(simulateCostFromRunMemo(SIM_RUN, FACTS.eur, "eur", half)).toBe(a);
+    const b = simulateCostFromRunMemo(SIM_RUN, FACTS.eur, "eur", perDay(0.5));
+    expect(b).not.toBe(a);
+    expect(b).toEqual(a);
+    const c = simulateCostFromRunMemo(SIM_RUN, FACTS.eur, "eur", 0.5);
+    expect(c).not.toBe(b);
+    expect(simulateCostFromRunMemo(SIM_RUN, FACTS.eur, "eur", 0.5)).toBe(c);
   });
 });
 
