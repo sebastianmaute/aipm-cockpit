@@ -1161,10 +1161,18 @@ describe("§609 — a clear beats the Save & switch token seal", () => {
     expect(secrets.sealDevice).toHaveBeenCalledWith("tursoAuthToken", "tok7"); // the switch seal, held
     expect(reload).not.toHaveBeenCalled();
 
-    removeSealed("tursoAuthToken"); // a clear lands meanwhile
+    removeSealed("tursoAuthToken"); // a clear lands meanwhile (another tab, or Remove)
     releaseSeal(sealed);
 
-    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    // §609 still holds: the clear wins, nothing is stored. §715: the field still holds the edited
+    // "tok7", which no store now keeps, so a reload would lose it — the switch refuses and says so
+    // instead of reloading (it used to reload here).
+    expect(
+      await screen.findByText(
+        t("en-US", "integrationsTursoSwitchTokenNotSaved", t("en-US", "portfolioModeSwitchConfirm")),
+      ),
+    ).toBeInTheDocument();
+    expect(reload).not.toHaveBeenCalled();
     expect(loadSealed("tursoAuthToken")).toBeNull();
   });
 });

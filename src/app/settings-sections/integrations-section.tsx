@@ -70,8 +70,13 @@ const TURSO_TEST_FAIL_KEYS = {
  *  wizard's Finish when the switch was picked on its storage step (§715 D2 — the wizard unmounts this
  *  section on the next step, so the choice used to be dropped). `base` is the settings to persist
  *  (with any Turso drafts already folded in). Resolves `false` — nothing written, no reload — when
- *  the durability gate below refuses; `true` once the reload is under way. */
-export async function commitPortfolioModeSwitch(base: Settings, mode: PortfolioMode): Promise<boolean> {
+ *  the durability gate below refuses, or `ownSealRefuses` does after the wait; `true` once the
+ *  reload is under way. */
+export async function commitPortfolioModeSwitch(
+  base: Settings,
+  mode: PortfolioMode,
+  ownSealRefuses?: () => boolean,
+): Promise<boolean> {
   // ★★★ A RELOAD BEFORE THE SEAL SETTLES LOSES THE TOKEN: `writeSettings` blanks it, so the
   // device-sealed copy is the only one that survives. Wait for every in-flight seal (this
   // switch's, an Apply's or a keystroke commit's — possibly from an instance a hold already
@@ -83,6 +88,9 @@ export async function commitPortfolioModeSwitch(base: Settings, mode: PortfolioM
   //   passphrase mode that no seal covers (none started, or it failed or timed out) is lost to the
   //   reload, so refuse — `false`, nothing written — and let the caller say how to save it.
   if (hasUnsealedPassphraseToken(base.integrations?.turso?.authToken)) return false;
+  // The caller's own seal of a token the marker does not hold (a draft on Turso storage), read after
+  // the same single wait.
+  if (ownSealRefuses?.()) return false;
   savePortfolioMode(mode);
   // Keep the workspace storage backend aligned with the portfolio: switching TO
   // Turso must also persist storageConfig.kind "turso" (synchronously, so it
@@ -250,9 +258,11 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // pending state.
   const [signInBusy, setSignInBusy] = useState(false);
   const [switchBusy, setSwitchBusy] = useState(false);
-  // §715 — the last switch was refused by the durability gate (its seal failed or timed out). Shown
-  //   only while the token is still unsealed, so it never outlives the seal it asks for.
-  const [switchRefusedUnsealed, setSwitchRefusedUnsealed] = useState(false);
+  // §715 — the last switch was refused because its token would not survive the reload. It records the
+  //   token it refused (read through `tokenNowRef`, so after the seal it awaited) and whether a DEVICE
+  //   seal failed; it shows only while that token is current, so a later keystroke hides it.
+  const [switchRefusal, setSwitchRefusal] = useState<{ token: string; device: boolean } | null>(null);
+  const tokenNowRef = useRef<string>("");
   const integrations = settings.integrations ?? defaultIntegrations;
   const m365 = integrations.m365 ?? defaultM365Integrations;
   const turso = integrations.turso ?? defaultTursoIntegrations;
@@ -436,6 +446,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   }
 
   const tursoDraftsDirty = tursoUrl !== turso.databaseUrl || tursoToken !== turso.authToken;
+  useEffect(() => {
+    tokenNowRef.current = tursoToken ?? "";
+  }, [tursoToken]);
   // §715 D2 — tell a host that unmounts this section (the wizard's Next) that drafts would be lost.
   useEffect(() => {
     onTursoDraftsDirtyChange?.(tursoDraftsDirty);
@@ -545,6 +558,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const applyVerifyFailedId = `${useId()}-turso-apply-wrong-passphrase`;
   const switchVerifyFailedId = `${useId()}-turso-switch-wrong-passphrase`;
   const switchRefusedId = `${useId()}-turso-switch-token-unsealed`;
+  const switchRefusalShown = switchRefusal !== null && switchRefusal.token === (tursoToken ?? "");
   const tokenSealBlockedHintKey = tokenHasPassphraseRecord
     ? "integrationsTursoApplyNeedsPassphrase"
     : "integrationsTursoApplyNeedsNewPassphrase";
@@ -556,7 +570,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     [
       tokenSealBlocked && switchBlockedHintId,
       passphraseVerifyFailedAt === "switch" && switchVerifyFailedId,
-      switchRefusedUnsealed && tokenUnsealed && switchRefusedId,
+      switchRefusalShown && switchRefusedId,
     ]
       .filter(Boolean)
       .join(" ") || undefined;
@@ -823,7 +837,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // the component down (also announces the pending switch to SR users). It also covers the
     // passphrase verify below, so the switch cannot be submitted twice while it runs.
     setSwitchBusy(true);
-    setSwitchRefusedUnsealed(false);
+    setSwitchRefusal(null);
     // ★★ §548 — verify an existing passphrase record BEFORE anything is sealed or written (see
     //   `applyTursoDrafts`): a wrong passphrase switches nothing and keeps every typed field.
     if (tokenSealsUnderTypedPassphrase && !(await typedPassphraseOpensRecord())) {
@@ -837,22 +851,28 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // (`tursoConfigured`). Switching to the portfolio the fields show and then reloading onto
     // the OLD credentials would be the surprise; so fold the drafts in and seal the token here.
     const tokenDirty = tursoToken !== turso.authToken;
+    let deviceSealRefuses: (() => boolean) | undefined;
     if (tokenDirty && (tursoToken ?? "").trim() === "") {
       // §565: same blank-first rule as `commitTurso` — a cleared token removes the seal rather
       // than resealing "".
       removeSealed("tursoAuthToken");
       setTokenStored(false);
     } else if (tokenDirty && wrapNow() === "device") {
-      trackTokenSeal(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"));
+      // On Turso storage the edited token is a draft the gate cannot see, so the commit reads this
+      //   seal's result after its own wait. BOUNDED by that one wait: a device seal opens the
+      //   IndexedDB device key and can hang, and a timeout goes ahead as the wait always did; only a
+      //   seal that FAILED refuses.
+      deviceSealRefuses = ownSealProbe(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"));
     } else if ((tokenDirty || tokenUnsealed) && passphraseReady) {
       // §715 — on Turso storage the edited token is a DRAFT, so the marker never holds it and the
       //   shared gate cannot see a failed seal of it: read this seal's own result, and refuse on
       //   anything but a seal that landed.
-      const ownSeal = sealUnderTypedPassphrase(tursoToken ?? "");
-      trackTokenSeal(ownSeal);
-      if (!(await ownSeal.catch(() => false))) {
-        setSwitchBusy(false);
-        setSwitchRefusedUnsealed(true);
+      //   Read after the shared bounded wait; a passphrase seal is WebCrypto into the localStorage
+      //   store, with no IndexedDB, so it settles well within it.
+      const refuses = ownSealProbe(sealUnderTypedPassphrase(tursoToken ?? ""));
+      await tokenSealsSettled();
+      if (refuses()) {
+        refuseSwitch(false);
         return;
       }
     } else if ((tokenDirty || tokenUnsealed) && wrapNow() === "passphrase") {
@@ -860,8 +880,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       //   but no passphrase was typed, because the fields were not shown. Nothing can seal the token
       //   here, and on Turso storage the draft is never in the marker, so the gate would not catch
       //   the loss: refuse, and the re-render shows the passphrase fields.
-      setSwitchBusy(false);
-      setSwitchRefusedUnsealed(true);
+      refuseSwitch(false);
       return;
     }
     const base: Settings =
@@ -874,10 +893,23 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             },
           }
         : settings;
-    if (!(await commitPortfolioModeSwitch(base, pendingMode))) {
-      setSwitchBusy(false);
-      setSwitchRefusedUnsealed(true);
+    if (!(await commitPortfolioModeSwitch(base, pendingMode, deviceSealRefuses))) {
+      refuseSwitch(deviceSealRefuses?.() === true);
     }
+  }
+
+  // Tracks a switch's own seal and returns a check for after the wait: true (refuse) when it failed
+  // or was superseded while a token is still there to lose; false when it landed, when the token was
+  // cleared meanwhile (§609: the clear wins, nothing is left to keep), or when it has not settled.
+  function ownSealProbe(seal: Promise<boolean>): () => boolean {
+    let landed: boolean | undefined;
+    trackTokenSeal(seal.then((ok) => { landed = ok; }, (err: unknown) => { landed = false; throw err; }));
+    return () => landed === false && tokenNowRef.current.trim() !== "";
+  }
+
+  function refuseSwitch(device: boolean) {
+    setSwitchBusy(false);
+    setSwitchRefusal({ token: tokenNowRef.current, device });
   }
 
   function updateM365(patch: Partial<M365IntegrationsSettings>) {
@@ -1468,9 +1500,15 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 {passphraseVerifyFailedAt === "switch" && (
                   <FieldError id={switchVerifyFailedId}>{t(lang, "secretUnlockFailed")}</FieldError>
                 )}
-                {switchRefusedUnsealed && tokenUnsealed && (
+                {switchRefusalShown && (
                   <FieldError id={switchRefusedId}>
-                    {t(lang, "integrationsTursoSwitchTokenUnsealed", t(lang, "portfolioModeSwitchConfirm"))}
+                    {t(
+                      lang,
+                      switchRefusal?.device || !tokenUnsealed
+                        ? "integrationsTursoSwitchTokenNotSaved"
+                        : "integrationsTursoSwitchTokenUnsealed",
+                      t(lang, "portfolioModeSwitchConfirm"),
+                    )}
                   </FieldError>
                 )}
               </div>

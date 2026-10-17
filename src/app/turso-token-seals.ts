@@ -38,7 +38,8 @@ export function trackTokenSeal(seal: Promise<unknown>): void {
  *  whichever comes first — the same bound the settings hydration puts on the secret store. A seal
  *  is a local IndexedDB + WebCrypto write that normally takes well under a second; one that never
  *  settles (an IDB open queued behind another tab's connection) must not leave a reload path busy
- *  forever. On timeout the caller proceeds and a diagnostic is logged — the token may then be lost
+ *  forever. On timeout a diagnostic is logged and the caller's durability gate decides: a token
+ *  still held in passphrase mode is refused, and only a device seal that has not landed can be lost
  *  to the reload, which beats a button that never finishes. It also waits for a seal that STARTS
  *  while it waits (a keystroke during a switch), under the SAME deadline: the bound is on the
  *  whole wait, however many seals start meanwhile.

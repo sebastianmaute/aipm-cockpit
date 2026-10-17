@@ -1079,6 +1079,60 @@ describe("§715 — every mounted section and every reload path read one token s
   // click reads passphrase mode at event time but has no passphrase typed, and the draft is never in
   // the marker, so falling through to the commit would reload onto the old record.
   // MU32 — no refusal when passphrase mode has no typed passphrase → (q) goes red (it reloads).
+  // A refusal is about the token it refused; a keystroke after it (a new token) hides it.
+  // MU33 — the refusal ignores which token it was for → (r) goes red (still shown for "tokRx").
+  it("(r) a switch refusal hides once the token it refused changes", async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.click(screen.getByLabelText(lockLabel));
+    await user.type(tokenField(), "tokR");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder")), "pw");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    vi.mocked(setSecretPassphrase).mockRejectedValueOnce(new Error("idb gone"));
+    await user.click(screen.getByRole("button", { name: switchName }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", switchName))).toBeInTheDocument();
+    await user.type(tokenField(), "x");
+    expect(screen.queryByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", switchName))).toBeNull();
+  });
+
+  // Clearing the token while the switch seals it supersedes the seal (§609). The clear is the user's
+  // choice and leaves nothing to keep, so the switch goes ahead instead of silently stopping.
+  // MU34 — refuse any seal that did not land → (s) goes red (no reload).
+  it("(s) a switch whose token was cleared mid-seal goes ahead, with nothing stored", async () => {
+    const user = userEvent.setup();
+    let landSeal: (ok: boolean) => void = () => {};
+    render(<Controlled />);
+    await user.click(screen.getByLabelText(lockLabel));
+    await user.type(tokenField(), "tokS");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder")), "pw");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    vi.mocked(setSecretPassphrase).mockImplementationOnce(() => new Promise<boolean>((r) => { landSeal = r; }));
+    await user.click(screen.getByRole("button", { name: switchName }));
+    await user.clear(tokenField()); // supersedes the seal in flight
+    await act(async () => { landSeal(false); });
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(loadSealed("tursoAuthToken")).toBeNull();
+  });
+
+  // On Turso storage a DEVICE seal of the edited draft is invisible to the gate as well.
+  // MU35 — the switch ignores its own device seal's result → (t) goes red (it reloads).
+  it("(t) on Turso storage, a switch whose device seal of the edited token fails does not reload", async () => {
+    const user = userEvent.setup();
+    function OnTurso() {
+      const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "old", TURSO));
+      return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+    }
+    render(<OnTurso />);
+    await user.type(tokenField(), "T"); // a draft: "oldT"
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    vi.mocked(saveSecretValue).mockResolvedValueOnce(false);
+    await user.click(screen.getByRole("button", { name: switchName }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoSwitchTokenNotSaved", switchName))).toBeInTheDocument();
+    expect(reload).not.toHaveBeenCalled();
+  });
+
   it("(q) on Turso storage, a stale section's switch refuses rather than reloading an unsealed draft", async () => {
     const user = userEvent.setup();
     vi.mocked(setSecretPassphrase).mockImplementationOnce(async (id, value, passphrase) => {
