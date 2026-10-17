@@ -170,16 +170,18 @@ test.describe("dashboard grid geometry", () => {
     // ★★ The expectation is computed from the page's own readings through the same pure
     // conversion the hook uses — never a row count written here. `expect.poll` because the
     // measurement lands one animation frame after mount.
+    // ★ `kpi`, not a list tile: its cells are the same on any seed, while a list tile's height follows
+    // the data — `upcoming` holds two rows on the §715 master and measures exactly its stored default.
     await expect.poll(async () => {
-      const r = await tileReading(page, "upcoming");
+      const r = await tileReading(page, "kpi");
       return r.renderedRows === r.measuredRows ? "match" : `rendered ${r.renderedRows}, measured ${r.measuredRows}`;
     }).toBe("match");
     // ★ Not vacuous: the measurement actually MOVED the tile off its stored default. Without
     // this, a `renderedH` that ignored the measurement would pass whenever the two coincide.
-    expect((await tileReading(page, "upcoming")).renderedRows).not.toBe(tileById("upcoming")!.h);
+    expect((await tileReading(page, "kpi")).renderedRows).not.toBe(tileById("kpi")!.h);
     // …and below `maxH` the body holds its content without an inner scroll.
-    const r = await tileReading(page, "upcoming");
-    if (r.renderedRows < tileById("upcoming")!.maxH) expect(r.bodyScroll).toBeLessThanOrEqual(r.bodyClient);
+    const r = await tileReading(page, "kpi");
+    if (r.renderedRows < tileById("kpi")!.maxH) expect(r.bodyScroll).toBeLessThanOrEqual(r.bodyClient);
   });
 
   test("a tile measured shorter than its default renders shorter", async ({ page }) => {
@@ -248,6 +250,7 @@ test.describe("dashboard grid measured heights across reload and density", () =>
   });
 
   const UPCOMING = "Upcoming & overdue";
+  const KPI = "At a glance";
   const storedUpcoming = (page: import("@playwright/test").Page) =>
     page.evaluate((key) => {
       const all = JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, { board: { id: string }[] }>;
@@ -295,18 +298,19 @@ test.describe("dashboard grid measured heights across reload and density", () =>
 
   test("a width change announces the RENDERED height, not the stored default", async ({ page }) => {
     // ★★ The third height reader. jsdom measures nothing, so a unit test sees rendered === stored
-    // and cannot tell the two apart; only a measured tile can.
+    // and cannot tell the two apart; only a measured tile can. `kpi` measures below its default on
+    // any seed (see "a tile with no chosen height renders at its measured height").
     await expect.poll(async () => {
-      const r = await tileReading(page, "upcoming");
+      const r = await tileReading(page, "kpi");
       return r.renderedRows === r.measuredRows;
     }).toBe(true);
-    const shown = (await tileReading(page, "upcoming")).renderedRows;
-    expect(shown).not.toBe(tileById("upcoming")!.h);   // else stored and rendered coincide
-    const wider = tileById("upcoming")!.maxW;
-    await page.getByRole("button", { name: `More actions – ${UPCOMING}`, exact: true }).click();
-    await page.getByRole("radio", { name: `Width ${wider} – ${UPCOMING}`, exact: true }).click();
+    const shown = (await tileReading(page, "kpi")).renderedRows;
+    expect(shown).not.toBe(tileById("kpi")!.h);   // else stored and rendered coincide
+    const wider = tileById("kpi")!.maxW;
+    await page.getByRole("button", { name: `More actions – ${KPI}`, exact: true }).click();
+    await page.getByRole("radio", { name: `Width ${wider} – ${KPI}`, exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: "resized to" }))
-      .toHaveText(`${UPCOMING} resized to ${wider} by ${shown}`);
+      .toHaveText(`${KPI} resized to ${wider} by ${shown}`);
   });
 
   test("a density change re-measures", async ({ page }) => {
@@ -706,13 +710,16 @@ test("a full-width six-cell KPI strip in the 816–896px band sits on one row an
  * leaves kpi at w:4 only because burn is hidden: the upgrade narrows a w:4 KPI
  * tile solely when it moves burn beside it (§585). Unhide burn here and kpi
  * becomes w:2, which fits beside upcoming and voids the backfill this measures.
+ * ★ upcoming and raid carry CHOSEN heights (`hSet`): a measured raid taller than the
+ * measured upcoming cannot fit the gap above kpi, so the backfill would hang on the seed's
+ * data rather than on dense packing (it did, when the §715 master shortened upcoming).
  */
 const DENSE_LAYOUT = {
   v: 1,
   board: [
-    { id: "upcoming", w: 2, h: 2 },
+    { id: "upcoming", w: 2, h: 2, hSet: true },
     { id: "kpi", w: 4, h: 2 },
-    { id: "raid", w: 2, h: 2 },
+    { id: "raid", w: 2, h: 2, hSet: true },
   ],
   hidden: [
     "topActions", "insights", "trends",

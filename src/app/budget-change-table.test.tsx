@@ -169,13 +169,13 @@ describe("BudgetChangeTable", () => {
 
 describe("BudgetChangeTable — simulated cost at finish (§502)", () => {
   const SIM: CostAtFinish = { kind: "sim", p50: 9_500, p80: 10_200, p95: 11_000, chanceOverBudget: 0.7, spendDays: 20 };
-  const simRow = () => screen.queryByRole("group", { name: "Cost at finish (sim, P50–P95), simulated" });
+  const simRow = () => screen.queryByRole("group", { name: "Cost at finish (sim, P50–P95)" });
 
   it("adds one row with the P50 – P95 range beside the calculated split, marked sim", () => {
     const { container } = draw({ sim: SIM });
     const foot = container.querySelector("tfoot") as HTMLElement;
     expect(within(foot).getByRole("rowheader", { name: "Cost at finish (sim, P50–P95)" })).toBeInTheDocument();
-    expect(within(foot).getByRole("group", { name: "Cost at finish (sim, P50–P95), simulated" })).toHaveAttribute("data-sim", "true");
+    expect(within(foot).getByRole("group", { name: "Cost at finish (sim, P50–P95)" })).toHaveAttribute("data-sim", "true");
     expect(simRow()).toHaveTextContent(`${eur(9_500)} – ${eur(11_000)}`);
     // The calculated split stays as it was.
     expect(within(foot).getByRole("rowheader", { name: "Added scope" })).toBeInTheDocument();
@@ -183,14 +183,14 @@ describe("BudgetChangeTable — simulated cost at finish (§502)", () => {
 
   it("labels the row as hours in the hours unit, never as cost", () => {
     draw({ unit: "hours", sim: SIM });
-    expect(screen.getByRole("group", { name: "Hours at finish (sim, P50–P95), simulated" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Hours at finish (sim, P50–P95)" })).toBeInTheDocument();
     expect(screen.queryByText(/Cost at finish/)).toBeNull();
   });
 
   it("associates the value cell with its own row header alone, never the running-total column", () => {
     for (const [unit, term] of [["eur", "Cost at finish (sim, P50–P95)"], ["hours", "Hours at finish (sim, P50–P95)"]] as const) {
       const { unmount } = draw({ unit, sim: SIM });
-      const cell = screen.getByRole("group", { name: `${term}, simulated` }).closest("td") as HTMLElement;
+      const cell = screen.getByRole("group", { name: term }).closest("td") as HTMLElement;
       const headerIds = (cell.getAttribute("headers") ?? "").split(" ").filter(Boolean);
       // Exactly one header, and it is the row's own: the name a screen reader reads for the cell.
       expect(headerIds.map((id) => document.getElementById(id)?.textContent?.trim())).toEqual([term]);

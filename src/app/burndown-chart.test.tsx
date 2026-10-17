@@ -868,6 +868,25 @@ describe("BurndownChart — simulated bands (§502)", () => {
     expect(cue(de.container)[0]).toHaveTextContent("später →");
   });
 
+  // §502 I1 — a beyond-horizon finish is drawn at the edge as well (often on the plan-end line), so the cue
+  // must show for it too; the text alternative keeps saying "beyond the horizon", never "beyond the chart".
+  it("marks a beyond-horizon finish with the visible cue and drops the wedge when P80 is beyond", () => {
+    const cue = (container: HTMLElement) => [...container.querySelectorAll("[data-sim-past-chart]")];
+    const beyondCost = { kind: "sim" as const, p50: 9_500, p80: "beyond" as const, p95: "beyond" as const, chanceOverBudget: 1, spendDays: 20 };
+    const p80Beyond = draw({ sim: { finish: { p50: "2026-03-20", p80: null, p95: null }, eur: beyondCost, hours: beyondCost } }).container;
+    expect(cue(p80Beyond)).toHaveLength(1);
+    expect(p80Beyond.querySelector("[data-sim-cost]")).toBeNull();
+    expect(ariaOf(p80Beyond)).toContain("Simulated: finish (P80) beyond the horizon.");
+    expect(ariaOf(p80Beyond)).not.toContain("beyond the chart");
+    // Only P95 beyond: the cue shows, the wedge (its P80 date is inside the plot) stays.
+    const p95Beyond = draw({ sim: { ...CHART_SIM, finish: { ...CHART_SIM.finish, p95: null } } }).container;
+    expect(cue(p95Beyond)).toHaveLength(1);
+    expect(p95Beyond.querySelector("[data-sim-cost]")).not.toBeNull();
+    expect(ariaOf(p95Beyond)).not.toContain("beyond the chart");
+    // Neither beyond, nor past the cap: no cue.
+    expect(cue(draw({ sim: CHART_SIM }).container)).toHaveLength(0);
+  });
+
   // The x domain runs on to the simulated P95 (2026-05-01) while the segments end at plan end (2026-03-31),
   // which is also the plan's last period end: the labels must follow what they mark, not the plot's right
   // edge (X1 = 560).

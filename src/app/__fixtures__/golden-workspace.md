@@ -5,15 +5,15 @@
 | 1 | Design SSO architecture | Sofia Ramirez | sofia.ramirez@example.com | 2026-06-01 | 2026-07-07 | 2026-07-10 | 2026-06-01 | High | Done |  | <p>Replace the hand-rolled session cookie with the shared <strong>token service</strong>. The old cookie is issued in three different places and none of them agree on expiry.</p><p>Definition of done:</p><ul><li>One issuing path, covered by tests</li><li>Expiry read from config, not hard-coded</li><li>Old cookie name still accepted for one release</li></ul><p>See the <a href="https://example.com/adr/017-token-service">ADR</a> for the agreed contract.</p> | 2026-07-10 | 0 | Auth Migration | design\|architecture |  | LOP-101 | Story |  |  |  | 1 | 4800 | 5460 |  | [{"id":"dl-1","name":"OIDC Architecture Decision.docx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/OIDC-Architecture-Decision.docx","kind":"file"}] |  |  | [{"id":1,"timestamp":"2026-07-10T00:00:00.000Z","html":"<p>Reviewed OIDC vs SAML; OIDC selected based on partner roadmap.</p>","text":"Reviewed OIDC vs SAML; OIDC selected based on partner roadmap."},{"id":2,"timestamp":"2026-07-12T09:15:00.000Z","html":"<p>Partner confirmed the OIDC discovery endpoint is stable; no SAML fallback needed.</p>","text":"Partner confirmed the OIDC discovery endpoint is stable; no SAML fallback needed.","authorResourceId":1,"authorName":"Sofia Ramirez"}] |  |
 | 2 | POC OIDC integration | Noah Bennett | noah.bennett@example.com | 2026-06-29 | 2026-07-27 | 2026-08-03 | 2026-06-29 | High | Done |  |  | 2026-08-03 | 1 | Auth Migration | poc\|backend | FS:1 | LOP-102 | Story |  |  |  | 2 | 6000 | 6720 |  |  |  |  | [{"id":1,"timestamp":"2026-08-02T00:00:00.000Z","html":"<p>Worked through token refresh edge cases. One inquiry from product lead about UX. Merged to main.</p>","text":"Worked through token refresh edge cases. One inquiry from product lead about UX. Merged to main."}] |  |
 | 3 | Stakeholder workshop | Ava Thompson | ava.thompson@example.com |  | 2026-08-04 | 2026-08-04 | 2026-08-04 | Medium | Done |  | <p>Frontend still reads <em>user.roles</em> straight off the legacy payload. Switch it to the claim on the new token — <strong>do not</strong> ship this before the backend task above.</p> | 2026-08-04 | 0 | Auth Migration | planning\|stakeholder | SS:2 |  |  |  |  |  | 3 | 1200 | 1320 |  |  |  |  | [{"id":1,"timestamp":"2026-08-04T00:00:00.000Z","html":"<p>Workshop with security, legal, product. Action items captured in Confluence: SSO-2026-Q2.</p>","text":"Workshop with security, legal, product. Action items captured in Confluence: SSO-2026-Q2."}] |  |
-| 4 | Backend API skeleton | Noah Bennett | noah.bennett@example.com | 2026-08-03 | 2026-08-17 | 2026-08-19 | 2026-08-03 | Urgent | To Do | Waiting on database schema review from DBA team. |  |  | 3 | Auth Migration | backend\|api | FS:2 | LOP-103 | Story | 2026-08-19T10:30:00.000Z | 2026-08-19T10:35:12.000Z |  | 2 | 1800 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-19T00:00:00.000Z","html":"<p>Stalled while Jane is on holiday. Rate-limit middleware design needs review; current draft uses sliding-window over Redis.</p>","text":"Stalled while Jane is on holiday. Rate-limit middleware design needs review; current draft uses sliding-window over Redis."},{"id":2,"timestamp":"2026-08-21T11:00:00.000Z","html":"<p>Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.</p>","text":"Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.","authorResourceId":2,"authorName":"Noah Bennett"}] | [{"id":1,"text":"Waiting on database schema review from DBA team.","createdAt":"2026-08-19T00:00:00.000Z"}] |
-| 5 | Frontend login flow | Sofia Ramirez | sofia.ramirez@example.com | 2026-08-24 | 2026-09-07 | 2026-08-21 | 2026-08-21 | High | To Do |  |  |  | 0 | Auth Migration | frontend\|ui | FS:4 |  |  |  | 2026-08-21T16:20:00.000Z |  | 1 | 1080 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-21T00:00:00.000Z","html":"<p>React component scaffolded; need to wire token storage. Considering httpOnly cookie vs sessionStorage tradeoff.</p>","text":"React component scaffolded; need to wire token storage. Considering httpOnly cookie vs sessionStorage tradeoff."}] |  |
-| 6 | Migration script for legacy users | Noah Bennett | noah.bennett@example.com | 2026-08-17 | 2026-09-10 | 2026-08-24 | 2026-08-17 | High | To Do | Pending DBA approval on dry-run plan. |  |  | 2 | Auth Migration | backend\|migration | FS:3 |  |  |  |  | R | 2 | 600 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-23T00:00:00.000Z","html":"<p>50k legacy users with bcrypt-hashed passwords. Plan for incremental migration in 5k batches with rollback markers.</p>","text":"50k legacy users with bcrypt-hashed passwords. Plan for incremental migration in 5k batches with rollback markers."}] | [{"id":1,"text":"Staging snapshot not yet refreshed.","createdAt":"2026-08-18T09:00:00.000Z","authorResourceId":2,"authorName":"Noah Bennett","resolvedAt":"2026-08-20T14:30:00.000Z"},{"id":2,"text":"Pending DBA approval on dry-run plan.","createdAt":"2026-08-21T10:15:00.000Z","authorResourceId":2,"authorName":"Noah Bennett"}] |
-| 7 | Security review | Maya Patel | maya.patel@example.com | 2026-09-01 | 2026-09-24 | 2026-08-24 | 2026-08-24 | Medium | To Do |  |  |  | 0 | Auth Migration | security\|compliance | FS:4 |  |  |  |  |  | 4 | 1920 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-23T00:00:00.000Z","html":"<p>Schedule with InfoSec. Expect ~1 week turnaround. Scope: token storage, redirect URIs, CSP, session fixation.</p>","text":"Schedule with InfoSec. Expect ~1 week turnaround. Scope: token storage, redirect URIs, CSP, session fixation."}] |  |
-| 8 | Load testing | Noah Bennett | noah.bennett@example.com | 2026-09-25 | 2026-10-05 | 2026-08-24 | 2026-08-24 | Medium | To Do |  |  |  | 0 | Auth Migration | testing\|performance | FS:5\|FS:6 |  |  |  |  |  | 2 | 1440 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-23T00:00:00.000Z","html":"<p>Target: 10k concurrent logins/sec sustained for 30 minutes. Tools: k6 or Gatling. Hold a slot in the staging env.</p>","text":"Target: 10k concurrent logins/sec sustained for 30 minutes. Tools: k6 or Gatling. Hold a slot in the staging env."}] |  |
-| 9 | Documentation | Ava Thompson | ava.thompson@example.com |  | 2026-10-13 | 2026-08-13 | 2026-08-13 | Low | To Do |  |  |  | 0 | Auth Migration | docs | FF:8 |  |  |  |  |  | 3 | 1200 |  |  | [{"id":"dl-2","name":"API Docs (Confluence export)","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/API-Docs","kind":"folder"}] |  |  | [{"id":1,"timestamp":"2026-08-13T00:00:00.000Z","html":"<p>Update Confluence runbook + internal API docs. Add a runbook for token rotation incidents.</p>","text":"Update Confluence runbook + internal API docs. Add a runbook for token rotation incidents."}] |  |
-| 10 | Production cutover | Sofia Ramirez | sofia.ramirez@example.com |  | 2026-10-20 | 2026-08-24 | 2026-08-24 | Urgent | To Do |  |  |  | 0 | Auth Migration | deployment\|critical | FS:7\|FS:8 |  |  |  |  |  | 1 | 960 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-23T00:00:00.000Z","html":"<p>Maintenance window: Sun 02:00-06:00 UTC. Rollback via DNS flip (60s TTL pre-staged). Status page banner from -30min.</p>","text":"Maintenance window: Sun 02:00-06:00 UTC. Rollback via DNS flip (60s TTL pre-staged). Status page banner from -30min."}] |  |
-| 11 | Quarterly OKR review | Maya Patel | maya.patel@example.com |  | 2026-09-21 | 2026-08-10 | 2026-08-10 | Medium | To Do |  |  |  | 0 | Operations | okr\|reporting |  |  |  |  |  |  | 4 | 480 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-10T00:00:00.000Z","html":"<p>Compile Q3 metrics: KR1 conversion, KR2 incident MTTR, KR3 NPS. Slides due 48h before steering committee.</p>","text":"Compile Q3 metrics: KR1 conversion, KR2 incident MTTR, KR3 NPS. Slides due 48h before steering committee."}] |  |
-| 12 | Vendor renewal: monitoring platform | Ava Thompson | ava.thompson@example.com |  | 2026-11-05 | 2026-08-24 | 2026-08-24 | Low | To Do |  |  |  | 0 | Operations | vendor\|renewal | SF:11 |  |  |  |  |  | 3 | 240 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-23T00:00:00.000Z","html":"<p>Auto-renew expires two weeks after the due date. Negotiate seat count downward (we overprovisioned by ~30%).</p>","text":"Auto-renew expires two weeks after the due date. Negotiate seat count downward (we overprovisioned by ~30%)."}] |  |
+| 4 | Backend API skeleton | Noah Bennett | noah.bennett@example.com | 2026-09-22 | 2026-10-02 | 2026-09-17 | 2026-08-03 | Urgent | To Do |  |  |  | 3 | Auth Migration | backend\|api | FS:2 | LOP-103 | Story | 2026-08-19T10:30:00.000Z | 2026-08-19T10:35:12.000Z |  | 2 | 1800 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-19T00:00:00.000Z","html":"<p>Stalled while Jane is on holiday. Rate-limit middleware design needs review; current draft uses sliding-window over Redis.</p>","text":"Stalled while Jane is on holiday. Rate-limit middleware design needs review; current draft uses sliding-window over Redis."},{"id":2,"timestamp":"2026-08-21T11:00:00.000Z","html":"<p>Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.</p>","text":"Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.","authorResourceId":2,"authorName":"Noah Bennett"}] |  |
+| 5 | Frontend login flow | Sofia Ramirez | sofia.ramirez@example.com | 2026-10-05 | 2026-10-09 | 2026-09-17 | 2026-08-21 | High | To Do |  |  |  | 0 | Auth Migration | frontend\|ui | FS:4 |  |  |  | 2026-08-21T16:20:00.000Z |  | 1 | 1080 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-21T00:00:00.000Z","html":"<p>React component scaffolded; need to wire token storage. Considering httpOnly cookie vs sessionStorage tradeoff.</p>","text":"React component scaffolded; need to wire token storage. Considering httpOnly cookie vs sessionStorage tradeoff."}] |  |
+| 6 | Migration script for legacy users | Noah Bennett | noah.bennett@example.com | 2026-09-22 | 2026-10-09 | 2026-09-17 | 2026-08-17 | High | To Do |  |  |  | 2 | Auth Migration | backend\|migration | FS:3 |  |  |  |  | R | 2 | 600 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-23T00:00:00.000Z","html":"<p>50k legacy users with bcrypt-hashed passwords. Plan for incremental migration in 5k batches with rollback markers.</p>","text":"50k legacy users with bcrypt-hashed passwords. Plan for incremental migration in 5k batches with rollback markers."}] | [{"id":1,"text":"Staging snapshot not yet refreshed.","createdAt":"2026-08-18T09:00:00.000Z","authorResourceId":2,"authorName":"Noah Bennett","resolvedAt":"2026-08-20T14:30:00.000Z"},{"id":2,"text":"Pending DBA approval on dry-run plan.","createdAt":"2026-08-21T10:15:00.000Z","authorResourceId":2,"authorName":"Noah Bennett","resolvedAt":"2026-09-17T00:00:00.000Z"}] |
+| 7 | Security review | Maya Patel | maya.patel@example.com | 2026-10-05 | 2026-10-16 | 2026-09-17 | 2026-08-24 | Medium | To Do |  |  |  | 0 | Auth Migration | security\|compliance | FS:4 |  |  |  |  |  | 4 | 1920 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-23T00:00:00.000Z","html":"<p>Schedule with InfoSec. Expect ~1 week turnaround. Scope: token storage, redirect URIs, CSP, session fixation.</p>","text":"Schedule with InfoSec. Expect ~1 week turnaround. Scope: token storage, redirect URIs, CSP, session fixation."}] |  |
+| 8 | Load testing | Noah Bennett | noah.bennett@example.com | 2026-10-12 | 2026-10-28 | 2026-09-17 | 2026-08-24 | Medium | To Do |  |  |  | 0 | Auth Migration | testing\|performance | FS:5\|FS:6 |  |  |  |  |  | 2 | 1440 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-23T00:00:00.000Z","html":"<p>Target: 10k concurrent logins/sec sustained for 30 minutes. Tools: k6 or Gatling. Hold a slot in the staging env.</p>","text":"Target: 10k concurrent logins/sec sustained for 30 minutes. Tools: k6 or Gatling. Hold a slot in the staging env."}] |  |
+| 9 | Documentation | Ava Thompson | ava.thompson@example.com | 2026-10-20 | 2026-10-30 | 2026-09-17 | 2026-08-13 | Low | To Do |  |  |  | 0 | Auth Migration | docs | FF:8 |  |  |  |  |  | 3 | 1200 |  |  | [{"id":"dl-2","name":"API Docs (Confluence export)","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/API-Docs","kind":"folder"}] |  |  | [{"id":1,"timestamp":"2026-08-13T00:00:00.000Z","html":"<p>Update Confluence runbook + internal API docs. Add a runbook for token rotation incidents.</p>","text":"Update Confluence runbook + internal API docs. Add a runbook for token rotation incidents."}] |  |
+| 10 | Production cutover | Sofia Ramirez | sofia.ramirez@example.com | 2026-10-29 | 2026-11-04 | 2026-09-17 | 2026-08-24 | Urgent | To Do |  |  |  | 0 | Auth Migration | deployment\|critical | FS:7\|FS:8 |  |  |  |  |  | 1 | 960 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-23T00:00:00.000Z","html":"<p>Maintenance window: Sun 02:00-06:00 UTC. Rollback via DNS flip (60s TTL pre-staged). Status page banner from -30min.</p>","text":"Maintenance window: Sun 02:00-06:00 UTC. Rollback via DNS flip (60s TTL pre-staged). Status page banner from -30min."}] |  |
+| 11 | Quarterly OKR review | Maya Patel | maya.patel@example.com |  | 2026-10-12 | 2026-09-17 | 2026-08-10 | Medium | To Do |  |  |  | 0 | Operations | okr\|reporting |  |  |  |  |  |  | 4 | 480 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-10T00:00:00.000Z","html":"<p>Compile Q3 metrics: KR1 conversion, KR2 incident MTTR, KR3 NPS. Slides due 48h before steering committee.</p>","text":"Compile Q3 metrics: KR1 conversion, KR2 incident MTTR, KR3 NPS. Slides due 48h before steering committee."}] |  |
+| 12 | Vendor renewal: monitoring platform | Ava Thompson | ava.thompson@example.com |  | 2026-11-05 | 2026-09-17 | 2026-08-24 | Low | To Do |  |  |  | 0 | Operations | vendor\|renewal | SF:11 |  |  |  |  |  | 3 | 240 |  |  |  |  |  | [{"id":1,"timestamp":"2026-08-23T00:00:00.000Z","html":"<p>Auto-renew expires two weeks after the due date. Negotiate seat count downward (we overprovisioned by ~30%).</p>","text":"Auto-renew expires two weeks after the due date. Negotiate seat count downward (we overprovisioned by ~30%)."}] |  |
 | 13 | Dev environment setup | Noah Bennett | noah.bennett@example.com | 2026-05-28 | 2026-06-08 | 2026-06-09 | 2026-05-28 | Medium | Done |  |  | 2026-06-09 | 0 | Auth Migration | infra\|devops |  | LOP-100 | Task | 2026-08-19T10:30:00.000Z |  |  | 2 | 2400 | 2760 |  |  |  |  | [{"id":1,"timestamp":"2026-06-09T00:00:00.000Z","html":"<p>Docker Compose stack + seed data scripts ready. All four team members confirmed access.</p>","text":"Docker Compose stack + seed data scripts ready. All four team members confirmed access."}] |  |
 | 14 | Risk & compliance kick-off | Maya Patel | maya.patel@example.com | 2026-06-15 | 2026-06-18 | 2026-06-18 | 2026-06-15 | Medium | Done |  |  | 2026-06-18 | 0 | Auth Migration | planning\|compliance | FS:1 |  |  |  |  |  | 4 | 1440 | 1740 |  |  |  |  | [{"id":1,"timestamp":"2026-06-18T00:00:00.000Z","html":"<p>Identified 4 risk items. RAID log bootstrapped. SOC2 evidence tracker set up in Confluence.</p>","text":"Identified 4 risk items. RAID log bootstrapped. SOC2 evidence tracker set up in Confluence."}] |  |
 | 15 | Project charter and kickoff | Maya Patel | maya.patel@example.com | 2026-03-02 | 2026-03-06 | 2026-03-06 | 2026-03-02 | High | Done |  |  | 2026-03-06 | 0 | Discovery & Design | governance |  |  |  |  |  |  | 4 | 960 | 1080 |  |  |  |  | [{"id":1,"timestamp":"2026-03-06T16:30:00.000Z","html":"<p>Charter signed by the sponsor; kickoff held with the customer team.</p>","text":"Charter signed by the sponsor; kickoff held with the customer team.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
@@ -26,9 +26,9 @@
 | 22 | Design sign-off pack | Sofia Ramirez | sofia.ramirez@example.com | 2026-05-11 | 2026-05-27 | 2026-05-28 | 2026-05-11 | High | Done |  |  | 2026-05-28 | 0 | Discovery & Design | design\|governance | FS:20\|FS:21 |  |  |  |  |  | 1 | 1440 | 1680 |  |  |  |  |  |  |
 | 23 | Integrate identity vendor SDK | Noah Bennett | noah.bennett@example.com | 2026-06-15 | 2026-07-10 | 2026-07-31 | 2026-06-01 | Urgent | Done |  |  | 2026-07-31 | 0 | MVP | backend\|vendor | FS:13 |  |  |  |  |  | 2 | 3600 | 4800 |  |  |  |  | [{"id":1,"timestamp":"2026-07-01T10:00:00.000Z","html":"<p>Vendor SDK not delivered; building against the beta drop behind an adapter.</p>","text":"Vendor SDK not delivered; building against the beta drop behind an adapter.","authorResourceId":2,"authorName":"Noah Bennett"},{"id":2,"timestamp":"2026-07-31T16:00:00.000Z","html":"<p>Released SDK integrated and the adapter removed; three weeks late.</p>","text":"Released SDK integrated and the adapter removed; three weeks late.","authorResourceId":2,"authorName":"Noah Bennett"}] |  |
 | 24 | Customer self-registration flow | Noah Bennett | noah.bennett@example.com | 2026-06-29 | 2026-07-15 | 2026-08-12 | 2026-06-01 | High | Done |  |  | 2026-08-12 | 0 | MVP | frontend | SS:23 |  |  |  |  |  | 2 | 2400 | 3000 |  |  |  |  |  |  |
-| 25 | MVP demo to the customer | Maya Patel | maya.patel@example.com | 2026-07-13 | 2026-07-17 | 2026-08-21 | 2026-06-01 | Medium | Done |  |  | 2026-08-21 | 0 | MVP | governance | FS:24 |  |  |  |  |  | 4 | 480 | 480 |  |  |  |  | [{"id":1,"timestamp":"2026-07-14T09:00:00.000Z","html":"<p>Demo moved to August with the customer's agreement while the SDK is late.</p>","text":"Demo moved to August with the customer's agreement while the SDK is late.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
+| 25 | MVP demo to the customer | Maya Patel | maya.patel@example.com | 2026-07-13 | 2026-09-18 | 2026-09-18 | 2026-06-01 | Medium | To Do |  |  |  | 0 | MVP | governance | FS:24\|FS:36 |  |  |  |  |  | 4 | 480 | 480 |  |  |  |  | [{"id":1,"timestamp":"2026-07-14T09:00:00.000Z","html":"<p>Demo moved to August with the customer's agreement while the SDK is late.</p>","text":"Demo moved to August with the customer's agreement while the SDK is late.","authorResourceId":4,"authorName":"Maya Patel"},{"id":2,"timestamp":"2026-09-18T15:00:00.000Z","html":"<p>Demo called off this morning: provisioning to the CRM fails, so a new registration never reaches the CRM.</p>","text":"Demo called off this morning: provisioning to the CRM fails, so a new registration never reaches the CRM.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
 | 26 | Pilot cohort selection | Ava Thompson | ava.thompson@example.com | 2026-08-03 | 2026-08-28 | 2026-08-27 | 2026-07-27 | Medium | Done |  |  | 2026-08-27 | 0 | MVP | pilot |  |  |  |  |  |  | 3 | 960 | 900 |  |  |  |  |  |  |
-| 27 | Pilot customer comms pack | Maya Patel | maya.patel@example.com | 2026-08-31 | 2026-09-11 | 2026-09-15 | 2026-08-24 | Medium | In Progress |  |  |  | 0 | MVP | pilot\|comms | FS:26 |  |  |  |  |  | 4 | 1440 | 600 |  |  |  |  |  |  |
+| 27 | Pilot customer comms pack | Maya Patel | maya.patel@example.com | 2026-09-28 | 2026-10-07 | 2026-09-15 | 2026-08-24 | Medium | In Progress |  |  |  | 0 | MVP | pilot\|comms | FS:26 |  |  |  |  |  | 4 | 1440 | 600 |  |  |  |  |  |  |
 | 28 | Login pages accessibility check | Maya Patel | maya.patel@example.com | 2026-07-13 | 2026-07-21 | 2026-07-22 | 2026-07-06 | Medium | Done |  |  | 2026-07-22 | 0 | Auth Migration | accessibility |  |  |  |  |  |  | 4 | 600 | 660 |  |  |  |  |  |  |
 | 29 | Session timeout policy | Noah Bennett | noah.bennett@example.com | 2026-08-10 | 2026-08-14 | 2026-08-18 | 2026-07-27 | Medium | Done |  |  | 2026-08-18 | 0 | Auth Migration | security |  |  |  |  |  |  | 2 | 480 | 540 |  |  |  |  |  |  |
 | 30 | Pilot environment provisioning | Liam Foster | liam.foster@example.com | 2026-08-24 | 2026-09-01 | 2026-09-02 | 2026-08-10 | High | Done |  |  | 2026-09-02 | 0 | MVP | pilot |  |  |  |  |  |  | 5 | 960 | 1020 |  |  |  |  |  |  |
@@ -37,25 +37,33 @@
 | 33 | Password reset flow | Maya Patel | maya.patel@example.com | 2026-09-02 | 2026-09-11 | 2026-09-15 | 2026-08-17 | High | Done |  |  | 2026-09-15 | 0 | MVP | pilot |  |  |  |  |  |  | 4 | 1440 | 1560 |  |  |  |  |  |  |
 | 34 | Pilot feedback fixes | Noah Bennett | noah.bennett@example.com | 2026-10-26 | 2026-11-13 | 2026-09-14 | 2026-09-14 | High | To Do |  |  |  | 0 | MVP | pilot |  |  |  |  |  |  | 2 | 1920 |  |  |  |  |  |  |  |
 | 35 | Hypercare plan | Liam Foster | liam.foster@example.com | 2026-11-09 | 2026-11-27 | 2026-09-14 | 2026-09-14 | Medium | To Do |  |  |  | 0 | Operations | rollout |  |  |  |  |  |  | 5 | 960 |  |  |  |  |  |  |  |
+| 36 | Integrate CRM provisioning | Noah Bennett | noah.bennett@example.com | 2026-09-01 | 2026-09-16 | 2026-09-18 | 2026-09-01 | Urgent | To Do |  | <p>Provision every customer lifecycle event (register, change, delete) from the identity platform to the CRM.</p> |  | 0 | Auth Migration | backend\|crm | FS:24 |  |  |  | 2026-09-18T15:00:00.000Z |  | 2 | 7200 |  |  |  |  |  |  |  |
+| 37 | Fix CRM sync for new registrations | Noah Bennett | noah.bennett@example.com | 2026-09-21 | 2026-10-09 | 2026-09-18 | 2026-09-18 | High | To Do |  | <p>Follow-up from the called-off MVP demo on 18 September.</p> |  | 0 | Auth Migration | follow-up |  |  |  |  | 2026-09-18T16:00:00.000Z |  | 2 | 240 |  |  |  |  |  |  |  |
+| 38 | CRM provisioning fails for sign-ups | Sofia Ramirez | sofia.ramirez@example.com | 2026-09-21 | 2026-10-09 | 2026-09-18 | 2026-09-18 | High | To Do |  | <p>Follow-up from the called-off MVP demo on 18 September.</p> |  | 0 | Auth Migration | follow-up |  |  |  |  | 2026-09-18T16:00:00.000Z |  | 1 | 240 |  |  |  |  |  |  |  |
+| 39 | Erasure requests not reaching the CRM | Sofia Ramirez | sofia.ramirez@example.com | 2026-09-21 | 2026-10-09 | 2026-09-18 | 2026-09-18 | High | To Do |  | <p>Follow-up from the called-off MVP demo on 18 September.</p> |  | 0 | Auth Migration | follow-up |  |  |  |  | 2026-09-18T16:00:00.000Z |  | 1 | 240 |  |  |  |  |  |  |  |
+| 40 | GDPR delete does not propagate to the CRM | Maya Patel | maya.patel@example.com | 2026-09-21 | 2026-10-09 | 2026-09-18 | 2026-09-18 | High | To Do |  | <p>Follow-up from the called-off MVP demo on 18 September.</p> |  | 0 | Auth Migration | follow-up |  |  |  |  | 2026-09-18T16:00:00.000Z |  | 4 | 240 |  |  |  |  |  |  |  |
+| 41 | Re-run the MVP demo checklist | Maya Patel | maya.patel@example.com | 2026-09-21 | 2026-10-09 | 2026-09-18 | 2026-09-18 | High | To Do |  | <p>Follow-up from the called-off MVP demo on 18 September.</p> |  | 0 | Auth Migration | follow-up |  |  |  |  | 2026-09-18T16:00:00.000Z |  | 4 | 240 |  |  |  |  |  |  |  |
+| 42 | Prepare the MVP demo re-run | Ava Thompson | ava.thompson@example.com | 2026-09-21 | 2026-10-09 | 2026-09-18 | 2026-09-18 | High | To Do |  | <p>Follow-up from the called-off MVP demo on 18 September.</p> |  | 0 | Auth Migration | follow-up |  |  |  |  | 2026-09-18T16:00:00.000Z |  | 3 | 240 |  |  |  |  |  |  |  |
 
 # RAID Log
 
 | ID | Category | Title | Description | Severity | Probability | Impact | Status | Owner | OwnerEmail | OwnerResourceId | Mitigation | LinkedTasks | Raised | Target | Closed | LocalModified | CausedByIds | StakeholderIds | KnowledgeLinks | OutlookEventId | CalendarOptOut | Inquiries | NoteLog | Escalations |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | R | Legacy user data corruption during migration | <p>50k bcrypt-hashed passwords move in this migration. A corrupted batch would lock users out of <strong>every</strong> connected service at once, not just login.</p><p>Worst realistic case is a partial write we do not notice until the next business day.</p> | High | 3 | 5 | Mitigated | Noah Bennett | noah.bennett@example.com | 2 | <p>Pre-migration backup + 5k-batch dry-runs with rollback markers. Weekly integrity checks during cutover week.</p> | 6 | 2026-07-16 | 2026-10-13 |  |  |  |  | [{"id":"dl-3","name":"Migration Runbook.pdf","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Migration-Runbook.pdf","kind":"file"}] |  |  |  | [{"id":1,"timestamp":"2026-09-09T15:20:00.000Z","html":"<p>Dry-runs of batches 1–3 came back clean and the integrity checks are green; marking this <strong>mitigated</strong>.</p>","text":"Dry-runs of batches 1–3 came back clean and the integrity checks are green; marking this mitigated.","authorResourceId":2,"authorName":"Noah Bennett"}] |  |
-| 2 | R | SSO provider outage during peak hours | <p>Vendor-side downtime would block all logins for all users.</p> | Medium | 2 | 4 | Open | Maya Patel | maya.patel@example.com | 4 | <p>Provider SLA: 99.95%. Fallback: temporary local-account bypass for ops accounts (documented, time-boxed).</p> |  | 2026-07-27 |  |  |  |  | 1\|6 |  |  |  |  | [{"id":1,"timestamp":"2026-09-05T08:30:00.000Z","html":"<p>Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.</p>","text":"Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
-| 3 | R | Performance regression on login under load | <p>Auth path adds 200ms p95 latency vs baseline; could degrade homepage TTFB.</p> | High | 4 | 3 | Realized | Noah Bennett | noah.bennett@example.com | 2 | <p>Token verification cached; index added on session lookup. Still monitoring.</p> | 4 | 2026-08-10 |  |  |  |  |  |  |  |  |  | [{"id":1,"timestamp":"2026-09-11T10:40:00.000Z","html":"<p>p95 is back under 120 ms after the session-index fix. Keeping it open until the load test confirms.</p>","text":"p95 is back under 120 ms after the session-index fix. Keeping it open until the load test confirms.","authorResourceId":2,"authorName":"Noah Bennett"}] |  |
-| 4 | R | Third-party dependency with known CVE | <p>passport-oauth2 v1.7.0 has CVE-2024-9999 (moderate); upgrade blocked by peer-dep conflict.</p> | Medium | 3 | 3 | Open | Sofia Ramirez | sofia.ramirez@example.com | 1 | <p>Pinned to patched fork until upstream releases v1.8.0. Upgrade scheduled for the next maintenance release.</p> | 5 | 2026-08-17 | 2026-09-22 |  |  |  |  |  |  |  |  |  |  |
-| 5 | A | Users accept 4-hour maintenance window for cutover | <p>Comms team confirmed via survey: 92% acceptance for off-hours maintenance.</p> | Medium |  |  | Validated | Ava Thompson | ava.thompson@example.com | 3 |  |  | 2026-08-04 |  |  |  |  |  |  |  |  |  |  |  |
-| 6 | A | All team members briefed on new auth flow | <p>Assumed frontend devs know the new cookie/token contract.</p> |  |  |  | Invalidated | Sofia Ramirez | sofia.ramirez@example.com | 1 | <p>Assumption was wrong — ran a knowledge check; 2 of 4 devs unaware. Remediated with a doc session the same week.</p> | 5 | 2026-07-27 |  | 2026-08-24 |  |  |  |  |  |  |  |  |  |
-| 7 | A | Staging environment mirrors production load | <p>Capacity planning assumes staging handles realistic load. If wrong load tests will be misleading.</p> |  |  |  | Open | Noah Bennett | noah.bennett@example.com | 2 |  | 8 | 2026-08-13 | 2026-09-25 |  |  |  |  |  |  |  |  |  |  |
-| 8 | I | SSO redirect loop on Safari | <p>SameSite=Strict cookie + cross-origin redirect chain triggers Safari ITP loop — surfaced in testing.</p> | High |  |  | In Progress | Noah Bennett | noah.bennett@example.com | 2 | <p>Workaround in dev: SameSite=Lax. Need security review before prod.</p> | 4\|5 | 2026-08-19 | 2026-09-07 |  |  | 3 |  |  |  |  |  | [{"id":1,"timestamp":"2026-09-14T13:10:00.000Z","html":"<p>Security review accepts <em>SameSite=Lax</em> for the redirect cookie; the prod change is queued behind the pen test.</p>","text":"Security review accepts SameSite=Lax for the redirect cookie; the prod change is queued behind the pen test.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
-| 9 | I | Rate-limit counter not resetting correctly | <p>Sliding-window counter in Redis does not reset on TTL expiry under high concurrency; causes spurious 429s.</p> | High |  |  | Open | Noah Bennett | noah.bennett@example.com | 2 | <p>Being investigated. Temporary mitigation: raised threshold to 500 req/min.</p> | 4 | 2026-08-26 | 2026-09-09 |  |  |  |  |  |  |  |  | [{"id":1,"timestamp":"2026-09-01T09:30:00.000Z","html":"<p>Escalated to <strong>High</strong> after a second burst of spurious 429s in staging.</p>","text":"Escalated to High after a second burst of spurious 429s in staging.","authorResourceId":4,"authorName":"Maya Patel"}] | [{"at":"2026-09-01T09:30:00.000Z","toName":"Noah Bennett","toEmail":"noah.bennett@example.com","toResourceId":2,"fromSeverity":"Medium","toSeverity":"High"}] |
-| 10 | I | Accessibility gap in login form | <p>Missing ARIA labels on password toggle button; flagged by axe-core in CI.</p> | Low |  |  | Resolved | Sofia Ramirez | sofia.ramirez@example.com | 1 | <p>Fixed in PR #87; merged the same day.</p> | 5 | 2026-08-25 |  | 2026-08-25 |  |  |  |  |  |  |  |  |  |
-| 11 | D | Compliance team sign-off for production | <p>InfoSec must approve SOC2 evidence package before cutover.</p> | Medium |  |  | Open | Maya Patel | maya.patel@example.com | 4 |  | 7 | 2026-08-13 | 2026-09-24 |  |  |  | 1\|5 |  |  |  |  | [{"id":1,"timestamp":"2026-09-10T16:45:00.000Z","html":"<p>Compliance pre-review complete; formal sign-off pending the final pen-test report.</p>","text":"Compliance pre-review complete; formal sign-off pending the final pen-test report.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
-| 12 | D | Network team firewall changes | <p>Egress rules to api.sso-provider.com on 443.</p> | Medium |  |  | Delivered | Ava Thompson | ava.thompson@example.com | 3 | <p>Confirmed by ticket NET-2342, closed on the target date.</p> | 4 | 2026-07-22 | 2026-08-13 | 2026-08-13 |  |  |  |  |  |  |  |  |  |
-| 13 | D | DBA schema approval for migration tables | <p>DBA must approve 3 new tables + 2 indexes before migration script can run in prod.</p> | High |  |  | Open | Maya Patel | maya.patel@example.com | 4 |  | 6 | 2026-08-21 | 2026-09-03 |  |  | 11 | 5 |  |  |  |  | [{"id":1,"timestamp":"2026-09-16T08:50:00.000Z","html":"<p>DBA review slipped a second time; chasing the DBA lead for a slot this week.</p>","text":"DBA review slipped a second time; chasing the DBA lead for a slot this week.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
-| 14 | R | Identity vendor SDK delivery late | <p>CloudVendor's production SDK was promised for the end of June. If it slips, the self-registration flow and the MVP demo slip with it.</p> | High | 3 | 4 | Closed | Sofia Ramirez | sofia.ramirez@example.com | 1 | <p>Weekly vendor checkpoint; build against the beta drop behind an adapter so the registration work can continue.</p> | 23\|24\|25 | 2026-07-01 | 2026-07-24 | 2026-08-21 |  |  | 6 |  |  |  |  | [{"id":1,"timestamp":"2026-07-01T10:15:00.000Z","html":"<p>Vendor confirmed the SDK will not ship this month; raised as a High risk.</p>","text":"Vendor confirmed the SDK will not ship this month; raised as a High risk.","authorResourceId":1,"authorName":"Sofia Ramirez"},{"id":2,"timestamp":"2026-07-24T11:00:00.000Z","html":"<p>SDK released three weeks late; the MVP target moves to August. Re-plan to follow via change control.</p>","text":"SDK released three weeks late; the MVP target moves to August. Re-plan to follow via change control.","authorResourceId":4,"authorName":"Maya Patel"},{"id":3,"timestamp":"2026-08-21T17:10:00.000Z","html":"<p>Released SDK in use and the MVP demo done; closing the risk.</p>","text":"Released SDK in use and the MVP demo done; closing the risk.","authorResourceId":1,"authorName":"Sofia Ramirez"}] |  |
+| 1 | R | Legacy user data corruption during migration | <p>50k bcrypt-hashed passwords move in this migration. A corrupted batch would lock users out of <strong>every</strong> connected service at once, not just login.</p><p>Worst realistic case is a partial write we do not notice until the next business day.</p> | High | 3 | 5 | Closed | Noah Bennett | noah.bennett@example.com | 2 | <p>Pre-migration backup + 5k-batch dry-runs with rollback markers. Weekly integrity checks during cutover week.</p> | 6 | 2026-07-16 | 2026-10-13 |  | 2026-09-17T10:00:00.000Z |  |  | [{"id":"dl-3","name":"Migration Runbook.pdf","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Migration-Runbook.pdf","kind":"file"}] |  |  |  | [{"id":1,"timestamp":"2026-09-09T15:20:00.000Z","html":"<p>Dry-runs of batches 1–3 came back clean and the integrity checks are green; marking this <strong>mitigated</strong>.</p>","text":"Dry-runs of batches 1–3 came back clean and the integrity checks are green; marking this mitigated.","authorResourceId":2,"authorName":"Noah Bennett"}] |  |
+| 2 | R | SSO provider outage during peak hours | <p>Vendor-side downtime would block all logins for all users.</p> | Medium | 2 | 4 | Open | Maya Patel | maya.patel@example.com | 4 | <p>Provider SLA: 99.95%. Fallback: temporary local-account bypass for ops accounts (documented, time-boxed).</p> |  | 2026-07-27 |  |  | 2026-09-17T10:00:00.000Z |  | 6 |  |  |  |  | [{"id":1,"timestamp":"2026-09-05T08:30:00.000Z","html":"<p>Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.</p>","text":"Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
+| 3 | R | Performance regression on login under load | <p>Auth path adds 200ms p95 latency vs baseline; could degrade homepage TTFB.</p> | High | 4 | 3 | Realized | Noah Bennett | noah.bennett@example.com | 2 | <p>Token verification cached; index added on session lookup. Still monitoring.</p> | 4 | 2026-08-10 |  |  | 2026-09-17T10:00:00.000Z |  |  |  |  |  |  | [{"id":1,"timestamp":"2026-09-11T10:40:00.000Z","html":"<p>p95 is back under 120 ms after the session-index fix. Keeping it open until the load test confirms.</p>","text":"p95 is back under 120 ms after the session-index fix. Keeping it open until the load test confirms.","authorResourceId":2,"authorName":"Noah Bennett"}] |  |
+| 4 | R | Third-party dependency with known CVE | <p>passport-oauth2 v1.7.0 has CVE-2024-9999 (moderate); upgrade blocked by peer-dep conflict.</p> | Medium | 3 | 3 | Open | Sofia Ramirez | sofia.ramirez@example.com | 1 | <p>Pinned to patched fork until upstream releases v1.8.0. Upgrade scheduled for the next maintenance release.</p> | 5 | 2026-08-17 | 2026-10-15 |  | 2026-09-17T10:00:00.000Z |  |  |  |  |  |  |  |  |
+| 5 | A | Users accept 4-hour maintenance window for cutover | <p>Comms team confirmed via survey: 92% acceptance for off-hours maintenance.</p> | Medium |  |  | Validated | Ava Thompson | ava.thompson@example.com | 3 |  |  | 2026-08-04 |  |  | 2026-09-17T10:00:00.000Z |  |  |  |  |  |  |  |  |
+| 6 | A | All team members briefed on new auth flow | <p>Assumed frontend devs know the new cookie/token contract.</p> |  |  |  | Invalidated | Sofia Ramirez | sofia.ramirez@example.com | 1 | <p>Assumption was wrong — ran a knowledge check; 2 of 4 devs unaware. Remediated with a doc session the same week.</p> | 5 | 2026-07-27 |  | 2026-08-24 | 2026-09-17T10:00:00.000Z |  |  |  |  |  |  |  |  |
+| 7 | A | Staging environment mirrors production load | <p>Capacity planning assumes staging handles realistic load. If wrong load tests will be misleading.</p> |  |  |  | Open | Noah Bennett | noah.bennett@example.com | 2 |  | 8 | 2026-08-13 | 2026-10-15 |  | 2026-09-17T10:00:00.000Z |  |  |  |  |  |  |  |  |
+| 8 | I | SSO redirect loop on Safari | <p>SameSite=Strict cookie + cross-origin redirect chain triggers Safari ITP loop — surfaced in testing.</p> | High |  |  | Resolved | Noah Bennett | noah.bennett@example.com | 2 | <p>Workaround in dev: SameSite=Lax. Need security review before prod.</p> | 4\|5 | 2026-08-19 | 2026-09-07 |  | 2026-09-17T10:00:00.000Z | 3 |  |  |  |  |  | [{"id":1,"timestamp":"2026-09-14T13:10:00.000Z","html":"<p>Security review accepts <em>SameSite=Lax</em> for the redirect cookie; the prod change is queued behind the pen test.</p>","text":"Security review accepts SameSite=Lax for the redirect cookie; the prod change is queued behind the pen test.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
+| 9 | I | Rate-limit counter not resetting correctly | <p>Sliding-window counter in Redis does not reset on TTL expiry under high concurrency; causes spurious 429s.</p> | High |  |  | Resolved | Noah Bennett | noah.bennett@example.com | 2 | <p>Being investigated. Temporary mitigation: raised threshold to 500 req/min.</p> | 4 | 2026-08-26 | 2026-09-09 |  | 2026-09-17T10:00:00.000Z |  |  |  |  |  |  | [{"id":1,"timestamp":"2026-09-01T09:30:00.000Z","html":"<p>Escalated to <strong>High</strong> after a second burst of spurious 429s in staging.</p>","text":"Escalated to High after a second burst of spurious 429s in staging.","authorResourceId":4,"authorName":"Maya Patel"}] | [{"at":"2026-09-01T09:30:00.000Z","toName":"Noah Bennett","toEmail":"noah.bennett@example.com","toResourceId":2,"fromSeverity":"Medium","toSeverity":"High"}] |
+| 10 | I | Accessibility gap in login form | <p>Missing ARIA labels on password toggle button; flagged by axe-core in CI.</p> | Low |  |  | Resolved | Sofia Ramirez | sofia.ramirez@example.com | 1 | <p>Fixed in PR #87; merged the same day.</p> | 5 | 2026-08-25 |  | 2026-08-25 | 2026-09-17T10:00:00.000Z |  |  |  |  |  |  |  |  |
+| 11 | D | Compliance team sign-off for production | <p>InfoSec must approve SOC2 evidence package before cutover.</p> | Medium |  |  | Open | Maya Patel | maya.patel@example.com | 4 |  | 7 | 2026-08-13 | 2026-10-15 |  | 2026-09-17T10:00:00.000Z |  | 5 |  |  |  |  | [{"id":1,"timestamp":"2026-09-10T16:45:00.000Z","html":"<p>Compliance pre-review complete; formal sign-off pending the final pen-test report.</p>","text":"Compliance pre-review complete; formal sign-off pending the final pen-test report.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
+| 12 | D | Network team firewall changes | <p>Egress rules to api.sso-provider.com on 443.</p> | Medium |  |  | Delivered | Ava Thompson | ava.thompson@example.com | 3 | <p>Confirmed by ticket NET-2342, closed on the target date.</p> | 4 | 2026-07-22 | 2026-08-13 | 2026-08-13 | 2026-09-17T10:00:00.000Z |  |  |  |  |  |  |  |  |
+| 13 | D | DBA schema approval for migration tables | <p>DBA must approve 3 new tables + 2 indexes before migration script can run in prod.</p> | High |  |  | Delivered | Maya Patel | maya.patel@example.com | 4 |  | 6 | 2026-08-21 | 2026-09-03 |  | 2026-09-17T10:00:00.000Z | 11 | 5 |  |  |  |  | [{"id":1,"timestamp":"2026-09-16T08:50:00.000Z","html":"<p>DBA review slipped a second time; chasing the DBA lead for a slot this week.</p>","text":"DBA review slipped a second time; chasing the DBA lead for a slot this week.","authorResourceId":4,"authorName":"Maya Patel"}] |  |
+| 14 | R | Identity vendor SDK delivery late | <p>CloudVendor's production SDK was promised for the end of June. If it slips, the self-registration flow and the MVP demo slip with it.</p> | High | 3 | 4 | Closed | Sofia Ramirez | sofia.ramirez@example.com | 1 | <p>Weekly vendor checkpoint; build against the beta drop behind an adapter so the registration work can continue.</p> | 23\|24\|25 | 2026-07-01 | 2026-07-24 | 2026-08-21 | 2026-09-17T10:00:00.000Z |  | 6 |  |  |  |  | [{"id":1,"timestamp":"2026-07-01T10:15:00.000Z","html":"<p>Vendor confirmed the SDK will not ship this month; raised as a High risk.</p>","text":"Vendor confirmed the SDK will not ship this month; raised as a High risk.","authorResourceId":1,"authorName":"Sofia Ramirez"},{"id":2,"timestamp":"2026-07-24T11:00:00.000Z","html":"<p>SDK released three weeks late; the MVP target moves to August. Re-plan to follow via change control.</p>","text":"SDK released three weeks late; the MVP target moves to August. Re-plan to follow via change control.","authorResourceId":4,"authorName":"Maya Patel"},{"id":3,"timestamp":"2026-08-21T17:10:00.000Z","html":"<p>Released SDK in use and the MVP demo done; closing the risk.</p>","text":"Released SDK in use and the MVP demo done; closing the risk.","authorResourceId":1,"authorName":"Sofia Ramirez"}] |  |
+| 15 | I | GDPR erasure requests do not reach the CRM | <p>Account deletions are executed in the customer directory, but the CRM keeps the customer record: provisioning to the CRM fails.</p> | High |  |  | Open |  |  |  |  | 36 | 2026-09-18 |  |  | 2026-09-18T15:00:00.000Z |  |  |  |  |  |  |  |  |
 
 # Absences
 
@@ -64,7 +72,7 @@
 | 1 | Sofia Ramirez | sofia.ramirez@example.com | 2026-08-10 | 2026-08-21 | vacation | Family trip |  | 1 |  |  |
 | 2 | Noah Bennett | noah.bennett@example.com | 2026-09-15 | 2026-09-15 | sick |  |  | 2 |  |  |
 | 3 | Ava Thompson | ava.thompson@example.com | 2026-09-28 | 2026-09-30 | training | Kubernetes cert |  | 3 |  |  |
-| 4 | Maya Patel | maya.patel@example.com | 2026-09-21 | 2026-09-22 | other | Offsite leadership summit |  | 4 |  |  |
+| 4 | Maya Patel | maya.patel@example.com | 2026-10-19 | 2026-10-20 | other | Offsite leadership summit |  | 4 |  |  |
 | 5 | Noah Bennett | noah.bennett@example.com | 2026-11-09 | 2026-11-13 | vacation | Summer holiday |  | 2 |  |  |
 
 ## Calendar Events
@@ -121,14 +129,14 @@
 | 1 | Sofia | Ramirez | Lead Architect | +49 30 5550101 | Berlin | IAM | sofia.ramirez@example.com | Brightwell Partners | 06-14 | Primary SSO architect; OIDC lead. | 1 | percent | 2026-03=60\|2026-04=70\|2026-05=80\|2026-06=90\|2026-07=90\|2026-08=50\|2026-09=80\|2026-10=80\|2026-11=60\|2026-12=50\|2027-01=40\|2027-02=30 | 2026-08=88 |  |  |  |  |
 | 2 | Noah | Bennett | Senior Developer | +49 89 5550102 | Munich | Engineering | noah.bennett@example.com | Brightwell Partners | 11-02 | Backend and migration tooling. | 2 | percent | 2026-03=0\|2026-04=0\|2026-05=20\|2026-06=80\|2026-07=100\|2026-08=60\|2026-09=60\|2026-10=80\|2026-11=90\|2026-12=40\|2027-01=0\|2027-02=0 |  |  |  |  |  |
 | 3 | Ava | Thompson | Business Analyst | +44 20 5550103 | London | Advisory | ava.thompson@example.com | Brightwell Partners | 03-27 | Stakeholder workshops; part-time (hours mode). | 3 | hours | 2026-03=100\|2026-04=110\|2026-05=90\|2026-06=120\|2026-07=110\|2026-08=100\|2026-09=100\|2026-10=60\|2026-11=40\|2026-12=24\|2027-01=0\|2027-02=0 |  |  |  |  |  |
-| 4 | Maya | Patel | Project Manager | +49 30 5550104 | Berlin | PMO | maya.patel@example.com | Brightwell Partners | 09-08 | Compliance and RAID owner. | 4 | percent | 2026-03=50\|2026-04=50\|2026-05=50\|2026-06=50\|2026-07=50\|2026-08=50\|2026-09=60\|2026-10=60\|2026-11=40\|2026-12=30\|2027-01=40\|2027-02=40 |  |  |  |  |  |
+| 4 | Maya | Patel | Project Manager | +49 30 5550104 | Berlin | PMO | maya.patel@example.com | Brightwell Partners | 09-08 | Compliance and RAID owner. | 4 | hours | 2026-03=88\|2026-04=88\|2026-05=84\|2026-06=88\|2026-07=92\|2026-08=84\|2026-09=240\|2026-10=106\|2026-11=67\|2026-12=55\|2027-01=67\|2027-02=64 |  |  |  |  |  |
 | 5 | Liam | Foster | Advisor | +48 22 5550105 | Warsaw | Advisory | liam.foster@example.com | Brightwell Partners | 12-30 | Rolled off after June (0% utilization); back part-time for the Q4 advisory retainer. | 5 | percent | 2026-03=0\|2026-04=0\|2026-05=0\|2026-06=100\|2026-07=0\|2026-08=0\|2026-09=0\|2026-10=50\|2026-11=50\|2026-12=50\|2027-01=0\|2027-02=0 |  |  |  |  |  |
 
 # Budgets
 
 | ID | Name | PO | Type | Currency | FixedPrice | Start | End | SuccessorId | Status | Closed | Created | FxOverride | Allocations | LocalModified | Order | PlanningMode | DisciplineAllocations | RateOverrideInternal | RateOverrideExternal | TaskIds | PercentComplete |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Identity Platform – T&M | 4400125303 | tm | EUR |  | 2026-07-01 | 2026-09-30 | 4 | open |  | 2026-05-28 |  | 1;1;2026-07=166\|2026-08=40\|2026-09=141;2026-07=156\|2026-08=38\|2026-09-01=6\|2026-09-02=6\|2026-09-03=6\|2026-09-04=6\|2026-09-07=6\|2026-09-08=6\|2026-09-09=6\|2026-09-10=6\|2026-09-11=6\|2026-09-14=6\|2026-09-15=6\|2026-09-16=6\|2026-09-17=6\|2026-09-18=6~3;3;2026-07=110\|2026-08=100\|2026-09=76;2026-07=102\|2026-08=93\|2026-09-01=5\|2026-09-02=5\|2026-09-03=5\|2026-09-04=3\|2026-09-07=5\|2026-09-08=5\|2026-09-09=5\|2026-09-10=5\|2026-09-11=3\|2026-09-14=5\|2026-09-15=5\|2026-09-16=5\|2026-09-17=5\|2026-09-18=3~4;4;2026-07=92\|2026-08=84\|2026-09=96;2026-07=85\|2026-08=77\|2026-09-01=4\|2026-09-02=4\|2026-09-03=4\|2026-09-04=4\|2026-09-07=4\|2026-09-08=4\|2026-09-09=4\|2026-09-10=4\|2026-09-11=4\|2026-09-14=4\|2026-09-15=4\|2026-09-16=4\|2026-09-17=4\|2026-09-18=4 |  | 3 | detailed |  |  |  | 1;2;4 |  |
+| 1 | Identity Platform – T&M | 4400125303 | tm | EUR |  | 2026-07-01 | 2026-10-31 | 4 | open |  | 2026-05-28 |  | 1;1;2026-07=166\|2026-08=40\|2026-09=141;2026-07=156\|2026-08=38\|2026-09-01=6\|2026-09-02=6\|2026-09-03=6\|2026-09-04=6\|2026-09-07=6\|2026-09-08=6\|2026-09-09=6\|2026-09-10=6\|2026-09-11=6\|2026-09-14=6\|2026-09-15=6\|2026-09-16=6\|2026-09-17=6\|2026-09-18=6~3;3;2026-07=110\|2026-08=100\|2026-09=76;2026-07=102\|2026-08=93\|2026-09-01=5\|2026-09-02=5\|2026-09-03=5\|2026-09-04=3\|2026-09-07=5\|2026-09-08=5\|2026-09-09=5\|2026-09-10=5\|2026-09-11=3\|2026-09-14=5\|2026-09-15=5\|2026-09-16=5\|2026-09-17=5\|2026-09-18=3~4;4;2026-07=92\|2026-08=84\|2026-09=96;2026-07=85\|2026-08=77\|2026-09-01=4\|2026-09-02=4\|2026-09-03=4\|2026-09-04=4\|2026-09-07=4\|2026-09-08=4\|2026-09-09=4\|2026-09-10=4\|2026-09-11=4\|2026-09-14=4\|2026-09-15=4\|2026-09-16=4\|2026-09-17=4\|2026-09-18=4 |  | 3 | detailed |  |  |  | 1;2;4 |  |
 | 2 | Advisory Retainer (blended) | 4400141354 | tm | EUR |  | 2026-10-01 | 2026-12-18 |  | open |  | 2026-09-07 |  |  |  | 6 | blended | 3;5;2026-10=88\|2026-11=84\|2026-12=92;~1;;2026-11=20\|2026-12=40; |  |  |  | 0 |
 | 3 | Capped SOW (rate override) | 4400087177 | tm | EUR |  | 2026-09-01 | 2026-11-30 | 2 | open |  | 2026-08-17 |  | 2;;2026-09=40\|2026-10=50\|2026-11=100;2026-09-01=3\|2026-09-02=3\|2026-09-03=3\|2026-09-07=3\|2026-09-08=3\|2026-09-09=3\|2026-09-10=3\|2026-09-14=3\|2026-09-16=3\|2026-09-17=3 |  | 5 | detailed |  | 90 | 200 |  | 15 |
 | 4 | Data Migration (fixed price) | 4400098499 | fixed | USD | 80000 | 2026-08-01 | 2026-10-31 | 3 | open |  | 2026-07-20 | 1.1 | 2;2;2026-08=101\|2026-09=101\|2026-10=141;2026-08-03=6\|2026-08-04=6\|2026-08-05=6\|2026-08-06=6\|2026-08-10=6\|2026-08-11=6\|2026-08-12=6\|2026-08-13=6\|2026-08-17=7\|2026-08-18=6\|2026-08-19=6\|2026-08-20=7\|2026-08-24=6\|2026-08-25=6\|2026-08-26=7\|2026-08-27=6\|2026-08-31=6\|2026-09-01=6\|2026-09-02=6\|2026-09-03=6\|2026-09-07=6\|2026-09-08=6\|2026-09-09=6\|2026-09-10=6\|2026-09-14=6\|2026-09-16=6\|2026-09-17=6~1;;2026-10=100; |  | 4 | detailed |  |  |  |  | 30 |
@@ -160,7 +168,7 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
 | 2 | Pilot Go-Live | 2026-10-23 | <p>Pilot go-live for the first customer cohort. Entry criteria are a green regression cycle and a completed hypercare rehearsal; the four-hour maintenance window is already agreed with comms.</p><p><em>Not</em> a go/no-go gate for MFA — that rides the change request.</p> |  | 4\|5\|6\|27\|7\|8 |  |  |  |  |
 | 3 | Rollout | 2026-12-11 |  |  | 10\|34\|35 |  |  |  |  |
 | 4 | Kickoff | 2026-03-06 |  | 2026-03-06 | 15 |  |  |  |  |
-| 5 | MVP target | 2026-07-17 | <p>First customer on self-registration through the vendor SDK. Slipped from 17 July to 21 August while the vendor's SDK was late (RAID #14).</p> | 2026-08-21 | 23\|24\|25 |  |  |  |  |
+| 5 | MVP target | 2026-09-18 | <p>The MVP is the customer lifecycle working end to end: register (sign-up, email verification, MFA enrolment), change (email or profile change, a B2B user moving company account) and delete (account closure, GDPR erasure), with existing customers read from the legacy shop database and every lifecycle event provisioned to the CRM and the customer directory.</p><p>It was <strong>not operational</strong> on 18 September: registration works on screen, but provisioning to the CRM fails, so new customers never reach the CRM and erasure requests do not propagate.</p> |  | 23\|24\|25\|36 |  |  |  |  |
 | 6 | Closure | 2027-02-26 |  |  | 9\|12 |  |  |  |  |
 
 ## Changes
@@ -174,7 +182,7 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
 
 | ID | Name | Organization | Title | Email | Category | Influence | Interest | Notes | ResourceId | RACI | LocalModified | KnowledgeLinks |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Elena Fischer | Brightwell Partners |  |  | Sponsor | High | High |  |  | 1=A\|2=A\|3=C |  | [{"id":"dl-5","name":"Steering Committee Deck Q2.pptx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Steering-Deck-Q2.pptx","kind":"file"}] |
+| 1 | Elena Fischer | Brightwell Partners |  | elena.fischer@example.com | Sponsor | High | High |  |  | 1=A\|2=A\|3=C |  | [{"id":"dl-5","name":"Steering Committee Deck Q2.pptx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Steering-Deck-Q2.pptx","kind":"file"}] |
 | 2 | Noah Bennett | Brightwell Partners |  |  | Internal | High | Medium |  | 2 | 1=R\|2=A\|3=R |  |  |
 | 3 | Ava Thompson | Brightwell Partners |  |  | Internal | Medium | High |  | 3 | 1=C\|2=R\|3=I |  |  |
 | 4 | David Okoro | Northwind Retail Group |  |  | Customer | Medium | Medium |  |  | 1=I\|2=C\|3=C |  |  |
@@ -233,6 +241,13 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
       "date": "2026-10-13",
       "title": "Q4 steering review",
       "agenda": "Migration readiness, load-test results, go-live gate decision.",
+      "location": "Teams"
+    },
+    {
+      "id": 2,
+      "date": "2026-09-24",
+      "title": "Steering — MVP slip",
+      "agenda": "MVP slip and recovery plan, CRM provisioning connector change, MFA change for the SSO scope.",
       "location": "Teams"
     }
   ],
@@ -339,6 +354,17 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
     "kind": "file",
     "linkKind": "url",
     "addedAt": "2026-09-17T16:05:00.000Z"
+  },
+  {
+    "id": "dl-10",
+    "name": "CRM interface decision (design sign-off)",
+    "url": "https://example.com/cip/crm-interface-decision",
+    "kind": "file",
+    "linkKind": "url",
+    "addedAt": "2026-05-29T15:00:00.000Z",
+    "taskIds": [
+      36
+    ]
   }
 ]
 ```
@@ -355,7 +381,7 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
     "status": "active",
     "data": {
       "name": "Identity Platform – T&M",
-      "variancePct": 22,
+      "variancePct": 32,
       "buckets": 3
     },
     "firstSeenAt": "2026-08-03T07:00:00.000Z",
@@ -419,21 +445,6 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
     },
     "dismissedAt": "2026-06-01T11:30:00.000Z",
     "dismissReason": "Signed off in the steering call; the minutes were filed late."
-  },
-  {
-    "id": 5,
-    "key": "overdueTrend",
-    "type": "overdueTrend",
-    "severity": "low",
-    "status": "active",
-    "data": {
-      "current": 3,
-      "prior": 1,
-      "delta": 2
-    },
-    "firstSeenAt": "2026-09-14T07:00:00.000Z",
-    "lastSeenAt": "2026-09-18T07:00:00.000Z",
-    "occurrences": 4
   }
 ]
 ```
@@ -760,16 +771,6 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
   {
     "id": "demo-seed-029",
     "timestamp": "2026-08-21T16:40:00.000Z",
-    "kind": "task.completed",
-    "args": [
-      25,
-      "MVP demo to the customer"
-    ],
-    "actor": "user"
-  },
-  {
-    "id": "demo-seed-030",
-    "timestamp": "2026-08-21T17:00:00.000Z",
     "kind": "milestone.updated",
     "args": [
       5
@@ -777,9 +778,9 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
     "actor": "user",
     "changes": [
       {
-        "field": "achievedDate",
-        "from": "",
-        "to": "2026-08-21"
+        "field": "date",
+        "from": "2026-07-17",
+        "to": "2026-09-18"
       }
     ]
   },
@@ -884,6 +885,17 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
       "Hypercare on-call rota"
     ],
     "actor": "user"
+  },
+  {
+    "id": "demo-seed-030",
+    "timestamp": "2026-09-18T15:10:00.000Z",
+    "kind": "raid.created",
+    "args": [
+      15,
+      "I",
+      "GDPR erasure requests do not reach the CRM"
+    ],
+    "actor": "user"
   }
 ]
 ```
@@ -893,39 +905,32 @@ EUR,2026-09-17,2026-09-17T16:00:00.000Z,EUR=1|USD=1.1|GBP=0.85|INR=96.5
 ```json
 [
   {
-    "date": "2026-08-21",
-    "p50": "2026-11-03",
-    "p80": "2026-11-24",
-    "p95": "2026-12-16",
-    "chanceOnTime": 0.9999
-  },
-  {
     "date": "2026-08-28",
-    "p50": "2026-12-10",
-    "p80": "2027-01-04",
-    "p95": "2027-01-28",
-    "chanceOnTime": 0.9908
+    "p50": "2026-12-30",
+    "p80": "2027-01-26",
+    "p95": "2027-02-24",
+    "chanceOnTime": 0.9595
   },
   {
     "date": "2026-09-04",
-    "p50": "2026-11-25",
-    "p80": "2026-12-15",
-    "p95": "2027-01-06",
-    "chanceOnTime": 0.9994
+    "p50": "2026-12-17",
+    "p80": "2027-01-11",
+    "p95": "2027-02-04",
+    "chanceOnTime": 0.9881
   },
   {
     "date": "2026-09-11",
-    "p50": "2026-11-25",
-    "p80": "2026-12-15",
-    "p95": "2027-01-04",
-    "chanceOnTime": 0.9996
+    "p50": "2026-12-17",
+    "p80": "2027-01-08",
+    "p95": "2027-02-03",
+    "chanceOnTime": 0.9905
   },
   {
     "date": "2026-09-18",
-    "p50": "2026-12-03",
-    "p80": "2026-12-21",
-    "p95": "2027-01-11",
-    "chanceOnTime": 0.9993
+    "p50": "2027-02-04",
+    "p80": "2027-03-02",
+    "p95": "2027-03-29",
+    "chanceOnTime": 0.7867
   }
 ]
 ```

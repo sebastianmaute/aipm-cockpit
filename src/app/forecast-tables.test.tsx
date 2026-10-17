@@ -134,7 +134,7 @@ describe("CostTable", () => {
   const card = () => screen.getByRole("group", { name: "Cost at finish, simulated" });
 
   test("shows P50/P80/P95 and the chance over budget, each figure marked simulated", () => {
-    render(<CostTable lang="en-US" cost={SIM} currency="EUR" bac={240000} />);
+    render(<CostTable lang="en-US" cost={SIM} currency="EUR" />);
     const box = within(card());
     expect(box.getByRole("heading", { name: "Cost at finish" })).toBeTruthy();
     expect(within(box.getByRole("row", { name: /^Even odds \(P50\)/ })).getByText(money(250000))).toBeTruthy();
@@ -146,41 +146,43 @@ describe("CostTable", () => {
   });
 
   test("reads a beyond percentile as beyond the horizon", () => {
-    render(<CostTable lang="en-US" cost={{ ...SIM, p95: "beyond" }} currency="EUR" bac={240000} />);
+    render(<CostTable lang="en-US" cost={{ ...SIM, p95: "beyond" }} currency="EUR" />);
     const row = within(card()).getByRole("row", { name: /^Cautious \(P95\)/ });
     expect(within(row).getByText(t("en-US", "simHistogramBeyond"))).toBeTruthy();
   });
 
   test("uses the baseline currency", () => {
-    render(<CostTable lang="en-US" cost={SIM} currency="USD" bac={240000} />);
+    render(<CostTable lang="en-US" cost={SIM} currency="USD" />);
     expect(within(card()).getByText(formatCurrency(262000, "USD", "en-US"))).toBeTruthy();
   });
 
   test("no budget shows the add-a-budget line and no figures", () => {
-    render(<CostTable lang="en-US" cost={null} currency="EUR" bac={0} />);
+    render(<CostTable lang="en-US" cost={null} currency="EUR" />);
     expect(within(card()).getByText("Add a budget to see the cost at finish.")).toBeTruthy();
     expect(screen.queryByRole("row")).toBeNull();
   });
 
-  test("a zero budget is no budget", () => {
-    render(<CostTable lang="en-US" cost={{ ...SIM, chanceOverBudget: null }} currency="EUR" bac={0} />);
-    expect(within(card()).getByText("Add a budget to see the cost at finish.")).toBeTruthy();
-    expect(screen.queryByText(money(262000))).toBeNull();
+  // §502 M4 — one zero-budget rule on every surface: the range shows, the chance row does not.
+  test("a zero budget shows the range without the chance over budget", () => {
+    render(<CostTable lang="en-US" cost={{ ...SIM, chanceOverBudget: null }} currency="EUR" />);
+    expect(within(card()).getByText(money(262000))).toBeTruthy();
+    expect(within(card()).queryByRole("row", { name: /^Chance over budget/ })).toBeNull();
+    expect(screen.queryByText("Add a budget to see the cost at finish.")).toBeNull();
   });
 
   test("below the spend floor names both counts", () => {
-    render(<CostTable lang="en-US" cost={{ kind: "unavailable", reason: "spend-history", spendDays: 7, neededSpendDays: 10 }} currency="EUR" bac={240000} />);
+    render(<CostTable lang="en-US" cost={{ kind: "unavailable", reason: "spend-history", spendDays: 7, neededSpendDays: 10 }} currency="EUR" />);
     expect(within(card()).getByText("Needs 10 working days of booking history in the window (has 7).")).toBeTruthy();
   });
 
   test("below the schedule floor says so", () => {
-    render(<CostTable lang="en-US" cost={{ kind: "unavailable", reason: "schedule-floor", spendDays: 0, neededSpendDays: 10 }} currency="EUR" bac={240000} />);
+    render(<CostTable lang="en-US" cost={{ kind: "unavailable", reason: "schedule-floor", spendDays: 0, neededSpendDays: 10 }} currency="EUR" />);
     expect(within(card()).getByText("Not enough finished-task history to simulate the finish yet.")).toBeTruthy();
   });
 
   test("reads in German", async () => {
     await loadI18n("de");
-    render(<CostTable lang="de" cost={null} currency="EUR" bac={0} />);
+    render(<CostTable lang="de" cost={null} currency="EUR" />);
     expect(screen.getByRole("group", { name: t("de", "simValueSr", t("de", "budgetSimCostAtFinish")) })).toBeTruthy();
     expect(screen.getByText(t("de", "budgetSimAddBudget"))).toBeTruthy();
     expect(t("de", "budgetSimAddBudget")).not.toBe("Add a budget to see the cost at finish.");

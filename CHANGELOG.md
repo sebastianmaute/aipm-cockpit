@@ -21,6 +21,11 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **The demo project tells one week (§715).** Explore the demo opens on a slipped MVP: its milestone passed on
+  18 September with provisioning to the CRM not working, the customer demo was called off, and a GDPR issue is open.
+  The Next actions list carries only the slip and its knock-on effects (the overdue CRM work, the blocked pilot
+  tasks, an over-allocated project manager, the sponsor to update), with the unrelated overdue and stale items
+  cleared.
 - **Edit project saves with a Save button**, no longer a second "Edit project" label.
 - **New project offers Import workspace file on its first window**, beside Skip, so importing a saved project
   no longer needs Skip first. With AI off it stays on the details step, which is then the first window; with AI
@@ -65,7 +70,9 @@ longer carries its own changelog comment.
   dot. It appears on the pace card, as finish and cost bands on the burn charts, as one line on the Dashboard's burn tile,
   as a row in the change table, and as a cost card in the Forecast view that moves with What-if. It needs the same
   history as the schedule forecast plus at least ten working days of booked spend, and says which is missing when it
-  does not have them. It stays hidden while the Forecast view is held back.
+  does not have them. With a budget of 0 it still shows the range, without the chance of going over budget, and a
+  finish beyond the forecast horizon is marked "later →" at the chart's edge rather than drawn as if it fell there.
+  It stays hidden while the Forecast view is held back.
 
 ## [1.19.0] - 2026-10-15 "Nesbø"
 
