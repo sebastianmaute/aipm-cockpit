@@ -49,8 +49,9 @@ export type AppForecastArgs = {
   holidaySet: ReadonlySet<string>;
 };
 
-/** Share of trials done within the plan's working days; a beyond-horizon trial is never on time. */
-function chanceOnTime(
+/** Share of trials done within the plan's working days; a beyond-horizon trial is never on time. Shared with the
+ *  scenario comparison (`forecast-scenario-compare.ts`), so every column reads the plan end the same way. */
+export function chanceOnTime(
   planEnd: string,
   today: string,
   holidaySet: ReadonlySet<string>,

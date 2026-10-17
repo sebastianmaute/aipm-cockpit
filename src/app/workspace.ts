@@ -44,6 +44,7 @@ import { sanitizeActivityLog, type ActivityEntry } from "./activity-log";
 import { sanitizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
 import { sanitizeBaselineHistory, type BaselineEntry } from "./baseline-currency";
 import { sanitizeForecastHistory, type ForecastHistoryEntry } from "./forecast-history";
+import { sanitizeForecastScenarios, type ForecastScenario } from "./forecast-scenarios";
 import { sanitizeProjectDocumentsWithDiag, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersionsWithDiag, type DocVersion } from "./document-versions";
@@ -161,6 +162,11 @@ export type Workspace = {
    *  isWorkspaceEmpty. Optional & additive: undefined/empty serializes to
    *  nothing (byte-stable). Sanitized by sanitizeForecastHistory. */
   forecastHistory?: readonly ForecastHistoryEntry[];
+  /** Saved forecast scenarios (§502): at most four named lists of what-if inputs.
+   *  Meta-blob sibling of `forecastHistory`: storage-only, NOT counted by
+   *  isWorkspaceEmpty. Optional & additive: undefined/empty serializes to
+   *  nothing (byte-stable). Sanitized by sanitizeForecastScenarios. */
+  forecastScenarios?: readonly ForecastScenario[];
   /** AI- and user-authored project documents (canonical block model; the
    *  .docx/.pptx/.html/.pdf bytes are rendered on demand and never stored).
    *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
@@ -548,6 +554,8 @@ export function workspaceToJson(ws: Workspace): string {
       ...(ws.baselineHistory && ws.baselineHistory.length ? { baselineHistory: ws.baselineHistory } : {}),
       // Additive, same shape: legacy files stay free of a `forecastHistory` key.
       ...(ws.forecastHistory && ws.forecastHistory.length ? { forecastHistory: ws.forecastHistory } : {}),
+      // Additive, same shape: legacy files stay free of a `forecastScenarios` key.
+      ...(ws.forecastScenarios && ws.forecastScenarios.length ? { forecastScenarios: ws.forecastScenarios } : {}),
       // Additive: only present when documents exist, so legacy files stay free
       // of a `documents` key. JSON is the complete round-trip, so this is
       // always emitted (storage AND export) when present.
@@ -623,9 +631,9 @@ export class WorkspaceParseError extends Error {
  *  document-version sanitizers write into it what a load-time CAP silently
  *  discarded, so a backend can report the loss instead of truncating in
  *  silence. Since §620, `diag.decodeFailedSlices` also receives the JSON key
- *  of any of the 15 meta slices (status, project, fieldVisibility, features,
+ *  of any of the 16 meta slices (status, project, fieldVisibility, features,
  *  steeringCommittee, timelogLinks, knowledgeItems, insights, activityLog,
- *  budgetHistory, baselineHistory, forecastHistory, documents, documentVersions,
+ *  budgetHistory, baselineHistory, forecastHistory, forecastScenarios, documents, documentVersions,
  *  settingsOverrides) whose stored
  *  value carried content but sanitized to nothing. `documents` and
  *  `documentVersions` are ALSO recorded when their sanitize pass THROWS, and
@@ -772,6 +780,12 @@ export function jsonToWorkspace(
       const forecast = sanitizeForecastHistory(p.forecastHistory);
       if (forecast.length) raw.forecastHistory = forecast;
       noteIfDropped("forecastHistory", p.forecastHistory, forecast);
+    }
+    // Additive: sanitize incoming forecast scenarios when present.
+    if (p.forecastScenarios !== undefined) {
+      const scenarios = sanitizeForecastScenarios(p.forecastScenarios);
+      if (scenarios.length) raw.forecastScenarios = scenarios;
+      noteIfDropped("forecastScenarios", p.forecastScenarios, scenarios);
     }
     // Additive: sanitize incoming documents when present. TWO passes, in this
     // order: sanitizeProjectDocuments enforces the STRUCTURE (and is DOM-free

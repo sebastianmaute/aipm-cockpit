@@ -32,7 +32,7 @@ export function formatChanceOverBudget(chance: number, locale: string): string {
 }
 
 /** A percentile row label: the plain word, then "(Pxx)", e.g. "Safe to commit (P80)". */
-function percentileLabel(lang: Lang, p: SimPercentile): string {
+export function percentileLabel(lang: Lang, p: SimPercentile): string {
   return `${t(lang, percentileWord(p))} (P${p})`;
 }
 

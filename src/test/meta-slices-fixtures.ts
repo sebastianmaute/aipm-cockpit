@@ -14,14 +14,15 @@ import { type Workspace, jsonToWorkspace } from "../app/workspace";
 export type MetaKey =
   | "status" | "project" | "fieldVisibility" | "features" | "steeringCommittee"
   | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides"
-  | "documents" | "documentVersions" | "activityLog" | "budgetHistory" | "baselineHistory" | "forecastHistory";
+  | "documents" | "documentVersions" | "activityLog" | "budgetHistory" | "baselineHistory" | "forecastHistory"
+  | "forecastScenarios";
 
-/** The thirteen single-JSON-blob slices (everything but status and project). */
+/** The fourteen single-JSON-blob slices (everything but status and project). */
 export type BlobKey = Exclude<MetaKey, "status" | "project">;
 
 export interface BlobCase { key: BlobKey; junk: unknown; empty: unknown; emptyDecoded: unknown }
 
-/** The thirteen single-JSON-blob slices: one junk value that has content but
+/** The fourteen single-JSON-blob slices: one junk value that has content but
  *  sanitizes to nothing (the values workspace.test.ts's §620 table uses), and
  *  a genuinely empty stored value, with what it decodes to — unchanged from
  *  before §630 (features keeps `[]`, Simple mode; the committee and timelog
@@ -40,6 +41,7 @@ export const META_BLOB_CASES: readonly BlobCase[] = [
   { key: "budgetHistory", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
   { key: "baselineHistory", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
   { key: "forecastHistory", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
+  { key: "forecastScenarios", junk: [{ nope: 1 }], empty: [], emptyDecoded: undefined },
 ];
 
 export const ALL_META_KEYS: readonly MetaKey[] = ["status", "project", ...META_BLOB_CASES.map((c) => c.key)];
@@ -66,7 +68,7 @@ function budgetHistoryFixture(): Workspace["budgetHistory"] {
   });
 }
 
-/** The curated sample carries nine of the fifteen slices; the other six are
+/** The curated sample carries nine of the sixteen slices; the other seven are
  *  added here so every key has a GENUINE, non-empty value. */
 export function fullMetaWorkspace(): Workspace {
   const sample = jsonToWorkspace(
@@ -85,6 +87,9 @@ export function fullMetaWorkspace(): Workspace {
     forecastHistory: [
       { date: "2026-10-01", p50: "2026-11-02", p80: "2026-11-09", p95: "2026-11-20", chanceOnTime: 0.62 },
       { date: "2026-10-02", p50: null, p80: null, p95: null, chanceOnTime: null },
+    ],
+    forecastScenarios: [
+      { id: 1, name: "Two more people", changes: [{ kind: "addPeople", who: { resourceId: 1, hoursPerWeek: 20 }, from: "2026-11-02", until: "", rampWeeks: 2 }] },
     ],
   };
 }

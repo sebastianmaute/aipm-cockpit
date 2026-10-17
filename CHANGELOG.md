@@ -93,6 +93,16 @@ longer carries its own changelog comment.
   does not have them. With a budget of 0 it still shows the range, without the chance of going over budget, and a
   finish beyond the forecast horizon is marked "later →" at the chart's edge rather than drawn as if it fell there.
   It stays hidden while the Forecast view is held back.
+- **Saved forecast scenarios are built but held back with the forecast (§502).** The Forecast view gains a
+  Scenarios mode that compares the plan as it is with up to four saved scenarios, each a named list of dated
+  changes: a change in team availability for a period, people added from the directory or as placeholders (with a
+  ramp-up, sized from the team's booked hours, and their cost from day one), and tasks added or removed on a date,
+  optionally on a milestone. Every scenario shows its finish range, its chance of finishing by the plan end, its
+  milestone chances and, with "Use Monte Carlo forecasting" and a budget, its cost at finish; all scenarios use the
+  same random draws, so they differ only by what was changed. "Save as scenario" turns the current What-if into a
+  scenario. Scenarios are saved with the project, every change is in the activity log, edits and deletes can be
+  undone, and restoring an earlier version keeps today's scenarios. What-if's "Capacity" field is now called
+  "Availability". It stays hidden while the Forecast view is held back.
 
 ## [1.19.0] - 2026-10-15 "Nesbø"
 

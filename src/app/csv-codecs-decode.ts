@@ -82,6 +82,7 @@ import {
   CSV_SECTION_BUDGET_HISTORY,
   CSV_SECTION_BASELINE_HISTORY,
   CSV_SECTION_FORECAST_HISTORY,
+  CSV_SECTION_FORECAST_SCENARIOS,
   buildCalendarEventFromObj,
   buildChangeFromObj,
   buildMilestoneFromObj,
@@ -109,6 +110,7 @@ import {
   csvToBudgetHistory,
   csvToBaselineHistory,
   csvToForecastHistory,
+  csvToForecastScenarios,
 } from "./csv-codecs-config";
 
 
@@ -217,6 +219,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   budgetHistoryText: string;
   baselineHistoryText: string;
   forecastHistoryText: string;
+  forecastScenariosText: string;
 } {
   // ★★★ QUOTE-AWARE, NOT `csv.split(/\r?\n/)`. A raw split breaks a quoted
   // cell across physical lines, and a continuation that begins with a section
@@ -318,7 +321,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   // csv-section-split.test.ts — the outcome assertions there all survive the
   // mutation, so only that one closes it.
   const lines = scan.unterminatedQuote ? csv.split(/\r?\n/) : scan.lines;
-  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | "documentVersions" | "documentAssets" | "activityLog" | "budgetHistory" | "baselineHistory" | "forecastHistory" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | "documentVersions" | "documentAssets" | "activityLog" | "budgetHistory" | "baselineHistory" | "forecastHistory" | "forecastScenarios" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -350,6 +353,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   const budgetHistoryLines: string[] = [];
   const baselineHistoryLines: string[] = [];
   const forecastHistoryLines: string[] = [];
+  const forecastScenariosLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     // ★★ ORDER IS LOAD-BEARING because these are `startsWith` tests, not
@@ -391,6 +395,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
     if (trimmed.startsWith(CSV_SECTION_BUDGET_HISTORY)) { mode = "budgetHistory"; continue; }
     if (trimmed.startsWith(CSV_SECTION_BASELINE_HISTORY)) { mode = "baselineHistory"; continue; }
     if (trimmed.startsWith(CSV_SECTION_FORECAST_HISTORY)) { mode = "forecastHistory"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_FORECAST_SCENARIOS)) { mode = "forecastScenarios"; continue; }
     if (trimmed.startsWith(CSV_SECTION_PROJECT)) { mode = "project"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
@@ -427,6 +432,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
     else if (mode === "budgetHistory") budgetHistoryLines.push(line);
     else if (mode === "baselineHistory") baselineHistoryLines.push(line);
     else if (mode === "forecastHistory") forecastHistoryLines.push(line);
+    else if (mode === "forecastScenarios") forecastScenariosLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -464,6 +470,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
     budgetHistoryText: budgetHistoryLines.join("\r\n"),
     baselineHistoryText: baselineHistoryLines.join("\r\n"),
     forecastHistoryText: forecastHistoryLines.join("\r\n"),
+    forecastScenariosText: forecastScenariosLines.join("\r\n"),
   };
 }
 
@@ -731,6 +738,10 @@ export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
   if (s.forecastHistoryText.trim()) {
     const forecast = csvToForecastHistory(s.forecastHistoryText, diag);
     if (forecast) ws.forecastHistory = forecast;
+  }
+  if (s.forecastScenariosText.trim()) {
+    const scenarios = csvToForecastScenarios(s.forecastScenariosText, diag);
+    if (scenarios) ws.forecastScenarios = scenarios;
   }
   return migrateWorkspaceV10(ws);
 }

@@ -24,7 +24,8 @@ export type MintKind =
   | "budgetBucket"
   | "calendarEvent"
   | "document"
-  | "documentVersion";
+  | "documentVersion"
+  | "forecastScenario";
 
 /** Minimal shape every mintable entity satisfies. */
 type HasId = { id: number };
@@ -135,6 +136,7 @@ export function seedMintFromWorkspace(
   seedMintKind("calendarEvent", ws.calendarEvents ?? [], mode);
   seedMintKind("document", ws.documents ?? [], mode);
   seedMintKind("documentVersion", ws.documentVersions ?? [], mode);
+  seedMintKind("forecastScenario", ws.forecastScenarios ?? [], mode);
 }
 
 /**

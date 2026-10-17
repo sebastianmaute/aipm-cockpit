@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 import type { Milestone, Task } from "../types";
-import { clampWhatIf, computeScheduleForecast, effortCoverage, type ScheduleForecastInput, type WhatIf } from "./index";
-import { FORECAST_TRIALS } from "./constants";
+import { clampWhatIf, computeScheduleForecast, effortCoverage, type ScheduleForecastInput, type ScopeArrival, type WhatIf } from "./index";
+import { FORECAST_TRIALS, MAX_HORIZON_WORKING_DAYS } from "./constants";
+import { seedFrom } from "./rng";
+import { PRIORITIES } from "../types";
+import { addCalendarDays, nthWorkingDayAfter } from "../working-days";
 
 // 2026-10-14 is a Wednesday.
 const TODAY = "2026-10-14";
@@ -321,5 +324,205 @@ describe("clampWhatIf", () => {
       scopePercent: 500,
       capacityPercent: 300,
     });
+  });
+});
+
+describe("computeScheduleForecast with dated changes", () => {
+  const FLAT = () => new Float64Array(MAX_HORIZON_WORKING_DAYS + 1).fill(1);
+  /** Uneven history (3, 2, then 1s over 12 days) so trials spread; M1 and M2 sit mid-distribution. */
+  const tasks = [...open(40), ...recentDone(12), done(1500, "2026-10-14"), done(1501, "2026-10-14"), done(1502, "2026-10-13")];
+  const milestones: Milestone[] = [
+    { id: 1, name: "M1", date: nthWorkingDayAfter(TODAY, 15, NO_HOLIDAYS), linkedTaskIds: [20] },
+    { id: 2, name: "M2", date: nthWorkingDayAfter(TODAY, 30, NO_HOLIDAYS), linkedTaskIds: [40] },
+    { id: 3, name: "M3", date: nthWorkingDayAfter(TODAY, 30, NO_HOLIDAYS), linkedTaskIds: [39], achievedDate: "2026-10-01" },
+  ];
+  const chances = (r: ReturnType<typeof computeScheduleForecast>) => {
+    if (r.kind !== "forecast") throw new Error("expected forecast");
+    return r.milestones;
+  };
+
+  test("changes with a flat 1.0 schedule and no arrivals equal the plain run", () => {
+    const plain = computeScheduleForecast(input(tasks, { milestones }));
+    if (plain.kind !== "forecast") throw new Error("expected forecast");
+    const between = plain.milestones.filter((m) => m.state === "chance" && m.chance > 0 && m.chance < 1);
+    expect(between, "some trials reach and some miss each open milestone").toHaveLength(2);
+    expect(new Set(plain.distribution).size, "trials finish on different days").toBeGreaterThan(1);
+    expect(computeScheduleForecast(input(tasks, { milestones, changes: { capacityByDay: FLAT(), arrivals: [] } }))).toEqual(plain);
+  });
+
+  test("an arrival on an achieved milestone counts as unattributed", () => {
+    const run = (milestoneId: number | null) =>
+      chances(computeScheduleForecast(input(tasks, { milestones, changes: { capacityByDay: FLAT(), arrivals: [{ day: 5, tasks: 4, milestoneId }] } })));
+    const unattributed = run(null);
+    expect(run(1), "attributing to an open milestone moves it").not.toEqual(unattributed);
+    expect(run(3)).toEqual(unattributed);
+    expect(run(99), "a milestone that does not exist").toEqual(unattributed);
+  });
+
+  test("effort unit: an arrival of 2 tasks adds 2 × the median estimate", () => {
+    // Estimates 30 / 60 / 600 on 7 of 10 tasks: base 1410 + 3 x median 60 = 1590.
+    const estimates = [30, 60, 600];
+    const estimated = Array.from({ length: 10 }, (_, i) => task(i + 1, i < 7 ? { originalEstimateMinutes: estimates[i % 3] } : {}));
+    const r = computeScheduleForecast(
+      input([...estimated, ...recentDone(10, 30)], {
+        unit: "effort",
+        // `changes` replaces the What-if: its scope does not reach the backlog.
+        whatIf: { ...NEUTRAL, scopeTasks: 5 },
+        changes: { capacityByDay: FLAT(), arrivals: [{ day: 3, tasks: 2, milestoneId: null }] },
+      }),
+    );
+    expect(r).toMatchObject({ kind: "forecast", unit: "effort", backlog: 1590 + 120 });
+  });
+
+  test("an attributed removal lowers the backlog and the cap only by what came off its milestone", () => {
+    // 10 open tasks at queue positions 1..10, exactly 1 done a day. M1 owns task 5 only, so -3 on M1 removes 1:
+    // M2 moves 10 -> 9 and the arrived work 10 -> 9, so M2 is reached on day 9. The raw -3 would cap done at 7.
+    const ms: Milestone[] = [
+      { id: 1, name: "M1", date: nthWorkingDayAfter(TODAY, 4, NO_HOLIDAYS), linkedTaskIds: [5] },
+      { id: 2, name: "M2", date: nthWorkingDayAfter(TODAY, 9, NO_HOLIDAYS), linkedTaskIds: [10] },
+    ];
+    const r = computeScheduleForecast(
+      input([...open(10), ...recentDone(12)], { milestones: ms, changes: { capacityByDay: FLAT(), arrivals: [{ day: 0, tasks: -3, milestoneId: 1 }] } }),
+    );
+    if (r.kind !== "forecast") throw new Error("expected forecast");
+    const m2 = r.milestones.find((m) => m.id === 2);
+    expect(m2?.state === "chance" && m2.chance).toBeGreaterThan(0);
+    expect(m2).toEqual({ id: 2, state: "chance", chance: 1, chancePrioritised: 1 });
+    expect(r.backlog).toBe(9);
+  });
+
+  test("a removal on a later milestone does not make an earlier one unreachable", () => {
+    // 11 open tasks at positions 1..11, exactly 1 done a day. M owns task 10 (day 12); L owns tasks 1 and 11
+    // (position 11, day 30). -2 on L moves L only: M keeps position 10 and the work ahead of it, as if unattributed.
+    const ms: Milestone[] = [
+      { id: 1, name: "M", date: nthWorkingDayAfter(TODAY, 12, NO_HOLIDAYS), linkedTaskIds: [10] },
+      { id: 2, name: "L", date: nthWorkingDayAfter(TODAY, 30, NO_HOLIDAYS), linkedTaskIds: [1, 11] },
+    ];
+    const run = (milestoneId: number | null) =>
+      chances(computeScheduleForecast(input([...open(11), ...recentDone(12)], { milestones: ms, changes: { capacityByDay: FLAT(), arrivals: [{ day: 0, tasks: -2, milestoneId }] } })));
+    const m = (r: ReturnType<typeof run>) => r.find((x) => x.id === 1);
+    expect(m(run(2))).toEqual({ id: 1, state: "chance", chance: 1, chancePrioritised: 1 });
+    expect(m(run(2))).toEqual(m(run(null)));
+  });
+
+  test("arrivals alone still need the history floor", () => {
+    const changes = (n: number) => ({ capacityByDay: FLAT(), arrivals: n === 0 ? [] : [{ day: 2, tasks: n, milestoneId: null }] });
+    expect(computeScheduleForecast(input(recentDone(3), { changes: changes(0) })).kind, "no work at all skips the floor").toBe("forecast");
+    expect(computeScheduleForecast(input(recentDone(3), { changes: changes(5) })).kind).toBe("insufficient");
+  });
+
+  test("a higher capacity never makes any trial later (shared draws)", () => {
+    const run = (over: Partial<ScheduleForecastInput>) => {
+      const r = computeScheduleForecast(input(tasks, { milestones, ...over }));
+      if (r.kind !== "forecast") throw new Error("expected forecast");
+      return r;
+    };
+    const quick = run({ whatIf: NEUTRAL });
+    const more = run({ whatIf: { ...NEUTRAL, capacityPercent: 130 } });
+    expect(Array.from(more.trialDays).every((d, t) => d <= quick.trialDays[t])).toBe(true);
+    expect(Array.from(more.trialDays).some((d, t) => d < quick.trialDays[t]), "some trial finishes earlier").toBe(true);
+  });
+
+  test("a later scope arrival never makes any trial finish earlier", () => {
+    const run = (arrivals: ScopeArrival[]) => {
+      const r = computeScheduleForecast(input(tasks, { milestones, changes: { capacityByDay: FLAT(), arrivals } }));
+      if (r.kind !== "forecast") throw new Error("expected forecast");
+      return r;
+    };
+    const none = run([]);
+    const added = run([{ day: 20, tasks: 5, milestoneId: null }]);
+    expect(Array.from(added.trialDays).every((d, t) => d >= none.trialDays[t])).toBe(true);
+    expect(Array.from(added.trialDays).some((d, t) => d > none.trialDays[t]), "some trial finishes later").toBe(true);
+  });
+
+  test("a flat 130 % schedule plus a day-0 arrival equals the What-if it came from (tasks unit)", () => {
+    // 50 open: the What-if adds 3 + round(10 % of 50) = 8 tasks at 130 % capacity.
+    const fifty = [...open(50), ...recentDone(12), done(1500, "2026-10-14"), done(1501, "2026-10-14"), done(1502, "2026-10-13")];
+    const whatIf = computeScheduleForecast(input(fifty, { milestones, whatIf: { scopeTasks: 3, scopePercent: 10, capacityPercent: 130 } }));
+    const dated = computeScheduleForecast(
+      input(fifty, {
+        milestones,
+        changes: {
+          capacityByDay: new Float64Array(MAX_HORIZON_WORKING_DAYS + 1).fill(1.3),
+          arrivals: [{ day: 0, tasks: 8, milestoneId: null }],
+        },
+      }),
+    );
+    if (whatIf.kind !== "forecast" || dated.kind !== "forecast") throw new Error("expected forecast");
+    expect(whatIf.backlog).toBe(58);
+    expect(new Set(whatIf.trialDays).size, "trials finish on different days").toBeGreaterThan(1);
+    expect(dated.backlog).toBe(whatIf.backlog);
+    expect(Array.from(dated.trialDays)).toEqual(Array.from(whatIf.trialDays));
+    expect(dated.when).toEqual(whatIf.when);
+    expect(dated.howMany).toEqual(whatIf.howMany);
+    expect(dated.milestones).toEqual(whatIf.milestones);
+  });
+
+  test("insufficient carries the window dates", () => {
+    const r = computeScheduleForecast(input([...open(5), ...recentDone(9)]));
+    if (r.kind !== "insufficient") throw new Error("expected insufficient");
+    expect(r.windowDates).toHaveLength(r.days);
+    expect(r.windowDates[0]).toBe("2026-10-02");
+    expect(r.windowDates[r.windowDates.length - 1]).toBe(TODAY);
+  });
+});
+
+describe("pinned digests", () => {
+  // One number per result: every trial's day, every How-many amount and every milestone chance. A change
+  // to the engine that moves any of them moves the digest, so these pin that a refactor moves nothing.
+  function digest(r: ReturnType<typeof computeScheduleForecast>): number {
+    if (r.kind !== "forecast") throw new Error("expected forecast");
+    return seedFrom([
+      ...r.trialDays,
+      ...r.howMany.map((h) => h.amount),
+      ...r.milestones.flatMap((m): (string | number)[] => (m.state === "chance" ? [m.chance, m.chancePrioritised] : [m.state])),
+    ]);
+  }
+  /** 40 open tasks: mixed due dates (every third blank) and priorities; estimated when `estimate`. */
+  function mixedOpen(estimate: boolean): Task[] {
+    return Array.from({ length: 40 }, (_, i) =>
+      task(i + 1, {
+        dueDate: (i + 1) % 3 === 0 ? "" : addCalendarDays(TODAY, ((i + 1) * 7) % 50),
+        priority: PRIORITIES[(i + 1) % PRIORITIES.length],
+        originalEstimateMinutes: estimate ? 30 + (((i + 1) * 37) % 240) : undefined,
+      }),
+    );
+  }
+  /** 1 to 3 completions on each of the last 30 working days. */
+  function steadyHistory(estimate: boolean): Task[] {
+    let id = 8000;
+    return steadyDays(30).flatMap((d, j) =>
+      Array.from({ length: 1 + (j % 3) }, () => {
+        const k = id++;
+        return done(k, d, estimate ? 60 + ((k * 13) % 120) : undefined);
+      }),
+    );
+  }
+  function fixture(unit: "tasks" | "effort"): ScheduleForecastInput {
+    const estimate = unit === "effort";
+    const milestones: Milestone[] = [
+      { id: 1, name: "M1", date: nthWorkingDayAfter(TODAY, 20, NO_HOLIDAYS), linkedTaskIds: [12] },
+      { id: 2, name: "M2", date: nthWorkingDayAfter(TODAY, 60, NO_HOLIDAYS), linkedTaskIds: [35] },
+    ];
+    return input([...mixedOpen(estimate), ...steadyHistory(estimate)], {
+      milestones,
+      window: 30,
+      unit,
+      whatIf: { scopeTasks: 3, scopePercent: 10, capacityPercent: 130 },
+      howManyTarget: "2026-11-30",
+      trials: 500,
+    });
+  }
+
+  test("tasks unit", () => {
+    const r = computeScheduleForecast(fixture("tasks"));
+    expect(r).toMatchObject({ kind: "forecast", unit: "tasks" });
+    expect(digest(r)).toBe(1170482356);
+  });
+
+  test("effort unit", () => {
+    const r = computeScheduleForecast(fixture("effort"));
+    expect(r).toMatchObject({ kind: "forecast", unit: "effort" });
+    expect(digest(r)).toBe(2659308525);
   });
 });

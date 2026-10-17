@@ -58,6 +58,8 @@ export const CSV_SECTION_BUDGET_HISTORY = "# BUDGET HISTORY";
 export const CSV_SECTION_BASELINE_HISTORY = "# BASELINE HISTORY";
 // ★ Not a prefix of, nor prefixed by, any marker above (§502).
 export const CSV_SECTION_FORECAST_HISTORY = "# FORECAST HISTORY";
+// ★ Not a prefix of, nor prefixed by, any marker above (§502); it shares only "# FORECAST " with the one before.
+export const CSV_SECTION_FORECAST_SCENARIOS = "# FORECAST SCENARIOS";
 
 /**
  * The sections a dropped IMPORT ROW can be attributed to — the answer to "which

@@ -127,6 +127,28 @@ const ACTIVITY_ARG_DISPLAY: Partial<Record<ActivityKind, (lang: Lang, args: (str
  * throwing: an entry written by a newer release must still render on an older
  * client, which is the same forward-compat trade `sanitizeActivityEntry` makes.
  */
+const DIGITS = /^\d+$/;
+
+/**
+ * A field change's from/to as the panel shows them. Stored values are raw data with no language, so the one
+ * synthetic count among them — a saved forecast scenario's row count (`scenarioFieldChanges`, §502) — is
+ * worded here: "1 row" / "3 rows", and an equal count, which is only ever logged for edited rows, "3 rows
+ * (edited)". Anything else passes through unchanged.
+ */
+export function activityChangeValues(
+  lang: Lang, kind: string, change: { field: string; from: string; to: string },
+): { from: string; to: string } {
+  if (kind !== "forecastScenario.updated" || change.field !== "changes" || !DIGITS.test(change.from) || !DIGITS.test(change.to)) {
+    return { from: change.from, to: change.to };
+  }
+  const from = Number(change.from);
+  const to = Number(change.to);
+  return {
+    from: tPlural(lang, "forecastScenarioRowCount", from, from),
+    to: tPlural(lang, from === to ? "forecastScenarioRowCountEdited" : "forecastScenarioRowCount", to, to),
+  };
+}
+
 export function activityMessage(
   lang: Lang,
   kind: string,

@@ -13,6 +13,13 @@ import { SIM_OUTLINE_CLASS, SimBadge } from "./sim-value";
  * With P95 beyond the horizon the band runs open to the right edge.
  * ★ Every date on it is simulated, so it wears the sim marking (§3.2): `SimValue`'s dashed outline
  * and "sim" badge, in a group named "<label>, simulated".
+ * `axis` (Scenarios mode, §502): one date axis for every bar in a stack, so the same date sits at the same x in
+ * each row; a date outside it is held at the edge. Absent, the bar spans its own dates as it always has.
+ * ★ On a shared axis an open band and the band whose P95 SETS the right edge both end at that edge, so an open
+ * band carries the burn chart's "later →" cue there: words, not colour. It is aria-hidden because the img's
+ * text alternative already says "only beyond the forecast horizon". On its own axis the open-end pad shows it.
+ * The cue never shares a row with a label it could overlap: it is dropped when both the plan-end and P80 labels
+ * reach into its corner.
  */
 
 const W = 240;
@@ -25,6 +32,10 @@ const BAND_H = 10;
 const OPEN_END_PAD = 0.15;
 /** Half the width of the "P80" label at font size 8; its centre is kept this far from either edge so it never clips. */
 const P80_LABEL_HALF_W = 8;
+/** Room kept for the "later →" cue at font size 8, right-anchored at the inset; wide enough for the DE "später →". */
+const CUE_W = 40;
+/** Room kept for the plan-end label at font size 8; wide enough for the DE "Planende". */
+const PLAN_LABEL_W = 40;
 
 /** Days since the epoch for an ISO day, read in UTC. Pure: no clock is read. */
 function dayNumber(iso: string): number {
@@ -39,6 +50,8 @@ export function ForecastRangeBar({
   p95,
   planEnd,
   today,
+  axis,
+  label,
 }: {
   lang: Lang;
   p50: string;
@@ -48,22 +61,39 @@ export function ForecastRangeBar({
   /** Null or an invalid date drops the plan-end tick and its sentence. */
   planEnd: string | null;
   today: string;
+  /** One shared axis for every row; absent = the bar's own axis. */
+  axis?: { lo: string; hi: string };
+  /** The group's name before ", simulated"; absent = "Forecast range". A stack of bars passes a row-unique one. */
+  label?: string;
 }) {
   const locale = localeFor(lang);
   const fmt = (iso: string) => formatDayMonthYear(iso, locale);
   const plan = planEnd !== null && isValidIsoDate(planEnd) ? planEnd : null;
 
   const points = [today, p50, p80, ...(p95 ? [p95] : []), ...(plan ? [plan] : [])].map(dayNumber);
-  const lo = Math.min(...points);
+  const lo = axis ? dayNumber(axis.lo) : Math.min(...points);
   const last = Math.max(...points);
-  const hi = p95 ? last : last + Math.max(1, (last - lo) * OPEN_END_PAD);
+  const hi = axis ? dayNumber(axis.hi) : p95 ? last : last + Math.max(1, (last - lo) * OPEN_END_PAD);
   const span = Math.max(1, hi - lo);
-  const xFor = (iso: string) => INSET + ((dayNumber(iso) - lo) / span) * (W - 2 * INSET);
+  const share = (iso: string) => (dayNumber(iso) - lo) / span;
+  // Only a shared axis can leave a date outside it; the bar's own axis holds every date by construction.
+  const xFor = (iso: string) => INSET + (axis ? Math.min(1, Math.max(0, share(iso))) : share(iso)) * (W - 2 * INSET);
 
   const bandLeft = xFor(p50);
   const bandRight = p95 ? xFor(p95) : W - INSET;
   const markX = xFor(p80);
   const planX = plan ? xFor(plan) : null;
+  const planAnchor = planX === null ? null : planX < W / 4 ? "start" : planX > (3 * W) / 4 ? "end" : "middle";
+  const p80LabelX = Math.min(W - P80_LABEL_HALF_W, Math.max(P80_LABEL_HALF_W, markX));
+  // The cue's row is bottom right, beside the plan-end label; above the band, beside the P80 label, when the plan-end
+  // label reaches into the cue's x range. When the P80 label does too, the cue is dropped: it is aria-hidden and the
+  // img's name already says "beyond the horizon", so two overlapping labels would cost more than the cue adds.
+  const cueLeft = W - INSET - CUE_W;
+  const planLabelRight =
+    planX === null ? -Infinity : planAnchor === "end" ? planX : planAnchor === "middle" ? planX + PLAN_LABEL_W / 2 : planX + PLAN_LABEL_W;
+  const bottomFree = planLabelRight < cueLeft;
+  const topFree = p80LabelX + P80_LABEL_HALF_W < cueLeft;
+  const laterCue = axis && !p95 && (bottomFree || topFree) ? { y: bottomFree ? H - 1 : BAND_Y - 6 } : null;
 
   const ariaLabel = p95
     ? plan
@@ -76,7 +106,7 @@ export function ForecastRangeBar({
   return (
     <div
       role="group"
-      aria-label={t(lang, "simValueSr", t(lang, "forecastRangeLabel"))}
+      aria-label={t(lang, "simValueSr", label ?? t(lang, "forecastRangeLabel"))}
       data-sim="true"
       className={`flex items-center gap-1.5 ${SIM_OUTLINE_CLASS}`}
     >
@@ -94,7 +124,7 @@ export function ForecastRangeBar({
           className="fill-ui-green-strong dark:fill-ui-green"
         />
         <line data-p80 x1={markX} x2={markX} y1={BAND_Y - 4} y2={AXIS_Y} strokeWidth={2} className="stroke-ui-dark-blue dark:stroke-ui-light-grey" />
-        <text data-p80-label x={Math.min(W - P80_LABEL_HALF_W, Math.max(P80_LABEL_HALF_W, markX))} y={BAND_Y - 6} textAnchor="middle" fontSize={8} className="fill-ui-dark-blue dark:fill-ui-light-grey">
+        <text data-p80-label x={p80LabelX} y={BAND_Y - 6} textAnchor="middle" fontSize={8} className="fill-ui-dark-blue dark:fill-ui-light-grey">
           P80
         </text>
         {planX !== null && (
@@ -112,13 +142,18 @@ export function ForecastRangeBar({
             <text
               x={planX}
               y={H - 1}
-              textAnchor={planX < W / 4 ? "start" : planX > (3 * W) / 4 ? "end" : "middle"}
+              textAnchor={planAnchor ?? "middle"}
               fontSize={8}
               className="fill-ui-dark-blue dark:fill-ui-light-grey"
             >
               {t(lang, "forecastRangePlanEnd")}
             </text>
           </g>
+        )}
+        {laterCue && (
+          <text data-open-end-cue aria-hidden="true" x={W - INSET} y={laterCue.y} textAnchor="end" fontSize={8} className="fill-ui-dark-blue dark:fill-ui-light-grey">
+            {t(lang, "burndownSimPastChartCue")}
+          </text>
         )}
       </svg>
       <SimBadge lang={lang} />
