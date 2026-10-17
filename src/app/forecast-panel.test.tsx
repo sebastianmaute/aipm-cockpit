@@ -736,8 +736,8 @@ describe("ForecastPanel — Ask Claude (§502)", () => {
       scenarios={SCENARIOS_PROPS} aiEnabled showSimulation {...extra}
     />
   );
-  const trigger = () => screen.queryByRole("button", { name: "Ask Claude" });
-  const menuItems = () => within(screen.getByRole("dialog", { name: "Ask Claude" })).getAllByRole("button").map((b) => b.textContent);
+  const trigger = () => screen.queryByRole("button", { name: "Ask Claude about this forecast" });
+  const menuItems = () => within(screen.getByRole("dialog", { name: "Ask Claude about this forecast" })).getAllByRole("button").map((b) => b.textContent);
 
   test("renders no trigger with the AI off, the simulation off or in a popout", () => {
     for (const extra of [{ aiEnabled: false }, { showSimulation: false }, { isPopout: true }]) {
@@ -754,7 +754,7 @@ describe("ForecastPanel — Ask Claude (§502)", () => {
     const toolbar = container.querySelector<HTMLElement>("[data-forecast-toolbar]");
     if (!toolbar) throw new Error("toolbar not rendered");
     const names = buttonNames(toolbar);
-    expect(names.slice(-3)).toEqual(["Ask Claude", t("en-US", "printHint"), t("en-US", "tableResetSizeHint")]);
+    expect(names.slice(-3)).toEqual(["Ask Claude about this forecast", t("en-US", "printHint"), t("en-US", "tableResetSizeHint")]);
   });
 
   test("Quick offers Explain and the milestone, never the scenario prompts", async () => {

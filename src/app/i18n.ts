@@ -801,7 +801,7 @@ const enUS = {
   forecastSaveAsScenario: "Save as scenario",
   forecastSaveAsScenarioScopeNote: "{0} = {1} today",
   forecastSaveAsScenarioClamped: "The scope change is capped at {0} tasks.",
-  forecastAskClaude: "Ask Claude",
+  forecastAskClaude: "Ask Claude about this forecast",
   forecastAskExplainLabel: "Explain this forecast",
   forecastAskExplainBody: "Explain this project's Monte Carlo forecast: what the P50, P80 and P95 finish dates mean, how likely we are to make the plan end, and which milestones are at risk. Use get_forecast and say the figures are simulated.",
   forecastAskMilestoneLabel: "What would get {0} on time?",

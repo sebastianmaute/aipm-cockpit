@@ -1,8 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { computeAccessibleName } from "dom-accessibility-api";
 import { ForecastAskClaude, worstMilestoneName } from "./forecast-ask-claude";
-import { loadI18n } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import type { MilestoneChance } from "./forecast/milestones";
 import type { Milestone } from "./types";
 
@@ -13,7 +14,8 @@ const ms = (id: number, name: string, date: string): Milestone => ({ id, name, d
 const chance = (id: number, c: number): MilestoneChance => ({ id, state: "chance", chance: c, chancePrioritised: c });
 
 const items = () => screen.getAllByRole("button").slice(1).map((b) => b.textContent);
-const openMenu = async (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole("button", { name: "Ask Claude" }));
+const TRIGGER = "Ask Claude about this forecast";
+const openMenu = async (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole("button", { name: TRIGGER }));
 
 describe("ForecastAskClaude", () => {
   beforeAll(async () => {
@@ -73,13 +75,28 @@ describe("ForecastAskClaude", () => {
     await user.tab();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Ask Claude" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: TRIGGER }));
   });
 
   test("reads in German", async () => {
     render(<ForecastAskClaude lang="de" inScenarios={false} scenarioCount={0} worstMilestone={null} />);
-    expect(screen.queryByRole("button", { name: "Ask Claude" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Claude fragen" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: TRIGGER })).toBeNull();
+    expect(screen.getByRole("button", { name: "Claude zu dieser Prognose fragen" })).toBeTruthy();
+  });
+
+  // ★★ The top-bar AskClaudeMenu (`aiAskClaude`) is also on screen in the Forecast view and does something else,
+  //    so a shared name gives two different controls one name. axe is silent on both a duplicate name and WCAG
+  //    2.5.3 label-in-name (accessibility.md), so this unit test is the only check. Both are read off the DOM.
+  test.each(["en-US", "de"] as const)("%s: trigger and dialog names differ from the header's and contain the visible label", async (lang) => {
+    const user = userEvent.setup();
+    render(<ForecastAskClaude lang={lang} inScenarios={false} scenarioCount={0} worstMilestone={null} />);
+    const trigger = screen.getByRole("button");
+    const name = computeAccessibleName(trigger);
+    expect(name).not.toBe(t(lang, "aiAskClaude"));
+    expect(name.toLowerCase()).toContain((trigger.textContent ?? "").trim().toLowerCase());
+    expect((trigger.textContent ?? "").trim()).not.toBe("");
+    await user.click(trigger);
+    expect(computeAccessibleName(screen.getByRole("dialog"))).not.toBe(t(lang, "aiAskClaude"));
   });
 });
 

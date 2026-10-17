@@ -739,7 +739,7 @@ export const de: Record<TranslationKey, string> = {
   forecastSaveAsScenario: "Als Szenario speichern",
   forecastSaveAsScenarioScopeNote: "{0} = {1} heute",
   forecastSaveAsScenarioClamped: "Die Umfangsänderung ist auf {0} Aufgaben begrenzt.",
-  forecastAskClaude: "Claude fragen",
+  forecastAskClaude: "Claude zu dieser Prognose fragen",
   forecastAskExplainLabel: "Diese Prognose erklären",
   forecastAskExplainBody: "Erkläre die Monte-Carlo-Prognose dieses Projekts: was die Abschlussdaten P50, P80 und P95 bedeuten, wie wahrscheinlich wir das Planende halten und welche Meilensteine gefährdet sind. Nutze get_forecast und sage, dass die Zahlen simuliert sind.",
   forecastAskMilestoneLabel: "Was würde {0} pünktlich machen?",
