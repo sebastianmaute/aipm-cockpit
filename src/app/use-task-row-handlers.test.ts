@@ -677,6 +677,17 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
     expect(setTasks).toHaveBeenCalled();
   });
 
+  // Until a ConfirmProvider fills the bridge the answer is no; a dropped `bridgeRef` would then turn
+  // every delete into a silent no-op, so the unbridged answer leaves a trace.
+  it("logs when no confirm dialog is bridged in, and deletes nothing (§715 D5)", async () => {
+    clearDiagLog();
+    const setTasks = vi.fn();
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
+    await act(async () => { await result.current.onDelete(1); });
+    expect(setTasks).not.toHaveBeenCalled();
+    expect(readDiagLog().some((ev) => ev.code === "task.delete.noConfirmBridge")).toBe(true);
+  });
+
   // The dialog is awaited, so a project swap can finish while it is open: "Delete" must not then remove
   // the same id from the project the user swapped to.
   it("drops the delete when the project scope changed while the dialog was open (§715 D5)", async () => {

@@ -18,6 +18,7 @@ import { effectivePersonEmail } from "./resource-foundation";
 import type { Settings } from "./settings-types";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
+import { logDiag } from "./diagnostics";
 import type { ConfirmFn } from "./confirm-dialog";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 
@@ -84,8 +85,12 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   } = args;
   // §715 D5: the delete asks in the app's dialog. This hook runs in task-manager, ABOVE the
   // ConfirmProvider it renders, so it cannot call useConfirm: it hands out this ref, the provider
-  // fills it (`bridgeRef`), and until then the answer is no.
-  const confirmRef = useRef<ConfirmFn>(async () => false);
+  // fills it (`bridgeRef`), and until then the answer is no — logged, because a dropped bridge would
+  // otherwise turn every delete into a silent no-op.
+  const confirmRef = useRef<ConfirmFn>(async () => {
+    logDiag("warn", "task.delete.noConfirmBridge");
+    return false;
+  });
 
   const { setActiveTab } = useWorkspaceTab();
 
