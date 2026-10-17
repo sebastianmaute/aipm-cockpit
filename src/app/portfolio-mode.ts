@@ -57,7 +57,7 @@ export function saveCurrentTursoProjectId(id: string | null): void {
 /** Switch the portfolio to Turso and land directly on `projectId` after
  *  reload. Two callers: the "load an existing Turso project" shortcut in the
  *  TursoProjectPicker, and a cross-mode create in `useTursoProjects` (a new
- *  project given Turso storage while the portfolio is in file mode, §740). Same two writes `confirmPortfolioModeSwitch`
+ *  project given Turso storage while the portfolio is in file mode, §740). Same two writes `commitPortfolioModeSwitch`
  *  (integrations-section.tsx) already does when switching TO Turso
  *  (`savePortfolioMode` + `writeSettings`), plus a third write
  *  pre-selecting which project to land on. Left as a plain export here

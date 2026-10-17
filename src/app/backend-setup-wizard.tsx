@@ -28,6 +28,7 @@ import {
 } from "./backend-setup-steps";
 import { commitPortfolioModeSwitch, IntegrationsSection } from "./settings-sections/integrations-section";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
+import { getTursoConfig } from "./turso-config";
 import { AiSection } from "./settings-sections/ai-section";
 import { JiraSettingsSection } from "./jira-settings";
 import { type Settings } from "./settings-types";
@@ -41,6 +42,7 @@ import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 
 const TITLE_ID = "backend-setup-wizard-title";
 const TOTAL = BACKEND_SETUP_STEPS.length;
+const STORAGE_STEP = BACKEND_SETUP_STEPS.findIndex((s) => s.key === "storage");
 
 // ---------------------------------------------------------------------------
 // ReviewStep
@@ -143,8 +145,20 @@ export function BackendSetupWizard({
   // section on Next, which used to drop a picked-but-unswitched portfolio. Finish commits it (and the
   // commit reloads the app onto it); with nothing picked, Finish just closes.
   const [pendingPortfolioMode, setPendingPortfolioMode] = useState<PortfolioMode>(() => loadPortfolioMode());
+  // The commit waits on token seals before it reloads, so a second Finish click would commit twice.
+  const finishingRef = useRef(false);
   async function handleFinish() {
+    if (finishingRef.current) return;
     if (pendingPortfolioMode !== loadPortfolioMode()) {
+      // The section's own button refuses Turso without a working config ("can't land in a dead
+      // portfolio"); Finish is not a way around it. The step's drafts are gone by now, so the SAVED
+      // credentials decide, and the user is sent back to the step to fix them.
+      const turso = settings.integrations?.turso;
+      if (pendingPortfolioMode === "turso" && !getTursoConfig(turso?.databaseUrl, turso?.authToken)) {
+        setStep(STORAGE_STEP);
+        return;
+      }
+      finishingRef.current = true;
       await commitPortfolioModeSwitch(settings, pendingPortfolioMode);
       return;
     }

@@ -4,6 +4,7 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 import { act, render, screen, fireEvent } from "@testing-library/react";
 import { BackendSetupWizard } from "./backend-setup-wizard";
 import { defaultSettings } from "./settings-types";
+import { BACKEND_SETUP_STEPS } from "./backend-setup-steps";
 import { t } from "./i18n";
 
 // ---------------------------------------------------------------------------
@@ -238,14 +239,47 @@ describe("BackendSetupWizard", () => {
 describe("BackendSetupWizard — a portfolio switch picked on the storage step (§715 D2)", () => {
   beforeEach(() => { commitPortfolioModeSwitch.mockClear(); localStorage.clear(); });
 
+  const tursoReady = {
+    ...defaultSettings,
+    integrations: {
+      ...defaultSettings.integrations,
+      turso: { databaseUrl: "libsql://demo-fictional.turso.io", authToken: "token-fictional" },
+    },
+  } as typeof defaultSettings;
+  const toReview = () => { for (let i = 0; i < BACKEND_SETUP_STEPS.length - 1; i++) fireEvent.click(nextBtn()); };
+
   it("is applied on Finish, not dropped", async () => {
-    const { onClose } = setup();
+    const { onClose } = setup({ settings: tursoReady });
     fireEvent.click(screen.getByRole("button", { name: "pick turso" }));
-    for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
+    toReview();
     await act(async () => { fireEvent.click(finishBtn()); });
     expect(commitPortfolioModeSwitch).toHaveBeenCalledTimes(1);
-    expect(commitPortfolioModeSwitch).toHaveBeenCalledWith(defaultSettings, "turso");
+    expect(commitPortfolioModeSwitch).toHaveBeenCalledWith(tursoReady, "turso");
     expect(onClose).not.toHaveBeenCalled(); // the switch reloads the app
+  });
+
+  // The section's own button refuses a Turso switch without a working config; Finish must not be the
+  // way around that guard into a dead portfolio. It goes back to the storage step instead.
+  it("refuses a Turso switch without a Turso config, returning to the storage step", async () => {
+    const { onClose } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "pick turso" }));
+    toReview();
+    await act(async () => { fireEvent.click(finishBtn()); });
+    expect(commitPortfolioModeSwitch).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId("integrations-section")).toBeInTheDocument();
+  });
+
+  it("commits once when Finish is clicked again while the switch is under way", async () => {
+    let release: () => void = () => {};
+    commitPortfolioModeSwitch.mockImplementationOnce(() => new Promise<void>((r) => { release = r; }));
+    setup({ settings: tursoReady });
+    fireEvent.click(screen.getByRole("button", { name: "pick turso" }));
+    toReview();
+    await act(async () => { fireEvent.click(finishBtn()); });
+    await act(async () => { fireEvent.click(finishBtn()); });
+    expect(commitPortfolioModeSwitch).toHaveBeenCalledTimes(1);
+    await act(async () => { release(); });
   });
 
   it("keeps the choice while the user moves between steps", () => {
