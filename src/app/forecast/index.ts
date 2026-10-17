@@ -13,12 +13,18 @@ import {
   type ForecastUnit,
   type HistoryWindow,
 } from "./constants";
-import { milestoneChances, orderBacklog, type MilestoneChance } from "./milestones";
+import { isAttributableMilestone, milestoneChances, orderBacklog, type MilestoneChance } from "./milestones";
 import { mulberry32, seedFrom, type Rng } from "./rng";
-import { percentile, simulateHowMany, simulateWhen, type SimOptions } from "./simulate";
+import { buildArrivals, percentile, simulateHowMany, simulateWhen, type Arrivals, type SimOptions } from "./simulate";
 import { dailyThroughput, type ThroughputHistory } from "./throughput";
 
 export type WhatIf = { scopeTasks: number; scopePercent: number; capacityPercent: number };
+
+/** A dated scope change: `tasks` (±) arrive on simulated day `day`; `milestoneId` attributes them to a milestone. */
+export type ScopeArrival = { day: number; tasks: number; milestoneId: number | null };
+
+/** Dated scenario changes in simulated days: a multiplier per day (index 1..horizon) and the scope arrivals. */
+export type DatedScheduleChanges = { capacityByDay: Float64Array; arrivals: readonly ScopeArrival[] };
 
 export type ScheduleForecastInput = {
   tasks: readonly Task[];
@@ -31,6 +37,8 @@ export type ScheduleForecastInput = {
   /** YYYY-MM-DD */
   howManyTarget: string;
   trials?: number;
+  /** When set it replaces `whatIf` in the simulation (`whatIf` still feeds the seed). */
+  changes?: DatedScheduleChanges;
 };
 
 type Percentile = (typeof FORECAST_PERCENTILES)[number];
@@ -65,6 +73,8 @@ export type ForecastInsufficient = {
   doneWithoutDate: number;
   /** The first completion's day when R14 shortened a fixed window to start there, else null. */
   windowCutAt: string | null;
+  /** The history's working days, as on a forecast. */
+  windowDates: readonly string[];
 };
 
 export type ScheduleForecastResult = ScheduleForecast | ForecastInsufficient;
@@ -128,8 +138,36 @@ function resultUnit(requested: ForecastUnit, open: readonly Task[]): ForecastUni
   return requested === "effort" && effortCoverage(open) >= EFFORT_MODE_MIN_COVERAGE ? "effort" : "tasks";
 }
 
-function simOptions(rng: Rng, trials: number, capacityPercent: number, unit: ForecastUnit): SimOptions {
-  return { trials, rng, capacity: capacityPercent / 100, horizon: MAX_HORIZON_WORKING_DAYS, integer: unit === "tasks" };
+function simOptions(rng: Rng, trials: number, capacityPercent: number, unit: ForecastUnit, capacityByDay?: Float64Array): SimOptions {
+  const o: SimOptions = { trials, rng, capacity: capacityPercent / 100, horizon: MAX_HORIZON_WORKING_DAYS, integer: unit === "tasks" };
+  return capacityByDay ? { ...o, capacityByDay } : o;
+}
+
+type DatedScope = {
+  /** Every arrival: the backlog When and How many simulate. */
+  arrivals: Arrivals;
+  /** The arrivals on an attributable milestone, in the forecast unit. */
+  attributed: { day: number; amount: number; milestoneId: number }[];
+  /** Base + every addition + attributed removals: unattributed removals come off the queue's end, not its front. */
+  cap: Arrivals;
+};
+
+/**
+ * Arrivals in the forecast unit (`tasks × unitSize`, so the effort unit sizes a task at the median estimate). An
+ * arrival whose milestone is not an attributable milestone of `milestones` counts as unattributed.
+ */
+function datedScope(changes: DatedScheduleChanges, base: number, unitSize: number, milestones: readonly Milestone[]): DatedScope {
+  const attributable = new Set(milestones.filter(isAttributableMilestone).map((m) => m.id));
+  const steps = changes.arrivals.map((a) => ({
+    day: Math.min(MAX_HORIZON_WORKING_DAYS, Math.max(0, a.day)),
+    amount: a.tasks * unitSize,
+    milestoneId: a.milestoneId !== null && attributable.has(a.milestoneId) ? a.milestoneId : null,
+  }));
+  return {
+    arrivals: buildArrivals(base, steps, MAX_HORIZON_WORKING_DAYS),
+    attributed: steps.flatMap(({ day, amount, milestoneId }) => (milestoneId === null ? [] : [{ day, amount, milestoneId }])),
+    cap: buildArrivals(base, steps.filter((s) => s.amount > 0 || s.milestoneId !== null), MAX_HORIZON_WORKING_DAYS),
+  };
 }
 
 function whenRows(days: Int32Array, today: string, holidaySet: ReadonlySet<string>): ScheduleForecast["when"] {
@@ -152,13 +190,18 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
   const whatIf = clampWhatIf(input.whatIf, open.length);
   const { sizeOf, unitSize } = sizer(open, unit);
   const base = open.reduce((s, t) => s + sizeOf(t), 0);
-  const backlog = Math.max(0, base + scopeDelta(whatIf, open.length, base, unitSize));
+  // `changes` replaces the What-if's scope and capacity; the What-if still feeds the seed below.
+  const dated = input.changes ? datedScope(input.changes, base, unitSize, milestones) : null;
+  const backlog = dated
+    ? dated.arrivals.arrivedAt[MAX_HORIZON_WORKING_DAYS]
+    : Math.max(0, base + scopeDelta(whatIf, open.length, base, unitSize));
+  const simulatedWork = dated ? dated.arrivals.arrivedAt.some((a) => a > 0) : backlog > 0;
 
   const history: ThroughputHistory = dailyThroughput({ tasks, today, window, holidaySet, unit, unestimatedSize: unitSize });
   const windowDays = history.days.length;
   // The floor applies when there is real OR simulated work: a what-if that empties the real backlog, or
   // adds scope to an empty one, must not let below-floor numbers out. Only no work at all skips it (R3).
-  if ((open.length > 0 || backlog > 0) && (history.finished < MIN_FINISHED_TASKS || windowDays < MIN_HISTORY_WORKING_DAYS)) {
+  if ((open.length > 0 || simulatedWork) && (history.finished < MIN_FINISHED_TASKS || windowDays < MIN_HISTORY_WORKING_DAYS)) {
     return {
       kind: "insufficient",
       finished: history.finished,
@@ -167,6 +210,7 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
       neededDays: MIN_HISTORY_WORKING_DAYS,
       doneWithoutDate: history.doneWithoutDate,
       windowCutAt: history.cutAtFirstCompletion ? history.days[0] : null,
+      windowDates: history.days,
     };
   }
 
@@ -185,11 +229,13 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
   const targetDays = countWorkingDays(addCalendarDays(today, 1), addCalendarDays(target, 1), holidaySet);
   const trials = input.trials === undefined ? FORECAST_TRIALS : Math.max(1, Math.floor(input.trials));
   // One stream per output, so no result depends on whether another ran first.
-  const stream = (name: string) => simOptions(mulberry32(seedFrom([...seedParts, name])), trials, whatIf.capacityPercent, unit);
+  const stream = (name: string) =>
+    simOptions(mulberry32(seedFrom([...seedParts, name])), trials, whatIf.capacityPercent, unit, input.changes?.capacityByDay);
 
-  const when = simulateWhen(history.samples, backlog, stream("when"));
-  const reached = simulateHowMany(history.samples, targetDays, backlog, stream("howMany"));
+  const when = simulateWhen(history.samples, backlog, stream("when"), dated?.arrivals);
+  const reached = simulateHowMany(history.samples, targetDays, backlog, stream("howMany"), dated?.arrivals);
   const chances = milestoneChances({
+    ...(dated ? { attributed: dated.attributed, cap: dated.cap } : {}),
     milestones,
     ordered: orderBacklog(open),
     closedIds: new Set(tasks.filter(isTaskClosed).map((t) => t.id)),

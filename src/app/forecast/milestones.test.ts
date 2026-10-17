@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
 import type { Milestone, Task } from "../types";
-import { orderBacklog, milestoneChances } from "./milestones";
+import { isAttributableMilestone, orderBacklog, milestoneChances } from "./milestones";
 import { mulberry32 } from "./rng";
-import { drawDay, type SimOptions } from "./simulate";
+import { buildArrivals, drawDay, type SimOptions } from "./simulate";
+import { nthWorkingDayAfter } from "../working-days";
 
 const TODAY = "2026-10-12"; // a Monday
 
@@ -203,5 +204,112 @@ describe("milestoneChances", () => {
     expect(bothOutcomes(due), "some trials reach and some miss each milestone by due date").toBe(true);
     expect(bothOutcomes(prio), "some trials reach and some miss each milestone prioritised").toBe(true);
     expect(fast).toEqual(slow);
+  });
+});
+
+describe("attributed scope", () => {
+  // Tasks 1..10 of size 1 in queue order; 1 a day, so a trial has done exactly d on day d.
+  const ten = Array.from({ length: 10 }, (_, i) => task(i + 1));
+  /** The date `days` working days after the Monday TODAY. */
+  const day = (days: number) => nthWorkingDayAfter(TODAY, days, new Set<string>());
+  type Change = { day: number; amount: number; milestoneId: number };
+  function scoped(milestones: Milestone[], attributed: Change[], capSteps: { day: number; amount: number }[], closedIds: number[] = []) {
+    return milestoneChances({
+      milestones,
+      ordered: ten,
+      closedIds: new Set(closedIds),
+      sizeOf: () => 1,
+      samples: [1],
+      today: TODAY,
+      holidaySet: new Set<string>(),
+      o: opts(),
+      attributed,
+      cap: buildArrivals(10, capSteps, 1300),
+    });
+  }
+  const figures = (r: ReturnType<typeof milestoneChances>, id: number) => {
+    const m = r.find((x) => x.id === id);
+    return m?.state === "chance" ? { chance: m.chance, chancePrioritised: m.chancePrioritised } : m?.state;
+  };
+
+  test("isAttributableMilestone: not achieved and a valid date", () => {
+    expect(isAttributableMilestone(ms(1, "2026-11-01", [1]))).toBe(true);
+    expect(isAttributableMilestone(ms(1, "2026-11-01", [1], { achievedDate: "2026-10-01" }))).toBe(false);
+    expect(isAttributableMilestone(ms(1, "", [1]))).toBe(false);
+    expect(isAttributableMilestone(ms(1, "2026-02-30", [1]))).toBe(false);
+  });
+
+  test("absent attributed and cap give today's result exactly", () => {
+    const milestones = [ms(1, day(9), [5]), ms(2, day(14), [10])];
+    const base = { milestones, ordered: ten, closedIds: new Set<number>(), sizeOf: () => 1, samples: [0, 1, 2], today: TODAY, holidaySet: new Set<string>() };
+    const plain = milestoneChances({ ...base, o: opts() });
+    const between = plain.filter((m) => m.state === "chance" && m.chance > 0 && m.chance < 1);
+    expect(between, "some trials reach and some miss each milestone").toHaveLength(2);
+    expect(milestoneChances({ ...base, o: opts(), attributed: [] })).toEqual(plain);
+  });
+
+  test("attributed scope moves its milestone and every later one, and both figures of its own", () => {
+    // M1: position 5 + 5 = 10 > 9 done, own work 1 + 5 = 6 <= 9; M2: position 10 + 5 = 15 > 14, own work 1.
+    const r = scoped([ms(1, day(9), [5]), ms(2, day(14), [10])], [{ day: 0, amount: 5, milestoneId: 1 }], [{ day: 0, amount: 5 }]);
+    expect(figures(r, 1)).toEqual({ chance: 0, chancePrioritised: 1 });
+    expect(figures(r, 2)).toEqual({ chance: 0, chancePrioritised: 1 });
+  });
+
+  test("unattributed added scope moves no milestone", () => {
+    const r = scoped([ms(1, day(9), [5]), ms(2, day(14), [10])], [], [{ day: 0, amount: 5 }]);
+    expect(figures(r, 1)).toEqual({ chance: 1, chancePrioritised: 1 });
+    expect(figures(r, 2)).toEqual({ chance: 1, chancePrioritised: 1 });
+  });
+
+  test("an attributed removal stops at the milestone's own work", () => {
+    // M1 owns 1 task, so -3 removes 1: M1 position 4, M2 position 9 (not 7).
+    const removal = [{ day: 0, amount: -3, milestoneId: 1 }];
+    const r = scoped([ms(1, day(4), [5]), ms(2, day(7), [10])], removal, [{ day: 0, amount: -3 }]);
+    expect(figures(r, 1)).toMatchObject({ chance: 1 });
+    expect(figures(r, 2)).toMatchObject({ chance: 0 });
+    // Position exactly 9: reached on day 9, not on day 8 (no cap, so only the position decides).
+    const at = (d: number) => milestoneChances({
+      milestones: [ms(1, day(4), [5]), ms(2, day(d), [10])],
+      ordered: ten, closedIds: new Set<number>(), sizeOf: () => 1, samples: [1], today: TODAY, holidaySet: new Set<string>(), o: opts(), attributed: removal,
+    });
+    expect(figures(at(8), 2)).toMatchObject({ chance: 0 });
+    expect(figures(at(9), 2)).toMatchObject({ chance: 1 });
+  });
+
+  test("an addition after its milestone's date makes that milestone unreachable", () => {
+    const r = scoped([ms(1, day(9), [5])], [{ day: 12, amount: 1, milestoneId: 1 }], [{ day: 12, amount: 1 }]);
+    expect(figures(r, 1)).toEqual({ chance: 0, chancePrioritised: 0 });
+  });
+
+  test("an addition arriving after a later milestone's date does not move it", () => {
+    const r = scoped([ms(1, day(9), [5]), ms(2, day(11), [10])], [{ day: 12, amount: 5, milestoneId: 1 }], [{ day: 12, amount: 5 }]);
+    expect(figures(r, 2)).toMatchObject({ chance: 1 });
+  });
+
+  test("the all-reached exit respects a cap that falls later", () => {
+    // 2 a day. M2 (day 14) owns 1 task, so -3 on day 12 moves it to 9; the cap falls 10 -> 7 that day.
+    // Done reaches 10 on day 5, past every position, but the cap holds it at 7 from day 12: M2 is missed.
+    const r = milestoneChances({
+      milestones: [ms(1, day(4), [5]), ms(2, day(14), [10])],
+      ordered: ten, closedIds: new Set<number>(), sizeOf: () => 1, samples: [2], today: TODAY, holidaySet: new Set<string>(), o: opts(),
+      attributed: [{ day: 12, amount: -3, milestoneId: 2 }],
+      cap: buildArrivals(10, [{ day: 12, amount: -3 }], 1300),
+    });
+    expect(figures(r, 1)).toEqual({ chance: 1, chancePrioritised: 1 });
+    expect(figures(r, 2)).toEqual({ chance: 0, chancePrioritised: 1 });
+  });
+
+  test("scope on a milestone with no open linked tasks is placed by its date", () => {
+    // Owner decision 2026-10-17: M3 (all closed, day 10) sits after M1 (position 5, day 7) and before M2 (day 12):
+    // M3 position 5 + 3 = 8 <= 10; M1 unmoved at 5 <= 7; M2 position 10 + 3 = 13 > 12.
+    const r = scoped(
+      [ms(1, day(7), [5]), ms(2, day(12), [10]), ms(3, day(10), [99])],
+      [{ day: 0, amount: 3, milestoneId: 3 }],
+      [{ day: 0, amount: 3 }],
+      [99],
+    );
+    expect(figures(r, 3)).toEqual({ chance: 1, chancePrioritised: 1 });
+    expect(figures(r, 1)).toEqual({ chance: 1, chancePrioritised: 1 });
+    expect(figures(r, 2)).toMatchObject({ chance: 0 });
   });
 });

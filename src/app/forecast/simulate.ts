@@ -129,17 +129,55 @@ export function cannotReach(done: number, days: number, max: number, target: num
   return (done + days * max) * (1 + FLOAT_SLACK) < target;
 }
 
+/** The work that has arrived by each simulated day, for dated scope changes. */
+export type Arrivals = {
+  /** Index 0..horizon: the open work that has arrived by that day. */
+  arrivedAt: Float64Array;
+  /** The latest day of a positive step (0 if none): no trial finishes before it. */
+  lastPositiveDay: number;
+  /** `suffixMin[d]` = the smallest `arrivedAt[d']` for d' ≥ d. */
+  suffixMin: Float64Array;
+};
+
+/**
+ * `arrivedAt[d]` (0..horizon) = base plus the steps with day ≤ d, applied in day order (input order within a
+ * day) and clamped at 0 after each step; a step past the horizon lands on it. `lastPositiveDay` = the latest
+ * day of a positive step (0 if none); `suffixMin[d]` = min over d' ≥ d.
+ */
+export function buildArrivals(base: number, steps: readonly { day: number; amount: number }[], horizon: number): Arrivals {
+  const sorted = steps
+    .map((s) => ({ day: Math.min(horizon, Math.max(0, s.day)), amount: s.amount }))
+    .sort((a, b) => a.day - b.day);
+  const arrivedAt = new Float64Array(horizon + 1);
+  let level = Math.max(0, base);
+  let lastPositiveDay = 0;
+  let k = 0;
+  for (let d = 0; d <= horizon; d += 1) {
+    for (; k < sorted.length && sorted[k].day <= d; k += 1) {
+      level = Math.max(0, level + sorted[k].amount);
+      if (sorted[k].amount > 0) lastPositiveDay = sorted[k].day;
+    }
+    arrivedAt[d] = level;
+  }
+  const suffixMin = new Float64Array(horizon + 1);
+  for (let d = horizon; d >= 0; d -= 1) suffixMin[d] = d === horizon ? arrivedAt[d] : Math.min(arrivedAt[d], suffixMin[d + 1]);
+  return { arrivedAt, lastPositiveDay, suffixMin };
+}
+
 /**
  * Working days until `backlog` is done, per trial, sorted ascending (`days`) and in trial order
  * (`trialDays`); `horizon + 1` = beyond. A trial
  * that cannot reach the backlog even at the best possible day stops and skips its remaining draws, so
- * the result is the same as walking it to the horizon.
+ * the result is the same as walking it to the horizon. With `arrivals` the backlog is `arrivals` instead
+ * (see `whenWithArrivals`).
  */
 export function simulateWhen(
   samples: readonly number[],
   backlog: number,
   o: SimOptions,
+  arrivals?: Arrivals,
 ): { days: Int32Array; trialDays: Int32Array; beyondShare: number } {
+  if (arrivals) return whenWithArrivals(samples, o, arrivals);
   const days = new Int32Array(o.trials);
   let beyond = 0;
   const { draw, max, bestBetween, skipDays } = dayDrawer(samples, o);
@@ -165,27 +203,93 @@ export function simulateWhen(
       }
     }
   }
+  return sortedWhen(days, beyond, o.trials);
+}
+
+function sortedWhen(days: Int32Array, beyond: number, trials: number): { days: Int32Array; trialDays: Int32Array; beyondShare: number } {
   const trialDays = days.slice();
   days.sort();
-  return { days, trialDays, beyondShare: o.trials === 0 ? 0 : beyond / o.trials };
+  return { days, trialDays, beyondShare: trials === 0 ? 0 : beyond / trials };
+}
+
+/**
+ * When under dated scope: day 0 has no draw, and `done(d) = min(done(d − 1) + draw(d), arrivedAt[d])` — work
+ * cannot be delivered before it arrives. A trial finishes on the smallest `d ≥ lastPositiveDay` with
+ * `done(d) ≥ arrivedAt[d]`: added scope must be finished, so a trial done before an addition resumes when it
+ * arrives. It is certainly beyond once even the best possible days cannot reach the least work that can be
+ * open on any day it could still finish; it then skips its remaining draws, as the plain path does.
+ */
+function whenWithArrivals(
+  samples: readonly number[],
+  o: SimOptions,
+  { arrivedAt, lastPositiveDay, suffixMin }: Arrivals,
+): { days: Int32Array; trialDays: Int32Array; beyondShare: number } {
+  const days = new Int32Array(o.trials);
+  let beyond = 0;
+  const { draw, bestBetween, skipDays } = dayDrawer(samples, o);
+  for (let t = 0; t < o.trials; t += 1) {
+    let done = 0;
+    let d = 0;
+    let finished = false;
+    for (;;) {
+      if (d >= lastPositiveDay && done >= arrivedAt[d]) {
+        finished = true;
+        break;
+      }
+      if (d >= o.horizon) break;
+      if (cannotReach(done, 1, bestBetween(d, o.horizon), suffixMin[Math.max(d + 1, lastPositiveDay)])) {
+        skipDays(o.horizon - d);
+        break;
+      }
+      d += 1;
+      done = Math.min(done + draw(d), arrivedAt[d]);
+    }
+    if (finished) {
+      days[t] = d;
+    } else {
+      days[t] = o.horizon + 1;
+      beyond += 1;
+    }
+  }
+  return sortedWhen(days, beyond, o.trials);
 }
 
 /**
  * Amount delivered within `days` working days, per trial, sorted ascending. Capped at `backlog`:
- * a trial cannot deliver more than is open, so it stops drawing once the backlog is done.
+ * a trial cannot deliver more than is open, so it stops drawing once the backlog is done. With `arrivals`
+ * `backlog` is unused: a day delivers at most what has arrived by it, and a trial done on or after the last
+ * addition stops drawing and reports `arrivedAt[days]` (later removals still lower it).
  */
 export function simulateHowMany(
   samples: readonly number[],
   days: number,
   backlog: number,
   o: SimOptions,
+  arrivals?: Arrivals,
 ): Float64Array {
+  if (arrivals) return howManyWithArrivals(samples, days, o, arrivals);
   const out = new Float64Array(o.trials);
   const { draw } = dayDrawer(samples, o);
   for (let t = 0; t < o.trials; t += 1) {
     let total = 0;
     for (let d = 1; d <= days && total < backlog; d += 1) total += draw(d);
     out[t] = Math.min(total, backlog);
+  }
+  out.sort();
+  return out;
+}
+
+function howManyWithArrivals(samples: readonly number[], days: number, o: SimOptions, { arrivedAt, lastPositiveDay }: Arrivals): Float64Array {
+  const out = new Float64Array(o.trials);
+  const { draw } = dayDrawer(samples, o);
+  for (let t = 0; t < o.trials; t += 1) {
+    let done = 0;
+    let d = 0;
+    while (d < days && !(d >= lastPositiveDay && done >= arrivedAt[d])) {
+      d += 1;
+      done = Math.min(done + draw(d), arrivedAt[d]);
+    }
+    out[t] = d < days ? arrivedAt[days] : done;
   }
   out.sort();
   return out;

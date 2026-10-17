@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { mulberry32 } from "./rng";
-import { dayDrawer, drawDay, percentile, simulateHowMany, simulateWhen, type SimOptions } from "./simulate";
+import { buildArrivals, dayDrawer, drawDay, percentile, simulateHowMany, simulateWhen, type SimOptions } from "./simulate";
 
 /** A backlog no test in this file reaches, for the cases that are not about the cap. */
 const UNCAPPED = Number.MAX_SAFE_INTEGER;
@@ -164,6 +164,69 @@ describe("capacityByDay", () => {
     const flat = dayDrawer([1.4], opts({ capacity: 2 }));
     expect(flat.max).toBe(3);
     expect(flat.bestBetween(2, 7)).toBe(15);
+  });
+});
+
+describe("dated scope arrivals", () => {
+  test("buildArrivals clamps at zero after each step", () => {
+    const a = buildArrivals(10, [{ day: 3, amount: 5 }, { day: 5, amount: -20 }, { day: 7, amount: 2 }], 10);
+    expect(a.arrivedAt).toHaveLength(11);
+    expect([a.arrivedAt[2], a.arrivedAt[3], a.arrivedAt[4], a.arrivedAt[5], a.arrivedAt[6], a.arrivedAt[7], a.arrivedAt[10]]).toEqual([10, 15, 15, 0, 0, 2, 2]);
+    expect(a.lastPositiveDay).toBe(7);
+    // suffixMin[d] = the smallest arrivedAt from d on.
+    expect(Array.from(a.suffixMin)).toEqual([0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2]);
+  });
+
+  test("buildArrivals with no positive step has lastPositiveDay 0, and clamps a step past the horizon", () => {
+    expect(buildArrivals(4, [{ day: 2, amount: -1 }], 5).lastPositiveDay).toBe(0);
+    const late = buildArrivals(4, [{ day: 99, amount: 3 }], 5);
+    expect(late.lastPositiveDay).toBe(5);
+    expect(late.arrivedAt[5]).toBe(7);
+    expect(late.arrivedAt[4]).toBe(4);
+  });
+
+  test("work cannot be delivered before it arrives", () => {
+    // 5 a day; 2 open, 10 more on day 6: done reads 2,2,2,2,2,7,12 — finished on day 7, not day 6.
+    const arrivals = buildArrivals(2, [{ day: 6, amount: 10 }], 1300);
+    const r = simulateWhen([5], 12, opts({ integer: false }), arrivals);
+    expect(Array.from(r.trialDays).every((d) => d === 7)).toBe(true);
+    expect(r.beyondShare).toBe(0);
+  });
+
+  test("a removal never goes below zero and does not hold the finish back", () => {
+    const arrivals = buildArrivals(10, [{ day: 2, amount: -20 }], 1300);
+    const r = simulateWhen([3], 10, opts(), arrivals);
+    expect(Array.from(r.trialDays).every((d) => d === 2)).toBe(true);
+  });
+
+  test("How many counts only arrived work", () => {
+    const arrivals = buildArrivals(5, [{ day: 4, amount: 10 }], 1300);
+    expect(Array.from(simulateHowMany([4], 3, 15, opts(), arrivals)).every((v) => v === 5)).toBe(true);
+    expect(Array.from(simulateHowMany([4], 6, 15, opts(), arrivals)).every((v) => v === 15)).toBe(true);
+  });
+
+  test("the certain-beyond exit stays exact with arrivals", () => {
+    // Reference: every trial walks day by day (sample x m[day], stochastic-rounded, capped at arrivedAt[day]) until
+    // it is done on or after the last addition, or reaches the horizon.
+    const m = Float64Array.from({ length: 1301 }, (_, d) => (d % 2 ? 0.2 : 2.5));
+    const samples = [0, 1, 3];
+    const arrivals = buildArrivals(2000, [{ day: 400, amount: 340 }], 1300);
+    const o = opts();
+    const slow: number[] = [];
+    for (let t = 0; t < o.trials; t += 1) {
+      let done = 0;
+      let d = 0;
+      while (!(d >= arrivals.lastPositiveDay && done >= arrivals.arrivedAt[d]) && d < o.horizon) {
+        d += 1;
+        const x = samples[Math.floor(o.rng() * samples.length)] * m[d];
+        const whole = Math.floor(x);
+        done = Math.min(done + whole + (o.rng() < x - whole ? 1 : 0), arrivals.arrivedAt[d]);
+      }
+      slow.push(d >= arrivals.lastPositiveDay && done >= arrivals.arrivedAt[d] ? d : o.horizon + 1);
+    }
+    const fast = simulateWhen(samples, 2340, opts({ capacityByDay: m }), arrivals);
+    expect(fast.days.includes(1301) && fast.days.some((d) => d < 1301), "the case has both outcomes").toBe(true);
+    expect(Array.from(fast.trialDays)).toEqual(slow);
   });
 });
 
