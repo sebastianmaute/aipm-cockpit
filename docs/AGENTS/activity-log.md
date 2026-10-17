@@ -85,9 +85,11 @@ newest entries until the next save.
   `plan.currency` either, and converts the money it restores — see `budget.md`). An
   earlier revision said "the one slice" and its successors said THREE and FOUR; each sends a reader who
   diffs the funnels off to distrust the doc or to "complete the pattern" on the rest. ★★★ **THAT
-  SENTENCE HAS NOW BEEN OVERTAKEN THREE TIMES BY SLICES THAT NEVER OPENED THIS FILE** —
+  SENTENCE HAS NOW BEEN OVERTAKEN FOUR TIMES BY SLICES THAT NEVER OPENED THIS FILE** —
   `documentAssets` joined `applyWorkspaceFromLoad` with S3c-1, `budgetHistory` with the budget-history
-  persistence slice, and nothing here moved either time. (`baselineHistory`, §476, `forecastHistory`, §502, and `forecastScenarios`, §502, are the exceptions: the
+  persistence slice, and nothing here moved either time; `forecastScenarios` (§502) was persisted on all six
+  write paths by 566dfc3c2, which did not open this file either, and was named here only by a later docs commit of
+  the same branch. (`baselineHistory`, §476, and `forecastHistory`, §502, are the exceptions: the
   commits that persisted those slices on all six write paths also named them here.) Do not repair it by writing FIVE and walking
   away; re-derive, which is why the commands sit below rather than the count. ★★ That diff returns
   TEN names, not eight — the ninth and tenth are `setLoadedBackend` and `setSettledBackend`: the load
@@ -117,10 +119,10 @@ newest entries until the next save.
   ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
   `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
   end anchor there ran 676 lines and reported 39 while it lived in `task-manager.tsx`. Since §491 moved
-  it to `use-version-history-wiring.ts`, which has no `  };` line, that anchor runs to the end of the file (66 lines)
+  it to `use-version-history-wiring.ts`, which has no `  };` line, that anchor runs to the end of the file (85 lines, measured 2026-10-17)
   and still reports 24 only because nothing after it calls a setter: the wrong anchor, silently right. And that first command's start pattern needs the
-  `const … = ` prefix: bare, it spans 717 printed lines and reports 35 (it was 707 before §548 round
-  2 renamed the function — re-measure rather than trusting either number).
+  `const … = ` prefix: bare, it spans 1110 printed lines and reports 42 (measured 2026-10-17; it was 717 and 35 on 2026-08-25, and 707
+  before §548 round 2 renamed the function — re-measure rather than trusting either number).
   ★★★ **THE NUMBERS ARE RIGHT AND THE MECHANISM WAS WRONG, and the correct one is two lines below.**
   This said a bare match "starts at an earlier mention". ★★ THAT WAS TRUE OF THE OLD NAME AND IS NOT
   TRUE NOW: §548 round 2 renamed the function to `applyWorkspaceFromLoad`, so the substring
@@ -130,8 +132,8 @@ newest entries until the next save.
   LATER mention (the comments, the call site, the two return-object keys), each opening a fresh
   range that runs to the next `^  };$`. That is exactly the re-trigger the paragraph below already
   describes correctly, which is what makes this the file contradicting itself rather than merely
-  being stale. The anchored form spans 68 lines and the bare one 717 (it reported 707 before the
-  rename, and it moves on any edit) — re-measure, never quote these:
+  being stale. The anchored form spans 90 lines and the bare one 1110 (measured 2026-10-17; they were 68 and 717
+  earlier, and 707 before the rename, and they move on any edit) — re-measure, never quote these:
   `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | wc -l` against
   `sed -n '/applyWorkspace/,/^  };$/p' src/app/use-storage-backend.ts | wc -l`, and
   `grep -n applyWorkspace src/app/use-storage-backend.ts | head -1` for the start line.
@@ -429,10 +431,8 @@ meta key `forecastHistory`, `CSV_SECTION_FORECAST_HISTORY`, a `## Forecast Histo
 counters, absent from the restore fan-out, and ALWAYS replaced by `applyWorkspace` like
 `baselineHistory`. Its six-path and hook pins are in `forecast-history-persistence.test.ts`.
 
-`Workspace.forecastScenarios` (§502, `forecast-scenarios.ts`, saved forecast scenarios) is a fifth
-sibling with the same rules — meta key `forecastScenarios`, `CSV_SECTION_FORECAST_SCENARIOS`, a
-`## Forecast Scenarios` block, `sanitizeForecastScenarios` on load, excluded from both counters, absent
-from the restore fan-out, and ALWAYS replaced by `applyWorkspace` like `forecastHistory`. Unlike the
-three history series it IS user-authored and its edits ARE logged (`useForecastScenarios` writes
-`forecastScenario.created`, `forecastScenario.updated` and `forecastScenario.deleted` entries), but the log entry is the only record of an edit: a version restore leaves
-the list alone. Its six-path and hook pins are in `forecast-scenarios-persistence.test.ts`.
+`Workspace.forecastScenarios` (§502, saved forecast scenarios) is a fifth meta-blob sibling; its persistence
+rules (six paths, the load and restore funnels, the counters) are owned by the "Persistence" bullet of
+[`forecast.md`](forecast.md#saved-scenarios-build-step-2). What differs here: unlike the three history series it is
+user-authored and its edits ARE logged (`useForecastScenarios` writes `forecastScenario.created`,
+`forecastScenario.updated` and `forecastScenario.deleted` entries).

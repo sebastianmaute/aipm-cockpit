@@ -17,7 +17,8 @@ is ignored, a stale active tab is redirected, `workspace-section.tsx` renders no
 it: drop it from that list, then put back what the hiding commit took out of the user-facing text — find it
 with `git log -S RELEASE_HIDDEN_VIEWS --oneline` — namely its CHANGELOG "Added" entry, the Forecast
 sentence of `helpSecReportsBody` (EN and DE) and its lines in `lib/app-feature-guide.md` (then run
-`node scripts/gen-operating-guide.mjs`), and re-measure the scan count in `e2e/a11y.spec.ts`.
+`node scripts/gen-operating-guide.mjs`), and re-measure the scan count in `e2e/a11y.spec.ts`. ★★ Also run the owed Scenarios-mode axe spec,
+`e2e/forecast-scenarios.spec.ts`, which has never run (see "Saved scenarios (build step 2)").
 ★★ Part 1 of the surfaces design is held back WITH it, through the same `isViewEnabled("forecast", …)` gate
 (`isSimulationActive`, `hiddenHelpEntryIds`): the Show-simulation switch, the simulated KPI cells, the intro, the
 Help entry and the history recorder all vanish. ★★ Part 2 goes with it: the Dashboard Forecast tile (off the board
@@ -723,8 +724,8 @@ npx vite-node sim-probe.ts; rm sim-probe.ts
 
 A saved scenario is a named list of dated changes (availability, added people, scope) compared with the plan as it
 is. The Forecast view gains a third mode, **Scenarios** (beside Quick and What-if), showing As is plus every saved
-scenario on one shared axis: range bars, a compared table (P50/P80/P95 finish, chance on time by plan end, cost at
-finish P80 when the cost rows are on) and the milestone chances. Spec:
+scenario on one shared axis: range bars, a compared table (P50/P80/P95 finish, chance on time by plan end, and, when the
+cost rows are on, cost at finish P80 and the chance over budget) and the milestone chances. Spec:
 `docs/superpowers/specs/2026-10-16-forecast-scenarios-and-ai-tool-design.md` (§4.1–§4.3, §4.5); the AI tool (§4.4)
 is not built. Held back with the view like parts 1–3.
 
@@ -827,7 +828,8 @@ is not built. Held back with the view like parts 1–3.
   scenario ("undoing a delete at the cap restores a fifth scenario"); New scenario and Save as scenario are then
   disabled with the reason.
 - ★★ **Save as scenario** turns the clamped What-if into an availability row from today with no end (when capacity
-  ≠ 100) and one unattributed scope row on today of `scopeTasks` + round-half-up(open × `scopePercent` / 100). It
+  ≠ 100) and, only when it is non-zero, one unattributed scope row on today of `scopeTasks` + round-half-up(open ×
+  `scopePercent` / 100). It
   caps that row at ±1,000 tasks (`SCOPE_TASKS_MAX`; the What-if allows 1,000 plus a percent on top) and the name
   dialog says so ("the note says when the scope was capped at 1,000 tasks"). **Exact parity with What-if holds in
   the tasks unit only** ("Save as scenario shows what What-if showed (tasks unit)"): in effort mode the What-if
@@ -838,17 +840,20 @@ is not built. Held back with the view like parts 1–3.
   nothing runs for scenarios on the Dashboard. Measured 2026-10-17 in Node through `vite-node`, on the synthetic
   fixture of "Measured cost of the cost pass" below (200 open tasks, 60-working-day history, eur and hours facts)
   plus one role and one resource, `computeScenarioComparison` with four scenarios, median of 7 after one warm-up,
-  on a shared machine (three runs of the probe). A probe, not a gate (table below).
+  on a shared machine: four runs of the probe by the implementer and one by the reviewer, so each row gives the
+  spread seen. A probe, not a gate (table below).
 
 | Case (As is + 4 scenarios) | Time |
 |---|---|
-| Four empty scenarios, cost on | about 270 ms |
-| The What-if extremes as scenarios (availability 10 %; scope +600 tasks; availability 300 % + scope +600; two added placeholders of 20 × 60 h), cost on | about 800 ms |
-| The same, cost off | about 550 to 700 ms |
+| Four empty scenarios, cost on | about 235 to 280 ms |
+| The What-if extremes as scenarios (availability 10 %; scope +600 tasks; availability 300 % + scope +600; two added placeholders of 20 × 60 h), cost on | about 600 to 800 ms |
+| The same, cost off | about 510 to 700 ms |
 
-★★ Like the single-run What-if extremes (about 600 ms, "Performance"), this misses the spec's "budget ≈ 100 ms"
-and is not a gate; the levers are the same (a worker, register §748, or fewer trials). Each column is a full
-schedule run plus, with cost on, a cost pass, so five columns cost roughly five single runs.
+★★ This is a main-thread pause of up to about 0.6 to 0.8 s per input or list change while Scenarios mode is shown,
+well above the spec's "budget ≈ 100 ms" for one run, and it is not a gate; the levers are a worker (register §748) or
+fewer trials. (The single-run figure in "Performance", about 600 ms, is a different fixture and case:
+`sample-workspace-huge.json`, capacity 10 % + scope +500 % + a horizon How-many target. It is not comparable with
+this table.)
 Reproduce from the repo root (expect noise; the command deletes the file):
 
 ```bash
@@ -900,8 +905,9 @@ npx vite-node scenario-probe.ts; rm scenario-probe.ts
   with one row of each kind, then the comparison, failing on critical or serious violations with the tags of
   `e2e/a11y.spec.ts`) is `test.skip` while `"forecast"` sits in `RELEASE_HIDDEN_VIEWS`, and it has NEVER RUN:
   build step 2 did not un-hide the view, not even locally. Run it when the view ships:
-  `PORT=3100 npx playwright test e2e/forecast-scenarios.spec.ts --project=chromium --workers=1`. Until then the
-  editor and the comparison are covered by their unit tests only.
+  `PORT=3100 npx playwright test e2e/forecast-scenarios.spec.ts --project=chromium --workers=1`. Its selectors were read
+  against the components but stay UNVERIFIED until that run. Until then the editor and the comparison are covered by
+  their unit tests only.
 
 ## Mutation proof (slice 1)
 

@@ -7,6 +7,7 @@ import { RELEASE_HIDDEN_VIEWS } from "../src/app/feature-modules";
 // each kind, then the comparison it produces. Same tags and the same blocking rule as `a11y.spec.ts`.
 // ★★ Skipped while "forecast" sits in RELEASE_HIDDEN_VIEWS: a held-back view cannot be routed to. Nobody has run
 // this spec yet; its first run is owed when the view is un-hidden (docs/AGENTS/forecast.md "Saved scenarios").
+// Its selectors were read against the components but are UNVERIFIED until that first run.
 
 async function scanBlocking(page: Page, label: string): Promise<void> {
   const results = await new AxeBuilder({ page })
@@ -46,7 +47,12 @@ test.describe("Forecast scenarios a11y", () => {
 
     await editor.getByRole("button", { name: "Save", exact: true }).click();
     await expect(editor).toBeHidden();
-    await expect(page.getByRole("columnheader", { name: "Axe check", exact: true })).toBeVisible();
+    // The scenario name heads a column in BOTH the compared table and the milestone table (the seed has open
+    // milestones), so the header is looked up inside the compared table: the box right after its "Compared" heading.
+    const compared = page
+      .getByRole("heading", { name: "Compared", level: 3, exact: true })
+      .locator("xpath=following-sibling::div[1]");
+    await expect(compared.getByRole("columnheader", { name: "Axe check", exact: true })).toBeVisible();
 
     await scanBlocking(page, "Scenarios comparison");
   });
