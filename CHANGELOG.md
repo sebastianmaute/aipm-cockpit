@@ -40,7 +40,10 @@ longer carries its own changelog comment.
   mitigation on a RAID item always ended in "No changes to apply": Claude looked the item up first, a step the
   one-shot edit cannot answer. It is now offered only the changes it can make.
 - **The setup wizard keeps a portfolio switch (§715).** Choosing Turso under Portfolio storage and finishing
-  the wizard left the app on browser storage; Finish now switches to the portfolio you picked.
+  the wizard left the app on browser storage; Finish now switches to the portfolio you picked. The review
+  step says the switch reloads the app, and without a working Turso connection Finish takes you back to the
+  storage step instead of switching. On Turso storage, leaving that step with Turso changes you have not
+  applied now asks before they are discarded.
 - **Deleting a task asks in the app's own dialog (§715)**, with a Delete button, instead of the browser's
   confirm box: from the row menu, the task editor and the voice command alike.
 - **The Ask Claude window names what it edits (§715).** On a milestone, change request, RAID item or
