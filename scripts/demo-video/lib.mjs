@@ -97,10 +97,14 @@ export async function navItems(page) {
     .map((e) => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40)), NAV);
 }
 
+// A nav item matches by name with whitespace collapsed and a trailing count badge dropped, since off its
+// own view the Dashboard item reads "Dashboard2" (and Next actions "Next actions2"). ui.nav matches the
+// same way.
 export async function openView(page, name) {
   const ok = await page.evaluate(({ name, sel }) => {
+    const norm = (s) => (s || '').trim().replace(/\s+/g, ' ').replace(/\s*\d+$/, '');
     const el = [...document.querySelectorAll(sel)].find(
-      (e) => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ') === name);
+      (e) => norm(e.getAttribute('aria-label') || e.textContent) === name);
     if (el) el.click();
     return !!el;
   }, { name, sel: NAV });
