@@ -3,7 +3,7 @@
 // The Forecast view's Scenarios mode (§502, spec §4.2): range bars on one shared axis, the compared table,
 // the milestone chances, and the saved scenarios with Edit · Rename · Delete and "New scenario". Every column
 // comes from ONE `computeScenarioComparison` call per input or list change. The editor and the rename dialog
-// are opened from here; Task 11 renders them (`dialog` below is the open request until then).
+// open from here, each mounted fresh per open (keyed), so their drafts are seeded at mount and never in an effect.
 
 import { useId, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
@@ -21,6 +21,9 @@ import { Section } from "./report-table";
 import { rowLabel } from "./row-tokens";
 import { useRowTokens } from "./use-row-tokens";
 import { isValidIsoDate } from "./forecast/throughput";
+import { SimValue } from "./sim-value";
+import { ForecastScenarioEditor } from "./forecast-scenario-editor";
+import { ForecastScenarioNameDialog } from "./forecast-scenario-name-dialog";
 
 /** The panel's `scenarios` prop; absent = no Scenarios segment and no "Save as scenario". */
 export type ForecastScenariosProps = { api: ForecastScenariosApi; directory: ScenarioDirectory; readOnly: boolean };
@@ -35,14 +38,16 @@ const AS_IS_ID = -1;
 type Named = { id: number; name: string };
 const nameOf = (n: Named) => n.name;
 
-/** The shared axis: today to the latest in-horizon date any bar shows (P95s, P50/P80s, the plan end). */
+/** The shared axis: min(today, plan end) to the latest in-horizon date any bar shows (P95s, P50/P80s, the plan end).
+ *  A plan end in the past opens the axis, so its tick is not drawn at today. */
 function sharedAxis(comparison: ScenarioComparison, today: string, planEnd: string): { lo: string; hi: string } {
-  let hi = isValidIsoDate(planEnd) && planEnd > today ? planEnd : today;
+  const plan = isValidIsoDate(planEnd) ? planEnd : null;
+  let hi = plan !== null && plan > today ? plan : today;
   for (const { forecast } of [comparison.asIs, ...comparison.scenarios.map((s) => s.column)]) {
     if (forecast.kind !== "forecast") continue;
     for (const w of forecast.when) if (w.date !== null && w.date > hi) hi = w.date;
   }
-  return { lo: today, hi };
+  return { lo: plan !== null && plan < today ? plan : today, hi };
 }
 
 function RangeBars({ lang, columns, today, planEnd, axis }: {
@@ -67,7 +72,8 @@ function RangeBars({ lang, columns, today, planEnd, axis }: {
             <li key={key} className="flex items-center gap-3 text-sm">
               <span className="w-40 shrink-0 truncate font-medium text-foreground">{name}</span>
               {p50 === null || p80 === null ? (
-                <span className="tabular-nums text-muted-foreground">{formatWhen(null, lang)}</span>
+                // "> 5 y" is a simulated figure too, so it wears the sim marking like the bar it stands in for.
+                <SimValue lang={lang} label={rowLabel(t(lang, "forecastScenarioRangeTitle"), name)} value={formatWhen(null, lang)} />
               ) : (
                 <div className="min-w-0 max-w-md flex-1">
                   <ForecastRangeBar
@@ -171,19 +177,45 @@ export function ForecastScenariosView({ lang, input, scenarios }: {
     [comparison, tokens, lang],
   );
   const listEl = <ScenarioList lang={lang} scenarios={list} tokens={tokens} api={api} readOnly={readOnly} onOpen={setDialog} />;
+  const close = () => setDialog(null);
+  // A refused write (a concurrent delete) is reported by the hook; the editor already validated the draft.
+  const dialogEl = readOnly || dialog === null ? null : dialog.kind === "edit" ? (
+    <ForecastScenarioEditor
+      key={dialog.scenario?.id ?? `new-${dialog.openId}`}
+      lang={lang} open scenario={dialog.scenario} openId={dialog.openId} context={comparison.context} list={list}
+      onCancel={close}
+      onSave={(d) => {
+        if (dialog.scenario) api.updateScenario(dialog.scenario.id, d);
+        else api.createScenario(dialog.openId, d);
+        close();
+      }}
+    />
+  ) : (
+    <ForecastScenarioNameDialog
+      key={dialog.scenario.id}
+      lang={lang} open title={t(lang, "forecastScenarioRenameTitle")} initialName={dialog.scenario.name} list={list}
+      exceptId={dialog.scenario.id} onCancel={close}
+      onSave={(name) => {
+        api.renameScenario(dialog.scenario.id, name);
+        close();
+      }}
+    />
+  );
 
   // Below the floor every column shares As is's window, so the message shows once; the list stays editable.
   if (comparison.asIs.forecast.kind === "insufficient") {
     return (
-      <div data-open-dialog={dialog?.kind}>
+      <div>
         <InsufficientState lang={lang} result={comparison.asIs.forecast} />
         {listEl}
+        {dialogEl}
       </div>
     );
   }
   return (
-    <div data-open-dialog={dialog?.kind} className="space-y-4">
+    <div className="space-y-4">
       {listEl}
+      {dialogEl}
       <RangeBars lang={lang} columns={columns} today={input.today} planEnd={input.planEnd} axis={sharedAxis(comparison, input.today, input.planEnd)} />
       <ScenarioComparisonTable lang={lang} columns={columns} currency={input.directory.baseCurrency} />
       <ScenarioMilestoneTable lang={lang} milestones={input.milestones} columns={columns} />

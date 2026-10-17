@@ -11,7 +11,7 @@ import * as costModule from "./forecast/cost";
 import * as forecastModule from "./forecast";
 import * as compareModule from "./forecast-scenario-compare";
 import type { ForecastScenariosProps } from "./forecast-panel";
-import type { ForecastScenario } from "./forecast-scenarios";
+import { whatIfToScenarioChanges, type ForecastScenario } from "./forecast-scenarios";
 import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
 
 // 2026-10-14 is a Wednesday.
@@ -425,6 +425,76 @@ describe("ForecastPanel — Scenarios mode (§502)", () => {
     await user.click(screen.getByRole("radio", { name: "Scenarios" }));
     expect(screen.queryByLabelText("How many by")).toBeNull();
     expect(screen.queryByRole("group", { name: "Cost at finish, simulated" })).toBeNull();
+  });
+});
+
+describe("ForecastPanel — Save as scenario (§502)", () => {
+  const history = [...open(55), ...steadyDone(60)];
+  function renderWith(over: Partial<ForecastScenariosProps["api"]> = {}, readOnly = false) {
+    const createScenario = vi.fn((): number | null => 3);
+    const props: ForecastScenariosProps = {
+      ...SCENARIOS_PROPS,
+      api: { ...SCENARIOS_PROPS.api, createScenario, ...over },
+      readOnly,
+    };
+    render(<ForecastPanel lang="en-US" tasks={history} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} scenarios={props} />);
+    return { createScenario, user: userEvent.setup() };
+  }
+  async function commitField(user: ReturnType<typeof userEvent.setup>, label: string, value: string) {
+    const input = screen.getByLabelText(label);
+    await user.clear(input);
+    await user.type(input, `${value}{Enter}`);
+  }
+
+  test("Save as scenario turns the clamped What-if into rows and switches to Scenarios", async () => {
+    const { createScenario, user } = renderWith();
+    expect(screen.queryByRole("button", { name: "Save as scenario" }), "What-if only").toBeNull();
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    await commitField(user, "Scope change (%)", "10");
+    await user.click(screen.getByRole("button", { name: "Save as scenario" }));
+    const dialog = screen.getByRole("dialog", { name: "Save as scenario" });
+    expect(within(dialog).getByText("+10% = 6 tasks today")).toBeTruthy();
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "Ten percent more");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    const expected = whatIfToScenarioChanges({ scopeTasks: 0, scopePercent: 10, capacityPercent: 100 }, 55, TODAY).changes;
+    expect(expected).toEqual([{ kind: "scope", tasks: 6, on: TODAY }]);
+    expect(createScenario).toHaveBeenCalledWith(3, { name: "Ten percent more", changes: expected });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("radio", { name: "Scenarios" })).toBeChecked();
+  });
+
+  test("the note says when the scope was capped at 1,000 tasks", async () => {
+    const { createScenario, user } = renderWith();
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    await commitField(user, "Scope change (tasks)", "1000");
+    await commitField(user, "Scope change (%)", "10");
+    await commitField(user, "Availability (%)", "80");
+    await user.click(screen.getByRole("button", { name: "Save as scenario" }));
+    const dialog = screen.getByRole("dialog", { name: "Save as scenario" });
+    expect(within(dialog).getByText("+10% = 6 tasks today The scope change is capped at 1,000 tasks.")).toBeTruthy();
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "Big");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(createScenario).toHaveBeenCalledWith(3, {
+      name: "Big",
+      changes: [{ kind: "availability", percent: 80, from: TODAY, until: "" }, { kind: "scope", tasks: 1000, on: TODAY }],
+    });
+  });
+
+  test("Save as scenario is disabled at four with the reason", async () => {
+    const { user } = renderWith({ canCreate: false });
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    const button = screen.getByRole("button", { name: "Save as scenario" });
+    expect(button).toBeDisabled();
+    const reason = screen.getByText("A project keeps at most 4 scenarios.");
+    expect(button.getAttribute("aria-describedby")).toBe(reason.id);
+  });
+
+  test("no Save as scenario in a read-only popout", async () => {
+    const { user } = renderWith({}, true);
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    // Positive control: What-if mode is showing.
+    expect(screen.getByLabelText("Scope change (%)")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Save as scenario" })).toBeNull();
   });
 });
 

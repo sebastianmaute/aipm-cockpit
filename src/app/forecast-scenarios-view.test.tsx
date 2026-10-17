@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useMemo, useState } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -33,13 +33,16 @@ const scenario = (id: number, name: string): ForecastScenario => ({
   id, name, changes: [{ kind: "availability", percent: 50, from: TODAY, until: "" }],
 });
 
+type Writes = Pick<ForecastScenariosApi, "createScenario" | "updateScenario" | "renameScenario">;
 /** A list-backed api, so a delete really removes the row. */
-function Harness({ initial, tasks = HISTORY, readOnly = false }: { initial: ForecastScenario[]; tasks?: Task[]; readOnly?: boolean }) {
+function Harness({ initial, tasks = HISTORY, readOnly = false, planEnd = "2026-12-31", writes }: {
+  initial: ForecastScenario[]; tasks?: Task[]; readOnly?: boolean; planEnd?: string; writes?: Partial<Writes>;
+}) {
   const [list, setList] = useState(initial);
   const input = useMemo<ScenarioRunInput>(() => ({
     tasks, milestones: NO_MILESTONES, today: TODAY, holidaySet: NO_HOLIDAYS, window: 60, unit: "tasks",
-    planEnd: "2026-12-31", directory: DIRECTORY, budgetFacts: null, costOn: false,
-  }), [tasks]);
+    planEnd, directory: DIRECTORY, budgetFacts: null, costOn: false,
+  }), [tasks, planEnd]);
   const api: ForecastScenariosApi = {
     scenarios: list,
     canCreate: list.length < 4,
@@ -48,6 +51,7 @@ function Harness({ initial, tasks = HISTORY, readOnly = false }: { initial: Fore
     updateScenario: () => false,
     renameScenario: () => false,
     deleteScenario: (id) => setList((prev) => prev.filter((s) => s.id !== id)),
+    ...writes,
   };
   return <ForecastScenariosView lang="en-US" input={input} scenarios={{ api, directory: DIRECTORY, readOnly }} />;
 }
@@ -84,13 +88,83 @@ describe("ForecastScenariosView", () => {
 
   it("New scenario is enabled below the cap and opens the editor", async () => {
     const user = userEvent.setup();
-    const { container } = renderView({ initial: [scenario(1, "A")] });
+    const createScenario = vi.fn((): number | null => 99);
+    renderView({ initial: [scenario(1, "A")], writes: { createScenario } });
     const button = screen.getByRole("button", { name: "New scenario" });
     expect(button).toBeEnabled();
     expect(button).not.toHaveAttribute("aria-describedby");
     expect(screen.queryByText("A project keeps at most 4 scenarios.")).toBeNull();
     await user.click(button);
-    expect(container.querySelector("[data-open-dialog]")).toHaveAttribute("data-open-dialog", "edit");
+    const dialog = screen.getByRole("dialog", { name: "New scenario" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "B");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(createScenario).toHaveBeenCalledWith(99, { name: "B", changes: [] });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("Edit opens the editor on the scenario's rows and saves through updateScenario", async () => {
+    const user = userEvent.setup();
+    const updateScenario = vi.fn(() => true);
+    renderView({ initial: [scenario(1, "Alpha")], writes: { updateScenario } });
+    await user.click(screen.getByRole("button", { name: "Edit – Alpha" }));
+    const dialog = screen.getByRole("dialog", { name: "Edit scenario" });
+    expect(within(dialog).getByRole("textbox", { name: "Name" })).toHaveValue("Alpha");
+    expect(within(dialog).getByLabelText("Change 1: Availability (%)")).toHaveValue(50);
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(updateScenario).toHaveBeenCalledWith(1, { name: "Alpha", changes: scenario(1, "Alpha").changes });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("Cancel closes the editor and writes nothing", async () => {
+    const user = userEvent.setup();
+    const updateScenario = vi.fn(() => true);
+    renderView({ initial: [scenario(1, "Alpha")], writes: { updateScenario } });
+    await user.click(screen.getByRole("button", { name: "Edit – Alpha" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(updateScenario).not.toHaveBeenCalled();
+  });
+
+  it("renders five scenarios (one past the cap, after an undo)", () => {
+    const five = [1, 2, 3, 4, 5].map((id) => scenario(id, `S${id}`));
+    renderView({ initial: five });
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["As is", "S1", "S2", "S3", "S4", "S5"]);
+    expect(screen.getAllByRole("group", { name: /^Finish range – / })).toHaveLength(6);
+    expect(screen.getAllByRole("button", { name: /^Edit – / })).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "New scenario" })).toBeDisabled();
+  });
+
+  it("a finish beyond the horizon reads \"> 5 y\" with the sim marking", () => {
+    const slow: ForecastScenario = {
+      id: 1, name: "Slow",
+      changes: [{ kind: "availability", percent: 10, from: TODAY, until: "" }, { kind: "scope", tasks: 1000, on: TODAY }],
+    };
+    renderView({ initial: [slow] });
+    const group = screen.getByRole("group", { name: "Finish range – Slow, simulated" });
+    expect(group).toHaveAttribute("data-sim", "true");
+    expect(group).toHaveTextContent("> 5 y");
+    expect(within(group).queryByRole("img")).toBeNull();
+  });
+
+  it("a plan end in the past opens the shared axis, so it is not drawn at today", () => {
+    const measure = (planEnd: string) => {
+      // A faster scenario finishes before As is's last date, so its band start is not pinned to the axis end.
+      const fast: ForecastScenario = { id: 1, name: "Fast", changes: [{ kind: "availability", percent: 300, from: TODAY, until: "" }] };
+      const { container, unmount } = renderView({ initial: [fast], planEnd });
+      const band = container.querySelectorAll("[data-band]")[1];
+      const plan = container.querySelector("[data-plan-end]");
+      const out = { band: Number(band?.getAttribute("x")), plan: Number(plan?.getAttribute("x1")) };
+      unmount();
+      return out;
+    };
+    const june = measure("2026-06-30");
+    const march = measure("2026-03-31");
+    // The plan end is the axis start in both; the band sits further right the further back the axis starts.
+    expect(june.plan).toBe(march.plan);
+    expect(march.band).toBeGreaterThan(june.band);
+    // Control: a plan end after today leaves the axis starting at today, the band left of the plan end.
+    const future = measure("2026-12-31");
+    expect(future.plan).toBeGreaterThan(future.band);
   });
 
   it("delete asks, then deletes", async () => {
@@ -132,16 +206,24 @@ describe("ForecastScenariosView", () => {
     expect(screen.getAllByText("Alpha").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: ACTION })).toBeNull();
     expect(screen.queryByRole("button", { name: "New scenario" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Save as scenario/ })).toBeNull();
+    // "Save as scenario" lives in the toolbar, so its read-only test is in forecast-panel.test.tsx.
   });
 
   it("below the floor the message shows once and the list stays editable", async () => {
     const user = userEvent.setup();
-    const { container } = renderView({ initial: [scenario(1, "Alpha"), scenario(2, "Beta")], tasks: SHORT });
+    const renameScenario = vi.fn(() => true);
+    renderView({ initial: [scenario(1, "Alpha"), scenario(2, "Beta")], tasks: SHORT, writes: { renameScenario } });
     expect(screen.getAllByText("3 of 10 finished tasks — 7 more needed")).toHaveLength(1);
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.getByRole("button", { name: "New scenario" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Rename – Beta" }));
-    expect(container.querySelector("[data-open-dialog]")).toHaveAttribute("data-open-dialog", "rename");
+    const dialog = screen.getByRole("dialog", { name: "Rename scenario" });
+    const name = within(dialog).getByRole("textbox", { name: "Name" });
+    expect(name).toHaveValue("Beta");
+    await user.clear(name);
+    await user.type(name, "Gamma");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(renameScenario).toHaveBeenCalledWith(2, "Gamma");
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

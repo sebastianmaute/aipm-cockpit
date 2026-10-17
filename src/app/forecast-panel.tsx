@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { type Lang, t, tPlural } from "./i18n";
+import { formatAmount } from "./forecast-tables";
 import { localeFor } from "./date-format";
 import {
   DEFAULT_WHAT_IF,
@@ -21,6 +22,8 @@ import { DEFAULT_HISTORY_WINDOW, type ForecastUnit, type HistoryWindow } from ".
 import { ForecastToolbar, type ForecastMode, type WhatIfField } from "./forecast-toolbar";
 import { ForecastChart } from "./forecast-chart";
 import { CostTable, MilestoneTable, PercentileTable } from "./forecast-tables";
+import { ForecastScenarioNameDialog } from "./forecast-scenario-name-dialog";
+import { MAX_FORECAST_SCENARIOS, SCOPE_TASKS_MAX, whatIfToScenarioChanges } from "./forecast-scenarios";
 import type { ForecastFactsByUnit } from "./budget-forecast";
 import { simulateCostFromRunMemo } from "./budget-sim";
 import { ReportCard } from "./report-table";
@@ -39,6 +42,18 @@ export { InsufficientState };
 export type { ForecastScenariosProps };
 
 const FALLBACK_TARGET_WORKING_DAYS = 30;
+
+/** The Save-as dialog's note: the scope percent frozen into tasks ("+10% = 6 tasks today"), and the cap when
+ *  the row was clamped to ±SCOPE_TASKS_MAX. Undefined when neither applies. */
+export function saveAsScopeNote(lang: Lang, scopePercent: number, percentTasks: number, clamped: boolean): string | undefined {
+  const parts: string[] = [];
+  if (scopePercent !== 0) {
+    const signed = `${scopePercent > 0 ? "+" : ""}${scopePercent}`;
+    parts.push(t(lang, "forecastSaveAsScenarioScopeNote", t(lang, "forecastPercent", signed), formatAmount(percentTasks, "tasks", lang)));
+  }
+  if (clamped) parts.push(t(lang, "forecastSaveAsScenarioClamped", new Intl.NumberFormat(localeFor(lang)).format(SCOPE_TASKS_MAX)));
+  return parts.length > 0 ? parts.join(" ") : undefined;
+}
 
 /**
  * The How-many target: the earliest unachieved milestone on or after today, else the plan end, else
@@ -192,6 +207,14 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
     <PercentileTable lang={lang} forecast={result} target={howManyTarget} today={today} maxTarget={maxTarget} onTargetChange={setTarget} />
   );
 
+  // "Save as scenario" (§502, spec §4.2): the CLAMPED What-if the engine uses, frozen into rows at open.
+  const [saveAs, setSaveAs] = useState<(ReturnType<typeof whatIfToScenarioChanges> & { scopePercent: number }) | null>(null);
+  const scenarioApi = scenarios && !scenarios.readOnly ? scenarios.api : null;
+  const saveAsScenario = scenarioApi === null ? undefined : {
+    onClick: () => setSaveAs({ ...whatIfToScenarioChanges(usedWhatIf, open.length, today), scopePercent: usedWhatIf.scopePercent }),
+    disabledReason: scenarioApi.canCreate ? null : t(lang, "forecastScenarioCapReached", MAX_FORECAST_SCENARIOS),
+  };
+
   const commitWhatIf = (field: WhatIfField, raw: string): boolean => {
     const next = parseWhatIf(whatIf, field, raw, open.length);
     if (next) setWhatIf(next);
@@ -215,7 +238,20 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
           onCommitWhatIf={commitWhatIf}
           onResetSize={reset}
           showScenarios={scenarios !== undefined}
+          saveAsScenario={saveAsScenario}
         />
+        {saveAs !== null && scenarioApi !== null && (
+          <ForecastScenarioNameDialog
+            lang={lang} open title={t(lang, "forecastSaveAsScenario")} initialName="" list={scenarioApi.scenarios} exceptId={null}
+            note={saveAsScopeNote(lang, saveAs.scopePercent, saveAs.percentTasks, saveAs.clamped)}
+            onCancel={() => setSaveAs(null)}
+            onSave={(name) => {
+              scenarioApi.createScenario(scenarioApi.mintId(), { name, changes: saveAs.changes });
+              setSaveAs(null);
+              setMode("scenarios");
+            }}
+          />
+        )}
         {differsFromDashboard && (
           <p className="mb-2 text-xs text-muted-foreground print:hidden">{t(lang, "forecastDashboardDefaultsNote")}</p>
         )}
