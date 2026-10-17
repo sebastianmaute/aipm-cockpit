@@ -826,7 +826,8 @@ is not built. Held back with the view like parts 1–3.
 - ★ **The 4-cap is a CREATION rule**, checked first by `validateScenarioDraft` (no edit can fix it). The sanitizer
   does not enforce it, so a stored list is never truncated, and undoing a delete at the cap restores a fifth
   scenario ("undoing a delete at the cap restores a fifth scenario"); New scenario and Save as scenario are then
-  disabled with the reason.
+  disabled with the reason. Owner decision 2026-10-17: keep it this way (a deleted scenario is never lost); the
+  comparison then runs one extra forecast per scenario past four (spec §5.3).
 - ★★ **Save as scenario** turns the clamped What-if into an availability row from today with no end (when capacity
   ≠ 100) and, only when it is non-zero, one unattributed scope row on today of `scopeTasks` + round-half-up(open ×
   `scopePercent` / 100). It

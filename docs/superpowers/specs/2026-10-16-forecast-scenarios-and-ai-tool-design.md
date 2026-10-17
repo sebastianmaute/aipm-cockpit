@@ -272,7 +272,9 @@ that makes plan end" (Scenarios mode).
    and keyboard operation, row-unique names in the change rows and per-scenario actions; no `set-state-in-effect`;
    `task-manager.tsx` gains no lines.
 3. Performance: Scenarios mode runs at most 5 forecasts (As is + 4) per input change, only while the mode is shown;
-   nothing runs for scenarios on the Dashboard. The builder measures the 5-column cost at the What-if extremes and
+   nothing runs for scenarios on the Dashboard. **Owner decision 2026-10-17:** undoing a delete may restore a
+   scenario past the cap (a deleted scenario is never lost), so the bound can be exceeded by one forecast per extra
+   scenario until the user deletes back under 4; New scenario stays disabled meanwhile. The builder measures the 5-column cost at the What-if extremes and
    states it in `forecast.md`, as slice 1 did.
 4. **Common random numbers.** Every column of one comparison, and `get_forecast`'s scenario results, use the same seed
    and stream split, so two columns differ only by their changes. A scenario identical to As is shows identical numbers.
