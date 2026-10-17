@@ -83,6 +83,13 @@ longer carries its own changelog comment.
   scenario. Scenarios are saved with the project, every change is in the activity log, edits and deletes can be
   undone, and restoring an earlier version keeps today's scenarios. What-if's "Capacity" field is now called
   "Availability". It stays hidden while the Forecast view is held back.
+- **The AI assistant can read the forecast and save scenarios, held back with the forecast (§502).** With "Use
+  Monte Carlo forecasting" on, the assistant can read the simulated finish dates, the chance of finishing by the
+  plan end, milestone chances, cost at finish and every saved scenario, and try an unsaved what-if; it says the
+  figures are simulated and calls P80 "safe to commit", never a promise. It can also create or edit a saved
+  scenario: one change applies at once, several go to the review card first, edits can be undone, and every change
+  is in the activity log. It cannot delete a scenario. The Forecast view gains "Ask Claude about this forecast" with
+  four suggested questions. It stays hidden while the Forecast view is held back.
 
 ## [1.19.0] - 2026-10-15 "Nesbø"
 
