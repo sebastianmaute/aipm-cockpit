@@ -847,6 +847,8 @@ const enUS = {
   forecastScenarioRowCountOne: "{0} row",
   forecastScenarioRowCountEdited: "{0} rows (edited)",
   forecastScenarioRowCountEditedOne: "{0} row (edited)",
+  forecastScenarioRowsNeedAttention: "{0} changes need attention; first: Change {1}, {2}: {3}",
+  forecastScenarioRowsNeedAttentionOne: "{0} change needs attention: Change {1}, {2}: {3}",
   forecastScenarioErrNameEmpty: "Enter a name.",
   forecastScenarioErrNameTaken: "Another scenario already has this name.",
   forecastScenarioErrTooLong: "At most {0} characters.",

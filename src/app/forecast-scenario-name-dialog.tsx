@@ -120,9 +120,11 @@ export function ForecastScenarioNameDialog(p: ForecastScenarioNameDialogProps) {
 
 /** The name field both scenario dialogs use. The message sits OUTSIDE the label, so it describes the field
  *  (`aria-describedby`) without becoming part of its name, and it is an alert, so it is announced even when the
- *  field already has focus. `alertKey` (the refusal count) remounts it on each refusal. */
-export function ScenarioNameField({ lang, id, value, message, alertKey, onChange, onEnter }: {
-  lang: Lang; id: string; value: string; message: string | null; alertKey?: number; onChange: (v: string) => void; onEnter?: () => void;
+ *  field already has focus. `alertKey` (the refusal count) remounts it on each refusal. `announce={false}` drops
+ *  the alert role for a caller that announces the refusal in one summary of its own (the scenario editor). */
+export function ScenarioNameField({ lang, id, value, message, alertKey, announce = true, onChange, onEnter }: {
+  lang: Lang; id: string; value: string; message: string | null; alertKey?: number; announce?: boolean;
+  onChange: (v: string) => void; onEnter?: () => void;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -140,7 +142,7 @@ export function ScenarioNameField({ lang, id, value, message, alertKey, onChange
           }}
         />
       </label>
-      {message !== null && <span key={alertKey} id={`${id}-err`} role="alert" className="text-xs font-medium text-ui-pink-strong">{message}</span>}
+      {message !== null && <span key={alertKey} id={`${id}-err`} role={announce ? "alert" : undefined} className="text-xs font-medium text-ui-pink-strong">{message}</span>}
     </div>
   );
 }

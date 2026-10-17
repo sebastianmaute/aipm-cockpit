@@ -135,6 +135,19 @@ describe("renderActivityEntry locale pinning", () => {
     const r = renderActivityEntry(entry());
     expect(r.summary).toBe("Task #7 created: Fix login");
   });
+
+  // Re-review O1: a saved scenario's row count is stored as bare digits; the prompt words it as the Activity panel
+  // does ("1 row → 3 rows", "3 rows (edited)"), in the prompt's language even with German loaded ("Zeile").
+  it("words a scenario's row count as the panel does, in English", () => {
+    const scenario = (from: string, to: string) => renderActivityEntry(entry({
+      kind: "forecastScenario.updated", args: [3, "Plan"], changes: [{ field: "name", from: "A", to: "B" }, { field: "changes", from, to }],
+    })).detail;
+    expect(scenario("1", "3")).toBe("name: A → B; changes: 1 row → 3 rows");
+    expect(scenario("3", "3")).toBe("name: A → B; changes: 3 rows → 3 rows (edited)");
+    // Only that field of that kind: the same digits elsewhere pass through untouched.
+    expect(renderActivityEntry(entry({ kind: "task.updated", changes: [{ field: "changes", from: "1", to: "3" }] })).detail)
+      .toBe("changes: 1 → 3");
+  });
 });
 
 /**

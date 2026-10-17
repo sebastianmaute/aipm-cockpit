@@ -18,6 +18,8 @@ import { SIM_OUTLINE_CLASS, SimBadge } from "./sim-value";
  * ★ On a shared axis an open band and the band whose P95 SETS the right edge both end at that edge, so an open
  * band carries the burn chart's "later →" cue there: words, not colour. It is aria-hidden because the img's
  * text alternative already says "only beyond the forecast horizon". On its own axis the open-end pad shows it.
+ * The cue never shares a row with a label it could overlap: it is dropped when both the plan-end and P80 labels
+ * reach into its corner.
  */
 
 const W = 240;
@@ -30,6 +32,10 @@ const BAND_H = 10;
 const OPEN_END_PAD = 0.15;
 /** Half the width of the "P80" label at font size 8; its centre is kept this far from either edge so it never clips. */
 const P80_LABEL_HALF_W = 8;
+/** Room kept for the "later →" cue at font size 8, right-anchored at the inset; wide enough for the DE "später →". */
+const CUE_W = 40;
+/** Room kept for the plan-end label at font size 8; wide enough for the DE "Planende". */
+const PLAN_LABEL_W = 40;
 
 /** Days since the epoch for an ISO day, read in UTC. Pure: no clock is read. */
 function dayNumber(iso: string): number {
@@ -78,8 +84,16 @@ export function ForecastRangeBar({
   const markX = xFor(p80);
   const planX = plan ? xFor(plan) : null;
   const planAnchor = planX === null ? null : planX < W / 4 ? "start" : planX > (3 * W) / 4 ? "end" : "middle";
-  // Bottom right, beside the plan-end label row; above the band instead when that label also sits at the right.
-  const laterCue = axis && !p95 ? { y: planAnchor === "end" ? BAND_Y - 6 : H - 1 } : null;
+  const p80LabelX = Math.min(W - P80_LABEL_HALF_W, Math.max(P80_LABEL_HALF_W, markX));
+  // The cue's row is bottom right, beside the plan-end label; above the band, beside the P80 label, when the plan-end
+  // label reaches into the cue's x range. When the P80 label does too, the cue is dropped: it is aria-hidden and the
+  // img's name already says "beyond the horizon", so two overlapping labels would cost more than the cue adds.
+  const cueLeft = W - INSET - CUE_W;
+  const planLabelRight =
+    planX === null ? -Infinity : planAnchor === "end" ? planX : planAnchor === "middle" ? planX + PLAN_LABEL_W / 2 : planX + PLAN_LABEL_W;
+  const bottomFree = planLabelRight < cueLeft;
+  const topFree = p80LabelX + P80_LABEL_HALF_W < cueLeft;
+  const laterCue = axis && !p95 && (bottomFree || topFree) ? { y: bottomFree ? H - 1 : BAND_Y - 6 } : null;
 
   const ariaLabel = p95
     ? plan
@@ -110,7 +124,7 @@ export function ForecastRangeBar({
           className="fill-ui-green-strong dark:fill-ui-green"
         />
         <line data-p80 x1={markX} x2={markX} y1={BAND_Y - 4} y2={AXIS_Y} strokeWidth={2} className="stroke-ui-dark-blue dark:stroke-ui-light-grey" />
-        <text data-p80-label x={Math.min(W - P80_LABEL_HALF_W, Math.max(P80_LABEL_HALF_W, markX))} y={BAND_Y - 6} textAnchor="middle" fontSize={8} className="fill-ui-dark-blue dark:fill-ui-light-grey">
+        <text data-p80-label x={p80LabelX} y={BAND_Y - 6} textAnchor="middle" fontSize={8} className="fill-ui-dark-blue dark:fill-ui-light-grey">
           P80
         </text>
         {planX !== null && (

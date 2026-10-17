@@ -108,6 +108,26 @@ describe("ForecastRangeBar", () => {
     expect(render(<ForecastRangeBar {...BASE} p95={null} />).container.querySelector("[data-open-end-cue]")).toBeNull();
   });
 
+  // Re-review N1: with the plan-end label right-anchored the cue rose to the P80 label's row and could overlap it.
+  it.each([
+    ["P80 and plan end both late", { p80: "2027-03-01", planEnd: "2027-02-28" }, "none"],
+    ["plan end late, P80 early", { p80: "2026-11-20", planEnd: "2027-02-28" }, "top"],
+    ["P80 late, plan end early", { p80: "2027-03-01", planEnd: "2026-11-01" }, "bottom"],
+  ])("the open-end cue never shares a row with a label whose x range it could overlap: %s", (_name, dates, where) => {
+    const axis = { lo: "2026-10-16", hi: "2027-03-03" };
+    const { container } = render(<ForecastRangeBar {...BASE} p50="2026-11-10" p95={null} {...dates} axis={axis} />);
+    const cue = container.querySelector("[data-open-end-cue]");
+    const p80 = container.querySelector("[data-p80-label]");
+    // Room the bar keeps for each label at font size 8: the cue 40 wide right-anchored, "P80" 8 either side of centre.
+    const cueX: [number, number] = [num(cue, "x") - 40, num(cue, "x")];
+    const p80X: [number, number] = [num(p80, "x") - 8, num(p80, "x") + 8];
+    const overlapX = cue !== null && cueX[0] < p80X[1] && p80X[0] < cueX[1];
+    if (overlapX) expect(num(cue, "y")).not.toBe(num(p80, "y"));
+    // Where it lands, so a test that drops the cue every time cannot pass the two cases that have room for it.
+    if (where === "none") expect(cue).toBeNull();
+    else expect(num(cue, "y")).toBe(where === "top" ? num(p80, "y") : 39);
+  });
+
   it("names its group with the given label", () => {
     render(<ForecastRangeBar {...BASE} label="Finish range – As is" />);
     expect(screen.getByRole("group", { name: "Finish range – As is, simulated" })).toBeInTheDocument();

@@ -785,6 +785,8 @@ export const de: Record<TranslationKey, string> = {
   forecastScenarioRowCountOne: "{0} Zeile",
   forecastScenarioRowCountEdited: "{0} Zeilen (bearbeitet)",
   forecastScenarioRowCountEditedOne: "{0} Zeile (bearbeitet)",
+  forecastScenarioRowsNeedAttention: "{0} Änderungen brauchen Aufmerksamkeit; zuerst: Änderung {1}, {2}: {3}",
+  forecastScenarioRowsNeedAttentionOne: "{0} Änderung braucht Aufmerksamkeit: Änderung {1}, {2}: {3}",
   forecastScenarioErrNameEmpty: "Geben Sie einen Namen ein.",
   forecastScenarioErrNameTaken: "Ein anderes Szenario hat schon diesen Namen.",
   forecastScenarioErrTooLong: "Höchstens {0} Zeichen.",

@@ -323,14 +323,17 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
 
   // Final review Important 1: focus used to move inside the Save handler, BEFORE React committed aria-invalid
   // and the message, so a screen reader announced the field with no error. The state is read AT the focus event.
-  it("a refused Save focuses each invalid field only once it is aria-invalid and described by an alert", async () => {
+  // Re-review N2: the field message is no longer an alert itself; the editor's ONE summary alert is, and it is
+  // already rendered when focus arrives.
+  it("a refused Save focuses each invalid field only once it is aria-invalid, described, and summarised by one alert", async () => {
     const alpha: ForecastScenario = { id: 1, name: "Alpha", changes: [] };
     const { user } = renderEditor({ list: [alpha] });
-    const seen: { invalid: string | null; role: string | null | undefined; text: string | null | undefined }[] = [];
+    const seen: { invalid: string | null; role: string | null | undefined; text: string | null | undefined; alerts: (string | null)[] }[] = [];
     const record = (e: Event) => {
       const el = e.target as HTMLElement;
       const err = document.getElementById(el.getAttribute("aria-describedby") ?? "");
-      seen.push({ invalid: el.getAttribute("aria-invalid"), role: err?.getAttribute("role"), text: err?.textContent });
+      const alerts = screen.queryAllByRole("alert").map((a) => a.textContent);
+      seen.push({ invalid: el.getAttribute("aria-invalid"), role: err?.getAttribute("role"), text: err?.textContent, alerts });
     };
     control("Name").addEventListener("focus", record);
     await user.type(control("Name"), "alpha");
@@ -339,12 +342,18 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     fireEvent.change(field("Change 1: Availability (%)"), { target: { value: "5" } });
     seen.length = 0;
     await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(seen).toEqual([{ invalid: "true", role: "alert", text: "Another scenario already has this name." }]);
+    expect(seen).toEqual([{
+      invalid: "true", role: null, text: "Another scenario already has this name.",
+      alerts: ["Another scenario already has this name. 1 change needs attention: Change 1, Availability (%): Between 10 and 300."],
+    }]);
     await user.clear(control("Name"));
     await user.type(control("Name"), "Beta");
     seen.length = 0;
     await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(seen).toEqual([{ invalid: "true", role: "alert", text: "Between 10 and 300." }]);
+    expect(seen).toEqual([{
+      invalid: "true", role: null, text: "Between 10 and 300.",
+      alerts: ["1 change needs attention: Change 1, Availability (%): Between 10 and 300."],
+    }]);
   });
 
   it("a refused write keeps the editor open with its reason", async () => {
@@ -355,5 +364,43 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     expect(onCancel).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog", { name: "New scenario" })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("A project keeps at most 4 scenarios.");
+  });
+
+  // Re-review N2: one refused Save is ONE announcement, not one alert per invalid row.
+  it("several invalid rows give exactly one alert that counts them and names the first; focus goes to the first", async () => {
+    const { onSave, user } = renderEditor();
+    await user.type(control("Name"), "Two bad rows");
+    await user.click(screen.getByRole("button", { name: "+ Availability change" }));
+    await user.click(screen.getByRole("button", { name: "+ Availability change" }));
+    fireEvent.change(field("Change 1: From"), { target: { value: "" } });
+    fireEvent.change(field("Change 2: Availability (%)"), { target: { value: "5" } });
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).not.toHaveBeenCalled();
+    const alerts = screen.getAllByRole("alert");
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent("2 changes need attention; first: Change 1, From: Enter a valid date.");
+    // Each field's message stays visible and linked, but is not an alert of its own.
+    for (const [name, text] of [["Change 1: From", "Enter a valid date."], ["Change 2: Availability (%)", "Between 10 and 300."]]) {
+      expect(field(name)).toHaveAttribute("aria-invalid", "true");
+      expect(described(field(name))).toBe(text);
+      expect(document.getElementById(field(name).getAttribute("aria-describedby") ?? "")).not.toHaveAttribute("role");
+    }
+    expect(document.activeElement).toBe(field("Change 1: From"));
+  });
+
+  // Re-review O2: an identical repeat refusal (the cap reached again by a concurrent writer) was not re-announced,
+  // because the alert node and its text stayed the same. Each Save now remounts it.
+  it("two identical refusals in a row each render a fresh alert node", async () => {
+    const { onSave, user } = renderEditor({ refuse: "A project keeps at most 4 scenarios." });
+    await user.type(control("Name"), "Late");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    const first = screen.getByRole("alert");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    const second = screen.getByRole("alert");
+    expect(onSave).toHaveBeenCalledTimes(2);
+    expect(second).toHaveTextContent("A project keeps at most 4 scenarios.");
+    expect(first).toHaveTextContent("A project keeps at most 4 scenarios.");
+    expect(second).not.toBe(first);
+    expect(first.isConnected).toBe(false);
   });
 });

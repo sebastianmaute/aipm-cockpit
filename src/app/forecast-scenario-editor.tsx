@@ -23,7 +23,7 @@ import {
 } from "./forecast-scenarios";
 import type { ScenarioDraft } from "./use-forecast-scenarios";
 import {
-  ScenarioChangeRow, errorField, fieldId, newChange, type DraftRow, type RowError, type RowLive,
+  ScenarioChangeRow, errorField, fieldId, newChange, rowErrorSummary, type DraftRow, type RowError, type RowLive,
 } from "./forecast-scenario-change-rows";
 
 export type ForecastScenarioEditorProps = {
@@ -97,7 +97,10 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
   });
   const [errors, setErrors] = useState<Errors>(NO_ERRORS);
   const [refused, setRefused] = useState<string | null>(null);
-  const { requests: refusals, requestFocus } = useFocusAfterCommit();
+  const { requestFocus } = useFocusAfterCommit();
+  // Counts Saves, so the summary alert remounts on each one: an identical repeat refusal (the cap reached again by a
+  // concurrent writer) is announced again, as the name dialog's keyed alert is. Set in the handler, never an effect.
+  const [saves, setSaves] = useState(0);
   const vctx = useMemo<ValidationContext>(
     () => ({ milestones: context.milestones, resources: context.directory.resources, onTeam: context.onTeam }),
     [context],
@@ -131,6 +134,7 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
       if (error && !kept) rowErrors.set(r.key, { field: errorField(r.change, error), error });
     }
     setRefused(null);
+    setSaves((n) => n + 1);
     if (draft === null && rowErrors.size === 0) {
       setErrors(NO_ERRORS);
       setRefused(p.onSave({ name: name.trim(), changes }));
@@ -150,6 +154,15 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
 
   const nameBad = errors.draft === "name-empty" || errors.draft === "name-long" || errors.draft === "name-taken";
   const otherDraftError = errors.draft !== null && !nameBad ? draftErrorText(lang, errors.draft) : refused;
+  const nameMessage = nameBad && errors.draft ? draftErrorText(lang, errors.draft) : null;
+  const badRows = rows.list.flatMap((r, i) => {
+    const error = errors.rows.get(r.key);
+    return error ? [{ n: i + 1, change: r.change, error }] : [];
+  });
+  // ONE announcement per refused Save: the field messages stay visible and linked by `aria-describedby`, but only
+  // this summary is an alert, so several invalid rows are not read out one alert each.
+  const summary = [nameMessage, badRows.length > 0 ? rowErrorSummary(lang, badRows.length, badRows[0]) : null, otherDraftError]
+    .filter((s): s is string => s !== null).join(" ") || null;
   const addButton = (kind: ScenarioChange["kind"], key: "forecastScenarioAddAvailability" | "forecastScenarioAddPeople" | "forecastScenarioAddScope") => (
     <Button variant="secondary" size="xs" disabled={atCap} aria-describedby={atCap ? capId : undefined} onClick={() => add(kind)}>
       {t(lang, key)}
@@ -167,7 +180,7 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
         />
         <div className="flex flex-col gap-3 p-6">
           <ScenarioNameField
-            lang={lang} id={nameId} value={name} message={nameBad && errors.draft ? draftErrorText(lang, errors.draft) : null} alertKey={refusals}
+            lang={lang} id={nameId} value={name} message={nameMessage} announce={false}
             onChange={(v) => {
               setName(v);
               if (nameBad) setErrors((prev) => ({ ...prev, draft: null }));
@@ -192,7 +205,7 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
             {/* Visible, not a title: a disabled button takes no focus and a title shows only on hover. */}
             {atCap && <span id={capId} className="text-xs text-muted-foreground">{t(lang, "forecastScenarioErrTooMany", MAX_SCENARIO_CHANGES)}</span>}
           </div>
-          {otherDraftError && <p role="alert" className="text-xs font-medium text-ui-pink-strong">{otherDraftError}</p>}
+          {summary && <p key={saves} role="alert" className="text-xs font-medium text-ui-pink-strong">{summary}</p>}
           <ScenarioDialogActions lang={lang} onCancel={p.onCancel} onSave={save} />
         </div>
       </div>

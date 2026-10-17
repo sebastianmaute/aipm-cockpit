@@ -6,7 +6,7 @@
 // so two rows of one kind never share an accessible name (docs/AGENTS/accessibility.md).
 
 import type { ReactNode } from "react";
-import { type Lang, t, type TranslationKey } from "./i18n";
+import { type Lang, t, tPlural, type TranslationKey } from "./i18n";
 import { Input, Select } from "./form-controls";
 import { Button } from "./button";
 import { isAttributableMilestone } from "./forecast/milestones";
@@ -33,6 +33,24 @@ export type RowLive = { status: ScenarioRowStatus; noEffect: boolean; archived: 
 const workweekHours = (week: readonly number[]): number => [1, 2, 3, 4, 5].reduce((s, i) => s + Math.max(0, week[i]), 0);
 /** Hours for a person with no Shift: the Mon–Fri sum of the default week the engine spreads them by (spec §4.1a). */
 const DEFAULT_PERSON_HOURS = workweekHours(DEFAULT_WEEK_HOURS);
+
+/** The visible label of each field, so a row's field and its message can be named outside the row too. */
+const FIELD_LABEL_KEY: Record<RowField, TranslationKey> = {
+  percent: "forecastCapacityPercent",
+  from: "forecastScenarioFrom",
+  until: "forecastScenarioUntil",
+  on: "forecastScenarioOn",
+  tasks: "forecastScenarioTasks",
+  milestone: "forecastScenarioMilestone",
+  who: "forecastScenarioWho",
+  person: "forecastScenarioPerson",
+  hours: "forecastScenarioHoursPerWeek",
+  label: "forecastScenarioLabel",
+  count: "forecastScenarioCount",
+  rate: "forecastScenarioRate",
+  currency: "forecastScenarioCurrency",
+  ramp: "forecastScenarioRampWeeks",
+};
 
 export function fieldId(prefix: string, key: number, field: RowField): string {
   return `${prefix}-r${key}-${field}`;
@@ -114,6 +132,13 @@ function addedPersonText(lang: Lang, s: AddedPersonStatus, teamHours: number | n
 }
 
 /** The lines under a row: ended, milestone gone, person gone, on the team, no cost, no rate, at par, or the basis. */
+/** One sentence for a refused Save's row errors: how many rows need attention, and the first one's field and
+ *  message ("2 changes need attention; first: Change 1, From: Enter a valid date."). `n` is the row's 1-based number. */
+export function rowErrorSummary(lang: Lang, count: number, first: { n: number; change: ScenarioChange; error: RowError }): string {
+  const label = t(lang, FIELD_LABEL_KEY[first.error.field]);
+  return tPlural(lang, "forecastScenarioRowsNeedAttention", count, count, first.n, label, rowErrorText(lang, first.change, first.error.error));
+}
+
 export function rowStatusLines(lang: Lang, live: RowLive, teamHours: number | null): string[] {
   if (live === null) return [];
   const { status } = live;
@@ -143,15 +168,17 @@ const num = (raw: string): number => (raw.trim() === "" ? Number.NaN : Number(ra
 const shown = (n: number): string => (Number.isFinite(n) ? String(n) : "");
 
 type FieldProps = {
-  lang: Lang; n: number; prefix: string; rowKey: number; field: RowField; labelKey: TranslationKey;
+  lang: Lang; n: number; prefix: string; rowKey: number; field: RowField;
   error: RowError | null; errorText: string | null;
   render: (control: { id: string; "aria-label": string; "aria-describedby"?: string; invalid: boolean }) => ReactNode;
 };
 
-/** A visible label plus the row-unique accessible name ("Change 2: From", which contains the label: WCAG 2.5.3). */
-function Field({ lang, n, prefix, rowKey, field, labelKey, error, errorText, render }: FieldProps) {
+/** A visible label plus the row-unique accessible name ("Change 2: From", which contains the label: WCAG 2.5.3).
+ *  The message is linked by `aria-describedby` but is NOT an alert: one refused Save is announced once, by the
+ *  editor's summary (`rowErrorSummary`), and the focus move to the first invalid field reads that field's message. */
+function Field({ lang, n, prefix, rowKey, field, error, errorText, render }: FieldProps) {
   const id = fieldId(prefix, rowKey, field);
-  const label = t(lang, labelKey);
+  const label = t(lang, FIELD_LABEL_KEY[field]);
   const bad = error?.field === field;
   return (
     <label className="flex flex-col gap-0.5 text-xs text-muted-foreground">
@@ -162,7 +189,7 @@ function Field({ lang, n, prefix, rowKey, field, labelKey, error, errorText, ren
         "aria-describedby": bad ? `${id}-err` : undefined,
         invalid: bad,
       })}
-      {bad && <span id={`${id}-err`} role="alert" className="font-medium text-ui-pink-strong">{errorText}</span>}
+      {bad && <span id={`${id}-err`} className="font-medium text-ui-pink-strong">{errorText}</span>}
     </label>
   );
 }
@@ -190,10 +217,10 @@ function DateFields({ p, c }: { p: ChangeRowProps; c: Exclude<ScenarioChange, { 
   const common = { lang: p.lang, n: p.n, prefix: p.prefix, rowKey: p.row.key, error: p.error, errorText: p.error && rowErrorText(p.lang, c, p.error.error) };
   return (
     <>
-      <Field {...common} field="from" labelKey="forecastScenarioFrom" render={(a) => (
+      <Field {...common} field="from" render={(a) => (
         <Input type="date" size="xs" {...a} value={c.from} onChange={(e) => p.onChange({ ...c, from: e.target.value })} />
       )} />
-      <Field {...common} field="until" labelKey="forecastScenarioUntil" render={(a) => (
+      <Field {...common} field="until" render={(a) => (
         <Input type="date" size="xs" {...a} value={c.until} onChange={(e) => p.onChange({ ...c, until: e.target.value })} />
       )} />
     </>
@@ -211,14 +238,14 @@ function WhoFields({ p, c }: { p: ChangeRowProps; c: AddPeopleChange }) {
     ? context.directory.resources.find((r) => r.id === who.resourceId && r.active === false)
     : undefined;
   const hours = (
-    <Field {...common} field="hours" labelKey="forecastScenarioHoursPerWeek" render={(a) => (
+    <Field {...common} field="hours" render={(a) => (
       <Input type="number" size="xs" className="w-20" {...a} value={shown(who.hoursPerWeek)}
         onChange={(e) => setWho({ ...who, hoursPerWeek: num(e.target.value) })} />
     )} />
   );
   return (
     <>
-      <Field {...common} field="who" labelKey="forecastScenarioWho" render={(a) => (
+      <Field {...common} field="who" render={(a) => (
         <Select size="xs" {...a} value={isDirectory ? "directory" : "placeholder"} onChange={(e) => setWho(e.target.value === "directory"
           ? { resourceId: 0, hoursPerWeek: who.hoursPerWeek }
           : { label: "", count: 1, rate: 0, currency: p.baseCurrency, hoursPerWeek: who.hoursPerWeek })}>
@@ -227,7 +254,7 @@ function WhoFields({ p, c }: { p: ChangeRowProps; c: AddPeopleChange }) {
         </Select>
       )} />
       {isDirectory ? (
-        <Field {...common} field="person" labelKey="forecastScenarioPerson" render={(a) => (
+        <Field {...common} field="person" render={(a) => (
           <Select size="xs" {...a} value={who.resourceId > 0 ? String(who.resourceId) : ""} onChange={(e) => {
             const r = people.find((x) => String(x.id) === e.target.value);
             setWho(r ? { resourceId: r.id, hoursPerWeek: prefillHours(r, context) } : { ...who, resourceId: 0 });
@@ -247,16 +274,16 @@ function WhoFields({ p, c }: { p: ChangeRowProps; c: AddPeopleChange }) {
         )} />
       ) : (
         <>
-          <Field {...common} field="label" labelKey="forecastScenarioLabel" render={(a) => (
+          <Field {...common} field="label" render={(a) => (
             <Input size="xs" {...a} value={who.label} onChange={(e) => setWho({ ...who, label: e.target.value })} />
           )} />
-          <Field {...common} field="count" labelKey="forecastScenarioCount" render={(a) => (
+          <Field {...common} field="count" render={(a) => (
             <Input type="number" size="xs" className="w-16" {...a} value={shown(who.count)} onChange={(e) => setWho({ ...who, count: num(e.target.value) })} />
           )} />
-          <Field {...common} field="rate" labelKey="forecastScenarioRate" render={(a) => (
+          <Field {...common} field="rate" render={(a) => (
             <Input type="number" size="xs" className="w-24" {...a} value={shown(who.rate)} onChange={(e) => setWho({ ...who, rate: num(e.target.value) })} />
           )} />
-          <Field {...common} field="currency" labelKey="forecastScenarioCurrency" render={(a) => (
+          <Field {...common} field="currency" render={(a) => (
             <Select size="xs" {...a} value={who.currency} onChange={(e) => setWho({ ...who, currency: e.target.value as BudgetCurrency })}>
               {SUPPORTED_CURRENCIES.map((cur) => <option key={cur} value={cur}>{cur}</option>)}
             </Select>
@@ -275,7 +302,7 @@ function KindFields({ p }: { p: ChangeRowProps }) {
   if (c.kind === "availability") {
     return (
       <>
-        <Field {...common} field="percent" labelKey="forecastCapacityPercent" render={(a) => (
+        <Field {...common} field="percent" render={(a) => (
           <Input type="number" size="xs" className="w-20" {...a} value={shown(c.percent)} onChange={(e) => p.onChange({ ...c, percent: num(e.target.value) })} />
         )} />
         <DateFields p={p} c={c} />
@@ -287,13 +314,13 @@ function KindFields({ p }: { p: ChangeRowProps }) {
     const stale = c.milestoneId !== undefined && !milestones.some((m) => m.id === c.milestoneId);
     return (
       <>
-        <Field {...common} field="tasks" labelKey="forecastScenarioTasks" render={(a) => (
+        <Field {...common} field="tasks" render={(a) => (
           <Input type="number" size="xs" className="w-20" {...a} value={shown(c.tasks)} onChange={(e) => p.onChange({ ...c, tasks: num(e.target.value) })} />
         )} />
-        <Field {...common} field="on" labelKey="forecastScenarioOn" render={(a) => (
+        <Field {...common} field="on" render={(a) => (
           <Input type="date" size="xs" {...a} value={c.on} onChange={(e) => p.onChange({ ...c, on: e.target.value })} />
         )} />
-        <Field {...common} field="milestone" labelKey="forecastScenarioMilestone" render={(a) => (
+        <Field {...common} field="milestone" render={(a) => (
           <Select size="xs" {...a} value={c.milestoneId === undefined ? "" : String(c.milestoneId)} onChange={(e) => {
             const rest: ScopeChange = { kind: "scope", tasks: c.tasks, on: c.on };
             p.onChange(e.target.value === "" ? rest : { ...rest, milestoneId: Number(e.target.value) });
@@ -310,7 +337,7 @@ function KindFields({ p }: { p: ChangeRowProps }) {
     <>
       <WhoFields p={p} c={c} />
       <DateFields p={p} c={c} />
-      <Field {...common} field="ramp" labelKey="forecastScenarioRampWeeks" render={(a) => (
+      <Field {...common} field="ramp" render={(a) => (
         <Input type="number" size="xs" className="w-16" {...a} value={shown(c.rampWeeks)} onChange={(e) => p.onChange({ ...c, rampWeeks: num(e.target.value) })} />
       )} />
     </>
