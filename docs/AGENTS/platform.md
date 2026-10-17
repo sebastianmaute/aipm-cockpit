@@ -204,7 +204,8 @@
   verifies it and seals the typed token; the setup wizard's Finish, which has no passphrase, refuses
   the switch and goes back to the storage step. The marker outlives the section, so it also keeps a
   remounted section in passphrase mode (`tokenWrap`), and it still counts once the kind moves to Turso in
-  the same page, where the token is no draft: Apply with the passphrase seals it there too.
+  the same page, where the token is no draft: there the unsealed token alone enables Apply
+  (`canApplyTurso`), and Apply with the passphrase seals it.
   "Test connection" probes the drafts without committing.
   (`integrations-section.backend-hold.test.tsx` pins both models against the real hook.)
   ★★ The blur-commit design this replaced — commit when focus left the credentials group — lost a

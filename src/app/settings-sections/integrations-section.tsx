@@ -572,7 +572,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const [passphraseVerifyFailedAt, setPassphraseVerifyFailedAt] = useState<"apply" | "switch" | null>(null);
   // ★ Apply and "Save & switch" exclude each other while either is busy (the switch's verify runs
   //   under `switchBusy`), so the two can never verify and seal side by side.
-  const canApplyTurso = tursoDraftsDirty && !tokenSealBlocked && !passphraseVerifying && !switchBusy;
+  // §715 — `tokenUnsealed` enables it with no dirty draft: a token carried over from off Turso storage
+  //   still needs its seal, and Apply is what seals it (`applyTursoDrafts`).
+  const canApplyTurso = (tursoDraftsDirty || tokenUnsealed) && !tokenSealBlocked && !passphraseVerifying && !switchBusy;
   // ★ A blocked Apply / "Save & switch" states WHY, visibly and as each button's description
   //   (one key, two ids: the switch sits far below in the portfolio block).
   const applyBlockedHintId = `${useId()}-turso-apply-blocked`;
@@ -1230,7 +1232,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   true (Apply hidden) in exactly that state — only the Enter-key path
                   (`handleTursoFieldKeyDown`, which checks `canApplyTurso` directly and never this
                   guard) still worked, which is a discoverability gap, not a fix.
-                  ★★ AN ENABLED APPLY MEANS AN UNAPPLIED CHANGE, BUT NOT THE CONVERSE — this comment
+                  ★★ AN ENABLED APPLY MEANS AN UNAPPLIED CHANGE (a dirty draft, or a token no seal covers
+                  yet), BUT NOT THE CONVERSE — this comment
                   used to claim "disabled ⟺ the drafts equal the stored values", which is false about
                   reachable state. `canApplyTurso` ANDs three further conjuncts (`tokenSealBlocked`,
                   `passphraseVerifying`, `switchBusy`), so a dirty draft sits behind a disabled button

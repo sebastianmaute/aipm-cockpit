@@ -894,4 +894,20 @@ describe("§715 — an unsealed passphrase-mode token survives a remount and a m
     await user.click(screen.getByRole("button", { name: applyLabel }));
     await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokT", "pw"));
   });
+
+  // MU8 — `canApplyTurso` requires a dirty draft again → (i) goes red: Apply stays disabled with no draft
+  //        to apply, while the hint under it still asks for the passphrase.
+  it("(i) on Turso storage after the hold remount, Apply seals the carried-over token with no other edit", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Host storage={BROWSER} />);
+    await user.click(lock());
+    await user.type(tokenField(), "tokI");
+    rerender(<Host storage={TURSO} />);
+    await user.click(screen.getByRole("button", { name: "remount" })); // the load hold remounts the section
+    expect(lock()).toBeChecked();
+    await user.type(passphraseField(), "pw");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.click(screen.getByRole("button", { name: applyLabel }));
+    await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokI", "pw"));
+  });
 });
