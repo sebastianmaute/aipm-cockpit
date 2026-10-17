@@ -1899,10 +1899,18 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   recall bits — the tools go on the wire only on an explicit `true`, taken from the snapshot's `forecastSimulation`.
   Enforcing: `isForecastEnabled` is checked FIRST in `runForecastTool`, so a call that reaches the executor while the
   switch is off throws `FORECAST_OFF_MESSAGE` and reads or writes nothing. Both read `isSimulationActive`, the
-  executor's from refs at CALL time. The prompt block (`buildForecastBlock`, `forecast-ai-prompt.ts`) has THREE
-  states: nothing when the Forecast view is not enabled (the snapshot's `forecastView`, from `isViewEnabled`: held back
-  by `RELEASE_HIDDEN_VIEWS` or its module off), the off text when the view is enabled but the switch is off, and the
-  quoting rules, which name the tools, only when the offered set holds `get_forecast`.
+  executor's from refs at CALL time. The prompt block (`buildForecastBlock`, `forecast-ai-prompt.ts`) is decided by
+  the SNAPSHOT (`forecastView`, `forecastSimulation`); the offered set only decides whether it may name tools. Nothing
+  when the Forecast view is not enabled (the snapshot's `forecastView`, from `isViewEnabled`: held back by
+  `RELEASE_HIDDEN_VIEWS` or its module off); the off text when the view is enabled but the simulation is off; the
+  quoting rules, which name the tools, when the simulation is on and the offered set holds `get_forecast`; and
+  nothing when the simulation is on but `get_forecast` is not offered — inline AI edit (`inline-ai-edit-call.ts`),
+  whose `NO_RECALL_TOOLS` carries no forecast bit but whose snapshot is the chat's.
+  ★★ THE OFF TEXT AND `FORECAST_OFF_MESSAGE` NEVER SAY "FORECASTING IS OFF": `ForecastPanel` runs the simulation
+  whatever the switch says, so the view still shows dates and chances. Both say the ASSISTANT cannot read the
+  forecast and send the user to the Forecast view (or to turning the switch on). The off-state pointer rides the
+  forecast block, not the view scope: the forecast `VIEW_AI_SCOPE` entry's `reading` is gated on `get_forecast`
+  (`readingRequiresTool`), and a `ViewScope` holds one reading only.
   ★ DEFAULTS ONLY: `get_forecast` runs with the app defaults (`DEFAULT_HISTORY_WINDOW`, tasks unit), never the
   Forecast view's toolbar; the prompt block says so.
   ★★ TOKEN: scenarios are a meta-blob slice with no CSV columns, so `entityToken("forecastScenario", row)`
@@ -1910,7 +1918,11 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   reads the live row through `getForecastScenarioRow`. `update_forecast_scenario` enforces the token in
   `runForecastTool` (`requireToken`), not in `chat-tools.ts`.
   ★★★ REPLACE SEMANTICS: `changes` replaces the WHOLE list, so omission deletes. Guard 1: a refusal throws before a
-  setter runs. Guard 2: the result carries `removedRows`. `name` alone is a patch and returns no `removedRows`.
+  setter runs. Guard 2: the result carries `removedRows`, the stored rows not kept unchanged, counted as a MULTISET
+  (`countRemovedRows`: each stored row consumes at most one equal new row, so a dropped duplicate counts 1 and an
+  edited row counts as removed and re-added); the tool description says so. Guard 3: the staged card line
+  (`forecastScenarioRowTitle`, `chat-proposal-describe.ts`) shows the stored count beside the new one,
+  `(3 → 1 changes)`. `name` alone is a patch and returns no `removedRows`.
   ★★ REFERENCE ROWS ARE MATCHED BY REFERENCE, NOT BY INDEX: a milestone or resource reference that has since gone
   stale is still accepted when the STORED scenario already held that same reference (`keepsAnyStoredReference`,
   used by `checkToolDraft`), so an edit elsewhere in an old scenario is not refused over a milestone someone
@@ -1925,4 +1937,6 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   reads render-scope slices a staged create has not yet changed, and `remapStagedCall` does not rewrite ids
   nested inside `changes`. Let the entity land, then create the scenario in the next turn.
   ★ All three tools refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads (`holidaysReady`):
-  the forecast input getter in `use-chat-dispatcher-wiring.ts` returns null until it is ready.
+  the forecast input getter in `use-chat-dispatcher-wiring.ts` returns null until it is ready. The one exception is
+  a rename-only `update_forecast_scenario` (no `changes`): it keeps the stored rows, so `checkToolDraft` runs with
+  `ctx: null` (only `validateScenarioDraft`'s name and row-count checks), needs no input and succeeds while the calendar loads.

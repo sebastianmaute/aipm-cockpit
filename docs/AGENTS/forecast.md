@@ -915,7 +915,8 @@ npx vite-node scenario-probe.ts; rm scenario-probe.ts
 The assistant side is in `docs/AGENTS/ai-assistant.md`, "Forecast tools (§502)"; this section is what the FORECAST
 owns. `get_forecast` returns one JSON report (`buildForecastReport`, `forecast-ai-report.ts`, type `ForecastReport`):
 `simulated: true`, the `settings` it ran with (history window, tasks unit, `FORECAST_TRIALS` trials, baseline
-currency, plan end, today), the `asIs` column, `weeklyChange`, one entry per saved scenario (id, name,
+currency, plan end, today), the `asIs` column, `weeklyChange` (null when As is is insufficient: there is no P80 to
+compare, and `weeklyChange`'s `"beyond"` would claim one past the horizon), one entry per saved scenario (id, name,
 `expectedToken`, its `changes`, a `result` column and per-row `rows` statuses), and an optional `whatIf` column for the
 call's own draft. A column is either `status: "forecast"` (P50/P80/P95 as ISO dates or `"beyond"`, `chanceOnTime`,
 every milestone with a chance or an `overdue` / `no-linked-tasks` state, and cost) or `status: "insufficient"` with
@@ -929,14 +930,20 @@ from the one on screen.
 
 ★ All three tools refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads: the forecast input getter in
 `use-chat-dispatcher-wiring.ts` returns null until `holidaysReady`, and `useForecastTools` turns that into the refusal. A
-run on an unsettled calendar would quote dates the loaded one moves. They refuse with `FORECAST_OFF_MESSAGE` when the
-simulation is off. ★ `get_forecast`'s `whatIf` is held to the save path's rules: `checkToolRows` (the row half of
-`checkToolDraft`, `stored: []`) runs before any simulation, so a row a save would refuse is refused with a `whatIf `
-prefix and nothing is computed. ★ The system-prompt block is emitted only when the Forecast view is enabled; see
+run on an unsettled calendar would quote dates the loaded one moves. The exception is a rename-only update (no
+`changes`), which checks nothing against the forecast; see `ai-assistant.md`. They refuse with `FORECAST_OFF_MESSAGE`
+when the simulation is off; that text, like the prompt's off text, says the assistant cannot read the forecast and
+points the user to the Forecast view, which runs the simulation whatever the switch says. ★ `get_forecast`'s `whatIf`
+is held to the save path's rules: `checkToolRows` (the row half of `checkToolDraft`, `stored: []`) runs after the
+comparison and before the `whatIf` column, so a row a save would refuse is refused with a `whatIf ` prefix, and no
+`whatIf` column or report is built. ★ The system-prompt block is emitted only when the Forecast view is enabled; see
 `ai-assistant.md`.
 
-★ COST: each scenario write builds its validation context (`scenarioValidationContext`), which needs the team
-membership and so costs one As-is run per write.
+★ COST: which calls pay an As-is run. `get_forecast` pays exactly ONE: `getForecast` builds the comparison
+(`computeScenarioComparison`, As is plus every saved scenario) once, takes the `whatIf` check's context from it
+(`scenarioValidationContext(input, comparison.context)`) and passes it to `buildForecastReport`. A create, and an
+update that sends `changes`, pay one each, for the validation context (`scenarioValidationContext` without a
+context runs As is to learn the team membership). A rename-only update pays none.
 
 ★★ ONE COMPARISON PER RENDER: in Scenarios mode `ForecastPanel` computes the scenario comparison once (a `useMemo`
 over the comparison's inputs; null outside Scenarios mode) and passes it to `ForecastScenariosView` as `comparison`;
