@@ -2,14 +2,8 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { logDiag } from "../diagnostics";
-import {
-  awaitTokenSeals,
-  hasUnsealedPassphraseToken,
-  markUnsealedPassphraseToken,
-  noteTokenSealed,
-  trackTokenSeal,
-  useHasUnsealedPassphraseToken,
-} from "../turso-token-seals";
+import { hasUnsealedPassphraseToken, markUnsealedPassphraseToken, noteTokenSealed } from "../turso-token-marker";
+import { awaitTokenSeals, trackTokenSeal, useHasUnsealedPassphraseToken } from "../turso-token-seals";
 import { ArrowPathIcon, CalendarDaysIcon } from "../icons";
 import { ToggleButton } from "../toggle-button";
 import { type Lang, t } from "../i18n";

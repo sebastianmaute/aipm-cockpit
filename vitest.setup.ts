@@ -4,7 +4,7 @@ import { cleanup, configure } from "@testing-library/react";
 import { server } from "./src/test/msw-server";
 import { parseClockOffsetDays, registerClockOffset } from "./src/test/clock-offset";
 import { __resetSettingsReloadSeal } from "./src/app/settings-reload-seal";
-import { __forgetUnsealedPassphraseToken } from "./src/app/turso-token-seals";
+import { __forgetUnsealedPassphraseToken } from "./src/app/turso-token-marker";
 
 // §149 — off unless VITEST_CLOCK_OFFSET_DAYS is set (the weekly
 // `unit-future-clock` job); then every test runs with `Date` moved that many
