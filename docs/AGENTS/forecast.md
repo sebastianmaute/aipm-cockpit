@@ -954,8 +954,9 @@ The set depends on the mode: an explain prompt always; a milestone prompt naming
 SCREEN (`worstMilestoneName`; As is in Scenarios mode; absent with no run or when no milestone carries a chance); and
 compare and suggest prompts in Scenarios mode. Enumerate them with `grep -n "forecastAsk.*Label" src/app/i18n.ts`.
 
-★★ KNOWN LIMITATION: a scenario written in the same assistant turn as the milestone or person it names is refused
-("does not exist"); see `ai-assistant.md`. It fails closed.
+★★ A scenario may name a milestone or person created earlier in the same assistant turn, applied or staged: the
+tools read tasks, milestones and resources from the dispatcher's live refs, and a staged plan remaps and cascades
+the nested ids. See `ai-assistant.md` "Forecast tools".
 
 ## Mutation proof (slice 1)
 

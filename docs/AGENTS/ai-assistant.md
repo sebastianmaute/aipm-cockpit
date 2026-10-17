@@ -1932,10 +1932,20 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   `ENTITY_WRITE_TOOLS` (`chat-proposal.ts`) with rows in `TARGET_MINTED_BY`, `CREATE_MINT_KIND` and
   `TOKEN_ROW_SOURCE`. The create is NOT undo-captured (a captured create duplicates the row); the update is, as one
   `forecastScenario.updated` composite.
-  ★★ KNOWN LIMITATION (fails closed): in ONE assistant turn, a scenario naming a milestone or person created
-  EARLIER IN THE SAME TURN is refused ("does not exist"). The validation context (`scenarioValidationContext`)
-  reads render-scope slices a staged create has not yet changed, and `remapStagedCall` does not rewrite ids
-  nested inside `changes`. Let the entity land, then create the scenario in the next turn.
+  ★★ A SCENARIO MAY NAME A MILESTONE OR PERSON CREATED EARLIER IN THE SAME TURN (this was refused with "does not
+  exist" until the fix). Two halves. Applied directly: `requireInput` (`use-forecast-tools.ts`) replaces the
+  getter's render-scope `run.tasks`, `run.milestones` and `run.directory.resources` with the dispatcher's
+  `tasksRef`, `milestonesRef` and `resourcesRef`, which the create tools assign synchronously, so the validation
+  context sees the new rows and `get_forecast` simulates a task created earlier in the turn; the budget facts still
+  come from render scope. `milestonesRef` is minted in `use-chat-dispatcher.ts` and passed to both
+  `useRegisterTools` and `useForecastTools`. Staged: `LINK_FIELDS` (`chat-proposal.ts`) carries
+  `changes[].milestoneId` on a scope row (minted by `create_milestone`) and `changes[].who.resourceId` on an
+  addPeople row (minted by `create_resource`), for both scenario tools, so `remapStagedCall` rewrites a
+  provisional id to the real one, `cascadeDeselect` drops the scenario row with a refused create and
+  `namesPendingMint` refuses it when the create failed. `LinkField.kind` limits each link to the row kind whose
+  parser reads the field; an id that no create in the plan minted passes untouched. Pinned by
+  `use-forecast-tools.test.tsx` ("a write earlier in the same turn is seen"), `chat-proposal.test.ts` ("ids
+  nested in a scenario's changes[] are links") and `chat-proposal-apply.forecast.test.tsx`.
   ★ All three tools refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads (`holidaysReady`):
   the forecast input getter in `use-chat-dispatcher-wiring.ts` returns null until it is ready. The one exception is
   a rename-only `update_forecast_scenario` (no `changes`): it keeps the stored rows, so `checkToolDraft` runs with
