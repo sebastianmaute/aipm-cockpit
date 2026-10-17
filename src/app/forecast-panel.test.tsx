@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
 import { ForecastPanel } from "./forecast-panel";
 import { loadI18n, t } from "./i18n";
 import type { Milestone, ResourcePlan, Task } from "./types";
@@ -13,6 +14,9 @@ import * as compareModule from "./forecast-scenario-compare";
 import type { ForecastScenariosProps } from "./forecast-panel";
 import { whatIfToScenarioChanges, type ForecastScenario } from "./forecast-scenarios";
 import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
+
+const requestChat = vi.fn();
+vi.mock("./workspace-tab-context", () => ({ useWorkspaceTab: () => ({ requestChat }) }));
 
 // 2026-10-14 is a Wednesday.
 const TODAY = "2026-10-14";
@@ -718,5 +722,75 @@ describe("ForecastPanel — cost at finish (§502)", () => {
       await user.type(scope, "100{Enter}");
       expect(spy).toHaveBeenCalledTimes(2);
     });
+  });
+});
+
+// ---- §502: Ask-Claude menu ----
+describe("ForecastPanel — Ask Claude (§502)", () => {
+  afterEach(() => requestChat.mockReset());
+  const history = [...open(5), ...steadyDone(60)];
+  const GO_LIVE: Milestone[] = [{ id: 1, name: "Go-live", date: "2026-11-30", linkedTaskIds: [1, 2, 3, 4, 5] }];
+  const panel = (extra: Partial<ComponentProps<typeof ForecastPanel>> = {}) => (
+    <ForecastPanel
+      lang="en-US" tasks={history} milestones={GO_LIVE} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS}
+      scenarios={SCENARIOS_PROPS} aiEnabled showSimulation {...extra}
+    />
+  );
+  const trigger = () => screen.queryByRole("button", { name: "Ask Claude" });
+  const menuItems = () => within(screen.getByRole("dialog", { name: "Ask Claude" })).getAllByRole("button").map((b) => b.textContent);
+
+  test("renders no trigger with the AI off, the simulation off or in a popout", () => {
+    for (const extra of [{ aiEnabled: false }, { showSimulation: false }, { isPopout: true }]) {
+      const { unmount } = render(panel(extra));
+      expect(trigger()).toBeNull();
+      unmount();
+    }
+    render(panel());
+    expect(trigger()).not.toBeNull();
+  });
+
+  test("the trigger sits before the trailing Print · reset-size group", () => {
+    const { container } = render(panel());
+    const toolbar = container.querySelector<HTMLElement>("[data-forecast-toolbar]");
+    if (!toolbar) throw new Error("toolbar not rendered");
+    const names = buttonNames(toolbar);
+    expect(names.slice(-3)).toEqual(["Ask Claude", t("en-US", "printHint"), t("en-US", "tableResetSizeHint")]);
+  });
+
+  test("Quick offers Explain and the milestone, never the scenario prompts", async () => {
+    const user = userEvent.setup();
+    render(panel());
+    await user.click(trigger() as HTMLElement);
+    expect(menuItems()).toEqual(["Explain this forecast", "What would get Go-live on time?"]);
+  });
+
+  test("Scenarios takes the worst milestone from As is and adds Compare and Suggest", async () => {
+    const user = userEvent.setup();
+    render(panel());
+    await user.click(screen.getByRole("radio", { name: "Scenarios" }));
+    await user.click(trigger() as HTMLElement);
+    expect(menuItems()).toEqual([
+      "Explain this forecast",
+      "What would get Go-live on time?",
+      "Compare my scenarios",
+      "Suggest a scenario that makes plan end",
+    ]);
+    await user.click(screen.getByRole("button", { name: "Compare my scenarios" }));
+    expect(requestChat).toHaveBeenCalledTimes(1);
+    expect(requestChat.mock.calls[0][1]).toBe(true);
+  });
+
+  test("Scenarios offers no Compare while none is saved, and runs no extra simulation for the menu", async () => {
+    const user = userEvent.setup();
+    const none: ForecastScenariosProps = { ...SCENARIOS_PROPS, api: { ...SCENARIOS_PROPS.api, scenarios: [] } };
+    const spy = vi.spyOn(forecastModule, "computeScheduleForecast");
+    render(panel({ scenarios: none }));
+    spy.mockClear();
+    await user.click(screen.getByRole("radio", { name: "Scenarios" }));
+    expect(spy).toHaveBeenCalledTimes(1);
+    await user.click(trigger() as HTMLElement);
+    expect(menuItems()).toEqual(["Explain this forecast", "What would get Go-live on time?", "Suggest a scenario that makes plan end"]);
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
   });
 });

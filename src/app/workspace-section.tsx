@@ -776,7 +776,7 @@ export function WorkspaceSection({
 
         {activeTab === "forecast" && isViewEnabled("forecast", features) && (
           <div id="panel-forecast" role="tabpanel" className={panelScrollClass}>
-            <ForecastPanel lang={lang} tasks={tasks} milestones={milestones} plan={plan} today={today} holidaySet={holidaySet} isPopout={isPopout} showSimulation={isSimulationActive(workspace.settingsOverrides, features)} budgetFacts={forecastBudgetFacts} budgetEnabled={budgetEnabled} scenarios={{ api: forecastScenariosApi, directory: forecastDirectory, readOnly: isPopout }} />
+            <ForecastPanel lang={lang} tasks={tasks} milestones={milestones} plan={plan} today={today} holidaySet={holidaySet} isPopout={isPopout} aiEnabled={isAiEnabled(settings.ai)} showSimulation={isSimulationActive(workspace.settingsOverrides, features)} budgetFacts={forecastBudgetFacts} budgetEnabled={budgetEnabled} scenarios={{ api: forecastScenariosApi, directory: forecastDirectory, readOnly: isPopout }} />
           </div>
         )}
 

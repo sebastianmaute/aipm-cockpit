@@ -29,7 +29,8 @@ import { simulateCostFromRunMemo } from "./budget-sim";
 import { ReportCard } from "./report-table";
 import { InsufficientState } from "./forecast-insufficient";
 import { ForecastScenariosView, type ForecastScenariosProps } from "./forecast-scenarios-view";
-import type { ScenarioRunInput } from "./forecast-scenario-compare";
+import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
+import { ForecastAskClaude, worstMilestoneName } from "./forecast-ask-claude";
 import { isValidIsoDate } from "./forecast/throughput";
 import { isTaskClosed } from "./task-closed";
 import type { Milestone, ResourcePlan, Task } from "./types";
@@ -100,9 +101,11 @@ interface Props {
   plan: ResourcePlan;
   today: string;
   holidaySet: ReadonlySet<string>;
-  /** Accepted for the view contract and not read here. The panel writes only through "Save as scenario" and the
-   *  Scenarios mode, and their popout guard is `scenarios.readOnly`, which `workspace-section` sets from `isPopout`. */
+  /** Hides the Ask-Claude menu: a popout has no chat to send to. The writes ("Save as scenario", Scenarios mode)
+   *  are guarded by `scenarios.readOnly`, which `workspace-section` sets from the same flag. */
   isPopout?: boolean;
+  /** The AI master switch (`isAiEnabled(settings.ai)`); off, the Ask-Claude menu does not render. */
+  aiEnabled?: boolean;
   /** The project's "Use Monte Carlo forecasting" switch. On, the Dashboard's simulated cells use the engine defaults, so this view says so once its own settings differ. */
   showSimulation?: boolean;
   /** The pace forecast's facts (`computeProjectForecastFacts`) for the cost-at-finish card; null when the Budget module is off or there are no buckets. */
@@ -133,7 +136,7 @@ export function ForecastPanelDeepLinked(props: Omit<Props, "flashMilestoneId" | 
   return <ForecastPanel {...props} flashMilestoneId={flashId} milestonesRef={containerRef} />;
 }
 
-export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, showSimulation = false, budgetFacts = null, budgetEnabled = false, flashMilestoneId = null, milestonesRef, scenarios }: Props) {
+export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, isPopout = false, aiEnabled = false, showSimulation = false, budgetFacts = null, budgetEnabled = false, flashMilestoneId = null, milestonesRef, scenarios }: Props) {
   const [mode, setMode] = useState<ForecastMode>("quick");
   const [unit, setUnit] = useState<ForecastUnit>("tasks");
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>(DEFAULT_HISTORY_WINDOW);
@@ -189,6 +192,20 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
     [tasks, milestones, today, holidaySet, historyWindow, unit, planEnd, directory, budgetFacts, costOn],
   );
 
+  // Scenarios mode's ONE comparison lives here, not in the view, so As is's milestone chances reach the Ask-Claude
+  // menu without a second run; the view gets it as a prop. List identity is the hook's, so this keys like the view's did.
+  const scenarioList = scenarios?.api.scenarios;
+  const comparison = useMemo(
+    () => (inScenarios && scenarioInput !== null && scenarioList !== undefined ? computeScenarioComparison(scenarioInput, scenarioList) : null),
+    [inScenarios, scenarioInput, scenarioList],
+  );
+  const onScreenChances = result?.kind === "forecast" ? result.milestones
+    : comparison?.asIs.forecast.kind === "forecast" ? comparison.asIs.forecast.milestones : null;
+  const worstMilestone = useMemo(() => worstMilestoneName(milestones, onScreenChances), [milestones, onScreenChances]);
+  const askClaude = aiEnabled && showSimulation && !isPopout && (
+    <ForecastAskClaude lang={lang} inScenarios={inScenarios} scenarioCount={scenarioList?.length ?? 0} worstMilestone={worstMilestone} />
+  );
+
   // §502 part 3 — cost at finish from THIS run, so What-if scope moves it; money unit only. Capacity is team
   // availability, so it also scales each drawn spend day (burn scales with headcount): alone it is about
   // cost-neutral — the finish moves, the spend per day moves the other way. Nothing runs while the switch is off.
@@ -240,6 +257,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
           onResetSize={reset}
           showScenarios={scenarios !== undefined}
           saveAsScenario={saveAsScenario}
+          askClaude={askClaude || undefined}
         />
         {saveAs !== null && scenarioApi !== null && (
           <ForecastScenarioNameDialog
@@ -262,8 +280,8 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
           <p className="mb-2 text-xs text-muted-foreground print:hidden">{t(lang, "forecastDashboardDefaultsNote")}</p>
         )}
       </div>
-      {inScenarios && scenarioInput ? (
-        <ForecastScenariosView lang={lang} input={scenarioInput} scenarios={scenarios} />
+      {inScenarios && scenarioInput && comparison ? (
+        <ForecastScenariosView lang={lang} input={scenarioInput} scenarios={scenarios} comparison={comparison} />
       ) : result === null ? null : result.kind === "insufficient" ? (
         <InsufficientState lang={lang} result={result} />
       ) : (

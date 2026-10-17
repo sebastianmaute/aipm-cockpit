@@ -3,7 +3,7 @@
 // Schedule forecast toolbar (§502): mode · unit · history window · (What-if) scope and
 // capacity inputs · the trailing Print · reset-size group (ui-shell.md "toolbar button order").
 
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { SegmentedControl } from "./segmented-control";
 import { Input, Select } from "./form-controls";
@@ -86,6 +86,7 @@ export function ForecastToolbar({
   onResetSize,
   showScenarios = false,
   saveAsScenario,
+  askClaude,
 }: {
   lang: Lang;
   mode: ForecastMode;
@@ -102,6 +103,8 @@ export function ForecastToolbar({
   /** Offer the Scenarios segment (§502); off without saved-scenario support (tests, older callers). */
   showScenarios?: boolean;
   saveAsScenario?: SaveAsScenario;
+  /** The Ask-Claude menu (§502); sits before the trailing Print · reset-size group. */
+  askClaude?: ReactNode;
 }) {
   const effortAvailable = coverage >= EFFORT_MODE_MIN_COVERAGE;
   const effortReasonId = useId();
@@ -171,6 +174,7 @@ export function ForecastToolbar({
           )}
         </>
       )}
+      {askClaude}
       <div className="ml-auto flex items-center gap-2">
         <PrintButton lang={lang} />
         <ResetSizeButton onClick={onResetSize} lang={lang} />
