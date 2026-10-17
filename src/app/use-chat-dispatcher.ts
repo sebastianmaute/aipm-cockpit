@@ -173,6 +173,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     stakeholdersRef.current = stakeholders;
   }, [stakeholders]);
+  // §502 — the milestone writers live in use-register-tools.ts, and the forecast tools read the same slice
+  // so that a scenario row can name a milestone created earlier in the turn. One ref for both, minted here.
+  const milestonesRef = useRef(milestones);
+  useEffect(() => {
+    milestonesRef.current = milestones;
+  }, [milestones]);
   useEffect(() => {
     absencesRef.current = absences;
   }, [absences]);
@@ -335,6 +341,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     raidRef,
     stakeholdersRef,
     absencesRef,
+    milestonesRef,
   });
   // §502 — the forecast members, spread in below. Its `isForecastEnabled` is also the snapshot's
   // `forecastSimulation`, so what the request offers and what the executor serves are one predicate.
@@ -344,6 +351,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     settingsRef,
     undoRef,
     getForecastInputRef,
+    tasksRef,
+    milestonesRef,
+    resourcesRef,
   });
 
   // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`

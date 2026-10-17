@@ -11,6 +11,10 @@
 // ★★ ONE REF for the scenarios slice, and the writers assign it SYNCHRONOUSLY, so a create followed by an
 // update (or a `get_forecast`) in the same turn sees the create. `getForecast` reads the scenarios from that
 // ref, not from the wiring's render-scope input, for the same reason.
+// ★★ The same holds for the TASKS, MILESTONES and RESOURCES a same-turn write can change: the run reads them
+// from the dispatcher's refs, which `create_task`, `create_milestone` and `create_resource` assign synchronously,
+// so a scenario row can name a milestone or person created earlier in the turn and `get_forecast` simulates a
+// task created earlier in it. Everything else in the run (the budget facts included) comes from the getter.
 //
 // ★ Every write refuses in a read-only popout: a popout owns no undo stack of its own.
 import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
@@ -31,6 +35,7 @@ import { isSimulationActive } from "./forecast-simulation";
 import { t } from "./i18n";
 import { mintId } from "./id-mint-session";
 import type { Settings } from "./settings-types";
+import type { Milestone, Resource, Task } from "./types";
 import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
 
@@ -46,6 +51,11 @@ export interface ForecastToolsDeps {
   undoRef: RefObject<Pick<UndoStackApi, "captureComposite"> | undefined>;
   /** Owned by use-chat-dispatcher, synced from `ChatDispatcherArgs.getForecastInput`. */
   getForecastInputRef: RefObject<() => ForecastReportInput | null>;
+  /** Owned by use-chat-dispatcher and written synchronously by the task, milestone and resource writers;
+   *  they replace the getter's render-scope slices at call time. */
+  tasksRef: RefObject<readonly Task[]>;
+  milestonesRef: RefObject<readonly Milestone[]>;
+  resourcesRef: RefObject<readonly Resource[]>;
 }
 
 function sameRows(a: readonly ScenarioChange[], b: readonly ScenarioChange[]): boolean {
@@ -75,7 +85,7 @@ function toResult(row: ForecastScenario): ForecastScenarioResult {
 }
 
 export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatcher {
-  const { isReadOnly, logActivityAs, settingsRef, undoRef, getForecastInputRef } = deps;
+  const { isReadOnly, logActivityAs, settingsRef, undoRef, getForecastInputRef, tasksRef, milestonesRef, resourcesRef } = deps;
   const { forecastScenarios, setForecastScenarios, settingsOverrides } = useWorkspace();
 
   const scenariosRef = useRef(forecastScenarios);
@@ -97,12 +107,22 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
     [settingsRef],
   );
 
-  /** The run input with the live scenarios, or the loading refusal. */
+  /** The run input with the live tasks, milestones, resources and scenarios, or the loading refusal. */
   const requireInput = useCallback((): ForecastReportInput => {
     const input = getForecastInputRef.current();
     if (input === null) throw new Error(HOLIDAYS_LOADING_MESSAGE);
-    return { ...input, scenarios: scenariosRef.current };
-  }, [getForecastInputRef]);
+    const { run } = input;
+    return {
+      ...input,
+      run: {
+        ...run,
+        tasks: tasksRef.current,
+        milestones: milestonesRef.current,
+        directory: { ...run.directory, resources: resourcesRef.current },
+      },
+      scenarios: scenariosRef.current,
+    };
+  }, [getForecastInputRef, tasksRef, milestonesRef, resourcesRef]);
 
   return useMemo<ForecastToolDispatcher>(
     () => ({

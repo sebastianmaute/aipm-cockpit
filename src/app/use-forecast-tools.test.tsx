@@ -346,6 +346,55 @@ describe("the simulation predicate", () => {
   });
 });
 
+// ★★ `makeInput()` returns EMPTY tasks, milestones and resources, standing in for the wiring's render-scope
+//   slices, which a write earlier in the same turn has not reached yet. Each test below therefore fails if the
+//   tools read those three slices from the getter instead of the dispatcher's synchronously written refs.
+describe("a write earlier in the same turn is seen (§502)", () => {
+  test("create_milestone, then create_forecast_scenario naming it, applies with the row on that milestone", async () => {
+    const { result } = mount({});
+    let saved: { changes: readonly ScenarioChange[] } | undefined;
+    await act(async () => {
+      const m = (await runTool(result.current.dispatcher, "create_milestone", { name: "Go-live", date: "2026-09-30" })) as { id: number };
+      saved = (await runTool(result.current.dispatcher, "create_forecast_scenario", {
+        name: "Scope on go-live", changes: [{ kind: "scope", tasks: 3, on: "2026-06-15", milestoneId: m.id }],
+      })) as typeof saved;
+    });
+    const milestoneId = result.current.dispatcher.listMilestones()[0].id;
+    expect(saved?.changes).toEqual([{ kind: "scope", tasks: 3, on: "2026-06-15", milestoneId }]);
+    expect(result.current.forecastScenarios[0].changes).toEqual(saved?.changes);
+  });
+
+  test("create_resource, then an addPeople row naming the new person, applies", async () => {
+    const { result } = mount({});
+    let resourceId = 0;
+    await act(async () => {
+      const r = (await runTool(result.current.dispatcher, "create_resource", { firstName: "Ada", lastName: "Lovelace" })) as { id: number };
+      resourceId = r.id;
+      await runTool(result.current.dispatcher, "create_forecast_scenario", {
+        name: "Ada joins", changes: [{ kind: "addPeople", who: { resourceId, hoursPerWeek: 20 }, from: "2026-06-01" }],
+      });
+    });
+    expect(resourceId).toBeGreaterThan(0);
+    expect(result.current.forecastScenarios[0].changes).toEqual([
+      { kind: "addPeople", who: { resourceId, hoursPerWeek: 20 }, from: "2026-06-01", until: "", rampWeeks: 4 },
+    ]);
+  });
+
+  // ★ With no open task the As-is run has nothing left to forecast and reports a finish; one open task and no
+  //   finished history drops it below the floor. The status therefore says whether the run saw the new task.
+  test("get_forecast after create_task in the same turn simulates the new task", async () => {
+    const { result } = mount({});
+    const status: unknown[] = [];
+    await act(async () => {
+      const before = (await runTool(result.current.dispatcher, "get_forecast", {})) as { asIs: { status: string } };
+      await runTool(result.current.dispatcher, "create_task", { taskName: "Open", assignee: "M. Bennett", dueDate: "2026-06-30" });
+      const after = (await runTool(result.current.dispatcher, "get_forecast", {})) as { asIs: { status: string } };
+      status.push(before.asIs.status, after.asIs.status);
+    });
+    expect(status).toEqual(["forecast", "insufficient"]);
+  });
+});
+
 describe("staging", () => {
   const call = (name: string, input: Record<string, unknown> = {}): ProposedCall => ({ name, input });
   const create = call("create_forecast_scenario", { name: "A", changes: [] });

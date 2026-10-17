@@ -98,8 +98,9 @@ export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDis
   // Deliberately NOT memoized, like the two above: built only when a forecast tool runs. The run is the
   // Forecast view's at its defaults (60-day window, tasks unit); the facts and the directory are built as
   // workspace-section.tsx builds `forecastBudgetFacts` and `forecastDirectory`.
-  // ★ `scenarios` here is the render-scope slice; use-forecast-tools.ts swaps in its synchronously written
-  //   ref, so a same-turn create is seen.
+  // ★ `scenarios`, `run.tasks`, `run.milestones` and `run.directory.resources` here are render-scope slices;
+  //   use-forecast-tools.ts swaps in the synchronously written refs, so a same-turn create is seen. The budget
+  //   facts are still built from render scope.
   const getForecastInput = (): ForecastReportInput | null => {
     if (!holidaysReady) return null;
     const budgetEnabled = isModuleEnabled("budget", settings.features);

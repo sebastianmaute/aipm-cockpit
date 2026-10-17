@@ -29,8 +29,10 @@
 // ★★★ THE CLOCK AND SETTINGS REFS ARE PASSED IN, NOT RE-MINTED HERE. A second
 // `useRef(args.clock)` in this file would be a second copy of the §159 clock
 // bag refreshed by a second effect, and the entire value of that bag is that
-// there is exactly ONE place to read the project's day from. The CHANGES and
-// MILESTONES refs below have no reader outside this file, so those DO move.
+// there is exactly ONE place to read the project's day from. The CHANGES ref
+// below has no reader outside this file, so it DID move. ★ The MILESTONES ref
+// moved back out (§502): the forecast tools read the same slice, so it is
+// passed in like the three below.
 // ★★★ RAID, STAKEHOLDERS AND ABSENCES ARE PASSED IN TOO (spec Part 7): AI
 // `updateResource` in use-chat-dispatcher.ts propagates a corrected email into
 // those three slices, so it reads and advances the SAME refs these writers use.
@@ -91,7 +93,7 @@ import {
 import type { Settings } from "./settings-types";
 import type { ProjectClock } from "./timezone";
 import { guardRaidWrite } from "./raid-cause-repair";
-import type { Absence, RaidItem, Resource, Stakeholder } from "./types";
+import type { Absence, Milestone, RaidItem, Resource, Stakeholder } from "./types";
 import { appendPatch } from "./undo/append-patch";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
@@ -176,6 +178,9 @@ export interface RegisterToolsDeps {
   raidRef: RefObject<readonly RaidItem[]>;
   stakeholdersRef: RefObject<readonly Stakeholder[]>;
   absencesRef: RefObject<readonly Absence[]>;
+  /** Owned by use-chat-dispatcher and SHARED with the forecast tools (§502), which validate and simulate a
+   *  scenario against the milestones these writers create earlier in the same turn. */
+  milestonesRef: RefObject<readonly Milestone[]>;
 }
 
 /** The owner link a RAID write implies: `linkPersonForWrite` over the owner
@@ -185,12 +190,14 @@ function linkRaidOwner(item: Pick<RaidItem, "owner" | "ownerEmail">, resources: 
 }
 
 export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatcher {
-  const { isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave, undoRef, resourcesRef, raidRef, stakeholdersRef, absencesRef } = deps;
+  const {
+    isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave, undoRef, resourcesRef, raidRef, stakeholdersRef,
+    absencesRef, milestonesRef,
+  } = deps;
   const {
     setRaid,
     changes,
     setChanges,
-    milestones,
     setMilestones,
     setStakeholders,
     setAbsences,
@@ -201,9 +208,8 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
   // Refs, so this object's identity stays stable across register edits and so
   // back-to-back tool calls in one turn read each other's writes — the same
   // pattern use-chat-dispatcher keeps for every other slice.
-  // (`raidRef`, `stakeholdersRef` and `absencesRef` come from `deps`.)
+  // (`raidRef`, `stakeholdersRef`, `absencesRef` and `milestonesRef` come from `deps`.)
   const changesRef = useRef(changes);
-  const milestonesRef = useRef(milestones);
   // ★★ `calendarEvents` is `readonly CalendarEvent[] | undefined` and the ref
   // keeps that EXACTLY — `undefined` means "the slice is absent", which is not
   // the same claim as "the project has no meetings", and every backend
@@ -214,9 +220,6 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
   useEffect(() => {
     changesRef.current = changes;
   }, [changes]);
-  useEffect(() => {
-    milestonesRef.current = milestones;
-  }, [milestones]);
   useEffect(() => {
     calendarEventsRef.current = calendarEvents;
   }, [calendarEvents]);
@@ -1095,10 +1098,11 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       //  escalation writer is the first body in this memo to read it directly.
       settingsRef,
       resourcesRef,
-      // ★ The three shared register refs, from `deps` — same reason as above.
+      // ★ The four shared register refs, from `deps` — same reason as above.
       raidRef,
       stakeholdersRef,
       absencesRef,
+      milestonesRef,
       setRaid,
       setChanges,
       setMilestones,
