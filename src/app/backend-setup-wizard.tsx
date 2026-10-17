@@ -182,17 +182,27 @@ export function BackendSetupWizard({
   // Stable, so the section's report effect does not re-run on every wizard render.
   const reportTursoDraftsDirty = useCallback((dirty: boolean) => { tursoDraftsDirtyRef.current = dirty; }, []);
   const confirm = useConfirm();
-  async function handleNext() {
-    if (currentStep.key === "storage" && tursoDraftsDirtyRef.current) {
-      const discard = await confirm({
-        message: t(lang, "setupWizardTursoDraftsDiscard"),
-        confirmLabel: t(lang, "setupWizardTursoDraftsDiscardConfirm"),
-      });
-      if (!discard) return;
-      tursoDraftsDirtyRef.current = false;
-    }
+  // ★ Only an unapplied draft waits on the dialog: a clean step is left synchronously, as before.
+  const storageDraftsPending = () => currentStep.key === "storage" && tursoDraftsDirtyRef.current;
+  /** Asks to discard the storage step's unapplied drafts; true when the user chose to. */
+  async function confirmDiscardDrafts(): Promise<boolean> {
+    const discard = await confirm({
+      message: t(lang, "setupWizardTursoDraftsDiscard", t(lang, "cancel"), t(lang, "integrationsTursoApply")),
+      confirmLabel: t(lang, "setupWizardTursoDraftsDiscardConfirm"),
+    });
+    if (discard) tursoDraftsDirtyRef.current = false;
+    return discard;
+  }
+  function advance() {
     setStep((s) => clampStep(s + 1, TOTAL));
     nextButtonRef.current?.focus();
+  }
+  async function handleNext() {
+    if (storageDraftsPending()) {
+      if (await confirmDiscardDrafts()) advance();
+      return;
+    }
+    advance();
   }
 
   // Jira onChange adapter

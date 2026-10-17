@@ -4773,7 +4773,7 @@ export const de: Record<TranslationKey, string> = {
   setupWizardConfigured: "Konfiguriert",
   setupWizardNotConfigured: "Nicht konfiguriert",
   setupWizardFinish: "Fertigstellen",
-  setupWizardTursoDraftsDiscard: "Ihre Änderungen an Turso-URL oder -Token sind noch nicht übernommen. Wenn Sie diesen Schritt verlassen, werden sie verworfen.",
+  setupWizardTursoDraftsDiscard: "Ihre Änderungen an Turso-URL oder -Token sind noch nicht übernommen und werden verworfen. Um sie zu behalten, wählen Sie {0} und dann {1}.",
   setupWizardTursoDraftsDiscardConfirm: "Änderungen verwerfen",
   setupWizardTursoNeedsConfig: "Für den Wechsel des Portfolios zu Turso werden eine gespeicherte Turso-URL und ein Token benötigt. Fertigstellen führt Sie zum Speicherschritt zurück, um sie einzutragen.",
   wizardBlankTemplate: "Leer — Funktionen selbst auswählen",

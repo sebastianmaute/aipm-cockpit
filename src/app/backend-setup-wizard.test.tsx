@@ -345,7 +345,8 @@ describe("BackendSetupWizard — unapplied Turso drafts on the storage step (§7
     fireEvent.click(screen.getByRole("button", { name: "type a draft" }));
     await act(async () => { fireEvent.click(nextBtn()); });
     expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
-      message: t("en-US", "setupWizardTursoDraftsDiscard"),
+      // It says how to keep them, naming the dialog's own Cancel and the step's Apply.
+      message: t("en-US", "setupWizardTursoDraftsDiscard", t("en-US", "cancel"), t("en-US", "integrationsTursoApply")),
       confirmLabel: t("en-US", "setupWizardTursoDraftsDiscardConfirm"),
     }));
     expect(screen.getByTestId("integrations-section")).toBeInTheDocument();

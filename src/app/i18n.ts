@@ -5054,7 +5054,7 @@ const enUS = {
   setupWizardConfigured: "Configured",
   setupWizardNotConfigured: "Not configured",
   setupWizardFinish: "Finish",
-  setupWizardTursoDraftsDiscard: "Your Turso URL or token changes are not applied yet. Leaving this step discards them.",
+  setupWizardTursoDraftsDiscard: "Your Turso URL or token changes are not applied yet and will be discarded. To keep them, choose {0}, then {1}.",
   setupWizardTursoDraftsDiscardConfirm: "Discard changes",
   setupWizardTursoNeedsConfig: "Switching the portfolio to Turso needs a saved Turso URL and token. Finish takes you back to the storage step to add them.",
   wizardBlankTemplate: "Blank — choose functions yourself",
