@@ -60,7 +60,8 @@ let inlineToolsCache: InlineTools | null = null;
 /** The plannable tools, without `expectedToken` (§715 D1). Its schema text says "REQUIRED. The token
  *  returned when you read this record", but this path has no read tools and the app stamps the
  *  stored row's token itself at apply (`use-inline-entity-edit.ts`). A model that follows the schema
- *  asks to read first, which ends in an empty plan. Built once: the set never changes. */
+ *  asks to read first, which ends in an empty plan. Built once: the set never changes. ★ So a test
+ *  that mocks `toolsNamed` after the first inline call in its file never reaches this path. */
 function inlineTools(): InlineTools {
   if (inlineToolsCache) return inlineToolsCache;
   inlineToolsCache = toolsNamed(PLANNABLE_TOOL_NAMES).map((def) => {
