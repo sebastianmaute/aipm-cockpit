@@ -394,6 +394,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         }),
       );
     } else if (tokenChanged && tursoIsLive && passphraseReady) {
+      // §715 — held until the seal lands (`noteTokenSealed`): the marker is the LATEST committed
+      //   token or nothing, so a token carried over from off Turso storage never stays behind it.
+      markUnsealedPassphraseToken(tokenValue);
       trackTokenSeal(sealUnderTypedPassphrase(tokenValue));
     } else if (tokenChanged) {
       markUnsealedPassphraseToken(tokenValue); // passphrase mode, nothing to seal it with yet
@@ -508,7 +511,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   //   under `switchBusy`), so the two can never verify and seal side by side.
   // §715 — `tokenUnsealed` enables it with no dirty draft: a token carried over from off Turso storage
   //   still needs its seal, and in passphrase mode Apply seals it (`applyTursoDrafts`), as "Save
-  //   passphrase" does. (The untick device-seals a held token, so the marker does not outlive that mode.)
+  //   passphrase" does. (The untick device-seals every held token before it flips the wrap.)
   const canApplyTurso = (tursoDraftsDirty || tokenUnsealed) && !tokenSealBlocked && !passphraseVerifying && !switchBusy;
   // ★ A blocked Apply / "Save & switch" states WHY, visibly and as each button's description
   //   (one key, two ids: the switch sits far below in the portfolio block).
@@ -667,6 +670,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     }
   }
 
+  // §609 — after a superseded seal, show what the STORE now holds (a clear → device, nothing
+  // stored); a passphrase save still in flight sets the wrap itself when it lands.
+  function showStoredWrap() {
+    setTokenWrap(isPassphraseLocked("tursoAuthToken") ? "passphrase" : "device");
+    setTokenStored(loadSealed("tursoAuthToken") != null);
+  }
+
   function handleTokenLockToggle(checked: boolean) {
     if (checked) {
       // device → passphrase: reveal the passphrase + confirm fields + Save button.
@@ -683,8 +693,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         // Don't force device over it: show what the STORE now holds (a clear → device, nothing
         // stored). A passphrase save still in flight sets the wrap itself when it lands.
         if (!(await saveSecretValue("tursoAuthToken", sealableTursoToken ?? "", "device"))) {
-          setTokenWrap(isPassphraseLocked("tursoAuthToken") ? "passphrase" : "device");
-          setTokenStored(loadSealed("tursoAuthToken") != null);
+          showStoredWrap();
           return;
         }
         noteTokenSealed(sealableTursoToken);
@@ -693,11 +702,16 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         removeSealed("tursoAuthToken");
         setTokenStored(false);
       }
-      // §715 — a keystroke during the await above still committed in passphrase mode, so the marker
-      // can hold a NEWER token than the one this closure sealed. Device-seal that one too, or the
-      // marker outlives passphrase mode: Move refused, pointing at fields no longer shown.
-      const held = unsealedPassphraseTokenSnapshot();
-      if (held !== null && (await saveSecretValue("tursoAuthToken", held, "device"))) {
+      // §715 — a keystroke during an await here still commits in passphrase mode (the wrap flips
+      // only below), so the marker can hold a NEWER token than the one this closure sealed. Seal
+      // whatever it holds until it holds nothing: the marker is the latest committed token or
+      // nothing (`commitTurso`), and no keystroke can land between the last check and the flip.
+      // A superseded seal (§609: a clear, or a passphrase Save) shows what the store holds instead.
+      for (let held = unsealedPassphraseTokenSnapshot(); held !== null; held = unsealedPassphraseTokenSnapshot()) {
+        if (!(await saveSecretValue("tursoAuthToken", held, "device"))) {
+          showStoredWrap();
+          return;
+        }
         noteTokenSealed(held);
         setTokenStored(true);
       }

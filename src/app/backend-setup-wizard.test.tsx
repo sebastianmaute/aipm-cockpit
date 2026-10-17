@@ -14,7 +14,8 @@ import { t } from "./i18n";
 
 const commitPortfolioModeSwitch = vi.hoisted(() => vi.fn(async () => {}));
 const hasUnsealedPassphraseToken = vi.hoisted(() => vi.fn<(token: string | undefined) => boolean>(() => false));
-vi.mock("./turso-token-marker", () => ({ hasUnsealedPassphraseToken }));
+// A plain function stands in for the subscribed reader: the tests set its answer per case.
+vi.mock("./turso-token-seals", () => ({ useHasUnsealedPassphraseToken: hasUnsealedPassphraseToken }));
 vi.mock("./settings-sections/integrations-section", () => ({
   commitPortfolioModeSwitch,
   IntegrationsSection: ({ hidePortfolioSwitch, pendingPortfolioMode, onPendingPortfolioModeChange, onTursoDraftsDirtyChange }: {

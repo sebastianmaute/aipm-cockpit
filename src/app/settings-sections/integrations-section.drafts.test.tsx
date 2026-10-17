@@ -955,4 +955,47 @@ describe("§715 — an unsealed passphrase-mode token survives a remount and a m
     await waitFor(() => expect(hasUnsealedPassphraseToken("tokK2")).toBe(false));
     expect(lock()).not.toBeChecked();
   });
+
+  // The same, one keystroke later: typed while the seal of the HELD token is itself in flight.
+  // MU19 — seal the held token once instead of until none is held → (k2) goes red ("tokK23" held).
+  it("(k2) a token typed during the held token's own seal is device-sealed too", async () => {
+    const user = userEvent.setup();
+    let landReseal: (ok: boolean) => void = () => {};
+    let landHeld: (ok: boolean) => void = () => {};
+    render(<Host storage={BROWSER} />);
+    await user.click(lock());
+    await user.type(tokenField(), "tokK");
+    vi.mocked(saveSecretValue)
+      .mockImplementationOnce(() => new Promise<boolean>((resolve) => { landReseal = resolve; }))
+      .mockImplementationOnce(() => new Promise<boolean>((resolve) => { landHeld = resolve; }));
+    await user.click(lock());
+    await user.type(tokenField(), "2");
+    await act(async () => { landReseal(true); }); // the held "tokK2" seal is now in flight
+    await waitFor(() => expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tokK2", "device"));
+    await user.type(tokenField(), "3");
+    await act(async () => { landHeld(true); });
+    await waitFor(() => expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tokK23", "device"));
+    await waitFor(() => expect(hasUnsealedPassphraseToken("tokK23")).toBe(false));
+    expect(lock()).not.toBeChecked();
+  });
+
+  // The marker holds the LATEST committed token or nothing: Apply on Turso commits a new token under
+  // the passphrase, so a token carried over from off Turso storage must not stay held behind it (an
+  // untick would then device-seal that old token over the new one).
+  // MU20 — the on-Turso passphrase commit leaves the marker alone → (l) goes red ("tokL" still held).
+  it("(l) Apply of a new token on Turso storage drops the carried-over one from the marker", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Host storage={BROWSER} />);
+    await user.click(lock());
+    await user.type(tokenField(), "tokL");
+    expect(hasUnsealedPassphraseToken("tokL")).toBe(true);
+    rerender(<Host storage={TURSO} />);
+    await user.type(tokenField(), "x"); // a draft on Turso storage: "tokLx"
+    await user.type(passphraseField(), "pw");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.click(screen.getByRole("button", { name: applyLabel }));
+    await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokLx", "pw"));
+    expect(hasUnsealedPassphraseToken("tokL")).toBe(false);
+    await waitFor(() => expect(hasUnsealedPassphraseToken("tokLx")).toBe(false));
+  });
 });

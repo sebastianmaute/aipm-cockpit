@@ -208,8 +208,8 @@
   the section, so it also keeps a remounted section in passphrase mode (`tokenWrap`), and it still counts once the kind moves to Turso in
   the same page, where the token is no draft: there, in passphrase mode, the unsealed token enables
   Apply without a dirty draft (`canApplyTurso`; the passphrase must still be typed), and Apply seals it
-  under it. An untick device-seals a token typed during its own re-seal, so the marker does not
-  outlive passphrase mode.
+  under it. The marker holds the latest committed token or nothing, and an untick device-seals
+  whatever it holds, until it holds nothing, before it flips the wrap to device.
   "Test connection" probes the drafts without committing.
   (`integrations-section.backend-hold.test.tsx` pins both models against the real hook.)
   ★★ The blur-commit design this replaced — commit when focus left the credentials group — lost a

@@ -27,7 +27,7 @@ import {
   summarizeBackendSetup,
 } from "./backend-setup-steps";
 import { commitPortfolioModeSwitch, IntegrationsSection } from "./settings-sections/integrations-section";
-import { hasUnsealedPassphraseToken } from "./turso-token-marker";
+import { useHasUnsealedPassphraseToken } from "./turso-token-seals";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { getTursoConfig } from "./turso-config";
 import { AiSection } from "./settings-sections/ai-section";
@@ -160,7 +160,9 @@ export function BackendSetupWizard({
   const tursoConfigMissing = switchingToTurso && !getTursoConfig(savedTurso?.databaseUrl, savedTurso?.authToken);
   // A token typed again in passphrase mode is not sealed yet, and the reload would bring back the old
   // record. The storage step's own switch seals it under the passphrase; Finish cannot (no passphrase).
-  const tokenWouldBeLost = switchingToTurso && hasUnsealedPassphraseToken(savedTurso?.authToken);
+  // Subscribed, so a seal landing while the review step shows lifts the refusal at once.
+  const tokenHeldUnsealed = useHasUnsealedPassphraseToken(savedTurso?.authToken);
+  const tokenWouldBeLost = switchingToTurso && tokenHeldUnsealed;
   const switchBlocked = tursoConfigMissing || tokenWouldBeLost;
   async function handleFinish() {
     if (finishingRef.current) return;
