@@ -12,6 +12,7 @@ import {
   addScenario,
   removeScenario,
   replaceScenario,
+  trimScenarioChanges,
   validateScenarioDraft,
   type ForecastScenario,
   type ScenarioChange,
@@ -46,11 +47,14 @@ function sameRows(a: readonly ScenarioChange[], b: readonly ScenarioChange[]): b
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** `diffFields` skips arrays, so a rows edit would log nothing: append the row COUNTS when the rows differ. */
-function scenarioFieldChanges(before: ForecastScenario, after: ForecastScenario): FieldChange[] {
+/** `diffFields` skips arrays, so a rows edit would log nothing: append the row COUNTS when the rows differ.
+ *  ★ Stored as bare digits, like every other diff value (raw data, no language): the activity panel words them
+ *  at render (`activityChangeValues`), so "1 row" agrees in number and an equal count reads "3 rows (edited)".
+ *  An equal count can only mean edited rows: the caller keeps the stored reference for an unchanged list. */
+export function scenarioFieldChanges(before: ForecastScenario, after: ForecastScenario): FieldChange[] {
   const out = diffFields(before, after);
   if (before.changes !== after.changes) {
-    out.push({ field: "changes", from: `${before.changes.length} rows`, to: `${after.changes.length} rows` });
+    out.push({ field: "changes", from: String(before.changes.length), to: String(after.changes.length) });
   }
   return out;
 }
@@ -67,7 +71,7 @@ export function useForecastScenarios(args: UseForecastScenariosArgs): ForecastSc
   const createScenario = useCallback((openId: number, d: ScenarioDraft): number | null => {
     if (validateScenarioDraft(d, scenarios, null) !== null) return null;
     const { id } = resolveEntitySave(scenarios, openId, true, () => mintSessionId("forecastScenario", scenarios));
-    const row: ForecastScenario = { id, name: d.name.trim(), changes: d.changes };
+    const row: ForecastScenario = { id, name: d.name.trim(), changes: trimScenarioChanges(d.changes) };
     setForecastScenarios((prev) => addScenario(prev, row));
     logActivity?.("forecastScenario.created", id, row.name);
     return id;
@@ -85,12 +89,13 @@ export function useForecastScenarios(args: UseForecastScenariosArgs): ForecastSc
     }
     if (validateScenarioDraft(d, scenarios, id) !== null) return false;
     const name = d.name.trim();
+    const rows = trimScenarioChanges(d.changes);
     // Keep the stored references for what did not change, so the undo field patch (fieldEditsFromRows
     // compares by reference) holds only the edited keys and the log adds no row count for an untouched list.
     const after: ForecastScenario = {
       ...before,
       name: name === before.name ? before.name : name,
-      changes: sameRows(before.changes, d.changes) ? before.changes : d.changes,
+      changes: sameRows(before.changes, rows) ? before.changes : rows,
     };
     if (after.name === before.name && after.changes === before.changes) return true;
     setForecastScenarios((prev) => replaceScenario(prev, after));

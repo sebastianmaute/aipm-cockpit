@@ -25,7 +25,7 @@ import {
   activityGroupOf,
   humanizeFieldName,
 } from "./activity-log";
-import { activityMessage } from "./activity-message";
+import { activityChangeValues, activityMessage } from "./activity-message";
 import { type Lang, t, tPlural } from "./i18n";
 import { useDisplayTimezone } from "./display-timezone-context";
 import { formatDisplayTimestamp } from "./tz-display";
@@ -573,18 +573,21 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                         the list capped at MAX_FIELD_CHANGES). */}
                     {changes.length > 0 && (
                       <ul className="mt-1 space-y-0.5">
-                        {changes.map((c, i) => (
-                          // Index-qualified key: a coerced field can repeat.
-                          <li key={`${i}-${c.field}`} className="text-xs text-muted-foreground">
-                            <span className="font-medium">{humanizeFieldName(c.field)}</span>
-                            {": "}
-                            <span className="sr-only">{t(lang, "activityChangeFrom")} </span>
-                            <span className="line-through">{c.from || "—"}</span>{" "}
-                            <span aria-hidden="true">→</span>{" "}
-                            <span className="sr-only">{t(lang, "activityChangeTo")} </span>
-                            <span className="text-foreground">{c.to || "—"}</span>
-                          </li>
-                        ))}
+                        {changes.map((c, i) => {
+                          const shown = activityChangeValues(lang, kind, c);
+                          return (
+                            // Index-qualified key: a coerced field can repeat.
+                            <li key={`${i}-${c.field}`} className="text-xs text-muted-foreground">
+                              <span className="font-medium">{humanizeFieldName(c.field)}</span>
+                              {": "}
+                              <span className="sr-only">{t(lang, "activityChangeFrom")} </span>
+                              <span className="line-through">{shown.from || "—"}</span>{" "}
+                              <span aria-hidden="true">→</span>{" "}
+                              <span className="sr-only">{t(lang, "activityChangeTo")} </span>
+                              <span className="text-foreground">{shown.to || "—"}</span>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </td>

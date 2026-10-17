@@ -64,6 +64,33 @@ describe("ForecastScenarioNameDialog", () => {
     expect(document.activeElement).toBe(nameInput());
   });
 
+  // Final review Important 1: the field usually already has focus here (autoFocus, then Enter), so moving focus
+  // announces nothing: the message itself must be an alert, and a repeated refusal must re-announce it.
+  it("a refusal from Enter is an alert the field is described by, and a repeat remounts it", async () => {
+    const { user } = renderDialog();
+    await user.type(nameInput(), "alpha{Enter}");
+    const first = screen.getByRole("alert");
+    expect(first).toHaveTextContent("Another scenario already has this name.");
+    expect(nameInput()).toHaveAttribute("aria-invalid", "true");
+    expect(nameInput().getAttribute("aria-describedby")).toBe(first.id);
+    await user.keyboard("{Enter}");
+    const second = screen.getByRole("alert");
+    expect(second).toHaveTextContent("Another scenario already has this name.");
+    expect(second).not.toBe(first);
+  });
+
+  it("a refused Save click focuses the field only once it is aria-invalid and described by the alert", async () => {
+    const { user } = renderDialog({ refuse: "Not saved: the scenarios were changed elsewhere." });
+    await user.type(nameInput(), "Gamma");
+    const seen: (string | null | undefined)[][] = [];
+    nameInput().addEventListener("focus", () => {
+      const err = document.getElementById(nameInput().getAttribute("aria-describedby") ?? "");
+      seen.push([nameInput().getAttribute("aria-invalid"), err?.getAttribute("role"), err?.textContent]);
+    });
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(seen).toEqual([["true", "alert", "Not saved: the scenarios were changed elsewhere."]]);
+  });
+
   it("shows the frozen scope note", () => {
     renderDialog({ note: "+10% = 6 tasks today" });
     expect(screen.getByText("+10% = 6 tasks today")).toBeInTheDocument();

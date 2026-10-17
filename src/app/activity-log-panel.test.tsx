@@ -110,6 +110,23 @@ describe("ActivityLogPanel", () => {
     expect(screen.getByText("2026-08-01")).toBeInTheDocument();
   });
 
+  // §502: a scenario's row count is stored as bare digits and worded at render, in the reader's language.
+  it("words a saved scenario's row count, singular and plural, and an equal count as edited", () => {
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[
+          entry({ id: "s1", kind: "forecastScenario.updated", args: [1, "Plan"], changes: [{ field: "changes", from: "1", to: "3" }] }),
+          entry({ id: "s2", kind: "forecastScenario.updated", args: [1, "Plan"], changes: [{ field: "changes", from: "3", to: "3" }] }),
+        ]}
+        onClear={() => {}}
+      />,
+    );
+    expect(screen.getByText("1 row")).toBeInTheDocument();
+    expect(screen.getByText("3 rows (edited)")).toBeInTheDocument();
+    expect(screen.getAllByText("3 rows")).toHaveLength(2);
+  });
+
   // ★★★ THE ASSERTION THAT MATTERS. The activity log is shared workspace data
   // now — a hand-edited JSON file, a Turso row, or a log synced from a device
   // running a different build. `sanitizeActivityLog` is the load boundary, but

@@ -179,6 +179,15 @@ export function validateScenarioDraft(
   return null;
 }
 
+/** The rows as stored: a placeholder label trimmed, as `sanitizeForecastScenarios` trims it on load, so a saved
+ *  scenario does not change on its first round trip. Untouched rows keep their reference. */
+export function trimScenarioChanges(changes: readonly ScenarioChange[]): readonly ScenarioChange[] {
+  const trim = (c: ScenarioChange): ScenarioChange =>
+    c.kind === "addPeople" && "label" in c.who && c.who.label !== c.who.label.trim() ? { ...c, who: { ...c.who, label: c.who.label.trim() } } : c;
+  const out = changes.map(trim);
+  return out.every((c, i) => c === changes[i]) ? changes : out;
+}
+
 export function addScenario(list: readonly ForecastScenario[], s: ForecastScenario): ForecastScenario[] {
   return [...list, s];
 }

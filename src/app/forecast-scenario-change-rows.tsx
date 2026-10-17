@@ -105,7 +105,7 @@ function addedPersonText(lang: Lang, s: AddedPersonStatus, teamHours: number | n
   const out: string[] = [];
   if (s.rateNote === "external") out.push(t(lang, "forecastScenarioRowExternal"));
   if (s.rateNote === "no-rate") out.push(t(lang, "forecastScenarioRowNoRate", s.name));
-  if (s.rateNote === "at-par") out.push(t(lang, "forecastScenarioRowAtPar", s.name));
+  if (s.rateNote === "at-par") out.push(t(lang, "forecastScenarioRowAtPar", s.rateCurrency ?? ""));
   if (teamHours !== null) {
     out.push(t(lang, "forecastScenarioRowBasis", Math.round(teamHours), Math.round(s.weeklyHours),
       t(lang, "forecastPercent", Math.round(s.shareAtFullSpeed * 100))));
@@ -117,7 +117,12 @@ function addedPersonText(lang: Lang, s: AddedPersonStatus, teamHours: number | n
 export function rowStatusLines(lang: Lang, live: RowLive, teamHours: number | null): string[] {
   if (live === null) return [];
   const { status } = live;
-  if (status.kind === "availability") return status.ended ? [t(lang, "forecastScenarioRowEnded")] : [];
+  // An availability row that applies on no simulated day (`until` today, `from` past the horizon) says so, as an
+  // Add-people row does.
+  if (status.kind === "availability") {
+    if (status.ended) return [t(lang, "forecastScenarioRowEnded")];
+    return live.noEffect ? [t(lang, "forecastScenarioRowNoEffect")] : [];
+  }
   if (status.kind === "scope") return status.milestoneGone ? [t(lang, "forecastScenarioRowMilestoneGone")] : [];
   // Archived is not gone (spec §4.1a: only a person who no longer exists is inert): the engine still sizes a stored
   // archived person, so the row says so and then reads like any other.
@@ -157,7 +162,7 @@ function Field({ lang, n, prefix, rowKey, field, labelKey, error, errorText, ren
         "aria-describedby": bad ? `${id}-err` : undefined,
         invalid: bad,
       })}
-      {bad && <span id={`${id}-err`} className="font-medium text-ui-pink-strong">{errorText}</span>}
+      {bad && <span id={`${id}-err`} role="alert" className="font-medium text-ui-pink-strong">{errorText}</span>}
     </label>
   );
 }
@@ -316,7 +321,7 @@ export function ScenarioChangeRow(p: ChangeRowProps) {
   const { lang, n, live, context } = p;
   const lines = rowStatusLines(lang, live, context.teamHours);
   const inert = live !== null && (
-    (live.status.kind === "availability" && live.status.ended)
+    (live.status.kind === "availability" && (live.status.ended || live.noEffect))
     || (live.status.kind === "addPeople" && (live.status.status.kind === "inert" || live.noEffect))
   );
   return (

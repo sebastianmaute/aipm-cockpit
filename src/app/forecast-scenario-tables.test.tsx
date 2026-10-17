@@ -97,6 +97,30 @@ describe("ScenarioComparisonTable", () => {
     expect(screen.getAllByText("Plan B: no rate for Kim, so their cost counts as 0.")).toHaveLength(1);
   });
 
+  // Final review Minor 4: the missing exchange rate belongs to a currency, not to the placeholder's label.
+  it("the at-par note names the currency, then whose rate it converted", () => {
+    const sized = {
+      kind: "addPeople" as const,
+      status: {
+        kind: "sized" as const, name: "Contractors", weeklyHours: 40, ratePerHour: 90, rateNote: "at-par" as const,
+        shareAtFullSpeed: 0.2, rateCurrency: "GBP" as const,
+      },
+    };
+    render(<ScenarioComparisonTable lang={EN} columns={[asIs({ cost: SIM_COST }), planB({ cost: SIM_COST, schedule: schedule([sized]) })]} currency="EUR" />);
+    expect(screen.getByText("Plan B: no exchange rate for GBP, so the rate of Contractors is converted at par.")).toBeInTheDocument();
+  });
+
+  // Final review Minor 7: Budget module on, no buckets: no facts, so every cost is null and the rows drop.
+  it("with cost asked for but no budget, says why there are no cost rows", () => {
+    const { unmount } = render(<ScenarioComparisonTable lang={EN} columns={[asIs(), planB()]} currency="EUR" noBudget />);
+    expect(screen.queryByRole("rowheader", { name: "Cost at finish (P80)" })).toBeNull();
+    expect(screen.getByText("Add a budget to see the cost at finish.")).toBeInTheDocument();
+    unmount();
+    // Control: without the flag (cost not asked for) the table says nothing about a budget.
+    render(<ScenarioComparisonTable lang={EN} columns={[asIs(), planB()]} currency="EUR" />);
+    expect(screen.queryByText("Add a budget to see the cost at finish.")).toBeNull();
+  });
+
   it("an insufficient scenario column is one line", () => {
     const insufficient = { kind: "insufficient" } as unknown as ScheduleForecastResult;
     render(<ScenarioComparisonTable lang={EN} columns={[asIs(), planB({ forecast: insufficient, chanceOnTime: null })]} currency="EUR" />);

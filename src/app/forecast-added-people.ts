@@ -30,7 +30,9 @@ export type ScheduleContext = {
 
 export type AddedPersonStatus =
   | { kind: "sized"; name: string; weeklyHours: number; ratePerHour: number;
-      rateNote: "ok" | "no-rate" | "external" | "at-par"; shareAtFullSpeed: number }
+      rateNote: "ok" | "no-rate" | "external" | "at-par"; shareAtFullSpeed: number;
+      /** A placeholder's own rate currency (absent for a directory person): what an at-par note names. */
+      rateCurrency?: BudgetCurrency }
   | { kind: "inert"; reason: "person-gone" | "on-team" | "ended" | "needs-booked-hours" };
 
 const WORKING_WEEKDAYS = 5;
@@ -108,7 +110,7 @@ export function shiftFor(r: Resource, dir: ScenarioDirectory): Shift | undefined
 }
 
 type Sizing = { name: string; weeklyHours: number; ratePerHour: number; rateNote: "ok" | "no-rate" | "external" | "at-par";
-  hoursOn: (date: string) => number };
+  rateCurrency?: BudgetCurrency; hoursOn: (date: string) => number };
 
 function directorySizing(r: Resource, hoursPerWeek: number, dir: ScenarioDirectory): Sizing {
   const perWeekday = weekdayHours(shiftFor(r, dir), hoursPerWeek);
@@ -133,6 +135,7 @@ function placeholderSizing(
     name: who.label, weeklyHours,
     ratePerHour: currencyToBase(who.rate, bucket, dir.fxRates, dir.baseCurrency),
     rateNote: atPar ? "at-par" : "ok",
+    rateCurrency: who.currency,
     hoursOn: () => perDay,
   };
 }
@@ -185,6 +188,7 @@ export function resolveAddedPeople(
     status: {
       kind: "sized", name: sizing.name, weeklyHours: sizing.weeklyHours, ratePerHour: sizing.ratePerHour,
       rateNote: sizing.rateNote, shareAtFullSpeed: sizing.weeklyHours / WORKING_WEEKDAYS / teamHours,
+      ...(sizing.rateCurrency ? { rateCurrency: sizing.rateCurrency } : {}),
     },
     share,
     cost,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { ForecastRangeBar } from "./forecast-range-bar";
 
 const EN = "en-US" as const;
@@ -87,6 +87,25 @@ describe("ForecastRangeBar", () => {
     // Positive control: without the axis each bar spans its own dates, so the plan end moves.
     const c = render(<ForecastRangeBar {...BASE} />).container;
     expect(num(c.querySelector("[data-plan-end]"), "x1")).not.toBeCloseTo(num(a.querySelector("[data-plan-end]"), "x1"), 1);
+  });
+
+  // Final review Minor 3: on a shared axis an open band and the band whose P95 sets the right edge both end there.
+  it("on a shared axis an open band says \"later →\" at the edge in words; the bar that sets the edge does not", () => {
+    const axis = { lo: "2026-10-16", hi: "2027-03-03" };
+    const open = render(<ForecastRangeBar {...BASE} p95={null} axis={axis} label="Open" />).container;
+    const edge = render(<ForecastRangeBar {...BASE} axis={axis} label="Edge" />).container;
+    // Both bands end at the same x, so the band alone cannot tell them apart.
+    const right = (c: HTMLElement) => num(c.querySelector("[data-band]"), "x") + num(c.querySelector("[data-band]"), "width");
+    expect(right(open)).toBeCloseTo(right(edge), 6);
+    const cue = open.querySelector("[data-open-end-cue]");
+    expect(cue).toHaveTextContent("later →");
+    expect(cue).toHaveAttribute("aria-hidden", "true");
+    expect(edge.querySelector("[data-open-end-cue]")).toBeNull();
+    // Its accessible text is the img's own name, which says beyond the horizon.
+    expect(within(screen.getByRole("group", { name: "Open, simulated" })).getByRole("img").getAttribute("aria-label"))
+      .toContain("only beyond the forecast horizon");
+    // Off a shared axis the open-end pad already shows it, so no cue (the own-axis bar is unchanged).
+    expect(render(<ForecastRangeBar {...BASE} p95={null} />).container.querySelector("[data-open-end-cue]")).toBeNull();
   });
 
   it("names its group with the given label", () => {

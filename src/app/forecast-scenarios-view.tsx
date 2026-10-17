@@ -23,7 +23,7 @@ import { useRowTokens } from "./use-row-tokens";
 import { isValidIsoDate } from "./forecast/throughput";
 import { SimValue } from "./sim-value";
 import { ForecastScenarioEditor } from "./forecast-scenario-editor";
-import { ForecastScenarioNameDialog, scenarioRefusalText } from "./forecast-scenario-name-dialog";
+import { ForecastScenarioNameDialog, scenarioRefusalText, useFocusAfterCommit } from "./forecast-scenario-name-dialog";
 
 /** The panel's `scenarios` prop; absent = no Scenarios segment and no "Save as scenario". */
 export type ForecastScenariosProps = { api: ForecastScenariosApi; directory: ScenarioDirectory; readOnly: boolean };
@@ -96,13 +96,22 @@ function ScenarioList({ lang, scenarios, tokens, api, readOnly, onOpen }: {
 }) {
   const confirm = useConfirm();
   const capId = useId();
+  const { requestFocus } = useFocusAfterCommit();
+  const editId = (id: number) => `${capId}-edit-${id}`;
+  const newId = `${capId}-new`;
   const remove = async (s: ForecastScenario) => {
     const ok = await confirm({
       message: t(lang, "forecastScenarioDeleteConfirm", s.name),
       confirmLabel: t(lang, "forecastScenarioDelete"),
       tone: "danger",
     });
-    if (ok) api.deleteScenario(s.id);
+    if (!ok) return;
+    // The confirm hands focus back to this row's Delete, which is about to go: focus moves on to the next row's
+    // first action (the previous one for the last row), or "New scenario" once the list is empty.
+    const i = scenarios.findIndex((x) => x.id === s.id);
+    const heir = scenarios[i + 1] ?? scenarios[i - 1];
+    api.deleteScenario(s.id);
+    requestFocus(heir ? editId(heir.id) : newId);
   };
   return (
     <Section title={t(lang, "forecastModeScenarios")}>
@@ -118,7 +127,7 @@ function ScenarioList({ lang, scenarios, tokens, api, readOnly, onOpen }: {
                 <span className="min-w-0 flex-1 truncate font-medium text-foreground">{s.name}</span>
                 {!readOnly && (
                   <>
-                    <Button variant="secondary" size="xs" aria-label={rowLabel(t(lang, "forecastScenarioEdit"), token)}
+                    <Button id={editId(s.id)} variant="secondary" size="xs" aria-label={rowLabel(t(lang, "forecastScenarioEdit"), token)}
                       onClick={() => onOpen({ kind: "edit", scenario: s, openId: s.id })}>
                       {t(lang, "forecastScenarioEdit")}
                     </Button>
@@ -139,7 +148,7 @@ function ScenarioList({ lang, scenarios, tokens, api, readOnly, onOpen }: {
       )}
       {!readOnly && (
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" size="xs" disabled={!api.canCreate} aria-describedby={api.canCreate ? undefined : capId}
+          <Button id={newId} variant="secondary" size="xs" disabled={!api.canCreate} aria-describedby={api.canCreate ? undefined : capId}
             onClick={() => onOpen({ kind: "edit", scenario: null, openId: api.mintId() })}>
             {t(lang, "forecastScenarioNew")}
           </Button>
@@ -222,7 +231,9 @@ export function ForecastScenariosView({ lang, input, scenarios }: {
       {listEl}
       {dialogEl}
       <RangeBars lang={lang} columns={columns} today={input.today} planEnd={input.planEnd} axis={sharedAxis(comparison, input.today, input.planEnd)} />
-      <ScenarioComparisonTable lang={lang} columns={columns} currency={input.directory.baseCurrency} />
+      <ScenarioComparisonTable
+        lang={lang} columns={columns} currency={input.directory.baseCurrency} noBudget={input.costOn && input.budgetFacts === null}
+      />
       <ScenarioMilestoneTable lang={lang} milestones={input.milestones} columns={columns} />
     </div>
   );

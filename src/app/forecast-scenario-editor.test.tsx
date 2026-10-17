@@ -151,6 +151,34 @@ describe("ForecastScenarioEditor", () => {
     expect(rows[2]).not.toHaveTextContent("Team books");
   });
 
+  // Final review Minor 5: an availability row that applies on no simulated day said nothing at all.
+  it("an availability row with an empty window says no effect, like an Add-people row", () => {
+    renderEditor({
+      scenario: withRows([
+        { kind: "availability", percent: 50, from: TODAY, until: TODAY },
+        { kind: "availability", percent: 50, from: "2040-01-02", until: "" },
+        { kind: "availability", percent: 50, from: TODAY, until: "" },
+      ]),
+    });
+    const rows = document.querySelectorAll("[data-change-row]");
+    expect(rows[0]).toHaveTextContent("No effect in the forecast window.");
+    expect(rows[1]).toHaveTextContent("No effect in the forecast window.");
+    // Control: a row that applies from today on carries no status line.
+    expect(rows[2].querySelectorAll("p")).toHaveLength(0);
+  });
+
+  // Final review Minor 4: the missing exchange rate belongs to the placeholder's currency, not to its label.
+  it("an at-par placeholder row names its currency", () => {
+    renderEditor({
+      scenario: withRows([
+        { kind: "addPeople", who: { label: "Contractors", count: 1, rate: 50, currency: "GBP", hoursPerWeek: 20 }, from: TODAY, until: "", rampWeeks: 4 },
+      ]),
+    });
+    const row = document.querySelector("[data-change-row]");
+    expect(row).toHaveTextContent("No exchange rate for GBP — rate converted at par.");
+    expect(row).not.toHaveTextContent("No exchange rate for Contractors");
+  });
+
   it("the doubles-the-team warning shows in the editor", () => {
     const warning = "Added people more than double the team; the team-average assumption is weak here.";
     const big: ScenarioChange = { kind: "addPeople", who: { label: "Crew", count: 2, rate: 50, currency: "EUR", hoursPerWeek: 40 }, from: TODAY, until: "", rampWeeks: 4 };
@@ -291,6 +319,32 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     expect(keepsStoredReference(person(1), person(5))).toBe(false);
     expect(keepsStoredReference(undefined, person(5))).toBe(false);
     expect(keepsStoredReference(person(5), person(5))).toBe(true);
+  });
+
+  // Final review Important 1: focus used to move inside the Save handler, BEFORE React committed aria-invalid
+  // and the message, so a screen reader announced the field with no error. The state is read AT the focus event.
+  it("a refused Save focuses each invalid field only once it is aria-invalid and described by an alert", async () => {
+    const alpha: ForecastScenario = { id: 1, name: "Alpha", changes: [] };
+    const { user } = renderEditor({ list: [alpha] });
+    const seen: { invalid: string | null; role: string | null | undefined; text: string | null | undefined }[] = [];
+    const record = (e: Event) => {
+      const el = e.target as HTMLElement;
+      const err = document.getElementById(el.getAttribute("aria-describedby") ?? "");
+      seen.push({ invalid: el.getAttribute("aria-invalid"), role: err?.getAttribute("role"), text: err?.textContent });
+    };
+    control("Name").addEventListener("focus", record);
+    await user.type(control("Name"), "alpha");
+    await user.click(screen.getByRole("button", { name: "+ Availability change" }));
+    field("Change 1: Availability (%)").addEventListener("focus", record);
+    fireEvent.change(field("Change 1: Availability (%)"), { target: { value: "5" } });
+    seen.length = 0;
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(seen).toEqual([{ invalid: "true", role: "alert", text: "Another scenario already has this name." }]);
+    await user.clear(control("Name"));
+    await user.type(control("Name"), "Beta");
+    seen.length = 0;
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(seen).toEqual([{ invalid: "true", role: "alert", text: "Between 10 and 300." }]);
   });
 
   it("a refused write keeps the editor open with its reason", async () => {

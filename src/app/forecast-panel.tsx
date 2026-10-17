@@ -100,7 +100,8 @@ interface Props {
   plan: ResourcePlan;
   today: string;
   holidaySet: ReadonlySet<string>;
-  /** Accepted for the view contract; the panel writes nothing, so a popout needs no guard. */
+  /** Accepted for the view contract and not read here. The panel writes only through "Save as scenario" and the
+   *  Scenarios mode, and their popout guard is `scenarios.readOnly`, which `workspace-section` sets from `isPopout`. */
   isPopout?: boolean;
   /** The project's "Use Monte Carlo forecasting" switch. On, the Dashboard's simulated cells use the engine defaults, so this view says so once its own settings differ. */
   showSimulation?: boolean;

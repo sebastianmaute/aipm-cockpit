@@ -182,6 +182,22 @@ describe("ForecastScenariosView", () => {
     expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["As is", "Beta"]);
   });
 
+  // Final review Minor 8: the confirm returns focus to the deleted row's Delete, which then unmounts.
+  it("after a delete focus moves to the next row's Edit, the previous one's for the last row, then New scenario", async () => {
+    const user = userEvent.setup();
+    renderView({ initial: [scenario(1, "Alpha"), scenario(2, "Beta"), scenario(3, "Gamma")] });
+    const del = async (name: string) => {
+      await user.click(screen.getByRole("button", { name: `Delete – ${name}` }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete" }));
+    };
+    await del("Alpha");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Edit – Beta" }));
+    await del("Gamma");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Edit – Beta" }));
+    await del("Beta");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "New scenario" }));
+  });
+
   it("a declined delete keeps the scenario", async () => {
     const user = userEvent.setup();
     renderView({ initial: [scenario(1, "Alpha")] });

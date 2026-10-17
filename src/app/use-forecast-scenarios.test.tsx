@@ -6,7 +6,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { useForecastScenarios, type ScenarioDraft } from "./use-forecast-scenarios";
 import { useUndoStack, type CaptureOpts } from "./undo/use-undo-stack";
 import { __resetMintStateForTests } from "./id-mint-session";
-import { MAX_FORECAST_SCENARIOS, type ForecastScenario, type ScenarioChange } from "./forecast-scenarios";
+import { MAX_FORECAST_SCENARIOS, sanitizeForecastScenarios, type ForecastScenario, type ScenarioChange } from "./forecast-scenarios";
 import type { ActivityKind, FieldChange } from "./activity-log";
 import { t, type Lang } from "./i18n";
 
@@ -143,7 +143,7 @@ describe("useForecastScenarios — edit and rename", () => {
       "forecastScenario.updated",
       [
         { field: "name", from: "Old", to: "New" },
-        { field: "changes", from: "1 rows", to: "2 rows" },
+        { field: "changes", from: "1", to: "2" },
       ],
       1,
       "New",
@@ -159,7 +159,7 @@ describe("useForecastScenarios — edit and rename", () => {
     expect(captures).toHaveLength(1);
     expect(logActivityChanges).toHaveBeenCalledWith(
       "forecastScenario.updated",
-      [{ field: "changes", from: "2 rows", to: "1 rows" }],
+      [{ field: "changes", from: "2", to: "1" }],
       1,
       "Same",
     );
@@ -177,6 +177,43 @@ describe("useForecastScenarios — edit and rename", () => {
       1,
       "New",
     );
+  });
+
+  // Final review deferred minor: the count is stored as bare digits (raw data, no language); the panel words it.
+  it("a same-length rows edit logs the equal count, which the panel reads as edited", () => {
+    const { result, logActivityChanges } = setup();
+    seed(result, [{ id: 1, name: "Same", changes: [AVAIL] }]);
+    act(() => {
+      result.current.api.updateScenario(1, draft("Same", [SCOPE]));
+    });
+    expect(logActivityChanges).toHaveBeenCalledWith("forecastScenario.updated", [{ field: "changes", from: "1", to: "1" }], 1, "Same");
+  });
+
+  // Final review Minor 6: the sanitizer trims a placeholder label on load, so a label saved as typed changed on
+  // its first round trip. Saving trims it, and an untouched list re-saved with the stored label writes nothing.
+  it("trims a placeholder label on create and update, so a reload changes nothing", () => {
+    const placeholder = (label: string): ScenarioChange => ({
+      kind: "addPeople", who: { label, count: 1, rate: 50, currency: "EUR", hoursPerWeek: 20 }, from: "2026-11-02", until: "", rampWeeks: 4,
+    });
+    const { result, captures } = setup();
+    act(() => {
+      result.current.api.createScenario(result.current.api.mintId(), draft("Hire", [placeholder("  Dev  ")]));
+    });
+    const [created] = result.current.workspace.forecastScenarios;
+    expect(created.changes).toEqual([placeholder("Dev")]);
+    expect(sanitizeForecastScenarios(JSON.parse(JSON.stringify([created])))).toEqual([created]);
+    act(() => {
+      result.current.api.updateScenario(created.id, draft("Hire", [placeholder("Dev "), AVAIL]));
+    });
+    expect(result.current.workspace.forecastScenarios[0].changes).toEqual([placeholder("Dev"), AVAIL]);
+    // Re-saving the stored rows with a padded label is no edit at all: no undo entry, the same reference.
+    const stored = result.current.workspace.forecastScenarios[0];
+    const before = captures.length;
+    act(() => {
+      result.current.api.updateScenario(created.id, draft("Hire", [placeholder(" Dev"), AVAIL]));
+    });
+    expect(captures).toHaveLength(before);
+    expect(result.current.workspace.forecastScenarios[0]).toBe(stored);
   });
 
   it("rename is one undo entry", () => {

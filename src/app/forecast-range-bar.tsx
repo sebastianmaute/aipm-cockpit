@@ -15,6 +15,9 @@ import { SIM_OUTLINE_CLASS, SimBadge } from "./sim-value";
  * and "sim" badge, in a group named "<label>, simulated".
  * `axis` (Scenarios mode, §502): one date axis for every bar in a stack, so the same date sits at the same x in
  * each row; a date outside it is held at the edge. Absent, the bar spans its own dates as it always has.
+ * ★ On a shared axis an open band and the band whose P95 SETS the right edge both end at that edge, so an open
+ * band carries the burn chart's "later →" cue there: words, not colour. It is aria-hidden because the img's
+ * text alternative already says "only beyond the forecast horizon". On its own axis the open-end pad shows it.
  */
 
 const W = 240;
@@ -74,6 +77,9 @@ export function ForecastRangeBar({
   const bandRight = p95 ? xFor(p95) : W - INSET;
   const markX = xFor(p80);
   const planX = plan ? xFor(plan) : null;
+  const planAnchor = planX === null ? null : planX < W / 4 ? "start" : planX > (3 * W) / 4 ? "end" : "middle";
+  // Bottom right, beside the plan-end label row; above the band instead when that label also sits at the right.
+  const laterCue = axis && !p95 ? { y: planAnchor === "end" ? BAND_Y - 6 : H - 1 } : null;
 
   const ariaLabel = p95
     ? plan
@@ -122,13 +128,18 @@ export function ForecastRangeBar({
             <text
               x={planX}
               y={H - 1}
-              textAnchor={planX < W / 4 ? "start" : planX > (3 * W) / 4 ? "end" : "middle"}
+              textAnchor={planAnchor ?? "middle"}
               fontSize={8}
               className="fill-ui-dark-blue dark:fill-ui-light-grey"
             >
               {t(lang, "forecastRangePlanEnd")}
             </text>
           </g>
+        )}
+        {laterCue && (
+          <text data-open-end-cue aria-hidden="true" x={W - INSET} y={laterCue.y} textAnchor="end" fontSize={8} className="fill-ui-dark-blue dark:fill-ui-light-grey">
+            {t(lang, "burndownSimPastChartCue")}
+          </text>
         )}
       </svg>
       <SimBadge lang={lang} />

@@ -64,7 +64,10 @@ function costCaveats(lang: Lang, columns: readonly ComparedColumn[]): string[] {
     for (const row of column.schedule?.rows ?? []) {
       if (row.kind !== "addPeople" || row.status.kind !== "sized") continue;
       if (row.status.rateNote === "no-rate") notes.add(t(lang, "forecastScenarioNoRate", name, row.status.name));
-      if (row.status.rateNote === "at-par") notes.add(t(lang, "forecastScenarioAtPar", name, row.status.name));
+      // The missing rate belongs to the CURRENCY, so the note names it, then whose rate it converted.
+      if (row.status.rateNote === "at-par") {
+        notes.add(t(lang, "forecastScenarioAtPar", name, row.status.rateCurrency ?? "", row.status.name));
+      }
     }
   }
   return [...notes];
@@ -121,15 +124,19 @@ function FigureCell({ lang, cell, label }: { lang: Lang; cell: Cell; label: stri
 }
 
 /** Spec §4.2 part 2: P50 · P80 · P95 · on time by plan end, then (with a cost) cost at finish (P80) and the
- *  chance over budget. Each scenario's notes (inert reasons, doubles-the-team) sit once under its header. */
+ *  chance over budget. Each scenario's notes (inert reasons, doubles-the-team) sit once under its header.
+ *  `noBudget` (cost asked for, but no budget facts: the Budget module is on with no buckets) says why there are no
+ *  cost rows, in the Forecast cost card's own words, instead of dropping them in silence. */
 export function ScenarioComparisonTable({
   lang,
   columns,
   currency,
+  noBudget = false,
 }: {
   lang: Lang;
   columns: readonly ComparedColumn[];
   currency: BudgetCurrency;
+  noBudget?: boolean;
 }) {
   const rows = buildRows(lang, columns, currency);
   const notes = columns.map((c) => columnNotes(lang, c.column));
@@ -175,6 +182,9 @@ export function ScenarioComparisonTable({
       {caveats.map((note) => (
         <p key={note} className="mt-1 text-xs text-muted-foreground">{note}</p>
       ))}
+      {noBudget && !rows.some((r) => r.key === "cost-p80") && (
+        <p data-no-budget className="mt-1 text-xs text-muted-foreground">{t(lang, "budgetSimAddBudget")}</p>
+      )}
     </Section>
   );
 }

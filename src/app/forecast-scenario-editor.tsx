@@ -13,7 +13,7 @@ import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
-import { ScenarioDialogActions, ScenarioNameField, draftErrorText } from "./forecast-scenario-name-dialog";
+import { ScenarioDialogActions, ScenarioNameField, draftErrorText, useFocusAfterCommit } from "./forecast-scenario-name-dialog";
 import type { ScheduleContext } from "./forecast-added-people";
 import { changeDayWindow } from "./forecast-added-people";
 import { buildScenarioSchedule } from "./forecast-scenario-schedule";
@@ -97,6 +97,7 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
   });
   const [errors, setErrors] = useState<Errors>(NO_ERRORS);
   const [refused, setRefused] = useState<string | null>(null);
+  const { requests: refusals, requestFocus } = useFocusAfterCommit();
   const vctx = useMemo<ValidationContext>(
     () => ({ milestones: context.milestones, resources: context.directory.resources, onTeam: context.onTeam }),
     [context],
@@ -136,15 +137,15 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
       return;
     }
     setErrors({ draft, rows: rowErrors });
-    // The first invalid control takes focus: the name, then the rows in order. The controls are already
-    // rendered (an error only adds its message), so this needs no effect.
+    // The first invalid control takes focus: the name, then the rows in order. Focus moves after the commit
+    // (`useFocusAfterCommit`), so the field is announced with its `aria-invalid` and its message.
     const nameBad = draft === "name-empty" || draft === "name-long" || draft === "name-taken";
     const firstRow = rows.list.find((r) => rowErrors.has(r.key));
     const firstRowField = firstRow ? rowErrors.get(firstRow.key)?.field : undefined;
     const target = nameBad ? nameId
       : firstRow && firstRowField ? fieldId(prefix, firstRow.key, firstRowField)
         : null;
-    if (target) document.getElementById(target)?.focus();
+    if (target) requestFocus(target);
   };
 
   const nameBad = errors.draft === "name-empty" || errors.draft === "name-long" || errors.draft === "name-taken";
@@ -166,7 +167,7 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
         />
         <div className="flex flex-col gap-3 p-6">
           <ScenarioNameField
-            lang={lang} id={nameId} value={name} message={nameBad && errors.draft ? draftErrorText(lang, errors.draft) : null}
+            lang={lang} id={nameId} value={name} message={nameBad && errors.draft ? draftErrorText(lang, errors.draft) : null} alertKey={refusals}
             onChange={(v) => {
               setName(v);
               if (nameBad) setErrors((prev) => ({ ...prev, draft: null }));
