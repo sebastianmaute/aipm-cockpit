@@ -18,7 +18,7 @@ import type { LogActivityAsFn } from "./activity-log-context";
 import { entityToken } from "./ai-entity-token";
 import type { ForecastScenarioResult, ForecastToolDispatcher } from "./chat-tools-forecast";
 import { buildForecastReport, scenarioValidationContext, type ForecastReportInput } from "./forecast-ai-report";
-import { checkToolDraft } from "./forecast-scenario-tool-input";
+import { checkToolDraft, checkToolRows } from "./forecast-scenario-tool-input";
 import {
   addScenario,
   replaceScenario,
@@ -95,7 +95,13 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
     () => ({
       isForecastEnabled,
 
-      getForecast: (whatIf) => buildForecastReport(requireInput(), whatIf),
+      getForecast: (whatIf) => {
+        const input = requireInput();
+        // ★ Same rules as a save: a what-if row the save path refuses is never simulated or quoted.
+        const refusal = whatIf === null ? null : checkToolRows(whatIf, scenarioValidationContext(input), []);
+        if (refusal !== null) throw new Error(`whatIf ${refusal}`);
+        return buildForecastReport(input, whatIf);
+      },
 
       getForecastScenarioRow: (id) => scenariosRef.current.find((s) => s.id === id) ?? null,
 

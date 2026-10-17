@@ -930,7 +930,13 @@ from the one on screen.
 ★ All three tools refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads: the forecast input getter in
 `use-chat-dispatcher-wiring.ts` returns null until `holidaysReady`, and `useForecastTools` turns that into the refusal. A
 run on an unsettled calendar would quote dates the loaded one moves. They refuse with `FORECAST_OFF_MESSAGE` when the
-simulation is off.
+simulation is off. ★ `get_forecast`'s `whatIf` is held to the save path's rules: `checkToolRows` (the row half of
+`checkToolDraft`, `stored: []`) runs before any simulation, so a row a save would refuse is refused with a `whatIf `
+prefix and nothing is computed. ★ The system-prompt block is emitted only when the Forecast view is enabled; see
+`ai-assistant.md`.
+
+★ COST: each scenario write builds its validation context (`scenarioValidationContext`), which needs the team
+membership and so costs one As-is run per write.
 
 ★★ ONE COMPARISON PER RENDER: in Scenarios mode `ForecastPanel` computes the scenario comparison once (a `useMemo`
 over the comparison's inputs; null outside Scenarios mode) and passes it to `ForecastScenariosView` as `comparison`;

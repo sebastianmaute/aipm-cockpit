@@ -1,7 +1,7 @@
 /** Strict input for the forecast scenario AI tools (§502) — pure, i18n-free, DOM-free. Strings here are
  *  model-facing English. */
 import {
-  DEFAULT_RAMP_WEEKS, MAX_SCENARIO_CHANGES, REFERENCE_ERRORS, SCENARIO_NAME_MAX,
+  DEFAULT_RAMP_WEEKS, MAX_FORECAST_SCENARIOS, MAX_SCENARIO_CHANGES, REFERENCE_ERRORS, SCENARIO_NAME_MAX,
   keepsAnyStoredReference, validateScenarioChange, validateScenarioDraft,
   type AddedPeopleWho, type ForecastScenario, type ScenarioChange, type ScenarioChangeError, type ScenarioError,
   type ValidationContext,
@@ -125,7 +125,7 @@ export function parseToolChanges(
 }
 
 const DRAFT_TEXT: Readonly<Record<Exclude<ScenarioError, "name-taken">, string>> = {
-  cap: "This project already has 4 saved scenarios, the most it can keep. Ask the user to delete one first.",
+  cap: `This project already has ${MAX_FORECAST_SCENARIOS} saved scenarios, the most it can keep. Ask the user to delete one first.`,
   "name-empty": "A scenario needs a name.",
   "name-long": `A scenario name can be at most ${SCENARIO_NAME_MAX} characters.`,
   "too-many-changes": `A scenario can hold at most ${MAX_SCENARIO_CHANGES} changes.`,
@@ -166,11 +166,21 @@ export function checkToolDraft(a: {
   const draft = validateScenarioDraft({ name: a.name, changes: a.changes }, a.list, a.exceptId);
   if (draft === "name-taken") return `A scenario named "${a.name.trim()}" already exists. Choose another name.`;
   if (draft !== null) return DRAFT_TEXT[draft];
+  return checkToolRows(a.changes, a.ctx, a.stored);
+}
+
+/** The ROW half of `checkToolDraft`: null when every row passes the save path's range, date and reference
+ *  rules, or the joined model-facing refusal. `get_forecast`'s `whatIf` runs it with `stored: []`. */
+export function checkToolRows(
+  changes: readonly ScenarioChange[],
+  ctx: ValidationContext,
+  stored: readonly ScenarioChange[],
+): string | null {
   const refusals: string[] = [];
-  a.changes.forEach((c, i) => {
-    const error = validateScenarioChange(c, a.ctx);
+  changes.forEach((c, i) => {
+    const error = validateScenarioChange(c, ctx);
     if (error === null) return;
-    if (REFERENCE_ERRORS.has(error) && keepsAnyStoredReference(a.stored, c)) return;
+    if (REFERENCE_ERRORS.has(error) && keepsAnyStoredReference(stored, c)) return;
     refusals.push(`changes[${i}]: ${rowText(error, c)}`);
   });
   return refusals.length === 0 ? null : refusals.join("; ");

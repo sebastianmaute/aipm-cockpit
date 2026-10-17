@@ -233,6 +233,27 @@ describe("refusals before any work", () => {
   });
 });
 
+describe("get_forecast whatIf follows the save path's rules", () => {
+  const cases: Array<[string, ScenarioChange, string]> = [
+    ["range", { kind: "availability", percent: 0, from: "2026-06-01", until: "" },
+      "whatIf changes[0]: percent must be between 10 and 300"],
+    ["date", { kind: "availability", percent: 120, from: "garbage", until: "" },
+      "whatIf changes[0]: dates must be YYYY-MM-DD"],
+    ["reference", { kind: "scope", tasks: 5, on: "2026-06-15", milestoneId: 99 },
+      "whatIf changes[0]: milestone 99 does not exist"],
+  ];
+  test.each(cases)("refuses a %s violation and builds no report", async (_class, row, text) => {
+    const { result } = mount({});
+    await expect(runTool(result.current.dispatcher, "get_forecast", { whatIf: [row] })).rejects.toThrow(text);
+  });
+
+  test("a valid what-if row still simulates", async () => {
+    const { result } = mount({});
+    const report = await runTool(result.current.dispatcher, "get_forecast", { whatIf: [AVAIL] });
+    expect(report).toBeTruthy();
+  });
+});
+
 describe("the simulation predicate", () => {
   test("getSnapshot().forecastSimulation and isForecastEnabled follow isSimulationActive, live", () => {
     const { result } = mount({});
@@ -249,6 +270,14 @@ describe("the simulation predicate", () => {
     const { result } = mount({});
     expect(result.current.dispatcher.getSnapshot().forecastSimulation).toBe(false);
     expect(result.current.dispatcher.isForecastEnabled()).toBe(false);
+  });
+
+  test("getSnapshot().forecastView is true when the view is shown even with the switch off, false when held back", () => {
+    const { result } = mount({});
+    act(() => { result.current.setSettingsOverrides(undefined); });
+    expect(result.current.dispatcher.getSnapshot().forecastView).toBe(true);
+    vi.restoreAllMocks();
+    expect(result.current.dispatcher.getSnapshot().forecastView).toBe(false);
   });
 });
 
