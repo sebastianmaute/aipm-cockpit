@@ -820,7 +820,11 @@ is built, see "The AI tool (§502)" below. Held back with the view like parts 1�
   can bring the person back). It is applied by `applyWorkspaceFromLoad` (always replace) and NOT by
   `applyRestoredWorkspace`, so a version restore keeps today's scenarios (owner, 2026-10-17; see
   [`activity-log.md`](activity-log.md)). `counted: false` in `workspace-slice-policy.ts`, so it is not in
-  `isWorkspaceEmpty`. Ids come from the session minter (`mintId`, kind `forecastScenario`). Every create, edit,
+  `isWorkspaceEmpty`. Ids come from the session minter (`mintId`, kind `forecastScenario`). ★★ Because a saved
+  scenario keeps the id of a deleted milestone or person, `seedMintFromWorkspace` seeds the `milestone` and
+  `resource` marks from the live lists AND every `milestoneId` / `who.resourceId` a scenario still names, so neither
+  the UI nor a staged create can re-mint an id a stale row would then attach to ("seeds milestone and resource
+  marks above every id a saved scenario still names"). Every create, edit,
   rename and delete is one activity-log entry; edits, renames and deletes are one undo entry each, creates are not
   captured ([`undo.md`](undo.md) "Creates"). Pins: `forecast-scenarios-persistence.test.ts`.
 - ★ **The 4-cap is a CREATION rule**, checked first by `validateScenarioDraft` (no edit can fix it). The sanitizer

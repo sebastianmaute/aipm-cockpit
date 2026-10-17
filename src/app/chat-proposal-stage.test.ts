@@ -9,8 +9,8 @@ import {
   stagedToolResult,
   STAGED_TOOL_RESULT,
 } from "./chat-proposal-stage";
-import { buildPlanRows, type PlanRow, type ProposedCall } from "./chat-proposal";
-import { peekMintId, resetMintState } from "./id-mint-session";
+import { buildPlanRows, remapStagedCall, type PlanRow, type ProposedCall } from "./chat-proposal";
+import { peekMintId, resetMintState, seedMintFromWorkspace } from "./id-mint-session";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { DescribedRow } from "./chat-proposal-describe";
 
@@ -89,6 +89,29 @@ describe("mintProvisionalIds", () => {
     expect(() => mintProvisionalIds([{ name: "create_widget", input: {} }], ws())).toThrow(
       /CREATE_MINT_KIND/,
     );
+  });
+
+  it("never mints a provisional id a saved scenario still names, so its stale row is not linked or remapped (§502)", () => {
+    // ★★ Milestone 9 was deleted; scenario 1 keeps naming it on purpose. Seeded
+    //    from the live list alone the create's provisional id would be exactly
+    //    9, and SCOPE_MILESTONES would graph the stored row onto the create and
+    //    remap it to the create's real id.
+    const scope = { kind: "scope", tasks: 2, on: "2026-06-01", milestoneId: 9 };
+    const workspace = ws({
+      milestones: [{ id: 8 }] as unknown as Workspace["milestones"],
+      forecastScenarios: [{ id: 1, name: "s", changes: [scope] }] as unknown as Workspace["forecastScenarios"],
+    });
+    seedMintFromWorkspace(workspace, "reset");
+    const calls: ProposedCall[] = [
+      { name: "create_milestone", input: { name: "M" } },
+      { name: "update_forecast_scenario", input: { id: 1, changes: [scope] } },
+    ];
+    const ids = mintProvisionalIds(calls, workspace);
+    expect(ids[0]).toBe(10);
+    const rows = buildPlanRows(calls, ids);
+    expect(rows[1].dependsOnAll).toBeUndefined();
+    const real = new Map([["create_milestone", new Map([[ids[0], 11]])]]);
+    expect(remapStagedCall(calls[1], real)).toBe(calls[1]);
   });
 
   it("pairs its output with buildPlanRows without a RangeError", () => {
