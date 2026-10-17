@@ -936,3 +936,100 @@ describe("namesPendingMint", () => {
     ).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// §502 — a forecast scenario names milestones and people INSIDE its `changes[]`
+// rows: `milestoneId` on a scope row, `who.resourceId` on an addPeople row. A
+// staged create of either is a link like any other: graphed, cascaded, refused
+// while owed and rewritten to the real id at apply time.
+
+describe("ids nested in a scenario's changes[] are links (§502)", () => {
+  const scope = (milestoneId: unknown) => ({ kind: "scope", tasks: 3, on: "2026-06-15", milestoneId });
+  const added = (resourceId: unknown) => ({
+    kind: "addPeople", who: { resourceId, hoursPerWeek: 20 }, from: "2026-06-01", until: "", rampWeeks: 4,
+  });
+
+  test.each(["create_forecast_scenario", "update_forecast_scenario"])(
+    "%s: a scope row's milestoneId depends on the milestone create, and refusing it cascades",
+    (tool) => {
+      const rows = buildPlanRows(
+        [call("create_milestone", { name: "M" }), call(tool, { id: 9, name: "S", changes: [scope(101)] })],
+        [101, 900],
+      );
+      expect(rows[1].dependsOnAll).toEqual([0]);
+      expect([...cascadeDeselect(rows, new Set([0, 1]), 0)]).toEqual([]);
+    },
+  );
+
+  test.each(["create_forecast_scenario", "update_forecast_scenario"])(
+    "%s: an addPeople row's who.resourceId depends on the resource create, and refusing it cascades",
+    (tool) => {
+      const rows = buildPlanRows(
+        [call("create_resource", { name: "Ada" }), call(tool, { id: 9, name: "S", changes: [added(101)] })],
+        [101, 900],
+      );
+      expect(rows[1].dependsOnAll).toEqual([0]);
+      expect([...cascadeDeselect(rows, new Set([0, 1]), 0)]).toEqual([]);
+    },
+  );
+
+  // ★★ Entity-scoped like every other link: a TASK create minting 101 is not the
+  //    milestone a scope row names, and the field is read only on the row kind
+  //    whose parser reads it, so an availability row carrying a stray milestoneId
+  //    or a scope row carrying a `who` graphs nothing.
+  test("links only to the right create, and only on the row kind that carries the field", () => {
+    const rows = buildPlanRows(
+      [
+        call("create_task"),
+        call("create_milestone", { name: "M" }),
+        call("create_resource", { name: "Ada" }),
+        call("create_forecast_scenario", {
+          name: "S",
+          changes: [
+            scope(101),
+            { kind: "availability", percent: 120, from: "2026-06-01", until: "", milestoneId: 7 },
+            { ...scope(undefined), who: { resourceId: 7 } },
+          ],
+        }),
+      ],
+      [101, 7, 7, 900],
+    );
+    expect(rows[3].dependsOnAll).toBeUndefined();
+  });
+
+  test("an existing milestone or person is not a dependency", () => {
+    const rows = buildPlanRows(
+      [call("create_milestone", { name: "M" }), call("create_forecast_scenario", { name: "S", changes: [scope(55), added(56)] })],
+      [101, 900],
+    );
+    expect(rows[1].dependsOnAll).toBeUndefined();
+  });
+
+  const realMap = (entries: Record<string, Record<number, number>>) =>
+    new Map(Object.entries(entries).map(([tool, ids]) => [tool, new Map(Object.entries(ids).map(([k, v]) => [Number(k), v]))]));
+
+  // ★★ BOTH specs walk the SAME `changes` array, so the second must build on the
+  //    first's rewrite rather than on the original list, or it silently undoes it.
+  test("rewrites both nested ids in one call and leaves every other field and row alone", () => {
+    const changes = [scope(101), added(202), scope(55), added(56)];
+    const out = remapStagedCall(
+      call("create_forecast_scenario", { name: "S", changes }),
+      realMap({ create_milestone: { 101: 7 }, create_resource: { 202: 8 } }),
+    );
+    expect(out.input).toEqual({ name: "S", changes: [scope(7), added(8), scope(55), added(56)] });
+    // Never mutated.
+    expect(changes).toEqual([scope(101), added(202), scope(55), added(56)]);
+  });
+
+  test("is entity-scoped: a task create minting the same number is not rewritten in", () => {
+    const original = call("update_forecast_scenario", { id: 3, changes: [scope(101), added(101)] });
+    expect(remapStagedCall(original, realMap({ create_task: { 101: 7 } }))).toBe(original);
+  });
+
+  test("an owed milestone or person refuses the row at apply time", () => {
+    const owed = (tool: string) => new Map([[tool, new Set([101])]]);
+    expect(namesPendingMint(call("create_forecast_scenario", { changes: [scope(101)] }), owed("create_milestone"))).toBe(true);
+    expect(namesPendingMint(call("update_forecast_scenario", { id: 3, changes: [added(101)] }), owed("create_resource"))).toBe(true);
+    expect(namesPendingMint(call("create_forecast_scenario", { changes: [scope(101)] }), owed("create_resource"))).toBe(false);
+  });
+});

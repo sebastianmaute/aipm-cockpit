@@ -135,12 +135,23 @@ const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
  *   create and update tool, which is why every one of them appears twice in the
  *   table. `DEPENDENCY_TASKS` is the fifth and a different SHAPE — an array of
  *   objects, declared inline in `set_task_dependencies`' own schema rather than
- *   through `idList` — which is what `LinkField.key` exists for. */
+ *   through `idList` — which is what `LinkField.key` exists for.
+ *  ★ `SCOPE_MILESTONES` and `ADDED_PEOPLE` (§502) are the same object-array
+ *   shape, inside a forecast scenario's `changes[]`, which the two scenario
+ *   tools declare as a loose `{ type: "object" }` item, so no schema grep finds
+ *   them either: `milestoneId` on a scope row and `who.resourceId` (one object
+ *   deeper, hence `key` is a PATH) on an addPeople row. Both carry `kind`,
+ *   because `forecast-scenario-tool-input.ts` reads each field only on its own
+ *   row kind; linking a stray field on another kind would be a WRONG edge.
+ *   Re-derive with `grep -n "milestoneId\|resourceId" src/app/forecast-scenario-tool-input.ts`. */
 interface LinkField {
   readonly field: string;
-  /** For an array of OBJECTS, the property holding the id. Absent when the field
-   *  is a flat array of ids. */
-  readonly key?: string;
+  /** For an array of OBJECTS, the property path to the id inside each entry —
+   *  one name for `dependencies[].taskId`, two for `changes[].who.resourceId`.
+   *  Absent when the field is a flat array of ids. */
+  readonly key?: readonly string[];
+  /** For an array of OBJECTS, read only the entries whose `kind` is this. */
+  readonly kind?: string;
   /** The create tool whose minted ids this field can name. */
   readonly mintedBy: string;
 }
@@ -148,7 +159,9 @@ const LINKED_TASKS: LinkField = { field: "linkedTaskIds", mintedBy: "create_task
 const LINKED_RAIDS: LinkField = { field: "linkedRaidIds", mintedBy: "create_raid_item" };
 const CAUSING_RAIDS: LinkField = { field: "causedByRaidIds", mintedBy: "create_raid_item" };
 const LINKED_STAKEHOLDERS: LinkField = { field: "stakeholderIds", mintedBy: "create_stakeholder" };
-const DEPENDENCY_TASKS: LinkField = { field: "dependencies", key: "taskId", mintedBy: "create_task" };
+const DEPENDENCY_TASKS: LinkField = { field: "dependencies", key: ["taskId"], mintedBy: "create_task" };
+const SCOPE_MILESTONES: LinkField = { field: "changes", kind: "scope", key: ["milestoneId"], mintedBy: "create_milestone" };
+const ADDED_PEOPLE: LinkField = { field: "changes", kind: "addPeople", key: ["who", "resourceId"], mintedBy: "create_resource" };
 
 const LINK_FIELDS: Readonly<Record<string, readonly LinkField[]>> = {
   create_raid_item: [LINKED_TASKS, CAUSING_RAIDS, LINKED_STAKEHOLDERS],
@@ -158,6 +171,8 @@ const LINK_FIELDS: Readonly<Record<string, readonly LinkField[]>> = {
   create_milestone: [LINKED_TASKS],
   update_milestone: [LINKED_TASKS],
   set_task_dependencies: [DEPENDENCY_TASKS],
+  create_forecast_scenario: [SCOPE_MILESTONES, ADDED_PEOPLE],
+  update_forecast_scenario: [SCOPE_MILESTONES, ADDED_PEOPLE],
 };
 
 /** The other half of the same mechanism: a tool whose OWN `input.id` addresses a
@@ -495,17 +510,16 @@ function forEachLinkRef(
   if (specs === undefined) return undefined;
   let patch: Record<string, unknown> | undefined;
   for (const spec of specs) {
-    const raw = (call.input as Record<string, unknown>)[spec.field];
+    // ★★ Read through `patch`: two specs can walk the SAME field (both scenario
+    //  links live in `changes`), and reading the original input again would
+    //  silently undo the first spec's rewrite.
+    const raw = patch?.[spec.field] ?? (call.input as Record<string, unknown>)[spec.field];
     if (!Array.isArray(raw)) continue;
     let changed = false;
-    const next = raw.map((entry) => {
-      const value =
-        spec.key === undefined
-          ? entry
-          : entry !== null && typeof entry === "object"
-            ? (entry as Record<string, unknown>)[spec.key]
-            : undefined;
-      const id = Number(value);
+    const next = raw.map((entry: unknown) => {
+      const { key } = spec;
+      if (key !== undefined && spec.kind !== undefined && readPath(entry, ["kind"]) !== spec.kind) return entry;
+      const id = Number(key === undefined ? entry : readPath(entry, key));
       if (!Number.isFinite(id) || id <= 0) return entry;
       const replacement = visit(spec, id);
       if (replacement === undefined) return entry;
@@ -513,14 +527,29 @@ function forEachLinkRef(
       // A NEW entry every time — the caller's `input` is never mutated, which
       // matters because the same staged call may be described, rendered and
       // replayed from one object.
-      return spec.key === undefined
-        ? replacement
-        : { ...(entry as Record<string, unknown>), [spec.key]: replacement };
+      return key === undefined ? replacement : writePath(entry as Record<string, unknown>, key, replacement);
     });
     if (!changed) continue;
     patch = { ...(patch ?? {}), [spec.field]: next };
   }
   return patch;
+}
+
+/** The value at `path` inside `entry`, or `undefined` where any step is not an object. */
+function readPath(entry: unknown, path: readonly string[]): unknown {
+  let cur = entry;
+  for (const name of path) {
+    if (cur === null || typeof cur !== "object") return undefined;
+    cur = (cur as Record<string, unknown>)[name];
+  }
+  return cur;
+}
+
+/** A copy of `entry` with `value` at `path`, copying every object on the way. Called only after
+ *  `readPath` found a number there, so every intermediate step is an object. */
+function writePath(entry: Record<string, unknown>, path: readonly string[], value: number): Record<string, unknown> {
+  const [name, ...rest] = path;
+  return { ...entry, [name]: rest.length === 0 ? value : writePath(entry[name] as Record<string, unknown>, rest, value) };
 }
 
 /** Pair each call with its provisional id and its dependency.
