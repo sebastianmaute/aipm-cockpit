@@ -460,8 +460,11 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
   the earliest `date` with a non-zero value ANYWHERE in `dated`, not only in the window; samples start at
   max(window start, first booking), so a booking before the window means every window day is a sample, and a young
   project's idle days before its first booking are not counted as zero spend. A zero entry is not a booking.
-  `simulateCostAtFinish` then walks each trial: `ac` plus one random sample per finish day, each sample multiplied by
-  the optional `spendScale` (default 1).
+  `simulateCostAtFinish` then walks each trial: `ac` plus, for each day `i` from 1 to the trial's finish day, one
+  random sample times that day's scale, plus `addedCost[i]` when given. `spendScale` (default 1) is a number (the
+  What-if) or a per-day `Float64Array`; `addedCost` is a per-day `Float64Array` booked on top of the drawn spend
+  (Scenarios: added people). Both arrays are indexed 1..horizon, and one shorter than horizon + 1 throws a
+  `RangeError` rather than turning every cost into NaN.
   ★ Two known biases, both pulling the added spend slightly LOW: the schedule window includes today (usually not yet
   booked, so a zero sample) while the pace forecast's window excludes it, and a weekend or holiday booking counts in
   `ac` but is never a sample (only the window's working days are).
@@ -495,15 +498,19 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
   `formatShare` in the locale's own format; an exact 0 or 1 stays "0 %" / "100 %".
   `budgetSimMissingSchedule` names no single cause ("not enough finished-task history") because the schedule floor
   also trips on too few history working days.
-- **Seeded.** The rng seed is `seedFrom([...samples, ac, bac, seedTag, "cost"])`, so a rerun is identical and EUR and
-  hours draw from different streams (`seedTag` "eur" / "hours"). It is separate from the schedule's streams, so the
-  cost pass moves no schedule number.
+- **Seeded, one sub-stream per trial.** The base seed is `seedFrom([...samples, ac, bac, seedTag, "cost"])` and trial
+  `t` draws from `mulberry32(seedFrom([base, t]))`, so a rerun is identical, EUR and hours draw from different streams
+  (`seedTag` "eur" / "hours"), and one trial's finish day never moves another trial's draws: two scenario columns
+  that share a tag share every draw of every trial whose finish day agrees. It is separate from the schedule's
+  streams, so the cost pass moves no schedule number. Neither `spendScale` nor `addedCost` enters the seed.
 - **`src/app/budget-sim.ts`.** `computeBudgetSim(forecast, facts)` returns `BudgetSim` (`finish` P50/P80/P95 dates, and
   `eur` / `hours` `CostAtFinish`), null when the forecast is null (switch off), and `BELOW_SCHEDULE_FLOOR` for both
   units when the run is insufficient; a single-entry memo is keyed on the `forecast` and `facts` identities.
   `withBudgetSim(bundle, forecast)` returns a NEW bundle with `sim` added. `simulateCostFromRun(run, facts, seedTag,
-  spendScale = 1)` takes only `{ trialDays, windowDates }` of the run, so the Forecast view can pass its own
-  What-if-adjusted run and its capacity.
+  spendScale = 1, addedCost?)` takes only `{ trialDays, windowDates }` of the run, so the Forecast view can pass its own
+  What-if-adjusted run and its capacity. `simulateCostFromRunMemo` (same signature) keys its single entry on the trial
+  days and window dates by value, the facts' identity, the tag, and `spendScale` / `addedCost` (a number by value, an
+  array by identity, so a rebuilt array is a new input).
 - **The bundle.** `ForecastBundle` (`budget-forecast-bundle.ts`) gains `facts` (REQUIRED: the per-unit facts the
   forecasts were built from, via `forecastFactsByUnit`; only the Forecast view's facts come from
   `computeProjectForecastFacts`, in `workspace-section.tsx`) and `sim` (absent, or null, when the simulation is
