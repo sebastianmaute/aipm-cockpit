@@ -1,13 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
-import { test, expect, gotoApp, waitForViewSettled } from "./seed";
+import { test, expect, gotoApp, skipTour, waitForViewSettled } from "./seed";
 import { RELEASE_HIDDEN_VIEWS } from "../src/app/feature-modules";
 
 // Accessibility scan of the Forecast view's Scenarios mode (§502, saved scenarios): the editor with one row of
 // each kind, then the comparison it produces. Same tags and the same blocking rule as `a11y.spec.ts`.
-// ★★ Skipped while "forecast" sits in RELEASE_HIDDEN_VIEWS: a held-back view cannot be routed to. Nobody has run
-// this spec yet; its first run is owed when the view is un-hidden (docs/AGENTS/forecast.md "Saved scenarios").
-// Its selectors were read against the components but are UNVERIFIED until that first run.
+// ★★ Skipped while "forecast" sits in RELEASE_HIDDEN_VIEWS: a held-back view cannot be routed to. It ran once
+// locally on 2026-10-17 with the view un-hidden in the working tree only and passed; CI runs it from the un-hide on
+// (docs/AGENTS/forecast.md "Saved scenarios").
 
 async function scanBlocking(page: Page, label: string): Promise<void> {
   const results = await new AxeBuilder({ page })
@@ -22,6 +22,8 @@ test.describe("Forecast scenarios a11y", () => {
   test.skip(RELEASE_HIDDEN_VIEWS.includes("forecast"), "the Forecast view is held back from the release");
 
   test("a11y: Forecast — Scenarios editor and comparison", async ({ page }) => {
+    // The auto-launched guided tour's overlay would take every pointer click (as in a11y.spec.ts).
+    await skipTour(page);
     await gotoApp(page);
     await page.evaluate(() => { window.location.hash = "#forecast"; });
     await waitForViewSettled(page);

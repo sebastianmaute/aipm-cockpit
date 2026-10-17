@@ -17,8 +17,8 @@ is ignored, a stale active tab is redirected, `workspace-section.tsx` renders no
 it: drop it from that list, then put back what the hiding commit took out of the user-facing text — find it
 with `git log -S RELEASE_HIDDEN_VIEWS --oneline` — namely its CHANGELOG "Added" entry, the Forecast
 sentence of `helpSecReportsBody` (EN and DE) and its lines in `lib/app-feature-guide.md` (then run
-`node scripts/gen-operating-guide.mjs`), and re-measure the scan count in `e2e/a11y.spec.ts`. ★★ Also run the owed Scenarios-mode axe spec,
-`e2e/forecast-scenarios.spec.ts`, which has never run (see "Saved scenarios (build step 2)").
+`node scripts/gen-operating-guide.mjs`), and re-measure the scan count in `e2e/a11y.spec.ts`. ★★ Also run the Scenarios-mode axe spec,
+`e2e/forecast-scenarios.spec.ts`, which CI skips while the view is held back (see "Saved scenarios (build step 2)").
 ★★ Part 1 of the surfaces design is held back WITH it, through the same `isViewEnabled("forecast", …)` gate
 (`isSimulationActive`, `hiddenHelpEntryIds`): the Show-simulation switch, the simulated KPI cells, the intro, the
 Help entry and the history recorder all vanish. ★★ Part 2 goes with it: the Dashboard Forecast tile (off the board
@@ -902,13 +902,13 @@ EOF4
 npx vite-node scenario-probe.ts; rm scenario-probe.ts
 ```
 
-- ★★ **The Scenarios-mode axe scan is OWED at un-hide.** `e2e/forecast-scenarios.spec.ts` (one test: the editor
+- ★★ **The Scenarios-mode axe scan runs in CI only after un-hide.** `e2e/forecast-scenarios.spec.ts` (one test: the editor
   with one row of each kind, then the comparison, failing on critical or serious violations with the tags of
-  `e2e/a11y.spec.ts`) is `test.skip` while `"forecast"` sits in `RELEASE_HIDDEN_VIEWS`, and it has NEVER RUN:
-  build step 2 did not un-hide the view, not even locally. Run it when the view ships:
-  `PORT=3100 npx playwright test e2e/forecast-scenarios.spec.ts --project=chromium --workers=1`. Its selectors were read
-  against the components but stay UNVERIFIED until that run. Until then the editor and the comparison are covered by
-  their unit tests only.
+  `e2e/a11y.spec.ts`) is `test.skip` while `"forecast"` sits in `RELEASE_HIDDEN_VIEWS`, so CI skips it. It ran
+  ONCE locally on 2026-10-17 with the view un-hidden in the working tree only (1 passed, no critical or serious
+  violations; it needed `skipTour`, as `a11y.spec.ts` does). Run it again when the view ships:
+  `PORT=3100 npx playwright test e2e/forecast-scenarios.spec.ts --project=chromium --workers=1`. Until then CI covers the
+  editor and the comparison by their unit tests only.
 
 ## Mutation proof (slice 1)
 
