@@ -220,7 +220,7 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     expect(rows[0]).toHaveTextContent("Milestone gone — counts as scope without a milestone.");
     expect(rows[1]).toHaveTextContent("Milestone gone — counts as scope without a milestone.");
     expect(rows[2]).toHaveTextContent("Person gone — no longer in the directory.");
-    expect(rows[3]).toHaveTextContent("Person gone — no longer in the directory.");
+    expect(rows[3]).toHaveTextContent("Archived — still counted in the forecast.");
     expect(rows[4]).toHaveTextContent("Already on the team — use an availability change.");
     await user.clear(control("Name"));
     await user.type(control("Name"), "Plan B");
@@ -256,13 +256,41 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     expect(keepsStoredReference(person(42), person(2))).toBe(false);
   });
 
-  it("an archived person's row shows person gone, not the sizing basis", () => {
-    renderEditor({ scenario: withRows([person(5), person(1)]) });
+  it("an archived person is still counted: the row says archived, then the sizing basis", () => {
+    renderEditor({ scenario: withRows([person(5), person(1), person(42)]) });
     const rows = document.querySelectorAll("[data-change-row]");
-    expect(rows[0]).toHaveTextContent("Person gone — no longer in the directory.");
-    expect(rows[0]).not.toHaveTextContent("Team books");
-    // Control: an active person's row shows the basis.
-    expect(rows[1]).toHaveTextContent("Team books ≈ 8 h per day → +20 h/week ≈ +50% at full speed");
+    const lines = (row: Element) => [...row.querySelectorAll("p")].map((p) => p.textContent);
+    // The fixture's people have no role, so the usual lines are the no-rate note and the basis.
+    expect(lines(rows[0])).toEqual([
+      "Archived — still counted in the forecast.",
+      "No rate for Eve Test — cost counted as 0.",
+      "Team books ≈ 8 h per day → +20 h/week ≈ +50% at full speed",
+    ]);
+    // Controls: an active person's row has the usual lines alone; a deleted person is gone.
+    expect(lines(rows[1])).toEqual([
+      "No rate for Ada Test — cost counted as 0.",
+      "Team books ≈ 8 h per day → +20 h/week ≈ +50% at full speed",
+    ]);
+    expect(lines(rows[2])).toEqual(["Person gone — no longer in the directory."]);
+  });
+
+  it("a stored archived person is a selectable '(archived)' option; a deleted one a disabled 'person gone'", () => {
+    renderEditor({ scenario: withRows([person(5), person(42)]) });
+    const archived = field("Change 1: Person");
+    expect(archived.value).toBe("5");
+    const option = within(archived).getByRole("option", { name: "Eve Test (archived)" }) as HTMLOptionElement;
+    expect(option.disabled).toBe(false);
+    const gone = within(field("Change 2: Person")).getByRole("option", { name: "Person gone — no longer in the directory." }) as HTMLOptionElement;
+    expect(gone.disabled).toBe(true);
+    // Another row is never offered the archived person.
+    expect(within(field("Change 2: Person")).queryByRole("option", { name: /Eve Test/ })).toBeNull();
+  });
+
+  it("a new pick of an archived person is still refused", () => {
+    // The pickers never offer an archived person as a new value, so the rule is pinned on the predicate.
+    expect(keepsStoredReference(person(1), person(5))).toBe(false);
+    expect(keepsStoredReference(undefined, person(5))).toBe(false);
+    expect(keepsStoredReference(person(5), person(5))).toBe(true);
   });
 
   it("a refused write keeps the editor open with its reason", async () => {

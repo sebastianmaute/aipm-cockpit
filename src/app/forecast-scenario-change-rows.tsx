@@ -119,11 +119,12 @@ export function rowStatusLines(lang: Lang, live: RowLive, teamHours: number | nu
   const { status } = live;
   if (status.kind === "availability") return status.ended ? [t(lang, "forecastScenarioRowEnded")] : [];
   if (status.kind === "scope") return status.milestoneGone ? [t(lang, "forecastScenarioRowMilestoneGone")] : [];
-  // An archived person is not offered in the picker (a saved one shows as gone there), so the row says the same.
-  if (live.archived) return [t(lang, "forecastScenarioRowPersonGone")];
+  // Archived is not gone (spec §4.1a: only a person who no longer exists is inert): the engine still sizes a stored
+  // archived person, so the row says so and then reads like any other.
+  const archived = live.archived ? [t(lang, "forecastScenarioRowArchived")] : [];
   // A sized row that applies on no simulated day adds nothing, so its basis would describe nobody.
-  if (status.status.kind === "sized" && live.noEffect) return [t(lang, "forecastScenarioRowNoEffect")];
-  return addedPersonText(lang, status.status, teamHours);
+  if (status.status.kind === "sized" && live.noEffect) return [...archived, t(lang, "forecastScenarioRowNoEffect")];
+  return [...archived, ...addedPersonText(lang, status.status, teamHours)];
 }
 
 export function prefillHours(r: Resource, ctx: ScheduleContext): number {
@@ -201,6 +202,9 @@ function WhoFields({ p, c }: { p: ChangeRowProps; c: AddPeopleChange }) {
   const setWho = (next: AddedPeopleWho) => p.onChange({ ...c, who: next });
   const isDirectory = "resourceId" in who;
   const people = context.directory.resources.filter((r) => r.active !== false);
+  const archivedPerson = isDirectory
+    ? context.directory.resources.find((r) => r.id === who.resourceId && r.active === false)
+    : undefined;
   const hours = (
     <Field {...common} field="hours" labelKey="forecastScenarioHoursPerWeek" render={(a) => (
       <Input type="number" size="xs" className="w-20" {...a} value={shown(who.hoursPerWeek)}
@@ -224,9 +228,11 @@ function WhoFields({ p, c }: { p: ChangeRowProps; c: AddPeopleChange }) {
             setWho(r ? { resourceId: r.id, hoursPerWeek: prefillHours(r, context) } : { ...who, resourceId: 0 });
           }}>
             <option value="">{t(lang, "forecastScenarioChoosePerson")}</option>
-            {/* A saved person who is gone or archived stays shown, so the select never reads a different value. */}
-            {who.resourceId > 0 && !people.some((r) => r.id === who.resourceId) && (
-              <option value={String(who.resourceId)} disabled>{t(lang, "forecastScenarioRowPersonGone")}</option>
+            {/* A saved person who is gone or archived stays shown, so the select never reads a different value.
+                Archived stays selectable (it is the stored value, accepted unchanged); a new pick never offers it. */}
+            {who.resourceId > 0 && !people.some((r) => r.id === who.resourceId) && (archivedPerson
+              ? <option value={String(who.resourceId)}>{t(lang, "forecastScenarioPersonArchived", resourceDisplayName(archivedPerson))}</option>
+              : <option value={String(who.resourceId)} disabled>{t(lang, "forecastScenarioRowPersonGone")}</option>
             )}
             {people.map((r) => {
               const o = personOption(lang, r, context.onTeam);
@@ -311,7 +317,7 @@ export function ScenarioChangeRow(p: ChangeRowProps) {
   const lines = rowStatusLines(lang, live, context.teamHours);
   const inert = live !== null && (
     (live.status.kind === "availability" && live.status.ended)
-    || (live.status.kind === "addPeople" && (live.status.status.kind === "inert" || live.noEffect || live.archived))
+    || (live.status.kind === "addPeople" && (live.status.status.kind === "inert" || live.noEffect))
   );
   return (
     <li data-change-row={p.row.key} className="space-y-1 px-3 py-2">

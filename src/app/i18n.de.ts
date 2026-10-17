@@ -795,6 +795,8 @@ export const de: Record<TranslationKey, string> = {
   forecastScenarioErrResourceUnknown: "Wählen Sie eine Person aus dem Verzeichnis.",
   forecastScenarioErrCurrency: "Wählen Sie eine Währung.",
   forecastScenarioErrRefused: "Nicht gespeichert: Die Szenarien wurden anderswo geändert.",
+  forecastScenarioRowArchived: "Archiviert — zählt weiter in der Prognose.",
+  forecastScenarioPersonArchived: "{0} (archiviert)",
   forecastUnitLabel: "Prognoseeinheit",
   forecastUnitTasks: "Aufgaben",
   forecastUnitEffort: "Aufwand",
