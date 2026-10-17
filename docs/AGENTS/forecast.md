@@ -292,8 +292,11 @@ chance on time; the dated history it records is the input to later surfaces. Fil
   `p80`, `p95`, `chanceOnTime`); `sanitizeForecastHistory` drops malformed rows, keeps the LAST per date and
   sorts; `upsertForecastHistory` is immutable.
 - **The sample master carries history.** `sample-workspace-small.json` holds weekly `forecastHistory` entries up to
-  `DEMO_AS_OF`, computed by the real engine over the tasks as they stood on each day, and its open milestones link
-  tasks so the demo shows one milestone below 50 %, one borderline and one safe. ★ The demo shift moves whole
+  `DEMO_AS_OF`, computed by the real engine over the tasks as they stood on each day (a task finished after the
+  day counts as open, one created after it is absent; a day the engine answers "insufficient" has no entry), and
+  its open milestones link tasks. Since the §715 MVP slip, Pilot Go-Live and Rollout sit far below 50 % and Closure
+  is safe. ★ `demo-week-master.test.ts` pins the last entry to the live forecast on `DEMO_AS_OF`, so re-authoring
+  the master's tasks means recomputing the history. ★ The demo shift moves whole
   months, so `buildDemoWorkspace` drops entries that land after the real today. `scaleWorkspace` copies the
   series unreplicated, so the big and huge samples' live forecast does not match it. The switch stays OFF in the data.
 - **The recorder** (`use-forecast-history-recorder.ts`) is called from inside `useInsightLifecycle`, not from
