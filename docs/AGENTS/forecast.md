@@ -577,8 +577,8 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
 
 ### Measured cost of the cost pass
 
-The extra pass is `simulateCostFromRun` alone, on the main thread, whenever the view's trial days change, i.e. a committed
-What-if change (a How-many target change rebuilds the run with the same trial days, which the value-keyed memo
+The extra pass is `simulateCostFromRun` alone, on the main thread, whenever the view's trial days or budget facts change — a
+committed What-if change, the history window or unit, a new day, holidays, a task or booking edit (a How-many target change rebuilds the run with the same trial days, which the value-keyed memo
 `simulateCostFromRunMemo` answers without a pass). Measured 2026-10-16 in Node through `vite-node` on a synthetic fixture (200 open tasks, a 60-working-day history
 of about 1.33 finished tasks per day, 60 booking days), median of 7 after one warm-up, on a shared machine. A probe,
 not a gate. The cost is 10,000 trials times the days each draws, so it peaks when finish days sit just inside the
