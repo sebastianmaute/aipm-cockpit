@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect, useRef, useState } from "react";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { t } from "./i18n";
+import type { ConfirmFn } from "./confirm-dialog";
 import { loadJiraApi } from "./use-jira-sync";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { useUndoStack } from "./undo/use-undo-stack";
@@ -58,6 +59,7 @@ function makeArgs(
   const tasksRef = { current: [makeTask()] };
   return {
     tasksRef,
+    confirm: vi.fn(async () => true) as ConfirmFn,
     settings: {
       jira: {
         enabled: false,
@@ -102,13 +104,12 @@ describe("useTaskRowHandlers", () => {
     expect(result.current.pushingIds.size).toBe(0);
   });
 
-  it("onDelete calls setTasks when user confirms", () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+  it("onDelete calls setTasks when user confirms", async () => {
     const setTasks = vi.fn();
     const { result } = renderHook(() =>
       useTaskRowHandlers(makeArgs({ setTasks })),
     );
-    act(() => result.current.onDelete(1));
+    await act(async () => { await result.current.onDelete(1); });
     expect(setTasks).toHaveBeenCalled();
     vi.restoreAllMocks();
   });
@@ -650,16 +651,27 @@ describe("useTaskRowHandlers — onPushToJira", () => {
 describe("useTaskRowHandlers — onDelete & navigation", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("does nothing when the delete confirmation is dismissed", () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
+  it("does nothing when the delete confirmation is dismissed", async () => {
     const setTasks = vi.fn();
-    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
-    act(() => result.current.onDelete(1));
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, confirm: vi.fn(async () => false) })));
+    await act(async () => { await result.current.onDelete(1); });
     expect(setTasks).not.toHaveBeenCalled();
   });
 
-  it("removes the task, strips it from other tasks' dependencies, deselects and logs", () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+  it("asks through the app's confirm dialog, never the browser's (§715 D5)", async () => {
+    const native = vi.spyOn(window, "confirm");
+    const confirm = vi.fn(async () => true);
+    const setTasks = vi.fn();
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, confirm })));
+    await act(async () => { await result.current.onDelete(1); });
+    expect(native).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
+      message: t("en-US", "confirmDelete", 1), confirmLabel: t("en-US", "delete"), tone: "danger",
+    }));
+    expect(setTasks).toHaveBeenCalled();
+  });
+
+  it("removes the task, strips it from other tasks' dependencies, deselects and logs", async () => {
     const setTasks = vi.fn();
     const logActivity = vi.fn();
     const deselect = vi.fn();
@@ -669,7 +681,7 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
     const { result } = renderHook(() =>
       useTaskRowHandlers(makeArgs({ tasksRef, setTasks, logActivity, deselectIdRef: { current: deselect } })),
     );
-    act(() => result.current.onDelete(1));
+    await act(async () => { await result.current.onDelete(1); });
     const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
     const next = updater([target, dependent]);
     expect(next.map((t) => t.id)).toEqual([2]);
@@ -681,8 +693,7 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
   // ONE undo entry for the deleted task AND the dependents whose link it stripped. There is no other
   // capture path: the old whole-row `capture` fallback restored the links without following a re-minted
   // task, and the real-undo tests below pin what this entry restores.
-  it("captures the deleted task PLUS dependents whose dependency was stripped as one composite (undo)", () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+  it("captures the deleted task PLUS dependents whose dependency was stripped as one composite (undo)", async () => {
     const captureComposite = vi.fn();
     const target = makeTask({ id: 1, taskName: "Doomed" });
     const dependent = makeTask({ id: 2, dependencies: [{ taskId: 1, type: "FS" }] as Task["dependencies"] });
@@ -690,7 +701,7 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
     const { result } = renderHook(() =>
       useTaskRowHandlers(makeArgs({ tasksRef, setTasks: vi.fn(), captureComposite })),
     );
-    act(() => result.current.onDelete(1));
+    await act(async () => { await result.current.onDelete(1); });
     expect(captureComposite).toHaveBeenCalledTimes(1);
     const opts = captureComposite.mock.calls[0][0] as { kind: string; primaryCount: number; name: string; parts: unknown[] };
     expect(opts.kind).toBe("task.deleted");
@@ -870,16 +881,15 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
 
   afterEach(() => vi.restoreAllMocks());
 
-  it("§177b — undoing a delete keeps ANY field a dependent changed since, not only the write-through ones", () => {
+  it("§177b — undoing a delete keeps ANY field a dependent changed since, not only the write-through ones", async () => {
     // The two tests below pin `noteLog` / `outlookEventId`, the fields the
     // engine's WRITE_THROUGH backstop names. A RENAME is in no such list: under
     // the whole-row capture it was reverted; as a `dependencies` field patch it
     // survives, and only the dependency comes back.
     const blocker = makeTask({ id: 1, taskName: "blocker" });
     const dependent = makeTask({ id: 2, taskName: "dependent", dependencies: [{ taskId: 1, type: "FS" }] });
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const { result, rerender } = harness([blocker, dependent]);
-    act(() => result.current.handlers.onDelete(1));
+    await act(async () => { await result.current.handlers.onDelete(1); });
     rerender();
     act(() => {
       result.current.setTasks((prev) => prev.map((tk) => (tk.id === 2 ? { ...tk, taskName: "renamed meanwhile" } : tk)));
@@ -900,12 +910,11 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
 
   // The deleted task is the composite's primary, so it re-mints when a new task took its id before the
   // undo. The dependent's restored link must follow the re-minted task, never the unrelated reused-id one.
-  it("undoing a delete re-points a dependent's link at the re-minted task when its id was reused", () => {
+  it("undoing a delete re-points a dependent's link at the re-minted task when its id was reused", async () => {
     const blocker = makeTask({ id: 1, taskName: "blocker" });
     const dependent = makeTask({ id: 2, taskName: "dependent", dependencies: [{ taskId: 1, type: "FS" }] });
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const { result, rerender } = harness([blocker, dependent]);
-    act(() => result.current.handlers.onDelete(1));
+    await act(async () => { await result.current.handlers.onDelete(1); });
     rerender();
     act(() => { result.current.setTasks((prev) => [...prev, makeTask({ id: 1, taskName: "reused id" })]); });
     rerender();
@@ -917,17 +926,16 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
     expect(result.current.tasks.find((tk) => tk.id === 1)?.taskName).toBe("reused id");
   });
 
-  it("undoing a delete keeps a note added to a DEPENDENT since the delete", () => {
+  it("undoing a delete keeps a note added to a DEPENDENT since the delete", async () => {
     const blocker = makeTask({ id: 1, taskName: "blocker" });
     const dependent = makeTask({
       id: 2,
       taskName: "dependent",
       dependencies: [{ taskId: 1, type: "FS" }],
     });
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const { result, rerender } = harness([blocker, dependent]);
 
-    act(() => result.current.handlers.onDelete(1));
+    await act(async () => { await result.current.handlers.onDelete(1); });
     rerender();
     expect(result.current.tasks.map((tk) => tk.id)).toEqual([2]);
 
@@ -966,17 +974,16 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
     expect(restored?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
   });
 
-  it("undoing a delete keeps an outlookEventId stamped on a dependent since the delete", () => {
+  it("undoing a delete keeps an outlookEventId stamped on a dependent since the delete", async () => {
     const blocker = makeTask({ id: 1, taskName: "blocker" });
     const dependent = makeTask({
       id: 2,
       taskName: "dependent",
       dependencies: [{ taskId: 1, type: "FS" }],
     });
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const { result, rerender } = harness([blocker, dependent]);
 
-    act(() => result.current.handlers.onDelete(1));
+    await act(async () => { await result.current.handlers.onDelete(1); });
     rerender();
     expect(result.current.tasks.map((tk) => tk.id)).toEqual([2]);
 

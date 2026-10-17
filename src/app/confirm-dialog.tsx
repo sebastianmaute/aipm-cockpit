@@ -23,6 +23,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -57,6 +58,17 @@ const ConfirmContext = createContext<ConfirmFn>(() => Promise.resolve(false));
 
 export function useConfirm(): ConfirmFn {
   return useContext(ConfirmContext);
+}
+
+/** Hands this provider's confirm to code ABOVE it: task-manager's hooks run before the
+ *  `ConfirmProvider` it renders, so they cannot call `useConfirm` and read the ref instead (§715 D5).
+ *  Render it once inside the provider. Renders nothing. */
+export function ConfirmBridge({ confirmRef }: { confirmRef: { current: ConfirmFn } }) {
+  const confirm = useConfirm();
+  useEffect(() => {
+    confirmRef.current = confirm;
+  }, [confirm, confirmRef]);
+  return null;
 }
 
 const TITLE_ID = "confirm-dialog-title";

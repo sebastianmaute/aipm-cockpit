@@ -18,6 +18,7 @@ import { effectivePersonEmail } from "./resource-foundation";
 import type { Settings } from "./settings-types";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import type { ScopeEpochReader } from "./scope-epoch";
+import type { ConfirmFn } from "./confirm-dialog";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 
 const EMPTY_RESOURCE_MAP: ReadonlyMap<number, Resource> = new Map();
@@ -54,6 +55,9 @@ export interface UseTaskRowHandlersArgs {
   captureComposite: UndoStackApi["captureComposite"];
   resolveTemplateBody?: (category: "status-inquiry") => string | null;
   sendCommTemplate?: (req: CommSendRequest) => void;
+  /** The app's confirm dialog (`useConfirm`), which asks before a delete (§715 D5). This hook runs in
+   *  task-manager, above the `ConfirmProvider` it renders, so the caller passes it in through a bridge. */
+  confirm: ConfirmFn;
 }
 
 export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
@@ -80,6 +84,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     captureComposite,
     resolveTemplateBody,
     sendCommTemplate,
+    confirm,
   } = args;
 
   const { setActiveTab } = useWorkspaceTab();
@@ -397,8 +402,11 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   //  so this delete can never trip the guard; arming would only hand a one-shot
   //  bypass to the NEXT save. Pinned in is-workspace-empty.test.ts.
   const onDelete = useCallback(
-    (id: number) => {
-      if (!window.confirm(t(lang, "confirmDelete", id))) return;
+    async (id: number) => {
+      // The app's own dialog (§715 D5), not the browser's. The rows are read AFTER the answer, so a
+      // write that landed while the dialog was open is not overwritten by a stale list.
+      const yes = await confirm({ message: t(lang, "confirmDelete", id), confirmLabel: t(lang, "delete"), tone: "danger" });
+      if (!yes) return;
       const arr = tasksRef.current;
       const doomed = arr.find((tk) => tk.id === id);
       const deletedName = doomed?.taskName ?? "";
@@ -454,7 +462,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       if (editingId === id) handleCancelEditRef.current();
       logActivityRef.current("task.deleted", id, deletedName);
     },
-    [lang, tasksRef, setTasks, deselectIdRef, editingId, captureComposite],
+    [lang, tasksRef, setTasks, deselectIdRef, editingId, captureComposite, confirm],
   );
 
   const handleClearRaidTaskFilter = useCallback(() => {
