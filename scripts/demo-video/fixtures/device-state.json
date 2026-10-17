@@ -1,0 +1,25 @@
+{
+  "landing": {
+    "lastVisitAt": "2026-09-18T15:00:00.000Z",
+    "rag": {
+      "overall": "A",
+      "schedule": "A",
+      "budget": "G",
+      "scope": "G"
+    },
+    "metrics": {
+      "complete": 52,
+      "overdue": 1,
+      "openRaid": 5
+    }
+  },
+  "digest": {
+    "lastRunAt": "2026-09-18T15:00:00.000Z",
+    "nextDueAt": "2026-09-28T06:00:00.000Z",
+    "priorRag": "A",
+    "priorMetrics": {
+      "overdue": 1,
+      "openRaid": 5
+    }
+  }
+}

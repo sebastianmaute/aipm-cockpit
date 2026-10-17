@@ -17,6 +17,26 @@ import { getStakeholderCommsItems } from "../app/stakeholder-comms";
 
 const WORKDAY_HOURS = 8;
 
+/** The Dashboard model of the demo on `today`, as `use-trend-snapshots.ts` builds it with trends off. */
+export function demoDashboard(raw: unknown, today: string): ReturnType<typeof computeDashboard> {
+  return dashboardOf(buildDemoWorkspace(raw, today), today);
+}
+
+function dashboardOf(ws: ReturnType<typeof buildDemoWorkspace>, today: string): ReturnType<typeof computeDashboard> {
+  return computeDashboard(
+    buildLiveDashboardInput(
+      {
+        tasks: ws.tasks, raid: ws.raid, budgets: ws.budgets ?? [], plan: ws.plan, roles: ws.roles,
+        resources: ws.resources, absences: ws.absences, fxRates: ws.fxRates ?? null,
+        milestones: ws.milestones ?? [], changes: ws.changes ?? [],
+        budgetHistory: ws.budgetHistory ?? [], baselineHistory: ws.baselineHistory ?? [],
+      },
+      { workdayHours: WORKDAY_HOURS, holidaySet: new Set<string>(), status: ws.status ?? {}, activity: ws.activityLog ?? [], today },
+      { active: false, snapshots: [] },
+    ),
+  );
+}
+
 export function demoActionGroups(raw: unknown, today: string): ActionGroup[] {
   const ws = buildDemoWorkspace(raw, today);
   const { features, notifications } = defaultSettings;
@@ -26,17 +46,7 @@ export function demoActionGroups(raw: unknown, today: string): ActionGroup[] {
   const changes = ws.changes ?? [];
   const stakeholders = ws.stakeholders ?? [];
 
-  const dashboard = computeDashboard(
-    buildLiveDashboardInput(
-      {
-        tasks: ws.tasks, raid: ws.raid, budgets: ws.budgets ?? [], plan: ws.plan, roles: ws.roles,
-        resources: ws.resources, absences: ws.absences, fxRates: ws.fxRates ?? null, milestones, changes,
-        budgetHistory: ws.budgetHistory ?? [], baselineHistory: ws.baselineHistory ?? [],
-      },
-      { workdayHours: WORKDAY_HOURS, holidaySet, status: ws.status ?? {}, activity: ws.activityLog ?? [], today },
-      { active: false, snapshots: [] },
-    ),
-  );
+  const dashboard = dashboardOf(ws, today);
 
   const flags = {
     stakeholdersEnabled: isModuleEnabled("stakeholders", features),
