@@ -186,10 +186,15 @@ export function BackendSetupWizard({
   const storageDraftsPending = () => currentStep.key === "storage" && tursoDraftsDirtyRef.current;
   /** Asks to discard the storage step's unapplied drafts; true when the user chose to. */
   async function confirmDiscardDrafts(): Promise<boolean> {
+    // The message names the dialog's own Cancel button, so the label is passed rather than defaulted.
+    const cancelLabel = t(lang, "cancel");
     const discard = await confirm({
-      message: t(lang, "setupWizardTursoDraftsDiscard", t(lang, "cancel"), t(lang, "integrationsTursoApply")),
+      message: t(lang, "setupWizardTursoDraftsDiscard", cancelLabel, t(lang, "integrationsTursoApply")),
       confirmLabel: t(lang, "setupWizardTursoDraftsDiscardConfirm"),
+      cancelLabel,
     });
+    // The section also reports clean when it unmounts; this covers a host that keeps the wizard
+    // mounted after Close, so a reopened storage step is not judged by the drafts just discarded.
     if (discard) tursoDraftsDirtyRef.current = false;
     return discard;
   }

@@ -4,7 +4,7 @@
 import "fake-indexeddb/auto";
 import { StrictMode, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BackendSetupWizard } from "./backend-setup-wizard";
 import { ConfirmProvider } from "./confirm-dialog";
@@ -55,6 +55,11 @@ describe("the discard-drafts confirm over the real setup wizard (§715 D2)", () 
     await user.type(urlField(), "x");
     await user.click(nextBtn());
     await waitFor(() => expect(confirmDialog()).not.toBeNull());
+    // The message tells the user which button keeps the drafts; that button must exist by that name.
+    const dialog = within(confirmDialog()!);
+    const cancelName = t("en-US", "cancel");
+    expect(dialog.getByRole("button", { name: cancelName })).toBeInTheDocument();
+    expect(confirmDialog()).toHaveTextContent(cancelName);
     await user.keyboard("{Escape}");
     await waitFor(() => expect(confirmDialog()).toBeNull());
     expect(onClose).not.toHaveBeenCalled();
