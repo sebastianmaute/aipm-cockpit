@@ -211,7 +211,7 @@
   popout toggles read-only). The RULE — route reactive values through refs, do not add them as deps — is
   what survives; verify the literal array in `use-chat-dispatcher.ts` rather than trusting a quoted one.
   ★★ **REPLACE-SEMANTICS TOOLS: OMISSION MEANS DELETION.** `set_task_dependencies` replaces a task's whole
-  predecessor list, so it is one of TWO tools where what the model LEAVES OUT is destroyed (the other is
+  predecessor list, so it is one of the tools where what the model LEAVES OUT is destroyed (the other known one is
   `update_forecast_scenario` with `changes`, in "Forecast tools" below; `runTool` carries the first,
   `runForecastTool` the second) (`update_task` is a patch — a sloppy model can only overwrite what it names). The handler takes an undo
   capture (one `task.updated` entry, after its early returns), but only a user who notices the loss will

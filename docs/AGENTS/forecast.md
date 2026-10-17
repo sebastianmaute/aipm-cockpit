@@ -7,7 +7,7 @@ and what is each milestone's **chance** of landing on its date. Part 1 of the su
 Show-simulation switch (`SettingsOverrides.forecast`) and a daily recorder that persists
 `Workspace.forecastHistory` (a meta-blob on all six write paths). It replaced the old slices 2 and 5;
 part 2 (the Dashboard picture), part 3 (the budget simulation) and saved scenarios (build step 2) are built, all
-held back with the view; the AI tool and part 4 are open — see §502 in [`../open-followups.md`](../open-followups.md).
+held back with the view; the AI tools are built and held back with it, and part 4 and the un-hide are open — see §502 in [`../open-followups.md`](../open-followups.md).
 Reproduce the file list: `ls src/app/forecast`.
 
 ★★ **HELD BACK FROM THE RELEASE.** `"forecast"` sits in `RELEASE_HIDDEN_VIEWS` (`feature-modules.ts`), so
@@ -727,7 +727,7 @@ is. The Forecast view gains a third mode, **Scenarios** (beside Quick and What-i
 scenario on one shared axis: range bars, a compared table (P50/P80/P95 finish, chance on time by plan end, and, when the
 cost rows are on, cost at finish P80 and the chance over budget) and the milestone chances. Spec:
 `docs/superpowers/specs/2026-10-16-forecast-scenarios-and-ai-tool-design.md` (§4.1–§4.3, §4.5); the AI tool (§4.4)
-is not built. Held back with the view like parts 1–3.
+is built, see "The AI tool (§502)" below. Held back with the view like parts 1–3.
 
 | File | Owns |
 |---|---|
@@ -735,7 +735,7 @@ is not built. Held back with the view like parts 1–3.
 | `forecast/day-index.ts` | `simulatedDates` (index 0 = today, length horizon + 1), `dayOnOrAfter`, `dayOnOrBefore` |
 | `forecast-added-people.ts` | `teamHoursPerDay`, `onTeamResourceIds`, `shiftFor`, `changeDayWindow`, `resolveAddedPeople`; the `ScheduleContext` and `ScenarioDirectory` types |
 | `forecast-scenario-schedule.ts` | `buildScenarioSchedule`: a change list as per-day `capacityByDay`, `spendScale`, `addedCost`, the scope arrivals and one status per row |
-| `forecast-scenario-compare.ts` | `computeScenarioComparison` (As is + every scenario), `computeScenarioColumn`, `buildScheduleContext`: the ONE place a column is computed (the coming `get_forecast` tool is to call it too) |
+| `forecast-scenario-compare.ts` | `computeScenarioComparison` (As is + every scenario), `computeScenarioColumn`, `buildScheduleContext`: the ONE place a column is computed (`buildForecastReport` calls it too) |
 | `use-forecast-scenarios.ts` | the per-entity CRUD hook: create, update, rename, delete, activity log, undo |
 | `forecast-scenarios-view.tsx`, `forecast-scenario-tables.tsx` | the Scenarios mode and its two tables |
 | `forecast-scenario-editor.tsx`, `forecast-scenario-change-rows.tsx`, `forecast-scenario-name-dialog.tsx` | the editor (a `Modal`), its rows, and the rename / Save-as-scenario name dialog |
