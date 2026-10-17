@@ -87,6 +87,8 @@ function setup(overrides: Partial<React.ComponentProps<typeof BackendSetupWizard
 const nextBtn = () => screen.getByRole("button", { name: t("en-US", "wizardNext") });
 const backBtn = () => screen.getByRole("button", { name: t("en-US", "wizardBack") });
 const finishBtn = () => screen.getByRole("button", { name: t("en-US", "setupWizardFinish") });
+/** Next through every step to the last (review) one — derived, so a new step does not break the tests. */
+const toReview = () => { for (let i = 0; i < BACKEND_SETUP_STEPS.length - 1; i++) fireEvent.click(nextBtn()); };
 const skipBtn = () => screen.queryByRole("button", { name: t("en-US", "setupWizardSkip") });
 
 // ---------------------------------------------------------------------------
@@ -175,20 +177,20 @@ describe("BackendSetupWizard", () => {
   it("Review step shows Finish (not Next)", () => {
     setup();
     // advance to last step
-    for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
+    toReview();
     expect(screen.queryByRole("button", { name: t("en-US", "wizardNext") })).toBeNull();
     expect(finishBtn()).toBeInTheDocument();
   });
 
   it("Review step: Skip is not shown (not skippable)", () => {
     setup();
-    for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
+    toReview();
     expect(skipBtn()).toBeNull();
   });
 
   it("Finish on the review step calls onClose", () => {
     const { onClose } = setup();
-    for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
+    toReview();
     fireEvent.click(finishBtn());
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -230,7 +232,7 @@ describe("BackendSetupWizard", () => {
       ai: { ...defaultSettings.ai, apiKey: "sk-ant-test" },
     };
     setup({ settings: settingsWithAi });
-    for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
+    toReview();
     expect(screen.getAllByText(t("en-US", "setupWizardConfigured")).length).toBeGreaterThan(0);
     expect(screen.getAllByText(t("en-US", "setupWizardNotConfigured")).length).toBeGreaterThan(0);
   });
@@ -246,7 +248,6 @@ describe("BackendSetupWizard — a portfolio switch picked on the storage step (
       turso: { databaseUrl: "libsql://demo-fictional.turso.io", authToken: "token-fictional" },
     },
   } as typeof defaultSettings;
-  const toReview = () => { for (let i = 0; i < BACKEND_SETUP_STEPS.length - 1; i++) fireEvent.click(nextBtn()); };
 
   it("is applied on Finish, not dropped", async () => {
     const { onClose } = setup({ settings: tursoReady });
@@ -293,7 +294,7 @@ describe("BackendSetupWizard — a portfolio switch picked on the storage step (
 
   it("just closes on Finish when nothing was switched", async () => {
     const { onClose } = setup();
-    for (let i = 0; i < 3; i++) fireEvent.click(nextBtn());
+    toReview();
     await act(async () => { fireEvent.click(finishBtn()); });
     expect(commitPortfolioModeSwitch).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
