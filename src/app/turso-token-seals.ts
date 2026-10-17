@@ -12,6 +12,8 @@ import {
   unsealedPassphraseTokenSnapshot,
 } from "./turso-token-marker";
 import { SECRET_MERGE_TIMEOUT_MS } from "./use-settings";
+import { snapshotSealedRestore } from "./secrets-store";
+import type { SealedSecret } from "./secrets";
 
 // ★★ §548 — IN-FLIGHT TURSO TOKEN SEALS. Apply on Turso storage rebuilds the backend and the load
 // hold remounts the section, so a per-instance ref would forget a seal started by the instance that
@@ -78,8 +80,10 @@ export interface OwnSealProbe {
    *  running, while a token is still there to lose; false when it landed or when the token was
    *  cleared meanwhile (§609: the clear wins). */
   refuses: () => boolean;
-  /** Runs `fn` once the seal has landed — at once if it already has. */
-  whenLanded: (fn: () => void) => void;
+  /** Runs `fn` once the seal has landed — at once if it already has — with a restore snapshotted
+   *  AT THE LANDING (`snapshotSealedRestore`), so whatever was written after it wins. At most one
+   *  callback; it never runs if the seal fails or is superseded. */
+  whenLanded: (fn: (restore: (record: SealedSecret | null) => boolean) => void) => void;
 }
 
 /** Tracks `seal` (`trackTokenSeal`) and returns its probe. `tokenNow` reads the field's live token. */
@@ -89,12 +93,16 @@ export function probeOwnSeal(
   tokenNow: () => string,
 ): OwnSealProbe {
   let landed: boolean | undefined;
-  let onLanded: (() => void) | null = null;
+  let restoreAtLanding: ((record: SealedSecret | null) => boolean) | null = null;
+  let onLanded: ((restore: (record: SealedSecret | null) => boolean) => void) | null = null;
   trackTokenSeal(
     seal.then(
       (ok) => {
         landed = ok;
-        if (ok) onLanded?.();
+        if (!ok) return;
+        const restore = snapshotSealedRestore("tursoAuthToken");
+        restoreAtLanding = restore;
+        onLanded?.(restore);
       },
       (err: unknown) => {
         landed = false;
@@ -105,7 +113,7 @@ export function probeOwnSeal(
   return {
     refuses: () => (landed === undefined ? unsettledRefuses : !landed) && tokenNow().trim() !== "",
     whenLanded: (fn) => {
-      if (landed === true) fn();
+      if (restoreAtLanding) fn(restoreAtLanding);
       else onLanded = fn;
     },
   };

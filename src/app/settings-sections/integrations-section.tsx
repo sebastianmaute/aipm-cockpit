@@ -41,7 +41,7 @@ import { tursoSetupState } from "../turso-setup-state";
 import { TursoSetupSteps } from "./turso-setup-steps";
 import { tursoErrorKind } from "../storage-error";
 import { saveSecretValue, setSecretPassphrase, unlockSecret } from "../use-secrets";
-import { isPassphraseLocked, loadSealed, removeSealed, snapshotSealedWrite } from "../secrets-store";
+import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import type { SealedSecret } from "../secrets";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { Button } from "../button";
@@ -820,7 +820,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // (`tursoConfigured`). Switching to the portfolio the fields show and then reloading onto
     // the OLD credentials would be the surprise; so fold the drafts in and seal the token here.
     const tokenDirty = tursoToken !== turso.authToken;
-      // The switch's own seal, read after the gate's wait (`probeOwnSeal`).
+    // The switch's own seal, read after the gate's wait (`probeOwnSeal`).
     let ownSeal: OwnSealProbe | undefined;
     const tokenNow = () => tokenNowRef.current;
     let ownSealIsDevice = false;
@@ -872,23 +872,22 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     const newerTokenUnsealed = () => hasUnsealedPassphraseToken(tokenNowRef.current);
     const stops = () => nowUnconfigured() || newerTokenUnsealed() || !!ownSeal?.refuses();
     if (!(await commitPortfolioModeSwitch(base, pendingMode, stops))) {
-      // On Turso storage a stopped switch must not leave its own seal of an unapplied draft behind:
+      // On Turso storage a stopped switch must not leave its own seal of an unapplied DRAFT behind:
       //   the next boot would restore it. Put back the record it replaced — now, or when it lands.
-      if (tursoIsLive) ownSeal?.whenLanded(() => putBackRecord(recordBefore));
+      //   Never for a seal of the COMMITTED token (a carried-over one): that is its only copy.
+      if (tursoIsLive && tokenDirty) ownSeal?.whenLanded((restore) => putBackRecord(restore, recordBefore));
       if (nowUnconfigured()) setSwitchBusy(false);
       else refuseSwitch(ownSealIsDevice && ownSeal?.refuses() === true);
     }
   }
 
-  // Restores the sealed record a stopped switch's own seal replaced. `snapshotSealedWrite` yields to
-  // any newer write or clear (§609): a retried switch's seal, or the user's own, wins.
-  function putBackRecord(record: SealedSecret | null) {
-    if (record) snapshotSealedWrite("tursoAuthToken")(record);
-    else removeSealed("tursoAuthToken");
+  // Restores the sealed record a stopped switch's own seal replaced, through a restore snapshotted
+  // when that seal landed: anything written or cleared since (§609) wins.
+  function putBackRecord(restore: (record: SealedSecret | null) => boolean, record: SealedSecret | null) {
+    restore(record);
     setTokenStored(loadSealed("tursoAuthToken") != null);
     showStoredWrap();
   }
-
 
   function refuseSwitch(device: boolean) {
     setSwitchBusy(false);

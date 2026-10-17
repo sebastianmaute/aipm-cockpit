@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import * as secrets from "./secrets";
 import { sealDevice, sealPassphrase, SECRET_IDS } from "./secrets";
-import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked, migratePlaintextSecrets, probeDeviceSecretReadable, SECRETS_KEY, beginSealedWrite, invalidateAllSealedWrites, snapshotSealedWrite } from "./secrets-store";
+import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked, migratePlaintextSecrets, probeDeviceSecretReadable, SECRETS_KEY, beginSealedWrite, invalidateAllSealedWrites, snapshotSealedRestore, snapshotSealedWrite } from "./secrets-store";
 import { logDiag } from "./diagnostics";
 
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
@@ -173,6 +173,38 @@ describe("beginSealedWrite (§609)", () => {
 
 // §609 I1 — the boot migration's seal can land after the §548 merge timeout has handed the UI
 // over; a user clear or a new value committed in that window must win over the legacy value.
+// §715 — undoing one's own write: the snapshot is taken right after it, so anything newer wins.
+// MU44 — the restore ignores the generation → the first two cases go red.
+describe("snapshotSealedRestore (§715)", () => {
+  afterEach(() => localStorage.clear());
+
+  it("puts a record back when nothing was written since the snapshot", async () => {
+    const before = await sealDevice("tursoAuthToken", "before");
+    beginSealedWrite("tursoAuthToken")(await sealDevice("tursoAuthToken", "mine"));
+    expect(snapshotSealedRestore("tursoAuthToken")(before)).toBe(true);
+    expect(loadSealed("tursoAuthToken")).toEqual(before);
+  });
+
+  it("yields to a write that began after the snapshot", async () => {
+    const before = await sealDevice("tursoAuthToken", "before");
+    const newer = await sealDevice("tursoAuthToken", "newer");
+    const restore = snapshotSealedRestore("tursoAuthToken");
+    beginSealedWrite("tursoAuthToken")(newer);
+    expect(restore(before)).toBe(false);
+    expect(loadSealed("tursoAuthToken")).toEqual(newer);
+  });
+
+  it("restores the absence of a record, and yields to a clear that began after the snapshot", async () => {
+    saveSealed(await sealDevice("tursoAuthToken", "mine"));
+    expect(snapshotSealedRestore("tursoAuthToken")(null)).toBe(true);
+    expect(loadSealed("tursoAuthToken")).toBeNull();
+    const restore = snapshotSealedRestore("tursoAuthToken");
+    removeSealed("tursoAuthToken");
+    expect(restore(await sealDevice("tursoAuthToken", "before"))).toBe(false);
+    expect(loadSealed("tursoAuthToken")).toBeNull();
+  });
+});
+
 describe("migratePlaintextSecrets vs user writes in flight (§609)", () => {
   function heldSeal() {
     let release: (s: secrets.SealedSecret) => void = () => {};
