@@ -197,6 +197,14 @@ export function BackendSetupWizard({
     setStep((s) => clampStep(s + 1, TOTAL));
     nextButtonRef.current?.focus();
   }
+  // ✕, Escape and the backdrop: closing discards the drafts as surely as Next does.
+  async function requestClose() {
+    if (storageDraftsPending()) {
+      if (await confirmDiscardDrafts()) handleClose();
+      return;
+    }
+    handleClose();
+  }
   async function handleNext() {
     if (storageDraftsPending()) {
       if (await confirmDiscardDrafts()) advance();
@@ -218,7 +226,7 @@ export function BackendSetupWizard({
     >
     <Modal
       open={open}
-      onClose={handleClose}
+      onClose={() => void requestClose()}
       ariaLabelledby={TITLE_ID}
       align="center"
       backdropClassName="bg-ui-dark-blue/40"
@@ -234,7 +242,7 @@ export function BackendSetupWizard({
           title={t(lang, "setupWizardTitle")}
           helpConceptId={MODAL_HELP.backendSetupWizard}
           titleId={TITLE_ID}
-          onClose={handleClose}
+          onClose={() => void requestClose()}
         />
 
         {/* Body */}

@@ -360,6 +360,29 @@ describe("BackendSetupWizard — unapplied Turso drafts on the storage step (§7
     expect(screen.queryByTestId("integrations-section")).toBeNull();
   });
 
+  it("asks before closing the wizard discards them too, and stays open when the user keeps them", async () => {
+    confirm.mockResolvedValueOnce(false);
+    const { onClose } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "type a draft" }));
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: t("en-US", "alertModalClose") })); });
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("closes once the user discards them", async () => {
+    const { onClose } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "type a draft" }));
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: t("en-US", "alertModalClose") })); });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes without asking when there is nothing unapplied", () => {
+    const { onClose } = setup();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "alertModalClose") }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("does not ask when there is nothing unapplied", async () => {
     setup();
     await act(async () => { fireEvent.click(nextBtn()); });
