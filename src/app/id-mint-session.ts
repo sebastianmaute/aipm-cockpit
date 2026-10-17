@@ -136,6 +136,7 @@ export function seedMintFromWorkspace(
   seedMintKind("calendarEvent", ws.calendarEvents ?? [], mode);
   seedMintKind("document", ws.documents ?? [], mode);
   seedMintKind("documentVersion", ws.documentVersions ?? [], mode);
+  seedMintKind("forecastScenario", ws.forecastScenarios ?? [], mode);
 }
 
 /**

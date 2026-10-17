@@ -82,7 +82,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     timelogLinks, setTimelogLinks,
     knowledgeItems, setKnowledgeItems,
     insights, setInsights, documents, setDocuments, documentVersions, setDocumentVersions, activityLog, setActivityLog,
-    budgetHistory, setBudgetHistory, baselineHistory, setBaselineHistory, forecastHistory, setForecastHistory,
+    budgetHistory, setBudgetHistory, baselineHistory, setBaselineHistory, forecastHistory, setForecastHistory, forecastScenarios, setForecastScenarios,
     settingsOverrides, setSettingsOverrides,
     calendarEvents, setCalendarEvents, documentAssets, setDocumentAssets,
   } = useWorkspace();
@@ -378,10 +378,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       milestones: into("milestones", setMilestones), changes: into("changes", setChanges), stakeholders: into("stakeholders", setStakeholders),
       steeringCommittee: into("steeringCommittee", setSteeringCommittee), timelogLinks: into("timelogLinks", setTimelogLinks), knowledgeItems: into("knowledgeItems", setKnowledgeItems),
       insights: into("insights", setInsights), documents: into("documents", setDocuments), documentVersions: into("documentVersions", setDocumentVersions),
-      activityLog: into("activityLog", setActivityLog), budgetHistory: into("budgetHistory", setBudgetHistory), baselineHistory: into("baselineHistory", setBaselineHistory), forecastHistory: into("forecastHistory", setForecastHistory), settingsOverrides: into("settingsOverrides", setSettingsOverrides),
+      activityLog: into("activityLog", setActivityLog), budgetHistory: into("budgetHistory", setBudgetHistory), baselineHistory: into("baselineHistory", setBaselineHistory), forecastHistory: into("forecastHistory", setForecastHistory), forecastScenarios: into("forecastScenarios", setForecastScenarios), settingsOverrides: into("settingsOverrides", setSettingsOverrides),
       calendarEvents: into("calendarEvents", setCalendarEvents), documentAssets: into("documentAssets", setDocumentAssets),
     };
-  }, [mirrorLedger, setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setFieldVisibility, setFeatures, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setActivityLog, setBudgetHistory, setBaselineHistory, setForecastHistory, setSettingsOverrides, setCalendarEvents, setDocumentAssets]);
+  }, [mirrorLedger, setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setFieldVisibility, setFeatures, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setActivityLog, setBudgetHistory, setBaselineHistory, setForecastHistory, setForecastScenarios, setSettingsOverrides, setCalendarEvents, setDocumentAssets]);
   // ★ Once per COMMIT, in a layout effect: it runs before any later render can process a queued updater, so
   //   the next `judge` finds every value it can see as `live` (mirror-ledger.ts `prune`). No deps on purpose.
   useLayoutEffect(() => { mirrorLedger.prune(currentWorkspace()); });
@@ -640,7 +640,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // Same two branches for the budget history, but merged by id in stored order and NEVER capped.
     setBudgetHistory((prev) => mark("budgetHistory", logMode === "merge" ? mergeBudgetHistories(prev, workspace.budgetHistory) : (workspace.budgetHistory ?? [])));
     setBaselineHistory(mark("baselineHistory", workspace.baselineHistory ?? [])); // §476: ALWAYS replace — merging on a project switch would carry the outgoing project's switches over
-    setForecastHistory(mark("forecastHistory", workspace.forecastHistory ?? [])); // §502: ALWAYS replace, for the same reason
+    setForecastHistory(mark("forecastHistory", workspace.forecastHistory ?? [])); setForecastScenarios(mark("forecastScenarios", workspace.forecastScenarios ?? [])); // §502: both ALWAYS replace, for the same reason
     setSettingsOverrides(mark("settingsOverrides", workspace.settingsOverrides));
     setCalendarEvents(mark("calendarEvents", workspace.calendarEvents)); setDocumentAssets(mark("documentAssets", workspace.documentAssets));
     // Seed the session id-minter's high-water from the loaded set so the next
@@ -714,7 +714,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
   //     escape as an UNHANDLED REJECTION rather than a merely discarded update;
-  //     `applyWorkspaceFromLoad`'s 31 setters and `onOpenStorageFile`'s raw ones are
+  //     `applyWorkspaceFromLoad`'s 32 setters and `onOpenStorageFile`'s raw ones are
   //     still unguarded, deliberately, because every one of them sits inside a
   //     `try` whose `catch` calls only guarded emitters. Three of the eight
   //     call sites await this function outside any `try`: the load effect's
@@ -727,8 +727,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //     this is the hook's OWN state, so there is no superseded-run result a
   //     caller still needs. `logDiag` stays OUTSIDE the guard so a teardown-time
   //     status failure is still recorded.
-  //     ★ That "31" is the likeliest claim here to rot — it has already read 25, 28,
-  //     then 29. Re-derive with the sed commands in `docs/AGENTS/activity-log.md`, NOT in
+  //     ★ That "32" is the likeliest claim here to rot — it has already read 25, 28,
+  //     29, then 31. Re-derive with the sed commands in `docs/AGENTS/activity-log.md`, NOT in
   //     AGENTS.md. Anchor the START on a LINE-INITIAL two-space `const applyWorkspaceFromLoad`,
   //     spelled short HERE so it cannot match itself. Bare, sed RE-TRIGGERS at every later mention (717 printed lines, 35) — and since the §548 round-2 rename it DOES also start earlier, at the first comment mentioning the name. Re-measure both; do not quote these.
   const refreshBackendStatus = async () => {
@@ -891,7 +891,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   REQUIRED field, and only 9 of the 28 are required — new slices add OPTIONAL ones.
     //   Measured: dropping `activityLog` from this literal keeps tsc GREEN. The single
     //   spelling, NOT tsc, is what protects this; do not re-inline the literal at the save.
-    const outgoing: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory, forecastHistory };
+    const outgoing: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory, forecastHistory, forecastScenarios };
     if (!savesAllowed) {
       if (loadPause === "conflict") unloadJournal.followLive(outgoing); // §4 — no save can carry these edits: pagehide journals them
       if (loadPause !== null && savePausedAnnouncedForRef.current !== backend) {
@@ -1217,18 +1217,18 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // `allowDestructiveSaveAnyway` does, and without the dep the authorised save
     // would wait for an unrelated edit — with saving paused, there may not be one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory, forecastHistory, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal, savesAllowed, peerSeq]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory, forecastHistory, forecastScenarios, args.hydrated, args.isPopout, backend, loadWasIncomplete, destructive.refusal, savesAllowed, peerSeq]);
 
   // §4 §642 §643 §645 — tab sync: the scope, the revision adoption and one `useBroadcastSync` per slice (`use-workspace-sync.ts`).
   const syncContext = useWorkspaceSync({ isPopout: args.isPopout, storageConfig: args.settings.storageConfig, tursoDatabaseUrl: tursoUrlForBackend, tursoProjectId, fileBinding, getScopeEpoch, isLoadedValue, backend, mirrorApply, peerRevision,
-    slices: { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory, forecastHistory } });
+    slices: { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory, forecastHistory, forecastScenarios } });
 
   // Snapshot the live workspace from the render-scope closure — same pattern as
   // the file-picker handlers in use-storage-file-ops.ts (onPickStorageFile /
   // onOpenStorageFile / onRequestStorageSwitch), which take it as a dep. Must
   // NOT be memoized or it would capture stale state.
   function currentWorkspace(): Workspace {
-    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory, forecastHistory };
+    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory, forecastHistory, forecastScenarios };
   }
 
   // Persist the registry AND surface the change to the caller so its observable

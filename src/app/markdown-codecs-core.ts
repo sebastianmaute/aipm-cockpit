@@ -50,6 +50,7 @@ import type { ActivityEntry } from "./activity-log";
 import { sanitizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
 import { sanitizeBaselineHistory, type BaselineEntry } from "./baseline-currency";
 import { sanitizeForecastHistory, type ForecastHistoryEntry } from "./forecast-history";
+import { sanitizeForecastScenarios, type ForecastScenario } from "./forecast-scenarios";
 import {
   type ImportDiag,
   type ImportSectionKey,
@@ -375,6 +376,18 @@ export function markdownToForecastHistory(md: string, diag?: DocTruncationDiag):
   if (body === undefined) return undefined;
   const history = decodeMetaJson(body, sanitizeForecastHistory, "forecastHistory", diag);
   return history?.length ? history : undefined;
+}
+
+/** Forecast scenarios (§502) — same fenced json blob and storage-only gate as above. */
+export function forecastScenariosToMarkdown(scenarios: readonly ForecastScenario[]): string {
+  return ["## Forecast Scenarios", "", "```json", JSON.stringify(scenarios, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToForecastScenarios(md: string, diag?: DocTruncationDiag): ForecastScenario[] | undefined {
+  const body = readFencedJsonSection(md, "Forecast Scenarios");
+  if (body === undefined) return undefined;
+  const scenarios = decodeMetaJson(body, sanitizeForecastScenarios, "forecastScenarios", diag);
+  return scenarios?.length ? scenarios : undefined;
 }
 
 export function settingsOverridesToMarkdown(overrides: SettingsOverrides): string {
@@ -773,6 +786,9 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // Forecast history (§502) — same gate, emitted last (golden fixtures).
   if (config === undefined && ws.forecastHistory && ws.forecastHistory.length)
     mdParts.push(forecastHistoryToMarkdown(ws.forecastHistory));
+  // Forecast scenarios (§502) — same gate, emitted last (golden fixtures).
+  if (config === undefined && ws.forecastScenarios && ws.forecastScenarios.length)
+    mdParts.push(forecastScenariosToMarkdown(ws.forecastScenarios));
   const out = mdParts.join("\n");
   return out;
 }

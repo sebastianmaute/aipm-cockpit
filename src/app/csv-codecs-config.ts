@@ -25,6 +25,7 @@ import type { ActivityEntry } from "./activity-log";
 import { sanitizeBudgetHistory, type BudgetHistoryEntry } from "./budget-history";
 import { sanitizeBaselineHistory, type BaselineEntry } from "./baseline-currency";
 import { sanitizeForecastHistory, type ForecastHistoryEntry } from "./forecast-history";
+import { sanitizeForecastScenarios, type ForecastScenario } from "./forecast-scenarios";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import {
   CSV_SECTION_ABSENCES,
@@ -55,6 +56,7 @@ import {
   CSV_SECTION_BUDGET_HISTORY,
   CSV_SECTION_BASELINE_HISTORY,
   CSV_SECTION_FORECAST_HISTORY,
+  CSV_SECTION_FORECAST_SCENARIOS,
   CSV_SECTION_TASKS,
   absencesToCsv,
   budgetsToCsv,
@@ -416,6 +418,21 @@ export function csvToForecastHistory(text: string, diag?: DocTruncationDiag): Fo
   if (!row) return undefined;
   const history = decodeMetaJson(row[1], sanitizeForecastHistory, "forecastHistory", diag);
   return history?.length ? history : undefined;
+}
+
+// --- Forecast scenarios encoder / decoder (§502) ------------------------------
+//
+// Same single `config,<json>` row and storage-only gate as the forecast history above.
+
+export function forecastScenariosToCsv(scenarios: readonly ForecastScenario[], neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(scenarios), neutralize)].join(",");
+}
+
+export function csvToForecastScenarios(text: string, diag?: DocTruncationDiag): ForecastScenario[] | undefined {
+  const row = parseCsv(text).find((r) => r.length >= 2 && r[0] === "config");
+  if (!row) return undefined;
+  const scenarios = decodeMetaJson(row[1], sanitizeForecastScenarios, "forecastScenarios", diag);
+  return scenarios?.length ? scenarios : undefined;
 }
 
 // --- Project metadata encoder / decoder --------------------------------------
@@ -786,5 +803,8 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // Forecast history (§502) — STORAGE-ONLY, same gate, emitted last (golden-workspace.test).
   if (config === undefined && ws.forecastHistory && ws.forecastHistory.length)
     csvPush(CSV_SECTION_FORECAST_HISTORY, forecastHistoryToCsv(ws.forecastHistory, neutralize));
+  // Forecast scenarios (§502) — STORAGE-ONLY, same gate, emitted last (golden-workspace.test).
+  if (config === undefined && ws.forecastScenarios && ws.forecastScenarios.length)
+    csvPush(CSV_SECTION_FORECAST_SCENARIOS, forecastScenariosToCsv(ws.forecastScenarios, neutralize));
   return parts.join("\r\n");
 }

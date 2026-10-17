@@ -724,7 +724,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       // ★★ WHAT THAT ONE PREDICATE CANNOT SEE, stated because the symmetry above reads as a stronger
       //   claim than it is: `workspaceRecordCount` sums the entity COLLECTIONS and ignores `plan`,
       //   `project`, `status`, `fieldVisibility`, `features`, `settingsOverrides`, `activityLog`,
-      //   `budgetHistory`, `baselineHistory`, `forecastHistory`, `documentVersions`, `insights`, `timelogLinks`,
+      //   `budgetHistory`, `baselineHistory`, `forecastHistory`, `forecastScenarios`, `documentVersions`, `insights`, `timelogLinks`,
       //   `steeringCommittee` and `fxRates` — each of
       //   which `applyWorkspaceFromLoad` does set. So a project that is only plan dates, a name and
       //   an activity log reads as EMPTY here, and a Save-As over an existing file offers to load

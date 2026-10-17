@@ -576,6 +576,7 @@ describe("§95 — populated meta-blob slices round-trip through the real engine
     budgetHistory: "budgetHistory",
     baselineHistory: "baselineHistory",
     forecastHistory: "forecastHistory",
+    forecastScenarios: "forecastScenarios",
     documents: "documents",
     documentVersions: "documentVersions",
     settings_overrides: "settingsOverrides",
