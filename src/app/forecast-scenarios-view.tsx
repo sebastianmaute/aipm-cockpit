@@ -162,15 +162,18 @@ function ScenarioList({ lang, scenarios, tokens, api, readOnly, onOpen }: {
   );
 }
 
-export function ForecastScenariosView({ lang, input, scenarios }: {
+export function ForecastScenariosView({ lang, input, scenarios, comparison: provided }: {
   lang: Lang;
   input: ScenarioRunInput;
   scenarios: ForecastScenariosProps;
+  /** The comparison the panel already ran for this input and list (it reads As is's milestone chances for the
+   *  Ask-Claude menu); absent = this view runs its own. Never both: a provided one is used as is. */
+  comparison?: ScenarioComparison;
 }) {
   const { api, readOnly } = scenarios;
   const list = api.scenarios;
   // ONE comparison per input or list change: As is plus one forecast per scenario (spec §5.4).
-  const comparison = useMemo(() => computeScenarioComparison(input, list), [input, list]);
+  const comparison = useMemo(() => provided ?? computeScenarioComparison(input, list), [provided, input, list]);
   const named = useMemo<Named[]>(
     () => [{ id: AS_IS_ID, name: t(lang, "forecastScenariosAsIs") }, ...list.map((s) => ({ id: s.id, name: s.name }))],
     [lang, list],

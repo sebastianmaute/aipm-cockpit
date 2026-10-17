@@ -211,8 +211,9 @@
   popout toggles read-only). The RULE — route reactive values through refs, do not add them as deps — is
   what survives; verify the literal array in `use-chat-dispatcher.ts` rather than trusting a quoted one.
   ★★ **REPLACE-SEMANTICS TOOLS: OMISSION MEANS DELETION.** `set_task_dependencies` replaces a task's whole
-  predecessor list, so it is the ONLY tool in `runTool` where what the model LEAVES OUT is destroyed
-  (`update_task` is a patch — a sloppy model can only overwrite what it names). The handler takes an undo
+  predecessor list, so it is one of the tools where what the model LEAVES OUT is destroyed (the other known one is
+  `update_forecast_scenario` with `changes`, in "Forecast tools" below; `runTool` carries the first,
+  `runForecastTool` the second) (`update_task` is a patch — a sloppy model can only overwrite what it names). The handler takes an undo
   capture (one `task.updated` entry, after its early returns), but only a user who notices the loss will
   undo it. Two guards are mandatory and any FUTURE replace-semantics tool needs
   both: (1) a wholly-refused write (every proposed entry rejected, e.g. all cyclic) must leave the stored list
@@ -220,7 +221,9 @@
   that"; (2) every real write returns `removed[]` (prior minus applied) so a model that sends only the NEW entry
   instead of the full list cannot delete the rest invisibly. Validate the array-ness at the TOOL boundary
   (`chat-tools.ts` throws, mirroring `requireId`), not in the pure resolver — a non-array must never be treated
-  as "clear all". ★ TEST TRAP: `expect(getX(id)?.field ?? []).toEqual([])` against a fixture that never had the
+  as "clear all". ★★ `update_forecast_scenario` (§502) meets the two guards its own way: a refusal from `checkToolDraft`
+  THROWS before any setter runs, so a wholly-refused `changes` writes nothing, and a real write returns
+  `removedRows` (`countRemovedRows`, the stored rows against the trimmed rows it stores). ★ TEST TRAP: `expect(getX(id)?.field ?? []).toEqual([])` against a fixture that never had the
   field passes whether the code preserves or erases. Seed a real prior value and watch the test FAIL first.
 - **Optimistic concurrency on the token-guarded write tools:** every entity `update_*` tool except
   `update_settings` and `update_document`, plus `set_task_dependencies` and `escalate_raid_item`, each REQUIRING an
@@ -1891,3 +1894,61 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   pair, because `runTursoPipeline` only opens a transaction when the first statement is literal `BEGIN`.
   `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
   requires `projectId` (not just an id) so a delete can never reach across projects.
+- **Forecast tools (§502) — `get_forecast`, `create_forecast_scenario`, `update_forecast_scenario`.** Defined in
+  `chat-tool-defs-forecast.ts` (`FORECAST_TOOL_DEFS`), run by `runForecastTool` (`chat-tools-forecast.ts`), bound to
+  the workspace by `useForecastTools` (`use-forecast-tools.ts`).
+  ★★ THE GATE HAS TWO HALVES, ONE PREDICATE. Offering: `ToolFlags.forecast` (`chat-api.ts`) is the INVERSE of the
+  recall bits — the tools go on the wire only on an explicit `true`, taken from the snapshot's `forecastSimulation`.
+  Enforcing: `isForecastEnabled` is checked FIRST in `runForecastTool`, so a call that reaches the executor while the
+  switch is off throws `FORECAST_OFF_MESSAGE` and reads or writes nothing. Both read `isSimulationActive`, the
+  executor's from refs at CALL time. The prompt block (`buildForecastBlock`, `forecast-ai-prompt.ts`) is decided by
+  the SNAPSHOT (`forecastView`, `forecastSimulation`); the offered set only decides whether it may name tools. Nothing
+  when the Forecast view is not enabled (the snapshot's `forecastView`, from `isViewEnabled`: held back by
+  `RELEASE_HIDDEN_VIEWS` or its module off); the off text when the view is enabled but the simulation is off; the
+  quoting rules, which name the tools, when the simulation is on and the offered set holds `get_forecast`; and
+  nothing when the simulation is on but `get_forecast` is not offered — inline AI edit (`inline-ai-edit-call.ts`),
+  whose `NO_RECALL_TOOLS` carries no forecast bit but whose snapshot is the chat's.
+  ★★ THE OFF TEXT AND `FORECAST_OFF_MESSAGE` NEVER SAY "FORECASTING IS OFF": `ForecastPanel` runs the simulation
+  whatever the switch says, so the view still shows dates and chances. Both say the ASSISTANT cannot read the
+  forecast and send the user to the Forecast view (or to turning the switch on). The off-state pointer rides the
+  forecast block, not the view scope: the forecast `VIEW_AI_SCOPE` entry's `reading` is gated on `get_forecast`
+  (`readingRequiresTool`), and a `ViewScope` holds one reading only.
+  ★ DEFAULTS ONLY: `get_forecast` runs with the app defaults (`DEFAULT_HISTORY_WINDOW`, tasks unit), never the
+  Forecast view's toolbar; the prompt block says so.
+  ★★ TOKEN: scenarios are a meta-blob slice with no CSV columns, so `entityToken("forecastScenario", row)`
+  (`ai-entity-token.ts`) is a hash of the re-sanitized JSON row, and `TOKEN_ROW_SOURCE` (`chat-proposal-apply.ts`)
+  reads the live row through `getForecastScenarioRow`. `update_forecast_scenario` enforces the token in
+  `runForecastTool` (`requireToken`), not in `chat-tools.ts`.
+  ★★★ REPLACE SEMANTICS: `changes` replaces the WHOLE list, so omission deletes. Guard 1: a refusal throws before a
+  setter runs. Guard 2: the result carries `removedRows`, the stored rows not kept unchanged, counted as a MULTISET
+  (`countRemovedRows`: each stored row consumes at most one equal new row, so a dropped duplicate counts 1 and an
+  edited row counts as removed and re-added); the tool description says so. Guard 3: the staged card line
+  (`forecastScenarioRowTitle`, `chat-proposal-describe.ts`) shows the stored count beside the new one,
+  `(3 → 1 changes)`. `name` alone is a patch and returns no `removedRows`.
+  ★★ REFERENCE ROWS ARE MATCHED BY REFERENCE, NOT BY INDEX: a milestone or resource reference that has since gone
+  stale is still accepted when the STORED scenario already held that same reference (`keepsAnyStoredReference`,
+  used by `checkToolDraft`), so an edit elsewhere in an old scenario is not refused over a milestone someone
+  finished; a NEW stale reference is refused.
+  ★ NO DELETE TOOL, by design (the prompt says so too), and none of the three is in `ALLOWED_REC_TOOLS`
+  (`insights/insight.ts`), the allowlist for replaying recommended calls. Staging: both writes are in
+  `ENTITY_WRITE_TOOLS` (`chat-proposal.ts`) with rows in `TARGET_MINTED_BY`, `CREATE_MINT_KIND` and
+  `TOKEN_ROW_SOURCE`. The create is NOT undo-captured (a captured create duplicates the row); the update is, as one
+  `forecastScenario.updated` composite.
+  ★★ A SCENARIO MAY NAME A MILESTONE OR PERSON CREATED EARLIER IN THE SAME TURN (this was refused with "does not
+  exist" until the fix). Two halves. Applied directly: `requireInput` (`use-forecast-tools.ts`) replaces the
+  getter's render-scope `run.tasks`, `run.milestones` and `run.directory.resources` with the dispatcher's
+  `tasksRef`, `milestonesRef` and `resourcesRef`, which the create tools assign synchronously, so the validation
+  context sees the new rows and `get_forecast` simulates a task created earlier in the turn; the budget facts still
+  come from render scope. `milestonesRef` is minted in `use-chat-dispatcher.ts` and passed to both
+  `useRegisterTools` and `useForecastTools`. Staged: `LINK_FIELDS` (`chat-proposal.ts`) carries
+  `changes[].milestoneId` on a scope row (minted by `create_milestone`) and `changes[].who.resourceId` on an
+  addPeople row (minted by `create_resource`), for both scenario tools, so `remapStagedCall` rewrites a
+  provisional id to the real one, `cascadeDeselect` drops the scenario row with a refused create and
+  `namesPendingMint` refuses it when the create failed. `LinkField.kind` limits each link to the row kind whose
+  parser reads the field; an id that no create in the plan minted passes untouched. Pinned by
+  `use-forecast-tools.test.tsx` ("a write earlier in the same turn is seen"), `chat-proposal.test.ts` ("ids
+  nested in a scenario's changes[] are links") and `chat-proposal-apply.forecast.test.tsx`.
+  ★ All three tools refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads (`holidaysReady`):
+  the forecast input getter in `use-chat-dispatcher-wiring.ts` returns null until it is ready. The one exception is
+  a rename-only `update_forecast_scenario` (no `changes`): it keeps the stored rows, so `checkToolDraft` runs with
+  `ctx: null` (only `validateScenarioDraft`'s name and row-count checks), needs no input and succeeds while the calendar loads.

@@ -5,6 +5,8 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { TaskFormProvider } from "./task-form-context";
 import type { CalendarEvent } from "./calendar-event";
+import type { ForecastScenario } from "./forecast-scenarios";
+import type { SettingsOverrides } from "./settings-types";
 import {
   type Absence,
   type ChangeItem,
@@ -45,12 +47,14 @@ export interface TestSeed {
    *  stay `undefined`, which the `?.length` guard below already delivers; never
    *  default it to `[]` here or in the `Seeder`. */
   calendarEvents?: CalendarEvent[];
+  forecastScenarios?: ForecastScenario[];
+  settingsOverrides?: SettingsOverrides;
 }
 
 function Seeder({ seed }: { seed: TestSeed }) {
   const {
     setTasks, setResources, setRaid, setChanges, setMilestones, setStakeholders,
-    setAbsences, setCalendarEvents, setShifts, setProject,
+    setAbsences, setCalendarEvents, setShifts, setProject, setForecastScenarios, setSettingsOverrides,
   } = useWorkspace();
   const seededRef = useRef(false);
   useEffect(() => {
@@ -73,6 +77,8 @@ function Seeder({ seed }: { seed: TestSeed }) {
     // PRESENT AND EMPTY, a different fact from absent, and would defeat the one
     // distinction the calendar write path is built around.
     if (seed.calendarEvents?.length) setCalendarEvents(seed.calendarEvents);
+    if (seed.forecastScenarios?.length) setForecastScenarios(seed.forecastScenarios);
+    if (seed.settingsOverrides) setSettingsOverrides(seed.settingsOverrides);
     // Seed once on mount; subsequent `seed` prop changes are intentionally ignored.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

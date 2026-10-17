@@ -754,7 +754,7 @@ describe("TOKEN_REQUIRED_TOOLS", () => {
   //   `properties` (what `insights/recommend-tokens.test.ts` already derives),
   //   `expectedToken` in that schema's `required` (what the guard derives), and
   //   `requireToken` actually being reached (what decides the throw) are three
-  //   separate things that all equal seven today BY COINCIDENCE. This pins the
+  //   separate things that name the same tools today BY COINCIDENCE. This pins the
   //   first two to each other. The third is deliberately unpinned — see the
   //   docstring on the export for the hand-run command.
   //
@@ -780,12 +780,12 @@ describe("TOKEN_REQUIRED_TOOLS", () => {
     //   "0 mismatches" pass over nothing at all. The size is asserted EXACTLY:
     //   a legitimately added token-guarded tool turns this red, which is the
     //   point. Read a red here as "go look", not as "the guard broke".
-    expect(TOKEN_REQUIRED_TOOLS.size).toBe(10);
-    expect(advertised).toHaveLength(10);
+    expect(TOKEN_REQUIRED_TOOLS.size).toBe(11);
+    expect(advertised).toHaveLength(11);
     expect([...TOKEN_REQUIRED_TOOLS].sort()).toEqual([...advertised].sort());
   });
 
-  test("it names the eight update tools, set_task_dependencies and escalate_raid_item", () => {
+  test("it names the nine update tools, set_task_dependencies and escalate_raid_item", () => {
     // The membership itself, so a diff that changed BOTH derivations in step
     // still has to face a human-written list. `update_resource` is spelled out
     // because it is the member `UPDATE_TARGET` omits — the trap this constant
@@ -796,6 +796,7 @@ describe("TOKEN_REQUIRED_TOOLS", () => {
       "update_absence",
       "update_calendar_event",
       "update_change",
+      "update_forecast_scenario",
       "update_milestone",
       "update_raid_item",
       "update_resource",
@@ -902,6 +903,9 @@ describe("TOKEN_ROW_SOURCE", () => {
             // check (§515); the others ignore the key. Without it the token
             // would pass and the recipient error would read as a token failure.
             toEmail: "row@example.com",
+            // `update_forecast_scenario` refuses a call with neither `name` nor
+            // `changes` AFTER the token check (§502); no other tool reads the key.
+            changes: [],
           });
         } catch (e) {
           thrown = e;
@@ -914,11 +918,15 @@ describe("TOKEN_ROW_SOURCE", () => {
         // dispatcher would satisfy the line above having proved nothing. Every
         // guarded case reads its row FIRST and then writes, and the resolver
         // must read that same member.
+        // ★ `isForecastEnabled` is the forecast tools' availability GATE, asked
+        //  before anything is read (§502) — a predicate, not a row read, so it is
+        //  left out of the order. Every other tool reaches its row first anyway.
+        const steps = reached.filter((m) => m !== "isForecastEnabled");
         expect({
           tool,
           resolverCalls: viaResolver.length,
-          readFirst: reached[0],
-          wrote: reached.length >= 2,
+          readFirst: steps[0],
+          wrote: steps.length >= 2,
         }).toEqual({ tool, resolverCalls: 1, readFirst: viaResolver[0], wrote: true });
 
         // Anti-vacuity, per entry: the check above is only a test while some

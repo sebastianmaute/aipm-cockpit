@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ForecastScenarioEditor, keepsStoredReference } from "./forecast-scenario-editor";
+import { ForecastScenarioEditor } from "./forecast-scenario-editor";
 import type { ScheduleContext, ScenarioDirectory } from "./forecast-added-people";
-import type { ForecastScenario, ScenarioChange } from "./forecast-scenarios";
+import { keepsStoredReference, type ForecastScenario, type ScenarioChange } from "./forecast-scenarios";
 import { simulatedDates } from "./forecast/day-index";
 import { MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
 import type { Milestone, Resource, Shift } from "./types";

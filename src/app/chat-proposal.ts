@@ -75,7 +75,13 @@ const DESTRUCTIVE_TOOLS: ReadonlySet<string> = new Set([
  *
  *  ★★ `escalate_raid_item` (§515) is an ordinary single-row RAID write: it sends
  *   no mail (unlike `send_inquiry`, whose handler opens a mail client) and it is
- *   undo-captured, so one call applies and two stage (user decision 2026-09-13). */
+ *   undo-captured, so one call applies and two stage (user decision 2026-09-13).
+ *
+ *  ★ `create_forecast_scenario`/`update_forecast_scenario` (§502) are ordinary
+ *   entity writes too. An update REPLACES the row list when it sends `changes`,
+ *   so it can drop rows, but it is undo-captured (one Ctrl+Z restores the whole
+ *   list) and its result reports `removedRows` — so, like `escalate_raid_item`,
+ *   one call applies and two stage. */
 const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_task", "update_task", "set_task_dependencies", "send_inquiry",
   "create_raid_item", "update_raid_item", "escalate_raid_item",
@@ -86,6 +92,7 @@ const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_document", "update_document",
   "create_absence", "update_absence",
   "create_calendar_event", "update_calendar_event",
+  "create_forecast_scenario", "update_forecast_scenario",
   ...DESTRUCTIVE_TOOLS,
 ]);
 
@@ -128,12 +135,23 @@ const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
  *   create and update tool, which is why every one of them appears twice in the
  *   table. `DEPENDENCY_TASKS` is the fifth and a different SHAPE — an array of
  *   objects, declared inline in `set_task_dependencies`' own schema rather than
- *   through `idList` — which is what `LinkField.key` exists for. */
+ *   through `idList` — which is what `LinkField.key` exists for.
+ *  ★ `SCOPE_MILESTONES` and `ADDED_PEOPLE` (§502) are the same object-array
+ *   shape, inside a forecast scenario's `changes[]`, which the two scenario
+ *   tools declare as a loose `{ type: "object" }` item, so no schema grep finds
+ *   them either: `milestoneId` on a scope row and `who.resourceId` (one object
+ *   deeper, hence `key` is a PATH) on an addPeople row. Both carry `kind`,
+ *   because `forecast-scenario-tool-input.ts` reads each field only on its own
+ *   row kind; linking a stray field on another kind would be a WRONG edge.
+ *   Re-derive with `grep -n "milestoneId\|resourceId" src/app/forecast-scenario-tool-input.ts`. */
 interface LinkField {
   readonly field: string;
-  /** For an array of OBJECTS, the property holding the id. Absent when the field
-   *  is a flat array of ids. */
-  readonly key?: string;
+  /** For an array of OBJECTS, the property path to the id inside each entry —
+   *  one name for `dependencies[].taskId`, two for `changes[].who.resourceId`.
+   *  Absent when the field is a flat array of ids. */
+  readonly key?: readonly string[];
+  /** For an array of OBJECTS, read only the entries whose `kind` is this. */
+  readonly kind?: string;
   /** The create tool whose minted ids this field can name. */
   readonly mintedBy: string;
 }
@@ -141,7 +159,9 @@ const LINKED_TASKS: LinkField = { field: "linkedTaskIds", mintedBy: "create_task
 const LINKED_RAIDS: LinkField = { field: "linkedRaidIds", mintedBy: "create_raid_item" };
 const CAUSING_RAIDS: LinkField = { field: "causedByRaidIds", mintedBy: "create_raid_item" };
 const LINKED_STAKEHOLDERS: LinkField = { field: "stakeholderIds", mintedBy: "create_stakeholder" };
-const DEPENDENCY_TASKS: LinkField = { field: "dependencies", key: "taskId", mintedBy: "create_task" };
+const DEPENDENCY_TASKS: LinkField = { field: "dependencies", key: ["taskId"], mintedBy: "create_task" };
+const SCOPE_MILESTONES: LinkField = { field: "changes", kind: "scope", key: ["milestoneId"], mintedBy: "create_milestone" };
+const ADDED_PEOPLE: LinkField = { field: "changes", kind: "addPeople", key: ["who", "resourceId"], mintedBy: "create_resource" };
 
 const LINK_FIELDS: Readonly<Record<string, readonly LinkField[]>> = {
   create_raid_item: [LINKED_TASKS, CAUSING_RAIDS, LINKED_STAKEHOLDERS],
@@ -151,6 +171,8 @@ const LINK_FIELDS: Readonly<Record<string, readonly LinkField[]>> = {
   create_milestone: [LINKED_TASKS],
   update_milestone: [LINKED_TASKS],
   set_task_dependencies: [DEPENDENCY_TASKS],
+  create_forecast_scenario: [SCOPE_MILESTONES, ADDED_PEOPLE],
+  update_forecast_scenario: [SCOPE_MILESTONES, ADDED_PEOPLE],
 };
 
 /** The other half of the same mechanism: a tool whose OWN `input.id` addresses a
@@ -206,6 +228,7 @@ export const TARGET_MINTED_BY: Readonly<Record<string, string>> = {
   delete_absence: "create_absence",
   update_calendar_event: "create_calendar_event",
   delete_calendar_event: "create_calendar_event",
+  update_forecast_scenario: "create_forecast_scenario",
 };
 
 /** The THIRD table of the same family: a create tool → the `id-mint-session`
@@ -224,12 +247,12 @@ export const TARGET_MINTED_BY: Readonly<Record<string, string>> = {
  *
  *  ★★★ MEMBERSHIP IS NOT ENOUGH — A WRONG KIND IS A WRONG SEQUENCE, and that is
  *   the failure `TARGET_MINTED_BY`'s own drift test cannot see for its table.
- *   Every value here but `create_document`'s is therefore pinned per row against
- *   an INDEPENDENT source: `INLINE_DESCRIPTORS` already states each entity's
- *   `createTool` beside its `entity`, and those `InlineEntity` spellings are
- *   exactly the `MintKind` spellings the live minters use. `create_document` has
- *   no descriptor and is pinned against a literal alone — read that ONE row as
- *   unguarded, not as covered. Re-derive the live minters with
+ *   Every value here but `create_document`'s and `create_forecast_scenario`'s is
+ *   therefore pinned per row against an INDEPENDENT source: `INLINE_DESCRIPTORS`
+ *   already states each entity's `createTool` beside its `entity`, and those
+ *   `InlineEntity` spellings are exactly the `MintKind` spellings the live
+ *   minters use. Those two have no descriptor and are pinned against a literal
+ *   alone — read those TWO rows as unguarded, not as covered. Re-derive the live minters with
  *   `grep -rn 'mintId("' src/app --include=*.ts --include=*.tsx`.
  *
  *  ★★ THIS USED TO NAME `create_absence` AND `create_calendar_event` AS TWO
@@ -252,6 +275,7 @@ export const CREATE_MINT_KIND: Readonly<Record<string, MintKind>> = {
   create_document: "document",
   create_absence: "absence",
   create_calendar_event: "calendarEvent",
+  create_forecast_scenario: "forecastScenario",
 };
 
 /** ★★ NAME-ONLY, AND THEREFORE NOT THE GATE'S OWN PREDICATE — `shouldStage`
@@ -375,9 +399,12 @@ export function shouldStage(calls: readonly ProposedCall[]): boolean {
 /** True for a tool that MINTS a row rather than addressing an existing one.
  *
  *  ★ The prefix IS the whole rule — verified against the live `TOOL_DEFS`: all
- *   seven `create_*` tools are entity writes, and nothing else in the 45 is
- *   named `create_*`. `chat-proposal.test.ts` partitions the live array against
- *   a literal list of the seven, so a new `create_*` tool goes red there.
+ *   ten `create_*` tools are entity writes, and nothing else in the 57 is
+ *   named `create_*`. Reproduce both counts:
+ *   `grep -oE 'name: "create_[a-z_]+"' src/app/chat-tool-defs*.ts | sort -u | wc -l` (10) and
+ *   `grep -oE 'name: "[a-z_]+"' src/app/chat-tool-defs*.ts | sort -u | wc -l` (57).
+ *   `chat-proposal.test.ts` partitions the live array against a literal list
+ *   of the ten (`CREATE_NAMES`), so a new `create_*` tool goes red there.
  *
  *  ★★ Exported because `buildPlanRows` consumes exactly one minted id per create
  *   and the CALLER has to mint that many. A caller re-deriving "is this a
@@ -486,17 +513,16 @@ function forEachLinkRef(
   if (specs === undefined) return undefined;
   let patch: Record<string, unknown> | undefined;
   for (const spec of specs) {
-    const raw = (call.input as Record<string, unknown>)[spec.field];
+    // ★★ Read through `patch`: two specs can walk the SAME field (both scenario
+    //  links live in `changes`), and reading the original input again would
+    //  silently undo the first spec's rewrite.
+    const raw = patch?.[spec.field] ?? (call.input as Record<string, unknown>)[spec.field];
     if (!Array.isArray(raw)) continue;
     let changed = false;
-    const next = raw.map((entry) => {
-      const value =
-        spec.key === undefined
-          ? entry
-          : entry !== null && typeof entry === "object"
-            ? (entry as Record<string, unknown>)[spec.key]
-            : undefined;
-      const id = Number(value);
+    const next = raw.map((entry: unknown) => {
+      const { key } = spec;
+      if (key !== undefined && spec.kind !== undefined && readPath(entry, ["kind"]) !== spec.kind) return entry;
+      const id = Number(key === undefined ? entry : readPath(entry, key));
       if (!Number.isFinite(id) || id <= 0) return entry;
       const replacement = visit(spec, id);
       if (replacement === undefined) return entry;
@@ -504,14 +530,29 @@ function forEachLinkRef(
       // A NEW entry every time — the caller's `input` is never mutated, which
       // matters because the same staged call may be described, rendered and
       // replayed from one object.
-      return spec.key === undefined
-        ? replacement
-        : { ...(entry as Record<string, unknown>), [spec.key]: replacement };
+      return key === undefined ? replacement : writePath(entry as Record<string, unknown>, key, replacement);
     });
     if (!changed) continue;
     patch = { ...(patch ?? {}), [spec.field]: next };
   }
   return patch;
+}
+
+/** The value at `path` inside `entry`, or `undefined` where any step is not an object. */
+function readPath(entry: unknown, path: readonly string[]): unknown {
+  let cur = entry;
+  for (const name of path) {
+    if (cur === null || typeof cur !== "object") return undefined;
+    cur = (cur as Record<string, unknown>)[name];
+  }
+  return cur;
+}
+
+/** A copy of `entry` with `value` at `path`, copying every object on the way. Called only after
+ *  `readPath` found a number there, so every intermediate step is an object. */
+function writePath(entry: Record<string, unknown>, path: readonly string[], value: number): Record<string, unknown> {
+  const [name, ...rest] = path;
+  return { ...entry, [name]: rest.length === 0 ? value : writePath(entry[name] as Record<string, unknown>, rest, value) };
 }
 
 /** Pair each call with its provisional id and its dependency.

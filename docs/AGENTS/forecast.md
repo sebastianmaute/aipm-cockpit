@@ -7,7 +7,7 @@ and what is each milestone's **chance** of landing on its date. Part 1 of the su
 Show-simulation switch (`SettingsOverrides.forecast`) and a daily recorder that persists
 `Workspace.forecastHistory` (a meta-blob on all six write paths). It replaced the old slices 2 and 5;
 part 2 (the Dashboard picture), part 3 (the budget simulation) and saved scenarios (build step 2) are built, all
-held back with the view; the AI tool and part 4 are open — see §502 in [`../open-followups.md`](../open-followups.md).
+held back with the view; the AI tools are built and held back with it, and part 4 and the un-hide are open — see §502 in [`../open-followups.md`](../open-followups.md).
 Reproduce the file list: `ls src/app/forecast`.
 
 ★★ **HELD BACK FROM THE RELEASE.** `"forecast"` sits in `RELEASE_HIDDEN_VIEWS` (`feature-modules.ts`), so
@@ -727,7 +727,7 @@ is. The Forecast view gains a third mode, **Scenarios** (beside Quick and What-i
 scenario on one shared axis: range bars, a compared table (P50/P80/P95 finish, chance on time by plan end, and, when the
 cost rows are on, cost at finish P80 and the chance over budget) and the milestone chances. Spec:
 `docs/superpowers/specs/2026-10-16-forecast-scenarios-and-ai-tool-design.md` (§4.1–§4.3, §4.5); the AI tool (§4.4)
-is not built. Held back with the view like parts 1–3.
+is built, see "The AI tool (§502)" below. Held back with the view like parts 1–3.
 
 | File | Owns |
 |---|---|
@@ -735,7 +735,7 @@ is not built. Held back with the view like parts 1–3.
 | `forecast/day-index.ts` | `simulatedDates` (index 0 = today, length horizon + 1), `dayOnOrAfter`, `dayOnOrBefore` |
 | `forecast-added-people.ts` | `teamHoursPerDay`, `onTeamResourceIds`, `shiftFor`, `changeDayWindow`, `resolveAddedPeople`; the `ScheduleContext` and `ScenarioDirectory` types |
 | `forecast-scenario-schedule.ts` | `buildScenarioSchedule`: a change list as per-day `capacityByDay`, `spendScale`, `addedCost`, the scope arrivals and one status per row |
-| `forecast-scenario-compare.ts` | `computeScenarioComparison` (As is + every scenario), `computeScenarioColumn`, `buildScheduleContext`: the ONE place a column is computed (the coming `get_forecast` tool is to call it too) |
+| `forecast-scenario-compare.ts` | `computeScenarioComparison` (As is + every scenario), `computeScenarioColumn`, `buildScheduleContext`: the ONE place a column is computed (`buildForecastReport` calls it too) |
 | `use-forecast-scenarios.ts` | the per-entity CRUD hook: create, update, rename, delete, activity log, undo |
 | `forecast-scenarios-view.tsx`, `forecast-scenario-tables.tsx` | the Scenarios mode and its two tables |
 | `forecast-scenario-editor.tsx`, `forecast-scenario-change-rows.tsx`, `forecast-scenario-name-dialog.tsx` | the editor (a `Modal`), its rows, and the rename / Save-as-scenario name dialog |
@@ -820,7 +820,11 @@ is not built. Held back with the view like parts 1–3.
   can bring the person back). It is applied by `applyWorkspaceFromLoad` (always replace) and NOT by
   `applyRestoredWorkspace`, so a version restore keeps today's scenarios (owner, 2026-10-17; see
   [`activity-log.md`](activity-log.md)). `counted: false` in `workspace-slice-policy.ts`, so it is not in
-  `isWorkspaceEmpty`. Ids come from the session minter (`mintId`, kind `forecastScenario`). Every create, edit,
+  `isWorkspaceEmpty`. Ids come from the session minter (`mintId`, kind `forecastScenario`). ★★ Because a saved
+  scenario keeps the id of a deleted milestone or person, `seedMintFromWorkspace` seeds the `milestone` and
+  `resource` marks from the live lists AND every `milestoneId` / `who.resourceId` a scenario still names, so neither
+  the UI nor a staged create can re-mint an id a stale row would then attach to ("seeds milestone and resource
+  marks above every id a saved scenario still names"). Every create, edit,
   rename and delete is one activity-log entry; edits, renames and deletes are one undo entry each, creates are not
   captured ([`undo.md`](undo.md) "Creates"). Pins: `forecast-scenarios-persistence.test.ts`.
 - ★ **The 4-cap is a CREATION rule**, checked first by `validateScenarioDraft` (no edit can fix it). The sanitizer
@@ -909,6 +913,54 @@ npx vite-node scenario-probe.ts; rm scenario-probe.ts
   violations; it needed `skipTour`, as `a11y.spec.ts` does). Run it again when the view ships:
   `PORT=3100 npx playwright test e2e/forecast-scenarios.spec.ts --project=chromium --workers=1`. Until then CI covers the
   editor and the comparison by their unit tests only.
+
+## The AI tool (§502)
+
+The assistant side is in `docs/AGENTS/ai-assistant.md`, "Forecast tools (§502)"; this section is what the FORECAST
+owns. `get_forecast` returns one JSON report (`buildForecastReport`, `forecast-ai-report.ts`, type `ForecastReport`):
+`simulated: true`, the `settings` it ran with (history window, tasks unit, `FORECAST_TRIALS` trials, baseline
+currency, plan end, today), the `asIs` column, `weeklyChange` (null when As is is insufficient: there is no P80 to
+compare, and `weeklyChange`'s `"beyond"` would claim one past the horizon), one entry per saved scenario (id, name,
+`expectedToken`, its `changes`, a `result` column and per-row `rows` statuses), and an optional `whatIf` column for the
+call's own draft. A column is either `status: "forecast"` (P50/P80/P95 as ISO dates or `"beyond"`, `chanceOnTime`,
+every milestone with a chance or an `overdue` / `no-linked-tasks` state, and cost) or `status: "insufficient"` with
+the engine's reason, which the prompt tells the model to quote rather than estimate around.
+
+★★ COMMON RANDOM NUMBERS HOLD. The report computes nothing of its own: it reshapes `computeScenarioComparison` and runs
+the draft through `computeScenarioColumn`, so every column shares the comparison's streams, and a `whatIf` equal to a
+saved scenario reproduces that scenario's column exactly. Do not give the report a seed or run of its own. ★ The run is
+always the app DEFAULTS (`DEFAULT_HISTORY_WINDOW`, tasks), not the toolbar, so a figure the model quotes can differ
+from the one on screen.
+
+★ All three tools refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads: the forecast input getter in
+`use-chat-dispatcher-wiring.ts` returns null until `holidaysReady`, and `useForecastTools` turns that into the refusal. A
+run on an unsettled calendar would quote dates the loaded one moves. The exception is a rename-only update (no
+`changes`), which checks nothing against the forecast; see `ai-assistant.md`. They refuse with `FORECAST_OFF_MESSAGE`
+when the simulation is off; that text, like the prompt's off text, says the assistant cannot read the forecast and
+points the user to the Forecast view, which runs the simulation whatever the switch says. ★ `get_forecast`'s `whatIf`
+is held to the save path's rules: `checkToolRows` (the row half of `checkToolDraft`, `stored: []`) runs after the
+comparison and before the `whatIf` column, so a row a save would refuse is refused with a `whatIf ` prefix, and no
+`whatIf` column or report is built. ★ The system-prompt block is emitted only when the Forecast view is enabled; see
+`ai-assistant.md`.
+
+★ COST: which calls pay an As-is run. `get_forecast` pays exactly ONE: `getForecast` builds the comparison
+(`computeScenarioComparison`, As is plus every saved scenario) once, takes the `whatIf` check's context from it
+(`scenarioValidationContext(input, comparison.context)`) and passes it to `buildForecastReport`. A create, and an
+update that sends `changes`, pay one each, for the validation context (`scenarioValidationContext` without a
+context runs As is to learn the team membership). A rename-only update pays none.
+
+★★ ONE COMPARISON PER RENDER: in Scenarios mode `ForecastPanel` computes the scenario comparison once (a `useMemo`
+over the comparison's inputs; null outside Scenarios mode) and passes it to `ForecastScenariosView` as `comparison`;
+the Ask-Claude menu reads the worst milestone from it too, with no second run.
+
+Chips: `ForecastAskClaude` (`forecast-ask-claude.tsx`) is a menu of Ask-Claude prompts that send the user to the chat.
+The set depends on the mode: an explain prompt always; a milestone prompt naming the worst milestone of the run ON
+SCREEN (`worstMilestoneName`; As is in Scenarios mode; absent with no run or when no milestone carries a chance); and
+compare and suggest prompts in Scenarios mode. Enumerate them with `grep -n "forecastAsk.*Label" src/app/i18n.ts`.
+
+★★ A scenario may name a milestone or person created earlier in the same assistant turn, applied or staged: the
+tools read tasks, milestones and resources from the dispatcher's live refs, and a staged plan remaps and cascades
+the nested ids. See `ai-assistant.md` "Forecast tools".
 
 ## Mutation proof (slice 1)
 

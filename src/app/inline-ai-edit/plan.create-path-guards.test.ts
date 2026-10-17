@@ -337,7 +337,11 @@ describe("every pass-through create tool strips its entity's TOKEN_EXCLUDED fiel
    *  read as a guard while being unreachable. */
   it("probes every tokened entity that has a pass-through create, and every field it excludes", () => {
     const probed = CASES.map((c) => c.entity).sort();
-    const passThrough = (Object.keys(TOKEN_EXCLUDED) as TokenEntity[]).filter((k) => k !== "task").sort();
+    // ★ `task` and `forecastScenario` have token rows but NO pass-through create — see
+    //  `NOT_PASS_THROUGH_CREATES` below for each one's reason.
+    const passThrough = (Object.keys(TOKEN_EXCLUDED) as TokenEntity[])
+      .filter((k) => k !== "task" && k !== "forecastScenario")
+      .sort();
     expect(probed).toEqual(passThrough);
 
     const unprobed = EXCLUDED_CASES.filter((c) => !(c.field in EXCLUDED_PROBES)).map((c) => `${c.entity}.${c.field}`);
@@ -379,6 +383,9 @@ describe("every pass-through create tool strips its entity's TOKEN_EXCLUDED fiel
     // so there is no `input` object for a strip to act on. A document is also a
     // meta-blob with no CSV projection, hence no `TokenEntity` row to look up.
     "create_document",
+    // §502 — `parseToolChanges` rebuilds every row from named fields and the handler gets
+    // `d.createForecastScenario(name, changes)`: two explicit args, no `input` object to strip.
+    "create_forecast_scenario",
   ];
 
   it("names every create tool that exists, so a new one cannot slip past", () => {
@@ -463,9 +470,12 @@ describe("the update and create strip helpers agree on exactly one key set", () 
   /** ★★ The `it.each` above is driven off `Object.keys(TOKEN_EXCLUDED)`, so it
    *  cannot under-run — but it also cannot notice if that table were emptied.
    *  `0 mismatch` is worthless without `N match`. */
-  it("runs against every TokenEntity, and every one of them excludes something", () => {
+  it("runs against every TokenEntity, and every one but forecastScenario excludes something", () => {
     expect(KINDS.length).toBeGreaterThan(0);
-    expect(KINDS.filter((k) => TOKEN_EXCLUDED[k].length === 0)).toEqual([]);
+    // ★ `forecastScenario` is the one kind that legitimately excludes nothing (§502): its token hashes
+    //  `scenarioProjection`, and a saved scenario carries no bookkeeping field (`ai-entity-token.ts`).
+    //  EXACT, so a second empty row is still red.
+    expect(KINDS.filter((k) => TOKEN_EXCLUDED[k].length === 0)).toEqual(["forecastScenario"]);
   });
 });
 

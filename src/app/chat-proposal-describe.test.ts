@@ -546,6 +546,9 @@ describe("TOOL_ENTITY", () => {
       "create_document", "update_document", "delete_document",
       "delete_all_tasks", "send_inquiry", "set_task_dependencies",
       "escalate_raid_item",
+      // §502 — no descriptor, so no field diff; the card line itself carries the scenario name and the
+      // row count (`forecastScenarioRowTitle`, pinned in `use-forecast-tools.test.tsx`).
+      "create_forecast_scenario", "update_forecast_scenario",
     ];
     // ★★★ THE DIRECTION IS THE WHOLE POINT. Iterating that literal and asserting
     // each member is a write absent from TOOL_ENTITY checks the LITERAL against

@@ -18,8 +18,8 @@ import type { ScheduleContext } from "./forecast-added-people";
 import { changeDayWindow } from "./forecast-added-people";
 import { buildScenarioSchedule } from "./forecast-scenario-schedule";
 import {
-  MAX_SCENARIO_CHANGES, validateScenarioChange, validateScenarioDraft,
-  type ForecastScenario, type ScenarioChange, type ScenarioChangeError, type ScenarioError, type ValidationContext,
+  MAX_SCENARIO_CHANGES, REFERENCE_ERRORS, keepsStoredReference, validateScenarioChange, validateScenarioDraft,
+  type ForecastScenario, type ScenarioChange, type ScenarioError, type ValidationContext,
 } from "./forecast-scenarios";
 import type { ScenarioDraft } from "./use-forecast-scenarios";
 import {
@@ -42,24 +42,6 @@ export type ForecastScenarioEditorProps = {
 
 type Errors = { draft: ScenarioError | null; rows: ReadonlyMap<number, RowError> };
 const NO_ERRORS: Errors = { draft: null, rows: new Map() };
-
-/** Reference errors describe a row the engine still reads (as unattributed, inert, …): exactly what its status
- *  says. Any other error (an unfinished date or number) keeps the row out of the schedule. */
-const REFERENCE_ERRORS: ReadonlySet<ScenarioChangeError> = new Set([
-  "milestone-unknown", "milestone-finished", "resource-unknown", "resource-archived", "on-team",
-]);
-
-/** True when `c` keeps the milestone or directory person its stored row had. Such a reference may have gone
- *  stale since it was saved (achieved, deleted, archived, joined the team); spec §4.1/§4.1a keep an old scenario
- *  usable, so Save accepts it and the row stays marked. Only a newly chosen or changed reference is validated. */
-export function keepsStoredReference(stored: ScenarioChange | undefined, c: ScenarioChange): boolean {
-  if (stored === undefined) return false;
-  if (c.kind === "scope" && stored.kind === "scope") return c.milestoneId !== undefined && c.milestoneId === stored.milestoneId;
-  if (c.kind === "addPeople" && stored.kind === "addPeople") {
-    return "resourceId" in c.who && "resourceId" in stored.who && c.who.resourceId === stored.who.resourceId;
-  }
-  return false;
-}
 
 function isSchedulable(c: ScenarioChange, vctx: ValidationContext): boolean {
   // A row with no person picked yet is unfinished, not "person gone".

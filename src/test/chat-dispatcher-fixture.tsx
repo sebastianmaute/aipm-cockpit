@@ -12,6 +12,7 @@ import { type ReactNode } from "react";
 import { vi } from "vitest";
 import { type AllocationsSnapshot } from "../app/alloc-plan/alloc-plan";
 import { type DashboardModel } from "../app/dashboard";
+import { type ForecastReportInput } from "../app/forecast-ai-report";
 import { defaultSettings } from "../app/settings-types";
 import { TestProviders, type TestSeed } from "../app/test-providers";
 import { asTimeZoneForTests, createProjectClock } from "../app/timezone";
@@ -36,6 +37,12 @@ function stubGetAllocationsSnapshot(): AllocationsSnapshot {
   throw new Error("getAllocationsSnapshot not stubbed for this test");
 }
 
+/** Same convention. ★ Not `() => null`: null means "the holiday calendar is loading", and a test that
+ *  reached it unstubbed would read a plausible refusal instead of a missing stub. */
+export function stubGetForecastInput(): ForecastReportInput {
+  throw new Error("getForecastInput not stubbed for this test");
+}
+
 /** A minimal `ChatDispatcherArgs` for unit tests. Override only what the test
  *  asserts on; every other dependency is a no-op or a loudly-throwing stub so
  *  a test cannot accidentally depend on a field it did not set. */
@@ -57,6 +64,7 @@ export function makeDispatcherArgs(
     getDashboardModel: stubGetDashboardModel,
     getBudgetRollup: () => null,
     getAllocationsSnapshot: stubGetAllocationsSnapshot,
+    getForecastInput: stubGetForecastInput,
     logActivityAs: vi.fn(),
     /** ★★ REQUIRED on `ChatDispatcherArgs` (deliberately — see the field's own
      *  note there), so the default lives here rather than in every caller: a

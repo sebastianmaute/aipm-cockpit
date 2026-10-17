@@ -320,6 +320,18 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     isHistorySearchEnabled: vi.fn(() => true),
     // ★ Same default-enabled reasoning for search_chats.
     isChatSearchEnabled: vi.fn(() => true),
+    // Forecast members (§502): the gate reads off here, so no pre-existing test reaches them.
+    isForecastEnabled: vi.fn(() => false),
+    getForecast: vi.fn(() => {
+      throw new Error("getForecast not stubbed");
+    }),
+    getForecastScenarioRow: vi.fn(() => null),
+    createForecastScenario: vi.fn(() => {
+      throw new Error("createForecastScenario not stubbed");
+    }),
+    updateForecastScenario: vi.fn(() => {
+      throw new Error("updateForecastScenario not stubbed");
+    }),
     // Same "throw a named error" convention as listAllocations: no test using
     // this fixture drives search_chats by default, and a silent
     // `{available: false}` default would answer a forgotten override with

@@ -159,6 +159,30 @@ export function validateScenarioChange(c: ScenarioChange, ctx: ValidationContext
   return validateWho(c.who, ctx);
 }
 
+/** Reference errors describe a row the engine still reads (as unattributed, inert, …): exactly what its status
+ *  says. Any other error (an unfinished date or number) keeps the row out of the schedule. */
+export const REFERENCE_ERRORS: ReadonlySet<ScenarioChangeError> = new Set([
+  "milestone-unknown", "milestone-finished", "resource-unknown", "resource-archived", "on-team",
+]);
+
+/** True when `c` keeps the milestone or directory person its stored row had. Such a reference may have gone
+ *  stale since it was saved (achieved, deleted, archived, joined the team); spec §4.1/§4.1a keep an old scenario
+ *  usable, so Save accepts it and the row stays marked. Only a newly chosen or changed reference is validated. */
+export function keepsStoredReference(stored: ScenarioChange | undefined, c: ScenarioChange): boolean {
+  if (stored === undefined) return false;
+  if (c.kind === "scope" && stored.kind === "scope") return c.milestoneId !== undefined && c.milestoneId === stored.milestoneId;
+  if (c.kind === "addPeople" && stored.kind === "addPeople") {
+    return "resourceId" in c.who && "resourceId" in stored.who && c.who.resourceId === stored.who.resourceId;
+  }
+  return false;
+}
+
+/** True when some stored row keeps `c`'s reference. The AI sends whole lists, so a row is matched by its
+ *  reference, not by its index. */
+export function keepsAnyStoredReference(stored: readonly ScenarioChange[], c: ScenarioChange): boolean {
+  return stored.some((row) => keepsStoredReference(row, c));
+}
+
 export function isScenarioNameTaken(list: readonly ForecastScenario[], name: string, exceptId: number | null): boolean {
   const key = name.trim().toLowerCase();
   return list.some((s) => s.id !== exceptId && s.name.trim().toLowerCase() === key);
