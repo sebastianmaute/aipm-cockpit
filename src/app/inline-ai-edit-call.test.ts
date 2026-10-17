@@ -4,6 +4,7 @@ import * as chatApi from "./chat-api";
 import { callInlineEdit, type InlineEditArgs } from "./inline-ai-edit-call";
 import { PLANNABLE_TOOL_NAMES } from "./inline-ai-edit/plan";
 import { VIEW_AI_SCOPE } from "./view-ai-scope";
+import { buildViewScopeBlock } from "./view-ai-scope-block";
 import type { AppView } from "./nav-config";
 
 afterEach(() => vi.restoreAllMocks());
@@ -283,8 +284,10 @@ describe("the tools an inline edit's prompt names (§715 D1)", () => {
     const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
     const views = Object.keys(VIEW_AI_SCOPE) as AppView[];
-    // Precondition: views DO hint tools, so the loop below has lines to judge before the narrowing.
-    expect(views.filter((v) => (VIEW_AI_SCOPE[v].toolHints ?? []).length > 0).length).toBeGreaterThan(0);
+    // Positive control: the regex below matches the line the block emits when a hint DOES survive, so
+    // a reworded line fails here instead of passing the loop by absence (no plannable tool is hinted on
+    // any view today, so after the narrowing the loop alone never sees the line).
+    expect(/Relevant tools here: ([^\n]*)\./.exec(buildViewScopeBlock("milestones", chatApi.toolNamesFor({})))?.[1]).toContain("list_milestones");
     for (const currentView of views) {
       spy.mockClear();
       await callInlineEdit({ apiKey: "k", model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot: { ...snapshot, currentView }, guides: [], groundInGuides: false });
@@ -295,7 +298,7 @@ describe("the tools an inline edit's prompt names (§715 D1)", () => {
       const line = /Relevant tools here: ([^\n]*)\./.exec(text);
       const named = line ? line[1].split(", ") : [];
       expect(named.filter((n) => !carried.has(n)), currentView).toEqual([]);
-      // The line is there exactly when a hint survives — so a reworded line cannot pass by absence.
+      // The line names exactly the hints that survive the narrowing.
       const surviving = (VIEW_AI_SCOPE[currentView].toolHints ?? []).filter((h) => carried.has(h));
       expect(named, currentView).toEqual(surviving);
     }

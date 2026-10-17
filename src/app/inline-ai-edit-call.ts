@@ -113,9 +113,10 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   // ★★ VIEW SCOPE IS DELIBERATELY KEPT — this is a decision, not an oversight,
   // and the test's control assertion depends on it. It carries no entity ids,
   // and orienting the model on what the surface is makes its edit better. Its
-  // `toolHints` do name broad tools the scope block then forbids acting on
-  // beyond this item; that tension is accepted because the scope block is
-  // adjacent and explicit, where a list of real neighbouring ids is not.
+  // `toolHints` are filtered to the tools this request carries (below), and no
+  // view hints a plannable tool today, so none survive. ★ A view's `reading`
+  // is NOT filtered by tool name and some name read tools — none of the views
+  // with inline edit (raid, changes, milestones, stakeholders, open-points) do.
   // ★ Passing `buildSystemPrompt` the NAMES of the `tools` list below keeps that
   // block honest: it filters its hints against the tools this request carries,
   // so a read-tool hint (`list_milestones`, Activity's `search_history`)

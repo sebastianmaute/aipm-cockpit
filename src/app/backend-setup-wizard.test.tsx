@@ -268,6 +268,7 @@ describe("BackendSetupWizard — a portfolio switch picked on the storage step (
     expect(commitPortfolioModeSwitch).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByTestId("integrations-section")).toBeInTheDocument();
+    expect(nextBtn()).toHaveFocus(); // keyboard users are not dropped to <body> by the bounce
   });
 
   it("commits once when Finish is clicked again while the switch is under way", async () => {
