@@ -3,6 +3,7 @@
 // calculated pace figure (`paceVacHealth`) whatever the switch says.
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ComponentProps, ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
@@ -13,6 +14,7 @@ import type { BudgetBucket, Role, Task } from "./types";
 import { workingDaysBefore } from "./working-days";
 import { showForecastView } from "../test/forecast-view";
 import { useMeasuredHeights } from "./use-measured-heights";
+import * as budgetSimModule from "./budget-sim";
 import { budgetSimContentKey } from "./budget-sim";
 
 const seen = vi.hoisted(() => ({ bundles: [] as (ForecastBundle | null)[] }));
@@ -63,11 +65,11 @@ function wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-function renderDashboard(over: { tasks?: Task[]; plan?: typeof PLAN } = {}) {
+function renderDashboard(over: { tasks?: Task[]; plan?: typeof PLAN; projectId?: string } = {}) {
   render(
     <DashboardPanel
       lang={EN} tasks={over.tasks ?? TASKS} raid={[]} budgets={[BUCKET]} plan={over.plan ?? PLAN} roles={[ROLE]} resources={[]} absences={[]}
-      holidaySet={NONE} workdayHours={8} today={TODAY} projectId="p-budget-sim"
+      holidaySet={NONE} workdayHours={8} today={TODAY} projectId={over.projectId ?? "p-budget-sim"}
     />,
     { wrapper },
   );
@@ -121,16 +123,16 @@ describe("DashboardPanel budget simulation (§502 part 3)", () => {
   it("hands the measure hook the burn tile's simulation state in the content key", () => {
     const lastKey = () => vi.mocked(useMeasuredHeights).mock.calls.at(-1)?.[0].contentKey ?? "";
     renderDashboard();
-    expect(lastKey().endsWith(`|${budgetSimContentKey(undefined)}|cap:off`)).toBe(true);
+    expect(lastKey().endsWith(`|${budgetSimContentKey(undefined)}|wedge:off`)).toBe(true);
     turnOn();
     const sim = lastBundle()?.sim;
     expect(sim?.eur.kind).toBe("sim");
-    expect(lastKey().endsWith(`|${budgetSimContentKey(sim)}|cap:false:false`)).toBe(true);
+    expect(lastKey().endsWith(`|${budgetSimContentKey(sim)}|wedge:true:true`)).toBe(true);
     expect(budgetSimContentKey(sim)).not.toBe(budgetSimContentKey(undefined));
   });
 
   // The x-domain cap leaves the cost wedge, and its legend entry, out of the chart; the Dashboard builds no
-  // chart model, so the key carries the cap's own predicate (`simCapContentKey`).
+  // chart model, so the key carries the model's own wedge predicate (`simCostContentKey`).
   it("hands the measure hook whether the x-domain cap leaves out the burn chart's cost range", () => {
     const lastKey = () => vi.mocked(useMeasuredHeights).mock.calls.at(-1)?.[0].contentKey ?? "";
     // A long backlog puts P80 far out; a plan starting just before the booked hours makes the cap one short plan length.
@@ -143,6 +145,30 @@ describe("DashboardPanel budget simulation (§502 part 3)", () => {
     const sim = lastBundle()?.sim;
     // Positive control: a real cost range the cap leaves out, not a missing one.
     expect(sim?.eur.kind).toBe("sim");
-    expect(lastKey().endsWith(`|${budgetSimContentKey(sim)}|cap:true:true`)).toBe(true);
+    expect(lastKey().endsWith(`|${budgetSimContentKey(sim)}|wedge:false:false`)).toBe(true);
+  });
+
+  // §502 — the budget simulation feeds the burn tile alone, so with that tile hidden from the board it never
+  // runs, while the KPI strip's simulation (the same run) still does. (With the Budget module off the model
+  // has no bundle at all, so that case never reached `withBudgetSim` in the first place.)
+  it("does not run the budget simulation while the burn tile is hidden", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(budgetSimModule, "withBudgetSim");
+    renderDashboard({ projectId: "p-budget-sim-hidden" });
+    turnOn();
+    // Positive control: shown, the tile's bundle carries the simulation.
+    expect(spy).toHaveBeenCalled();
+    expect(lastBundle()?.sim?.eur.kind).toBe("sim");
+    spy.mockClear();
+    const kebab = `${t(EN, "actionMoreActions")} – ${t(EN, "dashboardBudgetBurn")}`;
+    await user.click(screen.getByRole("button", { name: kebab }));
+    await user.click(within(screen.getByRole("dialog", { name: kebab })).getByRole("button", { name: t(EN, "arrangementTileHide") }));
+    expect(screen.queryByTestId("tile-burn")).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+    // Positive control: the switch stayed on, so the KPI strip still shows simulated cells from the same run.
+    expect(document.querySelector("[data-sim]")).not.toBeNull();
+    // The burn tile's part of the measure key reads off: nothing was simulated for it.
+    const lastKey = vi.mocked(useMeasuredHeights).mock.calls.at(-1)?.[0].contentKey ?? "";
+    expect(lastKey.endsWith(`|${budgetSimContentKey(undefined)}|wedge:off`)).toBe(true);
   });
 });

@@ -9,6 +9,13 @@ describe("SimValue", () => {
     expect(screen.getByRole("group", { name: "Chance on time, simulated" })).toBeInTheDocument();
   });
 
+  // §502 M5 — a label that already says sim is the whole name: no "…(sim, …), simulated".
+  it("uses a label that already says sim as the whole name, with no second 'simulated'", () => {
+    render(<SimValue lang="en-US" label="Cost at finish (sim, P50–P95)" value="€1 – €2" labelSaysSim />);
+    expect(screen.getByRole("group", { name: "Cost at finish (sim, P50–P95)" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /simulated/ })).toBeNull();
+  });
+
   it("renders the sim badge as aria-hidden text", () => {
     render(<SimValue lang="en-US" label="Chance on time" value="72 %" />);
     expect(screen.getByText("sim")).toHaveAttribute("aria-hidden", "true");

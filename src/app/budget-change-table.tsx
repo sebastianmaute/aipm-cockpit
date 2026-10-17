@@ -151,7 +151,7 @@ export function BudgetChangeTable({
                   {simTerm}
                 </th>
                 <td headers={simTermId} className={TD_NUM_CLASS}>
-                  <SimValue lang={lang} label={simTerm} value={simRange} />
+                  <SimValue lang={lang} label={simTerm} value={simRange} labelSaysSim />
                 </td>
               </tr>
             )}

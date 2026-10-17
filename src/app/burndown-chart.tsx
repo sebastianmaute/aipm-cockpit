@@ -139,8 +139,9 @@ function BurndownChartBody({
     // The band edge sits on P80 when P95 is past the horizon, so say so rather than let it read as P95 = P80.
     if (sf.p95Beyond && !sf.p80Beyond) aria.push(t(lang, "burndownAriaSimP95Beyond"));
     // A finish past the chart's end is drawn at the end: say so, with the real P95 date, so the capped
-    // edge is not read as a date.
-    if (sf.p80PastChart) aria.push(t(lang, "burndownAriaSimP80PastChart"));
+    // edge is not read as a date. A beyond-horizon finish is past the edge too, but already reads
+    // "beyond the horizon" above, so it adds no "beyond the chart".
+    if (sf.p80PastChart && sf.p80Date !== null) aria.push(t(lang, "burndownAriaSimP80PastChart"));
     if (sf.p95PastChart && sf.p95Date !== null) aria.push(t(lang, "burndownAriaSimP95PastChart", formatDayMonthYear(sf.p95Date, locale)));
   }
   // A marker reads "+€3,000 Vendor", or "−€800 Ops removed" when every entry
@@ -237,7 +238,7 @@ function BurndownChartBody({
     ...(x(model.planEnd) < X1 - 0.5 ? [upright(model.planEnd)] : []),
     ...(belowZero ? [across(0)] : []),
   ];
-  // §502 — a finish the cap clamped is drawn at the plot's right edge, which a sighted reader would take for
+  // §502 — a finish the cap clamped, or one beyond the horizon, is drawn at the plot's right edge, which a sighted reader would take for
   // its date. This cue at that edge says the range runs on past it, in words, not by colour; the text
   // alternative already says so, so the cue is hidden from it.
   const pastChartCue = model.simFinish && (model.simFinish.p80PastChart || model.simFinish.p95PastChart)
