@@ -60,6 +60,7 @@ export function useTasksInlineAiEdit(deps: TasksInlineAiEditDeps): TasksInlineAi
   const popover = inlineEdit.activeTask ? (
     <InlineAiEditPopover
       lang={deps.lang}
+      title={t(deps.lang, "inlineAiEditTitle")}
       itemTitle={inlineEdit.activeTask.taskName}
       entityLabel={t(deps.lang, "inlineAiEditEntityTask")}
       phase={inlineEdit.phase}
