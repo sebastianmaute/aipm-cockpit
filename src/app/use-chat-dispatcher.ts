@@ -982,6 +982,21 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       isHistorySearchEnabled: () => historySearchEnabled(settingsRef.current.ai.historySearch),
       ...chatBindings.tools,
 
+      // TEMPORARY (Task 3 of the forecast AI tool): the gate reads false, and Task 4 replaces these four.
+      isForecastEnabled: () => false,
+      getForecast: () => {
+        throw new Error("not implemented");
+      },
+      getForecastScenarioRow: () => {
+        throw new Error("not implemented");
+      },
+      createForecastScenario: () => {
+        throw new Error("not implemented");
+      },
+      updateForecastScenario: () => {
+        throw new Error("not implemented");
+      },
+
       getTimezone: () => clockRef.current.tz,
 
       getDashboardSnapshot: () =>

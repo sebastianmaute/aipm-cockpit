@@ -57,6 +57,7 @@ import {
   type ApiMessage,
   type DisplayItem,
   toolNamesFor,
+  type ToolFlags,
 } from "./chat-api";
 import { buildWireMessages } from "./chat-cache-layout";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -720,8 +721,13 @@ function ChatPanelInner({
     // and keeps the dispatcher as it is.
     const toolDispatcher: ToolDispatcher =
       originView === undefined ? dispatcher : { ...dispatcher, getSnapshot: () => dispatcher.getSnapshot({ originView }) };
-    const system = buildStableSystemBlocks(lang, snapshot, guides, ai.groundInGuides, ai);
-    const turnContext = buildTurnContext(lang, snapshot, guides, ai.groundInGuides, ai);
+    const toolFlags: ToolFlags = {
+      historySearch: ai.historySearch,
+      chatSearch: ai.chatSearch,
+      forecast: snapshot.forecastSimulation === true,
+    };
+    const system = buildStableSystemBlocks(lang, snapshot, guides, ai.groundInGuides, toolFlags);
+    const turnContext = buildTurnContext(lang, snapshot, guides, ai.groundInGuides, toolFlags);
     // ★★★ WIRE-ONLY. `messages` stays the PERSISTED history; the turn context is
     //     injected into the outgoing copy alone. Persisting it would leave stale
     //     "Today is ..." down the transcript AND rewrite history's tail on every
@@ -744,7 +750,7 @@ function ChatPanelInner({
     const sendFingerprint = (): SendFingerprint => ({
       threadKey: `${sendProjectId ?? ""}|${sendThreadId ?? ""}`,
       model: ai.model,
-      toolNames: [...toolNamesFor(ai)].join(","),
+      toolNames: [...toolNamesFor(toolFlags)].join(","),
       stableText: system[0]?.text ?? "",
       viewText: system.slice(1).map((b) => b.text).join("\n\n"),
       startedAt: firstRequestAt ?? lastRequestAt,
@@ -780,7 +786,7 @@ function ChatPanelInner({
           ai.model,
           system,
           buildWireMessages(messages, turnContext).messages,
-          ai, controller.signal,
+          toolFlags, controller.signal,
         );
         // §702: the counter takes the request and its cache write together,
         // BEFORE the stale check — a request counted without its write would

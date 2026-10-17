@@ -1,0 +1,148 @@
+import { describe, it, expect, vi } from "vitest";
+import { entityToken } from "./ai-entity-token";
+import { toolNamesFor, toolsFor } from "./chat-api";
+import { TOKEN_REQUIRED_TOOLS } from "./chat-proposal-apply";
+import { runTool } from "./chat-tools";
+import { ConcurrencyTokenError } from "./chat-tools-updates";
+import { FORECAST_OFF_MESSAGE, NOT_FORECAST_TOOL, runForecastTool, type ForecastToolDispatcher } from "./chat-tools-forecast";
+import type { ForecastScenario } from "./forecast-scenarios";
+
+const FORECAST_NAMES = ["get_forecast", "create_forecast_scenario", "update_forecast_scenario"];
+
+const row: ForecastScenario = {
+  id: 3,
+  name: "Hire two",
+  changes: [{ kind: "scope", tasks: 5, on: "2026-11-02" }],
+};
+
+const result = { id: 3, name: "Hire two", expectedToken: "t", changes: row.changes };
+
+function makeDispatcher(over: Partial<ForecastToolDispatcher> = {}): ForecastToolDispatcher {
+  return {
+    isForecastEnabled: vi.fn(() => true),
+    getForecast: vi.fn(() => ({}) as ReturnType<ForecastToolDispatcher["getForecast"]>),
+    getForecastScenarioRow: vi.fn((id: number) => (id === 3 ? row : null)),
+    createForecastScenario: vi.fn(() => result),
+    updateForecastScenario: vi.fn(() => result),
+    ...over,
+  };
+}
+
+describe("the forecast tool variant bit", () => {
+  it("offers none of the three unless forecast is true", () => {
+    for (const flags of [{}, { historySearch: true, chatSearch: true }, { forecast: false }]) {
+      const names = toolNamesFor(flags);
+      for (const n of FORECAST_NAMES) expect(names.has(n)).toBe(false);
+    }
+  });
+
+  it("offers all three when forecast is true", () => {
+    const names = toolNamesFor({ forecast: true });
+    for (const n of FORECAST_NAMES) expect(names.has(n)).toBe(true);
+  });
+
+  it("keeps one array identity per combination", () => {
+    expect(toolsFor({ forecast: true })).toBe(toolsFor({ forecast: true }));
+    expect(toolsFor({ forecast: true })).not.toBe(toolsFor({}));
+  });
+
+  it("declares the update token as required", () => {
+    expect(TOKEN_REQUIRED_TOOLS.has("update_forecast_scenario")).toBe(true);
+  });
+});
+
+describe("runForecastTool", () => {
+  it("returns the sentinel for a name that is not a forecast tool", () => {
+    expect(runForecastTool("list_tasks", {}, makeDispatcher())).toBe(NOT_FORECAST_TOOL);
+  });
+
+  it("refuses every forecast tool while the simulation is off, touching nothing", () => {
+    for (const name of FORECAST_NAMES) {
+      const d = makeDispatcher({ isForecastEnabled: () => false });
+      expect(() => runForecastTool(name, { id: 3, expectedToken: "x" }, d)).toThrow(FORECAST_OFF_MESSAGE);
+      expect(d.getForecast).not.toHaveBeenCalled();
+      expect(d.getForecastScenarioRow).not.toHaveBeenCalled();
+      expect(d.createForecastScenario).not.toHaveBeenCalled();
+      expect(d.updateForecastScenario).not.toHaveBeenCalled();
+    }
+  });
+
+  it("reads with no whatIf as null", () => {
+    const d = makeDispatcher();
+    runForecastTool("get_forecast", {}, d);
+    expect(d.getForecast).toHaveBeenCalledWith(null);
+  });
+
+  it("prefixes a bad whatIf row's error", () => {
+    const d = makeDispatcher();
+    expect(() =>
+      runForecastTool("get_forecast", { whatIf: [{ kind: "scope", tasks: "3", on: "2026-11-02" }] }, d),
+    ).toThrow("whatIf changes[0]: tasks must be a number");
+    expect(d.getForecast).not.toHaveBeenCalled();
+  });
+
+  it("creates through the dispatcher with parsed changes", () => {
+    const d = makeDispatcher();
+    runForecastTool("create_forecast_scenario", { name: "A", changes: row.changes }, d);
+    expect(d.createForecastScenario).toHaveBeenCalledWith("A", row.changes);
+  });
+
+  it("refuses a create without a string name", () => {
+    expect(() => runForecastTool("create_forecast_scenario", { name: 4, changes: [] }, makeDispatcher())).toThrow(
+      "name must be a string",
+    );
+  });
+
+  describe("update_forecast_scenario", () => {
+    it("reports an unknown id as not found before any token check", () => {
+      expect(() => runForecastTool("update_forecast_scenario", { id: 9 }, makeDispatcher())).toThrow(
+        "forecast scenario 9 not found",
+      );
+    });
+
+    it("refuses a missing token", () => {
+      const d = makeDispatcher();
+      expect(() => runForecastTool("update_forecast_scenario", { id: 3, name: "x" }, d)).toThrow(
+        ConcurrencyTokenError,
+      );
+      expect(d.updateForecastScenario).not.toHaveBeenCalled();
+    });
+
+    it("refuses a wrong token", () => {
+      const d = makeDispatcher();
+      expect(() =>
+        runForecastTool("update_forecast_scenario", { id: 3, expectedToken: "nope", name: "x" }, d),
+      ).toThrow(ConcurrencyTokenError);
+      expect(d.updateForecastScenario).not.toHaveBeenCalled();
+    });
+
+    it("needs name or changes once the token holds", () => {
+      const d = makeDispatcher();
+      const expectedToken = entityToken("forecastScenario", row);
+      expect(() => runForecastTool("update_forecast_scenario", { id: 3, expectedToken }, d)).toThrow(
+        "send name, changes, or both",
+      );
+    });
+
+    it("renames with a valid token and passes only the fields sent", () => {
+      const d = makeDispatcher();
+      const expectedToken = entityToken("forecastScenario", row);
+      runForecastTool("update_forecast_scenario", { id: 3, expectedToken, name: "B" }, d);
+      expect(d.updateForecastScenario).toHaveBeenCalledWith(3, { name: "B" });
+    });
+
+    it("replaces changes with a valid token", () => {
+      const d = makeDispatcher();
+      const expectedToken = entityToken("forecastScenario", row);
+      runForecastTool("update_forecast_scenario", { id: 3, expectedToken, changes: [] }, d);
+      expect(d.updateForecastScenario).toHaveBeenCalledWith(3, { changes: [] });
+    });
+  });
+});
+
+describe("runTool routing", () => {
+  it("routes a forecast name to the gate before the unknown-tool throw", async () => {
+    const d = makeDispatcher({ isForecastEnabled: () => false });
+    await expect(runTool(d as never, "get_forecast", {})).rejects.toThrow(FORECAST_OFF_MESSAGE);
+  });
+});

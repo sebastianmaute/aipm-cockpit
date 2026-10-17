@@ -540,12 +540,17 @@ export const CACHED_TOOLS = withCacheBreakpoint(TOOL_DEFS);
  *  the §159 shape, where two adjacent same-typed arguments silently swapped
  *  and passed 337 tests plus tsc. Reading them by NAME off the config removes
  *  the hazard rather than guarding it. */
-export type ToolFlags = Pick<AiConfig, "historySearch" | "chatSearch">;
+/** ★ `forecast` has the INVERSE default of the other two: the forecast tools are offered only on an
+ *  explicit `true`, so a caller that says nothing (inline edit, tests) gets none. */
+export type ToolFlags = Pick<AiConfig, "historySearch" | "chatSearch"> & { forecast?: boolean };
 
 /** Tool names removed by each bit of the variant key. */
 const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
   [1, "search_history"],
   [2, "search_chats"],
+  [4, "get_forecast"],
+  [4, "create_forecast_scenario"],
+  [4, "update_forecast_scenario"],
 ];
 
 /** ★★ ADVERTISEMENT AND ENFORCEMENT READ THE SAME PREDICATE. Never spell an
@@ -559,7 +564,8 @@ const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
 function variantKey(flags: ToolFlags): number {
   return (
     (historySearchEnabled(flags.historySearch) ? 0 : 1) |
-    (chatSearchEnabled(flags.chatSearch) ? 0 : 2)
+    (chatSearchEnabled(flags.chatSearch) ? 0 : 2) |
+    (flags.forecast === true ? 0 : 4)
   );
 }
 

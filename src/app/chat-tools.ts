@@ -47,6 +47,11 @@ import {
   runDocumentTool,
   type DocumentToolDispatcher,
 } from "./chat-tools-documents";
+import {
+  NOT_FORECAST_TOOL,
+  runForecastTool,
+  type ForecastToolDispatcher,
+} from "./chat-tools-forecast";
 import { runChatSearch } from "./chat-search-tool";
 import type { ChatPointer } from "./chat-search";
 import type { PublishedThreads } from "./chat-threads-registry";
@@ -492,6 +497,9 @@ export type ToolDispatcher = {
      *  "completing the thread" by widening it back to `string` would be a
      *  regression rather than the tidy-up it looks like. */
     timezone: TimeZone;
+    /** Is Monte Carlo forecasting live (Forecast view shown and the project switch on)? Only an explicit
+     *  true offers the forecast tools; see `ToolFlags.forecast`. */
+    forecastSimulation?: boolean;
     /** Bounded counts for the ambient recap: five numbers, a window and one
      *  timestamp — `total` plus the four `byActor` buckets (`user`, `ai`,
      *  `integration`, `unknown`), then `days` and `latestAt`.
@@ -559,7 +567,8 @@ export type ToolDispatcher = {
   // guards in front of them) cannot drift from this type. Their routing lives
   // in chat-tools-documents.ts because this file sits close to the 800-line
   // ratchet.
-} & DocumentToolDispatcher;
+} & DocumentToolDispatcher &
+  ForecastToolDispatcher;
 
 /** Parse the numeric `id` field, throwing if absent/non-numeric. */
 function requireId(input: Record<string, unknown>): number {
@@ -606,6 +615,9 @@ export async function runTool(
     string,
     unknown
   >;
+
+  const forecast = runForecastTool(name, input, d);
+  if (forecast !== NOT_FORECAST_TOOL) return forecast;
 
   switch (name) {
     case "list_tasks":
