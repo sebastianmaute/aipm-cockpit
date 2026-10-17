@@ -60,6 +60,22 @@ export interface TursoProjectOpsDeps {
   reportProjectError: (err: unknown) => void;
 }
 
+// §715 — ONE MOVE AT A TIME. The move awaits a seal, the probe and the flush before `portfolioCreate`,
+// and the Projects-panel button has no busy state, so a second click in that window would create a
+// second portfolio row. It is dropped; the first move carries on. Module scope: one move per page.
+let moveToTursoRunning = false;
+
+/** Claims the move; false when one is already running. */
+function beginMoveToTurso(): boolean {
+  if (moveToTursoRunning) return false;
+  moveToTursoRunning = true;
+  return true;
+}
+
+function endMoveToTurso(): void {
+  moveToTursoRunning = false;
+}
+
 export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
   // Flush the outgoing project before switching/creating/migrating away. A
   // failed flush (network blip, auth expiry, lock timeout) was previously
@@ -178,6 +194,15 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
   // the migrated project is the active one. Unlike createTursoProject (which
   // builds a fresh workspace), this copies the live workspace verbatim.
   async function migrateCurrentProjectToTurso(): Promise<void> {
+    if (!beginMoveToTurso()) return;
+    try {
+      await migrateOnce();
+    } finally {
+      endMoveToTurso();
+    }
+  }
+
+  async function migrateOnce(): Promise<void> {
     const cfg = guardTurso();
     if (!cfg) return;
     const ws = deps.currentWorkspace();

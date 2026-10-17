@@ -5,16 +5,21 @@
 // in `turso-token-marker.ts`; `useHasUnsealedPassphraseToken` below is its render-time reader.
 import { useSyncExternalStore } from "react";
 import { logDiag } from "./diagnostics";
-import { subscribeUnsealedPassphraseToken, unsealedPassphraseTokenSnapshot } from "./turso-token-marker";
+import {
+  registerTokenSeal,
+  subscribeUnsealedPassphraseToken,
+  tokenSealsInFlight,
+  unsealedPassphraseTokenSnapshot,
+} from "./turso-token-marker";
 import { SECRET_MERGE_TIMEOUT_MS } from "./use-settings";
 
 // ★★ §548 — IN-FLIGHT TURSO TOKEN SEALS. Apply on Turso storage rebuilds the backend and the load
 // hold remounts the section, so a per-instance ref would forget a seal started by the instance that
 // just went away. A reload before the seal settles loses the token (`writeSettings` blanks it), so
 // each reload path waits on `awaitTokenSeals` first — BOUNDED, so a seal that never settles cannot
-// hang it. A failed seal is logged, never rethrown: the reload must still happen, exactly as it did
-// before this wait existed.
-const inFlightTokenSeals = new Set<Promise<void>>();
+// hang it. A failed seal is logged, never rethrown, so the wait itself never throws; what follows
+// is the caller's choice ("Save & switch" still reloads; "Move to Turso" refuses while the
+// token stays unsealed). The registry lives in `turso-token-marker.ts`, so the test reset reaches it.
 
 export function trackTokenSeal(seal: Promise<unknown>): void {
   const settled = seal.then(
@@ -25,8 +30,7 @@ export function trackTokenSeal(seal: Promise<unknown>): void {
       });
     },
   );
-  inFlightTokenSeals.add(settled);
-  void settled.then(() => inFlightTokenSeals.delete(settled));
+  registerTokenSeal(settled);
 }
 
 /** Resolves once every seal in flight settles, or after `SECRET_MERGE_TIMEOUT_MS`, whichever comes
@@ -36,8 +40,9 @@ export function trackTokenSeal(seal: Promise<unknown>): void {
  *  timeout the caller proceeds and a diagnostic is logged — the token may then be lost to the
  *  reload, which beats a button that never finishes. Resolves at once when nothing is in flight. */
 export async function awaitTokenSeals(): Promise<void> {
-  if (inFlightTokenSeals.size === 0) return;
-  const seals = Promise.all([...inFlightTokenSeals]);
+  const inFlight = tokenSealsInFlight();
+  if (inFlight.length === 0) return;
+  const seals = Promise.all(inFlight);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<"timeout">((resolve) => {
     timer = setTimeout(() => resolve("timeout"), SECRET_MERGE_TIMEOUT_MS);

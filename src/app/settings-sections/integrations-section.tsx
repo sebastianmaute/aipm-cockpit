@@ -500,7 +500,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // ★ Apply and "Save & switch" exclude each other while either is busy (the switch's verify runs
   //   under `switchBusy`), so the two can never verify and seal side by side.
   // §715 — `tokenUnsealed` enables it with no dirty draft: a token carried over from off Turso storage
-  //   still needs its seal, and Apply is what seals it (`applyTursoDrafts`).
+  //   still needs its seal, and Apply seals it (`applyTursoDrafts`), as "Save passphrase" does.
   const canApplyTurso = (tursoDraftsDirty || tokenUnsealed) && !tokenSealBlocked && !passphraseVerifying && !switchBusy;
   // ★ A blocked Apply / "Save & switch" states WHY, visibly and as each button's description
   //   (one key, two ids: the switch sits far below in the portfolio block).
@@ -745,8 +745,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const canMoveToTurso = !!onMigrateToTurso && !onTurso && tursoConfigured;
   // §715 — the move reloads, which would bring back the old record over a passphrase-mode token no
   // seal covers yet; `migrateCurrentProjectToTurso` refuses it, and this says so before the click.
+  // ★ The marker ALONE, as that refusal reads it (off Turso `tokenUnsealed` is the marker): a token
+  //   typed while an untick's device re-seal is in flight stays marked with the lock unticked.
   const moveBlockedHint =
-    tokenWrap === "passphrase" && tokenUnsealed
+    tokenUnsealed
       ? t(lang, "projectMigrateTokenNeedsPassphrase", t(lang, "secretPassphraseSave"))
       : !tursoTestConfirmed
         ? t(lang, "integrationsTursoMoveNeedsTest")

@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, render, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IntegrationsSection } from "./integrations-section";
 import { ConfirmProvider } from "../confirm-dialog";
@@ -923,6 +923,18 @@ describe("§408 — Move to Turso is gated on a confirmed connection", () => {
     expect(moveButton()).toHaveAccessibleDescription(
       t("en-US", "projectMigrateTokenNeedsPassphrase", t("en-US", "secretPassphraseSave")),
     );
+  });
+
+  // The gate follows the marker alone, as `migrateCurrentProjectToTurso` does: a token can be marked
+  // while the lock reads unticked (typed during the untick's device re-seal), and an enabled button
+  // whose move then refuses would be a dead end.
+  // MU13 — gate on `tokenWrap === "passphrase" && tokenUnsealed` again → goes red (stays enabled).
+  it("disables once the token is marked unsealed, even with the lock unticked", async () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    await passingProbe();
+    expect(moveButton()).toBeEnabled(); // control: the lock is unticked and nothing is marked
+    act(() => { markUnsealedPassphraseToken("fake"); });
+    expect(moveButton()).toBeDisabled();
   });
 
   it("stays disabled when the probe fails", async () => {

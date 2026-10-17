@@ -4,9 +4,12 @@
 // "Save & switch", the setup wizard's Finish, "Move to Turso") can refuse or seal first. MODULE scope:
 // the section that sets it unmounts on a load hold or a wizard step. Keyed by VALUE: it applies only
 // while the settings still hold that very token.
-// ★ A LEAF on purpose — no imports — so `vitest.setup.ts` can reset it without loading app modules
-//   that test files mock (the in-flight seals and the React hook live in `turso-token-seals.ts`).
+// It also holds the REGISTRY of token seals in flight (`trackTokenSeal` and `awaitTokenSeals` in
+// `turso-token-seals.ts` are its only writer and reader).
+// ★ A LEAF on purpose — no imports — so `vitest.setup.ts` can reset both without loading app modules
+//   that test files mock (`turso-token-seals.ts` imports `use-settings` and `diagnostics`).
 let unsealedPassphraseToken: string | null = null;
+const inFlightTokenSeals = new Set<Promise<void>>();
 const listeners = new Set<() => void>();
 
 function setUnsealedPassphraseToken(token: string | null): void {
@@ -42,8 +45,21 @@ export function unsealedPassphraseTokenSnapshot(): string | null {
   return unsealedPassphraseToken;
 }
 
-/** Forgets any held token. Test-only (reset in `vitest.setup.ts`): the marker is module state, so
- *  it outlives a render. */
-export function __forgetUnsealedPassphraseToken(): void {
+/** Adds a seal to the in-flight registry until it settles. `seal` must never reject. */
+export function registerTokenSeal(seal: Promise<void>): void {
+  inFlightTokenSeals.add(seal);
+  void seal.then(() => inFlightTokenSeals.delete(seal));
+}
+
+/** Every seal still in flight. */
+export function tokenSealsInFlight(): Promise<void>[] {
+  return [...inFlightTokenSeals];
+}
+
+/** Forgets any held token and every seal in flight. Test-only (`vitest.setup.ts`, before every
+ *  test): both are module state, so they outlive a render, and a seal left in flight would make
+ *  every later reload path in the file wait out its bound. */
+export function __resetTursoTokenState(): void {
   setUnsealedPassphraseToken(null);
+  inFlightTokenSeals.clear();
 }

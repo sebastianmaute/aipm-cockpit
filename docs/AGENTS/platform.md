@@ -206,8 +206,8 @@
   `migrateCurrentProjectToTurso` waits for in-flight seals (`awaitTokenSeals`) and then refuses, for
   both buttons bound to it, while the marker still holds the settings token. The marker outlives
   the section, so it also keeps a remounted section in passphrase mode (`tokenWrap`), and it still counts once the kind moves to Turso in
-  the same page, where the token is no draft: there the unsealed token alone enables Apply
-  (`canApplyTurso`), and Apply with the passphrase seals it.
+  the same page, where the token is no draft: there the unsealed token enables Apply without a dirty
+  draft (`canApplyTurso`; the passphrase must still be typed), and Apply seals it under it.
   "Test connection" probes the drafts without committing.
   (`integrations-section.backend-hold.test.tsx` pins both models against the real hook.)
   ★★ The blur-commit design this replaced — commit when focus left the credentials group — lost a

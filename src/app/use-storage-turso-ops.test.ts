@@ -511,6 +511,8 @@ describe("a flush whose edits could not be kept stops the op (§4)", () => {
 // the refusal here, before `portfolioCreate` for the §103 reason above.
 //   MU11 — drop the marker check → (a) goes red (a portfolio row is created).
 //   MU12 — drop the wait for in-flight seals → (c) goes red (refused while the seal is landing).
+//   MU14 — move the marker check below the connection probe → (a) goes red (the probe ran).
+//   MU15 — drop the one-move-at-a-time guard → (d) goes red (two portfolio rows).
 describe("useTursoProjectOps — §715 Move to Turso keeps a passphrase-mode token", () => {
   const settingsWithToken = (authToken: string) =>
     ({ current: { integrations: { turso: { databaseUrl: "https://db.example", authToken } } } }) as never;
@@ -523,6 +525,7 @@ describe("useTursoProjectOps — §715 Move to Turso keeps a passphrase-mode tok
     await act(async () => { await result.current.ops.migrateCurrentProjectToTurso(); });
     expect(portfolioCreate).not.toHaveBeenCalled();
     expect(writeSettings).not.toHaveBeenCalled();
+    expect(testTursoConnection).not.toHaveBeenCalled(); // refused before the probe
     expect(result.current.showToast).toHaveBeenCalledWith(
       "error",
       t("en-US", "projectMigrateTokenNeedsPassphrase", t("en-US", "secretPassphraseSave")),
@@ -551,6 +554,23 @@ describe("useTursoProjectOps — §715 Move to Turso keeps a passphrase-mode tok
     expect(done).toBe(false); // still waiting on the seal
     expect(portfolioCreate).not.toHaveBeenCalled();
     await act(async () => { land(); await migrating; });
+    expect(portfolioCreate).toHaveBeenCalledTimes(1);
+  });
+
+  // A second click while the first move waits (on a seal, the probe or the flush) would create a
+  // second portfolio row; the Projects-panel button has no busy state, so the handler refuses it.
+  it("(d) a second move while the first is still running creates no second portfolio row", async () => {
+    let land: () => void = () => {};
+    trackTokenSeal(new Promise<void>((resolve) => { land = resolve; }));
+    const { result } = renderWithRealGuard(async () => {}, { currentWorkspace: wsWithProject });
+    vi.mocked(portfolioCreate).mockClear();
+    let first: Promise<void> = Promise.resolve();
+    let second: Promise<void> = Promise.resolve();
+    act(() => {
+      first = result.current.ops.migrateCurrentProjectToTurso();
+      second = result.current.ops.migrateCurrentProjectToTurso();
+    });
+    await act(async () => { land(); await Promise.all([first, second]); });
     expect(portfolioCreate).toHaveBeenCalledTimes(1);
   });
 });
