@@ -33,6 +33,7 @@ import { AiSection } from "./settings-sections/ai-section";
 import { JiraSettingsSection } from "./jira-settings";
 import { type Settings } from "./settings-types";
 import { Button } from "./button";
+import { Banner } from "./banner";
 import { WizardStepIndicator } from "./wizard-step-indicator";
 import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 
@@ -243,7 +244,13 @@ export function BackendSetupWizard({
           )}
 
           {currentStep.key === "review" && (
-            <ReviewStep lang={lang} settings={settings} />
+            <>
+              <ReviewStep lang={lang} settings={settings} />
+              {/* The storage step's own reload note unmounted with it; Finish is what reloads now. */}
+              {pendingPortfolioMode !== loadPortfolioMode() && (
+                <Banner severity="warn" className="mt-3">{t(lang, "portfolioModeSwitchNote")}</Banner>
+              )}
+            </>
           )}
         </div>
 

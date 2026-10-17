@@ -259,6 +259,21 @@ describe("BackendSetupWizard — a portfolio switch picked on the storage step (
     expect(onClose).not.toHaveBeenCalled(); // the switch reloads the app
   });
 
+  // The storage step's "this reloads the app" note unmounts with the step, so the review step says it
+  // again before Finish reloads.
+  it("warns on the review step that Finish reloads onto the picked portfolio", () => {
+    setup({ settings: tursoReady });
+    fireEvent.click(screen.getByRole("button", { name: "pick turso" }));
+    toReview();
+    expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "portfolioModeSwitchNote"));
+  });
+
+  it("shows no reload warning when no switch is pending", () => {
+    setup({ settings: tursoReady });
+    toReview();
+    expect(screen.queryByText(t("en-US", "portfolioModeSwitchNote"))).toBeNull();
+  });
+
   // The section's own button refuses a Turso switch without a working config; Finish must not be the
   // way around that guard into a dead portfolio. It goes back to the storage step instead.
   it("refuses a Turso switch without a Turso config, returning to the storage step", async () => {
