@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ConfirmBridge, ConfirmProvider, useConfirm, type ConfirmFn } from "./confirm-dialog";
+import { ConfirmProvider, useConfirm, type ConfirmFn } from "./confirm-dialog";
 import { buttonClassFor } from "../test/button-variant";
 
 // Synchronous rAF shim so the Modal focus-management effect runs immediately.
@@ -171,12 +171,12 @@ describe("ConfirmProvider / useConfirm", () => {
   });
 });
 
-describe("ConfirmBridge (§715 D5)", () => {
-  // Code ABOVE the provider (task-manager's hooks) cannot call useConfirm: the bridge, rendered inside,
-  // hands it the provider's confirm through a ref.
+describe("ConfirmProvider bridgeRef (§715 D5)", () => {
+  // Code ABOVE the provider (task-manager's hooks) cannot call useConfirm: the provider fills a ref
+  // it is given instead.
   test("hands the provider's dialog to a ref outside it", async () => {
     const ref: { current: ConfirmFn } = { current: async () => false };
-    render(<ConfirmProvider lang="en-US"><ConfirmBridge confirmRef={ref} /></ConfirmProvider>);
+    render(<ConfirmProvider lang="en-US" bridgeRef={ref}><span /></ConfirmProvider>);
     let answer: Promise<boolean> = Promise.resolve(false);
     act(() => { answer = ref.current({ message: "Delete task #7?" }); });
     expect(await screen.findByText("Delete task #7?")).toBeInTheDocument();

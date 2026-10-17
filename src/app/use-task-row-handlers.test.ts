@@ -11,6 +11,14 @@ import { useUndoStack } from "./undo/use-undo-stack";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import type { Task, Resource } from "./types";
 
+/** Deletes task `id`, answering the app's confirm dialog (the hook's confirmRef) with `answer`. */
+async function deleteAnswering(h: { onDelete: (id: number) => Promise<void>; confirmRef: { current: ConfirmFn } }, id: number, answer = true) {
+  const confirm = vi.fn(async () => answer);
+  h.confirmRef.current = confirm;
+  await act(async () => { await h.onDelete(id); });
+  return confirm;
+}
+
 vi.mock("./workspace-tab-context", () => ({
   useWorkspaceTab: vi.fn(() => ({
     activeTab: "chat" as const,
@@ -59,7 +67,6 @@ function makeArgs(
   const tasksRef = { current: [makeTask()] };
   return {
     tasksRef,
-    confirm: vi.fn(async () => true) as ConfirmFn,
     settings: {
       jira: {
         enabled: false,
@@ -109,7 +116,7 @@ describe("useTaskRowHandlers", () => {
     const { result } = renderHook(() =>
       useTaskRowHandlers(makeArgs({ setTasks })),
     );
-    await act(async () => { await result.current.onDelete(1); });
+    await deleteAnswering(result.current, 1);
     expect(setTasks).toHaveBeenCalled();
     vi.restoreAllMocks();
   });
@@ -653,17 +660,16 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
 
   it("does nothing when the delete confirmation is dismissed", async () => {
     const setTasks = vi.fn();
-    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, confirm: vi.fn(async () => false) })));
-    await act(async () => { await result.current.onDelete(1); });
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
+    await deleteAnswering(result.current, 1, false);
     expect(setTasks).not.toHaveBeenCalled();
   });
 
   it("asks through the app's confirm dialog, never the browser's (§715 D5)", async () => {
     const native = vi.spyOn(window, "confirm");
-    const confirm = vi.fn(async () => true);
     const setTasks = vi.fn();
-    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, confirm })));
-    await act(async () => { await result.current.onDelete(1); });
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
+    const confirm = await deleteAnswering(result.current, 1);
     expect(native).not.toHaveBeenCalled();
     expect(confirm).toHaveBeenCalledWith(expect.objectContaining({
       message: t("en-US", "confirmDelete", 1), confirmLabel: t("en-US", "delete"), tone: "danger",
@@ -681,7 +687,7 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
     const { result } = renderHook(() =>
       useTaskRowHandlers(makeArgs({ tasksRef, setTasks, logActivity, deselectIdRef: { current: deselect } })),
     );
-    await act(async () => { await result.current.onDelete(1); });
+    await deleteAnswering(result.current, 1);
     const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
     const next = updater([target, dependent]);
     expect(next.map((t) => t.id)).toEqual([2]);
@@ -701,7 +707,7 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
     const { result } = renderHook(() =>
       useTaskRowHandlers(makeArgs({ tasksRef, setTasks: vi.fn(), captureComposite })),
     );
-    await act(async () => { await result.current.onDelete(1); });
+    await deleteAnswering(result.current, 1);
     expect(captureComposite).toHaveBeenCalledTimes(1);
     const opts = captureComposite.mock.calls[0][0] as { kind: string; primaryCount: number; name: string; parts: unknown[] };
     expect(opts.kind).toBe("task.deleted");
@@ -889,7 +895,7 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
     const blocker = makeTask({ id: 1, taskName: "blocker" });
     const dependent = makeTask({ id: 2, taskName: "dependent", dependencies: [{ taskId: 1, type: "FS" }] });
     const { result, rerender } = harness([blocker, dependent]);
-    await act(async () => { await result.current.handlers.onDelete(1); });
+    await deleteAnswering(result.current.handlers, 1);
     rerender();
     act(() => {
       result.current.setTasks((prev) => prev.map((tk) => (tk.id === 2 ? { ...tk, taskName: "renamed meanwhile" } : tk)));
@@ -914,7 +920,7 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
     const blocker = makeTask({ id: 1, taskName: "blocker" });
     const dependent = makeTask({ id: 2, taskName: "dependent", dependencies: [{ taskId: 1, type: "FS" }] });
     const { result, rerender } = harness([blocker, dependent]);
-    await act(async () => { await result.current.handlers.onDelete(1); });
+    await deleteAnswering(result.current.handlers, 1);
     rerender();
     act(() => { result.current.setTasks((prev) => [...prev, makeTask({ id: 1, taskName: "reused id" })]); });
     rerender();
@@ -935,7 +941,7 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
     });
     const { result, rerender } = harness([blocker, dependent]);
 
-    await act(async () => { await result.current.handlers.onDelete(1); });
+    await deleteAnswering(result.current.handlers, 1);
     rerender();
     expect(result.current.tasks.map((tk) => tk.id)).toEqual([2]);
 
@@ -983,7 +989,7 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
     });
     const { result, rerender } = harness([blocker, dependent]);
 
-    await act(async () => { await result.current.handlers.onDelete(1); });
+    await deleteAnswering(result.current.handlers, 1);
     rerender();
     expect(result.current.tasks.map((tk) => tk.id)).toEqual([2]);
 

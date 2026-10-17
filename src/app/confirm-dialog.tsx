@@ -60,17 +60,6 @@ export function useConfirm(): ConfirmFn {
   return useContext(ConfirmContext);
 }
 
-/** Hands this provider's confirm to code ABOVE it: task-manager's hooks run before the
- *  `ConfirmProvider` it renders, so they cannot call `useConfirm` and read the ref instead (§715 D5).
- *  Render it once inside the provider. Renders nothing. */
-export function ConfirmBridge({ confirmRef }: { confirmRef: { current: ConfirmFn } }) {
-  const confirm = useConfirm();
-  useEffect(() => {
-    confirmRef.current = confirm;
-  }, [confirm, confirmRef]);
-  return null;
-}
-
 const TITLE_ID = "confirm-dialog-title";
 
 interface Pending extends ConfirmOptions {
@@ -80,9 +69,12 @@ interface Pending extends ConfirmOptions {
 interface ConfirmProviderProps {
   lang: Lang;
   children: ReactNode;
+  /** Filled with this provider's confirm, for code ABOVE it that cannot call `useConfirm`: task-manager's
+   *  hooks run before the provider it renders (§715 D5). */
+  bridgeRef?: { current: ConfirmFn };
 }
 
-export function ConfirmProvider({ lang, children }: ConfirmProviderProps) {
+export function ConfirmProvider({ lang, children, bridgeRef }: ConfirmProviderProps) {
   const [pending, setPending] = useState<Pending | null>(null);
   // Focus the Cancel button on open so an accidental Enter can't fire a
   // destructive confirm.
@@ -102,6 +94,9 @@ export function ConfirmProvider({ lang, children }: ConfirmProviderProps) {
       });
     });
   }, []);
+  useEffect(() => {
+    if (bridgeRef) bridgeRef.current = confirm;
+  }, [bridgeRef, confirm]);
 
   const settle = useCallback((value: boolean) => {
     setPending((prev) => {

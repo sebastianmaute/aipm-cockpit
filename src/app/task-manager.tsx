@@ -134,7 +134,7 @@ import { useNextActions } from "./use-next-actions";
 import type { SuggestedAction } from "./next-actions";
 import { resolveTimezone, createProjectClock } from "./timezone";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
-import { ConfirmBridge, ConfirmProvider, type ConfirmFn } from "./confirm-dialog";
+import { ConfirmProvider } from "./confirm-dialog";
 
 // ★ `effectiveToday(tz)` lived here until §159; `createProjectClock` (timezone.ts) now owns that derivation and keeps the day welded to its zone. Do NOT reintroduce a local one — a second producer of `today` is what let an inconsistent pair exist.
 // Connected display-timezone switcher. A module-level wrapper (static-components
@@ -895,10 +895,6 @@ function TaskManagerInner() {
   // inquiries (the cached assigneeEmail can go stale after a rename/re-link).
   const resourcesById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
 
-  // §715 D5: the delete confirm is the app dialog. Its provider renders below this hook, so a
-  // ConfirmBridge inside it fills this ref; until it mounts the answer is no.
-  const confirmRef = useRef<ConfirmFn>(async () => false);
-  const confirmViaBridge = useCallback<ConfirmFn>((opts) => confirmRef.current(opts), []);
   const {
     pushingIds,
     onJumpToRaid,
@@ -908,7 +904,7 @@ function TaskManagerInner() {
     onStatusChange,
     onSwimlaneDrop,
     onEdit,
-    onDelete,
+    onDelete, confirmRef: taskDeleteConfirmRef,
     handleClearRaidTaskFilter,
     handleClearChangeTaskFilter,
     handleJumpToTaskFromRaid,
@@ -935,7 +931,6 @@ function TaskManagerInner() {
     captureComposite: undoApi.captureComposite,
     resolveTemplateBody: resolveCommBody,
     sendCommTemplate: commSend.send,
-    confirm: confirmViaBridge,
   });
 
   // Task-side twin of onJumpToRaid: arms the Documents pane's entity filter for
@@ -1937,7 +1932,7 @@ function TaskManagerInner() {
         <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
           <ToastProvider value={toastApi}>
             <VoiceCommandProvider value={voiceHandlers}>
-              <ConfirmProvider lang={lang}><ConfirmBridge confirmRef={confirmRef} />
+              <ConfirmProvider lang={lang} bridgeRef={taskDeleteConfirmRef}>
                 <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>{legacyTree}</DisplayTimezoneProvider>
               </ConfirmProvider>
             </VoiceCommandProvider>
@@ -1962,7 +1957,7 @@ function TaskManagerInner() {
       <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
         <ToastProvider value={toastApi}>
           <VoiceCommandProvider value={voiceHandlers}>
-            <ConfirmProvider lang={lang}><ConfirmBridge confirmRef={confirmRef} />
+            <ConfirmProvider lang={lang} bridgeRef={taskDeleteConfirmRef}>
             <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>
             {showTursoUnlock ? (
               <SecretUnlockGate

@@ -55,9 +55,6 @@ export interface UseTaskRowHandlersArgs {
   captureComposite: UndoStackApi["captureComposite"];
   resolveTemplateBody?: (category: "status-inquiry") => string | null;
   sendCommTemplate?: (req: CommSendRequest) => void;
-  /** The app's confirm dialog (`useConfirm`), which asks before a delete (§715 D5). This hook runs in
-   *  task-manager, above the `ConfirmProvider` it renders, so the caller passes it in through a bridge. */
-  confirm: ConfirmFn;
 }
 
 export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
@@ -84,8 +81,11 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     captureComposite,
     resolveTemplateBody,
     sendCommTemplate,
-    confirm,
   } = args;
+  // §715 D5: the delete asks in the app's dialog. This hook runs in task-manager, ABOVE the
+  // ConfirmProvider it renders, so it cannot call useConfirm: it hands out this ref, the provider
+  // fills it (`bridgeRef`), and until then the answer is no.
+  const confirmRef = useRef<ConfirmFn>(async () => false);
 
   const { setActiveTab } = useWorkspaceTab();
 
@@ -405,7 +405,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     async (id: number) => {
       // The app's own dialog (§715 D5), not the browser's. The rows are read AFTER the answer, so a
       // write that landed while the dialog was open is not overwritten by a stale list.
-      const yes = await confirm({ message: t(lang, "confirmDelete", id), confirmLabel: t(lang, "delete"), tone: "danger" });
+      const yes = await confirmRef.current({ message: t(lang, "confirmDelete", id), confirmLabel: t(lang, "delete"), tone: "danger" });
       if (!yes) return;
       const arr = tasksRef.current;
       const doomed = arr.find((tk) => tk.id === id);
@@ -462,7 +462,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       if (editingId === id) handleCancelEditRef.current();
       logActivityRef.current("task.deleted", id, deletedName);
     },
-    [lang, tasksRef, setTasks, deselectIdRef, editingId, captureComposite, confirm],
+    [lang, tasksRef, setTasks, deselectIdRef, editingId, captureComposite],
   );
 
   const handleClearRaidTaskFilter = useCallback(() => {
@@ -492,6 +492,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     onSwimlaneDrop,
     onEdit,
     onDelete,
+    confirmRef,
     handleClearRaidTaskFilter,
     handleClearChangeTaskFilter,
     handleJumpToTaskFromRaid,
