@@ -5084,7 +5084,7 @@ const enUS = {
   projectMigrateToTursoHint: "Copy this project into a new Turso project and switch the portfolio to Turso. The original file project is left untouched.",
   projectMigrateNoProject: "No current project to move.",
   projectMigrateTokenNeedsPassphrase: "Your Turso token is set to be protected by a passphrase but is not saved under one yet, so moving the project now would lose it. In Settings → Integrations, type the passphrase under the Turso token and choose {0} first.",
-  integrationsTursoSwitchTokenUnsealed: "Your Turso token is not saved under the passphrase yet, so switching now would lose it. Type the passphrase under the Turso token and choose {0}, then switch.",
+  integrationsTursoSwitchTokenUnsealed: "Your Turso token is not saved under the passphrase yet, so switching now would lose it. Type the passphrase under the Turso token, then choose {0} again.",
   projectLoadFromTurso: "Load from Turso",
   projectLoadFromTursoHint:
     "Browse projects already stored in the configured Turso database and switch into one.",

@@ -855,6 +855,14 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         setSwitchRefusedUnsealed(true);
         return;
       }
+    } else if ((tokenDirty || tokenUnsealed) && wrapNow() === "passphrase") {
+      // A STALE render: passphrase mode at event time (another section or tab saved a record since)
+      //   but no passphrase was typed, because the fields were not shown. Nothing can seal the token
+      //   here, and on Turso storage the draft is never in the marker, so the gate would not catch
+      //   the loss: refuse, and the re-render shows the passphrase fields.
+      setSwitchBusy(false);
+      setSwitchRefusedUnsealed(true);
+      return;
     }
     const base: Settings =
       tokenDirty || tursoUrl !== turso.databaseUrl
@@ -1462,7 +1470,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 )}
                 {switchRefusedUnsealed && tokenUnsealed && (
                   <FieldError id={switchRefusedId}>
-                    {t(lang, "integrationsTursoSwitchTokenUnsealed", t(lang, "secretPassphraseSave"))}
+                    {t(lang, "integrationsTursoSwitchTokenUnsealed", t(lang, "portfolioModeSwitchConfirm"))}
                   </FieldError>
                 )}
               </div>

@@ -1020,8 +1020,8 @@ describe("§715 — every mounted section and every reload path read one token s
     Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
   });
 
-  function Two({ token = "" }: { token?: string }) {
-    const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, token, BROWSER));
+  function Two({ token = "", storage = BROWSER }: { token?: string; storage?: StorageConfig }) {
+    const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, token, storage));
     return (
       <>
         <div data-testid="under"><IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} /></div>
@@ -1075,6 +1075,34 @@ describe("§715 — every mounted section and every reload path read one token s
     expect(hasUnsealedPassphraseToken("tokO1")).toBe(true); // held for a passphrase seal instead
   });
 
+  // The same stale render, on Turso storage with an edited DRAFT and the switch already picked: the
+  // click reads passphrase mode at event time but has no passphrase typed, and the draft is never in
+  // the marker, so falling through to the commit would reload onto the old record.
+  // MU32 — no refusal when passphrase mode has no typed passphrase → (q) goes red (it reloads).
+  it("(q) on Turso storage, a stale section's switch refuses rather than reloading an unsealed draft", async () => {
+    const user = userEvent.setup();
+    vi.mocked(setSecretPassphrase).mockImplementationOnce(async (id, value, passphrase) => {
+      saveSealed(await sealPassphrase(id, value, passphrase));
+      return true;
+    });
+    render(<Two token="tokQ" storage={TURSO} />);
+    const over = within(screen.getByTestId("over"));
+    const under = within(screen.getByTestId("under"));
+    const tokenIn = (w: typeof over) => w.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder"));
+    await user.type(tokenIn(under), "2"); // a draft on Turso storage: "tokQ2"
+    await user.selectOptions(under.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    await user.click(over.getByLabelText(lockLabel));
+    await user.type(over.getByLabelText(t("en-US", "secretPassphrasePlaceholder")), "pw");
+    await user.type(over.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.click(over.getByRole("button", { name: t("en-US", "secretPassphraseSave") }));
+    await waitFor(() => expect(loadSealed("tursoAuthToken")?.wrap).toBe("passphrase"));
+    await user.click(under.getByRole("button", { name: switchName })); // rendered before the save
+    expect(
+      await under.findByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", switchName)),
+    ).toBeInTheDocument();
+    expect(reload).not.toHaveBeenCalled();
+  });
+
   function Controlled() {
     const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "", BROWSER));
     return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
@@ -1091,7 +1119,7 @@ describe("§715 — every mounted section and every reload path read one token s
     vi.mocked(setSecretPassphrase).mockResolvedValueOnce(false);
     await user.click(screen.getByRole("button", { name: switchName }));
     expect(
-      await screen.findByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", t("en-US", "secretPassphraseSave"))),
+      await screen.findByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", switchName)),
     ).toBeInTheDocument();
     expect(reload).not.toHaveBeenCalled();
     expect(hasUnsealedPassphraseToken("tokN")).toBe(true);
@@ -1102,7 +1130,7 @@ describe("§715 — every mounted section and every reload path read one token s
     await user.click(screen.getByRole("button", { name: t("en-US", "secretPassphraseSave") }));
     await waitFor(() => expect(hasUnsealedPassphraseToken("tokN")).toBe(false));
     expect(
-      screen.queryByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", t("en-US", "secretPassphraseSave"))),
+      screen.queryByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", switchName)),
     ).toBeNull();
   });
 
@@ -1125,7 +1153,7 @@ describe("§715 — every mounted section and every reload path read one token s
     vi.mocked(setSecretPassphrase).mockRejectedValueOnce(new Error("idb gone"));
     await user.click(screen.getByRole("button", { name: switchName }));
     expect(
-      await screen.findByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", t("en-US", "secretPassphraseSave"))),
+      await screen.findByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", switchName)),
     ).toBeInTheDocument();
     expect(reload).not.toHaveBeenCalled();
   });

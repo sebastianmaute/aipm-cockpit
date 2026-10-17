@@ -4803,7 +4803,7 @@ export const de: Record<TranslationKey, string> = {
   projectMigrateToTursoHint: "Dieses Projekt in ein neues Turso-Projekt kopieren und das Portfolio auf Turso umstellen. Das ursprüngliche Datei-Projekt bleibt unverändert.",
   projectMigrateNoProject: "Kein aktuelles Projekt zum Verschieben.",
   projectMigrateTokenNeedsPassphrase: "Ihr Turso-Token soll durch eine Passphrase geschützt werden, ist aber noch nicht damit gespeichert, sodass es beim Verschieben des Projekts jetzt verloren ginge. Geben Sie unter Einstellungen → Integrationen die Passphrase unter dem Turso-Token ein und wählen Sie zuerst {0}.",
-  integrationsTursoSwitchTokenUnsealed: "Ihr Turso-Token ist noch nicht mit der Passphrase gespeichert, sodass es beim Wechsel jetzt verloren ginge. Geben Sie die Passphrase unter dem Turso-Token ein, wählen Sie {0} und wechseln Sie dann.",
+  integrationsTursoSwitchTokenUnsealed: "Ihr Turso-Token ist noch nicht mit der Passphrase gespeichert, sodass es beim Wechsel jetzt verloren ginge. Geben Sie die Passphrase unter dem Turso-Token ein und wählen Sie dann erneut {0}.",
   projectTursoNotConfigured: "Zuerst eine Turso-Datenbank unter Einstellungen → Integrationen konfigurieren.",
   projectLoadFromTurso: "Von Turso laden",
   projectLoadFromTursoHint:
