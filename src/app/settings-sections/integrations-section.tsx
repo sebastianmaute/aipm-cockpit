@@ -105,6 +105,11 @@ function markUnsealedPassphraseToken(token: string | null): void {
   unsealedPassphraseToken = token;
 }
 
+/** Forgets any held token. For tests: the marker is module state, so it outlives a render. */
+export function forgetUnsealedPassphraseToken(): void {
+  unsealedPassphraseToken = null;
+}
+
 /** A seal of `token` landed, so a reload restores it: it is no longer at risk. */
 function noteTokenSealed(token: string | undefined): void {
   if (unsealedPassphraseToken === token) unsealedPassphraseToken = null;
@@ -509,6 +514,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         setPassphraseVerifyFailedAt("apply");
         return;
       }
+      // §715 — an unsealed token carried over from off Turso storage is no draft here, so the commit
+      // below would not seal it; seal it under the verified passphrase instead.
+      if (tursoToken === turso.authToken) trackTokenSeal(sealUnderTypedPassphrase(tursoToken ?? ""));
     }
     commitTurso(tursoUrl, tursoToken);
   }
@@ -537,8 +545,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // Turso auth-token at-rest wrap mode + passphrase entry. writeSettings blanks
   // turso.authToken from persisted settings, so this device-seal is what survives
   // a reload (mirrors the Anthropic API-key handling in ai-section.tsx).
+  // §715 — a token typed in passphrase mode that no seal covers yet keeps the section in that mode
+  // across a remount, so the passphrase fields it needs are still there.
   const [tokenWrap, setTokenWrap] = useState<"device" | "passphrase">(() =>
-    isPassphraseLocked("tursoAuthToken") ? "passphrase" : "device",
+    isPassphraseLocked("tursoAuthToken") || hasUnsealedPassphraseToken(turso.authToken) ? "passphrase" : "device",
   );
   const [tokenPassphrase, setTokenPassphrase] = useState("");
   const [tokenConfirm, setTokenConfirm] = useState("");
@@ -547,7 +557,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // A changed token in passphrase mode can only be sealed under a typed passphrase (see
   // `sealUnderTypedPassphrase`); until then Apply and "Save & switch" are disabled.
   // §715 — off Turso storage the draft IS committed, so the changed token is the one no seal covers.
-  const tokenUnsealed = tursoIsLive ? tursoToken !== turso.authToken : hasUnsealedPassphraseToken(turso.authToken);
+  //   The marker also counts ON Turso storage: a token committed before the kind moved to Turso is
+  //   no draft there, yet still unsealed.
+  const tokenUnsealed = (tursoIsLive && tursoToken !== turso.authToken) || hasUnsealedPassphraseToken(turso.authToken);
   const tokenSealBlocked = tokenWrap === "passphrase" && tokenUnsealed && !passphraseReady;
   // The action about to seal a changed token under the typed passphrase (Apply's and "Save &
   // switch"'s passphrase branch) — the case that must verify an existing record first.
@@ -765,6 +777,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   async function handleRemoveToken() {
     if (!(await confirm({ message: t(lang, "secretPassphraseRemoveConfirm") }))) return;
     removeSealed("tursoAuthToken");
+    markUnsealedPassphraseToken(null);
     updateTurso({ authToken: "" });
     // ★ Also clear the draft: when the stored token is already "" the reconcile sees no change.
     setTursoToken("");

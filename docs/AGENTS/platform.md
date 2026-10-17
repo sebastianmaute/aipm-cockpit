@@ -202,7 +202,10 @@
   token is held, by value and at module scope, until a seal covers it (`hasUnsealedPassphraseToken`), and
   `tokenSealBlocked` then applies off Turso storage too: "Save & switch" waits for the passphrase,
   verifies it and seals the typed token; the setup wizard's Finish, which has no passphrase, refuses
-  the switch and goes back to the storage step. "Test connection" probes the drafts without committing.
+  the switch and goes back to the storage step. The marker outlives the section, so it also keeps a
+  remounted section in passphrase mode (`tokenWrap`), and it still counts once the kind moves to Turso in
+  the same page, where the token is no draft: Apply with the passphrase seals it there too.
+  "Test connection" probes the drafts without committing.
   (`integrations-section.backend-hold.test.tsx` pins both models against the real hook.)
   ★★ The blur-commit design this replaced — commit when focus left the credentials group — lost a
   click (WebKit does not focus a clicked button), a focus (Tab out dropped it to `<body>` after the
