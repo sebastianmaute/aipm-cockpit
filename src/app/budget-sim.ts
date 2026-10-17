@@ -63,7 +63,8 @@ function sameValues<T>(a: ArrayLike<T>, b: ArrayLike<T>): boolean {
  *  (plus the facts' identity, the seed tag, the scale and the added cost: a number by value, a per-day array
  *  by identity). The Forecast view rebuilds its run on a How-many
  *  target change, but the target draws from its own stream and leaves every trial day as it was, so the
- *  cost pass (about 13 to 110 ms) is not run again. Comparing 10,000 ints costs far less than the pass. */
+ *  cost pass (about 15 to 100 ms, re-measured 2026-10-17 with the probe in docs/AGENTS/forecast.md "Measured
+ *  cost of the cost pass") is not run again. Comparing 10,000 ints costs far less than the pass. */
 export function simulateCostFromRunMemo(
   run: { trialDays: Int32Array; windowDates: readonly string[] }, f: ForecastFacts, seedTag: string,
   spendScale: number | Float64Array = 1, addedCost?: Float64Array,

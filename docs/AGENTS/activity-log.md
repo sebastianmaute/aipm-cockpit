@@ -80,21 +80,21 @@ newest entries until the next save.
   ★★ **`applyRestoredWorkspace` (`use-version-history-wiring.ts`, the SECOND load funnel) deliberately does NOT set
   `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
   `activityLog`, so fanning it out would blank the audit trail on every version restore.
-  ★★ It is ONE OF SEVEN slices on which the two funnels disagree, NOT the only one — `features`,
-  `fieldVisibility`, `documentAssets`, `budgetHistory`, `baselineHistory` (§476) and `forecastHistory` (§502) are also absent from the restore fan-out (a restore never changes
+  ★★ It is ONE OF EIGHT slices on which the two funnels disagree, NOT the only one — `features`,
+  `fieldVisibility`, `documentAssets`, `budgetHistory`, `baselineHistory` (§476), `forecastHistory` (§502) and `forecastScenarios` (§502, saved forecast scenarios) are also absent from the restore fan-out, so a version restore leaves the scenarios as they are (a restore never changes
   `plan.currency` either, and converts the money it restores — see `budget.md`). An
   earlier revision said "the one slice" and its successors said THREE and FOUR; each sends a reader who
   diffs the funnels off to distrust the doc or to "complete the pattern" on the rest. ★★★ **THAT
   SENTENCE HAS NOW BEEN OVERTAKEN THREE TIMES BY SLICES THAT NEVER OPENED THIS FILE** —
   `documentAssets` joined `applyWorkspaceFromLoad` with S3c-1, `budgetHistory` with the budget-history
-  persistence slice, and nothing here moved either time. (`baselineHistory`, §476, and `forecastHistory`, §502, are the exceptions: the
+  persistence slice, and nothing here moved either time. (`baselineHistory`, §476, `forecastHistory`, §502, and `forecastScenarios`, §502, are the exceptions: the
   commits that persisted those slices on all six write paths also named them here.) Do not repair it by writing FIVE and walking
   away; re-derive, which is why the commands sit below rather than the count. ★★ That diff returns
-  NINE names, not seven — the eighth and ninth are `setLoadedBackend` and `setSettledBackend`: the load
+  TEN names, not eight — the ninth and tenth are `setLoadedBackend` and `setSettledBackend`: the load
   GATE (`workspaceLoaded` derives from the first) and the §548 load-hold signal (`loadPending` derives
   from the second), not workspace slices. The comment above `applyRestoredWorkspace` already says the
   restore funnel deliberately omits the first; a restore settles no load, so it omits the second too.
-  Seven SLICES, nine NAMES; a reader who stops at the count will think this line is wrong. ★ A range
+  Eight SLICES, ten NAMES; a reader who stops at the count will think this line is wrong. ★ A range
   that stops at `setCalendarEvents` hides both — they are deliberately the LAST two setters in
   `applyWorkspaceFromLoad` (only the §586 save-gate call `allowSavesTo`, which the `set` grep does not match,
   follows them), so end the range at the function's close brace. ★ It does NOT hide
@@ -110,10 +110,10 @@ newest entries until the next save.
   and the command COULD go back into the source comment. The reason to keep it HERE is unchanged and
   is the one that always mattered: prose describing a command is not a command, and a comment that
   gets condensed loses it again. Read the paragraph above as the rationale, not the line count.
-  `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **33**
+  `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **34**
   `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/use-version-history-wiring.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
   `comm -23 <(sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/use-version-history-wiring.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
-  → `setActivityLog(` `setBaselineHistory(` `setBudgetHistory(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setForecastHistory(` `setLoadedBackend(` `setSettledBackend(`
+  → `setActivityLog(` `setBaselineHistory(` `setBudgetHistory(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setForecastHistory(` `setForecastScenarios(` `setLoadedBackend(` `setSettledBackend(`
   ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
   `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
   end anchor there ran 676 lines and reported 39 while it lived in `task-manager.tsx`. Since §491 moved
@@ -428,3 +428,11 @@ meta key `forecastHistory`, `CSV_SECTION_FORECAST_HISTORY`, a `## Forecast Histo
 `sanitizeForecastHistory` on load (last entry per date wins, sorted by date), excluded from both
 counters, absent from the restore fan-out, and ALWAYS replaced by `applyWorkspace` like
 `baselineHistory`. Its six-path and hook pins are in `forecast-history-persistence.test.ts`.
+
+`Workspace.forecastScenarios` (§502, `forecast-scenarios.ts`, saved forecast scenarios) is a fifth
+sibling with the same rules — meta key `forecastScenarios`, `CSV_SECTION_FORECAST_SCENARIOS`, a
+`## Forecast Scenarios` block, `sanitizeForecastScenarios` on load, excluded from both counters, absent
+from the restore fan-out, and ALWAYS replaced by `applyWorkspace` like `forecastHistory`. Unlike the
+three history series it IS user-authored and its edits ARE logged (`useForecastScenarios` writes
+`forecastScenario.created`, `forecastScenario.updated` and `forecastScenario.deleted` entries), but the log entry is the only record of an edit: a version restore leaves
+the list alone. Its six-path and hook pins are in `forecast-scenarios-persistence.test.ts`.
