@@ -22,6 +22,7 @@ import { type SealedSecret, sealDevice } from "../secrets";
 import { savePortfolioMode } from "../portfolio-mode";
 import { testTursoConnection } from "../turso-pipeline";
 import { clearEnvTokenRejected, isEnvTokenRejected, markEnvTokenRejected } from "../turso-config";
+import { markUnsealedPassphraseToken } from "../turso-token-marker";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../../test/hint-label";
 
@@ -908,6 +909,20 @@ describe("§408 — Move to Turso is gated on a confirmed connection", () => {
     await user.click(moveButton());
 
     expect(onMigrateToTurso).toHaveBeenCalledTimes(1);
+  });
+
+  // §715 — the move reloads, and a reload would bring back the old record over a token typed in
+  // passphrase mode that no seal covers yet. The real refusal is in `migrateCurrentProjectToTurso`;
+  // this is the affordance, and the hint that names the way out.
+  // MU10 — drop the token conjunct from the Move gate → goes red (enabled after a passing probe).
+  it("stays disabled after a passing probe while a passphrase-mode token is unsealed", async () => {
+    markUnsealedPassphraseToken("fake"); // what a keystroke commit in passphrase mode leaves
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    await passingProbe();
+    expect(moveButton()).toBeDisabled();
+    expect(moveButton()).toHaveAccessibleDescription(
+      t("en-US", "projectMigrateTokenNeedsPassphrase", t("en-US", "secretPassphraseSave")),
+    );
   });
 
   it("stays disabled when the probe fails", async () => {

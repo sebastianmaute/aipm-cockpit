@@ -743,6 +743,14 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // Show "Move to Turso" only where a current project exists (settings views),
   // Turso is configured, and the portfolio is still on File.
   const canMoveToTurso = !!onMigrateToTurso && !onTurso && tursoConfigured;
+  // §715 — the move reloads, which would bring back the old record over a passphrase-mode token no
+  // seal covers yet; `migrateCurrentProjectToTurso` refuses it, and this says so before the click.
+  const moveBlockedHint =
+    tokenWrap === "passphrase" && tokenUnsealed
+      ? t(lang, "projectMigrateTokenNeedsPassphrase", t(lang, "secretPassphraseSave"))
+      : !tursoTestConfirmed
+        ? t(lang, "integrationsTursoMoveNeedsTest")
+        : null;
   const portfolioModeDirty = pendingMode !== portfolioMode;
   async function confirmPortfolioModeSwitch() {
     if (!portfolioModeDirty || switchBusy) return;
@@ -1274,21 +1282,21 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   `projectMigrateToTursoHint` twice, once from the hidden node
                   and once from the visible one. */}
               <span
-                className={`inline-flex${tursoTestConfirmed ? "" : " cursor-not-allowed"}`}
-                title={tursoTestConfirmed ? undefined : t(lang, "integrationsTursoMoveNeedsTest")}
+                className={`inline-flex${moveBlockedHint === null ? "" : " cursor-not-allowed"}`}
+                title={moveBlockedHint ?? undefined}
               >
                 <Button
                   size="sm"
-                  disabled={!tursoTestConfirmed}
+                  disabled={moveBlockedHint !== null}
                   onClick={onMigrateToTurso}
-                  aria-describedby={tursoTestConfirmed ? tursoMoveHintId : tursoMoveNeedsTestId}
+                  aria-describedby={moveBlockedHint === null ? tursoMoveHintId : tursoMoveNeedsTestId}
                   className="disabled:pointer-events-none"
                 >
                   {t(lang, "projectMigrateToTurso")}
                 </Button>
-                {!tursoTestConfirmed && (
+                {moveBlockedHint !== null && (
                   <span id={tursoMoveNeedsTestId} className="sr-only">
-                    {t(lang, "integrationsTursoMoveNeedsTest")}
+                    {moveBlockedHint}
                   </span>
                 )}
               </span>

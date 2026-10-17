@@ -5083,6 +5083,7 @@ const enUS = {
   projectMigrateToTurso: "Move to Turso",
   projectMigrateToTursoHint: "Copy this project into a new Turso project and switch the portfolio to Turso. The original file project is left untouched.",
   projectMigrateNoProject: "No current project to move.",
+  projectMigrateTokenNeedsPassphrase: "Your Turso token is protected by a passphrase but is not saved under it yet, so moving the project now would lose it. Type the passphrase under the Turso token and choose {0} first.",
   projectLoadFromTurso: "Load from Turso",
   projectLoadFromTursoHint:
     "Browse projects already stored in the configured Turso database and switch into one.",

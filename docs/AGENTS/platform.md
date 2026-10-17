@@ -199,11 +199,13 @@
   that covers the hosts that configure Turso before switching the kind to it (the setup wizard,
   `BackendConfigModal` from create-project). ★★ In passphrase mode such a keystroke commit seals NOTHING (no
   passphrase in memory), and the reload a portfolio switch does would restore the OLD record (§715). The
-  token is held, by value and at module scope, until a seal covers it (`hasUnsealedPassphraseToken`), and
+  token is held, by value and at module scope, until a seal covers it (`hasUnsealedPassphraseToken` in `turso-token-marker.ts`), and
   `tokenSealBlocked` then applies off Turso storage too: "Save & switch" waits for the passphrase,
   verifies it and seals the typed token; the setup wizard's Finish, which has no passphrase, refuses
-  the switch and goes back to the storage step. The marker outlives the section, so it also keeps a
-  remounted section in passphrase mode (`tokenWrap`), and it still counts once the kind moves to Turso in
+  the switch and goes back to the storage step; "Move to Turso" reloads too, so
+  `migrateCurrentProjectToTurso` waits for in-flight seals (`awaitTokenSeals`) and then refuses, for
+  both buttons bound to it, while the marker still holds the settings token. The marker outlives
+  the section, so it also keeps a remounted section in passphrase mode (`tokenWrap`), and it still counts once the kind moves to Turso in
   the same page, where the token is no draft: there the unsealed token alone enables Apply
   (`canApplyTurso`), and Apply with the passphrase seals it.
   "Test connection" probes the drafts without committing.

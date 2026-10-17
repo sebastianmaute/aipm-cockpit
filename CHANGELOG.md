@@ -44,11 +44,12 @@ longer carries its own changelog comment.
   step says the switch reloads the app, and without a working Turso connection Finish takes you back to the
   storage step instead of switching, and the review step says so. On Turso storage, leaving that step or
   closing the wizard with Turso changes you have not applied now asks before they are discarded.
-- **Switching to the Turso portfolio no longer loses a token protected by a passphrase (§715).** Off Turso
+- **Switching to the Turso portfolio, or moving a project there, no longer loses a token protected by a passphrase (§715).** Off Turso
   storage, a Turso token typed again while the passphrase lock is on was kept only until the reload the
   switch does, which brought back the old stored token. "Save & switch" now waits for the passphrase,
   checks it against the stored token and saves the new one under it; the setup wizard's Finish goes back
-  to the storage step to do that instead of switching.
+  to the storage step to do that instead of switching; "Move to Turso" waits until the token is saved under
+  the passphrase and says how.
 - **Deleting a task asks in the app's own dialog (§715)**, with a Delete button, instead of the browser's
   confirm box: from the row menu, the task editor and the voice command alike.
 - **The Ask Claude window names what it edits (§715).** On a milestone, change request, RAID item or
