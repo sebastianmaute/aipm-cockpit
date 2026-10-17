@@ -13,7 +13,14 @@ import {
   type ForecastUnit,
   type HistoryWindow,
 } from "./constants";
-import { isAttributableMilestone, milestoneChances, orderBacklog, type MilestoneChance } from "./milestones";
+import {
+  clampAttributedRemovals,
+  isAttributableMilestone,
+  milestoneChances,
+  orderBacklog,
+  ownWorkToday,
+  type MilestoneChance,
+} from "./milestones";
 import { mulberry32, seedFrom, type Rng } from "./rng";
 import { buildArrivals, percentile, simulateHowMany, simulateWhen, type Arrivals, type SimOptions } from "./simulate";
 import { dailyThroughput, type ThroughputHistory } from "./throughput";
@@ -154,18 +161,29 @@ type DatedScope = {
 
 /**
  * Arrivals in the forecast unit (`tasks × unitSize`, so the effort unit sizes a task at the median estimate). An
- * arrival whose milestone is not an attributable milestone of `milestones` counts as unattributed.
+ * arrival whose milestone is not an attributable milestone of `milestones` counts as unattributed. An attributed
+ * removal counts only what came off its milestone's remaining work, never below zero (§4.1), in every total.
  */
-function datedScope(changes: DatedScheduleChanges, base: number, unitSize: number, milestones: readonly Milestone[]): DatedScope {
+function datedScope(
+  changes: DatedScheduleChanges,
+  base: number,
+  unitSize: number,
+  milestones: readonly Milestone[],
+  openSizes: ReadonlyMap<number, number>,
+): DatedScope {
   const attributable = new Set(milestones.filter(isAttributableMilestone).map((m) => m.id));
-  const steps = changes.arrivals.map((a) => ({
+  const raw = changes.arrivals.map((a) => ({
     day: Math.min(MAX_HORIZON_WORKING_DAYS, Math.max(0, a.day)),
     amount: a.tasks * unitSize,
     milestoneId: a.milestoneId !== null && attributable.has(a.milestoneId) ? a.milestoneId : null,
   }));
+  const onMilestone = raw.flatMap((s, index) => (s.milestoneId === null ? [] : [{ ...s, milestoneId: s.milestoneId, index }]));
+  const clamped = clampAttributedRemovals(onMilestone, ownWorkToday(milestones, openSizes));
+  const amountAt = new Map(clamped.map((c) => [c.index, c.amount]));
+  const steps = raw.map((s, i) => ({ ...s, amount: amountAt.get(i) ?? s.amount }));
   return {
     arrivals: buildArrivals(base, steps, MAX_HORIZON_WORKING_DAYS),
-    attributed: steps.flatMap(({ day, amount, milestoneId }) => (milestoneId === null ? [] : [{ day, amount, milestoneId }])),
+    attributed: clamped.map(({ day, amount, milestoneId }) => ({ day, amount, milestoneId })),
     cap: buildArrivals(base, steps.filter((s) => s.amount > 0 || s.milestoneId !== null), MAX_HORIZON_WORKING_DAYS),
   };
 }
@@ -191,7 +209,7 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
   const { sizeOf, unitSize } = sizer(open, unit);
   const base = open.reduce((s, t) => s + sizeOf(t), 0);
   // `changes` replaces the What-if's scope and capacity; the What-if still feeds the seed below.
-  const dated = input.changes ? datedScope(input.changes, base, unitSize, milestones) : null;
+  const dated = input.changes ? datedScope(input.changes, base, unitSize, milestones, new Map(open.map((t) => [t.id, sizeOf(t)]))) : null;
   const backlog = dated
     ? dated.arrivals.arrivedAt[MAX_HORIZON_WORKING_DAYS]
     : Math.max(0, base + scopeDelta(whatIf, open.length, base, unitSize));

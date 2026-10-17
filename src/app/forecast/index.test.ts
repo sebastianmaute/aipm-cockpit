@@ -374,6 +374,23 @@ describe("computeScheduleForecast with dated changes", () => {
     expect(r).toMatchObject({ kind: "forecast", unit: "effort", backlog: 1590 + 120 });
   });
 
+  test("an attributed removal lowers the backlog and the cap only by what came off its milestone", () => {
+    // 10 open tasks at queue positions 1..10, exactly 1 done a day. M1 owns task 5 only, so -3 on M1 removes 1:
+    // M2 moves 10 -> 9 and the arrived work 10 -> 9, so M2 is reached on day 9. The raw -3 would cap done at 7.
+    const ms: Milestone[] = [
+      { id: 1, name: "M1", date: nthWorkingDayAfter(TODAY, 4, NO_HOLIDAYS), linkedTaskIds: [5] },
+      { id: 2, name: "M2", date: nthWorkingDayAfter(TODAY, 9, NO_HOLIDAYS), linkedTaskIds: [10] },
+    ];
+    const r = computeScheduleForecast(
+      input([...open(10), ...recentDone(12)], { milestones: ms, changes: { capacityByDay: FLAT(), arrivals: [{ day: 0, tasks: -3, milestoneId: 1 }] } }),
+    );
+    if (r.kind !== "forecast") throw new Error("expected forecast");
+    const m2 = r.milestones.find((m) => m.id === 2);
+    expect(m2?.state === "chance" && m2.chance).toBeGreaterThan(0);
+    expect(m2).toEqual({ id: 2, state: "chance", chance: 1, chancePrioritised: 1 });
+    expect(r.backlog).toBe(9);
+  });
+
   test("arrivals alone still need the history floor", () => {
     const changes = (n: number) => ({ capacityByDay: FLAT(), arrivals: n === 0 ? [] : [{ day: 2, tasks: n, milestoneId: null }] });
     expect(computeScheduleForecast(input(recentDone(3), { changes: changes(0) })).kind, "no work at all skips the floor").toBe("forecast");

@@ -61,6 +61,30 @@ function addedOwnWork(changes: readonly AttributedChange[], id: number): number 
   return own;
 }
 
+/** Each milestone's own work today: the summed size of its open linked tasks (`openSizes`: open task id → size). */
+export function ownWorkToday(milestones: readonly Milestone[], openSizes: ReadonlyMap<number, number>): Map<number, number> {
+  return new Map(milestones.map((m) => [m.id, m.linkedTaskIds.reduce((s, id) => s + (openSizes.get(id) ?? 0), 0)]));
+}
+
+/**
+ * The amount each change actually moves its milestone's own work: walking in day order (input order within a
+ * day) from `ownAtStart`, a removal stops at the work the milestone still has then; an addition is unchanged.
+ * Returned in input order, so the totals (`arrivedAt`, the cap) drop only by what really came off (§4.1).
+ */
+export function clampAttributedRemovals<T extends AttributedChange>(changes: readonly T[], ownAtStart: ReadonlyMap<number, number>): T[] {
+  const own = new Map(ownAtStart);
+  const out = [...changes];
+  const order = changes.map((_, i) => i).sort((a, b) => changes[a].day - changes[b].day);
+  for (const i of order) {
+    const c = changes[i];
+    const current = own.get(c.milestoneId) ?? 0;
+    const amount = c.amount > 0 ? c.amount : -Math.min(-c.amount, current);
+    own.set(c.milestoneId, current + amount);
+    out[i] = { ...c, amount };
+  }
+  return out;
+}
+
 /** Day order, input order within a day. */
 function byDay(changes: readonly AttributedChange[] | undefined): AttributedChange[] {
   return [...(changes ?? [])].sort((a, b) => a.day - b.day);
