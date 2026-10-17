@@ -12,6 +12,11 @@ const FORECAST_ON =
 const FORECAST_OFF =
   "FORECAST — Monte Carlo forecasting is off for this project (the Forecast view is hidden or the project's switch is off), so no forecast tool is available. If asked for forecast dates or chances, say forecasting is off and never estimate them.";
 
-export function buildForecastBlock(offeredTools: ReadonlySet<string>): string {
+/** ★★ Three states. Nothing at all when the Forecast view is not enabled (held back by
+ *  `RELEASE_HIDDEN_VIEWS`, or its module off): the user cannot see the feature, so the prompt must not
+ *  mention it. The off text only when the view is enabled and the project's switch is off. The on text when
+ *  `get_forecast` is offered. The caller's join drops the empty string. */
+export function buildForecastBlock(offeredTools: ReadonlySet<string>, forecastView: boolean): string {
+  if (!forecastView) return "";
   return offeredTools.has("get_forecast") ? FORECAST_ON : FORECAST_OFF;
 }

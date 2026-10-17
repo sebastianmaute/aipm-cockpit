@@ -500,6 +500,9 @@ export type ToolDispatcher = {
     /** Is Monte Carlo forecasting live (Forecast view shown and the project switch on)? Only an explicit
      *  true offers the forecast tools; see `ToolFlags.forecast`. */
     forecastSimulation?: boolean;
+    /** Is the Forecast view enabled at all (not held back by `RELEASE_HIDDEN_VIEWS`, module on)? Only an
+     *  explicit true lets the prompt mention forecasting; see `buildForecastBlock`. */
+    forecastView?: boolean;
     /** Bounded counts for the ambient recap: five numbers, a window and one
      *  timestamp — `total` plus the four `byActor` buckets (`user`, `ai`,
      *  `integration`, `unknown`), then `days` and `latestAt`.

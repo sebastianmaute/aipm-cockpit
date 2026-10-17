@@ -329,7 +329,7 @@ export function buildTurnContext(
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
     appContext,
     viewScopeBlock,
-    buildForecastBlock(offeredTools),
+    buildForecastBlock(offeredTools, snapshot.forecastView === true),
     viewStateBlock,
     insightsBlock,
     activityBlock,
@@ -547,8 +547,9 @@ export const CACHED_TOOLS = withCacheBreakpoint(TOOL_DEFS);
  *  `boolean | undefined`, so a positional pair typechecks when transposed —
  *  the §159 shape, where two adjacent same-typed arguments silently swapped
  *  and passed 337 tests plus tsc. Reading them by NAME off the config removes
- *  the hazard rather than guarding it. */
-/** ★ `forecast` has the INVERSE default of the other two: the forecast tools are offered only on an
+ *  the hazard rather than guarding it.
+ *
+ *  ★ `forecast` has the INVERSE default of the other two: the forecast tools are offered only on an
  *  explicit `true`, so a caller that says nothing (inline edit, tests) gets none. */
 export type ToolFlags = Pick<AiConfig, "historySearch" | "chatSearch"> & { forecast?: boolean };
 

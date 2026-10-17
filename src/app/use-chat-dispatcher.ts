@@ -14,7 +14,7 @@ import { resourceLogName } from "./chat-tool-summaries";
 import { historySearchEnabled } from "./settings-types";
 import { summarizeForRecap } from "./activity-recap";
 import { assertJiraManagedUnchanged, buildTaskCleanPatch } from "./chat-task-patch";
-import { deriveMode, type FeatureModuleId } from "./feature-modules";
+import { deriveMode, isViewEnabled, type FeatureModuleId } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
 import { useViewDigest } from "./use-view-digest";
 import { useChatSearchBindings } from "./use-chat-search-bindings";
@@ -987,6 +987,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           ),
           chatPointer: chatBindings.chatPointer(),
           forecastSimulation: forecastTools.isForecastEnabled(),
+          forecastView: isViewEnabled("forecast", settingsRef.current.features),
         };
       },
 

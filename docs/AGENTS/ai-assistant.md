@@ -1899,8 +1899,10 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   recall bits — the tools go on the wire only on an explicit `true`, taken from the snapshot's `forecastSimulation`.
   Enforcing: `isForecastEnabled` is checked FIRST in `runForecastTool`, so a call that reaches the executor while the
   switch is off throws `FORECAST_OFF_MESSAGE` and reads or writes nothing. Both read `isSimulationActive`, the
-  executor's from refs at CALL time. The prompt block (`buildForecastBlock`, `forecast-ai-prompt.ts`) names the
-  tools only when the offered set holds `get_forecast`.
+  executor's from refs at CALL time. The prompt block (`buildForecastBlock`, `forecast-ai-prompt.ts`) has THREE
+  states: nothing when the Forecast view is not enabled (the snapshot's `forecastView`, from `isViewEnabled`: held back
+  by `RELEASE_HIDDEN_VIEWS` or its module off), the off text when the view is enabled but the switch is off, and the
+  quoting rules, which name the tools, only when the offered set holds `get_forecast`.
   ★ DEFAULTS ONLY: `get_forecast` runs with the app defaults (`DEFAULT_HISTORY_WINDOW`, tasks unit), never the
   Forecast view's toolbar; the prompt block says so.
   ★★ TOKEN: scenarios are a meta-blob slice with no CSV columns, so `entityToken("forecastScenario", row)`

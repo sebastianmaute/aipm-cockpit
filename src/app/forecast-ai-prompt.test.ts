@@ -8,7 +8,7 @@ const ON =
 const OFF =
   "FORECAST — Monte Carlo forecasting is off for this project (the Forecast view is hidden or the project's switch is off), so no forecast tool is available. If asked for forecast dates or chances, say forecasting is off and never estimate them.";
 
-function snapshot() {
+function snapshot(forecastView = true) {
   return {
     today: "2026-08-05",
     language: "en-US",
@@ -21,18 +21,24 @@ function snapshot() {
     enabledModules: [],
     currentView: "forecast",
     insights: [],
+    forecastView,
   } as never;
 }
 
 describe("buildForecastBlock", () => {
   it("emits the exact quoting rules when get_forecast is offered", () => {
-    expect(buildForecastBlock(new Set(["get_forecast"]))).toBe(ON);
+    expect(buildForecastBlock(new Set(["get_forecast"]), true)).toBe(ON);
   });
 
   it("emits the exact off message when it is not, naming no tool", () => {
-    const text = buildForecastBlock(new Set());
+    const text = buildForecastBlock(new Set(), true);
     expect(text).toBe(OFF);
     expect(text).not.toMatch(/get_forecast|create_forecast_scenario|update_forecast_scenario/);
+  });
+
+  it("emits nothing when the Forecast view is not enabled, whatever the tool set", () => {
+    expect(buildForecastBlock(new Set(), false)).toBe("");
+    expect(buildForecastBlock(new Set(["get_forecast"]), false)).toBe("");
   });
 });
 
@@ -47,6 +53,19 @@ describe("the volatile prompt carries the forecast block", () => {
     const text = buildTurnContext("en-US", snapshot(), [], false, {});
     expect(text).toContain("forecasting is off");
     expect(text).not.toContain("safe to commit");
+  });
+});
+
+describe("the volatile prompt with the Forecast view not enabled", () => {
+  it("carries no forecast text and no blank line where the block would be", () => {
+    const text = buildTurnContext("en-US", snapshot(false), [], false, {});
+    expect(text).not.toContain("FORECAST");
+    expect(text).not.toMatch(/\n\n/);
+  });
+
+  it("does the same when the snapshot never says", () => {
+    const snap = { ...(snapshot() as object), forecastView: undefined } as never;
+    expect(buildTurnContext("en-US", snap, [], false, {})).not.toContain("FORECAST");
   });
 });
 
