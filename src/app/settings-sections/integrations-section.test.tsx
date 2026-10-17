@@ -108,6 +108,22 @@ describe("IntegrationsSection portfolio-mode load hint", () => {
   });
 });
 
+// §715 D2 — the setup wizard holds the pending portfolio choice, because it unmounts this section on Next.
+describe("IntegrationsSection with a controlled pending portfolio mode (§715 D2)", () => {
+  it("shows the host's pending mode and reports a pick back to it", () => {
+    const onPending = vi.fn();
+    render(
+      <IntegrationsSection lang="en-US" settings={tursoSettings("test-token")} onChange={() => {}}
+        pendingPortfolioMode="turso" onPendingPortfolioModeChange={onPending} />,
+    );
+    const select = screen.getByRole("combobox", { name: t("en-US", "portfolioModeLabel") });
+    expect(select).toHaveValue("turso"); // the stored mode is "file": the value is the host's
+    expect(screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") })).toBeInTheDocument();
+    fireEvent.change(select, { target: { value: "file" } });
+    expect(onPending).toHaveBeenCalledWith("file");
+  });
+});
+
 describe("IntegrationsSection portfolio switch label", () => {
   it("shows the default 'Save & switch portfolio' label when a project is loaded", () => {
     render(
