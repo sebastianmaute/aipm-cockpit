@@ -141,6 +141,13 @@ describe("capacityByDay", () => {
     expect(Array.from(fast.trialDays)).toEqual(referenceWhen([0, 1, 3], 2340, m));
   });
 
+  test("a schedule shorter than horizon + 1 throws rather than finishing trials where it runs out", () => {
+    const short = new Float64Array(1300).fill(1); // horizon 1300 needs 1301 entries (index 0 unused)
+    expect(() => simulateWhen([2], 10, opts({ capacityByDay: short }))).toThrow("capacityByDay needs horizon + 1 = 1301 entries, got 1300");
+    expect(() => dayDrawer([], opts({ capacityByDay: short }))).toThrow(RangeError);
+    expect(() => dayDrawer([2], opts({ capacityByDay: new Float64Array(1301).fill(1) }))).not.toThrow();
+  });
+
   test("bestBetween is the sum of each day's best", () => {
     const m = Float64Array.from([0, 1, 2, 0.5]);
     // Tasks: ceil(1.4) + ceil(2.8) + ceil(0.7) = 2 + 3 + 1.

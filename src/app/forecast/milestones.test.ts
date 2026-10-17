@@ -159,11 +159,13 @@ describe("milestoneChances", () => {
 
   test("the milestone early exits stay exact under a varying multiplier", () => {
     // Reference: every trial draws sample x m[day], stochastic-rounded, every day up to the last milestone's day.
+    // Each milestone links a run of tasks, so its prioritised position is large too: after day 15 a trial far
+    // below 60 hits the none-reachable exit through the schedule's bestBetween, not only the all-reached one.
     const samples = [0, 1, 3];
     const m = Float64Array.from({ length: 1301 }, (_, d) => (d % 2 ? 0.2 : 2.5));
     const targets = [
-      { id: 1, days: 15, position: 20, prio: 1 },
-      { id: 2, days: 40, position: 60, prio: 1 },
+      { id: 1, days: 15, position: 20, prio: 20 },
+      { id: 2, days: 40, position: 60, prio: 60 },
     ];
     const o = opts({ trials: 300, rng: mulberry32(9) });
     const due = [0, 0];
@@ -185,7 +187,10 @@ describe("milestoneChances", () => {
     // Monday 2026-10-12: Nov 2 is 15 working days ahead, Dec 7 is 40.
     const sixty = Array.from({ length: 60 }, (_, i) => task(i + 1));
     const fast = milestoneChances({
-      milestones: [ms(1, "2026-11-02", [20]), ms(2, "2026-12-07", [60])],
+      milestones: [
+        ms(1, "2026-11-02", Array.from({ length: 20 }, (_, i) => i + 1)),
+        ms(2, "2026-12-07", Array.from({ length: 60 }, (_, i) => i + 1)),
+      ],
       ordered: sixty,
       closedIds: new Set<number>(),
       sizeOf: () => 1,
@@ -194,7 +199,9 @@ describe("milestoneChances", () => {
       holidaySet: new Set<string>(),
       o: opts({ trials: 300, rng: mulberry32(9), capacityByDay: m }),
     });
-    expect(due.every((n) => n > 0 && n < o.trials), "some trials reach and some miss each milestone").toBe(true);
+    const bothOutcomes = (counts: number[]) => counts.every((n) => n > 0 && n < o.trials);
+    expect(bothOutcomes(due), "some trials reach and some miss each milestone by due date").toBe(true);
+    expect(bothOutcomes(prio), "some trials reach and some miss each milestone prioritised").toBe(true);
     expect(fast).toEqual(slow);
   });
 });

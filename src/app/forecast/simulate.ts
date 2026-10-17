@@ -34,6 +34,10 @@ type Skips = { skipDays: (days: number) => void; skipOne: () => void };
  * stream position after N days never depends on the schedule.
  */
 export function dayDrawer(samples: readonly number[], o: SimOptions): DayDrawer {
+  // A short schedule would read `undefined` past its end and silently finish trials on that day.
+  if (o.capacityByDay && o.capacityByDay.length < o.horizon + 1) {
+    throw new RangeError(`capacityByDay needs horizon + 1 = ${o.horizon + 1} entries, got ${o.capacityByDay.length}`);
+  }
   if (samples.length === 0) return { draw: () => 0, max: 0, bestBetween: () => 0, skipDays: () => {} };
   const callsPerDay = o.integer ? 2 : 1;
   const skipDays = (days: number) => {
@@ -106,12 +110,18 @@ function scheduledDrawer(samples: readonly number[], o: SimOptions, m: Float64Ar
   };
 }
 
-/** One simulated working day (see `dayDrawer`); `day` (default 1) picks a schedule's multiplier. */
+/**
+ * One simulated working day (see `dayDrawer`); `day` (default 1) picks a schedule's multiplier. A one-shot:
+ * it builds a drawer per call (under a schedule an O(horizon) prefix), so a loop takes `dayDrawer` once.
+ */
 export function drawDay(samples: readonly number[], o: SimOptions, day = 1): number {
   return dayDrawer(samples, o).draw(day);
 }
 
-/** Relative slack on the effort unit's float sums, far above the rounding of 1,300 additions. */
+/**
+ * Relative slack on the effort unit's float sums, far above the rounding of 1,300 additions (and of a
+ * schedule's `bestBetween`, a difference of two such prefix sums).
+ */
 const FLOAT_SLACK = 1e-9;
 
 /** True only when `done` plus `days` of the best possible day still falls short of `target`. */
