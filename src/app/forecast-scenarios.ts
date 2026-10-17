@@ -2,7 +2,7 @@
 import type { WhatIf } from "./forecast";
 import { isValidIsoDate } from "./forecast/throughput";
 import { isAttributableMilestone } from "./forecast/milestones";
-import { SUPPORTED_CURRENCIES, isBudgetCurrency } from "./types";
+import { isBudgetCurrency } from "./types";
 import type { BudgetCurrency, Milestone, Resource } from "./types";
 
 export type AvailabilityChange = { kind: "availability"; percent: number; from: string; until: string }; // until "" = to the end
@@ -137,7 +137,7 @@ function validateWho(who: AddedPeopleWho, ctx: ValidationContext): ScenarioChang
   if (label === "" || label.length > SCENARIO_NAME_MAX) return "label";
   if (!Number.isInteger(who.count) || who.count < 1 || who.count > ADDED_COUNT_MAX) return "count";
   if (!isNum(who.rate) || who.rate < 0 || who.rate > PLACEHOLDER_RATE_MAX) return "rate";
-  return (SUPPORTED_CURRENCIES as readonly string[]).includes(who.currency) ? null : "currency";
+  return isBudgetCurrency(who.currency) ? null : "currency";
 }
 
 /** Write-side check of one row (the editor and the AI tools). Returns the first error, or null. */
@@ -169,12 +169,13 @@ export function validateScenarioDraft(
   list: readonly ForecastScenario[],
   exceptId: number | null,
 ): ScenarioError | null {
+  // "cap" first: no edit to the draft can fix it, so a caller at the cap is told so before anything else.
+  if (exceptId === null && list.length >= MAX_FORECAST_SCENARIOS) return "cap";
   const name = d.name.trim();
   if (name === "") return "name-empty";
   if (name.length > SCENARIO_NAME_MAX) return "name-long";
   if (isScenarioNameTaken(list, name, exceptId)) return "name-taken";
   if (d.changes.length > MAX_SCENARIO_CHANGES) return "too-many-changes";
-  if (exceptId === null && list.length >= MAX_FORECAST_SCENARIOS) return "cap";
   return null;
 }
 
@@ -193,18 +194,20 @@ export function removeScenario(list: readonly ForecastScenario[], id: number): F
 /** "Save as scenario", fed the CLAMPED What-if the panel uses (`usedWhatIf`): an availability row from today with no
  *  end when capacity ≠ 100, and one unattributed scope row on today of scopeTasks + round-half-up(openCount ×
  *  scopePercent / 100) when that is ≠ 0. Exact parity with What-if holds in the tasks unit only (effort takes the
- *  percent of the effort sum; a scenario sizes each task at the median). */
+ *  percent of the effort sum; a scenario sizes each task at the median). The row is clamped to ±SCOPE_TASKS_MAX (What-if
+ *  allows 1000 plus a percent on top); `clamped` says so, and `percentTasks` stays the unclamped percent part. */
 export function whatIfToScenarioChanges(
   w: WhatIf,
   openCount: number,
   today: string,
-): { changes: ScenarioChange[]; percentTasks: number } {
+): { changes: ScenarioChange[]; percentTasks: number; clamped: boolean } {
   const changes: ScenarioChange[] = [];
   if (w.capacityPercent !== 100) {
     changes.push({ kind: "availability", percent: w.capacityPercent, from: today, until: "" });
   }
   const percentTasks = Math.round((openCount * w.scopePercent) / 100);
-  const tasks = w.scopeTasks + percentTasks;
+  const total = w.scopeTasks + percentTasks;
+  const tasks = clamp(total, -SCOPE_TASKS_MAX, SCOPE_TASKS_MAX);
   if (tasks !== 0) changes.push({ kind: "scope", tasks, on: today });
-  return { changes, percentTasks };
+  return { changes, percentTasks, clamped: tasks !== total };
 }

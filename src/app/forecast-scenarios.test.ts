@@ -92,6 +92,34 @@ const people = (who: unknown, over: object = {}) =>
   ({ kind: "addPeople", from: "2026-10-01", until: "", rampWeeks: 4, who, ...over }) as ScenarioChange;
 const lab = { label: "Dev", count: 1, rate: 10, currency: "EUR", hoursPerWeek: 10 };
 
+describe("judgement calls", () => {
+  const one = (row: unknown) => sanitizeForecastScenarios([scen(1, "A", [row])])[0].changes;
+  const who = { label: "Dev", count: 1, rate: 1, currency: "EUR", hoursPerWeek: 5 };
+
+  it("keeps a negative tasks value and clamps one above 1000", () => {
+    expect(one({ kind: "scope", tasks: -4, on: "2026-10-01" })).toEqual([{ kind: "scope", tasks: -4, on: "2026-10-01" }]);
+    expect(one({ kind: "scope", tasks: 5000, on: "2026-10-01" })).toMatchObject([{ tasks: 1000 }]);
+    expect(one({ kind: "scope", tasks: -5000, on: "2026-10-01" })).toMatchObject([{ tasks: -1000 }]);
+  });
+
+  it("drops a row whose label is empty or blank", () => {
+    const row = (label: string) => ({ kind: "addPeople", from: "2026-10-01", until: "", who: { ...who, label } });
+    expect(one(row(""))).toEqual([]);
+    expect(one(row("   "))).toEqual([]);
+  });
+
+  it("rounds count and rampWeeks on read", () => {
+    const row = { kind: "addPeople", from: "2026-10-01", until: "", rampWeeks: 2.6, who: { ...who, count: 2.4 } };
+    expect(one(row)).toMatchObject([{ rampWeeks: 3, who: { count: 2 } }]);
+  });
+
+  it("validation refuses a non-integer count, ramp and tasks", () => {
+    expect(validateScenarioChange(people({ ...lab, count: 1.5 }), ctx)).toBe("count");
+    expect(validateScenarioChange(people(lab, { rampWeeks: 2.5 }), ctx)).toBe("ramp");
+    expect(validateScenarioChange({ kind: "scope", tasks: 1.5, on: "2026-10-01" }, ctx)).toBe("tasks");
+  });
+});
+
 describe("validateScenarioChange", () => {
   const cases: [string, ScenarioChange, string | null][] = [
     ["ok", avail as ScenarioChange, null],
@@ -135,6 +163,12 @@ describe("validateScenarioDraft and list ops", () => {
     expect(validateScenarioDraft({ name: "n", changes: many }, [], null)).toBe("too-many-changes");
   });
 
+  it("cap is reported before every other error when creating", () => {
+    const bad = Array.from({ length: 21 }, () => avail as ScenarioChange);
+    expect(validateScenarioDraft({ name: "S1", changes: bad }, list, null)).toBe("cap");
+    expect(validateScenarioDraft({ name: " ", changes: [] }, list, null)).toBe("cap");
+  });
+
   it("cap only when creating", () => {
     expect(validateScenarioDraft({ name: "new", changes: [] }, list, null)).toBe("cap");
     expect(validateScenarioDraft({ name: "new", changes: [] }, list, 1)).toBeNull();
@@ -155,6 +189,19 @@ describe("whatIfToScenarioChanges", () => {
     const r = whatIfToScenarioChanges({ scopeTasks: 0, scopePercent: 10, capacityPercent: 100 }, 55, "2026-10-14");
     expect(r.changes).toEqual([{ kind: "scope", tasks: 6, on: "2026-10-14" }]);
     expect(r.percentTasks).toBe(6);
+  });
+  it("clamps a row beyond the task bound and says so; percentTasks stays unclamped", () => {
+    const r = whatIfToScenarioChanges({ scopeTasks: 1000, scopePercent: 10, capacityPercent: 100 }, 55, "2026-10-14");
+    expect(r.changes).toEqual([{ kind: "scope", tasks: 1000, on: "2026-10-14" }]);
+    expect(r.percentTasks).toBe(6);
+    expect(r.clamped).toBe(true);
+    const neg = whatIfToScenarioChanges({ scopeTasks: -900, scopePercent: -100, capacityPercent: 100 }, 600, "2026-10-14");
+    expect(neg.changes).toEqual([{ kind: "scope", tasks: -1000, on: "2026-10-14" }]);
+    expect(neg.clamped).toBe(true);
+  });
+  it("is not clamped within the bound", () => {
+    const r = whatIfToScenarioChanges({ scopeTasks: 5, scopePercent: 10, capacityPercent: 100 }, 55, "2026-10-14");
+    expect(r.clamped).toBe(false);
   });
   it("capacity alone gives one availability row", () => {
     const r = whatIfToScenarioChanges({ scopeTasks: 0, scopePercent: 0, capacityPercent: 130 }, 55, "2026-10-14");
