@@ -1161,7 +1161,7 @@ describe("§609 — a clear beats the Save & switch token seal", () => {
     expect(secrets.sealDevice).toHaveBeenCalledWith("tursoAuthToken", "tok7"); // the switch seal, held
     expect(reload).not.toHaveBeenCalled();
 
-    removeSealed("tursoAuthToken"); // a clear lands meanwhile (another tab, or Remove)
+    removeSealed("tursoAuthToken"); // a clear lands meanwhile, from another tab (Remove also clears the field)
     releaseSeal(sealed);
 
     // §609 still holds: the clear wins, nothing is stored. §715: the field still holds the edited

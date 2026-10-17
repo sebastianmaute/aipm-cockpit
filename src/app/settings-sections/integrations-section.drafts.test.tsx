@@ -1096,10 +1096,12 @@ describe("§715 — every mounted section and every reload path read one token s
     expect(screen.queryByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", switchName))).toBeNull();
   });
 
-  // Clearing the token while the switch seals it supersedes the seal (§609). The clear is the user's
-  // choice and leaves nothing to keep, so the switch goes ahead instead of silently stopping.
-  // MU34 — refuse any seal that did not land → (s) goes red (no reload).
-  it("(s) a switch whose token was cleared mid-seal goes ahead, with nothing stored", async () => {
+  // Clearing the token while the switch seals it supersedes the seal (§609): the clear wins and
+  // nothing is stored. With no token left there is no Turso config either, so the switch stops rather
+  // than land in an empty Turso portfolio, and the section's own banner says why.
+  // MU34 — refuse any seal that did not land → (s) goes red (a not-saved refusal shows).
+  // MU36 — no config re-check after the wait → (s) goes red (it reloads into Turso with no token).
+  it("(s) a switch whose token was cleared mid-seal stops, with nothing stored, and says why", async () => {
     const user = userEvent.setup();
     let landSeal: (ok: boolean) => void = () => {};
     render(<Controlled />);
@@ -1112,8 +1114,11 @@ describe("§715 — every mounted section and every reload path read one token s
     await user.click(screen.getByRole("button", { name: switchName }));
     await user.clear(tokenField()); // supersedes the seal in flight
     await act(async () => { landSeal(false); });
-    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole("button", { name: switchName })).toBeEnabled());
+    expect(reload).not.toHaveBeenCalled();
     expect(loadSealed("tursoAuthToken")).toBeNull();
+    expect(screen.getByText(t("en-US", "portfolioModeTursoNeedsConfig"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "integrationsTursoSwitchTokenNotSaved", switchName))).toBeNull();
   });
 
   // On Turso storage a DEVICE seal of the edited draft is invisible to the gate as well.
@@ -1131,6 +1136,75 @@ describe("§715 — every mounted section and every reload path read one token s
     await user.click(screen.getByRole("button", { name: switchName }));
     expect(await screen.findByText(t("en-US", "integrationsTursoSwitchTokenNotSaved", switchName))).toBeInTheDocument();
     expect(reload).not.toHaveBeenCalled();
+  });
+
+  // The same clear on a switch that needs no Turso config (back to File): the clear wins and the switch
+  // goes ahead, instead of stopping on a seal that only lost to the user's own clear.
+  // MU34 — refuse any seal that did not land, cleared or not → (s2) goes red (no reload).
+  it("(s2) a switch back to File whose token was cleared mid-seal goes ahead", async () => {
+    const user = userEvent.setup();
+    savePortfolioMode("turso");
+    let landSeal: (ok: boolean) => void = () => {};
+    render(<Controlled />);
+    await user.click(screen.getByLabelText(lockLabel));
+    await user.type(tokenField(), "tokS");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder")), "pw");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "file");
+    vi.mocked(setSecretPassphrase).mockImplementationOnce(() => new Promise<boolean>((r) => { landSeal = r; }));
+    await user.click(screen.getByRole("button", { name: switchName }));
+    await user.clear(tokenField());
+    await act(async () => { landSeal(false); });
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(loadSealed("tursoAuthToken")).toBeNull();
+  });
+
+  // A passphrase seal still running at the deadline: on Turso storage the draft is never in the marker,
+  // so only this check can stop the reload. A DEVICE seal past the deadline still goes ahead (A5 MA5).
+  // MU37 — an unsettled passphrase seal goes ahead → (u) goes red (it reloads at the deadline).
+  it("(u) on Turso storage, a passphrase seal still running at the deadline refuses the switch", async () => {
+    vi.useFakeTimers();
+    function OnTurso() {
+      const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "old", TURSO));
+      return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
+    }
+    let release: (ok: boolean) => void = () => {};
+    vi.mocked(setSecretPassphrase).mockImplementationOnce(() => new Promise<boolean>((r) => { release = r; }));
+    try {
+      render(<OnTurso />);
+      fireEvent.click(screen.getByLabelText(lockLabel));
+      fireEvent.change(tokenField(), { target: { value: "tokU" } });
+      fireEvent.change(screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder")), { target: { value: "pw" } });
+      fireEvent.change(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), { target: { value: "pw" } });
+      fireEvent.change(screen.getByLabelText(t("en-US", "portfolioModeLabel")), { target: { value: "turso" } });
+      fireEvent.click(screen.getByRole("button", { name: switchName }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(SECRET_MERGE_TIMEOUT_MS + 1); });
+      expect(reload).not.toHaveBeenCalled();
+      expect(screen.getByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", switchName))).toBeInTheDocument();
+    } finally {
+      await act(async () => release(true));
+      vi.useRealTimers();
+    }
+  });
+
+  // The refusal names the switch button as it reads on screen.
+  // MU38 — the refusal always names "Save & switch portfolio" → (v) goes red.
+  it("(v) with no current project, the refusal names the button as it reads", async () => {
+    const user = userEvent.setup();
+    const noProjectName = t("en-US", "portfolioModeSwitchConfirmNoProject");
+    function NoProject() {
+      const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "", BROWSER));
+      return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} noCurrentProject />;
+    }
+    render(<NoProject />);
+    await user.click(screen.getByLabelText(lockLabel));
+    await user.type(tokenField(), "tokV");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphrasePlaceholder")), "pw");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    vi.mocked(setSecretPassphrase).mockRejectedValueOnce(new Error("idb gone"));
+    await user.click(screen.getByRole("button", { name: noProjectName }));
+    expect(await screen.findByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", noProjectName))).toBeInTheDocument();
   });
 
   it("(q) on Turso storage, a stale section's switch refuses rather than reloading an unsealed draft", async () => {

@@ -216,9 +216,11 @@
   `tokenSealsSettled` (which also waits for seals that start meanwhile), then refuse while
   `hasUnsealedPassphraseToken` holds: `commitPortfolioModeSwitch` (Save & switch, the wizard's Finish)
   returns `false`, and `migrateCurrentProjectToTurso` toasts. On Turso storage an edited token is a DRAFT the
-  marker never holds, so Save & switch also refuses unless its own seal of that draft — device or
-  passphrase, read after the same single wait — landed, or the token was cleared meanwhile (§609: the
-  clear wins). A refusal names the token it refused and hides once that token changes. The
+  marker never holds, so Save & switch reads its own seal of that draft after the same single wait:
+  a passphrase seal refuses unless it landed; a device seal refuses only if it FAILED (one still
+  running at the deadline goes ahead, as the wait always did). A token cleared meanwhile wins (§609)
+  and, leaving no Turso config, stops the switch under the section's "needs config" banner. A refusal
+  names the token it refused and shows only while it is still true. The
   wizard refuses either direction of switch: the reload loses the token whichever way it goes.
   "Test connection" probes the drafts without committing.
   (`integrations-section.backend-hold.test.tsx` pins both models against the real hook.)

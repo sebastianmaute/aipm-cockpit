@@ -446,6 +446,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   }
 
   const tursoDraftsDirty = tursoUrl !== turso.databaseUrl || tursoToken !== turso.authToken;
+  // Handlers set it at once; this effect also follows the render-time resync from an outside write.
   useEffect(() => {
     tokenNowRef.current = tursoToken ?? "";
   }, [tursoToken]);
@@ -500,6 +501,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
   function handleTursoTokenChange(value: string) {
     setTursoToken(value);
+    tokenNowRef.current = value;
     setPassphraseVerifyFailedAt(null); // a "Wrong passphrase." about the old draft no longer applies
     if (!tursoIsLive) commitTurso(tursoUrl, value);
   }
@@ -790,6 +792,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     updateTurso({ authToken: "" });
     // ★ Also clear the draft: when the stored token is already "" the reconcile sees no change.
     setTursoToken("");
+    tokenNowRef.current = "";
     setTokenStored(false);
     setTokenWrap("device");
     setTokenPassphrase("");
@@ -856,7 +859,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // (`tursoConfigured`). Switching to the portfolio the fields show and then reloading onto
     // the OLD credentials would be the surprise; so fold the drafts in and seal the token here.
     const tokenDirty = tursoToken !== turso.authToken;
-    let deviceSealRefuses: (() => boolean) | undefined;
+    // The switch's own seal of the token, read after the gate's single wait (see `ownSealProbe`).
+    let ownSealRefuses: (() => boolean) | undefined;
+    let ownSealIsDevice = false;
     if (tokenDirty && (tursoToken ?? "").trim() === "") {
       // §565: same blank-first rule as `commitTurso` — a cleared token removes the seal rather
       // than resealing "".
@@ -864,22 +869,18 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       setTokenStored(false);
     } else if (tokenDirty && wrapNow() === "device") {
       // On Turso storage the edited token is a draft the gate cannot see, so the commit reads this
-      //   seal's result after its own wait. BOUNDED by that one wait: a device seal opens the
-      //   IndexedDB device key and can hang, and a timeout goes ahead as the wait always did; only a
-      //   seal that FAILED refuses.
-      deviceSealRefuses = ownSealProbe(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"));
+      //   seal's result after its one wait. A device seal opens the IndexedDB device key and can hang:
+      //   one still running at the deadline goes ahead, as the wait always did (the token may then
+      //   be lost, and a diagnostic is logged); only a seal that FAILED refuses.
+      ownSealRefuses = ownSealProbe(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"), false);
+      ownSealIsDevice = true;
     } else if ((tokenDirty || tokenUnsealed) && passphraseReady) {
       // §715 — on Turso storage the edited token is a DRAFT, so the marker never holds it and the
-      //   shared gate cannot see a failed seal of it: read this seal's own result, and refuse on
-      //   anything but a seal that landed.
-      //   Read after the shared bounded wait; a passphrase seal is WebCrypto into the localStorage
-      //   store, with no IndexedDB, so it settles well within it.
-      const refuses = ownSealProbe(sealUnderTypedPassphrase(tursoToken ?? ""));
-      await tokenSealsSettled();
-      if (refuses()) {
-        refuseSwitch(false);
-        return;
-      }
+      //   shared gate cannot see a failed seal of it: the commit reads this seal's own result after
+      //   its one wait, and refuses on anything but a seal that landed — one still running at the
+      //   deadline included (a passphrase seal is WebCrypto into the localStorage store, with no
+      //   IndexedDB, so that should never happen).
+      ownSealRefuses = ownSealProbe(sealUnderTypedPassphrase(tursoToken ?? ""), true);
     } else if ((tokenDirty || tokenUnsealed) && wrapNow() === "passphrase") {
       // A STALE render: passphrase mode at event time (another section or tab saved a record since)
       //   but no passphrase was typed, because the fields were not shown. Nothing can seal the token
@@ -898,18 +899,22 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             },
           }
         : settings;
-    if (!(await commitPortfolioModeSwitch(base, pendingMode, deviceSealRefuses))) {
-      refuseSwitch(deviceSealRefuses?.() === true);
+    // §715 — a token cleared meanwhile leaves no Turso config: stop rather than land in an empty Turso
+    //   portfolio. No message of its own — the section's "needs config" banner already shows.
+    const nowUnconfigured = () => pendingMode === "turso" && !getTursoConfig(tursoUrl, tokenNowRef.current);
+    if (!(await commitPortfolioModeSwitch(base, pendingMode, () => nowUnconfigured() || !!ownSealRefuses?.()))) {
+      if (nowUnconfigured()) setSwitchBusy(false);
+      else refuseSwitch(ownSealIsDevice && ownSealRefuses?.() === true);
     }
   }
 
-  // Tracks a switch's own seal and returns a check for after the wait: true (refuse) when it failed
-  // or was superseded while a token is still there to lose; false when it landed, when the token was
-  // cleared meanwhile (§609: the clear wins, nothing is left to keep), or when it has not settled.
-  function ownSealProbe(seal: Promise<boolean>): () => boolean {
+  // Tracks a switch's own seal and returns a check for after the wait: true (refuse) when it failed,
+  // was superseded, or — with `unsettledRefuses` — is still running, while a token is still there to
+  // lose; false when it landed or when the token was cleared meanwhile (§609: the clear wins).
+  function ownSealProbe(seal: Promise<boolean>, unsettledRefuses: boolean): () => boolean {
     let landed: boolean | undefined;
     trackTokenSeal(seal.then((ok) => { landed = ok; }, (err: unknown) => { landed = false; throw err; }));
-    return () => landed === false && tokenNowRef.current.trim() !== "";
+    return () => (landed === undefined ? unsettledRefuses : !landed) && tokenNowRef.current.trim() !== "";
   }
 
   function refuseSwitch(device: boolean) {
@@ -1512,7 +1517,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                       switchRefusal?.device
                         ? "integrationsTursoSwitchTokenNotSaved"
                         : "integrationsTursoSwitchTokenUnsealed",
-                      t(lang, "portfolioModeSwitchConfirm"),
+                      t(lang, noCurrentProject ? "portfolioModeSwitchConfirmNoProject" : "portfolioModeSwitchConfirm"),
                     )}
                   </FieldError>
                 )}

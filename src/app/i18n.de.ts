@@ -4804,7 +4804,7 @@ export const de: Record<TranslationKey, string> = {
   projectMigrateNoProject: "Kein aktuelles Projekt zum Verschieben.",
   projectMigrateTokenNeedsPassphrase: "Ihr Turso-Token soll durch eine Passphrase geschützt werden, ist aber noch nicht damit gespeichert, sodass es beim Verschieben des Projekts jetzt verloren ginge. Geben Sie unter Einstellungen → Integrationen die Passphrase unter dem Turso-Token ein und wählen Sie zuerst {0}.",
   integrationsTursoSwitchTokenUnsealed: "Ihr Turso-Token ist noch nicht mit der Passphrase gespeichert, sodass es beim Wechsel jetzt verloren ginge. Geben Sie die Passphrase unter dem Turso-Token ein und wählen Sie dann erneut {0}.",
-  integrationsTursoSwitchTokenNotSaved: "Das Turso-Token wurde nicht gespeichert, daher wurde nichts gewechselt. Wählen Sie erneut {0}.",
+  integrationsTursoSwitchTokenNotSaved: "Das Turso-Token wurde nicht gespeichert, daher wurde das Portfolio nicht gewechselt. Wählen Sie erneut {0}.",
   projectTursoNotConfigured: "Zuerst eine Turso-Datenbank unter Einstellungen → Integrationen konfigurieren.",
   projectLoadFromTurso: "Von Turso laden",
   projectLoadFromTursoHint:
