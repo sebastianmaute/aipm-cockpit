@@ -422,4 +422,33 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(screen.getByRole("alert")).toHaveTextContent("1 change needs attention: Change 2, Availability (%): Between 10 and 300.");
   });
+
+  // Controller-commit review minor 1: a frozen summary over a draft with no errors left misled a sighted user. It
+  // now goes quietly when the last error it named is fixed; a partial fix (above) leaves it.
+  it("the summary goes once every error it named is fixed", async () => {
+    const { user } = renderEditor();
+    await user.type(control("Name"), "Two bad rows");
+    await user.click(screen.getByRole("button", { name: "+ Availability change" }));
+    await user.click(screen.getByRole("button", { name: "+ Availability change" }));
+    fireEvent.change(field("Change 1: From"), { target: { value: "" } });
+    fireEvent.change(field("Change 2: Availability (%)"), { target: { value: "5" } });
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    fireEvent.change(field("Change 1: From"), { target: { value: "2026-10-20" } });
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    fireEvent.change(field("Change 2: Availability (%)"), { target: { value: "120" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  // Controller-commit review minor 2: nothing pinned that a valid Save clears a refusal shown by the previous one.
+  it("a valid Save clears the previous refusal", async () => {
+    const { onSave, user } = renderEditor({ refuse: "A project keeps at most 4 scenarios." });
+    await user.type(control("Name"), "Late");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("A project keeps at most 4 scenarios.");
+    onSave.mockReturnValue(null);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });

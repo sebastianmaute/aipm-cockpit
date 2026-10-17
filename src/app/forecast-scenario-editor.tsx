@@ -114,8 +114,14 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
   const exceptId = scenario?.id ?? null;
   const add = (kind: ScenarioChange["kind"]) =>
     setRows((prev) => ({ list: [...prev.list, { key: prev.next, change: newChange(kind, context.today) }], next: prev.next + 1 }));
+  // The frozen summary goes quietly once the last error it named is fixed (an unmount is not announced), so a sighted
+  // user is not left reading "2 changes need attention" over a clean draft. A partial fix leaves it as it was.
+  const clearSummaryIfClean = (rowsLeft: number, draftLeft: Errors["draft"]) => {
+    if (rowsLeft === 0 && draftLeft === null) setAnnounced(null);
+  };
   const update = (key: number, change: ScenarioChange) => {
     setRows((prev) => ({ ...prev, list: prev.list.map((r) => (r.key === key ? { key, change } : r)) }));
+    if (errors.rows.has(key)) clearSummaryIfClean(errors.rows.size - 1, errors.draft);
     setErrors((prev) => {
       if (!prev.rows.has(key)) return prev;
       const next = new Map(prev.rows);
@@ -187,7 +193,10 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
             lang={lang} id={nameId} value={name} message={nameMessage} announce={false}
             onChange={(v) => {
               setName(v);
-              if (nameBad) setErrors((prev) => ({ ...prev, draft: null }));
+              if (nameBad) {
+                setErrors((prev) => ({ ...prev, draft: null }));
+                clearSummaryIfClean(errors.rows.size, null);
+              }
             }}
           />
           {doublesTeam && <p className="text-xs font-medium text-foreground">{t(lang, "forecastScenarioDoublesTeam")}</p>}
