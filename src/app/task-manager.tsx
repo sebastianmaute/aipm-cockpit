@@ -904,7 +904,7 @@ function TaskManagerInner() {
     onStatusChange,
     onSwimlaneDrop,
     onEdit,
-    onDelete,
+    onDelete, confirmRef: taskDeleteConfirmRef,
     handleClearRaidTaskFilter,
     handleClearChangeTaskFilter,
     handleJumpToTaskFromRaid,
@@ -1932,7 +1932,7 @@ function TaskManagerInner() {
         <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
           <ToastProvider value={toastApi}>
             <VoiceCommandProvider value={voiceHandlers}>
-              <ConfirmProvider lang={lang}>
+              <ConfirmProvider lang={lang} bridgeRef={taskDeleteConfirmRef}>
                 <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>{legacyTree}</DisplayTimezoneProvider>
               </ConfirmProvider>
             </VoiceCommandProvider>
@@ -1957,7 +1957,7 @@ function TaskManagerInner() {
       <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
         <ToastProvider value={toastApi}>
           <VoiceCommandProvider value={voiceHandlers}>
-            <ConfirmProvider lang={lang}>
+            <ConfirmProvider lang={lang} bridgeRef={taskDeleteConfirmRef}>
             <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>
             {showTursoUnlock ? (
               <SecretUnlockGate

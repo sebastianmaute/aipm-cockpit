@@ -197,7 +197,37 @@
   silently apply it on the next reload.
   On any OTHER kind each keystroke commits (`commitTurso`) with no rebuild, and no Apply renders —
   that covers the hosts that configure Turso before switching the kind to it (the setup wizard,
-  `BackendConfigModal` from create-project). "Test connection" probes the drafts without committing.
+  `BackendConfigModal` from create-project). ★★ In passphrase mode such a keystroke commit seals NOTHING (no
+  passphrase in memory), and the reload a portfolio switch does would restore the OLD record (§715). The
+  token is held, by value and at module scope, until a seal covers it (`hasUnsealedPassphraseToken` in `turso-token-marker.ts`), and
+  `tokenSealBlocked` then applies off Turso storage too: "Save & switch" waits for the passphrase,
+  verifies it and seals the typed token; the setup wizard's Finish, which has no passphrase, refuses
+  the switch and goes back to the storage step; "Move to Turso" reloads too, so
+  `migrateCurrentProjectToTurso` waits for in-flight seals (`tokenSealsSettled`) and then refuses, for
+  both buttons bound to it, while the marker still holds the settings token. The marker outlives
+  the section, so it also keeps a remounted section in passphrase mode (`tokenWrap`), and it still counts once the kind moves to Turso in
+  the same page, where the token is no draft: there, in passphrase mode, the unsealed token enables
+  Apply without a dirty draft (`canApplyTurso`; the passphrase must still be typed), and Apply seals it
+  under it. The marker holds the latest committed token or nothing, and an untick device-seals
+  whatever it holds, until it holds nothing, before it flips the wrap to device.
+  ★★ ONE STATE, ONE GATE: the wrap each section shows is DERIVED (`effectiveWrap` — passphrase whenever
+  the marker holds this token), because Settings → Integrations stays mounted under the setup wizard,
+  whose own section can commit the token. Every reload path then runs the same durability gate —
+  `tokenSealsSettled` (which also waits for seals that start meanwhile), then refuse while
+  `hasUnsealedPassphraseToken` holds: `commitPortfolioModeSwitch` (Save & switch, the wizard's Finish)
+  returns `false`, and `migrateCurrentProjectToTurso` toasts. On Turso storage an edited token is a DRAFT the
+  marker never holds, so Save & switch reads its own seal of that draft after the same single wait:
+  a passphrase seal refuses unless it landed; a device seal refuses only if it FAILED (one still
+  running at the deadline goes ahead, as the wait always did). A token cleared meanwhile wins (§609)
+  and, on a switch TO Turso with no config left, stops it under the section's "needs config" banner
+  (a switch to File goes ahead). A keystroke during the seal commits a newer token, which the switch
+  checks too. A stopped switch on Turso storage puts back the record its own seal of a DRAFT
+  replaced, now or when the seal lands, through `snapshotSealedRestore` taken when that seal began,
+  so anything begun since wins, and the user's lock choice for the draft is kept. A seal of the
+  committed token is never put back. A refusal names the token it refused and
+  shows only while it is still true. The
+  wizard refuses either direction of switch: the reload loses the token whichever way it goes.
+  "Test connection" probes the drafts without committing.
   (`integrations-section.backend-hold.test.tsx` pins both models against the real hook.)
   ★★ The blur-commit design this replaced — commit when focus left the credentials group — lost a
   click (WebKit does not focus a clicked button), a focus (Tab out dropped it to `<body>` after the
@@ -206,10 +236,11 @@
   before `onClose` (`docs/AGENTS/ui-shell.md` dismissal) and must NOT commit a Turso draft;
   "Save & switch" is itself an explicit save, so it APPLIES any unapplied drafts (the Turso option it
   offers is enabled by the drafts, and the reload means no hold can swallow anything) and waits for
-  every in-flight token seal before reloading — tracked at MODULE scope (`pendingTokenSeals`),
+  every in-flight token seal before reloading — tracked at MODULE scope (`trackTokenSeal`, in `turso-token-seals.ts`),
   because the instance that started a seal may already be remounted away, and BOUNDED by
-  `waitForTokenSeals` (`SECRET_MERGE_TIMEOUT_MS`; on timeout it proceeds and logs
-  `settings.tursoTokenSealWaitTimedOut`); and the render-time reconcile resyncs a CLEAN draft only,
+  `tokenSealsSettled` (ONE `SECRET_MERGE_TIMEOUT_MS` deadline over the whole wait, seals that start
+  meanwhile included; `null`, so no `await` at all, when nothing is in flight; on timeout it logs
+  `settings.tursoTokenSealWaitTimedOut` and the durability gate above decides); and the render-time reconcile resyncs a CLEAN draft only,
   keeping a dirty one when the stored value moves.
 - ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
   (`use-insight-lifecycle.ts`), the recommendation store `applyInsightRecommendation`

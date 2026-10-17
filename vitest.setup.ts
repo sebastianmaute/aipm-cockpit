@@ -4,6 +4,8 @@ import { cleanup, configure } from "@testing-library/react";
 import { server } from "./src/test/msw-server";
 import { parseClockOffsetDays, registerClockOffset } from "./src/test/clock-offset";
 import { __resetSettingsReloadSeal } from "./src/app/settings-reload-seal";
+import { __resetTursoTokenState } from "./src/app/turso-token-marker";
+import { __resetMoveToTursoGuard } from "./src/app/move-to-turso-guard";
 
 // §149 — off unless VITEST_CLOCK_OFFSET_DAYS is set (the weekly
 // `unit-future-clock` job); then every test runs with `Date` moved that many
@@ -98,6 +100,10 @@ afterEach(() => {
   // §740 — a portfolio switch or reset seals settings writes until a reload jsdom never
   // performs, so without this every later settings write in the same file is skipped.
   __resetSettingsReloadSeal();
+  // §715 — the Turso token marker and seals in flight are module state, so no test may inherit another's.
+  __resetTursoTokenState();
+  // §715 — a test that parks a Move to Turso would otherwise drop every later move in its file.
+  __resetMoveToTursoGuard();
 });
 
 afterAll(() => server.close());

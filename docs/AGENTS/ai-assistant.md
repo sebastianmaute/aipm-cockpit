@@ -741,7 +741,9 @@
   a prompt whose closing clause named a tool the request did not carry. The fix is that the block's closing
   sentence is emitted ONLY when `offeredTools.has("search_history")`, and `offeredTools` is
   `toolNamesFor(toolFlags)` — the set DERIVED from the very arrays `toolsFor` returns, resolved ONCE in
-  `buildSystemPrompt` and shared with `buildViewScopeBlock`. So "what the model is told it has" and "what the
+  `buildTurnContext` and shared with `buildViewScopeBlock`. ★ A caller that sends a narrower list passes
+  its names as `offered`, which replaces that set: `inline-ai-edit-call.ts` sends only the plannable tools
+  (`toolsNamed`, §715) and passes the names of that same array. So "what the model is told it has" and "what the
   request carries" come from one decision and cannot drift. The COUNTS survive the suppression — they still
   orient the model when it cannot go read the rows. Reproduce the derivation with
   `grep -n "toolNamesFor\|toolsFor" src/app/chat-api.ts`.
@@ -857,7 +859,7 @@
   "View-scoped AI prompts" below) — the same argument as the activity recap, and worth more than the block's
   own tokens many times over. Same suppression contract too: the closing "Use search_chats to read them." is
   emitted ONLY when
-  `offeredTools` (`toolNamesFor(toolFlags)`) holds the name, so the recap's shipped lie — naming a tool the
+  `offeredTools` (`toolNamesFor(toolFlags)`, or a caller's `offered` set) holds the name, so the recap's shipped lie — naming a tool the
   request did not carry — cannot recur here. ★ `inline-ai-edit-call.ts` blanks `chatPointer` out of the
   snapshot it forwards, alongside `viewDigest` and `activitySummary`: that path passes `NO_RECALL_TOOLS`, so
   the closing instruction was already suppressed and what survived named conversations the model had no tool

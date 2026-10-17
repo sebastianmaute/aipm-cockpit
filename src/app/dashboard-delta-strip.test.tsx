@@ -42,6 +42,37 @@ describe("DashboardDeltaStrip", () => {
     expect(root.className.includes("shadow-[var(--shadow-card)]")).toBe(true);
   });
 
+  describe("a count of one reads singular (§715 D3)", () => {
+    beforeAll(async () => { await loadI18n("de"); });
+    const ones = () => {
+      const counts = emptyCounts();
+      counts.tasks.created = 1; counts.tasks.updated = 1; counts.tasks.completed = 1;
+      counts.raid.created = 1; counts.milestone.updated = 1; counts.change.statusChanged = 1;
+      return counts;
+    };
+    const greeting = { greetingKey: "dashboardGreetingMorning" as const, summary: { needsYou: 0, milestonesSoon: 0 } };
+
+    test("English", () => {
+      render(<DashboardDeltaStrip lang="en-US" delta={delta({ counts: ones(), total: 6 })} greeting={greeting} />);
+      for (const label of ["1 task added", "1 task updated", "1 task completed", "1 RAID update", "1 milestone update", "1 change update"]) {
+        expect(screen.getByText(label, { exact: true }), label).toBeInTheDocument();
+      }
+    });
+
+    test("German", () => {
+      render(<DashboardDeltaStrip lang="de" delta={delta({ counts: ones(), total: 6 })} greeting={greeting} />);
+      for (const label of ["1 Aufgabe hinzugefügt", "1 Aufgabe aktualisiert", "1 Aufgabe abgeschlossen", "1 RAID-Aktualisierung", "1 Meilenstein-Aktualisierung", "1 Änderungs-Aktualisierung"]) {
+        expect(screen.getByText(label, { exact: true }), label).toBeInTheDocument();
+      }
+    });
+
+    test("two still read plural", () => {
+      const counts = emptyCounts(); counts.raid.created = 2;
+      render(<DashboardDeltaStrip lang="en-US" delta={delta({ counts, total: 2 })} greeting={greeting} />);
+      expect(screen.getByText("2 RAID updates", { exact: true })).toBeInTheDocument();
+    });
+  });
+
   test("renders a task-updated chip and routes its click", () => {
     const onOpenTask = vi.fn();
     const counts = emptyCounts(); counts.tasks.updated = 4;

@@ -986,6 +986,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§746](#746-video-guides-no-guided-tour-per-project-function--open) | Video guides: no guided tour per project Function | — | — | open |
 | [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--closed-2026-10-16) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | **CLOSED** 2026-10-16 |
 | [§748](#748-background-workers-may-help-across-the-app-starting-with-the-monte-carlo-forecast--open) | Background workers may help across the app, starting with the Monte Carlo forecast | — | — | open |
+| [§749](#749-a-claude-api-key-typed-under-the-passphrase-lock-is-lost-on-reload-and-two-ai-sections-disagree-about-the-lock--open) | A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45613,3 +45614,22 @@ Proposed: a survey first (a measured table with a reproduce command per row), th
 Size L (the survey is M).
 
 **Source:** owner requests 2026-10-16 (file the forecast worker) and 2026-10-17 (widen to the whole app), during the §502 part-3 pre-merge fixes.
+
+## 749. A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock — OPEN
+
+**Status:** OPEN 2026-10-17, from code reading; not yet reproduced in a test. `grep -n "keyWrap === \"device\"" src/app/settings-sections/ai-section.tsx` → the one keystroke seal, device mode only.
+
+**Work item:** #777
+
+The same two defects §715 fixed for the Turso token, on the Claude API key:
+
+1. **A key typed with the passphrase lock on is lost on the next reload.** `handleApiKeyChange` (`src/app/settings-sections/ai-section.tsx`) commits each keystroke to settings, but only device mode seals it; in passphrase mode nothing is sealed until "Save passphrase". `writeSettings` blanks `ai.apiKey`, so a reload restores the old record, or none. The app reloads deliberately on "Save & switch", the setup wizard's Finish (whose step 2 is `AiSection`) and "Move to Turso"; none of them checks the API key.
+2. **Two mounted AI sections disagree about the wrap.** Settings (`settings-view.tsx`) keeps its `AiSection` mounted under the setup wizard, which mounts a second one. `keyWrap` is per instance and the keystroke handler reads it, so a passphrase saved in the wizard leaves the section underneath in device mode, and its next keystroke device-seals over the passphrase record.
+
+Proposed: generalise the §715 marker and durability gate per `SecretId` (`turso-token-marker.ts`, `turso-token-seals.ts`), derive the AI section's wrap from the marker and the record as `integrations-section.tsx` does (`effectiveWrap`, `wrapNow`), and have every reload path check both secrets. Tests: the two-section case and a reload-path refusal, each with a mutant.
+
+Size M.
+
+Also noted for the same generalisation (Turso token, §715 round 20): when a write that began after a stopped switch's own seal FAILS, it has still bumped the generation, so the put-back yields and the draft's seal stays in the store. That follows the deliberate no-fallback rule on `beginSealedWrite`; the generalised gate should decide whether the put-back may then still run.
+
+**Source:** found 2026-10-17 by the owner's question during the §715 review rounds (`fix/715-recording-defects`).

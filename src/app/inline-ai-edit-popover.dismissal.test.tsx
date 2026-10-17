@@ -17,6 +17,7 @@ function Host({ onModalClose, onCancel }: { onModalClose: () => void; onCancel: 
         {popoverOpen && (
           <InlineAiEditPopover
             lang="en-US"
+            title="Ask Claude to edit this RAID item"
             itemTitle="Vendor late"
             entityLabel="RAID item"
             phase="idle"

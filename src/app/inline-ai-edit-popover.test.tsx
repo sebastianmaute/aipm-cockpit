@@ -7,6 +7,7 @@ import { type Workspace } from "./workspace";
 
 const base = {
   lang: "en-US" as const,
+  title: "Ask Claude to edit this task",
   itemTitle: "Fix login bug",
   entityLabel: "RAID item",
   phase: "idle" as const, plan: null, clarifyText: "", errorText: "",
@@ -21,6 +22,13 @@ it("renders the entity label + item title and submits the instruction", () => {
   fireEvent.change(input, { target: { value: "mark done" } });
   fireEvent.submit(input.closest("form")!);
   expect(base.onSubmit).toHaveBeenCalledWith("mark done");
+});
+
+it("titles itself with the title it is given, heading and input alike (§715 D4)", () => {
+  render(<InlineAiEditPopover {...base} title="Ask Claude to edit this milestone" />);
+  expect(screen.getByRole("heading", { name: "Ask Claude to edit this milestone" })).toBeInTheDocument();
+  expect(screen.getByLabelText("Ask Claude to edit this milestone")).toBeInTheDocument();
+  expect(screen.queryByText(/edit this task/i)).toBeNull();
 });
 
 it("focuses the input on open and restores focus to the trigger on close", async () => {

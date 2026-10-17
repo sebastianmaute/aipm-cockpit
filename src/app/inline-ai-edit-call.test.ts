@@ -2,6 +2,10 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { asTimeZoneForTests } from "./timezone";
 import * as chatApi from "./chat-api";
 import { callInlineEdit, type InlineEditArgs } from "./inline-ai-edit-call";
+import { PLANNABLE_TOOL_NAMES } from "./inline-ai-edit/plan";
+import { VIEW_AI_SCOPE } from "./view-ai-scope";
+import { buildViewScopeBlock } from "./view-ai-scope-block";
+import type { AppView } from "./nav-config";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -292,5 +296,93 @@ describe("callInlineEdit forecast block", () => {
     const text = await systemText(false);
     expect(text).toContain('its "Use Monte Carlo forecasting" switch is off');
     expect(text).not.toMatch(/get_forecast|create_forecast_scenario|update_forecast_scenario/);
+  });
+});
+
+// §715 D1 — this path is single-shot: a READ tool call (list_milestones, get_task…) can never be
+// answered, and the plan matches only update/create/delete tools, so a model that looks first yields an
+// empty plan ("No changes to apply"). Measured live: a milestone description edit answered list_milestones.
+describe("the tools an inline edit offers (§715 D1)", () => {
+  it("are exactly the tools its plan can act on", async () => {
+    const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
+    await callInlineEdit({ apiKey: "k", model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    const tools = spy.mock.calls[0][6] as { name: string }[] | undefined;
+    expect(tools, "a tool list is passed").toBeDefined();
+    const names = tools!.map((t) => t.name);
+    expect(names.filter((n) => !PLANNABLE_TOOL_NAMES.has(n))).toEqual([]);
+    expect(names).toEqual(expect.arrayContaining(["update_milestone", "update_raid_item", "update_task", "create_task"]));
+    expect(names.some((n) => /^(list_|get_|search_)/.test(n))).toBe(false);
+  });
+});
+
+// The prompt must advertise only what the request carries: a view's "Relevant tools here" naming
+// list_milestones invites the exact unanswerable call the narrowed list exists to prevent.
+describe("the tools an inline edit's prompt names (§715 D1)", () => {
+  it("are tools the request carries, on every view", async () => {
+    const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
+    const views = Object.keys(VIEW_AI_SCOPE) as AppView[];
+    // Positive control: the regex below matches the line the block emits when a hint DOES survive, so
+    // a reworded line fails here instead of passing the loop by absence (no plannable tool is hinted on
+    // any view today, so after the narrowing the loop alone never sees the line).
+    expect(/Relevant tools here: ([^\n]*)\./.exec(buildViewScopeBlock("milestones", chatApi.toolNamesFor({})))?.[1]).toContain("list_milestones");
+    for (const currentView of views) {
+      spy.mockClear();
+      await callInlineEdit({ apiKey: "k", model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot: { ...snapshot, currentView }, guides: [], groundInGuides: false });
+      const carried = new Set((spy.mock.calls[0][6] as { name: string }[]).map((t) => t.name));
+      const text = chatApi.systemBlocksText(spy.mock.calls[0][2]);
+      // Control: the view scope block itself still ran for this view.
+      expect(text, currentView).toContain(`VIEW SCOPE — the user is looking at the "${currentView}" view.`);
+      const line = /Relevant tools here: ([^\n]*)\./.exec(text);
+      const named = line ? line[1].split(", ") : [];
+      expect(named.filter((n) => !carried.has(n)), currentView).toEqual([]);
+      // The line names exactly the hints that survive the narrowing.
+      const surviving = (VIEW_AI_SCOPE[currentView].toolHints ?? []).filter((h) => carried.has(h));
+      expect(named, currentView).toEqual(surviving);
+    }
+  });
+});
+
+// Guidance the inline path cannot filter (the stable prompt's "call the matching list_ tool", a view's
+// `reading`) still names read tools; the scope block says they are absent, whatever any other guidance
+// says — including inline-edit guides, which are sent AFTER it.
+describe("the inline scope block (§715 D1)", () => {
+  it("says the request carries no read tools", async () => {
+    const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
+    await callInlineEdit({ apiKey: "k", model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    const system = spy.mock.calls[0][2];
+    const scope = system.find((b) => b.text.startsWith("INLINE EDIT MODE."));
+    expect(scope?.text).toContain("This request carries no read tools");
+  });
+});
+
+// The update tools' schema calls expectedToken "REQUIRED. The token returned when you read this record",
+// but this path has no read tools and the app stamps the token itself at apply. A model that follows
+// the schema would ask to read first — D1's empty plan again — so the inline request drops the field.
+describe("the inline request's update tools (§715 D1)", () => {
+  it("do not ask for expectedToken", async () => {
+    const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
+    await callInlineEdit({ apiKey: "k", model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    const tools = spy.mock.calls[0][6] as { name: string; input_schema: { properties?: Record<string, unknown>; required?: string[] } }[];
+    // Control: the full list does carry it, so the check below has something to remove.
+    const full = chatApi.toolsFor({}).find((d) => d.name === "update_milestone") as unknown as (typeof tools)[number];
+    expect(full.input_schema.required).toContain("expectedToken");
+    const asking = tools.filter((d) => "expectedToken" in (d.input_schema.properties ?? {}) || (d.input_schema.required ?? []).includes("expectedToken"));
+    expect(asking.map((d) => d.name)).toEqual([]);
+    expect(tools.find((d) => d.name === "update_milestone")?.input_schema.required).toContain("id");
+    expect(tools.filter((d) => "cache_control" in d)).toHaveLength(1);
+  });
+});
+
+describe("toolsNamed (§715 D1)", () => {
+  it("keeps only the named tools, one array per set, with one cache breakpoint", () => {
+    const wanted = new Set(["update_task", "update_milestone"]);
+    const a = chatApi.toolsNamed(wanted);
+    expect(a.map((t) => t.name).sort()).toEqual(["update_milestone", "update_task"]);
+    expect(chatApi.toolsNamed(new Set(wanted))).toBe(a);
+    expect(a.filter((t) => "cache_control" in t)).toHaveLength(1);
   });
 });

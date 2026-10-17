@@ -36,6 +36,26 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Ask Claude edits milestones and RAID items again (§715).** A description change on a milestone or a
+  mitigation on a RAID item always ended in "No changes to apply": Claude looked the item up first, a step the
+  one-shot edit cannot answer. It is now offered only the changes it can make.
+- **The setup wizard keeps a portfolio switch (§715).** Choosing Turso under Portfolio storage and finishing
+  the wizard left the app on browser storage; Finish now switches to the portfolio you picked. The review
+  step says the switch reloads the app, and without a saved Turso URL and token Finish takes you back to the
+  storage step instead of switching, and the review step says so. On Turso storage, leaving that step or
+  closing the wizard with Turso changes you have not applied now asks before they are discarded.
+- **Switching to the Turso portfolio, or moving a project there, no longer loses a token protected by a passphrase (§715).** Off Turso
+  storage, a Turso token typed again while the passphrase lock is on was kept only until the reload the
+  switch does, which brought back the old stored token. "Save & switch" now waits for the passphrase,
+  checks it against the stored token and saves the new one under it; the setup wizard's Finish goes back
+  to the storage step to do that instead of switching; "Move to Turso" now refuses until the token is saved
+  under the passphrase, and says how.
+- **Deleting a task asks in the app's own dialog (§715)**, with a Delete button, instead of the browser's
+  confirm box: from the row menu, the task editor and the voice command alike.
+- **The Ask Claude window names what it edits (§715).** On a milestone, change request, RAID item or
+  stakeholder it said "Ask Claude to edit this task".
+- **"Since you last looked" counts one in the singular (§715)**: "1 RAID update", not "1 RAID updates", in
+  English and German.
 - **Next actions flags an over-allocated person in the current period (§747).** The over-allocation
   check, and the Workload view's "Util (now)" cell beside it, read the plan's first month (or week) instead of
   the one containing today, so once a project was past its first period nobody was ever flagged and the cell
