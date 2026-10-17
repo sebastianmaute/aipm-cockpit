@@ -54,6 +54,32 @@ export interface InlineEditResult {
   usage: ApiUsage;
 }
 
+type InlineTools = ReturnType<typeof toolsNamed>;
+let inlineToolsCache: InlineTools | null = null;
+
+/** The plannable tools, without `expectedToken` (§715 D1). Its schema text says "REQUIRED. The token
+ *  returned when you read this record", but this path has no read tools and the app stamps the
+ *  stored row's token itself at apply (`use-inline-entity-edit.ts`). A model that follows the schema
+ *  asks to read first, which ends in an empty plan. Built once: the set never changes. */
+function inlineTools(): InlineTools {
+  if (inlineToolsCache) return inlineToolsCache;
+  inlineToolsCache = toolsNamed(PLANNABLE_TOOL_NAMES).map((def) => {
+    const schema = def.input_schema as { properties?: Record<string, unknown>; required?: readonly string[] };
+    if (!schema.properties || !("expectedToken" in schema.properties)) return def;
+    const { expectedToken: _dropped, ...properties } = schema.properties;
+    void _dropped;
+    return {
+      ...def,
+      input_schema: {
+        ...def.input_schema,
+        properties,
+        ...(schema.required ? { required: schema.required.filter((r) => r !== "expectedToken") } : {}),
+      },
+    };
+  }) as InlineTools;
+  return inlineToolsCache;
+}
+
 function scopeBlock(entity: InlineEntity, item: Record<string, unknown>, itemLabel: string): SystemBlock {
   const fields = JSON.stringify(item);
   return {
@@ -64,7 +90,7 @@ function scopeBlock(entity: InlineEntity, item: Record<string, unknown>, itemLab
       "create related items (create_task / create_raid_item / create_change / " +
       "create_milestone / create_stakeholder) when asked. Do NOT update or delete any OTHER item. Do NOT " +
       "chat or explain unless you cannot proceed without more detail. This request carries no read tools " +
-      "(no list_, get_ or search_ calls), whatever other guidance above suggests: the target's fields are " +
+      "(no list_, get_ or search_ calls), whatever any other guidance says: the target's fields are " +
       `below, so act on them directly. Target ${entity}:\n` +
       fields,
   };
@@ -125,7 +151,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   // disappears with the tool. `NO_RECALL_TOOLS` alone would not: it names every
   // tool but the two recall ones.
   // §715 D1 — only the tools the plan can act on: a read tool here is a call nobody answers.
-  const tools = toolsNamed(PLANNABLE_TOOL_NAMES);
+  const tools = inlineTools();
   const offered = new Set(tools.map((d) => d.name));
   const system: SystemBlock[] = [
     ...buildSystemPrompt(

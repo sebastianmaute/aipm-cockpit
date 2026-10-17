@@ -306,7 +306,8 @@ describe("the tools an inline edit's prompt names (§715 D1)", () => {
 });
 
 // Guidance the inline path cannot filter (the stable prompt's "call the matching list_ tool", a view's
-// `reading`) still names read tools; the scope block, which the model reads last, says they are absent.
+// `reading`) still names read tools; the scope block says they are absent, whatever any other guidance
+// says — including inline-edit guides, which are sent AFTER it.
 describe("the inline scope block (§715 D1)", () => {
   it("says the request carries no read tools", async () => {
     const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
@@ -315,6 +316,25 @@ describe("the inline scope block (§715 D1)", () => {
     const system = spy.mock.calls[0][2];
     const scope = system.find((b) => b.text.startsWith("INLINE EDIT MODE."));
     expect(scope?.text).toContain("This request carries no read tools");
+  });
+});
+
+// The update tools' schema calls expectedToken "REQUIRED. The token returned when you read this record",
+// but this path has no read tools and the app stamps the token itself at apply. A model that follows
+// the schema would ask to read first — D1's empty plan again — so the inline request drops the field.
+describe("the inline request's update tools (§715 D1)", () => {
+  it("do not ask for expectedToken", async () => {
+    const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
+    await callInlineEdit({ apiKey: "k", model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    const tools = spy.mock.calls[0][6] as { name: string; input_schema: { properties?: Record<string, unknown>; required?: string[] } }[];
+    // Control: the full list does carry it, so the check below has something to remove.
+    const full = chatApi.toolsFor({}).find((d) => d.name === "update_milestone") as unknown as (typeof tools)[number];
+    expect(full.input_schema.required).toContain("expectedToken");
+    const asking = tools.filter((d) => "expectedToken" in (d.input_schema.properties ?? {}) || (d.input_schema.required ?? []).includes("expectedToken"));
+    expect(asking.map((d) => d.name)).toEqual([]);
+    expect(tools.find((d) => d.name === "update_milestone")?.input_schema.required).toContain("id");
+    expect(tools.filter((d) => "cache_control" in d)).toHaveLength(1);
   });
 });
 
