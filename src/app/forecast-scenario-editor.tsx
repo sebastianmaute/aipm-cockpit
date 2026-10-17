@@ -3,20 +3,22 @@
 // The scenario editor (§502, spec §4.2): a name, a list of dated change rows and Save / Cancel, on the shared
 // `Modal` (Escape and Tab per docs/AGENTS/ui-shell.md "dismissal"). The draft is local state seeded at mount —
 // the view mounts the editor with `key={scenario?.id ?? "new-" + openId}`, so nothing is set in an effect.
-// Save validates first (`validateScenarioDraft`, then every row with `validateScenarioChange`): the hook's
-// create/update refuse an invalid draft WITHOUT a toast, so the editor is where the user is told why.
+// Save validates first (`validateScenarioDraft`, then every row with `validateScenarioChange`, except a stale
+// milestone or person reference the row already had when stored): the hook's create/update refuse an invalid
+// draft WITHOUT a toast, so the editor is where the user is told why — and a refusal that still happens (a
+// concurrent writer between open and Save) comes back from `onSave` and keeps the editor open with its reason.
 
 import { useId, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
-import { ScenarioDialogActions, ScenarioNameField } from "./forecast-scenario-name-dialog";
+import { ScenarioDialogActions, ScenarioNameField, draftErrorText } from "./forecast-scenario-name-dialog";
 import type { ScheduleContext } from "./forecast-added-people";
 import { changeDayWindow } from "./forecast-added-people";
 import { buildScenarioSchedule } from "./forecast-scenario-schedule";
 import {
-  MAX_FORECAST_SCENARIOS, MAX_SCENARIO_CHANGES, SCENARIO_NAME_MAX, validateScenarioChange, validateScenarioDraft,
+  MAX_SCENARIO_CHANGES, validateScenarioChange, validateScenarioDraft,
   type ForecastScenario, type ScenarioChange, type ScenarioChangeError, type ScenarioError, type ValidationContext,
 } from "./forecast-scenarios";
 import type { ScenarioDraft } from "./use-forecast-scenarios";
@@ -33,28 +35,31 @@ export type ForecastScenarioEditorProps = {
   /** `comparison.context`: the window the columns used, so a row's status matches its column. */
   context: ScheduleContext;
   list: readonly ForecastScenario[];
-  onSave: (d: ScenarioDraft) => void;
+  /** null = saved (the caller closes the editor); a string = the write was refused, shown above Save. */
+  onSave: (d: ScenarioDraft) => string | null;
   onCancel: () => void;
 };
 
 type Errors = { draft: ScenarioError | null; rows: ReadonlyMap<number, RowError> };
 const NO_ERRORS: Errors = { draft: null, rows: new Map() };
 
-export function draftErrorText(lang: Lang, e: ScenarioError): string {
-  switch (e) {
-    case "name-empty": return t(lang, "forecastScenarioErrNameEmpty");
-    case "name-long": return t(lang, "forecastScenarioErrTooLong", SCENARIO_NAME_MAX);
-    case "name-taken": return t(lang, "forecastScenarioErrNameTaken");
-    case "too-many-changes": return t(lang, "forecastScenarioErrTooMany", MAX_SCENARIO_CHANGES);
-    case "cap": return t(lang, "forecastScenarioCapReached", MAX_FORECAST_SCENARIOS);
-  }
-}
-
 /** Reference errors describe a row the engine still reads (as unattributed, inert, …): exactly what its status
  *  says. Any other error (an unfinished date or number) keeps the row out of the schedule. */
 const REFERENCE_ERRORS: ReadonlySet<ScenarioChangeError> = new Set([
   "milestone-unknown", "milestone-finished", "resource-unknown", "resource-archived", "on-team",
 ]);
+
+/** True when `c` keeps the milestone or directory person its stored row had. Such a reference may have gone
+ *  stale since it was saved (achieved, deleted, archived, joined the team); spec §4.1/§4.1a keep an old scenario
+ *  usable, so Save accepts it and the row stays marked. Only a newly chosen or changed reference is validated. */
+export function keepsStoredReference(stored: ScenarioChange | undefined, c: ScenarioChange): boolean {
+  if (stored === undefined) return false;
+  if (c.kind === "scope" && stored.kind === "scope") return c.milestoneId !== undefined && c.milestoneId === stored.milestoneId;
+  if (c.kind === "addPeople" && stored.kind === "addPeople") {
+    return "resourceId" in c.who && "resourceId" in stored.who && c.who.resourceId === stored.who.resourceId;
+  }
+  return false;
+}
 
 function isSchedulable(c: ScenarioChange, vctx: ValidationContext): boolean {
   // A row with no person picked yet is unfinished, not "person gone".
@@ -72,7 +77,9 @@ function liveStatuses(rows: readonly DraftRow[], context: ScheduleContext, vctx:
   valid.forEach((r, i) => {
     const c = r.change;
     const window = c.kind === "scope" ? null : changeDayWindow(context.dates, c.from, c.until);
-    live.set(r.key, { status: schedule.rows[i], noEffect: window !== null && window.first > window.last });
+    const resourceId = c.kind === "addPeople" && "resourceId" in c.who ? c.who.resourceId : null;
+    const archived = resourceId !== null && vctx.resources.some((x) => x.id === resourceId && x.active === false);
+    live.set(r.key, { status: schedule.rows[i], noEffect: window !== null && window.first > window.last, archived });
   });
   return { live, doublesTeam: schedule.addedShareAtFullSpeed > 1 };
 }
@@ -89,6 +96,7 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
     return { list, next: list.length };
   });
   const [errors, setErrors] = useState<Errors>(NO_ERRORS);
+  const [refused, setRefused] = useState<string | null>(null);
   const vctx = useMemo<ValidationContext>(
     () => ({ milestones: context.milestones, resources: context.directory.resources, onTeam: context.onTeam }),
     [context],
@@ -117,10 +125,14 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
     const rowErrors = new Map<number, RowError>();
     for (const r of rows.list) {
       const error = validateScenarioChange(r.change, vctx);
-      if (error) rowErrors.set(r.key, { field: errorField(r.change, error), error });
+      // Seeded rows keep their index as key and new keys start past them, so `changes[key]` is the stored row.
+      const kept = error !== null && REFERENCE_ERRORS.has(error) && keepsStoredReference(scenario?.changes[r.key], r.change);
+      if (error && !kept) rowErrors.set(r.key, { field: errorField(r.change, error), error });
     }
+    setRefused(null);
     if (draft === null && rowErrors.size === 0) {
-      p.onSave({ name: name.trim(), changes });
+      setErrors(NO_ERRORS);
+      setRefused(p.onSave({ name: name.trim(), changes }));
       return;
     }
     setErrors({ draft, rows: rowErrors });
@@ -136,7 +148,7 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
   };
 
   const nameBad = errors.draft === "name-empty" || errors.draft === "name-long" || errors.draft === "name-taken";
-  const otherDraftError = errors.draft !== null && !nameBad ? draftErrorText(lang, errors.draft) : null;
+  const otherDraftError = errors.draft !== null && !nameBad ? draftErrorText(lang, errors.draft) : refused;
   const addButton = (kind: ScenarioChange["kind"], key: "forecastScenarioAddAvailability" | "forecastScenarioAddPeople" | "forecastScenarioAddScope") => (
     <Button variant="secondary" size="xs" disabled={atCap} aria-describedby={atCap ? capId : undefined} onClick={() => add(kind)}>
       {t(lang, key)}

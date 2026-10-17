@@ -7,8 +7,8 @@ import { loadI18n, type Lang } from "./i18n";
 
 const LIST: ForecastScenario[] = [{ id: 1, name: "Alpha", changes: [] }, { id: 2, name: "Beta", changes: [] }];
 
-function renderDialog(over: { note?: string; exceptId?: number | null; initialName?: string; lang?: Lang } = {}) {
-  const onSave = vi.fn();
+function renderDialog(over: { note?: string; exceptId?: number | null; initialName?: string; lang?: Lang; refuse?: string } = {}) {
+  const onSave = vi.fn((): string | null => over.refuse ?? null);
   const onCancel = vi.fn();
   render(
     <ForecastScenarioNameDialog
@@ -51,6 +51,17 @@ describe("ForecastScenarioNameDialog", () => {
     expect(nameInput()).toHaveValue("Alpha");
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(onSave).toHaveBeenCalledWith("Alpha");
+  });
+
+  it("a refused write keeps the dialog open with its reason beside the name", async () => {
+    const { onSave, onCancel, user } = renderDialog({ refuse: "Not saved: the scenarios were changed elsewhere." });
+    await user.type(nameInput(), "Gamma");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledWith("Gamma");
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Save as scenario" })).toBeInTheDocument();
+    expect(describedText()).toBe("Not saved: the scenarios were changed elsewhere.");
+    expect(document.activeElement).toBe(nameInput());
   });
 
   it("shows the frozen scope note", () => {

@@ -23,7 +23,7 @@ import { useRowTokens } from "./use-row-tokens";
 import { isValidIsoDate } from "./forecast/throughput";
 import { SimValue } from "./sim-value";
 import { ForecastScenarioEditor } from "./forecast-scenario-editor";
-import { ForecastScenarioNameDialog } from "./forecast-scenario-name-dialog";
+import { ForecastScenarioNameDialog, scenarioRefusalText } from "./forecast-scenario-name-dialog";
 
 /** The panel's `scenarios` prop; absent = no Scenarios segment and no "Save as scenario". */
 export type ForecastScenariosProps = { api: ForecastScenariosApi; directory: ScenarioDirectory; readOnly: boolean };
@@ -178,16 +178,18 @@ export function ForecastScenariosView({ lang, input, scenarios }: {
   );
   const listEl = <ScenarioList lang={lang} scenarios={list} tokens={tokens} api={api} readOnly={readOnly} onOpen={setDialog} />;
   const close = () => setDialog(null);
-  // A refused write (a concurrent delete) is reported by the hook; the editor already validated the draft.
+  // The hook refuses without a toast (a cap or name taken by a concurrent writer since open), so a refusal keeps
+  // the dialog open with its reason; only a write that went through closes it.
   const dialogEl = readOnly || dialog === null ? null : dialog.kind === "edit" ? (
     <ForecastScenarioEditor
       key={dialog.scenario?.id ?? `new-${dialog.openId}`}
       lang={lang} open scenario={dialog.scenario} openId={dialog.openId} context={comparison.context} list={list}
       onCancel={close}
       onSave={(d) => {
-        if (dialog.scenario) api.updateScenario(dialog.scenario.id, d);
-        else api.createScenario(dialog.openId, d);
+        const saved = dialog.scenario ? api.updateScenario(dialog.scenario.id, d) : api.createScenario(dialog.openId, d) !== null;
+        if (!saved) return scenarioRefusalText(lang, d, list, dialog.scenario?.id ?? null);
         close();
+        return null;
       }}
     />
   ) : (
@@ -196,8 +198,11 @@ export function ForecastScenariosView({ lang, input, scenarios }: {
       lang={lang} open title={t(lang, "forecastScenarioRenameTitle")} initialName={dialog.scenario.name} list={list}
       exceptId={dialog.scenario.id} onCancel={close}
       onSave={(name) => {
-        api.renameScenario(dialog.scenario.id, name);
+        if (!api.renameScenario(dialog.scenario.id, name)) {
+          return scenarioRefusalText(lang, { name, changes: dialog.scenario.changes }, list, dialog.scenario.id);
+        }
         close();
+        return null;
       }}
     />
   );

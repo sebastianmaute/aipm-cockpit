@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ForecastScenarioEditor } from "./forecast-scenario-editor";
+import { ForecastScenarioEditor, keepsStoredReference } from "./forecast-scenario-editor";
 import type { ScheduleContext, ScenarioDirectory } from "./forecast-added-people";
 import type { ForecastScenario, ScenarioChange } from "./forecast-scenarios";
 import { simulatedDates } from "./forecast/day-index";
@@ -22,7 +22,10 @@ const RESOURCES: Resource[] = [
   person(5, "Eve", { active: false }), // archived: not offered
 ];
 const SHIFTS: Shift[] = [{ id: 1, assignee: "Ada Test", resourceId: 1, hoursPerWeekday: [0, 8, 8, 8, 8, 0, 4] } as Shift];
-const MILESTONES: Milestone[] = [{ id: 10, name: "Beta", date: "2026-12-01", linkedTaskIds: [] }];
+const MILESTONES: Milestone[] = [
+  { id: 10, name: "Beta", date: "2026-12-01", linkedTaskIds: [] },
+  { id: 11, name: "Done one", date: "2026-09-01", achievedDate: "2026-09-01", linkedTaskIds: [] },
+];
 const DIRECTORY: ScenarioDirectory = {
   resources: RESOURCES, roles: [], shifts: SHIFTS, absences: [], budgets: [], fxRates: null, workdayHours: 8, baseCurrency: "EUR",
 };
@@ -32,8 +35,8 @@ const CONTEXT: ScheduleContext = {
   onTeam: new Set([2]), teamHours: 8,
 };
 
-function renderEditor(over: { scenario?: ForecastScenario | null; list?: ForecastScenario[] } = {}) {
-  const onSave = vi.fn();
+function renderEditor(over: { scenario?: ForecastScenario | null; list?: ForecastScenario[]; refuse?: string } = {}) {
+  const onSave = vi.fn((): string | null => over.refuse ?? null);
   const onCancel = vi.fn();
   const scenario = over.scenario ?? null;
   render(
@@ -197,5 +200,78 @@ describe("ForecastScenarioEditor", () => {
     renderEditor({ scenario: withRows(rows) });
     expect(screen.getByRole("button", { name: "+ Scope change" })).toBeEnabled();
     expect(screen.queryByText("At most 20 changes.")).toBeNull();
+  });
+});
+
+describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)", () => {
+  const person = (resourceId: number): ScenarioChange =>
+    ({ kind: "addPeople", who: { resourceId, hoursPerWeek: 20 }, from: TODAY, until: "", rampWeeks: 0 });
+  const STALE: ScenarioChange[] = [
+    { kind: "scope", tasks: 3, on: TODAY, milestoneId: 99 }, // deleted milestone
+    { kind: "scope", tasks: 2, on: TODAY, milestoneId: 11 }, // achieved since
+    person(42), // deleted person
+    person(5), // archived since
+    person(2), // on the team since
+  ];
+
+  it("saves its stale references unchanged after an unrelated name edit, each row still marked", async () => {
+    const { onSave, user } = renderEditor({ scenario: withRows(STALE) });
+    const rows = document.querySelectorAll("[data-change-row]");
+    expect(rows[0]).toHaveTextContent("Milestone gone — counts as scope without a milestone.");
+    expect(rows[1]).toHaveTextContent("Milestone gone — counts as scope without a milestone.");
+    expect(rows[2]).toHaveTextContent("Person gone — no longer in the directory.");
+    expect(rows[3]).toHaveTextContent("Person gone — no longer in the directory.");
+    expect(rows[4]).toHaveTextContent("Already on the team — use an availability change.");
+    await user.clear(control("Name"));
+    await user.type(control("Name"), "Plan B");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledWith({ name: "Plan B", changes: STALE });
+  });
+
+  it("refuses a gone or on-team person chosen as a new value", async () => {
+    const { onSave, user } = renderEditor({ scenario: withRows([person(42)]) });
+    // The stored row's person changed to someone on the team: a NEW reference, so it is validated.
+    fireEvent.change(field("Change 1: Person"), { target: { value: "2" } });
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(described(field("Change 1: Person"))).toBe("Already on the team — use an availability change.");
+    // A new row picking the on-team person is refused the same way.
+    fireEvent.change(field("Change 1: Person"), { target: { value: "1" } });
+    await user.click(screen.getByRole("button", { name: "+ Add people" }));
+    fireEvent.change(field("Change 2: Person"), { target: { value: "2" } });
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(described(field("Change 2: Person"))).toBe("Already on the team — use an availability change.");
+    expect(field("Change 1: Person")).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("only an unchanged stored reference is kept", () => {
+    // The pickers never offer a gone milestone as a new value, so the rule is pinned on the predicate too.
+    const stored: ScenarioChange = { kind: "scope", tasks: 1, on: TODAY, milestoneId: 99 };
+    expect(keepsStoredReference(stored, { ...stored, tasks: 5 })).toBe(true);
+    expect(keepsStoredReference(stored, { ...stored, milestoneId: 11 })).toBe(false);
+    expect(keepsStoredReference(undefined, stored)).toBe(false);
+    expect(keepsStoredReference({ kind: "scope", tasks: 1, on: TODAY }, stored)).toBe(false);
+    expect(keepsStoredReference(person(42), { ...person(42), from: "2026-11-02" } as ScenarioChange)).toBe(true);
+    expect(keepsStoredReference(person(42), person(2))).toBe(false);
+  });
+
+  it("an archived person's row shows person gone, not the sizing basis", () => {
+    renderEditor({ scenario: withRows([person(5), person(1)]) });
+    const rows = document.querySelectorAll("[data-change-row]");
+    expect(rows[0]).toHaveTextContent("Person gone — no longer in the directory.");
+    expect(rows[0]).not.toHaveTextContent("Team books");
+    // Control: an active person's row shows the basis.
+    expect(rows[1]).toHaveTextContent("Team books ≈ 8 h per day → +20 h/week ≈ +50% at full speed");
+  });
+
+  it("a refused write keeps the editor open with its reason", async () => {
+    const { onSave, onCancel, user } = renderEditor({ refuse: "A project keeps at most 4 scenarios." });
+    await user.type(control("Name"), "Late");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "New scenario" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("A project keeps at most 4 scenarios.");
   });
 });

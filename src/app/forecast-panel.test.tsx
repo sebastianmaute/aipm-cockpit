@@ -496,6 +496,47 @@ describe("ForecastPanel — Save as scenario (§502)", () => {
     expect(screen.getByLabelText("Scope change (%)")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Save as scenario" })).toBeNull();
   });
+
+  test("a create refused after open keeps the dialog open with the reason and stays in What-if", async () => {
+    let refuse = false;
+    const createScenario = vi.fn((): number | null => (refuse ? null : 3));
+    const { user } = renderWith({ createScenario });
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    await user.click(screen.getByRole("button", { name: "Save as scenario" }));
+    refuse = true; // a concurrent writer gets there first
+    const dialog = screen.getByRole("dialog", { name: "Save as scenario" });
+    const name = within(dialog).getByRole("textbox", { name: "Name" });
+    await user.type(name, "Late");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(createScenario).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog", { name: "Save as scenario" })).toBeInTheDocument();
+    const id = name.getAttribute("aria-describedby");
+    expect(id ? document.getElementById(id)?.textContent : null).toBe("Not saved: the scenarios were changed elsewhere.");
+    expect(screen.getByRole("radio", { name: "What-if" })).toBeChecked();
+  });
+
+  test("the cap reached after open is the reason given", async () => {
+    const user = userEvent.setup();
+    const createScenario = vi.fn((): number | null => null);
+    const props = (list: readonly ForecastScenario[]): ForecastScenariosProps => ({
+      ...SCENARIOS_PROPS, api: { ...SCENARIOS_PROPS.api, scenarios: list, canCreate: list.length < 4, createScenario },
+    });
+    const panel = (list: readonly ForecastScenario[]) => (
+      <ForecastPanel lang="en-US" tasks={history} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} scenarios={props(list)} />
+    );
+    const { rerender } = render(panel(TWO_SCENARIOS));
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    await user.click(screen.getByRole("button", { name: "Save as scenario" }));
+    const four = [...TWO_SCENARIOS, { id: 7, name: "C", changes: [] }, { id: 8, name: "D", changes: [] }];
+    rerender(panel(four));
+    const dialog = screen.getByRole("dialog", { name: "Save as scenario" });
+    const name = within(dialog).getByRole("textbox", { name: "Name" });
+    await user.type(name, "Fifth");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    const id = name.getAttribute("aria-describedby");
+    expect(id ? document.getElementById(id)?.textContent : null).toBe("A project keeps at most 4 scenarios.");
+    expect(screen.getByRole("radio", { name: "What-if" })).toBeChecked();
+  });
 });
 
 describe("ForecastPanel — the Dashboard-defaults note (§502)", () => {

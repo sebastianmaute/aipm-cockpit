@@ -22,7 +22,7 @@ import { DEFAULT_HISTORY_WINDOW, type ForecastUnit, type HistoryWindow } from ".
 import { ForecastToolbar, type ForecastMode, type WhatIfField } from "./forecast-toolbar";
 import { ForecastChart } from "./forecast-chart";
 import { CostTable, MilestoneTable, PercentileTable } from "./forecast-tables";
-import { ForecastScenarioNameDialog } from "./forecast-scenario-name-dialog";
+import { ForecastScenarioNameDialog, scenarioRefusalText } from "./forecast-scenario-name-dialog";
 import { MAX_FORECAST_SCENARIOS, SCOPE_TASKS_MAX, whatIfToScenarioChanges } from "./forecast-scenarios";
 import type { ForecastFactsByUnit } from "./budget-forecast";
 import { simulateCostFromRunMemo } from "./budget-sim";
@@ -246,9 +246,14 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
             note={saveAsScopeNote(lang, saveAs.scopePercent, saveAs.percentTasks, saveAs.clamped)}
             onCancel={() => setSaveAs(null)}
             onSave={(name) => {
-              scenarioApi.createScenario(scenarioApi.mintId(), { name, changes: saveAs.changes });
+              const draft = { name, changes: saveAs.changes };
+              // Refused without a toast (the cap or the name was taken since open): stay open, stay in What-if.
+              if (scenarioApi.createScenario(scenarioApi.mintId(), draft) === null) {
+                return scenarioRefusalText(lang, draft, scenarioApi.scenarios, null);
+              }
               setSaveAs(null);
               setMode("scenarios");
+              return null;
             }}
           />
         )}

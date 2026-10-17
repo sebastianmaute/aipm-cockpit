@@ -19,7 +19,7 @@ import {
   type AddPeopleChange, type AddedPeopleWho, type ScenarioChange, type ScopeChange, type ScenarioChangeError,
 } from "./forecast-scenarios";
 import { resourceDisplayName } from "./resource-foundation";
-import { SUPPORTED_CURRENCIES, type BudgetCurrency, type Resource } from "./types";
+import { DEFAULT_WEEK_HOURS, SUPPORTED_CURRENCIES, type BudgetCurrency, type Resource } from "./types";
 
 export type DraftRow = { key: number; change: ScenarioChange };
 export type RowField =
@@ -27,10 +27,12 @@ export type RowField =
   | "rate" | "currency" | "ramp";
 export type RowError = { field: RowField; error: ScenarioChangeError };
 /** The row's live status, or null while the row is invalid (the schedule is built from valid rows only). */
-export type RowLive = { status: ScenarioRowStatus; noEffect: boolean } | null;
+export type RowLive = { status: ScenarioRowStatus; noEffect: boolean; archived: boolean } | null;
 
-/** A person's hours when picked: their Shift's Mon–Fri sum, else 40 (the default week), held inside 1–60. */
-const DEFAULT_PERSON_HOURS = 40;
+/** Mon–Fri hours of a Shift's weekday tuple (index 0..6, Sun..Sat); the engine has no weekend working days. */
+const workweekHours = (week: readonly number[]): number => [1, 2, 3, 4, 5].reduce((s, i) => s + Math.max(0, week[i]), 0);
+/** Hours for a person with no Shift: the Mon–Fri sum of the default week the engine spreads them by (spec §4.1a). */
+const DEFAULT_PERSON_HOURS = workweekHours(DEFAULT_WEEK_HOURS);
 
 export function fieldId(prefix: string, key: number, field: RowField): string {
   return `${prefix}-r${key}-${field}`;
@@ -117,15 +119,16 @@ export function rowStatusLines(lang: Lang, live: RowLive, teamHours: number | nu
   const { status } = live;
   if (status.kind === "availability") return status.ended ? [t(lang, "forecastScenarioRowEnded")] : [];
   if (status.kind === "scope") return status.milestoneGone ? [t(lang, "forecastScenarioRowMilestoneGone")] : [];
+  // An archived person is not offered in the picker (a saved one shows as gone there), so the row says the same.
+  if (live.archived) return [t(lang, "forecastScenarioRowPersonGone")];
   // A sized row that applies on no simulated day adds nothing, so its basis would describe nobody.
   if (status.status.kind === "sized" && live.noEffect) return [t(lang, "forecastScenarioRowNoEffect")];
   return addedPersonText(lang, status.status, teamHours);
 }
 
-/** Hours a picked person is prefilled with: their Shift's Mon–Fri sum, else 40, held inside 1–60. */
 export function prefillHours(r: Resource, ctx: ScheduleContext): number {
   const shift = shiftFor(r, ctx.directory);
-  const sum = shift ? [1, 2, 3, 4, 5].reduce((s, i) => s + Math.max(0, shift.hoursPerWeekday[i]), 0) : 0;
+  const sum = shift ? workweekHours(shift.hoursPerWeekday) : 0;
   const hours = sum > 0 ? Math.round(sum) : DEFAULT_PERSON_HOURS;
   return Math.min(ADDED_HOURS_MAX, Math.max(ADDED_HOURS_MIN, hours));
 }
@@ -308,7 +311,7 @@ export function ScenarioChangeRow(p: ChangeRowProps) {
   const lines = rowStatusLines(lang, live, context.teamHours);
   const inert = live !== null && (
     (live.status.kind === "availability" && live.status.ended)
-    || (live.status.kind === "addPeople" && (live.status.status.kind === "inert" || live.noEffect))
+    || (live.status.kind === "addPeople" && (live.status.status.kind === "inert" || live.noEffect || live.archived))
   );
   return (
     <li data-change-row={p.row.key} className="space-y-1 px-3 py-2">

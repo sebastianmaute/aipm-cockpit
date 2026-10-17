@@ -856,6 +856,7 @@ const enUS = {
   forecastScenarioErrResourceArchived: "This person is archived.",
   forecastScenarioErrResourceUnknown: "Choose a person from the directory.",
   forecastScenarioErrCurrency: "Choose a currency.",
+  forecastScenarioErrRefused: "Not saved: the scenarios were changed elsewhere.",
   forecastUnitLabel: "Forecast unit",
   forecastUnitTasks: "Tasks",
   forecastUnitEffort: "Effort",

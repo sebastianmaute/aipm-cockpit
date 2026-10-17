@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { useMemo, useState } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ForecastScenariosView } from "./forecast-scenarios-view";
 import { TestProviders } from "./test-providers";
@@ -35,10 +35,13 @@ const scenario = (id: number, name: string): ForecastScenario => ({
 
 type Writes = Pick<ForecastScenariosApi, "createScenario" | "updateScenario" | "renameScenario">;
 /** A list-backed api, so a delete really removes the row. */
-function Harness({ initial, tasks = HISTORY, readOnly = false, planEnd = "2026-12-31", writes }: {
+function Harness({ initial, tasks = HISTORY, readOnly = false, planEnd = "2026-12-31", writes, onSetList }: {
   initial: ForecastScenario[]; tasks?: Task[]; readOnly?: boolean; planEnd?: string; writes?: Partial<Writes>;
+  /** Lets a test play a concurrent writer (another tab, the AI) that changes the list while a dialog is open. */
+  onSetList?: (set: Dispatch<SetStateAction<ForecastScenario[]>>) => void;
 }) {
   const [list, setList] = useState(initial);
+  onSetList?.(setList);
   const input = useMemo<ScenarioRunInput>(() => ({
     tasks, milestones: NO_MILESTONES, today: TODAY, holidaySet: NO_HOLIDAYS, window: 60, unit: "tasks",
     planEnd, directory: DIRECTORY, budgetFacts: null, costOn: false,
@@ -225,5 +228,68 @@ describe("ForecastScenariosView", () => {
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
     expect(renameScenario).toHaveBeenCalledWith(2, "Gamma");
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("ForecastScenariosView — no silent refusals (fix round 1)", () => {
+  const REFUSED = "Not saved: the scenarios were changed elsewhere.";
+
+  it("a create refused after open keeps the editor open with the reason", async () => {
+    const user = userEvent.setup();
+    let refuse = false;
+    const createScenario = vi.fn((): number | null => (refuse ? null : 99));
+    renderView({ initial: [scenario(1, "A")], writes: { createScenario } });
+    await user.click(screen.getByRole("button", { name: "New scenario" }));
+    refuse = true; // a concurrent writer gets there first
+    const dialog = screen.getByRole("dialog", { name: "New scenario" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "B");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(createScenario).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog", { name: "New scenario" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(REFUSED);
+  });
+
+  it("an update refused after open keeps the editor open with the reason", async () => {
+    const user = userEvent.setup();
+    const updateScenario = vi.fn(() => false);
+    renderView({ initial: [scenario(1, "Alpha")], writes: { updateScenario } });
+    await user.click(screen.getByRole("button", { name: "Edit – Alpha" }));
+    const dialog = screen.getByRole("dialog", { name: "Edit scenario" });
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(updateScenario).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog", { name: "Edit scenario" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(REFUSED);
+  });
+
+  it("the cap reached by another writer after open is said, and nothing is written", async () => {
+    const user = userEvent.setup();
+    const createScenario = vi.fn((): number | null => 99);
+    let setList: Dispatch<SetStateAction<ForecastScenario[]>> | null = null;
+    renderView({ initial: [scenario(1, "A"), scenario(2, "B"), scenario(3, "C")], writes: { createScenario }, onSetList: (set) => { setList = set; } });
+    await user.click(screen.getByRole("button", { name: "New scenario" }));
+    act(() => setList?.((prev) => [...prev, scenario(4, "D")]));
+    const dialog = screen.getByRole("dialog", { name: "New scenario" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "E");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(createScenario).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("A project keeps at most 4 scenarios.");
+  });
+
+  it("a rename refused after open keeps the dialog open with the reason", async () => {
+    const user = userEvent.setup();
+    let refuse = false;
+    const renameScenario = vi.fn(() => !refuse);
+    renderView({ initial: [scenario(1, "Alpha")], writes: { renameScenario } });
+    await user.click(screen.getByRole("button", { name: "Rename – Alpha" }));
+    refuse = true;
+    const dialog = screen.getByRole("dialog", { name: "Rename scenario" });
+    const name = within(dialog).getByRole("textbox", { name: "Name" });
+    await user.clear(name);
+    await user.type(name, "Gamma");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(renameScenario).toHaveBeenCalledWith(1, "Gamma");
+    expect(screen.getByRole("dialog", { name: "Rename scenario" })).toBeInTheDocument();
+    const id = name.getAttribute("aria-describedby");
+    expect(id ? document.getElementById(id)?.textContent : null).toBe(REFUSED);
   });
 });

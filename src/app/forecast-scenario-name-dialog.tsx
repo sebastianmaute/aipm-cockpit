@@ -3,7 +3,8 @@
 // The scenario name prompt (§502, spec §4.2): Rename in the Scenarios list, and "Save as scenario" in What-if
 // mode, where `note` shows the value frozen at save ("+10% = 6 tasks today"). On the shared `Modal`. The name is
 // local state seeded at mount (the caller mounts the dialog fresh per open), and it is checked before `onSave`:
-// the hook refuses an empty or taken name without a toast.
+// the hook refuses an empty or taken name without a toast. A write refused anyway (the cap or the name was taken
+// elsewhere between open and Save) comes back from `onSave` as its reason: the dialog stays open and says it.
 
 import { useId, useState } from "react";
 import { type Lang, t } from "./i18n";
@@ -11,7 +12,30 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
 import { Input } from "./form-controls";
-import { SCENARIO_NAME_MAX, isScenarioNameTaken, type ForecastScenario } from "./forecast-scenarios";
+import {
+  MAX_FORECAST_SCENARIOS, MAX_SCENARIO_CHANGES, SCENARIO_NAME_MAX, isScenarioNameTaken, validateScenarioDraft,
+  type ForecastScenario, type ScenarioChange, type ScenarioError,
+} from "./forecast-scenarios";
+
+export function draftErrorText(lang: Lang, e: ScenarioError): string {
+  switch (e) {
+    case "name-empty": return t(lang, "forecastScenarioErrNameEmpty");
+    case "name-long": return t(lang, "forecastScenarioErrTooLong", SCENARIO_NAME_MAX);
+    case "name-taken": return t(lang, "forecastScenarioErrNameTaken");
+    case "too-many-changes": return t(lang, "forecastScenarioErrTooMany", MAX_SCENARIO_CHANGES);
+    case "cap": return t(lang, "forecastScenarioCapReached", MAX_FORECAST_SCENARIOS);
+  }
+}
+
+/** Why a create/update/rename the hook refused (it returns null/false without a toast): the draft rule it now
+ *  fails against the current list, else the generic "changed elsewhere" (a concurrent delete, which the hook
+ *  also toasts). */
+export function scenarioRefusalText(
+  lang: Lang, d: { name: string; changes: readonly ScenarioChange[] }, list: readonly ForecastScenario[], exceptId: number | null,
+): string {
+  const e = validateScenarioDraft(d, list, exceptId);
+  return e === null ? t(lang, "forecastScenarioErrRefused") : draftErrorText(lang, e);
+}
 
 export type ForecastScenarioNameDialogProps = {
   lang: Lang;
@@ -22,7 +46,8 @@ export type ForecastScenarioNameDialogProps = {
   list: readonly ForecastScenario[];
   /** The scenario being renamed (its own name is not "taken"); null when saving a new one. */
   exceptId: number | null;
-  onSave: (name: string) => void;
+  /** null = saved (the caller closes the dialog); a string = refused, shown beside the name. */
+  onSave: (name: string) => string | null;
   onCancel: () => void;
 };
 
@@ -40,17 +65,19 @@ export function ForecastScenarioNameDialog(p: ForecastScenarioNameDialogProps) {
   const id = useId();
   const [name, setName] = useState(p.initialName);
   const [error, setError] = useState<NameError | null>(null);
+  const [refused, setRefused] = useState<string | null>(null);
   if (!p.open) return null;
 
   const save = () => {
     const e = nameError(name, p.list, p.exceptId);
     setError(e);
-    if (e === null) p.onSave(name.trim());
-    else document.getElementById(`${id}-name`)?.focus();
+    const reason = e === null ? p.onSave(name.trim()) : null;
+    setRefused(reason);
+    if (e !== null || reason !== null) document.getElementById(`${id}-name`)?.focus();
   };
   const message = error === "empty" ? t(lang, "forecastScenarioErrNameEmpty")
     : error === "long" ? t(lang, "forecastScenarioErrTooLong", SCENARIO_NAME_MAX)
-      : error === "taken" ? t(lang, "forecastScenarioErrNameTaken") : null;
+      : error === "taken" ? t(lang, "forecastScenarioErrNameTaken") : refused;
 
   return (
     <Modal open onClose={p.onCancel} ariaLabelledby={`${id}-title`} align="center">
@@ -63,6 +90,7 @@ export function ForecastScenarioNameDialog(p: ForecastScenarioNameDialogProps) {
             onChange={(v) => {
               setName(v);
               setError(null);
+              setRefused(null);
             }}
           />
           <ScenarioDialogActions lang={lang} onCancel={p.onCancel} onSave={save} />
