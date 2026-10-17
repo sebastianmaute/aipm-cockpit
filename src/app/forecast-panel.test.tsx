@@ -586,6 +586,8 @@ describe("ForecastPanel — the Dashboard-defaults note (§502)", () => {
   });
 
   test("reads in German", async () => {
+    // The DE dictionary is lazy: load it here, not through another describe's beforeAll, which a shuffled run may not have run yet.
+    await loadI18n("de");
     const user = userEvent.setup();
     render(
       <ForecastPanel lang="de" tasks={history} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} showSimulation />,
