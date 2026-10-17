@@ -8,6 +8,7 @@
 //            a FIXED outcome by hand, so every chapter opens on the same state.
 // - check:   after an AI step, the structure of its result (never its wording): null when fine, else
 //            what is missing. An empty structure is retried once.
+// - after:   an AI step's tidy-up once its result passed the check (e.g. closing the result panel).
 
 const notYet = (id) => async () => { throw new Error(`step ${id} not written yet`); };
 

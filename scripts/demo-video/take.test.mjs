@@ -18,7 +18,7 @@ function harness({ preconditionsOk = true, checks = [], days } = {}) {
     ctx,
     setup: {
       connect: rec('connect'), exploreDemo: rec('exploreDemo'), seedDeviceState: rec('seedDeviceState'),
-      enableDigest: rec('enableDigest'), goToDay: rec('goToDay'), currentProjectId: async () => 'p1',
+      enableDigest: rec('enableDigest'), enableChat: rec('enableChat'), goToDay: rec('goToDay'), currentProjectId: async () => 'p1',
     },
     ui: { caption: async (_c, text) => { calls.push(`caption(${text})`); }, closingBeat: async (_c, title) => { calls.push(`closingBeat(${title})`); } },
     resolveOpening: async (_c, o) => o,
@@ -40,7 +40,7 @@ describe('runTake (§715)', () => {
     const r = await runTake(def({ preconditions: [h.pre], steps: [h.s('a'), h.s('b')] }), h.deps);
     expect(r.status).toBe('ok');
     expect(h.calls).toEqual([
-      'connect(onCamera=false)', 'exploreDemo', 'seedDeviceState(p1)', 'enableDigest', 'precondition',
+      'connect(onCamera=false)', 'exploreDemo', 'seedDeviceState(p1)', 'enableDigest', 'enableChat', 'precondition',
       'screencast.start', 'caption(Open)', 'run(a)', 'run(b)', 'closingBeat(T)', 'screencast.stop',
     ]);
   });
@@ -50,7 +50,7 @@ describe('runTake (§715)', () => {
     await runTake(def({ prologueOnCamera: true, prologue: [h.s('wizard')], steps: [h.s('a')] }), h.deps);
     expect(h.calls).toEqual([
       'screencast.start', 'caption(Open)', 'connect(onCamera=true)', 'run(wizard)', 'exploreDemo', 'seedDeviceState(p1)',
-      'enableDigest', 'run(a)', 'closingBeat(T)', 'screencast.stop',
+      'enableDigest', 'enableChat', 'run(a)', 'closingBeat(T)', 'screencast.stop',
     ]);
   });
 
@@ -91,7 +91,7 @@ describe('runTake (§715)', () => {
     expect(monCalls).toEqual(['run(m1)', 'replay(m2)', 'run(t1)']);
     const start = h.calls.indexOf('screencast.start');
     expect(h.calls.slice(0, start)).toEqual([
-      'connect(onCamera=false)', 'exploreDemo', 'seedDeviceState(p1)', 'enableDigest',
+      'connect(onCamera=false)', 'exploreDemo', 'seedDeviceState(p1)', 'enableDigest', 'enableChat',
       'goToDay(mon)', 'goToDay(tue)', 'goToDay(wed)',
     ]);
   });
@@ -116,6 +116,13 @@ describe('runTake (§715)', () => {
     expect(h.calls.filter((c) => c === 'run(ai1)')).toHaveLength(2);
     expect(r.status).toBe('failed');
     expect(h.calls).toContain('screencast.stop');
+  });
+
+  it("an AI step's after runs once its result passed the check", async () => {
+    const h = harness({ checks: ['no pairs', null] });
+    const withAfter = step('ai2', { ai: true, run: async () => { h.calls.push('run(ai2)'); }, check: h.aiStep.check, after: async () => { h.calls.push('after(ai2)'); } });
+    await runTake(def({ steps: [withAfter] }), h.deps);
+    expect(h.calls.filter((c) => /ai2/.test(c))).toEqual(['run(ai2)', 'run(ai2)', 'after(ai2)']);
   });
 
   it('an AI result that is fine on the retry passes', async () => {

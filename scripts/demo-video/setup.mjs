@@ -121,6 +121,19 @@ export async function enableDigest(ctx) {
   await nav(ctx, 'Dashboard');
 }
 
+/** The AI Assistant's one-time consent (per device), given off camera so a chat step opens on the chat. */
+export async function enableChat(ctx) {
+  const page = ctx.page;
+  await nav(ctx, 'AI Assistant');
+  const consent = page.locator('main').getByRole('button', { name: /enable chat/i });
+  if (await consent.isVisible().catch(() => false)) {
+    const boxes = page.locator('main').getByRole('checkbox');
+    for (let i = 0; i < (await boxes.count()); i++) if (!(await boxes.nth(i).isChecked())) await click(ctx, boxes.nth(i), 'consent box', 300);
+    await click(ctx, consent, 'enable chat');
+  }
+  await nav(ctx, 'Dashboard');
+}
+
 /** 08:30 in Berlin on `day`, then a reload so every "today" in the app moves with it. */
 export async function goToDay(ctx, day) {
   await ctx.page.clock.setSystemTime(L.atDay(day));

@@ -5,34 +5,31 @@
 import { findSecrets } from './cli.mjs';
 import { DAYS } from './steps/week.mjs';
 
-const WEEK = ['mon', 'tue', 'wed', 'thu', 'fri'];
-const AI_TIMEOUT_MS = 120000;
+export { waitForAi } from './ai-wait.mjs';
 
-/** Waits for an AI call by its UI state — the trigger's busy state ending, then the result showing —
- *  never by its text. Fails with the clip id once `timeoutMs` passes. */
-export async function waitForAi(ctx, { busy, done, timeoutMs = AI_TIMEOUT_MS, label }) {
-  try {
-    await busy.waitFor({ state: 'hidden', timeout: timeoutMs });
-    await done.waitFor({ state: 'visible', timeout: timeoutMs });
-  } catch {
-    throw new Error(`${ctx.clipId}: AI step ${label} timed out`);
-  }
-}
+const WEEK = ['mon', 'tue', 'wed', 'thu', 'fri'];
 
 /** An AI step: run, then check the structure of its result; an empty structure gets one more call. */
 async function runAi(ctx, s) {
   await s.run(ctx);
-  if (!s.check || (await s.check(ctx)) === null) return;
-  await s.run(ctx);
-  const missing = await s.check(ctx);
-  if (missing !== null) throw new Error(`${ctx.clipId}: AI step ${s.id} returned ${missing} twice`);
+  if (s.check && (await s.check(ctx)) !== null) {
+    await s.run(ctx);
+    const missing = await s.check(ctx);
+    if (missing !== null) throw new Error(`${ctx.clipId}: AI step ${s.id} returned ${missing} twice`);
+  }
+  // Runs only after a result that passed its check (e.g. closing the panel that showed it).
+  if (s.after) await s.after(ctx);
 }
 
 async function runStep(ctx, s, opts) {
   if (!s.ai) return s.run(ctx);
   if (opts.rehearse && !opts.withAi) {
     // A rehearsal makes no AI call: it only proves the trigger is there and usable.
-    if (s.trigger && !(await s.trigger(ctx).isEnabled())) throw new Error(`${ctx.clipId}: AI trigger ${s.id} is not enabled`);
+    // A trigger may navigate to its view first, so it is awaited.
+    const trigger = s.trigger ? await s.trigger(ctx) : null;
+    if (trigger && !(await trigger.isEnabled({ timeout: 30000 }).catch(() => false))) {
+      throw new Error(`${ctx.clipId}: AI trigger ${s.id} is missing or not enabled`);
+    }
     return;
   }
   return runAi(ctx, s);
@@ -63,6 +60,7 @@ export async function runTake(def, deps) {
     await setup.exploreDemo(ctx);
     await setup.seedDeviceState(ctx, await setup.currentProjectId(ctx));
     await setup.enableDigest(ctx);
+    await setup.enableChat(ctx);
   };
   const result = (status, extra = {}) => {
     if (findSecrets(ctx.lines.join('\n'), opts.secrets ?? []) > 0) warnings++;

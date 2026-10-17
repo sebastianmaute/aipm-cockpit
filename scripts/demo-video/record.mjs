@@ -12,6 +12,7 @@ import * as L from './lib.mjs';
 import { cleanup } from './cleanup.mjs';
 import { exitCode, outPath, parseArgs, selectVideos } from './cli.mjs';
 import * as setup from './setup.mjs';
+import { checkDayFacts } from './steps/week.mjs';
 import { runTake } from './take.mjs';
 import * as ui from './ui.mjs';
 import { VIDEOS } from './videos.mjs';
@@ -50,6 +51,15 @@ async function take(browser, def) {
   const log = (line) => { lines.push(String(line)); console.log(`[${def.id}]`, mask(line)); };
   const ctx = { page, clipId: def.id, rehearse: args.rehearse, withAi: args.withAi, log, lines, secrets: { url: T.url, token: T.token, key: KEY } };
   let warnings = 0;
+  ctx.goToDay = (day) => setup.goToDay(ctx, day);
+  // A rehearsal checks each finished day against DAY_FACTS (week-story.mjs); a mismatch is a warning.
+  ctx.checkDay = args.rehearse
+    ? async (day) => {
+      const wrong = await checkDayFacts(await setup.currentProjectId(ctx), day);
+      for (const w of wrong) log('FACT ' + w);
+      warnings += wrong.length;
+    }
+    : undefined;
   await page.clock.install({ time: L.T0 });
   await page.addInitScript(() => {
     if (!localStorage.getItem('aipm-cockpit:settings')) localStorage.setItem('aipm-cockpit:settings', JSON.stringify({ tourSeen: true }));
@@ -70,8 +80,15 @@ async function take(browser, def) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const r = await runTake(def, {
       ctx, setup, ui, resolveOpening,
+      afterDay: async (c, day) => { if (c.checkDay) await c.checkDay(day); },
       opts: { rehearse: args.rehearse, withAi: args.withAi, outFile: file, secrets: SECRETS },
     });
+    // The day a chapter records (and the big video's last day) is checked once its steps are done.
+    // ch2-connect ends as the demo opens, before any day's steps, so it has no day to check.
+    const daysChecked = def.tier === 'big' || (def.tier === 'chapters' && !def.prologueOnCamera);
+    if (r.status === 'ok' && ctx.checkDay && def.clock && daysChecked) {
+      await ctx.checkDay(def.tier === 'big' ? 'fri' : def.clock);
+    }
     if (r.status !== 'ok') await page.screenshot({ path: path.join(L.OUT, `warn-${def.id}.png`) }).catch(() => {});
     return { ...r, warnings: r.warnings + warnings };
   } finally {

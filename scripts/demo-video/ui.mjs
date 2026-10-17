@@ -88,7 +88,8 @@ export async function nav(ctx, name) {
   for (let attempt = 0; attempt < 3; attempt++) {
     // Matched as L.openView does (a trailing count badge dropped); serialised, so written out here.
     await page.waitForFunction(({ sel, name }) => [...document.querySelectorAll(sel)].some(
-      (e) => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ').replace(/\s*\d+$/, '') === name), { sel: L.NAV, name }, { timeout: 60000 });
+      (e) => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ').replace(/\s*\d+$/, '') === name), { sel: L.NAV, name }, { timeout: 60000 })
+      .catch(() => { throw new Error(`nav: no item "${name}"`); });
     const before = await title();
     await L.openView(page, name);
     await pace(ctx, 1500);

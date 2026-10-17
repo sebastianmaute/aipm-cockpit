@@ -61,6 +61,12 @@ const DAYS: Record<DemoDay, (ws: Ws) => void> = {
       id: nextId(ws, "milestones"), name: "MVP re-demo", date: "2026-10-02", linkedTaskIds: [demo.id],
       description: "<p>The MVP demo to the customer, re-run once provisioning to the CRM works end to end.</p>",
     });
+    // The re-plan import needs budget hours that no longer follow the plan (the app refuses it otherwise),
+    // so Tuesday turns the switch off on camera before Import forecast. The imported hours themselves are
+    // left out here, as the recorder's replay leaves them out.
+    const plan = ws.plan;
+    if (!plan || typeof plan !== "object") throw new Error('demo week: the master has no "plan"');
+    (plan as Record<string, unknown>).budgetFollowsPlan = false;
   },
 
   wed(ws) {
