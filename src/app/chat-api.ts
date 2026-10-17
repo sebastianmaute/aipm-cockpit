@@ -184,9 +184,11 @@ export function buildStableSystemBlocks(
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
   guides: readonly OperatingGuide[],
   groundInGuides: boolean,
-  /** `settings.ai`'s tool flags — the SAME value `callClaude` is given, so the
+  /** The tool flags — the SAME value `callClaude` is given, so the
    *  prompt advertises exactly the tools the request carries. See
-   *  `toolNamesFor`; only an explicit false drops one. */
+   *  `toolNamesFor`. `historySearch`/`chatSearch` are `settings.ai`'s, and only an
+   *  explicit false drops one; `forecast` comes from the snapshot's
+   *  `forecastSimulation`, and only an explicit true offers it. */
   toolFlags: ToolFlags,
 ): SystemBlock[] {
   // `toolFlags` is unused HERE — the tool-advertising blocks it drives
@@ -271,9 +273,11 @@ export function buildTurnContext(
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
   guides: readonly OperatingGuide[],
   groundInGuides: boolean,
-  /** `settings.ai`'s tool flags — the SAME value `callClaude` is given, so the
+  /** The tool flags — the SAME value `callClaude` is given, so the
    *  prompt advertises exactly the tools the request carries. See
-   *  `toolNamesFor`; only an explicit false drops one. */
+   *  `toolNamesFor`. `historySearch`/`chatSearch` are `settings.ai`'s, and only an
+   *  explicit false drops one; `forecast` comes from the snapshot's
+   *  `forecastSimulation`, and only an explicit true offers it. */
   toolFlags: ToolFlags,
 ): string {
   // ★★ Resolved ONCE and shared by both advertising surfaces below. Two
@@ -343,9 +347,11 @@ export function buildSystemPrompt(
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
   guides: readonly OperatingGuide[],
   groundInGuides: boolean,
-  /** `settings.ai`'s tool flags — the SAME value `callClaude` is given, so the
+  /** The tool flags — the SAME value `callClaude` is given, so the
    *  prompt advertises exactly the tools the request carries. See
-   *  `toolNamesFor`; only an explicit false drops one. */
+   *  `toolNamesFor`. `historySearch`/`chatSearch` are `settings.ai`'s, and only an
+   *  explicit false drops one; `forecast` comes from the snapshot's
+   *  `forecastSimulation`, and only an explicit true offers it. */
   toolFlags: ToolFlags,
 ): SystemBlock[] {
   return [
@@ -560,7 +566,10 @@ const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
  *  and both call the exported `historySearchEnabled`. Two hand-spelled `=== false`
  *  copies are one config slip from a switch that advertises OFF and serves ON.
  *  ★ `search_chats` is gated identically: this list plus `runTool`'s
- *    `search_chats` case, via `use-chat-dispatcher`'s `isChatSearchEnabled`. */
+ *    `search_chats` case, via `use-chat-dispatcher`'s `isChatSearchEnabled`.
+ *  ★ The three forecast tools too: `flags.forecast` is the snapshot's `forecastSimulation`, and it and
+ *    `runForecastTool`'s gate (`isForecastEnabled`) are one function in `use-forecast-tools.ts`, which reads
+ *    `isSimulationActive` from refs at call time. */
 function variantKey(flags: ToolFlags): number {
   return (
     (historySearchEnabled(flags.historySearch) ? 0 : 1) |
@@ -628,7 +637,8 @@ export async function callClaude(
   model: string,
   system: SystemBlock[],
   messages: ApiMessage[],
-  /** `settings.ai`'s tool flags — only an explicit false drops a tool. */
+  /** The tool flags — `settings.ai`'s drop a tool only on an explicit false; `forecast` (from the
+   *  snapshot) offers its tools only on an explicit true. */
   toolFlags: ToolFlags,
   signal?: AbortSignal,
 ): Promise<{

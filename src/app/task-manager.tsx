@@ -1091,7 +1091,7 @@ function TaskManagerInner() {
     setSelectedIds,
     setSettings,
     isReadOnly: isPopout, openWbsPlan: wbsPlan.open,
-    currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, logActivityAs,
+    currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, holidaysReady, logActivityAs,
     // ★ `delete_document` is a second removal route into a COUNTED slice — see
     //   the arming site in `use-document-tools.ts`.
     allowDestructiveSave,

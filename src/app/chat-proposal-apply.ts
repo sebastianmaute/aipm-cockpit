@@ -190,6 +190,9 @@ export function failureKindOf(row: FailedAppliedRow): ProposalFailureKind {
  *     awk '/case "/{c=$0} /requireToken\("|requireTaskWriteToken\(/{print c}' src/app/chat-tools.ts
  *   RUN 2026-09-04: it prints exactly seven cases — `update_task`,
  *   `set_task_dependencies`, and the five other `update_*` — matching this set.
+ *   ★ That command reads `chat-tools.ts` alone: `update_forecast_scenario`
+ *   (§502) enforces its token in `chat-tools-forecast.ts`, so run it over that
+ *   file too.
  *   A tool that enforced a token without declaring one `required` would slip
  *   past this guard silently, because the guard simply would not fire. Do not
  *   read the agreement as a gate. */
@@ -241,6 +244,7 @@ export const TOKEN_ROW_SOURCE: Readonly<
   update_stakeholder: { kind: "stakeholder", getRow: (d, id) => d.getStakeholderRow(id) },
   update_absence: { kind: "absence", getRow: (d, id) => d.getAbsenceRow(id) },
   update_calendar_event: { kind: "calendarEvent", getRow: (d, id) => d.getCalendarEventRow(id) },
+  update_forecast_scenario: { kind: "forecastScenario", getRow: (d, id) => d.getForecastScenarioRow(id) },
 };
 
 /** `requireToken`'s OWN predicate for "a usable token", mirrored so this refusal

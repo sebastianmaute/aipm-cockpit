@@ -11,6 +11,7 @@ import { type ProjectReport } from "./budget-report";
 import { type AllocationsScopeInput, type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import type { WbsOpenRequest, WbsOpenResult } from "./use-wbs-plan";
+import type { ForecastReportInput } from "./forecast-ai-report";
 
 export interface ChatDispatcherArgs {
   settings: Settings;
@@ -80,6 +81,12 @@ export interface ChatDispatcherArgs {
    *  tool call's raw, unvalidated filter (§12); `buildAllocationsSnapshot`
    *  validates it. */
   getAllocationsSnapshot: (scope?: AllocationsScopeInput) => AllocationsSnapshot;
+  /** The forecast tools' run input (§502), or null while the holiday calendar is still loading — a
+   *  forecast on a partial calendar would quote wrong working days, so the tools refuse then. Built by
+   *  `use-chat-dispatcher-wiring.ts`; NOT memoized upstream, same reasoning as `getBudgetRollup`.
+   *  ★ REQUIRED, like `undo`: an optional getter dropped from its one production call site would leave
+   *  the forecast tools refusing at run time with every gate green. */
+  getForecastInput: () => ForecastReportInput | null;
   /** Threaded from task-manager's `useActivityLog()`, NOT minted here — a second
    *  `useActivityLog()` call would be an independent state instance, so its rows
    *  would be written and never appear in the Activity panel (which renders

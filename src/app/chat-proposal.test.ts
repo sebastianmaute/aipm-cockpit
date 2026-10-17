@@ -74,9 +74,11 @@ const NON_DESTRUCTIVE_WRITE_NAMES = [
   "create_document", "update_document",
   "create_absence", "update_absence",
   "create_calendar_event", "update_calendar_event",
+  "create_forecast_scenario", "update_forecast_scenario",
 ];
 
 const NON_WRITE_NAMES = [
+  "get_forecast",
   "optimize_wbs",
   "list_tasks", "get_task", "set_filters", "set_language", "get_app_state",
   "get_dashboard_snapshot", "list_raid", "list_changes", "list_milestones",
@@ -276,7 +278,7 @@ describe("isCreateTool", () => {
   const CREATE_NAMES = [
     "create_task", "create_raid_item", "create_change", "create_milestone",
     "create_stakeholder", "create_resource", "create_document",
-    "create_absence", "create_calendar_event",
+    "create_absence", "create_calendar_event", "create_forecast_scenario",
   ];
 
   test("matches exactly the live create tools", () => {
@@ -742,7 +744,7 @@ describe("CREATE_MINT_KIND", () => {
     }
   });
 
-  // ★ THE ONLY UNGUARDED ROW LEFT, stated rather than hidden. `create_document`
+  // ★ AN UNGUARDED ROW (one of two; the other follows), stated rather than hidden. `create_document`
   //   has no `INLINE_DESCRIPTORS` entry, so nothing independent can confirm its
   //   kind — this pins the literal, which catches a typo and not a wrong
   //   decision. The live minter is `workspace-context.tsx`'s `mintDocId`.
@@ -755,6 +757,12 @@ describe("CREATE_MINT_KIND", () => {
   //   would have left two tests whose stated justification was false.
   test("create_document mints from the document sequence", () => {
     expect(CREATE_MINT_KIND.create_document).toBe("document");
+  });
+
+  // ★ The second literal-only row, for the same reason: forecast scenarios have no `INLINE_DESCRIPTORS`
+  //   entry. The live minters are `use-forecast-scenarios.ts` and `use-forecast-tools.ts`.
+  test("create_forecast_scenario mints from the forecastScenario sequence", () => {
+    expect(CREATE_MINT_KIND.create_forecast_scenario).toBe("forecastScenario");
   });
 });
 

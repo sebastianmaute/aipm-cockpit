@@ -55,6 +55,7 @@ import { DEFAULT_TASK_STATUS, type Task } from "./types";
 import { useWorkspace } from "./workspace-context";
 import { useDocumentTools } from "./use-document-tools";
 import { useRegisterTools } from "./use-register-tools";
+import { useForecastTools } from "./use-forecast-tools";
 import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
 import type { AppView } from "./nav-config";
 export type { ChatDispatcherArgs };
@@ -150,6 +151,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const getDashboardModelRef = useRef(args.getDashboardModel);
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
+  const getForecastInputRef = useRef(args.getForecastInput);
   const undoRef = useRef(args.undo);
   // ★★ Ref-routed like its siblings: the memo below is built once, and
   // `useWbsPlan().open` changes identity whenever its settings, key or scope
@@ -230,6 +232,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     getAllocationsSnapshotRef.current = args.getAllocationsSnapshot;
   }, [args.getAllocationsSnapshot]);
+  useEffect(() => {
+    getForecastInputRef.current = args.getForecastInput;
+  }, [args.getForecastInput]);
   useEffect(() => {
     undoRef.current = args.undo;
   }, [args.undo]);
@@ -330,6 +335,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     raidRef,
     stakeholdersRef,
     absencesRef,
+  });
+  // §502 — the forecast members, spread in below. Its `isForecastEnabled` is also the snapshot's
+  // `forecastSimulation`, so what the request offers and what the executor serves are one predicate.
+  const forecastTools = useForecastTools({
+    isReadOnly: args.isReadOnly,
+    logActivityAs: args.logActivityAs,
+    settingsRef,
+    undoRef,
+    getForecastInputRef,
   });
 
   // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`
@@ -972,6 +986,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
             settingsRef.current.ai, activityLogRef.current, clockRef.current,
           ),
           chatPointer: chatBindings.chatPointer(),
+          forecastSimulation: forecastTools.isForecastEnabled(),
         };
       },
 
@@ -982,20 +997,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       isHistorySearchEnabled: () => historySearchEnabled(settingsRef.current.ai.historySearch),
       ...chatBindings.tools,
 
-      // TEMPORARY (Task 3 of the forecast AI tool): the gate reads false, and Task 4 replaces these four.
-      isForecastEnabled: () => false,
-      getForecast: () => {
-        throw new Error("not implemented");
-      },
-      getForecastScenarioRow: () => {
-        throw new Error("not implemented");
-      },
-      createForecastScenario: () => {
-        throw new Error("not implemented");
-      },
-      updateForecastScenario: () => {
-        throw new Error("not implemented");
-      },
+      ...forecastTools,
 
       getTimezone: () => clockRef.current.tz,
 
@@ -1038,8 +1040,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // It is listed anyway because the redundancy is a property of the OTHER
     // hook's dep array, not of this one: the day that array gains a dep this one
     // lacks, the omission becomes the documentTools bug above, silently.
+    // ★ `forecastTools` is the same shape again: a useMemo'd object spread in, and read by `getSnapshot`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly, documentTools, registerTools, setRaid, setAbsences, setShifts, setStakeholders, setProject],
+    [args.isReadOnly, documentTools, registerTools, forecastTools, setRaid, setAbsences, setShifts, setStakeholders, setProject],
   );
 
   return dispatcher;

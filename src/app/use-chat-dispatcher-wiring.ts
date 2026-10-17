@@ -1,8 +1,9 @@
 // src/app/use-chat-dispatcher-wiring.ts
 //
-// task-manager's wiring for the AI assistant's tool dispatcher: the two derived
-// read-tool getters (`getBudgetRollup` for `get_dashboard_snapshot`,
-// `getAllocationsSnapshot` for `list_allocations`), the `getDashboardModel`
+// task-manager's wiring for the AI assistant's tool dispatcher: the derived
+// getters (`getBudgetRollup` for `get_dashboard_snapshot`,
+// `getAllocationsSnapshot` for `list_allocations`, `getForecastInput` for the
+// three forecast tools, §502), the `getDashboardModel`
 // getter and the `useChatDispatcher` call. Extracted from task-manager.tsx
 // (§491); move-only. The workspace slices the getters read are taken from
 // `useWorkspace()`, the same context task-manager reads them from; everything
@@ -28,29 +29,40 @@ import { useChatDispatcher, type ChatDispatcherArgs } from "./use-chat-dispatche
 import { useWorkspace } from "./workspace-context";
 import type { DashboardModel } from "./dashboard";
 import type { ToolDispatcher } from "./chat-tools";
+import { computeProjectForecastFacts } from "./budget-forecast";
+import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
+import type { ForecastReportInput } from "./forecast-ai-report";
+import { isSimulationActive } from "./forecast-simulation";
 
 export type ChatDispatcherWiringDeps = Omit<
   ChatDispatcherArgs,
-  "getDashboardModel" | "getBudgetRollup" | "getAllocationsSnapshot"
+  "getDashboardModel" | "getBudgetRollup" | "getAllocationsSnapshot" | "getForecastInput"
 > & {
   /** task-manager's render-scope dashboard model (`useTrendSnapshots`), handed
    *  to the dispatcher through a getter. */
   dashboardModel: DashboardModel;
+  /** `useHolidaySet`'s flag. Wiring-only: while false, `getForecastInput` returns null and the forecast
+   *  tools refuse, as the Forecast view waits for the calendar. */
+  holidaysReady: boolean;
 };
 
 /** Every deps field the dispatcher receives unchanged, each one REQUIRED. The key
  *  set is filtered through `Exclude`, which makes the mapping non-homomorphic, so
  *  an optional field loses its `?` and keeps `undefined` in its value type. */
 type ForwardedArgs = {
-  [K in Exclude<keyof ChatDispatcherWiringDeps, "dashboardModel">]: ChatDispatcherWiringDeps[K];
+  [K in Exclude<keyof ChatDispatcherWiringDeps, "dashboardModel" | "holidaysReady">]: ChatDispatcherWiringDeps[K];
 };
 
 export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDispatcher {
   const {
     dashboardModel, settings, clock, onSettingsLoggedByAi, setSelectedIds, setSettings, isReadOnly,
     currentView, settingsProjectId, holidaySet, logActivityAs, allowDestructiveSave, undo, openWbsPlan,
+    holidaysReady,
   } = deps;
-  const { tasks, absences, resources, roles, budgets, plan, fxRates } = useWorkspace();
+  const {
+    tasks, absences, resources, roles, budgets, plan, fxRates, milestones, shifts, forecastHistory,
+    forecastScenarios, settingsOverrides,
+  } = useWorkspace();
 
   // Deliberately NOT memoized: this runs only when the assistant calls
   // get_dashboard_snapshot, so an unused read tool costs nothing per render.
@@ -83,6 +95,31 @@ export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDis
     holidaySet,
   });
 
+  // Deliberately NOT memoized, like the two above: built only when a forecast tool runs. The run is the
+  // Forecast view's at its defaults (60-day window, tasks unit); the facts and the directory are built as
+  // workspace-section.tsx builds `forecastBudgetFacts` and `forecastDirectory`.
+  // ★ `scenarios` here is the render-scope slice; use-forecast-tools.ts swaps in its synchronously written
+  //   ref, so a same-turn create is seen.
+  const getForecastInput = (): ForecastReportInput | null => {
+    if (!holidaysReady) return null;
+    const budgetEnabled = isModuleEnabled("budget", settings.features);
+    const workdayHours = settings.resources.workdayHours;
+    const today = clock.today;
+    return {
+      run: {
+        tasks, milestones, today, holidaySet, window: DEFAULT_HISTORY_WINDOW, unit: "tasks", planEnd: plan.endDate,
+        directory: { resources, roles, shifts, absences, budgets, fxRates, workdayHours, baseCurrency: plan.currency },
+        budgetFacts: budgetEnabled
+          ? computeProjectForecastFacts({ buckets: budgets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today })
+          : null,
+        costOn: isSimulationActive(settingsOverrides, settings.features) && budgetEnabled,
+      },
+      history: forecastHistory,
+      scenarios: forecastScenarios,
+      currency: plan.currency,
+    };
+  };
+
   return useChatDispatcher({
     ...({
       settings,
@@ -99,5 +136,6 @@ export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDis
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,
     getAllocationsSnapshot,
+    getForecastInput,
   });
 }

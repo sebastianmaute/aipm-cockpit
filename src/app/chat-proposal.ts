@@ -75,7 +75,13 @@ const DESTRUCTIVE_TOOLS: ReadonlySet<string> = new Set([
  *
  *  ★★ `escalate_raid_item` (§515) is an ordinary single-row RAID write: it sends
  *   no mail (unlike `send_inquiry`, whose handler opens a mail client) and it is
- *   undo-captured, so one call applies and two stage (user decision 2026-09-13). */
+ *   undo-captured, so one call applies and two stage (user decision 2026-09-13).
+ *
+ *  ★ `create_forecast_scenario`/`update_forecast_scenario` (§502) are ordinary
+ *   entity writes too. An update REPLACES the row list when it sends `changes`,
+ *   so it can drop rows, but it is undo-captured (one Ctrl+Z restores the whole
+ *   list) and its result reports `removedRows` — so, like `escalate_raid_item`,
+ *   one call applies and two stage. */
 const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_task", "update_task", "set_task_dependencies", "send_inquiry",
   "create_raid_item", "update_raid_item", "escalate_raid_item",
@@ -86,6 +92,7 @@ const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_document", "update_document",
   "create_absence", "update_absence",
   "create_calendar_event", "update_calendar_event",
+  "create_forecast_scenario", "update_forecast_scenario",
   ...DESTRUCTIVE_TOOLS,
 ]);
 
@@ -206,6 +213,7 @@ export const TARGET_MINTED_BY: Readonly<Record<string, string>> = {
   delete_absence: "create_absence",
   update_calendar_event: "create_calendar_event",
   delete_calendar_event: "create_calendar_event",
+  update_forecast_scenario: "create_forecast_scenario",
 };
 
 /** The THIRD table of the same family: a create tool → the `id-mint-session`
@@ -224,12 +232,12 @@ export const TARGET_MINTED_BY: Readonly<Record<string, string>> = {
  *
  *  ★★★ MEMBERSHIP IS NOT ENOUGH — A WRONG KIND IS A WRONG SEQUENCE, and that is
  *   the failure `TARGET_MINTED_BY`'s own drift test cannot see for its table.
- *   Every value here but `create_document`'s is therefore pinned per row against
- *   an INDEPENDENT source: `INLINE_DESCRIPTORS` already states each entity's
- *   `createTool` beside its `entity`, and those `InlineEntity` spellings are
- *   exactly the `MintKind` spellings the live minters use. `create_document` has
- *   no descriptor and is pinned against a literal alone — read that ONE row as
- *   unguarded, not as covered. Re-derive the live minters with
+ *   Every value here but `create_document`'s and `create_forecast_scenario`'s is
+ *   therefore pinned per row against an INDEPENDENT source: `INLINE_DESCRIPTORS`
+ *   already states each entity's `createTool` beside its `entity`, and those
+ *   `InlineEntity` spellings are exactly the `MintKind` spellings the live
+ *   minters use. Those two have no descriptor and are pinned against a literal
+ *   alone — read those TWO rows as unguarded, not as covered. Re-derive the live minters with
  *   `grep -rn 'mintId("' src/app --include=*.ts --include=*.tsx`.
  *
  *  ★★ THIS USED TO NAME `create_absence` AND `create_calendar_event` AS TWO
@@ -252,6 +260,7 @@ export const CREATE_MINT_KIND: Readonly<Record<string, MintKind>> = {
   create_document: "document",
   create_absence: "absence",
   create_calendar_event: "calendarEvent",
+  create_forecast_scenario: "forecastScenario",
 };
 
 /** ★★ NAME-ONLY, AND THEREFORE NOT THE GATE'S OWN PREDICATE — `shouldStage`

@@ -56,6 +56,9 @@ describe("the exclusion set is disjoint from what the AI can write", () => {
     update_resource: "resource",
     update_absence: "absence",
     update_calendar_event: "calendarEvent",
+    // §502 — a meta-blob slice, but token-guarded all the same: `entityToken` hashes its own projection
+    // (`scenarioProjection`) rather than CSV columns, so it is NOT a `NOT_TOKEN_GUARDED` row.
+    update_forecast_scenario: "forecastScenario",
   };
 
   /** `update_*` tools deliberately outside the token, each because the thing it

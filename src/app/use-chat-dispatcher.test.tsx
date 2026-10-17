@@ -24,6 +24,7 @@ import { blockToken } from "./document-block-token";
 import { MAX_BLOCKS_PER_DOC } from "./document-model";
 import { type DashboardModel } from "./dashboard";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
+import { stubGetForecastInput } from "../test/chat-dispatcher-fixture";
 
 /** Minimal stub getters for the dashboard-snapshot deps: none of these tests
  *  exercise get_dashboard_snapshot. `stubGetDashboardModel` throws a named
@@ -191,7 +192,7 @@ function renderRaidProbe() {
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
       }),
       ws: useWorkspace(),
     }),
@@ -243,7 +244,7 @@ function renderDispatcher(
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(),
         openWbsPlan,
         logActivityAs,
         onSettingsLoggedByAi,
@@ -896,7 +897,7 @@ describe("useChatDispatcher", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
         }),
       { wrapper },
     );
@@ -932,7 +933,7 @@ describe("useChatDispatcher", () => {
             settingsProjectId: "default", holidaySet: new Set<string>(),
             getDashboardModel: stubGetDashboardModel,
             getBudgetRollup: stubGetBudgetRollup,
-            getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+            getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
           }),
         { wrapper, initialProps: { view: initialView } },
       );
@@ -1011,7 +1012,7 @@ describe("useChatDispatcher", () => {
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
       });
       const form = useTaskForm();
       return { dispatcher, form };
@@ -1383,7 +1384,7 @@ describe("useChatDispatcher – optimize_wbs", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(),
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(),
           openWbsPlan: open,
         }),
       { wrapper, initialProps: { open: first } },
@@ -1546,7 +1547,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
       }),
       { wrapper },
     );
@@ -1628,7 +1629,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
       }),
       { wrapper },
     );
@@ -4245,7 +4246,7 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
         }),
         ws: useWorkspace(),
       }),
@@ -4316,7 +4317,7 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
         }),
         ws: useWorkspace(),
       }),
@@ -4459,7 +4460,7 @@ describe("list_allocations scope reaches the snapshot getter (§12)", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+          getAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
         }),
       { wrapper },
     );
