@@ -96,7 +96,8 @@ export type ChartModel = {
    *  (`simDomainCap`, or beyond the horizon). `simCostDrawn` is this field's non-null test, for the tile key. */
   simCost: { from: ChartPoint; at: string; low: number; high: number; p80: number } | null;
   /** §502 — the P80 cost for the text alternative: `simCost.p80` whenever a wedge could be drawn, KEPT when
-   *  the wedge is left out only because its P80 date is past the chart's end. Null when `simCost` would be. */
+   *  the wedge is left out only because the cap (`simDomainCap`) clamps its P80 date. Null whenever no wedge
+   *  can be built at all — a P80 finish beyond the horizon included, since it has no date to anchor one. */
   simCostP80: number | null;
 };
 /** `label` is the bucket names joined with ", "; `amount` their summed delta in

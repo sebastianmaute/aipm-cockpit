@@ -364,6 +364,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const plainBundle = model.forecastBundle;
   // The budget simulation feeds the burn tile alone: with that tile gated off (Budget module) or hidden from
   // the board, the cost pass would be work nobody sees, so it does not run.
+  // ★ `showBudget` restates the burn tile's `gate` (`dashboard-tiles.ts`); calling that gate here would need the
+  // `gate` object below, which must stay declared after the forecast memo (React Compiler, see there).
   const burnShown = showBudget && layout.board.some((p) => p.id === "burn");
   const { kpiSim, kpiSimGap, forecast, atRisk, forecastBundle } = useMemo(() => {
     if (!simulationOn || simulationPending) return { kpiSim: null, kpiSimGap: null, forecast: null, atRisk: NO_AT_RISK, forecastBundle: plainBundle };
@@ -502,6 +504,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const forecastChange = forecast?.kind === "forecast"
     ? weeklyChange({ history: forecastHistory, today, p80: forecast.p80, holidaySet: props.holidaySet })
     : null;
+  // Builds two small chart models (one per unit), so it reruns only when one of its inputs changes.
+  const burndownSeries = model.burndown;
+  const { today: chartToday, planEnd: chartPlanEnd, planStart: chartPlanStart } = model.chartDates;
+  const simCostKey = useMemo(
+    () => simCostContentKey(burndownSeries, forecastBundle, chartToday, chartPlanEnd, chartPlanStart),
+    [burndownSeries, forecastBundle, chartToday, chartPlanEnd, chartPlanStart],
+  );
   const measured = useMeasuredHeights({
     density,
     resetNonce,
@@ -510,7 +519,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     // The Forecast tile likewise, by its slots, its at-risk row count and its change line's form.
     // The burn tile by its simulated line (on/off, the range or which missing input) and its finish band,
     // and by the legend's cost-range entry, which the chart leaves out for several reasons (`simCostContentKey`).
-    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, showMilestones ? atRisk.length : null, forecastChange)}|${milestonesContentKey(milestoneBuckets, forecast?.kind === "forecast" ? chancesById(forecast.milestones) : undefined, simulationPending)}|${budgetSimContentKey(forecastBundle?.sim)}|${simCostContentKey(model.burndown, forecastBundle, model.chartDates.today, model.chartDates.planEnd, model.chartDates.planStart)}`,
+    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, showMilestones ? atRisk.length : null, forecastChange)}|${milestonesContentKey(milestoneBuckets, forecast?.kind === "forecast" ? chancesById(forecast.milestones) : undefined, simulationPending)}|${budgetSimContentKey(forecastBundle?.sim)}|${simCostKey}`,
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };
