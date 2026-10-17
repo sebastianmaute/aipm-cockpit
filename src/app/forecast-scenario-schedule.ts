@@ -20,7 +20,8 @@ export type ScenarioSchedule = {
   addedCost: Float64Array;         // Σ added cost per day, baseline currency
   rows: readonly ScenarioRowStatus[]; // aligned with the scenario's changes by index
   teamHoursPerDay: number | null;
-  /** Σ sized rows' (weeklyHours / 5) / teamHoursPerDay; > 1 means "added people more than double the team". */
+  /** Σ (weeklyHours / 5) / teamHoursPerDay over the sized rows that apply on at least one simulated day;
+   *  > 1 means "added people more than double the team". */
   addedShareAtFullSpeed: number;
 };
 
@@ -49,7 +50,10 @@ export function buildScenarioSchedule(changes: readonly ScenarioChange[], ctx: S
         shares[d] += share[d];
         addedCost[d] += cost[d];
       }
-      if (status.kind === "sized") addedShareAtFullSpeed += status.shareAtFullSpeed;
+      // A sized row with an empty window (`from` past the horizon, or `until` = today) adds no one on any
+      // simulated day, so it must not raise the "more than double the team" warning.
+      const { first, last } = changeDayWindow(dates, c.from, c.until);
+      if (status.kind === "sized" && first <= last) addedShareAtFullSpeed += status.shareAtFullSpeed;
       rows.push({ kind: "addPeople", status });
     } else {
       const named = c.milestoneId;

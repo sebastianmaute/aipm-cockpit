@@ -4,12 +4,14 @@ import { simulatedDates } from "./forecast/day-index";
 import {
   onTeamResourceIds,
   resolveAddedPeople,
+  shiftFor,
   teamHoursPerDay,
   type ScenarioDirectory,
   type ScheduleContext,
 } from "./forecast-added-people";
 import type { AddPeopleChange } from "./forecast-scenarios";
 import { currencyToBase } from "./fx";
+import { buildResourceWorkload } from "./resource-workload-rows";
 import type { Absence, BudgetBucket, FxRates, Resource, Role, Shift, Task } from "./types";
 import { workingDaysBefore } from "./working-days";
 
@@ -224,5 +226,42 @@ describe("resolveAddedPeople", () => {
     const { status, cost } = resolveAddedPeople(placeholder(40), ctx({ teamHours: null }));
     expect(status).toEqual({ kind: "inert", reason: "needs-booked-hours" });
     expect(cost.every((c) => c === 0)).toBe(true);
+  });
+});
+
+describe("shiftFor", () => {
+  const WEEK: Shift["hoursPerWeekday"] = [0, 8, 8, 8, 8, 8, 0];
+  // The join under test is buildResourceWorkload's: each case is checked against its `row.shift` too.
+  function workloadShift(dir: ScenarioDirectory, id: number): Shift | null | undefined {
+    return buildResourceWorkload(dir.resources, [], [], dir.shifts, [], TODAY).managed.find((m) => m.resource.id === id)?.shift;
+  }
+  function expectJoin(dir: ScenarioDirectory, id: number, expected: Shift | undefined) {
+    expect(shiftFor(dir.resources.find((r) => r.id === id)!, dir)).toBe(expected);
+    expect(workloadShift(dir, id) ?? undefined).toBe(expected);
+  }
+
+  it("the last matching Shift wins, and a name match may follow an id match", () => {
+    const byId1 = shift(1, WEEK, { resourceId: 1 });
+    const byId2 = shift(2, WEEK, { resourceId: 1 });
+    expectJoin(directory({ resources: [resource(1)], shifts: [byId1, byId2] }), 1, byId2);
+    const byName = shift(3, WEEK, { assignee: "P1 x " });
+    expectJoin(directory({ resources: [resource(1)], shifts: [byId1, byName] }), 1, byName);
+    expectJoin(directory({ resources: [resource(1)], shifts: [byName, byId1] }), 1, byId1);
+  });
+
+  it("a name joins the first resource carrying it; a Shift on another known resource never joins by name", () => {
+    const twin = resource(2, { firstName: "P1" }); // display name "P1 X", as resource 1
+    const named = shift(1, WEEK, { assignee: "p1 x" });
+    const dir = directory({ resources: [resource(1), twin], shifts: [named] });
+    expectJoin(dir, 1, named);
+    expectJoin(dir, 2, undefined);
+    const other = shift(2, WEEK, { resourceId: 2, assignee: "P1 X" });
+    expectJoin(directory({ resources: [resource(1), twin], shifts: [other] }), 1, undefined);
+  });
+
+  it("an empty display name never matches, not even a Shift with an empty assignee", () => {
+    const blank = resource(1, { firstName: "", lastName: "" });
+    const dir = directory({ resources: [blank], shifts: [shift(1, WEEK, { assignee: "" }), shift(2, WEEK, { assignee: "  " })] });
+    expectJoin(dir, 1, undefined);
   });
 });

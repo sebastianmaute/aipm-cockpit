@@ -49,8 +49,8 @@ export function teamHoursPerDay(hoursFacts: ForecastFacts | null, windowDates: r
   return perDay >= MIN_TEAM_HOURS_PER_DAY ? perDay : null;
 }
 
-/** A resource id for `resourceId` when it is in the directory, else the resource whose case-folded display name
- *  is `name` — the join `buildResourceWorkload` uses. */
+/** A resource id for `resourceId` when it is in the directory, else the first resource whose case-folded display
+ *  name is the trimmed, case-folded `name` (an empty name never matches) — the join `buildResourceWorkload` uses. */
 function resourceResolver(resources: readonly Resource[]): (resourceId: number | null | undefined, name: string) => number | null {
   const ids = new Set(resources.map((r) => r.id));
   const byName = new Map<string, number>();
@@ -98,11 +98,13 @@ function weekdayHours(shift: Shift | undefined, hoursPerWeek: number): number[] 
   return out;
 }
 
-function shiftFor(r: Resource, dir: ScenarioDirectory): Shift | undefined {
-  const known = new Set(dir.resources.map((x) => x.id));
-  const nameKey = resourceDisplayName(r).toLowerCase();
-  return dir.shifts.find((s) => s.resourceId === r.id)
-    ?? dir.shifts.find((s) => (s.resourceId == null || !known.has(s.resourceId)) && s.assignee.trim().toLowerCase() === nameKey);
+/** The Shift `buildResourceWorkload` gives `r`: each Shift joins the resource `resourceResolver` names for it, and
+ *  the LAST Shift joined to `r` wins, so a later name match replaces an earlier id match. */
+export function shiftFor(r: Resource, dir: ScenarioDirectory): Shift | undefined {
+  const resolve = resourceResolver(dir.resources);
+  let found: Shift | undefined;
+  for (const s of dir.shifts) if (resolve(s.resourceId, s.assignee) === r.id) found = s;
+  return found;
 }
 
 type Sizing = { name: string; weeklyHours: number; ratePerHour: number; rateNote: "ok" | "no-rate" | "external" | "at-par";

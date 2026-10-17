@@ -131,4 +131,17 @@ describe("buildScenarioSchedule", () => {
     expect(s.rows[0]).toMatchObject({ kind: "addPeople", status: { kind: "sized", name: "Ann Lee", rateNote: "no-rate" } });
     expect(s.rows[1]).toEqual({ kind: "addPeople", status: { kind: "inert", reason: "person-gone" } });
   });
+
+  it("a sized row that applies on no simulated day adds nothing to addedShareAtFullSpeed", () => {
+    const pastHorizon: AddPeopleChange = { ...placeholder(40), from: "2027-06-01" };
+    const endsToday: AddPeopleChange = { ...placeholder(40), until: TODAY };
+    const joins = placeholder(20);
+    const s = buildScenarioSchedule([pastHorizon, endsToday, joins], ctx());
+    // Both empty-window rows stay sized (the editor still shows their conversion) but count for nothing.
+    expect(s.rows[0]).toMatchObject({ kind: "addPeople", status: { kind: "sized", shareAtFullSpeed: 1 } });
+    expect(s.rows[1]).toMatchObject({ kind: "addPeople", status: { kind: "sized", shareAtFullSpeed: 1 } });
+    expect([...s.changes.capacityByDay.slice(1)].every((v) => v === 1.5)).toBe(true);
+    // Only the 20 h row: 4 h / 8 h. Counting the other two would read 2.5, "more than double the team".
+    expect(s.addedShareAtFullSpeed).toBe(0.5);
+  });
 });
