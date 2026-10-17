@@ -4,7 +4,8 @@ import { step } from './step.mjs';
 import { dedup } from './week.mjs';
 import { caption, click, nav, pace, type } from '../ui.mjs';
 
-const DLG = '[role="dialog"]';
+// Visible dialogs only: a closed modal can stay in the DOM after the one on screen.
+const DLG = '[role="dialog"]:visible';
 const main = (ctx) => ctx.page.locator('main');
 const NEW_TASK = 'Draft the pilot rollout checklist';
 

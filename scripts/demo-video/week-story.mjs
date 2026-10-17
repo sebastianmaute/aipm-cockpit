@@ -47,6 +47,7 @@ export const DAY_FACTS = Object.freeze({
     { collection: "changes", key: "title", value: "Add a CRM provisioning connector", field: "status", expected: "Approved" },
     { collection: "changes", key: "title", value: "Add MFA to SSO scope", field: "status", expected: "Approved" },
     { collection: "milestones", key: "name", value: "MVP target", field: "date", expected: "2026-10-01" },
+    { collection: "raid", key: "title", value: DEMO_LICENCE_RISK, field: "severity", expected: "Medium" },
   ],
   fri: [
     { collection: "tasks", key: "taskName", value: DEMO_CRM_TASK, field: "status", expected: "Done" },

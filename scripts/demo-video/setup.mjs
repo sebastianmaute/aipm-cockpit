@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 import * as L from './lib.mjs';
 import { caption, click, nav, pace, skipTour, type } from './ui.mjs';
 
-const DLG = '[role="dialog"]';
+// Visible dialogs only: a closed modal can stay in the DOM after the one on screen.
+const DLG = '[role="dialog"]:visible';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEVICE_STATE = JSON.parse(fs.readFileSync(path.join(HERE, 'fixtures', 'device-state.json'), 'utf8'));
 

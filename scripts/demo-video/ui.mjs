@@ -64,7 +64,11 @@ export async function moveTo(ctx, loc) {
 
 export async function click(ctx, loc, label, after = 900) {
   await loc.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
-  if (!(await loc.isVisible().catch(() => false))) throw new Error(`not visible: ${label}`);
+  if (!(await loc.isVisible().catch(() => false))) {
+    // isVisible() also fails on a locator that matches several elements: say which it was.
+    const n = await loc.count().catch(() => 0);
+    throw new Error(n > 1 ? `ambiguous (${n} matches): ${label}` : `not visible: ${label}`);
+  }
   await moveTo(ctx, loc);
   await loc.click();
   await L.settle(ctx.page);
@@ -74,8 +78,12 @@ export async function click(ctx, loc, label, after = 900) {
 /** Types visibly; `slow: false` fills at once (credentials: never typed character by character). */
 export async function type(ctx, loc, text, label, { slow = true } = {}) {
   await click(ctx, loc, label, 200);
-  await loc.fill('');
-  if (slow && !ctx.rehearse) await loc.pressSequentially(text, { delay: 35 }); else await loc.fill(text);
+  // Replace the old value without ever emptying the field: some fields act on an empty value (a role's
+  // rate flips the row to the other basis when cleared). Typed over a selection, or filled at once.
+  if (slow && !ctx.rehearse) {
+    await loc.press('Control+A');
+    await loc.pressSequentially(text, { delay: 35 });
+  } else await loc.fill(text);
   await pace(ctx, 300);
 }
 

@@ -96,7 +96,8 @@ export async function runTake(def, deps) {
     await ui.closingBeat(ctx, def.title);
     return result('ok');
   } catch (e) {
-    ctx.log(`FAILED ${def.id}: ${String(e?.message ?? e).split('\n')[0]}`);
+    // The first lines of a Playwright error name the locator and what it waited for.
+    ctx.log(`FAILED ${def.id}: ${String(e?.message ?? e).split('\n').slice(0, 6).join(' | ')}`);
     return result('failed', { error: String(e?.message ?? e).split('\n')[0] });
   } finally {
     if (started) await ctx.page.screencast.stop();
