@@ -12,6 +12,7 @@ import { buildInsightsPromptBlock } from "./insights/insight-prompt";
 import { buildViewScopeBlock, buildViewStateBlock } from "./view-ai-scope-block";
 import { buildActivityRecapBlock } from "./activity-recap";
 import { buildChatPointerBlock } from "./chat-recap";
+import { buildForecastBlock } from "./forecast-ai-prompt";
 import { chatSearchEnabled, historySearchEnabled, type AiConfig } from "./settings-types";
 
 // Re-export so chat consumers can catch the typed HTTP failure without a second import.
@@ -328,6 +329,7 @@ export function buildTurnContext(
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
     appContext,
     viewScopeBlock,
+    buildForecastBlock(offeredTools),
     viewStateBlock,
     insightsBlock,
     activityBlock,
