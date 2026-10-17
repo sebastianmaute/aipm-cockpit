@@ -45628,4 +45628,6 @@ Proposed: generalise the §715 marker and durability gate per `SecretId` (`turso
 
 Size M.
 
+Also noted for the same generalisation (Turso token, §715 round 20): when a write that began after a stopped switch's own seal FAILS, it has still bumped the generation, so the put-back yields and the draft's seal stays in the store. That follows the deliberate no-fallback rule on `beginSealedWrite`; the generalised gate should decide whether the put-back may then still run.
+
 **Source:** found 2026-10-17 by the owner's question during the §715 review rounds (`fix/715-recording-defects`).

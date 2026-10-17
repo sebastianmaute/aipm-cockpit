@@ -882,7 +882,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   }
 
   // Restores the sealed record a stopped switch's own seal replaced, through a restore snapshotted
-  // when that seal landed: anything written or cleared since (§609) wins.
+  // when that seal began: anything written or cleared since it began (§609) wins.
   function putBackRecord(restore: (record: SealedSecret | null) => boolean, record: SealedSecret | null) {
     restore(record);
     setTokenStored(loadSealed("tursoAuthToken") != null);

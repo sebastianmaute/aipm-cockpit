@@ -891,9 +891,10 @@ describe("§715 — an unsealed passphrase-mode token survives a remount and a m
     const user = userEvent.setup();
     const sealedY = await sealPassphrase("tursoAuthToken", "tokY", "pw");
     let release: () => void = () => {};
-    vi.mocked(setSecretPassphrase).mockImplementationOnce(
-      () => new Promise<boolean>((r) => { release = () => { saveSealed(sealedY); r(true); }; }),
-    );
+    vi.mocked(setSecretPassphrase).mockImplementationOnce((id) => {
+      const commit = beginSealedWrite(id); // begun synchronously, as the real one does
+      return new Promise<boolean>((r) => { release = () => r(commit(sealedY)); });
+    });
     const { rerender } = render(<Host storage={BROWSER} />);
     await user.click(lock());
     await user.type(tokenField(), "tokY"); // committed in passphrase mode, no record yet
@@ -1262,12 +1263,13 @@ describe("§715 — every mounted section and every reload path read one token s
     const user = userEvent.setup();
     const prev = await sealDevice("tursoAuthToken", "old");
     saveSealed(prev);
+    // The fake seal runs the real §609 protocol: it BEGINS its write synchronously, as the real one
+    // does, and commits through it — so the put-back's snapshot is checked against a real generation.
+    const ownSealed = await sealDevice("tursoAuthToken", "oldX");
     let landSeal: () => void = () => {};
-    vi.mocked(saveSecretValue).mockImplementationOnce(async (id, value) => {
-      const sealed = await sealDevice(id, value);
-      await new Promise<void>((r) => { landSeal = r; });
-      saveSealed(sealed); // what the real one stores
-      return true;
+    vi.mocked(saveSecretValue).mockImplementationOnce((id) => {
+      const commit = beginSealedWrite(id);
+      return new Promise<boolean>((r) => { landSeal = () => r(commit(ownSealed)); });
     });
     function OnTurso() {
       const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "old", TURSO));
@@ -1293,9 +1295,10 @@ describe("§715 — every mounted section and every reload path read one token s
     // have finished by the deadline, and the release below would do nothing).
     const sealedDraft = await sealPassphrase("tursoAuthToken", "tokX", "pw");
     let release: () => void = () => {};
-    vi.mocked(setSecretPassphrase).mockImplementationOnce(
-      () => new Promise<boolean>((r) => { release = () => { saveSealed(sealedDraft); r(true); }; }),
-    );
+    vi.mocked(setSecretPassphrase).mockImplementationOnce((id) => {
+      const commit = beginSealedWrite(id); // begun synchronously, as the real one does
+      return new Promise<boolean>((r) => { release = () => r(commit(sealedDraft)); });
+    });
     function OnTurso() {
       const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "old", TURSO));
       return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;
@@ -1322,18 +1325,22 @@ describe("§715 — every mounted section and every reload path read one token s
     }
   });
 
-  // The put-back yields to anything written after its own seal landed: here a write that lands while a
+  // The put-back yields to anything written after its own seal began: here a write that lands while a
   // hung seal elsewhere keeps the gate's wait open, before the switch stops.
-  // MU43 — the put-back's snapshot is taken at the stop, not at the landing → (z) goes red (overwritten).
+  // MU43 — the put-back's snapshot is taken at the stop, not when the seal began → (z) goes red.
+  // MU48 — the switch's own device seal begins only after the probe's snapshot → (x) goes red (the
+  //   own write counts as newer, so the put-back yields to it). MU49 — the same for the passphrase
+  //   seal → (x2) goes red.
   it("(z) on Turso storage, a stopped switch never puts back over a newer write", async () => {
     const prev = await sealDevice("tursoAuthToken", "old");
     const newer = await sealDevice("tursoAuthToken", "newer");
     saveSealed(prev);
     let landOwn: () => void = () => {};
     const ownRecord = await sealDevice("tursoAuthToken", "oldZ");
-    vi.mocked(saveSecretValue).mockImplementationOnce(
-      () => new Promise<boolean>((r) => { landOwn = () => { saveSealed(ownRecord); r(true); }; }),
-    );
+    vi.mocked(saveSecretValue).mockImplementationOnce((id) => {
+      const commit = beginSealedWrite(id); // begun synchronously, as the real one does
+      return new Promise<boolean>((r) => { landOwn = () => r(commit(ownRecord)); });
+    });
     function OnTurso() {
       const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "old", TURSO));
       return <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />;

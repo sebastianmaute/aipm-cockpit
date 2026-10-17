@@ -99,14 +99,15 @@ export function probeOwnSeal(
   // Snapshotted NOW, when the seal began — not when its landing is noticed, a few microtasks after
   // the commit, when a write begun in between would pass for ours.
   const restoreFromStart = snapshotSealedRestore("tursoAuthToken");
-  let restoreAtLanding: ((record: SealedSecret | null) => boolean) | null = null;
+  // Set once the seal has landed: the restore to hand a `whenLanded` callback (null until then).
+  let landedRestore: ((record: SealedSecret | null) => boolean) | null = null;
   let onLanded: ((restore: (record: SealedSecret | null) => boolean) => void) | null = null;
   trackTokenSeal(
     seal.then(
       (ok) => {
         landed = ok;
         if (!ok) return;
-        restoreAtLanding = restoreFromStart;
+        landedRestore = restoreFromStart;
         onLanded?.(restoreFromStart);
       },
       (err: unknown) => {
@@ -118,7 +119,7 @@ export function probeOwnSeal(
   return {
     refuses: () => (landed === undefined ? unsettledRefuses : !landed) && tokenNow().trim() !== "",
     whenLanded: (fn) => {
-      if (restoreAtLanding) fn(restoreAtLanding);
+      if (landedRestore) fn(landedRestore);
       else onLanded = fn;
     },
   };
