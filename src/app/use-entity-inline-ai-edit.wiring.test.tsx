@@ -6,6 +6,7 @@ import { t } from "./i18n";
 import { defaultSettings } from "./settings-types";
 import type { ToolDispatcher } from "./chat-tools";
 import { INLINE_EDIT_TITLE_KEY, useEntityInlineAiEdit } from "./use-entity-inline-ai-edit";
+import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 
 vi.mock("./workspace-context", () => ({ useWorkspace: () => ({}) }));
 vi.mock("./toast-context", () => ({ useToastContext: () => vi.fn() }));
@@ -29,7 +30,12 @@ vi.mock("./inline-ai-edit-popover", () => ({
 }));
 
 describe("useEntityInlineAiEdit's popover title (§715 D4)", () => {
-  it.each(["milestone", "raid", "change", "stakeholder", "task"] as const)("is the %s's own title", (entity) => {
+  // Every entity the key map knows, so a new one is pinned without being named here.
+  const entities = Object.keys(INLINE_EDIT_TITLE_KEY) as (keyof typeof INLINE_EDIT_TITLE_KEY)[];
+  it("covers every entity the inline edit has a descriptor for", () => {
+    expect([...entities].sort()).toEqual(Object.keys(INLINE_DESCRIPTORS).sort());
+  });
+  it.each(entities)("is the %s's own title", (entity) => {
     const { result } = renderHook(() =>
       useEntityInlineAiEdit(entity, {
         dispatcher: {} as ToolDispatcher,
