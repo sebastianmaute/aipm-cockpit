@@ -44,7 +44,7 @@ export type ScheduleForecastInput = {
   /** YYYY-MM-DD */
   howManyTarget: string;
   trials?: number;
-  /** When set it replaces `whatIf` in the simulation (`whatIf` still feeds the seed). */
+  /** When set it replaces `whatIf` in the simulation. Neither feeds the seed. */
   changes?: DatedScheduleChanges;
 };
 
@@ -211,7 +211,7 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
   const whatIf = clampWhatIf(input.whatIf, open.length);
   const { sizeOf, unitSize } = sizer(open, unit);
   const base = open.reduce((s, t) => s + sizeOf(t), 0);
-  // `changes` replaces the What-if's scope and capacity; the What-if still feeds the seed below.
+  // `changes` replaces the What-if's scope and capacity.
   const dated = input.changes ? datedScope(input.changes, base, unitSize, milestones, new Map(open.map((t) => [t.id, sizeOf(t)]))) : null;
   const backlog = dated
     ? dated.arrivals.arrivedAt[MAX_HORIZON_WORKING_DAYS]
@@ -235,15 +235,10 @@ export function computeScheduleForecast(input: ScheduleForecastInput): ScheduleF
     };
   }
 
-  const seedParts = [
-    ...open.map((t) => t.id).sort((a, b) => a - b),
-    ...history.samples,
-    window,
-    unit,
-    whatIf.scopeTasks,
-    whatIf.scopePercent,
-    whatIf.capacityPercent,
-  ];
+  // Common random numbers: the seed leaves out the What-if and the dated changes, and every trial consumes a fixed
+  // number of draws, so trial t of every scenario column reads the same random numbers and the columns differ only
+  // by what was changed.
+  const seedParts = [...open.map((t) => t.id).sort((a, b) => a - b), ...history.samples, window, unit];
   // R15: capped at the horizon like When, so a far (or mistyped) target cannot stall the render.
   const lastDay = lastForecastableDay(today, holidaySet);
   const target = input.howManyTarget < lastDay ? input.howManyTarget : lastDay;

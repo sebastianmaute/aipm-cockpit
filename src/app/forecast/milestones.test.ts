@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { Milestone, Task } from "../types";
 import { isAttributableMilestone, orderBacklog, milestoneChances } from "./milestones";
-import { mulberry32 } from "./rng";
+import { mulberry32, type Rng } from "./rng";
 import { buildArrivals, drawDay, type SimOptions } from "./simulate";
 import { nthWorkingDayAfter } from "../working-days";
 
@@ -204,6 +204,47 @@ describe("milestoneChances", () => {
     expect(bothOutcomes(due), "some trials reach and some miss each milestone by due date").toBe(true);
     expect(bothOutcomes(prio), "some trials reach and some miss each milestone prioritised").toBe(true);
     expect(fast).toEqual(slow);
+  });
+});
+
+describe("fixed draws per trial", () => {
+  /** Wraps an rng and counts its calls, a `skip(n)` counting as n. */
+  function counting(inner: Rng): Rng & { calls: () => number } {
+    let n = 0;
+    const next = () => {
+      n += 1;
+      return inner();
+    };
+    return Object.assign(next, {
+      skip: (calls: number) => {
+        n += calls;
+        inner.skip(calls);
+      },
+      calls: () => n,
+    });
+  }
+
+  test("the tally walks every trial to the last dated milestone, target or not", () => {
+    // M1 (task 5 of 10) is due on day 9; M2's linked tasks are all closed (no target) and it is due on day 30.
+    const ten = Array.from({ length: 10 }, (_, i) => task(i + 1));
+    const day = (days: number) => nthWorkingDayAfter(TODAY, days, new Set<string>());
+    const milestones = [ms(1, day(9), [5]), ms(2, day(30), [99])];
+    for (const cap of [undefined, buildArrivals(10, [], 1300)]) {
+      const rng = counting(mulberry32(1));
+      const r = milestoneChances({
+        milestones,
+        ordered: ten,
+        closedIds: new Set([99]),
+        sizeOf: () => 1,
+        samples: [1],
+        today: TODAY,
+        holidaySet: new Set<string>(),
+        o: opts({ rng }),
+        ...(cap ? { cap } : {}),
+      });
+      expect(r.map((m) => m.state), `cap: ${cap !== undefined}`).toEqual(["chance", "chance"]);
+      expect(rng.calls(), `cap: ${cap !== undefined}`).toBe(100 * 30 * 2);
+    }
   });
 });
 

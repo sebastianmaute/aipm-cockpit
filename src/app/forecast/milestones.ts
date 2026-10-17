@@ -207,8 +207,14 @@ export function milestoneChances(args: Args): MilestoneChance[] {
   const live = all.filter((k) => k.days !== null && !k.dead);
   const targets: Target[] = live.map((k) => ({ id: k.id, days: k.days ?? 0, position: k.position, positionPrioritised: k.own }));
   const { cap } = args;
+  // Every trial walks to the latest attributable milestone dated today or later, target or not, so the stream
+  // position of trial t never depends on which milestones a scenario's changes leave as targets.
+  const walkTo = milestones.reduce(
+    (a, m) => (isAttributableMilestone(m) && m.date >= today ? Math.max(a, Math.min(daysTo(m.date), o.horizon)) : a),
+    0,
+  );
 
-  const hits = tally(targets, args, cap ? live.map((k) => lowered(cap, k.drops)) : undefined);
+  const hits = tally(targets, args, walkTo, cap ? live.map((k) => lowered(cap, k.drops)) : undefined);
   for (const t of targets) {
     const h = hits.get(t.id) ?? { due: 0, prio: 0 };
     const n = o.trials;
@@ -227,11 +233,14 @@ export function milestoneChances(args: Args): MilestoneChance[] {
  * early once every milestone still ahead is certainly reached (its done work already covers both
  * positions) or certainly missed (even the best possible days cannot cover the smallest one), and skips
  * the draws it would have made, so every count is the same as walking to the last milestone's day.
+ * Every trial consumes exactly `walkTo` days of draws (at least the last target's day): a trial done with its
+ * targets skips the rest, so trial t starts at the same stream position in every scenario column.
  * With `caps` (one per target), each target keeps its own done count, capped by its own arrived work.
  */
 function tally(
   targets: readonly Target[],
   { samples, o }: Args,
+  walkTo: number,
   caps?: readonly Arrivals[],
 ): Map<number, { due: number; prio: number }> {
   const hits = new Map(targets.map((t) => [t.id, { due: 0, prio: 0 }]));
@@ -239,7 +248,8 @@ function tally(
   const queue = targets
     .map((t, k) => ({ t, day: Math.min(t.days, o.horizon), cap: caps?.[k] }))
     .sort((a, b) => a.day - b.day);
-  const counts = caps ? walkCapped(queue, samples, o) : walkShared(queue, samples, o);
+  const lastDay = Math.max(walkTo, queue[queue.length - 1].day);
+  const counts = caps ? walkCapped(queue, samples, o, lastDay) : walkShared(queue, samples, o, lastDay);
   queue.forEach(({ t }, i) => {
     const h = hits.get(t.id);
     if (!h) return;
@@ -252,8 +262,8 @@ function tally(
 type Queued = { t: Target; day: number; cap?: Arrivals };
 type Counts = { due: Int32Array; prio: Int32Array };
 
-/** No cap: every target reads the same done count. */
-function walkShared(queue: readonly Queued[], samples: readonly number[], o: SimOptions): Counts {
+/** No cap: every target reads the same done count. Each trial consumes `lastDay` days of draws. */
+function walkShared(queue: readonly Queued[], samples: readonly number[], o: SimOptions, lastDay: number): Counts {
   const n = queue.length;
   // From queue index i on: the largest position (reached by all) and the smallest (missed by all).
   const allReachedAt = new Float64Array(n + 1);
@@ -265,12 +275,14 @@ function walkShared(queue: readonly Queued[], samples: readonly number[], o: Sim
   }
   const due = new Int32Array(n);
   const prio = new Int32Array(n);
-  const lastDay = queue[n - 1].day;
+  const lastTarget = queue[n - 1].day;
   const { draw, bestBetween, skipDays } = dayDrawer(samples, o);
   for (let trial = 0; trial < o.trials; trial += 1) {
     let done = 0;
     let i = 0;
-    for (let d = 0; d <= lastDay; d += 1) {
+    // Always left by a break: on the last target's day every target has been read.
+    let d = 0;
+    for (; d <= lastTarget; d += 1) {
       if (d > 0) done += draw(d);
       for (; i < n && queue[i].day === d; i += 1) {
         if (done >= queue[i].t.position) due[i] += 1;
@@ -282,14 +294,11 @@ function walkShared(queue: readonly Queued[], samples: readonly number[], o: Sim
           due[j] += 1;
           prio[j] += 1;
         }
-        skipDays(lastDay - d);
         break;
       }
-      if (cannotReach(done, 1, bestBetween(d, lastDay), noneReachedBelow[i])) {
-        skipDays(lastDay - d);
-        break;
-      }
+      if (cannotReach(done, 1, bestBetween(d, lastTarget), noneReachedBelow[i])) break;
     }
+    skipDays(lastDay - d);
   }
   return { due, prio };
 }
@@ -297,9 +306,10 @@ function walkShared(queue: readonly Queued[], samples: readonly number[], o: Sim
 /**
  * A cap per target: target j's done is `min(done_j + draw(d), cap_j.arrivedAt[d])`, the same draw for all. The
  * exits ask every target still ahead: all certainly reached (done covers both positions and the cap cannot fall
- * below them later, since a falling cap pulls done down) or all certainly missed.
+ * below them later, since a falling cap pulls done down) or all certainly missed. Each trial consumes `lastDay`
+ * days of draws.
  */
-function walkCapped(queue: readonly Queued[], samples: readonly number[], o: SimOptions): Counts {
+function walkCapped(queue: readonly Queued[], samples: readonly number[], o: SimOptions, lastDay: number): Counts {
   const n = queue.length;
   const need = queue.map(({ t }) => Math.max(t.position, t.positionPrioritised));
   const least = queue.map(({ t }) => Math.min(t.position, t.positionPrioritised));
@@ -307,7 +317,7 @@ function walkCapped(queue: readonly Queued[], samples: readonly number[], o: Sim
   const due = new Int32Array(n);
   const prio = new Int32Array(n);
   const done = new Float64Array(n);
-  const lastDay = queue[n - 1].day;
+  const lastTarget = queue[n - 1].day;
   const { draw, bestBetween, skipDays } = dayDrawer(samples, o);
   const allReached = (i: number, d: number) => {
     for (let j = i; j < n; j += 1) {
@@ -323,7 +333,9 @@ function walkCapped(queue: readonly Queued[], samples: readonly number[], o: Sim
   for (let trial = 0; trial < o.trials; trial += 1) {
     done.fill(0);
     let i = 0;
-    for (let d = 0; d <= lastDay; d += 1) {
+    // Always left by a break: on the last target's day every target has been read.
+    let d = 0;
+    for (; d <= lastTarget; d += 1) {
       if (d > 0) {
         const x = draw(d);
         for (let j = i; j < n; j += 1) {
@@ -341,14 +353,11 @@ function walkCapped(queue: readonly Queued[], samples: readonly number[], o: Sim
           due[j] += 1;
           prio[j] += 1;
         }
-        skipDays(lastDay - d);
         break;
       }
-      if (noneReachable(i, bestBetween(d, lastDay))) {
-        skipDays(lastDay - d);
-        break;
-      }
+      if (noneReachable(i, bestBetween(d, lastTarget))) break;
     }
+    skipDays(lastDay - d);
   }
   return { due, prio };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { Milestone, Task } from "../types";
-import { clampWhatIf, computeScheduleForecast, effortCoverage, type ScheduleForecastInput, type WhatIf } from "./index";
+import { clampWhatIf, computeScheduleForecast, effortCoverage, type ScheduleForecastInput, type ScopeArrival, type WhatIf } from "./index";
 import { FORECAST_TRIALS, MAX_HORIZON_WORKING_DAYS } from "./constants";
 import { seedFrom } from "./rng";
 import { PRIORITIES } from "../types";
@@ -409,6 +409,53 @@ describe("computeScheduleForecast with dated changes", () => {
     const changes = (n: number) => ({ capacityByDay: FLAT(), arrivals: n === 0 ? [] : [{ day: 2, tasks: n, milestoneId: null }] });
     expect(computeScheduleForecast(input(recentDone(3), { changes: changes(0) })).kind, "no work at all skips the floor").toBe("forecast");
     expect(computeScheduleForecast(input(recentDone(3), { changes: changes(5) })).kind).toBe("insufficient");
+  });
+
+  test("a higher capacity never makes any trial later (shared draws)", () => {
+    const run = (over: Partial<ScheduleForecastInput>) => {
+      const r = computeScheduleForecast(input(tasks, { milestones, ...over }));
+      if (r.kind !== "forecast") throw new Error("expected forecast");
+      return r;
+    };
+    const quick = run({ whatIf: NEUTRAL });
+    const more = run({ whatIf: { ...NEUTRAL, capacityPercent: 130 } });
+    expect(Array.from(more.trialDays).every((d, t) => d <= quick.trialDays[t])).toBe(true);
+    expect(Array.from(more.trialDays).some((d, t) => d < quick.trialDays[t]), "some trial finishes earlier").toBe(true);
+  });
+
+  test("a later scope arrival never makes any trial finish earlier", () => {
+    const run = (arrivals: ScopeArrival[]) => {
+      const r = computeScheduleForecast(input(tasks, { milestones, changes: { capacityByDay: FLAT(), arrivals } }));
+      if (r.kind !== "forecast") throw new Error("expected forecast");
+      return r;
+    };
+    const none = run([]);
+    const added = run([{ day: 20, tasks: 5, milestoneId: null }]);
+    expect(Array.from(added.trialDays).every((d, t) => d >= none.trialDays[t])).toBe(true);
+    expect(Array.from(added.trialDays).some((d, t) => d > none.trialDays[t]), "some trial finishes later").toBe(true);
+  });
+
+  test("a flat 130 % schedule plus a day-0 arrival equals the What-if it came from (tasks unit)", () => {
+    // 50 open: the What-if adds 3 + round(10 % of 50) = 8 tasks at 130 % capacity.
+    const fifty = [...open(50), ...recentDone(12), done(1500, "2026-10-14"), done(1501, "2026-10-14"), done(1502, "2026-10-13")];
+    const whatIf = computeScheduleForecast(input(fifty, { milestones, whatIf: { scopeTasks: 3, scopePercent: 10, capacityPercent: 130 } }));
+    const dated = computeScheduleForecast(
+      input(fifty, {
+        milestones,
+        changes: {
+          capacityByDay: new Float64Array(MAX_HORIZON_WORKING_DAYS + 1).fill(1.3),
+          arrivals: [{ day: 0, tasks: 8, milestoneId: null }],
+        },
+      }),
+    );
+    if (whatIf.kind !== "forecast" || dated.kind !== "forecast") throw new Error("expected forecast");
+    expect(whatIf.backlog).toBe(58);
+    expect(new Set(whatIf.trialDays).size, "trials finish on different days").toBeGreaterThan(1);
+    expect(dated.backlog).toBe(whatIf.backlog);
+    expect(Array.from(dated.trialDays)).toEqual(Array.from(whatIf.trialDays));
+    expect(dated.when).toEqual(whatIf.when);
+    expect(dated.howMany).toEqual(whatIf.howMany);
+    expect(dated.milestones).toEqual(whatIf.milestones);
   });
 
   test("insufficient carries the window dates", () => {

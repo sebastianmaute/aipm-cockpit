@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { mulberry32 } from "./rng";
+import { mulberry32, type Rng } from "./rng";
 import { buildArrivals, dayDrawer, drawDay, percentile, simulateHowMany, simulateWhen, type SimOptions } from "./simulate";
 
 /** A backlog no test in this file reaches, for the cases that are not about the cap. */
@@ -8,6 +8,47 @@ const UNCAPPED = Number.MAX_SAFE_INTEGER;
 function opts(over: Partial<SimOptions> = {}): SimOptions {
   return { trials: 200, rng: mulberry32(42), capacity: 1, horizon: 1300, integer: true, ...over };
 }
+
+/** Wraps an rng and counts its calls, a `skip(n)` counting as n. */
+function counting(inner: Rng): Rng & { calls: () => number } {
+  let n = 0;
+  const next = () => {
+    n += 1;
+    return inner();
+  };
+  return Object.assign(next, {
+    skip: (calls: number) => {
+      n += calls;
+      inner.skip(calls);
+    },
+    calls: () => n,
+  });
+}
+
+describe("fixed draws per trial", () => {
+  test("every When trial consumes exactly the horizon's draws", () => {
+    const rng = counting(mulberry32(3));
+    simulateWhen([1, 2], 10, opts({ trials: 50, rng }));
+    expect(rng.calls()).toBe(50 * 1300 * 2);
+    // With arrivals: a trial that finishes early still walks to the horizon.
+    const dated = counting(mulberry32(3));
+    simulateWhen([1, 2], 10, opts({ trials: 50, rng: dated }), buildArrivals(10, [{ day: 4, amount: 3 }], 1300));
+    expect(dated.calls()).toBe(50 * 1300 * 2);
+    // A certain-beyond trial too.
+    const beyond = counting(mulberry32(3));
+    simulateWhen([1, 2], 5000, opts({ trials: 50, rng: beyond }));
+    expect(beyond.calls()).toBe(50 * 1300 * 2);
+  });
+
+  test("every How-many trial consumes exactly the target's draws", () => {
+    const rng = counting(mulberry32(3));
+    simulateHowMany([1, 2], 40, 10, opts({ trials: 50, rng }));
+    expect(rng.calls()).toBe(50 * 40 * 2);
+    const dated = counting(mulberry32(3));
+    simulateHowMany([1, 2], 40, 10, opts({ trials: 50, rng: dated }), buildArrivals(10, [{ day: 4, amount: 3 }], 1300));
+    expect(dated.calls()).toBe(50 * 40 * 2);
+  });
+});
 
 describe("simulateWhen", () => {
   test("trialDays is the unsorted per-trial result and sorts to days", () => {
@@ -53,7 +94,8 @@ describe("simulateWhen", () => {
   });
 
   test("the certain-beyond early exit gives exactly the days of walking every trial to the horizon", () => {
-    // Reference: the plain loop, a short trial drawing every day up to the horizon from the same stream.
+    // Reference: the plain loop, every trial drawing every day up to the horizon from the same stream (a
+    // finished trial goes on drawing and ignores the rest).
     function walked(samples: number[], backlog: number, o: SimOptions): number[] {
       const out: number[] = [];
       for (let t = 0; t < o.trials; t += 1) {
@@ -64,6 +106,7 @@ describe("simulateWhen", () => {
           done += drawDay(samples, o, d);
         }
         out.push(done < backlog ? o.horizon + 1 : d);
+        for (let rest = d + 1; rest <= o.horizon; rest += 1) drawDay(samples, o, rest);
       }
       return out.sort((a, b) => a - b);
     }
@@ -98,7 +141,10 @@ describe("simulateWhen", () => {
 });
 
 describe("capacityByDay", () => {
-  /** Plain When under a schedule: sample x m[day], stochastic-rounded, every day to the horizon, trial order. */
+  /**
+   * Plain When under a schedule: sample x m[day], stochastic-rounded, every day to the horizon (a finished trial
+   * goes on drawing, two calls a day), trial order.
+   */
   function referenceWhen(samples: number[], backlog: number, m: Float64Array): number[] {
     const o = opts();
     const out: number[] = [];
@@ -112,6 +158,10 @@ describe("capacityByDay", () => {
         done += whole + (o.rng() < x - whole ? 1 : 0);
       }
       out.push(done < backlog ? o.horizon + 1 : d);
+      for (let rest = d + 1; rest <= o.horizon; rest += 1) {
+        o.rng();
+        o.rng();
+      }
     }
     return out;
   }
@@ -207,7 +257,7 @@ describe("dated scope arrivals", () => {
 
   test("the certain-beyond exit stays exact with arrivals", () => {
     // Reference: every trial walks day by day (sample x m[day], stochastic-rounded, capped at arrivedAt[day]) until
-    // it is done on or after the last addition, or reaches the horizon.
+    // it is done on or after the last addition, or reaches the horizon; a finished trial goes on drawing to the horizon.
     const m = Float64Array.from({ length: 1301 }, (_, d) => (d % 2 ? 0.2 : 2.5));
     const samples = [0, 1, 3];
     const arrivals = buildArrivals(2000, [{ day: 400, amount: 340 }], 1300);
@@ -223,6 +273,10 @@ describe("dated scope arrivals", () => {
         done = Math.min(done + whole + (o.rng() < x - whole ? 1 : 0), arrivals.arrivedAt[d]);
       }
       slow.push(d >= arrivals.lastPositiveDay && done >= arrivals.arrivedAt[d] ? d : o.horizon + 1);
+      for (let rest = d + 1; rest <= o.horizon; rest += 1) {
+        o.rng();
+        o.rng();
+      }
     }
     const fast = simulateWhen(samples, 2340, opts({ capacityByDay: m }), arrivals);
     expect(fast.days.includes(1301) && fast.days.some((d) => d < 1301), "the case has both outcomes").toBe(true);

@@ -166,10 +166,12 @@ export function buildArrivals(base: number, steps: readonly { day: number; amoun
 
 /**
  * Working days until `backlog` is done, per trial, sorted ascending (`days`) and in trial order
- * (`trialDays`); `horizon + 1` = beyond. A trial
- * that cannot reach the backlog even at the best possible day stops and skips its remaining draws, so
- * the result is the same as walking it to the horizon. With `arrivals` the backlog is `arrivals` instead
- * (see `whenWithArrivals`).
+ * (`trialDays`); `horizon + 1` = beyond. Every trial consumes exactly `horizon` days of draws (an empty backlog
+ * draws nothing at all): one that
+ * finishes, or that cannot reach the backlog even at the best possible day, skips its remaining draws, so
+ * trial t starts at the same stream position whatever the backlog or capacity (common random numbers),
+ * and the result is the same as walking it to the horizon. With `arrivals` the backlog is `arrivals`
+ * instead (see `whenWithArrivals`).
  */
 export function simulateWhen(
   samples: readonly number[],
@@ -200,6 +202,7 @@ export function simulateWhen(
         beyond += 1;
       } else {
         days[t] = d;
+        skipDays(o.horizon - d);
       }
     }
   }
@@ -217,7 +220,8 @@ function sortedWhen(days: Int32Array, beyond: number, trials: number): { days: I
  * cannot be delivered before it arrives. A trial finishes on the smallest `d ≥ lastPositiveDay` with
  * `done(d) ≥ arrivedAt[d]`: added scope must be finished, so a trial done before an addition resumes when it
  * arrives. It is certainly beyond once even the best possible days cannot reach the least work that can be
- * open on any day it could still finish; it then skips its remaining draws, as the plain path does.
+ * open on any day it could still finish. A finished or certainly-beyond trial skips its remaining draws to the
+ * horizon, as the plain path does.
  */
 function whenWithArrivals(
   samples: readonly number[],
@@ -246,6 +250,7 @@ function whenWithArrivals(
     }
     if (finished) {
       days[t] = d;
+      skipDays(o.horizon - d);
     } else {
       days[t] = o.horizon + 1;
       beyond += 1;
@@ -258,7 +263,8 @@ function whenWithArrivals(
  * Amount delivered within `days` working days, per trial, sorted ascending. Capped at `backlog`:
  * a trial cannot deliver more than is open, so it stops drawing once the backlog is done. With `arrivals`
  * `backlog` is unused: a day delivers at most what has arrived by it, and a trial done on or after the last
- * addition stops drawing and reports `arrivedAt[days]` (later removals still lower it).
+ * addition stops drawing and reports `arrivedAt[days]` (later removals still lower it). A trial that stops
+ * early skips the rest of its `days` draws, so every trial consumes exactly `days` days of the stream.
  */
 export function simulateHowMany(
   samples: readonly number[],
@@ -269,10 +275,15 @@ export function simulateHowMany(
 ): Float64Array {
   if (arrivals) return howManyWithArrivals(samples, days, o, arrivals);
   const out = new Float64Array(o.trials);
-  const { draw } = dayDrawer(samples, o);
+  const { draw, skipDays } = dayDrawer(samples, o);
   for (let t = 0; t < o.trials; t += 1) {
     let total = 0;
-    for (let d = 1; d <= days && total < backlog; d += 1) total += draw(d);
+    let d = 0;
+    while (d < days && total < backlog) {
+      d += 1;
+      total += draw(d);
+    }
+    skipDays(days - d);
     out[t] = Math.min(total, backlog);
   }
   out.sort();
@@ -281,7 +292,7 @@ export function simulateHowMany(
 
 function howManyWithArrivals(samples: readonly number[], days: number, o: SimOptions, { arrivedAt, lastPositiveDay }: Arrivals): Float64Array {
   const out = new Float64Array(o.trials);
-  const { draw } = dayDrawer(samples, o);
+  const { draw, skipDays } = dayDrawer(samples, o);
   for (let t = 0; t < o.trials; t += 1) {
     let done = 0;
     let d = 0;
@@ -289,6 +300,7 @@ function howManyWithArrivals(samples: readonly number[], days: number, o: SimOpt
       d += 1;
       done = Math.min(done + draw(d), arrivedAt[d]);
     }
+    skipDays(days - d);
     out[t] = d < days ? arrivedAt[days] : done;
   }
   out.sort();
