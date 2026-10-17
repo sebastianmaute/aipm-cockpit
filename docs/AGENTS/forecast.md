@@ -910,6 +910,40 @@ npx vite-node scenario-probe.ts; rm scenario-probe.ts
   `PORT=3100 npx playwright test e2e/forecast-scenarios.spec.ts --project=chromium --workers=1`. Until then CI covers the
   editor and the comparison by their unit tests only.
 
+## The AI tool (§502)
+
+The assistant side is in `docs/AGENTS/ai-assistant.md`, "Forecast tools (§502)"; this section is what the FORECAST
+owns. `get_forecast` returns one JSON report (`buildForecastReport`, `forecast-ai-report.ts`, type `ForecastReport`):
+`simulated: true`, the `settings` it ran with (history window, tasks unit, `FORECAST_TRIALS` trials, baseline
+currency, plan end, today), the `asIs` column, `weeklyChange`, one entry per saved scenario (id, name,
+`expectedToken`, its `changes`, a `result` column and per-row `rows` statuses), and an optional `whatIf` column for the
+call's own draft. A column is either `status: "forecast"` (P50/P80/P95 as ISO dates or `"beyond"`, `chanceOnTime`,
+every milestone with a chance or an `overdue` / `no-linked-tasks` state, and cost) or `status: "insufficient"` with
+the engine's reason, which the prompt tells the model to quote rather than estimate around.
+
+★★ COMMON RANDOM NUMBERS HOLD. The report computes nothing of its own: it reshapes `computeScenarioComparison` and runs
+the draft through `computeScenarioColumn`, so every column shares the comparison's streams, and a `whatIf` equal to a
+saved scenario reproduces that scenario's column exactly. Do not give the report a seed or run of its own. ★ The run is
+always the app DEFAULTS (`DEFAULT_HISTORY_WINDOW`, tasks), not the toolbar, so a figure the model quotes can differ
+from the one on screen.
+
+★ All three tools refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads: the forecast input getter in
+`use-chat-dispatcher-wiring.ts` returns null until `holidaysReady`, and `useForecastTools` turns that into the refusal. A
+run on an unsettled calendar would quote dates the loaded one moves. They refuse with `FORECAST_OFF_MESSAGE` when the
+simulation is off.
+
+★★ ONE COMPARISON PER RENDER: in Scenarios mode `ForecastPanel` computes the scenario comparison once (a `useMemo`
+over the comparison's inputs; null outside Scenarios mode) and passes it to `ForecastScenariosView` as `comparison`;
+the Ask-Claude menu reads the worst milestone from it too, with no second run.
+
+Chips: `ForecastAskClaude` (`forecast-ask-claude.tsx`) is a menu of Ask-Claude prompts that send the user to the chat.
+The set depends on the mode: an explain prompt always; a milestone prompt naming the worst milestone of the run ON
+SCREEN (`worstMilestoneName`; As is in Scenarios mode; absent with no run or when no milestone carries a chance); and
+compare and suggest prompts in Scenarios mode. Enumerate them with `grep -n "forecastAsk.*Label" src/app/i18n.ts`.
+
+★★ KNOWN LIMITATION: a scenario written in the same assistant turn as the milestone or person it names is refused
+("does not exist"); see `ai-assistant.md`. It fails closed.
+
 ## Mutation proof (slice 1)
 
 Four mutants for the slice, run one at a time, each turned red by its own test:
