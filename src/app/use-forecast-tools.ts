@@ -127,11 +127,12 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
           name, changes, list, exceptId: id, stored: stored.changes, ctx: scenarioValidationContext(input),
         });
         if (refusal !== null) throw new Error(refusal);
-        const removed = patch.changes === undefined ? {} : { removedRows: countRemovedRows(stored.changes, changes) };
         // Keep the stored references for what did not change (as use-forecast-scenarios.ts does), so an
         // update that changes nothing writes, logs and captures nothing.
         const trimmedName = name.trim();
         const rows = trimScenarioChanges(changes);
+        // Counted on the TRIMMED rows, the ones stored: a label differing only by spaces is not a removal.
+        const removed = patch.changes === undefined ? {} : { removedRows: countRemovedRows(stored.changes, rows) };
         const after: ForecastScenario = {
           ...stored,
           name: trimmedName === stored.name ? stored.name : trimmedName,

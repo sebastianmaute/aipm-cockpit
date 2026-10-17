@@ -148,6 +148,26 @@ describe("update_forecast_scenario", () => {
     expect(result.current.undo.stack).toHaveLength(0);
   });
 
+  test("a placeholder label that differs only by a trailing space removes nothing and writes nothing", () => {
+    const hire: ScenarioChange = {
+      kind: "addPeople", from: "2026-06-01", until: "", rampWeeks: 4,
+      who: { label: "Contractor", count: 1, rate: 80, currency: "EUR", hoursPerWeek: 40 },
+    };
+    const stored: ForecastScenario = { id: 1, name: "Hire", changes: [hire] };
+    const { result, logActivityAs } = mount({ forecastScenarios: [stored] });
+    const before = result.current.forecastScenarios;
+    let out: { removedRows?: number } | undefined;
+    act(() => {
+      out = result.current.dispatcher.updateForecastScenario(1, {
+        changes: [{ ...hire, who: { label: "Contractor ", count: 1, rate: 80, currency: "EUR", hoursPerWeek: 40 } }],
+      });
+    });
+    expect(out?.removedRows).toBe(0);
+    expect(result.current.forecastScenarios).toBe(before);
+    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(result.current.undo.stack).toHaveLength(0);
+  });
+
   test("an update that changes nothing writes, logs and captures nothing", () => {
     const { result, logActivityAs } = mount({ forecastScenarios: [SAVED] });
     const before = result.current.forecastScenarios;
