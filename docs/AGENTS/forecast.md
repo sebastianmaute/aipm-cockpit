@@ -104,16 +104,17 @@ forecast's formatter) rather than owning a formatter of its own.
 - **`SimOptions` (R1).** `{ trials, rng, capacity, horizon, integer }`. `integer: true` is the tasks unit:
   each simulated day is stochastically rounded to whole tasks. `integer: false` is effort: the fraction
   is kept.
-- **`dayDrawer` (R2)** is the one place a simulated day is drawn (bootstrap sample × capacity, rounded when
-  `integer`); `drawDay` is a one-shot wrapper over it. `simulateWhen`, `simulateHowMany` and
+- **`dayDrawer` (R2)** is the one place a simulated day is drawn (bootstrap sample × capacity, or × that day's
+  `capacityByDay` multiplier when a schedule is set, rounded when `integer`); `draw(day)` takes the 1-based day
+  index, and a day makes the same rng calls whatever its multiplier. `drawDay` is a one-shot wrapper over it. `simulateWhen`, `simulateHowMany` and
   `milestoneChances` all take their `draw` from it, so the rounding rule lives once. It hoists the
   per-sample arithmetic out of the loop and skips (rather than computes) the rounding draw of a whole
   sample, which can never round up; the values and the stream are those of the plain formula (pinned by
   "the hoisted drawer draws the plain formula's values from the same stream, both units"). An empty
   history draws 0.
 - ★★ **Early exits are EXACT, because the stream can jump.** A trial stops drawing once its outcome is
-  certain — When: even the best possible day (`dayDrawer`'s `max`) every remaining day cannot reach the
-  backlog (`cannotReach`), so it is `beyond`; milestones: every milestone still ahead is already reached,
+  certain — When: even the best possible remaining days (`dayDrawer`'s `bestBetween`: `max` per day without a
+  schedule, a prefix sum of each day's best with one) cannot reach the backlog (`cannotReach`), so it is `beyond`; milestones: every milestone still ahead is already reached,
   or none can be — and then calls `skipDays`, which jumps the stream (`mulberry32`'s `skip`, its state
   only adds a constant per draw) to where drawing those days would have left it. So every later trial
   draws the same numbers and every result is unchanged: on the four probe cases below plus three more

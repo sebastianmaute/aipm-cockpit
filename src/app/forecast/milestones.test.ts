@@ -117,7 +117,7 @@ describe("milestoneChances", () => {
       for (let trial = 0; trial < o.trials; trial += 1) {
         let done = 0;
         for (let d = 0; d <= lastDay; d += 1) {
-          if (d > 0) done += drawDay(samples, o);
+          if (d > 0) done += drawDay(samples, o, d);
           for (const t of targets.filter((x) => x.days === d)) {
             if (done >= t.position) due.set(t.id, (due.get(t.id) ?? 0) + 1);
             if (done >= t.prio) prio.set(t.id, (prio.get(t.id) ?? 0) + 1);
@@ -155,5 +155,46 @@ describe("milestoneChances", () => {
         milestones.map((m) => slow.find((s) => s.id === m.id)),
       );
     }
+  });
+
+  test("the milestone early exits stay exact under a varying multiplier", () => {
+    // Reference: every trial draws sample x m[day], stochastic-rounded, every day up to the last milestone's day.
+    const samples = [0, 1, 3];
+    const m = Float64Array.from({ length: 1301 }, (_, d) => (d % 2 ? 0.2 : 2.5));
+    const targets = [
+      { id: 1, days: 15, position: 20, prio: 1 },
+      { id: 2, days: 40, position: 60, prio: 1 },
+    ];
+    const o = opts({ trials: 300, rng: mulberry32(9) });
+    const due = [0, 0];
+    const prio = [0, 0];
+    for (let trial = 0; trial < o.trials; trial += 1) {
+      let done = 0;
+      for (let d = 1; d <= 40; d += 1) {
+        const x = samples[Math.floor(o.rng() * samples.length)] * m[d];
+        const whole = Math.floor(x);
+        done += whole + (o.rng() < x - whole ? 1 : 0);
+        targets.forEach((t, k) => {
+          if (t.days !== d) return;
+          if (done >= t.position) due[k] += 1;
+          if (done >= t.prio) prio[k] += 1;
+        });
+      }
+    }
+    const slow = targets.map((t, k) => ({ id: t.id, state: "chance", chance: due[k] / o.trials, chancePrioritised: prio[k] / o.trials }));
+    // Monday 2026-10-12: Nov 2 is 15 working days ahead, Dec 7 is 40.
+    const sixty = Array.from({ length: 60 }, (_, i) => task(i + 1));
+    const fast = milestoneChances({
+      milestones: [ms(1, "2026-11-02", [20]), ms(2, "2026-12-07", [60])],
+      ordered: sixty,
+      closedIds: new Set<number>(),
+      sizeOf: () => 1,
+      samples,
+      today: TODAY,
+      holidaySet: new Set<string>(),
+      o: opts({ trials: 300, rng: mulberry32(9), capacityByDay: m }),
+    });
+    expect(due.every((n) => n > 0 && n < o.trials), "some trials reach and some miss each milestone").toBe(true);
+    expect(fast).toEqual(slow);
   });
 });

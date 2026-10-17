@@ -105,12 +105,12 @@ function tally(targets: readonly Target[], { samples, o }: Args): Map<number, { 
   const due = new Int32Array(n);
   const prio = new Int32Array(n);
   const lastDay = queue[n - 1].day;
-  const { draw, max, skipDays } = dayDrawer(samples, o);
+  const { draw, bestBetween, skipDays } = dayDrawer(samples, o);
   for (let trial = 0; trial < o.trials; trial += 1) {
     let done = 0;
     let i = 0;
     for (let d = 0; d <= lastDay; d += 1) {
-      if (d > 0) done += draw();
+      if (d > 0) done += draw(d);
       for (; i < n && queue[i].day === d; i += 1) {
         if (done >= queue[i].t.position) due[i] += 1;
         if (done >= queue[i].t.positionPrioritised) prio[i] += 1;
@@ -124,7 +124,7 @@ function tally(targets: readonly Target[], { samples, o }: Args): Map<number, { 
         skipDays(lastDay - d);
         break;
       }
-      if (cannotReach(done, lastDay - d, max, noneReachedBelow[i])) {
+      if (cannotReach(done, 1, bestBetween(d, lastDay), noneReachedBelow[i])) {
         skipDays(lastDay - d);
         break;
       }

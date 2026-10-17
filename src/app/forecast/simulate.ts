@@ -10,40 +10,57 @@ export type SimOptions = {
   horizon: number;
   /** Tasks unit: stochastic-round each day to whole tasks. Effort unit keeps the fraction. */
   integer: boolean;
+  /** Multiplier per simulated working day, index 1..horizon (index 0 unused). When set it replaces `capacity`. */
+  capacityByDay?: Float64Array;
 };
 
 export type DayDrawer = {
-  /** One simulated working day. */
-  draw: () => number;
-  /** The most one day can deliver, for the early exits. */
+  /** One simulated working day; `day` (1-based) picks that day's multiplier under `capacityByDay`. */
+  draw: (day: number) => number;
+  /** The most one day can deliver (under a schedule, the largest day's best). */
   max: number;
+  /** The most the days (afterDay, throughDay] can deliver together, for the early exits. */
+  bestBetween: (afterDay: number, throughDay: number) => number;
   /** Advance the stream past `days` simulated days, landing where drawing them would. */
   skipDays: (days: number) => void;
 };
 
+type Skips = { skipDays: (days: number) => void; skipOne: () => void };
+
 /**
- * The one place a simulated working day is drawn: a bootstrap sample scaled by capacity (empty
- * history = 0), stochastically rounded to whole tasks when `integer`. The per-sample arithmetic is
- * hoisted out of the loop; each day makes the same rng calls (1, or 2 when `integer`) with the same values.
+ * The one place a simulated working day is drawn: a bootstrap sample scaled by capacity, or by the day's
+ * own `capacityByDay` multiplier (empty history = 0), stochastically rounded to whole tasks when
+ * `integer`. Each day makes the same rng calls (1, or 2 when `integer`) whatever its multiplier, so the
+ * stream position after N days never depends on the schedule.
  */
 export function dayDrawer(samples: readonly number[], o: SimOptions): DayDrawer {
-  const n = samples.length;
-  if (n === 0) return { draw: () => 0, max: 0, skipDays: () => {} };
-  const { rng } = o;
-  const scaled = Float64Array.from(samples, (s) => s * o.capacity);
+  if (samples.length === 0) return { draw: () => 0, max: 0, bestBetween: () => 0, skipDays: () => {} };
   const callsPerDay = o.integer ? 2 : 1;
   const skipDays = (days: number) => {
     if (days <= 0) return;
     if (o.rng.skip) o.rng.skip(days * callsPerDay);
     else for (let i = 0; i < days * callsPerDay; i += 1) o.rng();
   };
-  // A reduce, not `Math.max(...)`: a spread throws a RangeError past the engine's argument limit.
-  if (!o.integer) return { draw: () => scaled[Math.floor(rng() * n)], max: scaled.reduce((a, x) => Math.max(a, x), 0), skipDays };
-  const whole = scaled.map((x) => Math.floor(x));
-  const frac = scaled.map((x, i) => x - whole[i]);
-  // A whole sample cannot round up (`rng() < 0` is never true), so its rounding draw is skipped, not computed.
+  // A whole value cannot round up (`rng() < 0` is never true), so its rounding draw is skipped, not computed.
   const { skip } = o.rng;
   const skipOne = skip ? () => skip(1) : () => void o.rng();
+  const skips = { skipDays, skipOne };
+  return o.capacityByDay ? scheduledDrawer(samples, o, o.capacityByDay, skips) : flatDrawer(samples, o, skips);
+}
+
+/** One capacity for every day: the per-sample arithmetic is hoisted out of the loop. */
+function flatDrawer(samples: readonly number[], o: SimOptions, { skipDays, skipOne }: Skips): DayDrawer {
+  const n = samples.length;
+  const { rng } = o;
+  const scaled = Float64Array.from(samples, (s) => s * o.capacity);
+  if (!o.integer) {
+    // A reduce, not `Math.max(...)`: a spread throws a RangeError past the engine's argument limit.
+    const max = scaled.reduce((a, x) => Math.max(a, x), 0);
+    return { draw: () => scaled[Math.floor(rng() * n)], max, bestBetween: (a, b) => (b - a) * max, skipDays };
+  }
+  const whole = scaled.map((x) => Math.floor(x));
+  const frac = scaled.map((x, i) => x - whole[i]);
+  const max = whole.reduce((a, w, i) => Math.max(a, w + (frac[i] > 0 ? 1 : 0)), 0);
   return {
     draw: () => {
       const i = Math.floor(rng() * n);
@@ -53,14 +70,45 @@ export function dayDrawer(samples: readonly number[], o: SimOptions): DayDrawer 
       }
       return whole[i] + (rng() < frac[i] ? 1 : 0);
     },
-    max: whole.reduce((a, w, i) => Math.max(a, w + (frac[i] > 0 ? 1 : 0)), 0),
+    max,
+    bestBetween: (a, b) => (b - a) * max,
     skipDays,
   };
 }
 
-/** One simulated working day (see `dayDrawer`). */
-export function drawDay(samples: readonly number[], o: SimOptions): number {
-  return dayDrawer(samples, o).draw();
+/** A multiplier per day: a day's best is the largest sample at that day's multiplier, summed as a prefix. */
+function scheduledDrawer(samples: readonly number[], o: SimOptions, m: Float64Array, { skipDays, skipOne }: Skips): DayDrawer {
+  const n = samples.length;
+  const { rng } = o;
+  const top = samples.reduce((a, s) => Math.max(a, s), 0);
+  const prefix = new Float64Array(o.horizon + 1);
+  let max = 0;
+  for (let d = 1; d <= o.horizon; d += 1) {
+    const best = o.integer ? Math.ceil(top * m[d]) : top * m[d];
+    prefix[d] = prefix[d - 1] + best;
+    max = Math.max(max, best);
+  }
+  const bestBetween = (afterDay: number, throughDay: number) => prefix[throughDay] - prefix[afterDay];
+  if (!o.integer) return { draw: (day) => samples[Math.floor(rng() * n)] * m[day], max, bestBetween, skipDays };
+  return {
+    draw: (day) => {
+      const x = samples[Math.floor(rng() * n)] * m[day];
+      const whole = Math.floor(x);
+      if (whole === x) {
+        skipOne();
+        return whole;
+      }
+      return whole + (rng() < x - whole ? 1 : 0);
+    },
+    max,
+    bestBetween,
+    skipDays,
+  };
+}
+
+/** One simulated working day (see `dayDrawer`); `day` (default 1) picks a schedule's multiplier. */
+export function drawDay(samples: readonly number[], o: SimOptions, day = 1): number {
+  return dayDrawer(samples, o).draw(day);
 }
 
 /** Relative slack on the effort unit's float sums, far above the rounding of 1,300 additions. */
@@ -84,20 +132,20 @@ export function simulateWhen(
 ): { days: Int32Array; trialDays: Int32Array; beyondShare: number } {
   const days = new Int32Array(o.trials);
   let beyond = 0;
-  const { draw, max, skipDays } = dayDrawer(samples, o);
-  // Before this day even a best day every day could still cover the backlog: no need to ask.
-  const checkFrom = max > 0 ? o.horizon - backlog / max : 0;
+  const { draw, max, bestBetween, skipDays } = dayDrawer(samples, o);
+  // Before this day even a best day every day could still cover the backlog: no need to ask. A schedule asks every day.
+  const checkFrom = !o.capacityByDay && max > 0 ? o.horizon - backlog / max : 0;
   if (backlog > 0) {
     for (let t = 0; t < o.trials; t += 1) {
       let done = 0;
       let d = 0;
       while (done < backlog && d < o.horizon) {
-        if (d >= checkFrom && cannotReach(done, o.horizon - d, max, backlog)) {
+        if (d >= checkFrom && cannotReach(done, 1, bestBetween(d, o.horizon), backlog)) {
           skipDays(o.horizon - d);
           break;
         }
         d += 1;
-        done += draw();
+        done += draw(d);
       }
       if (done < backlog) {
         days[t] = o.horizon + 1;
@@ -126,7 +174,7 @@ export function simulateHowMany(
   const { draw } = dayDrawer(samples, o);
   for (let t = 0; t < o.trials; t += 1) {
     let total = 0;
-    for (let d = 0; d < days && total < backlog; d += 1) total += draw();
+    for (let d = 1; d <= days && total < backlog; d += 1) total += draw(d);
     out[t] = Math.min(total, backlog);
   }
   out.sort();

@@ -2,6 +2,9 @@ import { describe, expect, test } from "vitest";
 import type { Milestone, Task } from "../types";
 import { clampWhatIf, computeScheduleForecast, effortCoverage, type ScheduleForecastInput, type WhatIf } from "./index";
 import { FORECAST_TRIALS } from "./constants";
+import { seedFrom } from "./rng";
+import { PRIORITIES } from "../types";
+import { addCalendarDays, nthWorkingDayAfter } from "../working-days";
 
 // 2026-10-14 is a Wednesday.
 const TODAY = "2026-10-14";
@@ -321,5 +324,65 @@ describe("clampWhatIf", () => {
       scopePercent: 500,
       capacityPercent: 300,
     });
+  });
+});
+
+describe("pinned digests", () => {
+  // One number per result: every trial's day, every How-many amount and every milestone chance. A change
+  // to the engine that moves any of them moves the digest, so these pin that a refactor moves nothing.
+  function digest(r: ReturnType<typeof computeScheduleForecast>): number {
+    if (r.kind !== "forecast") throw new Error("expected forecast");
+    return seedFrom([
+      ...r.trialDays,
+      ...r.howMany.map((h) => h.amount),
+      ...r.milestones.flatMap((m): (string | number)[] => (m.state === "chance" ? [m.chance, m.chancePrioritised] : [m.state])),
+    ]);
+  }
+  /** 40 open tasks: mixed due dates (every third blank) and priorities; estimated when `estimate`. */
+  function mixedOpen(estimate: boolean): Task[] {
+    return Array.from({ length: 40 }, (_, i) =>
+      task(i + 1, {
+        dueDate: (i + 1) % 3 === 0 ? "" : addCalendarDays(TODAY, ((i + 1) * 7) % 50),
+        priority: PRIORITIES[(i + 1) % PRIORITIES.length],
+        originalEstimateMinutes: estimate ? 30 + (((i + 1) * 37) % 240) : undefined,
+      }),
+    );
+  }
+  /** 1 to 3 completions on each of the last 30 working days. */
+  function steadyHistory(estimate: boolean): Task[] {
+    let id = 8000;
+    return steadyDays(30).flatMap((d, j) =>
+      Array.from({ length: 1 + (j % 3) }, () => {
+        const k = id++;
+        return done(k, d, estimate ? 60 + ((k * 13) % 120) : undefined);
+      }),
+    );
+  }
+  function fixture(unit: "tasks" | "effort"): ScheduleForecastInput {
+    const estimate = unit === "effort";
+    const milestones: Milestone[] = [
+      { id: 1, name: "M1", date: nthWorkingDayAfter(TODAY, 20, NO_HOLIDAYS), linkedTaskIds: [12] },
+      { id: 2, name: "M2", date: nthWorkingDayAfter(TODAY, 60, NO_HOLIDAYS), linkedTaskIds: [35] },
+    ];
+    return input([...mixedOpen(estimate), ...steadyHistory(estimate)], {
+      milestones,
+      window: 30,
+      unit,
+      whatIf: { scopeTasks: 3, scopePercent: 10, capacityPercent: 130 },
+      howManyTarget: "2026-11-30",
+      trials: 500,
+    });
+  }
+
+  test("tasks unit", () => {
+    const r = computeScheduleForecast(fixture("tasks"));
+    expect(r).toMatchObject({ kind: "forecast", unit: "tasks" });
+    expect(digest(r)).toBe(3246131170);
+  });
+
+  test("effort unit", () => {
+    const r = computeScheduleForecast(fixture("effort"));
+    expect(r).toMatchObject({ kind: "forecast", unit: "effort" });
+    expect(digest(r)).toBe(814886283);
   });
 });

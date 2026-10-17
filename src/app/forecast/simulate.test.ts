@@ -61,7 +61,7 @@ describe("simulateWhen", () => {
         let d = 0;
         while (done < backlog && d < o.horizon) {
           d += 1;
-          done += drawDay(samples, o);
+          done += drawDay(samples, o, d);
         }
         out.push(done < backlog ? o.horizon + 1 : d);
       }
@@ -94,6 +94,69 @@ describe("simulateWhen", () => {
     const p50 = percentile(days, 50);
     expect(p50).toBeGreaterThanOrEqual(9);
     expect(p50).toBeLessThanOrEqual(11);
+  });
+});
+
+describe("capacityByDay", () => {
+  /** Plain When under a schedule: sample x m[day], stochastic-rounded, every day to the horizon, trial order. */
+  function referenceWhen(samples: number[], backlog: number, m: Float64Array): number[] {
+    const o = opts();
+    const out: number[] = [];
+    for (let t = 0; t < o.trials; t += 1) {
+      let done = 0;
+      let d = 0;
+      while (done < backlog && d < o.horizon) {
+        d += 1;
+        const x = samples[Math.floor(o.rng() * samples.length)] * m[d];
+        const whole = Math.floor(x);
+        done += whole + (o.rng() < x - whole ? 1 : 0);
+      }
+      out.push(done < backlog ? o.horizon + 1 : d);
+    }
+    return out;
+  }
+
+  test("a flat capacityByDay draws exactly what the scalar capacity draws, both units", () => {
+    for (const integer of [true, false]) {
+      const flat = new Float64Array(1301).fill(1.3);
+      const a = simulateWhen([0, 1, 2, 3, 5], 120, opts({ integer, capacity: 1.3 }));
+      const b = simulateWhen([0, 1, 2, 3, 5], 120, opts({ integer, capacity: 1, capacityByDay: flat }));
+      expect(Array.from(b.trialDays), `When, integer: ${integer}`).toEqual(Array.from(a.trialDays));
+      expect(Array.from(simulateHowMany([0, 1, 2, 3, 5], 40, 120, opts({ integer, capacityByDay: flat }))), `How many, integer: ${integer}`)
+        .toEqual(Array.from(simulateHowMany([0, 1, 2, 3, 5], 40, 120, opts({ integer, capacity: 1.3 }))));
+    }
+  });
+
+  test("a day's multiplier scales only its own day", () => {
+    const m = new Float64Array(1301).fill(0.5);
+    for (let d = 1; d <= 5; d += 1) m[d] = 1;
+    expect(Array.from(simulateWhen([2], 15, opts({ capacityByDay: m })).days).every((d) => d === 10)).toBe(true); // 5x2 + 5x1
+  });
+
+  test("the certain-beyond exit stays exact under a varying multiplier", () => {
+    // ~1.8 tasks a day on average -> ~2,340 by day 1300; a backlog of 2,340 gives both outcomes.
+    const m = Float64Array.from({ length: 1301 }, (_, d) => (d % 2 ? 0.2 : 2.5));
+    const fast = simulateWhen([0, 1, 3], 2340, opts({ capacityByDay: m }));
+    expect(fast.days.includes(1301) && fast.days.some((d) => d < 1301), "the case has both outcomes").toBe(true);
+    expect(Array.from(fast.trialDays)).toEqual(referenceWhen([0, 1, 3], 2340, m));
+  });
+
+  test("bestBetween is the sum of each day's best", () => {
+    const m = Float64Array.from([0, 1, 2, 0.5]);
+    // Tasks: ceil(1.4) + ceil(2.8) + ceil(0.7) = 2 + 3 + 1.
+    const tasks = dayDrawer([1.4], opts({ horizon: 3, capacityByDay: m }));
+    expect(tasks.bestBetween(0, 3)).toBe(6);
+    expect(tasks.bestBetween(1, 3)).toBe(4);
+    expect(tasks.bestBetween(2, 2)).toBe(0);
+    expect(tasks.max).toBe(3);
+    // Effort keeps the fraction: 1.4 + 2.8 + 0.7.
+    const effort = dayDrawer([1.4], opts({ horizon: 3, integer: false, capacityByDay: m }));
+    expect(effort.bestBetween(0, 3)).toBeCloseTo(4.9, 12);
+    expect(effort.max).toBeCloseTo(2.8, 12);
+    // Without a schedule: the days times the best day, ceil(1.4 x 2) = 3.
+    const flat = dayDrawer([1.4], opts({ capacity: 2 }));
+    expect(flat.max).toBe(3);
+    expect(flat.bestBetween(2, 7)).toBe(15);
   });
 });
 
@@ -155,7 +218,7 @@ describe("drawDay", () => {
         return whole + (ref() < x - whole ? 1 : 0);
       });
       const { draw } = dayDrawer(samples, opts({ capacity: 0.7, integer, rng: mulberry32(11) }));
-      expect(Array.from({ length: 500 }, draw), `integer: ${integer}`).toEqual(expected);
+      expect(Array.from({ length: 500 }, (_, i) => draw(i + 1)), `integer: ${integer}`).toEqual(expected);
     }
   });
 });
