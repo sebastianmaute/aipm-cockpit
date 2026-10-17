@@ -24,7 +24,8 @@ export type MintKind =
   | "budgetBucket"
   | "calendarEvent"
   | "document"
-  | "documentVersion";
+  | "documentVersion"
+  | "forecastScenario";
 
 /** Minimal shape every mintable entity satisfies. */
 type HasId = { id: number };

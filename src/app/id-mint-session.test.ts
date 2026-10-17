@@ -132,6 +132,7 @@ describe("seedMintFromWorkspace", () => {
       calendarEvent: 28,
       document: 30,
       documentVersion: 33,
+      forecastScenario: 1, // not seeded until the Workspace field lands (§502)
     };
     for (const [kind, next] of Object.entries(expected) as [MintKind, number][]) {
       expect(mintId(kind, [])).toBe(next);
