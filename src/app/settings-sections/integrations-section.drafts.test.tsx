@@ -5,7 +5,7 @@
 //        on Turso storage that must NOT commit the draft. Mutation MA1: commit on blur.
 //   A4 (Modal host) — off Turso storage the same host commits per keystroke, with no Apply.
 //   A5 — "Save & switch" applies the drafts itself and waits for the token seal before reloading,
-//        BOUNDED by `awaitTokenSeals`. Mutations: MA5 — drop the bound (wait on the seals
+//        BOUNDED by `tokenSealsSettled`. Mutations: MA5 — drop the bound (wait on the seals
 //        alone); M5 — skip the wait; M6 — `base = settings` (no fold).
 //   A6 — the render-time reconcile keeps a dirty draft and resyncs a clean one. Mutations M7/M8:
 //        drop the clean-draft guard on the URL / token resync.
@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IntegrationsSection } from "./integrations-section";
+import { hasUnsealedPassphraseToken } from "../turso-token-marker";
 import { BackendConfigModal } from "../backend-config-modal";
 import { MODAL_HELP } from "../help-content";
 import { t } from "../i18n";
@@ -931,5 +932,27 @@ describe("§715 — an unsealed passphrase-mode token survives a remount and a m
     expect(switchBtn()).toBeDisabled();
     await act(async () => { landSeal(true); });
     await waitFor(() => expect(switchBtn()).toBeEnabled());
+  });
+
+  // A keystroke while the untick's device re-seal is in flight still commits in passphrase mode, so it
+  // is marked; the re-seal then covers the OLD token. Left there, the marker outlives passphrase mode:
+  // Move stays refused, pointing at passphrase fields that are no longer shown.
+  // MU17 — drop the held-token seal after the untick → (k) goes red ("tokK2" still held).
+  it("(k) a token typed during the untick's re-seal is device-sealed when it lands", async () => {
+    const user = userEvent.setup();
+    let landReseal: (ok: boolean) => void = () => {};
+    render(<Host storage={BROWSER} />);
+    await user.click(lock());
+    await user.type(tokenField(), "tokK");
+    vi.mocked(saveSecretValue).mockImplementationOnce(
+      () => new Promise<boolean>((resolve) => { landReseal = resolve; }),
+    );
+    await user.click(lock()); // untick: the device re-seal of "tokK" is now in flight
+    await user.type(tokenField(), "2");
+    expect(hasUnsealedPassphraseToken("tokK2")).toBe(true); // committed in passphrase mode
+    await act(async () => { landReseal(true); });
+    await waitFor(() => expect(saveSecretValue).toHaveBeenCalledWith("tursoAuthToken", "tokK2", "device"));
+    await waitFor(() => expect(hasUnsealedPassphraseToken("tokK2")).toBe(false));
+    expect(lock()).not.toBeChecked();
   });
 });

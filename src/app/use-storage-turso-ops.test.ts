@@ -71,7 +71,7 @@ vi.mock("./turso-portfolio", () => ({
   restoreProject: vi.fn(async () => {}),
   hardDeleteProject: vi.fn(async () => {}),
 }));
-// ★ `SECRET_MERGE_TIMEOUT_MS` bounds `awaitTokenSeals`; left undefined the wait would time out at once.
+// ★ `SECRET_MERGE_TIMEOUT_MS` bounds `tokenSealsSettled`; left undefined the wait would time out at once.
 vi.mock("./use-settings", () => ({ writeSettings: vi.fn(), SECRET_MERGE_TIMEOUT_MS: 5_000 }));
 vi.mock("./settings-reload-seal", () => ({ sealSettingsUntilReload: vi.fn() }));
 import { writeSettings } from "./use-settings";

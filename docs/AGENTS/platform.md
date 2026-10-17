@@ -203,11 +203,13 @@
   `tokenSealBlocked` then applies off Turso storage too: "Save & switch" waits for the passphrase,
   verifies it and seals the typed token; the setup wizard's Finish, which has no passphrase, refuses
   the switch and goes back to the storage step; "Move to Turso" reloads too, so
-  `migrateCurrentProjectToTurso` waits for in-flight seals (`awaitTokenSeals`) and then refuses, for
+  `migrateCurrentProjectToTurso` waits for in-flight seals (`tokenSealsSettled`) and then refuses, for
   both buttons bound to it, while the marker still holds the settings token. The marker outlives
   the section, so it also keeps a remounted section in passphrase mode (`tokenWrap`), and it still counts once the kind moves to Turso in
-  the same page, where the token is no draft: there the unsealed token enables Apply without a dirty
-  draft (`canApplyTurso`; the passphrase must still be typed), and Apply seals it under it.
+  the same page, where the token is no draft: there, in passphrase mode, the unsealed token enables
+  Apply without a dirty draft (`canApplyTurso`; the passphrase must still be typed), and Apply seals it
+  under it. An untick device-seals a token typed during its own re-seal, so the marker does not
+  outlive passphrase mode.
   "Test connection" probes the drafts without committing.
   (`integrations-section.backend-hold.test.tsx` pins both models against the real hook.)
   ★★ The blur-commit design this replaced — commit when focus left the credentials group — lost a
@@ -219,7 +221,8 @@
   offers is enabled by the drafts, and the reload means no hold can swallow anything) and waits for
   every in-flight token seal before reloading — tracked at MODULE scope (`trackTokenSeal`, in `turso-token-seals.ts`),
   because the instance that started a seal may already be remounted away, and BOUNDED by
-  `awaitTokenSeals` (`SECRET_MERGE_TIMEOUT_MS`; on timeout it proceeds and logs
+  `tokenSealsSettled` (`SECRET_MERGE_TIMEOUT_MS`; `null`, so no `await` at all, when nothing is in
+  flight; on timeout it proceeds and logs
   `settings.tursoTokenSealWaitTimedOut`); and the render-time reconcile resyncs a CLEAN draft only,
   keeping a dirty one when the stored value moves.
 - ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect

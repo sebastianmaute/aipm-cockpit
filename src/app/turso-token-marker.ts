@@ -4,7 +4,7 @@
 // "Save & switch", the setup wizard's Finish, "Move to Turso") can refuse or seal first. MODULE scope:
 // the section that sets it unmounts on a load hold or a wizard step. Keyed by VALUE: it applies only
 // while the settings still hold that very token.
-// It also holds the REGISTRY of token seals in flight (`trackTokenSeal` and `awaitTokenSeals` in
+// It also holds the REGISTRY of token seals in flight (`trackTokenSeal` and `tokenSealsSettled` in
 // `turso-token-seals.ts` are its only writer and reader).
 // ★ A LEAF on purpose — no imports — so `vitest.setup.ts` can reset both without loading app modules
 //   that test files mock (`turso-token-seals.ts` imports `use-settings` and `diagnostics`).
@@ -56,7 +56,7 @@ export function tokenSealsInFlight(): Promise<void>[] {
   return [...inFlightTokenSeals];
 }
 
-/** Forgets any held token and every seal in flight. Test-only (`vitest.setup.ts`, before every
+/** Forgets any held token and every seal in flight. Test-only (`vitest.setup.ts`, after every
  *  test): both are module state, so they outlive a render, and a seal left in flight would make
  *  every later reload path in the file wait out its bound. */
 export function __resetTursoTokenState(): void {

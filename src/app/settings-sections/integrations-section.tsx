@@ -2,8 +2,13 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { logDiag } from "../diagnostics";
-import { hasUnsealedPassphraseToken, markUnsealedPassphraseToken, noteTokenSealed } from "../turso-token-marker";
-import { awaitTokenSeals, trackTokenSeal, useHasUnsealedPassphraseToken } from "../turso-token-seals";
+import {
+  hasUnsealedPassphraseToken,
+  markUnsealedPassphraseToken,
+  noteTokenSealed,
+  unsealedPassphraseTokenSnapshot,
+} from "../turso-token-marker";
+import { tokenSealsSettled, trackTokenSeal, useHasUnsealedPassphraseToken } from "../turso-token-seals";
 import { ArrowPathIcon, CalendarDaysIcon } from "../icons";
 import { ToggleButton } from "../toggle-button";
 import { type Lang, t } from "../i18n";
@@ -69,8 +74,10 @@ export async function commitPortfolioModeSwitch(base: Settings, mode: PortfolioM
   // ★★★ A RELOAD BEFORE THE SEAL SETTLES LOSES THE TOKEN: `writeSettings` blanks it, so the
   // device-sealed copy is the only one that survives. Wait for every in-flight seal (this
   // switch's, an Apply's or a keystroke commit's — possibly from an instance a hold already
-  // remounted away), bounded by `awaitTokenSeals`. No wait when nothing is in flight.
-  await awaitTokenSeals();
+  // remounted away), bounded by `tokenSealsSettled`. No wait — not even a yield — when nothing is
+  // in flight.
+  const seals = tokenSealsSettled();
+  if (seals) await seals;
   savePortfolioMode(mode);
   // Keep the workspace storage backend aligned with the portfolio: switching TO
   // Turso must also persist storageConfig.kind "turso" (synchronously, so it
@@ -500,7 +507,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // ★ Apply and "Save & switch" exclude each other while either is busy (the switch's verify runs
   //   under `switchBusy`), so the two can never verify and seal side by side.
   // §715 — `tokenUnsealed` enables it with no dirty draft: a token carried over from off Turso storage
-  //   still needs its seal, and Apply seals it (`applyTursoDrafts`), as "Save passphrase" does.
+  //   still needs its seal, and in passphrase mode Apply seals it (`applyTursoDrafts`), as "Save
+  //   passphrase" does. (The untick device-seals a held token, so the marker does not outlive that mode.)
   const canApplyTurso = (tursoDraftsDirty || tokenUnsealed) && !tokenSealBlocked && !passphraseVerifying && !switchBusy;
   // ★ A blocked Apply / "Save & switch" states WHY, visibly and as each button's description
   //   (one key, two ids: the switch sits far below in the portfolio block).
@@ -684,6 +692,14 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       } else if (isPassphraseLocked("tursoAuthToken")) {
         removeSealed("tursoAuthToken");
         setTokenStored(false);
+      }
+      // §715 — a keystroke during the await above still committed in passphrase mode, so the marker
+      // can hold a NEWER token than the one this closure sealed. Device-seal that one too, or the
+      // marker outlives passphrase mode: Move refused, pointing at fields no longer shown.
+      const held = unsealedPassphraseTokenSnapshot();
+      if (held !== null && (await saveSecretValue("tursoAuthToken", held, "device"))) {
+        noteTokenSealed(held);
+        setTokenStored(true);
       }
       setTokenWrap("device");
       setTokenPassphrase("");

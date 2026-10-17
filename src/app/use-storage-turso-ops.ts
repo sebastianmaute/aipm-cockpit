@@ -30,8 +30,9 @@ import {
 } from "./turso-portfolio";
 import { writeSettings } from "./use-settings";
 import { sealSettingsUntilReload } from "./settings-reload-seal";
+import { beginMoveToTurso, endMoveToTurso } from "./move-to-turso-guard";
 import { hasUnsealedPassphraseToken } from "./turso-token-marker";
-import { awaitTokenSeals } from "./turso-token-seals";
+import { tokenSealsSettled } from "./turso-token-seals";
 import { summarizeUnsafeEmailRecords } from "./sanitize";
 import { logDiag } from "./diagnostics";
 import { isSaveConflict } from "./storage-error";
@@ -58,22 +59,6 @@ export interface TursoProjectOpsDeps {
   handOverFromRef: React.MutableRefObject<StorageBackend | null>;
   suppressNextSaveRef: React.MutableRefObject<boolean>;
   reportProjectError: (err: unknown) => void;
-}
-
-// §715 — ONE MOVE AT A TIME. The move awaits a seal, the probe and the flush before `portfolioCreate`,
-// and the Projects-panel button has no busy state, so a second click in that window would create a
-// second portfolio row. It is dropped; the first move carries on. Module scope: one move per page.
-let moveToTursoRunning = false;
-
-/** Claims the move; false when one is already running. */
-function beginMoveToTurso(): boolean {
-  if (moveToTursoRunning) return false;
-  moveToTursoRunning = true;
-  return true;
-}
-
-function endMoveToTurso(): void {
-  moveToTursoRunning = false;
 }
 
 export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
@@ -193,6 +178,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
   // carrying its full workspace, then switch the portfolio to Turso and reload so
   // the migrated project is the active one. Unlike createTursoProject (which
   // builds a fresh workspace), this copies the live workspace verbatim.
+  // §715 — one move at a time (`move-to-turso-guard.ts` says why); a second one is dropped.
   async function migrateCurrentProjectToTurso(): Promise<void> {
     if (!beginMoveToTurso()) return;
     try {
@@ -224,7 +210,8 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     // saves it under the passphrase; moving now would boot Turso on the OLD record. Wait for any
     // seal in flight first (it may be the one that covers the token), then refuse — here, for both
     // buttons bound to this handler, and above `portfolioCreate` for the §103 reason above.
-    await awaitTokenSeals();
+    const seals = tokenSealsSettled();
+    if (seals) await seals;
     if (hasUnsealedPassphraseToken(deps.settingsRef.current.integrations?.turso?.authToken)) {
       const lang = deps.langRef.current;
       deps.showToast("error", t(lang, "projectMigrateTokenNeedsPassphrase", t(lang, "secretPassphraseSave")));
