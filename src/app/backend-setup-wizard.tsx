@@ -149,14 +149,18 @@ export function BackendSetupWizard({
   const [pendingPortfolioMode, setPendingPortfolioMode] = useState<PortfolioMode>(() => loadPortfolioMode());
   // The commit waits on token seals before it reloads, so a second Finish click would commit twice.
   const finishingRef = useRef(false);
+  // The section's own button refuses Turso without a working config ("can't land in a dead
+  // portfolio"); Finish is not a way around it. The step's drafts are gone by now, so the SAVED
+  // credentials decide. ONE predicate for Finish and the review step's banner, so the banner never
+  // promises a reload Finish will not do.
+  const switchPending = pendingPortfolioMode !== loadPortfolioMode();
+  const savedTurso = settings.integrations?.turso;
+  const switchBlocked =
+    switchPending && pendingPortfolioMode === "turso" && !getTursoConfig(savedTurso?.databaseUrl, savedTurso?.authToken);
   async function handleFinish() {
     if (finishingRef.current) return;
-    if (pendingPortfolioMode !== loadPortfolioMode()) {
-      // The section's own button refuses Turso without a working config ("can't land in a dead
-      // portfolio"); Finish is not a way around it. The step's drafts are gone by now, so the SAVED
-      // credentials decide, and the user is sent back to the step to fix them.
-      const turso = settings.integrations?.turso;
-      if (pendingPortfolioMode === "turso" && !getTursoConfig(turso?.databaseUrl, turso?.authToken)) {
+    if (switchPending) {
+      if (switchBlocked) {
         setStep(STORAGE_STEP);
         return;
       }
@@ -264,7 +268,9 @@ export function BackendSetupWizard({
             <>
               <ReviewStep lang={lang} settings={settings} />
               {/* The storage step's own reload note unmounted with it; Finish is what reloads now. */}
-              {pendingPortfolioMode !== loadPortfolioMode() && (
+              {switchBlocked ? (
+                <Banner severity="error" className="mt-3">{t(lang, "setupWizardTursoNeedsConfig")}</Banner>
+              ) : switchPending && (
                 <Banner severity="warn" className="mt-3">{t(lang, "portfolioModeSwitchNote")}</Banner>
               )}
             </>

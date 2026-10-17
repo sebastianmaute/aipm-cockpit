@@ -275,6 +275,16 @@ describe("BackendSetupWizard — a portfolio switch picked on the storage step (
     expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "portfolioModeSwitchNote"));
   });
 
+  // Without a working Turso connection Finish goes back instead of switching, so promising a reload
+  // would be false — the review step says what is missing instead.
+  it("says the Turso connection is missing instead of promising a reload it will not do", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "pick turso" }));
+    toReview();
+    expect(screen.queryByText(t("en-US", "portfolioModeSwitchNote"))).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", "setupWizardTursoNeedsConfig"));
+  });
+
   it("shows no reload warning when no switch is pending", () => {
     setup({ settings: tursoReady });
     toReview();
