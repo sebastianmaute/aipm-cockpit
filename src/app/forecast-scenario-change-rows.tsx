@@ -131,7 +131,6 @@ function addedPersonText(lang: Lang, s: AddedPersonStatus, teamHours: number | n
   return out;
 }
 
-/** The lines under a row: ended, milestone gone, person gone, on the team, no cost, no rate, at par, or the basis. */
 /** One sentence for a refused Save's row errors: how many rows need attention, and the first one's field and
  *  message ("2 changes need attention; first: Change 1, From: Enter a valid date."). `n` is the row's 1-based number. */
 export function rowErrorSummary(lang: Lang, count: number, first: { n: number; change: ScenarioChange; error: RowError }): string {
@@ -139,6 +138,7 @@ export function rowErrorSummary(lang: Lang, count: number, first: { n: number; c
   return tPlural(lang, "forecastScenarioRowsNeedAttention", count, count, first.n, label, rowErrorText(lang, first.change, first.error.error));
 }
 
+/** The lines under a row: ended, milestone gone, person gone, on the team, no cost, no rate, at par, or the basis. */
 export function rowStatusLines(lang: Lang, live: RowLive, teamHours: number | null): string[] {
   if (live === null) return [];
   const { status } = live;

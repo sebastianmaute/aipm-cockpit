@@ -403,4 +403,23 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     expect(second).not.toBe(first);
     expect(first.isConnected).toBe(false);
   });
+
+  // Re-review R1: the summary was rebuilt from live state, so fixing a field rewrote the alert in place and the
+  // screen reader re-read it mid-typing. It is now frozen at Save and replaced only by the next Save.
+  it("edits after a refused Save leave the alert text alone; the next Save replaces it", async () => {
+    const { user } = renderEditor();
+    await user.type(control("Name"), "Two bad rows");
+    await user.click(screen.getByRole("button", { name: "+ Availability change" }));
+    await user.click(screen.getByRole("button", { name: "+ Availability change" }));
+    fireEvent.change(field("Change 1: From"), { target: { value: "" } });
+    fireEvent.change(field("Change 2: Availability (%)"), { target: { value: "5" } });
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    const before = screen.getByRole("alert");
+    expect(before).toHaveTextContent("2 changes need attention; first: Change 1, From: Enter a valid date.");
+    fireEvent.change(field("Change 1: From"), { target: { value: "2026-10-20" } });
+    expect(screen.getByRole("alert")).toBe(before);
+    expect(before).toHaveTextContent("2 changes need attention; first: Change 1, From: Enter a valid date.");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("1 change needs attention: Change 2, Availability (%): Between 10 and 300.");
+  });
 });
