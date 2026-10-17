@@ -677,6 +677,21 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
     expect(setTasks).toHaveBeenCalled();
   });
 
+  // The dialog is awaited, so a project swap can finish while it is open: "Delete" must not then remove
+  // the same id from the project the user swapped to.
+  it("drops the delete when the project scope changed while the dialog was open (§715 D5)", async () => {
+    const setTasks = vi.fn();
+    const logActivity = vi.fn();
+    let epoch = 3;
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ setTasks, logActivity, getScopeEpoch: () => epoch })),
+    );
+    result.current.confirmRef.current = vi.fn(async () => { epoch = 4; return true; });
+    await act(async () => { await result.current.onDelete(1); });
+    expect(setTasks).not.toHaveBeenCalled();
+    expect(logActivity).not.toHaveBeenCalled();
+  });
+
   it("removes the task, strips it from other tasks' dependencies, deselects and logs", async () => {
     const setTasks = vi.fn();
     const logActivity = vi.fn();

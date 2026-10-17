@@ -17,7 +17,7 @@ import type { Task, TaskStatus, Resource } from "./types";
 import { effectivePersonEmail } from "./resource-foundation";
 import type { Settings } from "./settings-types";
 import { useWorkspaceTab } from "./workspace-tab-context";
-import type { ScopeEpochReader } from "./scope-epoch";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import type { ConfirmFn } from "./confirm-dialog";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 
@@ -404,9 +404,12 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   const onDelete = useCallback(
     async (id: number) => {
       // The app's own dialog (§715 D5), not the browser's. The rows are read AFTER the answer, so a
-      // write that landed while the dialog was open is not overwritten by a stale list.
+      // write that landed while the dialog was open is not overwritten by a stale list. ★ The wait
+      // is a window a project swap can finish in, so the delete is dropped if the scope moved.
+      const epoch = getScopeEpoch();
       const yes = await confirmRef.current({ message: t(lang, "confirmDelete", id), confirmLabel: t(lang, "delete"), tone: "danger" });
       if (!yes) return;
+      if (dropStaleScopeWrite(getScopeEpoch, epoch, "task.delete", { id })) return;
       const arr = tasksRef.current;
       const doomed = arr.find((tk) => tk.id === id);
       const deletedName = doomed?.taskName ?? "";
@@ -462,7 +465,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       if (editingId === id) handleCancelEditRef.current();
       logActivityRef.current("task.deleted", id, deletedName);
     },
-    [lang, tasksRef, setTasks, deselectIdRef, editingId, captureComposite],
+    [lang, tasksRef, setTasks, deselectIdRef, editingId, captureComposite, getScopeEpoch],
   );
 
   const handleClearRaidTaskFilter = useCallback(() => {
