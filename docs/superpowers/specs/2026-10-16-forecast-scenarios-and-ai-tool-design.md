@@ -1,6 +1,7 @@
 # Forecast — saved scenarios and the AI forecast tool (§502)
 
-Status: design, approved in chat by the owner 2026-10-16. Builds on
+Status: design, approved in chat by the owner 2026-10-16; **amended 2026-10-17** with two kinds of capacity
+(§4.1a, owner). Builds on
 `2026-10-14-monte-carlo-forecast-design.md` (engine, slice 1), `2026-10-15-forecast-simulation-surfaces-design.md`
 (parts 1–4) and `2026-10-15-forecast-simulation-part-2-design.md` (part 2, merged in #766). Reference:
 `docs/AGENTS/forecast.md`.
@@ -33,7 +34,7 @@ is not part of this work.
 
 **Non-goals**
 - Scenarios in exported documents (status report, steering pack, PPTX/DOCX/HTML).
-- Repeating changes ("every December"), per-person capacity, changes to the history window or unit per scenario.
+- Repeating changes ("every December"), availability changes per existing person, changes to the history window or unit per scenario.
 - A scenario ever driving the Dashboard, Next actions, the KPI strip or the daily `forecastHistory` entry.
 - The assistant deleting a scenario.
 
@@ -51,7 +52,8 @@ A scenario is `{ id, name, changes[] }`. A change is one of:
 
 | Kind | Fields | Meaning |
 |---|---|---|
-| **Capacity** | `percent` (10–300), `from` (ISO date), `until` (ISO date or empty = to the end) | Every simulated working day in `[from, until]` delivers `percent / 100` of a drawn history day. |
+| **Availability** (capacity of the current team) | `percent` (10–300), `from` (ISO date), `until` (ISO date or empty = to the end) | Every simulated working day in `[from, until]` delivers `percent / 100` of a drawn history day, and books `percent / 100` of a drawn spend day (§4.1a). |
+| **Add people** (capacity from people joining) | `who`: a resource from the directory **or** a placeholder (`label`, `count` 1–20, `rate` + `currency`, `hoursPerWeek` 1–60); `from` (ISO date); `until` (ISO date or empty = to the end); `rampWeeks` (0–26, default 4) | From `from`, the people add delivery at the current team's throughput per booked hour, reaching full speed after `rampWeeks`, and add their own cost from day one (§4.1a). |
 | **Scope** | `tasks` (non-zero integer, ±), `on` (ISO date), `milestoneId` (optional) | On `on`, `tasks` tasks are added (+) or removed (−). Size of one task = the existing What-if rule (one task in the tasks unit; the median estimate in effort mode). |
 
 Rules (designer's calls, apply everywhere — UI, engine, AI writes):
@@ -79,6 +81,38 @@ Rules (designer's calls, apply everywhere — UI, engine, AI writes):
   count as unattributed; the editor marks those rows "milestone gone".
 - At most **20 changes** per scenario; names 1–60 characters, unique per project (case-insensitive).
 
+### 4.1a Two kinds of capacity (owner, 2026-10-17)
+
+A project manager raises capacity in two ways, and both are valid adjustments with different cost effects:
+
+1. **Availability** — the people already on the project work more of their time: higher utilisation, a cancelled
+   vacation, a postponed training. The work gets done sooner and the same people book the extra hours, so **cost at
+   finish barely moves** (more spend per day, fewer days). Part 3's What-if capacity already models this (`spendScale`)
+   and stays as built; the What-if slider is labelled as availability.
+2. **Add people** — internals or externals join the project. The work gets done sooner **and their cost comes on top
+   at their own rate**, from their first day, including the weeks they are still getting up to speed. This moves cost
+   directly: an expensive external raises cost at finish, onboarding always does.
+
+How "Add people" is computed (owner: directory or placeholder; team-average throughput with ramp-up):
+- **Who.** A directory resource brings its own rate (`resolveRate`, at the date of each day, in the baseline currency)
+  and its hours for each weekday from the directory (`hoursPerWeekday`). A placeholder ("2 × external developer") carries `count`, `rate` with the
+  currency it was typed in, and `hoursPerWeek`; the rate is converted at read time with `currencyToBase`, so a later
+  baseline switch needs no rewrite (designer's call). A directory resource that no longer exists makes the row inert;
+  the editor marks it "person gone".
+- **Delivery.** The team's booked hours per working day come from the same booked history the cost pass already reads
+  (part 3's facts, hours unit, same window). On each working day the row adds
+  `addedHours(day) × ramp(day) / teamHoursPerDay` to that day's capacity multiplier, where `addedHours(day)` is the directory resource's hours for that weekday, or `count × hoursPerWeek / 5` for a placeholder, and `ramp` rises
+  linearly from 0 on `from` to 1 after `rampWeeks` working weeks (0 = full speed at once). Additions **add** to the
+  multiplier; availability rows **multiply** it (so "team at 80 % + one added person" is `0.8 × 1 + share`), then the
+  10–300 % clamp applies.
+- **Cost.** Each simulated working day from `from` until `until` or the trial's finish, whichever is first, books
+  `addedHours(day)` hours, times the day's rate in the money unit, **on top of** the drawn spend day. Ramp-up
+  does not reduce cost.
+- **No booked history** (no hours in the window): "Add people" rows cannot be converted to delivery, so they are inert
+  in the schedule and the cost rows say why ("needs booked hours to size added people"); availability rows still work.
+- Applies to the Forecast view's Scenarios mode, `get_forecast`'s `whatIf` and the two write tools. Quick and What-if
+  stay as they are (What-if's single slider is availability).
+
 ### 4.2 Where it lives in the Forecast view
 
 - The mode `SegmentedControl` gains its third segment: **Quick / What-if / Scenarios** (named in the slice-1 spec).
@@ -98,7 +132,8 @@ Rules (designer's calls, apply everywhere — UI, engine, AI writes):
   4. Per scenario: **Edit** (opens the editor), **Rename**, **Delete** (the shared confirm pattern; deleting is undoable).
   5. **"New scenario"**, disabled with a reason at 4.
 - **The editor** (mockup: `.superpowers/brainstorm/…/scenarios.html`, not committed): name field; a table of change rows
-  (kind · amount · dates · milestone picker for scope · remove ✕); "+ Capacity change", "+ Scope change"; Save / Cancel.
+  (kind · amount · dates · milestone picker for scope · person picker or placeholder fields and ramp-up for added
+  people · remove ✕); "+ Availability change", "+ Add people", "+ Scope change"; Save / Cancel.
   It is a dialog using the shared modal and its Escape/Tab protocol (`docs/AGENTS/ui-shell.md`, dismissal).
 - Below the history floor the Scenarios mode shows the floor message once, not one per column; scenarios stay editable.
 - The view-local toolbar (window, unit) applies to every column, as it applies to Quick today.
@@ -139,7 +174,8 @@ and to quote the floor reason instead of guessing when there is no forecast.
 entity write tools. They follow the existing chat rules exactly: the staging gate (`shouldStage`: one write applies at
 once; two or more writes in a turn stage for review; an applied update is undoable, an applied create is not — §4.3), the write-concurrency token on the update
 (`TOKEN_REQUIRED_TOOLS`), a mint kind for the create, row validation against the §4.1 rules with a refusal message the
-model can act on (bad date, capacity out of range, unknown or finished milestone, 4-scenario cap, duplicate name). No
+model can act on (bad date, capacity out of range, unknown or finished milestone, unknown resource, placeholder
+rate or hours out of range, 4-scenario cap, duplicate name). No
 delete tool (designer's call: removing a person's scenario is a person's action).
 
 **Ask-Claude chips** in the Forecast view (`ask-claude-menu` pattern): "Explain this forecast", "What would get
@@ -149,7 +185,12 @@ that makes plan end" (Scenarios mode).
 ### 4.5 Engine shape (the intent; the builder chooses names)
 
 - Dated capacity becomes a **per-working-day multiplier schedule** built once per scenario from today to the horizon;
-  the day drawer scales each drawn day by that day's multiplier. A flat What-if is the one-entry case.
+  the day drawer scales each drawn day by that day's multiplier. A flat What-if is the one-entry case. Availability
+  rows multiply into it, "Add people" rows add their ramped share (§4.1a).
+- The cost pass takes two per-day schedules: the **spend scale** (availability only) applied to each drawn spend day,
+  and the **added cost** (Add people, in the money unit) added on top. A trial books both until its own finish day.
+  The cost pass should draw from a **per-trial sub-stream** so one changed column does not reshuffle later trials'
+  spend draws (part-3 final review recommendation).
 - **One seed for every column.** Today `computeScheduleForecast` puts the three What-if numbers into `seedParts`, so a
   What-if and a scenario with the same effect would draw different numbers. The seed must **leave the changes out**
   (open task ids, history samples, window, unit, stream name only) everywhere: Quick, What-if, every scenario column and
@@ -196,5 +237,5 @@ One PR each, each green on all required checks before the next starts:
 
 ## 8. Open after this design
 
-- Scenarios in exports, repeating changes and per-person capacity remain ideas, not register entries, unless the owner
-  asks for them.
+- Scenarios in exports, repeating changes, and availability changes per existing person remain ideas, not register
+  entries, unless the owner asks for them. (Adding named people is in, §4.1a.)
