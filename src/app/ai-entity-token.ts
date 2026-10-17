@@ -295,16 +295,17 @@ type ProjectedRows = {
   calendarEvent: Assert<Projected<CalendarEvent, typeof EVENTS_CSV_COLUMNS>>;
 };
 
-/** Fails compilation unless every `TokenEntity`'s declared fields are all
- *  projected, AND every `TokenEntity` member has a row above.
+/** Fails compilation unless every `CsvTokenEntity`'s declared fields are all
+ *  projected, AND every `CsvTokenEntity` member has a row above.
  *
  *  ★★★ THE SECOND HALF IS NOT DECORATION — without it a SEVENTH tokened entity
  *  gets no row and nothing complains, which is the exact moment the check is
  *  most needed (a new entity's column list is what a copy-paste is most likely
- *  to get wrong). `TOKEN_EXCLUDED` and `PROJECTORS` are both
- *  `Record<TokenEntity, …>` and so force a new member; `ProjectedRows` is a
+ *  to get wrong). `TOKEN_EXCLUDED` is `Record<TokenEntity, …>` and `PROJECTORS` is
+ *  `Record<CsvTokenEntity, …>`, so both force a new member; `ProjectedRows` is a
  *  plain literal and does not, so the key set is tied to the union here instead.
- *  ★ The `[…]` tuple wrapping is load-bearing: a bare `TokenEntity extends
+ *  (`forecastScenario` is outside `CsvTokenEntity`: it has no CSV columns to project.)
+ *  ★ The `[…]` tuple wrapping is load-bearing: a bare `CsvTokenEntity extends
  *  keyof ProjectedRows` DISTRIBUTES over the union and would report only that
  *  some member failed. Wrapped, it compares the union as a whole.
  *

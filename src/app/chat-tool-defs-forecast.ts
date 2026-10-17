@@ -30,7 +30,7 @@ export const FORECAST_TOOL_DEFS = [
   {
     name: "get_forecast",
     description:
-      "Read this project's Monte Carlo schedule forecast: P50/P80/P95 finish dates, chance of finishing by the plan end, each milestone's chance, the week-on-week change, cost at finish and chance over budget, and every saved scenario's results. Every figure is simulated with the app defaults (60-working-day history, tasks unit). Optional whatIf: a list of changes, in the same shape as a scenario's, computed once and never saved. Each saved scenario carries an expectedToken for update_forecast_scenario.",
+      "Read this project's Monte Carlo schedule forecast: P50/P80/P95 finish dates, chance of finishing by the plan end, each milestone's chance, the week-on-week change, cost at finish and chance over budget, and every saved scenario's results. Every figure is simulated with the app defaults (60-working-day history, tasks unit). Optional whatIf: a list of changes, in the same shape as a scenario's, computed once and never saved. Each saved scenario carries an expectedToken for update_forecast_scenario. Units: chances (chanceOnTime, a milestone chance, chanceOverBudget) are fractions from 0 to 1; cost amounts are in settings.currency; \"beyond\" means past the 1,300-working-day horizon; cost is null when the Budget module or the cost basis is off; a weeklyChange of kind \"pending\" means there is no week-old history yet.",
     input_schema: { type: "object" as const, properties: { whatIf: changesField } },
   },
   {

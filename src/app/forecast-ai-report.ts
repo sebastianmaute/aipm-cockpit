@@ -23,7 +23,7 @@ export type MilestoneReport =
   | { id: number; name: string; date: string; state: "overdue" | "no-linked-tasks" };
 
 /** A cost in the baseline currency, or "beyond" (a trial past the horizon). */
-export type Pct = number | "beyond";
+export type Money = number | "beyond";
 
 export type ColumnReport =
   | {
@@ -31,7 +31,7 @@ export type ColumnReport =
       /** 0–1, by plan end. */
       chanceOnTime: number | null;
       milestones: MilestoneReport[];
-      cost: { p50: Pct; p80: Pct; p95: Pct; chanceOverBudget: number | null } | { unavailable: string } | null;
+      cost: { p50: Money; p80: Money; p95: Money; chanceOverBudget: number | null } | { unavailable: string } | null;
     }
   | { status: "insufficient"; finished: number; neededFinished: number; days: number; neededDays: number; reason: string };
 
