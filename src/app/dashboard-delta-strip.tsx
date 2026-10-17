@@ -38,15 +38,16 @@ interface Chip {
 function buildChips(lang: Lang, delta: DeltaResult, handlers: Pick<DashboardDeltaStripProps, "onOpenTask" | "onOpenRaid" | "onOpenMilestone" | "onOpenChange">): Chip[] {
   const chips: Chip[] = [];
   const c = delta.counts;
-  if (c.tasks.created > 0) chips.push({ key: "t-c", label: t(lang, "dashboardDeltaTasksCreated", String(c.tasks.created)), onClick: handlers.onOpenTask });
-  if (c.tasks.updated + c.tasks.statusChanged > 0) chips.push({ key: "t-u", label: t(lang, "dashboardDeltaTasksUpdated", String(c.tasks.updated + c.tasks.statusChanged)), onClick: handlers.onOpenTask });
-  if (c.tasks.completed > 0) chips.push({ key: "t-d", label: t(lang, "dashboardDeltaTasksCompleted", String(c.tasks.completed)), onClick: handlers.onOpenTask });
+  if (c.tasks.created > 0) chips.push({ key: "t-c", label: tPlural(lang, "dashboardDeltaTasksCreated", c.tasks.created, String(c.tasks.created)), onClick: handlers.onOpenTask });
+  const tasksUpdated = c.tasks.updated + c.tasks.statusChanged;
+  if (tasksUpdated > 0) chips.push({ key: "t-u", label: tPlural(lang, "dashboardDeltaTasksUpdated", tasksUpdated, String(tasksUpdated)), onClick: handlers.onOpenTask });
+  if (c.tasks.completed > 0) chips.push({ key: "t-d", label: tPlural(lang, "dashboardDeltaTasksCompleted", c.tasks.completed, String(c.tasks.completed)), onClick: handlers.onOpenTask });
   const raidN = c.raid.created + c.raid.updated + c.raid.statusChanged + c.raid.completed;
-  if (raidN > 0) chips.push({ key: "r", label: t(lang, "dashboardDeltaRaidChanged", String(raidN)), onClick: handlers.onOpenRaid });
+  if (raidN > 0) chips.push({ key: "r", label: tPlural(lang, "dashboardDeltaRaidChanged", raidN, String(raidN)), onClick: handlers.onOpenRaid });
   const msN = c.milestone.created + c.milestone.updated + c.milestone.statusChanged + c.milestone.completed;
-  if (msN > 0) chips.push({ key: "m", label: t(lang, "dashboardDeltaMilestoneChanged", String(msN)), onClick: handlers.onOpenMilestone });
+  if (msN > 0) chips.push({ key: "m", label: tPlural(lang, "dashboardDeltaMilestoneChanged", msN, String(msN)), onClick: handlers.onOpenMilestone });
   const chN = c.change.created + c.change.updated + c.change.statusChanged + c.change.completed;
-  if (chN > 0) chips.push({ key: "c", label: t(lang, "dashboardDeltaChangeChanged", String(chN)), onClick: handlers.onOpenChange });
+  if (chN > 0) chips.push({ key: "c", label: tPlural(lang, "dashboardDeltaChangeChanged", chN, String(chN)), onClick: handlers.onOpenChange });
   if (delta.newOverdue.length > 0) chips.push({ key: "od", label: t(lang, "dashboardDeltaNewOverdue", String(delta.newOverdue.length)), onClick: handlers.onOpenTask });
   return chips;
 }
