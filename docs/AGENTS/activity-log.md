@@ -132,8 +132,20 @@ newest entries until the next save.
   LATER mention (the comments, the call site, the two return-object keys), each opening a fresh
   range that runs to the next `^  };$`. That is exactly the re-trigger the paragraph below already
   describes correctly, which is what makes this the file contradicting itself rather than merely
-  being stale. The anchored form spans 90 lines and the bare one 1110 (measured 2026-10-17; they were 68 and 717
-  earlier, and 707 before the rename, and they move on any edit) — re-measure, never quote these:
+  being stale. The anchored form spans 90 lines and the bare one 1110 (they were 68 and 717
+  earlier, and 707 before the rename, and they move on any edit) — re-measure, never quote these. Run verbatim on
+  2026-10-17 at `d6170d26f`, output on the line after each:
+  ```
+  $ sed -n '/applyWorkspace/,/^  };$/p' src/app/use-storage-backend.ts | wc -l
+  1110
+  $ sed -n '/applyWorkspace/,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l
+  42
+  $ sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | wc -l
+  90
+  ```
+  ★★ The bare pattern is `applyWorkspace`, NOT `applyWorkspaceFromLoad`: the full name skips the earlier comment
+  mentions and printed 1023 the same day (`sed -n '/applyWorkspaceFromLoad/,/^  };$/p' … | wc -l`). Two
+  reviews "disagreed" on this count only because they ran different patterns. The commands again:
   `sed -n '/^  const applyWorkspaceFromLoad = /,/^  };$/p' src/app/use-storage-backend.ts | wc -l` against
   `sed -n '/applyWorkspace/,/^  };$/p' src/app/use-storage-backend.ts | wc -l`, and
   `grep -n applyWorkspace src/app/use-storage-backend.ts | head -1` for the start line.
