@@ -3,7 +3,9 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildDemoWorkspace } from "./demo-workspace";
+import { partitionUpcoming } from "./dashboard";
+import { buildDemoWorkspace, DEMO_AS_OF } from "./demo-workspace";
+import { computeAppForecast, toHistoryEntry } from "./forecast/app-forecast";
 import { detectInsights } from "./insights/detect";
 import { jsonToWorkspace } from "./workspace";
 import { demoActionGroups } from "../test/demo-next-actions";
@@ -28,7 +30,51 @@ describe("the demo master (§715)", () => {
     for (const s of ws.stakeholders ?? []) if (s.resourceId != null) need(resourceIds.has(s.resourceId), `stakeholder ${s.id} → resource ${s.resourceId}`);
     for (const b of ws.budgets ?? []) for (const id of b.taskIds ?? []) need(taskIds.has(id), `bucket ${b.id} → task ${id}`);
     for (const a of ws.absences) if (a.resourceId != null) need(resourceIds.has(a.resourceId), `absence ${a.id} → resource ${a.resourceId}`);
+    const raidIds = new Set(ws.raid.map((r) => r.id));
+    const milestoneIds = new Set((ws.milestones ?? []).map((m) => String(m.id)));
+    const roleIds = new Set(ws.roles.map((r) => r.id));
+    const disciplineIds = new Set((ws.disciplines ?? []).map((d) => d.id));
+    const gradeIds = new Set((ws.grades ?? []).map((g) => g.id));
+    for (const t of ws.tasks) if (t.resourceId != null) need(resourceIds.has(t.resourceId), `task ${t.id} → resource ${t.resourceId}`);
+    for (const r of ws.raid) {
+      for (const id of r.linkedTaskIds ?? []) need(taskIds.has(id), `raid ${r.id} → task ${id}`);
+      for (const id of r.causedByRaidIds ?? []) need(raidIds.has(id), `raid ${r.id} → raid ${id}`);
+    }
+    for (const c of ws.changes ?? []) {
+      for (const id of c.linkedTaskIds ?? []) need(taskIds.has(id), `change ${c.id} → task ${id}`);
+      for (const id of c.linkedRaidIds ?? []) need(raidIds.has(id), `change ${c.id} → raid ${id}`);
+    }
+    for (const k of ws.knowledgeItems ?? []) for (const id of k.taskIds ?? []) need(taskIds.has(id), `knowledge ${k.id} → task ${id}`);
+    for (const s of ws.stakeholders ?? []) for (const key of Object.keys(s.raci ?? {})) need(milestoneIds.has(key), `stakeholder ${s.id} → milestone ${key}`);
+    for (const id of ws.steeringCommittee?.memberResourceIds ?? []) need(resourceIds.has(id), `steering → resource ${id}`);
+    for (const r of ws.resources) if (r.roleId != null) need(roleIds.has(r.roleId), `resource ${r.id} → role ${r.roleId}`);
+    for (const r of ws.roles) {
+      need(disciplineIds.has(r.disciplineId), `role ${r.id} → discipline ${r.disciplineId}`);
+      need(gradeIds.has(r.gradeId), `role ${r.id} → grade ${r.gradeId}`);
+    }
+    for (const b of ws.budgets ?? []) for (const a of b.allocations ?? []) for (const id of a.resourceIds ?? []) need(resourceIds.has(id), `bucket ${b.id} → resource ${id}`);
     expect(missing).toEqual([]);
+  });
+
+  // The recorder writes one entry a day from the live engine, so the master's last entry must be what the engine
+  // says on the day the master is authored as of; otherwise the Forecast tile's weekly change reports a jump no
+  // recorded day explains.
+  it("ends its forecast history on what the engine forecasts on DEMO_AS_OF", () => {
+    const demo = buildDemoWorkspace(master, DEMO_AS_OF);
+    const live = toHistoryEntry(computeAppForecast({
+      tasks: demo.tasks, milestones: demo.milestones ?? [], planEnd: demo.plan.endDate, today: DEMO_AS_OF, holidaySet: new Set<string>(),
+    }), DEMO_AS_OF);
+    expect(live).not.toBeNull();
+    expect(ws.forecastHistory?.at(-1)).toEqual(live);
+  });
+
+  // An overdueTrend insight stays visible while a device has no landing snapshot, so a curated one must not
+  // claim more overdue tasks than the master has.
+  it("curates no overdue trend the data contradicts", () => {
+    const overdue = partitionUpcoming(ws.tasks, DEMO_AS_OF, new Set<string>()).overdue.length;
+    const claims = (ws.insights ?? []).filter((i) => i.type === "overdueTrend" && i.status === "active")
+      .map((i) => (i.data as { current?: number }).current);
+    expect(claims.filter((c) => c !== overdue)).toEqual([]);
   });
 
   it("leaves the week's additions to the video", () => {
