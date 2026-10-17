@@ -36,6 +36,17 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Ask Claude edits milestones and RAID items again (§715).** A description change on a milestone or a
+  mitigation on a RAID item always ended in "No changes to apply": Claude looked the item up first, a step the
+  one-shot edit cannot answer. It is now offered only the changes it can make.
+- **The setup wizard keeps a portfolio switch (§715).** Choosing Turso under Portfolio storage and finishing
+  the wizard left the app on browser storage; Finish now switches to the portfolio you picked.
+- **Deleting a task asks in the app's own dialog (§715)**, with a Delete button, instead of the browser's
+  confirm box: from the row menu, the task editor and the voice command alike.
+- **The Ask Claude window names what it edits (§715).** On a milestone, change request, RAID item or
+  stakeholder it said "Ask Claude to edit this task".
+- **"Since you last looked" counts one in the singular (§715)**: "1 RAID update", not "1 RAID updates", in
+  English and German.
 - **Next actions flags an over-allocated person in the current period (§747).** The over-allocation
   check, and the Workload view's "Util (now)" cell beside it, read the plan's first month (or week) instead of
   the one containing today, so once a project was past its first period nobody was ever flagged and the cell
