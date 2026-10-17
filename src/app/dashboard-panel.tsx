@@ -47,7 +47,7 @@ import { buildTileBodies } from "./dashboard-tile-bodies";
 import { chancesById, milestonesContentKey } from "./milestone-horizon-strip";
 import { computeAppForecast } from "./forecast/app-forecast";
 import { budgetSimContentKey, withBudgetSim } from "./budget-sim";
-import { simCapContentKey } from "./burndown-geometry";
+import { simCostContentKey } from "./burndown-geometry";
 import { forecastTileContentKey, kpiContentKey, kpiSimulation, kpiSimulationGap } from "./kpi-simulation";
 import { milestonesAtRisk, weeklyChange, type AtRiskMilestone } from "./forecast-tile-model";
 import { isTaskClosed } from "./task-closed";
@@ -362,15 +362,18 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // ONE run feeds the strip, the Forecast tile AND the budget simulation on the tiles' bundle;
   // `forecast` stays null while off or pending. The model's own bundle (and so the budget RAG) is untouched.
   const plainBundle = model.forecastBundle;
+  // The budget simulation feeds the burn tile alone: with that tile gated off (Budget module) or hidden from
+  // the board, the cost pass would be work nobody sees, so it does not run.
+  const burnShown = showBudget && layout.board.some((p) => p.id === "burn");
   const { kpiSim, kpiSimGap, forecast, atRisk, forecastBundle } = useMemo(() => {
     if (!simulationOn || simulationPending) return { kpiSim: null, kpiSimGap: null, forecast: null, atRisk: NO_AT_RISK, forecastBundle: plainBundle };
     const f = computeAppForecast({ tasks: props.tasks, milestones: milestonesForSim, planEnd, today, holidaySet: props.holidaySet });
     // The engine always runs on the context's milestones (shared memo); only the at-risk LIST follows
     // the Milestones module — its buttons would open a disabled view.
     const rows = showMilestones && f.kind === "forecast" ? milestonesAtRisk(f.milestones, milestonesForSim) : NO_AT_RISK;
-    const bundle = plainBundle && withBudgetSim(plainBundle, f);
+    const bundle = plainBundle && burnShown ? withBudgetSim(plainBundle, f) : plainBundle;
     return { kpiSim: kpiSimulation(f, model.evm.spi), kpiSimGap: kpiSimulationGap(f), forecast: f, atRisk: rows, forecastBundle: bundle };
-  }, [simulationOn, simulationPending, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi, showMilestones, plainBundle]);
+  }, [simulationOn, simulationPending, props.tasks, milestonesForSim, planEnd, today, props.holidaySet, model.evm.spi, showMilestones, plainBundle, burnShown]);
   // The Forecast tile's open-work line: one pass over the tasks per tasks change, not per render.
   const openTaskCount = useMemo(() => props.tasks.filter((task) => !isTaskClosed(task)).length, [props.tasks]);
 
@@ -506,8 +509,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
     // and by the one-line note when the switch is on but nothing can be simulated.
     // The Forecast tile likewise, by its slots, its at-risk row count and its change line's form.
     // The burn tile by its simulated line (on/off, the range or which missing input) and its finish band,
-    // and by the legend's cost-range entry, which the x-domain cap leaves out (`simCapContentKey`).
-    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, showMilestones ? atRisk.length : null, forecastChange)}|${milestonesContentKey(milestoneBuckets, forecast?.kind === "forecast" ? chancesById(forecast.milestones) : undefined, simulationPending)}|${budgetSimContentKey(forecastBundle?.sim)}|${simCapContentKey(model.burndown, model.chartDates.planEnd, model.chartDates.planStart, forecastBundle?.sim)}`,
+    // and by the legend's cost-range entry, which the chart leaves out for several reasons (`simCostContentKey`).
+    contentKey: `${kpiContentKey(kpiSim, simulationOn, kpiSimGap, simulationPending)}|${forecastTileContentKey(forecast, showMilestones ? atRisk.length : null, forecastChange)}|${milestonesContentKey(milestoneBuckets, forecast?.kind === "forecast" ? chancesById(forecast.milestones) : undefined, simulationPending)}|${budgetSimContentKey(forecastBundle?.sim)}|${simCostContentKey(model.burndown, forecastBundle, model.chartDates.today, model.chartDates.planEnd, model.chartDates.planStart)}`,
     tiles: visible.map((p) => {
       const s = tileById(p.id)!;
       return { id: p.id, minH: s.minH, maxH: s.maxH, flagged: p.hSet === true };

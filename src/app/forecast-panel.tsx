@@ -23,7 +23,7 @@ import { ForecastToolbar, type ForecastMode, type WhatIfField } from "./forecast
 import { ForecastChart } from "./forecast-chart";
 import { CostTable, MilestoneTable, PercentileTable } from "./forecast-tables";
 import type { ForecastFactsByUnit } from "./budget-forecast";
-import { simulateCostFromRun } from "./budget-sim";
+import { simulateCostFromRunMemo } from "./budget-sim";
 import { ReportCard } from "./report-table";
 import { EmptyState } from "./empty-state";
 import { isValidIsoDate } from "./forecast/throughput";
@@ -159,13 +159,19 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
   // availability, so it also scales each drawn spend day (burn scales with headcount): alone it is about
   // cost-neutral — the finish moves, the spend per day moves the other way. Nothing runs while the switch is off.
   // Below the schedule floor there is no card at all: `InsufficientState` already says the history is short.
+  // A How-many target change rebuilds `result` with the same trial days; the value-keyed memo behind
+  // `simulateCostFromRunMemo` then hands back the last range instead of running the pass again.
   const spendScale = appliedWhatIf.capacityPercent / 100;
   const cost = useMemo(() => {
     if (!showSimulation || !budgetEnabled || budgetFacts === null || result.kind !== "forecast") return null;
-    return simulateCostFromRun(result, budgetFacts.eur, "eur", spendScale);
+    return simulateCostFromRunMemo(result, budgetFacts.eur, "eur", spendScale);
   }, [showSimulation, budgetEnabled, budgetFacts, result, spendScale]);
   const costCard = showSimulation && budgetEnabled && (
-    <CostTable lang={lang} cost={cost} currency={plan.currency} bac={budgetFacts?.eur.bac ?? 0} />
+    <CostTable lang={lang} cost={cost} currency={plan.currency} />
+  );
+
+  const percentileTable = result.kind === "forecast" && (
+    <PercentileTable lang={lang} forecast={result} target={howManyTarget} today={today} maxTarget={maxTarget} onTargetChange={setTarget} />
   );
 
   const commitWhatIf = (field: WhatIfField, raw: string): boolean => {
@@ -201,12 +207,13 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         <>
           <ForecastCaption lang={lang} forecast={result} historyWindow={historyWindow} />
           <ForecastChart lang={lang} forecast={result} today={today} holidaySet={holidaySet} />
-          <div className="flex flex-col gap-4 lg:flex-row">
-            <div className="min-w-0 flex-1">
-              <PercentileTable lang={lang} forecast={result} target={howManyTarget} today={today} maxTarget={maxTarget} onTargetChange={setTarget} />
+          {/* The side-by-side wrapper only with a cost card, so the view without one is the markup it always was. */}
+          {costCard ? (
+            <div className="flex flex-col gap-4 lg:flex-row">
+              <div className="min-w-0 flex-1">{percentileTable}</div>
+              <div className="min-w-0 lg:w-96">{costCard}</div>
             </div>
-            {costCard && <div className="min-w-0 lg:w-96">{costCard}</div>}
-          </div>
+          ) : percentileTable}
           <div ref={milestonesRef}>
             <MilestoneTable lang={lang} milestones={milestones} chances={result.milestones} whatIf={mode === "whatif"} flashId={flashMilestoneId} />
           </div>

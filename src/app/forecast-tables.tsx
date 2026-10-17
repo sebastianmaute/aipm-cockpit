@@ -252,14 +252,16 @@ export function MilestoneTable({
 
 /**
  * The Forecast view's "Cost at finish" card (§502 part 3): P50/P80/P95 and the chance over budget from the
- * view's own run, each figure a `SimValue`. `cost` null (no buckets) or a budget of 0 reads as no budget;
- * below the schedule or spend floor, one line names the missing input. Money in the baseline currency.
+ * view's own run, each figure a `SimValue`. `cost` null (no budget facts at all: no buckets) reads as no
+ * budget. A budget of 0 still shows the range, without the chance row (`costRangeRows` drops it, as the pace
+ * card and the tile do). Below the schedule or spend floor, one line names the missing input. Money in the
+ * baseline currency.
  */
-export function CostTable({ lang, cost, currency, bac }: { lang: Lang; cost: CostAtFinish | null; currency: BudgetCurrency; bac: number }) {
+export function CostTable({ lang, cost, currency }: { lang: Lang; cost: CostAtFinish | null; currency: BudgetCurrency }) {
   const locale = localeFor(lang);
   const heading = t(lang, "budgetSimCostAtFinish");
   let body: React.ReactNode;
-  if (cost === null || bac <= 0) {
+  if (cost === null) {
     body = <p className="text-sm text-muted-foreground">{t(lang, "budgetSimAddBudget")}</p>;
   } else if (cost.kind === "unavailable") {
     body = <p className="text-sm text-muted-foreground">{costUnavailableText(lang, cost)}</p>;

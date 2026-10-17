@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { loadI18n, t } from "./i18n";
 import { formatShare } from "./forecast-format";
 import { costRangeRows, costUnavailableText, formatChanceOverBudget } from "./budget-sim-text";
-import type { CostAtFinish } from "./forecast/cost";
+import { simulateCostAtFinish, type CostAtFinish } from "./forecast/cost";
 
 type Sim = Extract<CostAtFinish, { kind: "sim" }>;
 
@@ -55,6 +55,24 @@ describe("costRangeRows (§502)", () => {
   it("shows the chance row through the rounding-aware formatter", () => {
     const rows = costRangeRows("en-US", sim(0.002), (v) => `${v}`);
     expect(rows.at(-1)).toEqual([t("en-US", "budgetSimChanceOver"), "<1%"]);
+  });
+
+  // §502 M4 — the zero-budget rule every surface shares: the engine gives no chance at bac <= 0, so the
+  // shared rows keep the range and drop only the chance row.
+  it("keeps the range and drops the chance row at a budget of 0", () => {
+    const run = (bac: number) => simulateCostAtFinish({
+      trialDays: Int32Array.from({ length: 50 }, (_, i) => 5 + (i % 10)), samples: Array.from({ length: 20 }, (_, i) => 100 + i * 10),
+      ac: 1_000, bac, seedTag: "eur", horizon: 1_300,
+    });
+    const zero = run(0);
+    if (zero.kind !== "sim") throw new Error("expected a simulated range");
+    expect(costRangeRows("en-US", zero, (v) => `${v}`).map(([term]) => term)).toEqual([
+      "Even odds (P50)", "Safe to commit (P80)", "Cautious (P95)",
+    ]);
+    // Positive control: with a budget the same run carries the chance row.
+    const budgeted = run(2_000);
+    if (budgeted.kind !== "sim") throw new Error("expected a simulated range");
+    expect(costRangeRows("en-US", budgeted, (v) => `${v}`).at(-1)?.[0]).toBe(t("en-US", "budgetSimChanceOver"));
   });
 });
 
