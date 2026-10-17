@@ -20,6 +20,7 @@ describe("the inline Ask Claude popover title (§715 D4)", () => {
     const task = t("de", "inlineAiEditTitle");
     const titles = Object.values(INLINE_EDIT_TITLE_KEY).map((k) => t("de", k));
     expect(titles.filter((s) => s !== task && /bearbeiten/.test(s))).toHaveLength(titles.length - 1);
+    expect(new Set(titles).size, "no two entities share a German title").toBe(titles.length);
     expect(t("de", INLINE_EDIT_TITLE_KEY.milestone)).toBe("Claude bitten, diesen Meilenstein zu bearbeiten");
   });
 
