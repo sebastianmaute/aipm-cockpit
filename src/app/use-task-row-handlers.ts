@@ -17,7 +17,9 @@ import type { Task, TaskStatus, Resource } from "./types";
 import { effectivePersonEmail } from "./resource-foundation";
 import type { Settings } from "./settings-types";
 import { useWorkspaceTab } from "./workspace-tab-context";
-import type { ScopeEpochReader } from "./scope-epoch";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
+import { logDiag } from "./diagnostics";
+import type { ConfirmFn } from "./confirm-dialog";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 
 const EMPTY_RESOURCE_MAP: ReadonlyMap<number, Resource> = new Map();
@@ -81,6 +83,14 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     resolveTemplateBody,
     sendCommTemplate,
   } = args;
+  // §715 D5: the delete asks in the app's dialog. This hook runs in task-manager, ABOVE the
+  // ConfirmProvider it renders, so it cannot call useConfirm: it hands out this ref, the provider
+  // fills it (`bridgeRef`), and until then the answer is no — logged, because a dropped bridge would
+  // otherwise turn every delete into a silent no-op.
+  const confirmRef = useRef<ConfirmFn>(async () => {
+    logDiag("warn", "task.delete.noConfirmBridge");
+    return false;
+  });
 
   const { setActiveTab } = useWorkspaceTab();
 
@@ -397,8 +407,14 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   //  so this delete can never trip the guard; arming would only hand a one-shot
   //  bypass to the NEXT save. Pinned in is-workspace-empty.test.ts.
   const onDelete = useCallback(
-    (id: number) => {
-      if (!window.confirm(t(lang, "confirmDelete", id))) return;
+    async (id: number) => {
+      // The app's own dialog (§715 D5), not the browser's. The rows are read AFTER the answer, so a
+      // write that landed while the dialog was open is not overwritten by a stale list. ★ The wait
+      // is a window a project swap can finish in, so the delete is dropped if the scope moved.
+      const epoch = getScopeEpoch();
+      const yes = await confirmRef.current({ message: t(lang, "confirmDelete", id), confirmLabel: t(lang, "delete"), tone: "danger" });
+      if (!yes) return;
+      if (dropStaleScopeWrite(getScopeEpoch, epoch, "task.delete", { id })) return;
       const arr = tasksRef.current;
       const doomed = arr.find((tk) => tk.id === id);
       const deletedName = doomed?.taskName ?? "";
@@ -451,10 +467,12 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
           ),
       );
       deselectIdRef.current(id);
+      // ★ The CLICK-time `editingId`, read after the await: safe only because the confirm is modal, so
+      //   the editor cannot change while it is open. A non-modal confirm would need a ref here.
       if (editingId === id) handleCancelEditRef.current();
       logActivityRef.current("task.deleted", id, deletedName);
     },
-    [lang, tasksRef, setTasks, deselectIdRef, editingId, captureComposite],
+    [lang, tasksRef, setTasks, deselectIdRef, editingId, captureComposite, getScopeEpoch],
   );
 
   const handleClearRaidTaskFilter = useCallback(() => {
@@ -484,6 +502,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     onSwimlaneDrop,
     onEdit,
     onDelete,
+    confirmRef,
     handleClearRaidTaskFilter,
     handleClearChangeTaskFilter,
     handleJumpToTaskFromRaid,

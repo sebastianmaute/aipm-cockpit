@@ -2,6 +2,18 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { logDiag } from "../diagnostics";
+import {
+  hasUnsealedPassphraseToken,
+  markUnsealedPassphraseToken,
+  noteTokenSealed,
+  unsealedPassphraseTokenSnapshot,
+} from "../turso-token-marker";
+import {
+  type OwnSealProbe,
+  probeOwnSeal,
+  trackTokenSeal,
+  useHasUnsealedPassphraseToken,
+} from "../turso-token-seals";
 import { ArrowPathIcon, CalendarDaysIcon } from "../icons";
 import { ToggleButton } from "../toggle-button";
 import { type Lang, t } from "../i18n";
@@ -22,18 +34,15 @@ import {
 import type { SnapshotCadence } from "../snapshot";
 import { useMsAuth } from "../use-ms-auth";
 import { InfoTooltip } from "../info-tooltip";
-import { loadPortfolioMode, savePortfolioMode, type PortfolioMode } from "../portfolio-mode";
+import { loadPortfolioMode, type PortfolioMode } from "../portfolio-mode";
 import { getTursoConfig, isEnvTokenRejected, isUsableTursoUrl } from "../turso-config";
 import { testTursoConnection } from "../turso-pipeline";
 import { tursoSetupState } from "../turso-setup-state";
 import { TursoSetupSteps } from "./turso-setup-steps";
 import { tursoErrorKind } from "../storage-error";
-import { SECRET_MERGE_TIMEOUT_MS, writeSettings } from "../use-settings";
-import { sealSettingsUntilReload } from "../settings-reload-seal";
-import { loadRegistry } from "../projects-registry";
-import { defaultStorageConfig } from "../workspace";
 import { saveSecretValue, setSecretPassphrase, unlockSecret } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
+import type { SealedSecret } from "../secrets";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { Button } from "../button";
 import { Checkbox, HintedLabel, Input, Select } from "../form-controls";
@@ -59,52 +68,8 @@ const TURSO_TEST_FAIL_KEYS = {
   generic: "integrationsTursoTestFailGeneric",
 } as const;
 
-// ★★ §548 — IN-FLIGHT TURSO TOKEN SEALS, tracked at MODULE scope on purpose. Apply on Turso
-// storage rebuilds the backend and the load hold remounts this section, so a per-instance ref
-// would forget a seal started by the instance that just went away. "Save & switch" reloads the
-// page, and a reload before the seal settles loses the token (`writeSettings` blanks it), so
-// `confirmPortfolioModeSwitch` waits on `pendingTokenSeals` first — BOUNDED by
-// `waitForTokenSeals`, so a seal that never settles cannot hang the switch. A failed seal is
-// logged, never rethrown: the switch must still happen, exactly as it did before this wait existed.
-const inFlightTokenSeals = new Set<Promise<void>>();
-
-function trackTokenSeal(seal: Promise<unknown>): void {
-  const settled = seal.then(
-    () => undefined,
-    (err: unknown) => {
-      logDiag("error", "settings.tursoTokenSealFailed", {
-        message: err instanceof Error ? err.message : String(err),
-      });
-    },
-  );
-  inFlightTokenSeals.add(settled);
-  void settled.then(() => inFlightTokenSeals.delete(settled));
-}
-
-/** A promise over every seal still in flight, or `null` when none is — so the caller can stay
- *  synchronous in the common case. */
-function pendingTokenSeals(): Promise<unknown> | null {
-  return inFlightTokenSeals.size > 0 ? Promise.all([...inFlightTokenSeals]) : null;
-}
-
-/** Resolves when `seals` settles or after `SECRET_MERGE_TIMEOUT_MS`, whichever comes first — the
- *  same bound the settings hydration puts on the secret store. A seal is a local IndexedDB +
- *  WebCrypto write that normally takes well under a second; one that never settles (an IDB open
- *  queued behind another tab's connection) must not leave "Save & switch" busy forever. On timeout
- *  the switch proceeds and a diagnostic is logged — the token may then be lost to the reload,
- *  which beats a button that never finishes. */
-function waitForTokenSeals(seals: Promise<unknown>): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<"timeout">((resolve) => {
-    timer = setTimeout(() => resolve("timeout"), SECRET_MERGE_TIMEOUT_MS);
-  });
-  return Promise.race([seals.then(() => "settled" as const), timeout]).then((outcome) => {
-    clearTimeout(timer);
-    if (outcome === "timeout") {
-      logDiag("warn", "settings.tursoTokenSealWaitTimedOut", { ms: SECRET_MERGE_TIMEOUT_MS });
-    }
-  });
-}
+export { commitPortfolioModeSwitch } from "../portfolio-mode-switch";
+import { commitPortfolioModeSwitch } from "../portfolio-mode-switch";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -138,6 +103,14 @@ interface IntegrationsSectionProps {
   onTimelogLinksChange?: (next: TimelogLinks) => void;
   /** Actuals-cache key for the Closed months block; set only where a project is open. */
   timelogCacheProjectId?: string;
+  /** The portfolio picked but not yet switched, held by a host that unmounts this section (the setup
+   *  wizard leaves its storage step and commits the switch on Finish, §715 D2). Absent: kept here. */
+  pendingPortfolioMode?: PortfolioMode;
+  onPendingPortfolioModeChange?: (mode: PortfolioMode) => void;
+  /** Whether the Turso URL/token hold drafts not yet applied (Turso storage only; elsewhere every
+   *  keystroke commits). Reported clean on unmount, which discards them. For a host that unmounts
+   *  this section and must not do so silently (the setup wizard's Next, §715 D2). */
+  onTursoDraftsDirtyChange?: (dirty: boolean) => void;
 }
 
 /** One calendar write-back entity row (label + an Enable and an Auto-sync toggle
@@ -232,7 +205,7 @@ function CalendarSyncEntityRow({
   );
 }
 
-export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira, noCurrentProject, timelogLinks, onTimelogLinksChange, timelogCacheProjectId }: IntegrationsSectionProps) {
+export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira, noCurrentProject, timelogLinks, onTimelogLinksChange, timelogCacheProjectId, pendingPortfolioMode, onPendingPortfolioModeChange, onTursoDraftsDirtyChange }: IntegrationsSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
   const confirm = useConfirm();
   // Busy flags for the two genuinely-async buttons (M365 sign-in, portfolio
@@ -240,6 +213,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // pending state.
   const [signInBusy, setSignInBusy] = useState(false);
   const [switchBusy, setSwitchBusy] = useState(false);
+  // §715 — the last switch was refused because its token would not survive the reload. It records the
+  //   token it refused (read through `tokenNowRef`, so after the seal it awaited) and whether a DEVICE
+  //   seal failed; it shows only while that token is current, so a later keystroke hides it.
+  const [switchRefusal, setSwitchRefusal] = useState<{ token: string; device: boolean } | null>(null);
+  const tokenNowRef = useRef<string>("");
+  // The URL draft the same way, so a check after an await reads what the banner reads.
+  const urlNowRef = useRef<string>("");
   const integrations = settings.integrations ?? defaultIntegrations;
   const m365 = integrations.m365 ?? defaultM365Integrations;
   const turso = integrations.turso ?? defaultTursoIntegrations;
@@ -380,7 +360,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       // button ON right after the user cleared the field.
       removeSealed("tursoAuthToken");
       setTokenStored(false);
-    } else if (tokenChanged && tokenWrap === "device") {
+      markUnsealedPassphraseToken(null);
+    } else if (tokenChanged && wrapNow() === "device") {
+      markUnsealedPassphraseToken(null);
       // §609: a seal superseded by a clear or a newer commit resolves false — no "stored" flag.
       trackTokenSeal(
         saveSecretValue("tursoAuthToken", tokenValue, "device").then((stored) => {
@@ -388,7 +370,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         }),
       );
     } else if (tokenChanged && tursoIsLive && passphraseReady) {
+      // §715 — held until the seal lands (`noteTokenSealed`): the marker is the LATEST committed
+      //   token or nothing, so a token carried over from off Turso storage never stays behind it.
+      markUnsealedPassphraseToken(tokenValue);
       trackTokenSeal(sealUnderTypedPassphrase(tokenValue));
+    } else if (tokenChanged) {
+      markUnsealedPassphraseToken(tokenValue); // passphrase mode, nothing to seal it with yet
     }
   }
 
@@ -401,16 +388,33 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // ★★ When a passphrase-sealed record ALREADY exists, both actions first VERIFY that the typed
   //   passphrase opens it (`typedPassphraseOpensRecord`), so a mistyped or different passphrase
   //   cannot silently become the new one — "Save passphrase" stays the only way to CHANGE it.
-  async function sealUnderTypedPassphrase(token: string) {
-    if (await setSecretPassphrase("tursoAuthToken", token, tokenPassphrase)) {
+  // Resolves whether the seal landed (false when superseded); rejects when it failed, keeping the
+  // typed passphrase for a retry.
+  async function sealUnderTypedPassphrase(token: string): Promise<boolean> {
+    const sealed = await setSecretPassphrase("tursoAuthToken", token, tokenPassphrase);
+    if (sealed) {
+      noteTokenSealed(token);
       setTokenStored(true);
       setTokenWrap("passphrase"); // §609: the record IS passphrase-wrapped now (see the untick)
     }
     setTokenPassphrase("");
     setTokenConfirm("");
+    return sealed;
   }
 
   const tursoDraftsDirty = tursoUrl !== turso.databaseUrl || tursoToken !== turso.authToken;
+  // Handlers set it at once; this effect also follows the render-time resync from an outside write.
+  useEffect(() => {
+    tokenNowRef.current = tursoToken ?? "";
+  }, [tursoToken]);
+  useEffect(() => {
+    urlNowRef.current = tursoUrl ?? "";
+  }, [tursoUrl]);
+  // §715 D2 — tell a host that unmounts this section (the wizard's Next) that drafts would be lost.
+  useEffect(() => {
+    onTursoDraftsDirtyChange?.(tursoDraftsDirty);
+  }, [onTursoDraftsDirtyChange, tursoDraftsDirty]);
+  useEffect(() => () => onTursoDraftsDirtyChange?.(false), [onTursoDraftsDirtyChange]);
   // ★★ §548 — THE TOKEN THE PASSPHRASE ACTIONS SEAL. On Turso storage it is the COMMITTED token,
   //   never the draft: `hydrateSecretsInto` restores `authToken` from the sealed store at boot, so
   //   sealing an unapplied draft would silently apply it on the next reload. Off Turso storage the
@@ -433,6 +437,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         setPassphraseVerifyFailedAt("apply");
         return;
       }
+      // §715 — an unsealed token carried over from off Turso storage is no draft here, so the commit
+      // below would not seal it; seal it under the verified passphrase instead.
+      if (tursoToken === turso.authToken) trackTokenSeal(sealUnderTypedPassphrase(tursoToken ?? ""));
     }
     commitTurso(tursoUrl, tursoToken);
   }
@@ -449,11 +456,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // draft left dirty when the kind moved away from Turso is not stranded without an Apply button.
   function handleTursoUrlChange(value: string) {
     setTursoUrl(value);
+    urlNowRef.current = value;
     if (!tursoIsLive) commitTurso(value, tursoToken);
   }
 
   function handleTursoTokenChange(value: string) {
     setTursoToken(value);
+    tokenNowRef.current = value;
     setPassphraseVerifyFailedAt(null); // a "Wrong passphrase." about the old draft no longer applies
     if (!tursoIsLive) commitTurso(tursoUrl, value);
   }
@@ -461,8 +470,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // Turso auth-token at-rest wrap mode + passphrase entry. writeSettings blanks
   // turso.authToken from persisted settings, so this device-seal is what survives
   // a reload (mirrors the Anthropic API-key handling in ai-section.tsx).
+  // §715 — a token typed in passphrase mode that no seal covers yet keeps the section in that mode
+  // across a remount, so the passphrase fields it needs are still there.
   const [tokenWrap, setTokenWrap] = useState<"device" | "passphrase">(() =>
-    isPassphraseLocked("tursoAuthToken") ? "passphrase" : "device",
+    isPassphraseLocked("tursoAuthToken") || hasUnsealedPassphraseToken(turso.authToken) ? "passphrase" : "device",
   );
   const [tokenPassphrase, setTokenPassphrase] = useState("");
   const [tokenConfirm, setTokenConfirm] = useState("");
@@ -470,12 +481,27 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const passphraseReady = tokenPassphrase !== "" && tokenPassphrase === tokenConfirm;
   // A changed token in passphrase mode can only be sealed under a typed passphrase (see
   // `sealUnderTypedPassphrase`); until then Apply and "Save & switch" are disabled.
-  const tokenSealBlocked =
-    tursoIsLive && tokenWrap === "passphrase" && tursoToken !== turso.authToken && !passphraseReady;
+  // §715 — off Turso storage the draft IS committed, so the changed token is the one no seal covers.
+  //   The marker also counts ON Turso storage: a token committed before the kind moved to Turso is
+  //   no draft there, yet still unsealed.
+  const tokenHeldUnsealed = useHasUnsealedPassphraseToken(turso.authToken);
+  // ★★ §715 — THE WRAP IS DERIVED from the module-wide state as well as this instance's own:
+  //   Settings → Integrations stays mounted under the setup wizard, whose own section can commit a
+  //   token in passphrase mode (the marker) or save one under a passphrase (the record). Every
+  //   section then shows the lock on and its passphrase fields, blocks its switch, and seals its
+  //   next keystroke under the passphrase — instead of reloading the token away or device-sealing
+  //   over the record. `wrapNow` is the same rule read at EVENT time: the record is not in settings,
+  //   so a save in the other section re-renders nothing here, and a handler would act on a stale
+  //   render. The untick replaces the record with a device seal, so both fall back to `tokenWrap`.
+  const effectiveWrap = tokenHeldUnsealed || isPassphraseLocked("tursoAuthToken") ? "passphrase" : tokenWrap;
+  function wrapNow(): "device" | "passphrase" {
+    return hasUnsealedPassphraseToken(turso.authToken) || isPassphraseLocked("tursoAuthToken") ? "passphrase" : tokenWrap;
+  }
+  const tokenUnsealed = (tursoIsLive && tursoToken !== turso.authToken) || tokenHeldUnsealed;
+  const tokenSealBlocked = effectiveWrap === "passphrase" && tokenUnsealed && !passphraseReady;
   // The action about to seal a changed token under the typed passphrase (Apply's and "Save &
   // switch"'s passphrase branch) — the case that must verify an existing record first.
-  const tokenSealsUnderTypedPassphrase =
-    tokenWrap === "passphrase" && tursoToken !== turso.authToken && passphraseReady;
+  const tokenSealsUnderTypedPassphrase = effectiveWrap === "passphrase" && tokenUnsealed && passphraseReady;
   // ★ Read at render, like `chat-panel.tsx`'s unlock gate: derived, so a seal elsewhere cannot
   //   leave it stale. Picks the blocked hint's wording (current vs new passphrase).
   const tokenHasPassphraseRecord = isPassphraseLocked("tursoAuthToken");
@@ -484,13 +510,23 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const [passphraseVerifyFailedAt, setPassphraseVerifyFailedAt] = useState<"apply" | "switch" | null>(null);
   // ★ Apply and "Save & switch" exclude each other while either is busy (the switch's verify runs
   //   under `switchBusy`), so the two can never verify and seal side by side.
-  const canApplyTurso = tursoDraftsDirty && !tokenSealBlocked && !passphraseVerifying && !switchBusy;
+  // §715 — `tokenUnsealed` enables it with no dirty draft: a token carried over from off Turso storage
+  //   still needs its seal, and in passphrase mode Apply seals it (`applyTursoDrafts`), as "Save
+  //   passphrase" does. (The untick device-seals every held token before it flips the wrap.)
+  const canApplyTurso = (tursoDraftsDirty || tokenUnsealed) && !tokenSealBlocked && !passphraseVerifying && !switchBusy;
   // ★ A blocked Apply / "Save & switch" states WHY, visibly and as each button's description
   //   (one key, two ids: the switch sits far below in the portfolio block).
   const applyBlockedHintId = `${useId()}-turso-apply-blocked`;
   const switchBlockedHintId = `${useId()}-turso-switch-blocked`;
   const applyVerifyFailedId = `${useId()}-turso-apply-wrong-passphrase`;
   const switchVerifyFailedId = `${useId()}-turso-switch-wrong-passphrase`;
+  const switchRefusedId = `${useId()}-turso-switch-token-unsealed`;
+  // Shown only while it is still true: for the token it refused, and — unless a DEVICE seal failed —
+  // while that token is still unsealed, so a passphrase Save clears it rather than turning it false.
+  const switchRefusalShown =
+    switchRefusal !== null &&
+    switchRefusal.token === (tursoToken ?? "") &&
+    (switchRefusal.device || tokenUnsealed);
   const tokenSealBlockedHintKey = tokenHasPassphraseRecord
     ? "integrationsTursoApplyNeedsPassphrase"
     : "integrationsTursoApplyNeedsNewPassphrase";
@@ -499,7 +535,11 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       .filter(Boolean)
       .join(" ") || undefined;
   const switchDescribedBy =
-    [tokenSealBlocked && switchBlockedHintId, passphraseVerifyFailedAt === "switch" && switchVerifyFailedId]
+    [
+      tokenSealBlocked && switchBlockedHintId,
+      passphraseVerifyFailedAt === "switch" && switchVerifyFailedId,
+      switchRefusalShown && switchRefusedId,
+    ]
       .filter(Boolean)
       .join(" ") || undefined;
 
@@ -642,6 +682,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     }
   }
 
+  // §609 — after a superseded seal, show what the STORE now holds (a clear → device, nothing
+  // stored); a passphrase save still in flight sets the wrap itself when it lands.
+  function showStoredWrap() {
+    setTokenWrap(isPassphraseLocked("tursoAuthToken") ? "passphrase" : "device");
+    setTokenStored(loadSealed("tursoAuthToken") != null);
+  }
+
   function handleTokenLockToggle(checked: boolean) {
     if (checked) {
       // device → passphrase: reveal the passphrase + confirm fields + Save button.
@@ -658,14 +705,28 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         // Don't force device over it: show what the STORE now holds (a clear → device, nothing
         // stored). A passphrase save still in flight sets the wrap itself when it lands.
         if (!(await saveSecretValue("tursoAuthToken", sealableTursoToken ?? "", "device"))) {
-          setTokenWrap(isPassphraseLocked("tursoAuthToken") ? "passphrase" : "device");
-          setTokenStored(loadSealed("tursoAuthToken") != null);
+          showStoredWrap();
           return;
         }
+        noteTokenSealed(sealableTursoToken);
         setTokenStored(true);
       } else if (isPassphraseLocked("tursoAuthToken")) {
         removeSealed("tursoAuthToken");
         setTokenStored(false);
+      }
+      // §715 — a keystroke during an await here still commits in passphrase mode (the wrap flips
+      // only below), so the marker can hold a NEWER token than the one this closure sealed. Seal
+      // whatever it holds until it holds nothing: the marker is the latest committed token or
+      // nothing (`commitTurso`). A keystroke after the last check, before the flip renders, is
+      // marked again; the derived wrap (`effectiveWrap`) then keeps the section in passphrase mode.
+      // A superseded seal (§609: a clear, or a passphrase Save) shows what the store holds instead.
+      for (let held = unsealedPassphraseTokenSnapshot(); held !== null; held = unsealedPassphraseTokenSnapshot()) {
+        if (!(await saveSecretValue("tursoAuthToken", held, "device"))) {
+          showStoredWrap();
+          return;
+        }
+        noteTokenSealed(held);
+        setTokenStored(true);
       }
       setTokenWrap("device");
       setTokenPassphrase("");
@@ -676,6 +737,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   function handleTokenLockConfirm() {
     trackTokenSeal((async () => {
       if (await setSecretPassphrase("tursoAuthToken", sealableTursoToken ?? "", tokenPassphrase)) {
+        noteTokenSealed(sealableTursoToken);
         setTokenStored(true);
         setTokenWrap("passphrase"); // §609: the record IS passphrase-wrapped now (see the untick)
       }
@@ -687,9 +749,11 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   async function handleRemoveToken() {
     if (!(await confirm({ message: t(lang, "secretPassphraseRemoveConfirm") }))) return;
     removeSealed("tursoAuthToken");
+    markUnsealedPassphraseToken(null);
     updateTurso({ authToken: "" });
     // ★ Also clear the draft: when the stored token is already "" the reconcile sees no change.
     setTursoToken("");
+    tokenNowRef.current = "";
     setTokenStored(false);
     setTokenWrap("device");
     setTokenPassphrase("");
@@ -710,7 +774,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // migrate the current project (each portfolio is a separate store), so the
   // surprise reload landed them in the OTHER (often empty) portfolio.
   const portfolioMode = loadPortfolioMode();
-  const [pendingMode, setPendingMode] = useState<PortfolioMode>(portfolioMode);
+  const [ownPendingMode, setOwnPendingMode] = useState<PortfolioMode>(portfolioMode);
+  const pendingMode = pendingPortfolioMode ?? ownPendingMode;
+  const setPendingMode = (mode: PortfolioMode) => { setOwnPendingMode(mode); onPendingPortfolioModeChange?.(mode); };
   // Turso portfolio mode is only safe once Turso resolves a config (URL + token,
   // or env vars). Disable it until then so a switch can't land in a dead portfolio.
   const tursoConfigured = !!getTursoConfig(tursoUrl, tursoToken);
@@ -721,6 +787,16 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // Show "Move to Turso" only where a current project exists (settings views),
   // Turso is configured, and the portfolio is still on File.
   const canMoveToTurso = !!onMigrateToTurso && !onTurso && tursoConfigured;
+  // §715 — the move reloads, which would bring back the old record over a passphrase-mode token no
+  // seal covers yet; `migrateCurrentProjectToTurso` refuses it, and this says so before the click.
+  // ★ The marker ALONE, as that refusal reads it (off Turso `tokenUnsealed` is the marker): a token
+  //   typed while an untick's device re-seal is in flight stays marked with the lock unticked.
+  const moveBlockedHint =
+    tokenUnsealed
+      ? t(lang, "projectMigrateTokenNeedsPassphrase", t(lang, "secretPassphraseSave"))
+      : !tursoTestConfirmed
+        ? t(lang, "integrationsTursoMoveNeedsTest")
+        : null;
   const portfolioModeDirty = pendingMode !== portfolioMode;
   async function confirmPortfolioModeSwitch() {
     if (!portfolioModeDirty || switchBusy) return;
@@ -730,6 +806,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // the component down (also announces the pending switch to SR users). It also covers the
     // passphrase verify below, so the switch cannot be submitted twice while it runs.
     setSwitchBusy(true);
+    setSwitchRefusal(null);
     // ★★ §548 — verify an existing passphrase record BEFORE anything is sealed or written (see
     //   `applyTursoDrafts`): a wrong passphrase switches nothing and keeps every typed field.
     if (tokenSealsUnderTypedPassphrase && !(await typedPassphraseOpensRecord())) {
@@ -743,15 +820,38 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     // (`tursoConfigured`). Switching to the portfolio the fields show and then reloading onto
     // the OLD credentials would be the surprise; so fold the drafts in and seal the token here.
     const tokenDirty = tursoToken !== turso.authToken;
+    // The switch's own seal, read after the gate's wait (`probeOwnSeal`).
+    let ownSeal: OwnSealProbe | undefined;
+    const tokenNow = () => tokenNowRef.current;
+    let ownSealIsDevice = false;
+    // The record this switch's own seal replaces, put back if the switch stops (see `putBackRecord`).
+    const recordBefore = loadSealed("tursoAuthToken");
     if (tokenDirty && (tursoToken ?? "").trim() === "") {
       // §565: same blank-first rule as `commitTurso` — a cleared token removes the seal rather
       // than resealing "".
       removeSealed("tursoAuthToken");
       setTokenStored(false);
-    } else if (tokenDirty && tokenWrap === "device") {
-      trackTokenSeal(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"));
-    } else if (tokenDirty && passphraseReady) {
-      trackTokenSeal(sealUnderTypedPassphrase(tursoToken ?? ""));
+    } else if (tokenDirty && wrapNow() === "device") {
+      // On Turso storage the edited token is a draft the gate cannot see, so the commit reads this
+      //   seal's result after its one wait. A device seal opens the IndexedDB device key and can hang:
+      //   one still running at the deadline goes ahead, as the wait always did (the token may then
+      //   be lost, and a diagnostic is logged); only a seal that FAILED refuses.
+      ownSeal = probeOwnSeal(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"), false, tokenNow);
+      ownSealIsDevice = true;
+    } else if ((tokenDirty || tokenUnsealed) && passphraseReady) {
+      // §715 — on Turso storage the edited token is a DRAFT, so the marker never holds it and the
+      //   shared gate cannot see a failed seal of it: the commit reads this seal's own result after
+      //   its one wait, and refuses on anything but a seal that landed — one still running at the
+      //   deadline included (a passphrase seal is WebCrypto into the localStorage store, with no
+      //   IndexedDB, so that should never happen).
+      ownSeal = probeOwnSeal(sealUnderTypedPassphrase(tursoToken ?? ""), true, tokenNow);
+    } else if ((tokenDirty || tokenUnsealed) && wrapNow() === "passphrase") {
+      // A STALE render: passphrase mode at event time (another section or tab saved a record since)
+      //   but no passphrase was typed, because the fields were not shown. Nothing can seal the token
+      //   here, and on Turso storage the draft is never in the marker, so the gate would not catch
+      //   the loss: refuse, and the re-render shows the passphrase fields.
+      refuseSwitch(false);
+      return;
     }
     const base: Settings =
       tokenDirty || tursoUrl !== turso.databaseUrl
@@ -763,41 +863,38 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             },
           }
         : settings;
-    // ★★★ A RELOAD BEFORE THE SEAL SETTLES LOSES THE TOKEN: `writeSettings` blanks it, so the
-    // device-sealed copy is the only one that survives. Wait for every in-flight seal (this
-    // switch's, an Apply's or a keystroke commit's — possibly from an instance a hold already
-    // remounted away), bounded by `waitForTokenSeals`. Synchronous when nothing is in flight.
-    const seals = pendingTokenSeals();
-    if (seals) {
-      void waitForTokenSeals(seals).then(() => finishPortfolioModeSwitch(base));
-      return;
+    // §715 — a token cleared meanwhile leaves no Turso config: stop rather than land in an empty Turso
+    //   portfolio. No message of its own — the section's "needs config" banner already shows.
+    const nowUnconfigured = () =>
+      pendingMode === "turso" && !getTursoConfig(urlNowRef.current, tokenNowRef.current);
+    // §715 — a keystroke during the seal (off Turso storage) commits a NEWER token in passphrase mode;
+    //   the click-time token the gate checks no longer covers it.
+    const newerTokenUnsealed = () => hasUnsealedPassphraseToken(tokenNowRef.current);
+    const stops = () => nowUnconfigured() || newerTokenUnsealed() || !!ownSeal?.refuses();
+    if (!(await commitPortfolioModeSwitch(base, pendingMode, stops))) {
+      // On Turso storage a stopped switch must not leave its own seal of an unapplied DRAFT behind:
+      //   the next boot would restore it. Put back the record it replaced — now, or when it lands.
+      //   Never for a seal of the COMMITTED token (a carried-over one): that is its only copy.
+      if (tursoIsLive && tokenDirty) ownSeal?.whenLanded((restore) => putBackRecord(restore, recordBefore));
+      if (nowUnconfigured()) setSwitchBusy(false);
+      else refuseSwitch(ownSealIsDevice && ownSeal?.refuses() === true);
     }
-    finishPortfolioModeSwitch(base);
   }
 
-  function finishPortfolioModeSwitch(base: Settings) {
-    savePortfolioMode(pendingMode);
-    // Keep the workspace storage backend aligned with the portfolio: switching TO
-    // Turso must also persist storageConfig.kind "turso" (synchronously, so it
-    // survives the reload), or the backend memo rebuilds a file/browser backend
-    // and the workspace keeps loading the local file while the project list +
-    // snapshots talk to Turso. (portfolioMode === "turso" ⟺ storageConfig "turso".)
-    if (pendingMode === "turso") {
-      writeSettings({ ...base, storageConfig: { kind: "turso" } });
-    } else if (settings.storageConfig?.kind === "turso") {
-      // Leaving Turso for the File portfolio: a leftover "turso" storageConfig
-      // would keep the backend memo pointed at Turso after reload (no file-mode
-      // bootstrap reconciles it), stranding the user. Restore the File portfolio's
-      // current-project backend config (registry is its source of truth), or the
-      // browser default if none.
-      const reg = loadRegistry();
-      const current = reg.projects.find((p) => p.id === reg.currentProjectId);
-      writeSettings({ ...base, storageConfig: current?.storageConfig ?? defaultStorageConfig });
-    } else if (base !== settings) {
-      writeSettings(base);
-    }
-    sealSettingsUntilReload(); // §740 — no stale persist-effect write may land before the reload
-    window.location.reload();
+  // Restores the sealed record a stopped switch's own seal replaced, through a restore snapshotted
+  // when that seal began: anything written or cleared since it began (§609) wins.
+  function putBackRecord(restore: (record: SealedSecret | null) => boolean, record: SealedSecret | null) {
+    restore(record);
+    setTokenStored(loadSealed("tursoAuthToken") != null);
+    // Keep the user's lock choice for the still-unapplied draft: only a restored PASSPHRASE record
+    // sets the wrap. Showing a device record's wrap would untick a lock just ticked for the draft,
+    // and its next Apply would device-seal it.
+    if (isPassphraseLocked("tursoAuthToken")) setTokenWrap("passphrase");
+  }
+
+  function refuseSwitch(device: boolean) {
+    setSwitchBusy(false);
+    setSwitchRefusal({ token: tokenNowRef.current, device });
   }
 
   function updateM365(patch: Partial<M365IntegrationsSettings>) {
@@ -1103,12 +1200,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   <label className="flex items-center gap-2">
                     <Checkbox
                       aria-label={t(lang, "secretLockPassphrase")}
-                      checked={tokenWrap === "passphrase"}
+                      checked={effectiveWrap === "passphrase"}
                       onChange={(e) => handleTokenLockToggle(e.target.checked)}
                     />
                     <span className="text-xs text-foreground">{t(lang, "secretLockPassphrase")}</span>
                   </label>
-                  {tokenWrap === "passphrase" && (
+                  {effectiveWrap === "passphrase" && (
                     <div className="mt-2 flex flex-col gap-2">
                       <Input
                         size="xs"
@@ -1171,7 +1268,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   true (Apply hidden) in exactly that state — only the Enter-key path
                   (`handleTursoFieldKeyDown`, which checks `canApplyTurso` directly and never this
                   guard) still worked, which is a discoverability gap, not a fix.
-                  ★★ AN ENABLED APPLY MEANS AN UNAPPLIED CHANGE, BUT NOT THE CONVERSE — this comment
+                  ★★ AN ENABLED APPLY MEANS AN UNAPPLIED CHANGE (a dirty draft, or a token no seal covers
+                  yet), BUT NOT THE CONVERSE — this comment
                   used to claim "disabled ⟺ the drafts equal the stored values", which is false about
                   reachable state. `canApplyTurso` ANDs three further conjuncts (`tokenSealBlocked`,
                   `passphraseVerifying`, `switchBusy`), so a dirty draft sits behind a disabled button
@@ -1285,21 +1383,21 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   `projectMigrateToTursoHint` twice, once from the hidden node
                   and once from the visible one. */}
               <span
-                className={`inline-flex${tursoTestConfirmed ? "" : " cursor-not-allowed"}`}
-                title={tursoTestConfirmed ? undefined : t(lang, "integrationsTursoMoveNeedsTest")}
+                className={`inline-flex${moveBlockedHint === null ? "" : " cursor-not-allowed"}`}
+                title={moveBlockedHint ?? undefined}
               >
                 <Button
                   size="sm"
-                  disabled={!tursoTestConfirmed}
+                  disabled={moveBlockedHint !== null}
                   onClick={onMigrateToTurso}
-                  aria-describedby={tursoTestConfirmed ? tursoMoveHintId : tursoMoveNeedsTestId}
+                  aria-describedby={moveBlockedHint === null ? tursoMoveHintId : tursoMoveNeedsTestId}
                   className="disabled:pointer-events-none"
                 >
                   {t(lang, "projectMigrateToTurso")}
                 </Button>
-                {!tursoTestConfirmed && (
+                {moveBlockedHint !== null && (
                   <span id={tursoMoveNeedsTestId} className="sr-only">
-                    {t(lang, "integrationsTursoMoveNeedsTest")}
+                    {moveBlockedHint}
                   </span>
                 )}
               </span>
@@ -1386,6 +1484,17 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 )}
                 {passphraseVerifyFailedAt === "switch" && (
                   <FieldError id={switchVerifyFailedId}>{t(lang, "secretUnlockFailed")}</FieldError>
+                )}
+                {switchRefusalShown && (
+                  <FieldError id={switchRefusedId}>
+                    {t(
+                      lang,
+                      switchRefusal?.device
+                        ? "integrationsTursoSwitchTokenNotSaved"
+                        : "integrationsTursoSwitchTokenUnsealed",
+                      t(lang, noCurrentProject ? "portfolioModeSwitchConfirmNoProject" : "portfolioModeSwitchConfirm"),
+                    )}
+                  </FieldError>
                 )}
               </div>
             )}

@@ -6,6 +6,7 @@
 import {
   buildSystemPrompt,
   callClaude,
+  toolsNamed,
   type ApiUsage,
   type ContentBlock,
   type SystemBlock,
@@ -23,6 +24,7 @@ import { type ToolDispatcher } from "./chat-tools";
 import { type Lang } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
 import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
+import { PLANNABLE_TOOL_NAMES } from "./inline-ai-edit/plan";
 
 export interface InlineEditArgs {
   apiKey: string;
@@ -52,6 +54,33 @@ export interface InlineEditResult {
   usage: ApiUsage;
 }
 
+type InlineTools = ReturnType<typeof toolsNamed>;
+let inlineToolsCache: InlineTools | null = null;
+
+/** The plannable tools, without `expectedToken` (§715 D1). Its schema text says "REQUIRED. The token
+ *  returned when you read this record", but this path has no read tools and the app stamps the
+ *  stored row's token itself at apply (`use-inline-entity-edit.ts`). A model that follows the schema
+ *  asks to read first, which ends in an empty plan. Built once: the set never changes. ★ So a test
+ *  that mocks `toolsNamed` after the first inline call in its file never reaches this path. */
+function inlineTools(): InlineTools {
+  if (inlineToolsCache) return inlineToolsCache;
+  inlineToolsCache = toolsNamed(PLANNABLE_TOOL_NAMES).map((def) => {
+    const schema = def.input_schema as { properties?: Record<string, unknown>; required?: readonly string[] };
+    if (!schema.properties || !("expectedToken" in schema.properties)) return def;
+    const { expectedToken: _dropped, ...properties } = schema.properties;
+    void _dropped;
+    return {
+      ...def,
+      input_schema: {
+        ...def.input_schema,
+        properties,
+        ...(schema.required ? { required: schema.required.filter((r) => r !== "expectedToken") } : {}),
+      },
+    };
+  }) as InlineTools;
+  return inlineToolsCache;
+}
+
 function scopeBlock(entity: InlineEntity, item: Record<string, unknown>, itemLabel: string): SystemBlock {
   const fields = JSON.stringify(item);
   return {
@@ -61,7 +90,9 @@ function scopeBlock(entity: InlineEntity, item: Record<string, unknown>, itemLab
       `make the user's requested change: the ${entity}'s update tool for this item's fields, and you may ` +
       "create related items (create_task / create_raid_item / create_change / " +
       "create_milestone / create_stakeholder) when asked. Do NOT update or delete any OTHER item. Do NOT " +
-      `chat or explain unless you cannot proceed without more detail. Target ${entity}:\n` +
+      "chat or explain unless you cannot proceed without more detail. This request carries no read tools " +
+      "(no list_, get_ or search_ calls), whatever any other guidance says: the target's fields are " +
+      `below, so act on them directly. Target ${entity}:\n` +
       fields,
   };
 }
@@ -102,8 +133,8 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   // tool leaves the trap armed for any instruction that invites a look
   // backwards ("put this back the way it was last week"). The kill switch is
   // honoured a fortiori: off stays off, and on is off HERE too. ★ The cost is
-  // real and accepted — this path always sends its own `toolsFor` variant,
-  // so it no longer shares a prompt-cache prefix with the chat panel, costing
+  // real and accepted — this path always sends its own `toolsNamed` list
+  // (§715 D1: only the plannable tools), so it no longer shares a prompt-cache prefix with the chat panel, costing
   // one extra cache write per 5-minute window in an interleaved chat/inline-edit
   // session. A silent no-op edit is worse than a cache miss. ★ There is
   // deliberately no `historySearch` field on `InlineEditArgs` any more: a
@@ -111,12 +142,18 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   // ★★ VIEW SCOPE IS DELIBERATELY KEPT — this is a decision, not an oversight,
   // and the test's control assertion depends on it. It carries no entity ids,
   // and orienting the model on what the surface is makes its edit better. Its
-  // `toolHints` do name broad tools the scope block then forbids acting on
-  // beyond this item; that tension is accepted because the scope block is
-  // adjacent and explicit, where a list of real neighbouring ids is not.
-  // ★ Passing the same `NO_RECALL_TOOLS` to `buildSystemPrompt` keeps that block
-  // honest: it filters its hints against the tools this request carries, so
-  // Activity's `search_history` hint disappears with the tool.
+  // `toolHints` are filtered to the tools this request carries (below), and no
+  // view hints a plannable tool today, so none survive. ★ A view's `reading`
+  // is NOT filtered by tool name and some name read tools — none of the views
+  // with inline edit (raid, changes, milestones, stakeholders, open-points) do.
+  // ★ Passing `buildSystemPrompt` the NAMES of the `tools` list below keeps that
+  // block honest: it filters its hints against the tools this request carries,
+  // so a read-tool hint (`list_milestones`, Activity's `search_history`)
+  // disappears with the tool. `NO_RECALL_TOOLS` alone would not: it names every
+  // tool but the two recall ones.
+  // §715 D1 — only the tools the plan can act on: a read tool here is a call nobody answers.
+  const tools = inlineTools();
+  const offered = new Set(tools.map((d) => d.name));
   const system: SystemBlock[] = [
     ...buildSystemPrompt(
       args.lang,
@@ -129,6 +166,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
       args.guides,
       args.groundInGuides,
       NO_RECALL_TOOLS,
+      offered,
     ),
     scopeBlock(args.entity, args.item, args.itemLabel),
   ];
@@ -147,6 +185,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
     [{ role: "user", content: args.instruction }],
     NO_RECALL_TOOLS,
     args.signal,
+    tools,
   );
   const blocks = res.content.filter(
     (b: ContentBlock): b is ToolUseBlock => b.type === "tool_use",

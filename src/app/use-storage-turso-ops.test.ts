@@ -22,6 +22,8 @@ import { useLoadTruncation } from "./use-load-truncation";
 import { t, type Lang } from "./i18n";
 import { emptyWorkspace } from "./workspace";
 import { SaveConflictError } from "./storage-error";
+import { markUnsealedPassphraseToken, noteTokenSealed } from "./turso-token-marker";
+import { trackTokenSeal } from "./turso-token-seals";
 
 // `migrateCurrentProjectToTurso` probes the connection before it migrates, so
 // the real one would reach the network here. Spread the actual module rather
@@ -69,7 +71,8 @@ vi.mock("./turso-portfolio", () => ({
   restoreProject: vi.fn(async () => {}),
   hardDeleteProject: vi.fn(async () => {}),
 }));
-vi.mock("./use-settings", () => ({ writeSettings: vi.fn() }));
+// ★ `SECRET_MERGE_TIMEOUT_MS` bounds `tokenSealsSettled`; left undefined the wait would time out at once.
+vi.mock("./use-settings", () => ({ writeSettings: vi.fn(), SECRET_MERGE_TIMEOUT_MS: 5_000 }));
 vi.mock("./settings-reload-seal", () => ({ sealSettingsUntilReload: vi.fn() }));
 import { writeSettings } from "./use-settings";
 import { sealSettingsUntilReload } from "./settings-reload-seal";
@@ -499,5 +502,75 @@ describe("a flush whose edits could not be kept stops the op (§4)", () => {
     const { result } = renderWithRealGuard(unkept, { currentWorkspace: wsWithProject });
     await act(async () => { await result.current.ops.migrateCurrentProjectToTurso(); });
     expect(portfolioCreate).not.toHaveBeenCalled();
+  });
+});
+
+// §715 — the move reloads, and `writeSettings` blanks the token: only a sealed copy survives. A
+// token committed in passphrase mode off Turso storage has none yet, so the reload would bring back
+// the OLD record and boot Turso on it. Both buttons bound to this handler (Settings, Projects) get
+// the refusal here, before `portfolioCreate` for the §103 reason above.
+//   MU11 — drop the marker check → (a) goes red (a portfolio row is created).
+//   MU12 — drop the wait for in-flight seals → (c) goes red (refused while the seal is landing).
+//   MU14 — move the marker check below the connection probe → (a) goes red (the probe ran).
+//   MU15 — drop the one-move-at-a-time guard → (d) goes red (two portfolio rows).
+describe("useTursoProjectOps — §715 Move to Turso keeps a passphrase-mode token", () => {
+  const settingsWithToken = (authToken: string) =>
+    ({ current: { integrations: { turso: { databaseUrl: "https://db.example", authToken } } } }) as never;
+
+  it("(a) refuses before creating the portfolio row while the token is unsealed", async () => {
+    markUnsealedPassphraseToken("tokM");
+    const { result } = renderWithRealGuard(async () => {}, { currentWorkspace: wsWithProject, settingsRef: settingsWithToken("tokM") });
+    vi.mocked(portfolioCreate).mockClear();
+    vi.mocked(writeSettings).mockClear();
+    await act(async () => { await result.current.ops.migrateCurrentProjectToTurso(); });
+    expect(portfolioCreate).not.toHaveBeenCalled();
+    expect(writeSettings).not.toHaveBeenCalled();
+    expect(testTursoConnection).not.toHaveBeenCalled(); // refused before the probe
+    expect(result.current.showToast).toHaveBeenCalledWith(
+      "error",
+      t("en-US", "projectMigrateTokenNeedsPassphrase", t("en-US", "secretPassphraseSave")),
+    );
+  });
+
+  // The control: the marker is keyed by value, so a token the settings no longer hold refuses nothing.
+  it("(b) proceeds when the held token is not the one in the settings", async () => {
+    markUnsealedPassphraseToken("older");
+    const { result } = renderWithRealGuard(async () => {}, { currentWorkspace: wsWithProject, settingsRef: settingsWithToken("tokM") });
+    vi.mocked(portfolioCreate).mockClear();
+    await act(async () => { await result.current.ops.migrateCurrentProjectToTurso(); });
+    expect(portfolioCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("(c) waits for a seal in flight, and proceeds once it covers the token", async () => {
+    markUnsealedPassphraseToken("tokM");
+    let land: () => void = () => {};
+    trackTokenSeal(new Promise<void>((resolve) => { land = resolve; }).then(() => noteTokenSealed("tokM")));
+    const { result } = renderWithRealGuard(async () => {}, { currentWorkspace: wsWithProject, settingsRef: settingsWithToken("tokM") });
+    vi.mocked(portfolioCreate).mockClear();
+    let done = false;
+    let migrating: Promise<void> = Promise.resolve();
+    act(() => { migrating = result.current.ops.migrateCurrentProjectToTurso().then(() => { done = true; }); });
+    await act(async () => { await Promise.resolve(); });
+    expect(done).toBe(false); // still waiting on the seal
+    expect(portfolioCreate).not.toHaveBeenCalled();
+    await act(async () => { land(); await migrating; });
+    expect(portfolioCreate).toHaveBeenCalledTimes(1);
+  });
+
+  // A second click while the first move waits (on a seal, the probe or the flush) would create a
+  // second portfolio row; the Projects-panel button has no busy state, so the handler refuses it.
+  it("(d) a second move while the first is still running creates no second portfolio row", async () => {
+    let land: () => void = () => {};
+    trackTokenSeal(new Promise<void>((resolve) => { land = resolve; }));
+    const { result } = renderWithRealGuard(async () => {}, { currentWorkspace: wsWithProject });
+    vi.mocked(portfolioCreate).mockClear();
+    let first: Promise<void> = Promise.resolve();
+    let second: Promise<void> = Promise.resolve();
+    act(() => {
+      first = result.current.ops.migrateCurrentProjectToTurso();
+      second = result.current.ops.migrateCurrentProjectToTurso();
+    });
+    await act(async () => { land(); await Promise.all([first, second]); });
+    expect(portfolioCreate).toHaveBeenCalledTimes(1);
   });
 });

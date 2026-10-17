@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, render, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IntegrationsSection } from "./integrations-section";
 import { ConfirmProvider } from "../confirm-dialog";
@@ -22,6 +22,7 @@ import { type SealedSecret, sealDevice } from "../secrets";
 import { savePortfolioMode } from "../portfolio-mode";
 import { testTursoConnection } from "../turso-pipeline";
 import { clearEnvTokenRejected, isEnvTokenRejected, markEnvTokenRejected } from "../turso-config";
+import { markUnsealedPassphraseToken } from "../turso-token-marker";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../../test/hint-label";
 
@@ -105,6 +106,46 @@ describe("IntegrationsSection portfolio-mode load hint", () => {
     expect(
       screen.queryByText(/already have a project stored in this database/i),
     ).toBeNull();
+  });
+});
+
+// §715 D2 — the setup wizard holds the pending portfolio choice, because it unmounts this section on Next.
+describe("IntegrationsSection with a controlled pending portfolio mode (§715 D2)", () => {
+  it("shows the host's pending mode and reports a pick back to it", () => {
+    const onPending = vi.fn();
+    render(
+      <IntegrationsSection lang="en-US" settings={tursoSettings("test-token")} onChange={() => {}}
+        pendingPortfolioMode="turso" onPendingPortfolioModeChange={onPending} />,
+    );
+    const select = screen.getByRole("combobox", { name: t("en-US", "portfolioModeLabel") });
+    expect(select).toHaveValue("turso"); // the stored mode is "file": the value is the host's
+    expect(screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") })).toBeInTheDocument();
+    fireEvent.change(select, { target: { value: "file" } });
+    expect(onPending).toHaveBeenCalledWith("file");
+  });
+});
+
+describe("IntegrationsSection reports unapplied Turso drafts to its host (§715 D2)", () => {
+  it("reports dirty once a draft differs on Turso storage, clean again when it matches", () => {
+    const onDirty = vi.fn();
+    const settings = { ...tursoSettings("test-token"), storageConfig: { kind: "turso" as const } };
+    render(<IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} onTursoDraftsDirtyChange={onDirty} />);
+    expect(onDirty).toHaveBeenLastCalledWith(false);
+    const url = screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder"));
+    const stored = (url as HTMLInputElement).value;
+    fireEvent.change(url, { target: { value: `${stored}x` } });
+    expect(onDirty).toHaveBeenLastCalledWith(true);
+    fireEvent.change(url, { target: { value: stored } });
+    expect(onDirty).toHaveBeenLastCalledWith(false);
+  });
+
+  it("reports clean on unmount, so a host never keeps a dirty flag for drafts that are gone", () => {
+    const onDirty = vi.fn();
+    const settings = { ...tursoSettings("test-token"), storageConfig: { kind: "turso" as const } };
+    const { unmount } = render(<IntegrationsSection lang="en-US" settings={settings} onChange={() => {}} onTursoDraftsDirtyChange={onDirty} />);
+    fireEvent.change(screen.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")), { target: { value: "libsql://other-fictional.turso.io" } });
+    unmount();
+    expect(onDirty).toHaveBeenLastCalledWith(false);
   });
 });
 
@@ -870,6 +911,32 @@ describe("§408 — Move to Turso is gated on a confirmed connection", () => {
     expect(onMigrateToTurso).toHaveBeenCalledTimes(1);
   });
 
+  // §715 — the move reloads, and a reload would bring back the old record over a token typed in
+  // passphrase mode that no seal covers yet. The real refusal is in `migrateCurrentProjectToTurso`;
+  // this is the affordance, and the hint that names the way out.
+  // MU10 — drop the token conjunct from the Move gate → goes red (enabled after a passing probe).
+  it("stays disabled after a passing probe while a passphrase-mode token is unsealed", async () => {
+    markUnsealedPassphraseToken("fake"); // what a keystroke commit in passphrase mode leaves
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    await passingProbe();
+    expect(moveButton()).toBeDisabled();
+    expect(moveButton()).toHaveAccessibleDescription(
+      t("en-US", "projectMigrateTokenNeedsPassphrase", t("en-US", "secretPassphraseSave")),
+    );
+  });
+
+  // The gate follows the marker alone, as `migrateCurrentProjectToTurso` does: a token can be marked
+  // while the lock reads unticked (typed during the untick's device re-seal), and an enabled button
+  // whose move then refuses would be a dead end.
+  // MU13 — gate on `tokenWrap === "passphrase" && tokenUnsealed` again → goes red (stays enabled).
+  it("disables once the token is marked unsealed, even with the lock unticked", async () => {
+    render(<ControlledMove onMigrateToTurso={vi.fn()} />);
+    await passingProbe();
+    expect(moveButton()).toBeEnabled(); // control: the lock is unticked and nothing is marked
+    act(() => { markUnsealedPassphraseToken("fake"); });
+    expect(moveButton()).toBeDisabled();
+  });
+
   it("stays disabled when the probe fails", async () => {
     const user = userEvent.setup();
     vi.mocked(testTursoConnection).mockRejectedValueOnce(
@@ -1094,10 +1161,18 @@ describe("§609 — a clear beats the Save & switch token seal", () => {
     expect(secrets.sealDevice).toHaveBeenCalledWith("tursoAuthToken", "tok7"); // the switch seal, held
     expect(reload).not.toHaveBeenCalled();
 
-    removeSealed("tursoAuthToken"); // a clear lands meanwhile
+    removeSealed("tursoAuthToken"); // a clear lands meanwhile, from another tab (Remove also clears the field)
     releaseSeal(sealed);
 
-    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    // §609 still holds: the clear wins, nothing is stored. §715: the field still holds the edited
+    // "tok7", which no store now keeps, so a reload would lose it — the switch refuses and says so
+    // instead of reloading (it used to reload here).
+    expect(
+      await screen.findByText(
+        t("en-US", "integrationsTursoSwitchTokenNotSaved", t("en-US", "portfolioModeSwitchConfirm")),
+      ),
+    ).toBeInTheDocument();
+    expect(reload).not.toHaveBeenCalled();
     expect(loadSealed("tursoAuthToken")).toBeNull();
   });
 });

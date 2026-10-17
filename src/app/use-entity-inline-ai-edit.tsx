@@ -61,6 +61,19 @@ const ENTITY_LABEL_KEY: Record<InlineEntity, TranslationKey> = {
   calendarEvent: "inlineAiEditEntityMeeting",
 };
 
+/** The popover title per entity (§715 D4): German needs each noun's own article, so one key each
+ *  rather than a placeholder. A task keeps the original title. */
+export const INLINE_EDIT_TITLE_KEY: Record<InlineEntity, TranslationKey> = {
+  task: "inlineAiEditTitle",
+  raid: "inlineAiEditTitleRaid",
+  change: "inlineAiEditTitleChange",
+  milestone: "inlineAiEditTitleMilestone",
+  stakeholder: "inlineAiEditTitleStakeholder",
+  resource: "inlineAiEditTitleResource",
+  absence: "inlineAiEditTitleAbsence",
+  calendarEvent: "inlineAiEditTitleMeeting",
+};
+
 export function useEntityInlineAiEdit(entity: InlineEntity, deps: EntityInlineAiEditDeps): EntityInlineAiEdit {
   const showToast = useToastContext();
   const { record } = useAiUsageContext();
@@ -89,6 +102,7 @@ export function useEntityInlineAiEdit(entity: InlineEntity, deps: EntityInlineAi
   const popover = edit.activeItem ? (
     <InlineAiEditPopover
       lang={deps.lang}
+      title={t(deps.lang, INLINE_EDIT_TITLE_KEY[entity])}
       itemTitle={INLINE_DESCRIPTORS[entity].titleOf(edit.activeItem)}
       entityLabel={t(deps.lang, ENTITY_LABEL_KEY[entity])}
       phase={edit.phase}
