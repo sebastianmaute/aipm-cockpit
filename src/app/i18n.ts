@@ -5056,7 +5056,7 @@ const enUS = {
   setupWizardFinish: "Finish",
   setupWizardTursoDraftsDiscard: "Your Turso URL or token changes are not applied yet and will be discarded. To keep them, choose {0}, then {1}.",
   setupWizardTursoDraftsDiscardConfirm: "Discard changes",
-  setupWizardTursoNeedsConfig: "Switching the portfolio to Turso needs a saved Turso URL and token, unlocked if it is protected by a passphrase. Finish takes you back to the storage step to add or unlock them.",
+  setupWizardTursoNeedsConfig: "Switching the portfolio to Turso needs a saved Turso URL and token. Finish takes you back to the storage step to add them. A passphrase-protected token that is still locked counts as missing: enter it again there.",
   wizardBlankTemplate: "Blank — choose functions yourself",
   wizardIncludeContent: "Include starter content",
   wizardCreate: "Create project",

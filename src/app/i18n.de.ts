@@ -4775,7 +4775,7 @@ export const de: Record<TranslationKey, string> = {
   setupWizardFinish: "Fertigstellen",
   setupWizardTursoDraftsDiscard: "Ihre Änderungen an Turso-URL oder -Token sind noch nicht übernommen und werden verworfen. Um sie zu behalten, wählen Sie {0} und dann {1}.",
   setupWizardTursoDraftsDiscardConfirm: "Änderungen verwerfen",
-  setupWizardTursoNeedsConfig: "Für den Wechsel des Portfolios zu Turso werden eine gespeicherte Turso-URL und ein Token benötigt, entsperrt, falls er durch eine Passphrase geschützt ist. Fertigstellen führt Sie zum Speicherschritt zurück, um sie einzutragen oder zu entsperren.",
+  setupWizardTursoNeedsConfig: "Für den Wechsel des Portfolios zu Turso werden eine gespeicherte Turso-URL und ein Token benötigt. Fertigstellen führt Sie zum Speicherschritt zurück, um sie einzutragen. Ein durch eine Passphrase geschütztes Token, das noch gesperrt ist, gilt als fehlend: Geben Sie es dort erneut ein.",
   wizardBlankTemplate: "Leer — Funktionen selbst auswählen",
   wizardIncludeContent: "Beispielinhalte einschließen",
   wizardCreate: "Projekt erstellen",
