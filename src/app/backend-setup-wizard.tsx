@@ -26,11 +26,8 @@ import {
   clampStep,
   summarizeBackendSetup,
 } from "./backend-setup-steps";
-import {
-  commitPortfolioModeSwitch,
-  hasUnsealedPassphraseToken,
-  IntegrationsSection,
-} from "./settings-sections/integrations-section";
+import { commitPortfolioModeSwitch, IntegrationsSection } from "./settings-sections/integrations-section";
+import { hasUnsealedPassphraseToken } from "./turso-token-seals";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { getTursoConfig } from "./turso-config";
 import { AiSection } from "./settings-sections/ai-section";

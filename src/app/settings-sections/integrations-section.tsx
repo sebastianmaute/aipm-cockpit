@@ -2,6 +2,14 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { logDiag } from "../diagnostics";
+import {
+  awaitTokenSeals,
+  hasUnsealedPassphraseToken,
+  markUnsealedPassphraseToken,
+  noteTokenSealed,
+  trackTokenSeal,
+  useHasUnsealedPassphraseToken,
+} from "../turso-token-seals";
 import { ArrowPathIcon, CalendarDaysIcon } from "../icons";
 import { ToggleButton } from "../toggle-button";
 import { type Lang, t } from "../i18n";
@@ -28,7 +36,7 @@ import { testTursoConnection } from "../turso-pipeline";
 import { tursoSetupState } from "../turso-setup-state";
 import { TursoSetupSteps } from "./turso-setup-steps";
 import { tursoErrorKind } from "../storage-error";
-import { SECRET_MERGE_TIMEOUT_MS, writeSettings } from "../use-settings";
+import { writeSettings } from "../use-settings";
 import { sealSettingsUntilReload } from "../settings-reload-seal";
 import { loadRegistry } from "../projects-registry";
 import { defaultStorageConfig } from "../workspace";
@@ -59,81 +67,6 @@ const TURSO_TEST_FAIL_KEYS = {
   generic: "integrationsTursoTestFailGeneric",
 } as const;
 
-// ★★ §548 — IN-FLIGHT TURSO TOKEN SEALS, tracked at MODULE scope on purpose. Apply on Turso
-// storage rebuilds the backend and the load hold remounts this section, so a per-instance ref
-// would forget a seal started by the instance that just went away. "Save & switch" reloads the
-// page, and a reload before the seal settles loses the token (`writeSettings` blanks it), so
-// `confirmPortfolioModeSwitch` waits on `pendingTokenSeals` first — BOUNDED by
-// `waitForTokenSeals`, so a seal that never settles cannot hang the switch. A failed seal is
-// logged, never rethrown: the switch must still happen, exactly as it did before this wait existed.
-const inFlightTokenSeals = new Set<Promise<void>>();
-
-function trackTokenSeal(seal: Promise<unknown>): void {
-  const settled = seal.then(
-    () => undefined,
-    (err: unknown) => {
-      logDiag("error", "settings.tursoTokenSealFailed", {
-        message: err instanceof Error ? err.message : String(err),
-      });
-    },
-  );
-  inFlightTokenSeals.add(settled);
-  void settled.then(() => inFlightTokenSeals.delete(settled));
-}
-
-/** A promise over every seal still in flight, or `null` when none is — so the caller can stay
- *  synchronous in the common case. */
-function pendingTokenSeals(): Promise<unknown> | null {
-  return inFlightTokenSeals.size > 0 ? Promise.all([...inFlightTokenSeals]) : null;
-}
-
-// §715 — OFF Turso storage each keystroke commits the token, but in passphrase mode nothing can seal it
-// (the passphrase is never in memory), and a reload restores the OLD sealed record. This holds the
-// token committed that way until a seal covers it. MODULE scope, like the seals above, because the
-// setup wizard unmounts this section on Next and still has to refuse a Finish that would lose it.
-// Keyed by VALUE: it applies only while the settings still hold that very token.
-let unsealedPassphraseToken: string | null = null;
-
-/** True when `authToken` was committed in passphrase mode and no seal covers it yet, so a reload
- *  (a portfolio switch) would lose it. */
-export function hasUnsealedPassphraseToken(authToken: string | undefined): boolean {
-  return unsealedPassphraseToken !== null && unsealedPassphraseToken === authToken;
-}
-
-/** Records `token` as committed in passphrase mode with no seal over it; `null` forgets it. */
-function markUnsealedPassphraseToken(token: string | null): void {
-  unsealedPassphraseToken = token;
-}
-
-/** Forgets any held token. For tests: the marker is module state, so it outlives a render. */
-export function forgetUnsealedPassphraseToken(): void {
-  unsealedPassphraseToken = null;
-}
-
-/** A seal of `token` landed, so a reload restores it: it is no longer at risk. */
-function noteTokenSealed(token: string | undefined): void {
-  if (unsealedPassphraseToken === token) unsealedPassphraseToken = null;
-}
-
-/** Resolves when `seals` settles or after `SECRET_MERGE_TIMEOUT_MS`, whichever comes first — the
- *  same bound the settings hydration puts on the secret store. A seal is a local IndexedDB +
- *  WebCrypto write that normally takes well under a second; one that never settles (an IDB open
- *  queued behind another tab's connection) must not leave "Save & switch" busy forever. On timeout
- *  the switch proceeds and a diagnostic is logged — the token may then be lost to the reload,
- *  which beats a button that never finishes. */
-function waitForTokenSeals(seals: Promise<unknown>): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<"timeout">((resolve) => {
-    timer = setTimeout(() => resolve("timeout"), SECRET_MERGE_TIMEOUT_MS);
-  });
-  return Promise.race([seals.then(() => "settled" as const), timeout]).then((outcome) => {
-    clearTimeout(timer);
-    if (outcome === "timeout") {
-      logDiag("warn", "settings.tursoTokenSealWaitTimedOut", { ms: SECRET_MERGE_TIMEOUT_MS });
-    }
-  });
-}
-
 /** Commits a portfolio switch and reloads onto it: this section's "Save & switch", and the setup
  *  wizard's Finish when the switch was picked on its storage step (§715 D2 — the wizard unmounts this
  *  section on the next step, so the choice used to be dropped). `base` is the settings to persist
@@ -142,9 +75,8 @@ export async function commitPortfolioModeSwitch(base: Settings, mode: PortfolioM
   // ★★★ A RELOAD BEFORE THE SEAL SETTLES LOSES THE TOKEN: `writeSettings` blanks it, so the
   // device-sealed copy is the only one that survives. Wait for every in-flight seal (this
   // switch's, an Apply's or a keystroke commit's — possibly from an instance a hold already
-  // remounted away), bounded by `waitForTokenSeals`. No wait when nothing is in flight.
-  const seals = pendingTokenSeals();
-  if (seals) await waitForTokenSeals(seals);
+  // remounted away), bounded by `awaitTokenSeals`. No wait when nothing is in flight.
+  await awaitTokenSeals();
   savePortfolioMode(mode);
   // Keep the workspace storage backend aligned with the portfolio: switching TO
   // Turso must also persist storageConfig.kind "turso" (synchronously, so it
@@ -559,7 +491,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   // §715 — off Turso storage the draft IS committed, so the changed token is the one no seal covers.
   //   The marker also counts ON Turso storage: a token committed before the kind moved to Turso is
   //   no draft there, yet still unsealed.
-  const tokenUnsealed = (tursoIsLive && tursoToken !== turso.authToken) || hasUnsealedPassphraseToken(turso.authToken);
+  const tokenHeldUnsealed = useHasUnsealedPassphraseToken(turso.authToken);
+  const tokenUnsealed = (tursoIsLive && tursoToken !== turso.authToken) || tokenHeldUnsealed;
   const tokenSealBlocked = tokenWrap === "passphrase" && tokenUnsealed && !passphraseReady;
   // The action about to seal a changed token under the typed passphrase (Apply's and "Save &
   // switch"'s passphrase branch) — the case that must verify an existing record first.

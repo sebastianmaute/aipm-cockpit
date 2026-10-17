@@ -5,7 +5,7 @@
 //        on Turso storage that must NOT commit the draft. Mutation MA1: commit on blur.
 //   A4 (Modal host) — off Turso storage the same host commits per keystroke, with no Apply.
 //   A5 — "Save & switch" applies the drafts itself and waits for the token seal before reloading,
-//        BOUNDED by `waitForTokenSeals`. Mutations: MA5 — drop the bound (wait on the seals
+//        BOUNDED by `awaitTokenSeals`. Mutations: MA5 — drop the bound (wait on the seals
 //        alone); M5 — skip the wait; M6 — `base = settings` (no fold).
 //   A6 — the render-time reconcile keeps a dirty draft and resyncs a clean one. Mutations M7/M8:
 //        drop the clean-draft guard on the URL / token resync.
@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { IntegrationsSection, forgetUnsealedPassphraseToken } from "./integrations-section";
+import { IntegrationsSection } from "./integrations-section";
 import { BackendConfigModal } from "../backend-config-modal";
 import { MODAL_HELP } from "../help-content";
 import { t } from "../i18n";
@@ -71,7 +71,6 @@ beforeEach(() => {
   localStorage.clear();
 });
 afterEach(async () => {
-  forgetUnsealedPassphraseToken(); // module scope by design; no test inherits another's token
   // Drain in-flight verifies, then one macrotask so each continuation (commit + re-seal) runs here.
   await Promise.allSettled(vi.mocked(unlockSecret).mock.results.map((r) => r.value));
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -909,5 +908,28 @@ describe("§715 — an unsealed passphrase-mode token survives a remount and a m
     await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
     await user.click(screen.getByRole("button", { name: applyLabel }));
     await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokI", "pw"));
+  });
+
+  // MU9 — the section reads the marker without subscribing (`hasUnsealedPassphraseToken` at render)
+  //        → (j) goes red: a seal landing after the remount leaves the switch disabled until a keystroke.
+  it("(j) a seal that lands after the hold remount unblocks the switch with no further input", async () => {
+    const user = userEvent.setup();
+    let landSeal: (ok: boolean) => void = () => {};
+    vi.mocked(setSecretPassphrase).mockImplementationOnce(
+      () => new Promise<boolean>((resolve) => { landSeal = resolve; }),
+    );
+    const { rerender } = render(<Host storage={BROWSER} />);
+    await user.click(lock());
+    await user.type(tokenField(), "tokJ");
+    rerender(<Host storage={TURSO} />);
+    await user.type(passphraseField(), "pw");
+    await user.type(screen.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.click(screen.getByRole("button", { name: applyLabel }));
+    await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokJ", "pw"));
+    await user.click(screen.getByRole("button", { name: "remount" })); // the load hold, before the seal lands
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    expect(switchBtn()).toBeDisabled();
+    await act(async () => { landSeal(true); });
+    await waitFor(() => expect(switchBtn()).toBeEnabled());
   });
 });

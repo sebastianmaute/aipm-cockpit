@@ -215,9 +215,9 @@
   before `onClose` (`docs/AGENTS/ui-shell.md` dismissal) and must NOT commit a Turso draft;
   "Save & switch" is itself an explicit save, so it APPLIES any unapplied drafts (the Turso option it
   offers is enabled by the drafts, and the reload means no hold can swallow anything) and waits for
-  every in-flight token seal before reloading — tracked at MODULE scope (`pendingTokenSeals`),
+  every in-flight token seal before reloading — tracked at MODULE scope (`trackTokenSeal`, in `turso-token-seals.ts`),
   because the instance that started a seal may already be remounted away, and BOUNDED by
-  `waitForTokenSeals` (`SECRET_MERGE_TIMEOUT_MS`; on timeout it proceeds and logs
+  `awaitTokenSeals` (`SECRET_MERGE_TIMEOUT_MS`; on timeout it proceeds and logs
   `settings.tursoTokenSealWaitTimedOut`); and the render-time reconcile resyncs a CLEAN draft only,
   keeping a dirty one when the stored value moves.
 - ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
