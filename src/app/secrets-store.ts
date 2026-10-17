@@ -99,11 +99,13 @@ export function snapshotSealedWrite(id: SecretId): (sealed: SealedSecret) => boo
 
 /** Like `snapshotSealedWrite`, but restores a record OR its absence (`null` removes it), and only if
  *  no write or clear for `id` began since this snapshot. It never bumps, so it never cancels one in
- *  flight. For undoing a write of one's own: take the snapshot right after it landed (§715, a stopped
- *  "Save & switch" putting back the record its own seal replaced). */
+ *  flight, and it refuses a record of another id. For undoing a write of one's own: take the snapshot
+ *  right after that write BEGAN (`beginSealedWrite` bumped), so every later write or clear counts
+ *  as newer (§715, a stopped "Save & switch" putting back the record its own seal replaced). */
 export function snapshotSealedRestore(id: SecretId): (record: SealedSecret | null) => boolean {
   const generation = writeGenerations.get(id) ?? 0;
   return (record) => {
+    if (record && record.id !== id) return false;
     if ((writeGenerations.get(id) ?? 0) !== generation) return false;
     if (record) {
       saveSealed(record);

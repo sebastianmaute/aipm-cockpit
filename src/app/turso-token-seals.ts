@@ -81,18 +81,24 @@ export interface OwnSealProbe {
    *  cleared meanwhile (§609: the clear wins). */
   refuses: () => boolean;
   /** Runs `fn` once the seal has landed — at once if it already has — with a restore snapshotted
-   *  AT THE LANDING (`snapshotSealedRestore`), so whatever was written after it wins. At most one
+   *  when the seal BEGAN (`snapshotSealedRestore`), so whatever began after it wins. At most one
    *  callback; it never runs if the seal fails or is superseded. */
   whenLanded: (fn: (restore: (record: SealedSecret | null) => boolean) => void) => void;
 }
 
-/** Tracks `seal` (`trackTokenSeal`) and returns its probe. `tokenNow` reads the field's live token. */
+/** Tracks `seal` (`trackTokenSeal`) and returns its probe. `tokenNow` reads the field's live token.
+ *  ★ Call it right after starting the seal: the seal must have begun its write (`beginSealedWrite`,
+ *    which `saveSecretValue` and `setSecretPassphrase` do before their first await), because the
+ *    put-back's restore is snapshotted here, and any write begun later must count as newer. */
 export function probeOwnSeal(
   seal: Promise<boolean>,
   unsettledRefuses: boolean,
   tokenNow: () => string,
 ): OwnSealProbe {
   let landed: boolean | undefined;
+  // Snapshotted NOW, when the seal began — not when its landing is noticed, a few microtasks after
+  // the commit, when a write begun in between would pass for ours.
+  const restoreFromStart = snapshotSealedRestore("tursoAuthToken");
   let restoreAtLanding: ((record: SealedSecret | null) => boolean) | null = null;
   let onLanded: ((restore: (record: SealedSecret | null) => boolean) => void) | null = null;
   trackTokenSeal(
@@ -100,9 +106,8 @@ export function probeOwnSeal(
       (ok) => {
         landed = ok;
         if (!ok) return;
-        const restore = snapshotSealedRestore("tursoAuthToken");
-        restoreAtLanding = restore;
-        onLanded?.(restore);
+        restoreAtLanding = restoreFromStart;
+        onLanded?.(restoreFromStart);
       },
       (err: unknown) => {
         landed = false;

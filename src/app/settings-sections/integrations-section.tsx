@@ -886,7 +886,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   function putBackRecord(restore: (record: SealedSecret | null) => boolean, record: SealedSecret | null) {
     restore(record);
     setTokenStored(loadSealed("tursoAuthToken") != null);
-    showStoredWrap();
+    // Keep the user's lock choice for the still-unapplied draft: only a restored PASSPHRASE record
+    // sets the wrap. Showing a device record's wrap would untick a lock just ticked for the draft,
+    // and its next Apply would device-seal it.
+    if (isPassphraseLocked("tursoAuthToken")) setTokenWrap("passphrase");
   }
 
   function refuseSwitch(device: boolean) {

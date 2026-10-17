@@ -1313,6 +1313,9 @@ describe("§715 — every mounted section and every reload path read one token s
       expect(screen.getByText(t("en-US", "integrationsTursoSwitchTokenUnsealed", switchName))).toBeInTheDocument(); // refused at the deadline
       await act(async () => { release(); await vi.advanceTimersByTimeAsync(1); });
       expect(loadSealed("tursoAuthToken")).toEqual(prev);
+      // MU46 — the put-back shows the restored record's wrap → goes red: the lock the user ticked for
+      //   the still-unapplied draft unticks, and the next Apply device-seals it.
+      expect(screen.getByLabelText(lockLabel)).toBeChecked();
       expect(reload).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();

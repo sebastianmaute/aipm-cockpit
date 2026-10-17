@@ -222,8 +222,8 @@
   and, on a switch TO Turso with no config left, stops it under the section's "needs config" banner
   (a switch to File goes ahead). A keystroke during the seal commits a newer token, which the switch
   checks too. A stopped switch on Turso storage puts back the record its own seal of a DRAFT replaced,
-  now or when the seal lands, through `snapshotSealedRestore` taken at the landing, so anything
-  written since wins; a seal of the committed token is never put back. A refusal
+  now or when the seal lands, through `snapshotSealedRestore` taken when that seal began, so
+  anything begun since wins (and the user's lock choice for the draft is kept); a seal of the committed token is never put back. A refusal
   names the token it refused and shows only while it is still true. The
   wizard refuses either direction of switch: the reload loses the token whichever way it goes.
   "Test connection" probes the drafts without committing.

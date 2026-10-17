@@ -174,10 +174,9 @@ describe("beginSealedWrite (§609)", () => {
 // §609 I1 — the boot migration's seal can land after the §548 merge timeout has handed the UI
 // over; a user clear or a new value committed in that window must win over the legacy value.
 // §715 — undoing one's own write: the snapshot is taken right after it, so anything newer wins.
-// MU44 — the restore ignores the generation → the first two cases go red.
+// MU44 — the restore ignores the generation → the second and third cases go red.
+// MU47 — the restore writes a record of another id → the fourth case goes red.
 describe("snapshotSealedRestore (§715)", () => {
-  afterEach(() => localStorage.clear());
-
   it("puts a record back when nothing was written since the snapshot", async () => {
     const before = await sealDevice("tursoAuthToken", "before");
     beginSealedWrite("tursoAuthToken")(await sealDevice("tursoAuthToken", "mine"));
@@ -202,6 +201,12 @@ describe("snapshotSealedRestore (§715)", () => {
     removeSealed("tursoAuthToken");
     expect(restore(await sealDevice("tursoAuthToken", "before"))).toBe(false);
     expect(loadSealed("tursoAuthToken")).toBeNull();
+  });
+
+  it("refuses a record of another id, writing nothing", async () => {
+    const other = await sealDevice("jiraApiToken", "jira");
+    expect(snapshotSealedRestore("tursoAuthToken")(other)).toBe(false);
+    expect(loadSealed("jiraApiToken")).toBeNull();
   });
 });
 
