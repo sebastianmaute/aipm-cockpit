@@ -393,7 +393,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       removeSealed("tursoAuthToken");
       setTokenStored(false);
       markUnsealedPassphraseToken(null);
-    } else if (tokenChanged && effectiveWrap === "device") {
+    } else if (tokenChanged && wrapNow() === "device") {
       markUnsealedPassphraseToken(null);
       // §609: a seal superseded by a clear or a newer commit resolves false — no "stored" flag.
       trackTokenSeal(
@@ -504,11 +504,18 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   //   The marker also counts ON Turso storage: a token committed before the kind moved to Turso is
   //   no draft there, yet still unsealed.
   const tokenHeldUnsealed = useHasUnsealedPassphraseToken(turso.authToken);
-  // ★★ §715 — THE WRAP IS DERIVED from the module-wide marker as well as this instance's state:
+  // ★★ §715 — THE WRAP IS DERIVED from the module-wide state as well as this instance's own:
   //   Settings → Integrations stays mounted under the setup wizard, whose own section can commit a
-  //   token in passphrase mode. Every section then shows the lock on, its passphrase fields, and
-  //   blocks its switch, instead of one reloading the token away.
-  const effectiveWrap = tokenHeldUnsealed ? "passphrase" : tokenWrap;
+  //   token in passphrase mode (the marker) or save one under a passphrase (the record). Every
+  //   section then shows the lock on and its passphrase fields, blocks its switch, and seals its
+  //   next keystroke under the passphrase — instead of reloading the token away or device-sealing
+  //   over the record. `wrapNow` is the same rule read at EVENT time: the record is not in settings,
+  //   so a save in the other section re-renders nothing here, and a handler would act on a stale
+  //   render. The untick replaces the record with a device seal, so both fall back to `tokenWrap`.
+  const effectiveWrap = tokenHeldUnsealed || isPassphraseLocked("tursoAuthToken") ? "passphrase" : tokenWrap;
+  function wrapNow(): "device" | "passphrase" {
+    return hasUnsealedPassphraseToken(turso.authToken) || isPassphraseLocked("tursoAuthToken") ? "passphrase" : tokenWrap;
+  }
   const tokenUnsealed = (tursoIsLive && tursoToken !== turso.authToken) || tokenHeldUnsealed;
   const tokenSealBlocked = effectiveWrap === "passphrase" && tokenUnsealed && !passphraseReady;
   // The action about to seal a changed token under the typed passphrase (Apply's and "Save &
@@ -830,7 +837,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       // than resealing "".
       removeSealed("tursoAuthToken");
       setTokenStored(false);
-    } else if (tokenDirty && effectiveWrap === "device") {
+    } else if (tokenDirty && wrapNow() === "device") {
       trackTokenSeal(saveSecretValue("tursoAuthToken", tursoToken ?? "", "device"));
     } else if ((tokenDirty || tokenUnsealed) && passphraseReady) {
       trackTokenSeal(sealUnderTypedPassphrase(tursoToken ?? ""));

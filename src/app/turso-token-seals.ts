@@ -17,9 +17,10 @@ import { SECRET_MERGE_TIMEOUT_MS } from "./use-settings";
 // hold remounts the section, so a per-instance ref would forget a seal started by the instance that
 // just went away. A reload before the seal settles loses the token (`writeSettings` blanks it), so
 // each reload path waits on `tokenSealsSettled` first — BOUNDED, so a seal that never settles cannot
-// hang it. A failed seal is logged, never rethrown, so the wait itself never throws; what follows
-// is the caller's choice ("Save & switch" still reloads; "Move to Turso" refuses while the
-// token stays unsealed). The registry lives in `turso-token-marker.ts`, so the test reset reaches it.
+// hang it. A failed seal is logged, never rethrown, so the wait itself never throws; every reload
+// path then runs the same durability gate and refuses while the token stays unsealed
+// (`commitPortfolioModeSwitch`, `migrateCurrentProjectToTurso`). The registry lives in
+// `turso-token-marker.ts`, so the test reset reaches it.
 
 export function trackTokenSeal(seal: Promise<unknown>): void {
   const settled = seal.then(

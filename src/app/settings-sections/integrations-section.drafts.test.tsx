@@ -1020,8 +1020,8 @@ describe("§715 — every mounted section and every reload path read one token s
     Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
   });
 
-  function Two() {
-    const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, "", BROWSER));
+  function Two({ token = "" }: { token?: string }) {
+    const [settings, setSettings] = useState<Settings>(settingsWith(URL_A, token, BROWSER));
     return (
       <>
         <div data-testid="under"><IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} /></div>
@@ -1040,6 +1040,39 @@ describe("§715 — every mounted section and every reload path read one token s
     await user.selectOptions(under.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
     expect(under.getByLabelText(lockLabel)).toBeChecked();
     expect(under.getByRole("button", { name: switchName })).toBeDisabled();
+  });
+
+  // The other half of one state: a passphrase RECORD saved by one section. Nothing re-renders the other
+  // (the record is not in settings), so its next keystroke must read the wrap when it commits, or it
+  // device-seals over the record and silently removes the protection the user just set.
+  // MU26 — the commit reads the render-time wrap → (o) goes red (a device seal of "tokO1").
+  it("(o) a passphrase saved in one section keeps the other section's next keystroke under it", async () => {
+    const user = userEvent.setup();
+    vi.mocked(setSecretPassphrase).mockImplementationOnce(async (id, value, passphrase) => {
+      saveSealed(await sealPassphrase(id, value, passphrase)); // what the real one stores
+      return true;
+    });
+    // A token already stored on the device: the passphrase Save changes the RECORD and no marker, so
+    // nothing re-renders the section underneath before its next keystroke.
+    const { rerender } = render(<Two token="tokO" />);
+    const over = within(screen.getByTestId("over"));
+    const under = within(screen.getByTestId("under"));
+    const tokenIn = (w: typeof over) => w.getByPlaceholderText(t("en-US", "integrationsTursoTokenPlaceholder"));
+    await user.click(over.getByLabelText(lockLabel));
+    await user.type(over.getByLabelText(t("en-US", "secretPassphrasePlaceholder")), "pw");
+    await user.type(over.getByLabelText(t("en-US", "secretPassphraseConfirm")), "pw");
+    await user.click(over.getByRole("button", { name: t("en-US", "secretPassphraseSave") }));
+    await waitFor(() => expect(setSecretPassphrase).toHaveBeenCalledWith("tursoAuthToken", "tokO", "pw"));
+    await waitFor(() => expect(loadSealed("tursoAuthToken")?.wrap).toBe("passphrase")); // the record landed
+    // MU27 — the render-time wrap ignores the record → goes red here: a parent re-render (the wizard
+    //   closing re-renders Settings) must show the lock on before any keystroke.
+    rerender(<Two token="tokO" />);
+    expect(under.getByLabelText(lockLabel)).toBeChecked();
+    vi.mocked(saveSecretValue).mockClear();
+    await user.type(tokenIn(under), "1");
+    expect(saveSecretValue).not.toHaveBeenCalledWith("tursoAuthToken", "tokO1", "device");
+    expect(under.getByLabelText(lockLabel)).toBeChecked();
+    expect(hasUnsealedPassphraseToken("tokO1")).toBe(true); // held for a passphrase seal instead
   });
 
   function Controlled() {
