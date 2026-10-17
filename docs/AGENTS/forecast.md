@@ -507,7 +507,8 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
   Budget report tab (`simulation` on `BudgetReportPanel`) and Reports (`budgetSimulation`, forwarded to its embedded
   Budget report). `active` = the simulation is active AND the holidays are ready AND the tab is `budget-report` or
   `reports`. The Dashboard's existing run feeds its burn tile through `withBudgetSim`, with no second
-  `computeAppForecast`. All callers pass the SAME collection references; `forecast-shared-run.test.tsx` pins it, and a
+  `computeAppForecast`; it calls `withBudgetSim` only while the burn tile is shown (Budget module on and the tile
+  on the board), since nothing else on the Dashboard reads `sim`. All callers pass the SAME collection references; `forecast-shared-run.test.tsx` pins it, and a
   `.filter()` copy reruns 10,000 trials.
 - **Surfaces.**
   - Pace card (`budget-forecast-cards.tsx`): a block with P50/P80/P95 cost and the chance over budget, plus the P80
@@ -529,16 +530,24 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
     `burndownAriaSimP80PastChart` / `burndownAriaSimP95PastChart` ("… is beyond the chart's end"). The cost wedge
     is drawn only when its P80 date is inside the domain (else left out, like a beyond one); its P80 cost stays in the
     text through `simCostP80`. One computation decides that: the private x-domain helper in `burndown-geometry.ts`,
-    which sets `p80PastChart` and is exported for the tile key as `simP80PastChart`. ★ A clamped band ends at the plot's right edge, which a sighted reader would take for the
+    which sets `p80PastChart`. ★ A clamped band ends at the plot's right edge, which a sighted reader would take for the
     date, so the chart draws a visible `burndownSimPastChartCue` ("later →", `data-sim-past-chart`, `aria-hidden`)
     at that edge whenever P80 or P95 is clamped (WCAG 1.4.1: words, not colour).
+    ★★ **A finish BEYOND the horizon counts as past the chart too** (review fix I1). Its date is null and it is drawn
+    at the domain end, which is usually plan end, so without the cue a beyond P80 read as "safe to commit by plan
+    end": the most optimistic reading of the most pessimistic state. So `p80PastChart` / `p95PastChart` are true
+    for a null date as well, the cue shows, and a beyond P80 draws no wedge. The text alternative still says "beyond
+    the horizon" for it and adds no "beyond the chart" (that sentence is guarded on a real `p80Date`).
   - Tile (`burndown-chart-panel.tsx`, compact mode): one line "Cost at finish (P80) … · … chance over budget"; in the
     hours unit it reads "Hours at finish (P80) …" (`burndownSimTileLineHours`), as does the chart's text
     alternative (`burndownAriaSimHours`). When unavailable, the muted missing line. ★ The line changes the tile's
     height, so `budgetSimContentKey` (`budget-sim.ts`: on/off, band drawn, and per unit the range with or without the
     chance or the missing-input reason) is part of the Dashboard's measured-height `contentKey`. ★★ So is
-    `simCapContentKey` (`simP80PastChart` for both units): the cap drops the legend's cost-range entry, and the
-    Dashboard builds no chart model, so without it that change left the tile at a stale height.
+    `simCostContentKey` (`simCostDrawn` for both units): the legend's cost-range entry comes and goes with the
+    wedge, and the Dashboard builds no chart model. `simCostDrawn` is defined as `buildChartModel(…).simCost !==
+    null`, so EVERY reason the model drops the wedge reaches the key with no second copy of the rule: the cap, a
+    beyond P50/P80/P95 cost, a P80 date on or before the last actual point, a beyond P80 finish, a missing range.
+    (Until the review fix the key looked at the cap alone, so the other reasons left the tile at a stale height.)
   - ★ Copy decisions (review fixes): the P50/P80/P95 row labels are composed in `costRangeRows` from
     `percentileWord(p)` (`percentile-words.ts`) plus "(Pxx)", so the P95 row reads "Cautious (P95)" / "Vorsichtig (P95)"
     from the `simCautious` key itself, the words the KPI strip and the explainer already use; there is no separate
@@ -550,18 +559,30 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
     the range is unavailable (the card and tile say why). Its value cell sits in the running-total column, so it
     carries `headers` naming its own row header alone and is never announced under that column's heading. The
     three pace-split footer rows (performance, added scope, unexplained) sit in the same column and do the same, with
-    `useId`-based ids so the table rendering twice on one page cannot collide.
+    `useId`-based ids so the table rendering twice on one page cannot collide. ★ Those split rows' `th id` /
+    `td headers` are the ONE intentional markup change part 3 makes with the simulation off: a deliberate a11y fix
+    (the values were announced under "Added scope to date"), kept. Everything else renders as before part 3 while
+    the switch is off. The row label already says "sim", so its `SimValue` passes `labelSaysSim` and the value's
+    name is the label alone, not "… (sim, P50–P95), simulated".
   - Forecast view (`forecast-panel.tsx`, `CostTable` in `forecast-tables.tsx`): a cost card computed from the view's OWN
     What-if-adjusted run, so moving scope moves it (capacity scales spend too, so alone it barely moves it; see above). It is hidden when the Budget module is off
-    (`budgetEnabled`) and shows "Add a budget" (`budgetSimAddBudget`) when there are no buckets or `bac` is 0.
+    (`budgetEnabled`) and shows "Add a budget" (`budgetSimAddBudget`) only when there are no budget facts at all (no
+    buckets). ★ A `bac` of 0 is one rule on every surface: the range shows and only the chance-over-budget row is
+    dropped (the engine gives `chanceOverBudget: null` at `bac <= 0`, and `costRangeRows` leaves the row out),
+    so the pace card, the tile and the Forecast view agree. The side-by-side wrapper around `PercentileTable` is
+    rendered only with the cost card, so the view without one is the markup it always was.
     `workspace-section.tsx` computes its facts only on the Forecast tab with the simulation active and the Budget module on.
+    ★ A How-many target change rebuilds the run but cannot change a trial day (it draws from its own stream), so the
+    view calls `simulateCostFromRunMemo` (`budget-sim.ts`), a single-entry memo keyed on the trial days and window
+    dates BY VALUE, and the cost pass does not rerun.
 - Every simulated figure is a `SimValue` (the sim marking), except the pace card's P50/P80/P95 rows, which sit inside
   one marked group.
 
 ### Measured cost of the cost pass
 
-The extra pass is `simulateCostFromRun` alone, on the main thread, whenever the view's run changes, i.e. a committed What-if
-change or a How-many target change (memoised on the run). Measured 2026-10-16 in Node through `vite-node` on a synthetic fixture (200 open tasks, a 60-working-day history
+The extra pass is `simulateCostFromRun` alone, on the main thread, whenever the view's trial days or budget facts change — a
+committed What-if change, the history window or unit, a new day, holidays, a task or booking edit (a How-many target change rebuilds the run with the same trial days, which the value-keyed memo
+`simulateCostFromRunMemo` answers without a pass). Measured 2026-10-16 in Node through `vite-node` on a synthetic fixture (200 open tasks, a 60-working-day history
 of about 1.33 finished tasks per day, 60 booking days), median of 7 after one warm-up, on a shared machine. A probe,
 not a gate. The cost is 10,000 trials times the days each draws, so it peaks when finish days sit just inside the
 horizon.

@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from "vitest";
+import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ForecastPanel } from "./forecast-panel";
@@ -7,6 +7,7 @@ import type { Milestone, ResourcePlan, Task } from "./types";
 import type { DatedValue, ForecastFacts, ForecastFactsByUnit } from "./budget-forecast";
 import { nthWorkingDayAfter, workingDaysBefore } from "./working-days";
 import { MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
+import * as costModule from "./forecast/cost";
 import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
 
 // 2026-10-14 is a Wednesday.
@@ -483,5 +484,51 @@ describe("ForecastPanel — cost at finish (§502)", () => {
     renderCost(null, true, history, false);
     expect(screen.queryByRole("group", { name: "Cost at finish, simulated" })).toBeNull();
     expect(screen.queryByText("Add a budget to see the cost at finish.")).toBeNull();
+  });
+
+  // §502 M4 — a zero budget is a budget fact: the range shows, only the chance over budget is dropped.
+  test("a zero budget shows the range without the chance over budget", () => {
+    renderCost(facts(60, 0));
+    expect(p80Cost()).toBeGreaterThan(0);
+    expect(within(card()).queryByRole("row", { name: /^Chance over budget/ })).toBeNull();
+    expect(screen.queryByText("Add a budget to see the cost at finish.")).toBeNull();
+  });
+
+  // §502 M1 — without a cost card the view keeps its pre-part-3 markup: no side-by-side wrapper.
+  test("wraps the percentile table only when the cost card renders", () => {
+    const wrapper = (container: HTMLElement) => container.querySelector("div.lg\\:flex-row");
+    const off = renderCost(FULL, false);
+    expect(wrapper(off.container)).toBeNull();
+    expect(screen.getByLabelText("How many by")).toBeTruthy();
+    off.unmount();
+    const noBudget = renderCost(null, true, history, false);
+    expect(wrapper(noBudget.container)).toBeNull();
+    noBudget.unmount();
+    const on = renderCost(FULL);
+    expect(wrapper(on.container)?.contains(card())).toBe(true);
+    expect(wrapper(on.container)?.contains(screen.getByLabelText("How many by"))).toBe(true);
+  });
+
+  describe("the cost pass reruns only when the trial days can change (§502 M3)", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    test("a How-many target change does not rerun it; a What-if scope change does", async () => {
+      const spy = vi.spyOn(costModule, "simulateCostAtFinish");
+      const user = userEvent.setup();
+      // Fresh facts, so no earlier test's memo entry can answer the first render.
+      renderCost(facts(60, 90_000));
+      expect(spy).toHaveBeenCalledTimes(1);
+      const before = p80Cost();
+      commitTarget(screen.getByLabelText("How many by"), "2026-11-30");
+      // Positive control: the target really moved the run.
+      expect(screen.getByRole("columnheader", { name: "At least, by Nov 30, 2026" })).toBeTruthy();
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(p80Cost()).toBe(before);
+      await user.click(screen.getByRole("radio", { name: "What-if" }));
+      const scope = screen.getByLabelText("Scope change (%)");
+      await user.clear(scope);
+      await user.type(scope, "100{Enter}");
+      expect(spy).toHaveBeenCalledTimes(2);
+    });
   });
 });

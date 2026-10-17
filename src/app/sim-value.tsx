@@ -41,6 +41,7 @@ export function SimValue({
   onOpenHelp,
   wrap = false,
   glyph,
+  labelSaysSim = false,
 }: {
   lang: Lang;
   /** What the number is; becomes the accessible name with ", simulated". */
@@ -53,11 +54,14 @@ export function SimValue({
   wrap?: boolean;
   /** A decorative lead mark (the Forecast tile's ▲/▼), inside the outline and `aria-hidden`: the words carry it. */
   glyph?: string;
+  /** The label itself already says simulated (e.g. "Cost at finish (sim, P50–P95)"): it is then the whole
+   *  accessible name, with no ", simulated" appended a second time. */
+  labelSaysSim?: boolean;
 }) {
   return (
     <span
       role="group"
-      aria-label={t(lang, "simValueSr", label)}
+      aria-label={labelSaysSim ? label : t(lang, "simValueSr", label)}
       data-sim="true"
       className={`${wrap ? "flex flex-wrap" : "inline-flex"} items-center gap-1.5 ${SIM_OUTLINE_CLASS}`}
     >

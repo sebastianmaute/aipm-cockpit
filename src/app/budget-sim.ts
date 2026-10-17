@@ -44,6 +44,33 @@ export function simulateCostFromRun(
   });
 }
 
+let runMemo: {
+  trialDays: Int32Array; windowDates: readonly string[]; f: ForecastFacts; seedTag: string; spendScale: number; result: CostAtFinish;
+} | null = null;
+
+function sameValues<T>(a: ArrayLike<T>, b: ArrayLike<T>): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** `simulateCostFromRun` with a single-entry memo keyed on the run's trial days and window dates BY VALUE
+ *  (plus the facts' identity, the seed tag and the scale). The Forecast view rebuilds its run on a How-many
+ *  target change, but the target draws from its own stream and leaves every trial day as it was, so the
+ *  cost pass (about 13 to 110 ms) is not run again. Comparing 10,000 ints costs far less than the pass. */
+export function simulateCostFromRunMemo(
+  run: { trialDays: Int32Array; windowDates: readonly string[] }, f: ForecastFacts, seedTag: string, spendScale = 1,
+): CostAtFinish {
+  if (runMemo && runMemo.f === f && runMemo.seedTag === seedTag && runMemo.spendScale === spendScale
+    && sameValues(runMemo.trialDays, run.trialDays) && sameValues(runMemo.windowDates, run.windowDates)) {
+    return runMemo.result;
+  }
+  const result = simulateCostFromRun(run, f, seedTag, spendScale);
+  runMemo = { trialDays: run.trialDays, windowDates: run.windowDates, f, seedTag, spendScale, result };
+  return result;
+}
+
 /** null when the schedule run is absent (simulation off). Below the schedule floor both units are
  *  { kind: "unavailable", reason: "schedule-floor" } and `finish` is all null. Single-entry memo
  *  keyed by `forecast` and `facts` identity, as `computeAppForecast`. */
