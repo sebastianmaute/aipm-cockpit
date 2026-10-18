@@ -19,7 +19,7 @@ import { seedMintFromWorkspace } from "./id-mint-session";
 import { loadRegistry, saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
-import { loadCurrentTursoProjectId } from "./portfolio-mode";
+import { loadCurrentTursoProjectId, loadPortfolioMode } from "./portfolio-mode";
 import { isSaveConflict, isSaveLockTimeout, isTursoLockTimeout, SaveConflictError, tursoErrorKind } from "./storage-error";
 import { mergeActivityLogs } from "./activity-log-merge";
 import { mergeBudgetHistories } from "./budget-history";
@@ -100,6 +100,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // switching/creating a Turso project updates it, which rebuilds the backend memo
   // so load/save scope to the per-project (tenant-mode) TursoBackend.
   const [tursoProjectId, setTursoProjectId] = useState<string | null>(loadCurrentTursoProjectId());
+  // §751 — the portfolio is on Turso but no project is chosen: a save would go to the single-project layout.
+  const tursoPortfolioWithoutProject = args.settings.storageConfig.kind === "turso" && !tursoProjectId && loadPortfolioMode() === "turso";
+  const tursoPortfolioWithoutProjectRef = useRef(tursoPortfolioWithoutProject);
+  tursoPortfolioWithoutProjectRef.current = tursoPortfolioWithoutProject;
 
   // ★★★ §548 — THE TURSO URL AND TOKEN FEED THE BACKEND ONLY WHEN THE STORAGE KIND IS TURSO.
   //   `createBackend` reads `tursoConfig` for kind "turso" alone, but these two used to sit in the
@@ -892,6 +896,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   Measured: dropping `activityLog` from this literal keeps tsc GREEN. The single
     //   spelling, NOT tsc, is what protects this; do not re-inline the literal at the save.
     const outgoing: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory, forecastHistory, forecastScenarios };
+    // ★★★ §751 — the portfolio on Turso with NO project chosen: `createBackend` then hands back the
+    //   single-project `TursoBackend`, whose save opens with an unscoped `DELETE FROM` every workspace
+    //   table — the same tables that hold every project's rows. Measured: the first setup on an empty
+    //   database sent it, and a populated database was spared only because its batch rolled back. No
+    //   save is sent in that state, and so none is journalled either.
+    if (tursoPortfolioWithoutProjectRef.current) return;
     if (!savesAllowed) {
       if (loadPause === "conflict") unloadJournal.followLive(outgoing); // §4 — no save can carry these edits: pagehide journals them
       if (loadPause !== null && savePausedAnnouncedForRef.current !== backend) {
@@ -1053,6 +1063,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // together with the effect-level check turns (a) (b) (c) (e) (h) (i) red. It is here for a future
       // path that schedules without that check.
       if (savesAllowedForRef.current !== backend) return;
+      if (tursoPortfolioWithoutProjectRef.current) return; // §751 — the debounce and flush-on-hide call this later
       const journalSavedAt = unloadJournal.noteSaveStarted(outgoing); // §629 — here, past every guard: the save below really fires
       // ★★ §627 — through the per-backend queue (save-queue.ts): one full save at a time, newest last,
       //   so an older snapshot can no longer finish after a newer one on file/SharePoint. A save

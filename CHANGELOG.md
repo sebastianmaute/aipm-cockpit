@@ -36,6 +36,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Nothing is saved to Turso before a project is chosen (§751).** With the portfolio on Turso and no project
+  open yet, an edit was saved in the single-project layout, which clears every workspace table first. It is no
+  longer saved; this was also where the empty "unsaved draft" came from.
 - **No more empty "unsaved drafts" (§715).** An empty workspace, for example the Turso workspace before its
   first project exists, is no longer kept as an unsaved draft, so it is never offered back as one from "another
   project". Project details, the dashboard summary and the other project-level fields still count as a draft.

@@ -987,7 +987,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--closed-2026-10-16) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | **CLOSED** 2026-10-16 |
 | [§748](#748-background-workers-may-help-across-the-app-starting-with-the-monte-carlo-forecast--open) | Background workers may help across the app, starting with the Monte Carlo forecast | — | — | open |
 | [§749](#749-a-claude-api-key-typed-under-the-passphrase-lock-is-lost-on-reload-and-two-ai-sections-disagree-about-the-lock--open) | A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock | — | — | open |
-| [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--open) | Something starts a save of the empty Turso workspace before a project exists | — | — | open |
+| [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--closed-2026-10-18) | Something starts a save of the empty Turso workspace before a project exists | — | — | **CLOSED** 2026-10-18 |
 | [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--open) | window.prompt throws in the desktop app, so six flows fail there | — | — | open |
 <!-- INDEX:END -->
 
@@ -45636,17 +45636,15 @@ Also noted for the same generalisation (Turso token, §715 round 20): when a wri
 
 **Source:** found 2026-10-17 by the owner's question during the §715 review rounds (`fix/715-recording-defects`).
 
-## 751. Something starts a save of the empty Turso workspace before a project exists — OPEN
+## 751. Something starts a save of the empty Turso workspace before a project exists — CLOSED 2026-10-18
 
-**Status:** OPEN 2026-10-18, seen once while recording the §715 big video; not reproduced in five off-camera runs of the same setup path (an untracked Playwright script, so the cause is never machine-verified). The symptom is fixed: `grep -n "isNothingToJournal" src/app/use-unload-journal.ts` → its definition and the guard in `write` and in `keep`.
-
-**Work item:** #781
+**Status:** CLOSED 2026-10-18 on `fix/715-empty-unload-journal`. The cause, reproduced live on the throwaway database: with the portfolio on Turso and no project chosen, `createBackend` hands back the single-project `TursoBackend`, and the first setup on an empty database saved through it — an unscoped `DELETE FROM` every workspace table, then `plan` and `meta` — whose unconfirmed copy was the draft. On a database that holds projects the same save was sent too and only its batch rolling back spared them. Fixed: the save effect and `doSave` in `use-storage-backend.ts` send nothing in that state (`tursoPortfolioWithoutProjectRef`). `npx vitest run src/app/use-storage-backend.turso-handover.test.tsx` → the §751 test passes; before the fix it failed with one unscoped `DELETE FROM tasks` sent. Removing either guard alone stays green (each covers the other), removing both turns it red.
 
 An unload journal was written under the Turso "no project" key (`journalProjectKey` → `"turso"`) at 08:30 on the demo's first morning, holding an empty workspace of about 1 KB, and `OtherJournalsBanner` then offered it on every load as "Turso workspace (no project)". A journal under a project's own key holds a save that started (`noteSaveStarted`, past every save guard) and had not confirmed, or the live workspace `followLive` hands over while saving is paused on a conflict; it is written when the page hides or is hidden. So the empty Turso workspace was the outgoing or live one while the portfolio was in multi-project Turso mode with no project selected. Candidates, none confirmed: a save that a reload (the setup wizard's Finish, or Explore the demo) overtook; a save that failed and never confirmed; a save started while the recorder's page was hidden.
 
 Not reproduced: connect, the new-project wizard with Claude's proposal and Cancel, Explore the demo, the device-state reload and a day change, run off camera five times, left no such journal. A timing race is the likely shape.
 
-The symptom is closed on `fix/715-empty-unload-journal` (§715): `use-unload-journal.ts` never journals the empty default a load produces (`isNothingToJournal`). Open here: what saves in multi-project Turso mode with no project, whether it should, and where such a save writes (not checked: possibly the database's single-tenant layout). An empty draft already stored by an earlier version stays listed until it is discarded.
+The symptom is closed on `fix/715-empty-unload-journal` (§715): `use-unload-journal.ts` never journals the empty default a load produces (`isNothingToJournal`). What it was: the single-project save above. An empty draft already stored by an earlier version stays listed until it is discarded.
 
 Size S to trace; the fix is unknown until then.
 

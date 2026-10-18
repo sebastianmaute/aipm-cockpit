@@ -589,6 +589,11 @@ and no code). What CSV and Turso share is the column list and row codec the spec
 ## Turso
 
 Kept short: `AGENTS.md` owns each rule.
+- ★★★ **No project chosen means no save** (§751). With the portfolio on Turso and no current project,
+  `createBackend` hands back the SINGLE-project `TursoBackend`, whose save opens with an unscoped
+  `DELETE FROM` every workspace table, and those are the tables that hold every project's rows. The
+  save effect and `doSave` in `use-storage-backend.ts` send nothing in that state
+  (`tursoPortfolioWithoutProjectRef`). A single-project Turso setup (portfolio not on Turso) still saves.
 - **`TABLE_NAMES`** is `ENTITY_SPECS` tables plus `plan`, `fx_rates` and `meta`, and a save
   emits `DELETE FROM` for every dirty one. Non-workspace tables (snapshots, version history,
   chat threads, templates, …) stay out, or a workspace save would wipe them. Each such store pins

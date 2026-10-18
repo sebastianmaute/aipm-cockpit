@@ -21,7 +21,7 @@ vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync:
 vi.mock("./diagnostics", async (importOriginal) => ({ ...(await importOriginal<typeof import("./diagnostics")>()), logDiag: vi.fn() }));
 
 import { BrowserBackend } from "./browser-backend";
-import { CURRENT_TURSO_PROJECT_KEY } from "./portfolio-mode";
+import { CURRENT_TURSO_PROJECT_KEY, MODE_KEY } from "./portfolio-mode";
 import type { StorageConfig } from "./storage";
 import { emptyWorkspace } from "./storage";
 import { TestProviders } from "./test-providers";
@@ -166,5 +166,37 @@ describe("useStorageBackend — the Turso project flows save under the revision 
     expect(taskNames(id)).toEqual([EDIT]);
     expect(storedRevision(db, id)).toBe("1");
     expect(window.location.reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+// §751 — with the portfolio on Turso and NO project chosen, `createBackend` hands back the single-project
+// `TursoBackend`, whose save starts with an unscoped `DELETE FROM` every workspace table. On a database
+// that holds projects those are the same tables, so that save would wipe every project. Measured live
+// (2026-10-18): the first setup on an empty database ran it, and its unconfirmed copy was the "Turso
+// workspace (no project)" draft. Nothing may be saved in that state.
+describe("§751 — the Turso portfolio with no project chosen saves nothing", () => {
+  const KEPT = { ...edited, id: 7, taskName: "KEPT-IN-P1" } as unknown as Task;
+
+  it("an edit with no project chosen leaves every stored project as it was", async () => {
+    const peer = new TursoBackend(CONFIG, "p1");
+    peer.forceNextSave();
+    await peer.save({ ...emptyWorkspace(), project: META, tasks: [KEPT] });
+    expect(taskNames("p1")).toEqual(["KEPT-IN-P1"]);
+    localStorage.setItem(MODE_KEY, "turso"); // the portfolio is on Turso; no CURRENT_TURSO_PROJECT_KEY
+    // Every statement sent is kept: the rows surviving is not enough, since a rolled-back batch hides a
+    // wipe that a different revision state would commit (measured: the delete IS sent, then rolled back).
+    const sent: string[] = [];
+    const real = fakeTursoFetch(db);
+    vi.stubGlobal("fetch", (async (...args: Parameters<typeof fetch>) => {
+      sent.push(String((args[1] as RequestInit | undefined)?.body ?? ""));
+      return real(...args);
+    }) as typeof fetch);
+    const app = renderApp({ kind: "turso" });
+    await booted(app);
+    await act(async () => { app.hook.result.current.workspace.setTasks([edited]); });
+    await settle(2500); // past the save debounce
+    expect(sent.filter((b) => /DELETE FROM tasks(?! WHERE)/.test(b))).toEqual([]);
+    expect(taskNames("p1")).toEqual(["KEPT-IN-P1"]);
+    expect(storedRevision(db, "p1")).toBe("1");
   });
 });
