@@ -22,7 +22,7 @@ import {
   computeScenarioColumn, computeScenarioComparison, sharedAsIsRun, type ScenarioColumn, type ScenarioRunInput,
 } from "./forecast-scenario-compare";
 import type { ScheduleForecast } from "./forecast";
-import { milestoneRowsWorstFirst } from "./forecast-scenario-tables";
+import { milestoneRowsWorstFirst } from "./forecast-milestone-rows";
 import { useRowTokens } from "./use-row-tokens";
 import type { ForecastHistoryEntry } from "./forecast-history";
 import type { ForecastScenario } from "./forecast-scenarios";

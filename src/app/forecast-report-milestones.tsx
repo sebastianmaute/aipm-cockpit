@@ -15,9 +15,8 @@ import type { LeverKind, LeverTarget } from "./forecast-levers";
 import { leverKey, type LeverValue } from "./use-lever-search";
 import { chanceRagLevel, chanceSeverity, type TargetConfidence } from "./forecast-target";
 import { chanceRagLabel } from "./forecast-rag-label";
-import type { MilestoneRow } from "./forecast-scenario-tables";
+import type { ChanceRow, MilestoneRow } from "./forecast-milestone-rows";
 import { isValidIsoDate } from "./forecast/throughput";
-import type { MilestoneChance } from "./forecast/milestones";
 import type { ForecastDraftRequest } from "./workspace-tab-context";
 import { RagDot } from "./rag-dot";
 import { Section } from "./report-table";
@@ -35,7 +34,7 @@ export function exploreFor(
 }
 
 function LeverCell({ lang, row, token, goal, levers, onExplore, askClaude }: {
-  lang: Lang; row: MilestoneRow & { asIs: Extract<MilestoneChance, { state: "chance" }> }; token: string; goal: TargetConfidence;
+  lang: Lang; row: ChanceRow; token: string; goal: TargetConfidence;
   levers: ReadonlyMap<string, LeverValue>; onExplore?: (req: ForecastDraftRequest) => void; askClaude: boolean;
 }) {
   if (chanceSeverity(row.asIs.chance, goal) === "green") {

@@ -23,6 +23,7 @@ import { useRowTokens } from "./use-row-tokens";
 import { isValidIsoDate } from "./forecast/throughput";
 import type { MilestoneChance } from "./forecast/milestones";
 import type { ScenarioColumn } from "./forecast-scenario-compare";
+import { milestoneRowsWorstFirst, type MilestoneRow } from "./forecast-milestone-rows";
 import type { AddedPersonStatus } from "./forecast-added-people";
 import type { SimPercentile } from "./percentile-words";
 import type { BudgetCurrency, Milestone } from "./types";
@@ -203,31 +204,7 @@ export function ScenarioComparisonTable({
   );
 }
 
-export type MilestoneRow = { id: number; name: string; date: string; asIs: MilestoneChance };
 const nameOfRow = (r: MilestoneRow) => r.name;
-
-/** The milestones a run reports, joined to their names and dates, worst first (`compareRows`). Shared with the
- *  Reports Forecast section's milestones table (§502 part 4). */
-export function milestoneRowsWorstFirst(milestones: readonly Milestone[], chances: readonly MilestoneChance[]): MilestoneRow[] {
-  const byId = new Map(milestones.map((m) => [m.id, m]));
-  return chances
-    .flatMap((c): MilestoneRow[] => {
-      const m = byId.get(c.id);
-      return m ? [{ id: m.id, name: m.name, date: m.date, asIs: c }] : [];
-    })
-    .sort(compareRows);
-}
-
-/** As-is chance ascending (worst first); a state that is not a chance ("overdue", "no linked tasks") goes last,
- *  in date order. */
-function compareRows(a: MilestoneRow, b: MilestoneRow): number {
-  const aChance = a.asIs.state === "chance" ? a.asIs.chance : null;
-  const bChance = b.asIs.state === "chance" ? b.asIs.chance : null;
-  if (aChance !== null && bChance !== null && aChance !== bChance) return aChance - bChance;
-  if (aChance !== null && bChance === null) return -1;
-  if (aChance === null && bChance !== null) return 1;
-  return a.date < b.date ? -1 : a.date > b.date ? 1 : a.name.localeCompare(b.name);
-}
 
 function chanceCell(result: MilestoneChance | undefined, lang: Lang): Cell {
   if (result === undefined) return plain(NONE);

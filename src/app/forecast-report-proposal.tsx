@@ -11,8 +11,8 @@ import { localeFor } from "./date-format";
 import { formatChance, formatWhen } from "./forecast-tables";
 import { formatCurrency } from "./resource-cost";
 import { percentileLabel } from "./budget-sim-text";
-import { chanceSeverity, proposalIdOf, type TargetConfidence } from "./forecast-target";
-import { milestoneRowsWorstFirst } from "./forecast-scenario-tables";
+import { proposalIdOf, type TargetConfidence } from "./forecast-target";
+import { belowTargetRows, milestoneRowsWorstFirst } from "./forecast-milestone-rows";
 import type { ScenarioColumn } from "./forecast-scenario-compare";
 import type { ForecastScenario } from "./forecast-scenarios";
 import type { BudgetCurrency, Milestone } from "./types";
@@ -61,7 +61,7 @@ function ComparisonTable({ lang, asIs, proposal, milestones, tokens, goal, curre
   goal: TargetConfidence; currency: BudgetCurrency;
 }) {
   const chances = asIs.forecast.kind === "forecast" ? asIs.forecast.milestones : [];
-  const below = milestoneRowsWorstFirst(milestones, chances).filter((r) => r.asIs.state === "chance" && chanceSeverity(r.asIs.chance, goal) !== "green");
+  const below = belowTargetRows(milestoneRowsWorstFirst(milestones, chances), goal);
   const showCost = columnCostText(lang, asIs, currency) !== null;
   const columns: { key: string; label: string; text: (c: ScenarioColumn) => string }[] = [
     { key: "p80", label: percentileLabel(lang, SAFE_TO_COMMIT), text: (c) => columnP80Text(lang, c) },

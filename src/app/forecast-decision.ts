@@ -12,6 +12,7 @@
 
 import type { ScheduleForecastResult } from "./forecast";
 import { whatItTakesSync, type WhatItTakes } from "./forecast-levers";
+import { belowTargetRows, milestoneRowsWorstFirst } from "./forecast-milestone-rows";
 import {
   computeScenarioColumn, computeScenarioComparison, sharedAsIsRun,
   type ScenarioColumn, type ScenarioComparison, type ScenarioRunInput,
@@ -22,7 +23,6 @@ import type { SettingsOverrides } from "./settings-types";
 import type { BudgetCurrency } from "./types";
 
 const SAFE_TO_COMMIT = 80;
-const PERCENT = 100;
 
 /** A cost in the baseline currency, or "beyond" (a trial past the horizon). */
 export type DecisionMoney = number | "beyond";
@@ -108,15 +108,9 @@ function decisionBase({ simulationActive, input, scenarios, settingsOverrides }:
   const forecast = asIs.forecast;
   if (forecast.kind !== "forecast") return { decision: { insufficient: true, goal }, run: null };
 
-  const byId = new Map(input.milestones.map((m) => [m.id, m]));
-  const below = forecast.milestones
-    .flatMap((c): ForecastDecisionMilestone[] => {
-      const m = byId.get(c.id);
-      if (m === undefined || c.state !== "chance" || c.chance >= goal / PERCENT) return [];
-      return [{ id: m.id, name: m.name, date: m.date, chance: c.chance, take: "pending" }];
-    })
-    // Worst first, as the Reports milestones table (`milestoneRowsWorstFirst`): chance, then date, then name.
-    .sort((a, b) => a.chance - b.chance || (a.date < b.date ? -1 : a.date > b.date ? 1 : a.name.localeCompare(b.name)));
+  // The Reports tables' own rules (`forecast-milestone-rows.ts`): worst first, and below target.
+  const below = belowTargetRows(milestoneRowsWorstFirst(input.milestones, forecast.milestones), goal)
+    .map((r): ForecastDecisionMilestone => ({ id: r.id, name: r.name, date: r.date, chance: r.asIs.chance, take: "pending" }));
 
   const proposalId = proposalIdOf(settingsOverrides, scenarios);
   const scenario = proposalId === null ? undefined : scenarios.find((s) => s.id === proposalId);
