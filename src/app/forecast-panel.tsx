@@ -293,6 +293,13 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
     if (value === undefined || value === "pending") return;
     openDraft({ target: { kind: "milestone", id }, kind, n, alt: alternativeLever(value, kind) });
   };
+  // "Ask Claude to draft a proposal" on a lever row: the same gate as the menu above, and only a row with a chance.
+  const askMilestone = (id: number) => {
+    if (!aiEnabled || !showSimulation || isPopout || result?.kind !== "forecast") return undefined;
+    const m = milestones.find((x) => x.id === id);
+    const c = result.milestones.find((x) => x.id === id);
+    return m === undefined || c?.state !== "chance" ? undefined : { name: m.name, date: m.date, chance: c.chance };
+  };
   const leverColumn = leversOn ? {
     header: t(lang, "forecastColWhatItTakes", t(lang, "forecastPercent", goal)),
     rag: (chance: number) => chanceRagLevel(chance, goal),
@@ -302,6 +309,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         <ForecastLeverCell
           lang={lang} milestoneName={token} result={value} goal={goal}
           onExplore={scenarioApi === null ? undefined : (kind, n) => exploreFrom(id, kind, n)}
+          askClaude={askMilestone(id)}
         />
       );
     },

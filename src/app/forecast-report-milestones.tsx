@@ -34,9 +34,9 @@ export function exploreFor(
   return (kind, n) => onExplore({ target, kind, n, alt: alternativeLever(value, kind) });
 }
 
-function LeverCell({ lang, row, token, goal, levers, onExplore }: {
+function LeverCell({ lang, row, token, goal, levers, onExplore, askClaude }: {
   lang: Lang; row: MilestoneRow & { asIs: Extract<MilestoneChance, { state: "chance" }> }; token: string; goal: TargetConfidence;
-  levers: ReadonlyMap<string, LeverValue>; onExplore?: (req: ForecastDraftRequest) => void;
+  levers: ReadonlyMap<string, LeverValue>; onExplore?: (req: ForecastDraftRequest) => void; askClaude: boolean;
 }) {
   if (chanceSeverity(row.asIs.chance, goal) === "green") {
     return <span className="text-xs text-muted-foreground">{t(lang, "forecastLeverOnTarget")}</span>;
@@ -49,11 +49,12 @@ function LeverCell({ lang, row, token, goal, levers, onExplore }: {
     <ForecastLeverCell
       lang={lang} milestoneName={token} result={value} goal={goal}
       onExplore={exploreFor(target, value, onExplore)} exploreLabel={t(lang, "forecastReportExplore")}
+      askClaude={askClaude ? { name: row.name, date: row.date, chance: row.asIs.chance } : undefined}
     />
   );
 }
 
-export function ForecastReportMilestones({ lang, rows, tokens, goal, levers, onExplore }: {
+export function ForecastReportMilestones({ lang, rows, tokens, goal, levers, onExplore, askClaude = false }: {
   lang: Lang;
   /** Worst first (`milestoneRowsWorstFirst`). */
   rows: readonly MilestoneRow[];
@@ -63,6 +64,8 @@ export function ForecastReportMilestones({ lang, rows, tokens, goal, levers, onE
   levers: ReadonlyMap<string, LeverValue>;
   /** Absent (a popout, or the Forecast view switched off): no Explore buttons. */
   onExplore?: (req: ForecastDraftRequest) => void;
+  /** AI on and not a popout: each below-target row offers "Ask Claude to draft a proposal". */
+  askClaude?: boolean;
 }) {
   const locale = localeFor(lang);
   return (
@@ -99,7 +102,7 @@ export function ForecastReportMilestones({ lang, rows, tokens, goal, levers, onE
                         <td className={`${CELL} text-right tabular-nums`}>{formatChance(asIs.chance, lang)}</td>
                         <td className={`${CELL} text-right tabular-nums`}>{formatChance(asIs.chancePrioritised, lang)}</td>
                         <td className={`${CELL} align-top`}>
-                          <LeverCell lang={lang} row={{ ...row, asIs }} token={token} goal={goal} levers={levers} onExplore={onExplore} />
+                          <LeverCell lang={lang} row={{ ...row, asIs }} token={token} goal={goal} levers={levers} onExplore={onExplore} askClaude={askClaude} />
                         </td>
                       </>
                     ) : (

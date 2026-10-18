@@ -184,6 +184,27 @@ describe("ForecastPanel — what it would take (§502 part 4)", () => {
     expect(goLive.querySelector("[data-lever-badge]")).not.toBeNull();
   });
 
+  test("Ask Claude to draft a proposal: AI on + simulation + no popout, and only on a row with a chance", () => {
+    stub.values = new Map<string, LeverValue>([["m:1", GO_LIVE_LEVERS], ["m:3", { ...GO_LIVE_LEVERS, target: { kind: "milestone", id: 3 } }]]);
+    const settings: ForecastSettingsApi = { target: 80, proposalId: null, setProposal: () => {}, setTarget: () => {} };
+    const panel = (over: { aiEnabled?: boolean; isPopout?: boolean }) => (
+      <ForecastPanel
+        lang="en-US" tasks={TASKS} milestones={MILESTONES} plan={PLAN} today={TODAY} holidaySet={NONE} showSimulation
+        budgetFacts={BUDGET_FACTS} scenarios={scenariosProps()} forecastSettings={settings} {...over}
+      />
+    );
+    const ask = () => screen.queryAllByRole("button", { name: /Ask Claude to draft a proposal/ });
+    const { unmount } = render(panel({}));
+    expect(ask()).toHaveLength(0);
+    unmount();
+    const popout = render(panel({ aiEnabled: true, isPopout: true }));
+    expect(ask()).toHaveLength(0);
+    popout.unmount();
+    render(panel({ aiEnabled: true }));
+    expect(within(screen.getByRole("row", { name: /^Go-live/ })).getByRole("button", { name: rowLabel("Ask Claude to draft a proposal", "Go-live") })).toBeInTheDocument();
+    expect(within(screen.getByRole("row", { name: /^Old/ })).queryByRole("button")).toBeNull();
+  });
+
   test("Explore opens Scenarios on a draft of the people lever; Cancel saves nothing", async () => {
     const createScenario = vi.fn((): number | null => 9);
     render(<Harness scenarios={scenariosProps([], createScenario)} />);

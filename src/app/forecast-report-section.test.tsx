@@ -28,6 +28,12 @@ vi.mock("./use-lever-search", async (importOriginal) => ({
   },
 }));
 
+const chat = vi.hoisted(() => ({ requestChat: vi.fn() }));
+vi.mock("./workspace-tab-context", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./workspace-tab-context")>()),
+  useWorkspaceTab: () => ({ requestChat: chat.requestChat }),
+}));
+
 const TODAY = "2026-10-14"; // a Wednesday
 const NONE: ReadonlySet<string> = new Set();
 const HISTORY = [...workingDaysBefore(TODAY, 59, NONE), TODAY];
@@ -212,6 +218,57 @@ describe("ForecastReportSection — row-unique Explore names", () => {
     stub.values = new Map<string, unknown>([["m:1", "pending"], ["plan", "pending"]]);
     renderSection();
     expect(screen.getAllByText("Working it out…")).toHaveLength(2);
+  });
+});
+
+describe("ForecastReportSection — Ask Claude to draft a proposal", () => {
+  const ask = () => screen.queryAllByRole("button", { name: /Ask Claude to draft a proposal/ });
+  const rowEl = (id: number) => document.querySelector(`[data-milestone-row="${id}"]`) as HTMLElement;
+
+  test("off without the AI switch, and in a popout", () => {
+    const { unmount } = renderSection();
+    expect(ask()).toHaveLength(0);
+    unmount();
+    renderSection({ aiEnabled: true, readOnly: true });
+    expect(ask()).toHaveLength(0);
+  });
+
+  test("a below-target row and the empty proposal each offer it; an on-target or overdue row does not", () => {
+    renderSection({ aiEnabled: true });
+    expect(within(rowEl(1)).getByRole("button", { name: rowLabel("Ask Claude to draft a proposal", "Go-live") })).toBeTruthy();
+    expect(within(rowEl(2)).queryByRole("button")).toBeNull();
+    expect(within(rowEl(3)).queryByRole("button")).toBeNull();
+    const empty = screen.getByTestId("forecast-proposal-empty").parentElement as HTMLElement;
+    expect(within(empty).getByRole("button", { name: "Ask Claude to draft a proposal" })).toBeTruthy();
+  });
+
+  test("a live proposal replaces the empty-area button", () => {
+    renderSection({ aiEnabled: true, settings: settings({ proposalId: 5 }) });
+    expect(ask()).toHaveLength(1); // only the Go-live row
+  });
+
+  test("twin milestones and one called Plan end keep distinct Ask names", () => {
+    const linked = OPEN.slice(0, 10).map((t) => t.id);
+    const CLASHING: Milestone[] = [
+      { id: 1, name: "Go-live", date: "2026-10-20", linkedTaskIds: linked },
+      { id: 4, name: "Go-live", date: "2026-10-20", linkedTaskIds: linked },
+      { id: 5, name: "Plan end", date: "2026-10-21", linkedTaskIds: linked },
+    ];
+    stub.values = new Map<string, unknown>([
+      ["m:1", GO_LIVE_LEVERS], ["m:4", { ...GO_LIVE_LEVERS, target: { kind: "milestone", id: 4 } }], ["m:5", { ...GO_LIVE_LEVERS, target: { kind: "milestone", id: 5 } }],
+    ]);
+    renderSection({ input: input({ milestones: CLASHING }), aiEnabled: true });
+    const names = ask().map((b) => b.getAttribute("aria-label")).filter((n) => n !== null);
+    // Three milestone rows (the plan-level button has no aria-label), so "all distinct" is not vacuous.
+    expect(names).toHaveLength(3);
+    expect(new Set(names).size).toBe(3);
+  });
+
+  test("clicking sends the plan-level prompt to the chat", async () => {
+    chat.requestChat.mockReset();
+    renderSection({ aiEnabled: true });
+    await userEvent.click(screen.getByRole("button", { name: "Ask Claude to draft a proposal" }));
+    expect(chat.requestChat).toHaveBeenCalledWith(expect.stringContaining("plan end"), true);
   });
 });
 

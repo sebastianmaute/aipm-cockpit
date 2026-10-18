@@ -555,7 +555,7 @@ export function WorkspaceSection({
               simulationActive={simulationActive}
               forecast={simulationActive ? {
                 input: reportsForecastInput, scenarios: forecastScenariosApi.scenarios, settings: forecastSettings, history: forecastHistory,
-                currency: planCurrency, readOnly: isPopout,
+                currency: planCurrency, readOnly: isPopout, aiEnabled: isAiEnabled(settings.ai),
                 onExplore: !isPopout && isViewEnabled("forecast", features) ? requestForecastDraft : undefined,
               } : undefined}
             />

@@ -60,6 +60,8 @@ export type ForecastReportProps = {
   readOnly: boolean;
   /** Opens the Forecast view on a draft (`requestForecastDraft`); absent = no Explore buttons. */
   onExplore?: (req: ForecastDraftRequest) => void;
+  /** The AI master switch (`isAiEnabled(settings.ai)`); off, no "Ask Claude to draft a proposal" button renders. */
+  aiEnabled?: boolean;
 };
 
 const NONE = "—";
@@ -121,7 +123,7 @@ function ForecastTiles({ lang, forecast, asIs, input, goal, currency }: {
   );
 }
 
-function ForecastReportBody({ lang, input, scenarios, settings, history, currency, readOnly, onExplore }: Omit<ForecastReportProps, "input"> & {
+function ForecastReportBody({ lang, input, scenarios, settings, history, currency, readOnly, onExplore, aiEnabled = false }: Omit<ForecastReportProps, "input"> & {
   lang: Lang; input: ScenarioRunInput;
 }) {
   const goal = settings.target;
@@ -155,6 +157,7 @@ function ForecastReportBody({ lang, input, scenarios, settings, history, currenc
   if (forecast.kind === "insufficient") return <InsufficientState lang={lang} result={forecast} />;
 
   const explore = readOnly ? undefined : onExplore;
+  const askClaude = aiEnabled && !readOnly;
   const { below, total } = milestonesBelowTarget(forecast.milestones, goal);
   const verdict = forecastVerdict(chanceOnTime, goal, below, total);
   const text = verdict === null || chanceOnTime === null ? null : verdictText(lang, verdict, input.planEnd, chanceOnTime, goal);
@@ -178,10 +181,11 @@ function ForecastReportBody({ lang, input, scenarios, settings, history, currenc
           />
         </div>
       )}
-      <ForecastReportMilestones lang={lang} rows={rows} tokens={tokens} goal={goal} levers={levers} onExplore={explore} />
+      <ForecastReportMilestones lang={lang} rows={rows} tokens={tokens} goal={goal} levers={levers} onExplore={explore} askClaude={askClaude} />
       <ForecastReportProposal
         lang={lang} scenarios={scenarios} proposalId={settings.proposalId} onChange={settings.setProposal} disabled={readOnly}
         asIs={asIs} proposal={proposalColumn} milestones={input.milestones} tokens={tokens} goal={goal} currency={currency}
+        askPlan={askClaude && chanceOnTime !== null ? { date: input.planEnd, chance: chanceOnTime } : undefined}
       />
       <ForecastGroupFold lang={lang} input={groupInput} />
     </div>

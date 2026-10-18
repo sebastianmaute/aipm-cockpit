@@ -10,6 +10,7 @@ import { type Lang, t, tPlural } from "./i18n";
 import { Badge } from "./badge";
 import { Button } from "./button";
 import { rowLabel } from "./row-tokens";
+import { ForecastDraftAsk, type DraftAskMilestone } from "./forecast-draft-ask";
 import { formatChance } from "./forecast-tables";
 import { formatHours } from "./forecast-format";
 import { localeFor } from "./date-format";
@@ -25,6 +26,8 @@ export type ForecastLeverCellProps = {
   onExplore?: (kind: LeverKind, n: number) => void;
   /** The Explore button's visible label: "Explore" in the Forecast view, "Explore in Forecast" on Reports (spec §3.4). */
   exploreLabel?: string;
+  /** The row's milestone, when "Ask Claude to draft a proposal" is offered (AI on, simulation active, no popout); absent = no button. */
+  askClaude?: DraftAskMilestone;
 };
 
 const PERCENT = 100;
@@ -64,7 +67,7 @@ function leverTexts(lang: Lang, r: WhatItTakes, goal: TargetConfidence): { texts
   return { texts, anyReaches: reach.length > 0 };
 }
 
-export function ForecastLeverCell({ lang, milestoneName, result, goal, onExplore, exploreLabel = t(lang, "forecastExplore") }: ForecastLeverCellProps) {
+export function ForecastLeverCell({ lang, milestoneName, result, goal, onExplore, exploreLabel = t(lang, "forecastExplore"), askClaude }: ForecastLeverCellProps) {
   if (result === "pending") return <span className="text-xs text-muted-foreground">{t(lang, "forecastLeverWorking")}</span>;
   if (result.people.state === "on-target" && result.tasks.state === "on-target") {
     return <span className="text-xs text-muted-foreground">{t(lang, "forecastLeverOnTarget")}</span>;
@@ -87,6 +90,7 @@ export function ForecastLeverCell({ lang, milestoneName, result, goal, onExplore
           {exploreLabel} <span aria-hidden="true">→</span>
         </Button>
       )}
+      {askClaude && <ForecastDraftAsk lang={lang} milestone={askClaude} rowName={milestoneName} goal={goal} />}
     </div>
   );
 }

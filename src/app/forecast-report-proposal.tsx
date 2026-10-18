@@ -19,6 +19,7 @@ import type { BudgetCurrency, Milestone } from "./types";
 import { Select } from "./form-controls";
 import { Section } from "./report-table";
 import { SimValue } from "./sim-value";
+import { ForecastDraftAsk, type DraftAskPlan } from "./forecast-draft-ask";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
 const CELL = "px-3 py-2";
@@ -99,7 +100,7 @@ function ComparisonTable({ lang, asIs, proposal, milestones, tokens, goal, curre
   );
 }
 
-export function ForecastReportProposal({ lang, scenarios, proposalId, onChange, disabled, asIs, proposal, milestones, tokens, goal, currency }: {
+export function ForecastReportProposal({ lang, scenarios, proposalId, onChange, disabled, asIs, proposal, milestones, tokens, goal, currency, askPlan }: {
   lang: Lang;
   scenarios: readonly ForecastScenario[];
   proposalId: number | null;
@@ -113,12 +114,13 @@ export function ForecastReportProposal({ lang, scenarios, proposalId, onChange, 
   tokens: ReadonlyMap<number, string>;
   goal: TargetConfidence;
   currency: BudgetCurrency;
+  /** The plan end's date and chance when "Ask Claude to draft a proposal" is offered; absent = no button. */
+  askPlan?: DraftAskPlan;
 }) {
   const selectId = useId();
   const live = liveProposal(proposalId, scenarios)?.id ?? null;
   return (
     <Section title={t(lang, "forecastReportProposalTitle")}>
-      {/* Task 6 adds "Ask Claude to draft a proposal" to this row (spec §3.6). */}
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <label htmlFor={selectId} className="text-xs text-muted-foreground">{t(lang, "forecastReportProposalLabel")}</label>
         <Select
@@ -132,7 +134,10 @@ export function ForecastReportProposal({ lang, scenarios, proposalId, onChange, 
       {live !== null && proposal !== null ? (
         <ComparisonTable lang={lang} asIs={asIs} proposal={proposal} milestones={milestones} tokens={tokens} goal={goal} currency={currency} />
       ) : (
-        <p className="text-sm text-muted-foreground" data-testid="forecast-proposal-empty">{t(lang, "forecastReportProposalEmpty")}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm text-muted-foreground" data-testid="forecast-proposal-empty">{t(lang, "forecastReportProposalEmpty")}</p>
+          {askPlan && <ForecastDraftAsk lang={lang} milestone={null} plan={askPlan} goal={goal} />}
+        </div>
       )}
     </Section>
   );
