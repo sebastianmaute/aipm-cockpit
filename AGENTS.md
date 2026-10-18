@@ -669,9 +669,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   reports-tables → reports-stats); per-type report engines/panels (budget/raid/resource/stakeholder) live
   in their own files. Reports IS in axe `A11Y_VIEWS`. ★ The "forecast" report block (§502 part 4, gated on
   `simulationActive`, so absent while the Forecast view is release-hidden) is `ForecastReportSection`
-  (`forecast-report-section.tsx`), with presentational `ForecastReportMilestones` and `ForecastReportProposal`
-  beside it and pure, i18n-free `forecast-verdict.ts`, `forecast-milestone-rows.ts` (the worst-first, below-target
-  and overdue rules the export block reuses) and `forecast-by-group.ts`. It reuses the app's one simulation run —
+  (`forecast-report-section.tsx`: the shared As-is, the proposal column, the lever search), with presentational
+  `ForecastReportMilestones`, `ForecastReportProposal`, the group fold-out (`forecast-group-fold.tsx`) and the
+  P80-over-time `ForecastP80Line` (`forecast-p80-line.tsx`, shared with Trends) beside it, and pure, i18n-free
+  `forecast-verdict.ts`, `forecast-milestone-rows.ts` (the worst-first, below-target and overdue rules and
+  `milestoneCounts`, which the export block reuses) and `forecast-by-group.ts`. It reuses the app's one simulation run —
   [`docs/AGENTS/forecast.md`](docs/AGENTS/forecast.md).
 - **Budget, FX and the Budget panel → [`docs/AGENTS/budget.md`](docs/AGENTS/budget.md).** The budget
   engine computes every figure in the project's BASELINE currency, `plan.currency` (§476), not EUR;
