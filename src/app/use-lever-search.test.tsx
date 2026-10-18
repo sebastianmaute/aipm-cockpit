@@ -81,8 +81,8 @@ function expected(inp: ScenarioRunInput, target: LeverTarget, goal: TargetConfid
   return whatItTakesSync(inp, cmp.context, target, goal, cmp.asIs);
 }
 type Props = { input: ScenarioRunInput | null; goal: TargetConfidence; enabled: boolean };
-function mount(initial: Props) {
-  return renderHook((p: Props) => useLeverSearch({ ...p, targets: TARGETS }), { initialProps: initial });
+function mount(initial: Props, fresh = false) {
+  return renderHook((p: Props) => useLeverSearch({ ...p, targets: fresh ? [...TARGETS] : TARGETS }), { initialProps: initial });
 }
 
 describe("useLeverSearch", () => {
@@ -137,6 +137,16 @@ describe("useLeverSearch", () => {
     expect(result.current.get(leverKey(PLAN))).toBe("pending");
     settle();
     expect(result.current.get(leverKey(PLAN))).toEqual(expected(edited, PLAN, 95));
+  });
+
+  it("settles when the caller passes a new-but-equal targets array every render", () => {
+    const inp = input();
+    const { result } = mount({ input: inp, goal: 95, enabled: true }, true);
+    settle();
+    expect(vi.getTimerCount()).toBe(0);
+    for (const target of [BETA, LATE, PLAN]) {
+      expect(result.current.get(leverKey(target))).toEqual(expected(inp, target, 95));
+    }
   });
 
   it("is empty and schedules nothing when disabled or without an input", () => {
