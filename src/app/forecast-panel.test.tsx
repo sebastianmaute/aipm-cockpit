@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { ForecastPanel } from "./forecast-panel";
@@ -794,5 +794,37 @@ describe("ForecastPanel — Ask Claude (§502)", () => {
     expect(menuItems()).toEqual(["Explain this forecast", "What would get Go-live on time?", "Suggest a scenario that makes plan end"]);
     expect(spy).toHaveBeenCalledTimes(1);
     spy.mockRestore();
+  });
+});
+
+// ---- §502 part 4: the Scenarios segment is reachable with the simulation off ----
+describe("ForecastPanel — Scenarios with the simulation off (§502 part 4)", () => {
+  const history = [...open(5), ...steadyDone(60)];
+  const GO_LIVE: Milestone[] = [{ id: 1, name: "Go-live", date: "2026-11-30", linkedTaskIds: [1, 2, 3, 4, 5] }];
+  const SETTINGS = { target: 80 as const, proposalId: 1, setTarget: () => {}, setProposal: () => {} };
+  const dots = (c: HTMLElement) => c.querySelectorAll("span[aria-hidden].rounded-full").length;
+  async function inScenarios(showSimulation: boolean) {
+    const user = userEvent.setup();
+    const view = render(
+      <ForecastPanel
+        lang="en-US" tasks={history} milestones={GO_LIVE} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS}
+        scenarios={SCENARIOS_PROPS} forecastSettings={SETTINGS} showSimulation={showSimulation}
+      />,
+    );
+    await user.click(screen.getByRole("radio", { name: "Scenarios" }));
+    return view.container;
+  }
+
+  test("shows no proposal chips, proposal badge or RAG dots", async () => {
+    const off = await inScenarios(false);
+    expect(screen.queryByRole("button", { name: /^Use as proposal/ })).toBeNull();
+    expect(screen.queryByText("proposal")).toBeNull();
+    const offDots = dots(off);
+    cleanup();
+    // Positive control: with the simulation on the same surfaces exist.
+    const on = await inScenarios(true);
+    expect(screen.getAllByRole("button", { name: /^Use as proposal/ }).length).toBeGreaterThan(0);
+    expect(screen.getByText("proposal")).toBeTruthy();
+    expect(dots(on)).toBeGreaterThan(offDots);
   });
 });

@@ -52,7 +52,7 @@ export function ScenarioDraftCompare({ lang, compare, context, changes }: {
   );
   return (
     <div data-draft-compare="" className="space-y-2">
-      <ScenarioComparisonTable lang={lang} columns={columns} currency={input.directory.baseCurrency} />
+      <ScenarioComparisonTable lang={lang} columns={columns} currency={input.directory.baseCurrency} noBudget={input.costOn && input.budgetFacts === null} />
       {draft === null && (
         <p className="text-xs text-muted-foreground">
           {t(lang, changes === null ? "forecastScenarioDraftIncomplete" : "forecastLeverWorking")}

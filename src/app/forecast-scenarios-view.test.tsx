@@ -362,3 +362,31 @@ describe("ForecastScenariosView — Use as proposal (§502 part 4)", () => {
     expect(screen.queryByRole("button", { name: /^Use as proposal/ })).toBeNull();
   });
 });
+
+describe("ForecastScenariosView — an Explore draft whose milestone disappears (§502 part 4)", () => {
+  const GO_LIVE: Milestone[] = [{ id: 7, name: "Go-live", date: "2026-11-30", linkedTaskIds: [1, 2, 3, 4, 5] }];
+  const inputOf = (milestones: Milestone[]): ScenarioRunInput => ({
+    tasks: HISTORY, milestones, today: TODAY, holidaySet: NO_HOLIDAYS, window: 60, unit: "tasks",
+    planEnd: "2026-12-31", directory: DIRECTORY, budgetFacts: null, costOn: false,
+  });
+  const api: ForecastScenariosApi = {
+    scenarios: [], canCreate: true, mintId: () => 99, createScenario: () => null,
+    updateScenario: () => false, renameScenario: () => false, deleteScenario: () => {},
+  };
+  const DRAFT = { req: { target: { kind: "milestone" as const, id: 7 }, kind: "tasks" as const, n: 1, alt: null }, seq: 1 };
+  const view = (milestones: Milestone[], onDraftClose: () => void) => (
+    <TestProviders><ConfirmProvider lang="en-US">
+      <ForecastScenariosView lang="en-US" input={inputOf(milestones)} scenarios={{ api, directory: DIRECTORY, readOnly: false }} draft={DRAFT} onDraftClose={onDraftClose} />
+    </ConfirmProvider></TestProviders>
+  );
+
+  it("clears the pending draft, so an undo that restores the milestone cannot reopen the editor", () => {
+    const onDraftClose = vi.fn();
+    const { rerender } = render(view(GO_LIVE, onDraftClose));
+    expect(screen.getByRole("textbox", { name: "Name" })).toBeInTheDocument(); // positive control: the draft opens
+    expect(onDraftClose).not.toHaveBeenCalled();
+    rerender(view([], onDraftClose));
+    expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull();
+    expect(onDraftClose).toHaveBeenCalled();
+  });
+});

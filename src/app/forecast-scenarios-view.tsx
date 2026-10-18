@@ -5,7 +5,7 @@
 // comes from ONE `computeScenarioComparison` call per input or list change. The editor and the rename dialog
 // open from here, each mounted fresh per open (keyed), so their drafts are seeded at mount and never in an effect.
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { computeScenarioComparison, type ScenarioRunInput, type ScenarioComparison } from "./forecast-scenario-compare";
 import type { ScenarioDirectory, ScheduleContext } from "./forecast-added-people";
@@ -236,6 +236,12 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
     () => (draft === null ? null : exploreDialog(lang, draft.req, context, input, list)),
     [draft, lang, context, input, list],
   );
+  // A pending draft that can no longer be drafted (its milestone was deleted mid-edit) is dropped, not left set:
+  // otherwise an undo that restores the milestone would reopen the editor uninvited.
+  const draftLost = draft !== null && draftDialog === null;
+  useEffect(() => {
+    if (draftLost) onDraftClose?.();
+  }, [draftLost, onDraftClose]);
   const dialog = draftDialog ?? ownDialog;
   // The editor's live As is vs. Draft comparison, for every editor (new, edit, Explore). One object per As-is run, so
   // the editor's recompute timer is not restarted by unrelated renders.

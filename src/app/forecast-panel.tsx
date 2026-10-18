@@ -301,7 +301,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
   const targetControl = showSimulation && forecastSettings && (
     <ForecastTargetControl lang={lang} value={forecastSettings.target} onChange={forecastSettings.setTarget} disabled={isPopout} />
   );
-  const proposal = forecastSettings ? { id: forecastSettings.proposalId, onChange: forecastSettings.setProposal } : undefined;
+  const proposal = showSimulation && forecastSettings ? { id: forecastSettings.proposalId, onChange: forecastSettings.setProposal } : undefined;
 
   const commitWhatIf = (field: WhatIfField, raw: string): boolean => {
     const next = parseWhatIf(whatIf, field, raw, open.length);
@@ -354,7 +354,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
       {inScenarios && scenarioInput && comparison ? (
         <ForecastScenariosView
           lang={lang} input={scenarioInput} scenarios={scenarios} comparison={comparison} proposal={proposal}
-          draft={draft} onDraftClose={() => setDraft(null)} goal={forecastSettings?.target}
+          draft={draft} onDraftClose={() => setDraft(null)} goal={showSimulation ? forecastSettings?.target : undefined}
         />
       ) : result === null ? null : result.kind === "insufficient" ? (
         <InsufficientState lang={lang} result={result} />
