@@ -1,8 +1,10 @@
 // §502 part 4 — the forecast decision the exports and document blocks read (`ExportExtrasProvider`). Builds NOTHING
 // on render: the memo only wraps the inputs in lazy thunks. `source` runs the whole engine the first time an export or
 // a document download asks; `live` is what a preview reads (`usePreviewExportExtras`), whose lever search runs off the
-// render path. The input is the Reports Forecast section's (the app-wide defaults, the same references), so the
-// shared app run answers and an exported figure matches the Reports one.
+// render path. The input is the Reports Forecast section's run at the app-wide defaults: its SCHEDULE fields (tasks,
+// milestones, plan end, today, holidays) are the same references, so the shared app run (`sharedAsIsRun`) answers and
+// an exported figure matches the Reports one. The directory and `budgetFacts` are NOT shared: each holder builds its
+// own (`useWorkspaceForecastDecisionSource` memoises the directory; the input thunk computes the budget facts).
 
 import { useMemo } from "react";
 import { computeProjectForecastFacts } from "./budget-forecast";
