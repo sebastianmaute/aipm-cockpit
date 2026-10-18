@@ -8,6 +8,10 @@
 // origin is the EARLIEST plotted date (a P80 or the plan end): `TrendChart` floors its scale at 0, so an origin far
 // below the line (the first recording date, months before the P80) would flatten its movement to a sliver of the plot.
 // Entries whose P80 ran past the horizon (`p80: null`) are left out.
+//
+// The x axis is calendar days too (Task 11b): each point carries its recording date's day offset as `x`, so days the
+// recorder missed stretch the axis instead of steepening the slope. The x labels carry the year once the recordings
+// span more than one calendar year.
 
 import { type Lang, t } from "./i18n";
 import { localeFor } from "./date-format";
@@ -36,8 +40,10 @@ export function ForecastP80Line({ lang, history, planEnd, compact = false }: {
   const locale = localeFor(lang);
   const hasPlanEnd = isValidIsoDate(planEnd);
   const origin = [...entries.map((e) => e.p80), ...(hasPlanEnd ? [planEnd] : [])].reduce((a, b) => (b < a ? b : a));
+  const first = entries[0].date, last = entries[entries.length - 1].date;
+  const xLabel = first.slice(0, 4) === last.slice(0, 4) ? formatDayMonth : formatDayMonthYear;
   const points: TrendPoint[] = entries.map((e) => ({
-    label: formatDayMonth(e.date, locale), value: dayOffset(origin, e.p80), gapBefore: false,
+    label: xLabel(e.date, locale), value: dayOffset(origin, e.p80), gapBefore: false, x: dayOffset(first, e.date),
   }));
   const reference = hasPlanEnd
     ? { value: dayOffset(origin, planEnd), label: t(lang, "forecastP80LinePlanEnd", formatDayMonthYear(planEnd, locale)) }

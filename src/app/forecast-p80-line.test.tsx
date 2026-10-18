@@ -61,6 +61,31 @@ describe("ForecastP80Line (§502 part 4)", () => {
     expect(ticks).toEqual(expect.arrayContaining([dm("2026-12-10"), dm("2026-12-30")]));
   });
 
+  // Task 11b — the points sit on a calendar-day axis: three recordings with a nine-day hole put the middle one a
+  // tenth of the way along, not half way.
+  it("places the points by their recorded date, so missing days stretch the axis", () => {
+    const history = [entry("2026-10-01", "2026-12-20"), entry("2026-10-02", "2026-12-22"), entry("2026-10-11", "2026-12-24")];
+    render(<ForecastP80Line lang="en-US" history={history} planEnd="2026-12-31" />);
+    const chart = screen.getByRole("img", { name: "Safe to commit (P80) over time" });
+    const xs = chart.querySelector("polyline")!.getAttribute("points")!.split(" ").map((p) => Number(p.split(",")[0]));
+    expect((xs[1] - xs[0]) / (xs[2] - xs[0])).toBeCloseTo(0.1, 2);
+  });
+
+  it("names the year on the x labels when the history crosses a year boundary", () => {
+    const history = [entry("2026-12-30", "2027-02-01"), entry("2027-01-02", "2027-02-03")];
+    render(<ForecastP80Line lang="en-US" history={history} planEnd="2027-02-10" />);
+    const texts = [...document.querySelectorAll("text")].map((n) => n.textContent);
+    expect(texts).toEqual(expect.arrayContaining([formatDayMonthYear("2026-12-30", LOCALE), formatDayMonthYear("2027-01-02", LOCALE)]));
+  });
+
+  it("leaves the year off the x labels within one calendar year", () => {
+    const history = [entry("2026-10-01", "2026-12-20"), entry("2026-10-05", "2026-12-22")];
+    render(<ForecastP80Line lang="en-US" history={history} planEnd="2026-12-31" />);
+    const texts = [...document.querySelectorAll("text")].map((n) => n.textContent);
+    expect(texts).toEqual(expect.arrayContaining([dm("2026-10-01"), dm("2026-10-05")]));
+    expect(texts).not.toContain(formatDayMonthYear("2026-10-01", LOCALE));
+  });
+
   it("says the line is still building with a single recorded day", () => {
     render(<ForecastP80Line lang="en-US" history={[entry("2026-10-01", "2026-12-20")]} planEnd="2026-12-31" />);
     expect(screen.getByText("The line appears once two days have been recorded.")).toBeTruthy();
