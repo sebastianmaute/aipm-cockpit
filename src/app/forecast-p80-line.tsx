@@ -11,7 +11,7 @@
 //
 // The x axis is calendar days too (Task 11b): each point carries its recording date's day offset as `x`, so days the
 // recorder missed stretch the axis instead of steepening the slope. The x labels carry the year once the recordings
-// span more than one calendar year.
+// span more than one calendar year, and the y ticks once the plotted dates (plan end included) do.
 
 import { type Lang, t } from "./i18n";
 import { localeFor } from "./date-format";
@@ -28,6 +28,11 @@ function dayOffset(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
 }
 
+/** Day and month within one calendar year; with the year once `from`..`to` (ISO dates, ascending) crosses one. */
+function dateLabelFor(from: string, to: string): (iso: string, locale: string) => string {
+  return from.slice(0, 4) === to.slice(0, 4) ? formatDayMonth : formatDayMonthYear;
+}
+
 export function ForecastP80Line({ lang, history, planEnd, compact = false }: {
   lang: Lang;
   history: readonly ForecastHistoryEntry[];
@@ -39,9 +44,12 @@ export function ForecastP80Line({ lang, history, planEnd, compact = false }: {
   if (entries.length === 0) return null;
   const locale = localeFor(lang);
   const hasPlanEnd = isValidIsoDate(planEnd);
-  const origin = [...entries.map((e) => e.p80), ...(hasPlanEnd ? [planEnd] : [])].reduce((a, b) => (b < a ? b : a));
+  const plotted = [...entries.map((e) => e.p80), ...(hasPlanEnd ? [planEnd] : [])];
+  const origin = plotted.reduce((a, b) => (b < a ? b : a));
+  const latest = plotted.reduce((a, b) => (b > a ? b : a));
   const first = entries[0].date, last = entries[entries.length - 1].date;
-  const xLabel = first.slice(0, 4) === last.slice(0, 4) ? formatDayMonth : formatDayMonthYear;
+  const xLabel = dateLabelFor(first, last);
+  const yLabel = dateLabelFor(origin, latest);
   const points: TrendPoint[] = entries.map((e) => ({
     label: xLabel(e.date, locale), value: dayOffset(origin, e.p80), gapBefore: false, x: dayOffset(first, e.date),
   }));
@@ -55,7 +63,7 @@ export function ForecastP80Line({ lang, history, planEnd, compact = false }: {
         points={points}
         reference={reference}
         emptyLabel={t(lang, "forecastP80LineTooShort")}
-        format={(v) => formatDayMonth(addCalendarDays(origin, Math.round(v)), locale)}
+        format={(v) => yLabel(addCalendarDays(origin, Math.round(v)), locale)}
       />
     </div>
   );
