@@ -769,7 +769,7 @@ export const de: Record<TranslationKey, string> = {
   forecastReportMilestonesTitle: "Meilensteine – schlechteste zuerst",
   forecastReportExplore: "In der Prognose erkunden",
   forecastDraftAskLabel: "Claude einen Vorschlag entwerfen lassen",
-  forecastDraftAskBody: "Entwirf einen Vorschlag, mit dem der Meilenstein \"{0}\" (ID {4}, fällig {1}) mein Ziel erreicht. Er hat heute eine Chance von {2}, pünktlich fertig zu werden, mein Ziel ist {3}. Prüfe jede Option mit get_forecast und whatIf. Kombiniere Hebel, wenn einer allein nicht reicht. Nenne die zu streichenden Aufgaben im Szenarionamen und im Chat. Speichere das Ergebnis mit create_forecast_scenario im üblichen Freigabeschritt.",
+  forecastDraftAskBody: "Entwirf einen Vorschlag, mit dem der Meilenstein {0} (ID {4}, fällig {1}) mein Ziel erreicht. Er hat heute eine Chance von {2}, pünktlich fertig zu werden, mein Ziel ist {3}. Prüfe jede Option mit get_forecast und whatIf. Kombiniere Hebel, wenn einer allein nicht reicht. Nenne die zu streichenden Aufgaben im Szenarionamen und im Chat. Speichere das Ergebnis mit create_forecast_scenario im üblichen Freigabeschritt.",
   forecastDraftAskBodyPlan: "Entwirf einen Vorschlag, mit dem das Planende ({0}) mein Ziel erreicht. Es hat heute eine Chance von {1}, pünktlich fertig zu werden, mein Ziel ist {2}. Prüfe jede Option mit get_forecast und whatIf. Kombiniere Hebel, wenn einer allein nicht reicht. Nenne die zu streichenden Aufgaben im Szenarionamen und im Chat. Speichere das Ergebnis mit create_forecast_scenario im üblichen Freigabeschritt.",
   forecastReportProposalTitle: "Vorgeschlagene Maßnahme",
   forecastReportProposalLabel: "Vorschlag",

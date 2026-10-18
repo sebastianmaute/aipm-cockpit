@@ -38,7 +38,8 @@ type Props = {
   }
 );
 
-const dateText = (lang: Lang, iso: string) => (isValidIsoDate(iso) ? formatDayMonthYear(iso, localeFor(lang)) : iso);
+/** A valid date formatted; anything else is stored text, JSON-quoted like the name (both variants embed it). */
+const dateText = (lang: Lang, iso: string) => (isValidIsoDate(iso) ? formatDayMonthYear(iso, localeFor(lang)) : JSON.stringify(iso));
 
 export function ForecastDraftAsk({ lang, milestone, plan, goal, rowName }: Props) {
   const { requestChat } = useWorkspaceTab();
@@ -46,7 +47,9 @@ export function ForecastDraftAsk({ lang, milestone, plan, goal, rowName }: Props
   const goalText = t(lang, "forecastPercent", goal);
   const body = milestone === null
     ? t(lang, "forecastDraftAskBodyPlan", dateText(lang, plan.date), formatChance(plan.chance, lang), goalText)
-    : t(lang, "forecastDraftAskBody", milestone.name, dateText(lang, milestone.date), formatChance(milestone.chance, lang), goalText, milestone.id);
+    // The name is user data in an auto-sent prompt: JSON-quoted, so a quote or a line break in it cannot reshape the
+    // request (the string carries no quotes of its own around {0}).
+    : t(lang, "forecastDraftAskBody", JSON.stringify(milestone.name), dateText(lang, milestone.date), formatChance(milestone.chance, lang), goalText, milestone.id);
   const target = milestone === null ? rowName : (rowName ?? milestone.name);
   return (
     <Button
