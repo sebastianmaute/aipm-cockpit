@@ -45637,13 +45637,13 @@ Also noted for the same generalisation (Turso token, §715 round 20): when a wri
 
 ## 750. A scheduled job added in Settings never runs until the app reloads, and Settings never shows its run — OPEN
 
-**Status:** OPEN 2026-10-18, from code reading and the §715 `ai-scheduled` clip; not yet reproduced in a test. `grep -rn "useScheduledJobs(" src/app --include=*.ts --include=*.tsx | grep -v test` → two instances.
+**Status:** OPEN 2026-10-18, from code reading and the §715 `ai-scheduled` clip; not yet reproduced in a test. `grep -rn "= useScheduledJobs(" src/app --include=*.ts --include=*.tsx | grep -v test` → two instances.
 
 **Work item:** #780
 
 The scheduled-job runner and the Settings → AI Assistant → Scheduled jobs section each keep their own copy of the job list: two `useScheduledJobs` instances (`use-ai-orchestration.ts` for the runner, `settings-sections/scheduled-jobs-section.tsx` for Settings), each reading the store only on mount or when its `config` changes.
 
-1. **A job added in Settings never runs until the app reloads.** The runner's list stays as it was read at mount, so its tick (on mount, on becoming visible, every five minutes) never sees the new job.
+1. **A job added in Settings never runs until the app reloads.** The runner's list stays as it was read at mount, so none of its ticks (on mount, on becoming visible, every five minutes, or when AI or the guides become ready) sees the new job.
 2. **Settings never shows a run.** After the runner records a run, the open Settings section keeps its own list, so "Never run" stays until the section mounts again.
 
 Proposed: one shared job store (a context, or a module-level store with subscribers) read by both, so a create, an edit and a recorded run reach every reader at once. The `ai-scheduled` clip (`scripts/demo-video/steps/ai.mjs`) reloads off camera after creating its job and re-opens Settings until the run shows; both workarounds come out with the fix.
