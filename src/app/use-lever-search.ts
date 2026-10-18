@@ -3,7 +3,8 @@
 // The lever search (§502, part 4) run off the render path: each probe is one 10,000-trial run (about 50-70 ms), so the
 // search advances one probe per macrotask and the page stays responsive. State is only ever set from a timer callback
 // (`react-hooks/set-state-in-effect` is banned), and a result is shown only while it belongs to the CURRENT input,
-// goal and target list — a stale one reads as "pending" at render, with no reset needed.
+// goal and target list — a stale one reads as "pending" at render. What a NEW input must also drop is the per-goal cache:
+// `sameRunOf` is that reset (it keeps the finished goals only for the same input and target list).
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   isPlanSettled, planWhatItTakes, probeInput, settlePlan, stepPlan, type LeverTarget, type WhatItTakes, type WhatItTakesPlan,

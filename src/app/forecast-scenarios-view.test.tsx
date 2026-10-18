@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { StrictMode, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ForecastScenariosView } from "./forecast-scenarios-view";
@@ -390,6 +390,15 @@ describe("ForecastScenariosView — an Explore draft whose milestone disappears 
     expect(showToast).not.toHaveBeenCalled();
     rerender(wrap([]));
     expect(showToast).toHaveBeenCalledWith("info", "The draft closed because its milestone can no longer be explored.");
+  });
+
+  it("a draft that is undraftable from the start toasts once, even under StrictMode", () => {
+    const showToast = vi.fn();
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>{view([], vi.fn())}</ToastProvider>,
+      { wrapper: StrictMode }, // the root's direct child: a StrictMode nested inside a wrapper would not double-invoke
+    );
+    expect(showToast).toHaveBeenCalledTimes(1);
   });
 
   it("clears the pending draft, so an undo that restores the milestone cannot reopen the editor", () => {

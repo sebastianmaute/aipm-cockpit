@@ -179,12 +179,23 @@ describe("useLeverSearch", () => {
     expect(result.current).toBe(at95);
   });
 
-  it("a new input clears the cached goals", () => {
+  it("a new input clears the cached goals, also after its first tick has published", () => {
     const first = input();
+    const edited = input({ tasks: [...TASKS, open(2001), open(2002), open(2003)] });
     const { result, rerender } = mount({ input: first, goal: 80, enabled: true });
     settle();
-    rerender({ input: input({ tasks: [...TASKS, open(2001)] }), goal: 80, enabled: true });
+    rerender({ input: first, goal: 95, enabled: true });
+    settle();
+    rerender({ input: edited, goal: 80, enabled: true });
     expect([...result.current.values()].every((v) => v === "pending")).toBe(true);
+    expect(vi.getTimerCount()).toBe(1);
+    tick(); // the new run has published: only now does the render guard accept its state
+    for (const [key, value] of result.current) {
+      const target = TARGETS.find((x) => leverKey(x) === key) as LeverTarget;
+      expect(value === "pending" || JSON.stringify(value) === JSON.stringify(expected(edited, target, 80))).toBe(true);
+    }
+    rerender({ input: edited, goal: 95, enabled: true });
+    expect([...result.current.values()].every((v) => v === "pending")).toBe(true); // 95 of the OLD input is gone too
     expect(vi.getTimerCount()).toBe(1);
   });
 
