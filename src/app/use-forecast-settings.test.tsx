@@ -81,6 +81,20 @@ describe("useForecastSettings", () => {
     expect(result.current.settingsOverrides).toBeUndefined();
   });
 
+  it("a setProposal captured before the scenario list grew accepts and logs the new scenario", () => {
+    const logActivity = vi.fn<(kind: ActivityKind, ...args: (string | number)[]) => void>();
+    const { result, rerender } = renderHook(({ scenarios }: { scenarios: readonly ForecastScenario[] }) => {
+      const [settingsOverrides, setSettingsOverrides] = useState<SettingsOverrides | undefined>(undefined);
+      const api = useForecastSettings({ settingsOverrides, setSettingsOverrides, scenarios, logActivity });
+      return { api, settingsOverrides };
+    }, { initialProps: { scenarios: SCENARIOS } });
+    const captured = result.current.api.setProposal;
+    rerender({ scenarios: [...SCENARIOS, { id: 9, name: "Late arrival", changes: [] }] });
+    act(() => captured(9));
+    expect(result.current.settingsOverrides).toEqual({ forecast: { proposalScenarioId: 9 } });
+    expect(logActivity).toHaveBeenLastCalledWith("forecast.proposalSet", 9, "Late arrival");
+  });
+
   it("setProposal logs the id and name, and setProposal(null) logs the clear", () => {
     const { result, logActivity } = setup();
     act(() => result.current.api.setProposal(4));
