@@ -51,7 +51,7 @@ export function trimArgs(src, dst, ranges) {
 }
 
 /** Trims `file` in place. Returns the seconds cut and how many waits were capped (both 0 when no wait
- *  was over the cap). A failed encode throws with ffmpeg's own message and leaves `file` untouched.
+ *  was over the cap). A failed encode or rename throws with ffmpeg's message (or the error's) and leaves `file` untouched.
  *  `exec` has `execFileSync`'s shape; tests pass a fake. */
 export function trimAiWaits(file, waits, outRoot, { exec = execFileSync } = {}) {
   const run = (cmd, args) => exec(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: TRIM_TIMEOUT_MS });
@@ -69,12 +69,14 @@ export function trimAiWaits(file, waits, outRoot, { exec = execFileSync } = {}) 
   const tmp = file.replace(/\.webm$/, '.trim.webm');
   try {
     run('ffmpeg', trimArgs(raw, tmp, ranges));
+    fs.renameSync(tmp, file);
   } catch (e) {
+    // The take was never replaced, so its untrimmed copy would only duplicate it.
     fs.rmSync(tmp, { force: true });
+    fs.rmSync(raw, { force: true });
     const why = String(e?.stderr ?? '').trim().split('\n').slice(-3).join(' | ') || String(e?.message ?? e).split('\n')[0];
-    throw new Error(`ffmpeg failed for ${path.basename(file)}: ${why}`);
+    throw new Error(`trim failed for ${path.basename(file)}: ${why}`);
   }
-  fs.renameSync(tmp, file);
   const kept = ranges.reduce((s, [a, b]) => s + (b - a), 0);
   return { cut: total - kept, capped: (waits ?? []).filter((w) => isCut(w, MAX_AI_WAIT_S)).length };
 }

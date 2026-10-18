@@ -115,5 +115,6 @@ describe('trimAiWaits', () => {
     expect(() => trimAiWaits(t.file, [{ start: 5, end: 25 }], t.out, { exec: t.exec })).toThrow(/Unknown encoder libvpx-vp9/);
     expect(fs.readFileSync(t.file, 'utf8')).toBe('TAKE');
     expect(fs.readdirSync(path.dirname(t.file))).toEqual(['01-x.webm']);
+    expect(fs.existsSync(t.raw)).toBe(false);
   });
 });

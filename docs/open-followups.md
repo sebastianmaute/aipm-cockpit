@@ -45101,7 +45101,7 @@ Size S (process).
 
 ## 715. No recorded walk-through shows a new user downloading, installing and setting up the desktop app — OPEN
 
-**Status:** **Update 2026-10-16 (#755 merged, 255c5aae9):** the web-app chapters (2.2, 2.4, 2.5 and 3–8) are scripted in `scripts/demo-video/` (`record.mjs`, `cleanup.mjs`, `lib.mjs`, `README.md`; `grep -rln "Customer Identity Platform" scripts/demo-video` → `cleanup.mjs`), and a take exists locally, git-ignored and not placed. Still open: the hand-recorded parts (install, 2.1 Turso database creation, 2.3 Anthropic key) and the placement (a README embed plus a WebM in `public/demos/`).
+**Status:** **Update 2026-10-16 (#755 merged, 255c5aae9):** the web-app chapters (2.2, 2.4, 2.5 and 3–8) are scripted in `scripts/demo-video/` (`record.mjs`, `cleanup.mjs`, `lib.mjs`, `README.md`; `grep -rln "Customer Identity Platform" scripts/demo-video` → `cleanup.mjs`), and a take exists locally, git-ignored and not placed. Still open: the hand-recorded parts (install, 2.1 Turso database creation, 2.3 Anthropic key) and the placement (a README embed plus a WebM in `public/demos/`; superseded 2026-10-18, see Placement below).
 
 **Earlier:** OPEN 2026-10-14 — nothing recorded yet: the README embeds one clip, the product tour (`grep -c "public/demos/" README.md` → 1), and the install guide none (`grep -cE ".(webm|mp4)" docs/desktop-rollout.md` → 0).
 

@@ -52,7 +52,7 @@ An AI step waits for its result by the UI's state, never by its text, then check
 
 `<out>/<tier>/<NN>-<id>.webm`, with `NN` the video's position in its tier (`ch1-install` counts). `<out>` is `.superpowers/tmp/demo-video/`, which git ignores; set `DEMO_VIDEO_DIR` to write somewhere else. A take that does not end `ok` leaves `warn-<id>.png` in `<out>`.
 
-Every video shows at most three seconds of each wait for Claude (`MAX_AI_WAIT_S` in `trim.mjs`). The take notes when each AI wait starts and ends; afterwards a wait longer than that by more than a second keeps its first and last 1.5 seconds, the busy state and the result arriving, and ffmpeg cuts the rest (`ffmpeg` and `ffprobe` must be on the PATH). A trim that fails prints `TRIM FAILED` with ffmpeg's message, counts a warning and keeps the take untrimmed. The untrimmed take is kept as `<out>/untrimmed/<tier>/<NN>-<id>.webm`. A wait off camera (a chapter's replay of earlier days) is not timed, and a clip with no AI wait is left as it is.
+Every video shows about three seconds of each wait for Claude (a wait under four seconds is kept whole) (`MAX_AI_WAIT_S` in `trim.mjs`). The take notes when each AI wait starts and ends; afterwards a wait longer than that by more than a second keeps its first and last 1.5 seconds, the busy state and the result arriving, and ffmpeg cuts the rest (`ffmpeg` and `ffprobe` must be on the PATH). A trim that fails prints `TRIM FAILED` with ffmpeg's message, counts a warning and keeps the take untrimmed. The untrimmed take is kept as `<out>/untrimmed/<tier>/<NN>-<id>.webm`. A wait off camera (a chapter's replay of earlier days) is not timed, and a clip with no AI wait is left as it is.
 
 ## The week's clock and the replay
 
