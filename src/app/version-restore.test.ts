@@ -208,6 +208,25 @@ describe("applyRestore over array-typed slices", () => {
     expect(out.settingsOverrides ?? {}).toEqual({});
   });
 
+  // §502 — `forecastScenarios` is blind one format later. A matched pair over one hand-built "removed" change:
+  // the flag decides whether a capture lacking the key may remove the live scenarios.
+  describe("forecastScenarios", () => {
+    const SCENARIO = { id: 1, name: "Half team", changes: [] };
+    const run = (versionSpeaksForScenarios: boolean) => {
+      const version = ws({});
+      const now = ws({ forecastScenarios: [SCENARIO] as never });
+      const changes = diffWorkspaces(version, now, { olderSpeaksForScenarios: true });
+      expect(changes.some((c) => c.collection === "forecastScenarios")).toBe(true); // the removed row exists to be refused
+      return applyRestore(now, version, changes, selectAll(changes), { versionSpeaksForScenarios });
+    };
+    it("keeps the live scenarios when the capture cannot speak about them", () => {
+      expect(run(false).forecastScenarios).toHaveLength(1);
+    });
+    it("removes them when the capture speaks for scenarios and holds none", () => {
+      expect(run(true).forecastScenarios ?? []).toHaveLength(0);
+    });
+  });
+
   // ★★★ THE SCOPE OF THE GUARD, in the direction that is easy to get wrong by
   // widening. `project` / `steeringCommittee` / `timelogLinks` are additive too
   // and `workspaceToJson` omits them when unset — but they were in

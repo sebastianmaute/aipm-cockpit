@@ -33,6 +33,8 @@ export function useForecastSettings(args: UseForecastSettingsArgs): ForecastSett
   const { settingsOverrides, setSettingsOverrides, scenarios, logActivity } = args;
   const target = targetConfidenceOf(settingsOverrides);
   const proposalId = proposalIdOf(settingsOverrides, scenarios);
+  // Deleting the proposed scenario (UI or AI) logs no `forecast.proposalCleared` ON PURPOSE: the stored id is kept,
+  // so undo or a version restore that brings the scenario back brings the proposal with it.
 
   const setTarget = useCallback((v: TargetConfidence) => {
     if (v === target) return;

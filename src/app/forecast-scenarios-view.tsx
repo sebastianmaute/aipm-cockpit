@@ -261,6 +261,7 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
       compare={compare}
       onCancel={close}
       onSave={(d) => {
+        // `mintId()` runs before the hook validates, so a refused save burns an id (harmless: ids need only be unique).
         const saved = dialog.scenario
           ? api.updateScenario(dialog.scenario.id, d)
           : api.createScenario(dialog.seed ? api.mintId() : dialog.openId, d) !== null;

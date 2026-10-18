@@ -139,11 +139,21 @@ describe("ForecastPanel — what it would take (§502 part 4)", () => {
   });
 
   test("without the simulation switch there is no target control and no column", () => {
-    render(
-      <ForecastPanel lang="en-US" tasks={TASKS} milestones={MILESTONES} plan={PLAN} today={TODAY} holidaySet={NONE} budgetFacts={BUDGET_FACTS} scenarios={scenariosProps()} />,
+    const settings: ForecastSettingsApi = { target: 80, proposalId: null, setProposal: () => {}, setTarget: () => {} };
+    const panel = (showSimulation: boolean) => (
+      <ForecastPanel
+        lang="en-US" tasks={TASKS} milestones={MILESTONES} plan={PLAN} today={TODAY} holidaySet={NONE} showSimulation={showSimulation}
+        budgetFacts={BUDGET_FACTS} scenarios={scenariosProps()} forecastSettings={settings}
+      />
     );
+    const { unmount } = render(panel(false));
     expect(screen.queryByRole("radiogroup", { name: "Target confidence" })).toBeNull();
     expect(screen.queryByRole("columnheader", { name: /What it would take/ })).toBeNull();
+    unmount();
+    // Positive control: the same props with the switch on carry both.
+    render(panel(true));
+    expect(screen.getByRole("radiogroup", { name: "Target confidence" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /What it would take/ })).toBeInTheDocument();
   });
 
   test("Ruling A: an overdue milestone is not searched and its row has no lever and no Explore", () => {
