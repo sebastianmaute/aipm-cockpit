@@ -987,6 +987,10 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--closed-2026-10-16) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | **CLOSED** 2026-10-16 |
 | [§748](#748-background-workers-may-help-across-the-app-starting-with-the-monte-carlo-forecast--open) | Background workers may help across the app, starting with the Monte Carlo forecast | — | — | open |
 | [§749](#749-a-claude-api-key-typed-under-the-passphrase-lock-is-lost-on-reload-and-two-ai-sections-disagree-about-the-lock--open) | A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock | — | — | open |
+| [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--closed-2026-10-18) | Something starts a save of the empty Turso workspace before a project exists | — | — | **CLOSED** 2026-10-18 |
+| [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--open) | window.prompt throws in the desktop app, so six flows fail there | — | — | open |
+| [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--open) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | open |
+| [§754](#754-an-empty-workspace-can-still-be-kept-as-an-unsaved-draft-when-the-stored-version-is-unknown--open) | An empty workspace can still be kept as an unsaved draft when the stored version is unknown | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45633,3 +45637,65 @@ Size M.
 Also noted for the same generalisation (Turso token, §715 round 20): when a write that began after a stopped switch's own seal FAILS, it has still bumped the generation, so the put-back yields and the draft's seal stays in the store. That follows the deliberate no-fallback rule on `beginSealedWrite`; the generalised gate should decide whether the put-back may then still run.
 
 **Source:** found 2026-10-17 by the owner's question during the §715 review rounds (`fix/715-recording-defects`).
+
+## 751. Something starts a save of the empty Turso workspace before a project exists — CLOSED 2026-10-18
+
+**Status:** CLOSED 2026-10-18 on `fix/715-empty-unload-journal`. The cause, reproduced live on the throwaway database: with the portfolio on Turso and no project chosen, `createBackend` hands back the single-project `TursoBackend`, and the first setup on an empty database saved through it — an unscoped `DELETE FROM` every workspace table, then `plan` and `meta` — whose unconfirmed copy was the draft. On a database that holds projects the same save was sent too and only its batch rolling back spared them. Fixed: three paths in `use-storage-backend.ts` send nothing in that state (`tursoPortfolioWithoutProjectRef`): the save effect, `doSave`, and the pre-switch flush (`flushCurrent`). The flush was found by the branch review: it runs before `switchToTursoProject` and `createTursoProject`, so choosing a project, the action that leaves the state, sent the same unscoped delete. `npx vitest run src/app/use-storage-backend.turso-handover.test.tsx` → both §751 tests pass; before the fix the edit test failed with one unscoped `DELETE FROM tasks` sent, and the project-choice test failed the same way until the flush guard was added; deleting that guard again turns it red with one unscoped `DELETE FROM tasks` (mutant, 2026-10-18). Removing either of the first two guards alone stays green (each covers the other), removing both turns the edit test red. Known limit: an edit made in that state is neither saved nor journalled, and nothing on screen says so.
+
+An unload journal was written under the Turso "no project" key (`journalProjectKey` → `"turso"`) at 08:30 on the demo's first morning, holding an empty workspace of about 1 KB, and `OtherJournalsBanner` then offered it on every load as "Turso workspace (no project)". A journal under a project's own key holds a save that started (`noteSaveStarted`, past every save guard) and had not confirmed, or the live workspace `followLive` hands over while saving is paused on a conflict; it is written when the page hides or is hidden. So the empty Turso workspace was the outgoing or live one while the portfolio was in multi-project Turso mode with no project selected. Candidates, none confirmed: a save that a reload (the setup wizard's Finish, or Explore the demo) overtook; a save that failed and never confirmed; a save started while the recorder's page was hidden.
+
+Not reproduced: connect, the new-project wizard with Claude's proposal and Cancel, Explore the demo, the device-state reload and a day change, run off camera five times, left no such journal. A timing race is the likely shape.
+
+The symptom is closed on `fix/715-empty-unload-journal` (§715): `use-unload-journal.ts` never journals the empty default saved over an empty stored version (`isNothingNewToJournal`). What it was: the single-project save above. An empty draft already stored by an earlier version stays listed until it is discarded.
+
+Size S to trace; the fix is unknown until then.
+
+**Source:** found 2026-10-18 in a §715 A recording; the owner chose to fix the symptom and file the cause.
+
+## 752. window.prompt throws in the desktop app, so six flows fail there — OPEN
+
+**Status:** OPEN 2026-10-18, measured on the installed 1.19.0 desktop build: `window.prompt("probe", "x")` called in the app's page over the debug port threw `Error: prompt() is not supported.` (an untracked Playwright script). The call sites: `grep -rnE "window\.prompt\(" src/app --include=*.ts --include=*.tsx | grep -v test` → six.
+
+**Work item:** #783
+
+Electron does not implement `window.prompt`, so on desktop each of these flows ends in that exception instead of asking:
+
+- inserting a link in the rich-text editor (`rich-text-editor.tsx`);
+- naming a communication-template version (`settings-sections/comm-templates-section.tsx`);
+- the four "enter the email address" prompts before an inquiry or update mail: Action Center (`use-action-center-handlers.ts`), bulk send (`use-bulk-operations.ts`), RAID item (`use-raid-items.ts`), task row (`use-task-row-handlers.ts`).
+
+The same files also use `window.confirm` (bulk send, reloading an empty project, three file-overwrite paths in `use-storage-file-ops.ts`) and `window.alert` (an invalid email, a Jira-synced assignee in `use-task-submit.ts`). Those work in Electron (not measured) but are the same kind of native dialog the task delete moved off (§715 D5); a page-level test cannot drive them without a dialog handler either.
+
+Proposed: an app text-input dialog beside `ConfirmProvider` (`confirm-dialog.tsx`), the six prompts moved to it first, then the confirms and alerts, each with a test that fails on the native call.
+
+Size M.
+
+**Source:** found 2026-10-18 in the defect sweep after the §715 recordings (owner: verify on desktop, then file).
+
+## 753. An edit made while the Turso portfolio has no project chosen is dropped without a word — OPEN
+
+**Status:** OPEN 2026-10-18. Found by the branch review of the §751 fix on `fix/715-empty-unload-journal`. With the portfolio on Turso and no project chosen, three paths in `use-storage-backend.ts` send nothing (`tursoPortfolioWithoutProjectRef`): the save effect, `doSave` and the pre-switch flush (`flushCurrent`). The save effect returns before `followLive` and `doSave` before `noteSaveStarted`, so an edit made in that state is not journalled either. `grep -n "if (tursoPortfolioWithoutProjectRef.current)" src/app/use-storage-backend.ts` → the three skips.
+
+**Work item:** #784
+
+An edit made in that state is lost when the user picks or creates a project (the loaded workspace replaces it) or closes the tab, and nothing on screen says so. Only the diagnostics log `storage.saveSkippedNoTursoProject`, and only at the `doSave` and flush skips; the save-effect skip, the one an edit meets first, logs nothing. The state is rare: the setup wizard creates a project right away. It is reached on a database with projects when no current project is set.
+
+Proposed: a sticky notice in that state ("Choose or create a project. Nothing is saved yet."), or edits blocked until a project is chosen, either with a test that fails while the state shows nothing.
+
+Size S (notice) or M (read-only).
+
+**Source:** found 2026-10-18 in the review of the §751 fix (owner: file it for later).
+
+## 754. An empty workspace can still be kept as an unsaved draft when the stored version is unknown — OPEN
+
+**Status:** OPEN 2026-10-18. Found by the branch review of the §715 empty-draft fix on `fix/715-empty-unload-journal`. The unload journal skips an empty workspace only when it is saved over an empty stored version (`isNothingNewToJournal` in `use-unload-journal.ts`); with no base known, `storedFor` returns null and the empty workspace is journalled. `grep -n "return stored !== null && isNothingToJournal" src/app/use-unload-journal.ts` → the one line that journals whenever the base is unknown.
+
+**Work item:** #785
+
+Two rare paths reach that. A save refused for a stale revision after its backend was replaced (`noteSaveRefused` → `keep`) carries a key that is no longer the base's, so an empty refused workspace is written to a kept slot and `OtherJournalsBanner` lists it. A project op that fails between `holdBase` and its flip leaves the base null, so empty saves are journalled with an empty base and come back as a conflict notice. Both need a refused save or a failed op. Journalling when the stored state is unknown is the safe default, but it is the "empty draft offered back" symptom §715 set out to remove.
+
+Proposed: treat a null base plus `isNothingToJournal(live)` as nothing to journal, in `keep` (the refused save) and in `write` (the failed op, which journals through the autosave), with a test for each path that journals an empty workspace today. Or document it as accepted in `docs/AGENTS/storage.md`'s journal paragraph.
+
+Size S.
+
+**Source:** found 2026-10-18 in the review of the §715 empty-draft fix (owner: file it for later).
