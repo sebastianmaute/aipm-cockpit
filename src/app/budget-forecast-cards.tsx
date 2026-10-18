@@ -431,8 +431,7 @@ function GapLine({
         lang={lang}
         term={t(lang, "forecastExtraDaysTerm")}
         means
-        tip={tPlural(
-          lang, "forecastTipExtraDays", daysNeeded,
+        tip={tPlural(lang, "forecastTipExtraDays", daysNeeded,
           money(efficiency.etc), money(pace.burnRatePerDay),
           String(daysNeeded), String(gap.extraWorkingDays),
         )}
