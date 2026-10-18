@@ -45644,7 +45644,7 @@ An unload journal was written under the Turso "no project" key (`journalProjectK
 
 Not reproduced: connect, the new-project wizard with Claude's proposal and Cancel, Explore the demo, the device-state reload and a day change, run off camera five times, left no such journal. A timing race is the likely shape.
 
-The symptom is closed on `fix/715-empty-unload-journal` (§715): `use-unload-journal.ts` never journals the empty default a load produces (`isNothingToJournal`). What it was: the single-project save above. An empty draft already stored by an earlier version stays listed until it is discarded.
+The symptom is closed on `fix/715-empty-unload-journal` (§715): `use-unload-journal.ts` never journals the empty default saved over an empty stored version (`isNothingNewToJournal`). What it was: the single-project save above. An empty draft already stored by an earlier version stays listed until it is discarded.
 
 Size S to trace; the fix is unknown until then.
 

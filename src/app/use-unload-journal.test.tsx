@@ -55,6 +55,7 @@ import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 import { useStorageBackend } from "./use-storage-backend";
 import { UNLOAD_JOURNAL_TAB_ID, useUnloadJournal } from "./use-unload-journal";
 import { emptyWorkspace, jsonToWorkspace, workspaceToJson, type Workspace } from "./workspace";
+import { defaultResourcePlan } from "./resource-foundation";
 import { useWorkspace } from "./workspace-context";
 
 const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
@@ -601,8 +602,11 @@ describe("§715 — a workspace with nothing authored is never journalled", () =
   const KEPT_KEY = `${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1")}`;
   const WS_1: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "One" } as unknown as Task] };
 
-  function renderJournal() {
-    return renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
+  // `base` is the stored version, as a load hands it over; the skip holds only when it was empty too.
+  function renderJournal(base: Workspace | null = emptyWorkspace()) {
+    const hook = renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
+    if (base !== null) act(() => { hook.result.current.setBase(base, "p1"); });
+    return hook;
   }
 
   it("an empty workspace's save, hidden or at pagehide, writes no journal", () => {
@@ -652,7 +656,7 @@ describe("§715 — a workspace with nothing authored is never journalled", () =
   it("a loaded empty workspace, preset lists seeded, writes no journal either", () => {
     const loaded = jsonToWorkspace(workspaceToJson(emptyWorkspace()));
     expect(loaded.disciplines.length).toBeGreaterThan(0); // the presets are there: the case is real
-    const { result } = renderJournal();
+    const { result } = renderJournal(loaded);
     tabSwitch();
     act(() => { result.current.noteSaveStarted(loaded); });
     expect(localStorage.getItem(KEY)).toBeNull();
@@ -704,5 +708,36 @@ describe("§715 — a workspace with nothing authored is never journalled", () =
     tabSwitch();
     act(() => { result.current.noteSaveStarted(ws); });
     expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  // Review: emptying a project that held records IS an edit. Skipped, a save still in flight at unload
+  // would bring the stored records back on reload with no draft offered, undoing the deletion.
+  it("emptying a project that held records is journalled, and kept", () => {
+    const { result } = renderJournal(WS_1);
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(emptyWorkspace()); });
+    expect(journalTaskIds(KEY)).toEqual([]);
+    let kept = false;
+    act(() => { kept = result.current.keepLive(emptyWorkspace()); });
+    expect(kept).toBe(true);
+    expect(localStorage.getItem(KEPT_KEY)).not.toBeNull();
+  });
+
+  // Review: the default is rebuilt from the plan's own start date, so a plan moved to another month's 1st
+  // with the same window reads as a default. Against the stored plan it is a change.
+  it("on an empty project, a plan moved to other dates is journalled", () => {
+    const moved: Workspace = { ...emptyWorkspace(), plan: defaultResourcePlan("2027-01-01") };
+    expect(moved.plan.startDate).not.toBe(emptyWorkspace().plan.startDate); // the case is real
+    const { result } = renderJournal();
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(moved); });
+    expect(localStorage.getItem(KEY)).not.toBeNull();
+  });
+
+  it("with no stored version known yet, an empty save is journalled: the skip needs the base to judge", () => {
+    const { result } = renderJournal(null);
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(emptyWorkspace()); });
+    expect(localStorage.getItem(KEY)).not.toBeNull();
   });
 });

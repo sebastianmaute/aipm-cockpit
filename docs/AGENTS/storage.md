@@ -331,16 +331,20 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
   `workspaceToJson` of the outgoing state. A record over `UNLOAD_JOURNAL_MAX_CHARS` is not written.
 - **Written** by `noteSaveStarted` (called from `doSave`, past every guard) when the page is hiding
   or hidden, and by the hook's own `pagehide` listener for the latest unconfirmed save.
-  ★ **Never for the empty default** (§715, `isNothingToJournal`): no authored records (presets
-  discounted), the default plan for its own start date (field by field), and every other slice
-  blank (`features: []` is Simple mode, so for it only a missing list is blank), the automatic
-  ones (activity, budget, baseline and forecast history, FX rates) aside. ★★ Not `hasAuthoredRecords`
-  alone: it ignores project details, the dashboard narrative, the steering committee, timelog links
-  and forecast scenarios, which ARE drafts. Such a write instead clears this tab's own older record
-  for the key (the tab-id guard spares another page load's); an edit that emptied the project and
-  did not save therefore comes back as the STORED version, not as empty. `keep` writes no kept slot
-  for the default either and reports success. An empty "Turso workspace (no project)" draft was
-  otherwise offered in `OtherJournalsBanner`; what saved it is open as §751.
+  ★ **Never for the empty default over an empty stored version** (§715, `isNothingNewToJournal`).
+  Both the live workspace and the base (the stored version it was built on) must pass
+  `isNothingToJournal` — no authored records (presets discounted), the default plan for its own
+  start date (field by field), and every other slice blank (`features: []` is Simple mode, so for
+  it only a missing list is blank), the automatic ones (activity, budget, baseline and forecast
+  history, FX rates) aside — and the two plans must be equal. ★★ Not `hasAuthoredRecords` alone: it
+  ignores project details, the dashboard narrative, the steering committee, timelog links and
+  forecast scenarios, which ARE drafts. ★★ Not the live workspace alone either: emptying a project
+  that held records is an edit, and skipped, a save in flight at unload brought the records back on
+  reload with no draft offered (branch review); and a plan moved to another month's 1st reads as a
+  default by itself. With no base known (none loaded yet, or a held op base) it is journalled. A
+  skipped write clears this tab's own older record for the key (the tab-id guard spares another page
+  load's). `keep` writes no kept slot in the same case and reports success. The empty "Turso
+  workspace (no project)" draft this was found by came from a save §751 now stops.
 - **Cleared** by `noteSaveConfirmed` in the save's `.then`, for this tab's record of that save or
   an older one; by `dropUnconfirmed` from "Reload project" and the picker's "load the file
   instead".
