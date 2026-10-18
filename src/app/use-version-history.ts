@@ -75,6 +75,9 @@ export interface UseVersionHistoryResult {
 //     after the reset, so counting it would let a stale write mask a transient.
 //   - `documentVersions` is derived from `documents` (`workspace-context.tsx`
 //     sets both from one loader result), so it inherits the same objection.
+// `forecastScenarios` is deliberately uncounted for a different reason: a scenario
+// is a set of what-if changes over tasks and milestones and means nothing in a
+// project with none of them, so it cannot make an otherwise-empty payload substantive.
 // Same reasoning already excludes `activityLog` — see docs/AGENTS/activity-log.md —
 // and `budgetHistory`, which is storage-only: carried by the save funnel
 // (`use-storage-backend.ts`'s `outgoing`) but deliberately absent from the
@@ -225,8 +228,9 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         // version. (Manual checkpoints always capture.)
         // ★★ §241 (closed 2026-09-27) — this gate sees only what
         //  `COLLECTION_SPECS` (version-diff.ts) walks, so a payload slice without
-        //  a row would make a session that edits only it capture NOTHING. All 24
-        //  slices `getVersionPayload` (use-version-history-wiring.ts) emits have a row today.
+        //  a row would make a session that edits only it capture NOTHING. Every
+        //  slice `getVersionPayload` (use-version-history-wiring.ts) emits has a row today (count the rows:
+        //  `awk '/^export const COLLECTION_SPECS/,/^\];/' src/app/version-diff.ts | grep -c 'key: "'`).
         //  `documents` and `documentVersions` are `restorable: false` ON PURPOSE:
         //  diff-visible, but a document is restored through its own document
         //  history (tombstones, docs/AGENTS/documents.md), not this panel. A new

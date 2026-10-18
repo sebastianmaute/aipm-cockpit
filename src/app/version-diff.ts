@@ -262,7 +262,10 @@ function diffSingleton(spec: CollectionSpec, older: unknown, newer: unknown): Ve
  *  "Restored N change(s)" for a restore that changed nothing. Emitting no row is
  *  the only version of this that cannot lie: a capture that cannot speak about a
  *  slice has no opinion to show. The guard in `applyRestore` then becomes
- *  defence in depth rather than the whole mechanism. */
+ *  defence in depth rather than the whole mechanism.
+ *  ★★ `olderSpeaksForScenarios` carries the same discipline for `forecastScenarios`: pass
+ *  `speaksForScenarios(readCaptureFormat(payload))` for the same stored capture, and give
+ *  `applyRestore` the same value as `versionSpeaksForScenarios`. */
 export function diffWorkspaces(
   older: Workspace,
   newer: Workspace,

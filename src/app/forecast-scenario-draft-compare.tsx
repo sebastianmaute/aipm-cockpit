@@ -27,13 +27,21 @@ export function ScenarioDraftCompare({ lang, compare, context, changes }: {
   changes: readonly ScenarioChange[] | null;
 }) {
   const { input, asIs, goal } = compare;
-  const [computed, setComputed] = useState<{ changes: readonly ScenarioChange[]; column: ScenarioColumn } | null>(null);
+  const [computed, setComputed] = useState<{
+    input: ScenarioRunInput;
+    context: ScheduleContext;
+    changes: readonly ScenarioChange[];
+    column: ScenarioColumn;
+  } | null>(null);
   useEffect(() => {
     if (changes === null) return undefined;
-    const timer = setTimeout(() => setComputed({ changes, column: computeScenarioColumn(input, changes, context) }), DRAFT_RECOMPUTE_MS);
+    const timer = setTimeout(() => setComputed({ input, context, changes, column: computeScenarioColumn(input, changes, context) }), DRAFT_RECOMPUTE_MS);
     return () => clearTimeout(timer);
   }, [input, changes, context]);
-  const draft = computed !== null && computed.changes === changes ? computed.column : null;
+  // Belongs to the CURRENT rows, input and context alike: a new As is must never sit beside an old-input Draft.
+  const draft = computed !== null && computed.changes === changes && computed.input === input && computed.context === context
+    ? computed.column
+    : null;
 
   const columns = useMemo<ComparedColumn[]>(
     () => [

@@ -70,7 +70,10 @@ function restoreRoleFields(target: Rec, source: Rec, fields: string[] | "all", a
 
 /** ★ `versionSpeaksForEmptySlices` mirrors `diffWorkspaces`' option and must be
  *  given the SAME value: pass `speaksForEmptySlices(readCaptureFormat(payload))`
- *  for the stored capture. Defaults to FALSE — the safe reading. */
+ *  for the stored capture. Defaults to FALSE — the safe reading. The scenarios
+ *  flag `versionSpeaksForScenarios` follows the same discipline: pass
+ *  `speaksForScenarios(readCaptureFormat(payload))`, the same value given to
+ *  `diffWorkspaces`' `olderSpeaksForScenarios`. */
 export function applyRestore(
   current: Workspace,
   version: Workspace,
@@ -112,7 +115,7 @@ export function applyRestore(
     // `timelogLinks` keep reverting to unset. Across BOTH kinds, so the
     // singleton `settingsOverrides` is covered — guarding only the five arrays
     // blanked a project's timezone and notification overrides. And only when
-    // `blind`, so a STAMPED capture reverts normally and a restore can once
+    // `isBlindSlice` holds, so a STAMPED capture reverts normally and a restore can once
     // again remove records added since it: reading a stamped empty slice as
     // "cannot speak" is safe but makes restore permanently useless for new
     // content, which is the whole reason the marker exists.

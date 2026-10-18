@@ -187,6 +187,7 @@ describe("whatItTakesSync", () => {
     const w = whatItTakesSync(inp, context, LATE, goal, asIs);
     expect(w).not.toBeNull();
     expect(w?.chance).toBe(chanceFor(asIs, LATE));
+    expect(w?.people.state).toBe("reaches"); // else the people equality below could hold vacuously
     const who = placeholderWho(context, DIRECTORY);
     const outcomes: [("people" | "tasks"), LeverOutcome | undefined][] = [["people", w?.people], ["tasks", w?.tasks]];
     let checked = 0;
