@@ -227,7 +227,23 @@ export const MONDAY = [
     },
     replay: noop,
   }),
+  // Friday's History compares against this version. Versions are otherwise captured a few minutes after
+  // edits settle, which the take's clock never reaches before the next morning's reload.
+  step('monday-version', {
+    run: async (ctx) => {
+      await caption(ctx, "Save version now keeps Monday's plan, to compare on Friday.");
+      await saveVersion(ctx, 'Monday');
+    },
+  }),
 ];
+
+/** History → Save version now, named. */
+export async function saveVersion(ctx, name) {
+  await nav(ctx, 'History');
+  await click(ctx, main(ctx).getByRole('button', { name: 'Save version now', exact: true }), 'Save version now', 500);
+  await type(ctx, main(ctx).getByRole('textbox', { name: 'Name this version', exact: true }), name, 'version name', { slow: false });
+  await click(ctx, main(ctx).getByRole('button', { name: 'Add', exact: true }), 'Add version', 1200);
+}
 
 // ---- Tuesday — re-plan ----
 const REPLAN_CSV = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'replan-forecast.csv');
@@ -921,12 +937,13 @@ export const FRIDAY = [
       await pace(ctx, 3000);
       await nav(ctx, 'History');
       await caption(ctx, "History: Monday's version against today's.");
-      const rows = main(ctx).getByRole('checkbox');
-      if ((await rows.count()) >= 2) {
-        await click(ctx, rows.first(), 'newest version', 300);
-        await click(ctx, rows.last(), 'oldest version', 300);
-        await click(ctx, main(ctx).getByRole('button', { name: 'Compare selected', exact: true }), 'Compare selected', 2500);
-      }
+      // Monday's version (MONDAY's last step) against today's data. Missing, the caption would sit over an
+      // empty list, so the take fails instead.
+      const vsNow = main(ctx).getByRole('button', { name: /^Compared with current – Monday/ }).first();
+      await vsNow.waitFor({ timeout: 15000 }).catch(() => {
+        throw new Error(`${ctx.clipId}: History holds no Monday version`);
+      });
+      await click(ctx, vsNow, 'compare Monday with today', 2500);
       await pace(ctx, 2500);
     },
   }),

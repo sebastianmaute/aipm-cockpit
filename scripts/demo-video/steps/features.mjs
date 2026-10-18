@@ -4,7 +4,7 @@ import { step } from './step.mjs';
 import * as L from '../lib.mjs';
 import { caption, click, moveTo, nav, pace, type } from '../ui.mjs';
 import { DEMO_CRM_TASK, DEMO_DUPLICATE_PAIRS, DEMO_GDPR_ISSUE } from '../week-story.mjs';
-import { DLG, dedup, main, openRow, resources, setUtilization } from './week.mjs';
+import { DLG, dedup, main, openRow, resources, saveVersion, setUtilization } from './week.mjs';
 
 const NEW_TASK = 'Draft the pilot rollout checklist';
 // Open and in the future: a Done bar is not draggable.
@@ -527,14 +527,6 @@ export const FEATURE_STEPS = Object.freeze({
     }),
   ],
 });
-
-/** History → Save version now, named. */
-async function saveVersion(ctx, name) {
-  await nav(ctx, 'History');
-  await click(ctx, main(ctx).getByRole('button', { name: 'Save version now', exact: true }), 'Save version now', 500);
-  await type(ctx, main(ctx).getByRole('textbox', { name: 'Name this version', exact: true }), name, 'version name', { slow: false });
-  await click(ctx, main(ctx).getByRole('button', { name: 'Add', exact: true }), 'Add version', 1200);
-}
 
 /** Settings → Functions → this project's functions (the project editor's function list). */
 async function openFunctions(ctx) {
