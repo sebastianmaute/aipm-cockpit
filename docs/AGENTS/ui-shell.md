@@ -942,8 +942,8 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     and a dashed P80 line behind the bars, `aria-hidden` + `pointer-events-none` like the overlays above, drawn on the
     SHARED `dayLeftPx` geometry through `clampedDayIndex`. One `sr-only` line, OUTSIDE the hidden layer, gives a screen
     reader the P80 date (`ganttForecastP80Label`).
-  - **The axis takes the band in, BOUNDED.** The `gantt.tsx` range memo folds the dated P50 and P95 like the baseline
-    ghosts, but never further than `FORECAST_AXIS_EXTENSION_DAYS` (180 calendar days, `gantt-engine.ts`) past the
+  - **The axis takes the band in, BOUNDED.** The `gantt.tsx` range memo folds the dated P50, P80 and P95 like the
+    baseline ghosts (P80 on its own, so a dated P80 sits on its true day even with P95 past the horizon), but never further than `FORECAST_AXIS_EXTENSION_DAYS` (180 calendar days, `gantt-engine.ts`) past the
     planned range (bars, milestones, baselines, today). ★★ Unbounded, a P95 years out made the timeline tens of
     thousands of px wide, one node per day in the header, holiday and grid layers. A percentile beyond the cap, or past
     the horizon (`null`), clamps to the edge, and `isBeyondAxis` then adds a "→" to the P80 label so the line is not

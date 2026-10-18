@@ -598,15 +598,16 @@ export function GanttPanel({
     if (showBaselinePref && baselineMilestoneDates) {
       for (const iso of baselineMilestoneDates.values()) foldIso(iso);
     }
-    // §502 part 4 — and the simulated band (P50 to P95; the P80 line lies between), so a finish later than the
-    // plan, the case the band exists to show, widens the axis instead of piling up on its edge. ★ BOUNDED: at most
+    // §502 part 4 — and the simulated band (P50 to P95) and the P80 line, so a finish later than the plan, the case
+    // the band exists to show, widens the axis instead of piling up on its edge. P80 folds in on its own: with P95
+    // past the horizon (null) a dated P80 must still sit on its true day. ★ BOUNDED: at most
     // FORECAST_AXIS_EXTENSION_DAYS past the planned range (bars, milestones, baselines, today). A P95 years out
     // would otherwise make the timeline tens of thousands of px wide, one node per day in three layers. A percentile
     // beyond the cap, or past the horizon (null), clamps to the edge and the layer marks it. Simulation off: no change.
     if (forecast?.kind === "forecast") {
       const planned = initialized && max.getTime() > today.getTime() ? max : today;
       const cap = addDays(planned, FORECAST_AXIS_EXTENSION_DAYS);
-      for (const iso of [forecast.p50, forecast.p95]) if (iso !== null) foldIso(iso, cap);
+      for (const iso of [forecast.p50, forecast.p80, forecast.p95]) if (iso !== null) foldIso(iso, cap);
     }
     if (!initialized) {
       min = addDays(today, -7);

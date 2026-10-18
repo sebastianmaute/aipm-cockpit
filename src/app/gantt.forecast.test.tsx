@@ -130,6 +130,15 @@ describe("GanttPanel — the axis takes in the forecast (§502)", () => {
     expect(container.querySelector("[data-gantt-forecast-p80]")).not.toBeNull();
     expect(container.querySelector("[data-gantt-forecast-beyond]")).toBeNull();
   });
+
+  // Review 4 — P80 folds into the axis on its own: with P95 past the horizon (null), a dated P80 inside the cap still
+  // sits on its true day instead of on the edge.
+  test("P95 past the horizon, P80 inside the cap: the line is on its true day, with no edge cue", () => {
+    const f: AppForecast = { ...late(), p80: dayPlus(100), p95: null } as AppForecast;
+    const { container } = render(<GanttPanel {...PROPS} forecast={f} />);
+    expect(container.querySelector<HTMLElement>("[data-gantt-forecast-p80]")!.style.left).toBe(`${dayLeftPx(100 + 32, LEFT_GUTTER_PX)}px`);
+    expect(container.querySelector("[data-gantt-forecast-beyond]")).toBeNull();
+  });
 });
 
 describe("GanttPanel — milestone chance chips (§502)", () => {
