@@ -774,6 +774,7 @@ export const de: Record<TranslationKey, string> = {
   forecastReportProposalEmpty: "Kein Vorschlag gewählt. Speichern Sie einen unter Prognose → Szenarien und wählen Sie ihn hier aus.",
   forecastP80LineCaption: "Sicher zusagbar (P80) im Zeitverlauf",
   forecastP80LinePlanEnd: "Planende {0}",
+  ganttForecastP80Label: "P80 {0}",
   forecastP80LineTooShort: "Die Linie erscheint, sobald zwei Tage aufgezeichnet sind.",
   forecastByGroupTitle: "Prognose nach Gruppe",
   forecastByGroupColGroup: "Gruppe",

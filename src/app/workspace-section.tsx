@@ -319,13 +319,14 @@ export function WorkspaceSection({
   const subTabs = subTabsFor(activeTab, features, trends.active);
   const milestonesEnabled = isModuleEnabled("milestones", features);
   // §502 — the shared schedule run for the Budget report's budget simulation (both the tab and the
-  // block on Reports). The context's `tasks`/`milestones` and task-manager's `holidaySet`/`today` are
-  // the references the history recorder and `useNextActions` pass, so `computeAppForecast`'s memo is
-  // shared; like them it waits for the holiday calendar. Null on every other tab.
+  // block on Reports) and, part 4, the Gantt's band, P80 line and chance chips. The context's
+  // `tasks`/`milestones` and task-manager's `holidaySet`/`today` are the references the history recorder
+  // and `useNextActions` pass, so `computeAppForecast`'s memo is shared; like them it waits for the
+  // holiday calendar. Null on every other tab.
   const budgetSimulation = useAppForecast({
     tasks, milestones, planEnd: plan.endDate, today, holidaySet,
     active: isSimulationActive(workspace.settingsOverrides, features) && holidaysReady !== false
-      && (activeTab === "budget-report" || activeTab === "reports"),
+      && (activeTab === "budget-report" || activeTab === "reports" || activeTab === "gantt"),
   });
   // §502 part 3 — the pace forecast's facts for the Forecast view (and, part 4, the Reports Forecast section), built
   // as the Budget view does (`computeProjectForecastFacts`); only with the Budget module enabled. The Forecast tab is
@@ -589,6 +590,7 @@ export function WorkspaceSection({
               logActivity={logActivity}
               logActivityChanges={logActivityChanges}
               isSwapInFlight={isSwapInFlight}
+              forecast={budgetSimulation}
             />
           </div>
         )}
@@ -1051,6 +1053,8 @@ export function WorkspaceSection({
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
+              forecastHistory={simulationActive ? forecastHistory : undefined}
+              planEnd={planEnd}
             />
           </div>
         )}

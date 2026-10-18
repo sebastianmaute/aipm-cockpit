@@ -836,6 +836,7 @@ const enUS = {
   forecastReportProposalEmpty: "No proposal chosen. Save one in Forecast → Scenarios and pick it here.",
   forecastP80LineCaption: "Safe to commit (P80) over time",
   forecastP80LinePlanEnd: "Plan end {0}",
+  ganttForecastP80Label: "P80 {0}",
   forecastP80LineTooShort: "The line appears once two days have been recorded.",
   forecastByGroupTitle: "Forecast by group",
   forecastByGroupColGroup: "Group",

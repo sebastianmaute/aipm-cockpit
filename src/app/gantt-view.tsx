@@ -26,6 +26,7 @@ import { type UndoStackApi } from "./undo/use-undo-stack";
 import { moveMilestoneBy, type MilestoneUpdateDeps } from "./milestone-update";
 import { reportSilentFailure } from "./guard-feedback";
 import { useToastContext } from "./toast-context";
+import type { AppForecast } from "./forecast/app-forecast";
 
 export interface GanttViewProps {
   onUpdateBar?: (edit: GanttBarEdit) => void;
@@ -45,6 +46,8 @@ export interface GanttViewProps {
   logActivityChanges?: MilestoneUpdateDeps["logActivityChanges"];
   /** §596 swap discriminator, for a keyboard move pending at teardown. */
   isSwapInFlight?: () => boolean;
+  /** §502 — workspace-section's shared forecast run; null while the simulation is off. */
+  forecast?: AppForecast | null;
 }
 
 export function GanttView({
@@ -61,6 +64,7 @@ export function GanttView({
   logActivity,
   logActivityChanges,
   isSwapInFlight,
+  forecast,
 }: GanttViewProps) {
   const { settings, lang } = useSettings();
   const { tasks, setTasks, absences, resources, milestones, setMilestones } = useWorkspace();
@@ -124,6 +128,7 @@ export function GanttView({
         baselineMilestoneDates={baselineMilestoneDates}
         holidaySet={holidaySet}
         dedupButton={dedup.button}
+        forecast={forecast}
       />
       {dedup.modal}
     </>

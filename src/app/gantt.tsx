@@ -37,6 +37,7 @@ import { useGanttPrefs } from "./use-gantt-prefs";
 import { GanttToolbar } from "./gantt-chrome";
 import { GanttChart, ganttRowKey } from "./gantt-chart";
 import { dayLeftPx } from "./gantt-overlays";
+import type { AppForecast } from "./forecast/app-forecast";
 import { type Absence, type Milestone, type Priority, type Resource, type Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
 import { descriptionText } from "./rich-text-projection";
@@ -87,6 +88,7 @@ export function GanttPanel({
   baselineMilestoneDates,
   holidaySet = EMPTY_HOLIDAY_SET,
   dedupButton,
+  forecast = null,
 }: {
   lang: Lang;
   tasks: readonly Task[];
@@ -116,6 +118,8 @@ export function GanttPanel({
   holidaySet?: ReadonlySet<string>;
   /** AI "Deduplicate & unify" trigger, built by the view wrapper. See GanttToolbar. */
   dedupButton?: ReactNode;
+  /** The shared forecast run (§502, workspace-section's `useAppForecast`); null while the simulation is off. */
+  forecast?: AppForecast | null;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const didInitialScroll = useRef(false);
@@ -810,6 +814,7 @@ export function GanttPanel({
         onMilestoneBlur={onMilestoneBlur}
         onAddTask={onAddTask}
         baselineMilestoneDates={baselineMilestoneDates}
+        forecast={forecast}
       />
     </div>
   );

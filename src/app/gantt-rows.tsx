@@ -29,6 +29,8 @@ import {
   ROW_HEIGHT_PX,
 } from "./gantt-engine";
 import { CELL_BUTTON } from "./control-classes";
+import { ChanceChip } from "./milestone-horizon-strip";
+import { chanceText } from "./chance-text";
 
 export function GanttTaskRow({
   rowKey,
@@ -438,6 +440,7 @@ export function GanttMilestoneRow({
   onStartDrag,
   onKeyMove,
   onHandleBlur,
+  chance,
 }: {
   m: Milestone;
   /**
@@ -471,6 +474,9 @@ export function GanttMilestoneRow({
   onStartDrag?: (e: React.PointerEvent<HTMLElement>, m: Milestone) => void;
   onKeyMove?: (e: React.KeyboardEvent<HTMLElement>, m: Milestone) => void;
   onHandleBlur?: (m: Milestone) => void;
+  /** The shared forecast run's chance on time (§502), present only for a milestone the run gave
+   *  `state: "chance"`; a signed-off milestone shows no chip even then. */
+  chance?: number;
 }) {
   // While a drag is in flight everything on the row — the diamond, its
   // at-risk colour, the baseline slip — reads the date it WOULD get on release,
@@ -564,6 +570,13 @@ export function GanttMilestoneRow({
             }`}
           >
             {m.name}
+          </span>
+        )}
+        {chance !== undefined && !achieved && (
+          // The Dashboard's chip (§502): decorative, said once by the sr-only text beside it.
+          <span className="ml-auto shrink-0">
+            <ChanceChip lang={lang} chance={chance} />
+            <span className="sr-only">{t(lang, "milestoneChanceChipSr", chanceText(lang, chance))}</span>
           </span>
         )}
       </div>

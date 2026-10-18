@@ -328,6 +328,17 @@ export function diffDays(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / DAY_MS);
 }
 
+/** The axis day index of a forecast date, clamped to the visible range (§502): a date before the first day
+ *  reads 0, one after the last day (or `null`, a percentile past the horizon) reads the last day. `null`
+ *  only for a date that does not parse. */
+export function clampedDayIndex(range: { min: Date; days: number }, iso: string | null): number | null {
+  const last = range.days - 1;
+  if (iso === null) return last;
+  const d = parseISO(iso);
+  if (!d) return null;
+  return Math.max(0, Math.min(last, diffDays(range.min, d)));
+}
+
 /** Signed day slip of a milestone's live date vs its baseline target:
  *  positive = slipped later, negative = pulled in, 0 = on baseline.
  *  `null` when either date is unparseable. Pure (reuses parseISO/diffDays). */
