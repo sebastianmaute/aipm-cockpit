@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as L from './lib.mjs';
-import { caption, click, nav, pace, skipTour, type } from './ui.mjs';
+import { caption, click, moveTo, nav, pace, skipTour, type } from './ui.mjs';
 
 // Visible dialogs only: a closed modal can stay in the DOM after the one on screen.
 const DLG = '[role="dialog"]:visible';
@@ -40,8 +40,11 @@ export async function connect(ctx, { onCamera }) {
     if (await fin.count()) {
       // Finish commits the portfolio storage choice and reloads the app onto Turso.
       const reloaded = page.waitForEvent('load', { timeout: 60000 });
-      await click(ctx, fin, 'Finish', 0);
+      // A bare click: ui.click settles the page by evaluating in it, which a reload mid-way would break.
+      await moveTo(ctx, fin);
+      await fin.click();
       await reloaded;
+      await L.settle(page);
       break;
     }
     const nx = d.getByRole('button', { name: 'Next', exact: true });

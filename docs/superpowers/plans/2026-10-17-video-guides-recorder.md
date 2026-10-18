@@ -494,7 +494,7 @@ Tests:
 ### Task 8: The 15 AI clips
 
 **Files:**
-- Modify: `scripts/demo-video/steps/ai.mjs`, `scripts/demo-video/videos.mjs`
+- Modify: `scripts/demo-video/steps/ai.mjs`, `scripts/demo-video/steps/week.mjs` (its helpers exported for the clips), `scripts/demo-video/videos.mjs`, `scripts/demo-video/setup.mjs`
 
 **Interfaces:**
 - Produces one entry per id in A's tier-3 table. Each holds steps with `ai: true`, a structure `check`, and preconditions.
@@ -527,7 +527,7 @@ Tests:
 - [ ] **Step 3: Rehearse with AI,** `--tier ai --rehearse --with-ai` → the same result line. This makes about 15–25 real calls; the owner accepts the cost.
 
 - [ ] **Step 4: Commit.**
-  `git commit --only scripts/demo-video/steps/ai.mjs scripts/demo-video/videos.mjs scripts/demo-video/take.mjs scripts/demo-video/take.test.mjs -m "feat: the 15 AI clips (§715)"`
+  `git commit --only scripts/demo-video/steps/ai.mjs scripts/demo-video/steps/week.mjs scripts/demo-video/setup.mjs scripts/demo-video/videos.mjs scripts/demo-video/take.mjs scripts/demo-video/take.test.mjs -m "feat: the 15 AI clips (§715)"`
   If `take.mjs` changed for `setup` steps, add the test `"setup steps run before preconditions and are never recorded"` to `take.test.mjs` first, and watch it fail.
 
 ### Task 9: The 20 feature clips

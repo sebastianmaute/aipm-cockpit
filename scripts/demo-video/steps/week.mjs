@@ -12,14 +12,18 @@ import {
 } from '../week-story.mjs';
 
 // Visible dialogs only: a closed modal can stay in the DOM after the one on screen.
-const DLG = '[role="dialog"]:visible';
-const main = (ctx) => ctx.page.locator('main');
-const noop = async () => {};
+export const DLG = '[role="dialog"]:visible';
+export const main = (ctx) => ctx.page.locator('main');
+export const noop = async () => {};
+/** The app's page-level toast (role=status) for an AI call that failed or proposed nothing. It sits outside
+ *  any dialog, so a wait that should end on it must look at the page. */
+export const failToast = (ctx) => ctx.page.getByRole('status')
+  .filter({ hasText: /Could not|couldn't|No [a-z-]+ changes were proposed|limit reached|API key/i }).first();
 
 // ---- helpers shared by the days ----
 
 /** Opens a task's editor from the Open Points table by its name. */
-async function openTask(ctx, name) {
+export async function openTask(ctx, name) {
   await nav(ctx, 'Open Points');
   const row = main(ctx).locator('tbody tr', { hasText: name }).first();
   await click(ctx, row.getByRole('button', { name, exact: true }).first(), `open ${name}`);
@@ -33,7 +37,7 @@ async function saveTask(ctx) {
 }
 
 /** Next actions, with every tier expanded so a row further down can be reached. */
-async function nextActions(ctx) {
+export async function nextActions(ctx) {
   // Next actions is a child of Dashboard in the sidebar, shown only while that group is open.
   await nav(ctx, 'Dashboard');
   await nav(ctx, 'Next actions');
@@ -51,7 +55,7 @@ async function draftMessage(ctx, who) {
 }
 
 /** The AI Assistant: a starter chip or a typed prompt, then the reply, waited for by the send control. */
-async function chat(ctx, { chip, prompt }) {
+export async function chat(ctx, { chip, prompt }) {
   await nav(ctx, 'AI Assistant');
   // The thread is a role=log list, one item per message: the reply is the item after the prompt's.
   const items = main(ctx).getByRole('log').locator(':scope > li');
@@ -75,14 +79,24 @@ const BRIEF = 'A customer identity platform for an online retailer: registration
 
 /** The new-project wizard: a one-line brief, Claude's proposal filling the details, a walk to the last
  *  step — and Cancel, because the week runs on the demo project instead. */
+/** The new-project wizard's entry: the empty start screen's button before any project exists (the
+ *  prologue), else Projects → "+ New project" (the ai-proposal clip, on the demo). */
+async function newProjectButton(ctx) {
+  const empty = ctx.page.getByRole('button', { name: 'Create a new project' });
+  ctx.newFromEmpty = (await empty.count()) > 0;
+  if (ctx.newFromEmpty) return empty;
+  await nav(ctx, 'Projects');
+  return main(ctx).getByRole('button', { name: '+ New project', exact: true });
+}
+
 export const wizardProposal = step('wizard-proposal', {
   ai: true,
-  trigger: async (ctx) => ctx.page.getByRole('button', { name: 'Create a new project' }),
+  trigger: newProjectButton,
   run: async (ctx) => {
     const page = ctx.page;
     if (await page.locator(DLG).count()) await page.keyboard.press('Escape');
     await caption(ctx, 'A new project: describe it in a sentence, and Claude proposes the setup.');
-    await click(ctx, page.getByRole('button', { name: 'Create a new project' }), 'Create a new project', 1000);
+    await click(ctx, await newProjectButton(ctx), 'New project', 1000);
     const d = page.locator(DLG).last();
     await type(ctx, d.getByRole('textbox', { name: 'Describe your project' }), BRIEF, 'brief');
     await click(ctx, d.getByRole('button', { name: 'Generate with AI' }), 'Generate with AI', 300);
@@ -97,7 +111,7 @@ export const wizardProposal = step('wizard-proposal', {
   after: async (ctx) => {
     const d = ctx.page.locator(DLG).last();
     for (const what of ['template', 'functions']) await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), `Next (${what})`, 2000);
-    await caption(ctx, 'The last step creates it. Here we open the demo project instead.');
+    await caption(ctx, ctx.newFromEmpty ? 'The last step creates it. Here we open the demo project instead.' : 'The last step creates it. Here we cancel and stay in the demo.');
     await click(ctx, d.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel', 1000);
   },
   replay: noop,
@@ -228,11 +242,12 @@ async function deleteTask(ctx, name) {
   await click(ctx, d.locator('button', { hasText: /^Delete$/ }).first(), `delete ${name}`, 800);
   const ask = ctx.page.locator(DLG).last();
   await click(ctx, ask.getByRole('button', { name: 'Delete', exact: true }), `confirm delete ${name}`, 1200);
+  await main(ctx).locator('tbody tr', { hasText: name }).first().waitFor({ state: 'detached', timeout: 15000 });
 }
 
 /** The per-item "Ask Claude" popover on a register row: the instruction, then Claude's preview. The
  *  step's check reads the preview; its `after` applies it. */
-async function askClaude(ctx, view, item, instruction) {
+export async function askClaude(ctx, view, item, instruction) {
   // A retry finds the previous popover still open: close it first.
   if (await ctx.page.getByPlaceholder(/^e\.g\./).count()) await ctx.page.keyboard.press('Escape');
   await nav(ctx, view);
@@ -248,8 +263,8 @@ async function askClaude(ctx, view, item, instruction) {
   });
   await pace(ctx, 2500);
 }
-const askClaudeCheck = async (ctx) => ((await ctx.page.getByRole('button', { name: 'Apply', exact: true }).count()) ? null : 'no changes');
-const askClaudeApply = async (ctx) => click(ctx, ctx.page.getByRole('button', { name: 'Apply', exact: true }).last(), 'Apply', 1500);
+export const askClaudeCheck = async (ctx) => ((await ctx.page.getByRole('button', { name: 'Apply', exact: true }).count()) ? null : 'no changes');
+export const askClaudeApply = async (ctx) => click(ctx, ctx.page.getByRole('button', { name: 'Apply', exact: true }).last(), 'Apply', 1500);
 
 /** Deduplicate & unify on Open Points: Claude proposes merges; the check counts them, `after` merges. */
 export const dedup = step('dedup', {
@@ -422,7 +437,7 @@ const MEMBER = `${DEMO_NEW_MEMBER.firstName} ${DEMO_NEW_MEMBER.lastName}`;
 const ROLE = 'Integration Engineer';
 
 /** Resources → one of its sub-views (shown in the sidebar only while Resources is open). */
-async function resources(ctx, view) {
+export async function resources(ctx, view) {
   await nav(ctx, 'Resources');
   await nav(ctx, view);
 }
@@ -821,6 +836,10 @@ export const FRIDAY = [
       });
       await pace(ctx, 4000);
     },
+    check: async (ctx) => {
+      const card = main(ctx).locator('li').filter({ has: ctx.page.getByRole('button', { name: 'Dismiss – Budget off plan', exact: true }) });
+      return (await card.getByText(/^AI suggests:/).count()) ? null : 'no recommendation';
+    },
     after: async (ctx) => click(ctx, main(ctx).getByRole('button', { name: 'Act – Budget off plan', exact: true }), 'Act', 1500),
     replay: noop,
   }),
@@ -856,7 +875,8 @@ export const FRIDAY = [
       await click(ctx, d.getByRole('button', { name: 'Propose', exact: true }), 'Propose', 300);
       await waitForAi(ctx, {
         busy: d.getByRole('button', { name: 'Propose', exact: true }),
-        done: d.getByRole('button', { name: /^Apply/ }).first(),
+        // An error or an empty plan is a toast (and closes the dialog): the check then sees no Apply and retries.
+        done: d.getByRole('button', { name: /^Apply/ }).first().or(failToast(ctx)),
         label: 'optimize',
       });
       await pace(ctx, 4000);
@@ -897,6 +917,13 @@ export const FRIDAY = [
 ];
 
 export const DAYS = Object.freeze({ mon: MONDAY, tue: TUESDAY, wed: WEDNESDAY, thu: THURSDAY, fri: FRIDAY });
+
+/** A day's step by its id, for a clip that shows the same action (steps/ai.mjs). */
+export function weekStep(id) {
+  const s = Object.values(DAYS).flat().find((x) => x.id === id);
+  if (!s) throw new Error(`no week step ${id}`);
+  return s;
+}
 
 const PREVIOUS = { tue: 'mon', wed: 'tue', thu: 'wed', fri: 'thu' };
 

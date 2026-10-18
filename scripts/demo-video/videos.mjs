@@ -6,7 +6,7 @@
 //
 // Def = { id, tier, title, opening, handRecorded?, prologueOnCamera?, prologue?, clock?, replayThrough?,
 //         preconditions: { what, check(ctx) }[], steps: Step[] }   (Step: steps/step.mjs)
-import { AI_STEPS } from './steps/ai.mjs';
+import { AI_PRECONDITIONS, AI_STEPS } from './steps/ai.mjs';
 import { FEATURE_STEPS } from './steps/features.mjs';
 import { FRIDAY, MONDAY, PROLOGUE, THURSDAY, TUESDAY, WEDNESDAY, demoOpens, goTo } from './steps/week.mjs';
 
@@ -14,7 +14,7 @@ export const TIERS = Object.freeze(['big', 'chapters', 'ai', 'features']);
 
 const chapter = (id, title, steps, extra = {}) => ({ id, tier: 'chapters', title, opening: title, preconditions: [], steps, ...extra });
 
-const ai = (id, title, opening) => ({ id, tier: 'ai', title, opening, preconditions: [], steps: AI_STEPS[id] });
+const ai = (id, title, opening) => ({ id, tier: 'ai', title, opening, preconditions: AI_PRECONDITIONS[id] ?? [], steps: AI_STEPS[id] });
 const feature = (id, title, opening) => ({ id, tier: 'features', title, opening, preconditions: [], steps: FEATURE_STEPS[id] });
 
 const DEFS = [
