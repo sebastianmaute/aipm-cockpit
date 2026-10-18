@@ -19,9 +19,8 @@ import { formatDayMonthYear } from "./forecast-format";
 import { formatChance, formatWhen } from "./forecast-tables";
 import { formatChanceOverBudget, percentileLabel } from "./budget-sim-text";
 import { computeScenarioColumn, computeScenarioComparison, type ScenarioColumn, type ScenarioRunInput } from "./forecast-scenario-compare";
-import type { ScheduleForecast, ScheduleForecastResult } from "./forecast";
-import { computeAppScheduleRun } from "./forecast/app-forecast";
-import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
+import type { ScheduleForecast } from "./forecast";
+import { sharedAsIsRun } from "./forecast-decision";
 import { milestoneRowsWorstFirst } from "./forecast-scenario-tables";
 import { useRowTokens } from "./use-row-tokens";
 import type { ForecastHistoryEntry } from "./forecast-history";
@@ -69,15 +68,6 @@ const PLAN_END: LeverTarget = { kind: "planEnd" };
 /** The plan end's pseudo row in the token list (as the Scenarios view's "As is"): milestone ids are positive. */
 const PLAN_END_ROW_ID = -1;
 const nameOfRow = (r: { name: string }) => r.name;
-
-/** The shared app run when `input` is exactly its call (the app-wide defaults), else undefined: the comparison then
- *  runs its own. Same references as `useAppForecast` on this tab, so the memo answers and the trials do not rerun. */
-function sharedAsIsRun(input: ScenarioRunInput): ScheduleForecastResult | undefined {
-  if (input.window !== DEFAULT_HISTORY_WINDOW || input.unit !== "tasks") return undefined;
-  return computeAppScheduleRun({
-    tasks: input.tasks, milestones: input.milestones, planEnd: input.planEnd, today: input.today, holidaySet: input.holidaySet,
-  });
-}
 
 function verdictText(lang: Lang, verdict: ForecastVerdict, planEnd: string, chance: number, goal: TargetConfidence): { head: string; rest: string } {
   const head = t(lang, verdict.severity === "success" ? "forecastReportVerdictOn" : "forecastReportVerdictBelow");

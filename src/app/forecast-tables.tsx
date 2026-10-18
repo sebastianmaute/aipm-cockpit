@@ -7,6 +7,7 @@ import { useId, useMemo, useState, type ReactNode } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { localeFor } from "./date-format";
 import { formatDayMonthYear, formatHours } from "./forecast-format";
+import { formatChance, formatWhen } from "./forecast-lever-text";
 import type { CostAtFinish } from "./forecast/cost";
 import { costRangeRows, costUnavailableText } from "./budget-sim-text";
 import { formatCurrency } from "./resource-cost";
@@ -29,17 +30,9 @@ import type { Health } from "./health";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Whole percent; a chance short of certain that rounds to 100 reads "≥ 99 %". */
-export function formatChance(chance: number, lang: Lang): string {
-  const pct = Math.round(chance * 100);
-  if (chance < 1 && pct >= 100) return t(lang, "forecastNearlyCertain");
-  return t(lang, "forecastPercent", pct);
-}
-
-/** A When date, or "> 5 y" when the percentile ran past the horizon. */
-export function formatWhen(date: string | null, lang: Lang): string {
-  return date === null ? t(lang, "forecastBeyond") : formatDayMonthYear(date, localeFor(lang));
-}
+// Moved to the React-free `forecast-lever-text.ts` so the export rows can use them (§502 part 4); re-exported here
+// for this module's existing callers.
+export { formatChance, formatWhen };
 
 /** Tasks as a count with its unit word ("1 task", "5 tasks"); effort (minutes) as whole hours ("12 h"). */
 export function formatAmount(amount: number, unit: ForecastUnit, lang: Lang): string {

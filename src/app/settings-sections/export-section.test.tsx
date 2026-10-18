@@ -7,8 +7,18 @@ import { loadI18n, t } from "../i18n";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { defaultSettings } from "../settings-types";
 import { EXPORT_SECTION_KEYS, defaultExportConfig } from "../settings-types";
+import { isViewEnabled } from "../feature-modules";
+
+// §502 part 4 — the forecast decision checkbox shows only with the (release-hidden) Forecast view enabled; this test
+// can turn the view on through the mocked `isViewEnabled`.
+vi.mock("../feature-modules", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../feature-modules")>();
+  return { ...real, isViewEnabled: vi.fn(real.isViewEnabled) };
+});
 
 const lang = "en-US" as const;
+/** The checkboxes shown in this release: every key but the hidden Forecast view's decision section. */
+const SHOWN_KEYS = EXPORT_SECTION_KEYS.filter((k) => k !== "forecastDecision");
 
 function renderSection(overrides: Partial<typeof defaultSettings> = {}) {
   const settings = { ...defaultSettings, ...overrides };
@@ -18,10 +28,22 @@ function renderSection(overrides: Partial<typeof defaultSettings> = {}) {
 }
 
 describe("ExportSection", () => {
-  it("renders 12 checkboxes — one per export section key", () => {
+  it("renders one checkbox per export section key, the hidden Forecast view's decision section excepted", () => {
     renderSection();
     const checkboxes = screen.getAllByRole("checkbox");
-    expect(checkboxes).toHaveLength(EXPORT_SECTION_KEYS.length);
+    expect(checkboxes).toHaveLength(SHOWN_KEYS.length);
+    expect(screen.queryByLabelText("Forecast decision (simulated)")).toBeNull();
+  });
+
+  it("shows the forecast decision checkbox once the Forecast view is enabled (§502 part 4)", () => {
+    vi.mocked(isViewEnabled).mockReturnValue(true);
+    try {
+      renderSection();
+      expect(screen.getAllByRole("checkbox")).toHaveLength(EXPORT_SECTION_KEYS.length);
+      expect(screen.getByLabelText("Forecast decision (simulated)")).toBeChecked();
+    } finally {
+      vi.mocked(isViewEnabled).mockRestore();
+    }
   });
 
   it("checks tasks and raid by default when settings.export is undefined", () => {
@@ -35,11 +57,11 @@ describe("ExportSection", () => {
   it("leaves all other keys unchecked by default", () => {
     renderSection({ export: undefined });
     const checkboxes = screen.getAllByRole("checkbox");
-    const defaultFalseKeys = EXPORT_SECTION_KEYS.filter(
+    const defaultFalseKeys = SHOWN_KEYS.filter(
       (k) => !defaultExportConfig[k],
     );
     for (const key of defaultFalseKeys) {
-      const idx = EXPORT_SECTION_KEYS.indexOf(key);
+      const idx = SHOWN_KEYS.indexOf(key);
       expect(checkboxes[idx]).not.toBeChecked();
     }
   });
@@ -114,6 +136,6 @@ describe("ExportSection — every section checkbox has its own name (§245)", ()
 
   it.each(["en-US", "de"] as const)("names every section checkbox distinctly in %s", (l) => {
     render(<ExportSection lang={l} settings={defaultSettings} onChange={vi.fn()} />);
-    expectRowUniqueNames({ minControls: EXPORT_SECTION_KEYS.length, roles: ["checkbox"] });
+    expectRowUniqueNames({ minControls: SHOWN_KEYS.length, roles: ["checkbox"] });
   });
 });

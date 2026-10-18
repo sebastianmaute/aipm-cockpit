@@ -7,6 +7,7 @@ import type { Settings } from "../settings-types";
 import { EXPORT_SECTION_KEYS, defaultExportConfig, type ExportSectionKey } from "../settings-types";
 import { EXPORT_SECTION_LABEL_KEYS } from "../export-section-labels";
 import { Checkbox } from "../form-controls";
+import { isViewEnabled } from "../feature-modules";
 
 interface ExportSectionProps {
   lang: Lang;
@@ -16,6 +17,10 @@ interface ExportSectionProps {
 
 export function ExportSection({ lang, settings, onChange }: ExportSectionProps) {
   const exportConfig = settings.export ?? defaultExportConfig;
+  // §502 part 4 — the simulated forecast decision belongs to the Forecast view: while that view is hidden (released
+  // builds, or the module off) its checkbox is too. The stored flag is kept either way.
+  const forecastOn = isViewEnabled("forecast", settings.features);
+  const keys = EXPORT_SECTION_KEYS.filter((k) => k !== "forecastDecision" || forecastOn);
 
   function handleToggle(key: ExportSectionKey, checked: boolean) {
     onChange({
@@ -31,7 +36,7 @@ export function ExportSection({ lang, settings, onChange }: ExportSectionProps) 
       </FieldHint>
 
       <ul className="space-y-2" aria-label={t(lang, "settingsSectionExport")}>
-        {EXPORT_SECTION_KEYS.map((key) => {
+        {keys.map((key) => {
           const checked = exportConfig[key] ?? defaultExportConfig[key];
           return (
             <li key={key}>

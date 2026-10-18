@@ -50,6 +50,7 @@ import { EXPORT_SECTION_KEYS } from "./settings-types";
 import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
 import { budgetForecastRows, type ExportExtras } from "./export-forecast-section";
+import { forecastDecisionRows } from "./export-forecast-decision-section";
 import {
   KV_EXPORT_FIELDS,
   KNOWLEDGE_EXPORT_FIELDS,
@@ -399,7 +400,7 @@ export const TASK_EXPORT_COLUMNS = CSV_COLUMNS.filter((c) => c !== "blockerLog")
 export const EXPORT_SECTION_FIELDS: Readonly<Record<ExportSectionKey, readonly string[]>> = {
   project: KV_EXPORT_FIELDS, status: KV_EXPORT_FIELDS, tasks: TASK_EXPORT_COLUMNS, raid: RAID_EXPORT_COLUMNS,
   milestones: MILESTONES_CSV_COLUMNS, changes: CHANGES_CSV_COLUMNS, stakeholders: STAKEHOLDERS_CSV_COLUMNS,
-  budgets: BUDGETS_CSV_COLUMNS, budgetForecast: KV_EXPORT_FIELDS, resources: RESOURCES_CSV_COLUMNS, roles: ROLES_CSV_COLUMNS,
+  budgets: BUDGETS_CSV_COLUMNS, budgetForecast: KV_EXPORT_FIELDS, forecastDecision: KV_EXPORT_FIELDS, resources: RESOURCES_CSV_COLUMNS, roles: ROLES_CSV_COLUMNS,
   absences: ABSENCES_CSV_COLUMNS, shifts: SHIFTS_CSV_COLUMNS, calendarEvents: CALENDAR_EVENT_EXPORT_FIELDS,
   knowledgeItems: KNOWLEDGE_EXPORT_FIELDS, insights: INSIGHT_EXPORT_FIELDS,
 };
@@ -709,6 +710,13 @@ const BUILDERS: Record<ExportSectionKey, SectionBuilder> = {
   budgetForecast: (_ws, lang, extras) => {
     const rows = budgetForecastRows(extras.budgetForecast, lang);
     return rows.length > 0 ? { key: "budgetForecast", ...heading("budgetForecast", lang), rows } : null;
+  },
+  // §502 part 4 — derived from the simulation, never from `ws`. The source runs only here, so an export without the
+  // section never pays for the engine; no source (simulation off) or a null decision omits it.
+  forecastDecision: (_ws, lang, extras) => {
+    const decision = extras.forecastDecision?.() ?? null;
+    return decision === null
+      ? null : { key: "forecastDecision", ...heading("forecastDecision", lang), rows: forecastDecisionRows(decision, lang) };
   },
   knowledgeItems: (ws, lang) => {
     const items = ws.knowledgeItems ?? [];

@@ -276,7 +276,8 @@ describe("buildExportSections", () => {
     const allOff: ExportConfig = {
       project: false,
       tasks: false, raid: false, changes: false, milestones: false,
-      stakeholders: false, budgets: false, budgetForecast: false, resources: false, roles: false,
+      // §502 part 4 — `forecastDecision` is a key of ExportConfig, so the all-off literal names it.
+      stakeholders: false, budgets: false, budgetForecast: false, forecastDecision: false, resources: false, roles: false,
       absences: false, shifts: false, calendarEvents: false, status: false,
       knowledgeItems: false,
       insights: false,

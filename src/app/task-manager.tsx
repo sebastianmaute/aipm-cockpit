@@ -118,7 +118,7 @@ import {
   getCurrentEntry,
   type ProjectsRegistry,
 } from "./projects-registry";
-import { exportWorkspace, type ExportFormat } from "./export"; import { exportForecastFor } from "./export-forecast-section"; import { buildExportWorkspace } from "./export-workspace"; import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
+import { exportWorkspace, type ExportFormat } from "./export"; import { exportForecastFor } from "./export-forecast-section"; import { withPublishedForecastDecision } from "./export-extras-context"; import { buildExportWorkspace } from "./export-workspace"; import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
 import { ProjectEmptyState } from "./project-empty-state";
 import { SecretUnlockGate } from "./secret-unlock-gate";
 import { isPassphraseLocked } from "./secrets-store";
@@ -1182,7 +1182,7 @@ function TaskManagerInner() {
         plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
         calendarEvents, knowledgeItems, insights,
       });
-      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang, exportFooter, { budgetForecast: exportForecast }).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
+      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang, exportFooter, withPublishedForecastDecision({ budgetForecast: exportForecast })).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     },
     [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, calendarEvents, knowledgeItems, insights, settings.export, exportFooter, exportForecast, lang, showToast],
   );

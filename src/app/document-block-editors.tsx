@@ -44,6 +44,7 @@ import { BlockReadOnlyNotice, BlockRefusalNotice, ParagraphCharCount, type Block
 import { Input, Select } from "./form-controls";
 import { DATA_SECTION_KEYS, type DataSectionKey } from "./settings-types";
 import { EXPORT_SECTION_LABEL_KEYS } from "./export-section-labels";
+import { useExportExtras } from "./export-extras-context";
 
 export type BlockEditorProps<B extends DocBlock = DocBlock> = {
   lang: Lang;
@@ -716,6 +717,10 @@ export function DataSectionBlockEditor({
   //  select has no item/row/column-local number of its own to fall back on,
   //  so it follows the bullets/table editors' qualifier pattern instead.
   const blockQualifier = t(lang, "documentsBlockN", String(index + 1));
+  // §502 part 4 — the simulated forecast decision is offered only while the simulation is active (the extras then
+  // carry its source), so the release-hidden Forecast is not named here; a block already set to it stays selectable.
+  const hasDecision = useExportExtras().forecastDecision !== undefined;
+  const keys = DATA_SECTION_KEYS.filter((k) => k !== "forecastDecision" || hasDecision || value === k);
 
   // ★ The wrapper exists ONLY so the refusal notice has somewhere to render.
   //  A concurrent write reaches this editor exactly like any other; before the
@@ -728,7 +733,7 @@ export function DataSectionBlockEditor({
         value={value}
         onChange={(e) => commitValue(e.target.value as DataSectionKey)}
       >
-        {DATA_SECTION_KEYS.map((k) => (
+        {keys.map((k) => (
           <option key={k} value={k}>
             {t(lang, EXPORT_SECTION_LABEL_KEYS[k])}
           </option>

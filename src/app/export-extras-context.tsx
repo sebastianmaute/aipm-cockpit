@@ -17,27 +17,61 @@
 //   alone keeps working and renders the block as nothing. Popouts are NOT
 //   that case: their `legacyTree` renders `WorkspaceSection` too, from the
 //   popout's own `workspaceProps`, so they get the provider and the forecast.
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+//
+// §502 part 4 — the simulated forecast decision rides here too, as a lazy
+// source (`ForecastDecisionSource`): nothing runs until a document block or an
+// export asks for the section. The header Export menu and the voice export sit
+// OUTSIDE this provider (task-manager builds them), so the main window's
+// provider also PUBLISHES its source, and those two call sites read it through
+// `withPublishedForecastDecision` at the click — no prop threaded through the
+// shell, and no engine run for an export that leaves the section out.
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import type { ExportExtras } from "./export-forecast-section";
 import type { ForecastBundle } from "./budget-forecast-bundle";
+import type { ForecastDecisionSource } from "./forecast-decision";
 
 const NO_EXTRAS: ExportExtras = {};
 
 const Ctx = createContext<ExportExtras>(NO_EXTRAS);
 
+/** The main window's current source; null while the simulation is off or no provider publishes. */
+const published: { source: ForecastDecisionSource | null } = { source: null };
+
+/** `extras` plus the published forecast decision source, when there is one; unchanged otherwise. */
+export function withPublishedForecastDecision(extras: ExportExtras): ExportExtras {
+  const source = published.source;
+  return source === null ? extras : { ...extras, forecastDecision: source };
+}
+
 export function ExportExtrasProvider({
   forecast,
+  forecastDecision = null,
+  publish = false,
   children,
 }: {
   /** `exportForecastFor(settings.features, dashboardModel.forecastBundle)`:
    *  null with the budget module off or no forecast. */
   forecast: ForecastBundle | null | undefined;
+  /** The simulated decision's source; null while the simulation is off, and then the key is absent. */
+  forecastDecision?: ForecastDecisionSource | null;
+  /** Publish the source for the exports built outside this tree (the main window only, never a popout). */
+  publish?: boolean;
   children: ReactNode;
 }) {
-  const value = useMemo<ExportExtras>(
-    () => (forecast ? { budgetForecast: forecast } : NO_EXTRAS),
-    [forecast],
-  );
+  const value = useMemo<ExportExtras>(() => {
+    if (!forecast && !forecastDecision) return NO_EXTRAS;
+    return {
+      ...(forecast ? { budgetForecast: forecast } : {}),
+      ...(forecastDecision ? { forecastDecision } : {}),
+    };
+  }, [forecast, forecastDecision]);
+  useEffect(() => {
+    if (!publish || forecastDecision === null) return undefined;
+    published.source = forecastDecision;
+    return () => {
+      if (published.source === forecastDecision) published.source = null;
+    };
+  }, [publish, forecastDecision]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

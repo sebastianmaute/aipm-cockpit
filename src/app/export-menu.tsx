@@ -19,6 +19,7 @@ import type { ExportConfig } from "./settings-types";
 import { reportSilentFailure } from "./guard-feedback";
 import { useToastContext } from "./toast-context";
 import type { ForecastBundle } from "./budget-forecast-bundle";
+import { withPublishedForecastDecision } from "./export-extras-context";
 import { menuItemClass } from "./control-classes";
 
 const OPTIONS: Array<{
@@ -61,7 +62,8 @@ export function ExportMenu({
     // pops the save dialog / new tab. Some browsers focus-steal the dialog
     // and the popover never visually closes otherwise.
     setTimeout(() => {
-      void exportWorkspace(workspace, format, exportConfig, lang, exportFooter, { budgetForecast: exportForecast })
+      // §502 part 4 — the simulated decision source the workspace section publishes; absent with the simulation off.
+      void exportWorkspace(workspace, format, exportConfig, lang, exportFooter, withPublishedForecastDecision({ budgetForecast: exportForecast }))
         .catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     }, 0);
   }

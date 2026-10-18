@@ -4,16 +4,14 @@
 // search runs. Presentational: the Forecast view's milestone table and the Reports Forecast section
 // (`forecast-report-section.tsx`) each render it from their own search (`useLeverSearch`). Reaching levers lead (prioritising, then people, then tasks — the later
 // ones read "or …"); what does not reach follows. Explore shows only when people or tasks reach: a prioritise-only
-// row has no draft to open.
+// row has no draft to open. The wording itself is `leverTexts` (`forecast-lever-text.ts`), shared with the export rows.
 
-import { type Lang, t, tPlural } from "./i18n";
+import { type Lang, t } from "./i18n";
 import { Badge } from "./badge";
 import { Button } from "./button";
 import { rowLabel } from "./row-tokens";
 import { ForecastDraftAsk, type DraftAskMilestone } from "./forecast-draft-ask";
-import { formatChance } from "./forecast-tables";
-import { formatHours } from "./forecast-format";
-import { localeFor } from "./date-format";
+import { leverTexts } from "./forecast-lever-text";
 import type { TargetConfidence } from "./forecast-target";
 import type { LeverKind, LeverOutcome, WhatItTakes } from "./forecast-levers";
 
@@ -30,7 +28,6 @@ export type ForecastLeverCellProps = {
   askClaude?: DraftAskMilestone;
 };
 
-const PERCENT = 100;
 const BADGE_CLASS = "border border-line bg-surface text-foreground";
 
 type Lever = { kind: LeverKind; n: number };
@@ -44,27 +41,6 @@ export function primaryLever(r: WhatItTakes): Lever | null {
 /** The other reaching lever, offered in the draft as "Or use … instead"; null when there is none. */
 export function alternativeLever(r: WhatItTakes, kind: LeverKind): Lever | null {
   return kind === "people" ? reached("tasks", r.tasks) : reached("people", r.people);
-}
-
-/** The badge texts in order, and whether any lever reaches the goal. */
-function leverTexts(lang: Lang, r: WhatItTakes, goal: TargetConfidence): { texts: string[]; anyReaches: boolean } {
-  const reach: string[] = [];
-  const notes: string[] = [];
-  if (r.prioritised !== null && r.prioritised >= goal / PERCENT) {
-    reach.push(t(lang, "forecastLeverPrioritise", formatChance(r.prioritised, lang)));
-  }
-  if (r.people.state === "reaches") reach.push(tPlural(lang, "forecastLeverPeople", r.people.n, r.people.n));
-  else if (r.people.state === "out-of-reach") notes.push(t(lang, "forecastLeverPeopleOutOfReach"));
-  else if (r.people.state === "inert" && r.people.reason === "needs-booked-hours") notes.push(t(lang, "forecastLeverNeedsHours"));
-  if (r.tasks.state === "reaches") {
-    const tasks = tPlural(lang, "forecastLeverTasks", r.tasks.n, r.tasks.n);
-    reach.push(r.tasks.hours === null ? tasks : t(lang, "forecastLeverWithHours", tasks, formatHours(r.tasks.hours, localeFor(lang))));
-  }
-  else if (r.tasks.state === "out-of-reach") notes.push(t(lang, "forecastLeverTasksOutOfReach"));
-  else if (r.tasks.state === "inert" && r.tasks.reason === "too-few-tasks") notes.push(t(lang, "forecastLeverTasksTooFew"));
-  if (r.prioritised !== null && r.prioritised < goal / PERCENT) notes.push(t(lang, "forecastLeverPrioritiseShort"));
-  const texts = [...reach.map((s, i) => (i === 0 ? s : t(lang, "forecastLeverOr", s))), ...notes];
-  return { texts, anyReaches: reach.length > 0 };
 }
 
 export function ForecastLeverCell({ lang, milestoneName, result, goal, onExplore, exploreLabel = t(lang, "forecastExplore"), askClaude }: ForecastLeverCellProps) {

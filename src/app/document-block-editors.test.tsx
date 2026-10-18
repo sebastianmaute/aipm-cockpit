@@ -18,6 +18,7 @@ import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS, MAX_BULLET_ITEMS, MAX_TEXT_CHARS, MAX_HTML_TEXT_CHARS } from "./document-model";
 import { DATA_SECTION_KEYS } from "./settings-types";
+import { ExportExtrasProvider } from "./export-extras-context";
 import { PARAGRAPH_COUNT_FROM, BlockRefusalNotice } from "./document-block-notices";
 import { htmlTextLength } from "./rich-text-plain";
 import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
@@ -1462,8 +1463,25 @@ describe("DataSectionBlockEditor", () => {
       />,
     );
     const select = screen.getByRole("combobox", { name: qualified(t(LANG, "documentsDataSectionKey")) });
-    expect(within(select).getAllByRole("option")).toHaveLength(DATA_SECTION_KEYS.length);
+    // §502 part 4 — every key but the simulated forecast decision, which needs the simulation on (next test).
+    expect(within(select).getAllByRole("option")).toHaveLength(DATA_SECTION_KEYS.length - 1);
+    expect(within(select).queryByRole("option", { name: t(LANG, "exportLabelForecastDecision") })).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("offers the forecast decision only while the simulation is active (the extras carry its source), §502 part 4", () => {
+    const name = t(LANG, "exportLabelForecastDecision");
+    const { unmount } = render(
+      <ExportExtrasProvider forecast={null} forecastDecision={() => null}>
+        <DataSectionBlockEditor lang={LANG} index={0} block={{ type: "dataSection", key: DATA_SECTION_KEYS[0] }} onCommit={vi.fn()} />
+      </ExportExtrasProvider>,
+    );
+    expect(within(screen.getByRole("combobox")).getAllByRole("option")).toHaveLength(DATA_SECTION_KEYS.length);
+    expect(within(screen.getByRole("combobox")).getByRole("option", { name })).toBeTruthy();
+    unmount();
+    // A block already set to it keeps its value selectable with the simulation off.
+    render(<DataSectionBlockEditor lang={LANG} index={0} block={{ type: "dataSection", key: "forecastDecision" }} onCommit={vi.fn()} />);
+    expect(within(screen.getByRole("combobox")).getByRole("option", { name })).toBeTruthy();
   });
 
   it("commits the chosen key", async () => {
