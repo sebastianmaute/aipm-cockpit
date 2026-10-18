@@ -206,6 +206,19 @@ describe("HelpView — reopening the intro with the switch off (§502)", () => {
     expect(de).not.toBe(t("en-US", "helpConceptForecastSimBody"));
     expect(t("de", "helpSimulationIntroNeedsSwitch")).not.toBe(t("en-US", "helpSimulationIntroNeedsSwitch"));
   });
+
+  it("names part 4's surfaces by their on-screen labels, EN and DE (§502)", async () => {
+    await loadI18n("de");
+    for (const lang of ["en-US", "de"] as const) {
+      const body = t(lang, "helpConceptForecastSimBody");
+      for (const key of ["simEvenOdds", "simSafeToCommit", "simCautious", "forecastDraftAskLabel", "forecastScenarioUseAsProposal", "forecastColChancePrioritised"] as const) {
+        expect(body).toContain(t(lang, key));
+      }
+      expect(body).toContain(lang === "de" ? "180 Tage" : "180 days");
+      expect(body).toContain("→");
+      expect(body).toContain(lang === "de" ? "als simuliert" : "marked simulated");
+    }
+  });
 });
 
 describe("HelpView — forecast view held back (§502)", () => {

@@ -28,6 +28,44 @@ Forecast-tile placeholders, all through `isSimulationActive`. Shipping the view 
 held-back tests to FAIL by design — each asserts that a surface is hidden while `"forecast"` sits in
 `RELEASE_HIDDEN_VIEWS` (`grep -rl "held back" src/app --include=*.test.ts* | xargs grep -li simulation`); invert or delete them, and drop the
 `showForecastView()` spy (`src/test/forecast-view.ts`) from the tests that use it.
+★★ **Part 4's help and guide, held back with the view (§502, spec §3.11).** Two kinds of text, two answers:
+- **The concept body went LIVE** — `helpConceptForecastSimBody` (EN and DE) already describes target confidence, what
+  it would take, the proposal, Ask Claude to draft, the Gantt band and chips, the P80 line and the export block. That
+  follows parts 1–3: the entry is withheld by `hiddenHelpEntryIds` while the view is hidden (both Help hosts filter it,
+  search included), and the hiding commit was followed by commits that wrote held-back surfaces into that very body
+  (`git log --oneline -G"helpConceptForecastSimBody" -- src/app/i18n.ts`). Nothing to paste at un-hide.
+- **Always-visible text is HELD BACK.** `helpSecReportsBody` and `lib/app-feature-guide.md` reach users and the AI
+  while the view is hidden, and no part-1–3 surface was ever described there, so part 4 is not either. At un-hide,
+  after restoring the hiding commit's Forecast sentence, paste the following verbatim.
+
+  `helpSecReportsBody`, EN — add after the restored Forecast sentence:
+  > With the simulation on, Reports also carries a Forecast section: a verdict against your target confidence, Safe to commit (P80) over time, the milestones worst first with what it would take to reach the target, and the proposal you chose, compared with as is.
+
+  and replace "Nothing on these views edits anything." (the target confidence and the Proposal list DO write a
+  project setting) with:
+  > Apart from the Forecast section's target confidence and proposal, nothing on these views edits anything.
+
+  `helpSecReportsBody`, DE — add after the restored Prognose sentence:
+  > Bei eingeschalteter Simulation enthalten die Berichte außerdem einen Abschnitt Prognose: ein Urteil gegenüber Ihrer Zielsicherheit, Sicher zusagbar (P80) im Zeitverlauf, die Meilensteine vom schwächsten an mit dem, was es bräuchte, um das Ziel zu erreichen, und den gewählten Vorschlag im Vergleich zum Ist-Stand.
+
+  and replace the opening "Auswertungen zum Lesen und Drucken, ohne Bearbeitungsmöglichkeit." with:
+  > Auswertungen zum Lesen und Drucken; bearbeiten lassen sich nur die Zielsicherheit und der Vorschlag im Abschnitt Prognose.
+
+  `lib/app-feature-guide.md`, section "Reports" — add after the restored Forecast line:
+  > - Forecast section (simulation on only): a verdict banner against the project's target confidence (Even odds 50 %, Safe to commit 80 % by default, Cautious 95 %; stored per project and kept while the switch is off; set here or in the Forecast view's header), P50 / P80 / on-time / cost-at-finish tiles, the P80-over-time line, and the milestones worst first. "What it would take" is the smallest single lever that reaches the target — +N people at the team's average hours and rate, or N fewer tasks — checked one lever at a time through the scenario engine; prioritising is the existing "Chance if prioritised" column, not a lever. Overdue milestones and milestones with no open linked tasks get no lever, and an overdue milestone keeps the verdict from "On target". "Explore in Forecast" opens the lever as an unsaved draft scenario with the same figures. "Proposed intervention" compares As is with the one saved scenario chosen as the proposal; a deleted proposal scenario reads as no proposal until undo restores it.
+  > - AI: get_forecast returns the target confidence, what it would take (plan end and each below-target milestone), the proposal and the recorded P80 history; set_forecast_target_confidence, set_forecast_proposal and delete_forecast_scenario change them under the usual approval. "Ask Claude to draft a proposal" sends a prepared request: answer it with a saved scenario (create_forecast_scenario), naming the tasks to drop in the scenario name and the chat, and do not make it the proposal unless asked. Never write into the report.
+
+  and widen that section's views marker back to include `forecast` (the hiding commit removed it). Section
+  "Trends" — add:
+  > - With the Monte Carlo simulation on: a Safe to commit (P80) over time chart from the daily forecast entries, on its own date axis with the plan end as a reference line (the snapshot dates are not its dates).
+
+  Section "Milestones & Gantt" — add:
+  > - With the Monte Carlo simulation on, the Gantt draws a faint P50–P95 finish band behind the bars, a dashed P80 line labelled "P80 {date}", and a chance chip on each milestone the forecast gives a chance. The timeline widens at most 180 days past the plan for them; a later P80 stands at the right edge with "→" after its label.
+
+  Section "Documents" — add:
+  > - While the Monte Carlo simulation is on, exports and generated documents carry a "Forecast decision (simulated)" block: the target confidence, P80 against the plan end and the chance on time, cost at finish and the chance over budget when the budget gives them, each below-target milestone with what it would take, and the proposal when one is set. Never in the CSV, Markdown or JSON storage formats.
+
+  Then run `node scripts/gen-operating-guide.mjs`.
 
 ## Module map
 
