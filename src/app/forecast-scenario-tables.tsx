@@ -203,8 +203,20 @@ export function ScenarioComparisonTable({
   );
 }
 
-type MilestoneRow = { id: number; name: string; date: string; asIs: MilestoneChance };
+export type MilestoneRow = { id: number; name: string; date: string; asIs: MilestoneChance };
 const nameOfRow = (r: MilestoneRow) => r.name;
+
+/** The milestones a run reports, joined to their names and dates, worst first (`compareRows`). Shared with the
+ *  Reports Forecast section's milestones table (§502 part 4). */
+export function milestoneRowsWorstFirst(milestones: readonly Milestone[], chances: readonly MilestoneChance[]): MilestoneRow[] {
+  const byId = new Map(milestones.map((m) => [m.id, m]));
+  return chances
+    .flatMap((c): MilestoneRow[] => {
+      const m = byId.get(c.id);
+      return m ? [{ id: m.id, name: m.name, date: m.date, asIs: c }] : [];
+    })
+    .sort(compareRows);
+}
 
 /** As-is chance ascending (worst first); a state that is not a chance ("overdue", "no linked tasks") goes last,
  *  in date order. */
@@ -237,16 +249,10 @@ export function ScenarioMilestoneTable({
   goal?: TargetConfidence;
 }) {
   const asIs = columns[0]?.column.forecast;
-  const rows = useMemo(() => {
-    if (asIs === undefined || asIs.kind !== "forecast") return [];
-    const byId = new Map(milestones.map((m) => [m.id, m]));
-    return asIs.milestones
-      .flatMap((c): MilestoneRow[] => {
-        const m = byId.get(c.id);
-        return m ? [{ id: m.id, name: m.name, date: m.date, asIs: c }] : [];
-      })
-      .sort(compareRows);
-  }, [asIs, milestones]);
+  const rows = useMemo(
+    () => (asIs === undefined || asIs.kind !== "forecast" ? [] : milestoneRowsWorstFirst(milestones, asIs.milestones)),
+    [asIs, milestones],
+  );
   const tokens = useRowTokens(rows, nameOfRow);
   const byColumn = useMemo(
     () => columns.map(({ column }) => new Map(column.forecast.kind === "forecast" ? column.forecast.milestones.map((c) => [c.id, c]) : [])),

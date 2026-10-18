@@ -59,6 +59,7 @@ import { type Task } from "./types";
 import { RaidReportPanel } from "./raid-report-panel";
 import { BudgetReportPanel } from "./budget-report-panel";
 import type { AppForecast } from "./forecast/app-forecast";
+import { ForecastReportSection, type ForecastReportProps } from "./forecast-report-section";
 import { ResourcesReportPanel } from "./resources-report";
 import { StakeholderReportPanel } from "./stakeholder-report-panel";
 import { ADDABLE_REPORTS, type AddableReportId } from "./addable-reports";
@@ -91,8 +92,9 @@ const EMPTY_BASELINE_HISTORY: readonly BaselineEntry[] = [];
 const KPI_DENSITY = densityClasses("comfortable");
 
 /** ★ Narrows a block id to one of the four embedded report panels. Those are
- *  the only blocks a feature module can switch off; the nine built-ins read
- *  from `tasks` and are always available. */
+ *  the only blocks a feature module can switch off; the built-ins read from
+ *  `tasks` and are always available, except "forecast", which its catalogue
+ *  gate hides while the simulation is off. */
 const isAddableReportId = (id: ReportBlockId): id is AddableReportId =>
   ADDABLE_REPORTS.some((r) => r.id === id);
 
@@ -110,6 +112,8 @@ export function ReportsPanel({
   budgetHistory = EMPTY_BUDGET_HISTORY,
   baselineHistory = EMPTY_BASELINE_HISTORY,
   budgetSimulation = null,
+  simulationActive = false,
+  forecast,
 }: {
   tasks: readonly Task[];
   today: string;
@@ -174,6 +178,10 @@ export function ReportsPanel({
   /** The shared schedule run for the embedded Budget report's budget simulation (§502) —
    *  computed ONCE by workspace-section through `useAppForecast`; null while the simulation is off. */
   budgetSimulation?: AppForecast | null;
+  /** `isSimulationActive(...)`: the gate of the "forecast" block (§502 part 4), as on the Dashboard. */
+  simulationActive?: boolean;
+  /** The Forecast section's inputs; absent = no Forecast block, whatever the gate says. */
+  forecast?: ForecastReportProps;
 }) {
   // id -> Resource lookup so the by-assignee grouping keys off each linked
   // task's LIVE resource name (the stored `assignee` cache goes stale on rename).
@@ -256,7 +264,7 @@ export function ReportsPanel({
   // browser will not do it for us here. The hook drives the autoscroll itself.
   const cardsScrollRef = useRef<HTMLDivElement>(null);
 
-  // ★★ THE ARRANGEMENT NOW OWNS ORDER AND VISIBILITY for all thirteen blocks,
+  // ★★ THE ARRANGEMENT NOW OWNS ORDER AND VISIBILITY for all fourteen blocks,
   // built-in and addable alike — one mechanism, not two. The old
   // `useListReorderDnd<AddableReportId>` over `extraReports`, and the
   // `onReorder → onChangeExtraReports` write it drove, are both gone.
@@ -523,6 +531,7 @@ export function ReportsPanel({
       );
     }
     if (id === "byPriority") return <ByPriorityBlock byPriority={stats.byPriority} />;
+    if (id === "forecast") return forecast ? <ForecastReportSection lang={lang} {...forecast} /> : null;
     if (id === "byGroup") {
       return (
         <ByGroupBlock
@@ -581,16 +590,16 @@ export function ReportsPanel({
     if (!spec) return false;
     // ★★★ MODULE GATING FOR THE ADDABLE REPORTS IS DONE HERE, NOT BY
     // `spec.gate`, AND THAT IS A REAL TRAP THIS CAUGHT. `ReportBlockSpec.gate`
-    // is optional and NOT ONE catalogue entry declares it today
-    // (`grep -c "gate:" src/app/report-blocks.ts` → 0), so a `spec.gate &&`
-    // test gates NOTHING — the first cut of this predicate did exactly that and
+    // is optional and NO addable report declares one — only "forecast" does
+    // (`grep -c "gate:" src/app/report-blocks.ts` → 1) — so a `spec.gate &&`
+    // test alone gates none of the four — the first cut of this predicate did exactly that and
     // silently rendered the Stakeholder report with the Stakeholders module
     // switched off. `visibleReports` is what the pre-arrangement code used and
     // is still the authority for these four ids.
-    // ★ The built-ins are ungated by design: they read from `tasks`, which is
-    // always present.
+    // ★ The other built-ins are ungated by design: they read from `tasks`, which
+    // is always present. "forecast" is gated on the simulation (§502 part 4).
     if (isAddableReportId(id) && !enabledReportIds.has(id)) return false;
-    if (spec.gate && !spec.gate(features)) return false;
+    if (spec.gate && !spec.gate({ features, simulationActive })) return false;
     return renderBlock(id) !== null;
   };
 

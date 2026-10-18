@@ -27,6 +27,7 @@ const EXPECTED_MIN_W: Record<ReportBlockId, BlockWidth> = {
   byPriority: 1,
   byGroup: 4,
   byLabel: 4,
+  forecast: 4,
   "raid-report": 4,
   "budget-report": 4,
   "resource-report": 4,
@@ -93,12 +94,27 @@ describe("report-blocks — the catalogue", () => {
   it("has exactly the expected full-width census — no block wrongly widened either", () => {
     // ★ The census direction the per-block loop above states but does not
     // advertise: a block wrongly WIDENED to 4 is as much a regression as one
-    // wrongly narrowed, and this names the seven that are meant to be there.
+    // wrongly narrowed, and this names the eight that are meant to be there.
     const expectedFull = REPORT_BLOCKS
       .filter((b) => EXPECTED_MIN_W[b.id] === 4)
       .map((b) => b.id);
     expect(REPORT_BLOCKS.filter((b) => b.minW === 4).map((b) => b.id)).toEqual(expectedFull);
-    expect(expectedFull).toHaveLength(7);
+    expect(expectedFull).toHaveLength(8);
+  });
+
+  it("declares the Forecast section full width and tall, gated on the simulation (§502 part 4)", () => {
+    const spec = reportBlockById("forecast");
+    expect(spec).toMatchObject({ w: 4, h: 4, minW: 4, maxW: 4 });
+    const features = ["budget"] as const;
+    // ★ The gate is what keeps it off the board AND the shelf while the simulation is off (`reports.tsx`'s
+    // `isRenderable` serves both); the Dashboard's Forecast tile reads the same flag.
+    expect(spec?.gate?.({ features, simulationActive: false })).toBe(false);
+    expect(spec?.gate?.({ features, simulationActive: true })).toBe(true);
+  });
+
+  it("gates no other block on the simulation", () => {
+    const gated = REPORT_BLOCKS.filter((b) => b.gate !== undefined && !b.gate({ features: [], simulationActive: false }));
+    expect(gated.map((b) => b.id)).toEqual(["forecast"]);
   });
 
   it("keeps every span within its own bounds", () => {
@@ -157,7 +173,7 @@ describe("report-blocks — label keys in DE", () => {
     }
   });
 
-  it("resolves all thirteen titles to DISTINCT strings in BOTH languages", () => {
+  it("resolves all fourteen titles to DISTINCT strings in BOTH languages", () => {
     // ★★★ THE ROUTE THE "no prop can make two titles equal" ARGUMENT DOES NOT
     // COVER. `reports.test.tsx` leaves `requireCollisionSeed` OFF because no
     // prop `ReportsPanel` accepts can make two block titles equal — every title
@@ -177,16 +193,16 @@ describe("report-blocks — label keys in DE", () => {
     //
     // ★★ THE MEASUREMENT, so nobody re-litigates this from the prop argument
     // alone. Derived from `labelKey:` in `report-blocks.ts` plus `titleKey:` in
-    // `addable-reports.ts` (13 keys), resolved through both dictionaries:
+    // `addable-reports.ts` (14 keys), resolved through both dictionaries:
     //   EN: At a glance · Group health · Open tasks by status · Completion
     //       outcomes · Status inquiries · By assignee · By priority · By group ·
-    //       By label · RAID Report · Budget Report · Resource report ·
+    //       By label · Forecast · RAID Report · Budget Report · Resource report ·
     //       Stakeholder Report
     //   DE: Auf einen Blick · Status nach Gruppe · Offene Aufgaben nach Status ·
     //       Erledigungsergebnisse · Statusabfragen · Nach Zugewiesenem · Nach
-    //       Priorität · Nach Gruppe · Nach Label · RAID-Report · Budgetbericht ·
-    //       Ressourcen-Bericht · Stakeholder-Bericht
-    // 13 unique of 13 in each. That is why `reports.test.tsx` leaves
+    //       Priorität · Nach Gruppe · Nach Label · Prognose · RAID-Report ·
+    //       Budgetbericht · Ressourcen-Bericht · Stakeholder-Bericht
+    // 14 unique of 14 in each. That is why `reports.test.tsx` leaves
     // `requireCollisionSeed` OFF — the claim rests on this check, not on the
     // prop signature.
     //
@@ -208,7 +224,7 @@ describe("report-blocks — label keys in DE", () => {
       const clashes = [...seen.entries()].filter(([, ids]) => ids.length > 1);
       expect(clashes, `${lang}: ${clashes.map(([s, ids]) => `"${s}" ← ${ids.join(", ")}`).join(" | ")}`)
         .toEqual([]);
-      // Positive control: the fixture really did resolve thirteen titles, so an
+      // Positive control: the fixture really did resolve fourteen titles, so an
       // empty catalogue could not read as "no clashes".
       expect(titles).toHaveLength(REPORT_BLOCKS.length);
       expect(titles.every((s) => s.length > 0)).toBe(true);

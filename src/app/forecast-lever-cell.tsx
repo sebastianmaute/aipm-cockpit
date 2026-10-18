@@ -1,8 +1,8 @@
 "use client";
 
 // What it would take (§502 part 4): one target's levers as badges — "On target", or "Working it out…" while the
-// search runs. Presentational: the Forecast view's milestone table renders it from its own search (`useLeverSearch`);
-// the Reports Forecast section is planned to render it the same way. Reaching levers lead (prioritising, then people, then tasks — the later
+// search runs. Presentational: the Forecast view's milestone table and the Reports Forecast section
+// (`forecast-report-section.tsx`) each render it from their own search (`useLeverSearch`). Reaching levers lead (prioritising, then people, then tasks — the later
 // ones read "or …"); what does not reach follows. Explore shows only when people or tasks reach: a prioritise-only
 // row has no draft to open.
 
@@ -23,6 +23,8 @@ export type ForecastLeverCellProps = {
   result: WhatItTakes | "pending";
   goal: TargetConfidence;
   onExplore?: (kind: LeverKind, n: number) => void;
+  /** The Explore button's visible label: "Explore" in the Forecast view, "Explore in Forecast" on Reports (spec §3.4). */
+  exploreLabel?: string;
 };
 
 const PERCENT = 100;
@@ -62,7 +64,7 @@ function leverTexts(lang: Lang, r: WhatItTakes, goal: TargetConfidence): { texts
   return { texts, anyReaches: reach.length > 0 };
 }
 
-export function ForecastLeverCell({ lang, milestoneName, result, goal, onExplore }: ForecastLeverCellProps) {
+export function ForecastLeverCell({ lang, milestoneName, result, goal, onExplore, exploreLabel = t(lang, "forecastExplore") }: ForecastLeverCellProps) {
   if (result === "pending") return <span className="text-xs text-muted-foreground">{t(lang, "forecastLeverWorking")}</span>;
   if (result.people.state === "on-target" && result.tasks.state === "on-target") {
     return <span className="text-xs text-muted-foreground">{t(lang, "forecastLeverOnTarget")}</span>;
@@ -80,9 +82,9 @@ export function ForecastLeverCell({ lang, milestoneName, result, goal, onExplore
         <p className="text-xs text-muted-foreground">{t(lang, "forecastLeverNone", t(lang, "forecastPercent", goal))}</p>
       )}
       {explore !== null && onExplore && (
-        <Button variant="secondary" size="xs" aria-label={rowLabel(t(lang, "forecastExplore"), milestoneName)}
+        <Button variant="secondary" size="xs" aria-label={rowLabel(exploreLabel, milestoneName)}
           onClick={() => onExplore(explore.kind, explore.n)}>
-          {t(lang, "forecastExplore")} <span aria-hidden="true">→</span>
+          {exploreLabel} <span aria-hidden="true">→</span>
         </Button>
       )}
     </div>
