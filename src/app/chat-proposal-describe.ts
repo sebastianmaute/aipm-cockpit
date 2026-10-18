@@ -122,20 +122,27 @@ function replaceCount(before: number, after: number): string {
   return `${before} → ${after} ${before === 1 && after === 1 ? "change" : "changes"}`;
 }
 
+/** The card line for `set_forecast_target_confidence` (§502 part 4), or null for any other tool. A project
+ *  setting, not a scenario. English, like `forecastScenarioRowTitle`: this module is i18n-free. */
+export function forecastTargetRowTitle(call: ProposedCall): string | null {
+  if (call.name !== "set_forecast_target_confidence") return null;
+  return `Set the project's target confidence to ${detailOf((call.input as { value?: unknown }).value)}%`;
+}
+
 /** The card line for a forecast scenario write (§502), or null for any other tool. Scenarios have no
  *  `INLINE_DESCRIPTORS` entry, so without this a staged update would be titled by its tool name. The row
  *  count is part of the line because an update that sends `changes` REPLACES the whole list; for a stored
  *  scenario it reads "stored → new", so a replace that drops rows says so.
  *  ★ English, like the tool-name fallback it replaces: this module is i18n-free.
- *  The three part-4 decision writes (§502) are titled here too: delete, proposal and target. */
+ *  Part 4's delete and proposal (§502) name a scenario and are titled here too; the target write names none and has
+ *  its own title, `forecastTargetRowTitle`. */
 export function forecastScenarioRowTitle(call: ProposedCall, ws: Workspace): string | null {
-  const input = call.input as { id?: unknown; name?: unknown; changes?: unknown; value?: unknown };
+  const input = call.input as { id?: unknown; name?: unknown; changes?: unknown };
   const newName = typeof input.name === "string" && input.name.trim() !== "" ? input.name.trim() : null;
   const rows = changeCount(input.changes);
   if (call.name === "create_forecast_scenario") {
     return `Save scenario "${newName ?? ""}"${rows === null ? "" : ` (${rows})`}`;
   }
-  if (call.name === "set_forecast_target_confidence") return `Set the target confidence to ${detailOf(input.value)}%`;
   if (call.name === "set_forecast_proposal" && input.id === null) return "Clear the proposal";
   const id = Number(input.id);
   const stored = ws.forecastScenarios?.find((s) => s.id === id);

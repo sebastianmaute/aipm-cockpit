@@ -6,6 +6,7 @@ import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatch
 import { showForecastView } from "../test/forecast-view";
 import { entityToken } from "./ai-entity-token";
 import { buildPlanRows, shouldStage, type ProposedCall } from "./chat-proposal";
+import { forecastScenarioRowTitle } from "./chat-proposal-describe";
 import { liveRowTitle } from "./chat-proposal-stage";
 import { runTool } from "./chat-tools";
 import { FORECAST_OFF_MESSAGE } from "./chat-tools-forecast";
@@ -631,7 +632,10 @@ describe("staging", () => {
     // A scenario this plan creates is not stored yet: its provisional id labels it.
     expect(liveRowTitle(call("set_forecast_proposal", { id: 900 }), ws)).toBe("Propose scenario #900");
     expect(liveRowTitle(call("set_forecast_proposal", { id: null }), ws)).toBe("Clear the proposal");
-    expect(liveRowTitle(call("set_forecast_target_confidence", { value: 95 }), ws)).toBe("Set the target confidence to 95%");
+    // The target is a project setting, not a scenario: its own titler, and the scenario one declines it.
+    const target = call("set_forecast_target_confidence", { value: 95 });
+    expect(liveRowTitle(target, ws)).toBe("Set the project's target confidence to 95%");
+    expect(forecastScenarioRowTitle(target, ws)).toBeNull();
   });
 
   // ★ A replace that drops rows must show it: the stored count beside the new one.

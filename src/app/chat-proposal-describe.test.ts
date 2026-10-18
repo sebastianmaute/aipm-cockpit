@@ -549,7 +549,8 @@ describe("TOOL_ENTITY", () => {
       // §502 — no descriptor, so no field diff; the card line itself carries the scenario name and the
       // row count (`forecastScenarioRowTitle`, pinned in `use-forecast-tools.test.tsx`).
       "create_forecast_scenario", "update_forecast_scenario",
-      // §502 part 4 — the same: the decision writes' card lines come from `forecastScenarioRowTitle` too.
+      // §502 part 4 — the same: the decision writes' card lines come from `forecastScenarioRowTitle` (delete,
+      // proposal) and `forecastTargetRowTitle` (target confidence).
       "delete_forecast_scenario", "set_forecast_proposal", "set_forecast_target_confidence",
     ];
     // ★★★ THE DIRECTION IS THE WHOLE POINT. Iterating that literal and asserting

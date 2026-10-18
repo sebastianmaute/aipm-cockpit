@@ -1947,7 +1947,7 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   `delete_forecast_scenario.id` are `TARGET_MINTED_BY` rows minted by `create_forecast_scenario`, so
   `[create_forecast_scenario, set_forecast_proposal(<provisional>)]` proposes the scenario the create really minted,
   and refusing the create cascades the proposal call; `targetIdOf` reads `id: null` as no id, so a clear names no
-  row. The card lines come from `forecastScenarioRowTitle`. Forecast-side detail (shared store/log rules, the
+  row. The card lines come from `forecastScenarioRowTitle` (delete, proposal) and `forecastTargetRowTitle` (target). Forecast-side detail (shared store/log rules, the
   synchronous overrides ref, the `forecastDecision` document gate) is in `docs/AGENTS/forecast.md`, "The AI tool".
   ★★ A SCENARIO MAY NAME A MILESTONE OR PERSON CREATED EARLIER IN THE SAME TURN (this was refused with "does not
   exist" until the fix). Two halves. Applied directly: `requireInput` (`use-forecast-tools.ts`) replaces the
