@@ -11,7 +11,7 @@
 
 import { type Lang, localeFor, t } from "./i18n";
 import type { ForecastBundle } from "./budget-forecast-bundle";
-import type { ForecastDecisionSource } from "./forecast-decision";
+import type { ForecastDecisionLive, ForecastDecisionSource } from "./forecast-decision";
 import {
   isEfficiencyAvailable,
   isPaceAvailable,
@@ -31,6 +31,9 @@ export type ExportExtras = {
    *  `forecastDecision` section is asked for. Absent while the simulation is
    *  off; a source returning null omits the section too. */
   forecastDecision?: ForecastDecisionSource;
+  /** What a document PREVIEW reads instead (`usePreviewExportExtras`), so its lever search runs off the render path.
+   *  Present exactly when `forecastDecision` is. */
+  forecastDecisionLive?: ForecastDecisionLive;
 };
 
 /** The forecast an export may carry: the dashboard model's bundle, or null

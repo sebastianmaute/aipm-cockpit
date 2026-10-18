@@ -1472,7 +1472,7 @@ describe("DataSectionBlockEditor", () => {
   it("offers the forecast decision only while the simulation is active (the extras carry its source), §502 part 4", () => {
     const name = t(LANG, "exportLabelForecastDecision");
     const { unmount } = render(
-      <ExportExtrasProvider forecast={null} forecastDecision={() => null}>
+      <ExportExtrasProvider forecast={null} forecastDecision={{ source: () => null, live: { goal: 80, input: () => null, base: () => null } }}>
         <DataSectionBlockEditor lang={LANG} index={0} block={{ type: "dataSection", key: DATA_SECTION_KEYS[0] }} onCommit={vi.fn()} />
       </ExportExtrasProvider>,
     );

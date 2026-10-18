@@ -3,10 +3,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { ExportExtrasProvider, useExportExtras, withPublishedForecastDecision } from "./export-extras-context";
-import type { ForecastDecisionSource } from "./forecast-decision";
+import type { ForecastDecisionHandle, ForecastDecisionSource } from "./forecast-decision";
 import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 
 const source: ForecastDecisionSource = () => ({ insufficient: true, goal: 80 });
+const handle: ForecastDecisionHandle = { source, live: { goal: 80, input: () => null, base: () => null } };
 
 function Keys() {
   return <p data-testid="keys">{Object.keys(useExportExtras()).sort().join(",")}</p>;
@@ -19,28 +20,28 @@ describe("ExportExtrasProvider — forecastDecision", () => {
     const forecast = forecastBundleFixture();
     const { rerender } = render(<ExportExtrasProvider forecast={forecast}><Keys /></ExportExtrasProvider>);
     expect(screen.getByTestId("keys").textContent).toBe("budgetForecast");
-    rerender(<ExportExtrasProvider forecast={forecast} forecastDecision={source}><Keys /></ExportExtrasProvider>);
-    expect(screen.getByTestId("keys").textContent).toBe("budgetForecast,forecastDecision");
-    rerender(<ExportExtrasProvider forecast={null} forecastDecision={source}><Keys /></ExportExtrasProvider>);
-    expect(screen.getByTestId("keys").textContent).toBe("forecastDecision");
+    rerender(<ExportExtrasProvider forecast={forecast} forecastDecision={handle}><Keys /></ExportExtrasProvider>);
+    expect(screen.getByTestId("keys").textContent).toBe("budgetForecast,forecastDecision,forecastDecisionLive");
+    rerender(<ExportExtrasProvider forecast={null} forecastDecision={handle}><Keys /></ExportExtrasProvider>);
+    expect(screen.getByTestId("keys").textContent).toBe("forecastDecision,forecastDecisionLive");
   });
 
   it("publishes the source while mounted with `publish`, and withdraws it on unmount", () => {
     expect(withPublishedForecastDecision({ budgetForecast: null })).toEqual({ budgetForecast: null });
-    const { unmount } = render(<ExportExtrasProvider forecast={null} forecastDecision={source} publish><Keys /></ExportExtrasProvider>);
+    const { unmount } = render(<ExportExtrasProvider forecast={null} forecastDecision={handle} publish><Keys /></ExportExtrasProvider>);
     expect(withPublishedForecastDecision({ budgetForecast: null })).toEqual({ budgetForecast: null, forecastDecision: source });
     unmount();
     expect(withPublishedForecastDecision({ budgetForecast: null })).toEqual({ budgetForecast: null });
   });
 
   it("withdraws it when the simulation goes off (the source becomes null)", () => {
-    const { rerender } = render(<ExportExtrasProvider forecast={null} forecastDecision={source} publish><Keys /></ExportExtrasProvider>);
+    const { rerender } = render(<ExportExtrasProvider forecast={null} forecastDecision={handle} publish><Keys /></ExportExtrasProvider>);
     rerender(<ExportExtrasProvider forecast={null} forecastDecision={null} publish><Keys /></ExportExtrasProvider>);
     expect(withPublishedForecastDecision({})).toEqual({});
   });
 
   it("never publishes from a popout (`publish` off)", () => {
-    render(<ExportExtrasProvider forecast={null} forecastDecision={source}><Keys /></ExportExtrasProvider>);
+    render(<ExportExtrasProvider forecast={null} forecastDecision={handle}><Keys /></ExportExtrasProvider>);
     expect(withPublishedForecastDecision({})).toEqual({});
   });
 });

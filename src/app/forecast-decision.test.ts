@@ -1,66 +1,14 @@
 // §502 part 4 — the forecast decision an export carries (spec §3.8): the pure model, run against the real engine.
 import { describe, expect, it, vi } from "vitest";
-import type { ForecastFacts, ForecastFactsByUnit } from "./budget-forecast";
-import type { ScenarioDirectory } from "./forecast-added-people";
-import { buildForecastDecision, forecastDecisionSource, type ForecastDecision, type ForecastDecisionArgs } from "./forecast-decision";
+import {
+  buildForecastDecision, buildForecastDecisionBase, forecastDecisionSource, withTakes, type ForecastDecision, type ForecastDecisionArgs,
+} from "./forecast-decision";
 import { whatItTakesSync } from "./forecast-levers";
 import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
 import type { ForecastScenario } from "./forecast-scenarios";
-import type { Milestone, Resource, Role, Task } from "./types";
-import { workingDaysBefore } from "./working-days";
+import { OPEN, PLAN_END, TODAY, decisionInput } from "../test/forecast-decision-fixture";
 
-// The lever engine's fixture shape (forecast-levers.test.ts): a slow team, 12 open tasks, four milestones.
-const TODAY = "2026-10-14";
-const NONE: ReadonlySet<string> = new Set();
-const PLAN_END = "2026-12-23";
-const HISTORY = [...workingDaysBefore(TODAY, 39, NONE), TODAY];
-const PATTERN = [1, 0, 0];
-
-function done(id: number, completedDate: string, assignee = ""): Task {
-  return { id, taskName: `d${id}`, assignee, assigneeEmail: "", status: "Done", completedDate, originalEstimateMinutes: 120 } as Task;
-}
-function open(id: number): Task {
-  return { id, taskName: `o${id}`, assignee: "", assigneeEmail: "", status: "To Do", originalEstimateMinutes: 120 } as Task;
-}
-const FINISHED: Task[] = [];
-HISTORY.forEach((date, i) => {
-  for (let k = 0; k < PATTERN[i % PATTERN.length]; k += 1) {
-    FINISHED.push(done(FINISHED.length + 1, date, i === 0 && k === 0 ? "Ola Nord" : i === 3 && k === 0 ? "Per Sand" : ""));
-  }
-});
-const OPEN: Task[] = Array.from({ length: 12 }, (_, i) => open(1001 + i));
-const TASKS: readonly Task[] = [...FINISHED, ...OPEN];
-// Beta: 6 linked open tasks, due soon; Empty: nothing linked; Old: overdue; Late: the rest, far out.
-const MILESTONES: readonly Milestone[] = [
-  { id: 1, name: "Beta", date: "2026-10-30", linkedTaskIds: OPEN.slice(0, 6).map((t) => t.id) },
-  { id: 2, name: "Empty", date: "2026-11-30", linkedTaskIds: [] },
-  { id: 3, name: "Old", date: "2026-10-01", linkedTaskIds: [OPEN[6].id] },
-  { id: 4, name: "Late", date: "2026-11-27", linkedTaskIds: OPEN.slice(6).map((t) => t.id) },
-  // On target: one task, far out — its chance is at or above every goal, so it is never listed.
-  { id: 5, name: "Easy", date: "2026-12-18", linkedTaskIds: [OPEN[0].id] },
-];
-const ROLE: Role = { id: 1, disciplineId: 1, gradeId: 1, internalRate: 80, externalRate: 120 };
-const DIRECTORY: ScenarioDirectory = {
-  resources: [
-    { id: 7, firstName: "Ola", lastName: "Nord", roleId: 1, utilizationMode: "percent", utilization: {} } as Resource,
-    { id: 8, firstName: "Per", lastName: "Sand", roleId: 1, utilizationMode: "percent", utilization: {} } as Resource,
-  ],
-  roles: [ROLE], shifts: [], absences: [], budgets: [], fxRates: null, workdayHours: 8, baseCurrency: "EUR",
-};
-const HOURS = [12, 16, 20];
-const FACTS: ForecastFacts = {
-  bac: 2000, ac: 800, ev: null, pv: 0, bucketsMissingPercent: [],
-  dated: HISTORY.map((date, i) => ({ date, bookedFrom: date, value: HOURS[i % 3], spread: false })),
-  planEnd: PLAN_END, today: TODAY, holidaySet: NONE, hasFixedPrice: false,
-};
-const FACTS_BY_UNIT: ForecastFactsByUnit = { eur: FACTS, hours: FACTS };
-
-function input(over: Partial<ScenarioRunInput> = {}): ScenarioRunInput {
-  return {
-    tasks: TASKS, milestones: MILESTONES, today: TODAY, holidaySet: NONE, window: 60, unit: "tasks", planEnd: PLAN_END,
-    directory: DIRECTORY, budgetFacts: FACTS_BY_UNIT, costOn: false, ...over,
-  };
-}
+const input = (over: Partial<ScenarioRunInput> = {}): ScenarioRunInput => decisionInput(over);
 const ADD_ONE: ForecastScenario = {
   id: 5, name: "Contractor from Nov",
   changes: [{ kind: "scope", tasks: -4, on: TODAY }],
@@ -161,5 +109,24 @@ describe("forecastDecisionSource", () => {
     expect(source()).toBeNull();
     expect(source()).toBeNull();
     expect(read).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("buildForecastDecisionBase and withTakes (the preview path)", () => {
+  it("is the same decision with every below-target take pending, and no lever search", () => {
+    const full = ready(buildForecastDecision(args()));
+    const base = ready(buildForecastDecisionBase(args()));
+    expect(base.below.map((m) => m.take)).toEqual(full.below.map(() => "pending"));
+    expect({ ...base, below: base.below.map((m) => ({ ...m, take: null })) })
+      .toEqual({ ...full, below: full.below.map((m) => ({ ...m, take: null })) });
+  });
+
+  it("fills each take by milestone id; an insufficient decision passes through", () => {
+    const base = ready(buildForecastDecisionBase(args()));
+    const filled = ready(withTakes(base, (id) => (id === 1 ? null : "pending")));
+    expect(filled.below.find((m) => m.id === 1)?.take).toBeNull();
+    expect(filled.below.find((m) => m.id === 4)?.take).toBe("pending");
+    const insufficient = { insufficient: true, goal: 80 } as const;
+    expect(withTakes(insufficient, () => null)).toBe(insufficient);
   });
 });

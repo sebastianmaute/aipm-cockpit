@@ -19,8 +19,8 @@ const MOCKUP: ForecastDecision = {
   insufficient: false, goal: 80, trials: 10000, p80: "2027-03-17", planEnd: "2027-02-27", chanceOnTime: 0.41,
   cost: { p80: 412000, overBudget: 0.38, currency: "EUR" },
   below: [
-    { name: "Go-live", date: "2027-02-27", chance: 0.31, take: take(0.58, reaches(2), reaches(9)) },
-    { name: "UAT sign-off", date: "2027-02-06", chance: 0.64, take: take(0.83, reaches(1), reaches(3)) },
+    { id: 1, name: "Go-live", date: "2027-02-27", chance: 0.31, take: take(0.58, reaches(2), reaches(9)) },
+    { id: 2, name: "UAT sign-off", date: "2027-02-06", chance: 0.64, take: take(0.83, reaches(1), reaches(3)) },
   ],
   proposal: { name: "Contractor from Feb + drop reporting", p80: "2027-02-24", chanceOnTime: 0.83, costP80: 431000 },
 };
@@ -48,12 +48,17 @@ describe("forecastDecisionRows (§502 part 4)", () => {
   });
 
   it("words a milestone whose search had no answer (whatItTakesSync returned null) without crashing", () => {
-    const rows = forecastDecisionRows(decision({ below: [{ name: "Beta", date: "2027-01-15", chance: 0.2, take: null }] }), LANG);
+    const rows = forecastDecisionRows(decision({ below: [{ id: 3, name: "Beta", date: "2027-01-15", chance: 0.2, take: null }] }), LANG);
     expect(rows).toContainEqual(["Below target: Beta (15 Jan 2027)", "20% — what it would take is not known"]);
   });
 
+  it("words a milestone whose background search is still running (a preview) as Working it out…", () => {
+    const rows = forecastDecisionRows(decision({ below: [{ id: 3, name: "Beta", date: "2027-01-15", chance: 0.2, take: "pending" }] }), LANG);
+    expect(rows).toContainEqual(["Below target: Beta (15 Jan 2027)", "20% — Working it out…"]);
+  });
+
   it("words every lever that does not reach: out of reach, needs booked hours, too few tasks, no open tasks", () => {
-    const row = (t: WhatItTakes) => forecastDecisionRows(decision({ below: [{ name: "M", date: "2027-01-15", chance: 0.2, take: t }] }), LANG).at(-2)?.[1];
+    const row = (t: WhatItTakes) => forecastDecisionRows(decision({ below: [{ id: 4, name: "M", date: "2027-01-15", chance: 0.2, take: t }] }), LANG).at(-2)?.[1];
     expect(row(take(null, { state: "out-of-reach" }, { state: "out-of-reach" })))
       .toBe("20% — no single lever reaches 80%, adding people: not within reach, dropping tasks: not within reach");
     expect(row(take(null, { state: "inert", reason: "needs-booked-hours" }, { state: "inert", reason: "too-few-tasks" })))

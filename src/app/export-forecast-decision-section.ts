@@ -26,6 +26,8 @@ function milestoneValue(lang: Lang, m: ForecastDecisionMilestone, goal: TargetCo
   const goalText = t(lang, "forecastPercent", goal);
   const chance = formatChance(m.chance, lang);
   if (m.take === null) return `${chance} — ${t(lang, "forecastDecisionTakeUnknown")}`;
+  // A preview's background search has not settled this one yet (the Reports cell's own placeholder).
+  if (m.take === "pending") return `${chance} — ${t(lang, "forecastLeverWorking")}`;
   const { texts, anyReaches } = leverTexts(lang, m.take, goal);
   const lever = anyReaches
     ? t(lang, "forecastDecisionToReach", goalText, texts.join(", "))

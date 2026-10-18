@@ -19,9 +19,23 @@ const DEPS: ForecastDecisionSourceDeps = {
 };
 
 describe("useForecastDecisionSource", () => {
-  it("is null with the simulation off, and while the holiday calendar loads", () => {
+  it("is null exactly while the simulation is off — the one gate that offers the section", () => {
     expect(renderHook(() => useForecastDecisionSource({ ...DEPS, simulationActive: false })).result.current).toBeNull();
-    expect(renderHook(() => useForecastDecisionSource({ ...DEPS, holidaysReady: false })).result.current).toBeNull();
+    expect(renderHook(() => useForecastDecisionSource(DEPS)).result.current).not.toBeNull();
+  });
+
+  it("while the holiday calendar loads, the handle is offered but its decision is null (the section is omitted)", () => {
+    const handle = renderHook(() => useForecastDecisionSource({ ...DEPS, holidaysReady: false })).result.current;
+    expect(handle?.source()).toBeNull();
+    expect(handle?.live.input()).toBeNull();
+    expect(handle?.live.base()).toBeNull();
+  });
+
+  it("hands the preview the same input identity every time, and the base with nothing searched", () => {
+    const handle = renderHook(() => useForecastDecisionSource({ ...DEPS, settingsOverrides: { forecast: { targetConfidence: 95 } } })).result.current;
+    expect(handle?.live.goal).toBe(95);
+    expect(handle?.live.input()).toBe(handle?.live.input());
+    expect(handle?.live.base()).toMatchObject({ insufficient: false, goal: 95, below: [] });
   });
 
   it("keeps one source across renders, built from the app-wide defaults and the plan end", () => {
@@ -35,6 +49,6 @@ describe("useForecastDecisionSource", () => {
     expect(args.simulationActive).toBe(true);
     expect(args.input).toMatchObject({ window: 60, unit: "tasks", planEnd: "2026-12-23", budgetFacts: null, costOn: false });
     // Nothing open: the engine answers at once, with nothing below target and no proposal.
-    expect(first?.()).toMatchObject({ insufficient: false, goal: 80, planEnd: "2026-12-23", below: [], proposal: null });
+    expect(first?.source()).toMatchObject({ insufficient: false, goal: 80, planEnd: "2026-12-23", below: [], proposal: null });
   });
 });
