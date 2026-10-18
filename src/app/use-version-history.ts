@@ -17,7 +17,7 @@ import type { TursoConfig } from "./turso-config";
 import { logDiag } from "./diagnostics";
 import { repairLoadedRaid } from "./raid-cause-repair";
 import type { ProjectVersion, ProjectVersionMeta } from "./version-history";
-import { readCaptureFormat, speaksForEmptySlices, stampCaptureFormat } from "./version-capture-format";
+import { captureSpeaks, readCaptureFormat, speaksForEmptySlices, speaksForScenarios, stampCaptureFormat } from "./version-capture-format";
 
 export interface UseVersionHistoryArgs {
   config: TursoConfig | null;
@@ -75,6 +75,9 @@ export interface UseVersionHistoryResult {
 //     after the reset, so counting it would let a stale write mask a transient.
 //   - `documentVersions` is derived from `documents` (`workspace-context.tsx`
 //     sets both from one loader result), so it inherits the same objection.
+// `forecastScenarios` is deliberately uncounted for a different reason: a scenario
+// is a set of what-if changes over tasks and milestones and means nothing in a
+// project with none of them, so it cannot make an otherwise-empty payload substantive.
 // Same reasoning already excludes `activityLog` — see docs/AGENTS/activity-log.md —
 // and `budgetHistory`, which is storage-only: carried by the save funnel
 // (`use-storage-backend.ts`'s `outgoing`) but deliberately absent from the
@@ -166,8 +169,9 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         // ★ The OLDER side governs: an unstamped `prev` cannot speak for the
         // six, so a summary built against it must not read every live record
         // as "added" and announce "Knowledge (5)" on a capture that added none.
-        const speaks = speaksForEmptySlices(readCaptureFormat(prev));
-        try { summary = summarizeDiff(diffWorkspaces(jsonToWorkspace(prev), jsonToWorkspace(payload), { olderSpeaksForEmptySlices: speaks })) || null; }
+        const prevFormat = readCaptureFormat(prev);
+        const speaks = speaksForEmptySlices(prevFormat);
+        try { summary = summarizeDiff(diffWorkspaces(jsonToWorkspace(prev), jsonToWorkspace(payload), { olderSpeaksForEmptySlices: speaks, olderSpeaksForScenarios: speaksForScenarios(prevFormat) })) || null; }
         catch { summary = null; } // never let a summary failure block capture
       }
       const capturedAt = new Date().toISOString();
@@ -224,8 +228,9 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         // version. (Manual checkpoints always capture.)
         // ★★ §241 (closed 2026-09-27) — this gate sees only what
         //  `COLLECTION_SPECS` (version-diff.ts) walks, so a payload slice without
-        //  a row would make a session that edits only it capture NOTHING. All 24
-        //  slices `getVersionPayload` (use-version-history-wiring.ts) emits have a row today.
+        //  a row would make a session that edits only it capture NOTHING. Every
+        //  slice `getVersionPayload` (use-version-history-wiring.ts) emits has a row today (count the rows:
+        //  `awk '/^export const COLLECTION_SPECS/,/^\];/' src/app/version-diff.ts | grep -c 'key: "'`).
         //  `documents` and `documentVersions` are `restorable: false` ON PURPOSE:
         //  diff-visible, but a document is restored through its own document
         //  history (tombstones, docs/AGENTS/documents.md), not this panel. A new
@@ -235,8 +240,9 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
             // ★ Same rule as the summary above: judged against what `prev` can
             // actually speak about, or an unstamped `prev` makes every live
             // record of the six read as "added" and arms a capture on no change.
-            const speaks = speaksForEmptySlices(readCaptureFormat(prev));
-            if (diffWorkspaces(jsonToWorkspace(prev), jsonToWorkspace(payload), { olderSpeaksForEmptySlices: speaks }).length === 0) return;
+            const prevFormat = readCaptureFormat(prev);
+            const speaks = speaksForEmptySlices(prevFormat);
+            if (diffWorkspaces(jsonToWorkspace(prev), jsonToWorkspace(payload), { olderSpeaksForEmptySlices: speaks, olderSpeaksForScenarios: speaksForScenarios(prevFormat) }).length === 0) return;
           } catch {
             // If the diff itself fails, fall through and capture rather than
             // silently dropping a potentially-real change.
@@ -289,15 +295,16 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       // misleading diff but a wipe: every live record reads as "added" and the
       // restore deletes it. `emptyWorkspace()` carries the nine core lists as
       // `[]`, so the absent-key guard below cannot catch that shape.
-      const speaks = speaksForEmptySlices(readCaptureFormat(verStr));
-      const version = prepareAgainstNow(jsonToWorkspace(verStr, { strict: true }), versionId, speaks);
+      const verFormat = readCaptureFormat(verStr);
+      const speak = captureSpeaks(verFormat);
+      const version = prepareAgainstNow(jsonToWorkspace(verStr, { strict: true }), versionId, speak.diff.olderSpeaksForEmptySlices);
       const now = jsonToWorkspace(getPayload());
-      const changes = diffWorkspaces(version, now, { olderSpeaksForEmptySlices: speaks });
+      const changes = diffWorkspaces(version, now, speak.diff);
       // §674: a version saved before the cause-cycle guard can hold a loop. Repair it
       // here, as a load (it has no before-image either), and log it; handed to the
       // setter raw it would be broken against the CURRENT state and logged as a write.
       // Before the capture, so the auto version records what the app then holds.
-      const merged = applyRestore(now, version, changes, selection, { versionSpeaksForEmptySlices: speaks, workdayHours });
+      const merged = applyRestore(now, version, changes, selection, { ...speak.restore, workdayHours });
       // §502: the simulation switch is a viewing choice, so it stays at the CURRENT value. Pinned AFTER the
       // merge so the blind-capture guard still saw the version's own `undefined`.
       const restored = {
@@ -334,11 +341,12 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         // ★ Only a vs-NOW compare is converted. A version-to-version compare stays RAW: the two
         // sides have no single denomination to convert into, and nothing is restored from it.
         const older = jsonToWorkspace(fromStr, { strict: true });
-        const speaks = speaksForEmptySlices(readCaptureFormat(fromStr));
+        const fromFormat = readCaptureFormat(fromStr);
+        const speaks = speaksForEmptySlices(fromFormat);
         return diffWorkspaces(
           to === "now" ? prepareAgainstNow(older, fromId, speaks) : older,
           jsonToWorkspace(toStr, { strict: true }),
-          { olderSpeaksForEmptySlices: speaks },
+          { olderSpeaksForEmptySlices: speaks, olderSpeaksForScenarios: speaksForScenarios(fromFormat) },
         );
       } catch (parseErr) {
         // A parse throw here = a truncated/malformed payload (e.g. a big version

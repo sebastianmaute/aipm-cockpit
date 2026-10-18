@@ -4,6 +4,16 @@ import { type PopoutTab, readPopoutTabFromUrl } from "./broadcast-sync";
 import { type AppView, buildHash, slugToView } from "./nav-config";
 import type { ApiMessage, DisplayItem } from "./chat-api";
 import type { DocRefKind } from "./document-ref";
+import type { LeverKind, LeverTarget } from "./forecast-levers";
+
+/** An Explore request (§502 part 4): open the Forecast view's Scenarios mode on an unsaved draft of this lever,
+ *  with the other reaching lever (if any) offered as the alternative. */
+export type ForecastDraftRequest = {
+  target: LeverTarget;
+  kind: LeverKind;
+  n: number;
+  alt: { kind: LeverKind; n: number } | null;
+};
 
 /** A chat conversation held in memory so it survives view-navigation remounts
  *  (the modern shell mounts one view at a time). `history` is the Anthropic wire
@@ -42,6 +52,10 @@ interface WorkspaceTabContextValue {
   pendingDocEntityFilter: { kind: DocRefKind; id: number } | null;
   requestDocumentsForEntity: (kind: DocRefKind, id: number) => void;
   clearDocEntityFilter: () => void;
+  /** Armed by an Explore outside the Forecast view (no caller yet; the Reports Forecast section is planned to); consumed by the Forecast view, which mounts fresh. */
+  pendingForecastDraft: ForecastDraftRequest | null;
+  requestForecastDraft: (req: ForecastDraftRequest) => void;
+  clearForecastDraft: () => void;
   // In-memory per-project chat store: read at (re)mount + on project switch,
   // written on change. A ref (not state) so the whole shell doesn't re-render on
   // every chat message; ChatPanel owns the reactive copy.
@@ -105,6 +119,12 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
     setPendingDocEntityFilter({ kind, id });
   }, []);
   const clearDocEntityFilter = useCallback(() => setPendingDocEntityFilter(null), []);
+  const [pendingForecastDraft, setPendingForecastDraft] = useState<ForecastDraftRequest | null>(null);
+  const requestForecastDraft = useCallback((req: ForecastDraftRequest) => {
+    setActiveTab("forecast");
+    setPendingForecastDraft(req);
+  }, []);
+  const clearForecastDraft = useCallback(() => setPendingForecastDraft(null), []);
   const chatConvRef = useRef<Map<string, ChatConversation>>(new Map());
   const getChatConversation = useCallback(
     (projectId: string): ChatConversation | undefined => chatConvRef.current.get(projectId),
@@ -122,7 +142,7 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
     m.set(projectId, conv);
   }, []);
   return (
-    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingChatSeed, requestChat, clearChatSeed, pendingHelpConcept, requestHelpConcept, clearHelpConcept, pendingDocEntityFilter, requestDocumentsForEntity, clearDocEntityFilter, getChatConversation, saveChatConversation }}>
+    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingChatSeed, requestChat, clearChatSeed, pendingHelpConcept, requestHelpConcept, clearHelpConcept, pendingDocEntityFilter, requestDocumentsForEntity, clearDocEntityFilter, pendingForecastDraft, requestForecastDraft, clearForecastDraft, getChatConversation, saveChatConversation }}>
       {children}
     </WorkspaceTabContext.Provider>
   );

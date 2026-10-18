@@ -271,3 +271,75 @@ describe("useVersionHistoryWiring — prepareVersion and the simulation switch (
     expect(h.result.current.ws.settingsOverrides).toEqual({ ...TZ, ...ON });
   });
 });
+
+describe("useVersionHistoryWiring — forecast scenarios in capture and restore (§502)", () => {
+  const A = { id: 1, name: "Add one person", changes: [] };
+  const B = { id: 2, name: "Cut scope", changes: [] };
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** The REAL `useVersionHistory` over the wiring's own args, as the §502 switch test above does. */
+  async function mountEngine(capture: string, live: readonly (typeof A)[]) {
+    const h = mount();
+    act(() => { h.result.current.ws.setForecastScenarios(live); });
+    const real = await vi.importActual<typeof import("./use-version-history")>("./use-version-history");
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(capture);
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    vi.spyOn(store, "appendVersion").mockResolvedValue();
+    vi.spyOn(store, "pruneVersions").mockResolvedValue();
+    const wired = args();
+    const engine = renderHook(() => real.useVersionHistory(wired));
+    return { h, engine };
+  }
+
+  const capturePayload = (format: number | null, over: Record<string, unknown> = {}) =>
+    JSON.stringify({ ...(format === null ? {} : { captureFormat: format }), ...emptyWorkspace(), tasks: [mkTask(1)], ...over }, null, 2);
+
+  const SELECT_ALL = {
+    [changeKey("tasks", 1)]: "all" as const,
+    [changeKey("forecastScenarios", 1)]: "all" as const,
+    [changeKey("forecastScenarios", 2)]: "all" as const,
+  };
+
+  it("the capture payload carries the scenarios", () => {
+    const h = mount();
+    act(() => { h.result.current.ws.setForecastScenarios([A, B]); });
+    expect((JSON.parse(args().getPayload()) as Workspace).forecastScenarios).toEqual([A, B]);
+  });
+
+  it("a restored workspace fans its scenarios into the context", () => {
+    const h = mount();
+    act(() => { args().applyWorkspace?.({ ...emptyWorkspace(), forecastScenarios: [A] }); });
+    expect(h.result.current.ws.forecastScenarios).toEqual([A]);
+  });
+
+  it.each([[2], [null]])(
+    "a capture at format %s (null = unstamped) without scenarios shows no scenario row and a restore keeps both live scenarios",
+    async (format) => {
+      const { h, engine } = await mountEngine(capturePayload(format), [A, B]);
+      let changes: Awaited<ReturnType<typeof engine.result.current.loadDiff>> = [];
+      await act(async () => { changes = await engine.result.current.loadDiff("v1", "now"); });
+      // Positive control: the diff ran and sees the task the capture holds.
+      expect(changes.some((c) => c.collection === "tasks")).toBe(true);
+      expect(changes.filter((c) => c.collection === "forecastScenarios")).toEqual([]);
+      let ok = false;
+      await act(async () => { ok = await engine.result.current.restore("v1", SELECT_ALL, "l"); });
+      expect(ok).toBe(true);
+      expect(h.result.current.ws.tasks.map((t) => t.id)).toEqual([1]);
+      expect(h.result.current.ws.forecastScenarios).toEqual([A, B]);
+    },
+  );
+
+  it("a format-3 capture speaks for scenarios: the row shows the one added since, and restoring it removes it", async () => {
+    const { h, engine } = await mountEngine(capturePayload(3, { forecastScenarios: [A] }), [A, B]);
+    let changes: Awaited<ReturnType<typeof engine.result.current.loadDiff>> = [];
+    await act(async () => { changes = await engine.result.current.loadDiff("v1", "now"); });
+    expect(changes.filter((c) => c.collection === "forecastScenarios").map((c) => [c.recordId, c.type, c.recordLabel]))
+      .toEqual([[2, "added", "Cut scope"]]);
+    let ok = false;
+    await act(async () => { ok = await engine.result.current.restore("v1", { [changeKey("forecastScenarios", 2)]: "all" }, "l"); });
+    expect(ok).toBe(true);
+    expect(h.result.current.ws.forecastScenarios).toEqual([A]);
+  });
+});

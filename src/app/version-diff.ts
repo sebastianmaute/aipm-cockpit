@@ -5,7 +5,7 @@
 // powers the read-only compare view and (Slice 3) selective restore.
 
 import type { Workspace } from "./workspace";
-import { PRE_FORMAT_2_BLIND_SLICES } from "./version-capture-format";
+import { isBlindSlice } from "./version-capture-format";
 import { resourceDisplayName, roleLabel } from "./resource-foundation";
 
 export type ChangeType = "added" | "removed" | "modified";
@@ -158,6 +158,7 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   { key: "knowledgeItems", label: "Knowledge", kind: "list", nameField: "name" },
   { key: "insights", label: "Insights", kind: "list", nameField: "key" },
   { key: "calendarEvents", label: "Calendar events", kind: "list", nameField: "title" },
+  { key: "forecastScenarios", label: "Forecast scenarios", kind: "list", nameField: "name" },
   // ★★ DIFF-VISIBLE, NOT RESTORABLE — see the `restorable` docstring on
   // CollectionSpec. `applyDocMutation` owns document history (before-images,
   // tombstones, retention: docs/AGENTS/documents.md); a workspace-level restore
@@ -261,16 +262,20 @@ function diffSingleton(spec: CollectionSpec, older: unknown, newer: unknown): Ve
  *  "Restored N change(s)" for a restore that changed nothing. Emitting no row is
  *  the only version of this that cannot lie: a capture that cannot speak about a
  *  slice has no opinion to show. The guard in `applyRestore` then becomes
- *  defence in depth rather than the whole mechanism. */
+ *  defence in depth rather than the whole mechanism.
+ *  ★★ `olderSpeaksForScenarios` carries the same discipline for `forecastScenarios`: pass
+ *  `speaksForScenarios(readCaptureFormat(payload))` for the same stored capture, and give
+ *  `applyRestore` the same value as `versionSpeaksForScenarios`. */
 export function diffWorkspaces(
   older: Workspace,
   newer: Workspace,
-  opts?: { olderSpeaksForEmptySlices?: boolean },
+  opts?: { olderSpeaksForEmptySlices?: boolean; olderSpeaksForScenarios?: boolean },
 ): VersionChange[] {
   const out: VersionChange[] = [];
-  const blind = !opts?.olderSpeaksForEmptySlices;
+  const speaksEmpty = !!opts?.olderSpeaksForEmptySlices;
+  const speaksScenarios = !!opts?.olderSpeaksForScenarios;
   for (const spec of COLLECTION_SPECS) {
-    if (blind && PRE_FORMAT_2_BLIND_SLICES.has(spec.key) && older[spec.key] === undefined) continue;
+    if (isBlindSlice(spec.key, speaksEmpty, speaksScenarios) && older[spec.key] === undefined) continue;
     if (spec.kind === "list") out.push(...diffList(spec, older[spec.key] as unknown[], newer[spec.key] as unknown[], older, newer));
     else out.push(...diffSingleton(spec, older[spec.key], newer[spec.key]));
   }
