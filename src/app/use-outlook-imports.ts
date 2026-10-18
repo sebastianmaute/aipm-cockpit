@@ -107,7 +107,7 @@ export function useOutlookImports(deps: OutlookImportsDeps) {
         ),
       );
       setImportOpen(false);
-      showToast("info", t(lang, "outlookImportedN", selected.length));
+      showToast("info", tPlural(lang, "outlookImportedN", selected.length, selected.length));
     },
     [handleImportResources, setContacts, showToast, lang, setImportOpen],
   );

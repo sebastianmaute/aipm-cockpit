@@ -46,6 +46,12 @@ longer carries its own changelog comment.
   already stored stays listed until you discard it.
 - **Run and fetch times read as times (§715).** A scheduled job's "Last run" and Timelog's "Last fetched" showed the
   stored UTC value ("2026-09-21T07:05:12.345Z"); they now show the date and time in the display timezone.
+- **One of a thing is singular (§715).** In twelve places a count read "1 buckets", "1 days", "1 tasks",
+  "1 contacts" or "1 writes" when there was one: the Budget header, the forecast run-out, the export menu, the
+  new-project import notice, earned-value coverage, the Outlook contact import, the AI assistant's proposed
+  writes, the forecast gap line and its tip (also in the export), the estimate-to-complete tip, the rate-mix
+  points ("+1 pt") and the simulation histogram. Each now says one in the singular, in English and German.
+  Earned-value coverage now reads "Estimates on 1 of 5 tasks", so the verb no longer has to agree with a count.
 - **Ask Claude edits milestones and RAID items again (§715).** A description change on a milestone or a
   mitigation on a RAID item always ended in "No changes to apply": Claude looked the item up first, a step the
   one-shot edit cannot answer. It is now offered only the changes it can make.

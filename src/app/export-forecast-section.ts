@@ -9,7 +9,7 @@
 //  the CSV / Markdown / JSON workspace formats never carry it (they are
 //  storage round-trip formats, pinned byte for byte by the golden tests).
 
-import { type Lang, localeFor, t } from "./i18n";
+import { type Lang, localeFor, t, tPlural } from "./i18n";
 import type { ForecastBundle } from "./budget-forecast-bundle";
 import {
   isEfficiencyAvailable,
@@ -94,7 +94,7 @@ export function budgetForecastRows(bundle: ForecastBundle | null | undefined, la
       t(lang, "exportForecastGap"),
       [t(lang, eur.gap.severity === "warning" ? "forecastGapWarning" : "forecastGapInfo", money(eur.gap.eacDifference), pctText),
         // The same extra-days clause the dashboard card's GapLine shows.
-        eur.gap.extraWorkingDays === null ? null : t(lang, "forecastGapExtraDays", String(eur.gap.extraWorkingDays)),
+        eur.gap.extraWorkingDays === null ? null : tPlural(lang, "forecastGapExtraDays", eur.gap.extraWorkingDays, String(eur.gap.extraWorkingDays)),
       ].filter((part): part is string => part !== null).join(" "),
     ]);
   }
