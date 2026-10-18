@@ -988,6 +988,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§748](#748-background-workers-may-help-across-the-app-starting-with-the-monte-carlo-forecast--open) | Background workers may help across the app, starting with the Monte Carlo forecast | — | — | open |
 | [§749](#749-a-claude-api-key-typed-under-the-passphrase-lock-is-lost-on-reload-and-two-ai-sections-disagree-about-the-lock--open) | A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock | — | — | open |
 | [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--open) | Something starts a save of the empty Turso workspace before a project exists | — | — | open |
+| [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--open) | window.prompt throws in the desktop app, so six flows fail there | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45650,3 +45651,23 @@ The symptom is closed on `fix/715-empty-unload-journal` (§715): `use-unload-jou
 Size S to trace; the fix is unknown until then.
 
 **Source:** found 2026-10-18 in a §715 A recording; the owner chose to fix the symptom and file the cause.
+
+## 752. window.prompt throws in the desktop app, so six flows fail there — OPEN
+
+**Status:** OPEN 2026-10-18, measured on the installed 1.19.0 desktop build: `window.prompt("probe", "x")` called in the app's page over the debug port threw `Error: prompt() is not supported.` (an untracked Playwright script). The call sites: `grep -rnE "window\.prompt\(" src/app --include=*.ts --include=*.tsx | grep -v test` → six.
+
+**Work item:** #783
+
+Electron does not implement `window.prompt`, so on desktop each of these flows ends in that exception instead of asking:
+
+- inserting a link in the rich-text editor (`rich-text-editor.tsx`);
+- naming a communication-template version (`settings-sections/comm-templates-section.tsx`);
+- the four "enter the email address" prompts before an inquiry or update mail: Action Center (`use-action-center-handlers.ts`), bulk send (`use-bulk-operations.ts`), RAID item (`use-raid-items.ts`), task row (`use-task-row-handlers.ts`).
+
+The same files also use `window.confirm` (bulk send, reloading an empty project, three file-overwrite paths in `use-storage-file-ops.ts`) and `window.alert` (an invalid email, a Jira-synced assignee in `use-task-submit.ts`). Those work in Electron (not measured) but are the same kind of native dialog the task delete moved off (§715 D5); a page-level test cannot drive them without a dialog handler either.
+
+Proposed: an app text-input dialog beside `ConfirmProvider` (`confirm-dialog.tsx`), the six prompts moved to it first, then the confirms and alerts, each with a test that fails on the native call.
+
+Size M.
+
+**Source:** found 2026-10-18 in the defect sweep after the §715 recordings (owner: verify on desktop, then file).
