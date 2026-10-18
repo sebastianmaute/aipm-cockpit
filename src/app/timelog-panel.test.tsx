@@ -1,5 +1,6 @@
 // src/app/timelog-panel.test.tsx
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { formatDisplayTimestamp } from "./tz-display";
 import { render, screen, fireEvent, act, waitFor, within } from "@testing-library/react";
 import { useEffect, useState, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -2735,4 +2736,26 @@ describe("TimelogPanel", () => {
     });
   });
 
+});
+
+// §715 — "Last fetched" shows the fetch time formatted, never the stored UTC string. Without the display-
+// timezone provider (as here) it falls back to the browser's zone.
+describe("§715 — Timelog's last fetch time", () => {
+  it("reads as a formatted time, not as raw UTC", async () => {
+    enableTimelog();
+    const { useTimelogSync } = await import("./use-timelog-sync");
+    vi.mocked(useTimelogSync).mockReturnValue(
+      { ...defaultSyncReturn(), fetchedAt: "2026-06-23T10:00:00.000Z" } as unknown as ReturnType<typeof useTimelogSync>,
+    );
+    render(
+      <>
+        <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
+        <TimelogPanel lang="en-US" />
+      </>,
+      { wrapper },
+    );
+    const shown = formatDisplayTimestamp("2026-06-23T10:00:00.000Z", Intl.DateTimeFormat().resolvedOptions().timeZone, "en-US");
+    await waitFor(() => expect(document.body.textContent).toContain(`Last fetched ${shown}`));
+    expect(screen.queryByText(/2026-06-23T10:00:00\.000Z/)).toBeNull();
+  });
 });

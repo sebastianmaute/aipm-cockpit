@@ -40,6 +40,8 @@ longer carries its own changelog comment.
   first project exists, is no longer kept as an unsaved draft, so it is never offered back as one from "another
   project". Project details, the dashboard summary and the other project-level fields still count as a draft.
   An empty draft already stored stays listed until you discard it.
+- **Run and fetch times read as times (§715).** A scheduled job's "Last run" and Timelog's "Last fetched" showed the
+  stored UTC value ("2026-09-21T07:05:12.345Z"); they now show the date and time in the display timezone.
 - **Ask Claude edits milestones and RAID items again (§715).** A description change on a milestone or a
   mitigation on a RAID item always ended in "No changes to apply": Claude looked the item up first, a step the
   one-shot edit cannot answer. It is now offered only the changes it can make.

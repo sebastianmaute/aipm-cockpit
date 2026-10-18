@@ -6,6 +6,8 @@ import { t } from "../i18n";
 import type { ScheduledJob } from "../scheduled-jobs/types";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { buttonClassFor } from "../../test/button-variant";
+import { DisplayTimezoneProvider } from "../display-timezone-context";
+import { formatDisplayTimestamp } from "../tz-display";
 
 // Mock the persistence hook — these are pure UI tests (mirrors how
 // comm-templates-section.test mocks use-comm-template-versions).
@@ -147,7 +149,9 @@ describe("ScheduledJobsSection", () => {
       }),
     ];
     setup(withKey({ scheduledJobs: true }));
-    expect(screen.getByText(/2026-06-18T09:00:00Z/)).toBeInTheDocument();
+    expect(screen.queryByText(/2026-06-18T09:00:00Z/)).toBeNull();
+    const shown = formatDisplayTimestamp("2026-06-18T09:00:00Z", Intl.DateTimeFormat().resolvedOptions().timeZone, "en-US");
+    expect(screen.getByText((_, el) => el?.tagName === "SPAN" && !!el.textContent?.startsWith(`Last run: ${shown}`))).toBeInTheDocument();
     expect(screen.getByText(/3 suggestions/)).toBeInTheDocument();
   });
 
@@ -218,5 +222,34 @@ describe("ScheduledJobsSection Add job", () => {
     expect(screen.getByRole("button", { name: t("en-US", "scheduledJobsAdd") }).className).toBe(
       buttonClassFor({ variant: "accent", size: "xs", className: "self-start" }),
     );
+  });
+});
+
+// §715 — a run's time is shown in the display timezone, never as the stored UTC string ("2026-09-21T07:05:…Z").
+describe("§715 — scheduled-job run times in the display timezone", () => {
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // A zone other than the machine's, so a read of the browser zone instead of the provider's fails.
+  const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone === "Asia/Tokyo" ? "America/New_York" : "Asia/Tokyo";
+  it("the last run and an earlier one read in the project's zone", () => {
+    mockJobs = [
+      job({
+        id: 3,
+        name: "Morning check",
+        history: [
+          { ranAt: "2026-09-21T07:05:12.345Z", summary: "ok", actionCount: 2, ok: true },
+          { ranAt: "2026-09-20T07:05:00.000Z", summary: "ok", actionCount: 1, ok: true },
+        ],
+      }),
+    ];
+    render(
+      <DisplayTimezoneProvider effectiveTz={ZONE}>
+        <ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: true })} onChange={vi.fn()} config={null} />
+      </DisplayTimezoneProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "showMore")} – Morning check` }));
+    expect(screen.queryByText(/T07:05/)).toBeNull();
+    for (const iso of ["2026-09-21T07:05:12.345Z", "2026-09-20T07:05:00.000Z"]) {
+      expect(screen.getByText(new RegExp(esc(formatDisplayTimestamp(iso, ZONE, "en-US"))))).toBeInTheDocument();
+    }
   });
 });
