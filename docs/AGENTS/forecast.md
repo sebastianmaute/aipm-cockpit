@@ -41,8 +41,11 @@ held-back tests to FAIL by design — each asserts that a surface is hidden whil
   `helpSecReportsBody`, EN — add after the restored Forecast sentence:
   > With the simulation on, Reports also carries a Forecast section: a verdict against your target confidence, Safe to commit (P80) over time, the milestones worst first with what it would take to reach the target, and the proposal you chose, compared with as is.
 
-  and replace "Nothing on these views edits anything." (the target confidence and the Proposal list DO write a
-  project setting) with:
+  and, because the target confidence and the Proposal list DO write a project setting, replace the opener
+  "Read-only summaries, built for printing." with:
+  > Summaries, built for printing.
+
+  and replace "Nothing on these views edits anything." with:
   > Apart from the Forecast section's target confidence and proposal, nothing on these views edits anything.
 
   `helpSecReportsBody`, DE — add after the restored Prognose sentence:
@@ -52,7 +55,7 @@ held-back tests to FAIL by design — each asserts that a surface is hidden whil
   > Auswertungen zum Lesen und Drucken; bearbeiten lassen sich nur die Zielsicherheit und der Vorschlag im Abschnitt Prognose.
 
   `lib/app-feature-guide.md`, section "Reports" — add after the restored Forecast line:
-  > - Forecast section (simulation on only): a verdict banner against the project's target confidence (Even odds 50 %, Safe to commit 80 % by default, Cautious 95 %; stored per project and kept while the switch is off; set here or in the Forecast view's header), P50 / P80 / on-time / cost-at-finish tiles, the P80-over-time line, and the milestones worst first. "What it would take" is the smallest single lever that reaches the target — +N people at the team's average hours and rate, or N fewer tasks — checked one lever at a time through the scenario engine; prioritising is the existing "Chance if prioritised" column, not a lever. Overdue milestones and milestones with no open linked tasks get no lever, and an overdue milestone keeps the verdict from "On target". "Explore in Forecast" opens the lever as an unsaved draft scenario with the same figures. "Proposed intervention" compares As is with the one saved scenario chosen as the proposal; a deleted proposal scenario reads as no proposal until undo restores it.
+  > - Forecast section (simulation on only): a verdict banner against the project's target confidence (Even odds 50 %, Safe to commit 80 % by default, Cautious 95 %; stored per project and kept while the switch is off; set here or in the Forecast view's header), P50 / P80 / on-time / cost-at-finish tiles, the P80-over-time line, and the milestones worst first. "What it would take" is the smallest single lever that reaches the target — +N people at the team's average hours and rate, or N fewer tasks — checked one lever at a time through the scenario engine. Prioritising is shown beside them, from the "Chance if prioritised" column ("prioritise it → X %", or "prioritising alone: not enough"), but Explore cannot open it, because a scenario cannot model it. Overdue milestones and milestones with no open linked tasks get no lever, and an overdue milestone keeps the verdict from "On target". "Explore in Forecast" opens the lever as an unsaved draft scenario with the same figures. "Proposed intervention" compares As is with the one saved scenario chosen as the proposal; a deleted proposal scenario reads as no proposal until undo restores it.
   > - AI: get_forecast returns the target confidence, what it would take (plan end and each below-target milestone), the proposal and the recorded P80 history; set_forecast_target_confidence, set_forecast_proposal and delete_forecast_scenario change them under the usual approval. "Ask Claude to draft a proposal" sends a prepared request: answer it with a saved scenario (create_forecast_scenario), naming the tasks to drop in the scenario name and the chat, and do not make it the proposal unless asked. Never write into the report.
 
   and widen that section's views marker back to include `forecast` (the hiding commit removed it). Section
@@ -63,9 +66,13 @@ held-back tests to FAIL by design — each asserts that a surface is hidden whil
   > - With the Monte Carlo simulation on, the Gantt draws a faint P50–P95 finish band behind the bars, a dashed P80 line labelled "P80 {date}", and a chance chip on each milestone the forecast gives a chance. The timeline widens at most 180 days past the plan for them; a later P80 stands at the right edge with "→" after its label.
 
   Section "Documents" — add:
-  > - While the Monte Carlo simulation is on, exports and generated documents carry a "Forecast decision (simulated)" block: the target confidence, P80 against the plan end and the chance on time, cost at finish and the chance over budget when the budget gives them, each below-target milestone with what it would take, and the proposal when one is set. Never in the CSV, Markdown or JSON storage formats.
+  > - While the Monte Carlo simulation is on, exports and generated documents carry a "Forecast decision (simulated)" block: the target confidence, P80 against the plan end and the chance on time, cost at finish and the chance over budget when the budget gives them, each below-target milestone with what it would take, each overdue milestone, and the proposal when one is set. Never in the CSV, Markdown or JSON storage formats.
 
   Then run `node scripts/gen-operating-guide.mjs`.
+
+  ★ Still described in NO help text: part 3's burn-chart simulation (the finish band, P80 line and cost wedge in the
+  burn charts; see "Budget simulation — part 3" below). Neither the concept body nor the held-back text above covers
+  it; write its help before or at un-hide.
 
 ## Module map
 
