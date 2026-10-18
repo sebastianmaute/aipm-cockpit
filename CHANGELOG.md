@@ -36,8 +36,8 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **One of a thing is singular (§715).** In twelve places a count read "1 buckets", "1 days", "1 tasks", "1
-  contacts" or "1 writes" when there was one: the Budget header, the forecast run-out, the export menu, the
+- **One of a thing is singular (§715).** In twelve places a count read "1 buckets", "1 days", "1 tasks",
+  "1 contacts" or "1 writes" when there was one: the Budget header, the forecast run-out, the export menu, the
   new-project import notice, earned-value coverage, the Outlook contact import, the AI assistant's proposed
   writes, the forecast gap line and its tip (also in the export), the estimate-to-complete tip, the rate-mix
   points ("+1 pt") and the simulation histogram. Each now says one in the singular, in English and German.
