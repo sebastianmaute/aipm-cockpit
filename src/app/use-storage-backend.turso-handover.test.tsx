@@ -199,4 +199,27 @@ describe("§751 — the Turso portfolio with no project chosen saves nothing", (
     expect(taskNames("p1")).toEqual(["KEPT-IN-P1"]);
     expect(storedRevision(db, "p1")).toBe("1");
   });
+
+  // The pre-switch flush (`flushCurrent`) writes the live workspace to the CURRENT backend before a
+  // switch or a create. In this state that is the single-project backend, so picking a project — the
+  // very action that leaves the state — would send the same unscoped delete.
+  it("choosing a project with no project chosen flushes nothing to the single-project layout", async () => {
+    const peer = new TursoBackend(CONFIG, "p1");
+    peer.forceNextSave();
+    await peer.save({ ...emptyWorkspace(), project: META, tasks: [KEPT] });
+    localStorage.setItem(MODE_KEY, "turso");
+    const sent: string[] = [];
+    const real = fakeTursoFetch(db);
+    vi.stubGlobal("fetch", (async (...args: Parameters<typeof fetch>) => {
+      sent.push(String((args[1] as RequestInit | undefined)?.body ?? ""));
+      return real(...args);
+    }) as typeof fetch);
+    const app = renderApp({ kind: "turso" });
+    await booted(app);
+    await act(async () => { app.hook.result.current.workspace.setTasks([edited]); });
+    await act(async () => { await app.ops().switchToTursoProject("p1"); });
+    expect(sent.filter((b) => /DELETE FROM tasks(?! WHERE)/.test(b))).toEqual([]);
+    expect(taskNames("p1")).toEqual(["KEPT-IN-P1"]);
+    expect(storedRevision(db, "p1")).toBe("1");
+  });
 });
