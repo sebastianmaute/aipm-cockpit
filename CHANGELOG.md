@@ -36,9 +36,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **One of a thing is singular (§715).** Six counts read "1 buckets", "1 days", "1 tasks" or "1 contacts" when
-  there was one: the Budget header, the forecast run-out, the export menu, the new-project import notice,
-  earned-value coverage and the Outlook contact import. Each now says one in the singular, in English and
+- **One of a thing is singular (§715).** Ten counts read "1 buckets", "1 days", "1 tasks", "1 contacts" or "1 writes"
+  when there was one: the Budget header, the forecast run-out, the export menu, the new-project import notice,
+  earned-value coverage, the Outlook contact import, the AI assistant's proposed writes, the forecast gap line
+  and its tip (also in the export), and the simulation histogram. Each now says one in the singular, in English and
   German. Earned-value coverage now reads "Estimates on 1 of 5 tasks", so the verb no longer has to agree
   with a count.
 - **Ask Claude edits milestones and RAID items again (§715).** A description change on a milestone or a

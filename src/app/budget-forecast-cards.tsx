@@ -424,13 +424,13 @@ function GapLine({
   const extra = gap.extraWorkingDays === null ? null : (
     <>
       {" "}
-      {t(lang, "forecastGapExtraDays", String(gap.extraWorkingDays))}
+      {tPlural(lang, "forecastGapExtraDays", gap.extraWorkingDays, String(gap.extraWorkingDays))}
       <TermTooltip
         lang={lang}
         term={t(lang, "forecastExtraDaysTerm")}
         means
-        tip={t(
-          lang, "forecastTipExtraDays",
+        tip={tPlural(
+          lang, "forecastTipExtraDays", gap.extraWorkingDays + pace.workingDaysLeft,
           money(efficiency.etc), money(pace.burnRatePerDay),
           String(gap.extraWorkingDays + pace.workingDaysLeft), String(gap.extraWorkingDays),
         )}

@@ -6,7 +6,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadI18n, t, tPlural, type Lang, type TranslationKey } from "./i18n";
 
-type Case = { key: string; file: string; one: (lang: Lang) => string; en: string; de: string };
+// `exact`: the whole string is compared, where the singular is a prefix of the plural ("1 write" in "1 writes").
+type Case = { key: string; file: string; one: (lang: Lang) => string; en: string; de: string; exact?: boolean };
 
 // `one` renders the string with a count of 1 through tPlural, as the call site does.
 const CASES: Case[] = [
@@ -19,6 +20,12 @@ const CASES: Case[] = [
   { key: "wizardImportTasksPart", file: "create-project-wizard.tsx", one: (l) => tPlural(l, "wizardImportTasksPart" as never, 1, 1), en: "1 task", de: "1 Aufgabe" },
   { key: "wizardImportRaidPart", file: "create-project-wizard.tsx", one: (l) => tPlural(l, "wizardImportRaidPart" as never, 1, 1), en: "1 RAID item", de: "1 RAID-Eintrag" },
   { key: "wizardImportBudgetsPart", file: "create-project-wizard.tsx", one: (l) => tPlural(l, "wizardImportBudgetsPart" as never, 1, 1), en: "1 budget", de: "1 Budget" },
+  // Found by the branch review: four more counts that can be 1.
+  { key: "chatProposalCount", file: "chat-proposal-block.tsx", one: (l) => tPlural(l, "chatProposalCount" as never, 1, 1), en: "1 write", de: "1 Schreibvorgang", exact: true },
+  { key: "forecastGapExtraDays", file: "budget-forecast-cards.tsx", one: (l) => tPlural(l, "forecastGapExtraDays" as never, 1, "1"), en: "1 working day beyond", de: "1 Arbeitstag über" },
+  { key: "forecastGapExtraDays", file: "export-forecast-section.ts", one: (l) => tPlural(l, "forecastGapExtraDays" as never, 1, "1"), en: "1 working day beyond", de: "1 Arbeitstag über" },
+  { key: "forecastTipExtraDays", file: "budget-forecast-cards.tsx", one: (l) => tPlural(l, "forecastTipExtraDays" as never, 1, "€10", "€10", "1", "1"), en: "= 1 working day, 1 more", de: "= 1 Arbeitstag, 1 mehr" },
+  { key: "simHistogramIn", file: "sim-explainer.tsx", one: (l) => tPlural(l, "simHistogramIn" as never, 1, "1"), en: "in 1 working day", de: "in 1 Arbeitstag", exact: true },
 ];
 
 beforeAll(async () => { await loadI18n("de"); });
@@ -26,8 +33,13 @@ beforeAll(async () => { await loadI18n("de"); });
 describe("§715 — counts that can be 1 are singular", () => {
   for (const c of CASES) {
     it(`${c.key}: singular in English and German, plural otherwise`, () => {
-      expect(c.one("en-US")).toContain(c.en);
-      expect(c.one("de")).toContain(c.de);
+      if (c.exact) {
+        expect(c.one("en-US")).toBe(c.en);
+        expect(c.one("de")).toBe(c.de);
+      } else {
+        expect(c.one("en-US")).toContain(c.en);
+        expect(c.one("de")).toContain(c.de);
+      }
       // a count of 2 picks the plural, which is a different string
       expect(tPlural("en-US", c.key as never, 2, 2, 2, 2)).toBe(t("en-US", c.key as TranslationKey, 2, 2, 2));
       expect(t("en-US", c.key as TranslationKey, 2, 2, 2)).not.toBe(t("en-US", `${c.key}One` as TranslationKey, 2, 2, 2));

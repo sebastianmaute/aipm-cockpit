@@ -938,6 +938,8 @@ const enUS = {
   forecastExtraDaysTerm: "Extra working days",
   forecastGapExtraDays:
     "At current efficiency the work needs {0} working days beyond the planned end; the pace forecast assumes it finishes on time.",
+  forecastGapExtraDaysOne:
+    "At current efficiency the work needs {0} working day beyond the planned end; the pace forecast assumes it finishes on time.",
   forecastBannerStartsOn:
     "The current-pace forecast starts on {0}. It needs {1} working days of bookings; there are {2} so far, starting {3}.",
   forecastBannerStartsOnceBooked:
@@ -1103,6 +1105,8 @@ const enUS = {
     "Percent complete, from the tasks linked to each budget bucket or a manual % complete on the bucket. Without it, this card cannot be calculated and shows what is missing.",
   forecastTipExtraDays:
     "At current efficiency the remaining work needs ETC {0} ÷ burn rate {1} = {2} working days, {3} more than are left before the plan end.",
+  forecastTipExtraDaysOne:
+    "At current efficiency the remaining work needs ETC {0} ÷ burn rate {1} = {2} working day, {3} more than are left before the plan end.",
   forecastSplitSince: "Since {0}",
   forecastSplitPerformance: "Performance",
   forecastSplitScope: "Added scope",
@@ -3840,6 +3844,7 @@ const enUS = {
   simExplainerHelp: "Learn more in Help",
   simHistogramAria: "Spread of simulated finish times. Even odds {0}, safe to commit {1}, cautious {2}.",
   simHistogramIn: "in {0} working days",
+  simHistogramInOne: "in {0} working day",
   simHistogramBeyond: "beyond the horizon",
   simBeyondHorizon: "{0} of runs did not finish within the horizon.",
   simEvenOdds: "Even odds",
@@ -5538,6 +5543,7 @@ const enUS = {
   assetExportBlocked: "[Image not shown — file type not allowed: {0}]",
   chatProposalTitle: "Proposed changes",
   chatProposalCount: "{0} writes",
+  chatProposalCountOne: "{0} write",
   chatProposalApply: "Apply",
   chatProposalDiscard: "Discard",
   chatProposalSelected: "{0} selected",
