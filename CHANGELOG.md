@@ -133,8 +133,13 @@ longer carries its own changelog comment.
   the plan as it is, with a live comparison, and Cancel returns to where you started. One saved scenario can be
   marked as the proposal. The target and the proposal are saved with the project and logged; a version saved now
   shows scenario changes when compared or restored, while older versions leave today's scenarios alone. Opening
-  and saving the project in an older version of the app drops the target and the proposal. It stays hidden while
-  the Forecast view is held back.
+  and saving the project in an older version of the app drops the target and the proposal. The same answers
+  reach the rest of the app: Reports gains a Forecast section with a verdict, the P80 date over time, the
+  milestones worst first, the proposal side by side with the plan, and a forecast by group; the Gantt shows the
+  P50–P95 band, a dashed P80 line and each milestone's chance; Trends charts the P80 date over time; "Ask Claude
+  to draft a proposal" asks the assistant to find and save one; and exports and documents can carry a
+  "simulated" decision block with the target, the P80 date, the cost, the milestones below target and the
+  proposal. It stays hidden while the Forecast view is held back.
 
 ## [1.19.0] - 2026-10-15 "Nesbø"
 
