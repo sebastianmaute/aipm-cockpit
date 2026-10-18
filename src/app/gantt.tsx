@@ -65,6 +65,7 @@ import {
   type PlacedTask,
   shiftIsoDate,
   toISODay,
+  FORECAST_AXIS_EXTENSION_DAYS,
 } from "./gantt-engine";
 
 // ---------- panel component ------------------------------------------------
@@ -575,9 +576,10 @@ export function GanttPanel({
     // edge widen the axis: the handle stays reachable and its slider value in
     // range. A pointer drag does not: widening under the pointer would shift
     // the chart away from it.
-    const foldIso = (iso: string) => {
-      const d = parseISO(iso);
-      if (!d) return;
+    const foldIso = (iso: string, cap?: Date) => {
+      const parsed = parseISO(iso);
+      if (!parsed) return;
+      const d = cap !== undefined && parsed.getTime() > cap.getTime() ? cap : parsed;
       if (!initialized) {
         min = d;
         max = d;
@@ -597,10 +599,14 @@ export function GanttPanel({
       for (const iso of baselineMilestoneDates.values()) foldIso(iso);
     }
     // §502 part 4 — and the simulated band (P50 to P95; the P80 line lies between), so a finish later than the
-    // plan, the case the band exists to show, widens the axis instead of piling up on its edge. Only a percentile
-    // past the horizon (null, labelled "> 5 y") still clamps. With the simulation off `forecast` is null: no change.
+    // plan, the case the band exists to show, widens the axis instead of piling up on its edge. ★ BOUNDED: at most
+    // FORECAST_AXIS_EXTENSION_DAYS past the planned range (bars, milestones, baselines, today). A P95 years out
+    // would otherwise make the timeline tens of thousands of px wide, one node per day in three layers. A percentile
+    // beyond the cap, or past the horizon (null), clamps to the edge and the layer marks it. Simulation off: no change.
     if (forecast?.kind === "forecast") {
-      for (const iso of [forecast.p50, forecast.p95]) if (iso !== null) foldIso(iso);
+      const planned = initialized && max.getTime() > today.getTime() ? max : today;
+      const cap = addDays(planned, FORECAST_AXIS_EXTENSION_DAYS);
+      for (const iso of [forecast.p50, forecast.p95]) if (iso !== null) foldIso(iso, cap);
     }
     if (!initialized) {
       min = addDays(today, -7);

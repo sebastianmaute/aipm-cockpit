@@ -6,8 +6,9 @@
 // Presentational and inert, like gantt-overlays.tsx: `aria-hidden` (the same dates are read out on the
 // Dashboard's Forecast tile and the Reports Forecast section) and `pointer-events-none`, so it can never
 // intercept a bar drag. It draws on the SHARED day geometry (`dayLeftPx`); the caller's `dayIndexOf` owns
-// the clamping. The panel widens its axis to every dated percentile (`gantt.tsx`'s range), so only a finish
-// past the horizon (`null`) sits on the edge rather than off the chart.
+// the clamping. The panel widens its axis to the dated percentiles, at most `FORECAST_AXIS_EXTENSION_DAYS` past
+// the plan (`gantt.tsx`'s range); a finish beyond that, or past the horizon (`null`), sits on the edge rather than
+// off the chart, and the label carries an arrow (`p80BeyondAxis`) so the line is not read as its date.
 //
 // ★ The band is `bg-ui-green/10`: faint enough that a bar drawn over it keeps its own colour (eye-checked by
 // the owner at un-hide, spec §3.7 "the band stays faint enough that bars read clearly").
@@ -23,6 +24,7 @@ export function GanttForecastLayer({
   p80,
   p95,
   dayIndexOf,
+  p80BeyondAxis,
   nameColWidth,
   height,
 }: {
@@ -34,6 +36,8 @@ export function GanttForecastLayer({
   /** The axis day index of a date, clamped to the visible range (`null` = past the horizon, the last day);
    *  `null` back only for a date that does not parse. */
   dayIndexOf: (iso: string | null) => number | null;
+  /** True when the P80 date lies past the right edge (`isBeyondAxis`): the line is clamped there, so it is marked. */
+  p80BeyondAxis: boolean;
   nameColWidth: number;
   height: number;
 }) {
@@ -73,6 +77,9 @@ export function GanttForecastLayer({
           style={{ left: lineLeft - 2 }}
         >
           {label}
+          {/* Beyond the axis (past the bounded widening, or the horizon): the line stands at the edge, not at its
+              date, which the label still names; the arrow says the date lies further right. */}
+          {p80BeyondAxis && <span data-gantt-forecast-beyond=""> →</span>}
         </span>
       </div>
     </>

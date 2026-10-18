@@ -6,7 +6,7 @@ import { render, screen } from "@testing-library/react";
 import { GanttPanel } from "./gantt";
 import { formatWhen } from "./forecast-tables";
 import { dayLeftPx } from "./gantt-overlays";
-import { DAY_WIDTH_PX, LEFT_GUTTER_PX } from "./gantt-engine";
+import { DAY_WIDTH_PX, FORECAST_AXIS_EXTENSION_DAYS, LEFT_GUTTER_PX } from "./gantt-engine";
 import type { AppForecast, MilestoneChance } from "./forecast/app-forecast";
 import type { Milestone, Task } from "./types";
 
@@ -105,6 +105,30 @@ describe("GanttPanel — the axis takes in the forecast (§502)", () => {
     expect(widthOf(forecast())).toBe(plain); // P95 at day +25, inside the axis's day +33
     // Positive control: the same observable moves when the forecast runs past the plan (to day +63: 30 more days).
     expect(widthOf(late())).toBe(plain + 30 * DAY_WIDTH_PX);
+  });
+
+  // Second review I1 — the widening is BOUNDED: a P95 years out would make the timeline tens of thousands of px wide.
+  test("a P95 two years out widens by exactly the cap; the band ends at the edge and the P80 line is marked", () => {
+    const far: AppForecast = { ...late(), p80: dayPlus(500), p95: dayPlus(730) } as AppForecast;
+    const { container, unmount } = render(<GanttPanel {...PROPS} forecast={null} />);
+    const plain = chartWidth(container);
+    unmount();
+    const { container: c } = render(<GanttPanel {...PROPS} forecast={far} />);
+    // Planned range ends at day +30 (the bar): the axis runs to +30 + cap, then 3 days' padding.
+    expect(chartWidth(c)).toBe(plain + (30 + FORECAST_AXIS_EXTENSION_DAYS - 30) * DAY_WIDTH_PX);
+    const lastIndex = 30 + FORECAST_AXIS_EXTENSION_DAYS + 3 + 32;
+    const band = c.querySelector<HTMLElement>("[data-gantt-forecast-band]")!;
+    expect(parseFloat(band.style.left) + parseFloat(band.style.width)).toBe(dayLeftPx(lastIndex, LEFT_GUTTER_PX) + DAY_WIDTH_PX);
+    expect(c.querySelector<HTMLElement>("[data-gantt-forecast-p80]")!.style.left).toBe(`${dayLeftPx(lastIndex, LEFT_GUTTER_PX)}px`);
+    expect(c.querySelector("[data-gantt-forecast-beyond]")).not.toBeNull();
+    // The label still names the true date (and the sr-only line carries it too).
+    expect(screen.getByText(`P80 ${formatWhen(dayPlus(500), "en-US")}`, { selector: ".sr-only" })).toBeTruthy();
+  });
+
+  test("a P80 on its true day carries no edge cue", () => {
+    const { container } = render(<GanttPanel {...PROPS} forecast={late()} />);
+    expect(container.querySelector("[data-gantt-forecast-p80]")).not.toBeNull();
+    expect(container.querySelector("[data-gantt-forecast-beyond]")).toBeNull();
   });
 });
 

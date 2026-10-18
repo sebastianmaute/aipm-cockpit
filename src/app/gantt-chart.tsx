@@ -31,6 +31,7 @@ import { type GanttMilestoneDrag, type MilestoneDragState } from "./use-gantt-mi
 import { useGanttRowWindow } from "./use-gantt-row-window";
 import {
   clampedDayIndex,
+  isBeyondAxis,
   fmtFull,
   type GanttBarEdit,
   type GanttPrefs,
@@ -337,6 +338,7 @@ export function GanttChart({
                 p80={forecast.p80}
                 p95={forecast.p95}
                 dayIndexOf={(iso) => clampedDayIndex(range, iso)}
+                p80BeyondAxis={isBeyondAxis(range, forecast.p80)}
                 nameColWidth={nameColWidth}
                 height={totalRowsCount * ROW_HEIGHT_PX}
               />
