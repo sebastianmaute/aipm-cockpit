@@ -600,6 +600,7 @@ describe("§629 — useUnloadJournal on its own", () => {
 describe("§715 — a workspace with nothing authored is never journalled", () => {
   const KEY = `${UNLOAD_JOURNAL_PREFIX}p1`;
   const KEPT_KEY = `${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1")}`;
+  // Built before the clock below is pinned; it holds a task, so its plan is never compared.
   const WS_1: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "One" } as unknown as Task] };
 
   // The default plan follows today's month, and the live and stored workspaces are built at different
