@@ -29,6 +29,21 @@ describe("withSimulation", () => {
     expect(withSimulation({ forecast: { showSimulation: true } }, false)).toBeUndefined();
   });
 
+  it("turning it off keeps the target and the proposal (§502)", () => {
+    expect(withSimulation({ forecast: { showSimulation: true, targetConfidence: 95 } }, false)).toEqual({
+      forecast: { targetConfidence: 95 },
+    });
+    expect(withSimulation({ forecast: { showSimulation: true, proposalScenarioId: 2 } }, false)).toEqual({
+      forecast: { proposalScenarioId: 2 },
+    });
+  });
+
+  it("turning it on keeps the target and the proposal (§502)", () => {
+    expect(withSimulation({ forecast: { targetConfidence: 50, proposalScenarioId: 2 } }, true)).toEqual({
+      forecast: { showSimulation: true, targetConfidence: 50, proposalScenarioId: 2 },
+    });
+  });
+
   it("turning it off keeps other override keys", () => {
     const o: SettingsOverrides = {
       timezone: { timezone: "Europe/Berlin" },

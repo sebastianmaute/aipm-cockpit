@@ -116,6 +116,15 @@ longer carries its own changelog comment.
   scenario: one change applies at once, several go to the review card first, edits can be undone, and every change
   is in the activity log. It cannot delete a scenario. The Forecast view gains "Ask Claude about this forecast" with
   four suggested questions. It stays hidden while the Forecast view is held back.
+- **The Forecast view says what it would take, held back with the forecast (§502, part 4).** A target confidence
+  of 50%, 80% or 95% sets which chance counts as safe, and each milestone and the plan end gain a "What it would
+  take" answer: the fewest people to add, at the team's average hours and rate, or the fewest tasks to drop, to
+  reach that target, and, where tasks carry estimates, about how many hours that is. "Explore" opens it as a draft scenario beside
+  the plan as it is, with a live comparison, and Cancel returns to where you started. One saved scenario can be
+  marked as the proposal. The target and the proposal are saved with the project and logged; a version saved now
+  shows scenario changes when compared or restored, while older versions leave today's scenarios alone. Opening
+  and saving the project in an older version of the app drops the target and the proposal. It stays hidden while
+  the Forecast view is held back.
 
 ## [1.19.0] - 2026-10-15 "Nesbø"
 

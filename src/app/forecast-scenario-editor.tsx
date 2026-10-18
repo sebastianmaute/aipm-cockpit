@@ -18,10 +18,11 @@ import type { ScheduleContext } from "./forecast-added-people";
 import { changeDayWindow } from "./forecast-added-people";
 import { buildScenarioSchedule } from "./forecast-scenario-schedule";
 import {
-  MAX_SCENARIO_CHANGES, REFERENCE_ERRORS, keepsStoredReference, validateScenarioChange, validateScenarioDraft,
+  MAX_FORECAST_SCENARIOS, MAX_SCENARIO_CHANGES, REFERENCE_ERRORS, keepsStoredReference, validateScenarioChange, validateScenarioDraft,
   type ForecastScenario, type ScenarioChange, type ScenarioError, type ValidationContext,
 } from "./forecast-scenarios";
 import type { ScenarioDraft } from "./use-forecast-scenarios";
+import { ScenarioDraftCompare, type DraftCompareInput } from "./forecast-scenario-draft-compare";
 import {
   ScenarioChangeRow, errorField, fieldId, newChange, rowErrorSummary, type DraftRow, type RowError, type RowLive,
 } from "./forecast-scenario-change-rows";
@@ -38,7 +39,22 @@ export type ForecastScenarioEditorProps = {
   /** null = saved (the caller closes the editor); a string = the write was refused, shown above Save. */
   onSave: (d: ScenarioDraft) => string | null;
   onCancel: () => void;
+  /** A new scenario's starting name and rows (an Explore draft, §502 part 4); read at mount only. */
+  seed?: ScenarioDraft;
+  /** The other lever: "Or use {label} instead" swaps name and rows for its seed. */
+  alt?: { label: string; seed: ScenarioDraft };
+  /** What the seed stands for ("+2 people on Go-live"): with it, the swap goes both ways; without, once. */
+  seedLabel?: string;
+  /** The project is at the scenario cap: Save is disabled, with the cap message beside it. */
+  capReached?: boolean;
+  /** As is and its run input: with it, a live As is vs. Draft comparison under the rows (spec §3.4). */
+  compare?: DraftCompareInput;
 };
+
+function seededRows(changes: readonly ScenarioChange[]): { list: readonly DraftRow[]; next: number } {
+  const list = changes.map((change, key) => ({ key, change }));
+  return { list, next: list.length };
+}
 
 type Errors = { draft: ScenarioError | null; rows: ReadonlyMap<number, RowError> };
 const NO_ERRORS: Errors = { draft: null, rows: new Map() };
@@ -72,11 +88,12 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
   const titleId = `${prefix}-title`;
   const nameId = `${prefix}-name`;
   const capId = `${prefix}-cap`;
-  const [name, setName] = useState(scenario?.name ?? "");
-  const [rows, setRows] = useState<{ list: readonly DraftRow[]; next: number }>(() => {
-    const list = (scenario?.changes ?? []).map((change, key) => ({ key, change }));
-    return { list, next: list.length };
-  });
+  const scenarioCapId = `${prefix}-scenario-cap`;
+  const [name, setName] = useState(scenario?.name ?? p.seed?.name ?? "");
+  const [rows, setRows] = useState<{ list: readonly DraftRow[]; next: number }>(
+    () => seededRows(scenario?.changes ?? p.seed?.changes ?? []),
+  );
+  const [onAlt, setOnAlt] = useState(false);
   const [errors, setErrors] = useState<Errors>(NO_ERRORS);
   // The summary alert's text, built in `save` and frozen until the next Save: edits that clear an error must not
   // rewrite a live alert in place, or the screen reader re-reads it on the user's first keystroke into each field.
@@ -90,6 +107,11 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
     [context],
   );
   const { live, doublesTeam } = useMemo(() => liveStatuses(rows.list, context, vctx), [rows.list, context, vctx]);
+  // The rows the live comparison runs: only a complete draft (one row or more, every row schedulable); null otherwise.
+  const draftChanges = useMemo(
+    () => (rows.list.length > 0 && rows.list.every((r) => isSchedulable(r.change, vctx)) ? rows.list.map((r) => r.change) : null),
+    [rows.list, vctx],
+  );
   if (!p.open) return null;
 
   const atCap = rows.list.length >= MAX_SCENARIO_CHANGES;
@@ -112,6 +134,21 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
     });
   };
   const remove = (key: number) => setRows((prev) => ({ ...prev, list: prev.list.filter((r) => r.key !== key) }));
+  // The other lever's seed replaces the draft (and, with a `seedLabel`, the first one comes back the same way). The
+  // rows take fresh keys, so no row's control state carries over.
+  const swapTo = onAlt ? (p.seed && p.seedLabel !== undefined ? { label: p.seedLabel, seed: p.seed } : null) : p.alt ?? null;
+  const swap = () => {
+    if (swapTo === null) return;
+    const { seed } = swapTo;
+    setName(seed.name);
+    setRows((prev) => ({
+      list: seed.changes.map((change, i) => ({ key: prev.next + i, change })),
+      next: prev.next + seed.changes.length,
+    }));
+    setErrors(NO_ERRORS);
+    setAnnounced(null);
+    setOnAlt((v) => !v);
+  };
 
   const save = () => {
     const changes = rows.list.map((r) => r.change);
@@ -193,6 +230,11 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
               ))}
             </ol>
           )}
+          {swapTo !== null && (
+            <div>
+              <Button variant="ghost" size="xs" onClick={swap}>{t(lang, "forecastScenarioUseAlt", swapTo.label)}</Button>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             {addButton("availability", "forecastScenarioAddAvailability")}
             {addButton("addPeople", "forecastScenarioAddPeople")}
@@ -201,7 +243,11 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
             {atCap && <span id={capId} className="text-xs text-muted-foreground">{t(lang, "forecastScenarioErrTooMany", MAX_SCENARIO_CHANGES)}</span>}
           </div>
           {announced && <p key={saves} role="alert" className="text-xs font-medium text-ui-pink-strong">{announced}</p>}
-          <ScenarioDialogActions lang={lang} onCancel={p.onCancel} onSave={save} />
+          <ScenarioDialogActions
+            lang={lang} onCancel={p.onCancel} onSave={save}
+            blocked={p.capReached ? { id: scenarioCapId, text: t(lang, "forecastScenarioCapReached", MAX_FORECAST_SCENARIOS) } : undefined}
+          />
+          {p.compare && <ScenarioDraftCompare lang={lang} compare={p.compare} context={context} changes={draftChanges} />}
         </div>
       </div>
     </Modal>

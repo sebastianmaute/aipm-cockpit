@@ -176,7 +176,15 @@ export function seedMintFromWorkspace(
   seedMintKind("calendarEvent", ws.calendarEvents ?? [], mode);
   seedMintKind("document", ws.documents ?? [], mode);
   seedMintKind("documentVersion", ws.documentVersions ?? [], mode);
-  seedMintKind("forecastScenario", ws.forecastScenarios ?? [], mode);
+  // ★★ The proposed scenario's id is also a reference: `proposalIdOf` resolves a kept
+  // stale id, so a minter that re-issued a deleted proposed max id would make the
+  // proposal silently move onto an unrelated new scenario after a reload (§502).
+  const proposalId = ws.settingsOverrides?.forecast?.proposalScenarioId;
+  seedMark(
+    "forecastScenario",
+    Math.max(maxIdOf(ws.forecastScenarios ?? []), Number.isSafeInteger(proposalId) ? (proposalId as number) : 0),
+    mode,
+  );
 }
 
 /**

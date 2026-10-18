@@ -148,6 +148,17 @@ describe("seedMintFromWorkspace", () => {
     expect(mintId("forecastScenario", [])).toBe(5);
   });
 
+  it("does not re-issue the id of a deleted proposed scenario after a reseed (§502)", () => {
+    seedMintFromWorkspace(
+      {
+        forecastScenarios: [{ id: 2, name: "a", changes: [] }],
+        settingsOverrides: { forecast: { proposalScenarioId: 7 } },
+      } as unknown as Parameters<typeof seedMintFromWorkspace>[0],
+      "reset",
+    );
+    expect(mintId("forecastScenario", [{ id: 2 }])).toBe(8);
+  });
+
   // ★★ A saved scenario keeps the id of a DELETED milestone or person on
   //    purpose, so seeding from the live lists alone would hand that id out
   //    again after a reload and silently attach the stale scenario row to the

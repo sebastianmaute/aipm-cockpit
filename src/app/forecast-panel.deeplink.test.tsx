@@ -3,7 +3,7 @@
 // the same `useDeepLinkRowFlash` contract the Milestones and Changes panels honour.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { ForecastPanelDeepLinked } from "./forecast-panel";
+import { ForecastPanelDeepLinked, type ForecastScenariosProps } from "./forecast-panel";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import type { Milestone, ResourcePlan, Task } from "./types";
@@ -88,5 +88,74 @@ describe("ForecastPanelDeepLinked", () => {
     act(() => {});
     rerender(<WorkspaceTabProvider><Harness /></WorkspaceTabProvider>);
     expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ForecastPanelDeepLinked — an Explore draft from Reports (§502 part 4)", () => {
+  const SCENARIOS: ForecastScenariosProps = {
+    api: {
+      scenarios: [], canCreate: true, mintId: () => 1,
+      createScenario: () => null, updateScenario: () => false, renameScenario: () => false, deleteScenario: () => {},
+    },
+    directory: { resources: [], roles: [], shifts: [], absences: [], budgets: [], fxRates: null, workdayHours: 8, baseCurrency: "EUR" },
+    readOnly: false,
+  };
+  function DraftHarness({ mounted, scenarios = SCENARIOS }: { mounted: boolean; scenarios?: ForecastScenariosProps }) {
+    const { requestForecastDraft, pendingForecastDraft, activeTab } = useWorkspaceTab();
+    return (
+      <>
+        <button onClick={() => requestForecastDraft({ target: { kind: "milestone", id: 7 }, kind: "tasks", n: 1, alt: null })}>explore-7</button>
+        <span data-testid="draft">{pendingForecastDraft ? `${pendingForecastDraft.kind}:${pendingForecastDraft.n}` : "none"}</span>
+        <span data-testid="tab">{activeTab}</span>
+        {mounted && (
+          <ForecastPanelDeepLinked lang="en-US" tasks={TASKS} milestones={MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} scenarios={scenarios} />
+        )}
+      </>
+    );
+  }
+
+  it("a request pending before the view mounts opens the draft, and the context drops it", () => {
+    const { rerender } = render(<WorkspaceTabProvider><DraftHarness mounted={false} /></WorkspaceTabProvider>);
+    fireEvent.click(screen.getByText("explore-7"));
+    expect(screen.getByTestId("draft").textContent).toBe("tasks:1");
+    expect(screen.getByTestId("tab").textContent).toBe("forecast");
+    rerender(<WorkspaceTabProvider><DraftHarness mounted /></WorkspaceTabProvider>);
+    const name = screen.getByRole("textbox", { name: "Name" }) as HTMLInputElement;
+    expect(name.value).toBe("Go-live — what it would take (1 fewer task)");
+    expect(screen.getByTestId("draft").textContent).toBe("none");
+  });
+
+  const mode = () => (screen.getByRole("radiogroup", { name: "Forecast mode" }).querySelector("[aria-checked=true]") as HTMLElement).textContent;
+  const openDraftView = (scenarios?: ForecastScenariosProps) => {
+    const { rerender } = render(<WorkspaceTabProvider><DraftHarness mounted={false} scenarios={scenarios} /></WorkspaceTabProvider>);
+    fireEvent.click(screen.getByText("explore-7"));
+    rerender(<WorkspaceTabProvider><DraftHarness mounted scenarios={scenarios} /></WorkspaceTabProvider>);
+    expect(mode()).toBe("Scenarios");
+  };
+
+  it("Cancel on the draft returns to the mode Explore was clicked from (Quick)", () => {
+    openDraftView();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull();
+    expect(mode()).toBe("Quick");
+  });
+
+  it("a draft opened while already in Scenarios cancels back to Scenarios, even after an earlier one saved from Quick", () => {
+    const scenarios: ForecastScenariosProps = { ...SCENARIOS, api: { ...SCENARIOS.api, createScenario: () => 1 } };
+    render(<WorkspaceTabProvider><DraftHarness mounted scenarios={scenarios} /></WorkspaceTabProvider>);
+    expect(mode()).toBe("Quick");
+    fireEvent.click(screen.getByText("explore-7"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(mode()).toBe("Scenarios");
+    fireEvent.click(screen.getByText("explore-7"));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(mode()).toBe("Scenarios");
+  });
+
+  it("Save on the draft stays in Scenarios", () => {
+    openDraftView({ ...SCENARIOS, api: { ...SCENARIOS.api, createScenario: () => 1 } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull();
+    expect(mode()).toBe("Scenarios");
   });
 });
