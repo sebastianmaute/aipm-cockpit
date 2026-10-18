@@ -44,31 +44,36 @@ export function GanttForecastLayer({
   // Through the END of the P95 day: "done by D" includes D.
   const bandWidth = dayLeftPx(i95, nameColWidth) + DAY_WIDTH_PX - bandLeft;
   const lineLeft = dayLeftPx(i80, nameColWidth);
+  const label = t(lang, "ganttForecastP80Label", formatWhen(p80, lang));
   return (
-    <div
-      data-gantt-forecast-layer=""
-      aria-hidden="true"
-      className="pointer-events-none absolute left-0 top-0 z-0 w-full"
-      style={{ height }}
-    >
+    <>
+      {/* The visible label is inside the aria-hidden layer; this one line gives a screen reader the same date. */}
+      <span data-gantt-forecast-sr="" className="sr-only">{label}</span>
       <div
-        data-gantt-forecast-band=""
-        className="absolute top-0 bg-ui-green/10"
-        style={{ left: bandLeft, width: bandWidth, height }}
-      />
-      <div
-        data-gantt-forecast-p80=""
-        className="absolute top-0 border-l-2 border-dashed border-ui-green-strong dark:border-ui-green"
-        style={{ left: lineLeft, height }}
-      />
-      {/* LEFT of the line: a finish past the axis clamps to the right edge, where a label to the right
-          would run off the chart. A finish never clamps left — the axis always contains today. */}
-      <span
-        className="absolute top-0 -translate-x-full whitespace-nowrap bg-surface px-1 text-[10px] font-medium text-ui-green-strong dark:text-ui-green"
-        style={{ left: lineLeft - 2 }}
+        data-gantt-forecast-layer=""
+        aria-hidden="true"
+        className="pointer-events-none absolute left-0 top-0 z-0 w-full"
+        style={{ height }}
       >
-        {t(lang, "ganttForecastP80Label", formatWhen(p80, lang))}
-      </span>
-    </div>
+        <div
+          data-gantt-forecast-band=""
+          className="absolute top-0 bg-ui-green/10"
+          style={{ left: bandLeft, width: bandWidth, height }}
+        />
+        <div
+          data-gantt-forecast-p80=""
+          className="absolute top-0 border-l-2 border-dashed border-ui-green-strong dark:border-ui-green"
+          style={{ left: lineLeft, height }}
+        />
+        {/* LEFT of the line: a finish past the axis clamps to the right edge, where a label to the right
+            would run off the chart. A finish never clamps left — the axis always contains today. */}
+        <span
+          className="absolute top-0 -translate-x-full whitespace-nowrap bg-surface px-1 text-[10px] font-medium text-ui-green-strong dark:text-ui-green"
+          style={{ left: lineLeft - 2 }}
+        >
+          {label}
+        </span>
+      </div>
+    </>
   );
 }

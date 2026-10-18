@@ -63,7 +63,7 @@ describe("GanttForecastLayer", () => {
     expect(band.style.left).toBe(`${dayLeftPx(19, NAME_COL)}px`);
     expect(band.style.width).toBe(`${dayLeftPx(30, NAME_COL) - dayLeftPx(19, NAME_COL)}px`);
     expect(line.style.left).toBe(`${dayLeftPx(29, NAME_COL)}px`);
-    expect(container.textContent).toBe(`P80 ${formatWhen(null, "en-US")}`);
+    expect(container.querySelector("[data-gantt-forecast-layer]")!.textContent).toBe(`P80 ${formatWhen(null, "en-US")}`);
   });
 
   test("renders nothing when a date does not parse", () => {

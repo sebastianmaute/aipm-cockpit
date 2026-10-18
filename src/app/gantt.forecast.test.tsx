@@ -2,8 +2,9 @@
 // axis, a chance chip on each unfinished milestone the engine gave a chance, and nothing at all while the
 // simulation is off (`forecast: null`) or the history is too short.
 import { describe, expect, test, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { GanttPanel } from "./gantt";
+import { formatWhen } from "./forecast-tables";
 import { dayLeftPx } from "./gantt-overlays";
 import { LEFT_GUTTER_PX } from "./gantt-engine";
 import type { AppForecast, MilestoneChance } from "./forecast/app-forecast";
@@ -54,6 +55,16 @@ describe("GanttPanel — the forecast layer (§502)", () => {
     expect(container.querySelector("[data-sim-chip]")).toBeNull();
     // Positive control: the chart itself rendered.
     expect(container.querySelector('[data-gantt-row="m-10"]')).not.toBeNull();
+  });
+
+  test("gives a screen reader the P80 date once, outside the aria-hidden layer, and nothing while off", () => {
+    const label = `P80 ${formatWhen(dayPlus(15), "en-US")}`;
+    const { unmount } = render(<GanttPanel {...PROPS} forecast={forecast()} />);
+    const sr = screen.getByText(label, { selector: ".sr-only" });
+    expect(sr.closest("[aria-hidden]")).toBeNull();
+    unmount();
+    render(<GanttPanel {...PROPS} forecast={null} />);
+    expect(screen.queryByText(label, { selector: ".sr-only" })).toBeNull();
   });
 
   test("draws nothing below the history floor", () => {
