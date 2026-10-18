@@ -693,6 +693,7 @@ const enUS = {
   taskBudgetBucket: "Budget bucket",
   budgetBucketNone: "— none —",
   budgetBucketsCount: "{0} buckets",
+  budgetBucketsCountOne: "{0} bucket",
   budgetDetailedPlanning: "Detailed budget planning",
   budgetDetailedPlanningHint: "On: plan per role (discipline and grade). Off: plan per discipline using the average rate of that discipline's grades.",
   budgetModeDetailed: "Detailed",
@@ -759,7 +760,9 @@ const enUS = {
   forecastPerDay: "{0}/day",
   forecastRunOut: "Runs out",
   forecastRunOutBefore: "{0}, {1} days before plan end",
+  forecastRunOutBeforeOne: "{0}, {1} day before plan end",
   forecastRunOutAfter: "{0}, {1} days after plan end",
+  forecastRunOutAfterOne: "{0}, {1} day after plan end",
   forecastRunOutOnEnd: "{0}, on the plan end",
   forecastRunOutAlready: "Already used up",
   forecastCpi: "CPI",
@@ -968,6 +971,8 @@ const enUS = {
   forecastExtraDaysTerm: "Extra working days",
   forecastGapExtraDays:
     "At current efficiency the work needs {0} working days beyond the planned end; the pace forecast assumes it finishes on time.",
+  forecastGapExtraDaysOne:
+    "At current efficiency the work needs {0} working day beyond the planned end; the pace forecast assumes it finishes on time.",
   forecastBannerStartsOn:
     "The current-pace forecast starts on {0}. It needs {1} working days of bookings; there are {2} so far, starting {3}.",
   forecastBannerStartsOnceBooked:
@@ -1020,6 +1025,7 @@ const enUS = {
   forecastMixColDifference: "Difference",
   forecastMixColUsed: "Hours used of budget",
   forecastMixPoints: "{0} pts",
+  forecastMixPointsOne: "{0} pt",
   forecastMixUsed: "{0} of {1} ({2})",
   forecastMixDriverBadge: "Driver",
   forecastMixOnPlan: "No role is {0} points or more off its planned share.",
@@ -1120,6 +1126,8 @@ const enUS = {
     "Variance at completion: budget − estimate at completion. Negative means the budget will be overrun by this amount: {0} − {1} = {2}.",
   forecastTipEtcPace:
     "Estimate to complete: what is still to be spent. At current pace = burn rate {0} × {1} working days left = {2}.",
+  forecastTipEtcPaceOne:
+    "Estimate to complete: what is still to be spent. At current pace = burn rate {0} × {1} working day left = {2}.",
   forecastTipEtcEfficiency:
     "Estimate to complete: what finishing the remaining work will cost. (Budget {0} − earned value {1}) ÷ CPI {2} = {3}.",
   forecastTipCpi:
@@ -1133,6 +1141,8 @@ const enUS = {
     "Percent complete, from the tasks linked to each budget bucket or a manual % complete on the bucket. Without it, this card cannot be calculated and shows what is missing.",
   forecastTipExtraDays:
     "At current efficiency the remaining work needs ETC {0} ÷ burn rate {1} = {2} working days, {3} more than are left before the plan end.",
+  forecastTipExtraDaysOne:
+    "At current efficiency the remaining work needs ETC {0} ÷ burn rate {1} = {2} working day, {3} more than are left before the plan end.",
   forecastSplitSince: "Since {0}",
   forecastSplitPerformance: "Performance",
   forecastSplitScope: "Added scope",
@@ -1416,7 +1426,13 @@ const enUS = {
   wizardImportWorkspaceButton: "Import workspace file…",
   wizardAiOffHint:
     "The AI assistant can also draft a project from a document or a description. Turn it on in Settings, and add or unlock its API key.",
-  wizardImportWorkspaceNotice: "Importing {0}: {1} tasks, {2} RAID items, {3} budgets",
+  wizardImportWorkspaceNotice: "Importing {0}: {1}",
+  wizardImportTasksPart: "{0} tasks",
+  wizardImportTasksPartOne: "{0} task",
+  wizardImportRaidPart: "{0} RAID items",
+  wizardImportRaidPartOne: "{0} RAID item",
+  wizardImportBudgetsPart: "{0} budgets",
+  wizardImportBudgetsPartOne: "{0} budget",
   wizardImportWorkspaceClear: "Clear imported workspace {0}",
   wizardImportWorkspaceInvalid: "{0} looks like a workspace file but could not be read.",
   wizardImportWorkspaceNotWorkspace: "{0} is not a workspace file.",
@@ -1583,6 +1599,7 @@ const enUS = {
 
   exportTitle: "Export tasks",
   exportSubtitle: "Download all {0} tasks in your preferred format.",
+  exportSubtitleOne: "Download {0} task in your preferred format.",
   exportCsv: "CSV",
   exportCsvHint: "Plain comma-separated values — opens in any spreadsheet app.",
   exportMd: "Markdown",
@@ -2638,6 +2655,7 @@ const enUS = {
   outlookImportCancel: "Cancel",
   outlookImportButton: "Pull contacts",
   outlookImportedN: "Imported {0} contacts",
+  outlookImportedNOne: "Imported {0} contact",
   outlookSignInRequired: "Sign in with Microsoft to import Outlook contacts.",
   outlookSignInExpired: "Microsoft session expired. Please sign in again.",
   outlookPermissionDenied: "Permission denied. Grant Contacts.Read in Azure AD.",
@@ -3472,7 +3490,8 @@ const enUS = {
   evmSpiHint: "Effort schedule performance index = estimated effort of completed tasks ÷ estimated effort of tasks due by today. Above 1 means ahead of schedule.",
   evmCpiHint: "Effort cost performance index = estimated effort of completed tasks ÷ time booked on tasks. Above 1 means tasks take less effort than estimated. Not the forecast's price-based index.",
   evmNoEstimates: "No task estimates yet.",
-  evmCoverage: "{0} of {1} tasks have estimates",
+  evmCoverage: "Estimates on {0} of {1} tasks",
+  evmCoverageOne: "Estimates on {0} of {1} task",
   navTrends: "Trends",
   navHistory: "History",
   navHelp: "Help",
@@ -3864,6 +3883,7 @@ const enUS = {
   simExplainerHelp: "Learn more in Help",
   simHistogramAria: "Spread of simulated finish times. Even odds {0}, safe to commit {1}, cautious {2}.",
   simHistogramIn: "in {0} working days",
+  simHistogramInOne: "in {0} working day",
   simHistogramBeyond: "beyond the horizon",
   simBeyondHorizon: "{0} of runs did not finish within the horizon.",
   simEvenOdds: "Even odds",
@@ -5562,6 +5582,7 @@ const enUS = {
   assetExportBlocked: "[Image not shown — file type not allowed: {0}]",
   chatProposalTitle: "Proposed changes",
   chatProposalCount: "{0} writes",
+  chatProposalCountOne: "{0} write",
   chatProposalApply: "Apply",
   chatProposalDiscard: "Discard",
   chatProposalSelected: "{0} selected",

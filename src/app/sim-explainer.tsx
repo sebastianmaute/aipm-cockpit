@@ -5,7 +5,7 @@ import { Button } from "./button";
 import { chanceText } from "./chance-text";
 import { IconButton } from "./icon-button";
 import { InformationCircleIcon, XMarkIcon } from "./icons";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { percentileWord, type SimPercentile } from "./percentile-words";
 import { PopoverPanel } from "./popover-panel";
 import { MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
@@ -22,7 +22,7 @@ const MAX_BINS = 20;
 
 /** One marker for the histogram's accessible label: a day count, or "beyond the horizon". */
 function markerPhrase(lang: Lang, days: number): string {
-  return days > HORIZON_DAYS ? t(lang, "simHistogramBeyond") : t(lang, "simHistogramIn", days.toLocaleString(localeFor(lang)));
+  return days > HORIZON_DAYS ? t(lang, "simHistogramBeyond") : tPlural(lang, "simHistogramIn", days, days.toLocaleString(localeFor(lang)));
 }
 
 /** P50/P80/P95 cut values, in working days ahead. */

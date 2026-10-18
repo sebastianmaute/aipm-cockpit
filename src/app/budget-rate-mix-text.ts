@@ -4,7 +4,7 @@
  * role-mix footnote; the banner prefixes it with its lead word and head, so
  * the numbers agree on every surface (S6).
  */
-import { type Lang, t, localeFor } from "./i18n";
+import { type Lang, t, tPlural, localeFor } from "./i18n";
 import { currencySymbol, formatCurrency } from "./resource-cost";
 import { formatDayMonth, formatHours, formatShare, formatSignedPercent } from "./forecast-format";
 import { isPaceAvailable, type BudgetForecast } from "./budget-forecast";
@@ -105,7 +105,7 @@ export function rateMixPoints(lang: Lang, difference: number): string {
   // ASCII hyphen-minus for a negative, matching `formatSignedPercent` on the
   // same page (controller ruling); `String(-7)` is "-7" and `String(0)` "0".
   const text = points > 0 ? `+${points}` : String(points);
-  return t(lang, "forecastMixPoints", text);
+  return tPlural(lang, "forecastMixPoints", Math.abs(points), text);
 }
 
 /**

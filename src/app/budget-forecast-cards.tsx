@@ -8,7 +8,7 @@
 // Pure presentation over `BudgetForecast` — every figure is formatted here,
 // nothing is computed.
 import { useId, type ReactNode } from "react";
-import { type Lang, t, localeFor } from "./i18n";
+import { type Lang, t, tPlural, localeFor } from "./i18n";
 import type { Settings } from "./settings-types";
 import { SegmentedControl } from "./segmented-control";
 import { RagBadge } from "./rag-badge";
@@ -82,8 +82,8 @@ function runOutText(lang: Lang, pace: PaceForecast, locale: string): string {
   if (pace.runOutDate === null) return t(lang, "forecastRunOutAlready");
   const dateText = formatDayMonthYear(pace.runOutDate, locale);
   const days = pace.daysBeforePlannedEnd ?? 0;
-  if (days > 0) return t(lang, "forecastRunOutBefore", dateText, String(days));
-  if (days < 0) return t(lang, "forecastRunOutAfter", dateText, String(Math.abs(days)));
+  if (days > 0) return tPlural(lang, "forecastRunOutBefore", days, dateText, String(days));
+  if (days < 0) return tPlural(lang, "forecastRunOutAfter", Math.abs(days), dateText, String(Math.abs(days)));
   return t(lang, "forecastRunOutOnEnd", dateText);
 }
 
@@ -262,7 +262,7 @@ function PaceCard({
             <MetricRow
               lang={lang}
               term={t(lang, "forecastEtcPace")}
-              tip={t(lang, "forecastTipEtcPace", money(pace.burnRatePerDay), String(pace.workingDaysLeft), money(pace.etc))}
+              tip={tPlural(lang, "forecastTipEtcPace", pace.workingDaysLeft, money(pace.burnRatePerDay), String(pace.workingDaysLeft), money(pace.etc))}
             >
               {money(pace.etc)}
             </MetricRow>
@@ -421,18 +421,19 @@ function GapLine({
     lang, gap.severity === "warning" ? "forecastGapWarning" : "forecastGapInfo",
     money(gap.eacDifference), pctText,
   );
+  // the tip's count and the number it shows are one value
+  const daysNeeded = gap.extraWorkingDays === null ? 0 : gap.extraWorkingDays + pace.workingDaysLeft;
   const extra = gap.extraWorkingDays === null ? null : (
     <>
       {" "}
-      {t(lang, "forecastGapExtraDays", String(gap.extraWorkingDays))}
+      {tPlural(lang, "forecastGapExtraDays", gap.extraWorkingDays, String(gap.extraWorkingDays))}
       <TermTooltip
         lang={lang}
         term={t(lang, "forecastExtraDaysTerm")}
         means
-        tip={t(
-          lang, "forecastTipExtraDays",
+        tip={tPlural(lang, "forecastTipExtraDays", daysNeeded,
           money(efficiency.etc), money(pace.burnRatePerDay),
-          String(gap.extraWorkingDays + pace.workingDaysLeft), String(gap.extraWorkingDays),
+          String(daysNeeded), String(gap.extraWorkingDays),
         )}
       />
     </>
