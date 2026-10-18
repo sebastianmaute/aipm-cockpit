@@ -440,7 +440,7 @@ function destructiveCopy(lang: Lang, c: Extract<SavingPausedCause, { kind: "dest
   return {
     countText: c.fullWipe
       ? t(lang, "storageDestructiveWipeCount")
-      : t(lang, "storageDestructiveCount", c.prevRecords - c.curRecords, c.prevRecords),
+      : tPlural(lang, "storageDestructiveCount", c.prevRecords, c.prevRecords - c.curRecords, c.prevRecords),
     bannerKey: "storageDestructiveBanner",
     bannerAriaKey: "storageDestructiveBannerAria",
   };

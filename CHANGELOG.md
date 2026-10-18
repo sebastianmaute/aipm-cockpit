@@ -36,6 +36,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **One of a thing is singular (§715).** Seven counts read "1 buckets", "1 days", "1 tasks", "1 contacts" or
+  "1 records" when there was one: the Budget header, the forecast run-out, the export menu, the new-project
+  import notice, earned-value coverage, the Outlook contact import and the "Saving paused" banner. Each now says
+  one in the singular, in English and German.
 - **Ask Claude edits milestones and RAID items again (§715).** A description change on a milestone or a
   mitigation on a RAID item always ended in "No changes to apply": Claude looked the item up first, a step the
   one-shot edit cannot answer. It is now offered only the changes it can make.
