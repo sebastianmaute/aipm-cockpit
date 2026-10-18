@@ -989,6 +989,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§749](#749-a-claude-api-key-typed-under-the-passphrase-lock-is-lost-on-reload-and-two-ai-sections-disagree-about-the-lock--open) | A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock | — | — | open |
 | [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--closed-2026-10-18) | Something starts a save of the empty Turso workspace before a project exists | — | — | **CLOSED** 2026-10-18 |
 | [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--open) | window.prompt throws in the desktop app, so six flows fail there | — | — | open |
+| [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--open) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45669,3 +45670,17 @@ Proposed: an app text-input dialog beside `ConfirmProvider` (`confirm-dialog.tsx
 Size M.
 
 **Source:** found 2026-10-18 in the defect sweep after the §715 recordings (owner: verify on desktop, then file).
+
+## 753. An edit made while the Turso portfolio has no project chosen is dropped without a word — OPEN
+
+**Status:** OPEN 2026-10-18. Found by the branch review of the §751 fix on `fix/715-empty-unload-journal`. With the portfolio on Turso and no project chosen, three paths in `use-storage-backend.ts` send nothing (`tursoPortfolioWithoutProjectRef`): the save effect, `doSave` and the pre-switch flush (`flushCurrent`). The save effect returns before `followLive` and `doSave` before `noteSaveStarted`, so an edit made in that state is not journalled either. `grep -n "tursoPortfolioWithoutProjectRef.current" src/app/use-storage-backend.ts` → the three skips.
+
+**Work item:** #784
+
+An edit made in that state is lost when the user picks or creates a project (the loaded workspace replaces it) or closes the tab, and nothing on screen says so. Only the diagnostics log `storage.saveSkippedNoTursoProject` at the two skips that can be reached. The state is rare: the setup wizard creates a project right away. It is reached on a database with projects when no current project is set.
+
+Proposed: a sticky notice in that state ("Choose or create a project. Nothing is saved yet."), or edits blocked until a project is chosen, either with a test that fails while the state shows nothing.
+
+Size S (notice) or M (read-only).
+
+**Source:** found 2026-10-18 in the review of the §751 fix (owner: file it for later).
