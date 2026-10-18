@@ -120,7 +120,14 @@ src/app/
 ├── version.ts            — version string + highlight key list
 └── ...
 docs/CODEMAPS/            — per-layer architecture notes (regenerated, not hand-edited)
+docs/assets/              — every documentation image and clip: the README gallery, the install
+                            guide's screenshots (guide/), the product tour (videos/)
+public/                   — only what the app itself loads (icons, themes, manifest, service
+                            worker); Next.js serves it and every desktop installer carries it
 ```
+
+Documentation media goes in `docs/assets/`, never in `public/`: a file there ships to every user. The
+video guides are not committed; they are hosted on YouTube and the docs link there.
 
 See [docs/CODEMAPS/architecture.md](docs/CODEMAPS/architecture.md) for the data-flow
 diagram and service boundaries.

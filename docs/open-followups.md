@@ -45126,7 +45126,7 @@ Constraints:
 - **No real secrets or names.** Key fields carry obvious fakes; a Turso connection uses the throwaway database, and its URL is masked on screen. The project is fictional ("Acme"); the repo is public.
 - **Shows phase-1 UI**, so it is recorded after §704–§712 ship and after §713's guide, whose order it follows. Met: §704–§713 all closed 2026-10-13/14 and shipped in 1.19.0 (2026-10-15), so the recording is unblocked.
 
-Placement follows the product tour: a GitHub-hosted embed in the README (and here, in the guide) with a download link to a WebM in `public/demos/`. Open for the owner: whether it has narration or captions (the tour has neither).
+Placement (owner, 2026-10-18): the video guides are uploaded to YouTube and the README and the guide link there; documentation media lives in `docs/assets/` (the product tour's download copy moved there from `public/demos/`, which shipped it in every installer), and `public/` keeps only what the app loads. Earlier: placement followed the product tour, a GitHub-hosted embed with a download link to a WebM in `public/demos/`. Open for the owner: whether it has narration or captions (the tour has neither).
 
 Size M.
 
