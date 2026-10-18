@@ -12,6 +12,11 @@ import { costUnavailableText, formatChanceOverBudget, percentileLabel } from "./
 import { formatChance, formatWhen } from "./forecast-tables";
 import { formatCurrency } from "./resource-cost";
 import { SimValue } from "./sim-value";
+import { Badge } from "./badge";
+import { RagDot } from "./rag-dot";
+import { chanceRagLabel } from "./forecast-rag-label";
+import type { Health } from "./health";
+import { chanceRagLevel, type TargetConfidence } from "./forecast-target";
 import { Section } from "./report-table";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useRowTokens } from "./use-row-tokens";
@@ -114,10 +119,11 @@ function buildRows(lang: Lang, columns: readonly ComparedColumn[], currency: Bud
   return rows;
 }
 
-function FigureCell({ lang, cell, label }: { lang: Lang; cell: Cell; label: string }) {
+function FigureCell({ lang, cell, label, rag }: { lang: Lang; cell: Cell; label: string; rag?: Health }) {
   if (cell === null) return null;
   return (
     <td rowSpan={cell.rowSpan} className={`${CELL} text-right tabular-nums ${cell.sim ? "" : "text-muted-foreground"}`}>
+      {rag && <RagDot level={rag} label={chanceRagLabel(lang, rag)} className="mr-1.5" />}
       {cell.sim ? <SimValue lang={lang} label={label} value={cell.text} /> : cell.text}
     </td>
   );
@@ -132,11 +138,14 @@ export function ScenarioComparisonTable({
   columns,
   currency,
   noBudget = false,
+  proposalKey = null,
 }: {
   lang: Lang;
   columns: readonly ComparedColumn[];
   currency: BudgetCurrency;
   noBudget?: boolean;
+  /** The column of the project's proposal (§502 part 4): its header carries a "proposal" badge. */
+  proposalKey?: string | null;
 }) {
   const rows = buildRows(lang, columns, currency);
   const notes = columns.map((c) => columnNotes(lang, c.column));
@@ -149,7 +158,12 @@ export function ScenarioComparisonTable({
             <tr>
               <td className={CELL} />
               {columns.map((c) => (
-                <th key={c.key} scope="col" className={`${CELL} text-right font-medium`}>{c.name}</th>
+                <th key={c.key} scope="col" className={`${CELL} text-right font-medium`}>
+                  {c.name}
+                  {c.key === proposalKey && (
+                    <Badge size="sm" className="ml-1.5 border border-line bg-surface text-foreground">{t(lang, "forecastScenarioProposalBadge")}</Badge>
+                  )}
+                </th>
               ))}
             </tr>
             {notes.some((n) => n.length > 0) && (
@@ -214,10 +228,13 @@ export function ScenarioMilestoneTable({
   lang,
   milestones,
   columns,
+  goal,
 }: {
   lang: Lang;
   milestones: readonly Milestone[];
   columns: readonly ComparedColumn[];
+  /** The project's target (§502 part 4): each chance carries a RAG dot against it (`chanceRagLevel`). */
+  goal?: TargetConfidence;
 }) {
   const asIs = columns[0]?.column.forecast;
   const rows = useMemo(() => {
@@ -260,9 +277,11 @@ export function ScenarioMilestoneTable({
                   <tr key={row.id}>
                     <th scope="row" aria-label={token} className={`${CELL} font-medium text-foreground`}>{row.name}</th>
                     <td className={`${CELL} tabular-nums text-muted-foreground`}>{isValidIsoDate(row.date) ? formatDayMonthYear(row.date, locale) : ""}</td>
-                    {columns.map((c, i) => (
-                      <FigureCell key={c.key} lang={lang} cell={chanceCell(byColumn[i].get(row.id), lang)} label={`${token}, ${c.name}`} />
-                    ))}
+                    {columns.map((c, i) => {
+                      const result = byColumn[i].get(row.id);
+                      const rag = goal !== undefined && result?.state === "chance" ? chanceRagLevel(result.chance, goal) : undefined;
+                      return <FigureCell key={c.key} lang={lang} cell={chanceCell(result, lang)} label={`${token}, ${c.name}`} rag={rag} />;
+                    })}
                   </tr>
                 );
               })}

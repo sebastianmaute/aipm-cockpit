@@ -41,6 +41,16 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Nothing is saved to Turso before a project is chosen (§751).** With the portfolio on Turso and no project
+  open yet, an edit was saved in the single-project layout, which clears every workspace table first. It is no
+  longer saved; this was also where the empty "unsaved draft" came from.
+- **No more empty "unsaved drafts" (§715).** An empty workspace saved over an empty project, for example the
+  Turso workspace before its first project exists, is no longer kept as an unsaved draft, so it is never
+  offered back as one from "another project". Emptying a project that held records, a moved plan, project
+  details, the dashboard summary and the other project-level fields still count as a draft. An empty draft
+  already stored stays listed until you discard it.
+- **Run and fetch times read as times (§715).** A scheduled job's "Last run" and Timelog's "Last fetched" showed the
+  stored UTC value ("2026-09-21T07:05:12.345Z"); they now show the date and time in the display timezone.
 - **Ask Claude edits milestones and RAID items again (§715).** A description change on a milestone or a
   mitigation on a RAID item always ended in "No changes to apply": Claude looked the item up first, a step the
   one-shot edit cannot answer. It is now offered only the changes it can make.
@@ -115,6 +125,15 @@ longer carries its own changelog comment.
   scenario: one change applies at once, several go to the review card first, edits can be undone, and every change
   is in the activity log. It cannot delete a scenario. The Forecast view gains "Ask Claude about this forecast" with
   four suggested questions. It stays hidden while the Forecast view is held back.
+- **The Forecast view says what it would take, held back with the forecast (§502, part 4).** A target confidence
+  of 50%, 80% or 95% sets which chance counts as safe, and each milestone and the plan end gain a "What it would
+  take" answer: the fewest people to add, at the team's average hours and rate, or the fewest tasks to drop, to
+  reach that target, and, where tasks carry estimates, about how many hours that is. "Explore" opens it as a draft scenario beside
+  the plan as it is, with a live comparison, and Cancel returns to where you started. One saved scenario can be
+  marked as the proposal. The target and the proposal are saved with the project and logged; a version saved now
+  shows scenario changes when compared or restored, while older versions leave today's scenarios alone. Opening
+  and saving the project in an older version of the app drops the target and the proposal. It stays hidden while
+  the Forecast view is held back.
 
 ## [1.19.0] - 2026-10-15 "Nesbø"
 

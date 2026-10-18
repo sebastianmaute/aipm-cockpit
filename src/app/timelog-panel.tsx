@@ -46,6 +46,8 @@ import { bucketOverlay } from "./timelog-actuals";
 import { Button } from "./button";
 import { ALL_MODULE_IDS, missingUses, type FeatureModuleId } from "./feature-modules";
 import { UsesNotice } from "./functions-picker";
+import { useDisplayTzOrBrowser } from "./display-timezone-context";
+import { formatDisplayTimestamp } from "./tz-display";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -128,6 +130,7 @@ export function TimelogPanel({
     [effectiveCfg.host, effectiveCfg.tenant, effectiveCfg.apiToken],
   );
 
+  const displayTz = useDisplayTzOrBrowser(); // §715 — "Last fetched" in the display zone, not raw UTC
   const sync = useTimelogSync({
     creds,
     links,
@@ -684,7 +687,7 @@ export function TimelogPanel({
       {/* Last synced + unattributed */}
       {sync.fetchedAt && (
         <p className="mb-3 text-xs text-muted-foreground">
-          {t(lang, "timelogLastSynced", sync.fetchedAt)}{" "}
+          {t(lang, "timelogLastSynced", formatDisplayTimestamp(sync.fetchedAt, displayTz, lang))}{" "}
           {t(lang, "timelogUnattributed", String(Math.round(unattributed.hours)))}
         </p>
       )}

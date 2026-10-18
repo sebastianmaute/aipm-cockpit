@@ -526,8 +526,10 @@ export interface SettingsOverrides {
   nextActions?: Partial<NextActionsConfig>;
   notifications?: Partial<NotificationsConfig>;
   timezone?: { timezone?: string; additionalTimezones?: string[] };
-  /** Forecast simulation policy. Off is stored as ABSENCE, never `false`. */
-  forecast?: { showSimulation?: boolean };
+  /** Forecast simulation policy. Off is stored as ABSENCE, never `false`; so are the default target
+   *  (80) and "no proposal". `targetConfidence` holds only the two non-default goals; the three
+   *  fields are independent (§502 part 4). */
+  forecast?: { showSimulation?: boolean; targetConfidence?: 50 | 95; proposalScenarioId?: number };
 }
 
 export type LearningStoreKind = "local" | "turso";

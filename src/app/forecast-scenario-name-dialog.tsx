@@ -147,11 +147,18 @@ export function ScenarioNameField({ lang, id, value, message, alertKey, announce
   );
 }
 
-export function ScenarioDialogActions({ lang, onCancel, onSave }: { lang: Lang; onCancel: () => void; onSave: () => void }) {
+/** `blocked` disables Save and shows why beside it — visible, not a title: a disabled button takes no focus and a
+ *  title shows only on hover. */
+export function ScenarioDialogActions({ lang, onCancel, onSave, blocked }: {
+  lang: Lang; onCancel: () => void; onSave: () => void; blocked?: { id: string; text: string };
+}) {
   return (
-    <div className="flex justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {blocked && <span id={blocked.id} className="text-xs text-muted-foreground">{blocked.text}</span>}
       <Button variant="secondary" size="sm" onClick={onCancel}>{t(lang, "cancel")}</Button>
-      <Button variant="primary" size="sm" onClick={onSave}>{t(lang, "forecastScenarioSave")}</Button>
+      <Button variant="primary" size="sm" disabled={blocked !== undefined} aria-describedby={blocked?.id} onClick={onSave}>
+        {t(lang, "forecastScenarioSave")}
+      </Button>
     </div>
   );
 }
