@@ -27,11 +27,13 @@ node scripts/demo-video/record.mjs --video f-gantt       # one video
 node scripts/demo-video/record.mjs --tier ai             # one tier: big | chapters | ai | features
 node scripts/demo-video/record.mjs --all                 # every video but the hand-recorded one
 node scripts/demo-video/cleanup.mjs                      # clear the throwaway database by hand
+node scripts/demo-video/discover.mjs "Resources>Planning" # list a view's controls, to write a selector
 ```
 
 - `--rehearse` runs the same takes with no recording and no AI call: each AI step only checks that its trigger is there and enabled. A rehearsal also checks each finished day of the week against `DAY_FACTS` (`week-story.mjs`).
 - `--with-ai` makes a rehearsal run the AI steps for real, so their checks run too. The 15 AI clips make about 15 to 25 calls.
 - `--probe` stops once the demo is open, prints the nav items and saves `probe-after-demo.png`. It ends with `failed 1` by design.
+- `discover.mjs` sets the demo up as a take does, then for each path prints the nav items and every visible control with its accessible name. A path joins views and actions with `>`: a nav item, `@button`, `~radio`, `!checkbox` or `#row text`, for example `"Settings>!Expert mode>@Next actions"`. It cleans the throwaway database first, so never run it while a take is running.
 
 ## What a take does
 
@@ -72,9 +74,17 @@ The demo week runs Monday 21 to Friday 25 September 2026 (`DEMO_WEEK_DATES` in `
 
 `record.mjs` ends with `RESULT ok N skipped N failed N WARNINGS N` and exits 1 when any of the last three is not 0, else 0. `--list` exits 0.
 
+## Re-recording
+
+Everything a re-take needs is in the repository: these scripts, their fixtures and the demo data (`sample-workspace-small.json`, which Explore the demo loads). Only `.env.local` (the throwaway pair and the key) and the videos themselves stay out of git. After the app changed:
+
+1. Start the dev server above.
+2. `node scripts/demo-video/record.mjs --all --rehearse`, then the same with `--with-ai`. Fix what fails (below).
+3. `node scripts/demo-video/record.mjs --all`, or `--video <id>` for the videos that changed.
+
 ## When a re-take breaks
 
-- **A selector no longer matches.** The UI changed. Run the video with `--rehearse`, open its `warn-<id>.png`, and fix the label in the step module (`steps/week.mjs`, `steps/ai.mjs` or `steps/features.mjs`).
+- **A selector no longer matches.** The UI changed. Run the video with `--rehearse`, open its `warn-<id>.png`, list the view's controls with `discover.mjs`, and fix the label in the step module (`steps/week.mjs`, `steps/ai.mjs` or `steps/features.mjs`).
 - **A nav click lands during a reload.** `nav()` tries up to three times while the page title does not change.
 - **A nav item was renamed or removed.** `nav()` waits for it, then the take fails with `nav: no item "<name>"`. A sub-view shows in the nav only while its parent is open: name the path.
 - **The demo project's tour covers the screen.** `skipTour` waits for its Skip button.
@@ -94,6 +104,7 @@ The demo week runs Monday 21 to Friday 25 September 2026 (`DEMO_WEEK_DATES` in `
 | `ui.mjs` | The cursor and caption overlay, `caption`, `moveTo`, `click`, `type`, `nav`, `skipTour`, `closingBeat`. |
 | `lib.mjs` | `T0`, `atDay`, the `.env.local` reader, the Turso guard, `settle`, `query`. |
 | `cleanup.mjs` | `cleanup()` and the pure `cleanupStatements`; also runnable on its own. |
+| `discover.mjs` | Lists the controls of a view on the fresh demo, for writing a step's selectors. |
 | `week-story.mjs` | The story's names and dates, shared with project E's tests, and `DAY_FACTS`. |
 | `steps/step.mjs` | How a step is declared. |
 | `steps/week.mjs` | The prologue and Monday to Friday, each step with its replay. |
