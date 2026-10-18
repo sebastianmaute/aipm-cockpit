@@ -10,7 +10,7 @@
 import { useMemo, useState } from "react";
 import type { DocBlock } from "./document-model";
 import type { ExportExtras } from "./export-forecast-section";
-import { useExportExtras } from "./export-extras-context";
+import { useExportExtras, useForecastDecisionLive } from "./export-extras-context";
 import { withTakes, type DecisionTake, type ForecastDecision, type ForecastDecisionLive } from "./forecast-decision";
 import type { LeverTarget } from "./forecast-levers";
 import { DEFAULT_TARGET_CONFIDENCE } from "./forecast-target";
@@ -33,7 +33,7 @@ type Held = { extras: ExportExtras; live: ForecastDecisionLive | undefined; want
 /** `blocks`: what the preview renders; pass none while nothing is shown (a closed history row), so nothing searches. */
 export function usePreviewExportExtras(blocks: readonly DocBlock[] | null): ExportExtras {
   const extras = useExportExtras();
-  const live = extras.forecastDecisionLive;
+  const live = useForecastDecisionLive();
   const wants = live !== undefined && blocks !== null && hasForecastDecisionBlock(blocks);
   // Built once per live handle (the provider's memo); the same identity every render, so the search keys on it.
   const input = wants ? live.input() : null;

@@ -360,7 +360,8 @@ describe("ProjectsPanel", () => {
   // hand task-manager's handler their own source; before, the popout's export omitted the section.
   it("hands onExportCurrent this window's forecast decision source", () => {
     const h = makeHandlers();
-    const source: ForecastDecisionSource = () => null;
+    const decision = { insufficient: true as const, goal: 80 as const };
+    const source: ForecastDecisionSource = () => decision;
     render(
       <ExportExtrasProvider forecast={null} forecastDecision={{ source, live: { goal: 80, input: () => null, base: () => null } }}>
         {panelElement(h)}
@@ -368,7 +369,9 @@ describe("ProjectsPanel", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Export project" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Excel (.xlsx)" }));
-    expect(h.onExportCurrent).toHaveBeenCalledWith("xlsx", source);
+    // The provider hands a stable thunk that calls the latest source (third review M2), so pin what it answers.
+    const handed = vi.mocked(h.onExportCurrent).mock.calls[0][1] as ForecastDecisionSource | undefined;
+    expect(handed?.()).toBe(decision);
   });
 
   it("closes the export menu on outside click", () => {

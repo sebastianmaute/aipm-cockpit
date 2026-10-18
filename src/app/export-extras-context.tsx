@@ -20,23 +20,33 @@
 //
 // §502 part 4 — the simulated forecast decision rides here too, as a lazy
 // source (`ForecastDecisionSource`): nothing runs until a document block or an
-// export asks for the section. Previews read its `forecastDecisionLive` half
-// instead (`usePreviewExportExtras`), so their lever search runs off the render
-// path. The two workspace exports read the source at the click: the Projects
+// export asks for the section. Previews read its live half instead, from a
+// context of its own (`useForecastDecisionLive`, read by `usePreviewExportExtras`),
+// so their lever search runs off the render path.
+// ★ The handle changes on every task, milestone or plan edit; the extras value
+//   does NOT follow it. Its `forecastDecision` is one stable thunk that calls
+//   the LATEST source (kept in a ref, updated after commit), so the value keeps
+//   its identity while the forecast bundle and the section's presence hold, and
+//   the leaves under memoised panels (chat cards, the Documents pane, the block
+//   editors) do not re-render on every edit. Every caller of that thunk calls it
+//   from an event (a download, an export click), never from render; a preview,
+//   which renders the decision, reads the live context, which does change.
+// The two workspace exports read the source at the click: the Projects
 // panel's "export current project" takes it from this context (main window and
 // popout alike) and hands it to task-manager's handler; the header Export menu,
 // which is mounted on views where `WorkspaceSection` is not, derives its own from
 // the same recipe (`useWorkspaceForecastDecisionSource`). Neither is a published
 // module slot — that held the last mounted section's source, so it was empty on
 // the modern shell's Open Points, Settings and Learning insights views.
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import type { ExportExtras } from "./export-forecast-section";
 import type { ForecastBundle } from "./budget-forecast-bundle";
-import type { ForecastDecisionHandle, ForecastDecisionSource } from "./forecast-decision";
+import type { ForecastDecisionHandle, ForecastDecisionLive, ForecastDecisionSource } from "./forecast-decision";
 
 const NO_EXTRAS: ExportExtras = {};
 
 const Ctx = createContext<ExportExtras>(NO_EXTRAS);
+const LiveCtx = createContext<ForecastDecisionLive | undefined>(undefined);
 
 /** A workspace export's extras: the budget forecast, plus the decision source when the simulation offers one. */
 export function workspaceExportExtras(budgetForecast: ForecastBundle | null, forecastDecision: ForecastDecisionSource | null | undefined): ExportExtras {
@@ -55,16 +65,31 @@ export function ExportExtrasProvider({
   forecastDecision?: ForecastDecisionHandle | null;
   children: ReactNode;
 }) {
+  const latest = useRef(forecastDecision);
+  useEffect(() => {
+    latest.current = forecastDecision;
+  }, [forecastDecision]);
+  const hasDecision = forecastDecision !== null;
   const value = useMemo<ExportExtras>(() => {
-    if (!forecast && !forecastDecision) return NO_EXTRAS;
+    if (!forecast && !hasDecision) return NO_EXTRAS;
     return {
       ...(forecast ? { budgetForecast: forecast } : {}),
-      ...(forecastDecision ? { forecastDecision: forecastDecision.source, forecastDecisionLive: forecastDecision.live } : {}),
+      ...(hasDecision ? { forecastDecision: () => latest.current?.source() ?? null } : {}),
     };
-  }, [forecast, forecastDecision]);
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  }, [forecast, hasDecision]);
+  return (
+    <Ctx.Provider value={value}>
+      <LiveCtx.Provider value={forecastDecision?.live}>{children}</LiveCtx.Provider>
+    </Ctx.Provider>
+  );
 }
 
 export function useExportExtras(): ExportExtras {
   return useContext(Ctx);
+}
+
+/** The decision's live half (`ForecastDecisionLive`) for a document PREVIEW; undefined while the simulation is off.
+ *  Changes with every handle, unlike `useExportExtras()`, so only the previews that render it re-render. */
+export function useForecastDecisionLive(): ForecastDecisionLive | undefined {
+  return useContext(LiveCtx);
 }
