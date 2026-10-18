@@ -30,6 +30,7 @@ const CASES: Case[] = [
   { key: "forecastGapExtraDays", file: "export-forecast-section.ts", one: (l) => tPlural(l, "forecastGapExtraDays" as never, 1, "1"), en: "1 working day beyond", de: "1 Arbeitstag über" },
   { key: "forecastTipExtraDays", file: "budget-forecast-cards.tsx", one: (l) => tPlural(l, "forecastTipExtraDays" as never, 1, "€10", "€10", "1", "1"), en: "= 1 working day, 1 more", de: "= 1 Arbeitstag, 1 mehr" },
   { key: "simHistogramIn", file: "sim-explainer.tsx", one: (l) => tPlural(l, "simHistogramIn" as never, 1, "1"), en: "in 1 working day", de: "in 1 Arbeitstag" },
+  { key: "forecastMixPoints", file: "budget-rate-mix-text.ts", one: (l) => tPlural(l, "forecastMixPoints" as never, 1, "+1"), en: "+1 pt", de: "+1 Pkt." },
   { key: "forecastTipEtcPace", file: "budget-forecast-cards.tsx", one: (l) => tPlural(l, "forecastTipEtcPace" as never, 1, "€10", "1", "€10"), en: "× 1 working day left", de: "× 1 verbleibender Arbeitstag" },
 ];
 

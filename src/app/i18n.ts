@@ -992,6 +992,7 @@ const enUS = {
   forecastMixColDifference: "Difference",
   forecastMixColUsed: "Hours used of budget",
   forecastMixPoints: "{0} pts",
+  forecastMixPointsOne: "{0} pt",
   forecastMixUsed: "{0} of {1} ({2})",
   forecastMixDriverBadge: "Driver",
   forecastMixOnPlan: "No role is {0} points or more off its planned share.",

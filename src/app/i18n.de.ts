@@ -920,6 +920,7 @@ export const de: Record<TranslationKey, string> = {
   forecastMixColDifference: "Differenz",
   forecastMixColUsed: "Verbrauchte Stunden vom Budget",
   forecastMixPoints: "{0} Pkt.",
+  forecastMixPointsOne: "{0} Pkt.",
   forecastMixUsed: "{0} von {1} ({2})",
   forecastMixDriverBadge: "Treiber",
   forecastMixOnPlan: "Keine Rolle weicht um {0} Punkte oder mehr von ihrem geplanten Anteil ab.",
