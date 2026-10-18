@@ -91,8 +91,8 @@ async function take(browser, def) {
     if (r.status === 'ok' && ctx.checkDay && def.clock && daysChecked) {
       await ctx.checkDay(def.tier === 'big' ? 'fri' : def.clock);
     }
-    // A short AI clip shows at most MAX_AI_WAIT_S of each wait for Claude (trim.mjs).
-    if (r.status === 'ok' && r.file && def.tier === 'ai') {
+    // Every video shows at most MAX_AI_WAIT_S of each wait for Claude (trim.mjs); a clip with no AI wait is left as it is.
+    if (r.status === 'ok' && r.file) {
       const cut = trimAiWaits(r.file, r.aiWaits, L.OUT);
       log(`TRIM ${r.aiWaits.length} AI wait(s) capped at ${MAX_AI_WAIT_S} s, ${cut.toFixed(1)} s cut`);
     }

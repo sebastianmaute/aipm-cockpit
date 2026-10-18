@@ -55,7 +55,7 @@ export async function runTake(def, deps) {
     if (!recording) return;
     await ctx.page.screencast.start({ path: opts.outFile, size: { width: 1280, height: 720 } });
     started = true;
-    // The AI waits are timed from here (ai-wait.mjs), so a short AI clip can trim them (trim.mjs).
+    // The AI waits are timed from here (ai-wait.mjs), so the take can trim them (trim.mjs).
     ctx.recordingStartedAt = performance.now();
     ctx.aiWaits = [];
   };

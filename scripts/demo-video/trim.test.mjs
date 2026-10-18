@@ -1,4 +1,4 @@
-// §715 A — a short AI clip shows at most a few seconds of Claude thinking: each AI wait is noted on the
+// §715 A — a video shows at most a few seconds of Claude thinking: each AI wait is noted on the
 // recording's timeline, and a wait longer than MAX_AI_WAIT_S keeps only its first and last seconds.
 import { describe, expect, it } from 'vitest';
 import { timedAiWait, waitForAi } from './ai-wait.mjs';

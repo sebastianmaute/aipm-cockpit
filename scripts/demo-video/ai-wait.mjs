@@ -4,7 +4,7 @@
 export const AI_TIMEOUT_MS = 120000;
 
 /** Runs `fn`, an AI wait, and notes its span in seconds since the recording started (`ctx.recordingStartedAt`,
- *  set by take.mjs once the screencast runs), so a short AI clip can trim it (trim.mjs). Off camera it notes nothing. */
+ *  set by take.mjs once the screencast runs), so the take can trim it (trim.mjs). Off camera it notes nothing. */
 export async function timedAiWait(ctx, fn) {
   const t0 = performance.now();
   try {

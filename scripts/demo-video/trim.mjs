@@ -1,5 +1,5 @@
-// §715 demo recorder: a short AI clip shows at most MAX_AI_WAIT_S of Claude thinking. take.mjs notes each
-// AI wait on the recording's timeline (ai-wait.mjs); after an `ai` take, a wait longer than the cap keeps
+// §715 demo recorder: a video shows at most MAX_AI_WAIT_S of Claude thinking. take.mjs notes each AI wait
+// on the recording's timeline (ai-wait.mjs); after a take, a wait longer than the cap keeps
 // its first and last half of it (the busy state, then the result arriving) and its middle is cut with
 // ffmpeg. The untrimmed take is kept under `<out>/untrimmed/`. See README.md.
 import { execFileSync } from 'node:child_process';
