@@ -863,6 +863,7 @@ const enUS = {
   forecastDecisionToReach: "to reach {0}: {1}",
   forecastDecisionNoLever: "no single lever reaches {0}",
   forecastDecisionTakeUnknown: "what it would take is not known",
+  forecastDecisionCalendarLoading: "Not available yet: the holiday calendar is still loading. Export again in a moment.",
   forecastDecisionProposal: "“{0}” → P80 {1}, {2} on time",
   forecastDecisionProposalCost: "cost at finish {0}",
   forecastScenarioDraftColumn: "Draft",

@@ -801,6 +801,7 @@ export const de: Record<TranslationKey, string> = {
   forecastDecisionToReach: "um {0} zu erreichen: {1}",
   forecastDecisionNoLever: "kein einzelner Hebel erreicht {0}",
   forecastDecisionTakeUnknown: "was es bräuchte, ist nicht bekannt",
+  forecastDecisionCalendarLoading: "Noch nicht verfügbar: Der Feiertagskalender wird noch geladen. Bitte gleich noch einmal exportieren.",
   forecastDecisionProposal: "„{0}“ → P80 {1}, {2} termingerecht",
   forecastDecisionProposalCost: "Kosten bei Abschluss {0}",
   forecastScenarioDraftColumn: "Entwurf",

@@ -23,7 +23,8 @@ import { useWorkspace } from "./workspace-context";
 export type ForecastDecisionSourceDeps = {
   /** `isSimulationActive(settingsOverrides, features)`; off, there is no source and the section is absent. */
   simulationActive: boolean;
-  /** False while the holiday calendar loads: the decision is null until then (a run on an empty calendar would be wrong). */
+  /** False while the holiday calendar loads: the input is null until then (a run on an empty calendar would be wrong),
+   *  and the decision says the calendar is loading. */
   holidaysReady: boolean | undefined;
   tasks: readonly Task[];
   milestones: readonly Milestone[];
@@ -40,7 +41,8 @@ export type ForecastDecisionSourceDeps = {
 /**
  * ★ PRESENT EXACTLY WHILE THE SIMULATION IS ACTIVE — the one gate that offers the section (the document block select
  * reads the source's presence; Settings → Export asks `isSimulationActive` itself). While the holiday calendar loads
- * the handle is there but its input is null, so the decision is null and the section is omitted until it is ready.
+ * the handle is there but its input is null, so the decision is the one-row "calendar loading" one (Task 11b): a
+ * ticked section is never dropped silently. Once the calendar is ready, `holidaysReady` rebuilds the handle.
  */
 export function useForecastDecisionSource(d: ForecastDecisionSourceDeps): ForecastDecisionHandle | null {
   const { simulationActive, holidaysReady, tasks, milestones, today, holidaySet, plan, directory, budgetEnabled, scenarios, settingsOverrides } = d;
