@@ -401,7 +401,8 @@ describe("ForecastReportSection — the proposal", () => {
 });
 
 describe("ForecastReportSection — Forecast by group", () => {
-  test("runs the per-group forecasts only once the fold-out is opened", () => {
+  // Task 11b — opened, the runs go off the render path: "Working it out…" first, then the rows.
+  test("runs the per-group forecasts only once the fold-out is opened, after the render", async () => {
     const spy = vi.spyOn(groupModule, "forecastByGroup");
     renderSection();
     const fold = screen.getByTestId("forecast-by-group") as HTMLDetailsElement;
@@ -411,8 +412,10 @@ describe("ForecastReportSection — Forecast by group", () => {
       fold.open = true;
       fold.dispatchEvent(new Event("toggle"));
     });
+    expect(spy).not.toHaveBeenCalled();
+    expect(within(fold).getByText("Working it out…")).toBeTruthy();
+    expect(await within(fold).findByText(/Each group is forecast on its own/)).toBeTruthy();
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(within(fold).getByText(/Each group is forecast on its own/)).toBeTruthy();
     spy.mockRestore();
   });
 });
