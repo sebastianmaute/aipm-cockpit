@@ -102,3 +102,16 @@ describe("WorkspaceTabContext", () => {
     expect(result.current.activeTab).toBe("reports");
   });
 });
+
+describe("requestForecastDraft (§502 part 4)", () => {
+  it("switches to the Forecast view and arms the draft; clear consumes it", () => {
+    const { result } = renderHook(() => useWorkspaceTab(), { wrapper });
+    const req = { target: { kind: "milestone" as const, id: 1 }, kind: "people" as const, n: 2, alt: null };
+    expect(result.current.pendingForecastDraft).toBeNull();
+    act(() => result.current.requestForecastDraft(req));
+    expect(result.current.activeTab).toBe("forecast");
+    expect(result.current.pendingForecastDraft).toEqual(req);
+    act(() => result.current.clearForecastDraft());
+    expect(result.current.pendingForecastDraft).toBeNull();
+  });
+});

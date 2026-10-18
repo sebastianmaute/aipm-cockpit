@@ -35,10 +35,11 @@ const scenario = (id: number, name: string): ForecastScenario => ({
 
 type Writes = Pick<ForecastScenariosApi, "createScenario" | "updateScenario" | "renameScenario">;
 /** A list-backed api, so a delete really removes the row. */
-function Harness({ initial, tasks = HISTORY, readOnly = false, planEnd = "2026-12-31", writes, onSetList }: {
+function Harness({ initial, tasks = HISTORY, readOnly = false, planEnd = "2026-12-31", writes, onSetList, proposal }: {
   initial: ForecastScenario[]; tasks?: Task[]; readOnly?: boolean; planEnd?: string; writes?: Partial<Writes>;
   /** Lets a test play a concurrent writer (another tab, the AI) that changes the list while a dialog is open. */
   onSetList?: (set: Dispatch<SetStateAction<ForecastScenario[]>>) => void;
+  proposal?: { id: number | null; onChange: (id: number | null) => void };
 }) {
   const [list, setList] = useState(initial);
   onSetList?.(setList);
@@ -56,7 +57,7 @@ function Harness({ initial, tasks = HISTORY, readOnly = false, planEnd = "2026-1
     deleteScenario: (id) => setList((prev) => prev.filter((s) => s.id !== id)),
     ...writes,
   };
-  return <ForecastScenariosView lang="en-US" input={input} scenarios={{ api, directory: DIRECTORY, readOnly }} />;
+  return <ForecastScenariosView lang="en-US" input={input} scenarios={{ api, directory: DIRECTORY, readOnly }} proposal={proposal} />;
 }
 
 function renderView(props: Parameters<typeof Harness>[0]) {
@@ -307,5 +308,57 @@ describe("ForecastScenariosView — no silent refusals (fix round 1)", () => {
     expect(screen.getByRole("dialog", { name: "Rename scenario" })).toBeInTheDocument();
     const id = name.getAttribute("aria-describedby");
     expect(id ? document.getElementById(id)?.textContent : null).toBe(REFUSED);
+  });
+});
+
+describe("ForecastScenariosView — Use as proposal (§502 part 4)", () => {
+  /** A harness that keeps the proposal like the settings hook does, and records every write. */
+  function ProposalHarness({ initial, start = null, onChange }: { initial: ForecastScenario[]; start?: number | null; onChange: (id: number | null) => void }) {
+    const [id, setId] = useState<number | null>(start);
+    return <Harness initial={initial} proposal={{ id, onChange: (next) => { onChange(next); setId(next); } }} />;
+  }
+  const toggle = (name: string) => screen.getByRole("button", { name: `Use as proposal – ${name}` });
+
+  it("pressing it on scenario 2 proposes 2; pressing again clears it", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<TestProviders><ConfirmProvider lang="en-US"><ProposalHarness initial={[scenario(1, "Alpha"), scenario(2, "Beta")]} onChange={onChange} /></ConfirmProvider></TestProviders>);
+    expect(toggle("Beta")).toHaveAttribute("aria-pressed", "false");
+    await user.click(toggle("Beta"));
+    expect(onChange).toHaveBeenLastCalledWith(2);
+    expect(toggle("Beta")).toHaveAttribute("aria-pressed", "true");
+    expect(toggle("Alpha")).toHaveAttribute("aria-pressed", "false");
+    await user.click(toggle("Beta"));
+    expect(onChange).toHaveBeenLastCalledWith(null);
+    expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("pressing another moves it", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<TestProviders><ConfirmProvider lang="en-US"><ProposalHarness initial={[scenario(1, "Alpha"), scenario(2, "Beta")]} start={1} onChange={onChange} /></ConfirmProvider></TestProviders>);
+    await user.click(toggle("Beta"));
+    expect(onChange).toHaveBeenLastCalledWith(2);
+  });
+
+  it("two toggles have distinct names, even for twin scenario names, and sit before Edit", () => {
+    render(<TestProviders><ConfirmProvider lang="en-US"><ProposalHarness initial={[scenario(1, "Same"), scenario(2, "Same")]} onChange={() => {}} /></ConfirmProvider></TestProviders>);
+    const names = screen.getAllByRole("button", { name: /^Use as proposal – / }).map((b) => b.getAttribute("aria-label"));
+    expect(names).toHaveLength(2);
+    expect(new Set(names).size).toBe(2);
+    const row = screen.getAllByRole("listitem")[0];
+    expect(within(row).getAllByRole("button").map((b) => b.textContent)).toEqual(["Use as proposal", "Edit", "Rename", "Delete"]);
+  });
+
+  it("the Compared header of the proposal column carries a proposal badge, and only that one", () => {
+    render(<TestProviders><ConfirmProvider lang="en-US"><ProposalHarness initial={[scenario(1, "Alpha"), scenario(2, "Beta")]} start={2} onChange={() => {}} /></ConfirmProvider></TestProviders>);
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers.map((h) => h.textContent)).toEqual(["As is", "Alpha", "Betaproposal"]);
+    expect(within(headers[2]).getByText("proposal")).toBeInTheDocument();
+  });
+
+  it("read-only shows no toggle", () => {
+    render(<TestProviders><ConfirmProvider lang="en-US"><Harness initial={[scenario(1, "Alpha")]} readOnly proposal={{ id: 1, onChange: () => {} }} /></ConfirmProvider></TestProviders>);
+    expect(screen.queryByRole("button", { name: /^Use as proposal/ })).toBeNull();
   });
 });

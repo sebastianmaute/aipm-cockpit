@@ -28,7 +28,14 @@ import type { ForecastFactsByUnit } from "./budget-forecast";
 import { simulateCostFromRunMemo } from "./budget-sim";
 import { ReportCard } from "./report-table";
 import { InsufficientState } from "./forecast-insufficient";
-import { ForecastScenariosView, type ForecastScenariosProps } from "./forecast-scenarios-view";
+import { ForecastScenariosView, type ExploreDraft, type ForecastScenariosProps } from "./forecast-scenarios-view";
+import { ForecastTargetControl } from "./forecast-target-control";
+import { ForecastLeverCell, alternativeLever, chanceRagLevel } from "./forecast-lever-cell";
+import type { LeverKind, LeverTarget } from "./forecast-levers";
+import { leverKey, useLeverSearch } from "./use-lever-search";
+import type { ForecastSettingsApi } from "./use-forecast-settings";
+import type { ForecastDraftRequest } from "./workspace-tab-context";
+import { DEFAULT_TARGET_CONFIDENCE } from "./forecast-target";
 import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
 import { ForecastAskClaude, worstMilestoneName } from "./forecast-ask-claude";
 import { isValidIsoDate } from "./forecast/throughput";
@@ -117,6 +124,13 @@ interface Props {
   milestonesRef?: React.Ref<HTMLDivElement>;
   /** Saved scenarios (§502); absent (tests, older callers) = no Scenarios segment. */
   scenarios?: ForecastScenariosProps;
+  /** The project's target confidence and proposal (§502 part 4); absent = no target control, no lever column,
+   *  no proposal toggles. */
+  forecastSettings?: ForecastSettingsApi;
+  /** An Explore request made elsewhere (Reports) that this view, mounting fresh, opens as a draft once. */
+  pendingDraft?: ForecastDraftRequest | null;
+  /** Called once the pending request was taken, so the context can drop it. */
+  onDraftConsumed?: () => void;
 }
 
 /**
@@ -126,18 +140,39 @@ interface Props {
  * and consumes the request. Focus stays where the shell puts it on a view change
  * (the main region) — like every other deep-link that opens no editor.
  * ★ The view mounts fresh on each visit, so an unconsumed request would re-flash on the next one.
+ * An Explore draft from Reports (§502 part 4) rides the same context and is consumed by the panel once opened.
  */
-export function ForecastPanelDeepLinked(props: Omit<Props, "flashMilestoneId" | "milestonesRef">) {
-  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+export function ForecastPanelDeepLinked(props: Omit<Props, "flashMilestoneId" | "milestonesRef" | "pendingDraft" | "onDraftConsumed">) {
+  const { pendingOpen, clearPendingOpen, pendingForecastDraft, clearForecastDraft } = useWorkspaceTab();
   const { flashId, containerRef } = useDeepLinkRowFlash("forecast");
   useEffect(() => {
     if (pendingOpen?.view === "forecast") clearPendingOpen();
   }, [pendingOpen, clearPendingOpen]);
-  return <ForecastPanel {...props} flashMilestoneId={flashId} milestonesRef={containerRef} />;
+  return (
+    <ForecastPanel
+      {...props} flashMilestoneId={flashId} milestonesRef={containerRef} pendingDraft={pendingForecastDraft} onDraftConsumed={clearForecastDraft}
+    />
+  );
 }
 
-export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, isPopout = false, aiEnabled = false, showSimulation = false, budgetFacts = null, budgetEnabled = false, flashMilestoneId = null, milestonesRef, scenarios }: Props) {
+export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, isPopout = false, aiEnabled = false, showSimulation = false, budgetFacts = null, budgetEnabled = false, flashMilestoneId = null, milestonesRef, scenarios, forecastSettings, pendingDraft = null, onDraftConsumed }: Props) {
   const [mode, setMode] = useState<ForecastMode>("quick");
+  // §502 part 4 — an Explore draft opens Scenarios mode on an unsaved scenario. A new request is a new object.
+  const [draft, setDraft] = useState<ExploreDraft | null>(null);
+  const openDraft = (req: ForecastDraftRequest) => {
+    setDraft((prev) => ({ req, seq: (prev?.seq ?? 0) + 1 }));
+    setMode("scenarios");
+  };
+  // ★ Remount-swallow (AGENTS.md): the view mounts fresh on each visit, so the handled marker starts at the
+  // SENTINEL null — seeding it with the live request would make a fresh mount see it as already handled.
+  const [handledDraft, setHandledDraft] = useState<ForecastDraftRequest | null>(null);
+  if (pendingDraft !== null && pendingDraft !== handledDraft) {
+    setHandledDraft(pendingDraft);
+    openDraft(pendingDraft);
+  }
+  useEffect(() => {
+    if (handledDraft !== null) onDraftConsumed?.();
+  }, [handledDraft, onDraftConsumed]);
   const [unit, setUnit] = useState<ForecastUnit>("tasks");
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>(DEFAULT_HISTORY_WINDOW);
   const [whatIf, setWhatIf] = useState<WhatIf>(DEFAULT_WHAT_IF);
@@ -192,6 +227,18 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
     [tasks, milestones, today, holidaySet, historyWindow, unit, planEnd, directory, budgetFacts, costOn],
   );
 
+  // §502 part 4 — "what it would take", Quick only, searched off the render path (`useLeverSearch`). Ruling A: only
+  // milestones WITH a chance are searched; an overdue one, or one with nothing linked, shows no lever and no Explore.
+  const goal = forecastSettings?.target ?? DEFAULT_TARGET_CONFIDENCE;
+  const leversOn = showSimulation && forecastSettings !== undefined && mode === "quick" && result?.kind === "forecast";
+  const leverTargets = useMemo(
+    () => (result?.kind === "forecast"
+      ? result.milestones.flatMap((m): LeverTarget[] => (m.state === "chance" ? [{ kind: "milestone", id: m.id }] : []))
+      : []),
+    [result],
+  );
+  const leverValues = useLeverSearch({ input: scenarioInput, targets: leverTargets, goal, enabled: leversOn });
+
   // Scenarios mode's ONE comparison lives here, not in the view, so As is's milestone chances reach the Ask-Claude
   // menu without a second run; the view gets it as a prop. List identity is the hook's, so this keys like the view's did.
   const scenarioList = scenarios?.api.scenarios;
@@ -233,6 +280,29 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
     disabledReason: scenarioApi.canCreate ? null : t(lang, "forecastScenarioCapReached", MAX_FORECAST_SCENARIOS),
   };
 
+  const exploreFrom = (id: number, kind: LeverKind, n: number) => {
+    const value = leverValues.get(leverKey({ kind: "milestone", id }));
+    if (value === undefined || value === "pending") return;
+    openDraft({ target: { kind: "milestone", id }, kind, n, alt: alternativeLever(value, kind) });
+  };
+  const leverColumn = leversOn ? {
+    header: t(lang, "forecastColWhatItTakes", t(lang, "forecastPercent", goal)),
+    rag: (chance: number) => chanceRagLevel(chance, goal),
+    cell: (id: number, token: string) => {
+      const value = leverValues.get(leverKey({ kind: "milestone", id }));
+      return value === undefined ? null : (
+        <ForecastLeverCell
+          lang={lang} milestoneName={token} result={value} goal={goal}
+          onExplore={scenarioApi === null ? undefined : (kind, n) => exploreFrom(id, kind, n)}
+        />
+      );
+    },
+  } : undefined;
+  const targetControl = showSimulation && forecastSettings && (
+    <ForecastTargetControl lang={lang} value={forecastSettings.target} onChange={forecastSettings.setTarget} disabled={isPopout} />
+  );
+  const proposal = forecastSettings ? { id: forecastSettings.proposalId, onChange: forecastSettings.setProposal } : undefined;
+
   const commitWhatIf = (field: WhatIfField, raw: string): boolean => {
     const next = parseWhatIf(whatIf, field, raw, open.length);
     if (next) setWhatIf(next);
@@ -257,6 +327,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
           onResetSize={reset}
           showScenarios={scenarios !== undefined}
           saveAsScenario={saveAsScenario}
+          targetControl={targetControl || undefined}
           askClaude={askClaude || undefined}
         />
         {saveAs !== null && scenarioApi !== null && (
@@ -281,7 +352,10 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         )}
       </div>
       {inScenarios && scenarioInput && comparison ? (
-        <ForecastScenariosView lang={lang} input={scenarioInput} scenarios={scenarios} comparison={comparison} />
+        <ForecastScenariosView
+          lang={lang} input={scenarioInput} scenarios={scenarios} comparison={comparison} proposal={proposal}
+          draft={draft} onDraftClose={() => setDraft(null)}
+        />
       ) : result === null ? null : result.kind === "insufficient" ? (
         <InsufficientState lang={lang} result={result} />
       ) : (
@@ -296,7 +370,9 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
             </div>
           ) : percentileTable}
           <div ref={milestonesRef}>
-            <MilestoneTable lang={lang} milestones={milestones} chances={result.milestones} whatIf={mode === "whatif"} flashId={flashMilestoneId} />
+            <MilestoneTable
+              lang={lang} milestones={milestones} chances={result.milestones} whatIf={mode === "whatif"} flashId={flashMilestoneId} levers={leverColumn}
+            />
           </div>
         </>
       )}

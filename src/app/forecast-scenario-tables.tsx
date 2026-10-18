@@ -12,6 +12,7 @@ import { costUnavailableText, formatChanceOverBudget, percentileLabel } from "./
 import { formatChance, formatWhen } from "./forecast-tables";
 import { formatCurrency } from "./resource-cost";
 import { SimValue } from "./sim-value";
+import { Badge } from "./badge";
 import { Section } from "./report-table";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useRowTokens } from "./use-row-tokens";
@@ -132,11 +133,14 @@ export function ScenarioComparisonTable({
   columns,
   currency,
   noBudget = false,
+  proposalKey = null,
 }: {
   lang: Lang;
   columns: readonly ComparedColumn[];
   currency: BudgetCurrency;
   noBudget?: boolean;
+  /** The column of the project's proposal (§502 part 4): its header carries a "proposal" badge. */
+  proposalKey?: string | null;
 }) {
   const rows = buildRows(lang, columns, currency);
   const notes = columns.map((c) => columnNotes(lang, c.column));
@@ -149,7 +153,12 @@ export function ScenarioComparisonTable({
             <tr>
               <td className={CELL} />
               {columns.map((c) => (
-                <th key={c.key} scope="col" className={`${CELL} text-right font-medium`}>{c.name}</th>
+                <th key={c.key} scope="col" className={`${CELL} text-right font-medium`}>
+                  {c.name}
+                  {c.key === proposalKey && (
+                    <Badge size="sm" className="ml-1.5 border border-line bg-surface text-foreground">{t(lang, "forecastScenarioProposalBadge")}</Badge>
+                  )}
+                </th>
               ))}
             </tr>
             {notes.some((n) => n.length > 0) && (

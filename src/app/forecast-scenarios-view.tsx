@@ -6,11 +6,14 @@
 // open from here, each mounted fresh per open (keyed), so their drafts are seeded at mount and never in an effect.
 
 import { useId, useMemo, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { computeScenarioComparison, type ScenarioRunInput, type ScenarioComparison } from "./forecast-scenario-compare";
-import type { ScenarioDirectory } from "./forecast-added-people";
+import type { ScenarioDirectory, ScheduleContext } from "./forecast-added-people";
 import { MAX_FORECAST_SCENARIOS, type ForecastScenario } from "./forecast-scenarios";
-import type { ForecastScenariosApi } from "./use-forecast-scenarios";
+import type { ForecastScenariosApi, ScenarioDraft } from "./use-forecast-scenarios";
+import { leverChange, placeholderWho, type LeverKind, type LeverTarget } from "./forecast-levers";
+import type { ForecastDraftRequest } from "./workspace-tab-context";
+import { ToggleButton } from "./toggle-button";
 import { ScenarioComparisonTable, ScenarioMilestoneTable, type ComparedColumn } from "./forecast-scenario-tables";
 import { ForecastRangeBar } from "./forecast-range-bar";
 import { formatWhen } from "./forecast-tables";
@@ -28,10 +31,52 @@ import { ForecastScenarioNameDialog, scenarioRefusalText, useFocusAfterCommit } 
 /** The panel's `scenarios` prop; absent = no Scenarios segment and no "Save as scenario". */
 export type ForecastScenariosProps = { api: ForecastScenariosApi; directory: ScenarioDirectory; readOnly: boolean };
 
-/** What the view asked to open: the editor (scenario null = new, from `openId`) or the rename dialog. */
+/** What the view asked to open: the editor (scenario null = new, from `openId`) or the rename dialog. A `seed`
+ *  (an Explore draft, §502 part 4) starts the new scenario's name and rows; `alt` offers the other lever. */
 export type ScenarioDialog =
-  | { kind: "edit"; scenario: ForecastScenario | null; openId: number }
+  | { kind: "edit"; scenario: ForecastScenario | null; openId: number; seed?: ScenarioDraft; alt?: { label: string; seed: ScenarioDraft } }
   | { kind: "rename"; scenario: ForecastScenario };
+
+/** The project's proposal (§502 part 4): the id it names (null = none) and the one writer. */
+export type ScenarioProposal = { id: number | null; onChange: (id: number | null) => void };
+/** An Explore request the panel holds, and a count that remounts the editor on each new one. */
+export type ExploreDraft = { req: ForecastDraftRequest; seq: number };
+
+function leverPhrase(lang: Lang, kind: LeverKind, n: number): string {
+  return kind === "people" ? tPlural(lang, "forecastExplorePeople", n, n) : tPlural(lang, "forecastLeverTasks", n, n);
+}
+
+/** One lever as a draft: the same change the lever search probed (`leverChange`, sized by `placeholderWho` from the
+ *  comparison's context), so the draft's column shows the number the row did. Null when people cannot be sized. */
+function leverSeed(
+  lang: Lang, target: LeverTarget, targetName: string, lever: { kind: LeverKind; n: number }, context: ScheduleContext, input: ScenarioRunInput,
+): ScenarioDraft | null {
+  const who = lever.kind === "people" ? placeholderWho(context, input.directory) : null;
+  if (lever.kind === "people" && who === null) return null;
+  return {
+    name: t(lang, "forecastExploreDraftName", targetName, leverPhrase(lang, lever.kind, lever.n)),
+    changes: [leverChange(lever.kind, lever.n, target, who, input.today)],
+  };
+}
+
+/** The editor an Explore request opens; null when its milestone is gone or neither lever can be drafted. The
+ *  draft's id is minted at Save (`openId` is unused for a seeded editor): minting is a side effect, and the
+ *  request can arrive during render. */
+function exploreDialog(lang: Lang, req: ForecastDraftRequest, context: ScheduleContext, input: ScenarioRunInput): ScenarioDialog | null {
+  const { target } = req;
+  const name = target.kind === "milestone"
+    ? input.milestones.find((m) => m.id === target.id)?.name
+    : t(lang, "forecastRangePlanEnd");
+  if (name === undefined) return null;
+  const primary = leverSeed(lang, target, name, req, context, input);
+  const other = req.alt === null ? null : leverSeed(lang, target, name, req.alt, context, input);
+  const seed = primary ?? other;
+  if (seed === null) return null;
+  const alt = primary !== null && other !== null && req.alt !== null
+    ? { label: t(lang, "forecastExploreAltLabel", leverPhrase(lang, req.alt.kind, req.alt.n), name), seed: other }
+    : undefined;
+  return { kind: "edit", scenario: null, openId: 0, seed, alt };
+}
 
 /** As is sits in the token list too, so a scenario named "As is" still gets a distinct name. */
 const AS_IS_ID = -1;
@@ -90,9 +135,9 @@ function RangeBars({ lang, columns, today, planEnd, axis }: {
   );
 }
 
-function ScenarioList({ lang, scenarios, tokens, api, readOnly, onOpen }: {
+function ScenarioList({ lang, scenarios, tokens, api, readOnly, onOpen, proposal }: {
   lang: Lang; scenarios: readonly ForecastScenario[]; tokens: ReadonlyMap<number, string>;
-  api: ForecastScenariosApi; readOnly: boolean; onOpen: (d: ScenarioDialog) => void;
+  api: ForecastScenariosApi; readOnly: boolean; onOpen: (d: ScenarioDialog) => void; proposal?: ScenarioProposal;
 }) {
   const confirm = useConfirm();
   const capId = useId();
@@ -127,6 +172,15 @@ function ScenarioList({ lang, scenarios, tokens, api, readOnly, onOpen }: {
                 <span className="min-w-0 flex-1 truncate font-medium text-foreground">{s.name}</span>
                 {!readOnly && (
                   <>
+                    {proposal && (
+                      // Pressing another moves the proposal; pressing the pressed one clears it.
+                      <ToggleButton
+                        lang={lang} pressed={proposal.id === s.id} ariaLabel={rowLabel(t(lang, "forecastScenarioUseAsProposal"), token)}
+                        onToggle={() => proposal.onChange(proposal.id === s.id ? null : s.id)}
+                      >
+                        {t(lang, "forecastScenarioUseAsProposal")}
+                      </ToggleButton>
+                    )}
                     <Button id={editId(s.id)} variant="secondary" size="xs" aria-label={rowLabel(t(lang, "forecastScenarioEdit"), token)}
                       onClick={() => onOpen({ kind: "edit", scenario: s, openId: s.id })}>
                       {t(lang, "forecastScenarioEdit")}
@@ -162,13 +216,18 @@ function ScenarioList({ lang, scenarios, tokens, api, readOnly, onOpen }: {
   );
 }
 
-export function ForecastScenariosView({ lang, input, scenarios, comparison: provided }: {
+export function ForecastScenariosView({ lang, input, scenarios, comparison: provided, proposal, draft = null, onDraftClose }: {
   lang: Lang;
   input: ScenarioRunInput;
   scenarios: ForecastScenariosProps;
   /** The comparison the panel already ran for this input and list (it reads As is's milestone chances for the
    *  Ask-Claude menu); absent = this view runs its own. Never both: a provided one is used as is. */
   comparison?: ScenarioComparison;
+  /** Absent = no "Use as proposal" toggles and no proposal badge. */
+  proposal?: ScenarioProposal;
+  /** An Explore draft the panel holds (§502 part 4): the editor opens on it until Save or Cancel calls `onDraftClose`. */
+  draft?: ExploreDraft | null;
+  onDraftClose?: () => void;
 }) {
   const { api, readOnly } = scenarios;
   const list = api.scenarios;
@@ -179,7 +238,7 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
     [lang, list],
   );
   const tokens = useRowTokens(named, nameOf);
-  const [dialog, setDialog] = useState<ScenarioDialog | null>(null);
+  const [ownDialog, setDialog] = useState<ScenarioDialog | null>(null);
 
   const columns = useMemo<ComparedColumn[]>(
     () => [
@@ -188,17 +247,26 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
     ],
     [comparison, tokens, lang],
   );
-  const listEl = <ScenarioList lang={lang} scenarios={list} tokens={tokens} api={api} readOnly={readOnly} onOpen={setDialog} />;
-  const close = () => setDialog(null);
+  const listEl = (
+    <ScenarioList lang={lang} scenarios={list} tokens={tokens} api={api} readOnly={readOnly} onOpen={setDialog} proposal={proposal} />
+  );
+  // An Explore draft takes the editor while the panel holds it; it never enters the list until Save.
+  const context = comparison.context;
+  const draftDialog = useMemo(() => (draft === null ? null : exploreDialog(lang, draft.req, context, input)), [draft, lang, context, input]);
+  const dialog = draftDialog ?? ownDialog;
+  const close = draftDialog !== null ? () => onDraftClose?.() : () => setDialog(null);
   // The hook refuses without a toast (a cap or name taken by a concurrent writer since open), so a refusal keeps
   // the dialog open with its reason; only a write that went through closes it.
   const dialogEl = readOnly || dialog === null ? null : dialog.kind === "edit" ? (
     <ForecastScenarioEditor
-      key={dialog.scenario?.id ?? `new-${dialog.openId}`}
-      lang={lang} open scenario={dialog.scenario} openId={dialog.openId} context={comparison.context} list={list}
+      key={dialog.seed && draft ? `draft-${draft.seq}` : dialog.scenario?.id ?? `new-${dialog.openId}`}
+      lang={lang} open scenario={dialog.scenario} openId={dialog.openId} context={context} list={list}
+      seed={dialog.seed} alt={dialog.alt} capReached={dialog.seed !== undefined && !api.canCreate}
       onCancel={close}
       onSave={(d) => {
-        const saved = dialog.scenario ? api.updateScenario(dialog.scenario.id, d) : api.createScenario(dialog.openId, d) !== null;
+        const saved = dialog.scenario
+          ? api.updateScenario(dialog.scenario.id, d)
+          : api.createScenario(dialog.seed ? api.mintId() : dialog.openId, d) !== null;
         if (!saved) return scenarioRefusalText(lang, d, list, dialog.scenario?.id ?? null);
         close();
         return null;
@@ -236,6 +304,7 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
       <RangeBars lang={lang} columns={columns} today={input.today} planEnd={input.planEnd} axis={sharedAxis(comparison, input.today, input.planEnd)} />
       <ScenarioComparisonTable
         lang={lang} columns={columns} currency={input.directory.baseCurrency} noBudget={input.costOn && input.budgetFacts === null}
+        proposalKey={proposal === undefined || proposal.id === null ? null : String(proposal.id)}
       />
       <ScenarioMilestoneTable lang={lang} milestones={input.milestones} columns={columns} />
     </div>

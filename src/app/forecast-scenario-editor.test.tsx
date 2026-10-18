@@ -452,3 +452,48 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("ForecastScenarioEditor — a seeded draft (§502 part 4)", () => {
+  const PEOPLE: ScenarioChange = {
+    kind: "addPeople", who: { label: "Placeholder", count: 2, rate: 80, currency: "EUR", hoursPerWeek: 40 }, from: TODAY, until: "", rampWeeks: 2,
+  };
+  const SCOPE: ScenarioChange = { kind: "scope", tasks: -3, on: TODAY, milestoneId: 10 };
+  const SEED = { name: "Beta — what it would take (+2 people)", changes: [PEOPLE] };
+  const ALT = { label: "3 fewer tasks on Beta", seed: { name: "Beta — what it would take (3 fewer tasks)", changes: [SCOPE] } };
+  function renderSeeded(over: { alt?: typeof ALT; capReached?: boolean } = {}) {
+    const onSave = vi.fn((): string | null => null);
+    render(
+      <ForecastScenarioEditor
+        lang="en-US" open scenario={null} openId={7} context={CONTEXT} list={[]} seed={SEED} alt={over.alt} capReached={over.capReached}
+        onSave={onSave} onCancel={() => {}}
+      />,
+    );
+    return { onSave, user: userEvent.setup() };
+  }
+
+  it("opens on the seed name and rows, unsaved", () => {
+    const { onSave } = renderSeeded();
+    expect(control("Name").value).toBe(SEED.name);
+    expect(field("Change 1: Count").value).toBe("2");
+    expect(screen.queryByRole("button", { name: /^Or use/ })).toBeNull();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("the other lever replaces name and rows, once", async () => {
+    const { onSave, user } = renderSeeded({ alt: ALT });
+    await user.click(screen.getByRole("button", { name: "Or use 3 fewer tasks on Beta instead" }));
+    expect(control("Name").value).toBe(ALT.seed.name);
+    expect(screen.queryByRole("button", { name: /^Or use/ })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledWith({ name: ALT.seed.name, changes: [SCOPE] });
+  });
+
+  it("at the cap Save is disabled and says why", async () => {
+    const { onSave, user } = renderSeeded({ capReached: true });
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toBeDisabled();
+    expect(described(save)).toBe("A project keeps at most 4 scenarios.");
+    await user.click(save);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+});
