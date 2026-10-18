@@ -51,6 +51,7 @@ import {
 import { jsonToWorkspace, workspaceToJson, type StorageKind, type Workspace } from "./workspace";
 import type { DocTruncationDiag } from "./document-model";
 import { sanitizeDiscipline, sanitizeGrade, sanitizeResource } from "./sanitize";
+import { hasAuthoredRecords } from "./workspace-metrics";
 
 function newTabId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -241,6 +242,13 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   }, []);
 
   const write = useCallback((entry: Unconfirmed): void => {
+    // §715 — nothing a user wrote is not a draft: an empty workspace is never journalled. This tab's own
+    // older journal for the key goes too (the guard spares one another page load left), so an earlier
+    // draft cannot come back over the edit that emptied the project.
+    if (!hasAuthoredRecords(entry.workspace)) {
+      clearUnloadJournal(entry.projectKey, { tabId: UNLOAD_JOURNAL_TAB_ID, ifSavedAtAtMost: entry.savedAt });
+      return;
+    }
     let workspace: string;
     try {
       workspace = workspaceToJson(entry.workspace);
@@ -269,6 +277,8 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
    *  Returns whether the record was WRITTEN (final review I2): over the cap, on a quota error or a codec
    *  throw it is not, and a caller about to leave the project must not then leave. */
   const keep = useCallback((entry: Unconfirmed): boolean => {
+    // §715 — an empty version holds nothing to keep: done, so a caller about to leave may leave.
+    if (!hasAuthoredRecords(entry.workspace)) return true;
     const slot = readUnloadJournal(keptProjectKey(entry.projectKey)) === null ? keptProjectKey(entry.projectKey) : keptProjectKey(entry.projectKey, entry.savedAt);
     let workspace: string;
     try {

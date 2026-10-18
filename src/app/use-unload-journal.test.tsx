@@ -590,3 +590,60 @@ describe("§629 — useUnloadJournal on its own", () => {
     expect(result.current.baseFingerprint()).toBe(fingerprintWorkspace(WS_1));
   });
 });
+
+// §715 — a workspace with nothing a user wrote is not an unsaved draft. One was journalled under the
+// Turso "no project" key while the video recorder set the demo up, and the next load offered it as
+// another project's unsaved draft (a 1 KB empty workspace). The journal now skips such a workspace,
+// and clears this tab's own older journal for the key, so an earlier draft cannot come back over an
+// edit that emptied the project.
+describe("§715 — a workspace with nothing authored is never journalled", () => {
+  const KEY = `${UNLOAD_JOURNAL_PREFIX}p1`;
+  const KEPT_KEY = `${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1")}`;
+  const WS_1: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "One" } as unknown as Task] };
+
+  function renderJournal() {
+    return renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
+  }
+
+  it("an empty workspace's save, hidden or at pagehide, writes no journal", () => {
+    const { result } = renderJournal();
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(emptyWorkspace()); });
+    expect(localStorage.getItem(KEY)).toBeNull();
+    pageHide();
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("the positive control: the same save of a workspace with a task is journalled", () => {
+    const { result } = renderJournal();
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(WS_1); });
+    expect(journalTaskIds(KEY)).toEqual([1]);
+  });
+
+  it("an empty save clears this tab's own older journal for the key, so it cannot come back", () => {
+    const { result } = renderJournal();
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(WS_1); });
+    expect(journalTaskIds(KEY)).toEqual([1]);
+    act(() => { result.current.noteSaveStarted(emptyWorkspace()); });
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("an empty save never clears a journal another page load left", () => {
+    const { result } = renderJournal();
+    const foreign: UnloadJournal = { v: 1, projectKey: "p1", tabId: "an-earlier-page", savedAt: 1, baseFingerprint: "x", workspace: "{}" };
+    localStorage.setItem(KEY, JSON.stringify(foreign));
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(emptyWorkspace()); });
+    expect(readJournal(KEY)).toEqual(foreign);
+  });
+
+  it("keeping an empty live workspace writes no kept slot, and reports success so the caller may go on", () => {
+    const { result } = renderJournal();
+    let kept = false;
+    act(() => { kept = result.current.keepLive(emptyWorkspace()); });
+    expect(kept).toBe(true);
+    expect(localStorage.getItem(KEPT_KEY)).toBeNull();
+  });
+});

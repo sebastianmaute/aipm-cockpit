@@ -331,6 +331,11 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
   `workspaceToJson` of the outgoing state. A record over `UNLOAD_JOURNAL_MAX_CHARS` is not written.
 - **Written** by `noteSaveStarted` (called from `doSave`, past every guard) when the page is hiding
   or hidden, and by the hook's own `pagehide` listener for the latest unconfirmed save.
+  ★ **Never for a workspace with nothing authored** (§715, `hasAuthoredRecords` false): such a write
+  instead clears this tab's own older record for the key (the tab-id guard spares another page
+  load's), so an earlier draft cannot come back over the edit that emptied the project. `keep` writes
+  no kept slot for one either and reports success. An empty "Turso workspace (no project)" draft
+  was otherwise offered in `OtherJournalsBanner`; what saved it is open as §751.
 - **Cleared** by `noteSaveConfirmed` in the save's `.then`, for this tab's record of that save or
   an older one; by `dropUnconfirmed` from "Reload project" and the picker's "load the file
   instead".
