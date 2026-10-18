@@ -45688,7 +45688,7 @@ Size S (notice) or M (read-only).
 
 ## 754. An empty workspace can still be kept as an unsaved draft when the stored version is unknown — OPEN
 
-**Status:** OPEN 2026-10-18. Found by the branch review of the §715 empty-draft fix on `fix/715-empty-unload-journal`. The unload journal skips an empty workspace only when it is saved over an empty stored version (`isNothingNewToJournal` in `use-unload-journal.ts`); with no base known, `storedFor` returns null and the empty workspace is journalled. `grep -n "return stored !== null" src/app/use-unload-journal.ts` → the one line that journals whenever the base is unknown.
+**Status:** OPEN 2026-10-18. Found by the branch review of the §715 empty-draft fix on `fix/715-empty-unload-journal`. The unload journal skips an empty workspace only when it is saved over an empty stored version (`isNothingNewToJournal` in `use-unload-journal.ts`); with no base known, `storedFor` returns null and the empty workspace is journalled. `grep -n "return stored !== null && isNothingToJournal" src/app/use-unload-journal.ts` → the one line that journals whenever the base is unknown.
 
 **Work item:** #785
 
