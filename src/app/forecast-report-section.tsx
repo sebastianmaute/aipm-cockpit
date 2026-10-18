@@ -18,9 +18,10 @@ import { localeFor } from "./date-format";
 import { formatDayMonthYear } from "./forecast-format";
 import { formatChance, formatWhen } from "./forecast-tables";
 import { formatChanceOverBudget, percentileLabel } from "./budget-sim-text";
-import { computeScenarioColumn, computeScenarioComparison, type ScenarioColumn, type ScenarioRunInput } from "./forecast-scenario-compare";
+import {
+  computeScenarioColumn, computeScenarioComparison, sharedAsIsRun, type ScenarioColumn, type ScenarioRunInput,
+} from "./forecast-scenario-compare";
 import type { ScheduleForecast } from "./forecast";
-import { sharedAsIsRun } from "./forecast-decision";
 import { milestoneRowsWorstFirst } from "./forecast-scenario-tables";
 import { useRowTokens } from "./use-row-tokens";
 import type { ForecastHistoryEntry } from "./forecast-history";

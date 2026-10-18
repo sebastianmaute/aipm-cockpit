@@ -11,11 +11,10 @@
 //  the Reports or Dashboard memo is warm runs no second 10,000 trials.
 
 import type { ScheduleForecastResult } from "./forecast";
-import { computeAppScheduleRun } from "./forecast/app-forecast";
-import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
 import { whatItTakesSync, type WhatItTakes } from "./forecast-levers";
 import {
-  computeScenarioColumn, computeScenarioComparison, type ScenarioColumn, type ScenarioComparison, type ScenarioRunInput,
+  computeScenarioColumn, computeScenarioComparison, sharedAsIsRun,
+  type ScenarioColumn, type ScenarioComparison, type ScenarioRunInput,
 } from "./forecast-scenario-compare";
 import type { ForecastScenario } from "./forecast-scenarios";
 import { proposalIdOf, targetConfidenceOf, type TargetConfidence } from "./forecast-target";
@@ -90,15 +89,6 @@ export type ForecastDecisionArgs = {
   scenarios: readonly ForecastScenario[];
   settingsOverrides: SettingsOverrides | undefined;
 };
-
-/** The shared app run when `input` is exactly its call (the app-wide defaults), else undefined: the comparison then
- *  runs its own. Same references as `useAppForecast`, so the memo answers and the trials do not rerun. */
-export function sharedAsIsRun(input: ScenarioRunInput): ScheduleForecastResult | undefined {
-  if (input.window !== DEFAULT_HISTORY_WINDOW || input.unit !== "tasks") return undefined;
-  return computeAppScheduleRun({
-    tasks: input.tasks, milestones: input.milestones, planEnd: input.planEnd, today: input.today, holidaySet: input.holidaySet,
-  });
-}
 
 function p80Of(forecast: ScheduleForecastResult): string | null {
   return forecast.kind === "forecast" ? forecast.when.find((w) => w.p === SAFE_TO_COMMIT)?.date ?? null : null;

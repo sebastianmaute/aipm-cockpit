@@ -9,8 +9,8 @@
 import { simulateCostFromRun } from "./budget-sim";
 import type { ForecastFactsByUnit } from "./budget-forecast";
 import { DEFAULT_WHAT_IF, computeScheduleForecast, type ScheduleForecastResult } from "./forecast";
-import { chanceOnTime } from "./forecast/app-forecast";
-import { MAX_HORIZON_WORKING_DAYS, type ForecastUnit, type HistoryWindow } from "./forecast/constants";
+import { chanceOnTime, computeAppScheduleRun } from "./forecast/app-forecast";
+import { DEFAULT_HISTORY_WINDOW, MAX_HORIZON_WORKING_DAYS, type ForecastUnit, type HistoryWindow } from "./forecast/constants";
 import type { CostAtFinish } from "./forecast/cost";
 import { simulatedDates } from "./forecast/day-index";
 import {
@@ -88,6 +88,16 @@ function runColumn(input: ScenarioRunInput, schedule: ScenarioSchedule | null, p
     ? simulateCostFromRun(forecast, input.budgetFacts.eur, COST_SEED_TAG, schedule?.spendScale ?? 1, schedule?.addedCost)
     : null;
   return { forecast, chanceOnTime: onTime, cost, schedule };
+}
+
+/** The shared app run when `input` is exactly its call (the app-wide defaults), else undefined: the comparison then
+ *  runs its own. Same references as `useAppForecast`, so the memo answers and the trials do not rerun. Every As-is
+ *  comparison at the defaults passes it — the Reports section, the export decision and the lever search's prepare. */
+export function sharedAsIsRun(input: ScenarioRunInput): ScheduleForecastResult | undefined {
+  if (input.window !== DEFAULT_HISTORY_WINDOW || input.unit !== "tasks") return undefined;
+  return computeAppScheduleRun({
+    tasks: input.tasks, milestones: input.milestones, planEnd: input.planEnd, today: input.today, holidaySet: input.holidaySet,
+  });
 }
 
 /**

@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   isPlanSettled, planWhatItTakes, probeInput, settlePlan, stepPlan, type LeverTarget, type WhatItTakes, type WhatItTakesPlan,
 } from "./forecast-levers";
-import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
+import { computeScenarioComparison, sharedAsIsRun, type ScenarioRunInput } from "./forecast-scenario-compare";
 import type { ScheduleContext } from "./forecast-added-people";
 import type { TargetConfidence } from "./forecast-target";
 
@@ -89,7 +89,8 @@ export function useLeverSearch({ input, targets, goal, enabled }: LeverSearchArg
     const schedule = () => { timer = setTimeout(step, 0); };
 
     function prepare(): void {
-      const comparison = computeScenarioComparison(run, []);
+      // The shared app run at the defaults (Reports, the preview): no third identical As-is, spec §4.
+      const comparison = computeScenarioComparison(run, [], sharedAsIsRun(run));
       context = comparison.context;
       for (const target of list) {
         const plan = planWhatItTakes(run, comparison.context, target, goal, comparison.asIs);
