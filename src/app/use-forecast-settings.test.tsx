@@ -36,6 +36,19 @@ describe("useForecastSettings", () => {
     expect(logActivity).toHaveBeenCalledTimes(1);
   });
 
+  it("two setTarget calls in one tick log 80 to 95, then 95 to 50", () => {
+    const { result, logActivity } = setup();
+    act(() => {
+      result.current.api.setTarget(95);
+      result.current.api.setTarget(50);
+    });
+    expect(logActivity.mock.calls).toEqual([
+      ["forecast.targetChanged", 80, 95],
+      ["forecast.targetChanged", 95, 50],
+    ]);
+    expect(result.current.settingsOverrides).toEqual({ forecast: { targetConfidence: 50 } });
+  });
+
   it("setProposal logs the id and name, and setProposal(null) logs the clear", () => {
     const { result, logActivity } = setup();
     act(() => result.current.api.setProposal(4));

@@ -6,7 +6,7 @@
 // never stored. Pure and i18n-free.
 
 import type { ForecastScenario } from "./forecast-scenarios";
-import { hasAnyOverride } from "./settings-overrides";
+import { withForecastObject } from "./forecast-simulation";
 import type { SettingsOverrides } from "./settings-types";
 import type { Health } from "./health";
 
@@ -38,12 +38,7 @@ function withForecast(
   o: SettingsOverrides | undefined,
   patch: Partial<NonNullable<SettingsOverrides["forecast"]>>,
 ): SettingsOverrides | undefined {
-  const merged = { ...o?.forecast, ...patch };
-  const forecast = Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== undefined));
-  const next: SettingsOverrides = { ...o };
-  delete next.forecast;
-  if (Object.keys(forecast).length > 0) next.forecast = forecast;
-  return hasAnyOverride(next) ? next : undefined;
+  return withForecastObject(o, { ...o?.forecast, ...patch });
 }
 
 /** A NEW override with the target set; 80 is stored as absence. */

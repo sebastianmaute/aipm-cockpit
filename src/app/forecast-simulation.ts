@@ -34,10 +34,19 @@ export function withSimulation(
   // The target and the proposal are project data, not part of the switch: only showSimulation moves.
   const kept = { ...o?.forecast };
   delete kept.showSimulation;
-  const forecast = on ? { showSimulation: true, ...kept } : kept;
+  return withForecastObject(o, on ? { showSimulation: true, ...kept } : kept);
+}
+
+/** Replace `forecast` wholesale: undefined fields are dropped, an empty object removes the key, and an
+ *  override left with nothing folds to undefined. The one fold shared by the switch and the target/proposal. */
+export function withForecastObject(
+  o: SettingsOverrides | undefined,
+  forecast: NonNullable<SettingsOverrides["forecast"]>,
+): SettingsOverrides | undefined {
+  const kept = Object.fromEntries(Object.entries(forecast).filter(([, v]) => v !== undefined));
   const next: SettingsOverrides = { ...o };
   delete next.forecast;
-  if (Object.keys(forecast).length > 0) next.forecast = forecast;
+  if (Object.keys(kept).length > 0) next.forecast = kept;
   return hasAnyOverride(next) ? next : undefined;
 }
 
