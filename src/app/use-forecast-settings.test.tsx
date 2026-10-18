@@ -61,6 +61,26 @@ describe("useForecastSettings", () => {
     expect(logActivity).toHaveBeenLastCalledWith("forecast.targetChanged", 80, 95);
   });
 
+  it("an AI batch with an await between calls writes the last one: set 95 then 80 stores no override", async () => {
+    const { result } = setup();
+    await act(async () => {
+      result.current.api.setTarget(95);
+      await Promise.resolve();
+      result.current.api.setTarget(80);
+    });
+    expect(result.current.settingsOverrides).toBeUndefined();
+  });
+
+  it("the same for the proposal: set 4 then null stores no proposal", async () => {
+    const { result } = setup();
+    await act(async () => {
+      result.current.api.setProposal(4);
+      await Promise.resolve();
+      result.current.api.setProposal(null);
+    });
+    expect(result.current.settingsOverrides).toBeUndefined();
+  });
+
   it("setProposal logs the id and name, and setProposal(null) logs the clear", () => {
     const { result, logActivity } = setup();
     act(() => result.current.api.setProposal(4));
