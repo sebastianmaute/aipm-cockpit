@@ -261,9 +261,6 @@ describe("record labels", () => {
     expect(labels).toEqual(["Ann · 2026-04-01", "Ann · 2026-05-28"]);
   });
 
-  // ★★★ BUG-CLASS GUARD. Any spec declaring a name source that its records do
-  // not carry lands here — the fallback to `#id` is the only symptom, and
-  // nothing else in the suite reads it.
   it("diffs a renamed forecast scenario under its own label, by name (§502)", () => {
     const sc = (name: string) => [{ id: 1, name, changes: [] }];
     const c = diffWorkspaces(ws({ forecastScenarios: sc("Old") }), ws({ forecastScenarios: sc("New") }));
@@ -271,6 +268,18 @@ describe("record labels", () => {
     expect(c[0]).toMatchObject({ collection: "forecastScenarios", recordId: 1, type: "modified", recordLabel: "New" });
     expect(COLLECTION_SPECS.find((s) => s.key === "forecastScenarios")?.label).toBe("Forecast scenarios");
   });
+  it("a capture that cannot speak for scenarios shows no scenario row, one that can shows them (§502)", () => {
+    const live = [{ id: 1, name: "A", changes: [] }, { id: 2, name: "B", changes: [] }];
+    const rows = (opts?: Parameters<typeof diffWorkspaces>[2]) =>
+      diffWorkspaces(ws({}), ws({ forecastScenarios: live }), opts).filter((c) => c.collection === "forecastScenarios");
+    expect(rows({ olderSpeaksForEmptySlices: true })).toEqual([]);
+    expect(rows()).toEqual([]);
+    expect(rows({ olderSpeaksForEmptySlices: true, olderSpeaksForScenarios: true }).map((c) => c.type)).toEqual(["added", "added"]);
+  });
+
+  // ★★★ BUG-CLASS GUARD. Any spec declaring a name source that its records do
+  // not carry lands here — the fallback to `#id` is the only symptom, and
+  // nothing else in the suite reads it.
   it("never falls back to #id for a fully-populated record", () => {
     const named = new Set(COLLECTION_SPECS.filter((s) => s.nameField || s.nameOf).map((s) => s.key));
     const changes = diffWorkspaces(ws(arraysFixture("Old")), ws(arraysFixture("New")));

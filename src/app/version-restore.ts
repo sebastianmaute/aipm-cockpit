@@ -6,7 +6,7 @@
 
 import type { Workspace } from "./workspace";
 import { COLLECTION_SPECS, type RecordId, type VersionChange } from "./version-diff";
-import { PRE_FORMAT_2_BLIND_SLICES } from "./version-capture-format";
+import { isBlindSlice } from "./version-capture-format";
 import { DEFAULT_WORKDAY_HOURS, materializeDayBasisRole } from "./role-rates";
 import type { Role } from "./types";
 
@@ -76,11 +76,12 @@ export function applyRestore(
   version: Workspace,
   changes: VersionChange[],
   selection: RestoreSelection,
-  opts?: { versionSpeaksForEmptySlices?: boolean; workdayHours?: number },
+  opts?: { versionSpeaksForEmptySlices?: boolean; versionSpeaksForScenarios?: boolean; workdayHours?: number },
 ): Workspace {
   const changeByKey = new Map(changes.map((c) => [changeKey(c.collection, c.recordId), c]));
   const result: Record<string, unknown> = { ...(current as unknown as Record<string, unknown>) };
-  const blind = !opts?.versionSpeaksForEmptySlices;
+  const speaksEmpty = !!opts?.versionSpeaksForEmptySlices;
+  const speaksScenarios = !!opts?.versionSpeaksForScenarios;
 
   for (const spec of COLLECTION_SPECS) {
     // ★★ Diff-visible but NOT restorable. The slice is carried through from
@@ -115,10 +116,12 @@ export function applyRestore(
     // again remove records added since it: reading a stamped empty slice as
     // "cannot speak" is safe but makes restore permanently useless for new
     // content, which is the whole reason the marker exists.
+    // ★ `forecastScenarios` is blind by the same rule one format later (`PRE_FORMAT_3_BLIND_SLICES`):
+    // the six above are guarded below format 2, it below format 3.
     // ★★ Defence in depth, not the mechanism — `diffWorkspaces` given the same
     // flag emits no row for these at all, so nothing reaches a selection. Keep
     // both: a caller that threads one and forgets the other must fail SAFE.
-    if (blind && PRE_FORMAT_2_BLIND_SLICES.has(key)
+    if (isBlindSlice(key, speaksEmpty, speaksScenarios)
       && (version as unknown as Record<string, unknown>)[key] === undefined) continue;
     if (spec.kind === "list") {
       const cur = byId(current[spec.key] as unknown[]);

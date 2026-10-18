@@ -19,8 +19,15 @@
 // them: the information is not in the payload. This marker puts it there.
 
 /** Bumped when a capture starts carrying slices it previously could not. `1` is
- *  implied by ABSENCE of the marker: every capture written before db217e08. */
-export const CAPTURE_FORMAT = 2;
+ *  implied by ABSENCE of the marker: every capture written before db217e08.
+ *  `2` carries the six slices below; `3` also carries `forecastScenarios` (§502). */
+export const CAPTURE_FORMAT = 3;
+
+/** The first format that speaks for the six `PRE_FORMAT_2_BLIND_SLICES`. */
+export const EMPTY_SLICES_FORMAT = 2;
+
+/** The first format that speaks for `forecastScenarios`. */
+export const SCENARIOS_FORMAT = 3;
 
 /** ★★★ EXACTLY the six slices `db217e08` added to `getVersionPayload`, and the
  *  precision matters in BOTH directions.
@@ -37,6 +44,20 @@ export const PRE_FORMAT_2_BLIND_SLICES: ReadonlySet<string> = new Set([
   "knowledgeItems", "insights", "documents", "documentVersions",
   "settingsOverrides", "calendarEvents",
 ]);
+
+/** ★★★ `forecastScenarios` is blind below format 3, EXACTLY like the six above and for the same
+ *  reason: `workspaceToJson` omits the key when the list is empty, and no capture before format 3
+ *  carried it at all, so an absent key there means "cannot speak", never "no scenarios". Read as
+ *  empty it would diff every live scenario as "added" and a restore would delete them. A separate
+ *  set, because format-2 captures DO speak for the six and must keep doing so. */
+export const PRE_FORMAT_3_BLIND_SLICES: ReadonlySet<string> = new Set(["forecastScenarios"]);
+
+/** Whether the capture cannot speak for `key`: a blind slice of a format the capture predates.
+ *  The two flags are `speaksForEmptySlices(format)` and `speaksForScenarios(format)`. */
+export function isBlindSlice(key: string, speaksEmpty: boolean, speaksScenarios: boolean): boolean {
+  return (!speaksEmpty && PRE_FORMAT_2_BLIND_SLICES.has(key))
+    || (!speaksScenarios && PRE_FORMAT_3_BLIND_SLICES.has(key));
+}
 
 /** Stamp a payload produced by `workspaceToJson`. ★ String surgery rather than
  *  parse/re-stringify: the payload is the largest string the app handles and
@@ -75,5 +96,10 @@ export function readCaptureFormat(json: string): number | null {
  *  second tab mid-upgrade, a shared Turso project) carries a higher number and
  *  still speaks for all six. Reading that as "cannot speak" is safe but wrong. */
 export function speaksForEmptySlices(format: number | null): boolean {
-  return format !== null && format >= CAPTURE_FORMAT;
+  return format !== null && format >= EMPTY_SLICES_FORMAT;
+}
+
+/** Whether a capture at this format speaks for `forecastScenarios` (same `>=` reasoning). */
+export function speaksForScenarios(format: number | null): boolean {
+  return format !== null && format >= SCENARIOS_FORMAT;
 }

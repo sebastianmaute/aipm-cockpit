@@ -52,6 +52,14 @@ describe("useForecastSettings", () => {
     expect(logActivity).not.toHaveBeenCalled();
   });
 
+  it("a stored proposal naming a deleted scenario reads as none, and clearing it writes and logs nothing", () => {
+    const { result, logActivity } = setup({ forecast: { proposalScenarioId: 7 } });
+    expect(result.current.api.proposalId).toBeNull();
+    act(() => result.current.api.setProposal(null));
+    expect(logActivity).not.toHaveBeenCalled();
+    expect(result.current.settingsOverrides).toEqual({ forecast: { proposalScenarioId: 7 } });
+  });
+
   it("setProposal for an unknown scenario writes and logs nothing", () => {
     const { result, logActivity } = setup();
     act(() => result.current.api.setProposal(99));

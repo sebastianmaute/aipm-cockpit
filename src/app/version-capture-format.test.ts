@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   CAPTURE_FORMAT,
+  EMPTY_SLICES_FORMAT,
   PRE_FORMAT_2_BLIND_SLICES,
+  PRE_FORMAT_3_BLIND_SLICES,
+  SCENARIOS_FORMAT,
+  isBlindSlice,
+  speaksForScenarios,
   readCaptureFormat,
   speaksForEmptySlices,
   stampCaptureFormat,
@@ -75,7 +80,7 @@ describe("speaksForEmptySlices", () => {
   it("accepts a FUTURE format, not just the current one", () => {
     expect(speaksForEmptySlices(CAPTURE_FORMAT + 1)).toBe(true);
     expect(speaksForEmptySlices(CAPTURE_FORMAT + 99)).toBe(true);
-    expect(speaksForEmptySlices(CAPTURE_FORMAT - 1)).toBe(false);
+    expect(speaksForEmptySlices(EMPTY_SLICES_FORMAT - 1)).toBe(false);
   });
 });
 
@@ -98,5 +103,34 @@ describe("PRE_FORMAT_2_BLIND_SLICES", () => {
     for (const k of ["project", "steeringCommittee", "timelogLinks", "tasks", "fxRates"]) {
       expect(PRE_FORMAT_2_BLIND_SLICES.has(k)).toBe(false);
     }
+  });
+});
+
+describe("format 3 — forecastScenarios (§502)", () => {
+  it("stamps the current format as 3", () => {
+    expect(CAPTURE_FORMAT).toBe(3);
+  });
+
+  it("speaks for scenarios only from format 3, while format 2 still speaks for the six", () => {
+    expect(speaksForScenarios(null)).toBe(false);
+    expect(speaksForScenarios(SCENARIOS_FORMAT - 1)).toBe(false);
+    expect(speaksForScenarios(SCENARIOS_FORMAT)).toBe(true);
+    expect(speaksForEmptySlices(2)).toBe(true);
+  });
+
+  it("holds exactly forecastScenarios in the format-3 blind set", () => {
+    expect([...PRE_FORMAT_3_BLIND_SLICES]).toEqual(["forecastScenarios"]);
+  });
+
+  it("isBlindSlice judges each set against its own format", () => {
+    // format 2: the six speak, scenarios do not
+    expect(isBlindSlice("documents", true, false)).toBe(false);
+    expect(isBlindSlice("forecastScenarios", true, false)).toBe(true);
+    // unstamped: everything blind; format 3: nothing
+    expect(isBlindSlice("documents", false, false)).toBe(true);
+    expect(isBlindSlice("forecastScenarios", false, false)).toBe(true);
+    expect(isBlindSlice("forecastScenarios", true, true)).toBe(false);
+    // an always-emitted slice is never blind
+    expect(isBlindSlice("project", false, false)).toBe(false);
   });
 });
