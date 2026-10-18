@@ -52,6 +52,8 @@ An AI step waits for its result by the UI's state, never by its text, then check
 
 `<out>/<tier>/<NN>-<id>.webm`, with `NN` the video's position in its tier (`ch1-install` counts). `<out>` is `.superpowers/tmp/demo-video/`, which git ignores; set `DEMO_VIDEO_DIR` to write somewhere else. A take that does not end `ok` leaves `warn-<id>.png` in `<out>`.
 
+A short AI clip (tier `ai`) shows at most three seconds of each wait for Claude (`MAX_AI_WAIT_S` in `trim.mjs`). The take notes when each AI wait starts and ends; afterwards a wait longer than that keeps its first and last 1.5 seconds, the busy state and the result arriving, and ffmpeg cuts the rest (`ffmpeg` and `ffprobe` must be on the PATH). The untrimmed take is kept as `<out>/untrimmed/ai/<NN>-<id>.webm`. The big video and the chapters are not trimmed.
+
 ## The week's clock and the replay
 
 The demo week runs Monday 21 to Friday 25 September 2026 (`DEMO_WEEK_DATES` in `week-story.mjs`). A take starts at Monday 08:30 in Berlin. A chapter replays each earlier day off camera, moving the clock to 08:30 of that day and reloading first, then moves to its own day. The big video moves the clock between days on camera.
@@ -99,7 +101,8 @@ Everything a re-take needs is in the repository: these scripts, their fixtures a
 | `cli.mjs` | Pure: `parseArgs`, `selectVideos`, `outPath`, `exitCode`, `findSecrets`. |
 | `videos.mjs` | The 43 video definitions: tier, title, opening, preconditions, steps. |
 | `take.mjs` | `runTake`: one take, setup to closing beat, with the AI retry rule. |
-| `ai-wait.mjs` | `waitForAi`: waits for an AI call by its UI state. |
+| `ai-wait.mjs` | `waitForAi`: waits for an AI call by its UI state; `timedAiWait` notes each wait on the recording's timeline. |
+| `trim.mjs` | Cuts each AI wait in a short AI clip down to `MAX_AI_WAIT_S` with ffmpeg; `keepRanges` and `trimArgs` are pure. |
 | `setup.mjs` | Off-camera setup: `connect`, `exploreDemo`, `seedDeviceState`, `enableDigest`, `enableChat`, `goToDay`, `currentProjectId`. |
 | `ui.mjs` | The cursor and caption overlay, `caption`, `moveTo`, `click`, `type`, `nav`, `skipTour`, `closingBeat`. |
 | `lib.mjs` | `T0`, `atDay`, the `.env.local` reader, the Turso guard, `settle`, `query`. |

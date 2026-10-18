@@ -2,7 +2,7 @@
 // (Monday morning) and reuses the week's step object where it shows the same action; the steps written
 // here are the clips' own. See ../README.md.
 import { step } from './step.mjs';
-import { AI_TIMEOUT_MS, waitForAi } from '../ai-wait.mjs';
+import { AI_TIMEOUT_MS, timedAiWait, waitForAi } from '../ai-wait.mjs';
 import * as L from '../lib.mjs';
 import { caption, click, moveTo, nav, pace, skipTour, type } from '../ui.mjs';
 import { DEMO_CRM_TASK, DEMO_DUPLICATE_PAIRS, DEMO_GDPR_ISSUE } from '../week-story.mjs';
@@ -223,7 +223,8 @@ const scheduledRun = step('scheduled-run', {
     await ctx.page.clock.fastForward(35 * 60 * 1000);
     // The run is read from the stored job (Node, off screen) while the view stays put; Settings reads its
     // list on mount only (§750), so the section is then re-opened once, by its sibling tab.
-    const run = await storedRun('Morning check');
+    // Claude's think time on camera, timed like any AI wait so the clip can trim it.
+    const run = await timedAiWait(ctx, () => storedRun('Morning check'));
     if (!run.ok) throw new Error(`${ctx.clipId}: the scheduled run failed (${run.error ?? 'no detail'})`);
     await click(ctx, main(ctx).getByRole('button', { name: 'Views', exact: true }).first(), 'Views', 300);
     await click(ctx, main(ctx).getByRole('button', { name: 'Scheduled jobs', exact: true }).first(), 'Scheduled jobs', 800);

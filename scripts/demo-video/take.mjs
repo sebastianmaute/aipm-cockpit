@@ -55,6 +55,9 @@ export async function runTake(def, deps) {
     if (!recording) return;
     await ctx.page.screencast.start({ path: opts.outFile, size: { width: 1280, height: 720 } });
     started = true;
+    // The AI waits are timed from here (ai-wait.mjs), so a short AI clip can trim them (trim.mjs).
+    ctx.recordingStartedAt = performance.now();
+    ctx.aiWaits = [];
   };
   const openDemo = async () => {
     await setup.exploreDemo(ctx);
@@ -64,7 +67,7 @@ export async function runTake(def, deps) {
   };
   const result = (status, extra = {}) => {
     if (findSecrets(ctx.lines.join('\n'), opts.secrets ?? []) > 0) warnings++;
-    return { status, warnings, ...(recording && started ? { file: opts.outFile } : {}), ...extra };
+    return { status, warnings, ...(recording && started ? { file: opts.outFile, aiWaits: ctx.aiWaits } : {}), ...extra };
   };
 
   try {

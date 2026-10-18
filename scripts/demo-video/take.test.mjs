@@ -146,3 +146,23 @@ describe('waitForAi (§715)', () => {
     expect(waits).toEqual(['busy:hidden', 'done:visible']);
   });
 });
+
+describe('runTake notes the AI waits on camera (§715)', () => {
+  const ok = { waitFor: async () => {} };
+  const waiting = () => step('ai-w', { ai: true, run: async (c) => { await waitForAi(c, { busy: ok, done: ok, label: 'w' }); } });
+
+  it('a recorded take returns each AI wait, timed from the screencast start', async () => {
+    const h = harness();
+    const r = await runTake(def({ steps: [waiting()] }), h.deps);
+    expect(r.status).toBe('ok');
+    expect(r.aiWaits).toHaveLength(1);
+    expect(r.aiWaits[0].start).toBeGreaterThanOrEqual(0);
+  });
+
+  it('a rehearsal with AI notes none', async () => {
+    const h = harness();
+    h.deps.opts = { ...h.deps.opts, rehearse: true, withAi: true };
+    const r = await runTake(def({ steps: [waiting()] }), h.deps);
+    expect(r.aiWaits).toBeUndefined();
+  });
+});

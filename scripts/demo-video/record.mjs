@@ -14,6 +14,7 @@ import { exitCode, outPath, parseArgs, selectVideos } from './cli.mjs';
 import * as setup from './setup.mjs';
 import { checkDayFacts } from './steps/week.mjs';
 import { runTake } from './take.mjs';
+import { MAX_AI_WAIT_S, trimAiWaits } from './trim.mjs';
 import * as ui from './ui.mjs';
 import { VIDEOS } from './videos.mjs';
 
@@ -89,6 +90,11 @@ async function take(browser, def) {
     const daysChecked = def.tier === 'big' || (def.tier === 'chapters' && !def.prologueOnCamera);
     if (r.status === 'ok' && ctx.checkDay && def.clock && daysChecked) {
       await ctx.checkDay(def.tier === 'big' ? 'fri' : def.clock);
+    }
+    // A short AI clip shows at most MAX_AI_WAIT_S of each wait for Claude (trim.mjs).
+    if (r.status === 'ok' && r.file && def.tier === 'ai') {
+      const cut = trimAiWaits(r.file, r.aiWaits, L.OUT);
+      log(`TRIM ${r.aiWaits.length} AI wait(s) capped at ${MAX_AI_WAIT_S} s, ${cut.toFixed(1)} s cut`);
     }
     if (r.status !== 'ok') await page.screenshot({ path: path.join(L.OUT, `warn-${def.id}.png`) }).catch(() => {});
     return { ...r, warnings: r.warnings + warnings };
