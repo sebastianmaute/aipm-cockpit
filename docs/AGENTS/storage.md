@@ -598,7 +598,8 @@ Kept short: `AGENTS.md` owns each rule.
   `DELETE FROM` every workspace table, and those are the tables that hold every project's rows. Three
   paths in `use-storage-backend.ts` send nothing in that state (`tursoPortfolioWithoutProjectRef`): the save
   effect, `doSave`, and the pre-switch flush (`flushCurrent`), which runs before the very switch or create
-  that leaves the state. The two skips that can be reached log `storage.saveSkippedNoTursoProject`. An edit
+  that leaves the state. The `doSave` and flush skips log `storage.saveSkippedNoTursoProject`; the save-effect
+  skip, the one an edit meets first, logs nothing (it runs on every change). An edit
   made in that state is not saved and not journalled, and picking a project replaces it. A single-project
   Turso setup (portfolio not on Turso) still saves.
 - **`TABLE_NAMES`** is `ENTITY_SPECS` tables plus `plan`, `fx_rates` and `meta`, and a save
