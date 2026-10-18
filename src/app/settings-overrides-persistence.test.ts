@@ -19,6 +19,9 @@ const SAMPLE_OVERRIDES: SettingsOverrides = {
   timezone: { timezone: "Europe/Berlin", additionalTimezones: ["UTC", "America/New_York"] },
 };
 
+// §502 — target and proposal ride with the project on their own, with the switch absent.
+const TARGET_ONLY: SettingsOverrides = { forecast: { targetConfidence: 95, proposalScenarioId: 2 } };
+
 function wsWithOverrides() {
   return { ...emptyWorkspace(), settingsOverrides: SAMPLE_OVERRIDES };
 }
@@ -55,6 +58,19 @@ describe("JSON codec — settingsOverrides", () => {
       settingsOverrides: { nextActions: {}, timezone: { timezone: "bad" } },
     });
     expect(jsonToWorkspace(json).settingsOverrides).toBeUndefined();
+  });
+});
+
+describe("forecast target and proposal without the switch", () => {
+  const ws = { ...emptyWorkspace(), settingsOverrides: TARGET_ONLY };
+  it("survives JSON", () => {
+    expect(jsonToWorkspace(workspaceToJson(ws)).settingsOverrides).toEqual(TARGET_ONLY);
+  });
+  it("survives CSV", () => {
+    expect(csvToWorkspace(workspaceToCsv(ws)).settingsOverrides).toEqual(TARGET_ONLY);
+  });
+  it("survives Markdown", () => {
+    expect(markdownToWorkspace(workspaceToMarkdown(ws)).settingsOverrides).toEqual(TARGET_ONLY);
   });
 });
 

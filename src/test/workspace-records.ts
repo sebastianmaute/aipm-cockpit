@@ -131,4 +131,5 @@ export const arraysFixture = (n: FixtureSide): Partial<Workspace> => ({
   documents: [doc(1, n)],
   documentVersions: [docVersion(1, n)],
   calendarEvents: [calEvent(1, n)],
+  forecastScenarios: [{ id: 1, name: `Scenario ${n}`, changes: [] }],
 });

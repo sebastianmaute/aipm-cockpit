@@ -86,6 +86,7 @@ export function ForecastToolbar({
   onResetSize,
   showScenarios = false,
   saveAsScenario,
+  targetControl,
   askClaude,
 }: {
   lang: Lang;
@@ -103,6 +104,8 @@ export function ForecastToolbar({
   /** Offer the Scenarios segment (§502); off without saved-scenario support (tests, older callers). */
   showScenarios?: boolean;
   saveAsScenario?: SaveAsScenario;
+  /** The project's target confidence (§502 part 4); sits before the Ask-Claude menu. */
+  targetControl?: ReactNode;
   /** The Ask-Claude menu (§502); sits before the trailing Print · reset-size group. */
   askClaude?: ReactNode;
 }) {
@@ -174,6 +177,7 @@ export function ForecastToolbar({
           )}
         </>
       )}
+      {targetControl}
       {askClaude}
       <div className="ml-auto flex items-center gap-2">
         <PrintButton lang={lang} />

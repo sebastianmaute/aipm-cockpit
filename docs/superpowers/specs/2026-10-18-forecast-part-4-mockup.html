@@ -1,0 +1,234 @@
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700&display=swap");
+.bk{--dblue:#003459;--green:#68bd00;--green-s:#3c7000;--bg:#ffffff;--surface:#ffffff;--fg:#646461;--muted:#646461;--line:#e2e6e7;--smuted:#e2e6e7;
+  --rag-red:#d95842;--rag-amber:#f4c11c;--rag-green:#41a700;--rag-red-t:#c44e27;--rag-amber-t:#9c6400;--rag-green-t:#2b7a00;
+  --pink:#e84663;--pink-s:#c71b3f;--purple:#ae448c;--blue:#5daee0;--mgrey:#929499;
+  --th-bg:#f1f3f4;--th-fg:#3e4349;--th-acc:#2b7a00;--seg-track:#eef1f3;--seg-on-bg:#fff;--seg-on-fg:#2b7a00;
+  font-family:"Titillium Web","Segoe UI",Arial,sans-serif;font-size:14px;color:var(--fg);background:var(--bg);padding:16px;border-radius:8px}
+.bk h2{color:var(--dblue);font-size:20px;margin:0 0 4px}
+.bk .sub{font-size:12px;color:var(--muted);margin:0 0 14px}
+.bk h3.sec{margin:18px 0 8px;font-size:14px;font-weight:600;color:var(--dblue)}
+.bk .num{display:inline-block;background:var(--dblue);color:#fff;border-radius:999px;min-width:18px;height:18px;line-height:18px;text-align:center;font-size:11px;margin-right:6px}
+/* Card */ .bk .card{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:12px;margin-bottom:12px}
+/* Section */ .bk .section-t{margin:12px 0 8px;font-size:14px;font-weight:600;color:var(--dblue)}
+/* Button */ .bk .btn{display:inline-flex;align-items:center;gap:6px;border-radius:6px;font-weight:500;cursor:pointer;font:inherit;font-weight:500;line-height:1.2}
+.bk .btn.xs{padding:6px 10px;font-size:12px}.bk .btn.sm{padding:6px 12px;font-size:14px}
+.bk .btn.primary{background:var(--dblue);color:#fff;border:1px solid var(--dblue)}
+.bk .btn.secondary{background:var(--surface);color:var(--fg);border:1px solid var(--line)}
+.bk .btn.destructive{background:var(--surface);color:var(--pink-s);border:1px solid rgba(232,70,99,.4)}
+.bk .btn.ghost{background:transparent;color:var(--fg);border:1px solid transparent}
+.bk .btn svg{width:16px;height:16px}
+/* SegmentedControl */ .bk .seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;background:var(--seg-track);overflow:hidden}
+.bk .seg span{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;font-size:14px;font-weight:500;color:var(--fg)}
+.bk .seg span+span{border-left:1px solid var(--line)}
+.bk .seg span.on{background:var(--seg-on-bg);color:var(--seg-on-fg)}
+.bk .seg span.on::before{content:"✓";font-size:11px}
+/* ToggleButton chip */ .bk .tgl{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:12px;font-weight:500;background:var(--surface)}
+.bk .tgl.on{border-color:var(--dblue);background:rgba(0,52,89,.10);color:var(--dblue)}
+/* Badge md */ .bk .badge{display:inline-flex;align-items:center;padding:2px 8px;font-size:12px;border-radius:4px;background:var(--smuted);color:var(--th-fg);margin:2px 4px 2px 0}
+.bk .badge b{color:var(--dblue)}
+/* SimValue + SimBadge */ .bk .simv{display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--green-s);border-radius:6px;padding:2px 6px}
+.bk .simb{border-radius:4px;background:rgba(104,189,0,.15);color:var(--green-s);font-size:10px;font-weight:500;line-height:16px;padding:0 4px}
+/* Tile */ .bk .tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.bk .tile{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--surface)}
+.bk .tile .l{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.bk .tile .v{margin-top:4px;font-size:20px;font-weight:600;color:var(--dblue);font-variant-numeric:tabular-nums}
+.bk .tile .s{margin-top:4px;font-size:12px;color:var(--muted)}
+/* Banner */ .bk .banner{border-radius:6px;border:1px solid;padding:8px 12px;font-size:14px;margin-bottom:12px}
+.bk .banner.error{border-color:rgba(232,70,99,.4);background:rgba(232,70,99,.10);color:var(--pink-s)}
+.bk .banner.warn{border-color:rgba(244,193,28,.4);background:rgba(244,193,28,.15);color:var(--fg)}
+/* Table (TABLE_HEAD_CLASS) */ .bk .tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+.bk table{min-width:100%;border-collapse:separate;border-spacing:0;font-size:12px;text-align:left;font-variant-numeric:tabular-nums}
+.bk th{background:var(--th-bg);color:var(--th-fg);font-weight:600;padding:8px 12px;white-space:nowrap}
+.bk th:first-child{border-top-left-radius:12px}.bk th:last-child{border-top-right-radius:12px}
+.bk td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.bk td.name{font-weight:500;color:var(--dblue)}
+/* RagDot */ .bk .dot{display:inline-block;width:8px;height:8px;border-radius:999px;margin-right:6px;vertical-align:middle}
+/* Input / Select (fieldClass) */ .bk .field{border:1px solid var(--line);border-radius:6px;padding:8px 12px;font-size:14px;background:var(--surface);color:var(--fg);display:block;margin:2px 0 8px}
+.bk .field.xs{padding:6px 8px;font-size:12px;display:inline-block;margin:0}
+.bk label.f{font-size:12px;color:var(--muted)}
+.bk .note{font-size:12px;color:var(--muted)}
+.bk .row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.bk .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.bk .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.bk .chg{border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--seg-track)}
+.bk pre{background:var(--seg-track);border:1px solid var(--line);border-radius:6px;padding:10px;font-size:12px;white-space:pre-wrap;margin:0;color:var(--th-fg)}
+.bk details summary{cursor:pointer;font-weight:600;color:var(--dblue);font-size:14px}
+.bk .tabs{display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
+.bk .bubble{border-radius:8px;padding:8px 10px;margin:6px 0;font-size:12px}
+.bk .bubble.me{background:var(--seg-track);margin-left:30px}
+.bk .bubble.ai{background:#fff;border:1px solid var(--line);margin-right:30px}
+/* primitive name tags */ .bk [data-p]{position:relative}
+.bk.showp [data-p]::after{content:attr(data-p);position:absolute;top:-9px;right:-4px;background:#7d2a68;color:#fff;font-size:9px;font-weight:600;padding:0 4px;border-radius:3px;line-height:13px;white-space:nowrap;z-index:5;pointer-events:none}
+</style>
+
+<div class="bk" id="bk">
+<div class="tabs">
+  <span class="seg" data-p="SegmentedControl"><span id="tR" class="on" onclick="sw(1)" style="cursor:pointer">Reports</span><span id="tF" onclick="sw(0)" style="cursor:pointer">Forecast view</span></span>
+  <label class="note" style="margin-left:auto"><input type="checkbox" onchange="document.getElementById('bk').classList.toggle('showp',this.checked)"> Show primitive names</label>
+</div>
+
+<!-- ===================== REPORTS ===================== -->
+<div id="pR">
+<h2>Reports → Forecast</h2>
+<p class="sub">Theme Beacon · sample project "Atlas", plan end 27 Feb · simulation on, AI on.</p>
+
+<div class="card" data-p="Card">
+  <div class="row">
+    <span class="section-t" style="margin:0" data-p="Section">Forecast <span class="simb" data-p="SimBadge">sim</span></span>
+    <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="note">Target confidence</span>
+      <span class="seg" data-p="SegmentedControl"><span>Even odds 50 %</span><span class="on">Safe to commit 80 %</span><span>Cautious 95 %</span></span></span>
+  </div>
+  <div class="banner error" data-p="Banner error"><strong>Below target.</strong> Plan end 27 Feb has a 41 % chance (target 80 %). 2 of 5 milestones are below target.</div>
+  <p class="note" style="margin:-4px 0 10px">10,000 runs of your last 60 working days (148 finished tasks)</p>
+  <div class="tiles">
+    <div class="tile" data-p="Tile"><div class="l">Even odds (P50)</div><div class="v"><span class="simv" data-p="SimValue">3 Mar <span class="simb">sim</span></span></div></div>
+    <div class="tile" data-p="Tile"><div class="l">Safe to commit (P80)</div><div class="v"><span class="simv">17 Mar <span class="simb">sim</span></span></div><div class="s">14 working days after plan end</div></div>
+    <div class="tile" data-p="Tile"><div class="l">On time</div><div class="v" style="color:var(--rag-red-t)"><span class="simv">41 % <span class="simb">sim</span></span></div></div>
+    <div class="tile" data-p="Tile"><div class="l">Cost at finish (P80)</div><div class="v"><span class="simv">€412k <span class="simb">sim</span></span></div><div class="s">38 % chance over budget</div></div>
+  </div>
+
+  <div class="section-t"><span class="num">1</span>Milestones — worst first</div>
+  <div class="tw"><table>
+    <thead><tr data-p="TABLE_HEAD_CLASS"><th>Milestone</th><th>Due</th><th>Chance</th><th>If prioritised</th><th>What it would take to reach 80 %</th></tr></thead>
+    <tr><td class="name"><span class="dot" style="background:var(--rag-red)" data-p="RagDot"></span>Go-live</td><td>27 Feb</td><td>31 %</td><td>58 %</td>
+      <td><span class="badge" data-p="Badge">+<b>2</b> people (team average)</span><span class="badge">or <b>9</b> fewer tasks</span><span class="badge">prioritising alone: not enough</span>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><span class="btn secondary xs" data-p="Button secondary xs">Explore in Forecast →</span><span class="btn secondary xs" data-p="Button secondary xs + SparklesIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg>Ask Claude to draft a proposal</span></div></td></tr>
+    <tr><td class="name"><span class="dot" style="background:var(--rag-amber)"></span>UAT sign-off</td><td>6 Feb</td><td>64 %</td><td>83 %</td>
+      <td><span class="badge">prioritise it → <b>83 %</b></span><span class="badge">or +<b>1</b> person</span><span class="badge">or <b>3</b> fewer tasks</span>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><span class="btn secondary xs">Explore in Forecast →</span><span class="btn secondary xs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg>Ask Claude to draft a proposal</span></div></td></tr>
+    <tr><td class="name"><span class="dot" style="background:var(--rag-green)"></span>Data migration</td><td>23 Jan</td><td>88 %</td><td>93 %</td><td class="note">On target</td></tr>
+    <tr><td class="name"><span class="dot" style="background:var(--rag-green)"></span>Design freeze</td><td>9 Jan</td><td>97 %</td><td>98 %</td><td class="note">On target</td></tr>
+    <tr><td class="name"><span class="dot" style="background:var(--mgrey)"></span>Training</td><td>13 Mar</td><td colspan="3" class="note">No linked open tasks — no chance computed</td></tr>
+  </table></div>
+
+  <div class="section-t"><span class="num">2</span>Proposed intervention</div>
+  <div class="row"><span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="f">Proposal</label>
+    <span class="field xs" data-p="Select xs">Contractor from Feb + drop reporting ▾</span></span>
+    <span class="btn secondary xs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg>Ask Claude to draft a proposal</span></div>
+  <div class="tw"><table>
+    <thead><tr><th></th><th>Safe to commit (P80)</th><th>On time</th><th>Go-live</th><th>UAT sign-off</th><th>Cost at finish (P80)</th></tr></thead>
+    <tr><td>As is</td><td>17 Mar</td><td>41 %</td><td>31 %</td><td>64 %</td><td>€412k</td></tr>
+    <tr><td class="name">Proposal</td><td><b>24 Feb</b></td><td><b>83 %</b></td><td><b>81 %</b></td><td><b>90 %</b></td><td><b>€431k</b></td></tr>
+  </table></div>
+  <p class="note">Select lists the saved scenarios; empty → "No proposal chosen. Save one in Forecast → Scenarios."</p>
+
+  <details style="margin-top:10px" data-p="native details (house disclosure)"><summary>Forecast by group</summary><p class="note">closed by default, computed on open — per spec §3.7</p></details>
+</div>
+
+<div class="section-t"><span class="num">3</span>What "Ask Claude to draft a proposal" opens</div>
+<div class="two">
+  <div class="card" data-p="ChatPanel (existing)">
+    <div class="bubble me">Draft a proposal to bring Go-live (27 Feb, 31 %) to the 80 % target. Combine levers if one is not enough, name the tasks you would drop, and save it as a scenario.</div>
+    <div class="bubble ai">A cheaper mix than +2 people: drop the reporting module (6 tasks, 84 h) and add one person at 50 % from 2 Feb → <b>82 %</b>.
+      <div class="card" style="margin:8px 0 0;padding:8px" data-p="chat proposal card (existing)"><div class="note">Save scenario "Contractor from Feb + drop reporting"</div>
+      <div style="margin-top:6px;display:flex;gap:6px"><span class="btn primary xs">Approve</span><span class="btn secondary xs">Reject</span></div></div></div>
+  </div>
+  <div class="note" style="line-height:1.6">Shown only with AI on and simulation on, never for an on-target milestone. Claude reads through <code>get_forecast</code>, saves through <code>create_forecast_scenario</code>; the PM then picks it in the Proposal select.</div>
+</div>
+
+<div class="two">
+<div><div class="section-t"><span class="num">4</span>Gantt</div>
+<div class="card"><svg viewBox="0 0 420 150" width="100%" role="img" aria-label="Gantt mock">
+  <rect x="300" y="0" width="80" height="150" fill="#68bd00" opacity=".10"/>
+  <line x1="280" y1="0" x2="280" y2="150" stroke="#929499"/><text x="250" y="146" font-size="9" fill="#646461">plan end</text>
+  <line x1="338" y1="0" x2="338" y2="150" stroke="#3c7000" stroke-width="2.5" stroke-dasharray="6 4"/>
+  <text x="342" y="12" font-size="9" fill="#3c7000" font-weight="700">P80 17 Mar</text><text x="302" y="146" font-size="9" fill="#3c7000">P50–P95</text>
+  <rect x="20" y="22" width="120" height="12" rx="2" fill="#003459"/><rect x="90" y="46" width="140" height="12" rx="2" fill="#003459"/><rect x="150" y="70" width="110" height="12" rx="2" fill="#003459"/>
+  <polygon points="200,100 207,107 200,114 193,107" fill="#f4c11c"/><rect x="212" y="100" width="58" height="14" rx="4" fill="#fff" stroke="#3c7000" stroke-dasharray="3 2"/><text x="217" y="110" font-size="9" fill="#3c7000">64 % sim</text>
+  <polygon points="280,122 287,129 280,136 273,129" fill="#d95842"/><rect x="292" y="122" width="58" height="14" rx="4" fill="#fff" stroke="#3c7000" stroke-dasharray="3 2"/><text x="297" y="132" font-size="9" fill="#3c7000">31 % sim</text>
+</svg><p class="note">Bars in the Gantt's own colour; faint band, dashed P80, existing milestone chance chip (SimValue look).</p></div></div>
+<div><div class="section-t"><span class="num">5</span>Trends (Turso)</div>
+<div class="card"><svg viewBox="0 0 420 150" width="100%" role="img" aria-label="Trend mock">
+  <line x1="30" y1="60" x2="410" y2="60" stroke="#929499" stroke-dasharray="3 3"/><text x="34" y="55" font-size="9" fill="#646461">plan end 27 Feb</text>
+  <polyline fill="none" stroke="#3c7000" stroke-width="2" points="30,70 80,66 130,58 180,62 230,80 280,96 330,104 380,98"/><circle cx="380" cy="98" r="3" fill="#3c7000"/>
+  <text x="300" y="120" font-size="9" fill="#3c7000">P80 17 Mar (today)</text>
+  <text x="30" y="145" font-size="9" fill="#646461">Nov</text><text x="200" y="145" font-size="9" fill="#646461">Dec</text><text x="370" y="145" font-size="9" fill="#646461">Jan</text>
+</svg><p class="note">Existing TrendChart, one more series.</p></div></div>
+</div>
+
+<div class="section-t"><span class="num">6</span>Exports / documents</div>
+<div class="card"><pre>Forecast (simulated, 10,000 runs, target confidence 80 %)
+  Safe to commit (P80): 17 Mar — plan end 27 Feb, 41 % chance on time
+  Cost at finish (P80): €412k — 38 % chance over budget
+  Milestones below target:
+    Go-live (27 Feb) 31 % — reaches 80 % with +2 people, or 9 fewer tasks
+    UAT sign-off (6 Feb) 64 % — reaches 80 % if prioritised (83 %)
+  Proposed intervention: "Contractor from Feb + drop reporting"
+    → P80 24 Feb, 83 % on time, cost at finish €431k</pre></div>
+</div>
+
+<!-- ===================== FORECAST VIEW ===================== -->
+<div id="pF" hidden>
+<h2>Forecast view</h2>
+<p class="sub">Theme Beacon · same project. Mode bar as today; target confidence + "What it would take" added; Explore opens a draft scenario.</p>
+
+<div class="section-t"><span class="num">A</span>Quick mode</div>
+<div class="card" data-p="Card">
+  <div class="row">
+    <span class="seg" data-p="SegmentedControl"><span class="on">Quick</span><span>What-if</span><span>Scenarios</span></span>
+    <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="note">Target confidence</span><span class="seg"><span>Even odds 50 %</span><span class="on">Safe to commit 80 %</span><span>Cautious 95 %</span></span></span>
+    <span class="btn secondary xs" data-p="ForecastAskClaude (existing)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg>Ask Claude about this forecast</span>
+  </div>
+  <p class="note">10,000 runs of your last 60 working days (148 finished tasks) · Open work: 62 tasks</p>
+  <div class="section-t">Milestones</div>
+  <div class="tw"><table>
+    <thead><tr><th>Milestone</th><th>Date</th><th>Chance</th><th>Chance if prioritised</th><th>Gap</th><th>What it would take to reach 80 %</th></tr></thead>
+    <tr><td class="name"><span class="dot" style="background:var(--rag-red)"></span>Go-live</td><td>27 Feb</td><td>31 %</td><td>58 %</td><td>27 pts</td>
+      <td><span class="badge">+<b>2</b> people (team average)</span><span class="badge">or <b>9</b> fewer tasks</span><span class="badge">prioritising alone: not enough</span><div style="margin-top:6px"><span class="btn secondary xs">Explore →</span></div></td></tr>
+    <tr><td class="name"><span class="dot" style="background:var(--rag-amber)"></span>UAT sign-off</td><td>6 Feb</td><td>64 %</td><td>83 %</td><td>19 pts</td>
+      <td><span class="badge">prioritise it → <b>83 %</b></span><span class="badge">or +<b>1</b> person</span><span class="badge">or <b>3</b> fewer tasks</span><div style="margin-top:6px"><span class="btn secondary xs">Explore →</span></div></td></tr>
+    <tr><td class="name"><span class="dot" style="background:var(--rag-green)"></span>Data migration</td><td>23 Jan</td><td>88 %</td><td>93 %</td><td>5 pts</td><td class="note">On target</td></tr>
+  </table></div>
+  <p class="note">Levers are what Scenarios model exactly: Add people (placeholder, team average) and a Scope change on the milestone. Prioritising is the existing column.</p>
+</div>
+
+<div class="section-t"><span class="num">B</span>After "Explore →" on Go-live — Scenarios mode, draft open</div>
+<div class="two">
+  <div class="card" data-p="Modal + ModalHeader (existing scenario editor)">
+    <div class="row" style="border-bottom:1px solid var(--line);padding-bottom:8px"><strong style="color:var(--dblue)">New scenario</strong><span class="btn ghost xs">✕</span></div>
+    <label class="f">Name</label><span class="field" data-p="Input">Go-live — what it would take (+2 people)</span>
+    <div class="chg"><div style="font-weight:600;color:var(--dblue);font-size:12px">Change 1: Add people</div>
+      <div class="grid3"><div><label class="f">Who</label><span class="field xs" data-p="Select xs" style="display:block">Placeholder ▾</span></div><div><label class="f">Count</label><span class="field xs" style="display:block">2</span></div><div><label class="f">From</label><span class="field xs" style="display:block">18 Oct 2026</span></div></div></div>
+    <p class="note">Or <span class="btn ghost xs" style="padding:0 4px" data-p="Button ghost xs">use 9 fewer tasks on Go-live instead</span></p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="btn secondary xs">+ Availability change</span><span class="btn secondary xs">+ Add people</span><span class="btn secondary xs">+ Scope change</span></div>
+    <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:12px"><span class="btn secondary sm">Cancel</span><span class="btn primary sm" data-p="Button primary">Save</span></div>
+  </div>
+  <div class="card">
+    <div class="section-t" style="margin-top:0">Compared</div>
+    <div class="tw"><table>
+      <thead><tr><th></th><th>As is</th><th>Draft</th></tr></thead>
+      <tr><td>Safe to commit (P80)</td><td>17 Mar</td><td><b>3 Mar</b></td></tr>
+      <tr><td>On time by plan end</td><td>41 %</td><td><b>71 %</b></td></tr>
+      <tr><td class="name"><span class="dot" style="background:var(--rag-red)"></span>Go-live</td><td>31 %</td><td><span class="dot" style="background:var(--rag-green)"></span><b>81 %</b></td></tr>
+      <tr><td class="name">UAT sign-off</td><td>64 %</td><td>79 %</td></tr>
+      <tr><td>Cost at finish (P80)</td><td>€412k</td><td>€446k</td></tr>
+    </table></div>
+    <p class="note">Recomputes as the PM edits; Save adds it to the list.</p>
+  </div>
+</div>
+
+<div class="section-t"><span class="num">C</span>Scenarios mode — the existing list, plus "Use as proposal"</div>
+<div class="card" data-p="Section (existing ScenarioList)">
+  <div class="section-t" style="margin-top:0">Scenarios</div>
+  <ul style="list-style:none;margin:0 0 8px;padding:0;border:1px solid var(--line);border-radius:6px" data-p="existing list"><li style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;"><span style="flex:1;min-width:0;font-weight:500;color:var(--fg)">Go-live — +2 people</span><span class="tgl" data-p="ToggleButton chip — new">Use as proposal</span><span class="btn secondary xs" data-p="Button secondary xs (existing)">Edit</span><span class="btn secondary xs">Rename</span><span class="btn destructive xs" data-p="Button destructive xs (existing)">Delete</span></li><li style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--line)"><span style="flex:1;min-width:0;font-weight:500;color:var(--fg)">Contractor from Feb + drop reporting</span><span class="tgl on" data-p="ToggleButton chip (pressed) — new">✓ Use as proposal</span><span class="btn secondary xs" data-p="Button secondary xs (existing)">Edit</span><span class="btn secondary xs">Rename</span><span class="btn destructive xs" data-p="Button destructive xs (existing)">Delete</span></li><li style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--line)"><span style="flex:1;min-width:0;font-weight:500;color:var(--fg)">Go-live — 9 fewer tasks</span><span class="tgl" data-p="ToggleButton chip — new">Use as proposal</span><span class="btn secondary xs" data-p="Button secondary xs (existing)">Edit</span><span class="btn secondary xs">Rename</span><span class="btn destructive xs" data-p="Button destructive xs (existing)">Delete</span></li></ul>
+  <span class="btn secondary xs">New scenario</span>
+  <div class="section-t">Compared</div>
+  <div class="tw"><table>
+    <thead><tr><th></th><th>As is</th><th>Go-live — +2 people</th><th>Contractor from Feb + drop reporting <span class="badge" style="margin:0 0 0 4px">proposal</span></th><th>Go-live — 9 fewer tasks</th></tr></thead>
+    <tr><td>Safe to commit (P80)</td><td>17 Mar</td><td>3 Mar</td><td><b>24 Feb</b></td><td>6 Mar</td></tr>
+    <tr><td>On time by plan end</td><td>41 %</td><td>71 %</td><td><b>83 %</b></td><td>66 %</td></tr>
+    <tr><td class="name">Go-live</td><td>31 %</td><td>81 %</td><td><b>81 %</b></td><td>80 %</td></tr>
+    <tr><td>Cost at finish (P80)</td><td>€412k</td><td>€446k</td><td>€431k</td><td>€398k</td></tr>
+  </table></div>
+  <ul class="note" style="margin:8px 0 0;padding-left:16px;line-height:1.6">
+    <li>Delete as today: confirm "Delete scenario “…”? You can undo this.", undoable.</li>
+    <li>Deleting the proposal scenario clears the proposal; Reports then shows "No proposal chosen". Undo restores both.</li>
+    <li>One proposal at a time — the toggle and the Reports Proposal select set the same stored value. At most four scenarios.</li>
+    <li>An unsaved Explore draft is discarded with Cancel; it never enters the list until Save.</li>
+  </ul>
+</div>
+</div>
+</div>
+</div>
+<script>function sw(r){document.getElementById("pR").hidden=!r;document.getElementById("pF").hidden=!!r;document.getElementById("tR").className=r?"on":"";document.getElementById("tF").className=r?"":"on";}</script>

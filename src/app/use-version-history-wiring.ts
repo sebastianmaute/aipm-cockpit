@@ -72,7 +72,7 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
     steeringCommittee, setSteeringCommittee, timelogLinks, setTimelogLinks,
     knowledgeItems, setKnowledgeItems, insights, setInsights, documents, setDocuments,
     documentVersions, setDocumentVersions, settingsOverrides, setSettingsOverrides, setCalendarEvents,
-    baselineHistory,
+    baselineHistory, forecastScenarios, setForecastScenarios,
   } = useWorkspace();
 
   // Lazily serialize the CURRENT workspace for a version-history capture. The field
@@ -87,11 +87,12 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
       plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
       steeringCommittee, timelogLinks,
       knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents,
+      forecastScenarios,
     }),
     [tasks, raid, absences, shifts, resources, roles, disciplines, grades,
      plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
      steeringCommittee, timelogLinks,
-     knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents],
+     knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, forecastScenarios],
   );
 
   // Fan a restored workspace into every setter — the SECOND load funnel, so it
@@ -112,13 +113,13 @@ export function useVersionHistoryWiring(deps: VersionHistoryWiringDeps): UseVers
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
-    setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems); setInsights(w.insights); setDocuments(w.documents ?? []); setDocumentVersions(w.documentVersions ?? []); setSettingsOverrides(w.settingsOverrides); setCalendarEvents(w.calendarEvents);
+    setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems); setInsights(w.insights); setDocuments(w.documents ?? []); setDocumentVersions(w.documentVersions ?? []); setSettingsOverrides(w.settingsOverrides); setCalendarEvents(w.calendarEvents); setForecastScenarios(w.forecastScenarios ?? []);
     // Version restore replaces the SAME project's data — RAISE the id-minter
     // high-water (never lower it) so an id freed by restoring an older (smaller)
     // snapshot can't be reused this session. Side-effecting; runs on restore
     // (callback), not during render.
     seedMintFromWorkspace(w, "raise");
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setSettingsOverrides, setCalendarEvents]);
+  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setSettingsOverrides, setCalendarEvents, setForecastScenarios]);
 
   // §476 — a restore NEVER changes `plan.currency` and converts every money field it takes from the version
   // into the current currency (`prepareRestoredVersion`). Applied to the VERSION before the diff and merge, so

@@ -5,7 +5,7 @@
 // never throws.
 
 import { describe, it, expect } from "vitest";
-import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
+import { sanitizeSettingsOverrides, sanitizeOverridesOrNone, hasAnyOverride } from "./settings-overrides";
 
 describe("sanitizeSettingsOverrides — object guard", () => {
   it("returns {} for non-object / garbage input", () => {
@@ -113,5 +113,33 @@ describe("hasAnyOverride", () => {
   it("is true when any sub-key is present", () => {
     expect(hasAnyOverride({ nextActions: { scopePendingRed: 5 } })).toBe(true);
     expect(hasAnyOverride({ timezone: { timezone: "UTC" } })).toBe(true);
+  });
+});
+
+describe("sanitizeSettingsOverrides — forecast target and proposal (§502)", () => {
+  it("keeps the target and the proposal without the switch", () => {
+    const o = { forecast: { targetConfidence: 95, proposalScenarioId: 4 } };
+    expect(sanitizeSettingsOverrides(o)).toEqual(o);
+  });
+  it("keeps 50", () => {
+    expect(sanitizeSettingsOverrides({ forecast: { targetConfidence: 50 } })).toEqual({ forecast: { targetConfidence: 50 } });
+  });
+  it("drops 80 (the default is absence), unknown values and strings", () => {
+    for (const v of [80, 70, "95", 0, null]) {
+      expect(sanitizeSettingsOverrides({ forecast: { targetConfidence: v } })).toEqual({});
+    }
+  });
+  it("drops a proposal id that is not a positive integer", () => {
+    for (const v of [0, -1, 1.5, "3", null, NaN]) {
+      expect(sanitizeSettingsOverrides({ forecast: { proposalScenarioId: v } })).toEqual({});
+    }
+  });
+  it("keeps each field independently", () => {
+    expect(sanitizeSettingsOverrides({ forecast: { showSimulation: true, targetConfidence: 70, proposalScenarioId: 2 } })).toEqual({
+      forecast: { showSimulation: true, proposalScenarioId: 2 },
+    });
+  });
+  it("sanitizeOverridesOrNone folds an empty forecast to undefined", () => {
+    expect(sanitizeOverridesOrNone({ forecast: {} })).toBeUndefined();
   });
 });
