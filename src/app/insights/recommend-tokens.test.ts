@@ -204,7 +204,7 @@ describe("UPDATE_TARGET is derived from the guarded set, never hand-listed", () 
     // widening `RecommendPlanWorkspace`) while leaving the comment in
     // `recommend-tokens.ts` claiming they are still open.
     //
-    // ★★★ FOUR ENTRIES, AND EACH NEEDS ITS REASON — a name added here to make a
+    // ★★★ EVERY ENTRY NEEDS ITS REASON — a name added here to make a
     //  red run green is the failure this whole file exists to prevent.
     //  `update_resource` is the original: `UPDATE_TARGET`'s value type is
     //  `key: keyof RecommendPlanWorkspace`, and that Pick (`recommend-plan.ts`)
@@ -225,20 +225,23 @@ describe("UPDATE_TARGET is derived from the guarded set, never hand-listed", () 
     //  ★★ `update_forecast_scenario` (§502) joined for the same two reasons as
     //  those two: the Pick has no `"forecastScenarios"`, and the tool is not in
     //  `ALLOWED_REC_TOOLS` — a recommendation never proposes a forecast scenario.
+    //  `delete_forecast_scenario` (§502 part 4) joined for the same two reasons: it carries the
+    //  scenario token, and no recommendation deletes a scenario.
     //
     //  ★★★ THE CONSEQUENCE, stated because a silent one is how this rots: a
-    //  recommendation call for any of the four carries ONLY the model's own
+    //  recommendation call for any of them carries ONLY the model's own
     //  token, so one arriving without it can never be applied on the REPLAY
     //  path. ★ The CHAT path is unaffected — `TOKEN_ROW_SOURCE`
     //  (`chat-proposal-apply.ts`) carries `update_absence`,
-    //  `update_calendar_event` and `update_forecast_scenario` rows, so
+    //  `update_calendar_event`, `update_forecast_scenario` and `delete_forecast_scenario` rows, so
     //  `applyProposal` resolves their tokens normally. The gap is this table's,
     //  not the feature's.
     //
-    //  ★ Read a red naming one of these four as "the gap CLOSED" — go delete
+    //  ★ Read a red naming one of these as "the gap CLOSED" — go delete
     //  the entry and the matching note in `recommend-tokens.ts`. Read a red
-    //  naming a FIFTH tool as an unclassified guarded write.
+    //  naming a tool NOT listed as an unclassified guarded write.
     expect(unstampable).toEqual([
+      "delete_forecast_scenario",
       "update_absence",
       "update_calendar_event",
       "update_forecast_scenario",

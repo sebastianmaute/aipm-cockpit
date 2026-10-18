@@ -332,6 +332,15 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     updateForecastScenario: vi.fn(() => {
       throw new Error("updateForecastScenario not stubbed");
     }),
+    deleteForecastScenario: vi.fn(() => {
+      throw new Error("deleteForecastScenario not stubbed");
+    }),
+    setForecastProposal: vi.fn(() => {
+      throw new Error("setForecastProposal not stubbed");
+    }),
+    setForecastTargetConfidence: vi.fn(() => {
+      throw new Error("setForecastTargetConfidence not stubbed");
+    }),
     // Same "throw a named error" convention as listAllocations: no test using
     // this fixture drives search_chats by default, and a silent
     // `{available: false}` default would answer a forgotten override with

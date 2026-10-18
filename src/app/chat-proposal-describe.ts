@@ -126,17 +126,24 @@ function replaceCount(before: number, after: number): string {
  *  `INLINE_DESCRIPTORS` entry, so without this a staged update would be titled by its tool name. The row
  *  count is part of the line because an update that sends `changes` REPLACES the whole list; for a stored
  *  scenario it reads "stored → new", so a replace that drops rows says so.
- *  ★ English, like the tool-name fallback it replaces: this module is i18n-free. */
+ *  ★ English, like the tool-name fallback it replaces: this module is i18n-free.
+ *  The three part-4 decision writes (§502) are titled here too: delete, proposal and target. */
 export function forecastScenarioRowTitle(call: ProposedCall, ws: Workspace): string | null {
-  const input = call.input as { id?: unknown; name?: unknown; changes?: unknown };
+  const input = call.input as { id?: unknown; name?: unknown; changes?: unknown; value?: unknown };
   const newName = typeof input.name === "string" && input.name.trim() !== "" ? input.name.trim() : null;
   const rows = changeCount(input.changes);
   if (call.name === "create_forecast_scenario") {
     return `Save scenario "${newName ?? ""}"${rows === null ? "" : ` (${rows})`}`;
   }
-  if (call.name !== "update_forecast_scenario") return null;
+  if (call.name === "set_forecast_target_confidence") return `Set the target confidence to ${detailOf(input.value)}%`;
+  if (call.name === "set_forecast_proposal" && input.id === null) return "Clear the proposal";
   const id = Number(input.id);
   const stored = ws.forecastScenarios?.find((s) => s.id === id);
+  // A scenario created earlier in the same plan is not stored yet, so it reads by its provisional id.
+  const named = stored === undefined ? `#${detailOf(input.id)}` : `"${stored.name}"`;
+  if (call.name === "set_forecast_proposal") return `Propose scenario ${named}`;
+  if (call.name === "delete_forecast_scenario") return `Delete scenario ${named}`;
+  if (call.name !== "update_forecast_scenario") return null;
   const label = stored?.name ?? newName ?? `#${detailOf(input.id)}`;
   const rename = newName !== null && stored !== undefined && newName !== stored.name ? ` → "${newName}"` : "";
   // ★ A replace that drops rows must show it, so the stored count stands beside the new one.

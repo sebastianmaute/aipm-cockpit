@@ -56,6 +56,8 @@ const DESTRUCTIVE_NAMES = [
   "delete_task", "delete_all_tasks", "delete_resource", "delete_raid_item",
   "delete_change", "delete_milestone", "delete_stakeholder", "delete_document",
   "delete_absence", "delete_calendar_event",
+  // §502 part 4 — undoable like the other deletes, and staged like them.
+  "delete_forecast_scenario",
 ];
 
 // ★★ `create_calendar_event`/`update_calendar_event`'s "does not stage alone"
@@ -75,6 +77,9 @@ const NON_DESTRUCTIVE_WRITE_NAMES = [
   "create_absence", "update_absence",
   "create_calendar_event", "update_calendar_event",
   "create_forecast_scenario", "update_forecast_scenario",
+  // §502 part 4 — project data on `settingsOverrides` (not device preferences like `update_settings`), so they
+  // count as writes; not undoable, logged only.
+  "set_forecast_proposal", "set_forecast_target_confidence",
 ];
 
 const NON_WRITE_NAMES = [
@@ -1031,5 +1036,38 @@ describe("ids nested in a scenario's changes[] are links (§502)", () => {
     expect(namesPendingMint(call("create_forecast_scenario", { changes: [scope(101)] }), owed("create_milestone"))).toBe(true);
     expect(namesPendingMint(call("update_forecast_scenario", { id: 3, changes: [added(101)] }), owed("create_resource"))).toBe(true);
     expect(namesPendingMint(call("create_forecast_scenario", { changes: [scope(101)] }), owed("create_resource"))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §502 part 4 — `set_forecast_proposal`'s `id` names a scenario, which a create
+// earlier in the plan can mint; `delete_forecast_scenario`'s id too.
+
+describe("the decision writes name a scenario the plan creates (§502 part 4)", () => {
+  const real = new Map([["create_forecast_scenario", new Map([[900, 4]])]]);
+
+  test("set_forecast_proposal(provisional) depends on the create, is rewritten to the real id, and is refused while owed", () => {
+    const plan = [call("create_forecast_scenario", { name: "S", changes: [] }), call("set_forecast_proposal", { id: 900 })];
+    const rows = buildPlanRows(plan, [900]);
+    expect(rows[1].dependsOn).toBe(0);
+    expect([...cascadeDeselect(rows, new Set([0, 1]), 0)]).toEqual([]);
+    expect(remapStagedCall(plan[1], real).input).toEqual({ id: 4 });
+    expect(namesPendingMint(plan[1], new Map([["create_forecast_scenario", new Set([900])]]))).toBe(true);
+  });
+
+  test("set_forecast_proposal(null) clears: it names no row, so nothing is rewritten or owed", () => {
+    const clear = call("set_forecast_proposal", { id: null });
+    // ★ A provisional id of 0 is the one a null would have read as before `targetIdOf` checked for it.
+    const zero = new Map([["create_forecast_scenario", new Map([[0, 4]])]]);
+    expect(remapStagedCall(clear, zero)).toBe(clear);
+    expect(namesPendingMint(clear, new Map([["create_forecast_scenario", new Set([0])]]))).toBe(false);
+  });
+
+  test("delete_forecast_scenario of a scenario the plan creates depends on that create", () => {
+    const rows = buildPlanRows(
+      [call("create_forecast_scenario", { name: "S", changes: [] }), call("delete_forecast_scenario", { id: 900 })],
+      [900],
+    );
+    expect(rows[1].dependsOn).toBe(0);
   });
 });

@@ -999,16 +999,34 @@ context and As-is column. Do not give the report a seed or run of its own. ★ T
 always the app DEFAULTS (`DEFAULT_HISTORY_WINDOW`, tasks), not the toolbar, so a figure the model quotes can differ
 from the one on screen.
 
-★ All three tools refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads: the forecast input getter in
+★ `get_forecast`, a create and an update refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads: the forecast input getter in
 `use-chat-dispatcher-wiring.ts` returns null until `holidaysReady`, and `useForecastTools` turns that into the refusal. A
 run on an unsettled calendar would quote dates the loaded one moves. The exception is a rename-only update (no
-`changes`), which checks nothing against the forecast; see `ai-assistant.md`. They refuse with `FORECAST_OFF_MESSAGE`
+`changes`), which checks nothing against the forecast; see `ai-assistant.md`. The three part-4 writes below read no
+input, so they never wait for the calendar. All six refuse with `FORECAST_OFF_MESSAGE`
 when the simulation is off; that text, like the prompt's off text, says the assistant cannot read the forecast and
 points the user to the Forecast view, which runs the simulation whatever the switch says. ★ `get_forecast`'s `whatIf`
 is held to the save path's rules: `checkToolRows` (the row half of `checkToolDraft`, `stored: []`) runs after the
 comparison and before the `whatIf` column, so a row a save would refuse is refused with a `whatIf ` prefix, and no
 `whatIf` column or report is built. ★ The system-prompt block is emitted only when the Forecast view is enabled; see
 `ai-assistant.md`.
+
+★★ THE PART-4 WRITES (`delete_forecast_scenario`, `set_forecast_proposal`, `set_forecast_target_confidence`, spec
+§3.9). They live in `useForecastTools` beside create and update, not in the UI hooks, because the UI hooks read their
+lists from refs synced after a commit: inside one staged plan no render runs between rows, so a proposal naming the
+scenario the plan's create just minted would be dropped there. The store and log RULES are shared instead:
+`withProposalChange` and `proposalLogEntry` (`use-forecast-settings.ts`) are what `useForecastSettings.setProposal`
+calls too, so the UI and Claude store and log a proposal change alike, as `forecast.proposalSet` /
+`forecast.proposalCleared` with the AI actor. A target change logs `forecast.targetChanged`; an unchanged target writes
+and logs nothing. Neither is undoable (owner decision). The delete mirrors `deleteScenario`: one undoable
+`forecastScenario.deleted` composite, no `allowDestructiveSave` (the slice is uncounted; `UNARMED_AI_ROUTES` in
+`destructive-save-arming.test.ts`), and the stored proposal id is kept, so undoing the delete of the proposed scenario
+brings the proposal back. ★ Both decision writes assign `settingsOverridesRef` synchronously (`writeOverrides`), so a
+`get_forecast` later in the same turn reports the new target and proposal; the effect only syncs other writers.
+★ An id naming no saved scenario REFUSES `set_forecast_proposal` (`forecast scenario N not found`), where the UI setter
+only ignores it. ★ The `forecastDecision` document data section follows the same predicate: with the forecast bit off
+`toolsFor` sends `create_document` and `update_document` without that key (`DOCUMENT_TOOL_DEFS_WITHOUT_DECISION`), and
+`refuseHiddenDecisionSection` (`chat-tools-forecast.ts`) refuses a document write naming it (ruling P3-1).
 
 ★ COST: which calls pay an As-is run. `get_forecast` pays at most ONE: `getForecast` builds the comparison
 (`computeScenarioComparison`, As is plus every saved scenario) once, passing `sharedAsIsRun(input.run)` so a warm app

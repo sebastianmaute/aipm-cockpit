@@ -30,11 +30,14 @@ export interface ProposedCall {
  *
  *  ★ `delete_absence` and `delete_calendar_event` joined this set when those
  *   tools were added — same reasoning as every other `delete_*` tool here,
- *   nothing entity-specific about either. */
+ *   nothing entity-specific about either.
+ *  ★ So did `delete_forecast_scenario` (§502 part 4): undoable like the other
+ *   deletes, and staged like them. */
 const DESTRUCTIVE_TOOLS: ReadonlySet<string> = new Set([
   "delete_task", "delete_all_tasks", "delete_raid_item", "delete_change",
   "delete_milestone", "delete_stakeholder", "delete_resource",
   "delete_document", "delete_absence", "delete_calendar_event",
+  "delete_forecast_scenario",
 ]);
 
 /** Tools that write PROJECT ENTITY data.
@@ -81,7 +84,14 @@ const DESTRUCTIVE_TOOLS: ReadonlySet<string> = new Set([
  *   entity writes too. An update REPLACES the row list when it sends `changes`,
  *   so it can drop rows, but it is undo-captured (one Ctrl+Z restores the whole
  *   list) and its result reports `removedRows` — so, like `escalate_raid_item`,
- *   one call applies and two stage. */
+ *   one call applies and two stage.
+ *
+ *  ★★ `set_forecast_proposal`/`set_forecast_target_confidence` (§502 part 4)
+ *   are here although they write `Workspace.settingsOverrides`, not an entity
+ *   list, and are NOT undoable (owner decision: logged only). The absent trio
+ *   above writes device-local preferences; these write PROJECT data that
+ *   travels on the six write paths and drives the report's verdict. One call
+ *   applies, two stage, like the scenario writes they are approved beside. */
 const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_task", "update_task", "set_task_dependencies", "send_inquiry",
   "create_raid_item", "update_raid_item", "escalate_raid_item",
@@ -93,6 +103,7 @@ const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_absence", "update_absence",
   "create_calendar_event", "update_calendar_event",
   "create_forecast_scenario", "update_forecast_scenario",
+  "set_forecast_proposal", "set_forecast_target_confidence",
   ...DESTRUCTIVE_TOOLS,
 ]);
 
@@ -229,6 +240,11 @@ export const TARGET_MINTED_BY: Readonly<Record<string, string>> = {
   update_calendar_event: "create_calendar_event",
   delete_calendar_event: "create_calendar_event",
   update_forecast_scenario: "create_forecast_scenario",
+  delete_forecast_scenario: "create_forecast_scenario",
+  // §502 part 4 — its `id` names the scenario to propose, so `[create_forecast_scenario, set_forecast_proposal]`
+  // proposes the scenario the create really minted, and refusing the create drops the proposal. `id: null`
+  // (clear) names no row: `targetIdOf` reads null as no id.
+  set_forecast_proposal: "create_forecast_scenario",
 };
 
 /** The THIRD table of the same family: a create tool → the `id-mint-session`
@@ -482,7 +498,10 @@ function linkedRows(
  *   copies of `Number(...)` + a finiteness test is exactly the shape that drifts
  *   into "the graph linked here, the rewrite landed there". */
 function targetIdOf(call: ProposedCall): number | undefined {
-  const id = Number((call.input as { id?: unknown }).id);
+  const raw = (call.input as { id?: unknown }).id;
+  // ★ `Number(null)` is 0, so without this `set_forecast_proposal({ id: null })` (a clear) would name row 0.
+  if (raw === null) return undefined;
+  const id = Number(raw);
   return Number.isFinite(id) ? id : undefined;
 }
 
