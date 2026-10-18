@@ -144,38 +144,83 @@ export function searchOutcome(s: LeverSearch): LeverOutcome {
   return s.phase === "done" && s.reached ? { state: "reaches", n: s.hi, chance: s.hiChance } : { state: "out-of-reach" };
 }
 
-function runSearch(
-  input: ScenarioRunInput, context: ScheduleContext, target: LeverTarget, goal: TargetConfidence,
-  kind: LeverKind, who: AddedPeopleWho | null,
-): LeverOutcome {
-  let s = startSearch(leverBound(kind, target, context), goal);
-  for (let n = nextProbe(s); n !== null; n = nextProbe(s)) {
-    const column = computeScenarioColumn(input, [leverChange(kind, n, target, who, input.today)], context);
-    s = applyProbe(s, n, chanceFor(column, target));
-  }
-  return searchOutcome(s);
+/** A lever still searching, or its settled outcome. */
+export type LeverJob = { kind: LeverKind; who: AddedPeopleWho | null; search: LeverSearch };
+export type LeverSlot = LeverOutcome | LeverJob;
+/** What the step machine carries for one target: the as-is facts and one slot per lever. */
+export type WhatItTakesPlan = {
+  base: Pick<WhatItTakes, "target" | "chance" | "prioritised">;
+  people: LeverSlot;
+  tasks: LeverSlot;
+};
+
+function isJob(slot: LeverSlot): slot is LeverJob {
+  return "search" in slot;
+}
+
+function jobSlot(kind: LeverKind, target: LeverTarget, context: ScheduleContext, goal: TargetConfidence, who: AddedPeopleWho | null): LeverSlot {
+  const search = startSearch(leverBound(kind, target, context), goal);
+  return nextProbe(search) === null ? searchOutcome(search) : { kind, who, search };
+}
+
+function stepSlot(slot: LeverSlot, input: ScenarioRunInput, context: ScheduleContext, target: LeverTarget): LeverSlot {
+  if (!isJob(slot)) return slot;
+  const n = nextProbe(slot.search);
+  if (n === null) return searchOutcome(slot.search);
+  const column = computeScenarioColumn(input, [leverChange(slot.kind, n, target, slot.who, input.today)], context);
+  const search = applyProbe(slot.search, n, chanceFor(column, target));
+  return nextProbe(search) === null ? searchOutcome(search) : { ...slot, search };
 }
 
 /**
- * Both searches, run to completion (the AI tool and the exports; the Reports section drives the step machine itself).
- * Defined only for a target with a chance: null when As is has none — callers skip those targets.
+ * The start of a target's search, before any probe. Null when As is has no chance for the target (callers skip those
+ * targets); already settled when the target is on target or both levers are inert.
  */
-export function whatItTakesSync(
+export function planWhatItTakes(
   input: ScenarioRunInput, context: ScheduleContext, target: LeverTarget, goal: TargetConfidence, asIs: ScenarioColumn,
-): WhatItTakes | null {
+): WhatItTakesPlan | null {
   const chance = chanceFor(asIs, target);
   if (chance === null) return null;
   const milestone = asIs.forecast.kind === "forecast" && target.kind === "milestone"
     ? asIs.forecast.milestones.find((x) => x.id === target.id) : undefined;
   const prioritised = milestone !== undefined && milestone.state === "chance" ? milestone.chancePrioritised : null;
   const base = { target, chance, prioritised };
-  if (chance >= goal / PERCENT) return { ...base, people: { state: "on-target" }, tasks: { state: "on-target" } };
+  if (chance >= goal / PERCENT) return { base, people: { state: "on-target" }, tasks: { state: "on-target" } };
   const who = placeholderWho(context, input.directory);
-  const people: LeverOutcome = who === null
-    ? { state: "inert", reason: "needs-booked-hours" }
-    : runSearch(input, context, target, goal, "people", who);
-  const tasks: LeverOutcome = openCount(target, context) === 0
-    ? { state: "inert", reason: "no-open-tasks" }
-    : runSearch(input, context, target, goal, "tasks", null);
-  return { ...base, people, tasks };
+  const people: LeverSlot = who === null
+    ? { state: "inert", reason: "needs-booked-hours" } : jobSlot("people", target, context, goal, who);
+  const tasks: LeverSlot = openCount(target, context) === 0
+    ? { state: "inert", reason: "no-open-tasks" } : jobSlot("tasks", target, context, goal, null);
+  return { base, people, tasks };
+}
+
+export function isPlanSettled(plan: WhatItTakesPlan): boolean {
+  return !isJob(plan.people) && !isJob(plan.tasks);
+}
+
+/** One probe of the first lever still searching (a settled plan comes back unchanged). */
+export function stepPlan(plan: WhatItTakesPlan, input: ScenarioRunInput, context: ScheduleContext): WhatItTakesPlan {
+  const { target } = plan.base;
+  return isJob(plan.people)
+    ? { ...plan, people: stepSlot(plan.people, input, context, target) }
+    : { ...plan, tasks: stepSlot(plan.tasks, input, context, target) };
+}
+
+/** The finished result of a settled plan (an unsettled lever reads as out of reach: check `isPlanSettled` first). */
+export function settlePlan(plan: WhatItTakesPlan): WhatItTakes {
+  const outcome = (slot: LeverSlot): LeverOutcome => (isJob(slot) ? searchOutcome(slot.search) : slot);
+  return { ...plan.base, people: outcome(plan.people), tasks: outcome(plan.tasks) };
+}
+
+/**
+ * Both searches, run to completion (the AI tool and the exports; the Reports section drives `stepPlan` itself).
+ * Defined only for a target with a chance: null when As is has none — callers skip those targets.
+ */
+export function whatItTakesSync(
+  input: ScenarioRunInput, context: ScheduleContext, target: LeverTarget, goal: TargetConfidence, asIs: ScenarioColumn,
+): WhatItTakes | null {
+  let plan = planWhatItTakes(input, context, target, goal, asIs);
+  if (plan === null) return null;
+  while (!isPlanSettled(plan)) plan = stepPlan(plan, input, context);
+  return settlePlan(plan);
 }
