@@ -6,7 +6,7 @@ import { render, screen } from "@testing-library/react";
 import { GanttPanel } from "./gantt";
 import { formatWhen } from "./forecast-tables";
 import { dayLeftPx } from "./gantt-overlays";
-import { LEFT_GUTTER_PX } from "./gantt-engine";
+import { DAY_WIDTH_PX, LEFT_GUTTER_PX } from "./gantt-engine";
 import type { AppForecast, MilestoneChance } from "./forecast/app-forecast";
 import type { Milestone, Task } from "./types";
 
@@ -71,6 +71,40 @@ describe("GanttPanel — the forecast layer (§502)", () => {
     const insufficient: AppForecast = { kind: "insufficient", finished: 2, neededFinished: 10, days: 3, neededDays: 20 };
     const { container } = render(<GanttPanel {...PROPS} forecast={insufficient} />);
     expect(container.querySelector("[data-gantt-forecast-layer]")).toBeNull();
+  });
+});
+
+// Important #1 (pre-merge review) — a forecast later than the plan widens the axis; it does not pile up on the edge.
+describe("GanttPanel — the axis takes in the forecast (§502)", () => {
+  /** The chart's full width (name column + timeline), from the wrapper that carries it. */
+  const chartWidth = (c: HTMLElement) => parseFloat(c.querySelector<HTMLElement>('[style*="min-width: 100%"]')!.style.width);
+  const late = (): AppForecast => ({
+    ...(forecast() as Extract<AppForecast, { kind: "forecast" }>), p50: dayPlus(20), p80: dayPlus(45), p95: dayPlus(60),
+  });
+
+  test("a P95 after the last bar: the band ends on its true day, the P80 line sits on its true day", () => {
+    const { container } = render(<GanttPanel {...PROPS} forecast={late()} />);
+    const band = container.querySelector<HTMLElement>("[data-gantt-forecast-band]")!;
+    const line = container.querySelector<HTMLElement>("[data-gantt-forecast-p80]")!;
+    // The axis now starts at day -32 still and runs to day +63 (P95 + 3 days' padding): index = day + 32.
+    const right = parseFloat(band.style.left) + parseFloat(band.style.width);
+    expect(right).toBe(dayLeftPx(60 + 32, LEFT_GUTTER_PX) + DAY_WIDTH_PX);
+    expect(line.style.left).toBe(`${dayLeftPx(45 + 32, LEFT_GUTTER_PX)}px`);
+  });
+
+  test("off, below the floor or inside the plan, the axis is exactly what it was without a forecast", () => {
+    const widthOf = (f: AppForecast | null | undefined) => {
+      const { container, unmount } = render(<GanttPanel {...PROPS} forecast={f} />);
+      const w = chartWidth(container);
+      unmount();
+      return w;
+    };
+    const plain = widthOf(undefined);
+    expect(widthOf(null)).toBe(plain);
+    expect(widthOf({ kind: "insufficient", finished: 2, neededFinished: 10, days: 3, neededDays: 20 })).toBe(plain);
+    expect(widthOf(forecast())).toBe(plain); // P95 at day +25, inside the axis's day +33
+    // Positive control: the same observable moves when the forecast runs past the plan (to day +63: 30 more days).
+    expect(widthOf(late())).toBe(plain + 30 * DAY_WIDTH_PX);
   });
 });
 

@@ -575,35 +575,32 @@ export function GanttPanel({
     // edge widen the axis: the handle stays reachable and its slider value in
     // range. A pointer drag does not: widening under the pointer would shift
     // the chart away from it.
-    for (const m of milestones) {
-      const iso = m.id === keyPreviewId ? (shiftIsoDate(m.date, keyPreviewDays) ?? m.date) : m.date;
+    const foldIso = (iso: string) => {
       const d = parseISO(iso);
-      if (!d) continue;
+      if (!d) return;
       if (!initialized) {
         min = d;
         max = d;
         initialized = true;
-        continue;
+        return;
       }
       if (d.getTime() < min.getTime()) min = d;
       if (d.getTime() > max.getTime()) max = d;
+    };
+    for (const m of milestones) {
+      foldIso(m.id === keyPreviewId ? (shiftIsoDate(m.date, keyPreviewDays) ?? m.date) : m.date);
     }
     // Fold baseline ghost dates in too (when the overlay is on) so a milestone
     // that slipped far from its committed baseline still has its ghost diamond +
     // connector on the visible axis, not clipped off the left/right edge.
     if (showBaselinePref && baselineMilestoneDates) {
-      for (const iso of baselineMilestoneDates.values()) {
-        const d = parseISO(iso);
-        if (!d) continue;
-        if (!initialized) {
-          min = d;
-          max = d;
-          initialized = true;
-          continue;
-        }
-        if (d.getTime() < min.getTime()) min = d;
-        if (d.getTime() > max.getTime()) max = d;
-      }
+      for (const iso of baselineMilestoneDates.values()) foldIso(iso);
+    }
+    // §502 part 4 — and the simulated band (P50 to P95; the P80 line lies between), so a finish later than the
+    // plan, the case the band exists to show, widens the axis instead of piling up on its edge. Only a percentile
+    // past the horizon (null, labelled "> 5 y") still clamps. With the simulation off `forecast` is null: no change.
+    if (forecast?.kind === "forecast") {
+      for (const iso of [forecast.p50, forecast.p95]) if (iso !== null) foldIso(iso);
     }
     if (!initialized) {
       min = addDays(today, -7);
@@ -619,7 +616,7 @@ export function GanttPanel({
     }
     const days = Math.max(1, diffDays(min, max) + 1);
     return { min, max, days };
-  }, [layout.bars, milestones, baselineMilestoneDates, showBaselinePref, keyPreviewId, keyPreviewDays]);
+  }, [layout.bars, milestones, baselineMilestoneDates, showBaselinePref, keyPreviewId, keyPreviewDays, forecast]);
 
   // Same expression the holiday shading and the day grid use — shared so the
   // marker cannot drift off the day column it is supposed to sit on.

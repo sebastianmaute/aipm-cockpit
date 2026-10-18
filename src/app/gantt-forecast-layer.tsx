@@ -6,7 +6,8 @@
 // Presentational and inert, like gantt-overlays.tsx: `aria-hidden` (the same dates are read out on the
 // Dashboard's Forecast tile and the Reports Forecast section) and `pointer-events-none`, so it can never
 // intercept a bar drag. It draws on the SHARED day geometry (`dayLeftPx`); the caller's `dayIndexOf` owns
-// the clamping, so a finish past the axis sits on its edge rather than off the chart.
+// the clamping. The panel widens its axis to every dated percentile (`gantt.tsx`'s range), so only a finish
+// past the horizon (`null`) sits on the edge rather than off the chart.
 //
 // ★ The band is `bg-ui-green/10`: faint enough that a bar drawn over it keeps its own colour (eye-checked by
 // the owner at un-hide, spec §3.7 "the band stays faint enough that bars read clearly").
