@@ -118,7 +118,7 @@ import {
   getCurrentEntry,
   type ProjectsRegistry,
 } from "./projects-registry";
-import { exportWorkspace, type ExportFormat } from "./export"; import { exportForecastFor } from "./export-forecast-section"; import { withPublishedForecastDecision } from "./export-extras-context"; import { buildExportWorkspace } from "./export-workspace"; import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
+import { exportWorkspace, type ExportFormat } from "./export"; import { exportForecastFor } from "./export-forecast-section"; import { workspaceExportExtras } from "./export-extras-context"; import type { ForecastDecisionSource } from "./forecast-decision"; import { buildExportWorkspace } from "./export-workspace"; import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
 import { ProjectEmptyState } from "./project-empty-state";
 import { SecretUnlockGate } from "./secret-unlock-gate";
 import { isPassphraseLocked } from "./secrets-store";
@@ -1172,7 +1172,7 @@ function TaskManagerInner() {
   // (same field set the save effect uses), including `project`.
   const exportFooter = exportFooterText(settings.branding); const exportForecast = exportForecastFor(settings.features, dashboardModel.forecastBundle); // §545
   const handleExportCurrentProject = useCallback(
-    (format: string) => {
+    (format: string, forecastDecision?: ForecastDecisionSource) => { // §502 part 4 — the source the Projects panel reads from its window's ExportExtrasProvider
       // §463 — the same builder as the header Export menu. What keeps this
       //  literal complete is the builder's parameter type,
       //  `ExportWorkspaceSlices`: every slice is a required key, so leaving
@@ -1182,7 +1182,7 @@ function TaskManagerInner() {
         plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
         calendarEvents, knowledgeItems, insights,
       });
-      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang, exportFooter, withPublishedForecastDecision({ budgetForecast: exportForecast })).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
+      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang, exportFooter, workspaceExportExtras(exportForecast, forecastDecision)).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     },
     [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, calendarEvents, knowledgeItems, insights, settings.export, exportFooter, exportForecast, lang, showToast],
   );
@@ -1779,7 +1779,7 @@ function TaskManagerInner() {
     handleApplyTemplate,
     undoControl: undoControlEl,
     ...classicMenu,
-    exportForecast,
+    exportForecast, today, holidaySet, holidaysReady, // §502 part 4 — the header Export menu's own forecast decision source
     onLoadDemo: isPopout ? undefined : () => { void loadDemo(); },
   });
 

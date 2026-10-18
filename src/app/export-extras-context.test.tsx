@@ -1,8 +1,8 @@
-// §502 part 4 — the forecast decision source in the export extras: in the context for the document leaves, and
-// PUBLISHED by the main window for the header Export menu and the voice export, which sit outside the provider.
+// §502 part 4 — the forecast decision source in the export extras: in the context for the document leaves and the
+// Projects panel's export, and handed explicitly to the two workspace exports (`workspaceExportExtras`).
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { ExportExtrasProvider, useExportExtras, withPublishedForecastDecision } from "./export-extras-context";
+import { ExportExtrasProvider, useExportExtras, workspaceExportExtras } from "./export-extras-context";
 import type { ForecastDecisionHandle, ForecastDecisionSource } from "./forecast-decision";
 import { forecastBundleFixture } from "../test/forecast-bundle-fixture";
 
@@ -26,22 +26,13 @@ describe("ExportExtrasProvider — forecastDecision", () => {
     expect(screen.getByTestId("keys").textContent).toBe("forecastDecision,forecastDecisionLive");
   });
 
-  it("publishes the source while mounted with `publish`, and withdraws it on unmount", () => {
-    expect(withPublishedForecastDecision({ budgetForecast: null })).toEqual({ budgetForecast: null });
-    const { unmount } = render(<ExportExtrasProvider forecast={null} forecastDecision={handle} publish><Keys /></ExportExtrasProvider>);
-    expect(withPublishedForecastDecision({ budgetForecast: null })).toEqual({ budgetForecast: null, forecastDecision: source });
-    unmount();
-    expect(withPublishedForecastDecision({ budgetForecast: null })).toEqual({ budgetForecast: null });
-  });
+});
 
-  it("withdraws it when the simulation goes off (the source becomes null)", () => {
-    const { rerender } = render(<ExportExtrasProvider forecast={null} forecastDecision={handle} publish><Keys /></ExportExtrasProvider>);
-    rerender(<ExportExtrasProvider forecast={null} forecastDecision={null} publish><Keys /></ExportExtrasProvider>);
-    expect(withPublishedForecastDecision({})).toEqual({});
-  });
-
-  it("never publishes from a popout (`publish` off)", () => {
-    render(<ExportExtrasProvider forecast={null} forecastDecision={handle}><Keys /></ExportExtrasProvider>);
-    expect(withPublishedForecastDecision({})).toEqual({});
+describe("workspaceExportExtras — the two workspace exports' extras", () => {
+  it("adds the decision only when there is a source: off, the extras are exactly the budget forecast", () => {
+    const forecast = forecastBundleFixture();
+    expect(workspaceExportExtras(forecast, null)).toEqual({ budgetForecast: forecast });
+    expect(Object.keys(workspaceExportExtras(null, undefined))).toEqual(["budgetForecast"]);
+    expect(workspaceExportExtras(null, source)).toEqual({ budgetForecast: null, forecastDecision: source });
   });
 });

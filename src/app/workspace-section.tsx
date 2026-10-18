@@ -106,7 +106,7 @@ import { WorkspaceTabStrip } from "./workspace-section-chrome";
 import { useStableHandlers } from "./use-stable-handlers";
 import { exportFooterText, isAiEnabled } from "./settings-types";
 import { ExportExtrasProvider } from "./export-extras-context";
-import { useForecastDecisionSource } from "./use-forecast-decision-source";
+import { useWorkspaceForecastDecisionSource } from "./use-forecast-decision-source";
 // Re-export so existing importers of `WorkspaceSectionProps` from
 // "./workspace-section" keep working (the type now lives in the types module).
 export type { WorkspaceSectionProps } from "./workspace-section-types";
@@ -361,11 +361,9 @@ export function WorkspaceSection({
     } : null),
     [reportsForecastOn, tasks, milestones, today, holidaySet, planEnd, forecastDirectory, forecastBudgetFacts, budgetEnabled],
   );
-  // §502 part 4 — the exports' forecast decision: a lazy source (nothing runs until an export asks), null while off.
-  const forecastDecision = useForecastDecisionSource({
-    simulationActive, holidaysReady, tasks, milestones, today, holidaySet, plan, directory: forecastDirectory, budgetEnabled,
-    scenarios: forecastScenariosApi.scenarios, settingsOverrides: workspace.settingsOverrides,
-  });
+  // §502 part 4 — the documents' forecast decision: a lazy source (nothing runs until an export asks), null while off.
+  // The header Export menu derives its own from the same recipe, since this section is not mounted on every view.
+  const forecastDecision = useWorkspaceForecastDecisionSource({ features, workdayHours, today, holidaySet, holidaysReady });
 
   // Per-milestone committed baseline dates for the Gantt ghost overlay — only
   // when snapshots are live (Turso). Off Turso `trends.active` is false → empty
@@ -427,7 +425,7 @@ export function WorkspaceSection({
     : "min-h-0 flex-1 overflow-y-auto pt-4";
 
   return (
-    <ExportExtrasProvider forecast={exportForecast} forecastDecision={forecastDecision} publish={!isPopout}>
+    <ExportExtrasProvider forecast={exportForecast} forecastDecision={forecastDecision}>
     <section
       ref={workspaceRef}
       className={

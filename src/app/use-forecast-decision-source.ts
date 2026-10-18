@@ -6,6 +6,7 @@
 
 import { useMemo } from "react";
 import { computeProjectForecastFacts } from "./budget-forecast";
+import { isModuleEnabled, type FeatureModuleId } from "./feature-modules";
 import type { ScenarioDirectory } from "./forecast-added-people";
 import {
   buildForecastDecisionBase, forecastDecisionSource, once, type ForecastDecisionHandle,
@@ -13,9 +14,11 @@ import {
 import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
 import type { ScenarioRunInput } from "./forecast-scenario-compare";
 import type { ForecastScenario } from "./forecast-scenarios";
+import { isSimulationActive } from "./forecast-simulation";
 import { targetConfidenceOf } from "./forecast-target";
 import type { SettingsOverrides } from "./settings-types";
 import type { Milestone, ResourcePlan, Task } from "./types";
+import { useWorkspace } from "./workspace-context";
 
 export type ForecastDecisionSourceDeps = {
   /** `isSimulationActive(settingsOverrides, features)`; off, there is no source and the section is absent. */
@@ -60,4 +63,34 @@ export function useForecastDecisionSource(d: ForecastDecisionSourceDeps): Foreca
       live: { goal: targetConfidenceOf(settingsOverrides), input, base: once(() => buildForecastDecisionBase(args())) },
     };
   }, [simulationActive, holidaysReady, tasks, milestones, today, holidaySet, plan, directory, budgetEnabled, scenarios, settingsOverrides]);
+}
+
+/** What `useWorkspaceForecastDecisionSource` needs beyond the workspace context: task-manager's clock and calendar. */
+export type WorkspaceForecastDecisionDeps = {
+  features: readonly FeatureModuleId[];
+  workdayHours: number;
+  today: string;
+  holidaySet: ReadonlySet<string>;
+  holidaysReady: boolean | undefined;
+};
+
+/**
+ * `useForecastDecisionSource` fed from the LIVE workspace context — the one recipe both holders use: the workspace
+ * section (the document leaves, the Projects panel's export) and the header Export menu, which is mounted on every
+ * view while the section is not (the modern shell renders Open Points, Settings and Learning insights without it).
+ * ★ Derived, never published: after a project swap the context holds the new project, so neither can hand out the
+ * old one's decision.
+ */
+export function useWorkspaceForecastDecisionSource(d: WorkspaceForecastDecisionDeps): ForecastDecisionHandle | null {
+  const { features, workdayHours, today, holidaySet, holidaysReady } = d;
+  const { tasks, milestones, plan, resources, roles, shifts, absences, budgets, fxRates, forecastScenarios, settingsOverrides } = useWorkspace();
+  const baseCurrency = plan.currency;
+  const directory = useMemo<ScenarioDirectory>(
+    () => ({ resources, roles, shifts, absences, budgets, fxRates, workdayHours, baseCurrency }),
+    [resources, roles, shifts, absences, budgets, fxRates, workdayHours, baseCurrency],
+  );
+  return useForecastDecisionSource({
+    simulationActive: isSimulationActive(settingsOverrides, features), holidaysReady, tasks, milestones, today, holidaySet, plan,
+    directory, budgetEnabled: isModuleEnabled("budget", features), scenarios: forecastScenarios, settingsOverrides,
+  });
 }

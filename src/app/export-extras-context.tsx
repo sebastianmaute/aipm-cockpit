@@ -22,12 +22,14 @@
 // source (`ForecastDecisionSource`): nothing runs until a document block or an
 // export asks for the section. Previews read its `forecastDecisionLive` half
 // instead (`usePreviewExportExtras`), so their lever search runs off the render
-// path. The header Export menu and task-manager's export handler (the Projects
-// panel's "export current project") are built by task-manager, so the main
-// window's provider also PUBLISHES its source, and those two call sites read it
-// through `withPublishedForecastDecision` at the click — no prop threaded
-// through the shell, and no engine run for an export that leaves the section out.
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+// path. The two workspace exports read the source at the click: the Projects
+// panel's "export current project" takes it from this context (main window and
+// popout alike) and hands it to task-manager's handler; the header Export menu,
+// which is mounted on views where `WorkspaceSection` is not, derives its own from
+// the same recipe (`useWorkspaceForecastDecisionSource`). Neither is a published
+// module slot — that held the last mounted section's source, so it was empty on
+// the modern shell's Open Points, Settings and Learning insights views.
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { ExportExtras } from "./export-forecast-section";
 import type { ForecastBundle } from "./budget-forecast-bundle";
 import type { ForecastDecisionHandle, ForecastDecisionSource } from "./forecast-decision";
@@ -36,19 +38,14 @@ const NO_EXTRAS: ExportExtras = {};
 
 const Ctx = createContext<ExportExtras>(NO_EXTRAS);
 
-/** The main window's current source; null while the simulation is off or no provider publishes. */
-const published: { source: ForecastDecisionSource | null } = { source: null };
-
-/** `extras` plus the published forecast decision source, when there is one; unchanged otherwise. */
-export function withPublishedForecastDecision(extras: ExportExtras): ExportExtras {
-  const source = published.source;
-  return source === null ? extras : { ...extras, forecastDecision: source };
+/** A workspace export's extras: the budget forecast, plus the decision source when the simulation offers one. */
+export function workspaceExportExtras(budgetForecast: ForecastBundle | null, forecastDecision: ForecastDecisionSource | null | undefined): ExportExtras {
+  return forecastDecision ? { budgetForecast, forecastDecision } : { budgetForecast };
 }
 
 export function ExportExtrasProvider({
   forecast,
   forecastDecision = null,
-  publish = false,
   children,
 }: {
   /** `exportForecastFor(settings.features, dashboardModel.forecastBundle)`:
@@ -56,8 +53,6 @@ export function ExportExtrasProvider({
   forecast: ForecastBundle | null | undefined;
   /** `useForecastDecisionSource`'s handle; null while the simulation is off, and then both keys are absent. */
   forecastDecision?: ForecastDecisionHandle | null;
-  /** Publish the source for the exports built outside this tree (the main window only, never a popout). */
-  publish?: boolean;
   children: ReactNode;
 }) {
   const value = useMemo<ExportExtras>(() => {
@@ -67,14 +62,6 @@ export function ExportExtrasProvider({
       ...(forecastDecision ? { forecastDecision: forecastDecision.source, forecastDecisionLive: forecastDecision.live } : {}),
     };
   }, [forecast, forecastDecision]);
-  const source = forecastDecision?.source ?? null;
-  useEffect(() => {
-    if (!publish || source === null) return undefined;
-    published.source = source;
-    return () => {
-      if (published.source === source) published.source = null;
-    };
-  }, [publish, source]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

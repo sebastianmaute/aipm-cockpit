@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { ProjectsPanel } from "./projects-panel";
+import { ExportExtrasProvider } from "./export-extras-context";
+import type { ForecastDecisionSource } from "./forecast-decision";
 
 // Branded confirm dialog — mock the hook so tests control the resolved boolean
 // (default accept). `confirmMock.result` is reset to true in afterEach.
@@ -350,7 +352,23 @@ describe("ProjectsPanel", () => {
     const { onExportCurrent } = setup();
     fireEvent.click(screen.getByRole("button", { name: "Export project" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Excel (.xlsx)" }));
-    expect(onExportCurrent).toHaveBeenCalledWith("xlsx");
+    // No provider: the simulation offers no forecast decision source.
+    expect(onExportCurrent).toHaveBeenCalledWith("xlsx", undefined);
+  });
+
+  // §502 part 4 (P-T8-3) — the export reads its window's ExportExtrasProvider, so the main window and a popout each
+  // hand task-manager's handler their own source; before, the popout's export omitted the section.
+  it("hands onExportCurrent this window's forecast decision source", () => {
+    const h = makeHandlers();
+    const source: ForecastDecisionSource = () => null;
+    render(
+      <ExportExtrasProvider forecast={null} forecastDecision={{ source, live: { goal: 80, input: () => null, base: () => null } }}>
+        {panelElement(h)}
+      </ExportExtrasProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Export project" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Excel (.xlsx)" }));
+    expect(h.onExportCurrent).toHaveBeenCalledWith("xlsx", source);
   });
 
   it("closes the export menu on outside click", () => {
