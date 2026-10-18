@@ -460,11 +460,11 @@ describe("ForecastScenarioEditor — a seeded draft (§502 part 4)", () => {
   const SCOPE: ScenarioChange = { kind: "scope", tasks: -3, on: TODAY, milestoneId: 10 };
   const SEED = { name: "Beta — what it would take (+2 people)", changes: [PEOPLE] };
   const ALT = { label: "3 fewer tasks on Beta", seed: { name: "Beta — what it would take (3 fewer tasks)", changes: [SCOPE] } };
-  function renderSeeded(over: { alt?: typeof ALT; capReached?: boolean } = {}) {
+  function renderSeeded(over: { alt?: typeof ALT; capReached?: boolean; seedLabel?: string } = {}) {
     const onSave = vi.fn((): string | null => null);
     render(
       <ForecastScenarioEditor
-        lang="en-US" open scenario={null} openId={7} context={CONTEXT} list={[]} seed={SEED} alt={over.alt} capReached={over.capReached}
+        lang="en-US" open scenario={null} openId={7} context={CONTEXT} list={[]} seed={SEED} alt={over.alt} seedLabel={over.seedLabel} capReached={over.capReached}
         onSave={onSave} onCancel={() => {}}
       />,
     );
@@ -486,6 +486,18 @@ describe("ForecastScenarioEditor — a seeded draft (§502 part 4)", () => {
     expect(screen.queryByRole("button", { name: /^Or use/ })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(onSave).toHaveBeenCalledWith({ name: ALT.seed.name, changes: [SCOPE] });
+  });
+
+  it("with a seed label the swap goes both ways", async () => {
+    const { onSave, user } = renderSeeded({ alt: ALT, seedLabel: "+2 people on Beta" });
+    await user.click(screen.getByRole("button", { name: "Or use 3 fewer tasks on Beta instead" }));
+    expect(control("Name").value).toBe(ALT.seed.name);
+    await user.click(screen.getByRole("button", { name: "Or use +2 people on Beta instead" }));
+    expect(control("Name").value).toBe(SEED.name);
+    expect(field("Change 1: Count").value).toBe("2");
+    expect(screen.getByRole("button", { name: "Or use 3 fewer tasks on Beta instead" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledWith({ name: SEED.name, changes: [PEOPLE] });
   });
 
   it("at the cap Save is disabled and says why", async () => {

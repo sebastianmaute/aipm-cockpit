@@ -11,9 +11,10 @@ import { Badge } from "./badge";
 import { Button } from "./button";
 import { rowLabel } from "./row-tokens";
 import { formatChance } from "./forecast-tables";
+import { formatHours } from "./forecast-format";
+import { localeFor } from "./date-format";
 import { chanceSeverity, type TargetConfidence } from "./forecast-target";
 import type { LeverKind, LeverOutcome, WhatItTakes } from "./forecast-levers";
-import type { Health } from "./health";
 
 export type ForecastLeverCellProps = {
   lang: Lang;
@@ -28,12 +29,6 @@ export type ForecastLeverCellProps = {
 
 const PERCENT = 100;
 const BADGE_CLASS = "border border-line bg-surface text-foreground";
-const SEVERITY_HEALTH: Record<ReturnType<typeof chanceSeverity>, Health> = { red: "R", amber: "A", green: "G" };
-
-/** The RAG level of a part-4 chance dot: `chanceSeverity` against the project's target. */
-export function chanceRagLevel(chance: number, goal: TargetConfidence): Health {
-  return SEVERITY_HEALTH[chanceSeverity(chance, goal)];
-}
 
 type Lever = { kind: LeverKind; n: number };
 const reached = (kind: LeverKind, o: LeverOutcome): Lever | null => (o.state === "reaches" ? { kind, n: o.n } : null);
@@ -58,7 +53,10 @@ function leverTexts(lang: Lang, r: WhatItTakes, goal: TargetConfidence): { texts
   if (r.people.state === "reaches") reach.push(tPlural(lang, "forecastLeverPeople", r.people.n, r.people.n));
   else if (r.people.state === "out-of-reach") notes.push(t(lang, "forecastLeverPeopleOutOfReach"));
   else if (r.people.state === "inert" && r.people.reason === "needs-booked-hours") notes.push(t(lang, "forecastLeverNeedsHours"));
-  if (r.tasks.state === "reaches") reach.push(tPlural(lang, "forecastLeverTasks", r.tasks.n, r.tasks.n));
+  if (r.tasks.state === "reaches") {
+    const tasks = tPlural(lang, "forecastLeverTasks", r.tasks.n, r.tasks.n);
+    reach.push(r.tasks.hours === null ? tasks : t(lang, "forecastLeverWithHours", tasks, formatHours(r.tasks.hours, localeFor(lang))));
+  }
   else if (r.tasks.state === "out-of-reach") notes.push(t(lang, "forecastLeverTasksOutOfReach"));
   if (r.prioritised !== null && r.prioritised < goal / PERCENT) notes.push(t(lang, "forecastLeverPrioritiseShort"));
   const texts = [...reach.map((s, i) => (i === 0 ? s : t(lang, "forecastLeverOr", s))), ...notes];

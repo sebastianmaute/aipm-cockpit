@@ -3,7 +3,7 @@
 // the same `useDeepLinkRowFlash` contract the Milestones and Changes panels honour.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { ForecastPanelDeepLinked } from "./forecast-panel";
+import { ForecastPanelDeepLinked, type ForecastScenariosProps } from "./forecast-panel";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import type { Milestone, ResourcePlan, Task } from "./types";
@@ -88,5 +88,40 @@ describe("ForecastPanelDeepLinked", () => {
     act(() => {});
     rerender(<WorkspaceTabProvider><Harness /></WorkspaceTabProvider>);
     expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ForecastPanelDeepLinked — an Explore draft from Reports (§502 part 4)", () => {
+  const SCENARIOS: ForecastScenariosProps = {
+    api: {
+      scenarios: [], canCreate: true, mintId: () => 1,
+      createScenario: () => null, updateScenario: () => false, renameScenario: () => false, deleteScenario: () => {},
+    },
+    directory: { resources: [], roles: [], shifts: [], absences: [], budgets: [], fxRates: null, workdayHours: 8, baseCurrency: "EUR" },
+    readOnly: false,
+  };
+  function DraftHarness({ mounted }: { mounted: boolean }) {
+    const { requestForecastDraft, pendingForecastDraft, activeTab } = useWorkspaceTab();
+    return (
+      <>
+        <button onClick={() => requestForecastDraft({ target: { kind: "milestone", id: 7 }, kind: "tasks", n: 1, alt: null })}>explore-7</button>
+        <span data-testid="draft">{pendingForecastDraft ? `${pendingForecastDraft.kind}:${pendingForecastDraft.n}` : "none"}</span>
+        <span data-testid="tab">{activeTab}</span>
+        {mounted && (
+          <ForecastPanelDeepLinked lang="en-US" tasks={TASKS} milestones={MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} scenarios={SCENARIOS} />
+        )}
+      </>
+    );
+  }
+
+  it("a request pending before the view mounts opens the draft, and the context drops it", () => {
+    const { rerender } = render(<WorkspaceTabProvider><DraftHarness mounted={false} /></WorkspaceTabProvider>);
+    fireEvent.click(screen.getByText("explore-7"));
+    expect(screen.getByTestId("draft").textContent).toBe("tasks:1");
+    expect(screen.getByTestId("tab").textContent).toBe("forecast");
+    rerender(<WorkspaceTabProvider><DraftHarness mounted /></WorkspaceTabProvider>);
+    const name = screen.getByRole("textbox", { name: "Name" }) as HTMLInputElement;
+    expect(name.value).toBe("Go-live — what it would take (1 fewer task)");
+    expect(screen.getByTestId("draft").textContent).toBe("none");
   });
 });

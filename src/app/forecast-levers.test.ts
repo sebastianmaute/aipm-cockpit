@@ -3,7 +3,8 @@ import type { ForecastFacts, ForecastFactsByUnit } from "./budget-forecast";
 import type { ScheduleForecast } from "./forecast";
 import type { ScenarioDirectory } from "./forecast-added-people";
 import {
-  applyProbe, chanceFor, leverBound, leverChange, nextProbe, placeholderWho, searchOutcome, startSearch, whatItTakesSync,
+  applyProbe, chanceFor, leverBound, leverChange, meanTaskHours, nextProbe, placeholderWho, searchOutcome, settlePlan,
+  startSearch, whatItTakesSync,
   type LeverOutcome, type LeverSearch, type LeverTarget,
 } from "./forecast-levers";
 import {
@@ -108,7 +109,7 @@ describe("the probe step machine", () => {
 
   it("finds the smallest n that reaches the goal within 1 + ceil(log2(bound)) probes", () => {
     const { s, probes } = drive(20, 80, monotone);
-    expect(searchOutcome(s)).toEqual({ state: "reaches", n: 7, chance: 0.85 });
+    expect(searchOutcome(s)).toEqual({ state: "reaches", n: 7, chance: 0.85, hours: null });
     expect(probes[0]).toBe(20); // the bound first
     expect(probes.length).toBeLessThanOrEqual(1 + Math.ceil(Math.log2(20)));
     expect(new Set(probes).size).toBe(probes.length); // never probes the same n twice
@@ -233,5 +234,44 @@ describe("whatItTakesSync", () => {
     };
     const w = whatItTakesSync(inp, context, EMPTY, 80, stub);
     expect(w?.tasks).toEqual({ state: "inert", reason: "no-open-tasks" });
+  });
+});
+
+describe("the tasks lever in hours (§502 part 4)", () => {
+  it("meanTaskHours is the mean estimate of the target's estimated open tasks, null when none carries one", () => {
+    const { context } = setup();
+    expect(meanTaskHours(BETA, context)).toBe(2); // every open task is estimated at 120 minutes
+    expect(meanTaskHours(PLAN, context)).toBe(2);
+    const mixed = context.tasks.map((t) => (t.id === OPEN[0].id ? { ...t, originalEstimateMinutes: 480 } : t.id === OPEN[1].id ? { ...t, originalEstimateMinutes: undefined } : t));
+    expect(meanTaskHours(BETA, { ...context, tasks: mixed })).toBe((480 + 4 * 120) / 5 / 60); // the unestimated one is left out
+    const none = context.tasks.map((t) => ({ ...t, originalEstimateMinutes: undefined }));
+    expect(meanTaskHours(BETA, { ...context, tasks: none })).toBeNull();
+    expect(meanTaskHours(EMPTY, context)).toBeNull();
+  });
+
+  it("settlePlan gives a reaching tasks lever n × the mean, rounded; people and an unestimated plan get null", () => {
+    const base = { target: BETA, chance: 0.3, prioritised: 0.4 };
+    const reaches = (n: number): LeverOutcome => ({ state: "reaches", n, chance: 0.85, hours: null });
+    expect(settlePlan({ base, people: reaches(2), tasks: reaches(9), taskHours: 6 }).tasks).toEqual({ state: "reaches", n: 9, chance: 0.85, hours: 54 });
+    expect(settlePlan({ base, people: reaches(2), tasks: reaches(3), taskHours: 1.7 }).tasks).toMatchObject({ hours: 5 });
+    expect(settlePlan({ base, people: reaches(2), tasks: reaches(9), taskHours: 6 }).people).toMatchObject({ hours: null });
+    expect(settlePlan({ base, people: reaches(2), tasks: reaches(9), taskHours: null }).tasks).toMatchObject({ hours: null });
+  });
+
+  it("whatItTakesSync carries the hours with estimates and null without", () => {
+    let checked = 0;
+    for (const target of [BETA, LATE]) {
+      for (const goal of [80, 95] as const) {
+        const { inp, asIs, context } = setup();
+        const w = whatItTakesSync(inp, context, target, goal, asIs);
+        if (w?.tasks.state !== "reaches") continue;
+        expect(w.tasks.hours).toBe(w.tasks.n * 2);
+        const bare = setup({ tasks: TASKS.map((t) => ({ ...t, originalEstimateMinutes: undefined })) });
+        const without = whatItTakesSync(bare.inp, bare.context, target, goal, bare.asIs);
+        if (without?.tasks.state === "reaches") expect(without.tasks.hours).toBeNull();
+        checked += 1;
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
   });
 });

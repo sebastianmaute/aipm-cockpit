@@ -8,6 +8,7 @@
 import type { ForecastScenario } from "./forecast-scenarios";
 import { hasAnyOverride } from "./settings-overrides";
 import type { SettingsOverrides } from "./settings-types";
+import type { Health } from "./health";
 
 export type TargetConfidence = 50 | 80 | 95;
 export const TARGET_CONFIDENCES: readonly TargetConfidence[] = [50, 80, 95];
@@ -66,4 +67,11 @@ export function withProposal(
 export function chanceSeverity(chance: number, goal: TargetConfidence): "red" | "amber" | "green" {
   if (chance < EVEN_ODDS) return "red";
   return chance < goal / PERCENT ? "amber" : "green";
+}
+
+const SEVERITY_HEALTH: Record<ReturnType<typeof chanceSeverity>, Health> = { red: "R", amber: "A", green: "G" };
+
+/** `chanceSeverity` as the `Health` level a `RagDot` takes. */
+export function chanceRagLevel(chance: number, goal: TargetConfidence): Health {
+  return SEVERITY_HEALTH[chanceSeverity(chance, goal)];
 }

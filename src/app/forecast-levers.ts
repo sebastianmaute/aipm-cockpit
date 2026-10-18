@@ -16,11 +16,14 @@ import {
 import type { TargetConfidence } from "./forecast-target";
 import { materializeRoleRates } from "./role-rates";
 import { isTaskClosed } from "./task-closed";
+import type { Task } from "./types";
 
 export type LeverTarget = { kind: "milestone"; id: number } | { kind: "planEnd" };
 export type LeverKind = "people" | "tasks";
 export type LeverOutcome =
-  | { state: "reaches"; n: number; chance: number }
+  /** `hours`: the tasks lever's n in hours (n × the mean estimate of the target's estimated open tasks, whole hours);
+   *  null for people, and for tasks when none of them carries an estimate. */
+  | { state: "reaches"; n: number; chance: number; hours: number | null }
   | { state: "out-of-reach" }
   | { state: "inert"; reason: "needs-booked-hours" | "no-open-tasks" }
   | { state: "on-target" };
@@ -39,18 +42,30 @@ export const LEVER_PLACEHOLDER_LABEL = "Placeholder";
 const WORKING_WEEKDAYS = 5;
 const PERCENT = 100;
 const TASKS_BOUND_DIVISOR = 2;
+const MINUTES_PER_HOUR = 60;
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
 }
 
 /** Open tasks the lever can take off: the milestone's open linked tasks, or every open task for the plan end. */
-function openCount(target: LeverTarget, context: ScheduleContext): number {
-  if (target.kind === "planEnd") return context.tasks.filter((t) => !isTaskClosed(t)).length;
+function openTasks(target: LeverTarget, context: ScheduleContext): readonly Task[] {
+  if (target.kind === "planEnd") return context.tasks.filter((t) => !isTaskClosed(t));
   const milestone = context.milestones.find((m) => m.id === target.id);
-  if (!milestone) return 0;
+  if (!milestone) return [];
   const linked = new Set(milestone.linkedTaskIds);
-  return context.tasks.filter((t) => linked.has(t.id) && !isTaskClosed(t)).length;
+  return context.tasks.filter((t) => linked.has(t.id) && !isTaskClosed(t));
+}
+
+function openCount(target: LeverTarget, context: ScheduleContext): number {
+  return openTasks(target, context).length;
+}
+
+/** The mean estimate, in hours, of the target's open tasks that carry one (the field effort mode reads,
+ *  `originalEstimateMinutes` > 0); null when none does. */
+export function meanTaskHours(target: LeverTarget, context: ScheduleContext): number | null {
+  const minutes = openTasks(target, context).map((t) => t.originalEstimateMinutes ?? 0).filter((m) => m > 0);
+  return minutes.length === 0 ? null : minutes.reduce((s, m) => s + m, 0) / minutes.length / MINUTES_PER_HOUR;
 }
 
 /** One added placeholder, sized from the team: the team's booked hours per person per week, at the mean internal
@@ -141,17 +156,20 @@ function settle(s: LeverSearch): LeverSearch {
 
 /** The result of a finished search (an unfinished one reads as out of reach: ask `nextProbe` first). */
 export function searchOutcome(s: LeverSearch): LeverOutcome {
-  return s.phase === "done" && s.reached ? { state: "reaches", n: s.hi, chance: s.hiChance } : { state: "out-of-reach" };
+  return s.phase === "done" && s.reached
+    ? { state: "reaches", n: s.hi, chance: s.hiChance, hours: null } : { state: "out-of-reach" };
 }
 
 /** A lever still searching, or its settled outcome. */
 export type LeverJob = { kind: LeverKind; who: AddedPeopleWho | null; search: LeverSearch };
 export type LeverSlot = LeverOutcome | LeverJob;
-/** What the step machine carries for one target: the as-is facts and one slot per lever. */
+/** What the step machine carries for one target: the as-is facts, one slot per lever, and the hours one removed task
+ *  stands for (`meanTaskHours`), which `settlePlan` turns the tasks lever's n into. */
 export type WhatItTakesPlan = {
   base: Pick<WhatItTakes, "target" | "chance" | "prioritised">;
   people: LeverSlot;
   tasks: LeverSlot;
+  taskHours: number | null;
 };
 
 function isJob(slot: LeverSlot): slot is LeverJob {
@@ -185,13 +203,15 @@ export function planWhatItTakes(
     ? asIs.forecast.milestones.find((x) => x.id === target.id) : undefined;
   const prioritised = milestone !== undefined && milestone.state === "chance" ? milestone.chancePrioritised : null;
   const base = { target, chance, prioritised };
-  if (chance >= goal / PERCENT) return { base, people: { state: "on-target" }, tasks: { state: "on-target" } };
+  if (chance >= goal / PERCENT) {
+    return { base, people: { state: "on-target" }, tasks: { state: "on-target" }, taskHours: null };
+  }
   const who = placeholderWho(context, input.directory);
   const people: LeverSlot = who === null
     ? { state: "inert", reason: "needs-booked-hours" } : jobSlot("people", target, context, goal, who);
   const tasks: LeverSlot = openCount(target, context) === 0
     ? { state: "inert", reason: "no-open-tasks" } : jobSlot("tasks", target, context, goal, null);
-  return { base, people, tasks };
+  return { base, people, tasks, taskHours: meanTaskHours(target, context) };
 }
 
 export function isPlanSettled(plan: WhatItTakesPlan): boolean {
@@ -206,10 +226,13 @@ export function stepPlan(plan: WhatItTakesPlan, input: ScenarioRunInput, context
     : { ...plan, tasks: stepSlot(plan.tasks, input, context, target) };
 }
 
-/** The finished result of a settled plan (an unsettled lever reads as out of reach: check `isPlanSettled` first). */
+/** The finished result of a settled plan (an unsettled lever reads as out of reach: check `isPlanSettled` first).
+ *  The ONE place a reaching tasks lever gains its hours, so `whatItTakesSync` and the hook agree by construction. */
 export function settlePlan(plan: WhatItTakesPlan): WhatItTakes {
   const outcome = (slot: LeverSlot): LeverOutcome => (isJob(slot) ? searchOutcome(slot.search) : slot);
-  return { ...plan.base, people: outcome(plan.people), tasks: outcome(plan.tasks) };
+  const tasks = outcome(plan.tasks);
+  const hours = tasks.state === "reaches" && plan.taskHours !== null ? Math.round(tasks.n * plan.taskHours) : null;
+  return { ...plan.base, people: outcome(plan.people), tasks: tasks.state === "reaches" ? { ...tasks, hours } : tasks };
 }
 
 /**

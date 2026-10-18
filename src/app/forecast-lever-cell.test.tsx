@@ -11,8 +11,8 @@ const OUT: LeverOutcome = { state: "out-of-reach" };
 function result(over: Partial<WhatItTakes> = {}): WhatItTakes {
   return { target: GO_LIVE, chance: 0.31, prioritised: 0.58, people: OUT, tasks: OUT, ...over };
 }
-const PEOPLE_2: LeverOutcome = { state: "reaches", n: 2, chance: 0.81 };
-const TASKS_9: LeverOutcome = { state: "reaches", n: 9, chance: 0.8 };
+const PEOPLE_2: LeverOutcome = { state: "reaches", n: 2, chance: 0.81, hours: null };
+const TASKS_9: LeverOutcome = { state: "reaches", n: 9, chance: 0.8, hours: null };
 
 function renderCell(r: WhatItTakes | "pending", onExplore = vi.fn()) {
   render(<ForecastLeverCell lang="en-US" milestoneName="Go-live" result={r} goal={80} onExplore={onExplore} />);
@@ -51,8 +51,18 @@ describe("ForecastLeverCell", () => {
     expect(badges()).toEqual(["9 fewer tasks", "adding people: not within reach", "prioritising alone: not enough"]);
   });
 
+  it("a tasks lever with known effort shows its hours", () => {
+    renderCell(result({ people: PEOPLE_2, tasks: { ...TASKS_9, hours: 54 } }));
+    expect(badges()).toEqual(["+2 people (team average)", "or 9 fewer tasks (≈ 54 h)", "prioritising alone: not enough"]);
+  });
+
+  it("the hours read in German with German digit grouping", () => {
+    render(<ForecastLeverCell lang="de" milestoneName="Go-live" result={result({ tasks: { ...TASKS_9, hours: 1054 } })} goal={80} />);
+    expect(badges()[0]).toBe("9 Aufgaben weniger (≈ 1.054 h)");
+  });
+
   it("one person reads singular", () => {
-    renderCell(result({ people: { state: "reaches", n: 1, chance: 0.82 } }));
+    renderCell(result({ people: { state: "reaches", n: 1, chance: 0.82, hours: null } }));
     expect(screen.getByText("+1 person (team average)")).toBeInTheDocument();
   });
 

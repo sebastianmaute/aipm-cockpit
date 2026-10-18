@@ -22,6 +22,7 @@ import {
   type ForecastScenario, type ScenarioChange, type ScenarioError, type ValidationContext,
 } from "./forecast-scenarios";
 import type { ScenarioDraft } from "./use-forecast-scenarios";
+import { ScenarioDraftCompare, type DraftCompareInput } from "./forecast-scenario-draft-compare";
 import {
   ScenarioChangeRow, errorField, fieldId, newChange, rowErrorSummary, type DraftRow, type RowError, type RowLive,
 } from "./forecast-scenario-change-rows";
@@ -40,10 +41,14 @@ export type ForecastScenarioEditorProps = {
   onCancel: () => void;
   /** A new scenario's starting name and rows (an Explore draft, §502 part 4); read at mount only. */
   seed?: ScenarioDraft;
-  /** The other lever: "Or use {label} instead" swaps name and rows for its seed, once. */
+  /** The other lever: "Or use {label} instead" swaps name and rows for its seed. */
   alt?: { label: string; seed: ScenarioDraft };
+  /** What the seed stands for ("+2 people on Go-live"): with it, the swap goes both ways; without, once. */
+  seedLabel?: string;
   /** The project is at the scenario cap: Save is disabled, with the cap message beside it. */
   capReached?: boolean;
+  /** As is and its run input: with it, a live As is vs. Draft comparison under the rows (spec §3.4). */
+  compare?: DraftCompareInput;
 };
 
 function seededRows(changes: readonly ScenarioChange[]): { list: readonly DraftRow[]; next: number } {
@@ -88,7 +93,7 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
   const [rows, setRows] = useState<{ list: readonly DraftRow[]; next: number }>(
     () => seededRows(scenario?.changes ?? p.seed?.changes ?? []),
   );
-  const [altUsed, setAltUsed] = useState(false);
+  const [onAlt, setOnAlt] = useState(false);
   const [errors, setErrors] = useState<Errors>(NO_ERRORS);
   // The summary alert's text, built in `save` and frozen until the next Save: edits that clear an error must not
   // rewrite a live alert in place, or the screen reader re-reads it on the user's first keystroke into each field.
@@ -102,6 +107,11 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
     [context],
   );
   const { live, doublesTeam } = useMemo(() => liveStatuses(rows.list, context, vctx), [rows.list, context, vctx]);
+  // The rows the live comparison runs: only a complete draft (one row or more, every row schedulable); null otherwise.
+  const draftChanges = useMemo(
+    () => (rows.list.length > 0 && rows.list.every((r) => isSchedulable(r.change, vctx)) ? rows.list.map((r) => r.change) : null),
+    [rows.list, vctx],
+  );
   if (!p.open) return null;
 
   const atCap = rows.list.length >= MAX_SCENARIO_CHANGES;
@@ -124,18 +134,20 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
     });
   };
   const remove = (key: number) => setRows((prev) => ({ ...prev, list: prev.list.filter((r) => r.key !== key) }));
-  // The other lever's seed replaces the draft. Its rows take fresh keys, so no row's control state carries over.
-  const switchToAlt = () => {
-    const alt = p.alt;
-    if (!alt) return;
-    setName(alt.seed.name);
+  // The other lever's seed replaces the draft (and, with a `seedLabel`, the first one comes back the same way). The
+  // rows take fresh keys, so no row's control state carries over.
+  const swapTo = onAlt ? (p.seed && p.seedLabel !== undefined ? { label: p.seedLabel, seed: p.seed } : null) : p.alt ?? null;
+  const swap = () => {
+    if (swapTo === null) return;
+    const { seed } = swapTo;
+    setName(seed.name);
     setRows((prev) => ({
-      list: alt.seed.changes.map((change, i) => ({ key: prev.next + i, change })),
-      next: prev.next + alt.seed.changes.length,
+      list: seed.changes.map((change, i) => ({ key: prev.next + i, change })),
+      next: prev.next + seed.changes.length,
     }));
     setErrors(NO_ERRORS);
     setAnnounced(null);
-    setAltUsed(true);
+    setOnAlt((v) => !v);
   };
 
   const save = () => {
@@ -218,9 +230,9 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
               ))}
             </ol>
           )}
-          {p.alt && !altUsed && (
+          {swapTo !== null && (
             <div>
-              <Button variant="ghost" size="xs" onClick={switchToAlt}>{t(lang, "forecastScenarioUseAlt", p.alt.label)}</Button>
+              <Button variant="ghost" size="xs" onClick={swap}>{t(lang, "forecastScenarioUseAlt", swapTo.label)}</Button>
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
@@ -235,6 +247,7 @@ export function ForecastScenarioEditor(p: ForecastScenarioEditorProps) {
             lang={lang} onCancel={p.onCancel} onSave={save}
             blocked={p.capReached ? { id: scenarioCapId, text: t(lang, "forecastScenarioCapReached", MAX_FORECAST_SCENARIOS) } : undefined}
           />
+          {p.compare && <ScenarioDraftCompare lang={lang} compare={p.compare} context={context} changes={draftChanges} />}
         </div>
       </div>
     </Modal>

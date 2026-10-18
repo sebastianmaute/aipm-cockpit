@@ -6,12 +6,14 @@
 // open from here, each mounted fresh per open (keyed), so their drafts are seeded at mount and never in an effect.
 
 import { useId, useMemo, useState } from "react";
-import { type Lang, t, tPlural } from "./i18n";
+import { type Lang, t } from "./i18n";
 import { computeScenarioComparison, type ScenarioRunInput, type ScenarioComparison } from "./forecast-scenario-compare";
 import type { ScenarioDirectory, ScheduleContext } from "./forecast-added-people";
 import { MAX_FORECAST_SCENARIOS, type ForecastScenario } from "./forecast-scenarios";
 import type { ForecastScenariosApi, ScenarioDraft } from "./use-forecast-scenarios";
-import { leverChange, placeholderWho, type LeverKind, type LeverTarget } from "./forecast-levers";
+import { exploreSeeds } from "./forecast-explore-draft";
+import type { TargetConfidence } from "./forecast-target";
+import type { DraftCompareInput } from "./forecast-scenario-draft-compare";
 import type { ForecastDraftRequest } from "./workspace-tab-context";
 import { ToggleButton } from "./toggle-button";
 import { ScenarioComparisonTable, ScenarioMilestoneTable, type ComparedColumn } from "./forecast-scenario-tables";
@@ -34,7 +36,10 @@ export type ForecastScenariosProps = { api: ForecastScenariosApi; directory: Sce
 /** What the view asked to open: the editor (scenario null = new, from `openId`) or the rename dialog. A `seed`
  *  (an Explore draft, §502 part 4) starts the new scenario's name and rows; `alt` offers the other lever. */
 export type ScenarioDialog =
-  | { kind: "edit"; scenario: ForecastScenario | null; openId: number; seed?: ScenarioDraft; alt?: { label: string; seed: ScenarioDraft } }
+  | {
+    kind: "edit"; scenario: ForecastScenario | null; openId: number;
+    seed?: ScenarioDraft; seedLabel?: string; alt?: { label: string; seed: ScenarioDraft };
+  }
   | { kind: "rename"; scenario: ForecastScenario };
 
 /** The project's proposal (§502 part 4): the id it names (null = none) and the one writer. */
@@ -42,40 +47,13 @@ export type ScenarioProposal = { id: number | null; onChange: (id: number | null
 /** An Explore request the panel holds, and a count that remounts the editor on each new one. */
 export type ExploreDraft = { req: ForecastDraftRequest; seq: number };
 
-function leverPhrase(lang: Lang, kind: LeverKind, n: number): string {
-  return kind === "people" ? tPlural(lang, "forecastExplorePeople", n, n) : tPlural(lang, "forecastLeverTasks", n, n);
-}
-
-/** One lever as a draft: the same change the lever search probed (`leverChange`, sized by `placeholderWho` from the
- *  comparison's context), so the draft's column shows the number the row did. Null when people cannot be sized. */
-function leverSeed(
-  lang: Lang, target: LeverTarget, targetName: string, lever: { kind: LeverKind; n: number }, context: ScheduleContext, input: ScenarioRunInput,
-): ScenarioDraft | null {
-  const who = lever.kind === "people" ? placeholderWho(context, input.directory) : null;
-  if (lever.kind === "people" && who === null) return null;
-  return {
-    name: t(lang, "forecastExploreDraftName", targetName, leverPhrase(lang, lever.kind, lever.n)),
-    changes: [leverChange(lever.kind, lever.n, target, who, input.today)],
-  };
-}
-
-/** The editor an Explore request opens; null when its milestone is gone or neither lever can be drafted. The
- *  draft's id is minted at Save (`openId` is unused for a seeded editor): minting is a side effect, and the
- *  request can arrive during render. */
-function exploreDialog(lang: Lang, req: ForecastDraftRequest, context: ScheduleContext, input: ScenarioRunInput): ScenarioDialog | null {
-  const { target } = req;
-  const name = target.kind === "milestone"
-    ? input.milestones.find((m) => m.id === target.id)?.name
-    : t(lang, "forecastRangePlanEnd");
-  if (name === undefined) return null;
-  const primary = leverSeed(lang, target, name, req, context, input);
-  const other = req.alt === null ? null : leverSeed(lang, target, name, req.alt, context, input);
-  const seed = primary ?? other;
-  if (seed === null) return null;
-  const alt = primary !== null && other !== null && req.alt !== null
-    ? { label: t(lang, "forecastExploreAltLabel", leverPhrase(lang, req.alt.kind, req.alt.n), name), seed: other }
-    : undefined;
-  return { kind: "edit", scenario: null, openId: 0, seed, alt };
+/** The editor an Explore request opens (`exploreSeeds`); null when it cannot be drafted. The draft's id is minted
+ *  at Save (`openId` is unused for a seeded editor): minting is a side effect, and the request can arrive during render. */
+function exploreDialog(
+  lang: Lang, req: ForecastDraftRequest, context: ScheduleContext, input: ScenarioRunInput, list: readonly ForecastScenario[],
+): ScenarioDialog | null {
+  const seeds = exploreSeeds(lang, req, context, input, list);
+  return seeds === null ? null : { kind: "edit", scenario: null, openId: 0, ...seeds };
 }
 
 /** As is sits in the token list too, so a scenario named "As is" still gets a distinct name. */
@@ -216,7 +194,7 @@ function ScenarioList({ lang, scenarios, tokens, api, readOnly, onOpen, proposal
   );
 }
 
-export function ForecastScenariosView({ lang, input, scenarios, comparison: provided, proposal, draft = null, onDraftClose }: {
+export function ForecastScenariosView({ lang, input, scenarios, comparison: provided, proposal, draft = null, onDraftClose, goal }: {
   lang: Lang;
   input: ScenarioRunInput;
   scenarios: ForecastScenariosProps;
@@ -228,6 +206,8 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
   /** An Explore draft the panel holds (§502 part 4): the editor opens on it until Save or Cancel calls `onDraftClose`. */
   draft?: ExploreDraft | null;
   onDraftClose?: () => void;
+  /** The project's target confidence: milestone chances carry RAG dots against it. Absent = no dots. */
+  goal?: TargetConfidence;
 }) {
   const { api, readOnly } = scenarios;
   const list = api.scenarios;
@@ -252,8 +232,18 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
   );
   // An Explore draft takes the editor while the panel holds it; it never enters the list until Save.
   const context = comparison.context;
-  const draftDialog = useMemo(() => (draft === null ? null : exploreDialog(lang, draft.req, context, input)), [draft, lang, context, input]);
+  const draftDialog = useMemo(
+    () => (draft === null ? null : exploreDialog(lang, draft.req, context, input, list)),
+    [draft, lang, context, input, list],
+  );
   const dialog = draftDialog ?? ownDialog;
+  // The editor's live As is vs. Draft comparison, for every editor (new, edit, Explore). One object per As-is run, so
+  // the editor's recompute timer is not restarted by unrelated renders.
+  const asIs = comparison.asIs;
+  const compare = useMemo<DraftCompareInput | undefined>(
+    () => (asIs.forecast.kind === "forecast" ? { input, asIs, goal } : undefined),
+    [input, asIs, goal],
+  );
   const close = draftDialog !== null ? () => onDraftClose?.() : () => setDialog(null);
   // The hook refuses without a toast (a cap or name taken by a concurrent writer since open), so a refusal keeps
   // the dialog open with its reason; only a write that went through closes it.
@@ -261,7 +251,8 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
     <ForecastScenarioEditor
       key={dialog.seed && draft ? `draft-${draft.seq}` : dialog.scenario?.id ?? `new-${dialog.openId}`}
       lang={lang} open scenario={dialog.scenario} openId={dialog.openId} context={context} list={list}
-      seed={dialog.seed} alt={dialog.alt} capReached={dialog.seed !== undefined && !api.canCreate}
+      seed={dialog.seed} seedLabel={dialog.seedLabel} alt={dialog.alt} capReached={dialog.seed !== undefined && !api.canCreate}
+      compare={compare}
       onCancel={close}
       onSave={(d) => {
         const saved = dialog.scenario
@@ -306,7 +297,7 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
         lang={lang} columns={columns} currency={input.directory.baseCurrency} noBudget={input.costOn && input.budgetFacts === null}
         proposalKey={proposal === undefined || proposal.id === null ? null : String(proposal.id)}
       />
-      <ScenarioMilestoneTable lang={lang} milestones={input.milestones} columns={columns} />
+      <ScenarioMilestoneTable lang={lang} milestones={input.milestones} columns={columns} goal={goal} />
     </div>
   );
 }

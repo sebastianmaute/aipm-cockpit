@@ -30,12 +30,12 @@ import { ReportCard } from "./report-table";
 import { InsufficientState } from "./forecast-insufficient";
 import { ForecastScenariosView, type ExploreDraft, type ForecastScenariosProps } from "./forecast-scenarios-view";
 import { ForecastTargetControl } from "./forecast-target-control";
-import { ForecastLeverCell, alternativeLever, chanceRagLevel } from "./forecast-lever-cell";
+import { ForecastLeverCell, alternativeLever } from "./forecast-lever-cell";
 import type { LeverKind, LeverTarget } from "./forecast-levers";
 import { leverKey, useLeverSearch } from "./use-lever-search";
 import type { ForecastSettingsApi } from "./use-forecast-settings";
 import type { ForecastDraftRequest } from "./workspace-tab-context";
-import { DEFAULT_TARGET_CONFIDENCE } from "./forecast-target";
+import { DEFAULT_TARGET_CONFIDENCE, chanceRagLevel } from "./forecast-target";
 import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
 import { ForecastAskClaude, worstMilestoneName } from "./forecast-ask-claude";
 import { isValidIsoDate } from "./forecast/throughput";
@@ -354,7 +354,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
       {inScenarios && scenarioInput && comparison ? (
         <ForecastScenariosView
           lang={lang} input={scenarioInput} scenarios={scenarios} comparison={comparison} proposal={proposal}
-          draft={draft} onDraftClose={() => setDraft(null)}
+          draft={draft} onDraftClose={() => setDraft(null)} goal={forecastSettings?.target}
         />
       ) : result === null ? null : result.kind === "insufficient" ? (
         <InsufficientState lang={lang} result={result} />
