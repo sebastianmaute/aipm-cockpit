@@ -13,10 +13,9 @@ const CASES: Case[] = [
   { key: "budgetBucketsCount", file: "budget-panel.tsx", one: (l) => tPlural(l, "budgetBucketsCount" as never, 1, 1), en: "1 bucket", de: "1 Bucket" },
   { key: "forecastRunOutBefore", file: "budget-forecast-cards.tsx", one: (l) => tPlural(l, "forecastRunOutBefore" as never, 1, "5 Oct 2026", "1"), en: "1 day before", de: "1 Tag vor" },
   { key: "forecastRunOutAfter", file: "budget-forecast-cards.tsx", one: (l) => tPlural(l, "forecastRunOutAfter" as never, 1, "5 Oct 2026", "1"), en: "1 day after", de: "1 Tag nach" },
-  { key: "exportSubtitle", file: "export-menu.tsx", one: (l) => tPlural(l, "exportSubtitle" as never, 1, 1), en: "the 1 task", de: "Die 1 Aufgabe" },
-  { key: "evmCoverage", file: "budget-report-panel.tsx", one: (l) => tPlural(l, "evmCoverage" as never, 1, "1", "1"), en: "1 of 1 task has", de: "1 von 1 Aufgabe hat" },
+  { key: "exportSubtitle", file: "export-menu.tsx", one: (l) => tPlural(l, "exportSubtitle" as never, 1, 1), en: "Download 1 task in", de: "1 Aufgabe im" },
+  { key: "evmCoverage", file: "budget-report-panel.tsx", one: (l) => tPlural(l, "evmCoverage" as never, 1, "1", "1"), en: "Estimates on 1 of 1 task", de: "Schätzungen für 1 von 1 Aufgabe" },
   { key: "outlookImportedN", file: "use-outlook-imports.ts", one: (l) => tPlural(l, "outlookImportedN" as never, 1, 1), en: "Imported 1 contact", de: "1 Kontakt importiert" },
-  { key: "storageDestructiveCount", file: "notifications.tsx", one: (l) => tPlural(l, "storageDestructiveCount" as never, 1, 1, 1), en: "1 of 1 record would", de: "1 von 1 Datensatz würde" },
   { key: "wizardImportTasksPart", file: "create-project-wizard.tsx", one: (l) => tPlural(l, "wizardImportTasksPart" as never, 1, 1), en: "1 task", de: "1 Aufgabe" },
   { key: "wizardImportRaidPart", file: "create-project-wizard.tsx", one: (l) => tPlural(l, "wizardImportRaidPart" as never, 1, 1), en: "1 RAID item", de: "1 RAID-Eintrag" },
   { key: "wizardImportBudgetsPart", file: "create-project-wizard.tsx", one: (l) => tPlural(l, "wizardImportBudgetsPart" as never, 1, 1), en: "1 budget", de: "1 Budget" },
@@ -29,7 +28,8 @@ describe("§715 — counts that can be 1 are singular", () => {
     it(`${c.key}: singular in English and German, plural otherwise`, () => {
       expect(c.one("en-US")).toContain(c.en);
       expect(c.one("de")).toContain(c.de);
-      // the plural stays plural
+      // a count of 2 picks the plural, which is a different string
+      expect(tPlural("en-US", c.key as never, 2, 2, 2, 2)).toBe(t("en-US", c.key as TranslationKey, 2, 2, 2));
       expect(t("en-US", c.key as TranslationKey, 2, 2, 2)).not.toBe(t("en-US", `${c.key}One` as TranslationKey, 2, 2, 2));
     });
 

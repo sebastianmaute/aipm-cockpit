@@ -1455,7 +1455,7 @@ export const de: Record<TranslationKey, string> = {
   exportTitle: "Aufgaben exportieren",
   exportSubtitle:
     "Alle {0} Aufgaben im gewünschten Format herunterladen.",
-  exportSubtitleOne: "Die {0} Aufgabe im gewünschten Format herunterladen.",
+  exportSubtitleOne: "{0} Aufgabe im gewünschten Format herunterladen.",
   exportCsv: "CSV",
   exportCsvHint:
     "Komma-getrennte Werte – lässt sich in jeder Tabellenkalkulation öffnen.",
@@ -3247,8 +3247,8 @@ export const de: Record<TranslationKey, string> = {
   evmSpiHint: "Aufwands-Terminleistungsindex = geschätzter Aufwand erledigter Aufgaben ÷ geschätzter Aufwand der bis heute fälligen Aufgaben. Über 1 heißt: vor dem Zeitplan.",
   evmCpiHint: "Aufwands-Kostenleistungsindex = geschätzter Aufwand erledigter Aufgaben ÷ auf Aufgaben gebuchte Zeit. Über 1 heißt: Aufgaben brauchen weniger Aufwand als geschätzt. Nicht der preisbasierte Index der Prognose.",
   evmNoEstimates: "Noch keine Aufwandsschätzungen.",
-  evmCoverage: "{0} von {1} Aufgaben haben Schätzungen",
-  evmCoverageOne: "{0} von {1} Aufgabe hat Schätzungen",
+  evmCoverage: "Schätzungen für {0} von {1} Aufgaben",
+  evmCoverageOne: "Schätzungen für {0} von {1} Aufgabe",
   navTrends: "Trends",
   navHistory: "Verlauf",
   navHelp: "Hilfe",
@@ -4816,7 +4816,6 @@ export const de: Record<TranslationKey, string> = {
   storageDestructiveBanner: "Das Speichern ist pausiert. Eine große Löschung wurde zurückgehalten, um Ihr Projekt zu schützen.",
   storageDestructiveBannerAria: "Speichern pausiert - eine große Löschung wurde zurückgehalten",
   storageDestructiveCount: "{0} von {1} Datensätzen würden entfernt.",
-  storageDestructiveCountOne: "{0} von {1} Datensatz würde entfernt.",
   storageDestructiveWipeCount: "Alle Datensätze in diesem Projekt würden entfernt.",
   storageDestructiveSaveAnyway: "Diese Löschung speichern",
   storageDestructiveDiscard: "Diese Löschung verwerfen",
