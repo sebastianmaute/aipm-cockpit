@@ -3,9 +3,11 @@
 // "Safe to commit (P80) over time" (§502 part 4, spec §3.7): the recorded daily P80 finish dates as a line, on the
 // history's own date axis, with the plan end as a reference line. Reuses `TrendChart`.
 //
-// The y value is a PLAIN CALENDAR-DAY offset from the first recorded entry's date (the builder's choice the spec
-// leaves open): a finish date is exact in calendar days and needs no holiday calendar to invert, so every y tick
-// formats back to the date it stands for. Entries whose P80 ran past the horizon (`p80: null`) are left out.
+// The y value is a PLAIN CALENDAR-DAY offset (the builder's choice the spec leaves open): a finish date is exact in
+// calendar days and needs no holiday calendar to invert, so every y tick formats back to the date it stands for. The
+// origin is the EARLIEST plotted date (a P80 or the plan end): `TrendChart` floors its scale at 0, so an origin far
+// below the line (the first recording date, months before the P80) would flatten its movement to a sliver of the plot.
+// Entries whose P80 ran past the horizon (`p80: null`) are left out.
 
 import { type Lang, t } from "./i18n";
 import { localeFor } from "./date-format";
@@ -32,11 +34,12 @@ export function ForecastP80Line({ lang, history, planEnd, compact = false }: {
   const entries = history.filter((e): e is ForecastHistoryEntry & { p80: string } => e.p80 !== null);
   if (entries.length === 0) return null;
   const locale = localeFor(lang);
-  const origin = entries[0].date;
+  const hasPlanEnd = isValidIsoDate(planEnd);
+  const origin = [...entries.map((e) => e.p80), ...(hasPlanEnd ? [planEnd] : [])].reduce((a, b) => (b < a ? b : a));
   const points: TrendPoint[] = entries.map((e) => ({
     label: formatDayMonth(e.date, locale), value: dayOffset(origin, e.p80), gapBefore: false,
   }));
-  const reference = isValidIsoDate(planEnd)
+  const reference = hasPlanEnd
     ? { value: dayOffset(origin, planEnd), label: t(lang, "forecastP80LinePlanEnd", formatDayMonthYear(planEnd, locale)) }
     : undefined;
   return (
