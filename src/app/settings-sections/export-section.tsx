@@ -7,7 +7,8 @@ import type { Settings } from "../settings-types";
 import { EXPORT_SECTION_KEYS, defaultExportConfig, type ExportSectionKey } from "../settings-types";
 import { EXPORT_SECTION_LABEL_KEYS } from "../export-section-labels";
 import { Checkbox } from "../form-controls";
-import { isViewEnabled } from "../feature-modules";
+import { isSimulationActive } from "../forecast-simulation";
+import { useWorkspace } from "../workspace-context";
 
 interface ExportSectionProps {
   lang: Lang;
@@ -17,10 +18,12 @@ interface ExportSectionProps {
 
 export function ExportSection({ lang, settings, onChange }: ExportSectionProps) {
   const exportConfig = settings.export ?? defaultExportConfig;
-  // §502 part 4 — the simulated forecast decision belongs to the Forecast view: while that view is hidden (released
-  // builds, or the module off) its checkbox is too. The stored flag is kept either way.
-  const forecastOn = isViewEnabled("forecast", settings.features);
-  const keys = EXPORT_SECTION_KEYS.filter((k) => k !== "forecastDecision" || forecastOn);
+  // §502 part 4 — the simulated forecast decision is offered only while the simulation is active (the Forecast view
+  // enabled AND the project's switch on): the same `isSimulationActive` that decides whether the section is emitted
+  // and whether the document block select offers it. The stored flag is kept either way.
+  const { settingsOverrides } = useWorkspace();
+  const offered = isSimulationActive(settingsOverrides, settings.features);
+  const keys = EXPORT_SECTION_KEYS.filter((k) => k !== "forecastDecision" || offered);
 
   function handleToggle(key: ExportSectionKey, checked: boolean) {
     onChange({

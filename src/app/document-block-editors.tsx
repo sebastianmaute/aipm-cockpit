@@ -674,7 +674,8 @@ export { TableBlockEditor } from "./document-table-editor";
 
 /**
  * A `select` over the `DataSectionKey`s (every export section, the derived
- * `budgetForecast` included since §545) — never free text. An
+ * `budgetForecast` included since §545; the derived `forecastDecision` only
+ * while the simulation is active, §502 part 4) — never free text. An
  * arbitrary key would resolve to no section at render time
  * (`resolveDataSection` looks it up by exact match) and render as nothing —
  * a silently missing section rather than a visible error — so free text
@@ -717,8 +718,9 @@ export function DataSectionBlockEditor({
   //  select has no item/row/column-local number of its own to fall back on,
   //  so it follows the bullets/table editors' qualifier pattern instead.
   const blockQualifier = t(lang, "documentsBlockN", String(index + 1));
-  // §502 part 4 — the simulated forecast decision is offered only while the simulation is active (the extras then
-  // carry its source), so the release-hidden Forecast is not named here; a block already set to it stays selectable.
+  // §502 part 4 — the simulated forecast decision is offered only while the simulation is active, the same
+  // `isSimulationActive` gate Settings → Export uses (`useForecastDecisionSource` hands the provider a source then, and
+  // only then), so the release-hidden Forecast is not named here; a block already set to it stays selectable.
   const hasDecision = useExportExtras().forecastDecision !== undefined;
   const keys = DATA_SECTION_KEYS.filter((k) => k !== "forecastDecision" || hasDecision || value === k);
 
