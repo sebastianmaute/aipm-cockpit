@@ -45637,7 +45637,7 @@ Also noted for the same generalisation (Turso token, §715 round 20): when a wri
 
 ## 751. Something starts a save of the empty Turso workspace before a project exists — OPEN
 
-**Status:** OPEN 2026-10-18, seen once while recording the §715 big video; not reproduced in five off-camera runs of the same setup path. The symptom is fixed (below); the cause is not traced.
+**Status:** OPEN 2026-10-18, seen once while recording the §715 big video; not reproduced in five off-camera runs of the same setup path (an untracked Playwright script, so the cause is never machine-verified). The symptom is fixed: `grep -n "hasAuthoredRecords" src/app/use-unload-journal.ts` → the guard in `write` and in `keep`.
 
 **Work item:** #781
 
