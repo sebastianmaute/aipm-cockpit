@@ -987,6 +987,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--closed-2026-10-16) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | **CLOSED** 2026-10-16 |
 | [§748](#748-background-workers-may-help-across-the-app-starting-with-the-monte-carlo-forecast--open) | Background workers may help across the app, starting with the Monte Carlo forecast | — | — | open |
 | [§749](#749-a-claude-api-key-typed-under-the-passphrase-lock-is-lost-on-reload-and-two-ai-sections-disagree-about-the-lock--open) | A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock | — | — | open |
+| [§750](#750-a-scheduled-job-added-in-settings-never-runs-until-the-app-reloads-and-settings-never-shows-its-run--open) | A scheduled job added in Settings never runs until the app reloads, and Settings never shows its run | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45633,3 +45634,20 @@ Size M.
 Also noted for the same generalisation (Turso token, §715 round 20): when a write that began after a stopped switch's own seal FAILS, it has still bumped the generation, so the put-back yields and the draft's seal stays in the store. That follows the deliberate no-fallback rule on `beginSealedWrite`; the generalised gate should decide whether the put-back may then still run.
 
 **Source:** found 2026-10-17 by the owner's question during the §715 review rounds (`fix/715-recording-defects`).
+
+## 750. A scheduled job added in Settings never runs until the app reloads, and Settings never shows its run — OPEN
+
+**Status:** OPEN 2026-10-18, from code reading and the §715 `ai-scheduled` clip; not yet reproduced in a test. `grep -rn "useScheduledJobs(" src/app --include=*.ts --include=*.tsx | grep -v test` → two instances.
+
+**Work item:** #780
+
+The scheduled-job runner and the Settings → AI Assistant → Scheduled jobs section each keep their own copy of the job list: two `useScheduledJobs` instances (`use-ai-orchestration.ts` for the runner, `settings-sections/scheduled-jobs-section.tsx` for Settings), each reading the store only on mount or when its `config` changes.
+
+1. **A job added in Settings never runs until the app reloads.** The runner's list stays as it was read at mount, so its tick (on mount, on becoming visible, every five minutes) never sees the new job.
+2. **Settings never shows a run.** After the runner records a run, the open Settings section keeps its own list, so "Never run" stays until the section mounts again.
+
+Proposed: one shared job store (a context, or a module-level store with subscribers) read by both, so a create, an edit and a recorded run reach every reader at once. The `ai-scheduled` clip (`scripts/demo-video/steps/ai.mjs`) reloads off camera after creating its job and re-opens Settings until the run shows; both workarounds come out with the fix.
+
+Size S–M.
+
+**Source:** found 2026-10-18 by the §715 A recorder review (`docs/715-a-plan`); the owner chose to file it and record around it.
