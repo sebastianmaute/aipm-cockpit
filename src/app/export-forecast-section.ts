@@ -11,6 +11,7 @@
 
 import { type Lang, localeFor, t, tPlural } from "./i18n";
 import type { ForecastBundle } from "./budget-forecast-bundle";
+import type { ForecastDecisionSource } from "./forecast-decision";
 import {
   isEfficiencyAvailable,
   isPaceAvailable,
@@ -26,6 +27,10 @@ export type ExportExtras = {
   /** The dashboard model's forecast bundle, or null when the budget module is
    *  off or no forecast exists — in which case the section is omitted. */
   budgetForecast?: ForecastBundle | null;
+  /** §502 part 4 — the simulated forecast decision, computed only when the
+   *  `forecastDecision` section is asked for. Absent while the simulation is
+   *  off; a source returning null omits the section too. */
+  forecastDecision?: ForecastDecisionSource;
 };
 
 /** The forecast an export may carry: the dashboard model's bundle, or null

@@ -33,7 +33,7 @@ import type { DocumentAsset } from "./document-asset";
 import type { TursoConfig } from "./turso-config";
 import { RESTORED_MARKER_OP, type DocVersion, type DocVersionOp } from "./document-versions";
 import { renderDocumentHtml } from "./doc-render-html";
-import { useExportExtras } from "./export-extras-context";
+import { usePreviewExportExtras } from "./use-preview-export-extras";
 import { attachAssetImages } from "./document-asset-images";
 import { loadAssetData } from "./document-assets-store";
 import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
@@ -162,7 +162,9 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws, assetAccess }
   const previewId = `documents-history-preview-${v.id}`;
   // §545 — a version's `budgetForecast` block previews the CURRENT forecast,
   //   as every other dataSection resolves against the current workspace.
-  const exportExtras = useExportExtras();
+  //   §502 part 4 — a `forecastDecision` block's lever search runs off the
+  //   render path, and only while this row's preview is open.
+  const exportExtras = usePreviewExportExtras(previewOpen ? v.blocks : null);
 
   // ★★★ RENDERED THROUGH `doc-render-html`'s PREVIEW MODE, WHICH IS WHERE THE
   // SINK SANITIZE LIVES — `renderBlock`'s `paragraph` case runs

@@ -35,9 +35,11 @@ import type { Lang } from "./i18n";
  *
  * ★★ THE ZERO-ROW CHECK IS LOAD-BEARING, NOT BELT-AND-BRACES — it is reachable
  * TODAY, and only two of the builders can reach it. Thirteen gate on
- * `items.length > 0` and so cannot return an empty section, and the derived
- * `budgetForecast` is omitted, not emptied, when `extras` carries no forecast
- * (§545). But `project` gates
+ * `items.length > 0` and so cannot return an empty section, and the two derived
+ * ones are omitted, not emptied: `budgetForecast` when `extras` carries no
+ * forecast (§545), `forecastDecision` when it carries no decision source or the
+ * source answers null (§502 part 4; a decision always has at least one row).
+ * But `project` gates
  * on `ws.project` being PRESENT and `status` on its having any KEYS, while
  * `projectSection` skips every blank/undefined/empty-array field and
  * `statusSection` drops every empty line — so a project whose metadata is all
@@ -51,8 +53,9 @@ export function resolveDataSection(
   key: DataSectionKey,
   ws: Workspace,
   lang: Lang,
-  /** What a derived section needs beyond the workspace (§545): the budget
-   *  forecast. A caller without it renders a `budgetForecast` block as
+  /** What a derived section needs beyond the workspace: the budget forecast
+   *  (§545) and the simulated forecast decision (§502 part 4). A caller
+   *  without them renders a `budgetForecast` or `forecastDecision` block as
    *  nothing. */
   extras: ExportExtras = {},
 ): ExportSection | null {

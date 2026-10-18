@@ -6,6 +6,8 @@ import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-s
 import { useAppForecast } from "./use-app-forecast";
 import { useForecastScenarios } from "./use-forecast-scenarios";
 import { useForecastSettings } from "./use-forecast-settings";
+import type { ScenarioRunInput } from "./forecast-scenario-compare";
+import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
 import { useToastContext } from "./toast-context";
 import { computeProjectForecastFacts } from "./budget-forecast";
 import {
@@ -104,6 +106,7 @@ import { WorkspaceTabStrip } from "./workspace-section-chrome";
 import { useStableHandlers } from "./use-stable-handlers";
 import { exportFooterText, isAiEnabled } from "./settings-types";
 import { ExportExtrasProvider } from "./export-extras-context";
+import { useWorkspaceForecastDecisionSource } from "./use-forecast-decision-source";
 // Re-export so existing importers of `WorkspaceSectionProps` from
 // "./workspace-section" keep working (the type now lives in the types module).
 export type { WorkspaceSectionProps } from "./workspace-section-types";
@@ -269,14 +272,14 @@ export function WorkspaceSection({
   //   thing `use-entity-inline-ai-edit.tsx` does with `useWorkspace()` for the
   //   inline row editor, which grounds through the same descriptor engine.
   const workspace = useWorkspace();
-  const { tasks, raid, absences, shifts, resources, setResources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights, budgetHistory, baselineHistory } = workspace;
+  const { tasks, raid, absences, shifts, resources, setResources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights, budgetHistory, baselineHistory, forecastHistory } = workspace;
   // Per-project EFFECTIVE settings — device folded with this project's policy
   // overrides (nextActions/notifications/timezone) AND its per-device appearance
   // overrides (density/view-hints/tasks-view-mode). Reactive: an appearance change
   // re-renders via the store. With no override this equals the device values;
   // `settings` stays device for non-overridable reads.
   const effectiveSettings = useEffectiveSettings(currentProjectId ?? "default");
-  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation } = useWorkspaceTab();
+  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation, requestForecastDraft } = useWorkspaceTab();
   const { raidFilterTaskId, changeFilterTaskId, raidFilterEpoch, changeFilterEpoch } = useFilters();
   // A task backlink applies only in the scope it was armed in: task ids are per
   // project, so after a project switch a stale "#7" would filter the next
@@ -316,20 +319,24 @@ export function WorkspaceSection({
   const [milestoneCreateNonce, setMilestoneCreateNonce] = useState(0);
   const subTabs = subTabsFor(activeTab, features, trends.active);
   const milestonesEnabled = isModuleEnabled("milestones", features);
-  // §502 — the shared schedule run for the Budget report's budget simulation (both the tab and the
-  // block on Reports). The context's `tasks`/`milestones` and task-manager's `holidaySet`/`today` are
-  // the references the history recorder and `useNextActions` pass, so `computeAppForecast`'s memo is
-  // shared; like them it waits for the holiday calendar. Null on every other tab.
-  const budgetSimulation = useAppForecast({
+  // §502 — the shared app forecast: the Budget report's simulation (the tab and the block on Reports) and the
+  // Gantt's band, P80 line and chance chips. The references are the history recorder's and `useNextActions`',
+  // so `computeAppForecast`'s memo is shared; like them it waits for the holiday calendar. Null on other tabs.
+  const appForecast = useAppForecast({
     tasks, milestones, planEnd: plan.endDate, today, holidaySet,
     active: isSimulationActive(workspace.settingsOverrides, features) && holidaysReady !== false
-      && (activeTab === "budget-report" || activeTab === "reports"),
+      && (activeTab === "budget-report" || activeTab === "reports" || activeTab === "gantt"),
   });
-  // §502 part 3 — the pace forecast's facts for the Forecast view, built as the Budget view does
-  // (`computeProjectForecastFacts`); only on that tab with the Budget module enabled. Not gated on the switch:
-  // Scenarios' added-people sizing needs the booked hours; the cost card and cost rows still need the switch.
+  // §502 part 3 — the pace forecast's facts for the Forecast view (and, part 4, the Reports Forecast section), built
+  // as the Budget view does (`computeProjectForecastFacts`); only with the Budget module enabled. The Forecast tab is
+  // not gated on the switch (Scenarios' added-people sizing needs the booked hours; the cost card and cost rows still
+  // need the switch); the Reports tab is, since its section only exists while the simulation is active.
+  // §502 part 4 — the Reports Forecast section's As-is inputs, at the defaults the Forecast view opens with (so an
+  // Explore draft shows its row's number). Null off the Reports tab, with the simulation off, or while holidays load.
+  const simulationActive = isSimulationActive(workspace.settingsOverrides, features);
+  const reportsForecastOn = activeTab === "reports" && simulationActive && holidaysReady !== false;
   const budgetEnabled = isModuleEnabled("budget", features);
-  const forecastFactsOn = activeTab === "forecast" && budgetEnabled;
+  const forecastFactsOn = (activeTab === "forecast" || reportsForecastOn) && budgetEnabled;
   const workdayHours = settings.resources.workdayHours;
   const forecastBudgetFacts = useMemo(
     () => (forecastFactsOn ? computeProjectForecastFacts({ buckets: budgets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today }) : null),
@@ -344,6 +351,17 @@ export function WorkspaceSection({
     () => ({ resources, roles, shifts, absences, budgets, fxRates, workdayHours, baseCurrency: planCurrency }),
     [resources, roles, shifts, absences, budgets, fxRates, workdayHours, planCurrency],
   );
+  const planEnd = plan.endDate;
+  const reportsForecastInput = useMemo<ScenarioRunInput | null>(
+    () => (reportsForecastOn ? {
+      tasks, milestones, today, holidaySet, window: DEFAULT_HISTORY_WINDOW, unit: "tasks", planEnd,
+      directory: forecastDirectory, budgetFacts: forecastBudgetFacts, costOn: budgetEnabled,
+    } : null),
+    [reportsForecastOn, tasks, milestones, today, holidaySet, planEnd, forecastDirectory, forecastBudgetFacts, budgetEnabled],
+  );
+  // §502 part 4 — the documents' forecast decision: a lazy source (nothing runs until an export asks), null while off.
+  // The header Export menu derives its own from the same recipe, since this section is not mounted on every view.
+  const forecastDecision = useWorkspaceForecastDecisionSource({ features, workdayHours, today, holidaySet, holidaysReady });
 
   // Per-milestone committed baseline dates for the Gantt ghost overlay — only
   // when snapshots are live (Turso). Off Turso `trends.active` is false → empty
@@ -405,7 +423,7 @@ export function WorkspaceSection({
     : "min-h-0 flex-1 overflow-y-auto pt-4";
 
   return (
-    <ExportExtrasProvider forecast={exportForecast}>
+    <ExportExtrasProvider forecast={exportForecast} forecastDecision={forecastDecision}>
     <section
       ref={workspaceRef}
       className={
@@ -536,7 +554,13 @@ export function WorkspaceSection({
               snapshots={trendsActive ? trendsSnapshots : EMPTY_SNAPSHOTS}
               budgetHistory={budgetHistory}
               baselineHistory={baselineHistory}
-              budgetSimulation={budgetSimulation}
+              budgetSimulation={appForecast}
+              simulationActive={simulationActive}
+              forecast={simulationActive ? {
+                input: reportsForecastInput, scenarios: forecastScenariosApi.scenarios, settings: forecastSettings, history: forecastHistory,
+                currency: planCurrency, readOnly: isPopout, aiEnabled: isAiEnabled(settings.ai),
+                onExplore: !isPopout && isViewEnabled("forecast", features) ? requestForecastDraft : undefined,
+              } : undefined}
             />
           </div>
         )}
@@ -568,6 +592,7 @@ export function WorkspaceSection({
               logActivity={logActivity}
               logActivityChanges={logActivityChanges}
               isSwapInFlight={isSwapInFlight}
+              forecast={appForecast}
             />
           </div>
         )}
@@ -889,7 +914,7 @@ export function WorkspaceSection({
               snapshots={trendsActive ? trendsSnapshots : EMPTY_SNAPSHOTS}
               budgetHistory={budgetHistory}
               baselineHistory={baselineHistory}
-              simulation={budgetSimulation}
+              simulation={appForecast}
             />
           </div>
         )}
@@ -1030,6 +1055,8 @@ export function WorkspaceSection({
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
+              forecastHistory={simulationActive ? forecastHistory : undefined}
+              planEnd={planEnd}
             />
           </div>
         )}

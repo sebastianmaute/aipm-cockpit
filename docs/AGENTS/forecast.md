@@ -300,6 +300,59 @@ EOF2
 npx vite-node forecast-probe.ts; rm forecast-probe.ts
 ```
 
+### Part 4's engine paths and their cost (§502 part 4)
+
+Three kinds of engine work, per view. Name them apart; they are paid differently.
+- **The shared As-is run.** One memoised 10,000-trial run at the app-wide defaults (`computeAppScheduleRun`, the same
+  single-entry memo as `computeAppForecast`). The Reports section's As-is, the lever search's prepare step, the export
+  decision and a document preview's base take it through `sharedAsIsRun`; the Gantt, the Budget report and Reports'
+  embedded budget simulation read it through `useAppForecast` → `computeAppForecast`, the same memo entry. So each
+  input change costs ONE engine call however many of them are mounted. Pinned by `forecast-report-shared-run.test.tsx` and
+  `document-preview.shared-run.test.tsx`.
+  - ★ **The Gantt tab now pays it on every task edit**, about 30 ms at the default call (the table above). This is the
+    established `useAppForecast` pattern (workspace-section's call is active on the Budget report, Reports and Gantt
+    tabs, and only while `isSimulationActive` holds), not a lever search; it is noted because the Gantt is a drag-heavy
+    view, and a committed bar drag is a task edit.
+  - ★ **Who warms it differs by view.** `useNextActions` runs the app forecast only with the Milestones module on.
+    With it off, nothing else runs it on the Documents tab, so a preview of a `forecastDecision` block runs the As-is
+    itself, on render. That is still the one call: the lever search's prepare then reuses it.
+- **The proposal column**, on render, once per input change, on Reports and in a preview, and only with a proposal set.
+- **The lever probes**, about 50–70 ms each, one per macrotask (`useLeverSearch`), never on a render path.
+
+★★ **The export decision is synchronous, and that is the un-hide risk.** An export or a document download with the
+`forecastDecision` section ticked (it is on by default) runs `whatItTakesSync` for every below-target milestone at
+the click, with no busy indicator. Measured 2026-10-18 for Task 8 (fresh task arrays, so the As-is run is included;
+three runs each): about 0.1 s for 12 open tasks and 2 below-target milestones, about 0.2–0.3 s for 60 open tasks and
+4 below, and about 0.85–1.1 s for 150 open tasks and 6 below. Nearly all of it is the bisection, about 50–200 ms per
+below-target milestone. A preview pays only its base, about 25–95 ms over the same three workloads. Reproduce from the
+repo root (single runs on a shared machine, so expect noise; the run for this note gave 101 / 238 / 1514 ms; delete the
+file afterwards):
+
+```bash
+cat > decision-probe.ts <<'EOF2'
+import { buildForecastDecision } from "./src/app/forecast-decision";
+import { workingDaysBefore } from "./src/app/working-days";
+const today = "2026-10-14", holidaySet = new Set<string>(), dates = ["2026-10-30", "2026-11-13", "2026-11-27", "2026-12-11", "2027-01-15", "2027-02-12"];
+function input(open: number, perDay: number[], msN: number, people: number) {
+  const tasks: object[] = []; let id = 1;
+  [...workingDaysBefore(today, 59, holidaySet), today].forEach((d, i) => { for (let k = 0; k < perDay[i % perDay.length]; k++) tasks.push({ id: id++, taskName: "d", assignee: `P${id % people}`, status: "Done", completedDate: d, originalEstimateMinutes: 240 }); });
+  const todo = Array.from({ length: open }, () => ({ id: id++, taskName: "o", assignee: "", status: "To Do", originalEstimateMinutes: 240 }));
+  const per = Math.floor(open / msN);
+  const milestones = Array.from({ length: msN }, (_, i) => ({ id: i + 1, name: `M${i}`, date: dates[i], linkedTaskIds: todo.slice(i * per, (i + 1) * per).map((t) => t.id) }));
+  const resources = Array.from({ length: people }, (_, i) => ({ id: 100 + i, firstName: "P", lastName: String(i), roleId: 1, utilizationMode: "percent", utilization: {} }));
+  return { tasks: [...tasks, ...todo], milestones, today, holidaySet, window: 60, unit: "tasks", planEnd: "2026-12-23", budgetFacts: null, costOn: false,
+    directory: { resources, roles: [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 80, externalRate: 120 }], shifts: [], absences: [], budgets: [], fxRates: null, workdayHours: 8, baseCurrency: "EUR" } } as never;
+}
+for (const [label, inp] of [["12 open", input(12, [1, 0, 0], 4, 2)], ["60 open", input(60, [1, 1, 0], 4, 4)], ["150 open", input(150, [2, 1, 1], 6, 6)]] as const) {
+  const run = () => buildForecastDecision({ simulationActive: true, input: { ...(inp as object), tasks: [...(inp as { tasks: object[] }).tasks] } as never, scenarios: [], settingsOverrides: undefined });
+  run(); // warm-up
+  const t0 = performance.now(); const d = run();
+  console.log(label, Math.round(performance.now() - t0), "ms,", d && !d.insufficient ? d.below.length : "-", "below target");
+}
+EOF2
+npx vite-node decision-probe.ts; rm decision-probe.ts
+```
+
 ## Simulation across the app — part 1
 
 The Dashboard can show simulated numbers beside its measured ones. Part 1 is the KPI strip's P80 finish and

@@ -44,6 +44,7 @@ function deps(settings: ShellChromeDeps["settings"]): ShellChromeDeps {
     openPopoutWindow: vi.fn(), requestChat: vi.fn(), projectTemplates: [], handleSaveTemplate: vi.fn(),
     handleApplyTemplate: vi.fn(), undoControl: null,
     settingsMenuOpen: undefined, onSettingsMenuOpenChange: undefined, exportForecast: null, onLoadDemo: undefined,
+    today: "2026-10-18", holidaySet: new Set(), holidaysReady: true,
   };
 }
 
@@ -74,5 +75,21 @@ describe("both top bars hand the Export menu the budget forecast (§545)", () =>
     render(<>{built[which]}</>, { wrapper: Wrapper });
     expect(seen.props.length).toBeGreaterThan(0);
     expect(seen.props.at(-1)!.exportForecast).toBe(forecast);
+  });
+});
+
+// §502 part 4 — the same two-mount guard for the forecast decision's inputs. Optional on ActionMenus and AppHeader
+// (omitted means no decision), so a mount that stopped passing them would export no section with every leaf test green.
+describe("both top bars hand the Export menu the forecast decision's clock and calendar (§502)", () => {
+  it.each(["topBarMenus", "appHeaderEl"] as const)("%s", (which) => {
+    seen.props.length = 0;
+    const holidaySet = new Set(["2026-12-25"]);
+    const settings = { ...defaultSettings, resources: { ...defaultSettings.resources, workdayHours: 7 } };
+    const built = buildShellChrome({ ...deps(settings), today: "2026-10-14", holidaySet, holidaysReady: false });
+    render(<>{built[which]}</>, { wrapper: Wrapper });
+    expect(seen.props.length).toBeGreaterThan(0);
+    expect(seen.props.at(-1)!.forecastDecisionDeps).toEqual({
+      features: settings.features, workdayHours: 7, today: "2026-10-14", holidaySet, holidaysReady: false,
+    });
   });
 });

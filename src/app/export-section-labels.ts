@@ -20,6 +20,7 @@ export const EXPORT_SECTION_LABEL_KEYS: Record<ExportSectionKey, TranslationKey>
   stakeholders: "exportLabelStakeholders",
   budgets: "exportLabelBudgets",
   budgetForecast: "exportLabelBudgetForecast",
+  forecastDecision: "exportLabelForecastDecision",
   resources: "exportLabelResources",
   roles: "exportLabelRoles",
   absences: "exportLabelAbsences",

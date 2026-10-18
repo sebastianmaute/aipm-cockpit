@@ -19,6 +19,8 @@ import type { ExportConfig } from "./settings-types";
 import { reportSilentFailure } from "./guard-feedback";
 import { useToastContext } from "./toast-context";
 import type { ForecastBundle } from "./budget-forecast-bundle";
+import { workspaceExportExtras } from "./export-extras-context";
+import type { ForecastDecisionSource } from "./forecast-decision";
 import { menuItemClass } from "./control-classes";
 
 const OPTIONS: Array<{
@@ -40,6 +42,7 @@ export function ExportMenu({
   exportConfig,
   exportFooter,
   exportForecast = null,
+  forecastDecision = null,
 }: {
   lang: Lang;
   /** Built by `buildExportWorkspace` (§463) — the same object the Projects-panel export sends. */
@@ -49,6 +52,8 @@ export function ExportMenu({
   exportFooter?: string;
   /** §545 — the dashboard model's forecast, null with the budget module off. */
   exportForecast?: ForecastBundle | null;
+  /** §502 part 4 — `ActionMenus`' own decision source (`useWorkspaceForecastDecisionSource`); null with the simulation off. */
+  forecastDecision?: ForecastDecisionSource | null;
 }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -61,7 +66,7 @@ export function ExportMenu({
     // pops the save dialog / new tab. Some browsers focus-steal the dialog
     // and the popover never visually closes otherwise.
     setTimeout(() => {
-      void exportWorkspace(workspace, format, exportConfig, lang, exportFooter, { budgetForecast: exportForecast })
+      void exportWorkspace(workspace, format, exportConfig, lang, exportFooter, workspaceExportExtras(exportForecast, forecastDecision))
         .catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     }, 0);
   }

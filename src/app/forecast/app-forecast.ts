@@ -5,7 +5,7 @@ import { isTaskClosed } from "../task-closed";
 import type { ForecastHistoryEntry } from "../forecast-history";
 import { addCalendarDays, countWorkingDays } from "../working-days";
 import { DEFAULT_HISTORY_WINDOW, MAX_HORIZON_WORKING_DAYS } from "./constants";
-import { DEFAULT_WHAT_IF, computeScheduleForecast, effortCoverage } from "./index";
+import { DEFAULT_WHAT_IF, computeScheduleForecast, effortCoverage, type ScheduleForecastResult } from "./index";
 import type { MilestoneChance } from "./milestones";
 import { isValidIsoDate } from "./throughput";
 
@@ -68,7 +68,9 @@ export function chanceOnTime(
   return within / distribution.length;
 }
 
-let memo: { args: AppForecastArgs; result: AppForecast } | null = null;
+/** `run` is the engine's raw result, kept beside the narrowed `result` so a surface that needs the whole run (the
+ *  Reports Forecast section's scenario comparison, §502 part 4) reuses it instead of running the trials again. */
+let memo: { args: AppForecastArgs; result: AppForecast; run: ScheduleForecastResult } | null = null;
 
 function sameInputs(a: AppForecastArgs, b: AppForecastArgs): boolean {
   return (
@@ -81,7 +83,20 @@ function sameInputs(a: AppForecastArgs, b: AppForecastArgs): boolean {
 }
 
 export function computeAppForecast(a: AppForecastArgs): AppForecast {
-  if (memo && sameInputs(memo.args, a)) return memo.result;
+  return appForecastEntry(a).result;
+}
+
+/**
+ * The same memoised run, unnarrowed: exactly `computeScheduleForecast` with the app-wide defaults (60-working-day
+ * window, tasks, no What-if, How-many at today). ★ Same single-entry memo as `computeAppForecast`, so pass the
+ * same references and the trials run once for both.
+ */
+export function computeAppScheduleRun(a: AppForecastArgs): ScheduleForecastResult {
+  return appForecastEntry(a).run;
+}
+
+function appForecastEntry(a: AppForecastArgs): NonNullable<typeof memo> {
+  if (memo && sameInputs(memo.args, a)) return memo;
   const r = computeScheduleForecast({
     tasks: a.tasks,
     milestones: a.milestones,
@@ -125,8 +140,8 @@ export function computeAppForecast(a: AppForecastArgs): AppForecast {
       milestones: r.milestones,
     };
   }
-  memo = { args: a, result };
-  return result;
+  memo = { args: a, result, run: r };
+  return memo;
 }
 
 /** The day's history row, or null when the forecast was insufficient. */

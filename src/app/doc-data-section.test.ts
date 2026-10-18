@@ -182,3 +182,20 @@ describe("resolveDataSection", () => {
     expect(descHtml).not.toContain("&lt;p&gt;");
   });
 });
+
+// §502 part 4 — the simulated forecast decision as a document `dataSection` block (DOCX/PPTX/HTML all resolve here).
+describe("resolveDataSection — forecastDecision", () => {
+  const decision = { insufficient: true, goal: 80 } as const;
+
+  it("renders the decision the extras' source gives, headed 'simulated'", () => {
+    const section = resolveDataSection("forecastDecision", empty, "en-US", { forecastDecision: () => decision });
+    expect(section?.key).toBe("forecastDecision");
+    expect(section?.title).toBe("Forecast decision (simulated)");
+    expect(section?.rows).toEqual([["Forecast (simulated)", "Not enough history to forecast yet"]]);
+  });
+
+  it("renders nothing with the simulation off: no source, or a source answering null", () => {
+    expect(resolveDataSection("forecastDecision", empty, "en-US")).toBeNull();
+    expect(resolveDataSection("forecastDecision", empty, "en-US", { forecastDecision: () => null })).toBeNull();
+  });
+});

@@ -6,7 +6,7 @@
 // `ForecastScenariosView` instead and runs none of this view's own forecast or cost pass.
 
 import { useEffect, useMemo, useState } from "react";
-import { type Lang, t, tPlural } from "./i18n";
+import { type Lang, t } from "./i18n";
 import { formatAmount } from "./forecast-tables";
 import { localeFor } from "./date-format";
 import {
@@ -15,9 +15,9 @@ import {
   computeScheduleForecast,
   effortCoverage,
   lastForecastableDay,
-  type ScheduleForecast,
   type WhatIf,
 } from "./forecast";
+import { ForecastCaption } from "./forecast-caption";
 import { DEFAULT_HISTORY_WINDOW, type ForecastUnit, type HistoryWindow } from "./forecast/constants";
 import { ForecastToolbar, type ForecastMode, type WhatIfField } from "./forecast-toolbar";
 import { ForecastChart } from "./forecast-chart";
@@ -35,7 +35,7 @@ import type { LeverKind, LeverTarget } from "./forecast-levers";
 import { leverKey, useLeverSearch } from "./use-lever-search";
 import type { ForecastSettingsApi } from "./use-forecast-settings";
 import type { ForecastDraftRequest } from "./workspace-tab-context";
-import { DEFAULT_TARGET_CONFIDENCE, chanceRagLevel } from "./forecast-target";
+import { DEFAULT_TARGET_CONFIDENCE, chanceRagLevel, chanceSeverity } from "./forecast-target";
 import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
 import { ForecastAskClaude, worstMilestoneName } from "./forecast-ask-claude";
 import { isValidIsoDate } from "./forecast/throughput";
@@ -127,7 +127,7 @@ interface Props {
   /** The project's target confidence and proposal (§502 part 4); absent = no target control, no lever column,
    *  no proposal toggles. */
   forecastSettings?: ForecastSettingsApi;
-  /** An Explore request made elsewhere (the Reports Forecast section is planned as its caller) that this view, mounting fresh, opens as a draft once. */
+  /** An Explore request made elsewhere (the Reports Forecast section) that this view, mounting fresh, opens as a draft once. */
   pendingDraft?: ForecastDraftRequest | null;
   /** Called once the pending request was taken, so the context can drop it. */
   onDraftConsumed?: () => void;
@@ -140,7 +140,7 @@ interface Props {
  * and consumes the request. Focus stays where the shell puts it on a view change
  * (the main region) — like every other deep-link that opens no editor.
  * ★ The view mounts fresh on each visit, so an unconsumed request would re-flash on the next one.
- * An Explore draft requested from outside the view (§502 part 4; `requestForecastDraft` has no caller yet, Reports is planned) rides the same context and is consumed by the panel once opened.
+ * An Explore draft requested from outside the view (§502 part 4; the Reports Forecast section calls `requestForecastDraft`) rides the same context and is consumed by the panel once opened.
  */
 export function ForecastPanelDeepLinked(props: Omit<Props, "flashMilestoneId" | "milestonesRef" | "pendingDraft" | "onDraftConsumed">) {
   const { pendingOpen, clearPendingOpen, pendingForecastDraft, clearForecastDraft } = useWorkspaceTab();
@@ -293,6 +293,15 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
     if (value === undefined || value === "pending") return;
     openDraft({ target: { kind: "milestone", id }, kind, n, alt: alternativeLever(value, kind) });
   };
+  // "Ask Claude to draft a proposal" on a lever row: the same gate as the menu above, and only a row with a chance
+  // BELOW the goal. The cell shows it at once, before the search settles, so the gate cannot lean on the search.
+  const askMilestone = (id: number) => {
+    if (!aiEnabled || !showSimulation || isPopout || result?.kind !== "forecast") return undefined;
+    const m = milestones.find((x) => x.id === id);
+    const c = result.milestones.find((x) => x.id === id);
+    if (m === undefined || c?.state !== "chance" || chanceSeverity(c.chance, goal) === "green") return undefined;
+    return { id: m.id, name: m.name, date: m.date, chance: c.chance };
+  };
   const leverColumn = leversOn ? {
     header: t(lang, "forecastColWhatItTakes", t(lang, "forecastPercent", goal)),
     rag: (chance: number) => chanceRagLevel(chance, goal),
@@ -302,6 +311,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         <ForecastLeverCell
           lang={lang} milestoneName={token} result={value} goal={goal}
           onExplore={scenarioApi === null ? undefined : (kind, n) => exploreFrom(id, kind, n)}
+          askClaude={askMilestone(id)}
         />
       );
     },
@@ -387,23 +397,5 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         </>
       )}
     </ReportCard>
-  );
-}
-
-function ForecastCaption({ lang, forecast, historyWindow }: { lang: Lang; forecast: ScheduleForecast; historyWindow: HistoryWindow }) {
-  const locale = localeFor(lang);
-  const runs = new Intl.NumberFormat(locale).format(forecast.trials);
-  // An empty backlog skips the history floor, so either count can be 0 or 1 here.
-  const days = forecast.windowDays;
-  const windowText = tPlural(lang, historyWindow === "all" ? "forecastBasisWindowAll" : "forecastBasisWindow", days, days);
-  const finishedText = tPlural(lang, "forecastBasisFinished", forecast.finished, forecast.finished);
-  const basis = t(lang, "forecastBasis", runs, windowText, finishedText);
-  const beyond = t(lang, "forecastPercent", forecast.beyondShare < 0.01 ? "< 1" : Math.round(forecast.beyondShare * 100));
-  return (
-    <div className="space-y-0.5 text-xs text-muted-foreground">
-      <p>{basis}</p>
-      {forecast.doneWithoutDate > 0 && <p>{tPlural(lang, "forecastDoneWithoutDate", forecast.doneWithoutDate, forecast.doneWithoutDate)}</p>}
-      {forecast.beyondShare > 0 && <p>{t(lang, "forecastBeyondShare", beyond)}</p>}
-    </div>
   );
 }

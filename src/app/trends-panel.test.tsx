@@ -270,3 +270,33 @@ describe("TrendsPanel Set baseline link", () => {
     );
   });
 });
+
+// §502 part 4 (spec §3.7) — "P80 finish over time" as its own chart on its own date axis, only once the
+// forecast history holds two entries with a P80 (one point is no line).
+describe("TrendsPanel — the P80 line (§502)", () => {
+  const entry = (date: string, p80: string | null) => ({ date, p50: p80, p80, p95: p80, chanceOnTime: 0.5 });
+
+  it("draws the P80 chart with two entries carrying a P80, even with no snapshot yet", () => {
+    const history = [entry("2026-10-01", "2026-12-10"), entry("2026-10-02", "2026-12-12")];
+    renderPanel(<TrendsPanel {...base} snapshots={[]} baseline={null} forecastHistory={history} planEnd="2026-12-31" />);
+    expect(screen.getByTestId("forecast-p80-line")).toBeTruthy();
+    expect(screen.getByText(t("en-US", "forecastP80LineCaption"))).toBeTruthy();
+  });
+
+  it("draws nothing with only one entry carrying a P80, or with no history passed", () => {
+    const history = [entry("2026-10-01", "2026-12-10"), entry("2026-10-02", null)];
+    const { unmount } = renderPanel(<TrendsPanel {...base} forecastHistory={history} planEnd="2026-12-31" />);
+    expect(screen.queryByTestId("forecast-p80-line")).toBeNull();
+    // Positive control: the panel itself rendered (its snapshot charts).
+    expect(screen.getByText(/Baseline vs current/i)).toBeTruthy();
+    unmount();
+    renderPanel(<TrendsPanel {...base} />);
+    expect(screen.queryByTestId("forecast-p80-line")).toBeNull();
+  });
+
+  it("keeps the Turso gate: inactive shows only the requirement, never the P80 chart", () => {
+    const history = [entry("2026-10-01", "2026-12-10"), entry("2026-10-02", "2026-12-12")];
+    renderPanel(<TrendsPanel {...base} active={false} forecastHistory={history} planEnd="2026-12-31" />);
+    expect(screen.queryByTestId("forecast-p80-line")).toBeNull();
+  });
+});

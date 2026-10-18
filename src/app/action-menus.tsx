@@ -11,6 +11,10 @@ import { buildExportWorkspace } from "./export-workspace";
 import { defaultExportConfig, type ExportConfig } from "./settings-types";
 import type { ProjectTemplate, SaveTemplateInput } from "./templates";
 import type { ForecastBundle } from "./budget-forecast-bundle";
+import { useWorkspaceForecastDecisionSource, type WorkspaceForecastDecisionDeps } from "./use-forecast-decision-source";
+
+/** No clock or calendar handed in (tests): no module enabled and the calendar not ready, so no decision. */
+const NO_DECISION_DEPS: WorkspaceForecastDecisionDeps = { features: [], workdayHours: 8, today: "", holidaySet: new Set(), holidaysReady: false };
 
 // Lazy-loaded like in app-header.tsx — the speech-recognition bundle is only
 // fetched client-side when the button mounts.
@@ -30,6 +34,10 @@ interface ActionMenusProps {
   exportFooter?: string;
   /** §545 — the budget forecast for the Export menu's derived section. */
   exportForecast?: ForecastBundle | null;
+  /** §502 part 4 — what the Export menu's own forecast decision source needs beyond the workspace context
+   *  (task-manager's clock and calendar, the device features and workday). The header is mounted on every view and
+   *  `WorkspaceSection` is not, so the menu derives the source here rather than reading the section's. */
+  forecastDecisionDeps?: WorkspaceForecastDecisionDeps;
   /** Saved + built-in project templates for the Apply menu. Defaults to []
    *  (e.g. in tests) so the Apply trigger renders with its button disabled. */
   templates?: readonly ProjectTemplate[];
@@ -60,6 +68,7 @@ export function ActionMenus({
   exportConfig = defaultExportConfig,
   exportFooter,
   exportForecast = null,
+  forecastDecisionDeps = NO_DECISION_DEPS,
   templates = [],
   onApplyTemplate,
   onSaveTemplate,
@@ -67,10 +76,14 @@ export function ActionMenus({
   onLoadDemo,
 }: ActionMenusProps) {
   const workspace = buildExportWorkspace(useWorkspace());
+  const forecastDecision = useWorkspaceForecastDecisionSource(forecastDecisionDeps);
   return (
     <>
       <VoiceCommandButton lang={lang} onCommand={onCommand} onError={onVoiceError} />
-      <ExportMenu lang={lang} workspace={workspace} exportConfig={exportConfig} exportFooter={exportFooter} exportForecast={exportForecast} />
+      <ExportMenu
+        lang={lang} workspace={workspace} exportConfig={exportConfig} exportFooter={exportFooter} exportForecast={exportForecast}
+        forecastDecision={forecastDecision?.source ?? null}
+      />
       {expertMode && (
         <>
           <SaveTemplateMenu lang={lang} onSave={onSaveTemplate ?? (() => {})} />

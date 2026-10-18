@@ -2,6 +2,7 @@
 // the component file stays focused on view routing.
 import type React from "react";
 import type { ForecastBundle } from "./budget-forecast-bundle";
+import type { ForecastDecisionSource } from "./forecast-decision";
 import type { InsightActions } from "./insights/insight";
 import type {
   ToolDispatcher,
@@ -356,7 +357,7 @@ export interface WorkspaceSectionProps {
   onCreateProject: (meta: ProjectMeta, format: "json" | "csv" | "md", opts?: NewProjectOpts) => void;
   onUpdateCurrentProject: (meta: ProjectMeta) => void;
   onDeleteProject: (id: string) => void;
-  onExportCurrentProject: (format: string) => void;
+  onExportCurrentProject: (format: string, forecastDecision?: ForecastDecisionSource) => void;
   onLoadProjectFromFile: () => void;
   onMigrateProjectToTurso: () => void;
   /** Loads the demo project; offered from the Projects panel, omitted in a popout there. */
