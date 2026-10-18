@@ -1022,7 +1022,8 @@ and logs nothing. Neither is undoable (owner decision). The delete mirrors `dele
 `forecastScenario.deleted` composite, no `allowDestructiveSave` (the slice is uncounted; `UNARMED_AI_ROUTES` in
 `destructive-save-arming.test.ts`), and the stored proposal id is kept, so undoing the delete of the proposed scenario
 brings the proposal back. ★ Both decision writes assign `settingsOverridesRef` synchronously (`writeOverrides`), so a
-`get_forecast` later in the same turn reports the new target and proposal; the effect only syncs other writers.
+`get_forecast` later in the same turn reports the new target and proposal; the effect only syncs other writers. The
+state is written through a FUNCTIONAL updater, so a change another writer queued before the ref synced is kept.
 ★ An id naming no saved scenario REFUSES `set_forecast_proposal` (`forecast scenario N not found`), where the UI setter
 only ignores it. ★ The `forecastDecision` document data section follows the same predicate: with the forecast bit off
 `toolsFor` sends `create_document` and `update_document` without that key (`DOCUMENT_TOOL_DEFS_WITHOUT_DECISION`), and

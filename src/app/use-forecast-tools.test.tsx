@@ -540,6 +540,22 @@ describe("the decision writes (§502 part 4)", () => {
     expect(report?.proposal).toEqual({ id: 1, name: SAVED.name });
   });
 
+  // ★★ The other writer queues BEFORE the AI write and no render runs between them, so the AI's ref still lacks
+  //   its change: a plain `setSettingsOverrides(next)` computed from that ref would overwrite it.
+  test("a change another writer queued before the ref synced survives the AI's target and proposal writes", async () => {
+    const { result } = mount({ forecastScenarios: [SAVED] });
+    const berlin = { timezone: "Europe/Berlin" };
+    await act(async () => {
+      result.current.setSettingsOverrides((prev) => ({ ...prev, timezone: berlin }));
+      await runTool(result.current.dispatcher, "set_forecast_target_confidence", { value: 95 });
+      await runTool(result.current.dispatcher, "set_forecast_proposal", { id: 1 });
+    });
+    expect(result.current.settingsOverrides).toEqual({
+      timezone: berlin,
+      forecast: { showSimulation: true, targetConfidence: 95, proposalScenarioId: 1 },
+    });
+  });
+
   test("a scenario created earlier in the same turn can be proposed", async () => {
     const { result } = mount({});
     await act(async () => {

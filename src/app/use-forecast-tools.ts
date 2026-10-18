@@ -113,11 +113,13 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
     [settingsRef],
   );
 
-  /** Store the overrides, ref first (see `settingsOverridesRef`). ★ No undo capture: target and proposal are
-   *  logged, never undoable (owner decision; `useForecastSettings` captures none either). */
-  const writeOverrides = useCallback((next: SettingsOverrides | undefined) => {
-    settingsOverridesRef.current = next;
-    setSettingsOverrides(next);
+  /** Apply `update` to the overrides: to the ref NOW (see `settingsOverridesRef`), and to the state as a FUNCTIONAL
+   *  updater, so a writer that queued a change of its own since the ref last synced (the UI, a version restore) is
+   *  built on rather than overwritten by a value computed from the stale ref. ★ No undo capture: target and proposal
+   *  are logged, never undoable (owner decision; `useForecastSettings` captures none either). */
+  const writeOverrides = useCallback((update: (prev: SettingsOverrides | undefined) => SettingsOverrides | undefined) => {
+    settingsOverridesRef.current = update(settingsOverridesRef.current);
+    setSettingsOverrides((prev) => update(prev));
   }, [setSettingsOverrides]);
 
   /** The run input with the live tasks, milestones, resources and scenarios, or the loading refusal. */
@@ -248,8 +250,7 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
         if (named === undefined) throw new Error(`forecast scenario ${id} not found`);
         const prev = settingsOverridesRef.current;
         const from = proposalIdOf(prev, list);
-        const next = withProposalChange(prev, id, list);
-        if (next !== prev) writeOverrides(next);
+        if (withProposalChange(prev, id, list) !== prev) writeOverrides((o) => withProposalChange(o, id, list));
         const entry = proposalLogEntry(from, id, list);
         if (entry) logActivityAs?.("ai", ...entry);
         return { proposal: named === null ? null : { id: named.id, name: named.name } };
@@ -261,7 +262,7 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
         const from = targetConfidenceOf(prev);
         // An unchanged target writes and logs nothing.
         if (value !== from) {
-          writeOverrides(withTargetConfidence(prev, value));
+          writeOverrides((o) => withTargetConfidence(o, value));
           logActivityAs?.("ai", "forecast.targetChanged", from, value);
         }
         return { targetConfidence: value };
