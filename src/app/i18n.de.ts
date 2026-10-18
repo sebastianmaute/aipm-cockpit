@@ -920,6 +920,7 @@ export const de: Record<TranslationKey, string> = {
   forecastMixColDifference: "Differenz",
   forecastMixColUsed: "Verbrauchte Stunden vom Budget",
   forecastMixPoints: "{0} Pkt.",
+  // "Pkt." ist in Einzahl und Mehrzahl gleich; tPlural braucht den Schlüssel trotzdem.
   forecastMixPointsOne: "{0} Pkt.",
   forecastMixUsed: "{0} von {1} ({2})",
   forecastMixDriverBadge: "Treiber",

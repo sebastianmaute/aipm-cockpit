@@ -6,7 +6,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadI18n, t, tPlural, type Lang, type TranslationKey } from "./i18n";
 
-type Case = { key: string; file: string; one: (lang: Lang) => string; en: string; de: string };
+// `deSame`: the German singular is the plural on purpose (an abbreviation such as "Pkt.").
+type Case = { key: string; file: string; one: (lang: Lang) => string; en: string; de: string; deSame?: boolean };
 
 // The snippet must not run on into a letter: "1 task" would otherwise pass inside "1 tasks", the plural.
 function singularMatch(snippet: string): RegExp {
@@ -30,7 +31,7 @@ const CASES: Case[] = [
   { key: "forecastGapExtraDays", file: "export-forecast-section.ts", one: (l) => tPlural(l, "forecastGapExtraDays" as never, 1, "1"), en: "1 working day beyond", de: "1 Arbeitstag über" },
   { key: "forecastTipExtraDays", file: "budget-forecast-cards.tsx", one: (l) => tPlural(l, "forecastTipExtraDays" as never, 1, "€10", "€10", "1", "1"), en: "= 1 working day, 1 more", de: "= 1 Arbeitstag, 1 mehr" },
   { key: "simHistogramIn", file: "sim-explainer.tsx", one: (l) => tPlural(l, "simHistogramIn" as never, 1, "1"), en: "in 1 working day", de: "in 1 Arbeitstag" },
-  { key: "forecastMixPoints", file: "budget-rate-mix-text.ts", one: (l) => tPlural(l, "forecastMixPoints" as never, 1, "+1"), en: "+1 pt", de: "+1 Pkt." },
+  { key: "forecastMixPoints", file: "budget-rate-mix-text.ts", one: (l) => tPlural(l, "forecastMixPoints" as never, 1, "+1"), en: "+1 pt", de: "+1 Pkt.", deSame: true },
   { key: "forecastTipEtcPace", file: "budget-forecast-cards.tsx", one: (l) => tPlural(l, "forecastTipEtcPace" as never, 1, "€10", "1", "€10"), en: "× 1 working day left", de: "× 1 verbleibender Arbeitstag" },
 ];
 
@@ -44,6 +45,10 @@ describe("§715 — counts that can be 1 are singular", () => {
       // a count of 2 picks the plural, which is a different string
       expect(tPlural("en-US", c.key as never, 2, 2, 2, 2)).toBe(t("en-US", c.key as TranslationKey, 2, 2, 2));
       expect(t("en-US", c.key as TranslationKey, 2, 2, 2)).not.toBe(t("en-US", `${c.key}One` as TranslationKey, 2, 2, 2));
+      const dePlural = t("de", c.key as TranslationKey, 2, 2, 2);
+      const deOne = t("de", `${c.key}One` as TranslationKey, 2, 2, 2);
+      if (c.deSame) expect(deOne).toBe(dePlural);
+      else expect(deOne).not.toBe(dePlural);
     });
 
     it(`${c.key}: its call site in ${c.file} goes through tPlural`, () => {
