@@ -54,7 +54,7 @@ import { fingerprintWorkspace, keptProjectKey, UNLOAD_JOURNAL_MAX_CHARS, UNLOAD_
 import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
 import { useStorageBackend } from "./use-storage-backend";
 import { UNLOAD_JOURNAL_TAB_ID, useUnloadJournal } from "./use-unload-journal";
-import { emptyWorkspace, jsonToWorkspace, type Workspace } from "./workspace";
+import { emptyWorkspace, jsonToWorkspace, workspaceToJson, type Workspace } from "./workspace";
 import { useWorkspace } from "./workspace-context";
 
 const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
@@ -645,5 +645,49 @@ describe("§715 — a workspace with nothing authored is never journalled", () =
     act(() => { kept = result.current.keepLive(emptyWorkspace()); });
     expect(kept).toBe(true);
     expect(localStorage.getItem(KEPT_KEY)).toBeNull();
+  });
+
+  // The real shape of the draft the banner offered: an empty workspace after a load, with the preset
+  // discipline and grade lists seeded (945 bytes; the banner read "1 KB").
+  it("a loaded empty workspace, preset lists seeded, writes no journal either", () => {
+    const loaded = jsonToWorkspace(workspaceToJson(emptyWorkspace()));
+    expect(loaded.disciplines.length).toBeGreaterThan(0); // the presets are there: the case is real
+    const { result } = renderJournal();
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(loaded); });
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  // What a user writes outside the record collections is not "nothing": each of these is journalled.
+  const META_ONLY: ReadonlyArray<[string, Workspace]> = [
+    ["project details", { ...emptyWorkspace(), project: { name: "Northwind portal" } as unknown as Workspace["project"] }],
+    ["the dashboard narrative", { ...emptyWorkspace(), status: { narrative: "Kick-off next week." } as unknown as Workspace["status"] }],
+    ["a forecast scenario", { ...emptyWorkspace(), forecastScenarios: [{ id: "s1" }] as unknown as Workspace["forecastScenarios"] }],
+    ["the steering committee", { ...emptyWorkspace(), steeringCommittee: { members: ["Elena"] } as unknown as Workspace["steeringCommittee"] }],
+    ["a changed plan currency", { ...emptyWorkspace(), plan: { ...emptyWorkspace().plan, currency: "USD" } }],
+  ];
+  for (const [what, ws] of META_ONLY) {
+    it(`a workspace holding only ${what} is journalled, and kept`, () => {
+      const { result } = renderJournal();
+      tabSwitch();
+      act(() => { result.current.noteSaveStarted(ws); });
+      expect(localStorage.getItem(KEY)).not.toBeNull();
+      let kept = false;
+      act(() => { kept = result.current.keepLive(ws); });
+      expect(kept).toBe(true);
+      expect(localStorage.getItem(KEPT_KEY)).not.toBeNull();
+    });
+  }
+
+  it("the auto-appended logs alone are still nothing to keep", () => {
+    const ws: Workspace = {
+      ...emptyWorkspace(),
+      activityLog: [{ id: "a1" }] as unknown as Workspace["activityLog"],
+      forecastHistory: [{ date: "2026-09-21" }] as unknown as Workspace["forecastHistory"],
+    };
+    const { result } = renderJournal();
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(ws); });
+    expect(localStorage.getItem(KEY)).toBeNull();
   });
 });

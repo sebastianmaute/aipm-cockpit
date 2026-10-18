@@ -38,7 +38,8 @@ longer carries its own changelog comment.
 
 - **No more empty "unsaved drafts" (§715).** An empty workspace, for example the Turso workspace before its
   first project exists, is no longer kept as an unsaved draft, so it is never offered back as one from "another
-  project". Emptying a project also forgets this browser tab's older draft of it, so that draft cannot return.
+  project". Project details, the dashboard summary and the other project-level fields still count as a draft.
+  An empty draft already stored stays listed until you discard it.
 - **Ask Claude edits milestones and RAID items again (§715).** A description change on a milestone or a
   mitigation on a RAID item always ended in "No changes to apply": Claude looked the item up first, a step the
   one-shot edit cannot answer. It is now offered only the changes it can make.

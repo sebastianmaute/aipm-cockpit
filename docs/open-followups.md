@@ -45641,11 +45641,11 @@ Also noted for the same generalisation (Turso token, §715 round 20): when a wri
 
 **Work item:** #781
 
-An unload journal was written under the Turso "no project" key (`journalProjectKey` → `"turso"`) at 08:30 on the demo's first morning, holding an empty workspace of about 1 KB, and `OtherJournalsBanner` then offered it on every load as "Turso workspace (no project)". A journal is written only for a save that started (`noteSaveStarted`, past every save guard) and had not confirmed when the page hid. So something started a save of the empty Turso workspace while the portfolio was in multi-project Turso mode with no project selected, and a reload (the setup wizard's Finish, or Explore the demo) landed before it confirmed.
+An unload journal was written under the Turso "no project" key (`journalProjectKey` → `"turso"`) at 08:30 on the demo's first morning, holding an empty workspace of about 1 KB, and `OtherJournalsBanner` then offered it on every load as "Turso workspace (no project)". A journal under a project's own key holds a save that started (`noteSaveStarted`, past every save guard) and had not confirmed, or the live workspace `followLive` hands over while saving is paused on a conflict; it is written when the page hides or is hidden. So the empty Turso workspace was the outgoing or live one while the portfolio was in multi-project Turso mode with no project selected. Candidates, none confirmed: a save that a reload (the setup wizard's Finish, or Explore the demo) overtook; a save that failed and never confirmed; a save started while the recorder's page was hidden.
 
 Not reproduced: connect, the new-project wizard with Claude's proposal and Cancel, Explore the demo, the device-state reload and a day change, run off camera five times, left no such journal. A timing race is the likely shape.
 
-The symptom is closed on `fix/715-empty-unload-journal` (§715): `use-unload-journal.ts` never journals a workspace with nothing authored (`hasAuthoredRecords`). Open here: what saves in multi-project Turso mode with no project, and whether it should. Such a save writes an empty workspace to the database's single-tenant layout.
+The symptom is closed on `fix/715-empty-unload-journal` (§715): `use-unload-journal.ts` never journals a workspace with nothing authored (`hasAuthoredRecords`). Open here: what saves in multi-project Turso mode with no project, whether it should, and where such a save writes (not checked: possibly the database's single-tenant layout). An empty draft already stored by an earlier version stays listed until it is discarded.
 
 Size S to trace; the fix is unknown until then.
 

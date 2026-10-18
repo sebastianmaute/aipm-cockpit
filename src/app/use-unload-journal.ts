@@ -52,6 +52,7 @@ import { jsonToWorkspace, workspaceToJson, type StorageKind, type Workspace } fr
 import type { DocTruncationDiag } from "./document-model";
 import { sanitizeDiscipline, sanitizeGrade, sanitizeResource } from "./sanitize";
 import { hasAuthoredRecords } from "./workspace-metrics";
+import { defaultResourcePlan } from "./resource-foundation";
 
 function newTabId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -81,6 +82,25 @@ function retagToThisTab(journal: UnloadJournal): void {
   lastSavedAt = Math.max(lastSavedAt, journal.savedAt);
   const { projectKey, savedAt, baseFingerprint, workspace } = journal;
   writeUnloadJournal({ projectKey, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt, baseFingerprint, workspace });
+}
+
+/** §715 — slices the app appends or fetches by itself: no draft of the user's lives in them. */
+const AUTOMATIC_SLICES: ReadonlySet<string> = new Set(["activityLog", "budgetHistory", "baselineHistory", "forecastHistory", "fxRates"]);
+/** Slices judged by `hasAuthoredRecords` (with the seeded preset lists discounted) or by the plan check below. */
+const JUDGED_SLICES: ReadonlySet<string> = new Set(["disciplines", "grades", "plan"]);
+
+/** §715 — true only for the empty default a load produces: no authored records, the default plan for its
+ *  own start date, and every other slice blank (missing, null, [] or {}), the automatic ones aside. A slice
+ *  added to `Workspace` later is content until it is listed here, so the journal errs towards keeping. */
+export function isNothingToJournal(ws: Workspace): boolean {
+  if (hasAuthoredRecords(ws)) return false;
+  if (JSON.stringify(ws.plan) !== JSON.stringify(defaultResourcePlan(ws.plan.startDate))) return false;
+  for (const [key, value] of Object.entries(ws)) {
+    if (AUTOMATIC_SLICES.has(key) || JUDGED_SLICES.has(key)) continue;
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value) ? value.length > 0 : typeof value !== "object" || Object.keys(value).length > 0) return false;
+  }
+  return true;
 }
 
 /** §668 — one record's identity: its key, writer and save time (what `clearUnloadJournal` guards on too). */
@@ -242,10 +262,10 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   }, []);
 
   const write = useCallback((entry: Unconfirmed): void => {
-    // §715 — nothing a user wrote is not a draft: an empty workspace is never journalled. This tab's own
+    // §715 — the empty default is not a draft (`isNothingToJournal`), so it is never journalled. This tab's own
     // older journal for the key goes too (the guard spares one another page load left), so an earlier
     // draft cannot come back over the edit that emptied the project.
-    if (!hasAuthoredRecords(entry.workspace)) {
+    if (isNothingToJournal(entry.workspace)) {
       clearUnloadJournal(entry.projectKey, { tabId: UNLOAD_JOURNAL_TAB_ID, ifSavedAtAtMost: entry.savedAt });
       return;
     }
@@ -277,8 +297,8 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
    *  Returns whether the record was WRITTEN (final review I2): over the cap, on a quota error or a codec
    *  throw it is not, and a caller about to leave the project must not then leave. */
   const keep = useCallback((entry: Unconfirmed): boolean => {
-    // §715 — an empty version holds nothing to keep: done, so a caller about to leave may leave.
-    if (!hasAuthoredRecords(entry.workspace)) return true;
+    // §715 — the empty default holds nothing to keep: done, so a caller about to leave may leave.
+    if (isNothingToJournal(entry.workspace)) return true;
     const slot = readUnloadJournal(keptProjectKey(entry.projectKey)) === null ? keptProjectKey(entry.projectKey) : keptProjectKey(entry.projectKey, entry.savedAt);
     let workspace: string;
     try {
