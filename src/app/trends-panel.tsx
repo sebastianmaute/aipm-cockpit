@@ -23,6 +23,11 @@ import { EmptyState } from "./empty-state";
 import { Button } from "./button";
 import { useConfirm } from "./confirm-dialog";
 import { Checkbox } from "./form-controls";
+import { ForecastP80Line } from "./forecast-p80-line";
+import type { ForecastHistoryEntry } from "./forecast-history";
+
+/** Entries a P80 line needs before it is a line (§502): one point is no trend. */
+const MIN_P80_POINTS = 2;
 
 const VARIANCE_COL_WIDTHS = {
   kpi: 200,
@@ -60,6 +65,10 @@ export interface TrendsPanelProps {
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
+  /** §502 part 4 — the recorded daily forecasts, passed only while the simulation is on; absent → no P80 chart. */
+  forecastHistory?: readonly ForecastHistoryEntry[];
+  /** The plan end, drawn as the P80 chart's reference line. */
+  planEnd?: string;
 }
 
 function gapBetween(prev: SnapshotRecord, curr: SnapshotRecord, gaps: ReadonlySet<string>): boolean {
@@ -81,7 +90,7 @@ function trendPoints(snaps: readonly SnapshotRecord[], gaps: ReadonlySet<string>
 }
 
 export function TrendsPanel(props: TrendsPanelProps) {
-  const { lang, active, snapshots, baseline, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot, deleteSnapshots, currency, showHints, isPopout, onLearnMore } = props;
+  const { lang, active, snapshots, baseline, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot, deleteSnapshots, currency, showHints, isPopout, onLearnMore, forecastHistory, planEnd } = props;
   const { displayTz } = useDisplayTimezone();
   const confirm = useConfirm();
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -127,6 +136,13 @@ export function TrendsPanel(props: TrendsPanelProps) {
   // switch is rebased into the current baseline by `useSnapshots`
   // (`rebaseSnapshots`) before it reaches this panel.
   const gapLabel = gaps.length > 0 ? tPlural(lang, "trendsGap", gaps.length, gaps.length) : undefined;
+  // §502 — "P80 finish over time" on the history's OWN date axis (its dates are not the snapshot buckets), so
+  // it is its own chart beside the snapshot ones and shows before the first snapshot. Two P80 entries make a
+  // line; below that the chart is left out rather than shown as "too short" (Reports keeps that state).
+  const p80Points = forecastHistory?.filter((e) => e.p80 !== null).length ?? 0;
+  const p80Chart = forecastHistory && p80Points >= MIN_P80_POINTS
+    ? <ForecastP80Line lang={lang} history={forecastHistory} planEnd={planEnd ?? ""} />
+    : null;
 
   const captureButton = (
     <Button
@@ -150,7 +166,10 @@ export function TrendsPanel(props: TrendsPanelProps) {
         />
       )}
       {snapshots.length === 0 ? (
-        <EmptyState compact title={t(lang, "trendsNoSnapshots")} />
+        <div className="space-y-4">
+          <EmptyState compact title={t(lang, "trendsNoSnapshots")} />
+          {p80Chart}
+        </div>
       ) : (
         <div className="space-y-4">
           <div>
@@ -216,6 +235,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
               points={trendPoints(snapshots, gapSet, (s) => s.cpi)}
               format={(v) => v.toFixed(2)} />
           </div>
+          {p80Chart}
 
           <div>
             <div className="mb-1 flex items-center justify-between">

@@ -47,6 +47,9 @@ function makeDeps(overrides: Partial<ShellChromeDeps> = {}): ShellChromeDeps {
     settingsMenuOpen: undefined,
     onSettingsMenuOpenChange: undefined,
     exportForecast: null,
+    today: "2026-10-18",
+    holidaySet: new Set(),
+    holidaysReady: true,
     onLoadDemo: undefined,
     ...overrides,
   };

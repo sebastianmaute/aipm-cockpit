@@ -52,7 +52,7 @@ interface WorkspaceTabContextValue {
   pendingDocEntityFilter: { kind: DocRefKind; id: number } | null;
   requestDocumentsForEntity: (kind: DocRefKind, id: number) => void;
   clearDocEntityFilter: () => void;
-  /** Armed by an Explore outside the Forecast view (no caller yet; the Reports Forecast section is planned to); consumed by the Forecast view, which mounts fresh. */
+  /** Armed by an Explore outside the Forecast view (the Reports Forecast section's); consumed by the Forecast view, which mounts fresh. */
   pendingForecastDraft: ForecastDraftRequest | null;
   requestForecastDraft: (req: ForecastDraftRequest) => void;
   clearForecastDraft: () => void;

@@ -46,7 +46,7 @@ export function labelledIndices(n: number, chars: number): Set<number> {
 }
 
 export function TrendChart({
-  caption, points, gapCount = 0, gapLabel, emptyLabel, format = (v: number) => String(Math.round(v)),
+  caption, points, gapCount = 0, gapLabel, emptyLabel, format = (v: number) => String(Math.round(v)), reference,
 }: {
   caption: string;
   points: readonly TrendPoint[];
@@ -54,6 +54,8 @@ export function TrendChart({
   gapLabel?: string;
   emptyLabel?: ReactNode;
   format?: (v: number) => string;
+  /** A dashed horizontal reference line (the plan end under the P80 line, §502 part 4); its value widens the y range. */
+  reference?: { value: number; label: string };
 }) {
   if (points.length < 2) {
     return (
@@ -64,7 +66,7 @@ export function TrendChart({
     );
   }
   const n = points.length;
-  const values = points.map((p) => p.value);
+  const values = reference ? [...points.map((p) => p.value), reference.value] : points.map((p) => p.value);
   const min = Math.min(...values, 0);
   const max = Math.max(...values, 0);
   const baseY = PAD_T + PLOT_H;
@@ -95,6 +97,15 @@ export function TrendChart({
             <rect key={`g${i}`} data-testid="gap-band" x={s.x1} y={PAD_T} width={s.x2 - s.x1} height={PLOT_H}
               className="fill-muted-foreground" opacity={0.08} aria-hidden="true" />
           ) : null,
+        )}
+        {reference && (
+          <g data-testid="trend-reference" aria-hidden="true">
+            <line x1={PAD_L} y1={yAt(reference.value, min, max)} x2={W - PAD_R} y2={yAt(reference.value, min, max)}
+              className="stroke-muted-foreground" strokeWidth={1} strokeDasharray="3 3" />
+            <text x={PAD_L + 4} y={yAt(reference.value, min, max) - 3} className="fill-muted-foreground text-[8px]">
+              {reference.label}
+            </text>
+          </g>
         )}
         {segments.map((s, i) => (
           <line key={`s${i}`} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2}

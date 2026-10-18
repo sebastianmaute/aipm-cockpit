@@ -21,12 +21,17 @@ import { PlusIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { GanttDependencyLayer, GanttHeader } from "./gantt-chrome";
 import { GanttGridLayer, GanttNonWorkingLayer } from "./gantt-overlays";
+import { GanttForecastLayer } from "./gantt-forecast-layer";
+import { chancesById } from "./milestone-horizon-strip";
+import type { AppForecast } from "./forecast/app-forecast";
 import { GanttMilestoneRow, GanttTaskRow } from "./gantt-rows";
 import { type Absence, type Milestone, type Resource, type Task } from "./types";
 import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
 import { type GanttMilestoneDrag, type MilestoneDragState } from "./use-gantt-milestone-drag";
 import { useGanttRowWindow } from "./use-gantt-row-window";
 import {
+  clampedDayIndex,
+  isBeyondAxis,
   fmtFull,
   type GanttBarEdit,
   type GanttPrefs,
@@ -111,6 +116,7 @@ export function GanttChart({
   onMilestoneBlur,
   onAddTask,
   baselineMilestoneDates,
+  forecast = null,
 }: {
   /** The outer overflow-auto container — the panel's initial-scroll effect
    *  targets it, so the ref is created there and threaded down. */
@@ -170,8 +176,12 @@ export function GanttChart({
   onMilestoneBlur?: GanttMilestoneDrag["onMilestoneBlur"];
   onAddTask?: () => void;
   baselineMilestoneDates?: ReadonlyMap<number, string>;
+  /** The shared forecast run (§502); null while the simulation is off, and then nothing forecast draws. */
+  forecast?: AppForecast | null;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  // §502 — id -> chance for the milestones the run gave one; the rows draw a chip only for those.
+  const chances = useMemo(() => (forecast?.kind === "forecast" ? chancesById(forecast.milestones) : undefined), [forecast]);
 
   // §5 row window (use-gantt-row-window.ts): above 200 rows only the rows near the
   // viewport render, with spacers for the rest; the overlays above already draw from
@@ -260,6 +270,7 @@ export function GanttChart({
         onHandleBlur={onMilestoneBlur}
         baselineDate={baselineMilestoneDates?.get(m.id)}
         showBaseline={prefs.showBaseline}
+        chance={chances?.get(m.id)}
       />
     );
   };
@@ -316,6 +327,20 @@ export function GanttChart({
                 range={range}
                 nameColWidth={nameColWidth}
                 heightPx={totalRowsCount * ROW_HEIGHT_PX}
+              />
+            )}
+
+            {/* §502 — the simulated finish band and P80 line, behind the bars like the layers above. */}
+            {forecast?.kind === "forecast" && (
+              <GanttForecastLayer
+                lang={lang}
+                p50={forecast.p50}
+                p80={forecast.p80}
+                p95={forecast.p95}
+                dayIndexOf={(iso) => clampedDayIndex(range, iso)}
+                p80BeyondAxis={isBeyondAxis(range, forecast.p80)}
+                nameColWidth={nameColWidth}
+                height={totalRowsCount * ROW_HEIGHT_PX}
               />
             )}
 

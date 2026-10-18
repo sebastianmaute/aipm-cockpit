@@ -262,6 +262,9 @@ export function savePrefs(p: GanttPrefs): void {
 const DAY_MS = 86_400_000;
 export const DAY_WIDTH_PX = 28; // ~one day per column
 export const ROW_HEIGHT_PX = 32;
+/** §502 part 4 — how far past the planned range the simulated band may widen the axis, in calendar days; a later
+ *  percentile clamps to the edge (with the layer's edge cue). */
+export const FORECAST_AXIS_EXTENSION_DAYS = 180;
 export const HEADER_ROW_HEIGHT_PX = 22; // the month band
 /** The day band. Taller than the month band because it stacks the day-of-month
  *  number over the short weekday. */
@@ -326,6 +329,25 @@ export function localTodayUTC(): Date {
 
 export function diffDays(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / DAY_MS);
+}
+
+/** The axis day index of a forecast date, clamped to the visible range (§502): a date before the first day
+ *  reads 0, one after the last day (or `null`, a percentile past the horizon) reads the last day. `null`
+ *  only for a date that does not parse. */
+export function clampedDayIndex(range: { min: Date; days: number }, iso: string | null): number | null {
+  const last = range.days - 1;
+  if (iso === null) return last;
+  const d = parseISO(iso);
+  if (!d) return null;
+  return Math.max(0, Math.min(last, diffDays(range.min, d)));
+}
+
+/** Whether `clampedDayIndex` pulled a forecast date in from past the right edge: a date after the last day, or
+ *  `null` (past the horizon). Such a line stands at the edge, not at its date, so the layer marks it. */
+export function isBeyondAxis(range: { min: Date; days: number }, iso: string | null): boolean {
+  if (iso === null) return true;
+  const d = parseISO(iso);
+  return d !== null && diffDays(range.min, d) > range.days - 1;
 }
 
 /** Signed day slip of a milestone's live date vs its baseline target:

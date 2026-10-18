@@ -30,6 +30,8 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { type ExportFormat } from "./export";
+import { useExportExtras } from "./export-extras-context";
+import type { ForecastDecisionSource } from "./forecast-decision";
 import { type FeatureModuleId } from "./feature-modules";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { t, type Lang } from "./i18n";
@@ -100,8 +102,8 @@ export interface ProjectsPanelProps {
   onCommitSimulation?: (on: boolean) => void;
   /** De-register a project (the confirm dialog is handled here). */
   onDelete: (id: string) => void;
-  /** Export the CURRENT project's workspace in the given format. */
-  onExportCurrent: (format: string) => void;
+  /** Export the CURRENT project's workspace in the given format, with this window's forecast decision source (§502). */
+  onExportCurrent: (format: string, forecastDecision?: ForecastDecisionSource) => void;
   onLoadFromFile: () => void;
   /** File mode + Turso configured: copy the current project into a new Turso
    *  project and switch the portfolio to Turso. */
@@ -183,6 +185,8 @@ export function ProjectsPanel({
   projectFunctionsRequest = null,
   onProjectFunctionsRequestConsumed,
 }: ProjectsPanelProps) {
+  // §502 part 4 — this window's decision source (main window or popout); absent with the simulation off.
+  const { forecastDecision } = useExportExtras();
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
   // §706 — a Functions request. ★ This panel MOUNTS FRESH when the view switches to it, so the
   // last-seen request is seeded `null`, NEVER the live prop: seeding the live value would make a
@@ -342,7 +346,7 @@ export function ProjectsPanel({
 
   const handleExport = (format: ExportFormat) => {
     setExportMenuId(null);
-    onExportCurrent(format);
+    onExportCurrent(format, forecastDecision);
   };
 
   return (

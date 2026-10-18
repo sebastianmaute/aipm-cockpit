@@ -934,6 +934,23 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   + `hover:bg-ui-dark-blue/10` + `hover:text-ui-dark-blue`) — NOT the shared `ColumnResizeHandle` (which
   uses dark-header `table-head-*` tokens). It's `role="button"` + aria-label, mouse-only (`onMouseDown`); the
   SVG child is `aria-hidden` so the accessible name stays the aria-label.
+- **The simulated forecast on the Gantt (§502 part 4).** All of it exists only while `isSimulationActive` holds;
+  `GanttPanel` gets the shared app run as its `forecast` prop (workspace-section's `useAppForecast`, active on the
+  Gantt tab), so it adds no engine run of its own, and `forecast: null` draws nothing and leaves the axis exactly as
+  before. Three pieces:
+  - **Band and P80 line** — presentational `GanttForecastLayer` (`gantt-forecast-layer.tsx`): a faint P50–P95 band
+    and a dashed P80 line behind the bars, `aria-hidden` + `pointer-events-none` like the overlays above, drawn on the
+    SHARED `dayLeftPx` geometry through `clampedDayIndex`. One `sr-only` line, OUTSIDE the hidden layer, gives a screen
+    reader the P80 date (`ganttForecastP80Label`).
+  - **The axis takes the band in, BOUNDED.** The `gantt.tsx` range memo folds the dated P50, P80 and P95 like the
+    baseline ghosts (P80 on its own, so a dated P80 sits on its true day even with P95 past the horizon), but never further than `FORECAST_AXIS_EXTENSION_DAYS` (180 calendar days, `gantt-engine.ts`) past the
+    planned range (bars, milestones, baselines, today). ★★ Unbounded, a P95 years out made the timeline tens of
+    thousands of px wide, one node per day in the header, holiday and grid layers. A percentile beyond the cap, or past
+    the horizon (`null`), clamps to the edge, and `isBeyondAxis` then adds a "→" to the P80 label so the line is not
+    read as its date; the label text keeps the true date.
+  - **Chance chips** — `GanttMilestoneRow` (`gantt-rows.tsx`) shows the Dashboard's `ChanceChip` (and `chancesById`,
+    both from `milestone-horizon-strip.tsx`) on each unfinished milestone the run gave a chance, with one `sr-only`
+    sentence; overdue and signed-off rows get none.
 
 ### UI shell — toolbar button order
 

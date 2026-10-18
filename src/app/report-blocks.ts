@@ -13,8 +13,8 @@
  * because jsdom has no layout engine. Both are owed a browser eye-verify, and a
  * green unit suite is not evidence that anyone has looked at them:
  *
- *   1. THE SEVEN `minW: 4` ROWS. Those blocks carry column-resizable tables or a
- *      whole embedded report panel. `BlockWidth` is `1|2|3|4` over a four-column
+ *   1. THE EIGHT `minW: 4` ROWS. Those blocks carry column-resizable tables, a
+ *      whole embedded report panel, or the Forecast section's wide tables. `BlockWidth` is `1|2|3|4` over a four-column
  *      grid, so a narrower `minW` lets a user squeeze an entire report table
  *      into a quarter of the width, where it is unusable. `minW` is the only
  *      thing preventing it. `report-blocks.test.ts` pins the NUMBERS; nothing
@@ -57,18 +57,26 @@ import { ADDABLE_REPORTS, type AddableReportId } from "./addable-reports";
 
 export type ReportBuiltinId =
   | "stats" | "groupHealth" | "openByStatus" | "completionOutcomes"
-  | "inquiries" | "byAssignee" | "byPriority" | "byGroup" | "byLabel";
+  | "inquiries" | "byAssignee" | "byPriority" | "byGroup" | "byLabel" | "forecast";
 
 export type ReportBlockId = ReportBuiltinId | AddableReportId;
 
-/** ★ The Reports analogue of `TileGateInput`. A gate decides what RENDERS,
- *  never what is STORED — a gated-off block keeps its position, so switching a
- *  module off and on again does not lose it. `reconcile` takes no gate, and the
- *  render layer is what filters. ★ Optional and unused by every entry today;
- *  it is declared because the engine's `BlockSpec` deliberately has no `gate`
- *  field and a surface's own spec type is where one belongs. */
+/** What a Reports gate reads — the Reports analogue of `TileGateInput`. */
+export interface ReportGateInput {
+  features: readonly FeatureModuleId[];
+  /** `isSimulationActive(settingsOverrides, features)`: the switch is on and the Forecast view is enabled. */
+  simulationActive: boolean;
+}
+
+/** ★ A gate decides what RENDERS, never what is STORED — a gated-off block
+ *  keeps its position, so switching a module off and on again does not lose
+ *  it. `reconcile` takes no gate, and the render layer is what filters. ★ Only
+ *  "forecast" declares one (§502 part 4: hidden from board and shelf while the
+ *  simulation is off, as the Dashboard's Forecast tile is); the engine's
+ *  `BlockSpec` deliberately has no `gate` field and a surface's own spec type
+ *  is where one belongs. */
 export interface ReportBlockSpec extends BlockSpec<ReportBlockId> {
-  gate?: (features: readonly FeatureModuleId[]) => boolean;
+  gate?: (g: ReportGateInput) => boolean;
 }
 
 /** ★★ Its own key, never the Dashboard's. `arrangement-store.ts` caps and evicts
@@ -91,6 +99,9 @@ export const REPORT_BLOCKS: readonly ReportBlockSpec[] = [
   { id: "byPriority",         labelKey: "reportsByPriority",          w: 2, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
   { id: "byGroup",            labelKey: "reportsByGroup",             w: 4, h: 3, minW: 4, maxW: 4, minH: 2, maxH: 4 },
   { id: "byLabel",            labelKey: "reportsByLabel",             w: 4, h: 3, minW: 4, maxW: 4, minH: 2, maxH: 4 },
+  // §502 part 4 — the Forecast section: verdict, tiles, the milestones table with its lever column, the proposal.
+  // Full width and tall, like an embedded report; gated exactly as the Dashboard's Forecast tile.
+  { id: "forecast",           labelKey: "dashboardForecast",          w: 4, h: 4, minW: 4, maxW: 4, minH: 2, maxH: 4, gate: (g) => g.simulationActive },
   // ★★ DERIVED FROM `ADDABLE_REPORTS`, NEVER RETYPED. Each one embeds a whole
   // report panel, so all four are full width and tall. Deriving keeps the id
   // set and the title keys in one place — a hand-copied list would drift the

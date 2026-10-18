@@ -354,7 +354,7 @@ export function sanitizeIntegrations(raw: unknown): IntegrationsSettings {
 export const EXPORT_SECTION_KEYS = [
   "project",
   "tasks", "raid", "changes", "milestones", "stakeholders",
-  "budgets", "budgetForecast", "resources", "roles", "absences", "shifts", "calendarEvents", "status",
+  "budgets", "budgetForecast", "forecastDecision", "resources", "roles", "absences", "shifts", "calendarEvents", "status",
   "knowledgeItems",
   "insights",
 ] as const;
@@ -363,8 +363,9 @@ export type ExportConfig = Record<ExportSectionKey, boolean>;
 
 /** Export sections that are NOT a `Workspace` slice: computed at export time
  *  from the dashboard model and handed to `buildExportSections` as
- *  `ExportExtras` (open-followups §545). */
-export const DERIVED_EXPORT_SECTION_KEYS = ["budgetForecast"] as const;
+ *  `ExportExtras` (open-followups §545). `forecastDecision` (§502 part 4) is
+ *  the simulated schedule decision, computed from the Monte Carlo engine. */
+export const DERIVED_EXPORT_SECTION_KEYS = ["budgetForecast", "forecastDecision"] as const;
 export type DerivedExportSectionKey = (typeof DERIVED_EXPORT_SECTION_KEYS)[number];
 
 /** The export sections that ARE a `Workspace` slice: every key except the
@@ -388,6 +389,8 @@ export const defaultExportConfig: ExportConfig = {
   changes: false, milestones: false, stakeholders: false, budgets: false,
   // §545 — derived; emitted only when a forecast exists and the budget module is on.
   budgetForecast: true,
+  // §502 part 4 — derived; emitted only while the forecast simulation is active.
+  forecastDecision: true,
   resources: false, roles: false, absences: false, shifts: false, status: false,
   // Calendar events are project data a user expects in an export, like tasks/RAID.
   calendarEvents: true,

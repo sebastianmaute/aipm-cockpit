@@ -13,6 +13,7 @@ import { defaultExportConfig, exportFooterText, type Settings } from "./settings
 import { AskClaudeMenu } from "./ask-claude-menu";
 import type { AppView } from "./nav-config";
 import type { ForecastBundle } from "./budget-forecast-bundle";
+import type { WorkspaceForecastDecisionDeps } from "./use-forecast-decision-source";
 
 export interface AppHeaderProps {
   handleCancelEdit: () => void;
@@ -49,6 +50,8 @@ export interface AppHeaderProps {
   onSettingsMenuOpenChange?: (open: boolean) => void;
   /** §545 — the budget forecast for the Export menu (null with the budget module off). */
   exportForecast?: ForecastBundle | null;
+  /** §502 part 4 — forwarded to the Export menu, which derives its own forecast decision source. */
+  forecastDecisionDeps?: WorkspaceForecastDecisionDeps;
   /** §712 — the Help menu's "Explore the demo project" entry (omitted ⇒ no entry). */
   onLoadDemo?: () => void;
 }
@@ -81,6 +84,7 @@ export function AppHeader({
   settingsMenuOpen,
   onSettingsMenuOpenChange,
   exportForecast = null,
+  forecastDecisionDeps,
   onLoadDemo,
 }: AppHeaderProps) {
   return (
@@ -166,6 +170,7 @@ export function AppHeader({
             exportConfig={settings.export ?? defaultExportConfig}
             exportFooter={exportFooterText(settings.branding)}
             exportForecast={exportForecast}
+            forecastDecisionDeps={forecastDecisionDeps}
             expertMode={settings.expertMode}
             onLoadDemo={onLoadDemo}
           />

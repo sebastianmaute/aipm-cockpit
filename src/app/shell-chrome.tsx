@@ -66,6 +66,10 @@ export interface ShellChromeDeps {
   onSettingsMenuOpenChange: AppHeaderProps["onSettingsMenuOpenChange"];
   /** §545 — the budget forecast both header mounts hand to the Export menu. */
   exportForecast: AppHeaderProps["exportForecast"];
+  /** §502 part 4 — task-manager's clock and holiday calendar, for the Export menu's own forecast decision source. */
+  today: string;
+  holidaySet: ReadonlySet<string>;
+  holidaysReady: boolean | undefined;
   /** §712 — the Help menu's demo entry, handed to BOTH header mounts (undefined in a popout). */
   onLoadDemo: AppHeaderProps["onLoadDemo"];
 }
@@ -104,8 +108,12 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
     settingsMenuOpen,
     onSettingsMenuOpenChange,
     exportForecast,
+    today,
+    holidaySet,
+    holidaysReady,
     onLoadDemo,
   } = deps;
+  const forecastDecisionDeps = { features: settings.features, workdayHours: settings.resources.workdayHours, today, holidaySet, holidaysReady };
 
   // Session display-timezone switcher. Sits in both header sites alongside the
   // Ask-Claude pill (dual-header rule); never in popouts (they have no header).
@@ -124,6 +132,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
         exportConfig={settings.export ?? defaultExportConfig}
         exportFooter={exportFooterText(settings.branding)}
         exportForecast={exportForecast}
+        forecastDecisionDeps={forecastDecisionDeps}
         templates={projectTemplates}
         onSaveTemplate={handleSaveTemplate}
         onApplyTemplate={handleApplyTemplate}
@@ -158,6 +167,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
       settingsMenuOpen={settingsMenuOpen}
       onSettingsMenuOpenChange={onSettingsMenuOpenChange}
       exportForecast={exportForecast}
+      forecastDecisionDeps={forecastDecisionDeps}
       onLoadDemo={onLoadDemo}
       trailing={
         // §618 — no `min-w-0` here on purpose. The search wrapper below

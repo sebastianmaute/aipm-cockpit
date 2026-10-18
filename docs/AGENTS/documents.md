@@ -1688,6 +1688,27 @@ section renders as nothing with no error (§545). The rule is in
 [budget.md](budget.md#the-forecast-in-exports-545); list today's readers with
 `grep -rn "useExportExtras()" src/app --include=*.tsx | grep -v test`.
 
+★★ Added 2026-10-18 (§502 part 4): `forecastDecision` is the SECOND derived `dataSection` key beside
+`budgetForecast` — the simulated forecast decision (target, Safe to commit against the plan end, cost at finish, each
+below-target milestone with what it would take, each overdue milestone, the proposal). It rides the same
+`ExportExtras`, as a lazy `forecastDecisionSource` thunk, and exists only while the simulation is active (Settings →
+Export and the block editor's select offer it only then; a block naming it otherwise renders nothing). Two paths, and
+they differ for a reason:
+- **Downloads and exports** call the source at the click: it runs everything, `whatItTakesSync` per below-target
+  milestone included (up to about a second on a large plan; [forecast.md](forecast.md) has the measured cost).
+  ★ The extras value keeps its identity across task edits: its `forecastDecision` is one stable thunk that calls the
+  LATEST source, so it must only ever be called from an event, never from render.
+- **Previews never run a lever search on render.** `usePreviewExportExtras` (used by `document-preview.tsx` and the
+  history row's preview) reads the decision's live half from its own context, `useForecastDecisionLive`, renders every
+  take as "Working it out…", and fills them from its own `useLeverSearch` off the render path. It searches only while
+  the previewed blocks hold the block (and a history row only while open), and keeps the document's identity until a
+  take settles, so a probe does not re-render the whole document. A new preview surface must use it, not
+  `useExportExtras()`, or it either shows no decision or runs the synchronous search on render.
+- ★ **Older builds drop the block.** `isSectionKey` in an older build does not know the key, so opening and saving the
+  document there removes a `forecastDecision` block, as it does any new key — the same as `budgetForecast` at §545,
+  where the answer was documentation too. Code in this build cannot change an older one; say so in the CHANGELOG
+  "older version" sentence when the feature is un-hidden.
+
 ★ One fact, one doc: the moved text's `documentVersions`, S3c-1 and S3c-2 paragraphs were cut to
 one-line pointers on 2026-09-13, because the S3c-2 one had become an older copy that contradicted its
 canonical section. The canonical copies are this file's version-model, "Asset images (S3c-1)" and

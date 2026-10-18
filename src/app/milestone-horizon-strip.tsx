@@ -44,8 +44,9 @@ function entryAlert(e: HorizonEntry): boolean {
 const MAX_PER_BUCKET = 5;
 
 /** The visible chip: percent plus the "sim" badge, both decorative. The accessible name lives on the
- *  chip's host (the Button's aria-label, or the sr-only span beside it). */
-function ChanceChip({ lang, chance }: { lang: Lang; chance: number }) {
+ *  chip's host (the Button's aria-label, or the sr-only span beside it). Exported for the Gantt's
+ *  milestone rows (§502 part 4), which wear the same chip. */
+export function ChanceChip({ lang, chance }: { lang: Lang; chance: number }) {
   return (
     <span aria-hidden="true" data-sim-chip="true" className={`inline-flex items-center gap-1 ${SIM_OUTLINE_CLASS}`}>
       <span className="text-xs font-medium text-foreground">{chanceText(lang, chance)}</span>
