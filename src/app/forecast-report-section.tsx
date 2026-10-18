@@ -22,7 +22,7 @@ import {
   computeScenarioColumn, computeScenarioComparison, sharedAsIsRun, type ScenarioColumn, type ScenarioRunInput,
 } from "./forecast-scenario-compare";
 import type { ScheduleForecast } from "./forecast";
-import { milestoneRowsWorstFirst } from "./forecast-milestone-rows";
+import { milestoneCounts, milestoneRowsWorstFirst } from "./forecast-milestone-rows";
 import { useRowTokens } from "./use-row-tokens";
 import type { ForecastHistoryEntry } from "./forecast-history";
 import type { ForecastScenario } from "./forecast-scenarios";
@@ -31,7 +31,7 @@ import { leverKey, useLeverSearch } from "./use-lever-search";
 import type { ForecastSettingsApi } from "./use-forecast-settings";
 import { chanceRagLevel, chanceSeverity, type TargetConfidence } from "./forecast-target";
 import { chanceRagLabel } from "./forecast-rag-label";
-import { forecastVerdict, milestonesBelowTarget, type ForecastVerdict } from "./forecast-verdict";
+import { forecastVerdict, type ForecastVerdict } from "./forecast-verdict";
 import { isValidIsoDate } from "./forecast/throughput";
 import { addCalendarDays, countWorkingDays } from "./working-days";
 import type { ForecastDraftRequest } from "./workspace-tab-context";
@@ -71,10 +71,13 @@ const PLAN_END_ROW_ID = -1;
 const nameOfRow = (r: { name: string }) => r.name;
 
 function verdictText(lang: Lang, verdict: ForecastVerdict, planEnd: string, chance: number, goal: TargetConfidence): { head: string; rest: string } {
-  const head = t(lang, verdict.severity === "success" ? "forecastReportVerdictOn" : "forecastReportVerdictBelow");
+  // The plan end on target but a milestone overdue: not "On target", and not "Below target" either (it is not).
+  const planEndOn = chanceSeverity(chance, goal) === "green";
+  const headKey = verdict.severity === "success" ? "forecastReportVerdictOn" : planEndOn ? "forecastReportVerdictOverdueHead" : "forecastReportVerdictBelow";
   const planEndText = t(lang, "forecastReportVerdictPlanEnd", formatDayMonthYear(planEnd, localeFor(lang)), formatChance(chance, lang), t(lang, "forecastPercent", goal));
   const milestones = verdict.total > 0 ? tPlural(lang, "forecastReportVerdictMilestones", verdict.below, verdict.below, verdict.total) : "";
-  return { head, rest: [planEndText, milestones].filter((s) => s !== "").join(" ") };
+  const overdue = verdict.overdue > 0 ? tPlural(lang, "forecastReportVerdictOverdue", verdict.overdue, verdict.overdue) : "";
+  return { head: t(lang, headKey), rest: [planEndText, milestones, overdue].filter((s) => s !== "").join(" ") };
 }
 
 /** "14 working days after plan end" under the Safe-to-commit tile; undefined beyond the horizon or with no plan end. */
@@ -149,8 +152,7 @@ function ForecastReportBody({ lang, input, scenarios, settings, history, currenc
 
   const explore = readOnly ? undefined : onExplore;
   const askClaude = aiEnabled && !readOnly;
-  const { below, total } = milestonesBelowTarget(forecast.milestones, goal);
-  const verdict = forecastVerdict(chanceOnTime, goal, below, total);
+  const verdict = forecastVerdict(chanceOnTime, goal, milestoneCounts(forecast.milestones, goal));
   const text = verdict === null || chanceOnTime === null ? null : verdictText(lang, verdict, input.planEnd, chanceOnTime, goal);
   const planEndBelow = chanceOnTime !== null && chanceSeverity(chanceOnTime, goal) !== "green";
   // Absent = the search left the plan end out (its `whatItTakesSync` is null): no lever line, as the view shows no cell.

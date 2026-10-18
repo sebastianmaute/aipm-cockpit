@@ -59,6 +59,10 @@ export function forecastDecisionRows(d: ForecastDecision, lang: Lang): string[][
   for (const m of d.below) {
     rows.push([t(lang, "forecastDecisionBelow", m.name, formatWhen(m.date, lang)), milestoneValue(lang, m, d.goal)]);
   }
+  // Overdue milestones have no chance, so no lever: the row says what the Reports table says (`forecastOverdue`).
+  for (const m of d.overdue) {
+    rows.push([t(lang, "forecastDecisionOverdue", m.name, formatWhen(m.date, lang)), t(lang, "forecastOverdue")]);
+  }
   if (d.proposal !== null) {
     const p = d.proposal;
     const onTime = p.chanceOnTime === null ? NONE : formatChance(p.chanceOnTime, lang);

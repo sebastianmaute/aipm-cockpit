@@ -39,3 +39,32 @@ export function milestoneRowsWorstFirst(milestones: readonly Milestone[], chance
 export function belowTargetRows(rows: readonly MilestoneRow[], goal: TargetConfidence): ChanceRow[] {
   return rows.filter((r): r is ChanceRow => r.asIs.state === "chance" && chanceSeverity(r.asIs.chance, goal) !== "green");
 }
+
+/** The overdue rows (past due, not finished), in the worst-first order's tail (date order). Worse than below target,
+ *  so the verdict and the export name them: they must never vanish behind an on-target count. */
+export function overdueRows(rows: readonly MilestoneRow[]): MilestoneRow[] {
+  return rows.filter((r) => r.asIs.state === "overdue");
+}
+
+export type MilestoneCounts = {
+  /** Milestones WITH a chance under the goal. */
+  below: number;
+  /** Milestones WITH a chance. An unlinked one (nothing to forecast) is neither below nor on target, so not counted. */
+  total: number;
+  /** Overdue milestones, counted apart: the verdict appends them and is never green while any exists. */
+  overdue: number;
+};
+
+/** The three counts the Reports verdict reads, by the same rules as `belowTargetRows` and `overdueRows`. */
+export function milestoneCounts(chances: readonly MilestoneChance[], goal: TargetConfidence): MilestoneCounts {
+  let below = 0;
+  let total = 0;
+  let overdue = 0;
+  for (const c of chances) {
+    if (c.state === "overdue") overdue += 1;
+    if (c.state !== "chance") continue;
+    total += 1;
+    if (chanceSeverity(c.chance, goal) !== "green") below += 1;
+  }
+  return { below, total, overdue };
+}

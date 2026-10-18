@@ -12,7 +12,7 @@
 
 import type { ScheduleForecastResult } from "./forecast";
 import { whatItTakesSync, type WhatItTakes } from "./forecast-levers";
-import { belowTargetRows, milestoneRowsWorstFirst } from "./forecast-milestone-rows";
+import { belowTargetRows, milestoneRowsWorstFirst, overdueRows } from "./forecast-milestone-rows";
 import {
   computeScenarioColumn, computeScenarioComparison, sharedAsIsRun,
   type ScenarioColumn, type ScenarioComparison, type ScenarioRunInput,
@@ -60,6 +60,8 @@ export type ForecastDecision =
       cost: { p80: DecisionMoney; overBudget: number | null; currency: BudgetCurrency } | null;
       /** Worst first. Only milestones WITH a chance below the goal: overdue and unlinked ones have none. */
       below: ForecastDecisionMilestone[];
+      /** Past due and not finished, in date order (`overdueRows`). Unlinked milestones are in neither list. */
+      overdue: { id: number; name: string; date: string }[];
       /** Null when no proposal is set, or the stored id names no saved scenario (`proposalIdOf`). */
       proposal: ForecastDecisionProposal | null;
     }
@@ -108,9 +110,11 @@ function decisionBase({ simulationActive, input, scenarios, settingsOverrides }:
   const forecast = asIs.forecast;
   if (forecast.kind !== "forecast") return { decision: { insufficient: true, goal }, run: null };
 
-  // The Reports tables' own rules (`forecast-milestone-rows.ts`): worst first, and below target.
-  const below = belowTargetRows(milestoneRowsWorstFirst(input.milestones, forecast.milestones), goal)
+  // The Reports tables' own rules (`forecast-milestone-rows.ts`): worst first, below target, and overdue.
+  const rows = milestoneRowsWorstFirst(input.milestones, forecast.milestones);
+  const below = belowTargetRows(rows, goal)
     .map((r): ForecastDecisionMilestone => ({ id: r.id, name: r.name, date: r.date, chance: r.asIs.chance, take: "pending" }));
+  const overdue = overdueRows(rows).map((r) => ({ id: r.id, name: r.name, date: r.date }));
 
   const proposalId = proposalIdOf(settingsOverrides, scenarios);
   const scenario = proposalId === null ? undefined : scenarios.find((s) => s.id === proposalId);
@@ -128,7 +132,7 @@ function decisionBase({ simulationActive, input, scenarios, settingsOverrides }:
     chanceOnTime: asIs.chanceOnTime,
     cost: asIs.cost?.kind === "sim"
       ? { p80: asIs.cost.p80, overBudget: asIs.cost.chanceOverBudget, currency: input.directory.baseCurrency } : null,
-    below, proposal,
+    below, overdue, proposal,
   };
   return { decision, run: { input, context, asIs } };
 }

@@ -22,6 +22,7 @@ const MOCKUP: ForecastDecision = {
     { id: 1, name: "Go-live", date: "2027-02-27", chance: 0.31, take: take(0.58, reaches(2), reaches(9)) },
     { id: 2, name: "UAT sign-off", date: "2027-02-06", chance: 0.64, take: take(0.83, reaches(1), reaches(3)) },
   ],
+  overdue: [],
   proposal: { name: "Contractor from Feb + drop reporting", p80: "2027-02-24", chanceOnTime: 0.83, costP80: 431000 },
 };
 type Ready = Extract<ForecastDecision, { insufficient: false }>;
@@ -39,6 +40,17 @@ describe("forecastDecisionRows (§502 part 4)", () => {
       ["Below target: UAT sign-off (6 Feb 2027)", "64% — to reach 80%: prioritise it → 83%, or +1 person (team average), or 3 fewer tasks"],
       ["Proposed intervention", "“Contractor from Feb + drop reporting” → P80 24 Feb 2027, 83% on time, cost at finish €431,000"],
     ]);
+  });
+
+  // Third review — an overdue milestone is named below the below-target rows, never hidden behind them.
+  it("adds one Overdue row per overdue milestone after the below-target rows", () => {
+    const rows = forecastDecisionRows(decision({ overdue: [{ id: 8, name: "Kickoff", date: "2027-01-04" }, { id: 9, name: "Design", date: "2027-01-20" }] }), LANG);
+    expect(rows.slice(-3)).toEqual([
+      ["Overdue: Kickoff (4 Jan 2027)", "Overdue"],
+      ["Overdue: Design (20 Jan 2027)", "Overdue"],
+      ["Proposed intervention", "“Contractor from Feb + drop reporting” → P80 24 Feb 2027, 83% on time, cost at finish €431,000"],
+    ]);
+    expect(rows[4][0]).toBe("Below target: UAT sign-off (6 Feb 2027)");
   });
 
   it("says insufficient in ONE row, still marked simulated", () => {

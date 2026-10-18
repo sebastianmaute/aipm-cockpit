@@ -4,10 +4,11 @@
  * the section formats the sentence.
  */
 import { chanceSeverity, type TargetConfidence } from "./forecast-target";
-import type { MilestoneChance } from "./forecast/milestones";
+import type { MilestoneCounts } from "./forecast-milestone-rows";
 
 export type VerdictSeverity = "error" | "warn" | "success";
-export type ForecastVerdict = { severity: VerdictSeverity; below: number; total: number };
+/** The counts are `milestoneCounts`' (forecast-milestone-rows.ts), so the verdict and the tables cannot drift. */
+export type ForecastVerdict = { severity: VerdictSeverity } & MilestoneCounts;
 
 const BANNER_SEVERITY: Record<ReturnType<typeof chanceSeverity>, VerdictSeverity> = {
   red: "error",
@@ -16,23 +17,10 @@ const BANNER_SEVERITY: Record<ReturnType<typeof chanceSeverity>, VerdictSeverity
 };
 
 /** `chanceSeverity` as a `Banner` severity: error below even odds, warn below the goal, success at or above it.
- *  Null when there is no chance on time (no valid plan end). */
-export function forecastVerdict(
-  chanceOnTime: number | null,
-  goal: TargetConfidence,
-  below: number,
-  total: number,
-): ForecastVerdict | null {
+ *  ★ AT MOST a warning while any milestone is overdue: a green "on target" must not hide one. Null when there is no
+ *  chance on time (no valid plan end). */
+export function forecastVerdict(chanceOnTime: number | null, goal: TargetConfidence, counts: MilestoneCounts): ForecastVerdict | null {
   if (chanceOnTime === null) return null;
-  return { severity: BANNER_SEVERITY[chanceSeverity(chanceOnTime, goal)], below, total };
-}
-
-/** `total` is every milestone the run reports (achieved ones are not reported); `below` counts those WITH a chance
- *  under the goal. An overdue milestone, or one with nothing linked, has no chance and is not counted as below. */
-export function milestonesBelowTarget(
-  chances: readonly MilestoneChance[],
-  goal: TargetConfidence,
-): { below: number; total: number } {
-  const below = chances.filter((c) => c.state === "chance" && chanceSeverity(c.chance, goal) !== "green").length;
-  return { below, total: chances.length };
+  const severity = BANNER_SEVERITY[chanceSeverity(chanceOnTime, goal)];
+  return { severity: severity === "success" && counts.overdue > 0 ? "warn" : severity, ...counts };
 }

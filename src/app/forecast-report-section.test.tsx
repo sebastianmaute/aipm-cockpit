@@ -18,6 +18,7 @@ import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
 import type { Milestone, Resource, Role, Task } from "./types";
 import { rowLabel } from "./row-tokens";
 import { t } from "./i18n";
+import { SEVERITY_CLASS } from "./banner";
 import { workingDaysBefore } from "./working-days";
 
 const stub = vi.hoisted(() => ({ values: new Map<string, unknown>(), calls: [] as unknown[] }));
@@ -128,7 +129,26 @@ describe("ForecastReportSection — a forecast", () => {
   test("states the verdict against the target", () => {
     renderSection();
     const banner = screen.getByTestId("forecast-verdict");
-    expect(banner.textContent).toMatch(/^Below target\. Plan end .+ has a .+ chance \(target 80%\)\. 1 of 3 milestones is below target\.$/);
+    // Overdue "Old" has no chance: it counts apart, never into the "of N" (third review).
+    expect(banner.textContent).toMatch(/^Below target\. Plan end .+ has a .+ chance \(target 80%\)\. 1 of 2 milestones is below target\. 1 milestone overdue\.$/);
+  });
+
+  // Third review — an on-target plan end with overdue milestones must not read green "On target … 0 of 5".
+  test("2 overdue + 1 unlinked + 3 on target: 0 of 3, 2 overdue, and not a success", () => {
+    const MIXED: Milestone[] = [
+      { id: 21, name: "Kickoff", date: "2026-10-01", linkedTaskIds: [OPEN[0].id] },
+      { id: 22, name: "Design", date: "2026-10-05", linkedTaskIds: [OPEN[1].id] },
+      { id: 23, name: "Nothing linked", date: "2026-12-01", linkedTaskIds: [] },
+      { id: 24, name: "A", date: "2027-06-01", linkedTaskIds: [OPEN[2].id] },
+      { id: 25, name: "B", date: "2027-06-01", linkedTaskIds: [OPEN[3].id] },
+      { id: 26, name: "C", date: "2027-06-01", linkedTaskIds: [OPEN[4].id] },
+    ];
+    stub.values = new Map();
+    renderSection({ input: input({ milestones: MIXED, planEnd: "2027-06-30" }) });
+    const banner = screen.getByTestId("forecast-verdict");
+    expect(banner.textContent).toMatch(/^Milestones overdue\. Plan end .+ has a .+ chance \(target 80%\)\. 0 of 3 milestones are below target\. 2 milestones overdue\.$/);
+    expect(banner.className).toContain(SEVERITY_CLASS.warn);
+    expect(banner.className).not.toContain(SEVERITY_CLASS.success);
   });
 
   test("lists milestones worst first, the overdue one last", () => {

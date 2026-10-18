@@ -6,6 +6,8 @@ import {
 import { whatItTakesSync } from "./forecast-levers";
 import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
 import type { ForecastScenario } from "./forecast-scenarios";
+import { forecastDecisionRows } from "./export-forecast-decision-section";
+import type { Milestone } from "./types";
 import { OPEN, PLAN_END, TODAY, decisionInput } from "../test/forecast-decision-fixture";
 
 const input = (over: Partial<ScenarioRunInput> = {}): ScenarioRunInput => decisionInput(over);
@@ -128,5 +130,27 @@ describe("buildForecastDecisionBase and withTakes (the preview path)", () => {
     expect(filled.below.find((m) => m.id === 4)?.take).toBe("pending");
     const insufficient = { insufficient: true, goal: 80 } as const;
     expect(withTakes(insufficient, () => null)).toBe(insufficient);
+  });
+});
+
+// Third review — overdue milestones must not vanish from the export behind an empty below-target list.
+describe("overdue milestones in the decision and its export rows", () => {
+  const MIXED: Milestone[] = [
+    { id: 21, name: "Kickoff", date: "2026-10-01", linkedTaskIds: [OPEN[0].id] },
+    { id: 22, name: "Design", date: "2026-10-05", linkedTaskIds: [OPEN[1].id] },
+    { id: 23, name: "Nothing linked", date: "2026-12-01", linkedTaskIds: [] },
+    { id: 24, name: "A", date: "2027-06-01", linkedTaskIds: [OPEN[2].id] },
+    { id: 25, name: "B", date: "2027-06-01", linkedTaskIds: [OPEN[3].id] },
+    { id: 26, name: "C", date: "2027-06-01", linkedTaskIds: [OPEN[4].id] },
+  ];
+
+  it("2 overdue + 1 unlinked + 3 on target: nothing below, both overdue in date order, the unlinked in neither", () => {
+    const d = ready(buildForecastDecision(args({ input: input({ milestones: MIXED, planEnd: "2027-06-30" }) })));
+    expect(d.below).toEqual([]);
+    expect(d.overdue.map((m) => m.name)).toEqual(["Kickoff", "Design"]);
+    const rows = forecastDecisionRows(d, "en-GB");
+    expect(rows.filter(([label]) => label.startsWith("Overdue: ")).map(([label, value]) => [label.replace(/ \(.*\)$/, ""), value]))
+      .toEqual([["Overdue: Kickoff", "Overdue"], ["Overdue: Design", "Overdue"]]);
+    expect(rows.some(([label, value]) => `${label} ${value}`.includes("Nothing linked"))).toBe(false);
   });
 });
