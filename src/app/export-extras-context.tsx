@@ -25,7 +25,9 @@
 // so their lever search runs off the render path.
 // ★ The handle changes on every task, milestone or plan edit; the extras value
 //   does NOT follow it. Its `forecastDecision` is one stable thunk that calls
-//   the LATEST source (kept in a ref, updated after commit), so the value keeps
+//   the LATEST source (kept in a ref, updated in a LAYOUT effect: it runs in the
+//   same commit, before the browser paints or dispatches the next event, so an
+//   export click can never read the previous edit's source), so the value keeps
 //   its identity while the forecast bundle and the section's presence hold, and
 //   the leaves under memoised panels (chat cards, the Documents pane, the block
 //   editors) do not re-render on every edit. Every caller of that thunk calls it
@@ -38,7 +40,7 @@
 // the same recipe (`useWorkspaceForecastDecisionSource`). Neither is a published
 // module slot — that held the last mounted section's source, so it was empty on
 // the modern shell's Open Points, Settings and Learning insights views.
-import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import type { ExportExtras } from "./export-forecast-section";
 import type { ForecastBundle } from "./budget-forecast-bundle";
 import type { ForecastDecisionHandle, ForecastDecisionLive, ForecastDecisionSource } from "./forecast-decision";
@@ -66,7 +68,7 @@ export function ExportExtrasProvider({
   children: ReactNode;
 }) {
   const latest = useRef(forecastDecision);
-  useEffect(() => {
+  useLayoutEffect(() => {
     latest.current = forecastDecision;
   }, [forecastDecision]);
   const hasDecision = forecastDecision !== null;

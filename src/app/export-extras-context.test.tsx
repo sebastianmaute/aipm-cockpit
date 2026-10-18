@@ -50,6 +50,21 @@ describe("ExportExtrasProvider — forecastDecision", () => {
     expect(seen[1].forecastDecision).toBeUndefined();
   });
 
+  // Review 4 — the ref is set in a LAYOUT effect, so anything after the commit already reads the new source. A child's
+  // passive effect runs before its parent's passive effects, so it would still see the old one were the ref set there.
+  it("a child's passive effect in the same commit already reads the new handle's source", () => {
+    const answers: unknown[] = [];
+    function Reader() {
+      const extras = useExportExtras();
+      useEffect(() => { answers.push(extras.forecastDecision?.()); });
+      return null;
+    }
+    const next: ForecastDecisionHandle = { ...handle, source: () => ({ insufficient: true, goal: 95 }) };
+    const { rerender } = render(<ExportExtrasProvider forecast={null} forecastDecision={handle}><Reader /></ExportExtrasProvider>);
+    rerender(<ExportExtrasProvider forecast={null} forecastDecision={next}><Reader /></ExportExtrasProvider>);
+    expect(answers.at(-1)).toEqual({ insufficient: true, goal: 95 });
+  });
+
   it("hands the live half to previews through its own context, which follows the handle", () => {
     const lives: (ForecastDecisionLive | undefined)[] = [];
     function LiveProbe() {
