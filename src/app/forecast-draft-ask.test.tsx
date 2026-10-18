@@ -11,7 +11,7 @@ import type { WhatItTakes } from "./forecast-levers";
 const requestChat = vi.fn();
 vi.mock("./workspace-tab-context", () => ({ useWorkspaceTab: () => ({ requestChat }) }));
 
-const GO_LIVE = { name: "Go-live", date: "2026-10-20", chance: 0.31 };
+const GO_LIVE = { id: 7, name: "Go-live", date: "2026-10-20", chance: 0.31 };
 const LEVERS: WhatItTakes = {
   target: { kind: "milestone", id: 1 }, chance: 0.31, prioritised: 0.58,
   people: { state: "reaches", n: 2, chance: 0.81, hours: null }, tasks: { state: "reaches", n: 9, chance: 0.8, hours: null },
@@ -30,6 +30,8 @@ describe("ForecastDraftAsk", () => {
     const [body, autoSend] = requestChat.mock.calls[0] as [string, boolean];
     expect(autoSend).toBe(true);
     expect(body).toContain("Go-live");
+    // Pre-merge review M2 — the id, so twin names stay apart: "{0}" (id {4}, due {1}).
+    expect(body).toContain('the milestone "Go-live" (id 7, due ');
     expect(body).toContain("31%");
     expect(body).toContain("80%");
     // Spec §3.6: combine levers, name the tasks to drop, save through the approve step.
@@ -63,6 +65,7 @@ describe("ForecastDraftAsk", () => {
     render(<ForecastDraftAsk lang="de" milestone={GO_LIVE} goal={80} />);
     await userEvent.click(screen.getByRole("button", { name: /Claude einen Vorschlag entwerfen lassen/ }));
     const body = requestChat.mock.calls[0][0] as string;
+    expect(body).toContain('der Meilenstein "Go-live" (ID 7, fällig ');
     expect(body).toContain("31 %");
     expect(body).toContain("Kombiniere Hebel");
     expect(body).toContain("create_forecast_scenario");

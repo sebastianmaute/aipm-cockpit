@@ -298,7 +298,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
     if (!aiEnabled || !showSimulation || isPopout || result?.kind !== "forecast") return undefined;
     const m = milestones.find((x) => x.id === id);
     const c = result.milestones.find((x) => x.id === id);
-    return m === undefined || c?.state !== "chance" ? undefined : { name: m.name, date: m.date, chance: c.chance };
+    return m === undefined || c?.state !== "chance" ? undefined : { id: m.id, name: m.name, date: m.date, chance: c.chance };
   };
   const leverColumn = leversOn ? {
     header: t(lang, "forecastColWhatItTakes", t(lang, "forecastPercent", goal)),

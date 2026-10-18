@@ -831,7 +831,7 @@ const enUS = {
   forecastReportMilestonesTitle: "Milestones — worst first",
   forecastReportExplore: "Explore in Forecast",
   forecastDraftAskLabel: "Ask Claude to draft a proposal",
-  forecastDraftAskBody: "Draft a proposal that gets the milestone \"{0}\" (due {1}) to my target. It has a {2} chance of finishing on time today and my target is {3}. Use get_forecast with whatIf to check each option. Combine levers if one alone is not enough. Name the tasks to drop, in the scenario name and in the chat. Save the result with create_forecast_scenario under the usual approve step.",
+  forecastDraftAskBody: "Draft a proposal that gets the milestone \"{0}\" (id {4}, due {1}) to my target. It has a {2} chance of finishing on time today and my target is {3}. Use get_forecast with whatIf to check each option. Combine levers if one alone is not enough. Name the tasks to drop, in the scenario name and in the chat. Save the result with create_forecast_scenario under the usual approve step.",
   forecastDraftAskBodyPlan: "Draft a proposal that gets the plan end ({0}) to my target. It has a {1} chance of finishing on time today and my target is {2}. Use get_forecast with whatIf to check each option. Combine levers if one alone is not enough. Name the tasks to drop, in the scenario name and in the chat. Save the result with create_forecast_scenario under the usual approve step.",
   forecastReportProposalTitle: "Proposed intervention",
   forecastReportProposalLabel: "Proposal",

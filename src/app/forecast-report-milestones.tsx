@@ -48,7 +48,7 @@ function LeverCell({ lang, row, token, goal, levers, onExplore, askClaude }: {
     <ForecastLeverCell
       lang={lang} milestoneName={token} result={value} goal={goal}
       onExplore={exploreFor(target, value, onExplore)} exploreLabel={t(lang, "forecastReportExplore")}
-      askClaude={askClaude ? { name: row.name, date: row.date, chance: row.asIs.chance } : undefined}
+      askClaude={askClaude ? { id: row.id, name: row.name, date: row.date, chance: row.asIs.chance } : undefined}
     />
   );
 }

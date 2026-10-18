@@ -15,7 +15,9 @@ import { rowLabel } from "./row-tokens";
 import type { TargetConfidence } from "./forecast-target";
 import { useWorkspaceTab } from "./workspace-tab-context";
 
-export type DraftAskMilestone = { name: string; date: string; chance: number };
+/** `id` rides the prompt so Claude can address the milestone (`create_forecast_scenario` takes `milestoneId`)
+ *  without matching on a name two milestones may share. */
+export type DraftAskMilestone = { id: number; name: string; date: string; chance: number };
 export type DraftAskPlan = { date: string; chance: number };
 
 type Props = {
@@ -44,7 +46,7 @@ export function ForecastDraftAsk({ lang, milestone, plan, goal, rowName }: Props
   const goalText = t(lang, "forecastPercent", goal);
   const body = milestone === null
     ? t(lang, "forecastDraftAskBodyPlan", dateText(lang, plan.date), formatChance(plan.chance, lang), goalText)
-    : t(lang, "forecastDraftAskBody", milestone.name, dateText(lang, milestone.date), formatChance(milestone.chance, lang), goalText);
+    : t(lang, "forecastDraftAskBody", milestone.name, dateText(lang, milestone.date), formatChance(milestone.chance, lang), goalText, milestone.id);
   const target = milestone === null ? rowName : (rowName ?? milestone.name);
   return (
     <Button
