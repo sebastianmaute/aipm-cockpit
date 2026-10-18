@@ -24,7 +24,8 @@ export type ForecastLeverCellProps = {
   onExplore?: (kind: LeverKind, n: number) => void;
   /** The Explore button's visible label: "Explore" in the Forecast view, "Explore in Forecast" on Reports (spec §3.4). */
   exploreLabel?: string;
-  /** The row's milestone, when "Ask Claude to draft a proposal" is offered (AI on, simulation active, no popout); absent = no button. */
+  /** The row's milestone, when "Ask Claude to draft a proposal" is offered (below target with a chance, AI on, simulation
+   *  active, no popout); absent = no button. Shown while the search is still working too. */
   askClaude?: DraftAskMilestone;
 };
 
@@ -44,7 +45,13 @@ export function alternativeLever(r: WhatItTakes, kind: LeverKind): Lever | null 
 }
 
 export function ForecastLeverCell({ lang, milestoneName, result, goal, onExplore, exploreLabel = t(lang, "forecastExplore"), askClaude }: ForecastLeverCellProps) {
-  if (result === "pending") return <span className="text-xs text-muted-foreground">{t(lang, "forecastLeverWorking")}</span>;
+  // The Ask-Claude button needs nothing from the search, so it does not wait for it: the caller passes `askClaude`
+  // only for a below-target row with a chance.
+  const ask = askClaude && <ForecastDraftAsk lang={lang} milestone={askClaude} rowName={milestoneName} goal={goal} />;
+  if (result === "pending") {
+    const working = <span className="text-xs text-muted-foreground">{t(lang, "forecastLeverWorking")}</span>;
+    return ask ? <div className="flex flex-col items-start gap-1">{working}{ask}</div> : working;
+  }
   if (result.people.state === "on-target" && result.tasks.state === "on-target") {
     return <span className="text-xs text-muted-foreground">{t(lang, "forecastLeverOnTarget")}</span>;
   }
@@ -66,7 +73,7 @@ export function ForecastLeverCell({ lang, milestoneName, result, goal, onExplore
           {exploreLabel} <span aria-hidden="true">→</span>
         </Button>
       )}
-      {askClaude && <ForecastDraftAsk lang={lang} milestone={askClaude} rowName={milestoneName} goal={goal} />}
+      {ask}
     </div>
   );
 }

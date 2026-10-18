@@ -184,12 +184,16 @@ describe("ForecastPanel — what it would take (§502 part 4)", () => {
     expect(goLive.querySelector("[data-lever-badge]")).not.toBeNull();
   });
 
+  // Go-live due in four working days: below target by the REAL engine too, since the panel now gates Ask on the run's
+  // chance (third review Minor 1), not on the stubbed search result.
+  const DUE_SOON: Milestone[] = MILESTONES.map((m) => (m.id === 1 ? { ...m, date: "2026-10-20" } : m));
+
   test("Ask Claude to draft a proposal: AI on + simulation + no popout, and only on a row with a chance", () => {
     stub.values = new Map<string, LeverValue>([["m:1", GO_LIVE_LEVERS], ["m:3", { ...GO_LIVE_LEVERS, target: { kind: "milestone", id: 3 } }]]);
     const settings: ForecastSettingsApi = { target: 80, proposalId: null, setProposal: () => {}, setTarget: () => {} };
     const panel = (over: { aiEnabled?: boolean; isPopout?: boolean }) => (
       <ForecastPanel
-        lang="en-US" tasks={TASKS} milestones={MILESTONES} plan={PLAN} today={TODAY} holidaySet={NONE} showSimulation
+        lang="en-US" tasks={TASKS} milestones={DUE_SOON} plan={PLAN} today={TODAY} holidaySet={NONE} showSimulation
         budgetFacts={BUDGET_FACTS} scenarios={scenariosProps()} forecastSettings={settings} {...over}
       />
     );
@@ -203,6 +207,25 @@ describe("ForecastPanel — what it would take (§502 part 4)", () => {
     render(panel({ aiEnabled: true }));
     expect(within(screen.getByRole("row", { name: /^Go-live/ })).getByRole("button", { name: rowLabel("Ask Claude to draft a proposal", "Go-live") })).toBeInTheDocument();
     expect(within(screen.getByRole("row", { name: /^Old/ })).queryByRole("button")).toBeNull();
+  });
+
+  // Third review Minor 1 — the button shows while the search works, so the panel (not the result) gates it on target.
+  test("while the search is pending: a below-target row offers Ask, an on-target row does not", () => {
+    const LATER: Milestone = { id: 4, name: "Later", date: "2027-06-01", linkedTaskIds: [OPEN[11].id] };
+    stub.values = new Map<string, LeverValue>([["m:1", "pending"], ["m:4", "pending"]]);
+    const settings: ForecastSettingsApi = { target: 80, proposalId: null, setProposal: () => {}, setTarget: () => {} };
+    render(
+      <ForecastPanel
+        lang="en-US" tasks={TASKS} milestones={[...DUE_SOON, LATER]} plan={PLAN} today={TODAY} holidaySet={NONE} showSimulation
+        budgetFacts={BUDGET_FACTS} scenarios={scenariosProps()} forecastSettings={settings} aiEnabled
+      />,
+    );
+    const goLive = screen.getByRole("row", { name: /^Go-live/ });
+    expect(within(goLive).getByText("Working it out…")).toBeInTheDocument();
+    expect(within(goLive).getByRole("button", { name: rowLabel("Ask Claude to draft a proposal", "Go-live") })).toBeInTheDocument();
+    const later = screen.getByRole("row", { name: /^Later/ });
+    expect(within(later).getByText("Working it out…")).toBeInTheDocument();
+    expect(within(later).queryByRole("button")).toBeNull();
   });
 
   test("Explore opens Scenarios on a draft of the people lever; Cancel saves nothing", async () => {

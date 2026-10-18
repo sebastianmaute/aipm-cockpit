@@ -35,7 +35,7 @@ import type { LeverKind, LeverTarget } from "./forecast-levers";
 import { leverKey, useLeverSearch } from "./use-lever-search";
 import type { ForecastSettingsApi } from "./use-forecast-settings";
 import type { ForecastDraftRequest } from "./workspace-tab-context";
-import { DEFAULT_TARGET_CONFIDENCE, chanceRagLevel } from "./forecast-target";
+import { DEFAULT_TARGET_CONFIDENCE, chanceRagLevel, chanceSeverity } from "./forecast-target";
 import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
 import { ForecastAskClaude, worstMilestoneName } from "./forecast-ask-claude";
 import { isValidIsoDate } from "./forecast/throughput";
@@ -293,12 +293,14 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
     if (value === undefined || value === "pending") return;
     openDraft({ target: { kind: "milestone", id }, kind, n, alt: alternativeLever(value, kind) });
   };
-  // "Ask Claude to draft a proposal" on a lever row: the same gate as the menu above, and only a row with a chance.
+  // "Ask Claude to draft a proposal" on a lever row: the same gate as the menu above, and only a row with a chance
+  // BELOW the goal. The cell shows it at once, before the search settles, so the gate cannot lean on the search.
   const askMilestone = (id: number) => {
     if (!aiEnabled || !showSimulation || isPopout || result?.kind !== "forecast") return undefined;
     const m = milestones.find((x) => x.id === id);
     const c = result.milestones.find((x) => x.id === id);
-    return m === undefined || c?.state !== "chance" ? undefined : { id: m.id, name: m.name, date: m.date, chance: c.chance };
+    if (m === undefined || c?.state !== "chance" || chanceSeverity(c.chance, goal) === "green") return undefined;
+    return { id: m.id, name: m.name, date: m.date, chance: c.chance };
   };
   const leverColumn = leversOn ? {
     header: t(lang, "forecastColWhatItTakes", t(lang, "forecastPercent", goal)),

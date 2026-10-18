@@ -104,4 +104,15 @@ describe("ForecastLeverCell — Ask Claude", () => {
     render(<ForecastLeverCell lang="en-US" milestoneName="Go-live" result={onTarget} goal={80} askClaude={GO_LIVE} />);
     expect(screen.queryByRole("button")).toBeNull();
   });
+
+  // Third review Minor 1 — the button needs nothing from the search, so it does not wait for it.
+  test("offers the button beside 'Working it out…' while the search is still pending", () => {
+    const { rerender } = render(<ForecastLeverCell lang="en-US" milestoneName="Go-live" result="pending" goal={80} askClaude={GO_LIVE} />);
+    expect(screen.getByText(t("en-US", "forecastLeverWorking"))).toBeTruthy();
+    expect(screen.getByRole("button", { name: rowLabel("Ask Claude to draft a proposal", "Go-live") })).toBeTruthy();
+    // Without the milestone (the row does not qualify), the placeholder stands alone.
+    rerender(<ForecastLeverCell lang="en-US" milestoneName="Go-live" result="pending" goal={80} />);
+    expect(screen.getByText(t("en-US", "forecastLeverWorking"))).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
 });
