@@ -319,12 +319,10 @@ export function WorkspaceSection({
   const [milestoneCreateNonce, setMilestoneCreateNonce] = useState(0);
   const subTabs = subTabsFor(activeTab, features, trends.active);
   const milestonesEnabled = isModuleEnabled("milestones", features);
-  // §502 — the shared schedule run for the Budget report's budget simulation (both the tab and the
-  // block on Reports) and, part 4, the Gantt's band, P80 line and chance chips. The context's
-  // `tasks`/`milestones` and task-manager's `holidaySet`/`today` are the references the history recorder
-  // and `useNextActions` pass, so `computeAppForecast`'s memo is shared; like them it waits for the
-  // holiday calendar. Null on every other tab.
-  const budgetSimulation = useAppForecast({
+  // §502 — the shared app forecast: the Budget report's simulation (the tab and the block on Reports) and the
+  // Gantt's band, P80 line and chance chips. The references are the history recorder's and `useNextActions`',
+  // so `computeAppForecast`'s memo is shared; like them it waits for the holiday calendar. Null on other tabs.
+  const appForecast = useAppForecast({
     tasks, milestones, planEnd: plan.endDate, today, holidaySet,
     active: isSimulationActive(workspace.settingsOverrides, features) && holidaysReady !== false
       && (activeTab === "budget-report" || activeTab === "reports" || activeTab === "gantt"),
@@ -556,7 +554,7 @@ export function WorkspaceSection({
               snapshots={trendsActive ? trendsSnapshots : EMPTY_SNAPSHOTS}
               budgetHistory={budgetHistory}
               baselineHistory={baselineHistory}
-              budgetSimulation={budgetSimulation}
+              budgetSimulation={appForecast}
               simulationActive={simulationActive}
               forecast={simulationActive ? {
                 input: reportsForecastInput, scenarios: forecastScenariosApi.scenarios, settings: forecastSettings, history: forecastHistory,
@@ -594,7 +592,7 @@ export function WorkspaceSection({
               logActivity={logActivity}
               logActivityChanges={logActivityChanges}
               isSwapInFlight={isSwapInFlight}
-              forecast={budgetSimulation}
+              forecast={appForecast}
             />
           </div>
         )}
@@ -916,7 +914,7 @@ export function WorkspaceSection({
               snapshots={trendsActive ? trendsSnapshots : EMPTY_SNAPSHOTS}
               budgetHistory={budgetHistory}
               baselineHistory={baselineHistory}
-              simulation={budgetSimulation}
+              simulation={appForecast}
             />
           </div>
         )}

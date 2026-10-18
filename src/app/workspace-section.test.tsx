@@ -689,7 +689,7 @@ describe("WorkspaceSection — budget simulation for Reports", () => {
     expect(passed).toBe(computeAppForecast(seen.refs!));
   });
 
-  // Mutation: dropping `simulation={budgetSimulation}` from the Budget report tab turns this red.
+  // Mutation: dropping `simulation={appForecast}` from the Budget report tab turns this red.
   it("passes the same run to the Budget report tab", async () => {
     showForecastView();
     const props = makeProps();
