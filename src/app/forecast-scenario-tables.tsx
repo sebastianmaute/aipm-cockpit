@@ -14,6 +14,7 @@ import { formatCurrency } from "./resource-cost";
 import { SimValue } from "./sim-value";
 import { Badge } from "./badge";
 import { RagDot } from "./rag-dot";
+import { chanceRagLabel } from "./forecast-rag-label";
 import type { Health } from "./health";
 import { chanceRagLevel, type TargetConfidence } from "./forecast-target";
 import { Section } from "./report-table";
@@ -122,7 +123,7 @@ function FigureCell({ lang, cell, label, rag }: { lang: Lang; cell: Cell; label:
   if (cell === null) return null;
   return (
     <td rowSpan={cell.rowSpan} className={`${CELL} text-right tabular-nums ${cell.sim ? "" : "text-muted-foreground"}`}>
-      {rag && <RagDot level={rag} className="mr-1.5" />}
+      {rag && <RagDot level={rag} label={chanceRagLabel(lang, rag)} className="mr-1.5" />}
       {cell.sim ? <SimValue lang={lang} label={label} value={cell.text} /> : cell.text}
     </td>
   );

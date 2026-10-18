@@ -11,14 +11,14 @@ vi.mock("./forecast-scenario-compare", () => ({
   computeScenarioColumn: (input: { tag: string }) => ({ computedFrom: input.tag }),
 }));
 vi.mock("./forecast-scenario-tables", () => ({
-  ScenarioComparisonTable: ({ columns }: { columns: ComparedColumn[] }) => (
-    <ul>{columns.map((c) => <li key={c.key} data-testid={c.key}>{(c.column as unknown as { computedFrom?: string }).computedFrom ?? "as-is"}</li>)}</ul>
+  ScenarioComparisonTable: ({ columns, noBudget }: { columns: ComparedColumn[]; noBudget?: boolean }) => (
+    <ul data-no-budget={String(noBudget === true)}>{columns.map((c) => <li key={c.key} data-testid={c.key}>{(c.column as unknown as { computedFrom?: string }).computedFrom ?? "as-is"}</li>)}</ul>
   ),
   ScenarioMilestoneTable: () => null,
 }));
 
-const compareOf = (tag: string): DraftCompareInput => ({
-  input: { tag, milestones: [], directory: { baseCurrency: "EUR" } } as unknown as DraftCompareInput["input"],
+const compareOf = (tag: string, over: Record<string, unknown> = {}): DraftCompareInput => ({
+  input: { tag, milestones: [], directory: { baseCurrency: "EUR" }, costOn: false, budgetFacts: null, ...over } as unknown as DraftCompareInput["input"],
   asIs: {} as DraftCompareInput["asIs"],
 });
 const CONTEXT = {} as ScheduleContext;
@@ -30,6 +30,25 @@ const view = (compare: DraftCompareInput, changes: readonly ScenarioChange[] | n
 describe("ScenarioDraftCompare", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
+
+  it("says Calculating… while the draft is being computed, and Incomplete-draft text without rows", () => {
+    const { rerender } = render(view(compareOf("a"), CHANGES));
+    expect(screen.getByText("Calculating…")).toBeTruthy();
+    expect(screen.queryByText("Working it out…")).toBeNull();
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(screen.queryByText("Calculating…")).toBeNull();
+    rerender(view(compareOf("a"), null));
+    expect(screen.queryByText("Calculating…")).toBeNull();
+  });
+
+  it("passes the no-budget note down when cost is on and there are no budget facts (§502)", () => {
+    const { container, rerender } = render(view(compareOf("a", { costOn: true, budgetFacts: null }), CHANGES));
+    expect(container.querySelector("ul")?.getAttribute("data-no-budget")).toBe("true");
+    rerender(view(compareOf("a", { costOn: true, budgetFacts: {} }), CHANGES));
+    expect(container.querySelector("ul")?.getAttribute("data-no-budget")).toBe("false");
+    rerender(view(compareOf("a", { costOn: false, budgetFacts: null }), CHANGES));
+    expect(container.querySelector("ul")?.getAttribute("data-no-budget")).toBe("false");
+  });
 
   it("shows no Draft column once the As is input changes, until the draft is recomputed from the new input (§502)", () => {
     const first = compareOf("old");

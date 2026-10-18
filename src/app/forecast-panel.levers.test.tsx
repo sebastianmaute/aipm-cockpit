@@ -156,6 +156,12 @@ describe("ForecastPanel — what it would take (§502 part 4)", () => {
     expect(screen.getByRole("columnheader", { name: /What it would take/ })).toBeInTheDocument();
   });
 
+  test("each chance dot in the Quick milestone table has a text equivalent", () => {
+    render(<Harness />);
+    const dots = screen.getAllByRole("img", { name: /^(below 50%|below target|at or above target)$/ });
+    expect(dots.length).toBeGreaterThan(0);
+  });
+
   test("Ruling A: an overdue milestone is not searched and its row has no lever and no Explore", () => {
     stub.values = new Map<string, LeverValue>([["m:1", GO_LIVE_LEVERS], ["m:3", { ...GO_LIVE_LEVERS, target: { kind: "milestone", id: 3 } }]]);
     render(<Harness />);

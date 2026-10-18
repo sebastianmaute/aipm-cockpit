@@ -24,6 +24,7 @@ import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useRowTokens } from "./use-row-tokens";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RagDot } from "./rag-dot";
+import { chanceRagLabel } from "./forecast-rag-label";
 import type { Health } from "./health";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -240,10 +241,11 @@ export function MilestoneTable({
               const text = stateText(row.result, lang);
               // The token can't miss: every rendered row went through useRowTokens above.
               const token = tokens.get(row.id) ?? row.name;
+              const rag = levers && row.result.state === "chance" ? levers.rag(row.result.chance) : undefined;
               return (
                 <tr key={row.id} data-deeplink-row={row.id} className={flashOutlineClass(flashId === row.id) || undefined}>
                   <th scope="row" aria-label={token} className={`${CELL} font-medium text-foreground`}>
-                    {levers && row.result.state === "chance" && <RagDot level={levers.rag(row.result.chance)} className="mr-1.5" />}
+                    {rag && <RagDot level={rag} label={chanceRagLabel(lang, rag)} className="mr-1.5" />}
                     {row.name}
                   </th>
                   <td className={`${CELL} tabular-nums text-muted-foreground`}>{isValidIsoDate(row.date) ? formatDayMonthYear(row.date, locale) : ""}</td>

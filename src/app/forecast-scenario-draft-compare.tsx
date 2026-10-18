@@ -55,7 +55,7 @@ export function ScenarioDraftCompare({ lang, compare, context, changes }: {
       <ScenarioComparisonTable lang={lang} columns={columns} currency={input.directory.baseCurrency} noBudget={input.costOn && input.budgetFacts === null} />
       {draft === null && (
         <p className="text-xs text-muted-foreground">
-          {t(lang, changes === null ? "forecastScenarioDraftIncomplete" : "forecastLeverWorking")}
+          {t(lang, changes === null ? "forecastScenarioDraftIncomplete" : "forecastScenarioDraftCalculating")}
         </p>
       )}
       <ScenarioMilestoneTable lang={lang} milestones={input.milestones} columns={columns} goal={goal} />
