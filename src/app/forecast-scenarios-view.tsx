@@ -22,6 +22,8 @@ import { formatWhen } from "./forecast-tables";
 import { InsufficientState } from "./forecast-insufficient";
 import { Button } from "./button";
 import { useConfirm } from "./confirm-dialog";
+import { reportCapabilityGap } from "./guard-feedback";
+import { useToastContext } from "./toast-context";
 import { Section } from "./report-table";
 import { rowLabel } from "./row-tokens";
 import { useRowTokens } from "./use-row-tokens";
@@ -221,6 +223,7 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
   );
   const tokens = useRowTokens(named, nameOf);
   const [ownDialog, setDialog] = useState<ScenarioDialog | null>(null);
+  const showToast = useToastContext();
 
   const columns = useMemo<ComparedColumn[]>(
     () => [
@@ -242,8 +245,10 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
   // otherwise an undo that restores the milestone would reopen the editor uninvited.
   const draftLost = draft !== null && draftDialog === null;
   useEffect(() => {
-    if (draftLost) onDraftClose?.("cancelled");
-  }, [draftLost, onDraftClose]);
+    if (!draftLost) return;
+    reportCapabilityGap(showToast, lang, "forecast.draftClosed", "forecastDraftClosedUndraftable");
+    onDraftClose?.("cancelled");
+  }, [draftLost, onDraftClose, showToast, lang]);
   const dialog = draftDialog ?? ownDialog;
   // The editor's live As is vs. Draft comparison, for every editor (new, edit, Explore). One object per As-is run, so
   // the editor's recompute timer is not restarted by unrelated renders.

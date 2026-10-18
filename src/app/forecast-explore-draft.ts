@@ -53,8 +53,10 @@ function leverSeed(
   lang: Lang, target: LeverTarget, targetName: string, lever: Lever, context: ScheduleContext, input: ScenarioRunInput,
   list: readonly ForecastScenario[],
 ): ScenarioDraft | null {
-  const who = lever.kind === "people" ? placeholderWho(context, input.directory) : null;
-  if (lever.kind === "people" && who === null) return null;
+  const sized = lever.kind === "people" ? placeholderWho(context, input.directory) : null;
+  if (lever.kind === "people" && sized === null) return null;
+  // The engine's default label is English; the draft the PM sees carries the translated placeholder name.
+  const who = sized === null ? null : { ...sized, label: t(lang, "forecastScenarioPlaceholder") };
   return {
     name: exploreDraftName(lang, targetName, leverPhrase(lang, lever.kind, lever.n), list),
     changes: [leverChange(lever.kind, lever.n, target, who, input.today)],

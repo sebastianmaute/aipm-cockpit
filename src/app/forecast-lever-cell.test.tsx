@@ -83,6 +83,11 @@ describe("ForecastLeverCell", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
+  it("reads On target from the engine's state, not from the chance (one source for the rule)", () => {
+    renderCell(result({ chance: 0.99, people: PEOPLE_2, tasks: TASKS_9 }));
+    expect(screen.queryByText("On target")).toBeNull();
+  });
+
   it("on target reads On target with no badges", () => {
     renderCell(result({ chance: 0.88, people: { state: "on-target" }, tasks: { state: "on-target" } }));
     expect(screen.getByText("On target")).toBeInTheDocument();

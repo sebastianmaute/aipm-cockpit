@@ -127,7 +127,7 @@ interface Props {
   /** The project's target confidence and proposal (§502 part 4); absent = no target control, no lever column,
    *  no proposal toggles. */
   forecastSettings?: ForecastSettingsApi;
-  /** An Explore request made elsewhere (Reports) that this view, mounting fresh, opens as a draft once. */
+  /** An Explore request made elsewhere (the Reports Forecast section is planned as its caller) that this view, mounting fresh, opens as a draft once. */
   pendingDraft?: ForecastDraftRequest | null;
   /** Called once the pending request was taken, so the context can drop it. */
   onDraftConsumed?: () => void;
@@ -140,7 +140,7 @@ interface Props {
  * and consumes the request. Focus stays where the shell puts it on a view change
  * (the main region) — like every other deep-link that opens no editor.
  * ★ The view mounts fresh on each visit, so an unconsumed request would re-flash on the next one.
- * An Explore draft from Reports (§502 part 4) rides the same context and is consumed by the panel once opened.
+ * An Explore draft requested from outside the view (§502 part 4; `requestForecastDraft` has no caller yet, Reports is planned) rides the same context and is consumed by the panel once opened.
  */
 export function ForecastPanelDeepLinked(props: Omit<Props, "flashMilestoneId" | "milestonesRef" | "pendingDraft" | "onDraftConsumed">) {
   const { pendingOpen, clearPendingOpen, pendingForecastDraft, clearForecastDraft } = useWorkspaceTab();

@@ -1,8 +1,8 @@
 "use client";
 
 // What it would take (§502 part 4): one target's levers as badges — "On target", or "Working it out…" while the
-// search runs. Presentational: the Forecast view's milestone table and the Reports Forecast section render it, each
-// with its own search (`useLeverSearch`). Reaching levers lead (prioritising, then people, then tasks — the later
+// search runs. Presentational: the Forecast view's milestone table renders it from its own search (`useLeverSearch`);
+// the Reports Forecast section is planned to render it the same way. Reaching levers lead (prioritising, then people, then tasks — the later
 // ones read "or …"); what does not reach follows. Explore shows only when people or tasks reach: a prioritise-only
 // row has no draft to open.
 
@@ -13,7 +13,7 @@ import { rowLabel } from "./row-tokens";
 import { formatChance } from "./forecast-tables";
 import { formatHours } from "./forecast-format";
 import { localeFor } from "./date-format";
-import { chanceSeverity, type TargetConfidence } from "./forecast-target";
+import type { TargetConfidence } from "./forecast-target";
 import type { LeverKind, LeverOutcome, WhatItTakes } from "./forecast-levers";
 
 export type ForecastLeverCellProps = {
@@ -23,8 +23,6 @@ export type ForecastLeverCellProps = {
   result: WhatItTakes | "pending";
   goal: TargetConfidence;
   onExplore?: (kind: LeverKind, n: number) => void;
-  /** Reserved for the Ask-Claude draft button (a later step); nothing renders for it yet. */
-  onAskClaude?: () => void;
 };
 
 const PERCENT = 100;
@@ -66,7 +64,7 @@ function leverTexts(lang: Lang, r: WhatItTakes, goal: TargetConfidence): { texts
 
 export function ForecastLeverCell({ lang, milestoneName, result, goal, onExplore }: ForecastLeverCellProps) {
   if (result === "pending") return <span className="text-xs text-muted-foreground">{t(lang, "forecastLeverWorking")}</span>;
-  if (chanceSeverity(result.chance, goal) === "green") {
+  if (result.people.state === "on-target" && result.tasks.state === "on-target") {
     return <span className="text-xs text-muted-foreground">{t(lang, "forecastLeverOnTarget")}</span>;
   }
   const { texts, anyReaches } = leverTexts(lang, result, goal);

@@ -1,7 +1,7 @@
 "use client";
 
-// The project's target confidence (§502 part 4): one SegmentedControl, the Forecast view header's and the Reports
-// Forecast section's alike. The control speaks strings; the stored value is the number.
+// The project's target confidence (§502 part 4): one SegmentedControl, the Forecast view header's now and the Reports
+// Forecast section's once that section exists. The control speaks strings; the stored value is the number.
 
 import { type Lang, t } from "./i18n";
 import { SegmentedControl } from "./segmented-control";

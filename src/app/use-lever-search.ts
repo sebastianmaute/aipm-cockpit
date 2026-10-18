@@ -6,7 +6,7 @@
 // goal and target list — a stale one reads as "pending" at render, with no reset needed.
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  isPlanSettled, planWhatItTakes, settlePlan, stepPlan, type LeverTarget, type WhatItTakes, type WhatItTakesPlan,
+  isPlanSettled, planWhatItTakes, probeInput, settlePlan, stepPlan, type LeverTarget, type WhatItTakes, type WhatItTakesPlan,
 } from "./forecast-levers";
 import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
 import type { ScheduleContext } from "./forecast-added-people";
@@ -32,38 +32,59 @@ function targetsFromKey(key: string): LeverTarget[] {
   return key.split("|").map((part): LeverTarget => (part === "plan" ? { kind: "planEnd" } : { kind: "milestone", id: Number(part.slice(2)) }));
 }
 
-/** What a settled (or partly settled) run knows, and which run it belongs to. */
+/** At most this many finished goals are kept per (input, targets): the three target confidences. */
+const MAX_CACHED_GOALS = 3;
+
+type Values = ReadonlyMap<string, LeverValue>;
+/** What the runs for ONE (input, targets) know: finished goals (oldest first, at most MAX_CACHED_GOALS) and the
+ *  partial result of the goal now searching. A new input or target list replaces the whole thing. */
 type Published = {
   input: ScenarioRunInput;
-  goal: TargetConfidence;
   targetsKey: string;
-  values: ReadonlyMap<string, LeverValue>;
+  finished: ReadonlyMap<TargetConfidence, Values>;
+  running: { goal: TargetConfidence; values: Values } | null;
 };
 
 /**
  * The key is `leverKey(target)`. A target whose As-is chance is null (an overdue milestone, one with nothing linked,
  * an insufficient run, a plan end with no valid date) is OMITTED once the run has started — `whatItTakesSync` is null
  * for it. Until then every target reads "pending". `enabled: false` or a null input gives an empty map and schedules
- * nothing. Only the LAST finished run is kept, per (input identity, goal, targets), so re-enabling the same one does not search again.
+ * nothing. Finished runs are kept per goal (at most three) for the current input identity and target list, so switching
+ * back to a goal already searched, or re-enabling the same run, returns its values at once and searches nothing; a new
+ * input or target list clears them.
  */
 export function useLeverSearch({ input, targets, goal, enabled }: LeverSearchArgs): ReadonlyMap<string, LeverValue> {
   const targetsKey = useMemo(() => targets.map(leverKey).join("|"), [targets]);
   const [published, setPublished] = useState<Published | null>(null);
-  const finishedRef = useRef<{ input: ScenarioRunInput; goal: TargetConfidence; targetsKey: string } | null>(null);
+  // Which goals are finished for the current run (the effect's early exit; the values live in `published`).
+  const finishedRef = useRef<{ input: ScenarioRunInput; targetsKey: string; goals: TargetConfidence[] } | null>(null);
 
   useEffect(() => {
     if (!enabled || input === null || targetsKey === "") return undefined;
     const run = input;
-    const done = finishedRef.current;
-    if (done !== null && done.input === input && done.goal === goal && done.targetsKey === targetsKey) return undefined;
+    const known = finishedRef.current;
+    const sameRun = known !== null && known.input === input && known.targetsKey === targetsKey;
+    if (sameRun && known.goals.includes(goal)) return undefined;
+    if (!sameRun) finishedRef.current = { input, targetsKey, goals: [] };
     const list = targetsFromKey(targetsKey);
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let context: ScheduleContext | null = null;
+    const probes = probeInput(run);
     const plans = new Map<string, WhatItTakesPlan>();
     const values = new Map<string, LeverValue>();
 
-    const publish = () => setPublished({ input: run, goal, targetsKey, values: new Map(values) });
+    const sameRunOf = (prev: Published | null) => (prev !== null && prev.input === run && prev.targetsKey === targetsKey ? prev.finished : new Map<TargetConfidence, Values>());
+    const publish = () => setPublished((prev) => ({
+      input: run, targetsKey, finished: sameRunOf(prev), running: { goal, values: new Map(values) },
+    }));
+    const publishFinished = () => setPublished((prev) => {
+      const finished = new Map(sameRunOf(prev));
+      finished.delete(goal);
+      finished.set(goal, new Map(values));
+      while (finished.size > MAX_CACHED_GOALS) finished.delete(finished.keys().next().value as TargetConfidence);
+      return { input: run, targetsKey, finished, running: null };
+    });
     const schedule = () => { timer = setTimeout(step, 0); };
 
     function prepare(): void {
@@ -81,7 +102,7 @@ export function useLeverSearch({ input, targets, goal, enabled }: LeverSearchArg
       const first = plans.entries().next();
       if (first.done || context === null) return;
       const [key, plan] = first.value;
-      const next = stepPlan(plan, run, context);
+      const next = stepPlan(plan, probes, context);
       if (!isPlanSettled(next)) { plans.set(key, next); return; }
       plans.delete(key);
       values.set(key, settlePlan(next));
@@ -91,12 +112,18 @@ export function useLeverSearch({ input, targets, goal, enabled }: LeverSearchArg
       if (cancelled) return;
       if (context === null) prepare(); else probeOnce();
       if (cancelled) return;
-      publish();
-      if (plans.size > 0) schedule();
-      else finishedRef.current = { input: run, goal, targetsKey };
+      if (plans.size > 0) {
+        publish();
+        schedule();
+        return;
+      }
+      publishFinished();
+      const fin = finishedRef.current;
+      if (fin !== null && fin.input === run && fin.targetsKey === targetsKey) {
+        fin.goals = [...fin.goals.filter((g) => g !== goal), goal].slice(-MAX_CACHED_GOALS);
+      }
     }
 
-    finishedRef.current = null;
     schedule();
     return () => {
       cancelled = true;
@@ -106,8 +133,10 @@ export function useLeverSearch({ input, targets, goal, enabled }: LeverSearchArg
 
   return useMemo(() => {
     if (!enabled || input === null) return EMPTY;
-    if (published !== null && published.input === input && published.goal === goal && published.targetsKey === targetsKey) {
-      return published.values;
+    if (published !== null && published.input === input && published.targetsKey === targetsKey) {
+      const finished = published.finished.get(goal);
+      if (finished !== undefined) return finished;
+      if (published.running !== null && published.running.goal === goal) return published.running.values;
     }
     return new Map<string, LeverValue>(targetsFromKey(targetsKey).map((t) => [leverKey(t), "pending"]));
   }, [enabled, input, goal, targetsKey, published]);

@@ -17,6 +17,7 @@ import type { ScenarioDirectory } from "./forecast-added-people";
 import type { ScenarioDraft } from "./use-forecast-scenarios";
 import type { Milestone, ResourcePlan, Resource, Role, Task } from "./types";
 import { rowLabel } from "./row-tokens";
+import { loadI18n } from "./i18n";
 import { workingDaysBefore } from "./working-days";
 
 const stub = vi.hoisted(() => ({ values: new Map<string, unknown>(), calls: [] as unknown[] }));
@@ -83,13 +84,14 @@ function scenariosProps(list: ForecastScenario[] = [], createScenario = vi.fn(()
 }
 
 type HarnessProps = {
+  lang?: "en-US" | "de";
   scenarios?: ForecastScenariosProps;
   milestones?: Milestone[];
   setTarget?: (v: TargetConfidence) => void;
   pendingDraft?: ForecastDraftRequest | null;
   onDraftConsumed?: () => void;
 };
-function Harness({ scenarios = scenariosProps(), milestones = MILESTONES, setTarget = () => {}, pendingDraft, onDraftConsumed }: HarnessProps) {
+function Harness({ lang = "en-US", scenarios = scenariosProps(), milestones = MILESTONES, setTarget = () => {}, pendingDraft, onDraftConsumed }: HarnessProps) {
   const [target, setLocal] = useState<TargetConfidence>(80);
   const settings: ForecastSettingsApi = {
     target, proposalId: null, setProposal: () => {},
@@ -100,7 +102,7 @@ function Harness({ scenarios = scenariosProps(), milestones = MILESTONES, setTar
   };
   return (
     <ForecastPanel
-      lang="en-US" tasks={TASKS} milestones={milestones} plan={PLAN} today={TODAY} holidaySet={NONE} showSimulation
+      lang={lang} tasks={TASKS} milestones={milestones} plan={PLAN} today={TODAY} holidaySet={NONE} showSimulation
       budgetFacts={BUDGET_FACTS} scenarios={scenarios} forecastSettings={settings} pendingDraft={pendingDraft} onDraftConsumed={onDraftConsumed}
     />
   );
@@ -196,6 +198,17 @@ describe("ForecastPanel — what it would take (§502 part 4)", () => {
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(createScenario).not.toHaveBeenCalled();
+  });
+
+  test("the saved people row carries the translated placeholder name (German: Platzhalter)", async () => {
+    await loadI18n("de");
+    const createScenario = vi.fn((): number | null => 9);
+    render(<Harness lang="de" scenarios={scenariosProps([], createScenario)} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: rowLabel("Erkunden", "Go-live") }));
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    const [, draft] = createScenario.mock.calls[0] as unknown as [number, { changes: { who: { label: string } }[] }];
+    expect(draft.changes[0].who.label).toBe("Platzhalter");
   });
 
   test("Explore's draft saves once, through a freshly minted id", async () => {

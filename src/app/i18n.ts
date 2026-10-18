@@ -800,6 +800,7 @@ const enUS = {
   forecastLeverPeopleOutOfReach: "adding people: not within reach",
   forecastLeverTasksOutOfReach: "dropping tasks: not within reach",
   forecastLeverTasksTooFew: "too few open tasks to drop",
+  forecastDraftClosedUndraftable: "The draft closed because its milestone can no longer be explored.",
   forecastScenarioDraftCalculating: "Calculating…",
   forecastRagBelowEven: "below 50%",
   forecastRagBelowTarget: "below target",

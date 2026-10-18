@@ -158,6 +158,36 @@ describe("useLeverSearch", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("keeps finished goals (at most three) for the same input: 80, 95, 80 is immediate and starts no timer", () => {
+    const inp = input();
+    const { result, rerender } = mount({ input: inp, goal: 80, enabled: true });
+    settle();
+    const at80 = result.current;
+    rerender({ input: inp, goal: 95, enabled: true });
+    expect([...result.current.values()].every((v) => v === "pending")).toBe(true);
+    settle();
+    const at95 = result.current;
+    expect(at95).not.toBe(at80);
+    rerender({ input: inp, goal: 80, enabled: true });
+    expect(vi.getTimerCount()).toBe(0);
+    expect(result.current).toBe(at80);
+    for (const target of [BETA, LATE, PLAN]) {
+      expect(result.current.get(leverKey(target))).toEqual(expected(inp, target, 80));
+    }
+    rerender({ input: inp, goal: 95, enabled: true });
+    expect(vi.getTimerCount()).toBe(0);
+    expect(result.current).toBe(at95);
+  });
+
+  it("a new input clears the cached goals", () => {
+    const first = input();
+    const { result, rerender } = mount({ input: first, goal: 80, enabled: true });
+    settle();
+    rerender({ input: input({ tasks: [...TASKS, open(2001)] }), goal: 80, enabled: true });
+    expect([...result.current.values()].every((v) => v === "pending")).toBe(true);
+    expect(vi.getTimerCount()).toBe(1);
+  });
+
   it("keeps the finished result for the same input and goal: re-enabling schedules no new search", () => {
     const inp = input();
     const { result, rerender } = mount({ input: inp, goal: 95, enabled: true });

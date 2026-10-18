@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as budgetSim from "./budget-sim";
 import type { ForecastFacts, ForecastFactsByUnit } from "./budget-forecast";
 import type { ScheduleForecast } from "./forecast";
 import type { ScenarioDirectory } from "./forecast-added-people";
@@ -259,6 +260,24 @@ describe("whatItTakesSync", () => {
       forecast: { ...f, milestones: [{ id: 2, state: "chance", chance: 0.3, chancePrioritised: 0.3 }] },
     };
     expect(whatItTakesSync(inp, one, EMPTY, 80, stub)?.tasks).toEqual({ state: "inert", reason: "too-few-tasks" });
+  });
+});
+
+describe("the probes carry no cost pass (§502)", () => {
+  it("whatItTakesSync runs no cost simulation, and its figures do not depend on costOn", () => {
+    const withCost = setup({ costOn: true });
+    const without = setup({ costOn: false });
+    const spy = vi.spyOn(budgetSim, "simulateCostFromRun");
+    const a = whatItTakesSync(withCost.inp, withCost.context, LATE, 95, withCost.asIs);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+    const b = whatItTakesSync(without.inp, without.context, LATE, 95, without.asIs);
+    expect(a).toEqual(b);
+    // Positive control: the As-is column of a costOn input does run the cost simulation.
+    const control = vi.spyOn(budgetSim, "simulateCostFromRun");
+    computeScenarioComparison(input({ costOn: true }), []);
+    expect(control).toHaveBeenCalled();
+    control.mockRestore();
   });
 });
 

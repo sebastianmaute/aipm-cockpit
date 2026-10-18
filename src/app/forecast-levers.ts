@@ -38,8 +38,9 @@ export type WhatItTakes = {
   tasks: LeverOutcome;
 };
 
-/** The label a placeholder row carries when no one has named it (the editor's own placeholder option, in data). */
-export const LEVER_PLACEHOLDER_LABEL = "Placeholder";
+/** The engine's default label for the placeholder row (it stays i18n-free: a caller that shows the row to a person
+ *  overrides it with the translated placeholder name, as `exploreSeeds` does). */
+const LEVER_PLACEHOLDER_LABEL = "Placeholder";
 const WORKING_WEEKDAYS = 5;
 const PERCENT = 100;
 const TASKS_BOUND_DIVISOR = 2;
@@ -116,7 +117,7 @@ export function chanceFor(column: ScenarioColumn, target: LeverTarget): number |
   return m !== undefined && m.state === "chance" ? m.chance : null;
 }
 
-/** `lo..hi` still undecided, `hi` known to reach (with `hiChance`); `probes` counts what was applied. */
+/** `lo..hi` still undecided, `hi` known to reach (with `hiChance`). */
 export type LeverSearch = {
   bound: number;
   goal: number;
@@ -124,13 +125,12 @@ export type LeverSearch = {
   lo: number;
   hi: number;
   hiChance: number;
-  probes: number;
   reached: boolean;
 };
 
 export function startSearch(bound: number, goal: number): LeverSearch {
   const hasRoom = bound >= 1;
-  return { bound, goal, phase: hasRoom ? "bound" : "done", lo: 1, hi: bound, hiChance: 0, probes: 0, reached: false };
+  return { bound, goal, phase: hasRoom ? "bound" : "done", lo: 1, hi: bound, hiChance: 0, reached: false };
 }
 
 /** The n to probe next; null when the search is done. */
@@ -142,13 +142,12 @@ export function nextProbe(s: LeverSearch): number | null {
 /** Folds one probe result in. A null chance does not reach the goal. */
 export function applyProbe(s: LeverSearch, n: number, chance: number | null): LeverSearch {
   const reaches = chance !== null && chance >= s.goal / PERCENT;
-  const probes = s.probes + 1;
   if (s.phase === "done") return s;
   if (s.phase === "bound") {
-    if (!reaches) return { ...s, phase: "done", probes };
-    return settle({ ...s, phase: "bisect", hi: n, hiChance: chance, probes, reached: true });
+    if (!reaches) return { ...s, phase: "done" };
+    return settle({ ...s, phase: "bisect", hi: n, hiChance: chance, reached: true });
   }
-  return settle(reaches ? { ...s, hi: n, hiChance: chance, probes } : { ...s, lo: n + 1, probes });
+  return settle(reaches ? { ...s, hi: n, hiChance: chance } : { ...s, lo: n + 1 });
 }
 
 function settle(s: LeverSearch): LeverSearch {
@@ -223,6 +222,13 @@ export function isPlanSettled(plan: WhatItTakesPlan): boolean {
   return !isJob(plan.people) && !isJob(plan.tasks);
 }
 
+/** The input the probes run on: no cost pass, since no lever reads cost. The cost pass draws from its own seeded
+ *  streams and moves no schedule number (docs/AGENTS/forecast.md, "Seeded, one sub-stream per trial"), so a probe's
+ *  chance is the same with or without it; the As-is column used for display keeps its own input. Build it once per run. */
+export function probeInput(input: ScenarioRunInput): ScenarioRunInput {
+  return input.costOn ? { ...input, costOn: false } : input;
+}
+
 /** One probe of the first lever still searching (a settled plan comes back unchanged). */
 export function stepPlan(plan: WhatItTakesPlan, input: ScenarioRunInput, context: ScheduleContext): WhatItTakesPlan {
   const { target } = plan.base;
@@ -241,7 +247,8 @@ export function settlePlan(plan: WhatItTakesPlan): WhatItTakes {
 }
 
 /**
- * Both searches, run to completion (the AI tool and the exports; the Reports section drives `stepPlan` itself).
+ * Both searches, run to completion, for callers that need the whole answer at once (the AI tool and the exports are
+ * planned; the Forecast view drives `stepPlan` itself through `useLeverSearch`).
  * Defined only for a target with a chance: null when As is has none — callers skip those targets.
  */
 export function whatItTakesSync(
@@ -249,6 +256,7 @@ export function whatItTakesSync(
 ): WhatItTakes | null {
   let plan = planWhatItTakes(input, context, target, goal, asIs);
   if (plan === null) return null;
-  while (!isPlanSettled(plan)) plan = stepPlan(plan, input, context);
+  const probes = probeInput(input);
+  while (!isPlanSettled(plan)) plan = stepPlan(plan, probes, context);
   return settlePlan(plan);
 }

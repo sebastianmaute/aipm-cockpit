@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { ForecastScenariosView } from "./forecast-scenarios-view";
 import { TestProviders } from "./test-providers";
 import { ConfirmProvider } from "./confirm-dialog";
+import { ToastProvider } from "./toast-context";
 import type { ForecastScenariosApi } from "./use-forecast-scenarios";
 import type { ScenarioRunInput } from "./forecast-scenario-compare";
 import type { ScenarioDirectory } from "./forecast-added-people";
@@ -379,6 +380,17 @@ describe("ForecastScenariosView — an Explore draft whose milestone disappears 
       <ForecastScenariosView lang="en-US" input={inputOf(milestones)} scenarios={{ api, directory: DIRECTORY, readOnly: false }} draft={DRAFT} onDraftClose={onDraftClose} />
     </ConfirmProvider></TestProviders>
   );
+
+  it("tells the PM why the editor closed", () => {
+    const showToast = vi.fn();
+    const wrap = (milestones: Milestone[]) => (
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>{view(milestones, vi.fn())}</ToastProvider>
+    );
+    const { rerender } = render(wrap(GO_LIVE));
+    expect(showToast).not.toHaveBeenCalled();
+    rerender(wrap([]));
+    expect(showToast).toHaveBeenCalledWith("info", "The draft closed because its milestone can no longer be explored.");
+  });
 
   it("clears the pending draft, so an undo that restores the milestone cannot reopen the editor", () => {
     const onDraftClose = vi.fn();
