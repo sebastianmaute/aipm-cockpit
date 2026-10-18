@@ -688,7 +688,23 @@ export const THURSDAY = [
       await pace(ctx, 3000);
     },
     check: async (ctx) => ((await ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).isEnabled().catch(() => false)) ? null : 'no suggestion'),
-    after: async (ctx) => click(ctx, ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).first(), 'Apply RACI', 1500),
+    // Only the DPO's suggestions are kept, so the matrix matches the story (and the chapters' replay): a
+    // role Claude gives anyone else on the MVP milestones would raise their "milestone update due" and
+    // outrank the DPO in Friday's hero. With none left to apply, the dialog is cancelled.
+    after: async (ctx) => {
+      const d = ctx.page.locator(DLG).last();
+      await caption(ctx, 'Keep what fits: here, the DPO.');
+      const boxes = d.getByRole('checkbox', { name: /^Include – / });
+      let kept = 0;
+      for (let i = 0; i < (await boxes.count()); i++) {
+        const box = boxes.nth(i);
+        const isDpo = ((await box.getAttribute('aria-label')) ?? '').includes(DEMO_DPO);
+        if (isDpo) kept++;
+        if ((await box.isChecked()) !== isDpo) await click(ctx, box, isDpo ? 'keep' : 'untick', 150);
+      }
+      if (kept) await click(ctx, d.getByRole('button', { name: 'Apply selected', exact: true }), 'Apply RACI', 1500);
+      else await click(ctx, d.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel', 800);
+    },
     // E's applyDemoWeek sets only the DPO's cell, which the manual step above already set.
     replay: noop,
   }),

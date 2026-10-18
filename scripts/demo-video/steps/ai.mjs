@@ -91,7 +91,11 @@ const inlineRaidMitigation = step('inline-raid-mitigation', {
 
 // ---- ai-insight and ai-raci: the week's steps, from their own view ----
 const insightRecommend = atView(weekStep('insight-recommendation'), async (ctx) => { await nav(ctx, 'Dashboard'); await nav(ctx, 'Insights'); });
-const suggestRaci = atView(weekStep('suggest-raci'), async (ctx) => { await nav(ctx, 'Stakeholders'); await nav(ctx, 'RACI Matrix'); });
+// The clip runs on Monday, before the DPO exists: it applies everything Claude suggests.
+const suggestRaci = step('suggest-raci', {
+  ...atView(weekStep('suggest-raci'), async (ctx) => { await nav(ctx, 'Stakeholders'); await nav(ctx, 'RACI Matrix'); }),
+  after: async (ctx) => click(ctx, ctx.page.locator(DLG).last().getByRole('button', { name: 'Apply selected', exact: true }), 'Apply RACI', 1500),
+});
 
 // ---- ai-alloc ----
 const allocPlan = step('alloc-plan', {
