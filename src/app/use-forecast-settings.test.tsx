@@ -13,7 +13,7 @@ function setup(initial: SettingsOverrides | undefined = undefined, scenarios = S
   const { result } = renderHook(() => {
     const [settingsOverrides, setSettingsOverrides] = useState<SettingsOverrides | undefined>(initial);
     const api = useForecastSettings({ settingsOverrides, setSettingsOverrides, scenarios, logActivity });
-    return { api, settingsOverrides };
+    return { api, settingsOverrides, setSettingsOverrides };
   });
   return { result, logActivity };
 }
@@ -47,6 +47,18 @@ describe("useForecastSettings", () => {
       ["forecast.targetChanged", 95, 50],
     ]);
     expect(result.current.settingsOverrides).toEqual({ forecast: { targetConfidence: 50 } });
+  });
+
+  it("an external write that returns to the rendered value in the same tick does not leave a stale no-op", async () => {
+    const { result, logActivity } = setup();
+    await act(async () => {
+      result.current.api.setTarget(95);
+      result.current.setSettingsOverrides(undefined); // e.g. an undo landing in the same tick
+    });
+    expect(result.current.api.target).toBe(80);
+    act(() => result.current.api.setTarget(95));
+    expect(result.current.settingsOverrides).toEqual({ forecast: { targetConfidence: 95 } });
+    expect(logActivity).toHaveBeenLastCalledWith("forecast.targetChanged", 80, 95);
   });
 
   it("setProposal logs the id and name, and setProposal(null) logs the clear", () => {

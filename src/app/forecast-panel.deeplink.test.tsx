@@ -140,6 +140,18 @@ describe("ForecastPanelDeepLinked — an Explore draft from Reports (§502 part 
     expect(mode()).toBe("Quick");
   });
 
+  it("a draft opened while already in Scenarios cancels back to Scenarios, even after an earlier one saved from Quick", () => {
+    const scenarios: ForecastScenariosProps = { ...SCENARIOS, api: { ...SCENARIOS.api, createScenario: () => 1 } };
+    render(<WorkspaceTabProvider><DraftHarness mounted scenarios={scenarios} /></WorkspaceTabProvider>);
+    expect(mode()).toBe("Quick");
+    fireEvent.click(screen.getByText("explore-7"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(mode()).toBe("Scenarios");
+    fireEvent.click(screen.getByText("explore-7"));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(mode()).toBe("Scenarios");
+  });
+
   it("Save on the draft stays in Scenarios", () => {
     openDraftView({ ...SCENARIOS, api: { ...SCENARIOS.api, createScenario: () => 1 } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));

@@ -163,7 +163,8 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
   const [draftFrom, setDraftFrom] = useState<ForecastMode>("quick");
   const openDraft = (req: ForecastDraftRequest) => {
     setDraft((prev) => ({ req, seq: (prev?.seq ?? 0) + 1 }));
-    if (mode !== "scenarios") setDraftFrom(mode);
+    // Every fresh open records where it was opened from; one opened over a draft already showing keeps that origin.
+    if (draft === null) setDraftFrom(mode);
     setMode("scenarios");
   };
   const closeDraft = (outcome: ExploreDraftOutcome) => {

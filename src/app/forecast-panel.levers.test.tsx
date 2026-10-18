@@ -156,6 +156,11 @@ describe("ForecastPanel — what it would take (§502 part 4)", () => {
     expect(screen.getByRole("columnheader", { name: /What it would take/ })).toBeInTheDocument();
   });
 
+  test("the row header's accessible name carries the severity text, not only the dot", () => {
+    render(<Harness />);
+    expect(screen.getByRole("rowheader", { name: /^Go-live, (below 50%|below target|at or above target)$/ })).toBeInTheDocument();
+  });
+
   test("each chance dot in the Quick milestone table has a text equivalent", () => {
     render(<Harness />);
     const dots = screen.getAllByRole("img", { name: /^(below 50%|below target|at or above target)$/ });

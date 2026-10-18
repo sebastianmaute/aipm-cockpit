@@ -244,7 +244,7 @@ export function MilestoneTable({
               const rag = levers && row.result.state === "chance" ? levers.rag(row.result.chance) : undefined;
               return (
                 <tr key={row.id} data-deeplink-row={row.id} className={flashOutlineClass(flashId === row.id) || undefined}>
-                  <th scope="row" aria-label={token} className={`${CELL} font-medium text-foreground`}>
+                  <th scope="row" aria-label={rag ? `${token}, ${chanceRagLabel(lang, rag)}` : token} className={`${CELL} font-medium text-foreground`}>
                     {rag && <RagDot level={rag} label={chanceRagLabel(lang, rag)} className="mr-1.5" />}
                     {row.name}
                   </th>
