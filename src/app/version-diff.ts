@@ -158,6 +158,7 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   { key: "knowledgeItems", label: "Knowledge", kind: "list", nameField: "name" },
   { key: "insights", label: "Insights", kind: "list", nameField: "key" },
   { key: "calendarEvents", label: "Calendar events", kind: "list", nameField: "title" },
+  { key: "forecastScenarios", label: "Forecast scenarios", kind: "list", nameField: "name" },
   // ★★ DIFF-VISIBLE, NOT RESTORABLE — see the `restorable` docstring on
   // CollectionSpec. `applyDocMutation` owns document history (before-images,
   // tombstones, retention: docs/AGENTS/documents.md); a workspace-level restore

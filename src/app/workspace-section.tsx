@@ -5,6 +5,7 @@ import { isSafeMode } from "./safe-mode";
 import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";
 import { useAppForecast } from "./use-app-forecast";
 import { useForecastScenarios } from "./use-forecast-scenarios";
+import { useForecastSettings } from "./use-forecast-settings";
 import { useToastContext } from "./toast-context";
 import { computeProjectForecastFacts } from "./budget-forecast";
 import {
@@ -336,6 +337,8 @@ export function WorkspaceSection({
   );
   // §502 — saved forecast scenarios; the directory is one stable object, so the view's comparison memo holds.
   const forecastScenariosApi = useForecastScenarios({ lang, showToast: useToastContext(), logActivity, logActivityChanges, capture: onCaptureUndo });
+  // §502 part 4 — target confidence and proposed scenario; logged, never undo-captured. The part-4 surfaces bind its result.
+  useForecastSettings({ settingsOverrides: workspace.settingsOverrides, setSettingsOverrides: workspace.setSettingsOverrides, scenarios: forecastScenariosApi.scenarios, logActivity });
   const planCurrency = plan.currency;
   const forecastDirectory = useMemo(
     () => ({ resources, roles, shifts, absences, budgets, fxRates, workdayHours, baseCurrency: planCurrency }),

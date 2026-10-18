@@ -137,6 +137,18 @@ function sanitizeTimezoneOverride(
   return out.timezone !== undefined || out.additionalTimezones !== undefined ? out : undefined;
 }
 
+/** Each field is kept independently and only in its non-default form (off, 80 and "no proposal" are
+ *  absence); an empty result is undefined so no empty `forecast` is ever emitted. */
+function sanitizeForecastOverride(raw: unknown): SettingsOverrides["forecast"] | undefined {
+  if (!isObject(raw)) return undefined;
+  const out: NonNullable<SettingsOverrides["forecast"]> = {};
+  if (raw.showSimulation === true) out.showSimulation = true;
+  if (raw.targetConfidence === 50 || raw.targetConfidence === 95) out.targetConfidence = raw.targetConfidence;
+  const id = raw.proposalScenarioId;
+  if (typeof id === "number" && Number.isInteger(id) && id > 0) out.proposalScenarioId = id;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 /** Validate untrusted per-project overrides. Emits a sub-key ONLY when it holds
  *  >= 1 valid field; returns {} when nothing valid. Never throws. */
 export function sanitizeSettingsOverrides(raw: unknown): SettingsOverrides {
@@ -148,10 +160,8 @@ export function sanitizeSettingsOverrides(raw: unknown): SettingsOverrides {
   if (notifications) out.notifications = notifications;
   const timezone = sanitizeTimezoneOverride(raw.timezone);
   if (timezone) out.timezone = timezone;
-  // Off is absence: only an explicit true is kept.
-  if (isObject(raw.forecast) && raw.forecast.showSimulation === true) {
-    out.forecast = { showSimulation: true };
-  }
+  const forecast = sanitizeForecastOverride(raw.forecast);
+  if (forecast) out.forecast = forecast;
   return out;
 }
 

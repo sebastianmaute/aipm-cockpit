@@ -31,9 +31,13 @@ export function withSimulation(
   o: SettingsOverrides | undefined,
   on: boolean,
 ): SettingsOverrides | undefined {
+  // The target and the proposal are project data, not part of the switch: only showSimulation moves.
+  const kept = { ...o?.forecast };
+  delete kept.showSimulation;
+  const forecast = on ? { showSimulation: true, ...kept } : kept;
   const next: SettingsOverrides = { ...o };
   delete next.forecast;
-  if (on) next.forecast = { showSimulation: true };
+  if (Object.keys(forecast).length > 0) next.forecast = forecast;
   return hasAnyOverride(next) ? next : undefined;
 }
 

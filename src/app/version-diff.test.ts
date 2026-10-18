@@ -264,6 +264,13 @@ describe("record labels", () => {
   // ★★★ BUG-CLASS GUARD. Any spec declaring a name source that its records do
   // not carry lands here — the fallback to `#id` is the only symptom, and
   // nothing else in the suite reads it.
+  it("diffs a renamed forecast scenario under its own label, by name (§502)", () => {
+    const sc = (name: string) => [{ id: 1, name, changes: [] }];
+    const c = diffWorkspaces(ws({ forecastScenarios: sc("Old") }), ws({ forecastScenarios: sc("New") }));
+    expect(c).toHaveLength(1);
+    expect(c[0]).toMatchObject({ collection: "forecastScenarios", recordId: 1, type: "modified", recordLabel: "New" });
+    expect(COLLECTION_SPECS.find((s) => s.key === "forecastScenarios")?.label).toBe("Forecast scenarios");
+  });
   it("never falls back to #id for a fully-populated record", () => {
     const named = new Set(COLLECTION_SPECS.filter((s) => s.nameField || s.nameOf).map((s) => s.key));
     const changes = diffWorkspaces(ws(arraysFixture("Old")), ws(arraysFixture("New")));
