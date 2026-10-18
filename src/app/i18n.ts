@@ -1092,6 +1092,8 @@ const enUS = {
     "Variance at completion: budget − estimate at completion. Negative means the budget will be overrun by this amount: {0} − {1} = {2}.",
   forecastTipEtcPace:
     "Estimate to complete: what is still to be spent. At current pace = burn rate {0} × {1} working days left = {2}.",
+  forecastTipEtcPaceOne:
+    "Estimate to complete: what is still to be spent. At current pace = burn rate {0} × {1} working day left = {2}.",
   forecastTipEtcEfficiency:
     "Estimate to complete: what finishing the remaining work will cost. (Budget {0} − earned value {1}) ÷ CPI {2} = {3}.",
   forecastTipCpi:

@@ -1005,6 +1005,7 @@ export const de: Record<TranslationKey, string> = {
   forecastTipEac: "Schätzung bei Fertigstellung: was das Projekt insgesamt gekostet haben wird: Ist-Kosten {0} + ETC {1} = {2}. Über dem Budget heißt: Überschreitung.",
   forecastTipVac: "Abweichung bei Fertigstellung: Budget − Schätzung bei Fertigstellung. Negativ heißt: Das Budget wird um diesen Betrag überschritten: {0} − {1} = {2}.",
   forecastTipEtcPace: "Restkostenschätzung: was noch ausgegeben werden muss. Beim aktuellen Tempo = Verbrauchsrate {0} × {1} verbleibende Arbeitstage = {2}.",
+  forecastTipEtcPaceOne: "Restkostenschätzung: was noch ausgegeben werden muss. Beim aktuellen Tempo = Verbrauchsrate {0} × {1} verbleibender Arbeitstag = {2}.",
   forecastTipEtcEfficiency: "Restkostenschätzung: was die Fertigstellung der restlichen Arbeit kostet. (Budget {0} − erarbeiteter Wert {1}) ÷ CPI {2} = {3}.",
   forecastTipCpi: "Kostenleistungsindex: erarbeiteter Wert {0} ÷ Ist-Kosten {1} = {2}. 1,00 bedeutet: Die Arbeit kostet so viel wie budgetiert; unter 1 bedeutet: Sie kostet mehr als geplant.",
   forecastTipSpi: "Terminleistungsindex: erarbeiteter Wert {0} ÷ Planwert {1} = {2}. 1,00 bedeutet: im Zeitplan; unter 1 bedeutet: hinter dem Zeitplan.",

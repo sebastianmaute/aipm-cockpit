@@ -262,7 +262,7 @@ function PaceCard({
             <MetricRow
               lang={lang}
               term={t(lang, "forecastEtcPace")}
-              tip={t(lang, "forecastTipEtcPace", money(pace.burnRatePerDay), String(pace.workingDaysLeft), money(pace.etc))}
+              tip={tPlural(lang, "forecastTipEtcPace", pace.workingDaysLeft, money(pace.burnRatePerDay), String(pace.workingDaysLeft), money(pace.etc))}
             >
               {money(pace.etc)}
             </MetricRow>
@@ -421,6 +421,8 @@ function GapLine({
     lang, gap.severity === "warning" ? "forecastGapWarning" : "forecastGapInfo",
     money(gap.eacDifference), pctText,
   );
+  // the tip's count and the number it shows are one value
+  const daysNeeded = gap.extraWorkingDays === null ? 0 : gap.extraWorkingDays + pace.workingDaysLeft;
   const extra = gap.extraWorkingDays === null ? null : (
     <>
       {" "}
@@ -430,9 +432,9 @@ function GapLine({
         term={t(lang, "forecastExtraDaysTerm")}
         means
         tip={tPlural(
-          lang, "forecastTipExtraDays", gap.extraWorkingDays + pace.workingDaysLeft,
+          lang, "forecastTipExtraDays", daysNeeded,
           money(efficiency.etc), money(pace.burnRatePerDay),
-          String(gap.extraWorkingDays + pace.workingDaysLeft), String(gap.extraWorkingDays),
+          String(daysNeeded), String(gap.extraWorkingDays),
         )}
       />
     </>
