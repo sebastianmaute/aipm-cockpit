@@ -45637,7 +45637,7 @@ Also noted for the same generalisation (Turso token, §715 round 20): when a wri
 
 ## 751. Something starts a save of the empty Turso workspace before a project exists — OPEN
 
-**Status:** OPEN 2026-10-18, seen once while recording the §715 big video; not reproduced in five off-camera runs of the same setup path (an untracked Playwright script, so the cause is never machine-verified). The symptom is fixed: `grep -n "hasAuthoredRecords" src/app/use-unload-journal.ts` → the guard in `write` and in `keep`.
+**Status:** OPEN 2026-10-18, seen once while recording the §715 big video; not reproduced in five off-camera runs of the same setup path (an untracked Playwright script, so the cause is never machine-verified). The symptom is fixed: `grep -n "isNothingToJournal" src/app/use-unload-journal.ts` → its definition and the guard in `write` and in `keep`.
 
 **Work item:** #781
 
@@ -45645,7 +45645,7 @@ An unload journal was written under the Turso "no project" key (`journalProjectK
 
 Not reproduced: connect, the new-project wizard with Claude's proposal and Cancel, Explore the demo, the device-state reload and a day change, run off camera five times, left no such journal. A timing race is the likely shape.
 
-The symptom is closed on `fix/715-empty-unload-journal` (§715): `use-unload-journal.ts` never journals a workspace with nothing authored (`hasAuthoredRecords`). Open here: what saves in multi-project Turso mode with no project, whether it should, and where such a save writes (not checked: possibly the database's single-tenant layout). An empty draft already stored by an earlier version stays listed until it is discarded.
+The symptom is closed on `fix/715-empty-unload-journal` (§715): `use-unload-journal.ts` never journals the empty default a load produces (`isNothingToJournal`). Open here: what saves in multi-project Turso mode with no project, whether it should, and where such a save writes (not checked: possibly the database's single-tenant layout). An empty draft already stored by an earlier version stays listed until it is discarded.
 
 Size S to trace; the fix is unknown until then.
 

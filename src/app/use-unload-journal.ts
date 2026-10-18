@@ -88,16 +88,27 @@ function retagToThisTab(journal: UnloadJournal): void {
 const AUTOMATIC_SLICES: ReadonlySet<string> = new Set(["activityLog", "budgetHistory", "baselineHistory", "forecastHistory", "fxRates"]);
 /** Slices judged by `hasAuthoredRecords` (with the seeded preset lists discounted) or by the plan check below. */
 const JUDGED_SLICES: ReadonlySet<string> = new Set(["disciplines", "grades", "plan"]);
+/** Slices where an empty list is itself a choice (`features: []` is Simple mode; missing means none made). */
+const CHOICE_SLICES: ReadonlySet<string> = new Set(["features"]);
+
+/** Field by field, so the order the plan's keys were written in does not matter. */
+function samePlan(a: Readonly<Record<string, unknown>>, b: Readonly<Record<string, unknown>>): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const k of keys) if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) return false;
+  return true;
+}
 
 /** §715 — true only for the empty default a load produces: no authored records, the default plan for its
- *  own start date, and every other slice blank (missing, null, [] or {}), the automatic ones aside. A slice
+ *  own start date, and every other slice blank (missing, null, [] or {}; for `features` only missing), the
+ *  automatic ones aside. A slice
  *  added to `Workspace` later is content until it is listed here, so the journal errs towards keeping. */
 export function isNothingToJournal(ws: Workspace): boolean {
   if (hasAuthoredRecords(ws)) return false;
-  if (JSON.stringify(ws.plan) !== JSON.stringify(defaultResourcePlan(ws.plan.startDate))) return false;
+  if (!samePlan(ws.plan, defaultResourcePlan(ws.plan.startDate))) return false;
   for (const [key, value] of Object.entries(ws)) {
     if (AUTOMATIC_SLICES.has(key) || JUDGED_SLICES.has(key)) continue;
     if (value === undefined || value === null) continue;
+    if (CHOICE_SLICES.has(key)) return false;
     if (Array.isArray(value) ? value.length > 0 : typeof value !== "object" || Object.keys(value).length > 0) return false;
   }
   return true;

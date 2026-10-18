@@ -665,6 +665,8 @@ describe("§715 — a workspace with nothing authored is never journalled", () =
     ["a forecast scenario", { ...emptyWorkspace(), forecastScenarios: [{ id: "s1" }] as unknown as Workspace["forecastScenarios"] }],
     ["the steering committee", { ...emptyWorkspace(), steeringCommittee: { members: ["Elena"] } as unknown as Workspace["steeringCommittee"] }],
     ["a changed plan currency", { ...emptyWorkspace(), plan: { ...emptyWorkspace().plan, currency: "USD" } }],
+    // [] is a choice (Simple mode), unlike a missing list: it is not blank here.
+    ["Simple mode (no functions switched on)", { ...emptyWorkspace(), features: [] }],
   ];
   for (const [what, ws] of META_ONLY) {
     it(`a workspace holding only ${what} is journalled, and kept`, () => {
@@ -685,6 +687,19 @@ describe("§715 — a workspace with nothing authored is never journalled", () =
       activityLog: [{ id: "a1" }] as unknown as Workspace["activityLog"],
       forecastHistory: [{ date: "2026-09-21" }] as unknown as Workspace["forecastHistory"],
     };
+    const { result } = renderJournal();
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(ws); });
+    expect(localStorage.getItem(KEY)).toBeNull();
+    let kept = false;
+    act(() => { kept = result.current.keepLive(ws); });
+    expect(kept).toBe(true);
+    expect(localStorage.getItem(KEPT_KEY)).toBeNull();
+  });
+
+  it("the default plan with its fields in another order is still the default", () => {
+    const { startDate, endDate, granularity, currency } = emptyWorkspace().plan;
+    const ws: Workspace = { ...emptyWorkspace(), plan: { currency, granularity, endDate, startDate } };
     const { result } = renderJournal();
     tabSwitch();
     act(() => { result.current.noteSaveStarted(ws); });

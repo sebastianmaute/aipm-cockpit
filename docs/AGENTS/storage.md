@@ -332,7 +332,8 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
 - **Written** by `noteSaveStarted` (called from `doSave`, past every guard) when the page is hiding
   or hidden, and by the hook's own `pagehide` listener for the latest unconfirmed save.
   ★ **Never for the empty default** (§715, `isNothingToJournal`): no authored records (presets
-  discounted), the default plan for its own start date, and every other slice blank, the automatic
+  discounted), the default plan for its own start date (field by field), and every other slice
+  blank (`features: []` is Simple mode, so for it only a missing list is blank), the automatic
   ones (activity, budget, baseline and forecast history, FX rates) aside. ★★ Not `hasAuthoredRecords`
   alone: it ignores project details, the dashboard narrative, the steering committee, timelog links
   and forecast scenarios, which ARE drafts. Such a write instead clears this tab's own older record
