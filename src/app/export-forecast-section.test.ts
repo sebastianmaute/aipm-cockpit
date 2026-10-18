@@ -145,7 +145,8 @@ describe("exportForecastFor — the budget-module gate (§545)", () => {
   it("is what task-manager hands every export entry point", () => {
     const src = readFileSync(join(process.cwd(), "src", "app", "task-manager.tsx"), "utf8");
     expect(src).toContain("const exportForecast = exportForecastFor(settings.features, dashboardModel.forecastBundle);");
-    expect(src).toContain("{ budgetForecast: exportForecast }");
+    // §502 part 4 — the handler's extras: the gated forecast plus the Projects panel's decision source.
+    expect(src).toContain("workspaceExportExtras(exportForecast, forecastDecision)");
     // The deps object passed to buildShellChrome carries `exportForecast` as a
     // SHORTHAND property, so it is the gated local itself (not `undefined`, and
     // not merely a value under some other key). Sliced to the call's own `});`
