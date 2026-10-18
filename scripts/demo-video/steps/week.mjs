@@ -945,7 +945,7 @@ export const FRIDAY = [
       });
       await click(ctx, vsNow, 'compare Monday with today', 300);
       // The diff loads from Turso: hold the caption on the result, not on the plain list.
-      await main(ctx).getByRole('heading', { name: 'Changes', exact: true }).waitFor({ timeout: 30000 });
+      await main(ctx).getByRole('heading', { name: 'Changes', exact: true }).first().waitFor({ timeout: 30000 });
       await pace(ctx, 2500);
     },
   }),
