@@ -990,6 +990,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--closed-2026-10-18) | Something starts a save of the empty Turso workspace before a project exists | — | — | **CLOSED** 2026-10-18 |
 | [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--open) | window.prompt throws in the desktop app, so six flows fail there | — | — | open |
 | [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--open) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | open |
+| [§754](#754-an-empty-workspace-can-still-be-kept-as-an-unsaved-draft-when-the-stored-version-is-unknown--open) | An empty workspace can still be kept as an unsaved draft when the stored version is unknown | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45684,3 +45685,17 @@ Proposed: a sticky notice in that state ("Choose or create a project. Nothing is
 Size S (notice) or M (read-only).
 
 **Source:** found 2026-10-18 in the review of the §751 fix (owner: file it for later).
+
+## 754. An empty workspace can still be kept as an unsaved draft when the stored version is unknown — OPEN
+
+**Status:** OPEN 2026-10-18. Found by the branch review of the §715 empty-draft fix on `fix/715-empty-unload-journal`. The unload journal skips an empty workspace only when it is saved over an empty stored version (`isNothingNewToJournal` in `use-unload-journal.ts`); with no base known, `storedFor` returns null and the empty workspace is journalled.
+
+**Work item:** #785
+
+Two rare paths reach that. A save refused for a stale revision after its backend was replaced (`noteSaveRefused` → `keep`) carries a key that is no longer the base's, so an empty refused workspace is written to a kept slot and `OtherJournalsBanner` lists it. A project op that fails between `holdBase` and its flip leaves the base null, so empty saves are journalled with an empty base and come back as a conflict notice. Both need a conflict or a failed op. Journalling when the stored state is unknown is the safe default, but it is the "empty draft offered back" symptom §715 set out to remove.
+
+Proposed: in `keep` only, treat a null base plus `isNothingToJournal(live)` as nothing to keep, with a test that keeps an empty refused save today. Or document it as accepted in `docs/AGENTS/storage.md`'s journal paragraph.
+
+Size S.
+
+**Source:** found 2026-10-18 in the review of the §715 empty-draft fix (owner: file it for later).
