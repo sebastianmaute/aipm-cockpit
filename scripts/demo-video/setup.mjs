@@ -37,29 +37,20 @@ export async function connect(ctx, { onCamera }) {
   await pace(ctx, 4000);
   for (let i = 0; i < 4; i++) {
     const fin = d.getByRole('button', { name: 'Finish', exact: true });
-    if (await fin.count()) { await click(ctx, fin, 'Finish', 3000); break; }
+    if (await fin.count()) {
+      // Finish commits the portfolio storage choice and reloads the app onto Turso.
+      const reloaded = page.waitForEvent('load', { timeout: 60000 });
+      await click(ctx, fin, 'Finish', 0);
+      await reloaded;
+      break;
+    }
     const nx = d.getByRole('button', { name: 'Next', exact: true });
     await click(ctx, (await nx.count()) ? nx : d.getByRole('button', { name: 'Skip', exact: true }), 'Next/Skip');
   }
-  await switchPortfolioToTurso(ctx, { onCamera });
-  if (onCamera) await caption(ctx, '');
-}
-
-/** Choosing Turso under "Portfolio storage" only marks a pending change; its own "Switch portfolio"
- *  button commits it and reloads the app. Without it the demo lands in the browser store, not Turso. */
-async function switchPortfolioToTurso(ctx, { onCamera }) {
-  const page = ctx.page;
-  if (onCamera) await caption(ctx, 'Keep every project in the Turso database.');
-  await click(ctx, page.getByRole('button', { name: 'Configure database / M365' }), 'Configure database');
-  const d = page.locator(DLG).last();
-  await d.getByLabel('Portfolio storage').selectOption('turso');
-  await pace(ctx, 800);
-  const reloaded = page.waitForEvent('load', { timeout: 60000 });
-  await click(ctx, d.getByRole('button', { name: /^(Switch portfolio|Save & switch portfolio)$/ }), 'Switch portfolio', 0);
-  await reloaded;
   await page.getByRole('button', { name: 'Explore the demo', exact: true }).waitFor({ timeout: 60000 });
   const mode = await page.evaluate(() => localStorage.getItem('aipm-cockpit:portfolio-mode'));
   if (mode !== 'turso') throw new Error('the portfolio did not switch to Turso');
+  if (onCamera) await caption(ctx, '');
 }
 
 async function acknowledge(ctx) {

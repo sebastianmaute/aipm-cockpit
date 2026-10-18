@@ -220,12 +220,14 @@ const REPLAN_CSV = path.join(path.dirname(fileURLToPath(import.meta.url)), '..',
 const BUCKET = 'Identity Platform – T&M';
 const CONNECTOR = 'Add a CRM provisioning connector';
 const DEMO_TASK = 'MVP demo to the customer';
+const REDEMO = 'MVP re-demo';
 
-/** Deletes a task through its editor; the app asks with a native confirm, which is accepted. */
+/** Deletes a task through its editor; the app asks in its own dialog, answered with its Delete. */
 async function deleteTask(ctx, name) {
   const d = await openTask(ctx, name);
-  ctx.page.once('dialog', (dlg) => dlg.accept());
-  await click(ctx, d.locator('button', { hasText: /^Delete$/ }).first(), `delete ${name}`, 1200);
+  await click(ctx, d.locator('button', { hasText: /^Delete$/ }).first(), `delete ${name}`, 800);
+  const ask = ctx.page.locator(DLG).last();
+  await click(ctx, ask.getByRole('button', { name: 'Delete', exact: true }), `confirm delete ${name}`, 1200);
 }
 
 /** The per-item "Ask Claude" popover on a register row: the instruction, then Claude's preview. The
@@ -353,14 +355,12 @@ export const TUESDAY = [
       await saveTask(ctx);
     },
   }),
-  // ★ On the demo task, not the milestone: a milestone's Ask Claude answers "needs more detail" to every
-  // description edit (an app defect reported with §715 A, 2026-10-17); the task carries the same story.
   step('redemo-ask-claude', {
     ai: true,
-    trigger: async (ctx) => { await nav(ctx, 'Open Points'); return main(ctx).getByRole('button', { name: `Ask Claude – ${DEMO_TASK}`, exact: true }).first(); },
+    trigger: async (ctx) => { await nav(ctx, 'Milestones'); return main(ctx).getByRole('button', { name: `Ask Claude – ${REDEMO}`, exact: true }).first(); },
     run: async (ctx) => {
-      await caption(ctx, 'Ask Claude to describe the re-run of the demo.');
-      await askClaude(ctx, 'Open Points', DEMO_TASK, 'Set the description to: The MVP demo to the customer, re-run on 2 October once provisioning to the CRM works end to end.');
+      await caption(ctx, 'Ask Claude to describe the re-demo.');
+      await askClaude(ctx, 'Milestones', REDEMO, 'Set the description to: The MVP demo to the customer, re-run on 2 October once provisioning to the CRM works end to end.');
     },
     check: askClaudeCheck,
     after: askClaudeApply,
