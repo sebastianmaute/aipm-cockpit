@@ -91,15 +91,25 @@ async function take(browser, def) {
     if (r.status === 'ok' && ctx.checkDay && def.clock && daysChecked) {
       await ctx.checkDay(def.tier === 'big' ? 'fri' : def.clock);
     }
-    // Every video shows at most MAX_AI_WAIT_S of each wait for Claude (trim.mjs); a clip with no AI wait is left as it is.
-    if (r.status === 'ok' && r.file) {
-      const cut = trimAiWaits(r.file, r.aiWaits, L.OUT);
-      log(`TRIM ${r.aiWaits.length} AI wait(s) capped at ${MAX_AI_WAIT_S} s, ${cut.toFixed(1)} s cut`);
-    }
     if (r.status !== 'ok') await page.screenshot({ path: path.join(L.OUT, `warn-${def.id}.png`) }).catch(() => {});
     return { ...r, warnings: r.warnings + warnings };
   } finally {
     await context.close();
+  }
+}
+
+/** Caps each wait for Claude in a finished take at MAX_AI_WAIT_S (trim.mjs), once its browser context is
+ *  closed. A failed trim keeps the untrimmed take and counts a warning, so the take's own warnings (the
+ *  secret scan among them) still reach the tally. */
+function trimTake(def, r) {
+  if (r.status !== 'ok' || !r.file) return r;
+  try {
+    const { cut, capped } = trimAiWaits(r.file, r.aiWaits, L.OUT);
+    if (capped) console.log(`[${def.id}]`, `TRIM ${capped} AI wait(s) capped at ${MAX_AI_WAIT_S} s, ${cut.toFixed(1)} s cut`);
+    return r;
+  } catch (e) {
+    console.log(`[${def.id}]`, mask(`TRIM FAILED ${String(e?.message ?? e).split('\n')[0]} (the untrimmed take is kept)`));
+    return { ...r, warnings: r.warnings + 1 };
   }
 }
 
@@ -111,7 +121,7 @@ try {
   for (const def of selectVideos(VIDEOS, args)) {
     if (def.handRecorded) { notes.push(`${def.id}: hand-recorded, not taken`); continue; }
     await cleanup();
-    const r = await take(browser, def).catch((e) => ({ status: 'failed', warnings: 0, error: mask(String(e?.message ?? e).split('\n')[0]) }));
+    const r = trimTake(def, await take(browser, def).catch((e) => ({ status: 'failed', warnings: 0, error: mask(String(e?.message ?? e).split('\n')[0]) })));
     tally[r.status]++;
     tally.warnings += r.warnings;
     console.log(r.status.toUpperCase().padEnd(7), def.id, r.file ? mask(r.file) : '', r.error ? '- ' + mask(r.error) : '');
