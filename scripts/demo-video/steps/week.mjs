@@ -267,14 +267,23 @@ export const askClaudeCheck = async (ctx) => ((await ctx.page.getByRole('button'
 export const askClaudeApply = async (ctx) => click(ctx, ctx.page.getByRole('button', { name: 'Apply', exact: true }).last(), 'Apply', 1500);
 
 /** Deduplicate & unify on Open Points: Claude proposes merges; the check counts them, `after` merges. */
+/** Deduplicate & unify from the view it is shown on: the Gantt's own button when the take is there
+ *  (f-gantt), else Open Points'. */
+async function dedupButton(ctx) {
+  const gantt = main(ctx).getByRole('button', { name: 'Deduplicate & unify – Gantt', exact: true });
+  if (await gantt.count()) return gantt;
+  await nav(ctx, 'Open Points');
+  return main(ctx).getByRole('button', { name: 'Deduplicate & unify', exact: true }).first();
+}
+
 export const dedup = step('dedup', {
   ai: true,
-  trigger: async (ctx) => { await nav(ctx, 'Open Points'); return main(ctx).getByRole('button', { name: 'Deduplicate & unify', exact: true }).first(); },
+  trigger: dedupButton,
   run: async (ctx) => {
-    await nav(ctx, 'Open Points');
-    await caption(ctx, 'Deduplicate & unify: Claude finds the follow-ups logged twice.');
     if (await ctx.page.locator(DLG).count()) await ctx.page.keyboard.press('Escape');
-    await click(ctx, main(ctx).getByRole('button', { name: 'Deduplicate & unify', exact: true }).first(), 'Deduplicate & unify', 300);
+    const button = await dedupButton(ctx);
+    await caption(ctx, 'Deduplicate & unify: Claude finds the follow-ups logged twice.');
+    await click(ctx, button, 'Deduplicate & unify', 300);
     await waitForAi(ctx, {
       busy: ctx.page.locator(`${DLG} [aria-busy="true"]`).first(),
       done: ctx.page.locator(DLG).getByRole('button', { name: /^(Merge selected|Close)$/ }).first(),
@@ -443,7 +452,7 @@ export async function resources(ctx, view) {
 }
 
 /** A person's utilization for one month in Planning, typed and committed. */
-async function setUtilization(ctx, who, month, value) {
+export async function setUtilization(ctx, who, month, value) {
   const cell = main(ctx).getByRole('spinbutton', { name: `Utilization for ${who} in ${month}`, exact: true });
   await type(ctx, cell, String(value), `${who} ${month}`);
   await cell.press('Tab');
@@ -574,7 +583,7 @@ const LICENCE_TASK = 'Order the connector licence';
 const LICENCE_CHECK = 'Confirm licence delivery';
 
 /** Opens a register row's editor by a text it shows (RAID, changes). */
-async function openRow(ctx, view, text) {
+export async function openRow(ctx, view, text) {
   await nav(ctx, view);
   await click(ctx, main(ctx).locator('tbody tr', { hasText: text }).first(), `open ${text}`, 1000);
   return ctx.page.locator(DLG).last();

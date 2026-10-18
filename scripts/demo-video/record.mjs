@@ -33,10 +33,11 @@ if (!KEY) throw new Error('ANTHROPIC_API_KEY not set in .env.local');
 const SECRETS = [T.url, T.host, T.token, KEY];
 const mask = (s) => SECRETS.reduce((acc, v, i) => (v ? acc.split(v).join(['<URL>', '<HOST>', '<TOKEN>', '<KEY>'][i]) : acc), String(s));
 
-/** A `{ banner: <view> }` opening is that view's own banner text, read from the page. */
+/** A `{ banner: <view> }` opening is that view's own banner text, read from the page. A sub-view names its
+ *  path ("Resources>Planning"): its nav item shows only while its parent is open. */
 async function resolveOpening(ctx, opening) {
   if (typeof opening === 'string') return opening;
-  await ui.nav(ctx, opening.banner);
+  for (const view of opening.banner.split('>')) await ui.nav(ctx, view);
   // The view's callout (view-callout.tsx): its text is the <p> beside the "Dismiss hint" button.
   const text = await ctx.page.locator('main div:has(> button[aria-label="Dismiss hint"]) > p').first().innerText().catch(() => '');
   if (!text) throw new Error(`no banner text on ${opening.banner}`);

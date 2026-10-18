@@ -533,7 +533,7 @@ Tests:
 ### Task 9: The 20 feature clips
 
 **Files:**
-- Modify: `scripts/demo-video/steps/features.mjs`, `scripts/demo-video/videos.mjs`
+- Modify: `scripts/demo-video/steps/features.mjs`, `scripts/demo-video/videos.mjs`, `scripts/demo-video/steps/week.mjs` (dedup from the view it is on; helpers exported), `scripts/demo-video/record.mjs` (a sub-view banner names its path)
 
 **Interfaces:**
 - Produces one entry per id in A's tier-4 table. `opening: { banner: '<view>' }` is resolved at take time: the runner opens the view and reads its hint text from the page.
@@ -556,7 +556,7 @@ Tests:
 - [ ] **Step 2: Rehearse the tier,** `--tier features --rehearse` → `RESULT ok 20 skipped 0 failed 0 WARNINGS 0`.
 
 - [ ] **Step 3: Commit.**
-  `git commit --only scripts/demo-video/steps/features.mjs scripts/demo-video/videos.mjs -m "feat: the 20 feature clips (§715)"`
+  `git commit --only scripts/demo-video/steps/features.mjs scripts/demo-video/steps/week.mjs scripts/demo-video/videos.mjs scripts/demo-video/record.mjs -m "feat: the 20 feature clips (§715)"`
 
 ### Task 10: Docs, the full take, and the hand-off
 

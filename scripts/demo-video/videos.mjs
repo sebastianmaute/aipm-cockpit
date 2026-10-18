@@ -7,7 +7,7 @@
 // Def = { id, tier, title, opening, handRecorded?, prologueOnCamera?, prologue?, clock?, replayThrough?,
 //         preconditions: { what, check(ctx) }[], steps: Step[] }   (Step: steps/step.mjs)
 import { AI_PRECONDITIONS, AI_STEPS } from './steps/ai.mjs';
-import { FEATURE_STEPS } from './steps/features.mjs';
+import { FEATURE_PRECONDITIONS, FEATURE_STEPS } from './steps/features.mjs';
 import { FRIDAY, MONDAY, PROLOGUE, THURSDAY, TUESDAY, WEDNESDAY, demoOpens, goTo } from './steps/week.mjs';
 
 export const TIERS = Object.freeze(['big', 'chapters', 'ai', 'features']);
@@ -15,7 +15,7 @@ export const TIERS = Object.freeze(['big', 'chapters', 'ai', 'features']);
 const chapter = (id, title, steps, extra = {}) => ({ id, tier: 'chapters', title, opening: title, preconditions: [], steps, ...extra });
 
 const ai = (id, title, opening) => ({ id, tier: 'ai', title, opening, preconditions: AI_PRECONDITIONS[id] ?? [], steps: AI_STEPS[id] });
-const feature = (id, title, opening) => ({ id, tier: 'features', title, opening, preconditions: [], steps: FEATURE_STEPS[id] });
+const feature = (id, title, opening) => ({ id, tier: 'features', title, opening, preconditions: FEATURE_PRECONDITIONS[id] ?? [], steps: FEATURE_STEPS[id] });
 
 const DEFS = [
   {
@@ -57,15 +57,15 @@ const DEFS = [
   feature('f-changes', 'Changes', { banner: 'Changes' }),
   feature('f-directory', 'The resource directory', { banner: 'Resources' }),
   feature('f-absences', 'Absences', 'Log vacation, training and other time off — it shows on the Gantt and in workload.'),
-  feature('f-planning', 'Planning', { banner: 'Planning' }),
-  feature('f-workload', 'Workload', { banner: 'Workload' }),
+  feature('f-planning', 'Planning', { banner: 'Resources>Planning' }),
+  feature('f-workload', 'Workload', { banner: 'Resources>Workload' }),
   feature('f-raid', 'RAID', { banner: 'RAID' }),
   feature('f-modules', 'Turn functions on or off', 'Turn functions on or off per project, so the app shows only what you use.'),
   feature('f-budget', 'Budget', { banner: 'Budget' }),
-  feature('f-trends', 'Trends', { banner: 'Trends' }),
+  feature('f-trends', 'Trends', { banner: 'Dashboard>Trends' }),
   feature('f-stakeholders', 'Stakeholders', { banner: 'Stakeholders' }),
-  feature('f-raci', 'RACI', { banner: 'RACI' }),
-  feature('f-influence', 'The stakeholder map', { banner: 'Stakeholder map' }),
+  feature('f-raci', 'RACI', { banner: 'Stakeholders>RACI Matrix' }),
+  feature('f-influence', 'The stakeholder map', { banner: 'Stakeholders>Influence / Interest' }),
   feature('f-knowledge', 'Knowledge', { banner: 'Knowledge' }),
   feature('f-activity', 'The activity log', 'The activity log records who changed what, and when.'),
   feature('f-history', 'Version history', 'Version history keeps every saved state — compare and restore.'),
