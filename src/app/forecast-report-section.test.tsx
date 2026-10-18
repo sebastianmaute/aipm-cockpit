@@ -418,6 +418,35 @@ describe("ForecastReportSection — Forecast by group", () => {
     expect(spy).toHaveBeenCalledTimes(1);
     spy.mockRestore();
   });
+
+  // Fix round 1 — the groups read tasks, today, holidays and the plan end only. A directory or budget edit is a new
+  // input object, but must not rerun them or flash the placeholder; a task edit still does (the positive control).
+  test("a directory or budget edit while open reruns nothing; a task edit does", async () => {
+    const spy = vi.spyOn(groupModule, "forecastByGroup");
+    const props: ForecastReportProps = {
+      input: input(), scenarios: SCENARIOS, settings: settings(), history: [], currency: "EUR", readOnly: false,
+    };
+    const { rerender } = render(<ForecastReportSection lang="en-US" {...props} />);
+    const fold = screen.getByTestId("forecast-by-group") as HTMLDetailsElement;
+    act(() => {
+      fold.open = true;
+      fold.dispatchEvent(new Event("toggle"));
+    });
+    await within(fold).findByText(/Each group is forecast on its own/);
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    const budgetOnly = input({ directory: { ...DIRECTORY, workdayHours: 7 }, budgetFacts: { ...BUDGET_FACTS }, costOn: true });
+    rerender(<ForecastReportSection lang="en-US" {...props} input={budgetOnly} />);
+    expect(within(fold).queryByText("Working it out…")).toBeNull();
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    rerender(<ForecastReportSection lang="en-US" {...props} input={input({ ...budgetOnly, tasks: [...TASKS] })} />);
+    expect(within(fold).getByText("Working it out…")).toBeTruthy();
+    await within(fold).findByText(/Each group is forecast on its own/);
+    expect(spy).toHaveBeenCalledTimes(2);
+    spy.mockRestore();
+  });
 });
 
 describe("ForecastReportSection — while the holiday calendar loads", () => {
