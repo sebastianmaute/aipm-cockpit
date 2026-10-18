@@ -1941,7 +1941,13 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   ★★ PART 4 (spec §3.9): `delete_forecast_scenario` is in `DESTRUCTIVE_TOOLS` (stages alone), takes the same
   `forecastScenario` token (`TOKEN_ROW_SOURCE` row; `requireTokenedRow` in `runForecastTool`), is one undoable
   `forecastScenario.deleted` composite and arms nothing (`UNARMED_AI_ROUTES`, `destructive-save-arming.test.ts`: the
-  slice is uncounted). `set_forecast_proposal` (`id`, or null to clear) and `set_forecast_target_confidence`
+  slice is uncounted). ★★ That test holds TWO tables, and every AI tool named `delete_*` or `clear_*` must sit in
+  exactly one: `ARMED_AI_ROUTES` (tool → the test file proving its handler arms `allowDestructiveSave`) or `UNARMED_AI_ROUTES`
+  (tool → the slice it removes from, which must be uncounted in `SLICE_POLICY`: an arm on an uncounted slice is never
+  spent and leaks to the next save, waving through a delete it never saw; `delete_forecast_scenario` → `forecastScenarios` is
+  its one row today: `grep -n -A3 "UNARMED_AI_ROUTES: Record" src/app/destructive-save-arming.test.ts`). A new
+  removal tool with no row fails "has a recorded arming decision for every AI removal tool"; the save guard itself is
+  in [`platform.md`](platform.md). `set_forecast_proposal` (`id`, or null to clear) and `set_forecast_target_confidence`
   (`value`, 50/80/95) are in `ENTITY_WRITE_TOOLS` although they write `settingsOverrides`: project data, unlike
   `update_settings`; they are logged as the AI and NOT undoable (owner decision). `set_forecast_proposal.id` and
   `delete_forecast_scenario.id` are `TARGET_MINTED_BY` rows minted by `create_forecast_scenario`, so

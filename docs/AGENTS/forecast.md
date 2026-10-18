@@ -7,7 +7,9 @@ and what is each milestone's **chance** of landing on its date. Part 1 of the su
 Show-simulation switch (`SettingsOverrides.forecast`) and a daily recorder that persists
 `Workspace.forecastHistory` (a meta-blob on all six write paths). It replaced the old slices 2 and 5;
 part 2 (the Dashboard picture), part 3 (the budget simulation) and saved scenarios (build step 2) are built, all
-held back with the view; the AI tools are built and held back with it, and part 4 and the un-hide are open — see §502 in [`../open-followups.md`](../open-followups.md).
+held back with the view; the AI tools and part 4 ("Part 4 — from forecast to decision" below) are built and held
+back with it, and only the un-hide is open — see §502 in [`../open-followups.md`](../open-followups.md) and the
+un-hide list at the end of "HELD BACK" below.
 Reproduce the file list: `ls src/app/forecast`.
 
 ★★ **HELD BACK FROM THE RELEASE.** `"forecast"` sits in `RELEASE_HIDDEN_VIEWS` (`feature-modules.ts`), so
@@ -73,6 +75,33 @@ held-back tests to FAIL by design — each asserts that a surface is hidden whil
   ★ Still described in NO help text: part 3's burn-chart simulation (the finish band, P80 line and cost wedge in the
   burn charts; see "Budget simulation — part 3" below). Neither the concept body nor the held-back text above covers
   it; write its help before or at un-hide.
+
+★★★ **The un-hide list for part 4 (gathered across its three PRs).** Everything above still applies; these are the
+items part 4 adds. The first three are HARD GATES: do not un-hide until each is done and its result recorded.
+1. **HARD GATE — the export click.** An export or document download with the `forecastDecision` section ticked runs
+   the lever search synchronously at the click, with no busy indicator (about 0.1 / 0.3 / 1 s for 12 / 60 / 150 open
+   tasks; the figures and their probe are in "Part 4's engine paths and their cost" below). Measure it on a real
+   project and decide: the section's default, a busy indicator, or both.
+2. **HARD GATE — one live chat request with the forecast tools offered.** No unit test sends the tool definitions to
+   the real API. `set_forecast_proposal`'s `id` schema uses `type: ["number","null"]` (no strict mode); if the API
+   refuses it, fall back to a JSON-Schema anyOf of number and null. Pass it with the six tools on the wire (`FORECAST_TOOL_DEFS`; count them with
+   `grep -c 'name: "' src/app/chat-tool-defs-forecast.ts`).
+3. **HARD GATE — axe on the part-4 surfaces with the view un-hidden.** The e2e seed cannot render them while hidden:
+   the Reports Forecast section (verdict, milestones table, proposal table, the by-group fold-out), the Forecast
+   view's target control and lever column, the Gantt band and chips, and the Trends P80 chart.
+4. **Owner eye-check, Gantt:** the band's opacity; the P80 label overlapping the first row's bar or sliding under
+   the sticky name column; the "P80" wording with no "simulated" cue on the Gantt; whether the Gantt wants a plan-end
+   marker beside P80; the axis extension cap (`FORECAST_AXIS_EXTENSION_DAYS`, 180 days: `grep -n
+   "FORECAST_AXIS_EXTENSION_DAYS =" src/app/gantt-engine.ts`); the band's capped end has no marker of its own (only
+   the P80 label carries "→"); the chip's edge format ("<1%" / ">99%") against Reports' and the export's
+   `formatChance`. The Gantt side is documented in [`ui-shell.md`](ui-shell.md) "The simulated forecast on the Gantt".
+5. **Owner eye-check, Reports:** the Forecast block's layout at its default height; "Ask Claude to draft a proposal"
+   on the plan-end line shows only when the plan end is below target (confirm that narrowing).
+6. **Owner eye-check, exports:** the decision rows reuse the lever badge text, not the mockup's phrasing; and
+   `exportSectionHint` (EN and DE) does not list the `forecastDecision` section yet, because naming it now would name
+   the hidden feature — add it at un-hide. Say in the CHANGELOG's "older version" sentence that an older build drops
+   a `forecastDecision` block ([`documents.md`](documents.md), the `forecastDecision` paragraph).
+7. **Help:** paste the held-back text above; part 3's burn-chart band still has no help text (above).
 
 ## Module map
 
@@ -287,9 +316,9 @@ changes from outside (M5)" (`forecast-panel.test.tsx`). The default window is 60
 axe spec selects **"All history" (R13)** and waits for the chart so axe sees the forecast state, not
 only the empty state.
 
-- **No Ask-Claude chips (R12).** `forecast` has no prompt chips until slice 4: no read tool exists, so a
-  chip could not be answered. A test in `ask-claude-prompts.test.ts` pins the absence; the feature guide
-  tells the AI not to quote the Forecast.
+- **No generic Ask-Claude chips (R12).** `forecast` has no entry in `ASK_CLAUDE_PROMPTS`, and a test in
+  `ask-claude-prompts.test.ts` pins the absence (its comment still gives the pre-AI-tool reason, "no read tool").
+  The view has its own menu instead, `ForecastAskClaude`, shown only with AI on, the simulation on and not in a popout; see "The AI tool" below.
 - Percent strings go through i18n keys (EN `{0}%`, DE `{0} %`; R10).
 - **Amounts carry their unit.** `formatAmount` writes tasks as `forecastAmountTasks` through `tPlural`
   ("1 task", "5 tasks"; DE "1 Aufgabe", "5 Aufgaben") and effort as whole hours ("12 h"), for the
@@ -347,7 +376,7 @@ npx vite-node forecast-probe.ts; rm forecast-probe.ts
 
 ### Part 4's engine paths and their cost (§502 part 4)
 
-Three kinds of engine work, per view. Name them apart; they are paid differently.
+Four kinds of engine work, per view. Name them apart; they are paid differently.
 - **The shared As-is run.** One memoised 10,000-trial run at the app-wide defaults (`computeAppScheduleRun`, the same
   single-entry memo as `computeAppForecast`). The Reports section's As-is, the lever search's prepare step, the export
   decision and a document preview's base take it through `sharedAsIsRun`; the Gantt, the Budget report and Reports'
@@ -363,6 +392,39 @@ Three kinds of engine work, per view. Name them apart; they are paid differently
     itself, on render. That is still the one call: the lever search's prepare then reuses it.
 - **The proposal column**, on render, once per input change, on Reports and in a preview, and only with a proposal set.
 - **The lever probes**, about 50–70 ms each, one per macrotask (`useLeverSearch`), never on a render path.
+- **The "Forecast by group" fold-out** (`ForecastGroupFold`, Reports only): one full run per group with open tasks
+  (`forecastByGroup`), nothing until the `<details>` is opened, then in ONE timer callback after paint. An edit while
+  it is open cancels the pending run and schedules one for the new input; rows show only for the CURRENT input, so the
+  fold-out reads "Working it out…" in between. ★ Its input is a memo keyed on the four fields the groups read (tasks,
+  today, holiday set, plan end; `groupInput` in `forecast-report-section.tsx`), so a directory or budget edit makes no
+  new input and reruns nothing. Cost: about 9–11 ms per forecastable group, under 1 ms for a group below the history
+  floor; measured 2026-10-18 at about 48 ms for 150 tasks in 5 forecastable groups, and on 2026-10-19 at 55 / 103 /
+  234 ms for 150 / 300 / 600 tasks in 5 / 10 / 20 forecastable groups. One macrotask for all groups was accepted; chunk
+  per group only if real projects show 20 or more forecastable groups. Reproduce from the repo root (single runs on a
+  shared machine; delete the file afterwards):
+
+```bash
+cat > group-probe.ts <<'EOF2'
+import { forecastByGroup } from "./src/app/forecast-by-group";
+import { workingDaysBefore } from "./src/app/working-days";
+const today = "2026-10-14", holidaySet = new Set<string>(), days = [...workingDaysBefore(today, 59, holidaySet), today];
+function tasks(total: number, groups: number) {
+  const out: object[] = []; const per = total / groups;
+  for (let g = 0; g < groups; g++) for (let k = 0; k < per; k++) {
+    const id = g * per + k + 1, done = k < per * 0.6;
+    out.push({ id, taskName: "t", group: `G${g}`, status: done ? "Done" : "To Do", ...(done ? { completedDate: days[(k * 7) % days.length] } : {}) });
+  }
+  return out as never;
+}
+for (const [total, groups] of [[150, 5], [300, 10], [600, 20]]) {
+  const input = { tasks: tasks(total, groups), today, holidaySet, planEnd: "2026-12-23" };
+  forecastByGroup(input); // warm-up
+  const t0 = performance.now(); const rows = forecastByGroup(input);
+  console.log(total, "tasks,", rows.filter((r) => r.kind === "forecast").length, "forecastable groups:", Math.round(performance.now() - t0), "ms");
+}
+EOF2
+npx vite-node group-probe.ts; rm group-probe.ts
+```
 
 ★★ **The export decision is synchronous, and that is the un-hide risk.** An export or a document download with the
 `forecastDecision` section ticked (it is on by default) runs `whatItTakesSync` for every below-target milestone at
@@ -1012,6 +1074,63 @@ npx vite-node scenario-probe.ts; rm scenario-probe.ts
   `PORT=3100 npx playwright test e2e/forecast-scenarios.spec.ts --project=chromium --workers=1`. Until then CI covers the
   editor and the comparison by their unit tests only.
 
+## Part 4 — from forecast to decision
+
+Spec `docs/superpowers/specs/2026-10-18-forecast-part-4-decision-surfaces-design.md`. Built in three PRs and held back with the view
+(the un-hide list is at the end of "HELD BACK" above). This section is the map; the detail lives where each piece is
+owned, and is linked rather than restated.
+
+**Two settings, one sanitizer rule.** The target confidence (50 | 80 | 95) and the proposed scenario's id ride
+`SettingsOverrides.forecast` beside the switch, so they travel with the project on all six write paths
+(`settings-overrides-persistence.test.ts`). ★★ ABSENCE IS THE DEFAULT: 80 and "no proposal" are never stored.
+`withTargetConfidence` and `withProposal` (`forecast-target.ts`) write the default as absence, and
+`sanitizeForecastOverride` (`settings-overrides.ts`) keeps each field independently and only in its non-default form
+(`targetConfidence` 50 or 95; `proposalScenarioId` a positive integer), so no empty `forecast` object is ever emitted.
+Read them only through `targetConfidenceOf` and `proposalIdOf`. ★★ `proposalIdOf` resolves a stored id against the
+LIVE scenario list, so a deleted proposal reads as "no proposal" everywhere (Reports, export, AI) while the stored id
+is KEPT, and undo or a version restore that brings the scenario back brings the proposal with it. That is why deleting
+the proposed scenario logs no `forecast.proposalCleared`, and why the id minter seeds `forecastScenario` from the
+stored proposal id too (`id-mint-session.ts`): re-issuing that id would move the proposal onto an unrelated new
+scenario. `chanceSeverity` is the one red/amber/green rule for every part-4 chance dot and the verdict. The UI writes
+both through `useForecastSettings`, which logs each real change and never captures undo (owner decision).
+
+**The lever engine** (`forecast-levers.ts`, pure, i18n-free, React-free) answers "what would it take": the smallest
+single lever, people added or tasks removed, that lifts a target's chance (a milestone, or the plan end) to the goal.
+Every probe is one `computeScenarioColumn` on the As-is input and context, so probes share random numbers with As is
+and with each other; that keeps the chance non-decreasing in n, up to a trial's resolution, which is what makes the
+bisection sound. The search is a step machine (`planWhatItTakes` → `stepPlan` → `settlePlan`): probe the bound first,
+then bisect. The people bound is the team size, capped at `ADDED_COUNT_MAX`; the tasks bound is half the target's
+open tasks. Added people are one placeholder sized from the team's booked hours and mean internal rate
+(`placeholderWho`); with no booked hours the people lever is inert ("needs booked hours") and the tasks lever still
+runs. A target with no As-is chance (an overdue milestone, one with nothing linked, an insufficient run) gets no
+lever at all. Probes run without the cost pass (`probeInput`), which moves no schedule number. Two drivers:
+`whatItTakesSync` runs to completion for the explicit export and download actions and for `get_forecast`;
+`useLeverSearch` runs one probe per macrotask for the Forecast view, the Reports section and document previews,
+keyed on the input identity, goal and target list, so a result from older inputs reads as "pending" and is never
+shown. Costs: "Part 4's engine paths and their cost" above.
+
+**Surfaces**, all gated on `isSimulationActive`:
+- **Forecast view**: `ForecastTargetControl` in the header (disabled in a popout), and, in Quick mode only, a lever
+  column on the milestones table (`ForecastLeverCell`). "Explore" opens the lever as an unsaved draft scenario with the same figures
+  (`exploreSeeds`, `forecast-explore-draft.ts`); "Ask Claude to draft a proposal" (`ForecastDraftAsk`) shows only on a
+  row below the goal. Prioritising is shown beside the levers, never as a lever, because a scenario cannot model it.
+- **Reports**: the "forecast" block, `ForecastReportSection`, mapped in AGENTS.md's "Reports module map".
+- **Gantt**: band, P80 line and chance chips; [`ui-shell.md`](ui-shell.md) "The simulated forecast on the Gantt".
+- **Trends**: the Safe to commit (P80) over time chart, `ForecastP80Line` over `forecastHistory`, on its own date
+  axis (shared with Reports).
+
+**Exports and documents**: the `forecastDecision` data section, built by `buildForecastDecision` /
+`buildForecastDecisionBase` (`forecast-decision.ts`) and worded by `forecastDecisionRows`; the download-versus-preview
+split is in [`documents.md`](documents.md), the `forecastDecision` paragraph. ★★ With the simulation OFF there is no
+decision and the section is ABSENT. With it on, the decision's insufficient variant covers TWO cases, and the export
+KEEPS the section with ONE row for either: below the history floor, and the holiday calendar still loading
+(`calendarLoading: true`, worded by `forecastDecisionCalendarLoading`). The second is deliberate: the user ticked the
+section, so an export must not drop it silently while the calendar loads. Never in the CSV, Markdown or JSON storage
+formats.
+
+**AI**: "The AI tool" below (what the forecast owns) and [`ai-assistant.md`](ai-assistant.md) "Forecast tools"
+(staging, tokens, the save-arming table).
+
 ## The AI tool (§502)
 
 The assistant side is in `docs/AGENTS/ai-assistant.md`, "Forecast tools (§502)"; this section is what the FORECAST
@@ -1057,9 +1176,15 @@ comparison and before the `whatIf` column, so a row a save would refuse is refus
 `ai-assistant.md`.
 
 ★★ THE PART-4 WRITES (`delete_forecast_scenario`, `set_forecast_proposal`, `set_forecast_target_confidence`, spec
-§3.9). They live in `useForecastTools` beside create and update, not in the UI hooks, because the UI hooks read their
-lists from refs synced after a commit: inside one staged plan no render runs between rows, so a proposal naming the
-scenario the plan's create just minted would be dropped there. The store and log RULES are shared instead:
+§3.9). They live in `useForecastTools` beside create and update, not routed through the UI hooks
+(`useForecastScenarios`, `useForecastSettings`), for three reasons. Reach: those hooks are mounted in
+`workspace-section.tsx`, and the chat dispatcher (`use-chat-dispatcher.ts`) cannot reach them. Lag: they read their
+lists from refs synced after a commit, and inside one staged plan no render runs between rows, so a proposal naming
+the scenario the plan's create just minted would be dropped there. Capture: the UI hooks capture undo through
+workspace-section's `onCaptureUndo` and log as the user; the AI path captures through the dispatcher's `undoRef`,
+from its own synchronously assigned list, and logs as the AI. The delete is token-checked like the update
+(`requireTokenedRow`, `chat-tools-forecast.ts`; staging in `ai-assistant.md`). The store and log RULES are shared
+instead:
 `withProposalChange` and `proposalLogEntry` (`use-forecast-settings.ts`) are what `useForecastSettings.setProposal`
 calls too, so the UI and Claude store and log a proposal change alike, as `forecast.proposalSet` /
 `forecast.proposalCleared` with the AI actor. A target change logs `forecast.targetChanged`; an unchanged target writes
