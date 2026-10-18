@@ -304,9 +304,10 @@ npx vite-node forecast-probe.ts; rm forecast-probe.ts
 
 Three kinds of engine work, per view. Name them apart; they are paid differently.
 - **The shared As-is run.** One memoised 10,000-trial run at the app-wide defaults (`computeAppScheduleRun`, the same
-  single-entry memo as `computeAppForecast`). Reports, the Gantt, the lever search's prepare step, the export decision
-  and a document preview's base all take it through `sharedAsIsRun`, so each input change costs ONE engine call
-  however many of them are mounted. Pinned by `forecast-report-shared-run.test.tsx` and
+  single-entry memo as `computeAppForecast`). The Reports section's As-is, the lever search's prepare step, the export
+  decision and a document preview's base take it through `sharedAsIsRun`; the Gantt, the Budget report and Reports'
+  embedded budget simulation read it through `useAppForecast` → `computeAppForecast`, the same memo entry. So each
+  input change costs ONE engine call however many of them are mounted. Pinned by `forecast-report-shared-run.test.tsx` and
   `document-preview.shared-run.test.tsx`.
   - ★ **The Gantt tab now pays it on every task edit**, about 30 ms at the default call (the table above). This is the
     established `useAppForecast` pattern (workspace-section's call is active on the Budget report, Reports and Gantt

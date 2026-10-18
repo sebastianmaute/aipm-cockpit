@@ -1,7 +1,11 @@
-// The milestone rows a forecast run reports, and the two rules every surface applies to them (§502 part 4): worst
-// first, and "below target". ONE copy, used by the Forecast view's scenario milestones table, the Reports Forecast
-// section's milestones and proposal tables, and the export decision (`forecast-decision.ts`). Pure, i18n-free and
-// React-free.
+// The milestone rows a forecast run reports, and the rules the surfaces apply to them (§502 part 4), in ONE copy:
+// - worst first (`milestoneRowsWorstFirst`): the Forecast view's scenario milestones table, the Reports Forecast
+//   section's milestones and proposal tables, and the export decision (`forecast-decision.ts`);
+// - below target (`belowTargetRows`): the proposal table and the export decision;
+// - overdue (`overdueRows`): the export decision;
+// - the counts (`milestoneCounts`): the Reports verdict (`forecast-report-section.tsx` hands them to `forecastVerdict`),
+//   by the same rules.
+// Pure, i18n-free and React-free.
 
 import type { MilestoneChance } from "./forecast/milestones";
 import { chanceSeverity, type TargetConfidence } from "./forecast-target";
