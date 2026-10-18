@@ -34,7 +34,7 @@ export function liveProposal(id: number | null, scenarios: readonly ForecastScen
 }
 
 /** The P80 finish of a column as text; "—" below the history floor. */
-export function columnP80Text(lang: Lang, column: ScenarioColumn): string {
+function columnP80Text(lang: Lang, column: ScenarioColumn): string {
   if (column.forecast.kind !== "forecast") return NONE;
   return formatWhen(column.forecast.when.find((w) => w.p === SAFE_TO_COMMIT)?.date ?? null, lang);
 }
