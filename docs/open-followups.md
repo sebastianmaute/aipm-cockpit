@@ -45692,9 +45692,9 @@ Size S (notice) or M (read-only).
 
 **Work item:** #785
 
-Two rare paths reach that. A save refused for a stale revision after its backend was replaced (`noteSaveRefused` → `keep`) carries a key that is no longer the base's, so an empty refused workspace is written to a kept slot and `OtherJournalsBanner` lists it. A project op that fails between `holdBase` and its flip leaves the base null, so empty saves are journalled with an empty base and come back as a conflict notice. Both need a conflict or a failed op. Journalling when the stored state is unknown is the safe default, but it is the "empty draft offered back" symptom §715 set out to remove.
+Two rare paths reach that. A save refused for a stale revision after its backend was replaced (`noteSaveRefused` → `keep`) carries a key that is no longer the base's, so an empty refused workspace is written to a kept slot and `OtherJournalsBanner` lists it. A project op that fails between `holdBase` and its flip leaves the base null, so empty saves are journalled with an empty base and come back as a conflict notice. Both need a refused save or a failed op. Journalling when the stored state is unknown is the safe default, but it is the "empty draft offered back" symptom §715 set out to remove.
 
-Proposed: in `keep` only, treat a null base plus `isNothingToJournal(live)` as nothing to keep, with a test that keeps an empty refused save today. Or document it as accepted in `docs/AGENTS/storage.md`'s journal paragraph.
+Proposed: treat a null base plus `isNothingToJournal(live)` as nothing to journal, in `keep` (the refused save) and in `write` (the failed op, which journals through the autosave), with a test for each path that journals an empty workspace today. Or document it as accepted in `docs/AGENTS/storage.md`'s journal paragraph.
 
 Size S.
 
