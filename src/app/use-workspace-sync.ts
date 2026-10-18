@@ -91,6 +91,7 @@ export function useWorkspaceSync<S extends Slices>(deps: WorkspaceSyncDeps<S>): 
   useBroadcastSync("budgetHistory", ws.budgetHistory, mirrorApply.budgetHistory, syncContext);
   useBroadcastSync("baselineHistory", ws.baselineHistory, mirrorApply.baselineHistory, syncContext); // §476 — same reason
   useBroadcastSync("forecastHistory", ws.forecastHistory, mirrorApply.forecastHistory, syncContext); // §502 — same reason
+  useBroadcastSync("forecastScenarios", ws.forecastScenarios, mirrorApply.forecastScenarios, syncContext); // §502 — same reason
   // §4 — the remaining workspace parts: the autosave writes the WHOLE workspace, so a window holding a stale copy of any of them would overwrite the other window's edit.
   useBroadcastSync("plan", ws.plan, mirrorApply.plan, syncContext);
   useBroadcastSync("fxRates", ws.fxRates, mirrorApply.fxRates, syncContext);

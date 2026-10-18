@@ -59,6 +59,8 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     //     currency switch leaves an entry forever. Pinned by is-workspace-empty.test.ts.
     // ★★ forecastHistory (§502) is ABSENT for the same reason: a day with the simulation on
     //     leaves an entry, recorded as a side effect. Pinned by is-workspace-empty.test.ts.
+    // ★★ forecastScenarios (§502) is ABSENT too: at most four lists of what-if inputs, not project
+    //     records, so a project holding only scenarios is still empty. Pinned by is-workspace-empty.test.ts.
 }
 
 /** ★★★ WHICH SLICES COUNT, AND WHY THE EXCLUSIONS ARE LOAD-BEARING.
@@ -82,6 +84,9 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
  *     and never emptied by use — the same inversion again.
  *   - forecastHistory: recorded once per day the simulation is on (§502) as a
  *     side record — the same inversion again.
+ *   - forecastScenarios: at most four short lists of what-if inputs (§502),
+ *     cheap to recreate; counting them would move the save-time thresholds for
+ *     every project.
  *   - documentVersions: auto-captured and pruned by retention, so counting it
  *     would make an ordinary prune read as a mass deletion and refuse a
  *     legitimate save.

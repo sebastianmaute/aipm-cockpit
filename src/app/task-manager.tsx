@@ -904,7 +904,7 @@ function TaskManagerInner() {
     onStatusChange,
     onSwimlaneDrop,
     onEdit,
-    onDelete,
+    onDelete, confirmRef: taskDeleteConfirmRef,
     handleClearRaidTaskFilter,
     handleClearChangeTaskFilter,
     handleJumpToTaskFromRaid,
@@ -1091,7 +1091,7 @@ function TaskManagerInner() {
     setSelectedIds,
     setSettings,
     isReadOnly: isPopout, openWbsPlan: wbsPlan.open,
-    currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, logActivityAs,
+    currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, holidaysReady, logActivityAs,
     // ★ `delete_document` is a second removal route into a COUNTED slice — see
     //   the arming site in `use-document-tools.ts`.
     allowDestructiveSave,
@@ -1932,7 +1932,7 @@ function TaskManagerInner() {
         <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
           <ToastProvider value={toastApi}>
             <VoiceCommandProvider value={voiceHandlers}>
-              <ConfirmProvider lang={lang}>
+              <ConfirmProvider lang={lang} bridgeRef={taskDeleteConfirmRef}>
                 <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>{legacyTree}</DisplayTimezoneProvider>
               </ConfirmProvider>
             </VoiceCommandProvider>
@@ -1957,7 +1957,7 @@ function TaskManagerInner() {
       <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
         <ToastProvider value={toastApi}>
           <VoiceCommandProvider value={voiceHandlers}>
-            <ConfirmProvider lang={lang}>
+            <ConfirmProvider lang={lang} bridgeRef={taskDeleteConfirmRef}>
             <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>
             {showTursoUnlock ? (
               <SecretUnlockGate

@@ -29,9 +29,11 @@ let memo: { forecast: AppForecast; facts: ForecastFactsByUnit; result: BudgetSim
 
 /** One unit's cost range from a schedule run: each trial's finish day draws spend from the run's own
  *  history window. Shared with the Forecast view, which passes its What-if-adjusted run and its What-if
- *  capacity as `spendScale` (capacityPercent / 100); the bundle passes nothing (default 1). */
+ *  capacity as `spendScale` (capacityPercent / 100); the bundle passes nothing (default 1). Scenarios pass
+ *  a per-day `spendScale` and an `addedCost` schedule, each indexed 1..MAX_HORIZON_WORKING_DAYS. */
 export function simulateCostFromRun(
-  run: { trialDays: Int32Array; windowDates: readonly string[] }, f: ForecastFacts, seedTag: string, spendScale = 1,
+  run: { trialDays: Int32Array; windowDates: readonly string[] }, f: ForecastFacts, seedTag: string,
+  spendScale: number | Float64Array = 1, addedCost?: Float64Array,
 ): CostAtFinish {
   return simulateCostAtFinish({
     trialDays: run.trialDays,
@@ -41,11 +43,13 @@ export function simulateCostFromRun(
     seedTag,
     horizon: MAX_HORIZON_WORKING_DAYS,
     spendScale,
+    addedCost,
   });
 }
 
 let runMemo: {
-  trialDays: Int32Array; windowDates: readonly string[]; f: ForecastFacts; seedTag: string; spendScale: number; result: CostAtFinish;
+  trialDays: Int32Array; windowDates: readonly string[]; f: ForecastFacts; seedTag: string;
+  spendScale: number | Float64Array; addedCost: Float64Array | undefined; result: CostAtFinish;
 } | null = null;
 
 function sameValues<T>(a: ArrayLike<T>, b: ArrayLike<T>): boolean {
@@ -56,18 +60,22 @@ function sameValues<T>(a: ArrayLike<T>, b: ArrayLike<T>): boolean {
 }
 
 /** `simulateCostFromRun` with a single-entry memo keyed on the run's trial days and window dates BY VALUE
- *  (plus the facts' identity, the seed tag and the scale). The Forecast view rebuilds its run on a How-many
+ *  (plus the facts' identity, the seed tag, the scale and the added cost: a number by value, a per-day array
+ *  by identity). The Forecast view rebuilds its run on a How-many
  *  target change, but the target draws from its own stream and leaves every trial day as it was, so the
- *  cost pass (about 13 to 110 ms) is not run again. Comparing 10,000 ints costs far less than the pass. */
+ *  cost pass (about 15 to 100 ms, re-measured 2026-10-17 with the probe in docs/AGENTS/forecast.md "Measured
+ *  cost of the cost pass") is not run again. Comparing 10,000 ints costs far less than the pass. */
 export function simulateCostFromRunMemo(
-  run: { trialDays: Int32Array; windowDates: readonly string[] }, f: ForecastFacts, seedTag: string, spendScale = 1,
+  run: { trialDays: Int32Array; windowDates: readonly string[] }, f: ForecastFacts, seedTag: string,
+  spendScale: number | Float64Array = 1, addedCost?: Float64Array,
 ): CostAtFinish {
   if (runMemo && runMemo.f === f && runMemo.seedTag === seedTag && runMemo.spendScale === spendScale
+    && runMemo.addedCost === addedCost
     && sameValues(runMemo.trialDays, run.trialDays) && sameValues(runMemo.windowDates, run.windowDates)) {
     return runMemo.result;
   }
-  const result = simulateCostFromRun(run, f, seedTag, spendScale);
-  runMemo = { trialDays: run.trialDays, windowDates: run.windowDates, f, seedTag, spendScale, result };
+  const result = simulateCostFromRun(run, f, seedTag, spendScale, addedCost);
+  runMemo = { trialDays: run.trialDays, windowDates: run.windowDates, f, seedTag, spendScale, addedCost, result };
   return result;
 }
 

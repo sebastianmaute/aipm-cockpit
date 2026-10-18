@@ -1,11 +1,12 @@
 // §491 — pins use-chat-dispatcher-wiring.ts on its own: what it hands
 // `useChatDispatcher` (every forwarded field, the dashboard-model getter) and the
-// two derived read-tool getters — the budget rollup's module gate and its
-// argument order into `computeBudgetReport`, and the allocations getter's inputs.
+// derived getters — the budget rollup's module gate and its argument order into
+// `computeBudgetReport`, the allocations getter's inputs, and the forecast input (§502).
 // `useChatDispatcher`, `computeBudgetReport` and `makeAllocationsSnapshotGetter`
 // are mocked to capture their arguments; the workspace is the real
 // WorkspaceProvider, so the slices are the ones task-manager would read.
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { showForecastView } from "../test/forecast-view";
 import { renderHook, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -21,7 +22,9 @@ const captured = vi.hoisted(() => ({
   args: null as ChatDispatcherArgs | null,
   budgetCalls: [] as unknown[][],
   allocInputs: null as unknown,
+  factsArgs: [] as unknown[],
 }));
+const FACTS = vi.hoisted(() => ({ tag: "forecast-facts" }));
 const DISPATCHER = vi.hoisted(() => ({ tag: "dispatcher" }));
 const PROJECT = vi.hoisted(() => ({ tag: "project-rollup" }));
 const ALLOC_GETTER = vi.hoisted(() => () => ({ tag: "alloc-snapshot" }));
@@ -45,6 +48,13 @@ vi.mock("./alloc-plan/alloc-plan", async (importOriginal) => ({
   makeAllocationsSnapshotGetter: (inputs: unknown) => {
     captured.allocInputs = inputs;
     return ALLOC_GETTER;
+  },
+}));
+vi.mock("./budget-forecast", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./budget-forecast")>()),
+  computeProjectForecastFacts: (a: unknown) => {
+    captured.factsArgs.push(a);
+    return FACTS;
   },
 }));
 
@@ -106,6 +116,7 @@ function makeDeps(over: Partial<ChatDispatcherWiringDeps> = {}): ChatDispatcherW
     undo: { captureComposite: vi.fn() },
     openWbsPlan: vi.fn(() => ({ opened: true, tasksInScope: 1 })),
     dashboardModel: MODEL,
+    holidaysReady: true,
     ...over,
   };
 }
@@ -120,7 +131,9 @@ beforeEach(() => {
   captured.args = null;
   captured.budgetCalls = [];
   captured.allocInputs = null;
+  captured.factsArgs = [];
 });
+afterEach(() => vi.restoreAllMocks());
 
 describe("useChatDispatcherWiring — the useChatDispatcher args", () => {
   it("returns the dispatcher useChatDispatcher built", () => {
@@ -198,5 +211,50 @@ describe("useChatDispatcherWiring — getAllocationsSnapshot", () => {
       workdayHours: 7.5,
       holidaySet: HOLIDAYS,
     });
+  });
+});
+
+describe("useChatDispatcherWiring — getForecastInput (§502)", () => {
+  const PLAN = { endDate: "2026-12-31", currency: "USD" } as unknown as ResourcePlan;
+
+  function mountSeeded(over: Partial<ChatDispatcherWiringDeps> = {}) {
+    const h = mount(over);
+    seed(h.result.current.ws);
+    act(() => { h.result.current.ws.setPlan(PLAN); });
+    return h;
+  }
+
+  it("is null while the holiday calendar loads, so the tools refuse", () => {
+    mountSeeded({ holidaysReady: false });
+    expect(args().getForecastInput()).toBeNull();
+  });
+
+  it("builds the run at the Forecast view's defaults from the live slices", () => {
+    mountSeeded({ settings: mkSettings(["raid"]) });
+    const input = args().getForecastInput();
+    expect(input?.run).toMatchObject({
+      tasks: [mkTask(1)], today: "2026-10-08", holidaySet: HOLIDAYS, window: 60, unit: "tasks", planEnd: "2026-12-31",
+      budgetFacts: null, costOn: false,
+    });
+    expect(input?.run.directory).toEqual({
+      resources: [{ id: 3 }], roles: [{ id: 4 }], shifts: [], absences: [{ id: 2 }], budgets: [{ id: 5 }],
+      fxRates: { tag: "fx" }, workdayHours: 7.5, baseCurrency: "USD",
+    });
+    expect(input?.currency).toBe("USD");
+    expect(captured.factsArgs).toHaveLength(0);
+  });
+
+  it("computes the budget facts only with the Budget module on", () => {
+    mountSeeded();
+    expect(args().getForecastInput()?.run.budgetFacts).toBe(FACTS);
+    expect(captured.factsArgs[0]).toMatchObject({ workdayHours: 7.5, today: "2026-10-08", holidaySet: HOLIDAYS });
+  });
+
+  it("turns cost on only with the simulation active AND the Budget module on", () => {
+    const h = mountSeeded();
+    act(() => { h.result.current.ws.setSettingsOverrides({ forecast: { showSimulation: true } }); });
+    expect(args().getForecastInput()?.run.costOn).toBe(false); // the Forecast view is held back
+    showForecastView();
+    expect(args().getForecastInput()?.run.costOn).toBe(true);
   });
 });

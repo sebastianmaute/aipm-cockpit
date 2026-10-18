@@ -4,6 +4,8 @@ import { liveAssetPartitionKey } from "./asset-partition-live";
 import { isSafeMode } from "./safe-mode";
 import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";
 import { useAppForecast } from "./use-app-forecast";
+import { useForecastScenarios } from "./use-forecast-scenarios";
+import { useToastContext } from "./toast-context";
 import { computeProjectForecastFacts } from "./budget-forecast";
 import {
   useCallback,
@@ -322,14 +324,22 @@ export function WorkspaceSection({
     active: isSimulationActive(workspace.settingsOverrides, features) && holidaysReady !== false
       && (activeTab === "budget-report" || activeTab === "reports"),
   });
-  // §502 part 3 — the pace forecast's facts for the Forecast view's cost card, built as the Budget view does
-  // (`computeProjectForecastFacts`); only on that tab with the simulation on and the Budget module enabled.
+  // §502 part 3 — the pace forecast's facts for the Forecast view, built as the Budget view does
+  // (`computeProjectForecastFacts`); only on that tab with the Budget module enabled. Not gated on the switch:
+  // Scenarios' added-people sizing needs the booked hours; the cost card and cost rows still need the switch.
   const budgetEnabled = isModuleEnabled("budget", features);
-  const forecastCostOn = activeTab === "forecast" && isSimulationActive(workspace.settingsOverrides, features) && budgetEnabled;
+  const forecastFactsOn = activeTab === "forecast" && budgetEnabled;
   const workdayHours = settings.resources.workdayHours;
   const forecastBudgetFacts = useMemo(
-    () => (forecastCostOn ? computeProjectForecastFacts({ buckets: budgets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today }) : null),
-    [forecastCostOn, budgets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today],
+    () => (forecastFactsOn ? computeProjectForecastFacts({ buckets: budgets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today }) : null),
+    [forecastFactsOn, budgets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today],
+  );
+  // §502 — saved forecast scenarios; the directory is one stable object, so the view's comparison memo holds.
+  const forecastScenariosApi = useForecastScenarios({ lang, showToast: useToastContext(), logActivity, logActivityChanges, capture: onCaptureUndo });
+  const planCurrency = plan.currency;
+  const forecastDirectory = useMemo(
+    () => ({ resources, roles, shifts, absences, budgets, fxRates, workdayHours, baseCurrency: planCurrency }),
+    [resources, roles, shifts, absences, budgets, fxRates, workdayHours, planCurrency],
   );
 
   // Per-milestone committed baseline dates for the Gantt ghost overlay — only
@@ -766,7 +776,7 @@ export function WorkspaceSection({
 
         {activeTab === "forecast" && isViewEnabled("forecast", features) && (
           <div id="panel-forecast" role="tabpanel" className={panelScrollClass}>
-            <ForecastPanel lang={lang} tasks={tasks} milestones={milestones} plan={plan} today={today} holidaySet={holidaySet} isPopout={isPopout} showSimulation={isSimulationActive(workspace.settingsOverrides, features)} budgetFacts={forecastBudgetFacts} budgetEnabled={budgetEnabled} />
+            <ForecastPanel lang={lang} tasks={tasks} milestones={milestones} plan={plan} today={today} holidaySet={holidaySet} isPopout={isPopout} aiEnabled={isAiEnabled(settings.ai)} showSimulation={isSimulationActive(workspace.settingsOverrides, features)} budgetFacts={forecastBudgetFacts} budgetEnabled={budgetEnabled} scenarios={{ api: forecastScenariosApi, directory: forecastDirectory, readOnly: isPopout }} />
           </div>
         )}
 

@@ -30,6 +30,9 @@ import {
 } from "./turso-portfolio";
 import { writeSettings } from "./use-settings";
 import { sealSettingsUntilReload } from "./settings-reload-seal";
+import { beginMoveToTurso, endMoveToTurso } from "./move-to-turso-guard";
+import { hasUnsealedPassphraseToken } from "./turso-token-marker";
+import { tokenSealsSettled } from "./turso-token-seals";
 import { summarizeUnsafeEmailRecords } from "./sanitize";
 import { logDiag } from "./diagnostics";
 import { isSaveConflict } from "./storage-error";
@@ -175,7 +178,17 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
   // carrying its full workspace, then switch the portfolio to Turso and reload so
   // the migrated project is the active one. Unlike createTursoProject (which
   // builds a fresh workspace), this copies the live workspace verbatim.
+  // §715 — one move at a time (`move-to-turso-guard.ts` says why); a second one is dropped.
   async function migrateCurrentProjectToTurso(): Promise<void> {
+    if (!beginMoveToTurso()) return;
+    try {
+      await migrateOnce();
+    } finally {
+      endMoveToTurso();
+    }
+  }
+
+  async function migrateOnce(): Promise<void> {
     const cfg = guardTurso();
     if (!cfg) return;
     const ws = deps.currentWorkspace();
@@ -192,6 +205,18 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     // case `refuseWrite` exists for, and migrate was the one caller with such a
     // side effect that did not use it.
     if (deps.truncationOps.wouldRefuseWrite()) { deps.truncationOps.refuseWrite(); return; }
+    // ★★ §715 — THE MOVE RELOADS, and `writeSettings` blanks the token, so only a sealed copy
+    // survives it. A token committed in passphrase mode off Turso storage has none until the user
+    // saves it under the passphrase; moving now would boot Turso on the OLD record. Wait for any
+    // seal in flight first (it may be the one that covers the token), then refuse — here, for both
+    // buttons bound to this handler, and above `portfolioCreate` for the §103 reason above.
+    const seals = tokenSealsSettled();
+    if (seals) await seals;
+    if (hasUnsealedPassphraseToken(deps.settingsRef.current.integrations?.turso?.authToken)) {
+      const lang = deps.langRef.current;
+      deps.showToast("error", t(lang, "projectMigrateTokenNeedsPassphrase", t(lang, "secretPassphraseSave")));
+      return;
+    }
     // ★★★ THE CONNECTION GATE LIVES HERE, NOT ON A BUTTON. `guardTurso` above
     // resolves a CONFIG, never a CONNECTION — a URL/token pair that has never
     // been reached passes it. Settings disables its "Move to Turso" until a

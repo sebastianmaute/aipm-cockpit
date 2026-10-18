@@ -155,9 +155,10 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
   forecast: {
     purpose:
       "Forecast runs a Monte Carlo simulation over the project's completed-task throughput to estimate when the open work finishes (P50/P80/P95) and each milestone's chance of being met.",
-    toolHints: ["list_tasks", "list_milestones"],
+    toolHints: ["get_forecast", "list_tasks", "list_milestones"],
+    readingRequiresTool: "get_forecast",
     reading:
-      "No chat tool returns the simulated dates or chances, so never quote a percentile or a milestone chance as if you had read it; list_tasks gives the open backlog and completion dates the simulation is built from. Point the user to this view for the forecast itself.",
+      "get_forecast returns the simulated finish dates, chance on time, milestone chances, saved scenarios and cost this view shows, with the app defaults; the view's own toolbar (history window, unit, What-if) can differ.",
   },
   stakeholders: {
     purpose:

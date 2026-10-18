@@ -6,7 +6,8 @@ and what is each milestone's **chance** of landing on its date. Part 1 of the su
 (`docs/superpowers/specs/2026-10-15-forecast-simulation-surfaces-design.md`) adds the Dashboard
 Show-simulation switch (`SettingsOverrides.forecast`) and a daily recorder that persists
 `Workspace.forecastHistory` (a meta-blob on all six write paths). It replaced the old slices 2 and 5;
-part 2 (the Dashboard picture, below) is built; saved scenarios, the AI tool and parts 3–4 are open — see §502 in [`../open-followups.md`](../open-followups.md).
+part 2 (the Dashboard picture), part 3 (the budget simulation) and saved scenarios (build step 2) are built, all
+held back with the view; the AI tools are built and held back with it, and part 4 and the un-hide are open — see §502 in [`../open-followups.md`](../open-followups.md).
 Reproduce the file list: `ls src/app/forecast`.
 
 ★★ **HELD BACK FROM THE RELEASE.** `"forecast"` sits in `RELEASE_HIDDEN_VIEWS` (`feature-modules.ts`), so
@@ -16,7 +17,8 @@ is ignored, a stale active tab is redirected, `workspace-section.tsx` renders no
 it: drop it from that list, then put back what the hiding commit took out of the user-facing text — find it
 with `git log -S RELEASE_HIDDEN_VIEWS --oneline` — namely its CHANGELOG "Added" entry, the Forecast
 sentence of `helpSecReportsBody` (EN and DE) and its lines in `lib/app-feature-guide.md` (then run
-`node scripts/gen-operating-guide.mjs`), and re-measure the scan count in `e2e/a11y.spec.ts`.
+`node scripts/gen-operating-guide.mjs`), and re-measure the scan count in `e2e/a11y.spec.ts`. ★★ Also run the Scenarios-mode axe spec,
+`e2e/forecast-scenarios.spec.ts`, which CI skips while the view is held back (see "Saved scenarios (build step 2)").
 ★★ Part 1 of the surfaces design is held back WITH it, through the same `isViewEnabled("forecast", …)` gate
 (`isSimulationActive`, `hiddenHelpEntryIds`): the Show-simulation switch, the simulated KPI cells, the intro, the
 Help entry and the history recorder all vanish. ★★ Part 2 goes with it: the Dashboard Forecast tile (off the board
@@ -39,9 +41,10 @@ forecast's formatter) rather than owning a formatter of its own.
 | `forecast/constants.ts` | `FORECAST_TRIALS` (10,000), `MIN_FINISHED_TASKS` (10), `MIN_HISTORY_WORKING_DAYS` (10), `EFFORT_MODE_MIN_COVERAGE` (0.7), `MAX_HORIZON_WORKING_DAYS` (1300), `HISTORY_WINDOWS`, `DEFAULT_HISTORY_WINDOW` (60) |
 | `forecast/rng.ts` | `mulberry32` (seeded PRNG, with `skip(n)` to jump `n` draws) and `seedFrom` (FNV-1a over the parts joined by `\|`) |
 | `forecast/throughput.ts` | `dailyThroughput`: completions per working day, zero days kept, `cutAtFirstCompletion`; `isValidIsoDate` (strict `YYYY-MM-DD`) |
-| `forecast/simulate.ts` | `SimOptions`, `dayDrawer` (with `drawDay` over it), `cannotReach`, `simulateWhen`, `simulateHowMany`, `percentile` |
-| `forecast/milestones.ts` | `orderBacklog`, `milestoneChances` |
-| `forecast/index.ts` | `computeScheduleForecast`: floor, backlog, effort mode, what-if, streams, the fixed trial count; `lastForecastableDay` (the How-many horizon) |
+| `forecast/simulate.ts` | `SimOptions`, `dayDrawer` (with `drawDay` over it), `cannotReach`, `simulateWhen`, `simulateHowMany`, `percentile`; `buildArrivals` / `Arrivals` (dated scope, see "Saved scenarios") |
+| `forecast/milestones.ts` | `orderBacklog`, `milestoneChances`; `isAttributableMilestone`, `ownWorkToday`, `clampAttributedRemovals` (attributed scope) |
+| `forecast/index.ts` | `computeScheduleForecast`: floor, backlog, effort mode, what-if or dated `changes`, streams, the fixed trial count; `lastForecastableDay` (the How-many horizon) |
+| `forecast/day-index.ts` | `simulatedDates`, `dayOnOrAfter`, `dayOnOrBefore`: simulated working days as dates and back (Saved scenarios) |
 
 ## Landmines
 
@@ -59,8 +62,11 @@ forecast's formatter) rather than owning a formatter of its own.
 ## Seed, streams and the floor
 
 - **Seed.** `computeScheduleForecast` builds `seedParts` from the sorted open task ids, the throughput
-  samples, the window, the unit and the three what-if numbers, so the same project state gives the same
-  numbers on every render and machine.
+  samples, the window and the unit, so the same project state gives the same numbers on every render and
+  machine. ★★ The What-if numbers and a scenario's dated `changes` are deliberately NOT in the seed (§502
+  build step 2, owner): with the fixed draws per trial below, trial `t` of every run reads the same random
+  numbers, so Quick, What-if and every scenario column differ only by what was changed (common random
+  numbers, see "Saved scenarios"). Dropping them from the seed moved the pinned digests once, deliberately.
 - **Separate streams (R5).** `stream(name)` derives one `mulberry32` per output — `"when"`, `"howMany"`,
   `"milestones"` — from `seedFrom([...seedParts, name])`. No figure depends on whether another ran first.
 - **Floor.** When there is real OR simulated work (`open.length > 0 || backlog > 0`, where `backlog`
@@ -101,19 +107,25 @@ forecast's formatter) rather than owning a formatter of its own.
 
 ## Simulation
 
-- **`SimOptions` (R1).** `{ trials, rng, capacity, horizon, integer }`. `integer: true` is the tasks unit:
-  each simulated day is stochastically rounded to whole tasks. `integer: false` is effort: the fraction
-  is kept.
-- **`dayDrawer` (R2)** is the one place a simulated day is drawn (bootstrap sample × capacity, rounded when
-  `integer`); `drawDay` is a one-shot wrapper over it. `simulateWhen`, `simulateHowMany` and
-  `milestoneChances` all take their `draw` from it, so the rounding rule lives once. It hoists the
-  per-sample arithmetic out of the loop and skips (rather than computes) the rounding draw of a whole
-  sample, which can never round up; the values and the stream are those of the plain formula (pinned by
-  "the hoisted drawer draws the plain formula's values from the same stream, both units"). An empty
-  history draws 0.
+- **`SimOptions` (R1).** `{ trials, rng, capacity, horizon, integer, capacityByDay? }`. `integer: true`
+  is the tasks unit: each simulated day is stochastically rounded to whole tasks. `integer: false` is
+  effort: the fraction is kept. `capacityByDay`, when set, is a multiplier per simulated working day
+  (index 1..horizon, index 0 unused) that replaces `capacity`; one shorter than `horizon + 1` throws
+  (pinned by "a schedule shorter than horizon + 1 throws rather than finishing trials where it runs out").
+- **`dayDrawer` (R2)** is the one place a simulated day is drawn (bootstrap sample × capacity, or × that
+  day's `capacityByDay` multiplier, rounded when `integer`); `draw(day)` takes the 1-based day index, and
+  a day makes the same rng calls whatever its multiplier, so the stream never depends on the schedule.
+  `drawDay` is a one-shot wrapper over it. `simulateWhen`, `simulateHowMany` and `milestoneChances` all
+  take their `draw` from it, so the rounding rule lives once. On the flat path (no schedule) it hoists
+  the per-sample arithmetic out of the loop; both paths skip (rather than compute) the rounding draw of a
+  whole value, which can never round up. The values and the stream are those of the plain formula
+  (pinned by "the hoisted drawer draws the plain formula's values from the same stream, both units", and
+  for a schedule by "a flat capacityByDay draws exactly what the scalar capacity draws, both units"). An
+  empty history draws 0.
 - ★★ **Early exits are EXACT, because the stream can jump.** A trial stops drawing once its outcome is
-  certain — When: even the best possible day (`dayDrawer`'s `max`) every remaining day cannot reach the
-  backlog (`cannotReach`), so it is `beyond`; milestones: every milestone still ahead is already reached,
+  certain — When: even the best possible remaining days (`dayDrawer`'s `bestBetween`: `max` per day
+  without a schedule, a prefix sum of each day's best with one) cannot reach the backlog (`cannotReach`),
+  so it is `beyond`; milestones: every milestone still ahead is already reached,
   or none can be — and then calls `skipDays`, which jumps the stream (`mulberry32`'s `skip`, its state
   only adds a constant per draw) to where drawing those days would have left it. So every later trial
   draws the same numbers and every result is unchanged: on the four probe cases below plus three more
@@ -123,6 +135,14 @@ forecast's formatter) rather than owning a formatter of its own.
   none reachable) give exactly the chances of walking to the last day" (`milestones.test.ts`). An rng
   without `skip` draws and drops instead. ★ Never add an exit that does not skip its draws: it shifts the
   stream for every later trial and changes the numbers.
+- ★★ **Every trial consumes a FIXED number of draws** (§502 build step 2), whatever the backlog, capacity or
+  scope: When walks (or skips) exactly `horizon` days per trial, also when it finishes early; How many exactly the
+  target's days; the milestone tally exactly `walkTo` days, the latest attributable milestone dated today or later,
+  whether or not a scenario leaves it a target. An empty backlog draws nothing at all. So trial `t` starts at the
+  same stream position in every run, which is what common random numbers need. Pinned by the "fixed draws per
+  trial" describes in `simulate.test.ts` ("every When trial consumes exactly the horizon's draws", "every How-many
+  trial consumes exactly the target's draws") and `milestones.test.ts` ("the tally walks every trial to the last
+  dated milestone, target or not").
 - **When.** Working days until the backlog is done, per trial; a trial still short after
   `MAX_HORIZON_WORKING_DAYS` is `horizon + 1` and reported as `"beyond"` (with `beyondShare`). Dates come
   from `nthWorkingDayAfter(today, days, holidaySet)`; day 0 is `today`.
@@ -169,9 +189,14 @@ forecast's formatter) rather than owning a formatter of its own.
   fall back to the defaults, so `NaN` never reaches the engine). Added scope is `scopeTasks` at one task's
   size plus `scopePercent` of the base, rounded half-up; removing every open task empties the backlog
   whatever the estimates.
+- The capacity field is labelled **Availability (%)** (`forecastCapacityPercent`), the word the scenario editor's
+  "Availability change" uses; the field name `capacityPercent` is unchanged.
 - ★ **Scope does not move milestone chances (R9).** What-if scope is aggregate and changes When and How
   many only; `milestoneChances` keeps the real linked tasks, because added scope cannot be attributed to a
-  milestone. Capacity DOES reach all three (it scales `drawDay`).
+  milestone. Capacity DOES reach all three (it scales `drawDay`). A saved scenario's scope row CAN name a
+  milestone, and then it does move chances (see "Saved scenarios").
+- **Save as scenario** (toolbar, What-if mode, not in a read-only popout) freezes the CLAMPED What-if
+  (`usedWhatIf`) into scenario rows through `whatIfToScenarioChanges`; see "Saved scenarios".
 
 ## Milestones
 
@@ -454,8 +479,11 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
   the earliest `date` with a non-zero value ANYWHERE in `dated`, not only in the window; samples start at
   max(window start, first booking), so a booking before the window means every window day is a sample, and a young
   project's idle days before its first booking are not counted as zero spend. A zero entry is not a booking.
-  `simulateCostAtFinish` then walks each trial: `ac` plus one random sample per finish day, each sample multiplied by
-  the optional `spendScale` (default 1).
+  `simulateCostAtFinish` then walks each trial: `ac` plus, for each day `i` from 1 to the trial's finish day, one
+  random sample times that day's scale, plus `addedCost[i]` when given. `spendScale` (default 1) is a number (the
+  What-if) or a per-day `Float64Array`; `addedCost` is a per-day `Float64Array` booked on top of the drawn spend
+  (Scenarios: added people). Both arrays are indexed 1..horizon, and one shorter than horizon + 1 throws a
+  `RangeError` rather than turning every cost into NaN.
   ★ Two known biases, both pulling the added spend slightly LOW: the schedule window includes today (usually not yet
   booked, so a zero sample) while the pace forecast's window excludes it, and a weekend or holiday booking counts in
   `ac` but is never a sample (only the window's working days are).
@@ -489,15 +517,19 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
   `formatShare` in the locale's own format; an exact 0 or 1 stays "0 %" / "100 %".
   `budgetSimMissingSchedule` names no single cause ("not enough finished-task history") because the schedule floor
   also trips on too few history working days.
-- **Seeded.** The rng seed is `seedFrom([...samples, ac, bac, seedTag, "cost"])`, so a rerun is identical and EUR and
-  hours draw from different streams (`seedTag` "eur" / "hours"). It is separate from the schedule's streams, so the
-  cost pass moves no schedule number.
+- **Seeded, one sub-stream per trial.** The base seed is `seedFrom([...samples, ac, bac, seedTag, "cost"])` and trial
+  `t` draws from `mulberry32(seedFrom([base, t]))`, so a rerun is identical, EUR and hours draw from different streams
+  (`seedTag` "eur" / "hours"), and one trial's finish day never moves another trial's draws: two scenario columns
+  that share a tag share every draw of every trial whose finish day agrees. It is separate from the schedule's
+  streams, so the cost pass moves no schedule number. Neither `spendScale` nor `addedCost` enters the seed.
 - **`src/app/budget-sim.ts`.** `computeBudgetSim(forecast, facts)` returns `BudgetSim` (`finish` P50/P80/P95 dates, and
   `eur` / `hours` `CostAtFinish`), null when the forecast is null (switch off), and `BELOW_SCHEDULE_FLOOR` for both
   units when the run is insufficient; a single-entry memo is keyed on the `forecast` and `facts` identities.
   `withBudgetSim(bundle, forecast)` returns a NEW bundle with `sim` added. `simulateCostFromRun(run, facts, seedTag,
-  spendScale = 1)` takes only `{ trialDays, windowDates }` of the run, so the Forecast view can pass its own
-  What-if-adjusted run and its capacity.
+  spendScale = 1, addedCost?)` takes only `{ trialDays, windowDates }` of the run, so the Forecast view can pass its own
+  What-if-adjusted run and its capacity. `simulateCostFromRunMemo` (same signature) keys its single entry on the trial
+  days and window dates by value, the facts' identity, the tag, and `spendScale` / `addedCost` (a number by value, an
+  array by identity, so a rebuilt array is a new input).
 - **The bundle.** `ForecastBundle` (`budget-forecast-bundle.ts`) gains `facts` (REQUIRED: the per-unit facts the
   forecasts were built from, via `forecastFactsByUnit`; only the Forecast view's facts come from
   `computeProjectForecastFacts`, in `workspace-section.tsx`) and `sim` (absent, or null, when the simulation is
@@ -571,7 +603,9 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
     dropped (the engine gives `chanceOverBudget: null` at `bac <= 0`, and `costRangeRows` leaves the row out),
     so the pace card, the tile and the Forecast view agree. The side-by-side wrapper around `PercentileTable` is
     rendered only with the cost card, so the view without one is the markup it always was.
-    `workspace-section.tsx` computes its facts only on the Forecast tab with the simulation active and the Budget module on.
+    `workspace-section.tsx` computes its facts (`forecastFactsOn`) only on the Forecast tab with the Budget module on,
+    NOT gated on the simulation switch: Scenarios mode sizes added people from the booked hours with the switch off
+    too. The cost card and the Scenarios cost rows still need the switch (`showSimulation && budgetEnabled` in the panel).
     ★ A How-many target change rebuilds the run but cannot change a trial day (it draws from its own stream), so the
     view calls `simulateCostFromRunMemo` (`budget-sim.ts`), a single-entry memo keyed on the trial days and window
     dates BY VALUE, and the cost pass does not rerun.
@@ -582,17 +616,22 @@ and 2; nothing renders or runs while `isSimulationActive` is false. Storage is u
 
 The extra pass is `simulateCostFromRun` alone, on the main thread, whenever the view's trial days or budget facts change — a
 committed What-if change, the history window or unit, a new day, holidays, a task or booking edit (a How-many target change rebuilds the run with the same trial days, which the value-keyed memo
-`simulateCostFromRunMemo` answers without a pass). Measured 2026-10-16 in Node through `vite-node` on a synthetic fixture (200 open tasks, a 60-working-day history
-of about 1.33 finished tasks per day, 60 booking days), median of 7 after one warm-up, on a shared machine. A probe,
+`simulateCostFromRunMemo` answers without a pass). Re-measured 2026-10-17 (after the per-trial cost sub-stream of build step 2) in Node through `vite-node` on a synthetic fixture (200 open tasks, a 60-working-day history
+of about 1.33 finished tasks per day, 60 booking days), median of 7 after one warm-up, on a shared machine, four runs of the probe. A probe,
 not a gate. The cost is 10,000 trials times the days each draws, so it peaks when finish days sit just inside the
 horizon.
 
 | Case | Time |
 |---|---|
-| Default What-if | 13 ms |
-| Capacity 10 % (most trials beyond, so they draw nothing) | 2 ms |
-| Scope +300 % | 56 ms |
-| Scope +300 % with capacity 50 % (worst found) | about 110 ms |
+| Default What-if | about 15 ms (14 to 18) |
+| Capacity 10 % (most trials beyond, so they draw nothing) | about 5 ms |
+| Scope +300 % | about 50 ms |
+| Scope +300 % with capacity 50 % (worst found) | about 95 ms (86 to 99) |
+
+★ The per-trial sub-stream (one `seedFrom` and one `mulberry32` per trial) did NOT double the pass. An A/B in one
+process, the 2026-10-16 `cost.ts` (from `git show f851ea902:src/app/forecast/cost.ts`) against today's on the same
+run, gave 13 against 16 ms on the default case and 102 to 109 against 102 to 117 ms on the worst one: about 3 ms
+more, within noise at the top. The 2026-10-16 table read 13, 2, 56 and about 110 ms.
 
 Reproduce from the repo root (expect noise, a few ms either way; the command deletes the file):
 
@@ -636,14 +675,14 @@ npx vite-node cost-probe.ts; rm cost-probe.ts
 ```
 
 The Dashboard and the Budget report pay a different pass: `computeBudgetSim` runs BOTH units (eur and hours) on the
-shared run whenever the run or the facts change. Measured 2026-10-16 the same way (the same history and spend, an hours
+shared run whenever the run or the facts change. Re-measured 2026-10-17 the same way (three runs) (the same history and spend, an hours
 twin at 1/100, plan end 2027-06-30; a fresh facts object per timing, so the memo never answers), median of 7:
 
 | Case | Time |
 |---|---|
-| Default (200 open tasks) | 32 ms |
-| Near the horizon (1,700 open tasks, P95 about five years out) | about 260 ms |
-| Past the horizon (1,760 open tasks, every trial beyond) | 21 ms |
+| Default (200 open tasks) | about 33 ms |
+| Near the horizon (1,700 open tasks, P95 about five years out) | about 250 ms |
+| Past the horizon (1,760 open tasks, every trial beyond) | about 17 ms (one run 34) |
 
 Reproduce from the repo root (expect noise; the command deletes the file):
 
@@ -680,6 +719,248 @@ for (const open of [200, 1700, 1760]) {
 EOF3
 npx vite-node sim-probe.ts; rm sim-probe.ts
 ```
+
+## Saved scenarios (build step 2)
+
+A saved scenario is a named list of dated changes (availability, added people, scope) compared with the plan as it
+is. The Forecast view gains a third mode, **Scenarios** (beside Quick and What-if), showing As is plus every saved
+scenario on one shared axis: range bars, a compared table (P50/P80/P95 finish, chance on time by plan end, and, when the
+cost rows are on, cost at finish P80 and the chance over budget) and the milestone chances. Spec:
+`docs/superpowers/specs/2026-10-16-forecast-scenarios-and-ai-tool-design.md` (§4.1–§4.3, §4.5); the AI tool (§4.4)
+is built, see "The AI tool (§502)" below. Held back with the view like parts 1–3.
+
+| File | Owns |
+|---|---|
+| `forecast-scenarios.ts` | the types, the limits (`MAX_FORECAST_SCENARIOS` 4, `MAX_SCENARIO_CHANGES` 20, `SCOPE_TASKS_MAX` 1000 and the rest), `sanitizeForecastScenarios` (read side), `validateScenarioChange` / `validateScenarioDraft` (write side), the immutable list ops, `whatIfToScenarioChanges` |
+| `forecast/day-index.ts` | `simulatedDates` (index 0 = today, length horizon + 1), `dayOnOrAfter`, `dayOnOrBefore` |
+| `forecast-added-people.ts` | `teamHoursPerDay`, `onTeamResourceIds`, `shiftFor`, `changeDayWindow`, `resolveAddedPeople`; the `ScheduleContext` and `ScenarioDirectory` types |
+| `forecast-scenario-schedule.ts` | `buildScenarioSchedule`: a change list as per-day `capacityByDay`, `spendScale`, `addedCost`, the scope arrivals and one status per row |
+| `forecast-scenario-compare.ts` | `computeScenarioComparison` (As is + every scenario), `computeScenarioColumn`, `buildScheduleContext`: the ONE place a column is computed (`buildForecastReport` calls it too) |
+| `use-forecast-scenarios.ts` | the per-entity CRUD hook: create, update, rename, delete, activity log, undo |
+| `forecast-scenarios-view.tsx`, `forecast-scenario-tables.tsx` | the Scenarios mode and its two tables |
+| `forecast-scenario-editor.tsx`, `forecast-scenario-change-rows.tsx`, `forecast-scenario-name-dialog.tsx` | the editor (a `Modal`), its rows, and the rename / Save-as-scenario name dialog |
+| `forecast-insufficient.tsx` | the insufficient-history state, shared by the view and a column |
+
+- **The engine input.** `computeScheduleForecast` takes optional `changes: DatedScheduleChanges` (`capacityByDay`
+  plus `arrivals`), which REPLACES the What-if's scope and capacity. `capacityByDay` goes through the per-day
+  drawer of "Simulation" (`dayDrawer`, with `bestBetween` as the prefix-sum bound of the early exits).
+  `buildScenarioSchedule` builds it: the availability rows MULTIPLY into a team factor clamped to 0.1–3 (that
+  clamped product is also `spendScale`, so delivery and spend scale alike, as the What-if capacity does); the
+  added people's shares are added AFTER the clamp; scope rows become arrivals on `dayOnOrAfter(on)`, clamped to the
+  horizon. Every per-day array is horizon + 1 long (index 0 unused); a shorter one throws a `RangeError` in the
+  drawer and in the cost pass (pinned by "arrays are dates.length long (horizon + 1) and index 0 stays unused" and
+  "a per-day array shorter than the horizon is refused rather than read as NaN").
+- **Arrivals.** `buildArrivals` turns the base backlog plus the dated steps into `arrivedAt[d]`, clamped at zero
+  after each step. When: `done(d) = min(done(d − 1) + draw(d), arrivedAt[d])` (work cannot be delivered before it
+  arrives), and a trial finishes on the first day at or after the LAST addition (`lastPositiveDay`) with all
+  arrived work done; a trial done before an addition resumes when it arrives. How many delivers at most what has
+  arrived, and a trial done on or after the last addition reports `arrivedAt[days]`. The certain-beyond exit
+  compares against `suffixMin`, the least work that can be open on any day it could still finish. Pinned by
+  "work cannot be delivered before it arrives", "How many counts only arrived work" and "the certain-beyond exit
+  stays exact with arrivals" (`simulate.test.ts`), and "a later scope arrival never makes any trial finish
+  earlier" (`index.test.ts`). In the effort unit an arrival of N tasks is N × the median estimate.
+- ★★ **Milestone attribution.** A scope row may name an attributable milestone (`isAttributableMilestone`: not
+  achieved, valid date); one naming any other, or one deleted since, counts as unattributed, and its row reads
+  "milestone gone". Milestones are ordered by the key (base queue position, date). An attributed addition moves
+  its milestone (position and own work, so both figures) and every milestone whose key comes after it; an
+  unattributed change moves no milestone. A milestone counts only changes dated on or before its own date: a later
+  arrival does not move it, except that an ADDITION to the milestone itself after its date makes it unreachable
+  (chance 0). ★ Owner decision 2026-10-17: a milestone with NO open linked tasks that gets net added work is placed
+  in the queue by its date, at the largest base position of the milestones with open tasks dated on or before it,
+  so only milestones after it move ("scope on a milestone with no open linked tasks is placed by its date").
+  Overdue stays overdue whatever is attributed.
+- ★★ **The own-work clamp (Task 2 ruling).** An attributed REMOVAL comes off that milestone's remaining work and
+  stops at zero (`clampAttributedRemovals`, in day order from `ownWorkToday`). It lowers the totals (the backlog
+  When simulates, and the caps) only by the CLAMPED amount, what really came off, never the raw amount; the raw
+  amount made a later milestone unreachable. Pinned by "an attributed removal lowers the backlog and the cap only
+  by what came off its milestone" (`index.test.ts`) and "an attributed removal stops at the milestone's own work".
+- ★★ **Each milestone has its own cap.** The cap is the base plus every ADDITION; unattributed removals come off the
+  queue's end, so they cap no milestone. Each milestone's cap is then lowered only by the attributed removals that
+  move THAT milestone, so a removal on a later milestone never caps an earlier one ("a removal on a later
+  milestone does not cap an earlier one", "the early exits stay exact with a cap per milestone").
+- ★★★ **Common random numbers (spec §4.5, owner).** Two columns differ only by their changes, and a scenario
+  with no changes shows exactly the As-is numbers ("a scenario with no changes shows exactly the As-is
+  numbers"). Three mechanisms together: the schedule seed leaves out the What-if and the changes ("Seed"), every
+  trial consumes a fixed number of draws ("Simulation"), and the cost pass draws each trial from its own
+  sub-stream with one tag, `"eur"`, for every column (part 3's "Seeded" bullet). Drop any one and the columns
+  stop being comparable.
+- **Added people** (`forecast-added-people.ts`). Delivery is added at the current team's throughput per booked hour:
+  a row's share on a day is its hours that day × the ramp ÷ the team's hours per day. **Team hours** =
+  booked hours on the history window's days ÷ the number of window days (zero days included), from the hours
+  facts; with no hours facts, too few samples, all zero or under 1 h a day the row is inert with "needs booked
+  hours". This is why `workspace-section.tsx` builds the facts with the switch off too (part 3, "Forecast view").
+  **On the team**: a person in any bucket's allocations, or the resource of a task finished inside the window, is
+  inert ("use an availability change"); the editor offers them as a disabled option. **Ramp** is linear over
+  `rampWeeks` × 5 working days counted from the stored `from`, so a start in the past keeps its progress;
+  `rampWeeks` 0 is full speed at once. A directory person's hours follow their Shift's weekday proportions
+  (`shiftFor`, the join `buildResourceWorkload` uses) and are zero on their absences; a placeholder is count ×
+  hours, spread over Mon–Fri. **Cost** is booked from day one, not ramped, as `addedCost` on top of the drawn
+  spend: a directory person at their role's internal rate (no role or no rate: 0, "no rate"; an external
+  person: 0, "external", delivery without cost); a placeholder at its own rate converted to the baseline
+  currency with `currencyToBase`, at par when no exchange rate resolves ("at par"). Rows over twice the team
+  (`addedShareAtFullSpeed` > 1, counting only rows that apply on at least one simulated day) show the "more than
+  double the team" warning.
+- ★★ **Archived is not gone (Task 11 ruling).** An ARCHIVED person (`active === false`) on a stored row is still
+  sized and counted, and the row says "archived — still counted in the forecast"; only a resource that no longer
+  exists is "person gone" (inert). A NEW pick of an archived person is refused, as is a new pick of a gone or
+  on-team one. ★ An unchanged stored reference is kept on save: a row whose milestone or person reference is the
+  one the stored row had is accepted and keeps its "milestone gone" / "person gone" mark; only a newly chosen or
+  changed reference is validated (spec §4.1 / §4.1a over the brief; "saves its stale references unchanged after
+  an unrelated name edit, each row still marked", "only an unchanged stored reference is kept").
+- ★ **Refused saves say why.** The hook refuses a write without a toast by design; the editor, the rename dialog
+  and Save as scenario then show the reason in the dialog and stay open (Save as scenario does not switch modes):
+  "a refused write keeps the editor open with its reason", "a create refused after open keeps the dialog open
+  with the reason and stays in What-if".
+- **A column with no work left reads chance on time 1**, even past plan end: the same "nothing open" rule as
+  `computeAppForecast` (Task 8 ruling; "a scenario that removes every open task is on time even past the plan
+  end").
+- **Persistence.** `Workspace.forecastScenarios` is a **meta-blob** slice on all six write paths (no
+  `TABLE_NAMES` entry), storage-only (emitted only when `config === undefined`), byte-stable when absent, sanitised
+  on read (`sanitizeForecastScenarios`: bad rows dropped, values clamped, an unknown resource id KEPT because undo
+  can bring the person back). It is applied by `applyWorkspaceFromLoad` (always replace) and NOT by
+  `applyRestoredWorkspace`, so a version restore keeps today's scenarios (owner, 2026-10-17; see
+  [`activity-log.md`](activity-log.md)). `counted: false` in `workspace-slice-policy.ts`, so it is not in
+  `isWorkspaceEmpty`. Ids come from the session minter (`mintId`, kind `forecastScenario`). ★★ Because a saved
+  scenario keeps the id of a deleted milestone or person, `seedMintFromWorkspace` seeds the `milestone` and
+  `resource` marks from the live lists AND every `milestoneId` / `who.resourceId` a scenario still names, so neither
+  the UI nor a staged create can re-mint an id a stale row would then attach to ("seeds milestone and resource
+  marks above every id a saved scenario still names"). Every create, edit,
+  rename and delete is one activity-log entry; edits, renames and deletes are one undo entry each, creates are not
+  captured ([`undo.md`](undo.md) "Creates"). Pins: `forecast-scenarios-persistence.test.ts`.
+- ★ **The 4-cap is a CREATION rule**, checked first by `validateScenarioDraft` (no edit can fix it). The sanitizer
+  does not enforce it, so a stored list is never truncated, and undoing a delete at the cap restores a fifth
+  scenario ("undoing a delete at the cap restores a fifth scenario"); New scenario and Save as scenario are then
+  disabled with the reason. Owner decision 2026-10-17: keep it this way (a deleted scenario is never lost); the
+  comparison then runs one extra forecast per scenario past four (spec §5.3).
+- ★★ **Save as scenario** turns the clamped What-if into an availability row from today with no end (when capacity
+  ≠ 100) and, only when it is non-zero, one unattributed scope row on today of `scopeTasks` + round-half-up(open ×
+  `scopePercent` / 100). It
+  caps that row at ±1,000 tasks (`SCOPE_TASKS_MAX`; the What-if allows 1,000 plus a percent on top) and the name
+  dialog says so ("the note says when the scope was capped at 1,000 tasks"). **Exact parity with What-if holds in
+  the tasks unit only** ("Save as scenario shows what What-if showed (tasks unit)"): in effort mode the What-if
+  takes the percent of the effort sum, while a scenario sizes each added task at the median estimate, so the two
+  can differ.
+- **Performance.** Scenarios mode runs As is + the saved scenarios (at most five forecasts) once per input or list
+  change, only while the mode is shown; the panel skips its own Quick/What-if run and cost pass in that mode, and
+  nothing runs for scenarios on the Dashboard. Measured 2026-10-17 in Node through `vite-node`, on the synthetic
+  fixture of "Measured cost of the cost pass" below (200 open tasks, 60-working-day history, eur and hours facts)
+  plus one role and one resource, `computeScenarioComparison` with four scenarios, median of 7 after one warm-up,
+  on a shared machine: four runs of the probe by the implementer and one by the reviewer, so each row gives the
+  spread seen. A probe, not a gate (table below).
+
+| Case (As is + 4 scenarios) | Time |
+|---|---|
+| Four empty scenarios, cost on | about 235 to 280 ms |
+| The What-if extremes as scenarios (availability 10 %; scope +600 tasks; availability 300 % + scope +600; two added placeholders of 20 × 60 h), cost on | about 600 to 800 ms |
+| The same, cost off | about 510 to 700 ms |
+
+★★ This is a main-thread pause of up to about 0.6 to 0.8 s per input or list change while Scenarios mode is shown,
+well above the spec's "budget ≈ 100 ms" for one run, and it is not a gate; the levers are a worker (register §748) or
+fewer trials. (The single-run figure in "Performance", about 600 ms, is a different fixture and case:
+`sample-workspace-huge.json`, capacity 10 % + scope +500 % + a horizon How-many target. It is not comparable with
+this table.)
+Reproduce from the repo root (expect noise; the command deletes the file):
+
+```bash
+cat > scenario-probe.ts <<'EOF4'
+import { computeScenarioComparison, type ScenarioRunInput } from "./src/app/forecast-scenario-compare";
+import type { ForecastScenario } from "./src/app/forecast-scenarios";
+import type { ForecastFacts } from "./src/app/budget-forecast";
+import type { Resource, Role, Task } from "./src/app/types";
+import { workingDaysBefore } from "./src/app/working-days";
+const TODAY = "2026-10-14", H: ReadonlySet<string> = new Set();
+const days = [...workingDaysBefore(TODAY, 59, H), TODAY];
+const mk = (id: number, status: string, completedDate?: string) => ({ id, title: "t", dueDate: "", priority: "Medium", status, completedDate }) as Task;
+const tasks = [
+  ...Array.from({ length: 200 }, (_, i) => mk(i + 1, "Open")),
+  ...days.map((d, i) => mk(10_000 + i, "Done", d)),
+  ...days.filter((_, i) => i % 3 === 0).map((d, i) => mk(20_000 + i, "Done", d)),
+];
+const eur: ForecastFacts = {
+  bac: 500_000, ac: 200_000, ev: null, pv: 0, bucketsMissingPercent: [],
+  dated: days.map((date, i) => ({ date, bookedFrom: date, value: 800 + (i % 7) * 120, spread: false })),
+  planEnd: "2027-06-30", today: TODAY, holidaySet: H, hasFixedPrice: false,
+};
+const hours: ForecastFacts = { ...eur, bac: 5_000, ac: 2_000, dated: eur.dated.map((d) => ({ ...d, value: d.value / 100 })) };
+const role = { id: 1, disciplineId: 1, gradeId: 1, internalRate: 90, externalRate: 120 } as Role;
+const resource = { id: 1, name: "Pat", roleId: 1, active: true } as unknown as Resource;
+const directory = { resources: [resource], roles: [role], shifts: [], absences: [], budgets: [], fxRates: null, workdayHours: 8, baseCurrency: "EUR" as const };
+const base = (costOn: boolean): ScenarioRunInput => ({ tasks, milestones: [], today: TODAY, holidaySet: H, window: 60, unit: "tasks", planEnd: "2027-06-30", directory, budgetFacts: { eur, hours }, costOn });
+const s = (id: number, changes: ForecastScenario["changes"]): ForecastScenario => ({ id, name: "s" + id, changes });
+const empty = [1, 2, 3, 4].map((id) => s(id, []));
+const placeholder = { label: "Contractors", count: 20, rate: 80, currency: "EUR" as const, hoursPerWeek: 60 };
+const extremes = [
+  s(1, [{ kind: "availability", percent: 10, from: TODAY, until: "" }]),
+  s(2, [{ kind: "scope", tasks: 600, on: TODAY }]),
+  s(3, [{ kind: "availability", percent: 300, from: TODAY, until: "" }, { kind: "scope", tasks: 600, on: TODAY }]),
+  s(4, [{ kind: "addPeople", who: placeholder, from: TODAY, until: "", rampWeeks: 4 }, { kind: "addPeople", who: { ...placeholder, label: "More" }, from: TODAY, until: "", rampWeeks: 4 }]),
+];
+for (const [label, input, list] of [["four empty scenarios", base(true), empty], ["What-if extremes, cost on", base(true), extremes], ["What-if extremes, cost off", base(false), extremes]] as const) {
+  computeScenarioComparison(input, list);
+  const ms: number[] = [];
+  for (let i = 0; i < 7; i += 1) { const t0 = performance.now(); computeScenarioComparison(input, list); ms.push(performance.now() - t0); }
+  ms.sort((a, b) => a - b);
+  console.log(label.padEnd(28), "median", ms[3].toFixed(1), "ms");
+}
+EOF4
+npx vite-node scenario-probe.ts; rm scenario-probe.ts
+```
+
+- ★★ **The Scenarios-mode axe scan runs in CI only after un-hide.** `e2e/forecast-scenarios.spec.ts` (one test: the editor
+  with one row of each kind, then the comparison, failing on critical or serious violations with the tags of
+  `e2e/a11y.spec.ts`) is `test.skip` while `"forecast"` sits in `RELEASE_HIDDEN_VIEWS`, so CI skips it. It ran
+  ONCE locally on 2026-10-17 with the view un-hidden in the working tree only (1 passed, no critical or serious
+  violations; it needed `skipTour`, as `a11y.spec.ts` does). Run it again when the view ships:
+  `PORT=3100 npx playwright test e2e/forecast-scenarios.spec.ts --project=chromium --workers=1`. Until then CI covers the
+  editor and the comparison by their unit tests only.
+
+## The AI tool (§502)
+
+The assistant side is in `docs/AGENTS/ai-assistant.md`, "Forecast tools (§502)"; this section is what the FORECAST
+owns. `get_forecast` returns one JSON report (`buildForecastReport`, `forecast-ai-report.ts`, type `ForecastReport`):
+`simulated: true`, the `settings` it ran with (history window, tasks unit, `FORECAST_TRIALS` trials, baseline
+currency, plan end, today), the `asIs` column, `weeklyChange` (null when As is is insufficient: there is no P80 to
+compare, and `weeklyChange`'s `"beyond"` would claim one past the horizon), one entry per saved scenario (id, name,
+`expectedToken`, its `changes`, a `result` column and per-row `rows` statuses), and an optional `whatIf` column for the
+call's own draft. A column is either `status: "forecast"` (P50/P80/P95 as ISO dates or `"beyond"`, `chanceOnTime`,
+every milestone with a chance or an `overdue` / `no-linked-tasks` state, and cost) or `status: "insufficient"` with
+the engine's reason, which the prompt tells the model to quote rather than estimate around.
+
+★★ COMMON RANDOM NUMBERS HOLD. The report computes nothing of its own: it reshapes `computeScenarioComparison` and runs
+the draft through `computeScenarioColumn`, so every column shares the comparison's streams, and a `whatIf` equal to a
+saved scenario reproduces that scenario's column exactly. Do not give the report a seed or run of its own. ★ The run is
+always the app DEFAULTS (`DEFAULT_HISTORY_WINDOW`, tasks), not the toolbar, so a figure the model quotes can differ
+from the one on screen.
+
+★ All three tools refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads: the forecast input getter in
+`use-chat-dispatcher-wiring.ts` returns null until `holidaysReady`, and `useForecastTools` turns that into the refusal. A
+run on an unsettled calendar would quote dates the loaded one moves. The exception is a rename-only update (no
+`changes`), which checks nothing against the forecast; see `ai-assistant.md`. They refuse with `FORECAST_OFF_MESSAGE`
+when the simulation is off; that text, like the prompt's off text, says the assistant cannot read the forecast and
+points the user to the Forecast view, which runs the simulation whatever the switch says. ★ `get_forecast`'s `whatIf`
+is held to the save path's rules: `checkToolRows` (the row half of `checkToolDraft`, `stored: []`) runs after the
+comparison and before the `whatIf` column, so a row a save would refuse is refused with a `whatIf ` prefix, and no
+`whatIf` column or report is built. ★ The system-prompt block is emitted only when the Forecast view is enabled; see
+`ai-assistant.md`.
+
+★ COST: which calls pay an As-is run. `get_forecast` pays exactly ONE: `getForecast` builds the comparison
+(`computeScenarioComparison`, As is plus every saved scenario) once, takes the `whatIf` check's context from it
+(`scenarioValidationContext(input, comparison.context)`) and passes it to `buildForecastReport`. A create, and an
+update that sends `changes`, pay one each, for the validation context (`scenarioValidationContext` without a
+context runs As is to learn the team membership). A rename-only update pays none.
+
+★★ ONE COMPARISON PER RENDER: in Scenarios mode `ForecastPanel` computes the scenario comparison once (a `useMemo`
+over the comparison's inputs; null outside Scenarios mode) and passes it to `ForecastScenariosView` as `comparison`;
+the Ask-Claude menu reads the worst milestone from it too, with no second run.
+
+Chips: `ForecastAskClaude` (`forecast-ask-claude.tsx`) is a menu of Ask-Claude prompts that send the user to the chat.
+The set depends on the mode: an explain prompt always; a milestone prompt naming the worst milestone of the run ON
+SCREEN (`worstMilestoneName`; As is in Scenarios mode; absent with no run or when no milestone carries a chance); and
+compare and suggest prompts in Scenarios mode. Enumerate them with `grep -n "forecastAsk.*Label" src/app/i18n.ts`.
+
+★★ A scenario may name a milestone or person created earlier in the same assistant turn, applied or staged: the
+tools read tasks, milestones and resources from the dispatcher's live refs, and a staged plan remaps and cascades
+the nested ids. See `ai-assistant.md` "Forecast tools".
 
 ## Mutation proof (slice 1)
 

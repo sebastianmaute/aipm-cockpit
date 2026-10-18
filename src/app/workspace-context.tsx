@@ -56,6 +56,7 @@ import type { ActivityEntry } from "./activity-log";
 import type { BudgetHistoryEntry } from "./budget-history";
 import type { BaselineEntry } from "./baseline-currency";
 import type { ForecastHistoryEntry } from "./forecast-history";
+import type { ForecastScenario } from "./forecast-scenarios";
 import type { DocumentAsset } from "./document-asset";
 
 /** Workspace-section state is `readonly X[]` on purpose: these arrays become
@@ -193,6 +194,10 @@ interface WorkspaceValue {
    *  Never undefined; replace, never `push`. */
   forecastHistory: readonly ForecastHistoryEntry[];
   setForecastHistory: Dispatch<SetStateAction<readonly ForecastHistoryEntry[]>>;
+  /** Saved forecast scenarios (§502; meta-blob sibling of `forecastHistory`).
+   *  Never undefined; replace, never `push`. */
+  forecastScenarios: readonly ForecastScenario[];
+  setForecastScenarios: Dispatch<SetStateAction<readonly ForecastScenario[]>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -259,6 +264,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [budgetHistory, setBudgetHistory] = useState<readonly BudgetHistoryEntry[]>([]);
   const [baselineHistory, setBaselineHistory] = useState<readonly BaselineEntry[]>([]);
   const [forecastHistory, setForecastHistory] = useState<readonly ForecastHistoryEntry[]>([]);
+  const [forecastScenarios, setForecastScenarios] = useState<readonly ForecastScenario[]>([]);
 
   // ★★★ THE BEFORE-IMAGE CANNOT BE COMPUTED INSIDE A FUNCTIONAL SETTER.
   // `documents` and `documentVersions` are two separate setters, and the
@@ -521,6 +527,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       budgetHistory, setBudgetHistory,
       baselineHistory, setBaselineHistory,
       forecastHistory, setForecastHistory,
+      forecastScenarios, setForecastScenarios,
     }),
     [
       tasks,
@@ -563,6 +570,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       budgetHistory,
       baselineHistory,
       forecastHistory,
+      forecastScenarios,
     ],
   );
 

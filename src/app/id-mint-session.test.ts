@@ -112,6 +112,7 @@ describe("seedMintFromWorkspace", () => {
     documentVersions: [
       { id: 32, documentId: 29, title: "v", blocks: [], savedAt: "2026-01-01", source: "user", op: "update" },
     ],
+    forecastScenarios: [{ id: 34, name: "a", changes: [] }, { id: 36, name: "b", changes: [] }],
   } as unknown as Parameters<typeof seedMintFromWorkspace>[0];
 
   it("seeds every kind so a subsequent mint exceeds the loaded max", () => {
@@ -132,10 +133,46 @@ describe("seedMintFromWorkspace", () => {
       calendarEvent: 28,
       document: 30,
       documentVersion: 33,
+      forecastScenario: 37,
     };
     for (const [kind, next] of Object.entries(expected) as [MintKind, number][]) {
       expect(mintId(kind, [])).toBe(next);
     }
+  });
+
+  it("a loaded workspace seeds the scenario id minter, so the next mint is above its largest id (§502)", () => {
+    seedMintFromWorkspace(
+      { forecastScenarios: [{ id: 4, name: "a", changes: [] }, { id: 2, name: "b", changes: [] }] } as unknown as Parameters<typeof seedMintFromWorkspace>[0],
+      "reset",
+    );
+    expect(mintId("forecastScenario", [])).toBe(5);
+  });
+
+  // ★★ A saved scenario keeps the id of a DELETED milestone or person on
+  //    purpose, so seeding from the live lists alone would hand that id out
+  //    again after a reload and silently attach the stale scenario row to the
+  //    new entity (§502). The live maxes sit below the referenced ids here, so
+  //    a live-only seed answers 6 and 8.
+  it("seeds milestone and resource marks above every id a saved scenario still names (§502)", () => {
+    seedMintFromWorkspace(
+      {
+        milestones: [{ id: 5 }],
+        resources: [{ id: 7 }],
+        forecastScenarios: [
+          {
+            id: 1,
+            name: "s",
+            changes: [
+              { kind: "scope", tasks: 2, on: "2026-06-01", milestoneId: 9 },
+              { kind: "addPeople", who: { resourceId: 12, hoursPerWeek: 20 }, from: "2026-06-01", until: "", rampWeeks: 4 },
+            ],
+          },
+        ],
+      } as unknown as Parameters<typeof seedMintFromWorkspace>[0],
+      "reset",
+    );
+    expect(mintId("milestone", [{ id: 5 }])).toBe(10);
+    expect(mintId("resource", [{ id: 7 }])).toBe(13);
   });
 
   it("flat-maps nested budget buckets when present", () => {

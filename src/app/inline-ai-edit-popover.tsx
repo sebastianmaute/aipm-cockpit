@@ -15,6 +15,9 @@ import { IconButton } from "./icon-button";
 
 export interface InlineAiEditPopoverProps {
   lang: Lang;
+  /** The heading, which also names the instruction field: "Ask Claude to edit this milestone". Per
+   *  entity, from the caller, because German needs each noun's own article (§715 D4). */
+  title: string;
   itemTitle: string;
   entityLabel: string;
   /** ★★ NO `entity` PROP. It used to name the open row's descriptor so
@@ -36,7 +39,7 @@ export interface InlineAiEditPopoverProps {
 }
 
 export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
-  const { lang, itemTitle, entityLabel, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
+  const { lang, title, itemTitle, entityLabel, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const busy = phase === "thinking" || phase === "applying";
@@ -49,7 +52,7 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
     <Modal open onClose={onCancel} ariaLabel={t(lang, "inlineAiEdit")} align="center" zIndex={70} initialFocusRef={inputRef}>
       <div className="w-[420px] max-w-[95vw] rounded-xl border border-line bg-surface p-4">
         <div className="mb-2 flex items-start justify-between gap-2">
-          <h2 className="text-sm font-semibold text-foreground">{t(lang, "inlineAiEditTitle")}</h2>
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
           <IconButton onClick={onCancel} label={t(lang, "cancel")} title={t(lang, "cancel")}>
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />
           </IconButton>
@@ -63,7 +66,7 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
               type="text"
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              aria-label={t(lang, "inlineAiEditTitle")}
+              aria-label={title}
               placeholder={t(lang, "inlineAiEditPlaceholder")}
               disabled={busy}
               className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}

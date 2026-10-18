@@ -1,0 +1,438 @@
+// §502 — the forecast tools as the chat dispatcher implements them: the token round trip, replace
+// semantics with `removedRows`, undo capture, refusals that write nothing, and the staging classification.
+import { act, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
+import { showForecastView } from "../test/forecast-view";
+import { entityToken } from "./ai-entity-token";
+import { buildPlanRows, shouldStage, type ProposedCall } from "./chat-proposal";
+import { liveRowTitle } from "./chat-proposal-stage";
+import { runTool } from "./chat-tools";
+import type { Workspace } from "./workspace";
+import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
+import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
+import type { ForecastReportInput } from "./forecast-ai-report";
+import type { ForecastScenario, ScenarioChange } from "./forecast-scenarios";
+import { t } from "./i18n";
+import { __resetMintStateForTests } from "./id-mint-session";
+import { defaultSettings } from "./settings-types";
+import type { TestSeed } from "./test-providers";
+import { useChatDispatcher } from "./use-chat-dispatcher";
+import { useUndoStack } from "./undo/use-undo-stack";
+import { useWorkspace } from "./workspace-context";
+
+// Counts As-is runs: every one goes through `computeScenarioComparison`. A plain wrapper, not a `vi.fn`, so
+// `vi.restoreAllMocks` in `afterEach` cannot strip its implementation.
+const compare = vi.hoisted(() => ({ calls: 0 }));
+vi.mock("./forecast-scenario-compare", async (orig) => {
+  const m = await orig<typeof import("./forecast-scenario-compare")>();
+  return {
+    ...m,
+    computeScenarioComparison: (...a: Parameters<typeof m.computeScenarioComparison>) => {
+      compare.calls += 1;
+      return m.computeScenarioComparison(...a);
+    },
+  };
+});
+
+const AVAIL: ScenarioChange = { kind: "availability", percent: 120, from: "2026-06-01", until: "" };
+const SCOPE: ScenarioChange = { kind: "scope", tasks: 5, on: "2026-06-15" };
+const SAVED: ForecastScenario = { id: 1, name: "Contractor in January", changes: [AVAIL, SCOPE] };
+const ON = { forecast: { showSimulation: true } };
+const LOADING = "The holiday calendar is still loading; try again in a moment.";
+const CAP = "This project already has 4 saved scenarios, the most it can keep. Ask the user to delete one first.";
+const READ_ONLY = t(defaultSettings.language, "popoutReadOnly");
+
+function makeInput(): ForecastReportInput {
+  return {
+    run: {
+      tasks: [], milestones: [], today: "2026-05-19", holidaySet: new Set<string>(),
+      window: DEFAULT_HISTORY_WINDOW, unit: "tasks", planEnd: "2026-12-31",
+      directory: {
+        resources: [], roles: [], shifts: [], absences: [], budgets: [], fxRates: null, workdayHours: 8,
+        baseCurrency: "EUR",
+      },
+      budgetFacts: null, costOn: false,
+    },
+    history: [],
+    scenarios: [],
+    currency: "EUR",
+  };
+}
+
+function scenario(id: number, name: string): ForecastScenario {
+  return { id, name, changes: [] };
+}
+
+/** The REAL undo stack and the REAL dispatcher in one hook body, with a logging spy. */
+function mount(seed: TestSeed, over: Partial<ChatDispatcherArgs> = {}) {
+  const logActivityAs = vi.fn();
+  const view = renderHook(
+    () => {
+      const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
+      const dispatcher = useChatDispatcher(
+        makeDispatcherArgs({ undo, logActivityAs, getForecastInput: () => makeInput(), ...over }),
+      );
+      const { forecastScenarios, setSettingsOverrides } = useWorkspace();
+      return { undo, dispatcher, forecastScenarios, setSettingsOverrides };
+    },
+    { wrapper: dispatcherWrapperWith({ settingsOverrides: ON, ...seed }) },
+  );
+  return { ...view, logActivityAs };
+}
+
+beforeEach(() => {
+  __resetMintStateForTests();
+  showForecastView();
+});
+afterEach(() => vi.restoreAllMocks());
+
+describe("update_forecast_scenario", () => {
+  test("applies with the token taken OUT of get_forecast's report", async () => {
+    const { result } = mount({ forecastScenarios: [SAVED] });
+    const report = result.current.dispatcher.getForecast(null);
+    const expectedToken = report.scenarios[0].expectedToken;
+    expect(expectedToken).toBe(entityToken("forecastScenario", SAVED));
+
+    let out: unknown;
+    await act(async () => {
+      out = await runTool(result.current.dispatcher, "update_forecast_scenario", { id: 1, name: "Two contractors", expectedToken });
+    });
+
+    expect(out).toMatchObject({ id: 1, name: "Two contractors" });
+    expect(result.current.forecastScenarios[0].name).toBe("Two contractors");
+  });
+
+  test("a create, then an update of the minted id in the same turn, sees the create", async () => {
+    const { result } = mount({});
+    let created: { id: number; expectedToken: string } | undefined;
+    await act(async () => {
+      created = (await runTool(result.current.dispatcher, "create_forecast_scenario", { name: "A", changes: [] })) as typeof created;
+      await runTool(result.current.dispatcher, "update_forecast_scenario", {
+        id: created!.id, name: "B", expectedToken: created!.expectedToken,
+      });
+    });
+    expect(result.current.forecastScenarios.map((s) => s.name)).toEqual(["B"]);
+  });
+
+  test("changes: [] replaces a 2-row list, reports removedRows 2, and one undo restores both rows", () => {
+    const { result } = mount({ forecastScenarios: [SAVED] });
+    let out: { removedRows?: number } | undefined;
+    act(() => {
+      out = result.current.dispatcher.updateForecastScenario(1, { changes: [] });
+    });
+    expect(out?.removedRows).toBe(2);
+    expect(result.current.forecastScenarios[0].changes).toEqual([]);
+    expect(result.current.undo.stack).toHaveLength(1);
+
+    act(() => { result.current.undo.undo(); });
+
+    expect(result.current.forecastScenarios[0].changes).toEqual([AVAIL, SCOPE]);
+    expect(result.current.undo.stack).toHaveLength(0);
+  });
+
+  test("removedRows counts only the stored rows the new list drops, and is absent for a rename", () => {
+    const { result } = mount({ forecastScenarios: [SAVED] });
+    let replaced: { removedRows?: number } | undefined;
+    let renamed: { removedRows?: number } | undefined;
+    act(() => {
+      replaced = result.current.dispatcher.updateForecastScenario(1, { changes: [SCOPE, { ...AVAIL, percent: 150 }] });
+    });
+    act(() => {
+      renamed = result.current.dispatcher.updateForecastScenario(1, { name: "Renamed" });
+    });
+    expect(replaced?.removedRows).toBe(1);
+    expect(renamed).not.toHaveProperty("removedRows");
+  });
+
+  // Multiset: each stored row consumes at most one equal new row.
+  test.each<[string, readonly ScenarioChange[], readonly ScenarioChange[], number]>([
+    ["a dropped duplicate", [AVAIL, AVAIL], [AVAIL], 1],
+    ["an edited row", [AVAIL, SCOPE], [AVAIL, { ...SCOPE, tasks: 6 }], 1],
+    ["an unchanged list", [AVAIL, SCOPE], [AVAIL, SCOPE], 0],
+    ["a reordered list", [AVAIL, SCOPE], [SCOPE, AVAIL], 0],
+    ["a duplicate added", [AVAIL], [AVAIL, AVAIL], 0],
+  ])("removedRows for %s", (_case, stored, next, removed) => {
+    const { result } = mount({ forecastScenarios: [{ id: 1, name: "S", changes: stored }] });
+    let out: { removedRows?: number } | undefined;
+    act(() => {
+      out = result.current.dispatcher.updateForecastScenario(1, { changes: next });
+    });
+    expect(out?.removedRows).toBe(removed);
+  });
+
+  test("a refused update writes nothing: no row change, no log, no undo entry", () => {
+    const { result, logActivityAs } = mount({ forecastScenarios: [SAVED] });
+    const before = result.current.forecastScenarios;
+    expect(() =>
+      act(() => {
+        result.current.dispatcher.updateForecastScenario(1, { changes: [{ ...AVAIL, percent: 5 }] });
+      }),
+    ).toThrow("changes[0]: percent must be between 10 and 300");
+    // ★★ Flush first: an `act` whose callback throws does not flush, so a setter call made before the throw
+    //  would only render on the NEXT act — reading the slice right away would pass for the wrong reason.
+    act(() => {});
+    expect(result.current.forecastScenarios).toBe(before);
+    expect(result.current.dispatcher.getForecastScenarioRow(1)).toBe(before[0]);
+    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(result.current.undo.stack).toHaveLength(0);
+  });
+
+  test("a placeholder label that differs only by a trailing space removes nothing and writes nothing", () => {
+    const hire: ScenarioChange = {
+      kind: "addPeople", from: "2026-06-01", until: "", rampWeeks: 4,
+      who: { label: "Contractor", count: 1, rate: 80, currency: "EUR", hoursPerWeek: 40 },
+    };
+    const stored: ForecastScenario = { id: 1, name: "Hire", changes: [hire] };
+    const { result, logActivityAs } = mount({ forecastScenarios: [stored] });
+    const before = result.current.forecastScenarios;
+    let out: { removedRows?: number } | undefined;
+    act(() => {
+      out = result.current.dispatcher.updateForecastScenario(1, {
+        changes: [{ ...hire, who: { label: "Contractor ", count: 1, rate: 80, currency: "EUR", hoursPerWeek: 40 } }],
+      });
+    });
+    expect(out?.removedRows).toBe(0);
+    expect(result.current.forecastScenarios).toBe(before);
+    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(result.current.undo.stack).toHaveLength(0);
+  });
+
+  test("an update that changes nothing writes, logs and captures nothing", () => {
+    const { result, logActivityAs } = mount({ forecastScenarios: [SAVED] });
+    const before = result.current.forecastScenarios;
+    act(() => {
+      result.current.dispatcher.updateForecastScenario(1, { name: SAVED.name, changes: [AVAIL, SCOPE] });
+    });
+    expect(result.current.forecastScenarios).toBe(before);
+    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(result.current.undo.stack).toHaveLength(0);
+  });
+
+  test("logs one forecastScenario.updated row as the AI", () => {
+    const { result, logActivityAs } = mount({ forecastScenarios: [SAVED] });
+    act(() => {
+      result.current.dispatcher.updateForecastScenario(1, { name: "Renamed" });
+    });
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "forecastScenario.updated", 1, "Renamed");
+  });
+});
+
+describe("create_forecast_scenario", () => {
+  test("is not undo-captured and logs one forecastScenario.created row as the AI", () => {
+    const { result, logActivityAs } = mount({});
+    let id: number | undefined;
+    act(() => {
+      id = result.current.dispatcher.createForecastScenario("  Hire  ", [AVAIL]).id;
+    });
+    expect(result.current.forecastScenarios).toEqual([{ id, name: "Hire", changes: [AVAIL] }]);
+    expect(result.current.undo.stack).toHaveLength(0);
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "forecastScenario.created", id, "Hire");
+  });
+
+  test.each([4, 5])("is refused with the cap text on a %i-scenario list (5 = restored by undo)", (n) => {
+    const list = Array.from({ length: n }, (_, i) => scenario(i + 1, `S${i + 1}`));
+    const { result, logActivityAs } = mount({ forecastScenarios: list });
+    expect(() => result.current.dispatcher.createForecastScenario("New", [])).toThrow(CAP);
+    act(() => {}); // flush anything a write before the throw would have queued
+    expect(result.current.forecastScenarios).toHaveLength(n);
+    expect(logActivityAs).not.toHaveBeenCalled();
+  });
+});
+
+describe("refusals before any work", () => {
+  test("a popout refuses both writes", () => {
+    const { result } = mount({ forecastScenarios: [SAVED] }, { isReadOnly: true });
+    expect(() => result.current.dispatcher.createForecastScenario("New", [])).toThrow(READ_ONLY);
+    expect(() => result.current.dispatcher.updateForecastScenario(1, { name: "X" })).toThrow(READ_ONLY);
+    act(() => {});
+    expect(result.current.forecastScenarios).toEqual([SAVED]);
+  });
+
+  test("all three tools refuse while the holiday calendar loads (an update that sends changes)", async () => {
+    const { result } = mount({ forecastScenarios: [SAVED] }, { getForecastInput: () => null });
+    const d = result.current.dispatcher;
+    const expectedToken = entityToken("forecastScenario", SAVED);
+    await expect(runTool(d, "get_forecast", {})).rejects.toThrow(LOADING);
+    await expect(runTool(d, "create_forecast_scenario", { name: "New", changes: [] })).rejects.toThrow(LOADING);
+    await expect(runTool(d, "update_forecast_scenario", { id: 1, changes: [AVAIL], expectedToken })).rejects.toThrow(LOADING);
+    act(() => {});
+    expect(result.current.forecastScenarios).toEqual([SAVED]);
+  });
+
+  // ★ A rename validates nothing against the forecast, so it needs no input and runs no As-is.
+  test("a rename-only update succeeds while the holiday calendar loads, with no As-is run", async () => {
+    const { result } = mount({ forecastScenarios: [SAVED] }, { getForecastInput: () => null });
+    const expectedToken = entityToken("forecastScenario", SAVED);
+    compare.calls = 0;
+    await act(async () => {
+      await runTool(result.current.dispatcher, "update_forecast_scenario", { id: 1, name: "Renamed", expectedToken });
+    });
+    expect(result.current.forecastScenarios).toEqual([{ ...SAVED, name: "Renamed" }]);
+    expect(compare.calls).toBe(0);
+  });
+
+  test("a rename-only update still refuses a taken name", () => {
+    const { result } = mount({ forecastScenarios: [SAVED, scenario(2, "Other")] }, { getForecastInput: () => null });
+    expect(() => result.current.dispatcher.updateForecastScenario(1, { name: "Other" }))
+      .toThrow('A scenario named "Other" already exists. Choose another name.');
+  });
+});
+
+describe("As-is runs per call", () => {
+  test("get_forecast with a whatIf runs the comparison exactly once", async () => {
+    const { result } = mount({ forecastScenarios: [SAVED] });
+    compare.calls = 0;
+    await runTool(result.current.dispatcher, "get_forecast", { whatIf: [AVAIL] });
+    expect(compare.calls).toBe(1);
+  });
+
+  test("a refused whatIf costs the one comparison and nothing more", async () => {
+    const { result } = mount({});
+    compare.calls = 0;
+    await expect(runTool(result.current.dispatcher, "get_forecast", { whatIf: [{ ...AVAIL, percent: 0 }] }))
+      .rejects.toThrow("whatIf changes[0]: percent must be between 10 and 300");
+    expect(compare.calls).toBe(1);
+  });
+});
+
+describe("get_forecast whatIf follows the save path's rules", () => {
+  const cases: Array<[string, ScenarioChange, string]> = [
+    ["range", { kind: "availability", percent: 0, from: "2026-06-01", until: "" },
+      "whatIf changes[0]: percent must be between 10 and 300"],
+    ["date", { kind: "availability", percent: 120, from: "garbage", until: "" },
+      "whatIf changes[0]: dates must be YYYY-MM-DD"],
+    ["reference", { kind: "scope", tasks: 5, on: "2026-06-15", milestoneId: 99 },
+      "whatIf changes[0]: milestone 99 does not exist"],
+  ];
+  test.each(cases)("refuses a %s violation and builds no report", async (_class, row, text) => {
+    const { result } = mount({});
+    await expect(runTool(result.current.dispatcher, "get_forecast", { whatIf: [row] })).rejects.toThrow(text);
+  });
+
+  test("a valid what-if row still simulates", async () => {
+    const { result } = mount({});
+    const report = await runTool(result.current.dispatcher, "get_forecast", { whatIf: [AVAIL] });
+    expect(report).toBeTruthy();
+  });
+});
+
+describe("the simulation predicate", () => {
+  test("getSnapshot().forecastSimulation and isForecastEnabled follow isSimulationActive, live", () => {
+    const { result } = mount({});
+    expect(result.current.dispatcher.getSnapshot().forecastSimulation).toBe(true);
+    expect(result.current.dispatcher.isForecastEnabled()).toBe(true);
+
+    act(() => { result.current.setSettingsOverrides(undefined); });
+    expect(result.current.dispatcher.getSnapshot().forecastSimulation).toBe(false);
+    expect(result.current.dispatcher.isForecastEnabled()).toBe(false);
+  });
+
+  test("is false while the Forecast view is held back, with the switch stored on", () => {
+    vi.restoreAllMocks();
+    const { result } = mount({});
+    expect(result.current.dispatcher.getSnapshot().forecastSimulation).toBe(false);
+    expect(result.current.dispatcher.isForecastEnabled()).toBe(false);
+  });
+
+  test("getSnapshot().forecastView is true when the view is shown even with the switch off, false when held back", () => {
+    const { result } = mount({});
+    act(() => { result.current.setSettingsOverrides(undefined); });
+    expect(result.current.dispatcher.getSnapshot().forecastView).toBe(true);
+    vi.restoreAllMocks();
+    expect(result.current.dispatcher.getSnapshot().forecastView).toBe(false);
+  });
+});
+
+// ★★ `makeInput()` returns EMPTY tasks, milestones and resources, standing in for the wiring's render-scope
+//   slices, which a write earlier in the same turn has not reached yet. Each test below therefore fails if the
+//   tools read those three slices from the getter instead of the dispatcher's synchronously written refs.
+describe("a write earlier in the same turn is seen (§502)", () => {
+  test("create_milestone, then create_forecast_scenario naming it, applies with the row on that milestone", async () => {
+    const { result } = mount({});
+    let saved: { changes: readonly ScenarioChange[] } | undefined;
+    await act(async () => {
+      const m = (await runTool(result.current.dispatcher, "create_milestone", { name: "Go-live", date: "2026-09-30" })) as { id: number };
+      saved = (await runTool(result.current.dispatcher, "create_forecast_scenario", {
+        name: "Scope on go-live", changes: [{ kind: "scope", tasks: 3, on: "2026-06-15", milestoneId: m.id }],
+      })) as typeof saved;
+    });
+    const milestoneId = result.current.dispatcher.listMilestones()[0].id;
+    expect(saved?.changes).toEqual([{ kind: "scope", tasks: 3, on: "2026-06-15", milestoneId }]);
+    expect(result.current.forecastScenarios[0].changes).toEqual(saved?.changes);
+  });
+
+  test("create_resource, then an addPeople row naming the new person, applies", async () => {
+    const { result } = mount({});
+    let resourceId = 0;
+    await act(async () => {
+      const r = (await runTool(result.current.dispatcher, "create_resource", { firstName: "Ada", lastName: "Lovelace" })) as { id: number };
+      resourceId = r.id;
+      await runTool(result.current.dispatcher, "create_forecast_scenario", {
+        name: "Ada joins", changes: [{ kind: "addPeople", who: { resourceId, hoursPerWeek: 20 }, from: "2026-06-01" }],
+      });
+    });
+    expect(resourceId).toBeGreaterThan(0);
+    expect(result.current.forecastScenarios[0].changes).toEqual([
+      { kind: "addPeople", who: { resourceId, hoursPerWeek: 20 }, from: "2026-06-01", until: "", rampWeeks: 4 },
+    ]);
+  });
+
+  // ★ With no open task the As-is run has nothing left to forecast and reports a finish; one open task and no
+  //   finished history drops it below the floor. The status therefore says whether the run saw the new task.
+  test("get_forecast after create_task in the same turn simulates the new task", async () => {
+    const { result } = mount({});
+    const status: unknown[] = [];
+    await act(async () => {
+      const before = (await runTool(result.current.dispatcher, "get_forecast", {})) as { asIs: { status: string } };
+      await runTool(result.current.dispatcher, "create_task", { taskName: "Open", assignee: "M. Bennett", dueDate: "2026-06-30" });
+      const after = (await runTool(result.current.dispatcher, "get_forecast", {})) as { asIs: { status: string } };
+      status.push(before.asIs.status, after.asIs.status);
+    });
+    expect(status).toEqual(["forecast", "insufficient"]);
+  });
+});
+
+describe("staging", () => {
+  const call = (name: string, input: Record<string, unknown> = {}): ProposedCall => ({ name, input });
+  const create = call("create_forecast_scenario", { name: "A", changes: [] });
+
+  test("one create applies; a create plus an update stages", () => {
+    expect(shouldStage([create])).toBe(false);
+    expect(shouldStage([create, call("update_forecast_scenario", { id: 900, name: "B" })])).toBe(true);
+  });
+
+  test("an update of the create's minted id depends on that create", () => {
+    const rows = buildPlanRows([create, call("update_forecast_scenario", { id: 900, name: "B" })], [900]);
+    expect(rows[0].mintedId).toBe(900);
+    expect(rows[1].dependsOn).toBe(0);
+  });
+
+  test("the card names the scenario and counts the rows", () => {
+    const ws = { forecastScenarios: [SAVED] } as unknown as Workspace;
+    expect(liveRowTitle(call("create_forecast_scenario", { name: "Hire", changes: [AVAIL, SCOPE, AVAIL] }), ws))
+      .toBe('Save scenario "Hire" (3 changes)');
+    expect(liveRowTitle(call("update_forecast_scenario", { id: 1, changes: [AVAIL] }), ws))
+      .toBe('Edit scenario "Contractor in January" (2 → 1 changes)');
+    expect(liveRowTitle(call("update_forecast_scenario", { id: 1, name: "Renamed" }), ws))
+      .toBe('Edit scenario "Contractor in January" → "Renamed"');
+    // A target minted earlier in the same plan is not stored yet: the call's own name labels it.
+    expect(liveRowTitle(call("update_forecast_scenario", { id: 900, name: "B", changes: [] }), ws))
+      .toBe('Edit scenario "B" (0 changes)');
+  });
+
+  // ★ A replace that drops rows must show it: the stored count beside the new one.
+  test("an update that sends changes shows the stored row count beside the new one", () => {
+    const three: ForecastScenario = { id: 2, name: "Three", changes: [AVAIL, SCOPE, AVAIL] };
+    const one: ForecastScenario = { id: 3, name: "One", changes: [AVAIL] };
+    const ws = { forecastScenarios: [three, one] } as unknown as Workspace;
+    expect(liveRowTitle(call("update_forecast_scenario", { id: 2, changes: [SCOPE] }), ws))
+      .toBe('Edit scenario "Three" (3 → 1 changes)');
+    expect(liveRowTitle(call("update_forecast_scenario", { id: 3, changes: [SCOPE] }), ws))
+      .toBe('Edit scenario "One" (1 → 1 change)');
+    expect(liveRowTitle(call("update_forecast_scenario", { id: 2, name: "Renamed", changes: [] }), ws))
+      .toBe('Edit scenario "Three" → "Renamed" (3 → 0 changes)');
+  });
+});

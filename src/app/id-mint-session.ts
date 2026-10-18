@@ -24,7 +24,8 @@ export type MintKind =
   | "budgetBucket"
   | "calendarEvent"
   | "document"
-  | "documentVersion";
+  | "documentVersion"
+  | "forecastScenario";
 
 /** Minimal shape every mintable entity satisfies. */
 type HasId = { id: number };
@@ -80,12 +81,48 @@ export function peekMintId(kind: MintKind, list: readonly HasId[]): number {
  * - `"raise"`: lift the mark to `max(currentMark, listMax)` — never lowers it.
  */
 export function seedMintKind(kind: MintKind, list: readonly HasId[], mode: "reset" | "raise"): void {
-  const listMax = maxIdOf(list);
+  seedMark(kind, maxIdOf(list), mode);
+}
+
+/** {@link seedMintKind} from an already-computed max id. */
+function seedMark(kind: MintKind, max: number, mode: "reset" | "raise"): void {
   if (mode === "reset") {
-    highWater.set(kind, listMax);
+    highWater.set(kind, max);
     return;
   }
-  highWater.set(kind, Math.max(highWater.get(kind) ?? 0, listMax));
+  highWater.set(kind, Math.max(highWater.get(kind) ?? 0, max));
+}
+
+/**
+ * Highest milestone and resource ids any saved forecast scenario still names
+ * (`milestoneId` on a change, `who.resourceId` on its `who`).
+ *
+ * ★★ Scenarios keep the ids of DELETED milestones and people on purpose
+ * (`milestoneGone`, `keepsAnyStoredReference`), so seeding those two kinds from
+ * the live lists alone lets a reload mint such an id again: a new milestone
+ * silently picks up the old scenario row, and a staged create's provisional id
+ * collides with it, so `LINK_FIELDS` graphs and remaps the unrelated stored row
+ * onto the create (§502).
+ */
+function scenarioReferenceMax(scenarios: Workspace["forecastScenarios"] | undefined): {
+  milestone: number;
+  resource: number;
+} {
+  let milestone = 0;
+  let resource = 0;
+  for (const scenario of scenarios ?? []) {
+    const changes = (scenario as { changes?: unknown } | null)?.changes;
+    if (!Array.isArray(changes)) continue;
+    for (const change of changes) {
+      if (!change || typeof change !== "object") continue;
+      const milestoneId = (change as { milestoneId?: unknown }).milestoneId;
+      if (Number.isSafeInteger(milestoneId)) milestone = Math.max(milestone, milestoneId as number);
+      const who = (change as { who?: unknown }).who;
+      const resourceId = who && typeof who === "object" ? (who as { resourceId?: unknown }).resourceId : undefined;
+      if (Number.isSafeInteger(resourceId)) resource = Math.max(resource, resourceId as number);
+    }
+  }
+  return { milestone, resource };
 }
 
 /**
@@ -114,7 +151,10 @@ function collectBudgetBuckets(budgets: Workspace["budgets"]): readonly HasId[] {
 
 /**
  * Seed every mint kind from a workspace (guarding every array with `?? []`),
- * plus `budgetBucket` from the (optionally nested) budget buckets.
+ * plus `budgetBucket` from the (optionally nested) budget buckets, and the
+ * `milestone` / `resource` marks also from every id a saved forecast scenario
+ * still names (see {@link scenarioReferenceMax}). Every load path — load,
+ * project swap, version restore — seeds through here, so the rule holds on each.
  */
 export function seedMintFromWorkspace(
   ws: Partial<Workspace>,
@@ -124,8 +164,9 @@ export function seedMintFromWorkspace(
   seedMintKind("raid", ws.raid ?? [], mode);
   seedMintKind("change", ws.changes ?? [], mode);
   seedMintKind("stakeholder", ws.stakeholders ?? [], mode);
-  seedMintKind("milestone", ws.milestones ?? [], mode);
-  seedMintKind("resource", ws.resources ?? [], mode);
+  const referenced = scenarioReferenceMax(ws.forecastScenarios);
+  seedMark("milestone", Math.max(maxIdOf(ws.milestones ?? []), referenced.milestone), mode);
+  seedMark("resource", Math.max(maxIdOf(ws.resources ?? []), referenced.resource), mode);
   seedMintKind("role", ws.roles ?? [], mode);
   seedMintKind("discipline", ws.disciplines ?? [], mode);
   seedMintKind("grade", ws.grades ?? [], mode);
@@ -135,6 +176,7 @@ export function seedMintFromWorkspace(
   seedMintKind("calendarEvent", ws.calendarEvents ?? [], mode);
   seedMintKind("document", ws.documents ?? [], mode);
   seedMintKind("documentVersion", ws.documentVersions ?? [], mode);
+  seedMintKind("forecastScenario", ws.forecastScenarios ?? [], mode);
 }
 
 /**

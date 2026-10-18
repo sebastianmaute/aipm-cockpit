@@ -58,5 +58,6 @@ export const IDB_OPTIONAL_KV_KEYS = {
   budgetHistory: "budgetHistory",
   baselineHistory: "baselineHistory",
   forecastHistory: "forecastHistory",
+  forecastScenarios: "forecastScenarios",
   documentAssets: "documentAssets",
 } as const;

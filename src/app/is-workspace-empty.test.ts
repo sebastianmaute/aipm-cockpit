@@ -134,6 +134,20 @@ describe("the save-time counters deliberately exclude auto-grown slices", () => 
     expect(isWorkspaceEmpty({ ...ws, forecastHistory: history })).toBe(true);
   });
 
+  it("forecastScenarios is excluded — scenario inputs are not project records (§502)", () => {
+    // At most four short lists of what-if inputs. Adding them changes NOTHING against a counting
+    // base, and a project holding only scenarios still reads as empty — both directions, as above.
+    const scenarios = [{ id: 1, name: "Two more people", changes: [] }] as never;
+    const base = { ...ws, tasks: [{ id: 1 }] as never };
+    expect(nonEmptyCollectionCount(base)).toBe(1);
+    expect(workspaceRecordCount(base)).toBe(1);
+    expect(nonEmptyCollectionCount({ ...base, forecastScenarios: scenarios })).toBe(1);
+    expect(workspaceRecordCount({ ...base, forecastScenarios: scenarios })).toBe(1);
+    expect(nonEmptyCollectionCount({ ...ws, forecastScenarios: scenarios })).toBe(0);
+    expect(workspaceRecordCount({ ...ws, forecastScenarios: scenarios })).toBe(0);
+    expect(isWorkspaceEmpty({ ...ws, forecastScenarios: scenarios })).toBe(true);
+  });
+
   it("documentVersions is excluded, so a retention prune is not a mass deletion", () => {
     const versioned = { ...ws, documentVersions: Array.from({ length: 50 }, (_, i) => ({ id: `v${i}` })) as never };
     expect(nonEmptyCollectionCount(versioned)).toBe(0);

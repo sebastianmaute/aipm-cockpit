@@ -75,6 +75,7 @@ import {
   markdownToBudgetHistory,
   markdownToBaselineHistory,
   markdownToForecastHistory,
+  markdownToForecastScenarios,
   markdownToSettingsOverrides,
   mdUnescape,
   splitMdRow,
@@ -452,6 +453,9 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   // And for the forecast history (§502), emitted after it.
   const forecastHistory = markdownToForecastHistory(md, diag);
   if (forecastHistory) ws.forecastHistory = forecastHistory;
+  // And for the saved forecast scenarios (§502), emitted after it.
+  const forecastScenarios = markdownToForecastScenarios(md, diag);
+  if (forecastScenarios) ws.forecastScenarios = forecastScenarios;
   return migrateWorkspaceV10(ws);
 }
 

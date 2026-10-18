@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
 import { ForecastPanel } from "./forecast-panel";
 import { loadI18n, t } from "./i18n";
 import type { Milestone, ResourcePlan, Task } from "./types";
@@ -8,7 +9,14 @@ import type { DatedValue, ForecastFacts, ForecastFactsByUnit } from "./budget-fo
 import { nthWorkingDayAfter, workingDaysBefore } from "./working-days";
 import { MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
 import * as costModule from "./forecast/cost";
+import * as forecastModule from "./forecast";
+import * as compareModule from "./forecast-scenario-compare";
+import type { ForecastScenariosProps } from "./forecast-panel";
+import { whatIfToScenarioChanges, type ForecastScenario } from "./forecast-scenarios";
 import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
+
+const requestChat = vi.fn();
+vi.mock("./workspace-tab-context", () => ({ useWorkspaceTab: () => ({ requestChat }) }));
 
 // 2026-10-14 is a Wednesday.
 const TODAY = "2026-10-14";
@@ -60,19 +68,19 @@ describe("ForecastPanel", () => {
   test("Quick ignores what-if values; What-if shows scope and capacity inputs", async () => {
     const user = userEvent.setup();
     renderPanel([...open(5), ...steadyDone(60)]);
-    expect(screen.queryByLabelText("Capacity (%)")).toBeNull();
+    expect(screen.queryByLabelText("Availability (%)")).toBeNull();
     expect(p50()).toBe("Oct 21, 2026");
 
     await user.click(screen.getByRole("radio", { name: "What-if" }));
     expect(screen.getByLabelText("Scope change (tasks)")).toBeTruthy();
     expect(screen.getByLabelText("Scope change (%)")).toBeTruthy();
-    const capacity = screen.getByLabelText("Capacity (%)");
+    const capacity = screen.getByLabelText("Availability (%)");
     await user.clear(capacity);
     await user.type(capacity, "200{Enter}");
     expect(p50()).toBe("Oct 19, 2026");
 
     await user.click(screen.getByRole("radio", { name: "Quick" }));
-    expect(screen.queryByLabelText("Capacity (%)")).toBeNull();
+    expect(screen.queryByLabelText("Availability (%)")).toBeNull();
     expect(p50()).toBe("Oct 21, 2026");
   });
 
@@ -100,7 +108,7 @@ describe("ForecastPanel", () => {
     const user = userEvent.setup();
     renderPanel([...open(5), ...steadyDone(60)]);
     await user.click(screen.getByRole("radio", { name: "What-if" }));
-    const capacity = screen.getByLabelText("Capacity (%)") as HTMLInputElement;
+    const capacity = screen.getByLabelText("Availability (%)") as HTMLInputElement;
     await user.clear(capacity);
     await user.type(capacity, "5");
     await user.tab();
@@ -348,6 +356,190 @@ describe("ForecastPanel", () => {
     const toolbar = container.querySelector<HTMLElement>("[data-forecast-toolbar]");
     if (!toolbar) throw new Error("toolbar not rendered");
     expect(buttonNames(toolbar).slice(-2)).toEqual([t("en-US", "printHint"), t("en-US", "tableResetSizeHint")]);
+    // Without saved-scenario support the mode control keeps its two segments.
+    expect(within(screen.getByRole("radiogroup", { name: "Forecast mode" })).getAllByRole("radio").map((r) => r.textContent)).toEqual(["Quick", "What-if"]);
+  });
+
+  test("toolbar offers Scenarios as the third mode segment, the trailing group unchanged", () => {
+    const { container } = render(
+      <ForecastPanel lang="en-US" tasks={[...open(5), ...steadyDone(60)]} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} scenarios={SCENARIOS_PROPS} />,
+    );
+    expect(within(screen.getByRole("radiogroup", { name: "Forecast mode" })).getAllByRole("radio").map((r) => r.textContent)).toEqual(["Quick", "What-if", "Scenarios"]);
+    expectButtonOrder(["printHint", "tableResetSizeHint"], { contiguous: true });
+    const toolbar = container.querySelector<HTMLElement>("[data-forecast-toolbar]");
+    if (!toolbar) throw new Error("toolbar not rendered");
+    expect(buttonNames(toolbar).slice(-2)).toEqual([t("en-US", "printHint"), t("en-US", "tableResetSizeHint")]);
+  });
+});
+
+// ---- §502 build step 2: Scenarios mode ----
+const TWO_SCENARIOS: readonly ForecastScenario[] = [
+  { id: 1, name: "Half team", changes: [{ kind: "availability", percent: 50, from: TODAY, until: "" }] },
+  { id: 2, name: "More scope", changes: [{ kind: "scope", tasks: 5, on: TODAY }] },
+];
+const SCENARIOS_PROPS: ForecastScenariosProps = {
+  api: {
+    scenarios: TWO_SCENARIOS, canCreate: true, mintId: () => 3,
+    createScenario: () => null, updateScenario: () => false, renameScenario: () => false, deleteScenario: () => {},
+  },
+  directory: { resources: [], roles: [], shifts: [], absences: [], budgets: [], fxRates: null, workdayHours: 8, baseCurrency: "EUR" },
+  readOnly: false,
+};
+
+describe("ForecastPanel — Scenarios mode (§502)", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const history = [...open(5), ...steadyDone(60)];
+  const panel = () => (
+    <ForecastPanel lang="en-US" tasks={history} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} scenarios={SCENARIOS_PROPS} />
+  );
+
+  test("Scenarios mode runs As is plus one forecast per scenario, once per input change", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(forecastModule, "computeScheduleForecast");
+    const { rerender } = render(panel());
+    // Positive control: Quick runs the panel's own forecast.
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockClear();
+    await user.click(screen.getByRole("radio", { name: "Scenarios" }));
+    expect(spy).toHaveBeenCalledTimes(3);
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["As is", "Half team", "More scope"]);
+    rerender(panel());
+    expect(spy).toHaveBeenCalledTimes(3);
+  });
+
+  test("Quick and What-if never run the comparison", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(compareModule, "computeScenarioComparison");
+    render(panel());
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    await user.click(screen.getByRole("radio", { name: "Quick" }));
+    expect(spy).not.toHaveBeenCalled();
+    // Positive control: the spy sees the call the view makes.
+    await user.click(screen.getByRole("radio", { name: "Scenarios" }));
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  test("Scenarios mode shows no percentile table, chart or cost card", async () => {
+    const user = userEvent.setup();
+    render(
+      <ForecastPanel lang="en-US" tasks={history} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} scenarios={SCENARIOS_PROPS} showSimulation budgetEnabled budgetFacts={null} />,
+    );
+    expect(screen.getByLabelText("How many by")).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Cost at finish, simulated" })).toBeTruthy();
+    await user.click(screen.getByRole("radio", { name: "Scenarios" }));
+    expect(screen.queryByLabelText("How many by")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Cost at finish, simulated" })).toBeNull();
+  });
+});
+
+describe("ForecastPanel — Save as scenario (§502)", () => {
+  const history = [...open(55), ...steadyDone(60)];
+  function renderWith(over: Partial<ForecastScenariosProps["api"]> = {}, readOnly = false) {
+    const createScenario = vi.fn((): number | null => 3);
+    const props: ForecastScenariosProps = {
+      ...SCENARIOS_PROPS,
+      api: { ...SCENARIOS_PROPS.api, createScenario, ...over },
+      readOnly,
+    };
+    render(<ForecastPanel lang="en-US" tasks={history} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} scenarios={props} />);
+    return { createScenario, user: userEvent.setup() };
+  }
+  async function commitField(user: ReturnType<typeof userEvent.setup>, label: string, value: string) {
+    const input = screen.getByLabelText(label);
+    await user.clear(input);
+    await user.type(input, `${value}{Enter}`);
+  }
+
+  test("Save as scenario turns the clamped What-if into rows and switches to Scenarios", async () => {
+    const { createScenario, user } = renderWith();
+    expect(screen.queryByRole("button", { name: "Save as scenario" }), "What-if only").toBeNull();
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    await commitField(user, "Scope change (%)", "10");
+    await user.click(screen.getByRole("button", { name: "Save as scenario" }));
+    const dialog = screen.getByRole("dialog", { name: "Save as scenario" });
+    expect(within(dialog).getByText("+10% = 6 tasks today")).toBeTruthy();
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "Ten percent more");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    const expected = whatIfToScenarioChanges({ scopeTasks: 0, scopePercent: 10, capacityPercent: 100 }, 55, TODAY).changes;
+    expect(expected).toEqual([{ kind: "scope", tasks: 6, on: TODAY }]);
+    expect(createScenario).toHaveBeenCalledWith(3, { name: "Ten percent more", changes: expected });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("radio", { name: "Scenarios" })).toBeChecked();
+  });
+
+  test("the note says when the scope was capped at 1,000 tasks", async () => {
+    const { createScenario, user } = renderWith();
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    await commitField(user, "Scope change (tasks)", "1000");
+    await commitField(user, "Scope change (%)", "10");
+    await commitField(user, "Availability (%)", "80");
+    await user.click(screen.getByRole("button", { name: "Save as scenario" }));
+    const dialog = screen.getByRole("dialog", { name: "Save as scenario" });
+    expect(within(dialog).getByText("+10% = 6 tasks today The scope change is capped at 1,000 tasks.")).toBeTruthy();
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "Big");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(createScenario).toHaveBeenCalledWith(3, {
+      name: "Big",
+      changes: [{ kind: "availability", percent: 80, from: TODAY, until: "" }, { kind: "scope", tasks: 1000, on: TODAY }],
+    });
+  });
+
+  test("Save as scenario is disabled at four with the reason", async () => {
+    const { user } = renderWith({ canCreate: false });
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    const button = screen.getByRole("button", { name: "Save as scenario" });
+    expect(button).toBeDisabled();
+    const reason = screen.getByText("A project keeps at most 4 scenarios.");
+    expect(button.getAttribute("aria-describedby")).toBe(reason.id);
+  });
+
+  test("no Save as scenario in a read-only popout", async () => {
+    const { user } = renderWith({}, true);
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    // Positive control: What-if mode is showing.
+    expect(screen.getByLabelText("Scope change (%)")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Save as scenario" })).toBeNull();
+  });
+
+  test("a create refused after open keeps the dialog open with the reason and stays in What-if", async () => {
+    let refuse = false;
+    const createScenario = vi.fn((): number | null => (refuse ? null : 3));
+    const { user } = renderWith({ createScenario });
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    await user.click(screen.getByRole("button", { name: "Save as scenario" }));
+    refuse = true; // a concurrent writer gets there first
+    const dialog = screen.getByRole("dialog", { name: "Save as scenario" });
+    const name = within(dialog).getByRole("textbox", { name: "Name" });
+    await user.type(name, "Late");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(createScenario).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog", { name: "Save as scenario" })).toBeInTheDocument();
+    const id = name.getAttribute("aria-describedby");
+    expect(id ? document.getElementById(id)?.textContent : null).toBe("Not saved: the scenarios were changed elsewhere.");
+    expect(screen.getByRole("radio", { name: "What-if" })).toBeChecked();
+  });
+
+  test("the cap reached after open is the reason given", async () => {
+    const user = userEvent.setup();
+    const createScenario = vi.fn((): number | null => null);
+    const props = (list: readonly ForecastScenario[]): ForecastScenariosProps => ({
+      ...SCENARIOS_PROPS, api: { ...SCENARIOS_PROPS.api, scenarios: list, canCreate: list.length < 4, createScenario },
+    });
+    const panel = (list: readonly ForecastScenario[]) => (
+      <ForecastPanel lang="en-US" tasks={history} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} scenarios={props(list)} />
+    );
+    const { rerender } = render(panel(TWO_SCENARIOS));
+    await user.click(screen.getByRole("radio", { name: "What-if" }));
+    await user.click(screen.getByRole("button", { name: "Save as scenario" }));
+    const four = [...TWO_SCENARIOS, { id: 7, name: "C", changes: [] }, { id: 8, name: "D", changes: [] }];
+    rerender(panel(four));
+    const dialog = screen.getByRole("dialog", { name: "Save as scenario" });
+    const name = within(dialog).getByRole("textbox", { name: "Name" });
+    await user.type(name, "Fifth");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    const id = name.getAttribute("aria-describedby");
+    expect(id ? document.getElementById(id)?.textContent : null).toBe("A project keeps at most 4 scenarios.");
+    expect(screen.getByRole("radio", { name: "What-if" })).toBeChecked();
   });
 });
 
@@ -378,7 +570,7 @@ describe("ForecastPanel — the Dashboard-defaults note (§502)", () => {
     renderOn(true);
     await user.click(screen.getByRole("radio", { name: "What-if" }));
     expect(screen.queryByText(NOTE)).toBeNull();
-    const capacity = screen.getByLabelText("Capacity (%)");
+    const capacity = screen.getByLabelText("Availability (%)");
     fireEvent.change(capacity, { target: { value: "80" } });
     fireEvent.blur(capacity);
     expect(screen.getByText(NOTE)).toBeTruthy();
@@ -394,6 +586,8 @@ describe("ForecastPanel — the Dashboard-defaults note (§502)", () => {
   });
 
   test("reads in German", async () => {
+    // The DE dictionary is lazy: load it here, not through another describe's beforeAll, which a shuffled run may not have run yet.
+    await loadI18n("de");
     const user = userEvent.setup();
     render(
       <ForecastPanel lang="de" tasks={history} milestones={NO_MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} showSimulation />,
@@ -436,7 +630,7 @@ describe("ForecastPanel — cost at finish (§502)", () => {
     const before = p80Cost();
     expect(before).toBeGreaterThan(0);
     await user.click(screen.getByRole("radio", { name: "What-if" }));
-    const capacity = screen.getByLabelText("Capacity (%)");
+    const capacity = screen.getByLabelText("Availability (%)");
     await user.clear(capacity);
     await user.type(capacity, "200{Enter}");
     expect(p80Cost()).toBeGreaterThan(before * 0.9);
@@ -530,5 +724,75 @@ describe("ForecastPanel — cost at finish (§502)", () => {
       await user.type(scope, "100{Enter}");
       expect(spy).toHaveBeenCalledTimes(2);
     });
+  });
+});
+
+// ---- §502: Ask-Claude menu ----
+describe("ForecastPanel — Ask Claude (§502)", () => {
+  afterEach(() => requestChat.mockReset());
+  const history = [...open(5), ...steadyDone(60)];
+  const GO_LIVE: Milestone[] = [{ id: 1, name: "Go-live", date: "2026-11-30", linkedTaskIds: [1, 2, 3, 4, 5] }];
+  const panel = (extra: Partial<ComponentProps<typeof ForecastPanel>> = {}) => (
+    <ForecastPanel
+      lang="en-US" tasks={history} milestones={GO_LIVE} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS}
+      scenarios={SCENARIOS_PROPS} aiEnabled showSimulation {...extra}
+    />
+  );
+  const trigger = () => screen.queryByRole("button", { name: "Ask Claude about this forecast" });
+  const menuItems = () => within(screen.getByRole("dialog", { name: "Ask Claude about this forecast" })).getAllByRole("button").map((b) => b.textContent);
+
+  test("renders no trigger with the AI off, the simulation off or in a popout", () => {
+    for (const extra of [{ aiEnabled: false }, { showSimulation: false }, { isPopout: true }]) {
+      const { unmount } = render(panel(extra));
+      expect(trigger()).toBeNull();
+      unmount();
+    }
+    render(panel());
+    expect(trigger()).not.toBeNull();
+  });
+
+  test("the trigger sits before the trailing Print · reset-size group", () => {
+    const { container } = render(panel());
+    const toolbar = container.querySelector<HTMLElement>("[data-forecast-toolbar]");
+    if (!toolbar) throw new Error("toolbar not rendered");
+    const names = buttonNames(toolbar);
+    expect(names.slice(-3)).toEqual(["Ask Claude about this forecast", t("en-US", "printHint"), t("en-US", "tableResetSizeHint")]);
+  });
+
+  test("Quick offers Explain and the milestone, never the scenario prompts", async () => {
+    const user = userEvent.setup();
+    render(panel());
+    await user.click(trigger() as HTMLElement);
+    expect(menuItems()).toEqual(["Explain this forecast", "What would get Go-live on time?"]);
+  });
+
+  test("Scenarios takes the worst milestone from As is and adds Compare and Suggest", async () => {
+    const user = userEvent.setup();
+    render(panel());
+    await user.click(screen.getByRole("radio", { name: "Scenarios" }));
+    await user.click(trigger() as HTMLElement);
+    expect(menuItems()).toEqual([
+      "Explain this forecast",
+      "What would get Go-live on time?",
+      "Compare my scenarios",
+      "Suggest a scenario that makes plan end",
+    ]);
+    await user.click(screen.getByRole("button", { name: "Compare my scenarios" }));
+    expect(requestChat).toHaveBeenCalledTimes(1);
+    expect(requestChat.mock.calls[0][1]).toBe(true);
+  });
+
+  test("Scenarios offers no Compare while none is saved, and runs no extra simulation for the menu", async () => {
+    const user = userEvent.setup();
+    const none: ForecastScenariosProps = { ...SCENARIOS_PROPS, api: { ...SCENARIOS_PROPS.api, scenarios: [] } };
+    const spy = vi.spyOn(forecastModule, "computeScheduleForecast");
+    render(panel({ scenarios: none }));
+    spy.mockClear();
+    await user.click(screen.getByRole("radio", { name: "Scenarios" }));
+    expect(spy).toHaveBeenCalledTimes(1);
+    await user.click(trigger() as HTMLElement);
+    expect(menuItems()).toEqual(["Explain this forecast", "What would get Go-live on time?", "Suggest a scenario that makes plan end"]);
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
   });
 });

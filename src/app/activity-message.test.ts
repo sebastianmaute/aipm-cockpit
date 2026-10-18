@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { ACTIVITY_KIND_TO_KEY } from "./activity-log";
 import {
   ACTIVITY_PLURAL_KINDS,
+  activityChangeValues,
   activityMessage,
   activityPluralBase,
 } from "./activity-message";
@@ -216,5 +217,30 @@ describe("activityMessage — plan.currencySwitched formats its rate and date (�
     const stored = ["EUR", "GBP", 0.852, "2026-10-13"];
     activityMessage("de", "plan.currencySwitched", stored, { display: true });
     expect(stored).toEqual(["EUR", "GBP", 0.852, "2026-10-13"]);
+  });
+});
+
+// §502 final review: a scenario's row count is stored as bare digits and worded only here, at render.
+describe("activityChangeValues", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+  const rows = (from: string, to: string) => ({ field: "changes", from, to });
+
+  it("agrees in number and says an equal count is an edit", () => {
+    expect(activityChangeValues("en-US", "forecastScenario.updated", rows("1", "2"))).toEqual({ from: "1 row", to: "2 rows" });
+    expect(activityChangeValues("en-US", "forecastScenario.updated", rows("2", "1"))).toEqual({ from: "2 rows", to: "1 row" });
+    expect(activityChangeValues("en-US", "forecastScenario.updated", rows("3", "3"))).toEqual({ from: "3 rows", to: "3 rows (edited)" });
+    expect(activityChangeValues("en-US", "forecastScenario.updated", rows("1", "1"))).toEqual({ from: "1 row", to: "1 row (edited)" });
+    expect(activityChangeValues("en-US", "forecastScenario.updated", rows("0", "1"))).toEqual({ from: "0 rows", to: "1 row" });
+    expect(activityChangeValues("de", "forecastScenario.updated", rows("1", "1"))).toEqual({ from: "1 Zeile", to: "1 Zeile (bearbeitet)" });
+  });
+
+  it("passes every other change through unchanged", () => {
+    // Another kind, another field, or a value that is not a bare count: raw data, shown as stored.
+    expect(activityChangeValues("en-US", "task.updated", rows("1", "2"))).toEqual({ from: "1", to: "2" });
+    expect(activityChangeValues("en-US", "forecastScenario.updated", { field: "name", from: "1", to: "2" })).toEqual({ from: "1", to: "2" });
+    // A value that is not a bare count (hand-edited or foreign bytes) is shown as stored.
+    expect(activityChangeValues("en-US", "forecastScenario.updated", rows("1 rows", "2 rows"))).toEqual({ from: "1 rows", to: "2 rows" });
   });
 });

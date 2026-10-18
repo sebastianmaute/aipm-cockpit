@@ -16,7 +16,7 @@
 //   • Settings → Integrations section (isPopout-gated)
 //   • Create-project wizard (always available)
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -26,11 +26,16 @@ import {
   clampStep,
   summarizeBackendSetup,
 } from "./backend-setup-steps";
-import { IntegrationsSection } from "./settings-sections/integrations-section";
+import { commitPortfolioModeSwitch, IntegrationsSection } from "./settings-sections/integrations-section";
+import { useHasUnsealedPassphraseToken } from "./turso-token-seals";
+import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
+import { getTursoConfig } from "./turso-config";
 import { AiSection } from "./settings-sections/ai-section";
 import { JiraSettingsSection } from "./jira-settings";
 import { type Settings } from "./settings-types";
 import { Button } from "./button";
+import { Banner } from "./banner";
+import { useConfirm } from "./confirm-dialog";
 import { WizardStepIndicator } from "./wizard-step-indicator";
 import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 
@@ -40,6 +45,7 @@ import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 
 const TITLE_ID = "backend-setup-wizard-title";
 const TOTAL = BACKEND_SETUP_STEPS.length;
+const STORAGE_STEP = BACKEND_SETUP_STEPS.findIndex((s) => s.key === "storage");
 
 // ---------------------------------------------------------------------------
 // ReviewStep
@@ -138,13 +144,88 @@ export function BackendSetupWizard({
     onClose();
   }
 
+  // §715 D2 — the storage step's "Portfolio storage" choice is held here: the step unmounts its
+  // section on Next, which used to drop a picked-but-unswitched portfolio. Finish commits it (and the
+  // commit reloads the app onto it); with nothing picked, Finish just closes.
+  const [pendingPortfolioMode, setPendingPortfolioMode] = useState<PortfolioMode>(() => loadPortfolioMode());
+  // The commit waits on token seals before it reloads, so a second Finish click would commit twice.
+  const finishingRef = useRef(false);
+  // The section's own button refuses Turso without a working config ("can't land in a dead
+  // portfolio"); Finish is not a way around it. The step's drafts are gone by now, so the SAVED
+  // credentials decide. ONE predicate for Finish and the review step's banner, so the banner never
+  // promises a reload Finish will not do.
+  const switchPending = pendingPortfolioMode !== loadPortfolioMode();
+  const savedTurso = settings.integrations?.turso;
+  const switchingToTurso = switchPending && pendingPortfolioMode === "turso";
+  const tursoConfigMissing = switchingToTurso && !getTursoConfig(savedTurso?.databaseUrl, savedTurso?.authToken);
+  // A token typed again in passphrase mode is not sealed yet, and the reload would bring back the old
+  // record. The storage step's own switch seals it under the passphrase; Finish cannot (no passphrase).
+  // Subscribed, so a seal landing while the review step shows lifts the refusal at once.
+  const tokenHeldUnsealed = useHasUnsealedPassphraseToken(savedTurso?.authToken);
+  // Either direction: the reload loses the token whichever way the portfolio goes.
+  const tokenWouldBeLost = switchPending && tokenHeldUnsealed;
+  const switchBlocked = tursoConfigMissing || tokenWouldBeLost;
+  async function handleFinish() {
+    if (finishingRef.current) return;
+    if (switchPending) {
+      if (switchBlocked) {
+        setStep(STORAGE_STEP);
+        return;
+      }
+      finishingRef.current = true;
+      // §715 — the shared durability gate can still refuse what this render could not see: a token
+      // marked while the gate waited for seals. Back to the storage step, whose section shows the
+      // passphrase fields that save it.
+      if (!(await commitPortfolioModeSwitch(settings, pendingPortfolioMode))) {
+        finishingRef.current = false;
+        setStep(STORAGE_STEP);
+      }
+      return;
+    }
+    handleClose();
+  }
+
   function handleBack() {
     setStep((s) => clampStep(s - 1, TOTAL));
   }
 
-  function handleNext() {
+  // On Turso storage the step's URL/token are drafts until Apply, and the section discards them when
+  // Next unmounts it. The section reports them here so leaving with unapplied drafts asks first — and
+  // a Finish that switches portfolio then never lands on credentials the user meant to replace.
+  const tursoDraftsDirtyRef = useRef(false);
+  // Stable, so the section's report effect does not re-run on every wizard render.
+  const reportTursoDraftsDirty = useCallback((dirty: boolean) => { tursoDraftsDirtyRef.current = dirty; }, []);
+  const confirm = useConfirm();
+  // ★ Only an unapplied draft waits on the dialog: a clean step is left synchronously, as before.
+  const storageDraftsPending = () => currentStep.key === "storage" && tursoDraftsDirtyRef.current;
+  /** Asks to discard the storage step's unapplied drafts; true when the user chose to. */
+  function confirmDiscardDrafts(): Promise<boolean> {
+    // The message names the dialog's own Cancel button, so the label is passed rather than defaulted.
+    const cancelLabel = t(lang, "cancel");
+    return confirm({
+      message: t(lang, "setupWizardTursoDraftsDiscard", cancelLabel, t(lang, "integrationsTursoApply")),
+      confirmLabel: t(lang, "setupWizardTursoDraftsDiscardConfirm"),
+      cancelLabel,
+    });
+  }
+  function advance() {
     setStep((s) => clampStep(s + 1, TOTAL));
     nextButtonRef.current?.focus();
+  }
+  // ✕, Escape and the backdrop: closing discards the drafts as surely as Next does.
+  async function requestClose() {
+    if (storageDraftsPending()) {
+      if (await confirmDiscardDrafts()) handleClose();
+      return;
+    }
+    handleClose();
+  }
+  async function handleNext() {
+    if (storageDraftsPending()) {
+      if (await confirmDiscardDrafts()) advance();
+      return;
+    }
+    advance();
   }
 
   // Jira onChange adapter
@@ -160,7 +241,7 @@ export function BackendSetupWizard({
     >
     <Modal
       open={open}
-      onClose={handleClose}
+      onClose={() => void requestClose()}
       ariaLabelledby={TITLE_ID}
       align="center"
       backdropClassName="bg-ui-dark-blue/40"
@@ -176,7 +257,7 @@ export function BackendSetupWizard({
           title={t(lang, "setupWizardTitle")}
           helpConceptId={MODAL_HELP.backendSetupWizard}
           titleId={TITLE_ID}
-          onClose={handleClose}
+          onClose={() => void requestClose()}
         />
 
         {/* Body */}
@@ -191,6 +272,9 @@ export function BackendSetupWizard({
               onMigrateToTurso={onMigrateToTurso}
               hidePortfolioSwitch={hidePortfolioSwitch}
               noCurrentProject={noCurrentProject}
+              pendingPortfolioMode={pendingPortfolioMode}
+              onPendingPortfolioModeChange={setPendingPortfolioMode}
+              onTursoDraftsDirtyChange={reportTursoDraftsDirty}
               hideJira
             />
           )}
@@ -214,7 +298,23 @@ export function BackendSetupWizard({
           )}
 
           {currentStep.key === "review" && (
-            <ReviewStep lang={lang} settings={settings} />
+            <>
+              <ReviewStep lang={lang} settings={settings} />
+              {/* The storage step's own reload note unmounted with it; Finish is what reloads now. */}
+              {tursoConfigMissing ? (
+                <Banner severity="error" className="mt-3">{t(lang, "setupWizardTursoNeedsConfig")}</Banner>
+              ) : tokenWouldBeLost ? (
+                <Banner severity="error" className="mt-3">
+                  {t(
+                    lang,
+                    "setupWizardTursoTokenNeedsPassphrase",
+                    t(lang, noCurrentProject ? "portfolioModeSwitchConfirmNoProject" : "portfolioModeSwitchConfirm"),
+                  )}
+                </Banner>
+              ) : switchPending && (
+                <Banner severity="warn" className="mt-3">{t(lang, "portfolioModeSwitchNote")}</Banner>
+              )}
+            </>
           )}
         </div>
 
@@ -228,7 +328,7 @@ export function BackendSetupWizard({
           {/* Right cluster: Skip (integration steps) + Next / Finish */}
           <div className="flex items-center gap-2">
             {currentStep.skippable && (
-              <Button variant="secondary" onClick={handleNext}>
+              <Button variant="secondary" onClick={() => void handleNext()}>
                 {t(lang, "setupWizardSkip")}
               </Button>
             )}
@@ -239,7 +339,7 @@ export function BackendSetupWizard({
             <Button
               ref={nextButtonRef}
               variant="primary"
-              onClick={isLast ? handleClose : handleNext}
+              onClick={isLast ? () => void handleFinish() : () => void handleNext()}
             >
               {t(lang, isLast ? "setupWizardFinish" : "wizardNext")}
             </Button>

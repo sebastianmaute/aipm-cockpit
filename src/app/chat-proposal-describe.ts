@@ -112,6 +112,40 @@ function emptyPlan(): EditPlan {
   return { updates: [], creates: [], deletes: [], rejected: [], links: [] };
 }
 
+function changeCount(raw: unknown): string | null {
+  if (!Array.isArray(raw)) return null;
+  return raw.length === 1 ? "1 change" : `${raw.length} changes`;
+}
+
+/** "3 → 1 changes"; singular only when both counts are 1. */
+function replaceCount(before: number, after: number): string {
+  return `${before} → ${after} ${before === 1 && after === 1 ? "change" : "changes"}`;
+}
+
+/** The card line for a forecast scenario write (§502), or null for any other tool. Scenarios have no
+ *  `INLINE_DESCRIPTORS` entry, so without this a staged update would be titled by its tool name. The row
+ *  count is part of the line because an update that sends `changes` REPLACES the whole list; for a stored
+ *  scenario it reads "stored → new", so a replace that drops rows says so.
+ *  ★ English, like the tool-name fallback it replaces: this module is i18n-free. */
+export function forecastScenarioRowTitle(call: ProposedCall, ws: Workspace): string | null {
+  const input = call.input as { id?: unknown; name?: unknown; changes?: unknown };
+  const newName = typeof input.name === "string" && input.name.trim() !== "" ? input.name.trim() : null;
+  const rows = changeCount(input.changes);
+  if (call.name === "create_forecast_scenario") {
+    return `Save scenario "${newName ?? ""}"${rows === null ? "" : ` (${rows})`}`;
+  }
+  if (call.name !== "update_forecast_scenario") return null;
+  const id = Number(input.id);
+  const stored = ws.forecastScenarios?.find((s) => s.id === id);
+  const label = stored?.name ?? newName ?? `#${detailOf(input.id)}`;
+  const rename = newName !== null && stored !== undefined && newName !== stored.name ? ` → "${newName}"` : "";
+  // ★ A replace that drops rows must show it, so the stored count stands beside the new one.
+  const count = stored !== undefined && Array.isArray(input.changes)
+    ? replaceCount(stored.changes.length, input.changes.length)
+    : rows;
+  return `Edit scenario "${label}"${rename}${count === null ? "" : ` (${count})`}`;
+}
+
 /** `plan.ts`'s own `str`, for the one rejection this file has to raise itself.
  *  Kept byte-compatible with it so a `detail` cannot depend on WHICH layer
  *  produced the rejection. */

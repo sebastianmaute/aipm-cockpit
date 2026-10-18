@@ -84,12 +84,16 @@ export const PENDING_MINT_ERROR =
  *
  *  ★★ IT IS A CAPABILITY GAP, NOT A CONFLICT, and the wording says so. Fixing
  *   the underlying gap means stamping from the create's return value, and that
- *   is blocked: `entityToken` needs the FULL row while five of the seven creates
+ *   is blocked: `entityToken` needs the FULL row while seven of the ten creates
  *   return a `*Summary`, and `withToken`'s own docstring records that a
- *   summary-derived token is wrong and is pinned against.
- *   The resolver turned out to already exist — six full-row resolvers on the
- *   dispatcher, only five of them spelled `get*Row` (`getTask` is the sixth) —
+ *   summary-derived token is wrong and is pinned against. Reproduce the seven:
+ *   `grep -hE '^\s+create[A-Z][A-Za-z]*\(.*\): [A-Za-z]+Summary;' src/app/chat-tools*.ts | wc -l`
+ *   (the ten: see `createdIdOf`).
+ *   The resolver turned out to already exist — nine full-row resolvers on the
+ *   dispatcher, eight of them spelled `get*Row` (`getTask` is the ninth) —
  *   so this refusal now fires ONLY when the created row cannot be read back.
+ *   Reproduce both: `grep -hoE 'd\.get[A-Za-z]*Row\(|d\.getTask\(' src/app/chat-proposal-apply.ts | sort -u | wc -l`
+ *   (9; drop `|d\.getTask\(` for 8).
  *   See `TOKEN_ROW_SOURCE` below.
  *
  *  ★★★ THE MESSAGE BELOW IS THE READ-BACK FAILURE, NOT THE OLD CAPABILITY GAP.
@@ -163,14 +167,17 @@ export function failureKindOf(row: FailedAppliedRow): ProposalFailureKind {
  *  `TOOL_DEFS` rather than typed out.
  *
  *  ★★ DERIVED SO A NEW GUARDED TOOL IS COVERED WITHOUT AN EDIT HERE. A literal
- *   list would name the seven that exist today and go silently stale — and the
+ *   list would name the eleven that exist today and go silently stale (it
+ *   already did once: this said seven) — reproduce the count with
+ *   `grep -E 'required: \[[^]]*"expectedToken"' src/app/chat-tool-defs*.ts | wc -l` (11). And the
  *   nearest existing table, `insights/recommend-tokens.ts`' `UPDATE_TARGET`, is
  *   NOT this set: it omits `update_resource`, because `RecommendPlanWorkspace`
  *   has no `resources` slice. Reusing it would have left resource updates
  *   wearing the wrong label, which is the defect this constant exists to fix.
  *
- *  ★★★ THREE DIFFERENT FACTS LIVE HERE AND THEY ALL EQUAL SEVEN TODAY BY
- *   COINCIDENCE. (1) `expectedToken` appears in a tool's schema `properties` —
+ *  ★★★ THREE DIFFERENT FACTS LIVE HERE AND THEY ALL EQUAL ELEVEN TODAY BY
+ *   COINCIDENCE (the `required` grep above counts (2); (1) is pinned equal to
+ *   it by the test below; the awk further down reproduces (3)). (1) `expectedToken` appears in a tool's schema `properties` —
  *   the fact `insights/recommend-tokens.test.ts` already derives from. (2) It
  *   appears in that schema's `required` — the fact THIS set derives from, and
  *   the right one, because an OPTIONAL token is a tool the model may legally
@@ -188,8 +195,14 @@ export function failureKindOf(row: FailedAppliedRow): ProposalFailureKind {
  *   watches. Read it by hand with the repo's own command (it lives at
  *   `chat-tools-documents.ts`, above `DOC_TOKEN_TOOLS`):
  *     awk '/case "/{c=$0} /requireToken\("|requireTaskWriteToken\(/{print c}' src/app/chat-tools.ts
- *   RUN 2026-09-04: it prints exactly seven cases — `update_task`,
- *   `set_task_dependencies`, and the five other `update_*` — matching this set.
+ *   RE-RUN 2026-10-17 (it printed seven on 2026-09-04): it prints ten cases —
+ *   `update_task`, `set_task_dependencies`, `escalate_raid_item` and seven
+ *   other `update_*`.
+ *   ★ That command reads `chat-tools.ts` alone: `update_forecast_scenario`
+ *   (§502) enforces its token in `chat-tools-forecast.ts`, so run it over that
+ *   file too — the eleventh. ★ There it prints `case "create_forecast_scenario"`,
+ *   because the update path is that switch's `default:` branch and the awk
+ *   labels it with the last `case` it saw.
  *   A tool that enforced a token without declaring one `required` would slip
  *   past this guard silently, because the guard simply would not fire. Do not
  *   read the agreement as a gate. */
@@ -206,7 +219,9 @@ export const TOKEN_REQUIRED_TOOLS: ReadonlySet<string> = new Set(
  *  same plan created can be stamped with a real token at apply time.
  *
  *  ★★★ THE RESOLVERS ALREADY EXISTED. 380 was filed saying a fix "needs a
- *   per-entity full-row resolver"; six sit on the `ToolDispatcher` this function
+ *   per-entity full-row resolver"; nine now sit on the `ToolDispatcher` (six
+ *   then; reproduce with the resolver grep in `NEW_ROW_TOKEN_UNAVAILABLE_ERROR`'s
+ *   note) that this function
  *   already takes, and every token-guarded case in `chat-tools.ts` already calls
  *   its own before `requireToken`. They are the FULL-ROW resolvers, distinct
  *   from the `list*`/`create*` family that returns a `*Summary` — which is what
@@ -241,6 +256,7 @@ export const TOKEN_ROW_SOURCE: Readonly<
   update_stakeholder: { kind: "stakeholder", getRow: (d, id) => d.getStakeholderRow(id) },
   update_absence: { kind: "absence", getRow: (d, id) => d.getAbsenceRow(id) },
   update_calendar_event: { kind: "calendarEvent", getRow: (d, id) => d.getCalendarEventRow(id) },
+  update_forecast_scenario: { kind: "forecastScenario", getRow: (d, id) => d.getForecastScenarioRow(id) },
 };
 
 /** `requireToken`'s OWN predicate for "a usable token", mirrored so this refusal
@@ -277,11 +293,15 @@ export interface ApplyProposalArgs {
 /** The real id a create tool's result carries, or `undefined` when it carries
  *  none usable.
  *
- *  ★★ ENUMERATED, NOT ASSUMED. All seven creates return an object with a numeric
- *   `id`: `create_task` a `Task`, the five register creates their `*Summary`
- *   (`RaidSummary`/`ChangeSummary`/`MilestoneSummary`/`StakeholderSummary`/
- *   `ResourceSummary`, each declaring `id: number`), and `create_document` the
- *   `{ id, title, blockCount }` its own dispatcher entry declares. `runTool`
+ *  ★★ ENUMERATED, NOT ASSUMED. All ten creates return an object with a numeric
+ *   `id` (reproduce the count:
+ *   `grep -oE 'name: "create_[a-z_]+"' src/app/chat-tool-defs*.ts | sort -u | wc -l` → 10):
+ *   `create_task` a `Task`; the five register creates, `create_absence` and
+ *   `create_calendar_event` their `*Summary` (`RaidSummary`/`ChangeSummary`/`MilestoneSummary`/
+ *   `StakeholderSummary`/`ResourceSummary`/`AbsenceSummary`/
+ *   `CalendarEventSummary`, each declaring `id: number`); `create_document` the
+ *   `{ id, title, blockCount }` its own dispatcher entry declares; and
+ *   `create_forecast_scenario` a `ForecastScenarioResult`. `runTool`
  *   erases all of that to `Promise<unknown>`, so the read is a runtime one.
  *
  *  ★ STRICTLY `typeof === "number"`, deliberately NOT `Number(id)`. A create

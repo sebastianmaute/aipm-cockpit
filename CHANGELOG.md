@@ -36,6 +36,26 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Ask Claude edits milestones and RAID items again (§715).** A description change on a milestone or a
+  mitigation on a RAID item always ended in "No changes to apply": Claude looked the item up first, a step the
+  one-shot edit cannot answer. It is now offered only the changes it can make.
+- **The setup wizard keeps a portfolio switch (§715).** Choosing Turso under Portfolio storage and finishing
+  the wizard left the app on browser storage; Finish now switches to the portfolio you picked. The review
+  step says the switch reloads the app, and without a saved Turso URL and token Finish takes you back to the
+  storage step instead of switching, and the review step says so. On Turso storage, leaving that step or
+  closing the wizard with Turso changes you have not applied now asks before they are discarded.
+- **Switching to the Turso portfolio, or moving a project there, no longer loses a token protected by a passphrase (§715).** Off Turso
+  storage, a Turso token typed again while the passphrase lock is on was kept only until the reload the
+  switch does, which brought back the old stored token. "Save & switch" now waits for the passphrase,
+  checks it against the stored token and saves the new one under it; the setup wizard's Finish goes back
+  to the storage step to do that instead of switching; "Move to Turso" now refuses until the token is saved
+  under the passphrase, and says how.
+- **Deleting a task asks in the app's own dialog (§715)**, with a Delete button, instead of the browser's
+  confirm box: from the row menu, the task editor and the voice command alike.
+- **The Ask Claude window names what it edits (§715).** On a milestone, change request, RAID item or
+  stakeholder it said "Ask Claude to edit this task".
+- **"Since you last looked" counts one in the singular (§715)**: "1 RAID update", not "1 RAID updates", in
+  English and German.
 - **Next actions flags an over-allocated person in the current period (§747).** The over-allocation
   check, and the Workload view's "Util (now)" cell beside it, read the plan's first month (or week) instead of
   the one containing today, so once a project was past its first period nobody was ever flagged and the cell
@@ -73,6 +93,23 @@ longer carries its own changelog comment.
   does not have them. With a budget of 0 it still shows the range, without the chance of going over budget, and a
   finish beyond the forecast horizon is marked "later →" at the chart's edge rather than drawn as if it fell there.
   It stays hidden while the Forecast view is held back.
+- **Saved forecast scenarios are built but held back with the forecast (§502).** The Forecast view gains a
+  Scenarios mode that compares the plan as it is with up to four saved scenarios, each a named list of dated
+  changes: a change in team availability for a period, people added from the directory or as placeholders (with a
+  ramp-up, sized from the team's booked hours, and their cost from day one), and tasks added or removed on a date,
+  optionally on a milestone. Every scenario shows its finish range, its chance of finishing by the plan end, its
+  milestone chances and, with "Use Monte Carlo forecasting" and a budget, its cost at finish; all scenarios use the
+  same random draws, so they differ only by what was changed. "Save as scenario" turns the current What-if into a
+  scenario. Scenarios are saved with the project, every change is in the activity log, edits and deletes can be
+  undone, and restoring an earlier version keeps today's scenarios. What-if's "Capacity" field is now called
+  "Availability". It stays hidden while the Forecast view is held back.
+- **The AI assistant can read the forecast and save scenarios, held back with the forecast (§502).** With "Use
+  Monte Carlo forecasting" on, the assistant can read the simulated finish dates, the chance of finishing by the
+  plan end, milestone chances, cost at finish and every saved scenario, and try an unsaved what-if; it says the
+  figures are simulated and calls P80 "safe to commit", never a promise. It can also create or edit a saved
+  scenario: one change applies at once, several go to the review card first, edits can be undone, and every change
+  is in the activity log. It cannot delete a scenario. The Forecast view gains "Ask Claude about this forecast" with
+  four suggested questions. It stays hidden while the Forecast view is held back.
 
 ## [1.19.0] - 2026-10-15 "Nesbø"
 

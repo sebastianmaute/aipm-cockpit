@@ -231,6 +231,16 @@ const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> =
   delete_calendar_event: { entity: "calendarEvent", wsKey: "calendarEvents" },
 };
 
+/** Every tool a plan can turn into a change: each entity's update tool, and the create and delete
+ *  tools above. The inline edit offers the model THESE AND NO OTHERS (§715 D1): the path is
+ *  single-shot, so a read tool (`list_milestones`) is a call nobody answers, and a model that looked
+ *  first returned an empty plan — "No changes to apply" for every milestone description edit. */
+export const PLANNABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
+  ...Object.values(INLINE_DESCRIPTORS).map((d) => d.updateTool),
+  ...Object.keys(CREATE_TOOLS),
+  ...Object.keys(DELETE_TOOLS),
+]);
+
 // Fields stored as rich HTML, keyed `${entity}.${field}`. Only the PREVIEW
 // strings are projected — the values applied to the entity stay verbatim,
 // because `applied[f]` feeds the incremental enum validation below and the

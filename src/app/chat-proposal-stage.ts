@@ -16,7 +16,7 @@ import {
   type PlanRow,
   type ProposedCall,
 } from "./chat-proposal";
-import { TOOL_ENTITY, type DescribedRow } from "./chat-proposal-describe";
+import { TOOL_ENTITY, forecastScenarioRowTitle, type DescribedRow } from "./chat-proposal-describe";
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 import { mintIds } from "./id-mint-session";
 import type { Workspace } from "./workspace";
@@ -92,13 +92,14 @@ export function stagedToolResult(mintedId: number | undefined): string {
 /** The workspace list a create's id sequence is minted against, for a create
  *  tool that has no `INLINE_DESCRIPTORS` entity.
  *
- *  ★ `create_document` is the only member today, and it is a literal for the
- *   same reason `CREATE_MINT_KIND`'s own `create_document` row is: documents
- *   have no descriptor, so there is no second source to derive it from. A new
+ *  ★ Its rows are literals for the same reason `CREATE_MINT_KIND`'s own
+ *   `create_document` and `create_forecast_scenario` rows are: neither entity
+ *   has a descriptor, so there is no second source to derive it from. A new
  *   descriptor-less create tool that is missed here falls through to the empty
  *   list below — see `mintListFor`. */
 const NO_DESCRIPTOR_LIST: Readonly<Record<string, keyof Workspace>> = {
   create_document: "documents",
+  create_forecast_scenario: "forecastScenarios",
 };
 
 /** The live rows a create tool's provisional id must clear.
@@ -243,8 +244,14 @@ const TITLED_DOCUMENT_TOOLS: ReadonlySet<string> = new Set(["update_document", "
  * ★ Resolved through the SAME descriptor `describeProposal` grounds the row
  * against (`TOOL_ENTITY` → `INLINE_DESCRIPTORS`), so the title and the diff
  * beneath it can never describe two different rows.
+ *
+ * ★ The forecast scenario tools (§502) are the one exception, create included:
+ * they have no descriptor and no diff, so their whole card line comes from
+ * `forecastScenarioRowTitle`.
  */
 export function liveRowTitle(call: ProposedCall, ws: Workspace): string | null {
+  const scenarioLine = forecastScenarioRowTitle(call, ws);
+  if (scenarioLine !== null) return scenarioLine;
   const entity = TOOL_ENTITY[call.name];
   if (entity === undefined && TITLED_DOCUMENT_TOOLS.has(call.name)) {
     const docId = Number((call.input as { id?: unknown }).id);

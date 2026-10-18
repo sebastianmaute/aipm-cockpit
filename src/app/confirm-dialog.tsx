@@ -23,6 +23,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -68,9 +69,12 @@ interface Pending extends ConfirmOptions {
 interface ConfirmProviderProps {
   lang: Lang;
   children: ReactNode;
+  /** Filled with this provider's confirm, for code ABOVE it that cannot call `useConfirm`: task-manager's
+   *  hooks run before the provider it renders (§715 D5). */
+  bridgeRef?: { current: ConfirmFn };
 }
 
-export function ConfirmProvider({ lang, children }: ConfirmProviderProps) {
+export function ConfirmProvider({ lang, children, bridgeRef }: ConfirmProviderProps) {
   const [pending, setPending] = useState<Pending | null>(null);
   // Focus the Cancel button on open so an accidental Enter can't fire a
   // destructive confirm.
@@ -90,6 +94,9 @@ export function ConfirmProvider({ lang, children }: ConfirmProviderProps) {
       });
     });
   }, []);
+  useEffect(() => {
+    if (bridgeRef) bridgeRef.current = confirm;
+  }, [bridgeRef, confirm]);
 
   const settle = useCallback((value: boolean) => {
     setPending((prev) => {

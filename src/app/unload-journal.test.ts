@@ -386,6 +386,12 @@ describe("fingerprintWorkspace", () => {
       const nextEntry = { date: `2026-01-${String(arr.length + 1).padStart(2, "0")}`, p50: "2026-03-02", p80: null, p95: null, chanceOnTime: 0.5 };
       return { ...ws, forecastHistory: [...arr, nextEntry] } as Workspace;
     }
+    if (key === "forecastScenarios") {
+      // §502 — a valid scenario `sanitizeForecastScenarios` keeps (a fresh positive id, a non-empty name).
+      const arr = Array.isArray(current) ? current : [];
+      const next = { id: arr.length + 1, name: `Scenario ${arr.length + 1}`, changes: [] };
+      return { ...ws, forecastScenarios: [...arr, next] } as Workspace;
+    }
     if (Array.isArray(current) && current.length > 0) {
       const last = current[current.length - 1] as Record<string, unknown>;
       const clone = { ...(JSON.parse(JSON.stringify(last)) as Record<string, unknown>), id: bumpId(last.id) };
@@ -415,13 +421,13 @@ describe("fingerprintWorkspace", () => {
     disciplines: true, grades: true, plan: true, budgets: true, fxRates: true, status: true,
     milestones: true, changes: true, stakeholders: true, project: true, fieldVisibility: true,
     features: true, steeringCommittee: true, timelogLinks: true, knowledgeItems: true,
-    insights: true, activityLog: true, budgetHistory: true, baselineHistory: true, forecastHistory: true, documents: true, documentVersions: true,
+    insights: true, activityLog: true, budgetHistory: true, baselineHistory: true, forecastHistory: true, forecastScenarios: true, documents: true, documentVersions: true,
     settingsOverrides: true, calendarEvents: true, documentAssets: true,
   } satisfies Record<keyof Workspace, true>;
   const slices = Object.keys(ALL_WORKSPACE_KEYS) as (keyof Workspace)[];
 
-  it("covers the full 31-key Workspace surface (29 in the fix-round-1 report, + baselineHistory §476, + forecastHistory §502)", () => {
-    expect(slices.length).toBe(31);
+  it("covers the full 32-key Workspace surface (29 in the fix-round-1 report, + baselineHistory §476, + forecastHistory and forecastScenarios §502)", () => {
+    expect(slices.length).toBe(32);
   });
 
   it("every mutation actually changes workspaceToJson (no case is vacuous)", () => {

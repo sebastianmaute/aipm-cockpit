@@ -2,19 +2,19 @@
 
 // Monte Carlo schedule forecast view (§502), orchestrator only: holds the mode and
 // inputs, runs the pure engine (`./forecast`) once per input change in a useMemo,
-// and hands the result to the presentational toolbar, chart and tables.
+// and hands the result to the presentational toolbar, chart and tables. Scenarios mode hands its inputs to
+// `ForecastScenariosView` instead and runs none of this view's own forecast or cost pass.
 
 import { useEffect, useMemo, useState } from "react";
 import { type Lang, t, tPlural } from "./i18n";
+import { formatAmount } from "./forecast-tables";
 import { localeFor } from "./date-format";
-import { formatDayMonthYear } from "./forecast-format";
 import {
   DEFAULT_WHAT_IF,
   clampWhatIf,
   computeScheduleForecast,
   effortCoverage,
   lastForecastableDay,
-  type ForecastInsufficient,
   type ScheduleForecast,
   type WhatIf,
 } from "./forecast";
@@ -22,10 +22,15 @@ import { DEFAULT_HISTORY_WINDOW, type ForecastUnit, type HistoryWindow } from ".
 import { ForecastToolbar, type ForecastMode, type WhatIfField } from "./forecast-toolbar";
 import { ForecastChart } from "./forecast-chart";
 import { CostTable, MilestoneTable, PercentileTable } from "./forecast-tables";
+import { ForecastScenarioNameDialog, scenarioRefusalText } from "./forecast-scenario-name-dialog";
+import { MAX_FORECAST_SCENARIOS, SCOPE_TASKS_MAX, whatIfToScenarioChanges } from "./forecast-scenarios";
 import type { ForecastFactsByUnit } from "./budget-forecast";
 import { simulateCostFromRunMemo } from "./budget-sim";
 import { ReportCard } from "./report-table";
-import { EmptyState } from "./empty-state";
+import { InsufficientState } from "./forecast-insufficient";
+import { ForecastScenariosView, type ForecastScenariosProps } from "./forecast-scenarios-view";
+import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
+import { ForecastAskClaude, worstMilestoneName } from "./forecast-ask-claude";
 import { isValidIsoDate } from "./forecast/throughput";
 import { isTaskClosed } from "./task-closed";
 import type { Milestone, ResourcePlan, Task } from "./types";
@@ -34,7 +39,22 @@ import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { nthWorkingDayAfter } from "./working-days";
 
+export { InsufficientState };
+export type { ForecastScenariosProps };
+
 const FALLBACK_TARGET_WORKING_DAYS = 30;
+
+/** The Save-as dialog's note: the scope percent frozen into tasks ("+10% = 6 tasks today"), and the cap when
+ *  the row was clamped to ±SCOPE_TASKS_MAX. Undefined when neither applies. */
+export function saveAsScopeNote(lang: Lang, scopePercent: number, percentTasks: number, clamped: boolean): string | undefined {
+  const parts: string[] = [];
+  if (scopePercent !== 0) {
+    const signed = `${scopePercent > 0 ? "+" : ""}${scopePercent}`;
+    parts.push(t(lang, "forecastSaveAsScenarioScopeNote", t(lang, "forecastPercent", signed), formatAmount(percentTasks, "tasks", lang)));
+  }
+  if (clamped) parts.push(t(lang, "forecastSaveAsScenarioClamped", new Intl.NumberFormat(localeFor(lang)).format(SCOPE_TASKS_MAX)));
+  return parts.length > 0 ? parts.join(" ") : undefined;
+}
 
 /**
  * The How-many target: the earliest unachieved milestone on or after today, else the plan end, else
@@ -81,8 +101,11 @@ interface Props {
   plan: ResourcePlan;
   today: string;
   holidaySet: ReadonlySet<string>;
-  /** Accepted for the view contract; the panel writes nothing, so a popout needs no guard. */
+  /** Hides the Ask-Claude menu: a popout has no chat to send to. The writes ("Save as scenario", Scenarios mode)
+   *  are guarded by `scenarios.readOnly`, which `workspace-section` sets from the same flag. */
   isPopout?: boolean;
+  /** The AI master switch (`isAiEnabled(settings.ai)`); off, the Ask-Claude menu does not render. */
+  aiEnabled?: boolean;
   /** The project's "Use Monte Carlo forecasting" switch. On, the Dashboard's simulated cells use the engine defaults, so this view says so once its own settings differ. */
   showSimulation?: boolean;
   /** The pace forecast's facts (`computeProjectForecastFacts`) for the cost-at-finish card; null when the Budget module is off or there are no buckets. */
@@ -92,6 +115,8 @@ interface Props {
   /** Deep-link target (`ForecastPanelDeepLinked`): the milestone row to flash, and the box it is queried in. */
   flashMilestoneId?: number | null;
   milestonesRef?: React.Ref<HTMLDivElement>;
+  /** Saved scenarios (§502); absent (tests, older callers) = no Scenarios segment. */
+  scenarios?: ForecastScenariosProps;
 }
 
 /**
@@ -111,7 +136,7 @@ export function ForecastPanelDeepLinked(props: Omit<Props, "flashMilestoneId" | 
   return <ForecastPanel {...props} flashMilestoneId={flashId} milestonesRef={containerRef} />;
 }
 
-export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, showSimulation = false, budgetFacts = null, budgetEnabled = false, flashMilestoneId = null, milestonesRef }: Props) {
+export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet, isPopout = false, aiEnabled = false, showSimulation = false, budgetFacts = null, budgetEnabled = false, flashMilestoneId = null, milestonesRef, scenarios }: Props) {
   const [mode, setMode] = useState<ForecastMode>("quick");
   const [unit, setUnit] = useState<ForecastUnit>("tasks");
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>(DEFAULT_HISTORY_WINDOW);
@@ -140,9 +165,11 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
       appliedWhatIf.scopePercent !== DEFAULT_WHAT_IF.scopePercent ||
       appliedWhatIf.capacityPercent !== DEFAULT_WHAT_IF.capacityPercent);
 
+  const inScenarios = mode === "scenarios" && scenarios !== undefined;
+  // Scenarios mode runs As is + one forecast per scenario in the view, so this view's own run is skipped there.
   const result = useMemo(
     () =>
-      computeScheduleForecast({
+      inScenarios ? null : computeScheduleForecast({
         tasks,
         milestones,
         today,
@@ -152,7 +179,31 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         whatIf: appliedWhatIf,
         howManyTarget,
       }),
-    [tasks, milestones, today, holidaySet, historyWindow, unit, appliedWhatIf, howManyTarget],
+    [inScenarios, tasks, milestones, today, holidaySet, historyWindow, unit, appliedWhatIf, howManyTarget],
+  );
+  // The comparison's inputs; a new object only when one of them changes, so the view's one memo keys on it.
+  const planEnd = plan.endDate;
+  const directory = scenarios?.directory;
+  const costOn = showSimulation && budgetEnabled;
+  const scenarioInput = useMemo<ScenarioRunInput | null>(
+    () => (directory === undefined ? null : {
+      tasks, milestones, today, holidaySet, window: historyWindow, unit, planEnd, directory, budgetFacts, costOn,
+    }),
+    [tasks, milestones, today, holidaySet, historyWindow, unit, planEnd, directory, budgetFacts, costOn],
+  );
+
+  // Scenarios mode's ONE comparison lives here, not in the view, so As is's milestone chances reach the Ask-Claude
+  // menu without a second run; the view gets it as a prop. List identity is the hook's, so this keys like the view's did.
+  const scenarioList = scenarios?.api.scenarios;
+  const comparison = useMemo(
+    () => (inScenarios && scenarioInput !== null && scenarioList !== undefined ? computeScenarioComparison(scenarioInput, scenarioList) : null),
+    [inScenarios, scenarioInput, scenarioList],
+  );
+  const onScreenChances = result?.kind === "forecast" ? result.milestones
+    : comparison?.asIs.forecast.kind === "forecast" ? comparison.asIs.forecast.milestones : null;
+  const worstMilestone = useMemo(() => worstMilestoneName(milestones, onScreenChances), [milestones, onScreenChances]);
+  const askClaude = aiEnabled && showSimulation && !isPopout && (
+    <ForecastAskClaude lang={lang} inScenarios={inScenarios} scenarioCount={scenarioList?.length ?? 0} worstMilestone={worstMilestone} />
   );
 
   // §502 part 3 — cost at finish from THIS run, so What-if scope moves it; money unit only. Capacity is team
@@ -163,16 +214,24 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
   // `simulateCostFromRunMemo` then hands back the last range instead of running the pass again.
   const spendScale = appliedWhatIf.capacityPercent / 100;
   const cost = useMemo(() => {
-    if (!showSimulation || !budgetEnabled || budgetFacts === null || result.kind !== "forecast") return null;
+    if (!showSimulation || !budgetEnabled || budgetFacts === null || result?.kind !== "forecast") return null;
     return simulateCostFromRunMemo(result, budgetFacts.eur, "eur", spendScale);
   }, [showSimulation, budgetEnabled, budgetFacts, result, spendScale]);
-  const costCard = showSimulation && budgetEnabled && (
+  const costCard = !inScenarios && showSimulation && budgetEnabled && (
     <CostTable lang={lang} cost={cost} currency={plan.currency} />
   );
 
-  const percentileTable = result.kind === "forecast" && (
+  const percentileTable = result?.kind === "forecast" && (
     <PercentileTable lang={lang} forecast={result} target={howManyTarget} today={today} maxTarget={maxTarget} onTargetChange={setTarget} />
   );
+
+  // "Save as scenario" (§502, spec §4.2): the CLAMPED What-if the engine uses, frozen into rows at open.
+  const [saveAs, setSaveAs] = useState<(ReturnType<typeof whatIfToScenarioChanges> & { scopePercent: number }) | null>(null);
+  const scenarioApi = scenarios && !scenarios.readOnly ? scenarios.api : null;
+  const saveAsScenario = scenarioApi === null ? undefined : {
+    onClick: () => setSaveAs({ ...whatIfToScenarioChanges(usedWhatIf, open.length, today), scopePercent: usedWhatIf.scopePercent }),
+    disabledReason: scenarioApi.canCreate ? null : t(lang, "forecastScenarioCapReached", MAX_FORECAST_SCENARIOS),
+  };
 
   const commitWhatIf = (field: WhatIfField, raw: string): boolean => {
     const next = parseWhatIf(whatIf, field, raw, open.length);
@@ -196,12 +255,34 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
           whatIf={usedWhatIf}
           onCommitWhatIf={commitWhatIf}
           onResetSize={reset}
+          showScenarios={scenarios !== undefined}
+          saveAsScenario={saveAsScenario}
+          askClaude={askClaude || undefined}
         />
+        {saveAs !== null && scenarioApi !== null && (
+          <ForecastScenarioNameDialog
+            lang={lang} open title={t(lang, "forecastSaveAsScenario")} initialName="" list={scenarioApi.scenarios} exceptId={null}
+            note={saveAsScopeNote(lang, saveAs.scopePercent, saveAs.percentTasks, saveAs.clamped)}
+            onCancel={() => setSaveAs(null)}
+            onSave={(name) => {
+              const draft = { name, changes: saveAs.changes };
+              // Refused without a toast (the cap or the name was taken since open): stay open, stay in What-if.
+              if (scenarioApi.createScenario(scenarioApi.mintId(), draft) === null) {
+                return scenarioRefusalText(lang, draft, scenarioApi.scenarios, null);
+              }
+              setSaveAs(null);
+              setMode("scenarios");
+              return null;
+            }}
+          />
+        )}
         {differsFromDashboard && (
           <p className="mb-2 text-xs text-muted-foreground print:hidden">{t(lang, "forecastDashboardDefaultsNote")}</p>
         )}
       </div>
-      {result.kind === "insufficient" ? (
+      {inScenarios && scenarioInput && comparison ? (
+        <ForecastScenariosView lang={lang} input={scenarioInput} scenarios={scenarios} comparison={comparison} />
+      ) : result === null ? null : result.kind === "insufficient" ? (
         <InsufficientState lang={lang} result={result} />
       ) : (
         <>
@@ -220,35 +301,6 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
         </>
       )}
     </ReportCard>
-  );
-}
-
-/** The history floor is not met: say which shortfall(s), in counts the user can act on. */
-function InsufficientState({ lang, result }: { lang: Lang; result: ForecastInsufficient }) {
-  const lines: string[] = [];
-  if (result.finished < result.neededFinished) {
-    lines.push(t(lang, "forecastInsufficient", result.finished, result.neededFinished, result.neededFinished - result.finished));
-  }
-  if (result.days < result.neededDays) {
-    const args = [result.days, result.neededDays, result.neededDays - result.days] as const;
-    // R14 cut a fixed window at the first completion: say so, or "8 of 10 days" reads as a wrong window.
-    lines.push(
-      result.windowCutAt === null
-        ? t(lang, "forecastInsufficientDays", ...args)
-        : t(lang, "forecastInsufficientDaysCut", ...args, formatDayMonthYear(result.windowCutAt, localeFor(lang))),
-    );
-  }
-  if (result.doneWithoutDate > 0) lines.push(tPlural(lang, "forecastDoneWithoutDate", result.doneWithoutDate, result.doneWithoutDate));
-  const [first, ...rest] = lines;
-  return (
-    <div className="pb-6">
-      <EmptyState title={t(lang, "forecastInsufficientTitle")} description={first} />
-      {rest.map((line) => (
-        <p key={line} className="text-center text-xs text-muted-foreground">
-          {line}
-        </p>
-      ))}
-    </div>
   );
 }
 

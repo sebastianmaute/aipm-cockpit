@@ -3,16 +3,19 @@
 // Schedule forecast toolbar (§502): mode · unit · history window · (What-if) scope and
 // capacity inputs · the trailing Print · reset-size group (ui-shell.md "toolbar button order").
 
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { SegmentedControl } from "./segmented-control";
 import { Input, Select } from "./form-controls";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
+import { Button } from "./button";
 import type { WhatIf } from "./forecast";
 import { EFFORT_MODE_MIN_COVERAGE, HISTORY_WINDOWS, type ForecastUnit, type HistoryWindow } from "./forecast/constants";
 
-export type ForecastMode = "quick" | "whatif";
+export type ForecastMode = "quick" | "whatif" | "scenarios";
 export type WhatIfField = keyof WhatIf;
+/** "Save as scenario" (§502): absent = no button (no saved-scenario support, or a read-only popout). */
+export type SaveAsScenario = { onClick: () => void; disabledReason: string | null };
 
 const windowValue = (w: HistoryWindow): string => String(w);
 const parseWindow = (v: string): HistoryWindow =>
@@ -81,6 +84,9 @@ export function ForecastToolbar({
   whatIf,
   onCommitWhatIf,
   onResetSize,
+  showScenarios = false,
+  saveAsScenario,
+  askClaude,
 }: {
   lang: Lang;
   mode: ForecastMode;
@@ -94,9 +100,15 @@ export function ForecastToolbar({
   whatIf: WhatIf;
   onCommitWhatIf: (field: WhatIfField, raw: string) => boolean;
   onResetSize: () => void;
+  /** Offer the Scenarios segment (§502); off without saved-scenario support (tests, older callers). */
+  showScenarios?: boolean;
+  saveAsScenario?: SaveAsScenario;
+  /** The Ask-Claude menu (§502); sits before the trailing Print · reset-size group. */
+  askClaude?: ReactNode;
 }) {
   const effortAvailable = coverage >= EFFORT_MODE_MIN_COVERAGE;
   const effortReasonId = useId();
+  const saveAsReasonId = useId();
   // Visible as well as the title: a disabled radio takes no focus and a title shows only on hover.
   const effortReason = effortAvailable
     ? undefined
@@ -113,6 +125,7 @@ export function ForecastToolbar({
         options={[
           { value: "quick", label: t(lang, "forecastModeQuick") },
           { value: "whatif", label: t(lang, "forecastModeWhatIf") },
+          ...(showScenarios ? [{ value: "scenarios" as const, label: t(lang, "forecastModeScenarios") }] : []),
         ]}
       />
       <SegmentedControl<ForecastUnit>
@@ -147,8 +160,21 @@ export function ForecastToolbar({
           {field("scopeTasks", "forecastScopeTasks")}
           {field("scopePercent", "forecastScopePercent")}
           {field("capacityPercent", "forecastCapacityPercent")}
+          {saveAsScenario && (
+            <>
+              <Button variant="secondary" size="xs" disabled={saveAsScenario.disabledReason !== null}
+                aria-describedby={saveAsScenario.disabledReason !== null ? saveAsReasonId : undefined} onClick={saveAsScenario.onClick}>
+                {t(lang, "forecastSaveAsScenario")}
+              </Button>
+              {/* Visible, not a title: a disabled button takes no focus and a title shows only on hover. */}
+              {saveAsScenario.disabledReason !== null && (
+                <span id={saveAsReasonId} className="text-xs text-muted-foreground">{saveAsScenario.disabledReason}</span>
+              )}
+            </>
+          )}
         </>
       )}
+      {askClaude}
       <div className="ml-auto flex items-center gap-2">
         <PrintButton lang={lang} />
         <ResetSizeButton onClick={onResetSize} lang={lang} />
