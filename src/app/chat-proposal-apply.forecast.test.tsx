@@ -36,6 +36,7 @@ function makeInput(): ForecastReportInput {
     history: [],
     scenarios: [],
     currency: "EUR",
+    settingsOverrides: undefined,
   };
 }
 

@@ -1905,7 +1905,11 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   the SNAPSHOT (`forecastView`, `forecastSimulation`); the offered set only decides whether it may name tools. Nothing
   when the Forecast view is not enabled (the snapshot's `forecastView`, from `isViewEnabled`: held back by
   `RELEASE_HIDDEN_VIEWS` or its module off); the off text when the view is enabled but the simulation is off; the
-  quoting rules, which name the tools, when the simulation is on and the offered set holds `get_forecast`; and
+  quoting rules, which name the tools and explain the part-4 reads (target confidence, what it would take, the
+  proposal, the P80 history), when the simulation is on and the offered set holds `get_forecast` — ★ each of the
+  three part-4 writes (`delete_forecast_scenario`, `set_forecast_proposal`, `set_forecast_target_confidence`) is
+  named only when the offered set holds THAT tool (`forecastWrites`), and "never delete one" stays until the delete
+  tool is offered; and
   nothing when the simulation is on but `get_forecast` is not offered — inline AI edit (`inline-ai-edit-call.ts`),
   whose `NO_RECALL_TOOLS` carries no forecast bit but whose snapshot is the chat's.
   ★★ THE OFF TEXT AND `FORECAST_OFF_MESSAGE` NEVER SAY "FORECASTING IS OFF": `ForecastPanel` runs the simulation

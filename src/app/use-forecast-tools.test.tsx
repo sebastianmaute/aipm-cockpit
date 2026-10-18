@@ -57,6 +57,8 @@ function makeInput(): ForecastReportInput {
     history: [],
     scenarios: [],
     currency: "EUR",
+    // ★ Never the live overrides: the tools must read those from the workspace (see "target and proposal").
+    settingsOverrides: undefined,
   };
 }
 
@@ -295,6 +297,25 @@ describe("As-is runs per call", () => {
     await expect(runTool(result.current.dispatcher, "get_forecast", { whatIf: [{ ...AVAIL, percent: 0 }] }))
       .rejects.toThrow("whatIf changes[0]: percent must be between 10 and 300");
     expect(compare.calls).toBe(1);
+  });
+});
+
+describe("get_forecast reads the target and the proposal from the live overrides (§502 part 4)", () => {
+  test("the workspace's target and proposal, not the getter's absent ones", async () => {
+    const overrides = { forecast: { showSimulation: true, targetConfidence: 95 as const, proposalScenarioId: 1 } };
+    const { result } = mount({ forecastScenarios: [SAVED], settingsOverrides: overrides });
+    const report = (await runTool(result.current.dispatcher, "get_forecast", {})) as {
+      targetConfidence: number; proposal: unknown;
+    };
+    expect(report.targetConfidence).toBe(95);
+    expect(report.proposal).toEqual({ id: 1, name: "Contractor in January" });
+  });
+
+  test("a proposal id naming no saved scenario reads as none", async () => {
+    const overrides = { forecast: { showSimulation: true, proposalScenarioId: 7 } };
+    const { result } = mount({ forecastScenarios: [SAVED], settingsOverrides: overrides });
+    const report = (await runTool(result.current.dispatcher, "get_forecast", {})) as { proposal: unknown };
+    expect(report.proposal).toBeNull();
   });
 });
 

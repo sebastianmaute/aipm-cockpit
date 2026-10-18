@@ -22,7 +22,7 @@ import type { LogActivityAsFn } from "./activity-log-context";
 import { entityToken } from "./ai-entity-token";
 import type { ForecastScenarioResult, ForecastToolDispatcher } from "./chat-tools-forecast";
 import { buildForecastReport, scenarioValidationContext, type ForecastReportInput } from "./forecast-ai-report";
-import { computeScenarioComparison } from "./forecast-scenario-compare";
+import { computeScenarioComparison, sharedAsIsRun } from "./forecast-scenario-compare";
 import { checkToolDraft, checkToolRows } from "./forecast-scenario-tool-input";
 import {
   addScenario,
@@ -121,6 +121,8 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
         directory: { ...run.directory, resources: resourcesRef.current },
       },
       scenarios: scenariosRef.current,
+      // The same ref the predicate reads, so the report's target and proposal are the ones it was served under.
+      settingsOverrides: settingsOverridesRef.current,
     };
   }, [getForecastInputRef, tasksRef, milestonesRef, resourcesRef]);
 
@@ -130,8 +132,9 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
 
       getForecast: (whatIf) => {
         const input = requireInput();
-        // ★ ONE As-is run: the report's own comparison supplies the context the what-if check needs.
-        const comparison = computeScenarioComparison(input.run, input.scenarios);
+        // ★ ONE As-is run: the report's own comparison supplies the context the what-if check and the lever search
+        //   need, and it is the shared app run (`sharedAsIsRun`) when the app memo already holds these inputs.
+        const comparison = computeScenarioComparison(input.run, input.scenarios, sharedAsIsRun(input.run));
         // ★ Same rules as a save: a what-if row the save path refuses is never simulated or quoted.
         const refusal = whatIf === null
           ? null

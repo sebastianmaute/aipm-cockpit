@@ -4,7 +4,10 @@ import { buildTurnContext } from "./chat-api";
 import { VIEW_AI_SCOPE } from "./view-ai-scope";
 
 const ON =
-  'FORECAST — get_forecast returns this project\'s Monte Carlo forecast. Every figure it returns is simulated: say so. Call P80 "safe to commit", never a promise or a guarantee. When a column reports status "insufficient", quote its reason instead of estimating dates yourself. Its figures use the app defaults (60-working-day history, tasks unit), not the Forecast view\'s toolbar. You may create or edit a saved scenario (create_forecast_scenario, update_forecast_scenario) but never delete one.';
+  'FORECAST — get_forecast returns this project\'s Monte Carlo forecast. Every figure it returns is simulated: say so. Call P80 "safe to commit", never a promise or a guarantee. When a column reports status "insufficient", quote its reason instead of estimating dates yourself. Its figures use the app defaults (60-working-day history, tasks unit), not the Forecast view\'s toolbar. targetConfidence is the project\'s goal for a chance (50, 80 or 95 percent): a chance below it is below target. whatItTakes is the app\'s own answer for the plan end and each below-target milestone: the fewest people added, or tasks removed, that alone reach the target; when no single lever does, combine them in a scenario. proposal is the saved scenario the user chose to propose, or null; p80History is the recorded safe-to-commit date by day. You may create or edit a saved scenario (create_forecast_scenario, update_forecast_scenario) but never delete one.';
+/** Task 10's three writes: named only while the request carries each one. */
+const NEW_WRITES = ["delete_forecast_scenario", "set_forecast_proposal", "set_forecast_target_confidence"];
+const ALL_OFFERED = new Set(["get_forecast", "create_forecast_scenario", "update_forecast_scenario", ...NEW_WRITES]);
 const OFF =
   'FORECAST — You cannot read this project\'s forecast: its "Use Monte Carlo forecasting" switch is off, so no forecast tool is available. The Forecast view still runs the simulation and shows its dates and chances to the user. If asked for forecast dates or chances, point the user to the Forecast view, or to turning the switch on so you can read it, and never estimate them yourself.';
 const TOOL_NAMES = /get_forecast|create_forecast_scenario|update_forecast_scenario/;
@@ -50,6 +53,38 @@ describe("buildForecastBlock", () => {
   it("emits nothing when the Forecast view is not enabled, whatever the tool set or switch", () => {
     expect(buildForecastBlock(new Set(), false, false)).toBe("");
     expect(buildForecastBlock(new Set(["get_forecast"]), false, true)).toBe("");
+  });
+});
+
+describe("buildForecastBlock — target confidence and the decision tools (§502 part 4)", () => {
+  it("names each new write tool when the request carries it, and drops the never-delete rule", () => {
+    const text = buildForecastBlock(ALL_OFFERED, true, true);
+    for (const name of NEW_WRITES) expect(text).toContain(name);
+    expect(text).toContain("or delete one (delete_forecast_scenario)");
+    expect(text).not.toContain("never delete");
+    expect(text).toContain("set_forecast_proposal) only when the user asks: never choose it yourself");
+    expect(text).toContain("targetConfidence");
+  });
+
+  it("names none of the three while they are not offered, and keeps the never-delete rule", () => {
+    const text = buildForecastBlock(new Set(["get_forecast", "create_forecast_scenario", "update_forecast_scenario"]), true, true);
+    for (const name of NEW_WRITES) expect(text).not.toContain(name);
+    expect(text).toContain("but never delete one.");
+    expect(text).toContain("targetConfidence");
+  });
+
+  it("names exactly the offered ones", () => {
+    const text = buildForecastBlock(new Set(["get_forecast", "set_forecast_target_confidence"]), true, true);
+    expect(text).toContain("set_forecast_target_confidence");
+    expect(text).not.toContain("set_forecast_proposal");
+    expect(text).not.toContain("delete_forecast_scenario");
+  });
+
+  it("mentions neither the target nor any decision tool off, or on but not offered", () => {
+    for (const text of [buildForecastBlock(ALL_OFFERED, true, false), buildForecastBlock(new Set(), true, true)]) {
+      expect(text).not.toContain("targetConfidence");
+      for (const name of NEW_WRITES) expect(text).not.toContain(name);
+    }
   });
 });
 

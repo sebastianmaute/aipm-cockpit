@@ -80,6 +80,17 @@ describe("the model-facing texts", () => {
     expect(text).toContain('weeklyChange is null when asIs is "insufficient"');
   });
 
+  it("describes the decision reads: target, what it would take, proposal and P80 history (§502 part 4)", () => {
+    const text = description("get_forecast");
+    expect(text).toContain("targetConfidence (50, 80 or 95) is the project's goal for a chance");
+    expect(text).toContain(
+      'whatItTakes holds planEnd (null when asIs has no plan-end chance) and one entry per milestone whose chance is below targetConfidence; it is empty when asIs is "insufficient"',
+    );
+    expect(text).toContain('state "inert" with a reason (needs-booked-hours, no-open-tasks, too-few-tasks)');
+    expect(text).toContain("proposal is {id, name} of the scenario the user proposed, or null");
+    expect(text).toContain("p80History is the last 26 recorded entries, oldest first");
+  });
+
   it("says what removedRows counts", () => {
     expect(description("update_forecast_scenario")).toContain(
       "removedRows: stored rows not kept unchanged (an edited row counts as removed and re-added)",
