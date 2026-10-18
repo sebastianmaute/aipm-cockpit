@@ -11,7 +11,7 @@ import { localeFor } from "./date-format";
 import { formatChance, formatWhen } from "./forecast-tables";
 import { formatCurrency } from "./resource-cost";
 import { percentileLabel } from "./budget-sim-text";
-import { chanceSeverity, type TargetConfidence } from "./forecast-target";
+import { chanceSeverity, proposalIdOf, type TargetConfidence } from "./forecast-target";
 import { milestoneRowsWorstFirst } from "./forecast-scenario-tables";
 import type { ScenarioColumn } from "./forecast-scenario-compare";
 import type { ForecastScenario } from "./forecast-scenarios";
@@ -24,6 +24,13 @@ import { TABLE_HEAD_CLASS } from "./table-styles";
 const CELL = "px-3 py-2";
 const NONE = "—";
 const SAFE_TO_COMMIT = 80;
+
+/** The live proposal scenario for a stored id, by THE stale-id rule (`proposalIdOf`): an id naming no scenario in
+ *  `scenarios` is no proposal. The section and this block both resolve through it. */
+export function liveProposal(id: number | null, scenarios: readonly ForecastScenario[]): ForecastScenario | null {
+  const live = proposalIdOf({ forecast: { proposalScenarioId: id ?? undefined } }, scenarios);
+  return live === null ? null : scenarios.find((s) => s.id === live) ?? null;
+}
 
 /** The P80 finish of a column as text; "—" below the history floor. */
 export function columnP80Text(lang: Lang, column: ScenarioColumn): string {
@@ -48,8 +55,9 @@ function Figure({ lang, label, text }: { lang: Lang; label: string; text: string
   return text === NONE ? <>{NONE}</> : <SimValue lang={lang} label={label} value={text} />;
 }
 
-function ComparisonTable({ lang, asIs, proposal, milestones, goal, currency }: {
-  lang: Lang; asIs: ScenarioColumn; proposal: ScenarioColumn; milestones: readonly Milestone[]; goal: TargetConfidence; currency: BudgetCurrency;
+function ComparisonTable({ lang, asIs, proposal, milestones, tokens, goal, currency }: {
+  lang: Lang; asIs: ScenarioColumn; proposal: ScenarioColumn; milestones: readonly Milestone[]; tokens: ReadonlyMap<number, string>;
+  goal: TargetConfidence; currency: BudgetCurrency;
 }) {
   const chances = asIs.forecast.kind === "forecast" ? asIs.forecast.milestones : [];
   const below = milestoneRowsWorstFirst(milestones, chances).filter((r) => r.asIs.state === "chance" && chanceSeverity(r.asIs.chance, goal) !== "green");
@@ -57,7 +65,8 @@ function ComparisonTable({ lang, asIs, proposal, milestones, goal, currency }: {
   const columns: { key: string; label: string; text: (c: ScenarioColumn) => string }[] = [
     { key: "p80", label: percentileLabel(lang, SAFE_TO_COMMIT), text: (c) => columnP80Text(lang, c) },
     { key: "onTime", label: t(lang, "kpiOnTime"), text: (c) => (c.chanceOnTime === null ? NONE : formatChance(c.chanceOnTime, lang)) },
-    ...below.map((r) => ({ key: `m${r.id}`, label: r.name, text: (c: ScenarioColumn) => milestoneText(lang, c, r.id) })),
+    // Row tokens, not raw names: two milestones called the same get distinct headers and figure names.
+    ...below.map((r) => ({ key: `m${r.id}`, label: tokens.get(r.id) ?? r.name, text: (c: ScenarioColumn) => milestoneText(lang, c, r.id) })),
     ...(showCost ? [{ key: "cost", label: t(lang, "forecastScenarioRowCostP80"), text: (c: ScenarioColumn) => columnCostText(lang, c, currency) ?? NONE }] : []),
   ];
   const rows = [
@@ -90,7 +99,7 @@ function ComparisonTable({ lang, asIs, proposal, milestones, goal, currency }: {
   );
 }
 
-export function ForecastReportProposal({ lang, scenarios, proposalId, onChange, disabled, asIs, proposal, milestones, goal, currency }: {
+export function ForecastReportProposal({ lang, scenarios, proposalId, onChange, disabled, asIs, proposal, milestones, tokens, goal, currency }: {
   lang: Lang;
   scenarios: readonly ForecastScenario[];
   proposalId: number | null;
@@ -100,11 +109,13 @@ export function ForecastReportProposal({ lang, scenarios, proposalId, onChange, 
   /** The proposal's column, computed by the section; null when no live scenario is the proposal. */
   proposal: ScenarioColumn | null;
   milestones: readonly Milestone[];
+  /** The section's row tokens (milestone id → row-unique name). */
+  tokens: ReadonlyMap<number, string>;
   goal: TargetConfidence;
   currency: BudgetCurrency;
 }) {
   const selectId = useId();
-  const live = scenarios.some((s) => s.id === proposalId) ? proposalId : null;
+  const live = liveProposal(proposalId, scenarios)?.id ?? null;
   return (
     <Section title={t(lang, "forecastReportProposalTitle")}>
       {/* Task 6 adds "Ask Claude to draft a proposal" to this row (spec §3.6). */}
@@ -119,7 +130,7 @@ export function ForecastReportProposal({ lang, scenarios, proposalId, onChange, 
         </Select>
       </div>
       {live !== null && proposal !== null ? (
-        <ComparisonTable lang={lang} asIs={asIs} proposal={proposal} milestones={milestones} goal={goal} currency={currency} />
+        <ComparisonTable lang={lang} asIs={asIs} proposal={proposal} milestones={milestones} tokens={tokens} goal={goal} currency={currency} />
       ) : (
         <p className="text-sm text-muted-foreground" data-testid="forecast-proposal-empty">{t(lang, "forecastReportProposalEmpty")}</p>
       )}

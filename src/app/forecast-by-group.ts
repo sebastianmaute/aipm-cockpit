@@ -62,7 +62,10 @@ export function forecastByGroup(input: GroupForecastInput): GroupForecastRow[] {
   const byGroup = new Map<string, Task[]>();
   for (const task of input.tasks) {
     const key = groupOf(task);
-    byGroup.set(key, [...(byGroup.get(key) ?? []), task]);
+    // A local, freshly built list (no shared state), so pushing keeps this O(n) rather than copying per task.
+    const list = byGroup.get(key);
+    if (list) list.push(task);
+    else byGroup.set(key, [task]);
   }
   return [...byGroup.entries()]
     .filter(([, tasks]) => tasks.some((task) => !isTaskClosed(task)))

@@ -3,9 +3,9 @@
 // The Reports Forecast section's milestones table (§502 part 4, spec §3.2 item 4): worst first, a RAG dot against
 // the project's target, and "what it would take" (`ForecastLeverCell`) on each below-target row. On-target rows say
 // "On target"; an overdue milestone or one with nothing linked says so, with no chance and no lever (Ruling A).
-// Presentational: the section runs the forecast and the lever search.
+// Presentational: the section runs the forecast and the lever search, orders the rows and mints their tokens (with
+// the plan end as a pseudo row, so no milestone's Explore name can equal the plan end's).
 
-import { useMemo } from "react";
 import { type Lang, t } from "./i18n";
 import { localeFor } from "./date-format";
 import { formatDayMonthYear } from "./forecast-format";
@@ -15,18 +15,15 @@ import type { LeverKind, LeverTarget } from "./forecast-levers";
 import { leverKey, type LeverValue } from "./use-lever-search";
 import { chanceRagLevel, chanceSeverity, type TargetConfidence } from "./forecast-target";
 import { chanceRagLabel } from "./forecast-rag-label";
-import { milestoneRowsWorstFirst, type MilestoneRow } from "./forecast-scenario-tables";
+import type { MilestoneRow } from "./forecast-scenario-tables";
 import { isValidIsoDate } from "./forecast/throughput";
 import type { MilestoneChance } from "./forecast/milestones";
 import type { ForecastDraftRequest } from "./workspace-tab-context";
-import type { Milestone } from "./types";
 import { RagDot } from "./rag-dot";
 import { Section } from "./report-table";
 import { TABLE_HEAD_CLASS } from "./table-styles";
-import { useRowTokens } from "./use-row-tokens";
 
 const CELL = "px-3 py-2";
-const nameOfRow = (r: MilestoneRow) => r.name;
 
 /** Explore for one target, built as the Forecast view builds its own: the row's primary lever, and the other
  *  reaching lever as the draft's alternative. Undefined while the search runs or when nothing can open a draft. */
@@ -45,7 +42,9 @@ function LeverCell({ lang, row, token, goal, levers, onExplore }: {
     return <span className="text-xs text-muted-foreground">{t(lang, "forecastLeverOnTarget")}</span>;
   }
   const target: LeverTarget = { kind: "milestone", id: row.id };
-  const value = levers.get(leverKey(target)) ?? "pending";
+  // A target the search left out (its `whatItTakesSync` is null) has no lever — no cell, as in the Forecast view.
+  const value = levers.get(leverKey(target));
+  if (value === undefined) return null;
   return (
     <ForecastLeverCell
       lang={lang} milestoneName={token} result={value} goal={goal}
@@ -54,17 +53,17 @@ function LeverCell({ lang, row, token, goal, levers, onExplore }: {
   );
 }
 
-export function ForecastReportMilestones({ lang, milestones, chances, goal, levers, onExplore }: {
+export function ForecastReportMilestones({ lang, rows, tokens, goal, levers, onExplore }: {
   lang: Lang;
-  milestones: readonly Milestone[];
-  chances: readonly MilestoneChance[];
+  /** Worst first (`milestoneRowsWorstFirst`). */
+  rows: readonly MilestoneRow[];
+  /** Row-unique names, minted over the rows AND the plan-end pseudo row. */
+  tokens: ReadonlyMap<number, string>;
   goal: TargetConfidence;
   levers: ReadonlyMap<string, LeverValue>;
   /** Absent (a popout, or the Forecast view switched off): no Explore buttons. */
   onExplore?: (req: ForecastDraftRequest) => void;
 }) {
-  const rows = useMemo(() => milestoneRowsWorstFirst(milestones, chances), [milestones, chances]);
-  const tokens = useRowTokens(rows, nameOfRow);
   const locale = localeFor(lang);
   return (
     <Section title={t(lang, "forecastReportMilestonesTitle")}>
@@ -84,7 +83,7 @@ export function ForecastReportMilestones({ lang, milestones, chances, goal, leve
             </thead>
             <tbody className="divide-y divide-line">
               {rows.map((row) => {
-                // The token can't miss: every rendered row went through useRowTokens above.
+                // The token can't miss: the section minted one for every row.
                 const token = tokens.get(row.id) ?? row.name;
                 const { asIs } = row;
                 const rag = asIs.state === "chance" ? chanceRagLevel(asIs.chance, goal) : undefined;

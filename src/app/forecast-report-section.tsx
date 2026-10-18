@@ -6,7 +6,8 @@
 // group" fold-out. ★ No title of its own: `ArrangementTile` draws the block's heading from the catalogue, and a
 // second one would stack two identical headings (see `reports.tsx`'s `renderBlock`).
 //
-// The runs: As is once per input (`computeScenarioComparison` with no scenarios), the proposal's column once per
+// The runs: As is is the SHARED app run (`computeAppScheduleRun`, the memo `useAppForecast` fills on this tab), handed
+// to `computeScenarioComparison` so no second 10,000-trial run happens (spec §4); the proposal's column once per
 // proposal, and the lever search off the render path (`useLeverSearch`, which is given `enabled: false` below the
 // history floor, so an insufficient run searches nothing). Run settings are the app-wide defaults the Forecast
 // view opens with, so an Explore draft opened from here shows the number its row did.
@@ -18,7 +19,11 @@ import { formatDayMonthYear } from "./forecast-format";
 import { formatChance, formatWhen } from "./forecast-tables";
 import { formatChanceOverBudget, percentileLabel } from "./budget-sim-text";
 import { computeScenarioColumn, computeScenarioComparison, type ScenarioColumn, type ScenarioRunInput } from "./forecast-scenario-compare";
-import type { ScheduleForecast } from "./forecast";
+import type { ScheduleForecast, ScheduleForecastResult } from "./forecast";
+import { computeAppScheduleRun } from "./forecast/app-forecast";
+import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
+import { milestoneRowsWorstFirst } from "./forecast-scenario-tables";
+import { useRowTokens } from "./use-row-tokens";
 import type { ForecastHistoryEntry } from "./forecast-history";
 import type { ForecastScenario } from "./forecast-scenarios";
 import type { LeverTarget } from "./forecast-levers";
@@ -41,7 +46,7 @@ import { InsufficientState } from "./forecast-insufficient";
 import { ForecastCaption } from "./forecast-caption";
 import { ForecastP80Line } from "./forecast-p80-line";
 import { ForecastReportMilestones, exploreFor } from "./forecast-report-milestones";
-import { ForecastReportProposal, columnCostText } from "./forecast-report-proposal";
+import { ForecastReportProposal, columnCostText, liveProposal } from "./forecast-report-proposal";
 import { ForecastGroupFold } from "./forecast-group-fold";
 
 export type ForecastReportProps = {
@@ -59,6 +64,18 @@ export type ForecastReportProps = {
 
 const NONE = "—";
 const PLAN_END: LeverTarget = { kind: "planEnd" };
+/** The plan end's pseudo row in the token list (as the Scenarios view's "As is"): milestone ids are positive. */
+const PLAN_END_ROW_ID = -1;
+const nameOfRow = (r: { name: string }) => r.name;
+
+/** The shared app run when `input` is exactly its call (the app-wide defaults), else undefined: the comparison then
+ *  runs its own. Same references as `useAppForecast` on this tab, so the memo answers and the trials do not rerun. */
+function sharedAsIsRun(input: ScenarioRunInput): ScheduleForecastResult | undefined {
+  if (input.window !== DEFAULT_HISTORY_WINDOW || input.unit !== "tasks") return undefined;
+  return computeAppScheduleRun({
+    tasks: input.tasks, milestones: input.milestones, planEnd: input.planEnd, today: input.today, holidaySet: input.holidaySet,
+  });
+}
 
 function verdictText(lang: Lang, verdict: ForecastVerdict, planEnd: string, chance: number, goal: TargetConfidence): { head: string; rest: string } {
   const head = t(lang, verdict.severity === "success" ? "forecastReportVerdictOn" : "forecastReportVerdictBelow");
@@ -108,11 +125,11 @@ function ForecastReportBody({ lang, input, scenarios, settings, history, currenc
   lang: Lang; input: ScenarioRunInput;
 }) {
   const goal = settings.target;
-  const base = useMemo(() => computeScenarioComparison(input, []), [input]);
+  const base = useMemo(() => computeScenarioComparison(input, [], sharedAsIsRun(input)), [input]);
   const { asIs, context } = base;
   const forecast = asIs.forecast;
-  // The stale-id rule a second time: an id naming no scenario in THIS list is no proposal.
-  const proposalChanges = scenarios.find((s) => s.id === settings.proposalId)?.changes ?? null;
+  // The stale-id rule (`proposalIdOf`) a second time: an id naming no scenario in THIS list is no proposal.
+  const proposalChanges = liveProposal(settings.proposalId, scenarios)?.changes ?? null;
   const proposalColumn = useMemo(
     () => (proposalChanges === null ? null : computeScenarioColumn(input, proposalChanges, context)),
     [input, proposalChanges, context],
@@ -124,6 +141,13 @@ function ForecastReportBody({ lang, input, scenarios, settings, history, currenc
     ...forecast.milestones.flatMap((m): LeverTarget[] => (m.state === "chance" ? [{ kind: "milestone", id: m.id }] : [])),
   ]), [forecast, chanceOnTime]);
   const levers = useLeverSearch({ input, targets, goal, enabled: forecast.kind === "forecast" });
+  const rows = useMemo(
+    () => (forecast.kind === "forecast" ? milestoneRowsWorstFirst(input.milestones, forecast.milestones) : []),
+    [input.milestones, forecast],
+  );
+  const planEndName = t(lang, "forecastRangePlanEnd");
+  const named = useMemo(() => [{ id: PLAN_END_ROW_ID, name: planEndName }, ...rows], [planEndName, rows]);
+  const tokens = useRowTokens(named, nameOfRow);
   const groupInput = useMemo(
     () => ({ tasks: input.tasks, today: input.today, holidaySet: input.holidaySet, planEnd: input.planEnd }),
     [input],
@@ -135,7 +159,8 @@ function ForecastReportBody({ lang, input, scenarios, settings, history, currenc
   const verdict = forecastVerdict(chanceOnTime, goal, below, total);
   const text = verdict === null || chanceOnTime === null ? null : verdictText(lang, verdict, input.planEnd, chanceOnTime, goal);
   const planEndBelow = chanceOnTime !== null && chanceSeverity(chanceOnTime, goal) !== "green";
-  const planEndLevers = levers.get(leverKey(PLAN_END)) ?? "pending";
+  // Absent = the search left the plan end out (its `whatItTakesSync` is null): no lever line, as the view shows no cell.
+  const planEndLevers = levers.get(leverKey(PLAN_END));
   return (
     <div className="space-y-3">
       {verdict && text && (
@@ -144,19 +169,19 @@ function ForecastReportBody({ lang, input, scenarios, settings, history, currenc
       <ForecastCaption lang={lang} forecast={forecast} historyWindow={input.window} />
       <ForecastTiles lang={lang} forecast={forecast} asIs={asIs} input={input} goal={goal} currency={currency} />
       <ForecastP80Line lang={lang} history={history} planEnd={input.planEnd} compact />
-      {planEndBelow && (
+      {planEndBelow && planEndLevers !== undefined && (
         <div className="flex flex-wrap items-start gap-2" data-testid="forecast-plan-end-lever">
           <span className="text-xs font-medium text-foreground">{t(lang, "forecastReportPlanEndLever", t(lang, "forecastPercent", goal))}</span>
           <ForecastLeverCell
-            lang={lang} milestoneName={t(lang, "forecastRangePlanEnd")} result={planEndLevers} goal={goal}
+            lang={lang} milestoneName={tokens.get(PLAN_END_ROW_ID) ?? planEndName} result={planEndLevers} goal={goal}
             onExplore={exploreFor(PLAN_END, planEndLevers, explore)} exploreLabel={t(lang, "forecastReportExplore")}
           />
         </div>
       )}
-      <ForecastReportMilestones lang={lang} milestones={input.milestones} chances={forecast.milestones} goal={goal} levers={levers} onExplore={explore} />
+      <ForecastReportMilestones lang={lang} rows={rows} tokens={tokens} goal={goal} levers={levers} onExplore={explore} />
       <ForecastReportProposal
         lang={lang} scenarios={scenarios} proposalId={settings.proposalId} onChange={settings.setProposal} disabled={readOnly}
-        asIs={asIs} proposal={proposalColumn} milestones={input.milestones} goal={goal} currency={currency}
+        asIs={asIs} proposal={proposalColumn} milestones={input.milestones} tokens={tokens} goal={goal} currency={currency}
       />
       <ForecastGroupFold lang={lang} input={groupInput} />
     </div>

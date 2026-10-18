@@ -328,10 +328,15 @@ export function WorkspaceSection({
       && (activeTab === "budget-report" || activeTab === "reports"),
   });
   // §502 part 3 — the pace forecast's facts for the Forecast view (and, part 4, the Reports Forecast section), built
-  // as the Budget view does (`computeProjectForecastFacts`); only on those tabs with the Budget module enabled. Not
-  // gated on the switch: Scenarios' added-people sizing needs the booked hours; the cost card and cost rows still need the switch.
+  // as the Budget view does (`computeProjectForecastFacts`); only with the Budget module enabled. The Forecast tab is
+  // not gated on the switch (Scenarios' added-people sizing needs the booked hours; the cost card and cost rows still
+  // need the switch); the Reports tab is, since its section only exists while the simulation is active.
+  // §502 part 4 — the Reports Forecast section's As-is inputs, at the defaults the Forecast view opens with (so an
+  // Explore draft shows its row's number). Null off the Reports tab, with the simulation off, or while holidays load.
+  const simulationActive = isSimulationActive(workspace.settingsOverrides, features);
+  const reportsForecastOn = activeTab === "reports" && simulationActive && holidaysReady !== false;
   const budgetEnabled = isModuleEnabled("budget", features);
-  const forecastFactsOn = (activeTab === "forecast" || activeTab === "reports") && budgetEnabled;
+  const forecastFactsOn = (activeTab === "forecast" || reportsForecastOn) && budgetEnabled;
   const workdayHours = settings.resources.workdayHours;
   const forecastBudgetFacts = useMemo(
     () => (forecastFactsOn ? computeProjectForecastFacts({ buckets: budgets, plan, roles, resources, workdayHours, holidaySet, absences, tasks, fxRates, today }) : null),
@@ -346,10 +351,6 @@ export function WorkspaceSection({
     () => ({ resources, roles, shifts, absences, budgets, fxRates, workdayHours, baseCurrency: planCurrency }),
     [resources, roles, shifts, absences, budgets, fxRates, workdayHours, planCurrency],
   );
-  // §502 part 4 — the Reports Forecast section's As-is inputs, at the defaults the Forecast view opens with (so an
-  // Explore draft shows its row's number). Null off the Reports tab, with the simulation off, or while holidays load.
-  const simulationActive = isSimulationActive(workspace.settingsOverrides, features);
-  const reportsForecastOn = activeTab === "reports" && simulationActive && holidaysReady !== false;
   const planEnd = plan.endDate;
   const reportsForecastInput = useMemo<ScenarioRunInput | null>(
     () => (reportsForecastOn ? {

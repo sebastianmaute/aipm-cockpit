@@ -68,8 +68,8 @@ export function computeScenarioColumn(
   return runColumn(input, changes === null ? null : buildScenarioSchedule(changes, context));
 }
 
-function runColumn(input: ScenarioRunInput, schedule: ScenarioSchedule | null): ScenarioColumn {
-  const forecast = computeScheduleForecast({
+function runColumn(input: ScenarioRunInput, schedule: ScenarioSchedule | null, precomputed?: ScheduleForecastResult): ScenarioColumn {
+  const forecast = precomputed ?? computeScheduleForecast({
     tasks: input.tasks,
     milestones: input.milestones,
     today: input.today,
@@ -90,10 +90,17 @@ function runColumn(input: ScenarioRunInput, schedule: ScenarioSchedule | null): 
   return { forecast, chanceOnTime: onTime, cost, schedule };
 }
 
-/** As is first; its window (a forecast's or an insufficient run's) builds the context every scenario column uses. */
-export function computeScenarioComparison(input: ScenarioRunInput, scenarios: readonly ForecastScenario[]): ScenarioComparison {
+/**
+ * As is first; its window (a forecast's or an insufficient run's) builds the context every scenario column uses.
+ * `asIsRun` is an As-is schedule run the caller already has (the shared app run, `computeAppScheduleRun`, §502
+ * part 4). ★ It must be exactly the call As is would make — same tasks, milestones, today, holidays, window and
+ * unit, no What-if, no changes — or the column reads another forecast; only the chance and cost are derived here.
+ */
+export function computeScenarioComparison(
+  input: ScenarioRunInput, scenarios: readonly ForecastScenario[], asIsRun?: ScheduleForecastResult,
+): ScenarioComparison {
   // As is has no changes, so it needs no context; the window the context is built from only exists once it has run.
-  const asIs = runColumn(input, null);
+  const asIs = runColumn(input, null, asIsRun);
   const context = buildScheduleContext(input, asIs.forecast.windowDates);
   return {
     asIs,

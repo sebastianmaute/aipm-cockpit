@@ -166,6 +166,55 @@ describe("ForecastReportSection — a forecast", () => {
   });
 });
 
+describe("ForecastReportSection — row-unique Explore names", () => {
+  // Two milestones share a name, and a third is literally called "Plan end" — the plan-end line's own name.
+  const linked = OPEN.slice(0, 10).map((t) => t.id);
+  const CLASHING: Milestone[] = [
+    { id: 1, name: "Go-live", date: "2026-10-20", linkedTaskIds: linked },
+    { id: 4, name: "Go-live", date: "2026-10-20", linkedTaskIds: linked },
+    { id: 5, name: "Plan end", date: "2026-10-21", linkedTaskIds: linked },
+  ];
+  const levers = (target: WhatItTakes["target"]): WhatItTakes => ({ ...GO_LIVE_LEVERS, target });
+
+  test("every Explore button names its own row, the plan end's included", () => {
+    stub.values = new Map<string, unknown>([
+      ["m:1", levers({ kind: "milestone", id: 1 })], ["m:4", levers({ kind: "milestone", id: 4 })],
+      ["m:5", levers({ kind: "milestone", id: 5 })], ["plan", levers({ kind: "planEnd" })],
+    ]);
+    renderSection({ input: input({ milestones: CLASHING }), onExplore: vi.fn() });
+    const names = screen.getAllByRole("button", { name: /^Explore in Forecast/ }).map((b) => b.getAttribute("aria-label"));
+    // Presence: four buttons — three milestones and the plan end — so "all distinct" is not vacuous.
+    expect(names).toHaveLength(4);
+    expect(new Set(names).size).toBe(4);
+  });
+
+  test("the plan end's Explore asks for a plan-end draft", async () => {
+    stub.values = new Map<string, unknown>([["plan", levers({ kind: "planEnd" })]]);
+    const onExplore = vi.fn();
+    renderSection({ onExplore });
+    const line = screen.getByTestId("forecast-plan-end-lever");
+    await userEvent.click(within(line).getByRole("button", { name: rowLabel("Explore in Forecast", "Plan end") }));
+    expect(onExplore).toHaveBeenCalledWith({ target: { kind: "planEnd" }, kind: "people", n: 2, alt: { kind: "tasks", n: 9 } });
+  });
+
+  test("a target the search left out shows no lever and never reads Working it out…", () => {
+    stub.values = new Map<string, unknown>();
+    renderSection({ onExplore: vi.fn() });
+    expect(screen.queryByText("Working it out…")).toBeNull();
+    expect(screen.queryByTestId("forecast-plan-end-lever")).toBeNull();
+    const goLive = document.querySelector('[data-milestone-row="1"]') as HTMLElement;
+    expect(within(goLive).queryByRole("button")).toBeNull();
+    // Positive control: the row itself is there, with its chance.
+    expect(within(goLive).getAllByRole("cell").length).toBeGreaterThan(2);
+  });
+
+  test("a target still searching reads Working it out…", () => {
+    stub.values = new Map<string, unknown>([["m:1", "pending"], ["plan", "pending"]]);
+    renderSection();
+    expect(screen.getAllByText("Working it out…")).toHaveLength(2);
+  });
+});
+
 describe("ForecastReportSection — the proposal", () => {
   test("the select lists None and every scenario; choosing one sets the proposal", async () => {
     const setProposal = vi.fn();
@@ -185,6 +234,19 @@ describe("ForecastReportSection — the proposal", () => {
     expect(within(table).getByRole("rowheader", { name: "Proposal" })).toBeTruthy();
     // The one below-target milestone has its own column.
     expect(within(table).getByRole("columnheader", { name: "Go-live" })).toBeTruthy();
+  });
+
+  test("two below-target milestones with one name get distinct column headers", () => {
+    const linked = OPEN.slice(0, 10).map((t) => t.id);
+    const twins: Milestone[] = [
+      { id: 1, name: "Go-live", date: "2026-10-20", linkedTaskIds: linked },
+      { id: 4, name: "Go-live", date: "2026-10-20", linkedTaskIds: linked },
+    ];
+    renderSection({ input: input({ milestones: twins }), settings: settings({ proposalId: 5 }) });
+    const headers = within(screen.getByTestId("forecast-proposal-table")).getAllByRole("columnheader").map((h) => h.textContent);
+    const goLive = headers.filter((h) => h?.startsWith("Go-live"));
+    expect(goLive).toHaveLength(2);
+    expect(new Set(goLive).size).toBe(2);
     expect(screen.queryByTestId("forecast-proposal-empty")).toBeNull();
   });
 
@@ -214,7 +276,7 @@ describe("ForecastReportSection — the proposal", () => {
     render(
       <ForecastReportProposal
         lang="en-US" scenarios={SCENARIOS} proposalId={99} onChange={vi.fn()} disabled={false}
-        asIs={column} proposal={column} milestones={MILESTONES} goal={80} currency="EUR"
+        asIs={column} proposal={column} milestones={MILESTONES} tokens={new Map()} goal={80} currency="EUR"
       />,
     );
     expect(screen.getByTestId("forecast-proposal-empty")).toBeTruthy();
