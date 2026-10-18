@@ -176,7 +176,9 @@ function ForecastReportBody({ lang, input, scenarios, settings, history, currenc
       <ForecastReportProposal
         lang={lang} scenarios={scenarios} proposalId={settings.proposalId} onChange={settings.setProposal} disabled={readOnly}
         asIs={asIs} proposal={proposalColumn} milestones={input.milestones} tokens={tokens} goal={goal} currency={currency}
-        askPlan={askClaude && chanceOnTime !== null ? { date: input.planEnd, chance: chanceOnTime } : undefined}
+        askPlan={askClaude && planEndBelow && chanceOnTime !== null
+          ? { date: input.planEnd, chance: chanceOnTime, rowName: tokens.get(PLAN_END_ROW_ID) ?? planEndName }
+          : undefined}
       />
       <ForecastGroupFold lang={lang} input={groupInput} />
     </div>

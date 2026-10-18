@@ -114,8 +114,9 @@ export function ForecastReportProposal({ lang, scenarios, proposalId, onChange, 
   tokens: ReadonlyMap<number, string>;
   goal: TargetConfidence;
   currency: BudgetCurrency;
-  /** The plan end's date and chance when "Ask Claude to draft a proposal" is offered; absent = no button. */
-  askPlan?: DraftAskPlan;
+  /** The plan end's date, chance and row token when "Ask Claude to draft a proposal" is offered (the plan end is
+   *  below target); absent = no button. */
+  askPlan?: DraftAskPlan & { rowName: string };
 }) {
   const selectId = useId();
   const live = liveProposal(proposalId, scenarios)?.id ?? null;
@@ -136,7 +137,7 @@ export function ForecastReportProposal({ lang, scenarios, proposalId, onChange, 
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm text-muted-foreground" data-testid="forecast-proposal-empty">{t(lang, "forecastReportProposalEmpty")}</p>
-          {askPlan && <ForecastDraftAsk lang={lang} milestone={null} plan={askPlan} goal={goal} />}
+          {askPlan && <ForecastDraftAsk lang={lang} milestone={null} plan={askPlan} goal={goal} rowName={askPlan.rowName} />}
         </div>
       )}
     </Section>

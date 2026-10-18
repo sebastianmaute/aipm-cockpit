@@ -17,6 +17,7 @@ import type { ScenarioDirectory } from "./forecast-added-people";
 import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
 import type { Milestone, Resource, Role, Task } from "./types";
 import { rowLabel } from "./row-tokens";
+import { t } from "./i18n";
 import { workingDaysBefore } from "./working-days";
 
 const stub = vi.hoisted(() => ({ values: new Map<string, unknown>(), calls: [] as unknown[] }));
@@ -223,6 +224,7 @@ describe("ForecastReportSection — row-unique Explore names", () => {
 
 describe("ForecastReportSection — Ask Claude to draft a proposal", () => {
   const ask = () => screen.queryAllByRole("button", { name: /Ask Claude to draft a proposal/ });
+  const PLAN_ASK = rowLabel("Ask Claude to draft a proposal", t("en-US", "forecastRangePlanEnd"));
   const rowEl = (id: number) => document.querySelector(`[data-milestone-row="${id}"]`) as HTMLElement;
 
   test("off without the AI switch, and in a popout", () => {
@@ -239,7 +241,22 @@ describe("ForecastReportSection — Ask Claude to draft a proposal", () => {
     expect(within(rowEl(2)).queryByRole("button")).toBeNull();
     expect(within(rowEl(3)).queryByRole("button")).toBeNull();
     const empty = screen.getByTestId("forecast-proposal-empty").parentElement as HTMLElement;
-    expect(within(empty).getByRole("button", { name: "Ask Claude to draft a proposal" })).toBeTruthy();
+    expect(within(empty).getByRole("button", { name: PLAN_ASK })).toBeTruthy();
+  });
+
+  // Pre-merge review M1 — the plan-end button exists only while the plan end is below target, and its name says so.
+  test("a plan end below target offers it, named for the plan end; one on target offers nothing", () => {
+    const { unmount } = renderSection({ aiEnabled: true });
+    const empty = () => screen.getByTestId("forecast-proposal-empty").parentElement as HTMLElement;
+    const button = within(empty()).getByRole("button", { name: PLAN_ASK });
+    expect(button).toHaveTextContent("Ask Claude to draft a proposal"); // the visible label stays inside the name
+    unmount();
+    // A plan end far out: its chance on time is at or above the 80% goal.
+    renderSection({ input: input({ planEnd: "2027-12-31" }), aiEnabled: true });
+    expect(screen.getByTestId("forecast-report-tiles")).toBeTruthy();
+    expect(within(empty()).queryByRole("button")).toBeNull();
+    // Positive control: the Go-live row's own button is still there, so the empty area is the gate, not AI off.
+    expect(within(rowEl(1)).getByRole("button", { name: rowLabel("Ask Claude to draft a proposal", "Go-live") })).toBeTruthy();
   });
 
   test("a live proposal replaces the empty-area button", () => {
@@ -259,15 +276,15 @@ describe("ForecastReportSection — Ask Claude to draft a proposal", () => {
     ]);
     renderSection({ input: input({ milestones: CLASHING }), aiEnabled: true });
     const names = ask().map((b) => b.getAttribute("aria-label")).filter((n) => n !== null);
-    // Three milestone rows (the plan-level button has no aria-label), so "all distinct" is not vacuous.
-    expect(names).toHaveLength(3);
-    expect(new Set(names).size).toBe(3);
+    // Three milestone rows plus the plan end's own button, so "all distinct" is not vacuous.
+    expect(names).toHaveLength(4);
+    expect(new Set(names).size).toBe(4);
   });
 
   test("clicking sends the plan-level prompt to the chat", async () => {
     chat.requestChat.mockReset();
     renderSection({ aiEnabled: true });
-    await userEvent.click(screen.getByRole("button", { name: "Ask Claude to draft a proposal" }));
+    await userEvent.click(screen.getByRole("button", { name: PLAN_ASK }));
     expect(chat.requestChat).toHaveBeenCalledWith(expect.stringContaining("plan end"), true);
   });
 });

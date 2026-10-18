@@ -28,7 +28,12 @@ type Props = {
     /** The row's unique token (`useRowTokens`); the accessible name carries it so twin milestones stay apart. */
     rowName?: string;
   }
-  | { milestone: null; plan: DraftAskPlan; rowName?: undefined }
+  | {
+    milestone: null;
+    plan: DraftAskPlan;
+    /** The plan end's row token (the Reports section's pseudo row); named so it differs from every row's button. */
+    rowName?: string;
+  }
 );
 
 const dateText = (lang: Lang, iso: string) => (isValidIsoDate(iso) ? formatDayMonthYear(iso, localeFor(lang)) : iso);
@@ -40,10 +45,11 @@ export function ForecastDraftAsk({ lang, milestone, plan, goal, rowName }: Props
   const body = milestone === null
     ? t(lang, "forecastDraftAskBodyPlan", dateText(lang, plan.date), formatChance(plan.chance, lang), goalText)
     : t(lang, "forecastDraftAskBody", milestone.name, dateText(lang, milestone.date), formatChance(milestone.chance, lang), goalText);
+  const target = milestone === null ? rowName : (rowName ?? milestone.name);
   return (
     <Button
       variant="secondary" size="xs"
-      aria-label={milestone === null ? undefined : rowLabel(label, rowName ?? milestone.name)}
+      aria-label={target === undefined ? undefined : rowLabel(label, target)}
       onClick={() => requestChat(body, true)}
     >
       <SparklesIcon className="h-4 w-4" aria-hidden="true" /> {label}
