@@ -4,7 +4,8 @@
  * trial past the horizon as "beyond". It runs no forecast of its own: every column comes from the comparison (or
  * `computeScenarioColumn` on its context), so all share its common random numbers, and a `whatIf` equal to a saved
  * scenario reproduces that scenario's result exactly. The one extra work is the lever search (`whatItTakesSync`, §502
- * part 4), whose probes are columns on that same context; it is the bulk of a call's cost (docs/AGENTS/forecast.md).
+ * part 4), whose probes are columns on that same context; it is the bulk of a call's cost (docs/AGENTS/forecast.md),
+ * so a call with a `whatIf` skips it.
  */
 import { entityToken } from "./ai-entity-token";
 import type { ScheduleContext } from "./forecast-added-people";
@@ -70,8 +71,10 @@ export type ForecastReport = {
   targetConfidence: TargetConfidence;
   /** The lever engine's answer (`whatItTakesSync`) against `targetConfidence`, on As is. `planEnd` is null when As is
    *  has no plan-end chance; `milestones` holds only those with a chance below the goal (`belowTargetRows`), worst
-   *  first. Both are empty below the history floor. */
-  whatItTakes: { planEnd: WhatItTakes | null; milestones: { id: number; name: string; take: WhatItTakes }[] };
+   *  first. Both are empty below the history floor. ★ A call with a `whatIf` gets `{ omitted: "whatIf" }`: the take is
+   *  defined on As is, identical with or without the draft, and the search is most of a call's cost, so a drafting loop
+   *  of `whatIf` checks would pay it again on every check. A call without `whatIf` returns it. */
+  whatItTakes: WhatItTakesReport | { omitted: "whatIf" };
   /** The scenario the user proposed; null when none is set or the id names no saved scenario (`proposalIdOf`). Its
    *  figures are that scenario's entry in `scenarios`. */
   proposal: { id: number; name: string } | null;
@@ -152,12 +155,19 @@ function rowsOf(column: ScenarioColumn): RowReport[] {
   return (column.schedule?.rows ?? []).map(rowReport);
 }
 
+export type WhatItTakesReport = {
+  planEnd: WhatItTakes | null;
+  milestones: { id: number; name: string; take: WhatItTakes }[];
+};
+
 /** The plan end's and each below-target milestone's lever search, on the comparison's own As-is run and context (no
  *  second As-is run). Below the floor there is no chance to search from, so nothing runs. */
 function whatItTakesReport(
   run: ScenarioRunInput, { asIs, context }: ScenarioComparison, goal: TargetConfidence,
-): ForecastReport["whatItTakes"] {
+): WhatItTakesReport {
   const f = asIs.forecast;
+  // A second mechanism, not the only one: `planWhatItTakes` already answers null for an insufficient column (its
+  // plan-end chance is null and it has no milestone chances), so this saves only the row build, no engine run.
   if (f.kind !== "forecast") return { planEnd: null, milestones: [] };
   const take = (target: LeverTarget) => whatItTakesSync(run, context, target, goal, asIs);
   const below = belowTargetRows(milestoneRowsWorstFirst(run.milestones, f.milestones), goal);
@@ -205,7 +215,7 @@ export function buildForecastReport(
       changes: scenario.changes, result: columnReport(column, run), rows: rowsOf(column),
     })),
     targetConfidence: goal,
-    whatItTakes: whatItTakesReport(run, comparison, goal),
+    whatItTakes: whatIf === null ? whatItTakesReport(run, comparison, goal) : { omitted: "whatIf" },
     proposal: proposalReport(input),
     p80History: history.slice(-P80_HISTORY_ENTRIES).map(({ date, p80 }) => ({ date, p80 })),
   };

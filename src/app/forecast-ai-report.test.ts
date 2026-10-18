@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { ForecastFacts, ForecastFactsByUnit } from "./budget-forecast";
 import { entityToken } from "./ai-entity-token";
 import type { ScenarioDirectory } from "./forecast-added-people";
-import { buildForecastReport, scenarioValidationContext, type ColumnReport, type ForecastReportInput } from "./forecast-ai-report";
+import {
+  buildForecastReport, scenarioValidationContext, type ColumnReport, type ForecastReport, type ForecastReportInput,
+  type WhatItTakesReport,
+} from "./forecast-ai-report";
 import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
 import type { ForecastScenario, ScenarioChange } from "./forecast-scenarios";
 import type { ForecastHistoryEntry } from "./forecast-history";
@@ -94,6 +97,11 @@ function reportInput(
   settingsOverrides: SettingsOverrides | undefined = undefined,
 ): ForecastReportInput {
   return { run: input(over), history: [], scenarios, currency: "EUR", settingsOverrides };
+}
+/** The searched take of a call without `whatIf`. */
+function takesOf(r: ForecastReport): WhatItTakesReport {
+  if ("omitted" in r.whatItTakes) throw new Error("expected a searched whatItTakes");
+  return r.whatItTakes;
 }
 function forecastColumn(c: ColumnReport) {
   if (c.status !== "forecast") throw new Error("expected a forecast column");
@@ -233,7 +241,7 @@ describe("buildForecastReport — target, what it would take, proposal and P80 h
 
   it("lists each below-target milestone with the lever engine's own answer, and the plan end's", () => {
     const inp = reportInput(WITH_GAMMA);
-    const { whatItTakes } = buildForecastReport(inp, null);
+    const whatItTakes = takesOf(buildForecastReport(inp, null));
     const { asIs, context } = computeScenarioComparison(inp.run, []);
     // Beta and Launch are on target, so only Gamma is listed.
     expect(whatItTakes.milestones.map((m) => [m.id, m.name])).toEqual([[9, "Gamma"]]);
@@ -246,8 +254,8 @@ describe("buildForecastReport — target, what it would take, proposal and P80 h
 
   it("measures below target against the stored target, not a fixed 80", () => {
     const report = buildForecastReport(reportInput(WITH_GAMMA, [], withTargetConfidence(undefined, 50)), null);
-    expect(report.whatItTakes.milestones).toEqual([]);
-    expect(report.whatItTakes.planEnd).toMatchObject({ people: { state: "on-target" }, tasks: { state: "on-target" } });
+    expect(takesOf(report).milestones).toEqual([]);
+    expect(takesOf(report).planEnd).toMatchObject({ people: { state: "on-target" }, tasks: { state: "on-target" } });
   });
 
   it("below the history floor, what it would take is empty (no plan-end take, no milestone)", () => {
@@ -278,10 +286,26 @@ describe("buildForecastReport — target, what it would take, proposal and P80 h
     expect(p80History[25]).toEqual({ date: days[29], p80: null });
   });
 
+  it("a call with a whatIf omits what it would take, keeps the other three reads; a plain call carries it", () => {
+    const scenarios = [scenario(1, [availability(120)])];
+    const history: ForecastHistoryEntry[] = [{ date: "2026-10-13", p50: null, p80: "2027-01-04", p95: null, chanceOnTime: 0.5 }];
+    const inp = { ...reportInput(WITH_GAMMA, scenarios, withProposal(withTargetConfidence(undefined, 95), 1)), history };
+    const drafted = buildForecastReport(inp, [availability(90)]);
+    expect(drafted.whatItTakes).toEqual({ omitted: "whatIf" });
+    expect(drafted.whatIf).toBeDefined();
+    expect(drafted.targetConfidence).toBe(95);
+    expect(drafted.proposal).toEqual({ id: 1, name: "S1" });
+    expect(drafted.p80History).toEqual([{ date: "2026-10-13", p80: "2027-01-04" }]);
+    // CONTROL: the same input without the draft searches, and lists Gamma.
+    const plain = buildForecastReport(inp, null);
+    expect(takesOf(plain).milestones.map((m) => m.id)).toEqual([9]);
+    expect({ ...plain, whatItTakes: undefined }).toEqual({ ...drafted, whatItTakes: undefined, whatIf: undefined });
+  });
+
   it("is JSON-safe with every new part filled", () => {
     const scenarios = [scenario(1, [availability(120)])];
     const report = buildForecastReport(reportInput(WITH_GAMMA, scenarios, withProposal(undefined, 1)), null);
-    expect(report.whatItTakes.milestones).toHaveLength(1);
+    expect(takesOf(report).milestones).toHaveLength(1);
     expect(JSON.parse(JSON.stringify(report))).toEqual(report);
   });
 });

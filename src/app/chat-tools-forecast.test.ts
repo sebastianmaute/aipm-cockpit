@@ -84,7 +84,7 @@ describe("the model-facing texts", () => {
     const text = description("get_forecast");
     expect(text).toContain("targetConfidence (50, 80 or 95) is the project's goal for a chance");
     expect(text).toContain(
-      'whatItTakes holds planEnd (null when asIs has no plan-end chance) and one entry per milestone whose chance is below targetConfidence; it is empty when asIs is "insufficient"',
+      'whatItTakes holds planEnd (null when asIs has no plan-end chance) and one entry per milestone whose chance is below targetConfidence; it is empty when asIs is "insufficient", and {omitted: "whatIf"} on a call with whatIf (it does not depend on the draft: call without whatIf to read it)',
     );
     expect(text).toContain('state "inert" with a reason (needs-booked-hours, no-open-tasks, too-few-tasks)');
     expect(text).toContain("proposal is {id, name} of the scenario the user proposed, or null");

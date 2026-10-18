@@ -983,7 +983,11 @@ Part 4 adds four reads. `targetConfidence` (`targetConfidenceOf`, 80 when unset)
 (null when As is has no plan-end chance) and one take per milestone BELOW the goal, chosen by `belowTargetRows` over
 `milestoneRowsWorstFirst` (the Reports and export rule, so overdue and unlinked milestones are never listed; overdue
 ones stay visible in the `asIs` milestones), each the unaltered `whatItTakesSync` answer, `inert` reasons included;
-`{ planEnd: null, milestones: [] }` below the history floor. `proposal`: `{ id, name }` through `proposalIdOf`, so a
+`{ planEnd: null, milestones: [] }` below the history floor. ★ A call WITH a `whatIf` gets `{ omitted: "whatIf" }`
+and runs no lever search: the take is defined on As is, so it is the same with or without the draft, and a drafting
+loop of `whatIf` checks (the §3.6 Ask-Claude path) would otherwise pay it on every check. A call without `whatIf`
+returns it; the tool description and the prompt say so. This is a ruled deviation from spec §3.9, which names no
+carve-out. `proposal`: `{ id, name }` through `proposalIdOf`, so a
 stale id reads as null; its figures are that scenario's own entry. `p80History`: the last `P80_HISTORY_ENTRIES` (26)
 `forecastHistory` entries as `{ date, p80 }`. The target and the proposal come from `ForecastReportInput.settingsOverrides`,
 which `useForecastTools` fills from its live overrides ref (the one `isForecastEnabled` reads), not the getter's copy.
@@ -1010,17 +1014,21 @@ comparison and before the `whatIf` column, so a row a save would refuse is refus
 (`computeScenarioComparison`, As is plus every saved scenario) once, passing `sharedAsIsRun(input.run)` so a warm app
 memo answers the As-is trials, takes the `whatIf` check's context from it
 (`scenarioValidationContext(input, comparison.context)`) and passes it to `buildForecastReport`, whose lever search
-reuses that comparison's As-is column and context. A create, and an
+(on a call without `whatIf` only) reuses that comparison's As-is column and context. A create, and an
 update that sends `changes`, pay one each, for the validation context (`scenarioValidationContext` without a
 context runs As is to learn the team membership). A rename-only update pays none.
-★★ THE LEVER SEARCH IS MOST OF A `get_forecast` CALL, and it runs synchronously in the tool call. Measured 2026-10-18 for
-Task 9 (fresh task arrays, so the As-is run is included; two saved scenarios; three runs each, on the same three
-workloads as the export decision above): about 150–180 ms for 12 open tasks and 2 below-target milestones (the
-comparison alone about 90–105 ms), about 560–590 ms for 60 open and 4 below (comparison about 140 ms), and about
-1.1 s for 150 open and 6 below (comparison about 225 ms). Reproduce with the export decision's probe above, replacing
-its `run` with `const i = { run: <the same fresh input>, history: [], scenarios: [], currency: "EUR" as const,
-settingsOverrides: undefined }; buildForecastReport(i, null)` (import `buildForecastReport` from
-`./src/app/forecast-ai-report`).
+★★ THE LEVER SEARCH IS MOST OF A PLAIN `get_forecast` CALL (no `whatIf`), and it runs synchronously in the tool call.
+Measured 2026-10-18 for Task 9 (fresh task arrays, so the As-is run is included; two saved scenarios; three runs each,
+on the same three workloads as the export decision above): about 150–180 ms for 12 open tasks and 2 below-target
+milestones (the comparison alone about 90–105 ms), about 560–590 ms for 60 open and 4 below (comparison about
+140 ms), and about 1.1 s for 150 open and 6 below (comparison about 225 ms). A call with a `whatIf` runs no search:
+it pays the comparison plus the draft's one column (single runs after the fix: about 135, 255 and 315 ms on the same
+three workloads, the plain call measuring 155, 577 and 1096 ms in the same run). Reproduce with the export decision's probe above, replacing its
+`run` with `const i = { run: <the same fresh input>, history: [], scenarios: [{ id: 1, name: "A", changes: [{ kind:
+"availability", percent: 120, from: today, until: "" }] }, { id: 2, name: "B", changes: [{ kind: "scope", tasks: -3,
+on: today }] }] as never, currency: "EUR" as const, settingsOverrides: undefined }; buildForecastReport(i, null)`
+(import `buildForecastReport` from `./src/app/forecast-ai-report`); `computeScenarioComparison(i.run, i.scenarios)`
+alone gives the comparison figure.
 
 ★★ ONE COMPARISON PER RENDER: in Scenarios mode `ForecastPanel` computes the scenario comparison once (a `useMemo`
 over the comparison's inputs; null outside Scenarios mode) and passes it to `ForecastScenariosView` as `comparison`;
