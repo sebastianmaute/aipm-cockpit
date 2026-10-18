@@ -32,6 +32,10 @@ describe("ForecastDraftAsk", () => {
     expect(body).toContain("Go-live");
     expect(body).toContain("31%");
     expect(body).toContain("80%");
+    // Spec §3.6: combine levers, name the tasks to drop, save through the approve step.
+    expect(body).toContain("Combine levers if one alone is not enough");
+    expect(body).toContain("Name the tasks to drop, in the scenario name and in the chat");
+    expect(body).toContain("create_forecast_scenario under the usual approve step");
   });
 
   test("the name carries the visible label and differs from the other Ask-Claude buttons", () => {
@@ -50,12 +54,18 @@ describe("ForecastDraftAsk", () => {
     expect(body).toContain("plan end");
     expect(body).toContain("40%");
     expect(body).toContain("95%");
+    expect(body).toContain("Combine levers");
+    expect(body).toContain("Name the tasks to drop");
+    expect(body).toContain("create_forecast_scenario");
   });
 
   test("German: label and body are German", async () => {
     render(<ForecastDraftAsk lang="de" milestone={GO_LIVE} goal={80} />);
     await userEvent.click(screen.getByRole("button", { name: /Claude einen Vorschlag entwerfen lassen/ }));
-    expect(requestChat.mock.calls[0][0]).toContain("31 %");
+    const body = requestChat.mock.calls[0][0] as string;
+    expect(body).toContain("31 %");
+    expect(body).toContain("Kombiniere Hebel");
+    expect(body).toContain("create_forecast_scenario");
   });
 });
 
