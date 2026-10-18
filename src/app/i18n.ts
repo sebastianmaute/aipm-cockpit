@@ -822,6 +822,7 @@ const enUS = {
   forecastReportVerdictMilestones: "{0} of {1} milestones are below target.",
   forecastReportVerdictMilestonesOne: "{0} of {1} milestones is below target.",
   forecastReportVerdictOverdueHead: "Milestones overdue.",
+  forecastReportVerdictOverdueHeadOne: "Milestone overdue.",
   forecastReportVerdictOverdue: "{0} milestones overdue.",
   forecastReportVerdictOverdueOne: "{0} milestone overdue.",
   forecastReportAfterPlanEnd: "{0} working days after plan end",

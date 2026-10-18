@@ -73,11 +73,12 @@ const nameOfRow = (r: { name: string }) => r.name;
 function verdictText(lang: Lang, verdict: ForecastVerdict, planEnd: string, chance: number, goal: TargetConfidence): { head: string; rest: string } {
   // The plan end on target but a milestone overdue: not "On target", and not "Below target" either (it is not).
   const planEndOn = chanceSeverity(chance, goal) === "green";
-  const headKey = verdict.severity === "success" ? "forecastReportVerdictOn" : planEndOn ? "forecastReportVerdictOverdueHead" : "forecastReportVerdictBelow";
+  const head = verdict.severity === "success" ? t(lang, "forecastReportVerdictOn")
+    : planEndOn ? tPlural(lang, "forecastReportVerdictOverdueHead", verdict.overdue) : t(lang, "forecastReportVerdictBelow");
   const planEndText = t(lang, "forecastReportVerdictPlanEnd", formatDayMonthYear(planEnd, localeFor(lang)), formatChance(chance, lang), t(lang, "forecastPercent", goal));
   const milestones = verdict.total > 0 ? tPlural(lang, "forecastReportVerdictMilestones", verdict.below, verdict.below, verdict.total) : "";
   const overdue = verdict.overdue > 0 ? tPlural(lang, "forecastReportVerdictOverdue", verdict.overdue, verdict.overdue) : "";
-  return { head: t(lang, headKey), rest: [planEndText, milestones, overdue].filter((s) => s !== "").join(" ") };
+  return { head, rest: [planEndText, milestones, overdue].filter((s) => s !== "").join(" ") };
 }
 
 /** "14 working days after plan end" under the Safe-to-commit tile; undefined beyond the horizon or with no plan end. */

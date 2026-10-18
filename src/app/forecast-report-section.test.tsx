@@ -17,7 +17,7 @@ import type { ScenarioDirectory } from "./forecast-added-people";
 import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
 import type { Milestone, Resource, Role, Task } from "./types";
 import { rowLabel } from "./row-tokens";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { SEVERITY_CLASS } from "./banner";
 import { workingDaysBefore } from "./working-days";
 
@@ -149,6 +149,28 @@ describe("ForecastReportSection — a forecast", () => {
     expect(banner.textContent).toMatch(/^Milestones overdue\. Plan end .+ has a .+ chance \(target 80%\)\. 0 of 3 milestones are below target\. 2 milestones overdue\.$/);
     expect(banner.className).toContain(SEVERITY_CLASS.warn);
     expect(banner.className).not.toContain(SEVERITY_CLASS.success);
+  });
+
+  // Review 4 — the head is pluralised too: one overdue milestone reads "Milestone overdue.", in EN and DE.
+  test.each([
+    ["en-US", 1, /^Milestone overdue\. .* 1 milestone overdue\.$/],
+    ["en-US", 2, /^Milestones overdue\. .* 2 milestones overdue\.$/],
+    ["de", 1, /^Meilenstein überfällig\. .* 1 Meilenstein überfällig\.$/],
+    ["de", 2, /^Meilensteine überfällig\. .* 2 Meilensteine überfällig\.$/],
+  ] as const)("%s, %i overdue: the head and the count agree in number", async (lang, k, expected) => {
+    await loadI18n("de");
+    const overdue: Milestone[] = [
+      { id: 21, name: "Kickoff", date: "2026-10-01", linkedTaskIds: [OPEN[0].id] },
+      { id: 22, name: "Design", date: "2026-10-05", linkedTaskIds: [OPEN[1].id] },
+    ].slice(0, k);
+    const onTarget: Milestone = { id: 24, name: "A", date: "2027-06-01", linkedTaskIds: [OPEN[2].id] };
+    stub.values = new Map();
+    const props: ForecastReportProps = {
+      input: input({ milestones: [...overdue, onTarget], planEnd: "2027-06-30" }), scenarios: SCENARIOS, settings: settings(),
+      history: [], currency: "EUR", readOnly: false,
+    };
+    render(<ForecastReportSection lang={lang} {...props} />);
+    expect(screen.getByTestId("forecast-verdict").textContent).toMatch(expected);
   });
 
   test("lists milestones worst first, the overdue one last", () => {

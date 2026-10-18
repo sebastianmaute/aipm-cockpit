@@ -760,6 +760,7 @@ export const de: Record<TranslationKey, string> = {
   forecastReportVerdictMilestones: "{0} von {1} Meilensteinen liegen unter dem Ziel.",
   forecastReportVerdictMilestonesOne: "{0} von {1} Meilensteinen liegt unter dem Ziel.",
   forecastReportVerdictOverdueHead: "Meilensteine überfällig.",
+  forecastReportVerdictOverdueHeadOne: "Meilenstein überfällig.",
   forecastReportVerdictOverdue: "{0} Meilensteine überfällig.",
   forecastReportVerdictOverdueOne: "{0} Meilenstein überfällig.",
   forecastReportAfterPlanEnd: "{0} Arbeitstage nach Planende",
