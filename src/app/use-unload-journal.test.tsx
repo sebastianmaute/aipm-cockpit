@@ -602,6 +602,10 @@ describe("§715 — a workspace with nothing authored is never journalled", () =
   const KEPT_KEY = `${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p1")}`;
   const WS_1: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "One" } as unknown as Task] };
 
+  // The default plan follows today's month, and the live and stored workspaces are built at different
+  // moments: a fixed mid-month clock keeps them on one month.
+  beforeEach(() => { vi.setSystemTime(new Date("2026-10-15T12:00:00Z")); });
+
   // `base` is the stored version, as a load hands it over; the skip holds only when it was empty too.
   function renderJournal(base: Workspace | null = emptyWorkspace()) {
     const hook = renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
