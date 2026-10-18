@@ -36,7 +36,7 @@
 // is the one `requireCollisionSeed` can certify.
 
 import { useMemo, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, tPlural } from "./i18n";
 import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
@@ -324,7 +324,7 @@ export function ChatProposalBlock({
       <header className="flex items-baseline justify-between gap-2 px-3 py-2">
         <h3 className="text-sm font-semibold text-foreground">{t(lang, "chatProposalTitle")}</h3>
         <span className="text-xs text-muted-foreground">
-          {t(lang, "chatProposalCount", rows.length)}
+          {tPlural(lang, "chatProposalCount", rows.length, rows.length)}
         </span>
       </header>
 

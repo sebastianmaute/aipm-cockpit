@@ -19,7 +19,7 @@ import { seedMintFromWorkspace } from "./id-mint-session";
 import { loadRegistry, saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
-import { loadCurrentTursoProjectId } from "./portfolio-mode";
+import { loadCurrentTursoProjectId, loadPortfolioMode } from "./portfolio-mode";
 import { isSaveConflict, isSaveLockTimeout, isTursoLockTimeout, SaveConflictError, tursoErrorKind } from "./storage-error";
 import { mergeActivityLogs } from "./activity-log-merge";
 import { mergeBudgetHistories } from "./budget-history";
@@ -100,6 +100,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // switching/creating a Turso project updates it, which rebuilds the backend memo
   // so load/save scope to the per-project (tenant-mode) TursoBackend.
   const [tursoProjectId, setTursoProjectId] = useState<string | null>(loadCurrentTursoProjectId());
+  // §751 — the portfolio is on Turso but no project is chosen: a save would go to the single-project layout.
+  const tursoPortfolioWithoutProject = args.settings.storageConfig.kind === "turso" && !tursoProjectId && loadPortfolioMode() === "turso";
+  const tursoPortfolioWithoutProjectRef = useRef(tursoPortfolioWithoutProject);
+  tursoPortfolioWithoutProjectRef.current = tursoPortfolioWithoutProject;
 
   // ★★★ §548 — THE TURSO URL AND TOKEN FEED THE BACKEND ONLY WHEN THE STORAGE KIND IS TURSO.
   //   `createBackend` reads `tursoConfig` for kind "turso" alone, but these two used to sit in the
@@ -489,7 +493,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // §629 — the suppress branch's resync, for the one load whose save is NOT suppressed (a restored unload journal): the guard then measures the restore against what the backend returned.
   const syncBaselinesToLoaded = (loaded: Workspace): void => { const collections = nonEmptyCollectionCount(loaded), records = workspaceRecordCount(loaded); destructive.syncBaselines(collections, records); committedBaselineRef.current = { collections, records }; destructive.clearRefusal(); };
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { truncation, decodeFailureCount, activityLogUnreadable, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); let base: string | null | undefined; try { const result = await enqueueSave(backend, () => { base = announcedRevision(backend); return backend.save(ws); }, { settleReplacedAsOwn: true }); const revision = backend.revision?.(); if (result !== "superseded" && base != null && revision != null) postRevision(syncContext, revision, base); } catch (err) { if (!isSaveConflict(err)) throw err; keepNotSavedOnSwitch(ws, err); } } else if (conflictPausedForRef.current === backend) keepNotSavedOnSwitch(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort. §4: a conflict — met here, or a pause standing — is kept, not thrown, unless it cannot be kept (I2, below). §656 — a flush that wrote posts its revision like the autosave, or a window mirroring this storage pauses at its next save; `base` stays unset when the job never ran.
+  const { truncation, decodeFailureCount, activityLogUnreadable, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, async () => { if (tursoPortfolioWithoutProjectRef.current) { logDiag("warn", "storage.saveSkippedNoTursoProject", { path: "flush" }); return; } if (savesAllowedForRef.current === backend) { const ws = currentWorkspace(); let base: string | null | undefined; try { const result = await enqueueSave(backend, () => { base = announcedRevision(backend); return backend.save(ws); }, { settleReplacedAsOwn: true }); const revision = backend.revision?.(); if (result !== "superseded" && base != null && revision != null) postRevision(syncContext, revision, base); } catch (err) { if (!isSaveConflict(err)) throw err; keepNotSavedOnSwitch(ws, err); } } else if (conflictPausedForRef.current === backend) keepNotSavedOnSwitch(currentWorkspace()); else logDiag("warn", "storage.flushSkippedBeforeLoad", {}); }); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it writes the workspace LIVE WHEN THE FLUSH IS REQUESTED to the CURRENT backend (§627: the write itself may wait behind a save in flight; `holdDuring` blocks edits meanwhile). ★★★ §586: this is `flushCurrent`'s write (the pre-switch flush), so it obeys the save gate too — a switch away from a project whose load failed must not write the empty workspace over it. A skip, not a throw: the flush is best-effort. ★★★ §751 — the same skip, first, when the Turso portfolio has no project chosen: this flush runs before the switch or create that leaves that state, and the backend it would write to is the single-project one, whose save deletes every project's rows. §4: a conflict — met here, or a pause standing — is kept, not thrown, unless it cannot be kept (I2, below). §656 — a flush that wrote posts its revision like the autosave, or a window mirroring this storage pauses at its next save; `base` stays unset when the job never ran.
   // §4 — the flush above met a newer revision (it wrote nothing), or saving was already paused on one: the op goes ahead, so the journal is written NOW, under the key being left, and a toast says so. ★ Final review I2: when that kept write FAILS (over the cap, quota, codec), the `SaveConflictError` is thrown instead, and every op's flush catch stops on it (no generic flush-failed toast): the user stays on this project behind the pause, whose Download works at any size.
   function keepNotSavedOnSwitch(ws: Workspace, refused?: SaveConflictError): void {
     if (unloadJournal.followLive(ws, true)) { keptOnSwitchForRef.current = backend; emitToast("error", t(langRef.current, "storageConflictNotSavedOnSwitch")); return; }
@@ -892,6 +896,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //   Measured: dropping `activityLog` from this literal keeps tsc GREEN. The single
     //   spelling, NOT tsc, is what protects this; do not re-inline the literal at the save.
     const outgoing: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory, forecastHistory, forecastScenarios };
+    // ★★★ §751 — the portfolio on Turso with NO project chosen: `createBackend` then hands back the
+    //   single-project `TursoBackend`, whose save opens with an unscoped `DELETE FROM` every workspace
+    //   table — the same tables that hold every project's rows. Measured: the first setup on an empty
+    //   database sent it, and a populated database was spared only because its batch rolled back. No
+    //   save is sent in that state, and so none is journalled either.
+    if (tursoPortfolioWithoutProjectRef.current) return;
     if (!savesAllowed) {
       if (loadPause === "conflict") unloadJournal.followLive(outgoing); // §4 — no save can carry these edits: pagehide journals them
       if (loadPause !== null && savePausedAnnouncedForRef.current !== backend) {
@@ -1053,6 +1063,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // together with the effect-level check turns (a) (b) (c) (e) (h) (i) red. It is here for a future
       // path that schedules without that check.
       if (savesAllowedForRef.current !== backend) return;
+      if (tursoPortfolioWithoutProjectRef.current) { logDiag("warn", "storage.saveSkippedNoTursoProject", { path: "save" }); return; } // §751 — the debounce and flush-on-hide call this later
       const journalSavedAt = unloadJournal.noteSaveStarted(outgoing); // §629 — here, past every guard: the save below really fires
       // ★★ §627 — through the per-backend queue (save-queue.ts): one full save at a time, newest last,
       //   so an older snapshot can no longer finish after a newer one on file/SharePoint. A save

@@ -13,7 +13,7 @@ import { ArrowDownTrayIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { PopoverPanel } from "./popover-panel";
 import { type ExportFormat, exportWorkspace } from "./export";
-import { type Lang, type TranslationKey, t } from "./i18n";
+import { type Lang, type TranslationKey, t, tPlural } from "./i18n";
 import type { Workspace } from "./storage";
 import type { ExportConfig } from "./settings-types";
 import { reportSilentFailure } from "./guard-feedback";
@@ -96,7 +96,7 @@ export function ExportMenu({
           {t(lang, "exportTitle")}
         </h3>
           <p className="mb-2 text-xs text-foreground">
-            {t(lang, "exportSubtitle", workspace.tasks.length)}
+            {tPlural(lang, "exportSubtitle", workspace.tasks.length, workspace.tasks.length)}
           </p>
           <ul className="space-y-1">
             {OPTIONS.map((o) => (

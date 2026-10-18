@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useMemo, useState } from "react";
 import { ArrowPathIcon } from "./icons";
-import { type Lang, t, localeFor } from "./i18n";
+import { type Lang, t, tPlural, localeFor } from "./i18n";
 import { computeBudgetReport, effectiveBudgetHours, costIsKnowable, type BucketReport } from "./budget-report";
 import { CostUnknownNotice } from "./budget-cost-notice";
 import { Cci } from "./budget-panel-cards";
@@ -363,7 +363,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
         <h2 className="text-lg font-medium text-foreground">
           {t(lang, "tabBudget")}{" "}
           <span className="text-sm font-normal text-muted-foreground">
-            {t(lang, "budgetBucketsCount", report.buckets.length)}
+            {tPlural(lang, "budgetBucketsCount", report.buckets.length, report.buckets.length)}
           </span>
         </h2>
         <div className="flex items-center gap-2">

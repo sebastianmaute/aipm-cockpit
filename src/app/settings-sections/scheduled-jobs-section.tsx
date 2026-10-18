@@ -18,6 +18,8 @@ import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
 import { Input, Select, Checkbox } from "../form-controls";
 import { useRowTokens } from "../use-row-tokens";
 import { Button } from "../button";
+import { useDisplayTzOrBrowser } from "../display-timezone-context";
+import { formatDisplayTimestamp } from "../tz-display";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
  *  token is the digit string the runner stores, so history recorded before this change reads the
@@ -58,11 +60,14 @@ function JobRow({
   job,
   token,
   busy,
+  tz,
   onUpdate,
   onDelete,
 }: {
   lang: Lang;
   job: ScheduledJob;
+  /** §715 — the zone a run's time is shown in (the stored `ranAt` is UTC). */
+  tz: string;
   /** §316 — the job name made row-unique across the list; every control here is named by it. */
   token: string;
   busy: boolean;
@@ -168,7 +173,7 @@ function JobRow({
       <div className="text-xs text-muted-foreground">
         {lastRun ? (
           <span>
-            {t(lang, "scheduledJobLastRun", lastRun.ranAt)}
+            {t(lang, "scheduledJobLastRun", formatDisplayTimestamp(lastRun.ranAt, tz, lang))}
             {" — "}
             {lastRun.ok
               ? tPlural(lang, "scheduledJobActionsN", lastRun.actionCount, String(lastRun.actionCount))
@@ -194,7 +199,7 @@ function JobRow({
             <ul className="mt-2 flex flex-col gap-1">
               {job.history.slice(1).map((run, idx) => (
                 <li key={`${run.ranAt}-${idx}`} className="text-xs text-muted-foreground">
-                  {t(lang, "scheduledJobLastRun", run.ranAt)}
+                  {t(lang, "scheduledJobLastRun", formatDisplayTimestamp(run.ranAt, tz, lang))}
                   {" — "}
                   {run.ok
                     ? tPlural(lang, "scheduledJobActionsN", run.actionCount, String(run.actionCount))
@@ -215,6 +220,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const { jobs, busy, createJob, updateJob, deleteJob } = useScheduledJobs({ config });
   // §316 — every new job starts with the same default name.
   const jobTokens = useRowTokens(jobs, nameOfJob);
+  const tz = useDisplayTzOrBrowser();
 
   const enabled = settings.ai.scheduledJobs === true;
   const hasKey = isAiEnabled(settings.ai);
@@ -264,6 +270,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     job={job}
                     token={jobTokens.get(job.id) ?? job.name}
                     busy={busy}
+                    tz={tz}
                     onUpdate={(id, patch) => void updateJob(id, patch)}
                     onDelete={(id) => void deleteJob(id)}
                   />

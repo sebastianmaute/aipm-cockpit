@@ -46,6 +46,13 @@ export function DisplayTimezoneProvider({
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
+/** §715 — the display zone where the provider is mounted, else the browser's own. For a timestamp in a
+ *  surface that also renders outside the provider (a Settings section, a panel under test), where
+ *  `useDisplayTimezone` would throw. */
+export function useDisplayTzOrBrowser(): string {
+  return useContext(Ctx)?.displayTz ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
 export function useDisplayTimezone(): DisplayTimezoneValue {
   const v = useContext(Ctx);
   if (!v) throw new Error("useDisplayTimezone must be used within DisplayTimezoneProvider");

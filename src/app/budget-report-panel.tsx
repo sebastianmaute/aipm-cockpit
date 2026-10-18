@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { type Lang, t, localeFor } from "./i18n";
+import { type Lang, t, tPlural, localeFor } from "./i18n";
 import { DataTable } from "./data-table";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
@@ -254,7 +254,7 @@ export function BudgetReportPanel({
               <Tile label={t(lang, "evmSv")} value={`${Math.round(evm.sv)}h${evm.money ? ` (${money(evm.money.sv)})` : ""}`} />
               <Tile label={t(lang, "evmCv")} value={`${Math.round(evm.cv)}h${evm.money ? ` (${money(evm.money.cv)})` : ""}`} />
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">{t(lang, "evmCoverage", String(evm.coverage.withEstimate), String(evm.coverage.total))}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{tPlural(lang, "evmCoverage", evm.coverage.total, String(evm.coverage.withEstimate), String(evm.coverage.total))}</p>
           </>
         )}
       </Section>

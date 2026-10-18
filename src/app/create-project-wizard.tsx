@@ -29,7 +29,7 @@ import {
   MODE_LABEL_KEY,
   deriveMode,
 } from "./feature-modules";
-import { t, type Lang } from "./i18n";
+import { t, tPlural, type Lang } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { aiKeyIfEnabled, type Settings } from "./settings-types";
@@ -397,7 +397,11 @@ export function CreateProjectWizard({
           <>
             {imported && (
               <p className="mb-3 text-xs text-muted-foreground">
-                {t(lang, "wizardImportWorkspaceNotice", imported.fileName, imported.ws.tasks.length, imported.ws.raid.length, imported.ws.budgets?.length ?? 0)}
+                {t(lang, "wizardImportWorkspaceNotice", imported.fileName, [
+                  tPlural(lang, "wizardImportTasksPart", imported.ws.tasks.length, imported.ws.tasks.length),
+                  tPlural(lang, "wizardImportRaidPart", imported.ws.raid.length, imported.ws.raid.length),
+                  tPlural(lang, "wizardImportBudgetsPart", imported.ws.budgets?.length ?? 0, imported.ws.budgets?.length ?? 0),
+                ].join(", "))}
                 {imported.ignored.length > 0 && (
                   <>
                     {" "}
