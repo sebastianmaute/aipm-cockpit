@@ -26,7 +26,7 @@ export interface ProposedCall {
  *   restorable version (`deleteDocument` returns `restorableVersionId`). The
  *   recovery path is the Documents tombstone list, not the undo stack, and
  *   nothing on the chat surface points at it — so from the chat user's seat the
- *   delete is as final as the other seven.
+ *   delete is as final as the other deletes here.
  *
  *  ★ `delete_absence` and `delete_calendar_event` joined this set when those
  *   tools were added — same reasoning as every other `delete_*` tool here,
