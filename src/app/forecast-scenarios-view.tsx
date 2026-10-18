@@ -46,6 +46,8 @@ export type ScenarioDialog =
 export type ScenarioProposal = { id: number | null; onChange: (id: number | null) => void };
 /** An Explore request the panel holds, and a count that remounts the editor on each new one. */
 export type ExploreDraft = { req: ForecastDraftRequest; seq: number };
+/** How an Explore draft ended: saved into the list (the view stays in Scenarios), or cancelled / no longer draftable. */
+export type ExploreDraftOutcome = "saved" | "cancelled";
 
 /** The editor an Explore request opens (`exploreSeeds`); null when it cannot be drafted. The draft's id is minted
  *  at Save (`openId` is unused for a seeded editor): minting is a side effect, and the request can arrive during render. */
@@ -205,7 +207,7 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
   proposal?: ScenarioProposal;
   /** An Explore draft the panel holds (§502 part 4): the editor opens on it until Save or Cancel calls `onDraftClose`. */
   draft?: ExploreDraft | null;
-  onDraftClose?: () => void;
+  onDraftClose?: (outcome: ExploreDraftOutcome) => void;
   /** The project's target confidence: milestone chances carry RAG dots against it. Absent = no dots. */
   goal?: TargetConfidence;
 }) {
@@ -240,7 +242,7 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
   // otherwise an undo that restores the milestone would reopen the editor uninvited.
   const draftLost = draft !== null && draftDialog === null;
   useEffect(() => {
-    if (draftLost) onDraftClose?.();
+    if (draftLost) onDraftClose?.("cancelled");
   }, [draftLost, onDraftClose]);
   const dialog = draftDialog ?? ownDialog;
   // The editor's live As is vs. Draft comparison, for every editor (new, edit, Explore). One object per As-is run, so
@@ -250,7 +252,8 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
     () => (asIs.forecast.kind === "forecast" ? { input, asIs, goal } : undefined),
     [input, asIs, goal],
   );
-  const close = draftDialog !== null ? () => onDraftClose?.() : () => setDialog(null);
+  const closeWith = (outcome: ExploreDraftOutcome) => (draftDialog !== null ? onDraftClose?.(outcome) : setDialog(null));
+  const close = () => closeWith("cancelled");
   // The hook refuses without a toast (a cap or name taken by a concurrent writer since open), so a refusal keeps
   // the dialog open with its reason; only a write that went through closes it.
   const dialogEl = readOnly || dialog === null ? null : dialog.kind === "edit" ? (
@@ -266,7 +269,7 @@ export function ForecastScenariosView({ lang, input, scenarios, comparison: prov
           ? api.updateScenario(dialog.scenario.id, d)
           : api.createScenario(dialog.seed ? api.mintId() : dialog.openId, d) !== null;
         if (!saved) return scenarioRefusalText(lang, d, list, dialog.scenario?.id ?? null);
-        close();
+        closeWith("saved");
         return null;
       }}
     />

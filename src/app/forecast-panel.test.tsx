@@ -802,7 +802,8 @@ describe("ForecastPanel — Scenarios with the simulation off (§502 part 4)", (
   const history = [...open(5), ...steadyDone(60)];
   const GO_LIVE: Milestone[] = [{ id: 1, name: "Go-live", date: "2026-11-30", linkedTaskIds: [1, 2, 3, 4, 5] }];
   const SETTINGS = { target: 80 as const, proposalId: 1, setTarget: () => {}, setProposal: () => {} };
-  const dots = (c: HTMLElement) => c.querySelectorAll("span[aria-hidden].rounded-full").length;
+  const dots = (c: HTMLElement) => c.querySelectorAll("span.rounded-full").length;
+  const RAG_NAME = /^(below 50%|below target|at or above target)$/;
   async function inScenarios(showSimulation: boolean) {
     const user = userEvent.setup();
     const view = render(
@@ -819,12 +820,15 @@ describe("ForecastPanel — Scenarios with the simulation off (§502 part 4)", (
     const off = await inScenarios(false);
     expect(screen.queryByRole("button", { name: /^Use as proposal/ })).toBeNull();
     expect(screen.queryByText("proposal")).toBeNull();
-    const offDots = dots(off);
+    expect(dots(off)).toBe(0);
+    expect(screen.queryByRole("img", { name: RAG_NAME })).toBeNull();
     cleanup();
     // Positive control: with the simulation on the same surfaces exist.
     const on = await inScenarios(true);
     expect(screen.getAllByRole("button", { name: /^Use as proposal/ }).length).toBeGreaterThan(0);
     expect(screen.getByText("proposal")).toBeTruthy();
-    expect(dots(on)).toBeGreaterThan(offDots);
+    expect(dots(on)).toBeGreaterThan(0);
+    // The dots carry a text equivalent, so severity is not colour-only.
+    expect(screen.getAllByRole("img", { name: RAG_NAME }).length).toBeGreaterThan(0);
   });
 });

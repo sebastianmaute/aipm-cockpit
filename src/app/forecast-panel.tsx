@@ -28,7 +28,7 @@ import type { ForecastFactsByUnit } from "./budget-forecast";
 import { simulateCostFromRunMemo } from "./budget-sim";
 import { ReportCard } from "./report-table";
 import { InsufficientState } from "./forecast-insufficient";
-import { ForecastScenariosView, type ExploreDraft, type ForecastScenariosProps } from "./forecast-scenarios-view";
+import { ForecastScenariosView, type ExploreDraft, type ExploreDraftOutcome, type ForecastScenariosProps } from "./forecast-scenarios-view";
 import { ForecastTargetControl } from "./forecast-target-control";
 import { ForecastLeverCell, alternativeLever } from "./forecast-lever-cell";
 import type { LeverKind, LeverTarget } from "./forecast-levers";
@@ -159,9 +159,16 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
   const [mode, setMode] = useState<ForecastMode>("quick");
   // §502 part 4 — an Explore draft opens Scenarios mode on an unsaved scenario. A new request is a new object.
   const [draft, setDraft] = useState<ExploreDraft | null>(null);
+  // The mode Explore was clicked from: Cancel goes back there, Save stays in Scenarios.
+  const [draftFrom, setDraftFrom] = useState<ForecastMode>("quick");
   const openDraft = (req: ForecastDraftRequest) => {
     setDraft((prev) => ({ req, seq: (prev?.seq ?? 0) + 1 }));
+    if (mode !== "scenarios") setDraftFrom(mode);
     setMode("scenarios");
+  };
+  const closeDraft = (outcome: ExploreDraftOutcome) => {
+    setDraft(null);
+    if (outcome === "cancelled") setMode(draftFrom);
   };
   // ★ Remount-swallow (AGENTS.md): the view mounts fresh on each visit, so the handled marker starts at the
   // SENTINEL null — seeding it with the live request would make a fresh mount see it as already handled.
@@ -354,7 +361,9 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
       {inScenarios && scenarioInput && comparison ? (
         <ForecastScenariosView
           lang={lang} input={scenarioInput} scenarios={scenarios} comparison={comparison} proposal={proposal}
-          draft={draft} onDraftClose={() => setDraft(null)} goal={showSimulation ? forecastSettings?.target : undefined}
+          // Drafts are not gated on the switch (they only come from surfaces that exist with it on); goal and proposal are,
+          // so a draft opened with the simulation off still shows no part-4 figures.
+          draft={draft} onDraftClose={closeDraft} goal={showSimulation ? forecastSettings?.target : undefined}
         />
       ) : result === null ? null : result.kind === "insufficient" ? (
         <InsufficientState lang={lang} result={result} />

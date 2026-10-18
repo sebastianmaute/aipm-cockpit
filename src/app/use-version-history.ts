@@ -17,7 +17,7 @@ import type { TursoConfig } from "./turso-config";
 import { logDiag } from "./diagnostics";
 import { repairLoadedRaid } from "./raid-cause-repair";
 import type { ProjectVersion, ProjectVersionMeta } from "./version-history";
-import { readCaptureFormat, speaksForEmptySlices, speaksForScenarios, stampCaptureFormat } from "./version-capture-format";
+import { captureSpeaks, readCaptureFormat, speaksForEmptySlices, speaksForScenarios, stampCaptureFormat } from "./version-capture-format";
 
 export interface UseVersionHistoryArgs {
   config: TursoConfig | null;
@@ -296,16 +296,15 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       // restore deletes it. `emptyWorkspace()` carries the nine core lists as
       // `[]`, so the absent-key guard below cannot catch that shape.
       const verFormat = readCaptureFormat(verStr);
-      const speaks = speaksForEmptySlices(verFormat);
-      const speaksScenarios = speaksForScenarios(verFormat);
-      const version = prepareAgainstNow(jsonToWorkspace(verStr, { strict: true }), versionId, speaks);
+      const speak = captureSpeaks(verFormat);
+      const version = prepareAgainstNow(jsonToWorkspace(verStr, { strict: true }), versionId, speak.diff.olderSpeaksForEmptySlices);
       const now = jsonToWorkspace(getPayload());
-      const changes = diffWorkspaces(version, now, { olderSpeaksForEmptySlices: speaks, olderSpeaksForScenarios: speaksScenarios });
+      const changes = diffWorkspaces(version, now, speak.diff);
       // §674: a version saved before the cause-cycle guard can hold a loop. Repair it
       // here, as a load (it has no before-image either), and log it; handed to the
       // setter raw it would be broken against the CURRENT state and logged as a write.
       // Before the capture, so the auto version records what the app then holds.
-      const merged = applyRestore(now, version, changes, selection, { versionSpeaksForEmptySlices: speaks, versionSpeaksForScenarios: speaksScenarios, workdayHours });
+      const merged = applyRestore(now, version, changes, selection, { ...speak.restore, workdayHours });
       // §502: the simulation switch is a viewing choice, so it stays at the CURRENT value. Pinned AFTER the
       // merge so the blind-capture guard still saw the version's own `undefined`.
       const restored = {

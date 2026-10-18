@@ -5,6 +5,7 @@ import {
   PRE_FORMAT_2_BLIND_SLICES,
   PRE_FORMAT_3_BLIND_SLICES,
   SCENARIOS_FORMAT,
+  captureSpeaks,
   isBlindSlice,
   speaksForScenarios,
   readCaptureFormat,
@@ -120,6 +121,17 @@ describe("format 3 — forecastScenarios (§502)", () => {
 
   it("holds exactly forecastScenarios in the format-3 blind set", () => {
     expect([...PRE_FORMAT_3_BLIND_SLICES]).toEqual(["forecastScenarios"]);
+  });
+
+  it("captureSpeaks hands the diff and the restore the SAME two answers, at every format", () => {
+    for (const format of [null, 1, EMPTY_SLICES_FORMAT, SCENARIOS_FORMAT, CAPTURE_FORMAT]) {
+      const { diff, restore } = captureSpeaks(format);
+      expect(diff.olderSpeaksForEmptySlices).toBe(speaksForEmptySlices(format));
+      expect(diff.olderSpeaksForScenarios).toBe(speaksForScenarios(format));
+      expect(restore.versionSpeaksForEmptySlices).toBe(diff.olderSpeaksForEmptySlices);
+      expect(restore.versionSpeaksForScenarios).toBe(diff.olderSpeaksForScenarios);
+    }
+    expect(captureSpeaks(EMPTY_SLICES_FORMAT).restore.versionSpeaksForScenarios).toBe(false); // a pre-format-3 capture
   });
 
   it("isBlindSlice judges each set against its own format", () => {

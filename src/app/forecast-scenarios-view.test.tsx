@@ -387,6 +387,6 @@ describe("ForecastScenariosView — an Explore draft whose milestone disappears 
     expect(onDraftClose).not.toHaveBeenCalled();
     rerender(view([], onDraftClose));
     expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull();
-    expect(onDraftClose).toHaveBeenCalled();
+    expect(onDraftClose).toHaveBeenCalledWith("cancelled");
   });
 });

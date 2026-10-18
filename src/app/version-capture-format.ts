@@ -103,3 +103,21 @@ export function speaksForEmptySlices(format: number | null): boolean {
 export function speaksForScenarios(format: number | null): boolean {
   return format !== null && format >= SCENARIOS_FORMAT;
 }
+
+/**
+ * What a stored capture can speak for, in the shape `diffWorkspaces` and `applyRestore` each take, from ONE format
+ * read. A restore threads both calls from this, so the two can never disagree: `applyRestore`'s own guard is defence in
+ * depth behind a diff that already drops the rows, which makes a flag set wrongly on the restore side invisible through
+ * the caller — the equality is pinned here instead.
+ */
+export function captureSpeaks(format: number | null): {
+  diff: { olderSpeaksForEmptySlices: boolean; olderSpeaksForScenarios: boolean };
+  restore: { versionSpeaksForEmptySlices: boolean; versionSpeaksForScenarios: boolean };
+} {
+  const empty = speaksForEmptySlices(format);
+  const scenarios = speaksForScenarios(format);
+  return {
+    diff: { olderSpeaksForEmptySlices: empty, olderSpeaksForScenarios: scenarios },
+    restore: { versionSpeaksForEmptySlices: empty, versionSpeaksForScenarios: scenarios },
+  };
+}

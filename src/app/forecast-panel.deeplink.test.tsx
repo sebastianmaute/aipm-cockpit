@@ -100,7 +100,7 @@ describe("ForecastPanelDeepLinked — an Explore draft from Reports (§502 part 
     directory: { resources: [], roles: [], shifts: [], absences: [], budgets: [], fxRates: null, workdayHours: 8, baseCurrency: "EUR" },
     readOnly: false,
   };
-  function DraftHarness({ mounted }: { mounted: boolean }) {
+  function DraftHarness({ mounted, scenarios = SCENARIOS }: { mounted: boolean; scenarios?: ForecastScenariosProps }) {
     const { requestForecastDraft, pendingForecastDraft, activeTab } = useWorkspaceTab();
     return (
       <>
@@ -108,7 +108,7 @@ describe("ForecastPanelDeepLinked — an Explore draft from Reports (§502 part 
         <span data-testid="draft">{pendingForecastDraft ? `${pendingForecastDraft.kind}:${pendingForecastDraft.n}` : "none"}</span>
         <span data-testid="tab">{activeTab}</span>
         {mounted && (
-          <ForecastPanelDeepLinked lang="en-US" tasks={TASKS} milestones={MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} scenarios={SCENARIOS} />
+          <ForecastPanelDeepLinked lang="en-US" tasks={TASKS} milestones={MILESTONES} plan={PLAN} today={TODAY} holidaySet={NO_HOLIDAYS} scenarios={scenarios} />
         )}
       </>
     );
@@ -123,5 +123,27 @@ describe("ForecastPanelDeepLinked — an Explore draft from Reports (§502 part 
     const name = screen.getByRole("textbox", { name: "Name" }) as HTMLInputElement;
     expect(name.value).toBe("Go-live — what it would take (1 fewer task)");
     expect(screen.getByTestId("draft").textContent).toBe("none");
+  });
+
+  const mode = () => (screen.getByRole("radiogroup", { name: "Forecast mode" }).querySelector("[aria-checked=true]") as HTMLElement).textContent;
+  const openDraftView = (scenarios?: ForecastScenariosProps) => {
+    const { rerender } = render(<WorkspaceTabProvider><DraftHarness mounted={false} scenarios={scenarios} /></WorkspaceTabProvider>);
+    fireEvent.click(screen.getByText("explore-7"));
+    rerender(<WorkspaceTabProvider><DraftHarness mounted scenarios={scenarios} /></WorkspaceTabProvider>);
+    expect(mode()).toBe("Scenarios");
+  };
+
+  it("Cancel on the draft returns to the mode Explore was clicked from (Quick)", () => {
+    openDraftView();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull();
+    expect(mode()).toBe("Quick");
+  });
+
+  it("Save on the draft stays in Scenarios", () => {
+    openDraftView({ ...SCENARIOS, api: { ...SCENARIOS.api, createScenario: () => 1 } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull();
+    expect(mode()).toBe("Scenarios");
   });
 });
