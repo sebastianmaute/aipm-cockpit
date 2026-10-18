@@ -987,6 +987,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--closed-2026-10-16) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | **CLOSED** 2026-10-16 |
 | [§748](#748-background-workers-may-help-across-the-app-starting-with-the-monte-carlo-forecast--open) | Background workers may help across the app, starting with the Monte Carlo forecast | — | — | open |
 | [§749](#749-a-claude-api-key-typed-under-the-passphrase-lock-is-lost-on-reload-and-two-ai-sections-disagree-about-the-lock--open) | A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock | — | — | open |
+| [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--open) | Something starts a save of the empty Turso workspace before a project exists | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45633,3 +45634,19 @@ Size M.
 Also noted for the same generalisation (Turso token, §715 round 20): when a write that began after a stopped switch's own seal FAILS, it has still bumped the generation, so the put-back yields and the draft's seal stays in the store. That follows the deliberate no-fallback rule on `beginSealedWrite`; the generalised gate should decide whether the put-back may then still run.
 
 **Source:** found 2026-10-17 by the owner's question during the §715 review rounds (`fix/715-recording-defects`).
+
+## 751. Something starts a save of the empty Turso workspace before a project exists — OPEN
+
+**Status:** OPEN 2026-10-18, seen once while recording the §715 big video; not reproduced in five off-camera runs of the same setup path. The symptom is fixed (below); the cause is not traced.
+
+**Work item:** #781
+
+An unload journal was written under the Turso "no project" key (`journalProjectKey` → `"turso"`) at 08:30 on the demo's first morning, holding an empty workspace of about 1 KB, and `OtherJournalsBanner` then offered it on every load as "Turso workspace (no project)". A journal is written only for a save that started (`noteSaveStarted`, past every save guard) and had not confirmed when the page hid. So something started a save of the empty Turso workspace while the portfolio was in multi-project Turso mode with no project selected, and a reload (the setup wizard's Finish, or Explore the demo) landed before it confirmed.
+
+Not reproduced: connect, the new-project wizard with Claude's proposal and Cancel, Explore the demo, the device-state reload and a day change, run off camera five times, left no such journal. A timing race is the likely shape.
+
+The symptom is closed on `fix/715-empty-unload-journal` (§715): `use-unload-journal.ts` never journals a workspace with nothing authored (`hasAuthoredRecords`). Open here: what saves in multi-project Turso mode with no project, and whether it should. Such a save writes an empty workspace to the database's single-tenant layout.
+
+Size S to trace; the fix is unknown until then.
+
+**Source:** found 2026-10-18 in a §715 A recording; the owner chose to fix the symptom and file the cause.
