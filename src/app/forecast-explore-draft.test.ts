@@ -40,3 +40,25 @@ describe("exploreDraftName (§502 part 4)", () => {
     expect(passes(longSecond, [scenario(1, longFirst)])).toBeNull();
   });
 });
+
+describe("exploreDraftName — surrogate pairs (§502 part 4)", () => {
+  const hasLoneSurrogate = (s: string) => {
+    for (let i = 0; i < s.length; i += 1) {
+      const c = s.charCodeAt(i);
+      if (c >= 0xd800 && c <= 0xdbff) { const d = s.charCodeAt(i + 1); if (d >= 0xdc00 && d <= 0xdfff) i += 1; else return true; }
+      else if (c >= 0xdc00 && c <= 0xdfff) return true;
+    }
+    return false;
+  };
+  it("never cuts an emoji in half, wherever the limit falls", () => {
+    let cutInsidePair = 0;
+    for (let lead = 0; lead < 40; lead += 1) {
+      const target = `${"a".repeat(lead)}😀${"b".repeat(60)}`;
+      const name = exploreDraftName("en-US", target, "+2 people", []);
+      expect(hasLoneSurrogate(name)).toBe(false);
+      expect(name.length).toBeLessThanOrEqual(SCENARIO_NAME_MAX);
+      if (!name.includes("😀")) cutInsidePair += 1;
+    }
+    expect(cutInsidePair).toBeGreaterThan(0); // positive control: some lead lands the cut on or inside the pair
+  });
+});

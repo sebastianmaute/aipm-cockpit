@@ -235,6 +235,39 @@ describe("whatItTakesSync", () => {
     };
     const w = whatItTakesSync(inp, context, EMPTY, 80, stub);
     expect(w?.tasks).toEqual({ state: "inert", reason: "no-open-tasks" });
+    expect(["reaches", "out-of-reach"]).toContain(w?.people.state); // the people lever is still computed
+  });
+
+  it("a milestone at or above the goal is on-target for both levers, and its prioritised chance is read from it", () => {
+    const { inp, asIs, context } = setup();
+    const f = asIs.forecast as ScheduleForecast;
+    const stub: ScenarioColumn = {
+      ...asIs,
+      forecast: { ...f, milestones: [{ id: 1, state: "chance", chance: 0.9, chancePrioritised: 0.97 }] },
+    };
+    const w = whatItTakesSync(inp, context, BETA, 80, stub);
+    expect(w).toMatchObject({ chance: 0.9, prioritised: 0.97, people: { state: "on-target" }, tasks: { state: "on-target" } });
+  });
+
+  it("one open linked task leaves the tasks lever nothing to drop: inert, with its own reason", () => {
+    const { inp, asIs, context } = setup();
+    const f = asIs.forecast as ScheduleForecast;
+    const one = { ...context, milestones: context.milestones.map((m) => (m.id === 2 ? { ...m, linkedTaskIds: [OPEN[0].id] } : m)) };
+    expect(leverBound("tasks", EMPTY, one)).toBe(0);
+    const stub: ScenarioColumn = {
+      ...asIs,
+      forecast: { ...f, milestones: [{ id: 2, state: "chance", chance: 0.3, chancePrioritised: 0.3 }] },
+    };
+    expect(whatItTakesSync(inp, one, EMPTY, 80, stub)?.tasks).toEqual({ state: "inert", reason: "too-few-tasks" });
+  });
+});
+
+describe("searchOutcome on an unfinished search", () => {
+  it("reads as out of reach, even when a reach was already seen: it has proved nothing yet", () => {
+    expect(searchOutcome(startSearch(4, 80))).toEqual({ state: "out-of-reach" });
+    const midway: LeverSearch = { ...startSearch(8, 80), phase: "bisect", lo: 1, hi: 4, hiChance: 0.9, reached: true };
+    expect(searchOutcome(midway)).toEqual({ state: "out-of-reach" });
+    expect(searchOutcome({ ...midway, phase: "done" })).toMatchObject({ state: "reaches", n: 4 });
   });
 });
 

@@ -25,7 +25,8 @@ export type LeverOutcome =
    *  null for people, and for tasks when none of them carries an estimate. */
   | { state: "reaches"; n: number; chance: number; hours: number | null }
   | { state: "out-of-reach" }
-  | { state: "inert"; reason: "needs-booked-hours" | "no-open-tasks" }
+  /** `too-few-tasks`: open tasks exist but fewer than two, so the tasks lever (at most half of them) has nothing to drop. */
+  | { state: "inert"; reason: "needs-booked-hours" | "no-open-tasks" | "too-few-tasks" }
   | { state: "on-target" };
 export type WhatItTakes = {
   target: LeverTarget;
@@ -154,10 +155,11 @@ function settle(s: LeverSearch): LeverSearch {
   return s.lo >= s.hi ? { ...s, phase: "done" } : s;
 }
 
-/** The result of a finished search (an unfinished one reads as out of reach: ask `nextProbe` first). */
+/** The result of a finished search. An UNFINISHED search (phase not "done") reads as out of reach, by definition:
+ *  it has proved nothing, and never reports a reach it has not confirmed. Ask `nextProbe` first. */
 export function searchOutcome(s: LeverSearch): LeverOutcome {
-  return s.phase === "done" && s.reached
-    ? { state: "reaches", n: s.hi, chance: s.hiChance, hours: null } : { state: "out-of-reach" };
+  if (s.phase !== "done") return { state: "out-of-reach" };
+  return s.reached ? { state: "reaches", n: s.hi, chance: s.hiChance, hours: null } : { state: "out-of-reach" };
 }
 
 /** A lever still searching, or its settled outcome. */
@@ -209,8 +211,11 @@ export function planWhatItTakes(
   const who = placeholderWho(context, input.directory);
   const people: LeverSlot = who === null
     ? { state: "inert", reason: "needs-booked-hours" } : jobSlot("people", target, context, goal, who);
-  const tasks: LeverSlot = openCount(target, context) === 0
-    ? { state: "inert", reason: "no-open-tasks" } : jobSlot("tasks", target, context, goal, null);
+  const open = openCount(target, context);
+  const tasks: LeverSlot = open === 0
+    ? { state: "inert", reason: "no-open-tasks" }
+    : leverBound("tasks", target, context) < 1
+      ? { state: "inert", reason: "too-few-tasks" } : jobSlot("tasks", target, context, goal, null);
   return { base, people, tasks, taskHours: meanTaskHours(target, context) };
 }
 

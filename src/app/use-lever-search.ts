@@ -109,6 +109,6 @@ export function useLeverSearch({ input, targets, goal, enabled }: LeverSearchArg
     if (published !== null && published.input === input && published.goal === goal && published.targetsKey === targetsKey) {
       return published.values;
     }
-    return new Map<string, LeverValue>(targets.map((t) => [leverKey(t), "pending"]));
-  }, [enabled, input, goal, targets, targetsKey, published]);
+    return new Map<string, LeverValue>(targetsFromKey(targetsKey).map((t) => [leverKey(t), "pending"]));
+  }, [enabled, input, goal, targetsKey, published]);
 }

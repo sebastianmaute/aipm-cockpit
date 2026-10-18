@@ -58,6 +58,7 @@ function leverTexts(lang: Lang, r: WhatItTakes, goal: TargetConfidence): { texts
     reach.push(r.tasks.hours === null ? tasks : t(lang, "forecastLeverWithHours", tasks, formatHours(r.tasks.hours, localeFor(lang))));
   }
   else if (r.tasks.state === "out-of-reach") notes.push(t(lang, "forecastLeverTasksOutOfReach"));
+  else if (r.tasks.state === "inert" && r.tasks.reason === "too-few-tasks") notes.push(t(lang, "forecastLeverTasksTooFew"));
   if (r.prioritised !== null && r.prioritised < goal / PERCENT) notes.push(t(lang, "forecastLeverPrioritiseShort"));
   const texts = [...reach.map((s, i) => (i === 0 ? s : t(lang, "forecastLeverOr", s))), ...notes];
   return { texts, anyReaches: reach.length > 0 };

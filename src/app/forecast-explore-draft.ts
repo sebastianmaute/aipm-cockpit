@@ -18,12 +18,23 @@ export function leverPhrase(lang: Lang, kind: LeverKind, n: number): string {
   return kind === "people" ? tPlural(lang, "forecastExplorePeople", n, n) : tPlural(lang, "forecastLeverTasks", n, n);
 }
 
+const HIGH_SURROGATE_MIN = 0xd800;
+const HIGH_SURROGATE_MAX = 0xdbff;
+
 /** The draft name within `budget` characters: the milestone part is shortened with an ellipsis, the lever kept. */
 function fitName(lang: Lang, targetName: string, phrase: string, budget: number): string {
   const full = t(lang, "forecastExploreDraftName", targetName, phrase);
   if (full.length <= budget) return full;
   const room = Math.max(1, budget - (full.length - targetName.length) - ELLIPSIS.length);
-  return t(lang, "forecastExploreDraftName", `${targetName.slice(0, room).trimEnd()}${ELLIPSIS}`, phrase);
+  return t(lang, "forecastExploreDraftName", `${cutWhole(targetName, room).trimEnd()}${ELLIPSIS}`, phrase);
+}
+
+/** The first `room` UTF-16 units of `s` (the name limit counts units), never ending on half a surrogate pair. */
+function cutWhole(s: string, room: number): string {
+  const cut = s.slice(0, room);
+  const last = cut.charCodeAt(cut.length - 1);
+  const splitsPair = last >= HIGH_SURROGATE_MIN && last <= HIGH_SURROGATE_MAX && s.length > cut.length;
+  return splitsPair ? cut.slice(0, -1) : cut;
 }
 
 /**
