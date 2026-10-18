@@ -51,6 +51,8 @@ import {
 import { jsonToWorkspace, workspaceToJson, type StorageKind, type Workspace } from "./workspace";
 import type { DocTruncationDiag } from "./document-model";
 import { sanitizeDiscipline, sanitizeGrade, sanitizeResource } from "./sanitize";
+import { hasAuthoredRecords } from "./workspace-metrics";
+import { defaultResourcePlan } from "./resource-foundation";
 
 function newTabId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -80,6 +82,44 @@ function retagToThisTab(journal: UnloadJournal): void {
   lastSavedAt = Math.max(lastSavedAt, journal.savedAt);
   const { projectKey, savedAt, baseFingerprint, workspace } = journal;
   writeUnloadJournal({ projectKey, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt, baseFingerprint, workspace });
+}
+
+/** §715 — slices the app appends or fetches by itself: no draft of the user's lives in them. */
+const AUTOMATIC_SLICES: ReadonlySet<string> = new Set(["activityLog", "budgetHistory", "baselineHistory", "forecastHistory", "fxRates"]);
+/** Slices judged by `hasAuthoredRecords` (with the seeded preset lists discounted) or by the plan check below. */
+const JUDGED_SLICES: ReadonlySet<string> = new Set(["disciplines", "grades", "plan"]);
+/** Slices where an empty list is itself a choice (`features: []` is Simple mode; missing means none made). */
+const CHOICE_SLICES: ReadonlySet<string> = new Set(["features"]);
+
+/** Field by field, so the order the plan's keys were written in does not matter. */
+function samePlan(a: Readonly<Record<string, unknown>>, b: Readonly<Record<string, unknown>>): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const k of keys) if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) return false;
+  return true;
+}
+
+/** §715 — true only for the empty default a load produces: no authored records, the default plan for its
+ *  own start date, and every other slice blank (missing, null, [] or {}; for `features` only missing), the
+ *  automatic ones aside. A slice
+ *  added to `Workspace` later is content until it is listed here, so the journal errs towards keeping. */
+export function isNothingToJournal(ws: Workspace): boolean {
+  if (hasAuthoredRecords(ws)) return false;
+  if (!samePlan(ws.plan, defaultResourcePlan(ws.plan.startDate))) return false;
+  for (const [key, value] of Object.entries(ws)) {
+    if (AUTOMATIC_SLICES.has(key) || JUDGED_SLICES.has(key)) continue;
+    if (value === undefined || value === null) continue;
+    if (CHOICE_SLICES.has(key)) return false;
+    if (Array.isArray(value) ? value.length > 0 : typeof value !== "object" || Object.keys(value).length > 0) return false;
+  }
+  return true;
+}
+
+/** §715 — the skip itself: `live` is nothing, AND so was the stored version it was built on, with the same
+ *  plan. Emptying a project that held records is an edit (skipped, a save in flight at unload would bring
+ *  the records back on reload with no draft offered), and so is moving an empty project's plan, which
+ *  `isNothingToJournal` alone reads as a default. No stored version known (`null`): journalled. */
+export function isNothingNewToJournal(live: Workspace, stored: Workspace | null): boolean {
+  return stored !== null && isNothingToJournal(live) && isNothingToJournal(stored) && samePlan(live.plan, stored.plan);
 }
 
 /** §668 — one record's identity: its key, writer and save time (what `clearUnloadJournal` guards on too). */
@@ -229,6 +269,12 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
     return fingerprint;
   }, []);
 
+  /** The stored version `key`'s live workspace was built on, or null when the base is another key's or unset. */
+  const storedFor = useCallback((key: string): Workspace | null => {
+    const base = baseRef.current;
+    return base !== null && base.projectKey === key ? base.workspace : null;
+  }, []);
+
   /** Replaces the base and warms its fingerprint when the page is idle. The warm-up
    *  writes only if `next` is STILL the base by then (identity): a newer base, or the
    *  lazy fill above, replaces the object, and the stale warm-up does nothing. */
@@ -241,6 +287,13 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   }, []);
 
   const write = useCallback((entry: Unconfirmed): void => {
+    // §715 — the empty default saved over an empty stored version is not a draft (`isNothingNewToJournal`),
+    // so it is never journalled. This tab's own older journal for the key goes too (the guard spares one
+    // another page load left): it was built on that same empty version, and the edit undid it.
+    if (isNothingNewToJournal(entry.workspace, storedFor(entry.projectKey))) {
+      clearUnloadJournal(entry.projectKey, { tabId: UNLOAD_JOURNAL_TAB_ID, ifSavedAtAtMost: entry.savedAt });
+      return;
+    }
     let workspace: string;
     try {
       workspace = workspaceToJson(entry.workspace);
@@ -258,7 +311,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
       baseFingerprint: () => baseFingerprintFor(entry.projectKey), // a thunk: skipped over the cap
       workspace,
     });
-  }, [baseFingerprintFor]);
+  }, [baseFingerprintFor, storedFor]);
 
   /** §4 — writes a version the user LEFT (a switch away, or a rebuild, while its saves were refused as
    *  stale) at once to the project's KEPT slot (`keptProjectKey`). Nothing restores from that slot, so
@@ -269,6 +322,8 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
    *  Returns whether the record was WRITTEN (final review I2): over the cap, on a quota error or a codec
    *  throw it is not, and a caller about to leave the project must not then leave. */
   const keep = useCallback((entry: Unconfirmed): boolean => {
+    // §715 — the empty default over an empty stored version holds nothing to keep: done, so a caller about to leave may leave.
+    if (isNothingNewToJournal(entry.workspace, storedFor(entry.projectKey))) return true;
     const slot = readUnloadJournal(keptProjectKey(entry.projectKey)) === null ? keptProjectKey(entry.projectKey) : keptProjectKey(entry.projectKey, entry.savedAt);
     let workspace: string;
     try {
@@ -278,7 +333,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
       return false;
     }
     return writeUnloadJournal({ projectKey: slot, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt: entry.savedAt, baseFingerprint: "", workspace });
-  }, []);
+  }, [storedFor]);
 
   /** §655 — keeps the LIVE workspace of the key in scope in a kept slot before a kept version is
    *  restored over it, so that restore can be undone from the same notice. Same write as `keep`, so
