@@ -41,6 +41,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
+  documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
+  was typed. The search now matches library cards by name, a source other than All hides them (they belong to
+  none), and "No knowledge matches this filter" shows when nothing in either list matches.
 - **The app no longer reloads over a Claude API key that is not saved yet (§749).** A key typed under the passphrase
   lock is not stored until "Save passphrase" is chosen. Switching the portfolio and moving a project to Turso
   reload the app, as do picking a Turso project, creating one from a file portfolio, loading a file into a Turso
@@ -56,6 +60,10 @@ longer carries its own changelog comment.
   the app's language. While one is open the app keeps running, so each step checks again after the answer: an
   address typed for one project is never saved into another, and a storage switch copies the project as it is
   when you answer.
+- **The AI assistant can see which tasks a milestone depends on (§502).** Its milestone list showed only the
+  name and dates, so it could not tell which tasks gate a milestone, and an AI edit that set a milestone's
+  linked tasks replaced the whole list without knowing what was there. The list now includes the linked tasks
+  and the description, and the assistant is told to keep every link it does not mean to remove.
 - **A scheduled AI job added in Settings now runs without a reload (§750).** The job runner and the Settings
   list each kept their own copy of the jobs, so a new job never ran until the app was reloaded, and Settings
   kept showing "Never run" after a run. Both now share one list. Two changes made at the same moment, such as
@@ -176,9 +184,17 @@ longer carries its own changelog comment.
   take a few seconds on a plan with many milestones below target. While the holiday calendar is still loading, the
   decision says so in one line instead of leaving it out.
   The AI assistant can read the target confidence, what it would take for the plan end and the five milestones
-  furthest below target (it is told which others are below target too), the proposal and how the P80 date has moved; it can also delete a saved scenario, which always goes to the
+  furthest below target (it is told which others are below target too), the proposal and how the P80 date has moved.
+  It can also say why a date is where it is: how much work is open, how many tasks finished in the history and
+  over how many days, and how many done tasks have no completion date. It reads the "Chance if prioritised" figure
+  for every milestone that has a chance, how much will be done by the plan end and the forecast by group, and it can run the
+  forecast with another history window or in hours, as the Forecast view's toolbar does. It cannot see that toolbar,
+  so when its figures differ from yours it asks which window and unit the view shows. On the Forecast view the
+  header's Ask Claude menu offers "Why this P80 date?" and "How has the date moved?". It can also delete a
+  saved scenario, which always goes to the
   review card first and can be undone, and set the proposal or the target confidence, which are logged but, as when
-  you change them yourself, cannot be undone. The simulation's Help entry explains all of this.
+  you change them yourself, cannot be undone. The simulation's Help entry explains the target, what it would take
+  and the proposal.
   It stays hidden while the Forecast view is held back.
 
 ## [1.19.0] - 2026-10-15 "Nesbø"

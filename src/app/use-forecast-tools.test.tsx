@@ -91,6 +91,20 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
+describe("get_forecast settings (§502 tooling)", () => {
+  test("a call's window and unit reach the run; the defaults apply without them", () => {
+    const { result } = mount({ forecastScenarios: [SAVED] });
+    const custom = result.current.dispatcher.getForecast(null, { historyWindow: 30, unit: "tasks" });
+    expect(custom.settings.historyWindowWorkingDays).toBe(30);
+    expect(custom.whatItTakes).toEqual({ omitted: "settings" });
+    const plain = result.current.dispatcher.getForecast(null);
+    expect(plain.settings.historyWindowWorkingDays).toBe(60);
+    expect(plain.whatItTakes).not.toHaveProperty("omitted");
+    expect(plain.byGroup).toBeUndefined();
+    expect(result.current.dispatcher.getForecast(null, { byGroup: true }).byGroup).toBeDefined();
+  });
+});
+
 describe("update_forecast_scenario", () => {
   test("applies with the token taken OUT of get_forecast's report", async () => {
     const { result } = mount({ forecastScenarios: [SAVED] });

@@ -6,6 +6,8 @@ import {
   buildForecastReport, scenarioValidationContext, type ColumnReport, type ForecastReport, type ForecastReportInput,
   type WhatItTakesReport, WHAT_IT_TAKES_MILESTONE_CAP,
 } from "./forecast-ai-report";
+import { DEFAULT_WHAT_IF, computeScheduleForecast, lastForecastableDay } from "./forecast";
+import { forecastByGroup } from "./forecast-by-group";
 import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
 import type { ForecastScenario, ScenarioChange } from "./forecast-scenarios";
 import type { ForecastHistoryEntry } from "./forecast-history";
@@ -350,6 +352,116 @@ describe("buildForecastReport — target, what it would take, proposal and P80 h
     const report = buildForecastReport(reportInput(WITH_GAMMA, scenarios, withProposal(undefined, 1)), null);
     expect(takesOf(report).milestones).toHaveLength(1);
     expect(JSON.parse(JSON.stringify(report))).toEqual(report);
+  });
+});
+
+describe("buildForecastReport — what the forecast was built from (§502 tooling)", () => {
+  const plain = () => buildForecastReport(reportInput(), null);
+  const doneInWindow = TASKS.filter((x) => x.status === "Done").length;
+
+  it("carries the basis: open work, history in the window, done without a date, the share past the horizon", () => {
+    expect(forecastColumn(plain().asIs).basis).toEqual({
+      backlog: OPEN.length, finishedInWindow: doneInWindow, windowWorkingDays: 60, doneWithoutDate: 0, beyondShare: 0,
+    });
+    const undated = { ...done(9001, ""), completedDate: undefined } as Task;
+    const report = buildForecastReport(reportInput({ tasks: [...TASKS, undated] }), null);
+    expect(forecastColumn(report.asIs).basis).toMatchObject({ finishedInWindow: doneInWindow, doneWithoutDate: 1 });
+    // Every column carries one, so a scenario's dates are explained from its own run.
+    const withScenario = buildForecastReport(reportInput({}, [scenario(1, [availability(150)])]), null);
+    expect(forecastColumn(withScenario.scenarios[0].result).basis.backlog).toBe(OPEN.length);
+  });
+
+  it("an insufficient column carries the done-without-date count too", () => {
+    const undated = { ...done(9001, ""), completedDate: undefined } as Task;
+    const report = buildForecastReport(reportInput({ tasks: [...historyTasks(HISTORY.slice(-5)), ...OPEN, undated] }), null);
+    expect(report.asIs).toMatchObject({ status: "insufficient", doneWithoutDate: 1 });
+  });
+
+  it("gives every milestone with a chance its prioritised chance, the engine's own", () => {
+    const engine = computeScenarioComparison(input(), []).asIs.forecast;
+    if (engine.kind !== "forecast") throw new Error("expected a forecast");
+    const expected = engine.milestones.flatMap((m) => (m.state === "chance" ? [[m.id, m.chancePrioritised]] : []));
+    const got = forecastColumn(plain().asIs).milestones.flatMap((m) => ("prioritised" in m ? [[m.id, m.prioritised]] : []));
+    expect(got).toEqual(expected);
+    expect(got).toHaveLength(MILESTONES.length);
+  });
+
+  it("reports How-many by the plan end from a run with the plan end as its date, and none when it is not ahead", () => {
+    const run = computeScheduleForecast({
+      tasks: TASKS, milestones: MILESTONES, today: TODAY, holidaySet: NONE, window: 60, unit: "tasks",
+      whatIf: DEFAULT_WHAT_IF, howManyTarget: PLAN_END,
+    });
+    if (run.kind !== "forecast") throw new Error("expected a forecast");
+    const at = (p: number) => run.howMany.find((h) => h.p === p)?.amount;
+    const report = plain();
+    expect(report.howManyByPlanEnd).toEqual({ by: PLAN_END, p50: at(50), p80: at(80), p95: at(95) });
+    // A run at today, as the comparison makes, reads nothing: the figure must come from the plan-end run.
+    expect(report.howManyByPlanEnd?.p50).toBeGreaterThan(0);
+    expect(report.howManyByPlanEnd!.p95).toBeLessThanOrEqual(report.howManyByPlanEnd!.p50);
+    expect(buildForecastReport(reportInput({ planEnd: TODAY }), null).howManyByPlanEnd).toBeNull();
+    expect(buildForecastReport(reportInput({ tasks: [...historyTasks(HISTORY.slice(-5)), ...OPEN] }), null).howManyByPlanEnd).toBeNull();
+  });
+
+  it("adds the by-group forecast only when asked, as forecastByGroup gives it", () => {
+    expect(plain().byGroup).toBeUndefined();
+    const grouped = TASKS.map((x, i) => (i % 2 === 0 ? { ...x, group: "Build" } : x));
+    const report = buildForecastReport(reportInput({ tasks: grouped }), null, undefined, { byGroup: true });
+    expect(report.byGroup).toEqual(forecastByGroup({ tasks: grouped, today: TODAY, holidaySet: NONE, planEnd: PLAN_END }));
+    expect(report.byGroup?.map((r) => r.key).sort()).toEqual(["", "Build"]);
+  });
+
+  it("another window or the effort unit omits what is defined at the defaults, and says which unit ran", () => {
+    const report = buildForecastReport(reportInput({ unit: "effort" }), null);
+    expect(report.settings.unit).toBe("effort");
+    const minutes = OPEN.reduce((s, x) => s + (x.originalEstimateMinutes ?? 0), 0);
+    expect(forecastColumn(report.asIs).basis.backlog).toBe(Math.round(minutes / 6) / 10);
+    expect(report.whatItTakes).toEqual({ omitted: "settings" });
+    expect(report.weeklyChange).toBeNull();
+    expect(buildForecastReport(reportInput({ window: 30 }), null).whatItTakes).toEqual({ omitted: "settings" });
+    // CONTROL: the defaults search and report a weekly change.
+    expect(takesOf(plain()).planEnd).not.toBeNull();
+    expect(plain().weeklyChange).toMatchObject({ kind: "pending" });
+  });
+
+  it("caps How-many's date at the horizon when the plan end lies past it", () => {
+    const far = "2032-12-31";
+    const last = lastForecastableDay(TODAY, NONE);
+    expect(far > last).toBe(true);
+    expect(buildForecastReport(reportInput({ planEnd: far }), null).howManyByPlanEnd?.by).toBe(last);
+    expect(buildForecastReport(reportInput({ planEnd: "" }), null).howManyByPlanEnd).toBeNull();
+  });
+
+  it("the extra How-many run changes no column: its dates and milestone chances are As is's own", () => {
+    const report = plain();
+    const col = forecastColumn(report.asIs);
+    const run = computeScheduleForecast({
+      tasks: TASKS, milestones: MILESTONES, today: TODAY, holidaySet: NONE, window: 60, unit: "tasks",
+      whatIf: DEFAULT_WHAT_IF, howManyTarget: PLAN_END,
+    });
+    if (run.kind !== "forecast") throw new Error("expected a forecast");
+    const date = (p: number) => run.when.find((w) => w.p === p)?.date ?? "beyond";
+    expect([col.p50, col.p80, col.p95]).toEqual([date(50), date(80), date(95)]);
+    expect(col.milestones.map((m) => ("chance" in m ? m.chance : null)))
+      .toEqual(run.milestones.map((m) => (m.state === "chance" ? m.chance : null)));
+  });
+
+  it("a call with whatIf and other settings reports the whatIf omission", () => {
+    expect(buildForecastReport(reportInput({ window: 30 }), [availability(120)]).whatItTakes).toEqual({ omitted: "whatIf" });
+  });
+
+  it("effort falls back to tasks when too few open tasks are estimated, and settings.unit says so", () => {
+    const unestimated = TASKS.map((x) => (x.status === "Done" ? x : { ...x, originalEstimateMinutes: undefined }));
+    expect(buildForecastReport(reportInput({ tasks: unestimated, unit: "effort" }), null).settings.unit).toBe("tasks");
+  });
+
+  it("below the floor settings.unit is still the unit the engine would pick, not merely the one asked for", () => {
+    const short = [...historyTasks(HISTORY.slice(-5)), ...OPEN];
+    const unestimated = short.map((x) => (x.status === "Done" ? x : { ...x, originalEstimateMinutes: undefined }));
+    const asked = (tasks: readonly Task[]) => buildForecastReport(reportInput({ tasks, unit: "effort" }), null);
+    expect(asked(unestimated).asIs.status).toBe("insufficient");
+    expect(asked(unestimated).settings.unit).toBe("tasks");
+    // CONTROL: with estimates the same short history keeps effort, so "tasks" above is the fallback, not a constant.
+    expect(asked(short).settings.unit).toBe("effort");
   });
 });
 

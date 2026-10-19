@@ -24,7 +24,7 @@ import { SegmentedControl } from "./segmented-control";
 import { IconButton } from "./icon-button";
 import { Card } from "./card";
 import { AddFirstItemButton } from "./add-first-item-button";
-import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./knowledge-meta";
+import { hostLabel, fileTypeOf, filterDocs, matchesDocQuery, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./knowledge-meta";
 import { formatExpiryDate } from "./date-format";
 import { ViewCallout } from "./view-callout";
 
@@ -324,6 +324,12 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
       ),
     [docs, effFilter, query, sort, lang],
   );
+  // The library cards under the same search. They belong to no source, so a source chip other than All
+  // hides them. Each keeps its index in `kItems`, which its remove and linked-tasks writes address.
+  const shownItems = useMemo(
+    () => (effFilter === "all" ? kItems.map((it, idx) => ({ it, idx })).filter(({ it }) => matchesDocQuery(it.name, query)) : []),
+    [kItems, effFilter, query],
+  );
   // §316 — two cards can carry the same document name, in one grid or across
   // the library and the attached grid, and both Remove controls share one verb.
   // One token map over both grids, in render order, keeps every card apart.
@@ -581,14 +587,14 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
         />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col overflow-auto pr-2">
-          {kItems.length > 0 && (
+          {shownItems.length > 0 && (
             <section className="mb-4">
               <h3 className="mb-2 text-sm font-medium text-foreground">{t(lang, "knowledgeLibraryHeading")}</h3>
               {/* xl, not lg: these cards carry a linked-tasks picker whose
                   chips have no room to read at three-up on a laptop. The
                   attached-document grid below has no chips and keeps lg. */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {kItems.map((it, idx) => {
+                {shownItems.map(({ it, idx }) => {
                   const ft = fileTypeOf(it);
                   const safe = isSafeHttpUrl(it.url);
                   return (
@@ -646,7 +652,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
           )}
 
           {visible.length === 0 ? (
-            docs.length > 0 ? (
+            shownItems.length === 0 ? (
               <p className="px-1 py-6 text-center text-sm text-muted-foreground">{t(lang, "documentsNoneForSource")}</p>
             ) : null
           ) : (

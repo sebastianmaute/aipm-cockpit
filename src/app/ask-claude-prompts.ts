@@ -105,6 +105,12 @@ export const ASK_CLAUDE_PROMPTS: Partial<Record<AppView, PromptDef[]>> = {
     { labelKey: "aiPromptTrendReadLabel", bodyKey: "aiPromptTrendReadBody" },
     { labelKey: "aiPromptTrendActLabel", bodyKey: "aiPromptTrendActBody" },
   ],
+  // ★ Not the view's own `ForecastAskClaude` menu (explain, a milestone, compare, suggest), which depends on the
+  // mode: these two ask what that menu does not, why the P80 date is where it is and how it has moved.
+  forecast: [
+    { labelKey: "aiPromptFcWhyLabel", bodyKey: "aiPromptFcWhyBody" },
+    { labelKey: "aiPromptFcMovedLabel", bodyKey: "aiPromptFcMovedBody" },
+  ],
   "steering-committee": [
     { labelKey: "aiPromptScUpcomingLabel", bodyKey: "aiPromptScUpcomingBody" },
     { labelKey: "aiPromptScAgendaLabel", bodyKey: "aiPromptScAgendaBody" },

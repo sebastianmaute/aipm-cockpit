@@ -114,7 +114,11 @@ export type MilestoneSummary = {
   id: number;
   name: string;
   date: string;
+  /** Plain text; the stored field is rich HTML. */
+  description: string;
   achievedDate?: string;
+  /** The tasks that gate the milestone; its forecast chance is computed from the open ones. */
+  linkedTaskIds: number[];
 };
 
 export type StakeholderSummary = {

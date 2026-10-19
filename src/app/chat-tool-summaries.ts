@@ -24,6 +24,7 @@ import type {
 } from "./types";
 import { type KnowledgeItem, linkKindOf } from "./document-link";
 import { type CalendarEvent } from "./calendar-event";
+import { htmlToPlainText } from "./html-to-text";
 import type {
   AbsenceSummary,
   RaidSummary,
@@ -59,12 +60,17 @@ export function toChangeSummary(item: ChangeItem): ChangeSummary {
   };
 }
 
+/** ★ `linkedTaskIds` rides along because `update_milestone` takes it and REPLACES the whole list: a model that
+ *  cannot read the links would wipe them when it sets one. `description` is projected to plain text, as
+ *  `list_tasks` does; the token still comes from the full row (`withRowTokens`). */
 export function toMilestoneSummary(item: Milestone): MilestoneSummary {
   return {
     id: item.id,
     name: item.name,
     date: item.date,
+    description: item.description ? htmlToPlainText(item.description) : "",
     achievedDate: item.achievedDate,
+    linkedTaskIds: item.linkedTaskIds ?? [],
   };
 }
 

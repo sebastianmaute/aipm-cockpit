@@ -151,8 +151,14 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
     () => ({
       isForecastEnabled,
 
-      getForecast: (whatIf) => {
-        const input = requireInput();
+      getForecast: (whatIf, options = {}) => {
+        const base = requireInput();
+        // The call's own window and unit, if any; the shared app run then no longer matches, so the comparison runs
+        // its own As is, and the report omits what is defined only at the defaults (`isDefaultRun`).
+        const input: ForecastReportInput = {
+          ...base,
+          run: { ...base.run, window: options.historyWindow ?? base.run.window, unit: options.unit ?? base.run.unit },
+        };
         // ★ ONE As-is run: the report's own comparison supplies the context the what-if check and the lever search
         //   need, and it is the shared app run (`sharedAsIsRun`) when the app memo already holds these inputs.
         const comparison = computeScenarioComparison(input.run, input.scenarios, sharedAsIsRun(input.run));
@@ -161,7 +167,7 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
           ? null
           : checkToolRows(whatIf, scenarioValidationContext(input, comparison.context), []);
         if (refusal !== null) throw new Error(`whatIf ${refusal}`);
-        return buildForecastReport(input, whatIf, comparison);
+        return buildForecastReport(input, whatIf, comparison, { byGroup: options.byGroup === true });
       },
 
       getForecastScenarioRow: (id) => scenariosRef.current.find((s) => s.id === id) ?? null,

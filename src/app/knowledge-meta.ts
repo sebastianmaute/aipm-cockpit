@@ -81,12 +81,16 @@ const SOURCE_RANK: Record<DocSourceKind, number> = {
   project: 0, milestone: 1, task: 2, raid: 3, change: 4, stakeholder: 5,
 };
 
-export function filterDocs(refs: readonly DocRef[], sourceKind: DocSourceKind | "all", query: string): DocRef[] {
+/** The Knowledge search: a name contains the query, case-insensitive; a blank query matches all. One
+ *  rule for the attached documents (`filterDocs`) and the library cards, so the box narrows both. */
+export function matchesDocQuery(name: string, query: string): boolean {
   const q = query.trim().toLowerCase();
+  return q === "" || name.toLowerCase().includes(q);
+}
+
+export function filterDocs(refs: readonly DocRef[], sourceKind: DocSourceKind | "all", query: string): DocRef[] {
   return refs.filter(
-    (r) =>
-      (sourceKind === "all" || r.source.kind === sourceKind) &&
-      (q === "" || r.link.name.toLowerCase().includes(q)),
+    (r) => (sourceKind === "all" || r.source.kind === sourceKind) && matchesDocQuery(r.link.name, query),
   );
 }
 
