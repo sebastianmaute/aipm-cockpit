@@ -132,7 +132,12 @@
   `tool_choice: {type:"tool"}` (and `"any"`) with a 400 `invalid_request_error` naming `tool_choice`, measured
   against the API on 2026-10-19; Haiku 5.5, Sonnet 5 and Opus 5 accept it. `runForcedToolCallWithStop` resends
   that one refusal with `{type:"auto"}` and remembers the model for the session (`autoChoiceModels`), so every
-  forced-call feature works on them with no per-feature code. A reply without the tool call is still the
+  forced-call feature works on them with no per-feature code. ★★ The auto request sends the tool with `strict: true`
+  and every object closed (`closeObjects`): plain auto on Sonnet 5.5 returned the next-actions `actions` as a string
+  full of tool markup in 8 of 8 replays of the app's request, strict returned 8 of 8 valid. Strict refuses two
+  schemas (`propose_project`, 31 optional fields over a limit of 24; `propose_wbs_changes`, "too complex"); on that
+  400 the tool goes plain auto for the session (`nonStrictTools`). A new optional field on a strict tool can push
+  it over the limit, which only costs the plain-auto resend. A reply without the tool call is still the
   `"parse"` error. Any other 400 is thrown as before. Don't add a model list: the API's own refusal is the signal.
   `AiKeyBanner` (`notifications.tsx`) and the Settings → AI notice read it through `useAiKeyStatus`; the
   banner's dismissal is cleared when the verdict leaves the bad states. ★★ Its "Open AI settings" action works in

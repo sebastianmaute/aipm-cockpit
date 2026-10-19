@@ -73,8 +73,50 @@ export function withGuideText(
  *  session; every other model keeps the forced choice. */
 const autoChoiceModels = new Set<string>();
 
+/** Tools whose schema the API refused in strict form (`propose_project`, too many optional fields, and
+ *  `propose_wbs_changes`, "too complex", on 2026-10-19). Their auto request goes without `strict`. */
+const nonStrictTools = new Set<string>();
+
 export function __resetToolChoiceFallbackForTests(): void {
   autoChoiceModels.clear();
+  nonStrictTools.clear();
+}
+
+/** How one request offers the tool: `forced` names it in `tool_choice`; `strict` and `auto` send
+ *  `{ type: "auto" }`, and `strict` also sends the tool with `strict: true` and every object closed.
+ *  ★★ Without strict, Sonnet 5.5 sent the next-actions analysis with `actions` as a string holding tool
+ *  markup in 8 of 8 replays of the app's request; with it, 8 of 8 were valid (2026-10-19). */
+type ToolOffer = "forced" | "strict" | "auto";
+
+/** `schema` with `additionalProperties: false` on every object, which strict mode requires. */
+function closeObjects(schema: unknown): unknown {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return schema;
+  const node = { ...(schema as Record<string, unknown>) };
+  if (node.type === "object") {
+    node.additionalProperties = false;
+    const props = (node.properties ?? {}) as Record<string, unknown>;
+    node.properties = Object.fromEntries(Object.entries(props).map(([k, v]) => [k, closeObjects(v)]));
+  }
+  if (node.items !== undefined) node.items = closeObjects(node.items);
+  return node;
+}
+
+/** `tools` with the one named `toolName` in strict form; the others as they are. */
+function strictTools(tools: unknown[], toolName: string): unknown[] {
+  return tools.map((t) => {
+    const tool = t as { name?: unknown; input_schema?: unknown };
+    return tool.name === toolName ? { ...tool, strict: true, input_schema: closeObjects(tool.input_schema) } : t;
+  });
+}
+
+/** The API's refusal of a strict schema: a 400 `invalid_request_error` whose message names the schema. */
+function refusesStrictSchema(e: unknown): boolean {
+  return (
+    e instanceof AiHttpError &&
+    e.status === 400 &&
+    e.errorType === "invalid_request_error" &&
+    /schema/i.test(e.safeMessage ?? "")
+  );
 }
 
 /** The API's refusal of a forced tool choice: a 400 `invalid_request_error` whose message names
@@ -119,16 +161,16 @@ export async function runForcedToolCallWithStop(
 ): Promise<{ input: Record<string, unknown>; stopReason: string | undefined }> {
   let json: { content?: ToolUseBlock[]; stop_reason?: unknown };
   if (autoChoiceModels.has(args.model)) {
-    json = await postOnce(args, true);
+    json = await postAuto(args);
   } else {
     try {
-      json = await postOnce(args, false);
+      json = await postOnce(args, "forced");
     } catch (e) {
       if (!refusesForcedChoice(e)) throw e;
       // With "auto" and a single tool the model still calls it; a reply without the call is
       // the same "parse" failure as before.
       autoChoiceModels.add(args.model);
-      json = await postOnce(args, true);
+      json = await postAuto(args);
     }
   }
   const toolUse = (json.content ?? []).find(
@@ -141,18 +183,30 @@ export async function runForcedToolCallWithStop(
   };
 }
 
-/** One POST: the parsed body on a 2xx, `AiHttpError` otherwise. `autoChoice` sends
- *  `tool_choice: { type: "auto" }` in place of forcing `args.toolName`. */
+/** The auto request: strict first, plain auto for a tool whose strict schema the API refused. */
+async function postAuto(args: ForcedToolCallArgs): Promise<{ content?: ToolUseBlock[]; stop_reason?: unknown }> {
+  if (!nonStrictTools.has(args.toolName)) {
+    try {
+      return await postOnce(args, "strict");
+    } catch (e) {
+      if (!refusesStrictSchema(e)) throw e;
+      nonStrictTools.add(args.toolName);
+    }
+  }
+  return postOnce(args, "auto");
+}
+
+/** One POST: the parsed body on a 2xx, `AiHttpError` otherwise. */
 async function postOnce(
   args: ForcedToolCallArgs,
-  autoChoice: boolean,
+  offer: ToolOffer,
 ): Promise<{ content?: ToolUseBlock[]; stop_reason?: unknown }> {
   const body: Record<string, unknown> = {
     model: args.model,
     max_tokens: args.maxTokens,
     messages: args.messages,
-    tools: args.tools,
-    tool_choice: autoChoice ? { type: "auto" } : { type: "tool", name: args.toolName },
+    tools: offer === "strict" ? strictTools(args.tools, args.toolName) : args.tools,
+    tool_choice: offer === "forced" ? { type: "tool", name: args.toolName } : { type: "auto" },
   };
   const system = withGuideText(args.system, args.guideText, args.cacheGuides === true);
   if (system !== undefined) body.system = system;
