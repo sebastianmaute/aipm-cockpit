@@ -81,7 +81,10 @@ items part 4 adds. The first three are HARD GATES: do not un-hide until each is 
 1. **HARD GATE — the export click.** An export or document download with the `forecastDecision` section ticked runs
    the lever search synchronously at the click, with no busy indicator (about 0.1 / 0.3 / 1 s for 12 / 60 / 150 open
    tasks; the figures and their probe are in "Part 4's engine paths and their cost" below). Measure it on a real
-   project and decide: the section's default, a busy indicator, or both.
+   project and decide: the section's default, a busy indicator, or both. ★ Measure a plain `get_forecast` (no
+   `whatIf`) on the same project too: its `whatItTakes` runs the same lever search synchronously inside the tool
+   call, once per milestone below target (about 0.85–1.1 s at 150 open tasks with 6 below target; the probe is in "Part 4's engine paths and their cost"), so the app freezes
+   while Claude reads the forecast. Decide whether it needs a cap or a worker before un-hide.
 2. **HARD GATE — one live chat request with the forecast tools offered.** No unit test sends the tool definitions to
    the real API. `set_forecast_proposal`'s `id` schema uses `type: ["number","null"]` (no strict mode); if the API
    refuses it, fall back to a JSON-Schema anyOf of number and null. Pass it with the six tools on the wire (`FORECAST_TOOL_DEFS`; count them with
