@@ -1,7 +1,7 @@
 "use client";
 // One-shot Anthropic call for the Action Center "Analyze with AI" feature. Forces
-// a single report_analysis tool call and returns the parsed ActionAnalysis. No
-// agentic loop. Reuses the live in-memory API key (never logged). Mirrors
+// a report_analysis tool call through runJobAnalysis (repeated once when the reply
+// is cut) and returns the parsed ActionAnalysis. No agentic loop. Reuses the live in-memory API key (never logged). Mirrors
 // use-project-proposal.ts.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type ActionAnalysis } from "./action-ai";

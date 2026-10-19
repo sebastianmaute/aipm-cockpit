@@ -61,6 +61,13 @@ describe("runJobAnalysis", () => {
     expect(budgets(fetchSpy)).toEqual([4096, 8192]);
   });
 
+  it("passes the caller's signal to the retry too", async () => {
+    const controller = new AbortController();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cut()).mockResolvedValueOnce(whole());
+    await runJobAnalysis("ctx", { apiKey: "k", model: "m" }, controller.signal);
+    expect(fetchSpy.mock.calls.map((c) => (c[1] as RequestInit).signal)).toEqual([controller.signal, controller.signal]);
+  });
+
   it("does not retry a malformed reply that was not cut", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(ok({ stop_reason: "tool_use", content: [{ type: "text", text: "nope" }] }));
     await expect(runJobAnalysis("ctx", { apiKey: "k", model: "m" })).rejects.toThrow("parse");

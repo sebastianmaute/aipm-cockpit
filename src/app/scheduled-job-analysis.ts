@@ -1,5 +1,6 @@
-// Non-hook, plain-async form of the Action Center "Analyze with AI" call. Performs
-// the SAME single forced-tool Anthropic request as use-action-analysis.ts so both
+// Non-hook, plain-async form of the Action Center "Analyze with AI" call: one
+// forced-tool Anthropic request, repeated once with a larger budget when the reply
+// is cut. use-action-analysis.ts calls it too, so both
 // the React hook and the SP5 scheduled-job runner (which loops per due job and
 // therefore cannot call a hook) share ONE source of truth for the call. No React.
 // SECURITY: the shared runForcedToolCall envelope never logs or echoes the api key
@@ -19,7 +20,8 @@ interface AiCreds {
 }
 
 // The output budget, as task dedup and the project proposal use (was 2048), and the one a reply cut at
-// it is asked for again with, as the WBS and allocation plans use. Billing counts the tokens used.
+// it is asked for again with, as the WBS and allocation plans use. Billing counts the tokens used, so a
+// cut first reply is billed in full on top of the retry (about 12k output tokens at worst).
 const MAX_TOKENS = 4096;
 const RETRY_MAX_TOKENS = 8192;
 
