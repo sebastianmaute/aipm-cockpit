@@ -22,15 +22,15 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** `window.prompt(…)`, `globalThis.confirm(…)`, `self.alert(…)`, and a bare `alert(…)` — a bare `prompt` or
- *  `confirm` is the local name the dialog hooks hand out, so only `alert`, which none of them uses, is read
- *  bare. Returns "file:line call" per hit. */
 /** Through `( … )`, `x as T`, `<T>x` and `x!`. */
 function unwrap(e: ts.Expression): ts.Expression {
   while (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isTypeAssertionExpression(e) || ts.isNonNullExpression(e)) e = e.expression;
   return e;
 }
 
+/** `window.prompt(…)`, `globalThis.confirm(…)`, `self.alert(…)`, and a bare `alert(…)` — a bare `prompt` or
+ *  `confirm` is the local name the dialog hooks hand out, so only `alert`, which none of them uses, is read
+ *  bare. Returns "file:line call" per hit. */
 function nativeDialogCalls(fileName: string, text: string): string[] {
   const sf = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const hits: string[] = [];

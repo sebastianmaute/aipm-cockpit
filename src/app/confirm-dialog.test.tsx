@@ -312,7 +312,7 @@ describe("ConfirmProvider — one dialog replacing another (§752 review)", () =
     await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus());
   });
 
-  // A control answers only the dialog it was rendered for.
+  // The replaced dialog is answered "no"; the replacing one stays open and takes its own answer.
   test("the replaced dialog's answer is its no, and the new one stays open", async () => {
     const ref: { current: AppDialogs } = {
       current: { confirm: async () => false, prompt: async () => null, notice: async () => {} },
@@ -326,5 +326,23 @@ describe("ConfirmProvider — one dialog replacing another (§752 review)", () =
     expect(await screen.findByText("Second?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await expect(second).resolves.toBe(true);
+  });
+});
+
+describe("ConfirmProvider — unmounting with a dialog open (§752 review)", () => {
+  // KILLED BY: dropping the unmount cleanup (the prompt's promise never settles, and the ref keeps the dead provider).
+  test("answers the open dialog with its no, and hands the ref back unbridged", async () => {
+    const ref: { current: AppDialogs } = {
+      current: { confirm: async () => false, prompt: async () => null, notice: async () => {} },
+    };
+    const view = render(<ConfirmProvider lang="en-US" dialogsRef={ref}><span /></ConfirmProvider>);
+    const live = ref.current;
+    let typed: Promise<string | null> = Promise.resolve("unset");
+    act(() => { typed = ref.current.prompt({ message: "Name this version" }); });
+    await screen.findByRole("textbox", { name: "Name this version" });
+    view.unmount();
+    await expect(typed).resolves.toBeNull();
+    expect(ref.current).not.toBe(live);
+    await expect(ref.current.confirm({ message: "after" })).resolves.toBe(false);
   });
 });

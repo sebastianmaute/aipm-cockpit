@@ -543,6 +543,32 @@ describe("§586 — no save before a load for the current backend has succeeded"
   // §752 — the conversion's question is the app's dialog, awaited: it copies the workspace as it is when the
   // user answers (an edit landing while the dialog is open is in it), and a rebuild meanwhile drops the switch.
   // KILLED BY: writing `deps.currentWorkspace()` (the click's snapshot) instead of `deps.liveWorkspace()`.
+  // KILLED BY: dropping the superseded check on the empty-reload's Cancel (the decline then clears the LIVE
+  // backend's storage outcome with `emitOutcome(null)`).
+  it("(o) §752 a Cancel on the empty-reload question after a rebuild leaves the live backend's outcome alone", async () => {
+    const current = makeBackend(0);
+    const rebuilt = makeBackend(0);
+    createBackendMock.mockReturnValueOnce(current).mockReturnValue(rebuilt);
+    const dialogs = fakeDialogs();
+    let answer: (yes: boolean) => void = () => {};
+    dialogs.confirm.mockImplementation(() => new Promise<boolean>((resolve) => { answer = resolve; }));
+    const onStorageOutcome = vi.fn();
+    const { result, rerender } = render({ ...makeArgs(), onStorageOutcome, dialogsRef: dialogs.ref });
+    await advance(100);
+    expect(result.current.tasks.length).toBeGreaterThan(0); // PRECONDITION: a populated project, so an empty reload asks
+    current.load.mockImplementation(() => Promise.resolve({ tasks: [], raid: [], absences: [], shifts: [] }));
+    let op!: Promise<void>;
+    act(() => { op = result.current.reloadCurrentProject(); });
+    await advance(50);
+    expect(dialogs.confirm).toHaveBeenCalledTimes(1); // PRECONDITION: parked on the app's dialog
+    rerender({ args: { ...makeArgs({ kind: "local-json" } as StorageConfig), onStorageOutcome, dialogsRef: dialogs.ref } });
+    await advance(100);
+    onStorageOutcome.mockClear();
+    await act(async () => { answer(false); await op; });
+    await advance(50);
+    expect(onStorageOutcome).not.toHaveBeenCalledWith(null);
+  });
+
   it("(m) §752 converts the workspace as it is when the app's dialog is answered", async () => {
     const current = makeBackend(0);
     const converted = makeBackend(0);

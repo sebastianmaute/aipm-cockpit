@@ -1468,6 +1468,22 @@ describe("useBulkOperations", () => {
       openSpy.mockRestore();
     });
 
+    // KILLED BY: dropping the in-loop `break` (every remaining address is still asked for, then dropped).
+    it("stops asking for addresses once the project scope moved (§752)", async () => {
+      let epoch = 1;
+      const dialogs = fakeDialogs();
+      dialogs.prompt.mockImplementation(async () => { epoch = 2; return "a@test.com"; });
+      const { result } = renderBulk({ dialogsRef: dialogs.ref, getScopeEpoch: () => epoch });
+      const noEmail = (id: number) => ({ id, taskName: `Task ${id}`, assignee: `Person ${id}`, assigneeEmail: "", dueDate: "2026-06-01",
+        lastUpdateDate: "2026-05-20", status: "To Do", priority: "Medium", blockers: "", description: "", inquiriesSent: 0,
+        localModifiedAt: "2026-05-20T00:00:00.000Z" } as Task);
+      act(() => { result.current.workspace.setTasks([noEmail(1), noEmail(2), noEmail(3)]); });
+      act(() => { [1, 2, 3].forEach((id) => result.current.bulk.onToggleSelect(id)); });
+      await act(async () => { await result.current.bulk.handleBulkSendInquiry(); });
+      expect(dialogs.prompt).toHaveBeenCalledTimes(1);
+      expect(dialogs.confirm).not.toHaveBeenCalled();
+    });
+
     it("writes and sends nothing when the project scope moved while a dialog was open (§752)", async () => {
       let epoch = 1;
       const dialogs = fakeDialogs();

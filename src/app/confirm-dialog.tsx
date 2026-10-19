@@ -194,6 +194,16 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
   useEffect(() => {
     if (dialogsRef) dialogsRef.current = { confirm, prompt, notice };
   }, [dialogsRef, confirm, prompt, notice]);
+  // On unmount (a popout/main switch, a test teardown) an open dialog is answered with its "no", so no op waits
+  // on it forever, and the bridges stop pointing at a provider that can no longer show anything.
+  useEffect(() => () => {
+    const open = pendingRef.current;
+    pendingRef.current = null;
+    decline(open);
+    const unbridged = unbridgedDialogs();
+    if (dialogsRef) dialogsRef.current = unbridged;
+    if (bridgeRef) bridgeRef.current = unbridged.confirm;
+  }, [dialogsRef, bridgeRef]);
 
   /** Takes `shown` off screen when it is still the open dialog; false when a newer one replaced it, whose
    *  answer this control must not give. */
