@@ -148,9 +148,11 @@ longer carries its own changelog comment.
   P50–P95 band, a dashed P80 line and each milestone's chance; Trends charts the P80 date over time; "Ask Claude
   to draft a proposal" asks the assistant to find and save one; and exports and documents can carry a
   "simulated" decision block with the target, the P80 date, the cost, the milestones below target and the
-  proposal. While the holiday calendar is still loading, that block says so in one line instead of leaving it out.
-  The AI assistant can read the target confidence, what it would take for the plan end and each milestone below
-  target, the proposal and how the P80 date has moved; it can also delete a saved scenario, which always goes to the
+  proposal. In the export settings it starts unticked, because it is worked out at the click and can take a few
+  seconds on a plan with many milestones below target. While the holiday calendar is still loading, that block says
+  so in one line instead of leaving it out.
+  The AI assistant can read the target confidence, what it would take for the plan end and the five milestones
+  furthest below target (it is told which others are below target too), the proposal and how the P80 date has moved; it can also delete a saved scenario, which always goes to the
   review card first and can be undone, and set the proposal or the target confidence, which are logged but, as when
   you change them yourself, cannot be undone. The simulation's Help entry explains all of this.
   It stays hidden while the Forecast view is held back.
