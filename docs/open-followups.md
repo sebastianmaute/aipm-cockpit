@@ -987,6 +987,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--closed-2026-10-16) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | **CLOSED** 2026-10-16 |
 | [§748](#748-background-workers-may-help-across-the-app-starting-with-the-monte-carlo-forecast--open) | Background workers may help across the app, starting with the Monte Carlo forecast | — | — | open |
 | [§749](#749-a-claude-api-key-typed-under-the-passphrase-lock-is-lost-on-reload-and-two-ai-sections-disagree-about-the-lock--open) | A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock | — | — | open |
+| [§750](#750-a-scheduled-job-added-in-settings-never-runs-until-the-app-reloads-and-settings-never-shows-its-run--open) | A scheduled job added in Settings never runs until the app reloads, and Settings never shows its run | — | — | open |
 | [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--closed-2026-10-18) | Something starts a save of the empty Turso workspace before a project exists | — | — | **CLOSED** 2026-10-18 |
 | [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--open) | window.prompt throws in the desktop app, so six flows fail there | — | — | open |
 | [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--open) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | open |
@@ -45100,7 +45101,7 @@ Size S (process).
 
 ## 715. No recorded walk-through shows a new user downloading, installing and setting up the desktop app — OPEN
 
-**Status:** **Update 2026-10-16 (#755 merged, 255c5aae9):** the web-app chapters (2.2, 2.4, 2.5 and 3–8) are scripted in `scripts/demo-video/` (`record.mjs`, `cleanup.mjs`, `lib.mjs`, `README.md`; `grep -rln "Customer Identity Platform" scripts/demo-video` → `cleanup.mjs`), and a take exists locally, git-ignored and not placed. Still open: the hand-recorded parts (install, 2.1 Turso database creation, 2.3 Anthropic key) and the placement (a README embed plus a WebM in `public/demos/`).
+**Status:** **Update 2026-10-16 (#755 merged, 255c5aae9):** the web-app chapters (2.2, 2.4, 2.5 and 3–8) are scripted in `scripts/demo-video/` (`record.mjs`, `cleanup.mjs`, `lib.mjs`, `README.md`; `grep -rln "Customer Identity Platform" scripts/demo-video` → `cleanup.mjs`), and a take exists locally, git-ignored and not placed. Still open: the hand-recorded parts (install, 2.1 Turso database creation, 2.3 Anthropic key) and the placement (a README embed plus a WebM in `public/demos/`; superseded 2026-10-18, see Placement below).
 
 **Earlier:** OPEN 2026-10-14 — nothing recorded yet: the README embeds one clip, the product tour (`grep -c "public/demos/" README.md` → 1), and the install guide none (`grep -cE ".(webm|mp4)" docs/desktop-rollout.md` → 0).
 
@@ -45125,7 +45126,7 @@ Constraints:
 - **No real secrets or names.** Key fields carry obvious fakes; a Turso connection uses the throwaway database, and its URL is masked on screen. The project is fictional ("Acme"); the repo is public.
 - **Shows phase-1 UI**, so it is recorded after §704–§712 ship and after §713's guide, whose order it follows. Met: §704–§713 all closed 2026-10-13/14 and shipped in 1.19.0 (2026-10-15), so the recording is unblocked.
 
-Placement follows the product tour: a GitHub-hosted embed in the README (and here, in the guide) with a download link to a WebM in `public/demos/`. Open for the owner: whether it has narration or captions (the tour has neither).
+Placement (owner, 2026-10-18): the video guides are uploaded to YouTube and the README and the guide link there; documentation media lives in `docs/assets/` (the product tour's download copy moved there from `public/demos/`, which shipped it in every installer), and `public/` keeps only what the app loads. Earlier: placement followed the product tour, a GitHub-hosted embed with a download link to a WebM in `public/demos/`. Open for the owner: whether it has narration or captions (the tour has neither).
 
 Size M.
 
@@ -45637,6 +45638,23 @@ Size M.
 Also noted for the same generalisation (Turso token, §715 round 20): when a write that began after a stopped switch's own seal FAILS, it has still bumped the generation, so the put-back yields and the draft's seal stays in the store. That follows the deliberate no-fallback rule on `beginSealedWrite`; the generalised gate should decide whether the put-back may then still run.
 
 **Source:** found 2026-10-17 by the owner's question during the §715 review rounds (`fix/715-recording-defects`).
+
+## 750. A scheduled job added in Settings never runs until the app reloads, and Settings never shows its run — OPEN
+
+**Status:** OPEN 2026-10-18, from code reading and the §715 `ai-scheduled` clip; not yet reproduced in a test. `grep -rn "= useScheduledJobs(" src/app --include=*.ts --include=*.tsx | grep -v test` → two instances.
+
+**Work item:** #780
+
+The scheduled-job runner and the Settings → AI Assistant → Scheduled jobs section each keep their own copy of the job list: two `useScheduledJobs` instances (`use-ai-orchestration.ts` for the runner, `settings-sections/scheduled-jobs-section.tsx` for Settings), each reading the store only on mount or when its `config` changes.
+
+1. **A job added in Settings never runs until the app reloads.** The runner's list stays as it was read at mount, so none of its ticks (on mount, on becoming visible, every five minutes, or when AI or the guides become ready) sees the new job.
+2. **Settings never shows a run.** After the runner records a run, the open Settings section keeps its own list, so "Never run" stays until the section mounts again.
+
+Proposed: one shared job store (a context, or a module-level store with subscribers) read by both, so a create, an edit and a recorded run reach every reader at once. The `ai-scheduled` clip (`scripts/demo-video/steps/ai.mjs`) reloads off camera after creating its job and re-opens Settings until the run shows; both workarounds come out with the fix.
+
+Size S–M.
+
+**Source:** found 2026-10-18 by the §715 A recorder review (`docs/715-a-plan`); the owner chose to file it and record around it.
 
 ## 751. Something starts a save of the empty Turso workspace before a project exists — CLOSED 2026-10-18
 

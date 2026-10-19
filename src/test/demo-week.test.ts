@@ -6,6 +6,7 @@ interface Row { id: number; [k: string]: unknown }
 interface Raw {
   tasks: Row[]; milestones: Row[]; changes: Row[]; raid: Row[]; stakeholders: Row[];
   resources: Row[]; roles: Row[]; disciplines: Row[]; grades: Row[]; absences: Row[]; budgets: Row[];
+  plan: Record<string, unknown>;
 }
 
 const task = (id: number, taskName: string, over: Partial<Row> = {}): Row => ({
@@ -35,6 +36,7 @@ function tinyRaw(): Raw {
     grades: [{ id: 4, name: "Senior" }],
     absences: [],
     budgets: [{ id: 1, name: "Identity Platform – T&M", type: "tm", startDate: "2026-07-01", endDate: "2026-10-31" }],
+    plan: { startDate: "2026-03-02", endDate: "2027-02-26", granularity: "month", budgetFollowsPlan: true },
   };
 }
 
@@ -67,6 +69,11 @@ describe("applyDemoWeek", () => {
     expect(byName(fri.raid, "title", "GDPR erasure requests do not reach the CRM")).toMatchObject({ status: "Resolved", owner: "Noah Bennett" });
     expect(byName(fri.raid, "title", "connector licence lead time")).toMatchObject({ severity: "Medium", status: "Open" });
     expect(fri.resources.find((r) => r.id === 4)!.utilization).toMatchObject({ "2026-09": DEMO_MAYA_RELIEVED_HOURS });
+  });
+
+  it("turns budget hours following the plan off on Tuesday, so the re-plan can be imported", () => {
+    expect((applyDemoWeek(tinyRaw(), "mon") as Raw).plan.budgetFollowsPlan).toBe(true);
+    expect((applyDemoWeek(tinyRaw(), "tue") as Raw).plan.budgetFollowsPlan).toBe(false);
   });
 
   it("leaves one task of each duplicate pair after Tuesday", () => {
