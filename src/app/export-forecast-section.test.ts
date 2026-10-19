@@ -119,6 +119,12 @@ describe("the budgetForecast export section (§545)", () => {
     expect(sanitizeExportConfig({ budgetForecast: false }).budgetForecast).toBe(false);
   });
 
+  it("leaves the forecast decision off by default, since ticked it runs the lever search at the click (§502)", () => {
+    expect(defaultExportConfig.forecastDecision).toBe(false);
+    expect(sanitizeExportConfig({ tasks: true }).forecastDecision).toBe(false);
+    expect(sanitizeExportConfig({ forecastDecision: true }).forecastDecision).toBe(true);
+  });
+
   // §545 documents half — the renderers take the same extras, so a document
   // block may name the derived section; it stays out of the slice list.
   it("can be named by a document dataSection block, but is no workspace slice", () => {

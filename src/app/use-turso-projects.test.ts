@@ -3,6 +3,7 @@
 // The hook's job is (1) mode-routing the portfolio lifecycle callbacks and
 // (2) surfacing failed Turso operations as error toasts — previously these
 // async chains were fire-and-forget and rejections vanished silently.
+import { markUnsealedPassphraseSecret } from "./turso-token-marker";
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTursoProjects, type UseTursoProjectsArgs } from "./use-turso-projects";
@@ -142,6 +143,22 @@ describe("useTursoProjects — create", () => {
     expect(loadPortfolioMode()).toBe("turso");
     expect(persistedStorageKind()).toBe("turso");
     expect(loadCurrentTursoProjectId()).toBe("new-id");
+  });
+
+  // §749 — the cross-mode create ends in a reload: with the Claude key held unsealed it refuses BEFORE creating.
+  // KILLED BY: dropping the cross-mode `secretLostToReload` check.
+  it("file mode + opts.storage 'turso': refuses before creating while the Claude key is held unsealed (§749)", async () => {
+    markUnsealedPassphraseSecret("anthropicApiKey", "sk-ant-api03-fictional00000000");
+    const args = makeArgs({
+      portfolioMode: "file",
+      createTursoProject: vi.fn(async () => "new-id"),
+      getSettings: () => ({ ...defaultSettings, storageConfig: { kind: "browser" }, ai: { ...defaultSettings.ai, apiKey: "sk-ant-api03-fictional00000000" } }),
+    });
+    const { result } = renderHook(() => useTursoProjects(args));
+    result.current.handleCreateProjectByMode(META, "json", { storage: "turso" });
+    await waitFor(() => expect(args.showToast).toHaveBeenCalledWith("error", t("en-US", "aiKeyNeedsPassphraseSave", t("en-US", "secretPassphraseSave"))));
+    expect(args.createTursoProject).not.toHaveBeenCalled();
+    expect(reloadSpy).not.toHaveBeenCalled();
   });
 
   it("file mode + opts.storage 'turso': a failed create switches nothing and does not reload (§740)", async () => {

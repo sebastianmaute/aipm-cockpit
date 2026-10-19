@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang } from "./i18n";
 import { mintId } from "./id-mint-session";
 import { useCalendarEvents } from "./use-calendar-events";
-import { useRaidItems } from "./use-raid-items";
+import { useRaidItems, type UseRaidItemsArgs } from "./use-raid-items";
 import { useReferenceData } from "./use-reference-data";
 import { plainSeed, useResourceDirectory } from "./use-resource-directory";
 import { generatePeriods, convertUtilization } from "./resource-capacity";
@@ -38,6 +38,9 @@ function emptyShiftDraft(id: number): Shift {
 }
 
 export interface UseResourcePlannerArgs {
+  /** §752 — passed to useRaidItems (the RAID inquiry's owner-email prompt). */
+  dialogsRef?: UseRaidItemsArgs["dialogsRef"];
+  getScopeEpoch?: UseRaidItemsArgs["getScopeEpoch"];
   lang: Lang;
   /** Today (YYYY-MM-DD) in the resolved effective timezone, from the caller. */
   today: string;
@@ -141,7 +144,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   } | null>(null);
 
   // RAID CRUD (save/delete/inquiry/bulk-undo) extracted to use-raid-items.ts (§61).
-  const raidItemsApi = useRaidItems({ lang: args.lang, today, logActivity: args.logActivity, showToast: args.showToast, capture: args.capture, captureFieldEdit: args.captureFieldEdit, captureFieldRows: args.captureFieldRows, logUpdate, allowDestructiveSave: args.allowDestructiveSave });
+  const raidItemsApi = useRaidItems({ lang: args.lang, today, logActivity: args.logActivity, showToast: args.showToast, capture: args.capture, captureFieldEdit: args.captureFieldEdit, captureFieldRows: args.captureFieldRows, logUpdate, allowDestructiveSave: args.allowDestructiveSave, dialogsRef: args.dialogsRef, getScopeEpoch: args.getScopeEpoch });
 
   const handleOpenAddAbsence = useCallback(
     (seed?: Partial<Absence>) => {

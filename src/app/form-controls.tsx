@@ -23,6 +23,7 @@
 import { useRef } from "react";
 import type {
   InputHTMLAttributes,
+  Ref,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
@@ -103,6 +104,8 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   size?: FieldSize;
   /** What the colours say about the value (§686): `muted`, `warning` or `accent`. */
   state?: FieldState;
+  /** React 19 passes `ref` as a prop; the spread below hands it to the `<input>` (§752, the prompt focuses it). */
+  ref?: Ref<HTMLInputElement>;
 }
 
 /** Canonical text `<input>`. All native input props pass through; pair with a

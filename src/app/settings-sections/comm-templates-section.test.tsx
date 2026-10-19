@@ -4,6 +4,7 @@ import { CommTemplatesSection, type CommTemplatesSectionProps } from "./comm-tem
 import type { CommTemplate } from "../comm-templates";
 import { defaultSettings } from "../settings-types";
 import { ToastProvider } from "../toast-context";
+import { ConfirmProvider } from "../confirm-dialog";
 import { readDiagLog, clearDiagLog } from "../diagnostics";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { rowLabel } from "../row-tokens";
@@ -74,9 +75,9 @@ function setup(templates: CommTemplate[], onChange = vi.fn(), overrides: Partial
     ...overrides,
   };
   const tree = (list: CommTemplate[]) => (
-    <ToastProvider value={{ showToast: showToastSpy, showToastAction: showToastSpy }}>
+    <ToastProvider value={{ showToast: showToastSpy, showToastAction: showToastSpy }}><ConfirmProvider lang="en-US">
       <CommTemplatesSection lang="en-US" templates={list} config={null} settings={defaultSettings} onChange={onChange} {...handlers} />
-    </ToastProvider>
+    </ConfirmProvider></ToastProvider>
   );
   const utils = render(tree(templates));
   return { ...handlers, onChange, rerenderWith: (list: CommTemplate[]) => utils.rerender(tree(list)) };
@@ -147,12 +148,26 @@ describe("CommTemplatesSection", () => {
     expect(h.onSetDefault).toHaveBeenCalledWith("status-inquiry", "t1");
   });
 
-  it("saves a named version of the current body", async () => {
+  // §752 — asked in the app's dialog: `window.prompt` throws in the desktop app.
+  it("saves a named version of the current body, named in the app's dialog", async () => {
+    const native = vi.spyOn(window, "prompt");
     setup([tpl()]);
     fireEvent.click(screen.getByRole("button", { name: "Inquiry A" }));
-    vi.spyOn(window, "prompt").mockReturnValue("My version");
     fireEvent.click(screen.getByRole("button", { name: "Save version" }));
-    expect(saveVersion).toHaveBeenCalledWith("My version", expect.any(String), false);
+    fireEvent.change(await screen.findByRole("textbox", { name: "Name this version" }), { target: { value: "My version" } });
+    fireEvent.click(screen.getByRole("button", { name: "OK" }));
+    await waitFor(() => expect(saveVersion).toHaveBeenCalledWith("My version", expect.any(String), false));
+    expect(native).not.toHaveBeenCalled();
+  });
+
+  it("saves no version when the name dialog is cancelled", async () => {
+    setup([tpl()]);
+    fireEvent.click(screen.getByRole("button", { name: "Inquiry A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save version" }));
+    await screen.findByRole("textbox", { name: "Name this version" });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Name this version" })).toBeNull());
+    expect(saveVersion).not.toHaveBeenCalled();
   });
 
   it("cancels editing: reverts the body draft and does not save", async () => {
@@ -271,7 +286,7 @@ describe("CommTemplatesSection", () => {
     expect(buttonNames()).toContain("Weekly ping (2)");
   });
 
-  // ★★ WCAG 2.4.6 — a version name is whatever `window.prompt` returned
+  // ★★ WCAG 2.4.6 — a version name is whatever the name dialog returned
   // (`saveCurrentVersion`), and nothing on any backend constrains it, so two
   // versions can share one. Both of that row's controls interpolated the raw
   // name, so "Compare: draft" and "Restore: draft" each appeared twice.
