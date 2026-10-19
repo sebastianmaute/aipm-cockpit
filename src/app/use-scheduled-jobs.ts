@@ -47,12 +47,17 @@ function nextJobId(jobs: readonly ScheduledJob[]): number {
 /** §750 — shared by every instance: one write chain, and each mounted instance's re-read. */
 let writeChain: Promise<void> = Promise.resolve();
 const instances = new Set<() => void>();
-/** Bumped by every completed save, PER BACKEND (keyed by the config object; null = localStorage). A read
+/** The backend a config names: its database URL, or null for localStorage. NOT the config object — an equal one is
+ *  minted whenever the URL or token is set again (typing it, hydration), and a new token for the same database is
+ *  the same backend. */
+const backendOf = (config: TursoConfig | null): string | null => (config ? config.httpUrl : null);
+
+/** Bumped by every completed save, PER BACKEND (`backendOf`). A read
  *  started before the latest save to its own backend may answer after a newer list was applied (a slow Turso
  *  round trip), so its result is dropped: a newer list always follows it — the write's own list, or the
  *  re-read that write starts in every other instance. A save to the OTHER backend drops nothing. */
-const savedGenerations = new Map<TursoConfig | null, number>();
-const generationOf = (config: TursoConfig | null): number => savedGenerations.get(config) ?? 0;
+const savedGenerations = new Map<string | null, number>();
+const generationOf = (config: TursoConfig | null): number => savedGenerations.get(backendOf(config)) ?? 0;
 
 export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduledJobsResult {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
@@ -96,7 +101,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
       const config = cfgRef.current;
       const startedAt = generationOf(config);
       const list = await loadScheduledJobs(config);
-      if (!mountedRef.current || startedAt !== generationOf(config) || cfgRef.current !== config) return;
+      if (!mountedRef.current || startedAt !== generationOf(config) || backendOf(cfgRef.current) !== backendOf(config)) return;
       setJobs(list);
     } catch {
       // optional feature — leave jobs as-is
@@ -127,8 +132,8 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         const existing = await loadScheduledJobs(config);
         const next = transform(existing);
         await saveScheduledJobs(config, next);
-        savedGenerations.set(config, generationOf(config) + 1);
-        if (mountedRef.current && cfgRef.current === config) setJobs(next);
+        savedGenerations.set(backendOf(config), generationOf(config) + 1);
+        if (mountedRef.current && backendOf(cfgRef.current) === backendOf(config)) setJobs(next);
         for (const reread of instances) if (reread !== rereadRef.current) reread();
       });
       // Keep the chain alive even if a link rejects, and clear busy at the end.

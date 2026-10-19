@@ -8,7 +8,7 @@ import type { ScheduledJob } from "./scheduled-jobs/types";
 import type { TursoConfig } from "./turso-config";
 
 const store = vi.hoisted(() => ({
-  lists: new Map<unknown, ScheduledJob[]>(),
+  lists: new Map<unknown, ScheduledJob[]>(), // keyed by `keyOf`: the database, not the config object
   saves: [] as Array<{ config: unknown; names: string[] }>,
   holdLoadOf: undefined as unknown,
   holdSave: false,
@@ -16,9 +16,11 @@ const store = vi.hoisted(() => ({
   releaseSave: (): void => {},
 }));
 
+const keyOf = (config: unknown): unknown => (config === null ? null : (config as { httpUrl: string }).httpUrl);
+
 vi.mock("./scheduled-jobs-store", () => ({
   loadScheduledJobs: async (config: unknown) => {
-    const list = [...(store.lists.get(config) ?? [])];
+    const list = [...(store.lists.get(keyOf(config)) ?? [])];
     if (store.holdLoadOf !== undefined && config === store.holdLoadOf) {
       store.holdLoadOf = undefined;
       await new Promise<void>((resolve) => { store.releaseLoad = resolve; });
@@ -30,14 +32,14 @@ vi.mock("./scheduled-jobs-store", () => ({
       store.holdSave = false;
       await new Promise<void>((resolve) => { store.releaseSave = resolve; });
     }
-    store.lists.set(config, [...jobs]);
-    store.saves.push({ config, names: jobs.map((j) => j.name) });
+    store.lists.set(keyOf(config), [...jobs]);
+    store.saves.push({ config: keyOf(config), names: jobs.map((j) => j.name) });
   },
 }));
 
 import { useScheduledJobs } from "./use-scheduled-jobs";
 
-const TURSO = { url: "libsql://fictional.example", authToken: "tok" } as unknown as TursoConfig;
+const TURSO: TursoConfig = { httpUrl: "https://fictional.example", authToken: "tok" };
 const job = (id: number, name: string): ScheduledJob =>
   ({ id, name, type: "portfolioAnalysis", cadence: { kind: "daily", timeOfDay: "09:00" }, enabled: true, lastRunAt: null, history: [] }) as ScheduledJob;
 
@@ -46,7 +48,7 @@ function mount(config: TursoConfig | null) {
 }
 
 beforeEach(() => {
-  store.lists = new Map([[null, [job(1, "local")]], [TURSO, [job(1, "turso")]]]);
+  store.lists = new Map<unknown, ScheduledJob[]>([[null, [job(1, "local")]], [TURSO.httpUrl, [job(1, "turso")]]]);
   store.saves = [];
   store.holdLoadOf = undefined;
   store.holdSave = false;
@@ -64,7 +66,7 @@ describe("useScheduledJobs — a backend change during a write (§750 review)", 
     h.rerender({ config: TURSO });
     await act(async () => { store.releaseLoad(); await writing; });
     expect(store.saves).toEqual([{ config: null, names: ["local edited"] }]);
-    expect(store.lists.get(TURSO)!.map((j) => j.name)).toEqual(["turso"]);
+    expect(store.lists.get(TURSO.httpUrl)!.map((j) => j.name)).toEqual(["turso"]);
   });
 
   // KILLED BY: applying the write's list whatever config the instance is on now.
@@ -96,5 +98,20 @@ describe("useScheduledJobs — a backend change during a write (§750 review)", 
     await act(async () => { store.releaseSave(); await writing; });
     await act(async () => { store.releaseLoad(); });
     await waitFor(() => expect(h.result.current.jobs.map((j) => j.name)).toEqual(["turso"]));
+  });
+
+  // §750 third review — the same database under a NEW config object (a token typed again, hydration minting an equal
+  // object) is the same backend: a write in flight still reaches this instance, and nothing goes stale.
+  // KILLED BY: keying by the config object again (the write's list is not applied after the re-mint).
+  it("a config re-created for the same database still gets the write's list", async () => {
+    const h = mount(TURSO);
+    await waitFor(() => expect(h.result.current.jobs.map((j) => j.name)).toEqual(["turso"]));
+    store.holdSave = true;
+    let writing!: Promise<void>;
+    act(() => { writing = h.result.current.updateJob(1, { name: "turso edited" }); });
+    await waitFor(() => expect(store.holdSave).toBe(false)); // PRECONDITION: the save is held
+    h.rerender({ config: { ...TURSO } }); // equal, new object
+    await act(async () => { store.releaseSave(); await writing; });
+    await waitFor(() => expect(h.result.current.jobs.map((j) => j.name)).toEqual(["turso edited"]));
   });
 });
