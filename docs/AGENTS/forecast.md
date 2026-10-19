@@ -89,7 +89,8 @@ items part 4 adds. The first three are HARD GATES: do not un-hide until each is 
    Re-measured with the cap (same samples, three runs): `get_forecast` takes 0.8–0.9 s on small, 1.3–1.5 s on big (5
    searched, 4 not) and 2.3–2.4 s on huge (5 searched, 25 not), down from 10–11 s. Small searches the same 3
    milestones either way, so its change is shared-machine noise; and inside `get_forecast` one search on huge costs
-   about 0.33 s ((10.5 − 2.35) / 25), above the export's 0.16–0.21 s per search on the same sample (4.9–6.4 s / 30).
+   about 0.33 s ((10.5 − 2.35) / 25), above the export's 0.16–0.21 s per below-target milestone on the same sample
+   (its whole 4.9–6.4 s / 30, so the As-is run and the decision base are spread over it too).
    Neither that gap nor big's small drop (1.5 s to 1.3–1.5 s for 4 fewer searches, where the export's rate on big
    predicts about 0.4 s) has a measured cause; the plan end and the five searches on a 200-task backlog are what is
    left, so a large project still freezes for about 2 s while Claude reads the forecast. ★ A document download with a
@@ -120,7 +121,11 @@ items part 4 adds. The first three are HARD GATES: do not un-hide until each is 
 6. **Owner eye-check, exports:** the decision rows reuse the lever badge text, not the mockup's phrasing; and
    `exportSectionHint` (EN and DE) does not list the `forecastDecision` section yet, because naming it now would name
    the hidden feature — add it at un-hide. Say in the CHANGELOG's "older version" sentence that an older build drops
-   a `forecastDecision` block ([`documents.md`](documents.md), the `forecastDecision` paragraph).
+   a `forecastDecision` block ([`documents.md`](documents.md), the `forecastDecision` paragraph). ★ The section was
+   ticked by default on `main` from #788 (`e7e1069fa`, 2026-10-18) until #797 (`c83f320ea`, 2026-10-19), and `sanitizeExportConfig`
+   keeps a stored boolean, so a device that saved its settings in that window still has it ticked; untick it in
+   Settings → Export before eye-checking or timing an export. No release carried the key (`v1.19.0` predates it:
+   `git show v1.19.0:src/app/settings-types.ts | grep -c forecastDecision` prints 0), so only dev devices are affected.
 7. **Help:** paste the held-back text above; part 3's burn-chart band still has no help text (above).
 8. **Decide, not a gate — a generic forecast Ask-Claude chip.** `ASK_CLAUDE_PROMPTS.forecast` is absent, and
    `ask-claude-prompts.test.ts` pins it ("has no chip for forecast while the view is held back (§502)"). The view has
@@ -456,7 +461,9 @@ npx vite-node group-probe.ts; rm group-probe.ts
 the click, with no busy indicator. Measured 2026-10-18 for Task 8 (fresh task arrays, so the As-is run is included;
 three runs each): about 0.1 s for 12 open tasks and 2 below-target milestones, about 0.2–0.3 s for 60 open tasks and
 4 below, and about 0.85–1.1 s for 150 open tasks and 6 below. Nearly all of it is the bisection, about 50–200 ms per
-below-target milestone on these backlogs (about 0.16–0.21 s on the huge sample, gate 1). A preview pays only its
+below-target milestone on these backlogs. On the huge sample the whole export divided by its 30 below-target
+milestones gives about 0.16–0.21 s (gate 1); that is a ceiling per search, not a search's own cost, because the As-is
+run and the base are inside it. A preview pays only its
 base, about 25–95 ms over the same three workloads. Reproduce from the
 repo root (single runs on a shared machine, so expect noise; the run for this note gave 101 / 238 / 1514 ms; delete the
 file afterwards):
