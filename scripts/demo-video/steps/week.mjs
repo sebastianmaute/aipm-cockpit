@@ -369,7 +369,8 @@ export const TUESDAY = [
   // Links and notes feed no day fact, so the chapters' replay leaves them out.
   // Staging is per model response: writes spread over several responses each apply at once and show no card.
   // The check therefore also accepts a change already linked, and `run` never sends the request again once
-  // it is, so a retry cannot add the notes twice.
+  // it is, so a retry cannot add the notes twice. Accepted risk: notes written in one response and the links
+  // never, which leaves the change unlinked, so the retry asks again and a note can appear twice.
   step('chat-link-connector', {
     ai: true,
     trigger: async (ctx) => { await nav(ctx, 'AI Assistant'); return main(ctx).locator('textarea').last(); },
@@ -380,10 +381,20 @@ export const TUESDAY = [
         prompt: `The change request "${CONNECTOR}" would replace the failing custom CRM sync. In one response, as one set of changes: link it to the open CRM provisioning tasks and to the GDPR erasure issue, and on each linked task keep its description as it is and add one sentence at the end saying this change would replace the custom CRM sync. Do not change any dates, statuses, owners or blockers.`,
       });
     },
-    check: async (ctx) => ((await chatProposalApply(ctx).isEnabled().catch(() => false)) || (await connectorLinked(ctx)) ? null : 'no proposal'),
+    // isVisible first: isEnabled on a card that is not there waits out its timeout.
+    check: async (ctx) => {
+      const apply = chatProposalApply(ctx);
+      if ((await apply.isVisible().catch(() => false)) && (await apply.isEnabled().catch(() => false))) return null;
+      return (await connectorLinked(ctx)) ? null : 'no proposal';
+    },
     after: async (ctx) => {
       const apply = chatProposalApply(ctx);
-      if (!(await apply.isVisible().catch(() => false))) return;
+      if (!(await apply.isVisible().catch(() => false))) {
+        // The links went in without a card (a single write applies at once).
+        await caption(ctx, 'Done: the change now lists the tasks and the issue it touches.');
+        await pace(ctx, 2500);
+        return;
+      }
       await caption(ctx, 'Review what it will change, then Apply: several items in one step.');
       await moveTo(ctx, main(ctx).getByRole('region', { name: 'Proposed changes' }).last());
       await pace(ctx, 2500);

@@ -61,7 +61,8 @@ if (!paths.length) {
   process.exit(2);
 }
 await cleanup();
-const browser = await chromium.launch({ headless: true });
+// Laid out as the recorder lays out its takes (record.mjs): scrollbars shown.
+const browser = await chromium.launch({ headless: true, ignoreDefaultArgs: ['--hide-scrollbars'] });
 const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, locale: 'en-US', timezoneId: 'Europe/Berlin' });
 await L.guardTurso(context, T.host);
 const page = await context.newPage();
