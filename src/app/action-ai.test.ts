@@ -27,7 +27,24 @@ describe("parseAnalysis", () => {
   it("returns null when summary missing or actions not an array", () => {
     expect(parseAnalysis({ actions: [] })).toBeNull();
     expect(parseAnalysis({ summary: "x", actions: "nope" })).toBeNull();
+    expect(parseAnalysis({ summary: "x", actions: "{}" })).toBeNull();
+    expect(parseAnalysis({ summary: "x", actions: 3 })).toBeNull();
     expect(parseAnalysis(null)).toBeNull();
+  });
+
+  // A forced call can come back without `actions` when the model has nothing net-new to add,
+  // or with the array sent as a JSON string; both are a usable answer, not a failed one.
+  it("reads a missing or null actions list as no suggestions", () => {
+    expect(parseAnalysis({ summary: "All on track." })).toEqual({ summary: "All on track.", actions: [] });
+    expect(parseAnalysis({ summary: "All on track.", actions: null })).toEqual({ summary: "All on track.", actions: [] });
+  });
+
+  it("reads actions sent as a JSON-encoded array", () => {
+    const out = parseAnalysis({
+      summary: "Focus on M2.",
+      actions: JSON.stringify([{ title: "Unblock M2", why: "Task 4 blocks it.", severity: "now" }]),
+    });
+    expect(out).toEqual({ summary: "Focus on M2.", actions: [{ title: "Unblock M2", why: "Task 4 blocks it.", severity: "now", entity: undefined }] });
   });
 
   it("clamps unknown severity to 'soon' and drops entries without title/why", () => {

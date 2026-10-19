@@ -33,6 +33,47 @@ describe("runJobAnalysis", () => {
     }
   });
 
+  // 2048 tokens could cut a full answer (eight actions with rationale) short, and a cut tool input fails the parse.
+  it("asks for an output budget of 4096 tokens", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      ok({ content: [{ type: "tool_use", name: "report_analysis", input: { summary: "s", actions: [] } }] }),
+    );
+    await runJobAnalysis("ctx", { apiKey: "k", model: "m" });
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(String(init.body)).max_tokens).toBe(4096);
+  });
+
+  // A cut reply's input can pass parseAnalysis with actions missing, so it is never read: it is asked for again.
+  const cut = () => ok({ stop_reason: "max_tokens", content: [{ type: "tool_use", name: "report_analysis", input: { summary: "cut", actions: [] } }] });
+  const whole = () => ok({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "report_analysis", input: { summary: "whole", actions: [] } }] });
+  const budgets = (spy: { mock: { calls: unknown[][] } }) =>
+    spy.mock.calls.map((c) => JSON.parse(String((c[1] as RequestInit).body)).max_tokens);
+
+  it("asks once more with 8192 tokens when the reply was cut, and returns that answer", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cut()).mockResolvedValueOnce(whole());
+    await expect(runJobAnalysis("ctx", { apiKey: "k", model: "m" })).resolves.toEqual({ summary: "whole", actions: [] });
+    expect(budgets(fetchSpy)).toEqual([4096, 8192]);
+  });
+
+  it("throws 'parse' when the retry is cut too, after two calls", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cut()).mockResolvedValueOnce(cut());
+    await expect(runJobAnalysis("ctx", { apiKey: "k", model: "m" })).rejects.toThrow("parse");
+    expect(budgets(fetchSpy)).toEqual([4096, 8192]);
+  });
+
+  it("passes the caller's signal to the retry too", async () => {
+    const controller = new AbortController();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cut()).mockResolvedValueOnce(whole());
+    await runJobAnalysis("ctx", { apiKey: "k", model: "m" }, controller.signal);
+    expect(fetchSpy.mock.calls.map((c) => (c[1] as RequestInit).signal)).toEqual([controller.signal, controller.signal]);
+  });
+
+  it("does not retry a malformed reply that was not cut", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(ok({ stop_reason: "tool_use", content: [{ type: "text", text: "nope" }] }));
+    await expect(runJobAnalysis("ctx", { apiKey: "k", model: "m" })).rejects.toThrow("parse");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("throws 'parse' on malformed tool output", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(ok({ content: [{ type: "text", text: "nope" }] }));
     await expect(runJobAnalysis("ctx", { apiKey: "k", model: "m" })).rejects.toThrow("parse");
