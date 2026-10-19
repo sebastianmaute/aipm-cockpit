@@ -130,7 +130,37 @@ const allocPlan = step('alloc-plan', {
 });
 
 // ---- ai-weights ----
-/** Off camera: Expert mode on, learning on, and a few rows snoozed so the learning view has a history. */
+/** Two weeks of Action Center responses with a clear pattern: single-fix items acted on, aggregate
+ *  budget and schedule signals snoozed or dismissed. Kind → [acted, snoozed, dismissed], keyed
+ *  `${source}:${why key}` as the engine records them (next-actions/engine.ts). With only the three
+ *  snoozes below, Sonnet 5.5 found too little to go on and kept every weight (2026-10-19). */
+export const DEMO_LEARNING_HISTORY = {
+  'task-attention:actionTaskWhyBlocked': [6, 0, 0],
+  'task-attention:actionTaskWhyUnassigned': [4, 1, 0],
+  'raid:actionRaidWhyNoOwner': [5, 0, 0],
+  'change-pending:actionChangeItemWhy': [4, 1, 0],
+  'budget:actionBudgetWhyCpi': [0, 2, 5],
+  'schedule:actionScheduleWhyBehind': [0, 3, 4],
+};
+
+/** Writes DEMO_LEARNING_HISTORY into the device's learning store (the local one, the default), dated two
+ *  days back on the page's clock so decay barely touches it, and reloads so the app reads it. */
+async function seedLearningHistory(ctx) {
+  await ctx.page.evaluate((history) => {
+    const key = 'aipm-cockpit:action-learning';
+    let snap = {};
+    try { snap = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch { snap = {}; }
+    const state = { ...(snap.state || {}) };
+    const at = Date.now() - 2 * 86400000;
+    for (const [kind, [acted, snoozed, dismissed]] of Object.entries(history)) state[kind] = { acted, snoozed, dismissed, lastAt: at };
+    localStorage.setItem(key, JSON.stringify({ state, overrides: snap.overrides || {} }));
+  }, DEMO_LEARNING_HISTORY);
+  await ctx.page.reload();
+  await L.settle(ctx.page);
+}
+
+/** Off camera: Expert mode on, learning on, a few rows snoozed, and the seeded history, so the learning
+ *  view and Claude both have something to read. */
 const weightsHistory = step('weights-history', {
   setup: true,
   run: async (ctx) => {
@@ -145,12 +175,13 @@ const weightsHistory = step('weights-history', {
       await click(ctx, main(ctx).getByRole('button', { name: /^More actions – / }).first(), 'More actions', 400);
       await click(ctx, ctx.page.getByRole('menuitem', { name: '1 day', exact: true }).or(ctx.page.getByRole('button', { name: '1 day', exact: true })).first(), 'snooze 1 day', 600);
     }
+    await seedLearningHistory(ctx);
     await settingsTab(ctx, 'Next actions');
     // "View learning insights" opens a view of its own (not a dialog): one row per action kind.
     await click(ctx, main(ctx).getByRole('button', { name: 'View learning insights', exact: true }), 'View learning insights', 800);
     await main(ctx).getByRole('heading', { name: 'Action Center learning', exact: true }).waitFor({ timeout: 15000 });
     const rows = await main(ctx).locator('tbody tr').count();
-    if (rows === 0) throw new Error('the learning view lists no history after three snoozes');
+    if (rows < Object.keys(DEMO_LEARNING_HISTORY).length) throw new Error(`the learning view lists ${rows} kinds, not the seeded history`);
   },
 });
 const weightsSuggest = step('weights-suggest', {
