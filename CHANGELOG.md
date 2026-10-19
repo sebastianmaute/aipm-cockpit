@@ -41,6 +41,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
+  documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
+  was typed. The search now matches library cards by name, a source other than All hides them (they belong to
+  none), and "No knowledge matches this filter" shows when nothing in either list matches.
 - **The app no longer reloads over a Claude API key that is not saved yet (§749).** A key typed under the passphrase
   lock is not stored until "Save passphrase" is chosen. Switching the portfolio and moving a project to Turso
   reload the app, as do picking a Turso project, creating one from a file portfolio, loading a file into a Turso
