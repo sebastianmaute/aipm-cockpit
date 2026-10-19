@@ -41,6 +41,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
+  documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
+  was typed. The search now matches library cards by name, a source other than All hides them (they belong to
+  none), and "No knowledge matches this filter" shows when nothing in either list matches.
 - **Analyze with AI and scheduled AI jobs fail less often (§715).** A reply with no new suggestions, or with its
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,
