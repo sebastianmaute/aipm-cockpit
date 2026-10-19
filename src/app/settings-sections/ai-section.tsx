@@ -22,6 +22,8 @@ import { AiUsagePanel } from "./ai-usage-panel";
 import { AiPolicyFields } from "./ai-policy-fields";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
+import { hasUnsealedPassphraseSecret, markUnsealedPassphraseSecret, noteSecretSealed } from "../turso-token-marker";
+import { trackSecretSeal, useHasUnsealedPassphraseSecret } from "../turso-token-seals";
 import { Button } from "../button";
 import { Checkbox, HintedLabel, Input, Select } from "../form-controls";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
@@ -116,6 +118,17 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const [keyPassphrase, setKeyPassphrase] = useState("");
   const [keyConfirm, setKeyConfirm] = useState("");
   const [keyStored, setKeyStored] = useState(() => loadSealed("anthropicApiKey") != null);
+  // §749 — the wrap is DERIVED, as the Turso token's is (`integrations-section.tsx`): a key held unsealed
+  //   under the lock, or a passphrase record in the store, is passphrase whatever this instance last set.
+  //   Settings keeps its section mounted under the setup wizard, which mounts a second one, so `keyWrap`
+  //   alone went stale in one of them and its next keystroke device-sealed over the other's passphrase
+  //   record. `wrapNow` is the same rule at EVENT time: `isPassphraseLocked` reads the store, which no
+  //   render subscribes to.
+  const keyHeldUnsealed = useHasUnsealedPassphraseSecret("anthropicApiKey", settings.ai.apiKey);
+  const effectiveWrap = keyHeldUnsealed || isPassphraseLocked("anthropicApiKey") ? "passphrase" : keyWrap;
+  function wrapNow(value: string): "device" | "passphrase" {
+    return hasUnsealedPassphraseSecret("anthropicApiKey", value) || isPassphraseLocked("anthropicApiKey") ? "passphrase" : keyWrap;
+  }
 
   function handleApiKeyChange(value: string) {
     onChange({ ...settings, ai: { ...settings.ai, apiKey: value } });
@@ -135,11 +148,18 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         removeSealed("anthropicApiKey");
         setKeyStored(false);
       }
-    } else if (keyWrap === "device" && isValidAnthropicApiKey(value)) {
+      markUnsealedPassphraseSecret("anthropicApiKey", null);
+    } else if (wrapNow(settings.ai.apiKey) === "passphrase") {
+      // §749 — under the lock nothing can seal it (the passphrase is not in memory) until "Save passphrase",
+      //   and a reload restores the OLD record: held, so the reload paths refuse until it is saved.
+      markUnsealedPassphraseSecret("anthropicApiKey", value);
+    } else if (isValidAnthropicApiKey(value)) {
+      markUnsealedPassphraseSecret("anthropicApiKey", null);
       // §609: a seal superseded by a later keystroke or a clear resolves false — no "stored" flag.
-      void saveSecretValue("anthropicApiKey", value, "device").then((stored) => {
+      const seal = saveSecretValue("anthropicApiKey", value, "device").then((stored) => {
         if (stored) setKeyStored(true);
       });
+      trackSecretSeal(seal, "anthropicApiKey"); // §749 — a reload path waits for it
     }
   }
 
@@ -151,8 +171,13 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
     if (k && !isValidAnthropicApiKey(k)) {
       showToast("error", t(lang, "aiKeyInvalid"));
       onChange({ ...settings, ai: { ...settings.ai, apiKey: "" } });
-      removeSealed("anthropicApiKey");
-      setKeyStored(false);
+      markUnsealedPassphraseSecret("anthropicApiKey", null);
+      // §749 review — the change handler's rule: a locked key is never hydrated, so this field shows "" for it,
+      //   and a stray character then a blur must not destroy a passphrase record the user never saw.
+      if (!isPassphraseLocked("anthropicApiKey")) {
+        removeSealed("anthropicApiKey");
+        setKeyStored(false);
+      }
     }
   }
 
@@ -173,16 +198,25 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         // §609: false = a newer op on this key (a "Save passphrase", a clear) began during the seal.
         // Don't force device over it: show what the STORE now holds (a clear → device, nothing
         // stored). A passphrase save still in flight sets the wrap itself when it lands.
-        if (!(await saveSecretValue("anthropicApiKey", settings.ai.apiKey, "device"))) {
+        const sealing = saveSecretValue("anthropicApiKey", settings.ai.apiKey, "device");
+        trackSecretSeal(sealing, "anthropicApiKey");
+        if (!(await sealing)) {
           setKeyWrap(isPassphraseLocked("anthropicApiKey") ? "passphrase" : "device");
           setKeyStored(loadSealed("anthropicApiKey") != null);
           return;
         }
+        noteSecretSealed("anthropicApiKey", settings.ai.apiKey); // §749 — device-sealed: a reload keeps it
         setKeyStored(true);
-      } else if (isPassphraseLocked("anthropicApiKey")) {
-        removeSealed("anthropicApiKey");
-        setKeyStored(false);
+      } else {
+        // Nothing in memory to keep: nothing is held either.
+        markUnsealedPassphraseSecret("anthropicApiKey", null);
+        if (isPassphraseLocked("anthropicApiKey")) {
+          removeSealed("anthropicApiKey");
+          setKeyStored(false);
+        }
       }
+      // §749 review — the re-sealed key was released above by value (`noteSecretSealed`); a key typed while that
+      //   seal was awaited (the lock still ticked) stays held, since nothing sealed it.
       setKeyWrap("device");
       setKeyPassphrase("");
       setKeyConfirm("");
@@ -196,8 +230,12 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       showToast("error", t(lang, "aiKeyInvalid"));
       return;
     }
+    const key = settings.ai.apiKey;
     void (async () => {
-      if (await setSecretPassphrase("anthropicApiKey", settings.ai.apiKey, keyPassphrase)) {
+      const sealing = setSecretPassphrase("anthropicApiKey", key, keyPassphrase);
+      trackSecretSeal(sealing, "anthropicApiKey"); // §749 — a reload path waits for it
+      if (await sealing) {
+        noteSecretSealed("anthropicApiKey", key); // §749 — sealed under the passphrase: a reload keeps it
         setKeyStored(true);
         // §609: the record IS passphrase-wrapped now — also after a superseded untick re-seal
         // reset the wrap from the store while this seal was still in flight.
@@ -213,6 +251,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   async function handleRemoveSecret() {
     if (!(await confirm({ message: t(lang, "secretPassphraseRemoveConfirm") }))) return;
     removeSealed("anthropicApiKey");
+    markUnsealedPassphraseSecret("anthropicApiKey", null);
     onChange({ ...settings, ai: { ...settings.ai, apiKey: "" } });
     setKeyStored(false);
     setKeyWrap("device");
@@ -276,12 +315,12 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         <label className="flex items-center gap-2">
           <Checkbox
             aria-label={t(lang, "secretLockPassphrase")}
-            checked={keyWrap === "passphrase"}
+            checked={effectiveWrap === "passphrase"}
             onChange={(e) => handleLockToggle(e.target.checked)}
           />
           <span className="text-xs text-foreground">{t(lang, "secretLockPassphrase")}</span>
         </label>
-        {keyWrap === "passphrase" && (
+        {effectiveWrap === "passphrase" && (
           <div className="mt-2 flex flex-col gap-2">
             <Input
               className="w-full"

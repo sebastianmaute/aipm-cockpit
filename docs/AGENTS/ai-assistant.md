@@ -1195,6 +1195,10 @@
 - **AI scheduled jobs:** opt-in recurring portfolio-analysis. Pure i18n-free `scheduled-jobs/` engine
   (`isDue`/`nextRunAt`/`dueJobs`/`appendRun`; `now` ALWAYS passed in — no `Date.now()`/`new Date()` inside).
   Global `scheduled_jobs` store (JSON-blob row, Turso-gated + localStorage fallback) OUT of `TABLE_NAMES`.
+  ★★ `useScheduledJobs` has TWO instances (the runner's in `use-ai-orchestration.ts`, the Settings list in
+  `scheduled-jobs-section.tsx`). Its write chain is MODULE-level and every write makes each other mounted
+  instance re-read the store (§750); per-instance, a job made in Settings never reached the runner until a
+  reload, and two writers at once lost one write. A third instance needs nothing more.
   Runner `use-scheduled-job-runner.ts` lives in `task-manager` ABOVE the view; runs DUE jobs on
   mount/visibility/5-min-tick, SERIAL + overlap-guarded; fail-once-per-slot (a failed run still advances
   `lastRunAt` — avoids re-spamming a BILLED call). The call is the NON-hook `runJobAnalysis`

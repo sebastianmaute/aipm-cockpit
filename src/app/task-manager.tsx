@@ -134,7 +134,7 @@ import { useNextActions } from "./use-next-actions";
 import type { SuggestedAction } from "./next-actions";
 import { resolveTimezone, createProjectClock } from "./timezone";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
-import { ConfirmProvider } from "./confirm-dialog";
+import { ConfirmProvider, unbridgedDialogs, type AppDialogs } from "./confirm-dialog";
 
 // ★ `effectiveToday(tz)` lived here until §159; `createProjectClock` (timezone.ts) now owns that derivation and keeps the day welded to its zone. Do NOT reintroduce a local one — a second producer of `today` is what let an inconsistent pair exist.
 // Connected display-timezone switcher. A module-level wrapper (static-components
@@ -172,6 +172,7 @@ function TaskManagerInner() {
   // to the other hotkey hooks.
   const allowDestructiveSaveRef = useRef<(() => void) | undefined>(undefined);
   const isPopoutRef = useRef(isPopout);
+  const appDialogsRef = useRef<AppDialogs>(unbridgedDialogs()); // §752 — the app's dialogs for the hooks below, which run ABOVE the ConfirmProvider this renders; it fills the ref
   const loadPendingRef = useRef(true); // §548 — filled beside `allowDestructiveSaveRef`, read by the undo hotkey below. Starts TRUE (fail safe) so a keystroke landing before the first effect commit cannot slip through the false-by-default window; `loadPending` itself is true pre-hydration anyway (ruling 8), so the effect below overwrites this immediately either way.
   const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
   const readOnlyForUndo = useCallback(() => isPopoutRef.current, []);
@@ -458,7 +459,7 @@ function TaskManagerInner() {
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch, getUndoEpoch, isSwapInFlight,
     unloadJournalConflict, restoreUnloadJournalAnyway, discardUnloadJournal, otherJournals, restoreKeptJournal,
     resolveConflictReload, resolveConflictOverwrite, downloadConflictVersion, canOverwriteConflict,
-  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry, onUndoHistoryReset: undoApi.pruneStale });
+  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry, onUndoHistoryReset: undoApi.pruneStale, dialogsRef: appDialogsRef });
 
   // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
   // that re-removes rows can arm the one-shot destructive-save bypass (§295).
@@ -608,7 +609,7 @@ function TaskManagerInner() {
     handleImportAbsences,
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
-  } = useResourcePlanner({ lang, today, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave });
+  } = useResourcePlanner({ lang, today, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave, dialogsRef: appDialogsRef, getScopeEpoch });
 
   // Day rates are the rate card's source of truth; the hourly cost rate every
   // budget/EVM consumer reads is DERIVED from workday hours. When that setting
@@ -827,7 +828,7 @@ function TaskManagerInner() {
   const { openTaskBlockers, blockersWindowProps } = useBlockersWindow({ tasks, setTasks, selfResourceId: settings.selfResourceId, resources, lang, logActivity: logActivityUser, loadPending });
 
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
-    form,
+    form, dialogsRef: appDialogsRef,
     setForm,
     editingId,
     setEditingId,
@@ -903,13 +904,12 @@ function TaskManagerInner() {
     onPushToJira,
     onStatusChange,
     onSwimlaneDrop,
-    onEdit,
-    onDelete, confirmRef: taskDeleteConfirmRef,
+    onEdit, onDelete,
     handleClearRaidTaskFilter,
     handleClearChangeTaskFilter,
     handleJumpToTaskFromRaid,
   } = useTaskRowHandlers({
-    tasksRef,
+    tasksRef, dialogsRef: appDialogsRef,
     resourcesById,
     settings,
     lang,
@@ -956,7 +956,7 @@ function TaskManagerInner() {
     rebaselineBundle,
     rescheduleBundle,
   } = useActionCenterHandlers({
-    isPopout,
+    isPopout, dialogsRef: appDialogsRef, getScopeEpoch,
     lang,
     today,
     resources,
@@ -1025,7 +1025,7 @@ function TaskManagerInner() {
     handleClearAll,
     handleCommand,
   } = useBulkOperations({
-    lang,
+    lang, dialogsRef: appDialogsRef, getScopeEpoch,
     // Effective settings so bulk-op day-boundary math (`args.settings.timezone`)
     // follows the per-project timezone override; the device writer stays on
     // `setSettings`.
@@ -1932,7 +1932,7 @@ function TaskManagerInner() {
         <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
           <ToastProvider value={toastApi}>
             <VoiceCommandProvider value={voiceHandlers}>
-              <ConfirmProvider lang={lang} bridgeRef={taskDeleteConfirmRef}>
+              <ConfirmProvider lang={lang} dialogsRef={appDialogsRef}>
                 <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>{legacyTree}</DisplayTimezoneProvider>
               </ConfirmProvider>
             </VoiceCommandProvider>
@@ -1957,7 +1957,7 @@ function TaskManagerInner() {
       <AiProviders lang={lang} ai={settings.ai} showToast={showToast} guides={operatingGuides.guides} guidesReady={operatingGuides.ready}>
         <ToastProvider value={toastApi}>
           <VoiceCommandProvider value={voiceHandlers}>
-            <ConfirmProvider lang={lang} bridgeRef={taskDeleteConfirmRef}>
+            <ConfirmProvider lang={lang} dialogsRef={appDialogsRef}>
             <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>
             {showTursoUnlock ? (
               <SecretUnlockGate

@@ -29,6 +29,8 @@ import type { ActivityKind } from "./activity-log";
 import { buildTaskSeedFromAction } from "./action-task-seed";
 import { emptyForm } from "./task-form-context";
 import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
+import type { AppDialogs } from "./confirm-dialog";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import { isWriteSafeEmail } from "./sanitize";
 import { typedEmailRefusalKey } from "./email-refusal-i18n";
 import { isEscalationWriteEmail } from "./raid-escalation";
@@ -48,6 +50,10 @@ import { applyMilestoneRebaseline, isValidIsoDate } from "./action-rebaseline";
 
 /** Live render-scope values the Action-Center handlers read each render. */
 export interface ActionCenterHandlerDeps {
+  /** §752 — the app's dialogs (filled by the ConfirmProvider task-manager renders; see use-task-row-handlers.ts). */
+  dialogsRef: { readonly current: AppDialogs };
+  /** §752 — the stakeholder draft's prompt is awaited: a project swap can finish while it is open. */
+  getScopeEpoch: ScopeEpochReader;
   isPopout: boolean;
   lang: Lang;
   today: string;
@@ -110,6 +116,8 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
     showToast,
     logActivity,
     selfResourceId,
+    dialogsRef,
+    getScopeEpoch,
   } = deps;
 
   const assignOwnerBundle = useMemo<AssignOwnerBundle | undefined>(
@@ -188,7 +196,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
   }, [setTasks, recordLearning, showToast, lang, selfResourceId, resources]);
 
   const handleDraftMessageFromAction = useCallback(
-    (action: SuggestedAction) => {
+    async (action: SuggestedAction) => {
       const id = action.cta.kind === "open" ? Number(action.cta.id) : -1;
       if (action.source === "task-due") {
         const task = tasks.find((t) => t.id === id);
@@ -199,11 +207,12 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
         const sh = stakeholders.find((s) => s.id === id);
         if (!sh) return;
         let typed = "";
-        const email = resolveDraftRecipient(
+        const epoch = getScopeEpoch();
+        const email = await resolveDraftRecipient(
           sh,
           resources,
-          () => {
-            const answer = window.prompt(t(lang, "promptEmail", sh.name), "");
+          async () => {
+            const answer = await dialogsRef.current.prompt({ message: t(lang, "promptEmail", sh.name), inputType: "email" });
             typed = answer ?? "";
             return answer;
           },
@@ -211,6 +220,8 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
           () => showToast("error", t(lang, typedEmailRefusalKey(typed.trim()))),
         );
         if (!email) return;
+        // §752 — nothing is drafted, nor learned from, once the project in scope is another one.
+        if (dropStaleScopeWrite(getScopeEpoch, epoch, "actions.draftRecipient", { id })) return;
         const subject = t(lang, "commsEmailSubject", project?.name ?? "");
         // Same guard as the task status-inquiry: an empty default template
         // falls back to the i18n body rather than drafting an empty message.
@@ -226,7 +237,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
         void recordLearning(action, "acted");
       }
     },
-    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend, recordLearning, showToast],
+    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend, recordLearning, showToast, dialogsRef, getScopeEpoch],
   );
 
   const handleEscalate = useCallback(

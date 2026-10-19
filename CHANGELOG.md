@@ -47,6 +47,30 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The app no longer reloads over a Claude API key that is not saved yet (§749).** A key typed under the passphrase
+  lock is not stored until "Save passphrase" is chosen. Switching the portfolio and moving a project to Turso
+  reload the app, as do picking a Turso project, creating one from a file portfolio, loading a file into a Turso
+  portfolio and opening the demo there: they now stop and say how to save the key first, instead of dropping it.
+  The same holds for a Turso token typed under its passphrase lock. A reload you start
+  yourself, or closing the tab, still loses a key that was not saved. With the setup wizard open over Settings,
+  saving a passphrase in one no longer lets the other store the key without it, and typing a stray character
+  into the empty-looking field of a locked key, then leaving it, no longer removes the key.
+- **Six flows work again in the desktop app, and every question is asked in the app's own dialog (§752).** Inserting a
+  link, naming a template version and the four "enter the email address" prompts failed in the desktop app, which
+  does not support the browser's text prompt. They, the browser's yes/no questions (bulk send, reloading an empty
+  project, the file and storage-switch warnings) and its message boxes now use the app's own dialogs, styled and in
+  the app's language. While one is open the app keeps running, so each step checks again after the answer: an
+  address typed for one project is never saved into another, and a storage switch copies the project as it is
+  when you answer.
+- **A scheduled AI job added in Settings now runs without a reload (§750).** The job runner and the Settings
+  list each kept their own copy of the jobs, so a new job never ran until the app was reloaded, and Settings
+  kept showing "Never run" after a run. Both now share one list. Two changes made at the same moment, such as
+  an edit in Settings while a job records its run, no longer overwrite each other.
+- **No empty unsaved draft after a failed project switch or a refused save (§754).** When the app could not
+  tell which version was stored (a project switch that failed partway, or a save refused after the storage
+  changed), an empty workspace was still kept as an unsaved draft and offered back on the next start. It is
+  now skipped, and any earlier draft is left as it was. The cost: a project emptied at such a moment gets its
+  records back on the next start.
 - **Analyze with AI and scheduled AI jobs fail less often (§715).** A reply with no new suggestions, or with its
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,
@@ -152,11 +176,13 @@ longer carries its own changelog comment.
   reach the rest of the app: Reports gains a Forecast section with a verdict, the P80 date over time, the
   milestones worst first, the proposal side by side with the plan, and a forecast by group; the Gantt shows the
   P50–P95 band, a dashed P80 line and each milestone's chance; Trends charts the P80 date over time; "Ask Claude
-  to draft a proposal" asks the assistant to find and save one; and exports and documents can carry a
-  "simulated" decision block with the target, the P80 date, the cost, the milestones below target and the
-  proposal. While the holiday calendar is still loading, that block says so in one line instead of leaving it out.
-  The AI assistant can read the target confidence, what it would take for the plan end and each milestone below
-  target, the proposal and how the P80 date has moved; it can also delete a saved scenario, which always goes to the
+  to draft a proposal" asks the assistant to find and save one; and exports, and documents through a Project data
+  block, can carry a "simulated" forecast decision with the target, the P80 date, the cost, the milestones below
+  target and the proposal. In the export settings it starts unticked, because it is worked out at the click and can
+  take a few seconds on a plan with many milestones below target. While the holiday calendar is still loading, the
+  decision says so in one line instead of leaving it out.
+  The AI assistant can read the target confidence, what it would take for the plan end and the five milestones
+  furthest below target (it is told which others are below target too), the proposal and how the P80 date has moved; it can also delete a saved scenario, which always goes to the
   review card first and can be undone, and set the proposal or the target confidence, which are logged but, as when
   you change them yourself, cannot be undone. The simulation's Help entry explains all of this.
   It stays hidden while the Forecast view is held back.

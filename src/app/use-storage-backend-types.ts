@@ -3,6 +3,7 @@ import type { ProjectsRegistry } from "./projects-registry";
 import type { Settings } from "./settings-types";
 import type { StorageConfig, StorageKind } from "./storage";
 import type { ToastAction } from "./use-toast";
+import type { AppDialogs } from "./confirm-dialog";
 
 // The argument shape and the static label map for `useStorageBackend`, moved out
 // verbatim so the hook itself stays under the 800-line ratchet. No behaviour
@@ -55,6 +56,9 @@ export interface UseStorageBackendArgs {
    *  status bubble + banner. `null` = success (clear any error); an error value
    *  is classified (see storage-error.ts). */
   onStorageOutcome?: (err: unknown | null) => void;
+  /** §752 — the app's dialogs (task-manager's `appDialogsRef`) for the reload and file confirms. Left out,
+   *  every question answers "no" and is logged (`UNBRIDGED_DIALOGS_REF`). */
+  dialogsRef?: { readonly current: AppDialogs };
   /** Notifies the caller after the projects registry is persisted (switch /
    *  create / load-from-file). Lets task-manager keep an observable copy of the
    *  registry in React state so the switcher list, empty-state gate, and Projects

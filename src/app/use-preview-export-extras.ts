@@ -1,8 +1,8 @@
 "use client";
 
 // §502 part 4 — the export extras a document PREVIEW renders with. Spec §3.3: a lever search never runs on the render
-// path. So where a download asks the synchronous source (`whatItTakesSync` per below-target milestone, up to about a
-// second), a preview takes the decision with every take "pending" (`ForecastDecisionLive.base`) and fills the takes
+// path. So where a download asks the synchronous source (`whatItTakesSync` per below-target milestone, about 1 s at 9 and
+// 4.9–6.4 s at 30 below target), a preview takes the decision with every take "pending" (`ForecastDecisionLive.base`) and fills the takes
 // from its own `useLeverSearch`, one probe per macrotask; until a take settles its row reads "Working it out…".
 // The search runs only while the previewed blocks hold a `forecastDecision` block; any other document gets the
 // provider's extras unchanged and never asks for the section.

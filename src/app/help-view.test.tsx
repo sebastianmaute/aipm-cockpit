@@ -252,6 +252,33 @@ describe("HelpView — reopening the intro with the switch off (§502)", () => {
     expect(de).toContain("Eine einzelne solche Änderung gilt sofort und wird protokolliert");
     expect(de).not.toMatch(/sobald Sie zustimmen|derselben Zustimmung/);
   });
+
+  // The forecast decision export section starts unticked (gate 1), so the help must not promise it in every export.
+  it("says exports carry the decision block only with the section ticked, EN and DE (§502)", async () => {
+    await loadI18n("de");
+    const en = t("en-US", "helpConceptForecastSimBody");
+    const label = (lang: "en-US" | "de") => t(lang, "exportLabelForecastDecision");
+    const section = (lang: "en-US" | "de") => t(lang, "settingsSectionExport");
+    expect(en).toContain(`tick ${label("en-US")} in Settings → ${section("en-US")}, which starts unticked. The block shows`);
+    expect(en).not.toContain("Exports and documents gain");
+    const de = t("de", "helpConceptForecastSimBody");
+    expect(de).toContain(`in Einstellungen → ${section("de")} „${label("de")}“ an; dieser Abschnitt ist anfangs nicht angehakt. Der Block zeigt`);
+    expect(de).not.toContain("Exporte und Dokumente erhalten");
+  });
+
+  // There is no "forecast decision" block: the block editor offers a Project data block whose Data section picker lists the decision.
+  it("names the block and picker the document editor actually shows, EN and DE (§502)", async () => {
+    await loadI18n("de");
+    const block = (lang: "en-US" | "de") => t(lang, "documentsBlockDataSection");
+    const picker = (lang: "en-US" | "de") => t(lang, "documentsDataSectionKey");
+    const label = (lang: "en-US" | "de") => t(lang, "exportLabelForecastDecision");
+    const en = t("en-US", "helpConceptForecastSimBody");
+    expect(en).toContain(`add a ${block("en-US")} block to a document and choose ${label("en-US")} as its ${picker("en-US").toLowerCase()}, or tick`);
+    expect(en).not.toContain("forecast decision block");
+    const de = t("de", "helpConceptForecastSimBody");
+    expect(de).toContain(`einen Block „${block("de")}“ hinzu und wählen Sie als ${picker("de")} „${label("de")}“, oder haken Sie`);
+    expect(de).not.toContain("Prognose-Entscheidungsblock");
+  });
 });
 
 describe("HelpView — forecast view held back (§502)", () => {

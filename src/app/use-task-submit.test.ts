@@ -1,4 +1,5 @@
 // src/app/use-task-submit.test.ts
+import { fakeDialogs } from "../test/fake-dialogs";
 import { act, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -68,6 +69,7 @@ function fakeSubmitEvent(): React.FormEvent<HTMLFormElement> {
 
 function makeArgs(overrides: Partial<Parameters<typeof useTaskSubmit>[0]> = {}) {
   return {
+    dialogsRef: fakeDialogs().ref,
     form: validForm(),
     setForm: vi.fn(),
     editingId: null,
@@ -262,22 +264,25 @@ describe("useTaskSubmit — validation guards", () => {
     expect(setTasks).not.toHaveBeenCalled();
   });
 
-  it("blocks reassigning a Jira-linked task to a different assignee", () => {
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+  // §752 — said in the app's notice, never `window.alert`.
+  it("blocks reassigning a Jira-linked task to a different assignee, and says why", () => {
+    const native = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const dialogs = fakeDialogs();
     const setTasks = vi.fn();
     const setEditingId = vi.fn();
     const linked = makeTask({ id: 1, jiraKey: "LOP-1", assignee: "Alice" });
     const { result } = renderHook(() =>
       useTaskSubmit(makeArgs({
-        setTasks, setEditingId, editingId: 1, tasks: [linked],
+        setTasks, setEditingId, editingId: 1, tasks: [linked], dialogsRef: dialogs.ref,
         form: { ...validForm(), assignee: "Bob" },
       })),
     );
     act(() => result.current.handleSubmit(fakeSubmitEvent()));
-    expect(alertSpy).toHaveBeenCalled();
+    expect(dialogs.notice).toHaveBeenCalledWith({ message: t("en-US", "jiraAssigneeForbidden", "LOP-1") });
+    expect(native).not.toHaveBeenCalled();
     expect(setTasks).not.toHaveBeenCalled();
     expect(setEditingId).not.toHaveBeenCalled();
-    alertSpy.mockRestore();
+    native.mockRestore();
   });
 });
 

@@ -9,6 +9,8 @@
 //        alone); M5 — skip the wait; M6 — `base = settings` (no fold).
 //   A6 — the render-time reconcile keeps a dirty draft and resyncs a clean one. Mutations M7/M8:
 //        drop the clean-draft guard on the URL / token resync.
+import { ToastProvider } from "../toast-context";
+import { markUnsealedPassphraseSecret } from "../turso-token-marker";
 import "fake-indexeddb/auto";
 import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -217,6 +219,30 @@ describe("A5 — Save & switch applies the drafts and waits (bounded) for the to
     // §740 — a stale persist-effect write before the reload lands must not undo the switch.
     writeSettings({ ...defaultSettings, storageConfig: { kind: "browser" } });
     expect(persisted().storageConfig?.kind).toBe("turso");
+  });
+
+  // §749 — a Claude key typed under its passphrase lock and not saved under it is lost to the reload: the switch
+  // refuses, and says how to save it (Settings → AI Assistant), not the Turso token's message.
+  // KILLED BY: deleting the toast in the switch's `aiKeyHeldUnsealed` branch.
+  it("refuses while the Claude key is held unsealed, and says how to save it (§749)", async () => {
+    const user = userEvent.setup();
+    const showToast = vi.fn();
+    const key = "sk-ant-api03-fictional00000000";
+    markUnsealedPassphraseSecret("anthropicApiKey", key);
+    function WithKey() {
+      const [settings, setSettings] = useState<Settings>({ ...settingsWith(URL_A, "tok"), ai: { ...defaultSettings.ai, apiKey: key } });
+      return (
+        <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+          <IntegrationsSection lang="en-US" settings={settings} onChange={setSettings} />
+        </ToastProvider>
+      );
+    }
+    render(<WithKey />);
+    await user.selectOptions(screen.getByLabelText(t("en-US", "portfolioModeLabel")), "turso");
+    await user.click(switchButton());
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiKeyNeedsPassphraseSave", t("en-US", "secretPassphraseSave"))));
+    expect(reload).not.toHaveBeenCalled();
+    expect(switchButton()).toBeEnabled(); // not left busy
   });
 
   it("UNAPPLIED URL and token drafts are applied by the switch and the token sealed (M6)", async () => {

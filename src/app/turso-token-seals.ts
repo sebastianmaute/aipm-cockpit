@@ -9,11 +9,12 @@ import {
   registerTokenSeal,
   subscribeUnsealedPassphraseToken,
   tokenSealsInFlight,
+  unsealedPassphraseSecretSnapshot,
   unsealedPassphraseTokenSnapshot,
 } from "./turso-token-marker";
 import { SECRET_MERGE_TIMEOUT_MS } from "./use-settings";
 import { snapshotSealedRestore } from "./secrets-store";
-import type { SealedSecret } from "./secrets";
+import type { SealedSecret, SecretId } from "./secrets";
 
 // ★★ §548 — IN-FLIGHT TURSO TOKEN SEALS. Apply on Turso storage rebuilds the backend and the load
 // hold remounts the section, so a per-instance ref would forget a seal started by the instance that
@@ -25,10 +26,18 @@ import type { SealedSecret } from "./secrets";
 // `turso-token-marker.ts`, so the test reset reaches it.
 
 export function trackTokenSeal(seal: Promise<unknown>): void {
+  trackSecretSeal(seal, "tursoAuthToken");
+}
+
+/** §749 — the same registry for any secret, so the reload paths wait for a Claude-key seal too. The
+ *  Turso token keeps its own diagnostic code. */
+const SEAL_FAILED_CODE: Partial<Record<SecretId, string>> = { tursoAuthToken: "settings.tursoTokenSealFailed" };
+export function trackSecretSeal(seal: Promise<unknown>, id: SecretId): void {
   const settled = seal.then(
     () => undefined,
     (err: unknown) => {
-      logDiag("error", "settings.tursoTokenSealFailed", {
+      logDiag("error", SEAL_FAILED_CODE[id] ?? "settings.secretSealFailed", {
+        ...(id === "tursoAuthToken" ? {} : { id }),
         message: err instanceof Error ? err.message : String(err),
       });
     },
@@ -134,4 +143,14 @@ export function useHasUnsealedPassphraseToken(authToken: string | undefined): bo
     unsealedPassphraseTokenSnapshot,
   );
   return token !== null && token === authToken;
+}
+
+/** §749 — `hasUnsealedPassphraseSecret` for a render, for any secret (the Claude key's reload gates). */
+export function useHasUnsealedPassphraseSecret(id: SecretId, value: string | undefined): boolean {
+  const held = useSyncExternalStore(
+    subscribeUnsealedPassphraseToken,
+    () => unsealedPassphraseSecretSnapshot(id),
+    () => unsealedPassphraseSecretSnapshot(id),
+  );
+  return held !== null && held === value;
 }

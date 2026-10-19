@@ -21,6 +21,7 @@ import { removeKeyFactsSnapshot } from "./project-key-facts-cache";
 import { listProjects, updateProjectMeta as tursoUpdateMeta } from "./turso-portfolio";
 import { commitTursoPortfolioSwitch, type PortfolioMode } from "./portfolio-mode";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
+import { reloadRefusalText, secretLostToReload } from "./portfolio-mode-switch";
 import type { Settings } from "./settings-types";
 import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { NewProjectOpts } from "./new-project-workspace";
@@ -120,6 +121,14 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
       if (useTurso) {
         const crossMode = portfolioMode !== "turso";
         void (async () => {
+          // §749 — a cross-mode create ends in a reload: refuse BEFORE creating, so nothing is left behind.
+          if (crossMode) {
+            const risk = await secretLostToReload(getSettings);
+            if (risk) {
+              showToast("error", reloadRefusalText(lang, risk));
+              return;
+            }
+          }
           try {
             const createdId = await createTursoProject(meta, opts);
             await refreshTursoProjects();

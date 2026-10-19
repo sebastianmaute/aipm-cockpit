@@ -7,6 +7,7 @@
 // ★ Own file, like the load-gate pins: the main suite's module-level `mockBackend` is shared state,
 //   and this file also mocks `useMsAuth` to drive an `acquireToken`-only rebuild (hypothetical today:
 //   the real `acquireToken` is stable, see (d)).
+import { withWindowConfirm } from "../test/window-confirm-dialogs";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityEntry } from "./activity-log";
@@ -138,7 +139,7 @@ const tursoArgs = (databaseUrl: string, authToken = "tok-a") => makeArgs({ kind:
 const spArgs = (itemPath: string) => makeArgs({ kind: "sp-json", hostname: "contoso.sharepoint.com", sitePath: "/sites/pm", itemPath });
 
 function useProbe(args: Args) {
-  const hook = useStorageBackend(args);
+  const hook = useStorageBackend(withWindowConfirm(args));
   const { tasks, activityLog, setActivityLog, budgetHistory, setBudgetHistory } = useWorkspace();
   return { ...hook, tasks, activityLog, setActivityLog, budgetHistory, setBudgetHistory };
 }

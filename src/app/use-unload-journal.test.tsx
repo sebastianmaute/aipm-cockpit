@@ -739,10 +739,61 @@ describe("§715 — a workspace with nothing authored is never journalled", () =
     expect(localStorage.getItem(KEY)).not.toBeNull();
   });
 
-  it("with no stored version known yet, an empty save is journalled: the skip needs the base to judge", () => {
+  // §754 — with no stored version known, an empty workspace is still nothing: kept, it came back as an
+  // empty draft. Skipping it cannot lose a record (it holds none); at worst a project emptied while the
+  // base is unknown has its deletion undone on reload.
+  it("§754 with no stored version known, an empty save writes no journal", () => {
     const { result } = renderJournal(null);
     tabSwitch();
     act(() => { result.current.noteSaveStarted(emptyWorkspace()); });
-    expect(localStorage.getItem(KEY)).not.toBeNull();
+    expect(localStorage.getItem(KEY)).toBeNull();
+    pageHide();
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("§754 the positive control: with no stored version known, a save with a task is journalled", () => {
+    const { result } = renderJournal(null);
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(WS_1); });
+    expect(journalTaskIds(KEY)).toEqual([1]);
+  });
+
+  // The failed op: `holdBase` drops the base until the op's flip, which never comes.
+  it("§754 an empty save while a project op holds the base writes no journal", () => {
+    const { result } = renderJournal(WS_1);
+    act(() => { result.current.holdBase(emptyWorkspace()); });
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(emptyWorkspace()); });
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  // Unlike the skip over a known empty base, nothing is cleared: the empty workspace may be an op's, not
+  // an edit of the work this tab's older journal holds.
+  it("§754 with no stored version known, an empty save leaves this tab's older journal for the key", () => {
+    const { result } = renderJournal(WS_1);
+    tabSwitch();
+    act(() => { result.current.noteSaveStarted(WS_1); });
+    expect(journalTaskIds(KEY)).toEqual([1]);
+    act(() => { result.current.holdBase(emptyWorkspace()); });
+    act(() => { result.current.noteSaveStarted(emptyWorkspace()); });
+    expect(journalTaskIds(KEY)).toEqual([1]);
+  });
+
+  // The refused save: its key is no longer the base's once the backend was replaced.
+  it("§754 an empty save refused after its backend was replaced writes no kept slot, and reports success", () => {
+    const { result } = renderJournal(null);
+    act(() => { result.current.setBase(WS_1, "another-project"); }); // the base is another key's, so p1's is unknown
+    const at = result.current.noteSaveStarted(emptyWorkspace());
+    let kept = false;
+    act(() => { kept = result.current.noteSaveRefused(at, emptyWorkspace()); });
+    expect(kept).toBe(true);
+    expect(localStorage.getItem(KEPT_KEY)).toBeNull();
+  });
+
+  it("§754 the positive control: a refused save with a task, base unknown, is kept", () => {
+    const { result } = renderJournal(null);
+    const at = result.current.noteSaveStarted(WS_1);
+    act(() => { result.current.noteSaveRefused(at, WS_1); });
+    expect(journalTaskIds(KEPT_KEY)).toEqual([1]);
   });
 });
