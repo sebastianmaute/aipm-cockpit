@@ -6,6 +6,8 @@ import { runTool } from "./chat-tools";
 import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { FORECAST_OFF_MESSAGE, NOT_FORECAST_TOOL, runForecastTool, type ForecastToolDispatcher } from "./chat-tools-forecast";
 import { FORECAST_TOOL_DEFS } from "./chat-tool-defs-forecast";
+import { blockToken } from "./document-block-token";
+import type { DocBlock } from "./document-model";
 import { DEFAULT_HISTORY_WINDOW, MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
 import { MAX_FORECAST_SCENARIOS, type ForecastScenario } from "./forecast-scenarios";
 
@@ -287,8 +289,10 @@ describe("the forecastDecision data section follows the simulation", () => {
   });
 
   const block = { type: "dataSection", key: "forecastDecision" };
-  const docDispatcher = (enabled: boolean) => ({
+  const tasksBlock = { type: "dataSection", key: "tasks" };
+  const docDispatcher = (enabled: boolean, stored: readonly unknown[] = [tasksBlock]) => ({
     ...makeDispatcher({ isForecastEnabled: () => enabled }),
+    getDocument: vi.fn((id: number) => (id === 1 ? { id: 1, title: "T", blocks: stored } : null)),
     createDocument: vi.fn(() => ({ id: 1, title: "T", blockCount: 1 })),
     updateDocument: vi.fn(() => ({ applied: 1, rejected: [] })),
   });
@@ -301,6 +305,33 @@ describe("the forecastDecision data section follows the simulation", () => {
     ).rejects.toThrow(FORECAST_OFF_MESSAGE);
     expect(d.createDocument).not.toHaveBeenCalled();
     expect(d.updateDocument).not.toHaveBeenCalled();
+  });
+
+  // A block the user added while the simulation was on stays theirs: refusing its re-send would teach the
+  // model to retry without it, deleting the section through the AI. Only an ADDED block refuses.
+  it("lets an update_document re-send a decision block the document already holds while off", async () => {
+    const d = docDispatcher(false, [block, tasksBlock]);
+    const replaceAll = { id: 1, ops: [{ op: "replaceAll", blocks: [block, tasksBlock, { type: "pageBreak" }] }] };
+    await runTool(d as never, "update_document", replaceAll);
+    const replace = { op: "replace", index: 0, block, expectHash: blockToken(block as DocBlock) };
+    await runTool(d as never, "update_document", { id: 1, ops: [replace] });
+    expect(d.updateDocument).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses an update_document adding a decision block beyond the ones it holds while off", async () => {
+    const none = docDispatcher(false);
+    await expect(
+      runTool(none as never, "update_document", { id: 1, ops: [{ op: "replaceAll", blocks: [block, tasksBlock] }] }),
+    ).rejects.toThrow(FORECAST_OFF_MESSAGE);
+    const one = docDispatcher(false, [block]);
+    await expect(
+      runTool(one as never, "update_document", { id: 1, ops: [{ op: "append", block }] }),
+    ).rejects.toThrow(FORECAST_OFF_MESSAGE);
+    await expect(
+      runTool(none as never, "update_document", { id: 2, ops: [{ op: "append", block }] }),
+    ).rejects.toThrow(FORECAST_OFF_MESSAGE);
+    expect(none.updateDocument).not.toHaveBeenCalled();
+    expect(one.updateDocument).not.toHaveBeenCalled();
   });
 
   it("accepts it while the simulation is on", async () => {

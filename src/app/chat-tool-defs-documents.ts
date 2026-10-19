@@ -189,9 +189,9 @@ const blockSchemaWithoutDecision = {
   },
 };
 
-/** §502 part 4 — the document tools as sent while the forecast bit is off (`chat-api.ts`): the same schemas,
- *  minus the `forecastDecision` data section, which exists only while the simulation is active. The executor
- *  refuses it then too (`refuseHiddenDecisionSection`, chat-tools-forecast.ts). */
+/** §502 part 4 — the document tools as sent with bit 4 set (forecast off; `chat-api.ts`): the same
+ *  schemas, minus the `forecastDecision` data section, which exists only while the simulation is active. The
+ *  executor then refuses a write that would add one (`refuseHiddenDecisionSection`, chat-tools-forecast.ts). */
 export const DOCUMENT_TOOL_DEFS_WITHOUT_DECISION = DOCUMENT_TOOL_DEFS.map(
   (def) => withBlockSchema(def, blockSchemaWithoutDecision) as typeof def,
 );

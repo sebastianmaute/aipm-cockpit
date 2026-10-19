@@ -570,7 +570,7 @@ const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
   [4, "set_forecast_target_confidence"],
 ];
 
-/** The document tools as sent with the forecast bit set: no `forecastDecision` data section (§502 part 4). */
+/** The document tools as sent with bit 4 set (forecast off): no `forecastDecision` data section (§502 part 4). */
 const DOCUMENTS_WITHOUT_DECISION = new Map(DOCUMENT_TOOL_DEFS_WITHOUT_DECISION.map((d) => [d.name, d]));
 
 /** ★★ ADVERTISEMENT AND ENFORCEMENT READ THE SAME PREDICATE. Never spell an
@@ -584,7 +584,7 @@ const DOCUMENTS_WITHOUT_DECISION = new Map(DOCUMENT_TOOL_DEFS_WITHOUT_DECISION.m
  *  ★ The six forecast tools too: `flags.forecast` is the snapshot's `forecastSimulation`, and it and
  *    `runForecastTool`'s gate (`isForecastEnabled`) are one function in `use-forecast-tools.ts`, which reads
  *    `isSimulationActive` from refs at call time. The same bit drops the `forecastDecision` data section from the
- *    document tools, which `refuseHiddenDecisionSection` enforces at the executor. */
+ *    document tools, and `refuseHiddenDecisionSection` refuses a write that would add one at the executor. */
 function variantKey(flags: ToolFlags): number {
   return (
     (historySearchEnabled(flags.historySearch) ? 0 : 1) |

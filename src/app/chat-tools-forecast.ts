@@ -7,6 +7,8 @@ import { parseToolChanges } from "./forecast-scenario-tool-input";
 import type { ForecastScenario, ScenarioChange } from "./forecast-scenarios";
 import { TARGET_CONFIDENCES, type TargetConfidence } from "./forecast-target";
 import { requireToken } from "./chat-tools-updates";
+import type { DocumentToolDispatcher } from "./chat-tools-documents";
+import { applyOps, type DocOp } from "./document-ops";
 
 export type ForecastScenarioResult = {
   id: number;
@@ -62,13 +64,43 @@ function namesDecisionSection(node: unknown): boolean {
   return Object.values(o).some(namesDecisionSection);
 }
 
+function countDecisionSections(blocks: readonly unknown[]): number {
+  return blocks.filter(namesDecisionSection).length;
+}
+
+/** Would this write leave the document holding MORE decision blocks than it holds now? A `create_document`
+ *  naming one always adds. An `update_document` is played against the stored blocks with the engine's own
+ *  `applyOps`, so every op shape counts the same way it will apply; ops that are not an array of objects, or a
+ *  document that is not found, read as adding — the write fails further on anyway. */
+function addsDecisionSection(
+  name: string,
+  input: Record<string, unknown>,
+  d: Pick<DocumentToolDispatcher, "getDocument">,
+): boolean {
+  if (!namesDecisionSection(input)) return false;
+  if (name === "create_document") return true;
+  const doc = d.getDocument(Number(input.id));
+  const ops = input.ops;
+  if (!doc || !Array.isArray(ops) || !ops.every((op) => op !== null && typeof op === "object")) return true;
+  const after = applyOps(doc.blocks, ops as readonly DocOp[], []);
+  return after !== null && countDecisionSections(after) > countDecisionSections(doc.blocks);
+}
+
 /** ★ The forecast decision is a data section only while the simulation is active, as in Settings → Export and
- *  the block editor. Offering: `chat-api.ts` sends the document tools without the key while the forecast bit is
- *  off. Enforcing, here: a document write naming it then refuses, so a replayed or invented call cannot embed a
- *  forecast the user cannot see. Throws `FORECAST_OFF_MESSAGE`; returns quietly otherwise. */
-export function refuseHiddenDecisionSection(name: string, input: Record<string, unknown>, d: ForecastToolDispatcher): void {
+ *  the block editor. Offering: `chat-api.ts` sends the document tools without the key while bit 4 is set
+ *  (forecast off). Enforcing, here: a document write that would ADD such a block then refuses, so a replayed or
+ *  invented call cannot embed a forecast the user cannot see. ★★ Only adding: a block the document already
+ *  holds (added while the simulation was on) may be re-sent by a `replaceAll` or `replace`, because refusing
+ *  that teaches the model to retry without it, which deletes the user's section through the AI. Throws
+ *  `FORECAST_OFF_MESSAGE`; returns quietly otherwise. */
+export function refuseHiddenDecisionSection(
+  name: string,
+  input: Record<string, unknown>,
+  d: ForecastToolDispatcher & Pick<DocumentToolDispatcher, "getDocument">,
+): void {
   if (name !== "create_document" && name !== "update_document") return;
-  if (namesDecisionSection(input) && !d.isForecastEnabled()) throw new Error(FORECAST_OFF_MESSAGE);
+  if (d.isForecastEnabled()) return;
+  if (addsDecisionSection(name, input, d)) throw new Error(FORECAST_OFF_MESSAGE);
 }
 
 function requireProposalId(input: Record<string, unknown>): number | null {
