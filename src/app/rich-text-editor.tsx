@@ -16,6 +16,7 @@ import { isSafeHttpUrl } from "./document-link";
 import { Button } from "./button";
 import { RichTextToolbar } from "./rich-text-toolbar";
 import { t, type Lang } from "./i18n";
+import { usePrompt } from "./confirm-dialog";
 
 /** The position a deferred append should land at: the end of the document's
  *  LAST TEXTBLOCK, so the text joins that block instead of starting a new one.
@@ -228,6 +229,7 @@ export const EXTENSIONS = [
 
 export function RichTextEditor(props: RichTextEditorProps) {
   const { value, onChange, label, lang, mergeFields, fieldLabel } = props;
+  const prompt = usePrompt();
   // useEditor binds onUpdate/handleKeyDown once at mount; route the live
   // callbacks + Enter-behaviour through refs so an inline caller isn't captured
   // stale and the editor isn't torn down and rebuilt on every render.
@@ -424,8 +426,10 @@ export function RichTextEditor(props: RichTextEditorProps) {
     [editor],
   );
 
-  function addLink() {
-    const url = window.prompt(t(lang, "commTplLinkPrompt"), "");
+  // §752 — the app's prompt: `window.prompt` throws in the desktop app. The editor keeps its selection
+  // while the dialog holds focus, and `.focus()` below hands focus back to it.
+  async function addLink() {
+    const url = await prompt({ message: t(lang, "commTplLinkPrompt"), inputType: "url" });
     if (!url) return;
     const trimmed = url.trim();
     if (!isSafeHttpUrl(trimmed)) return;

@@ -1,3 +1,7 @@
+import { defaultSettings as baseSettingsForAi } from "./settings-types";
+import { markUnsealedPassphraseSecret } from "./turso-token-marker";
+import { fakeDialogs } from "../test/fake-dialogs";
+import { withWindowConfirm } from "../test/window-confirm-dialogs";
 import { act, renderHook } from "@testing-library/react";
 import { useCallback, useEffect, useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -238,7 +242,7 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 // Composite probe so tests can also inspect workspace state
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
   return function useProbe() {
-    const backend = useStorageBackend(args);
+    const backend = useStorageBackend(withWindowConfirm(args));
     const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions, documentAssets, setDocumentAssets, activityLog, setActivityLog } = useWorkspace();
     return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions, documentAssets, setDocumentAssets, activityLog, setActivityLog };
   };
@@ -279,7 +283,7 @@ function makeUndoProbe(args: Parameters<typeof useStorageBackend>[0]) {
       showToastAction,
       allowDestructiveSave: armDestructiveForUndo,
     });
-    const backend = useStorageBackend(args);
+    const backend = useStorageBackend(withWindowConfirm(args));
     // Hoisted out of the dep array: exhaustive-deps rejects an `obj.member` dep.
     const { allowDestructiveSave, destructiveRefusal } = backend;
     useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; }, [allowDestructiveSave]);
@@ -1917,7 +1921,7 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
     };
     const { result, rerender } = renderHook(
       () => {
-        const backend = useStorageBackend(argsRef.current);
+        const backend = useStorageBackend(withWindowConfirm(argsRef.current));
         const { tasks, raid, absences, shifts, setTasks } = useWorkspace();
         return { ...backend, tasks, raid, absences, shifts, setTasks };
       },
@@ -2714,6 +2718,40 @@ describe("useStorageBackend — reloadCurrentProject data-loss guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  // §752 — the question is the app's dialog, not `window.confirm`, and it is awaited: a save can land while it
+  // is open, so a yes reads the stored version again and applies it as it is THEN, keeping screen and file one.
+  // KILLED BY: dropping the second `readSettled()` after the answer (the empty first read is then applied).
+  it("asks in the app's dialog, and after a yes applies the stored version as it is then (§752)", async () => {
+    const native = vi.spyOn(window, "confirm");
+    const dialogs = fakeDialogs();
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "Keep me" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend(makeArgs({ dialogsRef: dialogs.ref }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.tasks).toHaveLength(1);
+    mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });
+    dialogs.confirm.mockImplementation(async () => {
+      // a save of the live workspace landed while the dialog was open
+      mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 3, taskName: "Saved meanwhile" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+      return true;
+    });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(dialogs.confirm).toHaveBeenCalledWith({ message: t("en-US", "reloadEmptyConfirm") });
+    expect(native).not.toHaveBeenCalled();
+    expect(result.current.tasks.map((x) => x.id)).toEqual([3]);
+  });
+
+  it("reads nothing more and keeps the project when the app's dialog is declined (§752)", async () => {
+    const dialogs = fakeDialogs({ confirm: false });
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "Keep me" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend(makeArgs({ dialogsRef: dialogs.ref }));
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });
+    const loadsBefore = mockBackend.load.mock.calls.length;
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(mockBackend.load.mock.calls.length - loadsBefore).toBe(1);
+    expect(result.current.tasks).toHaveLength(1);
   });
 
   it("does NOT wipe a populated project when the backend load returns empty and the user declines", async () => {
@@ -4850,7 +4888,7 @@ describe("useStorageBackend — workspaceLoaded (snapshot-capture gate)", () => 
     const argsRef = { current: makeArgs() };
     const { result, rerender } = renderHook(
       () => {
-        const backend = useStorageBackend(argsRef.current);
+        const backend = useStorageBackend(withWindowConfirm(argsRef.current));
         const { tasks } = useWorkspace();
         return { ...backend, tasks };
       },
@@ -4917,7 +4955,7 @@ describe("useStorageBackend — workspaceLoaded (snapshot-capture gate)", () => 
     const argsRef = { current: makeArgs({ setStorageConfig: vi.fn() }) };
     const { result, rerender } = renderHook(
       () => {
-        const backend = useStorageBackend(argsRef.current);
+        const backend = useStorageBackend(withWindowConfirm(argsRef.current));
         const { tasks } = useWorkspace();
         return { ...backend, tasks };
       },
@@ -5097,7 +5135,7 @@ describe("useStorageBackend — the decode signal survives the empty-load refusa
     const argsRef = { current: makeArgs() };
     const { result, rerender } = renderHook(
       () => {
-        const backend = useStorageBackend(argsRef.current);
+        const backend = useStorageBackend(withWindowConfirm(argsRef.current));
         const { tasks } = useWorkspace();
         return { ...backend, tasks };
       },
@@ -5329,5 +5367,48 @@ describe("useStorageBackend — onOpenStorageFile binds the picked handle only o
     await act(async () => { await result.current.onOpenStorageFile(); });
 
     expect(result.current.tasks[0].taskName).toBe("From the picked file");
+  });
+});
+
+// §749 — on a Turso portfolio the demo and a cross-mode file load end in a reload: a Claude key typed under its
+// passphrase lock and not saved under it would be lost, so both refuse BEFORE writing anything.
+describe("useStorageBackend — reload paths refuse while the Claude key is held unsealed (§749)", () => {
+  const KEY = "sk-ant-api03-fictional00000000";
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  // KILLED BY: dropping the demo's `refuseReloadLosingSecret` check.
+  it("the demo on a Turso portfolio writes nothing and says how to save the key", async () => {
+    savePortfolioMode("turso");
+    markUnsealedPassphraseSecret("anthropicApiKey", KEY);
+    const reloadSpy = vi.fn();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", { configurable: true, value: { ...originalLocation, reload: reloadSpy } });
+    try {
+      const settings = { ...makeArgs().settings, ai: { ...baseSettingsForAi.ai, apiKey: KEY } } as Settings;
+      const { result } = renderBackend(makeArgs({ settings }));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await result.current.createDemoProject(emptyWorkspace() as never); });
+      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiKeyNeedsPassphraseSave", t("en-US", "secretPassphraseSave")));
+      expect(loadRegistry().projects).toHaveLength(0);
+      expect(loadPortfolioMode()).toBe("turso");
+      expect(reloadSpy).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+      savePortfolioMode("file");
+    }
+  });
+
+  // KILLED BY: dropping the file load's `refuseReloadLosingSecret` check.
+  it("a cross-mode file load opens no picker and says how to save the key", async () => {
+    markUnsealedPassphraseSecret("anthropicApiKey", KEY);
+    const settings = { ...makeArgs().settings, ai: { ...baseSettingsForAi.ai, apiKey: KEY } } as Settings;
+    const { result } = renderBackend(makeArgs({ settings }));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await result.current.loadProjectFromFile(undefined, { switchPortfolioToFileOnSuccess: true }); });
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiKeyNeedsPassphraseSave", t("en-US", "secretPassphraseSave")));
+    expect(storageMod.pickOpenFileAny).not.toHaveBeenCalled();
   });
 });

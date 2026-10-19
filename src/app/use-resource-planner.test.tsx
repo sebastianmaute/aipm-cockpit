@@ -1,3 +1,4 @@
+import { fakeDialogs } from "../test/fake-dialogs";
 import { flushSync } from "react-dom";
 // src/app/use-resource-planner.test.tsx
 import { act, renderHook } from "@testing-library/react";
@@ -1429,39 +1430,57 @@ describe("useResourcePlanner", () => {
       Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
     });
 
-    it("does nothing when the owner has no email and the prompt is cancelled", () => {
-      vi.spyOn(window, "prompt").mockReturnValue(null);
-      const { result } = renderPlanner();
+    it("does nothing when the owner has no email and the prompt is cancelled", async () => {
+      const { result } = renderPlanner({ dialogsRef: fakeDialogs({ prompt: null }).ref });
       act(() => { result.current.workspace.setRaid([owned({ owner: "No Email", ownerEmail: undefined })]); });
-      act(() => { result.current.planner.handleSendRaidInquiry(owned({ owner: "No Email", ownerEmail: undefined })); });
+      await act(async () => { await result.current.planner.handleSendRaidInquiry(owned({ owner: "No Email", ownerEmail: undefined })); });
       expect(hrefValue).toBe("");
       expect((result.current.workspace.raid[0] as RaidItem).inquiriesSent ?? 0).toBe(0);
       Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
       vi.restoreAllMocks();
     });
 
-    it("M-C4: persists a prompted Name <addr> owner email as addr and sends to it", () => {
-      vi.spyOn(window, "prompt").mockReturnValue("No Email <owner@x.com>");
-      const { result } = renderPlanner();
+    // §752 — asked in the app's dialog: `window.prompt` throws in the desktop app.
+    it("M-C4: persists a prompted Name <addr> owner email as addr and sends to it, asked in the app's dialog", async () => {
+      const native = vi.spyOn(window, "prompt");
+      const dialogs = fakeDialogs({ prompt: "No Email <owner@x.com>" });
+      const { result } = renderPlanner({ dialogsRef: dialogs.ref });
       act(() => { result.current.workspace.setRaid([owned({ owner: "No Email", ownerEmail: undefined })]); });
-      act(() => { result.current.planner.handleSendRaidInquiry(owned({ owner: "No Email", ownerEmail: undefined })); });
+      await act(async () => { await result.current.planner.handleSendRaidInquiry(owned({ owner: "No Email", ownerEmail: undefined })); });
+      expect(dialogs.prompt).toHaveBeenCalledWith({ message: t("en-US", "promptEmail", "No Email"), inputType: "email" });
+      expect(native).not.toHaveBeenCalled();
       expect((result.current.workspace.raid[0] as RaidItem).ownerEmail).toBe("owner@x.com");
       expect(hrefValue).toContain(encodeURIComponent("owner@x.com"));
       Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
       vi.restoreAllMocks();
     });
 
-    it("alerts with the delimiter message and does nothing for a delimiter-bearing prompted email", () => {
-      vi.spyOn(window, "prompt").mockReturnValue("a,b@x.com");
-      const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-      const { result } = renderPlanner();
+    it("says the delimiter message and does nothing for a delimiter-bearing prompted email", async () => {
+      const native = vi.spyOn(window, "alert").mockImplementation(() => {});
+      const dialogs = fakeDialogs({ prompt: "a,b@x.com" });
+      const { result } = renderPlanner({ dialogsRef: dialogs.ref });
       act(() => { result.current.workspace.setRaid([owned({ owner: "No Email", ownerEmail: undefined })]); });
-      act(() => { result.current.planner.handleSendRaidInquiry(owned({ owner: "No Email", ownerEmail: undefined })); });
-      expect(alertSpy).toHaveBeenCalledWith(t("en-US", "errorEmailDelimiter"));
+      await act(async () => { await result.current.planner.handleSendRaidInquiry(owned({ owner: "No Email", ownerEmail: undefined })); });
+      expect(dialogs.notice).toHaveBeenCalledWith({ message: t("en-US", "errorEmailDelimiter") });
+      expect(native).not.toHaveBeenCalled();
       expect(hrefValue).toBe("");
       expect((result.current.workspace.raid[0] as RaidItem).inquiriesSent ?? 0).toBe(0);
       Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
       vi.restoreAllMocks();
+    });
+  });
+
+  describe("useResourcePlanner — the RAID owner-email prompt across a project swap (§752)", () => {
+    it("drops the typed address and sends nothing when the scope moved while the prompt was open", async () => {
+      let epoch = 1;
+      const dialogs = fakeDialogs();
+      dialogs.prompt.mockImplementation(async () => { epoch = 2; return "owner@x.com"; });
+      const { result } = renderPlanner({ dialogsRef: dialogs.ref, getScopeEpoch: () => epoch });
+      const item: RaidItem = { id: 5, category: "R", title: "T", description: "", severity: "Medium", status: "Open", owner: "No Email" } as RaidItem;
+      act(() => { result.current.workspace.setRaid([item]); });
+      await act(async () => { await result.current.planner.handleSendRaidInquiry(item); });
+      expect((result.current.workspace.raid[0] as RaidItem).ownerEmail).toBeUndefined();
+      expect((result.current.workspace.raid[0] as RaidItem).inquiriesSent ?? 0).toBe(0);
     });
   });
 

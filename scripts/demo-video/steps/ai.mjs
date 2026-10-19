@@ -4,7 +4,7 @@
 import { step } from './step.mjs';
 import { AI_TIMEOUT_MS, timedAiWait, waitForAi } from '../ai-wait.mjs';
 import * as L from '../lib.mjs';
-import { caption, click, moveTo, nav, pace, skipTour, type } from '../ui.mjs';
+import { caption, click, moveTo, nav, pace, type } from '../ui.mjs';
 import { DEMO_CRM_TASK, DEMO_DUPLICATE_PAIRS, DEMO_GDPR_ISSUE } from '../week-story.mjs';
 import {
   DLG, askClaude, askClaudeApply, askClaudeCheck, chat, dedup, digestGenerate, failToast, main, nextActions, noop, resources, weekStep,
@@ -190,8 +190,7 @@ async function storedRun(name) {
   }
 }
 /** Off camera: scheduled jobs on, and one daily job at 09:00 (the app's default time; the take starts at 08:30).
- *  ★ The runner keeps its own copy of the job list, read on mount, so it sees a job added in Settings only
- *  after a reload (an app defect, filed with §715 A); the reload is off camera. */
+ *  The runner sees the new job at once (§750: one job list for the runner and Settings). */
 const scheduledJob = step('scheduled-job', {
   setup: true,
   run: async (ctx) => {
@@ -204,9 +203,6 @@ const scheduledJob = step('scheduled-job', {
     await type(ctx, main(ctx).getByRole('textbox', { name: /^Job name – / }).last(), 'Morning check', 'job name', { slow: false });
     // The row's names change only once the save resolved (the token follows the stored name).
     await main(ctx).getByRole('checkbox', { name: 'Enabled – Morning check', exact: true }).waitFor({ timeout: 30000 });
-    await ctx.page.reload();
-    await L.settle(ctx.page);
-    await skipTour(ctx);
   },
 });
 const scheduledRun = step('scheduled-run', {
@@ -221,13 +217,11 @@ const scheduledRun = step('scheduled-run', {
     // (fastForward fires each due timer once, not every tick in between).
     await caption(ctx, 'At 09:00 it runs by itself.');
     await ctx.page.clock.fastForward(35 * 60 * 1000);
-    // The run is read from the stored job (Node, off screen) while the view stays put; Settings reads its
-    // list on mount only (§750), so the section is then re-opened once, by its sibling tab.
+    // The run is read from the stored job (Node, off screen) while the view stays put, and Settings shows
+    // it as soon as the runner records it (§750).
     // Claude's think time on camera, timed like any AI wait so the clip can trim it.
     const run = await timedAiWait(ctx, () => storedRun('Morning check'));
     if (!run.ok) throw new Error(`${ctx.clipId}: the scheduled run failed (${run.error ?? 'no detail'})`);
-    await click(ctx, main(ctx).getByRole('button', { name: 'Views', exact: true }).first(), 'Views', 300);
-    await click(ctx, main(ctx).getByRole('button', { name: 'Scheduled jobs', exact: true }).first(), 'Scheduled jobs', 800);
     const lastRun = main(ctx).getByText(/^Last run: /).first();
     await lastRun.waitFor({ timeout: 15000 });
     await caption(ctx, 'It ran: its suggestions are counted on the job.');

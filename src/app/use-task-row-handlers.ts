@@ -18,8 +18,7 @@ import { effectivePersonEmail } from "./resource-foundation";
 import type { Settings } from "./settings-types";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
-import { logDiag } from "./diagnostics";
-import type { ConfirmFn } from "./confirm-dialog";
+import type { AppDialogs } from "./confirm-dialog";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 
 const EMPTY_RESOURCE_MAP: ReadonlyMap<number, Resource> = new Map();
@@ -56,6 +55,10 @@ export interface UseTaskRowHandlersArgs {
   captureComposite: UndoStackApi["captureComposite"];
   resolveTemplateBody?: (category: "status-inquiry") => string | null;
   sendCommTemplate?: (req: CommSendRequest) => void;
+  /** §752 — the app's dialogs. This hook runs in task-manager, ABOVE the ConfirmProvider it renders, so it
+   *  cannot call the dialog hooks: the provider fills this ref (`dialogsRef`), and until then every
+   *  question answers "no" and is logged (`unbridgedDialogs`). */
+  dialogsRef: { readonly current: AppDialogs };
 }
 
 export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
@@ -82,15 +85,8 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     captureComposite,
     resolveTemplateBody,
     sendCommTemplate,
+    dialogsRef,
   } = args;
-  // §715 D5: the delete asks in the app's dialog. This hook runs in task-manager, ABOVE the
-  // ConfirmProvider it renders, so it cannot call useConfirm: it hands out this ref, the provider
-  // fills it (`bridgeRef`), and until then the answer is no — logged, because a dropped bridge would
-  // otherwise turn every delete into a silent no-op.
-  const confirmRef = useRef<ConfirmFn>(async () => {
-    logDiag("warn", "task.delete.noConfirmBridge");
-    return false;
-  });
 
   const { setActiveTab } = useWorkspaceTab();
 
@@ -133,7 +129,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   );
 
   const onSendInquiry = useCallback(
-    (task: Task) => {
+    async (task: Task) => {
       // Prefer the linked resource's CURRENT email; the cached assigneeEmail
       // can be stale after a rename/re-link. Unlinked → the cached email.
       let email = effectivePersonEmail(task.assigneeEmail ?? "", task.resourceId, resourcesById).trim();
@@ -141,14 +137,15 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         email = task.assignee.trim();
       }
       if (!email) {
-        const provided = window.prompt(
-          t(lang, "promptEmail", task.assignee),
-          "",
-        );
+        // §752 — the app's prompt (`window.prompt` throws in the desktop app). The wait is a window a
+        // project swap can finish in, so the address is dropped if the scope moved (as the delete below).
+        const epoch = getScopeEpoch();
+        const provided = await dialogsRef.current.prompt({ message: t(lang, "promptEmail", task.assignee), inputType: "email" });
         if (provided === null) return;
+        if (dropStaleScopeWrite(getScopeEpoch, epoch, "task.inquiryEmail", { id: task.id })) return;
         const trimmed = sanitizeLoadedEmail(provided); // M-C4: the unwrapped address, as every AI write stores
         if (!isWriteSafeEmail(trimmed)) {
-          window.alert(t(lang, typedEmailRefusalKey(trimmed)));
+          void dialogsRef.current.notice({ message: t(lang, typedEmailRefusalKey(trimmed)) });
           return;
         }
         email = trimmed;
@@ -188,7 +185,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         ),
       );
     },
-    [lang, setTasks, resolveTemplateBody, sendCommTemplate, resourcesById],
+    [lang, setTasks, resolveTemplateBody, sendCommTemplate, resourcesById, getScopeEpoch, dialogsRef],
   );
 
   const onPushToJira = useCallback(
@@ -412,7 +409,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       // write that landed while the dialog was open is not overwritten by a stale list. ★ The wait
       // is a window a project swap can finish in, so the delete is dropped if the scope moved.
       const epoch = getScopeEpoch();
-      const yes = await confirmRef.current({ message: t(lang, "confirmDelete", id), confirmLabel: t(lang, "delete"), tone: "danger" });
+      const yes = await dialogsRef.current.confirm({ message: t(lang, "confirmDelete", id), confirmLabel: t(lang, "delete"), tone: "danger" });
       if (!yes) return;
       if (dropStaleScopeWrite(getScopeEpoch, epoch, "task.delete", { id })) return;
       const arr = tasksRef.current;
@@ -472,7 +469,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       if (editingId === id) handleCancelEditRef.current();
       logActivityRef.current("task.deleted", id, deletedName);
     },
-    [lang, tasksRef, setTasks, deselectIdRef, editingId, captureComposite, getScopeEpoch],
+    [lang, tasksRef, setTasks, deselectIdRef, editingId, captureComposite, getScopeEpoch, dialogsRef],
   );
 
   const handleClearRaidTaskFilter = useCallback(() => {
@@ -502,7 +499,6 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     onSwimlaneDrop,
     onEdit,
     onDelete,
-    confirmRef,
     handleClearRaidTaskFilter,
     handleClearChangeTaskFilter,
     handleJumpToTaskFromRaid,

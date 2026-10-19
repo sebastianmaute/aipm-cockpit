@@ -4,17 +4,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect, useRef, useState } from "react";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { t } from "./i18n";
-import type { ConfirmFn } from "./confirm-dialog";
+import { unbridgedDialogs, type AppDialogs } from "./confirm-dialog";
 import { loadJiraApi } from "./use-jira-sync";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import type { Task, Resource } from "./types";
 
-/** Deletes task `id`, answering the app's confirm dialog (the hook's confirmRef) with `answer`. */
-async function deleteAnswering(h: { onDelete: (id: number) => Promise<void>; confirmRef: { current: ConfirmFn } }, id: number, answer = true) {
+/** §752 — the dialogs every `makeArgs` hands the hook; unbridged (every answer "no") until a test scripts one. */
+const testDialogsRef: { current: AppDialogs } = { current: unbridgedDialogs() };
+beforeEach(() => { testDialogsRef.current = unbridgedDialogs(); });
+/** Scripts one dialog answer for the next question of that kind. */
+function answerDialogs(over: Partial<AppDialogs>) {
+  testDialogsRef.current = { ...testDialogsRef.current, ...over };
+}
+
+/** Deletes task `id`, answering the app's confirm dialog with `answer`. */
+async function deleteAnswering(h: { onDelete: (id: number) => Promise<void> }, id: number, answer = true) {
   const confirm = vi.fn(async () => answer);
-  h.confirmRef.current = confirm;
+  answerDialogs({ confirm });
   await act(async () => { await h.onDelete(id); });
   return confirm;
 }
@@ -101,6 +109,7 @@ function makeArgs(
       typeof useTaskRowHandlers
     >[0]["logActivity"],
     captureComposite: vi.fn() as Parameters<typeof useTaskRowHandlers>[0]["captureComposite"],
+    dialogsRef: testDialogsRef,
     ...overrides,
   };
 }
@@ -390,99 +399,116 @@ describe("useTaskRowHandlers — onSendInquiry", () => {
     vi.restoreAllMocks();
   });
 
-  it("opens a mailto and increments inquiriesSent when an email is on file", () => {
+  it("opens a mailto and increments inquiriesSent when an email is on file", async () => {
     const setTasks = vi.fn();
     const task = makeTask({ id: 1, assigneeEmail: "alice@example.com", inquiriesSent: 2 });
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
-    act(() => result.current.onSendInquiry(task));
+    await act(async () => { await result.current.onSendInquiry(task); });
     expect(hrefValue.startsWith("mailto:")).toBe(true);
     const updater = setTasks.mock.calls.at(-1)![0] as (p: Task[]) => Task[];
     expect(updater([task])[0].inquiriesSent).toBe(3);
   });
 
-  it("sends to the linked resource's LIVE email, not a stale cached assigneeEmail", () => {
+  it("sends to the linked resource's LIVE email, not a stale cached assigneeEmail", async () => {
     const setTasks = vi.fn();
     const task = makeTask({ id: 1, assigneeEmail: "old@corp.com", resourceId: 7 });
     const resourcesById = new Map<number, Resource>([
       [7, { id: 7, firstName: "Live", lastName: "Person", roleId: null, utilizationMode: "percent", utilization: {}, email: "current@corp.com" } as Resource],
     ]);
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, resourcesById })));
-    act(() => result.current.onSendInquiry(task));
+    await act(async () => { await result.current.onSendInquiry(task); });
     expect(hrefValue).toContain(encodeURIComponent("current@corp.com"));
     expect(hrefValue).not.toContain(encodeURIComponent("old@corp.com"));
   });
 
-  it("aborts silently when the email prompt is cancelled", () => {
-    vi.spyOn(window, "prompt").mockReturnValue(null);
+  it("aborts silently when the email prompt is cancelled", async () => {
+    answerDialogs({ prompt: vi.fn(async () => null) });
     const setTasks = vi.fn();
     const task = makeTask({ id: 1, assigneeEmail: "", assignee: "No Email Person" });
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
-    act(() => result.current.onSendInquiry(task));
+    await act(async () => { await result.current.onSendInquiry(task); });
     expect(setTasks).not.toHaveBeenCalled();
     expect(hrefValue).toBe("");
   });
 
-  it("alerts and aborts on an invalid prompted email", () => {
-    vi.spyOn(window, "prompt").mockReturnValue("not-an-email");
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+  it("says why and aborts on an invalid prompted email", async () => {
+    const notice = vi.fn(async () => {});
+    answerDialogs({ prompt: vi.fn(async () => "not-an-email"), notice });
     const setTasks = vi.fn();
     const task = makeTask({ id: 1, assigneeEmail: "", assignee: "No Email Person" });
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
-    act(() => result.current.onSendInquiry(task));
-    expect(alertSpy).toHaveBeenCalled();
+    await act(async () => { await result.current.onSendInquiry(task); });
+    expect(notice).toHaveBeenCalled();
     expect(setTasks).not.toHaveBeenCalled();
   });
 
-  it("alerts with the delimiter message and aborts on a delimiter-bearing prompted email", () => {
-    vi.spyOn(window, "prompt").mockReturnValue("a,b@x.com");
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+  it("says the delimiter message and aborts on a delimiter-bearing prompted email", async () => {
+    const notice = vi.fn(async () => {});
+    answerDialogs({ prompt: vi.fn(async () => "a,b@x.com"), notice });
     const setTasks = vi.fn();
     const task = makeTask({ id: 1, assigneeEmail: "", assignee: "No Email Person" });
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
-    act(() => result.current.onSendInquiry(task));
-    expect(alertSpy).toHaveBeenCalledWith(t("en-US", "errorEmailDelimiter"));
+    await act(async () => { await result.current.onSendInquiry(task); });
+    expect(notice).toHaveBeenCalledWith({ message: t("en-US", "errorEmailDelimiter") });
     expect(setTasks).not.toHaveBeenCalled();
   });
 
-  it("M-C4: persists a prompted Name <addr> as addr and sends to it", () => {
-    vi.spyOn(window, "prompt").mockReturnValue("Bob Jones <bob@example.com>");
+  it("M-C4: persists a prompted Name <addr> as addr and sends to it", async () => {
+    answerDialogs({ prompt: vi.fn(async () => "Bob Jones <bob@example.com>") });
     const setTasks = vi.fn();
     const task = makeTask({ id: 1, assigneeEmail: "", assignee: "Bob" });
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
-    act(() => result.current.onSendInquiry(task));
+    await act(async () => { await result.current.onSendInquiry(task); });
     const persist = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
     expect(persist([task])[0].assigneeEmail).toBe("bob@example.com");
     expect(hrefValue.startsWith("mailto:bob%40example.com")).toBe(true);
   });
 
-  it("persists a valid prompted email and proceeds to send", () => {
-    vi.spyOn(window, "prompt").mockReturnValue("bob@example.com");
+  it("persists a valid prompted email and proceeds to send, asking in the app's dialog", async () => {
+    const native = vi.spyOn(window, "prompt");
+    const prompt = vi.fn(async () => "bob@example.com");
+    answerDialogs({ prompt });
     const setTasks = vi.fn();
     const task = makeTask({ id: 1, assigneeEmail: "", assignee: "Bob" });
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
-    act(() => result.current.onSendInquiry(task));
+    await act(async () => { await result.current.onSendInquiry(task); });
+    expect(prompt).toHaveBeenCalledWith({ message: t("en-US", "promptEmail", "Bob"), inputType: "email" });
+    expect(native).not.toHaveBeenCalled();
     // First updater persists the prompted email onto the row.
     const persist = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
     expect(persist([task])[0].assigneeEmail).toBe("bob@example.com");
     expect(hrefValue.startsWith("mailto:")).toBe(true);
   });
 
-  it("uses the default template body (rendered, plain-texted) when resolveTemplateBody returns one", () => {
+  // The prompt is awaited, so a project swap can finish while it is open: the typed address must not
+  // then land on the same id in the project the user swapped to.
+  it("drops the prompted email when the project scope changed while the prompt was open (§752)", async () => {
+    let epoch = 1;
+    answerDialogs({ prompt: vi.fn(async () => { epoch = 2; return "bob@example.com"; }) });
+    const setTasks = vi.fn();
+    const task = makeTask({ id: 1, assigneeEmail: "", assignee: "Bob" });
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, getScopeEpoch: () => epoch })));
+    await act(async () => { await result.current.onSendInquiry(task); });
+    expect(setTasks).not.toHaveBeenCalled();
+    expect(hrefValue).toBe("");
+  });
+
+  it("uses the default template body (rendered, plain-texted) when resolveTemplateBody returns one", async () => {
     const setTasks = vi.fn();
     const task = makeTask({ id: 1, assigneeEmail: "alice@example.com", taskName: "Ship It" });
     const resolveTemplateBody = vi.fn(() => "<p>Hi {{taskName}}</p>");
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, resolveTemplateBody })));
-    act(() => result.current.onSendInquiry(task));
+    await act(async () => { await result.current.onSendInquiry(task); });
     const decoded = decodeURIComponent(hrefValue);
     expect(decoded).toContain("Hi Ship It");
     expect(resolveTemplateBody).toHaveBeenCalledWith("status-inquiry");
   });
 
-  it("falls back to the i18n body when no template is resolved", () => {
+  it("falls back to the i18n body when no template is resolved", async () => {
     const setTasks = vi.fn();
     const task = makeTask({ id: 1, assigneeEmail: "alice@example.com", taskName: "Ship It" });
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, resolveTemplateBody: () => null })));
-    act(() => result.current.onSendInquiry(task));
+    await act(async () => { await result.current.onSendInquiry(task); });
     expect(hrefValue.startsWith("mailto:")).toBe(true);
     // i18n fallback body does NOT contain the raw template markup
     expect(decodeURIComponent(hrefValue)).not.toContain("{{taskName}}");
@@ -506,13 +532,13 @@ describe("useTaskRowHandlers — onSendInquiry", () => {
     ["an empty rich-text paragraph", "<p></p>"],
     ["an empty rich-text paragraph with a break", "<p><br></p>"],
     ["whitespace only", "   "],
-  ])("falls back to the i18n body when the default template renders to nothing (%s)", (_label, tplBody) => {
+  ])("falls back to the i18n body when the default template renders to nothing (%s)", async (_label, tplBody) => {
     const setTasks = vi.fn();
     const task = makeTask({ id: 1, assigneeEmail: "alice@example.com", taskName: "Ship It" });
     const { result } = renderHook(() =>
       useTaskRowHandlers(makeArgs({ setTasks, resolveTemplateBody: () => tplBody })),
     );
-    act(() => result.current.onSendInquiry(task));
+    await act(async () => { await result.current.onSendInquiry(task); });
     // ★★ Slice the `body` PARAM rather than asserting over the whole href: the
     // SUBJECT also carries the task name, so `expect(decoded).toContain("Ship
     // It")` over the full URL passes with an entirely empty body — the exact
@@ -522,12 +548,12 @@ describe("useTaskRowHandlers — onSendInquiry", () => {
     expect(bodyParam).toContain("Ship It");
   });
 
-  it("delegates to sendCommTemplate when provided", () => {
+  it("delegates to sendCommTemplate when provided", async () => {
     const sendCommTemplate = vi.fn();
     const setTasks = vi.fn();
     const task = makeTask({ id: 1, assigneeEmail: "alice@example.com", taskName: "Ship" });
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, sendCommTemplate })));
-    act(() => result.current.onSendInquiry(task));
+    await act(async () => { await result.current.onSendInquiry(task); });
     expect(sendCommTemplate).toHaveBeenCalledWith(expect.objectContaining({ to: "alice@example.com" }));
     expect(hrefValue).toBe(""); // did NOT use mailto directly
   });
@@ -677,7 +703,7 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
     expect(setTasks).toHaveBeenCalled();
   });
 
-  // Until a ConfirmProvider fills the bridge the answer is no; a dropped `bridgeRef` would then turn
+  // Until a ConfirmProvider fills the bridge the answer is no; a dropped `dialogsRef` would then turn
   // every delete into a silent no-op, so the unbridged answer leaves a trace.
   it("logs when no confirm dialog is bridged in, and deletes nothing (§715 D5)", async () => {
     clearDiagLog();
@@ -685,7 +711,7 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks })));
     await act(async () => { await result.current.onDelete(1); });
     expect(setTasks).not.toHaveBeenCalled();
-    expect(readDiagLog().some((ev) => ev.code === "task.delete.noConfirmBridge")).toBe(true);
+    expect(readDiagLog().some((ev) => ev.code === "dialog.noBridge")).toBe(true);
   });
 
   // The dialog is awaited, so a project swap can finish while it is open: "Delete" must not then remove
@@ -697,7 +723,7 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
     const { result } = renderHook(() =>
       useTaskRowHandlers(makeArgs({ setTasks, logActivity, getScopeEpoch: () => epoch })),
     );
-    result.current.confirmRef.current = vi.fn(async () => { epoch = 4; return true; });
+    answerDialogs({ confirm: vi.fn(async () => { epoch = 4; return true; }) });
     await act(async () => { await result.current.onDelete(1); });
     expect(setTasks).not.toHaveBeenCalled();
     expect(logActivity).not.toHaveBeenCalled();
