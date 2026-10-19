@@ -403,14 +403,38 @@ describe("ChatProposalBlock", () => {
           ...emptyPlan(),
           updates: [{ entity: "project", field: "sponsor", before: "", after: "Sam" }],
           rejected: [
-            { toolName: "update_project", reason: "bad-input", detail: "jiraUrl: Only http(s) addresses are accepted.", field: "jiraUrl" },
+            { toolName: "update_project", reason: "bad-input", detail: "Only http(s) addresses are accepted.", field: "jiraUrl" },
           ],
         },
       }),
     ]);
     expect(screen.getByText("Sponsor")).toBeInTheDocument();
     expect(screen.queryByText("sponsor")).toBeNull();
-    expect(screen.getByText("Not applied: jiraUrl: Only http(s) addresses are accepted.")).toBeInTheDocument();
+    expect(screen.getByText("Not applied: Link to Jira: Only http(s) addresses are accepted.")).toBeInTheDocument();
+    expect(screen.queryByText(/jiraUrl/)).toBeNull();
+  });
+
+  it("names a refused project field by its German form label, and leaves an unknown key as written", async () => {
+    await loadI18n("de");
+    renderCard(
+      [
+        row({
+          index: 0,
+          title: 'Project "Apollo"',
+          call: { name: "update_project", input: {} },
+          plan: {
+            ...emptyPlan(),
+            rejected: [
+              { toolName: "update_project", reason: "bad-input", detail: "Kein echtes Datum.", field: "endDate" },
+              { toolName: "update_project", reason: "unsupported", detail: "not a project field Claude may set", field: "contactPersons" },
+            ],
+          },
+        }),
+      ],
+      { lang: "de" },
+    );
+    expect(screen.getByText("Nicht übernommen: Enddatum: Kein echtes Datum.")).toBeInTheDocument();
+    expect(screen.getByText("Nicht übernommen: contactPersons: not a project field Claude may set")).toBeInTheDocument();
   });
 
   // ★★ `after` can legitimately be "" — a cleared FK, or a list emptied to

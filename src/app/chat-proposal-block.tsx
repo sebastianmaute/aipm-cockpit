@@ -42,7 +42,7 @@ import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import type { ProposedCall } from "./chat-proposal";
 import type { ProposalFailureKind } from "./chat-proposal-apply";
-import { isEmptyPlan, type DiffEntity, type EditPlan } from "./inline-ai-edit/plan";
+import { isEmptyPlan, type DiffEntity, type EditPlan, type Rejected } from "./inline-ai-edit/plan";
 import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { CreateFieldsList } from "./create-fields-list";
 import { previewEntityOf } from "./chat-proposal-describe";
@@ -140,6 +140,12 @@ export function proposalRowTitle(call: ProposedCall, plan: EditPlan): string {
  *  NOT land is exactly the row a reviewer most needs to see, and under
  *  `isEmptyPlan` alone the rejection renderer below would be unreachable for
  *  it. Pinned by "renders a rejection on a row whose plan writes nothing". */
+/** A rejection's line. A project refusal carries the bare reason and names its field here, in the project
+ *  form's label (§715); every other rejection's detail is already a sentence. */
+function rejectedText(lang: Lang, entity: DiffEntity | undefined, r: Rejected): string {
+  return entity === "project" && r.field !== undefined ? `${fieldLabel(lang, entity, r.field)}: ${r.detail}` : r.detail;
+}
+
 function PlanDetail({
   lang,
   plan,
@@ -218,7 +224,7 @@ function PlanDetail({
           these are the parts of the call that will NOT land. */}
       {plan.rejected.map((r, i) => (
         <li key={`r${i}`} className="text-ui-pink-strong">
-          {t(lang, "inlineAiEditRejected", r.detail)}
+          {t(lang, "inlineAiEditRejected", rejectedText(lang, entity, r))}
         </li>
       ))}
     </ul>

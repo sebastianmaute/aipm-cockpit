@@ -21,6 +21,18 @@ describe("activityMessage", () => {
     expect(activityMessage("de", "project.updated", ["customer, endDate"])).toBe("Projektdetails aktualisiert: customer, endDate");
   });
 
+  // The panel (display: true) names the changed fields as the project form does; the stored args, the
+  // audit download and the AI prompt keep the keys. A key the form has no label for stays as written.
+  it("renders project.updated field keys as the form's labels for display", () => {
+    const args = ["customer, endDate, contactPersons"];
+    expect(activityMessage("en-US", "project.updated", args, { display: true })).toBe(
+      "Project details updated: Customer, End date, contactPersons",
+    );
+    expect(activityMessage("de", "project.updated", args, { display: true })).toBe(
+      "Projektdetails aktualisiert: Kunde, Enddatum, contactPersons",
+    );
+  });
+
   /**
    * ★★★ THE DRIFT PIN. `ACTIVITY_PLURAL` restates the base key that
    * `ACTIVITY_KIND_TO_KEY` already maps the kind to, because typing it

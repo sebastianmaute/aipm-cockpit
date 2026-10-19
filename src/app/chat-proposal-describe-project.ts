@@ -107,14 +107,14 @@ export function describeProjectPlan(call: ProposedCall, stored: ProjectMeta | un
   const { rows, ignored } = describeProjectCall(call.input, stored);
   for (const row of rows) {
     if (row.state === "refused") {
-      plan.rejected.push(refusal(call.name, row.field, `${row.field}: ${row.reason ?? ""}`, "bad-input"));
+      plan.rejected.push(refusal(call.name, row.field, row.reason ?? "", "bad-input"));
     } else if (row.after !== row.before) {
       const diff: FieldDiff = { entity: "project", field: row.field, before: row.before, after: row.after };
       plan.updates.push(diff);
     }
   }
   for (const key of ignored) {
-    plan.rejected.push(refusal(call.name, key, `${key}: not a project field Claude may set`, "unsupported"));
+    plan.rejected.push(refusal(call.name, key, "not a project field Claude may set", "unsupported"));
   }
   return plan;
 }

@@ -108,6 +108,8 @@ describe("describeProposal — update_project", () => {
     const [row] = describeProposal([{ name: "update_project", input: PATCH }], wsWith(STORED));
     expect(row.plan.updates.map((u) => u.field).sort()).toEqual(["customer", "name", "sponsor"]);
     expect(row.plan.rejected.map((r) => r.field).sort()).toEqual(["contactPersons", "endDate"]);
+    // The detail is the bare reason: the card names the field itself, in the form's label (§715).
+    expect(row.plan.rejected.find((r) => r.field === "endDate")?.detail).not.toMatch(/^endDate:/);
     const sent = stripRejectedFields(row.stamped.input, row.plan);
     expect(sent.writesNothing).toBe(false);
     const { next } = applyProjectPatch(STORED, sent.input);

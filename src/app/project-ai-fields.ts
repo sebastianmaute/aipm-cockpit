@@ -94,11 +94,19 @@ function judgeDate(field: "startDate" | "endDate", raw: unknown, ctx: DateContex
   return verdictFor(raw, date, "Whitespace trimmed.");
 }
 
+const QUOTE_CAP = 40;
+
+/** Model input quoted back in a refusal reason, capped so a long value cannot flood the card or the tool result. */
+const quoted = (v: unknown): string => {
+  const s = String(v);
+  return s.length > QUOTE_CAP ? `${s.slice(0, QUOTE_CAP)}…` : s;
+};
+
 function judgeEnumArray(raw: unknown, allowed: ReadonlySet<string>, label: string): { items: string[]; error?: string } {
   if (!Array.isArray(raw)) return { items: [], error: "Expected a list." };
   const items: string[] = [];
   for (const item of raw) {
-    if (typeof item !== "string" || !allowed.has(item)) return { items: [], error: `Unknown ${label}: ${String(item)}.` };
+    if (typeof item !== "string" || !allowed.has(item)) return { items: [], error: `Unknown ${label}: ${quoted(item)}.` };
     if (!items.includes(item)) items.push(item);
   }
   return { items };
@@ -119,7 +127,7 @@ function judgeIdentityTypes(raw: unknown): FieldVerdict {
 function judgeEnum(raw: unknown, allowed: ReadonlySet<string>, label: string): FieldVerdict {
   if (typeof raw !== "string") return refuse(`Expected a ${label}.`);
   const value = raw.trim();
-  if (value && !allowed.has(value)) return refuse(`"${value}" is not a known ${label}.`);
+  if (value && !allowed.has(value)) return refuse(`"${quoted(value)}" is not a known ${label}.`);
   return verdictFor(raw, value, "Whitespace trimmed.");
 }
 
@@ -135,7 +143,7 @@ function judgeTimezone(raw: unknown): FieldVerdict {
   if (typeof raw !== "string") return refuse("Expected a timezone name.");
   const value = raw.trim();
   if (!value) return accept("");
-  if (!isValidTimeZone(value)) return refuse(`"${value}" is not a timezone the app knows (e.g. Europe/Berlin).`);
+  if (!isValidTimeZone(value)) return refuse(`"${quoted(value)}" is not a timezone the app knows (e.g. Europe/Berlin).`);
   return verdictFor(raw, value, "Whitespace trimmed.");
 }
 

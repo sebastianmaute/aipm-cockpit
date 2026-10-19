@@ -21,6 +21,23 @@ const CTX = { startDate: "2026-03-01", endDate: "2026-12-31" };
 const GDPR = "GDPR / data protection regulation";
 
 describe("project AI fields", () => {
+  it("caps model input quoted in a refusal reason at 40 characters plus an ellipsis", () => {
+    const long = "x".repeat(300);
+    const capped = `${"x".repeat(40)}…`;
+    const reasons = [
+      judgeProjectField("deployment", long, CTX),
+      judgeProjectField("naceSection", long, CTX),
+      judgeProjectField("operatingTimezone", long, CTX),
+      judgeProjectField("regulatory", [long], CTX),
+      judgeProjectField("identityTypes", [long], CTX),
+    ].map((v) => (v.kind === "refused" ? v.reason : ""));
+    for (const reason of reasons) {
+      expect(reason).toContain(capped);
+      expect(reason).not.toContain("x".repeat(41));
+    }
+    expect(judgeProjectField("deployment", "Moon", CTX)).toMatchObject({ reason: expect.stringContaining('"Moon"') });
+  });
+
   it("every ProjectMeta key is offered or excluded with a reason", () => {
     const offered = new Set<string>(PROJECT_AI_FIELDS);
     const excluded = Object.keys(PROJECT_AI_EXCLUDED);
