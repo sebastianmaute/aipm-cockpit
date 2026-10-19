@@ -1,0 +1,64 @@
+<svg viewBox="0 0 2560 1440" width="2560" height="1440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AI PM Cockpit">
+  <title>AI PM Cockpit: YouTube channel banner</title>
+  <!-- Built from public/ai-pm-cockpit-banner.svg for YouTube's 2560 x 1440 channel art. The gauge and the
+       wordmark sit inside the 1546 x 423 safe area (x 507-2053, y 508-932), the only part every device
+       shows; the grid and the arcs are decoration and may be cropped. -->
+
+  <!-- background -->
+  <rect x="0" y="0" width="2560" height="1440" fill="#003459" />
+
+  <!-- HUD grid lines (instrument-panel motif), across the whole canvas -->
+  <g stroke="#e2e6e7" stroke-width="2" opacity="0.12">
+    <line x1="0" y1="508" x2="2560" y2="508" />
+    <line x1="0" y1="932" x2="2560" y2="932" />
+    <line x1="640" y1="0" x2="640" y2="1440" />
+    <line x1="1920" y1="0" x2="1920" y2="1440" />
+  </g>
+
+  <!-- the banner's artwork, twice its size, centred on the safe area -->
+  <g transform="translate(483,440) scale(2)">
+    <!-- right-side abstract cockpit arcs -->
+    <g fill="none" stroke="#5daee0" stroke-width="2">
+      <circle cx="1030" cy="140" r="150" opacity="0.10" />
+      <circle cx="1030" cy="140" r="105" opacity="0.18" />
+      <circle cx="1030" cy="140" r="60" opacity="0.28" />
+    </g>
+    <g fill="none" stroke="#ae448c" stroke-width="1.5" opacity="0.35">
+      <path d="M 950 60 A 120 120 0 0 1 1110 100" />
+      <path d="M 960 220 A 120 120 0 0 0 1120 175" />
+    </g>
+
+    <!-- cockpit gauge icon -->
+    <g id="gauge" transform="translate(150,140)">
+      <circle r="72" fill="none" stroke="#5daee0" stroke-width="5" />
+      <circle r="72" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.4" />
+      <g stroke="#ffffff" stroke-width="3" opacity="0.85">
+        <line x1="0" y1="-72" x2="0" y2="-58" />
+        <line x1="0" y1="72" x2="0" y2="58" transform="rotate(180)" />
+        <line x1="0" y1="-72" x2="0" y2="-58" transform="rotate(45)" />
+        <line x1="0" y1="-72" x2="0" y2="-58" transform="rotate(90)" />
+        <line x1="0" y1="-72" x2="0" y2="-58" transform="rotate(135)" />
+        <line x1="0" y1="-72" x2="0" y2="-58" transform="rotate(-45)" />
+        <line x1="0" y1="-72" x2="0" y2="-58" transform="rotate(-90)" />
+        <line x1="0" y1="-72" x2="0" y2="-58" transform="rotate(-135)" />
+      </g>
+      <g transform="rotate(-35)">
+        <line x1="0" y1="10" x2="0" y2="-56" stroke="#e84663" stroke-width="4" stroke-linecap="round" />
+      </g>
+      <circle r="7" fill="#ffffff" />
+    </g>
+
+    <!-- wordmark -->
+    <g id="wordmark" font-family="Arial, Helvetica, sans-serif">
+      <text x="270" y="130" fill="#ffffff" font-size="56" font-weight="700" letter-spacing="2">AI PM COCKPIT</text>
+      <text x="272" y="168" fill="#e2e6e7" font-size="22" font-weight="400" letter-spacing="1">Plan. Track. Steer your projects.</text>
+    </g>
+
+    <!-- small status dots (RAG-style accent, decorative) -->
+    <g transform="translate(272,190)">
+      <circle cx="0" cy="0" r="5" fill="#5daee0" />
+      <circle cx="24" cy="0" r="5" fill="#ae448c" />
+      <circle cx="48" cy="0" r="5" fill="#e84663" opacity="0.7" />
+    </g>
+  </g>
+</svg>

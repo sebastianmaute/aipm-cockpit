@@ -2,14 +2,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DEMO_WEEK_DATES } from './week-story.mjs';
 
 export const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const NAV = 'aside a, aside button, nav a, nav button, [role="tab"]';
 export const BASE = process.env.QA_BASE_URL || 'http://localhost:3300';
-// The pinned "today" of the recording (09:00 in Berlin, where the browser runs); chapter 7 jumps
-// three weeks past it. The explicit offset keeps day() independent of this machine's time zone.
-// +01:00 is Berlin winter time; for a date between late March and late October use +02:00.
-export const T0 = new Date('2026-11-02T09:00:00+01:00');
+// The pinned "today" of every take: Monday of the demo week, 08:30 in Berlin, where the browser runs.
+// The master is authored as of the Friday before (DEMO_AS_OF), so the demo's date shift is 0 and the
+// viewer sees the master's own dates. September is Berlin summer time, hence +02:00; the explicit
+// offset keeps day() and atDay() independent of this machine's time zone.
+export const T0 = new Date(`${DEMO_WEEK_DATES.mon}T08:30:00+02:00`);
+
+// 08:30 in Berlin on a day of the demo week ('mon' … 'fri'): each chapter's clock.
+export function atDay(d) {
+  const date = DEMO_WEEK_DATES[d];
+  if (!date) throw new Error('atDay: unknown day ' + d);
+  return new Date(`${date}T08:30:00+02:00`);
+}
 export const OUT = process.env.DEMO_VIDEO_DIR || path.join(ROOT, '.superpowers', 'tmp', 'demo-video');
 
 // Reads one key from the repo's .env.local. Values are returned, never printed.
@@ -31,6 +40,30 @@ export function throwaway() {
     throw new Error('TURSO_THROWAWAY_DATABASE_URL is not a valid URL');
   }
   return { url, token, host };
+}
+
+// The throwaway pair, read once on first use: importing this module reads nothing.
+let throwawayPair;
+const pair = () => (throwawayPair ??= throwaway());
+
+// Runs statements as one pipeline on the throwaway database and returns each statement's result, ok
+// or error.
+export async function pipeline(stmts) {
+  const T = pair();
+  const r = await fetch('https://' + T.host + '/v2/pipeline', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + T.token, 'content-type': 'application/json' },
+    body: JSON.stringify({ requests: [...stmts.map((s) => ({ type: 'execute', stmt: s })), { type: 'close' }] }),
+  });
+  if (!r.ok) throw new Error('Turso HTTP ' + r.status);
+  return (await r.json()).results.slice(0, stmts.length);
+}
+
+// Runs one statement and returns its rows; an error result throws with the database's message.
+export async function query(sql, args) {
+  const [x] = await pipeline([args ? { sql, args } : { sql }]);
+  if (x.type !== 'ok') throw new Error('Turso: ' + (x.error?.message ?? 'statement failed'));
+  return x.response.result.rows;
 }
 
 // Aborts any Turso request that is not the throwaway database, on every page of the context.
@@ -64,10 +97,14 @@ export async function navItems(page) {
     .map((e) => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40)), NAV);
 }
 
+// A nav item matches by name with whitespace collapsed and a trailing count badge dropped, since off its
+// own view the Dashboard item reads "Dashboard2" (and Next actions "Next actions2"). ui.nav matches the
+// same way.
 export async function openView(page, name) {
   const ok = await page.evaluate(({ name, sel }) => {
+    const norm = (s) => (s || '').trim().replace(/\s+/g, ' ').replace(/\s*\d+$/, '');
     const el = [...document.querySelectorAll(sel)].find(
-      (e) => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ') === name);
+      (e) => norm(e.getAttribute('aria-label') || e.textContent) === name);
     if (el) el.click();
     return !!el;
   }, { name, sel: NAV });

@@ -21,6 +21,11 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Video guides recorder (§715).** One command per video for the 43 guides: the big video, seven chapters
+  (the first is recorded by hand), 15 AI clips and 20 feature clips, taken through the app's own UI on the demo project and a throwaway
+  Turso database. Each take starts clean, sets up off camera, checks that the data shows what the video needs,
+  and only then records; `--rehearse` runs the same takes without a recording (`--with-ai` makes the AI calls
+  too). See `scripts/demo-video/README.md`.
 - **The demo project tells one week (§715).** Explore the demo opens on a slipped MVP: its milestone passed on
   18 September with provisioning to the CRM not working, the customer demo was called off, and a GDPR issue is open.
   The Next actions list carries only the slip and its knock-on effects (the overdue CRM work, the blocked pilot

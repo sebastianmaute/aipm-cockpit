@@ -1,0 +1,117 @@
+// §715 demo recorder: on-screen helpers — the cursor and caption overlay, the host blur, and paced
+// clicks, typing and navigation. Every helper takes the take's `ctx` ({ page, rehearse, log, … }).
+// Lifted from the first recorder. See README.md.
+import * as L from './lib.mjs';
+
+// Installed in every page before it loads: an arrow cursor that follows the mouse, the caption bar,
+// and a blur over any text that shows the database host. Serialised into the page, so self-contained.
+export const OVERLAY = (host) => {
+  const install = () => {
+    if (!document.body || document.getElementById('demo-cursor')) return;
+    const c = document.createElement('div');
+    c.id = 'demo-cursor';
+    c.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24"><path d="M5 3L19 12L12 13L9 20L5 3Z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+    c.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;width:24px;height:24px;left:-40px;top:-40px;transition:left .1s,top .1s;filter:drop-shadow(1px 1px 2px rgba(0,0,0,.3))';
+    document.body.appendChild(c);
+    document.addEventListener('mousemove', (e) => { c.style.left = e.clientX + 'px'; c.style.top = e.clientY + 'px'; }, true);
+    const b = document.createElement('div');
+    b.id = 'demo-subtitle';
+    b.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:2147483646;text-align:center;padding:12px 24px;background:rgba(0,0,0,.75);color:#fff;font:500 16px -apple-system,"Segoe UI",sans-serif;pointer-events:none;opacity:0;transition:opacity .3s';
+    document.body.appendChild(b);
+    const s = document.createElement('style');
+    s.textContent = 'input[placeholder^="libsql://"]{filter:blur(6px)}';
+    document.head.appendChild(s);
+    const blur = () => {
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) {
+        if (n.nodeValue && n.nodeValue.includes(host) && n.parentElement && n.parentElement.id !== 'demo-subtitle') n.parentElement.style.filter = 'blur(5px)';
+      }
+    };
+    blur();
+    new MutationObserver(blur).observe(document.body, { subtree: true, childList: true, characterData: true });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install); else install();
+};
+
+/** Pause `ms`, or a token 150 ms in a rehearsal. */
+export const pace = (ctx, ms) => ctx.page.waitForTimeout(ctx.rehearse ? Math.min(ms, 150) : ms);
+
+export async function caption(ctx, text) {
+  await ctx.page.evaluate((t) => {
+    const b = document.getElementById('demo-subtitle');
+    if (!b) return;
+    b.textContent = t || '';
+    b.style.opacity = t ? '1' : '0';
+  }, text);
+  ctx.log('CAPTION ' + (text || '(clear)'));
+  if (text) await pace(ctx, 1200);
+}
+
+/** The clip's closing beat: its title in the caption bar over the last frame, about 2 s. */
+export async function closingBeat(ctx, title) {
+  await caption(ctx, title);
+  await pace(ctx, 2000);
+}
+
+export async function moveTo(ctx, loc) {
+  await loc.scrollIntoViewIfNeeded().catch(() => {});
+  const box = await loc.boundingBox().catch(() => null);
+  if (box) {
+    await ctx.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: ctx.rehearse ? 2 : 12 });
+    await pace(ctx, 350);
+  }
+}
+
+export async function click(ctx, loc, label, after = 900) {
+  await loc.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+  if (!(await loc.isVisible().catch(() => false))) {
+    // isVisible() also fails on a locator that matches several elements: say which it was.
+    const n = await loc.count().catch(() => 0);
+    throw new Error(n > 1 ? `ambiguous (${n} matches): ${label}` : `not visible: ${label}`);
+  }
+  await moveTo(ctx, loc);
+  await loc.click();
+  await L.settle(ctx.page);
+  await pace(ctx, after);
+}
+
+/** Types visibly; `slow: false` fills at once (credentials: never typed character by character). */
+export async function type(ctx, loc, text, label, { slow = true } = {}) {
+  await click(ctx, loc, label, 200);
+  // Replace the old value without ever emptying the field: some fields act on an empty value (a role's
+  // rate flips the row to the other basis when cleared). Typed over a selection, or filled at once.
+  if (slow && !ctx.rehearse) {
+    await loc.press('Control+A');
+    await loc.pressSequentially(text, { delay: 35 });
+  } else await loc.fill(text);
+  await pace(ctx, 300);
+}
+
+/** Opens a nav item by its exact name; retries when a reload lands just after the click. */
+export async function nav(ctx, name) {
+  const page = ctx.page;
+  const loc = page.locator(L.NAV).filter({ hasText: new RegExp('^\\s*' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\d*\\s*$') }).first();
+  if (await loc.isVisible().catch(() => false)) await moveTo(ctx, loc);
+  const title = async () => (await page.locator('header').first().innerText().catch(() => '')).split('\n')[0].trim();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    // Matched as L.openView does (a trailing count badge dropped); serialised, so written out here.
+    await page.waitForFunction(({ sel, name }) => [...document.querySelectorAll(sel)].some(
+      (e) => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ').replace(/\s*\d+$/, '') === name), { sel: L.NAV, name }, { timeout: 60000 })
+      .catch(() => { throw new Error(`nav: no item "${name}"`); });
+    const before = await title();
+    await L.openView(page, name);
+    await pace(ctx, 1500);
+    const after = await title();
+    if (after !== before || before === name) return;
+    ctx.log('nav retry ' + name);
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(2000);
+  }
+  throw new Error('nav did not reach ' + name);
+}
+
+export async function skipTour(ctx, waitMs = 0) {
+  const sk = ctx.page.getByRole('button', { name: 'Skip', exact: true });
+  if (waitMs) await sk.first().waitFor({ state: 'visible', timeout: waitMs }).catch(() => {});
+  if (await sk.first().isVisible().catch(() => false)) await click(ctx, sk.first(), 'Skip tour');
+}
