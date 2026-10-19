@@ -1029,6 +1029,11 @@
   structurally cannot see a dispatcher-level derivation — and because a reader built on a raw
   sanitizer is blind to a merge-site guard, which once left four CLOSED defects being excused as
   open gaps by a fully green gate.
+  ★★ **A FOURTH SITE SHARES THE RULE: the project card (§715).** `update_project` has no
+  `INLINE_DESCRIPTORS` entry, so `describeProjectPlan` (`chat-proposal-describe-project.ts`) builds the
+  rows from `applyProjectPatch`, the SAME per-field judge the write runs, and re-judges the call that is sent
+  until no new field is refused. A refusal's `detail` is the bare reason; `PlanDetail` prefixes the field
+  in the project form's label (`PROJECT_FIELD_LABEL_KEY`), so the plan stays i18n-free.
 
   ★★★ **`callInlineEdit` STRIPS `viewDigest` from the snapshot and must keep doing so.** Inline edit does
   NOT build its own snapshot — `use-inline-entity-edit.ts` calls the SAME `dispatcher.getSnapshot()` the
@@ -1133,6 +1138,20 @@
   stakeholder `resourceId` by case-folded name (or email) — an unmatched owner stays a plain-string assignee
   (FK undefined/null). When NO resources are seeded the person FKs are cleared exactly as before. Resource
   already round-trips all six paths, so no new write path / golden regen.
+- **Project tools — `get_project` / `update_project` (§715):** the assistant reads and edits the open project's
+  record. `project-ai-fields.ts` owns the field list: `PROJECT_AI_FIELDS` (what Claude may set, each with its
+  per-field judge in `judgeProjectField`/`applyProjectPatch`) and `PROJECT_AI_EXCLUDED` (every other
+  `ProjectMeta` key with the reason it stays a hand edit: contact persons carry personal data, the two legacy
+  stakeholder lists are replaced by the register, knowledge links are picked in the Knowledge view). The new-project
+  proposal fills the same fields (`ai-project-proposal.ts`), so a brief that says GDPR ticks the box. ★★★
+  `update_project` is ALWAYS staged (`ALWAYS_STAGED_TOOLS` in `chat-proposal.ts`), even alone, and the card is
+  built by `chat-proposal-describe-project.ts`. ★★★ The write goes through `handleUpdateCurrentProjectByMode`
+  (`use-turso-projects.ts`, reached by `use-project-tools.ts` through `projectWriterRef`), the project form's
+  own writer: in Turso multi-project mode the record lives in the projects table and the workspace save does NOT
+  write it, so a bare `setProject` would show the change and lose it on reload. A project switch during the write
+  drops it (`dropStaleScopeWrite`). ★ Edits are logged (`project.updated`, actor user from the form, `ai` from
+  the assistant) and the assistant's edit is one undo step (`project-meta-edit.ts`); a refusal, failure or switch
+  logs nothing. The activity panel names the changed fields with the form's labels.
 - **Create project from source:** the create wizard's Step 0 (extracted to `step0-import-panel.tsx`) adds
   Upload-file / SharePoint / Confluence-URL import alongside Describe; all funnel into
   `useProjectProposal().generate(...)` — widened to `string | ContentBlock[]` (multimodal: PDF/image read

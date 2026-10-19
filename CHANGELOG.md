@@ -12,6 +12,12 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **Claude knows the whole project (§715).** When Claude proposes a new project it now fills every field it can
+  infer from your brief, not just the basics: a brief that mentions GDPR ticks the regulatory box, and the
+  deployment, sponsor, industry, platform and time zone are filled the same way. The assistant can also read and
+  change the open project's details. A change always shows as a card to review before anything is written, fields
+  it cannot accept are shown as not applied, and the edit is logged in the activity log; Claude's edits can be
+  undone.
 - **Drag a milestone in the Gantt (§715).** Drag its diamond to another date, or focus it and press the
   arrow keys (one day; with Shift, or Page Up / Page Down, one week). The new date and, when there is a baseline,
   the slip update while you move it; a milestone moved before its linked work turns at risk on the spot. A

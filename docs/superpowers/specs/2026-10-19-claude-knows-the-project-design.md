@@ -1,6 +1,6 @@
 # Claude knows the whole project — design
 
-Date: 2026-10-19. Owner decision, same day: "ai-project-proposal.ts must know all fields of projects when
+Date: 2026-10-19. Status: implemented (§715). Owner decision, same day: "ai-project-proposal.ts must know all fields of projects when
 creating or updating it later", with the approach "Proposal + update_project".
 
 ## Why
