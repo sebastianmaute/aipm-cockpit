@@ -1,5 +1,8 @@
+import { markUnsealedPassphraseSecret } from "./turso-token-marker";
+import { ToastProvider } from "./toast-context";
+import { t } from "./i18n";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { TursoProjectPicker } from "./turso-project-picker";
 import { defaultSettings } from "./settings-types";
 import { StorageNotReadyError } from "./storage";
@@ -44,7 +47,24 @@ describe("TursoProjectPicker", () => {
     expect(screen.getByText("Gemini")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /load – apollo/i }));
-    expect(commitTursoPortfolioSwitch).toHaveBeenCalledWith(TURSO_SETTINGS, "p1");
+    await waitFor(() => expect(commitTursoPortfolioSwitch).toHaveBeenCalledWith(TURSO_SETTINGS, "p1"));
+  });
+
+  // §749 — the switch reloads: a Claude key typed under its passphrase lock and not saved under it would be lost.
+  // KILLED BY: dropping the picker's `secretLostToReload` check.
+  it("refuses to switch while the Claude key is held unsealed, and says how to save it (§749)", async () => {
+    vi.mocked(listProjects).mockResolvedValueOnce([{ id: "p1", meta: { name: "Apollo", code: "APL-1" }, archived: false } as never]);
+    const withKey = { ...TURSO_SETTINGS, ai: { ...TURSO_SETTINGS.ai, apiKey: "sk-ant-api03-fictional00000000" } };
+    markUnsealedPassphraseSecret("anthropicApiKey", withKey.ai.apiKey);
+    const showToast = vi.fn();
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <TursoProjectPicker lang="en-US" settings={withKey} onClose={vi.fn()} />
+      </ToastProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /load – apollo/i }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiKeyNeedsPassphraseSave", t("en-US", "secretPassphraseSave"))));
+    expect(commitTursoPortfolioSwitch).not.toHaveBeenCalled();
   });
 
   it("shows an empty state when the database has no projects", async () => {

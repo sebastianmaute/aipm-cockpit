@@ -253,9 +253,12 @@
   and `migrateCurrentProjectToTurso` toasts. ★★ The section's lock is DERIVED too (`effectiveWrap`, and
   `wrapNow` at event time, which reads the STORE): Settings keeps its AI section mounted under the wizard's, and
   a per-instance `keyWrap` left one of them on device after the other saved a passphrase, so its next keystroke
-  device-sealed over the record. ★ Known limit: the other reload paths (picking a Turso project from the empty
-  state or picker, the cross-mode file load, the demo) check neither secret, and nothing can guard a reload the
-  user starts or a closed tab. ★ The invalid-key BLUR follows the change handler's rule: over a passphrase record
+  device-sealed over the record. ★ The reload paths with no gate of their own — picking a Turso project
+  (`turso-project-picker.tsx`), the cross-mode create (`use-turso-projects.ts`), the cross-mode file load and the
+  demo (`use-storage-file-ops.ts`) — call `secretLostToReload` (`portfolio-mode-switch.ts`) BEFORE they write
+  anything, so a refusal leaves nothing half-done; it waits for seals in flight and names the secret at risk
+  (`reloadRefusalText`). A NEW reload path joins it. ★ Known limit: nothing can guard a reload the user starts,
+  or a closed tab. ★ The invalid-key BLUR follows the change handler's rule: over a passphrase record
   it never calls `removeSealed` (a locked key is not hydrated, so the field shows "" for it).
 - ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
   (`use-insight-lifecycle.ts`), the recommendation store `applyInsightRecommendation`

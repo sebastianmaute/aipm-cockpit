@@ -8,11 +8,33 @@ import { sealSettingsUntilReload } from "./settings-reload-seal";
 import { loadRegistry } from "./projects-registry";
 import { defaultStorageConfig } from "./workspace";
 import type { Settings } from "./settings-types";
+import { t, type Lang } from "./i18n";
 
 /** §749 — the Claude key was typed under its passphrase lock and no seal covers it yet, so a reload (which
  *  blanks it, `writeSettings`) would bring back the OLD record or none. Every reload path refuses on it. */
 export function aiKeyHeldUnsealed(settings: Settings): boolean {
   return hasUnsealedPassphraseSecret("anthropicApiKey", settings.ai?.apiKey);
+}
+
+/** §749 — the secret a reload would lose: one typed under its passphrase lock that no seal covers yet. */
+export type SecretAtRisk = "tursoToken" | "aiKey";
+
+/** §749 — the durability gate for the reload paths that have no gate of their own (picking a Turso project,
+ *  the cross-mode create and file load, the demo): waits for seals in flight (bounded, `tokenSealsSettled`),
+ *  then reads the LATEST settings through `read`. Call it BEFORE the op writes anything, so a refusal leaves
+ *  nothing half-done. No wait when nothing is in flight. */
+export async function secretLostToReload(read: () => Settings): Promise<SecretAtRisk | null> {
+  const seals = tokenSealsSettled();
+  if (seals) await seals;
+  const settings = read();
+  if (hasUnsealedPassphraseToken(settings.integrations?.turso?.authToken)) return "tursoToken";
+  if (aiKeyHeldUnsealed(settings)) return "aiKey";
+  return null;
+}
+
+/** What a refused reload path says: which secret, and how to save it. */
+export function reloadRefusalText(lang: Lang, risk: SecretAtRisk): string {
+  return t(lang, risk === "aiKey" ? "aiKeyNeedsPassphraseSave" : "reloadTursoTokenNeedsPassphrase", t(lang, "secretPassphraseSave"));
 }
 
 /** Commits a portfolio switch and reloads onto it: this section's "Save & switch", and the setup

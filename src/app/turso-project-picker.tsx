@@ -23,6 +23,8 @@ import { getTursoConfig } from "./turso-config";
 import { tursoErrorMessageKey } from "./storage-error";
 import { listProjects } from "./turso-portfolio";
 import { commitTursoPortfolioSwitch } from "./portfolio-mode";
+import { reloadRefusalText, secretLostToReload } from "./portfolio-mode-switch";
+import { useToastContext } from "./toast-context";
 import { type Settings } from "./settings-types";
 import type { ProjectListEntry } from "./turso-tenant-schema";
 
@@ -58,6 +60,7 @@ function projectText(p: ProjectListEntry): string {
 
 export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPickerProps) {
   const [state, setState] = useState<FetchState>({ kind: "loading" });
+  const showToast = useToastContext();
   // §669 — two projects in one database can share a name. The code is part of
   // the name when there is one, since the row shows it beside the name.
   const projectTokens = useMemo(
@@ -98,8 +101,17 @@ export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPick
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // §749 — the switch reloads, which loses a Turso token or Claude key typed under its passphrase lock and not
+  //   saved under it yet: refuse, and say how to save it.
   function handlePick(id: string) {
-    commitTursoPortfolioSwitch(settings, id);
+    void (async () => {
+      const risk = await secretLostToReload(() => settings);
+      if (risk) {
+        showToast("error", reloadRefusalText(lang, risk));
+        return;
+      }
+      commitTursoPortfolioSwitch(settings, id);
+    })();
   }
 
   return (

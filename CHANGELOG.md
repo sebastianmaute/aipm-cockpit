@@ -43,7 +43,9 @@ longer carries its own changelog comment.
 
 - **The app no longer reloads over a Claude API key that is not saved yet (§749).** A key typed under the passphrase
   lock is not stored until "Save passphrase" is chosen. Switching the portfolio and moving a project to Turso
-  reload the app, so they now stop and say how to save the key first, instead of dropping it. A reload you start
+  reload the app, as do picking a Turso project, creating one from a file portfolio, loading a file into a Turso
+  portfolio and opening the demo there: they now stop and say how to save the key first, instead of dropping it.
+  The same holds for a Turso token typed under its passphrase lock. A reload you start
   yourself, or closing the tab, still loses a key that was not saved. With the setup wizard open over Settings,
   saving a passphrase in one no longer lets the other store the key without it, and blurring an empty key field
   no longer removes a key protected by a passphrase.

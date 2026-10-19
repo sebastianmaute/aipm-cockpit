@@ -7,8 +7,10 @@ const writeSettings = vi.hoisted(() => vi.fn());
 vi.mock("./use-settings", async (importOriginal) => ({ ...(await importOriginal<typeof import("./use-settings")>()), writeSettings }));
 vi.mock("./settings-reload-seal", () => ({ sealSettingsUntilReload: vi.fn() }));
 
-import { aiKeyHeldUnsealed, commitPortfolioModeSwitch } from "./portfolio-mode-switch";
-import { markUnsealedPassphraseSecret, noteSecretSealed } from "./turso-token-marker";
+import { aiKeyHeldUnsealed, commitPortfolioModeSwitch, reloadRefusalText, secretLostToReload } from "./portfolio-mode-switch";
+import { markUnsealedPassphraseSecret, markUnsealedPassphraseToken, noteSecretSealed } from "./turso-token-marker";
+import { trackSecretSeal } from "./turso-token-seals";
+import { t } from "./i18n";
 import { defaultSettings, type Settings } from "./settings-types";
 
 const KEY = "sk-ant-api03-fictional00000000";
@@ -43,5 +45,32 @@ describe("commitPortfolioModeSwitch — the Claude key under its passphrase lock
   it("is keyed by value: a key the settings no longer hold refuses nothing", async () => {
     markUnsealedPassphraseSecret("anthropicApiKey", "sk-ant-api03-older00000000000");
     await expect(commitPortfolioModeSwitch(withKey, "file")).resolves.toBe(true);
+  });
+});
+
+// §749 — the gate the other reload paths share: which secret a reload now would lose, after the seals in flight.
+describe("secretLostToReload (§749)", () => {
+  const withToken: Settings = { ...withKey, integrations: { ...defaultSettings.integrations, turso: { enabled: true, databaseUrl: "libsql://x", authToken: "tokM" } } } as Settings;
+
+  it("names the Turso token, then the Claude key, and nothing when neither is held", async () => {
+    await expect(secretLostToReload(() => withToken)).resolves.toBeNull();
+    markUnsealedPassphraseSecret("anthropicApiKey", KEY);
+    await expect(secretLostToReload(() => withToken)).resolves.toBe("aiKey");
+    markUnsealedPassphraseToken("tokM");
+    await expect(secretLostToReload(() => withToken)).resolves.toBe("tursoToken");
+  });
+
+  it("waits for a seal in flight, and reads the settings after it", async () => {
+    markUnsealedPassphraseSecret("anthropicApiKey", KEY);
+    let land: () => void = () => {};
+    trackSecretSeal(new Promise<void>((r) => { land = r; }).then(() => noteSecretSealed("anthropicApiKey", KEY)), "anthropicApiKey");
+    const answer = secretLostToReload(() => withKey);
+    land();
+    await expect(answer).resolves.toBeNull();
+  });
+
+  it("says which secret and how to save it", () => {
+    expect(reloadRefusalText("en-US", "aiKey")).toBe(t("en-US", "aiKeyNeedsPassphraseSave", t("en-US", "secretPassphraseSave")));
+    expect(reloadRefusalText("en-US", "tursoToken")).toBe(t("en-US", "reloadTursoTokenNeedsPassphrase", t("en-US", "secretPassphraseSave")));
   });
 });
