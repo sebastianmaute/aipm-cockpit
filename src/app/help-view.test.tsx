@@ -257,10 +257,12 @@ describe("HelpView — reopening the intro with the switch off (§502)", () => {
   it("says exports carry the decision block only with the section ticked, EN and DE (§502)", async () => {
     await loadI18n("de");
     const en = t("en-US", "helpConceptForecastSimBody");
-    expect(en).toContain("tick Forecast decision (simulated) in Settings → Export, which starts unticked");
+    const label = (lang: "en-US" | "de") => t(lang, "exportLabelForecastDecision");
+    const section = (lang: "en-US" | "de") => t(lang, "settingsSectionExport");
+    expect(en).toContain(`tick ${label("en-US")} in Settings → ${section("en-US")}, which starts unticked. The block shows`);
     expect(en).not.toContain("Exports and documents gain");
     const de = t("de", "helpConceptForecastSimBody");
-    expect(de).toContain("in Einstellungen → Export „Prognose-Entscheidung (simuliert)“ an, das anfangs nicht angehakt ist");
+    expect(de).toContain(`in Einstellungen → ${section("de")} „${label("de")}“ an; dieser Abschnitt ist anfangs nicht angehakt. Der Block zeigt`);
     expect(de).not.toContain("Exporte und Dokumente erhalten");
   });
 });

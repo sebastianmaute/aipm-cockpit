@@ -86,7 +86,9 @@ items part 4 adds. The first three are HARD GATES: do not un-hide until each is 
    `forecastDecision` export section is OFF by default (`defaultExportConfig`), so the freeze is paid only by a user
    who ticks it; and `get_forecast` searches at most `WHAT_IT_TAKES_MILESTONE_CAP` (5) below-target milestones, worst
    first, naming the rest in `notSearched`. Re-measured with the cap (same samples, three runs): `get_forecast` takes
-   0.8–0.9 s on small, 1.3–1.5 s on big (5 searched, 4 not) and 2.3–2.4 s on huge (5 searched, 25 not), down from 10–11 s;
+   0.8–0.9 s on small, 1.3–1.5 s on big (5 searched, 4 not) and 2.3–2.4 s on huge (5 searched, 25 not), down from 10–11 s. Small searches the same 3 milestones either way, so its
+   change is shared-machine noise; and inside `get_forecast` one search on huge costs about 0.33 s ((10.5 − 2.35) / 25),
+   above the export's 0.16–0.21 s per search on the same sample (4.9–6.4 s / 30);
    the plan end and the five searches on a 200-task backlog are what is left, so a large project still freezes for about
    2 s while Claude reads the forecast. ★ A document download with a `forecastDecision` block, and an export with
    the section ticked, still search every below-target milestone at the click; a worker would remove that, and was
@@ -1168,7 +1170,8 @@ Part 4 adds four reads. `targetConfidence` (`targetConfidenceOf`, 80 when unset)
 (null when As is has no plan-end chance) and one take per milestone BELOW the goal, chosen by `belowTargetRows` over
 `milestoneRowsWorstFirst` (the Reports and export rule, so overdue and unlinked milestones are never listed; overdue
 ones stay visible in the `asIs` milestones), each the unaltered `whatItTakesSync` answer, `inert` reasons included; at most `WHAT_IT_TAKES_MILESTONE_CAP` (5) of
-them, worst first, with `notSearched` naming the rest by id and name (gate 1);
+them, worst first, with `notSearched` naming the rest by id and name, after any searched one whose take came back null, which should not
+happen (gate 1);
 `{ planEnd: null, milestones: [], notSearched: [] }` below the history floor. ★ A call WITH a `whatIf` gets `{ omitted: "whatIf" }`
 and runs no lever search: the take is defined on As is, so it is the same with or without the draft, and a drafting
 loop of `whatIf` checks (the §3.6 Ask-Claude path) would otherwise pay it on every check. A call without `whatIf`

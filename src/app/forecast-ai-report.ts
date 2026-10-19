@@ -157,7 +157,7 @@ function rowsOf(column: ScenarioColumn): RowReport[] {
 }
 
 /** How many below-target milestones one call searches, worst first. Each search is synchronous inside the tool call
- *  (about 50–200 ms), so an uncapped call froze the app for about 10 s with 30 milestones below target (§502 gate 1,
+ *  (about 50–350 ms, more on a bigger backlog), so an uncapped call froze the app for about 10 s with 30 milestones below target (§502 gate 1,
  *  docs/AGENTS/forecast.md). */
 export const WHAT_IT_TAKES_MILESTONE_CAP = 5;
 
