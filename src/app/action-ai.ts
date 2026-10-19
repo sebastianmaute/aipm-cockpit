@@ -34,16 +34,31 @@ function asEntity(raw: unknown): { view: GroundableView; id: string } | undefine
   return { view: r.view as GroundableView, id: String(r.id) };
 }
 
+/** The tool input's `actions`, as an array or null. A model with nothing net-new to add can leave the
+ *  list out or null, and a nested array sometimes arrives JSON-encoded as a string: all are still an answer. */
+function rawActions(value: unknown): unknown[] | null {
+  if (value === undefined || value === null) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return null;
+  try {
+    const decoded: unknown = JSON.parse(value);
+    return Array.isArray(decoded) ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Validate + clamp the model's tool input. Returns null only when the overall
  *  shape is unusable; individual malformed actions are dropped, not fatal. */
 export function parseAnalysis(input: unknown): ActionAnalysis | null {
   if (!input || typeof input !== "object") return null;
   const obj = input as { summary?: unknown; actions?: unknown };
-  if (typeof obj.summary !== "string" || !Array.isArray(obj.actions)) return null;
+  const list = rawActions(obj.actions);
+  if (typeof obj.summary !== "string" || !list) return null;
   const summary = obj.summary.trim();
   if (!summary) return null;
   const actions: AiAction[] = [];
-  for (const raw of obj.actions) {
+  for (const raw of list) {
     if (!raw || typeof raw !== "object") continue;
     const a = raw as { title?: unknown; why?: unknown; severity?: unknown; entity?: unknown };
     const title = typeof a.title === "string" ? a.title.trim() : "";

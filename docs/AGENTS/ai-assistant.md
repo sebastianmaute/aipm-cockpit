@@ -1163,7 +1163,9 @@
   `generate(input, signal?)` + the wizard's `onIngest`/`runIngest(content, signal?)` forward the signal. ★ during the fast
   local READ phase `abortRef` is null so Cancel is a no-op.
 - **AI Action Center suggestions:** Action Center "Analyze with AI" → ONE forced-tool call
-  (`tool_choice:{type:"tool",name:"report_analysis"}`, no loop) in `use-action-analysis.ts`; pure contract/
+  (`tool_choice:{type:"tool",name:"report_analysis"}`, no loop) in `runJobAnalysis` (`scheduled-job-analysis.ts`,
+  called by `use-action-analysis.ts` and the scheduled-job runner), repeated once with 8192 tokens when the reply is
+  cut at 4096 — a cut reply is never read; pure contract/
   transforms in `action-ai.ts` (`parseAnalysis` validates untrusted model output; `groundEntity` RE-VALIDATES
   model entity ids against the live workspace before any `requestOpen` deep-link — hallucinated id → fall back
   to `requestChat`). ADVISORY only (no write tool; deterministic `next-actions/` engine untouched; no new
