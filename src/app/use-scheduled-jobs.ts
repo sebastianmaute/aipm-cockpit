@@ -47,10 +47,12 @@ function nextJobId(jobs: readonly ScheduledJob[]): number {
 /** §750 — shared by every instance: one write chain, and each mounted instance's re-read. */
 let writeChain: Promise<void> = Promise.resolve();
 const instances = new Set<() => void>();
-/** Bumped by every completed save. A read started before the latest save may answer after a newer list was
- *  applied (a slow Turso round trip), so its result is dropped: a write's own list, or the re-read that
- *  write starts in every other instance, is newer. */
-let savedGeneration = 0;
+/** Bumped by every completed save, PER BACKEND (keyed by the config object; null = localStorage). A read
+ *  started before the latest save to its own backend may answer after a newer list was applied (a slow Turso
+ *  round trip), so its result is dropped: a newer list always follows it — the write's own list, or the
+ *  re-read that write starts in every other instance. A save to the OTHER backend drops nothing. */
+const savedGenerations = new Map<TursoConfig | null, number>();
+const generationOf = (config: TursoConfig | null): number => savedGenerations.get(config) ?? 0;
 
 export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduledJobsResult {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
@@ -91,9 +93,10 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
 
   const refresh = useCallback(async () => {
     try {
-      const startedAt = savedGeneration;
-      const list = await loadScheduledJobs(cfgRef.current);
-      if (!mountedRef.current || startedAt !== savedGeneration) return;
+      const config = cfgRef.current;
+      const startedAt = generationOf(config);
+      const list = await loadScheduledJobs(config);
+      if (!mountedRef.current || startedAt !== generationOf(config) || cfgRef.current !== config) return;
       setJobs(list);
     } catch {
       // optional feature — leave jobs as-is
@@ -118,11 +121,14 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     (transform: (list: readonly ScheduledJob[]) => ScheduledJob[]): Promise<void> => {
       if (mountedRef.current) setBusy(true);
       const run = writeChain.then(async () => {
-        const existing = await loadScheduledJobs(cfgRef.current);
+        // ONE backend per write: read the config once, so a switch mid-write cannot load from one and save
+        // to the other. The list reaches this instance only while it is still on that backend.
+        const config = cfgRef.current;
+        const existing = await loadScheduledJobs(config);
         const next = transform(existing);
-        await saveScheduledJobs(cfgRef.current, next);
-        savedGeneration += 1;
-        if (mountedRef.current) setJobs(next);
+        await saveScheduledJobs(config, next);
+        savedGenerations.set(config, generationOf(config) + 1);
+        if (mountedRef.current && cfgRef.current === config) setJobs(next);
         for (const reread of instances) if (reread !== rereadRef.current) reread();
       });
       // Keep the chain alive even if a link rejects, and clear busy at the end.
