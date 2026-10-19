@@ -130,14 +130,32 @@ export function forecastTargetRowTitle(call: ProposedCall): string | null {
   return `Set the project's target confidence to ${detailOf((call.input as { value?: unknown }).value)}%`;
 }
 
+/** Provisional id → name of every `create_forecast_scenario` row in the plan, for `forecastScenarioRowTitle`. */
+export function pendingScenarioNames(rows: readonly Pick<DescribedRow, "call" | "mintedId">[]): ReadonlyMap<number, string> {
+  const names = new Map<number, string>();
+  for (const row of rows) {
+    const name = (row.call.input as { name?: unknown }).name;
+    if (row.call.name === "create_forecast_scenario" && row.mintedId !== undefined && typeof name === "string") {
+      names.set(row.mintedId, name.trim());
+    }
+  }
+  return names;
+}
+
 /** The card line for a forecast scenario write (§502), or null for any other tool. Scenarios have no
  *  `INLINE_DESCRIPTORS` entry, so without this a staged update would be titled by its tool name. The row
  *  count is part of the line because an update that sends `changes` REPLACES the whole list; for a stored
  *  scenario it reads "stored → new", so a replace that drops rows says so.
  *  ★ English, like the tool-name fallback it replaces: this module is i18n-free.
  *  Part 4's delete and proposal (§502) name a scenario and are titled here too; the target write names none and has
- *  its own title, `forecastTargetRowTitle`. */
-export function forecastScenarioRowTitle(call: ProposedCall, ws: Workspace): string | null {
+ *  its own title, `forecastTargetRowTitle`.
+ *  `pending` maps the provisional id of each scenario created earlier in the same plan to its name
+ *  (`pendingScenarioNames`), so a later write to it reads by that name, never by the provisional number. */
+export function forecastScenarioRowTitle(
+  call: ProposedCall,
+  ws: Workspace,
+  pending: ReadonlyMap<number, string> = new Map(),
+): string | null {
   const input = call.input as { id?: unknown; name?: unknown; changes?: unknown };
   const newName = typeof input.name === "string" && input.name.trim() !== "" ? input.name.trim() : null;
   const rows = changeCount(input.changes);
@@ -147,8 +165,10 @@ export function forecastScenarioRowTitle(call: ProposedCall, ws: Workspace): str
   if (call.name === "set_forecast_proposal" && input.id === null) return "Clear the proposal";
   const id = Number(input.id);
   const stored = ws.forecastScenarios?.find((s) => s.id === id);
-  // A scenario created earlier in the same plan is not stored yet, so it reads by its provisional id.
-  const named = stored === undefined ? `#${detailOf(input.id)}` : `"${stored.name}"`;
+  // A scenario created earlier in the same plan is not stored yet: it reads by the create's name, and by its
+  // provisional id only when no create in the plan names it.
+  const pendingName = stored === undefined ? pending.get(id) : undefined;
+  const named = stored !== undefined ? `"${stored.name}"` : pendingName !== undefined ? `"${pendingName}"` : `#${detailOf(input.id)}`;
   if (call.name === "set_forecast_proposal") return `Propose scenario ${named}`;
   if (call.name === "delete_forecast_scenario") {
     // ★ Deleting the proposal also clears it (and changes the Reports verdict), so the card says so.
@@ -156,7 +176,7 @@ export function forecastScenarioRowTitle(call: ProposedCall, ws: Workspace): str
     return `Delete scenario ${named}${isProposal ? " (the proposal)" : ""}`;
   }
   if (call.name !== "update_forecast_scenario") return null;
-  const label = stored?.name ?? newName ?? `#${detailOf(input.id)}`;
+  const label = stored?.name ?? pendingName ?? newName ?? `#${detailOf(input.id)}`;
   const rename = newName !== null && stored !== undefined && newName !== stored.name ? ` → "${newName}"` : "";
   // ★ A replace that drops rows must show it, so the stored count stands beside the new one.
   const count = stored !== undefined && Array.isArray(input.changes)

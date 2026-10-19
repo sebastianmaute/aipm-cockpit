@@ -250,7 +250,9 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
         if (named === undefined) throw new Error(`forecast scenario ${id} not found`);
         const prev = settingsOverridesRef.current;
         const from = proposalIdOf(prev, list);
-        if (withProposalChange(prev, id, list) !== prev) writeOverrides((o) => withProposalChange(o, id, list));
+        // ★ Always queue it (idempotent): a UI change queued since the ref synced must not turn this into a
+        //   skipped write that still reports `id`. The ref decides only what is logged.
+        writeOverrides((o) => (proposalIdOf(o, list) === id ? o : withProposalChange(o, id, list)));
         const entry = proposalLogEntry(from, id, list);
         if (entry) logActivityAs?.("ai", ...entry);
         return { proposal: named === null ? null : { id: named.id, name: named.name } };
@@ -260,11 +262,9 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
         if (isReadOnly) throw readOnlyError();
         const prev = settingsOverridesRef.current;
         const from = targetConfidenceOf(prev);
-        // An unchanged target writes and logs nothing.
-        if (value !== from) {
-          writeOverrides((o) => withTargetConfidence(o, value));
-          logActivityAs?.("ai", "forecast.targetChanged", from, value);
-        }
+        // ★ Always queued, as `setForecastProposal`; an unchanged target (by the ref) logs nothing.
+        writeOverrides((o) => (targetConfidenceOf(o) === value ? o : withTargetConfidence(o, value)));
+        if (value !== from) logActivityAs?.("ai", "forecast.targetChanged", from, value);
         return { targetConfidence: value };
       },
     }),

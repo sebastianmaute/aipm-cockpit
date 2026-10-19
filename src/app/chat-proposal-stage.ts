@@ -16,7 +16,13 @@ import {
   type PlanRow,
   type ProposedCall,
 } from "./chat-proposal";
-import { TOOL_ENTITY, forecastScenarioRowTitle, forecastTargetRowTitle, type DescribedRow } from "./chat-proposal-describe";
+import {
+  TOOL_ENTITY,
+  forecastScenarioRowTitle,
+  forecastTargetRowTitle,
+  pendingScenarioNames,
+  type DescribedRow,
+} from "./chat-proposal-describe";
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 import { mintIds } from "./id-mint-session";
 import type { Workspace } from "./workspace";
@@ -250,8 +256,12 @@ const TITLED_DOCUMENT_TOOLS: ReadonlySet<string> = new Set(["update_document", "
  * `forecastScenarioRowTitle`; the target-confidence write (§502 part 4) names no scenario and takes
  * `forecastTargetRowTitle`.
  */
-export function liveRowTitle(call: ProposedCall, ws: Workspace): string | null {
-  const forecastLine = forecastTargetRowTitle(call) ?? forecastScenarioRowTitle(call, ws);
+export function liveRowTitle(
+  call: ProposedCall,
+  ws: Workspace,
+  pendingScenarios: ReadonlyMap<number, string> = new Map(),
+): string | null {
+  const forecastLine = forecastTargetRowTitle(call) ?? forecastScenarioRowTitle(call, ws, pendingScenarios);
   if (forecastLine !== null) return forecastLine;
   const entity = TOOL_ENTITY[call.name];
   if (entity === undefined && TITLED_DOCUMENT_TOOLS.has(call.name)) {
@@ -279,7 +289,8 @@ export function proposalTitles(
   ws: Workspace,
   fallback: (row: DescribedRow) => string,
 ): readonly string[] {
-  return rows.map((row) => liveRowTitle(row.call, ws) ?? fallback(row));
+  const pending = pendingScenarioNames(rows);
+  return rows.map((row) => liveRowTitle(row.call, ws, pending) ?? fallback(row));
 }
 
 /**

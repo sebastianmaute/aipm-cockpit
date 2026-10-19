@@ -6,8 +6,8 @@ import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatch
 import { showForecastView } from "../test/forecast-view";
 import { entityToken } from "./ai-entity-token";
 import { buildPlanRows, shouldStage, type ProposedCall } from "./chat-proposal";
-import { forecastScenarioRowTitle } from "./chat-proposal-describe";
-import { liveRowTitle } from "./chat-proposal-stage";
+import { forecastScenarioRowTitle, type DescribedRow } from "./chat-proposal-describe";
+import { liveRowTitle, proposalTitles } from "./chat-proposal-stage";
 import { runTool } from "./chat-tools";
 import { FORECAST_OFF_MESSAGE } from "./chat-tools-forecast";
 import type { Workspace } from "./workspace";
@@ -557,6 +557,18 @@ describe("the decision writes (§502 part 4)", () => {
     });
   });
 
+  // ★★ The opposite direction: the UI queued a CHANGE the AI then sets back to the value the stale ref still holds.
+  //   Deciding from the ref would skip the write and still report the value; the queued updater makes it land.
+  test("the AI's target and proposal land even when the ref still holds the value the UI just changed", async () => {
+    const { result } = mount({ forecastScenarios: [SAVED] });
+    await act(async () => {
+      result.current.setSettingsOverrides((prev) => ({ ...prev, forecast: { showSimulation: true, targetConfidence: 95, proposalScenarioId: 1 } }));
+      await runTool(result.current.dispatcher, "set_forecast_target_confidence", { value: 80 });
+      await runTool(result.current.dispatcher, "set_forecast_proposal", { id: null });
+    });
+    expect(result.current.settingsOverrides?.forecast).toEqual({ showSimulation: true });
+  });
+
   // ★★ Same shape for the scenario list: a row another writer queued before the ref synced survives the AI's
   //   create, update and delete, which go through a functional updater, not a value computed from the stale ref.
   test("a scenario another writer queued before the ref synced survives the AI's scenario writes", async () => {
@@ -647,8 +659,13 @@ describe("staging", () => {
     expect(liveRowTitle(call("delete_forecast_scenario", { id: 1 }), proposed))
       .toBe('Delete scenario "Contractor in January" (the proposal)');
     expect(liveRowTitle(call("set_forecast_proposal", { id: 1 }), ws)).toBe('Propose scenario "Contractor in January"');
-    // A scenario this plan creates is not stored yet: its provisional id labels it.
-    expect(liveRowTitle(call("set_forecast_proposal", { id: 900 }), ws)).toBe("Propose scenario #900");
+    // A scenario this plan creates is not stored yet: the card names it by the create's name (`proposalTitles`
+    // collects the plan's creates); only with no create in the plan does the provisional id remain.
+    const create = call("create_forecast_scenario", { name: " Draft ", changes: [] });
+    const propose = call("set_forecast_proposal", { id: 900 });
+    const rows = [{ call: create, mintedId: 900 }, { call: propose }] as unknown as DescribedRow[];
+    expect(proposalTitles(rows, ws, () => "fallback")).toEqual(['Save scenario "Draft" (0 changes)', 'Propose scenario "Draft"']);
+    expect(liveRowTitle(propose, ws)).toBe("Propose scenario #900");
     expect(liveRowTitle(call("set_forecast_proposal", { id: null }), ws)).toBe("Clear the proposal");
     // The target is a project setting, not a scenario: its own titler, and the scenario one declines it.
     const target = call("set_forecast_target_confidence", { value: 95 });
