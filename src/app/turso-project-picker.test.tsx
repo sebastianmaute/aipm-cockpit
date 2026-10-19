@@ -1,4 +1,5 @@
 import { markUnsealedPassphraseSecret } from "./turso-token-marker";
+import { trackSecretSeal } from "./turso-token-seals";
 import { ToastProvider } from "./toast-context";
 import { t } from "./i18n";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -65,6 +66,21 @@ describe("TursoProjectPicker", () => {
     fireEvent.click(await screen.findByRole("button", { name: /load – apollo/i }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiKeyNeedsPassphraseSave", t("en-US", "secretPassphraseSave"))));
     expect(commitTursoPortfolioSwitch).not.toHaveBeenCalled();
+  });
+
+  // §749 review — the gate waits for seals in flight, and the settings can change meanwhile: the switch uses the
+  // LATEST settings, not the ones the click saw. KILLED BY: reading the `settings` prop instead of the ref.
+  it("commits the settings as they are once the seals in flight have settled", async () => {
+    vi.mocked(listProjects).mockResolvedValueOnce([{ id: "p1", meta: { name: "Apollo", code: "APL-1" }, archived: false } as never]);
+    let land: () => void = () => {};
+    trackSecretSeal(new Promise<void>((r) => { land = r; }), "anthropicApiKey");
+    const later = { ...TURSO_SETTINGS, ai: { ...TURSO_SETTINGS.ai, model: "a-later-model" } };
+    const view = render(<TursoProjectPicker lang="en-US" settings={TURSO_SETTINGS} onClose={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: /load – apollo/i }));
+    view.rerender(<TursoProjectPicker lang="en-US" settings={later} onClose={vi.fn()} />);
+    expect(commitTursoPortfolioSwitch).not.toHaveBeenCalled(); // PRECONDITION: still waiting on the seal
+    land();
+    await waitFor(() => expect(commitTursoPortfolioSwitch).toHaveBeenCalledWith(later, "p1"));
   });
 
   it("shows an empty state when the database has no projects", async () => {
