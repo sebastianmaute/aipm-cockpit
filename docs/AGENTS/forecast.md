@@ -93,12 +93,14 @@ items part 4 adds. The first three are HARD GATES: do not un-hide until each is 
    them; count with `grep -c 'name: "' src/app/chat-tool-defs-forecast.ts`) to `claude-sonnet-5`. The API accepted
    `set_forecast_proposal`'s `type: ["number","null"]` id, and the model called it with `{"id":null}` and
    `{"id":3}`. No anyOf fallback is needed.
-3. **HARD GATE — axe on the part-4 surfaces with the view un-hidden. Passed 2026-10-19, two surfaces open.** With
-   `RELEASE_HIDDEN_VIEWS` emptied in the working tree only and `showSimulation` seeded, every scan was clean in all
-   seven colour combos: the Forecast view (target control, lever column), Reports' Forecast section (verdict, tiles,
-   P80-over-time chart) with and without the by-group fold-out, the Gantt band and chips, and the Scenarios spec. Not
-   scanned: the proposal table (the seed sets no proposal) and the Trends P80 chart (Turso only; the local throwaway
-   token was rejected with 401). Both need a scan or an eye-check before un-hide.
+3. **HARD GATE — axe on the part-4 surfaces with the view un-hidden. Passed 2026-10-19.** With
+   `RELEASE_HIDDEN_VIEWS` emptied in the working tree only, and `showSimulation` plus a proposal seeded, every scan was
+   clean in all seven colour combos: the Forecast view (target control, lever column), Reports' Forecast section
+   (verdict, tiles, P80-over-time chart, the proposal table) with and without the by-group fold-out, the Gantt band and
+   chips, and the Scenarios spec. The Trends P80 chart, which needs Turso, was scanned light and dark on the throwaway
+   database (a seeded project with ten recorded forecast days, hard-deleted afterwards), together with Reports'
+   proposal table there. These scans were throwaway; from the un-hide on, the `A11Y_VIEWS` Forecast scan and the
+   Scenarios spec run in CI, but nothing in CI renders Reports' Forecast section, the Gantt band or the Trends chart.
 4. **Owner eye-check, Gantt:** the band's opacity; the P80 label overlapping the first row's bar or sliding under
    the sticky name column; the "P80" wording with no "simulated" cue on the Gantt; whether the Gantt wants a plan-end
    marker beside P80; the axis extension cap (`FORECAST_AXIS_EXTENSION_DAYS`, 180 days: `grep -n
