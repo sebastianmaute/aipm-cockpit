@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   parseProposal,
   PROPOSAL_TOOL,
+  buildProposalSystemPrompt,
   proposalToDraftPatch,
   proposalToSeed,
   seedHasContent,
   SEED_CAP_PER_ENTITY,
 } from "./ai-project-proposal";
 import { ALL_MODULE_IDS } from "./feature-modules";
+import { PROJECT_AI_FIELDS } from "./project-ai-fields";
+import { REGULATORY_REQUIREMENTS } from "./project-options";
 import { remapSeed } from "./template-apply";
 import { emptyWorkspace } from "./workspace";
 
@@ -436,5 +439,46 @@ describe("proposalToSeed — only the properties PROPOSAL_TOOL offered", () => {
     expect(seed?.changes?.[0]?.id).toBe(1);
     expect(seed?.milestones?.[0]?.id).toBe(1);
     expect(seed?.stakeholders?.[0]?.id).toBe(1);
+  });
+});
+
+describe("the proposal fills every offered project field (§715)", () => {
+  const GDPR = "GDPR / data protection regulation";
+  const draftFor = (meta: Record<string, unknown>) =>
+    proposalToDraftPatch(parseProposal({ meta: { name: "CIAM", ...meta }, features: [] })!);
+
+  it("a proposal naming GDPR ticks GDPR in the draft", () => {
+    const patch = draftFor({ regulatory: [GDPR], identityTypes: ["B2C"], deployment: "Cloud" });
+    expect(patch.regulatory).toEqual([GDPR]);
+    expect(patch.identityTypes).toEqual(["B2C"]);
+    expect(patch.deployment).toBe("Cloud");
+  });
+
+  it("a refused value never reaches the draft", () => {
+    const patch = draftFor({ regulatory: ["Made-up act"], jiraUrl: "javascript:x", naceSection: "ZZ" });
+    for (const key of ["regulatory", "jiraUrl", "naceSection"]) expect(key in patch).toBe(false);
+  });
+
+  it("counts reach the draft as strings", () => {
+    expect(draftFor({ identityCount: 250000, stakeholderCount: 12 })).toMatchObject({
+      identityCount: "250000",
+      stakeholderCount: "12",
+    });
+  });
+
+  it("drops an end date before the start date of the same proposal", () => {
+    const patch = draftFor({ startDate: "2026-09-01", endDate: "2026-01-01" });
+    expect(patch.startDate).toBe("2026-09-01");
+    expect("endDate" in patch).toBe(false);
+  });
+
+  it("the schema offers every PROJECT_AI_FIELDS key and nothing excluded", () => {
+    const meta = PROPOSAL_TOOL.input_schema.properties.meta.properties as Record<string, { items?: { enum?: string[] } }>;
+    expect(Object.keys(meta).sort()).toEqual([...PROJECT_AI_FIELDS].sort());
+    expect(meta.regulatory.items?.enum).toEqual([...REGULATORY_REQUIREMENTS]);
+  });
+
+  it("the system prompt asks for regulatory needs only from what the brief says", () => {
+    expect(buildProposalSystemPrompt()).toContain("only from what the description says");
   });
 });
