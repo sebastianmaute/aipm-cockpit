@@ -45710,8 +45710,6 @@ Size S (notice) or M (read-only).
 
 OPEN 2026-10-18. Found by the branch review of the §715 empty-draft fix on `fix/715-empty-unload-journal`. The unload journal skips an empty workspace only when it is saved over an empty stored version (`isNothingNewToJournal` in `use-unload-journal.ts`); with no base known, `storedFor` returns null and the empty workspace is journalled. `grep -n "return stored !== null && isNothingToJournal" src/app/use-unload-journal.ts` → the one line that journals whenever the base is unknown.
 
-**Work item:** #785
-
 Two rare paths reach that. A save refused for a stale revision after its backend was replaced (`noteSaveRefused` → `keep`) carries a key that is no longer the base's, so an empty refused workspace is written to a kept slot and `OtherJournalsBanner` lists it. A project op that fails between `holdBase` and its flip leaves the base null, so empty saves are journalled with an empty base and come back as a conflict notice. Both need a refused save or a failed op. Journalling when the stored state is unknown is the safe default, but it is the "empty draft offered back" symptom §715 set out to remove.
 
 Proposed: treat a null base plus `isNothingToJournal(live)` as nothing to journal, in `keep` (the refused save) and in `write` (the failed op, which journals through the autosave), with a test for each path that journals an empty workspace today. Or document it as accepted in `docs/AGENTS/storage.md`'s journal paragraph.
