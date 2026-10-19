@@ -1,16 +1,20 @@
 /**
  * The forecast report `get_forecast` returns (§502, spec §4.4) — pure, i18n-free, React-free. It reshapes the
  * existing scenario comparison into one JSON-serialisable object: no typed arrays, dates as ISO strings, a
- * trial past the horizon as "beyond". It runs no forecast of its own: every column comes from the comparison (or
- * `computeScenarioColumn` on its context), so all share its common random numbers, and a `whatIf` equal to a saved
- * scenario reproduces that scenario's result exactly. The one extra work is the lever search (`whatItTakesSync`, §502
- * part 4), whose probes are columns on that same context; it is the bulk of a call's cost (docs/AGENTS/forecast.md),
- * so a call with a `whatIf` skips it.
+ * trial past the horizon as "beyond". Every column comes from the comparison (or `computeScenarioColumn` on its
+ * context), so all share its common random numbers, and a `whatIf` equal to a saved scenario reproduces that
+ * scenario's result exactly. Three things run beside it: the lever search (`whatItTakesSync`, §502 part 4), whose
+ * probes are columns on that same context and which is the bulk of a call's cost (docs/AGENTS/forecast.md), so a call
+ * with a `whatIf` or non-default settings skips it; one As-is run with the plan end as the How-many date
+ * (`howManyByPlanEnd`), which the comparison's runs leave at today; and, only when asked, `forecastByGroup`.
  */
 import { entityToken } from "./ai-entity-token";
 import type { ScheduleContext } from "./forecast-added-people";
-import { FORECAST_TRIALS } from "./forecast/constants";
-import type { ForecastInsufficient, ScheduleForecast } from "./forecast";
+import { DEFAULT_HISTORY_WINDOW, FORECAST_TRIALS, type ForecastUnit } from "./forecast/constants";
+import {
+  DEFAULT_WHAT_IF, computeScheduleForecast, lastForecastableDay, type ForecastInsufficient, type ScheduleForecast,
+} from "./forecast";
+import { forecastByGroup, type GroupForecastRow } from "./forecast-by-group";
 import type { CostAtFinish } from "./forecast/cost";
 import type { ForecastHistoryEntry } from "./forecast-history";
 import { whatItTakesSync, type LeverTarget, type WhatItTakes } from "./forecast-levers";
@@ -28,13 +32,27 @@ import type { BudgetCurrency } from "./types";
 /** How many recorded days `p80History` carries: about five working weeks, the newest last. */
 export const P80_HISTORY_ENTRIES = 26;
 
-/** A milestone with a chance, or one the engine gives none (overdue, or no linked tasks). */
+/** A milestone with a chance, or one the engine gives none (overdue, or no linked tasks). `prioritised` is its chance
+ *  if its own open linked tasks went first (the view's "Chance if prioritised" column). */
 export type MilestoneReport =
-  | { id: number; name: string; date: string; chance: number }
+  | { id: number; name: string; date: string; chance: number; prioritised: number }
   | { id: number; name: string; date: string; state: "overdue" | "no-linked-tasks" };
 
 /** A cost in the baseline currency, or "beyond" (a trial past the horizon). */
 export type Money = number | "beyond";
+
+/** What a column was simulated from, so a reader can say why its dates are what they are (§502 tooling). */
+export type ForecastBasis = {
+  /** Open work simulated: tasks, or estimated hours in the effort unit. */
+  backlog: number;
+  /** Tasks finished inside the history window: the days the samples are drawn from. */
+  finishedInWindow: number;
+  windowWorkingDays: number;
+  /** Done tasks with no completion date: they count nowhere in the history. */
+  doneWithoutDate: number;
+  /** 0–1: the share of runs that finished past the horizon. */
+  beyondShare: number;
+};
 
 export type ColumnReport =
   | {
@@ -43,8 +61,15 @@ export type ColumnReport =
       chanceOnTime: number | null;
       milestones: MilestoneReport[];
       cost: { p50: Money; p80: Money; p95: Money; chanceOverBudget: number | null } | { unavailable: string } | null;
+      basis: ForecastBasis;
     }
-  | { status: "insufficient"; finished: number; neededFinished: number; days: number; neededDays: number; reason: string };
+  | {
+      status: "insufficient"; finished: number; neededFinished: number; days: number; neededDays: number;
+      doneWithoutDate: number; reason: string;
+    };
+
+/** How much As is finishes by the plan end (capped at the horizon, `by`): in P percent of runs at least that much. */
+export type HowManyReport = { by: string; p50: number; p80: number; p95: number };
 
 export type RowReport =
   | { index: number; kind: "availability"; ended: boolean }
@@ -58,7 +83,7 @@ export type RowReport =
 export type ForecastReport = {
   simulated: true;
   settings: {
-    historyWindowWorkingDays: number | "all"; unit: "tasks"; trials: number; currency: BudgetCurrency; planEnd: string; today: string;
+    historyWindowWorkingDays: number | "all"; unit: ForecastUnit; trials: number; currency: BudgetCurrency; planEnd: string; today: string;
   };
   asIs: ColumnReport;
   /** null when As is is insufficient: there is no P80 to compare, and "beyond" would claim one past the horizon. */
@@ -67,6 +92,10 @@ export type ForecastReport = {
     id: number; name: string; expectedToken: string; changes: readonly ScenarioChange[]; result: ColumnReport; rows: RowReport[];
   }[];
   whatIf?: { result: ColumnReport; rows: RowReport[] };
+  /** As is only; null when As is is insufficient or the plan end is not after today. */
+  howManyByPlanEnd: HowManyReport | null;
+  /** Only on a call that asks for it: each task group forecast from its own history, always at the app defaults. */
+  byGroup?: GroupForecastRow[];
   /** The project's goal for a chance (`targetConfidenceOf`). */
   targetConfidence: TargetConfidence;
   /** The lever engine's answer (`whatItTakesSync`) against `targetConfidence`, on As is. `planEnd` is null when As is
@@ -75,7 +104,7 @@ export type ForecastReport = {
    *  both lists are empty. ★ A call with a `whatIf` gets `{ omitted: "whatIf" }`: the take is
    *  defined on As is, identical with or without the draft, and the search is most of a call's cost, so a drafting loop
    *  of `whatIf` checks would pay it again on every check. A call without `whatIf` returns it. */
-  whatItTakes: WhatItTakesReport | { omitted: "whatIf" };
+  whatItTakes: WhatItTakesReport | { omitted: "whatIf" | "settings" };
   /** The scenario the user proposed; null when none is set or the id names no saved scenario (`proposalIdOf`). Its
    *  figures are that scenario's entry in `scenarios`. */
   proposal: { id: number; name: string } | null;
@@ -83,7 +112,8 @@ export type ForecastReport = {
   p80History: { date: string; p80: string | null }[];
 };
 
-/** `run.window` is `DEFAULT_HISTORY_WINDOW` and `run.unit` is `"tasks"`; the caller builds it that way. */
+/** `run.window` and `run.unit` are the app defaults (`DEFAULT_HISTORY_WINDOW`, `"tasks"`) unless the call asked for
+ *  others; `isDefaultRun` tells them apart. */
 export type ForecastReportInput = {
   run: ScenarioRunInput;
   /** Sorted by date, as `sanitizeForecastHistory` and `upsertForecastHistory` keep it. */
@@ -108,6 +138,16 @@ function costReport(cost: CostAtFinish | null): Extract<ColumnReport, { status: 
   return { p50: cost.p50, p80: cost.p80, p95: cost.p95, chanceOverBudget: cost.chanceOverBudget };
 }
 
+/** Minutes to hours with one decimal in the effort unit; a task count as it is. */
+function amountIn(unit: ForecastUnit, value: number): number {
+  return unit === "effort" ? Math.round(value / 6) / 10 : value;
+}
+
+/** The app defaults: the only settings the daily history, the weekly change and the lever search are defined at. */
+export function isDefaultRun(run: Pick<ScenarioRunInput, "window" | "unit">): boolean {
+  return run.window === DEFAULT_HISTORY_WINDOW && run.unit === "tasks";
+}
+
 function finishDate(f: ScheduleForecast, p: 50 | 80 | 95): string | "beyond" {
   return f.when.find((w) => w.p === p)?.date ?? "beyond";
 }
@@ -122,7 +162,7 @@ function columnReport(column: ScenarioColumn, run: ScenarioRunInput): ColumnRepo
   if (f.kind === "insufficient") {
     return {
       status: "insufficient", finished: f.finished, neededFinished: f.neededFinished, days: f.days, neededDays: f.neededDays,
-      reason: insufficientReason(f),
+      doneWithoutDate: f.doneWithoutDate, reason: insufficientReason(f),
     };
   }
   const milestones: MilestoneReport[] = [];
@@ -130,11 +170,17 @@ function columnReport(column: ScenarioColumn, run: ScenarioRunInput): ColumnRepo
     const row = run.milestones.find((x) => x.id === m.id);
     if (row === undefined) continue;
     const { id, name, date } = row;
-    milestones.push(m.state === "chance" ? { id, name, date, chance: m.chance } : { id, name, date, state: m.state });
+    milestones.push(m.state === "chance"
+      ? { id, name, date, chance: m.chance, prioritised: m.chancePrioritised }
+      : { id, name, date, state: m.state });
   }
   return {
     status: "forecast", p50: finishDate(f, 50), p80: finishDate(f, 80), p95: finishDate(f, 95),
     chanceOnTime: column.chanceOnTime, milestones, cost: costReport(column.cost),
+    basis: {
+      backlog: amountIn(f.unit, f.backlog), finishedInWindow: f.finished, windowWorkingDays: f.windowDays,
+      doneWithoutDate: f.doneWithoutDate, beyondShare: f.beyondShare,
+    },
   };
 }
 
@@ -192,6 +238,21 @@ function whatItTakesReport(
   return { planEnd: take({ kind: "planEnd" }), milestones, notSearched };
 }
 
+/** One more As-is run with the plan end as the How-many date: the comparison's runs pass today, which costs nothing
+ *  and answers nothing. Same inputs otherwise, and the engine keeps one random stream per output, so its When and
+ *  milestone figures are As is's own. */
+function howManyByPlanEnd(run: ScenarioRunInput, asIs: ScenarioColumn): HowManyReport | null {
+  if (asIs.forecast.kind !== "forecast" || !run.planEnd || run.planEnd <= run.today) return null;
+  const f = computeScheduleForecast({
+    tasks: run.tasks, milestones: run.milestones, today: run.today, holidaySet: run.holidaySet,
+    window: run.window, unit: run.unit, whatIf: DEFAULT_WHAT_IF, howManyTarget: run.planEnd,
+  });
+  if (f.kind !== "forecast") return null;
+  const lastDay = lastForecastableDay(run.today, run.holidaySet);
+  const at = (p: 50 | 80 | 95) => amountIn(f.unit, f.howMany.find((h) => h.p === p)?.amount ?? 0);
+  return { by: run.planEnd < lastDay ? run.planEnd : lastDay, p50: at(50), p80: at(80), p95: at(95) };
+}
+
 function proposalReport({ settingsOverrides, scenarios }: ForecastReportInput): ForecastReport["proposal"] {
   const id = proposalIdOf(settingsOverrides, scenarios);
   const scenario = id === null ? undefined : scenarios.find((s) => s.id === id);
@@ -205,20 +266,24 @@ export function buildForecastReport(
   input: ForecastReportInput,
   whatIf: readonly ScenarioChange[] | null,
   comparison: ScenarioComparison = computeScenarioComparison(input.run, input.scenarios),
+  options: { byGroup?: boolean } = {},
 ): ForecastReport {
   const { run, history, currency } = input;
   const { asIs } = comparison;
   const asIsReport = columnReport(asIs, run);
   const goal = targetConfidenceOf(input.settingsOverrides);
+  const defaults = isDefaultRun(run);
   const report: ForecastReport = {
     simulated: true,
     settings: {
-      historyWindowWorkingDays: run.window, unit: "tasks",
+      // The unit the run used: effort falls back to tasks when too few open tasks carry an estimate.
+      historyWindowWorkingDays: run.window, unit: asIs.forecast.kind === "forecast" ? asIs.forecast.unit : run.unit,
       trials: asIs.forecast.kind === "forecast" ? asIs.forecast.trials : FORECAST_TRIALS,
       currency, planEnd: run.planEnd, today: run.today,
     },
     asIs: asIsReport,
-    weeklyChange: asIs.forecast.kind === "forecast"
+    // The history is recorded at the app defaults, so another window or unit has nothing to compare against.
+    weeklyChange: asIs.forecast.kind === "forecast" && defaults
       ? weeklyChange({ history, today: run.today, p80: finishOrNull(asIs.forecast), holidaySet: run.holidaySet })
       : null,
     scenarios: comparison.scenarios.map(({ scenario, column }) => ({
@@ -226,9 +291,13 @@ export function buildForecastReport(
       changes: scenario.changes, result: columnReport(column, run), rows: rowsOf(column),
     })),
     targetConfidence: goal,
-    whatItTakes: whatIf === null ? whatItTakesReport(run, comparison, goal) : { omitted: "whatIf" },
+    whatItTakes: whatIf !== null ? { omitted: "whatIf" } : defaults ? whatItTakesReport(run, comparison, goal) : { omitted: "settings" },
     proposal: proposalReport(input),
     p80History: history.slice(-P80_HISTORY_ENTRIES).map(({ date, p80 }) => ({ date, p80 })),
+    howManyByPlanEnd: howManyByPlanEnd(run, asIs),
+    ...(options.byGroup === true
+      ? { byGroup: forecastByGroup({ tasks: run.tasks, today: run.today, holidaySet: run.holidaySet, planEnd: run.planEnd }) }
+      : {}),
   };
   if (whatIf === null) return report;
   const column = computeScenarioColumn(run, whatIf, comparison.context);

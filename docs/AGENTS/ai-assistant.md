@@ -1924,8 +1924,13 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   forecast and send the user to the Forecast view (or to turning the switch on). The off-state pointer rides the
   forecast block, not the view scope: the forecast `VIEW_AI_SCOPE` entry's `reading` is gated on `get_forecast`
   (`readingRequiresTool`), and a `ViewScope` holds one reading only.
-  ★ DEFAULTS ONLY: `get_forecast` runs with the app defaults (`DEFAULT_HISTORY_WINDOW`, tasks unit), never the
-  Forecast view's toolbar; the prompt block says so.
+  ★ DEFAULTS UNLESS ASKED: `get_forecast` runs with the app defaults (`DEFAULT_HISTORY_WINDOW`, tasks unit) unless the
+  call passes `historyWindow` or `unit` (validated in `runForecastTool`, applied in `useForecastTools`); the prompt
+  block tells the model to pass them to match a changed toolbar. Away from the defaults the report omits the weekly
+  change and the lever search, which are defined there; `byGroup: true` adds the forecast by group. The report's
+  other reads (`basis`, `prioritised`, `howManyByPlanEnd`) are in [`forecast.md`](forecast.md), "The AI tool".
+  ★ The model can see which tasks gate a milestone: `list_milestones` returns `linkedTaskIds` (needed because
+  `update_milestone` REPLACES that list) and a plain-text `description`.
   ★★ TOKEN: scenarios are a meta-blob slice with no CSV columns, so `entityToken("forecastScenario", row)`
   (`ai-entity-token.ts`) is a hash of the re-sanitized JSON row, and `TOKEN_ROW_SOURCE` (`chat-proposal-apply.ts`)
   reads the live row through `getForecastScenarioRow`. `update_forecast_scenario` enforces the token in

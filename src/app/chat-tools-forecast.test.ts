@@ -101,6 +101,19 @@ describe("the model-facing texts", () => {
     expect(text).toContain("p80History is the last 26 recorded entries, oldest first");
   });
 
+  it("describes the settings, the basis, the prioritised chance, How-many and by group (§502 tooling)", () => {
+    const text = description("get_forecast");
+    expect(text).toContain("Optional historyWindow (30, 60, 90, all, in working days)");
+    expect(text).toContain("effort needs an estimate on at least 70 % of open tasks, else the run uses tasks, and settings.unit says which ran");
+    expect(text).toContain('with either set, weeklyChange is null and whatItTakes is {omitted: "settings"}');
+    expect(text).toContain("Each forecast column carries basis: {backlog");
+    expect(text).toContain("prioritised: its chance if its own open linked tasks went first");
+    expect(text).toContain("howManyByPlanEnd is As is only");
+    expect(text).toContain("Optional byGroup: true adds byGroup");
+    const schema = FORECAST_TOOL_DEFS.find((t) => t.name === "get_forecast")?.input_schema.properties;
+    expect(Object.keys(schema ?? {})).toEqual(["whatIf", "historyWindow", "unit", "byGroup"]);
+  });
+
   it("says what removedRows counts", () => {
     expect(description("update_forecast_scenario")).toContain(
       "removedRows: stored rows not kept unchanged (an edited row counts as removed and re-added)",
@@ -130,7 +143,22 @@ describe("runForecastTool", () => {
   it("reads with no whatIf as null", () => {
     const d = makeDispatcher();
     runForecastTool("get_forecast", {}, d);
-    expect(d.getForecast).toHaveBeenCalledWith(null);
+    expect(d.getForecast).toHaveBeenCalledWith(null, {});
+  });
+
+  // §502 tooling: the view's toolbar settings and the by-group fold-out are readable, each refused when malformed.
+  it("passes historyWindow, unit and byGroup through, and refuses a value outside each set", () => {
+    const d = makeDispatcher();
+    runForecastTool("get_forecast", { historyWindow: "all", unit: "effort", byGroup: true }, d);
+    expect(d.getForecast).toHaveBeenCalledWith(null, { historyWindow: "all", unit: "effort", byGroup: true });
+    runForecastTool("get_forecast", { historyWindow: 30 }, d);
+    expect(d.getForecast).toHaveBeenLastCalledWith(null, { historyWindow: 30 });
+    const bad = makeDispatcher();
+    expect(() => runForecastTool("get_forecast", { historyWindow: 45 }, bad)).toThrow("historyWindow must be one of 30, 60, 90, all");
+    expect(() => runForecastTool("get_forecast", { historyWindow: "60" }, bad)).toThrow("historyWindow must be one of");
+    expect(() => runForecastTool("get_forecast", { unit: "hours" }, bad)).toThrow("unit must be one of tasks, effort");
+    expect(() => runForecastTool("get_forecast", { byGroup: "yes" }, bad)).toThrow("byGroup must be true or false");
+    expect(bad.getForecast).not.toHaveBeenCalled();
   });
 
   it("prefixes a bad whatIf row's error", () => {

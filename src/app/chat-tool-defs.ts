@@ -446,7 +446,7 @@ export const TOOL_DEFS = [
   {
     name: "get_dashboard_snapshot",
     description:
-      "Read the project's current health: `currency`, the project's currency code, which EVERY money figure in the payload is in (the budget rollup, both forecasts including `forecast.eur` despite its name, and the budget changes) — state amounts in that currency, never assume euros; RAG ratings (overall, schedule, budget, scope) with whether each was manually overridden, completion progress, task-effort earned-value metrics (`evm`: PV/EV/AC in HOURS from task estimates, so its SPI/CPI are effort indices, not the budget's money CPI), the budget rollup (hours, value, cost, margin, EV, CPI), the budget forecast (`forecast`: the money and hours forecasts at current pace and at current efficiency with the gap between them, the rate-mix driver, and the latest budget changes with their total count; null when the budget module is off or no forecast can be built yet; each forecast's `efficiency.cpi` is a third kind of CPI, distinct from `evm.cpi` and `budget.costPerformanceIndex`: on contract value in `forecast.eur`, on hours in `forecast.hours`), and counts of overdue tasks, due-soon tasks, open RAID items, overdue and at-risk milestones, and changes by state. Read-only. When a money figure is null, `costUnknownReason` says why the cost basis is unsound — report it as unknown, never as zero. This applies even when `cost` is null but `earnedValue`/`costPerformanceIndex` are not — do NOT back-derive a cost from them (cost = earnedValue / costPerformanceIndex); report cost as unknown instead.",
+      "Read the project's current health: `currency`, the project's currency code, which EVERY money figure in the payload is in (the budget rollup, both forecasts including `forecast.eur` despite its name, and the budget changes) — state amounts in that currency, never assume euros; RAG ratings (overall, schedule, budget, scope) with whether each was manually overridden, completion progress, task-effort earned-value metrics (`evm`: PV/EV/AC in HOURS from task estimates, so its SPI/CPI are effort indices, not the budget's money CPI), the budget rollup (hours, value, cost, margin, EV, CPI), the budget forecast (`forecast`: the money and hours forecasts at current pace and at current efficiency with the gap between them, the rate-mix driver, and the latest budget changes with their total count; null when the budget module is off or no forecast can be built yet; each forecast's `efficiency.cpi` is a third kind of CPI, distinct from `evm.cpi` and `budget.costPerformanceIndex`: on contract value in `forecast.eur`, on hours in `forecast.hours`), and counts of overdue tasks, due-soon tasks, open RAID items, overdue and at-risk milestones (at risk: a linked task is due or finished after the milestone's date), and changes by state. Read-only. When a money figure is null, `costUnknownReason` says why the cost basis is unsound — report it as unknown, never as zero. This applies even when `cost` is null but `earnedValue`/`costPerformanceIndex` are not — do NOT back-derive a cost from them (cost = earnedValue / costPerformanceIndex); report cost as unknown instead.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -464,7 +464,7 @@ export const TOOL_DEFS = [
   {
     name: "list_milestones",
     description:
-      "List all project milestones with id, name, target date, and achievedDate (if signed off). Read-only.",
+      "List all project milestones with id, name, target date, description (plain text), achievedDate (if signed off) and linkedTaskIds, the tasks that gate the milestone (join them with list_tasks). Read-only.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -817,7 +817,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "update_milestone",
-    description: "Update fields on an existing milestone. Only the fields you pass change.",
+    description: "Update fields on an existing milestone. Only the fields you pass change. linkedTaskIds REPLACES the whole list: read it from list_milestones first, and send every id to keep.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" }, ...expectedTokenField, ...milestoneFields },
