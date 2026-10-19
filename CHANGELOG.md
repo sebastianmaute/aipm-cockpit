@@ -41,6 +41,13 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Six flows work again in the desktop app, and every question is asked in the app's own dialog (§752).** Inserting a
+  link, naming a template version and the four "enter the email address" prompts failed in the desktop app, which
+  does not support the browser's text prompt. They, the browser's yes/no questions (bulk send, reloading an empty
+  project, the file and storage-switch warnings) and its message boxes now use the app's own dialogs, styled and in
+  the app's language. While one is open the app keeps running, so each step checks again after the answer: an
+  address typed for one project is never saved into another, and a storage switch copies the project as it is
+  when you answer.
 - **A scheduled AI job added in Settings now runs without a reload (§750).** The job runner and the Settings
   list each kept their own copy of the jobs, so a new job never ran until the app was reloaded, and Settings
   kept showing "Never run" after a run. Both now share one list. Two changes made at the same moment, such as

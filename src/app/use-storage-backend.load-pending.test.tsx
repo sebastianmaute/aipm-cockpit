@@ -5,6 +5,8 @@
 //   the empty-load REFUSAL (§77), which is right for snapshot capture and saving and wrong here: a hold
 //   keyed on it would lock the app for the session after one load error. So EVERY terminal branch of
 //   the load effect settles this one, and (b) and (c) pin exactly that difference.
+import { fakeDialogs } from "../test/fake-dialogs";
+import { windowConfirmDialogsRef, withWindowConfirm } from "../test/window-confirm-dialogs";
 import { act, renderHook } from "@testing-library/react";
 import { useEffect, useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -98,7 +100,7 @@ function makeArgs(storageConfig: StorageConfig = { kind: "browser" }, hydrated =
 }
 
 function useProbe(args: Args) {
-  const hook = useStorageBackend(args);
+  const hook = useStorageBackend(withWindowConfirm(args));
   const { tasks } = useWorkspace();
   return { ...hook, tasks };
 }
@@ -533,6 +535,41 @@ describe("§548 — getScopeEpoch: transitions that MUST move it", () => {
       confirmSpy.mockRestore();
     }
   });
+
+  // §752 — the open-file question is the app's dialog, awaited: a settings-driven rebuild can land while it is
+  // open, and the op must then bind nothing to, and apply nothing through, the instance nobody is on.
+  // KILLED BY: deleting the `storage.supersededOpenDropped` re-check after the awaited answer.
+  it("(i4) §752 a rebuild while the app's open-file confirm is open binds and applies nothing", async () => {
+    const backend = makeBackend(0);
+    const rebuilt = makeBackend(0);
+    createBackendMock.mockReturnValueOnce(backend).mockReturnValue(rebuilt);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve({ name: "other.json" }));
+    (storageMod.loadFromHandleForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve({ tasks: [{ id: 9, taskName: "From the other file" } as unknown as Task], raid: [] }),
+    );
+    const native = vi.spyOn(window, "confirm");
+    const dialogs = fakeDialogs();
+    let answer: (yes: boolean) => void = () => {};
+    dialogs.confirm.mockImplementation(() => new Promise<boolean>((resolve) => { answer = resolve; }));
+    try {
+      const { result, rerender } = render({ ...makeArgs(), dialogsRef: dialogs.ref });
+      await advance(100);
+      expect(result.current.tasks.length).toBeGreaterThan(0); // PRECONDITION: tasks on screen, so it asks
+      let op: Promise<void> = Promise.resolve();
+      act(() => { op = result.current.onOpenStorageFile(); });
+      await advance(50);
+      expect(dialogs.confirm).toHaveBeenCalledTimes(1); // PRECONDITION: parked on the app's dialog
+      rerender({ args: { ...makeArgs({ kind: "local-json" } as StorageConfig), dialogsRef: dialogs.ref } });
+      await advance(50);
+      await act(async () => { answer(true); await op; });
+      await advance(50);
+      expect(native).not.toHaveBeenCalled();
+      expect(storageMod.setBackendFileHandle).not.toHaveBeenCalled();
+      expect(result.current.tasks.map((x) => x.id)).not.toContain(9);
+    } finally {
+      native.mockRestore();
+    }
+  });
 });
 
 // §476 — a baseline-currency switch re-denominates every stored money field, so an undo image taken
@@ -546,7 +583,7 @@ describe("§476 — a baseline-currency switch retires the undo history taken be
   function useUndoProbe(args: Args) {
     // task-manager hands the storage hook `undoApi.pruneStale` as `onUndoHistoryReset`; the same forward ref here.
     const pruneRef = useRef<() => void>(noop);
-    const hook = useStorageBackend({ ...args, onUndoHistoryReset: () => pruneRef.current() });
+    const hook = useStorageBackend({ dialogsRef: windowConfirmDialogsRef, ...args, onUndoHistoryReset: () => pruneRef.current() });
     const ws = useWorkspace();
     const undo = useUndoStack({ lang: "en-US", logActivity: noop, showToast: noop, showToastAction: noop, getScopeEpoch: hook.getUndoEpoch });
     useEffect(() => { pruneRef.current = undo.pruneStale; }, [undo.pruneStale]);

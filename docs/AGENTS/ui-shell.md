@@ -272,6 +272,21 @@
 
 ### UI shell — surfaces & controls
 
+  • **★★★ NEVER THE BROWSER'S OWN DIALOGS (§752).** `window.prompt` THROWS in the desktop app (Electron does
+  not implement it), and `window.confirm` / `window.alert` freeze the page. Ask through `confirm-dialog.tsx`:
+  `useConfirm` (yes/no), `usePrompt` (one line of text, `null` on cancel) and `useNotice` (a message with OK) —
+  one dialog at a time, a new one answering an open one with its "no". Code ABOVE `ConfirmProvider`
+  (task-manager's hooks) takes a `dialogsRef` that the provider fills (`dialogsRef={appDialogsRef}`); until
+  then every question answers "no" and logs `dialog.noBridge`. `no-native-dialogs.sweep.test.ts` fails on any
+  `window.`/`globalThis.`/`self.` call of the three, and on a bare `alert(`.
+  ★★ AN AWAITED DIALOG IS A WINDOW THE OLD ONE NEVER OPENED. The native ones froze the page, so nothing ran
+  while they were up; the app's do not, so autosave, a settings rebuild, a project swap and background
+  writers can all land while one is open. After every awaited answer, re-check what the op stands on: the
+  scope epoch (`dropStaleScopeWrite`) before writing a typed value, `isBackendCurrent()` in the storage ops,
+  and the LIVE workspace (`liveWorkspace()`, not the render-scope `currentWorkspace()` the op started with).
+  The reload of an empty project reads the stored version again after a yes. ★ The prompt's form is
+  `noValidate`: callers check the answer and explain in the app's language.
+
   • **★★★ A NATIVE HTML5 DRAG CANNOT REACH AN OFF-SCREEN DROP TARGET IN THIS APP, on any surface, unless
   the code scrolls for it.** Browsers do auto-scroll during a drag, but that serves the DOCUMENT
   scroller, and neither main-window layout has one: `modern-shell.tsx`'s root is `flex h-screen w-full
