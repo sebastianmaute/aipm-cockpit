@@ -49,6 +49,7 @@ import {
 } from "./chat-tools-documents";
 import {
   NOT_FORECAST_TOOL,
+  refuseHiddenDecisionSection,
   runForecastTool,
   type ForecastToolDispatcher,
 } from "./chat-tools-forecast";
@@ -1022,7 +1023,10 @@ export async function runTool(
       // Document tools route to their own module (which carries their boundary
       // guards) BEFORE the unknown-tool throw, so an unrouted document name
       // still surfaces as "unknown tool" rather than resolving silently.
-      if (isDocumentTool(name)) return runDocumentTool(d, name, input);
+      if (isDocumentTool(name)) {
+        refuseHiddenDecisionSection(name, input, d);
+        return runDocumentTool(d, name, input);
+      }
       throw new Error(`unknown tool: ${name}`);
   }
 }

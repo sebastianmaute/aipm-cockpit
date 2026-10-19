@@ -3,6 +3,7 @@
 // i18n-free (per the repo's "engines live in plain modules; React surfaces import
 // them" pattern); `chat-panel.tsx` consumes everything here.
 import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
+import { DOCUMENT_TOOL_DEFS_WITHOUT_DECISION } from "./chat-tool-defs-documents";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
 import type { Lang } from "./i18n";
@@ -564,7 +565,13 @@ const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
   [4, "get_forecast"],
   [4, "create_forecast_scenario"],
   [4, "update_forecast_scenario"],
+  [4, "delete_forecast_scenario"],
+  [4, "set_forecast_proposal"],
+  [4, "set_forecast_target_confidence"],
 ];
+
+/** The document tools as sent with bit 4 set (forecast off): no `forecastDecision` data section (§502 part 4). */
+const DOCUMENTS_WITHOUT_DECISION = new Map(DOCUMENT_TOOL_DEFS_WITHOUT_DECISION.map((d) => [d.name, d]));
 
 /** ★★ ADVERTISEMENT AND ENFORCEMENT READ THE SAME PREDICATE. Never spell an
  *  inline `=== false` here. `search_history` is gated in TWO places — this list
@@ -574,9 +581,10 @@ const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
  *  copies are one config slip from a switch that advertises OFF and serves ON.
  *  ★ `search_chats` is gated identically: this list plus `runTool`'s
  *    `search_chats` case, via `use-chat-dispatcher`'s `isChatSearchEnabled`.
- *  ★ The three forecast tools too: `flags.forecast` is the snapshot's `forecastSimulation`, and it and
+ *  ★ The six forecast tools too: `flags.forecast` is the snapshot's `forecastSimulation`, and it and
  *    `runForecastTool`'s gate (`isForecastEnabled`) are one function in `use-forecast-tools.ts`, which reads
- *    `isSimulationActive` from refs at call time. */
+ *    `isSimulationActive` from refs at call time. The same bit drops the `forecastDecision` data section from the
+ *    document tools, and `refuseHiddenDecisionSection` refuses a write that would add one at the executor. */
 function variantKey(flags: ToolFlags): number {
   return (
     (historySearchEnabled(flags.historySearch) ? 0 : 1) |
@@ -603,7 +611,10 @@ function variantFor(key: number) {
   //   not move it TODAY, but a tool appended after it later would make that
   //   assumption silently wrong, and a lost breakpoint is invisible except as a
   //   bill.
-  const built = withCacheBreakpoint(TOOL_DEFS.filter((d) => !removed.has(d.name)));
+  const kept = TOOL_DEFS.filter((d) => !removed.has(d.name));
+  const built = withCacheBreakpoint(
+    (key & 4) === 0 ? kept : kept.map((d) => (DOCUMENTS_WITHOUT_DECISION.get(d.name) as typeof d | undefined) ?? d),
+  );
   TOOL_VARIANTS.set(key, built);
   return built;
 }

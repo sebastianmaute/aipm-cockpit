@@ -29,8 +29,12 @@ describe("buildForecastDecision (§502 part 4)", () => {
     expect(buildForecastDecision(args({ simulationActive: false }))).toBeNull();
   });
 
-  it("is null while the input is not ready (the holiday calendar is loading)", () => {
-    expect(buildForecastDecision(args({ input: null }))).toBeNull();
+  // Task 11b — the simulation is on, so a ticked section must not vanish while the holiday calendar loads.
+  it("says the holiday calendar is loading while the input is not ready, for the export and the preview alike", () => {
+    const loading = { insufficient: true, goal: 95, calendarLoading: true };
+    const over = { input: null, settingsOverrides: { forecast: { targetConfidence: 95 as const } } };
+    expect(buildForecastDecision(args(over))).toEqual(loading);
+    expect(buildForecastDecisionBase(args(over))).toEqual(loading);
   });
 
   it("says insufficient below the history floor, and runs no lever search", () => {

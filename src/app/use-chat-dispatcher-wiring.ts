@@ -118,6 +118,7 @@ export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDis
       history: forecastHistory,
       scenarios: forecastScenarios,
       currency: plan.currency,
+      settingsOverrides,
     };
   };
 

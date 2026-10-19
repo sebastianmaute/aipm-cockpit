@@ -117,7 +117,8 @@ export function isNothingToJournal(ws: Workspace): boolean {
 /** §715 — the skip itself: `live` is nothing, AND so was the stored version it was built on, with the same
  *  plan. Emptying a project that held records is an edit (skipped, a save in flight at unload would bring
  *  the records back on reload with no draft offered), and so is moving an empty project's plan, which
- *  `isNothingToJournal` alone reads as a default. No stored version known (`null`): journalled. */
+ *  `isNothingToJournal` alone reads as a default. No stored version known (`null`): false here; `write` and
+ *  `keep` then skip on `isNothingToJournal(live)` alone (§754). */
 export function isNothingNewToJournal(live: Workspace, stored: Workspace | null): boolean {
   return stored !== null && isNothingToJournal(live) && isNothingToJournal(stored) && samePlan(live.plan, stored.plan);
 }
@@ -287,13 +288,17 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   }, []);
 
   const write = useCallback((entry: Unconfirmed): void => {
+    const stored = storedFor(entry.projectKey);
     // §715 — the empty default saved over an empty stored version is not a draft (`isNothingNewToJournal`),
     // so it is never journalled. This tab's own older journal for the key goes too (the guard spares one
     // another page load left): it was built on that same empty version, and the edit undid it.
-    if (isNothingNewToJournal(entry.workspace, storedFor(entry.projectKey))) {
+    if (isNothingNewToJournal(entry.workspace, stored)) {
       clearUnloadJournal(entry.projectKey, { tabId: UNLOAD_JOURNAL_TAB_ID, ifSavedAtAtMost: entry.savedAt });
       return;
     }
+    // §754 — with no stored version known (a project op that failed before its flip), an empty workspace is
+    // skipped too, and nothing is cleared: it may be the op's workspace, not an edit of the older journal's.
+    if (stored === null && isNothingToJournal(entry.workspace)) return;
     let workspace: string;
     try {
       workspace = workspaceToJson(entry.workspace);
@@ -323,7 +328,9 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
    *  throw it is not, and a caller about to leave the project must not then leave. */
   const keep = useCallback((entry: Unconfirmed): boolean => {
     // §715 — the empty default over an empty stored version holds nothing to keep: done, so a caller about to leave may leave.
-    if (isNothingNewToJournal(entry.workspace, storedFor(entry.projectKey))) return true;
+    // §754 — nor does an empty workspace whose stored version is unknown (a save refused after its backend was replaced).
+    const stored = storedFor(entry.projectKey);
+    if (stored === null ? isNothingToJournal(entry.workspace) : isNothingNewToJournal(entry.workspace, stored)) return true;
     const slot = readUnloadJournal(keptProjectKey(entry.projectKey)) === null ? keptProjectKey(entry.projectKey) : keptProjectKey(entry.projectKey, entry.savedAt);
     let workspace: string;
     try {

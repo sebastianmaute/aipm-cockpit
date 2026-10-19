@@ -172,3 +172,26 @@ export const DOCUMENT_TOOL_DEFS = [
     },
   },
 ];
+
+/** Copy `node`, swapping every `docBlockSchema` (matched by IDENTITY, so no look-alike is touched) for `block`. */
+function withBlockSchema(node: unknown, block: object): unknown {
+  if (node === docBlockSchema) return block;
+  if (Array.isArray(node)) return node.map((n) => withBlockSchema(n, block));
+  if (node === null || typeof node !== "object") return node;
+  return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, withBlockSchema(v, block)]));
+}
+
+const blockSchemaWithoutDecision = {
+  ...docBlockSchema,
+  properties: {
+    ...docBlockSchema.properties,
+    key: { ...docBlockSchema.properties.key, enum: DATA_SECTION_KEYS.filter((k) => k !== "forecastDecision") as string[] },
+  },
+};
+
+/** §502 part 4 — the document tools as sent with bit 4 set (forecast off; `chat-api.ts`): the same
+ *  schemas, minus the `forecastDecision` data section, which exists only while the simulation is active. The
+ *  executor then refuses a write that would add one (`refuseHiddenDecisionSection`, chat-tools-forecast.ts). */
+export const DOCUMENT_TOOL_DEFS_WITHOUT_DECISION = DOCUMENT_TOOL_DEFS.map(
+  (def) => withBlockSchema(def, blockSchemaWithoutDecision) as typeof def,
+);

@@ -62,15 +62,34 @@ export function useForecastSettings(args: UseForecastSettingsArgs): ForecastSett
     // Setting needs a live scenario to name (a refusal about the scenario list, not about the ref).
     if (id !== null && !list.some((s) => s.id === id)) return;
     latest.current = { ...latest.current, proposalId: id };
-    // Clearing when the STORED value already reads as no proposal leaves a kept stale id alone (undo can bring it back).
-    setSettingsOverrides((prev) => (id === null && proposalIdOf(prev, list) === null ? prev : withProposal(prev, id)));
-    if (id === from) return;
-    // Clearing names the one being cleared.
-    const named = list.find((s) => s.id === (id ?? from));
-    if (!named) return;
-    if (id !== null) logActivity?.("forecast.proposalSet", id, named.name);
-    else logActivity?.("forecast.proposalCleared", named.id, named.name);
+    setSettingsOverrides((prev) => withProposalChange(prev, id, list));
+    const entry = proposalLogEntry(from, id, list);
+    if (entry) logActivity?.(...entry);
   }, [setSettingsOverrides, logActivity]);
 
   return { target, proposalId, setTarget, setProposal };
+}
+
+/** The overrides after setting (or, with null, clearing) the proposal. Shared by the setter above and Claude's
+ *  `set_forecast_proposal` (use-forecast-tools.ts), so both store alike.
+ *  ★ Clearing when the STORED value already reads as no proposal leaves a kept stale id alone (undo can bring it back). */
+export function withProposalChange(
+  prev: SettingsOverrides | undefined,
+  id: number | null,
+  list: readonly ForecastScenario[],
+): SettingsOverrides | undefined {
+  return id === null && proposalIdOf(prev, list) === null ? prev : withProposal(prev, id);
+}
+
+/** The activity row a proposal change from `from` to `to` writes, or null when it writes none. Shared like
+ *  `withProposalChange`, so the UI and Claude log alike. Clearing names the one being cleared. */
+export function proposalLogEntry(
+  from: number | null,
+  to: number | null,
+  list: readonly ForecastScenario[],
+): [ActivityKind, number, string] | null {
+  if (to === from) return null;
+  const named = list.find((s) => s.id === (to ?? from));
+  if (!named) return null;
+  return to !== null ? ["forecast.proposalSet", to, named.name] : ["forecast.proposalCleared", named.id, named.name];
 }

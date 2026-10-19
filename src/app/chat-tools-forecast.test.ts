@@ -6,10 +6,16 @@ import { runTool } from "./chat-tools";
 import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { FORECAST_OFF_MESSAGE, NOT_FORECAST_TOOL, runForecastTool, type ForecastToolDispatcher } from "./chat-tools-forecast";
 import { FORECAST_TOOL_DEFS } from "./chat-tool-defs-forecast";
+import { blockToken } from "./document-block-token";
+import type { DocBlock } from "./document-model";
 import { DEFAULT_HISTORY_WINDOW, MAX_HORIZON_WORKING_DAYS } from "./forecast/constants";
 import { MAX_FORECAST_SCENARIOS, type ForecastScenario } from "./forecast-scenarios";
 
-const FORECAST_NAMES = ["get_forecast", "create_forecast_scenario", "update_forecast_scenario"];
+// §502 part 4 — six since the three decision writes joined (delete, proposal, target confidence).
+const FORECAST_NAMES = [
+  "get_forecast", "create_forecast_scenario", "update_forecast_scenario",
+  "delete_forecast_scenario", "set_forecast_proposal", "set_forecast_target_confidence",
+];
 
 const row: ForecastScenario = {
   id: 3,
@@ -26,19 +32,22 @@ function makeDispatcher(over: Partial<ForecastToolDispatcher> = {}): ForecastToo
     getForecastScenarioRow: vi.fn((id: number) => (id === 3 ? row : null)),
     createForecastScenario: vi.fn(() => result),
     updateForecastScenario: vi.fn(() => result),
+    deleteForecastScenario: vi.fn((id: number) => ({ deleted: true as const, id, name: "Hire two" })),
+    setForecastProposal: vi.fn((id: number | null) => ({ proposal: id === null ? null : { id, name: "Hire two" } })),
+    setForecastTargetConfidence: vi.fn((v) => ({ targetConfidence: v })),
     ...over,
   };
 }
 
 describe("the forecast tool variant bit", () => {
-  it("offers none of the three unless forecast is true", () => {
+  it("offers none of the six unless forecast is true", () => {
     for (const flags of [{}, { historySearch: true, chatSearch: true }, { forecast: false }]) {
       const names = toolNamesFor(flags);
       for (const n of FORECAST_NAMES) expect(names.has(n)).toBe(false);
     }
   });
 
-  it("offers all three when forecast is true", () => {
+  it("offers all six when forecast is true", () => {
     const names = toolNamesFor({ forecast: true });
     for (const n of FORECAST_NAMES) expect(names.has(n)).toBe(true);
   });
@@ -48,8 +57,9 @@ describe("the forecast tool variant bit", () => {
     expect(toolsFor({ forecast: true })).not.toBe(toolsFor({}));
   });
 
-  it("declares the update token as required", () => {
+  it("declares the update and delete tokens as required", () => {
     expect(TOKEN_REQUIRED_TOOLS.has("update_forecast_scenario")).toBe(true);
+    expect(TOKEN_REQUIRED_TOOLS.has("delete_forecast_scenario")).toBe(true);
   });
 });
 
@@ -80,6 +90,17 @@ describe("the model-facing texts", () => {
     expect(text).toContain('weeklyChange is null when asIs is "insufficient"');
   });
 
+  it("describes the decision reads: target, what it would take, proposal and P80 history (§502 part 4)", () => {
+    const text = description("get_forecast");
+    expect(text).toContain("targetConfidence (50, 80 or 95) is the project's goal for a chance, as a percent: chances are fractions, so 80 means 0.8");
+    expect(text).toContain(
+      'whatItTakes holds planEnd (null when asIs has no plan-end chance) and one entry per milestone whose chance is below targetConfidence; it is empty when asIs is "insufficient", and {omitted: "whatIf"} on a call with whatIf (it does not depend on the draft: call without whatIf to read it)',
+    );
+    expect(text).toContain('state "inert" with a reason (needs-booked-hours, no-open-tasks, too-few-tasks)');
+    expect(text).toContain("proposal is {id, name} of the scenario the user proposed, or null");
+    expect(text).toContain("p80History is the last 26 recorded entries, oldest first");
+  });
+
   it("says what removedRows counts", () => {
     expect(description("update_forecast_scenario")).toContain(
       "removedRows: stored rows not kept unchanged (an edited row counts as removed and re-added)",
@@ -100,6 +121,9 @@ describe("runForecastTool", () => {
       expect(d.getForecastScenarioRow).not.toHaveBeenCalled();
       expect(d.createForecastScenario).not.toHaveBeenCalled();
       expect(d.updateForecastScenario).not.toHaveBeenCalled();
+      expect(d.deleteForecastScenario).not.toHaveBeenCalled();
+      expect(d.setForecastProposal).not.toHaveBeenCalled();
+      expect(d.setForecastTargetConfidence).not.toHaveBeenCalled();
     }
   });
 
@@ -173,6 +197,153 @@ describe("runForecastTool", () => {
       runForecastTool("update_forecast_scenario", { id: 3, expectedToken, changes: [] }, d);
       expect(d.updateForecastScenario).toHaveBeenCalledWith(3, { changes: [] });
     });
+  });
+});
+
+describe("the decision writes (§502 part 4)", () => {
+  describe("delete_forecast_scenario", () => {
+    it("refuses a stale token, deleting nothing", () => {
+      const d = makeDispatcher();
+      const stale = entityToken("forecastScenario", { ...row, name: "Old name" });
+      expect(() => runForecastTool("delete_forecast_scenario", { id: 3, expectedToken: stale }, d)).toThrow(
+        ConcurrencyTokenError,
+      );
+      expect(d.deleteForecastScenario).not.toHaveBeenCalled();
+    });
+
+    it("reports an unknown id as not found", () => {
+      expect(() => runForecastTool("delete_forecast_scenario", { id: 9, expectedToken: "x" }, makeDispatcher())).toThrow(
+        "forecast scenario 9 not found",
+      );
+    });
+
+    it("deletes with a valid token", () => {
+      const d = makeDispatcher();
+      const expectedToken = entityToken("forecastScenario", row);
+      expect(runForecastTool("delete_forecast_scenario", { id: 3, expectedToken }, d)).toEqual({
+        deleted: true, id: 3, name: "Hire two",
+      });
+      expect(d.deleteForecastScenario).toHaveBeenCalledWith(3);
+    });
+  });
+
+  describe("set_forecast_proposal", () => {
+    it("passes a numeric id, and null to clear", () => {
+      const d = makeDispatcher();
+      runForecastTool("set_forecast_proposal", { id: 3 }, d);
+      runForecastTool("set_forecast_proposal", { id: null }, d);
+      expect(vi.mocked(d.setForecastProposal).mock.calls).toEqual([[3], [null]]);
+    });
+
+    it.each([["a string", "3"], ["absent", undefined], ["NaN", Number.NaN]])("refuses an id that is %s", (_l, id) => {
+      const d = makeDispatcher();
+      expect(() => runForecastTool("set_forecast_proposal", { id }, d)).toThrow("id must be a number, or null to clear");
+      expect(d.setForecastProposal).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("set_forecast_target_confidence", () => {
+    it.each([50, 80, 95] as const)("sets %i", (value) => {
+      const d = makeDispatcher();
+      expect(runForecastTool("set_forecast_target_confidence", { value }, d)).toEqual({ targetConfidence: value });
+    });
+
+    it.each([70, "95", undefined])("refuses %s, writing nothing", (value) => {
+      const d = makeDispatcher();
+      expect(() => runForecastTool("set_forecast_target_confidence", { value }, d)).toThrow("value must be one of 50, 80, 95");
+      expect(d.setForecastTargetConfidence).not.toHaveBeenCalled();
+    });
+  });
+
+  it("schemas: delete takes the token, the proposal id may be null, the target is an enum of the three", () => {
+    const schema = (name: string) => FORECAST_TOOL_DEFS.find((d) => d.name === name)?.input_schema as unknown as {
+      properties: Record<string, { type?: unknown; enum?: unknown }>; required: string[];
+    };
+    expect(schema("delete_forecast_scenario").required).toEqual(["id", "expectedToken"]);
+    expect(schema("set_forecast_proposal").properties.id.type).toEqual(["number", "null"]);
+    expect(schema("set_forecast_target_confidence").properties.value.enum).toEqual([50, 80, 95]);
+  });
+});
+
+// §502 part 4, ruling P3-1 — the forecast decision data section exists only while the simulation is active.
+describe("the forecastDecision data section follows the simulation", () => {
+  type Def = { name: string; input_schema: unknown };
+  const keysIn = (defs: readonly Def[], name: string): string[] => {
+    const def = defs.find((d) => d.name === name);
+    expect(def).toBeDefined();
+    return [...JSON.stringify(def).matchAll(/"forecastDecision"/g)].map((m) => m[0]);
+  };
+
+  it("offers it on create_document and update_document only with the forecast bit", () => {
+    const on = toolsFor({ forecast: true }) as readonly Def[];
+    const off = toolsFor({}) as readonly Def[];
+    for (const name of ["create_document", "update_document"]) {
+      expect(keysIn(on, name).length).toBeGreaterThan(0);
+      expect(keysIn(off, name)).toEqual([]);
+    }
+    // CONTROL: only that key went — every other data section is still offered while off.
+    const offCreate = JSON.stringify(off.find((d) => d.name === "create_document"));
+    const onCreate = JSON.stringify(on.find((d) => d.name === "create_document"));
+    expect(offCreate).toBe(onCreate.replaceAll(',"forecastDecision"', "").replaceAll('"forecastDecision",', ""));
+    expect(offCreate).toContain('"budgetForecast"');
+  });
+
+  const block = { type: "dataSection", key: "forecastDecision" };
+  const tasksBlock = { type: "dataSection", key: "tasks" };
+  const docDispatcher = (enabled: boolean, stored: readonly unknown[] = [tasksBlock]) => ({
+    ...makeDispatcher({ isForecastEnabled: () => enabled }),
+    getDocument: vi.fn((id: number) => (id === 1 ? { id: 1, title: "T", blocks: stored } : null)),
+    createDocument: vi.fn(() => ({ id: 1, title: "T", blockCount: 1 })),
+    updateDocument: vi.fn(() => ({ applied: 1, rejected: [] })),
+  });
+
+  it("refuses a create_document or update_document naming it while the simulation is off", async () => {
+    const d = docDispatcher(false);
+    await expect(runTool(d as never, "create_document", { title: "T", blocks: [block] })).rejects.toThrow(FORECAST_OFF_MESSAGE);
+    await expect(
+      runTool(d as never, "update_document", { id: 1, ops: [{ op: "insert", index: 0, block }] }),
+    ).rejects.toThrow(FORECAST_OFF_MESSAGE);
+    expect(d.createDocument).not.toHaveBeenCalled();
+    expect(d.updateDocument).not.toHaveBeenCalled();
+  });
+
+  // A block the user added while the simulation was on stays theirs: refusing its re-send would teach the
+  // model to retry without it, deleting the section through the AI. Only an ADDED block refuses.
+  it("lets an update_document re-send a decision block the document already holds while off", async () => {
+    const d = docDispatcher(false, [block, tasksBlock]);
+    const replaceAll = { id: 1, ops: [{ op: "replaceAll", blocks: [block, tasksBlock, { type: "pageBreak" }] }] };
+    await runTool(d as never, "update_document", replaceAll);
+    const replace = { op: "replace", index: 0, block, expectHash: blockToken(block as DocBlock) };
+    await runTool(d as never, "update_document", { id: 1, ops: [replace] });
+    expect(d.updateDocument).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses an update_document adding a decision block beyond the ones it holds while off", async () => {
+    const none = docDispatcher(false);
+    await expect(
+      runTool(none as never, "update_document", { id: 1, ops: [{ op: "replaceAll", blocks: [block, tasksBlock] }] }),
+    ).rejects.toThrow(FORECAST_OFF_MESSAGE);
+    const one = docDispatcher(false, [block]);
+    await expect(
+      runTool(one as never, "update_document", { id: 1, ops: [{ op: "append", block }] }),
+    ).rejects.toThrow(FORECAST_OFF_MESSAGE);
+    await expect(
+      runTool(none as never, "update_document", { id: 2, ops: [{ op: "append", block }] }),
+    ).rejects.toThrow(FORECAST_OFF_MESSAGE);
+    expect(none.updateDocument).not.toHaveBeenCalled();
+    expect(one.updateDocument).not.toHaveBeenCalled();
+  });
+
+  it("accepts it while the simulation is on", async () => {
+    const d = docDispatcher(true);
+    await runTool(d as never, "create_document", { title: "T", blocks: [block] });
+    expect(d.createDocument).toHaveBeenCalledWith("T", [block]);
+  });
+
+  it("CONTROL: a document without it is untouched by the gate while off", async () => {
+    const d = docDispatcher(false);
+    await runTool(d as never, "create_document", { title: "T", blocks: [{ type: "dataSection", key: "tasks" }] });
+    expect(d.createDocument).toHaveBeenCalled();
   });
 });
 

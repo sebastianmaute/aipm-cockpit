@@ -248,8 +248,8 @@ export function settlePlan(plan: WhatItTakesPlan): WhatItTakes {
 
 /**
  * Both searches, run to completion, for callers that need the whole answer at once: today the export and download
- * actions (`buildForecastDecision`, never a render path); the AI tool is planned. The Forecast view, the Reports
- * section and the document previews drive `stepPlan` themselves through `useLeverSearch`.
+ * actions (`buildForecastDecision`, never a render path) and `get_forecast` (`buildForecastReport`). The Forecast
+ * view, the Reports section and the document previews drive `stepPlan` themselves through `useLeverSearch`.
  * Defined only for a target with a chance: null when As is has none — callers skip those targets.
  */
 export function whatItTakesSync(

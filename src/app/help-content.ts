@@ -11,8 +11,9 @@
 // group, with optional relations (related views + related concept entries) that
 // later help surfaces (per-view callouts, the relations map) also read.
 
-import type { TranslationKey } from "./i18n";
+import { t, type Lang, type TranslationKey } from "./i18n";
 import type { AppView } from "./nav-config";
+import { FORECAST_AXIS_EXTENSION_DAYS } from "./gantt-engine";
 
 export type HelpGroup = "concepts" | "workflows" | "features" | "automated";
 
@@ -31,6 +32,17 @@ export interface HelpEntry {
   primerKey?: TranslationKey;
   relatedViews?: readonly AppView[];
   relatedConcepts?: readonly string[];
+}
+
+/** The values a help body interpolates, so a number the code owns cannot drift from the prose (§502): the
+ *  string carries `{0}`, and every surface renders it through `helpEntryBody`, never a bare `t(lang, bodyKey)`. */
+const HELP_BODY_ARGS: Partial<Record<TranslationKey, readonly number[]>> = {
+  helpConceptForecastSimBody: [FORECAST_AXIS_EXTENSION_DAYS],
+};
+
+/** An entry's body text, with its interpolated values filled in. */
+export function helpEntryBody(lang: Lang, entry: Pick<HelpEntry, "bodyKey">): string {
+  return t(lang, entry.bodyKey, ...(HELP_BODY_ARGS[entry.bodyKey] ?? []));
 }
 
 /** Render order of the groups (TOC + content). */

@@ -2741,9 +2741,12 @@ describe("the forecast flag reaches the request body", () => {
     };
   }
 
-  it("offers the three forecast tools and the quoting rules when the snapshot says true", async () => {
+  it("offers the six forecast tools and the quoting rules when the snapshot says true", async () => {
     const { tools, prompt } = await requestFor(true);
-    expect(tools).toEqual(expect.arrayContaining(["get_forecast", "create_forecast_scenario", "update_forecast_scenario"]));
+    expect(tools).toEqual(expect.arrayContaining([
+      "get_forecast", "create_forecast_scenario", "update_forecast_scenario",
+      "delete_forecast_scenario", "set_forecast_proposal", "set_forecast_target_confidence",
+    ]));
     expect(prompt).toContain("safe to commit");
   });
 
@@ -2753,9 +2756,10 @@ describe("the forecast flag reaches the request body", () => {
     expect(off.tools).not.toContain("create_forecast_scenario");
     expect(off.prompt).toContain('its "Use Monte Carlo forecasting" switch is off');
     expect(off.prompt).not.toContain("get_forecast");
-    // CONTROL: the list was not gutted, exactly the three forecast tools are the difference.
+    // CONTROL: the list was not gutted, exactly the six forecast tools are the difference (§502 part 4 added
+    // delete, proposal and target confidence to the original three).
     const on = await requestFor(true);
-    expect(off.tools).toHaveLength(on.tools.length - 3);
+    expect(off.tools).toHaveLength(on.tools.length - 6);
   });
 });
 

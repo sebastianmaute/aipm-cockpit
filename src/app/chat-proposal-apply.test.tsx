@@ -780,17 +780,19 @@ describe("TOKEN_REQUIRED_TOOLS", () => {
     //   "0 mismatches" pass over nothing at all. The size is asserted EXACTLY:
     //   a legitimately added token-guarded tool turns this red, which is the
     //   point. Read a red here as "go look", not as "the guard broke".
-    expect(TOKEN_REQUIRED_TOOLS.size).toBe(11);
-    expect(advertised).toHaveLength(11);
+    // 12 since §502 part 4: `delete_forecast_scenario` carries the scenario token.
+    expect(TOKEN_REQUIRED_TOOLS.size).toBe(12);
+    expect(advertised).toHaveLength(12);
     expect([...TOKEN_REQUIRED_TOOLS].sort()).toEqual([...advertised].sort());
   });
 
-  test("it names the nine update tools, set_task_dependencies and escalate_raid_item", () => {
+  test("it names the nine update tools, set_task_dependencies, escalate_raid_item and delete_forecast_scenario", () => {
     // The membership itself, so a diff that changed BOTH derivations in step
     // still has to face a human-written list. `update_resource` is spelled out
     // because it is the member `UPDATE_TARGET` omits — the trap this constant
     // exists to avoid.
     expect([...TOKEN_REQUIRED_TOOLS].sort()).toEqual([
+      "delete_forecast_scenario",
       "escalate_raid_item",
       "set_task_dependencies",
       "update_absence",

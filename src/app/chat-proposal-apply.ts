@@ -199,10 +199,11 @@ export function failureKindOf(row: FailedAppliedRow): ProposalFailureKind {
  *   `update_task`, `set_task_dependencies`, `escalate_raid_item` and seven
  *   other `update_*`.
  *   ★ That command reads `chat-tools.ts` alone: `update_forecast_scenario`
- *   (§502) enforces its token in `chat-tools-forecast.ts`, so run it over that
- *   file too — the eleventh. ★ There it prints `case "create_forecast_scenario"`,
- *   because the update path is that switch's `default:` branch and the awk
- *   labels it with the last `case` it saw.
+ *   and `delete_forecast_scenario` (§502) enforce their token in
+ *   `chat-tools-forecast.ts`, through its `requireTokenedRow` helper, which the
+ *   awk cannot attribute to a case; read its call sites instead (the update
+ *   path is that switch's `default:` branch):
+ *     grep -n "requireTokenedRow(" src/app/chat-tools-forecast.ts
  *   A tool that enforced a token without declaring one `required` would slip
  *   past this guard silently, because the guard simply would not fire. Do not
  *   read the agreement as a gate. */
@@ -257,6 +258,7 @@ export const TOKEN_ROW_SOURCE: Readonly<
   update_absence: { kind: "absence", getRow: (d, id) => d.getAbsenceRow(id) },
   update_calendar_event: { kind: "calendarEvent", getRow: (d, id) => d.getCalendarEventRow(id) },
   update_forecast_scenario: { kind: "forecastScenario", getRow: (d, id) => d.getForecastScenarioRow(id) },
+  delete_forecast_scenario: { kind: "forecastScenario", getRow: (d, id) => d.getForecastScenarioRow(id) },
 };
 
 /** `requireToken`'s OWN predicate for "a usable token", mirrored so this refusal
