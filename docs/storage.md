@@ -32,7 +32,7 @@ Since 1.14.3, two tabs or windows that save the same project no longer overwrite
 - **Overwrite** saves your version over the stored one. It is refused if the stored version changed again in the meantime.
 - **Download my version** saves your version to a file and keeps saving paused.
 
-This works on every backend: browser storage, local files, SharePoint and Turso. It is tested in the browser with browser storage; SharePoint and Turso are not yet verified against a live tenant or database.
+This works on every backend: browser storage, local files, SharePoint and Turso. It is tested in the browser with browser storage, and the Turso check has also run against a live database (`e2e/turso-revision-live.spec.ts`, 2026-10-10). SharePoint is not yet verified against a live tenant.
 
 - **Browser storage** is one store for the whole browser profile, so all its tabs keep in step: an edit in one tab appears in the others.
 - **Local files:** a window keeps saving to the file it opened, even if another tab switches project. Windows on the same file keep in step; windows on different files do not.
