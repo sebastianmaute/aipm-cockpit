@@ -41,6 +41,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A scheduled AI job added in Settings now runs without a reload (§750).** The job runner and the Settings
+  list each kept their own copy of the jobs, so a new job never ran until the app was reloaded, and Settings
+  kept showing "Never run" after a run. Both now share one list. Two changes made at the same moment, such as
+  an edit in Settings while a job records its run, no longer overwrite each other.
 - **No empty unsaved draft after a failed project switch or a refused save (§754).** When the app could not
   tell which version was stored (a project switch that failed partway, or a save refused after the storage
   changed), an empty workspace was still kept as an unsaved draft and offered back on the next start. It is
