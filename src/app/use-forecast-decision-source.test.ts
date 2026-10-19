@@ -1,4 +1,5 @@
-// §502 part 4 — the exports' forecast decision source: none while the simulation is off or holidays load, and a lazy
+// §502 part 4 — the exports' forecast decision source: none while the simulation is off, a "calendar loading" one
+// while holidays load (Task 11b), and a lazy
 // one otherwise (the laziness itself is `forecastDecisionSource`'s, pinned in forecast-decision.test.ts).
 import { describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
@@ -24,11 +25,11 @@ describe("useForecastDecisionSource", () => {
     expect(renderHook(() => useForecastDecisionSource(DEPS)).result.current).not.toBeNull();
   });
 
-  it("while the holiday calendar loads, the handle is offered but its decision is null (the section is omitted)", () => {
+  it("while the holiday calendar loads, the handle is offered and its decision says so (the section stays, one row)", () => {
     const handle = renderHook(() => useForecastDecisionSource({ ...DEPS, holidaysReady: false })).result.current;
-    expect(handle?.source()).toBeNull();
+    expect(handle?.source()).toEqual({ insufficient: true, goal: 80, calendarLoading: true });
     expect(handle?.live.input()).toBeNull();
-    expect(handle?.live.base()).toBeNull();
+    expect(handle?.live.base()).toEqual({ insufficient: true, goal: 80, calendarLoading: true });
   });
 
   it("hands the preview the same input identity every time, and the base with nothing searched", () => {

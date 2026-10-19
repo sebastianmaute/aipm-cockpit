@@ -4,6 +4,11 @@
 // mutation re-reads the live list from the store (not the stale render closure)
 // and writes the full mutated list back. Writes are serialized through a
 // promise chain so back-to-back saves can't race the Turso pipeline.
+// §750 — the hook has two instances (the runner in use-ai-orchestration.ts and
+// the Settings list in scheduled-jobs-section.tsx). The chain is MODULE-level, so
+// two instances writing at once cannot both read the list before either saves,
+// and a write tells every other mounted instance to re-read the store: a job made
+// in Settings reaches the runner, and a run the runner records shows in Settings.
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
@@ -39,15 +44,27 @@ function nextJobId(jobs: readonly ScheduledJob[]): number {
   return jobs.reduce((m, j) => Math.max(m, j.id), 0) + 1;
 }
 
+/** §750 — shared by every instance: one write chain, and each mounted instance's re-read. */
+let writeChain: Promise<void> = Promise.resolve();
+const instances = new Set<() => void>();
+/** The backend a config names: its database URL, or null for localStorage. NOT the config object — an equal one is
+ *  minted whenever the URL or token is set again (typing it, hydration), and a new token for the same database is
+ *  the same backend. */
+const backendOf = (config: TursoConfig | null): string | null => (config ? config.httpUrl : null);
+
+/** Bumped by every completed save, PER BACKEND (`backendOf`). A read
+ *  started before the latest save to its own backend may answer after a newer list was applied (a slow Turso
+ *  round trip), so its result is dropped: a newer list always follows it — the write's own list, or the
+ *  re-read that write starts in every other instance. A save to the OTHER backend drops nothing. */
+const savedGenerations = new Map<string | null, number>();
+const generationOf = (config: TursoConfig | null): number => savedGenerations.get(backendOf(config)) ?? 0;
+
 export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduledJobsResult {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const cfgRef = useRef(config);
   const mountedRef = useRef(true);
-  // Serialize every store write behind this chain so concurrent mutations
-  // can't interleave their load/save against Turso.
-  const writeChainRef = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => { cfgRef.current = config; }, [config]);
   // ★★ Re-set on mount, not merely cleared on unmount. React StrictMode mounts,
   //    unmounts and remounts in development (Next 16 defaults reactStrictMode to
@@ -81,8 +98,10 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
 
   const refresh = useCallback(async () => {
     try {
-      const list = await loadScheduledJobs(cfgRef.current);
-      if (!mountedRef.current) return;
+      const config = cfgRef.current;
+      const startedAt = generationOf(config);
+      const list = await loadScheduledJobs(config);
+      if (!mountedRef.current || startedAt !== generationOf(config) || backendOf(cfgRef.current) !== backendOf(config)) return;
       setJobs(list);
     } catch {
       // optional feature — leave jobs as-is
@@ -93,18 +112,32 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
 
   useEffect(() => { void refresh(); }, [refresh, config]);
 
+  // §750 — this instance's re-read, which another instance's write calls.
+  const rereadRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const reread = () => { void refresh(); };
+    rereadRef.current = reread;
+    instances.add(reread);
+    return () => { instances.delete(reread); };
+  }, [refresh]);
+
   // Run a mutation on the live store list, serialized behind the write chain.
   const mutate = useCallback(
     (transform: (list: readonly ScheduledJob[]) => ScheduledJob[]): Promise<void> => {
       if (mountedRef.current) setBusy(true);
-      const run = writeChainRef.current.then(async () => {
-        const existing = await loadScheduledJobs(cfgRef.current);
+      const run = writeChain.then(async () => {
+        // ONE backend per write: read the config once, so a switch mid-write cannot load from one and save
+        // to the other. The list reaches this instance only while it is still on that backend.
+        const config = cfgRef.current;
+        const existing = await loadScheduledJobs(config);
         const next = transform(existing);
-        await saveScheduledJobs(cfgRef.current, next);
-        if (mountedRef.current) setJobs(next);
+        await saveScheduledJobs(config, next);
+        savedGenerations.set(backendOf(config), generationOf(config) + 1);
+        if (mountedRef.current && backendOf(cfgRef.current) === backendOf(config)) setJobs(next);
+        for (const reread of instances) if (reread !== rereadRef.current) reread();
       });
       // Keep the chain alive even if a link rejects, and clear busy at the end.
-      writeChainRef.current = run.then(
+      writeChain = run.then(
         () => { if (mountedRef.current) setBusy(false); },
         () => { if (mountedRef.current) setBusy(false); },
       );

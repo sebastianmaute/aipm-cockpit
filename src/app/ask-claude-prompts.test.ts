@@ -58,9 +58,9 @@ describe("ask-claude-prompts", () => {
     expect(ASK_CLAUDE_PROMPTS.timelog).toBeUndefined();
   });
 
-  // No read tool returns a simulated forecast yet (`get_forecast` is slice 4
-  // of §502), so a chip here would ask a question no tool can answer.
-  it("has no chip for forecast, whose read tool is not built yet (§502)", () => {
+  // `get_forecast` exists now (§502), but the Forecast view is still release-
+  // hidden, so it has no chip; whether to add one is an un-hide decision.
+  it("has no chip for forecast while the view is held back (§502)", () => {
     expect(ASK_CLAUDE_PROMPTS.forecast).toBeUndefined();
   });
 

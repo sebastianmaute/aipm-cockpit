@@ -7,7 +7,7 @@
 // parent owns the search input, tours, relations map, and footer.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
-import { HELP_ENTRIES, HELP_GROUP_LABEL, helpGroupOrder, type HelpReadingLevel } from "./help-content";
+import { HELP_ENTRIES, HELP_GROUP_LABEL, helpEntryBody, helpGroupOrder, type HelpReadingLevel } from "./help-content";
 import { matchesQuery } from "./help-search";
 import { stripHelpMarkers } from "./help-body-markup";
 import { HelpBodyText, Highlighted } from "./help-body-text";
@@ -90,7 +90,7 @@ export function HelpContentPane({
       const primer = showPrimers && e.primerKey ? t(lang, e.primerKey) : "";
       // ★ STRIPPED, not raw: searching the raw body would let a query match
       // `[[` markup that is never rendered.
-      const body = stripHelpMarkers([primer, t(lang, e.bodyKey)].filter(Boolean).join("\n\n"));
+      const body = stripHelpMarkers([primer, helpEntryBody(lang, e)].filter(Boolean).join("\n\n"));
       return matchesQuery(t(lang, e.titleKey), body, query);
     });
     return helpGroupOrder(readingLevel)
@@ -221,7 +221,7 @@ export function HelpContentPane({
                         that keeps the colour class and drops the weight would
                         render labels perfectly invisible. */}
                     <HelpBodyText
-                      body={t(lang, e.bodyKey)}
+                      body={helpEntryBody(lang, e)}
                       labelClass="font-medium text-foreground"
                       query={query}
                     />

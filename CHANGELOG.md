@@ -48,6 +48,15 @@ longer carries its own changelog comment.
   the app's language. While one is open the app keeps running, so each step checks again after the answer: an
   address typed for one project is never saved into another, and a storage switch copies the project as it is
   when you answer.
+- **A scheduled AI job added in Settings now runs without a reload (§750).** The job runner and the Settings
+  list each kept their own copy of the jobs, so a new job never ran until the app was reloaded, and Settings
+  kept showing "Never run" after a run. Both now share one list. Two changes made at the same moment, such as
+  an edit in Settings while a job records its run, no longer overwrite each other.
+- **No empty unsaved draft after a failed project switch or a refused save (§754).** When the app could not
+  tell which version was stored (a project switch that failed partway, or a save refused after the storage
+  changed), an empty workspace was still kept as an unsaved draft and offered back on the next start. It is
+  now skipped, and any earlier draft is left as it was. The cost: a project emptied at such a moment gets its
+  records back on the next start.
 - **Analyze with AI and scheduled AI jobs fail less often (§715).** A reply with no new suggestions, or with its
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,
@@ -140,8 +149,8 @@ longer carries its own changelog comment.
   plan end, milestone chances, cost at finish and every saved scenario, and try an unsaved what-if; it says the
   figures are simulated and calls P80 "safe to commit", never a promise. It can also create or edit a saved
   scenario: one change applies at once, several go to the review card first, edits can be undone, and every change
-  is in the activity log. It cannot delete a scenario. The Forecast view gains "Ask Claude about this forecast" with
-  four suggested questions. It stays hidden while the Forecast view is held back.
+  is in the activity log. The Forecast view gains "Ask Claude about this forecast" with four suggested
+  questions. It stays hidden while the Forecast view is held back.
 - **The Forecast view says what it would take, held back with the forecast (§502, part 4).** A target confidence
   of 50%, 80% or 95% sets which chance counts as safe, and each milestone and the plan end gain a "What it would
   take" answer: the fewest people to add, at the team's average hours and rate, or the fewest tasks to drop, to
@@ -155,7 +164,14 @@ longer carries its own changelog comment.
   P50–P95 band, a dashed P80 line and each milestone's chance; Trends charts the P80 date over time; "Ask Claude
   to draft a proposal" asks the assistant to find and save one; and exports and documents can carry a
   "simulated" decision block with the target, the P80 date, the cost, the milestones below target and the
-  proposal. It stays hidden while the Forecast view is held back.
+  proposal. In the export settings it starts unticked, because it is worked out at the click and can take a few
+  seconds on a plan with many milestones below target. While the holiday calendar is still loading, that block says
+  so in one line instead of leaving it out.
+  The AI assistant can read the target confidence, what it would take for the plan end and the five milestones
+  furthest below target (it is told which others are below target too), the proposal and how the P80 date has moved; it can also delete a saved scenario, which always goes to the
+  review card first and can be undone, and set the proposal or the target confidence, which are logged but, as when
+  you change them yourself, cannot be undone. The simulation's Help entry explains all of this.
+  It stays hidden while the Forecast view is held back.
 
 ## [1.19.0] - 2026-10-15 "Nesbø"
 

@@ -34,10 +34,14 @@ describe("ForecastDraftAsk", () => {
     expect(body).toContain('the milestone "Go-live" (id 7, due ');
     expect(body).toContain("31%");
     expect(body).toContain("80%");
-    // Spec §3.6: combine levers, name the tasks to drop, save through the approve step.
+    // Spec §3.6: combine levers, name the tasks to drop, save as a scenario. No "approve step": a lone
+    // create_forecast_scenario applies at once (shouldStage), so the prompt must not promise one.
     expect(body).toContain("Combine levers if one alone is not enough");
     expect(body).toContain("Name the tasks to drop, in the scenario name and in the chat");
-    expect(body).toContain("create_forecast_scenario under the usual approve step");
+    expect(body).toContain("Save the result with create_forecast_scenario.");
+    expect(body).not.toContain("approve");
+    // Saving is not proposing: Claude sets the proposal only when the user asks (help, forecastWrites).
+    expect(body).toContain("Do not set it as the proposal; I will choose.");
   });
 
   test("the name carries the visible label and differs from the other Ask-Claude buttons", () => {
