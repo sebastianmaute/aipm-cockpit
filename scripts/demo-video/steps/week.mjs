@@ -254,7 +254,6 @@ const REPLAN_CSV = path.join(path.dirname(fileURLToPath(import.meta.url)), '..',
 const BUCKET = 'Identity Platform – T&M';
 const CONNECTOR = 'Add a CRM provisioning connector';
 const DEMO_TASK = 'MVP demo to the customer';
-const REDEMO = 'MVP re-demo';
 
 /** Deletes a task through its editor; the app asks in its own dialog, answered with its Delete. */
 async function deleteTask(ctx, name) {
@@ -397,6 +396,7 @@ export const TUESDAY = [
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.getByRole('textbox', { name: /^Name/ }), 'MVP re-demo', 'milestone name');
       await d.locator('input[type=date]').first().fill('2026-10-02');
+      await type(ctx, d.getByRole('textbox', { name: 'Description', exact: true }), 'The MVP demo to the customer, re-run on 2 October once provisioning to the CRM works end to end.', 'milestone description');
       await click(ctx, d.getByLabel(`#25 ${DEMO_TASK}`), 'link the demo task', 300);
       await click(ctx, d.getByRole('button', { name: 'Save milestone', exact: true }), 'Save milestone');
       // The demo task leaves the MVP target, so the moved target has no task ending after it.
@@ -409,17 +409,6 @@ export const TUESDAY = [
       await t.locator('input[type=date]').nth(1).fill('2026-10-02');
       await saveTask(ctx);
     },
-  }),
-  step('redemo-ask-claude', {
-    ai: true,
-    trigger: async (ctx) => { await nav(ctx, 'Milestones'); return main(ctx).getByRole('button', { name: `Ask Claude – ${REDEMO}`, exact: true }).first(); },
-    run: async (ctx) => {
-      await caption(ctx, 'Ask Claude to describe the re-demo.');
-      await askClaude(ctx, 'Milestones', REDEMO, 'Set the description to: The MVP demo to the customer, re-run on 2 October once provisioning to the CRM works end to end.');
-    },
-    check: askClaudeCheck,
-    after: askClaudeApply,
-    replay: noop,
   }),
   step('bucket-planned-hours', {
     run: async (ctx) => {
@@ -649,23 +638,13 @@ async function approveChange(ctx, title) {
 export const THURSDAY = [
   step('gdpr-owner', {
     run: async (ctx) => {
-      await caption(ctx, 'The GDPR issue gets an owner, and work on it starts.');
+      await caption(ctx, 'The GDPR issue gets an owner, a mitigation, and work on it starts.');
       const d = await openRow(ctx, 'RAID', DEMO_GDPR_ISSUE);
       await pickOwner(ctx, d, 'Noah Bennett');
+      await type(ctx, d.getByRole('textbox', { name: 'Mitigation / resolution plan', exact: true }), 'Route erasure through the provisioning connector and verify it end to end before the re-demo.', 'mitigation');
       await click(ctx, d.getByRole('radio', { name: 'In Progress', exact: true }), 'In Progress', 300);
       await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), 'Save RAID');
     },
-  }),
-  step('mitigation-ask-claude', {
-    ai: true,
-    trigger: async (ctx) => { await nav(ctx, 'RAID'); return main(ctx).getByRole('button', { name: `Ask Claude – ${DEMO_GDPR_ISSUE}`, exact: true }).first(); },
-    run: async (ctx) => {
-      await caption(ctx, 'Ask Claude for the mitigation.');
-      await askClaude(ctx, 'RAID', DEMO_GDPR_ISSUE, 'Set the mitigation to: Route erasure through the provisioning connector and verify it end to end before the re-demo.');
-    },
-    check: askClaudeCheck,
-    after: askClaudeApply,
-    replay: noop,
   }),
   step('licence-risk', {
     run: async (ctx) => {
