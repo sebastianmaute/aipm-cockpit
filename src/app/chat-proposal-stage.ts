@@ -21,6 +21,7 @@ import {
   forecastScenarioRowTitle,
   forecastTargetRowTitle,
   pendingScenarioNames,
+  projectRowTitle,
   type DescribedRow,
 } from "./chat-proposal-describe";
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
@@ -254,7 +255,7 @@ const TITLED_DOCUMENT_TOOLS: ReadonlySet<string> = new Set(["update_document", "
  * ★ The forecast scenario tools (§502) are the one exception, create included:
  * they have no descriptor and no diff, so their whole card line comes from
  * `forecastScenarioRowTitle`; the target-confidence write (§502 part 4) names no scenario and takes
- * `forecastTargetRowTitle`.
+ * `forecastTargetRowTitle`. `update_project` (§715) has neither, and takes `projectRowTitle`.
  */
 export function liveRowTitle(
   call: ProposedCall,
@@ -263,6 +264,8 @@ export function liveRowTitle(
 ): string | null {
   const forecastLine = forecastTargetRowTitle(call) ?? forecastScenarioRowTitle(call, ws, pendingScenarios);
   if (forecastLine !== null) return forecastLine;
+  const projectLine = projectRowTitle(call, ws.project);
+  if (projectLine !== null) return projectLine;
   const entity = TOOL_ENTITY[call.name];
   if (entity === undefined && TITLED_DOCUMENT_TOOLS.has(call.name)) {
     const docId = Number((call.input as { id?: unknown }).id);

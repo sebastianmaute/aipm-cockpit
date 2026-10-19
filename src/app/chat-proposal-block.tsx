@@ -42,11 +42,10 @@ import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import type { ProposedCall } from "./chat-proposal";
 import type { ProposalFailureKind } from "./chat-proposal-apply";
-import { isEmptyPlan, type EditPlan } from "./inline-ai-edit/plan";
-import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
+import { isEmptyPlan, type DiffEntity, type EditPlan } from "./inline-ai-edit/plan";
 import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { CreateFieldsList } from "./create-fields-list";
-import { TOOL_ENTITY } from "./chat-proposal-describe";
+import { previewEntityOf } from "./chat-proposal-describe";
 
 /** Rows shown before the disclosure collapses the rest. */
 export const PROPOSAL_COLLAPSE_AFTER = 5;
@@ -156,6 +155,8 @@ function PlanDetail({
    *  and `set_task_dependencies`), and `fieldLabel` then falls back to the raw
    *  property name rather than guessing — except for the fields
    *  `ENTITYLESS_FIELD_LABEL_KEY` covers, which it translates instead.
+   *  `"project"` for `update_project` (§715, `previewEntityOf`), labelled with
+   *  the project form's own keys through `PROJECT_FIELD_LABEL_KEY`.
    *
    *  ★★★ DO NOT "ALIGN" THIS TO THE PER-DIFF `d.entity` / `l.entity` THE OTHER
    *   TWO SURFACES READ. `inline-ai-edit-popover.tsx` passes `d.entity` and
@@ -184,7 +185,7 @@ function PlanDetail({
    *   has no descriptor gets an EMPTY plan, so `plan.updates` is never
    *   non-empty while this prop is `undefined`. Switching only that line would
    *   buy nothing and leave the file reading as a half-finished edit. */
-  entity: InlineEntity | undefined;
+  entity: DiffEntity | undefined;
 }) {
   if (isEmptyPlan(plan) && plan.rejected.length === 0) return null;
   return (
@@ -257,7 +258,7 @@ function ProposalRow({
           <span className="block font-mono text-[11px] text-muted-foreground">{row.call.name}</span>
         </span>
       </label>
-      <PlanDetail lang={lang} plan={row.plan} entity={TOOL_ENTITY[row.call.name]} />
+      <PlanDetail lang={lang} plan={row.plan} entity={previewEntityOf(row.call.name)} />
       {row.cascaded && (
         <p className="mt-1 text-xs text-muted-foreground">{t(lang, "chatProposalCascaded")}</p>
       )}

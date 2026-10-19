@@ -391,6 +391,28 @@ describe("ChatProposalBlock", () => {
     expect(screen.getByText("Not applied: 99")).toBeInTheDocument();
   });
 
+  // §715 — `update_project` has no descriptor, so `TOOL_ENTITY` misses it; its lines are labelled with the
+  // project form's own keys, and a refused field shows as not applied beside the fields that land.
+  it("labels an update_project row with the project form's labels and shows a refused field", () => {
+    renderCard([
+      row({
+        index: 0,
+        title: 'Project "Apollo"',
+        call: { name: "update_project", input: { sponsor: "Sam", jiraUrl: "javascript:x" } },
+        plan: {
+          ...emptyPlan(),
+          updates: [{ entity: "project", field: "sponsor", before: "", after: "Sam" }],
+          rejected: [
+            { toolName: "update_project", reason: "bad-input", detail: "jiraUrl: Only http(s) addresses are accepted.", field: "jiraUrl" },
+          ],
+        },
+      }),
+    ]);
+    expect(screen.getByText("Sponsor")).toBeInTheDocument();
+    expect(screen.queryByText("sponsor")).toBeNull();
+    expect(screen.getByText("Not applied: jiraUrl: Only http(s) addresses are accepted.")).toBeInTheDocument();
+  });
+
   // ★★ `after` can legitimately be "" — a cleared FK, or a list emptied to
   // nothing. That is the most destructive change this card can show, so the
   // `|| "—"` fallback is load-bearing: a bare `{l.after}` renders NOTHING for

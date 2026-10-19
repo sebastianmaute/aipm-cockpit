@@ -553,6 +553,8 @@ describe("TOOL_ENTITY", () => {
       // proposal) and `forecastTargetRowTitle` (target confidence).
       "delete_forecast_scenario", "set_forecast_proposal", "set_forecast_target_confidence",
       // §715 — the project record has no create/update/delete triple, so it has no descriptor in the map.
+      // Like `set_task_dependencies` it has a describer of its own (`describeProjectCall`, pinned in
+      // `chat-proposal-describe.project.test.ts`), so its plan is NOT empty.
       "update_project",
     ];
     // ★★★ THE DIRECTION IS THE WHOLE POINT. Iterating that literal and asserting

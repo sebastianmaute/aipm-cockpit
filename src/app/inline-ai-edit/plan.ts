@@ -47,7 +47,11 @@ export type ToolUseLike = { type: string; id?: string; name?: string; input?: un
  *   verbatim, so the plan guard, the inline write and chat Apply all judge the
  *   SAME value. `raw` stays a string so every card and sweep comparing it
  *   against a stored projection is unchanged. */
-export interface FieldDiff { entity: InlineEntity; field: string; before: string; after: string; raw?: string; rawInput?: unknown }
+/** `FieldDiff.entity`: a descriptor entity, or `"project"` for an `update_project` row (§715). The project
+ *  record has no descriptor; its rows are built by `describeProjectCall` and labelled through
+ *  `PROJECT_FIELD_LABEL_KEY`. */
+export type DiffEntity = InlineEntity | "project";
+export interface FieldDiff { entity: DiffEntity; field: string; before: string; after: string; raw?: string; rawInput?: unknown }
 /** One field a create will write, rendered the way an update row renders its
  *  `after` (§440). Display only — a create sends its input, never these. */
 export interface CreateField { field: string; value: string }
