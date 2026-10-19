@@ -80,24 +80,52 @@ Excluded, each with its reason written beside the list:
 
 - `get_project`: read-only, returns the offered fields plus the record's write token.
 - `update_project`: `{ expectedToken, ...offered fields }`, patch semantics, `required: ["expectedToken"]`.
-  The dispatcher merges the patch onto the stored meta and runs `sanitizeProjectMeta`; a refused field is
-  kept at its stored value and reported.
+  The dispatcher merges the patch onto the stored meta field by field, through a NEW per-field judge
+  (`judgeProjectField`, beside the field list) that says accepted, accepted-as-normalised or refused per
+  field. ★ Neither existing function can: `sanitizeProjectMeta` rejects the WHOLE record for one bad NACE
+  or deployment value and silently truncates the rest (`sanitize-records.ts`), and the URL and
+  end-not-before-start rules live in `validateProjectMeta` (`project-validation.ts`). The judge reuses
+  their rules, not their record-level shape. Builder-check finding, 2026-10-19.
+  - My call: a text over its cap is **accepted as truncated**, and the card shows the truncated value
+    (parity: the card shows what is stored). An `endDate` before the stored `startDate` refuses the
+    `endDate`; when both are passed, the pair is judged together and the `endDate` is refused.
 - **Write token.** `ai-entity-token.ts` derives tokens from the byte-stable CSV projection of a row. The
-  project is one meta record, not a CSV row; the token is derived the same way from the project's own
-  serialized projection (the one the storage codecs write), never stamped.
-- **Staging.** A lone `update_project` is an ordinary entity write: it applies at once like a lone task
-  update, and several writes in one reply stage as a "Proposed changes" card (`shouldStage`). A rename
-  (`name`) is shown on the card like any field.
-- **Preview.** `chat-proposal-describe.ts` gets a project descriptor: one row per changed field, old → new,
-  refused fields marked. `tool-input-coverage.test.ts` covers the new tool's inputs.
-- **Activity log and undo.** Logged like the other AI entity writes. Undo captures the meta before the
-  write (one field-patch step); see `docs/AGENTS/undo.md` for the capture rules.
-- **Scope epoch.** The write is dropped if the project changed between proposal and apply, as every chat
-  write is (`dropStaleScopeWrite`).
+  project's projection is `PROJECT_CSV_COLUMNS` with `projectFieldToString`; the token is derived from it,
+  never stamped.
+- **Where the write lands — the Turso multi-project mode (builder-check finding, verified).** The tenant
+  workspace save does NOT write the project: in that mode the record lives in the projects table, written
+  only by `upsertProjectStatement` through `handleUpdateCurrentProjectByMode` (`use-turso-projects.ts`), and
+  load overwrites `ws.project` from that row (`turso-backend.ts`, `loadTenant`). A dispatcher that only
+  calls `setProject` would lose the edit on reload and never rename the project in the picker. So
+  `update_project` writes through `handleUpdateCurrentProjectByMode` — the same path the project form
+  uses — which in that mode is an async remote write that can fail. **Owner question A** below decides
+  how that is shown.
+- **Preview.** Its own describer in `chat-proposal-describe.ts`, as `update_forecast_scenario` has, not an
+  `INLINE_DESCRIPTORS` entry (an entity descriptor needs create/delete tools and an array, which a singleton
+  project does not have, and it would pull in inline Ask Claude, a non-goal). A new coverage test pins that
+  every `update_project` input is described or excluded with a reason; `tool-input-coverage.test.ts` only
+  scans the inline descriptors, so it does not cover this.
+- **Activity log and undo.** Neither has a project concept today (`UndoEntityKey` has no project;
+  `ActivityKind` has no project kind), and human edits through the project form are neither undoable nor
+  logged. **Owner question B** below.
+- **Stale writes.** A project switch or reload between proposal and apply drops the write
+  (`dropStaleScopeWrite`); an edit to the project itself in between is caught by the write token, checked
+  again at apply as the staged path already does for every entity. Nothing new.
+
+## Owner questions
+
+- **A. Applying in Turso multi-project mode.** The write is remote and can fail there. (1) Always stage
+  `update_project` as a card with Apply, even alone, and report a failed write on the card; or (2) apply a
+  lone update at once like a task, with a toast if the remote write fails. Recommended: (1) — a project
+  edit is rare and changes the record every view reads, so one review step costs little.
+- **B. Undo and the activity log.** (1) AI project edits are logged and undoable (and human form edits are
+  logged too, so the log is not AI-only), or (2) logged only, no undo, matching today's form edits.
+  Recommended: (1) logged for both; undo for the AI edit only, restoring through the same write path.
 
 ## Constraints
 
-- No new `Workspace` field and no new write path: the project meta already rides all six storage paths.
+- No new `Workspace` field. The project meta already rides the storage paths; in Turso multi-project mode
+  it rides the projects table, written by the project-update path above, not the workspace save.
 - i18n EN + DE for every new string; card labels reuse the form's field labels.
 - Size ratchet: `chat-tools.ts` and `chat-tool-defs.ts` are large; the project tools go in their own
   module if either would cross its limit.
@@ -120,8 +148,11 @@ Excluded, each with its reason written beside the list:
    fails until classified).
 3. `update_project` with a stale token is refused; with the current token it changes only the passed
    fields; an unsafe URL is refused and the stored value kept.
-4. The preview card's rows equal what the write stores (parity), including a refused field.
-5. Undo after an AI project update restores the previous meta.
+4. The preview card's rows equal what the write stores (parity), including a refused field and a
+   truncated one.
+5. In Turso multi-project mode, an applied `update_project` reaches the projects-table row (a reload shows
+   it, the picker shows a rename).
+6. Per owner answer B: undo after an AI project update restores the previous meta, through the same path.
 
 ## Re-take after this ships
 
