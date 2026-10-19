@@ -186,7 +186,9 @@ Friday 4; Draft message is a template, not a call). Rough length 20–25 minutes
   FIXED outcome for it, written once in the recorder's definitions beside that step — the merged
   duplicates, the impact and description texts, the new member's allocation, the RACI cells, the
   mitigation text, the chat's task, the imported hours, the acted-on recommendation and the
-  restructured pilot tasks. AI output varies between takes; the replayed state does not. The page
+  restructured pilot tasks. AI output varies between takes; the replayed state does not. One exception
+  (2026-10-19): Tuesday's chat links of the connector change and the notes on its tasks are not
+  replayed, since no day fact and no next-actions signal reads them; chapters 5–7 lack them. The page
   clock follows the replay day by day, so activity, versions and History are dated as in the big
   take. Each chapter stays its own command and its own retake.
 - **"Since Friday" is the Dashboard delta strip, not the digest.** The strip compares against a

@@ -40,8 +40,8 @@ does not design them.
   The big video shows once how to set up a new project by hand through the wizard, up to its last
   step, then switches to the demo project instead of creating it (owner).
 - **Every video retakes with one command**, independent of the others.
-- **Every clip has the same shape:** opening text → steps shown live → a short closing beat
-  (pattern from the owner's Gantt clip).
+- **Every clip has the same shape:** its title (3 s) → opening text when it says more → steps shown
+  live → a short closing beat (pattern from the owner's Gantt clip; title first since 2026-10-19).
 - AI clips make real Claude calls; the owner accepts the token cost, per take and per retake.
 
 ## Non-goals

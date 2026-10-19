@@ -54,9 +54,10 @@ async function draftMessage(ctx, who) {
   if (ctx.page.url() !== before) throw new Error('Draft message navigated the page away');
 }
 
-/** The Apply button of the chat's latest "Proposed changes" card (several writes in one reply are staged). */
+/** The Apply button of the chat's latest "Proposed changes" card (several writes in one model response are
+ *  staged). It reads "Apply (N selected)". */
 export const chatProposalApply = (ctx) =>
-  main(ctx).getByRole('region', { name: 'Proposed changes' }).last().getByRole('button', { name: 'Apply', exact: true });
+  main(ctx).getByRole('region', { name: 'Proposed changes' }).last().getByRole('button', { name: /^Apply \(/ });
 
 /** The AI Assistant: a starter chip or a typed prompt, then the reply, waited for by the send control. */
 export async function chat(ctx, { chip, prompt }) {
@@ -241,6 +242,17 @@ export const MONDAY = [
   }),
 ];
 
+/** Whether the connector change already carries linked tasks or RAID items, read from the database. */
+async function connectorLinked(ctx) {
+  const projectId = await ctx.page.evaluate(() => localStorage.getItem('aipm-cockpit:turso-current-project'));
+  if (!projectId) return false;
+  const rows = await L.query(
+    'SELECT "linkedTaskIds", "linkedRaidIds" FROM "changes" WHERE project_id = ? AND "title" = ?',
+    [{ type: 'text', value: projectId }, { type: 'text', value: CONNECTOR }],
+  );
+  return (rows[0] ?? []).some((cell) => (cell?.value ?? '') !== '');
+}
+
 /** History → Save version now, named. */
 export async function saveVersion(ctx, name) {
   await nav(ctx, 'History');
@@ -355,22 +367,29 @@ export const TUESDAY = [
   // The assistant across items (owner 2026-10-19): the change is linked to what it touches, and those tasks
   // get a note — several writes, so the chat stages them as one "Proposed changes" card to review and apply.
   // Links and notes feed no day fact, so the chapters' replay leaves them out.
+  // Staging is per model response: writes spread over several responses each apply at once and show no card.
+  // The check therefore also accepts a change already linked, and `run` never sends the request again once
+  // it is, so a retry cannot add the notes twice.
   step('chat-link-connector', {
     ai: true,
     trigger: async (ctx) => { await nav(ctx, 'AI Assistant'); return main(ctx).locator('textarea').last(); },
     run: async (ctx) => {
+      if (await connectorLinked(ctx)) return;
       await caption(ctx, 'The assistant works across items: it links the change to the tasks and the issue it touches.');
       await chat(ctx, {
-        prompt: `The change request "${CONNECTOR}" would replace the failing custom CRM sync. Link it to the open CRM provisioning tasks and to the GDPR erasure issue, and add a sentence to each linked task's description saying this change would replace the custom CRM sync. Do not change any dates, statuses or owners.`,
+        prompt: `The change request "${CONNECTOR}" would replace the failing custom CRM sync. In one response, as one set of changes: link it to the open CRM provisioning tasks and to the GDPR erasure issue, and on each linked task keep its description as it is and add one sentence at the end saying this change would replace the custom CRM sync. Do not change any dates, statuses, owners or blockers.`,
       });
     },
-    check: async (ctx) => ((await chatProposalApply(ctx).isEnabled().catch(() => false)) ? null : 'no proposal'),
+    check: async (ctx) => ((await chatProposalApply(ctx).isEnabled().catch(() => false)) || (await connectorLinked(ctx)) ? null : 'no proposal'),
     after: async (ctx) => {
+      const apply = chatProposalApply(ctx);
+      if (!(await apply.isVisible().catch(() => false))) return;
       await caption(ctx, 'Review what it will change, then Apply: several items in one step.');
       await moveTo(ctx, main(ctx).getByRole('region', { name: 'Proposed changes' }).last());
       await pace(ctx, 2500);
-      await click(ctx, chatProposalApply(ctx), 'Apply proposal', 2000);
+      await click(ctx, apply, 'Apply proposal', 2000);
     },
+    // Links and notes feed no day fact and no next-actions signal, so the chapters' replay leaves them out.
     replay: noop,
   }),
   step('draft-maya', {
