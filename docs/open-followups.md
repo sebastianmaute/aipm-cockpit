@@ -992,6 +992,10 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--open) | window.prompt throws in the desktop app, so six flows fail there | — | — | open |
 | [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--open) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | open |
 | [§754](#754-an-empty-workspace-can-still-be-kept-as-an-unsaved-draft-when-the-stored-version-is-unknown--open) | An empty workspace can still be kept as an unsaved draft when the stored version is unknown | — | — | open |
+| [§755](#755-suggest-racis-list-of-proposed-assignments-has-no-scrollbar--open) | Suggest RACI's list of proposed assignments has no scrollbar | — | — | open |
+| [§756](#756-the-influence--interest-map-gets-squashed-on-smaller-screens-because-its-outer-padding-does-not-shrink--open) | The influence / interest map gets squashed on smaller screens because its outer padding does not shrink | — | — | open |
+| [§757](#757-a-clicked-buttons-green-focus-outline-is-cut-off-draft-with-ai-and-others--open) | A clicked button's green focus outline is cut off (Draft with AI and others) | — | — | open |
+| [§758](#758-a-new-linked-tasks-assignee-is-free-text-not-picked-from-the-directory--open) | A new linked task's assignee is free text, not picked from the directory | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45719,3 +45723,51 @@ Proposed: treat a null base plus `isNothingToJournal(live)` as nothing to journa
 Size S.
 
 **Source:** found 2026-10-18 in the review of the §715 empty-draft fix (owner: file it for later).
+
+## 755. Suggest RACI's list of proposed assignments has no scrollbar — OPEN
+
+**Status:** OPEN 2026-10-19. Stakeholders → RACI Matrix → Suggest RACI: the dialog listing Claude's proposed assignments shows no scrollbar, so proposals below the fold cannot be reached (Thursday's `suggest-raci` step). `raci-suggest-modal.tsx` caps the dialog at `max-h-[90vh]` and gives its body `min-h-0 flex-1 overflow-y-auto`, so that markup alone does not explain it; the cause is not yet found. `grep -n "overflow-y-auto" src/app/raci-suggest-modal.tsx` → the body that should scroll.
+
+**Work item:** #793
+
+Proposed: the proposal list scrolls inside the dialog with the header and Apply/Cancel kept visible, and a test that the list container is the scroll container.
+
+Size S.
+
+**Source:** found 2026-10-19 by the owner in the demo recording (owner: file it).
+
+## 756. The influence / interest map gets squashed on smaller screens because its outer padding does not shrink — OPEN
+
+**Status:** OPEN 2026-10-19. Stakeholders → Influence / Interest: at smaller window sizes the four quadrants get squashed (Thursday's `map-dpo` step). `stakeholder-map-panel.tsx` renders the pane with `CENTERED_HALF_PANE_CLASS` (`view-styles.ts`): half the view's width at every size, with a fixed `p-6`, so the padding, the rotated axis label and the gaps take a growing share as the window narrows. `grep -n "CENTERED_HALF_PANE_CLASS" src/app/stakeholder-map-panel.tsx` → the one use.
+
+**Work item:** #794
+
+Proposed: below a breakpoint, the full width and a smaller padding, eye-checked at 1280×720 and at a narrow window.
+
+Size S.
+
+**Source:** found 2026-10-19 by the owner in the demo recording (owner: file it).
+
+## 757. A clicked button's green focus outline is cut off (Draft with AI and others) — OPEN
+
+**Status:** OPEN 2026-10-19. The green focus outline of a clicked button is cut off on some sides: Steering committee → Status report → "Draft with AI" (the shared `AiTriggerButton`, rendered in `meeting-report-panel.tsx`), and other buttons. Likely cause, not yet verified: the button sits flush against a container that clips overflow (a scrolling modal body, an `overflow-hidden` pane), and the ring is drawn outside the button's box. `grep -n "AiTriggerButton" src/app/meeting-report-panel.tsx` → the reported site.
+
+**Work item:** #795
+
+Proposed: find the clipping ancestor at each reported site; give the scroll container room for the ring, or draw the ring inside (`ring-inset`) for buttons at a container edge. List the affected buttons first.
+
+Size S–M.
+
+**Source:** found 2026-10-19 by the owner in the demo recording (owner: file it).
+
+## 758. A new linked task's assignee is free text, not picked from the directory — OPEN
+
+**Status:** OPEN 2026-10-19. Task editor → "+ New linked task": the Assignee field is a plain text input, so the new task gets a free-text name with no resource id or email, while every other task assignee is picked from the directory (Friday's `split-pilot-task` step). `grep -n 'type="text"' src/app/task-linked-task-modal.tsx` → the assignee input; `onCreate` passes `assignee` as a trimmed string only.
+
+**Work item:** #796
+
+Proposed: the task editor's `ResourcePicker`, carrying its `resourceId` and email into the created task, with a test that a picked person creates a linked task.
+
+Size S.
+
+**Source:** found 2026-10-19 by the owner in the demo recording (owner: file it).
