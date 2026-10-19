@@ -76,6 +76,10 @@ export function makeDispatcherArgs(
      *  inert either way: nothing here pushes onto a real stack. */
     undo: { captureComposite: vi.fn() },
     openWbsPlan: vi.fn(() => ({ opened: true, tasksInScope: 1 })),
+    // §715 — REQUIRED on `ChatDispatcherArgs`. No writer: a project update refuses unless the test supplies one.
+    projectWriterRef: { current: null },
+    getScopeEpoch: () => 0,
+    showToast: vi.fn(),
     ...over,
   };
 }

@@ -338,9 +338,10 @@ describe("every pass-through create tool strips its entity's TOKEN_EXCLUDED fiel
   it("probes every tokened entity that has a pass-through create, and every field it excludes", () => {
     const probed = CASES.map((c) => c.entity).sort();
     // ★ `task` and `forecastScenario` have token rows but NO pass-through create — see
-    //  `NOT_PASS_THROUGH_CREATES` below for each one's reason.
+    //  `NOT_PASS_THROUGH_CREATES` below for each one's reason. `project` (§715) has no create tool at
+    //  all: there is one record per project, and only `update_project` writes it.
     const passThrough = (Object.keys(TOKEN_EXCLUDED) as TokenEntity[])
-      .filter((k) => k !== "task" && k !== "forecastScenario")
+      .filter((k) => k !== "task" && k !== "forecastScenario" && k !== "project")
       .sort();
     expect(probed).toEqual(passThrough);
 
@@ -470,12 +471,13 @@ describe("the update and create strip helpers agree on exactly one key set", () 
   /** ★★ The `it.each` above is driven off `Object.keys(TOKEN_EXCLUDED)`, so it
    *  cannot under-run — but it also cannot notice if that table were emptied.
    *  `0 mismatch` is worthless without `N match`. */
-  it("runs against every TokenEntity, and every one but forecastScenario excludes something", () => {
+  it("runs against every TokenEntity, and every one but forecastScenario and project excludes something", () => {
     expect(KINDS.length).toBeGreaterThan(0);
-    // ★ `forecastScenario` is the one kind that legitimately excludes nothing (§502): its token hashes
-    //  `scenarioProjection`, and a saved scenario carries no bookkeeping field (`ai-entity-token.ts`).
-    //  EXACT, so a second empty row is still red.
-    expect(KINDS.filter((k) => TOKEN_EXCLUDED[k].length === 0)).toEqual(["forecastScenario"]);
+    // ★ `forecastScenario` legitimately excludes nothing (§502): its token hashes `scenarioProjection`, and a
+    //  saved scenario carries no bookkeeping field (`ai-entity-token.ts`). Nor does `project` (§715): the
+    //  record has no bookkeeping column, and its hand-edited fields stay covered on purpose.
+    //  EXACT, so a third empty row is still red.
+    expect(KINDS.filter((k) => TOKEN_EXCLUDED[k].length === 0)).toEqual(["forecastScenario", "project"]);
   });
 });
 

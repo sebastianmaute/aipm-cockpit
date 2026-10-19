@@ -846,8 +846,9 @@ function ChatPanelInner({
             });
           }
 
-          // ★★★ THE GATE. A turn holding a destructive call, or more than one
-          // entity write, is STAGED: nothing runs, a review card goes into the
+          // ★★★ THE GATE. A turn holding a destructive call, more than one
+          // entity write, or an `update_project` (always staged, even alone:
+          // `ALWAYS_STAGED_TOOLS`), is STAGED: nothing runs, a review card goes into the
           // transcript, and every `tool_use` id is still answered. A turn that
           // does not stage takes the original path below UNCHANGED — that
           // equivalence is pinned by a test, because "one extra branch" is how

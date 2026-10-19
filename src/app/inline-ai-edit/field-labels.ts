@@ -12,6 +12,8 @@
 //  is a line they cannot check.
 import { type Lang, type TranslationKey, t } from "../i18n";
 import { type InlineEntity } from "./entity-descriptor";
+import type { DiffEntity } from "./plan";
+import { PROJECT_FIELD_LABEL_KEY } from "../project-field-labels";
 
 /** `${entity}.${field}` → the i18n key naming that field to a user.
  *
@@ -175,10 +177,14 @@ const ENTITYLESS_FIELD_LABEL_KEY: Readonly<Record<string, TranslationKey>> = {
  *   change to something unnamed. `entity` is optional because the chat card
  *   resolves it from the tool name, and a staged call with no
  *   `INLINE_DESCRIPTORS` entity (every `*_document` tool) has none. */
-export function fieldLabel(lang: Lang, entity: InlineEntity | undefined, field: string): string {
+export function fieldLabel(lang: Lang, entity: DiffEntity | undefined, field: string): string {
   if (entity === undefined) {
     const entityless = ENTITYLESS_FIELD_LABEL_KEY[field];
     return entityless === undefined ? field : t(lang, entityless) || field;
+  }
+  if (entity === "project") {
+    const key = (PROJECT_FIELD_LABEL_KEY as Readonly<Record<string, TranslationKey>>)[field];
+    return key === undefined ? field : t(lang, key) || field;
   }
   return keyedFieldLabel(lang, entity, field);
 }
@@ -210,7 +216,7 @@ function keyedFieldLabel(lang: Lang, entity: InlineEntity, field: string): strin
  *   diff (§420), whose row does not exist yet. */
 export function linkLabel(
   lang: Lang,
-  entity: InlineEntity | undefined,
+  entity: DiffEntity | undefined,
   link: { field: string; subject?: string },
 ): string {
   const label = fieldLabel(lang, entity, link.field);

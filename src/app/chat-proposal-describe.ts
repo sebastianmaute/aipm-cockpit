@@ -27,7 +27,7 @@
 // "unknown-id" and every link title renders as `#<id>` — which is a wrong CARD
 // rather than a throw, and harder to notice.
 import type { Workspace } from "./workspace";
-import { describeEntityCalls, type EditPlan, type ToolUseLike } from "./inline-ai-edit/plan";
+import { describeEntityCalls, type DiffEntity, type EditPlan, type ToolUseLike } from "./inline-ai-edit/plan";
 import {
   INLINE_DESCRIPTORS,
   type EntityDescriptor,
@@ -40,6 +40,15 @@ import type { PlanRow, ProposedCall } from "./chat-proposal";
 import { resolveDependencyWrite } from "./task-dependency-write";
 import type { Task, TaskDependency } from "./types";
 import { proposalIdOf } from "./forecast-target";
+import { describeProjectPlan, stampProjectCall, UPDATE_PROJECT_TOOL } from "./chat-proposal-describe-project";
+
+export {
+  describeProjectCall,
+  projectFieldText,
+  projectRowTitle,
+  type ProjectCallDescription,
+  type ProjectCallRow,
+} from "./chat-proposal-describe-project";
 
 // The `item` shape describeEntityCalls expects, without exporting a new type
 // from plan.ts (which stays untouched — only read here).
@@ -72,6 +81,12 @@ for (const d of Object.values(INLINE_DESCRIPTORS) as EntityDescriptor[]) {
   toolOp[d.deleteTool] = "delete";
 }
 export const TOOL_ENTITY: Readonly<Record<string, InlineEntity>> = toolEntity;
+
+/** The entity a card row's field lines are labelled through: `TOOL_ENTITY`, plus `"project"` for
+ *  `update_project` (§715), which has no descriptor and so is not in that derived map. */
+export function previewEntityOf(toolName: string): DiffEntity | undefined {
+  return toolName === UPDATE_PROJECT_TOOL ? "project" : TOOL_ENTITY[toolName];
+}
 
 export interface DescribedRow {
   readonly call: ProposedCall;
@@ -471,6 +486,12 @@ export function describeProposal(
 
     if (pendingOn !== undefined) {
       rows.push({ call, stamped, plan: emptyPlan(), mintedId, pendingOn });
+      continue;
+    }
+
+    // §715 — the project record has no descriptor and no id; its rows come from the write's own judge.
+    if (call.name === UPDATE_PROJECT_TOOL) {
+      rows.push({ call, stamped: stampProjectCall(call, ws.project), plan: describeProjectPlan(call, ws.project), mintedId });
       continue;
     }
 

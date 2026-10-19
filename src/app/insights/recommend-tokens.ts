@@ -89,12 +89,13 @@ import type { RecommendPlanWorkspace } from "./recommend-plan";
  *  no recommendation can propose them and a row here would be unreachable code.
  *  `update_forecast_scenario` (§502) joined later and carries both reasons too,
  *  as does `delete_forecast_scenario` (§502 part 4), which carries the same token.
+ *  `update_project` (§715) carries both as well: the Pick has no `"project"`.
  *
  *  Consequence, which is the part worth knowing: a call for any of them
  *  carries ONLY the model's own token, so one arriving without it can never be
  *  applied on the REPLAY path. ★ The CHAT path is unaffected —
  *  `TOKEN_ROW_SOURCE` (`chat-proposal-apply.ts`) carries `update_absence`,
- *  `update_calendar_event`, `update_forecast_scenario` and `delete_forecast_scenario` rows, so
+ *  `update_calendar_event`, `update_forecast_scenario`, `delete_forecast_scenario` and `update_project` rows, so
  *  `applyProposal` resolves their tokens normally; the gap is this table's, not
  *  the feature's.
  *  `chat-proposal-describe.test.ts` pins the resource half; the drift test in

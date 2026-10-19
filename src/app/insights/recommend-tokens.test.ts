@@ -227,6 +227,8 @@ describe("UPDATE_TARGET is derived from the guarded set, never hand-listed", () 
     //  `ALLOWED_REC_TOOLS` — a recommendation never proposes a forecast scenario.
     //  `delete_forecast_scenario` (§502 part 4) joined for the same two reasons: it carries the
     //  scenario token, and no recommendation deletes a scenario.
+    //  `update_project` (§715) joined for the same two reasons: the Pick has no `"project"`, and no
+    //  recommendation edits the project record.
     //
     //  ★★★ THE CONSEQUENCE, stated because a silent one is how this rots: a
     //  recommendation call for any of them carries ONLY the model's own
@@ -245,6 +247,7 @@ describe("UPDATE_TARGET is derived from the guarded set, never hand-listed", () 
       "update_absence",
       "update_calendar_event",
       "update_forecast_scenario",
+      "update_project",
       "update_resource",
     ]);
   });

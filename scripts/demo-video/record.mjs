@@ -113,7 +113,9 @@ function trimTake(def, r) {
   }
 }
 
-const browser = await chromium.launch({ headless: true });
+// Headless Chromium hides every scrollbar by default (Playwright adds --hide-scrollbars); the videos show
+// the app as a user sees it, so a scrollable list looks scrollable.
+const browser = await chromium.launch({ headless: true, ignoreDefaultArgs: ['--hide-scrollbars'] });
 const tally = { ok: 0, skipped: 0, failed: 0, warnings: 0 };
 const notes = [];
 try {

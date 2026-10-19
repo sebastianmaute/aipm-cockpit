@@ -34,7 +34,8 @@ export async function connect(ctx, { onCamera }) {
   await click(ctx, d.getByRole('checkbox').first(), 'AI switch');
   await acknowledge(ctx);
   await type(ctx, d.getByPlaceholder('sk-ant-...'), ctx.secrets.key, 'key', { slow: false });
-  await pace(ctx, 4000);
+  await pickModel(ctx, d, onCamera);
+  await pace(ctx, 2000);
   for (let i = 0; i < 4; i++) {
     const fin = d.getByRole('button', { name: 'Finish', exact: true });
     if (await fin.count()) {
@@ -54,6 +55,23 @@ export async function connect(ctx, { onCamera }) {
   const mode = await page.evaluate(() => localStorage.getItem('aipm-cockpit:portfolio-mode'));
   if (mode !== 'turso') throw new Error('the portfolio did not switch to Turso');
   if (onCamera) await caption(ctx, '');
+}
+
+/** The model every take uses. The picker lists Anthropic's live models once the key is in, so the take
+ *  waits for this one to appear, then chooses it (the default stays the registry's first entry). */
+export const DEMO_MODEL = /Sonnet 5\.5/;
+
+async function pickModel(ctx, d, onCamera) {
+  const select = d.getByRole('combobox', { name: /^Model/ });
+  const option = select.locator('option', { hasText: DEMO_MODEL }).first();
+  await option.waitFor({ state: 'attached', timeout: 30000 }).catch(() => {
+    throw new Error('the model list has no Sonnet 5.5 after the key was entered');
+  });
+  if (onCamera) await caption(ctx, 'With the key in, the model list loads: pick Sonnet 5.5.');
+  await moveTo(ctx, select);
+  await select.selectOption(await option.getAttribute('value'));
+  await L.settle(ctx.page);
+  await pace(ctx, 1500);
 }
 
 async function acknowledge(ctx) {

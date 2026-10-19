@@ -131,9 +131,9 @@ cancel → **Explore the demo**.
 |---|---|
 | Open Points **Board**: drag "Integrate CRM provisioning" from To Do to In Progress — work restarts with the blocker known (the data plants it To Do) | — |
 | Delete one of the double-logged follow-ups by hand | **Deduplicate & unify** merges the rest |
-| New change request "Add a CRM provisioning connector", one-line impact typed | **Ask Claude** on the impact field |
+| New change request "Add a CRM provisioning connector", one-line impact typed | **AI Assistant** links the change to the CRM tasks and the GDPR issue and notes it on those tasks, applied from its "Proposed changes" card (owner 2026-10-19: Claude works across items, not on dictated text) |
 | Next actions: the row "Update stakeholder: Maya Patel" (linked to the pending MFA change) → **Draft message** (template email, as Monday) | **AI Assistant**: "Stakeholder update" again, asked to cover the MFA change and the re-plan |
-| Add milestone "MVP re-demo" (Friday 2 October), linked to the demo task; move task 25 "MVP demo to the customer" to 2 October | **Ask Claude** on its description |
+| Add milestone "MVP re-demo" (Friday 2 October), linked to the demo task, its description typed; move task 25 "MVP demo to the customer" to 2 October | — (owner 2026-10-19: was Ask Claude dictating the description) |
 | Budget: open the bucket "Identity Platform – T&M" and read its planned hours per person | **Import forecast…** on that bucket: the team's re-plan spreadsheet, columns mapped by **Ask Claude** |
 
 ### Wednesday — people (chapter 5)
@@ -151,7 +151,7 @@ cancel → **Explore the demo**.
 
 | Manual | Then AI |
 |---|---|
-| RAID: the GDPR erasure issue gets an owner and a status; add the risk "connector licence lead time", severity **Medium** (a Monitor item, so Friday's list stays as stated) | **Ask Claude** on the issue's mitigation |
+| RAID: the GDPR erasure issue gets an owner and a status; add the risk "connector licence lead time", severity **Medium** (a Monitor item, so Friday's list stays as stated); the mitigation typed | — (owner 2026-10-19: was Ask Claude dictating the mitigation) |
 | New stakeholder: Northwind's data protection officer (DPO) | — |
 | RACI: set the DPO's cell on "MVP re-demo" | **Suggest RACI** fills the matrix |
 | Stakeholder map: drag the DPO to high influence / high interest | — |
@@ -186,7 +186,9 @@ Friday 4; Draft message is a template, not a call). Rough length 20–25 minutes
   FIXED outcome for it, written once in the recorder's definitions beside that step — the merged
   duplicates, the impact and description texts, the new member's allocation, the RACI cells, the
   mitigation text, the chat's task, the imported hours, the acted-on recommendation and the
-  restructured pilot tasks. AI output varies between takes; the replayed state does not. The page
+  restructured pilot tasks. AI output varies between takes; the replayed state does not. One exception
+  (2026-10-19): Tuesday's chat links of the connector change and the notes on its tasks are not
+  replayed, since no day fact and no next-actions signal reads them; chapters 5–7 lack them. The page
   clock follows the replay day by day, so activity, versions and History are dated as in the big
   take. Each chapter stays its own command and its own retake.
 - **"Since Friday" is the Dashboard delta strip, not the digest.** The strip compares against a

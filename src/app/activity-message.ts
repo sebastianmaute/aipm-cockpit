@@ -1,6 +1,7 @@
 import { type ActivityKind, activityMessageKey } from "./activity-log";
 import { type Lang, type PluralBaseKey, localeFor, t, tPlural } from "./i18n";
 import { formatExpiryDate } from "./date-format";
+import { PROJECT_META_LABEL_KEY } from "./project-field-labels";
 
 /**
  * The count-bearing activity kinds, and the `args` slot the count sits in.
@@ -95,11 +96,16 @@ export function activityPluralBase(kind: ActivityKind): PluralBaseKey | undefine
  * and on the non-plural path only (a count slot is never formatted before `Number`
  * reads it) and to a COPY (the stored entry never changes). A kind absent here
  * renders its args exactly as before.
+ * ★ `project.updated` stores the changed keys as one ", "-joined string (§715); the panel names them as the
+ *   project form does, and a key outside `ProjectMeta` stays as written.
  * ★ `plan.currencySwitched` stores `[from, to, rate, ECB date]` with the rate a
  *   number and the date ISO; the viewer reads both in their locale (DE "0,852",
  *   "13. Okt. 2026"). A value that does not parse is left as stored.
  */
 const ACTIVITY_ARG_DISPLAY: Partial<Record<ActivityKind, (lang: Lang, args: (string | number)[]) => (string | number)[]>> = {
+  "project.updated": (lang, args) => args.map((a, i) => (
+    i === 0 && typeof a === "string" ? a.split(", ").map((k) => (Object.hasOwn(PROJECT_META_LABEL_KEY, k) ? t(lang, PROJECT_META_LABEL_KEY[k as keyof typeof PROJECT_META_LABEL_KEY]) : k)).join(", ") : a
+  )),
   "plan.currencySwitched": (lang, args) => args.map((a, i) => {
     if (i === 2) {
       const n = typeof a === "number" ? a : typeof a === "string" && a.trim() !== "" ? Number(a) : NaN;

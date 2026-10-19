@@ -6,7 +6,8 @@ import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 import type { Resource, Task } from "./types";
-import { isSafeHttpUrl } from "./document-link";
+import { PROJECT_AI_FIELDS, judgeProjectField, type ProjectAiField } from "./project-ai-fields";
+import { REGULATORY_REQUIREMENTS, IDENTITY_TYPES, DEPLOYMENTS } from "./project-options";
 import {
   sanitizeRaidItem,
   sanitizeModelChangeItem,
@@ -25,20 +26,11 @@ export const SEED_CAP_PER_ENTITY = 8;
 
 const MODULE_ID_SET = new Set<string>(ALL_MODULE_IDS);
 
-/** The metadata fields Claude can reasonably infer from a free-text brief.
- *  Everything here maps onto a ProjectFormDraft patch — the user may complete
- *  the remaining key facts (code, NACE, deployment, …) in the Step-1 form, or
- *  leave them blank: only `name` is required (O-1). */
-export interface ProposalMeta {
-  name: string;
-  customer?: string;
-  projectManager?: string;
-  products?: string;
-  startDate?: string;
-  endDate?: string;
-  description?: string;
-  jiraUrl?: string;
-}
+/** The metadata fields Claude may fill from a free-text brief: every key of
+ *  `PROJECT_AI_FIELDS`, each holding the value `judgeProjectField` accepted or
+ *  normalised. Only `name` is required (O-1); the rest stay blank in the Step-1
+ *  form when the brief does not say. */
+export type ProposalMeta = { name: string } & Partial<Record<ProjectAiField, unknown>>;
 
 /** Raw, unvalidated seed lists straight off the model. Each list is validated
  *  + capped in proposalToSeed; here they are deliberately loose. */
@@ -57,6 +49,27 @@ export interface ProjectProposal {
   seed?: ProposalSeed;
 }
 
+const COUNT_FIELDS: ReadonlySet<string> = new Set(["identityCount", "stakeholderCount"]);
+const DATE_FIELDS: ReadonlySet<string> = new Set(["startDate", "endDate"]);
+
+/** The meta schema, one property per `PROJECT_AI_FIELDS` key, so the offered
+ *  surface and the judge cannot drift apart. */
+function metaProperties(): Record<string, Record<string, unknown>> {
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const key of PROJECT_AI_FIELDS) {
+    if (key === "regulatory") out[key] = { type: "array", items: { type: "string", enum: [...REGULATORY_REQUIREMENTS] } };
+    else if (key === "identityTypes") out[key] = { type: "array", items: { type: "string", enum: [...IDENTITY_TYPES] } };
+    else if (key === "deployment") out[key] = { type: "string", enum: [...DEPLOYMENTS] };
+    else if (COUNT_FIELDS.has(key)) out[key] = { type: "integer", minimum: 0 };
+    else if (DATE_FIELDS.has(key)) out[key] = { type: "string", description: "ISO date YYYY-MM-DD." };
+    else out[key] = { type: "string" };
+  }
+  out.name = { type: "string", description: "Concise project name." };
+  out.products = { type: "string", description: "Products/services involved." };
+  out.naceSection = { type: "string", description: "NACE section letter (A-U)." };
+  return out;
+}
+
 /** Anthropic tool definition. Invoked with tool_choice forcing this single tool
  *  so the model always emits one structured tool_use block (no JSON-from-text). */
 export const PROPOSAL_TOOL = {
@@ -68,16 +81,7 @@ export const PROPOSAL_TOOL = {
     properties: {
       meta: {
         type: "object",
-        properties: {
-          name: { type: "string", description: "Concise project name." },
-          customer: { type: "string" },
-          projectManager: { type: "string" },
-          products: { type: "string", description: "Products/services involved." },
-          startDate: { type: "string", description: "ISO date YYYY-MM-DD." },
-          endDate: { type: "string", description: "ISO date YYYY-MM-DD." },
-          description: { type: "string" },
-          jiraUrl: { type: "string" },
-        },
+        properties: metaProperties(),
         required: ["name"],
       },
       features: {
@@ -340,6 +344,26 @@ function pickOfferedFields(
   return out;
 }
 
+/** Judge every offered meta key; a refused key is dropped, never repaired. A
+ *  proposal has no stored project, so the two dates are judged against each
+ *  other from the same raw meta. */
+function judgeMeta(raw: Record<string, unknown>, name: string): ProposalMeta {
+  // The start is judged alone, then the end against the judged start: an end
+  // before the start is the one refused, never both.
+  const context = { startDate: "", endDate: "" };
+  const meta: ProposalMeta = { name };
+  for (const key of PROJECT_AI_FIELDS) {
+    if (key === "name" || raw[key] === undefined) continue;
+    const verdict = judgeProjectField(key, raw[key], context);
+    if (verdict.kind === "refused") continue;
+    const blank = verdict.value === "" || (Array.isArray(verdict.value) && verdict.value.length === 0);
+    if (blank) continue;
+    meta[key] = verdict.value;
+    if (key === "startDate") context.startDate = String(verdict.value);
+  }
+  return meta;
+}
+
 /** Narrow raw tool_use.input into a ProjectProposal. Requires a non-empty
  *  meta.name; drops unknown feature ids; passes seed lists through untouched
  *  (validation happens in proposalToSeed). Returns null when unusable. */
@@ -350,11 +374,7 @@ export function parseProposal(input: unknown): ProjectProposal | null {
   const name = typeof metaRaw.name === "string" ? metaRaw.name.trim() : "";
   if (!name) return null;
 
-  const meta: ProposalMeta = { name };
-  for (const k of ["customer", "projectManager", "products", "startDate", "endDate", "description", "jiraUrl"] as const) {
-    const v = metaRaw[k];
-    if (typeof v === "string" && v.trim()) meta[k] = v.trim();
-  }
+  const meta = judgeMeta(metaRaw, name);
 
   const features = Array.isArray(input.features)
     ? (input.features.filter((f): f is FeatureModuleId => typeof f === "string" && MODULE_ID_SET.has(f)))
@@ -379,19 +399,16 @@ export function parseProposal(input: unknown): ProjectProposal | null {
  *  model supplied; the form keeps its blank defaults for the rest, all of
  *  which may be submitted blank except `name` (O-1). */
 export function proposalToDraftPatch(p: ProjectProposal): Partial<ProjectFormDraft> {
-  const m = p.meta;
-  const patch: Partial<ProjectFormDraft> = {};
-  if (m.name) patch.name = m.name;
-  if (m.customer) patch.customer = m.customer;
-  if (m.projectManager) patch.projectManager = m.projectManager;
-  if (m.products) patch.products = m.products;
-  if (m.startDate) patch.startDate = m.startDate;
-  if (m.endDate) patch.endDate = m.endDate;
-  if (m.description) patch.description = m.description;
-  // Defense-in-depth: model output is attacker-influenceable — reject a
-  // javascript:/data: URL before it ever reaches the form field.
-  if (m.jiraUrl && isSafeHttpUrl(m.jiraUrl)) patch.jiraUrl = m.jiraUrl;
-  return patch;
+  // Defense-in-depth: model output is attacker-influenceable, so the judge runs
+  // again here — a javascript:/data: URL or an unknown enum never reaches the form.
+  const judged = judgeMeta(p.meta, p.meta.name);
+  const patch: Record<string, unknown> = {};
+  for (const key of PROJECT_AI_FIELDS) {
+    const value = judged[key];
+    if (value === undefined) continue;
+    patch[key] = COUNT_FIELDS.has(key) ? String(value) : value;
+  }
+  return patch as Partial<ProjectFormDraft>;
 }
 
 /** Validate one raw list: cap to SEED_CAP_PER_ENTITY, drop every property the
@@ -525,6 +542,8 @@ export function buildProposalSystemPrompt(): string {
     "You are a senior project manager helping set up a new project tracker.",
     "From the user's description, call the propose_project tool EXACTLY ONCE.",
     "Infer a concise name and any metadata you can; leave fields you cannot infer unset.",
+    "Infer regulatory requirements, identity types and deployment only from what the description says",
+    "(e.g. GDPR erasure → GDPR; an online retailer's customers → B2C); never guess them.",
     "Choose the feature modules that fit the project from this set:",
     ALL_MODULE_IDS.join(", ") + ".",
     "Optionally propose a small amount of realistic starter content (a few risks/issues,",

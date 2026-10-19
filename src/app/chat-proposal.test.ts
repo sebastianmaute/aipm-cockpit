@@ -48,7 +48,7 @@ describe("shouldStage", () => {
   });
 });
 
-// ★★ The three lists below are LITERALS, deliberately NOT derived from the
+// ★★ The four lists below are LITERALS, deliberately NOT derived from the
 //    module under test — deriving them would make every assertion here
 //    tautological. They are the second, independent copy of the classification,
 //    so a typo in either copy shows up as a red row naming the tool.
@@ -82,8 +82,13 @@ const NON_DESTRUCTIVE_WRITE_NAMES = [
   "set_forecast_proposal", "set_forecast_target_confidence",
 ];
 
+// §715 — writes that are not deletions and still stage ALONE (owner decision A): the project record
+// (`ProjectMeta`) is one per project, so a Claude edit of it is always shown as a card with Apply.
+const ALWAYS_STAGED_WRITE_NAMES = ["update_project"];
+
 const NON_WRITE_NAMES = [
   "get_forecast",
+  "get_project",
   "optimize_wbs",
   "list_tasks", "get_task", "set_filters", "set_language", "get_app_state",
   "get_dashboard_snapshot", "list_raid", "list_changes", "list_milestones",
@@ -106,6 +111,14 @@ describe("the classification covers the live tool surface", () => {
     expect(shouldStage([call(name), call(name)])).toBe(true);
   });
 
+  test.each(ALWAYS_STAGED_WRITE_NAMES)("%s counts as a write and stages alone", (name) => {
+    expect(isDestructiveTool(name)).toBe(false);
+    expect(isEntityWriteTool(name)).toBe(true);
+    expect(shouldStage([call(name)])).toBe(true);
+    // Beside a read it still stages: the rule is about the call, not the count.
+    expect(shouldStage([call("list_tasks"), call(name)])).toBe(true);
+  });
+
   test.each(NON_WRITE_NAMES)("%s is not an entity write", (name) => {
     expect(isEntityWriteTool(name)).toBe(false);
     expect(shouldStage([call(name), call(name)])).toBe(false);
@@ -114,11 +127,13 @@ describe("the classification covers the live tool surface", () => {
   // ★★★ THE GUARD THAT MATTERS. A tool added to `TOOL_DEFS` later and left out
   //     of `chat-proposal.ts` is invisible to every row above — its writes would
   //     silently never count toward the gate. This partitions the LIVE array
-  //     against the three literals, so a new tool fails here until somebody
+  //     against the four literals, so a new tool fails here until somebody
   //     classifies it.
   test("every live tool is classified exactly once", () => {
     const live = (TOOL_DEFS as ReadonlyArray<{ name: string }>).map((d) => d.name);
-    const classified = [...DESTRUCTIVE_NAMES, ...NON_DESTRUCTIVE_WRITE_NAMES, ...NON_WRITE_NAMES];
+    const classified = [
+      ...DESTRUCTIVE_NAMES, ...NON_DESTRUCTIVE_WRITE_NAMES, ...ALWAYS_STAGED_WRITE_NAMES, ...NON_WRITE_NAMES,
+    ];
     expect([...classified].sort()).toEqual([...live].sort());
   });
 });

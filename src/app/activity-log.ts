@@ -73,6 +73,9 @@ export type ActivityKind =
   // §476 — a baseline-currency switch (args: from, to, cross rate, ECB date). Not undoable, so
   // no undo label. A version restore never changes the currency, so it has no kind of its own.
   | "plan.currencySwitched"
+  // §715 — one project-record edit (args: the changed field keys joined by ", "), from the project form (actor
+  // user, not undoable) or from Claude (actor ai, one undo entry).
+  | "project.updated"
   | "discipline.deleted"
   | "grade.deleted"
   | "settings.updated"
@@ -355,6 +358,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "budget.updated": "activityBudgetUpdated",
   "budget.deleted": "activityBudgetDeleted",
   "plan.currencySwitched": "activityPlanCurrencySwitched",
+  "project.updated": "activityProjectUpdated",
   "discipline.deleted": "activityDisciplineDeleted",
   "grade.deleted": "activityGradeDeleted",
   "settings.updated": "activitySettingsUpdated", // no args — no {0}/{1} placeholder

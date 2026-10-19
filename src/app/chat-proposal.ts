@@ -91,7 +91,10 @@ const DESTRUCTIVE_TOOLS: ReadonlySet<string> = new Set([
  *   list, and are NOT undoable (owner decision: logged only). The absent trio
  *   above writes device-local preferences; these write PROJECT data that
  *   travels on the six write paths and drives the report's verdict. One call
- *   applies, two stage, like the scenario writes they are approved beside. */
+ *   applies, two stage, like the scenario writes they are approved beside.
+ *
+ *  ★ `update_project` (§715) writes the project record (`ProjectMeta`), which has no id; `get_project` is
+ *   its read and is not listed. Unlike every other write here it stages ALONE — see `ALWAYS_STAGED_TOOLS`. */
 const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_task", "update_task", "set_task_dependencies", "send_inquiry",
   "create_raid_item", "update_raid_item", "escalate_raid_item",
@@ -104,8 +107,14 @@ const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_calendar_event", "update_calendar_event",
   "create_forecast_scenario", "update_forecast_scenario",
   "set_forecast_proposal", "set_forecast_target_confidence",
+  "update_project",
   ...DESTRUCTIVE_TOOLS,
 ]);
+
+/** Writes that are not deletions and still go to the review card on their own (§715, owner decision A).
+ *  The project record is one per project and describes the whole engagement, so a Claude edit of it is
+ *  always shown as a "Proposed changes" card with Apply — a lone task update applies at once, this does not. */
+const ALWAYS_STAGED_TOOLS: ReadonlySet<string> = new Set(["update_project"]);
 
 /** Input fields OTHER than `id` through which a call can name a row that a
  *  create EARLIER IN THE SAME TURN will mint, per tool.
@@ -383,7 +392,8 @@ export function isDestructiveCall(call: ProposedCall): boolean {
 }
 
 /** True when this turn must be reviewed before anything is written: it removes
- *  something, it would email attendees, or it writes more than one row.
+ *  something, it would email attendees, it edits the project record (`ALWAYS_STAGED_TOOLS`), or it writes
+ *  more than one row.
  *
  *  ★★ THE SINGLE-WRITE EXEMPTION IS NOT UNIVERSALLY BACKED BY UNDO, and the
  *   wording here used to say it was ("relies on undo"). THREE live exceptions: the
@@ -410,6 +420,7 @@ export function shouldStage(calls: readonly ProposedCall[]): boolean {
   for (const c of calls) {
     if (isDestructiveCall(c)) return true;
     if (sendsInvitations(c)) return true;
+    if (ALWAYS_STAGED_TOOLS.has(c.name)) return true;
     if (isEntityWriteTool(c.name)) writes += 1;
   }
   return writes > 1;

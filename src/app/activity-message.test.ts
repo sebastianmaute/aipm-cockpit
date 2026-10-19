@@ -15,6 +15,24 @@ describe("activityMessage", () => {
     await loadI18n("de");
   });
 
+  // §715 — a project-record edit names the fields it changed, in both languages.
+  it("renders project.updated with the changed field names", () => {
+    expect(activityMessage("en-US", "project.updated", ["customer, endDate"])).toBe("Project details updated: customer, endDate");
+    expect(activityMessage("de", "project.updated", ["customer, endDate"])).toBe("Projektdetails aktualisiert: customer, endDate");
+  });
+
+  // The panel (display: true) names the changed fields as the project form does; the stored args, the
+  // audit download and the AI prompt keep the keys. A key outside `ProjectMeta` stays as written.
+  it("renders project.updated field keys as the form's labels for display", () => {
+    const args = ["customer, endDate, contactPersons, keyStakeholdersInternal, keyStakeholdersExternal, knowledgeLinks"];
+    expect(activityMessage("en-US", "project.updated", args, { display: true })).toBe(
+      "Project details updated: Customer, End date, Contact persons, Internal stakeholders, External stakeholders, Knowledge",
+    );
+    expect(activityMessage("de", "project.updated", args, { display: true })).toBe(
+      "Projektdetails aktualisiert: Kunde, Enddatum, Ansprechpartner, Interne Stakeholder, Externe Stakeholder, Wissen",
+    );
+  });
+
   /**
    * ★★★ THE DRIFT PIN. `ACTIVITY_PLURAL` restates the base key that
    * `ACTIVITY_KIND_TO_KEY` already maps the kind to, because typing it

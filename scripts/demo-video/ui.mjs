@@ -47,10 +47,16 @@ export async function caption(ctx, text) {
   if (text) await pace(ctx, 1200);
 }
 
-/** The clip's closing beat: its title in the caption bar over the last frame, about 2 s. */
-export async function closingBeat(ctx, title) {
+/** The video's title in the caption bar for its first 3 s, so it says what it is about before anything moves. */
+export async function titleCard(ctx, title) {
   await caption(ctx, title);
-  await pace(ctx, 2000);
+  await pace(ctx, 1800);
+}
+
+/** The clip's closing beat: the last frame held without a caption, about 1.5 s. */
+export async function closingBeat(ctx) {
+  await caption(ctx, '');
+  await pace(ctx, 1500);
 }
 
 export async function moveTo(ctx, loc) {
