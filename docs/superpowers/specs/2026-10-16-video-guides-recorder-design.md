@@ -241,8 +241,9 @@ any other milestone edit. Keyboard operability, undo and snapping are D's to dec
 ## Decisions after the builder check (my calls unless marked)
 
 - **Opening and closing look (owner):** the opening text shows in the existing caption bar at the
-  bottom, with the app already visible behind it, as the big video does today. The closing beat holds
-  the last frame about 2 s with the clip title in the caption bar. No full-screen title cards.
+  bottom, with the app already visible behind it, as the big video does today. The clip title leads:
+  it shows in the caption bar for the first 3 s (owner, 2026-10-19; it used to close the clip), and the
+  closing beat holds the last frame about 1.5 s with no caption. No full-screen title cards.
 
 - **The demo-on-Turso banner bug** ("changed in another tab" after Explore the demo) is fixed as its
   own small app fix, with a test, **before** A. It is not part of A; A's first rehearsal confirms it.

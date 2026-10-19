@@ -65,6 +65,11 @@ export async function runTake(def, deps) {
     await setup.enableDigest(ctx);
     await setup.enableChat(ctx);
   };
+  // The title first (3 s), then the opening line when it says more than the title (a chapter's is its title).
+  const intro = async (opening) => {
+    await ui.titleCard(ctx, def.title);
+    if (opening && opening !== def.title) await ui.caption(ctx, opening);
+  };
   const result = (status, extra = {}) => {
     if (findSecrets(ctx.lines.join('\n'), opts.secrets ?? []) > 0) warnings++;
     return { status, warnings, ...(recording && started ? { file: opts.outFile, aiWaits: ctx.aiWaits } : {}), ...extra };
@@ -73,7 +78,7 @@ export async function runTake(def, deps) {
   try {
     if (def.prologueOnCamera) {
       await start();
-      await ui.caption(ctx, await resolveOpening(ctx, def.opening));
+      await intro(await resolveOpening(ctx, def.opening));
       await setup.connect(ctx, { onCamera: true });
       for (const s of def.prologue ?? []) await runStep(ctx, s, opts);
       await openDemo();
@@ -93,10 +98,10 @@ export async function runTake(def, deps) {
       // Resolved off camera: a banner opening navigates to its view, which the recording then opens on.
       const opening = await resolveOpening(ctx, def.opening);
       await start();
-      await ui.caption(ctx, opening);
+      await intro(opening);
     }
     for (const s of def.steps.filter((x) => !x.setup)) await runStep(ctx, s, opts);
-    await ui.closingBeat(ctx, def.title);
+    await ui.closingBeat(ctx);
     return result('ok');
   } catch (e) {
     // The first lines of a Playwright error name the locator and what it waited for.
