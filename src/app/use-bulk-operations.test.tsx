@@ -1,4 +1,5 @@
 // src/app/use-bulk-operations.test.tsx
+import { fakeDialogs } from "../test/fake-dialogs";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
@@ -1418,7 +1419,8 @@ describe("useBulkOperations", () => {
   describe("handleBulkSendInquiry", () => {
     it("opens mailto link and logs bulk.inquiries for selected task with email", async () => {
       const logActivity = vi.fn();
-      const { result } = renderBulk({ logActivity });
+      const dialogs = fakeDialogs({ confirm: true });
+      const { result } = renderBulk({ logActivity, dialogsRef: dialogs.ref });
       const task: Task = {
         id: 1,
         taskName: "Task A",
@@ -1436,20 +1438,58 @@ describe("useBulkOperations", () => {
       act(() => { result.current.workspace.setTasks([task]); });
       act(() => { result.current.bulk.onToggleSelect(1); });
       const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-      // Bulk-send keeps a synchronous native confirm (the window.open loop must
-      // stay in the click's user-activation gesture); confirm true = proceed.
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-      act(() => { result.current.bulk.handleBulkSendInquiry(); });
+      // §752 — the send is confirmed in the app's dialog, never `window.confirm`; true = proceed.
+      const native = vi.spyOn(window, "confirm");
+      await act(async () => { await result.current.bulk.handleBulkSendInquiry(); });
+      expect(dialogs.confirm).toHaveBeenCalledTimes(1);
+      expect(native).not.toHaveBeenCalled();
       expect(openSpy).toHaveBeenCalledWith(
         expect.stringContaining("mailto:alice%40test.com"),
       );
       expect(logActivity).toHaveBeenCalledWith("bulk.inquiries", 1);
       openSpy.mockRestore();
-      confirmSpy.mockRestore();
+      native.mockRestore();
     });
 
-    it("M-C4: persists a prompted Name <addr> as addr and sends to it", () => {
-      const { result } = renderBulk();
+    it("sends nothing when the app's confirm is declined", async () => {
+      const logActivity = vi.fn();
+      const dialogs = fakeDialogs({ confirm: false });
+      const { result } = renderBulk({ logActivity, dialogsRef: dialogs.ref });
+      const task = { id: 1, taskName: "Task A", assignee: "Alice", assigneeEmail: "alice@test.com", dueDate: "2026-06-01",
+        lastUpdateDate: "2026-05-20", status: "To Do", priority: "Medium", blockers: "", description: "", inquiriesSent: 0,
+        localModifiedAt: "2026-05-20T00:00:00.000Z" } as Task;
+      act(() => { result.current.workspace.setTasks([task]); });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+      await act(async () => { await result.current.bulk.handleBulkSendInquiry(); });
+      expect(openSpy).not.toHaveBeenCalled();
+      expect(logActivity).not.toHaveBeenCalledWith("bulk.inquiries", 1);
+      expect((result.current.workspace.tasks[0] as Task).inquiriesSent).toBe(0);
+      openSpy.mockRestore();
+    });
+
+    it("writes and sends nothing when the project scope moved while a dialog was open (§752)", async () => {
+      let epoch = 1;
+      const dialogs = fakeDialogs();
+      dialogs.prompt.mockImplementation(async () => { epoch = 2; return "alice@test.com"; });
+      dialogs.confirm.mockResolvedValue(true);
+      const { result } = renderBulk({ dialogsRef: dialogs.ref, getScopeEpoch: () => epoch });
+      const task = { id: 1, taskName: "Task A", assignee: "Alice", assigneeEmail: "", dueDate: "2026-06-01",
+        lastUpdateDate: "2026-05-20", status: "To Do", priority: "Medium", blockers: "", description: "", inquiriesSent: 0,
+        localModifiedAt: "2026-05-20T00:00:00.000Z" } as Task;
+      act(() => { result.current.workspace.setTasks([task]); });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+      await act(async () => { await result.current.bulk.handleBulkSendInquiry(); });
+      expect((result.current.workspace.tasks[0] as Task).assigneeEmail).toBe("");
+      expect(dialogs.confirm).not.toHaveBeenCalled();
+      expect(openSpy).not.toHaveBeenCalled();
+      openSpy.mockRestore();
+    });
+
+    it("M-C4: persists a prompted Name <addr> as addr and sends to it", async () => {
+      const dialogs = fakeDialogs({ prompt: "Alice Smith <alice@test.com>", confirm: true });
+      const { result } = renderBulk({ dialogsRef: dialogs.ref });
       const task: Task = {
         id: 1, taskName: "Task A", assignee: "Alice", assigneeEmail: "",
         dueDate: "2026-06-01", lastUpdateDate: "2026-05-20", status: "To Do", priority: "Medium",
@@ -1457,19 +1497,20 @@ describe("useBulkOperations", () => {
       };
       act(() => { result.current.workspace.setTasks([task]); });
       act(() => { result.current.bulk.onToggleSelect(1); });
-      const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("Alice Smith <alice@test.com>");
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const native = vi.spyOn(window, "prompt");
       const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-      act(() => { result.current.bulk.handleBulkSendInquiry(); });
+      await act(async () => { await result.current.bulk.handleBulkSendInquiry(); });
+      expect(dialogs.prompt).toHaveBeenCalledWith({ message: t("en-US", "promptEmail", "Alice"), inputType: "email" });
+      expect(native).not.toHaveBeenCalled();
       expect((result.current.workspace.tasks[0] as Task).assigneeEmail).toBe("alice@test.com");
       expect(openSpy).toHaveBeenCalledWith(expect.stringContaining("mailto:alice%40test.com"));
-      promptSpy.mockRestore();
-      confirmSpy.mockRestore();
+      native.mockRestore();
       openSpy.mockRestore();
     });
 
-    it("shows the delimiter error and sends nothing for a delimiter-bearing prompted email", () => {
-      const { result, args } = renderBulk();
+    it("shows the delimiter error and sends nothing for a delimiter-bearing prompted email", async () => {
+      const dialogs = fakeDialogs({ prompt: "a,b@x.com", confirm: true });
+      const { result, args } = renderBulk({ dialogsRef: dialogs.ref });
       const task: Task = {
         id: 1,
         taskName: "Task A",
@@ -1486,19 +1527,15 @@ describe("useBulkOperations", () => {
       };
       act(() => { result.current.workspace.setTasks([task]); });
       act(() => { result.current.bulk.onToggleSelect(1); });
-      const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("a,b@x.com");
       // Fix round 1 MINOR 2: a fixture that accidentally reached the send loop
       // (e.g. a guard dropped instead of `continue`d) would still leave these
       // two unexercised — assert they never fire, not just the toast.
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
       const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-      act(() => { result.current.bulk.handleBulkSendInquiry(); });
+      await act(async () => { await result.current.bulk.handleBulkSendInquiry(); });
       expect(args.showToast).toHaveBeenCalledWith("error", t("en-US", "errorEmailDelimiter"));
       expect((result.current.workspace.tasks[0] as Task).assigneeEmail).toBe("");
-      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(dialogs.confirm).not.toHaveBeenCalled();
       expect(openSpy).not.toHaveBeenCalled();
-      promptSpy.mockRestore();
-      confirmSpy.mockRestore();
       openSpy.mockRestore();
     });
   });

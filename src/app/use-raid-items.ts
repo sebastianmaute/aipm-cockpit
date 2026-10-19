@@ -25,6 +25,8 @@ import { typedEmailRefusalKey } from "./email-refusal-i18n";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { RAID_UNDO_GROUPS } from "./undo/field-groups";
+import { unbridgedDialogs, type AppDialogs } from "./confirm-dialog";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 
 export interface UseRaidItemsArgs {
   lang: Lang;
@@ -49,7 +51,15 @@ export interface UseRaidItemsArgs {
   /** Arms the one-shot destructive-save bypass. Optional — popouts and tests
    *  supply none. */
   allowDestructiveSave?: () => void;
+  /** §752 — the app's dialogs (see use-task-row-handlers.ts). Without one, the owner-email question answers
+   *  "no" and is logged (`unbridgedDialogs`). */
+  dialogsRef?: { readonly current: AppDialogs };
+  /** §752 — the inquiry's prompt is awaited; a typed address is dropped if the project scope moved meanwhile. */
+  getScopeEpoch?: ScopeEpochReader;
 }
+
+const UNBRIDGED: { readonly current: AppDialogs } = { current: unbridgedDialogs() };
+const NO_EPOCH: ScopeEpochReader = () => 0;
 
 export function useRaidItems(args: UseRaidItemsArgs) {
   const { raid, setRaid, resources } = useWorkspace();
@@ -187,17 +197,23 @@ export function useRaidItems(args: UseRaidItemsArgs) {
   // `inquiriesSent` via a FUNCTIONAL setter (the bulk-edit landmine — a stale
   // closure value would drop concurrent bumps).
   const handleSendRaidInquiry = useCallback(
-    (item: RaidItem) => {
+    async (item: RaidItem) => {
       const lang = argsRef.current.lang;
       const byId = new Map(resources.map((r) => [r.id, r]));
       let email = resolveRaidOwnerEmail(item, byId);
       if (!email && isWriteSafeEmail(item.owner ?? "")) email = (item.owner ?? "").trim();
       if (!email) {
-        const provided = window.prompt(t(lang, "promptEmail", item.owner || item.title), "");
+        // §752 — the app's prompt (`window.prompt` throws in the desktop app), awaited: the address is
+        // dropped if a project swap finished while it was open.
+        const dialogs = (argsRef.current.dialogsRef ?? UNBRIDGED).current;
+        const getScopeEpoch = argsRef.current.getScopeEpoch ?? NO_EPOCH;
+        const epoch = getScopeEpoch();
+        const provided = await dialogs.prompt({ message: t(lang, "promptEmail", item.owner || item.title), inputType: "email" });
         if (provided === null) return;
+        if (dropStaleScopeWrite(getScopeEpoch, epoch, "raid.inquiryEmail", { id: item.id })) return;
         const trimmed = sanitizeLoadedEmail(provided); // M-C4: the unwrapped address, as every AI write stores
         if (!isWriteSafeEmail(trimmed)) {
-          window.alert(t(lang, typedEmailRefusalKey(trimmed)));
+          void dialogs.notice({ message: t(lang, typedEmailRefusalKey(trimmed)) });
           return;
         }
         email = trimmed;

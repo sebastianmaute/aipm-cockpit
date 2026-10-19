@@ -25,6 +25,11 @@ import { todayInZone, resolveTimezone } from "./timezone";
 import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
 import { TASK_UNDO_GROUPS, buildBulkFieldEdits, differs } from "./undo/field-groups";
 import { visibleTaskRows } from "./visible-task-rows";
+import { unbridgedDialogs, type AppDialogs } from "./confirm-dialog";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
+
+const UNBRIDGED: { readonly current: AppDialogs } = { current: unbridgedDialogs() };
+const NO_EPOCH: ScopeEpochReader = () => 0;
 
 // Fields Jira owns on a synced task (mirrors issueToTaskFields). Bulk-editing
 // them on a `jiraKey` row would be silently reverted by the next read-only pull
@@ -96,6 +101,11 @@ export interface UseBulkOperationsArgs {
    *  the drift `visibleTaskRows()` exists to close. */
   today: string;
   holidaySet: ReadonlySet<string>;
+  /** §752 — the app's dialogs for the bulk send's email prompts and its confirm (see use-task-row-handlers.ts).
+   *  Without one, every question answers "no" and is logged (`unbridgedDialogs`). */
+  dialogsRef?: { readonly current: AppDialogs };
+  /** §752 — the bulk send awaits its dialogs; it writes and sends nothing if the project scope moved meanwhile. */
+  getScopeEpoch?: ScopeEpochReader;
 }
 
 export function useBulkOperations(args: UseBulkOperationsArgs) {
@@ -127,6 +137,8 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   const routeUnknownVoiceRef = useRef(args.routeUnknownVoice);
   const captureRef = useRef(args.capture);
   const captureFieldRowsRef = useRef(args.captureFieldRows);
+  const dialogsRefRef = useRef(args.dialogsRef ?? UNBRIDGED);
+  const getScopeEpochRef = useRef(args.getScopeEpoch ?? NO_EPOCH);
   useEffect(() => { langRef.current = args.lang; }, [args.lang]);
   useEffect(() => { showToastRef.current = args.showToast; }, [args.showToast]);
   useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
@@ -138,6 +150,8 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   useEffect(() => { routeUnknownVoiceRef.current = args.routeUnknownVoice; }, [args.routeUnknownVoice]);
   useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
   useEffect(() => { captureFieldRowsRef.current = args.captureFieldRows; }, [args.captureFieldRows]);
+  useEffect(() => { dialogsRefRef.current = args.dialogsRef ?? UNBRIDGED; }, [args.dialogsRef]);
+  useEffect(() => { getScopeEpochRef.current = args.getScopeEpoch ?? NO_EPOCH; }, [args.getScopeEpoch]);
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
@@ -464,10 +478,15 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     [tasks, setTasks],
   );
 
-  const handleBulkSendInquiry = useCallback(() => {
+  const handleBulkSendInquiry = useCallback(async () => {
     const lang = langRef.current;
     const selected = tasks.filter((row) => selectedIds.has(row.id));
     if (selected.length === 0) return;
+    // §752 — the app's dialogs (`window.prompt` throws in the desktop app), each awaited: a project swap
+    // can finish while one is open, so nothing is written or sent once the scope moved.
+    const dialogs = dialogsRefRef.current.current;
+    const getScopeEpoch = getScopeEpochRef.current;
+    const epoch = getScopeEpoch();
 
     const emailUpdates: Record<number, string> = {};
     const resolved: Array<{ task: Task; email: string }> = [];
@@ -476,7 +495,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       let email = effectivePersonEmail(task.assigneeEmail ?? "", task.resourceId, resourcesById).trim();
       if (!email && isWriteSafeEmail(task.assignee)) email = task.assignee.trim();
       if (!email) {
-        const provided = window.prompt(t(lang, "promptEmail", task.assignee), "");
+        const provided = await dialogs.prompt({ message: t(lang, "promptEmail", task.assignee), inputType: "email" });
         if (provided === null) continue;
         const trimmed = sanitizeLoadedEmail(provided); // M-C4: the unwrapped address, as every AI write stores
         if (!isWriteSafeEmail(trimmed)) {
@@ -488,6 +507,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       }
       resolved.push({ task, email });
     }
+    if (dropStaleScopeWrite(getScopeEpoch, epoch, "bulk.inquiryEmail", { count: selected.length })) return;
 
     if (Object.keys(emailUpdates).length > 0) {
       setTasks((prev) =>
@@ -511,13 +531,15 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       groups.set(email, list);
     }
 
-    // Kept as a synchronous native confirm ON PURPOSE: the window.open() loop
-    // below must run inside the original click's user-activation gesture, so an
-    // awaited (async) branded dialog would get the mailto popups blocked. This
-    // is a non-destructive send confirmation, not a destructive-tier action.
-    if (!window.confirm(t(lang, "confirmBulkSend", tPlural(lang, "bulkSendEmailCount", groups.size, groups.size), tPlural(lang, "bulkSendTaskCount", resolved.length, resolved.length)))) {
-      return;
-    }
+    // §752 — the app's confirm. This was a native confirm so the window.open() loop below ran inside the
+    // original click's user activation; the click (or key press) that answers this dialog is itself a fresh
+    // activation, and the loop runs straight after it resolves. Non-destructive tone: it sends, deletes nothing.
+    const go = await dialogs.confirm({
+      message: t(lang, "confirmBulkSend", tPlural(lang, "bulkSendEmailCount", groups.size, groups.size), tPlural(lang, "bulkSendTaskCount", resolved.length, resolved.length)),
+      tone: "default",
+    });
+    if (!go) return;
+    if (dropStaleScopeWrite(getScopeEpoch, epoch, "bulk.inquirySend", { count: resolved.length })) return;
 
     for (const [email, taskList] of groups) {
       const { subject, body } = buildInquiryMessage(taskList, lang);

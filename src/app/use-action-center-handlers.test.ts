@@ -15,6 +15,7 @@
 //   render-scope UI glue. That governs the coverage FLOORS, not testability —
 //   the hook takes a fully explicit deps bag, so it drives from a plain object
 //   of spies with no React tree beyond `renderHook`.
+import { fakeDialogs } from "../test/fake-dialogs";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useActionCenterHandlers, type ActionCenterHandlerDeps } from "./use-action-center-handlers";
@@ -58,6 +59,7 @@ function markDoneAction(id: number): SuggestedAction {
 
 function makeDeps(overrides: Partial<ActionCenterHandlerDeps> = {}): ActionCenterHandlerDeps {
   return {
+    dialogsRef: fakeDialogs().ref,
     isPopout: false,
     lang: "en-US",
     today: TODAY,
@@ -192,7 +194,7 @@ describe("useActionCenterHandlers — an empty default template never drafts an 
     ["an empty string", ""],
     ["an empty rich-text paragraph", "<p></p>"],
     ["an empty rich-text paragraph with a break", "<p><br></p>"],
-  ])("falls back to the i18n body when the default template renders to nothing (%s)", (_label, tplBody) => {
+  ])("falls back to the i18n body when the default template renders to nothing (%s)", async (_label, tplBody) => {
     const send = vi.fn();
     const { result } = renderHook(() =>
       useActionCenterHandlers(
@@ -203,7 +205,7 @@ describe("useActionCenterHandlers — an empty default template never drafts an 
         }),
       ),
     );
-    act(() => result.current.handleDraftMessageFromAction(draftAction(1)));
+    await act(async () => { await result.current.handleDraftMessageFromAction(draftAction(1)); });
     expect(send).toHaveBeenCalledTimes(1);
     const req = send.mock.calls[0][0] as { plain: string; html: string };
     expect(req.plain).not.toBe("");
@@ -213,7 +215,7 @@ describe("useActionCenterHandlers — an empty default template never drafts an 
     expect(req.html).not.toBe("");
   });
 
-  it("still uses a template that has real content", () => {
+  it("still uses a template that has real content", async () => {
     // Control: without it, a fix that ignored templates outright would satisfy
     // every assertion above.
     const send = vi.fn();
@@ -226,7 +228,7 @@ describe("useActionCenterHandlers — an empty default template never drafts an 
         }),
       ),
     );
-    act(() => result.current.handleDraftMessageFromAction(draftAction(1)));
+    await act(async () => { await result.current.handleDraftMessageFromAction(draftAction(1)); });
     const req = send.mock.calls[0][0] as { plain: string };
     expect(req.plain).toBe("Update for Dana");
   });
@@ -237,31 +239,35 @@ describe("useActionCenterHandlers — a typed stakeholder-comms recipient meets 
   const NO_EMAIL = { id: 1, name: "Dana" } as ActionCenterHandlerDeps["stakeholders"][number];
   afterEach(() => { vi.restoreAllMocks(); });
 
-  function draftWithTyped(typed: string) {
-    vi.spyOn(window, "prompt").mockReturnValue(typed);
+  // §752 — typed into the app's prompt, never `window.prompt` (which throws in the desktop app).
+  async function draftWithTyped(typed: string) {
+    const native = vi.spyOn(window, "prompt");
+    const dialogs = fakeDialogs({ prompt: typed });
     const send = vi.fn();
     const showToast = vi.fn();
     const { result } = renderHook(() =>
-      useActionCenterHandlers(makeDeps({ stakeholders: [NO_EMAIL], commSend: { send }, showToast })),
+      useActionCenterHandlers(makeDeps({ stakeholders: [NO_EMAIL], commSend: { send }, showToast, dialogsRef: dialogs.ref })),
     );
-    act(() => result.current.handleDraftMessageFromAction(draftAction(1)));
+    await act(async () => { await result.current.handleDraftMessageFromAction(draftAction(1)); });
+    expect(dialogs.prompt).toHaveBeenCalledWith({ message: t("en-US", "promptEmail", "Dana"), inputType: "email" });
+    expect(native).not.toHaveBeenCalled();
     return { send, showToast };
   }
 
-  it("refuses a delimiter-bearing address with the delimiter message and drafts nothing", () => {
-    const { send, showToast } = draftWithTyped("a,b@x.com");
+  it("refuses a delimiter-bearing address with the delimiter message and drafts nothing", async () => {
+    const { send, showToast } = await draftWithTyped("a,b@x.com");
     expect(send).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "errorEmailDelimiter"));
   });
 
-  it("refuses a malformed address with the invalid-email message", () => {
-    const { send, showToast } = draftWithTyped("nope");
+  it("refuses a malformed address with the invalid-email message", async () => {
+    const { send, showToast } = await draftWithTyped("nope");
     expect(send).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "errorInvalidEmail"));
   });
 
-  it("positive control: a valid typed address drafts to it", () => {
-    const { send, showToast } = draftWithTyped(" dana@x.com ");
+  it("positive control: a valid typed address drafts to it", async () => {
+    const { send, showToast } = await draftWithTyped(" dana@x.com ");
     expect(send).toHaveBeenCalledTimes(1);
     expect((send.mock.calls[0][0] as { to: string }).to).toBe("dana@x.com");
     expect(showToast).not.toHaveBeenCalledWith("error", expect.anything());

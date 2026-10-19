@@ -15,6 +15,9 @@ export const de: Record<TranslationKey, string> = {
   dismiss: "Schließen",
   confirm: "Bestätigen",
   confirmTitle: "Bitte bestätigen",
+  dialogPromptTitle: "Bitte eingeben",
+  dialogNoticeTitle: "Bitte beachten",
+  dialogOk: "OK",
   addTask: "Aufgabe hinzufügen",
   updateTask: "Aufgabe aktualisieren",
 

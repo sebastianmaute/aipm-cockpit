@@ -11,6 +11,9 @@ const enUS = {
   dismiss: "Dismiss",
   confirm: "Confirm",
   confirmTitle: "Please confirm",
+  dialogPromptTitle: "Please enter",
+  dialogNoticeTitle: "Please note",
+  dialogOk: "OK",
   addTask: "Add task",
   updateTask: "Update task",
 

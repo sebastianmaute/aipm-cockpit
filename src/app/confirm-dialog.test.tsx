@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ConfirmProvider, useConfirm, type ConfirmFn } from "./confirm-dialog";
+import { ConfirmProvider, useConfirm, useNotice, usePrompt, type AppDialogs, type ConfirmFn } from "./confirm-dialog";
 import { buttonClassFor } from "../test/button-variant";
 
 // Synchronous rAF shim so the Modal focus-management effect runs immediately.
@@ -182,5 +182,119 @@ describe("ConfirmProvider bridgeRef (§715 D5)", () => {
     expect(await screen.findByText("Delete task #7?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await expect(answer).resolves.toBe(true);
+  });
+});
+
+// §752 — the app's own text prompt and notice, replacing window.prompt (which throws in the desktop app)
+// and window.alert. Same provider, one dialog at a time.
+function PromptHarness({ onResult, defaultValue }: { onResult: (v: string | null) => void; defaultValue?: string }) {
+  const prompt = usePrompt();
+  return (
+    <button type="button" onClick={async () => onResult(await prompt({ message: "Email address for Elena", defaultValue, inputType: "email" }))}>
+      ask
+    </button>
+  );
+}
+
+function NoticeHarness({ onDone }: { onDone: () => void }) {
+  const notice = useNotice();
+  return <button type="button" onClick={async () => { await notice({ message: "That address cannot be used." }); onDone(); }}>tell</button>;
+}
+
+describe("ConfirmProvider — usePrompt (§752)", () => {
+  function renderPrompt(onResult: (v: string | null) => void, defaultValue?: string) {
+    return render(<ConfirmProvider lang="en-US"><PromptHarness onResult={onResult} defaultValue={defaultValue} /></ConfirmProvider>);
+  }
+
+  test("the message labels a focused input, and OK answers what was typed", async () => {
+    const user = userEvent.setup();
+    const onResult = vi.fn();
+    renderPrompt(onResult);
+    await user.click(screen.getByRole("button", { name: "ask" }));
+    const input = await screen.findByRole("textbox", { name: "Email address for Elena" });
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input).toHaveAttribute("type", "email");
+    await user.type(input, "elena@example.org");
+    await user.click(screen.getByRole("button", { name: "OK" }));
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith("elena@example.org"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  test("Enter in the input answers too", async () => {
+    const user = userEvent.setup();
+    const onResult = vi.fn();
+    renderPrompt(onResult);
+    await user.click(screen.getByRole("button", { name: "ask" }));
+    await user.type(await screen.findByRole("textbox", { name: "Email address for Elena" }), "a@b.co{Enter}");
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith("a@b.co"));
+  });
+
+  test("Cancel answers null", async () => {
+    const user = userEvent.setup();
+    const onResult = vi.fn();
+    renderPrompt(onResult);
+    await user.click(screen.getByRole("button", { name: "ask" }));
+    await user.type(await screen.findByRole("textbox", { name: "Email address for Elena" }), "typed");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+  });
+
+  test("Escape answers null", async () => {
+    const user = userEvent.setup();
+    const onResult = vi.fn();
+    renderPrompt(onResult);
+    await user.click(screen.getByRole("button", { name: "ask" }));
+    await screen.findByRole("textbox", { name: "Email address for Elena" });
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith(null));
+  });
+
+  test("the default value is filled in", async () => {
+    const user = userEvent.setup();
+    const onResult = vi.fn();
+    renderPrompt(onResult, "https://");
+    await user.click(screen.getByRole("button", { name: "ask" }));
+    expect(await screen.findByRole("textbox", { name: "Email address for Elena" })).toHaveValue("https://");
+    await user.click(screen.getByRole("button", { name: "OK" }));
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith("https://"));
+  });
+});
+
+describe("ConfirmProvider — useNotice (§752)", () => {
+  test("shows the message with one OK button, focused; OK closes it", async () => {
+    const user = userEvent.setup();
+    const onDone = vi.fn();
+    render(<ConfirmProvider lang="en-US"><NoticeHarness onDone={onDone} /></ConfirmProvider>);
+    await user.click(screen.getByRole("button", { name: "tell" }));
+    expect(await screen.findByText("That address cannot be used.")).toBeInTheDocument();
+    const ok = screen.getByRole("button", { name: "OK" });
+    await waitFor(() => expect(ok).toHaveFocus());
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    await user.click(ok);
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("ConfirmProvider dialogsRef (§752)", () => {
+  test("hands all three dialogs to a ref outside it, and a new one answers an open one with its no", async () => {
+    const ref: { current: AppDialogs } = {
+      current: { confirm: async () => false, prompt: async () => null, notice: async () => {} },
+    };
+    render(<ConfirmProvider lang="en-US" dialogsRef={ref}><span /></ConfirmProvider>);
+    let typed: Promise<string | null> = Promise.resolve("unset");
+    act(() => { typed = ref.current.prompt({ message: "Name this version" }); });
+    expect(await screen.findByRole("textbox", { name: "Name this version" })).toBeInTheDocument();
+    let confirmed: Promise<boolean> = Promise.resolve(false);
+    act(() => { confirmed = ref.current.confirm({ message: "Send 2 emails?" }); });
+    await expect(typed).resolves.toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+    await expect(confirmed).resolves.toBe(true);
+    let toldDone = false;
+    let told: Promise<void> = Promise.resolve();
+    act(() => { told = ref.current.notice({ message: "Done." }).then(() => { toldDone = true; }); });
+    fireEvent.click(await screen.findByRole("button", { name: "OK" }));
+    await told;
+    expect(toldDone).toBe(true);
   });
 });

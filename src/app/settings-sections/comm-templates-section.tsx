@@ -18,6 +18,7 @@ import { ToggleButton } from "../toggle-button";
 import { Input, Select, RADIO_CLASS } from "../form-controls";
 import { reportSilentFailure } from "../guard-feedback";
 import { useToastContext } from "../toast-context";
+import { usePrompt } from "../confirm-dialog";
 import { RichTextEditor } from "../rich-text-editor-lazy";
 import { buildRowTokens, rowLabel } from "../row-tokens";
 import { normalizeTemplateName, type TemplateDraftField } from "../use-comm-templates";
@@ -45,6 +46,7 @@ export interface CommTemplatesSectionProps {
 export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   const { lang, templates } = props;
   const showToast = useToastContext();
+  const prompt = usePrompt();
   const [category, setCategory] = useState<CommTemplateCategory>("status-inquiry");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
@@ -138,9 +140,10 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
     }
   }
 
-  function saveCurrentVersion() {
+  // §752 — the app's prompt: `window.prompt` throws in the desktop app.
+  async function saveCurrentVersion() {
     if (!selected) return;
-    const name = window.prompt(t(lang, "commTplVersionNamePrompt"), "");
+    const name = await prompt({ message: t(lang, "commTplVersionNamePrompt") });
     if (!name || !name.trim()) return;
     void versions.saveVersion(name.trim(), bodyDraft, false).catch((e) =>
       reportSilentFailure(showToast, lang, "commTemplateVersions.saveFailed", e, "guardCommVersionSaveFailed"),
