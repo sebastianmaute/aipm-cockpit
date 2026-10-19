@@ -355,7 +355,9 @@ export interface WorkspaceSectionProps {
   onChangeProjectSettings: (s: Settings) => void;
   onSwitchProject: (id: string) => void;
   onCreateProject: (meta: ProjectMeta, format: "json" | "csv" | "md", opts?: NewProjectOpts) => void;
-  onUpdateCurrentProject: (meta: ProjectMeta) => void;
+  /** The project form's writer (`handleUpdateCurrentProjectByMode`): true once the record is stored. §715 — the section
+   *  logs the save from that answer (`saveProjectFromForm`). */
+  onUpdateCurrentProject: (meta: ProjectMeta) => Promise<boolean>;
   onDeleteProject: (id: string) => void;
   onExportCurrentProject: (format: string, forecastDecision?: ForecastDecisionSource) => void;
   onLoadProjectFromFile: () => void;

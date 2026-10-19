@@ -64,6 +64,7 @@ function makeArgs(overrides: Partial<UseTursoProjectsArgs> = {}): UseTursoProjec
     setProject: vi.fn(),
     createFileProject: vi.fn(),
     updateCurrentFileProject: vi.fn(),
+    getScopeEpoch: () => 0,
     ...overrides,
   };
 }
@@ -233,6 +234,60 @@ describe("useTursoProjects — update current meta", () => {
     );
     expect(vi.mocked(updateProjectMeta)).not.toHaveBeenCalled();
     expect(args.updateCurrentFileProject).not.toHaveBeenCalled();
+  });
+});
+
+// §715 — the assistant's update_project awaits this writer, so it says whether the record was stored.
+describe("useTursoProjects — handleUpdateCurrentProjectByMode resolves whether it wrote (§715)", () => {
+  it("handleUpdateCurrentProjectByMode resolves false after a failed tenant write", async () => {
+    vi.mocked(updateProjectMeta).mockRejectedValue(new Error("401 token rejected"));
+    const args = makeArgs();
+    const { result } = renderHook(() => useTursoProjects(args));
+    await expect(result.current.handleUpdateCurrentProjectByMode(META)).resolves.toBe(false);
+    // Resolved only after its toast, so a caller reading false knows the user was already told.
+    expect(args.showToast).toHaveBeenCalledWith("error", "Couldn't save the project details: 401 token rejected");
+    expect(args.setProject).not.toHaveBeenCalled();
+  });
+
+  it("resolves true after a tenant write, once the record is mirrored", async () => {
+    vi.mocked(updateProjectMeta).mockResolvedValue(undefined);
+    const args = makeArgs();
+    const { result } = renderHook(() => useTursoProjects(args));
+    await expect(result.current.handleUpdateCurrentProjectByMode(META)).resolves.toBe(true);
+    expect(args.setProject).toHaveBeenCalledWith(META);
+    expect(args.refreshTursoProjects).toHaveBeenCalled();
+  });
+
+  it("a project switch during the tenant write keeps A's meta out of B's in-memory record", async () => {
+    let finish!: () => void;
+    vi.mocked(updateProjectMeta).mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
+    const epoch = { value: 1 };
+    const args = makeArgs({ tursoProjectId: "p-A", getScopeEpoch: () => epoch.value });
+    const { result, rerender } = renderHook((a: UseTursoProjectsArgs) => useTursoProjects(a), { initialProps: args });
+    const pending = result.current.handleUpdateCurrentProjectByMode(META);
+    // Project B opens while A's write is in flight.
+    epoch.value = 2;
+    rerender({ ...args, tursoProjectId: "p-B" });
+    finish();
+    // The row landed (for A), so the call resolves true; only the mirror is skipped.
+    await expect(pending).resolves.toBe(true);
+    expect(vi.mocked(updateProjectMeta)).toHaveBeenCalledWith(expect.anything(), META, "p-A");
+    expect(args.setProject).not.toHaveBeenCalled();
+  });
+
+  it("resolves true in file mode", async () => {
+    const args = makeArgs({ portfolioMode: "file" });
+    const { result } = renderHook(() => useTursoProjects(args));
+    await expect(result.current.handleUpdateCurrentProjectByMode(META)).resolves.toBe(true);
+    expect(args.updateCurrentFileProject).toHaveBeenCalledWith(META);
+  });
+
+  it("resolves false when the Turso config is not ready", async () => {
+    vi.mocked(getTursoConfig).mockReturnValueOnce(null);
+    const args = makeArgs();
+    const { result } = renderHook(() => useTursoProjects(args));
+    await expect(result.current.handleUpdateCurrentProjectByMode(META)).resolves.toBe(false);
+    expect(args.showToast).toHaveBeenCalled();
   });
 });
 

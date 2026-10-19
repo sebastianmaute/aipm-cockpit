@@ -780,13 +780,13 @@ describe("TOKEN_REQUIRED_TOOLS", () => {
     //   "0 mismatches" pass over nothing at all. The size is asserted EXACTLY:
     //   a legitimately added token-guarded tool turns this red, which is the
     //   point. Read a red here as "go look", not as "the guard broke".
-    // 12 since §502 part 4: `delete_forecast_scenario` carries the scenario token.
-    expect(TOKEN_REQUIRED_TOOLS.size).toBe(12);
-    expect(advertised).toHaveLength(12);
+    // 12 since §502 part 4: `delete_forecast_scenario` carries the scenario token; 13 since §715's `update_project`.
+    expect(TOKEN_REQUIRED_TOOLS.size).toBe(13);
+    expect(advertised).toHaveLength(13);
     expect([...TOKEN_REQUIRED_TOOLS].sort()).toEqual([...advertised].sort());
   });
 
-  test("it names the nine update tools, set_task_dependencies, escalate_raid_item and delete_forecast_scenario", () => {
+  test("it names the ten update tools, set_task_dependencies, escalate_raid_item and delete_forecast_scenario", () => {
     // The membership itself, so a diff that changed BOTH derivations in step
     // still has to face a human-written list. `update_resource` is spelled out
     // because it is the member `UPDATE_TARGET` omits — the trap this constant
@@ -800,6 +800,7 @@ describe("TOKEN_REQUIRED_TOOLS", () => {
       "update_change",
       "update_forecast_scenario",
       "update_milestone",
+      "update_project",
       "update_raid_item",
       "update_resource",
       "update_stakeholder",
@@ -908,6 +909,9 @@ describe("TOKEN_ROW_SOURCE", () => {
             // `update_forecast_scenario` refuses a call with neither `name` nor
             // `changes` AFTER the token check (§502); no other tool reads the key.
             changes: [],
+            // `update_project` writes nothing for a patch naming no project field (§715), so the write half
+            // of the anti-vacuity check below needs one; no other tool reads the key.
+            ...(tool === "update_project" ? { customer: "Acme" } : {}),
           });
         } catch (e) {
           thrown = e;

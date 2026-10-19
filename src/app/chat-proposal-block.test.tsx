@@ -391,6 +391,52 @@ describe("ChatProposalBlock", () => {
     expect(screen.getByText("Not applied: 99")).toBeInTheDocument();
   });
 
+  // §715 — `update_project` has no descriptor, so `TOOL_ENTITY` misses it; its lines are labelled with the
+  // project form's own keys, and a refused field shows as not applied beside the fields that land.
+  it("labels an update_project row with the project form's labels and shows a refused field", () => {
+    renderCard([
+      row({
+        index: 0,
+        title: 'Project "Apollo"',
+        call: { name: "update_project", input: { sponsor: "Sam", jiraUrl: "javascript:x" } },
+        plan: {
+          ...emptyPlan(),
+          updates: [{ entity: "project", field: "sponsor", before: "", after: "Sam" }],
+          rejected: [
+            { toolName: "update_project", reason: "bad-input", detail: "Only http(s) addresses are accepted.", field: "jiraUrl" },
+          ],
+        },
+      }),
+    ]);
+    expect(screen.getByText("Sponsor")).toBeInTheDocument();
+    expect(screen.queryByText("sponsor")).toBeNull();
+    expect(screen.getByText("Not applied: Link to Jira: Only http(s) addresses are accepted.")).toBeInTheDocument();
+    expect(screen.queryByText(/jiraUrl/)).toBeNull();
+  });
+
+  it("names a refused project field by its German form label, and leaves an unknown key as written", async () => {
+    await loadI18n("de");
+    renderCard(
+      [
+        row({
+          index: 0,
+          title: 'Project "Apollo"',
+          call: { name: "update_project", input: {} },
+          plan: {
+            ...emptyPlan(),
+            rejected: [
+              { toolName: "update_project", reason: "bad-input", detail: "Kein echtes Datum.", field: "endDate" },
+              { toolName: "update_project", reason: "unsupported", detail: "not a project field Claude may set", field: "contactPersons" },
+            ],
+          },
+        }),
+      ],
+      { lang: "de" },
+    );
+    expect(screen.getByText("Nicht übernommen: Enddatum: Kein echtes Datum.")).toBeInTheDocument();
+    expect(screen.getByText("Nicht übernommen: contactPersons: not a project field Claude may set")).toBeInTheDocument();
+  });
+
   // ★★ `after` can legitimately be "" — a cleared FK, or a list emptied to
   // nothing. That is the most destructive change this card can show, so the
   // `|| "—"` fallback is load-bearing: a bare `{l.after}` renders NOTHING for

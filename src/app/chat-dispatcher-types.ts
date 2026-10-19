@@ -1,7 +1,7 @@
 // src/app/chat-dispatcher-types.ts — ChatDispatcherArgs, split out of
 // use-chat-dispatcher.ts to keep that file under the file-size ratchet.
 
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { LogActivityAsFn } from "./activity-log-context";
 import type { AppView } from "./nav-config";
 import type { ProjectClock } from "./timezone";
@@ -12,6 +12,8 @@ import { type AllocationsScopeInput, type AllocationsSnapshot } from "./alloc-pl
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import type { WbsOpenRequest, WbsOpenResult } from "./use-wbs-plan";
 import type { ForecastReportInput } from "./forecast-ai-report";
+import type { ScopeEpochReader } from "./scope-epoch";
+import type { ProjectWriter } from "./use-project-tools";
 
 export interface ChatDispatcherArgs {
   settings: Settings;
@@ -147,4 +149,15 @@ export interface ChatDispatcherArgs {
   /** Opens the WBS proposal flow (`useWbsPlan().open`); the `optimize_wbs` tool writes nothing itself.
    *  The dispatcher adds its own `liveTasks`, so the flow sees this turn's creates. */
   openWbsPlan(req: WbsOpenRequest): WbsOpenResult;
+  /** §715 — the project form's writer (`handleUpdateCurrentProjectByMode`), which `update_project` writes through.
+   *  A REF because task-manager builds this dispatcher before that handler exists; it fills the ref once it does,
+   *  and a call before then refuses. REQUIRED, like `undo`: an optional ref dropped from the one production call
+   *  site would leave every project update refusing with every gate green. */
+  projectWriterRef: RefObject<ProjectWriter | null>;
+  /** `useStorageBackend`'s scope-epoch reader (§548): a project update that resolves after a project switch is
+   *  dropped. REQUIRED, as `scope-epoch.ts` asks of every deps boundary that hands the reader down. */
+  getScopeEpoch: ScopeEpochReader;
+  /** §715 — the app's toast, for an undo or redo of `update_project` whose writer threw (an undo runner is synchronous
+   *  and the writer is not, so no caller is left to reject to). REQUIRED, like `getScopeEpoch`. */
+  showToast: (kind: "info" | "error", text: string) => void;
 }

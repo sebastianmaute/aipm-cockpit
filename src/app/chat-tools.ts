@@ -53,6 +53,7 @@ import {
   runForecastTool,
   type ForecastToolDispatcher,
 } from "./chat-tools-forecast";
+import { NOT_PROJECT_TOOL, runProjectTool, type ProjectToolDispatcher } from "./chat-tools-project";
 import { runChatSearch } from "./chat-search-tool";
 import type { ChatPointer } from "./chat-search";
 import type { PublishedThreads } from "./chat-threads-registry";
@@ -577,7 +578,8 @@ export type ToolDispatcher = {
   // in chat-tools-documents.ts because this file sits close to the 800-line
   // ratchet.
 } & DocumentToolDispatcher &
-  ForecastToolDispatcher;
+  ForecastToolDispatcher &
+  ProjectToolDispatcher;
 
 /** Parse the numeric `id` field, throwing if absent/non-numeric. */
 function requireId(input: Record<string, unknown>): number {
@@ -627,6 +629,8 @@ export async function runTool(
 
   const forecast = runForecastTool(name, input, d);
   if (forecast !== NOT_FORECAST_TOOL) return forecast;
+  const project = runProjectTool(name, input, d);
+  if (project !== NOT_PROJECT_TOOL) return project;
 
   switch (name) {
     case "list_tasks":

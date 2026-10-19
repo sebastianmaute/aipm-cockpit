@@ -20,6 +20,7 @@ import { tursoErrorMessageKey } from "./storage-error";
 import { removeKeyFactsSnapshot } from "./project-key-facts-cache";
 import { listProjects, updateProjectMeta as tursoUpdateMeta } from "./turso-portfolio";
 import { commitTursoPortfolioSwitch, type PortfolioMode } from "./portfolio-mode";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import { reloadRefusalText, secretLostToReload } from "./portfolio-mode-switch";
 import type { Settings } from "./settings-types";
 import type { ProjectListEntry } from "./turso-tenant-schema";
@@ -59,6 +60,9 @@ export interface UseTursoProjectsArgs {
     opts?: NewProjectOpts,
   ) => void | Promise<void>;
   updateCurrentFileProject: (meta: ProjectMeta) => void;
+  /** `useStorageBackend`'s scope-epoch reader (§548). The tenant meta write mirrors into the in-memory workspace
+   *  only while the project it wrote is still open. REQUIRED, as `scope-epoch.ts` asks of every deps boundary. */
+  getScopeEpoch: ScopeEpochReader;
 }
 
 export interface UseTursoProjectsResult {
@@ -67,7 +71,9 @@ export interface UseTursoProjectsResult {
     format: ProjectFileFormat,
     opts?: NewProjectOpts,
   ) => void;
-  handleUpdateCurrentProjectByMode: (meta: ProjectMeta) => void;
+  /** Resolves true once the record is written, false after its error toast (§715: the assistant awaits it;
+   *  the project form ignores the result). */
+  handleUpdateCurrentProjectByMode: (meta: ProjectMeta) => Promise<boolean>;
   handleArchiveTursoProject: (id: string) => void;
   handleRestoreTursoProject: (id: string) => void;
   handleHardDeleteTursoProject: (id: string) => void;
@@ -102,6 +108,7 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
     setProject,
     createFileProject,
     updateCurrentFileProject,
+    getScopeEpoch,
   } = args;
 
   // Create — the panel/empty-state callback is (meta, format); Turso ignores the
@@ -144,9 +151,10 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
   );
 
   // Update current project meta — Turso writes the projects-table row, mirrors
-  // it into the in-memory workspace, and refreshes the list.
+  // it into the in-memory workspace, and refreshes the list. ★ Awaited end to end (§715): the boolean is
+  // whether the record was stored, so the assistant's update_project can report a failure on its card.
   const handleUpdateCurrentProjectByMode = useCallback(
-    (meta: ProjectMeta) => {
+    async (meta: ProjectMeta): Promise<boolean> => {
       if (portfolioMode === "turso") {
         const cfg = getTursoConfig(tursoDatabaseUrl, tursoAuthToken);
         if (!tursoProjectId) {
@@ -157,26 +165,31 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
           // way, the active backend's normal save persists ws.project now, so
           // the in-memory update here is the whole write.
           updateCurrentFileProject(meta);
-          return;
+          return true;
         }
         if (!cfg) {
           showToast("error", t(lang, "projectUpdateFailed", t(lang, "storageTursoNeedsConfig")));
-          return;
+          return false;
         }
-        void (async () => {
-          try {
-            await tursoUpdateMeta(cfg, meta, tursoProjectId);
-            setProject(meta);
-            await refreshTursoProjects();
-          } catch (err) {
-            showToast("error", t(lang, "projectUpdateFailed", errorText(err, lang)));
-          }
-        })();
-      } else {
-        updateCurrentFileProject(meta);
+        // §715 — the row is written for the project open NOW (`tursoProjectId` is captured); the in-memory mirror
+        // waits for the await, so it is dropped when another project opened meanwhile: copying this meta there
+        // would put the old project's details into the new one, and its workspace save would persist them.
+        // Still `true`: the record WAS stored. use-project-tools.ts reports the switch from its own epoch check.
+        const startEpoch = getScopeEpoch();
+        try {
+          await tursoUpdateMeta(cfg, meta, tursoProjectId);
+          if (!dropStaleScopeWrite(getScopeEpoch, startEpoch, "project.updateMeta")) setProject(meta);
+          await refreshTursoProjects();
+          return true;
+        } catch (err) {
+          showToast("error", t(lang, "projectUpdateFailed", errorText(err, lang)));
+          return false;
+        }
       }
+      updateCurrentFileProject(meta);
+      return true;
     },
-    [portfolioMode, tursoDatabaseUrl, tursoAuthToken, tursoProjectId, setProject, refreshTursoProjects, updateCurrentFileProject, showToast, lang],
+    [portfolioMode, tursoDatabaseUrl, tursoAuthToken, tursoProjectId, getScopeEpoch, setProject, refreshTursoProjects, updateCurrentFileProject, showToast, lang],
   );
 
   // Re-point the active project after archiving/hard-deleting it: if the affected

@@ -33,8 +33,9 @@ import {
   ABSENCES_CSV_COLUMNS, absenceFieldToString,
   EVENTS_CSV_COLUMNS, calendarEventFieldToString,
 } from "./csv-codecs-core";
+import { PROJECT_CSV_COLUMNS, projectFieldToString } from "./csv-codecs-config";
 import type {
-  Absence, ChangeItem, Milestone, RaidItem, Resource, Stakeholder, Task,
+  Absence, ChangeItem, Milestone, ProjectMeta, RaidItem, Resource, Stakeholder, Task,
 } from "./types";
 import type { CalendarEvent } from "./calendar-event";
 import { sanitizeForecastScenarios } from "./forecast-scenarios";
@@ -42,7 +43,7 @@ import { hash } from "./token-hash";
 
 export type TokenEntity =
   | "task" | "raid" | "milestone" | "change" | "stakeholder" | "resource"
-  | "absence" | "calendarEvent" | "forecastScenario";
+  | "absence" | "calendarEvent" | "forecastScenario" | "project";
 
 /** The kinds derived from a CSV projection. `forecastScenario` is a meta-blob slice with no CSV columns, so it
  *  has no row in `PROJECTORS` or `ProjectedRows` and is projected by `scenarioProjection` instead. */
@@ -149,6 +150,10 @@ export const TOKEN_EXCLUDED: Readonly<Record<TokenEntity, readonly string[]>> = 
   calendarEvent: ["localModifiedAt", "outlookEventId"],
   // A saved scenario carries no bookkeeping: every field is model-writable through the scenario tools.
   forecastScenario: [],
+  // §715 — the project record. Nothing is excluded: the fields Claude may not set (contact persons, the legacy
+  // stakeholder lists, knowledge links) stay COVERED, so a hand edit to one after Claude read the project makes
+  // that read stale. That is the safe direction, and excluding them would spare nothing Claude writes.
+  project: [],
 };
 
 /** A column list and a renderer BOUND TO THE SAME ENTITY TYPE.
@@ -199,6 +204,13 @@ function projector<T>(p: Projector<T>): ErasedProjector {
   return p as unknown as ErasedProjector;
 }
 
+/** `projectFieldToString` maps over `contactPersons` unguarded, so a sparse record would THROW here, on the write
+ *  path. An absent list projects as an empty one instead: the same missing-equals-empty merge as the coercion in
+ *  `entityToken`, and unreachable for a loaded project, whose sanitizer always sets the list. */
+function renderProject(p: ProjectMeta, column: keyof ProjectMeta): string {
+  return projectFieldToString(column === "contactPersons" ? { ...p, contactPersons: p.contactPersons ?? [] } : p, column);
+}
+
 const PROJECTORS: Readonly<Record<CsvTokenEntity, ErasedProjector>> = {
   task: projector<Task>({ columns: CSV_COLUMNS, render: fieldToString }),
   raid: projector<RaidItem>({ columns: RAID_CSV_COLUMNS, render: raidFieldToString }),
@@ -208,6 +220,7 @@ const PROJECTORS: Readonly<Record<CsvTokenEntity, ErasedProjector>> = {
   resource: projector<Resource>({ columns: RESOURCES_CSV_COLUMNS, render: resourceFieldToString }),
   absence: projector<Absence>({ columns: ABSENCES_CSV_COLUMNS, render: absenceFieldToString }),
   calendarEvent: projector<CalendarEvent>({ columns: EVENTS_CSV_COLUMNS, render: calendarEventFieldToString }),
+  project: projector<ProjectMeta>({ columns: PROJECT_CSV_COLUMNS, render: renderProject }),
 };
 
 /** ★★★ EVERY DECLARED FIELD OF EVERY TOKENED ENTITY MUST BE IN THAT ENTITY'S
@@ -293,6 +306,7 @@ type ProjectedRows = {
   resource: Assert<Projected<Resource, typeof RESOURCES_CSV_COLUMNS>>;
   absence: Assert<Projected<Absence, typeof ABSENCES_CSV_COLUMNS>>;
   calendarEvent: Assert<Projected<CalendarEvent, typeof EVENTS_CSV_COLUMNS>>;
+  project: Assert<Projected<ProjectMeta, typeof PROJECT_CSV_COLUMNS>>;
 };
 
 /** Fails compilation unless every `CsvTokenEntity`'s declared fields are all

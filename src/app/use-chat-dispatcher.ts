@@ -56,6 +56,7 @@ import { useWorkspace } from "./workspace-context";
 import { useDocumentTools } from "./use-document-tools";
 import { useRegisterTools } from "./use-register-tools";
 import { useForecastTools } from "./use-forecast-tools";
+import { useProjectTools } from "./use-project-tools";
 import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
 import type { AppView } from "./nav-config";
 export type { ChatDispatcherArgs };
@@ -356,6 +357,17 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     resourcesRef,
   });
 
+  // §715 — the project members, spread in below. The write goes through the project form's writer; that file's
+  // header says why it cannot be a `setProject` here.
+  const projectTools = useProjectTools({
+    isReadOnly: args.isReadOnly,
+    logActivityAs: args.logActivityAs,
+    settingsRef,
+    undoRef,
+    projectWriterRef: args.projectWriterRef,
+    getScopeEpoch: args.getScopeEpoch,
+    showToast: args.showToast,
+  });
   // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`
   // call, AFTER the setter and AFTER every reject guard. Arity is UNCHECKED by
   // the type system and is NOT uniform across kinds — read `logActivityAs` on
@@ -1010,6 +1022,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
 
       ...forecastTools,
 
+      ...projectTools,
+
       getTimezone: () => clockRef.current.tz,
 
       getDashboardSnapshot: () =>
@@ -1051,9 +1065,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // It is listed anyway because the redundancy is a property of the OTHER
     // hook's dep array, not of this one: the day that array gains a dep this one
     // lacks, the omission becomes the documentTools bug above, silently.
-    // ★ `forecastTools` is the same shape again: a useMemo'd object spread in, and read by `getSnapshot`.
+    // ★ `forecastTools` is the same shape again: a useMemo'd object spread in, and read by `getSnapshot`; so is
+    // `projectTools`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly, documentTools, registerTools, forecastTools, setRaid, setAbsences, setShifts, setStakeholders, setProject],
+    [args.isReadOnly, documentTools, registerTools, forecastTools, projectTools, setRaid, setAbsences, setShifts, setStakeholders, setProject],
   );
 
   return dispatcher;

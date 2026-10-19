@@ -655,6 +655,68 @@ describe("WorkspaceSection — Monte Carlo switch in Edit project", () => {
   });
 });
 
+// §715 owner decision B — a project form save is logged as the user's once its write resolved true in the project
+// still open; it takes no undo entry (only Claude's edit is undoable).
+describe("WorkspaceSection — the project form save is logged", () => {
+  function TabProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-projects" onClick={() => setActiveTab("projects")} />;
+  }
+  const currentProject = {
+    name: "Apollo", code: "APL", projectManager: "Jane PM", keyStakeholdersInternal: [], keyStakeholdersExternal: [],
+    identityTypes: [], contactPersons: [], regulatory: [],
+  } as unknown as WorkspaceSectionProps["currentProject"];
+
+  async function saveRenamed(over: Partial<WorkspaceSectionProps>) {
+    const props = makeProps({ currentProject, projectFunctionsRequest: 1, ...over });
+    render(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...props} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-projects"));
+    const dialog = within(await screen.findByRole("dialog"));
+    fireEvent.change(dialog.getByLabelText("Project name", { exact: false, selector: "input" }), { target: { value: "Artemis" } });
+    await act(async () => { fireEvent.click(dialog.getByRole("button", { name: "Save" })); });
+    return props;
+  }
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("a form save logs project.updated as the user", async () => {
+    const props = await saveRenamed({ onUpdateCurrentProject: vi.fn(async () => true), logActivityAs: vi.fn() });
+    expect(props.onUpdateCurrentProject).toHaveBeenCalledTimes(1);
+    expect(props.logActivityAs).toHaveBeenCalledWith("user", "project.updated", "name");
+  });
+
+  it("a form save is not undoable", async () => {
+    const props = await saveRenamed({ onUpdateCurrentProject: vi.fn(async () => true), onCaptureUndo: vi.fn() });
+    expect(props.onUpdateCurrentProject).toHaveBeenCalledTimes(1);
+    expect(props.onCaptureUndo).not.toHaveBeenCalled();
+  });
+
+  it("a form save the writer could not store logs nothing", async () => {
+    const props = await saveRenamed({ onUpdateCurrentProject: vi.fn(async () => false), logActivityAs: vi.fn() });
+    expect(props.onUpdateCurrentProject).toHaveBeenCalledTimes(1);
+    expect(props.logActivityAs).not.toHaveBeenCalled();
+  });
+
+  it("a project switch during the form save logs nothing into the project open now", async () => {
+    const epoch = { value: 1 };
+    const props = await saveRenamed({
+      getScopeEpoch: () => epoch.value,
+      onUpdateCurrentProject: vi.fn(async () => { epoch.value = 2; return true; }),
+      logActivityAs: vi.fn(),
+    });
+    expect(props.onUpdateCurrentProject).toHaveBeenCalledTimes(1);
+    expect(props.logActivityAs).not.toHaveBeenCalled();
+  });
+});
+
 // §502 part 3 — the Budget report block on Reports gets the ONE shared run, computed here with the
 // context's collections and the section's holiday set (the references the recorder passes).
 describe("WorkspaceSection — budget simulation for Reports", () => {

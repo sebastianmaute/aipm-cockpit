@@ -9,6 +9,7 @@ import { useForecastSettings } from "./use-forecast-settings";
 import type { ScenarioRunInput } from "./forecast-scenario-compare";
 import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
 import { useToastContext } from "./toast-context";
+import { saveProjectFromForm } from "./project-meta-edit";
 import { computeProjectForecastFacts } from "./budget-forecast";
 import {
   useCallback,
@@ -1154,7 +1155,7 @@ export function WorkspaceSection({
               lang={lang}
               onSwitch={onSwitchProject}
               onCreate={onCreateProject}
-              onUpdateCurrent={onUpdateCurrentProject}
+              onUpdateCurrent={(meta) => void saveProjectFromForm({ write: onUpdateCurrentProject, before: currentProject, next: meta, getScopeEpoch, logActivityAs })}
               features={features}
               onCommitFeatures={workspace.setFeatures}
               simulation={isSimulationOn(workspace.settingsOverrides)}

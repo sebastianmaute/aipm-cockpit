@@ -26,6 +26,7 @@ import {
   type TaskDependency,
   type NoteLogEntry,
   type Absence,
+  type ProjectMeta,
 } from "./types";
 import type { CalendarEvent } from "./calendar-event";
 import { entityToken, type TokenEntity } from "./ai-entity-token";
@@ -339,6 +340,11 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     }),
     setForecastTargetConfidence: vi.fn(() => {
       throw new Error("setForecastTargetConfidence not stubbed");
+    }),
+    // Project members (§715): no open project by default, and a write refuses unless a test overrides it.
+    getProjectMeta: vi.fn(() => null),
+    updateProjectMeta: vi.fn(async () => {
+      throw new Error("updateProjectMeta not stubbed");
     }),
     // Same "throw a named error" convention as listAllocations: no test using
     // this fixture drives search_chats by default, and a silent
@@ -2101,6 +2107,25 @@ describe("runTool — document tool routing", () => {
     await expect(runTool(makeDispatcher(), "burn_everything", {})).rejects.toThrow(
       /unknown tool: burn_everything/,
     );
+  });
+});
+
+describe("runTool — project tool routing (§715)", () => {
+  const project = { name: "Apollo", customer: "Acme", startDate: "", endDate: "" } as ProjectMeta;
+
+  it("runTool routes both names", async () => {
+    const getProjectMeta = vi.fn(() => project);
+    const updateProjectMeta = vi.fn(async (next: ProjectMeta) => next);
+    const d = makeDispatcher({ getProjectMeta, updateProjectMeta });
+
+    const read = (await runTool(d, "get_project", {})) as { customer: string; expectedToken: string };
+    expect(getProjectMeta).toHaveBeenCalled();
+    expect(read.customer).toBe("Acme");
+
+    await expect(
+      runTool(d, "update_project", { expectedToken: read.expectedToken, customer: "Globex" }),
+    ).resolves.toMatchObject({ project: { customer: "Globex" }, refused: [], ignored: [] });
+    expect(updateProjectMeta).toHaveBeenCalledTimes(1);
   });
 });
 
