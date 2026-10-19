@@ -1,8 +1,9 @@
 import "fake-indexeddb/auto";
 import { useState } from "react";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiSection } from "./ai-section";
+import { hasUnsealedPassphraseSecret } from "../turso-token-marker";
 import { __resetAiKeyStatusForTests, reportAiKeyResponse, reportAiKeyUnreadable } from "../ai-key-status";
 import { defaultSettings as baseSettings, type Settings } from "../settings-types";
 import {
@@ -738,5 +739,78 @@ describe("AiSection — §650 the key verdict next to the key field", () => {
     render(<AiSection lang="en-US" settings={withKey} onChange={vi.fn()} />);
     expect(screen.queryByRole("alert")).toBeNull();
     expect(keyField()).not.toHaveAttribute("aria-invalid", "true");
+  });
+});
+
+// §749 — the Claude key, under the passphrase lock, is the same hazard §715 closed for the Turso token: a
+// keystroke commits the key to settings, but nothing seals it until "Save passphrase", and every reload path
+// blanks it (`writeSettings`). The key is held as UNSEALED until a seal covers it, so the reload paths can
+// refuse; and the lock a section shows is derived from the store and that marker, so a second mounted section
+// (Settings under the setup wizard) cannot device-seal over a passphrase record the other one saved.
+describe("AiSection — a key typed under the passphrase lock (§749)", () => {
+  const KEY = "sk-ant-api03-typed000000000000";
+  const keyField = () => screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"));
+  const lock = () => screen.getAllByLabelText(/require a passphrase/i)[0];
+
+  function Controlled({ initial = defaultSettings }: { initial?: Settings }) {
+    const [s, setS] = useState<Settings>(initial);
+    return <AiSection lang="en-US" settings={s} onChange={setS} />;
+  }
+
+  it("is held as unsealed until Save passphrase seals it, and is never device-sealed meanwhile", async () => {
+    render(<Controlled />);
+    fireEvent.click(lock()); // the lock first, then the key
+    fireEvent.change(keyField(), { target: { value: KEY } });
+    expect(hasUnsealedPassphraseSecret("anthropicApiKey", KEY)).toBe(true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(await readDeviceSecret("anthropicApiKey")).toBeNull();
+    fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
+    fireEvent.change(screen.getByLabelText(/confirm passphrase/i), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: /save passphrase/i }));
+    await waitFor(() => expect(isPassphraseLocked("anthropicApiKey")).toBe(true));
+    expect(hasUnsealedPassphraseSecret("anthropicApiKey", KEY)).toBe(false);
+  });
+
+  it("the positive control: with the lock off, a typed key is device-sealed and never held", async () => {
+    render(<Controlled />);
+    fireEvent.change(keyField(), { target: { value: KEY } });
+    expect(hasUnsealedPassphraseSecret("anthropicApiKey", KEY)).toBe(false);
+    await waitFor(async () => expect(await readDeviceSecret("anthropicApiKey")).toBe(KEY));
+  });
+
+  it("Remove stored secret forgets a held key", async () => {
+    render(<Controlled />);
+    fireEvent.click(lock());
+    fireEvent.change(keyField(), { target: { value: KEY } });
+    fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
+    fireEvent.change(screen.getByLabelText(/confirm passphrase/i), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: /save passphrase/i }));
+    await waitFor(() => expect(isPassphraseLocked("anthropicApiKey")).toBe(true));
+    fireEvent.change(keyField(), { target: { value: `${KEY}9` } }); // typed again, under the lock
+    expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}9`)).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "secretPassphraseRemove") }));
+    await waitFor(() => expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}9`)).toBe(false));
+  });
+
+  // Settings keeps its section mounted under the wizard, which mounts a second one. A passphrase saved in
+  // one must not leave the other on its mount-time "device", whose next keystroke would device-seal over it.
+  it("a passphrase saved in one mounted section keeps the other's next keystroke off the device wrap", async () => {
+    const withKey: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: KEY } };
+    const first = render(<AiSection lang="en-US" settings={withKey} onChange={vi.fn()} />);
+    const second = render(<Controlled initial={withKey} />); // mounted while the record is still device-or-none
+    const one = within(first.container);
+    fireEvent.click(one.getByLabelText(/require a passphrase/i));
+    fireEvent.change(one.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
+    fireEvent.change(one.getByLabelText(/confirm passphrase/i), { target: { value: "pw" } });
+    fireEvent.click(one.getByRole("button", { name: /save passphrase/i }));
+    await waitFor(() => expect(isPassphraseLocked("anthropicApiKey")).toBe(true));
+    const record = loadSealed("anthropicApiKey");
+    const secondKeyField = within(second.container).getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"));
+    fireEvent.change(secondKeyField, { target: { value: `${KEY}2` } });
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(isPassphraseLocked("anthropicApiKey")).toBe(true);
+    expect(loadSealed("anthropicApiKey")).toEqual(record); // not replaced by a device seal
+    expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}2`)).toBe(true);
   });
 });
