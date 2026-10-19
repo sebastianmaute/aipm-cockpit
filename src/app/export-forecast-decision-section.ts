@@ -38,7 +38,7 @@ function milestoneValue(lang: Lang, m: ForecastDecisionMilestone, goal: TargetCo
 /** The section's body rows. Every decision yields at least the "Forecast (simulated)" row. */
 export function forecastDecisionRows(d: ForecastDecision, lang: Lang): string[][] {
   const heading = t(lang, "forecastDecisionHeading");
-  if (d.insufficient) return [[heading, t(lang, "forecastInsufficientTitle")]];
+  if (d.insufficient) return [[heading, t(lang, d.calendarLoading ? "forecastDecisionCalendarLoading" : "forecastInsufficientTitle")]];
   const locale = localeFor(lang);
   // The proposal's cost shows only beside an As-is cost, as the Reports comparison table does.
   const currency = d.cost?.currency;

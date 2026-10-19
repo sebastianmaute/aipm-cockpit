@@ -61,6 +61,49 @@ describe("ForecastP80Line (§502 part 4)", () => {
     expect(ticks).toEqual(expect.arrayContaining([dm("2026-12-10"), dm("2026-12-30")]));
   });
 
+  // Task 11b — the points sit on a calendar-day axis: three recordings with a nine-day hole put the middle one a
+  // tenth of the way along, not half way.
+  it("places the points by their recorded date, so missing days stretch the axis", () => {
+    const history = [entry("2026-10-01", "2026-12-20"), entry("2026-10-02", "2026-12-22"), entry("2026-10-11", "2026-12-24")];
+    render(<ForecastP80Line lang="en-US" history={history} planEnd="2026-12-31" />);
+    const chart = screen.getByRole("img", { name: "Safe to commit (P80) over time" });
+    const xs = chart.querySelector("polyline")!.getAttribute("points")!.split(" ").map((p) => Number(p.split(",")[0]));
+    expect((xs[1] - xs[0]) / (xs[2] - xs[0])).toBeCloseTo(0.1, 2);
+  });
+
+  it("names the year on the x labels when the history crosses a year boundary", () => {
+    const history = [entry("2026-12-30", "2027-02-01"), entry("2027-01-02", "2027-02-03")];
+    render(<ForecastP80Line lang="en-US" history={history} planEnd="2027-02-10" />);
+    const texts = [...document.querySelectorAll("text")].map((n) => n.textContent);
+    expect(texts).toEqual(expect.arrayContaining([formatDayMonthYear("2026-12-30", LOCALE), formatDayMonthYear("2027-01-02", LOCALE)]));
+  });
+
+  it("leaves the year off the x labels within one calendar year", () => {
+    const history = [entry("2026-10-01", "2026-12-20"), entry("2026-10-05", "2026-12-22")];
+    render(<ForecastP80Line lang="en-US" history={history} planEnd="2026-12-31" />);
+    const texts = [...document.querySelectorAll("text")].map((n) => n.textContent);
+    expect(texts).toEqual(expect.arrayContaining([dm("2026-10-01"), dm("2026-10-05")]));
+    expect(texts).not.toContain(formatDayMonthYear("2026-10-01", LOCALE));
+  });
+
+  // Fix round 1 — the y ticks follow the same rule over the PLOTTED dates: recordings inside one year, P80s across two.
+  it("names the year on the y ticks when the plotted dates cross a year boundary", () => {
+    const history = [entry("2026-10-01", "2026-12-20"), entry("2026-10-02", "2027-01-10")];
+    render(<ForecastP80Line lang="en-US" history={history} planEnd="2026-12-31" />);
+    const texts = [...document.querySelectorAll("text")].map((n) => n.textContent);
+    expect(texts).toEqual(expect.arrayContaining([formatDayMonthYear("2026-12-20", LOCALE), formatDayMonthYear("2027-01-10", LOCALE)]));
+    // The x labels stay short: the recordings themselves are all in 2026.
+    expect(texts).toEqual(expect.arrayContaining([dm("2026-10-01"), dm("2026-10-02")]));
+  });
+
+  it("counts the plan end among the plotted dates: an earlier-year plan end puts the year on the y ticks", () => {
+    const history = [entry("2026-10-01", "2027-01-10"), entry("2026-10-02", "2027-01-20")];
+    render(<ForecastP80Line lang="en-US" history={history} planEnd="2026-12-31" />);
+    const texts = [...document.querySelectorAll("text")].map((n) => n.textContent);
+    expect(texts).toEqual(expect.arrayContaining([formatDayMonthYear("2026-12-31", LOCALE), formatDayMonthYear("2027-01-20", LOCALE)]));
+    expect(texts).not.toContain(dm("2027-01-20"));
+  });
+
   it("says the line is still building with a single recorded day", () => {
     render(<ForecastP80Line lang="en-US" history={[entry("2026-10-01", "2026-12-20")]} planEnd="2026-12-31" />);
     expect(screen.getByText("The line appears once two days have been recorded.")).toBeTruthy();

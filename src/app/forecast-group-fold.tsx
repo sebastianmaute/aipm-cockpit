@@ -1,10 +1,13 @@
 "use client";
 
 // "Forecast by group" (§502; surfaces design §3.7, part 4 §3.2 item 6): a native `<details>`, closed by default.
-// One full run per group, so nothing is computed until it is opened (`forecastByGroup` runs in a memo keyed on the
-// open state). Each simulated figure is a `SimValue` named "<group>, <column>", so two cells never share a name.
+// One full run per group, so nothing is computed until it is opened, and then OFF the render path (Task 11b): the run
+// is a timer callback, as `use-lever-search.ts` schedules its probes, and the state is set only from that callback
+// (`react-hooks/set-state-in-effect` is banned). Until it lands the fold-out reads "Working it out…"; an edit while it
+// is open cancels the pending run and schedules one for the new input, and rows are shown only for the CURRENT input.
+// Each simulated figure is a `SimValue` named "<group>, <column>", so two cells never share a name.
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { localeFor } from "./date-format";
 import { forecastByGroup, type GroupForecastInput, type GroupForecastRow } from "./forecast-by-group";
@@ -66,14 +69,24 @@ function GroupRows({ lang, rows }: { lang: Lang; rows: readonly GroupForecastRow
   );
 }
 
+type GroupResult = { input: GroupForecastInput; rows: GroupForecastRow[] };
+
 export function ForecastGroupFold({ lang, input }: { lang: Lang; input: GroupForecastInput }) {
   const [open, setOpen] = useState(false);
-  const rows = useMemo(() => (open ? forecastByGroup(input) : null), [open, input]);
+  const [result, setResult] = useState<GroupResult | null>(null);
+  const settled = result !== null && result.input === input;
+  useEffect(() => {
+    if (!open || settled) return undefined;
+    const timer = setTimeout(() => setResult({ input, rows: forecastByGroup(input) }), 0);
+    return () => clearTimeout(timer);
+  }, [open, input, settled]);
+  const rows = open && settled ? result.rows : null;
   return (
     <details className="mt-3" onToggle={(e) => setOpen(e.currentTarget.open)} data-testid="forecast-by-group">
       <summary className={`cursor-pointer text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey ${FOCUS_RING}`}>
         {t(lang, "forecastByGroupTitle")}
       </summary>
+      {open && rows === null && <p className="mt-2 text-sm text-muted-foreground">{t(lang, "forecastLeverWorking")}</p>}
       {rows !== null && (
         <div className="mt-2 space-y-2">
           {rows.length === 0

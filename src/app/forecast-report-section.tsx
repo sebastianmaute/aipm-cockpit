@@ -145,9 +145,12 @@ function ForecastReportBody({ lang, input, scenarios, settings, history, currenc
   const planEndName = t(lang, "forecastRangePlanEnd");
   const named = useMemo(() => [{ id: PLAN_END_ROW_ID, name: planEndName }, ...rows], [planEndName, rows]);
   const tokens = useRowTokens(named, nameOfRow);
+  // Keyed on the four fields the groups read, not the whole input: a directory or budget edit makes a new input but
+  // must not rerun every group (nor flash the fold-out's placeholder). A null input never reaches here (`SimPlaceholder`).
+  const { tasks: groupTasks, today: groupToday, holidaySet: groupHolidays, planEnd: groupPlanEnd } = input;
   const groupInput = useMemo(
-    () => ({ tasks: input.tasks, today: input.today, holidaySet: input.holidaySet, planEnd: input.planEnd }),
-    [input],
+    () => ({ tasks: groupTasks, today: groupToday, holidaySet: groupHolidays, planEnd: groupPlanEnd }),
+    [groupTasks, groupToday, groupHolidays, groupPlanEnd],
   );
   if (forecast.kind === "insufficient") return <InsufficientState lang={lang} result={forecast} />;
 

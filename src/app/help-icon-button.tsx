@@ -2,7 +2,7 @@
 
 import { useCallback, useId, useRef, useState } from "react";
 import { QuestionMarkCircleIcon, XMarkIcon } from "./icons";
-import { HELP_ENTRIES, type HelpEntryId } from "./help-content";
+import { HELP_ENTRIES, helpEntryBody, type HelpEntryId } from "./help-content";
 import { HelpBodyText } from "./help-body-text";
 import { type Lang, t } from "./i18n";
 import { IconButton } from "./icon-button";
@@ -192,7 +192,7 @@ export function HelpIconButton({
           </IconButton>
         </div>
         <p className="max-w-[64ch] whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-          <HelpBodyText body={t(lang, entry.bodyKey)} labelClass="font-medium text-foreground" />
+          <HelpBodyText body={helpEntryBody(lang, entry)} labelClass="font-medium text-foreground" />
         </p>
       </PopoverPanel>
     </>

@@ -1896,7 +1896,8 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   pair, because `runTursoPipeline` only opens a transaction when the first statement is literal `BEGIN`.
   `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
   requires `projectId` (not just an id) so a delete can never reach across projects.
-- **Forecast tools (§502) — `get_forecast`, `create_forecast_scenario`, `update_forecast_scenario`.** Defined in
+- **Forecast tools (§502) — `get_forecast`, `create_forecast_scenario`, `update_forecast_scenario`, and part 4's
+  `delete_forecast_scenario`, `set_forecast_proposal`, `set_forecast_target_confidence`.** Defined in
   `chat-tool-defs-forecast.ts` (`FORECAST_TOOL_DEFS`), run by `runForecastTool` (`chat-tools-forecast.ts`), bound to
   the workspace by `useForecastTools` (`use-forecast-tools.ts`).
   ★★ THE GATE HAS TWO HALVES, ONE PREDICATE. Offering: `ToolFlags.forecast` (`chat-api.ts`) is the INVERSE of the
@@ -1907,7 +1908,11 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   the SNAPSHOT (`forecastView`, `forecastSimulation`); the offered set only decides whether it may name tools. Nothing
   when the Forecast view is not enabled (the snapshot's `forecastView`, from `isViewEnabled`: held back by
   `RELEASE_HIDDEN_VIEWS` or its module off); the off text when the view is enabled but the simulation is off; the
-  quoting rules, which name the tools, when the simulation is on and the offered set holds `get_forecast`; and
+  quoting rules, which name the tools and explain the part-4 reads (target confidence, what it would take, the
+  proposal, the P80 history), when the simulation is on and the offered set holds `get_forecast` — ★ each of the
+  three part-4 writes (`delete_forecast_scenario`, `set_forecast_proposal`, `set_forecast_target_confidence`) is
+  named only when the offered set holds THAT tool (`forecastWrites`), and "never delete one" stays until the delete
+  tool is offered; and
   nothing when the simulation is on but `get_forecast` is not offered — inline AI edit (`inline-ai-edit-call.ts`),
   whose `NO_RECALL_TOOLS` carries no forecast bit but whose snapshot is the chat's.
   ★★ THE OFF TEXT AND `FORECAST_OFF_MESSAGE` NEVER SAY "FORECASTING IS OFF": `ForecastPanel` runs the simulation
@@ -1931,11 +1936,27 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   stale is still accepted when the STORED scenario already held that same reference (`keepsAnyStoredReference`,
   used by `checkToolDraft`), so an edit elsewhere in an old scenario is not refused over a milestone someone
   finished; a NEW stale reference is refused.
-  ★ NO DELETE TOOL, by design (the prompt says so too), and none of the three is in `ALLOWED_REC_TOOLS`
-  (`insights/insight.ts`), the allowlist for replaying recommended calls. Staging: both writes are in
-  `ENTITY_WRITE_TOOLS` (`chat-proposal.ts`) with rows in `TARGET_MINTED_BY`, `CREATE_MINT_KIND` and
-  `TOKEN_ROW_SOURCE`. The create is NOT undo-captured (a captured create duplicates the row); the update is, as one
-  `forecastScenario.updated` composite.
+  ★ None of the six is in `ALLOWED_REC_TOOLS` (`insights/insight.ts`), the allowlist for replaying recommended
+  calls. Staging: the create and update are in `ENTITY_WRITE_TOOLS` (`chat-proposal.ts`) with rows in
+  `TARGET_MINTED_BY`, `CREATE_MINT_KIND` and `TOKEN_ROW_SOURCE`. The create is NOT undo-captured (a captured create
+  duplicates the row); the update is, as one `forecastScenario.updated` composite.
+  ★★ PART 4 (spec §3.9): `delete_forecast_scenario` is in `DESTRUCTIVE_TOOLS` (stages alone), takes the same
+  `forecastScenario` token (`TOKEN_ROW_SOURCE` row; `requireTokenedRow` in `runForecastTool`), is one undoable
+  `forecastScenario.deleted` composite and arms nothing (`UNARMED_AI_ROUTES`, `destructive-save-arming.test.ts`: the
+  slice is uncounted). ★★ That test holds TWO tables, and every AI tool named `delete_*` or `clear_*` must sit in
+  exactly one: `ARMED_AI_ROUTES` (tool → the test file proving its handler arms `allowDestructiveSave`) or `UNARMED_AI_ROUTES`
+  (tool → the slice it removes from, which must be uncounted in `SLICE_POLICY`: an arm on an uncounted slice is never
+  spent and leaks to the next save, waving through a delete it never saw; `delete_forecast_scenario` → `forecastScenarios` is
+  its one row today: `grep -n -A3 "UNARMED_AI_ROUTES: Record" src/app/destructive-save-arming.test.ts`). A new
+  removal tool with no row fails "has a recorded arming decision for every AI removal tool"; the save guard itself is
+  in [`platform.md`](platform.md). `set_forecast_proposal` (`id`, or null to clear) and `set_forecast_target_confidence`
+  (`value`, 50/80/95) are in `ENTITY_WRITE_TOOLS` although they write `settingsOverrides`: project data, unlike
+  `update_settings`; they are logged as the AI and NOT undoable (owner decision). `set_forecast_proposal.id` and
+  `delete_forecast_scenario.id` are `TARGET_MINTED_BY` rows minted by `create_forecast_scenario`, so
+  `[create_forecast_scenario, set_forecast_proposal(<provisional>)]` proposes the scenario the create really minted,
+  and refusing the create cascades the proposal call; `targetIdOf` reads `id: null` as no id, so a clear names no
+  row. The card lines come from `forecastScenarioRowTitle` (delete, proposal) and `forecastTargetRowTitle` (target). Forecast-side detail (shared store/log rules, the
+  synchronous overrides ref, the `forecastDecision` document gate) is in `docs/AGENTS/forecast.md`, "The AI tool".
   ★★ A SCENARIO MAY NAME A MILESTONE OR PERSON CREATED EARLIER IN THE SAME TURN (this was refused with "does not
   exist" until the fix). Two halves. Applied directly: `requireInput` (`use-forecast-tools.ts`) replaces the
   getter's render-scope `run.tasks`, `run.milestones` and `run.directory.resources` with the dispatcher's
@@ -1950,7 +1971,7 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   parser reads the field; an id that no create in the plan minted passes untouched. Pinned by
   `use-forecast-tools.test.tsx` ("a write earlier in the same turn is seen"), `chat-proposal.test.ts` ("ids
   nested in a scenario's changes[] are links") and `chat-proposal-apply.forecast.test.tsx`.
-  ★ All three tools refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads (`holidaysReady`):
+  ★ `get_forecast`, the create and the update refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads (`holidaysReady`):
   the forecast input getter in `use-chat-dispatcher-wiring.ts` returns null until it is ready. The one exception is
   a rename-only `update_forecast_scenario` (no `changes`): it keeps the stored rows, so `checkToolDraft` runs with
   `ctx: null` (only `validateScenarioDraft`'s name and row-count checks), needs no input and succeeds while the calendar loads.

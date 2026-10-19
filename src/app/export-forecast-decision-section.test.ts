@@ -59,6 +59,14 @@ describe("forecastDecisionRows (§502 part 4)", () => {
     ]);
   });
 
+  // Task 11b — the simulation is on but the holiday calendar is still loading: one row that says so and asks for a
+  // second export, never a silently dropped section.
+  it("says the holiday calendar is still loading in ONE row, still marked simulated", () => {
+    expect(forecastDecisionRows({ insufficient: true, goal: 80, calendarLoading: true }, LANG)).toEqual([
+      ["Forecast (simulated)", "Not available yet: the holiday calendar is still loading. Export again in a moment."],
+    ]);
+  });
+
   it("words a milestone whose search had no answer (whatItTakesSync returned null) without crashing", () => {
     const rows = forecastDecisionRows(decision({ below: [{ id: 3, name: "Beta", date: "2027-01-15", chance: 0.2, take: null }] }), LANG);
     expect(rows).toContainEqual(["Below target: Beta (15 Jan 2027)", "20% — what it would take is not known"]);
@@ -121,6 +129,15 @@ describe("the forecastDecision export section", () => {
     expect(buildExportSections(emptyWorkspace(), ALL_ON, LANG).map((s) => s.key)).not.toContain("forecastDecision");
     expect(buildExportSections(emptyWorkspace(), ALL_ON, LANG, { forecastDecision: () => null }).map((s) => s.key))
       .not.toContain("forecastDecision");
+  });
+
+  it("is KEPT, with its one loading row, while the holiday calendar loads (German too)", () => {
+    const loading: ForecastDecision = { insufficient: true, goal: 80, calendarLoading: true };
+    const en = buildExportSections(emptyWorkspace(), ONLY, LANG, { forecastDecision: () => loading });
+    expect(en.map((s) => s.key)).toEqual(["forecastDecision"]);
+    expect(en[0].rows).toHaveLength(1);
+    const de = buildExportSections(emptyWorkspace(), ONLY, "de", { forecastDecision: () => loading });
+    expect(de[0].rows).toEqual([["Prognose (simuliert)", "Noch nicht verfügbar: Der Feiertagskalender wird noch geladen. Bitte gleich noch einmal exportieren."]]);
   });
 
   it("never runs the source for an export that leaves the section out", () => {
