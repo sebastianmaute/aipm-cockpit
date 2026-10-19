@@ -71,8 +71,8 @@ export type ForecastReport = {
   targetConfidence: TargetConfidence;
   /** The lever engine's answer (`whatItTakesSync`) against `targetConfidence`, on As is. `planEnd` is null when As is
    *  has no plan-end chance; `milestones` holds only those with a chance below the goal (`belowTargetRows`), worst
-   *  first, at most `WHAT_IT_TAKES_MILESTONE_CAP` of them; `notSearched` names the rest. All three are empty below the
-   *  history floor. ★ A call with a `whatIf` gets `{ omitted: "whatIf" }`: the take is
+   *  first, at most `WHAT_IT_TAKES_MILESTONE_CAP` of them; `notSearched` names the rest. Below the history floor `planEnd` is null and
+   *  both lists are empty. ★ A call with a `whatIf` gets `{ omitted: "whatIf" }`: the take is
    *  defined on As is, identical with or without the draft, and the search is most of a call's cost, so a drafting loop
    *  of `whatIf` checks would pay it again on every check. A call without `whatIf` returns it. */
   whatItTakes: WhatItTakesReport | { omitted: "whatIf" };
@@ -157,7 +157,7 @@ function rowsOf(column: ScenarioColumn): RowReport[] {
 }
 
 /** How many below-target milestones one call searches, worst first. Each search is synchronous inside the tool call
- *  (about 50–350 ms, more on a bigger backlog), so an uncapped call froze the app for about 10 s with 30 milestones below target (§502 gate 1,
+ *  (about 50–350 ms, rising with the backlog), so an uncapped call froze the app for about 10 s with 30 milestones below target (§502 gate 1,
  *  docs/AGENTS/forecast.md). */
 export const WHAT_IT_TAKES_MILESTONE_CAP = 5;
 

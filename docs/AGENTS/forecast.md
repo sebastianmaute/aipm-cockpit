@@ -88,7 +88,8 @@ items part 4 adds. The first three are HARD GATES: do not un-hide until each is 
    first, naming the rest in `notSearched`. Re-measured with the cap (same samples, three runs): `get_forecast` takes
    0.8–0.9 s on small, 1.3–1.5 s on big (5 searched, 4 not) and 2.3–2.4 s on huge (5 searched, 25 not), down from 10–11 s. Small searches the same 3 milestones either way, so its
    change is shared-machine noise; and inside `get_forecast` one search on huge costs about 0.33 s ((10.5 − 2.35) / 25),
-   above the export's 0.16–0.21 s per search on the same sample (4.9–6.4 s / 30);
+   above the export's 0.16–0.21 s per search on the same sample (4.9–6.4 s / 30). Neither that gap nor big's small drop
+   (1.5 s to 1.3–1.5 s for 4 fewer searches, where the export's rate on big predicts about 0.4 s) has a measured cause;
    the plan end and the five searches on a 200-task backlog are what is left, so a large project still freezes for about
    2 s while Claude reads the forecast. ★ A document download with a `forecastDecision` block, and an export with
    the section ticked, still search every below-target milestone at the click; a worker would remove that, and was
@@ -454,7 +455,7 @@ npx vite-node group-probe.ts; rm group-probe.ts
 the click, with no busy indicator. Measured 2026-10-18 for Task 8 (fresh task arrays, so the As-is run is included;
 three runs each): about 0.1 s for 12 open tasks and 2 below-target milestones, about 0.2–0.3 s for 60 open tasks and
 4 below, and about 0.85–1.1 s for 150 open tasks and 6 below. Nearly all of it is the bisection, about 50–200 ms per
-below-target milestone. A preview pays only its base, about 25–95 ms over the same three workloads. Reproduce from the
+below-target milestone on these backlogs (up to about 0.33 s on the huge sample, gate 1). A preview pays only its base, about 25–95 ms over the same three workloads. Reproduce from the
 repo root (single runs on a shared machine, so expect noise; the run for this note gave 101 / 238 / 1514 ms; delete the
 file afterwards):
 
