@@ -993,7 +993,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--open) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | open |
 | [§754](#754-an-empty-workspace-can-still-be-kept-as-an-unsaved-draft-when-the-stored-version-is-unknown--open) | An empty workspace can still be kept as an unsaved draft when the stored version is unknown | — | — | open |
 | [§755](#755-suggest-racis-list-of-proposed-assignments-has-no-scrollbar--open) | Suggest RACI's list of proposed assignments has no scrollbar | — | — | open |
-| [§756](#756-the-influence--interest-map-gets-squashed-on-smaller-screens-because-its-outer-padding-does-not-shrink--open) | The influence / interest map gets squashed on smaller screens because its outer padding does not shrink | — | — | open |
+| [§756](#756-the-influence--interest-map-gets-squashed-on-smaller-screens--open) | The influence / interest map gets squashed on smaller screens | — | — | open |
 | [§757](#757-a-clicked-buttons-green-focus-outline-is-cut-off-draft-with-ai-and-others--open) | A clicked button's green focus outline is cut off (Draft with AI and others) | — | — | open |
 | [§758](#758-a-new-linked-tasks-assignee-is-free-text-not-picked-from-the-directory--open) | A new linked task's assignee is free text, not picked from the directory | — | — | open |
 <!-- INDEX:END -->
@@ -45726,23 +45726,23 @@ Size S.
 
 ## 755. Suggest RACI's list of proposed assignments has no scrollbar — OPEN
 
-**Status:** OPEN 2026-10-19. Stakeholders → RACI Matrix → Suggest RACI: the dialog listing Claude's proposed assignments shows no scrollbar, so proposals below the fold cannot be reached (Thursday's `suggest-raci` step). `raci-suggest-modal.tsx` caps the dialog at `max-h-[90vh]` and gives its body `min-h-0 flex-1 overflow-y-auto`, so that markup alone does not explain it; the cause is not yet found. `grep -n "overflow-y-auto" src/app/raci-suggest-modal.tsx` → the body that should scroll.
+**Status:** OPEN 2026-10-19. Stakeholders → RACI Matrix → Suggest RACI: no scrollbar is visible on the dialog listing Claude's proposed assignments in the recording (Thursday's `suggest-raci` step). Likely a recording artifact, not an app defect: the recordings run headless Chromium, and Playwright launches it with `--hide-scrollbars`, so no recorded view shows a scrollbar. `raci-suggest-modal.tsx` caps the dialog at `max-h-[90vh]` with a `min-h-0 flex-1 overflow-y-auto` body. Whether the list scrolls in the app is unverified. `grep -n "overflow-y-auto" src/app/raci-suggest-modal.tsx` → the body that should scroll.
 
 **Work item:** #793
 
-Proposed: the proposal list scrolls inside the dialog with the header and Apply/Cancel kept visible, and a test that the list container is the scroll container.
+Proposed: check in the app (a long proposal list, a short window) whether the list scrolls with the header and Apply/Cancel kept visible; if it does, close this as the recording artifact. The recorder now launches without `--hide-scrollbars`.
 
-Size S.
+Size XS (check) or S (fix).
 
 **Source:** found 2026-10-19 by the owner in the demo recording (owner: file it).
 
-## 756. The influence / interest map gets squashed on smaller screens because its outer padding does not shrink — OPEN
+## 756. The influence / interest map gets squashed on smaller screens — OPEN
 
-**Status:** OPEN 2026-10-19. Stakeholders → Influence / Interest: at smaller window sizes the four quadrants get squashed (Thursday's `map-dpo` step). `stakeholder-map-panel.tsx` renders the pane with `CENTERED_HALF_PANE_CLASS` (`view-styles.ts`): half the view's width at every size, with a fixed `p-6`, so the padding, the rotated axis label and the gaps take a growing share as the window narrows. `grep -n "CENTERED_HALF_PANE_CLASS" src/app/stakeholder-map-panel.tsx` → the one use.
+**Status:** OPEN 2026-10-19. Stakeholders → Influence / Interest: at smaller window sizes the four quadrants get squashed (Thursday's `map-dpo` step, recorded at 1280×720). `stakeholder-map-panel.tsx` renders the pane with `CENTERED_HALF_PANE_CLASS` (`view-styles.ts`): half the view's width (`w-[50%]`, floored at `min-w-[420px]`, user-resizable) and a fixed `p-6`. Not measured which takes more room, the half width or the padding; the owner names the padding. `grep -n "CENTERED_HALF_PANE_CLASS" src/app/stakeholder-map-panel.tsx` → the one use.
 
 **Work item:** #794
 
-Proposed: below a breakpoint, the full width and a smaller padding, eye-checked at 1280×720 and at a narrow window.
+Proposed: measure the quadrant width at 1280×720; then below a breakpoint use more of the width and a smaller padding, eye-checked at 1280×720 and at a narrow window.
 
 Size S.
 
@@ -45762,7 +45762,7 @@ Size S–M.
 
 ## 758. A new linked task's assignee is free text, not picked from the directory — OPEN
 
-**Status:** OPEN 2026-10-19. Task editor → "+ New linked task": the Assignee field is a plain text input, so the new task gets a free-text name with no resource id or email, while every other task assignee is picked from the directory (Friday's `split-pilot-task` step). `grep -n 'type="text"' src/app/task-linked-task-modal.tsx` → the assignee input; `onCreate` passes `assignee` as a trimmed string only.
+**Status:** OPEN 2026-10-19. Task editor → "+ New linked task": the Assignee field is a plain text input with no directory suggestions, so the new task gets a name with no resource id and an empty email, where the task editor's `ResourcePicker` offers the directory (Friday's `split-pilot-task` step). `grep -n 'aria-label={t(lang, "assignee")}' src/app/task-linked-task-modal.tsx` → the input; `onCreate` passes `assignee` as a trimmed string only, and `use-task-editor-create.ts` creates the task with that name alone.
 
 **Work item:** #796
 
