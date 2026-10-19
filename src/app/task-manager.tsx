@@ -1155,7 +1155,7 @@ function TaskManagerInner() {
     tursoArchived,
     tursoDatabaseUrl: settings.integrations?.turso?.databaseUrl,
     tursoAuthToken: settings.integrations?.turso?.authToken,
-    tursoProjectId, settings,
+    tursoProjectId, settings, getScopeEpoch,
     switchToProject,
     createProject,
     loadProjectFromFile,

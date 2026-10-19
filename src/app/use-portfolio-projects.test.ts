@@ -68,6 +68,7 @@ function setup(over: Partial<PortfolioProjectsDeps> = {}) {
     restoreTursoProject: vi.fn(async () => {}),
     hardDeleteTursoProject: vi.fn(async () => {}),
     refreshTursoProjects: vi.fn(async () => null),
+    getScopeEpoch: () => 0,
     ...over,
   };
   const hook = renderHook((d: PortfolioProjectsDeps) => usePortfolioProjects(d), { initialProps: deps });
@@ -204,7 +205,9 @@ describe("usePortfolioProjects — mode-aware lists and switch", () => {
     const { result, deps } = setup();
     result.current.handleCreateProjectByMode(META, "csv");
     expect(deps.createProject).toHaveBeenCalledWith(META, "csv", {});
-    act(() => result.current.handleUpdateCurrentProjectByMode(META));
+    // ★ A block body: the handler returns a promise since §715, and an act() callback that RETURNS one is an
+    //   un-awaited async act, which leaves the next test's mount effects unflushed.
+    act(() => { void result.current.handleUpdateCurrentProjectByMode(META); });
     expect(deps.setProject).toHaveBeenCalledWith(META);
   });
 });

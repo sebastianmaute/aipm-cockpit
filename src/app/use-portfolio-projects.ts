@@ -51,6 +51,7 @@ export interface PortfolioProjectsDeps
     | "restoreTursoProject"
     | "hardDeleteTursoProject"
     | "refreshTursoProjects"
+    | "getScopeEpoch"
   > {
   showToast: (kind: ToastKind, text: string) => void;
   /** The current settings; handed to `useTursoProjects` as a live getter (§740). */
@@ -96,6 +97,7 @@ export function usePortfolioProjects(deps: PortfolioProjectsDeps) {
     restoreTursoProject,
     hardDeleteTursoProject,
     refreshTursoProjects,
+    getScopeEpoch,
   } = deps;
 
   // §740 — a live read for the cross-mode create, which persists the settings only after several
@@ -285,6 +287,7 @@ export function usePortfolioProjects(deps: PortfolioProjectsDeps) {
     setProject,
     createFileProject: createProject,
     updateCurrentFileProject: handleUpdateCurrentProject,
+    getScopeEpoch,
   });
 
   return {
