@@ -389,8 +389,9 @@ export const defaultExportConfig: ExportConfig = {
   changes: false, milestones: false, stakeholders: false, budgets: false,
   // §545 — derived; emitted only when a forecast exists and the budget module is on.
   budgetForecast: true,
-  // §502 part 4 — derived; emitted only while the forecast simulation is active.
-  forecastDecision: true,
+  // §502 part 4 — derived; emitted only while the forecast simulation is active. Off by default: ticked, the
+  // export runs every below-target milestone's lever search synchronously at the click (docs/AGENTS/forecast.md).
+  forecastDecision: false,
   resources: false, roles: false, absences: false, shifts: false, status: false,
   // Calendar events are project data a user expects in an export, like tasks/RAID.
   calendarEvents: true,

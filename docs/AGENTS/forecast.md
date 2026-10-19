@@ -78,20 +78,27 @@ held-back tests to FAIL by design — each asserts that a surface is hidden whil
 
 ★★★ **The un-hide list for part 4 (gathered across its three PRs).** Everything above still applies; these are the
 items part 4 adds. The first three are HARD GATES: do not un-hide until each is done and its result recorded.
-1. **HARD GATE — the export click.** An export or document download with the `forecastDecision` section ticked runs
-   the lever search synchronously at the click, with no busy indicator (about 0.1 / 0.3 / 1 s for 12 / 60 / 150 open
-   tasks; the figures and their probe are in "Part 4's engine paths and their cost" below). Measure it on a real
-   project and decide: the section's default, a busy indicator, or both. ★ Measure a plain `get_forecast` (no
-   `whatIf`) on the same project too: its `whatItTakes` runs the same lever search synchronously inside the tool
-   call, once per milestone below target (about 0.85–1.1 s at 150 open tasks with 6 below target; the probe is in "Part 4's engine paths and their cost"), so the app freezes
-   while Claude reads the forecast. Decide whether it needs a cap or a worker before un-hide.
-2. **HARD GATE — one live chat request with the forecast tools offered.** No unit test sends the tool definitions to
-   the real API. `set_forecast_proposal`'s `id` schema uses `type: ["number","null"]` (no strict mode); if the API
-   refuses it, fall back to a JSON-Schema anyOf of number and null. Pass it with the six tools on the wire (`FORECAST_TOOL_DEFS`; count them with
-   `grep -c 'name: "' src/app/chat-tool-defs-forecast.ts`).
-3. **HARD GATE — axe on the part-4 surfaces with the view un-hidden.** The e2e seed cannot render them while hidden:
-   the Reports Forecast section (verdict, milestones table, proposal table, the by-group fold-out), the Forecast
-   view's target control and lever column, the Gantt band and chips, and the Trends P80 chart.
+1. **HARD GATE — the export click. Done 2026-10-19, decided.** No real project was at hand, so the measurement used the
+   three sample workspaces and the synthetic shapes of the probe in "Part 4's engine paths and their cost" (three runs
+   each, shared machine). Export with the section ticked / plain `get_forecast`: small sample (20 open, 3 below target)
+   0.3–0.4 s / 1.0–1.2 s; big (60 open, 9 below) 0.9–1.0 s / 1.5 s; huge (200 open, 30 below) 4.9–6.4 s / 10–11 s.
+   The cost follows the number of milestones below target, not the task count. Owner decision 2026-10-19: the
+   `forecastDecision` export section is OFF by default (`defaultExportConfig`), so the freeze is paid only by a user
+   who ticks it; and `get_forecast` searches at most `WHAT_IT_TAKES_MILESTONE_CAP` (5) below-target milestones, worst
+   first, naming the rest in `notSearched`. ★ A document download with a `forecastDecision` block, and an export with
+   the section ticked, still search every below-target milestone at the click; a worker would remove that, and was
+   judged not worth it before un-hide.
+2. **HARD GATE — one live chat request with the forecast tools offered. Passed 2026-10-19.** Two real requests carried
+   the app's own `toolsFor({ historySearch, chatSearch, forecast: true })` list (60 tools, the six forecast ones among
+   them; count with `grep -c 'name: "' src/app/chat-tool-defs-forecast.ts`) to `claude-sonnet-5`. The API accepted
+   `set_forecast_proposal`'s `type: ["number","null"]` id, and the model called it with `{"id":null}` and
+   `{"id":3}`. No anyOf fallback is needed.
+3. **HARD GATE — axe on the part-4 surfaces with the view un-hidden. Passed 2026-10-19, two surfaces open.** With
+   `RELEASE_HIDDEN_VIEWS` emptied in the working tree only and `showSimulation` seeded, every scan was clean in all
+   seven colour combos: the Forecast view (target control, lever column), Reports' Forecast section (verdict, tiles,
+   P80-over-time chart) with and without the by-group fold-out, the Gantt band and chips, and the Scenarios spec. Not
+   scanned: the proposal table (the seed sets no proposal) and the Trends P80 chart (Turso only; the local throwaway
+   token was rejected with 401). Both need a scan or an eye-check before un-hide.
 4. **Owner eye-check, Gantt:** the band's opacity; the P80 label overlapping the first row's bar or sliding under
    the sticky name column; the "P80" wording with no "simulated" cue on the Gantt; whether the Gantt wants a plan-end
    marker beside P80; the axis extension cap (`FORECAST_AXIS_EXTENSION_DAYS`, 180 days: `grep -n
@@ -436,7 +443,7 @@ npx vite-node group-probe.ts; rm group-probe.ts
 ```
 
 ★★ **The export decision is synchronous, and that is the un-hide risk.** An export or a document download with the
-`forecastDecision` section ticked (it is on by default) runs `whatItTakesSync` for every below-target milestone at
+`forecastDecision` section ticked (off by default since gate 1, 2026-10-19) runs `whatItTakesSync` for every below-target milestone at
 the click, with no busy indicator. Measured 2026-10-18 for Task 8 (fresh task arrays, so the As-is run is included;
 three runs each): about 0.1 s for 12 open tasks and 2 below-target milestones, about 0.2–0.3 s for 60 open tasks and
 4 below, and about 0.85–1.1 s for 150 open tasks and 6 below. Nearly all of it is the bisection, about 50–200 ms per
@@ -1155,8 +1162,9 @@ the engine's reason, which the prompt tells the model to quote rather than estim
 Part 4 adds four reads. `targetConfidence` (`targetConfidenceOf`, 80 when unset). `whatItTakes`: the plan end's take
 (null when As is has no plan-end chance) and one take per milestone BELOW the goal, chosen by `belowTargetRows` over
 `milestoneRowsWorstFirst` (the Reports and export rule, so overdue and unlinked milestones are never listed; overdue
-ones stay visible in the `asIs` milestones), each the unaltered `whatItTakesSync` answer, `inert` reasons included;
-`{ planEnd: null, milestones: [] }` below the history floor. ★ A call WITH a `whatIf` gets `{ omitted: "whatIf" }`
+ones stay visible in the `asIs` milestones), each the unaltered `whatItTakesSync` answer, `inert` reasons included; at most `WHAT_IT_TAKES_MILESTONE_CAP` (5) of
+them, worst first, with `notSearched` naming the rest by id and name (gate 1);
+`{ planEnd: null, milestones: [], notSearched: [] }` below the history floor. ★ A call WITH a `whatIf` gets `{ omitted: "whatIf" }`
 and runs no lever search: the take is defined on As is, so it is the same with or without the draft, and a drafting
 loop of `whatIf` checks (the §3.6 Ask-Claude path) would otherwise pay it on every check. A call without `whatIf`
 returns it; the tool description and the prompt say so. This is a ruled deviation from spec §3.9, which names no

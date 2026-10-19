@@ -4,7 +4,7 @@ import { entityToken } from "./ai-entity-token";
 import type { ScenarioDirectory } from "./forecast-added-people";
 import {
   buildForecastReport, scenarioValidationContext, type ColumnReport, type ForecastReport, type ForecastReportInput,
-  type WhatItTakesReport,
+  type WhatItTakesReport, WHAT_IT_TAKES_MILESTONE_CAP,
 } from "./forecast-ai-report";
 import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
 import type { ForecastScenario, ScenarioChange } from "./forecast-scenarios";
@@ -262,8 +262,27 @@ describe("buildForecastReport — target, what it would take, proposal and P80 h
     const tasks = [...historyTasks(HISTORY.slice(-5)), ...OPEN];
     const report = buildForecastReport(reportInput({ tasks, ...WITH_GAMMA }, [], withTargetConfidence(undefined, 95)), null);
     expect(report.asIs.status).toBe("insufficient");
-    expect(report.whatItTakes).toEqual({ planEnd: null, milestones: [] });
+    expect(report.whatItTakes).toEqual({ planEnd: null, milestones: [], notSearched: [] });
     expect(report.targetConfidence).toBe(95);
+  });
+
+  it(`searches at most ${WHAT_IT_TAKES_MILESTONE_CAP} below-target milestones, worst first, and names the rest as not searched (§502 gate 1)`, () => {
+    // Seven milestones on Beta's 15 tasks, all due before Gamma, so all seven are below the 80 target.
+    const dates = ["2026-10-21", "2026-10-23", "2026-10-27", "2026-10-29", "2026-11-02", "2026-11-03", "2026-11-04"];
+    const many: Milestone[] = dates.map((date, i) => ({ id: 20 + i, name: `M${i}`, date, linkedTaskIds: OPEN.slice(0, 15).map((t) => t.id) }));
+    const report = buildForecastReport(reportInput({ milestones: [...MILESTONES, ...many] }), null);
+    const takes = takesOf(report);
+    expect(WHAT_IT_TAKES_MILESTONE_CAP).toBe(5);
+    expect(takes.milestones).toHaveLength(5);
+    expect(takes.notSearched).toHaveLength(2);
+    const searched = takes.milestones.map((m) => m.id);
+    const rest = takes.notSearched.map((m) => m.id);
+    expect([...searched, ...rest].sort((a, b) => a - b)).toEqual(many.map((m) => m.id));
+    // Worst first: no milestone left unsearched has a lower chance than one that was searched.
+    const chanceOf = new Map(forecastColumn(report.asIs).milestones.flatMap((m) => ("chance" in m ? [[m.id, m.chance] as const] : [])));
+    const worstSearched = Math.max(...searched.map((id) => chanceOf.get(id) ?? NaN));
+    for (const id of rest) expect(chanceOf.get(id)).toBeGreaterThanOrEqual(worstSearched);
+    expect(takes.notSearched[0]).toEqual({ id: rest[0], name: many.find((m) => m.id === rest[0])?.name });
   });
 
   it("names the proposal; a stale id, or none, reads as no proposal", () => {
