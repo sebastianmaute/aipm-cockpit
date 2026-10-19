@@ -814,3 +814,44 @@ describe("AiSection — a key typed under the passphrase lock (§749)", () => {
     expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}2`)).toBe(true);
   });
 });
+
+describe("AiSection — the lock's records survive a blur and an untick (§749 review)", () => {
+  const KEY = "sk-ant-api03-have0000000000000";
+  const keyField = () => screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"));
+
+  // A passphrase-locked key is never hydrated, so the field shows "" — one stray character then Tab would make
+  // the blur's invalid-key discard destroy a key the user never saw. KILLED BY: dropping the blur's lock check.
+  it("a malformed key blurred over a passphrase record leaves the record", async () => {
+    saveSealed(await sealPassphrase("anthropicApiKey", KEY, "pw"));
+    expect(isPassphraseLocked("anthropicApiKey")).toBe(true);
+    const record = loadSealed("anthropicApiKey");
+    function Controlled() {
+      const [s, setS] = useState<Settings>(defaultSettings);
+      return <AiSection lang="en-US" settings={s} onChange={setS} />;
+    }
+    render(<Controlled />);
+    fireEvent.change(keyField(), { target: { value: "x" } });
+    fireEvent.blur(keyField());
+    expect(loadSealed("anthropicApiKey")).toEqual(record);
+  });
+
+  // A key typed while the untick's device re-seal is awaited is held under the still-ticked lock; the re-seal of
+  // the EARLIER key landing must not clear it. KILLED BY: clearing the marker unconditionally after the re-seal.
+  it("a key typed during the untick's re-seal stays held after it lands", async () => {
+    const deviceSealed = await sealDevice("anthropicApiKey", KEY);
+    let releaseSeal: (s: SealedSecret) => void = () => {};
+    vi.spyOn(secrets, "sealDevice").mockReturnValueOnce(new Promise<SealedSecret>((r) => { releaseSeal = r; }));
+    function Controlled() {
+      const [s, setS] = useState<Settings>({ ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: KEY } });
+      return <AiSection lang="en-US" settings={s} onChange={setS} />;
+    }
+    render(<Controlled />);
+    const lock = () => screen.getByLabelText(/require a passphrase/i);
+    fireEvent.click(lock()); // tick
+    fireEvent.click(lock()); // untick → device re-seal of KEY, held open
+    fireEvent.change(keyField(), { target: { value: `${KEY}2` } }); // under the still-ticked lock
+    expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}2`)).toBe(true);
+    await act(async () => { releaseSeal(deviceSealed); await new Promise((r) => setTimeout(r, 0)); });
+    expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}2`)).toBe(true);
+  });
+});

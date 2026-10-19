@@ -171,8 +171,13 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
     if (k && !isValidAnthropicApiKey(k)) {
       showToast("error", t(lang, "aiKeyInvalid"));
       onChange({ ...settings, ai: { ...settings.ai, apiKey: "" } });
-      removeSealed("anthropicApiKey");
-      setKeyStored(false);
+      markUnsealedPassphraseSecret("anthropicApiKey", null);
+      // §749 review — the change handler's rule: a locked key is never hydrated, so this field shows "" for it,
+      //   and a stray character then a blur must not destroy a passphrase record the user never saw.
+      if (!isPassphraseLocked("anthropicApiKey")) {
+        removeSealed("anthropicApiKey");
+        setKeyStored(false);
+      }
     }
   }
 
@@ -202,11 +207,16 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         }
         noteSecretSealed("anthropicApiKey", settings.ai.apiKey); // §749 — device-sealed: a reload keeps it
         setKeyStored(true);
-      } else if (isPassphraseLocked("anthropicApiKey")) {
-        removeSealed("anthropicApiKey");
-        setKeyStored(false);
+      } else {
+        // Nothing in memory to keep: nothing is held either.
+        markUnsealedPassphraseSecret("anthropicApiKey", null);
+        if (isPassphraseLocked("anthropicApiKey")) {
+          removeSealed("anthropicApiKey");
+          setKeyStored(false);
+        }
       }
-      markUnsealedPassphraseSecret("anthropicApiKey", null);
+      // §749 review — the re-sealed key was released above by value (`noteSecretSealed`); a key typed while that
+      //   seal was awaited (the lock still ticked) stays held, since nothing sealed it.
       setKeyWrap("device");
       setKeyPassphrase("");
       setKeyConfirm("");

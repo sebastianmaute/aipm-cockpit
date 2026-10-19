@@ -246,14 +246,17 @@
   section commits `ai.apiKey`, and under the lock nothing seals it until "Save passphrase", while every reload
   blanks it (`writeSettings`). So the marker is kept PER SECRET (`markUnsealedPassphraseSecret` /
   `hasUnsealedPassphraseSecret` in `turso-token-marker.ts`; the Turso functions are its `"tursoAuthToken"` case),
-  `ai-section.tsx` holds the typed key there until a passphrase or device seal covers it, and its seals join
+  `ai-section.tsx` holds the typed key there until "Save passphrase" seals it (or the untick re-seals THAT key
+  device-wrapped, released by value), and its seals join
   the same registry (`trackSecretSeal`). The gates: `commitPortfolioModeSwitch` refuses on `aiKeyHeldUnsealed`
   (Save & switch toasts how to save it; the wizard's Finish goes back to the AI step under a review-step banner)
   and `migrateCurrentProjectToTurso` toasts. ★★ The section's lock is DERIVED too (`effectiveWrap`, and
   `wrapNow` at event time, which reads the STORE): Settings keeps its AI section mounted under the wizard's, and
   a per-instance `keyWrap` left one of them on device after the other saved a passphrase, so its next keystroke
   device-sealed over the record. ★ Known limit: the other reload paths (picking a Turso project from the empty
-  state or picker, the cross-mode file load, the demo) check neither secret.
+  state or picker, the cross-mode file load, the demo) check neither secret, and nothing can guard a reload the
+  user starts or a closed tab. ★ The invalid-key BLUR follows the change handler's rule: over a passphrase record
+  it never calls `removeSealed` (a locked key is not hydrated, so the field shows "" for it).
 - ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
   (`use-insight-lifecycle.ts`), the recommendation store `applyInsightRecommendation`
   (`use-insight-recommendations.ts`), the four calendar auto-sync pushes and four background pulls plus the auto-pull runner
