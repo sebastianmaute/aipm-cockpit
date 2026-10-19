@@ -105,10 +105,8 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
     expect(choices(fetchMock)).toEqual([{ type: "tool", name: "t" }, { type: "auto" }]);
   });
 
-  it("sends the tool as strict on the auto request, every object closed, and leaves the forced request as it was", async () => {
-    // With auto and a nested schema, Sonnet 5.5 sent `actions` as a string with tool markup in it in 8 of 8
-    // replays of the next-actions request; with strict, 8 of 8 were valid (measured 2026-10-19).
-    const tool = {
+  describe("the auto reply is checked against the tool's schema", () => {
+    const TOOL = {
       name: "t",
       description: "d",
       input_schema: {
@@ -119,7 +117,11 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
             type: "array",
             items: {
               type: "object",
-              properties: { title: { type: "string" }, entity: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
+              properties: {
+                title: { type: "string" },
+                severity: { type: "string", enum: ["now", "soon"] },
+                entity: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+              },
               required: ["title"],
             },
           },
@@ -127,64 +129,103 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
         required: ["summary", "actions"],
       },
     };
-    const other = { name: "other", description: "o", input_schema: { type: "object", properties: {} } };
-    const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(TOOL_REPLY);
-    vi.stubGlobal("fetch", fetchMock);
-    await runForcedToolCall({ ...args(), model: "claude-sonnet-5-5", tools: [tool, other] });
-    const sent = fetchMock.mock.calls.map((c: unknown[]) => (JSON.parse((c[1] as { body: string }).body) as { tools: unknown[] }).tools);
-    expect(sent[0]).toEqual([tool, other]);
-    expect(sent[1]).toEqual([
-      {
-        name: "t",
-        description: "d",
-        strict: true,
-        input_schema: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            summary: { type: "string" },
-            actions: {
-              type: "array",
-              items: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  title: { type: "string" },
-                  entity: { type: "object", additionalProperties: false, properties: { id: { type: "string" } }, required: ["id"] },
+    const OTHER = { name: "other", description: "o", input_schema: { type: "object", properties: {} } };
+    const reply = (input: unknown) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "t", input }] }),
+    });
+    const GOOD = { summary: "s", actions: [{ title: "a", severity: "now", entity: { id: "4" } }] };
+    // What Sonnet 5.5 sent for the next-actions analysis with plain auto (2026-10-19): `actions` as a string
+    // holding tool markup. With strict, 8 of 8 replays were valid.
+    const MALFORMED = { summary: "s", actions: '<parameter name="title">a' };
+    const call = () => ({ ...args(), model: "claude-sonnet-5-5", tools: [TOOL, OTHER] });
+    const sentBodies = (fetchMock: ReturnType<typeof vi.fn>) =>
+      fetchMock.mock.calls.map((c: unknown[]) => JSON.parse((c[1] as { body: string }).body) as { tool_choice: { type: string }; tools: { strict?: boolean }[] });
+    const shape = (fetchMock: ReturnType<typeof vi.fn>) => sentBodies(fetchMock).map((b) => [b.tool_choice.type, b.tools[0]?.strict === true]);
+
+    it("returns a matching plain auto reply with no strict request", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(reply(GOOD));
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(runForcedToolCall(call())).resolves.toEqual(GOOD);
+      expect(shape(fetchMock)).toEqual([["tool", false], ["auto", false]]);
+    });
+
+    it("asks again in strict form, every object closed, when the plain reply does not match, and uses strict for that tool afterwards", async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(REFUSAL)
+        .mockResolvedValueOnce(reply(MALFORMED))
+        .mockResolvedValue(reply(GOOD));
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(runForcedToolCall(call())).resolves.toEqual(GOOD);
+      await runForcedToolCall(call());
+      expect(shape(fetchMock)).toEqual([["tool", false], ["auto", false], ["auto", true], ["auto", true]]);
+      const strictTools = sentBodies(fetchMock)[2].tools;
+      expect(strictTools).toEqual([
+        {
+          ...TOOL,
+          strict: true,
+          input_schema: {
+            ...TOOL.input_schema,
+            additionalProperties: false,
+            properties: {
+              summary: { type: "string" },
+              actions: {
+                type: "array",
+                items: {
+                  ...TOOL.input_schema.properties.actions.items,
+                  additionalProperties: false,
+                  properties: {
+                    ...TOOL.input_schema.properties.actions.items.properties,
+                    entity: { ...TOOL.input_schema.properties.actions.items.properties.entity, additionalProperties: false },
+                  },
                 },
-                required: ["title"],
               },
             },
           },
-          required: ["summary", "actions"],
         },
-      },
-      other,
-    ]);
-  });
+        OTHER,
+      ]);
+    });
 
-  it("resends without strict when the API refuses the strict schema, and skips strict for that tool afterwards", async () => {
-    // propose_project (31 optional fields) and propose_wbs_changes were refused in strict form on 2026-10-19.
-    const SCHEMA_REFUSAL = {
-      ok: false,
-      status: 400,
-      json: async () => ({ error: { type: "invalid_request_error", message: "Schema is too complex." } }),
-    };
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(REFUSAL)
-      .mockResolvedValueOnce(SCHEMA_REFUSAL)
-      .mockResolvedValue(TOOL_REPLY);
-    vi.stubGlobal("fetch", fetchMock);
-    const call = { ...args(), model: "claude-sonnet-5-5", tools: [{ name: "t", input_schema: { type: "object", properties: {} } }] };
-    await expect(runForcedToolCall(call)).resolves.toEqual({ a: 1 });
-    await runForcedToolCall(call);
-    const sent = fetchMock.mock.calls.map((c: unknown[]) => JSON.parse((c[1] as { body: string }).body) as { tool_choice: { type: string }; tools: { strict?: boolean }[] });
-    expect(sent.map((b) => [b.tool_choice.type, b.tools[0]?.strict === true])).toEqual([
-      ["tool", false],
-      ["auto", true],
-      ["auto", false],
-      ["auto", false],
-    ]);
+    it.each([
+      ["a missing required key", { actions: [] }],
+      ["a wrong type", { summary: "s", actions: [{ title: 3 }] }],
+      ["a value outside the enum", { summary: "s", actions: [{ title: "a", severity: "later" }] }],
+      ["a nested missing required key", { summary: "s", actions: [{ title: "a", entity: {} }] }],
+    ])("treats %s as not matching", async (_label, input) => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(reply(input)).mockResolvedValueOnce(reply(GOOD));
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(runForcedToolCall(call())).resolves.toEqual(GOOD);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("keeps the plain reply when the API refuses the strict form, and skips strict for that tool afterwards", async () => {
+      // propose_project ("'minimum' is not supported") and propose_wbs_changes ("Schema is too complex.",
+      // after 108 s) were refused in strict form on 2026-10-19.
+      const STRICT_REFUSAL = {
+        ok: false,
+        status: 400,
+        json: async () => ({ error: { type: "invalid_request_error", message: "tools.0.custom: For 'integer' type, property 'minimum' is not supported" } }),
+      };
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(REFUSAL)
+        .mockResolvedValueOnce(reply(MALFORMED))
+        .mockResolvedValueOnce(STRICT_REFUSAL)
+        .mockResolvedValue(reply(MALFORMED));
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(runForcedToolCall(call())).resolves.toEqual(MALFORMED);
+      await expect(runForcedToolCall(call())).resolves.toEqual(MALFORMED);
+      expect(shape(fetchMock)).toEqual([["tool", false], ["auto", false], ["auto", true], ["auto", false]]);
+    });
+
+    it("leaves the forced request as it was", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(reply(MALFORMED));
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(runForcedToolCall({ ...call(), model: "claude-sonnet-5" })).resolves.toEqual(MALFORMED);
+      expect(sentBodies(fetchMock)[0].tools).toEqual([TOOL, OTHER]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("sends auto straight away for that model afterwards, and still forces the tool for other models", async () => {

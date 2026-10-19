@@ -17,6 +17,7 @@
 import type { ApiMessage, SystemBlock } from "./chat-api";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
+import { matchesSchema, withStrictTool } from "./ai-tool-schema";
 
 const ANTHROPIC_VERSION = "2023-06-01";
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
@@ -73,50 +74,30 @@ export function withGuideText(
  *  session; every other model keeps the forced choice. */
 const autoChoiceModels = new Set<string>();
 
-/** Tools whose schema the API refused in strict form (`propose_project`, too many optional fields, and
- *  `propose_wbs_changes`, "too complex", on 2026-10-19). Their auto request goes without `strict`. */
+/** Tools whose plain auto reply did not match their schema: asked in strict form from then on.
+ *  ★★ Sonnet 5.5 sent the next-actions analysis with `actions` as a string holding tool markup in 8 of
+ *  8 replays of the app's request with plain auto; with strict, 8 of 8 were valid (2026-10-19). */
+const strictTools = new Set<string>();
+
+/** Tools whose strict form the API refused: `propose_project` ("'minimum' is not supported") and
+ *  `propose_wbs_changes` ("Schema is too complex.", after 108 s) on 2026-10-19. Never asked strict again.
+ *  That cost is why strict is the fallback and not the first try. */
 const nonStrictTools = new Set<string>();
 
 export function __resetToolChoiceFallbackForTests(): void {
   autoChoiceModels.clear();
+  strictTools.clear();
   nonStrictTools.clear();
 }
 
 /** How one request offers the tool: `forced` names it in `tool_choice`; `strict` and `auto` send
- *  `{ type: "auto" }`, and `strict` also sends the tool with `strict: true` and every object closed.
- *  ★★ Without strict, Sonnet 5.5 sent the next-actions analysis with `actions` as a string holding tool
- *  markup in 8 of 8 replays of the app's request; with it, 8 of 8 were valid (2026-10-19). */
+ *  `{ type: "auto" }`, and `strict` also sends the tool in strict form (`withStrictTool`). */
 type ToolOffer = "forced" | "strict" | "auto";
 
-/** `schema` with `additionalProperties: false` on every object, which strict mode requires. */
-function closeObjects(schema: unknown): unknown {
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return schema;
-  const node = { ...(schema as Record<string, unknown>) };
-  if (node.type === "object") {
-    node.additionalProperties = false;
-    const props = (node.properties ?? {}) as Record<string, unknown>;
-    node.properties = Object.fromEntries(Object.entries(props).map(([k, v]) => [k, closeObjects(v)]));
-  }
-  if (node.items !== undefined) node.items = closeObjects(node.items);
-  return node;
-}
-
-/** `tools` with the one named `toolName` in strict form; the others as they are. */
-function strictTools(tools: unknown[], toolName: string): unknown[] {
-  return tools.map((t) => {
-    const tool = t as { name?: unknown; input_schema?: unknown };
-    return tool.name === toolName ? { ...tool, strict: true, input_schema: closeObjects(tool.input_schema) } : t;
-  });
-}
-
-/** The API's refusal of a strict schema: a 400 `invalid_request_error` whose message names the schema. */
-function refusesStrictSchema(e: unknown): boolean {
-  return (
-    e instanceof AiHttpError &&
-    e.status === 400 &&
-    e.errorType === "invalid_request_error" &&
-    /schema/i.test(e.safeMessage ?? "")
-  );
+/** A 400 `invalid_request_error`. On a strict request whose plain form the API accepts, that is the API
+ *  refusing the strict form; its message varies ("Schema is too complex.", "tools.0.custom: …"). */
+function refusesRequest(e: unknown): boolean {
+  return e instanceof AiHttpError && e.status === 400 && e.errorType === "invalid_request_error";
 }
 
 /** The API's refusal of a forced tool choice: a 400 `invalid_request_error` whose message names
@@ -135,6 +116,8 @@ interface ToolUseBlock {
   name?: string;
   input?: unknown;
 }
+
+type ReplyBody = { content?: ToolUseBlock[]; stop_reason?: unknown };
 
 /**
  * POST one forced-tool request and return the raw `input` of the forced tool's
@@ -159,7 +142,7 @@ export async function runForcedToolCall(
 export async function runForcedToolCallWithStop(
   args: ForcedToolCallArgs,
 ): Promise<{ input: Record<string, unknown>; stopReason: string | undefined }> {
-  let json: { content?: ToolUseBlock[]; stop_reason?: unknown };
+  let json: ReplyBody;
   if (autoChoiceModels.has(args.model)) {
     json = await postAuto(args);
   } else {
@@ -183,29 +166,48 @@ export async function runForcedToolCallWithStop(
   };
 }
 
-/** The auto request: strict first, plain auto for a tool whose strict schema the API refused. */
-async function postAuto(args: ForcedToolCallArgs): Promise<{ content?: ToolUseBlock[]; stop_reason?: unknown }> {
-  if (!nonStrictTools.has(args.toolName)) {
-    try {
-      return await postOnce(args, "strict");
-    } catch (e) {
-      if (!refusesStrictSchema(e)) throw e;
-      nonStrictTools.add(args.toolName);
-    }
+/** The auto request. Plain first; a reply whose tool input does not match the tool's schema is asked
+ *  once more in strict form, and that tool goes strict for the session. If the API refuses the strict
+ *  form, the plain reply stands (the caller's own validation decides) and that tool never goes strict.
+ *  A reply without the tool call is returned as it is: strict cannot make the model call it. */
+async function postAuto(args: ForcedToolCallArgs): Promise<ReplyBody> {
+  const tool = args.toolName;
+  if (strictTools.has(tool) && !nonStrictTools.has(tool)) return postStrict(args, null);
+  const plain = await postOnce(args, "auto");
+  if (nonStrictTools.has(tool) || replyMatches(plain, args)) return plain;
+  strictTools.add(tool);
+  return postStrict(args, plain);
+}
+
+/** The strict request; on its refusal, `fallback` (or a plain request when there is none). */
+async function postStrict(args: ForcedToolCallArgs, fallback: ReplyBody | null): Promise<ReplyBody> {
+  try {
+    return await postOnce(args, "strict");
+  } catch (e) {
+    if (!refusesRequest(e)) throw e;
+    nonStrictTools.add(args.toolName);
+    return fallback ?? postOnce(args, "auto");
   }
-  return postOnce(args, "auto");
+}
+
+/** True unless the reply's call to `args.toolName` has input that breaks that tool's schema. */
+function replyMatches(reply: ReplyBody, args: ForcedToolCallArgs): boolean {
+  const call = (reply.content ?? []).find((b) => b.type === "tool_use" && b.name === args.toolName);
+  if (!call) return true;
+  const tool = args.tools.find((t) => (t as { name?: unknown }).name === args.toolName) as { input_schema?: unknown } | undefined;
+  return tool === undefined || matchesSchema(call.input, tool.input_schema);
 }
 
 /** One POST: the parsed body on a 2xx, `AiHttpError` otherwise. */
 async function postOnce(
   args: ForcedToolCallArgs,
   offer: ToolOffer,
-): Promise<{ content?: ToolUseBlock[]; stop_reason?: unknown }> {
+): Promise<ReplyBody> {
   const body: Record<string, unknown> = {
     model: args.model,
     max_tokens: args.maxTokens,
     messages: args.messages,
-    tools: offer === "strict" ? strictTools(args.tools, args.toolName) : args.tools,
+    tools: offer === "strict" ? withStrictTool(args.tools, args.toolName) : args.tools,
     tool_choice: offer === "forced" ? { type: "tool", name: args.toolName } : { type: "auto" },
   };
   const system = withGuideText(args.system, args.guideText, args.cacheGuides === true);
@@ -243,5 +245,5 @@ async function postOnce(
     throw new AiHttpError(res.status, errorType, safeMessage);
   }
   reportAiKeyResponse(args.apiKey, 200);
-  return (await res.json()) as { content?: ToolUseBlock[]; stop_reason?: unknown };
+  return (await res.json()) as ReplyBody;
 }
