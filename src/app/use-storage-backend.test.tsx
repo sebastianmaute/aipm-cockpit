@@ -1,3 +1,5 @@
+import { defaultSettings as baseSettingsForAi } from "./settings-types";
+import { markUnsealedPassphraseSecret } from "./turso-token-marker";
 import { fakeDialogs } from "../test/fake-dialogs";
 import { withWindowConfirm } from "../test/window-confirm-dialogs";
 import { act, renderHook } from "@testing-library/react";
@@ -5365,5 +5367,48 @@ describe("useStorageBackend — onOpenStorageFile binds the picked handle only o
     await act(async () => { await result.current.onOpenStorageFile(); });
 
     expect(result.current.tasks[0].taskName).toBe("From the picked file");
+  });
+});
+
+// §749 — on a Turso portfolio the demo and a cross-mode file load end in a reload: a Claude key typed under its
+// passphrase lock and not saved under it would be lost, so both refuse BEFORE writing anything.
+describe("useStorageBackend — reload paths refuse while the Claude key is held unsealed (§749)", () => {
+  const KEY = "sk-ant-api03-fictional00000000";
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  // KILLED BY: dropping the demo's `refuseReloadLosingSecret` check.
+  it("the demo on a Turso portfolio writes nothing and says how to save the key", async () => {
+    savePortfolioMode("turso");
+    markUnsealedPassphraseSecret("anthropicApiKey", KEY);
+    const reloadSpy = vi.fn();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", { configurable: true, value: { ...originalLocation, reload: reloadSpy } });
+    try {
+      const settings = { ...makeArgs().settings, ai: { ...baseSettingsForAi.ai, apiKey: KEY } } as Settings;
+      const { result } = renderBackend(makeArgs({ settings }));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await result.current.createDemoProject(emptyWorkspace() as never); });
+      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiKeyNeedsPassphraseSave", t("en-US", "secretPassphraseSave")));
+      expect(loadRegistry().projects).toHaveLength(0);
+      expect(loadPortfolioMode()).toBe("turso");
+      expect(reloadSpy).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+      savePortfolioMode("file");
+    }
+  });
+
+  // KILLED BY: dropping the file load's `refuseReloadLosingSecret` check.
+  it("a cross-mode file load opens no picker and says how to save the key", async () => {
+    markUnsealedPassphraseSecret("anthropicApiKey", KEY);
+    const settings = { ...makeArgs().settings, ai: { ...baseSettingsForAi.ai, apiKey: KEY } } as Settings;
+    const { result } = renderBackend(makeArgs({ settings }));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await result.current.loadProjectFromFile(undefined, { switchPortfolioToFileOnSuccess: true }); });
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiKeyNeedsPassphraseSave", t("en-US", "secretPassphraseSave")));
+    expect(storageMod.pickOpenFileAny).not.toHaveBeenCalled();
   });
 });

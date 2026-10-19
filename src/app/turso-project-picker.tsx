@@ -11,7 +11,7 @@
 // dedicated archived-project restore flow; this picker lists active
 // projects only.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -23,6 +23,8 @@ import { getTursoConfig } from "./turso-config";
 import { tursoErrorMessageKey } from "./storage-error";
 import { listProjects } from "./turso-portfolio";
 import { commitTursoPortfolioSwitch } from "./portfolio-mode";
+import { reloadRefusalText, secretLostToReload } from "./portfolio-mode-switch";
+import { useToastContext } from "./toast-context";
 import { type Settings } from "./settings-types";
 import type { ProjectListEntry } from "./turso-tenant-schema";
 
@@ -58,6 +60,10 @@ function projectText(p: ProjectListEntry): string {
 
 export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPickerProps) {
   const [state, setState] = useState<FetchState>({ kind: "loading" });
+  const showToast = useToastContext();
+  // §749 review — the gate waits for seals in flight, so it reads the LATEST settings, not the click's prop.
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
   // §669 — two projects in one database can share a name. The code is part of
   // the name when there is one, since the row shows it beside the name.
   const projectTokens = useMemo(
@@ -98,8 +104,17 @@ export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPick
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // §749 — the switch reloads, which loses a Turso token or Claude key typed under its passphrase lock and not
+  //   saved under it yet: refuse, and say how to save it.
   function handlePick(id: string) {
-    commitTursoPortfolioSwitch(settings, id);
+    void (async () => {
+      const risk = await secretLostToReload(() => settingsRef.current);
+      if (risk) {
+        showToast("error", reloadRefusalText(lang, risk));
+        return;
+      }
+      commitTursoPortfolioSwitch(settingsRef.current, id);
+    })();
   }
 
   return (

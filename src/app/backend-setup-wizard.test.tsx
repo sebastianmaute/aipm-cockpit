@@ -1,4 +1,5 @@
 // src/app/backend-setup-wizard.test.tsx
+import { markUnsealedPassphraseSecret } from "./turso-token-marker";
 import React from "react";
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { act, render, screen, fireEvent } from "@testing-library/react";
@@ -17,7 +18,15 @@ import { savePortfolioMode } from "./portfolio-mode";
 const commitPortfolioModeSwitch = vi.hoisted(() => vi.fn(async (): Promise<boolean> => true));
 const hasUnsealedPassphraseToken = vi.hoisted(() => vi.fn<(token: string | undefined) => boolean>(() => false));
 // A plain function stands in for the subscribed reader: the tests set its answer per case.
-vi.mock("./turso-token-seals", () => ({ useHasUnsealedPassphraseToken: hasUnsealedPassphraseToken }));
+// §749 — the Claude key's render-time reader reads the REAL marker, which the tests set (`markUnsealedPassphraseSecret`).
+vi.mock("./turso-token-seals", async () => {
+  const marker = await import("./turso-token-marker");
+  return {
+    useHasUnsealedPassphraseToken: hasUnsealedPassphraseToken,
+    useHasUnsealedPassphraseSecret: (id: Parameters<typeof marker.hasUnsealedPassphraseSecret>[0], value: string | undefined) =>
+      marker.hasUnsealedPassphraseSecret(id, value),
+  };
+});
 vi.mock("./settings-sections/integrations-section", () => ({
   commitPortfolioModeSwitch,
   IntegrationsSection: ({ hidePortfolioSwitch, pendingPortfolioMode, onPendingPortfolioModeChange, onTursoDraftsDirtyChange }: {
@@ -331,6 +340,23 @@ describe("BackendSetupWizard — a portfolio switch picked on the storage step (
     expect(commitPortfolioModeSwitch).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByTestId("integrations-section")).toBeInTheDocument();
+  });
+
+  // §749 — the Claude key, typed under its passphrase lock on the AI step and not saved under it, is lost the
+  // same way. Finish goes back to the AI step, whose section shows the passphrase fields that save it.
+  // KILLED BY: dropping `aiKeyWouldBeLost` from `switchBlocked` (Finish commits).
+  it("refuses a switch that would lose a Claude key no passphrase seal covers yet, and goes to the AI step", async () => {
+    const withKey = { ...tursoReady, ai: { ...tursoReady.ai, apiKey: "sk-ant-api03-fictional00000000" } } as typeof defaultSettings;
+    markUnsealedPassphraseSecret("anthropicApiKey", withKey.ai.apiKey);
+    setup({ settings: withKey });
+    fireEvent.click(screen.getByRole("button", { name: "pick turso" }));
+    toReview();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      t("en-US", "setupWizardAiKeyNeedsPassphrase", t("en-US", "secretPassphraseSave")),
+    );
+    await act(async () => { fireEvent.click(finishBtn()); });
+    expect(commitPortfolioModeSwitch).not.toHaveBeenCalled();
+    expect(screen.getByTestId("ai-section")).toBeInTheDocument();
   });
 
   // The reload loses the token whichever way the portfolio goes, so the review step refuses a switch

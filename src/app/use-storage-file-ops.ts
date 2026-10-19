@@ -53,6 +53,7 @@ import { aiSeedUnsafeEmails, buildNewProjectWorkspace, type NewProjectOpts } fro
 import { resetMintState, snapshotMintState, restoreMintState, seedMintFromWorkspace } from "./id-mint-session";
 import type { ProjectMeta, RaidItem, Task } from "./types";
 import { loadPortfolioMode, savePortfolioMode } from "./portfolio-mode";
+import { reloadRefusalText, secretLostToReload } from "./portfolio-mode-switch";
 import { writeSettings } from "./use-settings";
 import { sealSettingsUntilReload } from "./settings-reload-seal";
 import type { TruncationOps } from "./use-load-truncation";
@@ -110,6 +111,12 @@ export interface FileProjectOpsDeps {
 }
 
 export function useFileProjectOps(deps: FileProjectOpsDeps) {
+  /** §749 — true (and said) when a reload now would lose a secret typed under its passphrase lock. */
+  async function refuseReloadLosingSecret(): Promise<boolean> {
+    const risk = await secretLostToReload(() => deps.settingsRef.current);
+    if (risk) deps.showToast("error", reloadRefusalText(deps.langRef.current, risk));
+    return risk !== null;
+  }
   async function switchToProject(id: string): Promise<void> {
     if (deps.isPopout) return;
     const registry = loadRegistry();
@@ -263,6 +270,11 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
     opts?: { switchPortfolioToFileOnSuccess?: boolean },
   ): Promise<void> {
     if (deps.isPopout) return;
+    // §749 — the cross-mode load ends in a reload: refuse BEFORE anything is written if a secret would be lost.
+    //   ★ With a seal in flight the gate waits (bounded, 5 s) before the file picker below opens, which can outlast
+    //   the click's user activation; the picker then throws and `reportProjectError` says so. Rare: a seal is in
+    //   flight only for the moment after a key or token was saved.
+    if (opts?.switchPortfolioToFileOnSuccess && (await refuseReloadLosingSecret())) return;
     // Flush the outgoing project to its OWN backend first (best-effort). Setting
     // suppressNextSaveRef below cancels the pending debounced save, so edits made
     // within the 500ms window before opening another project would otherwise be
@@ -364,6 +376,8 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.showToast("error", t(deps.langRef.current, "demoLocalBlocked", occupant.name));
       return;
     }
+    // §749 — on a Turso portfolio the demo ends in a reload (below): refuse first if a secret would be lost.
+    if (loadPortfolioMode() === "turso" && (await refuseReloadLosingSecret())) return;
     // Flush the outgoing project first (best-effort) — mirrors createProject.
     // suppressNextSaveRef below cancels the pending debounced save.
     try {

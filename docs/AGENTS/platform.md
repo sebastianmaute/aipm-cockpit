@@ -242,6 +242,27 @@
   meanwhile included; `null`, so no `await` at all, when nothing is in flight; on timeout it logs
   `settings.tursoTokenSealWaitTimedOut` and the durability gate above decides); and the render-time reconcile resyncs a CLEAN draft only,
   keeping a dirty one when the stored value moves.
+- ★★ **The Claude API key under its passphrase lock is the same hazard (§749).** A keystroke in the AI
+  section commits `ai.apiKey`, and under the lock nothing seals it until "Save passphrase", while every reload
+  blanks it (`writeSettings`). So the marker is kept PER SECRET (`markUnsealedPassphraseSecret` /
+  `hasUnsealedPassphraseSecret` in `turso-token-marker.ts`; the Turso functions are its `"tursoAuthToken"` case),
+  `ai-section.tsx` holds the typed key there until "Save passphrase" seals it (or the untick re-seals THAT key
+  device-wrapped, released by value), and its seals join
+  the same registry (`trackSecretSeal`). The gates: `commitPortfolioModeSwitch` refuses on `aiKeyHeldUnsealed`
+  (Save & switch toasts how to save it; the wizard's Finish goes back to the AI step under a review-step banner)
+  and `migrateCurrentProjectToTurso` toasts. ★★ The section's lock is DERIVED too (`effectiveWrap`, and
+  `wrapNow` at event time, which reads the STORE): Settings keeps its AI section mounted under the wizard's, and
+  a per-instance `keyWrap` left one of them on device after the other saved a passphrase, so its next keystroke
+  device-sealed over the record. ★ The reload paths with no gate of their own — picking a Turso project
+  (`turso-project-picker.tsx`), the cross-mode create (`use-turso-projects.ts`), the cross-mode file load and the
+  demo (`use-storage-file-ops.ts`) — call `secretLostToReload` (`portfolio-mode-switch.ts`) BEFORE they write
+  anything, so a refusal leaves nothing half-done; it waits for seals in flight and names the secret at risk
+  (`reloadRefusalText`). A NEW reload path joins it: `reload-paths.sweep.test.ts` lists every `location.reload()`,
+  `location.assign()` and `location.replace()` call against a reviewed set and fails on one it does not know (its
+  header names the forms it cannot see). ★ Known limits: nothing can guard a reload the
+  user starts, or a closed tab; the cross-mode create checks once, before its network round trip, so a key typed
+  under the lock DURING the create is lost to the switch that follows. ★ The invalid-key BLUR follows the change handler's rule: over a passphrase record
+  it never calls `removeSealed` (a locked key is not hydrated, so the field shows "" for it).
 - ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
   (`use-insight-lifecycle.ts`), the recommendation store `applyInsightRecommendation`
   (`use-insight-recommendations.ts`), the four calendar auto-sync pushes and four background pulls plus the auto-pull runner
