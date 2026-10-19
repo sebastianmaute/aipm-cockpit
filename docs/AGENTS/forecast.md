@@ -58,7 +58,7 @@ held-back tests to FAIL by design — each asserts that a surface is hidden whil
 
   `lib/app-feature-guide.md`, section "Reports" — add after the restored Forecast line:
   > - Forecast section (simulation on only): a verdict banner against the project's target confidence (Even odds 50 %, Safe to commit 80 % by default, Cautious 95 %; stored per project and kept while the switch is off; set here or in the Forecast view's header), P50 / P80 / on-time / cost-at-finish tiles, the P80-over-time line, and the milestones worst first. "What it would take" is the smallest single lever that reaches the target — +N people at the team's average hours and rate, or N fewer tasks — checked one lever at a time through the scenario engine. Prioritising is shown beside them, from the "Chance if prioritised" column ("prioritise it → X %", or "prioritising alone: not enough"), but Explore cannot open it, because a scenario cannot model it. Overdue milestones and milestones with no open linked tasks get no lever, and an overdue milestone keeps the verdict from "On target". "Explore in Forecast" opens the lever as an unsaved draft scenario with the same figures. "Proposed intervention" compares As is with the one saved scenario chosen as the proposal; a deleted proposal scenario reads as no proposal until undo restores it.
-  > - AI: get_forecast returns the target confidence, what it would take (plan end and each below-target milestone), the proposal and the recorded P80 history; set_forecast_target_confidence, set_forecast_proposal and delete_forecast_scenario change them under the usual approval. "Ask Claude to draft a proposal" sends a prepared request: answer it with a saved scenario (create_forecast_scenario), naming the tasks to drop in the scenario name and the chat, and do not make it the proposal unless asked. Never write into the report.
+  > - AI: get_forecast returns the target confidence, what it would take (plan end and each below-target milestone), the proposal and the recorded P80 history; set_forecast_target_confidence and set_forecast_proposal change them; one such change applies at once and is logged but cannot be undone. delete_forecast_scenario, or several changes in one reply, go to the review card for approval; only the delete can be undone. "Ask Claude to draft a proposal" sends a prepared request: answer it with a saved scenario (create_forecast_scenario), naming the tasks to drop in the scenario name and the chat, and do not make it the proposal unless asked. Never write into the report.
 
   and widen that section's views marker back to include `forecast` (the hiding commit removed it). Section
   "Trends" — add:
@@ -92,7 +92,8 @@ items part 4 adds. The first three are HARD GATES: do not un-hide until each is 
 4. **Owner eye-check, Gantt:** the band's opacity; the P80 label overlapping the first row's bar or sliding under
    the sticky name column; the "P80" wording with no "simulated" cue on the Gantt; whether the Gantt wants a plan-end
    marker beside P80; the axis extension cap (`FORECAST_AXIS_EXTENSION_DAYS`, 180 days: `grep -n
-   "FORECAST_AXIS_EXTENSION_DAYS =" src/app/gantt-engine.ts`); the band's capped end has no marker of its own (only
+   "FORECAST_AXIS_EXTENSION_DAYS =" src/app/gantt-engine.ts`; the help body fills it in through `helpEntryBody`,
+   but the held-back Gantt guide line above spells the number, so change it there too); the band's capped end has no marker of its own (only
    the P80 label carries "→"); the chip's edge format ("<1%" / ">99%") against Reports' and the export's
    `formatChance`. The Gantt side is documented in [`ui-shell.md`](ui-shell.md) "The simulated forecast on the Gantt".
 5. **Owner eye-check, Reports:** the Forecast block's layout at its default height; "Ask Claude to draft a proposal"
@@ -102,6 +103,9 @@ items part 4 adds. The first three are HARD GATES: do not un-hide until each is 
    the hidden feature — add it at un-hide. Say in the CHANGELOG's "older version" sentence that an older build drops
    a `forecastDecision` block ([`documents.md`](documents.md), the `forecastDecision` paragraph).
 7. **Help:** paste the held-back text above; part 3's burn-chart band still has no help text (above).
+8. **Decide, not a gate — a generic forecast Ask-Claude chip.** `ASK_CLAUDE_PROMPTS.forecast` is absent, and
+   `ask-claude-prompts.test.ts` pins it ("has no chip for forecast while the view is held back (§502)"). The view has
+   its own `ForecastAskClaude` menu; decide whether it also wants a generic chip, and invert or delete that test.
 
 ## Module map
 
@@ -317,7 +321,9 @@ axe spec selects **"All history" (R13)** and waits for the chart so axe sees the
 only the empty state.
 
 - **No generic Ask-Claude chips (R12).** `forecast` has no entry in `ASK_CLAUDE_PROMPTS`, and a test in
-  `ask-claude-prompts.test.ts` pins the absence (its comment still gives the pre-AI-tool reason, "no read tool").
+  `ask-claude-prompts.test.ts` pins the absence ("has no chip for forecast while the view is held back (§502)"):
+  `get_forecast` exists, but the view is held back, and whether to add a chip is an un-hide decision (item 8 of
+  the un-hide list).
   The view has its own menu instead, `ForecastAskClaude`, shown only with AI on, the simulation on and not in a popout; see "The AI tool" below.
 - Percent strings go through i18n keys (EN `{0}%`, DE `{0} %`; R10).
 - **Amounts carry their unit.** `formatAmount` writes tasks as `forecastAmountTasks` through `tPlural`
@@ -1195,9 +1201,12 @@ brings the proposal back. ★ Both decision writes assign `settingsOverridesRef`
 `get_forecast` later in the same turn reports the new target and proposal; the effect only syncs other writers. The
 state is written through a FUNCTIONAL updater, so a change another writer queued before the ref synced is kept.
 ★ An id naming no saved scenario REFUSES `set_forecast_proposal` (`forecast scenario N not found`), where the UI setter
-only ignores it. ★ The `forecastDecision` document data section follows the same predicate: with the forecast bit off
-`toolsFor` sends `create_document` and `update_document` without that key (`DOCUMENT_TOOL_DEFS_WITHOUT_DECISION`), and
-`refuseHiddenDecisionSection` (`chat-tools-forecast.ts`) refuses a document write naming it (ruling P3-1).
+only ignores it. ★ The `forecastDecision` document data section follows the same predicate: with bit 4 set (forecast
+off) `toolsFor` sends `create_document` and `update_document` without that key (`DOCUMENT_TOOL_DEFS_WITHOUT_DECISION`),
+and `refuseHiddenDecisionSection` (`chat-tools-forecast.ts`) refuses a document write that would ADD such a block
+(ruling P3-1). ★★ Only adding: it plays an `update_document`'s ops against the stored blocks with `applyOps` and refuses
+when the decision-block count would rise, so a `replaceAll` or `replace` re-sending a block the document already holds
+passes — refusing that would teach the model to retry without it and delete the user's section through the AI.
 
 ★ COST: which calls pay an As-is run. `get_forecast` pays at most ONE: `getForecast` builds the comparison
 (`computeScenarioComparison`, As is plus every saved scenario) once, passing `sharedAsIsRun(input.run)` so a warm app
