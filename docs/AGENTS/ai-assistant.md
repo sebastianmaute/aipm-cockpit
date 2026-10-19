@@ -1926,7 +1926,7 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   (`readingRequiresTool`), and a `ViewScope` holds one reading only.
   ★ DEFAULTS UNLESS ASKED: `get_forecast` runs with the app defaults (`DEFAULT_HISTORY_WINDOW`, tasks unit) unless the
   call passes `historyWindow` or `unit` (validated in `runForecastTool`, applied in `useForecastTools`); the prompt
-  block tells the model to pass them to match a changed toolbar. Away from the defaults the report omits the weekly
+  block tells the model it cannot read the toolbar, so it asks the user for the window and unit and passes them. Away from the defaults the report omits the weekly
   change and the lever search, which are defined there; `byGroup: true` adds the forecast by group. The report's
   other reads (`basis`, `prioritised`, `howManyByPlanEnd`) are in [`forecast.md`](forecast.md), "The AI tool".
   ★ The model can see which tasks gate a milestone: `list_milestones` returns `linkedTaskIds` (needed because
