@@ -179,15 +179,17 @@ function whatItTakesReport(
   if (f.kind !== "forecast") return { planEnd: null, milestones: [], notSearched: [] };
   const take = (target: LeverTarget) => whatItTakesSync(run, context, target, goal, asIs);
   const below = belowTargetRows(milestoneRowsWorstFirst(run.milestones, f.milestones), goal);
-  return {
-    planEnd: take({ kind: "planEnd" }),
-    // A below-target row has a chance on this same As-is column, so its take is never null; the guard is for tsc.
-    milestones: below.slice(0, WHAT_IT_TAKES_MILESTONE_CAP).flatMap((r) => {
-      const t = take({ kind: "milestone", id: r.id });
-      return t === null ? [] : [{ id: r.id, name: r.name, take: t }];
-    }),
-    notSearched: below.slice(WHAT_IT_TAKES_MILESTONE_CAP).map((r) => ({ id: r.id, name: r.name })),
-  };
+  const milestones: WhatItTakesReport["milestones"] = [];
+  const noTake: WhatItTakesReport["notSearched"] = [];
+  for (const r of below.slice(0, WHAT_IT_TAKES_MILESTONE_CAP)) {
+    // A below-target row has a chance on this same As-is column, so its take should never be null; if one ever is,
+    // the milestone is still named below target (first, keeping worst-first order) rather than dropped from both lists.
+    const t = take({ kind: "milestone", id: r.id });
+    if (t === null) noTake.push({ id: r.id, name: r.name });
+    else milestones.push({ id: r.id, name: r.name, take: t });
+  }
+  const notSearched = [...noTake, ...below.slice(WHAT_IT_TAKES_MILESTONE_CAP).map((r) => ({ id: r.id, name: r.name }))];
+  return { planEnd: take({ kind: "planEnd" }), milestones, notSearched };
 }
 
 function proposalReport({ settingsOverrides, scenarios }: ForecastReportInput): ForecastReport["proposal"] {

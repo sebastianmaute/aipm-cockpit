@@ -1695,7 +1695,7 @@ below-target milestone with what it would take, each overdue milestone, the prop
 Export and the block editor's select offer it only then; a block naming it otherwise renders nothing). Two paths, and
 they differ for a reason:
 - **Downloads and exports** call the source at the click: it runs everything, `whatItTakesSync` per below-target
-  milestone included (about 1 s at 9 below target and 5–6 s at 30; [forecast.md](forecast.md) has the measured cost,
+  milestone included (about 1 s at 9 below target and 4.9–6.4 s at 30; [forecast.md](forecast.md) has the measured cost,
   and is why the export section is off by default).
   ★ The extras value keeps its identity across task edits: its `forecastDecision` is one stable thunk that calls the
   LATEST source, so it must only ever be called from an event, never from render.

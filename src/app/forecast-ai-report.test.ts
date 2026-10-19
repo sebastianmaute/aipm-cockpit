@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ForecastFacts, ForecastFactsByUnit } from "./budget-forecast";
 import { entityToken } from "./ai-entity-token";
 import type { ScenarioDirectory } from "./forecast-added-people";
@@ -14,6 +14,12 @@ import { withProposal, withTargetConfidence } from "./forecast-target";
 import type { SettingsOverrides } from "./settings-types";
 import type { Milestone, Resource, Role, Shift, Task } from "./types";
 import { workingDaysBefore } from "./working-days";
+
+// A pass-through spy, so one test can make a take come back null; every other test runs the real engine.
+vi.mock("./forecast-levers", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./forecast-levers")>();
+  return { ...real, whatItTakesSync: vi.fn(real.whatItTakesSync) };
+});
 
 const TODAY = "2026-10-14"; // a Wednesday
 const NONE: ReadonlySet<string> = new Set();
@@ -283,6 +289,24 @@ describe("buildForecastReport — target, what it would take, proposal and P80 h
     const worstSearched = Math.max(...searched.map((id) => chanceOf.get(id) ?? NaN));
     for (const id of rest) expect(chanceOf.get(id)).toBeGreaterThanOrEqual(worstSearched);
     expect(takes.notSearched[0]).toEqual({ id: rest[0], name: many.find((m) => m.id === rest[0])?.name });
+  });
+
+  it("names a searched milestone whose take comes back null as not searched, first, rather than dropping it", async () => {
+    const real = (await vi.importActual<typeof import("./forecast-levers")>("./forecast-levers")).whatItTakesSync;
+    const dates = ["2026-10-21", "2026-10-23", "2026-10-27", "2026-10-29", "2026-11-02", "2026-11-03", "2026-11-04"];
+    const many: Milestone[] = dates.map((date, i) => ({ id: 20 + i, name: `M${i}`, date, linkedTaskIds: OPEN.slice(0, 15).map((t) => t.id) }));
+    const inp = reportInput({ milestones: [...MILESTONES, ...many] });
+    const before = takesOf(buildForecastReport(inp, null));
+    const nulled = before.milestones[1].id;
+    vi.mocked(whatItTakesSync).mockImplementation((...args: Parameters<typeof real>) =>
+      args[2].kind === "milestone" && args[2].id === nulled ? null : real(...args));
+    try {
+      const after = takesOf(buildForecastReport(inp, null));
+      expect(after.milestones.map((m) => m.id)).toEqual(before.milestones.map((m) => m.id).filter((id) => id !== nulled));
+      expect(after.notSearched.map((m) => m.id)).toEqual([nulled, ...before.notSearched.map((m) => m.id)]);
+    } finally {
+      vi.mocked(whatItTakesSync).mockImplementation(real);
+    }
   });
 
   it("names the proposal; a stale id, or none, reads as no proposal", () => {

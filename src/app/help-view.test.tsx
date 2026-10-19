@@ -252,6 +252,17 @@ describe("HelpView — reopening the intro with the switch off (§502)", () => {
     expect(de).toContain("Eine einzelne solche Änderung gilt sofort und wird protokolliert");
     expect(de).not.toMatch(/sobald Sie zustimmen|derselben Zustimmung/);
   });
+
+  // The forecast decision export section starts unticked (gate 1), so the help must not promise it in every export.
+  it("says exports carry the decision block only with the section ticked, EN and DE (§502)", async () => {
+    await loadI18n("de");
+    const en = t("en-US", "helpConceptForecastSimBody");
+    expect(en).toContain("exports with Forecast decision (simulated) ticked in Settings → Export (it starts unticked)");
+    expect(en).not.toContain("Exports and documents gain");
+    const de = t("de", "helpConceptForecastSimBody");
+    expect(de).toContain("„Prognose-Entscheidung (simuliert)“ angehakt ist (anfangs nicht angehakt)");
+    expect(de).not.toContain("Exporte und Dokumente erhalten");
+  });
 });
 
 describe("HelpView — forecast view held back (§502)", () => {
