@@ -34,8 +34,9 @@ describe("parseAnalysis", () => {
 
   // A forced call can come back without `actions` when the model has nothing net-new to add,
   // or with the array sent as a JSON string; both are a usable answer, not a failed one.
-  it("reads a missing actions list as no suggestions", () => {
+  it("reads a missing or null actions list as no suggestions", () => {
     expect(parseAnalysis({ summary: "All on track." })).toEqual({ summary: "All on track.", actions: [] });
+    expect(parseAnalysis({ summary: "All on track.", actions: null })).toEqual({ summary: "All on track.", actions: [] });
   });
 
   it("reads actions sent as a JSON-encoded array", () => {

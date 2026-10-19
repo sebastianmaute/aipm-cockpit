@@ -34,12 +34,10 @@ function asEntity(raw: unknown): { view: GroundableView; id: string } | undefine
   return { view: r.view as GroundableView, id: String(r.id) };
 }
 
-/** Validate + clamp the model's tool input. Returns null only when the overall
- *  shape is unusable; individual malformed actions are dropped, not fatal. */
 /** The tool input's `actions`, as an array or null. A model with nothing net-new to add can leave the
- *  list out, and a nested array sometimes arrives JSON-encoded as a string: both are still an answer. */
+ *  list out or null, and a nested array sometimes arrives JSON-encoded as a string: all are still an answer. */
 function rawActions(value: unknown): unknown[] | null {
-  if (value === undefined) return [];
+  if (value === undefined || value === null) return [];
   if (Array.isArray(value)) return value;
   if (typeof value !== "string") return null;
   try {
@@ -50,6 +48,8 @@ function rawActions(value: unknown): unknown[] | null {
   }
 }
 
+/** Validate + clamp the model's tool input. Returns null only when the overall
+ *  shape is unusable; individual malformed actions are dropped, not fatal. */
 export function parseAnalysis(input: unknown): ActionAnalysis | null {
   if (!input || typeof input !== "object") return null;
   const obj = input as { summary?: unknown; actions?: unknown };

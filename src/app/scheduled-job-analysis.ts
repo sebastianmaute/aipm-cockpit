@@ -33,7 +33,7 @@ export async function runJobAnalysis(context: string, ai: AiCreds, signal?: Abor
     tools: [ANALYZE_TOOL],
     toolName: "report_analysis",
     messages: [{ role: "user", content: context }],
-    // Twice the old 2048, the budget task dedup and the project proposal use; a cut reply is still "parse".
+    // 4096, as task dedup and the project proposal use (was 2048); a reply cut at it is still "parse".
     maxTokens: 4096,
     signal,
   });
