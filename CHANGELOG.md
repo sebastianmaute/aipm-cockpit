@@ -168,7 +168,7 @@ longer carries its own changelog comment.
   furthest below target (it is told which others are below target too), the proposal and how the P80 date has moved.
   It can also say why a date is where it is: how much work is open, how many tasks finished in the history and
   over how many days, and how many done tasks have no completion date. It reads the "Chance if prioritised" figure
-  for every milestone, how much will be done by the plan end and the forecast by group, and it can run the
+  for every milestone that has a chance, how much will be done by the plan end and the forecast by group, and it can run the
   forecast with another history window or in hours, as the Forecast view's toolbar does. On the Forecast view the
   header's Ask Claude menu offers "Why this finish date?" and "How has the date moved?". It can also delete a
   saved scenario, which always goes to the

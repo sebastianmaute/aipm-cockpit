@@ -6,7 +6,7 @@ import {
   buildForecastReport, scenarioValidationContext, type ColumnReport, type ForecastReport, type ForecastReportInput,
   type WhatItTakesReport, WHAT_IT_TAKES_MILESTONE_CAP,
 } from "./forecast-ai-report";
-import { DEFAULT_WHAT_IF, computeScheduleForecast } from "./forecast";
+import { DEFAULT_WHAT_IF, computeScheduleForecast, lastForecastableDay } from "./forecast";
 import { forecastByGroup } from "./forecast-by-group";
 import { computeScenarioComparison, type ScenarioRunInput } from "./forecast-scenario-compare";
 import type { ForecastScenario, ScenarioChange } from "./forecast-scenarios";
@@ -421,6 +421,37 @@ describe("buildForecastReport — what the forecast was built from (§502 toolin
     // CONTROL: the defaults search and report a weekly change.
     expect(takesOf(plain()).planEnd).not.toBeNull();
     expect(plain().weeklyChange).toMatchObject({ kind: "pending" });
+  });
+
+  it("caps How-many's date at the horizon when the plan end lies past it", () => {
+    const far = "2032-12-31";
+    const last = lastForecastableDay(TODAY, NONE);
+    expect(far > last).toBe(true);
+    expect(buildForecastReport(reportInput({ planEnd: far }), null).howManyByPlanEnd?.by).toBe(last);
+    expect(buildForecastReport(reportInput({ planEnd: "" }), null).howManyByPlanEnd).toBeNull();
+  });
+
+  it("the extra How-many run changes no column: its dates and milestone chances are As is's own", () => {
+    const report = plain();
+    const col = forecastColumn(report.asIs);
+    const run = computeScheduleForecast({
+      tasks: TASKS, milestones: MILESTONES, today: TODAY, holidaySet: NONE, window: 60, unit: "tasks",
+      whatIf: DEFAULT_WHAT_IF, howManyTarget: PLAN_END,
+    });
+    if (run.kind !== "forecast") throw new Error("expected a forecast");
+    const date = (p: number) => run.when.find((w) => w.p === p)?.date ?? "beyond";
+    expect([col.p50, col.p80, col.p95]).toEqual([date(50), date(80), date(95)]);
+    expect(col.milestones.map((m) => ("chance" in m ? m.chance : null)))
+      .toEqual(run.milestones.map((m) => (m.state === "chance" ? m.chance : null)));
+  });
+
+  it("byGroup stays at the defaults when the call sets another window or unit", () => {
+    const report = buildForecastReport(reportInput({ window: 30, unit: "effort" }), null, undefined, { byGroup: true });
+    expect(report.byGroup).toEqual(forecastByGroup({ tasks: TASKS, today: TODAY, holidaySet: NONE, planEnd: PLAN_END }));
+  });
+
+  it("a call with whatIf and other settings reports the whatIf omission", () => {
+    expect(buildForecastReport(reportInput({ window: 30 }), [availability(120)]).whatItTakes).toEqual({ omitted: "whatIf" });
   });
 
   it("effort falls back to tasks when too few open tasks are estimated, and settings.unit says so", () => {

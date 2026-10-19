@@ -92,7 +92,7 @@ export type ForecastReport = {
     id: number; name: string; expectedToken: string; changes: readonly ScenarioChange[]; result: ColumnReport; rows: RowReport[];
   }[];
   whatIf?: { result: ColumnReport; rows: RowReport[] };
-  /** As is only; null when As is is insufficient or the plan end is not after today. */
+  /** As is only; null when As is is insufficient, there is no plan end, or it is not after today. */
   howManyByPlanEnd: HowManyReport | null;
   /** Only on a call that asks for it: each task group forecast from its own history, always at the app defaults. */
   byGroup?: GroupForecastRow[];

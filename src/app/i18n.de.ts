@@ -1279,7 +1279,7 @@ export const de: Record<TranslationKey, string> = {
   aiPromptTrendActLabel: "Auf Trend reagieren",
   aiPromptTrendActBody: "Was sollte ich angesichts der aktuellen Trends tun, um im Plan zu bleiben?",
   aiPromptFcWhyLabel: "Warum dieses Enddatum?",
-  aiPromptFcWhyBody: "Warum liegt das Datum „Sicher zusagbar“ (P80) dort, wo es liegt? Nutze get_forecast und erkläre es aus dessen basis: die offene Arbeit, die im Verlaufsfenster erledigten Aufgaben und dessen Arbeitstage sowie erledigte Aufgaben ohne Erledigungsdatum. Sage, dass die Zahlen simuliert sind, und nenne die Änderung, die das Datum am stärksten verschieben würde.",
+  aiPromptFcWhyBody: "Warum liegt das Datum „Sicher zusagbar“ (P80) dort, wo es liegt? Nutze get_forecast und erkläre es aus dessen basis: die offene Arbeit, die im Verlaufsfenster erledigten Aufgaben und dessen Arbeitstage sowie erledigte Aufgaben ohne Abschlussdatum. Sage, dass die Zahlen simuliert sind, und nenne die Änderung, die das Datum am stärksten verschieben würde.",
   aiPromptFcMovedLabel: "Wie hat sich das Datum bewegt?",
   aiPromptFcMovedBody: "Wie hat sich das Datum „Sicher zusagbar“ (P80) zuletzt bewegt? Nutze weeklyChange und p80History aus get_forecast, sage, wann es sich verschoben oder verbessert hat, und suche die Aufgaben, die um diese Tage erledigt oder hinzugefügt wurden. Sage, dass die Zahlen simuliert sind.",
   aiPromptOpenStaleLabel: "Liegen geblieben",

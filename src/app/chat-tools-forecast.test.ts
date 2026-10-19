@@ -105,7 +105,7 @@ describe("the model-facing texts", () => {
     const text = description("get_forecast");
     expect(text).toContain("Optional historyWindow (30, 60, 90, all, in working days)");
     expect(text).toContain("effort needs an estimate on at least 70 % of open tasks, else the run uses tasks, and settings.unit says which ran");
-    expect(text).toContain('with either set, weeklyChange is null and whatItTakes is {omitted: "settings"}');
+    expect(text).toContain('with either away from the defaults, weeklyChange is null and whatItTakes is {omitted: "settings"} (a call with whatIf still gets {omitted: "whatIf"})');
     expect(text).toContain("Each forecast column carries basis: {backlog");
     expect(text).toContain("prioritised: its chance if its own open linked tasks went first");
     expect(text).toContain("howManyByPlanEnd is As is only");
