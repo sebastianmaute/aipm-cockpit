@@ -60,6 +60,7 @@ function markDoneAction(id: number): SuggestedAction {
 function makeDeps(overrides: Partial<ActionCenterHandlerDeps> = {}): ActionCenterHandlerDeps {
   return {
     dialogsRef: fakeDialogs().ref,
+    getScopeEpoch: () => 0,
     isPopout: false,
     lang: "en-US",
     today: TODAY,
@@ -264,6 +265,23 @@ describe("useActionCenterHandlers — a typed stakeholder-comms recipient meets 
     const { send, showToast } = await draftWithTyped("nope");
     expect(send).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "errorInvalidEmail"));
+  });
+
+  // §752 review — the prompt is awaited, so a project swap can finish while it is open: no draft goes out for
+  // the old project's stakeholder, and nothing is learned. KILLED BY: deleting the `actions.draftRecipient` drop.
+  it("drafts nothing when the project scope moved while the prompt was open (§752)", async () => {
+    let epoch = 1;
+    const dialogs = fakeDialogs();
+    dialogs.prompt.mockImplementation(async () => { epoch = 2; return "dana@x.com"; });
+    const send = vi.fn();
+    const recordLearning = vi.fn(async () => {});
+    const { result } = renderHook(() =>
+      useActionCenterHandlers(makeDeps({ stakeholders: [NO_EMAIL], commSend: { send }, dialogsRef: dialogs.ref, getScopeEpoch: () => epoch, recordLearning })),
+    );
+    await act(async () => { await result.current.handleDraftMessageFromAction(draftAction(1)); });
+    expect(dialogs.prompt).toHaveBeenCalledTimes(1);
+    expect(send).not.toHaveBeenCalled();
+    expect(recordLearning).not.toHaveBeenCalled();
   });
 
   it("positive control: a valid typed address drafts to it", async () => {

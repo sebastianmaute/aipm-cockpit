@@ -30,6 +30,7 @@ import { buildTaskSeedFromAction } from "./action-task-seed";
 import { emptyForm } from "./task-form-context";
 import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
 import type { AppDialogs } from "./confirm-dialog";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import { isWriteSafeEmail } from "./sanitize";
 import { typedEmailRefusalKey } from "./email-refusal-i18n";
 import { isEscalationWriteEmail } from "./raid-escalation";
@@ -51,6 +52,8 @@ import { applyMilestoneRebaseline, isValidIsoDate } from "./action-rebaseline";
 export interface ActionCenterHandlerDeps {
   /** §752 — the app's dialogs (filled by the ConfirmProvider task-manager renders; see use-task-row-handlers.ts). */
   dialogsRef: { readonly current: AppDialogs };
+  /** §752 — the stakeholder draft's prompt is awaited: a project swap can finish while it is open. */
+  getScopeEpoch: ScopeEpochReader;
   isPopout: boolean;
   lang: Lang;
   today: string;
@@ -114,6 +117,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
     logActivity,
     selfResourceId,
     dialogsRef,
+    getScopeEpoch,
   } = deps;
 
   const assignOwnerBundle = useMemo<AssignOwnerBundle | undefined>(
@@ -203,6 +207,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
         const sh = stakeholders.find((s) => s.id === id);
         if (!sh) return;
         let typed = "";
+        const epoch = getScopeEpoch();
         const email = await resolveDraftRecipient(
           sh,
           resources,
@@ -215,6 +220,8 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
           () => showToast("error", t(lang, typedEmailRefusalKey(typed.trim()))),
         );
         if (!email) return;
+        // §752 — nothing is drafted, nor learned from, once the project in scope is another one.
+        if (dropStaleScopeWrite(getScopeEpoch, epoch, "actions.draftRecipient", { id })) return;
         const subject = t(lang, "commsEmailSubject", project?.name ?? "");
         // Same guard as the task status-inquiry: an empty default template
         // falls back to the i18n body rather than drafting an empty message.
@@ -230,7 +237,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
         void recordLearning(action, "acted");
       }
     },
-    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend, recordLearning, showToast, dialogsRef],
+    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend, recordLearning, showToast, dialogsRef, getScopeEpoch],
   );
 
   const handleEscalate = useCallback(

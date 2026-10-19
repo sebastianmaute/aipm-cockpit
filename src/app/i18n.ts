@@ -426,6 +426,7 @@ const enUS = {
   // empty "because its last load did not succeed" — the usual cause, and the one §590 is about, but
   // the gate establishes only that the count is zero. A dialog that tells the user why, wrongly, is
   // worse than one that tells them what.
+  storagePickLoadInsteadDropped: "Nothing was loaded: the open project gained content while the question was open. Choose the file again to load it.",
   storagePickFileHasProject:
     "\"{0}\" already holds a project with {1} records. The open project is empty, so saving into this file would replace what is already there.\n\nOK loads the existing project from this file instead. Cancel leaves both the file and the app untouched.",
   storagePickFileHasProjectOne:

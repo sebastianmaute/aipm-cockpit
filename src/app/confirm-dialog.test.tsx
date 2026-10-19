@@ -298,3 +298,33 @@ describe("ConfirmProvider dialogsRef (§752)", () => {
     expect(toldDone).toBe(true);
   });
 });
+
+describe("ConfirmProvider — one dialog replacing another (§752 review)", () => {
+  // KILLED BY: dropping `key={pending.seq}` (the Modal stays mounted, its initial focus never runs again).
+  test("the new dialog takes focus", async () => {
+    const ref: { current: AppDialogs } = {
+      current: { confirm: async () => false, prompt: async () => null, notice: async () => {} },
+    };
+    render(<ConfirmProvider lang="en-US" dialogsRef={ref}><span /></ConfirmProvider>);
+    act(() => { void ref.current.prompt({ message: "Name this version" }); });
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Name this version" })).toHaveFocus());
+    act(() => { void ref.current.confirm({ message: "Send 2 emails?" }); });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus());
+  });
+
+  // A control answers only the dialog it was rendered for.
+  test("the replaced dialog's answer is its no, and the new one stays open", async () => {
+    const ref: { current: AppDialogs } = {
+      current: { confirm: async () => false, prompt: async () => null, notice: async () => {} },
+    };
+    render(<ConfirmProvider lang="en-US" dialogsRef={ref}><span /></ConfirmProvider>);
+    let first: Promise<boolean> = Promise.resolve(true);
+    act(() => { first = ref.current.confirm({ message: "First?" }); });
+    let second: Promise<boolean> = Promise.resolve(false);
+    act(() => { second = ref.current.confirm({ message: "Second?" }); });
+    await expect(first).resolves.toBe(false);
+    expect(await screen.findByText("Second?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await expect(second).resolves.toBe(true);
+  });
+});

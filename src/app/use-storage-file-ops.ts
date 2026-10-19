@@ -741,14 +741,11 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       // ★★★ It is `authoredRecordCount`, NOT `isWorkspaceEmpty` — read its docstring before changing
       //   this line. The obvious predicate counts auto-seeded reference data and fires over nothing.
       if (existing !== null && existing !== "unparseable" && existing.records > 0 && authoredRecordCount(deps.currentWorkspace()) === 0) {
-        // ★★★ `window.confirm`, NOT the branded `useConfirm()`, and this is measured rather than
-        //   preferred: `useStorageBackend` is called in `TaskManagerInner`'s BODY
-        //   (task-manager.tsx), while `ConfirmProvider` is rendered in that same component's own
-        //   JSX — so a `useConfirm()` here reads the DEFAULT context, which resolves `false`
-        //   unconditionally. The offer would then always be declined and this click would do nothing,
-        //   for every user, with no test able to see it. `use-activity-log.ts` records the identical
-        //   trap for the identical reason. It is also the idiom the two sibling gates in this file
-        //   already use (`onOpenStorageFile`, `onRequestStorageSwitch`).
+        // ★★ §752 — the app's dialog, reached through `deps.dialogsRef`: `useStorageBackend` runs in
+        //   task-manager's BODY, above the `ConfirmProvider` it renders, so a `useConfirm()` here would read the
+        //   DEFAULT context and decline every offer. (Until §752 this used `window.confirm` for that reason; it
+        //   throws nothing in Electron, but freezes the page, and is barred now — no-native-dialogs.sweep.test.ts.)
+        //   The dialog does not freeze the page, so the branch re-checks the backend and the live workspace below.
         // ★ OK = load the existing project; Cancel = leave both the file and the app untouched. The
         //   safe answer is the one the dialog's own Cancel gives, so an accidental dismissal
         //   destroys nothing.
@@ -756,7 +753,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
         // §752 — the answer was awaited: a rebuild may have replaced the backend, or records may have reached the
         //   live workspace (a background writer), and loading would then replace them. Either way: nothing changes.
         if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "confirm" }); return; }
-        if (authoredRecordCount(deps.liveWorkspace()) > 0) { logDiag("warn", "storage.pickLoadInsteadDropped", { reason: "records-arrived" }); return; }
+        if (authoredRecordCount(deps.liveWorkspace()) > 0) { logDiag("warn", "storage.pickLoadInsteadDropped", { reason: "records-arrived" }); deps.emitToast("info", t(deps.langRef.current, "storagePickLoadInsteadDropped")); return; }
         // ★★ ITS OWN try/catch, so a throw here is announced as a failed LOAD. The op's outer catch
         //   speaks `storageSaveFailed`, and this branch performs no write at all — the same reasoning
         //   the abort catch above already applies, and the key `onOpenStorageFile` uses for its own

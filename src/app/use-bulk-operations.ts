@@ -25,10 +25,9 @@ import { todayInZone, resolveTimezone } from "./timezone";
 import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
 import { TASK_UNDO_GROUPS, buildBulkFieldEdits, differs } from "./undo/field-groups";
 import { visibleTaskRows } from "./visible-task-rows";
-import { unbridgedDialogs, type AppDialogs } from "./confirm-dialog";
+import { UNBRIDGED_DIALOGS_REF as UNBRIDGED, type AppDialogs } from "./confirm-dialog";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 
-const UNBRIDGED: { readonly current: AppDialogs } = { current: unbridgedDialogs() };
 const NO_EPOCH: ScopeEpochReader = () => 0;
 
 // Fields Jira owns on a synced task (mirrors issueToTaskFields). Bulk-editing
@@ -496,6 +495,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       if (!email && isWriteSafeEmail(task.assignee)) email = task.assignee.trim();
       if (!email) {
         const provided = await dialogs.prompt({ message: t(lang, "promptEmail", task.assignee), inputType: "email" });
+        if (getScopeEpoch() !== epoch) break; // §752 — another project now: ask nothing more (dropped below)
         if (provided === null) continue;
         const trimmed = sanitizeLoadedEmail(provided); // M-C4: the unwrapped address, as every AI write stores
         if (!isWriteSafeEmail(trimmed)) {

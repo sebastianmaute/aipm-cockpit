@@ -956,7 +956,7 @@ function TaskManagerInner() {
     rebaselineBundle,
     rescheduleBundle,
   } = useActionCenterHandlers({
-    isPopout, dialogsRef: appDialogsRef,
+    isPopout, dialogsRef: appDialogsRef, getScopeEpoch,
     lang,
     today,
     resources,

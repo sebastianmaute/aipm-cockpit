@@ -1446,6 +1446,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         const confirmed = await (args.dialogsRef ?? UNBRIDGED_DIALOGS_REF).current.confirm({ message: t(langRef.current, "reloadEmptyConfirm") }); // §752 — the app's dialog
         recordDataLossEvent({ path: "reload", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: nonEmptyCollectionCount(workspace), refused: !confirmed });
         if (!confirmed) {
+          if (isSupersededBackend()) return; // §752 — a rebuild landed while the dialog was open: the live instance owns the screen
           truncationOps.raiseDecodeFailuresFor(backend); // ★★★ THE CAUTIOUS ANSWER MUST NOT DISARM THE GUARD. Declining keeps the in-memory workspace and leaves autosave pointed at THIS backend, so an undecodable meta blob here is precisely the loss the flag exists to pause — the user picking the SAFE option was what skipped the report and left the next edit free to `DELETE FROM meta` over it. Raise-only, and truncation is deliberately not published: see `raiseDecodeFailuresFor`.
           emitOutcome(null);
           return;

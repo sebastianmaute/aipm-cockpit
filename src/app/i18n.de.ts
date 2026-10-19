@@ -419,6 +419,7 @@ export const de: Record<TranslationKey, string> = {
   storageConfirmOverwriteOne: "Die Aufgabe in der App wird durch den Inhalt der Datei ersetzt. Fortfahren?",
   // §590 - siehe i18n.ts (auch für den Grund, warum hier keine Ursache genannt wird).
   // {0} = Dateiname, {1} = Anzahl Datensätze in dieser Datei.
+  storagePickLoadInsteadDropped: "Nichts wurde geladen: Das offene Projekt hat Inhalte bekommen, während die Frage offen war. Wählen Sie die Datei erneut, um sie zu laden.",
   storagePickFileHasProject:
     "\"{0}\" enthält bereits ein Projekt mit {1} Datensätzen. Das geöffnete Projekt ist leer — ein Speichern in diese Datei würde den vorhandenen Inhalt ersetzen.\n\nOK lädt stattdessen das vorhandene Projekt aus dieser Datei. Abbrechen lässt Datei und App unverändert.",
   storagePickFileHasProjectOne:

@@ -124,10 +124,13 @@ export function useNotice(): NoticeFn {
 const TITLE_ID = "confirm-dialog-title";
 const INPUT_ID = "confirm-dialog-input";
 
+/** `seq` numbers each dialog: the Modal is keyed by it, so a dialog that replaces another remounts and its
+ *  initial focus runs again. */
 type Pending =
-  | ({ kind: "confirm"; resolve: (value: boolean) => void } & ConfirmOptions)
-  | ({ kind: "prompt"; resolve: (value: string | null) => void } & PromptOptions)
-  | ({ kind: "notice"; resolve: () => void } & NoticeOptions);
+  | ({ kind: "confirm"; seq: number; resolve: (value: boolean) => void } & ConfirmOptions)
+  | ({ kind: "prompt"; seq: number; resolve: (value: string | null) => void } & PromptOptions)
+  | ({ kind: "notice"; seq: number; resolve: () => void } & NoticeOptions);
+type PendingInput = Pending extends infer P ? (P extends Pending ? Omit<P, "seq"> : never) : never;
 
 /** Answers `p` with its "no". Promise settlement is idempotent, so a second call is a no-op. */
 function decline(p: Pending | null): void {
@@ -140,10 +143,10 @@ function decline(p: Pending | null): void {
 interface ConfirmProviderProps {
   lang: Lang;
   children: ReactNode;
-  /** Filled with this provider's confirm, for code ABOVE it that cannot call `useConfirm`: task-manager's
-   *  hooks run before the provider it renders (§715 D5). */
+  /** Filled with this provider's confirm alone, for code ABOVE it that only ever asks yes or no. Task-manager
+   *  passes `dialogsRef` since §752 (§715 D5 introduced this one). */
   bridgeRef?: { current: ConfirmFn };
-  /** §752 — the same for all three dialogs. */
+  /** §752 — all three dialogs, for code ABOVE the provider (task-manager's hooks run before it renders). */
   dialogsRef?: { current: AppDialogs };
 }
 
@@ -156,17 +159,18 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
   const inputRef = useRef<HTMLInputElement | null>(null);
   const okRef = useRef<HTMLButtonElement | null>(null);
 
-  // A new prompt supersedes an unanswered one (should be rare) — the previous is
-  // answered with its "no" before it is replaced. NOTE: this is a side-effect
-  // inside a state updater, which StrictMode double-invokes in dev — safe ONLY
-  // because Promise settlement is idempotent (a second resolve() is a no-op).
-  // Keep `resolve` a bare promise-resolver; don't turn it into something
-  // non-idempotent here.
-  const open = useCallback((next: Pending) => {
-    setPending((prev) => {
-      decline(prev);
-      return next;
-    });
+  // The dialog that is OPEN is `pendingRef`, not the state: every answer is resolved here, outside any
+  // state updater (§752 review — an updater can be re-run against a different `prev` when React rebases
+  // it, which would hand one dialog another's answer). A new dialog supersedes an unanswered one (rare),
+  // which is first answered with its "no".
+  const pendingRef = useRef<Pending | null>(null);
+  const seqRef = useRef(0);
+  const open = useCallback((input: PendingInput) => {
+    const previous = pendingRef.current;
+    const next = { ...input, seq: ++seqRef.current } as Pending;
+    pendingRef.current = next;
+    setPending(next);
+    decline(previous);
   }, []);
 
   const confirm = useCallback<ConfirmFn>(
@@ -191,22 +195,25 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
     if (dialogsRef) dialogsRef.current = { confirm, prompt, notice };
   }, [dialogsRef, confirm, prompt, notice]);
 
-  /** Closes the dialog with its "no". */
-  const dismiss = useCallback(() => {
-    setPending((prev) => {
-      decline(prev);
-      return null;
-    });
+  /** Takes `shown` off screen when it is still the open dialog; false when a newer one replaced it, whose
+   *  answer this control must not give. */
+  const close = useCallback((shown: Pending): boolean => {
+    if (pendingRef.current !== shown) return false;
+    pendingRef.current = null;
+    setPending(null);
+    return true;
   }, []);
-  /** Closes the dialog with its "yes": true, the typed text, or done. */
-  const accept = useCallback(() => {
-    setPending((prev) => {
-      if (prev?.kind === "confirm") prev.resolve(true);
-      else if (prev?.kind === "prompt") prev.resolve(draft);
-      else prev?.resolve();
-      return null;
-    });
-  }, [draft]);
+  /** Closes `shown` with its "no". */
+  const dismiss = useCallback((shown: Pending) => {
+    if (close(shown)) decline(shown);
+  }, [close]);
+  /** Closes `shown` with its "yes": true, the typed text, or done. */
+  const accept = useCallback((shown: Pending) => {
+    if (!close(shown)) return;
+    if (shown.kind === "confirm") shown.resolve(true);
+    else if (shown.kind === "prompt") shown.resolve(draft);
+    else shown.resolve();
+  }, [close, draft]);
 
   // Stable context values — an unstable value re-renders every consumer.
   const confirmValue = useMemo(() => confirm, [confirm]);
@@ -230,8 +237,9 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
           {children}
           {pending && (
             <Modal
+              key={pending.seq}
               open
-              onClose={dismiss}
+              onClose={() => dismiss(pending)}
               ariaLabelledby={TITLE_ID}
               align="center"
               backdropClassName="bg-ui-dark-blue/50"
@@ -246,7 +254,7 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
                   lang={lang}
                   title={title}
                   titleId={TITLE_ID}
-                  onClose={dismiss}
+                  onClose={() => dismiss(pending)}
                   // §389: this is the shared confirm surface (delete/clear
                   // gates) — it commonly opens from an edit modal's own delete
                   // button (`edit-modal-chrome.tsx`), stacked over that modal's
@@ -260,7 +268,7 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
                   <form
                     noValidate
                     className="flex flex-col gap-4 p-6"
-                    onSubmit={(e) => { e.preventDefault(); accept(); }}
+                    onSubmit={(e) => { e.preventDefault(); accept(pending); }}
                   >
                     <label htmlFor={INPUT_ID} className="whitespace-pre-line text-sm text-foreground">
                       {pending.message}
@@ -274,7 +282,7 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
                       autoComplete="off"
                     />
                     <div className="flex justify-end gap-2">
-                      <Button variant="secondary" size="sm" onClick={dismiss}>
+                      <Button variant="secondary" size="sm" onClick={() => dismiss(pending)}>
                         {pending.cancelLabel ?? t(lang, "cancel")}
                       </Button>
                       <Button type="submit" variant="primary" size="sm">
@@ -289,17 +297,17 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
                     </p>
                     <div className="flex justify-end gap-2">
                       {pending.kind === "notice" ? (
-                        <Button ref={okRef} variant="primary" size="sm" onClick={accept}>
+                        <Button ref={okRef} variant="primary" size="sm" onClick={() => accept(pending)}>
                           {pending.okLabel ?? t(lang, "dialogOk")}
                         </Button>
                       ) : (
                         <>
-                          <Button ref={cancelRef} variant="secondary" size="sm" onClick={dismiss}>
+                          <Button ref={cancelRef} variant="secondary" size="sm" onClick={() => dismiss(pending)}>
                             {pending.cancelLabel ?? t(lang, "cancel")}
                           </Button>
                           <button
                             type="button"
-                            onClick={accept}
+                            onClick={() => accept(pending)}
                             className={`rounded-md px-3 py-1.5 text-sm font-medium ${confirmClass} ${INTERACTIVE}`}
                           >
                             {pending.confirmLabel ?? t(lang, "confirm")}

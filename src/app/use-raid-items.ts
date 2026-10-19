@@ -25,7 +25,7 @@ import { typedEmailRefusalKey } from "./email-refusal-i18n";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { RAID_UNDO_GROUPS } from "./undo/field-groups";
-import { unbridgedDialogs, type AppDialogs } from "./confirm-dialog";
+import { UNBRIDGED_DIALOGS_REF as UNBRIDGED, type AppDialogs } from "./confirm-dialog";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 
 export interface UseRaidItemsArgs {
@@ -58,7 +58,6 @@ export interface UseRaidItemsArgs {
   getScopeEpoch?: ScopeEpochReader;
 }
 
-const UNBRIDGED: { readonly current: AppDialogs } = { current: unbridgedDialogs() };
 const NO_EPOCH: ScopeEpochReader = () => 0;
 
 export function useRaidItems(args: UseRaidItemsArgs) {

@@ -975,5 +975,6 @@ describe("§752 — the load-instead offer is the app's dialog, re-checked after
     expect(KV.has(HANDLE_KEY)).toBe(false);
     expect(tasksInFile()).toHaveLength(2);
     expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.pickLoadInsteadDropped", { reason: "records-arrived" });
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "storagePickLoadInsteadDropped")); // said, not silent
   });
 });

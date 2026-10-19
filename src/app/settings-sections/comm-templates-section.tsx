@@ -85,7 +85,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   }
 
   const versions = useCommTemplateVersions({ active: props.config !== null, config: props.config, templateId: selectedId });
-  // ★★ A version name is whatever `window.prompt` returned in
+  // ★★ A version name is whatever the name dialog returned in
   // `saveCurrentVersion` — nothing on any backend constrains it — so two
   // versions can share one and BOTH of a row's controls (Compare, Restore)
   // interpolated it raw. Same free-text class as the template rows above.
