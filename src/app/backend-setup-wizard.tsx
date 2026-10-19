@@ -27,7 +27,8 @@ import {
   summarizeBackendSetup,
 } from "./backend-setup-steps";
 import { commitPortfolioModeSwitch, IntegrationsSection } from "./settings-sections/integrations-section";
-import { useHasUnsealedPassphraseToken } from "./turso-token-seals";
+import { aiKeyHeldUnsealed } from "./portfolio-mode-switch";
+import { useHasUnsealedPassphraseSecret, useHasUnsealedPassphraseToken } from "./turso-token-seals";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { getTursoConfig } from "./turso-config";
 import { AiSection } from "./settings-sections/ai-section";
@@ -46,6 +47,7 @@ import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 const TITLE_ID = "backend-setup-wizard-title";
 const TOTAL = BACKEND_SETUP_STEPS.length;
 const STORAGE_STEP = BACKEND_SETUP_STEPS.findIndex((s) => s.key === "storage");
+const AI_STEP = BACKEND_SETUP_STEPS.findIndex((s) => s.key === "ai");
 
 // ---------------------------------------------------------------------------
 // ReviewStep
@@ -164,12 +166,17 @@ export function BackendSetupWizard({
   const tokenHeldUnsealed = useHasUnsealedPassphraseToken(savedTurso?.authToken);
   // Either direction: the reload loses the token whichever way the portfolio goes.
   const tokenWouldBeLost = switchPending && tokenHeldUnsealed;
-  const switchBlocked = tursoConfigMissing || tokenWouldBeLost;
+  // §749 — the same for the Claude key: typed under its passphrase lock on the AI step and not saved under it.
+  const aiKeyHeld = useHasUnsealedPassphraseSecret("anthropicApiKey", settings.ai?.apiKey);
+  const aiKeyWouldBeLost = switchPending && aiKeyHeld;
+  const switchBlocked = tursoConfigMissing || tokenWouldBeLost || aiKeyWouldBeLost;
+  /** Where Finish sends a refused switch: the step whose fields save what is at risk. */
+  const blockedStep = () => (!tursoConfigMissing && !tokenWouldBeLost && aiKeyHeldUnsealed(settings) ? AI_STEP : STORAGE_STEP);
   async function handleFinish() {
     if (finishingRef.current) return;
     if (switchPending) {
       if (switchBlocked) {
-        setStep(STORAGE_STEP);
+        setStep(blockedStep());
         return;
       }
       finishingRef.current = true;
@@ -178,7 +185,7 @@ export function BackendSetupWizard({
       // passphrase fields that save it.
       if (!(await commitPortfolioModeSwitch(settings, pendingPortfolioMode))) {
         finishingRef.current = false;
-        setStep(STORAGE_STEP);
+        setStep(blockedStep());
       }
       return;
     }
@@ -310,6 +317,10 @@ export function BackendSetupWizard({
                     "setupWizardTursoTokenNeedsPassphrase",
                     t(lang, noCurrentProject ? "portfolioModeSwitchConfirmNoProject" : "portfolioModeSwitchConfirm"),
                   )}
+                </Banner>
+              ) : aiKeyWouldBeLost ? (
+                <Banner severity="error" className="mt-3">
+                  {t(lang, "setupWizardAiKeyNeedsPassphrase", t(lang, "secretPassphraseSave"))}
                 </Banner>
               ) : switchPending && (
                 <Banner severity="warn" className="mt-3">{t(lang, "portfolioModeSwitchNote")}</Banner>

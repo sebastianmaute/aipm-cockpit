@@ -34,8 +34,11 @@ import { resolveSuccessorLinks, type SuccessorEdit } from "./successor-links";
 import { hasTaskErrors, validateTaskForm, type TaskFieldErrors } from "./task-validation";
 import { smoothScrollBehavior } from "./reduced-motion";
 import { reportSilentFailure } from "./guard-feedback";
+import type { AppDialogs } from "./confirm-dialog";
 
 export interface UseTaskSubmitArgs {
+  /** §752 — the app's dialogs (filled by the ConfirmProvider task-manager renders; see use-task-row-handlers.ts). */
+  dialogsRef: { readonly current: AppDialogs };
   form: TaskFormDraft;
   setForm: React.Dispatch<React.SetStateAction<TaskFormDraft>>;
   editingId: number | null;
@@ -107,6 +110,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     onEditorDiscard,
     captureFieldEdit,
     captureComposite,
+    dialogsRef,
   } = args;
 
   // `submitted` flips true on the first submit attempt so per-field errors can
@@ -146,7 +150,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           existing?.jiraKey &&
           sanitizeAssignee(existing.assignee) !== assignee
         ) {
-          window.alert(t(lang, "jiraAssigneeForbidden", existing.jiraKey));
+          // §752 — the app's notice, not `window.alert`; nothing below waits for it.
+          void dialogsRef.current.notice({ message: t(lang, "jiraAssigneeForbidden", existing.jiraKey) });
           return;
         }
       }
@@ -549,6 +554,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       setTaskModalOpen(false);
     },
     [
+      dialogsRef,
       form,
       editingId,
       isNewTask,

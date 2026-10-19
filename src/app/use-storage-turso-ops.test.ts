@@ -22,7 +22,7 @@ import { useLoadTruncation } from "./use-load-truncation";
 import { t, type Lang } from "./i18n";
 import { emptyWorkspace } from "./workspace";
 import { SaveConflictError } from "./storage-error";
-import { markUnsealedPassphraseToken, noteTokenSealed } from "./turso-token-marker";
+import { markUnsealedPassphraseSecret, markUnsealedPassphraseToken, noteTokenSealed } from "./turso-token-marker";
 import { trackTokenSeal } from "./turso-token-seals";
 
 // `migrateCurrentProjectToTurso` probes the connection before it migrates, so
@@ -533,6 +533,24 @@ describe("useTursoProjectOps — §715 Move to Turso keeps a passphrase-mode tok
   });
 
   // The control: the marker is keyed by value, so a token the settings no longer hold refuses nothing.
+  // §749 — the move reloads, so a Claude key typed under its passphrase lock and not saved under it is lost too.
+  // KILLED BY: deleting the `aiKeyHeldUnsealed` refusal.
+  it("(a2) refuses while the Claude key is held unsealed, and says how to save it", async () => {
+    const key = "sk-ant-api03-fictional00000000";
+    markUnsealedPassphraseSecret("anthropicApiKey", key);
+    const settingsRef = { current: { integrations: { turso: { databaseUrl: "https://db.example", authToken: "tokM" } }, ai: { apiKey: key } } } as never;
+    const { result } = renderWithRealGuard(async () => {}, { currentWorkspace: wsWithProject, settingsRef });
+    vi.mocked(portfolioCreate).mockClear();
+    vi.mocked(writeSettings).mockClear();
+    await act(async () => { await result.current.ops.migrateCurrentProjectToTurso(); });
+    expect(portfolioCreate).not.toHaveBeenCalled();
+    expect(writeSettings).not.toHaveBeenCalled();
+    expect(result.current.showToast).toHaveBeenCalledWith(
+      "error",
+      t("en-US", "aiKeyNeedsPassphraseSave", t("en-US", "secretPassphraseSave")),
+    );
+  });
+
   it("(b) proceeds when the held token is not the one in the settings", async () => {
     markUnsealedPassphraseToken("older");
     const { result } = renderWithRealGuard(async () => {}, { currentWorkspace: wsWithProject, settingsRef: settingsWithToken("tokM") });

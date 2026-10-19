@@ -7,6 +7,7 @@ import { Editor } from "@tiptap/core";
 import { RichTextEditor, EXTENSIONS, TASK_ITEM, type RichTextEditorHandle } from "./rich-text-editor";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { loadI18n } from "./i18n";
+import { ConfirmProvider } from "./confirm-dialog";
 
 // ProseMirror touches layout APIs jsdom lacks; stub them so the editor mounts.
 beforeAll(() => {
@@ -43,6 +44,39 @@ function setup(over: Partial<React.ComponentProps<typeof RichTextEditor>> = {}) 
 // is what tells the fifteen repeated control names apart when a form mounts
 // several editors (see rich-text-toolbar.tsx). A label-text query matches both
 // and throws "Found multiple elements"; the role pins which one is meant.
+// §752 — the link URL is asked in the app's dialog: `window.prompt` throws in the desktop app.
+describe("RichTextEditor — Insert link (§752)", () => {
+  async function typeAndSelect() {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<ConfirmProvider lang="en-US"><RichTextEditor value="" onChange={onChange} label="Body" lang="en-US" /></ConfirmProvider>);
+    const surface = await screen.findByRole("textbox", { name: "Body" });
+    await user.click(surface);
+    await user.keyboard("Northwind{Control>}a{/Control}");
+    await user.click(screen.getByRole("button", { name: "Insert link" }));
+    return { user, onChange };
+  }
+
+  it("links the selection to the URL typed in the app's dialog", async () => {
+    const native = vi.spyOn(window, "prompt");
+    const { user, onChange } = await typeAndSelect();
+    await user.type(await screen.findByRole("textbox", { name: "Enter a URL (https://…)" }), "https://example.org");
+    await user.click(screen.getByRole("button", { name: "OK" }));
+    await waitFor(() => expect(onChange.mock.calls.at(-1)?.[0]).toContain('href="https://example.org"'));
+    expect(native).not.toHaveBeenCalled();
+  });
+
+  it("adds no link when the dialog is cancelled, nor for a URL that is not http(s)", async () => {
+    const { user, onChange } = await typeAndSelect();
+    await user.click(await screen.findByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Insert link" }));
+    await user.type(await screen.findByRole("textbox", { name: "Enter a URL (https://…)" }), "javascript:alert(1)");
+    await user.click(screen.getByRole("button", { name: "OK" }));
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Enter a URL (https://…)" })).toBeNull());
+    expect(onChange.mock.calls.some((c) => String(c[0]).includes("href"))).toBe(false);
+  });
+});
+
 describe("RichTextEditor", () => {
   it("renders the editor surface with the given accessible label", async () => {
     setup();

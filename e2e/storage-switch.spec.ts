@@ -59,8 +59,9 @@ test("switching Browser → Local JSON file writes the live workspace there, and
 
   await gotoApp(page);
   await openView(page, "Settings");
-  page.once("dialog", (d) => void d.accept());
   await page.getByRole("combobox", { name: "Storage", exact: true }).selectOption("local-json");
+  // The conversion asks in the app's own dialog (§752), not the browser's.
+  await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(page.getByText("Converted and switched to Local JSON file.", { exact: true })).toBeVisible({ timeout: 20_000 });
 
   // The file holds the seeded workspace: every seeded task, by name.

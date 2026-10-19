@@ -32,6 +32,7 @@ import { writeSettings } from "./use-settings";
 import { sealSettingsUntilReload } from "./settings-reload-seal";
 import { beginMoveToTurso, endMoveToTurso } from "./move-to-turso-guard";
 import { hasUnsealedPassphraseToken } from "./turso-token-marker";
+import { aiKeyHeldUnsealed } from "./portfolio-mode-switch";
 import { tokenSealsSettled } from "./turso-token-seals";
 import { summarizeUnsafeEmailRecords } from "./sanitize";
 import { logDiag } from "./diagnostics";
@@ -215,6 +216,12 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     if (hasUnsealedPassphraseToken(deps.settingsRef.current.integrations?.turso?.authToken)) {
       const lang = deps.langRef.current;
       deps.showToast("error", t(lang, "projectMigrateTokenNeedsPassphrase", t(lang, "secretPassphraseSave")));
+      return;
+    }
+    // §749 — the move reloads too, so a Claude key typed under its passphrase lock and not yet saved under it is lost.
+    if (aiKeyHeldUnsealed(deps.settingsRef.current)) {
+      const lang = deps.langRef.current;
+      deps.showToast("error", t(lang, "aiKeyNeedsPassphraseSave", t(lang, "secretPassphraseSave")));
       return;
     }
     // ★★★ THE CONNECTION GATE LIVES HERE, NOT ON A BUTTON. `guardTurso` above

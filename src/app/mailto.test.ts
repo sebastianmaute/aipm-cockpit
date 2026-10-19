@@ -45,39 +45,39 @@ describe("resolveDraftRecipient", () => {
   const isValid = (e: string) => /.+@.+\..+/.test(e);
   const resources = [{ id: 7, email: "linked@x.io" }] as never;
 
-  it("returns direct email without calling prompt", () => {
-    const prompt = vi.fn(() => null);
-    expect(resolveDraftRecipient({ email: "direct@x.io", resourceId: 7 }, resources, prompt, isValid)).toBe("direct@x.io");
+  it("returns direct email without calling prompt", async () => {
+    const prompt = vi.fn(async () => null);
+    expect(await resolveDraftRecipient({ email: "direct@x.io", resourceId: 7 }, resources, prompt, isValid)).toBe("direct@x.io");
     expect(prompt).not.toHaveBeenCalled();
   });
 
-  it("returns resource email without calling prompt when no direct email", () => {
-    const prompt = vi.fn(() => null);
-    expect(resolveDraftRecipient({ email: undefined, resourceId: 7 }, resources, prompt, isValid)).toBe("linked@x.io");
+  it("returns resource email without calling prompt when no direct email", async () => {
+    const prompt = vi.fn(async () => null);
+    expect(await resolveDraftRecipient({ email: undefined, resourceId: 7 }, resources, prompt, isValid)).toBe("linked@x.io");
     expect(prompt).not.toHaveBeenCalled();
   });
 
-  it("prompts and returns a valid email when no email exists", () => {
-    const prompt = vi.fn(() => "new@example.com");
-    expect(resolveDraftRecipient({ email: undefined, resourceId: null }, [], prompt, isValid)).toBe("new@example.com");
+  it("prompts and returns a valid email when no email exists", async () => {
+    const prompt = vi.fn(async () => "new@example.com");
+    expect(await resolveDraftRecipient({ email: undefined, resourceId: null }, [], prompt, isValid)).toBe("new@example.com");
   });
 
-  it("returns null when prompt is cancelled (null)", () => {
-    const prompt = vi.fn(() => null);
-    expect(resolveDraftRecipient({ email: undefined, resourceId: null }, [], prompt, isValid)).toBeNull();
+  it("returns null when prompt is cancelled (null)", async () => {
+    const prompt = vi.fn(async () => null);
+    expect(await resolveDraftRecipient({ email: undefined, resourceId: null }, [], prompt, isValid)).toBeNull();
   });
 
-  it("returns null when prompt returns empty string", () => {
-    expect(resolveDraftRecipient({ email: undefined, resourceId: null }, [], () => "", isValid)).toBeNull();
+  it("returns null when prompt returns empty string", async () => {
+    expect(await resolveDraftRecipient({ email: undefined, resourceId: null }, [], async () => "", isValid)).toBeNull();
   });
 
-  it("returns null when prompt returns whitespace-only string", () => {
-    expect(resolveDraftRecipient({ email: undefined, resourceId: null }, [], () => "   ", isValid)).toBeNull();
+  it("returns null when prompt returns whitespace-only string", async () => {
+    expect(await resolveDraftRecipient({ email: undefined, resourceId: null }, [], async () => "   ", isValid)).toBeNull();
   });
 
-  it("returns null and calls onInvalid when prompt returns an invalid email", () => {
+  it("returns null and calls onInvalid when prompt returns an invalid email", async () => {
     const onInvalid = vi.fn();
-    const result = resolveDraftRecipient({ email: undefined, resourceId: null }, [], () => "not-an-email", isValid, onInvalid);
+    const result = await resolveDraftRecipient({ email: undefined, resourceId: null }, [], async () => "not-an-email", isValid, onInvalid);
     expect(result).toBeNull();
     expect(onInvalid).toHaveBeenCalledTimes(1);
   });

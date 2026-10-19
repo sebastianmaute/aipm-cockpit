@@ -20,18 +20,19 @@ export function stakeholderEmail(
 
 /** Resolve the recipient email for a stakeholder draft: the stakeholder's
  *  effective email, else a prompted one (validated). Dependency-injected
- *  (prompt/isValid/onInvalid) so it is fully unit-testable. Returns null when
- *  no usable email (cancelled, empty, or invalid). */
-export function resolveDraftRecipient(
+ *  (prompt/isValid/onInvalid) so it is fully unit-testable. Resolves null when
+ *  no usable email (cancelled, empty, or invalid). The prompt is async: the
+ *  app's own dialog (§752), since `window.prompt` throws in the desktop app. */
+export async function resolveDraftRecipient(
   sh: { email?: string; resourceId?: number | null },
   resources: readonly Resource[],
-  prompt: () => string | null,
+  prompt: () => Promise<string | null>,
   isValid: (email: string) => boolean,
   onInvalid?: () => void,
-): string | null {
+): Promise<string | null> {
   const existing = stakeholderEmail(sh, resources);
   if (existing) return existing;
-  const provided = prompt();
+  const provided = await prompt();
   if (provided === null) return null;        // cancelled
   const trimmed = provided.trim();
   if (!trimmed) return null;                  // empty

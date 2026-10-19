@@ -341,9 +341,13 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
   forecast scenarios, which ARE drafts. ★★ Not the live workspace alone either: emptying a project
   that held records is an edit, and skipped, a save in flight at unload brought the records back on
   reload with no draft offered (branch review); and a plan moved to another month's 1st reads as a
-  default by itself. With no base known (none loaded yet, or a held op base) it is journalled. A
-  skipped write clears this tab's own older record for the key (the tab-id guard spares another page
-  load's). `keep` writes no kept slot in the same case and reports success. The empty "Turso
+  default by itself. A skipped write clears this tab's own older record for the key (the tab-id
+  guard spares another page load's). `keep` writes no kept slot in the same case and reports success.
+  ★ **With no base known** (a held op base after an op failed before its flip, or a save refused
+  after its backend was replaced, so its key is no longer the base's) the live workspace alone
+  decides: `isNothingToJournal` passes and nothing is journalled or kept (§754). That skip clears
+  NOTHING — the empty workspace may be the op's, not an edit of the older record's work. The cost:
+  a project emptied while its base is unknown gets its records back on reload. The empty "Turso
   workspace (no project)" draft this was found by came from a save §751 now stops.
 - **Cleared** by `noteSaveConfirmed` in the save's `.then`, for this tab's record of that save or
   an older one; by `dropUnconfirmed` from "Reload project" and the picker's "load the file
