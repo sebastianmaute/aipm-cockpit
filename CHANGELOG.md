@@ -41,6 +41,13 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Six flows work again in the desktop app, and every question is asked in the app's own dialog (§752).** Inserting a
+  link, naming a template version and the four "enter the email address" prompts failed in the desktop app, which
+  does not support the browser's text prompt. They, the browser's yes/no questions (bulk send, reloading an empty
+  project, the file and storage-switch warnings) and its message boxes now use the app's own dialogs, styled and in
+  the app's language. While one is open the app keeps running, so each step checks again after the answer: an
+  address typed for one project is never saved into another, and a storage switch copies the project as it is
+  when you answer.
 - **The AI assistant can see which tasks a milestone depends on (§502).** Its milestone list showed only the
   name and dates, so it could not tell which tasks gate a milestone, and an AI edit that set a milestone's
   linked tasks replaced the whole list without knowing what was there. The list now includes the linked tasks

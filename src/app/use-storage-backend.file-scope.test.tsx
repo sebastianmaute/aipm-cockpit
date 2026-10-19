@@ -4,6 +4,7 @@
 // save them into its own file on its next edit. `LocalFileBackend`, the storage facade and the whole
 // hook are real; doubled are the OS file handles, `idb`'s handle slot, the per-project handle store
 // and the BroadcastChannel (one bus for both windows, as one origin's pages share one channel).
+import { windowConfirmDialogsRef } from "../test/window-confirm-dialogs";
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -87,7 +88,7 @@ function openWindow() {
   const hook = renderHook(() => {
     const [storageConfig, setStorageConfig] = useState<StorageConfig>({ kind: "local-json" });
     const settings = useMemo(() => ({ storageConfig }) as unknown as Settings, [storageConfig]);
-    const ops = useStorageBackend({
+    const ops = useStorageBackend({ dialogsRef: windowConfirmDialogsRef,
       settings, lang: "en-US" as Lang, hydrated: true, isPopout: false, showToast: vi.fn(), showToastAction: vi.fn(),
       onRevealSavingPaused: vi.fn(), setStorageConfig, onStorageOutcome: vi.fn(),
     });
