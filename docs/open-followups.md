@@ -45730,7 +45730,7 @@ Size S.
 
 **Work item:** #793
 
-Proposed: check in the app (a long proposal list, a short window) whether the list scrolls with the header and Apply/Cancel kept visible; if it does, close this as the recording artifact. The recorder now launches without `--hide-scrollbars`.
+Proposed: check in the app (a long proposal list, a short window) whether the list scrolls with the header and Apply/Cancel kept visible; if it does, close this as the recording artifact. The recorder launches without `--hide-scrollbars` once `fix/715-recorder-retakes` lands.
 
 Size XS (check) or S (fix).
 
