@@ -115,6 +115,8 @@ function makeDeps(over: Partial<ChatDispatcherWiringDeps> = {}): ChatDispatcherW
     allowDestructiveSave: vi.fn(),
     undo: { captureComposite: vi.fn() },
     openWbsPlan: vi.fn(() => ({ opened: true, tasksInScope: 1 })),
+    projectWriterRef: { current: vi.fn(async () => true) },
+    getScopeEpoch: vi.fn(() => 0),
     dashboardModel: MODEL,
     holidaysReady: true,
     ...over,
@@ -156,6 +158,8 @@ describe("useChatDispatcherWiring — the useChatDispatcher args", () => {
     expect(args().allowDestructiveSave).toBe(d.allowDestructiveSave);
     expect(args().undo).toBe(d.undo);
     expect(args().openWbsPlan).toBe(d.openWbsPlan);
+    expect(args().projectWriterRef).toBe(d.projectWriterRef);
+    expect(args().getScopeEpoch).toBe(d.getScopeEpoch);
   });
 
   it("forwards isReadOnly in both states", () => {

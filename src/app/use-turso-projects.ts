@@ -66,7 +66,9 @@ export interface UseTursoProjectsResult {
     format: ProjectFileFormat,
     opts?: NewProjectOpts,
   ) => void;
-  handleUpdateCurrentProjectByMode: (meta: ProjectMeta) => void;
+  /** Resolves true once the record is written, false after its error toast (§715: the assistant awaits it;
+   *  the project form ignores the result). */
+  handleUpdateCurrentProjectByMode: (meta: ProjectMeta) => Promise<boolean>;
   handleArchiveTursoProject: (id: string) => void;
   handleRestoreTursoProject: (id: string) => void;
   handleHardDeleteTursoProject: (id: string) => void;
@@ -135,9 +137,10 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
   );
 
   // Update current project meta — Turso writes the projects-table row, mirrors
-  // it into the in-memory workspace, and refreshes the list.
+  // it into the in-memory workspace, and refreshes the list. ★ Awaited end to end (§715): the boolean is
+  // whether the record was stored, so the assistant's update_project can report a failure on its card.
   const handleUpdateCurrentProjectByMode = useCallback(
-    (meta: ProjectMeta) => {
+    async (meta: ProjectMeta): Promise<boolean> => {
       if (portfolioMode === "turso") {
         const cfg = getTursoConfig(tursoDatabaseUrl, tursoAuthToken);
         if (!tursoProjectId) {
@@ -148,24 +151,24 @@ export function useTursoProjects(args: UseTursoProjectsArgs): UseTursoProjectsRe
           // way, the active backend's normal save persists ws.project now, so
           // the in-memory update here is the whole write.
           updateCurrentFileProject(meta);
-          return;
+          return true;
         }
         if (!cfg) {
           showToast("error", t(lang, "projectUpdateFailed", t(lang, "storageTursoNeedsConfig")));
-          return;
+          return false;
         }
-        void (async () => {
-          try {
-            await tursoUpdateMeta(cfg, meta, tursoProjectId);
-            setProject(meta);
-            await refreshTursoProjects();
-          } catch (err) {
-            showToast("error", t(lang, "projectUpdateFailed", errorText(err, lang)));
-          }
-        })();
-      } else {
-        updateCurrentFileProject(meta);
+        try {
+          await tursoUpdateMeta(cfg, meta, tursoProjectId);
+          setProject(meta);
+          await refreshTursoProjects();
+          return true;
+        } catch (err) {
+          showToast("error", t(lang, "projectUpdateFailed", errorText(err, lang)));
+          return false;
+        }
       }
+      updateCurrentFileProject(meta);
+      return true;
     },
     [portfolioMode, tursoDatabaseUrl, tursoAuthToken, tursoProjectId, setProject, refreshTursoProjects, updateCurrentFileProject, showToast, lang],
   );

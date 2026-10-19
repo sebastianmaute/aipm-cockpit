@@ -219,6 +219,43 @@ describe("useTursoProjects — update current meta", () => {
   });
 });
 
+// §715 — the assistant's update_project awaits this writer, so it says whether the record was stored.
+describe("useTursoProjects — handleUpdateCurrentProjectByMode resolves whether it wrote (§715)", () => {
+  it("handleUpdateCurrentProjectByMode resolves false after a failed tenant write", async () => {
+    vi.mocked(updateProjectMeta).mockRejectedValue(new Error("401 token rejected"));
+    const args = makeArgs();
+    const { result } = renderHook(() => useTursoProjects(args));
+    await expect(result.current.handleUpdateCurrentProjectByMode(META)).resolves.toBe(false);
+    // Resolved only after its toast, so a caller reading false knows the user was already told.
+    expect(args.showToast).toHaveBeenCalledWith("error", "Couldn't save the project details: 401 token rejected");
+    expect(args.setProject).not.toHaveBeenCalled();
+  });
+
+  it("resolves true after a tenant write, once the record is mirrored", async () => {
+    vi.mocked(updateProjectMeta).mockResolvedValue(undefined);
+    const args = makeArgs();
+    const { result } = renderHook(() => useTursoProjects(args));
+    await expect(result.current.handleUpdateCurrentProjectByMode(META)).resolves.toBe(true);
+    expect(args.setProject).toHaveBeenCalledWith(META);
+    expect(args.refreshTursoProjects).toHaveBeenCalled();
+  });
+
+  it("resolves true in file mode", async () => {
+    const args = makeArgs({ portfolioMode: "file" });
+    const { result } = renderHook(() => useTursoProjects(args));
+    await expect(result.current.handleUpdateCurrentProjectByMode(META)).resolves.toBe(true);
+    expect(args.updateCurrentFileProject).toHaveBeenCalledWith(META);
+  });
+
+  it("resolves false when the Turso config is not ready", async () => {
+    vi.mocked(getTursoConfig).mockReturnValueOnce(null);
+    const args = makeArgs();
+    const { result } = renderHook(() => useTursoProjects(args));
+    await expect(result.current.handleUpdateCurrentProjectByMode(META)).resolves.toBe(false);
+    expect(args.showToast).toHaveBeenCalled();
+  });
+});
+
 describe("useTursoProjects — archive / restore / hard-delete", () => {
   it("archive: archives, refreshes, and repoints to the survivor using the refreshed list (no second fetch)", async () => {
     const refreshed: ProjectListEntry[] = [

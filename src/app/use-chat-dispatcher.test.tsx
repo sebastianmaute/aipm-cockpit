@@ -78,6 +78,9 @@ const stubGetAllocationsSnapshot = (): AllocationsSnapshot => {
  *  can never be perturbed by whatever this file did first. */
 const stubUndo = () => ({ captureComposite: vi.fn() });
 const stubOpenWbsPlan = () => ({ opened: true, tasksInScope: 1 });
+/** §715 — no project writer: these probes never write the project record (use-project-tools.test.tsx does).
+ *  ONE object for the file, so a re-render hands the dispatcher the same ref (the identity tests rely on it). */
+const STUB_PROJECT_WRITE = { projectWriterRef: { current: null }, getScopeEpoch: () => 0 };
 
 function makeSettings(): Settings {
   const storageConfig: StorageConfig = { kind: "browser" };
@@ -192,7 +195,7 @@ function renderRaidProbe() {
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE, openWbsPlan: stubOpenWbsPlan,
       }),
       ws: useWorkspace(),
     }),
@@ -244,7 +247,7 @@ function renderDispatcher(
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(),
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE,
         openWbsPlan,
         logActivityAs,
         onSettingsLoggedByAi,
@@ -897,7 +900,7 @@ describe("useChatDispatcher", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE, openWbsPlan: stubOpenWbsPlan,
         }),
       { wrapper },
     );
@@ -933,7 +936,7 @@ describe("useChatDispatcher", () => {
             settingsProjectId: "default", holidaySet: new Set<string>(),
             getDashboardModel: stubGetDashboardModel,
             getBudgetRollup: stubGetBudgetRollup,
-            getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+            getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE, openWbsPlan: stubOpenWbsPlan,
           }),
         { wrapper, initialProps: { view: initialView } },
       );
@@ -1012,7 +1015,7 @@ describe("useChatDispatcher", () => {
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE, openWbsPlan: stubOpenWbsPlan,
       });
       const form = useTaskForm();
       return { dispatcher, form };
@@ -1384,7 +1387,7 @@ describe("useChatDispatcher – optimize_wbs", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(),
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE,
           openWbsPlan: open,
         }),
       { wrapper, initialProps: { open: first } },
@@ -1547,7 +1550,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE, openWbsPlan: stubOpenWbsPlan,
       }),
       { wrapper },
     );
@@ -1629,7 +1632,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
         settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
-        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE, openWbsPlan: stubOpenWbsPlan,
       }),
       { wrapper },
     );
@@ -4246,7 +4249,7 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE, openWbsPlan: stubOpenWbsPlan,
         }),
         ws: useWorkspace(),
       }),
@@ -4317,7 +4320,7 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE, openWbsPlan: stubOpenWbsPlan,
         }),
         ws: useWorkspace(),
       }),
@@ -4460,7 +4463,7 @@ describe("list_allocations scope reaches the snapshot getter (§12)", () => {
           settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
-          getAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), openWbsPlan: stubOpenWbsPlan,
+          getAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE, openWbsPlan: stubOpenWbsPlan,
         }),
       { wrapper },
     );

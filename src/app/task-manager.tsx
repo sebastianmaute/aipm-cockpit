@@ -1083,14 +1083,13 @@ function TaskManagerInner() {
   const wbsPlan = useWbsPlan({ settings, isPopout, lang, capture: undoApi.capture, logActivityAs, getScopeEpoch, loadPending, today, holidaySet, guides: operatingGuides.guides });
   // The AI assistant's tool dispatcher, with its derived read-tool getters (budget rollup, allocations,
   // dashboard model) — see use-chat-dispatcher-wiring.ts (§491).
+  const projectWriterRef = useRef<import("./use-project-tools").ProjectWriter | null>(null); // §715 — the project form's writer, filled below once usePortfolioProjects returns it
   const dispatcher = useChatDispatcherWiring({
     settings,
     // ★ ONE field, not `today` + `timezone` (§159); `onSettingsLoggedByAi` is §160.
     clock,
-    onSettingsLoggedByAi,
-    setSelectedIds,
-    setSettings,
-    isReadOnly: isPopout, openWbsPlan: wbsPlan.open,
+    onSettingsLoggedByAi, setSelectedIds, setSettings,
+    isReadOnly: isPopout, openWbsPlan: wbsPlan.open, projectWriterRef, getScopeEpoch,
     currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, holidaysReady, logActivityAs,
     // ★ `delete_document` is a second removal route into a COUNTED slice — see
     //   the arming site in `use-document-tools.ts`.
@@ -1167,6 +1166,7 @@ function TaskManagerInner() {
     hardDeleteTursoProject,
     refreshTursoProjects,
   });
+  useEffect(() => { projectWriterRef.current = handleUpdateCurrentProjectByMode; }, [handleUpdateCurrentProjectByMode]); // §715 — fills the dispatcher's writer ref above
 
   // Export the CURRENT project's workspace. Snapshot is assembled from context
   // (same field set the save effect uses), including `project`.

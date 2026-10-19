@@ -1,5 +1,5 @@
 // src/app/chat-tools-project.ts — routing and the guards for `get_project` and `update_project` (§715).
-// The dispatcher members are implemented in use-chat-dispatcher.ts; this module owns what stands in front of
+// The dispatcher members are implemented in use-project-tools.ts; this module owns what stands in front of
 // them, like chat-tools-forecast.ts: the token, and the per-field judge (`applyProjectPatch`).
 
 import { entityToken } from "./ai-entity-token";
