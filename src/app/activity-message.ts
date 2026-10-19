@@ -1,7 +1,7 @@
 import { type ActivityKind, activityMessageKey } from "./activity-log";
 import { type Lang, type PluralBaseKey, localeFor, t, tPlural } from "./i18n";
 import { formatExpiryDate } from "./date-format";
-import { PROJECT_META_LABEL_KEY } from "./inline-ai-edit/field-labels";
+import { PROJECT_META_LABEL_KEY } from "./project-field-labels";
 
 /**
  * The count-bearing activity kinds, and the `args` slot the count sits in.

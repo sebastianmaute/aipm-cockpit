@@ -1152,7 +1152,10 @@
   drops it (`dropStaleScopeWrite`). ★ Edits are logged (`project.updated`, actor user from the form, `ai` from
   the assistant) and the assistant's edit is one undo step (`project-meta-edit.ts`); a refusal, failure or switch
   logs nothing. The activity panel names the changed fields with the form's labels, including the keys only the form edits
-  (`PROJECT_META_LABEL_KEY`, total over `ProjectMeta`).
+  (`PROJECT_META_LABEL_KEY`, total over `ProjectMeta`). ★★ Both project label maps live in `project-field-labels.ts`,
+  not `inline-ai-edit/field-labels.ts`: `activity-message.ts` is in the sample generator's DOM-free graph, and
+  importing them from `field-labels` reached `plan.ts` and so `rich-text-projection`, which failed the DOM-free guard
+  in `rich-text-plain.test.ts` (that guard follows `import type` lines too).
 - **Create project from source:** the create wizard's Step 0 (extracted to `step0-import-panel.tsx`) adds
   Upload-file / SharePoint / Confluence-URL import alongside Describe; all funnel into
   `useProjectProposal().generate(...)` — widened to `string | ContentBlock[]` (multimodal: PDF/image read
