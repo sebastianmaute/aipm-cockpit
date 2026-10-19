@@ -40,6 +40,8 @@ describe("ForecastDraftAsk", () => {
     expect(body).toContain("Name the tasks to drop, in the scenario name and in the chat");
     expect(body).toContain("Save the result with create_forecast_scenario.");
     expect(body).not.toContain("approve");
+    // Saving is not proposing: Claude sets the proposal only when the user asks (help, forecastWrites).
+    expect(body).toContain("Do not set it as the proposal; I will choose.");
   });
 
   test("the name carries the visible label and differs from the other Ask-Claude buttons", () => {

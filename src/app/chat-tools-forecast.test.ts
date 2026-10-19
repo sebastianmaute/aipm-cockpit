@@ -92,7 +92,7 @@ describe("the model-facing texts", () => {
 
   it("describes the decision reads: target, what it would take, proposal and P80 history (§502 part 4)", () => {
     const text = description("get_forecast");
-    expect(text).toContain("targetConfidence (50, 80 or 95) is the project's goal for a chance");
+    expect(text).toContain("targetConfidence (50, 80 or 95) is the project's goal for a chance, as a percent: chances are fractions, so 80 means 0.8");
     expect(text).toContain(
       'whatItTakes holds planEnd (null when asIs has no plan-end chance) and one entry per milestone whose chance is below targetConfidence; it is empty when asIs is "insufficient", and {omitted: "whatIf"} on a call with whatIf (it does not depend on the draft: call without whatIf to read it)',
     );
