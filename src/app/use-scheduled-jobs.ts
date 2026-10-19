@@ -47,6 +47,10 @@ function nextJobId(jobs: readonly ScheduledJob[]): number {
 /** §750 — shared by every instance: one write chain, and each mounted instance's re-read. */
 let writeChain: Promise<void> = Promise.resolve();
 const instances = new Set<() => void>();
+/** Bumped by every completed save. A read started before the latest save may answer after a newer list was
+ *  applied (a slow Turso round trip), so its result is dropped: a write's own list, or the re-read that
+ *  write starts in every other instance, is newer. */
+let savedGeneration = 0;
 
 export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduledJobsResult {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
@@ -87,8 +91,9 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
 
   const refresh = useCallback(async () => {
     try {
+      const startedAt = savedGeneration;
       const list = await loadScheduledJobs(cfgRef.current);
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || startedAt !== savedGeneration) return;
       setJobs(list);
     } catch {
       // optional feature — leave jobs as-is
@@ -116,6 +121,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         const existing = await loadScheduledJobs(cfgRef.current);
         const next = transform(existing);
         await saveScheduledJobs(cfgRef.current, next);
+        savedGeneration += 1;
         if (mountedRef.current) setJobs(next);
         for (const reread of instances) if (reread !== rereadRef.current) reread();
       });

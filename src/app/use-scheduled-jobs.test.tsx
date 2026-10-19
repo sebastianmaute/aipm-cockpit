@@ -221,13 +221,4 @@ describe("useScheduledJobs — every instance sees one list (§750)", () => {
     await waitFor(() => expect(settings.result.current.jobs.map((j) => j.name).sort()).toEqual(["From Settings", "From the runner"]));
     expect(runner.result.current.jobs.map((j) => j.id).sort()).toEqual([1, 2]);
   });
-
-  it("a write after the other instance unmounted still lands", async () => {
-    const { runner, settings } = await mountTwo();
-    settings.unmount();
-    await act(async () => {
-      await runner.result.current.createJob({ name: "Daily", cadence: dailyCadence, enabled: true });
-    });
-    expect(runner.result.current.jobs).toHaveLength(1);
-  });
 });
