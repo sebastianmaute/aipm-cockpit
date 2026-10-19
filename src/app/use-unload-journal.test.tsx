@@ -782,6 +782,7 @@ describe("§715 — a workspace with nothing authored is never journalled", () =
   // The refused save: its key is no longer the base's once the backend was replaced.
   it("§754 an empty save refused after its backend was replaced writes no kept slot, and reports success", () => {
     const { result } = renderJournal(null);
+    act(() => { result.current.setBase(WS_1, "another-project"); }); // the base is another key's, so p1's is unknown
     const at = result.current.noteSaveStarted(emptyWorkspace());
     let kept = false;
     act(() => { kept = result.current.noteSaveRefused(at, emptyWorkspace()); });
