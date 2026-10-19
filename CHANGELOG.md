@@ -41,6 +41,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **No empty unsaved draft after a failed project switch or a refused save (§754).** When the app could not
+  tell which version was stored (a project switch that failed partway, or a save refused after the storage
+  changed), an empty workspace was still kept as an unsaved draft and offered back on the next start. It is
+  now skipped, and any earlier draft is left as it was.
 - **Analyze with AI and scheduled AI jobs fail less often (§715).** A reply with no new suggestions, or with its
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,
