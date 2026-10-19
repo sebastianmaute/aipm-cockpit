@@ -158,7 +158,7 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     toolHints: ["get_forecast", "list_tasks", "list_milestones"],
     readingRequiresTool: "get_forecast",
     reading:
-      "get_forecast returns the simulated finish dates, chance on time, milestone chances, saved scenarios and cost this view shows, with the app defaults unless you pass historyWindow or unit; the view's own history window, unit and What-if sliders are not readable, so ask the user for them, then pass historyWindow and unit and use whatIf.",
+      "get_forecast returns the simulated finish dates, chance on time, milestone chances, saved scenarios and cost this view shows, with the app defaults unless you pass historyWindow or unit; the view's own history window, unit and What-if sliders are not readable: when the user's figures differ from yours, ask for them, then pass historyWindow and unit and use whatIf.",
   },
   stakeholders: {
     purpose:

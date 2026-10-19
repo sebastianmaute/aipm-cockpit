@@ -184,7 +184,8 @@ longer carries its own changelog comment.
   It can also say why a date is where it is: how much work is open, how many tasks finished in the history and
   over how many days, and how many done tasks have no completion date. It reads the "Chance if prioritised" figure
   for every milestone that has a chance, how much will be done by the plan end and the forecast by group, and it can run the
-  forecast with another history window or in hours, as the Forecast view's toolbar does. On the Forecast view the
+  forecast with another history window or in hours, as the Forecast view's toolbar does. It cannot see that toolbar,
+  so when its figures differ from yours it asks which window and unit the view shows. On the Forecast view the
   header's Ask Claude menu offers "Why this P80 date?" and "How has the date moved?". It can also delete a
   saved scenario, which always goes to the
   review card first and can be undone, and set the proposal or the target confidence, which are logged but, as when
