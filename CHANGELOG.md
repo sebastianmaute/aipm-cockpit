@@ -51,6 +51,11 @@ longer carries its own changelog comment.
   documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
   was typed. The search now matches library cards by name, a source other than All hides them (they belong to
   none), and "No knowledge matches this filter" shows when nothing in either list matches.
+- **Claude's one-shot features work on Sonnet 5.5, Opus 5.5 and Fable 5.1.** Those models refuse a request
+  that forces a tool, which every one-shot feature sends: the project proposal, the digest, Deduplicate & unify,
+  Plan with AI, Suggest RACI, recommendations, reports and the rest all failed on them. The app now asks such a
+  model once more without forcing the tool, and asks it that way from then on; a reply that does not fit the
+  tool's format is asked for once more, held to that format. The chat was not affected.
 - **The app no longer reloads over a Claude API key that is not saved yet (§749).** A key typed under the passphrase
   lock is not stored until "Save passphrase" is chosen. Switching the portfolio and moving a project to Turso
   reload the app, as do picking a Turso project, creating one from a file portfolio, loading a file into a Turso

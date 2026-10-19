@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { runForcedToolCall, runForcedToolCallWithStop } from "./ai-forced-call";
+import { __resetToolChoiceFallbackForTests, runForcedToolCall, runForcedToolCallWithStop } from "./ai-forced-call";
 import { AiHttpError } from "./ai-errors";
 import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
 
@@ -79,5 +79,188 @@ describe("runForcedToolCall — §650 reports the key verdict at the envelope", 
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     await expect(runForcedToolCall(args())).rejects.toBeInstanceOf(TypeError);
     expect(getAiKeyStatus()).toBe("rejected");
+  });
+});
+
+describe("runForcedToolCall — a model that refuses a forced tool_choice", () => {
+  const REFUSAL = {
+    ok: false,
+    status: 400,
+    json: async () => ({ error: { type: "invalid_request_error", message: 'tool_choice: type "tool" and "any" are not supported for this model.' } }),
+  };
+  const TOOL_REPLY = {
+    ok: true,
+    status: 200,
+    json: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "t", input: { a: 1 } }] }),
+  };
+  const choices = (fetchMock: ReturnType<typeof vi.fn>) =>
+    fetchMock.mock.calls.map((c: unknown[]) => (JSON.parse((c[1] as { body: string }).body) as { tool_choice: unknown }).tool_choice);
+
+  beforeEach(() => __resetToolChoiceFallbackForTests());
+
+  it("resends once with tool_choice auto and returns the tool input", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(TOOL_REPLY);
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" })).resolves.toEqual({ a: 1 });
+    expect(choices(fetchMock)).toEqual([{ type: "tool", name: "t" }, { type: "auto" }]);
+  });
+
+  describe("the auto reply is checked against the tool's schema", () => {
+    const TOOL = {
+      name: "t",
+      description: "d",
+      input_schema: {
+        type: "object",
+        properties: {
+          summary: { type: "string" },
+          actions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                severity: { type: "string", enum: ["now", "soon"] },
+                entity: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+              },
+              required: ["title"],
+            },
+          },
+        },
+        required: ["summary", "actions"],
+      },
+    };
+    const OTHER = { name: "other", description: "o", input_schema: { type: "object", properties: {} } };
+    const reply = (input: unknown) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "t", input }] }),
+    });
+    const GOOD = { summary: "s", actions: [{ title: "a", severity: "now", entity: { id: "4" } }] };
+    // What Sonnet 5.5 sent for the next-actions analysis with plain auto (2026-10-19): `actions` as a string
+    // holding tool markup. With strict, 8 of 8 replays were valid.
+    const MALFORMED = { summary: "s", actions: '<parameter name="title">a' };
+    const call = () => ({ ...args(), model: "claude-sonnet-5-5", tools: [TOOL, OTHER] });
+    const sentBodies = (fetchMock: ReturnType<typeof vi.fn>) =>
+      fetchMock.mock.calls.map((c: unknown[]) => JSON.parse((c[1] as { body: string }).body) as { tool_choice: { type: string }; tools: { strict?: boolean }[] });
+    const shape = (fetchMock: ReturnType<typeof vi.fn>) => sentBodies(fetchMock).map((b) => [b.tool_choice.type, b.tools[0]?.strict === true]);
+
+    it("returns a matching plain auto reply with no strict request", async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(reply(GOOD));
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(runForcedToolCall(call())).resolves.toEqual(GOOD);
+      expect(shape(fetchMock)).toEqual([["tool", false], ["auto", false]]);
+    });
+
+    it("asks again in strict form, every object closed, when the plain reply does not match, and uses strict for that tool afterwards", async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(REFUSAL)
+        .mockResolvedValueOnce(reply(MALFORMED))
+        .mockResolvedValue(reply(GOOD));
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(runForcedToolCall(call())).resolves.toEqual(GOOD);
+      await runForcedToolCall(call());
+      expect(shape(fetchMock)).toEqual([["tool", false], ["auto", false], ["auto", true], ["auto", true]]);
+      const strictTools = sentBodies(fetchMock)[2].tools;
+      expect(strictTools).toEqual([
+        {
+          ...TOOL,
+          strict: true,
+          input_schema: {
+            ...TOOL.input_schema,
+            additionalProperties: false,
+            properties: {
+              summary: { type: "string" },
+              actions: {
+                type: "array",
+                items: {
+                  ...TOOL.input_schema.properties.actions.items,
+                  additionalProperties: false,
+                  properties: {
+                    ...TOOL.input_schema.properties.actions.items.properties,
+                    entity: { ...TOOL.input_schema.properties.actions.items.properties.entity, additionalProperties: false },
+                  },
+                },
+              },
+            },
+          },
+        },
+        OTHER,
+      ]);
+    });
+
+    it.each([
+      ["a missing required key", { actions: [] }],
+      ["a wrong type", { summary: "s", actions: [{ title: 3 }] }],
+      ["a value outside the enum", { summary: "s", actions: [{ title: "a", severity: "later" }] }],
+      ["a nested missing required key", { summary: "s", actions: [{ title: "a", entity: {} }] }],
+    ])("treats %s as not matching", async (_label, input) => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce(reply(input)).mockResolvedValueOnce(reply(GOOD));
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(runForcedToolCall(call())).resolves.toEqual(GOOD);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("keeps the plain reply when the API refuses the strict form, and skips strict for that tool afterwards", async () => {
+      // propose_project ("'minimum' is not supported") and propose_wbs_changes ("Schema is too complex.",
+      // after 108 s) were refused in strict form on 2026-10-19.
+      const STRICT_REFUSAL = {
+        ok: false,
+        status: 400,
+        json: async () => ({ error: { type: "invalid_request_error", message: "tools.0.custom: For 'integer' type, property 'minimum' is not supported" } }),
+      };
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(REFUSAL)
+        .mockResolvedValueOnce(reply(MALFORMED))
+        .mockResolvedValueOnce(STRICT_REFUSAL)
+        .mockResolvedValue(reply(MALFORMED));
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(runForcedToolCall(call())).resolves.toEqual(MALFORMED);
+      await expect(runForcedToolCall(call())).resolves.toEqual(MALFORMED);
+      expect(shape(fetchMock)).toEqual([["tool", false], ["auto", false], ["auto", true], ["auto", false]]);
+    });
+
+    it("leaves the forced request as it was", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(reply(MALFORMED));
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(runForcedToolCall({ ...call(), model: "claude-sonnet-5" })).resolves.toEqual(MALFORMED);
+      expect(sentBodies(fetchMock)[0].tools).toEqual([TOOL, OTHER]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("sends auto straight away for that model afterwards, and still forces the tool for other models", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValue(TOOL_REPLY);
+    vi.stubGlobal("fetch", fetchMock);
+    await runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" });
+    await runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" });
+    await runForcedToolCall({ ...args(), model: "claude-sonnet-5" });
+    expect(choices(fetchMock)).toEqual([
+      { type: "tool", name: "t" },
+      { type: "auto" },
+      { type: "auto" },
+      { type: "tool", name: "t" },
+    ]);
+  });
+
+  it("does not resend on any other 400", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { type: "invalid_request_error", message: "prompt is too long: 300000 tokens > 200000 maximum" } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runForcedToolCall(args())).rejects.toBeInstanceOf(AiHttpError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws parse when the auto reply carries no tool call", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(REFUSAL).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "hello" }] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" })).rejects.toThrow("parse");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
