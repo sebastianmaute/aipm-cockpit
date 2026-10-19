@@ -28,7 +28,9 @@ or the load hold (`docs/AGENTS/platform.md`). One fact, one doc.
   `grep -n 'kind: "' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts src/app/use-project-tools.ts`.
   ★ `update_project` (§715) is the one whose fragment is NOT a row image: `projectUndoFragment`
   (`project-meta-edit.ts`) writes the changed fields back THROUGH the project writer, which is async,
-  so the runner starts the write and returns. A writer that resolves false has shown its own error
+  so the runner starts the write and returns. Each changed field goes through `mergeFieldValue`, so a
+  list the form edited since (the form's save is not undoable, so Claude's entry can still be on top)
+  keeps the form's additions. A writer that resolves false has shown its own error
   toast; one that throws is shown through the dispatcher's `showToast`. The scope stamp still drops
   the entry after a project switch. The project FORM's save logs but is not undoable (owner decision).
   No `create_*` handler captures, and `use-document-tools.ts` captures at none of its sites

@@ -211,6 +211,44 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
     expect(h.writer.mock.calls[1][0]).toEqual({ ...STORED, description: "Edited in the form" });
   });
 
+  // A list field is merged three ways, not reverted whole: a form save is not undoable, so Claude's entry is still
+  // on top when the user adds to the same list, and a whole-value revert would silently drop that addition.
+  describe("a list field Claude changed and the form changed again", () => {
+    const GDPR = "GDPR / data protection regulation" as const;
+    const WITH_GDPR: ProjectMeta = { ...STORED, regulatory: [GDPR] };
+    const FORM_ADDED: ProjectMeta = { ...WITH_GDPR, regulatory: [GDPR, "NIS2"] };
+
+    test("undo drops Claude's GDPR and keeps the form's NIS2", async () => {
+      const h = mount();
+      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(WITH_GDPR); });
+      act(() => h.result.current.ws.setProject(FORM_ADDED));
+      act(() => { capturedRestore(h)(); });
+      await settle();
+      expect(h.writer.mock.calls[1][0].regulatory).toEqual(["NIS2"]);
+    });
+
+    test("redo puts GDPR back and still keeps NIS2", async () => {
+      const h = mount();
+      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(WITH_GDPR); });
+      act(() => h.result.current.ws.setProject(FORM_ADDED));
+      let redo: () => void = () => {};
+      act(() => { redo = capturedRestore(h)(); });
+      await settle();
+      act(() => h.result.current.ws.setProject({ ...STORED, regulatory: ["NIS2"] }));
+      act(() => redo());
+      await settle();
+      expect(h.writer.mock.calls[2][0].regulatory).toEqual([GDPR, "NIS2"]);
+    });
+
+    test("a non-racing undo restores exactly the before value", async () => {
+      const h = mount();
+      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(WITH_GDPR); });
+      act(() => { capturedRestore(h)(); });
+      await settle();
+      expect(h.writer.mock.calls[1][0]).toEqual(STORED);
+    });
+  });
+
   test("a restore the writer could not store is logged; the writer has already shown its error", async () => {
     clearDiagLog();
     let calls = 0;

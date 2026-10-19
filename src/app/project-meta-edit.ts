@@ -15,6 +15,7 @@ import type { LogActivityAsFn } from "./activity-log-context";
 import { logDiag } from "./diagnostics";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import type { ProjectMeta } from "./types";
+import { mergeFieldValue } from "./undo/merge-field-value";
 import type { CompositeFragment } from "./undo/use-undo-stack";
 
 /** The project form's writer: resolves true once the record is stored, false after its own error toast. */
@@ -61,8 +62,12 @@ export async function saveProjectFromForm(args: {
   logProjectUpdate(logActivityAs, "user", changedProjectFields(before, next));
 }
 
-/** Claude's edit as ONE undo fragment. Undo writes the changed fields' BEFORE values onto the live record, redo
- *  writes their NEXT values; every other field keeps its live value, so a form edit made since survives.
+/** Claude's edit as ONE undo fragment. Undo moves each changed field toward its BEFORE value on the live record,
+ *  redo toward its NEXT value; every other field keeps its live value, so a form edit made since survives.
+ *  ★★ Each changed field is a THREE-WAY merge (`mergeFieldValue`), not a whole-value revert: a form save is not
+ *  undoable, so Claude's entry can still be on top after the user edited the same list, and writing `before` whole
+ *  would drop that edit (Claude adds GDPR, the form adds NIS2, undo must keep NIS2). With no race the result is
+ *  exactly the target value; a scalar the form changed since is still set to the target (the helper's last rule).
  *  ★ A failure is reported, never swallowed: a writer that resolves false has already shown its own error toast,
  *  and this adds the diagnostic; one that throws (outside its contract) is logged and shown through `onThrow`. */
 export function projectUndoFragment(args: {
@@ -74,9 +79,10 @@ export function projectUndoFragment(args: {
   onThrow: (err: unknown) => void;
 }): CompositeFragment {
   const { getWriter, getLive, before, next, fields, onThrow } = args;
-  const apply = (source: ProjectMeta, direction: "undo" | "redo") => {
-    const meta: ProjectMeta = { ...(getLive() ?? source) };
-    for (const f of fields) (meta as Record<string, unknown>)[f] = source[f];
+  const apply = (target: ProjectMeta, other: ProjectMeta, direction: "undo" | "redo") => {
+    const live = getLive() ?? target;
+    const meta: ProjectMeta = { ...live };
+    for (const f of fields) (meta as Record<string, unknown>)[f] = mergeFieldValue(target[f], other[f], live[f]);
     const fail = (err?: unknown) => {
       const message = err === undefined ? "not stored" : err instanceof Error ? err.message : String(err);
       logDiag("error", "undo.projectRestoreFailed", { direction, message });
@@ -90,8 +96,8 @@ export function projectUndoFragment(args: {
     isPrimary: false,
     followsPrimary: false, // a single record, no id a re-mint could move
     restore: () => {
-      apply(before, "undo");
-      return () => apply(next, "redo");
+      apply(before, next, "undo");
+      return () => apply(next, before, "redo");
     },
   };
 }
