@@ -1089,7 +1089,7 @@ function TaskManagerInner() {
     // ★ ONE field, not `today` + `timezone` (§159); `onSettingsLoggedByAi` is §160.
     clock,
     onSettingsLoggedByAi, setSelectedIds, setSettings,
-    isReadOnly: isPopout, openWbsPlan: wbsPlan.open, projectWriterRef, getScopeEpoch,
+    isReadOnly: isPopout, openWbsPlan: wbsPlan.open, projectWriterRef, getScopeEpoch, showToast,
     currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, holidaysReady, logActivityAs,
     // ★ `delete_document` is a second removal route into a COUNTED slice — see
     //   the arming site in `use-document-tools.ts`.

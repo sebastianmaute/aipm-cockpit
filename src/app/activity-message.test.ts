@@ -15,6 +15,12 @@ describe("activityMessage", () => {
     await loadI18n("de");
   });
 
+  // §715 — a project-record edit names the fields it changed, in both languages.
+  it("renders project.updated with the changed field names", () => {
+    expect(activityMessage("en-US", "project.updated", ["customer, endDate"])).toBe("Project details updated: customer, endDate");
+    expect(activityMessage("de", "project.updated", ["customer, endDate"])).toBe("Projektdetails aktualisiert: customer, endDate");
+  });
+
   /**
    * ★★★ THE DRIFT PIN. `ACTIVITY_PLURAL` restates the base key that
    * `ACTIVITY_KIND_TO_KEY` already maps the kind to, because typing it

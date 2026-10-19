@@ -366,6 +366,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     undoRef,
     projectWriterRef: args.projectWriterRef,
     getScopeEpoch: args.getScopeEpoch,
+    showToast: args.showToast,
   });
   // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`
   // call, AFTER the setter and AFTER every reject guard. Arity is UNCHECKED by

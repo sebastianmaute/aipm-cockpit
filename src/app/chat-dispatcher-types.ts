@@ -157,4 +157,7 @@ export interface ChatDispatcherArgs {
   /** `useStorageBackend`'s scope-epoch reader (§548): a project update that resolves after a project switch is
    *  dropped. REQUIRED, as `scope-epoch.ts` asks of every deps boundary that hands the reader down. */
   getScopeEpoch: ScopeEpochReader;
+  /** §715 — the app's toast, for an undo or redo of `update_project` whose writer threw (an undo runner is synchronous
+   *  and the writer is not, so no caller is left to reject to). REQUIRED, like `getScopeEpoch`. */
+  showToast: (kind: "info" | "error", text: string) => void;
 }

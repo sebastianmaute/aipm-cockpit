@@ -18,18 +18,21 @@
 // the project now open.
 //
 // ★ Every write refuses in a read-only popout, with the wording the other write tools use.
+//
+// ★★ Logged and undoable (owner decision B), and ONLY on success: the `project.updated` row and the one undo entry
+// are written after `written === true` AND after the epoch check, never on a refusal, a failure or a switch. The
+// undo fragment reverts through the same writer (project-meta-edit.ts).
 import { useEffect, useMemo, useRef, type RefObject } from "react";
 import type { LogActivityAsFn } from "./activity-log-context";
 import type { ProjectToolDispatcher } from "./chat-tools-project";
 import { t } from "./i18n";
+import { changedProjectFields, logProjectUpdate, projectUndoFragment, type ProjectWriter } from "./project-meta-edit";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import type { Settings } from "./settings-types";
-import type { ProjectMeta } from "./types";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
 
-/** The project form's writer: resolves true once the record is stored, false after its error toast. */
-export type ProjectWriter = (meta: ProjectMeta) => Promise<boolean>;
+export type { ProjectWriter } from "./project-meta-edit";
 
 export const PROJECT_SAVE_FAILED_MESSAGE = "The project could not be saved; nothing was changed.";
 export const PROJECT_SCOPE_MOVED_MESSAGE =
@@ -38,11 +41,13 @@ export const PROJECT_SCOPE_MOVED_MESSAGE =
 export interface ProjectToolsDeps {
   /** True in a popout/mirror window — the write refuses. */
   isReadOnly: boolean;
-  /** Task 6 logs the write through it. */
+  /** The `project.updated` row, actor "ai", after a stored write. */
   logActivityAs?: LogActivityAsFn;
+  /** Shows an undo or redo whose writer threw; a writer that resolves false has shown its own error. */
+  showToast: (kind: "info" | "error", text: string) => void;
   /** Owned by use-chat-dispatcher: `language` for the read-only refusal. */
   settingsRef: RefObject<Settings>;
-  /** Owned by use-chat-dispatcher; Task 6 captures the write through it. */
+  /** Owned by use-chat-dispatcher; a stored write is captured through it as one entry. */
   undoRef: RefObject<Pick<UndoStackApi, "captureComposite"> | undefined>;
   /** Filled by task-manager once `handleUpdateCurrentProjectByMode` exists; null before that. */
   projectWriterRef: RefObject<ProjectWriter | null>;
@@ -50,7 +55,7 @@ export interface ProjectToolsDeps {
 }
 
 export function useProjectTools(deps: ProjectToolsDeps): ProjectToolDispatcher {
-  const { isReadOnly, settingsRef, projectWriterRef, getScopeEpoch } = deps;
+  const { isReadOnly, settingsRef, undoRef, projectWriterRef, getScopeEpoch, logActivityAs, showToast } = deps;
   const { project } = useWorkspace();
 
   const projectRef = useRef(project);
@@ -62,6 +67,10 @@ export function useProjectTools(deps: ProjectToolsDeps): ProjectToolDispatcher {
   useEffect(() => {
     getScopeEpochRef.current = getScopeEpoch;
   }, [getScopeEpoch]);
+  const sinksRef = useRef({ logActivityAs, showToast });
+  useEffect(() => {
+    sinksRef.current = { logActivityAs, showToast };
+  }, [logActivityAs, showToast]);
 
   return useMemo<ProjectToolDispatcher>(
     () => ({
@@ -73,13 +82,27 @@ export function useProjectTools(deps: ProjectToolsDeps): ProjectToolDispatcher {
         if (write === null) throw new Error(PROJECT_SAVE_FAILED_MESSAGE);
         const readEpoch = () => getScopeEpochRef.current();
         const startEpoch = readEpoch();
+        const before = projectRef.current;
         const written = await write(next);
         if (dropStaleScopeWrite(readEpoch, startEpoch, "ai.updateProject")) throw new Error(PROJECT_SCOPE_MOVED_MESSAGE);
         if (!written) throw new Error(PROJECT_SAVE_FAILED_MESSAGE);
         projectRef.current = next;
+        const fields = before ? changedProjectFields(before, next) : [];
+        if (before && fields.length > 0) {
+          logProjectUpdate(sinksRef.current.logActivityAs, "ai", fields);
+          const onThrow = (err: unknown) => sinksRef.current.showToast(
+            "error", t(settingsRef.current.language, "projectUpdateFailed", err instanceof Error ? err.message : String(err)),
+          );
+          const part = projectUndoFragment({
+            getWriter: () => projectWriterRef.current, getLive: () => projectRef.current ?? null, before, next, fields, onThrow,
+          });
+          undoRef.current?.captureComposite({
+            kind: "project.updated", entityKey: "project", primaryCount: 1, name: next.name, parts: [part], readEpoch: startEpoch,
+          });
+        }
         return next;
       },
     }),
-    [isReadOnly, settingsRef, projectWriterRef],
+    [isReadOnly, settingsRef, undoRef, projectWriterRef],
   );
 }

@@ -57,7 +57,7 @@ export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDis
   const {
     dashboardModel, settings, clock, onSettingsLoggedByAi, setSelectedIds, setSettings, isReadOnly,
     currentView, settingsProjectId, holidaySet, logActivityAs, allowDestructiveSave, undo, openWbsPlan,
-    holidaysReady, projectWriterRef, getScopeEpoch,
+    holidaysReady, projectWriterRef, getScopeEpoch, showToast,
   } = deps;
   const {
     tasks, absences, resources, roles, budgets, plan, fxRates, milestones, shifts, forecastHistory,
@@ -136,6 +136,7 @@ export function useChatDispatcherWiring(deps: ChatDispatcherWiringDeps): ToolDis
       openWbsPlan,
       projectWriterRef,
       getScopeEpoch,
+      showToast,
     } satisfies ForwardedArgs),
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,
