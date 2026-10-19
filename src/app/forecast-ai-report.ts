@@ -12,8 +12,9 @@ import { entityToken } from "./ai-entity-token";
 import type { ScheduleContext } from "./forecast-added-people";
 import { DEFAULT_HISTORY_WINDOW, FORECAST_TRIALS, type ForecastUnit } from "./forecast/constants";
 import {
-  DEFAULT_WHAT_IF, computeScheduleForecast, lastForecastableDay, type ForecastInsufficient, type ScheduleForecast,
+  DEFAULT_WHAT_IF, computeScheduleForecast, lastForecastableDay, resultUnit, type ForecastInsufficient, type ScheduleForecast,
 } from "./forecast";
+import { isTaskClosed } from "./task-closed";
 import { forecastByGroup, type GroupForecastRow } from "./forecast-by-group";
 import type { CostAtFinish } from "./forecast/cost";
 import type { ForecastHistoryEntry } from "./forecast-history";
@@ -276,8 +277,10 @@ export function buildForecastReport(
   const report: ForecastReport = {
     simulated: true,
     settings: {
-      // The unit the run used: effort falls back to tasks when too few open tasks carry an estimate.
-      historyWindowWorkingDays: run.window, unit: asIs.forecast.kind === "forecast" ? asIs.forecast.unit : run.unit,
+      // The unit the run used: effort falls back to tasks when too few open tasks carry an estimate. Below the floor
+      // nothing ran, so it is the unit the engine's own rule would pick.
+      historyWindowWorkingDays: run.window,
+      unit: asIs.forecast.kind === "forecast" ? asIs.forecast.unit : resultUnit(run.unit, run.tasks.filter((t) => !isTaskClosed(t))),
       trials: asIs.forecast.kind === "forecast" ? asIs.forecast.trials : FORECAST_TRIALS,
       currency, planEnd: run.planEnd, today: run.today,
     },

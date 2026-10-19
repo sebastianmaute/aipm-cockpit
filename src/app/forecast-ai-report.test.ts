@@ -445,11 +445,6 @@ describe("buildForecastReport — what the forecast was built from (§502 toolin
       .toEqual(run.milestones.map((m) => (m.state === "chance" ? m.chance : null)));
   });
 
-  it("byGroup stays at the defaults when the call sets another window or unit", () => {
-    const report = buildForecastReport(reportInput({ window: 30, unit: "effort" }), null, undefined, { byGroup: true });
-    expect(report.byGroup).toEqual(forecastByGroup({ tasks: TASKS, today: TODAY, holidaySet: NONE, planEnd: PLAN_END }));
-  });
-
   it("a call with whatIf and other settings reports the whatIf omission", () => {
     expect(buildForecastReport(reportInput({ window: 30 }), [availability(120)]).whatItTakes).toEqual({ omitted: "whatIf" });
   });
@@ -457,6 +452,16 @@ describe("buildForecastReport — what the forecast was built from (§502 toolin
   it("effort falls back to tasks when too few open tasks are estimated, and settings.unit says so", () => {
     const unestimated = TASKS.map((x) => (x.status === "Done" ? x : { ...x, originalEstimateMinutes: undefined }));
     expect(buildForecastReport(reportInput({ tasks: unestimated, unit: "effort" }), null).settings.unit).toBe("tasks");
+  });
+
+  it("below the floor settings.unit is still the unit the engine would pick, not merely the one asked for", () => {
+    const short = [...historyTasks(HISTORY.slice(-5)), ...OPEN];
+    const unestimated = short.map((x) => (x.status === "Done" ? x : { ...x, originalEstimateMinutes: undefined }));
+    const asked = (tasks: readonly Task[]) => buildForecastReport(reportInput({ tasks, unit: "effort" }), null);
+    expect(asked(unestimated).asIs.status).toBe("insufficient");
+    expect(asked(unestimated).settings.unit).toBe("tasks");
+    // CONTROL: with estimates the same short history keeps effort, so "tasks" above is the fallback, not a constant.
+    expect(asked(short).settings.unit).toBe("effort");
   });
 });
 

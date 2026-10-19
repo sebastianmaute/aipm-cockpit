@@ -177,7 +177,7 @@ longer carries its own changelog comment.
   over how many days, and how many done tasks have no completion date. It reads the "Chance if prioritised" figure
   for every milestone that has a chance, how much will be done by the plan end and the forecast by group, and it can run the
   forecast with another history window or in hours, as the Forecast view's toolbar does. On the Forecast view the
-  header's Ask Claude menu offers "Why this finish date?" and "How has the date moved?". It can also delete a
+  header's Ask Claude menu offers "Why this P80 date?" and "How has the date moved?". It can also delete a
   saved scenario, which always goes to the
   review card first and can be undone, and set the proposal or the target confidence, which are logged but, as when
   you change them yourself, cannot be undone. The simulation's Help entry explains the target, what it would take

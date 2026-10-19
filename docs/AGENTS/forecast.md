@@ -128,7 +128,7 @@ items part 4 adds. The first three are HARD GATES: do not un-hide until each is 
    `git show v1.19.0:src/app/settings-types.ts | grep -c forecastDecision` prints 0), so only dev devices are affected.
 7. **Help:** paste the held-back text above; part 3's burn-chart band still has no help text (above).
 8. **Decided 2026-10-19 — a generic forecast Ask-Claude chip: yes.** `ASK_CLAUDE_PROMPTS.forecast` carries "Why this
-   finish date?" and "How has the date moved?", which ask what the view's own `ForecastAskClaude` menu does not
+   P80 date?" and "How has the date moved?", which ask what the view's own `ForecastAskClaude` menu does not
    (`ask-claude-prompts.test.ts`, "has forecast chips that do not repeat the view's own menu (§502)"). Eye-check them
    in the header menu with the view shown.
 
@@ -345,7 +345,7 @@ changes from outside (M5)" (`forecast-panel.test.tsx`). The default window is 60
 axe spec selects **"All history" (R13)** and waits for the chart so axe sees the forecast state, not
 only the empty state.
 
-- **Two generic Ask-Claude chips (R12, decided 2026-10-19).** `ASK_CLAUDE_PROMPTS.forecast` holds "Why this finish
+- **Two generic Ask-Claude chips (R12, decided 2026-10-19).** `ASK_CLAUDE_PROMPTS.forecast` holds "Why this P80
   date?" (answered from `get_forecast`'s `basis`) and "How has the date moved?" (`weeklyChange` and `p80History`).
   They sit beside the view's own menu, `ForecastAskClaude`, shown only with AI on, the simulation on and not in a
   popout, and ask what it does not; see "The AI tool" below. The header chips are static per view, so with the
@@ -1264,7 +1264,11 @@ update that sends `changes`, pay one each, for the validation context (`scenario
 context runs As is to learn the team membership). A rename-only update pays none. ★ Since 2026-10-19 a plain or
 `whatIf` call also pays `howManyByPlanEnd`'s run: about 0.1 s on each sample workspace (small 100–112 ms, big 95–104
 ms, huge 83–96 ms; three runs, shared machine), against a plain call's 0.8–2.4 s (gate 1). `byGroup` pays one run per
-group, synchronously in the tool call and with no cap on the number of groups: 1–2 ms on small, 11–16 ms on big and 79–102 ms on huge, each with 4 groups. A call with another window or
+group WITH OPEN TASKS (`forecastByGroup` skips the rest), synchronously in the tool call and with no cap on the
+number of groups: 1–2 ms on small, 11–16 ms on big and 79–102 ms on huge in total, each sample having 4 groups of
+which 3 have open tasks ("Discovery & Design" is all Done), so about 26–34 ms per group on huge. Reproduce: time
+`forecastByGroup({ tasks: ws.tasks, today: "2026-10-14", holidaySet: new Set(), planEnd: ws.plan.endDate })` over
+`sample-workspace-<size>.json` with `npx vite-node`, the same way as the forecast probe above. A call with another window or
 unit gets no `sharedAsIsRun` (it matches only the defaults) and pays its own As-is run, but no lever search.
 ★★ THE LEVER SEARCH IS MOST OF A PLAIN `get_forecast` CALL (no `whatIf`), and it runs synchronously in the tool call.
 Measured 2026-10-18 for Task 9 (fresh task arrays, so the As-is run is included; two saved scenarios; three runs each,
