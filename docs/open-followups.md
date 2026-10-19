@@ -991,7 +991,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--closed-2026-10-18) | Something starts a save of the empty Turso workspace before a project exists | — | — | **CLOSED** 2026-10-18 |
 | [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--open) | window.prompt throws in the desktop app, so six flows fail there | — | — | open |
 | [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--open) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | open |
-| [§754](#754-an-empty-workspace-can-still-be-kept-as-an-unsaved-draft-when-the-stored-version-is-unknown--open) | An empty workspace can still be kept as an unsaved draft when the stored version is unknown | — | — | open |
+| [§754](#754-an-empty-workspace-can-still-be-kept-as-an-unsaved-draft-when-the-stored-version-is-unknown--closed-2026-10-19) | An empty workspace can still be kept as an unsaved draft when the stored version is unknown | — | — | **CLOSED** 2026-10-19 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45706,11 +45706,11 @@ Size S (notice) or M (read-only).
 
 **Source:** found 2026-10-18 in the review of the §751 fix (owner: file it for later).
 
-## 754. An empty workspace can still be kept as an unsaved draft when the stored version is unknown — OPEN
+## 754. An empty workspace can still be kept as an unsaved draft when the stored version is unknown — CLOSED 2026-10-19
 
-**Status:** OPEN 2026-10-18. Found by the branch review of the §715 empty-draft fix on `fix/715-empty-unload-journal`. The unload journal skips an empty workspace only when it is saved over an empty stored version (`isNothingNewToJournal` in `use-unload-journal.ts`); with no base known, `storedFor` returns null and the empty workspace is journalled. `grep -n "return stored !== null && isNothingToJournal" src/app/use-unload-journal.ts` → the one line that journals whenever the base is unknown.
+**Status:** CLOSED 2026-10-19 on `fix/754-empty-draft-unknown-base`. With no stored version known, `write` and `keep` in `use-unload-journal.ts` now skip a workspace that `isNothingToJournal` passes, so neither path below journals an empty workspace; unlike the skip over a known empty base, `write` clears nothing then, since the empty workspace may be a failed op's and not an edit of the work this tab's older journal holds. Skipping cannot lose a record (the workspace holds none); at worst a project emptied while its base is unknown has the deletion undone on reload. `npx vitest run src/app/use-unload-journal.test.tsx` → the four §754 tests failed before the fix and pass after, with two positive controls; mutants dropping the `write` skip, making it clear, narrowing it to any null base, and dropping the `keep` skip each turn a test red (2026-10-19).
 
-**Work item:** #785
+**Earlier (OPEN 2026-10-18):** Found by the branch review of the §715 empty-draft fix on `fix/715-empty-unload-journal`. The unload journal skips an empty workspace only when it is saved over an empty stored version (`isNothingNewToJournal` in `use-unload-journal.ts`); with no base known, `storedFor` returns null and the empty workspace is journalled. `grep -n "return stored !== null && isNothingToJournal" src/app/use-unload-journal.ts` → the one line that journals whenever the base is unknown.
 
 Two rare paths reach that. A save refused for a stale revision after its backend was replaced (`noteSaveRefused` → `keep`) carries a key that is no longer the base's, so an empty refused workspace is written to a kept slot and `OtherJournalsBanner` lists it. A project op that fails between `holdBase` and its flip leaves the base null, so empty saves are journalled with an empty base and come back as a conflict notice. Both need a refused save or a failed op. Journalling when the stored state is unknown is the safe default, but it is the "empty draft offered back" symptom §715 set out to remove.
 
