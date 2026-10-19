@@ -36,6 +36,7 @@ function makeInput(): ForecastReportInput {
     history: [],
     scenarios: [],
     currency: "EUR",
+    settingsOverrides: undefined,
   };
 }
 
@@ -49,8 +50,8 @@ function renderApply() {
       const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
       const batch = useUndoBatch(undo);
       const dispatcher = useChatDispatcher(makeDispatcherArgs({ undo: batch.undo, getForecastInput: () => makeInput() }));
-      const { forecastScenarios, milestones, resources } = useWorkspace();
-      return { batch, dispatcher, forecastScenarios, milestones, resources };
+      const { forecastScenarios, milestones, resources, settingsOverrides } = useWorkspace();
+      return { batch, dispatcher, forecastScenarios, milestones, resources, settingsOverrides };
     },
     { wrapper: dispatcherWrapperWith(SEED) },
   );
@@ -124,5 +125,33 @@ describe("a staged scenario naming a milestone or person created earlier in the 
     expect(selected.has(2)).toBe(false);
     expect(outcome.rows.map((r) => r.index)).not.toContain(2);
     expect(result.current.forecastScenarios).toEqual([]);
+  });
+});
+
+// §502 part 4 — "save it as a scenario and propose it" in one staged plan.
+describe("a staged plan that creates a scenario and proposes it (§502 part 4)", () => {
+  const plan: ProposedCall[] = [
+    { name: "create_forecast_scenario", input: { name: "Draft", changes: [] } },
+    { name: "set_forecast_proposal", input: { id: 900 } },
+  ];
+
+  // ★★ 900 is the provisional id, which no scenario holds: an unremapped proposal call is refused as unknown.
+  test("applies, and the proposal names the REAL minted id", async () => {
+    const { result } = renderApply();
+    const { outcome } = await applyPlan(result, plan, [900]);
+
+    expect(outcome.rows.map((r) => r.ok)).toEqual([true, true]);
+    const minted = result.current.forecastScenarios[0].id;
+    expect(minted).not.toBe(900);
+    expect(result.current.settingsOverrides?.forecast?.proposalScenarioId).toBe(minted);
+  });
+
+  test("refusing the create deselects the proposal call, so nothing is proposed", async () => {
+    const { result } = renderApply();
+    const { outcome, selected } = await applyPlan(result, plan, [900], 0);
+
+    expect(selected.has(1)).toBe(false);
+    expect(outcome.rows).toEqual([]);
+    expect(result.current.settingsOverrides?.forecast?.proposalScenarioId).toBeUndefined();
   });
 });

@@ -5,6 +5,9 @@ export interface TrendPoint {
   value: number;
   /** True when one or more expected cadence buckets are missing before this point. */
   gapBefore: boolean;
+  /** A numeric x position (the P80 line's calendar day, §502 part 4). Only when EVERY point has one are the points
+   *  placed proportionally; otherwise they are spaced evenly by index. */
+  x?: number;
 }
 
 const W = 320, H = 160, PAD_L = 52, PAD_R = 12, PAD_T = 12, PAD_B = 28;
@@ -45,6 +48,29 @@ export function labelledIndices(n: number, chars: number): Set<number> {
   return new Set([...kept, n - 1]);
 }
 
+/** `labelledIndices` for points at uneven positions (ascending, plot units): a label is kept when it sits 1.5 label
+ *  widths clear of the previous kept one and of the end-anchored last; the first and the last are always kept. */
+export function labelledPositions(positions: readonly number[], chars: number): Set<number> {
+  const n = positions.length;
+  const minGap = 1.5 * chars * X_LABEL_CHAR_W;
+  const kept = [0];
+  for (let i = 1; i < n - 1; i += 1) {
+    if (positions[i] - positions[kept[kept.length - 1]] >= minGap && positions[n - 1] - positions[i] >= minGap) kept.push(i);
+  }
+  return new Set([...kept, n - 1]);
+}
+
+/** Where each point sits: proportional to its `x` when every point has one and they span a range, else by index. */
+function xPositions(points: readonly TrendPoint[]): { xs: number[]; proportional: boolean } {
+  const n = points.length;
+  const given = points.map((p) => p.x);
+  if (given.every((x): x is number => x !== undefined)) {
+    const lo = Math.min(...given), hi = Math.max(...given);
+    if (hi > lo) return { xs: given.map((x) => PAD_L + ((x - lo) * PLOT_W) / (hi - lo)), proportional: true };
+  }
+  return { xs: points.map((_, i) => xAt(i, n)), proportional: false };
+}
+
 export function TrendChart({
   caption, points, gapCount = 0, gapLabel, emptyLabel, format = (v: number) => String(Math.round(v)), reference,
 }: {
@@ -71,11 +97,13 @@ export function TrendChart({
   const max = Math.max(...values, 0);
   const baseY = PAD_T + PLOT_H;
   const yTicks = max > min ? [min, (min + max) / 2, max] : [min];
-  const labelled = labelledIndices(n, Math.max(...points.map((p) => p.label.length)));
+  const labelChars = Math.max(...points.map((p) => p.label.length));
+  const { xs, proportional } = xPositions(points);
+  const labelled = proportional ? labelledPositions(xs.map((x) => x - PAD_L), labelChars) : labelledIndices(n, labelChars);
 
   const segments = points.slice(1).map((p, i) => {
-    const x1 = xAt(i, n), y1 = yAt(points[i].value, min, max);
-    const x2 = xAt(i + 1, n), y2 = yAt(p.value, min, max);
+    const x1 = xs[i], y1 = yAt(points[i].value, min, max);
+    const x2 = xs[i + 1], y2 = yAt(p.value, min, max);
     return { x1, y1, x2, y2, dashed: p.gapBefore };
   });
 
@@ -112,10 +140,10 @@ export function TrendChart({
             className="stroke-ui-dark-blue" strokeWidth={2}
             strokeDasharray={s.dashed ? "4 3" : undefined} />
         ))}
-        <polyline points={points.map((p, i) => `${xAt(i, n).toFixed(1)},${yAt(p.value, min, max).toFixed(1)}`).join(" ")}
+        <polyline points={points.map((p, i) => `${xs[i].toFixed(1)},${yAt(p.value, min, max).toFixed(1)}`).join(" ")}
           fill="none" className="stroke-ui-dark-blue" strokeWidth={0} aria-hidden="true" />
         {points.map((p, i) => !labelled.has(i) ? null : (
-          <text key={`x${i}`} x={xAt(i, n)} y={baseY + 12}
+          <text key={`x${i}`} x={xs[i]} y={baseY + 12}
             textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
             className="fill-muted-foreground text-[8px] tabular-nums" aria-hidden="true">
             {p.label}

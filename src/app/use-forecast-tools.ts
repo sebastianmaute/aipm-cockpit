@@ -1,5 +1,6 @@
 // src/app/use-forecast-tools.ts — the chat dispatcher's forecast members (§502): the simulation predicate,
-// `get_forecast`'s report, the full-row getter for the scenario token, and the two scenario writers.
+// `get_forecast`'s report, the full-row getter for the scenario token, the three scenario writers (create, update,
+// delete) and the two decision writers (proposal, target confidence).
 // `chat-tools-forecast.ts` owns the guards in front of them (gate, input parse, token); this file owns what a
 // call is allowed to write, what it logs and what it captures for undo.
 //
@@ -22,19 +23,22 @@ import type { LogActivityAsFn } from "./activity-log-context";
 import { entityToken } from "./ai-entity-token";
 import type { ForecastScenarioResult, ForecastToolDispatcher } from "./chat-tools-forecast";
 import { buildForecastReport, scenarioValidationContext, type ForecastReportInput } from "./forecast-ai-report";
-import { computeScenarioComparison } from "./forecast-scenario-compare";
+import { computeScenarioComparison, sharedAsIsRun } from "./forecast-scenario-compare";
 import { checkToolDraft, checkToolRows } from "./forecast-scenario-tool-input";
 import {
   addScenario,
+  removeScenario,
   replaceScenario,
   trimScenarioChanges,
   type ForecastScenario,
   type ScenarioChange,
 } from "./forecast-scenarios";
 import { isSimulationActive } from "./forecast-simulation";
+import { proposalIdOf, targetConfidenceOf, withTargetConfidence } from "./forecast-target";
 import { t } from "./i18n";
 import { mintId } from "./id-mint-session";
-import type { Settings } from "./settings-types";
+import type { Settings, SettingsOverrides } from "./settings-types";
+import { proposalLogEntry, withProposalChange } from "./use-forecast-settings";
 import type { Milestone, Resource, Task } from "./types";
 import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 import { useWorkspace } from "./workspace-context";
@@ -42,7 +46,7 @@ import { useWorkspace } from "./workspace-context";
 export const HOLIDAYS_LOADING_MESSAGE = "The holiday calendar is still loading; try again in a moment.";
 
 export interface ForecastToolsDeps {
-  /** True in a popout/mirror window — both writes refuse. */
+  /** True in a popout/mirror window — every write refuses. */
   isReadOnly: boolean;
   logActivityAs?: LogActivityAsFn;
   /** Owned by use-chat-dispatcher: `features` for the predicate, `language` for the read-only refusal. */
@@ -86,9 +90,11 @@ function toResult(row: ForecastScenario): ForecastScenarioResult {
 
 export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatcher {
   const { isReadOnly, logActivityAs, settingsRef, undoRef, getForecastInputRef, tasksRef, milestonesRef, resourcesRef } = deps;
-  const { forecastScenarios, setForecastScenarios, settingsOverrides } = useWorkspace();
+  const { forecastScenarios, setForecastScenarios, settingsOverrides, setSettingsOverrides } = useWorkspace();
 
   const scenariosRef = useRef(forecastScenarios);
+  // ★★ The effect below syncs what OTHER writers change; the two decision writes assign it synchronously
+  //   (`writeOverrides`), so a `get_forecast` later in the same turn reads the new target and proposal.
   const settingsOverridesRef = useRef(settingsOverrides);
   useEffect(() => {
     scenariosRef.current = forecastScenarios;
@@ -107,6 +113,21 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
     [settingsRef],
   );
 
+  /** Apply `update` to the overrides: to the ref NOW (see `settingsOverridesRef`), and to the state as a FUNCTIONAL
+   *  updater, so a writer that queued a change of its own since the ref last synced (the UI, a version restore) is
+   *  built on rather than overwritten by a value computed from the stale ref. ★ No undo capture: target and proposal
+   *  are logged, never undoable (owner decision; `useForecastSettings` captures none either). */
+  const writeOverrides = useCallback((update: (prev: SettingsOverrides | undefined) => SettingsOverrides | undefined) => {
+    settingsOverridesRef.current = update(settingsOverridesRef.current);
+    setSettingsOverrides((prev) => update(prev));
+  }, [setSettingsOverrides]);
+
+  /** The same for the scenario list: the ref NOW, the state through a functional updater (`writeOverrides`). */
+  const writeScenarios = useCallback((update: (prev: readonly ForecastScenario[]) => ForecastScenario[]) => {
+    scenariosRef.current = update(scenariosRef.current);
+    setForecastScenarios((prev) => update(prev));
+  }, [setForecastScenarios]);
+
   /** The run input with the live tasks, milestones, resources and scenarios, or the loading refusal. */
   const requireInput = useCallback((): ForecastReportInput => {
     const input = getForecastInputRef.current();
@@ -121,6 +142,8 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
         directory: { ...run.directory, resources: resourcesRef.current },
       },
       scenarios: scenariosRef.current,
+      // The same ref the predicate reads, so the report's target and proposal are the ones it was served under.
+      settingsOverrides: settingsOverridesRef.current,
     };
   }, [getForecastInputRef, tasksRef, milestonesRef, resourcesRef]);
 
@@ -130,8 +153,9 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
 
       getForecast: (whatIf) => {
         const input = requireInput();
-        // ★ ONE As-is run: the report's own comparison supplies the context the what-if check needs.
-        const comparison = computeScenarioComparison(input.run, input.scenarios);
+        // ★ ONE As-is run: the report's own comparison supplies the context the what-if check and the lever search
+        //   need, and it is the shared app run (`sharedAsIsRun`) when the app memo already holds these inputs.
+        const comparison = computeScenarioComparison(input.run, input.scenarios, sharedAsIsRun(input.run));
         // ★ Same rules as a save: a what-if row the save path refuses is never simulated or quoted.
         const refusal = whatIf === null
           ? null
@@ -150,9 +174,7 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
         if (refusal !== null) throw new Error(refusal);
         const id = mintId("forecastScenario", list);
         const row: ForecastScenario = { id, name: name.trim(), changes: trimScenarioChanges(changes) };
-        const next = addScenario(list, row);
-        scenariosRef.current = next;
-        setForecastScenarios(next);
+        writeScenarios((prev) => addScenario(prev, row));
         // ★ No undo capture: undoing a create by capture duplicates the row (docs/AGENTS/undo.md "Creates").
         logActivityAs?.("ai", "forecastScenario.created", id, row.name);
         return toResult(row);
@@ -194,15 +216,60 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
           name: stored.name,
           entityKey: "forecastScenario",
         });
-        const next = replaceScenario(list, after);
-        scenariosRef.current = next;
-        setForecastScenarios(next);
+        writeScenarios((prev) => replaceScenario(prev, after));
         logActivityAs?.("ai", "forecastScenario.updated", id, after.name);
         return { ...toResult(after), ...removed };
       },
+
+      // As `deleteScenario` in use-forecast-scenarios.ts: one undoable `forecastScenario.deleted` entry. The stored
+      // proposal id is kept, so undoing the delete of the proposed scenario brings the proposal back.
+      deleteForecastScenario: (id) => {
+        if (isReadOnly) throw readOnlyError();
+        const list = scenariosRef.current;
+        const doomed = list.find((s) => s.id === id);
+        if (!doomed) throw new Error(`forecast scenario ${id} not found`);
+        undoRef.current?.captureComposite({
+          kind: "forecastScenario.deleted",
+          primaryCount: 1,
+          // Pre-op array, so the row returns at its own index.
+          parts: [capturePart({ setter: setForecastScenarios, removed: [doomed], fromArray: list, isPrimary: true })],
+          name: doomed.name,
+          entityKey: "forecastScenario",
+        });
+        writeScenarios((prev) => removeScenario(prev, id));
+        logActivityAs?.("ai", "forecastScenario.deleted", id, doomed.name);
+        return { deleted: true, id, name: doomed.name };
+      },
+
+      // Same store and log rules as `useForecastSettings.setProposal` (`withProposalChange`, `proposalLogEntry`),
+      // except that an id naming no saved scenario REFUSES instead of doing nothing.
+      setForecastProposal: (id) => {
+        if (isReadOnly) throw readOnlyError();
+        const list = scenariosRef.current;
+        const named = id === null ? null : list.find((s) => s.id === id);
+        if (named === undefined) throw new Error(`forecast scenario ${id} not found`);
+        const prev = settingsOverridesRef.current;
+        const from = proposalIdOf(prev, list);
+        // ★ Always queue it (idempotent): a UI change queued since the ref synced must not turn this into a
+        //   skipped write that still reports `id`. The ref decides only what is logged.
+        writeOverrides((o) => (proposalIdOf(o, list) === id ? o : withProposalChange(o, id, list)));
+        const entry = proposalLogEntry(from, id, list);
+        if (entry) logActivityAs?.("ai", ...entry);
+        return { proposal: named === null ? null : { id: named.id, name: named.name } };
+      },
+
+      setForecastTargetConfidence: (value) => {
+        if (isReadOnly) throw readOnlyError();
+        const prev = settingsOverridesRef.current;
+        const from = targetConfidenceOf(prev);
+        // ★ Always queued, as `setForecastProposal`; an unchanged target (by the ref) logs nothing.
+        writeOverrides((o) => (targetConfidenceOf(o) === value ? o : withTargetConfidence(o, value)));
+        if (value !== from) logActivityAs?.("ai", "forecast.targetChanged", from, value);
+        return { targetConfidence: value };
+      },
     }),
-    // Exhaustive: the slice is read through `scenariosRef`; everything else listed is stable in practice
-    // (refs, `useCallback`s over refs, and the provider's `useState` setter).
-    [isReadOnly, logActivityAs, undoRef, setForecastScenarios, isForecastEnabled, readOnlyError, requireInput],
+    // Exhaustive: the slices are read through `scenariosRef` and `settingsOverridesRef`; everything else listed is
+    // stable in practice (refs, `useCallback`s over refs, and the provider's `useState` setters).
+    [isReadOnly, logActivityAs, undoRef, setForecastScenarios, isForecastEnabled, readOnlyError, requireInput, writeOverrides, writeScenarios],
   );
 }

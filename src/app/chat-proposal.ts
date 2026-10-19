@@ -26,15 +26,18 @@ export interface ProposedCall {
  *   restorable version (`deleteDocument` returns `restorableVersionId`). The
  *   recovery path is the Documents tombstone list, not the undo stack, and
  *   nothing on the chat surface points at it — so from the chat user's seat the
- *   delete is as final as the other seven.
+ *   delete is as final as the other deletes here.
  *
  *  ★ `delete_absence` and `delete_calendar_event` joined this set when those
  *   tools were added — same reasoning as every other `delete_*` tool here,
- *   nothing entity-specific about either. */
+ *   nothing entity-specific about either.
+ *  ★ So did `delete_forecast_scenario` (§502 part 4): undoable like the other
+ *   deletes, and staged like them. */
 const DESTRUCTIVE_TOOLS: ReadonlySet<string> = new Set([
   "delete_task", "delete_all_tasks", "delete_raid_item", "delete_change",
   "delete_milestone", "delete_stakeholder", "delete_resource",
   "delete_document", "delete_absence", "delete_calendar_event",
+  "delete_forecast_scenario",
 ]);
 
 /** Tools that write PROJECT ENTITY data.
@@ -81,7 +84,14 @@ const DESTRUCTIVE_TOOLS: ReadonlySet<string> = new Set([
  *   entity writes too. An update REPLACES the row list when it sends `changes`,
  *   so it can drop rows, but it is undo-captured (one Ctrl+Z restores the whole
  *   list) and its result reports `removedRows` — so, like `escalate_raid_item`,
- *   one call applies and two stage. */
+ *   one call applies and two stage.
+ *
+ *  ★★ `set_forecast_proposal`/`set_forecast_target_confidence` (§502 part 4)
+ *   are here although they write `Workspace.settingsOverrides`, not an entity
+ *   list, and are NOT undoable (owner decision: logged only). The absent trio
+ *   above writes device-local preferences; these write PROJECT data that
+ *   travels on the six write paths and drives the report's verdict. One call
+ *   applies, two stage, like the scenario writes they are approved beside. */
 const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_task", "update_task", "set_task_dependencies", "send_inquiry",
   "create_raid_item", "update_raid_item", "escalate_raid_item",
@@ -93,6 +103,7 @@ const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_absence", "update_absence",
   "create_calendar_event", "update_calendar_event",
   "create_forecast_scenario", "update_forecast_scenario",
+  "set_forecast_proposal", "set_forecast_target_confidence",
   ...DESTRUCTIVE_TOOLS,
 ]);
 
@@ -229,6 +240,11 @@ export const TARGET_MINTED_BY: Readonly<Record<string, string>> = {
   update_calendar_event: "create_calendar_event",
   delete_calendar_event: "create_calendar_event",
   update_forecast_scenario: "create_forecast_scenario",
+  delete_forecast_scenario: "create_forecast_scenario",
+  // §502 part 4 — its `id` names the scenario to propose, so `[create_forecast_scenario, set_forecast_proposal]`
+  // proposes the scenario the create really minted, and refusing the create drops the proposal. `id: null`
+  // (clear) names no row: `targetIdOf` reads null as no id.
+  set_forecast_proposal: "create_forecast_scenario",
 };
 
 /** The THIRD table of the same family: a create tool → the `id-mint-session`
@@ -370,7 +386,7 @@ export function isDestructiveCall(call: ProposedCall): boolean {
  *  something, it would email attendees, or it writes more than one row.
  *
  *  ★★ THE SINGLE-WRITE EXEMPTION IS NOT UNIVERSALLY BACKED BY UNDO, and the
- *   wording here used to say it was ("relies on undo"). TWO live exceptions: the
+ *   wording here used to say it was ("relies on undo"). THREE live exceptions: the
  *   three document writes take no undo capture at all and rely on
  *   `documentVersions` instead (recorded on `ENTITY_WRITE_TOOLS` above); and
  *   `send_inquiry` has NEITHER — its handler in `use-chat-dispatcher.ts` calls
@@ -380,8 +396,11 @@ export function isDestructiveCall(call: ProposedCall): boolean {
  *   inquiry is the user's own routine action, and two already stage as a bulk
  *   outbound. Reclassifying it is a product decision, not a correction to make
  *   while fixing a comment.
+ *   ★★ `set_forecast_proposal` and `set_forecast_target_confidence` (§502 part 4)
+ *   are exempt the same way, with NEITHER undo nor version history: a lone one
+ *   applies at once and is only logged (recorded on `ENTITY_WRITE_TOOLS` above).
  *
- *  ★★★ A LONE CALENDAR-EVENT WRITE IS A THIRD EXCEPTION, and it is not merely
+ *  ★★★ A LONE CALENDAR-EVENT WRITE IS A FOURTH EXCEPTION, and it is not merely
  *   ungated by undo — it is not gated by ANYTHING else here. `sendsInvitations`
  *   forces it through review regardless of `writes`, because unlike every other
  *   single-write exemption above, its effect leaves the building (it mails the
@@ -399,10 +418,10 @@ export function shouldStage(calls: readonly ProposedCall[]): boolean {
 /** True for a tool that MINTS a row rather than addressing an existing one.
  *
  *  ★ The prefix IS the whole rule — verified against the live `TOOL_DEFS`: all
- *   ten `create_*` tools are entity writes, and nothing else in the 57 is
+ *   ten `create_*` tools are entity writes, and nothing else in the 60 is
  *   named `create_*`. Reproduce both counts:
  *   `grep -oE 'name: "create_[a-z_]+"' src/app/chat-tool-defs*.ts | sort -u | wc -l` (10) and
- *   `grep -oE 'name: "[a-z_]+"' src/app/chat-tool-defs*.ts | sort -u | wc -l` (57).
+ *   `grep -oE 'name: "[a-z_]+"' src/app/chat-tool-defs*.ts | sort -u | wc -l` (60).
  *   `chat-proposal.test.ts` partitions the live array against a literal list
  *   of the ten (`CREATE_NAMES`), so a new `create_*` tool goes red there.
  *
@@ -482,7 +501,10 @@ function linkedRows(
  *   copies of `Number(...)` + a finiteness test is exactly the shape that drifts
  *   into "the graph linked here, the rewrite landed there". */
 function targetIdOf(call: ProposedCall): number | undefined {
-  const id = Number((call.input as { id?: unknown }).id);
+  const raw = (call.input as { id?: unknown }).id;
+  // ★ `Number(null)` is 0, so without this `set_forecast_proposal({ id: null })` (a clear) would name row 0.
+  if (raw === null) return undefined;
+  const id = Number(raw);
   return Number.isFinite(id) ? id : undefined;
 }
 

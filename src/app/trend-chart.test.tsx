@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
-import { labelledIndices, TrendChart, X_LABEL_CHAR_W } from "./trend-chart";
+import { labelledIndices, labelledPositions, TrendChart, X_LABEL_CHAR_W } from "./trend-chart";
 
 const points = [
   { label: "W22", value: 100, gapBefore: false },
@@ -82,5 +82,37 @@ describe("TrendChart", () => {
   it("labels every point on a short axis", () => {
     const { container } = render(<TrendChart caption="Remaining hours" points={weekly(5)} />);
     expect(xLabels(container)).toEqual(["2026-W10", "2026-W11", "2026-W12", "2026-W13", "2026-W14"]);
+  });
+});
+
+// §502 part 4 — an optional `x` on every point places it proportionally (the P80 line's calendar days), so a run of
+// missing days stretches the axis instead of being squeezed out of the slope.
+describe("TrendChart with an x position per point", () => {
+  const xsOf = (container: HTMLElement) =>
+    container.querySelector("polyline")!.getAttribute("points")!.split(" ").map((p) => Number(p.split(",")[0]));
+
+  it("places the points by their x, not their index", () => {
+    const pts = [0, 1, 10].map((x, i) => ({ label: `d${x}`, value: i, gapBefore: false, x }));
+    const { container } = render(<TrendChart caption="P80" points={pts} />);
+    const xs = xsOf(container);
+    expect((xs[1] - xs[0]) / (xs[2] - xs[0])).toBeCloseTo(0.1, 2);
+  });
+
+  it("spaces the points evenly when any point has no x", () => {
+    const pts = [{ label: "a", value: 1, gapBefore: false, x: 0 }, { label: "b", value: 2, gapBefore: false },
+      { label: "c", value: 3, gapBefore: false, x: 10 }];
+    const { container } = render(<TrendChart caption="P80" points={pts} />);
+    const xs = xsOf(container);
+    expect((xs[1] - xs[0]) / (xs[2] - xs[0])).toBeCloseTo(0.5, 2);
+  });
+
+  it("keeps clustered labels clear of each other, always the first and the last", () => {
+    const xs = [...Array.from({ length: 12 }, (_, i) => i), 100];
+    const width = 10 * X_LABEL_CHAR_W;
+    const positions = xs.map((x) => (x * 256) / 100);
+    const idx = [...labelledPositions(positions, 10)].sort((a, b) => a - b);
+    expect(idx[0]).toBe(0);
+    expect(idx.at(-1)).toBe(xs.length - 1);
+    for (let i = 1; i < idx.length; i += 1) expect(positions[idx[i]] - positions[idx[i - 1]]).toBeGreaterThanOrEqual(1.5 * width);
   });
 });

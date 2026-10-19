@@ -70,6 +70,22 @@ describe("DocumentPreview — forecastDecision block (§502 part 4)", () => {
     expect(whatItTakesSync).not.toHaveBeenCalled();
   }, SEARCH_TIMEOUT_MS + 5000);
 
+  // Task 11b — while the holiday calendar loads the preview shows the export's one loading row, and searches nothing.
+  it("shows the calendar-loading row while the holiday calendar loads, with no search", () => {
+    const args = (): ForecastDecisionArgs => ({ simulationActive: true, input: null, scenarios: [], settingsOverrides: undefined });
+    const loading: ForecastDecisionHandle = {
+      source: forecastDecisionSource(args), live: { goal: 80, input: () => null, base: once(() => buildForecastDecisionBase(args())) },
+    };
+    render(
+      <ExportExtrasProvider forecast={null} forecastDecision={loading}>
+        <DocumentPreview lang="en-GB" doc={DOC} ws={emptyWorkspace()} />
+      </ExportExtrasProvider>,
+    );
+    expect(screen.getByText(/the holiday calendar is still loading/)).toBeTruthy();
+    expect(searchArgs().every((a) => a.input === null && a.targets.length === 0)).toBe(true);
+    expect(whatItTakesSync).not.toHaveBeenCalled();
+  });
+
   it("searches nothing for a document without the block", () => {
     const plain: ProjectDocument = { ...DOC, blocks: [{ type: "heading", level: 1, text: "Hi" }] };
     render(

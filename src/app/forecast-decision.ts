@@ -65,7 +65,9 @@ export type ForecastDecision =
       /** Null when no proposal is set, or the stored id names no saved scenario (`proposalIdOf`). */
       proposal: ForecastDecisionProposal | null;
     }
-  | { insufficient: true; goal: TargetConfidence };
+  /** No simulated figures: below the history floor, or (`calendarLoading`, Task 11b) the simulation is on but the
+   *  holiday calendar is still loading. Either way the export keeps the section with ONE row saying which. */
+  | { insufficient: true; goal: TargetConfidence; calendarLoading?: true };
 
 /** A lazily computed decision: null while the simulation is off. Called only when an export includes the section. */
 export type ForecastDecisionSource = () => ForecastDecision | null;
@@ -86,7 +88,7 @@ export type ForecastDecisionHandle = { source: ForecastDecisionSource; live: For
 export type ForecastDecisionArgs = {
   /** `isSimulationActive(settingsOverrides, features)`; off, there is no decision at all (the section is omitted). */
   simulationActive: boolean;
-  /** The As-is run's inputs at the app-wide defaults; null while the holiday calendar loads. */
+  /** The As-is run's inputs at the app-wide defaults; null while the holiday calendar loads (the decision then says so). */
   input: ScenarioRunInput | null;
   scenarios: readonly ForecastScenario[];
   settingsOverrides: SettingsOverrides | undefined;
@@ -104,8 +106,10 @@ type DecisionBase = {
 
 /** Everything but the lever searches: every below-target milestone's take is "pending". */
 function decisionBase({ simulationActive, input, scenarios, settingsOverrides }: ForecastDecisionArgs): DecisionBase | null {
-  if (!simulationActive || input === null) return null;
+  if (!simulationActive) return null;
   const goal = targetConfidenceOf(settingsOverrides);
+  // ★ Not null: the user ticked the section, and an export must not drop it silently while the calendar loads.
+  if (input === null) return { decision: { insufficient: true, goal, calendarLoading: true }, run: null };
   const { asIs, context } = computeScenarioComparison(input, [], sharedAsIsRun(input));
   const forecast = asIs.forecast;
   if (forecast.kind !== "forecast") return { decision: { insufficient: true, goal }, run: null };
@@ -142,8 +146,7 @@ export function withTakes(d: ForecastDecision, takes: (milestoneId: number) => D
   return d.insufficient ? d : { ...d, below: d.below.map((m) => ({ ...m, take: takes(m.id) })) };
 }
 
-/** The decision with every lever search run to completion (`whatItTakesSync`), or null with the simulation off or no
- *  input yet. For the explicit export and download actions only, never a render path (spec §3.3). */
+/** The decision with every lever search run to completion (`whatItTakesSync`), or null with the simulation off. For the explicit export and download actions only, never a render path (spec §3.3). */
 export function buildForecastDecision(args: ForecastDecisionArgs): ForecastDecision | null {
   const base = decisionBase(args);
   if (base === null) return null;

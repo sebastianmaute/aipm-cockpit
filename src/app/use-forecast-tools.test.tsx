@@ -6,8 +6,10 @@ import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatch
 import { showForecastView } from "../test/forecast-view";
 import { entityToken } from "./ai-entity-token";
 import { buildPlanRows, shouldStage, type ProposedCall } from "./chat-proposal";
-import { liveRowTitle } from "./chat-proposal-stage";
+import { forecastScenarioRowTitle, type DescribedRow } from "./chat-proposal-describe";
+import { liveRowTitle, proposalTitles } from "./chat-proposal-stage";
 import { runTool } from "./chat-tools";
+import { FORECAST_OFF_MESSAGE } from "./chat-tools-forecast";
 import type { Workspace } from "./workspace";
 import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
 import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
@@ -57,6 +59,8 @@ function makeInput(): ForecastReportInput {
     history: [],
     scenarios: [],
     currency: "EUR",
+    // ★ Never the live overrides: the tools must read those from the workspace (see "target and proposal").
+    settingsOverrides: undefined,
   };
 }
 
@@ -73,8 +77,8 @@ function mount(seed: TestSeed, over: Partial<ChatDispatcherArgs> = {}) {
       const dispatcher = useChatDispatcher(
         makeDispatcherArgs({ undo, logActivityAs, getForecastInput: () => makeInput(), ...over }),
       );
-      const { forecastScenarios, setSettingsOverrides } = useWorkspace();
-      return { undo, dispatcher, forecastScenarios, setSettingsOverrides };
+      const { forecastScenarios, setForecastScenarios, settingsOverrides, setSettingsOverrides } = useWorkspace();
+      return { undo, dispatcher, forecastScenarios, setForecastScenarios, settingsOverrides, setSettingsOverrides };
     },
     { wrapper: dispatcherWrapperWith({ settingsOverrides: ON, ...seed }) },
   );
@@ -298,6 +302,25 @@ describe("As-is runs per call", () => {
   });
 });
 
+describe("get_forecast reads the target and the proposal from the live overrides (§502 part 4)", () => {
+  test("the workspace's target and proposal, not the getter's absent ones", async () => {
+    const overrides = { forecast: { showSimulation: true, targetConfidence: 95 as const, proposalScenarioId: 1 } };
+    const { result } = mount({ forecastScenarios: [SAVED], settingsOverrides: overrides });
+    const report = (await runTool(result.current.dispatcher, "get_forecast", {})) as {
+      targetConfidence: number; proposal: unknown;
+    };
+    expect(report.targetConfidence).toBe(95);
+    expect(report.proposal).toEqual({ id: 1, name: "Contractor in January" });
+  });
+
+  test("a proposal id naming no saved scenario reads as none", async () => {
+    const overrides = { forecast: { showSimulation: true, proposalScenarioId: 7 } };
+    const { result } = mount({ forecastScenarios: [SAVED], settingsOverrides: overrides });
+    const report = (await runTool(result.current.dispatcher, "get_forecast", {})) as { proposal: unknown };
+    expect(report.proposal).toBeNull();
+  });
+});
+
 describe("get_forecast whatIf follows the save path's rules", () => {
   const cases: Array<[string, ScenarioChange, string]> = [
     ["range", { kind: "availability", percent: 0, from: "2026-06-01", until: "" },
@@ -395,6 +418,203 @@ describe("a write earlier in the same turn is seen (§502)", () => {
   });
 });
 
+describe("the decision writes (§502 part 4)", () => {
+  const OTHER: ForecastScenario = { id: 2, name: "Cut scope", changes: [SCOPE] };
+  type Report = { targetConfidence: number; proposal: { id: number; name: string } | null };
+
+  test("delete applies with get_forecast's token, logs forecastScenario.deleted as the AI, and one undo restores it", async () => {
+    const allowDestructiveSave = vi.fn();
+    const { result, logActivityAs } = mount({ forecastScenarios: [SAVED, OTHER] }, { allowDestructiveSave });
+    const expectedToken = result.current.dispatcher.getForecast(null).scenarios[0].expectedToken;
+    let out: unknown;
+    await act(async () => {
+      out = await runTool(result.current.dispatcher, "delete_forecast_scenario", { id: 1, expectedToken });
+    });
+    expect(out).toEqual({ deleted: true, id: 1, name: SAVED.name });
+    expect(result.current.forecastScenarios).toEqual([OTHER]);
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "forecastScenario.deleted", 1, SAVED.name);
+    expect(result.current.undo.stack).toHaveLength(1);
+    // ★ Never armed: the slice is not counted by the save guards, so an arm would leak to the next save
+    //   (`UNARMED_AI_ROUTES`, destructive-save-arming.test.ts).
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+
+    act(() => { result.current.undo.undo(); });
+
+    // Back at its own index, not appended.
+    expect(result.current.forecastScenarios).toEqual([SAVED, OTHER]);
+  });
+
+  test("delete with a stale token refuses and deletes nothing", async () => {
+    const { result, logActivityAs } = mount({ forecastScenarios: [SAVED] });
+    const stale = entityToken("forecastScenario", { ...SAVED, name: "Before a rename" });
+    await expect(
+      runTool(result.current.dispatcher, "delete_forecast_scenario", { id: 1, expectedToken: stale }),
+    ).rejects.toThrow("forecast scenario 1 changed since you read it");
+    act(() => {});
+    expect(result.current.forecastScenarios).toEqual([SAVED]);
+    expect(logActivityAs).not.toHaveBeenCalled();
+  });
+
+  test("deleting the proposed scenario reads as no proposal, and undo brings the proposal back", async () => {
+    const overrides = { forecast: { showSimulation: true, proposalScenarioId: 1 } };
+    const { result } = mount({ forecastScenarios: [SAVED], settingsOverrides: overrides });
+    const expectedToken = entityToken("forecastScenario", SAVED);
+    await act(async () => {
+      await runTool(result.current.dispatcher, "delete_forecast_scenario", { id: 1, expectedToken });
+    });
+    expect((result.current.dispatcher.getForecast(null) as Report).proposal).toBeNull();
+
+    act(() => { result.current.undo.undo(); });
+
+    expect((result.current.dispatcher.getForecast(null) as Report).proposal).toEqual({ id: 1, name: SAVED.name });
+  });
+
+  test("set_forecast_proposal with an unknown id refuses, naming the id, and writes and logs nothing", async () => {
+    const { result, logActivityAs } = mount({ forecastScenarios: [SAVED] });
+    const before = result.current.settingsOverrides;
+    await expect(runTool(result.current.dispatcher, "set_forecast_proposal", { id: 7 })).rejects.toThrow(
+      "forecast scenario 7 not found",
+    );
+    act(() => {});
+    expect(result.current.settingsOverrides).toBe(before);
+    expect(logActivityAs).not.toHaveBeenCalled();
+  });
+
+  test("set_forecast_proposal sets and clears, logging each as the AI, with no undo entry", async () => {
+    const { result, logActivityAs } = mount({ forecastScenarios: [SAVED, OTHER] });
+    let set: unknown;
+    let cleared: unknown;
+    await act(async () => {
+      set = await runTool(result.current.dispatcher, "set_forecast_proposal", { id: 2 });
+    });
+    expect(set).toEqual({ proposal: { id: 2, name: OTHER.name } });
+    expect(result.current.settingsOverrides?.forecast?.proposalScenarioId).toBe(2);
+    await act(async () => {
+      cleared = await runTool(result.current.dispatcher, "set_forecast_proposal", { id: null });
+    });
+    expect(cleared).toEqual({ proposal: null });
+    expect(result.current.settingsOverrides?.forecast?.proposalScenarioId).toBeUndefined();
+    expect(logActivityAs.mock.calls).toEqual([
+      ["ai", "forecast.proposalSet", 2, OTHER.name],
+      ["ai", "forecast.proposalCleared", 2, OTHER.name],
+    ]);
+    expect(result.current.undo.stack).toHaveLength(0);
+  });
+
+  test("set_forecast_target_confidence(70) refuses and writes nothing", async () => {
+    const { result, logActivityAs } = mount({});
+    await expect(runTool(result.current.dispatcher, "set_forecast_target_confidence", { value: 70 })).rejects.toThrow(
+      "value must be one of 50, 80, 95",
+    );
+    act(() => {});
+    expect(result.current.settingsOverrides?.forecast?.targetConfidence).toBeUndefined();
+    expect(logActivityAs).not.toHaveBeenCalled();
+  });
+
+  test("set_forecast_target_confidence logs 80 → 95 as the AI, is not undoable, and a repeat writes nothing", async () => {
+    const { result, logActivityAs } = mount({});
+    await act(async () => {
+      await runTool(result.current.dispatcher, "set_forecast_target_confidence", { value: 95 });
+    });
+    const after = result.current.settingsOverrides;
+    expect(after?.forecast?.targetConfidence).toBe(95);
+    await act(async () => {
+      await runTool(result.current.dispatcher, "set_forecast_target_confidence", { value: 95 });
+    });
+    expect(result.current.settingsOverrides).toBe(after);
+    expect(logActivityAs.mock.calls).toEqual([["ai", "forecast.targetChanged", 80, 95]]);
+    expect(result.current.undo.stack).toHaveLength(0);
+  });
+
+  // ★★ The ref is assigned at write time, not by the effect: inside ONE act no effect has run between the calls.
+  test("a get_forecast later in the same turn reads the new target and proposal", async () => {
+    const { result } = mount({ forecastScenarios: [SAVED] });
+    let report: Report | undefined;
+    await act(async () => {
+      const d = result.current.dispatcher;
+      await runTool(d, "set_forecast_target_confidence", { value: 95 });
+      await runTool(d, "set_forecast_proposal", { id: 1 });
+      report = (await runTool(d, "get_forecast", {})) as Report;
+    });
+    expect(report?.targetConfidence).toBe(95);
+    expect(report?.proposal).toEqual({ id: 1, name: SAVED.name });
+  });
+
+  // ★★ The other writer queues BEFORE the AI write and no render runs between them, so the AI's ref still lacks
+  //   its change: a plain `setSettingsOverrides(next)` computed from that ref would overwrite it.
+  test("a change another writer queued before the ref synced survives the AI's target and proposal writes", async () => {
+    const { result } = mount({ forecastScenarios: [SAVED] });
+    const berlin = { timezone: "Europe/Berlin" };
+    await act(async () => {
+      result.current.setSettingsOverrides((prev) => ({ ...prev, timezone: berlin }));
+      await runTool(result.current.dispatcher, "set_forecast_target_confidence", { value: 95 });
+      await runTool(result.current.dispatcher, "set_forecast_proposal", { id: 1 });
+    });
+    expect(result.current.settingsOverrides).toEqual({
+      timezone: berlin,
+      forecast: { showSimulation: true, targetConfidence: 95, proposalScenarioId: 1 },
+    });
+  });
+
+  // ★★ The opposite direction: the UI queued a CHANGE the AI then sets back to the value the stale ref still holds.
+  //   Deciding from the ref would skip the write and still report the value; the queued updater makes it land.
+  test("the AI's target and proposal land even when the ref still holds the value the UI just changed", async () => {
+    const { result } = mount({ forecastScenarios: [SAVED] });
+    await act(async () => {
+      result.current.setSettingsOverrides((prev) => ({ ...prev, forecast: { showSimulation: true, targetConfidence: 95, proposalScenarioId: 1 } }));
+      await runTool(result.current.dispatcher, "set_forecast_target_confidence", { value: 80 });
+      await runTool(result.current.dispatcher, "set_forecast_proposal", { id: null });
+    });
+    expect(result.current.settingsOverrides?.forecast).toEqual({ showSimulation: true });
+  });
+
+  // ★★ Same shape for the scenario list: a row another writer queued before the ref synced survives the AI's
+  //   create, update and delete, which go through a functional updater, not a value computed from the stale ref.
+  test("a scenario another writer queued before the ref synced survives the AI's scenario writes", async () => {
+    const { result } = mount({ forecastScenarios: [SAVED, scenario(2, "Other")] });
+    const queued = scenario(9, "Queued by the UI");
+    await act(async () => {
+      result.current.setForecastScenarios((prev) => [...prev, queued]);
+      result.current.dispatcher.deleteForecastScenario(2);
+      result.current.dispatcher.updateForecastScenario(1, { name: "Renamed" });
+    });
+    expect(result.current.forecastScenarios.map((s) => s.id)).toEqual([1, 9]);
+    expect(result.current.forecastScenarios[0].name).toBe("Renamed");
+  });
+
+  test("a scenario created earlier in the same turn can be proposed", async () => {
+    const { result } = mount({});
+    await act(async () => {
+      const d = result.current.dispatcher;
+      const created = (await runTool(d, "create_forecast_scenario", { name: "New", changes: [] })) as { id: number };
+      await runTool(d, "set_forecast_proposal", { id: created.id });
+    });
+    expect(result.current.settingsOverrides?.forecast?.proposalScenarioId).toBe(result.current.forecastScenarios[0].id);
+  });
+
+  test("a popout refuses all three, writing nothing", () => {
+    const overrides = { forecast: { showSimulation: true } };
+    const { result } = mount({ forecastScenarios: [SAVED], settingsOverrides: overrides }, { isReadOnly: true });
+    const d = result.current.dispatcher;
+    expect(() => d.deleteForecastScenario(1)).toThrow(READ_ONLY);
+    expect(() => d.setForecastProposal(1)).toThrow(READ_ONLY);
+    expect(() => d.setForecastTargetConfidence(95)).toThrow(READ_ONLY);
+    act(() => {});
+    expect(result.current.forecastScenarios).toEqual([SAVED]);
+    expect(result.current.settingsOverrides).toEqual(overrides);
+  });
+
+  test("with the switch off, all three refuse with the off message", async () => {
+    const { result } = mount({ forecastScenarios: [SAVED], settingsOverrides: undefined });
+    const d = result.current.dispatcher;
+    const expectedToken = entityToken("forecastScenario", SAVED);
+    await expect(runTool(d, "delete_forecast_scenario", { id: 1, expectedToken })).rejects.toThrow(FORECAST_OFF_MESSAGE);
+    await expect(runTool(d, "set_forecast_proposal", { id: 1 })).rejects.toThrow(FORECAST_OFF_MESSAGE);
+    await expect(runTool(d, "set_forecast_target_confidence", { value: 95 })).rejects.toThrow(FORECAST_OFF_MESSAGE);
+  });
+});
+
 describe("staging", () => {
   const call = (name: string, input: Record<string, unknown> = {}): ProposedCall => ({ name, input });
   const create = call("create_forecast_scenario", { name: "A", changes: [] });
@@ -421,6 +641,36 @@ describe("staging", () => {
     // A target minted earlier in the same plan is not stored yet: the call's own name labels it.
     expect(liveRowTitle(call("update_forecast_scenario", { id: 900, name: "B", changes: [] }), ws))
       .toBe('Edit scenario "B" (0 changes)');
+  });
+
+  test("a delete stages alone; one decision write applies, two stage (§502 part 4)", () => {
+    expect(shouldStage([call("delete_forecast_scenario", { id: 1, expectedToken: "t" })])).toBe(true);
+    expect(shouldStage([call("set_forecast_target_confidence", { value: 95 })])).toBe(false);
+    expect(shouldStage([call("set_forecast_proposal", { id: 1 })])).toBe(false);
+    expect(shouldStage([call("set_forecast_target_confidence", { value: 95 }), call("set_forecast_proposal", { id: 1 })]))
+      .toBe(true);
+  });
+
+  test("the card names the decision writes (§502 part 4)", () => {
+    const ws = { forecastScenarios: [SAVED] } as unknown as Workspace;
+    expect(liveRowTitle(call("delete_forecast_scenario", { id: 1 }), ws)).toBe('Delete scenario "Contractor in January"');
+    // Deleting the current proposal clears it too, so the card says so.
+    const proposed = { ...ws, settingsOverrides: { forecast: { proposalScenarioId: 1 } } } as unknown as Workspace;
+    expect(liveRowTitle(call("delete_forecast_scenario", { id: 1 }), proposed))
+      .toBe('Delete scenario "Contractor in January" (the proposal)');
+    expect(liveRowTitle(call("set_forecast_proposal", { id: 1 }), ws)).toBe('Propose scenario "Contractor in January"');
+    // A scenario this plan creates is not stored yet: the card names it by the create's name (`proposalTitles`
+    // collects the plan's creates); only with no create in the plan does the provisional id remain.
+    const create = call("create_forecast_scenario", { name: " Draft ", changes: [] });
+    const propose = call("set_forecast_proposal", { id: 900 });
+    const rows = [{ call: create, mintedId: 900 }, { call: propose }] as unknown as DescribedRow[];
+    expect(proposalTitles(rows, ws, () => "fallback")).toEqual(['Save scenario "Draft" (0 changes)', 'Propose scenario "Draft"']);
+    expect(liveRowTitle(propose, ws)).toBe("Propose scenario #900");
+    expect(liveRowTitle(call("set_forecast_proposal", { id: null }), ws)).toBe("Clear the proposal");
+    // The target is a project setting, not a scenario: its own titler, and the scenario one declines it.
+    const target = call("set_forecast_target_confidence", { value: 95 });
+    expect(liveRowTitle(target, ws)).toBe("Set the project's target confidence to 95%");
+    expect(forecastScenarioRowTitle(target, ws)).toBeNull();
   });
 
   // ★ A replace that drops rows must show it: the stored count beside the new one.

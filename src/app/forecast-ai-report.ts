@@ -1,8 +1,11 @@
 /**
  * The forecast report `get_forecast` returns (§502, spec §4.4) — pure, i18n-free, React-free. It reshapes the
  * existing scenario comparison into one JSON-serialisable object: no typed arrays, dates as ISO strings, a
- * trial past the horizon as "beyond". It computes nothing of its own, so every column shares the comparison's
- * common random numbers, and a `whatIf` equal to a saved scenario reproduces that scenario's result exactly.
+ * trial past the horizon as "beyond". It runs no forecast of its own: every column comes from the comparison (or
+ * `computeScenarioColumn` on its context), so all share its common random numbers, and a `whatIf` equal to a saved
+ * scenario reproduces that scenario's result exactly. The one extra work is the lever search (`whatItTakesSync`, §502
+ * part 4), whose probes are columns on that same context; it is the bulk of a call's cost (docs/AGENTS/forecast.md),
+ * so a call with a `whatIf` skips it.
  */
 import { entityToken } from "./ai-entity-token";
 import type { ScheduleContext } from "./forecast-added-people";
@@ -10,13 +13,20 @@ import { FORECAST_TRIALS } from "./forecast/constants";
 import type { ForecastInsufficient, ScheduleForecast } from "./forecast";
 import type { CostAtFinish } from "./forecast/cost";
 import type { ForecastHistoryEntry } from "./forecast-history";
+import { whatItTakesSync, type LeverTarget, type WhatItTakes } from "./forecast-levers";
+import { belowTargetRows, milestoneRowsWorstFirst } from "./forecast-milestone-rows";
 import {
   computeScenarioColumn, computeScenarioComparison, type ScenarioColumn, type ScenarioComparison, type ScenarioRunInput,
 } from "./forecast-scenario-compare";
 import type { ScenarioRowStatus } from "./forecast-scenario-schedule";
 import type { ForecastScenario, ScenarioChange, ValidationContext } from "./forecast-scenarios";
+import { proposalIdOf, targetConfidenceOf, type TargetConfidence } from "./forecast-target";
 import { weeklyChange, type WeeklyChange } from "./forecast-tile-model";
+import type { SettingsOverrides } from "./settings-types";
 import type { BudgetCurrency } from "./types";
+
+/** How many recorded days `p80History` carries: about five working weeks, the newest last. */
+export const P80_HISTORY_ENTRIES = 26;
 
 /** A milestone with a chance, or one the engine gives none (overdue, or no linked tasks). */
 export type MilestoneReport =
@@ -57,14 +67,30 @@ export type ForecastReport = {
     id: number; name: string; expectedToken: string; changes: readonly ScenarioChange[]; result: ColumnReport; rows: RowReport[];
   }[];
   whatIf?: { result: ColumnReport; rows: RowReport[] };
+  /** The project's goal for a chance (`targetConfidenceOf`). */
+  targetConfidence: TargetConfidence;
+  /** The lever engine's answer (`whatItTakesSync`) against `targetConfidence`, on As is. `planEnd` is null when As is
+   *  has no plan-end chance; `milestones` holds only those with a chance below the goal (`belowTargetRows`), worst
+   *  first. Both are empty below the history floor. ★ A call with a `whatIf` gets `{ omitted: "whatIf" }`: the take is
+   *  defined on As is, identical with or without the draft, and the search is most of a call's cost, so a drafting loop
+   *  of `whatIf` checks would pay it again on every check. A call without `whatIf` returns it. */
+  whatItTakes: WhatItTakesReport | { omitted: "whatIf" };
+  /** The scenario the user proposed; null when none is set or the id names no saved scenario (`proposalIdOf`). Its
+   *  figures are that scenario's entry in `scenarios`. */
+  proposal: { id: number; name: string } | null;
+  /** The last `P80_HISTORY_ENTRIES` recorded days, oldest first; p80 null = past the horizon that day. */
+  p80History: { date: string; p80: string | null }[];
 };
 
 /** `run.window` is `DEFAULT_HISTORY_WINDOW` and `run.unit` is `"tasks"`; the caller builds it that way. */
 export type ForecastReportInput = {
   run: ScenarioRunInput;
+  /** Sorted by date, as `sanitizeForecastHistory` and `upsertForecastHistory` keep it. */
   history: readonly ForecastHistoryEntry[];
   scenarios: readonly ForecastScenario[];
   currency: BudgetCurrency;
+  /** The target confidence and the proposal ride here. */
+  settingsOverrides: SettingsOverrides | undefined;
 };
 
 /** Which shortfall(s) the floor reports, by the rule `InsufficientState` uses: a part is short when below its need. */
@@ -129,6 +155,38 @@ function rowsOf(column: ScenarioColumn): RowReport[] {
   return (column.schedule?.rows ?? []).map(rowReport);
 }
 
+export type WhatItTakesReport = {
+  planEnd: WhatItTakes | null;
+  milestones: { id: number; name: string; take: WhatItTakes }[];
+};
+
+/** The plan end's and each below-target milestone's lever search, on the comparison's own As-is run and context (no
+ *  second As-is run). Below the floor there is no chance to search from, so nothing runs. */
+function whatItTakesReport(
+  run: ScenarioRunInput, { asIs, context }: ScenarioComparison, goal: TargetConfidence,
+): WhatItTakesReport {
+  const f = asIs.forecast;
+  // A second mechanism, not the only one: `planWhatItTakes` already answers null for an insufficient column (its
+  // plan-end chance is null and it has no milestone chances), so this saves only the row build, no engine run.
+  if (f.kind !== "forecast") return { planEnd: null, milestones: [] };
+  const take = (target: LeverTarget) => whatItTakesSync(run, context, target, goal, asIs);
+  const below = belowTargetRows(milestoneRowsWorstFirst(run.milestones, f.milestones), goal);
+  return {
+    planEnd: take({ kind: "planEnd" }),
+    // A below-target row has a chance on this same As-is column, so its take is never null; the guard is for tsc.
+    milestones: below.flatMap((r) => {
+      const t = take({ kind: "milestone", id: r.id });
+      return t === null ? [] : [{ id: r.id, name: r.name, take: t }];
+    }),
+  };
+}
+
+function proposalReport({ settingsOverrides, scenarios }: ForecastReportInput): ForecastReport["proposal"] {
+  const id = proposalIdOf(settingsOverrides, scenarios);
+  const scenario = id === null ? undefined : scenarios.find((s) => s.id === id);
+  return scenario === undefined ? null : { id: scenario.id, name: scenario.name };
+}
+
 /** As is, every saved scenario, and optionally one unsaved `whatIf` change list, as one JSON report.
  *  ★ `comparison` must be `computeScenarioComparison(input.run, input.scenarios)`: `getForecast` builds it first so
  *  the `whatIf` check reads its context, and the As-is run is paid once per call. */
@@ -140,6 +198,7 @@ export function buildForecastReport(
   const { run, history, currency } = input;
   const { asIs } = comparison;
   const asIsReport = columnReport(asIs, run);
+  const goal = targetConfidenceOf(input.settingsOverrides);
   const report: ForecastReport = {
     simulated: true,
     settings: {
@@ -155,6 +214,10 @@ export function buildForecastReport(
       id: scenario.id, name: scenario.name, expectedToken: entityToken("forecastScenario", scenario),
       changes: scenario.changes, result: columnReport(column, run), rows: rowsOf(column),
     })),
+    targetConfidence: goal,
+    whatItTakes: whatIf === null ? whatItTakesReport(run, comparison, goal) : { omitted: "whatIf" },
+    proposal: proposalReport(input),
+    p80History: history.slice(-P80_HISTORY_ENTRIES).map(({ date, p80 }) => ({ date, p80 })),
   };
   if (whatIf === null) return report;
   const column = computeScenarioColumn(run, whatIf, comparison.context);

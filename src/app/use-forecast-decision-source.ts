@@ -1,8 +1,10 @@
 // §502 part 4 — the forecast decision the exports and document blocks read (`ExportExtrasProvider`). Builds NOTHING
 // on render: the memo only wraps the inputs in lazy thunks. `source` runs the whole engine the first time an export or
 // a document download asks; `live` is what a preview reads (`usePreviewExportExtras`), whose lever search runs off the
-// render path. The input is the Reports Forecast section's (the app-wide defaults, the same references), so the
-// shared app run answers and an exported figure matches the Reports one.
+// render path. The input is the Reports Forecast section's run at the app-wide defaults: its SCHEDULE fields (tasks,
+// milestones, plan end, today, holidays) are the same references, so the shared app run (`sharedAsIsRun`) answers and
+// an exported figure matches the Reports one. The directory and `budgetFacts` are NOT shared: each holder builds its
+// own (`useWorkspaceForecastDecisionSource` memoises the directory; the input thunk computes the budget facts).
 
 import { useMemo } from "react";
 import { computeProjectForecastFacts } from "./budget-forecast";
@@ -23,7 +25,8 @@ import { useWorkspace } from "./workspace-context";
 export type ForecastDecisionSourceDeps = {
   /** `isSimulationActive(settingsOverrides, features)`; off, there is no source and the section is absent. */
   simulationActive: boolean;
-  /** False while the holiday calendar loads: the decision is null until then (a run on an empty calendar would be wrong). */
+  /** False while the holiday calendar loads: the input is null until then (a run on an empty calendar would be wrong),
+   *  and the decision says the calendar is loading. */
   holidaysReady: boolean | undefined;
   tasks: readonly Task[];
   milestones: readonly Milestone[];
@@ -40,7 +43,8 @@ export type ForecastDecisionSourceDeps = {
 /**
  * ★ PRESENT EXACTLY WHILE THE SIMULATION IS ACTIVE — the one gate that offers the section (the document block select
  * reads the source's presence; Settings → Export asks `isSimulationActive` itself). While the holiday calendar loads
- * the handle is there but its input is null, so the decision is null and the section is omitted until it is ready.
+ * the handle is there but its input is null, so the decision is the one-row "calendar loading" one (Task 11b): a
+ * ticked section is never dropped silently. Once the calendar is ready, `holidaysReady` rebuilds the handle.
  */
 export function useForecastDecisionSource(d: ForecastDecisionSourceDeps): ForecastDecisionHandle | null {
   const { simulationActive, holidaysReady, tasks, milestones, today, holidaySet, plan, directory, budgetEnabled, scenarios, settingsOverrides } = d;

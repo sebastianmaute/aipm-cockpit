@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TOOL_DEFS } from "./chat-tool-defs";
 import { evaluateSaveGuard } from "./save-guard";
+import { SLICE_POLICY } from "./workspace-slice-policy";
 
 /**
  * The SECOND save-guard invariant (docs/open-followups.md §285).
@@ -113,6 +114,14 @@ const ARMED_AI_ROUTES: Record<string, string> = {
   delete_calendar_event: "use-chat-dispatcher.test.tsx",
 };
 
+/** AI removal tools that deliberately do NOT arm, each because its slice is NOT counted by the save guards, so
+ *  an arm would stay set and leak to the NEXT save, waving through a delete it never saw (the UI route's own
+ *  comment, `deleteScenario` in use-forecast-scenarios.ts). The value is the uncounted slice, which the test
+ *  below checks against `SLICE_POLICY`: counting it later turns this red. */
+const UNARMED_AI_ROUTES: Record<string, string> = {
+  delete_forecast_scenario: "forecastScenarios", // §502 part 4
+};
+
 function removalToolNames(): string[] {
   return TOOL_DEFS
     .map((d) => (d as { name?: unknown }).name)
@@ -127,7 +136,16 @@ describe("destructive-save arming — the counted-slice removal invariant", () =
     // breaks the spread would empty this list silently.
     const names = removalToolNames();
     expect(names.length, "no delete_/clear_ tools found — the enumeration is broken, not clean").toBeGreaterThan(0);
-    expect(names.length).toBeGreaterThanOrEqual(Object.keys(ARMED_AI_ROUTES).length);
+    expect(names.length).toBeGreaterThanOrEqual(
+      Object.keys(ARMED_AI_ROUTES).length + Object.keys(UNARMED_AI_ROUTES).length,
+    );
+  });
+
+  it("every deliberately unarmed tool removes from a slice the save guards do not count", () => {
+    for (const [tool, slice] of Object.entries(UNARMED_AI_ROUTES)) {
+      expect(SLICE_POLICY[slice]?.counted, `${tool}: ${slice} must be an uncounted slice`).toBe(false);
+      expect(tool in ARMED_AI_ROUTES, `${tool} is recorded both armed and unarmed`).toBe(false);
+    }
   });
 
   it("reaches delete_document, which is declared in a SPREAD module", () => {
@@ -137,7 +155,7 @@ describe("destructive-save arming — the counted-slice removal invariant", () =
   });
 
   it("has a recorded arming decision for every AI removal tool", () => {
-    const undecided = removalToolNames().filter((n) => !(n in ARMED_AI_ROUTES));
+    const undecided = removalToolNames().filter((n) => !(n in ARMED_AI_ROUTES) && !(n in UNARMED_AI_ROUTES));
     expect(
       undecided,
       `New AI removal tool(s) with no arming decision: ${undecided.join(", ")}. ` +
@@ -166,7 +184,7 @@ describe("destructive-save arming — the counted-slice removal invariant", () =
     // as mutation-proved in isolation — the mutant it was run against is killed
     // by two assertions, and no mutant here isolates it.
     const names = new Set(removalToolNames());
-    const orphaned = Object.keys(ARMED_AI_ROUTES).filter((n) => !names.has(n));
+    const orphaned = [...Object.keys(ARMED_AI_ROUTES), ...Object.keys(UNARMED_AI_ROUTES)].filter((n) => !names.has(n));
     expect(
       orphaned,
       `ARMED_AI_ROUTES names tool(s) that TOOL_DEFS no longer declares: ${orphaned.join(", ")}. ` +
