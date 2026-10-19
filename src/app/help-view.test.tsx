@@ -5,6 +5,8 @@ import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { HelpView } from "./help-view";
 import { helpSectionId } from "./help-content-pane";
+import { helpEntryBody } from "./help-content";
+import { FORECAST_AXIS_EXTENSION_DAYS } from "./gantt-engine";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { SETTINGS_KEY } from "./use-settings";
 import { showForecastView } from "../test/forecast-view";
@@ -162,6 +164,14 @@ describe("HelpView — reopening the simulation intro (§502)", () => {
     expect(screen.queryByRole("button", { name: LABEL })).toBeNull();
   });
 
+  it("renders the entry with the axis cap filled in, not the placeholder", async () => {
+    render(<HelpView lang="en-US" onNavigateView={vi.fn()} />);
+    const heading = await screen.findByRole("heading", { name: t("en-US", "helpConceptForecastSimTitle") });
+    const text = heading.closest("section")?.textContent ?? "";
+    expect(text).toContain(`at most ${FORECAST_AXIS_EXTENSION_DAYS} days`);
+    expect(text).not.toContain("{0}");
+  });
+
   it("under the simulation entry, clears the seen flag and goes to the Dashboard", async () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ simulationIntroSeen: true }));
     const onNavigateView = vi.fn();
@@ -210,14 +220,37 @@ describe("HelpView — reopening the intro with the switch off (§502)", () => {
   it("names part 4's surfaces by their on-screen labels, EN and DE (§502)", async () => {
     await loadI18n("de");
     for (const lang of ["en-US", "de"] as const) {
-      const body = t(lang, "helpConceptForecastSimBody");
+      const body = helpEntryBody(lang, { bodyKey: "helpConceptForecastSimBody" });
       for (const key of ["simEvenOdds", "simSafeToCommit", "simCautious", "forecastDraftAskLabel", "forecastScenarioUseAsProposal", "forecastColChancePrioritised"] as const) {
         expect(body).toContain(t(lang, key));
       }
-      expect(body).toContain(lang === "de" ? "180 Tage" : "180 days");
       expect(body).toContain("→");
       expect(body).toContain(lang === "de" ? "als simuliert" : "marked simulated");
     }
+  });
+
+  // The axis cap is the Gantt's constant, filled in at render: the string itself carries only the placeholder,
+  // so a hand-typed number cannot come back and drift from FORECAST_AXIS_EXTENSION_DAYS.
+  it("quotes the Gantt's axis cap from FORECAST_AXIS_EXTENSION_DAYS, EN and DE (§502)", async () => {
+    await loadI18n("de");
+    for (const lang of ["en-US", "de"] as const) {
+      expect(t(lang, "helpConceptForecastSimBody")).toContain(lang === "de" ? "höchstens {0} Tage" : "at most {0} days");
+      const body = helpEntryBody(lang, { bodyKey: "helpConceptForecastSimBody" });
+      expect(body).toContain(`${FORECAST_AXIS_EXTENSION_DAYS} ${lang === "de" ? "Tage" : "days"}`);
+      expect(body).not.toContain("{0}");
+    }
+  });
+
+  // A lone scenario, target or proposal write applies at once (shouldStage stages only several writes or a
+  // delete), so the help must not promise an approval step for it.
+  it("promises the review card only for several changes or a delete, EN and DE (§502)", async () => {
+    await loadI18n("de");
+    const en = t("en-US", "helpConceptForecastSimBody");
+    expect(en).toContain("One such change applies at once and is logged");
+    expect(en).not.toMatch(/once you approve|same approval/);
+    const de = t("de", "helpConceptForecastSimBody");
+    expect(de).toContain("Eine einzelne solche Änderung gilt sofort und wird protokolliert");
+    expect(de).not.toMatch(/sobald Sie zustimmen|derselben Zustimmung/);
   });
 });
 
