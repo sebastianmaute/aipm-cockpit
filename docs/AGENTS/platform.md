@@ -128,9 +128,9 @@
   fails the load, and a failed load settles. **A new backend, or a new await in a load path, needs the
   same bound, or it can hold the app behind the skeleton forever.** The remaining unbounded waits are
   waits ON THE USER, each settling only when dismissed: the MSAL popup in the SharePoint `getToken`
-  (closing it rejects, which settles the load), and the native file picker plus the `window.confirm`
-  overwrite prompt inside the held `onOpenStorageFile` (`use-storage-file-ops.ts`) — cancelling either
-  one settles the op the same way.
+  (closing it rejects, which settles the load), and the native file picker plus the app's overwrite
+  dialog inside the held `onOpenStorageFile` (`use-storage-file-ops.ts`; the app's since §752, no longer
+  `window.confirm`) — cancelling either one settles the op the same way.
 - ★★★ **It is NOT `workspaceLoaded`.** `workspaceLoaded` stays false after a FAILED load and after the
   empty-load refusal (§77), which is right for snapshot capture and saving. Holding edits on it would
   lock the app for the whole session after one load error. `settledBackend` is stamped on EVERY terminal

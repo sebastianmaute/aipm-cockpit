@@ -71,7 +71,8 @@ export type ForecastReport = {
   targetConfidence: TargetConfidence;
   /** The lever engine's answer (`whatItTakesSync`) against `targetConfidence`, on As is. `planEnd` is null when As is
    *  has no plan-end chance; `milestones` holds only those with a chance below the goal (`belowTargetRows`), worst
-   *  first. Both are empty below the history floor. ★ A call with a `whatIf` gets `{ omitted: "whatIf" }`: the take is
+   *  first, at most `WHAT_IT_TAKES_MILESTONE_CAP` of them; `notSearched` names the rest. Below the history floor `planEnd` is null and
+   *  both lists are empty. ★ A call with a `whatIf` gets `{ omitted: "whatIf" }`: the take is
    *  defined on As is, identical with or without the draft, and the search is most of a call's cost, so a drafting loop
    *  of `whatIf` checks would pay it again on every check. A call without `whatIf` returns it. */
   whatItTakes: WhatItTakesReport | { omitted: "whatIf" };
@@ -155,30 +156,40 @@ function rowsOf(column: ScenarioColumn): RowReport[] {
   return (column.schedule?.rows ?? []).map(rowReport);
 }
 
+/** How many below-target milestones one call searches, worst first. Each search is synchronous inside the tool call
+ *  (about 50–350 ms, rising with the backlog), so an uncapped call froze the app for about 10 s with 30 milestones below target (§502 gate 1,
+ *  docs/AGENTS/forecast.md). */
+export const WHAT_IT_TAKES_MILESTONE_CAP = 5;
+
 export type WhatItTakesReport = {
   planEnd: WhatItTakes | null;
   milestones: { id: number; name: string; take: WhatItTakes }[];
+  /** Below-target milestones with no take, worst first: any searched one whose take came back null, then those past the cap. */
+  notSearched: { id: number; name: string }[];
 };
 
-/** The plan end's and each below-target milestone's lever search, on the comparison's own As-is run and context (no
- *  second As-is run). Below the floor there is no chance to search from, so nothing runs. */
+/** The plan end's lever search and the worst `WHAT_IT_TAKES_MILESTONE_CAP` below-target milestones', on the comparison's own
+ *  As-is run and context (no second As-is run). Below the floor there is no chance to search from, so nothing runs. */
 function whatItTakesReport(
   run: ScenarioRunInput, { asIs, context }: ScenarioComparison, goal: TargetConfidence,
 ): WhatItTakesReport {
   const f = asIs.forecast;
   // A second mechanism, not the only one: `planWhatItTakes` already answers null for an insufficient column (its
   // plan-end chance is null and it has no milestone chances), so this saves only the row build, no engine run.
-  if (f.kind !== "forecast") return { planEnd: null, milestones: [] };
+  if (f.kind !== "forecast") return { planEnd: null, milestones: [], notSearched: [] };
   const take = (target: LeverTarget) => whatItTakesSync(run, context, target, goal, asIs);
   const below = belowTargetRows(milestoneRowsWorstFirst(run.milestones, f.milestones), goal);
-  return {
-    planEnd: take({ kind: "planEnd" }),
-    // A below-target row has a chance on this same As-is column, so its take is never null; the guard is for tsc.
-    milestones: below.flatMap((r) => {
-      const t = take({ kind: "milestone", id: r.id });
-      return t === null ? [] : [{ id: r.id, name: r.name, take: t }];
-    }),
-  };
+  const milestones: WhatItTakesReport["milestones"] = [];
+  const noTake: WhatItTakesReport["notSearched"] = [];
+  for (const r of below.slice(0, WHAT_IT_TAKES_MILESTONE_CAP)) {
+    // A below-target row has a chance on this same As-is column, so its take should never be null; if one ever is,
+    // the milestone is still named below target (first, keeping worst-first order) rather than dropped from both lists.
+    const t = take({ kind: "milestone", id: r.id });
+    if (t === null) noTake.push({ id: r.id, name: r.name });
+    else milestones.push({ id: r.id, name: r.name, take: t });
+  }
+  const notSearched = [...noTake, ...below.slice(WHAT_IT_TAKES_MILESTONE_CAP).map((r) => ({ id: r.id, name: r.name }))];
+  return { planEnd: take({ kind: "planEnd" }), milestones, notSearched };
 }
 
 function proposalReport({ settingsOverrides, scenarios }: ForecastReportInput): ForecastReport["proposal"] {

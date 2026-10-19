@@ -161,3 +161,64 @@ describe("useScheduledJobs — StrictMode mount re-set (§76)", () => {
     expect(result.current.jobs[0].name).toBe("Daily");
   });
 });
+
+// §750 — the runner (use-ai-orchestration.ts) and Settings (scheduled-jobs-section.tsx) each mount this
+// hook. Each kept the list it read on mount, so a job created in Settings never reached the runner until a
+// reload, and a run the runner recorded never showed in Settings.
+describe("useScheduledJobs — every instance sees one list (§750)", () => {
+  beforeEach(() => localStorage.clear());
+
+  async function mountTwo() {
+    const runner = renderHook(() => useScheduledJobs({ config: null }));
+    const settings = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(runner.result.current.ready && settings.result.current.ready).toBe(true));
+    return { runner, settings };
+  }
+
+  it("a job created in one instance reaches the other", async () => {
+    const { runner, settings } = await mountTwo();
+    await act(async () => {
+      await settings.result.current.createJob({ name: "Weekly review", cadence: dailyCadence, enabled: true });
+    });
+    await waitFor(() => expect(runner.result.current.jobs.map((j) => j.name)).toEqual(["Weekly review"]));
+  });
+
+  it("a run one instance records shows in the other", async () => {
+    const { runner, settings } = await mountTwo();
+    await act(async () => {
+      await settings.result.current.createJob({ name: "Weekly review", cadence: dailyCadence, enabled: true });
+    });
+    await waitFor(() => expect(runner.result.current.jobs).toHaveLength(1));
+    await act(async () => {
+      await runner.result.current.recordRun(1, run("2026-10-19T09:00:00.000Z"));
+    });
+    await waitFor(() => expect(settings.result.current.jobs[0]?.lastRunAt).toBe("2026-10-19T09:00:00.000Z"));
+  });
+
+  it("an edit and a delete in one instance reach the other", async () => {
+    const { runner, settings } = await mountTwo();
+    await act(async () => {
+      await settings.result.current.createJob({ name: "A", cadence: dailyCadence, enabled: true });
+      await settings.result.current.createJob({ name: "B", cadence: dailyCadence, enabled: true });
+    });
+    await act(async () => {
+      await settings.result.current.updateJob(1, { enabled: false });
+      await settings.result.current.deleteJob(2);
+    });
+    await waitFor(() => expect(runner.result.current.jobs.map((j) => [j.name, j.enabled])).toEqual([["A", false]]));
+  });
+
+  // Each instance re-reads the stored list before writing, but two instances writing at once both read
+  // the list before either saved: the second save dropped the first one's change.
+  it("writes from two instances at once both land", async () => {
+    const { runner, settings } = await mountTwo();
+    await act(async () => {
+      await Promise.all([
+        settings.result.current.createJob({ name: "From Settings", cadence: dailyCadence, enabled: true }),
+        runner.result.current.createJob({ name: "From the runner", cadence: dailyCadence, enabled: true }),
+      ]);
+    });
+    await waitFor(() => expect(settings.result.current.jobs.map((j) => j.name).sort()).toEqual(["From Settings", "From the runner"]));
+    expect(runner.result.current.jobs.map((j) => j.id).sort()).toEqual([1, 2]);
+  });
+});

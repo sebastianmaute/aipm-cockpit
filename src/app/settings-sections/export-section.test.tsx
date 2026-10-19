@@ -53,11 +53,11 @@ describe("ExportSection", () => {
       const switchOff = render(<ExportSection lang={lang} settings={defaultSettings} onChange={vi.fn()} />);
       expect(screen.queryByLabelText(label)).toBeNull();
       switchOff.unmount();
-      // Both: shown, checked by default.
+      // Both: shown, unchecked by default (ticked, the export runs the lever search at the click).
       workspace.settingsOverrides = SWITCH_ON;
       renderSection();
       expect(screen.getAllByRole("checkbox")).toHaveLength(EXPORT_SECTION_KEYS.length);
-      expect(screen.getByLabelText(label)).toBeChecked();
+      expect(screen.getByLabelText(label)).not.toBeChecked();
     } finally {
       vi.mocked(isViewEnabled).mockRestore();
       workspace.settingsOverrides = undefined;
