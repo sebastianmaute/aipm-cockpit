@@ -122,6 +122,12 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
     setSettingsOverrides((prev) => update(prev));
   }, [setSettingsOverrides]);
 
+  /** The same for the scenario list: the ref NOW, the state through a functional updater (`writeOverrides`). */
+  const writeScenarios = useCallback((update: (prev: readonly ForecastScenario[]) => ForecastScenario[]) => {
+    scenariosRef.current = update(scenariosRef.current);
+    setForecastScenarios((prev) => update(prev));
+  }, [setForecastScenarios]);
+
   /** The run input with the live tasks, milestones, resources and scenarios, or the loading refusal. */
   const requireInput = useCallback((): ForecastReportInput => {
     const input = getForecastInputRef.current();
@@ -168,9 +174,7 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
         if (refusal !== null) throw new Error(refusal);
         const id = mintId("forecastScenario", list);
         const row: ForecastScenario = { id, name: name.trim(), changes: trimScenarioChanges(changes) };
-        const next = addScenario(list, row);
-        scenariosRef.current = next;
-        setForecastScenarios(next);
+        writeScenarios((prev) => addScenario(prev, row));
         // ★ No undo capture: undoing a create by capture duplicates the row (docs/AGENTS/undo.md "Creates").
         logActivityAs?.("ai", "forecastScenario.created", id, row.name);
         return toResult(row);
@@ -212,9 +216,7 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
           name: stored.name,
           entityKey: "forecastScenario",
         });
-        const next = replaceScenario(list, after);
-        scenariosRef.current = next;
-        setForecastScenarios(next);
+        writeScenarios((prev) => replaceScenario(prev, after));
         logActivityAs?.("ai", "forecastScenario.updated", id, after.name);
         return { ...toResult(after), ...removed };
       },
@@ -234,9 +236,7 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
           name: doomed.name,
           entityKey: "forecastScenario",
         });
-        const next = removeScenario(list, id);
-        scenariosRef.current = next;
-        setForecastScenarios(next);
+        writeScenarios((prev) => removeScenario(prev, id));
         logActivityAs?.("ai", "forecastScenario.deleted", id, doomed.name);
         return { deleted: true, id, name: doomed.name };
       },
@@ -270,6 +270,6 @@ export function useForecastTools(deps: ForecastToolsDeps): ForecastToolDispatche
     }),
     // Exhaustive: the slices are read through `scenariosRef` and `settingsOverridesRef`; everything else listed is
     // stable in practice (refs, `useCallback`s over refs, and the provider's `useState` setters).
-    [isReadOnly, logActivityAs, undoRef, setForecastScenarios, isForecastEnabled, readOnlyError, requireInput, writeOverrides],
+    [isReadOnly, logActivityAs, undoRef, setForecastScenarios, isForecastEnabled, readOnlyError, requireInput, writeOverrides, writeScenarios],
   );
 }

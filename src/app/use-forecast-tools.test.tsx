@@ -77,8 +77,8 @@ function mount(seed: TestSeed, over: Partial<ChatDispatcherArgs> = {}) {
       const dispatcher = useChatDispatcher(
         makeDispatcherArgs({ undo, logActivityAs, getForecastInput: () => makeInput(), ...over }),
       );
-      const { forecastScenarios, settingsOverrides, setSettingsOverrides } = useWorkspace();
-      return { undo, dispatcher, forecastScenarios, settingsOverrides, setSettingsOverrides };
+      const { forecastScenarios, setForecastScenarios, settingsOverrides, setSettingsOverrides } = useWorkspace();
+      return { undo, dispatcher, forecastScenarios, setForecastScenarios, settingsOverrides, setSettingsOverrides };
     },
     { wrapper: dispatcherWrapperWith({ settingsOverrides: ON, ...seed }) },
   );
@@ -557,6 +557,20 @@ describe("the decision writes (§502 part 4)", () => {
     });
   });
 
+  // ★★ Same shape for the scenario list: a row another writer queued before the ref synced survives the AI's
+  //   create, update and delete, which go through a functional updater, not a value computed from the stale ref.
+  test("a scenario another writer queued before the ref synced survives the AI's scenario writes", async () => {
+    const { result } = mount({ forecastScenarios: [SAVED, scenario(2, "Other")] });
+    const queued = scenario(9, "Queued by the UI");
+    await act(async () => {
+      result.current.setForecastScenarios((prev) => [...prev, queued]);
+      result.current.dispatcher.deleteForecastScenario(2);
+      result.current.dispatcher.updateForecastScenario(1, { name: "Renamed" });
+    });
+    expect(result.current.forecastScenarios.map((s) => s.id)).toEqual([1, 9]);
+    expect(result.current.forecastScenarios[0].name).toBe("Renamed");
+  });
+
   test("a scenario created earlier in the same turn can be proposed", async () => {
     const { result } = mount({});
     await act(async () => {
@@ -628,6 +642,10 @@ describe("staging", () => {
   test("the card names the decision writes (§502 part 4)", () => {
     const ws = { forecastScenarios: [SAVED] } as unknown as Workspace;
     expect(liveRowTitle(call("delete_forecast_scenario", { id: 1 }), ws)).toBe('Delete scenario "Contractor in January"');
+    // Deleting the current proposal clears it too, so the card says so.
+    const proposed = { ...ws, settingsOverrides: { forecast: { proposalScenarioId: 1 } } } as unknown as Workspace;
+    expect(liveRowTitle(call("delete_forecast_scenario", { id: 1 }), proposed))
+      .toBe('Delete scenario "Contractor in January" (the proposal)');
     expect(liveRowTitle(call("set_forecast_proposal", { id: 1 }), ws)).toBe('Propose scenario "Contractor in January"');
     // A scenario this plan creates is not stored yet: its provisional id labels it.
     expect(liveRowTitle(call("set_forecast_proposal", { id: 900 }), ws)).toBe("Propose scenario #900");
