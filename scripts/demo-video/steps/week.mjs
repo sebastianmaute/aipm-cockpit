@@ -94,6 +94,9 @@ async function newProjectButton(ctx) {
   return main(ctx).getByRole('button', { name: '+ New project', exact: true });
 }
 
+/** The proposal form's GDPR checkbox (the regulatory requirements group). */
+const gdprBox = (d) => d.getByRole('checkbox', { name: 'GDPR / data protection regulation', exact: true });
+
 export const wizardProposal = step('wizard-proposal', {
   ai: true,
   trigger: newProjectButton,
@@ -112,9 +115,17 @@ export const wizardProposal = step('wizard-proposal', {
     });
     await pace(ctx, 3000);
   },
-  check: async (ctx) => ((await ctx.page.locator(DLG).last().getByRole('textbox', { name: /Project name/ }).inputValue().catch(() => '')) ? null : 'no proposal'),
+  // The brief names GDPR erasure: a proposal that leaves GDPR unticked is the wrong take (§715).
+  check: async (ctx) => {
+    const d = ctx.page.locator(DLG).last();
+    if (!(await d.getByRole('textbox', { name: /Project name/ }).inputValue().catch(() => ''))) return 'no proposal';
+    return (await gdprBox(d).isChecked().catch(() => false)) ? null : 'GDPR not ticked';
+  },
   after: async (ctx) => {
     const d = ctx.page.locator(DLG).last();
+    await caption(ctx, 'From the brief, Claude ticks GDPR and fills the other key facts.');
+    await moveTo(ctx, gdprBox(d));
+    await pace(ctx, 2500);
     for (const what of ['template', 'functions']) await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), `Next (${what})`, 2000);
     await caption(ctx, ctx.newFromEmpty ? 'The last step creates it. Here we open the demo project instead.' : 'The last step creates it. Here we cancel and stay in the demo.');
     await click(ctx, d.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel', 1000);
