@@ -33,6 +33,23 @@ describe("runJobAnalysis", () => {
     }
   });
 
+  // 2048 tokens could cut a full answer (eight actions with rationale) short, and a cut tool input fails the parse.
+  it("asks for an output budget of 4096 tokens", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      ok({ content: [{ type: "tool_use", name: "report_analysis", input: { summary: "s", actions: [] } }] }),
+    );
+    await runJobAnalysis("ctx", { apiKey: "k", model: "m" });
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(String(init.body)).max_tokens).toBe(4096);
+  });
+
+  it("throws 'parse' when the reply was cut at the output budget", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      ok({ stop_reason: "max_tokens", content: [{ type: "tool_use", name: "report_analysis", input: { summary: "s", actions: [] } }] }),
+    );
+    await expect(runJobAnalysis("ctx", { apiKey: "k", model: "m" })).rejects.toThrow("parse");
+  });
+
   it("throws 'parse' on malformed tool output", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(ok({ content: [{ type: "text", text: "nope" }] }));
     await expect(runJobAnalysis("ctx", { apiKey: "k", model: "m" })).rejects.toThrow("parse");

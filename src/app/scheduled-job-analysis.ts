@@ -6,7 +6,7 @@
 // or the raw response body — thrown errors carry only the HTTP status (AiHttpError,
 // message status-only) or the token "parse".
 import { parseAnalysis, ANALYZE_TOOL, buildAnalysisSystemPrompt, type ActionAnalysis } from "./action-ai";
-import { runForcedToolCall } from "./ai-forced-call";
+import { runForcedToolCallWithStop } from "./ai-forced-call";
 
 interface AiCreds {
   apiKey: string;
@@ -20,10 +20,11 @@ interface AiCreds {
 
 /** Run one forced report_analysis tool call and return the parsed analysis.
  *  Throws AiHttpError(status, errorType?, safeMessage?) on a non-OK response and
- *  Error("parse") on absent/malformed tool output. The api key and response body
+ *  Error("parse") on absent/malformed tool output, or on a reply cut at the output budget (its input
+ *  may be partial). The api key and response body
  *  are NEVER included in the thrown error — only the status + safe tokens. */
 export async function runJobAnalysis(context: string, ai: AiCreds, signal?: AbortSignal): Promise<ActionAnalysis> {
-  const input = await runForcedToolCall({
+  const { input, stopReason } = await runForcedToolCallWithStop({
     apiKey: ai.apiKey,
     model: ai.model,
     system: buildAnalysisSystemPrompt(),
@@ -32,10 +33,11 @@ export async function runJobAnalysis(context: string, ai: AiCreds, signal?: Abor
     tools: [ANALYZE_TOOL],
     toolName: "report_analysis",
     messages: [{ role: "user", content: context }],
-    maxTokens: 2048,
+    // Twice the old 2048, the budget task dedup and the project proposal use; a cut reply is still "parse".
+    maxTokens: 4096,
     signal,
   });
-  const parsed = parseAnalysis(input);
+  const parsed = stopReason === "max_tokens" ? null : parseAnalysis(input);
   if (!parsed) throw new Error("parse");
   return parsed;
 }
