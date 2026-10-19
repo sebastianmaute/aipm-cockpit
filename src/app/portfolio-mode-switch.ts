@@ -1,6 +1,6 @@
 // The portfolio switch's commit and reload, shared by the Settings section's "Save & switch" and the
 // setup wizard's Finish (§715 D2). Re-exported by `settings-sections/integrations-section.tsx`.
-import { hasUnsealedPassphraseToken } from "./turso-token-marker";
+import { hasUnsealedPassphraseSecret, hasUnsealedPassphraseToken } from "./turso-token-marker";
 import { tokenSealsSettled } from "./turso-token-seals";
 import { savePortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { writeSettings } from "./use-settings";
@@ -8,6 +8,12 @@ import { sealSettingsUntilReload } from "./settings-reload-seal";
 import { loadRegistry } from "./projects-registry";
 import { defaultStorageConfig } from "./workspace";
 import type { Settings } from "./settings-types";
+
+/** §749 — the Claude key was typed under its passphrase lock and no seal covers it yet, so a reload (which
+ *  blanks it, `writeSettings`) would bring back the OLD record or none. Every reload path refuses on it. */
+export function aiKeyHeldUnsealed(settings: Settings): boolean {
+  return hasUnsealedPassphraseSecret("anthropicApiKey", settings.ai?.apiKey);
+}
 
 /** Commits a portfolio switch and reloads onto it: this section's "Save & switch", and the setup
  *  wizard's Finish when the switch was picked on its storage step (§715 D2 — the wizard unmounts this
@@ -31,6 +37,7 @@ export async function commitPortfolioModeSwitch(
   //   passphrase mode that no seal covers (none started, or it failed or timed out) is lost to the
   //   reload, so refuse — `false`, nothing written — and let the caller say how to save it.
   if (hasUnsealedPassphraseToken(base.integrations?.turso?.authToken)) return false;
+  if (aiKeyHeldUnsealed(base)) return false; // §749 — the same gate for the Claude key; the caller says how to save it
   // The caller's own seal of a token the marker does not hold (a draft on Turso storage), read after
   // the same single wait.
   if (ownSealRefuses?.()) return false;

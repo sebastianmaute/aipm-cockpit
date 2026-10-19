@@ -986,7 +986,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§746](#746-video-guides-no-guided-tour-per-project-function--open) | Video guides: no guided tour per project Function | — | — | open |
 | [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--closed-2026-10-16) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | **CLOSED** 2026-10-16 |
 | [§748](#748-background-workers-may-help-across-the-app-starting-with-the-monte-carlo-forecast--open) | Background workers may help across the app, starting with the Monte Carlo forecast | — | — | open |
-| [§749](#749-a-claude-api-key-typed-under-the-passphrase-lock-is-lost-on-reload-and-two-ai-sections-disagree-about-the-lock--open) | A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock | — | — | open |
+| [§749](#749-a-claude-api-key-typed-under-the-passphrase-lock-is-lost-on-reload-and-two-ai-sections-disagree-about-the-lock--closed-2026-10-19) | A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock | — | — | **CLOSED** 2026-10-19 |
 | [§750](#750-a-scheduled-job-added-in-settings-never-runs-until-the-app-reloads-and-settings-never-shows-its-run--open) | A scheduled job added in Settings never runs until the app reloads, and Settings never shows its run | — | — | open |
 | [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--closed-2026-10-18) | Something starts a save of the empty Turso workspace before a project exists | — | — | **CLOSED** 2026-10-18 |
 | [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--open) | window.prompt throws in the desktop app, so six flows fail there | — | — | open |
@@ -45622,11 +45622,11 @@ Size L (the survey is M).
 
 **Source:** owner requests 2026-10-16 (file the forecast worker) and 2026-10-17 (widen to the whole app), during the §502 part-3 pre-merge fixes.
 
-## 749. A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock — OPEN
+## 749. A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock — CLOSED 2026-10-19
 
-**Status:** OPEN 2026-10-17, from code reading; not yet reproduced in a test. `grep -n "keyWrap === \"device\"" src/app/settings-sections/ai-section.tsx` → the one keystroke seal, device mode only.
+**Status:** CLOSED 2026-10-19 on `fix/749-ai-key-passphrase`. The §715 marker is kept per secret id (`markUnsealedPassphraseSecret` / `hasUnsealedPassphraseSecret` in `turso-token-marker.ts`, the Turso functions its `"tursoAuthToken"` case), and `ai-section.tsx` holds a key typed under the lock there until a seal covers it; its seals join the in-flight registry (`trackSecretSeal`). `commitPortfolioModeSwitch` (Save & switch, the wizard's Finish) and `migrateCurrentProjectToTurso` refuse while it is held (`aiKeyHeldUnsealed`) and say how to save it; the wizard goes back to its AI step. The section's lock is derived (`effectiveWrap`, and `wrapNow` reading the store at event time), so a second mounted section no longer device-seals over a passphrase record. `npx vitest run src/app/settings-sections/ai-section.test.tsx src/app/portfolio-mode-switch.test.ts src/app/use-storage-turso-ops.test.ts src/app/backend-setup-wizard.test.tsx src/app/settings-sections/integrations-section.drafts.test.tsx` → all pass; eight mutants (each mark, clear and gate removed) each turn a test red (2026-10-19). Not done: the generalised durability gate for a FAILED seal noted below (left to its own entry if it bites), and the reload paths outside these three (picking a Turso project, the cross-mode file load, the demo), which check neither secret.
 
-**Work item:** #777
+**Earlier (OPEN 2026-10-17):** from code reading; not yet reproduced in a test. `grep -n "keyWrap === \"device\"" src/app/settings-sections/ai-section.tsx` → the one keystroke seal, device mode only.
 
 The same two defects §715 fixed for the Turso token, on the Claude API key:
 

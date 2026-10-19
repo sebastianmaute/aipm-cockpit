@@ -69,7 +69,7 @@ const TURSO_TEST_FAIL_KEYS = {
 } as const;
 
 export { commitPortfolioModeSwitch } from "../portfolio-mode-switch";
-import { commitPortfolioModeSwitch } from "../portfolio-mode-switch";
+import { aiKeyHeldUnsealed, commitPortfolioModeSwitch } from "../portfolio-mode-switch";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -877,7 +877,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       //   Never for a seal of the COMMITTED token (a carried-over one): that is its only copy.
       if (tursoIsLive && tokenDirty) ownSeal?.whenLanded((restore) => putBackRecord(restore, recordBefore));
       if (nowUnconfigured()) setSwitchBusy(false);
-      else refuseSwitch(ownSealIsDevice && ownSeal?.refuses() === true);
+      else if (aiKeyHeldUnsealed(base) && !hasUnsealedPassphraseToken(tokenNowRef.current) && !ownSeal?.refuses()) {
+        setSwitchBusy(false); // §749 — refused for the Claude key alone: say how to save it
+        showToast("error", t(lang, "aiKeyNeedsPassphraseSave", t(lang, "secretPassphraseSave")));
+      } else refuseSwitch(ownSealIsDevice && ownSeal?.refuses() === true);
     }
   }
 

@@ -41,6 +41,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A Claude API key typed under the passphrase lock is no longer lost on reload (§749).** Until "Save
+  passphrase" is chosen the key is not stored, so switching the portfolio or moving a project to Turso now waits
+  and says how to save it first, instead of reloading and dropping it. With the setup wizard open over Settings,
+  saving a passphrase in one no longer lets the other store the key without it.
 - **Analyze with AI and scheduled AI jobs fail less often (§715).** A reply with no new suggestions, or with its
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,
