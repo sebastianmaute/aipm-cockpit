@@ -199,6 +199,7 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
   useEffect(() => () => {
     const open = pendingRef.current;
     pendingRef.current = null;
+    setPending(null); // a cleanup without a real unmount (Fast Refresh) must not leave a dialog no control can close
     decline(open);
     const unbridged = unbridgedDialogs();
     if (dialogsRef) dialogsRef.current = unbridged;

@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -344,5 +345,19 @@ describe("ConfirmProvider — unmounting with a dialog open (§752 review)", () 
     await expect(typed).resolves.toBeNull();
     expect(ref.current).not.toBe(live);
     await expect(ref.current.confirm({ message: "after" })).resolves.toBe(false);
+  });
+});
+
+describe("ConfirmProvider — StrictMode (§752 review)", () => {
+  // StrictMode runs the unmount cleanup and the effects again on mount: the ref must end up BRIDGED.
+  test("the ref is bridged after StrictMode's double mount", async () => {
+    const ref: { current: AppDialogs } = {
+      current: { confirm: async () => false, prompt: async () => null, notice: async () => {} },
+    };
+    const before = ref.current;
+    render(<StrictMode><ConfirmProvider lang="en-US" dialogsRef={ref}><span /></ConfirmProvider></StrictMode>);
+    expect(ref.current).not.toBe(before);
+    act(() => { void ref.current.confirm({ message: "Still bridged?" }); });
+    expect(await screen.findByText("Still bridged?")).toBeInTheDocument();
   });
 });

@@ -49,8 +49,13 @@ vi.mock("./project-file-handles", () => ({
 }));
 vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
+vi.mock("./dataloss-forensics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./dataloss-forensics")>();
+  return { ...actual, recordDataLossEvent: vi.fn(actual.recordDataLossEvent) };
+});
 
 import { logDiag } from "./diagnostics";
+import { recordDataLossEvent } from "./dataloss-forensics";
 import * as storageMod from "./storage";
 import * as handles from "./project-file-handles";
 import { addProject, emptyRegistry, saveRegistry } from "./projects-registry";
@@ -540,11 +545,10 @@ describe("§586 — no save before a load for the current backend has succeeded"
     confirmSpy.mockRestore();
   });
 
-  // §752 — the conversion's question is the app's dialog, awaited: it copies the workspace as it is when the
-  // user answers (an edit landing while the dialog is open is in it), and a rebuild meanwhile drops the switch.
-  // KILLED BY: writing `deps.currentWorkspace()` (the click's snapshot) instead of `deps.liveWorkspace()`.
+  // §752 — the empty-reload question is awaited, so a rebuild can land while it is open; a Cancel then leaves the
+  // live backend alone and records nothing against the old one.
   // KILLED BY: dropping the superseded check on the empty-reload's Cancel (the decline then clears the LIVE
-  // backend's storage outcome with `emitOutcome(null)`).
+  // backend's storage outcome with `emitOutcome(null)`), or moving it below `recordDataLossEvent`.
   it("(o) §752 a Cancel on the empty-reload question after a rebuild leaves the live backend's outcome alone", async () => {
     const current = makeBackend(0);
     const rebuilt = makeBackend(0);
@@ -564,11 +568,16 @@ describe("§586 — no save before a load for the current backend has succeeded"
     rerender({ args: { ...makeArgs({ kind: "local-json" } as StorageConfig), onStorageOutcome, dialogsRef: dialogs.ref } });
     await advance(100);
     onStorageOutcome.mockClear();
+    vi.mocked(recordDataLossEvent).mockClear();
     await act(async () => { answer(false); await op; });
     await advance(50);
     expect(onStorageOutcome).not.toHaveBeenCalledWith(null);
+    expect(recordDataLossEvent).not.toHaveBeenCalled(); // nothing recorded against the backend nobody is on
   });
 
+  // §752 — the conversion's question is the app's dialog, awaited: it copies the workspace as it is when the
+  // user answers (an edit landing while the dialog is open is in it), and a rebuild meanwhile drops the switch.
+  // KILLED BY: writing `deps.currentWorkspace()` (the click's snapshot) instead of `deps.liveWorkspace()`.
   it("(m) §752 converts the workspace as it is when the app's dialog is answered", async () => {
     const current = makeBackend(0);
     const converted = makeBackend(0);
