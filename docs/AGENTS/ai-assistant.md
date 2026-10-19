@@ -128,6 +128,12 @@
   window; a network failure never flags a key. The §567 probe reports an unreadable Anthropic key to the
   verdict instead of the generic toast. ★ A passphrase-wrapped key reads `""` in settings, so `chat-panel.tsx` calls `syncAiKey` with the key
   it UNLOCKS — any other surface that unlocks the key must do the same, or its reports are dropped as stale.
+- **★★ Forced `tool_choice` is refused by some models.** Sonnet 5.5, Opus 5.5 and Fable 5.1 answer
+  `tool_choice: {type:"tool"}` (and `"any"`) with a 400 `invalid_request_error` naming `tool_choice`, measured
+  against the API on 2026-10-19; Haiku 5.5, Sonnet 5 and Opus 5 accept it. `runForcedToolCallWithStop` resends
+  that one refusal with `{type:"auto"}` and remembers the model for the session (`autoChoiceModels`), so every
+  forced-call feature works on them with no per-feature code. A reply without the tool call is still the
+  `"parse"` error. Any other 400 is thrown as before. Don't add a model list: the API's own refusal is the signal.
   `AiKeyBanner` (`notifications.tsx`) and the Settings → AI notice read it through `useAiKeyStatus`; the
   banner's dismissal is cleared when the verdict leaves the bad states. ★★ Its "Open AI settings" action works in
   BOTH shells, by different routes: modern navigates to the Settings view at the AI section; classic has no

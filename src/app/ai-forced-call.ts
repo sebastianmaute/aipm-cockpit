@@ -37,7 +37,8 @@ export interface ForcedToolCallArgs {
    *  would pay the cache-write premium and never read it back. */
   cacheGuides?: boolean;
   tools: unknown[];
-  /** The tool that `tool_choice` forces AND whose tool_use block is returned. */
+  /** The tool that `tool_choice` forces AND whose tool_use block is returned. A model that
+   *  refuses a forced choice is offered it with `auto` instead (`autoChoiceModels`). */
   toolName: string;
   messages: ApiMessage[];
   maxTokens: number;
@@ -65,6 +66,26 @@ export function withGuideText(
   if (system === undefined) return [guideBlock];
   if (typeof system === "string") return [{ type: "text", text: system }, guideBlock];
   return [...system, guideBlock];
+}
+
+/** Models that answered a forced `tool_choice` with a 400 (Sonnet 5.5, Opus 5.5 and Fable 5.1
+ *  did on 2026-10-19). Each is asked with `{ type: "auto" }` from then on, for the rest of the
+ *  session; every other model keeps the forced choice. */
+const autoChoiceModels = new Set<string>();
+
+export function __resetToolChoiceFallbackForTests(): void {
+  autoChoiceModels.clear();
+}
+
+/** The API's refusal of a forced tool choice: a 400 `invalid_request_error` whose message names
+ *  `tool_choice`. Any other 400 (a prompt that is too long, a bad schema) is not retried. */
+function refusesForcedChoice(e: unknown): boolean {
+  return (
+    e instanceof AiHttpError &&
+    e.status === 400 &&
+    e.errorType === "invalid_request_error" &&
+    (e.safeMessage ?? "").includes("tool_choice")
+  );
 }
 
 interface ToolUseBlock {
@@ -96,12 +117,42 @@ export async function runForcedToolCall(
 export async function runForcedToolCallWithStop(
   args: ForcedToolCallArgs,
 ): Promise<{ input: Record<string, unknown>; stopReason: string | undefined }> {
+  let json: { content?: ToolUseBlock[]; stop_reason?: unknown };
+  if (autoChoiceModels.has(args.model)) {
+    json = await postOnce(args, true);
+  } else {
+    try {
+      json = await postOnce(args, false);
+    } catch (e) {
+      if (!refusesForcedChoice(e)) throw e;
+      // With "auto" and a single tool the model still calls it; a reply without the call is
+      // the same "parse" failure as before.
+      autoChoiceModels.add(args.model);
+      json = await postOnce(args, true);
+    }
+  }
+  const toolUse = (json.content ?? []).find(
+    (b) => b.type === "tool_use" && b.name === args.toolName,
+  );
+  if (!toolUse) throw new Error("parse");
+  return {
+    input: (toolUse.input ?? {}) as Record<string, unknown>,
+    stopReason: typeof json.stop_reason === "string" ? json.stop_reason : undefined,
+  };
+}
+
+/** One POST: the parsed body on a 2xx, `AiHttpError` otherwise. `autoChoice` sends
+ *  `tool_choice: { type: "auto" }` in place of forcing `args.toolName`. */
+async function postOnce(
+  args: ForcedToolCallArgs,
+  autoChoice: boolean,
+): Promise<{ content?: ToolUseBlock[]; stop_reason?: unknown }> {
   const body: Record<string, unknown> = {
     model: args.model,
     max_tokens: args.maxTokens,
     messages: args.messages,
     tools: args.tools,
-    tool_choice: { type: "tool", name: args.toolName },
+    tool_choice: autoChoice ? { type: "auto" } : { type: "tool", name: args.toolName },
   };
   const system = withGuideText(args.system, args.guideText, args.cacheGuides === true);
   if (system !== undefined) body.system = system;
@@ -138,14 +189,5 @@ export async function runForcedToolCallWithStop(
     throw new AiHttpError(res.status, errorType, safeMessage);
   }
   reportAiKeyResponse(args.apiKey, 200);
-
-  const json = (await res.json()) as { content?: ToolUseBlock[]; stop_reason?: unknown };
-  const toolUse = (json.content ?? []).find(
-    (b) => b.type === "tool_use" && b.name === args.toolName,
-  );
-  if (!toolUse) throw new Error("parse");
-  return {
-    input: (toolUse.input ?? {}) as Record<string, unknown>,
-    stopReason: typeof json.stop_reason === "string" ? json.stop_reason : undefined,
-  };
+  return (await res.json()) as { content?: ToolUseBlock[]; stop_reason?: unknown };
 }
