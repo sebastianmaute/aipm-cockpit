@@ -54,6 +54,9 @@ export function trimArgs(src, dst, ranges) {
  *  was over the cap). A failed encode or rename throws with ffmpeg's message (or the error's) and leaves `file` untouched.
  *  `exec` has `execFileSync`'s shape; tests pass a fake. */
 export function trimAiWaits(file, waits, outRoot, { exec = execFileSync } = {}) {
+  // `exec` is execFileSync (no shell) and runs only the fixed ffprobe/ffmpeg below, with arguments built here
+  // from the recorder's own output paths and numbers: no outside input reaches it.
+  // nosemgrep: local-no-dynamic-code-exec
   const run = (cmd, args) => exec(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: TRIM_TIMEOUT_MS });
   const total = Number(String(run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file])).trim());
   if (!Number.isFinite(total) || total <= 0) throw new Error(`no duration for ${path.basename(file)}`);
