@@ -54,6 +54,11 @@ async function draftMessage(ctx, who) {
   if (ctx.page.url() !== before) throw new Error('Draft message navigated the page away');
 }
 
+/** The Apply button of the chat's latest "Proposed changes" card (several writes in one model response are
+ *  staged). It reads "Apply (N selected)". */
+export const chatProposalApply = (ctx) =>
+  main(ctx).getByRole('region', { name: 'Proposed changes' }).last().getByRole('button', { name: /^Apply \(/ });
+
 /** The AI Assistant: a starter chip or a typed prompt, then the reply, waited for by the send control. */
 export async function chat(ctx, { chip, prompt }) {
   await nav(ctx, 'AI Assistant');
@@ -89,6 +94,9 @@ async function newProjectButton(ctx) {
   return main(ctx).getByRole('button', { name: '+ New project', exact: true });
 }
 
+/** The proposal form's GDPR checkbox (the regulatory requirements group). */
+const gdprBox = (d) => d.getByRole('checkbox', { name: 'GDPR / data protection regulation', exact: true });
+
 export const wizardProposal = step('wizard-proposal', {
   ai: true,
   trigger: newProjectButton,
@@ -107,9 +115,17 @@ export const wizardProposal = step('wizard-proposal', {
     });
     await pace(ctx, 3000);
   },
-  check: async (ctx) => ((await ctx.page.locator(DLG).last().getByRole('textbox', { name: /Project name/ }).inputValue().catch(() => '')) ? null : 'no proposal'),
+  // The brief names GDPR erasure: a proposal that leaves GDPR unticked is the wrong take (§715).
+  check: async (ctx) => {
+    const d = ctx.page.locator(DLG).last();
+    if (!(await d.getByRole('textbox', { name: /Project name/ }).inputValue().catch(() => ''))) return 'no proposal';
+    return (await gdprBox(d).isChecked().catch(() => false)) ? null : 'GDPR not ticked';
+  },
   after: async (ctx) => {
     const d = ctx.page.locator(DLG).last();
+    await caption(ctx, 'From the brief, Claude ticks GDPR and fills the other key facts.');
+    await moveTo(ctx, gdprBox(d));
+    await pace(ctx, 2500);
     for (const what of ['template', 'functions']) await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), `Next (${what})`, 2000);
     await caption(ctx, ctx.newFromEmpty ? 'The last step creates it. Here we open the demo project instead.' : 'The last step creates it. Here we cancel and stay in the demo.');
     await click(ctx, d.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel', 1000);
@@ -237,6 +253,17 @@ export const MONDAY = [
   }),
 ];
 
+/** Whether the connector change already carries linked tasks or RAID items, read from the database. */
+async function connectorLinked(ctx) {
+  const projectId = await ctx.page.evaluate(() => localStorage.getItem('aipm-cockpit:turso-current-project'));
+  if (!projectId) return false;
+  const rows = await L.query(
+    'SELECT "linkedTaskIds", "linkedRaidIds" FROM "changes" WHERE project_id = ? AND "title" = ?',
+    [{ type: 'text', value: projectId }, { type: 'text', value: CONNECTOR }],
+  );
+  return (rows[0] ?? []).some((cell) => (cell?.value ?? '') !== '');
+}
+
 /** History → Save version now, named. */
 export async function saveVersion(ctx, name) {
   await nav(ctx, 'History');
@@ -250,7 +277,6 @@ const REPLAN_CSV = path.join(path.dirname(fileURLToPath(import.meta.url)), '..',
 const BUCKET = 'Identity Platform – T&M';
 const CONNECTOR = 'Add a CRM provisioning connector';
 const DEMO_TASK = 'MVP demo to the customer';
-const REDEMO = 'MVP re-demo';
 
 /** Deletes a task through its editor; the app asks in its own dialog, answered with its Delete. */
 async function deleteTask(ctx, name) {
@@ -345,18 +371,47 @@ export const TUESDAY = [
       await d.getByRole('combobox', { name: 'Type', exact: true }).selectOption('Scope');
       await d.getByRole('combobox', { name: 'Status', exact: true }).selectOption('Under Review');
       await d.getByRole('combobox', { name: 'Impact', exact: true }).selectOption('Medium');
+      await type(ctx, d.getByRole('textbox', { name: 'Impact description', exact: true }), 'Licence cost and about one week of integration work; removes the failing custom CRM sync.', 'impact description');
       await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), 'Save change');
     },
   }),
-  step('impact-ask-claude', {
+  // The assistant across items (owner 2026-10-19): the change is linked to what it touches, and those tasks
+  // get a note — several writes, so the chat stages them as one "Proposed changes" card to review and apply.
+  // Links and notes feed no day fact, so the chapters' replay leaves them out.
+  // Staging is per model response: writes spread over several responses each apply at once and show no card.
+  // The check therefore also accepts a change already linked, and `run` never sends the request again once
+  // it is, so a retry cannot add the notes twice. Accepted risk: notes written in one response and the links
+  // never, which leaves the change unlinked, so the retry asks again and a note can appear twice.
+  step('chat-link-connector', {
     ai: true,
-    trigger: async (ctx) => { await nav(ctx, 'Changes'); return main(ctx).getByRole('button', { name: `Ask Claude – ${CONNECTOR}`, exact: true }).first(); },
+    trigger: async (ctx) => { await nav(ctx, 'AI Assistant'); return main(ctx).locator('textarea').last(); },
     run: async (ctx) => {
-      await caption(ctx, 'Ask Claude to write the impact.');
-      await askClaude(ctx, 'Changes', CONNECTOR, 'Set the impact description to: Licence cost and about one week of integration work; removes the failing custom CRM sync.');
+      if (await connectorLinked(ctx)) return;
+      await caption(ctx, 'The assistant works across items: it links the change to the tasks and the issue it touches.');
+      await chat(ctx, {
+        prompt: `The change request "${CONNECTOR}" would replace the failing custom CRM sync. In one response, as one set of changes: link it to the open CRM provisioning tasks and to the GDPR erasure issue, and on each linked task keep its description as it is and add one sentence at the end saying this change would replace the custom CRM sync. Do not change any dates, statuses, owners or blockers.`,
+      });
     },
-    check: askClaudeCheck,
-    after: askClaudeApply,
+    // isVisible first: isEnabled on a card that is not there waits out its timeout.
+    check: async (ctx) => {
+      const apply = chatProposalApply(ctx);
+      if ((await apply.isVisible().catch(() => false)) && (await apply.isEnabled().catch(() => false))) return null;
+      return (await connectorLinked(ctx)) ? null : 'no proposal';
+    },
+    after: async (ctx) => {
+      const apply = chatProposalApply(ctx);
+      if (!(await apply.isVisible().catch(() => false))) {
+        // The links went in without a card (a single write applies at once).
+        await caption(ctx, 'Done: the change now lists the tasks and the issue it touches.');
+        await pace(ctx, 2500);
+        return;
+      }
+      await caption(ctx, 'Review what it will change, then Apply: several items in one step.');
+      await moveTo(ctx, main(ctx).getByRole('region', { name: 'Proposed changes' }).last());
+      await pace(ctx, 2500);
+      await click(ctx, apply, 'Apply proposal', 2000);
+    },
+    // Links and notes feed no day fact and no next-actions signal, so the chapters' replay leaves them out.
     replay: noop,
   }),
   step('draft-maya', {
@@ -382,6 +437,7 @@ export const TUESDAY = [
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.getByRole('textbox', { name: /^Name/ }), 'MVP re-demo', 'milestone name');
       await d.locator('input[type=date]').first().fill('2026-10-02');
+      await type(ctx, d.getByRole('textbox', { name: 'Description', exact: true }), 'The MVP demo to the customer, re-run on 2 October once provisioning to the CRM works end to end.', 'milestone description');
       await click(ctx, d.getByLabel(`#25 ${DEMO_TASK}`), 'link the demo task', 300);
       await click(ctx, d.getByRole('button', { name: 'Save milestone', exact: true }), 'Save milestone');
       // The demo task leaves the MVP target, so the moved target has no task ending after it.
@@ -394,17 +450,6 @@ export const TUESDAY = [
       await t.locator('input[type=date]').nth(1).fill('2026-10-02');
       await saveTask(ctx);
     },
-  }),
-  step('redemo-ask-claude', {
-    ai: true,
-    trigger: async (ctx) => { await nav(ctx, 'Milestones'); return main(ctx).getByRole('button', { name: `Ask Claude – ${REDEMO}`, exact: true }).first(); },
-    run: async (ctx) => {
-      await caption(ctx, 'Ask Claude to describe the re-demo.');
-      await askClaude(ctx, 'Milestones', REDEMO, 'Set the description to: The MVP demo to the customer, re-run on 2 October once provisioning to the CRM works end to end.');
-    },
-    check: askClaudeCheck,
-    after: askClaudeApply,
-    replay: noop,
   }),
   step('bucket-planned-hours', {
     run: async (ctx) => {
@@ -634,23 +679,13 @@ async function approveChange(ctx, title) {
 export const THURSDAY = [
   step('gdpr-owner', {
     run: async (ctx) => {
-      await caption(ctx, 'The GDPR issue gets an owner, and work on it starts.');
+      await caption(ctx, 'The GDPR issue gets an owner, a mitigation, and work on it starts.');
       const d = await openRow(ctx, 'RAID', DEMO_GDPR_ISSUE);
       await pickOwner(ctx, d, 'Noah Bennett');
+      await type(ctx, d.getByRole('textbox', { name: 'Mitigation / resolution plan', exact: true }), 'Route erasure through the provisioning connector and verify it end to end before the re-demo.', 'mitigation');
       await click(ctx, d.getByRole('radio', { name: 'In Progress', exact: true }), 'In Progress', 300);
       await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), 'Save RAID');
     },
-  }),
-  step('mitigation-ask-claude', {
-    ai: true,
-    trigger: async (ctx) => { await nav(ctx, 'RAID'); return main(ctx).getByRole('button', { name: `Ask Claude – ${DEMO_GDPR_ISSUE}`, exact: true }).first(); },
-    run: async (ctx) => {
-      await caption(ctx, 'Ask Claude for the mitigation.');
-      await askClaude(ctx, 'RAID', DEMO_GDPR_ISSUE, 'Set the mitigation to: Route erasure through the provisioning connector and verify it end to end before the re-demo.');
-    },
-    check: askClaudeCheck,
-    after: askClaudeApply,
-    replay: noop,
   }),
   step('licence-risk', {
     run: async (ctx) => {

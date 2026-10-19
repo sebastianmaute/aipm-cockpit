@@ -20,7 +20,11 @@ function harness({ preconditionsOk = true, checks = [], days } = {}) {
       connect: rec('connect'), exploreDemo: rec('exploreDemo'), seedDeviceState: rec('seedDeviceState'),
       enableDigest: rec('enableDigest'), enableChat: rec('enableChat'), goToDay: rec('goToDay'), currentProjectId: async () => 'p1',
     },
-    ui: { caption: async (_c, text) => { calls.push(`caption(${text})`); }, closingBeat: async (_c, title) => { calls.push(`closingBeat(${title})`); } },
+    ui: {
+      caption: async (_c, text) => { calls.push(`caption(${text})`); },
+      titleCard: async (_c, title) => { calls.push(`titleCard(${title})`); },
+      closingBeat: async () => { calls.push('closingBeat'); },
+    },
     resolveOpening: async (_c, o) => o,
     days: days ?? {},
     opts: { rehearse: false, withAi: false, outFile: 'o.webm', secrets: ['SECRET-TOKEN'] },
@@ -41,7 +45,7 @@ describe('runTake (§715)', () => {
     expect(r.status).toBe('ok');
     expect(h.calls).toEqual([
       'connect(onCamera=false)', 'exploreDemo', 'seedDeviceState(p1)', 'enableDigest', 'enableChat', 'precondition',
-      'screencast.start', 'caption(Open)', 'run(a)', 'run(b)', 'closingBeat(T)', 'screencast.stop',
+      'screencast.start', 'titleCard(T)', 'caption(Open)', 'run(a)', 'run(b)', 'closingBeat', 'screencast.stop',
     ]);
   });
 
@@ -49,9 +53,15 @@ describe('runTake (§715)', () => {
     const h = harness();
     await runTake(def({ prologueOnCamera: true, prologue: [h.s('wizard')], steps: [h.s('a')] }), h.deps);
     expect(h.calls).toEqual([
-      'screencast.start', 'caption(Open)', 'connect(onCamera=true)', 'run(wizard)', 'exploreDemo', 'seedDeviceState(p1)',
-      'enableDigest', 'enableChat', 'run(a)', 'closingBeat(T)', 'screencast.stop',
+      'screencast.start', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true)', 'run(wizard)', 'exploreDemo', 'seedDeviceState(p1)',
+      'enableDigest', 'enableChat', 'run(a)', 'closingBeat', 'screencast.stop',
     ]);
+  });
+
+  it('an opening that only repeats the title is not shown twice (the chapters)', async () => {
+    const h = harness();
+    await runTake(def({ opening: 'T', steps: [h.s('a')] }), h.deps);
+    expect(h.calls.filter((c) => c.startsWith('caption(') || c.startsWith('titleCard('))).toEqual(['titleCard(T)']);
   });
 
   it('a failed precondition skips the take before recording', async () => {

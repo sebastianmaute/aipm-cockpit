@@ -40,8 +40,8 @@ does not design them.
   The big video shows once how to set up a new project by hand through the wizard, up to its last
   step, then switches to the demo project instead of creating it (owner).
 - **Every video retakes with one command**, independent of the others.
-- **Every clip has the same shape:** opening text → steps shown live → a short closing beat
-  (pattern from the owner's Gantt clip).
+- **Every clip has the same shape:** its title (3 s) → opening text when it says more → steps shown
+  live → a short closing beat (pattern from the owner's Gantt clip; title first since 2026-10-19).
 - AI clips make real Claude calls; the owner accepts the token cost, per take and per retake.
 
 ## Non-goals
@@ -241,8 +241,9 @@ any other milestone edit. Keyboard operability, undo and snapping are D's to dec
 ## Decisions after the builder check (my calls unless marked)
 
 - **Opening and closing look (owner):** the opening text shows in the existing caption bar at the
-  bottom, with the app already visible behind it, as the big video does today. The closing beat holds
-  the last frame about 2 s with the clip title in the caption bar. No full-screen title cards.
+  bottom, with the app already visible behind it, as the big video does today. The clip title leads:
+  it shows in the caption bar for the first 3 s (owner, 2026-10-19; it used to close the clip), and the
+  closing beat holds the last frame about 1.5 s with no caption. No full-screen title cards.
 
 - **The demo-on-Turso banner bug** ("changed in another tab" after Explore the demo) is fixed as its
   own small app fix, with a test, **before** A. It is not part of A; A's first rehearsal confirms it.

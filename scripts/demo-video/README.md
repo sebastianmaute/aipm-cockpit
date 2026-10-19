@@ -41,8 +41,8 @@ node scripts/demo-video/discover.mjs "Resources>Planning" # list a view's contro
 2. **A fresh browser context**, 1280 × 720, `en-US`, Europe/Berlin, with the page clock installed at Monday 08:30.
 3. **Setup, off camera.** The setup wizard connects Turso and the key; Finish switches the portfolio to Turso and reloads. Then **Explore the demo**, the device state for the new project (below), the weekly digest and the AI Assistant's consent. A chapter then replays the days before it. A clip's `setup` steps run last (for example `ai-scheduled` creates its job).
 4. **Preconditions.** Each one checks that the data shows what the video needs (a duplicate pair, an over-allocated person, two saved versions). A missing one skips the take before anything is recorded.
-5. **Recording.** The opening caption, then the steps. A `{ banner: <view> }` opening is that view's own hint text, read from the page; a sub-view names its path (`Resources>Planning`).
-6. **The closing beat**, with the video's title.
+5. **Recording.** The video's title in the caption bar for the first 3 s (`titleCard`), then the opening caption when it says more than the title (a chapter's opening is its title), then the steps. A `{ banner: <view> }` opening is that view's own hint text, read from the page; a sub-view names its path (`Resources>Planning`).
+6. **The closing beat**: the last frame held about 1.5 s with no caption.
 
 `ch2-connect` and `big` record the setup wizard itself, so their recording starts before step 3.
 
@@ -104,7 +104,7 @@ Everything a re-take needs is in the repository: these scripts, their fixtures a
 | `ai-wait.mjs` | `waitForAi`: waits for an AI call by its UI state; `timedAiWait` notes each wait on the recording's timeline. |
 | `trim.mjs` | Cuts each AI wait in a video down to `MAX_AI_WAIT_S` with ffmpeg; `keepRanges` and `trimArgs` are pure. |
 | `setup.mjs` | Off-camera setup: `connect`, `exploreDemo`, `seedDeviceState`, `enableDigest`, `enableChat`, `goToDay`, `currentProjectId`. |
-| `ui.mjs` | The cursor and caption overlay, `caption`, `moveTo`, `click`, `type`, `nav`, `skipTour`, `closingBeat`. |
+| `ui.mjs` | The cursor and caption overlay, `caption`, `moveTo`, `click`, `type`, `nav`, `skipTour`, `titleCard`, `closingBeat`. |
 | `lib.mjs` | `T0`, `atDay`, the `.env.local` reader, the Turso guard, `settle`, `query`. |
 | `cleanup.mjs` | `cleanup()` and the pure `cleanupStatements`; also runnable on its own. |
 | `discover.mjs` | Lists the controls of a view on the fresh demo, for writing a step's selectors. |
