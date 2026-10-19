@@ -257,8 +257,10 @@
   (`turso-project-picker.tsx`), the cross-mode create (`use-turso-projects.ts`), the cross-mode file load and the
   demo (`use-storage-file-ops.ts`) — call `secretLostToReload` (`portfolio-mode-switch.ts`) BEFORE they write
   anything, so a refusal leaves nothing half-done; it waits for seals in flight and names the secret at risk
-  (`reloadRefusalText`). A NEW reload path joins it. ★ Known limit: nothing can guard a reload the user starts,
-  or a closed tab. ★ The invalid-key BLUR follows the change handler's rule: over a passphrase record
+  (`reloadRefusalText`). A NEW reload path joins it: `reload-paths.sweep.test.ts` lists every `location.reload()`
+  call against a reviewed set and fails on one it does not know. ★ Known limits: nothing can guard a reload the
+  user starts, or a closed tab; the cross-mode create checks once, before its network round trip, so a key typed
+  under the lock DURING the create is lost to the switch that follows. ★ The invalid-key BLUR follows the change handler's rule: over a passphrase record
   it never calls `removeSealed` (a locked key is not hydrated, so the field shows "" for it).
 - ★★ **Background writers do not unmount, and each gates itself.** Today: the insight reconcile effect
   (`use-insight-lifecycle.ts`), the recommendation store `applyInsightRecommendation`

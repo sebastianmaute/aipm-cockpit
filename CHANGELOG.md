@@ -47,8 +47,8 @@ longer carries its own changelog comment.
   portfolio and opening the demo there: they now stop and say how to save the key first, instead of dropping it.
   The same holds for a Turso token typed under its passphrase lock. A reload you start
   yourself, or closing the tab, still loses a key that was not saved. With the setup wizard open over Settings,
-  saving a passphrase in one no longer lets the other store the key without it, and blurring an empty key field
-  no longer removes a key protected by a passphrase.
+  saving a passphrase in one no longer lets the other store the key without it, and typing a stray character
+  into the empty-looking field of a locked key, then leaving it, no longer removes the key.
 - **Analyze with AI and scheduled AI jobs fail less often (§715).** A reply with no new suggestions, or with its
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,

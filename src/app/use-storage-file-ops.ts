@@ -270,6 +270,9 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
   ): Promise<void> {
     if (deps.isPopout) return;
     // §749 — the cross-mode load ends in a reload: refuse BEFORE anything is written if a secret would be lost.
+    //   ★ With a seal in flight the gate waits (bounded, 5 s) before the file picker below opens, which can outlast
+    //   the click's user activation; the picker then throws and `reportProjectError` says so. Rare: a seal is in
+    //   flight only for the moment after a key or token was saved.
     if (opts?.switchPortfolioToFileOnSuccess && (await refuseReloadLosingSecret())) return;
     // Flush the outgoing project to its OWN backend first (best-effort). Setting
     // suppressNextSaveRef below cancels the pending debounced save, so edits made

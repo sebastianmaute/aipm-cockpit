@@ -11,7 +11,7 @@
 // dedicated archived-project restore flow; this picker lists active
 // projects only.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -61,6 +61,9 @@ function projectText(p: ProjectListEntry): string {
 export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPickerProps) {
   const [state, setState] = useState<FetchState>({ kind: "loading" });
   const showToast = useToastContext();
+  // §749 review — the gate waits for seals in flight, so it reads the LATEST settings, not the click's prop.
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
   // §669 — two projects in one database can share a name. The code is part of
   // the name when there is one, since the row shows it beside the name.
   const projectTokens = useMemo(
@@ -105,12 +108,12 @@ export function TursoProjectPicker({ lang, settings, onClose }: TursoProjectPick
   //   saved under it yet: refuse, and say how to save it.
   function handlePick(id: string) {
     void (async () => {
-      const risk = await secretLostToReload(() => settings);
+      const risk = await secretLostToReload(() => settingsRef.current);
       if (risk) {
         showToast("error", reloadRefusalText(lang, risk));
         return;
       }
-      commitTursoPortfolioSwitch(settings, id);
+      commitTursoPortfolioSwitch(settingsRef.current, id);
     })();
   }
 
