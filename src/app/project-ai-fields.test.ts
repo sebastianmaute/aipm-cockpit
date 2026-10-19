@@ -80,4 +80,12 @@ describe("project AI fields", () => {
     expect(r.next.sponsor).toBe("Elena Fischer");
     expect(r.unknownKeys).toEqual(["contactPersons"]);
   });
+  it("a refused endDate cannot leave a new startDate after the stored endDate", () => {
+    const stored = { ...FULL, startDate: "2026-03-01", endDate: "2026-04-01" };
+    const r = applyProjectPatch(stored, { startDate: "2026-05-01", endDate: "2026-04-15" });
+    expect(r.rows.find((x) => x.field === "startDate")?.verdict.kind).toBe("refused");
+    expect(r.rows.find((x) => x.field === "endDate")?.verdict.kind).toBe("refused");
+    expect(r.next.startDate).toBe("2026-03-01");
+    expect(r.next.endDate).toBe("2026-04-01");
+  });
 });

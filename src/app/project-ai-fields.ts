@@ -199,5 +199,12 @@ export function applyProjectPatch(
     next = withField(next, field, verdict.value);
     if (field === "startDate") startDate = verdict.value as string;
   }
+  // The per-field pass judged a new start against NO end when the patch passed one; if that end
+  // was refused, the stored end remains and the pair must still hold.
+  const startRow = rows.find((r) => r.field === "startDate");
+  if (startRow && startRow.verdict.kind !== "refused" && next.endDate && next.startDate > next.endDate) {
+    startRow.verdict = refuse("The start date cannot be after the end date.");
+    next = withField(next, "startDate", stored.startDate);
+  }
   return { next, rows, unknownKeys };
 }
