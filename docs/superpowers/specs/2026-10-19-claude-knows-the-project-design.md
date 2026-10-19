@@ -133,6 +133,8 @@ Excluded, each with its reason written beside the list:
 ## Decided by the owner
 
 - Both halves, creation and update (2026-10-19).
+- A: `update_project` always stages as a card with Apply, even alone; a failed remote write is reported on the card (2026-10-19).
+- B: project edits are logged from the form and from Claude; Claude's edit is also undoable, restored through the same write path (2026-10-19).
 
 ## Left to the builder
 
