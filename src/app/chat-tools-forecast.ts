@@ -3,6 +3,7 @@
 // of them, like chat-tools-documents.ts.
 
 import type { ForecastReport } from "./forecast-ai-report";
+import { HISTORY_WINDOWS, type ForecastUnit, type HistoryWindow } from "./forecast/constants";
 import { parseToolChanges } from "./forecast-scenario-tool-input";
 import type { ForecastScenario, ScenarioChange } from "./forecast-scenarios";
 import { TARGET_CONFIDENCES, type TargetConfidence } from "./forecast-target";
@@ -17,11 +18,14 @@ export type ForecastScenarioResult = {
   changes: readonly ScenarioChange[];
 };
 
+/** `get_forecast`'s optional settings; absent means the app defaults, as the Dashboard, Reports and the history use. */
+export type ForecastReadOptions = { historyWindow?: HistoryWindow; unit?: ForecastUnit; byGroup?: boolean };
+
 export type ForecastToolDispatcher = {
   /** Is Monte Carlo forecasting live for this project? ★ The executor must ask, not just the tool list:
    *  `runTool` is reached by NAME, and replayed history carries a template of a succeeded call. */
   isForecastEnabled(): boolean;
-  getForecast(whatIf: readonly ScenarioChange[] | null): ForecastReport;
+  getForecast(whatIf: readonly ScenarioChange[] | null, options?: ForecastReadOptions): ForecastReport;
   getForecastScenarioRow(id: number): ForecastScenario | null;
   /** Both throw `Error(<refusal>)` on refusal, as does `getForecast`. */
   createForecastScenario(name: string, changes: readonly ScenarioChange[]): ForecastScenarioResult;
@@ -132,6 +136,23 @@ function requireChanges(raw: unknown, prefix = ""): ScenarioChange[] {
   return parsed.changes;
 }
 
+const UNITS: readonly ForecastUnit[] = ["tasks", "effort"];
+
+/** The three optional `get_forecast` settings, each refused when present and not one of its values. */
+function requireReadOptions(input: Record<string, unknown>): ForecastReadOptions {
+  const { historyWindow, unit, byGroup } = input;
+  if (historyWindow !== undefined && !(HISTORY_WINDOWS as readonly unknown[]).includes(historyWindow)) {
+    throw new Error(`historyWindow must be one of ${HISTORY_WINDOWS.join(", ")}`);
+  }
+  if (unit !== undefined && !(UNITS as readonly unknown[]).includes(unit)) throw new Error(`unit must be one of ${UNITS.join(", ")}`);
+  if (byGroup !== undefined && typeof byGroup !== "boolean") throw new Error("byGroup must be true or false");
+  return {
+    ...(historyWindow !== undefined ? { historyWindow: historyWindow as HistoryWindow } : {}),
+    ...(unit !== undefined ? { unit: unit as ForecastUnit } : {}),
+    ...(byGroup !== undefined ? { byGroup } : {}),
+  };
+}
+
 function requireId(input: Record<string, unknown>): number {
   const id = Number(input.id);
   if (!Number.isFinite(id)) throw new Error("id must be a number");
@@ -148,7 +169,10 @@ export function runForecastTool(
 
   switch (name) {
     case "get_forecast":
-      return d.getForecast(input.whatIf === undefined ? null : requireChanges(input.whatIf, "whatIf "));
+      return d.getForecast(
+        input.whatIf === undefined ? null : requireChanges(input.whatIf, "whatIf "),
+        requireReadOptions(input),
+      );
 
     case "create_forecast_scenario": {
       if (typeof input.name !== "string") throw new Error("name must be a string");

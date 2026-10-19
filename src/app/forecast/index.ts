@@ -141,7 +141,8 @@ function scopeDelta(w: WhatIf, openCount: number, base: number, unitSize: number
   return absolute + Math.floor((base * w.scopePercent) / 100 + 0.5);
 }
 
-function resultUnit(requested: ForecastUnit, open: readonly Task[]): ForecastUnit {
+/** The unit a run uses: effort only when enough open tasks carry an estimate, else tasks. */
+export function resultUnit(requested: ForecastUnit, open: readonly Task[]): ForecastUnit {
   return requested === "effort" && effortCoverage(open) >= EFFORT_MODE_MIN_COVERAGE ? "effort" : "tasks";
 }
 

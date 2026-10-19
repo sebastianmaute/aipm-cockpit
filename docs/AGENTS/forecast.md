@@ -58,7 +58,7 @@ held-back tests to FAIL by design — each asserts that a surface is hidden whil
 
   `lib/app-feature-guide.md`, section "Reports" — add after the restored Forecast line:
   > - Forecast section (simulation on only): a verdict banner against the project's target confidence (Even odds 50 %, Safe to commit 80 % by default, Cautious 95 %; stored per project and kept while the switch is off; set here or in the Forecast view's header), P50 / P80 / on-time / cost-at-finish tiles, the P80-over-time line, and the milestones worst first. "What it would take" is the smallest single lever that reaches the target — +N people at the team's average hours and rate, or N fewer tasks — checked one lever at a time through the scenario engine. Prioritising is shown beside them, from the "Chance if prioritised" column ("prioritise it → X %", or "prioritising alone: not enough"), but Explore cannot open it, because a scenario cannot model it. Overdue milestones and milestones with no open linked tasks get no lever, and an overdue milestone keeps the verdict from "On target". "Explore in Forecast" opens the lever as an unsaved draft scenario with the same figures. "Proposed intervention" compares As is with the one saved scenario chosen as the proposal; a deleted proposal scenario reads as no proposal until undo restores it.
-  > - AI: get_forecast returns the target confidence, what it would take (the plan end and at most the 5 milestones furthest below target; notSearched names the rest, which can be explored with a whatIf), the proposal and the recorded P80 history; set_forecast_target_confidence and set_forecast_proposal change them; one such change applies at once and is logged but cannot be undone. delete_forecast_scenario, or several changes in one reply, go to the review card for approval; only the delete can be undone. "Ask Claude to draft a proposal" sends a prepared request: answer it with a saved scenario (create_forecast_scenario), naming the tasks to drop in the scenario name and the chat, and do not make it the proposal unless asked. Never write into the report.
+  > - AI: get_forecast returns the target confidence, what it would take (the plan end and at most the 5 milestones furthest below target; notSearched names the rest, which can be explored with a whatIf), the proposal and the recorded P80 history, and what each column was simulated from (open work, the history window's finished tasks and working days, done tasks without a completion date), the prioritised chance of every milestone that has a chance, and how much finishes by the plan end; optional historyWindow and unit reproduce a changed Forecast view toolbar; Claude cannot read the toolbar, so when the user's figures differ from its own it asks for the window and unit; byGroup adds the forecast by group; set_forecast_target_confidence and set_forecast_proposal change them; one such change applies at once and is logged but cannot be undone. delete_forecast_scenario, or several changes in one reply, go to the review card for approval; only the delete can be undone. "Ask Claude to draft a proposal" sends a prepared request: answer it with a saved scenario (create_forecast_scenario), naming the tasks to drop in the scenario name and the chat, and do not make it the proposal unless asked. Never write into the report.
 
   and widen that section's views marker back to include `forecast` (the hiding commit removed it). Section
   "Trends" — add:
@@ -127,9 +127,10 @@ items part 4 adds. The first three are HARD GATES: do not un-hide until each is 
    Settings → Export before eye-checking or timing an export. No release carried the key (`v1.19.0` predates it:
    `git show v1.19.0:src/app/settings-types.ts | grep -c forecastDecision` prints 0), so only dev devices are affected.
 7. **Help:** paste the held-back text above; part 3's burn-chart band still has no help text (above).
-8. **Decide, not a gate — a generic forecast Ask-Claude chip.** `ASK_CLAUDE_PROMPTS.forecast` is absent, and
-   `ask-claude-prompts.test.ts` pins it ("has no chip for forecast while the view is held back (§502)"). The view has
-   its own `ForecastAskClaude` menu; decide whether it also wants a generic chip, and invert or delete that test.
+8. **Decided 2026-10-19 — a generic forecast Ask-Claude chip: yes.** `ASK_CLAUDE_PROMPTS.forecast` carries "Why this
+   P80 date?" and "How has the date moved?", which ask what the view's own `ForecastAskClaude` menu does not
+   (`ask-claude-prompts.test.ts`, "has forecast chips that do not repeat the view's own menu (§502)"). Eye-check them
+   in the header menu with the view shown.
 
 ## Module map
 
@@ -344,11 +345,11 @@ changes from outside (M5)" (`forecast-panel.test.tsx`). The default window is 60
 axe spec selects **"All history" (R13)** and waits for the chart so axe sees the forecast state, not
 only the empty state.
 
-- **No generic Ask-Claude chips (R12).** `forecast` has no entry in `ASK_CLAUDE_PROMPTS`, and a test in
-  `ask-claude-prompts.test.ts` pins the absence ("has no chip for forecast while the view is held back (§502)"):
-  `get_forecast` exists, but the view is held back, and whether to add a chip is an un-hide decision (item 8 of
-  the un-hide list).
-  The view has its own menu instead, `ForecastAskClaude`, shown only with AI on, the simulation on and not in a popout; see "The AI tool" below.
+- **Two generic Ask-Claude chips (R12, decided 2026-10-19).** `ASK_CLAUDE_PROMPTS.forecast` holds "Why this P80
+  date?" (answered from `get_forecast`'s `basis`) and "How has the date moved?" (`weeklyChange` and `p80History`).
+  They sit beside the view's own menu, `ForecastAskClaude`, shown only with AI on, the simulation on and not in a
+  popout, and ask what it does not; see "The AI tool" below. The header chips are static per view, so with the
+  simulation off they still show and the model answers with the off text (`FORECAST_OFF`), pointing to the view.
 - Percent strings go through i18n keys (EN `{0}%`, DE `{0} %`; R10).
 - **Amounts carry their unit.** `formatAmount` writes tasks as `forecastAmountTasks` through `tPlural`
   ("1 task", "5 tasks"; DE "1 Aufgabe", "5 Aufgaben") and effort as whole hours ("12 h"), for the
@@ -1191,12 +1192,30 @@ stale id reads as null; its figures are that scenario's own entry. `p80History`:
 `forecastHistory` entries as `{ date, p80 }`. The target and the proposal come from `ForecastReportInput.settingsOverrides`,
 which `useForecastTools` fills from its live overrides ref (the one `isForecastEnabled` reads), not the getter's copy.
 
-★★ COMMON RANDOM NUMBERS HOLD. The report runs no forecast of its own: it reshapes `computeScenarioComparison` and runs
-the draft through `computeScenarioColumn`, so every column shares the comparison's streams, and a `whatIf` equal to a
-saved scenario reproduces that scenario's column exactly. The lever probes are `computeScenarioColumn` calls on the same
-context and As-is column. Do not give the report a seed or run of its own. ★ The run is
-always the app DEFAULTS (`DEFAULT_HISTORY_WINDOW`, tasks), not the toolbar, so a figure the model quotes can differ
-from the one on screen.
+Five more reads, so the model can explain a figure rather than only quote it (2026-10-19, owner "fix all" on the
+tooling review). Each `status: "forecast"` column carries `basis` (`ForecastBasis`): `backlog` (open tasks, or
+estimated hours in the effort unit), `finishedInWindow`, `windowWorkingDays`, `doneWithoutDate` (Done with no
+`completedDate`, so absent from the history) and `beyondShare`; an insufficient column carries `doneWithoutDate` too.
+Each milestone with a chance carries `prioritised`, the engine's `chancePrioritised` (the view's "Chance if
+prioritised" column). `howManyByPlanEnd` (As is only, `HowManyReport`) is How-many with the plan end as its date,
+capped at the horizon in `by`; null when As is is insufficient, there is no plan end, or it is not after today. Optional inputs:
+`historyWindow` (`HISTORY_WINDOWS`) and `unit` set the run's window and unit (`settings.unit` reports the unit that
+RAN: effort falls back to tasks below `EFFORT_MODE_MIN_COVERAGE`); with either away from the defaults (`isDefaultRun`)
+`weeklyChange` is null and `whatItTakes` is `{ omitted: "settings" }`, because the recorded history and the lever
+search are defined at the defaults. `byGroup: true` adds `byGroup`, `forecastByGroup`'s rows, always at the
+defaults. ★ Milestone links: `list_milestones` now returns `linkedTaskIds` and a plain-text `description`
+(`toMilestoneSummary`), because `update_milestone` REPLACES `linkedTaskIds` and a model that could not read the list
+would wipe it; its description says so.
+
+★★ COMMON RANDOM NUMBERS HOLD. Every column comes from `computeScenarioComparison`, and the draft from
+`computeScenarioColumn`, so every column shares the comparison's streams, and a `whatIf` equal to a saved scenario
+reproduces that scenario's column exactly. The lever probes are `computeScenarioColumn` calls on the same context and
+As-is column. Do not give the columns a seed or run of their own. The one other schedule run, `howManyByPlanEnd`'s, is
+the As-is call with only `howManyTarget` changed; the engine draws each output from its own stream, so it changes no
+column. ★ The run is the app DEFAULTS (`DEFAULT_HISTORY_WINDOW`, tasks) unless the call passes `historyWindow` or
+`unit`, so a figure the model quotes from a plain call can differ from a changed toolbar. Nothing exposes the toolbar to the model, so the prompt and the view
+scope's `reading` tell it to ask the user for the window and unit when the user's figures differ from its own, then
+pass them.
 
 ★ `get_forecast`, a create and an update refuse with `HOLIDAYS_LOADING_MESSAGE` while the holiday calendar loads: the forecast input getter in
 `use-chat-dispatcher-wiring.ts` returns null until `holidaysReady`, and `useForecastTools` turns that into the refusal. A
@@ -1243,7 +1262,15 @@ memo answers the As-is trials, takes the `whatIf` check's context from it
 (`scenarioValidationContext(input, comparison.context)`) and passes it to `buildForecastReport`, whose lever search
 (on a call without `whatIf` only) reuses that comparison's As-is column and context. A create, and an
 update that sends `changes`, pay one each, for the validation context (`scenarioValidationContext` without a
-context runs As is to learn the team membership). A rename-only update pays none.
+context runs As is to learn the team membership). A rename-only update pays none. ★ Since 2026-10-19 a plain or
+`whatIf` call also pays `howManyByPlanEnd`'s run: about 0.1 s on each sample workspace (small 100–112 ms, big 95–104
+ms, huge 83–96 ms; three runs, shared machine), against a plain call's 0.8–2.4 s (gate 1). `byGroup` pays one run per
+group WITH OPEN TASKS (`forecastByGroup` skips the rest), synchronously in the tool call and with no cap on the
+number of groups: 1–2 ms on small, 11–16 ms on big and 79–102 ms on huge in total, each sample having 4 groups of
+which 3 have open tasks ("Discovery & Design" is all Done), so about 26–34 ms per group on huge. Reproduce: time
+`forecastByGroup({ tasks: ws.tasks, today: "2026-10-14", holidaySet: new Set(), planEnd: ws.plan.endDate })` over
+`sample-workspace-<size>.json` with `npx vite-node`, the same way as the forecast probe above. A call with another window or
+unit gets no `sharedAsIsRun` (it matches only the defaults) and pays its own As-is run, but no lever search.
 ★★ THE LEVER SEARCH IS MOST OF A PLAIN `get_forecast` CALL (no `whatIf`), and it runs synchronously in the tool call.
 Measured 2026-10-18 for Task 9 (fresh task arrays, so the As-is run is included; two saved scenarios; three runs each,
 on the same three workloads as the export decision above): about 150–180 ms for 12 open tasks and 2 below-target

@@ -44,7 +44,7 @@ describe("ask-claude-prompts", () => {
   it("offers on-page prompts for every view that has the tools to answer them", () => {
     const expected = [
       "actions", "budget", "budget-report", "calendar", "change-report", "changes",
-      "dashboard", "directory", "documents", "gantt", "insights", "knowledge", "manage-roles",
+      "dashboard", "directory", "documents", "forecast", "gantt", "insights", "knowledge", "manage-roles",
       "milestones", "open-points", "planning", "portfolio-health", "raci", "raid",
       "raid-report", "reports", "resources", "stakeholder-map", "stakeholders",
       "steering-committee", "trends", "workload",
@@ -58,10 +58,14 @@ describe("ask-claude-prompts", () => {
     expect(ASK_CLAUDE_PROMPTS.timelog).toBeUndefined();
   });
 
-  // `get_forecast` exists now (§502), but the Forecast view is still release-
-  // hidden, so it has no chip; whether to add one is an un-hide decision.
-  it("has no chip for forecast while the view is held back (§502)", () => {
-    expect(ASK_CLAUDE_PROMPTS.forecast).toBeUndefined();
+  // Owner decision 2026-10-19 (§502): the Forecast view gets header chips that ask what its own
+  // ForecastAskClaude menu does not; both are answered by get_forecast's basis and P80 history.
+  it("has forecast chips that do not repeat the view's own menu (§502)", () => {
+    expect(ASK_CLAUDE_PROMPTS.forecast?.map((p) => p.labelKey)).toEqual(["aiPromptFcWhyLabel", "aiPromptFcMovedLabel"]);
+    expect(VIEW_AI_SCOPE.forecast.toolHints).toContain("get_forecast");
+    const bodies = (ASK_CLAUDE_PROMPTS.forecast ?? []).map((p) => t("en-US", p.bodyKey));
+    expect(bodies[0]).toContain("basis");
+    expect(bodies[1]).toContain("p80History");
   });
 
   // Not a capability gap: `search_history` shipped and VIEW_AI_SCOPE.activity

@@ -88,7 +88,8 @@ function makeChangeItem(over: Partial<ChangeItem> = {}): ChangeItem {
 }
 
 // ★★★ `description` IS LOAD-BEARING AND IS NOT DECORATION. `MilestoneSummary`
-//   omits it while `entityToken` covers it, so it is what makes this fixture
+//   carries it only as PLAIN TEXT (the markup below is dropped) while `entityToken`
+//   covers the stored HTML, so it is what makes this fixture
 //   able to TELL a full-row token from a summary-derived one. Measured: without
 //   it the milestone round-trip case survives the "derive from the summary"
 //   mutant — every other token-covered field this row carries is byte-identical
@@ -99,7 +100,7 @@ function makeMilestone(over: Partial<Milestone> = {}): Milestone {
     id: 30,
     name: "Phase 1 complete",
     date: "2026-07-01",
-    description: "Sign-off with the sponsor",
+    description: "<p>Sign-off with the <strong>sponsor</strong></p>",
     linkedTaskIds: [],
     ...over,
   } as Milestone;
@@ -202,9 +203,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       impact: c.impact, decisionDate: c.decisionDate,
       stakeholderIds: c.stakeholderIds ?? [],
     }))),
-    listMilestones: vi.fn(() => [makeMilestone()].map((m) => ({
-      id: m.id, name: m.name, date: m.date, achievedDate: m.achievedDate,
-    }))),
+    listMilestones: vi.fn(() => [makeMilestone()].map(toMilestoneSummary)),
     listStakeholders: vi.fn(() => [
       { id: 40, name: "Jane Roe", category: "Sponsor", influence: "High", interest: "Low", raci: {} },
     ]),
@@ -239,10 +238,10 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     ),
     deleteChange: vi.fn((id: number) => id === 20),
     createMilestone: vi.fn((input) => ({
-      id: 31, name: "M", date: "2026-07-01", ...(input as object),
+      id: 31, name: "M", date: "2026-07-01", description: "", linkedTaskIds: [], ...(input as object),
     })),
     updateMilestone: vi.fn((id: number) =>
-      id === 30 ? { id: 30, name: "M", date: "2026-07-01" } : null,
+      id === 30 ? { id: 30, name: "M", date: "2026-07-01", description: "", linkedTaskIds: [] } : null,
     ),
     deleteMilestone: vi.fn((id: number) => id === 30),
     createStakeholder: vi.fn((input) => ({
@@ -1021,7 +1020,7 @@ function statefulMilestoneDispatcher(seed: Milestone): ToolDispatcher {
     updateMilestone: vi.fn((id: number, patch) => {
       if (id !== 30) return null;
       row = { ...row, ...(patch as Partial<Milestone>) };
-      return { id: row.id, name: row.name, date: row.date, achievedDate: row.achievedDate };
+      return toMilestoneSummary(row);
     }),
   });
 }
@@ -1472,7 +1471,9 @@ describe("runTool — list_milestones", () => {
         id: 30,
         name: "Phase 1 complete",
         date: "2026-07-01",
+        description: "Sign-off with the sponsor",
         achievedDate: undefined,
+        linkedTaskIds: [],
         expectedToken: FRESH_MILESTONE_TOKEN,
       },
     ]);
@@ -1481,12 +1482,21 @@ describe("runTool — list_milestones", () => {
   it("includes achievedDate when signed off", async () => {
     const achieved = makeMilestone({ achievedDate: "2026-06-28" });
     const d = makeDispatcher({
-      listMilestones: vi.fn(() => [
-        { id: achieved.id, name: achieved.name, date: achieved.date, achievedDate: achieved.achievedDate },
-      ]),
+      listMilestones: vi.fn(() => [toMilestoneSummary(achieved)]),
     });
     const [item] = (await runTool(d, "list_milestones", {})) as { achievedDate?: string }[];
     expect(item.achievedDate).toBe("2026-06-28");
+  });
+
+  // update_milestone REPLACES linkedTaskIds, so a model that could not read them would wipe them (§502 tooling).
+  it("carries linkedTaskIds and the plain-text description, and says update replaces the list", async () => {
+    const linked = makeMilestone({ linkedTaskIds: [3, 5] });
+    const d = makeDispatcher({ listMilestones: vi.fn(() => [toMilestoneSummary(linked)]) });
+    const [item] = (await runTool(d, "list_milestones", {})) as { linkedTaskIds: number[]; description: string }[];
+    expect(item.linkedTaskIds).toEqual([3, 5]);
+    expect(item.description).toBe("Sign-off with the sponsor");
+    const update = TOOL_DEFS.find((t) => t.name === "update_milestone");
+    expect(update?.description).toContain("linkedTaskIds REPLACES the whole list");
   });
 });
 
@@ -2541,8 +2551,9 @@ const SUMMARY_TRAP: Array<{
     b: () => makeChangeItem({ description: "Drop the module" }),
     summarize: (r) => toChangeSummary(r as ChangeItem) },
   { entity: "milestone", kind: "milestone", field: "description",
-    a: () => makeMilestone({ description: "Sign-off with the sponsor" }),
-    b: () => makeMilestone({ description: "Sign-off with the steering committee" }),
+    // The summary carries the description as plain text, so the two rows differ only in markup.
+    a: () => makeMilestone({ description: "<p>Sign-off with the sponsor</p>" }),
+    b: () => makeMilestone({ description: "<p>Sign-off with the <em>sponsor</em></p>" }),
     summarize: (r) => toMilestoneSummary(r as Milestone) },
   { entity: "stakeholder", kind: "stakeholder", field: "notes",
     a: () => makeStakeholder({ notes: "Prefers email" }),
