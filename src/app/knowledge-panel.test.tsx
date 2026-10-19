@@ -293,6 +293,42 @@ describe("KnowledgePanel", () => {
     expect(screen.getByText(/Risk\.pdf/)).toBeInTheDocument();
   });
 
+  // The library cards were drawn unfiltered: a search for "CRM" left every one on screen (seen in the
+  // demo recording, where the library is all the project has).
+  function renderLibrary(items: KnowledgeItem[], tasks: Task[] = [seededTask([])]) {
+    render(
+      <>
+        <SeedTasks tasks={tasks} />
+        <SeedKnowledgeItems items={items} />
+        <KnowledgePanel />
+      </>,
+      { wrapper },
+    );
+  }
+  const libraryItem = (id: string, name: string): KnowledgeItem => ({ ...LINK, id, name, url: `https://example.com/${id}` });
+
+  it("narrows the knowledge library by the search box too", () => {
+    renderLibrary([libraryItem("k1", "Cutover runbook"), libraryItem("k2", "CRM interface decision")]);
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsSearchDocs")), { target: { value: "crm" } });
+    expect(screen.queryByText(/Cutover runbook/)).not.toBeInTheDocument();
+    expect(screen.getByText(/CRM interface decision/)).toBeInTheDocument();
+  });
+
+  it("shows the no-match text when search excludes every library item", () => {
+    renderLibrary([libraryItem("k1", "Cutover runbook")]);
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsSearchDocs")), { target: { value: "zzz" } });
+    expect(screen.queryByText(/Cutover runbook/)).not.toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "documentsNoneForSource"))).toBeInTheDocument();
+  });
+
+  it("hides the knowledge library while a source other than All is chosen", () => {
+    renderLibrary([libraryItem("k1", "Cutover runbook")], [seededTask([LINK])]);
+    expect(screen.getByText(/Cutover runbook/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: new RegExp(t("en-US", "documentsSourceTask")) }));
+    expect(screen.queryByText(/Cutover runbook/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
+  });
+
   it("shows the no-match text when search excludes everything", () => {
     renderWithTasks([seededTask([LINK])]);
     fireEvent.change(screen.getByLabelText(t("en-US", "documentsSearchDocs")), { target: { value: "zzz" } });
