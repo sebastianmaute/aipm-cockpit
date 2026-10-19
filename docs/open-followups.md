@@ -989,7 +989,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§749](#749-a-claude-api-key-typed-under-the-passphrase-lock-is-lost-on-reload-and-two-ai-sections-disagree-about-the-lock--open) | A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock | — | — | open |
 | [§750](#750-a-scheduled-job-added-in-settings-never-runs-until-the-app-reloads-and-settings-never-shows-its-run--open) | A scheduled job added in Settings never runs until the app reloads, and Settings never shows its run | — | — | open |
 | [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--closed-2026-10-18) | Something starts a save of the empty Turso workspace before a project exists | — | — | **CLOSED** 2026-10-18 |
-| [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--open) | window.prompt throws in the desktop app, so six flows fail there | — | — | open |
+| [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--closed-2026-10-19) | window.prompt throws in the desktop app, so six flows fail there | — | — | **CLOSED** 2026-10-19 |
 | [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--open) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | open |
 | [§754](#754-an-empty-workspace-can-still-be-kept-as-an-unsaved-draft-when-the-stored-version-is-unknown--open) | An empty workspace can still be kept as an unsaved draft when the stored version is unknown | — | — | open |
 <!-- INDEX:END -->
@@ -45670,11 +45670,11 @@ Size S to trace; the fix is unknown until then.
 
 **Source:** found 2026-10-18 in a §715 A recording; the owner chose to fix the symptom and file the cause.
 
-## 752. window.prompt throws in the desktop app, so six flows fail there — OPEN
+## 752. window.prompt throws in the desktop app, so six flows fail there — CLOSED 2026-10-19
 
-**Status:** OPEN 2026-10-18, measured on the installed 1.19.0 desktop build: `window.prompt("probe", "x")` called in the app's page over the debug port threw `Error: prompt() is not supported.` (an untracked Playwright script). The call sites: `grep -rnE "window\.prompt\(" src/app --include=*.ts --include=*.tsx | grep -v test` → six.
+**Status:** CLOSED 2026-10-19 on `fix/752-in-app-dialogs`. Every browser dialog under `src/` is the app's now (owner: "fix all in-app dialogs", and move the storage confirms too): `confirm-dialog.tsx` adds `usePrompt` and `useNotice` beside `useConfirm`, and a `dialogsRef` bridge for task-manager's hooks. The six prompts, the three alerts and all five confirms (bulk send, the empty-reload, and the three file and storage-switch ones) moved; `no-native-dialogs.sweep.test.ts` fails on a new call. ★ The app's dialogs do not freeze the page, so every awaited answer re-checks what the op stands on: a typed address is dropped when the project scope moved (task row, RAID, bulk send); the storage ops re-check `isBackendCurrent()`, the load-instead offer also the LIVE workspace, the conversion writes the live workspace rather than the click's snapshot (stale since an earlier `await pick` too), and the empty-reload reads the stored version again after a yes. Tests for each re-check failed with it removed (mutants, 2026-10-19). Not measured: the bulk send's mail windows after an awaited confirm in a real browser (the answering click is a fresh user activation).
 
-**Work item:** #783
+**Earlier (OPEN 2026-10-18):** measured on the installed 1.19.0 desktop build: `window.prompt("probe", "x")` called in the app's page over the debug port threw `Error: prompt() is not supported.` (an untracked Playwright script). The call sites: `grep -rnE "window\.prompt\(" src/app --include=*.ts --include=*.tsx | grep -v test` → six.
 
 Electron does not implement `window.prompt`, so on desktop each of these flows ends in that exception instead of asking:
 

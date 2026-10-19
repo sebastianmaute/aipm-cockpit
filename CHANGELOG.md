@@ -41,6 +41,13 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Six flows work again in the desktop app, and every question is asked in the app's own dialog (§752).** Inserting a
+  link, naming a template version and the four "enter the email address" prompts failed in the desktop app, which
+  does not support the browser's text prompt. They, the browser's yes/no questions (bulk send, reloading an empty
+  project, the file and storage-switch warnings) and its message boxes now use the app's own dialogs, styled and in
+  the app's language. While one is open the app keeps running, so each step checks again after the answer: an
+  address typed for one project is never saved into another, and a storage switch copies the project as it is
+  when you answer.
 - **Analyze with AI and scheduled AI jobs fail less often (§715).** A reply with no new suggestions, or with its
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,

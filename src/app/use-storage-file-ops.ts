@@ -61,6 +61,7 @@ import { isSaveConflict, isSaveLockTimeout, isTursoLockTimeout } from "./storage
 import { STORAGE_LABEL_KEYS } from "./use-storage-backend-types";
 import { dropDanglingDependencies, summarizeUnsafeEmailRecords } from "./sanitize";
 import type { UseMsAuthResult } from "./use-ms-auth";
+import type { AppDialogs } from "./confirm-dialog";
 
 /** Live closure values the file/local project flows read each render. */
 export interface FileProjectOpsDeps {
@@ -484,6 +485,11 @@ export interface StorageFilePickerDeps {
    *  active backend on its way out. ★ That last one is why the accept branch does NOT also call
    *  `allowSavesToActiveBackend` — one mechanism, not two. */
   applyPickedWorkspace: (workspace: Workspace) => void;
+  /** §752 — the app's dialogs. Unlike `window.confirm` they do not freeze the page, so each op here re-checks
+   *  after the answer what the freeze used to guarantee (the backend is still the live one, and so on). */
+  dialogsRef: { readonly current: AppDialogs };
+  /** §752 — the workspace as the LATEST render holds it; `currentWorkspace` is the render this op started in. */
+  liveWorkspace: () => Workspace;
 }
 
 /**
@@ -689,8 +695,8 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       const existing = await readPickedProject(picked);
       // ★★ §588 — THE READ GUARD, a window NEW with §590: the read above is an await that did not
       //   exist before, so the picker guard can no longer see as far as the first commit. It covers
-      //   the confirm below too — `window.confirm` blocks the main thread, so no rebuild can land
-      //   inside it, which is why this guard is placed once here rather than once per branch.
+      //   the read only: the confirm below is the app's dialog (§752), which does not freeze the page
+      //   as `window.confirm` did, so the load-instead branch re-checks after the answer.
       // ★★ IT DOES NOT REACH THE COMMITS, and an earlier revision claimed it did ("guard 2 now sits
       //   above `guardedWrite`, so it subsumes every one of them"). `await setBackendFileHandle`
       //   separates it from both branches' tails — added by the very commit that wrote that
@@ -746,7 +752,11 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
         // ★ OK = load the existing project; Cancel = leave both the file and the app untouched. The
         //   safe answer is the one the dialog's own Cancel gives, so an accidental dismissal
         //   destroys nothing.
-        if (!window.confirm(tPlural(deps.langRef.current, "storagePickFileHasProject", existing.records, picked.name ?? "", existing.records))) return;
+        if (!(await deps.dialogsRef.current.confirm({ message: tPlural(deps.langRef.current, "storagePickFileHasProject", existing.records, picked.name ?? "", existing.records), tone: "default" }))) return;
+        // §752 — the answer was awaited: a rebuild may have replaced the backend, or records may have reached the
+        //   live workspace (a background writer), and loading would then replace them. Either way: nothing changes.
+        if (!deps.isBackendCurrent()) { logDiag("warn", "storage.supersededPickDropped", { stage: "confirm" }); return; }
+        if (authoredRecordCount(deps.liveWorkspace()) > 0) { logDiag("warn", "storage.pickLoadInsteadDropped", { reason: "records-arrived" }); return; }
         // ★★ ITS OWN try/catch, so a throw here is announced as a failed LOAD. The op's outer catch
         //   speaks `storageSaveFailed`, and this branch performs no write at all — the same reasoning
         //   the abort catch above already applies, and the key `onOpenStorageFile` uses for its own
@@ -857,7 +867,9 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       if (!load) throw new StorageNotReadyError("local-file-not-picked"); // Unreachable: `openFileForBackend` returned non-null above, so this IS the LocalFileBackend, and both facade helpers narrow on the same `instanceof` against the same instance. The guard exists only because every facade helper is uniformly nullable. ★★★ A `throw`, NEVER a `return`. BOTH exit above `reportImportFor`, and that is fine here — no load has happened yet, so there are no import diagnostics to report. What differs is SILENCE: a bare `return` makes the user's click do nothing and say nothing, while the throw reaches the catch below and surfaces a real error. Nothing pins that the two helpers' predicates stay in agreement, so if this ever DOES become reachable it must fail loudly. ★★ Its neighbour `setBackendFileHandle` below is nullable for the same reason and is deliberately NOT hardened — do not read the asymmetry as a claim it is safer: a `null` there `await`s to nothing, so the pick would go silently UNBOUND while the apply proceeded, which is the worse failure of the two. It is left alone because a second unreachable guard costs a line this file has no budget for, not because it cannot go wrong.
       const loaded = await load; // ★ `reportImportFor`, NOT `reportFor` — see the report at the end of this try. This path applies tasks+raid ONLY, never the loaded documents, so raising the §103 flag would warn about documents the user still has and lowering it would clear a warning still true of the live ones. That reason is TRUNCATION-specific and never covered the import channel (§152): `droppedRows` is one workspace-wide count bumped at five sites across BOTH codec families, so the rows a malformed CSV *or Markdown* file dropped may be the very tasks and RAID applied below. ★★ COUNT THE CALL SITES, NOT THE INCREMENTS — every bump now routes through one writer, so the obvious `grep -rn "droppedRows++"` reads as a refutation of this sentence: `grep -rn "countDroppedRow(" src/app --include=*.ts | grep -v "\.test\." | grep -v "export function"` returns the five (3 CSV + 2 Markdown).
       // ★★★ A GUARD CLAUSE INVERTED ON PURPOSE, so ONE report below covers BOTH exits OF THE CONFIRM: the decline path needs the import report and the quoting hold every bit as much as the apply path does — a malformed file drops the same rows whichever way the confirm goes — and an early `return` above would have silently exempted it (§152). ★★ The re-point that used to happen on BOTH exits is GONE — `openFileForBackend` commits nothing now, and the handle is bound inside the accept branch below (§287).
-      const accepted = deps.tasks.length === 0 || window.confirm(tPlural(deps.langRef.current, "storageConfirmOverwrite", deps.tasks.length, deps.tasks.length));
+      const accepted = deps.tasks.length === 0 || (await deps.dialogsRef.current.confirm({ message: tPlural(deps.langRef.current, "storageConfirmOverwrite", deps.tasks.length, deps.tasks.length) })); // §752 — the app's dialog
+      // §752 — awaited, so a rebuild may have replaced the backend meanwhile: nothing is bound or applied to a dead instance.
+      if (accepted && !deps.isBackendCurrent()) { logDiag("warn", "storage.supersededOpenDropped", { stage: "confirm" }); return; }
       if (accepted) {
         const binding = unregisteredBinding(); // §645 C1 — stored with the handle, so a later load of this file joins this window
         await setBackendFileHandle(deps.backend, picked, binding); // ★ commit the pick ONLY now (§287) — before this line the backend still points at the previous file, so a decline leaves nothing to undo.
@@ -924,7 +936,9 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     }
     const leavingTurso = current.kind === "turso" && newKind !== "turso";
     const confirmKey = leavingTurso ? "storageTursoLeaveWarn" : "storageConvertConfirm";
-    if (!window.confirm(tPlural(deps.langRef.current, confirmKey, deps.tasks.length, deps.tasks.length, label))) return;
+    if (!(await deps.dialogsRef.current.confirm({ message: tPlural(deps.langRef.current, confirmKey, deps.tasks.length, deps.tasks.length, label) }))) return; // §752 — the app's dialog
+    // §752 — awaited: re-check the two facts the conversion stands on, which the frozen page of window.confirm kept true.
+    if (!deps.isBackendCurrent() || !deps.loadSucceeded()) { logDiag("warn", "storage.switchDropped", { stage: "confirm" }); return; }
     const target = createBackend(newConfig, {
       acquireToken: deps.acquireToken,
       tursoConfig: getTursoConfig(
@@ -937,7 +951,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       const pick = pickFileForBackend(target, binding);
       if (pick) await pick;
       // §4 — `force`: a blind write by intent. `target` never loaded, and the conversion replaces whatever the new storage (file, IndexedDB or SharePoint item) held.
-      if (!(await deps.truncationOps.guardedWrite(target, deps.currentWorkspace(), { force: true }))) return; // ★★ §103: the conversion writes to a DIFFERENT backend, so the source survives — but `emitStorageConfig` below then repoints the app AT the short copy and the intact original becomes the abandoned one. Refuse loudly instead.
+      if (!(await deps.truncationOps.guardedWrite(target, deps.liveWorkspace(), { force: true }))) return; // §752 — LIVE: the confirm and the picker above are awaited, so the click's snapshot may be stale // ★★ §103: the conversion writes to a DIFFERENT backend, so the source survives — but `emitStorageConfig` below then repoints the app AT the short copy and the intact original becomes the abandoned one. Refuse loudly instead.
       deps.suppressNextLoadRef.current = true;
       deps.handOverFromRef.current = target; // §4 §645 — the revision (and handle) the forced write produced
       if (pick) deps.setFileBinding(binding); // §645 C1 — a file target: this window is on the new file's binding

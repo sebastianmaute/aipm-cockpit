@@ -12,6 +12,8 @@
 // ★ Lives in its own file for the same reason as the steering pins: the main
 //   `use-storage-backend.test.tsx` is ~4900 lines and its module-level
 //   `mockBackend` is shared state; these need per-test backends.
+import { fakeDialogs } from "../test/fake-dialogs";
+import { withWindowConfirm } from "../test/window-confirm-dialogs";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Lang } from "./i18n";
@@ -109,7 +111,7 @@ function makeArgs(storageConfig: StorageConfig = { kind: "browser" }): Parameter
 }
 
 function useProbe(args: Parameters<typeof useStorageBackend>[0]) {
-  const hook = useStorageBackend(args);
+  const hook = useStorageBackend(withWindowConfirm(args));
   const { tasks, setTasks } = useWorkspace();
   return { ...hook, tasks, setTasks };
 }
@@ -536,6 +538,58 @@ describe("§586 — no save before a load for the current backend has succeeded"
     expect(memo.save.mock.calls[0][0].tasks.map((x: Task) => x.id)).toEqual([1]);
     expect(current.save).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
+  });
+
+  // §752 — the conversion's question is the app's dialog, awaited: it copies the workspace as it is when the
+  // user answers (an edit landing while the dialog is open is in it), and a rebuild meanwhile drops the switch.
+  // KILLED BY: writing `deps.currentWorkspace()` (the click's snapshot) instead of `deps.liveWorkspace()`.
+  it("(m) §752 converts the workspace as it is when the app's dialog is answered", async () => {
+    const current = makeBackend(0);
+    const converted = makeBackend(0);
+    const memo = makeBackend(0);
+    createBackendMock.mockReturnValueOnce(current).mockReturnValueOnce(converted).mockReturnValue(memo);
+    const native = vi.spyOn(window, "confirm");
+    const dialogs = fakeDialogs();
+    let answer: (yes: boolean) => void = () => {};
+    dialogs.confirm.mockImplementation(() => new Promise<boolean>((resolve) => { answer = resolve; }));
+    let rerenderWith: (cfg: StorageConfig) => void = () => {};
+    const setStorageConfig = vi.fn((cfg: StorageConfig) => rerenderWith(cfg));
+    const { result, rerender } = render({ ...makeArgs(), setStorageConfig, dialogsRef: dialogs.ref });
+    rerenderWith = (cfg) => rerender({ args: { ...makeArgs(cfg), setStorageConfig, dialogsRef: dialogs.ref } });
+    await advance(100);
+    let op!: Promise<void>;
+    act(() => { op = result.current.onRequestStorageSwitch("local-json"); });
+    await advance(50);
+    expect(dialogs.confirm).toHaveBeenCalledTimes(1); // PRECONDITION: parked on the dialog
+    await act(async () => { result.current.setTasks(EDIT); });
+    await act(async () => { answer(true); await op; });
+    expect(native).not.toHaveBeenCalled();
+    expect(converted.save).toHaveBeenCalledTimes(1);
+    expect(converted.save.mock.calls[0][0].tasks.map((x: Task) => x.id)).toEqual(EDIT.map((x) => x.id));
+    native.mockRestore();
+  });
+
+  // KILLED BY: deleting the `storage.switchDropped` re-check after the awaited answer.
+  it("(n) §752 drops the switch when a rebuild lands while the app's dialog is open", async () => {
+    const current = makeBackend(0);
+    const rebuilt = makeBackend(0);
+    const converted = makeBackend(0);
+    createBackendMock.mockReturnValueOnce(current).mockReturnValueOnce(rebuilt).mockReturnValue(converted);
+    const dialogs = fakeDialogs();
+    let answer: (yes: boolean) => void = () => {};
+    dialogs.confirm.mockImplementation(() => new Promise<boolean>((resolve) => { answer = resolve; }));
+    const setStorageConfig = vi.fn();
+    const { result, rerender } = render({ ...makeArgs(), setStorageConfig, dialogsRef: dialogs.ref });
+    await advance(100);
+    let op!: Promise<void>;
+    act(() => { op = result.current.onRequestStorageSwitch("local-json"); });
+    await advance(50);
+    expect(dialogs.confirm).toHaveBeenCalledTimes(1); // PRECONDITION: parked on the dialog
+    rerender({ args: { ...makeArgs({ kind: "browser", rebuilt: true } as unknown as StorageConfig), setStorageConfig, dialogsRef: dialogs.ref } });
+    await advance(100);
+    await act(async () => { answer(true); await op; });
+    expect(converted.save).not.toHaveBeenCalled();
+    expect(setStorageConfig).not.toHaveBeenCalledWith({ kind: "local-json" });
   });
   // ── §586/§587 (user ruling): a storage-KIND switch with nothing loaded copies nothing ──
   // `onRequestStorageSwitch` normally copies the LIVE workspace into the new kind through

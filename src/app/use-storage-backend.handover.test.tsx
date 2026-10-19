@@ -6,6 +6,7 @@
 //   (over fake-indexeddb) and the whole hook are REAL. Doubled is the ENVIRONMENT — the OS pickers,
 //   the `FsHandle`s they return, `idb`'s file-handle slot (a handle is an object of functions, which a
 //   real IndexedDB cannot clone) and the per-project handle store.
+import { windowConfirmDialogsRef } from "../test/window-confirm-dialogs";
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -89,7 +90,7 @@ function renderApp(initial: StorageConfig) {
   const hook = renderHook(() => {
     const [storageConfig, setStorageConfig] = useState(initial);
     const settings = useMemo(() => ({ storageConfig }) as unknown as Settings, [storageConfig]);
-    const ops = useStorageBackend({
+    const ops = useStorageBackend({ dialogsRef: windowConfirmDialogsRef,
       settings, lang: "en-US" as Lang, hydrated: true, isPopout: false, showToast, showToastAction: vi.fn(),
       onRevealSavingPaused: vi.fn(), setStorageConfig, onStorageOutcome,
     });

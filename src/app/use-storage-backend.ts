@@ -28,6 +28,7 @@ import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
 import { useFileProjectOps, useStorageFilePickerOps } from "./use-storage-file-ops";
+import { UNBRIDGED_DIALOGS_REF } from "./confirm-dialog";
 import { lastLoadWasIncomplete, useLoadTruncation } from "./use-load-truncation";
 import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
 import { journalWorkspace, resolveJournalProjectKey, useUnloadJournal } from "./use-unload-journal";
@@ -1242,6 +1243,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, budgetHistory, baselineHistory, forecastHistory, forecastScenarios };
   }
 
+  const liveWorkspaceRef = useRef(currentWorkspace); // §752 — the LATEST render's reader, for an op that resumes after an awaited dialog
+  useEffect(() => { liveWorkspaceRef.current = currentWorkspace; });
+
   // Persist the registry AND surface the change to the caller so its observable
   // copy (task-manager's `registry` state) re-renders. Every project flow that
   // mutates the registry routes through here instead of calling saveRegistry
@@ -1374,6 +1378,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     allowSavesToActiveBackend: () => allowSavesTo(backend),
     loadSucceeded: () => savesAllowedForRef.current === backend,
     isBackendCurrent: () => !isSupersededBackend(), // §588 — `backend` inside the predicate is THIS render's instance; the ref is the live one.
+    dialogsRef: args.dialogsRef ?? UNBRIDGED_DIALOGS_REF, // §752
+    liveWorkspace: () => liveWorkspaceRef.current(), // §752
     acquireToken: auth.acquireToken,
     setTasks,
     setRaid,
@@ -1403,14 +1409,18 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   save effect, whose cleanup clears a pending timer. Only a debounce falling due in the few ms
       //   before React commits that render can still start the old snapshot's save (re-review N1 on
       //   §641). Bounded by `RELOAD_REREAD_LIMIT`.
-      let workspace: Workspace | null = null;
-      for (let reads = 0; ; reads += 1) {
-        const queuedSaves = whenSaved(backend);
-        if (queuedSaves) await queuedSaves; // ★ `null` when idle: the read then starts in the click's own tick, as before
-        if (isSupersededBackend()) break; // ★ review M1 — no read of a replaced instance; the §588 guard below drops the click
-        workspace = await backend.load();
-        if (!whenSaved(backend) || reads >= RELOAD_REREAD_LIMIT) break;
-      }
+      const readSettled = async (): Promise<Workspace | null> => {
+        let read: Workspace | null = null;
+        for (let reads = 0; ; reads += 1) {
+          const queuedSaves = whenSaved(backend);
+          if (queuedSaves) await queuedSaves; // ★ `null` when idle: the read then starts in the click's own tick, as before
+          if (isSupersededBackend()) break; // ★ review M1 — no read of a replaced instance; the §588 guard below drops the click
+          read = await backend.load();
+          if (!whenSaved(backend) || reads >= RELOAD_REREAD_LIMIT) break;
+        }
+        return read;
+      };
+      let workspace = await readSettled();
       // ★★★ §588 — A SETTINGS-DRIVEN REBUILD MAY HAVE REPLACED THE BACKEND WHILE WE AWAITED, and this
       //   closure still holds the one the click started against. Applying now would (a) stomp the live
       //   project with THIS instance's payload, (b) `setSettledBackend` the superseded instance, which
@@ -1433,15 +1443,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // after an explicit confirm; default is to keep the current data untouched.
       // ★★ §601 — the same two predicates as the load effect's refusal; see `hasAuthoredRecords`.
       if (!hasAuthoredRecords(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
-        const confirmed =
-          typeof window !== "undefined" &&
-          window.confirm(t(langRef.current, "reloadEmptyConfirm"));
+        const confirmed = await (args.dialogsRef ?? UNBRIDGED_DIALOGS_REF).current.confirm({ message: t(langRef.current, "reloadEmptyConfirm") }); // §752 — the app's dialog
         recordDataLossEvent({ path: "reload", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: nonEmptyCollectionCount(workspace), refused: !confirmed });
         if (!confirmed) {
           truncationOps.raiseDecodeFailuresFor(backend); // ★★★ THE CAUTIOUS ANSWER MUST NOT DISARM THE GUARD. Declining keeps the in-memory workspace and leaves autosave pointed at THIS backend, so an undecodable meta blob here is precisely the loss the flag exists to pause — the user picking the SAFE option was what skipped the report and left the next edit free to `DELETE FROM meta` over it. Raise-only, and truncation is deliberately not published: see `raiseDecodeFailuresFor`.
           emitOutcome(null);
           return;
         }
+        // §752 — unlike window.confirm the dialog does not freeze the page: a rebuild or a save may have landed while it was open, so read the stored version again and apply it as it is now.
+        workspace = await readSettled();
+        if (workspace === null || isSupersededBackend()) { logDiag("warn", "storage.supersededLoadDropped", { writer: "reloadCurrentProject", outcome: "confirmed" }); return; }
       }
       // RAISE (not reset): this same-project reload may reflect a locally-deleted
       // max-id row; lowering the mark to the reloaded max would free that id.

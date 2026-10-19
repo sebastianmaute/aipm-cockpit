@@ -459,7 +459,7 @@ function TaskManagerInner() {
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId, loadPending, getScopeEpoch, getUndoEpoch, isSwapInFlight,
     unloadJournalConflict, restoreUnloadJournalAnyway, discardUnloadJournal, otherJournals, restoreKeptJournal,
     resolveConflictReload, resolveConflictOverwrite, downloadConflictVersion, canOverwriteConflict,
-  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry, onUndoHistoryReset: undoApi.pruneStale });
+  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, showToastAction, onRevealSavingPaused: () => { setDestructiveBannerDismissed(false); setLoadPauseBannerDismissed(false); }, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry, onUndoHistoryReset: undoApi.pruneStale, dialogsRef: appDialogsRef });
 
   // Fills the forward-ref declared above `useUndoStack`, so an undo-stack redo
   // that re-removes rows can arm the one-shot destructive-save bypass (§295).

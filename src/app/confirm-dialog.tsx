@@ -100,6 +100,9 @@ export function unbridgedDialogs(): AppDialogs {
   };
 }
 
+/** The same, in a ref, for an optional `dialogsRef` arg left out (tests, popout paths). */
+export const UNBRIDGED_DIALOGS_REF: { readonly current: AppDialogs } = { current: unbridgedDialogs() };
+
 // Default resolves false so a `useConfirm()` call outside a provider (e.g. an
 // isolated unit test) is a safe no-op rather than a crash.
 const ConfirmContext = createContext<ConfirmFn>(() => Promise.resolve(false));

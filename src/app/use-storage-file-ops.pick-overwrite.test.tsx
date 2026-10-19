@@ -22,6 +22,8 @@
 // onto `DISK`, an in-memory Map standing in for the file system), and `idb`'s key-value store
 // (`KV`). The observable is therefore the FILE'S BYTES, and a test that never reached the picker
 // cannot satisfy it by accident.
+import { fakeDialogs } from "../test/fake-dialogs";
+import { withWindowConfirm } from "../test/window-confirm-dialogs";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Lang } from "./i18n";
@@ -211,7 +213,7 @@ function makeArgs(storageConfig: StorageConfig): Parameters<typeof useStorageBac
 }
 
 function useProbe(args: Parameters<typeof useStorageBackend>[0]) {
-  const hook = useStorageBackend(args);
+  const hook = useStorageBackend(withWindowConfirm(args));
   const { tasks } = useWorkspace();
   return { ...hook, tasks };
 }
@@ -835,7 +837,7 @@ describe("§629 — loading the picked file instead drops this tab's unconfirmed
   const JOURNAL_KEY = `${UNLOAD_JOURNAL_PREFIX}browser`; // no registry entry: the key is "browser"
 
   function useJournalProbe(args: Parameters<typeof useStorageBackend>[0]) {
-    const hook = useStorageBackend(args);
+    const hook = useStorageBackend(withWindowConfirm(args));
     const { tasks, setProject } = useWorkspace();
     return { ...hook, tasks, setProject };
   }
@@ -902,5 +904,76 @@ describe("§4 — a pick that cannot be read, or whose write meets a conflict", 
     await setupPick({ fileBytes: "", handle: moving }); // brand new and empty: the ordinary bind-then-write branch
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConflictNotSavedOnRebuild"));
     expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("Save conflict"));
+  });
+});
+
+// §752 — the offer to load the picked file is the app's dialog now, not `window.confirm`. Unlike the browser's
+// confirm it does not freeze the page, so a rebuild, or records reaching the live workspace, can land while it
+// is open: the load-instead branch re-checks both after the answer.
+describe("§752 — the load-instead offer is the app's dialog, re-checked after the answer", () => {
+  /** A confirm the test answers by hand, so something can land while it is open. */
+  function heldConfirm() {
+    const dialogs = fakeDialogs();
+    let answer: (yes: boolean) => void = () => {};
+    dialogs.confirm.mockImplementation(() => new Promise<boolean>((resolve) => { answer = resolve; }));
+    return { dialogs, answer: (yes: boolean) => answer(yes) };
+  }
+
+  function useProbeWithSetter(args: Parameters<typeof useStorageBackend>[0]) {
+    const hook = useStorageBackend(args);
+    const { tasks, setTasks } = useWorkspace();
+    return { ...hook, tasks, setTasks };
+  }
+
+  async function openOffer(dialogs: ReturnType<typeof fakeDialogs>) {
+    DISK.set(PICKED_FILE, populatedProjectBytes());
+    showSaveFilePicker.mockResolvedValue(handleFor(PICKED_FILE));
+    confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result, rerender } = renderHook(
+      (props: { args: Parameters<typeof useStorageBackend>[0] }) => useProbeWithSetter(props.args),
+      {
+        wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+        initialProps: { args: { ...makeArgs({ kind: "local-json" } as StorageConfig), dialogsRef: dialogs.ref } },
+      },
+    );
+    await waitFor(() => expect(result.current.loadPause).toBe("load-failed"));
+    let pick!: Promise<void>;
+    act(() => { pick = result.current.onPickStorageFile(); });
+    // ★ PRECONDITION, ASSERTED: the op is parked on the app's dialog.
+    await waitFor(() => expect(dialogs.confirm).toHaveBeenCalledTimes(1));
+    return { result, rerender, pick, native: confirmSpy as unknown as ReturnType<typeof vi.fn> };
+  }
+
+  it("asks in the app's dialog, never the browser's, and loads on yes", async () => {
+    const held = heldConfirm();
+    const { result, pick, native } = await openOffer(held.dialogs);
+    await act(async () => { held.answer(true); await pick; });
+    expect(native).not.toHaveBeenCalled();
+    expect(held.dialogs.confirm.mock.calls[0][0].message).toContain(PICKED_FILE);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2]);
+  });
+
+  // KILLED BY: deleting the `stage: "confirm"` guard after the awaited answer.
+  it("loads nothing and binds nothing when a rebuild lands while the dialog is open", async () => {
+    const held = heldConfirm();
+    const { result, rerender, pick } = await openOffer(held.dialogs);
+    rerender({ args: { ...makeArgs({ kind: "browser" } as StorageConfig), dialogsRef: held.dialogs.ref } });
+    await act(async () => { held.answer(true); await pick; });
+    expect(KV.has(HANDLE_KEY)).toBe(false);
+    expect(result.current.tasks).toHaveLength(0);
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.supersededPickDropped", { stage: "confirm" });
+  });
+
+  // KILLED BY: deleting the records re-check after the awaited answer — the load would then replace the task
+  // that arrived while the dialog was open.
+  it("loads nothing when records reach the live workspace while the dialog is open", async () => {
+    const held = heldConfirm();
+    const { result, pick } = await openOffer(held.dialogs);
+    act(() => { result.current.setTasks([taskRec(77, "Arrived meanwhile")]); });
+    await act(async () => { held.answer(true); await pick; });
+    expect(result.current.tasks.map((x) => x.id)).toEqual([77]);
+    expect(KV.has(HANDLE_KEY)).toBe(false);
+    expect(tasksInFile()).toHaveLength(2);
+    expect(logDiagSpy).toHaveBeenCalledWith("warn", "storage.pickLoadInsteadDropped", { reason: "records-arrived" });
   });
 });

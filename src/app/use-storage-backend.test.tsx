@@ -1,3 +1,5 @@
+import { fakeDialogs } from "../test/fake-dialogs";
+import { withWindowConfirm } from "../test/window-confirm-dialogs";
 import { act, renderHook } from "@testing-library/react";
 import { useCallback, useEffect, useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -238,7 +240,7 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 // Composite probe so tests can also inspect workspace state
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
   return function useProbe() {
-    const backend = useStorageBackend(args);
+    const backend = useStorageBackend(withWindowConfirm(args));
     const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions, documentAssets, setDocumentAssets, activityLog, setActivityLog } = useWorkspace();
     return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions, documentAssets, setDocumentAssets, activityLog, setActivityLog };
   };
@@ -279,7 +281,7 @@ function makeUndoProbe(args: Parameters<typeof useStorageBackend>[0]) {
       showToastAction,
       allowDestructiveSave: armDestructiveForUndo,
     });
-    const backend = useStorageBackend(args);
+    const backend = useStorageBackend(withWindowConfirm(args));
     // Hoisted out of the dep array: exhaustive-deps rejects an `obj.member` dep.
     const { allowDestructiveSave, destructiveRefusal } = backend;
     useEffect(() => { allowDestructiveSaveRef.current = allowDestructiveSave; }, [allowDestructiveSave]);
@@ -1917,7 +1919,7 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
     };
     const { result, rerender } = renderHook(
       () => {
-        const backend = useStorageBackend(argsRef.current);
+        const backend = useStorageBackend(withWindowConfirm(argsRef.current));
         const { tasks, raid, absences, shifts, setTasks } = useWorkspace();
         return { ...backend, tasks, raid, absences, shifts, setTasks };
       },
@@ -2714,6 +2716,40 @@ describe("useStorageBackend — reloadCurrentProject data-loss guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  // §752 — the question is the app's dialog, not `window.confirm`, and it is awaited: a save can land while it
+  // is open, so a yes reads the stored version again and applies it as it is THEN, keeping screen and file one.
+  // KILLED BY: dropping the second `readSettled()` after the answer (the empty first read is then applied).
+  it("asks in the app's dialog, and after a yes applies the stored version as it is then (§752)", async () => {
+    const native = vi.spyOn(window, "confirm");
+    const dialogs = fakeDialogs();
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "Keep me" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend(makeArgs({ dialogsRef: dialogs.ref }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.tasks).toHaveLength(1);
+    mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });
+    dialogs.confirm.mockImplementation(async () => {
+      // a save of the live workspace landed while the dialog was open
+      mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 3, taskName: "Saved meanwhile" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+      return true;
+    });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(dialogs.confirm).toHaveBeenCalledWith({ message: t("en-US", "reloadEmptyConfirm") });
+    expect(native).not.toHaveBeenCalled();
+    expect(result.current.tasks.map((x) => x.id)).toEqual([3]);
+  });
+
+  it("reads nothing more and keeps the project when the app's dialog is declined (§752)", async () => {
+    const dialogs = fakeDialogs({ confirm: false });
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "Keep me" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend(makeArgs({ dialogsRef: dialogs.ref }));
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });
+    const loadsBefore = mockBackend.load.mock.calls.length;
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(mockBackend.load.mock.calls.length - loadsBefore).toBe(1);
+    expect(result.current.tasks).toHaveLength(1);
   });
 
   it("does NOT wipe a populated project when the backend load returns empty and the user declines", async () => {
@@ -4850,7 +4886,7 @@ describe("useStorageBackend — workspaceLoaded (snapshot-capture gate)", () => 
     const argsRef = { current: makeArgs() };
     const { result, rerender } = renderHook(
       () => {
-        const backend = useStorageBackend(argsRef.current);
+        const backend = useStorageBackend(withWindowConfirm(argsRef.current));
         const { tasks } = useWorkspace();
         return { ...backend, tasks };
       },
@@ -4917,7 +4953,7 @@ describe("useStorageBackend — workspaceLoaded (snapshot-capture gate)", () => 
     const argsRef = { current: makeArgs({ setStorageConfig: vi.fn() }) };
     const { result, rerender } = renderHook(
       () => {
-        const backend = useStorageBackend(argsRef.current);
+        const backend = useStorageBackend(withWindowConfirm(argsRef.current));
         const { tasks } = useWorkspace();
         return { ...backend, tasks };
       },
@@ -5097,7 +5133,7 @@ describe("useStorageBackend — the decode signal survives the empty-load refusa
     const argsRef = { current: makeArgs() };
     const { result, rerender } = renderHook(
       () => {
-        const backend = useStorageBackend(argsRef.current);
+        const backend = useStorageBackend(withWindowConfirm(argsRef.current));
         const { tasks } = useWorkspace();
         return { ...backend, tasks };
       },
