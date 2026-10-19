@@ -4,6 +4,11 @@
 // mutation re-reads the live list from the store (not the stale render closure)
 // and writes the full mutated list back. Writes are serialized through a
 // promise chain so back-to-back saves can't race the Turso pipeline.
+// §750 — the hook has two instances (the runner in use-ai-orchestration.ts and
+// the Settings list in scheduled-jobs-section.tsx). The chain is MODULE-level, so
+// two instances writing at once cannot both read the list before either saves,
+// and a write tells every other mounted instance to re-read the store: a job made
+// in Settings reaches the runner, and a run the runner records shows in Settings.
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
@@ -39,15 +44,16 @@ function nextJobId(jobs: readonly ScheduledJob[]): number {
   return jobs.reduce((m, j) => Math.max(m, j.id), 0) + 1;
 }
 
+/** §750 — shared by every instance: one write chain, and each mounted instance's re-read. */
+let writeChain: Promise<void> = Promise.resolve();
+const instances = new Set<() => void>();
+
 export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduledJobsResult {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const cfgRef = useRef(config);
   const mountedRef = useRef(true);
-  // Serialize every store write behind this chain so concurrent mutations
-  // can't interleave their load/save against Turso.
-  const writeChainRef = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => { cfgRef.current = config; }, [config]);
   // ★★ Re-set on mount, not merely cleared on unmount. React StrictMode mounts,
   //    unmounts and remounts in development (Next 16 defaults reactStrictMode to
@@ -93,18 +99,28 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
 
   useEffect(() => { void refresh(); }, [refresh, config]);
 
+  // §750 — this instance's re-read, which another instance's write calls.
+  const rereadRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const reread = () => { void refresh(); };
+    rereadRef.current = reread;
+    instances.add(reread);
+    return () => { instances.delete(reread); };
+  }, [refresh]);
+
   // Run a mutation on the live store list, serialized behind the write chain.
   const mutate = useCallback(
     (transform: (list: readonly ScheduledJob[]) => ScheduledJob[]): Promise<void> => {
       if (mountedRef.current) setBusy(true);
-      const run = writeChainRef.current.then(async () => {
+      const run = writeChain.then(async () => {
         const existing = await loadScheduledJobs(cfgRef.current);
         const next = transform(existing);
         await saveScheduledJobs(cfgRef.current, next);
         if (mountedRef.current) setJobs(next);
+        for (const reread of instances) if (reread !== rereadRef.current) reread();
       });
       // Keep the chain alive even if a link rejects, and clear busy at the end.
-      writeChainRef.current = run.then(
+      writeChain = run.then(
         () => { if (mountedRef.current) setBusy(false); },
         () => { if (mountedRef.current) setBusy(false); },
       );

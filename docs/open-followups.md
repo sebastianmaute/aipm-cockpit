@@ -987,7 +987,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§747](#747-next-actions-over-allocation-checks-the-plans-first-period-not-the-current-one--closed-2026-10-16) | Next-actions over-allocation checks the plan's first period, not the current one | — | — | **CLOSED** 2026-10-16 |
 | [§748](#748-background-workers-may-help-across-the-app-starting-with-the-monte-carlo-forecast--open) | Background workers may help across the app, starting with the Monte Carlo forecast | — | — | open |
 | [§749](#749-a-claude-api-key-typed-under-the-passphrase-lock-is-lost-on-reload-and-two-ai-sections-disagree-about-the-lock--open) | A Claude API key typed under the passphrase lock is lost on reload, and two AI sections disagree about the lock | — | — | open |
-| [§750](#750-a-scheduled-job-added-in-settings-never-runs-until-the-app-reloads-and-settings-never-shows-its-run--open) | A scheduled job added in Settings never runs until the app reloads, and Settings never shows its run | — | — | open |
+| [§750](#750-a-scheduled-job-added-in-settings-never-runs-until-the-app-reloads-and-settings-never-shows-its-run--closed-2026-10-19) | A scheduled job added in Settings never runs until the app reloads, and Settings never shows its run | — | — | **CLOSED** 2026-10-19 |
 | [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--closed-2026-10-18) | Something starts a save of the empty Turso workspace before a project exists | — | — | **CLOSED** 2026-10-18 |
 | [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--open) | window.prompt throws in the desktop app, so six flows fail there | — | — | open |
 | [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--open) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | open |
@@ -45639,11 +45639,11 @@ Also noted for the same generalisation (Turso token, §715 round 20): when a wri
 
 **Source:** found 2026-10-17 by the owner's question during the §715 review rounds (`fix/715-recording-defects`).
 
-## 750. A scheduled job added in Settings never runs until the app reloads, and Settings never shows its run — OPEN
+## 750. A scheduled job added in Settings never runs until the app reloads, and Settings never shows its run — CLOSED 2026-10-19
 
-**Status:** OPEN 2026-10-18, from code reading and the §715 `ai-scheduled` clip; not yet reproduced in a test. `grep -rn "= useScheduledJobs(" src/app --include=*.ts --include=*.tsx | grep -v test` → two instances.
+**Status:** CLOSED 2026-10-19 on `fix/750-shared-scheduled-jobs`. `use-scheduled-jobs.ts` keeps one MODULE-level write chain for every instance, and each write makes every other mounted instance re-read the store, so a job made in Settings reaches the runner and a run the runner records shows in Settings at once. The shared chain also closes a lost write found while testing: two instances writing at once both read the list before either saved, and the second save dropped the first one's change. `npx vitest run src/app/use-scheduled-jobs.test.tsx` → the four §750 tests failed before the fix and pass after; dropping the re-read turns all four red, a per-instance chain turns the concurrent-write test red (mutants, 2026-10-19). The `ai-scheduled` clip lost both workarounds (the off-camera reload and the re-opened section) and is to be re-taken.
 
-**Work item:** #780
+OPEN 2026-10-18, from code reading and the §715 `ai-scheduled` clip; not yet reproduced in a test. `grep -rn "= useScheduledJobs(" src/app --include=*.ts --include=*.tsx | grep -v test` → two instances.
 
 The scheduled-job runner and the Settings → AI Assistant → Scheduled jobs section each keep their own copy of the job list: two `useScheduledJobs` instances (`use-ai-orchestration.ts` for the runner, `settings-sections/scheduled-jobs-section.tsx` for Settings), each reading the store only on mount or when its `config` changes.
 

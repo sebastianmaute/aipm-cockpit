@@ -41,6 +41,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A scheduled AI job added in Settings now runs without a reload (§750).** The job runner and the Settings
+  list each kept their own copy of the jobs, so a new job never ran until the app was reloaded, and Settings
+  kept showing "Never run" after a run. Both now share one list. Two changes made at the same moment, such as
+  an edit in Settings while a job records its run, no longer overwrite each other.
 - **Analyze with AI and scheduled AI jobs fail less often (§715).** A reply with no new suggestions, or with its
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,
