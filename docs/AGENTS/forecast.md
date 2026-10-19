@@ -58,7 +58,7 @@ held-back tests to FAIL by design — each asserts that a surface is hidden whil
 
   `lib/app-feature-guide.md`, section "Reports" — add after the restored Forecast line:
   > - Forecast section (simulation on only): a verdict banner against the project's target confidence (Even odds 50 %, Safe to commit 80 % by default, Cautious 95 %; stored per project and kept while the switch is off; set here or in the Forecast view's header), P50 / P80 / on-time / cost-at-finish tiles, the P80-over-time line, and the milestones worst first. "What it would take" is the smallest single lever that reaches the target — +N people at the team's average hours and rate, or N fewer tasks — checked one lever at a time through the scenario engine. Prioritising is shown beside them, from the "Chance if prioritised" column ("prioritise it → X %", or "prioritising alone: not enough"), but Explore cannot open it, because a scenario cannot model it. Overdue milestones and milestones with no open linked tasks get no lever, and an overdue milestone keeps the verdict from "On target". "Explore in Forecast" opens the lever as an unsaved draft scenario with the same figures. "Proposed intervention" compares As is with the one saved scenario chosen as the proposal; a deleted proposal scenario reads as no proposal until undo restores it.
-  > - AI: get_forecast returns the target confidence, what it would take (plan end and each below-target milestone), the proposal and the recorded P80 history; set_forecast_target_confidence and set_forecast_proposal change them; one such change applies at once and is logged but cannot be undone. delete_forecast_scenario, or several changes in one reply, go to the review card for approval; only the delete can be undone. "Ask Claude to draft a proposal" sends a prepared request: answer it with a saved scenario (create_forecast_scenario), naming the tasks to drop in the scenario name and the chat, and do not make it the proposal unless asked. Never write into the report.
+  > - AI: get_forecast returns the target confidence, what it would take (the plan end and at most the 5 milestones furthest below target; notSearched names the rest, which can be explored with a whatIf), the proposal and the recorded P80 history; set_forecast_target_confidence and set_forecast_proposal change them; one such change applies at once and is logged but cannot be undone. delete_forecast_scenario, or several changes in one reply, go to the review card for approval; only the delete can be undone. "Ask Claude to draft a proposal" sends a prepared request: answer it with a saved scenario (create_forecast_scenario), naming the tasks to drop in the scenario name and the chat, and do not make it the proposal unless asked. Never write into the report.
 
   and widen that section's views marker back to include `forecast` (the hiding commit removed it). Section
   "Trends" — add:
@@ -68,7 +68,7 @@ held-back tests to FAIL by design — each asserts that a surface is hidden whil
   > - With the Monte Carlo simulation on, the Gantt draws a faint P50–P95 finish band behind the bars, a dashed P80 line labelled "P80 {date}", and a chance chip on each milestone the forecast gives a chance. The timeline widens at most 180 days past the plan for them; a later P80 stands at the right edge with "→" after its label.
 
   Section "Documents" — add:
-  > - While the Monte Carlo simulation is on, exports and generated documents carry a "Forecast decision (simulated)" block: the target confidence, P80 against the plan end and the chance on time, cost at finish and the chance over budget when the budget gives them, each below-target milestone with what it would take, each overdue milestone, and the proposal when one is set. Never in the CSV, Markdown or JSON storage formats.
+  > - While the Monte Carlo simulation is on, a document's "Forecast decision (simulated)" block, and an export with that section ticked in Settings → Export (it starts unticked, because it is worked out at the click), show: the target confidence, P80 against the plan end and the chance on time, cost at finish and the chance over budget when the budget gives them, each below-target milestone with what it would take, each overdue milestone, and the proposal when one is set. Never in the CSV, Markdown or JSON storage formats.
 
   Then run `node scripts/gen-operating-guide.mjs`.
 
@@ -82,10 +82,13 @@ items part 4 adds. The first three are HARD GATES: do not un-hide until each is 
    three sample workspaces and the synthetic shapes of the probe in "Part 4's engine paths and their cost" (three runs
    each, shared machine). Export with the section ticked / plain `get_forecast`: small sample (20 open, 3 below target)
    0.3–0.4 s / 1.0–1.2 s; big (60 open, 9 below) 0.9–1.0 s / 1.5 s; huge (200 open, 30 below) 4.9–6.4 s / 10–11 s.
-   The cost follows the number of milestones below target, not the task count. Owner decision 2026-10-19: the
+   The cost follows the number of milestones below target first, and each search costs more on a bigger backlog. Owner decision 2026-10-19: the
    `forecastDecision` export section is OFF by default (`defaultExportConfig`), so the freeze is paid only by a user
    who ticks it; and `get_forecast` searches at most `WHAT_IT_TAKES_MILESTONE_CAP` (5) below-target milestones, worst
-   first, naming the rest in `notSearched`. ★ A document download with a `forecastDecision` block, and an export with
+   first, naming the rest in `notSearched`. Re-measured with the cap (same samples, three runs): `get_forecast` takes
+   0.8–0.9 s on small, 1.3–1.5 s on big (5 searched, 4 not) and 2.3–2.4 s on huge (5 searched, 25 not), down from 10–11 s;
+   the plan end and the five searches on a 200-task backlog are what is left, so a large project still freezes for about
+   2 s while Claude reads the forecast. ★ A document download with a `forecastDecision` block, and an export with
    the section ticked, still search every below-target milestone at the click; a worker would remove that, and was
    judged not worth it before un-hide.
 2. **HARD GATE — one live chat request with the forecast tools offered. Passed 2026-10-19.** Two real requests carried

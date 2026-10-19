@@ -164,12 +164,12 @@ export const WHAT_IT_TAKES_MILESTONE_CAP = 5;
 export type WhatItTakesReport = {
   planEnd: WhatItTakes | null;
   milestones: { id: number; name: string; take: WhatItTakes }[];
-  /** Below-target milestones past the cap, worst first: below target, but not searched. */
+  /** Below-target milestones with no take, worst first: any searched one whose take came back null, then those past the cap. */
   notSearched: { id: number; name: string }[];
 };
 
-/** The plan end's and each below-target milestone's lever search, on the comparison's own As-is run and context (no
- *  second As-is run). Below the floor there is no chance to search from, so nothing runs. */
+/** The plan end's lever search and the worst `WHAT_IT_TAKES_MILESTONE_CAP` below-target milestones', on the comparison's own
+ *  As-is run and context (no second As-is run). Below the floor there is no chance to search from, so nothing runs. */
 function whatItTakesReport(
   run: ScenarioRunInput, { asIs, context }: ScenarioComparison, goal: TargetConfidence,
 ): WhatItTakesReport {
