@@ -80,10 +80,13 @@ const NON_DESTRUCTIVE_WRITE_NAMES = [
   // §502 part 4 — project data on `settingsOverrides` (not device preferences like `update_settings`), so they
   // count as writes; not undoable, logged only.
   "set_forecast_proposal", "set_forecast_target_confidence",
+  // §715 — the project record (`ProjectMeta`), one per project.
+  "update_project",
 ];
 
 const NON_WRITE_NAMES = [
   "get_forecast",
+  "get_project",
   "optimize_wbs",
   "list_tasks", "get_task", "set_filters", "set_language", "get_app_state",
   "get_dashboard_snapshot", "list_raid", "list_changes", "list_milestones",

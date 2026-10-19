@@ -91,7 +91,10 @@ const DESTRUCTIVE_TOOLS: ReadonlySet<string> = new Set([
  *   list, and are NOT undoable (owner decision: logged only). The absent trio
  *   above writes device-local preferences; these write PROJECT data that
  *   travels on the six write paths and drives the report's verdict. One call
- *   applies, two stage, like the scenario writes they are approved beside. */
+ *   applies, two stage, like the scenario writes they are approved beside.
+ *
+ *  ★ `update_project` (§715) writes the project record (`ProjectMeta`), which has no id; `get_project` is
+ *   its read and is not listed. */
 const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_task", "update_task", "set_task_dependencies", "send_inquiry",
   "create_raid_item", "update_raid_item", "escalate_raid_item",
@@ -104,6 +107,7 @@ const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
   "create_calendar_event", "update_calendar_event",
   "create_forecast_scenario", "update_forecast_scenario",
   "set_forecast_proposal", "set_forecast_target_confidence",
+  "update_project",
   ...DESTRUCTIVE_TOOLS,
 ]);
 

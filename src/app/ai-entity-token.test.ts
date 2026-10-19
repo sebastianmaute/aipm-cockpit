@@ -59,6 +59,8 @@ describe("the exclusion set is disjoint from what the AI can write", () => {
     // §502 — a meta-blob slice, but token-guarded all the same: `entityToken` hashes its own projection
     // (`scenarioProjection`) rather than CSV columns, so it is NOT a `NOT_TOKEN_GUARDED` row.
     update_forecast_scenario: "forecastScenario",
+    // §715 — the project record has no id, but its token is derived like any CSV-projected row.
+    update_project: "project",
   };
 
   /** `update_*` tools deliberately outside the token, each because the thing it
@@ -225,6 +227,7 @@ const KIND_CASES: Array<{ kind: TokenEntity; base: Record<string, unknown>; cove
   { kind: "change", base: { id: 1, title: "Scope change" }, covered: "title" },
   { kind: "stakeholder", base: { id: 1, name: "Alice" }, covered: "name" },
   { kind: "resource", base: { id: 1, firstName: "Alice" }, covered: "firstName" },
+  { kind: "project", base: { name: "Apollo" }, covered: "customer" },
 ];
 
 describe("every projector is exercised, not just task", () => {

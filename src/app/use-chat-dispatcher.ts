@@ -188,6 +188,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     unwrittenLinkedRef.current = { shifts, project };
   }, [shifts, project]);
+  // §715 — get_project reads the live record through this ref, like every other read member.
+  const projectRef = useRef(project);
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
@@ -1009,6 +1014,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       ...chatBindings.tools,
 
       ...forecastTools,
+
+      // §715 — INTERIM: the read is live; the write refuses until it is routed through the project form's path.
+      getProjectMeta: () => projectRef.current ?? null,
+      updateProjectMeta: () => Promise.reject(new Error("Project updates are not available yet.")),
 
       getTimezone: () => clockRef.current.tz,
 

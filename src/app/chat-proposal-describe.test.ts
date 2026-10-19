@@ -552,6 +552,8 @@ describe("TOOL_ENTITY", () => {
       // §502 part 4 — the same: the decision writes' card lines come from `forecastScenarioRowTitle` (delete,
       // proposal) and `forecastTargetRowTitle` (target confidence).
       "delete_forecast_scenario", "set_forecast_proposal", "set_forecast_target_confidence",
+      // §715 — the project record has no create/update/delete triple, so it has no descriptor in the map.
+      "update_project",
     ];
     // ★★★ THE DIRECTION IS THE WHOLE POINT. Iterating that literal and asserting
     // each member is a write absent from TOOL_ENTITY checks the LITERAL against

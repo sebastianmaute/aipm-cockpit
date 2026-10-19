@@ -20,6 +20,7 @@ import {
 } from "./types";
 import { DOCUMENT_TOOL_DEFS } from "./chat-tool-defs-documents";
 import { FORECAST_TOOL_DEFS } from "./chat-tool-defs-forecast";
+import { PROJECT_TOOL_DEFS } from "./chat-tool-defs-project";
 // ★ The ADVERTISED token field is declared beside the code that ENFORCES it
 //   (`requireToken`), so the schema and the refusal cannot drift apart.
 import { expectedTokenField } from "./chat-tools-updates";
@@ -980,4 +981,5 @@ export const TOOL_DEFS = [
   },
   ...DOCUMENT_TOOL_DEFS,
   ...FORECAST_TOOL_DEFS,
+  ...PROJECT_TOOL_DEFS,
 ];

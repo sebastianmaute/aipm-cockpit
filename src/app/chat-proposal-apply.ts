@@ -259,6 +259,8 @@ export const TOKEN_ROW_SOURCE: Readonly<
   update_calendar_event: { kind: "calendarEvent", getRow: (d, id) => d.getCalendarEventRow(id) },
   update_forecast_scenario: { kind: "forecastScenario", getRow: (d, id) => d.getForecastScenarioRow(id) },
   delete_forecast_scenario: { kind: "forecastScenario", getRow: (d, id) => d.getForecastScenarioRow(id) },
+  // §715 — one record per project, so the id is ignored.
+  update_project: { kind: "project", getRow: (d) => d.getProjectMeta() },
 };
 
 /** `requireToken`'s OWN predicate for "a usable token", mirrored so this refusal
