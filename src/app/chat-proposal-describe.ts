@@ -39,6 +39,7 @@ import { stampCall } from "./insights/recommend-tokens";
 import type { PlanRow, ProposedCall } from "./chat-proposal";
 import { resolveDependencyWrite } from "./task-dependency-write";
 import type { Task, TaskDependency } from "./types";
+import { proposalIdOf } from "./forecast-target";
 
 // The `item` shape describeEntityCalls expects, without exporting a new type
 // from plan.ts (which stays untouched — only read here).
@@ -149,7 +150,11 @@ export function forecastScenarioRowTitle(call: ProposedCall, ws: Workspace): str
   // A scenario created earlier in the same plan is not stored yet, so it reads by its provisional id.
   const named = stored === undefined ? `#${detailOf(input.id)}` : `"${stored.name}"`;
   if (call.name === "set_forecast_proposal") return `Propose scenario ${named}`;
-  if (call.name === "delete_forecast_scenario") return `Delete scenario ${named}`;
+  if (call.name === "delete_forecast_scenario") {
+    // ★ Deleting the proposal also clears it (and changes the Reports verdict), so the card says so.
+    const isProposal = proposalIdOf(ws.settingsOverrides, ws.forecastScenarios ?? []) === id;
+    return `Delete scenario ${named}${isProposal ? " (the proposal)" : ""}`;
+  }
   if (call.name !== "update_forecast_scenario") return null;
   const label = stored?.name ?? newName ?? `#${detailOf(input.id)}`;
   const rename = newName !== null && stored !== undefined && newName !== stored.name ? ` → "${newName}"` : "";
