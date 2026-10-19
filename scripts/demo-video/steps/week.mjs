@@ -54,6 +54,10 @@ async function draftMessage(ctx, who) {
   if (ctx.page.url() !== before) throw new Error('Draft message navigated the page away');
 }
 
+/** The Apply button of the chat's latest "Proposed changes" card (several writes in one reply are staged). */
+export const chatProposalApply = (ctx) =>
+  main(ctx).getByRole('region', { name: 'Proposed changes' }).last().getByRole('button', { name: 'Apply', exact: true });
+
 /** The AI Assistant: a starter chip or a typed prompt, then the reply, waited for by the send control. */
 export async function chat(ctx, { chip, prompt }) {
   await nav(ctx, 'AI Assistant');
@@ -345,18 +349,29 @@ export const TUESDAY = [
       await d.getByRole('combobox', { name: 'Type', exact: true }).selectOption('Scope');
       await d.getByRole('combobox', { name: 'Status', exact: true }).selectOption('Under Review');
       await d.getByRole('combobox', { name: 'Impact', exact: true }).selectOption('Medium');
+      await type(ctx, d.getByRole('textbox', { name: 'Impact description', exact: true }), 'Licence cost and about one week of integration work; removes the failing custom CRM sync.', 'impact description');
       await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), 'Save change');
     },
   }),
-  step('impact-ask-claude', {
+  // The assistant across items (owner 2026-10-19): the change is linked to what it touches, and those tasks
+  // get a note — several writes, so the chat stages them as one "Proposed changes" card to review and apply.
+  // Links and notes feed no day fact, so the chapters' replay leaves them out.
+  step('chat-link-connector', {
     ai: true,
-    trigger: async (ctx) => { await nav(ctx, 'Changes'); return main(ctx).getByRole('button', { name: `Ask Claude – ${CONNECTOR}`, exact: true }).first(); },
+    trigger: async (ctx) => { await nav(ctx, 'AI Assistant'); return main(ctx).locator('textarea').last(); },
     run: async (ctx) => {
-      await caption(ctx, 'Ask Claude to write the impact.');
-      await askClaude(ctx, 'Changes', CONNECTOR, 'Set the impact description to: Licence cost and about one week of integration work; removes the failing custom CRM sync.');
+      await caption(ctx, 'The assistant works across items: it links the change to the tasks and the issue it touches.');
+      await chat(ctx, {
+        prompt: `The change request "${CONNECTOR}" would replace the failing custom CRM sync. Link it to the open CRM provisioning tasks and to the GDPR erasure issue, and add a sentence to each linked task's description saying this change would replace the custom CRM sync. Do not change any dates, statuses or owners.`,
+      });
     },
-    check: askClaudeCheck,
-    after: askClaudeApply,
+    check: async (ctx) => ((await chatProposalApply(ctx).isEnabled().catch(() => false)) ? null : 'no proposal'),
+    after: async (ctx) => {
+      await caption(ctx, 'Review what it will change, then Apply: several items in one step.');
+      await moveTo(ctx, main(ctx).getByRole('region', { name: 'Proposed changes' }).last());
+      await pace(ctx, 2500);
+      await click(ctx, chatProposalApply(ctx), 'Apply proposal', 2000);
+    },
     replay: noop,
   }),
   step('draft-maya', {
