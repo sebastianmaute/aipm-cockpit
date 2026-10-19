@@ -1151,7 +1151,8 @@
   write it, so a bare `setProject` would show the change and lose it on reload. A project switch during the write
   drops it (`dropStaleScopeWrite`). ★ Edits are logged (`project.updated`, actor user from the form, `ai` from
   the assistant) and the assistant's edit is one undo step (`project-meta-edit.ts`); a refusal, failure or switch
-  logs nothing. The activity panel names the changed fields with the form's labels.
+  logs nothing. The activity panel names the changed fields with the form's labels, including the keys only the form edits
+  (`PROJECT_META_LABEL_KEY`, total over `ProjectMeta`).
 - **Create project from source:** the create wizard's Step 0 (extracted to `step0-import-panel.tsx`) adds
   Upload-file / SharePoint / Confluence-URL import alongside Describe; all funnel into
   `useProjectProposal().generate(...)` — widened to `string | ContentBlock[]` (multimodal: PDF/image read

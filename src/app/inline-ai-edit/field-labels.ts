@@ -14,6 +14,7 @@ import { type Lang, type TranslationKey, t } from "../i18n";
 import { type InlineEntity } from "./entity-descriptor";
 import type { DiffEntity } from "./plan";
 import type { ProjectAiField } from "../project-ai-fields";
+import type { ProjectMeta } from "../types";
 
 /** Project field → the label the project form shows for it (§715). A `Record` over `ProjectAiField`, so a
  *  field added to `PROJECT_AI_FIELDS` is a compile error here until the card can name it. */
@@ -43,6 +44,17 @@ export const PROJECT_FIELD_LABEL_KEY: Readonly<Record<ProjectAiField, Translatio
   salesforceUrl: "projectLinkSalesforce",
   sharepointUrl: "projectLinkSharepoint",
   confluenceUrl: "projectLinkConfluence",
+};
+
+/** EVERY `ProjectMeta` key → the project form's label, for the activity line (§715): the form also saves the
+ *  keys Claude never sets. A `Record` over `keyof ProjectMeta`, so a new project field is a compile error here
+ *  until it is labelled. */
+export const PROJECT_META_LABEL_KEY: Readonly<Record<keyof ProjectMeta, TranslationKey>> = {
+  ...PROJECT_FIELD_LABEL_KEY,
+  contactPersons: "projectContactPersons",
+  keyStakeholdersInternal: "projectStakeholdersInternal",
+  keyStakeholdersExternal: "projectStakeholdersExternal",
+  knowledgeLinks: "projectDocumentLinks",
 };
 
 /** `${entity}.${field}` → the i18n key naming that field to a user.

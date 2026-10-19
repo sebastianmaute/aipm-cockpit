@@ -130,6 +130,12 @@ export function proposalRowTitle(call: ProposedCall, plan: EditPlan): string {
   return call.name;
 }
 
+/** A rejection's line. A project refusal carries the bare reason and names its field here, in the project
+ *  form's label (§715); every other rejection's detail already names its field or target. */
+function rejectedText(lang: Lang, entity: DiffEntity | undefined, r: Rejected): string {
+  return entity === "project" && r.field !== undefined ? `${fieldLabel(lang, entity, r.field)}: ${r.detail}` : r.detail;
+}
+
 /** The plan's changes, one line each. Renders nothing when the engine had no
  *  entity for the call — the tool name beside it is then the whole story.
  *
@@ -140,12 +146,6 @@ export function proposalRowTitle(call: ProposedCall, plan: EditPlan): string {
  *  NOT land is exactly the row a reviewer most needs to see, and under
  *  `isEmptyPlan` alone the rejection renderer below would be unreachable for
  *  it. Pinned by "renders a rejection on a row whose plan writes nothing". */
-/** A rejection's line. A project refusal carries the bare reason and names its field here, in the project
- *  form's label (§715); every other rejection's detail is already a sentence. */
-function rejectedText(lang: Lang, entity: DiffEntity | undefined, r: Rejected): string {
-  return entity === "project" && r.field !== undefined ? `${fieldLabel(lang, entity, r.field)}: ${r.detail}` : r.detail;
-}
-
 function PlanDetail({
   lang,
   plan,

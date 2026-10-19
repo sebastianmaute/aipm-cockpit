@@ -22,14 +22,14 @@ describe("activityMessage", () => {
   });
 
   // The panel (display: true) names the changed fields as the project form does; the stored args, the
-  // audit download and the AI prompt keep the keys. A key the form has no label for stays as written.
+  // audit download and the AI prompt keep the keys. A key outside `ProjectMeta` stays as written.
   it("renders project.updated field keys as the form's labels for display", () => {
-    const args = ["customer, endDate, contactPersons"];
+    const args = ["customer, endDate, contactPersons, keyStakeholdersInternal, keyStakeholdersExternal, knowledgeLinks"];
     expect(activityMessage("en-US", "project.updated", args, { display: true })).toBe(
-      "Project details updated: Customer, End date, contactPersons",
+      "Project details updated: Customer, End date, Contact persons, Internal stakeholders, External stakeholders, Knowledge",
     );
     expect(activityMessage("de", "project.updated", args, { display: true })).toBe(
-      "Projektdetails aktualisiert: Kunde, Enddatum, contactPersons",
+      "Projektdetails aktualisiert: Kunde, Enddatum, Ansprechpartner, Interne Stakeholder, Externe Stakeholder, Wissen",
     );
   });
 
