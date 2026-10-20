@@ -159,8 +159,10 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
 
 ## The updater
 
-- `createUpdater` returns a no-op updater when `AIPM_DISABLE_UPDATE_CHECK=1` (the packaged smoke test
-  sets it). Otherwise it imports electron-updater DYNAMICALLY, so a broken package degrades to
+- `createUpdater` returns a no-op updater when `AIPM_DISABLE_UPDATE_CHECK=1`, before electron-updater
+  is loaded. `AIPM_UPDATER_DRY_RUN=1` (§741), which the packaged smoke test sets, loads and wires the
+  real updater, logs `DRY_RUN_WIRED_LINE` and then skips every check, so the smoke test can assert the
+  load and wiring without a network call or a dialog. Otherwise it imports electron-updater DYNAMICALLY, so a broken package degrades to
   `unavailableUpdater` instead of killing the app while `main.ts` loads. ★★★ **`autoUpdater` is not a
   named export under a dynamic import in Node; it is on `.default`.** Reading `mod.autoUpdater`
   silently disabled updates in every installed copy while every gate stayed green. `pickAutoUpdater`
