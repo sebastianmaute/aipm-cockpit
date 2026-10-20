@@ -371,8 +371,11 @@ export function parseProposal(input: unknown): ProjectProposal | null {
   if (!isObj(input)) return null;
   const metaRaw = input.meta;
   if (!isObj(metaRaw)) return null;
-  const name = typeof metaRaw.name === "string" ? metaRaw.name.trim() : "";
-  if (!name) return null;
+  // §760 — the name goes through the same judge `update_project` uses: refused (blank, not text) drops the
+  // proposal, and an over-long one is shortened to the cap.
+  const nameVerdict = judgeProjectField("name", metaRaw.name, { startDate: "", endDate: "" });
+  if (nameVerdict.kind === "refused") return null;
+  const name = String(nameVerdict.value);
 
   const meta = judgeMeta(metaRaw, name);
 

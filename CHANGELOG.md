@@ -47,6 +47,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Claude's project proposal and project edits check the name and the counts (§760, §761).** A
+  proposed project's name is now held to the same 200-character limit as an edited one. A stakeholder or identity
+  count written as "0x10", "1e3" or a blank is refused instead of being read as 16, 1000 or 0.
 - **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
   documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
   was typed. The search now matches library cards by name, a source other than All hides them (they belong to
