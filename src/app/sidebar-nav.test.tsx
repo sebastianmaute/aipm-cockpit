@@ -6,6 +6,16 @@ import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
 describe("SidebarNav", () => {
+  // §757 — a nav item spans the sidebar's scroll box at the window edge, so a ring drawn outside it is cut off on
+  // both sides; it is drawn inside. Measured in a browser audit (2026-10-20); jsdom cannot lay out, so this pins
+  // the class that makes it so.
+  it("draws a nav item's keyboard focus ring inside the item", () => {
+    render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} />);
+    const item = screen.getByRole("button", { name: t("en-US", navLabelKey("gantt")) });
+    expect(item.className).toContain("focus-visible:ring-inset");
+    expect(item.className).toContain("focus-visible:ring-2");
+  });
+
   it("places each tour anchor on exactly one expanded nav entry", () => {
     const { container } = render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} />);
     for (const id of ["tour-nav-resources", "tour-nav-budget", "tour-nav-changes", "tour-nav-documents"]) {

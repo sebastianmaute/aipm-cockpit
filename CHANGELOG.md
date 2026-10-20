@@ -125,6 +125,10 @@ longer carries its own changelog comment.
   dates.
 - **Run and fetch times read as times (§715).** A scheduled job's "Last run" and Timelog's "Last fetched" showed the
   stored UTC value ("2026-09-21T07:05:12.345Z"); they now show the date and time in the display timezone.
+- **Focus outlines are no longer cut off (§757).** The green outline around a focused button was
+  clipped where the button sat at the edge of a scrolling area, such as "Draft with AI" in a steering-committee
+  status report and the Reports toolbar. Those areas now leave room for it, and the sidebar's menu items show a
+  green outline inside the item when you reach them with the keyboard.
 - **One of a thing is singular (§715).** In twelve places a count read "1 buckets", "1 days", "1 tasks",
   "1 contacts" or "1 writes" when there was one: the Budget header, the forecast run-out, the export menu, the
   new-project import notice, earned-value coverage, the Outlook contact import, the AI assistant's proposed

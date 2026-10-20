@@ -26,6 +26,7 @@ import { Button } from "./button";
 import { Input } from "./form-controls";
 import { ROW_RULE_CLASS } from "./table-styles";
 import { useRowTokens } from "./use-row-tokens";
+import { RING_ROOM } from "./interaction-styles";
 
 const MEETING_COL_WIDTHS = { date: 150, title: 240, location: 200 } as const;
 type MeetingCol = keyof typeof MEETING_COL_WIDTHS;
@@ -633,7 +634,7 @@ export function SteeringCommitteePanel({
                       </Button>
                     </div>
                   </div>
-                  <div className="min-h-0 flex-1 overflow-auto">
+                  <div className={`min-h-0 flex-1 overflow-auto ${RING_ROOM}`}>
                     <MeetingReportPanel
                       lang={lang}
                       report={m.report}
