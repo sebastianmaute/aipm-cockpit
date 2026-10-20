@@ -91,6 +91,10 @@ longer carries its own changelog comment.
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,
   and a reply that is still cut off is asked for once more with twice the room, never shown in part.
+- **A Turso portfolio with no project chosen says that nothing is saved (§753).** In that state the app
+  saves nothing, so an edit was lost when a project was picked or the tab closed, and nothing on screen said so. A
+  notice now stays above the workspace until a project is chosen or created, and the sidebar shows saving as
+  paused.
 - **Nothing is saved to Turso before a project is chosen (§751).** With the portfolio on Turso and no project
   open yet, an edit was saved in the single-project layout, which clears every workspace table first. It is no
   longer saved; this was also where the empty "unsaved draft" came from.
