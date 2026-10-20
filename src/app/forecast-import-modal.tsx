@@ -95,6 +95,8 @@ function ForecastImportDialog({ lang, onClose, disciplines, grades, ...deps }: F
           <div className="flex flex-col gap-1">
             <label htmlFor={targetId} className="font-medium text-foreground">{t(lang, "forecastImportTarget")}</label>
             <Select id={targetId} size="xs" className="max-w-sm" value={String(fi.targetBucketId)} onChange={(e) => fi.selectBucket(Number(e.target.value))} disabled={fi.busy}>
+              {/* A removed target keeps an option of its own, so picking any live bucket is a change. */}
+              {fi.bucketGone && <option value={fi.targetBucketId} disabled>{t(lang, "forecastImportTargetRemoved")}</option>}
               {fi.targetBuckets.map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}

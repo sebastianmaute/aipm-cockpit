@@ -2894,6 +2894,7 @@ const enUS = {
   forecastImportTitle: "Import forecast",
   forecastImportIntro: "Read planned hours per person from a spreadsheet into a budget bucket. Nothing is written until you apply.",
   forecastImportTarget: "Target bucket",
+  forecastImportTargetRemoved: "(removed)",
   forecastImportFile: "Spreadsheet (.xlsx, .xlsm, .csv)",
   forecastImportSheet: "Sheet",
   forecastImportReading: "Reading the file…",
@@ -3002,7 +3003,7 @@ const enUS = {
   forecastImportRefused: "The bucket changed while the preview was open (closed, removed, or “Budget hours follow plan” switched on). Nothing was written.",
   forecastImportRefusedSameRow: "Two cells of one sheet row fall in the same period for the same person. Nothing was written.",
   forecastImportRefusedNothing: "No budget cell would change any more: the bucket already holds these hours. Nothing was written.",
-  forecastImportBucketGone: "This bucket no longer exists. Close this dialog and choose another bucket.",
+  forecastImportBucketGone: "This bucket no longer exists. Choose another target bucket above.",
   aiGuideScopeAny: "Always on",
   aiViewsTitle: "Views",
   aiViewScopeIntro:

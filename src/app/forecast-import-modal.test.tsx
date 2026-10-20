@@ -117,6 +117,23 @@ describe("ForecastImportModal", () => {
     expect(props.onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("§719 — a target removed while the import is open reads as removed, and choosing another bucket recovers", async () => {
+    const run: BudgetBucket = { ...BUCKET, id: 2, name: "Run" };
+    const props = propsOf({ buckets: [BUCKET, run] });
+    const { rerender } = render(<ForecastImportModal {...props} />);
+    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
+    rerender(<ForecastImportModal {...props} buckets={[run]} />);
+    expect(screen.getByRole("alert")).toHaveTextContent(t(L, "forecastImportBucketGone"));
+    const picker = screen.getByRole("combobox", { name: t(L, "forecastImportTarget") });
+    // The removed target stays the selected option, so "Run" is a real change.
+    expect(picker).toHaveValue(String(BUCKET.id));
+    expect(within(picker).getByRole("option", { name: t(L, "forecastImportTargetRemoved") })).toBeDisabled();
+    fireEvent.change(picker, { target: { value: String(run.id) } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportApply") }));
+    expect(props.onChangeBuckets).toHaveBeenCalledTimes(1);
+  });
+
   it("picking a resource for an unmatched person adds their hours to the preview", async () => {
     render(<ForecastImportModal {...propsOf()} />);
     await chooseFile(`${WIDE}Annie,4,4,4\r\n`);

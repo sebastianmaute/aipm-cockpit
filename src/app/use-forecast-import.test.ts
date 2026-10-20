@@ -342,6 +342,23 @@ describe("useForecastImport — the target bucket (§719)", () => {
     expect(result.current.targetBuckets.map((b) => b.id)).toEqual([BUCKET.id, OTHER.id]);
   });
 
+  it("keeps the target in the list when it closes while the import is open", () => {
+    const deps = depsOf({ buckets: [BUCKET, OTHER] });
+    const hook = renderHook((d: ForecastImportDeps) => useForecastImport(d), { initialProps: deps });
+    hook.rerender({ ...deps, buckets: [{ ...BUCKET, status: "closed" }, OTHER] });
+    expect(hook.result.current.targetBuckets.map((b) => b.id)).toEqual([BUCKET.id, OTHER.id]);
+  });
+
+  it("choosing another bucket clears an error", async () => {
+    const { result } = renderHook(() => useForecastImport(depsOf()));
+    await act(async () => {
+      await result.current.loadFile(csvFile(WIDE_CSV, "old.xls"));
+    });
+    expect(result.current.error).not.toBeNull();
+    act(() => result.current.selectBucket(OTHER.id));
+    expect(result.current.error).toBeNull();
+  });
+
   it("ignores a bucket that is closed or not in the list", () => {
     const { result } = renderHook(() => useForecastImport(depsOf({ buckets: [BUCKET, OTHER, CLOSED] })));
     act(() => result.current.selectBucket(CLOSED.id));
