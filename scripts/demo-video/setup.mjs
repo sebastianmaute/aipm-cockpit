@@ -13,11 +13,13 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEVICE_STATE = JSON.parse(fs.readFileSync(path.join(HERE, 'fixtures', 'device-state.json'), 'utf8'));
 
 /** The setup wizard of a fresh browser: Turso (URL, token, test, portfolio storage), then the key.
- *  `ctx.secrets` = { url, token, key }. Filled, never typed: a typed secret is a frame per character. */
-export async function connect(ctx, { onCamera }) {
+ *  `ctx.secrets` = { url, token, key }. Filled, never typed: a typed secret is a frame per character.
+ *  `firstRun` (ch2-connect) also shows the first screen and explains the optional steps and Review. */
+export async function connect(ctx, { onCamera, firstRun = false }) {
   const page = ctx.page;
   await page.getByText(/No projects yet/).first().waitFor({ timeout: 180000 });
   await L.settle(page);
+  if (firstRun) await firstScreen(ctx);
   if (onCamera) await caption(ctx, 'Connect the database and Claude.');
   await click(ctx, page.getByRole('button', { name: 'Set up Turso first' }), 'Set up Turso first');
   const d = page.locator(DLG).last();
@@ -36,9 +38,13 @@ export async function connect(ctx, { onCamera }) {
   await type(ctx, d.getByPlaceholder('sk-ant-...'), ctx.secrets.key, 'key', { slow: false });
   await pickModel(ctx, d, onCamera);
   await pace(ctx, 2000);
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 6; i++) {
     const fin = d.getByRole('button', { name: 'Finish', exact: true });
     if (await fin.count()) {
+      if (firstRun) {
+        await caption(ctx, 'Review what is connected, then Finish.');
+        await pace(ctx, 3000);
+      }
       // Finish commits the portfolio storage choice and reloads the app onto Turso.
       const reloaded = page.waitForEvent('load', { timeout: 60000 });
       // A bare click: ui.click settles the page by evaluating in it, which a reload mid-way would break.
@@ -48,8 +54,15 @@ export async function connect(ctx, { onCamera }) {
       await L.settle(page);
       break;
     }
+    // The first pass leaves the AI step; every later step before Review (Jira) is optional and skipped.
     const nx = d.getByRole('button', { name: 'Next', exact: true });
-    await click(ctx, (await nx.count()) ? nx : d.getByRole('button', { name: 'Skip', exact: true }), 'Next/Skip');
+    const skip = d.getByRole('button', { name: 'Skip', exact: true });
+    const optional = i > 0 && (await skip.count()) > 0;
+    if (firstRun && optional) {
+      await caption(ctx, 'Jira is optional: skip it for now.');
+      await pace(ctx, 2000);
+    }
+    await click(ctx, optional || !(await nx.count()) ? skip : nx, 'Next/Skip');
   }
   await page.getByRole('button', { name: 'Explore the demo', exact: true }).waitFor({ timeout: 60000 });
   const mode = await page.evaluate(() => localStorage.getItem('aipm-cockpit:portfolio-mode'));
@@ -74,6 +87,18 @@ async function pickModel(ctx, d, onCamera) {
   await pace(ctx, 1500);
 }
 
+/** The screen a fresh install opens on: its three cards, before the setup wizard. */
+async function firstScreen(ctx) {
+  await caption(ctx, 'A fresh install opens here: start a project, open one, or explore the demo.');
+  for (const name of ['New project', 'Open existing', 'Explore the demo']) {
+    const card = ctx.page.getByText(name, { exact: true }).first();
+    if (await card.count()) {
+      await moveTo(ctx, card);
+      await pace(ctx, 1200);
+    }
+  }
+}
+
 async function acknowledge(ctx) {
   const ack = ctx.page.getByRole('button', { name: 'I understand', exact: true });
   if (await ack.isVisible().catch(() => false)) await click(ctx, ack, 'I understand');
@@ -82,8 +107,16 @@ async function acknowledge(ctx) {
 /** The empty state's "Explore the demo": the app creates the demo on Turso and starts the tour. */
 export async function exploreDemo(ctx) {
   const page = ctx.page;
-  await click(ctx, page.getByRole('button', { name: 'Explore the demo', exact: true }), 'Explore the demo', 3000);
+  const empty = page.getByRole('button', { name: 'Explore the demo', exact: true });
+  if (await empty.count()) await click(ctx, empty.first(), 'Explore the demo', 3000);
+  else {
+    await nav(ctx, 'Projects');
+    await click(ctx, page.getByRole('button', { name: 'Explore a demo project', exact: true }), 'Explore a demo project', 3000);
+  }
   await skipTour(ctx, 60000);
+  // Opened from Projects (the first-run chapter), the demo stays there; the device-state seed needs the
+  // Dashboard, which records the landing state.
+  await nav(ctx, 'Dashboard');
   // §740: the banner once appeared here; it is an app bug if it ever does again.
   if (await page.getByText('changed in another tab').count()) throw new Error('"changed in another tab" banner after Explore the demo');
 }

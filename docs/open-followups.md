@@ -990,15 +990,15 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§750](#750-a-scheduled-job-added-in-settings-never-runs-until-the-app-reloads-and-settings-never-shows-its-run--closed-2026-10-19) | A scheduled job added in Settings never runs until the app reloads, and Settings never shows its run | — | — | **CLOSED** 2026-10-19 |
 | [§751](#751-something-starts-a-save-of-the-empty-turso-workspace-before-a-project-exists--closed-2026-10-18) | Something starts a save of the empty Turso workspace before a project exists | — | — | **CLOSED** 2026-10-18 |
 | [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--closed-2026-10-19) | window.prompt throws in the desktop app, so six flows fail there | — | — | **CLOSED** 2026-10-19 |
-| [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--open) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | open |
+| [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--closed-2026-10-20) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | **CLOSED** 2026-10-20 |
 | [§754](#754-an-empty-workspace-can-still-be-kept-as-an-unsaved-draft-when-the-stored-version-is-unknown--closed-2026-10-19) | An empty workspace can still be kept as an unsaved draft when the stored version is unknown | — | — | **CLOSED** 2026-10-19 |
 | [§755](#755-suggest-racis-list-of-proposed-assignments-shows-no-scrollbar-in-the-recording--closed-2026-10-20) | Suggest RACI's list of proposed assignments shows no scrollbar in the recording | — | — | **CLOSED** 2026-10-20 |
 | [§756](#756-the-influence--interest-map-gets-squashed-on-smaller-screens--open) | The influence / interest map gets squashed on smaller screens | — | — | open |
 | [§757](#757-a-clicked-buttons-green-focus-outline-is-cut-off-draft-with-ai-and-others--open) | A clicked button's green focus outline is cut off (Draft with AI and others) | — | — | open |
-| [§758](#758-a-new-linked-tasks-assignee-is-free-text-not-picked-from-the-directory--open) | A new linked task's assignee is free text, not picked from the directory | — | — | open |
+| [§758](#758-a-new-linked-tasks-assignee-is-free-text-not-picked-from-the-directory--closed-2026-10-20) | A new linked task's assignee is free text, not picked from the directory | — | — | **CLOSED** 2026-10-20 |
 | [§759](#759-undoing-claudes-project-edit-says-undone-even-when-the-restore-fails--open) | Undoing Claude's project edit says "Undone" even when the restore fails | — | — | open |
-| [§760](#760-a-proposed-projects-name-skips-the-field-judge-so-it-has-no-length-cap--open) | A proposed project's name skips the field judge, so it has no length cap | — | — | open |
-| [§761](#761-claudes-stakeholder-count-accepts-0x10-1e3-and----open) | Claude's stakeholder count accepts "0x10", "1e3" and " " | — | — | open |
+| [§760](#760-a-proposed-projects-name-skips-the-field-judge-so-it-has-no-length-cap--closed-2026-10-20) | A proposed project's name skips the field judge, so it has no length cap | — | — | **CLOSED** 2026-10-20 |
+| [§761](#761-claudes-stakeholder-count-accepts-0x10-1e3-and----closed-2026-10-20) | Claude's stakeholder count accepts "0x10", "1e3" and " " | — | — | **CLOSED** 2026-10-20 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45685,11 +45685,9 @@ Size M.
 
 **Source:** found 2026-10-18 in the defect sweep after the §715 recordings (owner: verify on desktop, then file).
 
-## 753. An edit made while the Turso portfolio has no project chosen is dropped without a word — OPEN
+## 753. An edit made while the Turso portfolio has no project chosen is dropped without a word — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-18. Found by the branch review of the §751 fix on `fix/715-empty-unload-journal`. With the portfolio on Turso and no project chosen, three paths in `use-storage-backend.ts` send nothing (`tursoPortfolioWithoutProjectRef`): the save effect, `doSave` and the pre-switch flush (`flushCurrent`). The save effect returns before `followLive` and `doSave` before `noteSaveStarted`, so an edit made in that state is not journalled either. `grep -n "if (tursoPortfolioWithoutProjectRef.current)" src/app/use-storage-backend.ts` → the three skips.
-
-**Work item:** #784
+**Status:** CLOSED 2026-10-20 on `fix/753-no-project-edit-notice`, with the proposed sticky notice (size S); edits are not blocked. `useStorageBackend` now returns `tursoPortfolioWithoutProject`. While it is true, `buildAppBanners` shows `NoTursoProjectBanner`, a `role="alert"` notice with no Dismiss: "No project is chosen, so nothing you change is saved. Choose or create a project in Projects first." The sidebar footer reads saving paused rather than ready. Popouts show no notice, as with the other storage banners. Verified with `npx vitest run src/app/app-banners-block.test.tsx src/app/use-storage-backend.turso-handover.test.tsx` (green); a mutant that returns the flag as `false` fails the "no project is chosen" case. ★ The footer wiring in `task-manager.tsx` has no test of its own. **Earlier:** OPEN 2026-10-18. Found by the branch review of the §751 fix on `fix/715-empty-unload-journal`. With the portfolio on Turso and no project chosen, three paths in `use-storage-backend.ts` send nothing (`tursoPortfolioWithoutProjectRef`): the save effect, `doSave` and the pre-switch flush (`flushCurrent`). The save effect returns before `followLive` and `doSave` before `noteSaveStarted`, so an edit made in that state is not journalled either. `grep -n "if (tursoPortfolioWithoutProjectRef.current)" src/app/use-storage-backend.ts` → the three skips.
 
 An edit made in that state is lost when the user picks or creates a project (the loaded workspace replaces it) or closes the tab, and nothing on screen says so. Only the diagnostics log `storage.saveSkippedNoTursoProject`, and only at the `doSave` and flush skips; the save-effect skip, the one an edit meets first, logs nothing. The state is rare: the setup wizard creates a project right away. It is reached on a database with projects when no current project is set.
 
@@ -45749,11 +45747,9 @@ Size S–M.
 
 **Source:** found 2026-10-19 by the owner in the demo recording (owner: file it).
 
-## 758. A new linked task's assignee is free text, not picked from the directory — OPEN
+## 758. A new linked task's assignee is free text, not picked from the directory — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-19. Task editor → "+ New linked task": the Assignee field is a plain text input with no directory suggestions, so the new task gets a name with no resource id and an empty email, where the task editor's `ResourcePicker` offers the directory (Friday's `split-pilot-task` step). `grep -n 'aria-label={t(lang, "assignee")}' src/app/task-linked-task-modal.tsx` → the input; `onCreate` passes `assignee` as a trimmed string only, and `use-task-editor-create.ts` creates the task with that name alone.
-
-**Work item:** #796
+**Status:** CLOSED 2026-10-20 on `fix/758-linked-task-assignee-picker`, by the proposed fix. `TaskLinkedTaskModal` renders the task editor's `ResourcePicker` (resources, contacts, and "+ Add as resource" outside a popout) in place of the plain input. `LinkedTaskDraft` carries `assigneeEmail` and `resourceId`, and `handleCreateLinkedTask` (`use-task-editor-create.ts`) writes them onto the child; typed text still creates a name with no link or email. Verified with `npx vitest run src/app/task-linked-task-modal.test.tsx src/app/use-task-editor-create.test.ts` (green). A mutant that drops the picked resource id in the modal, and one that drops it in the create path, each fail a test. **Earlier:** OPEN 2026-10-19. Task editor → "+ New linked task": the Assignee field is a plain text input with no directory suggestions, so the new task gets a name with no resource id and an empty email, where the task editor's `ResourcePicker` offers the directory (Friday's `split-pilot-task` step). `grep -n 'aria-label={t(lang, "assignee")}' src/app/task-linked-task-modal.tsx` → the input; `onCreate` passes `assignee` as a trimmed string only, and `use-task-editor-create.ts` creates the task with that name alone.
 
 Proposed: the task editor's `ResourcePicker`, carrying its `resourceId` and email into the created task, with a test that a picked person creates a linked task.
 
@@ -45773,11 +45769,9 @@ Size S–M.
 
 **Source:** found 2026-10-19 in the review of the "Claude reads and sets every project field" branch (#807); filed 2026-10-20 (owner: file the issues).
 
-## 760. A proposed project's name skips the field judge, so it has no length cap — OPEN
+## 760. A proposed project's name skips the field judge, so it has no length cap — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-20. Plan with AI's project proposal: `parseProposal` (`ai-project-proposal.ts`) only trims `meta.name`, and `judgeMeta` skips `name` (`if (key === "name" || …) continue`). So the judge's cap for `name` (`BUDGET_NAME_MAX`, 200, in `project-ai-fields.ts`) never applies to a proposal, and a 10,000-character name reaches the draft. `update_project` does judge the name. Read from the code; never machine-verified. `grep -n 'key === "name"' src/app/ai-project-proposal.ts` → the skip.
-
-**Work item:** #812
+**Status:** CLOSED 2026-10-20 on `fix/760-761-ai-project-field-judges`. `parseProposal` (`ai-project-proposal.ts`) sends `meta.name` through `judgeProjectField("name", …)`, the judge `update_project` uses. A refused name (blank, or not text) drops the proposal as a blank one did, and an over-long name is shortened to `BUDGET_NAME_MAX` (200) instead of passing through whole. Verified with `npx vitest run src/app/ai-project-proposal.test.ts` (green); a mutant that goes back to trimming alone fails the new over-long-name test. **Earlier:** OPEN 2026-10-20. Plan with AI's project proposal: `parseProposal` (`ai-project-proposal.ts`) only trims `meta.name`, and `judgeMeta` skips `name` (`if (key === "name" || …) continue`). So the judge's cap for `name` (`BUDGET_NAME_MAX`, 200, in `project-ai-fields.ts`) never applies to a proposal, and a 10,000-character name reaches the draft. `update_project` does judge the name. Read from the code; never machine-verified. `grep -n 'key === "name"' src/app/ai-project-proposal.ts` → the skip.
 
 Proposed: Send the proposal's name through `judgeProjectField("name", …)` and drop the proposal when it is refused, as a blank name is today. Test: a proposal whose name is over the cap is refused or capped, matching what `update_project` does.
 
@@ -45785,11 +45779,9 @@ Size S.
 
 **Source:** found 2026-10-19 in the review of the "Claude reads and sets every project field" branch (#807); filed 2026-10-20 (owner: file the issues).
 
-## 761. Claude's stakeholder count accepts "0x10", "1e3" and " " — OPEN
+## 761. Claude's stakeholder count accepts "0x10", "1e3" and " " — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-20. `judgeCount` (`project-ai-fields.ts`, used for `stakeholderCount`) reads a string with `toNumber`, i.e. `Number()`. So " " becomes 0, "0x10" becomes 16 and "1e3" becomes 1000, and each is accepted as a whole number. Read from the code; never machine-verified. `grep -n "function judgeCount" src/app/project-ai-fields.ts` → the judge.
-
-**Work item:** #813
+**Status:** CLOSED 2026-10-20 on `fix/760-761-ai-project-field-judges`, by the proposed rule. `judgeCount` (`project-ai-fields.ts`) accepts a string only when it is plain digits after trimming, so " ", "0x10", "1e3", "-1" and "12.0" are refused. "12", " 12 " and 12 are accepted, and an empty string still clears. Verified with `npx vitest run src/app/project-ai-fields.test.ts` (green); a mutant that drops the digit check fails four of the refused cases. **Earlier:** OPEN 2026-10-20. `judgeCount` (`project-ai-fields.ts`, used for `stakeholderCount`) reads a string with `toNumber`, i.e. `Number()`. So " " becomes 0, "0x10" becomes 16 and "1e3" becomes 1000, and each is accepted as a whole number. Read from the code; never machine-verified. `grep -n "function judgeCount" src/app/project-ai-fields.ts` → the judge.
 
 Proposed: Accept a string only when it matches `/^\d+$/` after trimming, and refuse the rest. Test: " ", "0x10", "1e3" and "-1" are refused; "12" and 12 are accepted.
 

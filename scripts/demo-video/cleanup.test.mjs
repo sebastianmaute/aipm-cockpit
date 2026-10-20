@@ -1,6 +1,6 @@
 // §715 A — what a take's cleanup deletes, and the recorder's week clock.
 import { describe, expect, it } from 'vitest';
-import { cleanupStatements } from './cleanup.mjs';
+import { cleanupStatements, recorderProjectIds } from './cleanup.mjs';
 import { T0, atDay } from './lib.mjs';
 
 const sqls = (batches) => batches.flat().map((s) => s.sql);
@@ -25,6 +25,18 @@ describe('cleanupStatements (§715)', () => {
 
   it('no ids, no project deletes', () => {
     expect(sqls(cleanupStatements([], ['tasks']))).toEqual(['DELETE FROM "scheduled_jobs"', 'DELETE FROM "action_learning"']);
+  });
+});
+
+describe('recorderProjectIds (§715)', () => {
+  const rows = [['d', 'Customer Identity Platform (demo)'], ['c', 'Customer Identity Platform'], ['x', 'Someone else']];
+
+  it("the demo by name, a take's created project by id, nothing else", () => {
+    expect(recorderProjectIds(rows, ['c'])).toEqual(['d', 'c']);
+  });
+
+  it('without a noted id, a project Claude named is left alone', () => {
+    expect(recorderProjectIds(rows, [])).toEqual(['d']);
   });
 });
 

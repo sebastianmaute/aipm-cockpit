@@ -178,7 +178,8 @@ Friday 4; Draft message is a template, not a call). Rough length 20–25 minutes
 
 - **Big video:** chapters 2–7 joined, as "The week" above. A's former chapters 3–8 and their contents
   table are replaced.
-- **Chapter videos (owner):** 1 Install (by hand), 2 Connect storage and Claude (with the prologue),
+- **Chapter videos (owner):** 1 Install (by hand), 2 Connect storage and Claude (with the prologue;
+  since 2026-10-20 "Get started: connect and create a project", the first run, which creates the project),
   3 Monday, 4 Tuesday, 5 Wednesday, 6 Thursday, 7 Friday. Seven, each one take and one command.
 - **Where a chapter starts (owner: replay off camera).** Every take still creates the demo fresh.
   Before chapter N records, the recorder replays the manual steps of the days before it, fast and
