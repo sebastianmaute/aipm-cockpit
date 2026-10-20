@@ -59,6 +59,9 @@ longer carries its own changelog comment.
   Plan with AI, Suggest RACI, recommendations, reports and the rest all failed on them. The app now asks such a
   model once more without forcing the tool, and asks it that way from then on; a reply that does not fit the
   tool's format is asked for once more, held to that format. The chat was not affected.
+- **Claude's project proposal and project edits check the name and the counts (§760, §761).** A
+  proposed project's name is now held to the same 200-character limit as an edited one. A stakeholder or identity
+  count written as "0x10", "1e3" or a blank is refused instead of being read as 16, 1000 or 0.
 - **The app no longer reloads over a Claude API key that is not saved yet (§749).** A key typed under the passphrase
   lock is not stored until "Save passphrase" is chosen. Switching the portfolio and moving a project to Turso
   reload the app, as do picking a Turso project, creating one from a file portfolio, loading a file into a Turso
@@ -91,6 +94,10 @@ longer carries its own changelog comment.
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,
   and a reply that is still cut off is asked for once more with twice the room, never shown in part.
+- **A Turso portfolio with no project chosen says that nothing is saved (§753).** In that state the app
+  saves nothing, so an edit was lost when a project was picked or the tab closed, and nothing on screen said so. A
+  notice now stays above the workspace until a project is chosen or created, and the sidebar shows saving as
+  paused.
 - **Nothing is saved to Turso before a project is chosen (§751).** With the portfolio on Turso and no project
   open yet, an edit was saved in the single-project layout, which clears every workspace table first. It is no
   longer saved; this was also where the empty "unsaved draft" came from.

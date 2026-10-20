@@ -2491,6 +2491,7 @@ export const de: Record<TranslationKey, string> = {
   clickToEdit: "zum Bearbeiten klicken",
   popoutReadOnly: "Bearbeiten ist in der abgedockten Ansicht deaktiviert – Änderungen bitte im Hauptfenster vornehmen.",
   popoutReadOnlyBanner: "Schreibgeschützte Ansicht – Änderungen bitte im Hauptfenster vornehmen.",
+  noTursoProjectBanner: "Es ist kein Projekt gewählt, daher wird nichts gespeichert, was Sie ändern. Wählen oder erstellen Sie zuerst unter „Projekte“ ein Projekt.",
   priorityFilterHint: "Zeigt nur Aufgaben mit der gewählten Priorität.",
   assigneeFilterHint: "Zeigt nur Aufgaben, die der gewählten Person zugewiesen sind.",
   resetFiltersHint: "Setzt Suchfeld und alle Filter zurück, um wieder alle Einträge anzuzeigen.",
