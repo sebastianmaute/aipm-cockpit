@@ -9,7 +9,7 @@ import { useWbsPlan } from "./use-wbs-plan";
 import { useActivityLog } from "./use-activity-log";
 import { ActivityLogProvider } from "./activity-log-context";
 import { useToast } from "./use-toast";
-import { useSettings } from "./use-settings";
+import { useSettings } from "./use-settings"; import { useSessionAiKey } from "./use-session-ai-key";
 import { useApplyFavicon } from "./use-favicon";
 import { useTemplateActions } from "./use-template-actions";
 import { disabledViewRedirect, isModuleEnabled, deriveMode } from "./feature-modules";
@@ -152,7 +152,7 @@ const NO_JIRA_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
 // TaskManagerInner consumes the FiltersProvider context. The default
 // export below wraps this in <FiltersProvider> so useFilters() works.
 function TaskManagerInner() {
-  const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
+  const { settings, setSettings, hydrated, i18nReady, lang } = useSettings(); useSessionAiKey(); // §717 — re-render on a passphrase unlock
   useApplyFavicon(settings.branding?.favicon ?? null);
   // ★★★ USER-ACTOR WIRING — every `logActivity:` below MUST read `logActivityUser`; see the "who names the actor" rule on useActivityLog. Threading the raw one shipped ZERO "user" entries.
   // ★★ THE PIN COVERS TWO OF THE WIRING SITES, NOT ALL OF THEM — this line used to say "Pinned by task-manager.activity-actor.test.tsx" flat, which reads as coverage of the whole rule. That file drives exactly two threads through the real component: `useChangeLog` (via `handleSaveChange`) and `useStakeholders` (via `handleSaveStakeholder`), plus a control that `logActivityAs("ai")` stays distinct and the `logActivityChangesUser` field-diff variant on the change thread. A third site, the `useResourceQuickCreate` call (which holds the resource create, once the one inline `logActivityUser(...)` call), is pinned by a source scan in `use-resource-quick-create.test.ts` that proves the logger passed, not the actor recorded. Every OTHER site below — resource planner, budget buckets, notes window, undo stack, and the remaining hook threads (`useTaskEditorCreate` among them) — is UNPINNED: swapping one back to the raw `logActivity` drops its actor silently and the suite stays green. ★ Count those by eye, not by grepping this file for `logActivityUser`: THIS COMMENT matches that grep, so the count comes back inflated by the line quoting it.

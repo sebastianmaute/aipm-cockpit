@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
+import { defaultAiConfig } from "./settings-types";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { loadI18n, t } from "./i18n";
 import { expectDestructiveButton, expectSecondaryButton } from "../test/button-variant";
@@ -18,6 +19,7 @@ const buckets: BudgetBucket[] = [{
 }];
 
 const props = {
+  ai: defaultAiConfig,
   lang: "en-US" as const, buckets, roles, disciplines: [], grades: [], resources: [],
   plan, fxRates: null, absences: [], holidaySet: new Set<string>(), workdayHours: 8, today: "2026-02-01",
   onChangeBuckets: vi.fn(), onRefreshFx: vi.fn(), timelogProjectId: "acme",

@@ -43,6 +43,7 @@ import { useConfirm } from "./confirm-dialog";
 import { useToastContext } from "./toast-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
+import { RING_ROOM } from "./interaction-styles";
 
 // --- pure presentation helpers --------------------------------------------
 // i18n-free and side-effect-free. These are NAMING and ORDERING, not mutation:
@@ -673,7 +674,7 @@ export function DocumentsPanel({
           `print-root` that is `overflow-hidden` — so with `overflow: visible`
           here the surplus is CLIPPED with no scrollbar at any level, i.e.
           unreachable by any gesture, keyboard included. */}
-      <div ref={paneRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
+      <div ref={paneRef} className={`flex min-h-0 flex-1 flex-col gap-3 overflow-auto ${RING_ROOM}`}>
         {/* ★ Title falls back to `#id` — an entity deleted since the badge was clicked
             must still name what is filtered. ★★ Clear does BOTH, or a re-visit re-applies. */}
         {entityFilter && (

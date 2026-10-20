@@ -54,6 +54,16 @@ longer carries its own changelog comment.
   documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
   was typed. The search now matches library cards by name, a source other than All hides them (they belong to
   none), and "No knowledge matches this filter" shows when nothing in either list matches.
+- **Hours shown as a time in a workbook import as hours (§716).** An hours cell formatted as `8:00` is stored
+  by Excel as a fraction of a day, so the forecast import read it as 0.33 hours. Such cells now read as hours (8),
+  in the forecast import and in workbooks attached to the chat. A cell formatted to show elapsed hours (`[h]:mm`)
+  reads its whole value; one formatted as a time of day (`h:mm`) reads what it shows, so 40 hours shown as 16:00
+  read 16. Dates are read as before.
+- **A Claude key unlocked with its passphrase works everywhere, not only in the chat (§717).** The forecast
+  import's "Ask Claude", Suggest RACI, the digest, insights and the other AI features showed as unavailable,
+  because the unlocked key stayed in the chat. Once you unlock it, every AI feature uses it until you reload the
+  page. The key is kept in memory only and never saved unlocked, and editing or removing it in Settings,
+  or switching AI off, forgets it. The setup checklist now counts a passphrase-protected key as set up.
 - **Claude's one-shot features work on Sonnet 5.5, Opus 5.5 and Fable 5.1.** Those models refuse a request
   that forces a tool, which every one-shot feature sends: the project proposal, the digest, Deduplicate & unify,
   Plan with AI, Suggest RACI, recommendations, reports and the rest all failed on them. The app now asks such a
@@ -61,7 +71,8 @@ longer carries its own changelog comment.
   tool's format is asked for once more, held to that format. The chat was not affected.
 - **Claude's project proposal and project edits check the name and the counts (§760, §761).** A
   proposed project's name is now held to the same 200-character limit as an edited one. A stakeholder or identity
-  count written as "0x10", "1e3" or a blank is refused instead of being read as 16, 1000 or 0.
+  count written as "0x10", "1e3" or only spaces is refused instead of being read as 16, 1000 or 0; an empty one
+  still clears the field, and a count above ten million is refused.
 - **The app no longer reloads over a Claude API key that is not saved yet (§749).** A key typed under the passphrase
   lock is not stored until "Save passphrase" is chosen. Switching the portfolio and moving a project to Turso
   reload the app, as do picking a Turso project, creating one from a file portfolio, loading a file into a Turso
@@ -90,6 +101,8 @@ longer carries its own changelog comment.
   changed), an empty workspace was still kept as an unsaved draft and offered back on the next start. It is
   now skipped, and any earlier draft is left as it was. The cost: a project emptied at such a moment gets its
   records back on the next start.
+- **The forecast import reports a data row above the header (§723).** A row of hours placed directly above
+  the header row was neither read nor mentioned. It is now listed with the rows the import did not read.
 - **Analyze with AI and scheduled AI jobs fail less often (§715).** A reply with no new suggestions, or with its
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,
@@ -106,14 +119,26 @@ longer carries its own changelog comment.
   offered back as one from "another project". Emptying a project that held records, a moved plan, project
   details, the dashboard summary and the other project-level fields still count as a draft. An empty draft
   already stored stays listed until you discard it.
+- **Gantt task bars can be moved and resized from the keyboard (§742).** Tab to a bar or one of its
+  edges and press the arrow keys: one day, with Shift (or Page Up / Page Down) one week. The change is saved when
+  you pause, press Enter or move on, and Escape cancels, as for a milestone. A screen reader announces the new
+  dates.
 - **Run and fetch times read as times (§715).** A scheduled job's "Last run" and Timelog's "Last fetched" showed the
   stored UTC value ("2026-09-21T07:05:12.345Z"); they now show the date and time in the display timezone.
+- **Focus outlines are no longer cut off (§757).** The green outline around a focused button was
+  clipped where the button sat at the edge of a scrolling area, such as "Draft with AI" in a steering-committee
+  status report and the Reports toolbar. Those areas now leave room for it, and the sidebar's menu items show a
+  green outline inside the item when you reach them with the keyboard.
 - **One of a thing is singular (§715).** In twelve places a count read "1 buckets", "1 days", "1 tasks",
   "1 contacts" or "1 writes" when there was one: the Budget header, the forecast run-out, the export menu, the
   new-project import notice, earned-value coverage, the Outlook contact import, the AI assistant's proposed
   writes, the forecast gap line and its tip (also in the export), the estimate-to-complete tip, the rate-mix
   points ("+1 pt") and the simulation histogram. Each now says one in the singular, in English and German.
   Earned-value coverage now reads "Estimates on 1 of 5 tasks", so the verb no longer has to agree with a count.
+- **Undoing Claude's project edit says "Undone" only once it is saved (§759).** The undo used to report
+  success at once, before the change was written back. If that write failed, you saw "Undone" together with an
+  error, and Redo offered to redo an undo that never happened. Now the message follows the save. A failed undo
+  shows only the error and stays in the list to try again. Redo works the same way.
 - **Ask Claude edits milestones and RAID items again (§715).** A description change on a milestone or a
   mitigation on a RAID item always ended in "No changes to apply": Claude looked the item up first, a step the
   one-shot edit cannot answer. It is now offered only the changes it can make.

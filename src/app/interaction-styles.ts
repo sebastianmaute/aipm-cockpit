@@ -8,6 +8,16 @@
  *  uniformly visible. Pairs `outline-none` with a 2px ui-green ring. */
 export const FOCUS_RING = "focus:outline-none focus:ring-2 focus:ring-ui-green";
 
+/** §757 — room for that ring inside a SCROLL container. A scrolling box clips everything outside its padding
+ *  box, and `FOCUS_RING` draws 2px OUTSIDE the control, so a control flush with the box's edge lost its ring on
+ *  that side ("Draft with AI" in a status report). 2px of padding moves the content 2px in, so the ring fits
+ *  inside the clip. Append it to the scroll container, not the control. ★ Padding only, deliberately: a negative
+ *  margin to keep the content in place made the box overlap its neighbours by 2px, where it caught their clicks
+ *  (§757 review). A side the container already pads (`pr-2`) keeps its own value: Tailwind sorts `p-*` first.
+ *  ★ Useless where the container's own parent clips at the same edge (the sidebar at the window edge): draw that
+ *  ring inset instead. */
+export const RING_ROOM = "p-0.5";
+
 /** Subtle physical press feedback. Transform-only → palette-irrelevant and
  *  GPU-cheap; `translate-y` (not `scale`) avoids the layout reflow that scaling
  *  causes inside flex/grid rows. */

@@ -5,6 +5,7 @@ import {
   PROJECT_AI_EXCLUDED,
   judgeProjectField,
   applyProjectPatch,
+  COUNT_MAX,
 } from "./project-ai-fields";
 import { BUDGET_NAME_MAX } from "./sanitize-entities";
 
@@ -93,6 +94,12 @@ describe("project AI fields", () => {
   // §761 — `Number()` alone read " " as 0, "0x10" as 16 and "1e3" as 1000, each accepted as a whole number.
   it.each([" ", "0x10", "1e3", "-1", "12.0", "1 2"])("counts: the string %j is refused", (raw) => {
     expect(judgeProjectField("stakeholderCount", raw, CTX).kind).toBe("refused");
+  });
+
+  it("counts: a count past COUNT_MAX is refused, a 20-digit string included", () => {
+    expect(judgeProjectField("stakeholderCount", COUNT_MAX, CTX)).toEqual({ kind: "accepted", value: COUNT_MAX });
+    expect(judgeProjectField("stakeholderCount", COUNT_MAX + 1, CTX).kind).toBe("refused");
+    expect(judgeProjectField("stakeholderCount", "12345678901234567890", CTX).kind).toBe("refused");
   });
 
   it("counts: plain digits, padded or not, and a whole number are accepted; an empty string clears", () => {

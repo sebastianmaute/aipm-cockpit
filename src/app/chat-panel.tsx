@@ -62,6 +62,8 @@ import {
 import { buildWireMessages } from "./chat-cache-layout";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiKeyMessageKeyForError, syncAiKey } from "./ai-key-status";
+import { setSessionAiKey } from "./session-ai-key";
+import { useSessionAiKey } from "./use-session-ai-key";
 import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
@@ -433,9 +435,11 @@ function ChatPanelInner({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Passphrase-unlock state: when the saved Anthropic key is passphrase-wrapped
-  // (no plaintext key in settings) the user unlocks it inline here; the
-  // decrypted value lives in `unlockedKey` for the rest of the session.
-  const [unlockedKey, setUnlockedKey] = useState<string | null>(null);
+  // (no plaintext key in settings) the user unlocks it inline here. §717 — the
+  // decrypted value lives in the page-only `session-ai-key` store, not in this
+  // panel, so every other AI feature can use it too (`liveAiKey`).
+  const sessionAiKey = useSessionAiKey();
+  const unlockedKey = sessionAiKey === "" ? null : sessionAiKey;
   const [unlockPass, setUnlockPass] = useState("");
   const [unlockError, setUnlockError] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -1351,7 +1355,7 @@ function ChatPanelInner({
   async function unlockApiKey() {
     const v = await unlockSecret("anthropicApiKey", unlockPass);
     if (v) {
-      setUnlockedKey(v);
+      setSessionAiKey(v);
       // §650 — a passphrase-wrapped key reads "" in settings, so the verdict's live key is ""; make
       // the unlocked key the live one, or every report made with it is dropped as stale. In memory
       // only — the store never persists it.

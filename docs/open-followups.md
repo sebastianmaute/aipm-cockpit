@@ -953,17 +953,17 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§713](#713-the-install-guide-leaves-out-what-a-non-technical-pilot-user-needed-and-nothing-in-the-app-points-to-it--closed-2026-10-14) | The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it | — | — | **CLOSED** 2026-10-14 |
 | [§714](#714-follow-up-with-the-uk-pilot-user-fixes-before-their-2026-10-22-review-the-api-key-cost-question-and-a-project-intake-session--open) | Follow-up with the UK pilot user: fixes before their 2026-10-22 review, the API-key cost question, and a project-intake session | — | — | open |
 | [§715](#715-no-recorded-walk-through-shows-a-new-user-downloading-installing-and-setting-up-the-desktop-app--open) | No recorded walk-through shows a new user downloading, installing and setting up the desktop app | — | — | open |
-| [§716](#716-an-xlsx-hours-cell-formatted-as-a-duration-imports-as-a-fraction-of-a-day--open) | An xlsx hours cell formatted as a duration imports as a fraction of a day | — | — | open |
-| [§717](#717-forecast-import-shows-ask-claude-disabled-when-the-anthropic-key-was-unlocked-in-another-settings-instance--open) | Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance | — | — | open |
+| [§716](#716-an-xlsx-hours-cell-formatted-as-a-duration-imports-as-a-fraction-of-a-day--closed-2026-10-20) | An xlsx hours cell formatted as a duration imports as a fraction of a day | — | — | **CLOSED** 2026-10-20 |
+| [§717](#717-forecast-import-shows-ask-claude-disabled-when-the-anthropic-key-was-unlocked-in-another-settings-instance--closed-2026-10-20) | Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance | — | — | **CLOSED** 2026-10-20 |
 | [§718](#718-no-e2e-or-axe-run-opens-the-forecast-import-modal--open) | No e2e or axe run opens the forecast import modal | — | — | open |
 | [§719](#719-forecast-import-has-no-target-bucket-picker--open) | Forecast import has no target-bucket picker | — | — | open |
-| [§720](#720-forecast-import-drops-e-notation-numbers-and-merges-namesakes-with-different-emails--open) | Forecast import drops E-notation numbers and merges namesakes with different emails | — | — | open |
-| [§721](#721-forecast-import-misreads-some-number-and-date-cells--open) | Forecast import misreads some number and date cells | — | — | open |
-| [§722](#722-forecast-import-picks-the-wrong-period-or-asks-on-several-sheet-shapes--open) | Forecast import picks the wrong period, or asks, on several sheet shapes | — | — | open |
-| [§723](#723-forecast-import-reads-one-block-per-sheet-so-stacked-blocks-and-second-headers-are-cut-or-summed--open) | Forecast import reads one block per sheet, so stacked blocks and second headers are cut or summed | — | — | open |
-| [§724](#724-forecast-imports-total-and-continuation-rules-ask-about-or-drop-legitimate-rows--open) | Forecast import's total and continuation rules ask about or drop legitimate rows | — | — | open |
-| [§725](#725-forecast-imports-mapping-step-cannot-express-some-corrections--open) | Forecast import's mapping step cannot express some corrections | — | — | open |
-| [§726](#726-forecast-import-cannot-route-some-matched-people-and-its-notes-name-namesakes-inconsistently--open) | Forecast import cannot route some matched people, and its notes name namesakes inconsistently | — | — | open |
+| [§720](#720-forecast-import-drops-e-notation-numbers-and-merges-namesakes-with-different-emails--closed-2026-10-20) | Forecast import drops E-notation numbers and merges namesakes with different emails | — | — | **CLOSED** 2026-10-20 |
+| [§721](#721-forecast-import-misreads-some-number-and-date-cells--closed-2026-10-20) | Forecast import misreads some number and date cells | — | — | **CLOSED** 2026-10-20 |
+| [§722](#722-forecast-import-picks-the-wrong-period-or-asks-on-several-sheet-shapes--closed-2026-10-20) | Forecast import picks the wrong period, or asks, on several sheet shapes | — | — | **CLOSED** 2026-10-20 |
+| [§723](#723-forecast-import-reads-one-block-per-sheet-so-stacked-blocks-and-second-headers-are-cut-or-summed--closed-2026-10-20) | Forecast import reads one block per sheet, so stacked blocks and second headers are cut or summed | — | — | **CLOSED** 2026-10-20 |
+| [§724](#724-forecast-imports-total-and-continuation-rules-ask-about-or-drop-legitimate-rows--closed-2026-10-20) | Forecast import's total and continuation rules ask about or drop legitimate rows | — | — | **CLOSED** 2026-10-20 |
+| [§725](#725-forecast-imports-mapping-step-cannot-express-some-corrections--closed-2026-10-20) | Forecast import's mapping step cannot express some corrections | — | — | **CLOSED** 2026-10-20 |
+| [§726](#726-forecast-import-cannot-route-some-matched-people-and-its-notes-name-namesakes-inconsistently--closed-2026-10-20) | Forecast import cannot route some matched people, and its notes name namesakes inconsistently | — | — | **CLOSED** 2026-10-20 |
 | [§727](#727-forecast-plants-mixes-matching-and-apply-and-should-split-before-it-grows--open) | forecast-plan.ts mixes matching and apply and should split before it grows | — | — | open |
 | [§728](#728-the-first-start-splashs-german-locale-text-has-not-been-eye-checked-on-a-packaged-desktop-build-three-of-four-checks-seen--open) | The first-start splash's German-locale text has not been eye-checked on a packaged desktop build (three of four checks seen) | — | — | open |
 | [§729](#729-the-install-guide-describes-the-browser-download-prompt-and-the-windows-protection-box-without-pictures--closed-2026-10-14) | The install guide describes the browser download prompt and the Windows protection box without pictures | — | — | **CLOSED** 2026-10-14 |
@@ -979,7 +979,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§739](#739-a-new-projects-plan-start-date-is-the-utc-day-not-the-local-day--closed-2026-10-15) | A new project's plan start date is the UTC day, not the local day | — | — | **CLOSED** 2026-10-15 |
 | [§740](#740-a-project-created-on-turso-storage-outside-turso-mode-reopens-as-an-empty-browser-workspace--closed-2026-10-15) | A project created on Turso storage outside Turso mode reopens as an empty browser workspace | — | — | **CLOSED** 2026-10-15 |
 | [§741](#741-the-desktop-smoke-test-never-loads-the-packaged-apps-updater-so-a-release-with-a-broken-electron-updater-goes-unnoticed--open) | The desktop smoke test never loads the packaged app's updater, so a release with a broken electron-updater goes unnoticed | — | — | open |
-| [§742](#742-gantt-task-bars-cannot-be-moved-or-resized-from-the-keyboard--open) | Gantt task bars cannot be moved or resized from the keyboard | — | — | open |
+| [§742](#742-gantt-task-bars-cannot-be-moved-or-resized-from-the-keyboard--closed-2026-10-20) | Gantt task bars cannot be moved or resized from the keyboard | — | — | **CLOSED** 2026-10-20 |
 | [§743](#743-next-actions-gives-no-early-warning-that-a-milestone-will-slip--open) | Next actions gives no early warning that a milestone will slip | — | — | open |
 | [§744](#744-a-weekend-activity-still-open-on-monday-is-not-asked-about--open) | A weekend activity still open on Monday is not asked about | — | — | open |
 | [§745](#745-video-guides-no-guided-tour-for-each-feature-and-ai-clip--open) | Video guides: no guided tour for each feature and AI clip | — | — | open |
@@ -994,9 +994,9 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§754](#754-an-empty-workspace-can-still-be-kept-as-an-unsaved-draft-when-the-stored-version-is-unknown--closed-2026-10-19) | An empty workspace can still be kept as an unsaved draft when the stored version is unknown | — | — | **CLOSED** 2026-10-19 |
 | [§755](#755-suggest-racis-list-of-proposed-assignments-shows-no-scrollbar-in-the-recording--closed-2026-10-20) | Suggest RACI's list of proposed assignments shows no scrollbar in the recording | — | — | **CLOSED** 2026-10-20 |
 | [§756](#756-the-influence--interest-map-gets-squashed-on-smaller-screens--closed-2026-10-20) | The influence / interest map gets squashed on smaller screens | — | — | **CLOSED** 2026-10-20 |
-| [§757](#757-a-clicked-buttons-green-focus-outline-is-cut-off-draft-with-ai-and-others--open) | A clicked button's green focus outline is cut off (Draft with AI and others) | — | — | open |
+| [§757](#757-a-clicked-buttons-green-focus-outline-is-cut-off-draft-with-ai-and-others--closed-2026-10-20) | A clicked button's green focus outline is cut off (Draft with AI and others) | — | — | **CLOSED** 2026-10-20 |
 | [§758](#758-a-new-linked-tasks-assignee-is-free-text-not-picked-from-the-directory--closed-2026-10-20) | A new linked task's assignee is free text, not picked from the directory | — | — | **CLOSED** 2026-10-20 |
-| [§759](#759-undoing-claudes-project-edit-says-undone-even-when-the-restore-fails--open) | Undoing Claude's project edit says "Undone" even when the restore fails | — | — | open |
+| [§759](#759-undoing-claudes-project-edit-says-undone-even-when-the-restore-fails--closed-2026-10-20) | Undoing Claude's project edit says "Undone" even when the restore fails | — | — | **CLOSED** 2026-10-20 |
 | [§760](#760-a-proposed-projects-name-skips-the-field-judge-so-it-has-no-length-cap--closed-2026-10-20) | A proposed project's name skips the field judge, so it has no length cap | — | — | **CLOSED** 2026-10-20 |
 | [§761](#761-claudes-stakeholder-count-accepts-0x10-1e3-and----closed-2026-10-20) | Claude's stakeholder count accepts "0x10", "1e3" and " " | — | — | **CLOSED** 2026-10-20 |
 <!-- INDEX:END -->
@@ -45141,21 +45141,17 @@ Size M.
 
 **Source:** owner decision, 2026-10-14, while approving the §713 design.
 
-## 716. An xlsx hours cell formatted as a duration imports as a fraction of a day — OPEN
+## 716. An xlsx hours cell formatted as a duration imports as a fraction of a day — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue (34). Reproduce the cause with `grep -c "styles.xml\|numFmt" src/app/xlsx-extract.ts`, which prints 0: the reader never looks at a cell's number format.
-
-**Work item:** #708
+**Status:** CLOSED 2026-10-20 on `fix/716-forecast-import-reading`, by converting. `xlsx-styles.ts` resolves each cell's `s` index through `styles.xml` (`numFmts` and `cellXfs`). `extractXlsxGrid` reads a number shown as a time or duration (built-in formats 18–21 and 45–47, or a custom code with an hour or second and no date part) as decimal hours, rounded to the second: `8:00` reads 8 and `[h]:mm` 36:00 reads 36. Dates keep their serials, and every other cell reads as stored. Review round: an ELAPSED format (`[h]:mm`, built-in 46) reads the whole value, and a CLOCK format (`h:mm`) the time of day only, as Excel shows it: a date-time 46327.5 reads 12, and a total over 24 h under `h:mm` reads modulo 24 (40 h as 16), because that is what the cell displays. Custom number formats are read from `<numFmts>` only, never from a conditional format in `<dxfs>`. The locale-specific built-in ids (CJK, Thai) are not read, on purpose: a wrong guess would turn a date column into hours. Chat attachments read through the same grid, so a pasted workbook shows hours too. Verified with `npx vitest run src/app/xlsx-styles.test.ts src/app/xlsx-extract.test.ts src/app/budget-import` (green); a mutant that skips the conversion fails the grid test. **Earlier:** OPEN 2026-10-14, filed from §500's residue (34). Reproduce the cause with `grep -c "styles.xml\|numFmt" src/app/xlsx-extract.ts`, which prints 0: the reader never looks at a cell's number format.
 
 The forecast import (§500) reads an xlsx cell's stored value through `readSheetFile` (`src/app/budget-import/sheet-grid.ts`, over `xlsx-extract.ts`). An hours cell shown as `8:00` is stored as 0.333…, so it imports as 0.33 h with no notice; only the preview's old → new figure shows it. This is the one §500 residue that writes a wrong number without asking. A fix reads the cell's `s` style index, resolves it through `styles.xml` `numFmts`/`cellXfs`, and either converts a duration format to hours (× 24) or refuses the column with a notice.
 
 **Source:** §500's "Known residue, accepted" list, item (34), filed 2026-10-14 on the owner's word.
 
-## 717. Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance — OPEN
+## 717. Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue (2). Reproduce with `grep -n "useSettings()" src/app/use-forecast-import.ts src/app/raci-panel.tsx`, which shows each reading settings through its own instance.
-
-**Work item:** #709
+**Status:** CLOSED 2026-10-20 on `fix/716-forecast-import-reading`. The filed cause was wrong, and the first fix, which passed the app's live settings into the import and `RaciPanel` in place of their own `useSettings()` copies, did not fix the scenario. The review round traced it: the unlock form is the AI chat's, and it kept the unlocked key in the chat panel's own state; `syncAiKey` only feeds the key verdict. So no settings copy ever held the key, and every AI feature outside the chat read "". Owner decision 2026-10-20: a page-only store. `session-ai-key.ts` holds the unlocked key in memory only: never persisted, dropped by a reload, cleared when the key is edited or removed in Settings. The chat's unlock writes it, and `liveAiKey` (`settings-types.ts`) falls back to it. `isAiEnabled` and `aiKeyIfEnabled` read through `liveAiKey`, and every feature already gets its key from `aiKeyIfEnabled`, so the master switch still decides. A second fallback in the call modules was tried and reverted in review: it turned a switched-off "" back into the key. Editing the key, "Remove stored secret", the lock toggle's delete path and switching AI off all clear the store. The startup key check (`use-ai-key-check.ts`) checks the unlocked key when the stored one reads blank, and the setup checklist counts a passphrase-sealed key as configured (`backend-setup-steps.ts`). `workspace-section` and `task-manager` re-render when it changes. Verified with `npx vitest run src/app/session-ai-key.test.ts src/app/use-forecast-import.test.ts src/app/settings-sections/ai-section.test.tsx src/app/chat-panel.test.tsx` (green). Mutants that ignore the session key in `liveAiKey`, skip the clear on an edit or on "Remove stored secret", or skip the store in the chat's unlock each fail it. The settings-prop change stays: one settings copy per surface is still right. **Earlier:** OPEN 2026-10-14, filed from §500's residue (2). Reproduce with `grep -n "useSettings()" src/app/use-forecast-import.ts src/app/raci-panel.tsx`, which shows each reading settings through its own instance.
 
 `useForecastImport` calls `useSettings()` itself. An Anthropic key sealed behind a passphrase is hydrated only in the instance where it was unlocked, so in the import's instance it stays blank and "Ask Claude" shows disabled until the key is unlocked there too. `raci-panel.tsx` has the same pre-existing gap. A fix threads the live settings (or the key) into the budget panel as a prop, the way other panels receive them from `workspace-section`.
 
@@ -45181,21 +45177,17 @@ The §500 spec's source step has a target-bucket picker, preselected to the buck
 
 **Source:** §500's "Known residue, accepted" list, item (7), filed 2026-10-14 on the owner's word.
 
-## 720. Forecast import drops E-notation numbers and merges namesakes with different emails — OPEN
+## 720. Forecast import drops E-notation numbers and merges namesakes with different emails — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue (8), which was deferred by ruling; never machine-verified.
-
-**Work item:** #712
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. (8a) An E-notation number is a visible `bad-number` drop, pinned in `npx vitest run src/app/budget-import/forecast-import-probes.test.ts` ("the §720–§726 triage" describe). (8b) Namesakes with different emails merge into one unresolved entry, which the picker shows. (8c) A workbook TEXT cell `1.234` reads 1.234; read as 1234 it would exceed the 744 h monthly cap and be rejected, so no valid value is lost, and text `1,5` and `12,5` read 1.5 and 12.5, pinned in the same describe. Closed with no code change. **Earlier:** OPEN 2026-10-14, filed from §500's residue (8), which was deferred by ruling; never machine-verified.
 
 Three gaps in the reader, each visible in the preview rather than silent: E-notation numbers (`1E2`, `7.4999999999999997E-2`) read as null in every decimal style and in workbooks too, a `bad-number` drop (`parseNumberCell`, `src/app/budget-import/forecast-rows.ts`); namesakes with different emails merge into one unresolved entry; and a workbook TEXT cell `1.234` reads 1.234, since the grid cannot tell text cells from number cells.
 
 **Source:** §500's "Known residue, accepted" list, item (8), filed 2026-10-14 on the owner's word.
 
-## 721. Forecast import misreads some number and date cells — OPEN
+## 721. Forecast import misreads some number and date cells — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
-
-**Work item:** #713
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. (3) The stray `2.5` is a visible `bad-number` drop. (12) A numeric code column beside year-less months is listed as an unread column on a CSV, and asks the period question in a workbook; both are pinned in `npx vitest run src/app/budget-import/forecast-import-probes.test.ts` ("the §720–§726 triage" describe). (41) The 1,462-day move touches only five-digit cells, and outside period cells no import reads those values. Closed with no code change. **Earlier:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
 
 The reader turns cell text into numbers and dates with rules that some real sheets break. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
@@ -45207,11 +45199,9 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
 
-## 722. Forecast import picks the wrong period, or asks, on several sheet shapes — OPEN
+## 722. Forecast import picks the wrong period, or asks, on several sheet shapes — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
-
-**Work item:** #714
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. Every item asks or reports. (11) is out of date as worded: a year-less long sheet with two month-name columns asks the period question with both as candidates, pinned in `npx vitest run src/app/budget-import/forecast-import-probes.test.ts`. (10), (21), (24), (26) and (39) ask or block Apply; (14) detects no layout and opens the mapping step, pinned in the same file; (15) shows the assumed-year notice. Closed with no code change. **Earlier:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
 
 How a period is assigned to a cell (`period-assign.ts`, `layout-detect.ts`) misreads or questions these shapes. Most ask the user rather than write a wrong number. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
@@ -45228,11 +45218,9 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
 
-## 723. Forecast import reads one block per sheet, so stacked blocks and second headers are cut or summed — OPEN
+## 723. Forecast import reads one block per sheet, so stacked blocks and second headers are cut or summed — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
-
-**Work item:** #715
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. (16) was the one silent drop and is FIXED: `rowsAboveHeaderCount` (`forecast-rows.ts`) also counts a wide row with numbers under two or more of the period columns, so a data row directly above the header is reported. A metadata row holds one number and is still not counted, and neither is a row of years (`Jahr | 2026 | 2027`) or of consecutive whole numbers (`KW | 1 | 2 | 3`; `holdsTwoHours`, review round). ★ The cost, both ways, because the rule reads only the numbers. Rows it misses: a person row above the header whose hours are consecutive whole numbers (`1 | 2 | 3`, `8 | 9`) or all between 1900 and 2100 is not reported (pinned). Rows it still reports although nothing is lost: label rows that are not a consecutive run (`KW | 1 | 3 | 5`, `10 | 20 | 30`, a descending or wrapping week run). That errs toward a visible notice, the safer side. Verified with `npx vitest run src/app/budget-import/forecast-import-probes.test.ts` (green); the new case failed on the unfixed code. (9) and (28) ask the header question, and with header row 1 confirmed the rows below the second header are reported, not summed, pinned in the same file. (30) stops visibly, (33) is the owner's 2026-10-13 decision, and (36) asks. **Earlier:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
 
 The reader reads one block with one mapping. Sheets with several blocks, unusual headers or merged sub-columns lose rows or sum them. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
@@ -45247,11 +45235,9 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
 
-## 724. Forecast import's total and continuation rules ask about or drop legitimate rows — OPEN
+## 724. Forecast import's total and continuation rules ask about or drop legitimate rows — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
-
-**Work item:** #716
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. (4) A total outside the word list, which also matches a listed word followed by a space or colon (`Summe aller` counts as a total), imports as a person shown as unmatched: `Insgesamt` is pinned in `npx vitest run src/app/budget-import/forecast-import-probes.test.ts`. (32) and (37) ask before summing. (44) leaves the people unresolved, and nothing is written for anyone, which the preview shows. Closed with no code change. **Earlier:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
 
 Total rows, rows without a person and repeated people are decided by fixed rules that misfire on some layouts. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
@@ -45264,11 +45250,9 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
 
-## 725. Forecast import's mapping step cannot express some corrections — OPEN
+## 725. Forecast import's mapping step cannot express some corrections — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
-
-**Work item:** #717
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. All four are mapping-step controls, and each result shows in the mapping step and the preview before Apply: (19) the header-row select and period columns, (25) the long columns after a layout switch, the year column included, (35) a period left out after an email or rate change (Re-detect restores it), and (38) the sheet button. Closed with no code change. **Earlier:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
 
 The hand mapping step (`ForecastImportModal`) has controls that reset or hide choices. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
@@ -45281,11 +45265,9 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
 
-## 726. Forecast import cannot route some matched people, and its notes name namesakes inconsistently — OPEN
+## 726. Forecast import cannot route some matched people, and its notes name namesakes inconsistently — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
-
-**Work item:** #718
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. (5) One pick routes the namesakes it stands for, and the preview lists the changes it makes. (40) is the owner's 2026-10-13 decision. (42) and (43) are wording in the unresolved list. Closed with no code change. **Earlier:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
 
 Matching sheet people to bucket lines (`forecast-plan.ts`) leaves these cases unresolved or mislabelled. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
@@ -45533,11 +45515,9 @@ Size S.
 
 **Source:** recorded in §487 on 2026-09-24 (gap found while verifying the unsigned auto-update decision); filed as its own entry after the 2026-10-16 issue audit.
 
-## 742. Gantt task bars cannot be moved or resized from the keyboard — OPEN
+## 742. Gantt task bars cannot be moved or resized from the keyboard — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-16, filed on the owner's word while scoping the milestone drag (project D of §715). `grep -c "startBarDrag(e, task, bar" src/app/gantt-rows.tsx` prints 3, one `onPointerDown` per handle, with no key handler beside them.
-
-**Work item:** #761
+**Status:** CLOSED 2026-10-20 on `fix/742-gantt-bar-keyboard`, matching the milestone drag. A bar's three handles in `gantt-rows.tsx` are focusable `role="slider"` elements. Each has its row-unique name, a day-offset value and the date(s) it would save as its value text. `useGanttBarDrag` gains `onBarKeyDown` and `onBarBlur`, with the milestone's keys and timing (`milestoneKeyStep`, `MILESTONE_KEY_COMMIT_DELAY_MS`). Arrows move the preview one day, and Shift or Page Up/Page Down one week. The edit commits once, on a pause, Enter or blur, and Escape cancels. A resize stops at the bar's other end. A pending edit lands before a pointer drag or another handle's edit, and that edit starts from the dates the keys produced. It lands on unmount unless a project swap is in flight. Ruling: all three handles are tab stops, since each was already exposed as its own control; a chord on the move handle would have hidden two of them. The edge names lost their "Drag to" wording, and the bar's hint and the Gantt Help name the keys. Verified with `npx vitest run src/app/use-gantt-bar-drag.keys.test.ts src/app/gantt.test.tsx` (green). Four mutants each fail a test: no key handler on the move slider, no resize clamp, a pointer drag ignoring pending keys, and no swap check on unmount. Review round: a handle reached with Tab is scrolled out from under the sticky name column, and again after every key press (`useGanttMilestoneFocus` reveals `data-gantt-bar-handle` elements, but not on a pointer press). `aria-valuenow` is clamped to the slider's range while a preview runs past the chart's edge. Pinned by `use-gantt-milestone-focus.bar.test.tsx` and a `gantt.test.tsx` case, and a mutant per rule fails them. ★ Not done: the milestone's axis widening while keys are pending (the `gantt.tsx` range memo), so a bar moved past the chart's edge shows clipped until the edit commits. **Earlier:** OPEN 2026-10-16, filed on the owner's word while scoping the milestone drag (project D of §715). `grep -c "startBarDrag(e, task, bar" src/app/gantt-rows.tsx` prints 3, one `onPointerDown` per handle, with no key handler beside them.
 
 A task bar's three drag handles in `gantt-rows.tsx` (move, resize start, resize end; their names are `ganttBarMove`, `ganttBarResizeStart` and `ganttBarResizeEnd`) are `role="button"` divs with a row-unique accessible name but no `tabIndex` and no key handler (`grep -n "startBarDrag(e, task, bar" src/app/gantt-rows.tsx` shows the three `onPointerDown` handlers and nothing else). They cannot be reached or operated from the keyboard. A keyboard user can still change a task's dates in the task editor, so no date is out of reach, but the chart itself is pointer-only, and an element exposed as a button that cannot be focused is a WCAG 2.1.1 failure the axe gate does not report.
 
@@ -45701,7 +45681,7 @@ Size M.
 
 ## 753. An edit made while the Turso portfolio has no project chosen is dropped without a word — CLOSED 2026-10-20
 
-**Status:** CLOSED 2026-10-20 on `fix/753-no-project-edit-notice`, with the proposed sticky notice (size S); edits are not blocked. `useStorageBackend` now returns `tursoPortfolioWithoutProject`. While it is true, `buildAppBanners` shows `NoTursoProjectBanner`, a `role="alert"` notice with no Dismiss: "No project is chosen, so nothing you change is saved. Choose or create a project in Projects first." The sidebar footer reads saving paused rather than ready. Popouts show no notice, as with the other storage banners. Verified with `npx vitest run src/app/app-banners-block.test.tsx src/app/use-storage-backend.turso-handover.test.tsx` (green); a mutant that returns the flag as `false` fails the "no project is chosen" case. ★ The footer wiring in `task-manager.tsx` has no test of its own. **Earlier:** OPEN 2026-10-18. Found by the branch review of the §751 fix on `fix/715-empty-unload-journal`. With the portfolio on Turso and no project chosen, three paths in `use-storage-backend.ts` send nothing (`tursoPortfolioWithoutProjectRef`): the save effect, `doSave` and the pre-switch flush (`flushCurrent`). The save effect returns before `followLive` and `doSave` before `noteSaveStarted`, so an edit made in that state is not journalled either. `grep -n "if (tursoPortfolioWithoutProjectRef.current)" src/app/use-storage-backend.ts` → the three skips.
+**Status:** CLOSED 2026-10-20 on `fix/753-no-project-edit-notice`, with the proposed sticky notice (size S); edits are not blocked. `useStorageBackend` now returns `tursoPortfolioWithoutProject`. While it is true, `buildAppBanners` shows `NoTursoProjectBanner`, a `role="alert"` notice with no Dismiss: "No project is chosen, so nothing you change is saved. Choose or create a project in Projects first." The sidebar footer reads saving paused rather than ready. Popouts show no notice, as with the other storage banners. Review round: the notice is the shared `Banner` (warn) instead of a hand-tinted box. Verified with `npx vitest run src/app/app-banners-block.test.tsx src/app/use-storage-backend.turso-handover.test.tsx` (green); a mutant that returns the flag as `false` fails the "no project is chosen" case. ★ The footer wiring in `task-manager.tsx` has no test of its own. **Earlier:** OPEN 2026-10-18. Found by the branch review of the §751 fix on `fix/715-empty-unload-journal`. With the portfolio on Turso and no project chosen, three paths in `use-storage-backend.ts` send nothing (`tursoPortfolioWithoutProjectRef`): the save effect, `doSave` and the pre-switch flush (`flushCurrent`). The save effect returns before `followLive` and `doSave` before `noteSaveStarted`, so an edit made in that state is not journalled either. `grep -n "if (tursoPortfolioWithoutProjectRef.current)" src/app/use-storage-backend.ts` → the three skips.
 
 An edit made in that state is lost when the user picks or creates a project (the loaded workspace replaces it) or closes the tab, and nothing on screen says so. Only the diagnostics log `storage.saveSkippedNoTursoProject`, and only at the `doSave` and flush skips; the save-effect skip, the one an edit meets first, logs nothing. The state is rare: the setup wizard creates a project right away. It is reached on a database with projects when no current project is set.
 
@@ -45747,11 +45727,9 @@ Size S.
 
 **Source:** found 2026-10-19 by the owner in the demo recording (owner: file it).
 
-## 757. A clicked button's green focus outline is cut off (Draft with AI and others) — OPEN
+## 757. A clicked button's green focus outline is cut off (Draft with AI and others) — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-19. The green focus outline of a clicked button is cut off on some sides: Steering committee → Status report → "Draft with AI" (the shared `AiTriggerButton`, rendered in `meeting-report-panel.tsx`), and other buttons. Likely cause, not yet verified: the button sits flush against a container that clips overflow (a scrolling modal body, an `overflow-hidden` pane), and the ring is drawn outside the button's box. `grep -n "AiTriggerButton" src/app/meeting-report-panel.tsx` → the reported site.
-
-**Work item:** #795
+**Status:** CLOSED 2026-10-20 on `fix/757-focus-ring-clipping`, after listing the affected controls first, as proposed. A throwaway browser audit (Playwright on a dev server, not committed) walked 17 views and listed every focusable control whose 2px ring crossed a clipping ancestor's edge. The cause was confirmed: a scroll container clips everything outside its padding box, and `FOCUS_RING` draws outside the control. The audit found two groups. (1) Every sidebar nav item spans the sidebar's scroll box at the window edge: `navItemClass` (`sidebar-nav.tsx`) now draws a keyboard focus ring INSIDE the item (`focus-visible:ring-inset`), where before it fell back to the browser's own outline, cut the same way. (2) Content scroll panes flush with their first control: the steering-committee report pane (the reported "Draft with AI"), the Reports and Budget content panes (`report-table.tsx`, `budget-panel.tsx`), and the Documents pane now carry `RING_ROOM` (`interaction-styles.ts`): 2px of padding, so the content moves 2px in and the ring fits inside the clip. A first version also used a 2px negative margin to keep the content in place; review found it made the box overlap its neighbours by 2px, where it caught their clicks, so it is padding only. `interaction-styles.ring-room.test.ts` pins the class on the four panes. A rerun of the audit lists none of group (2). A keyboard-focused nav item computes an inset 2px ui-green box-shadow, and a screenshot shows it whole. Verified with `npx vitest run src/app/sidebar-nav.test.tsx` (green), which pins the inset ring. Left as found: the last sort header of a bordered table (`Priority`) touches the table's right edge, and three controls sat at the viewport's bottom edge only because of the scroll position. **Earlier:** OPEN 2026-10-19. The green focus outline of a clicked button is cut off on some sides: Steering committee → Status report → "Draft with AI" (the shared `AiTriggerButton`, rendered in `meeting-report-panel.tsx`), and other buttons. Likely cause, not yet verified: the button sits flush against a container that clips overflow (a scrolling modal body, an `overflow-hidden` pane), and the ring is drawn outside the button's box. `grep -n "AiTriggerButton" src/app/meeting-report-panel.tsx` → the reported site.
 
 Proposed: find the clipping ancestor at each reported site; give the scroll container room for the ring, or draw the ring inside (`ring-inset`) for buttons at a container edge. List the affected buttons first.
 
@@ -45769,11 +45747,9 @@ Size S.
 
 **Source:** found 2026-10-19 by the owner in the demo recording (owner: file it).
 
-## 759. Undoing Claude's project edit says "Undone" even when the restore fails — OPEN
+## 759. Undoing Claude's project edit says "Undone" even when the restore fails — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-20. An undo or redo of Claude's `update_project` edit (#807) writes through `projectUndoFragment` (`project-meta-edit.ts`). The writer is async, but the fragment's `restore` returns at once, so `commitUndo` (`undo/use-undo-stack.ts`) shows "Undone: …" and pushes a redo entry before the write settles. If the write fails, the user sees "Undone" plus an error: the writer's own error toast when it resolves false, or the `onThrow` toast when it throws. Each failure is logged as `undo.projectRestoreFailed`. The stack then holds a redo entry for an undo that did not happen. Read from the code; never machine-verified. `grep -n "write(meta).then" src/app/project-meta-edit.ts` → the write the stack does not wait for.
-
-**Work item:** #811
+**Status:** CLOSED 2026-10-20 on `fix/759-project-undo-failure`, by the first proposal. A fragment now reports its async write through a `track` argument (`TrackWrite`, `undo/use-undo-stack.ts`), and `compositeUndoRunner` attaches the writes' AND to the runner. `commitUndo`, `redo`, `undoThrough` and `redoThrough` take the entry off at once but log it, toast "Undone"/"Redone" and push the inverse only once the write is stored. A failed write puts the entry back, with the writer's error as the only message. `projectUndoFragment` tracks both directions. The review round added four rules. The fragments that applied synchronously are rolled back on a failure, because an applied plan collapses a project edit and array edits into one composite, and a retry duplicated the array rows. Every entry point does nothing while a write is out. A write that settles after a scope change is dropped silently. A capture that landed meanwhile stops a late finish from pushing a redo inverse, and an undo entry returns in id order. Verified with `npx vitest run src/app/undo src/app/use-project-tools.test.tsx src/app/workspace-section.test.tsx` (326 tests green), including the new `use-undo-stack.async-write.test.tsx`. Mutants that ignore the write in `commitUndo`, in `redo` and in `undoThrough` each fail it. So do six review-round mutants, each run alone: no rollback, no guard on `undo`, no scope check, a top-push in place of `insertById`, the capture count ignored, and no re-push in `redoThrough`. **Earlier:** OPEN 2026-10-20. An undo or redo of Claude's `update_project` edit (#807) writes through `projectUndoFragment` (`project-meta-edit.ts`). The writer is async, but the fragment's `restore` returns at once, so `commitUndo` (`undo/use-undo-stack.ts`) shows "Undone: …" and pushes a redo entry before the write settles. If the write fails, the user sees "Undone" plus an error: the writer's own error toast when it resolves false, or the `onThrow` toast when it throws. Each failure is logged as `undo.projectRestoreFailed`. The stack then holds a redo entry for an undo that did not happen. Read from the code; never machine-verified. `grep -n "write(meta).then" src/app/project-meta-edit.ts` → the write the stack does not wait for.
 
 Proposed: Let a fragment report an async result to the stack, so that "Undone" and the redo entry follow a successful write and a failure shows one error with the undo entry kept. Or accept it and say so in `docs/AGENTS/undo.md`. Test: a writer that resolves false shows no "Undone" toast and leaves the undo entry in place.
 
@@ -45793,7 +45769,7 @@ Size S.
 
 ## 761. Claude's stakeholder count accepts "0x10", "1e3" and " " — CLOSED 2026-10-20
 
-**Status:** CLOSED 2026-10-20 on `fix/760-761-ai-project-field-judges`, by the proposed rule. `judgeCount` (`project-ai-fields.ts`) accepts a string only when it is plain digits after trimming, so " ", "0x10", "1e3", "-1" and "12.0" are refused. "12", " 12 " and 12 are accepted, and an empty string still clears. Verified with `npx vitest run src/app/project-ai-fields.test.ts` (green); a mutant that drops the digit check fails four of the refused cases. **Earlier:** OPEN 2026-10-20. `judgeCount` (`project-ai-fields.ts`, used for `stakeholderCount`) reads a string with `toNumber`, i.e. `Number()`. So " " becomes 0, "0x10" becomes 16 and "1e3" becomes 1000, and each is accepted as a whole number. Read from the code; never machine-verified. `grep -n "function judgeCount" src/app/project-ai-fields.ts` → the judge.
+**Status:** CLOSED 2026-10-20 on `fix/760-761-ai-project-field-judges`, by the proposed rule. `judgeCount` (`project-ai-fields.ts`) accepts a string only when it is plain digits after trimming, so " ", "0x10", "1e3", "-1" and "12.0" are refused. "12", " 12 " and 12 are accepted, and an empty string still clears. Review round: a count above `COUNT_MAX` (ten million) is refused too, a 20-digit string included. Verified with `npx vitest run src/app/project-ai-fields.test.ts` (green); a mutant that drops the digit check fails four of the refused cases. **Earlier:** OPEN 2026-10-20. `judgeCount` (`project-ai-fields.ts`, used for `stakeholderCount`) reads a string with `toNumber`, i.e. `Number()`. So " " becomes 0, "0x10" becomes 16 and "1e3" becomes 1000, and each is accepted as a whole number. Read from the code; never machine-verified. `grep -n "function judgeCount" src/app/project-ai-fields.ts` → the judge.
 
 Proposed: Accept a string only when it matches `/^\d+$/` after trimming, and refuse the rest. Test: " ", "0x10", "1e3" and "-1" are refused; "12" and 12 are accepted.
 

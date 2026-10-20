@@ -11,7 +11,7 @@ import {
   ResetSizeButton,
 } from "./task-manager-ui";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { INTERACTIVE } from "./interaction-styles";
+import { INTERACTIVE, RING_ROOM } from "./interaction-styles";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { InfoTooltip } from "./info-tooltip";
 import { Card } from "./card";
@@ -636,7 +636,7 @@ export function ReportCard({
           </div>
         </div>
       )}
-      <div ref={contentRef} className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-2">{children}</div>
+      <div ref={contentRef} className={`min-h-0 flex-1 space-y-6 overflow-y-auto ${RING_ROOM} pr-2`}>{children}</div>
     </div>
   );
 }
