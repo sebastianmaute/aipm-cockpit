@@ -8,6 +8,7 @@
 // message status-only) or the token "parse".
 import { parseAnalysis, ANALYZE_TOOL, buildAnalysisSystemPrompt, type ActionAnalysis } from "./action-ai";
 import { runForcedToolCallWithStop } from "./ai-forced-call";
+import { liveAiKey } from "./settings-types";
 
 interface AiCreds {
   apiKey: string;
@@ -33,7 +34,7 @@ const RETRY_MAX_TOKENS = 8192;
 export async function runJobAnalysis(context: string, ai: AiCreds, signal?: AbortSignal): Promise<ActionAnalysis> {
   const call = (maxTokens: number) =>
     runForcedToolCallWithStop({
-      apiKey: ai.apiKey,
+      apiKey: liveAiKey(ai), // §717 — a passphrase key unlocked on this page counts
       model: ai.model,
       system: buildAnalysisSystemPrompt(),
       guideText: ai.guideText,

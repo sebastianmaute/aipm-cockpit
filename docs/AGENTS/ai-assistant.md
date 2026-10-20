@@ -126,7 +126,11 @@
   either envelope feeds it with no extra code. `useAiKeyCheck` (`use-ai-key-check.ts`, mounted once in
   `task-manager.tsx`) syncs the live key and runs one debounced `/v1/models` check per settled key in the main
   window; a network failure never flags a key. The §567 probe reports an unreadable Anthropic key to the
-  verdict instead of the generic toast. ★ A passphrase-wrapped key reads `""` in settings, so `chat-panel.tsx` calls `syncAiKey` with the key
+  verdict instead of the generic toast. ★★ §717 — the chat's passphrase unlock puts the key in `session-ai-key.ts`, a page-only memory store, and
+  `liveAiKey` (`settings-types.ts`) falls back to it, so every AI feature runs with it. A NEW AI call reads its key
+  through `liveAiKey` or `aiKeyIfEnabled`, never `ai.apiKey` directly, or it reads "" behind a passphrase. The
+  store is never persisted, a reload drops it, and editing the key in Settings clears it (`clearSessionAiKey`).
+  ★ A passphrase-wrapped key reads `""` in settings, so `chat-panel.tsx` calls `syncAiKey` with the key
   it UNLOCKS — any other surface that unlocks the key must do the same, or its reports are dropped as stale.
 - **★★ Forced `tool_choice` is refused by some models.** Sonnet 5.5, Opus 5.5 and Fable 5.1 answer
   `tool_choice: {type:"tool"}` (and `"any"`) with a 400 `invalid_request_error` naming `tool_choice`, measured

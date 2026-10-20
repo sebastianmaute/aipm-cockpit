@@ -31,6 +31,7 @@ import { useConfirm } from "../confirm-dialog";
 import { useToastContext } from "../toast-context";
 import { useChatModels } from "../use-chat-models";
 import { isValidAnthropicApiKey } from "../chat-models";
+import { clearSessionAiKey } from "../session-ai-key";
 
 interface AiSectionProps {
   lang: Lang;
@@ -131,6 +132,9 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   }
 
   function handleApiKeyChange(value: string) {
+    // §717 — a key unlocked with its passphrase on this page stops counting the moment the key is edited or
+    // emptied here: a replaced or removed key must not keep working from memory.
+    clearSessionAiKey();
     onChange({ ...settings, ai: { ...settings.ai, apiKey: value } });
     if (value.trim() === "") {
       // §565 blank-first rule (as jira/timelog/turso): an emptied key REMOVES the seal and the

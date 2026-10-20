@@ -11,6 +11,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { runForcedToolCall } from "./ai-forced-call";
 import { useActionGuideText } from "./action-guides-context";
 import { isAbortError } from "./abort-error";
+import { getSessionAiKey } from "./session-ai-key";
 
 /** The user-message content the proposal call accepts: a plain string (SP3) or
  *  a multimodal block array (text + PDF/image/text attachments) for SP-D. */
@@ -30,7 +31,7 @@ export function useProjectProposal(ai: AiCreds) {
 
   const generate = useCallback(
     async (input: ProposalContent, signal?: AbortSignal): Promise<ProjectProposal | null> => {
-      const key = ai.apiKey.trim();
+      const key = ai.apiKey.trim() || getSessionAiKey(); // §717 — a passphrase key unlocked on this page counts
       if (!key) {
         setError("no-key");
         return null;

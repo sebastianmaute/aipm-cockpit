@@ -15,6 +15,7 @@ import {
   type ParsedWbsProposal,
 } from "./wbs-plan/wbs-plan";
 import { runForcedToolCall } from "./ai-forced-call";
+import { liveAiKey } from "./settings-types";
 
 interface AiCreds {
   apiKey: string;
@@ -39,7 +40,7 @@ export async function runWbsProposal(
   const userMessage = `${context}\n\n---\nUSER REQUEST: ${instruction}`;
 
   const input = await runForcedToolCall({
-    apiKey: ai.apiKey,
+    apiKey: liveAiKey(ai), // §717 — a passphrase key unlocked on this page counts
     model: ai.model,
     system: buildWbsSystemPrompt(),
     guideText: ai.guideText,

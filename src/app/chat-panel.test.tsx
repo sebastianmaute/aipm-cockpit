@@ -4,6 +4,9 @@ import { act, render, screen, fireEvent, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { __resetAiKeyStatusForTests, getAiKeyStatus, syncAiKey } from "./ai-key-status";
+import { clearSessionAiKey } from "./session-ai-key";
+// §717 — an unlocked key lives in a page-wide store now, not in one panel: forget it after every test.
+afterEach(() => { clearSessionAiKey(); });
 import { useState } from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

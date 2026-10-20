@@ -19,6 +19,7 @@ import {
 // (default OFF). These tests exercise the expanded config, so flip it on.
 const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
 import { t } from "../i18n";
+import { getSessionAiKey, setSessionAiKey } from "../session-ai-key";
 import { readDeviceSecret, isPassphraseLocked, loadSealed, saveSealed } from "../secrets-store";
 import * as secrets from "../secrets";
 import { type SealedSecret, sealDevice, sealPassphrase } from "../secrets";
@@ -64,6 +65,14 @@ afterEach(async () => {
 });
 
 describe("AiSection", () => {
+  // §717 — a passphrase key unlocked in the chat stops counting once the key is edited or removed here.
+  it("editing the key forgets a key unlocked on this page", () => {
+    setSessionAiKey("sk-ant-unlocked");
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder")), { target: { value: "sk-new" } });
+    expect(getSessionAiKey()).toBe("");
+  });
+
   it("typing an API key persists ai.apiKey", () => {
     const onChange = vi.fn();
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={onChange} />);

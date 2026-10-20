@@ -16,6 +16,7 @@ import { MAX_ATTACHMENT_BYTES } from "./chat-attachments";
 import { buildZip } from "./zip";
 import { columnLetters, gridToForecastRows } from "./budget-import/forecast-rows";
 import { forecastImportErrorOf, useForecastImport, wideMappingFor, type ForecastImportDeps } from "./use-forecast-import";
+import { clearSessionAiKey, setSessionAiKey } from "./session-ai-key";
 
 // §717 — the import takes the live AI settings as `deps.ai`; `stubSettings` sets what the next deps carry.
 // A `useSettings()` of its own sees a passphrase-sealed key blank until it is unlocked there too, so any call fails.
@@ -596,6 +597,17 @@ describe("useForecastImport — the Claude route", () => {
     expect(result.current.error).toBeNull();
     expect(applyOutcome(result)).toBe("applied");
     expect(hoursWrittenBy(deps)).toEqual({ "2026-01": 10, "2026-02": 20, "2026-03": 30 });
+  });
+
+  it("offers Ask Claude with a passphrase key unlocked on this page, though settings read it blank (§717)", async () => {
+    stubSettings({ ...AI_ON, ai: { ...AI_ON.ai, apiKey: "" } });
+    setSessionAiKey("sk-ant-unlocked");
+    try {
+      const { result } = await loaded(depsOf());
+      expect(result.current.aiAvailable).toBe(true);
+    } finally {
+      clearSessionAiKey();
+    }
   });
 
   it("does nothing when AI is off", async () => {

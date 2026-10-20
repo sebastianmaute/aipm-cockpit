@@ -22,6 +22,7 @@ import {
 import {
   useSettings,
 } from "./use-settings";
+import { useSessionAiKey } from "./use-session-ai-key";
 import {
   useWorkspace,
 } from "./workspace-context";
@@ -258,6 +259,9 @@ export function WorkspaceSection({
   isSwapInFlight,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, lang } = useSettings();
+  // §717 — re-render when a passphrase key is unlocked (or cleared) in the chat: the AI gates below read it
+  // through `liveAiKey`, and a panel already on screen would otherwise keep showing AI as unavailable.
+  useSessionAiKey();
   const features = settings.features;
   // Accept the AI consent on THIS component's settings instance — useSettings()
   // is per-instance with no same-page sync, so writing through a parent handler

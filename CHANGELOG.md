@@ -57,9 +57,11 @@ longer carries its own changelog comment.
 - **Hours shown as a time in a workbook import as hours (§716).** An hours cell formatted as `8:00` is stored
   by Excel as a fraction of a day, so the forecast import read it as 0.33 hours. Such cells now read as hours (8),
   in the forecast import and in workbooks attached to the chat. Dates are read as before.
-- **"Ask Claude" in the forecast import and "Suggest RACI" see an unlocked AI key (§717).** With the key
-  protected by a passphrase, both showed as unavailable until the key was unlocked a second time. They now use
-  the key as soon as it is unlocked.
+- **A Claude key unlocked with its passphrase works everywhere, not only in the chat (§717).** The forecast
+  import's "Ask Claude", Suggest RACI, the digest, insights and the other AI features showed as unavailable,
+  because the unlocked key stayed in the chat. Once you unlock it, every AI feature uses it until you reload the
+  page. The key is kept in memory only and never saved unlocked, and editing or removing it in Settings
+  forgets it.
 - **Claude's one-shot features work on Sonnet 5.5, Opus 5.5 and Fable 5.1.** Those models refuse a request
   that forces a tool, which every one-shot feature sends: the project proposal, the digest, Deduplicate & unify,
   Plan with AI, Suggest RACI, recommendations, reports and the rest all failed on them. The app now asks such a
