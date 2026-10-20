@@ -1,10 +1,13 @@
 // src/app/xlsx-extract.ts — SpreadsheetML → Markdown. One table per sheet, with
 // shared-string resolution and column-reference gap filling. Values only (no
-// formulas/styles). xlsm is identical (the macro blob is ignored). Pure.
+// formulas); the one style read is a time or duration format, whose cells read
+// as decimal hours (§716, `xlsx-styles.ts`). xlsm is identical (the macro blob
+// is ignored). Pure.
 
 import { escapeMarkdownTableCell } from "./md-table-cell";
 import { decodeUtf8, extractRuns, unescapeXml } from "./office-xml";
 import { forEachOpenTag, forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
+import { durationCellHours, durationStyleIndexes } from "./xlsx-styles";
 
 // Walked via forEachTagPair rather than the former `<si\b[\s\S]*?<\/si>`
 // lazy pair regex, which is quadratic on repetitive unclosed markup — see
@@ -222,7 +225,7 @@ function colIndex(ref: string): number {
   return n - 1;
 }
 
-function cellValue(cXml: string, shared: string[]): string {
+function cellValue(cXml: string, shared: string[], durations: ReadonlySet<number>): string {
   const t = /\bt="([^"]*)"/.exec(cXml);
   const type = t ? t[1] : "";
   if (type === "inlineStr") return extractRuns(cXml, "t").join("");
@@ -240,6 +243,11 @@ function cellValue(cXml: string, shared: string[]): string {
     return shared[i] ?? "";
   }
   if (type === "b") return raw === "1" ? "TRUE" : "FALSE";
+  // §716 — a number shown as a time or duration (`8:00`) is stored as a fraction of a day; read it as hours.
+  if (type === "" || type === "n") {
+    const s = /\bs="(\d+)"/.exec(cXml);
+    if (s && durations.has(Number(s[1]))) return durationCellHours(raw);
+  }
   return raw;
 }
 
@@ -360,6 +368,7 @@ function rowIndexFromAttr(rowXml: string, rowCount: number): number | null {
 function sheetRows(
   xml: string,
   shared: string[],
+  durations: ReadonlySet<number>,
   limits: { maxRows: number; maxCells: number },
 ): { rows: string[][]; cellCount: number; truncated: boolean } {
   const rows: string[][] = [];
@@ -374,7 +383,7 @@ function sheetRows(
       // ~8e9) would exhaust memory, so the cell is dropped instead (§558).
       if (idx >= MAX_XLSX_COLUMNS) return true;
       while (cells.length < idx) cells.push("");
-      cells.push(cellValue(cellXml, shared));
+      cells.push(cellValue(cellXml, shared, durations));
       return true;
     });
     // One row is at most MAX_XLSX_COLUMNS, so the overshoot past the budget is
@@ -443,12 +452,13 @@ export function extractXlsxGrid(
   entries: Map<string, Uint8Array>,
 ): { name: string; rows: string[][]; truncated: boolean }[] {
   const shared = sharedStrings(entries);
+  const durations = durationStyleIndexes(entries);
   let slotsLeft = MAX_XLSX_TOTAL_ROWS;
   let cellsLeft = MAX_XLSX_TOTAL_CELLS;
   return sheetEntries(entries).map(({ name, path }) => {
     // Out of slots: the sheet is not read at all, only reported as cut.
     if (slotsLeft <= 0 || cellsLeft <= 0) return { name, rows: [], truncated: true };
-    const { rows, cellCount, truncated } = sheetRows(decodeUtf8(entries.get(path)!), shared, {
+    const { rows, cellCount, truncated } = sheetRows(decodeUtf8(entries.get(path)!), shared, durations, {
       maxRows: Math.min(MAX_XLSX_SHEET_ROWS, slotsLeft),
       maxCells: Math.min(MAX_XLSX_SHEET_CELLS, cellsLeft),
     });

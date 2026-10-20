@@ -953,8 +953,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§713](#713-the-install-guide-leaves-out-what-a-non-technical-pilot-user-needed-and-nothing-in-the-app-points-to-it--closed-2026-10-14) | The install guide leaves out what a non-technical pilot user needed, and nothing in the app points to it | — | — | **CLOSED** 2026-10-14 |
 | [§714](#714-follow-up-with-the-uk-pilot-user-fixes-before-their-2026-10-22-review-the-api-key-cost-question-and-a-project-intake-session--open) | Follow-up with the UK pilot user: fixes before their 2026-10-22 review, the API-key cost question, and a project-intake session | — | — | open |
 | [§715](#715-no-recorded-walk-through-shows-a-new-user-downloading-installing-and-setting-up-the-desktop-app--open) | No recorded walk-through shows a new user downloading, installing and setting up the desktop app | — | — | open |
-| [§716](#716-an-xlsx-hours-cell-formatted-as-a-duration-imports-as-a-fraction-of-a-day--open) | An xlsx hours cell formatted as a duration imports as a fraction of a day | — | — | open |
-| [§717](#717-forecast-import-shows-ask-claude-disabled-when-the-anthropic-key-was-unlocked-in-another-settings-instance--open) | Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance | — | — | open |
+| [§716](#716-an-xlsx-hours-cell-formatted-as-a-duration-imports-as-a-fraction-of-a-day--closed-2026-10-20) | An xlsx hours cell formatted as a duration imports as a fraction of a day | — | — | **CLOSED** 2026-10-20 |
+| [§717](#717-forecast-import-shows-ask-claude-disabled-when-the-anthropic-key-was-unlocked-in-another-settings-instance--closed-2026-10-20) | Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance | — | — | **CLOSED** 2026-10-20 |
 | [§718](#718-no-e2e-or-axe-run-opens-the-forecast-import-modal--open) | No e2e or axe run opens the forecast import modal | — | — | open |
 | [§719](#719-forecast-import-has-no-target-bucket-picker--open) | Forecast import has no target-bucket picker | — | — | open |
 | [§720](#720-forecast-import-drops-e-notation-numbers-and-merges-namesakes-with-different-emails--open) | Forecast import drops E-notation numbers and merges namesakes with different emails | — | — | open |
@@ -45141,21 +45141,17 @@ Size M.
 
 **Source:** owner decision, 2026-10-14, while approving the §713 design.
 
-## 716. An xlsx hours cell formatted as a duration imports as a fraction of a day — OPEN
+## 716. An xlsx hours cell formatted as a duration imports as a fraction of a day — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue (34). Reproduce the cause with `grep -c "styles.xml\|numFmt" src/app/xlsx-extract.ts`, which prints 0: the reader never looks at a cell's number format.
-
-**Work item:** #708
+**Status:** CLOSED 2026-10-20 on `fix/716-forecast-import-reading`, by converting. `xlsx-styles.ts` resolves each cell's `s` index through `styles.xml` (`numFmts` and `cellXfs`). `extractXlsxGrid` reads a number shown as a time or duration (built-in formats 18–21 and 45–47, or a custom code with an hour or second and no date part) as decimal hours, rounded to the second: `8:00` reads 8 and `[h]:mm` 36:00 reads 36. Dates keep their serials, and every other cell reads as stored. Chat attachments read through the same grid, so a pasted workbook shows hours too. Verified with `npx vitest run src/app/xlsx-styles.test.ts src/app/xlsx-extract.test.ts src/app/budget-import` (green); a mutant that skips the conversion fails the grid test. **Earlier:** OPEN 2026-10-14, filed from §500's residue (34). Reproduce the cause with `grep -c "styles.xml\|numFmt" src/app/xlsx-extract.ts`, which prints 0: the reader never looks at a cell's number format.
 
 The forecast import (§500) reads an xlsx cell's stored value through `readSheetFile` (`src/app/budget-import/sheet-grid.ts`, over `xlsx-extract.ts`). An hours cell shown as `8:00` is stored as 0.333…, so it imports as 0.33 h with no notice; only the preview's old → new figure shows it. This is the one §500 residue that writes a wrong number without asking. A fix reads the cell's `s` style index, resolves it through `styles.xml` `numFmts`/`cellXfs`, and either converts a duration format to hours (× 24) or refuses the column with a notice.
 
 **Source:** §500's "Known residue, accepted" list, item (34), filed 2026-10-14 on the owner's word.
 
-## 717. Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance — OPEN
+## 717. Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue (2). Reproduce with `grep -n "useSettings()" src/app/use-forecast-import.ts src/app/raci-panel.tsx`, which shows each reading settings through its own instance.
-
-**Work item:** #709
+**Status:** CLOSED 2026-10-20 on `fix/716-forecast-import-reading`, by the proposed fix. `useForecastImport` no longer calls `useSettings()`: it takes `deps.ai`, which `workspace-section` passes through `BudgetPanel` as its live `settings.ai`. The same gap in `raci-panel.tsx` is closed too: `RaciPanel` takes an optional `settings` prop that `workspace-section` passes, and uses its own `useSettings()` copy only when none is given. Verified with `npx vitest run src/app/use-forecast-import.test.ts src/app/forecast-import-modal.test.tsx src/app/raci-panel.test.tsx src/app/budget-panel.test.tsx src/app/workspace-section.test.tsx` (green). The import's test mocks `useSettings` to throw, so a mutant that reads it again fails 105 tests, and a mutant that prefers the RACI panel's own copy fails the new live-settings test. **Earlier:** OPEN 2026-10-14, filed from §500's residue (2). Reproduce with `grep -n "useSettings()" src/app/use-forecast-import.ts src/app/raci-panel.tsx`, which shows each reading settings through its own instance.
 
 `useForecastImport` calls `useSettings()` itself. An Anthropic key sealed behind a passphrase is hydrated only in the instance where it was unlocked, so in the import's instance it stays blank and "Ask Claude" shows disabled until the key is unlocked there too. `raci-panel.tsx` has the same pre-existing gap. A fix threads the live settings (or the key) into the budget panel as a prop, the way other panels receive them from `workspace-section`.
 

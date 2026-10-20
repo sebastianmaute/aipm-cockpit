@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BudgetPanel } from "./budget-panel";
+import { defaultAiConfig } from "./settings-types";
 import { t } from "./i18n";
 import { BUDGET_SETUP_STEP_COUNT, budgetSetupDismissKey } from "./budget-setup";
 import type { BudgetBucket, ResourcePlan, Role } from "./types";
@@ -14,6 +15,7 @@ const bucket = (actual: Record<string, number> = {}): BudgetBucket => ({
   allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: actual }],
 });
 const base = {
+  ai: defaultAiConfig,
   lang: L, buckets: [] as BudgetBucket[], roles, disciplines: [], grades: [], resources: [],
   plan, fxRates: null, absences: [], holidaySet: new Set<string>(), workdayHours: 8, today: "2026-02-01",
   onChangeBuckets: vi.fn(), onRefreshFx: vi.fn(), timelogProjectId: "acme",

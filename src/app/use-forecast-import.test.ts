@@ -17,9 +17,10 @@ import { buildZip } from "./zip";
 import { columnLetters, gridToForecastRows } from "./budget-import/forecast-rows";
 import { forecastImportErrorOf, useForecastImport, wideMappingFor, type ForecastImportDeps } from "./use-forecast-import";
 
-vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
-import { useSettings } from "./use-settings";
-const mockUseSettings = useSettings as unknown as ReturnType<typeof vi.fn>;
+// §717 — the import takes the live AI settings as `deps.ai`; `stubSettings` sets what the next deps carry.
+// A `useSettings()` of its own sees a passphrase-sealed key blank until it is unlocked there too, so any call fails.
+vi.mock("./use-settings", () => ({ useSettings: () => { throw new Error("§717: the forecast import read its own settings instance"); } }));
+let stubbedAi = defaultSettings.ai;
 
 // A pass-through spy: every test runs the real detection, and one counts it.
 vi.mock("./budget-import/layout-detect", async (importOriginal) => {
@@ -32,7 +33,7 @@ const AI_ON: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabl
 const AI_OFF: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: false, apiKey: "" } };
 
 function stubSettings(settings: Settings): void {
-  mockUseSettings.mockReturnValue({ settings, setSettings: vi.fn(), hydrated: true, i18nReady: true, lang: "en-US" });
+  stubbedAi = settings.ai;
 }
 
 const ROLE: Role = { id: 10, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 };
@@ -56,6 +57,7 @@ function depsOf(over: Partial<ForecastImportDeps> = {}): ForecastImportDeps {
     plan: PLAN,
     holidaySet: new Set<string>(),
     onChangeBuckets: vi.fn(),
+    ai: stubbedAi,
     ...over,
   };
 }

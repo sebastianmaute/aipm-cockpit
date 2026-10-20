@@ -300,6 +300,14 @@ describe("RaciPanel", () => {
     expect(screen.getByRole("button", { name: t("en-US", "raciSuggest") })).toBeTruthy();
   });
 
+  // §717 — the live settings passed by workspace-section win over the panel's own `useSettings()` copy, which
+  // sees a passphrase-sealed key blank until it is unlocked in that instance too.
+  it("offers Suggest RACI from the live settings it is given, even when its own copy has no key", () => {
+    stubSettings(defaultSettings);
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} settings={AI_ON} />);
+    expect(screen.getByRole("button", { name: t("en-US", "raciSuggest") })).toBeTruthy();
+  });
+
   it("hides the trigger in a popout", () => {
     stubSettings(AI_ON);
     render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} isPopout />);

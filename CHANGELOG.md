@@ -47,6 +47,12 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Hours shown as a time in a workbook import as hours (§716).** An hours cell formatted as `8:00` is stored
+  by Excel as a fraction of a day, so the forecast import read it as 0.33 hours. Such cells now read as hours (8),
+  in the forecast import and in workbooks attached to the chat. Dates are read as before.
+- **"Ask Claude" in the forecast import and "Suggest RACI" see an unlocked AI key (§717).** With the key
+  protected by a passphrase, both showed as unavailable until the key was unlocked a second time. They now use
+  the key as soon as it is unlocked.
 - **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
   documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
   was typed. The search now matches library cards by name, a source other than All hides them (they belong to

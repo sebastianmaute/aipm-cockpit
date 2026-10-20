@@ -835,6 +835,7 @@ export function WorkspaceSection({
           <div id="panel-raci" role="tabpanel" className={panelClass}>
             <RaciPanel
               lang={lang}
+              settings={settings}
               stakeholders={stakeholders}
               milestones={milestones}
               onSave={handleSaveStakeholder}
@@ -865,6 +866,7 @@ export function WorkspaceSection({
           <div id="panel-budget" role="tabpanel" className={panelScrollClass}>
             <BudgetPanel
               lang={lang}
+              ai={settings.ai}
               buckets={budgets}
               roles={roles}
               disciplines={disciplines}

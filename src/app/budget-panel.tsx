@@ -36,6 +36,7 @@ import { BudgetForecastLink } from "./budget-forecast-link";
 import { useConfirm } from "./confirm-dialog";
 import { buildRowTokens } from "./row-tokens";
 import { BaselineCurrencyControl } from "./baseline-currency-control";
+import type { AiConfig } from "./settings-types";
 
 const BUDGET_COL_WIDTHS = {
   role: 160,
@@ -45,6 +46,8 @@ type BudgetCol = keyof typeof BUDGET_COL_WIDTHS;
 
 export interface BudgetPanelProps {
   lang: Lang;
+  /** §717 — the live AI settings, for the forecast import's "Ask Claude". */
+  ai: AiConfig;
   buckets: readonly BudgetBucket[];
   roles: readonly Role[];
   disciplines: readonly Discipline[];
@@ -532,6 +535,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           plan={plan}
           holidaySet={holidaySet}
           onChangeBuckets={props.onChangeBuckets}
+          ai={props.ai}
         />
       )}
       {editingBucketId != null && bucketById.get(editingBucketId) && (

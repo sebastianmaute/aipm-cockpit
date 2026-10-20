@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { BudgetPanel } from "./budget-panel";
+import { defaultAiConfig } from "./settings-types";
 import type { BudgetBucket, Discipline, FxRates, Role, ResourcePlan, Task } from "./types";
 
 // The edit modal's header controls read field visibility from the workspace,
@@ -37,6 +38,7 @@ function Harness({
   const [buckets, setBuckets] = useState<BudgetBucket[]>(initial);
   return (
     <BudgetPanel
+      ai={defaultAiConfig}
       lang="en-US"
       buckets={buckets}
       roles={roles}
@@ -300,6 +302,7 @@ describe("BudgetPanel baseline-currency control", () => {
   const renderPanel = (extra: { fxSessionRates?: FxRates | null; isPopout?: boolean }) =>
     render(
       <BudgetPanel
+        ai={defaultAiConfig}
         lang="en-US" buckets={[]} roles={roles} disciplines={[]} grades={[]} resources={[]} plan={plan}
         fxRates={null} absences={[]} holidaySet={new Set<string>()} workdayHours={8} today="2026-02-01"
         onChangeBuckets={vi.fn()} onRefreshFx={vi.fn()} timelogProjectId="acme" {...extra}
