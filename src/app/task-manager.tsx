@@ -450,7 +450,7 @@ function TaskManagerInner() {
   const [portfolioMode] = useState<PortfolioMode>(loadPortfolioMode());
 
   const {
-    storageDescription, storageReady, workspaceLoaded, loadPause, onPickStorageFile, onGrantWriteAccess,
+    storageDescription, storageReady, workspaceLoaded, tursoPortfolioWithoutProject, loadPause, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
     allowDestructiveSaveAnyway, destructiveRefusal,
     truncation, decodeFailureCount, activityLogUnreadable, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
@@ -1791,7 +1791,7 @@ function TaskManagerInner() {
     unloadJournalConflict, restoreUnloadJournalAnyway, discardUnloadJournal, otherJournals, restoreKeptJournal,
     loadWasIncomplete, truncation, decodeFailureCount, malformedQuoteCount, allowIncompleteSave, truncationBannerDismissed, setTruncationBannerDismissed,
     loadPause, resolveConflictReload, reloadCurrentProject, canOverwriteConflict, resolveConflictOverwrite, downloadConflictVersion, loadPauseBannerDismissed, setLoadPauseBannerDismissed,
-    destructiveRefusal, allowDestructiveSaveAnyway, destructiveBannerDismissed, setDestructiveBannerDismissed,
+    destructiveRefusal, allowDestructiveSaveAnyway, destructiveBannerDismissed, setDestructiveBannerDismissed, tursoPortfolioWithoutProject,
   });
 
   // The overlay layer every returned tree renders once — see buildAppModalsBlock.
@@ -1882,8 +1882,8 @@ function TaskManagerInner() {
             lang={lang}
             collapsed={sidebarCollapsed}
             storageDescription={storageDescription}
-            storageReady={storageOk && !loadWasIncomplete && destructiveRefusal === null && loadPause === null}
-            savingPaused={!isPopout && (loadWasIncomplete || destructiveRefusal !== null || loadPause !== null)}
+            storageReady={storageOk && !loadWasIncomplete && destructiveRefusal === null && loadPause === null && !tursoPortfolioWithoutProject}
+            savingPaused={!isPopout && (loadWasIncomplete || destructiveRefusal !== null || loadPause !== null || tursoPortfolioWithoutProject)}
             // ★ Clearing BOTH dismissals is correct, not sloppiness: the two causes
             // cannot hold at once — truncation returns ABOVE the destructive guard so
             // no new refusal is raised, AND the save effect's suppress-after-load

@@ -47,6 +47,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A Turso portfolio with no project chosen says that nothing is saved (§753).** In that state the app
+  saves nothing, so an edit was lost when a project was picked or the tab closed, and nothing on screen said so. A
+  notice now stays above the workspace until a project is chosen or created, and the sidebar shows saving as
+  paused.
 - **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
   documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
   was typed. The search now matches library cards by name, a source other than All hides them (they belong to
