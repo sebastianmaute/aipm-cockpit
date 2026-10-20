@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createUpdater } from "./updater";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createUpdater, DRY_RUN_WIRED_LINE } from "./updater";
 import { UPDATE_DURATION_HINT } from "./lib/update-window";
 
 // ★★★ Regression test for fix round 2's Critical 1, item (d): nothing before this file exercised
@@ -149,6 +149,35 @@ describe("createUpdater", () => {
     const updater = await createUpdater({ log: vi.fn(), window: () => null });
     updater.check("manual");
     expect(fakeAutoUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  // §741 — the smoke test's mode loads and wires the real updater, then never reaches the network.
+  describe("with AIPM_UPDATER_DRY_RUN=1", () => {
+    beforeEach(() => { vi.stubEnv("AIPM_UPDATER_DRY_RUN", "1"); });
+    afterEach(() => { vi.unstubAllEnvs(); });
+
+    it("wires the real autoUpdater, logs the wired line, and skips every check", async () => {
+      const log = vi.fn();
+      const updater = await createUpdater({ log, window: () => null });
+      expect(fakeAutoUpdater.autoDownload).toBe(false);
+      expect(fakeAutoUpdater.on).toHaveBeenCalled();
+      const lines = () => log.mock.calls.map((c) => String(c[0]));
+      expect(lines()).toContain(DRY_RUN_WIRED_LINE);
+      updater.check("startup");
+      updater.check("manual");
+      expect(fakeAutoUpdater.checkForUpdates).not.toHaveBeenCalled();
+      expect(showMessageBox).not.toHaveBeenCalled();
+      expect(lines().filter((l) => l.includes("check skipped (AIPM_UPDATER_DRY_RUN=1)"))).toHaveLength(2);
+    });
+
+    it("still logs a wiring failure, and not the wired line", async () => {
+      const log = vi.fn();
+      fakeAutoUpdater.on.mockImplementationOnce(() => { throw new Error("boom"); });
+      await createUpdater({ log, window: () => null });
+      const lines = log.mock.calls.map((c) => String(c[0]));
+      expect(lines.some((l) => l.includes("failed to wire up"))).toBe(true);
+      expect(lines).not.toContain(DRY_RUN_WIRED_LINE);
+    });
   });
 });
 

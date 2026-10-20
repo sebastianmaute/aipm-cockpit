@@ -5,6 +5,7 @@ import { networkInterfaces, tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { test, expect, chromium, type Browser, type Page } from "@playwright/test";
 import { APP_HOST, APP_ORIGIN, APP_PORT } from "../desktop/src/lib/constants";
+import { resolveLogDir } from "../desktop/src/lib/log-paths";
 import { APP_VERSION } from "../src/app/version";
 
 // Smoke test for the PACKAGED Electron desktop app.
@@ -256,17 +257,29 @@ async function launchPackagedApp(extraArgs: readonly string[] = []): Promise<Lau
   const profile = mkdtempSync(join(tmpdir(), "aipm-desktop-smoke-"));
   const child = spawn(PACKAGED_EXE, [`--user-data-dir=${profile}`, ...extraArgs], {
     stdio: "ignore",
-    // AIPM_DISABLE_UPDATE_CHECK=1 (fix round 1, review R11 Minor 5): this exe is a real packaged
-    // build, so main.ts's startup check would otherwise fire ~10s in and can pop a native "Update
-    // available"/"up to date" dialog no assertion here expects -- a MODAL dialog on a real OS window,
-    // which nothing in this spec closes, so a slow CI runner could hang a later test on it forever.
-    env: { ...process.env, AIPM_DISABLE_UPDATE_CHECK: "1" },
+    // AIPM_UPDATER_DRY_RUN=1 (§741): this exe is a real packaged build, so main.ts's startup check
+    // would otherwise fire ~10s in and can pop a native "Update available"/"up to date" dialog no
+    // assertion here expects -- a MODAL dialog on a real OS window, which nothing in this spec closes
+    // (fix round 1, review R11 Minor 5). The dry run still LOADS and WIRES the real electron-updater and
+    // only skips the checks; AIPM_DISABLE_UPDATE_CHECK, used until §741, returned before the load, so a
+    // broken updater shipped green. LOCALAPPDATA moves the launch log into this run's profile, where
+    // `launchLog` reads it, instead of the developer's real log folder.
+    env: { ...process.env, AIPM_UPDATER_DRY_RUN: "1", LOCALAPPDATA: profile },
   });
   let spawnError: Error | undefined;
   child.once("error", (error) => {
     spawnError = error;
   });
   return { child, profile, spawnError: () => spawnError };
+}
+
+// §741 — the launch log `main.ts` writes, which `launchPackagedApp` points into the run's profile.
+function launchLog(launched: Launched): string {
+  try {
+    return readFileSync(join(resolveLogDir({ LOCALAPPDATA: launched.profile }), "launch.log"), "utf8");
+  } catch {
+    return "";
+  }
 }
 
 // Throws if the exe never started or has already exited: every poll below
@@ -448,6 +461,14 @@ test.describe.serial("packaged desktop app", () => {
       // exists to catch), `load` still fires (after the 404) and every
       // assertion below still fails.
       await page.waitForLoadState("load");
+
+      // §741 — the packaged app loaded and wired the REAL electron-updater: createUpdater runs before the
+      // window opens, so its line is in the launch log by now. Either fallback line means every installed
+      // copy of this build would sit on the no-op updater with no way to update.
+      const log = launchLog(launched);
+      expect(log, "the launch log should record the real updater loaded and wired").toContain("updater: electron-updater loaded and wired (dry run");
+      expect(log).not.toContain("updater: electron-updater failed to load");
+      expect(log).not.toContain("updater: failed to wire up electron-updater");
 
       // ★★★ ANTI-VACUITY 1. A "window opened" assertion passes against an app
       // whose .next/static never got copied into the package — it boots and

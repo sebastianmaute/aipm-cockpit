@@ -39,6 +39,16 @@ function checksDisabled(): boolean {
   return process.env.AIPM_DISABLE_UPDATE_CHECK === "1";
 }
 
+// §741 — the packaged smoke test's mode: load and wire the REAL electron-updater, then skip every
+// check, so no network call and no dialog. AIPM_DISABLE_UPDATE_CHECK returns before the load, so a
+// release whose electron-updater is present but broken, or whose wiring throws, passed the smoke test
+// and stranded every installed copy on the no-op updater. The smoke test asserts this line is logged
+// and that neither "failed to load" nor "failed to wire up" is.
+function dryRun(): boolean {
+  return process.env.AIPM_UPDATER_DRY_RUN === "1";
+}
+export const DRY_RUN_WIRED_LINE = "updater: electron-updater loaded and wired (dry run, checks skipped)";
+
 // A no-op Updater whose manual check reports why it cannot check, with the same releases-page
 // fallback the real error dialog offers. Used both when checks are disabled and when
 // electron-updater itself fails to load (fix round 1, review R11 Important 1c).
@@ -318,10 +328,18 @@ export async function createUpdater(deps: { log(line: string): void; window(): B
     deps.log(`updater: electron-updater failed to load: ${String(e)}`);
     return unavailableUpdater(deps, LOAD_FAILED_MESSAGE);
   }
+  let wired: Updater;
   try {
-    return wireUpdater(autoUpdater, deps);
+    wired = wireUpdater(autoUpdater, deps);
   } catch (e: unknown) {
     deps.log(`updater: failed to wire up electron-updater: ${String(e)}`);
     return unavailableUpdater(deps, LOAD_FAILED_MESSAGE);
   }
+  if (!dryRun()) return wired;
+  deps.log(DRY_RUN_WIRED_LINE);
+  return {
+    check(t: UpdateTrigger): void {
+      deps.log(`updater: ${t} check skipped (AIPM_UPDATER_DRY_RUN=1)`);
+    },
+  };
 }
