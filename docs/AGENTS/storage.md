@@ -370,10 +370,14 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
 ★★ **What is verified, exactly as the register says.** §629 is MEASURED on Chromium with
 IndexedDB (`e2e/pagehide-draft-persist.spec.ts`) and, by §661, on a local-json file's tab close in
 installed Chrome (`e2e/local-file-close-save.spec.ts`, opt-in). Turso has a live spec
-(`e2e/unload-journal-turso-live.spec.ts`, run by `live-turso.yml`); read §629 for whether it has
-passed yet. SharePoint and the packaged desktop window close are "never machine-verified". §629 also records a
-known loop: a restore that is a mass deletion is refused by the guard, and a page reload re-applies
-it. Read §629 before touching either file.
+(`e2e/unload-journal-turso-live.spec.ts`, run by `live-turso.yml`), whose passing runs log that
+both tests took the restore-and-save-back branch. SharePoint and the packaged desktop window close are
+"never machine-verified". §629 also records a known loop: a restore that is a mass deletion is
+refused by the guard, and a page reload re-applies it. The banner's "Discard this deletion" ends it,
+measured in installed Chrome by `e2e/guard-refusal-discard.spec.ts` (opt-in). ★★ In that run the
+journal is cleared twice over, by `dropUnconfirmed` in `reloadCurrentProject` and by the confirmation
+of the save after the reload, and disabling either one alone leaves the spec green. Read §629 before
+touching either file.
 
 ★ The journal key starts `aipm-cockpit:`, so the factory reset's prefix sweep deletes any pending
 journal (`grep -n "UNLOAD_JOURNAL_PREFIX =" src/app/unload-journal.ts`).
