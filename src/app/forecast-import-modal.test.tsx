@@ -98,6 +98,25 @@ describe("ForecastImportModal", () => {
     expect(within(pickers[0]).getByRole("option", { name: "Ann Lee" })).toBeInTheDocument();
   });
 
+  it("§719 — the target bucket picker starts on the card's bucket, offers the open buckets, and Apply writes the chosen one", async () => {
+    const run: BudgetBucket = { ...BUCKET, id: 2, name: "Run" };
+    const done: BudgetBucket = { ...BUCKET, id: 3, name: "Done", status: "closed" };
+    const props = propsOf({ buckets: [BUCKET, run, done] });
+    render(<ForecastImportModal {...props} />);
+    const picker = screen.getByRole("combobox", { name: t(L, "forecastImportTarget") });
+    expect(picker).toHaveValue(String(BUCKET.id));
+    expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual(["Build", "Run"]);
+    fireEvent.change(picker, { target: { value: String(run.id) } });
+    await chooseFile(`${WIDE}Ann Lee,10,20,30\r\n`);
+    fireEvent.click(screen.getByRole("button", { name: t(L, "forecastImportApply") }));
+    expect(props.onChangeBuckets).toHaveBeenCalledTimes(1);
+    const [next, meta] = (props.onChangeBuckets as ReturnType<typeof vi.fn>).mock.calls[0] as [BudgetBucket[], unknown];
+    expect(meta).toEqual({ kind: "budget.updated", name: "Run" });
+    expect(next[0]).toBe(BUCKET);
+    expect(next[1].allocations).toHaveLength(1);
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("picking a resource for an unmatched person adds their hours to the preview", async () => {
     render(<ForecastImportModal {...propsOf()} />);
     await chooseFile(`${WIDE}Annie,4,4,4\r\n`);

@@ -12,6 +12,10 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **Choose the bucket a forecast import goes into (§719).** The import's first step now has a "Target bucket"
+  list. It starts on the bucket whose card you opened it from and offers every open bucket; the preview and Apply
+  follow your choice, so there is no need to close the import and reopen it from another card. Choosing another
+  bucket clears the people you matched by hand, since they may match differently there.
 - **Claude knows the whole project (§715).** When Claude proposes a new project it now fills every field it can
   infer from your brief, not just the basics: a brief that mentions GDPR ticks the regulatory box, and the
   deployment, sponsor, industry, platform and time zone are filled the same way. The assistant can also read and

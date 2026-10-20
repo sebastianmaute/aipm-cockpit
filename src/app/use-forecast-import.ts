@@ -96,6 +96,13 @@ export interface ForecastImport {
   confirmColumns: () => void;
   /** The target bucket is no longer in the live list (removed meanwhile). */
   bucketGone: boolean;
+  /** §719 — the bucket the plan and `apply()` target: `deps.bucket` until another is chosen. */
+  targetBucketId: number;
+  /** §719 — the buckets the target picker offers: every open bucket, plus the target itself. */
+  targetBuckets: readonly BudgetBucket[];
+  /** §719 — target another bucket. Clears the per-person choices; before a file is
+   *  read, the default year follows the new bucket's start. A closed or unknown id is ignored. */
+  selectBucket: (id: number) => void;
   setMapping: (next: ColumnMapping | null) => void;
   route: ForecastImportRoute;
   overrides: ReadonlyMap<string, PersonOverride>;
@@ -290,7 +297,8 @@ type Validated = ReturnType<typeof validateForecastRows>;
 
 export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const { buckets, resources, roles, plan, holidaySet, onChangeBuckets } = deps;
-  const bucketId = deps.bucket.id;
+  // §719 — the target: the bucket the import was opened for until the picker names another.
+  const [bucketId, setBucketId] = useState(deps.bucket.id);
   const startYear = bucketStartYear(deps.bucket);
   const { ai } = deps;
   const guideText = useActionGuideText("forecastImport");
@@ -447,6 +455,21 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     openHandRoute(grid, false);
   }, [sheets, nextRequest, openHandRoute]);
 
+  const targetBuckets = useMemo(
+    () => buckets.filter((b) => b.status !== "closed" || b.id === bucketId),
+    [buckets, bucketId],
+  );
+  const selectBucket = useCallback((id: number) => {
+    const next = buckets.find((b) => b.id === id);
+    if (!next || next.status === "closed" || id === bucketId) return;
+    setBucketId(id);
+    // A person settled by hand may match differently against another bucket's lines.
+    setOverrides(NO_OVERRIDES);
+    setError(null);
+    // Once a sheet is read, the year is the mapping step's own field: kept.
+    if (sheets.length === 0) setYear(bucketStartYear(next));
+  }, [buckets, bucketId, sheets.length]);
+
   const detectColumns = useCallback(() => {
     if (!sheet) return;
     nextRequest();
@@ -585,6 +608,9 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     claudeUnconfirmed,
     confirmColumns,
     bucketGone: liveBucket === undefined,
+    targetBucketId: bucketId,
+    targetBuckets,
+    selectBucket,
     setMapping,
     route,
     overrides,

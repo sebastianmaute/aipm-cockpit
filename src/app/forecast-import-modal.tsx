@@ -69,6 +69,7 @@ function ForecastImportDialog({ lang, onClose, disciplines, grades, ...deps }: F
   const canApply = !fi.bucketGone && fi.step === "preview" && fi.importPlan !== null && fi.importPlan.blockers.length === 0 && !fi.busy && !mustConfirm;
   const sheet = fi.sheets[fi.sheetIndex];
   const confirmReasonId = useId();
+  const targetId = useId();
 
   return (
     <Modal open onClose={close} ariaLabel={title}>
@@ -89,9 +90,15 @@ function ForecastImportDialog({ lang, onClose, disciplines, grades, ...deps }: F
           }}
         />
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 text-sm">
-          <div>
-            <p className="text-muted-foreground">{t(lang, "forecastImportIntro")}</p>
-            <p className="mt-1 font-medium text-foreground">{t(lang, "forecastImportTarget", deps.bucket.name)}</p>
+          <p className="text-muted-foreground">{t(lang, "forecastImportIntro")}</p>
+          {/* §719 — starts on the card's bucket; the preview and Apply follow the choice. */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor={targetId} className="font-medium text-foreground">{t(lang, "forecastImportTarget")}</label>
+            <Select id={targetId} size="xs" className="max-w-sm" value={String(fi.targetBucketId)} onChange={(e) => fi.selectBucket(Number(e.target.value))} disabled={fi.busy}>
+              {fi.targetBuckets.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </Select>
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor={fileId} className="font-medium text-foreground">{t(lang, "forecastImportFile")}</label>
