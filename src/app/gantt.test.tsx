@@ -984,10 +984,10 @@ describe("GanttPanel bar drag handles", () => {
   it("keeps a bar slider's value inside its range while a preview runs past the chart's edge", () => {
     render(<GanttPanel {...BASE_PROPS} tasks={[mk({ id: 1, taskName: "Live", startDate: "2026-03-10", dueDate: "2026-03-14" })]} onUpdateBar={vi.fn()} />);
     const move = screen.getByRole("slider", { name: rowLabel(t("en-US", "ganttBarMove"), "Live") });
-    for (let i = 0; i < 6; i++) fireEvent.keyDown(move, { key: "PageDown" });
-    const now = Number(move.getAttribute("aria-valuenow"));
-    expect(now).toBeGreaterThanOrEqual(Number(move.getAttribute("aria-valuemin")));
-    expect(now).toBeLessThanOrEqual(Number(move.getAttribute("aria-valuemax")));
+    // 60 weeks back is far past any range start, so unclamped the value would be negative; clamped it is 0.
+    for (let i = 0; i < 60; i++) fireEvent.keyDown(move, { key: "PageDown" });
+    expect(move).toHaveAttribute("aria-valuenow", "0");
+    expect(move).toHaveAttribute("aria-valuemin", "0");
     fireEvent.keyDown(move, { key: "Escape" });
   });
 

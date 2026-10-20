@@ -23,9 +23,12 @@ function setup() {
   scroller.scrollLeft = 500;
   const scrollRef = { current: scroller } as React.RefObject<HTMLElement | null>;
   const footerRef = { current: null } as React.RefObject<HTMLElement | null>;
-  const { result } = renderHook(() => useGanttMilestoneFocus({ scrollRef, footerRef, nameColWidth: NAME_COL, milestoneDrag: null }));
+  const { result, rerender } = renderHook(
+    ({ barKeyMove }: { barKeyMove: string | null }) => useGanttMilestoneFocus({ scrollRef, footerRef, nameColWidth: NAME_COL, milestoneDrag: null, barKeyMove }),
+    { initialProps: { barKeyMove: null as string | null } },
+  );
   const focus = () => result.current.onFocus({ target: handle } as unknown as React.FocusEvent<HTMLElement>);
-  return { scroller, focus };
+  return { scroller, handle, focus, rerender };
 }
 
 describe("useGanttMilestoneFocus — task bar handles (§742)", () => {
@@ -34,6 +37,20 @@ describe("useGanttMilestoneFocus — task bar handles (§742)", () => {
     focus();
     // The handle's content offset is 600 (100 + 500 scrolled); the uncovered window starts NAME_COL in.
     expect(scroller.scrollLeft).toBe(600 - NAME_COL);
+  });
+
+  it("keeps the focused handle in view after each key press of a pending keyboard edit", () => {
+    const { scroller, handle, rerender } = setup();
+    handle.focus();
+    rerender({ barKeyMove: "7:move:1" });
+    expect(scroller.scrollLeft).toBe(600 - NAME_COL);
+  });
+
+  it("does nothing on a pending edit when the focused element is not a bar handle", () => {
+    const { scroller, rerender } = setup();
+    (document.activeElement as HTMLElement | null)?.blur();
+    rerender({ barKeyMove: "7:move:1" });
+    expect(scroller.scrollLeft).toBe(500);
   });
 
   it("leaves the chart where it is when a pointer press caused the focus", () => {

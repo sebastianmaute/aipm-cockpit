@@ -26,7 +26,7 @@ import { chancesById } from "./milestone-horizon-strip";
 import type { AppForecast } from "./forecast/app-forecast";
 import { GanttMilestoneRow, GanttTaskRow } from "./gantt-rows";
 import { type Absence, type Milestone, type Resource, type Task } from "./types";
-import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
+import { KEYBOARD_POINTER_ID, type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
 import { type GanttMilestoneDrag, type MilestoneDragState } from "./use-gantt-milestone-drag";
 import { useGanttRowWindow } from "./use-gantt-row-window";
 import {
@@ -205,7 +205,7 @@ export function GanttChart({
   // React restores focus to the moved node itself, and the row window keeps a
   // focused row mounted.
   const footerRef = useRef<HTMLDivElement | null>(null);
-  const barKeyMove = barDrag && barDrag.pointerId === -1 ? `${barDrag.taskId}:${barDrag.mode}:${barDragDeltaDays}` : null;
+  const barKeyMove = barDrag && barDrag.pointerId === KEYBOARD_POINTER_ID ? `${barDrag.taskId}:${barDrag.mode}:${barDragDeltaDays}` : null;
   const milestoneFocus = useGanttMilestoneFocus({
     scrollRef, footerRef, nameColWidth, milestoneDrag: milestoneDrag ?? null, barKeyMove,
   });

@@ -60,6 +60,10 @@ export type GanttBarDrag = {
   onBarBlur: (taskId: number, mode: BarDragMode) => void;
 };
 
+/** §742 — the `pointerId` of a KEYBOARD edit's drag state. A real pointer event never carries it, so the chart
+ *  tells a pending keyboard edit (whose focused handle it keeps in view) from a pointer drag by it. */
+export const KEYBOARD_POINTER_ID = -1;
+
 export interface GanttBarDragOptions {
   /** As for the milestone drag (`GanttMilestoneDragOptions.isSwapInFlight`): a keyboard edit still pending when the
    *  chart unmounts lands, unless an op replacing this project with another is in flight. */
@@ -329,8 +333,7 @@ export function useGanttBarDrag(
       // Another handle's pending edit lands first; one on this same bar is where this edit starts.
       const base = baseFor(task.id, bar);
       flushKeys();
-      // `pointerId: -1` marks a keyboard edit: the chart reveals the focused handle while it is pending.
-      drag = { taskId: task.id, mode, startClientX: 0, initialStart: base.start, initialEnd: base.end, pointerId: -1, moved: true };
+      drag = { taskId: task.id, mode, startClientX: 0, initialStart: base.start, initialEnd: base.end, pointerId: KEYBOARD_POINTER_ID, moved: true };
       days = 0;
     }
     days = clampKeyDays(drag, days + step);
