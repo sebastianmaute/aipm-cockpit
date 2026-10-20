@@ -264,8 +264,20 @@ export function readingEnd(rows: readonly string[][], mapping: ColumnMapping, nu
  * above the header row were not read" (re-review 3).
  * §720 (residue 16) — a wide row with numbers under TWO or more of the period
  * columns counts without a header above it (`Ann Lee | 10 | 20 | 30` directly
- * over the header): a metadata row holds one number, so it still does not.
+ * over the header): a metadata row holds one number, so it still does not, and
+ * neither does a row of years or of consecutive whole numbers (`holdsTwoHours`).
  */
+/** §720 (residue 16) — two or more numbers that read as hours, not as labels: not all years (`Jahr | 2026 | 2027`),
+ *  and not a run of consecutive whole numbers (`KW | 1 | 2 | 3`, period or week labels over a sub-header). */
+function holdsTwoHours(cells: readonly string[]): boolean {
+  if (cells.length < 2) return false;
+  const values = cells.map((c) => parseNumberCell(c, "dot") ?? parseNumberCell(c, "comma") ?? Number.NaN);
+  if (values.some((v) => !Number.isFinite(v))) return true;
+  if (values.every((v) => Number.isInteger(v) && v >= 1900 && v <= 2100)) return false;
+  const consecutive = values.every((v, i) => Number.isInteger(v) && (i === 0 || v === values[i - 1] + 1));
+  return !consecutive;
+}
+
 function rowsAboveHeaderCount(
   rows: readonly string[][],
   mapping: ColumnMapping,
@@ -279,7 +291,7 @@ function rowsAboveHeaderCount(
   const hasHeaderAbove = (rowIdx: number, col: number): boolean => runs.slice(0, rowIdx).some((run) => (run[col] ?? null) !== null);
   const holdsHours = (row: readonly string[], rowIdx: number): boolean => (mapping.layout === "wide"
     ? periodCols.some((col) => isNumber(cellAt(row, col)) && hasHeaderAbove(rowIdx, col))
-      || periodCols.filter((col) => isNumber(cellAt(row, col))).length >= 2
+      || holdsTwoHours(periodCols.map((col) => cellAt(row, col)).filter(isNumber))
     : isNumber(cellAt(row, mapping.hours)) && isPeriodShapedIn(cellAt(row, mapping.period), numbers));
   return above.filter((row, rowIdx) => row.some((c) => !isBlank(c) && !isNumber(c)) && holdsHours(row, rowIdx)).length;
 }

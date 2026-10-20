@@ -338,6 +338,16 @@ describe("probe: stacked year blocks on the hand route (round 3)", () => {
     expect(run.out.rowsAboveHeader).toBe(1);
   });
 
+  // §720 review round — the new rule must not count a row of labels as unread data.
+  it.each([
+    ["years", ["Jahr", "2026", "2027", "2028"]],
+    ["week numbers", ["KW", "1", "2", "3"]],
+  ])("counts no row of %s above the header", (_label, row) => {
+    const run = readSheet([row, ["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Bob Kay", "1", "2", "3"]]);
+    expect(run.out.rows).toHaveLength(3);
+    expect(run.out.rowsAboveHeader).toBe(0);
+  });
+
   it("still counts a long block's data row above a long header", () => {
     const run = readSheet([["Name", "Monat", "Stunden"], ["Ann Lee", "Jan 2026", "8"], [], ["Name", "Monat", "Stunden"], ["Ann Lee", "Feb 2026", "4"]]);
     expect(run.out.rows.map((r) => r.period)).toEqual(["2026-02"]);
@@ -726,6 +736,17 @@ describe("probe: the §720–§726 triage — shapes that ask or report (2026-10
     const rows = [["Name", "Code", "Jan", "Feb", "Mar"], ["Ann Lee", "40100", "10", "20", "30"], ["Bob Kay", "40200", "1", "2", "3"]];
     expect(readSheet(rows).out.ignoredColumns).toEqual([{ col: 1, header: "Code" }]);
     expect(detect(rows, "dot").ambiguous).toContainEqual({ field: "period", candidates: [1, 2, 3, 4] });
+  });
+
+  it("(8a) an E-notation number is a visible bad-number drop, not a silent zero", () => {
+    const run = readSheet([["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Ann Lee", "1E2", "20", "30"], ["Bob Kay", "1", "2", "3"]]);
+    expect(run.out.dropped).toContainEqual(expect.objectContaining({ reason: "bad-number" }));
+    expect(triplesOf(run).filter((t) => t[0] === "Ann Lee")).toEqual([["Ann Lee", "2026-02", 20], ["Ann Lee", "2026-03", 30]]);
+  });
+
+  it("(8c) a workbook's text cells 1,5 and 12,5 read as 1.5 and 12.5", () => {
+    const run = readSheet([["Name", "Jan 2026", "Feb 2026"], ["Ann Lee", "1,5", "12,5"]], "dot");
+    expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 1.5], ["Ann Lee", "2026-02", 12.5]]);
   });
 
   it("(14) a half-year date header detects no layout, so the mapping step opens", () => {
