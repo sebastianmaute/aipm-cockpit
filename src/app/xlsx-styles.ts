@@ -23,6 +23,15 @@ export function isDurationFormatCode(code: string): boolean {
   return /[hs]|\[m+\]/.test(bare) && !/[yd]/.test(bare);
 }
 
+/** The text of the first top-level `<name …>…</name>` element in `xml`, "" when there is none. `styles.xml` holds
+ *  `numFmts` and `cellXfs` once each, as direct children of `<styleSheet>`. */
+function section(xml: string, name: string): string {
+  const start = xml.search(new RegExp(`<${name}[\\s>]`));
+  if (start === -1) return "";
+  const end = xml.indexOf(`</${name}>`, start);
+  return end === -1 ? "" : xml.slice(start, end);
+}
+
 /** The cell-style (`cellXfs`) indexes whose number format shows a time or duration. Empty when the workbook has
  *  no `styles.xml`. */
 export function durationStyleIndexes(entries: Map<string, Uint8Array>): ReadonlySet<number> {
@@ -30,19 +39,20 @@ export function durationStyleIndexes(entries: Map<string, Uint8Array>): Readonly
   if (!b) return new Set();
   const xml = decodeUtf8(b);
   const custom = new Map<number, string>();
-  forEachOpenTag(xml, "<numFmt\\b", (tag) => {
+  // Only the top-level `<numFmts>` defines the ids `cellXfs` refers to: a conditional format in `<dxfs>` carries a
+  // `<numFmt>` of its own whose id can repeat one of them, and reading it too would let it win.
+  forEachOpenTag(section(xml, "numFmts"), "<numFmt\\b", (tag) => {
     const id = /\bnumFmtId="(\d+)"/.exec(tag);
     const code = /\bformatCode="([^"]*)"/.exec(tag);
     if (id && code) custom.set(Number(id[1]), unescapeXml(code[1]));
     return true;
   });
   // Only `cellXfs` is indexed by a cell's `s`; `cellStyleXfs` holds `<xf>` tags too, so the walk is bounded to it.
-  const start = xml.indexOf("<cellXfs");
-  const end = start === -1 ? -1 : xml.indexOf("</cellXfs>", start);
   const out = new Set<number>();
-  if (end === -1) return out;
+  const cellXfs = section(xml, "cellXfs");
+  if (cellXfs === "") return out;
   let index = 0;
-  forEachOpenTag(xml.slice(start, end), "<xf\\b", (tag) => {
+  forEachOpenTag(cellXfs, "<xf\\b", (tag) => {
     const id = /\bnumFmtId="(\d+)"/.exec(tag);
     const fmt = id ? Number(id[1]) : 0;
     const code = custom.get(fmt);

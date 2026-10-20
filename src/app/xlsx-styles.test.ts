@@ -30,6 +30,12 @@ describe("durationStyleIndexes", () => {
     expect([...durationStyleIndexes(new Map([["xl/styles.xml", enc(STYLES)]]))].sort()).toEqual([1, 2, 5]);
   });
 
+  // A conditional format in <dxfs> carries its own <numFmt>; its id must not override the top-level definition.
+  it("reads custom formats from <numFmts> only, not from a conditional format in <dxfs>", () => {
+    const styles = STYLES.replace("</styleSheet>", "<dxfs count=\"1\"><dxf><numFmt numFmtId=\"165\" formatCode=\"[h]:mm\"/></dxf></dxfs></styleSheet>");
+    expect([...durationStyleIndexes(new Map([["xl/styles.xml", enc(styles)]]))].sort()).toEqual([1, 2, 5]);
+  });
+
   it("is empty without a styles part", () => {
     expect(durationStyleIndexes(new Map()).size).toBe(0);
   });
