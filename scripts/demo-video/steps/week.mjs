@@ -95,9 +95,11 @@ async function newProjectButton(ctx) {
 }
 
 /** The proposal form's GDPR checkbox (the regulatory requirements group). */
-const gdprBox = (d) => d.getByRole('checkbox', { name: 'GDPR / data protection regulation', exact: true });
+export const gdprBox = (d) => d.getByRole('checkbox', { name: 'GDPR / data protection regulation', exact: true });
 
-export const wizardProposal = step('wizard-proposal', {
+/** Claude's proposal from the brief: the part the short prologue (below) and the first-run chapter
+ *  (first-run.mjs) share. Each adds its own `after`: cancel here, create there. */
+export const PROPOSAL = {
   ai: true,
   trigger: newProjectButton,
   run: async (ctx) => {
@@ -121,6 +123,10 @@ export const wizardProposal = step('wizard-proposal', {
     if (!(await d.getByRole('textbox', { name: /Project name/ }).inputValue().catch(() => ''))) return 'no proposal';
     return (await gdprBox(d).isChecked().catch(() => false)) ? null : 'GDPR not ticked';
   },
+};
+
+export const wizardProposal = step('wizard-proposal', {
+  ...PROPOSAL,
   after: async (ctx) => {
     const d = ctx.page.locator(DLG).last();
     await caption(ctx, 'From the brief, Claude ticks GDPR and fills the other key facts.');

@@ -44,7 +44,7 @@ node scripts/demo-video/discover.mjs "Resources>Planning" # list a view's contro
 5. **Recording.** The video's title in the caption bar for the first 3 s (`titleCard`), then the opening caption when it says more than the title (a chapter's opening is its title), then the steps. A `{ banner: <view> }` opening is that view's own hint text, read from the page; a sub-view names its path (`Resources>Planning`).
 6. **The closing beat**: the last frame held about 1.5 s with no caption.
 
-`ch2-connect` and `big` record the setup wizard itself, so their recording starts before step 3.
+`ch2-connect` and `big` record the setup wizard itself, so their recording starts before step 3. `ch2-connect` is the first run (`firstRun`, `steps/first-run.mjs`): it also shows the first screen and the optional wizard steps and Review, lets Claude propose the first project and creates it, shows the empty project, then opens the demo from Projects. `big` keeps the short prologue, which cancels at the last step.
 
 An AI step waits for its result by the UI's state, never by its text, then checks the result's structure (a merge pair, an Apply button, a narrative of some length). An empty result gets one more call; a second empty one fails the take. An AI step's `replay` applies a fixed outcome by hand, so every chapter opens on the same state whatever Claude wrote the day before.
 
