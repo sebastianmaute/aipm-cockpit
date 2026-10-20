@@ -1,7 +1,7 @@
 // §716 — an xlsx hours cell shown as a time or duration is stored as a fraction of a day. The reader now resolves
 // the cell's style and reads it as hours; a date keeps its serial, and every other cell is read as before.
 import { describe, expect, it } from "vitest";
-import { durationCellHours, durationStyleIndexes, isDurationFormatCode } from "./xlsx-styles";
+import { durationCellHours, durationStyleIndexes, isDurationFormatCode, timeFormatKind } from "./xlsx-styles";
 import { extractXlsxGrid } from "./xlsx-extract";
 
 const enc = (s: string) => new TextEncoder().encode(s);
@@ -27,13 +27,13 @@ describe("isDurationFormatCode", () => {
 
 describe("durationStyleIndexes", () => {
   it("lists the cellXfs indexes whose format is a time or duration, built-in or custom, and no date", () => {
-    expect([...durationStyleIndexes(new Map([["xl/styles.xml", enc(STYLES)]]))].sort()).toEqual([1, 2, 5]);
+    expect([...durationStyleIndexes(new Map([["xl/styles.xml", enc(STYLES)]])).keys()].sort()).toEqual([1, 2, 5]);
   });
 
   // A conditional format in <dxfs> carries its own <numFmt>; its id must not override the top-level definition.
   it("reads custom formats from <numFmts> only, not from a conditional format in <dxfs>", () => {
     const styles = STYLES.replace("</styleSheet>", "<dxfs count=\"1\"><dxf><numFmt numFmtId=\"165\" formatCode=\"[h]:mm\"/></dxf></dxfs></styleSheet>");
-    expect([...durationStyleIndexes(new Map([["xl/styles.xml", enc(styles)]]))].sort()).toEqual([1, 2, 5]);
+    expect([...durationStyleIndexes(new Map([["xl/styles.xml", enc(styles)]])).keys()].sort()).toEqual([1, 2, 5]);
   });
 
   it("is empty without a styles part", () => {
@@ -41,7 +41,29 @@ describe("durationStyleIndexes", () => {
   });
 });
 
+describe("timeFormatKind", () => {
+  it.each([
+    ["h:mm", "clock"], ["hh:mm:ss AM/PM", "clock"], ["mm:ss", "clock"],
+    ["[h]:mm", "elapsed"], ["[mm]:ss", "elapsed"], ["[Red][h]:mm", "elapsed"],
+    ["dd.mm.yyyy", null], ["0.00", null],
+  ])("%s → %s", (code, kind) => {
+    expect(timeFormatKind(code)).toBe(kind);
+  });
+
+  it("built-in 46 is elapsed and built-in 20 a clock", () => {
+    const kinds = durationStyleIndexes(new Map([["xl/styles.xml", enc(STYLES)]]));
+    expect(kinds.get(1)).toBe("elapsed");
+    expect(kinds.get(5)).toBe("clock");
+  });
+});
+
 describe("durationCellHours", () => {
+  it("a clock format reads the time of day of a date-time serial, an elapsed one the whole value", () => {
+    expect(durationCellHours("46327.5", "clock")).toBe("12");
+    expect(durationCellHours("1.5", "elapsed")).toBe("36");
+    expect(durationCellHours("1.5", "clock")).toBe("12");
+  });
+
   it.each([
     ["0.33333333333333331", "8"], ["0.3125", "7.5"], ["1.5", "36"], ["0", "0"], ["0.000694444", "0.0167"],
     ["", ""], ["x", "x"],
@@ -60,6 +82,7 @@ describe("extractXlsxGrid reads a duration cell as hours (§716)", () => {
     <c r="F1" s="0"><v>0.25</v></c>
     <c r="G1" s="2" t="s"><v>0</v></c>
     <c r="H1" s="5"><v>0.3125</v></c>
+    <c r="I1" s="5"><v>46327.5</v></c>
   </row></sheetData></worksheet>`;
   const grid = (withStyles: boolean) => extractXlsxGrid(new Map([
     ["xl/worksheets/sheet1.xml", enc(sheet)],
@@ -68,10 +91,10 @@ describe("extractXlsxGrid reads a duration cell as hours (§716)", () => {
   ]))[0].rows[0];
 
   it("converts the duration cells and leaves dates, unstyled numbers and text as stored", () => {
-    expect(grid(true)).toEqual(["8", "36", "46327", "46327", "0.25", "0.25", "8:00", "7.5"]);
+    expect(grid(true)).toEqual(["8", "36", "46327", "46327", "0.25", "0.25", "8:00", "7.5", "12"]);
   });
 
   it("reads every cell as stored when the workbook has no styles part", () => {
-    expect(grid(false)).toEqual(["0.33333333333333331", "1.5", "46327", "46327", "0.25", "0.25", "8:00", "0.3125"]);
+    expect(grid(false)).toEqual(["0.33333333333333331", "1.5", "46327", "46327", "0.25", "0.25", "8:00", "0.3125", "46327.5"]);
   });
 });

@@ -7,7 +7,7 @@
 import { escapeMarkdownTableCell } from "./md-table-cell";
 import { decodeUtf8, extractRuns, unescapeXml } from "./office-xml";
 import { forEachOpenTag, forEachTagPair, type TagPairSpec } from "./tag-pair-walk";
-import { durationCellHours, durationStyleIndexes } from "./xlsx-styles";
+import { durationCellHours, durationStyleIndexes, type TimeKind } from "./xlsx-styles";
 
 // Walked via forEachTagPair rather than the former `<si\b[\s\S]*?<\/si>`
 // lazy pair regex, which is quadratic on repetitive unclosed markup — see
@@ -225,7 +225,7 @@ function colIndex(ref: string): number {
   return n - 1;
 }
 
-function cellValue(cXml: string, shared: string[], durations: ReadonlySet<number>): string {
+function cellValue(cXml: string, shared: string[], durations: ReadonlyMap<number, TimeKind>): string {
   const t = /\bt="([^"]*)"/.exec(cXml);
   const type = t ? t[1] : "";
   if (type === "inlineStr") return extractRuns(cXml, "t").join("");
@@ -246,7 +246,8 @@ function cellValue(cXml: string, shared: string[], durations: ReadonlySet<number
   // §716 — a number shown as a time or duration (`8:00`) is stored as a fraction of a day; read it as hours.
   if (type === "" || type === "n") {
     const s = /\bs="(\d+)"/.exec(cXml);
-    if (s && durations.has(Number(s[1]))) return durationCellHours(raw);
+    const kind = s ? durations.get(Number(s[1])) : undefined;
+    if (kind !== undefined) return durationCellHours(raw, kind);
   }
   return raw;
 }
@@ -368,7 +369,7 @@ function rowIndexFromAttr(rowXml: string, rowCount: number): number | null {
 function sheetRows(
   xml: string,
   shared: string[],
-  durations: ReadonlySet<number>,
+  durations: ReadonlyMap<number, TimeKind>,
   limits: { maxRows: number; maxCells: number },
 ): { rows: string[][]; cellCount: number; truncated: boolean } {
   const rows: string[][] = [];

@@ -19,7 +19,10 @@ import { defaultSettings, type Settings } from "./settings-types";
 import { buttonClassFor } from "../test/button-variant";
 const mockUseSettings = useSettings as ReturnType<typeof vi.fn>;
 
+// §717 — RaciPanel takes its settings as a prop; the stub sets what each render passes.
+let stubbed: Settings = defaultSettings;
 function stubSettings(settings: Settings) {
+  stubbed = settings;
   mockUseSettings.mockReturnValue({
     settings,
     setSettings: vi.fn(),
@@ -46,12 +49,12 @@ const milestones: Milestone[] = [{ id: 10, name: "Go-Live", date: "2026-09-01", 
 
 describe("RaciPanel", () => {
   it("flags milestones with multiple Accountable", () => {
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
     expect(screen.getByText(/multiple accountable/i)).toBeInTheDocument();
   });
   it("edits a cell and saves the stakeholder", () => {
     const onSave = vi.fn();
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={onSave} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={milestones} onSave={onSave} />);
     // Collapsed trigger aria-label: "{milestone} · {stakeholder} — {currentRoleLabel}".
     // Sam's cell holds "A", so expand it then pick the "R" role chip in the popover.
     const trigger = screen.getByRole("button", { name: /Go-Live · Sam.*Accountable/i });
@@ -60,16 +63,16 @@ describe("RaciPanel", () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 1, raci: { "10": "R" } }));
   });
   it("shows an empty state when there are no milestones", () => {
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={[]} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={[]} onSave={vi.fn()} />);
     expect(screen.getByText(/add milestones/i)).toBeInTheDocument();
   });
   it("renders a reset-size button (resizable pane)", () => {
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
     expect(screen.getByRole("button", { name: /reset back to the default size/i })).toBeInTheDocument();
   });
 
   it("additive person filter: add narrows columns, remove and clear restore all", () => {
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
 
     // (a) initially all stakeholder columns show
     expect(screen.getByRole("columnheader", { name: "Sam" })).toBeInTheDocument();
@@ -97,7 +100,7 @@ describe("RaciPanel", () => {
   // The add field auto-adds on an exact-label onChange match, so the ✕ must go
   // through the state setter and NOT re-enter that handler.
   it("clears the add field without adding anyone", async () => {
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
     const field = screen.getByLabelText("Filter people…") as HTMLInputElement;
     await userEvent.type(field, "Ann");
     await userEvent.click(screen.getByRole("button", { name: "Clear – Filter people…" }));
@@ -114,7 +117,7 @@ describe("RaciPanel", () => {
       { id: 2, name: "Lee", category: "Internal", influence: "Medium", interest: "High", raci: { "10": "R" } },
       { id: 3, name: "Sam", category: "Internal", influence: "Low", interest: "Low", raci: { "10": "C" } },
     ];
-    render(<RaciPanel lang="en-US" stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
 
     // The shared name is disambiguated in the picker; the unique one stays bare.
     expect(document.querySelector('option[value="Sam (1)"]')).not.toBeNull();
@@ -136,7 +139,7 @@ describe("RaciPanel", () => {
       { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: {} },
       { id: 3, name: "Sam", category: "Internal", influence: "Low", interest: "Low", raci: {} },
     ];
-    render(<RaciPanel lang="en-US" stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
     const set = t("en-US", "raciSetLabel");
     expect(screen.getByRole("button", { name: `Go-Live · Sam (1) — ${set}` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `Go-Live · Sam (2) — ${set}` })).toBeInTheDocument();
@@ -156,7 +159,7 @@ describe("RaciPanel", () => {
       { id: 6, name: "Ana", category: "Internal", influence: "Low", interest: "Low", raci: {} },
       { id: 7, name: "ana", category: "Internal", influence: "Low", interest: "Low", raci: {} },
     ];
-    render(<RaciPanel lang="en-US" stakeholders={odd} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={odd} milestones={milestones} onSave={vi.fn()} />);
     expectRowUniqueNames({ minControls: 7, scope: screen.getByRole("table") });
     // expectRowUniqueNames compares case-sensitively, so pin the case pair by name.
     const set = t("en-US", "raciSetLabel");
@@ -171,7 +174,7 @@ describe("RaciPanel", () => {
       { id: 11, name: "Release", date: "2026-12-01", linkedTaskIds: [] },
     ];
     const sam: Stakeholder[] = [{ id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: {} }];
-    render(<RaciPanel lang="en-US" stakeholders={sam} milestones={twins} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={sam} milestones={twins} onSave={vi.fn()} />);
     const set = t("en-US", "raciSetLabel");
     expect(screen.getByRole("button", { name: `Release (2) · Sam — ${set}` })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 2, scope: screen.getByRole("table") });
@@ -189,21 +192,21 @@ describe("RaciPanel", () => {
     const chips = () => screen.queryAllByRole("button", { name: /from filter/i }).map((b) => b.getAttribute("aria-label"));
 
     it("reaches the second of two same-named people by typing their chip name", async () => {
-      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(3, "Sam")]} milestones={milestones} onSave={vi.fn()} />);
+      render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={[person(1, "Sam"), person(3, "Sam")]} milestones={milestones} onSave={vi.fn()} />);
       await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "Sam (2)");
       expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Sam (2)")]);
     });
 
     it("does not commit a name that starts a longer one until the whole name is typed", async () => {
       render(
-        <RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(2, "Sam"), person(3, "Sam (1)")]} milestones={milestones} onSave={vi.fn()} />,
+        <RaciPanel lang="en-US" settings={stubbed} stakeholders={[person(1, "Sam"), person(2, "Sam"), person(3, "Sam (1)")]} milestones={milestones} onSave={vi.fn()} />,
       );
       await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "Sam (1) (2)");
       expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Sam (1) (2)")]);
     });
 
     it("adds no one for a bare name two people share, even on Enter", async () => {
-      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Ana"), person(2, "ana")]} milestones={milestones} onSave={vi.fn()} />);
+      render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={[person(1, "Ana"), person(2, "ana")]} milestones={milestones} onSave={vi.fn()} />);
       await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "ana{Enter}");
       expect(chips()).toEqual([]);
     });
@@ -218,20 +221,20 @@ describe("RaciPanel", () => {
       });
 
     it("adds a picked name at once even when it starts a longer one", () => {
-      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(2, "Samantha")]} milestones={milestones} onSave={vi.fn()} />);
+      render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={[person(1, "Sam"), person(2, "Samantha")]} milestones={milestones} onSave={vi.fn()} />);
       pick("Sam");
       expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Sam")]);
     });
 
     it("types a longer name past a shorter one without adding the shorter", async () => {
-      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(2, "Samantha")]} milestones={milestones} onSave={vi.fn()} />);
+      render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={[person(1, "Sam"), person(2, "Samantha")]} milestones={milestones} onSave={vi.fn()} />);
       await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "Samantha");
       expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Samantha")]);
     });
 
     it("ignores people already in the filter when deciding what typing means", async () => {
       render(
-        <RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(2, "Samantha"), person(3, "Sam")]} milestones={milestones} onSave={vi.fn()} />,
+        <RaciPanel lang="en-US" settings={stubbed} stakeholders={[person(1, "Sam"), person(2, "Samantha"), person(3, "Sam")]} milestones={milestones} onSave={vi.fn()} />,
       );
       const input = screen.getByRole("combobox", { name: /filter people/i });
       pick("Samantha");
@@ -246,7 +249,7 @@ describe("RaciPanel", () => {
     });
 
     it("adds a typed name at once when the longer name it starts is already filtered", async () => {
-      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(2, "Samantha")]} milestones={milestones} onSave={vi.fn()} />);
+      render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={[person(1, "Sam"), person(2, "Samantha")]} milestones={milestones} onSave={vi.fn()} />);
       pick("Samantha");
       // Samantha is no longer offered, so "Sam" starts no offered name: no Enter needed.
       await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "Sam");
@@ -254,20 +257,20 @@ describe("RaciPanel", () => {
     });
 
     it("folds whitespace runs in typed text, as the tokens do", async () => {
-      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Sam  Lee"), person(2, "Sam Lee")]} milestones={milestones} onSave={vi.fn()} />);
+      render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={[person(1, "Sam  Lee"), person(2, "Sam Lee")]} milestones={milestones} onSave={vi.fn()} />);
       await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "Sam  Lee (2){Enter}");
       expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Sam Lee (2)")]);
     });
 
     it("matches typed text the way a screen reader says the name", async () => {
-      render(<RaciPanel lang="en-US" stakeholders={[person(1, "Sam  Lee"), person(2, "Sam Lee")]} milestones={milestones} onSave={vi.fn()} />);
+      render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={[person(1, "Sam  Lee"), person(2, "Sam Lee")]} milestones={milestones} onSave={vi.fn()} />);
       await userEvent.type(screen.getByRole("combobox", { name: /filter people/i }), "sam lee (1){Enter}");
       expect(chips()).toEqual([t("en-US", "raciFilterRemove", "Sam  Lee (1)")]);
     });
 
     it("lets Enter commit a label that starts another, and a label beats a bare name", async () => {
       render(
-        <RaciPanel lang="en-US" stakeholders={[person(1, "Sam"), person(2, "Sam"), person(3, "Sam (1)")]} milestones={milestones} onSave={vi.fn()} />,
+        <RaciPanel lang="en-US" settings={stubbed} stakeholders={[person(1, "Sam"), person(2, "Sam"), person(3, "Sam (1)")]} milestones={milestones} onSave={vi.fn()} />,
       );
       // "Sam (1)" is person 1's label AND person 3's bare name; the label wins,
       // since it is what the chips and cells announce.
@@ -283,7 +286,7 @@ describe("RaciPanel", () => {
       { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: {} },
       { id: 3, name: "Sam", category: "Internal", influence: "Low", interest: "Low", raci: {} },
     ];
-    render(<RaciPanel lang="en-US" stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
     const input = screen.getByRole("combobox", { name: /filter people/i });
     fireEvent.change(input, { target: { value: "Sam (1)" } });
     fireEvent.change(input, { target: { value: "Sam (2)" } });
@@ -296,13 +299,13 @@ describe("RaciPanel", () => {
 
   it("offers the Suggest RACI trigger when AI is configured", () => {
     stubSettings(AI_ON);
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
     expect(screen.getByRole("button", { name: t("en-US", "raciSuggest") })).toBeTruthy();
   });
 
   // §717 — the live settings passed by workspace-section win over the panel's own `useSettings()` copy, which
   // sees a passphrase-sealed key blank until it is unlocked in that instance too.
-  it("offers Suggest RACI from the live settings it is given, even when its own copy has no key", () => {
+  it("offers Suggest RACI from the settings it is given, whatever a useSettings() copy holds", () => {
     stubSettings(defaultSettings);
     render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} settings={AI_ON} />);
     expect(screen.getByRole("button", { name: t("en-US", "raciSuggest") })).toBeTruthy();
@@ -310,7 +313,7 @@ describe("RaciPanel", () => {
 
   it("hides the trigger in a popout", () => {
     stubSettings(AI_ON);
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} isPopout />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} isPopout />);
     expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
   });
 
@@ -322,18 +325,18 @@ describe("RaciPanel", () => {
     // `milestones.length > 0` from the hook leaves it green (verified by
     // mutation). The hook's guard is covered directly in use-raci-suggest.test.tsx.
     stubSettings(AI_ON);
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={[]} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={[]} onSave={vi.fn()} />);
     expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
   });
 
   it("hides the trigger when AI is not configured", () => {
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
     expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
   });
 
   it("renders Suggest RACI ahead of the person filter, with Print/Reset still trailing", () => {
     stubSettings(AI_ON);
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
 
     // ★ Button order rides the SHARED helper, not a local compareDocumentPosition
     //   walk: it fails loudly when a key matches zero or several buttons, where a
@@ -359,7 +362,7 @@ describe("RaciPanel", () => {
   //   would satisfy it. Checking that the filter lives in the group's FIRST
   //   child is what actually rules that out.
   it("leaves the filter first when the Suggest trigger is absent", () => {
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
     expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
 
     const filter = screen.getByRole("combobox", { name: /filter people/i });
@@ -372,7 +375,7 @@ describe("RaciPanel", () => {
 // §102 (batch 23, owner decision 2026-10-09): the near-size buttons moved to the shared `xs`.
 describe("RaciPanel Clear filter on the shared Button", () => {
   it("draws Clear filter as secondary xs", () => {
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
     fireEvent.change(screen.getByRole("combobox", { name: /filter people/i }), { target: { value: "Sam" } });
     expect(screen.getByRole("button", { name: t("en-US", "raciFilterClear") }).className).toBe(
       buttonClassFor({ variant: "secondary", size: "xs" }),
@@ -383,7 +386,7 @@ describe("RaciPanel Clear filter on the shared Button", () => {
 // §102 (batch 23): read-only and composite chips take the same 30px box as the xs Buttons they sit beside or stand in for.
 describe("RaciPanel person-filter chip at the xs height", () => {
   it("draws a filter chip in the same box as Clear filter", () => {
-    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    render(<RaciPanel lang="en-US" settings={stubbed} stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
     fireEvent.change(screen.getByRole("combobox", { name: /filter people/i }), { target: { value: "Sam" } });
     expect(screen.getByRole("button", { name: /remove sam from filter/i }).parentElement?.className).toBe(
       "inline-flex items-center gap-1 rounded-md border border-line px-2.5 py-1 text-xs text-foreground",

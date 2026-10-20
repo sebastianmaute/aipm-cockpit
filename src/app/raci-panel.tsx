@@ -20,7 +20,6 @@ import { type LogActivityAsFn } from "./activity-log-context";
 import { RaciChipPicker, RaciLegend } from "./raci-chip-picker";
 import { buildRowTokens, collapse } from "./row-tokens";
 import { useResizable } from "./use-resizable";
-import { useSettings } from "./use-settings";
 import type { Settings } from "./settings-types";
 import { useRaciSuggest } from "./use-raci-suggest";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
@@ -47,19 +46,16 @@ export interface RaciPanelProps {
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
-  /** §717 — the app's live settings (`workspace-section`'s), so an AI key unlocked anywhere reaches "Suggest RACI".
-   *  Omitted (tests, a future caller), the panel's own `useSettings()` copy is used, which sees a passphrase-sealed
-   *  key blank until it is unlocked there too. */
-  settings?: Settings;
+  /** §717 — the app's live settings (`workspace-section`'s): one settings copy per surface, not a second
+   *  `useSettings()` of the panel's own. Required, so a new caller cannot silently fall back to one. */
+  settings: Settings;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBulk, logActivityAs, showHints, isPopout, onLearnMore, settings: liveSettings }: RaciPanelProps) {
-  const own = useSettings(); // unconditional (rules of hooks); used only when no live settings are passed
-  const settings = liveSettings ?? own.settings;
+export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBulk, logActivityAs, showHints, isPopout, onLearnMore, settings }: RaciPanelProps) {
 
   // AI-assisted "Suggest RACI" (Stakeholders → RACI toolbar only). Called
   // UNCONDITIONALLY — before the two empty-state early returns below — so the
