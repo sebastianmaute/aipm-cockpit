@@ -128,6 +128,19 @@
   window; a network failure never flags a key. The §567 probe reports an unreadable Anthropic key to the
   verdict instead of the generic toast. ★ A passphrase-wrapped key reads `""` in settings, so `chat-panel.tsx` calls `syncAiKey` with the key
   it UNLOCKS — any other surface that unlocks the key must do the same, or its reports are dropped as stale.
+- **★★ Forced `tool_choice` is refused by some models.** Sonnet 5.5, Opus 5.5 and Fable 5.1 answer
+  `tool_choice: {type:"tool"}` (and `"any"`) with a 400 `invalid_request_error` naming `tool_choice`, measured
+  against the API on 2026-10-19; Haiku 5.5, Sonnet 5 and Opus 5 accept it. `runForcedToolCallWithStop` resends
+  that one refusal with `{type:"auto"}` and remembers the model for the session (`autoChoiceModels`), so every
+  forced-call feature works on them with no per-feature code. ★★ The auto request is plain first, and its tool input is checked
+  against the tool's schema (`matchesSchema`, `ai-tool-schema.ts`): plain auto on Sonnet 5.5 returned the
+  next-actions `actions` as a string full of tool markup in 8 of 8 replays of the app's request. A mismatch is asked
+  once more with the tool in strict form (`withStrictTool`: `strict: true`, every object closed), which returned 8 of
+  8 valid, and that tool stays strict for the session (`strictTools`). ★★ Strict is the FALLBACK, never the first try:
+  the API refuses some schemas in strict form (`propose_project`, "'minimum' is not supported"; `propose_wbs_changes`,
+  "Schema is too complex." after 108 s). On any 400 to a strict request the plain reply stands for the caller's own
+  validation and that tool is never asked strict again (`nonStrictTools`). A reply without the tool call is still the
+  `"parse"` error. Any other 400 is thrown as before. Don't add a model list: the API's own refusal is the signal.
   `AiKeyBanner` (`notifications.tsx`) and the Settings → AI notice read it through `useAiKeyStatus`; the
   banner's dismissal is cleared when the verdict leaves the bad states. ★★ Its "Open AI settings" action works in
   BOTH shells, by different routes: modern navigates to the Settings view at the AI section; classic has no
