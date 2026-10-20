@@ -47,6 +47,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A new linked task's assignee is picked from the directory (§758).** "+ New linked task" in the task
+  editor offered a plain text field, so the new task got a name with no link to the person and no email. It now
+  offers the same people picker as the task editor, and a picked person is linked to the new task with their email.
 - **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
   documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
   was typed. The search now matches library cards by name, a source other than All hides them (they belong to
