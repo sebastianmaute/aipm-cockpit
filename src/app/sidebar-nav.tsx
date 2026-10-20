@@ -189,7 +189,9 @@ function CollapsedNavFlyout({
 }
 
 function navItemClass(active: boolean, indent: "root" | "child", collapsed: boolean): string {
-  const base = "flex w-full items-center gap-2 border-l-2 text-left text-sm transition-colors ";
+  // §757 — the ring is drawn INSIDE the item: the item spans the sidebar's scroll box, which sits at the window
+  // edge, so a ring outside it was cut off on both sides (the browser's default outline was, too).
+  const base = "flex w-full items-center gap-2 border-l-2 text-left text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ui-green ";
   const spacing = collapsed
     ? "justify-center px-0 py-2 "
     : indent === "root"

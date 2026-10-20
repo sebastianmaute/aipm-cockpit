@@ -36,6 +36,7 @@ import { BudgetForecastLink } from "./budget-forecast-link";
 import { useConfirm } from "./confirm-dialog";
 import { buildRowTokens } from "./row-tokens";
 import { BaselineCurrencyControl } from "./baseline-currency-control";
+import { RING_ROOM } from "./interaction-styles";
 
 const BUDGET_COL_WIDTHS = {
   role: 160,
@@ -413,7 +414,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           <ResetSizeButton onClick={resetBudgetSize} lang={lang} />
         </div>
       </div>
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-2">
+      <div className={`min-h-0 flex-1 space-y-6 overflow-y-auto ${RING_ROOM} pr-2`}>
       {showSetup && (
         <BudgetSetupChecklist
           lang={lang} steps={setupSteps} collapsed={setupCollapsed}

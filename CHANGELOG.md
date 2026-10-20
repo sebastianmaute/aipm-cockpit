@@ -47,6 +47,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Focus outlines are no longer cut off (§757).** The green outline around a focused button was
+  clipped where the button sat at the edge of a scrolling area, such as "Draft with AI" in a steering-committee
+  status report and the Reports toolbar. Those areas now leave room for it, and the sidebar's menu items show a
+  green outline inside the item when you reach them with the keyboard.
 - **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
   documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
   was typed. The search now matches library cards by name, a source other than All hides them (they belong to
