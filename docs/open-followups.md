@@ -992,7 +992,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§752](#752-windowprompt-throws-in-the-desktop-app-so-six-flows-fail-there--closed-2026-10-19) | window.prompt throws in the desktop app, so six flows fail there | — | — | **CLOSED** 2026-10-19 |
 | [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--open) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | open |
 | [§754](#754-an-empty-workspace-can-still-be-kept-as-an-unsaved-draft-when-the-stored-version-is-unknown--closed-2026-10-19) | An empty workspace can still be kept as an unsaved draft when the stored version is unknown | — | — | **CLOSED** 2026-10-19 |
-| [§755](#755-suggest-racis-list-of-proposed-assignments-shows-no-scrollbar-in-the-recording--open) | Suggest RACI's list of proposed assignments shows no scrollbar in the recording | — | — | open |
+| [§755](#755-suggest-racis-list-of-proposed-assignments-shows-no-scrollbar-in-the-recording--closed-2026-10-20) | Suggest RACI's list of proposed assignments shows no scrollbar in the recording | — | — | **CLOSED** 2026-10-20 |
 | [§756](#756-the-influence--interest-map-gets-squashed-on-smaller-screens--open) | The influence / interest map gets squashed on smaller screens | — | — | open |
 | [§757](#757-a-clicked-buttons-green-focus-outline-is-cut-off-draft-with-ai-and-others--open) | A clicked button's green focus outline is cut off (Draft with AI and others) | — | — | open |
 | [§758](#758-a-new-linked-tasks-assignee-is-free-text-not-picked-from-the-directory--open) | A new linked task's assignee is free text, not picked from the directory | — | — | open |
@@ -45724,9 +45724,11 @@ Size S.
 
 **Source:** found 2026-10-18 in the review of the §715 empty-draft fix (owner: file it for later).
 
-## 755. Suggest RACI's list of proposed assignments shows no scrollbar in the recording — OPEN
+## 755. Suggest RACI's list of proposed assignments shows no scrollbar in the recording — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-19. Stakeholders → RACI Matrix → Suggest RACI: no scrollbar is visible on the dialog listing Claude's proposed assignments in the recording (Thursday's `suggest-raci` step). Likely a recording artifact, not an app defect: the recordings ran headless Chromium, which Playwright launched with `--hide-scrollbars`, so no recorded view showed a scrollbar. `raci-suggest-modal.tsx` caps the dialog at `max-h-[90vh]` with a `min-h-0 flex-1 overflow-y-auto` body. Whether the list scrolls in the app is unverified. `grep -n "overflow-y-auto" src/app/raci-suggest-modal.tsx` → the body that should scroll.
+**Status:** CLOSED 2026-10-20 as a recording artifact, not an app defect. The re-take of the Suggest RACI clip on 2026-10-19 (`ai/11-ai-raci.webm`, recorded on `rec/combined-2026-10-19` with Chromium launched without `--hide-scrollbars`) shows the "Proposed RACI assignments" dialog with a vertical scrollbar beside the list, and the header and Cancel / Apply selected stay in view. Checked by eye on a contact sheet of that clip, not by a test. `grep -n "ignoreDefaultArgs" scripts/demo-video/record.mjs` → the launch that keeps scrollbars.
+
+**Earlier (OPEN 2026-10-19):** Stakeholders → RACI Matrix → Suggest RACI: no scrollbar is visible on the dialog listing Claude's proposed assignments in the recording (Thursday's `suggest-raci` step). Likely a recording artifact, not an app defect: the recordings ran headless Chromium, which Playwright launched with `--hide-scrollbars`, so no recorded view showed a scrollbar. `raci-suggest-modal.tsx` caps the dialog at `max-h-[90vh]` with a `min-h-0 flex-1 overflow-y-auto` body. Whether the list scrolls in the app is unverified. `grep -n "overflow-y-auto" src/app/raci-suggest-modal.tsx` → the body that should scroll.
 
 **Work item:** #793
 
