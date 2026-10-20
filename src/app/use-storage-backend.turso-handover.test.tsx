@@ -177,6 +177,18 @@ describe("useStorageBackend — the Turso project flows save under the revision 
 describe("§751 — the Turso portfolio with no project chosen saves nothing", () => {
   const KEPT = { ...edited, id: 7, taskName: "KEPT-IN-P1" } as unknown as Task;
 
+  // §753 — the flag the no-project banner and the footer's "saving paused" read; false once a project is chosen.
+  it.each([
+    ["no project is chosen", null, true],
+    ["a project is chosen", "p1", false],
+  ])("reports tursoPortfolioWithoutProject when %s", async (_label, projectId, expected) => {
+    localStorage.setItem(MODE_KEY, "turso");
+    if (projectId) localStorage.setItem(CURRENT_TURSO_PROJECT_KEY, projectId);
+    const app = renderApp({ kind: "turso" });
+    await booted(app);
+    expect(app.ops().tursoPortfolioWithoutProject).toBe(expected);
+  });
+
   it("an edit with no project chosen leaves every stored project as it was", async () => {
     const peer = new TursoBackend(CONFIG, "p1");
     peer.forceNextSave();
