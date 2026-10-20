@@ -23,6 +23,7 @@ export const wizardCreate = step('wizard-create', {
     await caption(ctx, 'Turn on the features this project needs. The rest stay out of the way.');
     await pace(ctx, 3000);
     await click(ctx, d.getByRole('button', { name: 'Create project', exact: true }), 'Create project', 1000);
+    await caption(ctx, '');
   },
   replay: noop,
 });
@@ -33,14 +34,14 @@ export const firstProjectLands = step('first-project-lands', {
     const page = ctx.page;
     await page.locator(DLG).filter({ has: page.getByRole('button', { name: 'Create project', exact: true }) })
       .waitFor({ state: 'detached', timeout: 60000 });
-    await skipTour(ctx, 15000);
+    await skipTour(ctx, 3000);
     await L.settle(page);
     if (!(await page.evaluate(() => localStorage.getItem('aipm-cockpit:turso-current-project')))) {
       throw new Error('no current project after Create project');
     }
-    await caption(ctx, 'The new project: empty, connected, and ready for its first tasks.');
+    await caption(ctx, 'The new project, with the starter milestones and tasks its template brings.');
     await pace(ctx, 3500);
-    await caption(ctx, 'To see the cockpit with a project in full swing, open the demo.');
+    await caption(ctx, 'To see a project in full swing, open the demo.');
     await pace(ctx, 1500);
   },
 });

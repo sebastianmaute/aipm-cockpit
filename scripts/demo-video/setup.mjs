@@ -54,13 +54,15 @@ export async function connect(ctx, { onCamera, firstRun = false }) {
       await L.settle(page);
       break;
     }
+    // The first pass leaves the AI step; every later step before Review (Jira) is optional and skipped.
     const nx = d.getByRole('button', { name: 'Next', exact: true });
-    const optional = (await nx.count()) === 0;
+    const skip = d.getByRole('button', { name: 'Skip', exact: true });
+    const optional = i > 0 && (await skip.count()) > 0;
     if (firstRun && optional) {
-      await caption(ctx, 'Jira and Timelog are optional: skip them for now.');
+      await caption(ctx, 'Jira is optional: skip it for now.');
       await pace(ctx, 2000);
     }
-    await click(ctx, optional ? d.getByRole('button', { name: 'Skip', exact: true }) : nx, 'Next/Skip');
+    await click(ctx, optional || !(await nx.count()) ? skip : nx, 'Next/Skip');
   }
   await page.getByRole('button', { name: 'Explore the demo', exact: true }).waitFor({ timeout: 60000 });
   const mode = await page.evaluate(() => localStorage.getItem('aipm-cockpit:portfolio-mode'));
