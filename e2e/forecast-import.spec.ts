@@ -25,7 +25,7 @@ test("the forecast import modal passes axe on its source step and after reading 
   await waitForViewSettled(page);
 
   // The first bucket card's trigger; its name carries the bucket's row token.
-  await page.getByRole("button", { name: new RegExp(`^${t("en-US", "forecastImportOpen").replace("…", "\\u2026")}`) }).first().click();
+  await page.getByRole("button", { name: new RegExp(`^${t("en-US", "forecastImportOpen")}`) }).first().click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expectNoBlockingViolations(page, "source");
@@ -34,7 +34,7 @@ test("the forecast import modal passes axe on its source step and after reading 
   const resources = (SEED_WORKSPACE as { resources?: { firstName: string; lastName: string }[] }).resources ?? [];
   const person = resources[0] ? `${resources[0].firstName} ${resources[0].lastName}` : "Ann Lee";
   const csv = `Name,Jan 2026,Feb 2026,Mar 2026\r\n${person},10,20,30\r\n`;
-  await dialog.getByLabel(t("en-US", "forecastImportFile")).setInputFiles({ name: "forecast.csv", mimeType: "text/csv", buffer: Buffer.from(csv, "utf8") });
+  await dialog.getByLabel(t("en-US", "forecastImportFile"), { exact: true }).setInputFiles({ name: "forecast.csv", mimeType: "text/csv", buffer: Buffer.from(csv, "utf8") });
   // Reading a sheet adds the column controls and the preview below the file field, which stays.
   await expect(dialog.getByRole("button", { name: t("en-US", "forecastImportEditColumns"), exact: true })).toBeVisible({ timeout: 15_000 });
   await expectNoBlockingViolations(page, "after reading a sheet");
