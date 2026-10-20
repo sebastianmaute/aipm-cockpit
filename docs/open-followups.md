@@ -955,7 +955,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§715](#715-no-recorded-walk-through-shows-a-new-user-downloading-installing-and-setting-up-the-desktop-app--open) | No recorded walk-through shows a new user downloading, installing and setting up the desktop app | — | — | open |
 | [§716](#716-an-xlsx-hours-cell-formatted-as-a-duration-imports-as-a-fraction-of-a-day--open) | An xlsx hours cell formatted as a duration imports as a fraction of a day | — | — | open |
 | [§717](#717-forecast-import-shows-ask-claude-disabled-when-the-anthropic-key-was-unlocked-in-another-settings-instance--open) | Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance | — | — | open |
-| [§718](#718-no-e2e-or-axe-run-opens-the-forecast-import-modal--open) | No e2e or axe run opens the forecast import modal | — | — | open |
+| [§718](#718-no-e2e-or-axe-run-opens-the-forecast-import-modal--closed-2026-10-20) | No e2e or axe run opens the forecast import modal | — | — | **CLOSED** 2026-10-20 |
 | [§719](#719-forecast-import-has-no-target-bucket-picker--open) | Forecast import has no target-bucket picker | — | — | open |
 | [§720](#720-forecast-import-drops-e-notation-numbers-and-merges-namesakes-with-different-emails--open) | Forecast import drops E-notation numbers and merges namesakes with different emails | — | — | open |
 | [§721](#721-forecast-import-misreads-some-number-and-date-cells--open) | Forecast import misreads some number and date cells | — | — | open |
@@ -45161,11 +45161,9 @@ The forecast import (§500) reads an xlsx cell's stored value through `readSheet
 
 **Source:** §500's "Known residue, accepted" list, item (2), filed 2026-10-14 on the owner's word.
 
-## 718. No e2e or axe run opens the forecast import modal — OPEN
+## 718. No e2e or axe run opens the forecast import modal — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue (1). Reproduce with `grep -rln "ForecastImportModal\|Import forecast" e2e`, which returns nothing.
-
-**Work item:** #710
+**Status:** CLOSED 2026-10-20 on `fix/718-forecast-import-e2e`. New `e2e/forecast-import.spec.ts` (chromium project, so CI's `e2e` job runs it) opens the modal from the first Budget bucket card. It runs axe (wcag2a/aa, wcag21a/aa, critical and serious blocking) over the dialog on the source step, then reads a small CSV and runs axe again on the preview it shows. Verified with `npx playwright test e2e/forecast-import.spec.ts --project=chromium` against a dev server (1 passed). A mutant giving the target-bucket line a low-contrast colour fails it with a serious `color-contrast` violation. **Earlier:** OPEN 2026-10-14, filed from §500's residue (1). Reproduce with `grep -rln "ForecastImportModal\|Import forecast" e2e`, which returns nothing.
 
 The Budget view is in `A11Y_VIEWS`, but the axe scan never opens the forecast import modal, and no e2e spec drives an import. The modal's accessible names are pinned only by `forecast-import-modal.test.tsx`, and the unit suite never runs axe, so a contrast or labelling failure in the modal reaches no gate.
 
