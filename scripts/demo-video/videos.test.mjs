@@ -52,6 +52,14 @@ describe('the video definitions (§715)', () => {
     expect(VIDEOS.filter((d) => d.prologueOnCamera).map((d) => d.id)).toEqual(['big', 'ch2-connect']);
   });
 
+  it('ch2-connect is the first run: it creates a project; big keeps the short prologue that cancels', () => {
+    expect(VIDEOS.filter((d) => d.firstRun).map((d) => d.id)).toEqual(['ch2-connect']);
+    expect(byId('ch2-connect').prologue.map((s) => s.id)).toEqual(['wizard-create', 'first-project-lands']);
+    expect(byId('big').prologue.map((s) => s.id)).toEqual(['wizard-proposal']);
+    expect(byId('ch2-connect').prologue[0].ai).toBe(true);
+    expect(typeof byId('ch2-connect').prologue[0].check).toBe('function');
+  });
+
   it('chapters replay the days before them', () => {
     expect(byId('ch3-monday').replayThrough).toBeUndefined();
     expect(byId('ch3-monday').clock).toBe('mon');

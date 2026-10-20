@@ -47,16 +47,19 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A new linked task's assignee is picked from the directory (§758).** "+ New linked task" in the task
+  editor offered a plain text field, so the new task got a name with no link to the person and no email. It now
+  offers the same people picker as the task editor, and a picked person is linked to the new task with their email.
+- **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
+  documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
+  was typed. The search now matches library cards by name, a source other than All hides them (they belong to
+  none), and "No knowledge matches this filter" shows when nothing in either list matches.
 - **Hours shown as a time in a workbook import as hours (§716).** An hours cell formatted as `8:00` is stored
   by Excel as a fraction of a day, so the forecast import read it as 0.33 hours. Such cells now read as hours (8),
   in the forecast import and in workbooks attached to the chat. Dates are read as before.
 - **"Ask Claude" in the forecast import and "Suggest RACI" see an unlocked AI key (§717).** With the key
   protected by a passphrase, both showed as unavailable until the key was unlocked a second time. They now use
   the key as soon as it is unlocked.
-- **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
-  documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
-  was typed. The search now matches library cards by name, a source other than All hides them (they belong to
-  none), and "No knowledge matches this filter" shows when nothing in either list matches.
 - **Claude's one-shot features work on Sonnet 5.5, Opus 5.5 and Fable 5.1.** Those models refuse a request
   that forces a tool, which every one-shot feature sends: the project proposal, the digest, Deduplicate & unify,
   Plan with AI, Suggest RACI, recommendations, reports and the rest all failed on them. The app now asks such a

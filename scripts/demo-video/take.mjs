@@ -79,7 +79,7 @@ export async function runTake(def, deps) {
     if (def.prologueOnCamera) {
       await start();
       await intro(await resolveOpening(ctx, def.opening));
-      await setup.connect(ctx, { onCamera: true });
+      await setup.connect(ctx, def.firstRun ? { onCamera: true, firstRun: true } : { onCamera: true });
       for (const s of def.prologue ?? []) await runStep(ctx, s, opts);
       await openDemo();
     } else {
