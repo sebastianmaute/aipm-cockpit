@@ -996,6 +996,9 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§756](#756-the-influence--interest-map-gets-squashed-on-smaller-screens--open) | The influence / interest map gets squashed on smaller screens | — | — | open |
 | [§757](#757-a-clicked-buttons-green-focus-outline-is-cut-off-draft-with-ai-and-others--open) | A clicked button's green focus outline is cut off (Draft with AI and others) | — | — | open |
 | [§758](#758-a-new-linked-tasks-assignee-is-free-text-not-picked-from-the-directory--open) | A new linked task's assignee is free text, not picked from the directory | — | — | open |
+| [§759](#759-undoing-claudes-project-edit-says-undone-even-when-the-restore-fails--open) | Undoing Claude's project edit says "Undone" even when the restore fails | — | — | open |
+| [§760](#760-a-proposed-projects-name-skips-the-field-judge-so-it-has-no-length-cap--open) | A proposed project's name skips the field judge, so it has no length cap | — | — | open |
+| [§761](#761-claudes-stakeholder-count-accepts-0x10-1e3-and----open) | Claude's stakeholder count accepts "0x10", "1e3" and " " | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45771,3 +45774,39 @@ Proposed: the task editor's `ResourcePicker`, carrying its `resourceId` and emai
 Size S.
 
 **Source:** found 2026-10-19 by the owner in the demo recording (owner: file it).
+
+## 759. Undoing Claude's project edit says "Undone" even when the restore fails — OPEN
+
+**Status:** OPEN 2026-10-20. An undo or redo of Claude's `update_project` edit (#807) writes through `projectUndoFragment` (`project-meta-edit.ts`). The writer is async, but the fragment's `restore` returns at once, so `commitUndo` (`undo/use-undo-stack.ts`) shows "Undone: …" and pushes a redo entry before the write settles. If the write fails, the user sees "Undone" plus an error: the writer's own error toast when it resolves false, or the `onThrow` toast when it throws. Each failure is logged as `undo.projectRestoreFailed`. The stack then holds a redo entry for an undo that did not happen. Read from the code; never machine-verified. `grep -n "write(meta).then" src/app/project-meta-edit.ts` → the write the stack does not wait for.
+
+**Work item:** #811
+
+Proposed: Let a fragment report an async result to the stack, so that "Undone" and the redo entry follow a successful write and a failure shows one error with the undo entry kept. Or accept it and say so in `docs/AGENTS/undo.md`. Test: a writer that resolves false shows no "Undone" toast and leaves the undo entry in place.
+
+Size S–M.
+
+**Source:** found 2026-10-19 in the review of the "Claude reads and sets every project field" branch (#807); filed 2026-10-20 (owner: file the issues).
+
+## 760. A proposed project's name skips the field judge, so it has no length cap — OPEN
+
+**Status:** OPEN 2026-10-20. Plan with AI's project proposal: `parseProposal` (`ai-project-proposal.ts`) only trims `meta.name`, and `judgeMeta` skips `name` (`if (key === "name" || …) continue`). So the judge's cap for `name` (`BUDGET_NAME_MAX`, 200, in `project-ai-fields.ts`) never applies to a proposal, and a 10,000-character name reaches the draft. `update_project` does judge the name. Read from the code; never machine-verified. `grep -n 'key === "name"' src/app/ai-project-proposal.ts` → the skip.
+
+**Work item:** #812
+
+Proposed: Send the proposal's name through `judgeProjectField("name", …)` and drop the proposal when it is refused, as a blank name is today. Test: a proposal whose name is over the cap is refused or capped, matching what `update_project` does.
+
+Size S.
+
+**Source:** found 2026-10-19 in the review of the "Claude reads and sets every project field" branch (#807); filed 2026-10-20 (owner: file the issues).
+
+## 761. Claude's stakeholder count accepts "0x10", "1e3" and " " — OPEN
+
+**Status:** OPEN 2026-10-20. `judgeCount` (`project-ai-fields.ts`, used for `stakeholderCount`) reads a string with `toNumber`, i.e. `Number()`. So " " becomes 0, "0x10" becomes 16 and "1e3" becomes 1000, and each is accepted as a whole number. Read from the code; never machine-verified. `grep -n "function judgeCount" src/app/project-ai-fields.ts` → the judge.
+
+**Work item:** #813
+
+Proposed: Accept a string only when it matches `/^\d+$/` after trimming, and refuse the rest. Test: " ", "0x10", "1e3" and "-1" are refused; "12" and 12 are accepted.
+
+Size XS.
+
+**Source:** found 2026-10-19 in the review of the "Claude reads and sets every project field" branch (#807); filed 2026-10-20 (owner: file the issues).
