@@ -71,7 +71,8 @@ export async function saveProjectFromForm(args: {
  *  ★ A failure is reported, never swallowed: a writer that resolves false has already shown its own error toast,
  *  and this adds the diagnostic; one that throws (outside its contract) is logged and shown through `onThrow`.
  *  ★ §759 — each write is TRACKED, so the stack says "Undone"/"Redone" only once it is stored; a failed one leaves
- *  the entry where it was, and the error above is the only message. */
+ *  the entry where it was (rolling back any array fragment of the same composite), and the error above is the only
+ *  message. See `docs/AGENTS/undo.md` "The runners". */
 export function projectUndoFragment(args: {
   getWriter: () => ProjectWriter | null;
   getLive: () => ProjectMeta | null;

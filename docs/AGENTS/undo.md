@@ -165,12 +165,24 @@ in one tick read the same stale stack and undo the top entry N times. It reads t
 commits as one batch; `redoThrough` mirrors it.
 ★★ **An async write is waited for before the stack says it happened (§759).** A fragment hands its write to
 the `track` argument of `restore` (and of its redo thunk); `compositeUndoRunner` attaches the AND of those writes
-to the runner it returns. Each entry point takes the entry off its stack AT ONCE, so a second press cannot run it
-again, but logs the act, shows "Undone"/"Redone" and pushes the inverse only once the write is stored. A failed
-write puts the entry back on top of its own stack, where the next press retries it, and shows nothing more: the
-writer has already shown its error. The through-paths report only the entries that were stored. A runner with no
-tracked write keeps its identity and commits in the same tick, as every array fragment does. Today the only
-tracker is `projectUndoFragment`: `grep -rn "track?.(" src/app --include=*.ts`.
+to the runner it returns. Each entry point takes the entry off its stack AT ONCE, but logs the act, shows
+"Undone"/"Redone" and pushes the inverse only once the write is stored.
+- **While a write is out, every entry point does nothing** (`writeOut`), so a second press cannot run a lower entry
+  or the same one.
+- **A failed write** shows nothing more (the writer has shown its error). The runner's `rollback` first redoes, or
+  re-undoes, the fragments that applied synchronously, because an applied plan collapses a project edit and array
+  edits into ONE composite (`collapseCaptures`), and a retry without the rollback restored each array row twice.
+  An undo entry then returns to its place in id order (`insertById`), a redo entry to the top of the redo stack.
+- **A write that settles after a scope change** says nothing and moves no stack (`awaitWrite`'s `isScopeStale`).
+- **A capture that landed meanwhile** (`captureGenRef`) cleared the redo stack, so a late finish pushes no redo
+  inverse, and a failed redo entry is dropped.
+- **The through-paths** report only the entries that were stored, and wait for the whole batch, the synchronous
+  entries in it included.
+
+A runner with no tracked write keeps its identity and commits in the same tick, as every array fragment does. Today
+the only tracker is `projectUndoFragment`: `grep -rn "track?.(" src/app --include=*.ts`. ★ Its rollback skips a
+tracked fragment whose own write SUCCEEDED, which is safe only while one composite holds at most one tracked
+fragment.
 ★ A new capture clears the redo stack, and so does `undoById` on an entry that is not on top (the
 capture toast's Undo button calls it), because that redo can no longer stay coherent.
 ★★★ **A REDO THAT RE-REMOVES ROWS MUST ARM THE DESTRUCTIVE-SAVE BYPASS, OR THE SAVE IS REFUSED (§295).**
