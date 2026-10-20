@@ -56,7 +56,9 @@ longer carries its own changelog comment.
   none), and "No knowledge matches this filter" shows when nothing in either list matches.
 - **Hours shown as a time in a workbook import as hours (§716).** An hours cell formatted as `8:00` is stored
   by Excel as a fraction of a day, so the forecast import read it as 0.33 hours. Such cells now read as hours (8),
-  in the forecast import and in workbooks attached to the chat. Dates are read as before.
+  in the forecast import and in workbooks attached to the chat. A cell formatted to show elapsed hours (`[h]:mm`)
+  reads its whole value; one formatted as a time of day (`h:mm`) reads what it shows, so 40 hours shown as 16:00
+  read 16. Dates are read as before.
 - **A Claude key unlocked with its passphrase works everywhere, not only in the chat (§717).** The forecast
   import's "Ask Claude", Suggest RACI, the digest, insights and the other AI features showed as unavailable,
   because the unlocked key stayed in the chat. Once you unlock it, every AI feature uses it until you reload the

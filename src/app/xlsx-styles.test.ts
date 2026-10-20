@@ -46,6 +46,7 @@ describe("timeFormatKind", () => {
     ["h:mm", "clock"], ["hh:mm:ss AM/PM", "clock"], ["mm:ss", "clock"],
     ["[h]:mm", "elapsed"], ["[mm]:ss", "elapsed"], ["[Red][h]:mm", "elapsed"],
     ["dd.mm.yyyy", null], ["0.00", null],
+    ["[h]:mm:ss", "elapsed"], ["h:mm;@", "clock"], ["[$-F400]h:mm:ss AM/PM", "clock"], ["mm:ss.0", "clock"], ["[mm]:ss", "elapsed"],
   ])("%s → %s", (code, kind) => {
     expect(timeFormatKind(code)).toBe(kind);
   });
@@ -62,6 +63,7 @@ describe("durationCellHours", () => {
     expect(durationCellHours("46327.5", "clock")).toBe("12");
     expect(durationCellHours("1.5", "elapsed")).toBe("36");
     expect(durationCellHours("1.5", "clock")).toBe("12");
+    expect(durationCellHours("-0.25", "clock")).toBe("-6"); // a negative serial keeps its sign
   });
 
   it.each([

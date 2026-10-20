@@ -90,6 +90,7 @@ export function durationStyleIndexes(entries: Map<string, Uint8Array>): Readonly
 export function durationCellHours(raw: string, kind: TimeKind = "elapsed"): string {
   const value = Number(raw);
   if (raw.trim() === "" || !Number.isFinite(value)) return raw;
-  const days = kind === "clock" ? value - Math.floor(value) : value;
+  // `trunc`, not `floor`: a negative serial (-0.25, -6 h) keeps its sign instead of wrapping to 18 h.
+  const days = kind === "clock" ? value - Math.trunc(value) : value;
   return String(Number((Math.round(days * 86_400) / 3_600).toFixed(4)));
 }
