@@ -749,6 +749,13 @@ describe("probe: the §720–§726 triage — shapes that ask or report (2026-10
     expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 1.5], ["Ann Lee", "2026-02", 12.5]]);
   });
 
+  it("(4) a total spelled outside the list (Insgesamt) imports as a person, which the preview shows as unmatched", () => {
+    const run = readSheet([["Name", "Jan 2026", "Feb 2026"], ["Ann Lee", "1", "2"], ["Bob Kay", "3", "4"], ["Insgesamt", "4", "6"]]);
+    expect(run.out.rows.map((r) => r.person)).toContain("Insgesamt");
+    const plan = planOf(run, bucketOf("2026-01-01", "2026-12-31"), "month");
+    expect(plan.unresolved.map((u) => u.person)).toContain("Insgesamt");
+  });
+
   it("(14) a half-year date header detects no layout, so the mapping step opens", () => {
     expect(detect([["Name", "01.01.2026", "01.07.2026"], ["Ann Lee", "100", "200"]]).kind).toBe("unknown");
   });
