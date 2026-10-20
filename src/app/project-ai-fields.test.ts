@@ -90,6 +90,18 @@ describe("project AI fields", () => {
     expect(judgeProjectField("identityCount", 40, CTX)).toEqual({ kind: "accepted", value: 40 });
   });
 
+  // §761 — `Number()` alone read " " as 0, "0x10" as 16 and "1e3" as 1000, each accepted as a whole number.
+  it.each([" ", "0x10", "1e3", "-1", "12.0", "1 2"])("counts: the string %j is refused", (raw) => {
+    expect(judgeProjectField("stakeholderCount", raw, CTX).kind).toBe("refused");
+  });
+
+  it("counts: plain digits, padded or not, and a whole number are accepted; an empty string clears", () => {
+    expect(judgeProjectField("stakeholderCount", "12", CTX)).toEqual({ kind: "accepted", value: 12 });
+    expect(judgeProjectField("stakeholderCount", " 12 ", CTX)).toEqual({ kind: "accepted", value: 12 });
+    expect(judgeProjectField("stakeholderCount", 12, CTX)).toEqual({ kind: "accepted", value: 12 });
+    expect(judgeProjectField("stakeholderCount", "", CTX)).toEqual({ kind: "accepted", value: "" });
+  });
+
   it("applyProjectPatch leaves fields it was not given untouched and reports unknown keys", () => {
     const stored = { ...FULL, customer: "Northwind" };
     const r = applyProjectPatch(stored, { sponsor: "Elena Fischer", contactPersons: [], expectedToken: "t" });
