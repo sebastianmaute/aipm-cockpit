@@ -995,7 +995,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§755](#755-suggest-racis-list-of-proposed-assignments-shows-no-scrollbar-in-the-recording--closed-2026-10-20) | Suggest RACI's list of proposed assignments shows no scrollbar in the recording | — | — | **CLOSED** 2026-10-20 |
 | [§756](#756-the-influence--interest-map-gets-squashed-on-smaller-screens--open) | The influence / interest map gets squashed on smaller screens | — | — | open |
 | [§757](#757-a-clicked-buttons-green-focus-outline-is-cut-off-draft-with-ai-and-others--open) | A clicked button's green focus outline is cut off (Draft with AI and others) | — | — | open |
-| [§758](#758-a-new-linked-tasks-assignee-is-free-text-not-picked-from-the-directory--open) | A new linked task's assignee is free text, not picked from the directory | — | — | open |
+| [§758](#758-a-new-linked-tasks-assignee-is-free-text-not-picked-from-the-directory--closed-2026-10-20) | A new linked task's assignee is free text, not picked from the directory | — | — | **CLOSED** 2026-10-20 |
 | [§759](#759-undoing-claudes-project-edit-says-undone-even-when-the-restore-fails--open) | Undoing Claude's project edit says "Undone" even when the restore fails | — | — | open |
 | [§760](#760-a-proposed-projects-name-skips-the-field-judge-so-it-has-no-length-cap--open) | A proposed project's name skips the field judge, so it has no length cap | — | — | open |
 | [§761](#761-claudes-stakeholder-count-accepts-0x10-1e3-and----open) | Claude's stakeholder count accepts "0x10", "1e3" and " " | — | — | open |
@@ -45761,11 +45761,9 @@ Size S–M.
 
 **Source:** found 2026-10-19 by the owner in the demo recording (owner: file it).
 
-## 758. A new linked task's assignee is free text, not picked from the directory — OPEN
+## 758. A new linked task's assignee is free text, not picked from the directory — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-19. Task editor → "+ New linked task": the Assignee field is a plain text input with no directory suggestions, so the new task gets a name with no resource id and an empty email, where the task editor's `ResourcePicker` offers the directory (Friday's `split-pilot-task` step). `grep -n 'aria-label={t(lang, "assignee")}' src/app/task-linked-task-modal.tsx` → the input; `onCreate` passes `assignee` as a trimmed string only, and `use-task-editor-create.ts` creates the task with that name alone.
-
-**Work item:** #796
+**Status:** CLOSED 2026-10-20 on `fix/758-linked-task-assignee-picker`, by the proposed fix. `TaskLinkedTaskModal` renders the task editor's `ResourcePicker` (resources, contacts, and "+ Add as resource" outside a popout) in place of the plain input. `LinkedTaskDraft` carries `assigneeEmail` and `resourceId`, and `handleCreateLinkedTask` (`use-task-editor-create.ts`) writes them onto the child; typed text still creates a name with no link or email. Verified with `npx vitest run src/app/task-linked-task-modal.test.tsx src/app/use-task-editor-create.test.ts` (green). A mutant that drops the picked resource id in the modal, and one that drops it in the create path, each fail a test. **Earlier:** OPEN 2026-10-19. Task editor → "+ New linked task": the Assignee field is a plain text input with no directory suggestions, so the new task gets a name with no resource id and an empty email, where the task editor's `ResourcePicker` offers the directory (Friday's `split-pilot-task` step). `grep -n 'aria-label={t(lang, "assignee")}' src/app/task-linked-task-modal.tsx` → the input; `onCreate` passes `assignee` as a trimmed string only, and `use-task-editor-create.ts` creates the task with that name alone.
 
 Proposed: the task editor's `ResourcePicker`, carrying its `resourceId` and email into the created task, with a test that a picked person creates a linked task.
 

@@ -47,10 +47,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **Gantt task bars can be moved and resized from the keyboard (§742).** Tab to a bar or one of its
-  edges and press the arrow keys: one day, with Shift (or Page Up / Page Down) one week. The change is saved when
-  you pause, press Enter or move on, and Escape cancels, as for a milestone. A screen reader announces the new
-  dates.
+- **A new linked task's assignee is picked from the directory (§758).** "+ New linked task" in the task
+  editor offered a plain text field, so the new task got a name with no link to the person and no email. It now
+  offers the same people picker as the task editor, and a picked person is linked to the new task with their email.
 - **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
   documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
   was typed. The search now matches library cards by name, a source other than All hides them (they belong to
@@ -100,6 +99,10 @@ longer carries its own changelog comment.
   offered back as one from "another project". Emptying a project that held records, a moved plan, project
   details, the dashboard summary and the other project-level fields still count as a draft. An empty draft
   already stored stays listed until you discard it.
+- **Gantt task bars can be moved and resized from the keyboard (§742).** Tab to a bar or one of its
+  edges and press the arrow keys: one day, with Shift (or Page Up / Page Down) one week. The change is saved when
+  you pause, press Enter or move on, and Escape cancels, as for a milestone. A screen reader announces the new
+  dates.
 - **Run and fetch times read as times (§715).** A scheduled job's "Last run" and Timelog's "Last fetched" showed the
   stored UTC value ("2026-09-21T07:05:12.345Z"); they now show the date and time in the display timezone.
 - **One of a thing is singular (§715).** In twelve places a count read "1 buckets", "1 days", "1 tasks",
