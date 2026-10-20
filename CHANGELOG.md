@@ -100,6 +100,8 @@ longer carries its own changelog comment.
   changed), an empty workspace was still kept as an unsaved draft and offered back on the next start. It is
   now skipped, and any earlier draft is left as it was. The cost: a project emptied at such a moment gets its
   records back on the next start.
+- **The forecast import reports a data row above the header (§723).** A row of hours placed directly above
+  the header row was neither read nor mentioned. It is now listed with the rows the import did not read.
 - **Analyze with AI and scheduled AI jobs fail less often (§715).** A reply with no new suggestions, or with its
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,

@@ -957,13 +957,13 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§717](#717-forecast-import-shows-ask-claude-disabled-when-the-anthropic-key-was-unlocked-in-another-settings-instance--closed-2026-10-20) | Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance | — | — | **CLOSED** 2026-10-20 |
 | [§718](#718-no-e2e-or-axe-run-opens-the-forecast-import-modal--open) | No e2e or axe run opens the forecast import modal | — | — | open |
 | [§719](#719-forecast-import-has-no-target-bucket-picker--open) | Forecast import has no target-bucket picker | — | — | open |
-| [§720](#720-forecast-import-drops-e-notation-numbers-and-merges-namesakes-with-different-emails--open) | Forecast import drops E-notation numbers and merges namesakes with different emails | — | — | open |
-| [§721](#721-forecast-import-misreads-some-number-and-date-cells--open) | Forecast import misreads some number and date cells | — | — | open |
-| [§722](#722-forecast-import-picks-the-wrong-period-or-asks-on-several-sheet-shapes--open) | Forecast import picks the wrong period, or asks, on several sheet shapes | — | — | open |
-| [§723](#723-forecast-import-reads-one-block-per-sheet-so-stacked-blocks-and-second-headers-are-cut-or-summed--open) | Forecast import reads one block per sheet, so stacked blocks and second headers are cut or summed | — | — | open |
-| [§724](#724-forecast-imports-total-and-continuation-rules-ask-about-or-drop-legitimate-rows--open) | Forecast import's total and continuation rules ask about or drop legitimate rows | — | — | open |
-| [§725](#725-forecast-imports-mapping-step-cannot-express-some-corrections--open) | Forecast import's mapping step cannot express some corrections | — | — | open |
-| [§726](#726-forecast-import-cannot-route-some-matched-people-and-its-notes-name-namesakes-inconsistently--open) | Forecast import cannot route some matched people, and its notes name namesakes inconsistently | — | — | open |
+| [§720](#720-forecast-import-drops-e-notation-numbers-and-merges-namesakes-with-different-emails--closed-2026-10-20) | Forecast import drops E-notation numbers and merges namesakes with different emails | — | — | **CLOSED** 2026-10-20 |
+| [§721](#721-forecast-import-misreads-some-number-and-date-cells--closed-2026-10-20) | Forecast import misreads some number and date cells | — | — | **CLOSED** 2026-10-20 |
+| [§722](#722-forecast-import-picks-the-wrong-period-or-asks-on-several-sheet-shapes--closed-2026-10-20) | Forecast import picks the wrong period, or asks, on several sheet shapes | — | — | **CLOSED** 2026-10-20 |
+| [§723](#723-forecast-import-reads-one-block-per-sheet-so-stacked-blocks-and-second-headers-are-cut-or-summed--closed-2026-10-20) | Forecast import reads one block per sheet, so stacked blocks and second headers are cut or summed | — | — | **CLOSED** 2026-10-20 |
+| [§724](#724-forecast-imports-total-and-continuation-rules-ask-about-or-drop-legitimate-rows--closed-2026-10-20) | Forecast import's total and continuation rules ask about or drop legitimate rows | — | — | **CLOSED** 2026-10-20 |
+| [§725](#725-forecast-imports-mapping-step-cannot-express-some-corrections--closed-2026-10-20) | Forecast import's mapping step cannot express some corrections | — | — | **CLOSED** 2026-10-20 |
+| [§726](#726-forecast-import-cannot-route-some-matched-people-and-its-notes-name-namesakes-inconsistently--closed-2026-10-20) | Forecast import cannot route some matched people, and its notes name namesakes inconsistently | — | — | **CLOSED** 2026-10-20 |
 | [§727](#727-forecast-plants-mixes-matching-and-apply-and-should-split-before-it-grows--open) | forecast-plan.ts mixes matching and apply and should split before it grows | — | — | open |
 | [§728](#728-the-first-start-splashs-german-locale-text-has-not-been-eye-checked-on-a-packaged-desktop-build-three-of-four-checks-seen--open) | The first-start splash's German-locale text has not been eye-checked on a packaged desktop build (three of four checks seen) | — | — | open |
 | [§729](#729-the-install-guide-describes-the-browser-download-prompt-and-the-windows-protection-box-without-pictures--closed-2026-10-14) | The install guide describes the browser download prompt and the Windows protection box without pictures | — | — | **CLOSED** 2026-10-14 |
@@ -45177,21 +45177,17 @@ The §500 spec's source step has a target-bucket picker, preselected to the buck
 
 **Source:** §500's "Known residue, accepted" list, item (7), filed 2026-10-14 on the owner's word.
 
-## 720. Forecast import drops E-notation numbers and merges namesakes with different emails — OPEN
+## 720. Forecast import drops E-notation numbers and merges namesakes with different emails — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue (8), which was deferred by ruling; never machine-verified.
-
-**Work item:** #712
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. (8a) An E-notation number is a visible `bad-number` drop, pinned in `npx vitest run src/app/budget-import/forecast-import-probes.test.ts` ("the §720–§726 triage" describe). (8b) Namesakes with different emails merge into one unresolved entry, which the picker shows. (8c) A workbook TEXT cell `1.234` reads 1.234; read as 1234 it would exceed the 744 h monthly cap and be rejected, so no valid value is lost, and text `1,5` and `12,5` read 1.5 and 12.5, pinned in the same describe. Closed with no code change. **Earlier:** OPEN 2026-10-14, filed from §500's residue (8), which was deferred by ruling; never machine-verified.
 
 Three gaps in the reader, each visible in the preview rather than silent: E-notation numbers (`1E2`, `7.4999999999999997E-2`) read as null in every decimal style and in workbooks too, a `bad-number` drop (`parseNumberCell`, `src/app/budget-import/forecast-rows.ts`); namesakes with different emails merge into one unresolved entry; and a workbook TEXT cell `1.234` reads 1.234, since the grid cannot tell text cells from number cells.
 
 **Source:** §500's "Known residue, accepted" list, item (8), filed 2026-10-14 on the owner's word.
 
-## 721. Forecast import misreads some number and date cells — OPEN
+## 721. Forecast import misreads some number and date cells — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
-
-**Work item:** #713
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. (3) The stray `2.5` is a visible `bad-number` drop. (12) A numeric code column beside year-less months is listed as an unread column on a CSV, and asks the period question in a workbook; both are pinned in `npx vitest run src/app/budget-import/forecast-import-probes.test.ts` ("the §720–§726 triage" describe). (41) The 1,462-day move touches only five-digit cells, and outside period cells no import reads those values. Closed with no code change. **Earlier:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
 
 The reader turns cell text into numbers and dates with rules that some real sheets break. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
@@ -45203,11 +45199,9 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
 
-## 722. Forecast import picks the wrong period, or asks, on several sheet shapes — OPEN
+## 722. Forecast import picks the wrong period, or asks, on several sheet shapes — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
-
-**Work item:** #714
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. Every item asks or reports. (11) is out of date as worded: a year-less long sheet with two month-name columns asks the period question with both as candidates, pinned in `npx vitest run src/app/budget-import/forecast-import-probes.test.ts`. (10), (21), (24), (26) and (39) ask or block Apply; (14) detects no layout and opens the mapping step, pinned in the same file; (15) shows the assumed-year notice. Closed with no code change. **Earlier:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
 
 How a period is assigned to a cell (`period-assign.ts`, `layout-detect.ts`) misreads or questions these shapes. Most ask the user rather than write a wrong number. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
@@ -45224,11 +45218,9 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
 
-## 723. Forecast import reads one block per sheet, so stacked blocks and second headers are cut or summed — OPEN
+## 723. Forecast import reads one block per sheet, so stacked blocks and second headers are cut or summed — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
-
-**Work item:** #715
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. (16) was the one silent drop and is FIXED: `rowsAboveHeaderCount` (`forecast-rows.ts`) also counts a wide row with numbers under two or more of the period columns, so a data row directly above the header is reported. A metadata row holds one number and is still not counted, and neither is a row of years (`Jahr | 2026 | 2027`) or of consecutive whole numbers (`KW | 1 | 2 | 3`; `holdsTwoHours`, review round). ★ The cost, both ways, because the rule reads only the numbers. Rows it misses: a person row above the header whose hours are consecutive whole numbers (`1 | 2 | 3`, `8 | 9`) or all between 1900 and 2100 is not reported (pinned). Rows it still reports although nothing is lost: label rows that are not a consecutive run (`KW | 1 | 3 | 5`, `10 | 20 | 30`, a descending or wrapping week run). That errs toward a visible notice, the safer side. Verified with `npx vitest run src/app/budget-import/forecast-import-probes.test.ts` (green); the new case failed on the unfixed code. (9) and (28) ask the header question, and with header row 1 confirmed the rows below the second header are reported, not summed, pinned in the same file. (30) stops visibly, (33) is the owner's 2026-10-13 decision, and (36) asks. **Earlier:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
 
 The reader reads one block with one mapping. Sheets with several blocks, unusual headers or merged sub-columns lose rows or sum them. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
@@ -45243,11 +45235,9 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
 
-## 724. Forecast import's total and continuation rules ask about or drop legitimate rows — OPEN
+## 724. Forecast import's total and continuation rules ask about or drop legitimate rows — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
-
-**Work item:** #716
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. (4) A total outside the word list, which also matches a listed word followed by a space or colon (`Summe aller` counts as a total), imports as a person shown as unmatched: `Insgesamt` is pinned in `npx vitest run src/app/budget-import/forecast-import-probes.test.ts`. (32) and (37) ask before summing. (44) leaves the people unresolved, and nothing is written for anyone, which the preview shows. Closed with no code change. **Earlier:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
 
 Total rows, rows without a person and repeated people are decided by fixed rules that misfire on some layouts. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
@@ -45260,11 +45250,9 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
 
-## 725. Forecast import's mapping step cannot express some corrections — OPEN
+## 725. Forecast import's mapping step cannot express some corrections — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
-
-**Work item:** #717
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. All four are mapping-step controls, and each result shows in the mapping step and the preview before Apply: (19) the header-row select and period columns, (25) the long columns after a layout switch, the year column included, (35) a period left out after an email or rate change (Re-detect restores it), and (38) the sheet button. Closed with no code change. **Earlier:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
 
 The hand mapping step (`ForecastImportModal`) has controls that reset or hide choices. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
@@ -45277,11 +45265,9 @@ The entry closes when every item is fixed or closed by an owner decision.
 
 **Source:** §500's "Known residue, accepted" list, filed 2026-10-14 on the owner's word (grouped by theme).
 
-## 726. Forecast import cannot route some matched people, and its notes name namesakes inconsistently — OPEN
+## 726. Forecast import cannot route some matched people, and its notes name namesakes inconsistently — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
-
-**Work item:** #718
+**Status:** CLOSED 2026-10-20 — owner decision 2026-10-20: triage the residue, fix what writes a wrong number or drops a row without a word, and close the items that ask or report. On `fix/720-forecast-import-silent-cases`. (5) One pick routes the namesakes it stands for, and the preview lists the changes it makes. (40) is the owner's 2026-10-13 decision. (42) and (43) are wording in the unresolved list. Closed with no code change. **Earlier:** OPEN 2026-10-14, filed from §500's residue list; never machine-verified on main; each item was probed during §500's review.
 
 Matching sheet people to bucket lines (`forecast-plan.ts`) leaves these cases unresolved or mislabelled. Each item keeps its §500 residue number; the full text, with the probes behind it, is in §500's "Known residue, accepted" list.
 
