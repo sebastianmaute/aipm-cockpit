@@ -78,7 +78,7 @@ describe("§389 — stacked modals' close buttons stay distinct", () => {
     render(
       <>
         <BareOuterHeader title="Task editor" />
-        <TaskLinkedTaskModal lang="en-US" today="2026-07-10" onCreate={() => {}} onClose={() => {}} />
+        <TaskLinkedTaskModal lang="en-US" today="2026-07-10" onCreate={() => {}} onClose={() => {}} resources={[]} contacts={[]} />
       </>,
     );
     expect(screen.getByRole("button", { name: BARE_CLOSE })).toBeInTheDocument();
