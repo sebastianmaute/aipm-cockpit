@@ -1,0 +1,48 @@
+// §715 the first-run chapter (ch2-connect): after the setup wizard, Claude proposes the first project and
+// the wizard creates it; the empty project lands, then the take opens the demo. The big video keeps the
+// short prologue (week.mjs `wizardProposal`), which cancels instead. See ../README.md.
+import { step } from './step.mjs';
+import * as L from '../lib.mjs';
+import { caption, click, moveTo, pace, skipTour } from '../ui.mjs';
+import { PROPOSAL, gdprBox, noop } from './week.mjs';
+
+const DLG = '[role="dialog"]:visible';
+
+/** Claude's proposal, then the wizard's last two steps explained, and Create project. */
+export const wizardCreate = step('wizard-create', {
+  ...PROPOSAL,
+  after: async (ctx) => {
+    const d = ctx.page.locator(DLG).last();
+    await caption(ctx, 'From the brief, Claude ticks GDPR and fills the other key facts.');
+    await moveTo(ctx, gdprBox(d));
+    await pace(ctx, 2500);
+    await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), 'Next (template)', 500);
+    await caption(ctx, 'Start from a template, or from empty.');
+    await pace(ctx, 2500);
+    await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), 'Next (functions)', 500);
+    await caption(ctx, 'Turn on the features this project needs. The rest stay out of the way.');
+    await pace(ctx, 3000);
+    await click(ctx, d.getByRole('button', { name: 'Create project', exact: true }), 'Create project', 1000);
+  },
+  replay: noop,
+});
+
+/** The new, empty project, before the take opens the demo. */
+export const firstProjectLands = step('first-project-lands', {
+  run: async (ctx) => {
+    const page = ctx.page;
+    await page.locator(DLG).filter({ has: page.getByRole('button', { name: 'Create project', exact: true }) })
+      .waitFor({ state: 'detached', timeout: 60000 });
+    await skipTour(ctx, 15000);
+    await L.settle(page);
+    if (!(await page.evaluate(() => localStorage.getItem('aipm-cockpit:turso-current-project')))) {
+      throw new Error('no current project after Create project');
+    }
+    await caption(ctx, 'The new project: empty, connected, and ready for its first tasks.');
+    await pace(ctx, 3500);
+    await caption(ctx, 'To see the cockpit with a project in full swing, open the demo.');
+    await pace(ctx, 1500);
+  },
+});
+
+export const FIRST_RUN = [wizardCreate, firstProjectLands];
