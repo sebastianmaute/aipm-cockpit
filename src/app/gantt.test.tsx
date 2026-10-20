@@ -933,10 +933,29 @@ describe("GanttPanel bar drag handles", () => {
       // ★ The handle labels are row-qualified (WCAG 2.4.6 — three identical
       // names per row would otherwise repeat across every editable task), so
       // the whole-string RTL `name` match has to carry the row token too.
-      screen.getAllByRole("button", {
+      screen.getAllByRole("slider", {
         name: rowLabel(t("en-US", "ganttBarMove"), "Live"),
       }),
     ).toHaveLength(1);
+  });
+
+  // §742 — through the panel, so the row's slider wiring (tabIndex, onKeyDown) is covered, not only the hook.
+  it("moves a task from the keyboard through its focusable move slider", () => {
+    const onUpdateBar = vi.fn();
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mk({ id: 1, taskName: "Live", startDate: "2026-03-10", dueDate: "2026-03-14" })]}
+        onUpdateBar={onUpdateBar}
+      />,
+    );
+    const move = screen.getByRole("slider", { name: rowLabel(t("en-US", "ganttBarMove"), "Live") });
+    expect(move).toHaveAttribute("tabindex", "0");
+    expect(move).toHaveAttribute("aria-valuetext", expect.stringContaining("→"));
+    fireEvent.keyDown(move, { key: "ArrowRight" });
+    fireEvent.keyDown(move, { key: "Enter" });
+    expect(onUpdateBar).toHaveBeenCalledTimes(1);
+    expect(onUpdateBar).toHaveBeenCalledWith({ taskId: 1, startDate: "2026-03-11", dueDate: "2026-03-15" });
   });
 
   it("gives a cancelled task none", () => {
@@ -951,7 +970,7 @@ describe("GanttPanel bar drag handles", () => {
     // the drag affordance that is gone.
     expect(screen.getByText("Dropped")).toBeInTheDocument();
     expect(
-      screen.queryAllByRole("button", {
+      screen.queryAllByRole("slider", {
         name: rowLabel(t("en-US", "ganttBarMove"), "Dropped"),
       }),
     ).toHaveLength(0);
@@ -1127,6 +1146,7 @@ describe("GanttPanel row-unique accessible names", () => {
       scope: container,
       minControls: 18,
       requireCollisionSeed: true,
+      roles: ["button", "slider"], // §742 — the bar handles are sliders now
     });
 
     // The uniqueness scan alone cannot say the names are the RIGHT ones — it is
@@ -1138,10 +1158,10 @@ describe("GanttPanel row-unique accessible names", () => {
     expect(screen.getByRole("button", { name: "M1 (2)" })).toBeInTheDocument();
     for (const key of ["ganttBarResizeStart", "ganttBarMove", "ganttBarResizeEnd"] as const) {
       expect(
-        screen.getByRole("button", { name: rowLabel(t("en-US", key), "Alpha (1)") }),
+        screen.getByRole("slider", { name: rowLabel(t("en-US", key), "Alpha (1)") }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: rowLabel(t("en-US", key), "Alpha (2)") }),
+        screen.getByRole("slider", { name: rowLabel(t("en-US", key), "Alpha (2)") }),
       ).toBeInTheDocument();
     }
   });

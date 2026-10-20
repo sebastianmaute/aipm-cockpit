@@ -10,8 +10,16 @@
 // that updates on every pointermove. Rendering uses these to offset
 // the bar in place (cheap — just a few style props), and we commit the
 // new dates to the parent on pointerup.
+//
+// Keyboard (§742; each handle is a slider): the milestone drag's keys and timing
+// (`use-gantt-milestone-drag.ts`). Arrows move the preview one day, Shift+arrow or
+// PageUp/PageDown one week; the edit commits ONCE, after a pause, on Enter or when
+// focus leaves, and Escape discards it. A resize stops at the bar's other end.
+// A pending keyboard edit lands before a pointer drag on the same bar starts, and
+// that drag starts from the dates the keys produced.
 import { useEffect, useRef, useState } from "react";
-import { addDays, DAY_WIDTH_PX, type GanttBarEdit } from "./gantt-engine";
+import { addDays, DAY_WIDTH_PX, diffDays, type GanttBarEdit } from "./gantt-engine";
+import { MILESTONE_KEY_COMMIT_DELAY_MS, milestoneKeyStep } from "./use-gantt-milestone-drag";
 import { type Task } from "./types";
 
 export type BarDragMode = "move" | "resize-start" | "resize-end";
@@ -41,7 +49,22 @@ export type GanttBarDrag = {
     bar: { start: Date; end: Date },
     mode: BarDragMode,
   ) => void;
+  /** §742 — a key press on one of a bar's three handles (sliders). */
+  onBarKeyDown: (
+    e: React.KeyboardEvent<HTMLElement>,
+    task: Task,
+    bar: { start: Date; end: Date },
+    mode: BarDragMode,
+  ) => void;
+  /** §742 — the handle lost focus: a pending keyboard edit on it commits. */
+  onBarBlur: (taskId: number, mode: BarDragMode) => void;
 };
+
+export interface GanttBarDragOptions {
+  /** As for the milestone drag (`GanttMilestoneDragOptions.isSwapInFlight`): a keyboard edit still pending when the
+   *  chart unmounts lands, unless an op replacing this project with another is in flight. */
+  isSwapInFlight?: () => boolean;
+}
 
 /** Apply the current drag in-memory to return what the bar's dates
  *  WOULD be if the user released right now. Centralised so the render
@@ -68,8 +91,25 @@ function toIso(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** §742 — the accumulated key days, held where a resize stops at the bar's other end, so a press back the other
+ *  way moves the edge at once instead of first unwinding presses that changed nothing. */
+export function clampKeyDays(drag: BarDrag, days: number): number {
+  const span = diffDays(drag.initialStart, drag.initialEnd);
+  if (drag.mode === "resize-start") return Math.min(days, span);
+  if (drag.mode === "resize-end") return Math.max(days, -span);
+  return days;
+}
+
+/** The edit a drag would commit, or null when the dates did not change. */
+function editFor(drag: BarDrag, days: number): GanttBarEdit | null {
+  const { start, end } = previewDates(drag, days);
+  if (start.getTime() === drag.initialStart.getTime() && end.getTime() === drag.initialEnd.getTime()) return null;
+  return { taskId: drag.taskId, startDate: toIso(start), dueDate: toIso(end) };
+}
+
 export function useGanttBarDrag(
   onUpdateBar?: (edit: GanttBarEdit) => void,
+  options: GanttBarDragOptions = {},
 ): GanttBarDrag {
   const [barDrag, setBarDrag] = useState<BarDrag | null>(null);
   const [barDragDeltaDays, setBarDragDeltaDays] = useState(0);
@@ -95,9 +135,57 @@ export function useGanttBarDrag(
   // installed at drag-start can read the latest version on commit, even
   // if the parent re-rendered while the drag was in progress.
   const onUpdateBarRef = useRef(onUpdateBar);
+  const isSwapInFlightRef = useRef(options.isSwapInFlight);
   useEffect(() => {
     onUpdateBarRef.current = onUpdateBar;
-  }, [onUpdateBar]);
+    isSwapInFlightRef.current = options.isSwapInFlight;
+  }, [onUpdateBar, options.isSwapInFlight]);
+
+  // §742 — the pending keyboard edit (which bar, which handle, the days so far) and its commit timer.
+  const pendingRef = useRef<{ drag: BarDrag; days: number } | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearTimer() {
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }
+
+  /** Commit the pending keyboard edit, if any. Cleared BEFORE the commit, so a blur it causes finds nothing. */
+  function flushKeys() {
+    const pending = pendingRef.current;
+    clearTimer();
+    if (!pending) return;
+    pendingRef.current = null;
+    setBarDrag(null);
+    setBarDragDeltaDays(0);
+    const edit = editFor(pending.drag, pending.days);
+    if (edit) onUpdateBarRef.current?.(edit);
+  }
+
+  function cancelKeys() {
+    clearTimer();
+    pendingRef.current = null;
+    setBarDrag(null);
+    setBarDragDeltaDays(0);
+  }
+
+  /** The dates a new edit on `taskId` starts from: a pending keyboard edit's preview on the same bar, which is not
+   *  rendered yet when it is flushed in the same handler, else the bar as drawn. */
+  function baseFor(taskId: number, bar: { start: Date; end: Date }): { start: Date; end: Date } {
+    const pending = pendingRef.current;
+    return pending && pending.drag.taskId === taskId ? previewDates(pending.drag, pending.days) : bar;
+  }
+
+  // Unmount: a pending keyboard edit lands unless a project swap is tearing the chart down. Under StrictMode's
+  // mount→unmount→mount nothing is pending yet, so this is inert.
+  useEffect(() => () => {
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
+    const pending = pendingRef.current;
+    pendingRef.current = null;
+    if (!pending || isSwapInFlightRef.current?.()) return;
+    const edit = editFor(pending.drag, pending.days);
+    if (edit) onUpdateBarRef.current?.(edit);
+  }, []);
 
   /**
    * Begin a bar drag-edit.
@@ -131,6 +219,9 @@ export function useGanttBarDrag(
     mode: BarDragMode,
   ) {
     if (!onUpdateBar) return;
+    // §742 — a pending keyboard edit lands first, and this drag starts from the dates it produced.
+    const base = baseFor(task.id, bar);
+    flushKeys();
     // Mark "we're driving the bar" SYNCHRONOUSLY so the row's onDragStart
     // can suppress native HTML5 row-reorder when the user moves the
     // cursor enough to trigger dragstart.
@@ -143,8 +234,8 @@ export function useGanttBarDrag(
       taskId: task.id,
       mode,
       startClientX: e.clientX,
-      initialStart: bar.start,
-      initialEnd: bar.end,
+      initialStart: base.start,
+      initialEnd: base.end,
       pointerId: e.pointerId,
       moved: false,
     };
@@ -206,5 +297,53 @@ export function useGanttBarDrag(
     window.addEventListener("pointercancel", onCancel);
   }
 
-  return { barDrag, barDragDeltaDays, interactingWithBarRef, previewDates, startBarDrag };
+  function onBarKeyDown(
+    e: React.KeyboardEvent<HTMLElement>,
+    task: Task,
+    bar: { start: Date; end: Date },
+    mode: BarDragMode,
+  ) {
+    // A pointer drag owns the preview until it ends; keys wait for it.
+    if (!onUpdateBar || interactingWithBarRef.current) return;
+    const pending = pendingRef.current;
+    if (e.key === "Escape" && pending) {
+      e.preventDefault();
+      cancelKeys();
+      return;
+    }
+    if (e.key === "Enter" && pending) {
+      e.preventDefault();
+      flushKeys();
+      return;
+    }
+    const step = milestoneKeyStep(e.key, e.shiftKey);
+    if (step === null || e.altKey || e.ctrlKey || e.metaKey) return;
+    // The chart scrolls: without this the key would scroll it too.
+    e.preventDefault();
+    let drag: BarDrag;
+    let days: number;
+    if (pending !== null && pending.drag.taskId === task.id && pending.drag.mode === mode) {
+      drag = pending.drag;
+      days = pending.days;
+    } else {
+      // Another handle's pending edit lands first; one on this same bar is where this edit starts.
+      const base = baseFor(task.id, bar);
+      flushKeys();
+      drag = { taskId: task.id, mode, startClientX: 0, initialStart: base.start, initialEnd: base.end, pointerId: -1, moved: true };
+      days = 0;
+    }
+    days = clampKeyDays(drag, days + step);
+    pendingRef.current = { drag, days };
+    setBarDrag(drag);
+    setBarDragDeltaDays(days);
+    clearTimer();
+    timerRef.current = setTimeout(flushKeys, MILESTONE_KEY_COMMIT_DELAY_MS);
+  }
+
+  function onBarBlur(taskId: number, mode: BarDragMode) {
+    const pending = pendingRef.current;
+    if (pending && pending.drag.taskId === taskId && pending.drag.mode === mode) flushKeys();
+  }
+
+  return { barDrag, barDragDeltaDays, interactingWithBarRef, previewDates, startBarDrag, onBarKeyDown, onBarBlur };
 }

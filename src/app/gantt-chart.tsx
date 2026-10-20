@@ -107,6 +107,8 @@ export function GanttChart({
   barDragDeltaDays,
   previewDates,
   startBarDrag,
+  onBarKeyDown,
+  onBarBlur,
   onUpdateBar,
   onEditTask,
   onEditMilestone,
@@ -165,6 +167,8 @@ export function GanttChart({
   barDragDeltaDays: number;
   previewDates: GanttBarDrag["previewDates"];
   startBarDrag: GanttBarDrag["startBarDrag"];
+  onBarKeyDown: GanttBarDrag["onBarKeyDown"];
+  onBarBlur: GanttBarDrag["onBarBlur"];
   onUpdateBar?: (edit: GanttBarEdit) => void;
   onEditTask?: (task: Task) => void;
   onEditMilestone?: (m: Milestone) => void;
@@ -243,6 +247,8 @@ export function GanttChart({
           barDragDeltaDays={barDragDeltaDays}
           previewDates={previewDates}
           startBarDrag={startBarDrag}
+          onBarKeyDown={onBarKeyDown}
+          onBarBlur={onBarBlur}
           onUpdateBar={onUpdateBar}
           onEditTask={onEditTask}
         />

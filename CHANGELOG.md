@@ -47,6 +47,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Gantt task bars can be moved and resized from the keyboard (§742).** Tab to a bar or one of its
+  edges and press the arrow keys: one day, with Shift (or Page Up / Page Down) one week. The change is saved when
+  you pause, press Enter or move on, and Escape cancels, as for a milestone. A screen reader announces the new
+  dates.
 - **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
   documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
   was typed. The search now matches library cards by name, a source other than All hides them (they belong to
