@@ -45730,8 +45730,6 @@ Size S.
 
 **Earlier (OPEN 2026-10-19):** Stakeholders → RACI Matrix → Suggest RACI: no scrollbar is visible on the dialog listing Claude's proposed assignments in the recording (Thursday's `suggest-raci` step). Likely a recording artifact, not an app defect: the recordings ran headless Chromium, which Playwright launched with `--hide-scrollbars`, so no recorded view showed a scrollbar. `raci-suggest-modal.tsx` caps the dialog at `max-h-[90vh]` with a `min-h-0 flex-1 overflow-y-auto` body. Whether the list scrolls in the app is unverified. `grep -n "overflow-y-auto" src/app/raci-suggest-modal.tsx` → the body that should scroll.
 
-**Work item:** #793
-
 Proposed: check in the app (a long proposal list, a short window) whether the list scrolls with the header and Apply/Cancel kept visible; if it does, close this as the recording artifact. Since the §715 recorder re-takes, `record.mjs` and `discover.mjs` launch Chromium without `--hide-scrollbars` (`grep -n "ignoreDefaultArgs" scripts/demo-video/record.mjs`), so the next recording of Thursday's `suggest-raci` step shows whether the list scrolls.
 
 Size XS (check) or S (fix).
