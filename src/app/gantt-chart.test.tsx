@@ -61,6 +61,8 @@ function renderChart(rows: GanttRow[], over: Partial<React.ComponentProps<typeof
       barDragDeltaDays={0}
       previewDates={() => ({ start: MIN, end: MIN })}
       startBarDrag={() => {}}
+      onBarKeyDown={() => {}}
+      onBarBlur={() => {}}
       onEditTask={() => {}}
       onEditMilestone={() => {}}
       {...over}

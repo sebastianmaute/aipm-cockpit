@@ -19,6 +19,7 @@ import {
 // (default OFF). These tests exercise the expanded config, so flip it on.
 const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
 import { t } from "../i18n";
+import { getSessionAiKey, setSessionAiKey } from "../session-ai-key";
 import { readDeviceSecret, isPassphraseLocked, loadSealed, saveSealed } from "../secrets-store";
 import * as secrets from "../secrets";
 import { type SealedSecret, sealDevice, sealPassphrase } from "../secrets";
@@ -64,6 +65,23 @@ afterEach(async () => {
 });
 
 describe("AiSection", () => {
+  // §717 — switching AI off forgets a key unlocked on this page too.
+  it("switching AI off forgets a key unlocked on this page", () => {
+    setSessionAiKey("sk-ant-unlocked");
+    const on: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true } };
+    render(<AiSection lang="en-US" settings={on} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    expect(getSessionAiKey()).toBe("");
+  });
+
+  // §717 — a passphrase key unlocked in the chat stops counting once the key is edited or removed here.
+  it("editing the key forgets a key unlocked on this page", () => {
+    setSessionAiKey("sk-ant-unlocked");
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder")), { target: { value: "sk-new" } });
+    expect(getSessionAiKey()).toBe("");
+  });
+
   it("typing an API key persists ai.apiKey", () => {
     const onChange = vi.fn();
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={onChange} />);
@@ -788,8 +806,10 @@ describe("AiSection — a key typed under the passphrase lock (§749)", () => {
     await waitFor(() => expect(isPassphraseLocked("anthropicApiKey")).toBe(true));
     fireEvent.change(keyField(), { target: { value: `${KEY}9` } }); // typed again, under the lock
     expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}9`)).toBe(true);
+    setSessionAiKey("sk-ant-unlocked"); // §717 — as if the chat had unlocked it on this page
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "secretPassphraseRemove") }));
     await waitFor(() => expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}9`)).toBe(false));
+    expect(getSessionAiKey()).toBe(""); // a removed key does not keep working from memory
   });
 
   // Settings keeps its section mounted under the wizard, which mounts a second one. A passphrase saved in
