@@ -56,6 +56,8 @@ export function GanttTaskRow({
   barDragDeltaDays,
   previewDates,
   startBarDrag,
+  onBarKeyDown,
+  onBarBlur,
   onUpdateBar,
   onEditTask,
 }: {
@@ -92,6 +94,8 @@ export function GanttTaskRow({
   barDragDeltaDays: number;
   previewDates: GanttBarDrag["previewDates"];
   startBarDrag: GanttBarDrag["startBarDrag"];
+  onBarKeyDown: GanttBarDrag["onBarKeyDown"];
+  onBarBlur: GanttBarDrag["onBarBlur"];
   onUpdateBar?: (edit: GanttBarEdit) => void;
   onEditTask?: (task: Task) => void;
 }) {
@@ -311,6 +315,11 @@ export function GanttTaskRow({
           // scheduled, so a stray drag would only ever be an
           // accident. Also blocked: any task lacking an edit callback.
           const editable = !!onUpdateBar && !isComplete;
+          // §742 — the sliders' value is a day offset from the chart's first day, like the milestone handle's.
+          const sliderMax = Math.round(timelineWidthPx / DAY_WIDTH_PX);
+          // A keyboard preview can run past the chart's edge before it commits and the range widens; aria-valuenow
+          // must stay inside [valuemin, valuemax]. The value text still speaks the exact date.
+          const clampDay = (day: number) => Math.min(sliderMax, Math.max(0, day));
 
           return (
             <div
@@ -387,30 +396,69 @@ export function GanttTaskRow({
                       names are the SAME string on every row, so N editable
                       tasks put 3N identically-named controls in one view. The
                       handles render no visible text, so 2.5.3 does not
-                      constrain the wording. */}
+                      constrain the wording.
+                      ★ §742 — each is a focusable SLIDER, its title (the
+                      accessible description) the same keys hint as the
+                      milestone handle's, like the milestone
+                      handle: arrows move the preview, the value text speaks the
+                      date(s) it would save, and the edit commits once (on a
+                      pause, Enter or blur; Escape cancels). Three tab stops per
+                      editable bar: each handle was already exposed as its own
+                      control, so each is made operable rather than hidden
+                      behind a chord on the move handle. */}
                   <div
-                    role="button"
+                    role="slider"
+                    tabIndex={0}
+                    data-gantt-bar-handle={task.id}
                     aria-label={rowLabel(t(lang, "ganttBarResizeStart"), rowToken)}
-                    className="absolute left-0 top-0 z-10 h-full w-1.5 cursor-ew-resize"
+                    title={t(lang, "ganttMilestoneMoveHint")}
+                    aria-orientation="horizontal"
+                    aria-valuemin={0}
+                    aria-valuemax={sliderMax}
+                    aria-valuenow={clampDay(diffDays(range.min, displayStart))}
+                    aria-valuetext={fmtFull(displayStart, lang)}
+                    className={`absolute left-0 top-0 z-10 h-full w-1.5 cursor-ew-resize ${FOCUS_RING}`}
                     onPointerDown={(e) =>
                       startBarDrag(e, task, bar, "resize-start")
                     }
+                    onKeyDown={(e) => onBarKeyDown(e, task, bar, "resize-start")}
+                    onBlur={() => onBarBlur(task.id, "resize-start")}
                   />
                   <div
-                    role="button"
+                    role="slider"
+                    tabIndex={0}
+                    data-gantt-bar-handle={task.id}
                     aria-label={rowLabel(t(lang, "ganttBarMove"), rowToken)}
-                    className="absolute inset-x-1.5 top-0 z-0 h-full cursor-grab active:cursor-grabbing"
+                    title={t(lang, "ganttMilestoneMoveHint")}
+                    aria-orientation="horizontal"
+                    aria-valuemin={0}
+                    aria-valuemax={sliderMax}
+                    aria-valuenow={clampDay(diffDays(range.min, displayStart))}
+                    aria-valuetext={`${fmtFull(displayStart, lang)} → ${fmtFull(displayEnd, lang)}`}
+                    className={`absolute inset-x-1.5 top-0 z-0 h-full cursor-grab active:cursor-grabbing ${FOCUS_RING}`}
                     onPointerDown={(e) =>
                       startBarDrag(e, task, bar, "move")
                     }
+                    onKeyDown={(e) => onBarKeyDown(e, task, bar, "move")}
+                    onBlur={() => onBarBlur(task.id, "move")}
                   />
                   <div
-                    role="button"
+                    role="slider"
+                    tabIndex={0}
+                    data-gantt-bar-handle={task.id}
                     aria-label={rowLabel(t(lang, "ganttBarResizeEnd"), rowToken)}
-                    className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-ew-resize"
+                    title={t(lang, "ganttMilestoneMoveHint")}
+                    aria-orientation="horizontal"
+                    aria-valuemin={0}
+                    aria-valuemax={sliderMax}
+                    aria-valuenow={clampDay(diffDays(range.min, displayEnd))}
+                    aria-valuetext={fmtFull(displayEnd, lang)}
+                    className={`absolute right-0 top-0 z-10 h-full w-1.5 cursor-ew-resize ${FOCUS_RING}`}
                     onPointerDown={(e) =>
                       startBarDrag(e, task, bar, "resize-end")
                     }
+                    onKeyDown={(e) => onBarKeyDown(e, task, bar, "resize-end")}
+                    onBlur={() => onBarBlur(task.id, "resize-end")}
                   />
                 </>
               )}
@@ -655,7 +703,7 @@ export function GanttMilestoneRow({
         )}
         {movable && onStartDrag && (
           // ★ Focusable on purpose — the keyboard path to the same move
-          // (§742 records that the task bars still lack one). A SLIDER, not a
+          // (the task bars' three handles follow it since §742). A SLIDER, not a
           // button: its value text is the date, so a screen reader announces
           // the new date after every arrow press (a button would say nothing,
           // and would promise an Enter/Space action it does not have). The
