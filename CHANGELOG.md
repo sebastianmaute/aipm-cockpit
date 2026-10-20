@@ -71,7 +71,8 @@ longer carries its own changelog comment.
   tool's format is asked for once more, held to that format. The chat was not affected.
 - **Claude's project proposal and project edits check the name and the counts (§760, §761).** A
   proposed project's name is now held to the same 200-character limit as an edited one. A stakeholder or identity
-  count written as "0x10", "1e3" or a blank is refused instead of being read as 16, 1000 or 0.
+  count written as "0x10", "1e3" or only spaces is refused instead of being read as 16, 1000 or 0; an empty one
+  still clears the field, and a count above ten million is refused.
 - **The app no longer reloads over a Claude API key that is not saved yet (§749).** A key typed under the passphrase
   lock is not stored until "Save passphrase" is chosen. Switching the portfolio and moving a project to Turso
   reload the app, as do picking a Turso project, creating one from a file portfolio, loading a file into a Turso

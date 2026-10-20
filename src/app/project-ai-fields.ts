@@ -131,6 +131,9 @@ function judgeEnum(raw: unknown, allowed: ReadonlySet<string>, label: string): F
   return verdictFor(raw, value, "Whitespace trimmed.");
 }
 
+/** §761 review — the largest identity or stakeholder count Claude may set. */
+export const COUNT_MAX = 10_000_000;
+
 function judgeCount(raw: unknown): FieldVerdict {
   if (raw === "") return accept("");
   if (typeof raw !== "number" && typeof raw !== "string") return refuse("Expected a whole number.");
@@ -138,6 +141,8 @@ function judgeCount(raw: unknown): FieldVerdict {
   if (typeof raw === "string" && !/^\d+$/.test(raw.trim())) return refuse("Expected a whole number of zero or more.");
   const n = toNumber(raw);
   if (!Number.isInteger(n) || n < 0) return refuse("Expected a whole number of zero or more.");
+  // §761 review — a count past this is a typo or an attack, not a project; above it a number also loses precision.
+  if (n > COUNT_MAX) return refuse(`Expected a whole number up to ${COUNT_MAX.toLocaleString("en-US")}.`);
   return accept(n); // a numeric string is read as its number without comment
 }
 
