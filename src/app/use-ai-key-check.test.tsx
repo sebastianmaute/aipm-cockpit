@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { AI_KEY_CHECK_DEBOUNCE_MS, AI_KEY_CHECK_TIMEOUT_MS, useAiKeyCheck, useAiKeyStatus } from "./use-ai-key-check";
 import { __resetAiKeyStatusForTests, getAiKeyStatus, reportAiKeyResponse } from "./ai-key-status";
 import { ANTHROPIC_MODELS_URL } from "./anthropic-models";
+import { clearSessionAiKey, setSessionAiKey } from "./session-ai-key";
 
 const KEY_A = "sk-ant-api03-StartupCheckKeyAAAAAAAA";
 const KEY_B = "sk-ant-api03-StartupCheckKeyBBBBBBBB";
@@ -38,6 +39,21 @@ afterEach(() => {
 });
 
 describe("useAiKeyCheck — §650 start-up and on-save key check", () => {
+  // §717 — a passphrase key reads "" in settings; once it is unlocked on this page, that key is checked.
+  it("checks a key unlocked on this page when the stored key reads blank", async () => {
+    const fetchMock = stubStatus(200);
+    setSessionAiKey(KEY_A);
+    try {
+      renderHook(() => useAiKeyCheck({ ai: { enabled: true, apiKey: "" }, hydrated: true, isPopout: false }));
+      await settle();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect((init.headers as Record<string, string>)["x-api-key"]).toBe(KEY_A);
+    } finally {
+      clearSessionAiKey();
+    }
+  });
+
   it("runs ONE GET /v1/models on load with AI enabled and a key, with the key only in the header", async () => {
     const fetchMock = stubStatus(200);
     const { rerender } = mount();

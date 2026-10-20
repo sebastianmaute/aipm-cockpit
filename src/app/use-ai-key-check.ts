@@ -6,6 +6,7 @@ import { getAiKeyStatus, subscribeAiKeyStatus, syncAiKey, type AiKeyStatus } fro
 import { fetchAnthropicModels } from "./anthropic-models";
 import { isValidAnthropicApiKey } from "./chat-models";
 import type { AiConfig } from "./settings-types";
+import { useSessionAiKey } from "./use-session-ai-key";
 
 /** Keystrokes in Settings → AI commit per character; the check runs only on the key that has
  *  stayed unchanged this long, so typing a key never fires a request per character. */
@@ -42,7 +43,9 @@ export interface UseAiKeyCheckArgs {
  *    the same key does not re-check, because the effect's deps do not change.
  */
 export function useAiKeyCheck({ ai, hydrated, isPopout }: UseAiKeyCheckArgs): void {
-  const key = (ai?.apiKey ?? "").trim();
+  // §717 — a passphrase key reads "" in settings; once it is unlocked on this page, that is the key checked.
+  const sessionKey = useSessionAiKey();
+  const key = (ai?.apiKey ?? "").trim() || sessionKey;
   const enabled = ai?.enabled === true;
 
   useEffect(() => {

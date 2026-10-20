@@ -6,6 +6,12 @@ import {
   summarizeBackendSetup,
 } from "./backend-setup-steps";
 import { defaultSettings, defaultM365Integrations } from "./settings-types";
+import { isPassphraseLocked } from "./secrets-store";
+
+vi.mock("./secrets-store", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./secrets-store")>()),
+  isPassphraseLocked: vi.fn(() => false),
+}));
 import { defaultTimelogConfig } from "./timelog-types";
 
 afterEach(() => {
@@ -134,6 +140,12 @@ describe("summarizeBackendSetup", () => {
     const items = summarizeBackendSetup(defaultSettings);
     const ai = items.find((i) => i.key === "ai");
     expect(ai?.configured).toBe(false);
+  });
+
+  // §717 — a key sealed behind a passphrase reads "" in settings but is set up all the same.
+  it("ai is configured when the key is sealed behind a passphrase", () => {
+    vi.mocked(isPassphraseLocked).mockReturnValueOnce(true);
+    expect(summarizeBackendSetup(defaultSettings).find((i) => i.key === "ai")?.configured).toBe(true);
   });
 
   it("ai is configured when apiKey is a non-empty trimmed string", () => {

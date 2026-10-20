@@ -54,6 +54,16 @@ longer carries its own changelog comment.
   documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
   was typed. The search now matches library cards by name, a source other than All hides them (they belong to
   none), and "No knowledge matches this filter" shows when nothing in either list matches.
+- **Hours shown as a time in a workbook import as hours (§716).** An hours cell formatted as `8:00` is stored
+  by Excel as a fraction of a day, so the forecast import read it as 0.33 hours. Such cells now read as hours (8),
+  in the forecast import and in workbooks attached to the chat. A cell formatted to show elapsed hours (`[h]:mm`)
+  reads its whole value; one formatted as a time of day (`h:mm`) reads what it shows, so 40 hours shown as 16:00
+  read 16. Dates are read as before.
+- **A Claude key unlocked with its passphrase works everywhere, not only in the chat (§717).** The forecast
+  import's "Ask Claude", Suggest RACI, the digest, insights and the other AI features showed as unavailable,
+  because the unlocked key stayed in the chat. Once you unlock it, every AI feature uses it until you reload the
+  page. The key is kept in memory only and never saved unlocked, and editing or removing it in Settings,
+  or switching AI off, forgets it. The setup checklist now counts a passphrase-protected key as set up.
 - **Claude's one-shot features work on Sonnet 5.5, Opus 5.5 and Fable 5.1.** Those models refuse a request
   that forces a tool, which every one-shot feature sends: the project proposal, the digest, Deduplicate & unify,
   Plan with AI, Suggest RACI, recommendations, reports and the rest all failed on them. The app now asks such a
