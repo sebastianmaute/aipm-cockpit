@@ -10,6 +10,7 @@ import {
 } from "./ai-project-proposal";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { PROJECT_AI_FIELDS } from "./project-ai-fields";
+import { BUDGET_NAME_MAX } from "./sanitize-entities";
 import { REGULATORY_REQUIREMENTS } from "./project-options";
 import { remapSeed } from "./template-apply";
 import { emptyWorkspace } from "./workspace";
@@ -19,6 +20,14 @@ describe("parseProposal", () => {
     expect(parseProposal(null)).toBeNull();
     expect(parseProposal({ meta: {}, features: [] })).toBeNull();
     expect(parseProposal({ meta: { name: "   " }, features: [] })).toBeNull();
+    expect(parseProposal({ meta: { name: 42 }, features: [] })).toBeNull();
+  });
+
+  // §760 — the name is judged like update_project's: over the cap it is shortened, not passed through whole.
+  it("shortens an over-long name to the cap, as update_project does", () => {
+    const p = parseProposal({ meta: { name: `  ${"x".repeat(10_000)}  ` }, features: [] });
+    expect(p).not.toBeNull();
+    expect(p!.meta.name).toBe("x".repeat(BUDGET_NAME_MAX));
   });
 
   it("keeps a valid proposal and drops unknown feature ids", () => {

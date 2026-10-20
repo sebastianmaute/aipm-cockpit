@@ -3,7 +3,8 @@
 // Builds `bannersEl`, the banner stack the classic, popout and modern trees
 // render above the workspace: the reminder banners, the storage error, the AI
 // key verdict, the three unload-journal banners and the three saving-paused
-// causes (incomplete load, load or conflict pause, refused destructive save).
+// causes (incomplete load, load or conflict pause, refused destructive save),
+// and the no-project notice for a Turso portfolio (§753).
 // Extracted from task-manager (move-only, §491); it calls no hook, so it is a
 // plain `build*` function, not a `use*` hook (extraction convention 1), and
 // returns a fresh fragment each render, as the inline JSX was.
@@ -17,6 +18,7 @@ import type { Settings } from "./settings-types";
 import type { StorageErrorKind } from "./storage-error";
 import { isAiKeyStatusBad, type AiKeyStatus } from "./ai-key-status";
 import { AiKeyBanner, StorageBanner, SavingPausedBanner, UnloadJournalConflictBanner, OtherJournalsBanner, ExpiredJournalsBanner } from "./notifications";
+import { NoTursoProjectBanner } from "./no-turso-project-banner";
 import type { useStorageBackend } from "./use-storage-backend";
 
 type StorageBackend = ReturnType<typeof useStorageBackend>;
@@ -28,7 +30,7 @@ export type AppBannersBlockDeps = Pick<
   | "unloadJournalConflict" | "restoreUnloadJournalAnyway" | "discardUnloadJournal" | "otherJournals" | "restoreKeptJournal"
   | "loadWasIncomplete" | "truncation" | "decodeFailureCount" | "malformedQuoteCount" | "allowIncompleteSave"
   | "loadPause" | "resolveConflictReload" | "reloadCurrentProject" | "canOverwriteConflict" | "resolveConflictOverwrite" | "downloadConflictVersion"
-  | "destructiveRefusal" | "allowDestructiveSaveAnyway"
+  | "destructiveRefusal" | "allowDestructiveSaveAnyway" | "tursoPortfolioWithoutProject"
 > & {
   lang: Lang;
   isPopout: boolean;
@@ -56,6 +58,8 @@ export function buildAppBanners(d: AppBannersBlockDeps): ReactNode {
   return (
     <>
       {d.reminderBannersEl}
+      {/* §753 — sticky, no Dismiss: every save is skipped until a project is chosen (§751), and an edit made meanwhile is lost. */}
+      {!isPopout && d.tursoPortfolioWithoutProject && <NoTursoProjectBanner lang={lang} />}
       {!isPopout && d.shownStorageError && d.shownStorageSource && !d.storageDismissed[d.shownStorageSource] && (
         <StorageBanner kind={d.shownStorageError.kind} lang={lang} onOpenSettings={d.onOpenSettings} onDismiss={() => d.setStorageDismissed({ backend: true, list: true })} />
       )}
