@@ -134,6 +134,8 @@ function judgeEnum(raw: unknown, allowed: ReadonlySet<string>, label: string): F
 function judgeCount(raw: unknown): FieldVerdict {
   if (raw === "") return accept("");
   if (typeof raw !== "number" && typeof raw !== "string") return refuse("Expected a whole number.");
+  // §761 — a string counts only as plain digits: `Number()` alone reads " " as 0, "0x10" as 16 and "1e3" as 1000.
+  if (typeof raw === "string" && !/^\d+$/.test(raw.trim())) return refuse("Expected a whole number of zero or more.");
   const n = toNumber(raw);
   if (!Number.isInteger(n) || n < 0) return refuse("Expected a whole number of zero or more.");
   return accept(n); // a numeric string is read as its number without comment
