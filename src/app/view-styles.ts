@@ -20,13 +20,15 @@ export const INNER_TABLE_CLASS =
 export const VIEW_PANE_RESIZABLE_CLASS =
   VIEW_PANE_FILL_CLASS + " resize min-h-[300px] min-w-[480px]";
 
-/** Centered, half-viewport pane card that is ALSO user-resizable: horizontally
- *  centered (mx-auto), top-anchored, half width/height with min bounds, drag the
- *  corner for a custom size. Used by Chat. */
-export const CENTERED_HALF_PANE_CLASS =
-  "relative mx-auto flex h-[50%] max-h-full min-h-[360px] w-[50%] min-w-[420px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 resize";
+/** Centered, user-resizable pane card for the Influence / Interest map (§756): on a large screen (2xl, 1536px
+ *  and up) half the view's width and height with `p-6`, as the map always was; below that the WHOLE view with
+ *  `p-4`. Half of a 1280×720 window left a 488×360 pane and four 184×83 quadrants, which cut the second name
+ *  card off (measured 2026-10-20); the full view gives them about twice the width and well over twice the
+ *  height. Drag the corner for a custom size, as before. */
+export const CENTERED_MAP_PANE_CLASS =
+  "relative mx-auto flex h-full max-h-full min-h-[360px] w-full min-w-[420px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-4 resize 2xl:h-[50%] 2xl:w-[50%] 2xl:p-6";
 
-/** `CENTERED_HALF_PANE_CLASS` with the width taken from the available space
+/** A centered, half-height pane with the width taken from the available space
  *  instead of half of it: full width up to a readable cap of 64rem. Used by
  *  Projects, whose card row carries a name, code, badge and actions that were
  *  wrapping inside a half-width column while the rest of the page sat empty.
