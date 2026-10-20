@@ -504,8 +504,8 @@ export function GanttPanel({
   // layer reads barDrag/barDragDeltaDays to draw the preview bar, calls
   // startBarDrag on a bar's pointerdown, and checks interactingWithBarRef
   // in the row's onDragStart to suppress native HTML5 row-reorder.
-  const { barDrag, barDragDeltaDays, interactingWithBarRef, previewDates, startBarDrag } =
-    useGanttBarDrag(onUpdateBar);
+  const { barDrag, barDragDeltaDays, interactingWithBarRef, previewDates, startBarDrag, onBarKeyDown, onBarBlur } =
+    useGanttBarDrag(onUpdateBar, { isSwapInFlight });
   // Milestone drag (§715 project D): a pointer drag commits on release; arrow
   // presses move the preview and commit once, on a pause, Enter or blur.
   const { milestoneDrag, startMilestoneDrag, onMilestoneKeyDown, onMilestoneBlur } =
@@ -809,6 +809,8 @@ export function GanttPanel({
         barDragDeltaDays={barDragDeltaDays}
         previewDates={previewDates}
         startBarDrag={startBarDrag}
+        onBarKeyDown={onBarKeyDown}
+        onBarBlur={onBarBlur}
         onUpdateBar={onUpdateBar}
         onEditTask={onEditTask}
         onEditMilestone={onEditMilestone}

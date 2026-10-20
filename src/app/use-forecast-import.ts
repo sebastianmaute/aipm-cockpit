@@ -31,7 +31,9 @@
 // of the mapping IN EFFECT (`questionsFor`), Claude's or the user's edit of it.
 //
 // SECURITY: the api key is read from the in-memory hydrated settings and goes
-// straight to the call; it is never logged.
+// straight to the call; it is never logged. ★ §717 — those settings arrive as
+// `deps.ai`, the app's live copy, never through a `useSettings()` of its own: a key
+// sealed behind a passphrase is hydrated only in the instance that unlocked it.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyForecastImport, buildForecastImportPlan, normalisePerson, type ImportPlan, type PersonOverride, type UnresolvedPerson } from "./budget-import/forecast-plan";
@@ -47,10 +49,9 @@ import { aiKeyMessageKeyForError } from "./ai-key-status";
 import { useActionGuideText } from "./action-guides-context";
 import { checkAttachmentSize, MAX_ATTACHMENT_BYTES } from "./chat-attachments";
 import type { TranslationKey } from "./i18n";
-import { aiKeyIfEnabled, isAiEnabled } from "./settings-types";
+import { aiKeyIfEnabled, isAiEnabled, type AiConfig } from "./settings-types";
 import type { BudgetBucket, Resource, ResourcePlan, Role } from "./types";
 import type { BucketCommitMeta } from "./use-budget-buckets";
-import { useSettings } from "./use-settings";
 
 export type ForecastImportStep = "source" | "mapping" | "preview";
 /** Where the mapping in effect came from: detection or the user (`hand`), or
@@ -69,6 +70,8 @@ export interface ForecastImportDeps {
   plan: ResourcePlan;
   holidaySet: ReadonlySet<string>;
   onChangeBuckets: (next: BudgetBucket[], meta?: BucketCommitMeta) => void;
+  /** §717 — the app's live AI settings (`workspace-section`'s `settings.ai`), so a key unlocked anywhere reaches "Ask Claude". */
+  ai: AiConfig;
 }
 
 export interface ForecastImport {
@@ -289,11 +292,11 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const { buckets, resources, roles, plan, holidaySet, onChangeBuckets } = deps;
   const bucketId = deps.bucket.id;
   const startYear = bucketStartYear(deps.bucket);
-  const { settings } = useSettings();
+  const { ai } = deps;
   const guideText = useActionGuideText("forecastImport");
-  const apiKey = aiKeyIfEnabled(settings.ai);
-  const model = settings.ai.model;
-  const aiAvailable = isAiEnabled(settings.ai) && apiKey !== "";
+  const apiKey = aiKeyIfEnabled(ai);
+  const model = ai.model;
+  const aiAvailable = isAiEnabled(ai) && apiKey !== "";
 
   const [step, setStep] = useState<ForecastImportStep>("source");
   const [sheets, setSheets] = useState<readonly SheetGrid[]>([]);

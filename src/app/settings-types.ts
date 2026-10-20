@@ -4,6 +4,7 @@ import type { AddableReportId } from "./addable-reports";
 import type { StakeholderQuadrant } from "./stakeholders";
 import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
+import { getSessionAiKey } from "./session-ai-key";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
 import { BRANDING_EXPORT_FOOTER_MAX } from "./export-footer";
 export { DEFAULT_EXPORT_FOOTER, BRANDING_EXPORT_FOOTER_MAX, exportFooterEnv, exportFooterText } from "./export-footer";
@@ -182,7 +183,14 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
  *  Master switch defaults OFF (undefined → false). The single source of truth
  *  for "may AI run" — gate every AI activation through this (or aiKeyIfEnabled). */
 export function isAiEnabled(ai: AiConfig | undefined): boolean {
-  return ai?.enabled === true && !!ai?.apiKey?.trim();
+  return ai?.enabled === true && liveAiKey(ai) !== "";
+}
+
+/** §717 — the key an AI call uses: the stored one, else one the user unlocked with its passphrase on this page
+ *  (`session-ai-key.ts`; a passphrase-sealed key reads "" in settings). Ignores the master switch: gate with
+ *  `isAiEnabled`, or read `aiKeyIfEnabled`, which applies it. */
+export function liveAiKey(ai: { apiKey?: string } | undefined): string {
+  return ai?.apiKey?.trim() || getSessionAiKey();
 }
 
 /** Gate for the top-bar/header AI-assistant button: returns `open` only when
@@ -201,7 +209,7 @@ export function aiAssistantOpener(
 /** The trimmed API key, but only when the AI master switch is on; "" otherwise.
  *  Feeding "" downstream makes every key-presence gate treat AI as unconfigured. */
 export function aiKeyIfEnabled(ai: AiConfig | undefined): string {
-  return ai?.enabled === true ? (ai?.apiKey?.trim() ?? "") : "";
+  return ai?.enabled === true ? liveAiKey(ai) : "";
 }
 
 export type ChannelConfig = { enabled: boolean; leadDays?: number };

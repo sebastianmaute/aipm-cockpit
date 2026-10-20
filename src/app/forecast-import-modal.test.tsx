@@ -12,15 +12,14 @@ import { expectRowUniqueNames } from "../test/row-unique-names";
 import { ForecastImportModal, type ForecastImportModalProps } from "./forecast-import-modal";
 import { buildZip } from "./zip";
 
-vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
-import { useSettings } from "./use-settings";
-const mockUseSettings = useSettings as unknown as ReturnType<typeof vi.fn>;
+// §717 — the import takes the live AI settings as `deps.ai`; `stubSettings` sets what the next deps carry.
+let stubbedAi = defaultSettings.ai;
 
 const AI_ON: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-test", model: "claude-x" } };
 const AI_OFF: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: false, apiKey: "" } };
 
 function stubSettings(settings: Settings): void {
-  mockUseSettings.mockReturnValue({ settings, setSettings: vi.fn(), hydrated: true, i18nReady: true, lang: "en-US" });
+  stubbedAi = settings.ai;
 }
 
 const L = "en-US" as const;
@@ -46,6 +45,7 @@ function propsOf(over: Partial<ForecastImportModalProps> = {}): ForecastImportMo
     plan: PLAN,
     holidaySet: new Set<string>(),
     onChangeBuckets: vi.fn(),
+    ai: stubbedAi,
     ...over,
   };
 }

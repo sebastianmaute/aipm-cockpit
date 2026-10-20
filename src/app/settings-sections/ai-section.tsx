@@ -31,6 +31,7 @@ import { useConfirm } from "../confirm-dialog";
 import { useToastContext } from "../toast-context";
 import { useChatModels } from "../use-chat-models";
 import { isValidAnthropicApiKey } from "../chat-models";
+import { clearSessionAiKey } from "../session-ai-key";
 
 interface AiSectionProps {
   lang: Lang;
@@ -131,6 +132,9 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   }
 
   function handleApiKeyChange(value: string) {
+    // §717 — a key unlocked with its passphrase on this page stops counting the moment the key is edited or
+    // emptied here: a replaced or removed key must not keep working from memory.
+    clearSessionAiKey();
     onChange({ ...settings, ai: { ...settings.ai, apiKey: value } });
     if (value.trim() === "") {
       // §565 blank-first rule (as jira/timelog/turso): an emptied key REMOVES the seal and the
@@ -145,7 +149,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       //   field is emptied. Deliberate — the stored flag and Remove button stay truthful, and
       //   "Remove stored secret" is the way out.
       if (!isPassphraseLocked("anthropicApiKey")) {
-        removeSealed("anthropicApiKey");
+        removeSealed("anthropicApiKey"); clearSessionAiKey(); // §717 — a removed key must not keep working
         setKeyStored(false);
       }
       markUnsealedPassphraseSecret("anthropicApiKey", null);
@@ -175,7 +179,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       // §749 review — the change handler's rule: a locked key is never hydrated, so this field shows "" for it,
       //   and a stray character then a blur must not destroy a passphrase record the user never saw.
       if (!isPassphraseLocked("anthropicApiKey")) {
-        removeSealed("anthropicApiKey");
+        removeSealed("anthropicApiKey"); clearSessionAiKey(); // §717 — a removed key must not keep working
         setKeyStored(false);
       }
     }
@@ -211,7 +215,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         // Nothing in memory to keep: nothing is held either.
         markUnsealedPassphraseSecret("anthropicApiKey", null);
         if (isPassphraseLocked("anthropicApiKey")) {
-          removeSealed("anthropicApiKey");
+          removeSealed("anthropicApiKey"); clearSessionAiKey(); // §717 — a removed key must not keep working
           setKeyStored(false);
         }
       }
@@ -250,7 +254,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   // in-memory value, returning to the default device wrap.
   async function handleRemoveSecret() {
     if (!(await confirm({ message: t(lang, "secretPassphraseRemoveConfirm") }))) return;
-    removeSealed("anthropicApiKey");
+    removeSealed("anthropicApiKey"); clearSessionAiKey(); // §717 — a removed key must not keep working
     markUnsealedPassphraseSecret("anthropicApiKey", null);
     onChange({ ...settings, ai: { ...settings.ai, apiKey: "" } });
     setKeyStored(false);
@@ -280,6 +284,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           checked={settings.ai.enabled === true}
           onChange={(e) => {
             if (e.target.checked) notifyEnable();
+            else clearSessionAiKey(); // §717 — switching AI off also forgets a key unlocked on this page
             onChange({ ...settings, ai: { ...settings.ai, enabled: e.target.checked } });
           }}
         />
