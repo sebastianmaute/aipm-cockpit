@@ -168,8 +168,8 @@ the `track` argument of `restore` (and of its redo thunk); `compositeUndoRunner`
 to the runner it returns. Each entry point takes the entry off its stack AT ONCE, but logs the act, shows
 "Undone"/"Redone" and pushes the inverse only once the write is stored.
 - **While a write is out, every entry point does nothing** (`writeOut`), so a second press cannot run a lower entry
-  or the same one. ★ It says nothing either: the write settles in well under the 15 s Turso pipeline timeout, so
-  the press is simply lost.
+  or the same one. ★ It says nothing either: the press is simply lost while the write is out (not measured; a
+  Turso write is bounded by its pipeline timeout).
 - **A failed write** shows nothing more (the writer has shown its error). The runner's `rollback` first redoes, or
   re-undoes, the fragments that applied synchronously, because an applied plan collapses a project edit and array
   edits into ONE composite (`collapseCaptures`), and a retry without the rollback restored each array row twice.
@@ -179,7 +179,8 @@ to the runner it returns. Each entry point takes the entry off its stack AT ONCE
   inverse, and a failed redo entry is dropped.
 - **The through-paths** report only the entries that were stored, and wait for the whole batch, the synchronous
   entries in it included. A failed batch rolls back last-applied first. A throw while reporting is logged
-  (`undo.asyncFinishFailed`), never swallowed, and a composite tracking more than one write logs
+  (`undo.asyncFinishFailed`) and the entry is DROPPED, on purpose: one put back after a half-run rollback would
+  bring the duplicate rows back on a retry. A composite tracking more than one write logs
   `undo.multipleTrackedFragments`.
 
 A runner with no tracked write keeps its identity and commits in the same tick, as every array fragment does. Today
