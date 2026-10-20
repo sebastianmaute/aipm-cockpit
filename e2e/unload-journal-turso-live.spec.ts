@@ -200,10 +200,11 @@ async function expectJournalConsumed(page: Page): Promise<void> {
   // Belt and braces: a conflict keeps the journal, so the poll above fails first.
   await expect(page.getByRole("region", { name: CONFLICT_NOTICE })).toHaveCount(0);
   const restored = await page.evaluate(() => (window as unknown as { __e2eRestoredToast?: boolean }).__e2eRestoredToast === true);
-  test.info().annotations.push({
-    type: "restore branch",
-    description: restored ? "restore toast seen: restored from the journal" : "no restore toast seen (likely cleared as already landed)",
-  });
+  const description = restored ? "restore toast seen: restored from the journal" : "no restore toast seen (likely cleared as already landed)";
+  test.info().annotations.push({ type: "restore branch", description });
+  // §629 — echoed to stdout too: the report is not uploaded on success, so without this line the run log never
+  // recorded which branch ran (`gh run view <id> --log | grep "restore branch"` found nothing).
+  console.log(`§629 restore branch (${test.info().title}): ${description}`);
 }
 
 test.describe("§629 — a draft unloaded on a live Turso project reaches the database", () => {
