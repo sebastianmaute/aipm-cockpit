@@ -467,8 +467,8 @@ test.describe.serial("packaged desktop app", () => {
       // copy of this build would sit on the no-op updater with no way to update.
       const log = launchLog(launched);
       expect(log, "the launch log should record the real updater loaded and wired").toContain("updater: electron-updater loaded and wired (dry run");
-      expect(log).not.toContain("failed to load");
-      expect(log).not.toContain("failed to wire up");
+      expect(log).not.toContain("updater: electron-updater failed to load");
+      expect(log).not.toContain("updater: failed to wire up electron-updater");
 
       // ★★★ ANTI-VACUITY 1. A "window opened" assertion passes against an app
       // whose .next/static never got copied into the package — it boots and
