@@ -40,7 +40,7 @@ export const firstProjectLands = step('first-project-lands', {
     const id = await page.evaluate(() => localStorage.getItem('aipm-cockpit:turso-current-project'));
     if (!id) throw new Error('no current project after Create project');
     noteCreatedProject(id);
-    await caption(ctx, 'The new project, with the starter milestones and tasks its template brings.');
+    await caption(ctx, 'The new project: created, connected, and ready to fill.');
     await pace(ctx, 3500);
     await caption(ctx, 'To see a project in full swing, open the demo.');
     await pace(ctx, 1500);

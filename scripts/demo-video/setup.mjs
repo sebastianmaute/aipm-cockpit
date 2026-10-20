@@ -114,6 +114,9 @@ export async function exploreDemo(ctx) {
     await click(ctx, page.getByRole('button', { name: 'Explore a demo project', exact: true }), 'Explore a demo project', 3000);
   }
   await skipTour(ctx, 60000);
+  // Opened from Projects (the first-run chapter), the demo stays there; the device-state seed needs the
+  // Dashboard, which records the landing state.
+  await nav(ctx, 'Dashboard');
   // §740: the banner once appeared here; it is an app bug if it ever does again.
   if (await page.getByText('changed in another tab').count()) throw new Error('"changed in another tab" banner after Explore the demo');
 }
