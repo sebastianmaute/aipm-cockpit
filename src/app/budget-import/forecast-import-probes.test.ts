@@ -348,6 +348,12 @@ describe("probe: stacked year blocks on the hand route (round 3)", () => {
     expect(run.out.rowsAboveHeader).toBe(0);
   });
 
+  // The rule's stated cost, pinned so it stays a decision: hours that happen to run 1, 2, 3 read as a label run.
+  it("does not report a person row above the header whose hours are consecutive whole numbers", () => {
+    const run = readSheet([["Ann Lee", "1", "2", "3"], ["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Bob Kay", "4", "4", "4"]]);
+    expect(run.out.rowsAboveHeader).toBe(0);
+  });
+
   it("still counts a long block's data row above a long header", () => {
     const run = readSheet([["Name", "Monat", "Stunden"], ["Ann Lee", "Jan 2026", "8"], [], ["Name", "Monat", "Stunden"], ["Ann Lee", "Feb 2026", "4"]]);
     expect(run.out.rows.map((r) => r.period)).toEqual(["2026-02"]);
