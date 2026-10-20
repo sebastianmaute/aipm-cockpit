@@ -47,10 +47,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **Focus outlines are no longer cut off (§757).** The green outline around a focused button was
-  clipped where the button sat at the edge of a scrolling area, such as "Draft with AI" in a steering-committee
-  status report and the Reports toolbar. Those areas now leave room for it, and the sidebar's menu items show a
-  green outline inside the item when you reach them with the keyboard.
+- **A new linked task's assignee is picked from the directory (§758).** "+ New linked task" in the task
+  editor offered a plain text field, so the new task got a name with no link to the person and no email. It now
+  offers the same people picker as the task editor, and a picked person is linked to the new task with their email.
 - **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
   documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
   was typed. The search now matches library cards by name, a source other than All hides them (they belong to
@@ -60,6 +59,9 @@ longer carries its own changelog comment.
   Plan with AI, Suggest RACI, recommendations, reports and the rest all failed on them. The app now asks such a
   model once more without forcing the tool, and asks it that way from then on; a reply that does not fit the
   tool's format is asked for once more, held to that format. The chat was not affected.
+- **Claude's project proposal and project edits check the name and the counts (§760, §761).** A
+  proposed project's name is now held to the same 200-character limit as an edited one. A stakeholder or identity
+  count written as "0x10", "1e3" or a blank is refused instead of being read as 16, 1000 or 0.
 - **The app no longer reloads over a Claude API key that is not saved yet (§749).** A key typed under the passphrase
   lock is not stored until "Save passphrase" is chosen. Switching the portfolio and moving a project to Turso
   reload the app, as do picking a Turso project, creating one from a file portfolio, loading a file into a Turso
@@ -92,6 +94,10 @@ longer carries its own changelog comment.
   suggestions sent as text, counted as unreadable, so the Action Center said "Couldn't analyze right now" and a
   scheduled job failed with `parse`. Both are now read. The reply may also be twice as long before it is cut off,
   and a reply that is still cut off is asked for once more with twice the room, never shown in part.
+- **A Turso portfolio with no project chosen says that nothing is saved (§753).** In that state the app
+  saves nothing, so an edit was lost when a project was picked or the tab closed, and nothing on screen said so. A
+  notice now stays above the workspace until a project is chosen or created, and the sidebar shows saving as
+  paused.
 - **Nothing is saved to Turso before a project is chosen (§751).** With the portfolio on Turso and no project
   open yet, an edit was saved in the single-project layout, which clears every workspace table first. It is no
   longer saved; this was also where the empty "unsaved draft" came from.
@@ -102,6 +108,10 @@ longer carries its own changelog comment.
   already stored stays listed until you discard it.
 - **Run and fetch times read as times (§715).** A scheduled job's "Last run" and Timelog's "Last fetched" showed the
   stored UTC value ("2026-09-21T07:05:12.345Z"); they now show the date and time in the display timezone.
+- **Focus outlines are no longer cut off (§757).** The green outline around a focused button was
+  clipped where the button sat at the edge of a scrolling area, such as "Draft with AI" in a steering-committee
+  status report and the Reports toolbar. Those areas now leave room for it, and the sidebar's menu items show a
+  green outline inside the item when you reach them with the keyboard.
 - **One of a thing is singular (§715).** In twelve places a count read "1 buckets", "1 days", "1 tasks",
   "1 contacts" or "1 writes" when there was one: the Budget header, the forecast run-out, the export menu, the
   new-project import notice, earned-value coverage, the Outlook contact import, the AI assistant's proposed
