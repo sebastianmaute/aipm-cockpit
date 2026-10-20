@@ -246,6 +246,32 @@ export interface CapturePart<T extends { id: number }> {
  */
 export type Runner = () => Runner;
 
+/** §759 — a write a fragment started and the stack must wait for: it resolves true once stored, false once the
+ *  write failed and its writer has said so. A fragment that writes synchronously never tracks one. */
+export type TrackWrite = (written: Promise<boolean>) => void;
+
+/** §759 — the runner `compositeUndoRunner` returns when a fragment tracked a write. `settled` is the AND of those
+ *  writes; the stack says "Undone"/"Redone", logs the act and moves the entry only once it is true. */
+type SettlingRunner = Runner & { settled?: Promise<boolean> };
+
+const settledOf = (run: Runner): Promise<boolean> | undefined => (run as SettlingRunner).settled;
+
+/** §759 — `next` as is when no write was tracked (every synchronous entry keeps its runner's identity), else a
+ *  wrapper carrying the writes' AND. */
+function withSettled(next: Runner, writes: readonly Promise<boolean>[]): Runner {
+  if (writes.length === 0) return next;
+  const run: SettlingRunner = () => next();
+  run.settled = Promise.all(writes).then((results) => results.every(Boolean));
+  return run;
+}
+
+/** §759 — the through-paths' writes, one result per inverse (`true` for one that tracked none); null when no
+ *  inverse tracked a write, so a synchronous batch commits in the same tick as before. */
+function settleAll(runs: readonly Runner[]): Promise<boolean[]> | null {
+  if (runs.every((r) => settledOf(r) === undefined)) return null;
+  return Promise.all(runs.map((r) => settledOf(r) ?? Promise.resolve(true)));
+}
+
 /**
  * Build a REUSABLE undo↔redo runner for ONE array. The stable `before`-images
  * drive undo (restore); the redo re-applies FORWARD images captured at undo time
@@ -330,11 +356,14 @@ export interface CompositeFragment {
    *  fragment knows whether its own forward images remove rows. A
    *  `captureFieldPart` fragment declares no parameters at all and so can never
    *  arm, which is correct: it merges a field patch and removes nothing. */
+  /** §759 — `track` (and the redo thunk's own `track`) is how a fragment whose write is ASYNC reports it, so the
+   *  stack says "Undone" only after it is stored. Every array fragment writes synchronously and ignores it. */
   restore: (
     primaryRemap: { current: ReadonlyMap<number, number> },
     isPrimary: boolean,
     arm?: () => void,
-  ) => () => void;
+    track?: TrackWrite,
+  ) => (track?: TrackWrite) => void;
 }
 
 /** Drive ONE `captureFieldPart` fragment as a standalone undo↔redo runner. The
@@ -401,8 +430,10 @@ function compositeUndoRunner(
     // Fresh box each undo so a re-undo (after redo) re-derives the remap from
     // live state rather than a stale one.
     const primaryRemap = { current: EMPTY_REMAP };
-    const redos: (() => void)[] = new Array(fragments.length);
-    const runPrimary = () => { redos[primaryIdx] = fragments[primaryIdx].restore(primaryRemap, true, arm); };
+    const redos: ((track?: TrackWrite) => void)[] = new Array(fragments.length);
+    const writes: Promise<boolean>[] = [];
+    const track: TrackWrite = (written) => { writes.push(written); };
+    const runPrimary = () => { redos[primaryIdx] = fragments[primaryIdx].restore(primaryRemap, true, arm, track); };
     // ★★ Flush the PRIMARY synchronously so its published remap is populated
     // BEFORE the cascade updaters run — `undo()` fires from an event handler, so
     // under React-18 auto-batching the separate setters would otherwise flush in
@@ -410,12 +441,13 @@ function compositeUndoRunner(
     // still-empty box. Only when there ARE cascades: a lone fragment needs no
     // cross-fragment sync, so flushSync would just force a needless extra commit.
     if (fragments.length > 1) flushSync(runPrimary); else runPrimary();
-    fragments.forEach((f, i) => { if (i !== primaryIdx) redos[i] = f.restore(primaryRemap, false, arm); });
+    fragments.forEach((f, i) => { if (i !== primaryIdx) redos[i] = f.restore(primaryRemap, false, arm, track); });
     const runRedo: Runner = () => {
-      for (const redo of redos) redo();
-      return runUndo;
+      const redoWrites: Promise<boolean>[] = [];
+      for (const redo of redos) redo((written) => { redoWrites.push(written); });
+      return withSettled(runUndo, redoWrites);
     };
-    return runRedo;
+    return withSettled(runRedo, writes);
   };
   return runUndo;
 }
@@ -806,12 +838,9 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     return { live, dropped: live.length !== s.length };
   }, []);
 
-  // Run an entry's undo + side effects OUTSIDE any setState updater (strict mode
-  // double-invokes updaters → double restore). `entry.run()` applies the undo
-  // and returns the redo runner. `pushRedo` is false for an out-of-order undo of
-  // a non-top entry, whose redo can't stay coherent → clear the redo stack.
-  const commitUndo = useCallback((entry: StackEntry, nextStack: readonly StackEntry[], pushRedo: boolean) => {
-    const redoRun = entry.run();
+  // §759 — the half of an undo that SAYS it happened: the log row, the toast and the redo entry. It runs once the
+  // entry's writes are stored — at once for every synchronous entry, after the write for an async one.
+  const finishUndo = useCallback((entry: StackEntry, redoRun: Runner, pushRedo: boolean) => {
     const { lang, logActivity, showToast } = depsRef.current;
     // ★★ Everything after the count is `(kind, count)` pairs naming what this
     //    reverses, and the completion trend needs them (§166): a `task.deleted`
@@ -824,13 +853,26 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     //    paragraph on that exact conflation.
     logActivity("undo", entry.meta.count, ...reversedKindCounts([entry.meta]));
     showToast("info", t(lang, "undoneX", entry.meta.label));
-    setStack(nextStack);
     if (pushRedo) {
       setRedoStack((rs) => pushUndo(rs, { meta: entry.meta, run: redoRun, epoch: entry.epoch }, UNDO_CAP));
     } else {
       setRedoStack([]);
     }
   }, []);
+
+  // Run an entry's undo + side effects OUTSIDE any setState updater (strict mode
+  // double-invokes updaters → double restore). `entry.run()` applies the undo
+  // and returns the redo runner. `pushRedo` is false for an out-of-order undo of
+  // a non-top entry, whose redo can't stay coherent → clear the redo stack.
+  const commitUndo = useCallback((entry: StackEntry, nextStack: readonly StackEntry[], pushRedo: boolean) => {
+    const redoRun = entry.run();
+    // §759 — the entry leaves the stack NOW, so a second Undo cannot run it again while its write is in flight.
+    setStack(nextStack);
+    const settled = settledOf(redoRun);
+    if (settled === undefined) { finishUndo(entry, redoRun, pushRedo); return; }
+    // A failed write puts the entry back on top, where the next Undo retries it; its writer showed the error.
+    void settled.then((ok) => { if (ok) finishUndo(entry, redoRun, pushRedo); else setStack((s) => pushUndo(s, entry, UNDO_CAP)); });
+  }, [finishUndo]);
 
   const undoById = useCallback((id: number) => {
     if (depsRef.current.isReadOnly?.()) return;
@@ -863,18 +905,28 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const { live, dropped } = liveEntries(stackRef.current, "undo");
     const taken = takeThrough(live, id);
     if (!taken) { if (dropped) setStack(live); return; }
-    const inverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run(), epoch: e.epoch }));
-    const summed = taken.entries.reduce((n, e) => n + e.meta.count, 0);
-    const { lang, logActivity, showToast } = depsRef.current;
-    logActivity("undo", summed, ...reversedKindCounts(taken.entries.map((e) => e.meta)));
-    // ★ A through-undo of ONE entry is the same user-visible act as a plain
-    //   undo(), so it says the same thing — "Undone: Edit task X", not the
-    //   count-shaped "Undid 1 action(s)". Both keys already exist.
-    showToast("info", inverses.length === 1
-      ? t(lang, "undoneX", inverses[0].meta.label)
-      : tPlural(lang, "undoneNActions", inverses.length, inverses.length));
-    setStack(taken.rest);
-    setRedoStack((rs) => pushUndoMany(rs, inverses, UNDO_CAP));
+    const allInverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run(), epoch: e.epoch }));
+    setStack(taken.rest); // §759 — off the stack now; a failed write puts its entry back below
+    const report = (stored: readonly boolean[]) => {
+      // §759 — an entry whose write failed goes back on the stack in its old order (`entries` is top first).
+      const failed = taken.entries.filter((_, i) => !stored[i]);
+      if (failed.length > 0) setStack((s) => pushUndoMany(s, [...failed].reverse(), UNDO_CAP));
+      const done = taken.entries.filter((_, i) => stored[i]);
+      const inverses = allInverses.filter((_, i) => stored[i]);
+      if (done.length === 0) return;
+      const summed = done.reduce((n, e) => n + e.meta.count, 0);
+      const { lang, logActivity, showToast } = depsRef.current;
+      logActivity("undo", summed, ...reversedKindCounts(done.map((e) => e.meta)));
+      // ★ A through-undo of ONE entry is the same user-visible act as a plain
+      //   undo(), so it says the same thing — "Undone: Edit task X", not the
+      //   count-shaped "Undid 1 action(s)". Both keys already exist.
+      showToast("info", inverses.length === 1
+        ? t(lang, "undoneX", inverses[0].meta.label)
+        : tPlural(lang, "undoneNActions", inverses.length, inverses.length));
+      setRedoStack((rs) => pushUndoMany(rs, inverses, UNDO_CAP));
+    };
+    const settling = settleAll(allInverses.map((i) => i.run));
+    if (settling === null) report(allInverses.map(() => true)); else void settling.then(report);
   }, [liveEntries]);
 
   // Mirror of undoThrough against the redo stack. Deliberately NOT folded in
@@ -885,16 +937,25 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const { live, dropped } = liveEntries(redoStackRef.current, "redo");
     const taken = takeThrough(live, id);
     if (!taken) { if (dropped) setRedoStack(live); return; }
-    const inverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run(), epoch: e.epoch }));
-    const summed = taken.entries.reduce((n, e) => n + e.meta.count, 0);
-    const { lang, logActivity, showToast } = depsRef.current;
-    logActivity("redo", summed, ...reversedKindCounts(taken.entries.map((e) => e.meta)));
-    // Mirror of undoThrough's single-entry fallback above.
-    showToast("info", inverses.length === 1
-      ? t(lang, "redoneX", inverses[0].meta.label)
-      : tPlural(lang, "redoneNActions", inverses.length, inverses.length));
-    setRedoStack(taken.rest);
-    setStack((s) => pushUndoMany(s, inverses, UNDO_CAP));
+    const allInverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run(), epoch: e.epoch }));
+    setRedoStack(taken.rest); // §759 — mirror of undoThrough
+    const report = (stored: readonly boolean[]) => {
+      const failed = taken.entries.filter((_, i) => !stored[i]);
+      if (failed.length > 0) setRedoStack((rs) => pushUndoMany(rs, [...failed].reverse(), UNDO_CAP));
+      const done = taken.entries.filter((_, i) => stored[i]);
+      const inverses = allInverses.filter((_, i) => stored[i]);
+      if (done.length === 0) return;
+      const summed = done.reduce((n, e) => n + e.meta.count, 0);
+      const { lang, logActivity, showToast } = depsRef.current;
+      logActivity("redo", summed, ...reversedKindCounts(done.map((e) => e.meta)));
+      // Mirror of undoThrough's single-entry fallback above.
+      showToast("info", inverses.length === 1
+        ? t(lang, "redoneX", inverses[0].meta.label)
+        : tPlural(lang, "redoneNActions", inverses.length, inverses.length));
+      setStack((s) => pushUndoMany(s, inverses, UNDO_CAP));
+    };
+    const settling = settleAll(allInverses.map((i) => i.run));
+    if (settling === null) report(allInverses.map(() => true)); else void settling.then(report);
   }, [liveEntries]);
 
   // Redo the last undone op: apply its forward runner (which returns a fresh undo
@@ -906,12 +967,18 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     if (dropped && live[live.length - 1] !== all[all.length - 1]) { setRedoStack(live); return; }
     const popped = popUndo(live);
     if (!popped) return;
-    const undoRun = popped.entry.run();
-    const { lang, logActivity, showToast } = depsRef.current;
-    logActivity("redo", popped.entry.meta.count, ...reversedKindCounts([popped.entry.meta]));
-    showToast("info", t(lang, "redoneX", popped.entry.meta.label));
-    setRedoStack(popped.rest);
-    setStack((s) => pushUndo(s, { meta: popped.entry.meta, run: undoRun, epoch: popped.entry.epoch }, UNDO_CAP));
+    const { entry } = popped;
+    const undoRun = entry.run();
+    setRedoStack(popped.rest); // §759 — mirror of commitUndo
+    const finish = () => {
+      const { lang, logActivity, showToast } = depsRef.current;
+      logActivity("redo", entry.meta.count, ...reversedKindCounts([entry.meta]));
+      showToast("info", t(lang, "redoneX", entry.meta.label));
+      setStack((s) => pushUndo(s, { meta: entry.meta, run: undoRun, epoch: entry.epoch }, UNDO_CAP));
+    };
+    const settled = settledOf(undoRun);
+    if (settled === undefined) { finish(); return; }
+    void settled.then((ok) => { if (ok) finish(); else setRedoStack((rs) => pushUndo(rs, entry, UNDO_CAP)); });
   }, [liveEntries]);
 
   // §628 — see `usePruneUndoOnScopeChange`. Stable identity (`[]`). Returns the

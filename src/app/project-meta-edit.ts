@@ -69,7 +69,9 @@ export async function saveProjectFromForm(args: {
  *  would drop that edit (Claude adds GDPR, the form adds NIS2, undo must keep NIS2). With no race the result is
  *  exactly the target value; a scalar the form changed since is still set to the target (the helper's last rule).
  *  ★ A failure is reported, never swallowed: a writer that resolves false has already shown its own error toast,
- *  and this adds the diagnostic; one that throws (outside its contract) is logged and shown through `onThrow`. */
+ *  and this adds the diagnostic; one that throws (outside its contract) is logged and shown through `onThrow`.
+ *  ★ §759 — each write is TRACKED, so the stack says "Undone"/"Redone" only once it is stored; a failed one leaves
+ *  the entry where it was, and the error above is the only message. */
 export function projectUndoFragment(args: {
   getWriter: () => ProjectWriter | null;
   getLive: () => ProjectMeta | null;
@@ -79,7 +81,7 @@ export function projectUndoFragment(args: {
   onThrow: (err: unknown) => void;
 }): CompositeFragment {
   const { getWriter, getLive, before, next, fields, onThrow } = args;
-  const apply = (target: ProjectMeta, other: ProjectMeta, direction: "undo" | "redo") => {
+  const apply = (target: ProjectMeta, other: ProjectMeta, direction: "undo" | "redo"): Promise<boolean> => {
     const live = getLive() ?? target;
     const meta: ProjectMeta = { ...live };
     for (const f of fields) (meta as Record<string, unknown>)[f] = mergeFieldValue(target[f], other[f], live[f]);
@@ -87,17 +89,23 @@ export function projectUndoFragment(args: {
       const message = err === undefined ? "not stored" : err instanceof Error ? err.message : String(err);
       logDiag("error", "undo.projectRestoreFailed", { direction, message });
       if (err !== undefined) onThrow(err);
+      return false;
     };
     const write = getWriter();
-    if (write === null) { fail(new Error("no project writer")); return; }
-    write(meta).then((ok) => { if (!ok) fail(); }, (err: unknown) => fail(err));
+    if (write === null) return Promise.resolve(fail(new Error("no project writer")));
+    return write(meta).then((ok) => ok || fail(), (err: unknown) => fail(err));
   };
   return {
     isPrimary: false,
     followsPrimary: false, // a single record, no id a re-mint could move
-    restore: () => {
-      apply(before, next, "undo");
-      return () => apply(next, before, "redo");
+    // ★ The write runs FIRST, then is handed over: `track?.(apply(…))` would skip the write itself with no tracker.
+    restore: (_remap, _isPrimary, _arm, track) => {
+      const undone = apply(before, next, "undo");
+      track?.(undone);
+      return (trackRedo) => {
+        const redone = apply(next, before, "redo");
+        trackRedo?.(redone);
+      };
     },
   };
 }
