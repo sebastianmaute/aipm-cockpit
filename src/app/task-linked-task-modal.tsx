@@ -7,14 +7,20 @@ import { Input, Select } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { MODAL_HELP } from "./help-content";
+import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
 import { rowLabel } from "./row-tokens";
-import { PRIORITIES, type Priority } from "./types";
+import { ASSIGNEE_MAX } from "./sanitize-core";
+import type { Contact } from "./contacts";
+import { PRIORITIES, type Priority, type Resource } from "./types";
 
 export type LinkDirection = "predecessor" | "successor";
 
 export interface LinkedTaskDraft {
   taskName: string;
   assignee: string;
+  /** §758 — from the directory pick, as the task editor's assignee carries them; "" and null for typed text. */
+  assigneeEmail: string;
+  resourceId: number | null;
   dueDate: string;
   priority: Priority;
   direction: LinkDirection;
@@ -27,6 +33,11 @@ export interface TaskLinkedTaskModalProps {
    *  parent (task-manager) mints the id, creates the task, and wires the link. */
   onCreate: (draft: LinkedTaskDraft) => void;
   onClose: () => void;
+  /** §758 — the directory the assignee is picked from, as in the task editor. */
+  resources: readonly Resource[];
+  contacts: Contact[];
+  /** Omitted (a popout), the picker offers no "+ Add as resource" row. */
+  onCreateResource?: (name: string, email: string) => number;
 }
 
 /**
@@ -35,9 +46,9 @@ export interface TaskLinkedTaskModalProps {
  * stays mounted). Collects a minimal child-task draft + a predecessor/successor
  * direction; the parent owns creation + link wiring. One level only (v1).
  */
-export function TaskLinkedTaskModal({ lang, today, onCreate, onClose }: TaskLinkedTaskModalProps) {
+export function TaskLinkedTaskModal({ lang, today, onCreate, onClose, resources, contacts, onCreateResource }: TaskLinkedTaskModalProps) {
   const [taskName, setTaskName] = useState("");
-  const [assignee, setAssignee] = useState("");
+  const [assignee, setAssignee] = useState<ResourcePickerValue>({ name: "", email: "", resourceId: null });
   const [dueDate, setDueDate] = useState(today);
   const [priority, setPriority] = useState<Priority>("Medium");
   const [direction, setDirection] = useState<LinkDirection>("predecessor");
@@ -48,7 +59,15 @@ export function TaskLinkedTaskModal({ lang, today, onCreate, onClose }: TaskLink
 
   const handleSubmit = () => {
     if (!canSave) return;
-    onCreate({ taskName: taskName.trim(), assignee: assignee.trim(), dueDate, priority, direction });
+    onCreate({
+      taskName: taskName.trim(),
+      assignee: assignee.name.trim(),
+      assigneeEmail: assignee.email,
+      resourceId: assignee.resourceId ?? null,
+      dueDate,
+      priority,
+      direction,
+    });
   };
 
   return (
@@ -87,17 +106,21 @@ export function TaskLinkedTaskModal({ lang, today, onCreate, onClose }: TaskLink
               className="w-full"
             />
           </label>
-          <label className={labelClass}>
-            {t(lang, "assignee")}
-            <Input
-              type="text"
-              size="xs"
-              aria-label={t(lang, "assignee")}
+          {/* §758 — the task editor's picker, so a person from the directory carries their resource link and email. */}
+          <div className={labelClass}>
+            <span aria-hidden="true">{t(lang, "assignee")}</span>
+            <ResourcePicker
+              lang={lang}
               value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
-              className="w-full"
+              resources={resources}
+              contacts={contacts}
+              onChange={setAssignee}
+              onCreateResource={onCreateResource}
+              placeholder={t(lang, "assignee")}
+              maxLength={ASSIGNEE_MAX}
+              aria-label={t(lang, "assignee")}
             />
-          </label>
+          </div>
           <div className="flex gap-3">
             <label className={`flex-1 ${labelClass}`}>
               {t(lang, "dueDate")}
