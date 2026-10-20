@@ -130,8 +130,8 @@
   `liveAiKey` (`settings-types.ts`) falls back to it, so every AI feature runs with it. A NEW AI feature gets its key
   from `aiKeyIfEnabled` (and gates on `isAiEnabled`), never from `settings.ai.apiKey`, or it reads "" behind a
   passphrase. ★ The call modules take the key they are handed: a fallback there bypasses the master switch. The
-  store is never persisted, a reload drops it, and Settings clears it on an edit and on every removal of the
-  sealed key (`clearSessionAiKey`).
+  store is never persisted, a reload drops it, and Settings clears it on an edit, on every removal of the
+  sealed key and when AI is switched off (`clearSessionAiKey`).
   ★ A passphrase-wrapped key reads `""` in settings, so `chat-panel.tsx` calls `syncAiKey` with the key
   it UNLOCKS — any other surface that unlocks the key must do the same, or its reports are dropped as stale.
 - **★★ Forced `tool_choice` is refused by some models.** Sonnet 5.5, Opus 5.5 and Fable 5.1 answer

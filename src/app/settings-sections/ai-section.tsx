@@ -284,6 +284,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           checked={settings.ai.enabled === true}
           onChange={(e) => {
             if (e.target.checked) notifyEnable();
+            else clearSessionAiKey(); // §717 — switching AI off also forgets a key unlocked on this page
             onChange({ ...settings, ai: { ...settings.ai, enabled: e.target.checked } });
           }}
         />

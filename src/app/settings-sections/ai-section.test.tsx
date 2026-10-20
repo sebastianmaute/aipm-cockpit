@@ -65,6 +65,15 @@ afterEach(async () => {
 });
 
 describe("AiSection", () => {
+  // §717 — switching AI off forgets a key unlocked on this page too.
+  it("switching AI off forgets a key unlocked on this page", () => {
+    setSessionAiKey("sk-ant-unlocked");
+    const on: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true } };
+    render(<AiSection lang="en-US" settings={on} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    expect(getSessionAiKey()).toBe("");
+  });
+
   // §717 — a passphrase key unlocked in the chat stops counting once the key is edited or removed here.
   it("editing the key forgets a key unlocked on this page", () => {
     setSessionAiKey("sk-ant-unlocked");

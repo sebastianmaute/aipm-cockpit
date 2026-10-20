@@ -5,6 +5,7 @@
 import type { TranslationKey } from "./i18n";
 import type { Settings } from "./settings-types";
 import { getTursoConfig } from "./turso-config";
+import { isPassphraseLocked } from "./secrets-store";
 
 // Storage-kind → i18n label key (mirrors STORAGE_OPTIONS in storage-config.tsx
 // without importing that React surface into this pure engine).
@@ -85,7 +86,8 @@ export function summarizeBackendSetup(settings: Settings): SetupSummaryItem[] {
     {
       key: "ai",
       labelKey: "setupWizardStepAi",
-      configured: !!settings.ai?.apiKey?.trim(),
+      // §717 — a key sealed behind a passphrase reads "" in settings but is set up all the same.
+      configured: !!settings.ai?.apiKey?.trim() || isPassphraseLocked("anthropicApiKey"),
     },
     {
       key: "jira",

@@ -62,8 +62,8 @@ longer carries its own changelog comment.
 - **A Claude key unlocked with its passphrase works everywhere, not only in the chat (§717).** The forecast
   import's "Ask Claude", Suggest RACI, the digest, insights and the other AI features showed as unavailable,
   because the unlocked key stayed in the chat. Once you unlock it, every AI feature uses it until you reload the
-  page. The key is kept in memory only and never saved unlocked, and editing or removing it in Settings
-  forgets it.
+  page. The key is kept in memory only and never saved unlocked, and editing or removing it in Settings,
+  or switching AI off, forgets it. The setup checklist now counts a passphrase-protected key as set up.
 - **Claude's one-shot features work on Sonnet 5.5, Opus 5.5 and Fable 5.1.** Those models refuse a request
   that forces a tool, which every one-shot feature sends: the project proposal, the digest, Deduplicate & unify,
   Plan with AI, Suggest RACI, recommendations, reports and the rest all failed on them. The app now asks such a
