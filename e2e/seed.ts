@@ -401,10 +401,17 @@ export async function gotoApp(page: Page, time: Date = FROZEN_NOW): Promise<void
   await page.goto("/");
   await expect(page.locator("main").first()).toBeVisible();
   await page.waitForFunction(
-    ({ name, sel }) =>
-      [...document.querySelectorAll(sel)].some(
-        (e) => (e.getAttribute("aria-label") || e.textContent || "").trim().replace(/\s+/g, " ") === name,
-      ),
+    ({ name, sel }) => {
+      // The text a reader sees as the name: without aria-hidden parts such as a count badge (§696).
+      const visibleText = (e: Element) => {
+        const copy = e.cloneNode(true) as Element;
+        copy.querySelectorAll('[aria-hidden="true"]').forEach((h) => h.remove());
+        return copy.textContent || "";
+      };
+      return [...document.querySelectorAll(sel)].some(
+        (e) => (e.getAttribute("aria-label") || visibleText(e)).trim().replace(/\s+/g, " ") === name,
+      );
+    },
     { name: "Dashboard", sel: NAV_SELECTOR },
     { timeout: 90_000 },
   );
@@ -413,17 +420,30 @@ export async function gotoApp(page: Page, time: Date = FROZEN_NOW): Promise<void
 export async function openView(page: Page, name: string): Promise<void> {
   // The shell is already up (see gotoApp); a short poll covers per-view lazy bits.
   await page.waitForFunction(
-    ({ name, sel }) =>
-      [...document.querySelectorAll(sel)].some(
-        (e) => (e.getAttribute("aria-label") || e.textContent || "").trim().replace(/\s+/g, " ") === name,
-      ),
+    ({ name, sel }) => {
+      // The text a reader sees as the name: without aria-hidden parts such as a count badge (§696).
+      const visibleText = (e: Element) => {
+        const copy = e.cloneNode(true) as Element;
+        copy.querySelectorAll('[aria-hidden="true"]').forEach((h) => h.remove());
+        return copy.textContent || "";
+      };
+      return [...document.querySelectorAll(sel)].some(
+        (e) => (e.getAttribute("aria-label") || visibleText(e)).trim().replace(/\s+/g, " ") === name,
+      );
+    },
     { name, sel: NAV_SELECTOR },
     { timeout: 20_000 },
   );
   await page.evaluate(
     ({ name, sel }) => {
+      // The text a reader sees as the name: without aria-hidden parts such as a count badge (§696).
+      const visibleText = (e: Element) => {
+        const copy = e.cloneNode(true) as Element;
+        copy.querySelectorAll('[aria-hidden="true"]').forEach((h) => h.remove());
+        return copy.textContent || "";
+      };
       const el = [...document.querySelectorAll(sel)].find(
-        (e) => (e.getAttribute("aria-label") || e.textContent || "").trim().replace(/\s+/g, " ") === name,
+        (e) => (e.getAttribute("aria-label") || visibleText(e)).trim().replace(/\s+/g, " ") === name,
       );
       (el as HTMLElement | undefined)?.click();
     },
