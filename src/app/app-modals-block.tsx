@@ -250,6 +250,9 @@ export function buildAppModalsBlock(deps: AppModalsBlockDeps) {
           today={today}
           onCreate={handleCreateLinkedTask}
           onClose={() => setLinkedTaskOpen(false)}
+          resources={resources}
+          contacts={contactsList}
+          onCreateResource={isPopout ? undefined : handleCreateResource}
         />
       )}
       {!isPopout && <NotesWindow {...notesWindowProps} />}

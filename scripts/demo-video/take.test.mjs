@@ -49,6 +49,12 @@ describe('runTake (§715)', () => {
     ]);
   });
 
+  it('a first-run take asks the setup for the first-run walk-through', async () => {
+    const h = harness();
+    await runTake(def({ prologueOnCamera: true, firstRun: true, prologue: [h.s('wizard')], steps: [h.s('a')] }), h.deps);
+    expect(h.calls.slice(0, 5)).toEqual(['screencast.start', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true,firstRun=true)', 'run(wizard)']);
+  });
+
   it('the prologue is on camera for ch2-connect and big', async () => {
     const h = harness();
     await runTake(def({ prologueOnCamera: true, prologue: [h.s('wizard')], steps: [h.s('a')] }), h.deps);
