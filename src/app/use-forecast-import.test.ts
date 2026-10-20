@@ -332,6 +332,83 @@ describe("useForecastImport — moving between steps", () => {
   });
 });
 
+describe("useForecastImport — the target bucket (§719)", () => {
+  const CLOSED: BudgetBucket = { ...BUCKET, id: 3, name: "Done", status: "closed" };
+  const LAST_YEAR: BudgetBucket = { ...BUCKET, id: 4, name: "Pilot", startDate: "2025-01-01", endDate: "2025-03-31" };
+
+  it("targets the bucket the import was opened for, and offers every open bucket but no closed one", () => {
+    const { result } = renderHook(() => useForecastImport(depsOf({ buckets: [BUCKET, OTHER, CLOSED] })));
+    expect(result.current.targetBucketId).toBe(BUCKET.id);
+    expect(result.current.targetBuckets.map((b) => b.id)).toEqual([BUCKET.id, OTHER.id]);
+  });
+
+  it("keeps the target in the list when it closes while the import is open", () => {
+    const deps = depsOf({ buckets: [BUCKET, OTHER] });
+    const hook = renderHook((d: ForecastImportDeps) => useForecastImport(d), { initialProps: deps });
+    hook.rerender({ ...deps, buckets: [{ ...BUCKET, status: "closed" }, OTHER] });
+    expect(hook.result.current.targetBuckets.map((b) => b.id)).toEqual([BUCKET.id, OTHER.id]);
+  });
+
+  it("choosing another bucket clears an error", async () => {
+    const { result } = renderHook(() => useForecastImport(depsOf()));
+    await act(async () => {
+      await result.current.loadFile(csvFile(WIDE_CSV, "old.xls"));
+    });
+    expect(result.current.error).not.toBeNull();
+    act(() => result.current.selectBucket(OTHER.id));
+    expect(result.current.error).toBeNull();
+  });
+
+  it("ignores a bucket that is closed or not in the list", () => {
+    const { result } = renderHook(() => useForecastImport(depsOf({ buckets: [BUCKET, OTHER, CLOSED] })));
+    act(() => result.current.selectBucket(CLOSED.id));
+    expect(result.current.targetBucketId).toBe(BUCKET.id);
+    act(() => result.current.selectBucket(99));
+    expect(result.current.targetBucketId).toBe(BUCKET.id);
+  });
+
+  it("applies into the chosen bucket and leaves the one it was opened for as it was", async () => {
+    const deps = depsOf();
+    const { result } = await loaded(deps);
+    act(() => result.current.selectBucket(OTHER.id));
+    expect(result.current.importPlan?.changes).toHaveLength(3);
+    expect(applyOutcome(result)).toBe("applied");
+    const [next, meta] = (deps.onChangeBuckets as ReturnType<typeof vi.fn>).mock.calls[0] as [BudgetBucket[], unknown];
+    expect(meta).toEqual({ kind: "budget.updated", name: "Run" });
+    expect(next[0]).toBe(BUCKET);
+    expect(next[1].allocations).toEqual([
+      { roleId: ROLE.id, resourceIds: [ANN.id], budgetHours: { "2026-01": 10, "2026-02": 20, "2026-03": 30 }, actualHours: {} },
+    ]);
+  });
+
+  it("a bucket chosen before the file sets the year that year-less headers are read in", async () => {
+    const plan2025: ResourcePlan = { ...PLAN, startDate: "2025-01-01" };
+    const { result } = renderHook(() => useForecastImport(depsOf({ buckets: [BUCKET, LAST_YEAR], plan: plan2025 })));
+    act(() => result.current.selectBucket(LAST_YEAR.id));
+    await act(async () => {
+      await result.current.loadFile(csvFile("Name,Jan,Feb,Mär\r\nAnn Lee,10,20,30\r\n"));
+    });
+    expect(result.current.mapping?.year).toBe(2025);
+    expect(result.current.importPlan?.changes.map((c) => c.period)).toEqual(["2025-01", "2025-02", "2025-03"]);
+  });
+
+  it("a bucket chosen after the file keeps the mapping's year, re-plans, and clears the per-person choices", async () => {
+    const { result } = await loaded(depsOf({ buckets: [BUCKET, LAST_YEAR] }), "Name,Jan,Feb,Mär\r\nAnn Lee,10,20,30\r\nRobert Ray,5,5,5\r\n");
+    act(() => result.current.setOverride("Robert Ray", BOB.id));
+    // Ann and Bob share the one role line: three role × month cells.
+    expect(result.current.importPlan?.changes).toHaveLength(3);
+    act(() => result.current.selectBucket(LAST_YEAR.id));
+    expect(result.current.mapping?.year).toBe(2026);
+    expect(result.current.overrides.size).toBe(0);
+    // Ann's 2026 periods fall outside the 2025 bucket: the preview is the chosen bucket's.
+    expect(result.current.importPlan?.changes).toEqual([]);
+    expect(result.current.importPlan?.outOfRange).toHaveLength(3);
+    // Detect columns reads year-less headers in the year the mapping step shows, still 2026.
+    act(() => result.current.detectColumns());
+    expect(result.current.mapping?.year).toBe(2026);
+  });
+});
+
 describe("useForecastImport — apply", () => {
   // §500 fix wave 2 (CR minor 11): one apply is ONE undo step, and undoing it
   // restores the bucket — driven through the real commitBuckets, whose

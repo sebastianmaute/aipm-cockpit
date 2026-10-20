@@ -956,7 +956,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§716](#716-an-xlsx-hours-cell-formatted-as-a-duration-imports-as-a-fraction-of-a-day--closed-2026-10-20) | An xlsx hours cell formatted as a duration imports as a fraction of a day | — | — | **CLOSED** 2026-10-20 |
 | [§717](#717-forecast-import-shows-ask-claude-disabled-when-the-anthropic-key-was-unlocked-in-another-settings-instance--closed-2026-10-20) | Forecast import shows "Ask Claude" disabled when the Anthropic key was unlocked in another settings instance | — | — | **CLOSED** 2026-10-20 |
 | [§718](#718-no-e2e-or-axe-run-opens-the-forecast-import-modal--closed-2026-10-20) | No e2e or axe run opens the forecast import modal | — | — | **CLOSED** 2026-10-20 |
-| [§719](#719-forecast-import-has-no-target-bucket-picker--open) | Forecast import has no target-bucket picker | — | — | open |
+| [§719](#719-forecast-import-has-no-target-bucket-picker--closed-2026-10-20) | Forecast import has no target-bucket picker | — | — | **CLOSED** 2026-10-20 |
 | [§720](#720-forecast-import-drops-e-notation-numbers-and-merges-namesakes-with-different-emails--closed-2026-10-20) | Forecast import drops E-notation numbers and merges namesakes with different emails | — | — | **CLOSED** 2026-10-20 |
 | [§721](#721-forecast-import-misreads-some-number-and-date-cells--closed-2026-10-20) | Forecast import misreads some number and date cells | — | — | **CLOSED** 2026-10-20 |
 | [§722](#722-forecast-import-picks-the-wrong-period-or-asks-on-several-sheet-shapes--closed-2026-10-20) | Forecast import picks the wrong period, or asks, on several sheet shapes | — | — | **CLOSED** 2026-10-20 |
@@ -45170,11 +45170,9 @@ The Budget view is in `A11Y_VIEWS`, but the axe scan never opens the forecast im
 
 **Source:** §500's "Known residue, accepted" list, item (1), filed 2026-10-14 on the owner's word.
 
-## 719. Forecast import has no target-bucket picker — OPEN
+## 719. Forecast import has no target-bucket picker — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-14, filed from §500's residue (7); never machine-verified.
-
-**Work item:** #711
+**Status:** CLOSED 2026-10-20 on `feat/719-forecast-import-bucket-picker`, owner approval 2026-10-20. The Source step's "Target bucket" select (`forecast-import-modal.tsx`) starts on the bucket whose card opened the import and lists every bucket that is not closed (`targetBuckets` in `use-forecast-import.ts`), plus the target itself if it closes meanwhile. `selectBucket` retargets the plan and `apply()`, clears the per-person overrides, and moves the default year to the new bucket's start only while no file is read; once a sheet is read, the year stays the mapping step's own field. The choice can be changed on any step, and the preview is worked out again at once, a deviation from the approved description (first step only) that the owner was told of. A target removed while the import is open keeps a disabled "(removed)" option of its own, so choosing any live bucket is a change that recovers, and the bucket-gone notice now points at the picker (review round). Verified with `npx vitest run src/app/use-forecast-import.test.ts src/app/forecast-import-modal.test.tsx` (175 tests, green). Nine mutants each turned a test red: no switch, closed buckets offered, a closed bucket selectable, a target that closes meanwhile dropped from the list, overrides kept, the error not cleared, the year never following, the year always following, and the "(removed)" option gone. Not pinned by a test: that the select is disabled while a read is busy. **Earlier:** OPEN 2026-10-14, filed from §500's residue (7); never machine-verified.
 
 The §500 spec's source step has a target-bucket picker, preselected to the bucket whose card opened it. `ForecastImportModal` instead imports into that bucket only (`forecastImportTarget` names it), with no way to change it short of closing and reopening the import from another card.
 
