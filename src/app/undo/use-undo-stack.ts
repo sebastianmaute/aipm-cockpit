@@ -458,6 +458,9 @@ function compositeUndoRunner(
     // cross-fragment sync, so flushSync would just force a needless extra commit.
     if (fragments.length > 1) flushSync(runPrimary); else runPrimary();
     fragments.forEach((f, i) => { if (i !== primaryIdx) redos[i] = f.restore(primaryRemap, false, arm, trackFor(i)); });
+    // §759 — the rollback below skips a tracked fragment whose own write SUCCEEDED, which is safe only while one
+    // composite tracks one write; say so the day a second async fragment joins one.
+    if (tracked.size > 1) logDiag("warn", "undo.multipleTrackedFragments", { count: tracked.size });
     const runRedo: Runner = () => {
       const redoWrites: Promise<boolean>[] = [];
       const redoTracked = new Set<number>();
@@ -868,7 +871,11 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     void settled.then((value) => {
       pendingRef.current -= 1;
       if (isScopeStale(read, scope)) return;
-      done(value, captureGenRef.current !== gen);
+      try {
+        done(value, captureGenRef.current !== gen);
+      } catch (e: unknown) {
+        logDiag("error", "undo.asyncFinishFailed", { message: e instanceof Error ? e.message : String(e) });
+      }
     });
   }, []);
   // §295. ★ Reads `depsRef` LAZILY, at redo time — a runner outlives the render
@@ -966,7 +973,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     setStack(taken.rest); // §759 — off the stack now; a failed write puts its entry back below
     const report = (stored: readonly boolean[], moved: boolean) => {
       // §759 — an entry whose write failed is rolled back and returns to its place in id order.
-      allInverses.forEach((inv, i) => { if (!stored[i]) rollbackOf(inv.run)?.(); });
+      for (let i = allInverses.length - 1; i >= 0; i--) if (!stored[i]) rollbackOf(allInverses[i].run)?.(); // last applied first
       const failed = taken.entries.filter((_, i) => !stored[i]);
       if (failed.length > 0) setStack((s) => failed.reduce((acc, e) => insertById(acc, e), s));
       const done = taken.entries.filter((_, i) => stored[i]);
@@ -999,7 +1006,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const allInverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run(), epoch: e.epoch }));
     setRedoStack(taken.rest); // §759 — mirror of undoThrough
     const report = (stored: readonly boolean[], moved: boolean) => {
-      allInverses.forEach((inv, i) => { if (!stored[i]) rollbackOf(inv.run)?.(); });
+      for (let i = allInverses.length - 1; i >= 0; i--) if (!stored[i]) rollbackOf(allInverses[i].run)?.(); // last applied first
       // A failed entry returns on top of the redo stack in its old order (`entries` is top first) — unless a capture
       // landed meanwhile, which cleared that stack: the redo is no longer coherent, so it is dropped.
       const failed = taken.entries.filter((_, i) => !stored[i]);

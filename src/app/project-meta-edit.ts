@@ -9,8 +9,9 @@
 //
 // ★★ The undo fragment writes THROUGH the project writer, never a `setProject`: in Turso multi-project mode the
 // record lives in the projects table, which the workspace save does not write (use-project-tools.ts says why).
-// The writer is async while an undo runner is synchronous, so the fragment starts the write and returns; the
-// stack has already stamped the entry with its scope epoch and drops it after a switch (docs/AGENTS/undo.md).
+// The writer is async while an undo runner is synchronous, so the fragment starts the write and TRACKS it (§759):
+// the stack says "Undone"/"Redone" only once it is stored, puts the entry back on a failure (rolling back any array
+// fragment of the same composite), and drops a finish that lands after a project switch (docs/AGENTS/undo.md).
 import type { LogActivityAsFn } from "./activity-log-context";
 import { logDiag } from "./diagnostics";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";

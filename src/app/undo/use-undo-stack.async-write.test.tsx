@@ -142,6 +142,59 @@ describe("§759 — an async undo write, the review-round cases", () => {
     expect(result.current.redoStack).toHaveLength(1);
   });
 
+  /** A mixed composite: an array delete (row "b") plus the async project fragment. */
+  function mixed() {
+    let rows: readonly Row[] = [{ id: 1, name: "a" }];
+    const setter = (u: SetStateAction<readonly Row[]>) => { rows = typeof u === "function" ? u(rows) : u; };
+    const proj = deferredProject(() => NEXT);
+    const { result } = hook();
+    act(() => {
+      result.current.captureComposite({
+        kind: "task.deleted", primaryCount: 1,
+        parts: [capturePart({ setter, removed: [{ id: 2, name: "b" }], fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }], isPrimary: true }), proj.part],
+      });
+    });
+    return { result, proj, names: () => rows.map((r) => r.name).sort() };
+  }
+
+  it("a failed redo of a mixed composite re-undoes its array part, so a retried redo removes the row once (re-review)", async () => {
+    const { result, proj, names } = mixed();
+    act(() => { result.current.undo(); });
+    await proj.settle(true);
+    expect(names()).toEqual(["a", "b"]);
+    act(() => { result.current.redo(); });
+    expect(names()).toEqual(["a"]); // the array part redid at once
+    await proj.settle(false);
+    expect(names()).toEqual(["a", "b"]); // re-undone with the failed write
+    expect(result.current.redoStack).toHaveLength(1);
+    act(() => { result.current.redo(); });
+    await proj.settle(true);
+    expect(names()).toEqual(["a"]);
+    expect(result.current.stack).toHaveLength(1);
+  });
+
+  it("a failed undoThrough of a mixed composite rolls its array part back too (re-review)", async () => {
+    const { result, proj, names } = mixed();
+    const id = result.current.stack[0].id;
+    act(() => { result.current.undoThrough(id); });
+    expect(names()).toEqual(["a", "b"]);
+    await proj.settle(false);
+    expect(names()).toEqual(["a"]);
+    expect(result.current.stack.map((m) => m.id)).toEqual([id]);
+  });
+
+  it("a failed redoThrough of a mixed composite re-undoes its array part (re-review)", async () => {
+    const { result, proj, names } = mixed();
+    act(() => { result.current.undo(); });
+    await proj.settle(true);
+    const id = result.current.redoStack[0].id;
+    act(() => { result.current.redoThrough(id); });
+    expect(names()).toEqual(["a"]);
+    await proj.settle(false);
+    expect(names()).toEqual(["a", "b"]);
+    expect(result.current.redoStack.map((m) => m.id)).toEqual([id]);
+  });
+
   it("a press while a write is out does nothing, even with an entry below to undo", async () => {
     const proj = deferredProject(() => NEXT);
     const setter = vi.fn();
