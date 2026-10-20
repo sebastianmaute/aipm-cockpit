@@ -25,7 +25,7 @@ function raidItem(id: number): RaidItem {
   return { id, category: "R", title: `R${id}`, raisedDate: "2026-01-01", linkedTaskIds: [] } as unknown as RaidItem;
 }
 
-const DRAFT: LinkedTaskDraft = { taskName: "Child", assignee: "Ada", dueDate: "2026-11-01", priority: "High", direction: "successor" };
+const DRAFT: LinkedTaskDraft = { taskName: "Child", assignee: "Ada", assigneeEmail: "", resourceId: null, dueDate: "2026-11-01", priority: "High", direction: "successor" };
 
 function makeDeps(over: Partial<TaskEditorCreateDeps> = {}): TaskEditorCreateDeps {
   return {
@@ -133,6 +133,20 @@ describe("useTaskEditorCreate — new linked task", () => {
     expect(final.find((t) => t.id === 3)?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
     expect(result.current.linkedTaskOpen).toBe(false);
     expect(result.current.editorBuffer.pendingLinks).toEqual([]);
+  });
+
+  // §758 — a person picked from the directory reaches the created task with their email and resource link.
+  it("carries a picked person's email and resource id into the child; typed text carries neither", () => {
+    const deps = makeDeps({ editingId: 1 });
+    const { result } = renderHook(() => useTaskEditorCreate(deps));
+    act(() => result.current.handleCreateLinkedTask({ ...DRAFT, assignee: "Ada Lovelace", assigneeEmail: "ada@x.io", resourceId: 5 }));
+    const child = deps.tasksRef.current.at(-1)!;
+    expect(child).toMatchObject({ assignee: "Ada Lovelace", assigneeEmail: "ada@x.io", resourceId: 5 });
+    act(() => result.current.handleCreateLinkedTask(DRAFT));
+    const typed = deps.tasksRef.current.at(-1)!;
+    expect(typed.id).not.toBe(child.id);
+    expect(typed.assigneeEmail).toBe("");
+    expect("resourceId" in typed).toBe(false);
   });
 
   it("in create mode stages the link and the flush wires it to the new parent", () => {
