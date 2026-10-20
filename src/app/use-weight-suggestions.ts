@@ -9,7 +9,6 @@ import { runWeightSuggestion } from "./weight-suggestion-call";
 import { type SuggestionResult } from "./weight-suggestion-ai";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { useActionGuideText } from "./action-guides-context";
-import { getSessionAiKey } from "./session-ai-key";
 
 interface AiCreds { apiKey: string; model: string }
 
@@ -21,7 +20,7 @@ export function useWeightSuggestions(ai: AiCreds) {
 
   const run = useCallback(
     async (context: string, current: NextActionsConfig, scope: SuggestionScope): Promise<SuggestionResult | null> => {
-      const key = ai.apiKey.trim() || getSessionAiKey(); // §717 — a passphrase key unlocked on this page counts
+      const key = ai.apiKey.trim();
       if (!key) { setError("no-key"); return null; }
       setBusy(true);
       setError(null);

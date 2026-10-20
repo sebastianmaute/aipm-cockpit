@@ -8,7 +8,6 @@ import { type ActionAnalysis } from "./action-ai";
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { isAbortError } from "./abort-error";
-import { getSessionAiKey } from "./session-ai-key";
 
 interface AiCreds { apiKey: string; model: string; guideText?: string }
 
@@ -20,7 +19,7 @@ export function useActionAnalysis(ai: AiCreds) {
 
   const analyze = useCallback(
     async (context: string): Promise<ActionAnalysis | null> => {
-      const key = ai.apiKey.trim() || getSessionAiKey(); // §717 — a passphrase key unlocked on this page counts
+      const key = ai.apiKey.trim();
       if (!key) { setError("no-key"); return null; }
       const controller = new AbortController();
       abortRef.current = controller;

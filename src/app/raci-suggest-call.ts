@@ -2,7 +2,6 @@
 // agentic loop, and the api key goes to the shared never-log envelope only —
 // it is a request HEADER there and is never logged or echoed.
 import { runForcedToolCall } from "./ai-forced-call";
-import { liveAiKey } from "./settings-types";
 import {
   parseRaciProposal,
   RACI_SUGGEST_TOOL,
@@ -23,7 +22,7 @@ export async function runRaciSuggestion(
   signal?: AbortSignal,
 ): Promise<{ cells: ProposedCell[]; truncated: boolean }> {
   const raw = await runForcedToolCall({
-    apiKey: liveAiKey(ai), // §717 — a passphrase key unlocked on this page counts
+    apiKey: ai.apiKey,
     model: ai.model,
     system: SYSTEM,
     guideText: ai.guideText,

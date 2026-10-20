@@ -16,7 +16,6 @@ import {
   type RawMergeGroup,
 } from "./task-dedup/dedup";
 import { runForcedToolCall } from "./ai-forced-call";
-import { liveAiKey } from "./settings-types";
 
 interface AiCreds {
   apiKey: string;
@@ -35,7 +34,7 @@ export async function runDedupProposal(
   signal?: AbortSignal,
 ): Promise<RawMergeGroup[]> {
   const input = await runForcedToolCall({
-    apiKey: liveAiKey(ai), // §717 — a passphrase key unlocked on this page counts
+    apiKey: ai.apiKey,
     model: ai.model,
     system: buildDedupSystemPrompt(),
     guideText: ai.guideText,

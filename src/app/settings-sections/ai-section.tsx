@@ -149,7 +149,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       //   field is emptied. Deliberate — the stored flag and Remove button stay truthful, and
       //   "Remove stored secret" is the way out.
       if (!isPassphraseLocked("anthropicApiKey")) {
-        removeSealed("anthropicApiKey");
+        removeSealed("anthropicApiKey"); clearSessionAiKey(); // §717 — a removed key must not keep working
         setKeyStored(false);
       }
       markUnsealedPassphraseSecret("anthropicApiKey", null);
@@ -179,7 +179,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       // §749 review — the change handler's rule: a locked key is never hydrated, so this field shows "" for it,
       //   and a stray character then a blur must not destroy a passphrase record the user never saw.
       if (!isPassphraseLocked("anthropicApiKey")) {
-        removeSealed("anthropicApiKey");
+        removeSealed("anthropicApiKey"); clearSessionAiKey(); // §717 — a removed key must not keep working
         setKeyStored(false);
       }
     }
@@ -215,7 +215,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         // Nothing in memory to keep: nothing is held either.
         markUnsealedPassphraseSecret("anthropicApiKey", null);
         if (isPassphraseLocked("anthropicApiKey")) {
-          removeSealed("anthropicApiKey");
+          removeSealed("anthropicApiKey"); clearSessionAiKey(); // §717 — a removed key must not keep working
           setKeyStored(false);
         }
       }
@@ -254,7 +254,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   // in-memory value, returning to the default device wrap.
   async function handleRemoveSecret() {
     if (!(await confirm({ message: t(lang, "secretPassphraseRemoveConfirm") }))) return;
-    removeSealed("anthropicApiKey");
+    removeSealed("anthropicApiKey"); clearSessionAiKey(); // §717 — a removed key must not keep working
     markUnsealedPassphraseSecret("anthropicApiKey", null);
     onChange({ ...settings, ai: { ...settings.ai, apiKey: "" } });
     setKeyStored(false);

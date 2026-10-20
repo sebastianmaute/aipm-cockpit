@@ -11,7 +11,6 @@ import type { ColumnMapping } from "./budget-import/forecast-types";
 import type { SheetGrid } from "./budget-import/sheet-grid";
 import { runForcedToolCallWithStop } from "./ai-forced-call";
 import { renderSheetMarkdown } from "./xlsx-extract";
-import { liveAiKey } from "./settings-types";
 
 /** The reply's output budget: a mapping is a handful of letters and a note, so
  *  2,000 tokens is ample. A reply that reaches it stops with `stop_reason:
@@ -101,7 +100,7 @@ export async function runForecastImportCall(
   const prompt = sheetToPromptText(sheet);
   if (prompt.length > MAX_CLAUDE_IMPORT_CHARS) throw new Error("too-large");
   const { input: raw, stopReason } = await runForcedToolCallWithStop({
-    apiKey: liveAiKey(ai), // §717 — a passphrase key unlocked on this page counts
+    apiKey: ai.apiKey,
     model: ai.model,
     system: SYSTEM,
     guideText: ai.guideText,

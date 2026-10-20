@@ -16,7 +16,6 @@ import {
   type ParsedAllocationProposal,
 } from "./alloc-plan/alloc-plan";
 import { runForcedToolCall } from "./ai-forced-call";
-import { liveAiKey } from "./settings-types";
 
 interface AiCreds {
   apiKey: string;
@@ -46,7 +45,7 @@ export async function runAllocProposal(
   const userMessage = `${context}\n\n---\nUSER REQUEST: ${instruction}`;
 
   const input = await runForcedToolCall({
-    apiKey: liveAiKey(ai), // §717 — a passphrase key unlocked on this page counts
+    apiKey: ai.apiKey,
     model: ai.model,
     system: buildAllocSystemPrompt(),
     guideText: ai.guideText,

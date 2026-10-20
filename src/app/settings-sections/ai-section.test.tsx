@@ -797,8 +797,10 @@ describe("AiSection — a key typed under the passphrase lock (§749)", () => {
     await waitFor(() => expect(isPassphraseLocked("anthropicApiKey")).toBe(true));
     fireEvent.change(keyField(), { target: { value: `${KEY}9` } }); // typed again, under the lock
     expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}9`)).toBe(true);
+    setSessionAiKey("sk-ant-unlocked"); // §717 — as if the chat had unlocked it on this page
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "secretPassphraseRemove") }));
     await waitFor(() => expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}9`)).toBe(false));
+    expect(getSessionAiKey()).toBe(""); // a removed key does not keep working from memory
   });
 
   // Settings keeps its section mounted under the wizard, which mounts a second one. A passphrase saved in

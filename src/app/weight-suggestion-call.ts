@@ -2,7 +2,7 @@
 // shared runForcedToolCall envelope NEVER logs/echoes the api key or response
 // body; thrown errors carry only HTTP status (AiHttpError, message status-only)
 // or "parse". Mirrors scheduled-job-analysis.ts.
-import { liveAiKey, type NextActionsConfig } from "./settings-types";
+import { type NextActionsConfig } from "./settings-types";
 import { type SuggestionScope } from "./next-actions-tuning";
 import { SUGGEST_TOOL, buildSuggestionSystemPrompt, parseSuggestionResponse, type SuggestionResult } from "./weight-suggestion-ai";
 import { runForcedToolCall } from "./ai-forced-call";
@@ -16,7 +16,7 @@ interface AiCreds {
 
 export async function runWeightSuggestion(context: string, ai: AiCreds, current: NextActionsConfig, scope: SuggestionScope): Promise<SuggestionResult> {
   const input = await runForcedToolCall({
-    apiKey: liveAiKey(ai), // §717 — a passphrase key unlocked on this page counts
+    apiKey: ai.apiKey,
     model: ai.model,
     system: buildSuggestionSystemPrompt(),
     guideText: ai.guideText,

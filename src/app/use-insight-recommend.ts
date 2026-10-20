@@ -14,7 +14,6 @@ import type { Insight, InsightRecommendation } from "./insights/insight";
 import type { GroundingIndex } from "./action-ai";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import type { RecommendSnapshot } from "./insights/recommend-plan";
-import { liveAiKey } from "./settings-types";
 
 export interface UseInsightRecommendArgs {
   insights: readonly Insight[];
@@ -81,7 +80,7 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
       const rec = await run(async (signal) => {
         try {
           return await runInsightRecommendation({
-            apiKey: liveAiKey(current.ai), // §717 — a passphrase key unlocked on this page counts
+            apiKey: current.ai.apiKey,
             model: current.ai.model,
             guideText: current.ai.guideText,
             context: current.buildContextFor(insight),
