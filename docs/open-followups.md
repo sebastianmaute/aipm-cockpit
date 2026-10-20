@@ -993,7 +993,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§753](#753-an-edit-made-while-the-turso-portfolio-has-no-project-chosen-is-dropped-without-a-word--open) | An edit made while the Turso portfolio has no project chosen is dropped without a word | — | — | open |
 | [§754](#754-an-empty-workspace-can-still-be-kept-as-an-unsaved-draft-when-the-stored-version-is-unknown--closed-2026-10-19) | An empty workspace can still be kept as an unsaved draft when the stored version is unknown | — | — | **CLOSED** 2026-10-19 |
 | [§755](#755-suggest-racis-list-of-proposed-assignments-shows-no-scrollbar-in-the-recording--closed-2026-10-20) | Suggest RACI's list of proposed assignments shows no scrollbar in the recording | — | — | **CLOSED** 2026-10-20 |
-| [§756](#756-the-influence--interest-map-gets-squashed-on-smaller-screens--open) | The influence / interest map gets squashed on smaller screens | — | — | open |
+| [§756](#756-the-influence--interest-map-gets-squashed-on-smaller-screens--closed-2026-10-20) | The influence / interest map gets squashed on smaller screens | — | — | **CLOSED** 2026-10-20 |
 | [§757](#757-a-clicked-buttons-green-focus-outline-is-cut-off-draft-with-ai-and-others--open) | A clicked button's green focus outline is cut off (Draft with AI and others) | — | — | open |
 | [§758](#758-a-new-linked-tasks-assignee-is-free-text-not-picked-from-the-directory--closed-2026-10-20) | A new linked task's assignee is free text, not picked from the directory | — | — | **CLOSED** 2026-10-20 |
 | [§759](#759-undoing-claudes-project-edit-says-undone-even-when-the-restore-fails--open) | Undoing Claude's project edit says "Undone" even when the restore fails | — | — | open |
@@ -45739,11 +45739,9 @@ Size XS (check) or S (fix).
 
 **Source:** found 2026-10-19 by the owner in the demo recording (owner: file it).
 
-## 756. The influence / interest map gets squashed on smaller screens — OPEN
+## 756. The influence / interest map gets squashed on smaller screens — CLOSED 2026-10-20
 
-**Status:** OPEN 2026-10-19. Stakeholders → Influence / Interest: at smaller window sizes the four quadrants get squashed (Thursday's `map-dpo` step, recorded at 1280×720). `stakeholder-map-panel.tsx` renders the pane with `CENTERED_HALF_PANE_CLASS` (`view-styles.ts`): half the view's width (`w-[50%]`, floored at `min-w-[420px]`, user-resizable) and a fixed `p-6`. Not measured which takes more room, the half width or the padding; the owner names the padding. `grep -n "CENTERED_HALF_PANE_CLASS" src/app/stakeholder-map-panel.tsx` → the one use.
-
-**Work item:** #794
+**Status:** CLOSED 2026-10-20 on `fix/756-stakeholder-map-small-screens`, measured first as proposed. A throwaway Playwright measurement on a dev server (not committed) found the half SIZE, not the padding, was the cost. At 1280×720 the pane was 488×360: half of the 976px view, held at its 360px minimum height. The four quadrants were 184×83, which cut the second name card off; at 1024×700 they were 150×75, at 1920×1080 344×154. `CENTERED_MAP_PANE_CLASS` (`view-styles.ts`) replaces `CENTERED_HALF_PANE_CLASS`, whose only user the map was (its "Used by Chat" note was stale). Below the `2xl` breakpoint (1536px) the map takes the whole view with `p-4`; from `2xl` it keeps the half-size pane with `p-6`. Re-measured: 436×232 quadrants at 1280×720, 308×216 at 1024×700, 1920×1080 unchanged, and a screenshot at 1280×720 shows every card. Verified with `npx vitest run src/app/stakeholder-map-panel.test.tsx src/app/view-pane-sweep.test.ts` (green), which pins the classes. ★ Between 1280px and the 1536px breakpoint the quadrants are now larger than at 1920px, where the pane stays half-size; owner eye-check. **Earlier:** OPEN 2026-10-19. Stakeholders → Influence / Interest: at smaller window sizes the four quadrants get squashed (Thursday's `map-dpo` step, recorded at 1280×720). `stakeholder-map-panel.tsx` renders the pane with `CENTERED_HALF_PANE_CLASS` (`view-styles.ts`): half the view's width (`w-[50%]`, floored at `min-w-[420px]`, user-resizable) and a fixed `p-6`. Not measured which takes more room, the half width or the padding; the owner names the padding. `grep -n "CENTERED_HALF_PANE_CLASS" src/app/stakeholder-map-panel.tsx` → the one use.
 
 Proposed: measure the quadrant width at 1280×720; then below a breakpoint use more of the width and a smaller padding, eye-checked at 1280×720 and at a narrow window.
 

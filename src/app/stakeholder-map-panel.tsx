@@ -10,7 +10,7 @@ import type React from "react";
 import { quadrantFor, applyQuadrantMove, type StakeholderQuadrant } from "./stakeholders";
 import { type Lang, t } from "./i18n";
 import type { Stakeholder } from "./types";
-import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
+import { CENTERED_MAP_PANE_CLASS } from "./view-styles";
 import { EmptyState } from "./empty-state";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
@@ -122,7 +122,7 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
   }
 
   return (
-    <div ref={ref} data-testid="stakeholder-map-pane" className={`print-root ${CENTERED_HALF_PANE_CLASS}`}>
+    <div ref={ref} data-testid="stakeholder-map-pane" className={`print-root ${CENTERED_MAP_PANE_CLASS}`}>
       {onLearnMore && (
         <ViewCallout
           view="stakeholder-map"

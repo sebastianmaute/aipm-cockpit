@@ -121,6 +121,9 @@ longer carries its own changelog comment.
   checks it against the stored token and saves the new one under it; the setup wizard's Finish goes back
   to the storage step to do that instead of switching; "Move to Turso" now refuses until the token is saved
   under the passphrase, and says how.
+- **The influence / interest map uses the whole view on smaller screens (§756).** Below 1536 pixels it
+  was squashed into half the view, and at 1280×720 a quadrant cut off its second name. The map now fills the view
+  there; on larger screens it keeps its centered half-size pane.
 - **Deleting a task asks in the app's own dialog (§715)**, with a Delete button, instead of the browser's
   confirm box: from the row menu, the task editor and the voice command alike.
 - **The Ask Claude window names what it edits (§715).** On a milestone, change request, RAID item or

@@ -43,11 +43,14 @@ describe("StakeholderMapPanel", () => {
     render(<StakeholderMapPanel lang="en-US" stakeholders={[]} />);
     expect(screen.getByText(/no stakeholders to plot/i)).toBeInTheDocument();
   });
-  it("renders the map in the centered half-size pane (chat sizing)", () => {
+  // §756 — the whole view below 2xl, half of it from 2xl up. jsdom has no layout, so the classes are the pin.
+  it("renders the map in a centered pane: the whole view below 2xl, half-size from 2xl", () => {
     const { container } = render(<StakeholderMapPanel lang="en-US" stakeholders={[]} />);
     const pane = container.querySelector("[data-testid='stakeholder-map-pane']")!;
-    expect(pane.className).toContain("mx-auto"); // centered
-    expect(pane.className).toContain("w-[50%]");
+    const classes = pane.className.split(/\s+/);
+    expect(classes).toContain("mx-auto"); // centered
+    expect(classes).toEqual(expect.arrayContaining(["w-full", "h-full", "p-4", "2xl:w-[50%]", "2xl:h-[50%]", "2xl:p-6"]));
+    expect(classes).not.toContain("w-[50%]");
   });
   it("lays the quadrants out as a true 2×2 (equal rows)", () => {
     const { container } = render(<StakeholderMapPanel lang="en-US" stakeholders={items} />);

@@ -90,11 +90,11 @@ describe("view-pane sweep", () => {
     expect(src).toMatch(/PanelTableScaffold/);
   });
 
-  it("view-styles exports CENTERED_HALF_PANE_CLASS (centered, half-size, resizable)", () => {
+  it("view-styles exports CENTERED_MAP_PANE_CLASS (centered, half-size from 2xl, resizable)", () => {
     const src = readFileSync(join(ROOT, "view-styles.ts"), "utf8");
-    expect(src).toContain("CENTERED_HALF_PANE_CLASS");
+    expect(src).toContain("CENTERED_MAP_PANE_CLASS");
     expect(src).toMatch(/mx-auto/);
-    expect(src).toMatch(/h-\[50%\]/);
+    expect(src).toMatch(/2xl:h-\[50%\]/);
     expect(src).toMatch(/\bresize\b/);
   });
 
