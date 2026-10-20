@@ -118,6 +118,10 @@ longer carries its own changelog comment.
   writes, the forecast gap line and its tip (also in the export), the estimate-to-complete tip, the rate-mix
   points ("+1 pt") and the simulation histogram. Each now says one in the singular, in English and German.
   Earned-value coverage now reads "Estimates on 1 of 5 tasks", so the verb no longer has to agree with a count.
+- **Undoing Claude's project edit says "Undone" only once it is saved (§759).** The undo used to report
+  success at once, before the change was written back. If that write failed, you saw "Undone" together with an
+  error, and Redo offered to redo an undo that never happened. Now the message follows the save. A failed undo
+  shows only the error and stays in the list to try again. Redo works the same way.
 - **Ask Claude edits milestones and RAID items again (§715).** A description change on a milestone or a
   mitigation on a RAID item always ended in "No changes to apply": Claude looked the item up first, a step the
   one-shot edit cannot answer. It is now offered only the changes it can make.

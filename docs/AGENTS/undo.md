@@ -28,7 +28,7 @@ or the load hold (`docs/AGENTS/platform.md`). One fact, one doc.
   `grep -n 'kind: "' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts src/app/use-project-tools.ts`.
   ★ `update_project` (§715) is the one whose fragment is NOT a row image: `projectUndoFragment`
   (`project-meta-edit.ts`) writes the changed fields back THROUGH the project writer, which is async,
-  so the runner starts the write and returns. Each changed field goes through `mergeFieldValue`, so a
+  so the runner starts the write and returns, and TRACKS it (§759, "The runners" below). Each changed field goes through `mergeFieldValue`, so a
   list the form edited since (the form's save is not undoable, so Claude's entry can still be on top)
   keeps the form's additions. A writer that resolves false has shown its own error
   toast; one that throws is shown through the dispatcher's `showToast`. The scope stamp still drops
@@ -163,6 +163,30 @@ under StrictMode.
 ★★ **`undoThrough` is NOT a loop over `undo()`.** The stack ref is refreshed by an effect, so N calls
 in one tick read the same stale stack and undo the top entry N times. It reads the ref ONCE and
 commits as one batch; `redoThrough` mirrors it.
+★★ **An async write is waited for before the stack says it happened (§759).** A fragment hands its write to
+the `track` argument of `restore` (and of its redo thunk); `compositeUndoRunner` attaches the AND of those writes
+to the runner it returns. Each entry point takes the entry off its stack AT ONCE, but logs the act, shows
+"Undone"/"Redone" and pushes the inverse only once the write is stored.
+- **While a write is out, every entry point does nothing** (`writeOut`), so a second press cannot run a lower entry
+  or the same one. ★ It says nothing either: the press is simply lost while the write is out (not measured; a
+  Turso write is bounded by its pipeline timeout).
+- **A failed write** shows nothing more (the writer has shown its error). The runner's `rollback` first redoes, or
+  re-undoes, the fragments that applied synchronously, because an applied plan collapses a project edit and array
+  edits into ONE composite (`collapseCaptures`), and a retry without the rollback restored each array row twice.
+  An undo entry then returns to its place in id order (`insertById`), a redo entry to the top of the redo stack.
+- **A write that settles after a scope change** says nothing and moves no stack (`awaitWrite`'s `isScopeStale`).
+- **A capture that landed meanwhile** (`captureGenRef`) cleared the redo stack, so a late finish pushes no redo
+  inverse, and a failed redo entry is dropped.
+- **The through-paths** report only the entries that were stored, and wait for the whole batch, the synchronous
+  entries in it included. A failed batch rolls back last-applied first. A throw while reporting is logged
+  (`undo.asyncFinishFailed`) and the entry is DROPPED, on purpose: one put back after a half-run rollback would
+  bring the duplicate rows back on a retry. A composite tracking more than one write logs
+  `undo.multipleTrackedFragments`.
+
+A runner with no tracked write keeps its identity and commits in the same tick, as every array fragment does. Today
+the only tracker is `projectUndoFragment`: `grep -rn "track?.(" src/app --include=*.ts`. ★ Its rollback skips a
+tracked fragment whose own write SUCCEEDED, which is safe only while one composite holds at most one tracked
+fragment.
 ★ A new capture clears the redo stack, and so does `undoById` on an entry that is not on top (the
 capture toast's Undo button calls it), because that redo can no longer stay coherent.
 ★★★ **A REDO THAT RE-REMOVES ROWS MUST ARM THE DESTRUCTIVE-SAVE BYPASS, OR THE SAVE IS REFUSED (§295).**
