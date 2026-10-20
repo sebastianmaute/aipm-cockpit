@@ -45,6 +45,7 @@ function makeDeps(overrides: Record<string, unknown> = {}): AppBannersBlockDeps 
     loadPauseBannerDismissed: false, setLoadPauseBannerDismissed: vi.fn(),
     destructiveRefusal: null, allowDestructiveSaveAnyway: vi.fn(),
     destructiveBannerDismissed: false, setDestructiveBannerDismissed: vi.fn(),
+    tursoPortfolioWithoutProject: false,
     ...overrides,
   };
   return deps as unknown as AppBannersBlockDeps;
@@ -73,6 +74,23 @@ describe("buildAppBanners", () => {
     const { view } = renderBanners();
     expect(view.queryByTestId("reminders")).not.toBeNull();
     for (const name of ["StorageBanner", "AiKeyBanner", "UnloadJournalConflictBanner", "ExpiredJournalsBanner", "OtherJournalsBanner", "SavingPausedBanner"]) none(name);
+    expect(view.queryByRole("alert")).toBeNull();
+  });
+
+  // §753 — the real banner, not a probe: its text is the whole fix.
+  describe("no-project notice", () => {
+    it("says nothing is saved while a Turso portfolio has no project chosen, with no Dismiss", () => {
+      const { view } = renderBanners({ tursoPortfolioWithoutProject: true });
+      expect(view.getByRole("alert").textContent).toBe(
+        "No project is chosen, so nothing you change is saved. Choose or create a project in Projects first.",
+      );
+      expect(view.queryByRole("button")).toBeNull();
+    });
+
+    it("stays hidden in a popout", () => {
+      const { view } = renderBanners({ tursoPortfolioWithoutProject: true, isPopout: true });
+      expect(view.queryByRole("alert")).toBeNull();
+    });
   });
 
   describe("storage banner", () => {

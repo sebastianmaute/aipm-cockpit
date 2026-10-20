@@ -2612,6 +2612,7 @@ const enUS = {
   clickToEdit: "click to edit",
   popoutReadOnly: "Editing is disabled in the pop-out view — make changes in the main window.",
   popoutReadOnlyBanner: "Read-only mirror — make changes in the main window.",
+  noTursoProjectBanner: "No project is chosen, so nothing you change is saved. Choose or create a project in Projects first.",
   priorityFilterHint: "Show only tasks of the selected priority.",
   assigneeFilterHint: "Show only tasks assigned to the selected person.",
   resetFiltersHint: "Clear the search box and all filters to show every item again.",
