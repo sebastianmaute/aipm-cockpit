@@ -14,12 +14,24 @@
 //   the save-back. The spec pauses the page clock so the debounced save cannot run.
 //
 // ★★ WHY 1000 EXTRA TASKS. The guard refuses a mass deletion only when at most 10%
-//   of the records stay (`isMassDeletion` in src/app/workspace-metrics.ts). The seed
-//   holds 120 records, 42 of them tasks, so clearing its tasks leaves 78 and is NOT
-//   refused. With 1000 more tasks, clearing all of them leaves 78 of 1120.
+//   of the records stay (`isMassDeletion` in src/app/workspace-metrics.ts). SEED_WORKSPACE
+//   holds 123 records by `workspaceRecordCount`, 42 of them tasks, so clearing its tasks
+//   leaves 81 and is NOT refused. With 1000 more tasks, clearing all of them leaves 81 of
+//   1123 (7.2%). Reproduce the count with vite-node on a scratch file that logs
+//   `workspaceRecordCount(SEED_WORKSPACE)`.
 //
 // ★★★ THE LOAD-BEARING ASSERTIONS ARE ON STORAGE: the IndexedDB task count and
 //   the journal key. The banner and the task list only show which step the app is on.
+//
+// ★★ NEGATIVE CONTROLS, run by hand on 2026-10-20 (3 clean runs passed):
+//  - disabling `unloadJournal.dropUnconfirmed(journalProjectKey)` in
+//    `reloadCurrentProject` (use-storage-backend.ts) alone: still GREEN;
+//  - disabling `clearUnloadJournal` in `noteSaveConfirmed` (use-unload-journal.ts)
+//    alone: still GREEN;
+//  - both together: RED at "Discard left the journal".
+//  So this spec pins that Discard ends the loop, NOT either mechanism: the save after
+//  the reload confirms and clears the journal by itself. Re-do the both-disabled
+//  control before trusting a run after a refactor of the unload path.
 import type { Page } from "@playwright/test";
 import { test, expect, gotoApp, openView, reseedWorkspace, skipTour, waitForViewSettled } from "./seed";
 import { SEED_WORKSPACE } from "./seed-workspace";
@@ -63,7 +75,7 @@ test("§629: a refused journal save-back loops on reload, and Discard ends the l
   test.setTimeout(240_000);
   const seedTasks = SEED_WORKSPACE.tasks as Array<Record<string, unknown>>;
   const total = seedTasks.length + EXTRA;
-  const extra = Array.from({ length: EXTRA }, (_, i) => ({ ...seedTasks[0], id: 900_000 + i, name: `Bulk task ${i}`, jiraKey: undefined }));
+  const extra = Array.from({ length: EXTRA }, (_, i) => ({ ...seedTasks[0], id: 900_000 + i, taskName: `Bulk task ${i}`, jiraKey: undefined, noteLog: [] }));
   await reseedWorkspace(page, { tasks: extra });
   await skipTour(page);
   await gotoApp(page);
@@ -79,7 +91,7 @@ test("§629: a refused journal save-back loops on reload, and Discard ends the l
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
   await page.getByRole("button", { name: "Clear all tasks", exact: true }).click();
   await expect(page.getByText(SEED_TASK)).toHaveCount(0);
-  expect(await storedTaskCount(page), "premise: the deletion was saved before the unload").toBe(total);
+  expect(await storedTaskCount(page), "premise: the deletion is not stored before the unload").toBe(total);
 
   // 2. The loop: each reload restores the cleared workspace from the journal, and
   //    the guard refuses its save-back. Storage never changes.
@@ -90,7 +102,7 @@ test("§629: a refused journal save-back loops on reload, and Discard ends the l
     await openView(page, "Open Points");
     await waitForViewSettled(page);
     await expect(page.getByText(BANNER), `round ${round}: the restore was not refused again`).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(SEED_TASK), `round ${round}: the journal was not restored`).toHaveCount(0);
+    await expect(page.getByText(SEED_TASK), `round ${round}: seed tasks are showing, so the cleared workspace was not applied`).toHaveCount(0);
     expect(await readJournal(page), `round ${round}: no journal`).not.toBeNull();
     expect(await storedTaskCount(page), `round ${round}: storage changed`).toBe(total);
   }
