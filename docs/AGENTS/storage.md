@@ -374,10 +374,10 @@ installed Chrome (`e2e/local-file-close-save.spec.ts`, opt-in). Turso has a live
 both tests took the restore-and-save-back branch. SharePoint and the packaged desktop window close are
 "never machine-verified". §629 also records a known loop: a restore that is a mass deletion is
 refused by the guard, and a page reload re-applies it. The banner's "Discard this deletion" ends it,
-measured in installed Chrome by `e2e/guard-refusal-discard.spec.ts` (opt-in). ★★ In that run the
-journal is cleared twice over, by `dropUnconfirmed` in `reloadCurrentProject` and by the confirmation
-of the save after the reload, and disabling either one alone leaves the spec green. Read §629 before
-touching either file.
+measured in installed Chrome by `e2e/guard-refusal-discard.spec.ts` (opt-in). ★★ A Discard clears the
+journal twice over, by `dropUnconfirmed` in `reloadCurrentProject` and by the confirmation of the
+save after the reload; the spec pauses the clock at Discard so it fails when `dropUnconfirmed` is
+disabled. Read §629 before touching either file.
 
 ★ The journal key starts `aipm-cockpit:`, so the factory reset's prefix sweep deletes any pending
 journal (`grep -n "UNLOAD_JOURNAL_PREFIX =" src/app/unload-journal.ts`).

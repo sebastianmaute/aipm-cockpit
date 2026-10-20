@@ -13,8 +13,9 @@
 //   and the next page load restores it with no bypass armed, so the guard refuses
 //   the save-back. The spec pauses the page clock so the debounced save cannot run.
 //
-// ★★ WHY 1000 EXTRA TASKS. The guard refuses a mass deletion only when at most 10%
-//   of the records stay (`isMassDeletion` in src/app/workspace-metrics.ts). SEED_WORKSPACE
+// ★★ WHY 1000 EXTRA TASKS. The guard refuses a mass deletion only when BOTH at least 5
+//   records go AND at most 10% of them stay (`isMassDeletion` in
+//   src/app/workspace-metrics.ts). SEED_WORKSPACE
 //   holds 123 records by `workspaceRecordCount`, 42 of them tasks, so clearing its tasks
 //   leaves 81 and is NOT refused. With 1000 more tasks, clearing all of them leaves 81 of
 //   1123 (7.2%). Reproduce the count with vite-node on a scratch file that logs
@@ -23,15 +24,16 @@
 // ★★★ THE LOAD-BEARING ASSERTIONS ARE ON STORAGE: the IndexedDB task count and
 //   the journal key. The banner and the task list only show which step the app is on.
 //
-// ★★ NEGATIVE CONTROLS, run by hand on 2026-10-20 (3 clean runs passed):
-//  - disabling `unloadJournal.dropUnconfirmed(journalProjectKey)` in
-//    `reloadCurrentProject` (use-storage-backend.ts) alone: still GREEN;
-//  - disabling `clearUnloadJournal` in `noteSaveConfirmed` (use-unload-journal.ts)
-//    alone: still GREEN;
-//  - both together: RED at "Discard left the journal".
-//  So this spec pins that Discard ends the loop, NOT either mechanism: the save after
-//  the reload confirms and clears the journal by itself. Re-do the both-disabled
-//  control before trusting a run after a refactor of the unload path.
+// ★★ NEGATIVE CONTROL, run by hand on 2026-10-20: disabling
+//   `unloadJournal.dropUnconfirmed(journalProjectKey)` in `reloadCurrentProject`
+//   (use-storage-backend.ts) turns this spec RED at "Discard left the journal"; 3 clean
+//   runs of this version passed the same day. Re-do it before trusting a run after a
+//   refactor of the unload path.
+// ★★★ THAT CONTROL NEEDS THE CLOCK PAUSED AT DISCARD (step 3). After a Discard the
+//   app also saves, and that save's confirmation (`noteSaveConfirmed` →
+//   `clearUnloadJournal`) removes this tab's journal by itself. An earlier version of
+//   this spec let it run, and stayed GREEN with `dropUnconfirmed` disabled; only with
+//   both disabled did it go red.
 import type { Page } from "@playwright/test";
 import { test, expect, gotoApp, openView, reseedWorkspace, skipTour, waitForViewSettled } from "./seed";
 import { SEED_WORKSPACE } from "./seed-workspace";
@@ -107,17 +109,22 @@ test("§629: a refused journal save-back loops on reload, and Discard ends the l
     expect(await storedTaskCount(page), `round ${round}: storage changed`).toBe(total);
   }
 
-  // 3. Discard: reload from storage, refusal cleared, journal dropped.
+  // 3. Discard: reload from storage, refusal cleared, journal dropped. The clock is
+  //    paused first, so no debounced save can run and confirm: `dropUnconfirmed` is
+  //    then the only thing that can remove the journal (see NEGATIVE CONTROLS).
   await page.getByRole("button", { name: "Discard this deletion", exact: true }).click();
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
   await page.getByRole("button", { name: "Discard and reload", exact: true }).click();
   await expect(page.getByText(BANNER)).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByText(SEED_TASK).first()).toBeVisible({ timeout: 15_000 });
   await expect.poll(() => readJournal(page), { message: "Discard left the journal" }).toBeNull();
+  await page.clock.resume();
 
-  // 4. The loop is over: a page reload restores nothing and refuses nothing.
+  // 4. The loop is over: a page reload restores nothing and refuses nothing. The
+  //    UI checks pass at once; the journal and storage checks carry this step.
   await reloadToOpenPoints(page);
   await expect(page.getByText(SEED_TASK).first()).toBeVisible();
   await expect(page.getByText(BANNER)).toHaveCount(0);
   expect(await readJournal(page), "a journal came back after Discard").toBeNull();
-  expect(await storedTaskCount(page)).toBe(total);
+  expect(await storedTaskCount(page), "Discard or the reload wrote the deletion").toBe(total);
 });
