@@ -397,7 +397,9 @@ export function GanttTaskRow({
                       tasks put 3N identically-named controls in one view. The
                       handles render no visible text, so 2.5.3 does not
                       constrain the wording.
-                      ★ §742 — each is a focusable SLIDER, like the milestone
+                      ★ §742 — each is a focusable SLIDER, its title (the
+                      accessible description) the same keys hint as the
+                      milestone handle's, like the milestone
                       handle: arrows move the preview, the value text speaks the
                       date(s) it would save, and the edit commits once (on a
                       pause, Enter or blur; Escape cancels). Three tab stops per
@@ -409,6 +411,7 @@ export function GanttTaskRow({
                     tabIndex={0}
                     data-gantt-bar-handle={task.id}
                     aria-label={rowLabel(t(lang, "ganttBarResizeStart"), rowToken)}
+                    title={t(lang, "ganttMilestoneMoveHint")}
                     aria-orientation="horizontal"
                     aria-valuemin={0}
                     aria-valuemax={sliderMax}
@@ -426,6 +429,7 @@ export function GanttTaskRow({
                     tabIndex={0}
                     data-gantt-bar-handle={task.id}
                     aria-label={rowLabel(t(lang, "ganttBarMove"), rowToken)}
+                    title={t(lang, "ganttMilestoneMoveHint")}
                     aria-orientation="horizontal"
                     aria-valuemin={0}
                     aria-valuemax={sliderMax}
@@ -443,6 +447,7 @@ export function GanttTaskRow({
                     tabIndex={0}
                     data-gantt-bar-handle={task.id}
                     aria-label={rowLabel(t(lang, "ganttBarResizeEnd"), rowToken)}
+                    title={t(lang, "ganttMilestoneMoveHint")}
                     aria-orientation="horizontal"
                     aria-valuemin={0}
                     aria-valuemax={sliderMax}

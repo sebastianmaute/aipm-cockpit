@@ -958,6 +958,28 @@ describe("GanttPanel bar drag handles", () => {
     expect(onUpdateBar).toHaveBeenCalledWith({ taskId: 1, startDate: "2026-03-11", dueDate: "2026-03-15" });
   });
 
+  // §742 review round — the edge sliders are wired too, and leaving a slider saves its pending edit.
+  it("changes only the due date from the end slider, saved when focus leaves it", () => {
+    const onUpdateBar = vi.fn();
+    render(<GanttPanel {...BASE_PROPS} tasks={[mk({ id: 1, taskName: "Live", startDate: "2026-03-10", dueDate: "2026-03-14" })]} onUpdateBar={onUpdateBar} />);
+    const end = screen.getByRole("slider", { name: rowLabel(t("en-US", "ganttBarResizeEnd"), "Live") });
+    expect(end).toHaveAttribute("tabindex", "0");
+    expect(end).toHaveAccessibleDescription(t("en-US", "ganttMilestoneMoveHint"));
+    fireEvent.keyDown(end, { key: "ArrowRight", shiftKey: true });
+    expect(onUpdateBar).not.toHaveBeenCalled();
+    fireEvent.blur(end);
+    expect(onUpdateBar).toHaveBeenCalledWith({ taskId: 1, startDate: "2026-03-10", dueDate: "2026-03-21" });
+  });
+
+  it("changes only the start date from the start slider", () => {
+    const onUpdateBar = vi.fn();
+    render(<GanttPanel {...BASE_PROPS} tasks={[mk({ id: 1, taskName: "Live", startDate: "2026-03-10", dueDate: "2026-03-14" })]} onUpdateBar={onUpdateBar} />);
+    const start = screen.getByRole("slider", { name: rowLabel(t("en-US", "ganttBarResizeStart"), "Live") });
+    fireEvent.keyDown(start, { key: "ArrowLeft" });
+    fireEvent.keyDown(start, { key: "Enter" });
+    expect(onUpdateBar).toHaveBeenCalledWith({ taskId: 1, startDate: "2026-03-09", dueDate: "2026-03-14" });
+  });
+
   // §742 review round — a preview moved past the chart's first day keeps aria-valuenow inside [valuemin, valuemax].
   it("keeps a bar slider's value inside its range while a preview runs past the chart's edge", () => {
     render(<GanttPanel {...BASE_PROPS} tasks={[mk({ id: 1, taskName: "Live", startDate: "2026-03-10", dueDate: "2026-03-14" })]} onUpdateBar={vi.fn()} />);
