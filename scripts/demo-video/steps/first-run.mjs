@@ -2,6 +2,7 @@
 // the wizard creates it; the empty project lands, then the take opens the demo. The big video keeps the
 // short prologue (week.mjs `wizardProposal`), which cancels instead. See ../README.md.
 import { step } from './step.mjs';
+import { noteCreatedProject } from '../cleanup.mjs';
 import * as L from '../lib.mjs';
 import { caption, click, moveTo, pace, skipTour } from '../ui.mjs';
 import { PROPOSAL, gdprBox, noop } from './week.mjs';
@@ -28,7 +29,7 @@ export const wizardCreate = step('wizard-create', {
   replay: noop,
 });
 
-/** The new, empty project, before the take opens the demo. */
+/** The new project, before the take opens the demo. Its id is noted for the cleanup. */
 export const firstProjectLands = step('first-project-lands', {
   run: async (ctx) => {
     const page = ctx.page;
@@ -36,9 +37,9 @@ export const firstProjectLands = step('first-project-lands', {
       .waitFor({ state: 'detached', timeout: 60000 });
     await skipTour(ctx, 3000);
     await L.settle(page);
-    if (!(await page.evaluate(() => localStorage.getItem('aipm-cockpit:turso-current-project')))) {
-      throw new Error('no current project after Create project');
-    }
+    const id = await page.evaluate(() => localStorage.getItem('aipm-cockpit:turso-current-project'));
+    if (!id) throw new Error('no current project after Create project');
+    noteCreatedProject(id);
     await caption(ctx, 'The new project, with the starter milestones and tasks its template brings.');
     await pace(ctx, 3500);
     await caption(ctx, 'To see a project in full swing, open the demo.');
