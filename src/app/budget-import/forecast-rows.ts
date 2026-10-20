@@ -262,6 +262,9 @@ export function readingEnd(rows: readonly string[][], mapping: ColumnMapping, nu
  * period cell in the period column. ★ A metadata row (`Stand | 46296`,
  * `Version | 3`, `Projekt | 4711`) is neither, and was once reported as "rows
  * above the header row were not read" (re-review 3).
+ * §720 (residue 16) — a wide row with numbers under TWO or more of the period
+ * columns counts without a header above it (`Ann Lee | 10 | 20 | 30` directly
+ * over the header): a metadata row holds one number, so it still does not.
  */
 function rowsAboveHeaderCount(
   rows: readonly string[][],
@@ -276,6 +279,7 @@ function rowsAboveHeaderCount(
   const hasHeaderAbove = (rowIdx: number, col: number): boolean => runs.slice(0, rowIdx).some((run) => (run[col] ?? null) !== null);
   const holdsHours = (row: readonly string[], rowIdx: number): boolean => (mapping.layout === "wide"
     ? periodCols.some((col) => isNumber(cellAt(row, col)) && hasHeaderAbove(rowIdx, col))
+      || periodCols.filter((col) => isNumber(cellAt(row, col))).length >= 2
     : isNumber(cellAt(row, mapping.hours)) && isPeriodShapedIn(cellAt(row, mapping.period), numbers));
   return above.filter((row, rowIdx) => row.some((c) => !isBlank(c) && !isNumber(c)) && holdsHours(row, rowIdx)).length;
 }

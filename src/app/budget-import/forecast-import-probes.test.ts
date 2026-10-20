@@ -329,6 +329,15 @@ describe("probe: stacked year blocks on the hand route (round 3)", () => {
     expect(run.out.rowsAboveHeader).toBe(0);
   });
 
+  // §720 triage, residue (16): a data row placed directly above the header has no period header above it, so it
+  // was neither read nor reported. Two or more numbers under the header's period columns mark it as data; a
+  // metadata row (`Version | 3`, above) holds one.
+  it("reports a data row directly above the header, with no header of its own", () => {
+    const run = readSheet([["Ann Lee", "10", "20", "30"], ["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Bob Kay", "1", "2", "3"]]);
+    expect(run.out.rows.map((r) => r.person)).toEqual(["Bob Kay", "Bob Kay", "Bob Kay"]);
+    expect(run.out.rowsAboveHeader).toBe(1);
+  });
+
   it("still counts a long block's data row above a long header", () => {
     const run = readSheet([["Name", "Monat", "Stunden"], ["Ann Lee", "Jan 2026", "8"], [], ["Name", "Monat", "Stunden"], ["Ann Lee", "Feb 2026", "4"]]);
     expect(run.out.rows.map((r) => r.period)).toEqual(["2026-02"]);
@@ -686,5 +695,40 @@ describe("probe: ambiguous columns are asked about, and the confirmed column rea
     expect(run.rows.map((r) => [r.person, r.period, r.hours])).toEqual(expectedPlan);
     // Negative: no person's hours summed into one month.
     expect(run.rows.some((r) => r.hours === 105)).toBe(false);
+  });
+});
+
+// §720–§726 triage (2026-10-20, owner: fix what writes a wrong number or drops a row without a word, close the
+// rest by decision). These pin what the closures rely on: each shape below ASKS or REPORTS today, so none of them
+// imports silently. Residue numbers are §500's.
+describe("probe: the §720–§726 triage — shapes that ask or report (2026-10-20)", () => {
+  const detect = (rows: string[][], numbers: NumberOrigin = "text") => detectLayout(rows, { numbers, defaultYear: 2026 });
+
+  it("(11) a year-less long sheet with two month-name columns asks for the period", () => {
+    const d = detect([["Name", "Phase", "Wann", "Stunden"], ["Ann Lee", "Mai", "Jan", "8"], ["Bob Kay", "Jun", "Feb", "4"]]);
+    expect(d.ambiguous).toContainEqual({ field: "period", candidates: [1, 2] });
+  });
+
+  it("(28) a second block whose header names the person column differently asks for the header row", () => {
+    const wide = detect([["Name", "Jan 2026", "Feb 2026"], ["Ann Lee", "1", "2"], ["Bob Kay", "3", "4"], [], ["Wer", "Jan 2027", "Feb 2027"], ["Ann Lee", "5", "6"], ["Bob Kay", "7", "8"]]);
+    expect(wide.ambiguous).toContainEqual({ field: "header", candidates: [0, 4] });
+    const long = detect([["Name", "Monat", "Stunden"], ["Ann Lee", "Jan 2026", "8"], ["Bob Kay", "Jan 2026", "2"], [], ["Wer", "Wann", "Wieviel"], ["Ann Lee", "Feb 2026", "4"], ["Bob Kay", "Feb 2026", "1"]]);
+    expect(long.ambiguous).toContainEqual({ field: "header", candidates: [0, 4] });
+  });
+
+  it("(28) with header row 1 confirmed, the rows below the second header are reported, not summed", () => {
+    const run = readSheet([["Name", "Jan 2026", "Feb 2026"], ["Ann Lee", "1", "2"], ["Bob Kay", "3", "4"], [], ["Wer", "Jan 2027", "Feb 2027"], ["Ann Lee", "5", "6"], ["Bob Kay", "7", "8"]]);
+    expect(triplesOf(run)).toEqual([["Ann Lee", "2026-01", 1], ["Ann Lee", "2026-02", 2], ["Bob Kay", "2026-01", 3], ["Bob Kay", "2026-02", 4]]);
+    expect(run.out.rowsBelowRepeatedHeader).toBe(2);
+  });
+
+  it("(12) a numeric code column beside year-less months is reported as unread on a CSV, and asks in a workbook", () => {
+    const rows = [["Name", "Code", "Jan", "Feb", "Mar"], ["Ann Lee", "40100", "10", "20", "30"], ["Bob Kay", "40200", "1", "2", "3"]];
+    expect(readSheet(rows).out.ignoredColumns).toEqual([{ col: 1, header: "Code" }]);
+    expect(detect(rows, "dot").ambiguous).toContainEqual({ field: "period", candidates: [1, 2, 3, 4] });
+  });
+
+  it("(14) a half-year date header detects no layout, so the mapping step opens", () => {
+    expect(detect([["Name", "01.01.2026", "01.07.2026"], ["Ann Lee", "100", "200"]]).kind).toBe("unknown");
   });
 });

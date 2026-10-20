@@ -47,6 +47,8 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The forecast import reports a data row above the header (§723).** A row of hours placed directly above
+  the header row was neither read nor mentioned. It is now listed with the rows the import did not read.
 - **Knowledge search narrows the knowledge library too.** The search box and the source filter applied only to
   documents attached to tasks, RAID items and other records; the library's own cards stayed on screen whatever
   was typed. The search now matches library cards by name, a source other than All hides them (they belong to
