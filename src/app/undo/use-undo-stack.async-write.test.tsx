@@ -7,6 +7,7 @@ import type { SetStateAction } from "react";
 import { useUndoStack, capturePart } from "./use-undo-stack";
 import { projectUndoFragment, type ProjectWriter } from "../project-meta-edit";
 import type { ProjectMeta } from "../types";
+import { readDiagLog } from "../diagnostics";
 
 const BEFORE = { name: "Atlas", sponsor: "Ann" } as unknown as ProjectMeta;
 const NEXT = { name: "Atlas", sponsor: "Ben" } as unknown as ProjectMeta;
@@ -193,6 +194,30 @@ describe("§759 — an async undo write, the review-round cases", () => {
     await proj.settle(false);
     expect(names()).toEqual(["a", "b"]);
     expect(result.current.redoStack.map((m) => m.id)).toEqual([id]);
+  });
+
+  const codes = () => readDiagLog().map((e) => e.code);
+
+  it("a throw while reporting a stored write is logged, not left as an unhandled rejection", async () => {
+    const proj = deferredProject(() => NEXT);
+    const showToast = vi.fn(() => { throw new Error("boom"); });
+    const deps = { lang: "en-US" as const, logActivity: vi.fn(), showToast, showToastAction: vi.fn() };
+    const { result } = renderHook(() => useUndoStack(deps));
+    act(() => { result.current.captureComposite({ kind: "project.updated", entityKey: "project", primaryCount: 1, parts: [proj.part] }); });
+    act(() => { result.current.undo(); });
+    await proj.settle(true);
+    expect(codes()).toContain("undo.asyncFinishFailed");
+  });
+
+  it("a composite that tracks two writes logs that its rollback assumes one", async () => {
+    const one = deferredProject(() => NEXT);
+    const two = deferredProject(() => NEXT);
+    const { result } = hook();
+    act(() => { result.current.captureComposite({ kind: "project.updated", entityKey: "project", primaryCount: 1, parts: [one.part, two.part] }); });
+    act(() => { result.current.undo(); });
+    expect(codes()).toContain("undo.multipleTrackedFragments");
+    await one.settle(true);
+    await two.settle(true);
   });
 
   it("a press while a write is out does nothing, even with an entry below to undo", async () => {
