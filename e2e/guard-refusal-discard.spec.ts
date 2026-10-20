@@ -11,7 +11,11 @@
 //   (`allowDestructiveSave`), so its own save is NOT refused. The loop needs the tab
 //   to unload BEFORE that save lands: the journal then holds the cleared workspace,
 //   and the next page load restores it with no bypass armed, so the guard refuses
-//   the save-back. The spec pauses the page clock so the debounced save cannot run.
+//   the save-back. The spec pauses the page clock so the save's debounce never fires:
+//   the save then starts only in the reload's pagehide flush (debounced-save.ts), which
+//   journals it (`noteSaveStarted`), and the reload ends the page before its IndexedDB
+//   write commits. ★★ That last part is a RACE, measured in Chrome (every run so far);
+//   round 1's storage check fails if the write ever wins it.
 //
 // ★★ WHY 1000 EXTRA TASKS. The guard refuses a mass deletion only when BOTH at least 5
 //   records go AND at most 10% of them stay (`isMassDeletion` in
@@ -86,14 +90,15 @@ test("§629: a refused journal save-back loops on reload, and Discard ends the l
   expect(await storedTaskCount(page), "premise: the extra tasks are stored").toBe(total);
   await expect(page.getByText(SEED_TASK).first()).toBeVisible();
 
-  // 1. Clear all tasks with the clock paused, so the debounced save never runs.
+  // 1. Clear all tasks with the clock paused, so the save's debounce never fires.
   await page.getByRole("button", { name: "Clear all", exact: true }).click();
   await page.getByLabel("Type “yes, clear all tasks” to confirm").fill("yes, clear all tasks");
-  // A second ahead of the page's clock, which keeps running while the call is in flight.
+  // A second ahead of the page's clock, which keeps running while the call is in flight;
+  // a timer due inside that second still fires.
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
   await page.getByRole("button", { name: "Clear all tasks", exact: true }).click();
   await expect(page.getByText(SEED_TASK)).toHaveCount(0);
-  expect(await storedTaskCount(page), "premise: the deletion is not stored before the unload").toBe(total);
+  expect(await storedTaskCount(page), "premise: the deletion is not stored yet").toBe(total);
 
   // 2. The loop: each reload restores the cleared workspace from the journal, and
   //    the guard refuses its save-back. Storage never changes.
@@ -112,6 +117,8 @@ test("§629: a refused journal save-back loops on reload, and Discard ends the l
   // 3. Discard: reload from storage, refusal cleared, journal dropped. The clock is
   //    paused first, so no debounced save can run and confirm: `dropUnconfirmed` is
   //    then the only thing that can remove the journal (see NEGATIVE CONTROLS).
+  // A second ahead of the page's clock, which keeps running while the call is in flight;
+  // a timer due inside that second still fires.
   await page.getByRole("button", { name: "Discard this deletion", exact: true }).click();
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000));
   await page.getByRole("button", { name: "Discard and reload", exact: true }).click();

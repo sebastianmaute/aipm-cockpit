@@ -370,8 +370,8 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
 ★★ **What is verified, exactly as the register says.** §629 is MEASURED on Chromium with
 IndexedDB (`e2e/pagehide-draft-persist.spec.ts`) and, by §661, on a local-json file's tab close in
 installed Chrome (`e2e/local-file-close-save.spec.ts`, opt-in). Turso has a live spec
-(`e2e/unload-journal-turso-live.spec.ts`, run by `live-turso.yml`), whose passing runs log that
-both tests took the restore-and-save-back branch. SharePoint and the packaged desktop window close are
+(`e2e/unload-journal-turso-live.spec.ts`, run by `live-turso.yml`); two passing runs cited in §629
+log that both tests took the restore-and-save-back branch. SharePoint and the packaged desktop window close are
 "never machine-verified". §629 also records a known loop: a restore that is a mass deletion is
 refused by the guard, and a page reload re-applies it. The banner's "Discard this deletion" ends it,
 measured in installed Chrome by `e2e/guard-refusal-discard.spec.ts` (opt-in). ★★ A Discard clears the
