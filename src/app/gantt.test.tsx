@@ -958,6 +958,17 @@ describe("GanttPanel bar drag handles", () => {
     expect(onUpdateBar).toHaveBeenCalledWith({ taskId: 1, startDate: "2026-03-11", dueDate: "2026-03-15" });
   });
 
+  // §742 review round — a preview moved past the chart's first day keeps aria-valuenow inside [valuemin, valuemax].
+  it("keeps a bar slider's value inside its range while a preview runs past the chart's edge", () => {
+    render(<GanttPanel {...BASE_PROPS} tasks={[mk({ id: 1, taskName: "Live", startDate: "2026-03-10", dueDate: "2026-03-14" })]} onUpdateBar={vi.fn()} />);
+    const move = screen.getByRole("slider", { name: rowLabel(t("en-US", "ganttBarMove"), "Live") });
+    for (let i = 0; i < 6; i++) fireEvent.keyDown(move, { key: "PageDown" });
+    const now = Number(move.getAttribute("aria-valuenow"));
+    expect(now).toBeGreaterThanOrEqual(Number(move.getAttribute("aria-valuemin")));
+    expect(now).toBeLessThanOrEqual(Number(move.getAttribute("aria-valuemax")));
+    fireEvent.keyDown(move, { key: "Escape" });
+  });
+
   it("gives a cancelled task none", () => {
     render(
       <GanttPanel

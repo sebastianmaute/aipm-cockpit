@@ -317,6 +317,9 @@ export function GanttTaskRow({
           const editable = !!onUpdateBar && !isComplete;
           // §742 — the sliders' value is a day offset from the chart's first day, like the milestone handle's.
           const sliderMax = Math.round(timelineWidthPx / DAY_WIDTH_PX);
+          // A keyboard preview can run past the chart's edge before it commits and the range widens; aria-valuenow
+          // must stay inside [valuemin, valuemax]. The value text still speaks the exact date.
+          const clampDay = (day: number) => Math.min(sliderMax, Math.max(0, day));
 
           return (
             <div
@@ -404,11 +407,12 @@ export function GanttTaskRow({
                   <div
                     role="slider"
                     tabIndex={0}
+                    data-gantt-bar-handle={task.id}
                     aria-label={rowLabel(t(lang, "ganttBarResizeStart"), rowToken)}
                     aria-orientation="horizontal"
                     aria-valuemin={0}
                     aria-valuemax={sliderMax}
-                    aria-valuenow={diffDays(range.min, displayStart)}
+                    aria-valuenow={clampDay(diffDays(range.min, displayStart))}
                     aria-valuetext={fmtFull(displayStart, lang)}
                     className={`absolute left-0 top-0 z-10 h-full w-1.5 cursor-ew-resize ${FOCUS_RING}`}
                     onPointerDown={(e) =>
@@ -420,11 +424,12 @@ export function GanttTaskRow({
                   <div
                     role="slider"
                     tabIndex={0}
+                    data-gantt-bar-handle={task.id}
                     aria-label={rowLabel(t(lang, "ganttBarMove"), rowToken)}
                     aria-orientation="horizontal"
                     aria-valuemin={0}
                     aria-valuemax={sliderMax}
-                    aria-valuenow={diffDays(range.min, displayStart)}
+                    aria-valuenow={clampDay(diffDays(range.min, displayStart))}
                     aria-valuetext={`${fmtFull(displayStart, lang)} → ${fmtFull(displayEnd, lang)}`}
                     className={`absolute inset-x-1.5 top-0 z-0 h-full cursor-grab active:cursor-grabbing ${FOCUS_RING}`}
                     onPointerDown={(e) =>
@@ -436,11 +441,12 @@ export function GanttTaskRow({
                   <div
                     role="slider"
                     tabIndex={0}
+                    data-gantt-bar-handle={task.id}
                     aria-label={rowLabel(t(lang, "ganttBarResizeEnd"), rowToken)}
                     aria-orientation="horizontal"
                     aria-valuemin={0}
                     aria-valuemax={sliderMax}
-                    aria-valuenow={diffDays(range.min, displayEnd)}
+                    aria-valuenow={clampDay(diffDays(range.min, displayEnd))}
                     aria-valuetext={fmtFull(displayEnd, lang)}
                     className={`absolute right-0 top-0 z-10 h-full w-1.5 cursor-ew-resize ${FOCUS_RING}`}
                     onPointerDown={(e) =>

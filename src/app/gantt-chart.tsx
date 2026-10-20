@@ -205,8 +205,9 @@ export function GanttChart({
   // React restores focus to the moved node itself, and the row window keeps a
   // focused row mounted.
   const footerRef = useRef<HTMLDivElement | null>(null);
+  const barKeyMove = barDrag && barDrag.pointerId === -1 ? `${barDrag.taskId}:${barDrag.mode}:${barDragDeltaDays}` : null;
   const milestoneFocus = useGanttMilestoneFocus({
-    scrollRef, footerRef, nameColWidth, milestoneDrag: milestoneDrag ?? null,
+    scrollRef, footerRef, nameColWidth, milestoneDrag: milestoneDrag ?? null, barKeyMove,
   });
 
   const renderRow = (row: GanttRow) => {

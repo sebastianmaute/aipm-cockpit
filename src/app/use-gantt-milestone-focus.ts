@@ -34,6 +34,7 @@ export const POINTER_FOCUS_WINDOW_MS = 500;
 export const GANTT_FOOTER_MIN_PX = 22;
 
 const HANDLE_ATTR = "data-gantt-milestone-handle";
+const BAR_HANDLE_ATTR = "data-gantt-bar-handle";
 const handleSelector = (id: number) => `[${HANDLE_ATTR}="${id}"]`;
 
 /** Scroll milestone `id`'s handle, and its preview date when shown, into the uncovered window. */
@@ -53,6 +54,9 @@ export interface GanttMilestoneFocusOptions {
   footerRef: React.RefObject<HTMLElement | null>;
   nameColWidth: number;
   milestoneDrag: MilestoneDragState | null;
+  /** §742 — a task bar's pending keyboard edit as one changing key (task, handle, days), null otherwise: the
+   *  focused bar handle is revealed after every press, as a milestone handle is. */
+  barKeyMove?: string | null;
 }
 
 /** Handlers for the scroll container: `onFocus`/`onBlur` bubble up from the handles. */
@@ -67,8 +71,13 @@ function handleId(target: EventTarget | null): number | null {
   return raw === null ? null : Number(raw);
 }
 
+/** §742 — the focused element when it is a task bar's handle (`data-gantt-bar-handle`), else null. */
+function barHandle(target: EventTarget | null): HTMLElement | null {
+  return target instanceof HTMLElement && target.hasAttribute(BAR_HANDLE_ATTR) ? target : null;
+}
+
 export function useGanttMilestoneFocus({
-  scrollRef, footerRef, nameColWidth, milestoneDrag,
+  scrollRef, footerRef, nameColWidth, milestoneDrag, barKeyMove = null,
 }: GanttMilestoneFocusOptions): GanttMilestoneFocus {
   const keyMoveId = milestoneDrag?.mode === "keys" ? milestoneDrag.milestoneId : null;
   const keyMoveDays = milestoneDrag?.mode === "keys" ? milestoneDrag.deltaDays : 0;
@@ -100,6 +109,17 @@ export function useGanttMilestoneFocus({
     }
   }, [keyMoveId, keyMoveDays, pointerDragging, scrollRef, footerRef, nameColWidth]);
 
+  // §742 — a task bar's keyboard edit moves its preview along the timeline: keep the focused handle in view,
+  // clear of the sticky name column, header and footer, as for a milestone.
+  useLayoutEffect(() => {
+    const scroller = scrollRef.current;
+    if (barKeyMove === null || !scroller) return;
+    const handle = barHandle(scroller.ownerDocument.activeElement);
+    if (handle && scroller.contains(handle)) {
+      revealInGantt(scroller, [handle], { left: nameColWidth, top: HEADER_HEIGHT_PX, bottom: footerRef.current?.offsetHeight || GANTT_FOOTER_MIN_PX });
+    }
+  }, [barKeyMove, scrollRef, footerRef, nameColWidth]);
+
   // Every commit: a focused handle that is gone while its row remains (signed
   // off) hands focus to that row's name button. Cheap — one lookup, and only
   // while a handle has focus.
@@ -115,6 +135,17 @@ export function useGanttMilestoneFocus({
 
   return {
     onFocus: (e) => {
+      // §742 — Tab onto a task bar's handle under the sticky name column reveals it too (WCAG 2.4.11); a pointer
+      // press does not, so the chart never slides out from under the pointer.
+      const bar = barHandle(e.target);
+      if (bar) {
+        const scroller = scrollRef.current;
+        const byPointer = performance.now() - lastPointerDownRef.current < POINTER_FOCUS_WINDOW_MS;
+        if (scroller && !byPointer) {
+          revealInGantt(scroller, [bar], { left: nameColWidth, top: HEADER_HEIGHT_PX, bottom: footerRef.current?.offsetHeight || GANTT_FOOTER_MIN_PX });
+        }
+        return;
+      }
       const id = handleId(e.target);
       if (id === null) return;
       focusedRef.current = id;

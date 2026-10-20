@@ -329,6 +329,7 @@ export function useGanttBarDrag(
       // Another handle's pending edit lands first; one on this same bar is where this edit starts.
       const base = baseFor(task.id, bar);
       flushKeys();
+      // `pointerId: -1` marks a keyboard edit: the chart reveals the focused handle while it is pending.
       drag = { taskId: task.id, mode, startClientX: 0, initialStart: base.start, initialEnd: base.end, pointerId: -1, moved: true };
       days = 0;
     }
