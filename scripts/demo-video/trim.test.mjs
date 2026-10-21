@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { timedAiWait, waitForAi } from './ai-wait.mjs';
-import { MAX_AI_WAIT_S, keepRanges, trimAiWaits, trimArgs } from './trim.mjs';
+import { MAX_AI_WAIT_S, keepRanges, mapTime, protectSpans, trimAiWaits, trimArgs } from './trim.mjs';
 
 describe('keepRanges', () => {
   it('keeps the whole video when no wait is longer than the cap', () => {
@@ -33,6 +33,40 @@ describe('keepRanges', () => {
   it('ends at the video when a wait runs past it', () => {
     expect(keepRanges([{ start: 10, end: 60 }], 30)).toEqual([[0, 11.5]]);
   });
+});
+
+describe('keepRanges with protected spans', () => {
+  it('splits a cut around a narrated beat, so no range boundary falls inside it', () => {
+    const ranges = keepRanges([{ start: 10, end: 30 }], 60, 3, [[20, 24]]);
+    expect(ranges).toEqual([[0, 11.5], [20, 24], [28.5, 60]]);
+    for (const [a, b] of ranges) {
+      expect(a > 20 && a < 24).toBe(false);
+      expect(b > 20 && b < 24).toBe(false);
+    }
+  });
+
+  it('does not cut a wait that a protected span covers whole', () => {
+    expect(keepRanges([{ start: 10, end: 30 }], 60, 3, [[0, 40]])).toEqual([[0, 60]]);
+  });
+
+  it('does not cut a piece shorter than the minimum that a protected span leaves', () => {
+    expect(keepRanges([{ start: 10, end: 30 }], 60, 3, [[12, 28]])).toEqual([[0, 60]]);
+  });
+});
+
+describe('protectSpans', () => {
+  it('turns beats into [at, at + duration] spans', () => {
+    expect(protectSpans([{ id: 'a', at: 20, duration: 4 }])).toEqual([[20, 24]]);
+    expect(protectSpans(undefined)).toEqual([]);
+  });
+});
+
+describe('mapTime', () => {
+  const ranges = [[0, 10], [20, 30]];
+  it('keeps a time before the first cut', () => expect(mapTime(5, ranges)).toBe(5));
+  it('shifts a time after a cut by the cut length', () => expect(mapTime(25, ranges)).toBe(15));
+  it('maps a time inside a cut to the cut start', () => expect(mapTime(15, ranges)).toBe(10));
+  it('maps a time past the end to the trimmed length', () => expect(mapTime(99, ranges)).toBe(20));
 });
 
 describe('trimArgs', () => {
@@ -96,7 +130,7 @@ describe('trimAiWaits', () => {
   it('replaces the take with the trimmed one and keeps the untrimmed copy', () => {
     const t = setup();
     const r = trimAiWaits(t.file, [{ start: 5, end: 25 }, { start: 30, end: 31 }], t.out, { exec: t.exec });
-    expect(r).toEqual({ cut: 17, capped: 1 });
+    expect(r).toEqual({ cut: 17, capped: 1, ranges: [[0, 6.5], [23.5, 40]] });
     expect(fs.readFileSync(t.file, 'utf8')).toBe('TRIMMED');
     expect(fs.readFileSync(t.raw, 'utf8')).toBe('TAKE');
   });
@@ -105,9 +139,16 @@ describe('trimAiWaits', () => {
     const t = setup();
     fs.mkdirSync(path.dirname(t.raw), { recursive: true });
     fs.writeFileSync(t.raw, 'OLD');
-    expect(trimAiWaits(t.file, [{ start: 5, end: 6 }], t.out, { exec: t.exec })).toEqual({ cut: 0, capped: 0 });
+    expect(trimAiWaits(t.file, [{ start: 5, end: 6 }], t.out, { exec: t.exec })).toEqual({ cut: 0, capped: 0, ranges: [[0, 40]] });
     expect(fs.readFileSync(t.file, 'utf8')).toBe('TAKE');
     expect(fs.existsSync(t.raw)).toBe(false);
+  });
+
+  it('passes protected spans through, and returns the kept ranges', () => {
+    const t = setup();
+    const r = trimAiWaits(t.file, [{ start: 5, end: 25 }], t.out, { exec: t.exec, protect: [[12, 16]] });
+    expect(r.ranges).toEqual([[0, 6.5], [12, 16], [23.5, 40]]);
+    expect(r.cut).toBe(40 - (6.5 + 4 + 16.5));
   });
 
   it('a failed encode keeps the take, removes the partial file, and names the cause', () => {
