@@ -1,4 +1,5 @@
 "use client";
+import { isJiraOn } from "./integration-switches";
 import { useCallback, useMemo, useState } from "react";
 import type React from "react";
 import { emptyForm, type TaskFormDraft } from "./task-form-context";
@@ -480,7 +481,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         const newId = newTask.id;
         const shouldPush =
           form.pushToJira &&
-          settings.jira.enabled &&
+          isJiraOn(settings.jira) &&
           !!settings.jira.projectKey;
         const stamp = new Date().toISOString();
         const withNew = [...tasksRef.current, newTask];

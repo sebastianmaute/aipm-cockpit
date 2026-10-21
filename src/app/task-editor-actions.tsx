@@ -1,3 +1,4 @@
+import { isJiraOn } from "./integration-switches";
 import type { ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
@@ -147,7 +148,7 @@ export function buildTaskEditorChrome(deps: TaskEditorChromeDeps): {
       <TaskEditorActions
         lang={lang}
         task={editingTask}
-        jiraConfigured={jira.enabled && !!jira.projectKey}
+        jiraConfigured={isJiraOn(jira) && !!jira.projectKey}
         onSendInquiry={deps.onSendInquiry}
         onPushToJira={(id) => {
           void deps.onPushToJira(id);
@@ -160,7 +161,7 @@ export function buildTaskEditorChrome(deps: TaskEditorChromeDeps): {
   const editorLeadingActions = (
     <>
       {editorActions}
-      {editingIsJiraLinked && jira.enabled && (
+      {editingIsJiraLinked && isJiraOn(jira) && (
         <Button
           type="button"
           variant="secondary"

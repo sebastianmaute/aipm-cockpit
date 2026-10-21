@@ -1,3 +1,4 @@
+import { isIntegrationDisabled, type IntegrationId } from "./integration-switches";
 import type { AppView } from "./nav-config";
 import type { AddableReportId } from "./addable-reports";
 import type { TranslationKey } from "./i18n";
@@ -124,8 +125,19 @@ export function sameFeatureSet(a: readonly FeatureModuleId[], b: readonly Featur
   return left.size === right.size && [...left].every((id) => right.has(id));
 }
 
+/** §762 — modules that need a server-side integration, which a deployment can switch off
+ *  (AIPM_DISABLED_INTEGRATIONS). Switched off, the module counts as off everywhere this file
+ *  answers, while a project's stored `features` keep it: back on, it returns as it was. */
+const MODULE_INTEGRATION: Partial<Record<FeatureModuleId, IntegrationId>> = { timelog: "timelog" };
+
+/** The module needs an integration this deployment switched off. */
+export function isModuleSwitchedOff(id: FeatureModuleId): boolean {
+  const integration = MODULE_INTEGRATION[id];
+  return integration !== undefined && isIntegrationDisabled(integration);
+}
+
 export function isModuleEnabled(id: FeatureModuleId, features: readonly FeatureModuleId[]): boolean {
-  return features.includes(id);
+  return features.includes(id) && !isModuleSwitchedOff(id);
 }
 
 /** The modules `id` declares it uses that are not in `features`, in declaration order.
@@ -149,7 +161,7 @@ export function isViewEnabled(view: AppView, features: readonly FeatureModuleId[
   if (RELEASE_HIDDEN_VIEWS.includes(view)) return false;
   const mod = VIEW_TO_MODULE.get(view);
   if (!mod) return true; // core view
-  return features.includes(mod);
+  return isModuleEnabled(mod, features);
 }
 
 /** Where the app should land when the active view's module is disabled (e.g.
@@ -172,7 +184,7 @@ export function disabledViewRedirect(
  *  `settings`, which is reached by other means) plus every enabled module's views. */
 export function enabledNavViews(features: readonly FeatureModuleId[]): AppView[] {
   const core = CORE_VIEWS.filter((v) => v !== "settings");
-  const moduleViews = features.flatMap((id) => MODULE_BY_ID.get(id)?.views ?? []);
+  const moduleViews = features.filter((id) => !isModuleSwitchedOff(id)).flatMap((id) => MODULE_BY_ID.get(id)?.views ?? []);
   return [...core, ...moduleViews];
 }
 

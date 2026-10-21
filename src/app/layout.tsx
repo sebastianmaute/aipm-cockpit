@@ -8,6 +8,8 @@ import { ServiceWorkerRegistrar } from "./service-worker-registrar";
 import { NO_FLASH_THEME_SCRIPT } from "./boot-theme-script";
 import { APP_VERSION } from "./version";
 import { bootNonce, checkoutToken } from "./checkout-token";
+import { DISABLED_INTEGRATIONS_ENV, parseDisabledIntegrations } from "./integration-switches";
+import { IntegrationSwitchesSync } from "./integration-switches-sync";
 
 const titillium = Titillium_Web({
   subsets: ["latin"],
@@ -34,6 +36,9 @@ export default async function RootLayout({
   // CSP. Reading headers() also opts the layout into dynamic rendering, which
   // nonce-based CSP already requires (see page.tsx connection()).
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  // §762 — read per request (this layout is dynamic), so one image serves every
+  // deployment: the integrations it switched off reach the client from here.
+  const disabledIntegrations = parseDisabledIntegrations(process.env[DISABLED_INTEGRATIONS_ENV]);
   return (
     <html
       lang="en"
@@ -67,7 +72,9 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME_SCRIPT }}
         />
         <ServiceWorkerRegistrar />
-        <ThemeProvider><CiStyleProvider>{children}</CiStyleProvider></ThemeProvider>
+        <IntegrationSwitchesSync disabled={disabledIntegrations}>
+          <ThemeProvider><CiStyleProvider>{children}</CiStyleProvider></ThemeProvider>
+        </IntegrationSwitchesSync>
       </body>
     </html>
   );

@@ -6,6 +6,7 @@
 import { rateLimit } from "./_rate-limit";
 import { isPrivateHost, isAllowedHostSuffix } from "../_shared/proxy-ssrf";
 import { describeUpstreamError } from "../_shared/upstream-error";
+import { refuseIfDisabled } from "../_shared/integration-switch";
 
 export type Creds = {
   siteUrl: string;
@@ -30,11 +31,15 @@ export type JiraRequest = { creds: Creds; body: Record<string, unknown> };
  * the JSON body, and extracts credentials. Returns a ready-to-return error
  * Response on any failure, or the parsed creds + body on success. This keeps the
  * rate-limit + body-parse + credential-validation logic in one place rather than
- * duplicated across every route handler.
+ * duplicated across every route handler. `integration` names which switch guards
+ * the route (§762): Confluence reuses these helpers but is switched off on its own.
  */
 export async function parseJiraRequest(
   request: Request,
+  integration: "jira" | "confluence" = "jira",
 ): Promise<{ error: Response } | JiraRequest> {
+  const refused = refuseIfDisabled(integration);
+  if (refused) return { error: refused };
   const limited = rateLimit(request);
   if (limited) return { error: limited };
 

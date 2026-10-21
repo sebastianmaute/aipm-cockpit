@@ -6,7 +6,7 @@ import { parseJiraRequest, callJira, forwardJsonResponse } from "../../jira/_hel
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const parsed = await parseJiraRequest(request);
+  const parsed = await parseJiraRequest(request, "confluence");
   if ("error" in parsed) return parsed.error;
   const { creds, body } = parsed;
   const pageId = typeof body.pageId === "string" ? body.pageId : "";

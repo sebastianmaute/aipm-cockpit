@@ -111,6 +111,26 @@
   axe-scanned). Editor read-only banner (`jira-readonly-banner.tsx`) threads to the floating `TaskFormModal`
   (via `app-modals.tsx`).
 
+### Deployment integration switch (§762)
+
+`AIPM_DISABLED_INTEGRATIONS` (a server run-time setting, see `docs/security.md`) switches `jira`, `confluence`,
+`timelog`, `ecb` and `stt` off for one deployment. Two halves, one id list (`INTEGRATION_IDS` in
+`integration-switches.ts`):
+- **Server:** `refuseIfDisabled` (`api/_shared/integration-switch.ts`) reads the setting on EVERY request and answers
+  403 `integration-disabled` before rate-limiting or any upstream call. It sits in `parseJiraRequest` (which takes
+  `"confluence"` for the Confluence route), `parseTimelogRequest`, `parseSttRequest` and the ECB `GET`.
+- **Client:** the root layout reads the setting per request (it is dynamic already, for the nonce) and
+  `IntegrationSwitchesSync` records it with `setDisabledIntegrations` during render, before any child renders.
+  Plain functions then ask `isIntegrationDisabled` / `isJiraOn` / `isModuleSwitchedOff` with no prop threaded.
+
+★★ **Gates ask; stored settings are never rewritten.** Many call sites save settings by spreading the current
+`settings` object (`grep -rnE "(setSettings|onChange)\(\{ *\.\.\.settings" src/app --include=*.tsx --include=*.ts | grep -v test`), so an "effective settings" layer that coerced `jira.enabled` would persist the coercion and
+destroy the user's setup. Every gate therefore reads the switch where it decides: the Jira reads go through
+`isJiraOn`, the TimeLog module through `isModuleEnabled`/`isViewEnabled`/`enabledNavViews` (a project's stored
+`features` keep "timelog"), and the dictation section shows the browser engine without writing `engine`.
+★ A new control for one of these integrations must ask the switch too, or it reappears on a deployment that
+switched the integration off.
+
 ### The load hold (§548)
 
 - **`loadPending` (`useStorageBackend`) is true until the workspace in scope is the settled project

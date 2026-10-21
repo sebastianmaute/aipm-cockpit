@@ -12,6 +12,11 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **A deployment can switch integrations off (§762).** A new server setting, `AIPM_DISABLED_INTEGRATIONS`,
+  names integrations a deployment does not offer: Jira, Confluence, TimeLog, the ECB exchange rates and cloud
+  speech-to-text. Their server routes then refuse, and the app hides their settings, buttons and the TimeLog
+  module; dictation uses the browser's own speech recognition. Users' stored settings are kept. It is read on
+  every request, so it works on any deployment without a rebuild (see docs/RUNBOOK.md).
 - **Choose the bucket a forecast import goes into (§719).** The import's first step now has a "Target bucket"
   list. It starts on the bucket whose card you opened it from and offers every open bucket; the preview and Apply
   follow your choice, so there is no need to close the import and reopen it from another card. Choosing another

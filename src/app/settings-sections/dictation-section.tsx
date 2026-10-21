@@ -4,6 +4,7 @@ import { useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { SegmentedControl } from "../segmented-control";
+import { isIntegrationDisabled } from "../integration-switches";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { saveSecretValue } from "../use-secrets";
@@ -25,7 +26,10 @@ type DictationEngineId = "web-speech" | "stt";
 
 export function DictationSection({ lang, settings, onChange }: DictationSectionProps) {
   const dictation = settings.dictation;
-  const engine: DictationEngineId = dictation?.engine ?? "web-speech";
+  // §762 — with cloud speech switched off by this deployment, only the browser engine is shown;
+  // the stored choice is not rewritten unless the user picks again.
+  const sttOff = isIntegrationDisabled("stt");
+  const engine: DictationEngineId = sttOff ? "web-speech" : (dictation?.engine ?? "web-speech");
   const [hotkeyArmed, setHotkeyArmed] = useState(false);
   const hotkey = dictation?.hotkey ?? "F4";
 
@@ -98,6 +102,9 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
       <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {t(lang, "dictationEngine")}
       </span>
+      {sttOff ? (
+        <p className="text-sm text-foreground">{t(lang, "dictationEngineWebSpeech")}</p>
+      ) : (
       <SegmentedControl<DictationEngineId>
         value={engine}
         ariaLabel={t(lang, "dictationEngine")}
@@ -108,6 +115,7 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
         ]}
         onChange={(v) => setDictation({ engine: v })}
       />
+      )}
 
       {engine === "stt" && (
         <div className="mt-3 flex flex-col gap-2">

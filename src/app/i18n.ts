@@ -2895,6 +2895,7 @@ const enUS = {
   forecastImportIntro: "Read planned hours per person from a spreadsheet into a budget bucket. Nothing is written until you apply.",
   forecastImportTarget: "Target bucket",
   forecastImportTargetRemoved: "(removed)",
+  integrationNotAvailable: "Not available on this deployment.",
   forecastImportFile: "Spreadsheet (.xlsx, .xlsm, .csv)",
   forecastImportSheet: "Sheet",
   forecastImportReading: "Reading the file…",

@@ -15,6 +15,7 @@
 // ★ Every deps key is REQUIRED, optional props included, so a dropped one is a
 // tsc error at the call site rather than a silently missing control (the task
 // editor's `budgetLink` is optional at every hop below and was lost that way).
+import { isJiraOn } from "./integration-switches";
 import type { ComponentProps, ReactNode } from "react";
 import { t, type Lang } from "./i18n";
 import type { Settings } from "./settings-types";
@@ -225,7 +226,7 @@ export function buildAppModalsBlock(deps: AppModalsBlockDeps) {
         uniqueLabels={uniqueLabels}
         editingIsJiraLinked={editingIsJiraLinked}
         readOnlyJiraProjectName={editingReadOnlyJiraProjectName}
-        jiraEnabled={settings.jira.enabled}
+        jiraEnabled={isJiraOn(settings.jira)}
         fieldErrors={fieldErrors}
         submitted={submitted}
         saveDisabled={saveDisabled}

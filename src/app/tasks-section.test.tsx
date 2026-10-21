@@ -1,10 +1,11 @@
 import React from "react";
-import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act, waitFor, within } from "@testing-library/react";
 import { t, loadI18n } from "./i18n";
 import { ToastProvider } from "./toast-context";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
 import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
+import { setDisabledIntegrations } from "./integration-switches";
 
 vi.mock("./workspace-context", () => ({ useWorkspace: vi.fn() }));
 vi.mock("./filters-context", () => ({ useFilters: vi.fn() }));
@@ -1864,5 +1865,27 @@ describe("TasksSection — a deep link scrolls a virtualized row into range (§5
     // ...and a deep link there has no window to scroll, and does not throw.
     act(() => deepLink.opts!.scrollToId!(900));
     expect(virtual.scrollToIndex).not.toHaveBeenCalled();
+  });
+});
+
+describe("§762 — TasksSection toolbar with jira switched off by the deployment", () => {
+  beforeEach(() => {
+    stubFilters();
+    stubTaskForm();
+    stubSettings();
+    stubHolidaySet();
+    stubWorkspace([], []);
+  });
+  afterEach(() => setDisabledIntegrations([]));
+  const syncButton = () => screen.queryByRole("button", { name: t("en-US", "jiraSync") });
+
+  it("§762 — shows Sync with Jira when jiraEnabled and jira is on (positive control)", () => {
+    render(<TasksSection {...makeProps()} jiraEnabled />);
+    expect(syncButton()).toBeInTheDocument();
+  });
+  it("§762 — omits Sync with Jira when jira is switched off, though jiraEnabled is true", () => {
+    setDisabledIntegrations(["jira"]);
+    render(<TasksSection {...makeProps()} jiraEnabled />);
+    expect(syncButton()).toBeNull();
   });
 });

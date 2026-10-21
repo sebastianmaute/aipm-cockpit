@@ -1,13 +1,14 @@
 // src/app/backend-setup-wizard.test.tsx
 import { markUnsealedPassphraseSecret } from "./turso-token-marker";
 import React from "react";
-import { beforeEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { act, render, screen, fireEvent } from "@testing-library/react";
 import { BackendSetupWizard } from "./backend-setup-wizard";
 import { defaultSettings } from "./settings-types";
 import { BACKEND_SETUP_STEPS } from "./backend-setup-steps";
 import { t } from "./i18n";
 import { savePortfolioMode } from "./portfolio-mode";
+import { setDisabledIntegrations } from "./integration-switches";
 
 // ---------------------------------------------------------------------------
 // Mocks — stub out heavy section components so this test focuses on wizard
@@ -476,5 +477,20 @@ describe("BackendSetupWizard — unapplied Turso drafts on the storage step (§7
     await act(async () => { fireEvent.click(nextBtn()); });
     expect(confirm).not.toHaveBeenCalled();
     expect(screen.queryByTestId("integrations-section")).toBeNull();
+  });
+});
+
+describe("§762 — BackendSetupWizard Jira step with jira switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  it("§762 — shows the Jira settings form on the Jira step when jira is on (positive control)", () => {
+    setup({ initialStep: 2 });
+    expect(screen.getByTestId("jira-section")).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "integrationNotAvailable"))).toBeNull();
+  });
+  it("§762 — shows the not-available text instead of the Jira form when jira is switched off", () => {
+    setDisabledIntegrations(["jira"]);
+    setup({ initialStep: 2 });
+    expect(screen.getByText(t("en-US", "integrationNotAvailable"))).toBeInTheDocument();
+    expect(screen.queryByTestId("jira-section")).toBeNull();
   });
 });

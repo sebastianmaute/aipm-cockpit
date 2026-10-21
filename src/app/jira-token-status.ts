@@ -1,3 +1,4 @@
+import { isJiraOn } from "./integration-switches";
 import type { JiraConfig } from "./settings-types";
 
 export type JiraTokenAlert =
@@ -14,7 +15,7 @@ export function daysUntil(targetIso: string, todayIso: string): number | null {
 
 /** Highest-priority token alert, or null. Priority: invalid > expired > expiring. `today` is "YYYY-MM-DD". */
 export function getJiraTokenAlert(jira: JiraConfig, today: string, leadDays: number): JiraTokenAlert {
-  if (!jira.enabled) return null;
+  if (!isJiraOn(jira)) return null; // §762: no banner for a Jira the deployment switched off
   if (jira.tokenInvalidAt) return { state: "invalid", daysLeft: 0, date: "" };
   const exp = jira.tokenExpiresAt?.trim();
   if (!exp) return null;

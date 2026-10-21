@@ -999,7 +999,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§759](#759-undoing-claudes-project-edit-says-undone-even-when-the-restore-fails--closed-2026-10-20) | Undoing Claude's project edit says "Undone" even when the restore fails | — | — | **CLOSED** 2026-10-20 |
 | [§760](#760-a-proposed-projects-name-skips-the-field-judge-so-it-has-no-length-cap--closed-2026-10-20) | A proposed project's name skips the field judge, so it has no length cap | — | — | **CLOSED** 2026-10-20 |
 | [§761](#761-claudes-stakeholder-count-accepts-0x10-1e3-and----closed-2026-10-20) | Claude's stakeholder count accepts "0x10", "1e3" and " " | — | — | **CLOSED** 2026-10-20 |
-| [§762](#762-the-app-cannot-hide-integrations-a-deployment-switched-off--open) | The app cannot hide integrations a deployment switched off | — | — | open |
+| [§762](#762-the-app-cannot-hide-integrations-a-deployment-switched-off--closed-2026-10-21) | The app cannot hide integrations a deployment switched off | — | — | **CLOSED** 2026-10-21 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45777,11 +45777,9 @@ Size XS.
 
 **Source:** found 2026-10-19 in the review of the "Claude reads and sets every project field" branch (#807); filed 2026-10-20 (owner: file the issues).
 
-## 762. The app cannot hide integrations a deployment switched off — OPEN
+## 762. The app cannot hide integrations a deployment switched off — CLOSED 2026-10-21
 
-**Status:** OPEN 2026-10-21, filed on the owner's word; never machine-verified in this repo.
-
-**Work item:** #834
+**Status:** CLOSED 2026-10-21 on `feat/762-disabled-integrations`, design approved by the owner 2026-10-21 (with "available outside the hosted deployment as well": it is an ordinary server setting, documented in `docs/RUNBOOK.md` and `docs/security.md`). `AIPM_DISABLED_INTEGRATIONS` names any of `jira`, `confluence`, `timelog`, `ecb`, `stt` (`INTEGRATION_IDS`, `integration-switches.ts`). Server: `refuseIfDisabled` (`api/_shared/integration-switch.ts`) reads it on every request and answers 403 `integration-disabled` before anything else; it sits in `parseJiraRequest` (Confluence passes `"confluence"`), `parseTimelogRequest`, `parseSttRequest` and the ECB `GET`. Client: the root layout reads it per request and `IntegrationSwitchesSync` records it before any child renders; gates ask `isIntegrationDisabled` / `isJiraOn` / `isModuleSwitchedOff`. Hidden: the Jira settings (Integrations, menu, notification toggle), the wizard's Jira step content and the setup-review items, every Jira sync/push control and the token banner; the Confluence import option; the TimeLog module (navigation, view, the module picker), its settings, the Budget bookings step and notice; the rate refresh, with the baseline-currency switch disabled and saying "Not available on this deployment."; the cloud speech engine, with dictation on the browser engine. The owner's two calls: stored settings are never rewritten (no "effective settings" layer, because 38 call sites save by spreading `settings`), and TimeLog is hidden, not shown as unavailable. Verified: `npx vitest run` over the 18 touched test files plus the five API folders and `feature-modules` (26 files, 631 tests, green); each of the 14 gates has a test with a positive control, and 22 mutants (one or two per gate) each turned a test red. Not mutation-proved: that dictation's render does not call `onChange`, and that toggling another module keeps "timelog" in the list (both asserted). **Earlier:** OPEN 2026-10-21, filed on the owner's word; never machine-verified in this repo.
 
 A hosted deployment of the app can switch server-side integrations off in front of the app: its front door, which lives outside this repository, answers five routes itself with HTTP 503 and `{"error":"This feature is not available on this deployment."}`: `/api/jira`, `/api/confluence`, `/api/timelog`, `/api/ecb` and `/api/stt`. That part is done (owner decision 2026-10-21: block in front of the app now, hide in the app later).
 

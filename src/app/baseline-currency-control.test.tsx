@@ -7,6 +7,8 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { BaselineCurrencyControl } from "./baseline-currency-control";
 import { createProjectClock, resolveTimezone } from "./timezone";
 import type { FxRates, ResourcePlan, Role } from "./types";
+import { setDisabledIntegrations } from "./integration-switches";
+import { t } from "./i18n";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
 const roles: Role[] = [{ id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
@@ -210,5 +212,24 @@ describe("BaselineCurrencyControl", () => {
     expect(screen.getByTestId("rate").textContent).toBe("85.2");
     expect(JSON.parse(screen.getByTestId("history").textContent ?? "[]")).toEqual([peerEntry]);
     expect(logOf()).toEqual([]);
+  });
+});
+
+describe("§762 — BaselineCurrencyControl with ecb switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const select = () => screen.getByRole("combobox", { name: "Project currency" });
+
+  test("§762 — is enabled with no explanation when ecb is on and session rates are present (positive control)", () => {
+    renderControl(session);
+    expect(select()).toBeEnabled();
+    expect(screen.queryByText(t("en-US", "integrationNotAvailable"))).toBeNull();
+    expect(screen.queryByText(t("en-US", "baselineCurrencyNeedsRates"))).toBeNull();
+  });
+  test("§762 — disables the select and says not-available, not needs-rates, when ecb is off despite session rates", () => {
+    setDisabledIntegrations(["ecb"]);
+    renderControl(session);
+    expect(select()).toBeDisabled();
+    expect(screen.getByText(t("en-US", "integrationNotAvailable"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "baselineCurrencyNeedsRates"))).toBeNull();
   });
 });

@@ -1,9 +1,10 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ALL_MODULE_IDS, FEATURE_MODULES, type FeatureModuleId } from "./feature-modules";
 import { loadI18n, t } from "./i18n";
 import { FunctionsPicker, UsesNotice } from "./functions-picker";
 import { buttonClassFor } from "../test/button-variant";
+import { setDisabledIntegrations } from "./integration-switches";
 
 function setup(features: FeatureModuleId[]) {
   const onChange = vi.fn();
@@ -158,5 +159,27 @@ describe("UsesNotice", () => {
   it("renders nothing when nothing is missing", () => {
     const { container } = render(<UsesNotice lang="en-US" moduleId="timelog" missing={[]} />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("§762 — FunctionsPicker with timelog switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const timelogBox = () => screen.queryByRole("checkbox", { name: t("en-US", "navTimelog") });
+  it("§762 — offers the TimeLog checkbox when timelog is on (positive control)", () => {
+    setup(["gantt", "timelog"]);
+    expect(timelogBox()).toBeInTheDocument();
+  });
+  it("§762 — offers no TimeLog checkbox when timelog is switched off", () => {
+    setDisabledIntegrations(["timelog"]);
+    setup(["gantt"]);
+    expect(timelogBox()).toBeNull();
+  });
+  it("§762 — toggling another module keeps timelog in the list it reports", () => {
+    setDisabledIntegrations(["timelog"]);
+    const onChange = setup(["gantt", "timelog"]);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Budget" }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.arrayContaining(["gantt", "budget", "timelog"]));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Gantt" }));
+    expect(onChange).toHaveBeenLastCalledWith(["timelog"]);
   });
 });

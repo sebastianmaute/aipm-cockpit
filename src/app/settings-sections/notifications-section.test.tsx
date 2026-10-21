@@ -5,6 +5,7 @@ import { NotificationsSection } from "./notifications-section";
 import { defaultSettings } from "../settings-types";
 import { loadI18n, t } from "../i18n";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
+import { setDisabledIntegrations } from "../integration-switches";
 
 describe("NotificationsSection", () => {
   it("editing reminder lead days persists the value", () => {
@@ -228,5 +229,18 @@ describe("NotificationsSection — every lead-days input has its own name (§672
     // birthday reminder's lead days and the RAID review interval. A narrowed-role floor is kept
     // at the measured count, so a lost input fails here rather than shrinking the scan.
     expectRowUniqueNames({ minControls: 7, roles: ["spinbutton"] });
+  });
+});
+
+describe("§762 — jiraTokenError toggle with jira switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  it("§762 — shows the toggle when jira is on (positive control)", () => {
+    render(<NotificationsSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expect(screen.getByRole("checkbox", { name: t("en-US", "notifJiraTokenError") })).toBeInTheDocument();
+  });
+  it("§762 — omits the toggle when jira is switched off", () => {
+    setDisabledIntegrations(["jira"]);
+    render(<NotificationsSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expect(screen.queryByRole("checkbox", { name: t("en-US", "notifJiraTokenError") })).toBeNull();
   });
 });

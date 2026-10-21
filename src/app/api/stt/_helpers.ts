@@ -5,6 +5,7 @@
 // recorded audio are forwarded upstream only — never logged.
 
 import { isPrivateHost } from "../_shared/proxy-ssrf";
+import { refuseIfDisabled } from "../_shared/integration-switch";
 
 const TIMEOUT_MS = 30_000;
 // 25MB — short recordings only. Checked twice: once via content-length before
@@ -23,6 +24,8 @@ export interface SttForward {
 export async function parseSttRequest(
   request: Request,
 ): Promise<{ fwd: SttForward } | { error: Response }> {
+  const refused = refuseIfDisabled("stt"); // §762
+  if (refused) return { error: refused };
   const key = request.headers.get("x-stt-key") ?? "";
   if (!key) return { error: new Response("missing key", { status: 400 }) };
 

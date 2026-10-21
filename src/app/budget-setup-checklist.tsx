@@ -6,7 +6,7 @@ import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { BUDGET_SETUP_STEP_COUNT, budgetSetupDoneCount, type BudgetSetupStep, type BudgetSetupSteps } from "./budget-setup";
 import type { AppView } from "./nav-config";
-import { ALL_MODULE_IDS, FEATURE_MODULES, isViewEnabled, moduleForView, type FeatureModuleId } from "./feature-modules";
+import { ALL_MODULE_IDS, FEATURE_MODULES, isModuleSwitchedOff, isViewEnabled, moduleForView, type FeatureModuleId } from "./feature-modules";
 
 /** The views a setup step can send the user to. These are the REAL `AppView`
  *  ids (`nav-config.ts`), so `onGo` feeds `setActiveTab` directly. */
@@ -92,7 +92,7 @@ function StepList({ lang, steps, onAddBucket, onGo, features, onCommitFeatures }
     if (features && moduleId && !isViewEnabled(view, features)) return offHint(moduleId, rowLabelKey);
     return <Button variant="secondary" size="xs" onClick={() => onGo(view)}>{t(lang, key)}</Button>;
   };
-  const rows: RowSpec[] = [
+  const allRows: RowSpec[] = [
     { step: 1, done: steps.ratesDone, labelKey: "budgetSetupRates", action: goButton("manage-roles", "budgetSetupGoRoles", "budgetSetupRates") },
     { step: 2, done: steps.peopleDone, labelKey: "budgetSetupPeople", action: goButton("directory", "budgetSetupGoPeople", "budgetSetupPeople") },
     {
@@ -104,6 +104,8 @@ function StepList({ lang, steps, onAddBucket, onGo, features, onCommitFeatures }
     },
     { step: 4, done: steps.bookingsDone, labelKey: "budgetSetupBookings", optional: true, action: goButton("timelog", "budgetSetupGoBookings", "budgetSetupBookings") },
   ];
+  // §762 — no bookings step without TimeLog.
+  const rows = allRows.filter((row) => row.step !== 4 || !isModuleSwitchedOff("timelog"));
   return (
     <ol className="flex flex-col gap-1.5">
       {rows.map((row) => {
