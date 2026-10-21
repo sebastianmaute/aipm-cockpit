@@ -126,7 +126,8 @@ export async function runTake(def, deps) {
   try {
     if (def.prologueOnCamera) {
       await start();
-      for (const id of setup.MAY_NOT_SHOW ?? []) mayNotShow.add(id);
+      // Review and the optional Jira step show on the first-run walk-through only.
+      if (def.firstRun) for (const id of setup.MAY_NOT_SHOW ?? []) mayNotShow.add(id);
       await intro(await resolveOpening(ctx, def.opening));
       await setup.connect(ctx, def.firstRun ? { onCamera: true, firstRun: true } : { onCamera: true });
       for (const s of def.prologue ?? []) await runStep(ctx, s, opts, mayNotShow);

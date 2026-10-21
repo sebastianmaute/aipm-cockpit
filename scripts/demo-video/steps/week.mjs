@@ -143,12 +143,12 @@ export const PROLOGUE = [wizardProposal];
 // ---- shared across days and clips ----
 
 /** Dashboard → digest → Generate now; the narrative is in when the button reads "Generate now" again. */
-export const digestGenerate = step('digest-generate', {
+const digestStep = (beatId) => step('digest-generate', {
   ai: true,
   trigger: async (ctx) => { await nav(ctx, 'Dashboard'); return main(ctx).getByRole('button', { name: 'Generate now', exact: true }).first(); },
   run: async (ctx) => {
     await nav(ctx, 'Dashboard');
-    await caption(ctx, 'The digest: Claude sums up where the project stands.', 'week-digest');
+    await caption(ctx, 'The digest: Claude sums up where the project stands.', beatId);
     await click(ctx, main(ctx).getByRole('button', { name: 'Generate now', exact: true }).first(), 'Generate now', 300);
     await waitForAi(ctx, {
       busy: main(ctx).getByRole('button', { name: /^Stop/ }).first(),
@@ -166,6 +166,10 @@ export const digestGenerate = step('digest-generate', {
   },
   replay: noop,
 });
+
+/** Monday's digest, and the ai-digest clip's: beat `week-digest`. Friday's is its own beat, `fri-digest`. */
+export const digestGenerate = digestStep('week-digest');
+export const fridayDigest = digestStep('fri-digest');
 
 
 // ---- Monday — a milestone slipped ----
@@ -992,7 +996,7 @@ export const FRIDAY = [
       await pace(ctx, 2500);
     },
   }),
-  digestGenerate,
+  fridayDigest,
   step('help', {
     run: async (ctx) => {
       await caption(ctx, 'Help: the walk-through, the demo and these videos.', 'fri-help');

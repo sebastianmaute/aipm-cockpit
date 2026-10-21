@@ -63,7 +63,7 @@ function beatFor(ctx, id) {
 
 /** A beat id already shown in this take: a later show keeps its caption but speaks nothing, and holds only
  *  this long (the rehearsal's token pace), so a branch that shows one caption twice sounds right. */
-const REPEAT_MS = 150;
+const REPEAT_MS = 150; // long enough to see the caption change, short enough to add no dead air to the take
 const shownBefore = (ctx, id) => ctx.beatsUsed?.has(id) === true;
 
 /** A beat with audio, in a running recording (a rehearsal's beats have no duration). */
@@ -89,7 +89,8 @@ export async function caption(ctx, text, id) {
   const again = shownBefore(ctx, id);
   const beat = beatFor(ctx, id);
   const voice = !again && voiced(ctx, beat);
-  if (voice) await waitForVoice(ctx);
+  // A repeat starts no voice but still waits for any pending one: it must not replace a caption mid-sentence.
+  if (onCamera(ctx)) await waitForVoice(ctx);
   await ctx.page.evaluate((t) => {
     const b = document.getElementById('demo-subtitle');
     if (!b) return;

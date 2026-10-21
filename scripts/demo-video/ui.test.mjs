@@ -93,13 +93,27 @@ describe('a beat shown again (§715)', () => {
     await caption(ctx, 'A', 'mon-a');
     const freeAt = ctx.voiceFreeAt;
     await caption(ctx, 'A again', 'mon-a');
-    expect(calls).toEqual(['show(A)', 'show(A again)', 'wait(150)']);
+    expect(calls).toEqual(['show(A)', `wait(${2000 + PAUSE_MS})`, 'show(A again)', 'wait(150)']);
     expect(ctx.voiceFreeAt).toBe(freeAt);
     expect(ctx.beatLog.map((b) => b.id)).toEqual(['mon-a']);
     // The next new beat still waits for the first voice, not for the repeat.
     await caption(ctx, 'B', 'mon-b');
     expect(ctx.beatLog.map((b) => b.id)).toEqual(['mon-a', 'mon-b']);
     expect(ctx.beatLog[1].at).toBeGreaterThanOrEqual(2.4);
+  });
+
+  it('a repeat waits for the voice of the beat shown since, then shows', async () => {
+    const { ctx } = fakeCtx({ narration: { 'mon-a': 1.0, 'mon-b': 2.0 } });
+    const shownAt = [];
+    const evaluate = ctx.page.evaluate;
+    ctx.page.evaluate = async (fn, t) => { shownAt.push([t, clock]); await evaluate(fn, t); };
+    await caption(ctx, 'A', 'mon-a');
+    await caption(ctx, 'B', 'mon-b');
+    const freeAt = ctx.voiceFreeAt;
+    await caption(ctx, 'A again', 'mon-a');
+    expect(shownAt[2]).toEqual(['A again', freeAt]);
+    expect(ctx.voiceFreeAt).toBe(freeAt);
+    expect(ctx.beatLog.map((b) => b.id)).toEqual(['mon-a', 'mon-b']);
   });
 
   it('speak of a beat already spoken does nothing', async () => {
@@ -165,6 +179,7 @@ function beatIds() {
   const ids = [];
   for (const [, s] of sources) {
     for (const m of s.matchAll(/caption\(ctx,[^\n]*,\s*'([^'\n]*)'\s*\);/g)) ids.push(m[1]);
+    for (const m of s.matchAll(/digestStep\('([^']*)'\)/g)) ids.push(m[1]);
     for (const m of s.matchAll(/viewToggle\('([^']*)'/g)) ids.push(`f-gantt-${m[1]}`);
   }
   return ids;
@@ -177,10 +192,13 @@ describe('beat ids in the step modules (§715)', () => {
     // Each call is one line, and a caption's text may hold a ';', so a call ends at its line's ');'.
     const withId = count(/caption\(ctx,[^\n]*,\s*['`][^'`\n]*['`]\s*\);/g);
     expect(calls).toBeGreaterThan(100);
-    expect(withId).toBe(calls - clears);
+    // The digest step's caption takes its id from a parameter (digestStep), so its call ends in an identifier.
+    expect(withId).toBe(calls - clears - 1);
   });
 
-  it('the only id built at run time is the Gantt view toggle', () => {
+  it('the only ids built at run time are the Gantt view toggle and the digest step, whose two ids are literal', () => {
+    expect(count(/caption\(ctx,[^\n]*,\s*beatId\);/g)).toBe(1);
+    expect(count(/digestStep\('/g)).toBe(2);
     expect(count(/caption\(ctx,[^\n]*,\s*`[^`\n]*`\s*\);/g)).toBe(1);
     expect(sources.find(([f]) => f === 'steps/features.mjs')[1]).toContain('caption(ctx, text, `f-gantt-${id}`)');
     expect(count(/viewToggle\('/g)).toBe(5);
@@ -188,7 +206,7 @@ describe('beat ids in the step modules (§715)', () => {
 
   it('every id is well-formed, unique, and not a reserved one', () => {
     const ids = beatIds();
-    expect(ids.length).toBe(count(/caption\(ctx,/g) - count(/caption\(ctx,\s*''\s*\)/g) - 1 + 5);
+    expect(ids.length).toBe(count(/caption\(ctx,/g) - count(/caption\(ctx,\s*''\s*\)/g) - 2 + 5 + 2);
     expect(ids.filter((id) => !ID_RE.test(id))).toEqual([]);
     expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
     expect(ids.filter((id) => [TITLE, OPENING, CLOSING].includes(id))).toEqual([]);

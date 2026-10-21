@@ -274,8 +274,12 @@ describe('runTake with narration (§715)', () => {
   it("the setup's own optional captions are exempt when it ran on camera", async () => {
     const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'setup-review': 1 } });
     h.deps.setup.MAY_NOT_SHOW = ['setup-review'];
-    const r = await runTake(def({ prologueOnCamera: true, steps: [says('a', 'mon-a')] }), h.deps);
+    const r = await runTake(def({ prologueOnCamera: true, firstRun: true, steps: [says('a', 'mon-a')] }), h.deps);
     expect(r).toMatchObject({ status: 'ok', unusedBeats: [] });
+    const h3 = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'setup-review': 1 } });
+    h3.deps.setup.MAY_NOT_SHOW = ['setup-review'];
+    const r3 = await runTake(def({ prologueOnCamera: true, steps: [says('a', 'mon-a')] }), h3.deps);
+    expect(r3.unusedBeats).toEqual(['setup-review']);
     const h2 = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'setup-review': 1 } });
     h2.deps.setup.MAY_NOT_SHOW = ['setup-review'];
     const r2 = await runTake(def({ steps: [says('a', 'mon-a')] }), h2.deps);
