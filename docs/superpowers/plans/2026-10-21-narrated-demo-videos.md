@@ -162,8 +162,8 @@ Before you open a single list, the dashboard puts one thing on top: ...
     2. `caption` returns before the audio ends.
     3. Without `ctx.narration`, the calls match today's (`waitForTimeout(1200)`).
     4. A caption whose id has no beat throws `no narration for beat mon-x` in a recorded take, and logs `NARRATION missing mon-x` in a rehearsal.
-    6. Before the recording starts (`recordingStartedAt` null), a narrated caption neither waits nor logs a beat.
-    5. `closingBeat` waits for `voiceFreeAt` before its 1500 ms hold.
+    5. Before the recording starts (`recordingStartedAt` null), a narrated caption neither waits nor logs a beat.
+    6. `closingBeat` waits for `voiceFreeAt` before its 1500 ms hold.
   - **`take.test.mjs`:**
     1. A recorded take returns `beats` in caption order with increasing `at`.
     2. An unused beat id gives one warning and appears in `unusedBeats`. For `big`, an unshown chapter beat is not listed.
