@@ -13,11 +13,12 @@ import * as L from './lib.mjs';
 import { cleanup } from './cleanup.mjs';
 import { exitCode, outPath, parseArgs, selectVideos } from './cli.mjs';
 import { loadBeats, narrationPath, parseNarration } from './narration/beats.mjs';
+import { mixTake } from './narration/mix.mjs';
 import { VOICE, audioFor } from './narration/tts.mjs';
 import * as setup from './setup.mjs';
 import { checkDayFacts } from './steps/week.mjs';
 import { runTake, takeNarration } from './take.mjs';
-import { MAX_AI_WAIT_S, trimAiWaits } from './trim.mjs';
+import { MAX_AI_WAIT_S, mapTime, protectSpans, trimAiWaits } from './trim.mjs';
 import * as ui from './ui.mjs';
 import { VIDEOS } from './videos.mjs';
 
@@ -116,25 +117,32 @@ async function take(browser, def) {
       await ctx.checkDay(def.tier === 'big' ? 'fri' : def.clock);
     }
     if (r.status !== 'ok') await page.screenshot({ path: path.join(L.OUT, `warn-${def.id}.png`) }).catch(() => {});
-    return { ...r, warnings: r.warnings + warnings };
+    return { ...r, warnings: r.warnings + warnings, narration };
   } finally {
     await context.close();
   }
 }
 
 /** Caps each wait for Claude in a finished take at MAX_AI_WAIT_S (trim.mjs), once its browser context is
- *  closed. A failed trim keeps the untrimmed take and counts a warning, so the take's own warnings (the
- *  secret scan among them) still reach the tally. */
+ *  closed, never cutting inside a narrated beat; a narrated take is then mixed (narration/mix.mjs) into an MP4
+ *  with its subtitles. A failed trim keeps the untrimmed take and counts a warning, so the take's own warnings
+ *  (the secret scan among them) still reach the tally; a failed mix keeps the WebM and counts one too. */
 function trimTake(def, r) {
+  const { narration } = r;
   if (r.status !== 'ok' || !r.file) return r;
+  let ranges;
   try {
-    const { cut, capped } = trimAiWaits(r.file, r.aiWaits, L.OUT);
-    if (capped) console.log(`[${def.id}]`, `TRIM ${capped} AI wait(s) capped at ${MAX_AI_WAIT_S} s, ${cut.toFixed(1)} s cut`);
-    return r;
+    const t = trimAiWaits(r.file, r.aiWaits, L.OUT, { protect: protectSpans(r.beats) });
+    ranges = t.ranges;
+    if (t.capped) console.log(`[${def.id}]`, `TRIM ${t.capped} AI wait(s) capped at ${MAX_AI_WAIT_S} s, ${t.cut.toFixed(1)} s cut`);
   } catch (e) {
     console.log(`[${def.id}]`, mask(`TRIM FAILED ${String(e?.message ?? e).split('\n')[0]} (the untrimmed take is kept)`));
     return { ...r, warnings: r.warnings + 1 };
   }
+  if (!narration || !r.beats?.length) return r;
+  const mapped = r.beats.map((b) => ({ ...b, at: mapTime(b.at, ranges) }));
+  const mix = mixTake(r.file, mapped, narration, def);
+  return mix.warning ? { ...r, warnings: r.warnings + 1 } : r;
 }
 
 // Headless Chromium hides every scrollbar by default (Playwright adds --hide-scrollbars); the videos show
