@@ -82,6 +82,18 @@ describe('renderBeat (§715)', () => {
     expect(fs.existsSync(tts.cachePath('en', tts.beatKey('en', v, 'Nope')))).toBe(false);
   });
 
+  it('names the beat when the network fails, without the cause or the key', async () => {
+    const v = voice({ voiceId: 'net-voice' });
+    const reject = async () => { throw Object.assign(new TypeError('fetch failed'), { cause: new Error(`ECONNRESET ${KEY}`) }); };
+    const badBody = async () => ({ ok: true, status: 200, arrayBuffer: async () => { throw new Error(`aborted ${KEY}`); } });
+    for (const fetchImpl of [reject, badBody]) {
+      const err = await tts.renderBeat('en', v, 'Net', { apiKey: KEY, fetchImpl, probe, id: 'b7' }).catch((e) => e);
+      expect(err.message).toBe('ElevenLabs network error for beat b7');
+      expect(err.cause).toBeUndefined();
+      expect(tts.audioFor('en', v, 'Net')).toBeNull();
+    }
+  });
+
   it('refuses a voice with no id before any call', async () => {
     let called = false;
     const fetchImpl = async () => ((called = true), okFetch()());

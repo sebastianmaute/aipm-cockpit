@@ -77,22 +77,33 @@ export function probeDuration(file) {
 /** One text-to-speech call: the mp3 bytes. Errors carry the status and beat id only, never the key or the response. */
 export async function synthesize(voice, text, { apiKey, fetchImpl = fetch, id = '' }) {
   if (!voice.voiceId) throw new Error('no voiceId set in VOICE (run narrate.mjs --audition and pick one)');
-  const res = await fetchImpl(`${API}/${encodeURIComponent(voice.voiceId)}?output_format=${FORMAT}`, {
-    method: 'POST',
-    headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
-    body: JSON.stringify({
-      text,
-      model_id: voice.modelId,
-      voice_settings: {
-        stability: voice.settings.stability,
-        similarity_boost: voice.settings.similarityBoost,
-        style: voice.settings.style,
-        use_speaker_boost: voice.settings.speakerBoost,
-      },
-    }),
-  });
+  // A network failure rethrows with the beat id only: the original error and its cause can carry request details.
+  const netError = () => new Error(`ElevenLabs network error for beat ${id}`.trim());
+  let res;
+  try {
+    res = await fetchImpl(`${API}/${encodeURIComponent(voice.voiceId)}?output_format=${FORMAT}`, {
+      method: 'POST',
+      headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+      body: JSON.stringify({
+        text,
+        model_id: voice.modelId,
+        voice_settings: {
+          stability: voice.settings.stability,
+          similarity_boost: voice.settings.similarityBoost,
+          style: voice.settings.style,
+          use_speaker_boost: voice.settings.speakerBoost,
+        },
+      }),
+    });
+  } catch {
+    throw netError();
+  }
   if (!res.ok) throw new Error(`ElevenLabs ${res.status} for beat ${id}`.trim());
-  return Buffer.from(await res.arrayBuffer());
+  try {
+    return Buffer.from(await res.arrayBuffer());
+  } catch {
+    throw netError();
+  }
 }
 
 /** Renders one beat into the cache: the mp3, then the sidecar { duration }. `probe(file)` is injectable. */
