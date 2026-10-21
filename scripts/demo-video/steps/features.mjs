@@ -38,7 +38,8 @@ const viewToggle = (id, label, text) => step(id, {
   },
 });
 
-const bar = (ctx, kind) => main(ctx).getByRole('button', { name: `${kind} – ${BAR_TASK}`, exact: true }).first();
+// §742: a bar's drag handles are sliders (keyboard-operable), not buttons.
+const bar = (ctx, kind) => main(ctx).getByRole('slider', { name: `${kind} – ${BAR_TASK}`, exact: true }).first();
 
 export const FEATURE_STEPS = Object.freeze({
   'f-open-points': [
@@ -132,13 +133,13 @@ export const FEATURE_STEPS = Object.freeze({
     step('drag-bar-end', {
       run: async (ctx) => {
         await caption(ctx, 'Drag its right edge: the due date moves.', 'f-gantt-drag-end');
-        await drag(ctx, bar(ctx, 'Drag to change due date'), 50);
+        await drag(ctx, bar(ctx, 'Change due date'), 50);
       },
     }),
     step('drag-bar-start', {
       run: async (ctx) => {
         await caption(ctx, 'Drag its left edge: the start moves, the duration changes.', 'f-gantt-drag-start');
-        await drag(ctx, bar(ctx, 'Drag to change start date'), -40);
+        await drag(ctx, bar(ctx, 'Change start date'), -40);
       },
     }),
     step('drag-milestone', {

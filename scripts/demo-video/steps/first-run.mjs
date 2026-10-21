@@ -32,14 +32,20 @@ export const wizardCreate = step('wizard-create', {
 /** The new project, before the take opens the demo. Its id is noted for the cleanup. */
 export const firstProjectLands = step('first-project-lands', {
   run: async (ctx) => {
-    const page = ctx.page;
-    await page.locator(DLG).filter({ has: page.getByRole('button', { name: 'Create project', exact: true }) })
-      .waitFor({ state: 'detached', timeout: 60000 });
-    await skipTour(ctx, 3000);
-    await L.settle(page);
-    const id = await page.evaluate(() => localStorage.getItem('aipm-cockpit:turso-current-project'));
-    if (!id) throw new Error('no current project after Create project');
-    noteCreatedProject(id);
+    // A rehearsal without --with-ai skips wizard-create (an AI step), so no project was made to land on:
+    // the project check is skipped (and said so); the captions still show, so their beats are checked.
+    if (ctx.rehearse && !ctx.withAi) {
+      ctx.log('first-project-lands: project check skipped, wizard-create makes no project without --with-ai');
+    } else {
+      const page = ctx.page;
+      await page.locator(DLG).filter({ has: page.getByRole('button', { name: 'Create project', exact: true }) })
+        .waitFor({ state: 'detached', timeout: 60000 });
+      await skipTour(ctx, 3000);
+      await L.settle(page);
+      const id = await page.evaluate(() => localStorage.getItem('aipm-cockpit:turso-current-project'));
+      if (!id) throw new Error('no current project after Create project');
+      noteCreatedProject(id);
+    }
     await caption(ctx, 'The new project: created, connected, and ready to fill.', 'first-project-lands');
     await pace(ctx, 3500);
     await caption(ctx, 'To see a project in full swing, open the demo.', 'first-open-demo');

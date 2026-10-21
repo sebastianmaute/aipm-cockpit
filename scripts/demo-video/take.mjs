@@ -23,11 +23,19 @@ async function runAi(ctx, s) {
   if (s.after) await s.after(ctx);
 }
 
+/** The beat ids (of `ids`) an AI step shows: those it declares (`beats`) and those it names as a quoted literal. */
+function beatsNamedBy(s, ids) {
+  const src = [s.run, s.after, s.replay].filter(Boolean).map(String).join(' ');
+  return ids.filter((id) => s.beats?.includes(id) || src.includes(`'${id}'`) || src.includes(`"${id}"`));
+}
+
 async function runStep(ctx, s, opts, mayNotShow) {
   for (const id of s.mayNotShow ?? []) mayNotShow.add(id);
   if (!s.ai) return s.run(ctx);
   if (opts.rehearse && !opts.withAi) {
-    // A rehearsal makes no AI call: it only proves the trigger is there and usable.
+    // A rehearsal makes no AI call: it only proves the trigger is there and usable. Its captions never show,
+    // so their beats are not unused (a recorded take and a --with-ai rehearsal still count them).
+    for (const id of beatsNamedBy(s, opts.ownBeatIds ?? [])) mayNotShow.add(id);
     // A trigger may navigate to its view first, so it is awaited.
     const trigger = s.trigger ? await s.trigger(ctx) : null;
     if (trigger && !(await trigger.isEnabled({ timeout: 30000 }).catch(() => false))) {

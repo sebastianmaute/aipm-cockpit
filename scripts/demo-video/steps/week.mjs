@@ -145,6 +145,7 @@ export const PROLOGUE = [wizardProposal];
 /** Dashboard → digest → Generate now; the narrative is in when the button reads "Generate now" again. */
 const digestStep = (beatId) => step('digest-generate', {
   ai: true,
+  beats: [beatId], // the id is a parameter here, so take.mjs cannot find it in the source
   trigger: async (ctx) => { await nav(ctx, 'Dashboard'); return main(ctx).getByRole('button', { name: 'Generate now', exact: true }).first(); },
   run: async (ctx) => {
     await nav(ctx, 'Dashboard');
@@ -940,9 +941,10 @@ export const FRIDAY = [
       // raise a new Next-actions row, so the second half gets an owner, a later date and comes after.
       const n = ctx.page.getByRole('dialog', { name: 'New linked task', exact: true });
       await type(ctx, n.getByRole('textbox', { name: 'Task name', exact: true }), SPLIT_NEW, 'task name');
-      await type(ctx, n.getByRole('textbox', { name: 'Assignee', exact: true }), 'Sofia Ramirez', 'assignee');
-      // Tab, not Escape: Escape would close this nested dialog along with the suggestions.
-      await ctx.page.keyboard.press('Tab');
+      // §758: the assignee is a picker (a combobox). Typing alone leaves free text; picking the directory
+      // option links the resource, and closes the list itself (no Escape: it would close this dialog too).
+      await type(ctx, n.getByRole('combobox', { name: 'Assignee', exact: true }), 'Sofia Ramirez', 'assignee');
+      await click(ctx, n.getByRole('option', { name: /^Sofia Ramirez/ }).locator('button'), 'Sofia Ramirez', 500);
       await n.locator('input[type=date]').first().fill('2026-10-16');
       // The link-direction select is the dialog's last (it carries no accessible name).
       await n.locator('select').last().selectOption({ label: 'Successor' });

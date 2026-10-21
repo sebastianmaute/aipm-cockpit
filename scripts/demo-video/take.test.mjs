@@ -271,6 +271,35 @@ describe('runTake with narration (§715)', () => {
     expect(r).toMatchObject({ status: 'failed', unusedBeats: ['mon-alt'] });
   });
 
+  const aiSays = (id) => step(id, { ai: true, run: async (c) => { await ui.caption(c, 'x', 'mon-ai'); }, trigger: () => ({ isEnabled: async () => true }) });
+
+  it('a rehearsal without --with-ai exempts the beats of the AI steps it skipped, and no others', async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'mon-ai': 1, 'mon-spare': 1 }, rehearse: true });
+    const r = await runTake(def({ steps: [says('a', 'mon-a'), aiSays('ai')] }), h.deps);
+    expect(r.unusedBeats).toEqual(['mon-spare']);
+    expect(h.lines).not.toContain('NARRATION unused mon-ai');
+  });
+
+  it('an AI step declaring its beats exempts them when skipped', async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-dyn': 1 }, rehearse: true });
+    const dyn = (b) => step('ai', { ai: true, beats: [b], run: async (c) => { await ui.caption(c, 'x', b); }, trigger: () => ({ isEnabled: async () => true }) });
+    const r = await runTake(def({ steps: [dyn('mon-dyn')] }), h.deps);
+    expect(r.unusedBeats).toEqual([]);
+  });
+
+  it('a --with-ai rehearsal still warns on an AI step beat that never showed', async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-ai': 1 }, rehearse: true });
+    h.deps.opts.withAi = true;
+    const r = await runTake(def({ steps: [step('ai', { ai: true, run: async () => { void 'mon-ai'; } })] }), h.deps);
+    expect(r.unusedBeats).toEqual(['mon-ai']);
+  });
+
+  it('a recorded take still fails on an AI step beat that never showed', async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-ai': 1 } });
+    const r = await runTake(def({ steps: [step('ai', { ai: true, run: async () => { void 'mon-ai'; } })] }), h.deps);
+    expect(r).toMatchObject({ status: 'failed', unusedBeats: ['mon-ai'] });
+  });
+
   it("the setup's own optional captions are exempt when it ran on camera", async () => {
     const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'setup-review': 1 } });
     h.deps.setup.MAY_NOT_SHOW = ['setup-review'];
