@@ -51,5 +51,11 @@ In RAID, the GDPR issue is marked Resolved. Its cause is gone.
 ## fri-do-first
 The dashboard's top item has changed. Now the first thing to do is tell the DPO, before the re-demo.
 
+## fri-draft-dpo
+Draft message again, this time for the DPO: the erasure fix is verified.
+
+## fri-digest
+The digest again, this time on Friday. Claude sums up the project as it stands now: the CRM fix done, the GDPR issue resolved, and the new dates in the plan.
+
 ## closing
 That is the week. The cause of the slip is fixed and verified, the plan and the budget hold the new dates, the team's load fits its hours, and the sponsor and the DPO have heard. Each day also has a chapter video of its own.
