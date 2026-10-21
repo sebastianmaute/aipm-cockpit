@@ -105,7 +105,7 @@ export const PROPOSAL = {
   run: async (ctx) => {
     const page = ctx.page;
     if (await page.locator(DLG).count()) await page.keyboard.press('Escape');
-    await caption(ctx, 'A new project: describe it in a sentence, and Claude proposes the setup.');
+    await caption(ctx, 'A new project: describe it in a sentence, and Claude proposes the setup.', 'prologue-describe');
     await click(ctx, await newProjectButton(ctx), 'New project', 1000);
     const d = page.locator(DLG).last();
     await type(ctx, d.getByRole('textbox', { name: 'Describe your project' }), BRIEF, 'brief');
@@ -129,11 +129,11 @@ export const wizardProposal = step('wizard-proposal', {
   ...PROPOSAL,
   after: async (ctx) => {
     const d = ctx.page.locator(DLG).last();
-    await caption(ctx, 'From the brief, Claude ticks GDPR and fills the other key facts.');
+    await caption(ctx, 'From the brief, Claude ticks GDPR and fills the other key facts.', 'prologue-gdpr');
     await moveTo(ctx, gdprBox(d));
     await pace(ctx, 2500);
     for (const what of ['template', 'functions']) await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), `Next (${what})`, 2000);
-    await caption(ctx, ctx.newFromEmpty ? 'The last step creates it. Here we open the demo project instead.' : 'The last step creates it. Here we cancel and stay in the demo.');
+    await caption(ctx, ctx.newFromEmpty ? 'The last step creates it. Here we open the demo project instead.' : 'The last step creates it. Here we cancel and stay in the demo.', 'prologue-cancel');
     await click(ctx, d.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel', 1000);
   },
   replay: noop,
@@ -148,7 +148,7 @@ export const digestGenerate = step('digest-generate', {
   trigger: async (ctx) => { await nav(ctx, 'Dashboard'); return main(ctx).getByRole('button', { name: 'Generate now', exact: true }).first(); },
   run: async (ctx) => {
     await nav(ctx, 'Dashboard');
-    await caption(ctx, 'The digest: Claude sums up where the project stands.');
+    await caption(ctx, 'The digest: Claude sums up where the project stands.', 'week-digest');
     await click(ctx, main(ctx).getByRole('button', { name: 'Generate now', exact: true }).first(), 'Generate now', 300);
     await waitForAi(ctx, {
       busy: main(ctx).getByRole('button', { name: /^Stop/ }).first(),
@@ -173,10 +173,10 @@ export const MONDAY = [
   step('mon-dashboard', {
     run: async (ctx) => {
       await nav(ctx, 'Dashboard');
-      await caption(ctx, 'Do this first: the MVP target is overdue.');
+      await caption(ctx, 'Do this first: the MVP target is overdue.', 'mon-do-first');
       await moveTo(ctx, main(ctx).getByRole('button', { name: /^Open – Do this first – / }).first());
       await pace(ctx, 2500);
-      await caption(ctx, 'Since Friday: one RAID item added, one task newly overdue.');
+      await caption(ctx, 'Since Friday: one RAID item added, one task newly overdue.', 'mon-since-friday');
       await moveTo(ctx, main(ctx).getByText('Since you last looked').first());
       await pace(ctx, 3000);
     },
@@ -184,7 +184,7 @@ export const MONDAY = [
   digestGenerate,
   step('mon-next-actions', {
     run: async (ctx) => {
-      await caption(ctx, 'Next actions: now, soon, and what to keep an eye on.');
+      await caption(ctx, 'Next actions: now, soon, and what to keep an eye on.', 'mon-next-actions');
       await nextActions(ctx);
       await pace(ctx, 3500);
     },
@@ -194,7 +194,7 @@ export const MONDAY = [
     trigger: async (ctx) => { await nextActions(ctx); return main(ctx).getByRole('button', { name: 'Analyze with AI', exact: true }); },
     run: async (ctx) => {
       await nextActions(ctx);
-      await caption(ctx, 'Analyze with AI: what needs you first, and why.');
+      await caption(ctx, 'Analyze with AI: what needs you first, and why.', 'mon-analyze');
       await click(ctx, main(ctx).getByRole('button', { name: 'Analyze with AI', exact: true }), 'Analyze with AI', 300);
       await waitForAi(ctx, {
         busy: ctx.page.getByRole('status').filter({ hasText: 'Analyzing' }),
@@ -214,7 +214,7 @@ export const MONDAY = [
   }),
   step('crm-blocker', {
     run: async (ctx) => {
-      await caption(ctx, 'The CRM task: record what blocks it and move it to Thursday.');
+      await caption(ctx, 'The CRM task: record what blocks it and move it to Thursday.', 'mon-crm-blocker');
       const d = await openTask(ctx, DEMO_CRM_TASK);
       await click(ctx, d.getByRole('button', { name: 'Blockers' }), 'Blockers');
       await type(ctx, ctx.page.getByPlaceholder('What is blocking this task?'), 'CRM API rejects erasure calls', 'blocker');
@@ -228,7 +228,7 @@ export const MONDAY = [
   step('knowledge-crm', {
     run: async (ctx) => {
       await nav(ctx, 'Knowledge');
-      await caption(ctx, 'Knowledge: the CRM interface decision from design sign-off.');
+      await caption(ctx, 'Knowledge: the CRM interface decision from design sign-off.', 'mon-knowledge-crm');
       await type(ctx, main(ctx).getByPlaceholder('Search knowledge'), 'CRM', 'search knowledge');
       await moveTo(ctx, main(ctx).getByText('CRM interface decision (design sign-off)').first());
       await pace(ctx, 3000);
@@ -236,7 +236,7 @@ export const MONDAY = [
   }),
   step('draft-elena', {
     run: async (ctx) => {
-      await caption(ctx, 'The sponsor must hear about the slip: Draft message fills the update template.');
+      await caption(ctx, 'The sponsor must hear about the slip: Draft message fills the update template.', 'mon-draft-elena');
       await draftMessage(ctx, 'Elena Fischer');
     },
   }),
@@ -244,7 +244,7 @@ export const MONDAY = [
     ai: true,
     trigger: async (ctx) => { await nav(ctx, 'AI Assistant'); return main(ctx).getByRole('button', { name: 'Stakeholder update', exact: true }).first(); },
     run: async (ctx) => {
-      await caption(ctx, 'Or let the assistant write the update from the project as it stands.');
+      await caption(ctx, 'Or let the assistant write the update from the project as it stands.', 'mon-chat-elena');
       await chat(ctx, { chip: 'Stakeholder update' });
     },
     replay: noop,
@@ -253,7 +253,7 @@ export const MONDAY = [
   // edits settle, which the take's clock never reaches before the next morning's reload.
   step('monday-version', {
     run: async (ctx) => {
-      await caption(ctx, "Save version now keeps Monday's plan, to compare on Friday.");
+      await caption(ctx, "Save version now keeps Monday's plan, to compare on Friday.", 'mon-save-version');
       await saveVersion(ctx, 'Monday');
     },
   }),
@@ -330,7 +330,7 @@ export const dedup = step('dedup', {
   run: async (ctx) => {
     if (await ctx.page.locator(DLG).count()) await ctx.page.keyboard.press('Escape');
     const button = await dedupButton(ctx);
-    await caption(ctx, 'Deduplicate & unify: Claude finds the follow-ups logged twice.');
+    await caption(ctx, 'Deduplicate & unify: Claude finds the follow-ups logged twice.', 'tue-dedup');
     await click(ctx, button, 'Deduplicate & unify', 300);
     await waitForAi(ctx, {
       busy: ctx.page.locator(`${DLG} [aria-busy="true"]`).first(),
@@ -350,7 +350,7 @@ export const TUESDAY = [
   step('board-crm-in-progress', {
     run: async (ctx) => {
       await nav(ctx, 'Open Points');
-      await caption(ctx, 'Work restarts with the blocker known: drag the CRM task to In Progress.');
+      await caption(ctx, 'Work restarts with the blocker known: drag the CRM task to In Progress.', 'tue-board-crm');
       await click(ctx, main(ctx).getByRole('radio', { name: 'Board', exact: true }), 'Board', 1200);
       const card = main(ctx).getByRole('button', { name: DEMO_CRM_TASK, exact: true }).first();
       await moveTo(ctx, card);
@@ -362,7 +362,7 @@ export const TUESDAY = [
   }),
   step('delete-duplicate', {
     run: async (ctx) => {
-      await caption(ctx, 'Two people logged the same follow-up on Friday: delete one by hand.');
+      await caption(ctx, 'Two people logged the same follow-up on Friday: delete one by hand.', 'tue-delete-duplicate');
       await deleteTask(ctx, DEMO_DUPLICATE_PAIRS[0][0]);
     },
   }),
@@ -370,7 +370,7 @@ export const TUESDAY = [
   step('change-connector', {
     run: async (ctx) => {
       await nav(ctx, 'Changes');
-      await caption(ctx, 'A change request: replace the custom CRM push with a connector.');
+      await caption(ctx, 'A change request: replace the custom CRM push with a connector.', 'tue-change-connector');
       await click(ctx, main(ctx).getByRole('button', { name: '+ Add change', exact: true }), 'Add change', 1000);
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.getByRole('textbox', { name: /^Title/ }), CONNECTOR, 'change title');
@@ -393,7 +393,7 @@ export const TUESDAY = [
     trigger: async (ctx) => { await nav(ctx, 'AI Assistant'); return main(ctx).locator('textarea').last(); },
     run: async (ctx) => {
       if (await connectorLinked(ctx)) return;
-      await caption(ctx, 'The assistant works across items: it links the change to the tasks and the issue it touches.');
+      await caption(ctx, 'The assistant works across items: it links the change to the tasks and the issue it touches.', 'tue-chat-link');
       await chat(ctx, {
         prompt: `The change request "${CONNECTOR}" would replace the failing custom CRM sync. In one response, as one set of changes: link it to the open CRM provisioning tasks and to the GDPR erasure issue, and on each linked task keep its description as it is and add one sentence at the end saying this change would replace the custom CRM sync. Do not change any dates, statuses, owners or blockers.`,
       });
@@ -408,11 +408,11 @@ export const TUESDAY = [
       const apply = chatProposalApply(ctx);
       if (!(await apply.isVisible().catch(() => false))) {
         // The links went in without a card (a single write applies at once).
-        await caption(ctx, 'Done: the change now lists the tasks and the issue it touches.');
+        await caption(ctx, 'Done: the change now lists the tasks and the issue it touches.', 'tue-chat-linked');
         await pace(ctx, 2500);
         return;
       }
-      await caption(ctx, 'Review what it will change, then Apply: several items in one step.');
+      await caption(ctx, 'Review what it will change, then Apply: several items in one step.', 'tue-chat-review');
       await moveTo(ctx, main(ctx).getByRole('region', { name: 'Proposed changes' }).last());
       await pace(ctx, 2500);
       await click(ctx, apply, 'Apply proposal', 2000);
@@ -422,7 +422,7 @@ export const TUESDAY = [
   }),
   step('draft-maya', {
     run: async (ctx) => {
-      await caption(ctx, 'Maya waits on the MFA change: Draft message.');
+      await caption(ctx, 'Maya waits on the MFA change: Draft message.', 'tue-draft-maya');
       await draftMessage(ctx, 'Maya Patel');
     },
   }),
@@ -430,7 +430,7 @@ export const TUESDAY = [
     ai: true,
     trigger: async (ctx) => { await nav(ctx, 'AI Assistant'); return main(ctx).locator('textarea').last(); },
     run: async (ctx) => {
-      await caption(ctx, 'Or the assistant writes Maya an update on the MFA change and the re-plan.');
+      await caption(ctx, 'Or the assistant writes Maya an update on the MFA change and the re-plan.', 'tue-chat-maya');
       await chat(ctx, { prompt: 'Draft a stakeholder update for Maya Patel: where the MFA change request stands, and how the MVP is being re-planned.' });
     },
     replay: noop,
@@ -438,7 +438,7 @@ export const TUESDAY = [
   step('milestone-redemo', {
     run: async (ctx) => {
       await nav(ctx, 'Milestones');
-      await caption(ctx, 'A new milestone for the customer demo: MVP re-demo, Friday 2 October.');
+      await caption(ctx, 'A new milestone for the customer demo: MVP re-demo, Friday 2 October.', 'tue-milestone-redemo');
       await click(ctx, ctx.page.getByRole('button', { name: '+ New milestone', exact: true }), 'New milestone', 1000);
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.getByRole('textbox', { name: /^Name/ }), 'MVP re-demo', 'milestone name');
@@ -451,7 +451,7 @@ export const TUESDAY = [
       const m = ctx.page.locator(DLG).last();
       await click(ctx, m.getByLabel(`#25 ${DEMO_TASK}`), 'unlink the demo task', 300);
       await click(ctx, m.getByRole('button', { name: /^Save/ }).last(), 'Save milestone');
-      await caption(ctx, 'The demo task moves to the new date.');
+      await caption(ctx, 'The demo task moves to the new date.', 'tue-demo-task-moves');
       const t = await openTask(ctx, DEMO_TASK);
       await t.locator('input[type=date]').nth(1).fill('2026-10-02');
       await saveTask(ctx);
@@ -460,7 +460,7 @@ export const TUESDAY = [
   step('bucket-planned-hours', {
     run: async (ctx) => {
       await nav(ctx, 'Budget');
-      await caption(ctx, `The bucket ${BUCKET}: planned hours per person.`);
+      await caption(ctx, `The bucket ${BUCKET}: planned hours per person.`, 'tue-bucket-hours');
       await moveTo(ctx, main(ctx).getByRole('button', { name: `Edit bucket – ${BUCKET}`, exact: true }));
       await pace(ctx, 3000);
     },
@@ -468,7 +468,7 @@ export const TUESDAY = [
   step('budget-follow-plan-off', {
     run: async (ctx) => {
       await nav(ctx, 'Budget');
-      await caption(ctx, 'Budget hours follow the plan; an imported re-plan needs them free: switch it off.');
+      await caption(ctx, 'Budget hours follow the plan; an imported re-plan needs them free: switch it off.', 'tue-follow-plan-off');
       const toggle = main(ctx).getByRole('button', { name: 'Budget hours follow plan', exact: true });
       if ((await toggle.getAttribute('aria-pressed')) !== 'false') await click(ctx, toggle, 'Budget hours follow plan', 1500);
       if ((await toggle.getAttribute('aria-pressed')) !== 'false') throw new Error('Budget hours follow plan is still on');
@@ -478,7 +478,7 @@ export const TUESDAY = [
     ai: true,
     trigger: async (ctx) => { await nav(ctx, 'Budget'); return main(ctx).getByRole('button', { name: `Import forecast… – ${BUCKET}`, exact: true }); },
     run: async (ctx) => {
-      await caption(ctx, "The team's re-plan arrives as a spreadsheet: Import forecast, and Claude maps the columns.");
+      await caption(ctx, "The team's re-plan arrives as a spreadsheet: Import forecast, and Claude maps the columns.", 'tue-forecast-import');
       if (await ctx.page.locator(DLG).count()) await ctx.page.keyboard.press('Escape');
       await click(ctx, main(ctx).getByRole('button', { name: `Import forecast… – ${BUCKET}`, exact: true }), 'Import forecast', 800);
       const d = ctx.page.locator(DLG).last();
@@ -530,7 +530,7 @@ export const WEDNESDAY = [
   step('discipline-role', {
     run: async (ctx) => {
       await resources(ctx, 'Manage roles');
-      await caption(ctx, 'The connector needs an integration engineer: a new discipline, then the role.');
+      await caption(ctx, 'The connector needs an integration engineer: a new discipline, then the role.', 'wed-discipline-role');
       await type(ctx, main(ctx).getByRole('textbox', { name: 'Add discipline', exact: true }), ROLE, 'discipline');
       await click(ctx, main(ctx).getByRole('button', { name: 'Add discipline', exact: true }), 'Add discipline');
       await main(ctx).getByRole('combobox').filter({ has: ctx.page.locator('option', { hasText: /^Discipline$/ }) }).first().selectOption({ label: ROLE });
@@ -553,7 +553,7 @@ export const WEDNESDAY = [
   step('new-member', {
     run: async (ctx) => {
       await resources(ctx, 'Directory');
-      await caption(ctx, "A team member from the vendor's integration partner joins.");
+      await caption(ctx, "A team member from the vendor's integration partner joins.", 'wed-new-member');
       await click(ctx, main(ctx).getByRole('button', { name: '+ Add resource', exact: true }), 'Add resource');
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.getByRole('textbox', { name: /^First name/ }), DEMO_NEW_MEMBER.firstName, 'first name');
@@ -566,7 +566,7 @@ export const WEDNESDAY = [
   }),
   step('noah-vacation', {
     run: async (ctx) => {
-      await caption(ctx, 'Noah, who owns the CRM integration, is on vacation next week.');
+      await caption(ctx, 'Noah, who owns the CRM integration, is on vacation next week.', 'wed-noah-vacation');
       await click(ctx, main(ctx).getByRole('button', { name: '+ Add absence', exact: true }), 'Add absence');
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.getByPlaceholder('Name (matches existing Task assignees)'), 'Noah Bennett', 'absence who');
@@ -580,7 +580,7 @@ export const WEDNESDAY = [
   step('maya-util', {
     run: async (ctx) => {
       await resources(ctx, 'Workload');
-      await caption(ctx, "Maya is over-allocated this month: bring her hours down.");
+      await caption(ctx, "Maya is over-allocated this month: bring her hours down.", 'wed-maya-util');
       const cell = main(ctx).getByRole('spinbutton', { name: 'Near-term utilization for Maya Patel', exact: true });
       await moveTo(ctx, cell);
       await pace(ctx, 1500);
@@ -593,7 +593,7 @@ export const WEDNESDAY = [
   step('planning-lukas', {
     run: async (ctx) => {
       await resources(ctx, 'Planning');
-      await caption(ctx, `Planning: ${DEMO_NEW_MEMBER.firstName}'s first month.`);
+      await caption(ctx, `Planning: ${DEMO_NEW_MEMBER.firstName}'s first month.`, 'wed-planning-member');
       await setUtilization(ctx, MEMBER, '2026-09', 40);
     },
   }),
@@ -602,7 +602,7 @@ export const WEDNESDAY = [
     trigger: async (ctx) => { await resources(ctx, 'Planning'); return main(ctx).getByRole('button', { name: 'Plan with AI', exact: true }); },
     run: async (ctx) => {
       await resources(ctx, 'Planning');
-      await caption(ctx, 'Plan with AI proposes the rest.');
+      await caption(ctx, 'Plan with AI proposes the rest.', 'wed-plan-with-ai');
       if (await ctx.page.locator(DLG).count()) await ctx.page.keyboard.press('Escape');
       await click(ctx, main(ctx).getByRole('button', { name: 'Plan with AI', exact: true }), 'Plan with AI', 800);
       const d = ctx.page.locator(DLG).last();
@@ -623,7 +623,7 @@ export const WEDNESDAY = [
   step('swimlane-lukas', {
     run: async (ctx) => {
       await nav(ctx, 'Open Points');
-      await caption(ctx, `Swimlanes by person: give ${DEMO_NEW_MEMBER.firstName} a lane, then a CRM follow-up.`);
+      await caption(ctx, `Swimlanes by person: give ${DEMO_NEW_MEMBER.firstName} a lane, then a CRM follow-up.`, 'wed-swimlane');
       await click(ctx, main(ctx).getByRole('radio', { name: 'Swimlanes', exact: true }), 'Swimlanes', 1200);
       await main(ctx).getByRole('combobox', { name: 'Add person lane', exact: true }).selectOption({ label: MEMBER });
       await L.settle(ctx.page);
@@ -685,7 +685,7 @@ async function approveChange(ctx, title) {
 export const THURSDAY = [
   step('gdpr-owner', {
     run: async (ctx) => {
-      await caption(ctx, 'The GDPR issue gets an owner, a mitigation, and work on it starts.');
+      await caption(ctx, 'The GDPR issue gets an owner, a mitigation, and work on it starts.', 'thu-gdpr-owner');
       const d = await openRow(ctx, 'RAID', DEMO_GDPR_ISSUE);
       await pickOwner(ctx, d, 'Noah Bennett');
       await type(ctx, d.getByRole('textbox', { name: 'Mitigation / resolution plan', exact: true }), 'Route erasure through the provisioning connector and verify it end to end before the re-demo.', 'mitigation');
@@ -696,7 +696,7 @@ export const THURSDAY = [
   step('licence-risk', {
     run: async (ctx) => {
       await nav(ctx, 'RAID');
-      await caption(ctx, 'A new risk: the connector licence may take time to arrive.');
+      await caption(ctx, 'A new risk: the connector licence may take time to arrive.', 'thu-licence-risk');
       await click(ctx, main(ctx).getByRole('button', { name: '+ Add RAID item', exact: true }), 'Add RAID item');
       const d = ctx.page.locator(DLG).last();
       await click(ctx, d.getByRole('radio', { name: 'Risk', exact: true }), 'Risk', 300);
@@ -710,7 +710,7 @@ export const THURSDAY = [
   step('dpo-stakeholder', {
     run: async (ctx) => {
       await nav(ctx, 'Stakeholders');
-      await caption(ctx, "Northwind's data protection officer joins the stakeholders.");
+      await caption(ctx, "Northwind's data protection officer joins the stakeholders.", 'thu-dpo-stakeholder');
       await click(ctx, main(ctx).getByRole('button', { name: 'Add stakeholder', exact: true }), 'Add stakeholder');
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.getByRole('combobox', { name: 'Name', exact: true }), DEMO_DPO, 'stakeholder name');
@@ -724,7 +724,7 @@ export const THURSDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Stakeholders');
       await nav(ctx, 'RACI Matrix');
-      await caption(ctx, 'RACI: the DPO is consulted on the re-demo.');
+      await caption(ctx, 'RACI: the DPO is consulted on the re-demo.', 'thu-raci-dpo');
       await click(ctx, main(ctx).getByRole('button', { name: `MVP re-demo · ${DEMO_DPO} — Set RACI`, exact: true }), 'RACI cell', 600);
       await click(ctx, ctx.page.getByRole('menuitemradio', { name: 'C', exact: true }), 'Consulted', 1200);
     },
@@ -733,7 +733,7 @@ export const THURSDAY = [
     ai: true,
     trigger: async (ctx) => { await nav(ctx, 'Stakeholders'); await nav(ctx, 'RACI Matrix'); return main(ctx).getByRole('button', { name: 'Suggest RACI', exact: true }); },
     run: async (ctx) => {
-      await caption(ctx, 'Suggest RACI fills the rest of the matrix.');
+      await caption(ctx, 'Suggest RACI fills the rest of the matrix.', 'thu-suggest-raci');
       if (await ctx.page.locator(DLG).count()) await ctx.page.keyboard.press('Escape');
       await click(ctx, main(ctx).getByRole('button', { name: 'Suggest RACI', exact: true }), 'Suggest RACI', 300);
       const d = ctx.page.locator(DLG).last();
@@ -750,7 +750,7 @@ export const THURSDAY = [
     // outrank the DPO in Friday's hero. With none left to apply, the dialog is cancelled.
     after: async (ctx) => {
       const d = ctx.page.locator(DLG).last();
-      await caption(ctx, 'Keep what fits: here, the DPO.');
+      await caption(ctx, 'Keep what fits: here, the DPO.', 'thu-raci-keep');
       const boxes = d.getByRole('checkbox', { name: /^Include – / });
       let kept = 0;
       for (let i = 0; i < (await boxes.count()); i++) {
@@ -769,7 +769,7 @@ export const THURSDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Stakeholders');
       await nav(ctx, 'Influence / Interest');
-      await caption(ctx, 'High influence, high interest: the DPO is managed closely.');
+      await caption(ctx, 'High influence, high interest: the DPO is managed closely.', 'thu-map-dpo');
       const chip = main(ctx).getByRole('button', { name: `Edit – ${DEMO_DPO}`, exact: true });
       await moveTo(ctx, chip);
       await chip.dragTo(main(ctx).locator('div:has(> p)', { hasText: 'Manage Closely' }).last());
@@ -780,7 +780,7 @@ export const THURSDAY = [
   step('steering-approve', {
     run: async (ctx) => {
       await nav(ctx, 'Steering committee');
-      await caption(ctx, "Thursday's steering meeting approves the connector change and the MFA change.");
+      await caption(ctx, "Thursday's steering meeting approves the connector change and the MFA change.", 'thu-steering-approve');
       await moveTo(ctx, main(ctx).getByRole('button', { name: 'Status report – Steering — MVP slip', exact: true }));
       await pace(ctx, 2000);
       await approveChange(ctx, CONNECTOR);
@@ -792,7 +792,7 @@ export const THURSDAY = [
     trigger: async (ctx) => { await nav(ctx, 'Steering committee'); return main(ctx).getByRole('button', { name: 'Status report – Steering — MVP slip', exact: true }); },
     run: async (ctx) => {
       await nav(ctx, 'Steering committee');
-      await caption(ctx, 'Draft with AI writes the steering report from the project as it stands.');
+      await caption(ctx, 'Draft with AI writes the steering report from the project as it stands.', 'thu-steering-draft');
       if (await ctx.page.locator(DLG).count()) await ctx.page.keyboard.press('Escape');
       await click(ctx, main(ctx).getByRole('button', { name: 'Status report – Steering — MVP slip', exact: true }), 'Status report', 800);
       const d = ctx.page.locator(DLG).last();
@@ -811,7 +811,7 @@ export const THURSDAY = [
   step('connector-bucket', {
     run: async (ctx) => {
       await nav(ctx, 'Budget');
-      await caption(ctx, 'The approved change gets its own budget bucket.');
+      await caption(ctx, 'The approved change gets its own budget bucket.', 'thu-connector-bucket');
       await click(ctx, main(ctx).getByRole('button', { name: '+ Add bucket', exact: true }), 'Add bucket', 1000);
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.locator('input:not([type]), input[type=text]').first(), 'CRM connector (CR)', 'bucket name');
@@ -820,7 +820,7 @@ export const THURSDAY = [
   }),
   step('licence-task', {
     run: async (ctx) => {
-      await caption(ctx, 'A task to order the licence.');
+      await caption(ctx, 'A task to order the licence.', 'thu-licence-task');
       await addTask(ctx, LICENCE_TASK, 'Noah Bennett', '2026-10-09');
     },
   }),
@@ -828,7 +828,7 @@ export const THURSDAY = [
     ai: true,
     trigger: async (ctx) => { await nav(ctx, 'AI Assistant'); return main(ctx).locator('textarea').last(); },
     run: async (ctx) => {
-      await caption(ctx, 'And the assistant creates the follow-up.');
+      await caption(ctx, 'And the assistant creates the follow-up.', 'thu-chat-licence');
       await chat(ctx, { prompt: `Create a task "${LICENCE_CHECK}" for Noah Bennett, due 2026-10-09.` });
     },
     // The fixed outcome: the same task, added by hand.
@@ -837,7 +837,7 @@ export const THURSDAY = [
   step('gantt-mvp-target', {
     run: async (ctx) => {
       await nav(ctx, 'Gantt');
-      await caption(ctx, 'The MVP target moves to Thursday 1 October; the customer re-demo stays on the 2nd.');
+      await caption(ctx, 'The MVP target moves to Thursday 1 October; the customer re-demo stays on the 2nd.', 'thu-gantt-mvp');
       // Project D's milestone move, by keyboard: a week (Shift) plus six days from 18 September, then Enter.
       const marker = main(ctx).getByRole('slider', { name: /^Move milestone – MVP target/ }).first();
       await moveTo(ctx, marker);
@@ -859,11 +859,11 @@ export const FRIDAY = [
   step('crm-done', {
     run: async (ctx) => {
       await nav(ctx, 'Open Points');
-      await caption(ctx, 'Erasure verified end to end: the CRM task is done.');
+      await caption(ctx, 'Erasure verified end to end: the CRM task is done.', 'fri-crm-done');
       await main(ctx).getByRole('combobox', { name: `Status – ${DEMO_CRM_TASK}`, exact: true }).selectOption('Done');
       await L.settle(ctx.page);
       await pace(ctx, 1500);
-      await caption(ctx, 'And the GDPR issue is resolved.');
+      await caption(ctx, 'And the GDPR issue is resolved.', 'fri-gdpr-resolved');
       const d = await openRow(ctx, 'RAID', DEMO_GDPR_ISSUE);
       await click(ctx, d.getByRole('radio', { name: 'Resolved', exact: true }), 'Resolved', 300);
       await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), 'Save RAID');
@@ -872,7 +872,7 @@ export const FRIDAY = [
   step('friday-hero', {
     run: async (ctx) => {
       await nav(ctx, 'Dashboard');
-      await caption(ctx, 'Friday: the first thing to do now is to tell the DPO.');
+      await caption(ctx, 'Friday: the first thing to do now is to tell the DPO.', 'fri-do-first');
       const hero = main(ctx).getByRole('button', { name: `Open – Do this first – Update stakeholder: ${DEMO_DPO}`, exact: true });
       if (!(await hero.isVisible().catch(() => false))) throw new Error(`the Dashboard hero is not "Update stakeholder: ${DEMO_DPO}"`);
       await moveTo(ctx, hero);
@@ -881,7 +881,7 @@ export const FRIDAY = [
   }),
   step('draft-dpo', {
     run: async (ctx) => {
-      await caption(ctx, 'Draft message: the erasure fix is verified.');
+      await caption(ctx, 'Draft message: the erasure fix is verified.', 'fri-draft-dpo');
       await draftMessage(ctx, DEMO_DPO);
     },
   }),
@@ -889,7 +889,7 @@ export const FRIDAY = [
     ai: true,
     trigger: async (ctx) => { await nav(ctx, 'AI Assistant'); return main(ctx).locator('textarea').last(); },
     run: async (ctx) => {
-      await caption(ctx, 'Or the assistant writes the DPO an update.');
+      await caption(ctx, 'Or the assistant writes the DPO an update.', 'fri-chat-dpo');
       await chat(ctx, { prompt: `Draft a stakeholder update for ${DEMO_DPO}: the GDPR erasure fix is verified end to end, ahead of the re-demo on 2 October.` });
     },
     replay: noop,
@@ -898,7 +898,7 @@ export const FRIDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Dashboard');
       await nav(ctx, 'Insights');
-      await caption(ctx, 'Insights: patterns the week left behind.');
+      await caption(ctx, 'Insights: patterns the week left behind.', 'fri-insights');
       await pace(ctx, 3000);
     },
   }),
@@ -909,7 +909,7 @@ export const FRIDAY = [
       return main(ctx).getByRole('button', { name: 'Generate recommendation – Budget off plan', exact: true });
     },
     run: async (ctx) => {
-      await caption(ctx, 'A recommendation for the budget insight, to act on.');
+      await caption(ctx, 'A recommendation for the budget insight, to act on.', 'fri-insight-rec');
       await click(ctx, main(ctx).getByRole('button', { name: 'Generate recommendation – Budget off plan', exact: true }), 'Generate recommendation', 300);
       await waitForAi(ctx, {
         busy: main(ctx).getByRole('button', { name: /^(Generating|Stop)/ }).first(),
@@ -927,7 +927,7 @@ export const FRIDAY = [
   }),
   step('split-pilot-task', {
     run: async (ctx) => {
-      await caption(ctx, 'Restructure by hand: split the pilot fixes in two, linked.');
+      await caption(ctx, 'Restructure by hand: split the pilot fixes in two, linked.', 'fri-split-task');
       const d = await openTask(ctx, SPLIT_FROM);
       await click(ctx, d.getByRole('button', { name: '+ New linked task' }), 'New linked task', 1000);
       // The nested "New linked task" dialog. Its defaults (due today, no one, a predecessor) would each
@@ -949,7 +949,7 @@ export const FRIDAY = [
     trigger: async (ctx) => { await nav(ctx, 'Open Points'); return main(ctx).getByRole('button', { name: 'Optimize with AI', exact: true }); },
     run: async (ctx) => {
       await nav(ctx, 'Open Points');
-      await caption(ctx, 'Optimize with AI restructures the rest: splits, groups, estimates, links.');
+      await caption(ctx, 'Optimize with AI restructures the rest: splits, groups, estimates, links.', 'fri-optimize-wbs');
       if (await ctx.page.locator(DLG).count()) await ctx.page.keyboard.press('Escape');
       await click(ctx, main(ctx).getByRole('button', { name: 'Optimize with AI', exact: true }), 'Optimize with AI', 800);
       const d = ctx.page.locator(DLG).last();
@@ -971,13 +971,13 @@ export const FRIDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Dashboard');
       await nav(ctx, 'Trends');
-      await caption(ctx, 'Trends: the weeks behind this one.');
+      await caption(ctx, 'Trends: the weeks behind this one.', 'fri-trends');
       await pace(ctx, 3000);
       await nav(ctx, 'Activity');
-      await caption(ctx, 'Activity: who changed what this week, day by day.');
+      await caption(ctx, 'Activity: who changed what this week, day by day.', 'fri-activity');
       await pace(ctx, 3000);
       await nav(ctx, 'History');
-      await caption(ctx, "History: Monday's version against today's.");
+      await caption(ctx, "History: Monday's version against today's.", 'fri-history');
       // Monday's version (MONDAY's last step) against today's data. Missing, the caption would sit over an
       // empty list, so the take fails instead.
       const vsNow = main(ctx).getByRole('button', { name: /^Compared with current – Monday/ }).first();
@@ -993,7 +993,7 @@ export const FRIDAY = [
   digestGenerate,
   step('help', {
     run: async (ctx) => {
-      await caption(ctx, 'Help: the walk-through, the demo and these videos.');
+      await caption(ctx, 'Help: the walk-through, the demo and these videos.', 'fri-help');
       await click(ctx, ctx.page.getByRole('button', { name: /^Help/ }).first(), 'Help', 3500);
       await ctx.page.keyboard.press('Escape');
       await pace(ctx, 1500);
@@ -1046,7 +1046,7 @@ export async function checkDayFacts(projectId, day) {
 export const demoOpens = step('demo-opens', {
   run: async (ctx) => {
     await nav(ctx, 'Dashboard');
-    await caption(ctx, 'The demo: Northwind\'s customer identity platform. Its MVP was due last Friday.');
+    await caption(ctx, 'The demo: Northwind\'s customer identity platform. Its MVP was due last Friday.', 'demo-opens');
     await pace(ctx, 4000);
   },
 });

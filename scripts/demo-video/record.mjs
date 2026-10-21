@@ -3,7 +3,8 @@
 //   node scripts/demo-video/record.mjs --video <id> | --tier <big|chapters|ai|features> | --all | --list
 //   flags: --rehearse (no recording), --with-ai (a rehearsal also makes the AI calls), --probe (stop
 //   after the demo opens: print the nav items and save a screenshot).
-// Every take: cleanup → fresh browser context → setup off camera → preconditions → recording.
+// Every take: cleanup → fresh browser context → setup off camera → preconditions → recording. A video with a
+// narration file is paced by its beats' audio (rendered first by narrate.mjs); a rehearsal checks its beat ids.
 // Never prints credentials; the Turso host is blurred on screen. See README.md.
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
@@ -11,9 +12,11 @@ import path from 'node:path';
 import * as L from './lib.mjs';
 import { cleanup } from './cleanup.mjs';
 import { exitCode, outPath, parseArgs, selectVideos } from './cli.mjs';
+import { loadBeats, narrationPath, parseNarration } from './narration/beats.mjs';
+import { VOICE, audioFor } from './narration/tts.mjs';
 import * as setup from './setup.mjs';
 import { checkDayFacts } from './steps/week.mjs';
-import { runTake } from './take.mjs';
+import { runTake, takeNarration } from './take.mjs';
 import { MAX_AI_WAIT_S, trimAiWaits } from './trim.mjs';
 import * as ui from './ui.mjs';
 import { VIDEOS } from './videos.mjs';
@@ -31,8 +34,27 @@ if (args.list) {
 const T = L.throwaway();
 const KEY = L.readEnv('ANTHROPIC_API_KEY');
 if (!KEY) throw new Error('ANTHROPIC_API_KEY not set in .env.local');
-const SECRETS = [T.url, T.host, T.token, KEY];
-const mask = (s) => SECRETS.reduce((acc, v, i) => (v ? acc.split(v).join(['<URL>', '<HOST>', '<TOKEN>', '<KEY>'][i]) : acc), String(s));
+// Read here only so the output scan can find it (ruling R6); only the render code (narrate.mjs) uses it.
+// Empty when unset, and an empty secret is skipped by the mask and the scan.
+const ELEVENLABS_KEY = L.readEnv('ELEVENLABS_API_KEY');
+const SECRETS = [T.url, T.host, T.token, KEY, ELEVENLABS_KEY];
+const mask = (s) => SECRETS.reduce((acc, v, i) => (v ? acc.split(v).join(['<URL>', '<HOST>', '<TOKEN>', '<KEY>', '<ELEVENLABS_KEY>'][i]) : acc), String(s));
+
+/** The narration's language: English for now. */
+const NARRATION_LANG = 'en';
+
+/** The take's narration (take.mjs `takeNarration`) and the beat ids of the video's own file, which are the
+ *  ones a take may report unused (for the big video, big.md's, not the chapters' it merges). A recorded take
+ *  fails here, before anything starts, when a beat has no rendered audio. */
+function narrationFor(def) {
+  const narration = takeNarration(def, loadBeats(NARRATION_LANG, def), {
+    rehearse: args.rehearse,
+    audio: (text) => audioFor(NARRATION_LANG, VOICE, text),
+  });
+  const own = narrationPath(NARRATION_LANG, def.id);
+  const ownBeatIds = narration && fs.existsSync(own) ? parseNarration(fs.readFileSync(own, 'utf8')).map((b) => b.id) : [];
+  return { narration, ownBeatIds };
+}
 
 /** A `{ banner: <view> }` opening is that view's own banner text, read from the page. A sub-view names its
  *  path ("Resources>Planning"): its nav item shows only while its parent is open. */
@@ -46,12 +68,14 @@ async function resolveOpening(ctx, opening) {
 }
 
 async function take(browser, def) {
+  const { narration, ownBeatIds } = narrationFor(def);
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, locale: 'en-US', timezoneId: 'Europe/Berlin' });
   const page = await context.newPage();
   const lines = [];
   // The raw line is kept for the secret scan (take.mjs); the console only ever sees it masked.
   const log = (line) => { lines.push(String(line)); console.log(`[${def.id}]`, mask(line)); };
   const ctx = { page, clipId: def.id, rehearse: args.rehearse, withAi: args.withAi, log, lines, secrets: { url: T.url, token: T.token, key: KEY } };
+  if (narration) ctx.narration = narration;
   let warnings = 0;
   ctx.goToDay = (day) => setup.goToDay(ctx, day);
   // A rehearsal checks each finished day against DAY_FACTS (week-story.mjs); a mismatch is a warning.
@@ -83,7 +107,7 @@ async function take(browser, def) {
     const r = await runTake(def, {
       ctx, setup, ui, resolveOpening,
       afterDay: async (c, day) => { if (c.checkDay) await c.checkDay(day); },
-      opts: { rehearse: args.rehearse, withAi: args.withAi, outFile: file, secrets: SECRETS },
+      opts: { rehearse: args.rehearse, withAi: args.withAi, outFile: file, secrets: SECRETS, ownBeatIds },
     });
     // The day a chapter records (and the big video's last day) is checked once its steps are done.
     // ch2-connect ends as the demo opens, before any day's steps, so it has no day to check.

@@ -1,8 +1,10 @@
 // §715 demo recorder: one take of one video. Off camera, in the same page: connect Turso and the key,
 // Explore the demo, seed the device state, replay the earlier days (chapters), run setup steps, check
 // the preconditions. Then record: the opening caption, the steps, the closing beat. Every collaborator
-// arrives in `deps`, so take.test.mjs drives it without a browser. See README.md.
+// arrives in `deps`, so take.test.mjs drives it without a browser. A narrated take (`ctx.narration`) also
+// returns its beats on the recording's timeline and the beats of its own file it never used. See README.md.
 import { findSecrets } from './cli.mjs';
+import { CLOSING, OPENING, TITLE } from './narration/beats.mjs';
 import { DAYS } from './steps/week.mjs';
 
 export { waitForAi } from './ai-wait.mjs';
@@ -35,6 +37,26 @@ async function runStep(ctx, s, opts) {
   return runAi(ctx, s);
 }
 
+/**
+ * The take's narration, id -> { text, duration }, from the video's beats (id -> text). A recorded take needs
+ * every beat's audio (`audio(text)` -> { duration } | null) and fails before it starts without it; a
+ * rehearsal needs none, so its durations are null. A video without beats has no narration (null).
+ */
+export function takeNarration(def, beats, { rehearse, audio }) {
+  if (!beats.size) return null;
+  const narration = new Map();
+  for (const [id, text] of beats) {
+    if (rehearse) {
+      narration.set(id, { text, duration: null });
+      continue;
+    }
+    const a = audio(text);
+    if (!a) throw new Error(`no audio for beat ${id} — run narrate.mjs --video ${def.id}`);
+    narration.set(id, { text, duration: a.duration });
+  }
+  return narration;
+}
+
 /** Replays the days before a chapter, off camera: manual steps run, AI steps apply their fixed outcome. */
 async function replayDays(ctx, def, deps) {
   const days = deps.days ?? DAYS;
@@ -52,12 +74,15 @@ export async function runTake(def, deps) {
   let warnings = 0;
   let started = false;
   const start = async () => {
+    // From here on, captions are on camera: a narrated one is checked against its beat (ui.mjs).
+    ctx.onCamera = true;
     if (!recording) return;
     await ctx.page.screencast.start({ path: opts.outFile, size: { width: 1280, height: 720 } });
     started = true;
     // The AI waits are timed from here (ai-wait.mjs), so the take can trim them (trim.mjs).
     ctx.recordingStartedAt = performance.now();
     ctx.aiWaits = [];
+    if (ctx.narration) ctx.beatLog = [];
   };
   const openDemo = async () => {
     await setup.exploreDemo(ctx);
@@ -67,12 +92,25 @@ export async function runTake(def, deps) {
   };
   // The title first (3 s), then the opening line when it says more than the title (a chapter's is its title).
   const intro = async (opening) => {
-    await ui.titleCard(ctx, def.title);
-    if (opening && opening !== def.title) await ui.caption(ctx, opening);
+    await ui.titleCard(ctx, def.title, TITLE);
+    if (opening && opening !== def.title) await ui.caption(ctx, opening, OPENING);
+  };
+  // The beats of the video's own file (`opts.ownBeatIds`) that no caption or voice-only beat used: one
+  // warning each. The big video's chapter beats are not its own, so a chapter beat it never shows is fine.
+  const narrationResult = (status) => {
+    if (!ctx.narration) return {};
+    warnings += ctx.narrationMissing ?? 0;
+    const out = recording && started ? { beats: ctx.beatLog } : {};
+    if (status !== 'ok') return out;
+    const unusedBeats = (opts.ownBeatIds ?? []).filter((id) => !ctx.beatsUsed?.has(id));
+    for (const id of unusedBeats) ctx.log(`NARRATION unused ${id}`);
+    warnings += unusedBeats.length;
+    return { ...out, unusedBeats };
   };
   const result = (status, extra = {}) => {
+    const narration = narrationResult(status);
     if (findSecrets(ctx.lines.join('\n'), opts.secrets ?? []) > 0) warnings++;
-    return { status, warnings, ...(recording && started ? { file: opts.outFile, aiWaits: ctx.aiWaits } : {}), ...extra };
+    return { status, warnings, ...(recording && started ? { file: opts.outFile, aiWaits: ctx.aiWaits } : {}), ...narration, ...extra };
   };
 
   try {
@@ -101,7 +139,7 @@ export async function runTake(def, deps) {
       await intro(opening);
     }
     for (const s of def.steps.filter((x) => !x.setup)) await runStep(ctx, s, opts);
-    await ui.closingBeat(ctx);
+    await ui.closingBeat(ctx, CLOSING);
     return result('ok');
   } catch (e) {
     // The first lines of a Playwright error name the locator and what it waited for.

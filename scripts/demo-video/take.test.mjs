@@ -1,7 +1,9 @@
 // §715 A — one take: what runs off camera, what is recorded, and how a take fails. Every collaborator is
 // a fake that records its calls, so no browser runs here.
-import { describe, expect, it } from 'vitest';
-import { runTake, waitForAi } from './take.mjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CLOSING, OPENING, TITLE } from './narration/beats.mjs';
+import { runTake, takeNarration, waitForAi } from './take.mjs';
+import * as ui from './ui.mjs';
 import { step } from './steps/step.mjs';
 
 function harness({ preconditionsOk = true, checks = [], days } = {}) {
@@ -180,5 +182,102 @@ describe('runTake notes the AI waits on camera (§715)', () => {
     h.deps.opts = { ...h.deps.opts, rehearse: true, withAi: true };
     const r = await runTake(def({ steps: [waiting()] }), h.deps);
     expect(r.aiWaits).toBeUndefined();
+  });
+});
+
+describe('runTake with narration (§715)', () => {
+  let clock;
+  beforeEach(() => {
+    clock = 5000;
+    vi.spyOn(performance, 'now').mockImplementation(() => clock);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  /** The real ui on a fake page whose waits advance the clock; `beats` maps an id to its duration (s). */
+  function narrated({ beats, own = Object.keys(beats), rehearse = false } = {}) {
+    const h = harness();
+    Object.assign(h.deps.ctx.page, {
+      evaluate: async () => {},
+      waitForTimeout: async (ms) => { clock += ms; },
+    });
+    h.deps.ctx.rehearse = rehearse;
+    h.deps.ctx.narration = new Map(Object.entries(beats).map(([id, d]) => [id, { text: `say ${id}`, duration: rehearse ? null : d }]));
+    h.deps.ui = ui;
+    h.deps.opts = { ...h.deps.opts, rehearse, ownBeatIds: own };
+    return h;
+  }
+  const says = (id, beat) => step(id, { run: async (c) => { await ui.caption(c, `text of ${beat}`, beat); clock += 100; } });
+
+  it('a recorded take returns its beats in caption order, with increasing times', async () => {
+    const h = narrated({ beats: { [TITLE]: 1.0, [OPENING]: 1.5, 'mon-a': 2.0, 'mon-b': 0.5, [CLOSING]: 1.0 } });
+    const r = await runTake(def({ steps: [says('a', 'mon-a'), says('b', 'mon-b')] }), h.deps);
+    expect(r.status).toBe('ok');
+    expect(r.beats.map((b) => b.id)).toEqual([TITLE, OPENING, 'mon-a', 'mon-b', CLOSING]);
+    const at = r.beats.map((b) => b.at);
+    for (let i = 1; i < at.length; i++) expect(at[i]).toBeGreaterThan(at[i - 1]);
+    expect(r.unusedBeats).toEqual([]);
+    expect(r.warnings).toBe(0);
+  });
+
+  it("an unused beat of the video's own file is listed and counts one warning", async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'mon-spare': 1 } });
+    const r = await runTake(def({ steps: [says('a', 'mon-a')] }), h.deps);
+    expect(r.unusedBeats).toEqual(['mon-spare']);
+    expect(r.warnings).toBe(1);
+    expect(h.lines).toContain('NARRATION unused mon-spare');
+  });
+
+  it("big: a chapter beat it never shows is not unused, only big's own ids count", async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'first-gdpr': 1 }, own: [OPENING] });
+    const r = await runTake(def({ id: 'big', steps: [says('a', 'mon-a')] }), h.deps);
+    expect(r.unusedBeats).toEqual([]);
+    expect(r.warnings).toBe(0);
+  });
+
+  it('a rehearsal returns no beats, and a missing beat is a warning', async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1 }, rehearse: true });
+    const r = await runTake(def({ steps: [says('a', 'mon-a'), says('b', 'mon-missing')] }), h.deps);
+    expect(r.status).toBe('ok');
+    expect(r.beats).toBeUndefined();
+    expect(r.unusedBeats).toEqual([]);
+    expect(r.warnings).toBe(1);
+    expect(h.lines).toContain('NARRATION missing mon-missing');
+  });
+
+  it('a recorded take fails on a caption id with no beat', async () => {
+    const h = narrated({ beats: { [OPENING]: 1 } });
+    const r = await runTake(def({ steps: [says('b', 'mon-missing')] }), h.deps);
+    expect(r).toMatchObject({ status: 'failed', error: 'no narration for beat mon-missing' });
+  });
+
+  it('a video without narration keeps its result as today', async () => {
+    const h = harness();
+    const r = await runTake(def({ steps: [h.s('a')] }), h.deps);
+    expect(r.beats).toBeUndefined();
+    expect(r.unusedBeats).toBeUndefined();
+  });
+});
+
+describe('takeNarration (§715)', () => {
+  const beats = new Map([['opening', 'Hello.'], ['mon-a', 'A.']]);
+  const audio = (text) => (text === 'Hello.' ? { file: 'x.mp3', duration: 1.2 } : null);
+
+  it('a recorded take needs audio for every beat', () => {
+    expect(() => takeNarration({ id: 'ch3-monday' }, beats, { rehearse: false, audio }))
+      .toThrow('no audio for beat mon-a — run narrate.mjs --video ch3-monday');
+  });
+
+  it('a recorded take carries each duration', () => {
+    const all = () => ({ file: 'x.mp3', duration: 2 });
+    expect(takeNarration({ id: 'x' }, beats, { rehearse: false, audio: all }).get('mon-a')).toEqual({ text: 'A.', duration: 2 });
+  });
+
+  it('a rehearsal needs no audio: durations are null', () => {
+    const n = takeNarration({ id: 'x' }, beats, { rehearse: true, audio: () => { throw new Error('no audio in a rehearsal'); } });
+    expect([...n]).toEqual([['opening', { text: 'Hello.', duration: null }], ['mon-a', { text: 'A.', duration: null }]]);
+  });
+
+  it('a video without beats has no narration', () => {
+    expect(takeNarration({ id: 'x' }, new Map(), { rehearse: false, audio })).toBeNull();
   });
 });

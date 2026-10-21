@@ -35,7 +35,7 @@ const chatQuestion = step('chat-question', {
   ai: true,
   trigger: async (ctx) => { await nav(ctx, 'AI Assistant'); return main(ctx).locator('textarea').last(); },
   run: async (ctx) => {
-    await caption(ctx, 'Ask about the project.');
+    await caption(ctx, 'Ask about the project.', 'ai-chat-ask');
     await chat(ctx, { prompt: 'Why did the MVP target slip, and what needs doing this week?' });
   },
   check: replyCheck,
@@ -45,7 +45,7 @@ const chatCreateTask = step('chat-create-task', {
   ai: true,
   trigger: async (ctx) => { await nav(ctx, 'AI Assistant'); return main(ctx).locator('textarea').last(); },
   run: async (ctx) => {
-    await caption(ctx, 'Or ask it to make the change.');
+    await caption(ctx, 'Or ask it to make the change.', 'ai-chat-change');
     await chat(ctx, { prompt: `Create a task "${CHAT_TASK}" for Ava Thompson, due 2026-10-02.` });
   },
   check: async (ctx) => {
@@ -57,7 +57,7 @@ const chatCreateTask = step('chat-create-task', {
 const chatTaskInOpenPoints = step('chat-task-in-open-points', {
   run: async (ctx) => {
     await nav(ctx, 'Open Points');
-    await caption(ctx, 'The task is in Open Points, with its owner and date.');
+    await caption(ctx, 'The task is in Open Points, with its owner and date.', 'ai-chat-in-open-points');
     await moveTo(ctx, main(ctx).locator('tbody tr', { hasText: CHAT_TASK }).first());
     await pace(ctx, 2500);
   },
@@ -68,7 +68,7 @@ const inlineTaskDescription = step('inline-task-description', {
   ai: true,
   trigger: async (ctx) => { await nav(ctx, 'Open Points'); return main(ctx).getByRole('button', { name: `Ask Claude – ${DEMO_CRM_TASK}`, exact: true }).first(); },
   run: async (ctx) => {
-    await caption(ctx, 'Ask Claude to write the description.');
+    await caption(ctx, 'Ask Claude to write the description.', 'ai-inline-task-ask');
     await askClaude(ctx, 'Open Points', DEMO_CRM_TASK, 'Write the description: what the CRM provisioning connector does, and when the task is done.');
   },
   check: askClaudeCheck,
@@ -81,7 +81,7 @@ const inlineRaidMitigation = step('inline-raid-mitigation', {
   ai: true,
   trigger: async (ctx) => { await nav(ctx, 'RAID'); return main(ctx).getByRole('button', { name: `Ask Claude – ${DEMO_GDPR_ISSUE}`, exact: true }).first(); },
   run: async (ctx) => {
-    await caption(ctx, 'Ask Claude for the mitigation.');
+    await caption(ctx, 'Ask Claude for the mitigation.', 'ai-inline-entity-ask');
     await askClaude(ctx, 'RAID', DEMO_GDPR_ISSUE, 'Set the mitigation to: Route erasure requests through the provisioning connector and verify them end to end.');
   },
   check: askClaudeCheck,
@@ -103,7 +103,7 @@ const allocPlan = step('alloc-plan', {
   trigger: async (ctx) => { await resources(ctx, 'Planning'); return main(ctx).getByRole('button', { name: 'Plan with AI', exact: true }); },
   run: async (ctx) => {
     await resources(ctx, 'Planning');
-    await caption(ctx, `${MAYA} is booked far over 100 % in September.`);
+    await caption(ctx, `${MAYA} is booked far over 100 % in September.`, 'ai-alloc-over');
     await moveTo(ctx, main(ctx).getByRole('spinbutton', { name: `Utilization for ${MAYA} in 2026-09`, exact: true }));
     await pace(ctx, 1500);
     if (await ctx.page.locator(DLG).count()) await ctx.page.keyboard.press('Escape');
@@ -123,7 +123,7 @@ const allocPlan = step('alloc-plan', {
   after: async (ctx) => {
     await click(ctx, ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).first(), 'Apply plan', 1500);
     await resources(ctx, 'Workload');
-    await caption(ctx, 'Workload shows the new split.');
+    await caption(ctx, 'Workload shows the new split.', 'ai-alloc-workload');
     await pace(ctx, 3000);
   },
   replay: noop,
@@ -189,7 +189,7 @@ const weightsSuggest = step('weights-suggest', {
   trigger: async (ctx) => { await settingsTab(ctx, 'Next actions'); return main(ctx).getByRole('button', { name: 'Suggest with AI', exact: true }); },
   run: async (ctx) => {
     await settingsTab(ctx, 'Next actions');
-    await caption(ctx, 'Suggest with AI reads what you acted on and snoozed.');
+    await caption(ctx, 'Suggest with AI reads what you acted on and snoozed.', 'ai-weights-suggest');
     await click(ctx, main(ctx).getByRole('button', { name: 'Suggest with AI', exact: true }), 'Suggest with AI', 300);
     await waitForAi(ctx, {
       busy: main(ctx).getByRole('button', { name: 'Analyzing...', exact: true }),
@@ -202,7 +202,7 @@ const weightsSuggest = step('weights-suggest', {
   },
   check: async (ctx) => ((await main(ctx).getByRole('button', { name: /^Accept - / }).count()) ? null : 'no suggestion'),
   after: async (ctx) => {
-    await caption(ctx, 'Accept the one you agree with.');
+    await caption(ctx, 'Accept the one you agree with.', 'ai-weights-accept');
     await click(ctx, main(ctx).getByRole('button', { name: /^Accept - / }).first(), 'Accept', 2000);
   },
   replay: noop,
@@ -241,12 +241,12 @@ const scheduledRun = step('scheduled-run', {
   trigger: async (ctx) => { await settingsTab(ctx, 'AI Assistant', 'Scheduled jobs'); return main(ctx).getByRole('checkbox', { name: 'Enabled – Morning check', exact: true }); },
   run: async (ctx) => {
     await settingsTab(ctx, 'AI Assistant', 'Scheduled jobs');
-    await caption(ctx, 'The morning check runs every day at 09:00.');
+    await caption(ctx, 'The morning check runs every day at 09:00.', 'ai-scheduled-daily');
     await moveTo(ctx, main(ctx).getByRole('textbox', { name: 'Job name – Morning check', exact: true }));
     await pace(ctx, 2000);
     // The app has no "run now": the runner checks every five minutes, so the clock jumps past 09:00
     // (fastForward fires each due timer once, not every tick in between).
-    await caption(ctx, 'At 09:00 it runs by itself.');
+    await caption(ctx, 'At 09:00 it runs by itself.', 'ai-scheduled-runs');
     await ctx.page.clock.fastForward(35 * 60 * 1000);
     // The run is read from the stored job (Node, off screen) while the view stays put, and Settings shows
     // it as soon as the runner records it (§750).
@@ -255,7 +255,7 @@ const scheduledRun = step('scheduled-run', {
     if (!run.ok) throw new Error(`${ctx.clipId}: the scheduled run failed (${run.error ?? 'no detail'})`);
     const lastRun = main(ctx).getByText(/^Last run: /).first();
     await lastRun.waitFor({ timeout: 15000 });
-    await caption(ctx, 'It ran: its suggestions are counted on the job.');
+    await caption(ctx, 'It ran: its suggestions are counted on the job.', 'ai-scheduled-ran');
     await moveTo(ctx, lastRun);
     await pace(ctx, 3000);
   },
