@@ -12,6 +12,11 @@ const DLG = '[role="dialog"]:visible';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEVICE_STATE = JSON.parse(fs.readFileSync(path.join(HERE, 'fixtures', 'device-state.json'), 'utf8'));
 
+/** Captions of connect() that depend on the wizard's path: Review shows only when Finish is reached, and the
+ *  optional Jira step shows once per skipped step (none, one or several). A take that runs connect on camera
+ *  exempts these from its unused-beat failure (take.mjs). */
+export const MAY_NOT_SHOW = ['setup-review', 'setup-jira-optional'];
+
 /** The setup wizard of a fresh browser: Turso (URL, token, test, portfolio storage), then the key.
  *  `ctx.secrets` = { url, token, key }. Filled, never typed: a typed secret is a frame per character.
  *  `firstRun` (ch2-connect) also shows the first screen and explains the optional steps and Review. */

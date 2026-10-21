@@ -390,6 +390,8 @@ export const TUESDAY = [
   // never, which leaves the change unlinked, so the retry asks again and a note can appear twice.
   step('chat-link-connector', {
     ai: true,
+    // Already linked skips the request; a card to review and a link without a card are alternatives.
+    mayNotShow: ['tue-chat-link', 'tue-chat-linked', 'tue-chat-review'],
     trigger: async (ctx) => { await nav(ctx, 'AI Assistant'); return main(ctx).locator('textarea').last(); },
     run: async (ctx) => {
       if (await connectorLinked(ctx)) return;

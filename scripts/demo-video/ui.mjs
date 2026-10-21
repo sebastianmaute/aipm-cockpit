@@ -61,6 +61,11 @@ function beatFor(ctx, id) {
   return beat;
 }
 
+/** A beat id already shown in this take: a later show keeps its caption but speaks nothing, and holds only
+ *  this long (the rehearsal's token pace), so a branch that shows one caption twice sounds right. */
+const REPEAT_MS = 150;
+const shownBefore = (ctx, id) => ctx.beatsUsed?.has(id) === true;
+
 /** A beat with audio, in a running recording (a rehearsal's beats have no duration). */
 const voiced = (ctx, beat) => beat != null && beat.duration != null && ctx.recordingStartedAt != null;
 
@@ -81,8 +86,9 @@ function startVoice(ctx, id, duration) {
  *  the caption waits for the previous beat's voice, then returns at once, so its voice plays over the next
  *  action. Without narration, or off camera, it holds 1.2 s as before. */
 export async function caption(ctx, text, id) {
+  const again = shownBefore(ctx, id);
   const beat = beatFor(ctx, id);
-  const voice = voiced(ctx, beat);
+  const voice = !again && voiced(ctx, beat);
   if (voice) await waitForVoice(ctx);
   await ctx.page.evaluate((t) => {
     const b = document.getElementById('demo-subtitle');
@@ -92,13 +98,14 @@ export async function caption(ctx, text, id) {
   }, text);
   ctx.log('CAPTION ' + (text || '(clear)'));
   if (voice) startVoice(ctx, id, beat.duration);
-  else if (text) await pace(ctx, 1200);
+  else if (text) await pace(ctx, again ? REPEAT_MS : 1200);
 }
 
 /** A voice-only beat: the same pace as a caption's, with no caption change. */
 export async function speak(ctx, id) {
+  const again = shownBefore(ctx, id);
   const beat = beatFor(ctx, id);
-  if (!voiced(ctx, beat)) return;
+  if (again || !voiced(ctx, beat)) return;
   await waitForVoice(ctx);
   startVoice(ctx, id, beat.duration);
 }

@@ -246,6 +246,42 @@ describe('runTake with narration (§715)', () => {
     expect(r.warnings).toBe(0);
   });
 
+  it('a step that declares a beat it may not show exempts exactly that beat', async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'mon-alt': 1, 'mon-spare': 1 } });
+    const maybe = step('a', { mayNotShow: ['mon-alt'], run: async (c) => { await ui.caption(c, 'x', 'mon-a'); clock += 100; } });
+    const r = await runTake(def({ steps: [maybe] }), h.deps);
+    expect(r.status).toBe('failed');
+    expect(r.unusedBeats).toEqual(['mon-spare']);
+    expect(r.warnings).toBe(1);
+    expect(h.lines).not.toContain('NARRATION unused mon-alt');
+  });
+
+  it('a take whose declared beats are all unshown is ok', async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'mon-alt': 1 } });
+    const maybe = step('a', { mayNotShow: ['mon-alt'], run: async (c) => { await ui.caption(c, 'x', 'mon-a'); clock += 100; } });
+    const r = await runTake(def({ steps: [maybe] }), h.deps);
+    expect(r).toMatchObject({ status: 'ok', unusedBeats: [], warnings: 0 });
+  });
+
+  it("a step that is not in the video exempts nothing", async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'mon-alt': 1 } });
+    const other = step('other', { mayNotShow: ['mon-alt'] });
+    expect(other.mayNotShow).toEqual(['mon-alt']);
+    const r = await runTake(def({ steps: [says('a', 'mon-a')] }), h.deps);
+    expect(r).toMatchObject({ status: 'failed', unusedBeats: ['mon-alt'] });
+  });
+
+  it("the setup's own optional captions are exempt when it ran on camera", async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'setup-review': 1 } });
+    h.deps.setup.MAY_NOT_SHOW = ['setup-review'];
+    const r = await runTake(def({ prologueOnCamera: true, steps: [says('a', 'mon-a')] }), h.deps);
+    expect(r).toMatchObject({ status: 'ok', unusedBeats: [] });
+    const h2 = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'setup-review': 1 } });
+    h2.deps.setup.MAY_NOT_SHOW = ['setup-review'];
+    const r2 = await runTake(def({ steps: [says('a', 'mon-a')] }), h2.deps);
+    expect(r2.unusedBeats).toEqual(['setup-review']);
+  });
+
   it('a rehearsal returns no beats, and a missing beat is a warning', async () => {
     const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1 }, rehearse: true });
     const r = await runTake(def({ steps: [says('a', 'mon-a'), says('b', 'mon-missing')] }), h.deps);

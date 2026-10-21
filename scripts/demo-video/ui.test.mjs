@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLOSING, OPENING, TITLE } from './narration/beats.mjs';
+import { CLOSING, OPENING, TITLE, parseNarration } from './narration/beats.mjs';
 import { PAUSE_MS, caption, closingBeat, speak, titleCard } from './ui.mjs';
 
 let clock;
@@ -84,6 +84,30 @@ describe('caption with narration (§715)', () => {
     expect(ctx.beatLog).toBeUndefined();
     expect(ctx.beatsUsed).toBeUndefined();
     expect(lines.filter((l) => l.startsWith('NARRATION'))).toEqual([]);
+  });
+});
+
+describe('a beat shown again (§715)', () => {
+  it('speaks the first time only: a later show keeps the caption at the token pace and leaves the voice alone', async () => {
+    const { ctx, calls } = fakeCtx({ narration: { 'mon-a': 2.0, 'mon-b': 1.0 } });
+    await caption(ctx, 'A', 'mon-a');
+    const freeAt = ctx.voiceFreeAt;
+    await caption(ctx, 'A again', 'mon-a');
+    expect(calls).toEqual(['show(A)', 'show(A again)', 'wait(150)']);
+    expect(ctx.voiceFreeAt).toBe(freeAt);
+    expect(ctx.beatLog.map((b) => b.id)).toEqual(['mon-a']);
+    // The next new beat still waits for the first voice, not for the repeat.
+    await caption(ctx, 'B', 'mon-b');
+    expect(ctx.beatLog.map((b) => b.id)).toEqual(['mon-a', 'mon-b']);
+    expect(ctx.beatLog[1].at).toBeGreaterThanOrEqual(2.4);
+  });
+
+  it('speak of a beat already spoken does nothing', async () => {
+    const { ctx, calls } = fakeCtx({ narration: { 'mon-a': 1.0 } });
+    await caption(ctx, 'A', 'mon-a');
+    await speak(ctx, 'mon-a');
+    expect(calls).toEqual(['show(A)']);
+    expect(ctx.beatLog.length).toBe(1);
   });
 });
 
@@ -168,5 +192,24 @@ describe('beat ids in the step modules (§715)', () => {
     expect(ids.filter((id) => !ID_RE.test(id))).toEqual([]);
     expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
     expect(ids.filter((id) => [TITLE, OPENING, CLOSING].includes(id))).toEqual([]);
+  });
+});
+
+// ---- the narration files name only beats some caption shows ----
+const NARRATION_DIR = path.join(HERE, 'narration', 'en');
+const RESERVED = [TITLE, OPENING, CLOSING];
+
+describe('narration files against the step captions (§715)', () => {
+  it('every non-reserved beat id in every narration file is shown by some caption', () => {
+    const shown = new Set(beatIds());
+    const files = fs.readdirSync(NARRATION_DIR).filter((f) => f.endsWith('.md') && f !== 'README.md');
+    expect(files.length).toBeGreaterThan(0);
+    const stray = [];
+    for (const f of files) {
+      for (const { id } of parseNarration(fs.readFileSync(path.join(NARRATION_DIR, f), 'utf8'))) {
+        if (!RESERVED.includes(id) && !shown.has(id)) stray.push(`${f}: ${id}`);
+      }
+    }
+    expect(stray).toEqual([]);
   });
 });

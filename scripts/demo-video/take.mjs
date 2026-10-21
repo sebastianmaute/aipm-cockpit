@@ -23,7 +23,8 @@ async function runAi(ctx, s) {
   if (s.after) await s.after(ctx);
 }
 
-async function runStep(ctx, s, opts) {
+async function runStep(ctx, s, opts, mayNotShow) {
+  for (const id of s.mayNotShow ?? []) mayNotShow.add(id);
   if (!s.ai) return s.run(ctx);
   if (opts.rehearse && !opts.withAi) {
     // A rehearsal makes no AI call: it only proves the trigger is there and usable.
@@ -73,6 +74,9 @@ export async function runTake(def, deps) {
   const recording = !opts.rehearse;
   let warnings = 0;
   let started = false;
+  // Beat ids the steps that ran declared they may not show (step.mjs `mayNotShow`), plus the setup's own when
+  // it ran on camera: exempt from the unused-beat failure and warning.
+  const mayNotShow = new Set();
   const start = async () => {
     // From here on, captions are on camera: a narrated one is checked against its beat (ui.mjs).
     ctx.onCamera = true;
@@ -97,13 +101,14 @@ export async function runTake(def, deps) {
   };
   // The beats of the video's own file (`opts.ownBeatIds`) that no caption or voice-only beat used: one
   // warning each, and they fail a recorded take (a rehearsal only reports them). The big video's chapter
-  // beats are not its own, so a chapter beat it never shows is fine.
+  // beats are not its own, so a chapter beat it never shows is fine. A beat the steps that ran declare they
+  // may not show (`mayNotShow`) is neither a warning nor a failure.
   const narrationResult = (status) => {
     if (!ctx.narration) return {};
     warnings += ctx.narrationMissing ?? 0;
     const out = recording && started ? { beats: ctx.beatLog } : {};
     if (status !== 'ok') return out;
-    const unusedBeats = (opts.ownBeatIds ?? []).filter((id) => !ctx.beatsUsed?.has(id));
+    const unusedBeats = (opts.ownBeatIds ?? []).filter((id) => !ctx.beatsUsed?.has(id) && !mayNotShow.has(id));
     for (const id of unusedBeats) ctx.log(`NARRATION unused ${id}`);
     warnings += unusedBeats.length;
     return { ...out, unusedBeats };
@@ -121,9 +126,10 @@ export async function runTake(def, deps) {
   try {
     if (def.prologueOnCamera) {
       await start();
+      for (const id of setup.MAY_NOT_SHOW ?? []) mayNotShow.add(id);
       await intro(await resolveOpening(ctx, def.opening));
       await setup.connect(ctx, def.firstRun ? { onCamera: true, firstRun: true } : { onCamera: true });
-      for (const s of def.prologue ?? []) await runStep(ctx, s, opts);
+      for (const s of def.prologue ?? []) await runStep(ctx, s, opts, mayNotShow);
       await openDemo();
     } else {
       await setup.connect(ctx, { onCamera: false });
@@ -143,7 +149,7 @@ export async function runTake(def, deps) {
       await start();
       await intro(opening);
     }
-    for (const s of def.steps.filter((x) => !x.setup)) await runStep(ctx, s, opts);
+    for (const s of def.steps.filter((x) => !x.setup)) await runStep(ctx, s, opts, mayNotShow);
     await ui.closingBeat(ctx, CLOSING);
     return result('ok');
   } catch (e) {
