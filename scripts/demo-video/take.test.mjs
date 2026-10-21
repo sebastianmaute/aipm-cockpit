@@ -219,9 +219,21 @@ describe('runTake with narration (§715)', () => {
     expect(r.warnings).toBe(0);
   });
 
-  it("an unused beat of the video's own file is listed and counts one warning", async () => {
+  it("an unused beat of the video's own file fails a recorded take, and is listed as a warning", async () => {
     const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'mon-spare': 1 } });
     const r = await runTake(def({ steps: [says('a', 'mon-a')] }), h.deps);
+    expect(r.status).toBe('failed');
+    expect(r.error).toBe('narration beats never shown: mon-spare');
+    expect(r.unusedBeats).toEqual(['mon-spare']);
+    expect(r.warnings).toBe(1);
+    expect(h.lines).toContain('NARRATION unused mon-spare');
+  });
+
+  it("in a rehearsal, an unused beat of the video's own file is a warning only", async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-a': 1, 'mon-spare': 1 }, rehearse: true });
+    const r = await runTake(def({ steps: [says('a', 'mon-a')] }), h.deps);
+    expect(r.status).toBe('ok');
+    expect(r.error).toBeUndefined();
     expect(r.unusedBeats).toEqual(['mon-spare']);
     expect(r.warnings).toBe(1);
     expect(h.lines).toContain('NARRATION unused mon-spare');

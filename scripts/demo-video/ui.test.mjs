@@ -96,17 +96,23 @@ describe('voice-only beats (§715)', () => {
     expect(ctx.beatLog.map((b) => [b.id, b.at])).toEqual([['mon-a', 0], ['mon-why', 1.4]]);
   });
 
-  it('closingBeat waits for the voice before its 1500 ms hold', async () => {
+  it('closingBeat lets the last voice finish before it clears the caption, then holds 1500 ms', async () => {
     const { ctx, calls } = fakeCtx({ narration: { 'mon-a': 2.0 } });
+    const shownAt = [];
+    const evaluate = ctx.page.evaluate;
+    ctx.page.evaluate = async (fn, t) => { shownAt.push([t, clock]); await evaluate(fn, t); };
     await caption(ctx, 'A', 'mon-a');
     await closingBeat(ctx, CLOSING);
-    expect(calls).toEqual(['show(A)', 'show()', `wait(${2000 + PAUSE_MS})`, 'wait(1500)']);
+    expect(calls).toEqual(['show(A)', `wait(${2000 + PAUSE_MS})`, 'show()', 'wait(1500)']);
+    // The clear comes once the voice and its pause are over, not while "A" is still being spoken.
+    expect(shownAt).toEqual([['A', 1000], ['', 1000 + 2000 + PAUSE_MS]]);
   });
 
   it('closingBeat speaks the closing beat when the video has one', async () => {
     const { ctx, calls } = fakeCtx({ narration: { [CLOSING]: 1.0 } });
     await closingBeat(ctx, CLOSING);
     expect(ctx.beatLog.map((b) => b.id)).toEqual([CLOSING]);
+    // Spoken over the closing frame: after the clear, then held until it is done.
     expect(calls).toEqual(['show()', `wait(${1000 + PAUSE_MS})`, 'wait(1500)']);
   });
 

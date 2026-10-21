@@ -111,9 +111,11 @@ export async function titleCard(ctx, title, beat) {
   await pace(ctx, 1800);
 }
 
-/** The clip's closing beat: the last frame held without a caption, about 1.5 s, once the voice is done.
- *  A narrated video may speak its closing beat (`beat`, the reserved CLOSING id) over it. */
+/** The clip's closing beat: the last frame held without a caption, about 1.5 s. The last caption stays up
+ *  until its voice is done; a narrated video may then speak its closing beat (`beat`, the reserved CLOSING
+ *  id) over the cleared frame, which is held until that voice is done too. */
 export async function closingBeat(ctx, beat) {
+  await waitForVoice(ctx);
   await caption(ctx, '');
   if (beat && ctx.narration?.has(beat)) await speak(ctx, beat);
   await waitForVoice(ctx);

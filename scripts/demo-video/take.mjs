@@ -96,7 +96,8 @@ export async function runTake(def, deps) {
     if (opening && opening !== def.title) await ui.caption(ctx, opening, OPENING);
   };
   // The beats of the video's own file (`opts.ownBeatIds`) that no caption or voice-only beat used: one
-  // warning each. The big video's chapter beats are not its own, so a chapter beat it never shows is fine.
+  // warning each, and they fail a recorded take (a rehearsal only reports them). The big video's chapter
+  // beats are not its own, so a chapter beat it never shows is fine.
   const narrationResult = (status) => {
     if (!ctx.narration) return {};
     warnings += ctx.narrationMissing ?? 0;
@@ -109,6 +110,10 @@ export async function runTake(def, deps) {
   };
   const result = (status, extra = {}) => {
     const narration = narrationResult(status);
+    if (recording && narration.unusedBeats?.length) {
+      status = 'failed';
+      extra = { ...extra, error: `narration beats never shown: ${narration.unusedBeats.join(', ')}` };
+    }
     if (findSecrets(ctx.lines.join('\n'), opts.secrets ?? []) > 0) warnings++;
     return { status, warnings, ...(recording && started ? { file: opts.outFile, aiWaits: ctx.aiWaits } : {}), ...narration, ...extra };
   };
