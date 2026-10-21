@@ -145,7 +145,7 @@ node scripts/demo-video/record.mjs --video ch3-monday       # the narrated take 
 ### Editing a script
 
 - Edit `narration/en/<id>.md`. The format is in `narration/en/README.md`: a `## <beat-id>` heading, then the spoken text. Line breaks inside a beat do not matter, and the text above the first heading is not spoken.
-- A beat id must match the id of a caption in the video's steps (`videos.mjs`, `steps/`). A typo shows up as a missing beat on a recorded take, and as a warning in a rehearsal.
+- A beat id must match the id of a caption in the video's steps (`videos.mjs`, `steps/`). A beat whose id no caption shows fails `ui.test.mjs` (the narration-file check) and fails a recorded take as never shown. A caption with no beat fails a recorded take as missing, and is a warning in a rehearsal.
 - `big.md` adds to the six chapter files, and its beats override a chapter beat of the same id.
 - Run a script through the `avoid-ai-writing` skill (edit mode) before it goes to the owner for review.
 - After an edit, run `narrate.mjs --video <id>`: it prints how many characters it will send, and renders only what changed.
