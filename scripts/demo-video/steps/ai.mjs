@@ -22,7 +22,7 @@ async function settingsTab(ctx, ...tabs) {
 
 /** A week step whose `run` relies on the step before it for its view: the clip goes there first (a with-AI
  *  take runs `run`, never `trigger`). */
-const atView = (s, go) => step(s.id, { ...s, run: async (ctx) => { await go(ctx); await s.run(ctx); } });
+const atView = (s, go) => step(s.id, { ...s, inner: s, run: async (ctx) => { await go(ctx); await s.run(ctx); } });
 
 /** The thread's last message is the reply: a reply of a few words is not an answer. */
 const replyCheck = async (ctx) => {

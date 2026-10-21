@@ -25,6 +25,7 @@ async function runAi(ctx, s) {
 
 /** The beat ids (of `ids`) an AI step shows: those it declares (`beats`) and those it names as a quoted literal. */
 function beatsNamedBy(s, ids) {
+  if (s.inner) return [...new Set([...beatsNamedBy(s.inner, ids), ...ids.filter((id) => s.beats?.includes(id))])];
   const src = [s.run, s.after, s.replay].filter(Boolean).map(String).join(' ');
   return ids.filter((id) => s.beats?.includes(id) || src.includes(`'${id}'`) || src.includes(`"${id}"`));
 }

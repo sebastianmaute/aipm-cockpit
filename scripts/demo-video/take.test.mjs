@@ -287,6 +287,14 @@ describe('runTake with narration (§715)', () => {
     expect(r.unusedBeats).toEqual([]);
   });
 
+  it('a wrapped AI step (atView) exempts its beats of its inner step when skipped', async () => {
+    const h = narrated({ beats: { [OPENING]: 1, 'mon-ai': 1 }, rehearse: true });
+    const inner = aiSays('ai');
+    const wrapped = step(inner.id, { ...inner, inner, run: async (c) => { await inner.run(c); } });
+    const r = await runTake(def({ steps: [wrapped] }), h.deps);
+    expect(r.unusedBeats).toEqual([]);
+  });
+
   it('a --with-ai rehearsal still warns on an AI step beat that never showed', async () => {
     const h = narrated({ beats: { [OPENING]: 1, 'mon-ai': 1 }, rehearse: true });
     h.deps.opts.withAi = true;

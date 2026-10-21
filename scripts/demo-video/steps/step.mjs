@@ -12,6 +12,7 @@
 //            loop that may not run). A take's unused-beat failure exempts exactly these (take.mjs).
 // - beats:  beat ids an AI step shows, when its source cannot name them (a factory's parameter); a rehearsal
 //            that skips the step exempts them from the unused-beat warning (take.mjs).
+// - inner:  the step a wrapper (ai.mjs `atView`) runs, so a skipped wrapper still exempts the inner step's beats.
 // - after:   an AI step's tidy-up once its result passed the check (e.g. closing the result panel).
 
 const notYet = (id) => async () => { throw new Error(`step ${id} not written yet`); };
