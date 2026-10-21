@@ -41,7 +41,7 @@ This document designs piece 1 only, but it must not block piece 3. Script files 
 
 - German narration, German recordings and the German demo project. These are pieces 2 and 3. The design only keeps a `lang` dimension open.
 - Uploading to YouTube, or anything in the app (piece 4).
-- Narrating `ch1-install`. It is hand-recorded and has no captions; see "Open for the owner".
+- Narrating `ch1-install` for now. It will get narration (owner, 2026-10-21), but it is not recorded yet, so it is revisited once it is.
 - Changing what the videos show. Steps, data and the week story stay as they are. Only how long each caption is held changes.
 
 ## Anti-goals (a failure even if it technically works)
@@ -115,9 +115,9 @@ A one-off command renders one representative beat in three or four candidate sto
 - **Clips:** the context line, the caption spoken, and one "why" sentence. Nothing more.
 - **Owner review:** the English scripts are drafted from the steps and captions, then reviewed by the owner before any audio is rendered.
 
-## Open for the owner
+## Revisit later
 
-1. `ch1-install` is hand-recorded, with no captions. Should it get narration (a script the owner reads while recording, or a voice-over added to the hand recording), or stay silent?
+- **`ch1-install`** gets narration (owner, 2026-10-21). It is hand-recorded and not recorded yet. Once it exists, decide how its narration is produced: a script read while recording, or a voice-over added afterwards.
 
 ## Left to the builder
 
