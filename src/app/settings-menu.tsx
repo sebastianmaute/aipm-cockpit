@@ -1,5 +1,6 @@
 "use client";
 
+import { isIntegrationDisabled } from "./integration-switches";
 import { useCallback, useRef, useState } from "react";
 import { Cog6ToothIcon } from "./icons";
 import { IconButton } from "./icon-button";
@@ -102,6 +103,7 @@ export function SettingsMenu({
 
           <hr className="my-4 border-line" />
 
+          {!isIntegrationDisabled("jira") && <>
           <JiraSettingsSection
             lang={lang}
             config={settings.jira}
@@ -109,6 +111,7 @@ export function SettingsMenu({
           />
 
           <hr className="my-4 border-line" />
+          </>}
 
           <StorageConfigSection
             lang={lang}

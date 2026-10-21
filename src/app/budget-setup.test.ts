@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   budgetSetupDismissKey,
   budgetSetupDoneCount,
+  budgetSetupStepCount,
   budgetSetupSteps,
   isBudgetSetupDismissed,
   setBudgetSetupDismissed,
@@ -20,7 +21,7 @@ const bucket = (patch: Partial<BudgetBucket> = {}): BudgetBucket => ({
 describe("budgetSetupSteps", () => {
   test("an empty project has nothing done and step 1 next", () => {
     expect(budgetSetupSteps({ roles: [], resources: [], buckets: [] })).toEqual({
-      ratesDone: false, peopleDone: false, bucketDone: false, bookingsDone: false, next: 1,
+      ratesDone: false, peopleDone: false, bucketDone: false, bookingsDone: false, next: 1, bookingsApplicable: true,
     });
   });
 
@@ -106,6 +107,29 @@ describe("budgetSetupSteps", () => {
       buckets: [bucket({ allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 99 }, actualHours: {} }] })],
     });
     expect(s.bookingsDone).toBe(false);
+  });
+});
+
+describe("§762 — budgetSetupSteps bookingsApplicable", () => {
+  const first3 = { roles: [role({ internalRate: 80 })], resources: [resource], buckets: [bucket()] };
+  test("§762 — steps 1-3 done: next is 4 when bookingsApplicable is true or absent (positive control)", () => {
+    expect(budgetSetupSteps(first3).next).toBe(4);
+    expect(budgetSetupSteps({ ...first3, bookingsApplicable: true }).next).toBe(4);
+  });
+  test("§762 — steps 1-3 done: next is null when bookingsApplicable is false", () => {
+    expect(budgetSetupSteps({ ...first3, bookingsApplicable: false }).next).toBeNull();
+  });
+  test("§762 — step 4 is never next while an earlier step is open, applicable or not", () => {
+    expect(budgetSetupSteps({ ...first3, buckets: [], bookingsApplicable: false }).next).toBe(3);
+  });
+  test("§762 — done count ignores bookings when not applicable; step count is 3 vs 4", () => {
+    const all = { ratesDone: true, peopleDone: true, bucketDone: true, bookingsDone: true, next: null } as const;
+    expect(budgetSetupDoneCount(all)).toBe(4);
+    expect(budgetSetupDoneCount({ ...all, bookingsApplicable: true })).toBe(4);
+    expect(budgetSetupDoneCount({ ...all, bookingsApplicable: false })).toBe(3);
+    expect(budgetSetupStepCount(all)).toBe(4);
+    expect(budgetSetupStepCount({ ...all, bookingsApplicable: true })).toBe(4);
+    expect(budgetSetupStepCount({ ...all, bookingsApplicable: false })).toBe(3);
   });
 });
 

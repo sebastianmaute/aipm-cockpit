@@ -13,12 +13,17 @@ export interface BudgetSetupSteps {
   bookingsDone: boolean;
   /** First step not done; 4 (optional) only counts after 1-3. `null` when all done. */
   next: BudgetSetupStep | null;
+  /** §762 — false when the deployment switched TimeLog off: step 4 is then not a step at
+   *  all (not shown, not counted, never next). Absent means applicable. */
+  bookingsApplicable?: boolean;
 }
 
 export interface BudgetSetupInput {
   roles: readonly Role[];
   resources: readonly Resource[];
   buckets: readonly BudgetBucket[];
+  /** §762 — default true; the panel passes false when TimeLog is switched off. */
+  bookingsApplicable?: boolean;
 }
 
 /** Total steps shown in "Budget setup: N of 4". */
@@ -45,17 +50,24 @@ function hasBookings(b: BudgetBucket): boolean {
     || (b.disciplineAllocations ?? []).some((a) => hasPositive(a.actualHours));
 }
 
-export function budgetSetupSteps({ roles, resources, buckets }: BudgetSetupInput): BudgetSetupSteps {
+export function budgetSetupSteps({ roles, resources, buckets, bookingsApplicable = true }: BudgetSetupInput): BudgetSetupSteps {
   const ratesDone = roles.some(hasRate);
   const peopleDone = resources.length > 0;
   const bucketDone = buckets.length > 0;
   const bookingsDone = buckets.some(hasBookings);
-  const next: BudgetSetupStep | null = !ratesDone ? 1 : !peopleDone ? 2 : !bucketDone ? 3 : !bookingsDone ? 4 : null;
-  return { ratesDone, peopleDone, bucketDone, bookingsDone, next };
+  const next: BudgetSetupStep | null =
+    !ratesDone ? 1 : !peopleDone ? 2 : !bucketDone ? 3 : bookingsApplicable && !bookingsDone ? 4 : null;
+  return { ratesDone, peopleDone, bucketDone, bookingsDone, next, bookingsApplicable };
 }
 
 export function budgetSetupDoneCount(s: BudgetSetupSteps): number {
-  return [s.ratesDone, s.peopleDone, s.bucketDone, s.bookingsDone].filter(Boolean).length;
+  const bookings = s.bookingsApplicable !== false && s.bookingsDone;
+  return [s.ratesDone, s.peopleDone, s.bucketDone, bookings].filter(Boolean).length;
+}
+
+/** The N of "N of M": BUDGET_SETUP_STEP_COUNT, less the bookings step when it does not apply. */
+export function budgetSetupStepCount(s: BudgetSetupSteps): number {
+  return s.bookingsApplicable === false ? BUDGET_SETUP_STEP_COUNT - 1 : BUDGET_SETUP_STEP_COUNT;
 }
 
 export function budgetSetupDismissKey(projectKey: string): string {

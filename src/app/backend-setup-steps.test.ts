@@ -7,6 +7,7 @@ import {
 } from "./backend-setup-steps";
 import { defaultSettings, defaultM365Integrations } from "./settings-types";
 import { isPassphraseLocked } from "./secrets-store";
+import { setDisabledIntegrations } from "./integration-switches";
 
 vi.mock("./secrets-store", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./secrets-store")>()),
@@ -16,6 +17,7 @@ import { defaultTimelogConfig } from "./timelog-types";
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  setDisabledIntegrations([]);
 });
 
 // ---------------------------------------------------------------------------
@@ -199,5 +201,24 @@ describe("summarizeBackendSetup", () => {
     const items = summarizeBackendSetup(settings);
     const timelog = items.find((i) => i.key === "timelog");
     expect(timelog?.configured).toBe(true);
+  });
+});
+
+describe("§762 — summarizeBackendSetup with integrations switched off", () => {
+  const keys = () => summarizeBackendSetup(defaultSettings).map((i) => i.key);
+  it("§762 — lists all five items when nothing is switched off (positive control)", () => {
+    expect(keys()).toEqual(["storage", "m365", "ai", "jira", "timelog"]);
+  });
+  it("§762 — drops the jira item when jira is switched off, leaving the rest", () => {
+    setDisabledIntegrations(["jira"]);
+    expect(keys()).toEqual(["storage", "m365", "ai", "timelog"]);
+  });
+  it("§762 — drops the timelog item when timelog is switched off, leaving the rest", () => {
+    setDisabledIntegrations(["timelog"]);
+    expect(keys()).toEqual(["storage", "m365", "ai", "jira"]);
+  });
+  it("§762 — an unrelated switch (ecb) changes nothing", () => {
+    setDisabledIntegrations(["ecb"]);
+    expect(keys()).toEqual(["storage", "m365", "ai", "jira", "timelog"]);
   });
 });

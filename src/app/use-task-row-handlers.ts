@@ -1,4 +1,5 @@
 "use client";
+import { isJiraOn } from "./integration-switches";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import { t, type Lang } from "./i18n";
@@ -191,7 +192,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   const onPushToJira = useCallback(
     async (taskId: number): Promise<boolean> => {
       const jiraCfg = settings.jira;
-      if (!jiraCfg.enabled || !jiraCfg.projectKey) {
+      if (!isJiraOn(jiraCfg) || !jiraCfg.projectKey) {
         showToastRef.current("error", t(lang, "jiraPushPrereq"));
         return false;
       }

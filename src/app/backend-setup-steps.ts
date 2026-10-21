@@ -2,6 +2,7 @@
 // Pure, i18n-free, testable engine for the Backend Setup Wizard step model.
 // No React dependencies — safe to import from tests without jsdom.
 
+import { isIntegrationDisabled } from "./integration-switches";
 import type { TranslationKey } from "./i18n";
 import type { Settings } from "./settings-types";
 import { getTursoConfig } from "./turso-config";
@@ -71,7 +72,7 @@ export function summarizeBackendSetup(settings: Settings): SetupSummaryItem[] {
     storageKind === "turso"
       ? getTursoConfig(turso?.databaseUrl, turso?.authToken) !== null
       : true;
-  return [
+  const items: SetupSummaryItem[] = [
     {
       key: "storage",
       labelKey: "setupWizardStepStorage",
@@ -100,4 +101,6 @@ export function summarizeBackendSetup(settings: Settings): SetupSummaryItem[] {
       configured: !!settings.timelog?.enabled,
     },
   ];
+  // §762 — an integration this deployment switched off is not a setup step to review.
+  return items.filter((i) => !((i.key === "jira" || i.key === "timelog") && isIntegrationDisabled(i.key)));
 }

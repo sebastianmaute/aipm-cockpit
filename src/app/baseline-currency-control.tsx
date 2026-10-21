@@ -4,6 +4,7 @@ import { flushSync } from "react-dom";
 import { type Lang, t } from "./i18n";
 import { Select } from "./form-controls";
 import { InfoTooltip } from "./info-tooltip";
+import { isIntegrationDisabled } from "./integration-switches";
 import { useWorkspace } from "./workspace-context";
 import { useActivityLog } from "./use-activity-log";
 import { crossRate, roundRate } from "./baseline-currency";
@@ -103,7 +104,9 @@ export function BaselineCurrencyControl({ lang, sessionRates, workdayHours, toda
     logActivityUser("plan.currencySwitched", result.from, result.to, roundRate(result.rate), result.fxDate);
   };
 
-  const disabled = sessionRates === null;
+  // §762 — a switch needs today's ECB rates; without the ECB the control stays visible, disabled, and says why.
+  const ecbOff = isIntegrationDisabled("ecb");
+  const disabled = ecbOff || sessionRates === null;
 
   return (
     <div className="flex items-center gap-1.5 text-sm print:hidden">
@@ -130,7 +133,7 @@ export function BaselineCurrencyControl({ lang, sessionRates, workdayHours, toda
       <InfoTooltip text={t(lang, "baselineCurrencyHint")} />
       {disabled && (
         <span id={needsRatesId} className="text-xs text-muted-foreground">
-          {t(lang, "baselineCurrencyNeedsRates")}
+          {t(lang, ecbOff ? "integrationNotAvailable" : "baselineCurrencyNeedsRates")}
         </span>
       )}
       {preview && <BaselineSwitchDialog lang={lang} plan={preview} onCancel={cancel} onConfirm={confirm} />}

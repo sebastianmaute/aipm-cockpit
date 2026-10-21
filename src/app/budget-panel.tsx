@@ -27,7 +27,8 @@ import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { AddButton } from "./pane-toolbar";
 import { BudgetSetupChecklist, type BudgetSetupView } from "./budget-setup-checklist";
-import type { FeatureModuleId } from "./feature-modules";
+import { isModuleSwitchedOff, type FeatureModuleId } from "./feature-modules";
+import { isIntegrationDisabled } from "./integration-switches";
 import { budgetSetupSteps, isBudgetSetupDismissed, setBudgetSetupDismissed } from "./budget-setup";
 import { ViewCallout } from "./view-callout";
 import { BudgetUnappliedNotice } from "./budget-unapplied-notice";
@@ -260,10 +261,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
   // localStorage read) so a project switch can never show another project's flag.
   const setupKey = timelogProjectId;
   const [setupHiddenNow, setSetupHiddenNow] = useState(false);
-  const setupSteps = budgetSetupSteps({ roles, resources, buckets });
+  const setupSteps = budgetSetupSteps({ roles, resources, buckets, bookingsApplicable: !isModuleSwitchedOff("timelog") }); // §762
   const setupDismissed = setupHiddenNow || isBudgetSetupDismissed(setupKey);
   const setupCollapsed = buckets.length > 0;
-  const showSetup = !setupCollapsed || (!setupSteps.bookingsDone && !setupDismissed);
+  const showSetup = !setupCollapsed || (setupSteps.bookingsApplicable !== false && !setupSteps.bookingsDone && !setupDismissed);
   const dismissSetup = () => {
     setSetupHiddenNow(true);
     if (!isPopout) setBudgetSetupDismissed(setupKey);
@@ -354,7 +355,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
       {/* Above the bucket cards deliberately: editing allocations here is what
           makes cached bookings applicable, and this view otherwise points at
           Timelog nowhere at all. Read-only — it never writes a money figure. */}
-      {onGoToTimelog && (
+      {onGoToTimelog && !isModuleSwitchedOff("timelog") && (
         <BudgetUnappliedNotice
           lang={lang} projectId={timelogProjectId} buckets={buckets} roles={roles}
           resources={resources} granularity={plan.granularity} onGoToTimelog={onGoToTimelog}
@@ -403,6 +404,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
           {!isPopout && props.fxSessionRates !== undefined ? (
             <BaselineCurrencyControl lang={lang} sessionRates={props.fxSessionRates} workdayHours={workdayHours} today={today} />
           ) : null}
+          {/* §762 — no rate refresh when this deployment switched the ECB rates off. */}
+          {!isIntegrationDisabled("ecb") && (
           <Button
             variant="secondary"
             size="xs"
@@ -413,6 +416,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
             <ArrowPathIcon aria-hidden="true" className={`h-4 w-4 ${props.fxLoading ? "animate-spin" : ""}`} />
             {t(lang, "budgetFxRefresh")}
           </Button>
+          )}
           <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
           <ResetSizeButton onClick={resetBudgetSize} lang={lang} />
         </div>

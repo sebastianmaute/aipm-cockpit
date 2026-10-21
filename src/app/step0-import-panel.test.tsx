@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Step0ImportPanel } from "./step0-import-panel";
 import { defaultSettings } from "./settings-types";
@@ -9,6 +9,7 @@ import { ATTACHMENT_ACCEPT, type DocumentBlock } from "./chat-attachments";
 import { buildCfbf } from "./__fixtures__/cfbf-writer";
 import { MAX_NODE_EXTRACT_CHARS } from "./attachment-ingest";
 import { buttonClassFor } from "../test/button-variant";
+import { setDisabledIntegrations } from "./integration-switches";
 
 const sampleText = readFileSync(
   join(import.meta.dirname, "..", "..", "sample-workspace-small.json"),
@@ -401,5 +402,26 @@ describe("§650 AI project proposal — a refused key shows the key message", ()
     render(<Step0ImportPanel {...baseProps} aiError={token} onIngest={vi.fn()} />);
     expect(screen.getByText(t("en-US", key))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "aiCreateError"))).toBeNull();
+  });
+});
+
+describe("§762 — Step0ImportPanel Confluence source with confluence switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const withJira = {
+    ...defaultSettings,
+    jira: { ...defaultSettings.jira, enabled: true, siteUrl: "https://x.atlassian.net", email: "a@b.c", apiToken: "tok" },
+  };
+  const confluenceOption = () => screen.queryByRole("radio", { name: t("en-US", "wizardImportMethodConfluence") });
+
+  it("§762 — offers the Confluence source with full Jira credentials (positive control)", () => {
+    render(<Step0ImportPanel {...baseProps} settings={withJira} onIngest={vi.fn()} />);
+    expect(confluenceOption()).toBeInTheDocument();
+  });
+  it("§762 — offers no Confluence source when confluence is switched off, even with full Jira credentials", () => {
+    setDisabledIntegrations(["confluence"]);
+    render(<Step0ImportPanel {...baseProps} settings={withJira} onIngest={vi.fn()} />);
+    expect(confluenceOption()).toBeNull();
+    // Only confluence is off: the other sources are still offered.
+    expect(screen.getByRole("radio", { name: t("en-US", "wizardImportMethodFile") })).toBeInTheDocument();
   });
 });

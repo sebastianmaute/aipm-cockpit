@@ -2,7 +2,8 @@
 import { fakeDialogs } from "../test/fake-dialogs";
 import { act, renderHook } from "@testing-library/react";
 import { useState } from "react";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { setDisabledIntegrations } from "./integration-switches";
 import { useUndoStack } from "./undo/use-undo-stack";
 import type { RaidItem } from "./types";
 import { __resetMintStateForTests } from "./id-mint-session";
@@ -1575,5 +1576,35 @@ describe("useTaskSubmit — a successor type change (§135)", () => {
     const { stored, showToast } = save([{ taskId: 2, type: "FS" }]);
     expect(stored).toEqual([{ taskId: 3, type: "FF" }, { taskId: 1, type: "FS" }]);
     expect(showToast).not.toHaveBeenCalled();
+  });
+});
+
+describe("§762 — a new task with pushToJira ticked, Jira switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const create = () => {
+    const push = vi.fn().mockResolvedValue(true);
+    const settings = {
+      jira: { enabled: true, siteUrl: "https://x", email: "a@b.c", apiToken: "t", projectKey: "LOP", issueTypes: ["Task"] },
+    } as unknown as Parameters<typeof useTaskSubmit>[0]["settings"];
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        settings, setTasks, tasks: [], tasksRef: { current: [] },
+        onPushToJiraRef: { current: push },
+        form: { ...validForm(), pushToJira: true },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    return { push, setTasks };
+  };
+  it("§762 — Jira on: the new task is pushed (positive control)", () => {
+    const { push } = create();
+    expect(push).toHaveBeenCalledWith(1);
+  });
+  it("§762 — Jira switched off while settings.jira.enabled is true: the task is created but NOT pushed", () => {
+    setDisabledIntegrations(["jira"]);
+    const { push, setTasks } = create();
+    expect(setTasks).toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
   });
 });

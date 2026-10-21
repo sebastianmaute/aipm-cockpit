@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   render as rtlRender,
   screen,
@@ -13,6 +13,7 @@ import { defaultSettings, type Settings } from "./settings-types";
 import { setActive } from "./color-schemes";
 import { t } from "./i18n";
 import { iconButtonClassFor } from "../test/button-variant";
+import { setDisabledIntegrations } from "./integration-switches";
 
 // SettingsMenu embeds TemplatesSection, which reads the live workspace
 // (useCurrentWorkspace), so every render needs the workspace providers.
@@ -28,7 +29,7 @@ function render(ui: React.ReactElement, options?: RenderOptions) {
 }
 
 vi.mock("./jira-settings", () => ({
-  JiraSettingsSection: () => null,
+  JiraSettingsSection: () => <div data-testid="jira-settings-stub" />,
 }));
 vi.mock("./storage-config", () => ({
   StorageConfigSection: () => null,
@@ -245,5 +246,22 @@ describe("SettingsMenu — Integrations section", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
     expect(screen.getByRole("button", { name: /display language/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /connect external services/i })).toBeInTheDocument();
+  });
+});
+
+describe("§762 — SettingsMenu with jira switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const open = () => {
+    render(<SettingsMenu {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
+  };
+  it("§762 — shows the Jira settings section when jira is on (positive control)", () => {
+    open();
+    expect(screen.getAllByTestId("jira-settings-stub").length).toBeGreaterThan(0);
+  });
+  it("§762 — omits the Jira settings section when jira is switched off", () => {
+    setDisabledIntegrations(["jira"]);
+    open();
+    expect(screen.queryAllByTestId("jira-settings-stub")).toHaveLength(0);
   });
 });

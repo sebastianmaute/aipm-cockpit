@@ -15,6 +15,7 @@ import {
   type FeatureModuleId,
   MODE_LABEL_KEY,
   deriveMode,
+  isModuleSwitchedOff,
   missingUses,
 } from "./feature-modules";
 import { Checkbox } from "./form-controls";
@@ -137,7 +138,9 @@ export function FunctionsPicker({
         <legend className="mb-1 text-sm font-semibold text-foreground">
           {t(lang, "modeModulesHeading")}
         </legend>
-        {FEATURE_MODULES.map((m) => {
+        {/* §762 — a module whose integration this deployment switched off is not offered; toggling
+            the others keeps its stored on/off as it is. */}
+        {FEATURE_MODULES.filter((m) => !isModuleSwitchedOff(m.id)).map((m) => {
           const missing = missingUses(m.id, features);
           const noticeId = `${idBase}-uses-${m.id}`;
           // The checkbox is described by its hint and, while it shows, by the uses notice.

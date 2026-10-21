@@ -25,6 +25,7 @@ import { clearEnvTokenRejected, isEnvTokenRejected, markEnvTokenRejected } from 
 import { markUnsealedPassphraseToken } from "../turso-token-marker";
 import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../../test/hint-label";
+import { setDisabledIntegrations } from "../integration-switches";
 
 vi.mock("../turso-pipeline", async (importActual) => ({
   ...(await importActual<typeof import("../turso-pipeline")>()),
@@ -1275,5 +1276,31 @@ describe("§711 — Turso setup as numbered steps", () => {
       await screen.findByText(t("en-US", "integrationsTursoTestAuth"));
       expect(testItem()).not.toHaveTextContent(done);
     });
+  });
+});
+
+describe("§762 — IntegrationsSection with integrations switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const renderSection = () =>
+    render(<IntegrationsSection lang="en-US" settings={defaultSettings} onChange={() => {}} />);
+  const timelogHeading = () => screen.queryAllByRole("heading", { name: t("en-US", "timelogTitle") });
+  const jiraHeading = () => screen.queryAllByRole("heading", { name: t("en-US", "settingsSectionJira") });
+
+  it("§762 — shows TimeLog and Jira settings when nothing is switched off (positive control)", () => {
+    renderSection();
+    expect(timelogHeading().length).toBeGreaterThan(0);
+    expect(jiraHeading().length).toBeGreaterThan(0);
+  });
+  it("§762 — hides the TimeLog settings, and only those, when timelog is switched off", () => {
+    setDisabledIntegrations(["timelog"]);
+    renderSection();
+    expect(timelogHeading()).toHaveLength(0);
+    expect(jiraHeading().length).toBeGreaterThan(0);
+  });
+  it("§762 — hides the Jira section, and only that, when jira is switched off", () => {
+    setDisabledIntegrations(["jira"]);
+    renderSection();
+    expect(jiraHeading()).toHaveLength(0);
+    expect(timelogHeading().length).toBeGreaterThan(0);
   });
 });

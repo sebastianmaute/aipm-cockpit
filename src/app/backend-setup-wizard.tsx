@@ -16,6 +16,7 @@
 //   • Settings → Integrations section (isPopout-gated)
 //   • Create-project wizard (always available)
 
+import { isIntegrationDisabled } from "./integration-switches";
 import { useCallback, useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
@@ -295,7 +296,11 @@ export function BackendSetupWizard({
             />
           )}
 
-          {currentStep.key === "jira" && (
+          {/* §762 — the step stays (the wizard's step order is fixed) but offers nothing to set up. */}
+          {currentStep.key === "jira" && isIntegrationDisabled("jira") && (
+            <p className="text-sm text-muted-foreground">{t(lang, "integrationNotAvailable")}</p>
+          )}
+          {currentStep.key === "jira" && !isIntegrationDisabled("jira") && (
             <JiraSettingsSection
               lang={lang}
               config={settings.jira}

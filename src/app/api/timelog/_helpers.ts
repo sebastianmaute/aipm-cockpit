@@ -6,6 +6,7 @@
 import { rateLimit } from "../jira/_rate-limit";
 import { isPrivateHost, isAllowedHostSuffix } from "../_shared/proxy-ssrf";
 import { describeUpstreamError } from "../_shared/upstream-error";
+import { refuseIfDisabled } from "../_shared/integration-switch";
 
 export type TimelogCreds = { host: string; tenant: string; token: string };
 
@@ -70,6 +71,8 @@ export type TimelogRequest = {
 export async function parseTimelogRequest(
   request: Request,
 ): Promise<{ error: Response } | TimelogRequest> {
+  const refused = refuseIfDisabled("timelog"); // §762
+  if (refused) return { error: refused };
   const limited = rateLimit(request, "timelog");
   if (limited) return { error: limited };
 

@@ -1,6 +1,7 @@
 import { parseEcbDailyXml } from "../../ecb";
 import { rateLimit } from "../jira/_rate-limit";
 import { describeUpstreamError } from "../_shared/upstream-error";
+import { refuseIfDisabled } from "../_shared/integration-switch";
 
 const ECB_DAILY_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 
@@ -15,6 +16,8 @@ export const runtime = "nodejs";
  *  The client caches the result in the workspace; this route holds no state.
  *  `request` feeds the shared per-IP rate limiter (429 + Retry-After on excess). */
 export async function GET(request: Request) {
+  const refused = refuseIfDisabled("ecb"); // §762
+  if (refused) return refused;
   // Same per-IP limiter as the Jira proxy routes, namespaced so the two
   // route families do not drain each other's quota.
   const limited = rateLimit(request, "ecb");

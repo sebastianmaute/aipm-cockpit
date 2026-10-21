@@ -1,5 +1,6 @@
 import { render } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setDisabledIntegrations } from "./integration-switches";
 import { t } from "./i18n";
 
 // Each child is replaced by a probe that records the props it was handed, so
@@ -253,5 +254,18 @@ describe("buildAppModalsBlock — the other modals", () => {
     expect(p.onCreateResource).toBe(deps.handleCreateResource);
     (p.onJumpToRaid as (id: number) => void)(5);
     expect(deps.requestOpen).toHaveBeenCalledWith("raid", 5);
+  });
+});
+
+describe("§762 — jiraEnabled with Jira switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  it("§762 — jiraEnabled is true with Jira on (positive control) and false when switched off, settings.jira.enabled staying true", () => {
+    const deps = makeDeps();
+    expect(deps.settings.jira?.enabled).toBe(true);
+    renderBlock(deps);
+    expect(seen.AppModals?.jiraEnabled).toBe(true);
+    setDisabledIntegrations(["jira"]);
+    renderBlock(deps);
+    expect(seen.AppModals?.jiraEnabled).toBe(false);
   });
 });

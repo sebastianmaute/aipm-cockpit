@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
+import { setDisabledIntegrations } from "./integration-switches";
 import { getJiraTokenAlert, daysUntil } from "./jira-token-status";
 import type { JiraConfig, NotificationsConfig } from "./settings-types";
 
@@ -107,5 +108,21 @@ describe("daysUntil", () => {
   });
   it("returns null on an unparseable date", () => {
     expect(daysUntil("not-a-date", "2026-05-26")).toBeNull();
+  });
+});
+
+describe("§762 — getJiraTokenAlert with Jira switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const invalid = () => cfg({ enabled: true, tokenInvalidAt: "2026-05-26T10:00:00Z", tokenExpiresAt: "2026-05-27" });
+  it("§762 — still alerts when Jira is on (positive control)", () => {
+    expect(getJiraTokenAlert(invalid(), TODAY, 7)?.state).toBe("invalid");
+  });
+  it("§762 — gives no alert when jira is switched off, though enabled and tokenInvalidAt are set", () => {
+    setDisabledIntegrations(["jira"]);
+    expect(getJiraTokenAlert(invalid(), TODAY, 7)).toBeNull();
+  });
+  it("§762 — another switched-off integration does not silence the alert", () => {
+    setDisabledIntegrations(["timelog"]);
+    expect(getJiraTokenAlert(invalid(), TODAY, 7)?.state).toBe("invalid");
   });
 });

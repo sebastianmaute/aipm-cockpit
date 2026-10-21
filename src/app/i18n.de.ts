@@ -2740,6 +2740,7 @@ export const de: Record<TranslationKey, string> = {
   forecastImportIntro: "Liest geplante Stunden pro Person aus einer Tabelle in einen Budget-Topf. Geschrieben wird erst, wenn Sie übernehmen.",
   forecastImportTarget: "Ziel-Topf",
   forecastImportTargetRemoved: "(gelöscht)",
+  integrationNotAvailable: "Auf dieser Installation nicht verfügbar.",
   forecastImportFile: "Tabelle (.xlsx, .xlsm, .csv)",
   forecastImportSheet: "Blatt",
   forecastImportReading: "Datei wird gelesen…",

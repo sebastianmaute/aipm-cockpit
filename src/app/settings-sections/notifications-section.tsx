@@ -1,5 +1,6 @@
 "use client";
 
+import { isIntegrationDisabled } from "../integration-switches";
 import { type Lang, type TranslationKey, t } from "../i18n";
 import type { ChannelConfig, NotificationsConfig, Settings } from "../settings-types";
 import type { StakeholderQuadrant } from "../stakeholders";
@@ -157,8 +158,8 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
         />
       )}
 
-      {/* Jira token error banner toggle */}
-      <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
+      {/* Jira token error banner toggle (§762: absent when the deployment switched Jira off) */}
+      {!isIntegrationDisabled("jira") && <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
         <label className="flex items-center gap-2">
           <Checkbox
             checked={notifications.jiraTokenError.enabled}
@@ -168,7 +169,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
           />
           {t(lang, "notifJiraTokenError")}
         </label>
-      </div>
+      </div>}
 
       {/* Desktop notifications for urgent Action Center signals */}
       <div className="mt-2 flex items-center gap-2 text-sm text-foreground">

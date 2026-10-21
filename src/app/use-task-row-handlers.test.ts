@@ -7,6 +7,7 @@ import { t } from "./i18n";
 import { unbridgedDialogs, type AppDialogs } from "./confirm-dialog";
 import { loadJiraApi } from "./use-jira-sync";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
+import { setDisabledIntegrations } from "./integration-switches";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import type { Task, Resource } from "./types";
@@ -1164,5 +1165,41 @@ describe("useTaskRowHandlers — status transitions reach the activity log", () 
     );
     act(() => result.current.onStatusChange(1, "To Do"));
     expect(logActivity).not.toHaveBeenCalled();
+  });
+});
+
+describe("§762 — onPushToJira with Jira switched off by the deployment", () => {
+  const loadJiraApiMock = vi.mocked(loadJiraApi);
+  afterEach(() => { setDisabledIntegrations([]); vi.restoreAllMocks(); });
+  const run = async () => {
+    const createIssue = vi.fn(async () => ({ key: "LOP-42" }));
+    loadJiraApiMock.mockResolvedValue({
+      createIssue,
+      taskFieldsToJiraFields: vi.fn(() => ({})),
+      formatJiraError: vi.fn((e: unknown) => String(e)),
+    } as unknown as Awaited<ReturnType<typeof loadJiraApi>>);
+    const showToast = vi.fn();
+    const setTasks = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1 })] };
+    const settings = { jira: jiraEnabled() } as Parameters<typeof useTaskRowHandlers>[0]["settings"];
+    expect((settings.jira as { enabled?: boolean }).enabled).toBe(true);
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ tasksRef, settings, setTasks, showToast })));
+    let ok: boolean | undefined;
+    await act(async () => { ok = await result.current.onPushToJira(1); });
+    return { ok, createIssue, showToast, setTasks };
+  };
+  it("§762 — Jira on: the push creates the issue and returns true (positive control)", async () => {
+    const r = await run();
+    expect(r.ok).toBe(true);
+    expect(r.createIssue).toHaveBeenCalledTimes(1);
+  });
+  it("§762 — Jira switched off while settings.jira.enabled is true: refuses, loads and calls nothing", async () => {
+    setDisabledIntegrations(["jira"]);
+    const r = await run();
+    expect(r.ok).toBe(false);
+    expect(loadJiraApiMock).not.toHaveBeenCalled();
+    expect(r.createIssue).not.toHaveBeenCalled();
+    expect(r.setTasks).not.toHaveBeenCalled();
+    expect(r.showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
 });

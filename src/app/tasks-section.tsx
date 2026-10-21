@@ -1,4 +1,5 @@
 "use client";
+import { isIntegrationDisabled } from "./integration-switches";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { type Lang, t, tPlural } from "./i18n";
@@ -212,7 +213,7 @@ export function TasksSection({
   documentsByEntity,
   onOpenDocuments,
   onJumpToChanges,
-  jiraEnabled,
+  jiraEnabled: jiraSwitchedOn,
   jiraSyncing,
   jiraProjectKey,
   handleJiraSync,
@@ -246,6 +247,8 @@ export function TasksSection({
   captureMerge,
   aiOptimizeButton,
 }: TasksSectionProps) {
+  // §762 — the user switched Jira on AND this deployment allows it.
+  const jiraEnabled = jiraSwitchedOn && !isIntegrationDisabled("jira");
   const {
     search, setSearch,
     priorityFilter, setPriorityFilter,

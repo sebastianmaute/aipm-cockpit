@@ -1,4 +1,5 @@
 "use client";
+import { isJiraOn } from "./integration-switches";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { formatExpiryDate } from "./date-format";
@@ -165,7 +166,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
   const handleJiraSync = useCallback(async () => {
     if (jiraInFlightRef.current !== null) return;
     const jiraCfg = settingsRef.current.jira;
-    if (!jiraCfg.enabled) return;
+    if (!isJiraOn(jiraCfg)) return;
     if (jiraCfg.tokenExpiresAt) {
       const d = daysUntil(jiraCfg.tokenExpiresAt, todayRef.current);
       if (d !== null && d < 0) {

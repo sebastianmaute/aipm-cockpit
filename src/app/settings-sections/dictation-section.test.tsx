@@ -11,6 +11,7 @@ import * as secrets from "../secrets";
 import * as diagnostics from "../diagnostics";
 import { type SealedSecret, sealDevice } from "../secrets";
 import { loadSealed, readDeviceSecret, saveSealed } from "../secrets-store";
+import { setDisabledIntegrations } from "../integration-switches";
 
 afterEach(async () => {
   // Let any un-awaited seal from a test land before the store is wiped (see ai-section.test).
@@ -204,5 +205,27 @@ describe("DictationSection — hotkey buttons are Button secondary md (§102)", 
     const expected = buttonClassFor({ variant: "secondary", size: "md" });
     expect(screen.getByRole("button", { name: t("en-US", "dictationHotkey") }).className).toBe(expected);
     expect(screen.getByRole("button", { name: t("en-US", "dictationHotkeyReset") }).className).toBe(expected);
+  });
+});
+
+describe("§762 — DictationSection with stt switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const sttStored = { dictation: { ...defaultSettings.dictation, engine: "stt" as const, sttBaseUrl: "https://x/v1", sttApiKey: "k" } };
+
+  it("§762 — offers the engine control and the STT fields when stt is on (positive control)", () => {
+    setup(sttStored);
+    expect(screen.getByRole("radiogroup", { name: t("en-US", "dictationEngine") })).toBeInTheDocument();
+    expect(screen.getByLabelText(t("en-US", "dictationSttBaseUrl"))).toBeInTheDocument();
+  });
+
+  it("§762 — hides the engine control and the STT fields, shows the web-speech text, and writes nothing", () => {
+    setDisabledIntegrations(["stt"]);
+    const { onChange } = setup(sttStored);
+    expect(screen.queryByRole("radiogroup", { name: t("en-US", "dictationEngine") })).toBeNull();
+    expect(screen.queryByLabelText(t("en-US", "dictationSttBaseUrl"))).toBeNull();
+    expect(screen.queryByLabelText(t("en-US", "dictationSttModel"))).toBeNull();
+    expect(screen.queryByLabelText(t("en-US", "dictationSttKey"))).toBeNull();
+    expect(screen.getByText(t("en-US", "dictationEngineWebSpeech"))).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

@@ -10,6 +10,7 @@ import { expectDestructiveButton, expectSecondaryButton } from "../test/button-v
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { rowLabel } from "./row-tokens";
 import type { BudgetBucket, FxRates, Resource, Role, ResourcePlan } from "./types";
+import { setDisabledIntegrations } from "./integration-switches";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
 const roles: Role[] = [{ id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
@@ -1760,5 +1761,35 @@ describe("BudgetPanel — Import forecast…", () => {
     render(<BudgetPanel {...props} isPopout />);
     expect(screen.getByRole("button", { name: rowLabel(t("en-US", "budgetEditBucket"), "PAM") })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: importName })).toBeNull();
+  });
+});
+
+// §762 — the notice reads the TimeLog actuals cache, which no test here seeds, so it is stubbed to a marker:
+// what is pinned is whether the panel MOUNTS it, not what it says.
+vi.mock("./budget-unapplied-notice", () => ({
+  BudgetUnappliedNotice: () => <div data-testid="unapplied-notice-stub" />,
+}));
+
+describe("§762 — BudgetPanel with ecb / timelog switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const fxBtn = () => screen.queryByRole("button", { name: t("en-US", "budgetFxRefresh") });
+
+  test("§762 — shows the FX refresh button when ecb is on (positive control)", () => {
+    render(<BudgetPanel {...props} />);
+    expect(fxBtn()).toBeInTheDocument();
+  });
+  test("§762 — omits the FX refresh button when ecb is switched off", () => {
+    setDisabledIntegrations(["ecb"]);
+    render(<BudgetPanel {...props} />);
+    expect(fxBtn()).toBeNull();
+  });
+  test("§762 — mounts the unapplied-bookings notice when timelog is on (positive control)", () => {
+    render(<BudgetPanel {...props} onGoToTimelog={vi.fn()} />);
+    expect(screen.getByTestId("unapplied-notice-stub")).toBeInTheDocument();
+  });
+  test("§762 — omits the unapplied-bookings notice when timelog is switched off", () => {
+    setDisabledIntegrations(["timelog"]);
+    render(<BudgetPanel {...props} onGoToTimelog={vi.fn()} />);
+    expect(screen.queryByTestId("unapplied-notice-stub")).toBeNull();
   });
 });

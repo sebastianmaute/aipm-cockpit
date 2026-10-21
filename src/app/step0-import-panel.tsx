@@ -12,6 +12,7 @@
 // surfaces via the wizard-owned `aiError`. `setReading(false)` always runs in
 // `finally`.
 
+import { isIntegrationDisabled } from "./integration-switches";
 import { useRef, useState } from "react";
 import { t, type Lang, tPlural } from "./i18n";
 import { SegmentedControl } from "./segmented-control";
@@ -100,7 +101,8 @@ export function Step0ImportPanel({
   const { acquireToken } = useMsAuth(spEnabled);
 
   const jira = settings.jira;
-  const confluenceReady = !!(jira?.enabled && jira?.siteUrl && jira?.apiToken && jira?.email);
+  // §762 — Confluence rides the Jira credentials but has its own deployment switch.
+  const confluenceReady = !isIntegrationDisabled("confluence") && !!(jira?.enabled && jira?.siteUrl && jira?.apiToken && jira?.email);
 
   const handleGenerate = () => onIngest(description);
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { isIntegrationDisabled } from "../integration-switches";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { logDiag } from "../diagnostics";
 import {
@@ -1539,15 +1540,16 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           </Select>
         </label>
       </div>
-      <TimelogSettings
+      {/* §762 — not offered when this deployment switched TimeLog off; the stored setup is kept. */}
+      {!isIntegrationDisabled("timelog") && <TimelogSettings
         lang={lang}
         config={settings.timelog ?? defaultTimelogConfig}
         onChange={(next) => onChange({ ...settings, timelog: next })}
         links={timelogLinks}
         onLinksChange={onTimelogLinksChange}
         timelogCacheProjectId={timelogCacheProjectId}
-      />
-      {!hideJira && (
+      />}
+      {!hideJira && !isIntegrationDisabled("jira") && (
         <div className="mt-4 border-t border-line pt-3">
           <h3 className="mb-1 text-sm font-medium text-foreground">{t(lang, "settingsSectionJira")}</h3>
           <JiraSettingsSection
