@@ -66,9 +66,68 @@ function stamp(sec) {
   return `${pad(Math.floor(total / 3600000), 2)}:${pad(Math.floor(total / 60000) % 60, 2)}:${pad(Math.floor(total / 1000) % 60, 2)},${pad(total % 1000, 3)}`;
 }
 
-/** SRT text: one cue per beat, numbered from 1, separated by a blank line. */
+/** A subtitle line holds at most this many characters, and a cue at most SRT_LINES lines. */
+export const SRT_LINE = 42;
+const SRT_LINES = 2;
+
+/** Greedy word wrap into lines of at most SRT_LINE characters (a longer word gets a line of its own). */
+function wrap(text) {
+  const lines = [];
+  for (const w of text.split(' ').filter(Boolean)) {
+    const last = lines.at(-1);
+    if (last != null && last.length + 1 + w.length <= SRT_LINE) lines[lines.length - 1] = `${last} ${w}`;
+    else lines.push(w);
+  }
+  return lines;
+}
+
+const fits = (text) => wrap(text).length <= SRT_LINES;
+const splitAt = (text, re) => text.split(re).map((s) => s.trim()).filter(Boolean);
+
+/** Joins neighbouring `pieces` while the joined text still fits one cue. */
+function pack(pieces) {
+  const out = [];
+  for (const p of pieces) {
+    if (out.length && fits(`${out.at(-1)} ${p}`)) out[out.length - 1] = `${out.at(-1)} ${p}`;
+    else out.push(p);
+  }
+  return out;
+}
+
+/** A piece too long for one cue, cut into cues of SRT_LINES wrapped lines. */
+function byWords(text) {
+  const lines = wrap(text);
+  const out = [];
+  for (let i = 0; i < lines.length; i += SRT_LINES) out.push(lines.slice(i, i + SRT_LINES).join(' '));
+  return out;
+}
+
+/** A beat's text as subtitle cues: whole when it fits one cue, else split at its sentences, a sentence too long
+ *  at its clauses (after , ; : or before a dash), a clause too long at words; neighbours that fit together are
+ *  joined again. The cues, joined with spaces, are the text. */
+export function cueTexts(text) {
+  if (fits(text)) return [text];
+  const pieces = splitAt(text, /(?<=[.!?])\s+/).flatMap((sentence) => {
+    if (fits(sentence)) return [sentence];
+    return pack(splitAt(sentence, /(?<=[,;:])\s+|\s+(?=[–—]\s)/)).flatMap((c) => (fits(c) ? [c] : byWords(c)));
+  });
+  return pack(pieces);
+}
+
+/** SRT text, numbered from 1, cues separated by a blank line. Each beat gives one cue or more (cueTexts), each
+ *  of at most two wrapped lines; a beat's span is shared out among its cues by their characters. */
 export function srtText(beats) {
-  return beats.map((b, i) => `${i + 1}\n${stamp(b.at)} --> ${stamp(b.at + b.duration)}\n${b.text}\n`).join('\n');
+  const cues = beats.flatMap((b) => {
+    const texts = cueTexts(b.text);
+    const total = texts.reduce((n, t) => n + t.length, 0);
+    let done = 0;
+    return texts.map((t) => {
+      const start = b.at + (b.duration * done) / total;
+      done += t.length;
+      return { start, end: b.at + (b.duration * done) / total, text: wrap(t).join('\n') };
+    });
+  });
+  return cues.map((c, i) => `${i + 1}\n${stamp(c.start)} --> ${stamp(c.end)}\n${c.text}\n`).join('\n');
 }
 
 /**

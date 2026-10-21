@@ -3,8 +3,10 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
-import { MUSIC_TIERS, mixArgs, mixTake, srtText } from './mix.mjs';
+import { MUSIC_TIERS, SRT_LINE, cueTexts, mixArgs, mixTake, srtText } from './mix.mjs';
+import { parseNarration } from './beats.mjs';
 import { VOICE, beatKey, cachePath } from './tts.mjs';
 
 const beats = [{ file: 'a.mp3', at: 1.5 }, { file: 'b.mp3', at: 4 }];
@@ -80,6 +82,52 @@ describe('srtText', () => {
   it('separates several cues with a blank line', () => {
     const s = srtText([{ at: 0, duration: 1, text: 'One.' }, { at: 3725.5, duration: 2, text: 'Two.' }]);
     expect(s).toBe('1\n00:00:00,000 --> 00:00:01,000\nOne.\n\n2\n01:02:05,500 --> 01:02:07,500\nTwo.\n');
+  });
+
+  // M4: a full-narration beat is 30-45 words; it reads as short cues of at most two short lines.
+  it('wraps a beat that fits two lines into one cue of two lines', () => {
+    const s = srtText([{ at: 0, duration: 4, text: 'Next actions gathers every warning in the project.' }]);
+    expect(s).toBe('1\n00:00:00,000 --> 00:00:04,000\nNext actions gathers every warning in the\nproject.\n');
+  });
+
+  it('splits a longer beat at its sentences, sharing the span by characters', () => {
+    const one = 'Next actions gathers every warning in the project into a list.'; // 62 characters
+    const two = 'Now needs you first, soon comes after.'; // 38 characters
+    const s = srtText([{ at: 0, duration: 10, text: `${one} ${two}` }, { at: 12, duration: 1, text: 'Done.' }]);
+    expect(s).toBe([
+      '1\n00:00:00,000 --> 00:00:06,200\nNext actions gathers every warning in the\nproject into a list.\n',
+      '2\n00:00:06,200 --> 00:00:10,000\nNow needs you first, soon comes after.\n',
+      '3\n00:00:12,000 --> 00:00:13,000\nDone.\n',
+    ].join('\n'));
+  });
+
+  it('splits a sentence too long for one cue at its clauses, then at words', () => {
+    const sentence = 'The CRM, the customer database, refuses requests to delete customer data, so you note that as a blocker, visible to everyone, and move the due date to Thursday.';
+    const cues = cueTexts(sentence);
+    expect(cues.length).toBeGreaterThan(1);
+    expect(cues.join(' ')).toBe(sentence);
+    // Each cue ends at a clause (or the sentence's end), never mid-clause, as long as the clause fits.
+    for (const c of cues.slice(0, -1)) expect(c).toMatch(/,$/);
+    const words = cueTexts(`${'word '.repeat(40).trim()}.`);
+    expect(words.join(' ')).toBe(`${'word '.repeat(40).trim()}.`);
+    expect(words.length).toBe(3);
+  });
+
+  it('keeps every cue of every script to two lines of at most SRT_LINE characters, losing no word', () => {
+    expect(SRT_LINE).toBe(42);
+    const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'en');
+    const all = fs.readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'README.md')
+      .flatMap((f) => parseNarration(fs.readFileSync(path.join(dir, f), 'utf8')));
+    expect(all.length).toBeGreaterThan(200);
+    for (const b of all) {
+      const blocks = srtText([{ at: 0, duration: 10, text: b.text }]).split('\n\n');
+      const texts = blocks.map((blk) => blk.trim().split('\n').slice(2));
+      for (const lines of texts) {
+        expect(lines.length).toBeLessThanOrEqual(2);
+        for (const l of lines) expect(l.length).toBeLessThanOrEqual(SRT_LINE);
+      }
+      expect(texts.map((l) => l.join(' ')).join(' ')).toBe(b.text);
+    }
   });
 });
 
