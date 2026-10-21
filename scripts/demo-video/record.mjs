@@ -141,7 +141,8 @@ function trimTake(def, r) {
   }
   if (!narration || !r.beats?.length) return r;
   const mapped = r.beats.map((b) => ({ ...b, at: mapTime(b.at, ranges) }));
-  const mix = mixTake(r.file, mapped, narration, def);
+  const duration = ranges.reduce((sum, [a, b]) => sum + (b - a), 0);
+  const mix = mixTake(r.file, mapped, narration, def, { duration, log: (...parts) => console.log(...parts.map(mask)) });
   return mix.warning ? { ...r, warnings: r.warnings + 1 } : r;
 }
 

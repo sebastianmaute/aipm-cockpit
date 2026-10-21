@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { MUSIC_TIERS, mixArgs, mixTake, srtText } from './mix.mjs';
 
 const beats = [{ file: 'a.mp3', at: 1.5 }, { file: 'b.mp3', at: 4 }];
@@ -30,6 +30,39 @@ describe('mixArgs', () => {
     expect(args.slice(i, i + 4)).toEqual(['-stream_loop', '-1', '-i', 'bed.mp3']);
   });
 
+  it('pads the voice in both modes, so the video sets the length', () => {
+    for (const music of [null, 'bed.mp3']) {
+      expect(filterOf(mixArgs({ video: 'v.webm', beats, music, out: 'v.mp4' }))).toMatch(/amix=inputs=2:normalize=0[^;[,]*,apad/);
+    }
+  });
+
+  it('resamples to 48 kHz after loudnorm', () => {
+    for (const music of [null, 'bed.mp3']) {
+      expect(filterOf(mixArgs({ video: 'v.webm', beats, music, out: 'v.mp4' }))).toContain('loudnorm=I=-14:TP=-1.5,aresample=48000[aout]');
+    }
+  });
+
+  it('fades the bed in over 2 s and out over the last 2 s, and never the voice', () => {
+    const f = filterOf(mixArgs({ video: 'v.webm', beats, music: 'bed.mp3', out: 'v.mp4', duration: 10 }));
+    expect(f).toContain('afade=t=in:st=0:d=2,afade=t=out:st=8:d=2[bed]');
+    expect(f.match(/afade/g)).toHaveLength(2);
+  });
+
+  it('has no fade without music', () => {
+    expect(filterOf(mixArgs({ video: 'v.webm', beats, music: null, out: 'v.mp4', duration: 10 }))).not.toContain('afade');
+  });
+
+  it('clamps the fades of a video shorter than twice the fade', () => {
+    const f = filterOf(mixArgs({ video: 'v.webm', beats, music: 'bed.mp3', out: 'v.mp4', duration: 3 }));
+    expect(f).toContain('afade=t=in:st=0:d=1.5,afade=t=out:st=1.5:d=1.5[bed]');
+  });
+
+  it('fades only in when the length is unknown', () => {
+    const f = filterOf(mixArgs({ video: 'v.webm', beats, music: 'bed.mp3', out: 'v.mp4' }));
+    expect(f).toContain('afade=t=in:st=0:d=2[bed]');
+    expect(f).not.toContain('t=out');
+  });
+
   it('normalizes loudness and encodes H.264 plus AAC into an mp4', () => {
     const args = mixArgs({ video: 'v.webm', beats, music: null, out: 'v.mp4' });
     expect(filterOf(args)).toContain('loudnorm=I=-14:TP=-1.5');
@@ -53,6 +86,7 @@ describe('mixTake', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mix-'));
   const webm = path.join(dir, 'v.webm');
   fs.writeFileSync(webm, 'x');
+  afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
   const mapped = [{ id: 'a', at: 1, duration: 2 }];
   const narration = new Map([['a', { text: 'Hi.', duration: 2 }]]);
 
@@ -72,6 +106,12 @@ describe('mixTake', () => {
     expect(calls[0][0]).toBe('ffmpeg');
     expect(calls[0][1].at(-1)).toBe(path.join(dir, 'v.mp4'));
     expect(fs.readFileSync(path.join(dir, 'v.srt'), 'utf8')).toBe('1\n00:00:01,000 --> 00:00:03,000\nHi.\n');
+  });
+
+  it('logs through the given logger', () => {
+    const lines = [];
+    mixTake(webm, mapped, narration, { id: 'v', tier: 'ai' }, { exec: () => { throw new Error('boom'); }, audio: () => ({ file: 'a.mp3' }), log: (...a) => lines.push(a.join(' ')) });
+    expect(lines.join(String.fromCharCode(10))).toContain('MIX FAILED boom');
   });
 
   it('mixes voice only and warns when a music tier has no bed', () => {
