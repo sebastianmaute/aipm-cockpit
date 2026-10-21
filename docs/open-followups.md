@@ -999,6 +999,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§759](#759-undoing-claudes-project-edit-says-undone-even-when-the-restore-fails--closed-2026-10-20) | Undoing Claude's project edit says "Undone" even when the restore fails | — | — | **CLOSED** 2026-10-20 |
 | [§760](#760-a-proposed-projects-name-skips-the-field-judge-so-it-has-no-length-cap--closed-2026-10-20) | A proposed project's name skips the field judge, so it has no length cap | — | — | **CLOSED** 2026-10-20 |
 | [§761](#761-claudes-stakeholder-count-accepts-0x10-1e3-and----closed-2026-10-20) | Claude's stakeholder count accepts "0x10", "1e3" and " " | — | — | **CLOSED** 2026-10-20 |
+| [§762](#762-the-app-cannot-hide-integrations-a-deployment-switched-off--open) | The app cannot hide integrations a deployment switched off | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45775,3 +45776,19 @@ Proposed: Accept a string only when it matches `/^\d+$/` after trimming, and ref
 Size XS.
 
 **Source:** found 2026-10-19 in the review of the "Claude reads and sets every project field" branch (#807); filed 2026-10-20 (owner: file the issues).
+
+## 762. The app cannot hide integrations a deployment switched off — OPEN
+
+**Status:** OPEN 2026-10-21, filed on the owner's word; never machine-verified in this repo.
+
+**Work item:** #834
+
+A hosted deployment of the app can switch server-side integrations off in front of the app: its front door, which lives outside this repository, answers five routes itself with HTTP 503 and `{"error":"This feature is not available on this deployment."}`: `/api/jira`, `/api/confluence`, `/api/timelog`, `/api/ecb` and `/api/stt`. That part is done (owner decision 2026-10-21: block in front of the app now, hide in the app later).
+
+This app does not know about it. Jira, Confluence, TimeLog, the ECB rate refresh and the cloud speech-to-text provider keep their settings, buttons and views, and each fails with that message when used. The client callers: `grep -rln 'fetch("/api/\(confluence\|timelog\|ecb\|stt\)' src/app --include=*.ts --include=*.tsx | grep -v test` → `confluence-api.ts`, `stt-engine.ts`, `timelog-api.ts`, `use-fx-rates.ts`; Jira's go through `/api/jira/*` from `jira-api.ts`.
+
+Proposed: one server-side setting that names the switched-off integrations. The five routes refuse a named one themselves, so the app holds the rule without the front door, and the app reads the list at run time (not a `NEXT_PUBLIC_*` build value, so one image serves every deployment) and hides the matching controls: the Jira and Confluence settings, the TimeLog module and its settings, the cloud speech provider, and the rate refresh. Open for the design: whether a switched-off integration's stored settings stay untouched (likely, so switching it back on restores them), and whether the TimeLog module's per-project switch shows it as unavailable or hides it. Tests and EN/DE strings.
+
+Size M.
+
+**Source:** owner request 2026-10-21.
