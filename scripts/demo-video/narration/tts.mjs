@@ -7,9 +7,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { OUT } from '../lib.mjs';
 
-/** The narrator. `voiceId` stays empty until the owner picks one (narrate.mjs --audition). */
+/** The narrator, chosen by the owner on 2026-10-21: a professional Voice Library voice (British male,
+ *  narrative), with a 730-day notice period if its creator withdraws it. */
 export const VOICE = {
-  voiceId: '',
+  voiceId: 'H538pP1BbhodCGiYVMKD',
   modelId: 'eleven_multilingual_v2',
   settings: { stability: 0.5, similarityBoost: 0.75, style: 0, speakerBoost: true },
 };
