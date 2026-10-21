@@ -93,6 +93,63 @@ Everything a re-take needs is in the repository: these scripts, their fixtures a
 - **A precondition is missing.** The take is skipped and the run prints `NOTE <id>: missing …`. That is the demo data (project E) being short, not a selector: fix the data, or the precondition if the data changed on purpose.
 - **An AI step timed out.** The call took longer than two minutes, or its result never appeared. A failed call that the app reports as a toast ends the wait and is retried once; a slow one is not. Re-take the video; if it keeps failing, run it with `--rehearse --with-ai` and read the screenshot.
 
+## Narration
+
+A video with a narration file (`narration/en/<id>.md`) gets a voice. `narrate.mjs` renders each spoken part with ElevenLabs into a cache; `record.mjs` then paces the take by the audio and writes an MP4 with subtitles beside the WebM. A video without a file is recorded as before, silent.
+
+### What it needs
+
+- `ELEVENLABS_API_KEY` in `.env.local`. `narrate.mjs` reads it with `readEnv` only when a render has work to do, and never prints it. `record.mjs` reads it too, only so its output scan can mask it.
+- A voice id in `VOICE.voiceId` (`narration/tts.mjs`). It is empty until the voice is chosen, and a render with no id stops with an error. `VOICE` also fixes the model, `eleven_multilingual_v2`, and the voice settings. Changing the id, the model or a setting changes every cache key, so everything renders again.
+- For the big video and the chapters, a music bed at `<out>/music/bed.mp3` with `bed.licence.txt` beside it (YouTube Audio Library, "attribution not required"). Nothing is checked in; the bed is the owner's file.
+- `ffmpeg` and `ffprobe` on the PATH. `<out>` is the same folder as above (`DEMO_VIDEO_DIR` moves it).
+
+### Commands
+
+```bash
+node scripts/demo-video/narrate.mjs --video ch3-monday      # render one video's beats (also --tier <tier>, --all)
+node scripts/demo-video/narrate.mjs --all --yes             # render everything, over the cap
+node scripts/demo-video/narrate.mjs --audition "<id>,<id>"  # the title beat of ch3-monday, once per voice
+node scripts/demo-video/record.mjs --video ch3-monday       # the narrated take (render first)
+```
+
+- `--lang` picks the language folder (`en` is the default and the only one recorded for now). `--max-chars` and `--yes` are the cost cap, below.
+- `--audition` writes `<out>/voice-audition/<voiceId>.mp3`, one file per voice, and counts against the cap like a render. Auditions are not cached under the beat's key, so they cost characters again.
+- A recorded take needs the audio of every beat of its video. Without it the take stops before it starts with `no audio for beat <id> - run narrate.mjs --video <id>`.
+- `record.mjs --rehearse` renders no audio and spends no credits. It keeps the token pace of a rehearsal (a pause is capped at 150 ms) and checks the beat ids: a caption whose beat is missing logs `NARRATION missing <id>` and counts a warning, a beat that no step shows logs `NARRATION unused <id>`. Without `--with-ai` a rehearsal runs no AI step, so it also exempts the beats those steps would have shown.
+
+### Cost, cap and cache
+
+- `narrate.mjs` prints `NARRATE <n> beats, <c> characters` before any call. It refuses above `--max-chars` (default 20000) with `would send <c> characters (cap <m>); pass --yes`, and sends nothing. `--yes` lifts the cap.
+- Only beats missing from the cache count, and identical texts count once.
+- Today's scripts are 285 beats and 29,045 characters. That is over the default cap, so the first full render needs `--yes`, and it is beyond the 30,000 characters a month of ElevenLabs' Starter plan once auditions and re-renders are added. Plan for a higher tier.
+- The cache is `<out>/narration-cache/<lang>/<key>.mp3` with a `<key>.json` beside it holding the duration. The key is a sha256 over the language, voice id, model, voice settings and the beat's text. Editing a beat's words re-renders that beat only; changing the voice, model or settings re-renders all of them. A beat with an mp3 but no valid sidecar counts as missing. A failed render keeps the beats before it, so a re-run continues.
+- Audio and the cache stay under `<out>`, which git ignores. Never commit them.
+
+### How a take is paced
+
+- The voice plays over the action. A caption with a beat starts its voice at once and the take carries on; the next caption (or the closing beat) waits until that voice has finished plus a 400 ms pause (`PAUSE_MS`).
+- A caption's beat id must be in the video's file. A recorded take fails with `no narration for beat <id>` on a missing one, and fails at the end with `narration beats never shown: ...` when a beat of the video's own file was never shown. A step lists the beats it may legitimately not show in `mayNotShow` (a wizard path, an optional branch); those are exempt.
+- A beat id shown twice in one take speaks the first time only. The later caption still changes, and holds 150 ms.
+- `title`, `opening` and `closing` are reserved ids for the title card, the opening caption and the closing frame. The closing frame is held until its voice is done.
+- Beats are never cut by the AI-wait trim. Because the voice can run into the wait, the trim keeps the narrated spans and cuts around them.
+
+### Outputs
+
+- `<name>.mp4` and `<name>.srt` next to the trimmed WebM, which stays. The `.srt` has one cue per beat, timed on the trimmed video.
+- Audio is 48 kHz AAC, loudness-normalised to -14 LUFS (true peak -1.5 dB).
+- Music goes under the big video and the chapters only (`MUSIC_TIERS`): the bed loops, sits at 35 % and ducks under the voice, fades in over 2 s and out over the last 2 s (`MUSIC_FADE_S`). Clips and features are voice only.
+- If the bed is missing on a tier that wants music, the video is mixed voice only, the run prints `MUSIC missing <path> (mixed voice only)` and counts a warning.
+- If the mix fails, it prints `MIX FAILED ...`, keeps the WebM, removes any partial MP4 and `.srt`, and counts a warning.
+
+### Editing a script
+
+- Edit `narration/en/<id>.md`. The format is in `narration/en/README.md`: a `## <beat-id>` heading, then the spoken text. Line breaks inside a beat do not matter, and the text above the first heading is not spoken.
+- A beat id must match the id of a caption in the video's steps (`videos.mjs`, `steps/`). A typo shows up as a missing beat on a recorded take, and as a warning in a rehearsal.
+- `big.md` adds to the six chapter files, and its beats override a chapter beat of the same id.
+- Run a script through the `avoid-ai-writing` skill (edit mode) before it goes to the owner for review.
+- After an edit, run `narrate.mjs --video <id>`: it prints how many characters it will send, and renders only what changed.
+
 ## Files
 
 | File | What it does |
@@ -105,6 +162,8 @@ Everything a re-take needs is in the repository: these scripts, their fixtures a
 | `trim.mjs` | Cuts each AI wait in a video down to `MAX_AI_WAIT_S` with ffmpeg; `keepRanges` and `trimArgs` are pure. |
 | `setup.mjs` | Off-camera setup: `connect`, `exploreDemo`, `seedDeviceState`, `enableDigest`, `enableChat`, `goToDay`, `currentProjectId`. |
 | `ui.mjs` | The cursor and caption overlay, `caption`, `moveTo`, `click`, `type`, `nav`, `skipTour`, `titleCard`, `closingBeat`. |
+| `narrate.mjs` | Entry: renders the narration beats of the selected videos with ElevenLabs into the cache; `--audition` renders voice samples. |
+| `narration/` | `beats.mjs` (the narration files), `tts.mjs` (voice, cache, cost cap, rendering), `mix.mjs` (the MP4 and `.srt`), and the scripts in `en/`. |
 | `lib.mjs` | `T0`, `atDay`, the `.env.local` reader, the Turso guard, `settle`, `query`. |
 | `cleanup.mjs` | `cleanup()` and the pure `cleanupStatements`; also runnable on its own. |
 | `discover.mjs` | Lists the controls of a view on the fresh demo, for writing a step's selectors. |
