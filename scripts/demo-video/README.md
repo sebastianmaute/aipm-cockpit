@@ -101,7 +101,10 @@ A video with a narration file (`narration/en/<id>.md`) gets a voice. `narrate.mj
 
 - `ELEVENLABS_API_KEY` in `.env.local`. `narrate.mjs` reads it with `readEnv` only when a render has work to do, and never prints it. `record.mjs` reads it too, only so its output scan can mask it.
 - A voice id in `VOICE.voiceId` (`narration/tts.mjs`). It is empty until the voice is chosen, and a render with no id stops with an error. `VOICE` also fixes the model, `eleven_multilingual_v2`, and the voice settings. Changing the id, the model or a setting changes every cache key, so everything renders again.
-- For the big video and the chapters, a music bed at `<out>/music/bed.mp3` with `bed.licence.txt` beside it (YouTube Audio Library, "attribution not required"). Nothing is checked in; the bed is the owner's file.
+- For the big video and the chapters, a music bed at `<out>/music/bed.mp3` with `bed.licence.txt` beside it. Nothing is checked in; the bed is the owner's file.
+  - The current bed was generated with ElevenMusic on the Free plan. Its terms (section 1(b)) allow commercial use, YouTube included, only with a reasonably prominent "Made with ElevenMusic" attribution, so **every published video that carries the bed (the big video and the chapters) credits "Music: Made with ElevenMusic" in its YouTube description**. A bed made on the Pro plan needs no credit.
+  - `bed.licence.txt` records where the bed came from: the generator and plan, the date, the prompt, the terms URL (`https://elevenmusic.io/terms-of-use`) and the attribution line it requires. Rights follow the plan at the time a track is made, and do not lapse when the plan changes.
+  - Replacing the bed means replacing both files; the AI and feature clips never use it.
 - `ffmpeg` and `ffprobe` on the PATH. `<out>` is the same folder as above (`DEMO_VIDEO_DIR` moves it).
 
 ### Commands
