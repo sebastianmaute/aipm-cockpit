@@ -10,6 +10,7 @@ import { TestProviders } from "./test-providers";
 import { __resetMintStateForTests, mintId } from "./id-mint-session";
 import { t } from "./i18n";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
+import { setDisabledIntegrations } from "./integration-switches";
 
 // New Jira tasks draw ids from the session-scoped minter. Clear its high-water
 // state before every test so created-id assertions stay deterministic and the
@@ -1936,5 +1937,28 @@ describe("mergeSyncedTasks (§698)", () => {
     const merged = mergeSyncedTasks([a, b], [a, b], [{ ...b, taskName: "B synced" }, { ...a, taskName: "A synced" }], []);
     expect(merged.map((x) => x.taskName)).toEqual(["A", "B"]);
     expect(mergeSyncedTasks([a, b], [a, b], [{ ...a, taskName: "A synced" }], []).map((x) => x.taskName)).toEqual(["A synced", "B"]);
+  });
+});
+
+describe("§762 — handleJiraSync with Jira switched off by the deployment", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  afterEach(() => setDisabledIntegrations([]));
+  it("§762 — Jira on: the sync loads the Jira API and runs (positive control)", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+    const { result } = renderSync([]);
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(jiraApi.buildJql).toHaveBeenCalled();
+    expect(jiraApi.searchAllIssues).toHaveBeenCalled();
+  });
+  it("§762 — Jira switched off while settings.jira.enabled is true: nothing loads, nothing is called, no toast", async () => {
+    setDisabledIntegrations(["jira"]);
+    expect((baseSettings.jira as { enabled?: boolean }).enabled).toBe(true);
+    const { result } = renderSync([]);
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(jiraApi.buildJql).not.toHaveBeenCalled();
+    expect(jiraApi.searchAllIssues).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
+    expect(result.current.jiraSyncing).toBe(false);
   });
 });

@@ -5,6 +5,7 @@ import { BudgetPanel } from "./budget-panel";
 import { defaultAiConfig } from "./settings-types";
 import { t } from "./i18n";
 import { BUDGET_SETUP_STEP_COUNT, budgetSetupDismissKey } from "./budget-setup";
+import { setDisabledIntegrations } from "./integration-switches";
 import type { BudgetBucket, ResourcePlan, Role } from "./types";
 
 const L = "en-US" as const;
@@ -138,5 +139,28 @@ describe("BudgetPanel setup checklist", () => {
     expect(onSetupGo).toHaveBeenCalledWith("manage-roles");
     expect(onStartTour).toHaveBeenCalledWith("budget-changes");
     expect(onLoadDemo).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("§762 — setup checklist with timelog switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  test("§762 — timelog on, bucket without bookings: the collapsed checklist is shown (positive control)", () => {
+    render(<BudgetPanel {...base} buckets={[bucket()]} />);
+    expect(collapsedLine(2)).toBeInTheDocument();
+    expect(hideBtn()).toBeInTheDocument();
+  });
+  test("§762 — timelog off, bucket without bookings: no checklist, and no \"N of 3\" line either", () => {
+    setDisabledIntegrations(["timelog"]);
+    render(<BudgetPanel {...base} buckets={[bucket()]} />);
+    expect(screen.queryByText(t(L, "budgetSetupCollapsed", 2, BUDGET_SETUP_STEP_COUNT - 1))).toBeNull();
+    expect(collapsedLine(2)).toBeNull();
+    expect(hideBtn()).toBeNull();
+    expect(screen.queryByRole("button", { name: t(L, "budgetSetupShowAria") })).toBeNull();
+  });
+  test("§762 — timelog off, empty budget: the expanded checklist still shows, without the bookings row", () => {
+    setDisabledIntegrations(["timelog"]);
+    render(<BudgetPanel {...base} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.queryByText(t(L, "budgetSetupBookings"))).toBeNull();
   });
 });

@@ -261,10 +261,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
   // localStorage read) so a project switch can never show another project's flag.
   const setupKey = timelogProjectId;
   const [setupHiddenNow, setSetupHiddenNow] = useState(false);
-  const setupSteps = budgetSetupSteps({ roles, resources, buckets });
+  const setupSteps = budgetSetupSteps({ roles, resources, buckets, bookingsApplicable: !isModuleSwitchedOff("timelog") }); // §762
   const setupDismissed = setupHiddenNow || isBudgetSetupDismissed(setupKey);
   const setupCollapsed = buckets.length > 0;
-  const showSetup = !setupCollapsed || (!setupSteps.bookingsDone && !setupDismissed);
+  const showSetup = !setupCollapsed || (setupSteps.bookingsApplicable !== false && !setupSteps.bookingsDone && !setupDismissed);
   const dismissSetup = () => {
     setSetupHiddenNow(true);
     if (!isPopout) setBudgetSetupDismissed(setupKey);

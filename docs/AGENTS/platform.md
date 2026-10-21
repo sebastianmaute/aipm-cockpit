@@ -117,7 +117,8 @@
 `timelog`, `ecb` and `stt` off for one deployment. Two halves, one id list (`INTEGRATION_IDS` in
 `integration-switches.ts`):
 - **Server:** `refuseIfDisabled` (`api/_shared/integration-switch.ts`) reads the setting on EVERY request and answers
-  403 `integration-disabled` before rate-limiting or any upstream call. It sits in `parseJiraRequest` (which takes
+  503 `integration-disabled` before rate-limiting or any upstream call. ★★ 503, never 401/403: the Jira and TimeLog
+  clients read those as a rejected token and write `tokenInvalidAt` into the stored settings. It sits in `parseJiraRequest` (which takes
   `"confluence"` for the Confluence route), `parseTimelogRequest`, `parseSttRequest` and the ECB `GET`.
 - **Client:** the root layout reads the setting per request (it is dynamic already, for the nonce) and
   `IntegrationSwitchesSync` records it with `setDisabledIntegrations` during render, before any child renders.

@@ -4,9 +4,9 @@ import { CheckIcon, XMarkIcon } from "./icons";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
-import { BUDGET_SETUP_STEP_COUNT, budgetSetupDoneCount, type BudgetSetupStep, type BudgetSetupSteps } from "./budget-setup";
+import { budgetSetupDoneCount, budgetSetupStepCount, type BudgetSetupStep, type BudgetSetupSteps } from "./budget-setup";
 import type { AppView } from "./nav-config";
-import { ALL_MODULE_IDS, FEATURE_MODULES, isModuleSwitchedOff, isViewEnabled, moduleForView, type FeatureModuleId } from "./feature-modules";
+import { ALL_MODULE_IDS, FEATURE_MODULES, isViewEnabled, moduleForView, type FeatureModuleId } from "./feature-modules";
 
 /** The views a setup step can send the user to. These are the REAL `AppView`
  *  ids (`nav-config.ts`), so `onGo` feeds `setActiveTab` directly. */
@@ -105,7 +105,7 @@ function StepList({ lang, steps, onAddBucket, onGo, features, onCommitFeatures }
     { step: 4, done: steps.bookingsDone, labelKey: "budgetSetupBookings", optional: true, action: goButton("timelog", "budgetSetupGoBookings", "budgetSetupBookings") },
   ];
   // §762 — no bookings step without TimeLog.
-  const rows = allRows.filter((row) => row.step !== 4 || !isModuleSwitchedOff("timelog"));
+  const rows = allRows.filter((row) => row.step !== 4 || steps.bookingsApplicable !== false);
   return (
     <ol className="flex flex-col gap-1.5">
       {rows.map((row) => {
@@ -142,7 +142,7 @@ export function BudgetSetupChecklist(props: BudgetSetupChecklistProps) {
     <section aria-label={t(lang, "budgetSetupTitle")} className="rounded-lg border border-line bg-surface p-3 print:hidden">
       {collapsed ? (
         <div className="flex flex-wrap items-center gap-2 text-sm text-foreground">
-          <span>{t(lang, "budgetSetupCollapsed", budgetSetupDoneCount(steps), BUDGET_SETUP_STEP_COUNT)}</span>
+          <span>{t(lang, "budgetSetupCollapsed", budgetSetupDoneCount(steps), budgetSetupStepCount(steps))}</span>
           <ToggleButton
             variant="disclosure"
             lang={lang}

@@ -28,10 +28,10 @@ afterEach(() => {
 });
 
 describe("a switched-off integration's route", () => {
-  it.each(CALLS)("%s refuses with 403 integration-disabled and calls nothing upstream", async (name, call) => {
+  it.each(CALLS)("%s refuses with 503 integration-disabled and calls nothing upstream", async (name, call) => {
     vi.stubEnv("AIPM_DISABLED_INTEGRATIONS", name);
     const res = await call();
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ error: "integration-disabled" });
     expect(fetchSpy).not.toHaveBeenCalled();
   });
@@ -39,6 +39,7 @@ describe("a switched-off integration's route", () => {
   it.each(CALLS)("%s is not refused when only the others are switched off", async (name, call) => {
     vi.stubEnv("AIPM_DISABLED_INTEGRATIONS", CALLS.map(([n]) => n).filter((n) => n !== name).join(","));
     const res = await call();
-    expect(res.status).not.toBe(403);
+    const body: unknown = await res.clone().json().catch(() => null);
+    expect(body).not.toEqual({ error: "integration-disabled" });
   });
 });

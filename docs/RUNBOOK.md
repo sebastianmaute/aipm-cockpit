@@ -308,6 +308,14 @@ what each one hides and how the API routes answer are in
 it took effect, open Settings → Integrations: a switched-off Jira or TimeLog has no
 section there.
 
+- **Restart, then reload.** The server reads the setting on every request, but a browser
+  tab reads it once, when the page loads. A tab left open across the change keeps its
+  controls until it is reloaded; the server refuses the switched-off routes anyway
+  (503, read as "unreachable", so no token is marked invalid).
+- **Confluence has its own name.** The Confluence import uses the Jira credentials, but
+  switching off `jira` alone leaves it offered to users who stored Jira credentials
+  earlier. Name `confluence` too to switch it off.
+
 ### Microsoft 365 integration setup
 
 To enable Outlook contacts/calendar import and SharePoint storage:

@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { computeAccessibleName } from "dom-accessibility-api";
 import { BudgetSetupChecklist } from "./budget-setup-checklist";
@@ -244,11 +244,23 @@ describe("§762 — BudgetSetupChecklist with timelog switched off by the deploy
     expect(rows()).toHaveLength(4);
     expect(screen.getByText(t(L, "budgetSetupBookings"))).toBeInTheDocument();
   });
-  test("§762 — drops the bookings step, and only it, when timelog is switched off", () => {
-    setDisabledIntegrations(["timelog"]);
-    setup();
+  test("§762 — drops the bookings step, and only it, when the steps say bookings do not apply", () => {
+    setup({ steps: { ...none, bookingsApplicable: false } });
     expect(rows()).toHaveLength(3);
     expect(screen.queryByText(t(L, "budgetSetupBookings"))).toBeNull();
     expect(screen.getByText(t(L, "budgetSetupBucket"))).toBeInTheDocument();
+  });
+  test("§762 — the checklist does not read the switch itself: steps decide, the switch alone changes nothing", () => {
+    setDisabledIntegrations(["timelog"]);
+    setup();
+    expect(rows()).toHaveLength(4);
+  });
+  test("§762 — the collapsed line reads \"N of 4\" with bookings applicable and \"N of 3\" without", () => {
+    const done = { ratesDone: true, peopleDone: true, bucketDone: true, bookingsDone: false, next: 4 } as const;
+    setup({ steps: done, collapsed: true });
+    expect(screen.getByText(t(L, "budgetSetupCollapsed", 3, 4))).toBeInTheDocument();
+    cleanup();
+    setup({ steps: { ...done, next: null, bookingsApplicable: false }, collapsed: true });
+    expect(screen.getByText(t(L, "budgetSetupCollapsed", 3, 3))).toBeInTheDocument();
   });
 });

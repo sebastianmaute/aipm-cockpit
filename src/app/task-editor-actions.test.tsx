@@ -1,6 +1,7 @@
 // src/app/task-editor-actions.test.tsx
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { setDisabledIntegrations } from "./integration-switches";
 import { buildTaskEditorChrome, TaskDeleteButton, TaskEditorActions, TaskEditorExtras, type TaskEditorChromeDeps } from "./task-editor-actions";
 import type { Task } from "./types";
 import { Button } from "./button";
@@ -320,5 +321,37 @@ describe("buildTaskEditorChrome", () => {
     fireEvent.change(screen.getByLabelText("RAID Title"), { target: { value: "New risk" } });
     fireEvent.click(btn("Add")!);
     expect(deps.onAddRaid).toHaveBeenCalledWith(expect.objectContaining({ title: "New risk" }));
+  });
+});
+describe("§762 — Jira buttons with Jira switched off by the deployment", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const deps = (over: Partial<TaskEditorChromeDeps> = {}): TaskEditorChromeDeps => ({
+    lang: "en-US", isPopout: false, editingTask: makeTask({ id: 7 }), editingIsJiraLinked: false,
+    jira: { enabled: true, projectKey: "LOP" }, jiraSyncing: false,
+    onSendInquiry: vi.fn(), onPushToJira: vi.fn(async () => true), handleJiraSync: vi.fn(async () => {}),
+    onDelete: vi.fn(), onAddRaid: vi.fn(), pendingRaid: [], onNewLinkedTask: vi.fn(), ...over,
+  });
+  const show = (d: TaskEditorChromeDeps) => {
+    const c = buildTaskEditorChrome(d);
+    render(<div>{c.editorLeadingActions}</div>);
+  };
+  const btn = (name: string) => screen.queryByRole("button", { name });
+  it("§762 — Push to Jira shows with Jira on (positive control) and is gone with Jira switched off", () => {
+    show(deps());
+    expect(btn("Push to Jira")).not.toBeNull();
+    cleanup();
+    setDisabledIntegrations(["jira"]);
+    show(deps());
+    expect(btn("Push to Jira")).toBeNull();
+    expect(btn("Send inquiry")).not.toBeNull();
+  });
+  it("§762 — Sync with Jira shows with Jira on (positive control) and is gone with Jira switched off", () => {
+    const linked = { editingTask: makeTask({ id: 7, jiraKey: "LOP-7" }), editingIsJiraLinked: true };
+    show(deps(linked));
+    expect(btn("Sync with Jira")).not.toBeNull();
+    cleanup();
+    setDisabledIntegrations(["jira"]);
+    show(deps(linked));
+    expect(btn("Sync with Jira")).toBeNull();
   });
 });
