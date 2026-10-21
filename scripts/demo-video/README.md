@@ -125,7 +125,7 @@ node scripts/demo-video/record.mjs --video ch3-monday       # the narrated take 
 
 - `narrate.mjs` prints `NARRATE <n> beats, <c> characters` before any call. It refuses above `--max-chars` (default 20000) with `would send <c> characters (cap <m>); pass --yes`, and sends nothing. `--yes` lifts the cap.
 - Only beats missing from the cache count, and identical texts count once.
-- Before any audio is rendered, the scripts are 287 beats and 29,274 characters (`node scripts/demo-video/narrate.mjs --all --max-chars 0` prints the count, then refuses and sends nothing). That is over the default cap, so the first full render needs `--yes`, and it is beyond the 30,000 characters a month of ElevenLabs' Starter plan once auditions and re-renders are added. Plan for a higher tier.
+- Before any audio is rendered, the scripts are 287 beats and 29,219 characters (`node scripts/demo-video/narrate.mjs --all --max-chars 0` prints the count, then refuses and sends nothing). That is over the default cap, so the first full render needs `--yes`, and it is beyond the 30,000 characters a month of ElevenLabs' Starter plan once auditions and re-renders are added. Plan for a higher tier.
 - The cache is `<out>/narration-cache/<lang>/<key>.mp3` with a `<key>.json` beside it holding the duration. The key is a sha256 over the language, voice id, model, voice settings and the beat's text. Editing a beat's words re-renders that beat only; changing the voice, model or settings re-renders all of them. A beat with an mp3 but no valid sidecar counts as missing. A failed render keeps the beats before it, so a re-run continues.
 - Audio and the cache stay under `<out>`, which git ignores. Never commit them.
 
