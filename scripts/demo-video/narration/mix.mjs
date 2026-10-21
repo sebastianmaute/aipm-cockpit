@@ -13,7 +13,8 @@ export const MUSIC_FILE = path.join(OUT, 'music', 'bed.mp3');
 // The big video (about 18 minutes) encodes in a few minutes; a hung ffmpeg must not hold the run.
 const MIX_TIMEOUT_MS = 30 * 60 * 1000;
 // The bed's level before ducking, and the sidechain that pulls it down while a beat speaks.
-const MUSIC_GAIN = 0.35;
+// 0.12 (about -18 dB) keeps it roughly 12 dB under the voice after loudnorm (measured on ch3-monday at 0.35).
+const MUSIC_GAIN = 0.12;
 // The bed fades in over this many seconds at the start and out over the last ones (never the voice).
 export const MUSIC_FADE_S = 2;
 const DUCK = 'sidechaincompress=threshold=0.05:ratio=8:attack=20:release=400';

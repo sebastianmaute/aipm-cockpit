@@ -33,6 +33,13 @@ describe('mixArgs', () => {
     expect(args.slice(i, i + 4)).toEqual(['-stream_loop', '-1', '-i', 'bed.mp3']);
   });
 
+  // Owner, 2026-10-21: at 0.35 the bed sat only ~3.5 dB under the narrated parts of ch3-monday; 0.12 puts it
+  // about 12 dB under the voice.
+  it('turns the bed down to 12% before ducking', () => {
+    const args = mixArgs({ video: 'v.webm', beats, music: 'bed.mp3', out: 'v.mp4' });
+    expect(filterOf(args)).toMatch(/\]volume=0\.12,/);
+  });
+
   it('pads the voice in both modes, so the video sets the length', () => {
     for (const music of [null, 'bed.mp3']) {
       expect(filterOf(mixArgs({ video: 'v.webm', beats, music, out: 'v.mp4' }))).toMatch(/amix=inputs=2:normalize=0[^;[,]*,apad/);
