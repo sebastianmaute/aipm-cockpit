@@ -4,7 +4,7 @@
 import { step } from './step.mjs';
 import { AI_TIMEOUT_MS, timedAiWait, waitForAi } from '../ai-wait.mjs';
 import * as L from '../lib.mjs';
-import { caption, click, moveTo, nav, pace, type } from '../ui.mjs';
+import { caption, click, holdVoice, moveTo, nav, pace, type } from '../ui.mjs';
 import { DEMO_CRM_TASK, DEMO_DUPLICATE_PAIRS, DEMO_GDPR_ISSUE } from '../week-story.mjs';
 import {
   DLG, askClaude, askClaudeApply, askClaudeCheck, chat, dedup, digestGenerate, failToast, main, nextActions, noop, resources, weekStep,
@@ -49,6 +49,8 @@ const chatCreateTask = step('chat-create-task', {
     await chat(ctx, { prompt: `Create a task "${CHAT_TASK}" for Ava Thompson, due 2026-10-02.` });
   },
   check: async (ctx) => {
+    // The beat describes the chat: its voice ends there, before Open Points opens.
+    await holdVoice(ctx);
     await nav(ctx, 'Open Points');
     return (await main(ctx).locator('tbody tr', { hasText: CHAT_TASK }).count()) ? null : 'no task';
   },

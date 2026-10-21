@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as L from './lib.mjs';
-import { caption, click, moveTo, nav, pace, skipTour, type } from './ui.mjs';
+import { caption, click, holdVoice, moveTo, nav, pace, skipTour, type } from './ui.mjs';
 
 // Visible dialogs only: a closed modal can stay in the DOM after the one on screen.
 const DLG = '[role="dialog"]:visible';
@@ -50,7 +50,9 @@ export async function connect(ctx, { onCamera, firstRun = false }) {
         await caption(ctx, 'Review what is connected, then Finish.', 'setup-review');
         await pace(ctx, 3000);
       }
-      // Finish commits the portfolio storage choice and reloads the app onto Turso.
+      // Finish commits the portfolio storage choice and reloads the app onto Turso. The beat before it
+      // (setup-review, or setup-model) describes the wizard: its voice ends there, before the reload.
+      await holdVoice(ctx);
       const reloaded = page.waitForEvent('load', { timeout: 60000 });
       // A bare click: ui.click settles the page by evaluating in it, which a reload mid-way would break.
       await moveTo(ctx, fin);

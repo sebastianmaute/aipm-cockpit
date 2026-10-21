@@ -4,7 +4,7 @@
 import { step } from './step.mjs';
 import { waitForAi } from '../ai-wait.mjs';
 import * as L from '../lib.mjs';
-import { caption, click, moveTo, nav, pace, type } from '../ui.mjs';
+import { caption, click, holdVoice, moveTo, nav, pace, type } from '../ui.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -981,9 +981,12 @@ export const FRIDAY = [
       await nav(ctx, 'Trends');
       await caption(ctx, 'Trends: the weeks behind this one.', 'fri-trends');
       await pace(ctx, 3000);
+      // Each beat describes the view on screen: its voice ends there, before the next view opens.
+      await holdVoice(ctx);
       await nav(ctx, 'Activity');
       await caption(ctx, 'Activity: who changed what this week, day by day.', 'fri-activity');
       await pace(ctx, 3000);
+      await holdVoice(ctx);
       await nav(ctx, 'History');
       await caption(ctx, "History: Monday's version against today's.", 'fri-history');
       // Monday's version (MONDAY's last step) against today's data. Missing, the caption would sit over an

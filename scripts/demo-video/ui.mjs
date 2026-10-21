@@ -75,6 +75,13 @@ async function waitForVoice(ctx) {
   if (left > 0) await ctx.page.waitForTimeout(left);
 }
 
+/** On camera, holds the frame until the pending voice and its pause are over. take.mjs calls it at the end of
+ *  the intro and of every on-camera step, and a step calls it before it leaves a view its last beat describes,
+ *  so a voice never runs on into the next view. A rehearsal has no voice, so it never waits. */
+export async function holdVoice(ctx) {
+  if (onCamera(ctx)) await waitForVoice(ctx);
+}
+
 /** Notes the beat on the recording's timeline; the next beat waits for its audio and the pause. */
 function startVoice(ctx, id, duration) {
   const t = performance.now();

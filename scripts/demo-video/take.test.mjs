@@ -26,6 +26,7 @@ function harness({ preconditionsOk = true, checks = [], days } = {}) {
       caption: async (_c, text) => { calls.push(`caption(${text})`); },
       titleCard: async (_c, title) => { calls.push(`titleCard(${title})`); },
       closingBeat: async () => { calls.push('closingBeat'); },
+      holdVoice: async () => {},
     },
     resolveOpening: async (_c, o) => o,
     days: days ?? {},
@@ -217,6 +218,58 @@ describe('runTake with narration (§715)', () => {
     for (let i = 1; i < at.length; i++) expect(at[i]).toBeGreaterThan(at[i - 1]);
     expect(r.unusedBeats).toEqual([]);
     expect(r.warnings).toBe(0);
+  });
+
+  // I1: a beat's voice never runs on into the next view. A step that navigates before its first caption
+  // starts only once the previous step's voice and its pause are over.
+  it("a step that navigates first starts only after the previous step's voice (I1)", async () => {
+    const h = narrated({ beats: { 'mon-a': 2.0, 'mon-b': 0.5 } });
+    let freeAt;
+    let bStart;
+    const a = step('a', { run: async (c) => { await ui.caption(c, 'text of mon-a', 'mon-a'); freeAt = c.voiceFreeAt; } });
+    const b = step('b', { run: async (c) => { bStart = clock; await ui.caption(c, 'text of mon-b', 'mon-b'); } });
+    const r = await runTake(def({ opening: 'T', steps: [a, b] }), h.deps);
+    expect(r.status).toBe('ok');
+    expect(freeAt).toBeGreaterThan(5000 + 2000);
+    expect(bStart).toBeGreaterThanOrEqual(freeAt);
+  });
+
+  it("an AI step's after still runs over its voice; the next step waits for the voice once it is done", async () => {
+    const h = narrated({ beats: { 'mon-a': 2.0 } });
+    let freeAt;
+    let afterAt;
+    let bStart;
+    const a = step('ai-a', {
+      ai: true,
+      run: async (c) => { await ui.caption(c, 'text of mon-a', 'mon-a'); freeAt = c.voiceFreeAt; },
+      check: async () => null,
+      after: async () => { afterAt = clock; },
+    });
+    const b = step('b', { run: async () => { bStart = clock; } });
+    await runTake(def({ opening: 'T', steps: [a, b] }), h.deps);
+    expect(afterAt).toBeLessThan(freeAt);
+    expect(bStart).toBeGreaterThanOrEqual(freeAt);
+  });
+
+  it("the first step starts only after the opening's voice", async () => {
+    const h = narrated({ beats: { [OPENING]: 1.5 }, own: [] });
+    let freeAt;
+    let aStart;
+    const a = step('a', { run: async (c) => { aStart = clock; freeAt = c.voiceFreeAt; } });
+    await runTake(def({ steps: [a] }), h.deps);
+    expect(freeAt).toBeGreaterThan(5000 + 1500);
+    expect(aStart).toBeGreaterThanOrEqual(freeAt);
+  });
+
+  it('a rehearsal (no audio) adds no wait between steps', async () => {
+    const h = narrated({ beats: { 'mon-a': 2.0 }, rehearse: true });
+    let aEnd;
+    let bStart;
+    const a = step('a', { run: async (c) => { await ui.caption(c, 'text of mon-a', 'mon-a'); aEnd = clock; } });
+    const b = step('b', { run: async () => { bStart = clock; } });
+    const r = await runTake(def({ opening: 'T', steps: [a, b] }), h.deps);
+    expect(r.status).toBe('ok');
+    expect(bStart).toBe(aEnd);
   });
 
   it("an unused beat of the video's own file fails a recorded take, and is listed as a warning", async () => {

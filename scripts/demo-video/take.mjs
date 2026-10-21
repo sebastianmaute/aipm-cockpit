@@ -30,7 +30,14 @@ function beatsNamedBy(s, ids) {
   return ids.filter((id) => s.beats?.includes(id) || src.includes(`'${id}'`) || src.includes(`"${id}"`));
 }
 
-async function runStep(ctx, s, opts, mayNotShow) {
+/** One step of the take. On camera, it ends once its last beat's voice is over (ui.holdVoice): the next
+ *  step often navigates before its first caption, and a voice must not run on over the next view. */
+async function runStep(ctx, s, opts, mayNotShow, ui) {
+  await runStepBody(ctx, s, opts, mayNotShow);
+  await ui.holdVoice(ctx);
+}
+
+async function runStepBody(ctx, s, opts, mayNotShow) {
   for (const id of s.mayNotShow ?? []) mayNotShow.add(id);
   if (!s.ai) return s.run(ctx);
   if (opts.rehearse && !opts.withAi) {
@@ -107,6 +114,8 @@ export async function runTake(def, deps) {
   const intro = async (opening) => {
     await ui.titleCard(ctx, def.title, TITLE);
     if (opening && opening !== def.title) await ui.caption(ctx, opening, OPENING);
+    // The first step may navigate first: the opening's voice ends on the screen it describes.
+    await ui.holdVoice(ctx);
   };
   // The beats of the video's own file (`opts.ownBeatIds`) that no caption or voice-only beat used: one
   // warning each, and they fail a recorded take (a rehearsal only reports them). The big video's chapter
@@ -139,7 +148,7 @@ export async function runTake(def, deps) {
       if (def.firstRun) for (const id of setup.MAY_NOT_SHOW ?? []) mayNotShow.add(id);
       await intro(await resolveOpening(ctx, def.opening));
       await setup.connect(ctx, def.firstRun ? { onCamera: true, firstRun: true } : { onCamera: true });
-      for (const s of def.prologue ?? []) await runStep(ctx, s, opts, mayNotShow);
+      for (const s of def.prologue ?? []) await runStep(ctx, s, opts, mayNotShow, ui);
       await openDemo();
     } else {
       await setup.connect(ctx, { onCamera: false });
@@ -159,7 +168,7 @@ export async function runTake(def, deps) {
       await start();
       await intro(opening);
     }
-    for (const s of def.steps.filter((x) => !x.setup)) await runStep(ctx, s, opts, mayNotShow);
+    for (const s of def.steps.filter((x) => !x.setup)) await runStep(ctx, s, opts, mayNotShow, ui);
     await ui.closingBeat(ctx, CLOSING);
     return result('ok');
   } catch (e) {

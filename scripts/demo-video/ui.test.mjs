@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLOSING, OPENING, TITLE, parseNarration } from './narration/beats.mjs';
-import { PAUSE_MS, caption, closingBeat, speak, titleCard } from './ui.mjs';
+import { PAUSE_MS, caption, closingBeat, holdVoice, speak, titleCard } from './ui.mjs';
 
 let clock;
 beforeEach(() => {
@@ -132,6 +132,26 @@ describe('voice-only beats (§715)', () => {
     await speak(ctx, 'mon-why');
     expect(calls).toEqual(['show(A)', `wait(${1000 + PAUSE_MS})`]);
     expect(ctx.beatLog.map((b) => [b.id, b.at])).toEqual([['mon-a', 0], ['mon-why', 1.4]]);
+  });
+
+  it('holdVoice waits for the pending voice and its pause, then returns at once', async () => {
+    const { ctx, calls } = fakeCtx({ narration: { 'mon-a': 2.0 } });
+    await caption(ctx, 'A', 'mon-a');
+    await holdVoice(ctx);
+    await holdVoice(ctx);
+    expect(calls).toEqual(['show(A)', `wait(${2000 + PAUSE_MS})`]);
+    expect(clock).toBe(ctx.voiceFreeAt);
+  });
+
+  it('holdVoice holds nothing without a voice: a rehearsal, or before the recording starts', async () => {
+    const rehearsal = fakeCtx({ narration: { 'mon-a': null }, rehearse: true });
+    await caption(rehearsal.ctx, 'A', 'mon-a');
+    await holdVoice(rehearsal.ctx);
+    expect(rehearsal.calls).toEqual(['show(A)', 'wait(150)']);
+    const off = fakeCtx({ onCamera: false });
+    off.ctx.voiceFreeAt = clock + 5000;
+    await holdVoice(off.ctx);
+    expect(off.calls).toEqual([]);
   });
 
   it('closingBeat lets the last voice finish before it clears the caption, then holds 1500 ms', async () => {
