@@ -1,7 +1,7 @@
 // §715 narration files: the format parser and the beat lookup.
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseNarration, narrationPath, loadBeats, TITLE, OPENING, CLOSING } from './beats.mjs';
+import { parseNarration, narrationPath, loadBeats, ownBeatIds, TITLE, OPENING, CLOSING } from './beats.mjs';
 import { VIDEOS } from '../videos.mjs';
 
 const CHAPTERS = VIDEOS.filter((v) => v.tier === 'chapters' && !v.handRecorded).map((v) => v.id);
@@ -64,5 +64,20 @@ describe('loadBeats', () => {
     const m = loadBeats('en', { id: 'f-board' }, fakeFs(files));
     expect(m).toBeInstanceOf(Map);
     expect(m.size).toBe(0);
+  });
+});
+
+describe('ownBeatIds', () => {
+  const files = { 'big.md': '## a\nbig a\n## d\nbig d\n', 'ch3-monday.md': '## b\nchapter b\n' };
+  it("lists only the video's own file's ids, in file order (big's, not the chapters' it merges)", () => {
+    expect(ownBeatIds('en', 'big', fakeFs(files))).toEqual(['a', 'd']);
+  });
+  it('reads the file of the language it is given', () => {
+    const read = [];
+    ownBeatIds('de', 'big', { exists: () => true, read: (p) => { read.push(p); return '## x\ny'; } });
+    expect(read).toEqual([narrationPath('de', 'big')]);
+  });
+  it('is empty when the video has no file', () => {
+    expect(ownBeatIds('en', 'f-board', fakeFs(files))).toEqual([]);
   });
 });

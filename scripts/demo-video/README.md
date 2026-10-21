@@ -158,6 +158,7 @@ node scripts/demo-video/record.mjs --video ch3-monday       # the narrated take 
 | `cli.mjs` | Pure: `parseArgs`, `selectVideos`, `outPath`, `exitCode`, `findSecrets`. |
 | `videos.mjs` | The 43 video definitions: tier, title, opening, preconditions, steps. |
 | `take.mjs` | `runTake`: one take, setup to closing beat, with the AI retry rule. |
+| `narrated.mjs` | The narration glue around a take: `narrationFor` (its beats, and the ids of its own file) and `trimAndMix` (trim around the beats, map each beat onto the trimmed video, mix in the take's language). |
 | `ai-wait.mjs` | `waitForAi`: waits for an AI call by its UI state; `timedAiWait` notes each wait on the recording's timeline. |
 | `trim.mjs` | Cuts each AI wait in a video down to `MAX_AI_WAIT_S` with ffmpeg; `keepRanges` and `trimArgs` are pure. |
 | `setup.mjs` | Off-camera setup: `connect`, `exploreDemo`, `seedDeviceState`, `enableDigest`, `enableChat`, `goToDay`, `currentProjectId`. |

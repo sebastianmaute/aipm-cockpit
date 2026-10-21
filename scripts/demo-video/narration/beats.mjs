@@ -46,6 +46,12 @@ export function narrationPath(lang, videoId) {
   return path.join(HERE, lang, `${videoId}.md`);
 }
 
+/** The beat ids of a video's own file, in file order; none when it has no file. */
+export function ownBeatIds(lang, videoId, { read = fs.readFileSync, exists = fs.existsSync } = {}) {
+  const file = narrationPath(lang, videoId);
+  return exists(file) ? parseNarration(read(file, 'utf8')).map((b) => b.id) : [];
+}
+
 const CHAPTER_IDS = VIDEOS.filter((v) => v.tier === 'chapters' && !v.handRecorded).map((v) => v.id);
 
 /**

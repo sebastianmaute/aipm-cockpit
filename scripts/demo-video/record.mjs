@@ -12,13 +12,10 @@ import path from 'node:path';
 import * as L from './lib.mjs';
 import { cleanup } from './cleanup.mjs';
 import { exitCode, outPath, parseArgs, selectVideos } from './cli.mjs';
-import { loadBeats, narrationPath, parseNarration } from './narration/beats.mjs';
-import { mixTake } from './narration/mix.mjs';
-import { VOICE, audioFor } from './narration/tts.mjs';
+import { narrationFor, trimAndMix } from './narrated.mjs';
 import * as setup from './setup.mjs';
 import { checkDayFacts } from './steps/week.mjs';
-import { runTake, takeNarration } from './take.mjs';
-import { MAX_AI_WAIT_S, mapTime, protectSpans, trimAiWaits } from './trim.mjs';
+import { runTake } from './take.mjs';
 import * as ui from './ui.mjs';
 import { VIDEOS } from './videos.mjs';
 
@@ -44,19 +41,6 @@ const mask = (s) => SECRETS.reduce((acc, v, i) => (v ? acc.split(v).join(['<URL>
 /** The narration's language: English for now. */
 const NARRATION_LANG = 'en';
 
-/** The take's narration (take.mjs `takeNarration`) and the beat ids of the video's own file, which are the
- *  ones a take may report unused (for the big video, big.md's, not the chapters' it merges). A recorded take
- *  fails here, before anything starts, when a beat has no rendered audio. */
-function narrationFor(def) {
-  const narration = takeNarration(def, loadBeats(NARRATION_LANG, def), {
-    rehearse: args.rehearse,
-    audio: (text) => audioFor(NARRATION_LANG, VOICE, text),
-  });
-  const own = narrationPath(NARRATION_LANG, def.id);
-  const ownBeatIds = narration && fs.existsSync(own) ? parseNarration(fs.readFileSync(own, 'utf8')).map((b) => b.id) : [];
-  return { narration, ownBeatIds };
-}
-
 /** A `{ banner: <view> }` opening is that view's own banner text, read from the page. A sub-view names its
  *  path ("Resources>Planning"): its nav item shows only while its parent is open. */
 async function resolveOpening(ctx, opening) {
@@ -69,7 +53,7 @@ async function resolveOpening(ctx, opening) {
 }
 
 async function take(browser, def) {
-  const { narration, ownBeatIds } = narrationFor(def);
+  const { narration, ownBeatIds } = narrationFor(def, { lang: NARRATION_LANG, rehearse: args.rehearse });
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, locale: 'en-US', timezoneId: 'Europe/Berlin' });
   const page = await context.newPage();
   const lines = [];
@@ -123,28 +107,8 @@ async function take(browser, def) {
   }
 }
 
-/** Caps each wait for Claude in a finished take at MAX_AI_WAIT_S (trim.mjs), once its browser context is
- *  closed, never cutting inside a narrated beat; a narrated take is then mixed (narration/mix.mjs) into an MP4
- *  with its subtitles. A failed trim keeps the untrimmed take and counts a warning, so the take's own warnings
- *  (the secret scan among them) still reach the tally; a failed mix keeps the WebM and counts one too. */
-function trimTake(def, r) {
-  const { narration } = r;
-  if (r.status !== 'ok' || !r.file) return r;
-  let ranges;
-  try {
-    const t = trimAiWaits(r.file, r.aiWaits, L.OUT, { protect: protectSpans(r.beats) });
-    ranges = t.ranges;
-    if (t.capped) console.log(`[${def.id}]`, `TRIM ${t.capped} AI wait(s) capped at ${MAX_AI_WAIT_S} s, ${t.cut.toFixed(1)} s cut`);
-  } catch (e) {
-    console.log(`[${def.id}]`, mask(`TRIM FAILED ${String(e?.message ?? e).split('\n')[0]} (the untrimmed take is kept)`));
-    return { ...r, warnings: r.warnings + 1 };
-  }
-  if (!narration || !r.beats?.length) return r;
-  const mapped = r.beats.map((b) => ({ ...b, at: mapTime(b.at, ranges) }));
-  const duration = ranges.reduce((sum, [a, b]) => sum + (b - a), 0);
-  const mix = mixTake(r.file, mapped, narration, def, { duration, lang: NARRATION_LANG, log: (...parts) => console.log(...parts.map(mask)) });
-  return mix.warning ? { ...r, warnings: r.warnings + 1 } : r;
-}
+/** The finished take, trimmed and (when narrated) mixed in the take's language (narrated.mjs), its logs masked. */
+const trimTake = (def, r) => trimAndMix(def, r, { lang: NARRATION_LANG, outRoot: L.OUT, log: (...parts) => console.log(...parts.map(mask)) });
 
 // Headless Chromium hides every scrollbar by default (Playwright adds --hide-scrollbars); the videos show
 // the app as a user sees it, so a scrollable list looks scrollable.
