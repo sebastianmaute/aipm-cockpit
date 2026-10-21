@@ -10,7 +10,6 @@ import { VOICE, audioFor } from './tts.mjs';
 
 export const MUSIC_TIERS = ['big', 'chapters'];
 export const MUSIC_FILE = path.join(OUT, 'music', 'bed.mp3');
-const LANG = 'en';
 // The big video (about 18 minutes) encodes in a few minutes; a hung ffmpeg must not hold the run.
 const MIX_TIMEOUT_MS = 30 * 60 * 1000;
 // The bed's level before ducking, and the sidechain that pulls it down while a beat speaks.
@@ -76,15 +75,18 @@ export function srtText(beats) {
  * Writes `<name>.mp4` and `<name>.srt` beside the trimmed `webmFile`. `beatsMapped` are the take's beats with `at`
  * on the trimmed timeline; `narration` maps id -> { text }. Returns { warning: true } when the mix fails (the WebM
  * stays), else { warning, mp4, srt }, where `warning` is true when a music tier had no bed and mixed voice only.
- * `exec` has `execFileSync`'s shape; `audio` and `musicFile` are overridable for tests.
+ * `lang` is the take's narration language: each beat's audio is looked up under it (narration/tts.mjs). `exec`
+ * has `execFileSync`'s shape; `audio` (text -> { file } | null) and `musicFile` are overridable for tests.
  */
-export function mixTake(webmFile, beatsMapped, narration, def, { exec = execFileSync, log = console.log, duration, audio = (text) => audioFor(LANG, VOICE, text), musicFile = MUSIC_FILE } = {}) {
+export function mixTake(webmFile, beatsMapped, narration, def, { exec = execFileSync, log = console.log, duration, lang, audio, musicFile = MUSIC_FILE } = {}) {
   const mp4 = webmFile.replace(/\.webm$/, '.mp4');
   const srt = webmFile.replace(/\.webm$/, '.srt');
   try {
+    if (!audio && !lang) throw new Error('no narration language');
+    const lookup = audio ?? ((text) => audioFor(lang, VOICE, text));
     const cues = beatsMapped.map((b) => {
       const text = narration.get(b.id)?.text;
-      const a = text == null ? null : audio(text);
+      const a = text == null ? null : lookup(text);
       if (!a) throw new Error(`no audio for beat ${b.id}`);
       return { file: a.file, at: b.at, duration: b.duration, text };
     });

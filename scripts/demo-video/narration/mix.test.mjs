@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { MUSIC_TIERS, mixArgs, mixTake, srtText } from './mix.mjs';
+import { VOICE, beatKey, cachePath } from './tts.mjs';
 
 const beats = [{ file: 'a.mp3', at: 1.5 }, { file: 'b.mp3', at: 4 }];
 const filterOf = (args) => args[args.indexOf('-filter_complex') + 1];
@@ -122,5 +123,36 @@ describe('mixTake', () => {
     expect(r.warning).toBe(true);
     expect(r.mp4).toBe(path.join(dir, 'v.mp4'));
     expect(filterOf(calls[0])).not.toContain('sidechaincompress');
+  });
+
+  // M1: the take's narration language finds its audio; a German take never looks under English.
+  it("finds each beat's audio under the take's language", () => {
+    const text = 'Ein Beat nur im Mix-Test (§715).';
+    const mp3 = cachePath('de', beatKey('de', VOICE, text));
+    const sidecar = mp3.replace(/\.mp3$/, '.json');
+    fs.mkdirSync(path.dirname(mp3), { recursive: true });
+    fs.writeFileSync(mp3, 'x');
+    fs.writeFileSync(sidecar, JSON.stringify({ duration: 2 }));
+    try {
+      const de = new Map([['a', { text, duration: 2 }]]);
+      const calls = [];
+      const exec = (cmd, args) => { calls.push(args); return ''; };
+      expect(mixTake(webm, mapped, de, { id: 'v', tier: 'ai' }, { exec, lang: 'de' }).warning).toBe(false);
+      expect(calls[0]).toContain(mp3);
+      const lines = [];
+      const en = mixTake(webm, mapped, de, { id: 'v', tier: 'ai' }, { exec, lang: 'en', log: (...a) => lines.push(a.join(' ')) });
+      expect(en).toEqual({ warning: true });
+      expect(lines.join(' ')).toContain('no audio for beat a');
+    } finally {
+      fs.rmSync(mp3, { force: true });
+      fs.rmSync(sidecar, { force: true });
+    }
+  });
+
+  it('fails the mix when it is given no language and no audio lookup', () => {
+    const lines = [];
+    const r = mixTake(webm, mapped, narration, { id: 'v', tier: 'ai' }, { exec: () => '', log: (...a) => lines.push(a.join(' ')) });
+    expect(r).toEqual({ warning: true });
+    expect(lines.join(' ')).toContain('no narration language');
   });
 });
