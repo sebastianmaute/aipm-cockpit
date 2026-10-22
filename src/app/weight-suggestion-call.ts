@@ -18,6 +18,8 @@ interface AiCreds {
 // same output budget. A reply cut there carries `{}` or only its first suggestions, and
 // parseSuggestionResponse reads either without an error (`{}` as "no change suggested"). As
 // scheduled-job-analysis.ts: 4096, a cut reply asked for once more with 8192, and a cut reply never read.
+// On an `auto` model a cut can cost up to three billed replies (plain 4096, strict 4096, strict 8192) and
+// marks the tool strict for the session; see committee-report/report-call.ts.
 const MAX_TOKENS = 4096;
 const RETRY_MAX_TOKENS = 8192;
 

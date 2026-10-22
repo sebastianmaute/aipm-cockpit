@@ -1,4 +1,6 @@
-// One forced-tool Anthropic call (two when the first reply is cut) producing a steering-committee status report.
+// The steering-committee status report: one call through the shared forced-tool envelope, and a second
+// with a larger budget when the first reply is cut. Mirrors scheduled-job-analysis.ts. Each call can be
+// several requests inside the envelope (the forced→auto fallback and its strict re-ask, see below).
 // Routes through the shared runForcedToolCallWithStop envelope (a DIRECT one-shot fetch,
 // NOT chat-api's callClaude, which embeds the response body in its thrown message
 // and would leak it); the api key and response body are NEVER logged or echoed —
@@ -21,7 +23,12 @@ export interface MeetingReportCtx {
 // §763 — the report is about 1.8–2.0k tokens, and a model asked with `auto` tool choice (one that refuses a
 // forced choice) thinks first, on the same budget: at 2048 two of three plain replies stopped at max_tokens
 // with the tool input `{}`. As `scheduled-job-analysis.ts`: 4096, and a cut reply is asked for once more
-// with 8192. Billing counts the tokens used, so a cut first reply is billed in full on top of the retry.
+// with 8192. ★ What a cut costs depends on the model. On a model that takes a forced choice: two billed
+// replies (4096, 8192). On an `auto` model (ai-forced-call.ts `postAuto`): a plain reply cut to `{}` breaks
+// the schema, so the envelope re-asks it strict at the same 4096 and marks the tool strict for the session;
+// if that is cut too, the retry goes straight to strict at 8192 — up to three billed replies (plain 4096,
+// strict 4096, strict 8192), plus the unbilled forced-choice 400 on that model's first call of a session. Billing counts
+// the tokens each reply used.
 const MAX_TOKENS = 4096;
 const RETRY_MAX_TOKENS = 8192;
 

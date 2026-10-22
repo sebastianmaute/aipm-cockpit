@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { runWeightSuggestion } from "./weight-suggestion-call";
 import { defaultNextActionsConfig } from "./settings-types";
+import { __resetToolChoiceFallbackForTests } from "./ai-forced-call";
 
 // §763 — under auto tool choice the model thinks on the same output budget. A reply cut at it carries
 // `{}` (read as "no change suggested") or only its first suggestions, and both parse without an error,
@@ -48,5 +49,42 @@ describe("runWeightSuggestion output budget (§763)", () => {
     const out = await run();
     expect(out.suggestions).toEqual([]);
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The path the defect ran on: forced tool_choice refused, a plain auto reply cut to `{}` (which breaks
+// the schema, so the envelope re-asks strict at the same budget), that strict reply cut too, and only
+// then this caller's retry, which goes straight to strict at 8192.
+describe("runWeightSuggestion on a model that refuses a forced tool_choice (§763)", () => {
+  beforeEach(() => __resetToolChoiceFallbackForTests());
+  afterEach(() => {
+    __resetToolChoiceFallbackForTests();
+    vi.restoreAllMocks();
+  });
+  const refused = () =>
+    ({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { type: "invalid_request_error", message: 'tool_choice: type "tool" and "any" are not supported for this model.' } }),
+    }) as unknown as Response;
+
+  it("asks forced, plain, strict at 4096, then strict at 8192, and returns that answer", async () => {
+    const spy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(refused())
+      .mockResolvedValueOnce(reply("max_tokens", {}))
+      .mockResolvedValueOnce(reply("max_tokens", WHOLE))
+      .mockResolvedValueOnce(reply("tool_use", WHOLE));
+    const out = await run();
+    expect(out.suggestions.map((s) => s.field)).toEqual(["clarityBonus"]);
+    const shape = spy.mock.calls.map((c) => {
+      const b = JSON.parse(String((c[1] as RequestInit).body)) as { tool_choice: { type: string }; tools: { strict?: boolean }[]; max_tokens: number };
+      return [b.tool_choice.type, b.tools[0]?.strict === true, b.max_tokens];
+    });
+    expect(shape).toEqual([
+      ["tool", false, 4096],
+      ["auto", false, 4096],
+      ["auto", true, 4096],
+      ["auto", true, 8192],
+    ]);
   });
 });

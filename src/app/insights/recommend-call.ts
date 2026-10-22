@@ -1,6 +1,8 @@
-// Non-hook single forced-tool Anthropic call for insight recommendations.
-// Mirrors task-dedup-call.ts: ONE request (a second when the first reply is cut),
-// tool_choice forced, NO agentic loop.
+// Non-hook forced-tool Anthropic call for insight recommendations, NO agentic loop.
+// One call through the shared envelope, and a second with a larger budget when the
+// first reply is cut (mirrors scheduled-job-analysis.ts). Inside the envelope a call
+// can be several requests: a model that refuses a forced tool_choice is asked with
+// `auto`, and a reply that breaks the schema is re-asked strict.
 // Grounding happens in parseRecommendation; the api key/body are NEVER logged
 // (the shared runForcedToolCallWithStop envelope guarantees it). Thrown errors carry
 // only the HTTP status (AiHttpError) or the token "parse".
@@ -27,7 +29,9 @@ export interface RecommendCallArgs {
 // §763 — a model asked with `auto` tool choice (one that refuses a forced choice) thinks first, on the
 // same output budget, so up to five proposed calls could overrun 2048; a reply cut there carries `{}` or
 // only its first calls, and the latter grounds and parses. As `scheduled-job-analysis.ts`: 4096, a cut
-// reply asked for once more with 8192, and a cut reply never read.
+// reply asked for once more with 8192, and a cut reply never read. On an `auto` model a cut can cost up to
+// three billed replies (plain 4096, strict 4096, strict 8192) and marks the tool strict for the session;
+// see report-call.ts.
 const MAX_TOKENS = 4096;
 const RETRY_MAX_TOKENS = 8192;
 
