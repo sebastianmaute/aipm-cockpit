@@ -154,6 +154,10 @@ export function MeetingReportPanel({
         />
       ) : (
         <RichTextEditor
+          // §763 — the editor binds `content` once at mount, so the re-seeded draft above
+          // reaches it only through a remount: key it on the stored body's stamp, which
+          // every write (manual save, AI draft, restore) bumps and typing never touches.
+          key={report?.updatedAt ?? "new"}
           value={draft}
           onChange={setDraft}
           label={t(lang, "reportBody")}

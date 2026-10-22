@@ -4,12 +4,19 @@ import { MeetingReportPanel } from "./meeting-report-panel";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // Stub the dynamically-imported Tiptap editor with a plain textarea so the test
-// exercises the pane's buttons/logic, not the browser-only editor.
-vi.mock("./rich-text-editor", () => ({
-  RichTextEditor: ({ value, onChange, label }: { value: string; onChange: (h: string) => void; label: string }) => (
-    <textarea aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} />
-  ),
-}));
+// exercises the pane's buttons/logic, not the browser-only editor. ★ UNCONTROLLED
+// like the real editor, which binds `content` once at mount: a controlled stub shows a
+// new `value` the real editor never would (§763). The mount value is held in state,
+// because a bare `defaultValue` still follows a new value until the user types.
+vi.mock("./rich-text-editor", async () => {
+  const { useState } = await import("react");
+  return {
+    RichTextEditor: ({ value, onChange, label }: { value: string; onChange: (h: string) => void; label: string }) => {
+      const [atMount] = useState(value);
+      return <textarea aria-label={label} defaultValue={atMount} onChange={(e) => onChange(e.target.value)} />;
+    },
+  };
+});
 
 function renderPanel(overrides = {}) {
   return render(
@@ -135,5 +142,43 @@ describe("MeetingReportPanel", () => {
     // diff shows the version's line as removed and the current draft's as added
     expect(screen.getByLabelText("This version: old text")).toBeInTheDocument();
     expect(screen.getByLabelText("Current: current text")).toBeInTheDocument();
+  });
+});
+
+// §763 — an AI draft (or a restore) that lands while the dialog is open must show in the editor,
+// which reads its content once at mount; before the fix it showed only after reopening the dialog.
+describe("MeetingReportPanel — a new report body reaches the open editor (§763)", () => {
+  const props = { lang: "en-US" as const, recipients: ["a@x.com"], onSave: vi.fn(), onSend: vi.fn(), m365Configured: true };
+
+  it("shows the first AI draft of a meeting that had no report", async () => {
+    const { rerender } = render(<MeetingReportPanel {...props} report={undefined} />);
+    expect(await screen.findByLabelText("Report")).toHaveValue("");
+    rerender(<MeetingReportPanel {...props} report={{ html: "<p>drafted</p>", updatedAt: "2026-10-22T09:00:00.000Z" }} />);
+    expect(await screen.findByLabelText("Report")).toHaveValue("<p>drafted</p>");
+  });
+
+  it("shows a newer body (a second draft or a restore) over the one it opened with", async () => {
+    const { rerender } = render(
+      <MeetingReportPanel {...props} report={{ html: "<p>first</p>", updatedAt: "2026-10-22T09:00:00.000Z" }} />,
+    );
+    expect(await screen.findByLabelText("Report")).toHaveValue("<p>first</p>");
+    rerender(<MeetingReportPanel {...props} report={{ html: "<p>second</p>", updatedAt: "2026-10-22T09:05:00.000Z" }} />);
+    expect(await screen.findByLabelText("Report")).toHaveValue("<p>second</p>");
+  });
+
+  it("keeps the same editor, its focus and the typed text while the user types", async () => {
+    const report = { html: "<p>first</p>", updatedAt: "2026-10-22T09:00:00.000Z" };
+    const onSave = vi.fn();
+    const { rerender } = render(<MeetingReportPanel {...props} onSave={onSave} report={report} />);
+    const editor = await screen.findByLabelText("Report");
+    editor.focus();
+    fireEvent.change(editor, { target: { value: "<p>typed</p>" } });
+    // The parent re-renders with the same stored report (typing never writes it).
+    rerender(<MeetingReportPanel {...props} onSave={onSave} report={{ ...report }} />);
+    expect(screen.getByLabelText("Report")).toBe(editor);
+    expect(editor).toHaveFocus();
+    expect(editor).toHaveValue("<p>typed</p>");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledWith("<p>typed</p>");
   });
 });
