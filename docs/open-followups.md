@@ -1002,6 +1002,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§762](#762-the-app-cannot-hide-integrations-a-deployment-switched-off--closed-2026-10-21) | The app cannot hide integrations a deployment switched off | — | — | **CLOSED** 2026-10-21 |
 | [§763](#763-draft-with-ai-cuts-the-steering-report-off-and-a-fresh-draft-does-not-show--closed-2026-10-22) | "Draft with AI" cuts the steering report off, and a fresh draft does not show | — | — | **CLOSED** 2026-10-22 |
 | [§764](#764-a-reply-cut-for-length-is-re-asked-as-a-schema-failure-and-six-forced-calls-never-read-why-a-reply-stopped--open) | A reply cut for length is re-asked as a schema failure, and six forced calls never read why a reply stopped | — | — | open |
+| [§765](#765-the-demo-videos-are-not-in-the-app-and-there-is-no-german-demo-project-or-german-recording--open) | The demo videos are not in the app, and there is no German demo project or German recording | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45118,7 +45119,9 @@ Size S (process).
 
 ## 715. No recorded walk-through shows a new user downloading, installing and setting up the desktop app — OPEN
 
-**Status:** **Update 2026-10-16 (#755 merged, 255c5aae9):** the web-app chapters (2.2, 2.4, 2.5 and 3–8) are scripted in `scripts/demo-video/` (`record.mjs`, `cleanup.mjs`, `lib.mjs`, `README.md`; `grep -rln "Customer Identity Platform" scripts/demo-video` → `cleanup.mjs`), and a take exists locally, git-ignored and not placed. Still open: the hand-recorded parts (install, 2.1 Turso database creation, 2.3 Anthropic key) and the placement (a README embed plus a WebM in `public/demos/`; superseded 2026-10-18, see Placement below).
+**Status:** **Update 2026-10-22 (#841 merged, f69ed7840):** the web-app chapters are recorded and narrated. Every demo video has an English script (`grep -l "" scripts/demo-video/narration/en/*.md | grep -vc README` → 42), and the recorder renders the voice, mixes a music bed and writes subtitles (`grep -n "^## Narration" scripts/demo-video/README.md` → one hit). The owner chose narration on 2026-10-21, which answers the question left open under Placement below. The finished MP4s exist locally, git-ignored, and are not uploaded. Still open here: the hand-recorded parts (install, 2.1 Turso database creation, 2.3 Anthropic key), the YouTube upload (each upload carries the "Made with ElevenMusic" credit), and the links from the README and the install guide. The rest of the narration programme (videos inside the app, a German demo project, German recordings) is §765.
+
+**Earlier:** **Update 2026-10-16 (#755 merged, 255c5aae9):** the web-app chapters (2.2, 2.4, 2.5 and 3–8) are scripted in `scripts/demo-video/` (`record.mjs`, `cleanup.mjs`, `lib.mjs`, `README.md`; `grep -rln "Customer Identity Platform" scripts/demo-video` → `cleanup.mjs`), and a take exists locally, git-ignored and not placed. Still open: the hand-recorded parts (install, 2.1 Turso database creation, 2.3 Anthropic key) and the placement (a README embed plus a WebM in `public/demos/`; superseded 2026-10-18, see Placement below).
 
 **Earlier:** OPEN 2026-10-14 — nothing recorded yet: the README embeds one clip, the product tour (`grep -c "public/demos/" README.md` → 1), and the install guide none (`grep -cE ".(webm|mp4)" docs/desktop-rollout.md` → 0).
 
@@ -45143,7 +45146,7 @@ Constraints:
 - **No real secrets or names.** Key fields carry obvious fakes; a Turso connection uses the throwaway database, and its URL is masked on screen. The project is fictional ("Acme"); the repo is public.
 - **Shows phase-1 UI**, so it is recorded after §704–§712 ship and after §713's guide, whose order it follows. Met: §704–§713 all closed 2026-10-13/14 and shipped in 1.19.0 (2026-10-15), so the recording is unblocked.
 
-Placement (owner, 2026-10-18): the video guides are uploaded to YouTube and the README and the guide link there; documentation media lives in `docs/assets/` (the product tour's download copy moved there from `public/demos/`, which shipped it in every installer), and `public/` keeps only what the app loads. Earlier: placement followed the product tour, a GitHub-hosted embed with a download link to a WebM in `public/demos/`. Open for the owner: whether it has narration or captions (the tour has neither).
+Placement (owner, 2026-10-18): the video guides are uploaded to YouTube and the README and the guide link there; documentation media lives in `docs/assets/` (the product tour's download copy moved there from `public/demos/`, which shipped it in every installer), and `public/` keeps only what the app loads. Earlier: placement followed the product tour, a GitHub-hosted embed with a download link to a WebM in `public/demos/`. Narration or captions (the tour has neither): narration, owner decision 2026-10-21 (`docs/superpowers/specs/2026-10-21-narrated-demo-videos-design.md`).
 
 Size M.
 
@@ -45816,3 +45819,23 @@ Proposed: decide per call whether its output can outgrow its budget (the digest'
 Size M.
 
 **Source:** found 2026-10-22 by the whole-branch review of §763.
+
+## 765. The demo videos are not in the app, and there is no German demo project or German recording — OPEN
+
+**Status:** OPEN 2026-10-22, filed on the owner's word when piece 1 of the narrated demo videos shipped (#841). `grep -rli youtube src | wc -l` → 0: the app does not mention YouTube; `ls scripts/demo-video/narration/` shows only an `en` script folder.
+
+**Work item:** #842
+
+The narrated demo videos are a programme of four pieces, ordered by the owner on 2026-10-21 as 1 → 4 → 2 → 3 (`docs/superpowers/specs/2026-10-21-narrated-demo-videos-design.md`). Piece 1, English narration, shipped in #841. This entry holds the other three:
+
+- **4. YouTube in the app:** the app embeds the videos as players with a link out to YouTube, and the CSP allowlist in `src/proxy.ts` gains the hosts this needs.
+- **2. German demo project:** the demo dataset and the week-story fixtures in German.
+- **3. German recordings:** the recorder finds controls by language-neutral keys rather than English labels, the German app and the German demo project are recorded, and the narration is translated from the English beats. Script files and the audio cache are already keyed by language.
+
+Open before piece 3: the chosen narrator voice is not verified for German, so a German voice needs its own audition.
+
+Proposed: a design per piece, in the owner's order, as piece 1 had. The install walk-through's remaining parts and the YouTube upload stay with §715.
+
+Size L (three pieces).
+
+**Source:** owner decision 2026-10-22, splitting the narration programme out of §715.
