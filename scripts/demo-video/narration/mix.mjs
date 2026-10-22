@@ -135,10 +135,10 @@ export function srtText(beats) {
  * Writes `<name>.mp4` and `<name>.srt` beside the trimmed `webmFile`. `beatsMapped` are the take's beats with `at`
  * on the trimmed timeline; `narration` maps id -> { text }. Returns { warning: true } when the mix fails (the WebM
  * stays), else { warning, mp4, srt }, where `warning` is true when a music tier had no bed and mixed voice only.
- * `lang` is the take's narration language: each beat's audio is looked up under it (narration/tts.mjs). `exec`
+ * `lang` is the take's narration language: each beat's audio is looked up under it (narration/tts.mjs). `execFile`
  * has `execFileSync`'s shape; `audio` (text -> { file } | null) and `musicFile` are overridable for tests.
  */
-export function mixTake(webmFile, beatsMapped, narration, def, { exec = execFileSync, log = console.log, duration, lang, audio, musicFile = MUSIC_FILE } = {}) {
+export function mixTake(webmFile, beatsMapped, narration, def, { execFile = execFileSync, log = console.log, duration, lang, audio, musicFile = MUSIC_FILE } = {}) {
   const mp4 = webmFile.replace(/\.webm$/, '.mp4');
   const srt = webmFile.replace(/\.webm$/, '.srt');
   try {
@@ -152,10 +152,9 @@ export function mixTake(webmFile, beatsMapped, narration, def, { exec = execFile
     });
     const wantsMusic = MUSIC_TIERS.includes(def.tier);
     const hasMusic = wantsMusic && fs.existsSync(musicFile);
-    // `exec` is execFileSync (no shell) and runs only the fixed ffmpeg below, with arguments built here from the
+    // `execFile` is execFileSync (no shell) and runs only the fixed ffmpeg below, with arguments built here from the
     // recorder's own output paths and numbers: no outside input reaches it.
-    // nosemgrep: local-no-dynamic-code-exec
-    exec('ffmpeg', mixArgs({ video: webmFile, beats: cues, music: hasMusic ? musicFile : null, out: mp4, duration }), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: MIX_TIMEOUT_MS });
+    execFile('ffmpeg', mixArgs({ video: webmFile, beats: cues, music: hasMusic ? musicFile : null, out: mp4, duration }), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: MIX_TIMEOUT_MS });
     fs.writeFileSync(srt, srtText(cues));
     if (wantsMusic && !hasMusic) log(`[${def.id}]`, `MUSIC missing ${musicFile} (mixed voice only)`);
     return { warning: wantsMusic && !hasMusic, mp4, srt };

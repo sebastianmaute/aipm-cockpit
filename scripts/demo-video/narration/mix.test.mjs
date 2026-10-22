@@ -148,7 +148,7 @@ describe('mixTake', () => {
 
   it('keeps the webm and warns when ffmpeg fails', () => {
     const exec = () => { throw new Error('boom'); };
-    const r = mixTake(webm, mapped, narration, { id: 'v', tier: 'ai' }, { exec, audio: () => ({ file: 'a.mp3' }) });
+    const r = mixTake(webm, mapped, narration, { id: 'v', tier: 'ai' }, { execFile: exec, audio: () => ({ file: 'a.mp3' }) });
     expect(r).toEqual({ warning: true });
     expect(fs.existsSync(webm)).toBe(true);
     expect(fs.existsSync(path.join(dir, 'v.srt'))).toBe(false);
@@ -157,7 +157,7 @@ describe('mixTake', () => {
   it('writes the mp4 call and the srt beside the webm', () => {
     const calls = [];
     const exec = (cmd, args) => { calls.push([cmd, args]); return ''; };
-    const r = mixTake(webm, mapped, narration, { id: 'v', tier: 'ai' }, { exec, audio: () => ({ file: 'a.mp3' }) });
+    const r = mixTake(webm, mapped, narration, { id: 'v', tier: 'ai' }, { execFile: exec, audio: () => ({ file: 'a.mp3' }) });
     expect(r.warning).toBe(false);
     expect(calls[0][0]).toBe('ffmpeg');
     expect(calls[0][1].at(-1)).toBe(path.join(dir, 'v.mp4'));
@@ -166,7 +166,7 @@ describe('mixTake', () => {
 
   it('logs through the given logger', () => {
     const lines = [];
-    mixTake(webm, mapped, narration, { id: 'v', tier: 'ai' }, { exec: () => { throw new Error('boom'); }, audio: () => ({ file: 'a.mp3' }), log: (...a) => lines.push(a.join(' ')) });
+    mixTake(webm, mapped, narration, { id: 'v', tier: 'ai' }, { execFile: () => { throw new Error('boom'); }, audio: () => ({ file: 'a.mp3' }), log: (...a) => lines.push(a.join(' ')) });
     expect(lines.join(String.fromCharCode(10))).toContain('MIX FAILED boom');
   });
 
@@ -174,7 +174,7 @@ describe('mixTake', () => {
     expect(MUSIC_TIERS).toEqual(['big', 'chapters']);
     const calls = [];
     const exec = (cmd, args) => { calls.push(args); return ''; };
-    const r = mixTake(webm, mapped, narration, { id: 'v', tier: 'big' }, { exec, audio: () => ({ file: 'a.mp3' }), musicFile: path.join(dir, 'nope.mp3') });
+    const r = mixTake(webm, mapped, narration, { id: 'v', tier: 'big' }, { execFile: exec, audio: () => ({ file: 'a.mp3' }), musicFile: path.join(dir, 'nope.mp3') });
     expect(r.warning).toBe(true);
     expect(r.mp4).toBe(path.join(dir, 'v.mp4'));
     expect(filterOf(calls[0])).not.toContain('sidechaincompress');
@@ -192,10 +192,10 @@ describe('mixTake', () => {
       const de = new Map([['a', { text, duration: 2 }]]);
       const calls = [];
       const exec = (cmd, args) => { calls.push(args); return ''; };
-      expect(mixTake(webm, mapped, de, { id: 'v', tier: 'ai' }, { exec, lang: 'de' }).warning).toBe(false);
+      expect(mixTake(webm, mapped, de, { id: 'v', tier: 'ai' }, { execFile: exec, lang: 'de' }).warning).toBe(false);
       expect(calls[0]).toContain(mp3);
       const lines = [];
-      const en = mixTake(webm, mapped, de, { id: 'v', tier: 'ai' }, { exec, lang: 'en', log: (...a) => lines.push(a.join(' ')) });
+      const en = mixTake(webm, mapped, de, { id: 'v', tier: 'ai' }, { execFile: exec, lang: 'en', log: (...a) => lines.push(a.join(' ')) });
       expect(en).toEqual({ warning: true });
       expect(lines.join(' ')).toContain('no audio for beat a');
     } finally {
@@ -206,7 +206,7 @@ describe('mixTake', () => {
 
   it('fails the mix when it is given no language and no audio lookup', () => {
     const lines = [];
-    const r = mixTake(webm, mapped, narration, { id: 'v', tier: 'ai' }, { exec: () => '', log: (...a) => lines.push(a.join(' ')) });
+    const r = mixTake(webm, mapped, narration, { id: 'v', tier: 'ai' }, { execFile: () => '', log: (...a) => lines.push(a.join(' ')) });
     expect(r).toEqual({ warning: true });
     expect(lines.join(' ')).toContain('no narration language');
   });
