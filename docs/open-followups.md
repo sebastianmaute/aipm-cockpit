@@ -1000,6 +1000,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§760](#760-a-proposed-projects-name-skips-the-field-judge-so-it-has-no-length-cap--closed-2026-10-20) | A proposed project's name skips the field judge, so it has no length cap | — | — | **CLOSED** 2026-10-20 |
 | [§761](#761-claudes-stakeholder-count-accepts-0x10-1e3-and----closed-2026-10-20) | Claude's stakeholder count accepts "0x10", "1e3" and " " | — | — | **CLOSED** 2026-10-20 |
 | [§762](#762-the-app-cannot-hide-integrations-a-deployment-switched-off--closed-2026-10-21) | The app cannot hide integrations a deployment switched off | — | — | **CLOSED** 2026-10-21 |
+| [§763](#763-draft-with-ai-cuts-the-steering-report-off-and-a-fresh-draft-does-not-show--closed-2026-10-22) | "Draft with AI" cuts the steering report off, and a fresh draft does not show | — | — | **CLOSED** 2026-10-22 |
+| [§764](#764-a-reply-cut-for-length-is-re-asked-as-a-schema-failure-and-six-forced-calls-never-read-why-a-reply-stopped--open) | A reply cut for length is re-asked as a schema failure, and six forced calls never read why a reply stopped | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45790,3 +45792,29 @@ Proposed: one server-side setting that names the switched-off integrations. The 
 Size M.
 
 **Source:** owner request 2026-10-21.
+
+## 763. "Draft with AI" cuts the steering report off, and a fresh draft does not show — CLOSED 2026-10-22
+
+**Status:** CLOSED 2026-10-22 on `fix/763-steering-report-cutoff`, owner decision 2026-10-22 to fix it before re-recording the big demo video. Verified with `npx vitest run src/app/committee-report/report-call.test.ts src/app/weight-suggestion-call.test.ts src/app/insights/recommend-call.test.ts src/app/meeting-report-panel.test.tsx src/app/use-meeting-report-actions.test.ts src/app/steering-committee-panel.test.tsx` (each fix's new tests failed on the code before it), and by the big demo video recording the steering draft end to end on 2026-10-22. `report-call.ts` now calls `runForcedToolCallWithStop`, as `scheduled-job-analysis.ts` does: budget 4096, one retry at 8192 when the reply stopped at `max_tokens`, and a cut reply is never parsed, so the user gets the whole report or the error, never half a report. `insights/recommend-call.ts` and `weight-suggestion-call.ts` had the same unread cut (a cut recommendation could keep only its first proposals; a cut weight reply read as "no change") and got the same treatment; `digest/digest-narrative.ts` was left at 1024, because its output is at most three sentences. The report editor in `meeting-report-panel.tsx` is keyed on the stored report's `updatedAt`, which every AI draft, restore and manual save sets and typing never does. Review round: `onGenerateReport`, the version restore and the send in `use-meeting-report-actions.ts` capture `getScopeEpoch()` before their first await and drop a late write through `dropStaleScopeWrite`, so a draft that finishes after a project switch no longer overwrites the same-numbered meeting in the next project (the longer retries had widened that window). Left as is, by decision: a manual Save remounts the editor and drops its undo history; a send that finishes after a switch leaves the old meeting without its `sentAt` stamp (the mail did go out); no progress hint or cancel during the longer wait. The shared call path's own handling of a cut reply is §764.
+
+**Work item:** #838
+
+"Draft with AI" on a steering committee's status report failed with "Could not draft the report" on most tries. `report-call.ts` asked for at most 2048 output tokens and never read why the reply stopped. Models that refuse a forced tool choice answer under `auto`, so thinking plus a report of about 1.9k tokens ran past 2048, the tool input came back as `{}` and the parser returned nothing (2 of 3 measured replies were cut). A draft that did arrive while the dialog was open never showed, because the editor read its content once on mount and had no `key`.
+
+Size S–M.
+
+**Source:** found 2026-10-22 when the big demo video failed twice at the steering draft (owner: fix now).
+
+## 764. A reply cut for length is re-asked as a schema failure, and six forced calls never read why a reply stopped — OPEN
+
+**Status:** OPEN 2026-10-22, filed on the owner's word from the §763 review. `grep -rln "runForcedToolCall(" src/app --include=*.ts --include=*.tsx | grep -v test` → `alloc-plan-call.ts`, `digest/digest-narrative.ts`, `raci-suggest-call.ts`, `task-dedup-call.ts`, `use-project-proposal.ts`, `wbs-plan-call.ts` (plus `ai-forced-call.ts` itself): the six callers that never see `stop_reason`.
+
+**Work item:** #839
+
+When a plain `auto` reply stops at `max_tokens`, `postAuto` in `ai-forced-call.ts` re-asks in strict mode at the same budget and marks the tool strict for the rest of the session. A reply cut for length is not a schema problem, so the strict re-ask costs a second billed reply that is just as likely to be cut, and the session flag outlives the cause. §763's three callers retry with a larger budget themselves, so a cut there can cost up to three billed replies. For the six callers above, the strict re-ask is the only second chance, so it cannot simply be removed.
+
+Proposed: decide per call whether its output can outgrow its budget (the digest's three sentences cannot), move the callers that can onto `runForcedToolCallWithStop` with a retry at a larger budget, then stop `postAuto` treating a `max_tokens` cut as a schema failure. Tests per call, including the auto-model path.
+
+Size M.
+
+**Source:** found 2026-10-22 by the whole-branch review of §763.
