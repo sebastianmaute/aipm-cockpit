@@ -6,6 +6,7 @@ import type { DashboardModel } from "./dashboard";
 import { defaultSettings } from "./settings-types";
 import { AiHttpError } from "./ai-errors";
 import { t } from "./i18n";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
 
 const sendMail = vi.fn<(token: string, msg: unknown) => Promise<void>>(async () => {});
 const runMeetingReport = vi.fn<() => Promise<string>>(async () => "<p>ai draft</p>");
@@ -66,6 +67,7 @@ function makeDeps(over: Partial<MeetingReportActionsDeps> = {}): MeetingReportAc
     aiModel: "claude-x",
     guides: [],
     projectId: "p1",
+    getScopeEpoch: () => 0,
     ...over,
   };
 }
@@ -250,5 +252,95 @@ describe("§650 a refused key shows the key message on the report draft toast", 
     await act(async () => { result.current!.onGenerateReport(10); });
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", key)));
     expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "reportGenerateFailed"));
+  });
+});
+
+// §763 / §548 — a draft (or a restore, or a send) that resolves after a project swap must not write into
+// the next project: meeting ids restart at 1 in every project, so the functional setter would find a
+// meeting #N there and overwrite its report. The epoch is captured before the first await; a moved
+// epoch drops the write and logs one storage.staleScopeWriteDropped naming the writer.
+describe("§763 a report write that resolves after a project swap is dropped", () => {
+  beforeEach(() => clearDiagLog());
+  const dropped = (writer: string) =>
+    readDiagLog().filter((ev) => ev.code === "storage.staleScopeWriteDropped" && ev.fields?.writer === writer);
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    const promise = new Promise<T>((r) => { resolve = r; });
+    return { promise, resolve };
+  }
+
+  it("a draft that resolves after the swap writes nothing, snapshots nothing and shows no toast", async () => {
+    const d = deferred<string>();
+    runMeetingReport.mockImplementationOnce(() => d.promise);
+    let epoch = 1;
+    const setSteeringCommittee = vi.fn();
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useMeetingReportActions(makeDeps({ setSteeringCommittee, showToast, tursoConfig: TURSO, getScopeEpoch: () => epoch })),
+    );
+    act(() => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBe(10));
+    epoch = 2; // the project swapped while the model was answering
+    await act(async () => { d.resolve("<p>late draft</p>"); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
+    expect(saveVersion).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
+    expect(dropped("useMeetingReportActions.generate")).toEqual([
+      expect.objectContaining({ fields: expect.objectContaining({ writer: "useMeetingReportActions.generate", meetingId: 10 }) }),
+    ]);
+  });
+
+  it("a draft with no swap still writes, and logs no drop", async () => {
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() =>
+      useMeetingReportActions(makeDeps({ setSteeringCommittee, getScopeEpoch: () => 7 })),
+    );
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(setSteeringCommittee).toHaveBeenCalledTimes(1));
+    const updater = setSteeringCommittee.mock.calls[0][0] as (c: SteeringCommittee) => SteeringCommittee;
+    expect(updater(committee()).meetings[0].report?.html).toBe("<p>ai draft</p>");
+    expect(dropped("useMeetingReportActions.generate")).toEqual([]);
+  });
+
+  it("a restore whose versions load after the swap writes nothing and does not say Restored", async () => {
+    const d = deferred<unknown[]>();
+    loadVersionsFn.mockImplementationOnce(() => d.promise);
+    let epoch = 1;
+    const setSteeringCommittee = vi.fn();
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useMeetingReportActions(makeDeps({ setSteeringCommittee, showToast, tursoConfig: TURSO, getScopeEpoch: () => epoch })),
+    );
+    act(() => { result.current!.onRestore(10, "v1"); });
+    await waitFor(() => expect(result.current!.restoreBusyId).toBe("v1"));
+    epoch = 2;
+    await act(async () => {
+      d.resolve([{ id: "v1", projectId: "p1", meetingId: 10, html: "<p>old version</p>", isAuto: true, capturedAt: "t" }]);
+    });
+    await waitFor(() => expect(result.current!.restoreBusyId).toBeNull());
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
+    expect(dropped("useMeetingReportActions.restore")).toHaveLength(1);
+  });
+
+  it("a send that finishes after the swap does not stamp sentAt on the next project's meeting, and still says it was sent", async () => {
+    const d = deferred<void>();
+    sendMail.mockImplementationOnce(() => d.promise);
+    let epoch = 1;
+    const setSteeringCommittee = vi.fn();
+    const showToast = vi.fn();
+    const { result } = renderHook(() =>
+      useMeetingReportActions(makeDeps({ setSteeringCommittee, showToast, getScopeEpoch: () => epoch })),
+    );
+    act(() => { result.current!.onSendReport(10, ["a@x.com"]); });
+    await waitFor(() => expect(sendMail).toHaveBeenCalledTimes(1));
+    epoch = 2;
+    await act(async () => { d.resolve(); });
+    await waitFor(() => expect(result.current!.sendBusyMeetingId).toBeNull());
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
+    expect(dropped("useMeetingReportActions.send")).toHaveLength(1);
+    // The mail did go out, so the user is still told it was sent.
+    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
   });
 });

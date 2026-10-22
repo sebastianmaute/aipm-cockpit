@@ -886,7 +886,7 @@ function TaskManagerInner() {
     getDashboardModel: () => dashboardModel,
     aiKey: aiKeyIfEnabled(settings.ai),
     aiModel: settings.ai.model, guides: operatingGuides.guides,
-    projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
+    projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "", getScopeEpoch, // §763: no late write into the next project
   });
   // Stable callback (its own useCallback) — depend on this, not the whole hook
   // object, so consumers don't re-create on every render.

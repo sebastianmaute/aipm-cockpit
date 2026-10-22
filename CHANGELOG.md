@@ -56,6 +56,12 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **"Draft with AI" writes the whole steering report (§763).** Drafting a steering committee's status report
+  often failed with "Could not draft the report", because Claude's reply was cut off before the report was
+  complete. It now gets more room, and asks once more with more room if the reply is still cut off; you get the
+  whole report or the error, never half a report. A draft that arrives while the report is open now shows at
+  once, and a draft, restore or send that finishes after you switch project no longer writes into the new one.
+  Insight recommendations and suggested weights had the same cut-off and are fixed the same way.
 - **A new linked task's assignee is picked from the directory (§758).** "+ New linked task" in the task
   editor offered a plain text field, so the new task got a name with no link to the person and no email. It now
   offers the same people picker as the task editor, and a picked person is linked to the new task with their email.

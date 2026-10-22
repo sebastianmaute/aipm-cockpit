@@ -83,7 +83,8 @@ types through the validator was weighed and rejected.
   cacheable system prompt, i18n-free English), `recommend-plan.ts` (`describeRecommendationPlan(calls, ws)` → an
   `EditPlan` preview reusing the inline-ai-edit descriptor engine, grounding each call by ITS OWN id). The call
   (`recommend-call.ts` `runInsightRecommendation`) mirrors `task-dedup-call` — ONE forced call through the shared
-  never-log `runForcedToolCall`. TWO triggers share the generate path: on-demand hook `use-insight-recommend.ts`
+  never-log `runForcedToolCallWithStop`, asked once more at 8192 tokens when the 4096-token reply stopped at
+  `max_tokens`; a cut reply is never read (§763). TWO triggers share the generate path: on-demand hook `use-insight-recommend.ts`
   (per-insight ✨ button) + opt-in background `use-insight-recommend-runner.ts` (mirrors `use-scheduled-job-runner`
   — `[]`-dep refs, mount+visibility+interval tick (user-settable, default `DEFAULT_INSIGHT_REC_INTERVAL_MIN`,
   clamped by `clampInsightRecInterval`), serial, capped `MAX_BG_RECS_PER_TICK`, breaks the tick on a limit/auth

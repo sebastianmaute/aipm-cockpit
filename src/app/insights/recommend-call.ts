@@ -1,9 +1,12 @@
-// Non-hook single forced-tool Anthropic call for insight recommendations.
-// Mirrors task-dedup-call.ts: ONE request, tool_choice forced, NO agentic loop.
+// Non-hook forced-tool Anthropic call for insight recommendations, NO agentic loop.
+// One call through the shared envelope, and a second with a larger budget when the
+// first reply is cut (mirrors scheduled-job-analysis.ts). Inside the envelope a call
+// can be several requests: a model that refuses a forced tool_choice is asked with
+// `auto`, and a reply that breaks the schema is re-asked strict.
 // Grounding happens in parseRecommendation; the api key/body are NEVER logged
-// (the shared runForcedToolCall envelope guarantees it). Thrown errors carry
+// (the shared runForcedToolCallWithStop envelope guarantees it). Thrown errors carry
 // only the HTTP status (AiHttpError) or the token "parse".
-import { runForcedToolCall } from "../ai-forced-call";
+import { runForcedToolCallWithStop } from "../ai-forced-call";
 import { RECOMMEND_TOOL, parseRecommendation } from "./recommend";
 import { buildRecommendSystemPrompt } from "./recommend-context";
 import type { GroundingIndex } from "../action-ai";
@@ -23,27 +26,40 @@ export interface RecommendCallArgs {
   cacheGuides?: boolean;
 }
 
-/** Run one forced propose_insight_actions tool call and return the grounded
- *  recommendation. Throws AiHttpError(status, errorType?, safeMessage?) on a
- *  non-OK response and Error("parse") on absent/malformed/ungrounded tool
- *  output. The api key is NEVER included in the thrown error — only the
- *  status + safe body tokens. */
+// §763 — a model asked with `auto` tool choice (one that refuses a forced choice) thinks first, on the
+// same output budget, so up to five proposed calls could overrun 2048; a reply cut there carries `{}` or
+// only its first calls, and the latter grounds and parses. As `scheduled-job-analysis.ts`: 4096, a cut
+// reply asked for once more with 8192, and a cut reply never read. On an `auto` model a cut can cost up to
+// three billed replies (plain 4096, strict 4096, strict 8192) and marks the tool strict for the session;
+// see report-call.ts.
+const MAX_TOKENS = 4096;
+const RETRY_MAX_TOKENS = 8192;
+
+/** Run one forced propose_insight_actions tool call (two when the first reply is
+ *  cut) and return the grounded recommendation. Throws AiHttpError(status,
+ *  errorType?, safeMessage?) on a non-OK response and Error("parse") on
+ *  absent/malformed/ungrounded tool output, or when the retry is cut too. The
+ *  api key is NEVER included in the thrown error — only the status + safe body
+ *  tokens. */
 export async function runInsightRecommendation(
   args: RecommendCallArgs,
 ): Promise<InsightRecommendation> {
-  const input = await runForcedToolCall({
-    apiKey: args.apiKey,
-    model: args.model,
-    system: buildRecommendSystemPrompt(),
-    guideText: args.guideText,
-    cacheGuides: args.cacheGuides,
-    tools: [RECOMMEND_TOOL],
-    toolName: RECOMMEND_TOOL.name,
-    messages: [{ role: "user", content: args.context }],
-    maxTokens: 2048,
-    signal: args.signal,
-  });
-  const parsed = parseRecommendation(input, args.index);
+  const call = (maxTokens: number) =>
+    runForcedToolCallWithStop({
+      apiKey: args.apiKey,
+      model: args.model,
+      system: buildRecommendSystemPrompt(),
+      guideText: args.guideText,
+      cacheGuides: args.cacheGuides,
+      tools: [RECOMMEND_TOOL],
+      toolName: RECOMMEND_TOOL.name,
+      messages: [{ role: "user", content: args.context }],
+      maxTokens,
+      signal: args.signal,
+    });
+  let reply = await call(MAX_TOKENS);
+  if (reply.stopReason === "max_tokens") reply = await call(RETRY_MAX_TOKENS);
+  const parsed = reply.stopReason === "max_tokens" ? null : parseRecommendation(reply.input, args.index);
   if (!parsed) throw new Error("parse");
   return { ...parsed, generatedAt: args.today };
 }

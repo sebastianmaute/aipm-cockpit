@@ -1229,7 +1229,8 @@
   `actionSuggestions`'s `!== false`).
 - **AI weight suggestions:** "Suggest with AI" in the next-actions settings → ONE forced-tool call
   (`suggest_weights`, forced, NO loop) in `weight-suggestion-call.ts` (the fetch now routes through the shared
-  `runForcedToolCall` (`ai-forced-call.ts`) — the single never-log envelope; never logs/echoes apiKey or body; thrown
+  `runForcedToolCallWithStop` (`ai-forced-call.ts`) — the single never-log envelope; a 4096-token reply cut at
+  `max_tokens` is asked once more at 8192 and never read, since `{}` would parse as "no change" (§763); never logs/echoes apiKey or body; thrown
   errors carry only HTTP-status digits or `"parse"`). Pure contract `next-actions-tuning.ts` + `weight-suggestion-ai.ts`; hook
   `use-weight-suggestions.ts`. ★★ EVERY model-proposed value reaching `settings.nextActions` MUST pass
   `parseWeightSuggestions` → `NEXT_ACTIONS_FIELD_COERCE[field]` — the SAME per-field validators
