@@ -5,12 +5,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as L from './lib.mjs';
-import { caption, click, moveTo, nav, pace, skipTour, type } from './ui.mjs';
+import { caption, click, holdVoice, moveTo, nav, pace, skipTour, type } from './ui.mjs';
 
 // Visible dialogs only: a closed modal can stay in the DOM after the one on screen.
 const DLG = '[role="dialog"]:visible';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEVICE_STATE = JSON.parse(fs.readFileSync(path.join(HERE, 'fixtures', 'device-state.json'), 'utf8'));
+
+/** Captions of connect() that depend on the wizard's path: Review shows only when Finish is reached, and the
+ *  optional Jira step shows once per skipped step (none, one or several). A take that runs connect on camera
+ *  exempts these from its unused-beat failure (take.mjs). */
+export const MAY_NOT_SHOW = ['setup-review', 'setup-jira-optional'];
 
 /** The setup wizard of a fresh browser: Turso (URL, token, test, portfolio storage), then the key.
  *  `ctx.secrets` = { url, token, key }. Filled, never typed: a typed secret is a frame per character.
@@ -20,19 +25,19 @@ export async function connect(ctx, { onCamera, firstRun = false }) {
   await page.getByText(/No projects yet/).first().waitFor({ timeout: 180000 });
   await L.settle(page);
   if (firstRun) await firstScreen(ctx);
-  if (onCamera) await caption(ctx, 'Connect the database and Claude.');
+  if (onCamera) await caption(ctx, 'Connect the database and Claude.', 'setup-connect');
   await click(ctx, page.getByRole('button', { name: 'Set up Turso first' }), 'Set up Turso first');
   const d = page.locator(DLG).last();
   await click(ctx, d.getByRole('checkbox').nth(1), 'Turso checkbox');
   await acknowledge(ctx);
-  if (onCamera) await caption(ctx, 'Paste URL and token, test, done.');
+  if (onCamera) await caption(ctx, 'Paste URL and token, test, done.', 'setup-turso');
   await type(ctx, d.getByPlaceholder('libsql://your-db.turso.io'), ctx.secrets.url, 'url', { slow: false });
   await type(ctx, d.locator('input[type=password]').first(), ctx.secrets.token, 'token', { slow: false });
   await click(ctx, d.getByRole('button', { name: 'Test connection – Turso' }), 'Test connection', 5000);
   await d.getByLabel('Portfolio storage').selectOption({ index: 1 });
   await pace(ctx, 1000);
   await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), 'Next');
-  if (onCamera) await caption(ctx, 'Paste once. Stored encrypted on this device.');
+  if (onCamera) await caption(ctx, 'Paste once. Stored encrypted on this device.', 'setup-key');
   await click(ctx, d.getByRole('checkbox').first(), 'AI switch');
   await acknowledge(ctx);
   await type(ctx, d.getByPlaceholder('sk-ant-...'), ctx.secrets.key, 'key', { slow: false });
@@ -42,10 +47,12 @@ export async function connect(ctx, { onCamera, firstRun = false }) {
     const fin = d.getByRole('button', { name: 'Finish', exact: true });
     if (await fin.count()) {
       if (firstRun) {
-        await caption(ctx, 'Review what is connected, then Finish.');
+        await caption(ctx, 'Review what is connected, then Finish.', 'setup-review');
         await pace(ctx, 3000);
       }
-      // Finish commits the portfolio storage choice and reloads the app onto Turso.
+      // Finish commits the portfolio storage choice and reloads the app onto Turso. The beat before it
+      // (setup-review, or setup-model) describes the wizard: its voice ends there, before the reload.
+      await holdVoice(ctx);
       const reloaded = page.waitForEvent('load', { timeout: 60000 });
       // A bare click: ui.click settles the page by evaluating in it, which a reload mid-way would break.
       await moveTo(ctx, fin);
@@ -59,7 +66,7 @@ export async function connect(ctx, { onCamera, firstRun = false }) {
     const skip = d.getByRole('button', { name: 'Skip', exact: true });
     const optional = i > 0 && (await skip.count()) > 0;
     if (firstRun && optional) {
-      await caption(ctx, 'Jira is optional: skip it for now.');
+      await caption(ctx, 'Jira is optional: skip it for now.', 'setup-jira-optional');
       await pace(ctx, 2000);
     }
     await click(ctx, optional || !(await nx.count()) ? skip : nx, 'Next/Skip');
@@ -80,7 +87,7 @@ async function pickModel(ctx, d, onCamera) {
   await option.waitFor({ state: 'attached', timeout: 30000 }).catch(() => {
     throw new Error('the model list has no Sonnet 5.5 after the key was entered');
   });
-  if (onCamera) await caption(ctx, 'With the key in, the model list loads: pick Sonnet 5.5.');
+  if (onCamera) await caption(ctx, 'With the key in, the model list loads: pick Sonnet 5.5.', 'setup-model');
   await moveTo(ctx, select);
   await select.selectOption(await option.getAttribute('value'));
   await L.settle(ctx.page);
@@ -89,7 +96,7 @@ async function pickModel(ctx, d, onCamera) {
 
 /** The screen a fresh install opens on: its three cards, before the setup wizard. */
 async function firstScreen(ctx) {
-  await caption(ctx, 'A fresh install opens here: start a project, open one, or explore the demo.');
+  await caption(ctx, 'A fresh install opens here: start a project, open one, or explore the demo.', 'setup-first-screen');
   for (const name of ['New project', 'Open existing', 'Explore the demo']) {
     const card = ctx.page.getByText(name, { exact: true }).first();
     if (await card.count()) {

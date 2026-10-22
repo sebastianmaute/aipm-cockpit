@@ -52,5 +52,7 @@ export const DAY_FACTS = Object.freeze({
   fri: [
     { collection: "tasks", key: "taskName", value: DEMO_CRM_TASK, field: "status", expected: "Done" },
     { collection: "raid", key: "title", value: DEMO_GDPR_ISSUE, field: "status", expected: "Resolved" },
+    // Made by hand in the recording (the picker's pick), so E's applyDemoWeek has no such row.
+    { collection: "tasks", key: "taskName", value: "Pilot feedback fixes – registration flow", field: "assignee", expected: "Sofia Ramirez", recorderOnly: true },
   ],
 });

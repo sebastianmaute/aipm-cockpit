@@ -53,7 +53,7 @@ const DEFS = [
 
   feature('f-open-points', 'Open points', { banner: 'Open Points' }),
   feature('f-board', 'The board', 'The same tasks as a board — drag a card to change its status.'),
-  feature('f-swimlanes', 'Swimlanes', 'Swimlanes group the board by person or group.'),
+  feature('f-swimlanes', 'Swimlanes', 'Swimlanes split the board into rows, one for each person.'),
   feature('f-gantt', 'The Gantt chart', 'The Gantt chart shows tasks and milestones on a timeline. Link dependencies to see what must finish before what.'),
   feature('f-milestones', 'Milestones', { banner: 'Milestones' }),
   feature('f-changes', 'Changes', { banner: 'Changes' }),

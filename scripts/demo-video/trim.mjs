@@ -16,13 +16,29 @@ const TRIM_TIMEOUT_MS = 30 * 60 * 1000;
 
 const isCut = (w, max) => w.end - w.start > max + MIN_CUT_S;
 
+/** The spans a cut `[a, b]` leaves once every `protect` span is taken out of it; a piece shorter than
+ *  MIN_CUT_S is dropped (the wait is kept there). */
+function splitAround([a, b], protect) {
+  let pieces = [[a, b]];
+  for (const [ps, pe] of protect) {
+    pieces = pieces.flatMap(([x, y]) => (pe <= x || ps >= y ? [[x, y]] : [[x, Math.min(y, ps)], [Math.max(x, pe), y]]));
+  }
+  return pieces.filter(([x, y]) => y - x >= MIN_CUT_S);
+}
+
+/** The `[at, at + duration]` spans of narrated beats, for `keepRanges`' `protect`. */
+export function protectSpans(beats) {
+  return (beats ?? []).map((b) => [b.at, b.at + b.duration]);
+}
+
 /** The spans of a `duration`-second video to keep, once each wait longer than `max` (by more than
  *  MIN_CUT_S) keeps only its first and last `max / 2` seconds. Waits may arrive in any order and overlap
- *  (a retry inside a longer wait). */
-export function keepRanges(waits, duration, max = MAX_AI_WAIT_S) {
+ *  (a retry inside a longer wait). A cut never overlaps a `protect` span (a narrated beat): it is shrunk or
+ *  split around it, and a piece under MIN_CUT_S is not cut. */
+export function keepRanges(waits, duration, max = MAX_AI_WAIT_S, protect = []) {
   const cuts = waits
     .filter((w) => isCut(w, max))
-    .map((w) => [w.start + max / 2, w.end - max / 2])
+    .flatMap((w) => splitAround([w.start + max / 2, w.end - max / 2], protect))
     .sort((a, b) => a[0] - b[0]);
   const ranges = [];
   let from = 0;
@@ -32,6 +48,18 @@ export function keepRanges(waits, duration, max = MAX_AI_WAIT_S) {
   }
   if (from < duration) ranges.push([from, duration]);
   return ranges.filter(([a, b]) => b > a);
+}
+
+/** Maps a time on the untrimmed recording onto the trimmed one, given the kept `ranges`. A time inside a
+ *  cut maps to the cut's start; one past the last range maps to the trimmed length. */
+export function mapTime(t, ranges) {
+  let kept = 0;
+  for (const [a, b] of ranges) {
+    if (t < a) return kept;
+    if (t <= b) return kept + (t - a);
+    kept += b - a;
+  }
+  return kept;
 }
 
 /** ffmpeg arguments that keep `ranges` of `src` and join them into `dst`. */
@@ -50,10 +78,11 @@ export function trimArgs(src, dst, ranges) {
   ];
 }
 
-/** Trims `file` in place. Returns the seconds cut and how many waits were capped (both 0 when no wait
- *  was over the cap). A failed encode or rename throws with ffmpeg's message (or the error's) and leaves `file` untouched.
+/** Trims `file` in place. Returns the seconds cut, how many waits were capped (both 0 when no wait
+ *  was over the cap) and the kept `ranges` (the whole recording when nothing is cut), which `mapTime` maps beat
+ *  times through. `protect` spans (narrated beats) are never cut. A failed encode or rename throws with ffmpeg's message (or the error's) and leaves `file` untouched.
  *  `exec` has `execFileSync`'s shape; tests pass a fake. */
-export function trimAiWaits(file, waits, outRoot, { exec = execFileSync } = {}) {
+export function trimAiWaits(file, waits, outRoot, { exec = execFileSync, protect = [] } = {}) {
   // `exec` is execFileSync (no shell) and runs only the fixed ffprobe/ffmpeg below, with arguments built here
   // from the recorder's own output paths and numbers: no outside input reaches it.
   // nosemgrep: local-no-dynamic-code-exec
@@ -61,11 +90,11 @@ export function trimAiWaits(file, waits, outRoot, { exec = execFileSync } = {}) 
   const total = Number(String(run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file])).trim());
   if (!Number.isFinite(total) || total <= 0) throw new Error(`no duration for ${path.basename(file)}`);
   const raw = path.join(outRoot, 'untrimmed', path.relative(outRoot, file));
-  const ranges = keepRanges(waits ?? [], total);
+  const ranges = keepRanges(waits ?? [], total, MAX_AI_WAIT_S, protect);
   if (ranges.length === 1 && ranges[0][0] === 0 && ranges[0][1] === total) {
     // An untrimmed copy from an earlier take would no longer match this one.
     fs.rmSync(raw, { force: true });
-    return { cut: 0, capped: 0 };
+    return { cut: 0, capped: 0, ranges };
   }
   fs.mkdirSync(path.dirname(raw), { recursive: true });
   fs.copyFileSync(file, raw);
@@ -81,5 +110,5 @@ export function trimAiWaits(file, waits, outRoot, { exec = execFileSync } = {}) 
     throw new Error(`trim failed for ${path.basename(file)}: ${why}`);
   }
   const kept = ranges.reduce((s, [a, b]) => s + (b - a), 0);
-  return { cut: total - kept, capped: (waits ?? []).filter((w) => isCut(w, MAX_AI_WAIT_S)).length };
+  return { cut: total - kept, capped: (waits ?? []).filter((w) => isCut(w, MAX_AI_WAIT_S)).length, ranges };
 }

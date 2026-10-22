@@ -12,7 +12,7 @@ const NAMES = [
 ] as const;
 const DAYS = ["mon", "tue", "wed", "thu", "fri"] as const;
 
-type Fact = { collection: string; key: string; value: string; field: string; expected: string | number | null };
+type Fact = { collection: string; key: string; value: string; field: string; expected: string | number | null; recorderOnly?: boolean };
 const master = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8"));
 const facts = (story as unknown as { DAY_FACTS: Record<(typeof DAYS)[number], Fact[]> }).DAY_FACTS;
 
@@ -28,12 +28,18 @@ describe("the demo week's story (§715)", () => {
     for (const day of DAYS) {
       const ws = week.applyDemoWeek(master, day) as Record<string, Record<string, unknown>[]>;
       for (const f of facts[day]) {
+        if (f.recorderOnly) continue;
         const row = ws[f.collection]?.find((r) => r[f.key] === f.value);
         const got = row ? (row[f.field] ?? null) : "<no row>";
         if (got !== f.expected) wrong.push(`${day} ${f.collection} ${f.value}.${f.field}: ${String(got)} ≠ ${String(f.expected)}`);
       }
     }
     expect(wrong).toEqual([]);
+  });
+
+  it("Friday checks the split task's assignee, a fact only the recording makes", () => {
+    const f = facts.fri.find((x) => x.field === "assignee");
+    expect(f).toMatchObject({ value: "Pilot feedback fixes – registration flow", expected: "Sofia Ramirez", recorderOnly: true });
   });
 
   it("each day carries at least one fact", () => {

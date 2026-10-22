@@ -1,6 +1,9 @@
 // §715 demo recorder: on-screen helpers — the cursor and caption overlay, the host blur, and paced
 // clicks, typing and navigation. Every helper takes the take's `ctx` ({ page, rehearse, log, … }).
-// Lifted from the first recorder. See README.md.
+// Lifted from the first recorder. A narrated take (`ctx.narration`) paces its captions by their beats' audio.
+// See README.md.
+// The reserved beat ids (narration/beats.mjs TITLE, CLOSING) arrive as arguments from take.mjs: beats.mjs
+// imports videos.mjs, which imports the step modules, which import this file, so importing it here is a cycle.
 import * as L from './lib.mjs';
 
 // Installed in every page before it loads: an arrow cursor that follows the mouse, the caption bar,
@@ -36,7 +39,65 @@ export const OVERLAY = (host) => {
 /** Pause `ms`, or a token 150 ms in a rehearsal. */
 export const pace = (ctx, ms) => ctx.page.waitForTimeout(ctx.rehearse ? Math.min(ms, 150) : ms);
 
-export async function caption(ctx, text) {
+/** The pause after a beat's audio before the next beat may start. */
+export const PAUSE_MS = 400;
+
+/** On camera: the take has started (`ctx.onCamera`, set by take.mjs in both modes) or the recording runs.
+ *  Off camera (the replay of earlier days, setup) a caption is never held, checked or logged. */
+const onCamera = (ctx) => ctx.onCamera === true || ctx.recordingStartedAt != null;
+
+/** The beat `id` names, or null off camera or without narration. A missing beat fails a recorded take;
+ *  a rehearsal logs it and counts a warning (`ctx.narrationMissing`). A found beat is marked used. */
+function beatFor(ctx, id) {
+  if (!ctx.narration || !id || !onCamera(ctx)) return null;
+  const beat = ctx.narration.get(id);
+  if (!beat) {
+    if (!ctx.rehearse) throw new Error(`no narration for beat ${id}`);
+    ctx.log(`NARRATION missing ${id}`);
+    ctx.narrationMissing = (ctx.narrationMissing ?? 0) + 1;
+    return null;
+  }
+  (ctx.beatsUsed ??= new Set()).add(id);
+  return beat;
+}
+
+/** A beat id already shown in this take: a later show keeps its caption but speaks nothing, and holds only
+ *  this long (the rehearsal's token pace), so a branch that shows one caption twice sounds right. */
+const REPEAT_MS = 150; // long enough to see the caption change, short enough to add no dead air to the take
+const shownBefore = (ctx, id) => ctx.beatsUsed?.has(id) === true;
+
+/** A beat with audio, in a running recording (a rehearsal's beats have no duration). */
+const voiced = (ctx, beat) => beat != null && beat.duration != null && ctx.recordingStartedAt != null;
+
+/** Holds until the previous beat's audio and its pause are over. */
+async function waitForVoice(ctx) {
+  const left = (ctx.voiceFreeAt ?? 0) - performance.now();
+  if (left > 0) await ctx.page.waitForTimeout(left);
+}
+
+/** On camera, holds the frame until the pending voice and its pause are over. take.mjs calls it at the end of
+ *  the intro and of every on-camera step, and a step calls it before it leaves a view its last beat describes,
+ *  so a voice never runs on into the next view. A rehearsal has no voice, so it never waits. */
+export async function holdVoice(ctx) {
+  if (onCamera(ctx)) await waitForVoice(ctx);
+}
+
+/** Notes the beat on the recording's timeline; the next beat waits for its audio and the pause. */
+function startVoice(ctx, id, duration) {
+  const t = performance.now();
+  (ctx.beatLog ??= []).push({ id, at: (t - ctx.recordingStartedAt) / 1000, duration });
+  ctx.voiceFreeAt = t + duration * 1000 + PAUSE_MS;
+}
+
+/** Shows `text` in the caption bar ('' clears it). `id` names its narration beat: in a narrated recording
+ *  the caption waits for the previous beat's voice, then returns at once, so its voice plays over the next
+ *  action. Without narration, or off camera, it holds 1.2 s as before. */
+export async function caption(ctx, text, id) {
+  const again = shownBefore(ctx, id);
+  const beat = beatFor(ctx, id);
+  const voice = !again && voiced(ctx, beat);
+  // A repeat starts no voice but still waits for any pending one: it must not replace a caption mid-sentence.
+  if (onCamera(ctx)) await waitForVoice(ctx);
   await ctx.page.evaluate((t) => {
     const b = document.getElementById('demo-subtitle');
     if (!b) return;
@@ -44,18 +105,35 @@ export async function caption(ctx, text) {
     b.style.opacity = t ? '1' : '0';
   }, text);
   ctx.log('CAPTION ' + (text || '(clear)'));
-  if (text) await pace(ctx, 1200);
+  if (voice) startVoice(ctx, id, beat.duration);
+  else if (text) await pace(ctx, again ? REPEAT_MS : 1200);
 }
 
-/** The video's title in the caption bar for its first 3 s, so it says what it is about before anything moves. */
-export async function titleCard(ctx, title) {
+/** A voice-only beat: the same pace as a caption's, with no caption change. */
+export async function speak(ctx, id) {
+  const again = shownBefore(ctx, id);
+  const beat = beatFor(ctx, id);
+  if (again || !voiced(ctx, beat)) return;
+  await waitForVoice(ctx);
+  startVoice(ctx, id, beat.duration);
+}
+
+/** The video's title in the caption bar for its first 3 s, so it says what it is about before anything moves.
+ *  A narrated video may speak its title beat (`beat`, the reserved TITLE id) over it. */
+export async function titleCard(ctx, title, beat) {
   await caption(ctx, title);
+  if (beat && ctx.narration?.has(beat)) await speak(ctx, beat);
   await pace(ctx, 1800);
 }
 
-/** The clip's closing beat: the last frame held without a caption, about 1.5 s. */
-export async function closingBeat(ctx) {
+/** The clip's closing beat: the last frame held without a caption, about 1.5 s. The last caption stays up
+ *  until its voice is done; a narrated video may then speak its closing beat (`beat`, the reserved CLOSING
+ *  id) over the cleared frame, which is held until that voice is done too. */
+export async function closingBeat(ctx, beat) {
+  await waitForVoice(ctx);
   await caption(ctx, '');
+  if (beat && ctx.narration?.has(beat)) await speak(ctx, beat);
+  await waitForVoice(ctx);
   await pace(ctx, 1500);
 }
 

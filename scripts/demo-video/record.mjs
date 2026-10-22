@@ -3,7 +3,8 @@
 //   node scripts/demo-video/record.mjs --video <id> | --tier <big|chapters|ai|features> | --all | --list
 //   flags: --rehearse (no recording), --with-ai (a rehearsal also makes the AI calls), --probe (stop
 //   after the demo opens: print the nav items and save a screenshot).
-// Every take: cleanup → fresh browser context → setup off camera → preconditions → recording.
+// Every take: cleanup → fresh browser context → setup off camera → preconditions → recording. A video with a
+// narration file is paced by its beats' audio (rendered first by narrate.mjs); a rehearsal checks its beat ids.
 // Never prints credentials; the Turso host is blurred on screen. See README.md.
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
@@ -11,10 +12,10 @@ import path from 'node:path';
 import * as L from './lib.mjs';
 import { cleanup } from './cleanup.mjs';
 import { exitCode, outPath, parseArgs, selectVideos } from './cli.mjs';
+import { narrationFor, trimAndMix } from './narrated.mjs';
 import * as setup from './setup.mjs';
 import { checkDayFacts } from './steps/week.mjs';
 import { runTake } from './take.mjs';
-import { MAX_AI_WAIT_S, trimAiWaits } from './trim.mjs';
 import * as ui from './ui.mjs';
 import { VIDEOS } from './videos.mjs';
 
@@ -31,8 +32,14 @@ if (args.list) {
 const T = L.throwaway();
 const KEY = L.readEnv('ANTHROPIC_API_KEY');
 if (!KEY) throw new Error('ANTHROPIC_API_KEY not set in .env.local');
-const SECRETS = [T.url, T.host, T.token, KEY];
-const mask = (s) => SECRETS.reduce((acc, v, i) => (v ? acc.split(v).join(['<URL>', '<HOST>', '<TOKEN>', '<KEY>'][i]) : acc), String(s));
+// Read here only so the output scan can find it (ruling R6); only the render code (narrate.mjs) uses it.
+// Empty when unset, and an empty secret is skipped by the mask and the scan.
+const ELEVENLABS_KEY = L.readEnv('ELEVENLABS_API_KEY');
+const SECRETS = [T.url, T.host, T.token, KEY, ELEVENLABS_KEY];
+const mask = (s) => SECRETS.reduce((acc, v, i) => (v ? acc.split(v).join(['<URL>', '<HOST>', '<TOKEN>', '<KEY>', '<ELEVENLABS_KEY>'][i]) : acc), String(s));
+
+/** The narration's language: English for now. */
+const NARRATION_LANG = 'en';
 
 /** A `{ banner: <view> }` opening is that view's own banner text, read from the page. A sub-view names its
  *  path ("Resources>Planning"): its nav item shows only while its parent is open. */
@@ -46,12 +53,14 @@ async function resolveOpening(ctx, opening) {
 }
 
 async function take(browser, def) {
+  const { narration, ownBeatIds } = narrationFor(def, { lang: NARRATION_LANG, rehearse: args.rehearse });
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, locale: 'en-US', timezoneId: 'Europe/Berlin' });
   const page = await context.newPage();
   const lines = [];
   // The raw line is kept for the secret scan (take.mjs); the console only ever sees it masked.
   const log = (line) => { lines.push(String(line)); console.log(`[${def.id}]`, mask(line)); };
   const ctx = { page, clipId: def.id, rehearse: args.rehearse, withAi: args.withAi, log, lines, secrets: { url: T.url, token: T.token, key: KEY } };
+  if (narration) ctx.narration = narration;
   let warnings = 0;
   ctx.goToDay = (day) => setup.goToDay(ctx, day);
   // A rehearsal checks each finished day against DAY_FACTS (week-story.mjs); a mismatch is a warning.
@@ -83,7 +92,7 @@ async function take(browser, def) {
     const r = await runTake(def, {
       ctx, setup, ui, resolveOpening,
       afterDay: async (c, day) => { if (c.checkDay) await c.checkDay(day); },
-      opts: { rehearse: args.rehearse, withAi: args.withAi, outFile: file, secrets: SECRETS },
+      opts: { rehearse: args.rehearse, withAi: args.withAi, outFile: file, secrets: SECRETS, ownBeatIds },
     });
     // The day a chapter records (and the big video's last day) is checked once its steps are done.
     // ch2-connect ends as the demo opens, before any day's steps, so it has no day to check.
@@ -92,26 +101,14 @@ async function take(browser, def) {
       await ctx.checkDay(def.tier === 'big' ? 'fri' : def.clock);
     }
     if (r.status !== 'ok') await page.screenshot({ path: path.join(L.OUT, `warn-${def.id}.png`) }).catch(() => {});
-    return { ...r, warnings: r.warnings + warnings };
+    return { ...r, warnings: r.warnings + warnings, narration };
   } finally {
     await context.close();
   }
 }
 
-/** Caps each wait for Claude in a finished take at MAX_AI_WAIT_S (trim.mjs), once its browser context is
- *  closed. A failed trim keeps the untrimmed take and counts a warning, so the take's own warnings (the
- *  secret scan among them) still reach the tally. */
-function trimTake(def, r) {
-  if (r.status !== 'ok' || !r.file) return r;
-  try {
-    const { cut, capped } = trimAiWaits(r.file, r.aiWaits, L.OUT);
-    if (capped) console.log(`[${def.id}]`, `TRIM ${capped} AI wait(s) capped at ${MAX_AI_WAIT_S} s, ${cut.toFixed(1)} s cut`);
-    return r;
-  } catch (e) {
-    console.log(`[${def.id}]`, mask(`TRIM FAILED ${String(e?.message ?? e).split('\n')[0]} (the untrimmed take is kept)`));
-    return { ...r, warnings: r.warnings + 1 };
-  }
-}
+/** The finished take, trimmed and (when narrated) mixed in the take's language (narrated.mjs), its logs masked. */
+const trimTake = (def, r) => trimAndMix(def, r, { lang: NARRATION_LANG, outRoot: L.OUT, log: (...parts) => console.log(...parts.map(mask)) });
 
 // Headless Chromium hides every scrollbar by default (Playwright adds --hide-scrollbars); the videos show
 // the app as a user sees it, so a scrollable list looks scrollable.
