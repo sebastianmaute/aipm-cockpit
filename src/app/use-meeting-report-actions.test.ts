@@ -324,13 +324,14 @@ describe("§763 a report write that resolves after a project swap is dropped", (
     expect(dropped("useMeetingReportActions.restore")).toHaveLength(1);
   });
 
-  it("a send that finishes after the swap does not stamp sentAt on the next project's meeting", async () => {
+  it("a send that finishes after the swap does not stamp sentAt on the next project's meeting, and still says it was sent", async () => {
     const d = deferred<void>();
     sendMail.mockImplementationOnce(() => d.promise);
     let epoch = 1;
     const setSteeringCommittee = vi.fn();
+    const showToast = vi.fn();
     const { result } = renderHook(() =>
-      useMeetingReportActions(makeDeps({ setSteeringCommittee, getScopeEpoch: () => epoch })),
+      useMeetingReportActions(makeDeps({ setSteeringCommittee, showToast, getScopeEpoch: () => epoch })),
     );
     act(() => { result.current!.onSendReport(10, ["a@x.com"]); });
     await waitFor(() => expect(sendMail).toHaveBeenCalledTimes(1));
@@ -339,5 +340,7 @@ describe("§763 a report write that resolves after a project swap is dropped", (
     await waitFor(() => expect(result.current!.sendBusyMeetingId).toBeNull());
     expect(setSteeringCommittee).not.toHaveBeenCalled();
     expect(dropped("useMeetingReportActions.send")).toHaveLength(1);
+    // The mail did go out, so the user is still told it was sent.
+    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
   });
 });

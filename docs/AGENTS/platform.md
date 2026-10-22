@@ -362,7 +362,7 @@ switched the integration off.
   a REQUIRED `TasksSectionProps.getScopeEpoch` threaded straight from `task-manager.tsx`. ★★ THE RULE
   THAT FOLLOWS: the hook ARG stays optional (a unit test must be able to opt out), but every PANE or
   `deps` boundary that hands the reader down declares it REQUIRED — `CalendarIntegrationDeps`,
-  `InsightRecommendationDeps`, `TasksSectionProps`, `ChatScopeProps` — because tsc is the only thing
+  `InsightRecommendationDeps`, `TasksSectionProps`, `ChatScopeProps`, `MeetingReportActionsDeps` — because tsc is the only thing
   that can see the omission. The list IS the rule's evidence, so an omission from it weakens the rule.
 - ★★★ **THE CHAT PANEL IS A THIRD SHAPE, NOT A FOURTH ROW OF THE RULE ABOVE (§596).** Until 2026-09-20
   this file said "★ Still NOT guarded, deliberately and unchanged: the chat agent loop, which has no
