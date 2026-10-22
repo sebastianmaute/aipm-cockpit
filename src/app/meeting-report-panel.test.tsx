@@ -181,4 +181,21 @@ describe("MeetingReportPanel — a new report body reaches the open editor (§76
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(onSave).toHaveBeenCalledWith("<p>typed</p>");
   });
+
+  // The key is the stored body's STAMP, not its html: a restore (or a draft) that writes the html the
+  // dialog opened with, after the user typed, re-seeds the draft to it, and the editor must show what
+  // Save would write — an html key would keep the typed text on screen while Save sent the stored body.
+  it("shows the stored body again when a write repeats its html with a new stamp after the user typed", async () => {
+    const onSave = vi.fn();
+    const { rerender } = render(
+      <MeetingReportPanel {...props} onSave={onSave} report={{ html: "<p>stored</p>", updatedAt: "2026-10-22T09:00:00.000Z" }} />,
+    );
+    fireEvent.change(await screen.findByLabelText("Report"), { target: { value: "<p>typed</p>" } });
+    rerender(
+      <MeetingReportPanel {...props} onSave={onSave} report={{ html: "<p>stored</p>", updatedAt: "2026-10-22T09:05:00.000Z" }} />,
+    );
+    expect(await screen.findByLabelText("Report")).toHaveValue("<p>stored</p>");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledWith("<p>stored</p>");
+  });
 });
