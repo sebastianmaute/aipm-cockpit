@@ -17,6 +17,7 @@ import { loadVersions, saveVersion } from "./committee-report-versions-store";
 import type { MeetingReportVersionUi } from "./meeting-report-panel";
 import type { DashboardModel } from "./dashboard";
 import type { TursoConfig } from "./turso-config";
+import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 
 export interface MeetingReportActionsDeps {
   lang: Lang;
@@ -41,6 +42,11 @@ export interface MeetingReportActionsDeps {
   guides: readonly OperatingGuide[];
   /** Turso project id for version rows (only used when tursoConfig !== null). */
   projectId: string;
+  /** §548 / §763 — REQUIRED (the deps boundary, see scope-epoch.ts): `useStorageBackend`'s scope
+   *  epoch. Each writer below that awaits (the AI draft, a restore, a send) captures it before its first
+   *  await and drops its write when it moved: meeting ids restart at 1 in every project, so a late
+   *  write would otherwise land on the next project's meeting with the same id. */
+  getScopeEpoch: ScopeEpochReader;
 }
 
 export interface MeetingReportBag {
@@ -128,6 +134,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       return;
     }
     setSendBusyMeetingId(meetingId);
+    const startEpoch = deps.getScopeEpoch();
     try {
       const token = await deps.acquireToken(MAIL_SEND_SCOPE, { interactive: true });
       if (!token) {
@@ -137,16 +144,20 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       const subject = `${t(deps.lang, "reportStatusReport")}: ${meeting.title || meeting.date}`;
       const html = sanitizeRichHtml(meeting.report.html);
       await sendMail(token, buildGraphMessage(emails, subject, html));
-      deps.setSteeringCommittee((c) =>
-        c
-          ? {
-              ...c,
-              meetings: c.meetings.map((m) =>
-                m.id === meetingId && m.report ? { ...m, report: { ...m.report, sentAt: nowIso() } } : m,
-              ),
-            }
-          : c,
-      );
+      // The mail went out, so the toast below still says so; only the sentAt stamp is dropped, because
+      // after a swap meeting #meetingId is another project's meeting.
+      if (!dropStaleScopeWrite(deps.getScopeEpoch, startEpoch, "useMeetingReportActions.send", { meetingId })) {
+        deps.setSteeringCommittee((c) =>
+          c
+            ? {
+                ...c,
+                meetings: c.meetings.map((m) =>
+                  m.id === meetingId && m.report ? { ...m, report: { ...m.report, sentAt: nowIso() } } : m,
+                ),
+              }
+            : c,
+        );
+      }
       deps.showToast("info", tPlural(deps.lang, "reportSentToast", emails.length, emails.length));
     } catch {
       // Never surface the Graph error body — status-only.
@@ -164,6 +175,8 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     const ctrl = new AbortController();
     generateCtrlRef.current = ctrl;
     setGenerateBusyMeetingId(meetingId);
+    // §548 / §763 — the project this draft is read from and will be written into.
+    const startEpoch = deps.getScopeEpoch();
     try {
       const html = await runMeetingReport(
         deps.getDashboardModel(),
@@ -173,6 +186,10 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       );
       // A stop that lost the race to the response still means "don't use it".
       if (ctrl.signal.aborted) return;
+      // A swap that finished while the model was answering: meeting #meetingId is now another project's
+      // meeting, and onSaveReport would overwrite its report (and snapshot the OLD project's, from this
+      // render's stale deps). Dropped, not queued.
+      if (dropStaleScopeWrite(deps.getScopeEpoch, startEpoch, "useMeetingReportActions.generate", { meetingId })) return;
       // onSaveReport sanitizes (AI output is untrusted) before it lands.
       onSaveReport(meetingId, html);
     } catch (e) {
@@ -204,10 +221,12 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
   async function onRestore(meetingId: number, versionId: string): Promise<void> {
     if (!deps.tursoConfig) return;
     setRestoreBusyId(versionId);
+    const startEpoch = deps.getScopeEpoch();
     try {
       const records = await loadVersions(deps.tursoConfig, deps.projectId, meetingId);
       const v = records.find((x) => x.id === versionId);
       if (!v) return;
+      if (dropStaleScopeWrite(deps.getScopeEpoch, startEpoch, "useMeetingReportActions.restore", { meetingId })) return;
       // onSaveReport snapshots the current (pre-restore) report, then writes the
       // restored body — so a restore is itself undoable via a new version.
       onSaveReport(meetingId, v.html);

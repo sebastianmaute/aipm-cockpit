@@ -350,6 +350,9 @@ switched the integration off.
   against the epoch the conflicts were QUEUED in, not a fresh read at Apply — the hook takes the
   reader REQUIRED, since `task-manager.tsx` calls it directly with no deps boundary between),
   the undo stack (`use-undo-stack.ts`; see [undo.md](undo.md)),
+  `useMeetingReportActions` (§763: the AI draft, a version restore and the send's `sentAt` stamp, each
+  against the epoch captured before its first await — meeting ids restart at 1 in every project; its
+  `MeetingReportActionsDeps.getScopeEpoch` is REQUIRED),
   and `chat-panel.tsx`'s tool loop (per TOOL, and the loop `break`s — but read the separate bullet
   below before treating it as a fourth row of this rule; its cancel rides a different signal).
   ★★★ The reader is OPTIONAL at each child hook, and that optionality is how `tasks-section.tsx`'s own
