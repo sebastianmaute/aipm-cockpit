@@ -108,3 +108,57 @@ describe("runMeetingReport guide text", () => {
     expect(sys(m)).toBeUndefined();
   });
 });
+
+// §763 — under auto tool choice the model thinks first, and thinking plus a ~1.9k-token report overran
+// 2048: the reply stopped at max_tokens with the tool input `{}`, and the user saw "Could not draft".
+describe("runMeetingReport output budget (§763)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const reply = (stop: string, input: unknown) => ({
+    ok: true,
+    json: async () => ({ stop_reason: stop, content: [{ type: "tool_use", name: "write_status_report", input }] }),
+  });
+  const budgets = (m: { mock: { calls: unknown[][] } }) =>
+    m.mock.calls.map((c) => JSON.parse(String((c[1] as RequestInit).body)).max_tokens as number);
+
+  it("asks for an output budget of 4096 tokens", async () => {
+    const m = vi.fn().mockResolvedValue(reply("tool_use", { html: "<p>whole</p>" }));
+    vi.stubGlobal("fetch", m);
+    await expect(runMeetingReport(MODEL, "Agenda", CTX)).resolves.toBe("<p>whole</p>");
+    expect(budgets(m)).toEqual([4096]);
+  });
+
+  it("asks once more with 8192 tokens when the reply was cut with an empty input, and returns that report", async () => {
+    const m = vi.fn()
+      .mockResolvedValueOnce(reply("max_tokens", {}))
+      .mockResolvedValueOnce(reply("tool_use", { html: "<p>whole</p>" }));
+    vi.stubGlobal("fetch", m);
+    await expect(runMeetingReport(MODEL, "Agenda", CTX)).resolves.toBe("<p>whole</p>");
+    expect(budgets(m)).toEqual([4096, 8192]);
+  });
+
+  it("never returns a cut reply's half report, even when its html parses", async () => {
+    const m = vi.fn()
+      .mockResolvedValueOnce(reply("max_tokens", { html: "<p>half</p>" }))
+      .mockResolvedValueOnce(reply("max_tokens", { html: "<p>half again</p>" }));
+    vi.stubGlobal("fetch", m);
+    await expect(runMeetingReport(MODEL, "Agenda", CTX)).rejects.toThrow(/^parse$/);
+    expect(budgets(m)).toEqual([4096, 8192]);
+  });
+
+  it("passes the caller's signal to the retry too", async () => {
+    const controller = new AbortController();
+    const m = vi.fn()
+      .mockResolvedValueOnce(reply("max_tokens", {}))
+      .mockResolvedValueOnce(reply("tool_use", { html: "<p>whole</p>" }));
+    vi.stubGlobal("fetch", m);
+    await runMeetingReport(MODEL, "Agenda", CTX, controller.signal);
+    expect(m.mock.calls.map((c) => (c[1] as RequestInit).signal)).toEqual([controller.signal, controller.signal]);
+  });
+
+  it("does not retry a reply that was not cut", async () => {
+    const m = vi.fn().mockResolvedValue(reply("tool_use", {}));
+    vi.stubGlobal("fetch", m);
+    await expect(runMeetingReport(MODEL, "Agenda", CTX)).rejects.toThrow(/^parse$/);
+    expect(m).toHaveBeenCalledTimes(1);
+  });
+});
