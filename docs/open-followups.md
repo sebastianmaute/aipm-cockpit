@@ -1003,6 +1003,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§763](#763-draft-with-ai-cuts-the-steering-report-off-and-a-fresh-draft-does-not-show--closed-2026-10-22) | "Draft with AI" cuts the steering report off, and a fresh draft does not show | — | — | **CLOSED** 2026-10-22 |
 | [§764](#764-a-reply-cut-for-length-is-re-asked-as-a-schema-failure-and-six-forced-calls-never-read-why-a-reply-stopped--open) | A reply cut for length is re-asked as a schema failure, and six forced calls never read why a reply stopped | — | — | open |
 | [§765](#765-the-demo-videos-are-not-in-the-app-and-there-is-no-german-demo-project-or-german-recording--open) | The demo videos are not in the app, and there is no German demo project or German recording | — | — | open |
+| [§766](#766-manage-roles-gets-cramped-on-small-screens--open) | Manage roles gets cramped on small screens | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45839,3 +45840,19 @@ Proposed: a design per piece, in the owner's order, as piece 1 had. The install 
 Size L (three pieces).
 
 **Source:** owner decision 2026-10-22, splitting the narration programme out of §715.
+
+## 766. Manage roles gets cramped on small screens — OPEN
+
+**Status:** OPEN 2026-10-22, reported by the owner. Not yet reproduced.
+
+**Work item:** #844
+
+On a small screen, the Manage roles view (Resources → Manage roles) gets cramped: the roles editor has too little width for its controls.
+
+Likely cause (not yet measured): `RolesPanel` (`roles-panel.tsx`) uses `CENTERED_FIT_PANE_CLASS` from `view-styles.ts`, which sizes the pane at `w-[50%]` of the content area with a `min-w-[420px]` floor. On a narrow window that leaves the roles editor (`roles-editor.tsx`) about 420px, minus the pane's padding, for a toolbar that does not wrap (`flex-nowrap`) and for the role rows. `RolesPanel` is the only user of that class (`grep -rln "CENTERED_FIT_PANE_CLASS" src/app | grep -v test` → `roles-panel.tsx` and `view-styles.ts`), so changing it touches nothing else.
+
+Proposed: reproduce at common small sizes (for example 1280×720 and 1366×768, and at 125–150% display scaling). Then decide between letting the pane take more of the width below a breakpoint and letting the editor's toolbar and rows wrap. Keep the manual resize corner and the reset-size button working.
+
+Size S.
+
+**Source:** owner report 2026-10-22.
