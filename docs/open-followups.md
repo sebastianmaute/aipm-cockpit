@@ -1003,7 +1003,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§763](#763-draft-with-ai-cuts-the-steering-report-off-and-a-fresh-draft-does-not-show--closed-2026-10-22) | "Draft with AI" cuts the steering report off, and a fresh draft does not show | — | — | **CLOSED** 2026-10-22 |
 | [§764](#764-a-reply-cut-for-length-is-re-asked-as-a-schema-failure-and-six-forced-calls-never-read-why-a-reply-stopped--open) | A reply cut for length is re-asked as a schema failure, and six forced calls never read why a reply stopped | — | — | open |
 | [§765](#765-the-demo-videos-are-not-in-the-app-and-there-is-no-german-demo-project-or-german-recording--open) | The demo videos are not in the app, and there is no German demo project or German recording | — | — | open |
-| [§766](#766-manage-roles-gets-cramped-on-small-screens--open) | Manage roles gets cramped on small screens | — | — | open |
+| [§766](#766-manage-roles-gets-cramped-on-small-screens--closed-2026-10-23) | Manage roles gets cramped on small screens | — | — | **CLOSED** 2026-10-23 |
 | [§772](#772-scheduled-jobs-analyse-only-the-open-project-take-no-instruction-and-keep-no-suggestions--closed-2026-10-23) | Scheduled jobs analyse only the open project, take no instruction and keep no suggestions | — | — | **CLOSED** 2026-10-23 |
 <!-- INDEX:END -->
 
@@ -45844,11 +45844,9 @@ Size L (three pieces).
 
 **Source:** owner decision 2026-10-22, splitting the narration programme out of §715.
 
-## 766. Manage roles gets cramped on small screens — OPEN
+## 766. Manage roles gets cramped on small screens — CLOSED 2026-10-23
 
-**Status:** OPEN 2026-10-22, reported by the owner. Not yet reproduced; the layout below was read from the code, and `grep -rln "CENTERED_FIT_PANE_CLASS" src/app | grep -v test` → `roles-panel.tsx`, `view-styles.ts`.
-
-**Work item:** #844
+**Status:** CLOSED 2026-10-23 on `fix/766-manage-roles-cramped`. Measured first, in Chromium against the e2e seed at 1920×1080, 1366×768, 1280×720, 1024×576 and 853×480: the pane was 808, 531, 488, 420 and 420px wide, so the rate card's table (1,013px) showed 748, 471, 428, 360 and 360px of itself; no size scrolled the page sideways. A second cause showed at every size: the Hours/Days control wrapped in its 150px column, which made each rate-card row 82px tall. Fix: `CENTERED_FIT_PANE_CLASS` (`view-styles.ts`) is `w-[min(100%,72rem)]` instead of `w-[50%]`, keeping the 420px floor, with the cap in `width` so a drag wider than it still wins; `ROLES_COL_WIDTHS.basis` (`roles-editor.tsx`) is 192, room for the control on one line in German (164px measured, plus the cell's padding); and the rate-card toolbar reads Print · reset-size, the convention's order, where it read reset-size · Print. After the fix the pane is 1152, 1062, 976, 720 and 805px wide, the table (now 1,055px) is whole at 1920 and shows 1002, 916, 660 and 745px at the other sizes, rows are 50px in English and German, and no size scrolls the page sideways. A corner drag at 1280×720 set the pane to 676px and reset-size returned it to 976px. Verified with `src/app/roles-panel.test.tsx`, `src/app/roles-editor.test.tsx` and `src/app/view-pane-sweep.test.ts` (green); each new test failed before the change, and putting `w-[50%]` back fails the pane test. Manage roles is not in `A11Y_VIEWS`, so no axe run covers it. Not done: the rate card's narrower windows still scroll its right-hand columns inside the panel (the table does not reflow into cards). **Earlier:** OPEN 2026-10-22, reported by the owner. Not yet reproduced; the layout below was read from the code, and `grep -rln "CENTERED_FIT_PANE_CLASS" src/app | grep -v test` → `roles-panel.tsx`, `view-styles.ts`.
 
 On a small screen, the Manage roles view (Resources → Manage roles) gets cramped: the roles editor has too little width for its controls.
 
