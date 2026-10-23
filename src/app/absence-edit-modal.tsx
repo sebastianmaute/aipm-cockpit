@@ -5,9 +5,9 @@
 // prop on open and kept locally); the parent receives the final record via
 // `onSave`. Validation: assignee + start + end required, end >= start.
 //
-// Type uses the new `SegmentedControl`. Assignee uses a plain input with a
-// HTML5 datalist autocomplete of known assignees so the user can either
-// pick an existing person or type a new one.
+// Type uses the new `SegmentedControl`. Assignee uses the shared searchable
+// `ResourcePicker` (via `AssigneeField`), as the task and shift editors do:
+// pick a person from the directory or contacts, or type a new name.
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
@@ -18,7 +18,8 @@ import { HintedLabel, Input, Textarea } from "./form-controls";
 import { AssigneeField } from "./modal-edit-fields";
 import { SegmentedControl } from "./segmented-control";
 import { useDraggable } from "./use-draggable";
-import { ABSENCE_TYPES, type Absence, type AbsenceType } from "./types";
+import { ABSENCE_TYPES, type Absence, type AbsenceType, type Resource } from "./types";
+import type { Contact } from "./contacts";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
@@ -34,8 +35,11 @@ interface Props {
   absence: Absence | null;
   /** True when creating; false when editing an existing record. */
   isNew: boolean;
-  /** Known assignees from tasks / existing absences for the datalist. */
-  knownAssignees: ReadonlyArray<{ name: string; email?: string }>;
+  /** The resource directory and contacts the assignee picker searches. */
+  resources: readonly Resource[];
+  contacts: Contact[];
+  /** Lets the picker add a typed person to the directory. */
+  onCreateResource?: (name: string, email: string) => number;
   onSave: (next: Absence) => void;
   onDelete: (id: number) => void;
   onClose: () => void;
@@ -44,13 +48,13 @@ interface Props {
   calendarSyncEnabled?: boolean;
 }
 
-const DATALIST_ID = "absence-assignee-options";
-
 export function AbsenceEditModal({
   lang,
   absence,
   isNew,
-  knownAssignees,
+  resources,
+  contacts,
+  onCreateResource,
   onSave,
   onDelete,
   onClose,
@@ -157,11 +161,21 @@ export function AbsenceEditModal({
     >
           {/* Assignee (required) + optional email (Full-only via `email`). */}
           <AssigneeField
-            datalistId={DATALIST_ID}
+            lang={lang}
             assignee={draft.assignee}
             assigneeEmail={draft.assigneeEmail}
-            knownAssignees={knownAssignees}
-            onAssigneeChange={(name) => update("assignee", name)}
+            resourceId={draft.resourceId}
+            resources={resources}
+            contacts={contacts}
+            onCreateResource={onCreateResource}
+            onAssigneeChange={(next) => {
+              update("assignee", next.name);
+              update("resourceId", next.resourceId ?? undefined);
+              // A picked person brings their email; the picker's clear (empty name)
+              // clears it too; a freely typed name keeps whatever email is there.
+              if (next.email) update("assigneeEmail", next.email);
+              else if (!next.name) update("assigneeEmail", undefined);
+            }}
             onEmailChange={(email) => update("assigneeEmail", email)}
             assigneeLabel={t(lang, "absenceAssignee")}
             assigneeEmailLabel={t(lang, "absenceAssigneeEmail")}

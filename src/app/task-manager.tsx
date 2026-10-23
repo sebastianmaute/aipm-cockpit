@@ -1062,14 +1062,6 @@ function TaskManagerInner() {
   // ★★★ THE ONE SITE DELIBERATELY HANDED THE RAW `logActivity`, not `logActivityUser`: an effect over settings STATE cannot see its cause. Pinned through this component by task-manager.activity-actor.test.tsx.
   const { onSettingsLoggedByAi } = useSettingsChangeLog({ settings, hydrated, logActivity });
 
-  const absenceKnownAssignees = useMemo(
-    () => [
-      ...tasks.map((tk) => ({ name: tk.assignee, email: tk.assigneeEmail })),
-      ...absences.map((a) => ({ name: a.assignee, email: a.assigneeEmail })),
-    ],
-    [tasks, absences],
-  );
-
   const shiftExistingAssigneeKeys = useMemo(
     () =>
       new Set(
@@ -1805,7 +1797,7 @@ function TaskManagerInner() {
     editorLeadingActions, editorDeleteAction, editorExtrasEl, editingId, openTaskNotes, openTaskBlockers,
     budgetLink, calendarTaskEnabled, calendarAbsenceEnabled,
     jiraConflicts, handleResolveConflicts, jiraResolving, clearConflicts,
-    editingAbsence, absenceKnownAssignees, handleSaveAbsence, handleDeleteAbsence, handleCloseAbsenceModal,
+    editingAbsence, handleSaveAbsence, handleDeleteAbsence, handleCloseAbsenceModal,
     editingCalendarEvent, handleSaveCalendarEvent, handleDeleteCalendarEvent, handleCloseCalendarEventModal,
     editingShift, shiftExistingAssigneeKeys, handleSaveShift, handleDeleteShift, handleCloseShiftModal,
     today, nextId, contactsList, resources, handleCreateResource, absences, tasks, uniqueGroups, uniqueLabels,
