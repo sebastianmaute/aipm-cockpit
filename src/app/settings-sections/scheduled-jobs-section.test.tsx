@@ -8,12 +8,18 @@ import { expectRowUniqueNames } from "../../test/row-unique-names";
 import { buttonClassFor } from "../../test/button-variant";
 import { DisplayTimezoneProvider } from "../display-timezone-context";
 import { formatDisplayTimestamp } from "../tz-display";
+import { resolveTimezone, tzZones } from "../timezone";
+import type { TursoConfig } from "../turso-config";
 
 // Mock the persistence hook — these are pure UI tests (mirrors how
 // comm-templates-section.test mocks use-comm-template-versions).
 const createJob = vi.fn(async () => {});
 const updateJob = vi.fn(async () => {});
 const deleteJob = vi.fn(async () => {});
+const assignProject = vi.fn(async () => {});
+const listProjectsMock = vi.hoisted(() => vi.fn());
+const listArchivedMock = vi.hoisted(() => vi.fn());
+const portfolioMode = vi.hoisted(() => ({ value: "turso" as "turso" | "file" }));
 let mockJobs: ScheduledJob[] = [];
 
 vi.mock("../use-scheduled-jobs", () => ({
@@ -24,12 +30,25 @@ vi.mock("../use-scheduled-jobs", () => ({
     createJob,
     updateJob,
     deleteJob,
+    assignProject,
     recordRun: vi.fn(),
     refresh: vi.fn(),
   }),
 }));
 
+vi.mock("../turso-portfolio", () => ({
+  listProjects: listProjectsMock,
+  listArchivedProjects: listArchivedMock,
+}));
+vi.mock("../portfolio-mode", () => ({ loadPortfolioMode: () => portfolioMode.value }));
+
 beforeEach(() => {
+  assignProject.mockClear();
+  portfolioMode.value = "turso";
+  listProjectsMock.mockReset();
+  listArchivedMock.mockReset();
+  listProjectsMock.mockResolvedValue([]);
+  listArchivedMock.mockResolvedValue([]);
   createJob.mockClear();
   updateJob.mockClear();
   deleteJob.mockClear();
@@ -37,6 +56,7 @@ beforeEach(() => {
 });
 
 const KEY = "sk-test";
+const TURSO = { httpUrl: "https://x.example", authToken: "t" } as unknown as TursoConfig;
 
 function withKey(over: Partial<Settings["ai"]> = {}): Settings {
   return { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: KEY, enabled: true, ...over } };
@@ -57,7 +77,7 @@ function job(over: Partial<ScheduledJob> = {}): ScheduledJob {
 }
 
 function setup(settings: Settings, onChange = vi.fn()) {
-  render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={onChange} config={null} />);
+  render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={onChange} config={TURSO} />);
   return { onChange };
 }
 
@@ -244,7 +264,7 @@ describe("§715 — scheduled-job run times in the display timezone", () => {
     ];
     render(
       <DisplayTimezoneProvider effectiveTz={ZONE}>
-        <ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: true })} onChange={vi.fn()} config={null} />
+        <ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: true })} onChange={vi.fn()} config={TURSO} />
       </DisplayTimezoneProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "showMore")} – Morning check` }));
@@ -252,5 +272,127 @@ describe("§715 — scheduled-job run times in the display timezone", () => {
     for (const iso of ["2026-09-21T07:05:12.345Z", "2026-09-20T07:05:00.000Z"]) {
       expect(screen.getByText(new RegExp(esc(formatDisplayTimestamp(iso, ZONE, "en-US"))))).toBeInTheDocument();
     }
+  });
+});
+
+// §772 — a scheduled report is about ONE stored project, so the section needs the Turso portfolio and
+// lets each job pick its project, zone and standing instruction.
+describe("§772 — project, time zone and instruction", () => {
+  const entry = (id: string, name: string, archived = false) =>
+    ({ id, meta: { name }, archived }) as unknown as import("../turso-tenant-schema").ProjectListEntry;
+  const tz = resolveTimezone(defaultSettings.timezone, undefined);
+  const nameOf = (key: Parameters<typeof t>[1], token: string) => `${t("en-US", key)} – ${token}`;
+
+  beforeEach(() => {
+    listProjectsMock.mockResolvedValue([entry("p1", "Apollo"), entry("p2", "Borealis")]);
+    listArchivedMock.mockResolvedValue([entry("p9", "Old one", true)]);
+  });
+
+  it("without a Turso config shows only the need-portfolio text and no job controls", () => {
+    render(<ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: true })} onChange={vi.fn()} config={null} />);
+    expect(screen.getByText(t("en-US", "scheduledJobsNeedPortfolio"))).toBeInTheDocument();
+    expect(screen.queryByLabelText(t("en-US", "scheduledJobsToggle"))).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "scheduledJobsAdd") })).toBeNull();
+  });
+
+  it("with a config but file-mode portfolio shows the same text", () => {
+    portfolioMode.value = "file";
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByText(t("en-US", "scheduledJobsNeedPortfolio"))).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: t("en-US", "scheduledJobsAdd") })).toBeNull();
+  });
+
+  it("lists active projects only and assigns the chosen one with the default zone", async () => {
+    mockJobs = [job({ id: 4, name: "Alpha" })];
+    setup(withKey({ scheduledJobs: true }));
+    const select = await screen.findByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") });
+    await screen.findByRole("option", { name: "Apollo" });
+    expect(screen.queryByRole("option", { name: "Old one" })).toBeNull();
+    fireEvent.change(select, { target: { value: "p2" } });
+    expect(assignProject).toHaveBeenCalledWith(4, "p2", tz);
+  });
+
+  it("keeps a job's own zone when assigning its project", async () => {
+    mockJobs = [job({ id: 4, name: "Alpha", timeZone: "Asia/Tokyo" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    fireEvent.change(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") }), { target: { value: "p1" } });
+    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Tokyo");
+  });
+
+  it("a legacy job shows 'Choose a project' where its next run would be", async () => {
+    mockJobs = [job({ id: 1, name: "Alpha", projectId: null })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    expect(screen.getByText(t("en-US", "scheduledJobChooseProject"), { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("an assigned job does not show 'Choose a project'", async () => {
+    mockJobs = [job({ id: 1, name: "Alpha", projectId: "p1", timeZone: "UTC", key: "k" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    expect(screen.queryByText(t("en-US", "scheduledJobChooseProject"), { selector: "span" })).toBeNull();
+  });
+
+  it("a switched-off job whose project is archived says so", async () => {
+    mockJobs = [job({ id: 1, name: "Alpha", enabled: false, projectId: "p9", timeZone: "UTC", key: "k" })];
+    setup(withKey({ scheduledJobs: true }));
+    expect(await screen.findByText(t("en-US", "scheduledJobArchived"))).toBeInTheDocument();
+  });
+
+  it("an enabled job on an active project does not say archived", async () => {
+    mockJobs = [job({ id: 1, name: "Alpha", enabled: true, projectId: "p1", timeZone: "UTC", key: "k" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    expect(screen.queryByText(t("en-US", "scheduledJobArchived"))).toBeNull();
+  });
+
+  it("an enabled job on an archived project is not called switched off", async () => {
+    mockJobs = [job({ id: 1, name: "Alpha", enabled: true, projectId: "p9", timeZone: "UTC", key: "k" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    expect(screen.queryByText(t("en-US", "scheduledJobArchived"))).toBeNull();
+  });
+
+  it("saves the trimmed instruction on blur, and nothing when it is unchanged", async () => {
+    mockJobs = [job({ id: 3, name: "Alpha", instruction: "keep" })];
+    setup(withKey({ scheduledJobs: true }));
+    const box = await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
+    fireEvent.blur(box);
+    expect(updateJob).not.toHaveBeenCalled();
+    fireEvent.change(box, { target: { value: "  focus on risks  " } });
+    expect(updateJob).not.toHaveBeenCalled();
+    fireEvent.blur(box);
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "focus on risks" });
+  });
+
+  it("saves the time zone through updateJob and lists the IANA zones", async () => {
+    mockJobs = [job({ id: 3, name: "Alpha", timeZone: "Europe/Berlin", projectId: "p1", key: "k" })];
+    setup(withKey({ scheduledJobs: true }));
+    const select = await screen.findByRole("combobox", { name: nameOf("scheduledJobTimeZone", "Alpha") });
+    expect((select as HTMLSelectElement).options.length).toBeGreaterThanOrEqual(tzZones().length);
+    fireEvent.change(select, { target: { value: "Asia/Tokyo" } });
+    expect(updateJob).toHaveBeenCalledWith(3, { timeZone: "Asia/Tokyo" });
+  });
+
+  it("shows the upgrade note once while any job has no project, and not otherwise", async () => {
+    mockJobs = [job({ id: 1, name: "A", projectId: null }), job({ id: 2, name: "B", projectId: null })];
+    const { unmount } = render(<ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: true })} onChange={vi.fn()} config={TURSO} />);
+    await screen.findAllByRole("option", { name: "Apollo" });
+    expect(screen.getAllByText(t("en-US", "scheduledJobsUpgradeNote"))).toHaveLength(1);
+    unmount();
+    mockJobs = [job({ id: 1, name: "A", projectId: "p1", timeZone: "UTC", key: "k" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findAllByRole("option", { name: "Apollo" });
+    expect(screen.queryByText(t("en-US", "scheduledJobsUpgradeNote"))).toBeNull();
+  });
+
+  it("keeps the new controls of two same-named jobs apart", async () => {
+    mockJobs = [job({ id: 1, name: "Weekly review" }), job({ id: 2, name: "Weekly review" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findAllByRole("option", { name: "Apollo" });
+    expect(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Weekly review (2)") })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: nameOf("scheduledJobInstruction", "Weekly review (1)") })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 6, roles: ["textbox", "checkbox", "combobox"], requireCollisionSeed: true });
   });
 });

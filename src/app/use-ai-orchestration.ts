@@ -28,6 +28,7 @@ import type { LearningState } from "./action-learning";
 import { summarizeTrendsForPrompt, type ActionTrends } from "./next-actions/trends";
 import type { TursoConfig } from "./turso-config";
 import { buildAnalysisContext, buildGroundingIndex, groundEntity, type AiAction } from "./action-ai";
+import { buildProjectDigest } from "./project-digest";
 import { buildSuggestionContext } from "./weight-suggestion-ai";
 import type { SuggestionScope } from "./next-actions-tuning";
 import { deriveMode } from "./feature-modules";
@@ -132,9 +133,31 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
       }),
     [project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang],
   );
+  // §772 — "Analyze with AI" sends the WIDE per-project digest a scheduled report sends: every open
+  // entity with its status and dates, not the title-only lists `buildAiContext` caps per category.
+  const buildWideContext = useCallback(
+    () =>
+      buildProjectDigest({
+        projectName: project?.name ?? "",
+        today,
+        mode: deriveMode(settings.features),
+        enabledModules: settings.features,
+        tasks,
+        raid,
+        milestones,
+        changes,
+        stakeholders,
+        queue: nextActions.map((a) => ({
+          title: actionText(lang, a.title),
+          why: actionText(lang, a.why),
+          tier: a.tier,
+        })),
+      }),
+    [project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang],
+  );
   const runActionAnalysis = useCallback(() => {
-    void aiAnalyze(buildAiContext());
-  }, [aiAnalyze, buildAiContext]);
+    void aiAnalyze(buildWideContext());
+  }, [aiAnalyze, buildWideContext]);
   // SP-C: compact, token-bounded context for the AI weight-suggestion call.
   // The workspace digest is reused from the SP4/SP5 builder; the learning
   // summary is one line per signal kind (act/snooze/dismiss counts). Trends

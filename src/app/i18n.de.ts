@@ -1458,6 +1458,14 @@ export const de: Record<TranslationKey, string> = {
   scheduledJobNotifyTitle: "Geplante Analyse: {0}",
   scheduledJobNotifyBody: "{0}",
   scheduledJobsBgNote: "Hintergrundläufe werden nur in installiertem Chrome/Edge unterstützt; andernfalls laufen Jobs, wenn Sie die App das nächste Mal öffnen.",
+  scheduledJobsNeedPortfolio: "Geplante Berichte brauchen ein Turso-Portfolio, weil jeder Bericht ein gespeichertes Projekt auswertet. Verbinden Sie eine Turso-Datenbank und wechseln Sie in den Portfolio-Modus, um sie zu nutzen.",
+  scheduledJobsUpgradeNote: "Jobs aus einer früheren Version haben noch kein Projekt. Wählen Sie für jeden ein Projekt; bis dahin läuft er nicht.",
+  scheduledJobProject: "Projekt",
+  scheduledJobChooseProject: "Projekt wählen",
+  scheduledJobTimeZone: "Zeitzone",
+  scheduledJobInstruction: "Anweisung",
+  scheduledJobInstructionPlaceholder: "Optional: worauf der Bericht sich konzentrieren soll",
+  scheduledJobArchived: "Ausgeschaltet, weil das Projekt archiviert ist",
 
   aiConsentTitle: "Claude-Chat aktivieren?",
   aiConsentBullet1:
