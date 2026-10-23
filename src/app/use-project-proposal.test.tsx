@@ -95,6 +95,22 @@ describe("useProjectProposal", () => {
       vi.useRealTimers();
     }
   });
+
+  // The per-device time-zone override (settings.timezone) wins over the browser's zone.
+  it("uses the time zone it is given over the browser's", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-23T12:00:00Z")); // 01:00 on the 23rd in UTC−11
+      const fetchMock = mockFetchToolUse({ meta: { name: "P" }, features: [] });
+      const { result } = renderHook(() => useProjectProposal({ ...ai, timeZone: "Pacific/Pago_Pago" }));
+      await act(async () => { await result.current.generate("March to February"); });
+      const raw = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string).system as string | { text: string }[];
+      const system = typeof raw === "string" ? raw : raw.map((b) => b.text).join("\n");
+      expect(system).toContain("Today is 2026-10-23.");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 // §701 — the wizard's proposal call reads the guides that target it from the
