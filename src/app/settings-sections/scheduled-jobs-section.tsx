@@ -88,7 +88,12 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const hasKey = isAiEnabled(settings.ai);
   // A LEGACY job predates §772: it carries no permanent key. A job added now has one (createJob mints it) and
   // only lacks a project, which its own row says.
-  const hasLegacyJob = jobs.some((j) => j.key === null);
+  const hasLegacyJob = jobs.some((j) => j.foreign === undefined && j.key === null);
+  // A write that fails (the database unreachable) must not look as if it worked until the next reload.
+  const [writeFailed, setWriteFailed] = useState(false);
+  const track = (write: Promise<void>): void => {
+    void Promise.resolve(write).then(() => setWriteFailed(false), () => setWriteFailed(true));
+  };
 
   function toggleEnabled() {
     onChange({ ...settings, ai: { ...settings.ai, scheduledJobs: !enabled } });
@@ -99,13 +104,13 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
     // project it is created without one and its row says "Choose a project".
     const openId = loadCurrentTursoProjectId();
     const projectId = (projects.active.find((p) => p.id === openId) ?? projects.active[0])?.id;
-    void createJob({
+    track(createJob({
       name: t(lang, "scheduledJobsTitle"),
       cadence: defaultDailyCadence(),
       enabled: true,
       timeZone: defaultZone,
       ...(projectId !== undefined ? { projectId } : {}),
-    });
+    }));
   }
 
   return (
@@ -139,6 +144,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
           {enabled && (
             <>
               {projects.failed && <FieldHint>{t(lang, "tursoPickerError")}</FieldHint>}
+              {writeFailed && <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobsWriteFailed")}</p>}
 
               <ul className="flex flex-col gap-2">
                 {jobs.map((job) => (
@@ -155,9 +161,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     zones={zones}
                     defaultZone={defaultZone}
                     // The permanent key rides along, so a write can only reach THIS portfolio's job (ids collide across portfolios).
-                    onUpdate={(id, patch) => void updateJob(id, patch, job.key ?? undefined)}
-                    onAssign={(id, projectId, timeZone) => void assignProject(id, projectId, timeZone, job.key ?? undefined)}
-                    onDelete={(id) => void deleteJob(id, job.key ?? undefined)}
+                    onUpdate={(id, patch) => track(updateJob(id, patch, job.key ?? undefined))}
+                    onAssign={(id, projectId, timeZone) => track(assignProject(id, projectId, timeZone, job.key ?? undefined))}
+                    onDelete={(id) => track(deleteJob(id, job.key ?? undefined))}
                   />
                 ))}
               </ul>

@@ -73,6 +73,9 @@ const backendOf = (config: TursoConfig | null): string | null => (config ? confi
 const savedGenerations = new Map<string | null, number>();
 const generationOf = (config: TursoConfig | null): number => savedGenerations.get(backendOf(config)) ?? 0;
 
+/** An edit reaches only a job this version can read: a foreign one is carried through untouched. */
+const editable = (j: ScheduledJob): boolean => j.foreign === undefined;
+
 /** The job a keyed write means: same id, and — when the caller knows it — the same permanent key. */
 function matches(j: ScheduledJob, id: number, key: string | undefined): boolean {
   return j.id === id && (key === undefined || j.key === key);
@@ -233,7 +236,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   const updateJob = useCallback(
     (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string): Promise<void> => {
       return mutate((list) =>
-        list.map((j) => (matches(j, id, key) ? { ...j, ...normalizePatch(patch), id: j.id } : j)),
+        list.map((j) => (editable(j) && matches(j, id, key) ? { ...j, ...normalizePatch(patch), id: j.id } : j)),
       );
     },
     [mutate],
@@ -246,7 +249,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   const assignProject = useCallback(
     (id: number, projectId: string, timeZone: string, key?: string): Promise<void> => {
       return mutate((list) =>
-        list.map((j) => (matches(j, id, key)
+        list.map((j) => (editable(j) && matches(j, id, key)
           ? { ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? crypto.randomUUID() }
           : j)),
       );
@@ -255,16 +258,16 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   );
 
   const clearProject = useCallback((id: number, key?: string): Promise<void> => {
-    return mutate((list) => list.map((j) => (matches(j, id, key) ? { ...j, projectId: null } : j)));
+    return mutate((list) => list.map((j) => (editable(j) && matches(j, id, key) ? { ...j, projectId: null } : j)));
   }, [mutate]);
 
   const disableJob = useCallback((id: number, key?: string): Promise<void> => {
-    return mutate((list) => list.map((j) => (matches(j, id, key) ? { ...j, enabled: false } : j)));
+    return mutate((list) => list.map((j) => (editable(j) && matches(j, id, key) ? { ...j, enabled: false } : j)));
   }, [mutate]);
 
   const recordRun = useCallback((jobId: number, run: ScheduledJobRun, key?: string): Promise<void> => {
     return mutate((list) =>
-      list.map((j) => (matches(j, jobId, key) ? appendRun(j, run) : j)),
+      list.map((j) => (editable(j) && matches(j, jobId, key) ? appendRun(j, run) : j)),
     );
   }, [mutate]);
 

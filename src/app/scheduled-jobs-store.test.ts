@@ -90,13 +90,12 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
       job,                                   // valid
       null,                                  // garbage
       { id: "nope" },                        // non-numeric id -> dropped
-      { id: 3, type: "portfolioAnalysis" },  // missing/invalid cadence -> dropped
-      { id: 4, type: "other", cadence: { kind: "daily", timeOfDay: "07:00" } }, // bad type -> dropped
+      { id: 3, type: "portfolioAnalysis" },  // missing/invalid cadence -> kept, read-only
+      { id: 4, type: "other", cadence: { kind: "daily", timeOfDay: "07:00" } }, // unknown type -> kept, read-only
       "string-not-object",
     ]));
     const out = await loadScheduledJobs(null);
-    expect(out).toHaveLength(1);
-    expect(out[0].id).toBe(1);
+    expect(out.map((j) => [j.id, j.foreign !== undefined])).toEqual([[1, false], [3, true], [4, true]]);
   });
 
   it("returns [] for non-array / garbage JSON", async () => {
@@ -116,10 +115,10 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
     expect(out[0].history).toHaveLength(JOB_HISTORY_CAP);
   });
 
-  it("coerces an invalid cadence kind by dropping the job", async () => {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify([
-      { ...job, cadence: { kind: "monthly", timeOfDay: "08:00" } },
-    ]));
-    expect(await loadScheduledJobs(null)).toEqual([]);
+  it("keeps a job with a cadence kind it does not know, as a foreign job carrying its stored JSON", async () => {
+    const stored = { ...job, cadence: { kind: "monthly", timeOfDay: "08:00" } };
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([stored]));
+    const [only] = await loadScheduledJobs(null);
+    expect(only.foreign?.raw).toEqual(stored);
   });
 });

@@ -18,8 +18,8 @@ export const REPORT_LIST_LIMIT = 200;
 /** A `running` row older than this is shown as interrupted (tab closed, device slept). */
 export const RUNNING_STALE_MS = 30 * 60_000;
 
-/** `storage-unreachable` is kept only for rows written by other app versions: connectivity failures are transient
- *  now and never written, so the runner no longer produces it. */
+/** `storage-unreachable` stays in the closed set because `toErrorToken` still maps a `StorageNotReadyError` to it; the
+ *  run's callers catch that error first, as transient, so no row the runner writes carries it today. */
 export type ReportErrorToken =
   | "limit" | "401" | "403" | "parse" | "storage-unreachable" | "turso"
   | "project-archived" | "project-missing" | "interrupted" | "error";

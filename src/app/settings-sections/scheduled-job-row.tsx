@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { type Lang, t, tPlural, type TranslationKey } from "../i18n";
 import { aiKeyMessageKeyForStatusToken } from "../ai-key-status";
-import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
+import type { JobCadence, ScheduledJob, ScheduledJobRun } from "../scheduled-jobs/types";
 import { Input, Select, Checkbox, Textarea } from "../form-controls";
 import { Button } from "../button";
 import { formatDisplayTimestamp } from "../tz-display";
@@ -24,6 +24,12 @@ function runFailureText(lang: Lang, error: string | undefined): string {
   // A token this app knows reads as its translation; an unknown historic string keeps the generic line.
   if (error !== undefined && Object.hasOwn(REPORT_ERROR_KEY, error)) return t(lang, REPORT_ERROR_KEY[error as ReportErrorToken]);
   return t(lang, "scheduledJobFailed", error ?? "");
+}
+
+/** One run's outcome as a line of text: its action count, or why it failed. */
+function runResultText(lang: Lang, run: ScheduledJobRun): string {
+  if (run.ok) return tPlural(lang, "scheduledJobActionsN", run.actionCount, String(run.actionCount));
+  return run.error === "limit" ? t(lang, "aiUsageLimitReached") : runFailureText(lang, run.error);
 }
 
 /** The fields `updateJob` accepts — exactly its patch type, so a row can never write a project or key. */
@@ -144,6 +150,26 @@ export function JobRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const { cadence } = job;
+
+  // A job a newer version made (a type or cadence this one does not know): listed read-only, never edited or run,
+  // and still deletable. Its stored JSON is carried through every save untouched.
+  if (job.foreign) {
+    return (
+      <li className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-surface p-3">
+        <span className="text-sm text-foreground">{job.name || token}</span>
+        <span className="flex-1 text-xs text-muted-foreground">{t(lang, "scheduledJobForeign")}</span>
+        <Button
+          variant="destructive"
+          size="xs"
+          onClick={() => onDelete(job.id)}
+          disabled={busy}
+          aria-label={`${t(lang, "delete")} – ${token}`}
+        >
+          {t(lang, "delete")}
+        </Button>
+      </li>
+    );
+  }
 
   function setCadenceKind(kind: JobCadence["kind"]) {
     if (kind === job.cadence.kind) return;
@@ -308,11 +334,7 @@ export function JobRow({
           <span>
             {t(lang, "scheduledJobLastRun", formatDisplayTimestamp(lastRun.ranAt, tz, lang))}
             {" — "}
-            {lastRun.ok
-              ? tPlural(lang, "scheduledJobActionsN", lastRun.actionCount, String(lastRun.actionCount))
-              : lastRun.error === "limit"
-                ? t(lang, "aiUsageLimitReached")
-                : runFailureText(lang, lastRun.error)}
+            {runResultText(lang, lastRun)}
           </span>
         ) : (
           <span>{t(lang, "scheduledJobNeverRun")}</span>
@@ -334,11 +356,7 @@ export function JobRow({
                 <li key={`${run.ranAt}-${idx}`} className="text-xs text-muted-foreground">
                   {t(lang, "scheduledJobLastRun", formatDisplayTimestamp(run.ranAt, tz, lang))}
                   {" — "}
-                  {run.ok
-                    ? tPlural(lang, "scheduledJobActionsN", run.actionCount, String(run.actionCount))
-                    : run.error === "limit"
-                      ? t(lang, "aiUsageLimitReached")
-                      : runFailureText(lang, run.error)}
+                  {runResultText(lang, run)}
                 </li>
               ))}
             </ul>

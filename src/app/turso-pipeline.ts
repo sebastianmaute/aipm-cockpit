@@ -89,6 +89,15 @@ export class TursoStepError extends Error {
   }
 }
 
+/** The server answered with a status other than success, 401 or 403. Carries the status so a caller can tell a server
+ *  blip (429, 5xx: try again) from anything else without reading the message. The message is unchanged. */
+export class TursoHttpError extends Error {
+  constructor(public readonly status: number) {
+    super(`Turso returned ${status}. Try again later.`);
+    this.name = "TursoHttpError";
+  }
+}
+
 type StepResult = NonNullable<PipelineResultLike["response"]>["result"];
 interface BatchAnswer { step_results?: (StepResult | null)[]; step_errors?: ({ message?: string } | null)[] }
 
@@ -144,7 +153,7 @@ export async function runTursoPipeline(
     throw new StorageNotReadyError("turso-token-rejected");
   }
   if (!res.ok) {
-    throw new Error(`Turso returned ${res.status}. Try again later.`);
+    throw new TursoHttpError(res.status);
   }
   let raw: unknown;
   try {

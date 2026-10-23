@@ -664,3 +664,44 @@ describe("§772 cr2: the zone select does not misstate a legacy job", () => {
     expect(screen.queryByRole("option", { name: t("en-US", "scheduledJobZoneUnset") })).toBeNull();
   });
 });
+
+describe("§772 cr3: foreign jobs and failed writes", () => {
+  const entry = (id: string, name: string) =>
+    ({ id, meta: { name }, archived: false }) as unknown as import("../turso-tenant-schema").ProjectListEntry;
+  const foreign = (over: Partial<ScheduledJob> = {}) =>
+    job({ id: 8, name: "From the future", foreign: { raw: { id: 8, type: "future" } }, ...over });
+
+  // KILLED BY: rendering a foreign job with the ordinary editable row.
+  it("lists a foreign job read-only with a note, and offers only Delete", async () => {
+    listProjectsMock.mockResolvedValue([entry("p1", "Apollo")]);
+    mockJobs = [foreign(), job({ id: 3, name: "Alpha", key: "k", projectId: "p1", timeZone: "UTC" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    expect(screen.getByText("From the future")).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "scheduledJobForeign"))).toBeInTheDocument();
+    for (const role of ["textbox", "checkbox", "combobox"] as const) expect(screen.queryByRole(role, { name: /From the future/ })).toBeNull();
+    fireEvent.click(screen.getByLabelText(`${t("en-US", "delete")} – From the future`));
+    expect(deleteJob).toHaveBeenCalledWith(8, undefined);
+  });
+
+  it("does not show the upgrade note for a foreign job (it has no key and is not a legacy job)", async () => {
+    mockJobs = [foreign()];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByText("From the future");
+    expect(screen.queryByText(t("en-US", "scheduledJobsUpgradeNote"))).toBeNull();
+  });
+
+  // KILLED BY: dropping the rejection handler (a failed write would look as if it worked).
+  it("says so when a write fails, and clears the message after the next success", async () => {
+    listProjectsMock.mockResolvedValue([entry("p1", "Apollo")]);
+    mockJobs = [job({ id: 3, name: "Alpha", key: "k", projectId: "p1", timeZone: "UTC" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    updateJob.mockRejectedValueOnce(new Error("down"));
+    const box = screen.getByLabelText(`${t("en-US", "scheduledJobName")} – Alpha`);
+    fireEvent.change(box, { target: { value: "Alpha 2" } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(t("en-US", "scheduledJobsWriteFailed"));
+    fireEvent.change(box, { target: { value: "Alpha 3" } });
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+});

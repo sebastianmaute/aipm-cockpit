@@ -3,7 +3,7 @@ import { render, screen, waitFor, within, act, fireEvent } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { t, loadI18n, type Lang } from "./i18n";
 import { NAV_GROUPS, TURSO_ONLY_VIEWS, navLabelKey } from "./nav-config";
-import type { ScheduledReport } from "./scheduled-reports-store";
+import { REPORT_LIST_LIMIT, type ScheduledReport } from "./scheduled-reports-store";
 import type { TursoConfig } from "./turso-config";
 
 const mockList = vi.fn();
@@ -416,6 +416,20 @@ describe("ScheduledReportsPanel", () => {
     mockList.mockRejectedValue(new Error("boom"));
     view.rerender(<ScheduledReportsPanel lang="en-US" tursoConfig={{ ...CONFIG, httpUrl: "https://other.example.io" }} mode="turso" timeZone="UTC" />);
     await waitFor(() => expect(screen.queryAllByRole("tab")).toHaveLength(0));
+  });
+
+  // KILLED BY: dropping the note (retained reports beyond the read bound would vanish without a word).
+  it("says the list is capped when the read hit its bound, and not otherwise", async () => {
+    mockList.mockResolvedValue(Array.from({ length: REPORT_LIST_LIMIT }, (_, i) =>
+      report({ id: `r${i}`, jobKey: `j${i}`, slot: `2026-10-23T00:${String(i % 60).padStart(2, "0")}:00.${String(i).padStart(3, "0")}Z` })));
+    const view = renderPanel();
+    await screen.findAllByRole("tab");
+    expect(screen.getByText(en("scheduledReportsLimited").replace("{0}", String(REPORT_LIST_LIMIT)))).toBeInTheDocument();
+    view.unmount();
+    mockList.mockResolvedValue(THREE);
+    renderPanel();
+    await screen.findAllByRole("tab");
+    expect(screen.queryByText(en("scheduledReportsLimited").replace("{0}", String(REPORT_LIST_LIMIT)))).toBeNull();
   });
 
   it("reads the device label once per load, never while rendering", async () => {

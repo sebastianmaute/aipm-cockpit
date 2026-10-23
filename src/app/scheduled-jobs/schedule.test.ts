@@ -55,7 +55,28 @@ describe("slotFor", () => {
   });
 });
 
+describe("slotFor across a western-hemisphere DST change (America/New_York)", () => {
+  it("runs once across the spring-forward gap (02:30 does not exist on 2026-03-08)", () => {
+    const job = mk({ cadence: { kind: "daily", timeOfDay: "02:30" }, timeZone: "America/New_York" });
+    expect(slotFor(job, new Date("2026-03-08T06:00:00Z"))).toBeNull(); // 01:00 EST: not reached
+    expect(slotFor(job, new Date("2026-03-08T12:00:00Z"))?.toISOString()).toBe("2026-03-08T07:00:00.000Z"); // 03:00 EDT, first valid instant
+  });
+  it("runs once on the fall-back day, at the earlier of the two 01:30s", () => {
+    const job = mk({ cadence: { kind: "daily", timeOfDay: "01:30" }, timeZone: "America/New_York" });
+    expect(slotFor(job, new Date("2026-11-01T12:00:00Z"))?.toISOString()).toBe("2026-11-01T05:30:00.000Z"); // 01:30 EDT
+    expect(slotFor(job, new Date("2026-11-01T06:45:00Z"))?.toISOString()).toBe("2026-11-01T05:30:00.000Z"); // still the first one after the second 01:30 EST began
+  });
+  it("a weekly job on the DST-change Sunday keeps its local time", () => {
+    const job = mk({ cadence: { kind: "weekly", dayOfWeek: 0, timeOfDay: "09:00" }, timeZone: "America/New_York" });
+    expect(slotFor(job, new Date("2026-03-08T14:00:00Z"))?.toISOString()).toBe("2026-03-08T13:00:00.000Z"); // 09:00 EDT
+    expect(slotFor(job, new Date("2026-03-09T14:00:00Z"))).toBeNull(); // Monday
+  });
+});
+
 describe("isRunnable", () => {
+  it("is never runnable for a foreign job", () => {
+    expect(isRunnable(mk({ foreign: { raw: { id: 1, type: "future" } } }))).toBe(false);
+  });
   it("is never runnable without a project, key or time zone", () => {
     expect(isRunnable(mk({ projectId: null }))).toBe(false);
     expect(isRunnable(mk({ key: null }))).toBe(false);

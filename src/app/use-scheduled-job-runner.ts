@@ -7,7 +7,8 @@
 // visibility listener never re-subscribe on a render (also keeps us clear of the
 // banned react-hooks/set-state-in-effect rule — no render state here).
 import { useEffect, useRef } from "react";
-import { isRunnable, slotFor } from "./scheduled-jobs/schedule";
+import { isRunnable, sameSchedule, slotFor } from "./scheduled-jobs/schedule";
+import { loadScheduledJobs } from "./scheduled-jobs-store";
 import { hasReportAtOrAfter } from "./scheduled-reports-store";
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { runScheduledJob, type RunDeps, type RunOutcome } from "./scheduled-job-run";
@@ -56,6 +57,75 @@ export interface ScheduledJobRunnerArgs {
   guidesReady: boolean;
 }
 
+interface DueJob { job: ScheduledJob; slot: Date }
+const slotId = (job: ScheduledJob, slot: Date): string => `${job.key ?? job.id}|${slot.toISOString()}`;
+
+/** The jobs of a list that are runnable and whose slot has been reached, minus those that already ran for it. */
+function dueJobs(jobs: readonly ScheduledJob[], at: Date): DueJob[] {
+  return jobs.filter(isRunnable).flatMap((job) => {
+    const slot = slotFor(job, at);
+    if (slot === null) return [];
+    // SECONDARY guard, skip-only: a job that already ran for this slot (a legacy job that ran today under a pre-§772
+    // runner, then got its project, or a record the report table does not know about) is not run again. The report
+    // table stays the primary guard. A `project-missing` record wrote no report: it never means the slot ran.
+    const lastRun = job.lastRunAt === null || job.history[0]?.error === "project-missing" ? Number.NaN : Date.parse(job.lastRunAt);
+    return Number.isFinite(lastRun) && lastRun >= slot.getTime() ? [] : [{ job, slot }];
+  });
+}
+
+/** The deps of one tick's runs. They read the latest args at call time, and the job store fresh, because a run is billed. */
+function buildRunDeps(argsRef: { readonly current: ScheduledJobRunnerArgs }, config: TursoConfig, cacheGuides: boolean): RunDeps {
+  const a = argsRef.current;
+  // A run outlives a portfolio switch (the load and the AI call take seconds). The job-store writers always write to
+  // the CURRENT portfolio, so after a switch they would hit an unrelated job that shares this job's numeric id: drop
+  // them unless the portfolio is still the one the tick began on. (They also match by the permanent key.)
+  const identity = config.httpUrl;
+  const samePortfolio = () => argsRef.current.config?.httpUrl === identity;
+  let lastPartial = false; // the jobs run one after another, so one flag serves them all
+  return {
+    config,
+    listProjects: () => listProjectRefs(config),
+    // Judged against a FRESH read of the store, not the copy this tab read at mount: another tab or device may have
+    // deleted, switched off, re-pointed or re-timed the job. Asked right before the claim and again right before the
+    // billed call (the load in between takes seconds). A failed read says no, so nothing is claimed or billed.
+    stillRunnable: async (job) => {
+      const now = argsRef.current;
+      if (!now.enabled || !now.available || !samePortfolio() || now.jobsSource !== identity) return false;
+      if (now.ai.apiKey === "") return false;
+      let list: ScheduledJob[];
+      try {
+        list = await loadScheduledJobs(config);
+      } catch {
+        return false;
+      }
+      if (!samePortfolio()) return false;
+      const live = list.find((j) => j.key !== null && j.key === job.key);
+      return live !== undefined && isRunnable(live) && live.projectId === job.projectId && sameSchedule(live, job);
+    },
+    loadWorkspace: async (projectId) => {
+      lastPartial = false;
+      const backend = new TursoBackend(config, projectId);
+      const workspace = await backend.load();
+      lastPartial = backend.lastDecodeFailures.length > 0
+        || backend.lastLoadTruncation.entries > 0 || backend.lastLoadTruncation.blocks > 0;
+      return workspace;
+    },
+    lastLoadPartial: () => lastPartial,
+    // Cache the guide prefix only when this tick sends more than one request: a lone request would pay the cache
+    // write and never read it.
+    analyse: (context) => runJobAnalysis(context, { ...argsRef.current.ai, cacheGuides }),
+    deviceSettings: a.deviceSettings,
+    lang: a.lang,
+    now: a.now ?? (() => new Date()),
+    newId: () => crypto.randomUUID(),
+    deviceLabel: getDeviceLabel(),
+    clearProject: async (jobId, key) => { if (samePortfolio()) await argsRef.current.clearProject(jobId, key); },
+    disableJob: async (jobId, key) => { if (samePortfolio()) await argsRef.current.disableJob(jobId, key); },
+    recordRun: async (jobId, run, key) => { if (samePortfolio()) await argsRef.current.recordRun(jobId, run, key); },
+    notify: a.notify,
+  };
+}
+
 export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
   // Mirror the args into ONE ref so the tick callback can stay stable (no deps that change each render)
   // and the listener/interval subscribe exactly once.
@@ -71,6 +141,8 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
 
   // Overlap guard: skip a tick while a previous async run is still in flight.
   const isRunningRef = useRef(false);
+  // Slots this session knows are done (a report exists or another device claimed them): no more reads for them today.
+  const handledRef = useRef<Set<string>>(new Set());
 
   // ★★ THE TWO EDGE EFFECTS BELOW MUST STAY AFTER THE REF-SYNC EFFECT ABOVE.
   // Effects run in declaration order, and `tick` builds the first request
@@ -115,82 +187,47 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
       if (a.jobsSource !== a.config.httpUrl) return;
       if (isRunningRef.current) return; // a run is already in flight
       const at = (a.now ?? (() => new Date()))();
-      const due = a.jobs
-        .filter(isRunnable)
-        .flatMap((job) => {
-          const slot = slotFor(job, at);
-          if (slot === null) return [];
-          // SECONDARY guard, skip-only: a job that already ran for this slot (a legacy job that ran today under a
-          // pre-§772 runner, then got its project, or a record the report table does not know about) is not run
-          // again. The report table stays the primary guard.
-          // A `project-missing` record wrote no report: it never means the slot ran.
-          const lastRun = job.lastRunAt === null || job.history[0]?.error === "project-missing" ? Number.NaN : Date.parse(job.lastRunAt);
-          return Number.isFinite(lastRun) && lastRun >= slot.getTime() ? [] : [{ job, slot }];
-        });
-      if (due.length === 0) return;
+      const notHandled = ({ job, slot }: DueJob) => !handledRef.current.has(slotId(job, slot));
+      // A cheap look at the copy read at mount: only a tick with something due goes on to read the store.
+      if (dueJobs(a.jobs, at).filter(notHandled).length === 0) return;
 
       isRunningRef.current = true;
       try {
         const config = a.config;
+        const identity = config.httpUrl;
+        // ★ The mount-time copy is NOT what is judged: another tab or device may have deleted, switched off or
+        // re-pointed a job since. One fresh read of the job store before any claim; a failed read claims nothing.
+        let fresh: ScheduledJob[];
+        try {
+          fresh = await loadScheduledJobs(config);
+        } catch {
+          return;
+        }
+        if (argsRef.current.config?.httpUrl !== identity) return;
+        const due = dueJobs(fresh, at).filter(notHandled);
+
         // Jobs whose slot already has (or is older than) a report are skipped by the run anyway: only those that
-        // will really run decide whether the guide prefix is worth caching. A failed read counts as pending.
+        // will really run decide whether the guide prefix is worth caching. A failed read counts as pending, and a
+        // slot found reported is remembered, so later ticks of the day do not ask again.
         const checks = await Promise.allSettled(due.map(({ job, slot }) =>
           job.key === null ? Promise.resolve(false) : hasReportAtOrAfter(config, job.key, slot.toISOString())));
-        const pending = due.filter((_, i) => {
+        const pending = due.filter((d, i) => {
           const c = checks[i];
-          return c.status !== "fulfilled" || !c.value;
+          const reported = c.status === "fulfilled" && c.value;
+          if (reported) handledRef.current.add(slotId(d.job, d.slot));
+          return !reported;
         });
         if (pending.length === 0) return;
-        // The guard against a repeat is the slot's report row in Turso (claimed before any billed call,
-        // shared by every device), not `lastRunAt` (which is only the secondary skip in the due filter above):
-        // a failed run still writes its row, so a persistent
-        // failure (bad key, outage) is not re-billed every tick. A transient storage failure writes
+        // The guard against a repeat is the slot's report row in Turso (claimed before any billed call, shared by
+        // every device), not `lastRunAt` (only the secondary skip in `dueJobs`): a failed run still writes its row, so
+        // a persistent failure (bad key, outage) is not re-billed every tick. A transient storage failure writes
         // nothing and is simply tried again on the next tick.
-        // A run outlives a portfolio switch (the load and the AI call take seconds). The job-store writers
-        // always write to the CURRENT portfolio, so after a switch they would hit an unrelated job that
-        // shares this job's numeric id: drop them unless the portfolio is still the one the tick began on.
-        // (They also match by the job's permanent key inside the store.)
-        const identity = config.httpUrl;
-        const samePortfolio = () => argsRef.current.config?.httpUrl === identity;
-        let lastPartial = false; // the jobs run one after another, so one flag serves them all
-        const deps: RunDeps = {
-          config,
-          listProjects: () => listProjectRefs(config),
-          // The latest args, read at call time: the job list, the switches and the key may have changed since the
-          // tick began, and a run is billed.
-          stillRunnable: (job) => {
-            const now = argsRef.current;
-            if (!now.enabled || !now.available || !samePortfolio() || now.jobsSource !== identity) return false;
-            if (now.ai.apiKey === "") return false;
-            const live = now.jobs.find((j) => j.key !== null && j.key === job.key);
-            return live !== undefined && isRunnable(live) && live.projectId === job.projectId;
-          },
-          loadWorkspace: async (projectId) => {
-            lastPartial = false;
-            const backend = new TursoBackend(config, projectId);
-            const workspace = await backend.load();
-            lastPartial = backend.lastDecodeFailures.length > 0
-              || backend.lastLoadTruncation.entries > 0 || backend.lastLoadTruncation.blocks > 0;
-            return workspace;
-          },
-          lastLoadPartial: () => lastPartial,
-          // Cache the guide prefix only when this tick sends more than one request: a lone request
-          // would pay the cache write and never read it.
-          analyse: (context) => runJobAnalysis(context, { ...argsRef.current.ai, cacheGuides: pending.length > 1 }),
-          deviceSettings: a.deviceSettings,
-          lang: a.lang,
-          now: a.now ?? (() => new Date()),
-          newId: () => crypto.randomUUID(),
-          deviceLabel: getDeviceLabel(),
-          clearProject: async (jobId, key) => { if (samePortfolio()) await argsRef.current.clearProject(jobId, key); },
-          disableJob: async (jobId, key) => { if (samePortfolio()) await argsRef.current.disableJob(jobId, key); },
-          recordRun: async (jobId, run, key) => { if (samePortfolio()) await argsRef.current.recordRun(jobId, run, key); },
-          notify: a.notify,
-        };
+        const deps = buildRunDeps(argsRef, config, pending.length > 1);
         for (const { job, slot } of pending) {
           try {
             const outcome = await runScheduledJob(job, slot, deps);
             if (REPORT_WRITTEN.has(outcome)) window.dispatchEvent(new CustomEvent(SCHEDULED_REPORT_EVENT));
+            if (REPORT_WRITTEN.has(outcome) || outcome === "claimed-elsewhere") handledRef.current.add(slotId(job, slot));
           } catch {
             // The store or the project list was unreachable before anything was claimed or billed.
           }

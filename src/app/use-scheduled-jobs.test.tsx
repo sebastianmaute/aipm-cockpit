@@ -326,3 +326,50 @@ describe("useScheduledJobs — every instance sees one list (§750)", () => {
     expect(runner.result.current.jobs.map((j) => j.id).sort()).toEqual([1, 2]);
   });
 });
+
+describe("useScheduledJobs: a newer version's jobs and fields survive (§772 cr3)", () => {
+  const KEY = "aipm-cockpit:scheduled-jobs";
+  const known = { id: 1, name: "Known", type: "portfolioAnalysis", cadence: dailyCadence, enabled: true, projectId: "p1", timeZone: "UTC", key: "k1", lastRunAt: null, history: [], futureField: { a: 1 } };
+  const foreign = { id: 2, name: "From the future", type: "portfolioAnalysis", cadence: { kind: "monthly", dayOfMonth: 3, timeOfDay: "09:00" }, enabled: true, mystery: [1, 2] };
+  const stored = (): Record<string, unknown>[] => JSON.parse(localStorage.getItem(KEY) ?? "[]");
+
+  beforeEach(() => localStorage.clear());
+
+  // KILLED BY: an edit that rebuilds jobs from the known fields (or drops the foreign one).
+  it("an edit of another job keeps both the unknown field and the foreign job, byte for byte", async () => {
+    localStorage.setItem(KEY, JSON.stringify([known, foreign]));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(2));
+    await act(async () => { await result.current.updateJob(1, { name: "Renamed" }); });
+    const after = stored();
+    expect(after[0]).toMatchObject({ name: "Renamed", futureField: { a: 1 } });
+    expect(after[1]).toEqual(foreign);
+  });
+
+  // KILLED BY: letting an edit, a run record or a project change reach a foreign job.
+  it("no write other than a delete reaches a foreign job", async () => {
+    localStorage.setItem(KEY, JSON.stringify([known, foreign]));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(2));
+    await act(async () => {
+      await result.current.updateJob(2, { name: "x", enabled: false });
+      await result.current.assignProject(2, "p9", "UTC");
+      await result.current.clearProject(2);
+      await result.current.disableJob(2);
+      await result.current.recordRun(2, run("2026-10-23T09:00:00.000Z"));
+    });
+    expect(stored()[1]).toEqual(foreign);
+    // What the list shows is untouched too (the run record is not appended to the placeholder).
+    const shown = result.current.jobs.find((j) => j.id === 2);
+    expect(shown?.history).toEqual([]);
+    expect(shown?.lastRunAt).toBeNull();
+  });
+
+  it("a foreign job can still be deleted", async () => {
+    localStorage.setItem(KEY, JSON.stringify([known, foreign]));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(2));
+    await act(async () => { await result.current.deleteJob(2); });
+    expect(stored().map((j) => j.id)).toEqual([1]);
+  });
+});

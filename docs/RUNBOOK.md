@@ -523,6 +523,8 @@ and a transient storage failure, write none; the newest 50 per job are kept).
 State persists in a global `scheduled_jobs_v2` store (Turso, kept out of `TABLE_NAMES`, with a localStorage fallback;
 the pre-§772 `scheduled_jobs` table is read once to migrate, its rows are then switched off, and it is never written
 again, so a device on an older build cannot strip the jobs). **Every device sharing the portfolio needs the update.**
+A job is due by the clock of the device that runs it, so a device whose clock runs fast claims a slot early (`ran_at`
+in the report is the database's time, so the report shows when it really ran). Keep device clocks right.
 To wipe the jobs, clear the `aipm-cockpit:scheduled-jobs` localStorage key (`LOCAL_KEY` in `scheduled-jobs-store.ts`)
 or `DELETE FROM scheduled_jobs_v2 WHERE id <> '__migrated__'` on Turso (keep the marker row, or the next load copies
 the old rows back in); to wipe the reports too, `DELETE FROM scheduled_reports`. There is no server cron and no Periodic Background Sync, so jobs cannot

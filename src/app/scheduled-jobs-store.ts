@@ -66,7 +66,7 @@ function replaceAllStatements(jobs: readonly ScheduledJob[]): SqlStmt[] {
   for (const job of jobs) {
     stmts.push({
       sql: `INSERT INTO ${SCHEDULED_JOBS_V2_TABLE} (id, data) VALUES (?, ?)`,
-      args: [txt(String(job.id)), txt(JSON.stringify(job))],
+      args: [txt(String(job.id)), txt(JSON.stringify(serializeJob(job)))],
     });
   }
   stmts.push({ sql: "COMMIT" });
@@ -124,13 +124,36 @@ function sanitizeRun(raw: unknown): ScheduledJobRun | null {
   return run;
 }
 
-function sanitizeJob(raw: unknown): ScheduledJob | null {
-  if (!isRecord(raw)) return null;
-  const id = Number(raw.id);
+/** The keys this version reads. Anything else on a stored job came from a newer version and is carried through. */
+const KNOWN_JOB_KEYS: ReadonlySet<string> = new Set([
+  "id", "name", "type", "cadence", "enabled", "projectId", "instruction", "timeZone", "key", "lastRunAt", "history",
+]);
+
+/** A job this version cannot read (an unknown type or cadence): a placeholder that carries the stored JSON verbatim. */
+function foreignJob(id: number, raw: Record<string, unknown>): ScheduledJob {
+  return {
+    id, name: typeof raw.name === "string" ? raw.name : "", type: "portfolioAnalysis",
+    cadence: { kind: "daily", timeOfDay: "00:00" }, enabled: false, projectId: null, timeZone: null, key: null,
+    lastRunAt: null, history: [], foreign: { raw },
+  };
+}
+
+/** What goes into storage: a foreign job exactly as it was read, any other job with its unknown fields put back. */
+export function serializeJob(job: ScheduledJob): Record<string, unknown> {
+  if (job.foreign) return job.foreign.raw;
+  const known: Record<string, unknown> = { ...job };
+  delete known.extra;
+  delete known.foreign;
+  return { ...job.extra, ...known };
+}
+
+function sanitizeJob(raw: unknown, rowId?: number): ScheduledJob | null {
+  if (!isRecord(raw) || Array.isArray(raw)) return null;
+  const rawId = Number(raw.id);
+  const id = Number.isFinite(rawId) ? rawId : (rowId ?? Number.NaN);
   if (!Number.isFinite(id)) return null;
   const cadence = sanitizeCadence(raw.cadence);
-  if (cadence === null) return null;
-  if (raw.type !== "portfolioAnalysis") return null;
+  if (cadence === null || raw.type !== "portfolioAnalysis") return foreignJob(id, raw);
   const history = Array.isArray(raw.history)
     ? raw.history
         .map(sanitizeRun)
@@ -142,6 +165,7 @@ function sanitizeJob(raw: unknown): ScheduledJob | null {
     typeof raw.instruction === "string" ? raw.instruction : undefined,
     typeof raw.timeZone === "string" ? raw.timeZone : null,
   );
+  const extra = Object.fromEntries(Object.entries(raw).filter(([k]) => !KNOWN_JOB_KEYS.has(k)));
   return {
     id,
     name: typeof raw.name === "string" ? raw.name : "",
@@ -154,12 +178,13 @@ function sanitizeJob(raw: unknown): ScheduledJob | null {
     key: typeof raw.key === "string" && raw.key !== "" ? raw.key : null,
     lastRunAt,
     history,
+    ...(Object.keys(extra).length > 0 ? { extra } : {}),
   };
 }
 
 function sanitizeJobs(raw: unknown): ScheduledJob[] {
   if (!Array.isArray(raw)) return [];
-  return raw.map(sanitizeJob).filter((j): j is ScheduledJob => j !== null);
+  return raw.map((r) => sanitizeJob(r)).filter((j): j is ScheduledJob => j !== null);
 }
 
 // ---- localStorage backend ---------------------------------------------------
@@ -168,7 +193,7 @@ function readLocal(): ScheduledJob[] {
   return sanitizeJobs(readDeviceJson<unknown>(LOCAL_KEY, null));
 }
 function writeLocal(jobs: readonly ScheduledJob[]): void {
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(jobs));
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(jobs.map(serializeJob)));
 }
 
 // ---- Turso row decode -------------------------------------------------------
@@ -176,13 +201,15 @@ function writeLocal(jobs: readonly ScheduledJob[]): void {
 function rowsToJobs(res: PipelineResultLike | undefined): ScheduledJob[] {
   const cols = (res?.response?.result?.cols ?? []).map((c) => c?.name ?? "");
   const dataIdx = cols.indexOf("data");
+  const idIdx = cols.indexOf("id");
   const rows = res?.response?.result?.rows ?? [];
   const jobs: ScheduledJob[] = [];
   for (const row of rows) {
     const cell = dataIdx >= 0 ? row[dataIdx] : undefined;
     if (cell == null || cell.value == null) continue;
     try {
-      const job = sanitizeJob(JSON.parse(String(cell.value)) as unknown);
+      const rowId = idIdx >= 0 ? Number(row[idIdx]?.value) : Number.NaN;
+      const job = sanitizeJob(JSON.parse(String(cell.value)) as unknown, Number.isFinite(rowId) ? rowId : undefined);
       if (job !== null) jobs.push(job);
     } catch {
       // Skip an unparseable row rather than failing the whole load.

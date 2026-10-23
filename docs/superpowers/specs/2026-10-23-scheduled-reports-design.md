@@ -194,12 +194,15 @@ For each due job, in order:
      through `mutate`, so an archived project produces one report, not one per slot until retention pushes out
      the real ones. Re-enabling is a manual step after the project is restored.
 2. **Claim** (above).
-3. **Load** the project. A storage failure here (BUSY, unreachable) is transient: the claim row is deleted, no
+3. **Load** the project. A storage failure here (BUSY, unreachable, an HTTP 429 or 5xx from Turso) is transient: the claim row is deleted, no
    report is written and nothing is billed; the next tick tries again.
    Any OTHER Turso step or SQL error is deterministic: the report is finished as failed with token `turso`, because
    retrying it would claim, fail and release on every tick for ever.
-   Immediately before the claim the runner re-reads the live state (the job still exists, is enabled and has the same
-   key and project; scheduled jobs and AI are on with a key; same portfolio) and skips without claiming otherwise.
+   Immediately before the claim the runner re-reads the live state: the job as it is NOW in the job store (a fresh
+   read, not the copy this tab loaded at mount, so another tab's or device's delete, switch-off, re-point or re-time
+   is honoured), still enabled with the same key, project, cadence and zone; scheduled jobs and AI on with a key;
+   same portfolio. It skips without claiming otherwise, and a store that cannot be read counts as "no". The same
+   check runs once more right before the billed call, because the project load in between takes seconds.
    Right after the claim it checks the project once more, so a project hard-deleted in between leaves no orphan row.
 4. **Build** the wide digest from the loaded workspace (below).
 5. **Analyse** with `runJobAnalysis(context, …)`, the instruction in its own user-message section.

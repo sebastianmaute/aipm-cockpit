@@ -1232,7 +1232,7 @@
   runner claims a slot with ONE `INSERT … ON CONFLICT DO NOTHING RETURNING id` (`scheduled-reports-store.ts`); only the
   caller that gets an id runs the job. ★★ The job store loses concurrent updates: each write is a load, a transform and
   a `DELETE` plus one INSERT per job in separate requests, so a write from another device in between is overwritten.
-  Nothing that must not be lost may live there, which is why the claim is not in it. `lastRunAt` is NOT the guard that makes a slot due; the tick uses it once, as a
+  Nothing that must not be lost may live there, which is why the claim is not in it. The runner judges jobs on a FRESH read of the job store (`loadScheduledJobs`: once per tick that has something due, and again in `stillRunnable` before the claim and before the billed call), never the copy its hook read at mount; a failed read claims nothing. A slot found reported, or claimed elsewhere, is remembered for the session. Job rows a newer version wrote are carried through every save: `sanitizeJob` keeps unknown fields in `extra`, and a job with an unknown type or cadence becomes a read-only `foreign` job holding its stored JSON, which never runs and can only be deleted. `lastRunAt` is NOT the guard that makes a slot due; the tick uses it once, as a
   secondary guard that can only skip a run: a job whose `lastRunAt` is at or after the slot is not run (a legacy job that
   ran today under a pre-§772 runner must not bill again when it is given a project; a `project-missing` record never counts).
   ★★ `slotFor` returns only TODAY'S slot in the JOB'S own time zone (null without a zone, off the weekday, or before the

@@ -14,7 +14,7 @@ import type { ScheduledJob, ScheduledJobRun } from "./scheduled-jobs/types";
 import type { Lang } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { TursoConfig } from "./turso-config";
-import { TursoStepError } from "./turso-pipeline";
+import { TursoHttpError, TursoStepError } from "./turso-pipeline";
 import { StorageNotReadyError, type Workspace } from "./workspace";
 
 export type RunOutcome =
@@ -26,7 +26,7 @@ export interface RunDeps {
   listProjects(): Promise<{ active: { id: string; name: string }[]; archived: { id: string; name: string }[] }>;
   /** Re-read the LIVE state right before a claim: the job still exists, is enabled and has the same key and project,
    *  scheduled jobs and AI are still on with a key, and the portfolio is still the one the tick began on. */
-  stillRunnable(job: ScheduledJob): boolean;
+  stillRunnable(job: ScheduledJob): boolean | Promise<boolean>;
   loadWorkspace(projectId: string): Promise<Workspace>;
   /** After a load: true when part of the project failed to decode or was truncated (the report then says so). */
   lastLoadPartial?(): boolean;
@@ -43,8 +43,8 @@ export interface RunDeps {
   notify(title: string, body: string): void;
 }
 
-/** Maps any failure to the closed token set. Reads the error's TYPE and status, never its text
- *  (the one exception is the literal "parse" `runJobAnalysis` throws). */
+/** Maps any failure to the closed token set, stored instead of a message. It reads the error's type and status. The only
+ *  text it reads: the literal "parse" `runJobAnalysis` throws, and the `Turso` prefix of the pipeline's plain errors. */
 export function toErrorToken(e: unknown): ReportErrorToken {
   if (e instanceof AiHttpError) {
     if (classifyAiError(e.status, e.errorType) === "limit") return "limit";
@@ -53,7 +53,7 @@ export function toErrorToken(e: unknown): ReportErrorToken {
     return "error";
   }
   if (e instanceof StorageNotReadyError) return "storage-unreachable";
-  if (e instanceof TursoStepError) return "turso";
+  if (e instanceof TursoStepError || e instanceof TursoHttpError) return "turso";
   if (e instanceof Error) {
     if (e.message === "parse") return "parse";
     if (e.message.startsWith("Turso")) return "turso";
@@ -62,14 +62,17 @@ export function toErrorToken(e: unknown): ReportErrorToken {
 }
 
 /** A busy or locked database (the open project's autosave holds the tenant database) is transient (spec Run step 3).
- *  Only the TYPE and the SQLite busy wording are read, never stored. */
+ *  SQLite reports it only as text, so this is the one place the wording is read (never stored). */
 const BUSY = /SQLITE_BUSY|SQLITE_LOCKED|database (table )?is (locked|busy)/i;
 const isBusy = (e: unknown): boolean => e instanceof Error && BUSY.test(e.message);
 
-/** Connectivity-class failures (`postPipeline` folds a network failure or timeout into `StorageNotReadyError`) and a
- *  busy database are transient. Any OTHER Turso step or SQL error is NOT, or it would claim, fail and release every
+/** A server blip: HTTP 429 or 5xx from Turso, by status, not by wording. */
+const isServerBlip = (e: unknown): boolean => e instanceof TursoHttpError && (e.status === 429 || e.status >= 500);
+
+/** Connectivity-class failures (`postPipeline` folds a network failure or timeout into `StorageNotReadyError`), a
+ *  rate limit or server error from Turso, and a busy database are transient. Any OTHER Turso step or SQL error is NOT, or it would claim, fail and release every
  *  tick forever with no report and no history entry. */
-const isTransient = (e: unknown): boolean => e instanceof StorageNotReadyError || isBusy(e);
+const isTransient = (e: unknown): boolean => e instanceof StorageNotReadyError || isServerBlip(e) || isBusy(e);
 
 /** A rejecting store write (job deleted mid-run, write chain failure) must never fail the run. */
 async function settle(p: Promise<unknown>): Promise<void> {
@@ -89,7 +92,7 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   const { active, archived } = await deps.listProjects();
   // The tick's snapshot may be minutes old: a job disabled, deleted or re-pointed since must neither claim nor
   // have its project cleared on the strength of the OLD project id.
-  if (!deps.stillRunnable(job)) return "skipped";
+  if (!(await deps.stillRunnable(job))) return "skipped";
   const activeHit = active.find((p) => p.id === projectId);
   const archivedHit = activeHit ? undefined : archived.find((p) => p.id === projectId);
   if (!activeHit && !archivedHit) {
@@ -155,7 +158,7 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
 
   // The load took seconds: re-read the live state once more before the billed call. A job switched off, deleted or
   // re-pointed meanwhile writes no report, records no run and makes no AI call.
-  if (!deps.stillRunnable(job)) {
+  if (!(await deps.stillRunnable(job))) {
     await settle(releaseClaim(config, reportId));
     return "skipped";
   }

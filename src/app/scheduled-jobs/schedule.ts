@@ -63,7 +63,12 @@ export function normalizeJobFields(
 }
 
 export function isRunnable(job: ScheduledJob): boolean {
-  return job.enabled && job.projectId !== null && job.key !== null && job.timeZone !== null;
+  return job.foreign === undefined && job.enabled && job.projectId !== null && job.key !== null && job.timeZone !== null;
+}
+
+/** True when both jobs are read on the same clock: the same cadence in the same zone, so one slot means one thing. */
+export function sameSchedule(a: ScheduledJob, b: ScheduledJob): boolean {
+  return a.timeZone === b.timeZone && JSON.stringify(a.cadence) === JSON.stringify(b.cadence);
 }
 
 function parseHM(timeOfDay: string): { h: number; m: number } {

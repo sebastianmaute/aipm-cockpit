@@ -51,7 +51,7 @@ function taskLines(tasks: readonly Task[], today: string): string[] {
     .sort((a, b) => byDate(a.dueDate, b.dueDate) || a.id - b.id)
     .map((t) => {
       const overdue = t.dueDate !== "" && t.dueDate < today;
-      const parts = [t.status, t.priority, t.assignee || "unassigned", t.dueDate ? `due ${t.dueDate}` : "no due date"];
+      const parts = [t.status, t.priority, clip(t.assignee) || "unassigned", t.dueDate ? `due ${t.dueDate}` : "no due date"];
       if (overdue) parts.push("overdue");
       return `- open-points#${t.id}: ${clip(t.taskName)} [${parts.join(", ")}]`;
     });
@@ -65,7 +65,7 @@ function raidLines(raid: readonly RaidItem[], today: string): string[] {
     .filter(isRaidActiveForReview)
     .sort((a, b) => byDate(a.targetDate ?? "", b.targetDate ?? "") || a.id - b.id)
     .map((r) => {
-      const parts = [r.category, r.severity ?? "unrated", r.status, r.owner || "no owner"];
+      const parts = [r.category, r.severity ?? "unrated", r.status, clip(r.owner ?? "") || "no owner"];
       if (r.targetDate) parts.push(`target ${r.targetDate}`);
       if (isRaidOverdue(r, today)) parts.push("overdue");
       return `- raid#${r.id}: ${clip(r.title)} [${parts.join(", ")}]`;
@@ -88,7 +88,7 @@ function changeLines(changes: readonly ChangeItem[]): string[] {
 
 const stakeholderLines = (stakeholders: readonly Stakeholder[]): string[] =>
   stakeholders.map((s) => {
-    const label = s.title || s.organization || s.category;
+    const label = clip(s.title || s.organization || s.category);
     return `- stakeholders#${s.id}: ${clip(s.name)}${label ? ` [${label}]` : ""}`;
   });
 
@@ -116,7 +116,7 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
   const on = (id: string): boolean => input.enabledModules.includes(id);
   const instruction = input.instruction?.slice(0, TEXTAREA_MAX);
   const body = [
-    `Project: ${input.projectName}. Today: ${input.today}. Mode: ${input.mode}.`,
+    `Project: ${clip(input.projectName)}. Today: ${input.today}. Mode: ${input.mode}.`,
     `Enabled modules: ${input.enabledModules.join(", ") || "(none)"}. Open task count: ${openTasks.length}.`,
     'Entities are listed as "view#id: title"; reference an entity only by an id shown here.',
     ...(input.budget

@@ -11,11 +11,23 @@ vi.mock("./scheduled-job-analysis", () => ({
 vi.mock("./turso-portfolio", () => ({
   listProjectRefs: vi.fn(),
 }));
-const backendState = vi.hoisted(() => ({ failures: [] as string[], truncated: { entries: 0, blocks: 0 } }));
+// The job store as ANOTHER tab or device would leave it: the runner judges jobs against a fresh read of it, not
+// against the copy its hook read at mount. `baseArgs` seeds it with the same jobs the hook was given.
+const storeState = vi.hoisted(() => ({ jobs: [] as unknown[], fail: false, reads: 0 }));
+vi.mock("./scheduled-jobs-store", () => ({
+  loadScheduledJobs: vi.fn(async () => {
+    storeState.reads += 1;
+    if (storeState.fail) throw new Error("store down");
+    return storeState.jobs;
+  }),
+}));
+const backendState = vi.hoisted(() => ({
+  failures: [] as string[], truncated: { entries: 0, blocks: 0 }, onLoad: undefined as undefined | (() => void),
+}));
 vi.mock("./turso-backend", () => ({
   TursoBackend: vi.fn().mockImplementation(function () {
     return {
-      load: async () => emptyWorkspace(),
+      load: async () => { backendState.onLoad?.(); return emptyWorkspace(); },
       get lastDecodeFailures() { return backendState.failures; },
       get lastLoadTruncation() { return backendState.truncated; },
     };
@@ -29,7 +41,7 @@ vi.mock("./scheduled-reports-store", () => ({
 }));
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { listProjectRefs } from "./turso-portfolio";
-import { hasReportAtOrAfter, claimReport, finishReport } from "./scheduled-reports-store";
+import { hasReportAtOrAfter, claimReport, finishReport, releaseClaim } from "./scheduled-reports-store";
 import { emptyWorkspace } from "./workspace";
 import { defaultSettings } from "./settings-types";
 const mockRun = vi.mocked(runJobAnalysis);
@@ -56,7 +68,7 @@ const afternoon = () => new Date("2026-10-23T14:00:00.000Z");
 const earlyMorning = () => new Date("2026-10-23T07:00:00.000Z");
 
 function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJobRunnerArgs {
-  return {
+  const args: ScheduledJobRunnerArgs = {
     enabled: true,
     guidesReady: true,
     jobs: [dailyJob()],
@@ -73,6 +85,8 @@ function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJob
     now: afternoon,
     ...overrides,
   };
+  storeState.jobs = [...args.jobs];
+  return args;
 }
 
 function resetStore(): void {
@@ -82,22 +96,27 @@ function resetStore(): void {
   vi.mocked(listProjectRefs).mockReset().mockResolvedValue({ active: [{ id: "p1", name: "Apollo" }], archived: [] });
   backendState.failures = [];
   backendState.truncated = { entries: 0, blocks: 0 };
+  backendState.onLoad = undefined;
+  storeState.fail = false;
+  storeState.reads = 0;
 }
 
 describe("useScheduledJobRunner: a later job re-checks the live state before its claim (§772 review wave 2)", () => {
   type Args = ScheduledJobRunnerArgs;
   const first = () => dailyJob({ id: 1, key: "k1", name: "First" });
   const second = () => dailyJob({ id: 2, key: "k2", name: "Second" });
-  const changes: [string, (a: Args) => Partial<Args>][] = [
-    ["is disabled", (a) => ({ jobs: a.jobs.map((j) => (j.key === "k2" ? { ...j, enabled: false } : j)) })],
-    ["is deleted", (a) => ({ jobs: a.jobs.filter((j) => j.key !== "k2") })],
-    ["is pointed at another project", (a) => ({ jobs: a.jobs.map((j) => (j.key === "k2" ? { ...j, projectId: "p2" } : j)) })],
-    ["has scheduled jobs / AI switched off", () => ({ enabled: false })],
-    ["loses the AI key", (a) => ({ ai: { ...a.ai, apiKey: "" } })],
+  // A job change is made in the STORE (another tab or device); a switch or the key changes in this tab's args.
+  const changes: [string, (a: Args) => Partial<Args>, ((jobs: ScheduledJob[]) => ScheduledJob[]) | undefined][] = [
+    ["is disabled in the store", () => ({}), (jobs) => jobs.map((j) => (j.key === "k2" ? { ...j, enabled: false } : j))],
+    ["is deleted in the store", () => ({}), (jobs) => jobs.filter((j) => j.key !== "k2")],
+    ["is pointed at another project in the store", () => ({}), (jobs) => jobs.map((j) => (j.key === "k2" ? { ...j, projectId: "p2" } : j))],
+    ["is re-timed in the store", () => ({}), (jobs) => jobs.map((j) => (j.key === "k2" ? { ...j, cadence: { kind: "daily", timeOfDay: "10:00" } } : j))],
+    ["has scheduled jobs / AI switched off", () => ({ enabled: false }), undefined],
+    ["loses the AI key", (a) => ({ ai: { ...a.ai, apiKey: "" } }), undefined],
   ];
 
   // KILLED BY: deleting the `stillRunnable` dep (each later job would be claimed and billed from the stale snapshot).
-  it.each(changes)("a job that %s during the first job's run is neither claimed nor analysed", async (_name, change) => {
+  it.each(changes)("a job that %s during the first job's run is neither claimed nor analysed", async (_name, change, storeChange) => {
     mockRun.mockReset();
     resetStore();
     let finishFirst: (v: { summary: string; actions: [] }) => void = () => {};
@@ -106,6 +125,7 @@ describe("useScheduledJobRunner: a later job re-checks the live state before its
     const { rerender } = renderHook((p: { args: Args }) => useScheduledJobRunner(p.args), { initialProps: { args: initial } });
     await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
     expect(mockRun).toHaveBeenCalledTimes(1); // the first job is in flight
+    if (storeChange) storeState.jobs = storeChange(storeState.jobs as ScheduledJob[]);
     rerender({ args: { ...initial, ...change(initial) } });
     await act(async () => {
       finishFirst({ summary: "s", actions: [] });
@@ -123,6 +143,75 @@ describe("useScheduledJobRunner: a later job re-checks the live state before its
     renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [first(), second()] })));
     await act(async () => { for (let i = 0; i < 60; i++) await Promise.resolve(); });
     expect(mockRun).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("useScheduledJobRunner: jobs are judged on a fresh read of the store (§772 cr3)", () => {
+  const settle = async () => act(async () => { for (let i = 0; i < 60; i++) await Promise.resolve(); });
+  beforeEach(() => {
+    mockRun.mockReset().mockResolvedValue({ summary: "s", actions: [] });
+    resetStore();
+  });
+
+  // KILLED BY: judging the mount-time copy (dueJobs(a.jobs) instead of the fresh read).
+  it.each([
+    ["deleted", (jobs: ScheduledJob[]) => jobs.filter(() => false)],
+    ["switched off", (jobs: ScheduledJob[]) => jobs.map((j) => ({ ...j, enabled: false }))],
+    ["pointed at another project", (jobs: ScheduledJob[]) => jobs.map((j) => ({ ...j, projectId: "p2" }))],
+  ])("a job another tab %s before this tab's tick is never run on its old project", async (_n, change) => {
+    const args = baseArgs();
+    storeState.jobs = change(storeState.jobs as ScheduledJob[]);
+    renderHook(() => useScheduledJobRunner(args));
+    await settle();
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(mClaim).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: ignoring a failed store read (the stale copy would run).
+  it("claims nothing when the store cannot be read", async () => {
+    const args = baseArgs();
+    storeState.fail = true;
+    renderHook(() => useScheduledJobRunner(args));
+    await settle();
+    expect(storeState.reads).toBeGreaterThan(0);
+    expect(vi.mocked(hasReportAtOrAfter)).not.toHaveBeenCalled();
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: re-checking the in-memory copy before the billed call (stillRunnable must re-read the store).
+  it("a job deleted in the store while its project loads is released and never analysed", async () => {
+    const args = baseArgs();
+    backendState.onLoad = () => { storeState.jobs = []; };
+    renderHook(() => useScheduledJobRunner(args));
+    await settle();
+    expect(mClaim).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(releaseClaim)).toHaveBeenCalledTimes(1);
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(vi.mocked(finishReport)).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: not remembering a reported slot (every tick of the day would ask again).
+  it("does not read the store or the report table again for a slot it already knows is reported", async () => {
+    vi.mocked(hasReportAtOrAfter).mockReset().mockResolvedValue(true);
+    const args = baseArgs();
+    renderHook(() => useScheduledJobRunner(args));
+    await settle();
+    const reads = storeState.reads;
+    const checks = vi.mocked(hasReportAtOrAfter).mock.calls.length;
+    expect(checks).toBe(1);
+    document.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+    expect(storeState.reads).toBe(reads);
+    expect(vi.mocked(hasReportAtOrAfter)).toHaveBeenCalledTimes(checks);
+  });
+
+  it("never runs a foreign job (a type or cadence this version does not know)", async () => {
+    const args = baseArgs({ jobs: [dailyJob({ foreign: { raw: { id: 1, type: "future" } } })] });
+    renderHook(() => useScheduledJobRunner(args));
+    await settle();
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(mClaim).not.toHaveBeenCalled();
   });
 });
 

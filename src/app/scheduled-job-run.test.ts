@@ -4,7 +4,7 @@ import type { ScheduledJob } from "./scheduled-jobs/types";
 import type { Workspace } from "./workspace";
 import { StorageNotReadyError, emptyWorkspace } from "./workspace";
 import { AiHttpError } from "./ai-errors";
-import { TursoStepError } from "./turso-pipeline";
+import { TursoHttpError, TursoStepError } from "./turso-pipeline";
 import type { ReportData } from "./scheduled-reports-store";
 import { defaultSettings } from "./settings-types";
 
@@ -355,5 +355,33 @@ describe("runScheduledJob: a partly read project is said so (§772 cr2)", () => 
   it("leaves a clean load unmarked", async () => {
     expect(await runScheduledJob(job(), SLOT, deps({ lastLoadPartial: () => false }))).toBe("done");
     expect((mFinish.mock.calls[0][4] as ReportData).partial).toBeUndefined();
+  });
+});
+
+describe("runScheduledJob: a Turso server blip is transient, by status (§772 cr3)", () => {
+  // KILLED BY: dropping isServerBlip (the slot would be burnt as a failed "turso" report).
+  it.each([429, 500, 502, 503])("HTTP %i while loading releases the claim and writes no report", async (status) => {
+    const d = deps({ loadWorkspace: vi.fn().mockRejectedValue(new TursoHttpError(status)) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+    expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
+    expect(mFinish).not.toHaveBeenCalled();
+    expect(d.recordRun).not.toHaveBeenCalled();
+  });
+
+  it.each([400, 404])("HTTP %i is deterministic: finished as failed with the turso token", async (status) => {
+    const d = deps({ loadWorkspace: vi.fn().mockRejectedValue(new TursoHttpError(status)) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("failed");
+    expect(mRelease).not.toHaveBeenCalled();
+    expect((mFinish.mock.calls[0][4] as ReportData).error).toBe("turso");
+  });
+
+  it("a deterministic SQL error is still a failed report", async () => {
+    const d = deps({ loadWorkspace: vi.fn().mockRejectedValue(new TursoStepError(1, "no such table: tasks")) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("failed");
+    expect((mFinish.mock.calls[0][4] as ReportData).error).toBe("turso");
+  });
+
+  it("maps the typed HTTP error to the turso token", () => {
+    expect(toErrorToken(new TursoHttpError(503))).toBe("turso");
   });
 });

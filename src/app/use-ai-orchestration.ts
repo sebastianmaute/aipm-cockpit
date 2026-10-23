@@ -160,7 +160,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
       now: new Date(),
       queue,
     });
-    return buildProjectDigest({ ...digestInput, queue });
+    return buildProjectDigest(digestInput);
   }, [
     tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status,
     project, milestones, changes, stakeholders, projectFeatures, steeringCommittee, settingsOverrides,

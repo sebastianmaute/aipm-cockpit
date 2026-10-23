@@ -9,7 +9,7 @@ import { type Lang, t } from "./i18n";
 import { navLabelKey } from "./nav-config";
 import type { TursoConfig } from "./turso-config";
 import type { PortfolioMode } from "./portfolio-mode";
-import { isInterrupted, listReports, REPORT_ERROR_KEY, type ReportErrorToken, type ScheduledReport } from "./scheduled-reports-store";
+import { isInterrupted, listReports, REPORT_ERROR_KEY, REPORT_LIST_LIMIT, type ReportErrorToken, type ScheduledReport } from "./scheduled-reports-store";
 import { SCHEDULED_REPORT_EVENT } from "./use-scheduled-job-runner";
 import { getDeviceLabel } from "./device-label";
 import { formatDisplayTimestamp } from "./tz-display";
@@ -183,6 +183,9 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpe
           </label>
         }
       />
+      {reports.length >= REPORT_LIST_LIMIT && (
+        <p className="text-xs text-muted-foreground">{t(lang, "scheduledReportsLimited", String(REPORT_LIST_LIMIT))}</p>
+      )}
       <div className="grid min-h-[240px] flex-1 grid-cols-1 gap-3 overflow-auto rounded-xl border border-line p-3 md:grid-cols-[18rem_1fr]">
         <ScheduledReportsList
           lang={lang}

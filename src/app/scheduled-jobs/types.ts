@@ -27,6 +27,11 @@ export interface ScheduledJob {
   key: string | null;
   lastRunAt: string | null;
   history: ScheduledJobRun[]; // newest-first, capped
+  /** Fields a newer version added: kept verbatim and written back unchanged, so an edit here cannot strip them. */
+  extra?: Record<string, unknown>;
+  /** Set when this version cannot read the job (a type or cadence it does not know). `raw` is the stored JSON, kept
+   *  verbatim: the job never runs and is never edited here, only listed read-only and deletable. */
+  foreign?: { raw: Record<string, unknown> };
 }
 
 export const JOB_HISTORY_CAP = 10;

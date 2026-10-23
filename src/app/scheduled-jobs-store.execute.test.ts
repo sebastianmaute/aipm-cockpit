@@ -30,6 +30,7 @@ import {
   MIGRATED_MARKER_ID, SCHEDULED_JOBS_DDL, __resetScheduledJobsStoreCache,
   loadScheduledJobs, saveScheduledJobs,
 } from "./scheduled-jobs-store";
+import { appendRun } from "./scheduled-jobs/schedule";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 
 const CONFIG = { httpUrl: "https://jobs.example", authToken: "t" } as never;
@@ -177,5 +178,45 @@ describe("scheduled jobs: writes go to v2 only (§772)", () => {
     __resetScheduledJobsStoreCache();
     const [loaded] = await loadScheduledJobs(CONFIG);
     expect(loaded).toMatchObject({ key: "key-1", projectId: "p1", instruction: "mine" });
+  });
+});
+
+describe("scheduled jobs: a newer version's data survives this version's writes (§772 cr3)", () => {
+  const stored = (id: string): Record<string, unknown> =>
+    JSON.parse((db.prepare("SELECT data FROM scheduled_jobs_v2 WHERE id = ?").get(id) as { data: string }).data);
+
+  // KILLED BY: rebuilding a job from the known fields only (an unknown field would be stripped on every save).
+  it("keeps a field it does not know through a recordRun", async () => {
+    await loadScheduledJobs(CONFIG); // migrates (nothing to copy) and writes the marker
+    const future = { ...job(1), futureField: { nested: [1, 2, 3] }, another: "x" };
+    db.prepare("INSERT INTO scheduled_jobs_v2 (id, data) VALUES ('1', ?)").run(JSON.stringify(future));
+    const [loaded] = await loadScheduledJobs(CONFIG);
+    expect(loaded.extra).toEqual({ futureField: { nested: [1, 2, 3] }, another: "x" });
+    await saveScheduledJobs(CONFIG, [appendRun(loaded, { ranAt: "2026-10-23T09:00:00.000Z", summary: "s", actionCount: 0, ok: true })]);
+    expect(stored("1")).toMatchObject({ futureField: { nested: [1, 2, 3] }, another: "x", lastRunAt: "2026-10-23T09:00:00.000Z" });
+  });
+
+  // KILLED BY: dropping a job whose type or cadence is unknown (its row would be deleted by the next save).
+  it.each([
+    ["a type", { type: "future" }],
+    ["a cadence kind", { cadence: { kind: "monthly", dayOfMonth: 3, timeOfDay: "09:00" } }],
+  ])("keeps a job with %s it does not know, verbatim, through a save of another job", async (_n, override) => {
+    await loadScheduledJobs(CONFIG);
+    const foreign = { ...job(2), ...override, extraThing: true };
+    db.prepare("INSERT INTO scheduled_jobs_v2 (id, data) VALUES ('1', ?)").run(JSON.stringify(job(1)));
+    db.prepare("INSERT INTO scheduled_jobs_v2 (id, data) VALUES ('2', ?)").run(JSON.stringify(foreign));
+    const loaded = await loadScheduledJobs(CONFIG);
+    expect(loaded.map((j) => [j.id, j.foreign !== undefined])).toEqual([[1, false], [2, true]]);
+    await saveScheduledJobs(CONFIG, loaded.map((j) => (j.id === 1 ? { ...j, name: "renamed" } : j)));
+    expect(stored("2")).toEqual(foreign);
+    expect(stored("1").name).toBe("renamed");
+  });
+
+  it("a foreign job can be deleted by dropping it from the list", async () => {
+    await loadScheduledJobs(CONFIG);
+    db.prepare("INSERT INTO scheduled_jobs_v2 (id, data) VALUES ('2', ?)").run(JSON.stringify({ ...job(2), type: "future" }));
+    const loaded = await loadScheduledJobs(CONFIG);
+    await saveScheduledJobs(CONFIG, loaded.filter((j) => j.id !== 2));
+    expect(v2Ids()).toEqual([MIGRATED_MARKER_ID]);
   });
 });
