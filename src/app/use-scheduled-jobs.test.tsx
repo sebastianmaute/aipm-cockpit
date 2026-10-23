@@ -130,6 +130,19 @@ describe("useScheduledJobs (localStorage backend)", () => {
     expect(result.current.jobs[1].id).toBe(2);
   });
 
+  // KILLED BY: spreading the raw patch (an untrimmed instruction or an invalid zone would be stored).
+  it("updateJob normalises the instruction and the zone like a create and a load do", async () => {
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => { await result.current.createJob({ name: "A", cadence: dailyCadence, enabled: true, projectId: "p1", timeZone: "UTC" }); });
+    const id = result.current.jobs[0].id;
+    await act(async () => { await result.current.updateJob(id, { instruction: "  focus  ", timeZone: "Asia/Tokyo" }); });
+    expect(result.current.jobs[0]).toMatchObject({ instruction: "focus", timeZone: "Asia/Tokyo" });
+    await act(async () => { await result.current.updateJob(id, { instruction: "   ", timeZone: "Not/AZone" }); });
+    expect(result.current.jobs[0].instruction).toBeUndefined();
+    expect(result.current.jobs[0].timeZone).toBeNull();
+  });
+
   it("updateJob applies a patch immutably and preserves id", async () => {
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.ready).toBe(true));

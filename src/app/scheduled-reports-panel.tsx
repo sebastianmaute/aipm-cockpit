@@ -73,7 +73,13 @@ function statusText(lang: Lang, state: ReportTabState, error: ReportErrorToken |
 
 export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpenSettings }: ScheduledReportsPanelProps) {
   const usable = tursoConfig !== null && mode === "turso";
-  const [loaded, setLoaded] = useState<Loaded>({ kind: "loading" });
+  const [stored, setLoaded] = useState<Loaded>({ kind: "loading" });
+  // Reports read from another portfolio are never shown while the new read is in flight.
+  const source = tursoConfig?.httpUrl ?? "";
+  const loaded = useMemo<Loaded>(
+    () => (stored.kind === "ready" && stored.source !== source ? { kind: "loading" } : stored),
+    [stored, source],
+  );
   const [filter, setFilter] = useState(FILTER_ALL);
   const [selectedId, setSelectedId] = useState("");
 

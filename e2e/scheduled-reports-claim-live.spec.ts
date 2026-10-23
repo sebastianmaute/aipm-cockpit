@@ -9,7 +9,7 @@
 // only its own rows. Credentials are never printed.
 import { test, expect } from "@playwright/test";
 import { runTursoPipeline } from "../src/app/turso-pipeline";
-import { txt } from "../src/app/turso-schema";
+import { rowObjects, txt } from "../src/app/turso-schema";
 import { claimReport, type ReportData } from "../src/app/scheduled-reports-store";
 import {
   THROWAWAY, LIVE, SKIP_NO_THROWAWAY, DESTRUCTIVE_RUN, pipelineBase,
@@ -33,7 +33,12 @@ test.describe("§772 — two devices claiming one slot", () => {
   test("exactly one of two concurrent claims wins", async () => {
     const slot = "2026-01-01T00:00:00.000Z";
     const wins = await Promise.all(ids.map((id, i) =>
-      claimReport(CONFIG, { id, projectId: "probe", jobKey: JOB_KEY, slot, ranAt: slot, claimedBy: `dev-${i}`, data: DATA })));
+      claimReport(CONFIG, { id, projectId: "probe", jobKey: JOB_KEY, slot, claimedBy: `dev-${i}`, data: DATA })));
     expect(wins.filter(Boolean)).toHaveLength(1);
+    // The `true` must come from the insert that STORED the row: exactly one row exists for the slot, and its id is
+    // the winner's.
+    const winnerId = ids[wins.indexOf(true)];
+    const [stored] = await runTursoPipeline(CONFIG, [{ sql: `SELECT id FROM scheduled_reports WHERE job_key = ? AND slot = ?`, args: [txt(JOB_KEY), txt(slot)] }]);
+    expect(rowObjects(stored).map((r) => r.id)).toEqual([winnerId]);
   });
 });

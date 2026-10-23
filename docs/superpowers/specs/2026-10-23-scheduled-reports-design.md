@@ -189,6 +189,11 @@ For each due job, in order:
 2. **Claim** (above).
 3. **Load** the project. A storage failure here (BUSY, unreachable) is transient: the claim row is deleted, no
    report is written and nothing is billed; the next tick tries again.
+   Any OTHER Turso step or SQL error is deterministic: the report is finished as failed with token `turso`, because
+   retrying it would claim, fail and release on every tick for ever.
+   Immediately before the claim the runner re-reads the live state (the job still exists, is enabled and has the same
+   key and project; scheduled jobs and AI are on with a key; same portfolio) and skips without claiming otherwise.
+   Right after the claim it checks the project once more, so a project hard-deleted in between leaves no orphan row.
 4. **Build** the wide digest from the loaded workspace (below).
 5. **Analyse** with `runJobAnalysis(context, …)`, the instruction in its own user-message section.
 6. **Ground** every `entity` against the LOADED workspace with `buildGroundingIndex` / `groundEntity`; drop an

@@ -1215,7 +1215,7 @@
   remounts; bundle is `isPopout ? undefined`. Gated on key + `ai.actionSuggestions !== false` (default ON).
   Rendered above the now/soon/monitor tiers; AI rows use a separate `ai-action-row.tsx` (NOT `ActionRow`).
 - **AI scheduled jobs:** opt-in recurring analysis of ONE named project per job, kept as a report (§772). Pure i18n-free `scheduled-jobs/` engine
-  (`slotFor`/`isRunnable`/`nextRunAt`/`appendRun`; `now` ALWAYS passed in — no `Date.now()`/`new Date()` inside).
+  (`slotFor`/`isRunnable`/`appendRun`; `now` ALWAYS passed in — no `Date.now()`/`new Date()` inside).
   Global `scheduled_jobs` store (JSON-blob row; the store module still falls back to localStorage without a Turso config, but the Settings section and the runner need a Turso portfolio, so no job runs there) OUT of `TABLE_NAMES`.
   ★★ `useScheduledJobs` has TWO instances (the runner's in `use-ai-orchestration.ts`, the Settings list in
   `scheduled-jobs-section.tsx`). Its write chain is MODULE-level and every write makes each other mounted

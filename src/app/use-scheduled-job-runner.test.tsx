@@ -9,8 +9,7 @@ vi.mock("./scheduled-job-analysis", () => ({
   runJobAnalysis: vi.fn(),
 }));
 vi.mock("./turso-portfolio", () => ({
-  listProjects: vi.fn(),
-  listArchivedProjects: vi.fn(),
+  listProjectRefs: vi.fn(),
 }));
 vi.mock("./turso-backend", () => ({
   TursoBackend: vi.fn().mockImplementation(function () {
@@ -24,7 +23,7 @@ vi.mock("./scheduled-reports-store", () => ({
   finishReport: vi.fn(),
 }));
 import { runJobAnalysis } from "./scheduled-job-analysis";
-import { listProjects, listArchivedProjects } from "./turso-portfolio";
+import { listProjectRefs } from "./turso-portfolio";
 import { hasReportAtOrAfter, claimReport, finishReport } from "./scheduled-reports-store";
 import { emptyWorkspace } from "./workspace";
 import { defaultSettings } from "./settings-types";
@@ -75,9 +74,50 @@ function resetStore(): void {
   vi.mocked(hasReportAtOrAfter).mockReset().mockResolvedValue(false);
   mClaim.mockReset().mockResolvedValue(true);
   vi.mocked(finishReport).mockReset().mockResolvedValue(undefined);
-  vi.mocked(listProjects).mockReset().mockResolvedValue([{ id: "p1", meta: { name: "Apollo" }, archived: false } as never]);
-  vi.mocked(listArchivedProjects).mockReset().mockResolvedValue([]);
+  vi.mocked(listProjectRefs).mockReset().mockResolvedValue({ active: [{ id: "p1", name: "Apollo" }], archived: [] });
 }
+
+describe("useScheduledJobRunner: a later job re-checks the live state before its claim (§772 review wave 2)", () => {
+  type Args = ScheduledJobRunnerArgs;
+  const first = () => dailyJob({ id: 1, key: "k1", name: "First" });
+  const second = () => dailyJob({ id: 2, key: "k2", name: "Second" });
+  const changes: [string, (a: Args) => Partial<Args>][] = [
+    ["is disabled", (a) => ({ jobs: a.jobs.map((j) => (j.key === "k2" ? { ...j, enabled: false } : j)) })],
+    ["is deleted", (a) => ({ jobs: a.jobs.filter((j) => j.key !== "k2") })],
+    ["is pointed at another project", (a) => ({ jobs: a.jobs.map((j) => (j.key === "k2" ? { ...j, projectId: "p2" } : j)) })],
+    ["has scheduled jobs / AI switched off", () => ({ enabled: false })],
+    ["loses the AI key", (a) => ({ ai: { ...a.ai, apiKey: "" } })],
+  ];
+
+  // KILLED BY: deleting the `stillRunnable` dep (each later job would be claimed and billed from the stale snapshot).
+  it.each(changes)("a job that %s during the first job's run is neither claimed nor analysed", async (_name, change) => {
+    mockRun.mockReset();
+    resetStore();
+    let finishFirst: (v: { summary: string; actions: [] }) => void = () => {};
+    mockRun.mockReturnValueOnce(new Promise((r) => { finishFirst = r; })).mockResolvedValue({ summary: "s", actions: [] });
+    const initial = baseArgs({ jobs: [first(), second()] });
+    const { rerender } = renderHook((p: { args: Args }) => useScheduledJobRunner(p.args), { initialProps: { args: initial } });
+    await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
+    expect(mockRun).toHaveBeenCalledTimes(1); // the first job is in flight
+    rerender({ args: { ...initial, ...change(initial) } });
+    await act(async () => {
+      finishFirst({ summary: "s", actions: [] });
+      for (let i = 0; i < 40; i++) await Promise.resolve();
+    });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mClaim).toHaveBeenCalledTimes(1);
+    expect(mClaim.mock.calls[0][1].jobKey).toBe("k1");
+  });
+
+  it("control: an unchanged second job still runs after the first", async () => {
+    mockRun.mockReset();
+    resetStore();
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [first(), second()] })));
+    await act(async () => { for (let i = 0; i < 60; i++) await Promise.resolve(); });
+    expect(mockRun).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe("useScheduledJobRunner", () => {
   beforeEach(() => {
@@ -254,8 +294,7 @@ describe("useScheduledJobRunner", () => {
   });
 
   it("an archived-project disable is dropped when the portfolio switched during the finish", async () => {
-    vi.mocked(listProjects).mockResolvedValue([]);
-    vi.mocked(listArchivedProjects).mockResolvedValue([{ id: "p1", meta: { name: "Apollo" }, archived: true } as never]);
+    vi.mocked(listProjectRefs).mockResolvedValue({ active: [], archived: [{ id: "p1", name: "Apollo" }] });
     let finish: () => void = () => {};
     vi.mocked(finishReport).mockReset().mockReturnValue(new Promise<void>((r) => { finish = r; }));
     const disableJob = vi.fn().mockResolvedValue(undefined);
@@ -359,6 +398,25 @@ describe("useScheduledJobRunner — operating guides (§701)", () => {
 
   // The run on app open waits for the guides, then happens at once — not at
   // the next 5-minute interval.
+  // KILLED BY: cacheGuides from `due.length` (the lone real request would pay a cache write nobody reads).
+  it("does not cache the guide prefix when only one of two due jobs will really run", async () => {
+    vi.mocked(hasReportAtOrAfter).mockReset().mockImplementation(async (_c, key) => key === "k1");
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ id: 1, key: "k1" }), dailyJob({ id: 2, key: "k2", name: "Second" })] })));
+    await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mockRun.mock.calls[0][1].cacheGuides).toBe(false);
+  });
+
+  // KILLED BY: removing the lastRunAt guard from the tick's due filter.
+  it("does not run a job that already ran for today's slot (a legacy job given its project today)", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ lastRunAt: "2026-10-23T09:30:00.000Z" })] })));
+    await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(vi.mocked(hasReportAtOrAfter)).not.toHaveBeenCalled();
+  });
+
   it("holds the tick while the guides load, then runs straight away when they arrive", async () => {
     mockRun.mockResolvedValue({ summary: "s", actions: [] });
     const { rerender } = renderHook(

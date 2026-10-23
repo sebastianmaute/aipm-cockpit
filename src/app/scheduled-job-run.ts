@@ -22,8 +22,11 @@ export type RunOutcome =
 
 export interface RunDeps {
   config: TursoConfig;
-  listActive(): Promise<{ id: string; name: string }[]>;
-  listArchived(): Promise<{ id: string; name: string }[]>;
+  /** Both lists from ONE read, so a project archived or restored meanwhile cannot appear in neither. */
+  listProjects(): Promise<{ active: { id: string; name: string }[]; archived: { id: string; name: string }[] }>;
+  /** Re-read the LIVE state right before a claim: the job still exists, is enabled and has the same key and project,
+   *  scheduled jobs and AI are still on with a key, and the portfolio is still the one the tick began on. */
+  stillRunnable(job: ScheduledJob): boolean;
   loadWorkspace(projectId: string): Promise<Workspace>;
   analyse(context: string): Promise<ActionAnalysis>;
   deviceSettings: Settings;
@@ -56,10 +59,15 @@ export function toErrorToken(e: unknown): ReportErrorToken {
   return "error";
 }
 
-/** Only connectivity-class failures are transient. `postPipeline` already folds a network failure or timeout into
- *  `StorageNotReadyError`; a deterministic Turso step or SQL error is NOT, or it would claim, fail and release
- *  every tick forever with no report and no history entry. */
-const isTransient = (e: unknown): boolean => e instanceof StorageNotReadyError;
+/** A busy or locked database (the open project's autosave holds the tenant database) is transient (spec Run step 3).
+ *  Only the TYPE and the SQLite busy wording are read, never stored. */
+const BUSY = /SQLITE_BUSY|database is locked|database table is locked|\bbusy\b/i;
+const isBusy = (e: unknown): boolean => e instanceof Error && BUSY.test(e.message);
+
+/** Connectivity-class failures (`postPipeline` folds a network failure or timeout into `StorageNotReadyError`) and a
+ *  busy database are transient. Any OTHER Turso step or SQL error is NOT, or it would claim, fail and release every
+ *  tick forever with no report and no history entry. */
+const isTransient = (e: unknown): boolean => e instanceof StorageNotReadyError || isBusy(e);
 
 /** A rejecting store write (job deleted mid-run, write chain failure) must never fail the run. */
 async function settle(p: Promise<unknown>): Promise<void> {
@@ -76,7 +84,10 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   if (await hasReportAtOrAfter(config, jobKey, slotIso)) return "skipped";
 
   // 1. The project, before claiming: a hard-deleted project writes no row.
-  const [active, archived] = await Promise.all([deps.listActive(), deps.listArchived()]);
+  const { active, archived } = await deps.listProjects();
+  // The tick's snapshot may be minutes old: a job disabled, deleted or re-pointed since must neither claim nor
+  // have its project cleared on the strength of the OLD project id.
+  if (!deps.stillRunnable(job)) return "skipped";
   const activeHit = active.find((p) => p.id === projectId);
   const archivedHit = activeHit ? undefined : archived.find((p) => p.id === projectId);
   if (!activeHit && !archivedHit) {
@@ -96,9 +107,25 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
     actions: [],
   };
   const won = await claimReport(config, {
-    id: reportId, projectId, jobKey, slot: slotIso, ranAt: deps.now().toISOString(), claimedBy: deps.deviceLabel, data: base,
+    id: reportId, projectId, jobKey, slot: slotIso, claimedBy: deps.deviceLabel, data: base,
   });
   if (!won) return "claimed-elsewhere";
+
+  // A project hard-deleted after the list read, whose side-table sweep already ran, would keep this fresh row for
+  // good: check again now that the row exists. (A delete after the claim sweeps the row itself.)
+  let after: Awaited<ReturnType<RunDeps["listProjects"]>>;
+  try {
+    after = await deps.listProjects();
+  } catch {
+    await settle(releaseClaim(config, reportId));
+    return "transient";
+  }
+  if (!after.active.some((p) => p.id === projectId) && !after.archived.some((p) => p.id === projectId)) {
+    await settle(releaseClaim(config, reportId));
+    await settle(deps.clearProject(job.id, jobKey));
+    await settle(deps.recordRun(job.id, failedRun(deps.now(), "project-missing"), jobKey));
+    return "project-missing";
+  }
 
   if (archivedHit) {
     // The disable must not depend on the write: a failed finish would otherwise leave the job enabled and

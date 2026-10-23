@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextRunAt, appendRun, slotFor, isRunnable } from "./schedule";
+import { appendRun, slotFor, isRunnable } from "./schedule";
 import type { ScheduledJob } from "./types";
 
 function daily(over: Partial<ScheduledJob> = {}): ScheduledJob {
@@ -12,32 +12,6 @@ function daily(over: Partial<ScheduledJob> = {}): ScheduledJob {
 function mk(over: Partial<ScheduledJob> = {}): ScheduledJob {
   return daily({ projectId: "p1", key: "k1", timeZone: "UTC", ...over });
 }
-
-describe("nextRunAt", () => {
-  const dailyUtc = (timeOfDay: string) =>
-    mk({ cadence: { kind: "daily", timeOfDay }, timeZone: "UTC" });
-  const weeklyUtc = (dayOfWeek: number, timeOfDay: string) =>
-    mk({ cadence: { kind: "weekly", dayOfWeek, timeOfDay }, timeZone: "UTC" });
-  it("daily: same day later today when before the slot", () => {
-    expect(nextRunAt(dailyUtc("09:00"), new Date("2026-06-19T08:00:00Z"))?.toISOString()).toBe("2026-06-19T09:00:00.000Z");
-  });
-  it("daily: rolls to next day when already past the slot", () => {
-    expect(nextRunAt(dailyUtc("09:00"), new Date("2026-06-19T10:00:00Z"))?.toISOString()).toBe("2026-06-20T09:00:00.000Z");
-  });
-  it("weekly: advances to the target weekday", () => {
-    expect(nextRunAt(weeklyUtc(1, "09:00"), new Date("2026-06-19T10:00:00Z"))?.toISOString()).toBe("2026-06-22T09:00:00.000Z");
-  });
-  it("weekly: rolls a full week when same weekday but past the slot", () => {
-    expect(nextRunAt(weeklyUtc(1, "09:00"), new Date("2026-06-22T10:00:00Z"))?.toISOString()).toBe("2026-06-29T09:00:00.000Z");
-  });
-  it("reads the slot in the job's zone", () => {
-    const job = mk({ cadence: { kind: "daily", timeOfDay: "08:00" }, timeZone: "Europe/Berlin" });
-    expect(nextRunAt(job, new Date("2026-10-23T07:00:00Z"))?.toISOString()).toBe("2026-10-24T06:00:00.000Z");
-  });
-  it("is null without a time zone", () => {
-    expect(nextRunAt(mk({ timeZone: null }), new Date("2026-06-19T08:00:00Z"))).toBeNull();
-  });
-});
 
 describe("slotFor", () => {
   it("computes a daily slot in the job's zone as a UTC instant", () => {

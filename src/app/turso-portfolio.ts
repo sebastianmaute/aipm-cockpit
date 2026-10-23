@@ -16,6 +16,7 @@ import {
 import { projectSideTableSweepStatements } from "./project-side-tables";
 import { logDiag } from "./diagnostics";
 import { rowObjects, type SqlStmt } from "./turso-schema";
+import { buildProjectFromObj } from "./csv-codecs-config";
 import type { TursoConfig } from "./turso-config";
 import type { ProjectMeta } from "./types";
 import { sanitizeActivityLog, type ActivityEntry } from "./activity-log";
@@ -35,6 +36,20 @@ export function listProjects(config: TursoConfig | null): Promise<ProjectListEnt
 
 export function listArchivedProjects(config: TursoConfig | null): Promise<ProjectListEntry[]> {
   return listWith(config, listArchivedProjectsStatement());
+}
+
+/** One project of the portfolio as a scheduled run needs it: its id and name, nothing decoded beyond that. */
+export interface ProjectRef { id: string; name: string }
+
+/** The active and archived projects from ONE pipeline (no window between two reads in which a project that was
+ *  archived or restored appears in neither). A row whose meta no longer decodes still counts as present, with an
+ *  empty name: it is listed, so a job on it is never mistaken for a hard-deleted project. */
+export async function listProjectRefs(config: TursoConfig | null): Promise<{ active: ProjectRef[]; archived: ProjectRef[] }> {
+  const results = await runTursoPipeline(config, [...ddl(), listProjectsStatement(), listArchivedProjectsStatement()]);
+  const n = results.length;
+  const refs = (res: (typeof results)[number] | undefined): ProjectRef[] =>
+    rowObjects(res).flatMap((o) => (o.id ? [{ id: o.id, name: buildProjectFromObj(o)?.name ?? "" }] : []));
+  return { active: refs(results[n - 2]), archived: refs(results[n - 1]) };
 }
 
 export async function createProject(config: TursoConfig | null, meta: ProjectMeta, id: string): Promise<void> {

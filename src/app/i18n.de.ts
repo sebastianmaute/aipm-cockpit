@@ -1467,6 +1467,7 @@ export const de: Record<TranslationKey, string> = {
   scheduledJobInstruction: "Anweisung",
   scheduledJobInstructionPlaceholder: "Worauf soll dieser Job achten, und was soll er ignorieren?",
   scheduledJobArchived: "Ausgeschaltet, weil das Projekt archiviert ist",
+  scheduledJobRestoredOff: "Ausgeschaltet, als das Projekt archiviert war. Zum Fortsetzen wieder einschalten.",
   scheduledReportsEmpty: "Noch keine geplanten Berichte. Legen Sie unter Einstellungen → Geplante Jobs einen Job an; sein Bericht erscheint hier, sobald er gelaufen ist.",
   scheduledReportsAllProjects: "Alle Projekte",
   scheduledReportsFilter: "Projekt",

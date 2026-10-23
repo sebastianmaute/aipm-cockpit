@@ -155,6 +155,8 @@ export function JobRow({
   }
 
   function setTime(timeOfDay: string) {
+    // A cleared field reads "" (and would parse as 00:00, i.e. due at once): keep the stored time instead.
+    if (!/^\d{2}:\d{2}$/.test(timeOfDay)) return;
     onUpdate(job.id, { cadence: { ...cadence, timeOfDay } });
   }
 
@@ -290,6 +292,9 @@ export function JobRow({
       )}
       {!job.enabled && archivedProject !== undefined && (
         <span className="text-xs text-muted-foreground">{t(lang, "scheduledJobArchived")}</span>
+      )}
+      {!job.enabled && archivedProject === undefined && job.projectId !== null && lastRun?.error === "project-archived" && (
+        <span className="text-xs text-muted-foreground">{t(lang, "scheduledJobRestoredOff")}</span>
       )}
 
       <div className="text-xs text-muted-foreground">

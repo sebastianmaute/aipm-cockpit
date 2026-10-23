@@ -56,50 +56,81 @@ export type ScheduledReport = {
   slot: string;
   status: "running" | "done";
   ok: boolean;
+  /** Set by the DATABASE when the claim is made, so every device compares one clock. */
   ranAt: string;
   claimedBy: string;
   data: ReportData;
+  /** The database's own clock when this row was read (absent on a hand-built row). */
+  serverNow?: string;
 };
 
 const ddl = (): SqlStmt[] => SCHEDULED_REPORTS_DDL.map((sql) => ({ sql }));
+
+/** The table is created once per database per session, not on every 5-minute tick of every open tab. A failed
+ *  call forgets it again, so a database that lost the table is re-created on the next call. */
+const ensured = new Set<string>();
+const schemaKey = (config: TursoConfig | null): string => config?.httpUrl ?? "";
+async function ensureTable(config: TursoConfig | null): Promise<void> {
+  const key = schemaKey(config);
+  if (ensured.has(key)) return;
+  await runTursoPipeline(config, ddl());
+  ensured.add(key);
+}
+async function withTable<T>(config: TursoConfig | null, run: () => Promise<T>): Promise<T> {
+  await ensureTable(config);
+  try {
+    return await run();
+  } catch (e) {
+    ensured.delete(schemaKey(config));
+    throw e;
+  }
+}
+/** Test-only: forget which databases already have the table. */
+export function __resetScheduledReportsSchemaCache(): void {
+  ensured.clear();
+}
+
+/** The database's clock, as the uniform ISO text `ran_at` uses. */
+const SERVER_NOW_SQL = `strftime('%Y-%m-%dT%H:%M:%fZ','now')`;
 
 /** The pre-claim check (spec Slots): true when ANY report of this job has a slot at or after `slot`, i.e. the slot
  *  is taken or older than the job's last report (an edited time or zone must not re-run the day). Slots are uniform
  *  `toISOString()` strings, so text order is time order. The UNIQUE claim still guards the exact slot. */
 export async function hasReportAtOrAfter(config: TursoConfig | null, jobKey: string, slot: string): Promise<boolean> {
-  const results = await runTursoPipeline(config, [
-    ...ddl(),
-    { sql: `SELECT id FROM scheduled_reports WHERE job_key = ? AND slot >= ? LIMIT 1`, args: [txt(jobKey), txt(slot)] },
-  ]);
-  return rowObjects(results[SCHEDULED_REPORTS_DDL.length]).length > 0;
+  return withTable(config, async () => {
+    const results = await runTursoPipeline(config, [
+      { sql: `SELECT id FROM scheduled_reports WHERE job_key = ? AND slot >= ? LIMIT 1`, args: [txt(jobKey), txt(slot)] },
+    ]);
+    return rowObjects(results[0]).length > 0;
+  });
 }
 
 /** True iff THIS call inserted the row, i.e. won the claim for `(jobKey, slot)`. */
 export async function claimReport(
   config: TursoConfig | null,
-  row: { id: string; projectId: string; jobKey: string; slot: string; ranAt: string; claimedBy: string; data: ReportData },
+  row: { id: string; projectId: string; jobKey: string; slot: string; claimedBy: string; data: ReportData },
 ): Promise<boolean> {
-  await runTursoPipeline(config, ddl());
-  const results = await runTursoPipeline(config, [{
-    sql: `INSERT INTO scheduled_reports (id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data) VALUES (?, ?, ?, ?, 'running', 0, ?, ?, ?) ON CONFLICT (job_key, slot) DO NOTHING RETURNING id`,
-    args: [txt(row.id), txt(row.projectId), txt(row.jobKey), txt(row.slot), txt(row.ranAt), txt(row.claimedBy), txt(JSON.stringify(row.data))],
-  }]);
-  return rowObjects(results[0]).length > 0;
+  // ★ DDL goes in its own call before the insert. `ran_at` is the DATABASE's clock, not the claimant's.
+  return withTable(config, async () => {
+    const results = await runTursoPipeline(config, [{
+      sql: `INSERT INTO scheduled_reports (id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data) VALUES (?, ?, ?, ?, 'running', 0, ${SERVER_NOW_SQL}, ?, ?) ON CONFLICT (job_key, slot) DO NOTHING RETURNING id`,
+      args: [txt(row.id), txt(row.projectId), txt(row.jobKey), txt(row.slot), txt(row.claimedBy), txt(JSON.stringify(row.data))],
+    }]);
+    return rowObjects(results[0]).length > 0;
+  });
 }
 
 export async function releaseClaim(config: TursoConfig | null, id: string): Promise<void> {
-  await runTursoPipeline(config, [
-    ...ddl(),
+  await withTable(config, () => runTursoPipeline(config, [
     { sql: `DELETE FROM scheduled_reports WHERE id = ? AND status = 'running'`, args: [txt(id)] },
-  ]);
+  ]));
 }
 
 /** Marks the claim done and applies retention in ONE atomic batch. */
 export async function finishReport(
   config: TursoConfig | null, id: string, jobKey: string, ok: boolean, data: ReportData,
 ): Promise<void> {
-  await runTursoPipeline(config, ddl());
-  await runTursoPipeline(config, [
+  await withTable(config, () => runTursoPipeline(config, [
     { sql: `BEGIN` },
     {
       sql: `UPDATE scheduled_reports SET status = 'done', ok = ?, data = ? WHERE id = ? AND status = 'running'`,
@@ -111,7 +142,7 @@ export async function finishReport(
       args: [txt(jobKey), txt(jobKey)],
     },
     { sql: `COMMIT` },
-  ]);
+  ]));
 }
 
 const ERROR_TOKENS: ReadonlySet<string> = new Set<ReportErrorToken>([
@@ -156,6 +187,7 @@ function decode(r: Record<string, string>): ScheduledReport | null {
       id: r.id, projectId: r.project_id, jobKey: r.job_key, slot: r.slot,
       status: r.status === "done" ? "done" : "running",
       ok: r.ok === "1", ranAt: r.ran_at, claimedBy: r.claimed_by, data,
+      ...(r.server_now ? { serverNow: r.server_now } : {}),
     };
   } catch {
     return null;
@@ -164,17 +196,20 @@ function decode(r: Record<string, string>): ScheduledReport | null {
 
 /** Newest slot first (a slot is never re-run, so this is also newest `ran_at` first); a row whose `data` does not parse is skipped. */
 export async function listReports(config: TursoConfig | null): Promise<ScheduledReport[]> {
-  const results = await runTursoPipeline(config, [
-    ...ddl(),
-    { sql: `SELECT id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data FROM scheduled_reports ORDER BY slot DESC, id DESC` },
-  ]);
-  return rowObjects(results[SCHEDULED_REPORTS_DDL.length])
-    .map(decode)
-    .filter((r): r is ScheduledReport => r !== null);
+  return withTable(config, async () => {
+    const results = await runTursoPipeline(config, [
+      { sql: `SELECT id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data, ${SERVER_NOW_SQL} AS server_now FROM scheduled_reports ORDER BY slot DESC, id DESC` },
+    ]);
+    return rowObjects(results[0])
+      .map(decode)
+      .filter((r): r is ScheduledReport => r !== null);
+  });
 }
 
 export function isInterrupted(r: ScheduledReport, now: Date): boolean {
   if (r.status !== "running") return false;
   const started = Date.parse(r.ranAt);
-  return Number.isFinite(started) && now.getTime() - started > RUNNING_STALE_MS;
+  // Both ends on the database's clock when the row carries it: the claimant's and the viewer's clocks may differ.
+  const reference = r.serverNow !== undefined ? Date.parse(r.serverNow) : now.getTime();
+  return Number.isFinite(started) && Number.isFinite(reference) && reference - started > RUNNING_STALE_MS;
 }

@@ -597,3 +597,39 @@ describe("§772 final review: Settings run history, Add job, keyed writes", () =
     expect(deleteJob).toHaveBeenCalledWith(3, "key-abc");
   });
 });
+
+describe("§772 review wave 2: time field and restored-project note", () => {
+  const entry = (id: string, name: string) =>
+    ({ id, meta: { name }, archived: false }) as unknown as import("../turso-tenant-schema").ProjectListEntry;
+  const archivedRun = [{ ranAt: "2026-06-18T09:00:00Z", summary: "", actionCount: 0, ok: false, error: "project-archived" }];
+
+  // KILLED BY: removing the empty-value guard in setTime.
+  it("clearing the time field writes nothing (an empty time would read as 00:00 and run at once)", async () => {
+    listProjectsMock.mockResolvedValue([entry("p1", "Apollo")]);
+    mockJobs = [job({ id: 3, name: "Alpha", key: "k", projectId: "p1", timeZone: "UTC" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    const time = screen.getByLabelText(`${t("en-US", "cadenceTime")} – Alpha`);
+    fireEvent.change(time, { target: { value: "" } });
+    expect(updateJob).not.toHaveBeenCalled();
+    fireEvent.change(time, { target: { value: "10:15" } });
+    expect(updateJob).toHaveBeenCalledWith(3, { cadence: { kind: "daily", timeOfDay: "10:15" } }, "k");
+  });
+
+  // KILLED BY: removing the restored-project note.
+  it("explains why a job is off once its archived project is active again", async () => {
+    listProjectsMock.mockResolvedValue([entry("p1", "Apollo")]);
+    mockJobs = [job({ id: 3, name: "Alpha", key: "k", projectId: "p1", timeZone: "UTC", enabled: false, history: archivedRun })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    expect(screen.getByText(t("en-US", "scheduledJobRestoredOff"))).toBeInTheDocument();
+  });
+
+  it("shows no such note for a job the user switched off themselves", async () => {
+    listProjectsMock.mockResolvedValue([entry("p1", "Apollo")]);
+    mockJobs = [job({ id: 3, name: "Alpha", key: "k", projectId: "p1", timeZone: "UTC", enabled: false })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    expect(screen.queryByText(t("en-US", "scheduledJobRestoredOff"))).toBeNull();
+  });
+});

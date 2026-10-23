@@ -1573,6 +1573,7 @@ const enUS = {
   scheduledJobInstruction: "Instruction",
   scheduledJobInstructionPlaceholder: "What should this job look for, and what should it ignore?",
   scheduledJobArchived: "Switched off because its project is archived",
+  scheduledJobRestoredOff: "Switched off while its project was archived. Switch it on again to resume.",
   scheduledReportsEmpty: "No scheduled reports yet. Create a job under Settings → Scheduled jobs; its report appears here after it has run.",
   scheduledReportsAllProjects: "All projects",
   scheduledReportsFilter: "Project",

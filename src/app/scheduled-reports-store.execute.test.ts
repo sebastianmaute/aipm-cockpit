@@ -27,7 +27,7 @@ vi.mock("./turso-pipeline", () => ({
 
 import {
   REPORT_RETENTION_PER_JOB, RUNNING_STALE_MS,
-  hasReportAtOrAfter, claimReport, releaseClaim, finishReport, listReports, isInterrupted, sanitizeReportData,
+  __resetScheduledReportsSchemaCache, hasReportAtOrAfter, claimReport, releaseClaim, finishReport, listReports, isInterrupted, sanitizeReportData,
   type ReportData, type ScheduledReport,
 } from "./scheduled-reports-store";
 import { SCHEDULED_REPORTS_DDL } from "./scheduled-reports-schema";
@@ -36,13 +36,14 @@ import { PROJECT_SCOPED_SIDE_TABLES, projectSideTableSweepStatements } from "./p
 const CONFIG = { httpUrl: "https://x", authToken: "t" } as never;
 const data = (summary = "s"): ReportData => ({ jobName: "J", projectName: "P", summary, actions: [] });
 const row = (id: string, jobKey: string, slot: string, projectId = "p1") =>
-  ({ id, projectId, jobKey, slot, ranAt: "2026-10-23T00:00:00.000Z", claimedBy: "dev", data: data() });
+  ({ id, projectId, jobKey, slot, claimedBy: "dev", data: data() });
 const count = (where = "1=1"): number =>
   Number((db.prepare(`SELECT COUNT(*) AS n FROM scheduled_reports WHERE ${where}`).get() as { n: number | bigint }).n);
 
 beforeEach(() => {
   db = new DatabaseSync(":memory:");
   sent.length = 0;
+  __resetScheduledReportsSchemaCache();
 });
 
 describe("scheduled_reports store (§772)", () => {
@@ -138,7 +139,7 @@ describe("scheduled_reports store (§772)", () => {
   });
 
   it("isInterrupted is true for a running row older than 30 minutes only", () => {
-    const base: ScheduledReport = { ...row("a", "k", "s"), status: "running", ok: false };
+    const base: ScheduledReport = { ...row("a", "k", "s"), ranAt: "2026-10-23T00:00:00.000Z", status: "running", ok: false };
     const now = new Date("2026-10-23T12:00:00.000Z");
     const at = (min: number) => ({ ...base, ranAt: new Date(now.getTime() - min * 60_000).toISOString() });
     expect(RUNNING_STALE_MS).toBe(30 * 60_000);
@@ -184,5 +185,60 @@ describe("sanitizeReportData drops a malformed action row (§772 final review)",
       actions: [{ severity: "now" }, { title: "", why: "" }, { title: "only title" }, { why: "only why", severity: "soon" }],
     });
     expect(d?.actions.map((a) => [a.title, a.why])).toEqual([["only title", ""], ["", "only why"]]);
+  });
+});
+
+describe("the table is created once, and ran_at is the database's clock (§772 review wave 2)", () => {
+  const ddlSends = () => sent.filter((s) => s.some((x) => /CREATE TABLE/i.test(x.sql))).length;
+
+  // KILLED BY: sending the DDL on every call again.
+  it("sends the DDL once per database, not on every call", async () => {
+    await hasReportAtOrAfter(CONFIG, "k", "s");
+    await hasReportAtOrAfter(CONFIG, "k", "s");
+    await claimReport(CONFIG, row("a", "k", "s1"));
+    await listReports(CONFIG);
+    await releaseClaim(CONFIG, "a");
+    expect(ddlSends()).toBe(1);
+  });
+
+  it("keeps the schema per database", async () => {
+    await hasReportAtOrAfter(CONFIG, "k", "s");
+    await hasReportAtOrAfter({ httpUrl: "https://other", authToken: "t" } as never, "k", "s");
+    expect(ddlSends()).toBe(2);
+  });
+
+  // KILLED BY: not forgetting the schema when a call fails.
+  it("sends the DDL again after a failed call (the database may have lost the table)", async () => {
+    await hasReportAtOrAfter(CONFIG, "k", "s");
+    db.exec("DROP TABLE scheduled_reports");
+    await expect(hasReportAtOrAfter(CONFIG, "k", "s")).rejects.toThrow();
+    await expect(hasReportAtOrAfter(CONFIG, "k", "s")).resolves.toBe(false);
+    expect(ddlSends()).toBe(2);
+  });
+
+  // KILLED BY: binding the claimant's clock again.
+  it("stores ran_at from the database's clock, as uniform ISO text", async () => {
+    const before = Date.now();
+    await claimReport(CONFIG, row("a", "k", "s1"));
+    const ranAt = (db.prepare("SELECT ran_at FROM scheduled_reports").get() as { ran_at: string }).ran_at;
+    expect(ranAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(Math.abs(Date.parse(ranAt) - before)).toBeLessThan(60_000);
+  });
+
+  it("listReports carries the database's clock on every row", async () => {
+    await claimReport(CONFIG, row("a", "k", "s1"));
+    const [r] = await listReports(CONFIG);
+    expect(Math.abs(Date.parse(r.serverNow!) - Date.now())).toBeLessThan(60_000);
+  });
+
+  // KILLED BY: comparing against the viewer's clock when the row carries the database's.
+  it("isInterrupted compares the row with the database's clock, not the viewer's", () => {
+    const base: ScheduledReport = {
+      ...row("a", "k", "s"), status: "running", ok: false,
+      ranAt: "2026-10-23T12:00:00.000Z", serverNow: "2026-10-23T12:10:00.000Z",
+    };
+    const farFuture = new Date("2030-01-01T00:00:00.000Z"); // a viewer clock that is hours ahead
+    expect(isInterrupted(base, farFuture)).toBe(false);
+    expect(isInterrupted({ ...base, serverNow: "2026-10-23T12:31:00.000Z" }, new Date("2026-10-23T12:00:00.000Z"))).toBe(true);
   });
 });

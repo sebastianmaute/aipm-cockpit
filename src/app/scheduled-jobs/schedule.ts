@@ -41,11 +41,6 @@ function weekdayOf(ymd: string): number {
   return new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
 }
 
-function addDays(ymd: string, n: number): string {
-  const [y, mo, d] = ymd.split("-").map(Number);
-  return new Date(Date.UTC(y, mo - 1, d + n)).toISOString().slice(0, 10);
-}
-
 /** The UTC instant of the job's slot today in its own zone, or null: no zone, not the weekday, not reached. */
 export function slotFor(job: ScheduledJob, now: Date): Date | null {
   if (job.timeZone === null) return null;
@@ -74,19 +69,6 @@ export function isRunnable(job: ScheduledJob): boolean {
 function parseHM(timeOfDay: string): { h: number; m: number } {
   const [h, m] = timeOfDay.split(":").map((n) => Number(n));
   return { h: Number.isFinite(h) ? h : 0, m: Number.isFinite(m) ? m : 0 };
-}
-
-/** The next slot strictly after `from`, read in the job's zone; null when the job has no zone. */
-export function nextRunAt(job: ScheduledJob, from: Date): Date | null {
-  if (job.timeZone === null) return null;
-  const today = todayInZone(from, job.timeZone);
-  for (let i = 0; i <= 8; i++) {
-    const ymd = addDays(today, i);
-    if (job.cadence.kind === "weekly" && weekdayOf(ymd) !== job.cadence.dayOfWeek) continue;
-    const slot = zonedInstant(ymd, job.cadence.timeOfDay, job.timeZone);
-    if (slot > from) return slot;
-  }
-  return null;
 }
 
 export function appendRun(job: ScheduledJob, run: ScheduledJobRun): ScheduledJob {

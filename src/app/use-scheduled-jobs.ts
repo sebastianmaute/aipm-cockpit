@@ -78,6 +78,15 @@ function matches(j: ScheduledJob, id: number, key: string | undefined): boolean 
   return j.id === id && (key === undefined || j.key === key);
 }
 
+/** The free fields of a patch go through the same normalisation as a create and a load. */
+function normalizePatch<P extends { instruction?: string; timeZone?: string | null }>(patch: P): P {
+  return {
+    ...patch,
+    ...("instruction" in patch ? { instruction: normalizeJobFields(patch.instruction, undefined).instruction } : {}),
+    ...("timeZone" in patch ? { timeZone: normalizeJobFields(undefined, patch.timeZone).timeZone } : {}),
+  };
+}
+
 export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduledJobsResult {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [jobsSource, setJobsSource] = useState<string | null | undefined>(undefined);
@@ -190,7 +199,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   const updateJob = useCallback(
     (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string): Promise<void> => {
       return mutate((list) =>
-        list.map((j) => (matches(j, id, key) ? { ...j, ...patch, id: j.id } : j)),
+        list.map((j) => (matches(j, id, key) ? { ...j, ...normalizePatch(patch), id: j.id } : j)),
       );
     },
     [mutate],

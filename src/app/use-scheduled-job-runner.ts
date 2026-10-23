@@ -8,10 +8,11 @@
 // banned react-hooks/set-state-in-effect rule — no render state here).
 import { useEffect, useRef } from "react";
 import { isRunnable, slotFor } from "./scheduled-jobs/schedule";
+import { hasReportAtOrAfter } from "./scheduled-reports-store";
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { runScheduledJob, type RunDeps, type RunOutcome } from "./scheduled-job-run";
 import { getDeviceLabel } from "./device-label";
-import { listArchivedProjects, listProjects } from "./turso-portfolio";
+import { listProjectRefs } from "./turso-portfolio";
 import { TursoBackend } from "./turso-backend";
 import type { TursoConfig } from "./turso-config";
 import type { Settings } from "./settings-types";
@@ -118,17 +119,30 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
         .filter(isRunnable)
         .flatMap((job) => {
           const slot = slotFor(job, at);
-          return slot === null ? [] : [{ job, slot }];
+          if (slot === null) return [];
+          // A job that already ran for this slot (a legacy job given its project today, or a record the report
+          // table does not know about) is not run again.
+          const lastRun = job.lastRunAt === null ? Number.NaN : Date.parse(job.lastRunAt);
+          return Number.isFinite(lastRun) && lastRun >= slot.getTime() ? [] : [{ job, slot }];
         });
       if (due.length === 0) return;
 
       isRunningRef.current = true;
       try {
+        const config = a.config;
+        // Jobs whose slot already has (or is older than) a report are skipped by the run anyway: only those that
+        // will really run decide whether the guide prefix is worth caching. A failed read counts as pending.
+        const checks = await Promise.allSettled(due.map(({ job, slot }) =>
+          job.key === null ? Promise.resolve(false) : hasReportAtOrAfter(config, job.key, slot.toISOString())));
+        const pending = due.filter((_, i) => {
+          const c = checks[i];
+          return c.status !== "fulfilled" || !c.value;
+        });
+        if (pending.length === 0) return;
         // The guard against a repeat is the slot's report row in Turso (claimed before any billed call,
         // shared by every device), not `lastRunAt`: a failed run still writes its row, so a persistent
         // failure (bad key, outage) is not re-billed every tick. A transient storage failure writes
         // nothing and is simply tried again on the next tick.
-        const config = a.config;
         // A run outlives a portfolio switch (the load and the AI call take seconds). The job-store writers
         // always write to the CURRENT portfolio, so after a switch they would hit an unrelated job that
         // shares this job's numeric id: drop them unless the portfolio is still the one the tick began on.
@@ -137,12 +151,20 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
         const samePortfolio = () => argsRef.current.config?.httpUrl === identity;
         const deps: RunDeps = {
           config,
-          listActive: async () => (await listProjects(config)).map((p) => ({ id: p.id, name: p.meta.name })),
-          listArchived: async () => (await listArchivedProjects(config)).map((p) => ({ id: p.id, name: p.meta.name })),
+          listProjects: () => listProjectRefs(config),
+          // The latest args, read at call time: the job list, the switches and the key may have changed since the
+          // tick began, and a run is billed.
+          stillRunnable: (job) => {
+            const now = argsRef.current;
+            if (!now.enabled || !now.available || !samePortfolio() || now.jobsSource !== identity) return false;
+            if (now.ai.apiKey === "") return false;
+            const live = now.jobs.find((j) => j.key !== null && j.key === job.key);
+            return live !== undefined && isRunnable(live) && live.projectId === job.projectId;
+          },
           loadWorkspace: (projectId) => new TursoBackend(config, projectId).load(),
           // Cache the guide prefix only when this tick sends more than one request: a lone request
           // would pay the cache write and never read it.
-          analyse: (context) => runJobAnalysis(context, { ...a.ai, cacheGuides: due.length > 1 }),
+          analyse: (context) => runJobAnalysis(context, { ...argsRef.current.ai, cacheGuides: pending.length > 1 }),
           deviceSettings: a.deviceSettings,
           lang: a.lang,
           now: a.now ?? (() => new Date()),
@@ -153,7 +175,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
           recordRun: async (jobId, run, key) => { if (samePortfolio()) await argsRef.current.recordRun(jobId, run, key); },
           notify: a.notify,
         };
-        for (const { job, slot } of due) {
+        for (const { job, slot } of pending) {
           try {
             const outcome = await runScheduledJob(job, slot, deps);
             if (REPORT_WRITTEN.has(outcome)) window.dispatchEvent(new CustomEvent(SCHEDULED_REPORT_EVENT));

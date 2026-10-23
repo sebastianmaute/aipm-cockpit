@@ -57,8 +57,8 @@ function workspace(): Workspace {
 function deps(overrides: Partial<RunDeps> = {}): RunDeps {
   return {
     config: CONFIG,
-    listActive: vi.fn().mockResolvedValue([{ id: "p1", name: "Apollo" }]),
-    listArchived: vi.fn().mockResolvedValue([]),
+    listProjects: vi.fn().mockResolvedValue({ active: [{ id: "p1", name: "Apollo" }], archived: [] }),
+    stillRunnable: vi.fn().mockReturnValue(true),
     loadWorkspace: vi.fn().mockResolvedValue(workspace()),
     analyse: vi.fn().mockResolvedValue({ summary: "Looks fine", actions: [] }),
     deviceSettings: defaultSettings,
@@ -84,7 +84,7 @@ beforeEach(() => {
 
 describe("runScheduledJob", () => {
   it("a project in neither list is project-missing: the job's project is cleared, nothing is claimed or analysed", async () => {
-    const d = deps({ listActive: vi.fn().mockResolvedValue([]) });
+    const d = deps({ listProjects: vi.fn().mockResolvedValue({ active: [], archived: [] }) });
     expect(await runScheduledJob(job(), SLOT, d)).toBe("project-missing");
     expect(d.clearProject).toHaveBeenCalledWith(7, "job-key-1");
     expect(d.recordRun).toHaveBeenCalledWith(7, expect.objectContaining({ ok: false, error: "project-missing" }), "job-key-1");
@@ -95,8 +95,7 @@ describe("runScheduledJob", () => {
 
   it("an archived project is claimed once, finished as project-archived, and the job is disabled", async () => {
     const d = deps({
-      listActive: vi.fn().mockResolvedValue([]),
-      listArchived: vi.fn().mockResolvedValue([{ id: "p1", name: "Apollo" }]),
+      listProjects: vi.fn().mockResolvedValue({ active: [], archived: [{ id: "p1", name: "Apollo" }] }),
     });
     expect(await runScheduledJob(job(), SLOT, d)).toBe("project-archived");
     expect(mClaim).toHaveBeenCalledTimes(1);
@@ -112,7 +111,7 @@ describe("runScheduledJob", () => {
     mHas.mockResolvedValue(true);
     const d = deps();
     expect(await runScheduledJob(job(), SLOT, d)).toBe("skipped");
-    expect(d.listActive).not.toHaveBeenCalled();
+    expect(d.listProjects).not.toHaveBeenCalled();
     expect(mClaim).not.toHaveBeenCalled();
     expect(d.analyse).not.toHaveBeenCalled();
     expect(d.recordRun).not.toHaveBeenCalled();
@@ -144,8 +143,7 @@ describe("runScheduledJob", () => {
   it("an archived project still disables the job when the finish write throws", async () => {
     mFinish.mockRejectedValue(new Error("Turso error: boom"));
     const d = deps({
-      listActive: vi.fn().mockResolvedValue([]),
-      listArchived: vi.fn().mockResolvedValue([{ id: "p1", name: "Apollo" }]),
+      listProjects: vi.fn().mockResolvedValue({ active: [], archived: [{ id: "p1", name: "Apollo" }] }),
     });
     expect(await runScheduledJob(job(), SLOT, d)).toBe("project-archived");
     expect(d.disableJob).toHaveBeenCalledWith(7, "job-key-1");
@@ -260,5 +258,65 @@ describe("toErrorToken", () => {
     expect(toErrorToken(new Error("Turso error: boom"))).toBe("turso");
     expect(toErrorToken(new Error("anything else"))).toBe("error");
     expect(toErrorToken("nope")).toBe("error");
+  });
+});
+
+describe("runScheduledJob: busy database, live re-check, orphan guard (§772 review wave 2)", () => {
+  // KILLED BY: isTransient back to StorageNotReadyError only.
+  it.each([
+    ["a plain busy error", new Error("Turso error: SQLITE_BUSY: database is locked")],
+    ["a busy step error", new TursoStepError(2, "database is locked")],
+  ])("%s while loading is transient: the claim is released, nothing is finished or recorded", async (_n, err) => {
+    const d = deps({ loadWorkspace: vi.fn().mockRejectedValue(err) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+    expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
+    expect(mFinish).not.toHaveBeenCalled();
+    expect(d.recordRun).not.toHaveBeenCalled();
+    expect(d.analyse).not.toHaveBeenCalled();
+  });
+
+  it("any other Turso error while loading still finishes the report as failed (turso)", async () => {
+    const d = deps({ loadWorkspace: vi.fn().mockRejectedValue(new TursoStepError(2, "no such column: x")) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("failed");
+    expect(mRelease).not.toHaveBeenCalled();
+    expect((mFinish.mock.calls[0][4] as ReportData).error).toBe("turso");
+  });
+
+  // KILLED BY: deleting the `stillRunnable` check (the stale job would claim, and a missing project would be cleared).
+  it("a job that is no longer runnable is skipped before anything is written, even when its project looks gone", async () => {
+    const d = deps({
+      stillRunnable: vi.fn().mockReturnValue(false),
+      listProjects: vi.fn().mockResolvedValue({ active: [], archived: [] }),
+    });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("skipped");
+    expect(d.stillRunnable).toHaveBeenCalledWith(expect.objectContaining({ key: "job-key-1" }));
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(d.clearProject).not.toHaveBeenCalled();
+    expect(d.recordRun).not.toHaveBeenCalled();
+    expect(d.analyse).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: deleting the second project check after the claim.
+  it("a project hard-deleted between the list read and the claim leaves no row: released, cleared, project-missing", async () => {
+    const listProjects = vi.fn()
+      .mockResolvedValueOnce({ active: [{ id: "p1", name: "Apollo" }], archived: [] })
+      .mockResolvedValueOnce({ active: [], archived: [] });
+    const d = deps({ listProjects });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("project-missing");
+    expect(mClaim).toHaveBeenCalledTimes(1);
+    expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
+    expect(d.clearProject).toHaveBeenCalledWith(7, "job-key-1");
+    expect(d.loadWorkspace).not.toHaveBeenCalled();
+    expect(d.analyse).not.toHaveBeenCalled();
+  });
+
+  it("an unreadable project list after the claim releases the claim as transient", async () => {
+    const listProjects = vi.fn()
+      .mockResolvedValueOnce({ active: [{ id: "p1", name: "Apollo" }], archived: [] })
+      .mockRejectedValueOnce(new StorageNotReadyError("storage-unreachable"));
+    const d = deps({ listProjects });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+    expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
+    expect(d.analyse).not.toHaveBeenCalled();
   });
 });
