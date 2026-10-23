@@ -189,12 +189,12 @@ longer carries its own changelog comment.
 
 ### Security
 
-- **Next.js 16.4.2.** The version in use fell inside critical advisories (GHSA-2464-fhr4-w9xw, remote code
-  execution in the Image Optimization API with SVG files; GHSA-673q-mjm6-r5xr, remote code execution in
-  `use cache` functions; GHSA-p3m5-59mp-jv5r, a Server Actions denial of service); `next` and
-  `eslint-config-next` move to 16.4.2.
-- **DOMPurify 3.4.17**, which fixes GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr and GHSA-c6gr-qvv4-5v3f
-  (sanitiser bypasses).
+- **Next.js 16.4.2.** The version in use, 16.4.0, fell inside three advisories, two of them critical:
+  GHSA-2464-fhr4-w9xw (critical, remote code execution in the Image Optimization API with SVG files),
+  GHSA-673q-mjm6-r5xr (critical, remote code execution in `use cache` functions) and GHSA-p3m5-59mp-jv5r
+  (high, a Server Actions denial of service). `next` and `eslint-config-next` move to 16.4.2.
+- **DOMPurify 3.4.17.** The version in use, 3.4.16, fell inside three sanitiser-bypass advisories:
+  GHSA-cg2g-xh64-v4q7 (critical), GHSA-mrv2-3pqr-j5jr (high) and GHSA-c6gr-qvv4-5v3f (low).
 
 ### Development
 
