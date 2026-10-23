@@ -43,8 +43,8 @@ export const CENTERED_WIDE_PANE_CLASS =
  *  content, but the bottom-right corner drags to a custom size (the drag
  *  overrides the content-fit height/width within the min/max bounds). Used by
  *  Manage Roles. The width is the whole content area up to 72rem, which the rate
- *  card (about 1,050px of table) fits in (§766): half of the area left it
- *  420–488px below a 1366px window (measured 2026-10-23). As in
+ *  card (a 908px table at its narrowest) fits in (§766): half of the area left
+ *  it 420–488px below a 1366px window (measured 2026-10-23). As in
  *  CENTERED_WIDE_PANE_CLASS the cap lives in `width`, not a `max-w-*`, so a drag
  *  wider than the cap still wins. */
 export const CENTERED_FIT_PANE_CLASS =

@@ -53,7 +53,7 @@ test("RolesPanel is manually resizable and the reset button clears the manual si
   expect(section.style.height).toBe("");
 });
 
-// §766: half of the content area left the rate card (about 1,050px of table) a
+// §766: half of the content area left the rate card (then a 1,013px table) a
 // 420-488px window below 1366px. The pane now takes the whole content width up
 // to a cap the rate card fits in, and the cap lives in `width` so a corner drag
 // wider than it still wins (`max-w-*` would clamp the inline width).

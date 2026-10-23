@@ -685,3 +685,49 @@ describe("RolesEditor reference list row heights", () => {
     for (const f of fields) expect(f.className.split(/\s+/)).toEqual(expect.arrayContaining(["py-1.5", "text-xs"]));
   });
 });
+
+// §766 review round: the whole rate card fits a 1280×720 window. Measured in Chromium
+// on 2026-10-23 against the e2e seed, in English and German, at 1920×1080, 1366×768,
+// 1280×720, 1024×576 and 853×480: with these widths and `w-16` rate inputs the table is
+// 908px at its narrowest, and the panel shows 1002px of it at 1366 and 916px at 1280, so
+// nothing scrolls sideways there. A 64px input holds "12345" with its spinner showing.
+// Below 1280 the table scrolls inside the panel, so the delete column is pinned right
+// and each row's ✕ stays in view. jsdom has no layout: these pin the measured inputs.
+describe("RolesEditor rate card fits a 1280px window (§766)", () => {
+  it("keeps the measured column widths", () => {
+    expect(ROLES_COL_WIDTHS).toEqual({
+      discipline: 160,
+      grade: 100,
+      internal: 100,
+      external: 100,
+      internalDay: 100,
+      externalDay: 100,
+      basis: 192,
+    });
+  });
+
+  it("draws every rate input 64px wide", () => {
+    renderEditor();
+    const inputs = screen.getAllByRole("spinbutton");
+    expect(inputs).toHaveLength(roles.length * 4);
+    for (const i of inputs) {
+      const classes = i.className.split(/\s+/);
+      expect(classes).toContain("w-16");
+      expect(classes).not.toContain("w-24");
+    }
+  });
+
+  it("pins the delete column to the right edge, header included, and not in print", () => {
+    renderEditor();
+    const table = document.querySelector("table") as HTMLElement;
+    const deletes = within(table).getAllByRole("button", { name: new RegExp(`^${t("en-US", "delete")} – `) });
+    expect(deletes).toHaveLength(roles.length);
+    for (const d of deletes) {
+      const cell = d.closest("td") as HTMLElement;
+      expect(cell.className.split(/\s+/)).toEqual(expect.arrayContaining(["sticky", "right-0", "bg-surface", "print:hidden"]));
+    }
+    const headerCells = table.querySelectorAll("thead th");
+    const last = headerCells[headerCells.length - 1] as HTMLElement;
+    expect(last.className.split(/\s+/)).toEqual(expect.arrayContaining(["sticky", "right-0", "print:static"]));
+  });
+});

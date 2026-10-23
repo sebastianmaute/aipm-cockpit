@@ -40,13 +40,16 @@ import { Input, Select } from "./form-controls";
  *  container. Same split as `reports.tsx` and `budget-panel-bucket-card.tsx`. */
 const REORDER_HANDLE_CLASS = "cursor-move text-muted-foreground";
 
+/** §766: with these widths and `w-16` rate inputs the table is 908px at its
+ *  narrowest, which a 1280×720 window's Manage roles pane shows whole (916px).
+ *  A rate cell is px-3 + the currency symbol + a 64px input, which holds "12345". */
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
-  grade: 120,
-  internal: 120,
-  external: 120,
-  internalDay: 120,
-  externalDay: 120,
+  grade: 100,
+  internal: 100,
+  external: 100,
+  internalDay: 100,
+  externalDay: 100,
   // Room for the Hours/Days control on one line, German included (164px + px-3);
   // narrower, it wraps and doubles every row's height (§766).
   basis: 192,
@@ -232,7 +235,7 @@ export function RolesEditor({
           <Input type="number" min={0} step={1} value={value} readOnly={!editable}
             aria-label={`${rowCtx} — ${t(lang, labelKey)}`}
             onChange={editable ? (e) => onChange(e.target.value) : undefined}
-            size="xs" state={editable ? "default" : "muted"} className="w-24 text-right tabular-nums" />
+            size="xs" state={editable ? "default" : "muted"} className="w-16 text-right tabular-nums" />
         </span>
       </td>
     );
@@ -303,7 +306,7 @@ export function RolesEditor({
                     <InfoTooltip text={t(lang, "rolesRateBasisHint")} />
                   </span>
                 </th>
-                <th className="px-3 py-2 font-medium" />
+                <th className="sticky right-0 px-3 py-2 font-medium print:static" />
               </tr>
             </>} tbodyClassName="divide-y divide-line">
               {sortedRoles.map((r) => {
@@ -366,7 +369,7 @@ export function RolesEditor({
                       title={t(lang, "rolesRateBasisHint")}
                     />
                   </td>
-                  <td className="px-3 py-2 text-right print:hidden">
+                  <td className="sticky right-0 bg-surface px-3 py-2 text-right print:hidden">
                     <IconButton variant="danger" onClick={() => onDeleteRole(r.id)} label={`${t(lang, "delete")} – ${rowCtx}`} title={`${t(lang, "delete")} – ${rowCtx}`}>
                       <XMarkIcon aria-hidden="true" className="h-4 w-4" />
                     </IconButton>
