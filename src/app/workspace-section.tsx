@@ -94,6 +94,7 @@ import {
   TrendsPanel,
   HistoryPanel,
   PortfolioHealthPanel,
+  ScheduledReportsPanel,
   ProjectsPanel,
   ActionsPanel,
   InsightsPanel,
@@ -1103,6 +1104,12 @@ export function WorkspaceSection({
               workdayHours={settings.resources.workdayHours}
               onSwitchProject={isPopout ? undefined : onSwitchProject}
             />
+          </div>
+        )}
+
+        {activeTab === "scheduled-reports" && (
+          <div id="panel-scheduled-reports" role="tabpanel" className={panelScrollClass}>
+            <ScheduledReportsPanel lang={lang} tursoConfig={chatTursoConfig} mode={mode} timeZone={effectiveTz} />
           </div>
         )}
 

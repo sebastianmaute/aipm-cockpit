@@ -165,6 +165,7 @@ const HELP_ENTRIES_LITERAL = [
   // portfolio health, the per-project module for Time bookings.
   { id: "feature-projects", group: "features", titleKey: "helpSecProjectsTitle", bodyKey: "helpSecProjectsBody", relatedViews: ["projects"] },
   { id: "feature-portfolio-health", group: "features", titleKey: "helpSecPortfolioHealthTitle", bodyKey: "helpSecPortfolioHealthBody", relatedViews: ["portfolio-health"], relatedConcepts: ["concept-baseline"] },
+  { id: "feature-scheduled-reports", group: "features", titleKey: "helpSecScheduledReportsTitle", bodyKey: "helpSecScheduledReportsBody", relatedViews: ["scheduled-reports"] },
   { id: "feature-timelog", group: "features", titleKey: "helpSecTimelogTitle", bodyKey: "helpSecTimelogBody", relatedViews: ["timelog"], relatedConcepts: ["concept-budget", "concept-resource"] },
   // ★ ONE Reports entry, not three. `raid-report` and `change-report` are the
   // same feature applied to two registers; three near-identical bodies would
