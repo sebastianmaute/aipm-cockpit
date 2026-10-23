@@ -74,6 +74,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The Action Center learning view looks like every other view (§777).** It sits in the standard pane card with
+  the table scrolling inside it, and Back, the title, Reset learned data, Print and reset-size share one toolbar row.
+  Each row now names its reason in words ("No recent update", "Blocked") instead of an internal id, in English and
+  German.
 - **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
   against the wrong year, so the new project and its milestones could already be over on the day you created
   it. Claude is now told today's date and reads a month or range without a year as the next one to come (the

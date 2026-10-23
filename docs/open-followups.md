@@ -1005,6 +1005,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§765](#765-the-demo-videos-are-not-in-the-app-and-there-is-no-german-demo-project-or-german-recording--open) | The demo videos are not in the app, and there is no German demo project or German recording | — | — | open |
 | [§766](#766-manage-roles-gets-cramped-on-small-screens--open) | Manage roles gets cramped on small screens | — | — | open |
 | [§772](#772-scheduled-jobs-analyse-only-the-open-project-take-no-instruction-and-keep-no-suggestions--closed-2026-10-23) | Scheduled jobs analyse only the open project, take no instruction and keep no suggestions | — | — | **CLOSED** 2026-10-23 |
+| [§777](#777-the-action-center-learning-view-is-not-a-pane-and-shows-raw-kind-ids--closed-2026-10-23) | The Action Center learning view is not a pane and shows raw kind ids | — | — | **CLOSED** 2026-10-23 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45871,3 +45872,11 @@ Behaviour now: a job runs on the day it is due, in its own time zone. `slotFor` 
 Size M.
 
 **Source:** owner request 2026-10-23.
+
+## 777. The Action Center learning view is not a pane and shows raw kind ids — CLOSED 2026-10-23
+
+**Status:** CLOSED 2026-10-23 on `fix/learning-view-pane`. `LearningInsights` (`learning-insights.tsx`) renders in `VIEW_PANE_RESIZABLE_CLASS` with the table in `INNER_TABLE_CLASS`, so the table scrolls inside the card and the page does not; its size is kept under `aipm-cockpit:learning-size`. One header row holds Back, the title (now `text-ui-dark-blue dark:text-ui-light-grey`, as Next actions has it), Reset learned data, Print and reset-size; there is no reset-columns, because the table's columns do not resize. Back moved from task-manager's wrapper div into the pane as the `onBack` prop, so the card is the shell's direct child. Each row's secondary text is a translated reason from `learningKindLabel` (`learning-kind-label.ts`): the why key's own text when it takes no values, otherwise one of 23 new param-free `learningReason*` labels (EN and DE). The override select's name carries the reason instead of the raw kind (§248's uniqueness intent kept). A why key the build does not know still shows its raw key, the only thing that tells two such rows apart. Verified with `npx vitest run src/app/learning-insights.test.tsx src/app/task-manager.learning-back.test.tsx` and the i18n tests (8 files, 88 tests, green); the 14 new or changed tests failed on the old view, and two mutants (one label entry removed, two labels made equal) turned the derived "every why key" tests red. Eye-verified at 1920×1080 and 1280×720. The view is not in `A11Y_VIEWS`, so axe was not run. **Earlier:** found 2026-10-23 in the 14-ai-weights demo video. The view was a bare div on the grey background, so the whole page scrolled, Back sat above the title and half off screen, Reset learned data sat below the table, the `h2` had no heading colour, and each row showed its raw kind id (`task-attention:actionTaskWhyStale`) under the source label, so two "Attention" rows differed only by that id.
+
+Size S.
+
+**Source:** owner report 2026-10-23 (14-ai-weights demo video).
