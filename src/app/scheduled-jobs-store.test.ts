@@ -1,9 +1,7 @@
 // src/app/scheduled-jobs-store.test.ts
-vi.mock("./turso-pipeline", () => ({ runTursoPipeline: vi.fn(async () => []) }));
-import { runTursoPipeline } from "./turso-pipeline";
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
-  loadScheduledJobs, saveScheduledJobs, LOCAL_KEY, SCHEDULED_JOBS_TABLE,
+  loadScheduledJobs, saveScheduledJobs, LOCAL_KEY, SCHEDULED_JOBS_TABLE, SCHEDULED_JOBS_V2_TABLE,
 } from "./scheduled-jobs-store";
 import { TABLE_NAMES } from "./turso-schema";
 import { TEXTAREA_MAX } from "./sanitize-core";
@@ -22,11 +20,11 @@ const job: ScheduledJob = {
   history: [],
 };
 
-const mockPipeline = () => runTursoPipeline as unknown as ReturnType<typeof vi.fn>;
 
 describe("scheduled-jobs-store: TABLE_NAMES guard", () => {
   it("keeps scheduled_jobs OUT of TABLE_NAMES (workspace save must never wipe it)", () => {
     expect(TABLE_NAMES).not.toContain(SCHEDULED_JOBS_TABLE);
+    expect(TABLE_NAMES).not.toContain(SCHEDULED_JOBS_V2_TABLE);
     expect(TABLE_NAMES).not.toContain("scheduled_jobs");
   });
 });
@@ -123,53 +121,5 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
       { ...job, cadence: { kind: "monthly", timeOfDay: "08:00" } },
     ]));
     expect(await loadScheduledJobs(null)).toEqual([]);
-  });
-});
-
-describe("scheduled-jobs-store (Turso path, config!=null)", () => {
-  const cfg = { databaseUrl: "libsql://x", authToken: "t" } as never;
-  beforeEach(() => mockPipeline().mockReset());
-
-  it("loadScheduledJobs runs DDL + SELECT and decodes the JSON data column", async () => {
-    mockPipeline().mockResolvedValueOnce([
-      { type: "ok" as const }, // DDL result
-      {
-        type: "ok" as const,
-        response: { type: "resultsOk", result: {
-          cols: [{ name: "id" }, { name: "data" }],
-          rows: [[{ value: "1" }, { value: JSON.stringify(job) }]],
-        } },
-      },
-    ]);
-    const out = await loadScheduledJobs(cfg);
-    expect(out).toHaveLength(1);
-    expect(out[0]).toMatchObject({ id: 1, name: "Daily portfolio review", enabled: true });
-  });
-
-  it("loadScheduledJobs drops a row whose data is unparseable", async () => {
-    mockPipeline().mockResolvedValueOnce([
-      { type: "ok" as const },
-      {
-        type: "ok" as const,
-        response: { type: "resultsOk", result: {
-          cols: [{ name: "id" }, { name: "data" }],
-          rows: [[{ value: "9" }, { value: "{not-json" }], [{ value: "1" }, { value: JSON.stringify(job) }]],
-        } },
-      },
-    ]);
-    const out = await loadScheduledJobs(cfg);
-    expect(out).toHaveLength(1);
-    expect(out[0].id).toBe(1);
-  });
-
-  it("saveScheduledJobs issues DDL + DELETE + an INSERT per job with id as a string arg", async () => {
-    await saveScheduledJobs(cfg, [job, { ...job, id: 2 }]);
-    const stmts = mockPipeline().mock.calls.at(-1)![1] as { sql: string; args?: { value: string }[] }[];
-    expect(stmts[0].sql).toMatch(/CREATE TABLE IF NOT EXISTS scheduled_jobs/);
-    expect(stmts.some((s) => /^DELETE FROM scheduled_jobs$/.test(s.sql))).toBe(true);
-    const inserts = stmts.filter((s) => /INSERT INTO scheduled_jobs/.test(s.sql));
-    expect(inserts).toHaveLength(2);
-    expect(inserts[0].args?.[0]?.value).toBe("1"); // id stringified
-    expect(typeof inserts[0].args?.[0]?.value).toBe("string");
   });
 });

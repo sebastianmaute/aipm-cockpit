@@ -73,6 +73,17 @@ describe("ScheduledReportsPanel", () => {
     expect(new Set(names).size).toBe(3);
   });
 
+  // KILLED BY: removing the check glyph (the selected tab would differ by border colour only).
+  it("marks the selected tab with a non-colour glyph, and only that tab", async () => {
+    renderPanel();
+    const tabs = await screen.findAllByRole("tab");
+    const marks = tabs.map((tab) => tab.querySelector("[data-selected-marker]"));
+    expect(marks.every((m) => m !== null)).toBe(true);
+    expect(marks.map((m) => m!.getAttribute("data-selected-marker"))).toEqual(tabs.map((tab) => (tab.getAttribute("aria-selected") === "true" ? "on" : "off")));
+    expect(marks.filter((m) => m!.getAttribute("data-selected-marker") === "on")).toHaveLength(1);
+    expect(marks.every((m) => m!.getAttribute("aria-hidden") === "true")).toBe(true);
+  });
+
   it("keeps names unique when two reports read identically", async () => {
     mockList.mockResolvedValue([report({ id: "a" }), report({ id: "b", slot: "2026-10-21" })]);
     renderPanel();
@@ -176,6 +187,43 @@ describe("ScheduledReportsPanel", () => {
     const tab = await screen.findByRole("tab");
     expect(within(tab).queryByText(en("scheduledReportsInterrupted"))).toBeNull();
     expect(within(tab).getByText(en("scheduledReportsRunning"))).toBeInTheDocument();
+  });
+
+  // KILLED BY: dropping the partial note.
+  it("says so when a report was made from a partly read project", async () => {
+    mockList.mockResolvedValue([report({ id: "x" }, { partial: true })]);
+    renderPanel();
+    await screen.findAllByRole("tab");
+    expect(screen.getByText(en("scheduledReportsPartial"))).toBeInTheDocument();
+  });
+
+  it("shows no partial note for an ordinary report", async () => {
+    renderPanel();
+    await screen.findAllByRole("tab");
+    expect(screen.queryByText(en("scheduledReportsPartial"))).toBeNull();
+  });
+
+  // KILLED BY: using the raw (blank) project name for the option.
+  it("gives a project without a name a placeholder option, never a blank one", async () => {
+    mockList.mockResolvedValue([report({ id: "x", projectId: "p7" }, { projectName: "" })]);
+    renderPanel();
+    const select = await screen.findByRole("combobox", { name: en("scheduledReportsFilter") });
+    const options = within(select).getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain(en("scheduledReportsUnknownProject"));
+    expect(options.every((o) => (o ?? "").trim() !== "")).toBe(true);
+  });
+
+  // KILLED BY: dropping the duplicate-name disambiguation.
+  it("tells two projects with one name apart in the filter", async () => {
+    mockList.mockResolvedValue([
+      report({ id: "a", projectId: "aaaa-1", slot: "2026-10-23" }, { projectName: "Same" }),
+      report({ id: "b", projectId: "bbbb-2", slot: "2026-10-22" }, { projectName: "Same" }),
+    ]);
+    renderPanel();
+    const select = await screen.findByRole("combobox", { name: en("scheduledReportsFilter") });
+    const options = within(select).getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain("Same (aaaa)");
+    expect(options).toContain("Same (bbbb)");
   });
 
   it("filters by project, listing archived projects by their newest report's name", async () => {

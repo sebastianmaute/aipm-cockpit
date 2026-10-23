@@ -17,7 +17,11 @@ longer carries its own changelog comment.
   under Portfolio → Scheduled reports, with the summary and the suggested actions, so a run you did not watch can be
   read later; the run history in Settings still lists the runs. The analysis sees more of the project: dates, status,
   owner and overdue state per item, up to a size limit. A job runs on the day it is due, in its own time zone; a run
-  whose day passed while the app was closed is skipped, not made up later.
+  whose day passed while the app was closed is skipped, not made up later. Scheduled jobs now live in a table of their
+  own (`scheduled_jobs_v2`); the first load copies your existing jobs there once and switches the old rows off. **Update
+  every device that shares the portfolio:** a device on an older version neither shows nor runs these jobs, and would
+  otherwise run the old rows on whichever project it has open. "Analyze with AI" in the Action Center now sends the
+  same wider digest, so what it suggests can change as well.
 - **A deployment can switch integrations off (§762).** A new server setting, `AIPM_DISABLED_INTEGRATIONS`,
   names integrations a deployment does not offer: Jira, Confluence, TimeLog, the ECB exchange rates and cloud
   speech-to-text. Their server routes then refuse, and the app hides their settings, buttons and the TimeLog

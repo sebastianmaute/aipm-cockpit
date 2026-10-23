@@ -11,9 +11,14 @@ vi.mock("./scheduled-job-analysis", () => ({
 vi.mock("./turso-portfolio", () => ({
   listProjectRefs: vi.fn(),
 }));
+const backendState = vi.hoisted(() => ({ failures: [] as string[], truncated: { entries: 0, blocks: 0 } }));
 vi.mock("./turso-backend", () => ({
   TursoBackend: vi.fn().mockImplementation(function () {
-    return { load: async () => emptyWorkspace() };
+    return {
+      load: async () => emptyWorkspace(),
+      get lastDecodeFailures() { return backendState.failures; },
+      get lastLoadTruncation() { return backendState.truncated; },
+    };
   }),
 }));
 vi.mock("./scheduled-reports-store", () => ({
@@ -75,6 +80,8 @@ function resetStore(): void {
   mClaim.mockReset().mockResolvedValue(true);
   vi.mocked(finishReport).mockReset().mockResolvedValue(undefined);
   vi.mocked(listProjectRefs).mockReset().mockResolvedValue({ active: [{ id: "p1", name: "Apollo" }], archived: [] });
+  backendState.failures = [];
+  backendState.truncated = { entries: 0, blocks: 0 };
 }
 
 describe("useScheduledJobRunner: a later job re-checks the live state before its claim (§772 review wave 2)", () => {
@@ -244,7 +251,7 @@ describe("useScheduledJobRunner", () => {
     expect(vi.mocked(hasReportAtOrAfter)).not.toHaveBeenCalled();
   });
 
-  it("two runner instances ticking at once on the same job analyse once", async () => {
+  it("two runner instances ticking at once obey the claim result: only the claim winner analyses", async () => {
     // A store whose claim is first-come-first-served, and a hasReportAtOrAfter that holds BOTH ticks at the gate
     // until both have started: neither can see the other's claim before it makes its own.
     const claimed = new Set<string>();
@@ -424,6 +431,26 @@ describe("useScheduledJobRunner — operating guides (§701)", () => {
     renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ lastRunAt: missing.ranAt, history: [missing] })] })));
     await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
     expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  // KILLED BY: not reading the backend's decode diagnostics after the load.
+  it.each([
+    ["a slice that failed to decode", () => { backendState.failures = ["raid"]; }],
+    ["truncated entries", () => { backendState.truncated = { entries: 3, blocks: 0 }; }],
+    ["truncated blocks", () => { backendState.truncated = { entries: 0, blocks: 2 }; }],
+  ])("the report is marked partial after %s", async (_n, setup) => {
+    setup();
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await act(async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); });
+    expect((vi.mocked(finishReport).mock.calls[0][4] as { partial?: boolean }).partial).toBe(true);
+  });
+
+  it("a clean load is not marked partial", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await act(async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); });
+    expect((vi.mocked(finishReport).mock.calls[0][4] as { partial?: boolean }).partial).toBeUndefined();
   });
 
   it("holds the tick while the guides load, then runs straight away when they arrive", async () => {

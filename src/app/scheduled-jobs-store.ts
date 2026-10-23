@@ -4,9 +4,12 @@
 // would wipe it (mirrors operating-guide-store / comm-templates / learning).
 //   tursoConfig === null -> localStorage (always-available default)
 //   tursoConfig !== null -> global Turso table (cross-device), out of TABLE_NAMES.
+// §772 — Turso jobs live in `scheduled_jobs_v2`. The pre-§772 table `scheduled_jobs` is read ONCE (migration) and
+// then left to old clients: an old client rebuilds every job from a fixed field list and re-inserts the lot, which
+// would strip the project, key, zone and instruction of every job sharing that table.
 import { readDeviceJson } from "./device-store";
 import { runTursoPipeline } from "./turso-pipeline";
-import type { PipelineResultLike, SqlStmt } from "./turso-schema";
+import { rowObjects, type PipelineResultLike, type SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
 import { normalizeJobFields } from "./scheduled-jobs/schedule";
 import {
@@ -14,31 +17,74 @@ import {
 } from "./scheduled-jobs/types";
 
 export const LOCAL_KEY = "aipm-cockpit:scheduled-jobs";
+/** The pre-§772 table: read once by the migration, never written again by this client. */
 export const SCHEDULED_JOBS_TABLE = "scheduled_jobs";
+export const SCHEDULED_JOBS_V2_TABLE = "scheduled_jobs_v2";
+/** A row of the v2 table that is not a job: it says the one-time migration has run. */
+export const MIGRATED_MARKER_ID = "__migrated__";
 
 // One row per job; the whole job (history inline) is stored as a JSON blob in
 // `data` so a new history field never needs a column migration. SqlArg.value is
 // string-only even for the integer id (Turso wants String(v)).
+// The legacy table is created too, so the migration's SELECT never meets a missing table.
 export const SCHEDULED_JOBS_DDL: string[] = [
+  `CREATE TABLE IF NOT EXISTS ${SCHEDULED_JOBS_V2_TABLE} (id TEXT PRIMARY KEY, data TEXT)`,
   `CREATE TABLE IF NOT EXISTS ${SCHEDULED_JOBS_TABLE} (id TEXT PRIMARY KEY, data TEXT)`,
 ];
 const ddl = (): SqlStmt[] => SCHEDULED_JOBS_DDL.map((sql) => ({ sql }));
 const txt = (value: string) => ({ type: "text" as const, value });
 
-const jobsSelect = (): SqlStmt[] => [{ sql: `SELECT id, data FROM ${SCHEDULED_JOBS_TABLE}` }];
+const jobsSelect = (): SqlStmt => ({ sql: `SELECT id, data FROM ${SCHEDULED_JOBS_V2_TABLE} WHERE id <> ?`, args: [txt(MIGRATED_MARKER_ID)] });
+const markerSelect = (): SqlStmt => ({ sql: `SELECT id FROM ${SCHEDULED_JOBS_V2_TABLE} WHERE id = ?`, args: [txt(MIGRATED_MARKER_ID)] });
+const markerInsert = (): SqlStmt => ({
+  sql: `INSERT OR IGNORE INTO ${SCHEDULED_JOBS_V2_TABLE} (id, data) VALUES (?, ?)`, args: [txt(MIGRATED_MARKER_ID), txt("1")],
+});
+const noMarker = `NOT EXISTS (SELECT 1 FROM ${SCHEDULED_JOBS_V2_TABLE} WHERE id = ?)`;
+
+/** ONE transaction, so two tabs migrating at once cannot both copy: the second finds the marker (or its write
+ *  fails and the next load retries). Order matters: copy (every field kept), then switch the legacy rows OFF so a
+ *  pre-§772 runner stops running them, then the marker that the first two statements test for. */
+export function migrationStatements(): SqlStmt[] {
+  const arg = [txt(MIGRATED_MARKER_ID)];
+  return [
+    { sql: "BEGIN" },
+    { sql: `INSERT OR IGNORE INTO ${SCHEDULED_JOBS_V2_TABLE} (id, data) SELECT id, data FROM ${SCHEDULED_JOBS_TABLE} WHERE ${noMarker}`, args: arg },
+    {
+      sql: `UPDATE ${SCHEDULED_JOBS_TABLE} SET data = json_set(data, '$.enabled', json('false')) WHERE json_valid(data) AND ${noMarker}`,
+      args: arg,
+    },
+    markerInsert(),
+    { sql: "COMMIT" },
+  ];
+}
 
 function replaceAllStatements(jobs: readonly ScheduledJob[]): SqlStmt[] {
   // The job set is small and edited as a whole, so a wipe-then-reinsert keeps
-  // load == save without per-id diffing. Kept off TABLE_NAMES, so this DELETE is
-  // the ONLY one that ever touches the table.
-  const stmts: SqlStmt[] = [{ sql: `DELETE FROM ${SCHEDULED_JOBS_TABLE}` }];
+  // load == save without per-id diffing, and one transaction leaves no empty window.
+  // Kept off TABLE_NAMES, so this DELETE is the ONLY one that ever touches the table.
+  const stmts: SqlStmt[] = [{ sql: "BEGIN" }, { sql: `DELETE FROM ${SCHEDULED_JOBS_V2_TABLE}` }, markerInsert()];
   for (const job of jobs) {
     stmts.push({
-      sql: `INSERT INTO ${SCHEDULED_JOBS_TABLE} (id, data) VALUES (?, ?)`,
+      sql: `INSERT INTO ${SCHEDULED_JOBS_V2_TABLE} (id, data) VALUES (?, ?)`,
       args: [txt(String(job.id)), txt(JSON.stringify(job))],
     });
   }
+  stmts.push({ sql: "COMMIT" });
   return stmts;
+}
+
+/** Databases whose tables exist and whose migration has run, this session. Forgotten after a failed call. */
+const ready = new Set<string>();
+async function ensureV2(config: TursoConfig): Promise<void> {
+  if (ready.has(config.httpUrl)) return;
+  const results = await runTursoPipeline(config, [...ddl(), markerSelect()]);
+  const migrated = rowObjects(results[results.length - 1]).length > 0;
+  if (!migrated) await runTursoPipeline(config, migrationStatements());
+  ready.add(config.httpUrl);
+}
+/** Test-only: forget which databases are ready. */
+export function __resetScheduledJobsStoreCache(): void {
+  ready.clear();
 }
 
 // ---- validation / sanitization on load (never throw on bad input) ----------
@@ -149,8 +195,14 @@ function rowsToJobs(res: PipelineResultLike | undefined): ScheduledJob[] {
 
 export async function loadScheduledJobs(config: TursoConfig | null): Promise<ScheduledJob[]> {
   if (!config) return readLocal();
-  const results = await runTursoPipeline(config, [...ddl(), ...jobsSelect()]);
-  return rowsToJobs(results[SCHEDULED_JOBS_DDL.length]);
+  try {
+    await ensureV2(config);
+    const results = await runTursoPipeline(config, [jobsSelect()]);
+    return rowsToJobs(results[0]);
+  } catch (e) {
+    ready.delete(config.httpUrl);
+    throw e;
+  }
 }
 
 export async function saveScheduledJobs(
@@ -161,5 +213,11 @@ export async function saveScheduledJobs(
     writeLocal(jobs);
     return;
   }
-  await runTursoPipeline(config, [...ddl(), ...replaceAllStatements(jobs)]);
+  try {
+    await ensureV2(config);
+    await runTursoPipeline(config, replaceAllStatements(jobs));
+  } catch (e) {
+    ready.delete(config.httpUrl);
+    throw e;
+  }
 }

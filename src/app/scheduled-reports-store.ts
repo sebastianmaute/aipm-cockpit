@@ -12,6 +12,9 @@ import { GROUNDABLE_VIEWS, type AiActionSeverity, type GroundableView } from "./
 
 /** At most this many rows are kept per job key (newest by slot). */
 export const REPORT_RETENTION_PER_JOB = 50;
+/** The view reads at most this many rows (newest slot first): reports of deleted jobs are kept for ever, so an unbounded
+ *  read would grow with the table on every mount, focus and run. */
+export const REPORT_LIST_LIMIT = 200;
 /** A `running` row older than this is shown as interrupted (tab closed, device slept). */
 export const RUNNING_STALE_MS = 30 * 60_000;
 
@@ -40,6 +43,8 @@ export type ReportData = {
   projectName: string;
   instruction?: string;
   summary: string;
+  /** Set when part of the project could not be read, so the summary may describe less than the whole project. */
+  partial?: true;
   actions: {
     title: string;
     why: string;
@@ -175,7 +180,7 @@ export function sanitizeReportData(raw: unknown): ReportData | null {
   const error = d.error === undefined ? undefined : ERROR_TOKENS.has(str(d.error)) ? (d.error as ReportErrorToken) : "error";
   return {
     jobName: str(d.jobName), projectName: str(d.projectName), summary: str(d.summary), actions,
-    ...(instruction ? { instruction } : {}), ...(error ? { error } : {}),
+    ...(instruction ? { instruction } : {}), ...(error ? { error } : {}), ...(d.partial === true ? { partial: true as const } : {}),
   };
 }
 
@@ -198,7 +203,7 @@ function decode(r: Record<string, string>): ScheduledReport | null {
 export async function listReports(config: TursoConfig | null): Promise<ScheduledReport[]> {
   return withTable(config, async () => {
     const results = await runTursoPipeline(config, [
-      { sql: `SELECT id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data, ${SERVER_NOW_SQL} AS server_now FROM scheduled_reports ORDER BY slot DESC, id DESC` },
+      { sql: `SELECT id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data, ${SERVER_NOW_SQL} AS server_now FROM scheduled_reports ORDER BY slot DESC, id DESC LIMIT ${REPORT_LIST_LIMIT}` },
     ]);
     return rowObjects(results[0])
       .map(decode)

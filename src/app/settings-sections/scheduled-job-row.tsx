@@ -168,6 +168,7 @@ export function JobRow({
   const lastRun = job.history[0] ?? null;
   const zone = job.timeZone ?? defaultZone;
   const zoneOptions = zones.includes(zone) ? zones : [zone, ...zones];
+  const zoneUnset = job.timeZone === null; // a legacy job has no stored zone: the select must not pretend it has
   const archivedProject = job.projectId === null ? undefined : archivedProjects.find((p) => p.id === job.projectId);
   const projectKnown = job.projectId === null || projects.some((p) => p.id === job.projectId);
 
@@ -272,10 +273,15 @@ export function JobRow({
           <span>{t(lang, "scheduledJobTimeZone")}</span>
           <Select
             size="xs"
-            value={zone}
+            value={zoneUnset ? "" : zone}
             aria-label={`${t(lang, "scheduledJobTimeZone")} – ${token}`}
             onChange={(e) => onUpdate(job.id, { timeZone: e.target.value })}
           >
+            {zoneUnset && (
+              <option value="" disabled>
+                {t(lang, "scheduledJobZoneUnset")}
+              </option>
+            )}
             {zoneOptions.map((z) => (
               <option key={z} value={z}>
                 {z}

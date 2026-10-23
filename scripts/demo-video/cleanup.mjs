@@ -16,7 +16,7 @@ const MINE = /^(Acme Website Relaunch|Customer Identity Platform \(demo\))$/;
 
 // The global tables the recorder writes to. The throwaway database belongs to the recorder (it never
 // runs beside the live e2e specs), so they are cleared whole.
-const GLOBAL_TABLES = ['scheduled_jobs', 'action_learning'];
+const GLOBAL_TABLES = ['scheduled_jobs_v2', 'scheduled_jobs', 'action_learning'];
 
 // The ids of the projects takes created. Written by noteCreatedProject, cleared once cleanup deleted them.
 const CREATED = path.join(OUT, 'created-projects.json');

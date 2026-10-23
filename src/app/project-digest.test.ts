@@ -19,7 +19,7 @@ const stakeholder = (over: Partial<Stakeholder>): Stakeholder =>
   ({ id: 1, name: "Sofia Ramirez", category: "Sponsor", influence: "High", interest: "High", ...over }) as Stakeholder;
 
 const base = (over: Partial<ProjectDigestInput> = {}): ProjectDigestInput => ({
-  projectName: "Apollo", today: "2026-10-23", mode: "advanced", enabledModules: ["raid"],
+  projectName: "Apollo", today: "2026-10-23", mode: "advanced", enabledModules: ["raid", "milestones", "changes", "stakeholders"],
   tasks: [], raid: [], milestones: [], changes: [], stakeholders: [], queue: [], ...over,
 });
 
@@ -201,5 +201,42 @@ describe("budget line rounding (§772 final review)", () => {
   test("an absent forecast still reads n/a", () => {
     const text = buildProjectDigest(base({ budget: { currency: "EUR", planned: 1, actual: 2 } }));
     expect(text).toContain("forecast n/a.");
+  });
+});
+
+describe("modules and empty labels (§772 cr2)", () => {
+  // KILLED BY: listing a register whose module is off.
+  test("a register of a module that is off is not listed", () => {
+    const text = buildProjectDigest(base({
+      enabledModules: ["raid"],
+      raid: [raidItem({ id: 5, title: "Live risk" })],
+      milestones: [milestone({ id: 2, name: "Go live" })],
+      changes: [change({ id: 3, title: "Add scope" })],
+      stakeholders: [stakeholder({ id: 4, name: "Sofia Ramirez" })],
+    }));
+    expect(text).toContain("Live risk");
+    expect(text).not.toContain("## Upcoming milestones");
+    expect(text).not.toContain("Go live");
+    expect(text).not.toContain("## Pending changes");
+    expect(text).not.toContain("Add scope");
+    expect(text).not.toContain("## Stakeholders");
+    expect(text).not.toContain("Sofia Ramirez");
+  });
+
+  test("every register of an enabled module is listed", () => {
+    const text = buildProjectDigest(base({
+      milestones: [milestone({ id: 2, name: "Go live" })],
+      changes: [change({ id: 3, title: "Add scope" })],
+      stakeholders: [stakeholder({ id: 4, name: "Sofia Ramirez" })],
+    }));
+    expect(text).toContain("milestones#2");
+    expect(text).toContain("changes#3");
+    expect(text).toContain("stakeholders#4");
+  });
+
+  // KILLED BY: the unconditional bracket.
+  test("a stakeholder with no title, organisation or category has no empty bracket", () => {
+    const text = buildProjectDigest(base({ stakeholders: [stakeholder({ id: 4, name: "Sofia Ramirez", category: "" as never })] }));
+    expect(lineWith(text, "stakeholders#4")).toBe("- stakeholders#4: Sofia Ramirez");
   });
 });

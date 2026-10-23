@@ -120,8 +120,9 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
         .flatMap((job) => {
           const slot = slotFor(job, at);
           if (slot === null) return [];
-          // A job that already ran for this slot (a legacy job given its project today, or a record the report
-          // table does not know about) is not run again.
+          // SECONDARY guard, skip-only: a job that already ran for this slot (a legacy job that ran today under a
+          // pre-§772 runner, then got its project, or a record the report table does not know about) is not run
+          // again. The report table stays the primary guard.
           // A `project-missing` record wrote no report: it never means the slot ran.
           const lastRun = job.lastRunAt === null || job.history[0]?.error === "project-missing" ? Number.NaN : Date.parse(job.lastRunAt);
           return Number.isFinite(lastRun) && lastRun >= slot.getTime() ? [] : [{ job, slot }];
@@ -141,7 +142,8 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
         });
         if (pending.length === 0) return;
         // The guard against a repeat is the slot's report row in Turso (claimed before any billed call,
-        // shared by every device), not `lastRunAt`: a failed run still writes its row, so a persistent
+        // shared by every device), not `lastRunAt` (which is only the secondary skip in the due filter above):
+        // a failed run still writes its row, so a persistent
         // failure (bad key, outage) is not re-billed every tick. A transient storage failure writes
         // nothing and is simply tried again on the next tick.
         // A run outlives a portfolio switch (the load and the AI call take seconds). The job-store writers
@@ -150,6 +152,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
         // (They also match by the job's permanent key inside the store.)
         const identity = config.httpUrl;
         const samePortfolio = () => argsRef.current.config?.httpUrl === identity;
+        let lastPartial = false; // the jobs run one after another, so one flag serves them all
         const deps: RunDeps = {
           config,
           listProjects: () => listProjectRefs(config),
@@ -162,7 +165,15 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
             const live = now.jobs.find((j) => j.key !== null && j.key === job.key);
             return live !== undefined && isRunnable(live) && live.projectId === job.projectId;
           },
-          loadWorkspace: (projectId) => new TursoBackend(config, projectId).load(),
+          loadWorkspace: async (projectId) => {
+            lastPartial = false;
+            const backend = new TursoBackend(config, projectId);
+            const workspace = await backend.load();
+            lastPartial = backend.lastDecodeFailures.length > 0
+              || backend.lastLoadTruncation.entries > 0 || backend.lastLoadTruncation.blocks > 0;
+            return workspace;
+          },
+          lastLoadPartial: () => lastPartial,
           // Cache the guide prefix only when this tick sends more than one request: a lone request
           // would pay the cache write and never read it.
           analyse: (context) => runJobAnalysis(context, { ...argsRef.current.ai, cacheGuides: pending.length > 1 }),

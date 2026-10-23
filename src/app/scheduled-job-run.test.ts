@@ -343,3 +343,17 @@ describe("runScheduledJob: busy database, live re-check, orphan guard (§772 rev
     expect(d.analyse).not.toHaveBeenCalled();
   });
 });
+
+describe("runScheduledJob: a partly read project is said so (§772 cr2)", () => {
+  // KILLED BY: dropping the partial flag from the finished report.
+  it("marks the report partial when the load lost part of the project", async () => {
+    const d = deps({ lastLoadPartial: () => true });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("done");
+    expect((mFinish.mock.calls[0][4] as ReportData).partial).toBe(true);
+  });
+
+  it("leaves a clean load unmarked", async () => {
+    expect(await runScheduledJob(job(), SLOT, deps({ lastLoadPartial: () => false }))).toBe("done");
+    expect((mFinish.mock.calls[0][4] as ReportData).partial).toBeUndefined();
+  });
+});

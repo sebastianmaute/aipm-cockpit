@@ -22,7 +22,7 @@ import { Select } from "./form-controls";
 import type { Health } from "./health";
 import type { AiActionSeverity } from "./action-ai";
 import { VIEW_PANE_FILL_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { ScheduledReportsList, type ReportTabRow, type ReportTabState } from "./scheduled-reports-list";
+import { ScheduledReportsList, stateText, type ReportTabRow, type ReportTabState } from "./scheduled-reports-list";
 
 export interface ScheduledReportsPanelProps {
   lang: Lang;
@@ -51,18 +51,17 @@ function stateOf(r: ScheduledReport, now: Date): ReportTabState {
 }
 
 /** One option per project that has a report, named by its NEWEST report (the list is newest first). */
-function projectOptions(reports: readonly ScheduledReport[]): { id: string; name: string }[] {
+function projectOptions(reports: readonly ScheduledReport[], lang: Lang): { id: string; name: string }[] {
   const seen = new Map<string, string>();
-  for (const r of reports) if (!seen.has(r.projectId)) seen.set(r.projectId, r.data.projectName);
-  return Array.from(seen, ([id, name]) => ({ id, name }));
+  // A project whose meta could not be read has no name: a placeholder, never a blank option.
+  for (const r of reports) if (!seen.has(r.projectId)) seen.set(r.projectId, r.data.projectName || t(lang, "scheduledReportsUnknownProject"));
+  const counts = new Map<string, number>();
+  for (const name of seen.values()) counts.set(name, (counts.get(name) ?? 0) + 1);
+  // Two projects with one name get a short id, so the options read differently.
+  return Array.from(seen, ([id, name]) => ({ id, name: (counts.get(name) ?? 0) > 1 ? `${name} (${id.slice(0, 4)})` : name }));
 }
 
-function stateLabel(lang: Lang, state: ReportTabState): string {
-  if (state === "failed") return t(lang, "scheduledReportsFailed");
-  if (state === "interrupted") return t(lang, "scheduledReportsInterrupted");
-  if (state === "running") return t(lang, "scheduledReportsRunning");
-  return "";
-}
+const stateLabel = (lang: Lang, state: ReportTabState): string => stateText(lang, state) ?? "";
 
 /** Why a report that is not `done` has no result: its own state, with the stored error token when it failed. */
 function statusText(lang: Lang, state: ReportTabState, error: ReportErrorToken | undefined): string {
@@ -116,7 +115,7 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpe
 
   const reports = useMemo(() => (loaded.kind === "ready" ? loaded.reports : []), [loaded]);
   const loadedAt = loaded.kind === "ready" ? loaded.loadedAt : null;
-  const options = useMemo(() => projectOptions(reports), [reports]);
+  const options = useMemo(() => projectOptions(reports, lang), [reports, lang]);
   // A filter whose project has no report any more reads as "All", exactly as the control shows it.
   const effectiveFilter = options.some((o) => o.id === filter) ? filter : FILTER_ALL;
   const visible = useMemo(
@@ -197,6 +196,7 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpe
             <h3 className="text-base font-medium text-foreground">{selected.data.jobName}</h3>
             <p className="text-sm text-muted-foreground">{selected.data.projectName}</p>
             <p className="text-xs text-muted-foreground">{selectedRow.when}</p>
+            {selected.data.partial && <p className="text-xs text-foreground">{t(lang, "scheduledReportsPartial")}</p>}
             <p className="text-xs text-muted-foreground">
               {deviceLabel !== UNKNOWN_DEVICE && selected.claimedBy === deviceLabel
                 ? t(lang, "scheduledReportsThisDevice")

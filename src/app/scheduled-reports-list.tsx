@@ -2,7 +2,7 @@
 
 // §772 — the vertical tab list of the Scheduled reports view. Presentational: the panel owns the data,
 // the selection and the time formatting. Selection follows focus (`useTablistRoving` clicks the target).
-import { ExclamationTriangleIcon } from "./icons";
+import { CheckIcon, ExclamationTriangleIcon } from "./icons";
 import { FOCUS_RING } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
 import { useTablistRoving } from "./use-tablist-roving";
@@ -28,7 +28,7 @@ export interface ScheduledReportsListProps {
   panelId: string;
 }
 
-function stateText(lang: Lang, state: ReportTabState): string | null {
+export function stateText(lang: Lang, state: ReportTabState): string | null {
   if (state === "failed") return t(lang, "scheduledReportsFailed");
   if (state === "interrupted") return t(lang, "scheduledReportsInterrupted");
   if (state === "running") return t(lang, "scheduledReportsRunning");
@@ -64,7 +64,16 @@ export function ScheduledReportsList({ lang, rows, selectedId, onSelect, panelId
               selected ? "border-ui-green bg-surface text-foreground" : "border-line text-muted-foreground hover:text-foreground"
             }`}
           >
-            <span className="font-medium">{row.when}</span>
+            {/* The selected tab is not told apart by colour alone: a check glyph (aria-hidden, the label already says
+                `aria-selected`) is always rendered and only invisible when off, so a pick never shifts the row. */}
+            <span className="flex items-center gap-1 font-medium">
+              <CheckIcon
+                aria-hidden="true"
+                data-selected-marker={selected ? "on" : "off"}
+                className={`h-3 w-3 shrink-0${selected ? "" : " invisible"}`}
+              />
+              {row.when}
+            </span>
             <span>{row.projectName}</span>
             <span>{row.jobName}</span>
             {text && (

@@ -28,6 +28,8 @@ export interface RunDeps {
    *  scheduled jobs and AI are still on with a key, and the portfolio is still the one the tick began on. */
   stillRunnable(job: ScheduledJob): boolean;
   loadWorkspace(projectId: string): Promise<Workspace>;
+  /** After a load: true when part of the project failed to decode or was truncated (the report then says so). */
+  lastLoadPartial?(): boolean;
   analyse(context: string): Promise<ActionAnalysis>;
   deviceSettings: Settings;
   lang: Lang;
@@ -158,6 +160,9 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
     return "skipped";
   }
 
+  const partial = deps.lastLoadPartial?.() === true;
+  const reportBase: ReportData = partial ? { ...base, partial: true } : base;
+
   // 4–6. Digest, analyse, ground.
   let analysis: ActionAnalysis;
   let actions: ReportData["actions"];
@@ -175,13 +180,13 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
       return grounded ? { ...rest, entity: { view: grounded.view, id: String(grounded.id) } } : rest;
     });
   } catch (e) {
-    return failRun(job, reportId, jobKey, base, toErrorToken(e), deps);
+    return failRun(job, reportId, jobKey, reportBase, toErrorToken(e), deps);
   }
 
   // 7. Finish. If this throws the row may or may not have committed, so there is NO second finish here
   // (it could overwrite a good report); an uncommitted row stays `running` and is shown as interrupted.
   try {
-    await finishReport(config, reportId, jobKey, true, { ...base, summary: analysis.summary, actions });
+    await finishReport(config, reportId, jobKey, true, { ...reportBase, summary: analysis.summary, actions });
   } catch {
     return "failed";
   }

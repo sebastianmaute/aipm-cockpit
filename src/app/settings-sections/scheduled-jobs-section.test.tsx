@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { ScheduledJobsSection } from "./scheduled-jobs-section";
 import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
@@ -36,9 +36,13 @@ vi.mock("../use-scheduled-jobs", () => ({
   }),
 }));
 
+// The section reads both lists through ONE call (`listProjectRefs`); the two mocks keep feeding it entries.
 vi.mock("../turso-portfolio", () => ({
-  listProjects: listProjectsMock,
-  listArchivedProjects: listArchivedMock,
+  listProjectRefs: async (config: unknown) => {
+    const toRef = (e: { id: string; meta: { name: string } }) => ({ id: e.id, name: e.meta.name });
+    const [active, archived] = await Promise.all([listProjectsMock(config), listArchivedMock(config)]);
+    return { active: (active as { id: string; meta: { name: string } }[]).map(toRef), archived: (archived as { id: string; meta: { name: string } }[]).map(toRef) };
+  },
 }));
 vi.mock("../portfolio-mode", () => ({
   loadPortfolioMode: () => portfolioMode.value,
@@ -631,5 +635,32 @@ describe("§772 review wave 2: time field and restored-project note", () => {
     setup(withKey({ scheduledJobs: true }));
     await screen.findByRole("option", { name: "Apollo" });
     expect(screen.queryByText(t("en-US", "scheduledJobRestoredOff"))).toBeNull();
+  });
+});
+
+describe("§772 cr2: the zone select does not misstate a legacy job", () => {
+  const entry = (id: string, name: string) =>
+    ({ id, meta: { name }, archived: false }) as unknown as import("../turso-tenant-schema").ProjectListEntry;
+  const zoneName = `${t("en-US", "scheduledJobTimeZone")} – Alpha`;
+
+  // KILLED BY: showing the default zone as if it were stored.
+  it("shows an unset placeholder for a job without a stored zone", async () => {
+    listProjectsMock.mockResolvedValue([entry("p1", "Apollo")]);
+    mockJobs = [job({ id: 3, name: "Alpha", timeZone: null })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    const select = screen.getByLabelText(zoneName) as HTMLSelectElement;
+    expect(select.value).toBe("");
+    expect(within(select).getByRole("option", { name: t("en-US", "scheduledJobZoneUnset") })).toBeDisabled();
+  });
+
+  it("shows the stored zone, with no placeholder, once the job has one", async () => {
+    listProjectsMock.mockResolvedValue([entry("p1", "Apollo")]);
+    mockJobs = [job({ id: 3, name: "Alpha", timeZone: "Asia/Tokyo", projectId: "p1", key: "k" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    const select = screen.getByLabelText(zoneName) as HTMLSelectElement;
+    expect(select.value).toBe("Asia/Tokyo");
+    expect(screen.queryByRole("option", { name: t("en-US", "scheduledJobZoneUnset") })).toBeNull();
   });
 });

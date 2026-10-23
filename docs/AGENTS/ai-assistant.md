@@ -1216,7 +1216,7 @@
   Rendered above the now/soon/monitor tiers; AI rows use a separate `ai-action-row.tsx` (NOT `ActionRow`).
 - **AI scheduled jobs:** opt-in recurring analysis of ONE named project per job, kept as a report (§772). Pure i18n-free `scheduled-jobs/` engine
   (`slotFor`/`isRunnable`/`appendRun`; `now` ALWAYS passed in — no `Date.now()`/`new Date()` inside).
-  Global `scheduled_jobs` store (JSON-blob row; the store module still falls back to localStorage without a Turso config, but the Settings section and the runner need a Turso portfolio, so no job runs there) OUT of `TABLE_NAMES`.
+  Global `scheduled_jobs_v2` store (JSON-blob row; the pre-§772 `scheduled_jobs` table is read ONCE by a one-transaction migration marked by a `__migrated__` row, its rows are then switched off and it is never written again, so an older build cannot strip a job's project, key, zone or instruction; the store module still falls back to localStorage without a Turso config, but the Settings section and the runner need a Turso portfolio, so no job runs there) OUT of `TABLE_NAMES`.
   ★★ `useScheduledJobs` has TWO instances (the runner's in `use-ai-orchestration.ts`, the Settings list in
   `scheduled-jobs-section.tsx`). Its write chain is MODULE-level and every write makes each other mounted
   instance re-read the store (§750); per-instance, a job made in Settings never reached the runner until a
@@ -1224,7 +1224,7 @@
   Runner `use-scheduled-job-runner.ts` lives in `task-manager` ABOVE the view; runs DUE jobs on
   mount/visibility/5-min-tick, SERIAL + overlap-guarded; one run per slot, guarded by the slot's `scheduled_reports`
   row (`runScheduledJob` in `scheduled-job-run.ts` claims it before any billed call; a failed run still writes its
-  row, so a persistent failure is not re-billed every tick — `lastRunAt` is informational). The call is the NON-hook `runJobAnalysis`
+  row, so a persistent failure is not re-billed every tick; `lastRunAt` is only a SECONDARY guard, see below). The call is the NON-hook `runJobAnalysis`
   (`scheduled-job-analysis.ts`) so the runner loops it; `use-action-analysis` delegates. ADVISORY only; never
   in popouts. Gated on key + `ai.scheduledJobs === true` (default OFF / opt-in — UNLIKE
   `actionSuggestions`'s `!== false`).
@@ -1232,7 +1232,9 @@
   runner claims a slot with ONE `INSERT … ON CONFLICT DO NOTHING RETURNING id` (`scheduled-reports-store.ts`); only the
   caller that gets an id runs the job. ★★ The job store loses concurrent updates: each write is a load, a transform and
   a `DELETE` plus one INSERT per job in separate requests, so a write from another device in between is overwritten.
-  Nothing that must not be lost may live there, which is why `lastRunAt` is informational and the claim is not in it.
+  Nothing that must not be lost may live there, which is why the claim is not in it. `lastRunAt` is NOT the guard that makes a slot due; the tick uses it once, as a
+  secondary guard that can only skip a run: a job whose `lastRunAt` is at or after the slot is not run (a legacy job that
+  ran today under a pre-§772 runner must not bill again when it is given a project; a `project-missing` record never counts).
   ★★ `slotFor` returns only TODAY'S slot in the JOB'S own time zone (null without a zone, off the weekday, or before the
   time), so a run missed on an earlier local day is SKIPPED, not caught up; an interrupted `running` row older than
   `RUNNING_STALE_MS` shows as failed and is never re-run. `scheduled_reports` is a side table registered in

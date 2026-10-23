@@ -518,11 +518,14 @@ billed Anthropic call. They are gated on a configured Anthropic key **and** the
 the master toggle off (or remove the Anthropic key). Jobs run only while the app
 is open (on load, on tab re-focus, and on a light interval), run on the day
 they are due (a run missed on an earlier day is skipped), are **advisory only** (they never write to the workspace),
-and **never run in popouts**. Each job names one project, needs a Turso portfolio, and keeps every run as a row in `scheduled_reports`.
-State persists in a global `scheduled_jobs` store
-(Turso, kept out of `TABLE_NAMES`, with a localStorage fallback) — to wipe it,
-clear the `aipm-cockpit:scheduled-jobs` localStorage key (`LOCAL_KEY` in `scheduled-jobs-store.ts`) or `DELETE FROM scheduled_jobs` on
-Turso. There is no server cron and no Periodic Background Sync, so jobs cannot
+and **never run in popouts**. Each job names one project, needs a Turso portfolio, and keeps a report row in `scheduled_reports` for each run that reaches its project (a run whose project was deleted,
+and a transient storage failure, write none; the newest 50 per job are kept).
+State persists in a global `scheduled_jobs_v2` store (Turso, kept out of `TABLE_NAMES`, with a localStorage fallback;
+the pre-§772 `scheduled_jobs` table is read once to migrate, its rows are then switched off, and it is never written
+again, so a device on an older build cannot strip the jobs). **Every device sharing the portfolio needs the update.**
+To wipe the jobs, clear the `aipm-cockpit:scheduled-jobs` localStorage key (`LOCAL_KEY` in `scheduled-jobs-store.ts`)
+or `DELETE FROM scheduled_jobs_v2 WHERE id <> '__migrated__'` on Turso (keep the marker row, or the next load copies
+the old rows back in); to wipe the reports too, `DELETE FROM scheduled_reports`. There is no server cron and no Periodic Background Sync, so jobs cannot
 fire while every tab is closed.
 
 ### "Overdue / due-soon dates look wrong by a day"

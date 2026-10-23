@@ -22,8 +22,7 @@ import { useRowTokens } from "../use-row-tokens";
 import { Button } from "../button";
 import { useDisplayTzOrBrowser } from "../display-timezone-context";
 import { loadCurrentTursoProjectId, loadPortfolioMode } from "../portfolio-mode";
-import { listArchivedProjects, listProjects } from "../turso-portfolio";
-import type { ProjectListEntry } from "../turso-tenant-schema";
+import { listProjectRefs } from "../turso-portfolio";
 import { resolveTimezone, tzZones } from "../timezone";
 import { DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 
@@ -39,8 +38,6 @@ function defaultDailyCadence(): JobCadence {
 }
 
 const nameOfJob = (job: ScheduledJob) => job.name;
-
-const toOption = (p: ProjectListEntry): ProjectOption => ({ id: p.id, name: p.meta.name });
 
 interface ProjectLists {
   active: ProjectOption[];
@@ -61,9 +58,9 @@ function useProjectLists(config: TursoConfig | null, available: boolean): Projec
     let cancelled = false;
     void (async () => {
       try {
-        const [active, archived] = await Promise.all([listProjects(config), listArchivedProjects(config)]);
+        const { active, archived } = await listProjectRefs(config);
         if (!cancelled) {
-          setRead({ config, lists: { active: active.map(toOption), archived: archived.map(toOption), loaded: true, failed: false } });
+          setRead({ config, lists: { active, archived, loaded: true, failed: false } });
         }
       } catch {
         if (!cancelled) setRead({ config, lists: { ...NO_PROJECTS, failed: true } });

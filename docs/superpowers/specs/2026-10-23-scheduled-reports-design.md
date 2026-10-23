@@ -63,7 +63,7 @@ Everything else below marked *(designer's call)* is the designer's ruling, open 
   due jobs sequentially with `isRunningRef` as the re-entry guard. Keep that shape. It records runs with
   `recordRunRef.current(...)` without awaiting it.
 - **Job store writes lose updates:** every job write goes through `mutate` (`use-scheduled-jobs.ts`), which loads
-  the list, transforms it and saves it with `saveScheduledJobs` — `DELETE FROM scheduled_jobs` then one INSERT per
+  the list, transforms it and saves it with `saveScheduledJobs` — `DELETE FROM scheduled_jobs_v2` then one INSERT per
   job, in a separate request from the load (`scheduled-jobs-store.ts`). A write from another device in between
   is overwritten. **So nothing that must not be lost — in particular the run claim — may live in the job
   store.** (Fixing the store itself is out of scope; Settings edits keep today's behaviour.)
@@ -123,8 +123,11 @@ view (reachable on single-database Turso through the nav) says the same.
 The runner additionally needs AI on and a key, as today. The view does NOT: existing reports stay readable with
 AI off.
 
-Jobs already stored where they no longer run — localStorage in file mode, the `scheduled_jobs` table of a
-single-database Turso — are left in place, untouched. The CHANGELOG entry says that scheduled jobs now need a
+Jobs already stored where they no longer run — localStorage in file mode, the `scheduled_jobs_v2` table of a
+single-database Turso — are left in place, untouched. (Review cr2 changed where jobs live: the new job shape is in
+`scheduled_jobs_v2`, migrated once from the pre-§772 `scheduled_jobs`, whose rows are then switched off and which
+an updated client never writes again, because an older client rebuilds every job from a fixed field list and would
+strip the new fields.) The CHANGELOG entry says that scheduled jobs now need a
 Turso portfolio and that every existing job needs a project chosen before it runs again.
 
 ### Job model
@@ -161,7 +164,10 @@ Per job, beside today's name, cadence, weekday, time and on/off:
 *(designer's call)* A job's slot is computed in the job's `timeZone`, not the device's, and stored as the UTC
 instant of that slot (ISO). Every device therefore computes the same slot for the same job. A job is due when the
 current slot has no report row yet (see *Claiming*) and the slot is not older than the job's last report; the job
-store's `lastRunAt` becomes informational (shown in Settings), never the guard.
+store's `lastRunAt` is not the guard that makes a slot due: the report table is. The runner keeps ONE secondary use
+of it, so a legacy job that already ran today under a pre-§772 runner does not bill again the moment it is given a
+project: a job whose `lastRunAt` is at or after the slot is not run (a `project-missing` record never counts, it
+wrote no report). That check can only skip a run, never cause one.
 
 ### Claiming
 

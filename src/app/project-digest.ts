@@ -87,7 +87,10 @@ function changeLines(changes: readonly ChangeItem[]): string[] {
 }
 
 const stakeholderLines = (stakeholders: readonly Stakeholder[]): string[] =>
-  stakeholders.map((s) => `- stakeholders#${s.id}: ${clip(s.name)} [${s.title || s.organization || s.category}]`);
+  stakeholders.map((s) => {
+    const label = s.title || s.organization || s.category;
+    return `- stakeholders#${s.id}: ${clip(s.name)}${label ? ` [${label}]` : ""}`;
+  });
 
 /** Keep whole lines from the front while they fit `budget` chars; append the marker. */
 function fitLines(lines: readonly string[], budget: number): string[] {
@@ -110,6 +113,7 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
     ? input.queue.map((q) => `- [${q.tier}] ${clip(q.title)} — ${clip(q.why)}`)
     : ["(none)"];
   const openTasks = taskLines(input.tasks, input.today);
+  const on = (id: string): boolean => input.enabledModules.includes(id);
   const instruction = input.instruction?.slice(0, TEXTAREA_MAX);
   const body = [
     `Project: ${input.projectName}. Today: ${input.today}. Mode: ${input.mode}.`,
@@ -121,10 +125,11 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
     "",
     "## Current rule-based action queue", ...capLines(queue),
     "", "## Open tasks", ...capLines(openTasks),
-    "", "## Active RAID", ...capLines(raidLines(input.raid, input.today)),
-    "", "## Upcoming milestones", ...capLines(milestoneLines(input.milestones, input.today)),
-    "", "## Pending changes", ...capLines(changeLines(input.changes)),
-    "", "## Stakeholders", ...capLines(stakeholderLines(input.stakeholders)),
+    // A register the project switched off is not listed: the header names the enabled modules.
+    ...(on("raid") ? ["", "## Active RAID", ...capLines(raidLines(input.raid, input.today))] : []),
+    ...(on("milestones") ? ["", "## Upcoming milestones", ...capLines(milestoneLines(input.milestones, input.today))] : []),
+    ...(on("changes") ? ["", "## Pending changes", ...capLines(changeLines(input.changes))] : []),
+    ...(on("stakeholders") ? ["", "## Stakeholders", ...capLines(stakeholderLines(input.stakeholders))] : []),
   ];
   const tail = instruction ? `\n\n## Job instruction\n${instruction}` : "";
   const fitted = fitLines(body, Math.max(0, maxChars - tail.length));

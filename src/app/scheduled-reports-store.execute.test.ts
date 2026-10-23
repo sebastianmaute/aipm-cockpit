@@ -27,7 +27,7 @@ vi.mock("./turso-pipeline", () => ({
 
 import {
   REPORT_RETENTION_PER_JOB, RUNNING_STALE_MS,
-  __resetScheduledReportsSchemaCache, hasReportAtOrAfter, claimReport, releaseClaim, finishReport, listReports, isInterrupted, sanitizeReportData,
+  REPORT_LIST_LIMIT, __resetScheduledReportsSchemaCache, hasReportAtOrAfter, claimReport, releaseClaim, finishReport, listReports, isInterrupted, sanitizeReportData,
   type ReportData, type ScheduledReport,
 } from "./scheduled-reports-store";
 import { SCHEDULED_REPORTS_DDL } from "./scheduled-reports-schema";
@@ -240,5 +240,25 @@ describe("the table is created once, and ran_at is the database's clock (§772 r
     const farFuture = new Date("2030-01-01T00:00:00.000Z"); // a viewer clock that is hours ahead
     expect(isInterrupted(base, farFuture)).toBe(false);
     expect(isInterrupted({ ...base, serverNow: "2026-10-23T12:31:00.000Z" }, new Date("2026-10-23T12:00:00.000Z"))).toBe(true);
+  });
+});
+
+describe("listReports bound and partial flag (§772 cr2)", () => {
+  // KILLED BY: removing the LIMIT from the list query.
+  it("reads at most REPORT_LIST_LIMIT rows, newest slot first", async () => {
+    for (let i = 0; i < REPORT_LIST_LIMIT + 5; i++) {
+      await claimReport(CONFIG, row(`id${i}`, `job${i}`, `2026-01-01T00:00:${String(i % 60).padStart(2, "0")}.${String(i).padStart(3, "0")}Z`));
+    }
+    const list = await listReports(CONFIG);
+    expect(list).toHaveLength(REPORT_LIST_LIMIT);
+    const slots = list.map((r) => r.slot);
+    expect([...slots].sort().reverse()).toEqual(slots);
+  });
+
+  // KILLED BY: dropping partial in sanitizeReportData.
+  it("keeps partial only when it is exactly true", () => {
+    expect(sanitizeReportData({ summary: "s", actions: [], partial: true })?.partial).toBe(true);
+    expect(sanitizeReportData({ summary: "s", actions: [], partial: "yes" })?.partial).toBeUndefined();
+    expect(sanitizeReportData({ summary: "s", actions: [] })?.partial).toBeUndefined();
   });
 });
