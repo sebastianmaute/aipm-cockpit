@@ -26,10 +26,11 @@ vi.mock("./turso-pipeline", () => ({
 }));
 
 import {
-  SCHEDULED_REPORTS_DDL, REPORT_RETENTION_PER_JOB, RUNNING_STALE_MS,
+  REPORT_RETENTION_PER_JOB, RUNNING_STALE_MS,
   hasReport, claimReport, releaseClaim, finishReport, listReports, isInterrupted,
   type ReportData, type ScheduledReport,
 } from "./scheduled-reports-store";
+import { SCHEDULED_REPORTS_DDL } from "./scheduled-reports-schema";
 import { PROJECT_SCOPED_SIDE_TABLES, projectSideTableSweepStatements } from "./project-side-tables";
 
 const CONFIG = { httpUrl: "https://x", authToken: "t" } as never;
@@ -83,8 +84,7 @@ describe("scheduled_reports store (§772)", () => {
     sent.length = 0;
     await finishReport(CONFIG, "a", "k", true, data());
     const tx = sent[sent.length - 1].map((s) => s.sql.trim().split(/\s+/)[0].toUpperCase());
-    expect(tx[0]).toBe("BEGIN");
-    expect(tx[tx.length - 1]).toBe("COMMIT");
+    expect(tx).toEqual(["BEGIN", "UPDATE", "DELETE", "COMMIT"]);
   });
 
   it("releaseClaim deletes a running row and leaves a done row", async () => {

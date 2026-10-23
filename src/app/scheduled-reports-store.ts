@@ -6,11 +6,9 @@
 import { runTursoPipeline } from "./turso-pipeline";
 import { rowObjects, txt, type SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
+import { SCHEDULED_REPORTS_DDL } from "./scheduled-reports-schema";
 import type { AiActionSeverity, GroundableView } from "./action-ai";
 
-export const SCHEDULED_REPORTS_DDL: string[] = [
-  `CREATE TABLE IF NOT EXISTS scheduled_reports (id TEXT PRIMARY KEY, project_id TEXT, job_key TEXT, slot TEXT, status TEXT, ok INTEGER, ran_at TEXT, claimed_by TEXT, data TEXT, UNIQUE (job_key, slot))`,
-];
 
 /** At most this many rows are kept per job key (newest by slot). */
 export const REPORT_RETENTION_PER_JOB = 50;
@@ -88,6 +86,7 @@ export async function finishReport(
       sql: `UPDATE scheduled_reports SET status = 'done', ok = ?, data = ? WHERE id = ?`,
       args: [txt(ok ? "1" : "0"), txt(JSON.stringify(data)), txt(id)],
     },
+    // Counts `running` rows on purpose (spec): a running claim goes only once 50 newer slots of its job exist. Do not narrow to status = 'done'.
     {
       sql: `DELETE FROM scheduled_reports WHERE job_key = ? AND id NOT IN (SELECT id FROM scheduled_reports WHERE job_key = ? ORDER BY slot DESC, id DESC LIMIT ${REPORT_RETENTION_PER_JOB})`,
       args: [txt(jobKey), txt(jobKey)],

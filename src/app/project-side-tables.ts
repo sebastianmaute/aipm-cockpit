@@ -7,7 +7,7 @@
 import { CHAT_THREADS_DDL } from "./chat-threads-schema";
 import { MEETING_REPORT_VERSION_DDL } from "./committee-report-versions-schema";
 import { DOCUMENT_ASSET_DATA_DDL } from "./document-assets-schema";
-import { SCHEDULED_REPORTS_DDL } from "./scheduled-reports-store";
+import { SCHEDULED_REPORTS_DDL } from "./scheduled-reports-schema";
 import { SNAPSHOT_DDL } from "./snapshot-schema";
 import { VERSION_DDL } from "./version-schema";
 import { txt, type SqlStmt } from "./turso-schema";
