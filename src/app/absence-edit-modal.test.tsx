@@ -44,7 +44,7 @@ const base: Absence = {
 
 const RESOURCES: Resource[] = [
   { id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com", roleId: null, utilizationMode: "percent", utilization: {} },
-  { id: 2, firstName: "Bo", lastName: "Chen", email: "bo@x.com", roleId: null, utilizationMode: "percent", utilization: {} },
+  { id: 2, firstName: "Liam", lastName: "Foster", email: "liam@x.com", roleId: null, utilizationMode: "percent", utilization: {} },
 ];
 
 type ModalProps = React.ComponentProps<typeof AbsenceEditModal>;
@@ -123,7 +123,7 @@ describe("AbsenceEditModal — assignee ResourcePicker", () => {
     const picker = screen.getByRole("combobox", { name: `${t("en-US", "absenceAssignee")} *` });
     fireEvent.focus(picker);
     fireEvent.change(picker, { target: { value: "Sof" } });
-    expect(screen.queryByText("Bo Chen")).toBeNull();
+    expect(screen.queryByText("Liam Foster")).toBeNull();
     fireEvent.mouseDown(screen.getByText("Sofia Ramirez"));
     fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
     expect(onSave).toHaveBeenCalledWith(
