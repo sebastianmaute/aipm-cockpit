@@ -34,6 +34,7 @@ import { deriveMode } from "./feature-modules";
 import { useActionAnalysis } from "./use-action-analysis";
 import { useScheduledJobs } from "./use-scheduled-jobs";
 import { useScheduledJobRunner } from "./use-scheduled-job-runner";
+import { loadPortfolioMode } from "./portfolio-mode";
 import { type OperatingGuide } from "./operating-guide";
 import { useGuideTextFrom } from "./action-guides-context";
 import { actionText } from "./action-text";
@@ -201,12 +202,20 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     },
     [lang],
   );
+  const { updateJob } = scheduledJobs;
+  const disableScheduledJob = useCallback((jobId: number) => updateJob(jobId, { enabled: false }), [updateJob]);
   useScheduledJobRunner({
     enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true,
     guidesReady: settings.ai?.groundInGuides !== true || guidesReady,
     jobs: scheduledJobs.jobs,
     recordRun: scheduledJobs.recordRun,
-    buildContext: buildAiContext,
+    config: tursoConfig,
+    // A report is about a STORED project, so it needs the Turso portfolio (§772).
+    available: tursoConfig !== null && loadPortfolioMode() === "turso",
+    deviceSettings: settings,
+    lang,
+    clearProject: scheduledJobs.clearProject,
+    disableJob: disableScheduledJob,
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: jobGuideText },
     notify: notifyScheduledJob,
   });

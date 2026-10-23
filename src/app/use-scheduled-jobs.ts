@@ -42,6 +42,8 @@ export interface UseScheduledJobsResult {
   deleteJob: (id: number) => Promise<void>;
   /** Names the project (and zone) of a job; mints the permanent key in the same save when it has none. */
   assignProject: (id: number, projectId: string, timeZone: string) => Promise<void>;
+  /** §772 — the runner found the job's project hard-deleted: back to "Choose a project" (the key stays). */
+  clearProject: (id: number) => Promise<void>;
   recordRun: (jobId: number, run: ScheduledJobRun) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -196,11 +198,15 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     [mutate],
   );
 
+  const clearProject = useCallback((id: number): Promise<void> => {
+    return mutate((list) => list.map((j) => (j.id === id ? { ...j, projectId: null } : j)));
+  }, [mutate]);
+
   const recordRun = useCallback((jobId: number, run: ScheduledJobRun): Promise<void> => {
     return mutate((list) =>
       list.map((j) => (j.id === jobId ? appendRun(j, run) : j)),
     );
   }, [mutate]);
 
-  return { jobs, busy, ready, createJob, updateJob, deleteJob, assignProject, recordRun, refresh };
+  return { jobs, busy, ready, createJob, updateJob, deleteJob, assignProject, clearProject, recordRun, refresh };
 }

@@ -6,20 +6,38 @@
 // visibility listener never re-subscribe on a render (also keeps us clear of the
 // banned react-hooks/set-state-in-effect rule — no render state here).
 import { useEffect, useRef } from "react";
-import { dueJobs } from "./scheduled-jobs/schedule";
+import { isRunnable, slotFor } from "./scheduled-jobs/schedule";
 import { runJobAnalysis } from "./scheduled-job-analysis";
-import { AiHttpError, classifyAiError } from "./ai-errors";
+import { runScheduledJob, type RunDeps, type RunOutcome } from "./scheduled-job-run";
+import { getDeviceLabel } from "./device-label";
+import { listArchivedProjects, listProjects } from "./turso-portfolio";
+import { TursoBackend } from "./turso-backend";
+import type { TursoConfig } from "./turso-config";
+import type { Settings } from "./settings-types";
+import type { Lang } from "./i18n";
 import type { ScheduledJob, ScheduledJobRun } from "./scheduled-jobs/types";
 
 const TICK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+/** Fired on `window` after a run wrote a report row, so the Scheduled reports view can reload (§772). */
+export const SCHEDULED_REPORT_EVENT = "aipm-cockpit:scheduled-report";
+const REPORT_WRITTEN: ReadonlySet<RunOutcome> = new Set<RunOutcome>(["done", "failed", "project-archived"]);
 
 export interface ScheduledJobRunnerArgs {
   /** Caller passes ai.scheduledJobs===true && key present && !isPopout. */
   enabled: boolean;
   jobs: readonly ScheduledJob[];
-  recordRun: (jobId: number, run: ScheduledJobRun) => void;
-  /** Closes over the live workspace (SP4 buildAnalysisContext). */
-  buildContext: () => string;
+  recordRun: (jobId: number, run: ScheduledJobRun) => void | Promise<void>;
+  /** §772 — the portfolio's Turso config; a run loads ITS job's project from it, not the open one. */
+  config: TursoConfig | null;
+  /** §772 — true only on a Turso portfolio with a config; a run reports on a stored project, so nothing
+   *  runs otherwise (and the file-mode fallback store never reaches here with a project). */
+  available: boolean;
+  /** Device settings the digest merges the loaded project's overrides into. */
+  deviceSettings: Settings;
+  lang: Lang;
+  /** Clear a job's project (hard-deleted) / switch a job off (archived project). */
+  clearProject: (jobId: number) => Promise<void>;
+  disableJob: (jobId: number) => Promise<void>;
   ai: { apiKey: string; model: string; guideText?: string };
   /** Caller wires the desktop-notification path; already formats title/body. */
   notify: (title: string, body: string) => void;
@@ -34,34 +52,24 @@ export interface ScheduledJobRunnerArgs {
 }
 
 export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
-  // Mirror every arg into a ref so the tick callback can stay stable (no deps
-  // that change each render) and the listener/interval subscribe exactly once.
+  // Mirror the args into ONE ref so the tick callback can stay stable (no deps that change each render)
+  // and the listener/interval subscribe exactly once.
+  const argsRef = useRef(args);
   const enabledRef = useRef(args.enabled);
-  const jobsRef = useRef(args.jobs);
-  const recordRunRef = useRef(args.recordRun);
-  const buildContextRef = useRef(args.buildContext);
-  const aiRef = useRef(args.ai);
-  const notifyRef = useRef(args.notify);
-  const nowRef = useRef(args.now);
   // The tick, reachable from the switched-on and guides-ready effects as well
   // as the mount effect. Assigned in the mount effect (not during render); the
   // two edge effects act only on a LATER commit, by which time it is set.
   const tickRef = useRef<() => Promise<void>>(async () => {});
-  useEffect(() => { jobsRef.current = args.jobs; }, [args.jobs]);
-  useEffect(() => { recordRunRef.current = args.recordRun; }, [args.recordRun]);
-  useEffect(() => { buildContextRef.current = args.buildContext; }, [args.buildContext]);
-  useEffect(() => { aiRef.current = args.ai; }, [args.ai]);
-  useEffect(() => { notifyRef.current = args.notify; }, [args.notify]);
-  useEffect(() => { nowRef.current = args.now; }, [args.now]);
+  useEffect(() => { argsRef.current = args; }, [args]);
   const guidesReady = args.guidesReady;
   const guidesReadyRef = useRef(guidesReady);
 
   // Overlap guard: skip a tick while a previous async run is still in flight.
   const isRunningRef = useRef(false);
 
-  // ★★ THE TWO EDGE EFFECTS BELOW MUST STAY AFTER EVERY REF-SYNC EFFECT ABOVE.
+  // ★★ THE TWO EDGE EFFECTS BELOW MUST STAY AFTER THE REF-SYNC EFFECT ABOVE.
   // Effects run in declaration order, and `tick` builds the first request
-  // synchronously, before its first await: declared above the `aiRef` sync, an
+  // synchronously, before its first await: declared above the `argsRef` sync, an
   // edge tick sends the PREVIOUS commit's key and guide text. At app open that
   // is the empty key from before decryption — a 401 that `recordRun` books as
   // this slot's failed run, so the job then waits for its next slot (§701
@@ -96,47 +104,50 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
 
   useEffect(() => {
     const tick = async () => {
+      const a = argsRef.current;
       if (!enabledRef.current || !guidesReadyRef.current) return;
+      if (!a.available || a.config === null) return;
       if (isRunningRef.current) return; // a run is already in flight
-      const at = (nowRef.current ?? (() => new Date()))();
-      const due = dueJobs(jobsRef.current, at);
+      const at = (a.now ?? (() => new Date()))();
+      const due = a.jobs
+        .filter(isRunnable)
+        .flatMap((job) => {
+          const slot = slotFor(job, at);
+          return slot === null ? [] : [{ job, slot }];
+        });
       if (due.length === 0) return;
 
       isRunningRef.current = true;
       try {
-        // recordRun sets lastRunAt = ranAt for BOTH success and failure, so a
-        // job runs at most once per cadence slot even if it fails
-        // (fail-once-per-slot) — deliberate: a persistent failure (bad key,
-        // outage) must NOT re-spam a billed API call every tick. A transient
-        // failure waits for the next slot; the failed run stays visible in the
-        // job's history.
-        const ranAt = at.toISOString();
-        for (const job of due) {
+        // The guard against a repeat is the slot's report row in Turso (claimed before any billed call,
+        // shared by every device), not `lastRunAt`: a failed run still writes its row, so a persistent
+        // failure (bad key, outage) is not re-billed every tick. A transient storage failure writes
+        // nothing and is simply tried again on the next tick.
+        const config = a.config;
+        const deps: RunDeps = {
+          config,
+          listActive: async () => (await listProjects(config)).map((p) => ({ id: p.id, name: p.meta.name })),
+          listArchived: async () => (await listArchivedProjects(config)).map((p) => ({ id: p.id, name: p.meta.name })),
+          loadWorkspace: (projectId) => new TursoBackend(config, projectId).load(),
+          // Cache the guide prefix only when this tick sends more than one request: a lone request
+          // would pay the cache write and never read it.
+          analyse: (context) => runJobAnalysis(context, { ...a.ai, cacheGuides: due.length > 1 }),
+          deviceSettings: a.deviceSettings,
+          lang: a.lang,
+          now: a.now ?? (() => new Date()),
+          newId: () => crypto.randomUUID(),
+          deviceLabel: getDeviceLabel(),
+          clearProject: a.clearProject,
+          disableJob: a.disableJob,
+          recordRun: async (jobId, run) => { await a.recordRun(jobId, run); },
+          notify: a.notify,
+        };
+        for (const { job, slot } of due) {
           try {
-            // Cache the guide prefix only when this tick sends more than one
-            // request: a lone request would pay the cache write and never read it.
-            const analysis = await runJobAnalysis(buildContextRef.current(), { ...aiRef.current, cacheGuides: due.length > 1 });
-            recordRunRef.current(job.id, {
-              ranAt,
-              summary: analysis.summary,
-              actionCount: analysis.actions.length,
-              ok: true,
-            });
-            notifyRef.current(job.name, analysis.summary);
-          } catch (e) {
-            // Record the failure but do NOT notify — avoid failure-notification spam.
-            recordRunRef.current(job.id, {
-              ranAt,
-              summary: "",
-              actionCount: 0,
-              ok: false,
-              error:
-                e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit"
-                  ? "limit"
-                  : e instanceof Error
-                    ? e.message
-                    : "error",
-            });
+            const outcome = await runScheduledJob(job, slot, deps);
+            if (REPORT_WRITTEN.has(outcome)) window.dispatchEvent(new CustomEvent(SCHEDULED_REPORT_EVENT));
+          } catch {
+            // The store or the project list was unreachable before anything was claimed or billed.
           }
         }
       } finally {

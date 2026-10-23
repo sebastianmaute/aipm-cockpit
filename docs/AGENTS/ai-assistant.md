@@ -1215,15 +1215,16 @@
   remounts; bundle is `isPopout ? undefined`. Gated on key + `ai.actionSuggestions !== false` (default ON).
   Rendered above the now/soon/monitor tiers; AI rows use a separate `ai-action-row.tsx` (NOT `ActionRow`).
 - **AI scheduled jobs:** opt-in recurring portfolio-analysis. Pure i18n-free `scheduled-jobs/` engine
-  (`isDue`/`nextRunAt`/`dueJobs`/`appendRun`; `now` ALWAYS passed in — no `Date.now()`/`new Date()` inside).
+  (`slotFor`/`isRunnable`/`nextRunAt`/`appendRun`; `now` ALWAYS passed in — no `Date.now()`/`new Date()` inside).
   Global `scheduled_jobs` store (JSON-blob row, Turso-gated + localStorage fallback) OUT of `TABLE_NAMES`.
   ★★ `useScheduledJobs` has TWO instances (the runner's in `use-ai-orchestration.ts`, the Settings list in
   `scheduled-jobs-section.tsx`). Its write chain is MODULE-level and every write makes each other mounted
   instance re-read the store (§750); per-instance, a job made in Settings never reached the runner until a
   reload, and two writers at once lost one write. A third instance needs nothing more.
   Runner `use-scheduled-job-runner.ts` lives in `task-manager` ABOVE the view; runs DUE jobs on
-  mount/visibility/5-min-tick, SERIAL + overlap-guarded; fail-once-per-slot (a failed run still advances
-  `lastRunAt` — avoids re-spamming a BILLED call). The call is the NON-hook `runJobAnalysis`
+  mount/visibility/5-min-tick, SERIAL + overlap-guarded; one run per slot, guarded by the slot's `scheduled_reports`
+  row (`runScheduledJob` in `scheduled-job-run.ts` claims it before any billed call; a failed run still writes its
+  row, so a persistent failure is not re-billed every tick — `lastRunAt` is informational). The call is the NON-hook `runJobAnalysis`
   (`scheduled-job-analysis.ts`) so the runner loops it; `use-action-analysis` delegates. ADVISORY only; never
   in popouts. Gated on key + `ai.scheduledJobs === true` (default OFF / opt-in — UNLIKE
   `actionSuggestions`'s `!== false`).

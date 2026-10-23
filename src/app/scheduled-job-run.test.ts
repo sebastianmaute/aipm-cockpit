@@ -1,0 +1,212 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Task } from "./types";
+import type { ScheduledJob } from "./scheduled-jobs/types";
+import type { Workspace } from "./workspace";
+import { StorageNotReadyError, emptyWorkspace } from "./workspace";
+import { AiHttpError } from "./ai-errors";
+import { TursoStepError } from "./turso-pipeline";
+import type { ReportData } from "./scheduled-reports-store";
+import { defaultSettings } from "./settings-types";
+
+vi.mock("./scheduled-reports-store", () => ({
+  hasReport: vi.fn(),
+  claimReport: vi.fn(),
+  releaseClaim: vi.fn(),
+  finishReport: vi.fn(),
+}));
+import { hasReport, claimReport, releaseClaim, finishReport } from "./scheduled-reports-store";
+import { runScheduledJob, toErrorToken, type RunDeps } from "./scheduled-job-run";
+
+const mHas = vi.mocked(hasReport);
+const mClaim = vi.mocked(claimReport);
+const mRelease = vi.mocked(releaseClaim);
+const mFinish = vi.mocked(finishReport);
+
+const SLOT = new Date("2026-10-23T07:00:00.000Z");
+const NOW = new Date("2026-10-23T07:05:00.000Z");
+const CONFIG = { httpUrl: "https://example.test", authToken: "t" } as never;
+
+function job(overrides: Partial<ScheduledJob> = {}): ScheduledJob {
+  return {
+    id: 7,
+    name: "Monday review",
+    type: "portfolioAnalysis",
+    cadence: { kind: "daily", timeOfDay: "09:00" },
+    enabled: true,
+    projectId: "p1",
+    instruction: "Ignore anything Liam Foster owns",
+    timeZone: "Europe/Berlin",
+    key: "job-key-1",
+    lastRunAt: null,
+    history: [],
+    ...overrides,
+  };
+}
+
+function workspace(): Workspace {
+  return {
+    ...emptyWorkspace(),
+    project: { name: "Apollo" } as Workspace["project"],
+    tasks: [{
+      id: 3, taskName: "Ship it", assignee: "Sofia Ramirez", assigneeEmail: "", dueDate: "2026-10-01",
+      lastUpdateDate: "2026-10-01", priority: "High", status: "In Progress", blockers: "", description: "",
+    } as Task],
+  };
+}
+
+function deps(overrides: Partial<RunDeps> = {}): RunDeps {
+  return {
+    config: CONFIG,
+    listActive: vi.fn().mockResolvedValue([{ id: "p1", name: "Apollo" }]),
+    listArchived: vi.fn().mockResolvedValue([]),
+    loadWorkspace: vi.fn().mockResolvedValue(workspace()),
+    analyse: vi.fn().mockResolvedValue({ summary: "Looks fine", actions: [] }),
+    deviceSettings: defaultSettings,
+    lang: "en-US",
+    now: () => NOW,
+    newId: () => "report-1",
+    deviceLabel: "dev-abcd",
+    clearProject: vi.fn().mockResolvedValue(undefined),
+    disableJob: vi.fn().mockResolvedValue(undefined),
+    recordRun: vi.fn().mockResolvedValue(undefined),
+    notify: vi.fn(),
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  mHas.mockResolvedValue(false);
+  mClaim.mockResolvedValue(true);
+  mRelease.mockResolvedValue(undefined);
+  mFinish.mockResolvedValue(undefined);
+});
+
+describe("runScheduledJob", () => {
+  it("a project in neither list is project-missing: the job's project is cleared, nothing is claimed or analysed", async () => {
+    const d = deps({ listActive: vi.fn().mockResolvedValue([]) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("project-missing");
+    expect(d.clearProject).toHaveBeenCalledWith(7);
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(d.analyse).not.toHaveBeenCalled();
+  });
+
+  it("an archived project is claimed once, finished as project-archived, and the job is disabled", async () => {
+    const d = deps({
+      listActive: vi.fn().mockResolvedValue([]),
+      listArchived: vi.fn().mockResolvedValue([{ id: "p1", name: "Apollo" }]),
+    });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("project-archived");
+    expect(mClaim).toHaveBeenCalledTimes(1);
+    expect(mFinish).toHaveBeenCalledTimes(1);
+    const [, id, jobKey, ok, data] = mFinish.mock.calls[0];
+    expect([id, jobKey, ok]).toEqual(["report-1", "job-key-1", false]);
+    expect((data as ReportData).error).toBe("project-archived");
+    expect(d.disableJob).toHaveBeenCalledWith(7);
+    expect(d.analyse).not.toHaveBeenCalled();
+  });
+
+  it("a slot that already has a report is skipped before anything else runs", async () => {
+    mHas.mockResolvedValue(true);
+    const d = deps();
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("skipped");
+    expect(d.listActive).not.toHaveBeenCalled();
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(d.analyse).not.toHaveBeenCalled();
+    expect(d.recordRun).not.toHaveBeenCalled();
+  });
+
+  it("losing the claim is claimed-elsewhere: no load, no analysis", async () => {
+    mClaim.mockResolvedValue(false);
+    const d = deps();
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("claimed-elsewhere");
+    expect(d.loadWorkspace).not.toHaveBeenCalled();
+    expect(d.analyse).not.toHaveBeenCalled();
+  });
+
+  it("a storage failure while loading is transient: the claim is released, nothing is finished or recorded", async () => {
+    const d = deps({ loadWorkspace: vi.fn().mockRejectedValue(new StorageNotReadyError("busy")) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+    expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
+    expect(mFinish).not.toHaveBeenCalled();
+    expect(d.recordRun).not.toHaveBeenCalled();
+    expect(d.analyse).not.toHaveBeenCalled();
+  });
+
+  it("a rate limit finishes the report as failed with the limit token and never stores the thrown text", async () => {
+    const err = new AiHttpError(429, "rate_limit_error", "secret server text");
+    const d = deps({ analyse: vi.fn().mockRejectedValue(err) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("failed");
+    const [, , , ok, data] = mFinish.mock.calls[0];
+    expect(ok).toBe(false);
+    expect((data as ReportData).error).toBe("limit");
+    expect(JSON.stringify(mFinish.mock.calls[0])).not.toContain("secret server text");
+    expect(d.recordRun).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(d.recordRun).mock.calls[0][1]).toMatchObject({ ok: false, error: "limit" });
+    expect(d.notify).not.toHaveBeenCalled();
+  });
+
+  it("analyse gets a context that contains the job's instruction section exactly once", async () => {
+    const d = deps();
+    await runScheduledJob(job(), SLOT, d);
+    const ctx = vi.mocked(d.analyse).mock.calls[0][0];
+    expect(ctx).toContain("## Job instruction");
+    expect(ctx.split("Ignore anything Liam Foster owns")).toHaveLength(2);
+  });
+
+  it("success keeps a grounded entity, drops an ungrounded one, finishes ok, records and notifies", async () => {
+    const d = deps({
+      analyse: vi.fn().mockResolvedValue({
+        summary: "Two things to look at",
+        actions: [
+          { title: "Chase task", why: "late", severity: "now", entity: { view: "open-points", id: "3" } },
+          { title: "Phantom", why: "invented", severity: "soon", entity: { view: "open-points", id: "999" } },
+        ],
+      }),
+    });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("done");
+    const [, , , ok, data] = mFinish.mock.calls[0];
+    const report = data as ReportData;
+    expect(ok).toBe(true);
+    expect(report.projectName).toBe("Apollo");
+    expect(report.summary).toBe("Two things to look at");
+    expect(report.actions[0].entity).toEqual({ view: "open-points", id: "3" });
+    expect(report.actions[1]).toEqual({ title: "Phantom", why: "invented", severity: "soon" });
+    expect("entity" in report.actions[1]).toBe(false);
+    expect(d.recordRun).toHaveBeenCalledWith(7, expect.objectContaining({ ok: true, actionCount: 2 }));
+    expect(d.notify).toHaveBeenCalledWith("Monday review", "Apollo: Two things to look at");
+  });
+
+  it("captures the job name and project name at claim time", async () => {
+    const j = job();
+    const d = deps({
+      analyse: vi.fn().mockImplementation(async () => {
+        j.name = "Renamed meanwhile";
+        return { summary: "s", actions: [] };
+      }),
+    });
+    await runScheduledJob(j, SLOT, d);
+    expect((mFinish.mock.calls[0][4] as ReportData).jobName).toBe("Monday review");
+    expect((mClaim.mock.calls[0][1].data as ReportData).jobName).toBe("Monday review");
+  });
+
+  it("a recordRun for a job deleted mid-run does not throw", async () => {
+    const d = deps({ recordRun: vi.fn().mockRejectedValue(new Error("gone")) });
+    await expect(runScheduledJob(job(), SLOT, d)).resolves.toBe("done");
+  });
+});
+
+describe("toErrorToken", () => {
+  it("maps each failure to the closed token set", () => {
+    expect(toErrorToken(new AiHttpError(429))).toBe("limit");
+    expect(toErrorToken(new AiHttpError(401))).toBe("401");
+    expect(toErrorToken(new AiHttpError(403))).toBe("403");
+    expect(toErrorToken(new AiHttpError(500))).toBe("error");
+    expect(toErrorToken(new Error("parse"))).toBe("parse");
+    expect(toErrorToken(new StorageNotReadyError("x"))).toBe("storage-unreachable");
+    expect(toErrorToken(new TursoStepError(1, "boom"))).toBe("turso");
+    expect(toErrorToken(new Error("Turso error: boom"))).toBe("turso");
+    expect(toErrorToken(new Error("anything else"))).toBe("error");
+    expect(toErrorToken("nope")).toBe("error");
+  });
+});

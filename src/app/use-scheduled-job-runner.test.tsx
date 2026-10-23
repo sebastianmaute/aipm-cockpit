@@ -3,14 +3,35 @@ import { renderHook, act } from "@testing-library/react";
 import { useScheduledJobRunner, type ScheduledJobRunnerArgs } from "./use-scheduled-job-runner";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 
-// The runner calls runJobAnalysis per due job; mock it so no real fetch happens.
+// The runner builds the run deps itself: the AI call, the portfolio lists, the project load and the report
+// store are mocked at their module edge, so the REAL runScheduledJob runs in every test below.
 vi.mock("./scheduled-job-analysis", () => ({
   runJobAnalysis: vi.fn(),
 }));
+vi.mock("./turso-portfolio", () => ({
+  listProjects: vi.fn(),
+  listArchivedProjects: vi.fn(),
+}));
+vi.mock("./turso-backend", () => ({
+  TursoBackend: vi.fn().mockImplementation(function () {
+    return { load: async () => emptyWorkspace() };
+  }),
+}));
+vi.mock("./scheduled-reports-store", () => ({
+  hasReport: vi.fn(),
+  claimReport: vi.fn(),
+  releaseClaim: vi.fn(),
+  finishReport: vi.fn(),
+}));
 import { runJobAnalysis } from "./scheduled-job-analysis";
+import { listProjects, listArchivedProjects } from "./turso-portfolio";
+import { hasReport, claimReport, finishReport } from "./scheduled-reports-store";
+import { emptyWorkspace } from "./workspace";
+import { defaultSettings } from "./settings-types";
 const mockRun = vi.mocked(runJobAnalysis);
+const mClaim = vi.mocked(claimReport);
 
-// A daily job whose slot is past noon, never run yet → due when `now` is afternoon.
+// A daily 09:00 UTC job, assigned to a project, never run yet.
 function dailyJob(overrides: Partial<ScheduledJob> = {}): ScheduledJob {
   return {
     id: 1,
@@ -18,25 +39,17 @@ function dailyJob(overrides: Partial<ScheduledJob> = {}): ScheduledJob {
     type: "portfolioAnalysis",
     cadence: { kind: "daily", timeOfDay: "09:00" },
     enabled: true,
-    projectId: null, timeZone: null, key: null,
+    projectId: "p1", timeZone: "UTC", key: "job-key-1",
     lastRunAt: null,
     history: [],
     ...overrides,
   };
 }
 
-// Local-time afternoon (well past 09:00) so isDue → true for the daily job above.
-const afternoon = () => {
-  const d = new Date();
-  d.setHours(14, 0, 0, 0);
-  return d;
-};
-// Before the 09:00 slot → not due.
-const earlyMorning = () => {
-  const d = new Date();
-  d.setHours(7, 0, 0, 0);
-  return d;
-};
+// Past the 09:00 UTC slot → due.
+const afternoon = () => new Date("2026-10-23T14:00:00.000Z");
+// Before the slot → not due.
+const earlyMorning = () => new Date("2026-10-23T07:00:00.000Z");
 
 function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJobRunnerArgs {
   return {
@@ -44,7 +57,12 @@ function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJob
     guidesReady: true,
     jobs: [dailyJob()],
     recordRun: vi.fn(),
-    buildContext: () => "ctx",
+    config: { httpUrl: "https://example.test", authToken: "t" } as never,
+    available: true,
+    deviceSettings: defaultSettings,
+    lang: "en-US",
+    clearProject: vi.fn().mockResolvedValue(undefined),
+    disableJob: vi.fn().mockResolvedValue(undefined),
     ai: { apiKey: "k", model: "m" },
     notify: vi.fn(),
     now: afternoon,
@@ -52,9 +70,18 @@ function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJob
   };
 }
 
+function resetStore(): void {
+  vi.mocked(hasReport).mockReset().mockResolvedValue(false);
+  mClaim.mockReset().mockResolvedValue(true);
+  vi.mocked(finishReport).mockReset().mockResolvedValue(undefined);
+  vi.mocked(listProjects).mockReset().mockResolvedValue([{ id: "p1", meta: { name: "Apollo" }, archived: false } as never]);
+  vi.mocked(listArchivedProjects).mockReset().mockResolvedValue([]);
+}
+
 describe("useScheduledJobRunner", () => {
   beforeEach(() => {
     mockRun.mockReset();
+    resetStore();
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -76,7 +103,7 @@ describe("useScheduledJobRunner", () => {
     expect(run.actionCount).toBe(1);
     expect(typeof run.ranAt).toBe("string");
     expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify).toHaveBeenCalledWith("Daily portfolio", "all good");
+    expect(notify).toHaveBeenCalledWith("Daily portfolio", "Apollo: all good");
   });
 
   it("does nothing for a not-due job", async () => {
@@ -99,7 +126,7 @@ describe("useScheduledJobRunner", () => {
     expect(notify).not.toHaveBeenCalled();
   });
 
-  it("records ok:false with the error message on a failed analysis and does NOT notify", async () => {
+  it("records ok:false with a closed error token on a failed analysis and does NOT notify", async () => {
     mockRun.mockRejectedValue(new Error("500"));
     const recordRun = vi.fn();
     const notify = vi.fn();
@@ -109,10 +136,76 @@ describe("useScheduledJobRunner", () => {
     expect(recordRun).toHaveBeenCalledTimes(1);
     const [, run] = recordRun.mock.calls[0];
     expect(run.ok).toBe(false);
-    expect(run.error).toBe("500");
+    expect(run.error).toBe("error"); // never the thrown message
     expect(run.summary).toBe("");
     expect(run.actionCount).toBe(0);
     expect(notify).not.toHaveBeenCalled();
+  });
+
+  it("runs nothing while the portfolio is unavailable", async () => {
+    const recordRun = vi.fn();
+    await act(async () => {
+      renderHook(() => useScheduledJobRunner(baseArgs({ available: false, recordRun })));
+    });
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(recordRun).not.toHaveBeenCalled();
+  });
+
+  it("never passes a job that is not runnable", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const jobs = [
+      dailyJob({ id: 1, projectId: null }),
+      dailyJob({ id: 2, key: null }),
+      dailyJob({ id: 3, timeZone: null }),
+      dailyJob({ id: 4, enabled: false }),
+    ];
+    await act(async () => {
+      renderHook(() => useScheduledJobRunner(baseArgs({ jobs })));
+    });
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it("runs two due jobs one after the other", async () => {
+    const order: string[] = [];
+    mockRun.mockImplementation(async () => {
+      order.push("start");
+      await Promise.resolve();
+      await Promise.resolve();
+      order.push("end");
+      return { summary: "s", actions: [] };
+    });
+    const jobs = [dailyJob({ id: 1, key: "k1" }), dailyJob({ id: 2, key: "k2", name: "Second" })];
+    await act(async () => {
+      renderHook(() => useScheduledJobRunner(baseArgs({ jobs })));
+      for (let i = 0; i < 40; i++) await Promise.resolve();
+    });
+    expect(order).toEqual(["start", "end", "start", "end"]);
+  });
+
+  it("two runner instances ticking at once on the same job analyse once", async () => {
+    mClaim.mockReset().mockResolvedValueOnce(true).mockResolvedValue(false);
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    await act(async () => {
+      renderHook(() => useScheduledJobRunner(baseArgs()));
+      renderHook(() => useScheduledJobRunner(baseArgs()));
+      for (let i = 0; i < 40; i++) await Promise.resolve();
+    });
+    expect(mClaim).toHaveBeenCalledTimes(2);
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("announces a written report on window so the view can reload", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const heard = vi.fn();
+    window.addEventListener("aipm-cockpit:scheduled-report", heard);
+    await act(async () => {
+      renderHook(() => useScheduledJobRunner(baseArgs()));
+      for (let i = 0; i < 40; i++) await Promise.resolve();
+    });
+    window.removeEventListener("aipm-cockpit:scheduled-report", heard);
+    expect(heard).toHaveBeenCalledTimes(1);
   });
 
   it("guards overlapping ticks — only one run is in flight", async () => {
@@ -150,7 +243,7 @@ describe("useScheduledJobRunner", () => {
 // rerender, so the only call is the tick after it, and a runner reading its mount-time
 // `args.ai` would send "GUIDE-A".
 describe("useScheduledJobRunner — operating guides (§701)", () => {
-  beforeEach(() => { mockRun.mockReset(); vi.useFakeTimers(); });
+  beforeEach(() => { mockRun.mockReset(); resetStore(); vi.useFakeTimers(); });
   afterEach(() => { vi.useRealTimers(); });
 
   it("a tick sends the latest guide text, not the one it mounted with", async () => {
@@ -172,7 +265,7 @@ describe("useScheduledJobRunner — operating guides (§701)", () => {
 
   it("asks to cache the guide prefix when one tick runs several due jobs", async () => {
     mockRun.mockResolvedValue({ summary: "s", actions: [] });
-    renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ id: 1 }), dailyJob({ id: 2, name: "Second" })] })));
+    renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ id: 1, key: "k1" }), dailyJob({ id: 2, key: "k2", name: "Second" })] })));
     await act(async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); });
     expect(mockRun).toHaveBeenCalledTimes(2);
     expect(mockRun.mock.calls.map((c) => c[1].cacheGuides)).toEqual([true, true]);
@@ -199,7 +292,7 @@ describe("useScheduledJobRunner — operating guides (§701)", () => {
 // switch the runner on. The first run must follow the switch-on, not wait
 // for the 5-minute interval.
 describe("useScheduledJobRunner — startup order (§701)", () => {
-  beforeEach(() => { mockRun.mockReset(); });
+  beforeEach(() => { mockRun.mockReset(); resetStore(); });
   const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 
   it("runs once the runner is switched on after the guides were already ready", async () => {

@@ -59,6 +59,18 @@ describe("useScheduledJobs (localStorage backend)", () => {
     spy.mockRestore();
   });
 
+  it("clearProject returns a job to unassigned but keeps its key", async () => {
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => {
+      await result.current.createJob({ name: "A", cadence: dailyCadence, enabled: true, projectId: "p1", timeZone: "UTC" });
+    });
+    const key = result.current.jobs[0].key;
+    await act(async () => { await result.current.clearProject(result.current.jobs[0].id); });
+    expect(result.current.jobs[0].projectId).toBeNull();
+    expect(result.current.jobs[0].key).toBe(key);
+  });
+
   it("createJob normalises instruction and drops an invalid zone", async () => {
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.ready).toBe(true));

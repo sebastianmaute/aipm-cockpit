@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextRunAt, isDue, dueJobs, appendRun, slotFor, isRunnable } from "./schedule";
+import { nextRunAt, appendRun, slotFor, isRunnable } from "./schedule";
 import type { ScheduledJob } from "./types";
 
 function daily(over: Partial<ScheduledJob> = {}): ScheduledJob {
@@ -12,38 +12,6 @@ function daily(over: Partial<ScheduledJob> = {}): ScheduledJob {
 function mk(over: Partial<ScheduledJob> = {}): ScheduledJob {
   return daily({ projectId: "p1", key: "k1", timeZone: "UTC", ...over });
 }
-
-describe("isDue (daily, catch-up)", () => {
-  it("not due before the slot time", () => {
-    expect(isDue(daily(), new Date("2026-06-19T08:00:00"))).toBe(false);
-  });
-  it("due once after the slot when never run", () => {
-    expect(isDue(daily(), new Date("2026-06-19T09:30:00"))).toBe(true);
-  });
-  it("not due again the same slot once it has run", () => {
-    const job = daily({ lastRunAt: new Date("2026-06-19T09:05:00").toISOString() });
-    expect(isDue(job, new Date("2026-06-19T10:00:00"))).toBe(false);
-  });
-  it("due next day even though it ran yesterday (catch-up)", () => {
-    const job = daily({ lastRunAt: new Date("2026-06-19T09:05:00").toISOString() });
-    expect(isDue(job, new Date("2026-06-20T09:30:00"))).toBe(true);
-  });
-  it("disabled is never due", () => {
-    expect(isDue(daily({ enabled: false }), new Date("2026-06-19T10:00:00"))).toBe(false);
-  });
-});
-
-describe("isDue (weekly)", () => {
-  const weekly = (): ScheduledJob => daily({
-    cadence: { kind: "weekly", dayOfWeek: 1, timeOfDay: "09:00" }, // Monday
-  });
-  it("not due on the wrong weekday", () => {
-    expect(isDue(weekly(), new Date("2026-06-19T10:00:00"))).toBe(false); // Fri
-  });
-  it("due on the right weekday after the time", () => {
-    expect(isDue(weekly(), new Date("2026-06-22T09:30:00"))).toBe(true); // Mon
-  });
-});
 
 describe("nextRunAt", () => {
   const dailyUtc = (timeOfDay: string) =>
@@ -120,14 +88,6 @@ describe("isRunnable", () => {
     expect(isRunnable(mk({ timeZone: null }))).toBe(false);
     expect(isRunnable(mk({ enabled: false }))).toBe(false);
     expect(isRunnable(mk({}))).toBe(true);
-  });
-});
-
-describe("dueJobs", () => {
-  it("returns only enabled, due jobs", () => {
-    const a = daily({ id: 1 });
-    const b = daily({ id: 2, enabled: false });
-    expect(dueJobs([a, b], new Date("2026-06-19T09:30:00")).map((j) => j.id)).toEqual([1]);
   });
 });
 
