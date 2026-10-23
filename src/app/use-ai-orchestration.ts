@@ -28,12 +28,16 @@ import type { LearningState } from "./action-learning";
 import { summarizeTrendsForPrompt, type ActionTrends } from "./next-actions/trends";
 import type { TursoConfig } from "./turso-config";
 import { buildAnalysisContext, buildGroundingIndex, groundEntity, type AiAction } from "./action-ai";
+import { buildProjectDigest } from "./project-digest";
+import { buildProjectAnalysisInput } from "./project-analysis-input";
+import { useWorkspace } from "./workspace-context";
 import { buildSuggestionContext } from "./weight-suggestion-ai";
 import type { SuggestionScope } from "./next-actions-tuning";
 import { deriveMode } from "./feature-modules";
 import { useActionAnalysis } from "./use-action-analysis";
 import { useScheduledJobs } from "./use-scheduled-jobs";
 import { useScheduledJobRunner } from "./use-scheduled-job-runner";
+import { loadPortfolioMode } from "./portfolio-mode";
 import { type OperatingGuide } from "./operating-guide";
 import { useGuideTextFrom } from "./action-guides-context";
 import { actionText } from "./action-text";
@@ -108,8 +112,8 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     () => buildGroundingIndex({ tasks, raid, milestones, changes, stakeholders }),
     [tasks, raid, milestones, changes, stakeholders],
   );
-  // Shared workspace digest builder — used by the Action Center "Analyze with
-  // AI" button AND the SP5 scheduled-job runner (both feed the same SP4 call).
+  // The compact, title-only workspace digest. Its one caller is the weight-suggestion context below;
+  // "Analyze with AI" sends the wide digest (`buildWideContext`), as the scheduled runner does.
   const buildAiContext = useCallback(
     () =>
       buildAnalysisContext({
@@ -131,9 +135,40 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
       }),
     [project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang],
   );
+  // §772 — "Analyze with AI" sends the WIDE per-project digest a scheduled report sends, built by the SAME
+  // `buildProjectAnalysisInput` over the live workspace (status and dates per line, plus the budget line). This
+  // hook runs inside WorkspaceProvider (task-manager's inner component), so the slices the deps do not carry
+  // are read from it. Only the queue stays the LIVE one: it honours the snoozes and learning a background
+  // run has no access to, so the model is never told about an action the user already dismissed.
+  const {
+    absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status,
+    features: projectFeatures, steeringCommittee, settingsOverrides,
+  } = useWorkspace();
+  const buildWideContext = useCallback(() => {
+    const queue = nextActions.map((a) => ({
+      title: actionText(lang, a.title),
+      why: actionText(lang, a.why),
+      tier: a.tier,
+    }));
+    const { digestInput } = buildProjectAnalysisInput({
+      workspace: {
+        tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status,
+        project, milestones, changes, stakeholders, features: projectFeatures, steeringCommittee, settingsOverrides,
+      },
+      deviceSettings: settings,
+      lang,
+      now: new Date(),
+      queue,
+    });
+    return buildProjectDigest(digestInput);
+  }, [
+    tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status,
+    project, milestones, changes, stakeholders, projectFeatures, steeringCommittee, settingsOverrides,
+    settings, lang, nextActions,
+  ]);
   const runActionAnalysis = useCallback(() => {
-    void aiAnalyze(buildAiContext());
-  }, [aiAnalyze, buildAiContext]);
+    void aiAnalyze(buildWideContext());
+  }, [aiAnalyze, buildWideContext]);
   // SP-C: compact, token-bounded context for the AI weight-suggestion call.
   // The workspace digest is reused from the SP4/SP5 builder; the learning
   // summary is one line per signal kind (act/snooze/dismiss counts). Trends
@@ -184,9 +219,9 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
   );
 
   // SP5 scheduled jobs: recurring advisory analysis runs (due-on-open / tick).
-  // Opt-in (default OFF), key required, never in popouts. Reuses the SP4
-  // context builder + analysis call; results surface as a desktop notification
-  // and in the Settings "Scheduled jobs" run history.
+  // Opt-in (default OFF), key required, never in popouts. Each run (§772) builds its own digest
+  // for the job's stored project and keeps its report in the portfolio database; a desktop
+  // notification and the Settings "Scheduled jobs" run history record the outcome.
   const scheduledJobs = useScheduledJobs({ config: tursoConfig });
   const notifyScheduledJob = useCallback(
     (jobName: string, summary: string) => {
@@ -205,8 +240,15 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true,
     guidesReady: settings.ai?.groundInGuides !== true || guidesReady,
     jobs: scheduledJobs.jobs,
+    jobsSource: scheduledJobs.jobsSource,
     recordRun: scheduledJobs.recordRun,
-    buildContext: buildAiContext,
+    config: tursoConfig,
+    // A report is about a STORED project, so it needs the Turso portfolio (§772).
+    available: tursoConfig !== null && loadPortfolioMode() === "turso",
+    deviceSettings: settings,
+    lang,
+    clearProject: scheduledJobs.clearProject,
+    disableJob: scheduledJobs.disableJob,
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: jobGuideText },
     notify: notifyScheduledJob,
   });

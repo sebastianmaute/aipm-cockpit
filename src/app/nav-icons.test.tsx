@@ -21,6 +21,7 @@ const lucideName = (svg: Element) =>
 const EXPECTED_GLYPH: Record<AppView, string> = {
   projects: "lucide-briefcase",
   "portfolio-health": "lucide-square-kanban",
+  "scheduled-reports": "lucide-calendar-days",
   "open-points": "lucide-list",
   dashboard: "lucide-layout-grid",
   actions: "lucide-bell",

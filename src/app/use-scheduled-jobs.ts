@@ -12,7 +12,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
-import { appendRun } from "./scheduled-jobs/schedule";
+import { appendRun, normalizeJobFields } from "./scheduled-jobs/schedule";
 import type {
   JobCadence, ScheduledJob, ScheduledJobRun,
 } from "./scheduled-jobs/types";
@@ -23,6 +23,9 @@ export interface CreateScheduledJobInput {
   cadence: JobCadence;
   enabled: boolean;
   type?: "portfolioAnalysis";
+  projectId?: string;
+  timeZone?: string;
+  instruction?: string;
 }
 
 export interface UseScheduledJobsArgs {
@@ -31,12 +34,23 @@ export interface UseScheduledJobsArgs {
 
 export interface UseScheduledJobsResult {
   jobs: ScheduledJob[];
+  /** The backend `jobs` was read from (`backendOf`): undefined before the first read. After a config change `jobs`
+   *  still belongs to the previous backend until the new read lands. */
+  jobsSource: string | null | undefined;
   busy: boolean;
   ready: boolean;
   createJob: (input: CreateScheduledJobInput) => Promise<void>;
-  updateJob: (id: number, patch: Partial<Omit<ScheduledJob, "id">>) => Promise<void>;
-  deleteJob: (id: number) => Promise<void>;
-  recordRun: (jobId: number, run: ScheduledJobRun) => Promise<void>;
+  /** projectId and key are set only by assignProject, so a patch can never save a project without them. */
+  updateJob: (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string) => Promise<void>;
+  deleteJob: (id: number, key?: string) => Promise<void>;
+  /** Names the project (and zone) of a job; mints the permanent key in the same save when it has none. */
+  assignProject: (id: number, projectId: string, timeZone: string, key?: string) => Promise<void>;
+  /** §772 — the runner found the job's project hard-deleted: back to "Choose a project" (the key stays). */
+  clearProject: (id: number, key?: string) => Promise<void>;
+  /** §772 — switch a job off (its project was archived). */
+  disableJob: (id: number, key?: string) => Promise<void>;
+  /** With `key`, only the job carrying that permanent key is written: ids collide across portfolios. */
+  recordRun: (jobId: number, run: ScheduledJobRun, key?: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -59,12 +73,47 @@ const backendOf = (config: TursoConfig | null): string | null => (config ? confi
 const savedGenerations = new Map<string | null, number>();
 const generationOf = (config: TursoConfig | null): number => savedGenerations.get(backendOf(config)) ?? 0;
 
+/** An edit reaches only a job this version can read: a foreign one is carried through untouched. */
+const editable = (j: ScheduledJob): boolean => j.foreign === undefined;
+
+/** The job a keyed write means: same id, and — when the caller knows it — the same permanent key. */
+function matches(j: ScheduledJob, id: number, key: string | undefined): boolean {
+  return j.id === id && (key === undefined || j.key === key);
+}
+
+/** An unrecognised zone is left out of the patch, so the stored zone stays. */
+function normalizeZonePatch(timeZone: string | null | undefined): { timeZone?: string | null } {
+  const zone = normalizeJobFields(undefined, timeZone).timeZone;
+  return zone === null && typeof timeZone === "string" ? {} : { timeZone: zone };
+}
+
+/** The free fields of a patch go through the same normalisation as a create and a load. */
+function normalizePatch<P extends { instruction?: string; timeZone?: string | null }>(patch: P): P {
+  // An unrecognised zone is left out of the patch (the stored zone stays) instead of making the job unrunnable.
+  const rest: P = { ...patch };
+  delete rest.timeZone;
+  return {
+    ...rest,
+    ...("instruction" in patch ? { instruction: normalizeJobFields(patch.instruction, undefined).instruction } : {}),
+    ...("timeZone" in patch ? normalizeZonePatch(patch.timeZone) : {}),
+  } as P;
+}
+
+/** A failed read (a busy database while another tab migrates, a dropped connection) is retried a few times, so a tab
+ *  that lost the race does not stay empty for the session. */
+const MAX_LOAD_RETRIES = 3;
+const LOAD_RETRY_MS = 5_000;
+
 export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduledJobsResult {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
+  const [jobsSource, setJobsSource] = useState<string | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const cfgRef = useRef(config);
   const mountedRef = useRef(true);
+  const retriesRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshRef = useRef<() => Promise<void>>(async () => {});
   useEffect(() => { cfgRef.current = config; }, [config]);
   // ★★ Re-set on mount, not merely cleared on unmount. React StrictMode mounts,
   //    unmounts and remounts in development (Next 16 defaults reactStrictMode to
@@ -93,7 +142,10 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   //    flagged for PLACEMENT, not on the tree or the commit number).
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+      if (retryTimerRef.current !== null) clearTimeout(retryTimerRef.current);
+    };
   }, []);
 
   const refresh = useCallback(async () => {
@@ -103,14 +155,29 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
       const list = await loadScheduledJobs(config);
       if (!mountedRef.current || startedAt !== generationOf(config) || backendOf(cfgRef.current) !== backendOf(config)) return;
       setJobs(list);
+      setJobsSource(backendOf(config));
+      retriesRef.current = 0;
     } catch {
-      // optional feature — leave jobs as-is
+      // Optional feature: leave jobs as they are, and try again a few times.
+      if (mountedRef.current && retriesRef.current < MAX_LOAD_RETRIES) {
+        retriesRef.current += 1;
+        if (retryTimerRef.current !== null) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = setTimeout(() => {
+          retryTimerRef.current = null;
+          void refreshRef.current();
+        }, LOAD_RETRY_MS * retriesRef.current);
+      }
     } finally {
       if (mountedRef.current) setReady(true);
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh, config]);
+  useEffect(() => { refreshRef.current = refresh; }, [refresh]);
+  useEffect(() => {
+    retriesRef.current = 0; // a new backend starts with a fresh budget
+    if (retryTimerRef.current !== null) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
+    void refresh();
+  }, [refresh, config]);
 
   // §750 — this instance's re-read, which another instance's write calls.
   const rereadRef = useRef<() => void>(() => {});
@@ -133,7 +200,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         const next = transform(existing);
         await saveScheduledJobs(config, next);
         savedGenerations.set(backendOf(config), generationOf(config) + 1);
-        if (mountedRef.current && backendOf(cfgRef.current) === backendOf(config)) setJobs(next);
+        if (mountedRef.current && backendOf(cfgRef.current) === backendOf(config)) { setJobs(next); setJobsSource(backendOf(config)); }
         for (const reread of instances) if (reread !== rereadRef.current) reread();
       });
       // Keep the chain alive even if a link rejects, and clear busy at the end.
@@ -148,12 +215,17 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
 
   const createJob = useCallback((input: CreateScheduledJobInput): Promise<void> => {
     return mutate((list) => {
+      const { instruction, timeZone } = normalizeJobFields(input.instruction, input.timeZone);
       const job: ScheduledJob = {
         id: nextJobId(list),
         name: input.name,
         type: input.type ?? "portfolioAnalysis",
         cadence: input.cadence,
         enabled: input.enabled,
+        projectId: input.projectId ?? null,
+        ...(instruction !== undefined ? { instruction } : {}),
+        timeZone,
+        key: crypto.randomUUID(),
         lastRunAt: null,
         history: [],
       };
@@ -162,23 +234,42 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   }, [mutate]);
 
   const updateJob = useCallback(
-    (id: number, patch: Partial<Omit<ScheduledJob, "id">>): Promise<void> => {
+    (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string): Promise<void> => {
       return mutate((list) =>
-        list.map((j) => (j.id === id ? { ...j, ...patch, id: j.id } : j)),
+        list.map((j) => (editable(j) && matches(j, id, key) ? { ...j, ...normalizePatch(patch), id: j.id } : j)),
       );
     },
     [mutate],
   );
 
-  const deleteJob = useCallback((id: number): Promise<void> => {
-    return mutate((list) => list.filter((j) => j.id !== id));
+  const deleteJob = useCallback((id: number, key?: string): Promise<void> => {
+    return mutate((list) => list.filter((j) => !matches(j, id, key)));
   }, [mutate]);
 
-  const recordRun = useCallback((jobId: number, run: ScheduledJobRun): Promise<void> => {
+  const assignProject = useCallback(
+    (id: number, projectId: string, timeZone: string, key?: string): Promise<void> => {
+      return mutate((list) =>
+        list.map((j) => (editable(j) && matches(j, id, key)
+          ? { ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? crypto.randomUUID() }
+          : j)),
+      );
+    },
+    [mutate],
+  );
+
+  const clearProject = useCallback((id: number, key?: string): Promise<void> => {
+    return mutate((list) => list.map((j) => (editable(j) && matches(j, id, key) ? { ...j, projectId: null } : j)));
+  }, [mutate]);
+
+  const disableJob = useCallback((id: number, key?: string): Promise<void> => {
+    return mutate((list) => list.map((j) => (editable(j) && matches(j, id, key) ? { ...j, enabled: false } : j)));
+  }, [mutate]);
+
+  const recordRun = useCallback((jobId: number, run: ScheduledJobRun, key?: string): Promise<void> => {
     return mutate((list) =>
-      list.map((j) => (j.id === jobId ? appendRun(j, run) : j)),
+      list.map((j) => (editable(j) && matches(j, jobId, key) ? appendRun(j, run) : j)),
     );
   }, [mutate]);
 
-  return { jobs, busy, ready, createJob, updateJob, deleteJob, recordRun, refresh };
+  return { jobs, jobsSource, busy, ready, createJob, updateJob, deleteJob, assignProject, clearProject, disableJob, recordRun, refresh };
 }

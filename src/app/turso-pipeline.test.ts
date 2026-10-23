@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_PIPELINE_TIMEOUT_MS,
   TEST_CONNECTION_TIMEOUT_MS,
+  TursoHttpError,
   TursoStepError,
   runTursoPipeline,
   testTursoConnection,
@@ -55,6 +56,17 @@ describe("runTursoPipeline", () => {
     stubFetch(() => { throw new Error("ECONNREFUSED"); });
     await expect(runTursoPipeline(cfg, [{ sql: "SELECT 1" }]))
       .rejects.toMatchObject({ hint: "storage-unreachable" });
+  });
+
+  // KILLED BY: throwing a plain Error again (a caller could then only read the message to tell 5xx from 4xx).
+  it.each([429, 500, 503])("throws a TursoHttpError that carries status %i, with the message callers already read", async (status) => {
+    stubFetch(() => new Response("nope", { status }));
+    const err = await runTursoPipeline(cfg, [{ sql: "SELECT 1" }]).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TursoHttpError);
+    expect((err as TursoHttpError).status).toBe(status);
+    expect((err as Error).message).toBe(`Turso returned ${status}. Try again later.`);
+    // The storage diagnostics record String(err): it must read as before the typed error existed.
+    expect(String(err)).toBe(`Error: Turso returned ${status}. Try again later.`);
   });
 
   it("maps HTTP 401 to a StorageNotReadyError", async () => {

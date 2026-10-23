@@ -3,31 +3,28 @@
 // src/app/settings-sections/scheduled-jobs-section.tsx — SP5 Settings UI for
 // scheduled Claude jobs. Mirrors ai-section's toggle pattern (read/write the
 // ai.* flag through onChange) and comm-templates-section's self-instantiated,
-// config-gated hook. The job UI is gated on (a) a configured Anthropic key and
-// (b) the opt-in master toggle. The hook (useScheduledJobs) owns persistence;
-// this surface is presentation + a thin cadence/history editor.
+// config-gated hook. The job UI is gated on (a) a configured Anthropic key,
+// (b) the opt-in master toggle and (c) the Turso portfolio, because a report is
+// about one STORED project (§772). The hook (useScheduledJobs) owns persistence;
+// this surface is presentation + project / zone / instruction / cadence editing.
+// It reads the project lists itself (never through usePortfolioProjects, which
+// follows the OPEN portfolio) so the picker works from any view.
 
-import { useState } from "react";
-import { type Lang, t, tPlural, type TranslationKey } from "../i18n";
-import { aiKeyMessageKeyForStatusToken } from "../ai-key-status";
+import { useEffect, useMemo, useState } from "react";
+import { type Lang, t } from "../i18n";
 import { FieldHint } from "../field-hint";
 import { isAiEnabled, type Settings } from "../settings-types";
 import type { TursoConfig } from "../turso-config";
 import { useScheduledJobs } from "../use-scheduled-jobs";
 import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
-import { Input, Select, Checkbox } from "../form-controls";
+import { Checkbox } from "../form-controls";
 import { useRowTokens } from "../use-row-tokens";
 import { Button } from "../button";
 import { useDisplayTzOrBrowser } from "../display-timezone-context";
-import { formatDisplayTimestamp } from "../tz-display";
-
-/** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
- *  token is the digit string the runner stores, so history recorded before this change reads the
- *  same way. */
-function runFailureText(lang: Lang, error: string | undefined): string {
-  const keyMsg = aiKeyMessageKeyForStatusToken(error);
-  return keyMsg ? t(lang, keyMsg) : t(lang, "scheduledJobFailed", error ?? "");
-}
+import { loadCurrentTursoProjectId, loadPortfolioMode } from "../portfolio-mode";
+import { listProjectRefs } from "../turso-portfolio";
+import { resolveTimezone, tzZones } from "../timezone";
+import { DEFAULT_TIME, JobRow, type ProjectOption } from "./scheduled-job-row";
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -36,205 +33,84 @@ export interface ScheduledJobsSectionProps {
   config: TursoConfig | null;
 }
 
-// Weekday short labels by index (0=Sun..6=Sat), reusing the existing shift keys.
-const WEEKDAY_KEYS: TranslationKey[] = [
-  "shiftDaySun",
-  "shiftDayMon",
-  "shiftDayTue",
-  "shiftDayWed",
-  "shiftDayThu",
-  "shiftDayFri",
-  "shiftDaySat",
-];
-
-const DEFAULT_TIME = "09:00";
-
 function defaultDailyCadence(): JobCadence {
   return { kind: "daily", timeOfDay: DEFAULT_TIME };
 }
 
 const nameOfJob = (job: ScheduledJob) => job.name;
 
-function JobRow({
-  lang,
-  job,
-  token,
-  busy,
-  tz,
-  onUpdate,
-  onDelete,
-}: {
-  lang: Lang;
-  job: ScheduledJob;
-  /** §715 — the zone a run's time is shown in (the stored `ranAt` is UTC). */
-  tz: string;
-  /** §316 — the job name made row-unique across the list; every control here is named by it. */
-  token: string;
-  busy: boolean;
-  onUpdate: (id: number, patch: Partial<Omit<ScheduledJob, "id">>) => void;
-  onDelete: (id: number) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const { cadence } = job;
+interface ProjectLists {
+  active: ProjectOption[];
+  archived: ProjectOption[];
+  /** False until read for the CURRENT config. */
+  loaded: boolean;
+  failed: boolean;
+}
 
-  function setCadenceKind(kind: JobCadence["kind"]) {
-    if (kind === job.cadence.kind) return;
-    const next: JobCadence =
-      kind === "weekly"
-        ? { kind: "weekly", dayOfWeek: 0, timeOfDay: cadence.timeOfDay || DEFAULT_TIME }
-        : { kind: "daily", timeOfDay: cadence.timeOfDay || DEFAULT_TIME };
-    onUpdate(job.id, { cadence: next });
-  }
+const NO_PROJECTS: ProjectLists = { active: [], archived: [], loaded: false, failed: false };
 
-  function setTime(timeOfDay: string) {
-    onUpdate(job.id, { cadence: { ...cadence, timeOfDay } });
-  }
-
-  function setDay(dayOfWeek: number) {
-    if (cadence.kind !== "weekly") return;
-    onUpdate(job.id, { cadence: { ...cadence, dayOfWeek } });
-  }
-
-  const lastRun = job.history[0] ?? null;
-
-  return (
-    <li className="flex flex-col gap-2 rounded-md border border-line bg-surface p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          size="xs"
-          type="text"
-          value={job.name}
-          aria-label={`${t(lang, "scheduledJobName")} – ${token}`}
-          onChange={(e) => onUpdate(job.id, { name: e.target.value })}
-          className="flex-1"
-        />
-
-        <label className="flex items-center gap-1 text-xs text-foreground">
-          <Checkbox
-            aria-label={`${t(lang, "scheduledJobEnabled")} – ${token}`}
-            checked={job.enabled}
-            onChange={() => onUpdate(job.id, { enabled: !job.enabled })}
-          />
-          <span>{t(lang, "scheduledJobEnabled")}</span>
-        </label>
-
-        <Button
-          variant="destructive"
-          size="xs"
-          onClick={() => onDelete(job.id)}
-          disabled={busy}
-          aria-label={`${t(lang, "delete")} – ${token}`}
-        >
-          {t(lang, "delete")}
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          size="xs"
-          value={cadence.kind}
-          aria-label={`${t(lang, "scheduledJobsTitle")} – ${token}`}
-          onChange={(e) => setCadenceKind(e.target.value as JobCadence["kind"])}
-        >
-          <option value="daily">{t(lang, "cadenceDaily")}</option>
-          <option value="weekly">{t(lang, "cadenceWeekly")}</option>
-        </Select>
-
-        <label className="flex items-center gap-1 text-xs text-foreground">
-          <span>{t(lang, "cadenceTime")}</span>
-          <Input
-            size="xs"
-            type="time"
-            value={cadence.timeOfDay}
-            aria-label={`${t(lang, "cadenceTime")} – ${token}`}
-            onChange={(e) => setTime(e.target.value)}
-          />
-        </label>
-
-        {cadence.kind === "weekly" && (
-          <label className="flex items-center gap-1 text-xs text-foreground">
-            <span>{t(lang, "cadenceDay")}</span>
-            <Select
-              size="xs"
-              value={cadence.dayOfWeek}
-              aria-label={`${t(lang, "cadenceDay")} – ${token}`}
-              onChange={(e) => setDay(Number(e.target.value))}
-            >
-              {WEEKDAY_KEYS.map((key, idx) => (
-                <option key={key} value={idx}>
-                  {t(lang, key)}
-                </option>
-              ))}
-            </Select>
-          </label>
-        )}
-      </div>
-
-      <div className="text-xs text-muted-foreground">
-        {lastRun ? (
-          <span>
-            {t(lang, "scheduledJobLastRun", formatDisplayTimestamp(lastRun.ranAt, tz, lang))}
-            {" — "}
-            {lastRun.ok
-              ? tPlural(lang, "scheduledJobActionsN", lastRun.actionCount, String(lastRun.actionCount))
-              : lastRun.error === "limit"
-                ? t(lang, "aiUsageLimitReached")
-                : runFailureText(lang, lastRun.error)}
-          </span>
-        ) : (
-          <span>{t(lang, "scheduledJobNeverRun")}</span>
-        )}
-      </div>
-
-      {job.history.length > 1 && (
-        <div>
-          <Button
-            onClick={() => setExpanded((v) => !v)}
-            aria-label={`${t(lang, expanded ? "showLess" : "showMore")} – ${token}`}
-            variant="secondary" size="xs"
-          >
-            {t(lang, expanded ? "showLess" : "showMore")}
-          </Button>
-          {expanded && (
-            <ul className="mt-2 flex flex-col gap-1">
-              {job.history.slice(1).map((run, idx) => (
-                <li key={`${run.ranAt}-${idx}`} className="text-xs text-muted-foreground">
-                  {t(lang, "scheduledJobLastRun", formatDisplayTimestamp(run.ranAt, tz, lang))}
-                  {" — "}
-                  {run.ok
-                    ? tPlural(lang, "scheduledJobActionsN", run.actionCount, String(run.actionCount))
-                    : run.error === "limit"
-                      ? t(lang, "aiUsageLimitReached")
-                      : runFailureText(lang, run.error)}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </li>
-  );
+/** The active and archived projects of the Turso portfolio. Each result carries the config it was read for, so the
+ *  lists of another portfolio are never offered while the new read is in flight; a failed read is reported. */
+function useProjectLists(config: TursoConfig | null, available: boolean): ProjectLists {
+  const [read, setRead] = useState<{ config: TursoConfig | null; lists: ProjectLists } | null>(null);
+  useEffect(() => {
+    if (!available) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { active, archived } = await listProjectRefs(config);
+        if (!cancelled) {
+          setRead({ config, lists: { active, archived, loaded: true, failed: false } });
+        }
+      } catch {
+        if (!cancelled) setRead({ config, lists: { ...NO_PROJECTS, failed: true } });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [config, available]);
+  return available && read !== null && read.config === config ? read.lists : NO_PROJECTS;
 }
 
 export function ScheduledJobsSection({ lang, settings, onChange, config }: ScheduledJobsSectionProps) {
-  const { jobs, busy, createJob, updateJob, deleteJob } = useScheduledJobs({ config });
+  const { jobs, busy, createJob, updateJob, deleteJob, assignProject } = useScheduledJobs({ config });
   // §316 — every new job starts with the same default name.
   const jobTokens = useRowTokens(jobs, nameOfJob);
   const tz = useDisplayTzOrBrowser();
+  const portfolioAvailable = config !== null && loadPortfolioMode() === "turso";
+  const projects = useProjectLists(config, portfolioAvailable);
+  const zones = useMemo(() => tzZones(), []);
+  // A job's cadence is read in its own zone; a new or newly assigned one starts in the device's.
+  const defaultZone = resolveTimezone(settings.timezone, undefined);
 
   const enabled = settings.ai.scheduledJobs === true;
   const hasKey = isAiEnabled(settings.ai);
+  // A LEGACY job predates §772: it carries no permanent key. A job added now has one (createJob mints it) and
+  // only lacks a project, which its own row says.
+  const hasLegacyJob = jobs.some((j) => j.foreign === undefined && j.key === null);
+  // A write that fails (the database unreachable) must not look as if it worked until the next reload.
+  const [writeFailed, setWriteFailed] = useState(false);
+  const track = (write: Promise<void>): void => {
+    void Promise.resolve(write).then(() => setWriteFailed(false), () => setWriteFailed(true));
+  };
 
   function toggleEnabled() {
     onChange({ ...settings, ai: { ...settings.ai, scheduledJobs: !enabled } });
   }
 
   function addJob() {
-    void createJob({
+    // A new job reports on the project that is open in the portfolio, else the first active one; with no active
+    // project it is created without one and its row says "Choose a project".
+    const openId = loadCurrentTursoProjectId();
+    const projectId = (projects.active.find((p) => p.id === openId) ?? projects.active[0])?.id;
+    track(createJob({
       name: t(lang, "scheduledJobsTitle"),
       cadence: defaultDailyCadence(),
       enabled: true,
-    });
+      timeZone: defaultZone,
+      ...(projectId !== undefined ? { projectId } : {}),
+    }));
   }
 
   return (
@@ -244,12 +120,17 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
         <FieldHint className="mt-1">{t(lang, "scheduledJobsHelp")}</FieldHint>
       </div>
 
-      {!hasKey ? (
+      {!portfolioAvailable ? (
+        <p className="rounded-md border border-line bg-surface p-3 text-xs text-muted-foreground">
+          {t(lang, "scheduledJobsNeedPortfolio")}
+        </p>
+      ) : !hasKey ? (
         <p className="rounded-md border border-line bg-surface p-3 text-xs text-muted-foreground">
           {t(lang, "emptyStateConfigAi")}
         </p>
       ) : (
         <>
+          {hasLegacyJob && <FieldHint>{t(lang, "scheduledJobsUpgradeNote")}</FieldHint>}
           <label className="flex items-center gap-2">
             <Checkbox
               aria-label={t(lang, "scheduledJobsToggle")}
@@ -262,6 +143,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
 
           {enabled && (
             <>
+              {projects.failed && <FieldHint>{t(lang, "tursoPickerError")}</FieldHint>}
+              {writeFailed && <p role="alert" className="text-xs text-foreground">{t(lang, "scheduledJobsWriteFailed")}</p>}
+
               <ul className="flex flex-col gap-2">
                 {jobs.map((job) => (
                   <JobRow
@@ -271,13 +155,20 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     token={jobTokens.get(job.id) ?? job.name}
                     busy={busy}
                     tz={tz}
-                    onUpdate={(id, patch) => void updateJob(id, patch)}
-                    onDelete={(id) => void deleteJob(id)}
+                    projects={projects.active}
+                    archivedProjects={projects.archived}
+                    projectsLoaded={projects.loaded}
+                    zones={zones}
+                    defaultZone={defaultZone}
+                    // The permanent key rides along, so a write can only reach THIS portfolio's job (ids collide across portfolios).
+                    onUpdate={(id, patch) => track(updateJob(id, patch, job.key ?? undefined))}
+                    onAssign={(id, projectId, timeZone) => track(assignProject(id, projectId, timeZone, job.key ?? undefined))}
+                    onDelete={(id) => track(deleteJob(id, job.key ?? undefined))}
                   />
                 ))}
               </ul>
 
-              <Button variant="accent" size="xs" onClick={addJob} disabled={busy} className="self-start">
+              <Button variant="accent" size="xs" onClick={addJob} disabled={busy || !(projects.loaded || projects.failed)} className="self-start">
                 {t(lang, "scheduledJobsAdd")}
               </Button>
 

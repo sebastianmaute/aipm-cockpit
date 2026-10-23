@@ -3,7 +3,7 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 vi.mock("./turso-pipeline", () => ({ runTursoPipeline: vi.fn() }));
 import { runTursoPipeline } from "./turso-pipeline";
 import {
-  listProjects, listArchivedProjects, createProject, updateProjectMeta,
+  listProjectRefs, listProjects, listArchivedProjects, createProject, updateProjectMeta,
   archiveProject, restoreProject, hardDeleteProject, readPortfolioActivityLogs, activityLogsStatement,
 } from "./turso-portfolio";
 import * as diagnostics from "./diagnostics";
@@ -204,5 +204,26 @@ describe("readPortfolioActivityLogs (§510)", () => {
     const [p1] = await readPortfolioActivityLogs(cfg);
     expect(p1.log).toHaveLength(1);
     expect(p1.entriesDropped).toBe(1);
+  });
+});
+
+describe("listProjectRefs (§772 review wave 2)", () => {
+  beforeEach(() => vi.mocked(runTursoPipeline).mockReset());
+
+  it("reads both lists in ONE pipeline and keeps a project whose meta no longer decodes", async () => {
+    const ddlCount = (await import("./turso-tenant-schema")).tenantSchemaDdl().length;
+    const broken = { type: "ok" as const, response: { type: "execute", result: { cols: [{ name: "id" }, { name: "archived" }], rows: [[{ value: "p3" }, { value: "0" }]] } } };
+    const active = projectsResult("p1", meta());
+    vi.mocked(runTursoPipeline).mockResolvedValueOnce([
+      ...Array.from({ length: ddlCount }, () => ({ type: "ok" as const })),
+      { ...active, response: { ...active.response, result: { ...active.response.result, rows: [...active.response.result.rows, broken.response.result.rows[0]] } } },
+      projectsResult("p2", meta(), true),
+    ]);
+    const refs = await listProjectRefs(cfg);
+    expect(vi.mocked(runTursoPipeline)).toHaveBeenCalledTimes(1);
+    expect(refs.active.map((p) => p.id)).toEqual(["p1", "p3"]); // p3 has no decodable meta and is still listed
+    expect(refs.active.find((p) => p.id === "p3")?.name).toBe("");
+    expect(refs.active.find((p) => p.id === "p1")?.name).toBe("Apollo");
+    expect(refs.archived.map((p) => p.id)).toEqual(["p2"]);
   });
 });

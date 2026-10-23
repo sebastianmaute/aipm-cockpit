@@ -1214,19 +1214,32 @@
   Workspace field). Hook lives in `task-manager.tsx` ABOVE the view so the in-memory result survives view
   remounts; bundle is `isPopout ? undefined`. Gated on key + `ai.actionSuggestions !== false` (default ON).
   Rendered above the now/soon/monitor tiers; AI rows use a separate `ai-action-row.tsx` (NOT `ActionRow`).
-- **AI scheduled jobs:** opt-in recurring portfolio-analysis. Pure i18n-free `scheduled-jobs/` engine
-  (`isDue`/`nextRunAt`/`dueJobs`/`appendRun`; `now` ALWAYS passed in — no `Date.now()`/`new Date()` inside).
-  Global `scheduled_jobs` store (JSON-blob row, Turso-gated + localStorage fallback) OUT of `TABLE_NAMES`.
+- **AI scheduled jobs:** opt-in recurring analysis of ONE named project per job, kept as a report (§772). Pure i18n-free `scheduled-jobs/` engine
+  (`slotFor`/`isRunnable`/`appendRun`; `now` ALWAYS passed in — no `Date.now()`/`new Date()` inside).
+  Global `scheduled_jobs_v2` store (JSON-blob row; the pre-§772 `scheduled_jobs` table is read ONCE by a one-transaction migration marked by a `__migrated__` row, its rows are then switched off and it is never written again, so an older build cannot strip a job's project, key, zone or instruction; the store module still falls back to localStorage without a Turso config, but the Settings section and the runner need a Turso portfolio, so no job runs there) OUT of `TABLE_NAMES`.
   ★★ `useScheduledJobs` has TWO instances (the runner's in `use-ai-orchestration.ts`, the Settings list in
   `scheduled-jobs-section.tsx`). Its write chain is MODULE-level and every write makes each other mounted
   instance re-read the store (§750); per-instance, a job made in Settings never reached the runner until a
   reload, and two writers at once lost one write. A third instance needs nothing more.
   Runner `use-scheduled-job-runner.ts` lives in `task-manager` ABOVE the view; runs DUE jobs on
-  mount/visibility/5-min-tick, SERIAL + overlap-guarded; fail-once-per-slot (a failed run still advances
-  `lastRunAt` — avoids re-spamming a BILLED call). The call is the NON-hook `runJobAnalysis`
+  mount/visibility/5-min-tick, SERIAL + overlap-guarded; one run per slot, guarded by the slot's `scheduled_reports`
+  row (`runScheduledJob` in `scheduled-job-run.ts` claims it before any billed call; a failed run still writes its
+  row, so a persistent failure is not re-billed every tick; `lastRunAt` is only a SECONDARY guard, see below). The call is the NON-hook `runJobAnalysis`
   (`scheduled-job-analysis.ts`) so the runner loops it; `use-action-analysis` delegates. ADVISORY only; never
   in popouts. Gated on key + `ai.scheduledJobs === true` (default OFF / opt-in — UNLIKE
   `actionSuggestions`'s `!== false`).
+  ★★ **The claim is the report row, never the job store.** `scheduled_reports` has `UNIQUE (job_key, slot)` and the
+  runner claims a slot with ONE `INSERT … ON CONFLICT DO NOTHING RETURNING id` (`scheduled-reports-store.ts`); only the
+  caller that gets an id runs the job. ★★ The job store loses concurrent updates: each write is a load, a transform and
+  a `DELETE` plus one INSERT per job in separate requests, so a write from another device in between is overwritten.
+  Nothing that must not be lost may live there, which is why the claim is not in it. The runner judges jobs on a FRESH read of the job store (`loadScheduledJobs`: once on EVERY tick that passes the enabled, available and source guards, which also decides what is due, and again in `stillRunnable` before the claim and before the billed call), never the copy its hook read at mount; a failed read claims nothing. ★★ OWNER DECISION: a job runs AT MOST ONCE PER PERIOD, in its CURRENT zone: once per local calendar day (daily) or per local ISO week, Monday to Sunday (weekly). `periodStartFor` (`scheduled-jobs/schedule.ts`) gives the UTC instant the period began (local midnight via `zonedInstant`, so a 23 or 25 hour DST day is right); the pre-claim check (`hasReportAtOrAfter`), `slotStatus` and the session memo all ask about THAT instant, never the slot, so editing the time or zone later cannot bill again within the period (the UNIQUE claim still guards the exact slot). A period is remembered for the session ONLY when it is final (`slotStatus`: a finished report, or a running claim older than `RUNNING_STALE_MS` on the database clock, within the current period; a live row of a later slot in the period is `in-flight`, not final) or when this tab wrote the outcome itself; a live claim by another device (`in-flight`) and `claimed-elsewhere` are never remembered, because that claim may still be released as transient, so the slot is asked about again on the next tick (remembering it brings back the lost-slot defect). Job rows a newer version wrote are carried through every save: `sanitizeJob` keeps unknown fields in `extra`, and a job with an unknown type or cadence becomes a read-only `foreign` job holding its stored JSON, which never runs and can only be deleted (so does a job with no numeric id: a stable negative placeholder id, its row id written back unchanged). `lastRunAt` is NOT the guard that makes a slot due; the tick uses it once, as a
+  secondary guard that can only skip a run: a job whose newest run record's `slot` (the slot it ran FOR; `ranAt` is when it ended and can be past local midnight, so the end time is never compared) is at or after the start of the current cadence period is not run (a record from an older version has no `slot` and keeps the old comparison, its `lastRunAt` against the current slot). The claim statement itself carries the period limit (`INSERT … SELECT … WHERE NOT EXISTS (a report of this job at or after the period start) ON CONFLICT (job_key, slot) DO NOTHING RETURNING id`), so two devices holding different slots of one period cannot both win; the pre-check stays only as a cheap early exit (a legacy job that
+  ran today under a pre-§772 runner must not bill again when it is given a project; a `project-missing` record never counts).
+  ★★ `slotFor` returns only TODAY'S slot in the JOB'S own time zone (null without a zone, off the weekday, or before the
+  time), so a run missed on an earlier local day is SKIPPED, not caught up; an interrupted `running` row older than
+  `RUNNING_STALE_MS` shows as failed and is never re-run. `scheduled_reports` is a side table registered in
+  `PROJECT_SCOPED_SIDE_TABLES` (`project-side-tables.ts`), retained at `REPORT_RETENTION_PER_JOB` per job; the view is
+  Turso-only. Its live probe, `e2e/scheduled-reports-claim-live.spec.ts`, has NOT yet been run against a real database.
 - **AI weight suggestions:** "Suggest with AI" in the next-actions settings → ONE forced-tool call
   (`suggest_weights`, forced, NO loop) in `weight-suggestion-call.ts` (the fetch now routes through the shared
   `runForcedToolCallWithStop` (`ai-forced-call.ts`) — the single never-log envelope; a 4096-token reply cut at
