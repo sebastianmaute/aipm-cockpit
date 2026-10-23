@@ -638,6 +638,9 @@ describe("CreateProjectWizard AI Step 0", () => {
     delete noProject.project;
     importWorkspace(JSON.stringify(noProject));
     await screen.findByText(/Importing sample\.json: \d+ tasks/);
+    // Step 1 can create from this import right away, so the warning must show while it is pending too.
+    expect(screen.getByDisplayValue(PAST_END)).toBeInTheDocument();
+    expect(screen.getByText(pastWarning())).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "wizardImportWorkspaceClear", "sample.json") }));
     expect(screen.getByDisplayValue(PAST_END)).toBeInTheDocument();
     expect(screen.getByText(pastWarning())).toBeInTheDocument();

@@ -446,8 +446,11 @@ export function CreateProjectWizard({
               <p className="mb-3 text-xs text-muted-foreground">{t(lang, "wizardAiOffHint")}</p>
             )}
             {/* Shown only while the form still holds the proposal (a later manual
-                visit captures meta, and the user may already have fixed the date). */}
-            {proposalPastEnd && !meta && !imported && (
+                visit captures meta, and the user may already have fixed the date).
+                No `!imported` guard: an import that brings project details clears
+                proposalPastEnd itself, and one that does not leaves the past date
+                in the form, which Step 1 can create from straight away. */}
+            {proposalPastEnd && !meta && (
               <p role="status" className="mb-3 flex items-start gap-1.5 text-xs font-medium text-foreground">
                 <ExclamationTriangleIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
                 <span>{t(lang, "wizardAiEndDatePast", proposalPastEnd)}</span>
