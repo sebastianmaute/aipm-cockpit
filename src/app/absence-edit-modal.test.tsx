@@ -45,6 +45,7 @@ const base: Absence = {
 const RESOURCES: Resource[] = [
   { id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com", roleId: null, utilizationMode: "percent", utilization: {} },
   { id: 2, firstName: "Liam", lastName: "Foster", email: "liam@x.com", roleId: null, utilizationMode: "percent", utilization: {} },
+  { id: 3, firstName: "Noah", lastName: "Kim", email: "", roleId: null, utilizationMode: "percent", utilization: {} },
 ];
 
 type ModalProps = React.ComponentProps<typeof AbsenceEditModal>;
@@ -131,15 +132,46 @@ describe("AbsenceEditModal — assignee ResourcePicker", () => {
     );
   });
 
-  it("still saves a typed name that is not in the directory, without a resourceId", () => {
+  it("retyping a linked name to one not in the directory saves it without the old resourceId", () => {
     const onSave = vi.fn();
-    setup({ absence: blank, isNew: true, onSave });
+    setup({ absence: { ...blank, assignee: "Sofia Ramirez", resourceId: 1 }, isNew: false, onSave });
     const picker = screen.getByRole("combobox", { name: `${t("en-US", "absenceAssignee")} *` });
     fireEvent.change(picker, { target: { value: "Dana Lee" } });
     fireEvent.blur(picker);
     fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave.mock.calls[0][0]).toMatchObject({ assignee: "Dana Lee" });
+    expect(onSave.mock.calls[0][0].resourceId ?? null).toBeNull();
+  });
+
+  it("picking a person without an email drops the previous person's email", () => {
+    const onSave = vi.fn();
+    setup({ absence: blank, isNew: true, onSave });
+    const picker = screen.getByRole("combobox", { name: `${t("en-US", "absenceAssignee")} *` });
+    fireEvent.focus(picker);
+    fireEvent.change(picker, { target: { value: "Sof" } });
+    fireEvent.mouseDown(screen.getByText("Sofia Ramirez"));
+    fireEvent.focus(picker);
+    fireEvent.change(picker, { target: { value: "Noah" } });
+    fireEvent.mouseDown(screen.getByText("Noah Kim"));
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ assignee: "Noah Kim", resourceId: 3 });
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBeUndefined();
+  });
+
+  it("the clear button drops the email along with the name and link", () => {
+    const onSave = vi.fn();
+    setup({ absence: { ...base, resourceId: 1 }, onSave });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "clear") }));
+    const picker = screen.getByRole("combobox", { name: `${t("en-US", "absenceAssignee")} *` });
+    expect(picker).toHaveValue("");
+    fireEvent.change(picker, { target: { value: "Dana Lee" } });
+    fireEvent.blur(picker);
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ assignee: "Dana Lee" });
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBeUndefined();
     expect(onSave.mock.calls[0][0].resourceId ?? null).toBeNull();
   });
 });

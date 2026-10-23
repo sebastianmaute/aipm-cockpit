@@ -169,12 +169,20 @@ export function AbsenceEditModal({
             contacts={contacts}
             onCreateResource={onCreateResource}
             onAssigneeChange={(next) => {
-              update("assignee", next.name);
-              update("resourceId", next.resourceId ?? undefined);
-              // A picked person brings their email; the picker's clear (empty name)
-              // clears it too; a freely typed name keeps whatever email is there.
-              if (next.email) update("assigneeEmail", next.email);
-              else if (!next.name) update("assigneeEmail", undefined);
+              // One write, as the shift editor does. The picker sends the picked
+              // person's email (or none), "" on clear, and the current email back
+              // on free typing — so a pick never inherits the previous person's.
+              setDraft((d) =>
+                d
+                  ? {
+                      ...d,
+                      assignee: next.name,
+                      assigneeEmail: next.email || undefined,
+                      resourceId: next.resourceId ?? undefined,
+                    }
+                  : d,
+              );
+              setError(null);
             }}
             onEmailChange={(email) => update("assigneeEmail", email)}
             assigneeLabel={t(lang, "absenceAssignee")}
