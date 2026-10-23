@@ -56,6 +56,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Security updates: Next.js 16.4.2 and DOMPurify 3.4.17.** Both fix critical advisories published this week:
+  remote code execution in Next.js image optimisation and in `use cache` functions, and sanitiser bypasses in
+  DOMPurify.
 - **"Draft with AI" writes the whole steering report (§763).** Drafting a steering committee's status report
   often failed with "Could not draft the report", because Claude's reply was cut off before the report was
   complete. It now gets more room, and asks once more with more room if the reply is still cut off; you get the
