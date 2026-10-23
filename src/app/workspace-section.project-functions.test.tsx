@@ -4,13 +4,15 @@
 // workspace) when the dialog seeds its Functions draft. The dialog edits `Workspace.features`
 // (`onCommitFeatures` is `workspace.setFeatures`), so it must read that same slice back: these tests
 // pin `settings.features` to a STALE all-on list and expect the editor to follow the workspace anyway.
+// Budget's setup checklist and the Time bookings notice turn a function on the same way (the shown
+// set plus one, written to the workspace), so they are pinned to the same slice below.
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Wrapper, makeProps } from "../test/workspace-section-harness";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { WorkspaceSection } from "./workspace-section";
-import { ALL_MODULE_IDS } from "./feature-modules";
+import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import type { ProjectMeta } from "./types";
 
 vi.mock("./use-settings", async () => {
@@ -22,6 +24,15 @@ vi.mock("./use-settings", async () => {
     useSettings: vi.fn(() => ({ settings, setSettings: vi.fn(), hydrated: true, i18nReady: true, lang: "en-US" as const })),
   };
 });
+
+// Both panels are lazy and heavy; only the features pair they are handed matters here.
+const panelProps = vi.hoisted(() => ({ budget: [] as Record<string, unknown>[], timelog: [] as Record<string, unknown>[] }));
+vi.mock("./budget-panel", () => ({
+  BudgetPanel: (p: Record<string, unknown>) => { panelProps.budget.push(p); return <div data-testid="budget-panel" />; },
+}));
+vi.mock("./timelog-panel", () => ({
+  TimelogPanel: (p: Record<string, unknown>) => { panelProps.timelog.push(p); return <div data-testid="timelog-panel" />; },
+}));
 
 const META: ProjectMeta = {
   name: "Borealis",
@@ -43,14 +54,19 @@ const META: ProjectMeta = {
 
 function Probe() {
   const { setActiveTab } = useWorkspaceTab();
-  const { features } = useWorkspace();
+  const { features, setFeatures } = useWorkspace();
   return (
     <>
       <button data-testid="goto-projects" onClick={() => setActiveTab("projects")} />
+      <button data-testid="goto-budget" onClick={() => setActiveTab("budget")} />
+      <button data-testid="goto-timelog" onClick={() => setActiveTab("timelog")} />
+      <button data-testid="switch-off" onClick={() => setFeatures(WITHOUT_CHANGES_AND_RESOURCES)} />
       <output data-testid="ws-features">{JSON.stringify(features ?? null)}</output>
     </>
   );
 }
+
+const WITHOUT_CHANGES_AND_RESOURCES = ALL_MODULE_IDS.filter((id) => id !== "changes" && id !== "resources");
 
 const wsFeatures = () => JSON.parse(screen.getByTestId("ws-features").textContent ?? "null") as string[] | null;
 const dialog = () => screen.getByRole("dialog");
@@ -115,5 +131,47 @@ describe("WorkspaceSection — Edit project reads the functions it writes (§779
     fireEvent.click(box("Stakeholders"));
     await act(async () => save());
     expect(wsFeatures()).toEqual(ALL_MODULE_IDS.filter((id) => id !== "changes" && id !== "stakeholders"));
+  });
+});
+
+// Mutation: passing `settings.features` (the section's `features` local) to BudgetPanel or TimelogPanel
+// turns the matching test red: the panel is handed the stale all-on list, and its turn-on writes it back.
+describe("WorkspaceSection — Budget and Time bookings read the functions they write (§779)", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  async function handedTo(view: "budget" | "timelog") {
+    panelProps[view].length = 0;
+    render(
+      <>
+        <Probe />
+        <WorkspaceSection {...makeProps()} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("switch-off"));
+    fireEvent.click(screen.getByTestId(`goto-${view}`));
+    await screen.findByTestId(`${view}-panel`);
+    return panelProps[view].at(-1)! as { features: readonly FeatureModuleId[]; onCommitFeatures: (next: FeatureModuleId[]) => void };
+  }
+  /** What both panels' "Turn on" does: the shown set plus the missing function, in registry order. */
+  const turnOn = (props: { features: readonly FeatureModuleId[]; onCommitFeatures: (next: FeatureModuleId[]) => void }, id: FeatureModuleId) => {
+    const next = new Set<FeatureModuleId>([...props.features, id]);
+    act(() => props.onCommitFeatures(ALL_MODULE_IDS.filter((m) => next.has(m))));
+  };
+
+  it("Budget is handed the workspace's functions, so turning Resources on leaves Changes off", async () => {
+    const props = await handedTo("budget");
+    expect(props.features).toEqual(WITHOUT_CHANGES_AND_RESOURCES);
+    turnOn(props, "resources");
+    expect(wsFeatures()).toEqual(ALL_MODULE_IDS.filter((id) => id !== "changes"));
+  });
+
+  it("Time bookings is handed the workspace's functions, so turning Resources on leaves Changes off", async () => {
+    const props = await handedTo("timelog");
+    expect(props.features).toEqual(WITHOUT_CHANGES_AND_RESOURCES);
+    turnOn(props, "resources");
+    expect(wsFeatures()).toEqual(ALL_MODULE_IDS.filter((id) => id !== "changes"));
   });
 });
