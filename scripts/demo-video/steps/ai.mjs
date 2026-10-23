@@ -60,7 +60,7 @@ const chatTaskInOpenPoints = step('chat-task-in-open-points', {
   run: async (ctx) => {
     await nav(ctx, 'Open Points');
     await caption(ctx, 'The task is in Open Points, with its owner and date.', 'ai-chat-in-open-points');
-    await moveTo(ctx, main(ctx).locator('tbody tr', { hasText: CHAT_TASK }).first(), CHAT_TASK);
+    await moveTo(ctx, main(ctx).locator('tbody').getByRole('row').filter({ hasText: CHAT_TASK }), CHAT_TASK);
     await pace(ctx, 2500);
   },
 });

@@ -179,10 +179,10 @@ export const MONDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Dashboard');
       await caption(ctx, 'Do this first: the MVP target is overdue.', 'mon-do-first');
-      await moveTo(ctx, main(ctx).getByRole('button', { name: /^Open – Do this first – / }).first(), 'Do this first');
+      await moveTo(ctx, main(ctx).getByRole('button', { name: /^Open – Do this first – / }), 'Do this first');
       await pace(ctx, 2500);
       await caption(ctx, 'Since Friday: one RAID item added, one task newly overdue.', 'mon-since-friday');
-      await moveTo(ctx, main(ctx).getByText('Since you last looked').first(), 'Since you last looked');
+      await moveTo(ctx, main(ctx).getByText('Since you last looked'), 'Since you last looked');
       await pace(ctx, 3000);
     },
   }),
@@ -235,7 +235,7 @@ export const MONDAY = [
       await nav(ctx, 'Knowledge');
       await caption(ctx, 'Knowledge: the CRM interface decision from design sign-off.', 'mon-knowledge-crm');
       await type(ctx, main(ctx).getByPlaceholder('Search knowledge'), 'CRM', 'search knowledge');
-      await moveTo(ctx, main(ctx).getByText('CRM interface decision (design sign-off)').first(), 'CRM interface decision');
+      await moveTo(ctx, main(ctx).getByText('CRM interface decision (design sign-off)'), 'CRM interface decision');
       await pace(ctx, 3000);
     },
   }),
@@ -533,16 +533,23 @@ export async function setUtilization(ctx, who, month, value) {
   await L.settle(ctx.page);
 }
 
-/** The absence form's Assignee, the shared directory picker: the name typed, then the person picked from
- *  its list, so the absence is linked to the resource rather than left as free text. */
-export async function absenceAssignee(ctx, d, who) {
-  const field = d.getByRole('combobox', { name: 'Assignee *', exact: true });
-  await type(ctx, field, who, 'absence who');
+/** A directory picker field (resource-picker.tsx) in dialog `d`: the name typed, then the person picked from
+ *  its list, so the item is linked to the resource rather than left as free text. Throws unless the field
+ *  then shows the name and reads as linked. */
+async function pickPerson(ctx, d, field, who, label) {
+  await type(ctx, field, who, label);
   // Picking closes the list itself; its option opens with the name, then the email.
   await click(ctx, d.getByRole('option', { name: new RegExp('^' + who) }).locator('button'), `pick ${who}`, 400);
   const shown = await field.inputValue();
-  if (shown !== who) throw new Error(`the absence's Assignee shows "${shown}", not ${who}`);
+  if (shown !== who) throw new Error(`${label} shows "${shown}", not ${who}`);
+  // The field's clear button describes the link state in its title.
+  const state = await field.locator('xpath=..').getByRole('button', { name: 'Clear', exact: true }).getAttribute('title');
+  if (state !== 'Linked to a resource') throw new Error(`${label} is not linked to ${who} (${state})`);
 }
+
+/** The absence form's Assignee, the shared directory picker. */
+export const absenceAssignee = (ctx, d, who) =>
+  pickPerson(ctx, d, d.getByRole('combobox', { name: 'Assignee *', exact: true }), who, 'absence who');
 
 export const WEDNESDAY = [
   step('discipline-role', {
@@ -643,8 +650,10 @@ export const WEDNESDAY = [
       await caption(ctx, `Swimlanes by person: give ${DEMO_NEW_MEMBER.firstName} a lane, then a CRM follow-up.`, 'wed-swimlane');
       await click(ctx, main(ctx).getByRole('radio', { name: 'Swimlanes', exact: true }), 'Swimlanes', 1200);
       // The select adds the lane and returns to its placeholder, so the lane itself is the check.
+      const lane = main(ctx).locator(`[aria-label="${MEMBER} – To Do"]`);
+      if (await lane.count()) throw new Error(`a lane for ${MEMBER} exists before Add person lane`);
       await choose(ctx, main(ctx).getByRole('combobox', { name: 'Add person lane', exact: true }), { label: MEMBER }, 'Add person lane', { resets: true });
-      await main(ctx).locator(`[aria-label="${MEMBER} – To Do"]`).first().waitFor({ state: 'attached', timeout: 5000 })
+      await lane.waitFor({ state: 'visible', timeout: 5000 })
         .catch(() => { throw new Error(`no lane for ${MEMBER} after Add person lane`); });
       await pace(ctx, 1000);
       // Filtered to the follow-up, its card sits right under the new lane: unfiltered they are thousands of
@@ -687,13 +696,8 @@ async function addTask(ctx, name, assignee, due) {
   await click(ctx, d.getByRole('button', { name: 'Add task – New task' }), 'save task', 600);
 }
 
-/** The Owner picker: type the name, then pick the person from its list (Tab alone does not pick). */
-async function pickOwner(ctx, d, who) {
-  await type(ctx, d.getByRole('combobox', { name: 'Owner' }), who, 'owner');
-  const option = ctx.page.getByRole('option', { name: new RegExp('^' + who) }).first();
-  if (await option.isVisible().catch(() => false)) await click(ctx, option, `pick ${who}`, 400);
-  else await ctx.page.keyboard.press('Tab');
-}
+/** A RAID item's Owner, the shared directory picker (Tab alone does not pick). */
+const pickOwner = (ctx, d, who) => pickPerson(ctx, d, d.getByRole('combobox', { name: 'Owner' }), who, 'owner');
 
 async function approveChange(ctx, title) {
   const d = await openRow(ctx, 'Changes', title);

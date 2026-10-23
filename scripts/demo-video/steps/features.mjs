@@ -389,7 +389,7 @@ export const FEATURE_STEPS = Object.freeze({
     step('budget-plan-vs-actual', {
       run: async (ctx) => {
         await caption(ctx, 'Plan against actual, per bucket and for the project.', 'f-budget-plan-actual');
-        await moveTo(ctx, main(ctx).getByText(/Project total/).first(), 'Project total');
+        await moveTo(ctx, main(ctx).getByText(/Project total/), 'Project total');
         await pace(ctx, 3000);
       },
     }),

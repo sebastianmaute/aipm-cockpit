@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { MOVE_TIMEOUT_MS, choose, moveTo, viewHint } from './ui.mjs';
+import { MOVE_TIMEOUT_MS, choose, moveTo, nav, viewHint } from './ui.mjs';
 
 /** A page that records the cursor's moves and the pauses; `main` never changes, so settle() ends at once. */
 function fakePage(calls) {
@@ -44,6 +44,7 @@ function fakeLoc(calls, { matches = 1, visible = true, options = [], selected = 
     },
     // The select itself, read right after the pick and again once the page settled.
     elementHandle: async () => ({
+      dispose: async () => { calls.push('dispose'); },
       evaluate: async () => {
         reads++;
         if (reads > 1 && resetLater) index = selected;
@@ -90,6 +91,15 @@ describe('choose (§715)', () => {
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect((await (await loc.elementHandle()).evaluate()).value).toBe('Approved');
+  });
+
+  it('releases the select it read, after a pick that took and after one that did not', async () => {
+    const ok = [];
+    await choose(ctxWith(ok), fakeLoc(ok, { options: STATUS }), 'Approved', 'change status');
+    expect(ok.filter((c) => c === 'dispose')).toEqual(['dispose']);
+    const bad = [];
+    await expect(choose(ctxWith(bad), fakeLoc(bad, { options: STATUS, takes: false }), 'Approved', 'change status')).rejects.toThrow('did not take');
+    expect(bad.filter((c) => c === 'dispose')).toEqual(['dispose']);
   });
 
   it('throws when the app changes the select back once the page settles', async () => {
@@ -142,6 +152,44 @@ function hintPage(hints) {
   };
   return { page, log: () => {}, rehearse: true };
 }
+
+/** A page with one nav item, visible or not; the header's title changes once the item is clicked. The click
+ *  is the in-page evaluate that receives the item's name (lib.mjs openView). */
+function navPage({ visible }) {
+  const calls = [];
+  const titles = ['Dashboard'];
+  const item = {
+    filter: () => item,
+    first: () => item,
+    waitFor: async () => { if (!visible) throw new Error('Timeout exceeded'); },
+    isVisible: async () => visible,
+    count: async () => 1,
+    scrollIntoViewIfNeeded: async () => { calls.push('scroll'); },
+    boundingBox: async () => ({ x: 0, y: 600, width: 200, height: 30 }),
+  };
+  const page = {
+    locator: (sel) => (sel === 'header' ? { first: () => ({ innerText: async () => titles.shift() ?? 'Milestones' }) } : item),
+    mouse: { move: async (x, y) => { calls.push(`mouse(${x},${y})`); } },
+    waitForTimeout: async () => {},
+    waitForFunction: async () => {},
+    evaluate: async (_fn, arg) => { if (arg?.name) calls.push(`click(${arg.name})`); return true; },
+  };
+  return { ctx: { page, rehearse: true, log: () => {} }, calls };
+}
+
+describe('nav (§715)', () => {
+  it('scrolls the sidebar to the item and moves the cursor onto it before the click', async () => {
+    const { ctx, calls } = navPage({ visible: true });
+    await nav(ctx, 'Milestones');
+    expect(calls).toEqual(['scroll', 'mouse(100,615)', 'click(Milestones)']);
+  });
+
+  it('throws, and clicks nothing, when the item never shows in the sidebar', async () => {
+    const { ctx, calls } = navPage({ visible: false });
+    await expect(nav(ctx, 'Milestones')).rejects.toThrow('nav: no visible item "Milestones"');
+    expect(calls).toEqual([]);
+  });
+});
 
 describe('viewHint, the opening of a { banner } video (§715)', () => {
   it("takes the visible callout, not RAID's hidden one that comes first in the DOM", async () => {

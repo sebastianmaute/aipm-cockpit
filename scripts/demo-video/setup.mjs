@@ -95,12 +95,11 @@ async function pickModel(ctx, d, onCamera) {
 /** The screen a fresh install opens on: its three cards, before the setup wizard. */
 async function firstScreen(ctx) {
   await caption(ctx, 'A fresh install opens here: start a project, open one, or explore the demo.', 'setup-first-screen');
+  // The caption names all three: a card that is missing fails the take (moveTo throws). The first match is
+  // the card's title; "Explore the demo" is also its button's text.
   for (const name of ['New project', 'Open existing', 'Explore the demo']) {
-    const card = ctx.page.getByText(name, { exact: true }).first();
-    if (await card.count()) {
-      await moveTo(ctx, card, name);
-      await pace(ctx, 1200);
-    }
+    await moveTo(ctx, ctx.page.getByText(name, { exact: true }).first(), `${name} card`);
+    await pace(ctx, 1200);
   }
 }
 

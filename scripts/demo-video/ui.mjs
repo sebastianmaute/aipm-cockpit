@@ -187,19 +187,23 @@ export async function choose(ctx, loc, option, label, { resets = false } = {}) {
   await moveTo(ctx, loc, label);
   await loc.focus();
   const select = await loc.elementHandle();
-  await loc.selectOption(option);
-  if (resets) {
+  try {
+    await loc.selectOption(option);
+    if (resets) {
+      await L.settle(ctx.page);
+      await pace(ctx, 600);
+      return;
+    }
+    const check = (got) => { if (!holds(got, option)) throw new Error(`did not take: ${label} (holds "${got.label}")`); };
+    check(await select.evaluate(selectState));
     await L.settle(ctx.page);
     await pace(ctx, 600);
-    return;
+    const after = await select.evaluate(selectState);
+    if (after.connected) check(after);
+    else ctx.log(`choose: ${label} left the page with the change`);
+  } finally {
+    await select.dispose();
   }
-  const check = (got) => { if (!holds(got, option)) throw new Error(`did not take: ${label} (holds "${got.label}")`); };
-  check(await select.evaluate(selectState));
-  await L.settle(ctx.page);
-  await pace(ctx, 600);
-  const after = await select.evaluate(selectState);
-  if (after.connected) check(after);
-  else ctx.log(`choose: ${label} left the page with the change`);
 }
 
 export async function click(ctx, loc, label, after = 900) {
@@ -222,16 +226,23 @@ export async function type(ctx, loc, text, label, { slow = true } = {}) {
   await pace(ctx, 300);
 }
 
+/** How long a nav waits for its item: the app may still be loading after a reload. */
+const NAV_TIMEOUT_MS = 60000;
+
 /** Opens a nav item by its exact name; retries when a reload lands just after the click. */
 export async function nav(ctx, name) {
   const page = ctx.page;
-  const loc = page.locator(L.NAV).filter({ hasText: new RegExp('^\\s*' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\d*\\s*$') }).first();
-  if (await loc.isVisible().catch(() => false)) await moveTo(ctx, loc, `nav ${name}`);
+  // The visible item: the cursor goes to it before the click, so a nav is never an unseen jump. A sub-item
+  // appears once its parent is open, and a reload re-renders the sidebar, so it is waited for.
+  const item = page.locator(L.NAV).filter({ hasText: new RegExp('^\\s*' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\d*\\s*$') })
+    .filter({ visible: true }).first();
+  await item.waitFor({ state: 'visible', timeout: NAV_TIMEOUT_MS }).catch(() => { throw new Error(`nav: no visible item "${name}"`); });
+  await moveTo(ctx, item, `nav ${name}`);
   const title = async () => (await page.locator('header').first().innerText().catch(() => '')).split('\n')[0].trim();
   for (let attempt = 0; attempt < 3; attempt++) {
     // Matched as L.openView does (a trailing count badge dropped); serialised, so written out here.
     await page.waitForFunction(({ sel, name }) => [...document.querySelectorAll(sel)].some(
-      (e) => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ').replace(/\s*\d+$/, '') === name), { sel: L.NAV, name }, { timeout: 60000 })
+      (e) => (e.getAttribute('aria-label') || e.textContent || '').trim().replace(/\s+/g, ' ').replace(/\s*\d+$/, '') === name), { sel: L.NAV, name }, { timeout: NAV_TIMEOUT_MS })
       .catch(() => { throw new Error(`nav: no item "${name}"`); });
     const before = await title();
     await L.openView(page, name);
