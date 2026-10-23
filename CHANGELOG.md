@@ -38,6 +38,10 @@ longer carries its own changelog comment.
 
 - **Add task comes first in Open Points.** The Add task button is now the leftmost control in the Open Points
   toolbar, with "Optimize with AI" after it.
+- **Pick the person for an absence from a searchable list.** The new-absence and edit-absence form now uses the
+  same searchable person picker as the task editor and the shift form: type to filter the resource directory and
+  contacts, and picking a person links the absence to them and fills their email. A name typed freely is still
+  accepted.
 - **Video guides recorder (§715).** One command per video for the 43 guides: the big video, seven chapters
   (the first is recorded by hand), 15 AI clips and 20 feature clips, taken through the app's own UI on the demo project and a throwaway
   Turso database. Each take starts clean, sets up off camera, checks that the data shows what the video needs,

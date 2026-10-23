@@ -2222,7 +2222,7 @@ export const de: Record<TranslationKey, string> = {
   absenceTypeTraining: "Schulung",
   absenceTypeOther: "Sonstiges",
   absenceLegendLabel: "Legende Abwesenheitsarten",
-  absencePlaceholderAssignee: "Name (passend zu bestehenden Aufgaben-Zugewiesenen)",
+  absencePlaceholderAssignee: "Verzeichnis durchsuchen oder Namen eingeben",
   absencePlaceholderNote: "Optional – Kontext für das Team",
   absenceErrorRequired: "Zugewiesen an, Start und Ende sind erforderlich.",
   absenceErrorEndBeforeStart: "Enddatum darf nicht vor dem Startdatum liegen.",

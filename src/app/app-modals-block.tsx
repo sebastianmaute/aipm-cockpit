@@ -46,7 +46,7 @@ export type AppModalsBlockDeps = AllKeys<
   Pick<
     AppModalsProps,
     | "jiraConflicts" | "handleResolveConflicts" | "jiraResolving" | "clearConflicts"
-    | "editingAbsence" | "absenceKnownAssignees" | "handleSaveAbsence" | "handleDeleteAbsence" | "handleCloseAbsenceModal"
+    | "editingAbsence" | "handleSaveAbsence" | "handleDeleteAbsence" | "handleCloseAbsenceModal"
     | "editingCalendarEvent" | "handleSaveCalendarEvent" | "handleDeleteCalendarEvent" | "handleCloseCalendarEventModal"
     | "editingShift" | "shiftExistingAssigneeKeys" | "handleSaveShift" | "handleDeleteShift" | "handleCloseShiftModal"
     | "today" | "nextId" | "contactsList" | "resources" | "absences" | "uniqueGroups" | "uniqueLabels"
@@ -111,7 +111,7 @@ export function buildAppModalsBlock(deps: AppModalsBlockDeps) {
     editorLeadingActions, editorDeleteAction, editorExtrasEl, editingId, openTaskNotes, openTaskBlockers,
     budgetLink, calendarTaskEnabled, calendarAbsenceEnabled,
     jiraConflicts, handleResolveConflicts, jiraResolving, clearConflicts,
-    editingAbsence, absenceKnownAssignees, handleSaveAbsence, handleDeleteAbsence, handleCloseAbsenceModal,
+    editingAbsence, handleSaveAbsence, handleDeleteAbsence, handleCloseAbsenceModal,
     editingCalendarEvent, handleSaveCalendarEvent, handleDeleteCalendarEvent, handleCloseCalendarEventModal,
     editingShift, shiftExistingAssigneeKeys, handleSaveShift, handleDeleteShift, handleCloseShiftModal,
     today, nextId, contactsList, resources, handleCreateResource, absences, tasks, uniqueGroups, uniqueLabels,
@@ -202,7 +202,6 @@ export function buildAppModalsBlock(deps: AppModalsBlockDeps) {
         jiraResolving={jiraResolving}
         clearConflicts={clearConflicts}
         editingAbsence={editingAbsence}
-        absenceKnownAssignees={absenceKnownAssignees}
         handleSaveAbsence={handleSaveAbsence}
         handleDeleteAbsence={handleDeleteAbsence}
         handleCloseAbsenceModal={handleCloseAbsenceModal}

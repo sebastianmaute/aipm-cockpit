@@ -2342,7 +2342,7 @@ const enUS = {
   absenceTypeTraining: "Training",
   absenceTypeOther: "Other",
   absenceLegendLabel: "Absence type legend",
-  absencePlaceholderAssignee: "Name (matches existing Task assignees)",
+  absencePlaceholderAssignee: "Search the directory or type a name",
   absencePlaceholderNote: "Optional — context for the team",
   absenceErrorRequired: "Assignee, start, and end are required.",
   absenceErrorEndBeforeStart: "End date cannot be before start date.",

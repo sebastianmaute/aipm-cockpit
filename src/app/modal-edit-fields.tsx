@@ -1,43 +1,28 @@
 "use client";
 
-import { useMemo } from "react";
+import type { Contact } from "./contacts";
 import { InfoTooltip } from "./info-tooltip";
 import { HintedLabel, Input } from "./form-controls";
+import { type Lang } from "./i18n";
+import { ResourcePicker } from "./resource-picker";
+import type { Resource } from "./types";
 
-type AssigneeOption = { name: string; email?: string };
-
-/**
- * Deduplicate known assignees by case-folded name (keeping the first observed
- * casing) and sort alphabetically. Shared by the assignee datalist in the
- * Absence and Shift editors.
- */
-function dedupeAssignees(
-  known: ReadonlyArray<AssigneeOption>,
-): AssigneeOption[] {
-  const seen = new Set<string>();
-  const out: AssigneeOption[] = [];
-  for (const a of known) {
-    const name = a.name.trim();
-    if (!name) continue;
-    const key = name.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ name, email: a.email });
-  }
-  out.sort((a, b) => a.name.localeCompare(b.name));
-  return out;
-}
+export type AssigneePick = { name: string; email: string; resourceId: number | null };
 
 /**
- * Assignee name + email pair with a datalist autocomplete of known people.
- * Typing a name that matches a known person auto-fills the email (only when the
- * email is still empty). Shared by the Absence and Shift editors.
+ * Assignee name + email pair. The name is the shared searchable `ResourcePicker`
+ * (the resource directory plus contacts, as in the task and shift editors), so
+ * picking a person also links them (`resourceId`) and fills their email; a name
+ * typed freely is still accepted. Used by the Absence editor.
  */
 export function AssigneeField({
-  datalistId,
+  lang,
   assignee,
   assigneeEmail,
-  knownAssignees,
+  resourceId,
+  resources,
+  contacts,
+  onCreateResource,
   onAssigneeChange,
   onEmailChange,
   assigneeLabel,
@@ -48,11 +33,15 @@ export function AssigneeField({
   emailInvalid,
   emailDescribedBy,
 }: {
-  datalistId: string;
+  lang: Lang;
   assignee: string;
   assigneeEmail: string | undefined;
-  knownAssignees: ReadonlyArray<AssigneeOption>;
-  onAssigneeChange: (name: string) => void;
+  resourceId: number | null | undefined;
+  resources: readonly Resource[];
+  contacts: Contact[];
+  onCreateResource?: (name: string, email: string) => number;
+  /** The picked or typed person. `email` is "" when the picker has none to offer. */
+  onAssigneeChange: (next: AssigneePick) => void;
   onEmailChange: (email: string | undefined) => void;
   assigneeLabel: string;
   assigneeEmailLabel: string;
@@ -66,29 +55,20 @@ export function AssigneeField({
   /** Id of the caller's flag element, for the email input's aria-describedby. */
   emailDescribedBy?: string;
 }) {
-  const options = useMemo(
-    () => dedupeAssignees(knownAssignees),
-    [knownAssignees],
-  );
-
+  const caption = `${assigneeLabel} *`;
   const assigneeInput = (
-    <Input
-      type="text"
-      required
-      value={assignee}
-      onChange={(e) => {
-        const name = e.target.value;
-        onAssigneeChange(name);
-        // Auto-fill email when the typed name matches a known one.
-        const match = options.find(
-          (o) => o.name.toLowerCase() === name.trim().toLowerCase(),
-        );
-        if (match?.email && !assigneeEmail) {
-          onEmailChange(match.email);
-        }
-      }}
-      list={datalistId}
+    <ResourcePicker
+      lang={lang}
+      value={{ name: assignee, email: assigneeEmail ?? "", resourceId: resourceId ?? null }}
+      resources={resources}
+      contacts={contacts}
+      onCreateResource={onCreateResource}
+      onChange={onAssigneeChange}
       placeholder={assigneePlaceholder}
+      // Named explicitly: inside the <label>, the picker's own clear button
+      // would otherwise join the accessible name once a person is set.
+      aria-label={caption}
+      aria-required
     />
   );
 
@@ -102,25 +82,17 @@ export function AssigneeField({
           bodyClassName="flex flex-col gap-1"
           hint={<InfoTooltip text={tooltip} />}
           caption={
-            <span className="flex items-center gap-1 font-medium text-foreground">{assigneeLabel} *</span>
+            <span className="flex items-center gap-1 font-medium text-foreground">{caption}</span>
           }
         >
           {assigneeInput}
         </HintedLabel>
       ) : (
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="font-medium text-foreground">{assigneeLabel} *</span>
+          <span className="font-medium text-foreground">{caption}</span>
           {assigneeInput}
         </label>
       )}
-      {/* Outside the label either way: only the input's `list` references it. */}
-      <datalist id={datalistId}>
-        {options.map((o) => (
-          <option key={o.name} value={o.name}>
-            {o.email ?? ""}
-          </option>
-        ))}
-      </datalist>
 
       {showEmail && (
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
@@ -137,4 +109,3 @@ export function AssigneeField({
     </>
   );
 }
-
