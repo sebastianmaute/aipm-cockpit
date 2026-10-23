@@ -350,6 +350,15 @@ describe("ScheduledReportsPanel", () => {
     expect(screen.getAllByRole("tab")).toHaveLength(3);
   });
 
+  // KILLED BY: keeping any `ready` state on a failed reload (the other portfolio's reports would stay up).
+  it("does not keep the previous portfolio's reports when the reload for the new one fails", async () => {
+    const view = renderPanel();
+    await screen.findAllByRole("tab");
+    mockList.mockRejectedValue(new Error("boom"));
+    view.rerender(<ScheduledReportsPanel lang="en-US" tursoConfig={{ ...CONFIG, httpUrl: "https://other.example.io" }} mode="turso" timeZone="UTC" />);
+    await waitFor(() => expect(screen.queryAllByRole("tab")).toHaveLength(0));
+  });
+
   it("reads the device label once per load, never while rendering", async () => {
     const user = userEvent.setup();
     renderPanel();

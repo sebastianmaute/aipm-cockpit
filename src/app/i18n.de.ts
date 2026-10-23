@@ -1487,7 +1487,7 @@ export const de: Record<TranslationKey, string> = {
   scheduledReportsErr403: "Der API-Schlüssel darf das nicht tun (403).",
   scheduledReportsErrParse: "Die Antwort konnte nicht gelesen werden.",
   scheduledReportsErrStorage: "Das Projekt konnte nicht aus dem Speicher geladen werden.",
-  scheduledReportsErrTurso: "Die Portfolio-Datenbank war nicht erreichbar.",
+  scheduledReportsErrTurso: "Die Portfolio-Datenbank hat einen Fehler gemeldet.",
   scheduledReportsErrProjectArchived: "Das Projekt ist archiviert, daher lief der Auftrag nicht.",
   scheduledReportsErrProjectMissing: "Das Projekt existiert nicht mehr.",
   scheduledReportsErrInterrupted: "Dieser Lauf wurde vor dem Ende unterbrochen.",

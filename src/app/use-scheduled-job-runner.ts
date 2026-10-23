@@ -27,6 +27,9 @@ export interface ScheduledJobRunnerArgs {
   /** Caller passes ai.scheduledJobs===true && key present && !isPopout. */
   enabled: boolean;
   jobs: readonly ScheduledJob[];
+  /** The backend `jobs` was read from. After a config change `jobs` is still the previous portfolio's until the
+   *  new read lands, and a tick on it would run (and write) against the wrong list: it waits. */
+  jobsSource: string | null | undefined;
   recordRun: (jobId: number, run: ScheduledJobRun, jobKey: string) => void | Promise<void>;
   /** §772 — the portfolio's Turso config; a run loads ITS job's project from it, not the open one. */
   config: TursoConfig | null;
@@ -108,6 +111,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
       const a = argsRef.current;
       if (!enabledRef.current || !guidesReadyRef.current) return;
       if (!a.available || a.config === null) return;
+      if (a.jobsSource !== a.config.httpUrl) return;
       if (isRunningRef.current) return; // a run is already in flight
       const at = (a.now ?? (() => new Date()))();
       const due = a.jobs

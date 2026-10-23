@@ -13,13 +13,17 @@ import { Button } from "../button";
 import { formatDisplayTimestamp } from "../tz-display";
 import { TEXTAREA_MAX } from "../sanitize-core";
 import type { UseScheduledJobsResult } from "../use-scheduled-jobs";
+import { REPORT_ERROR_KEY, type ReportErrorToken } from "../scheduled-reports-store";
 
 /** A failed run's recorded error token as text. §650 — "401"/"403" name the refused key; the
  *  token is the digit string the runner stores, so history recorded before this change reads the
  *  same way. */
 function runFailureText(lang: Lang, error: string | undefined): string {
   const keyMsg = aiKeyMessageKeyForStatusToken(error);
-  return keyMsg ? t(lang, keyMsg) : t(lang, "scheduledJobFailed", error ?? "");
+  if (keyMsg) return t(lang, keyMsg);
+  // A token this app knows reads as its translation; an unknown historic string keeps the generic line.
+  if (error !== undefined && Object.hasOwn(REPORT_ERROR_KEY, error)) return t(lang, REPORT_ERROR_KEY[error as ReportErrorToken]);
+  return t(lang, "scheduledJobFailed", error ?? "");
 }
 
 /** The fields `updateJob` accepts — exactly its patch type, so a row can never write a project or key. */

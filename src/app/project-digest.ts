@@ -116,7 +116,7 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
     `Enabled modules: ${input.enabledModules.join(", ") || "(none)"}. Open task count: ${openTasks.length}.`,
     'Entities are listed as "view#id: title"; reference an entity only by an id shown here.',
     ...(input.budget
-      ? [`Budget (${input.budget.currency}): planned ${input.budget.planned}, actual ${input.budget.actual}, forecast ${input.budget.forecast ?? "n/a"}.`]
+      ? [`Budget (${input.budget.currency}): planned ${Math.round(input.budget.planned)}, actual ${Math.round(input.budget.actual)}, forecast ${input.budget.forecast === undefined ? "n/a" : Math.round(input.budget.forecast)}.`]
       : []),
     "",
     "## Current rule-based action queue", ...capLines(queue),

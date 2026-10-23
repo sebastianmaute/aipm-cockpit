@@ -6,18 +6,34 @@
 import { runTursoPipeline } from "./turso-pipeline";
 import { rowObjects, txt, type SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
+import type { TranslationKey } from "./i18n";
 import { SCHEDULED_REPORTS_DDL } from "./scheduled-reports-schema";
 import { GROUNDABLE_VIEWS, type AiActionSeverity, type GroundableView } from "./action-ai";
-
 
 /** At most this many rows are kept per job key (newest by slot). */
 export const REPORT_RETENTION_PER_JOB = 50;
 /** A `running` row older than this is shown as interrupted (tab closed, device slept). */
 export const RUNNING_STALE_MS = 30 * 60_000;
 
+/** `storage-unreachable` is kept only for rows written by other app versions: connectivity failures are transient
+ *  now and never written, so the runner no longer produces it. */
 export type ReportErrorToken =
   | "limit" | "401" | "403" | "parse" | "storage-unreachable" | "turso"
   | "project-archived" | "project-missing" | "interrupted" | "error";
+
+/** The one token -> message map, shared by the reports view and the Settings run history. */
+export const REPORT_ERROR_KEY: Record<ReportErrorToken, TranslationKey> = {
+  limit: "scheduledReportsErrLimit",
+  "401": "scheduledReportsErr401",
+  "403": "scheduledReportsErr403",
+  parse: "scheduledReportsErrParse",
+  "storage-unreachable": "scheduledReportsErrStorage",
+  turso: "scheduledReportsErrTurso",
+  "project-archived": "scheduledReportsErrProjectArchived",
+  "project-missing": "scheduledReportsErrProjectMissing",
+  interrupted: "scheduledReportsErrInterrupted",
+  error: "scheduledReportsErrError",
+};
 
 export type ReportData = {
   jobName: string;
@@ -47,10 +63,13 @@ export type ScheduledReport = {
 
 const ddl = (): SqlStmt[] => SCHEDULED_REPORTS_DDL.map((sql) => ({ sql }));
 
-export async function hasReport(config: TursoConfig | null, jobKey: string, slot: string): Promise<boolean> {
+/** The pre-claim check (spec Slots): true when ANY report of this job has a slot at or after `slot`, i.e. the slot
+ *  is taken or older than the job's last report (an edited time or zone must not re-run the day). Slots are uniform
+ *  `toISOString()` strings, so text order is time order. The UNIQUE claim still guards the exact slot. */
+export async function hasReportAtOrAfter(config: TursoConfig | null, jobKey: string, slot: string): Promise<boolean> {
   const results = await runTursoPipeline(config, [
     ...ddl(),
-    { sql: `SELECT id FROM scheduled_reports WHERE job_key = ? AND slot = ?`, args: [txt(jobKey), txt(slot)] },
+    { sql: `SELECT id FROM scheduled_reports WHERE job_key = ? AND slot >= ? LIMIT 1`, args: [txt(jobKey), txt(slot)] },
   ]);
   return rowObjects(results[SCHEDULED_REPORTS_DDL.length]).length > 0;
 }
@@ -116,7 +135,10 @@ export function sanitizeReportData(raw: unknown): ReportData | null {
     const entity = e && typeof e.id === "string" && typeof e.view === "string" && GROUNDABLE.has(e.view)
       ? { view: e.view as GroundableView, id: e.id } : undefined;
     const severity = typeof x.severity === "string" && SEVERITIES.has(x.severity) ? (x.severity as AiActionSeverity) : "monitor";
-    return [{ title: str(x.title), why: str(x.why), severity, ...(entity ? { entity } : {}) }];
+    const title = str(x.title);
+    const why = str(x.why);
+    if (!title && !why) return []; // a malformed row would render as an empty card
+    return [{ title, why, severity, ...(entity ? { entity } : {}) }];
   });
   const instruction = str(d.instruction);
   const error = d.error === undefined ? undefined : ERROR_TOKENS.has(str(d.error)) ? (d.error as ReportErrorToken) : "error";

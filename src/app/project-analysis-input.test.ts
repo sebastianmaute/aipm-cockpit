@@ -94,3 +94,21 @@ describe("buildProjectAnalysisInput", () => {
     expect(digestInput.budget!.forecast).toBeUndefined();
   });
 });
+
+describe("buildProjectAnalysisInput with a supplied queue (§772 final review)", () => {
+  test("uses the caller's queue as is instead of computing one", () => {
+    const supplied = [{ title: "Live action", why: "Because", tier: "now" as const }];
+    const { digestInput } = buildProjectAnalysisInput({
+      workspace: workspace(), deviceSettings: defaultSettings, lang: "en-US", now: NOW, queue: supplied,
+    });
+    expect(digestInput.queue).toEqual(supplied);
+    expect(run(workspace()).digestInput.queue).not.toEqual(supplied);
+  });
+
+  test("an empty supplied queue stays empty", () => {
+    const { digestInput } = buildProjectAnalysisInput({
+      workspace: workspace(), deviceSettings: defaultSettings, lang: "en-US", now: NOW, queue: [],
+    });
+    expect(digestInput.queue).toEqual([]);
+  });
+});

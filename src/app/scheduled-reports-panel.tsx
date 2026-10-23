@@ -5,11 +5,11 @@
 // ★ Report text is model output: it is rendered as plain text, never as HTML.
 // ★ No AI setting gates this view — a report written earlier stays readable with the AI switched off.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type Lang, type TranslationKey, t } from "./i18n";
+import { type Lang, t } from "./i18n";
 import { navLabelKey } from "./nav-config";
 import type { TursoConfig } from "./turso-config";
 import type { PortfolioMode } from "./portfolio-mode";
-import { isInterrupted, listReports, type ReportErrorToken, type ScheduledReport } from "./scheduled-reports-store";
+import { isInterrupted, listReports, REPORT_ERROR_KEY, type ReportErrorToken, type ScheduledReport } from "./scheduled-reports-store";
 import { SCHEDULED_REPORT_EVENT } from "./use-scheduled-job-runner";
 import { getDeviceLabel } from "./device-label";
 import { formatDisplayTimestamp } from "./tz-display";
@@ -37,24 +37,12 @@ export interface ScheduledReportsPanelProps {
 type Loaded =
   | { kind: "loading" }
   | { kind: "error" }
-  | { kind: "ready"; reports: readonly ScheduledReport[]; loadedAt: Date; deviceLabel: string };
+  | { kind: "ready"; reports: readonly ScheduledReport[]; loadedAt: Date; deviceLabel: string; source: string };
 
 const FILTER_ALL = "";
 const PANEL_ID = "scheduled-reports-detail";
 const SEV_RAG: Record<AiActionSeverity, Health> = { now: "R", soon: "A", monitor: "G" };
 const UNKNOWN_DEVICE = "unknown"; // `getDeviceLabel`'s fallback: any device whose storage threw writes it, so it names no device
-const ERROR_KEY: Record<ReportErrorToken, TranslationKey> = {
-  limit: "scheduledReportsErrLimit",
-  "401": "scheduledReportsErr401",
-  "403": "scheduledReportsErr403",
-  parse: "scheduledReportsErrParse",
-  "storage-unreachable": "scheduledReportsErrStorage",
-  turso: "scheduledReportsErrTurso",
-  "project-archived": "scheduledReportsErrProjectArchived",
-  "project-missing": "scheduledReportsErrProjectMissing",
-  interrupted: "scheduledReportsErrInterrupted",
-  error: "scheduledReportsErrError",
-};
 const SEV_KEY = { now: "actionTierNow", soon: "actionTierSoon", monitor: "actionTierMonitor" } as const;
 
 function stateOf(r: ScheduledReport, now: Date): ReportTabState {
@@ -79,8 +67,8 @@ function stateLabel(lang: Lang, state: ReportTabState): string {
 /** Why a report that is not `done` has no result: its own state, with the stored error token when it failed. */
 function statusText(lang: Lang, state: ReportTabState, error: ReportErrorToken | undefined): string {
   if (state === "running") return t(lang, "scheduledReportsRunningNote");
-  if (state === "interrupted") return t(lang, ERROR_KEY.interrupted);
-  return t(lang, ERROR_KEY[error ?? "error"]);
+  if (state === "interrupted") return t(lang, REPORT_ERROR_KEY.interrupted);
+  return t(lang, REPORT_ERROR_KEY[error ?? "error"]);
 }
 
 export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpenSettings }: ScheduledReportsPanelProps) {
@@ -99,12 +87,12 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpe
     listReports(tursoConfig).then(
       (reports) => {
         if (mine !== latest.current) return;
-        setLoaded({ kind: "ready", reports, loadedAt: new Date(), deviceLabel: getDeviceLabel() });
+        setLoaded({ kind: "ready", reports, loadedAt: new Date(), deviceLabel: getDeviceLabel(), source: tursoConfig?.httpUrl ?? "" });
       },
-      // A failed reload keeps what is already on screen; only a first load shows the error.
+      // A failed reload keeps what is already on screen, but only if it was read from THIS portfolio.
       () => {
         if (mine !== latest.current) return;
-        setLoaded((prev) => (prev.kind === "ready" ? prev : { kind: "error" }));
+        setLoaded((prev) => (prev.kind === "ready" && prev.source === (tursoConfig?.httpUrl ?? "") ? prev : { kind: "error" }));
       },
     );
   }, [tursoConfig]);

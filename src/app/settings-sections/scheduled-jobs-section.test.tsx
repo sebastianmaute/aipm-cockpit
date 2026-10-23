@@ -108,8 +108,9 @@ describe("ScheduledJobsSection", () => {
     expect(last.ai.scheduledJobs).toBe(true);
   });
 
-  it("Add job calls createJob", () => {
+  it("Add job calls createJob", async () => {
     setup(withKey({ scheduledJobs: true }));
+    await waitFor(() => expect(screen.getByRole("button", { name: t("en-US", "scheduledJobsAdd") })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "scheduledJobsAdd") }));
     expect(createJob).toHaveBeenCalledTimes(1);
   });
@@ -123,7 +124,7 @@ describe("ScheduledJobsSection", () => {
     fireEvent.change(cadenceSelect, { target: { value: "weekly" } });
     expect(updateJob).toHaveBeenCalledWith(1, {
       cadence: { kind: "weekly", dayOfWeek: 0, timeOfDay: "09:00" },
-    });
+    }, undefined);
   });
 
   it("renders the weekday select for an existing weekly job", () => {
@@ -136,7 +137,7 @@ describe("ScheduledJobsSection", () => {
     mockJobs = [job({ id: 7, name: "Alpha" })];
     setup(withKey({ scheduledJobs: true }));
     fireEvent.click(screen.getByLabelText(`${t("en-US", "delete")} – Alpha`));
-    expect(deleteJob).toHaveBeenCalledWith(7);
+    expect(deleteJob).toHaveBeenCalledWith(7, undefined);
   });
 
   it("gives per-row controls job-name-qualified accessible names (WCAG 2.4.6)", () => {
@@ -313,7 +314,7 @@ describe("§772 — project, time zone and instruction", () => {
     await screen.findByRole("option", { name: "Apollo" });
     expect(screen.queryByRole("option", { name: "Old one" })).toBeNull();
     fireEvent.change(select, { target: { value: "p2" } });
-    expect(assignProject).toHaveBeenCalledWith(4, "p2", tz);
+    expect(assignProject).toHaveBeenCalledWith(4, "p2", tz, undefined);
   });
 
   it("keeps a job's own zone when assigning its project", async () => {
@@ -321,7 +322,7 @@ describe("§772 — project, time zone and instruction", () => {
     setup(withKey({ scheduledJobs: true }));
     await screen.findByRole("option", { name: "Apollo" });
     fireEvent.change(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") }), { target: { value: "p1" } });
-    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Tokyo");
+    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Tokyo", undefined);
   });
 
   it("a legacy job shows 'Choose a project' where its next run would be", async () => {
@@ -367,7 +368,7 @@ describe("§772 — project, time zone and instruction", () => {
     fireEvent.change(box, { target: { value: "  focus on risks  " } });
     expect(updateJob).not.toHaveBeenCalled();
     fireEvent.blur(box);
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "focus on risks" });
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "focus on risks" }, undefined);
   });
 
   it("saves the time zone through updateJob and lists the IANA zones", async () => {
@@ -376,7 +377,7 @@ describe("§772 — project, time zone and instruction", () => {
     const select = await screen.findByRole("combobox", { name: nameOf("scheduledJobTimeZone", "Alpha") });
     expect((select as HTMLSelectElement).options.length).toBeGreaterThanOrEqual(tzZones().length);
     fireEvent.change(select, { target: { value: "Asia/Tokyo" } });
-    expect(updateJob).toHaveBeenCalledWith(3, { timeZone: "Asia/Tokyo" });
+    expect(updateJob).toHaveBeenCalledWith(3, { timeZone: "Asia/Tokyo" }, "k");
   });
 
   it("shows the upgrade note once while any job has no project, and not otherwise", async () => {
@@ -445,8 +446,9 @@ describe("§772 — project, time zone and instruction", () => {
     expect("projectId" in created()).toBe(false);
   });
 
-  it("creates a new job in the device's time zone", () => {
+  it("creates a new job in the device's time zone", async () => {
     setup({ ...withKey({ scheduledJobs: true }), timezone: "Asia/Kolkata" });
+    await waitFor(() => expect(screen.getByRole("button", { name: t("en-US", "scheduledJobsAdd") })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "scheduledJobsAdd") }));
     expect((createJob.mock.calls as unknown[][])[0][0]).toMatchObject({ timeZone: "Asia/Kolkata" });
   });
@@ -456,7 +458,7 @@ describe("§772 — project, time zone and instruction", () => {
     setup({ ...withKey({ scheduledJobs: true }), timezone: "Asia/Kolkata" });
     await screen.findByRole("option", { name: "Apollo" });
     fireEvent.change(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") }), { target: { value: "p1" } });
-    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Kolkata");
+    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Kolkata", undefined);
   });
 
   it("saves an emptied instruction as undefined", async () => {
@@ -465,7 +467,7 @@ describe("§772 — project, time zone and instruction", () => {
     const box = await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
     fireEvent.change(box, { target: { value: "   " } });
     fireEvent.blur(box);
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: undefined });
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: undefined }, undefined);
   });
 
   it("saves a typed instruction when the section unmounts before the field is blurred", async () => {
@@ -475,7 +477,7 @@ describe("§772 — project, time zone and instruction", () => {
     fireEvent.change(box, { target: { value: "  watch the budget " } });
     expect(updateJob).not.toHaveBeenCalled();
     unmount();
-    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "watch the budget" });
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "watch the budget" }, undefined);
   });
 
   it("does not write on unmount when nothing was typed", async () => {
@@ -523,8 +525,8 @@ describe("§772 — project, time zone and instruction", () => {
     setup(withKey({ scheduledJobs: true }));
     await screen.findByText(t("en-US", "scheduledJobArchived"));
     fireEvent.change(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") }), { target: { value: "p1" } });
-    expect(assignProject).toHaveBeenCalledWith(5, "p1", "UTC");
-    expect(updateJob).toHaveBeenCalledWith(5, { enabled: true });
+    expect(assignProject).toHaveBeenCalledWith(5, "p1", "UTC", "k");
+    expect(updateJob).toHaveBeenCalledWith(5, { enabled: true }, "k");
   });
 
   it("leaves a job the user switched off switched off when it is reassigned", async () => {
@@ -532,7 +534,7 @@ describe("§772 — project, time zone and instruction", () => {
     setup(withKey({ scheduledJobs: true }));
     await screen.findByRole("option", { name: "Apollo" });
     fireEvent.change(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") }), { target: { value: "p2" } });
-    expect(assignProject).toHaveBeenCalledWith(5, "p2", "UTC");
+    expect(assignProject).toHaveBeenCalledWith(5, "p2", "UTC", "k");
     expect(updateJob).not.toHaveBeenCalled();
   });
 
@@ -540,5 +542,58 @@ describe("§772 — project, time zone and instruction", () => {
     mockJobs = [job({ id: 3, name: "Alpha" })];
     setup(withKey({ scheduledJobs: true }));
     expect(await screen.findByPlaceholderText("What should this job look for, and what should it ignore?")).toBeInTheDocument();
+  });
+});
+
+describe("§772 final review: Settings run history, Add job, keyed writes", () => {
+  const entry = (id: string, name: string) =>
+    ({ id, meta: { name }, archived: false }) as unknown as import("../turso-tenant-schema").ProjectListEntry;
+  const failedRun = (error: string) => [{ ranAt: "2026-06-18T09:00:00Z", summary: "", actionCount: 0, ok: false, error }];
+
+  it.each([
+    ["project-missing", "scheduledReportsErrProjectMissing"],
+    ["turso", "scheduledReportsErrTurso"],
+    ["storage-unreachable", "scheduledReportsErrStorage"],
+  ] as const)("a failed run with the token %s reads as its translation, not the raw token", (token, key) => {
+    mockJobs = [job({ id: 1, name: "Alpha", history: failedRun(token) })];
+    setup(withKey({ scheduledJobs: true }));
+    const msg = t("en-US", key);
+    expect(screen.getByText((_, el) => el?.tagName === "SPAN" && !!el.textContent?.includes(msg))).toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(token))).toBeNull();
+  });
+
+  it("keeps the generic failed line for an unknown historic error string", () => {
+    mockJobs = [job({ id: 1, name: "Alpha", history: failedRun("weird") })];
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.getByText(/Run failed \(weird\)/)).toBeInTheDocument();
+  });
+
+  it("disables Add job until the project lists have been read, then enables it", async () => {
+    let release: (v: unknown[]) => void = () => {};
+    listProjectsMock.mockReturnValue(new Promise((r) => { release = r; }));
+    setup(withKey({ scheduledJobs: true }));
+    const add = screen.getByRole("button", { name: t("en-US", "scheduledJobsAdd") });
+    expect(add).toBeDisabled();
+    await act(async () => { release([entry("p1", "Apollo")]); });
+    await waitFor(() => expect(add).toBeEnabled());
+  });
+
+  it("enables Add job when the project read failed, so the job can still be made", async () => {
+    listProjectsMock.mockRejectedValue(new Error("down"));
+    setup(withKey({ scheduledJobs: true }));
+    await waitFor(() => expect(screen.getByRole("button", { name: t("en-US", "scheduledJobsAdd") })).toBeEnabled());
+  });
+
+  it("passes the job's permanent key to every write, so another portfolio's same-id job is never reached", async () => {
+    listProjectsMock.mockResolvedValue([entry("p1", "Apollo")]);
+    mockJobs = [job({ id: 3, name: "Alpha", key: "key-abc", projectId: "p1", timeZone: "UTC" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    const box = screen.getByRole("textbox", { name: `${t("en-US", "scheduledJobInstruction")} – Alpha` });
+    fireEvent.change(box, { target: { value: "x" } });
+    fireEvent.blur(box);
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "x" }, "key-abc");
+    fireEvent.click(screen.getByLabelText(`${t("en-US", "delete")} – Alpha`));
+    expect(deleteJob).toHaveBeenCalledWith(3, "key-abc");
   });
 });

@@ -145,6 +145,11 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     features: projectFeatures, steeringCommittee, settingsOverrides,
   } = useWorkspace();
   const buildWideContext = useCallback(() => {
+    const queue = nextActions.map((a) => ({
+      title: actionText(lang, a.title),
+      why: actionText(lang, a.why),
+      tier: a.tier,
+    }));
     const { digestInput } = buildProjectAnalysisInput({
       workspace: {
         tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status,
@@ -153,15 +158,9 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
       deviceSettings: settings,
       lang,
       now: new Date(),
+      queue,
     });
-    return buildProjectDigest({
-      ...digestInput,
-      queue: nextActions.map((a) => ({
-        title: actionText(lang, a.title),
-        why: actionText(lang, a.why),
-        tier: a.tier,
-      })),
-    });
+    return buildProjectDigest({ ...digestInput, queue });
   }, [
     tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status,
     project, milestones, changes, stakeholders, projectFeatures, steeringCommittee, settingsOverrides,
@@ -220,9 +219,9 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
   );
 
   // SP5 scheduled jobs: recurring advisory analysis runs (due-on-open / tick).
-  // Opt-in (default OFF), key required, never in popouts. Reuses the SP4
-  // context builder + analysis call; results surface as a desktop notification
-  // and in the Settings "Scheduled jobs" run history.
+  // Opt-in (default OFF), key required, never in popouts. Each run (§772) builds its own digest
+  // for the job's stored project and keeps its report in the portfolio database; a desktop
+  // notification and the Settings "Scheduled jobs" run history record the outcome.
   const scheduledJobs = useScheduledJobs({ config: tursoConfig });
   const notifyScheduledJob = useCallback(
     (jobName: string, summary: string) => {
@@ -241,6 +240,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true,
     guidesReady: settings.ai?.groundInGuides !== true || guidesReady,
     jobs: scheduledJobs.jobs,
+    jobsSource: scheduledJobs.jobsSource,
     recordRun: scheduledJobs.recordRun,
     config: tursoConfig,
     // A report is about a STORED project, so it needs the Turso portfolio (§772).

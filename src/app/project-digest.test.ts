@@ -190,3 +190,16 @@ describe("buildProjectDigest", () => {
     expect(text.endsWith("i".repeat(TEXTAREA_MAX + 1))).toBe(false);
   });
 });
+
+describe("budget line rounding (§772 final review)", () => {
+  test("reaches the model in whole currency units", () => {
+    const text = buildProjectDigest(base({ budget: { currency: "EUR", planned: 12345.678901, actual: 100.4, forecast: 99999.5 } }));
+    expect(text).toContain("Budget (EUR): planned 12346, actual 100, forecast 100000.");
+    expect(text).not.toContain("12345.67");
+  });
+
+  test("an absent forecast still reads n/a", () => {
+    const text = buildProjectDigest(base({ budget: { currency: "EUR", planned: 1, actual: 2 } }));
+    expect(text).toContain("forecast n/a.");
+  });
+});

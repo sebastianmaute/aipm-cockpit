@@ -27,7 +27,7 @@ vi.mock("./turso-pipeline", () => ({
 
 import {
   REPORT_RETENTION_PER_JOB, RUNNING_STALE_MS,
-  hasReport, claimReport, releaseClaim, finishReport, listReports, isInterrupted,
+  hasReportAtOrAfter, claimReport, releaseClaim, finishReport, listReports, isInterrupted, sanitizeReportData,
   type ReportData, type ScheduledReport,
 } from "./scheduled-reports-store";
 import { SCHEDULED_REPORTS_DDL } from "./scheduled-reports-schema";
@@ -47,10 +47,10 @@ beforeEach(() => {
 
 describe("scheduled_reports store (§772)", () => {
   it("claimReport is true once and false for the same (jobKey, slot); one row remains", async () => {
-    expect(await hasReport(CONFIG, "k", "s1")).toBe(false);
+    expect(await hasReportAtOrAfter(CONFIG, "k", "s1")).toBe(false);
     expect(await claimReport(CONFIG, row("a", "k", "s1"))).toBe(true);
     expect(await claimReport(CONFIG, row("b", "k", "s1"))).toBe(false);
-    expect(await hasReport(CONFIG, "k", "s1")).toBe(true);
+    expect(await hasReportAtOrAfter(CONFIG, "k", "s1")).toBe(true);
     expect(count()).toBe(1);
     expect((db.prepare("SELECT status FROM scheduled_reports").get() as { status: string }).status).toBe("running");
   });
@@ -159,5 +159,30 @@ describe("scheduled_reports registration (§772)", () => {
       if (/scheduled_reports/.test(sqlText)) db.prepare(sqlText).run(...(s.args ?? []).map((a) => a.value ?? null));
     }
     expect((db.prepare("SELECT id FROM scheduled_reports").all() as { id: string }[]).map((r) => r.id)).toEqual(["b"]);
+  });
+});
+
+describe("hasReportAtOrAfter (§772 Slots: a slot is due only if it is not older than the job's last report)", () => {
+  // KILLED BY: `slot >= ?` back to `slot = ?` (an edited, earlier time would be due again).
+  it("is true for the exact slot and for any later report of the same job, false for an earlier-only history", async () => {
+    await claimReport(CONFIG, row("a", "k", "2026-10-23T07:00:00.000Z"));
+    expect(await hasReportAtOrAfter(CONFIG, "k", "2026-10-23T07:00:00.000Z")).toBe(true);
+    expect(await hasReportAtOrAfter(CONFIG, "k", "2026-10-23T06:00:00.000Z")).toBe(true);
+    expect(await hasReportAtOrAfter(CONFIG, "k", "2026-10-23T08:00:00.000Z")).toBe(false);
+  });
+
+  it("looks only at the job's own key", async () => {
+    await claimReport(CONFIG, row("a", "other", "2026-10-23T07:00:00.000Z"));
+    expect(await hasReportAtOrAfter(CONFIG, "k", "2026-10-23T06:00:00.000Z")).toBe(false);
+  });
+});
+
+describe("sanitizeReportData drops a malformed action row (§772 final review)", () => {
+  it("keeps an action with a title or a why, and drops one with neither", () => {
+    const d = sanitizeReportData({
+      summary: "s",
+      actions: [{ severity: "now" }, { title: "", why: "" }, { title: "only title" }, { why: "only why", severity: "soon" }],
+    });
+    expect(d?.actions.map((a) => [a.title, a.why])).toEqual([["only title", ""], ["", "only why"]]);
   });
 });

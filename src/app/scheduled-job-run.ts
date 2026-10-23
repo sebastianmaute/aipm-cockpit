@@ -7,7 +7,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { buildProjectAnalysisInput } from "./project-analysis-input";
 import { buildProjectDigest, DIGEST_MAX_CHARS } from "./project-digest";
 import {
-  claimReport, finishReport, hasReport, releaseClaim,
+  claimReport, finishReport, hasReportAtOrAfter, releaseClaim,
   type ReportData, type ReportErrorToken,
 } from "./scheduled-reports-store";
 import type { ScheduledJob, ScheduledJobRun } from "./scheduled-jobs/types";
@@ -73,7 +73,7 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   if (projectId === null || jobKey === null) return "skipped";
   const slotIso = slot.toISOString();
 
-  if (await hasReport(config, jobKey, slotIso)) return "skipped";
+  if (await hasReportAtOrAfter(config, jobKey, slotIso)) return "skipped";
 
   // 1. The project, before claiming: a hard-deleted project writes no row.
   const [active, archived] = await Promise.all([deps.listActive(), deps.listArchived()]);

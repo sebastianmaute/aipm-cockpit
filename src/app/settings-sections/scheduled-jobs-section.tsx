@@ -157,14 +157,15 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     projectsLoaded={projects.loaded}
                     zones={zones}
                     defaultZone={defaultZone}
-                    onUpdate={(id, patch) => void updateJob(id, patch)}
-                    onAssign={(id, projectId, timeZone) => void assignProject(id, projectId, timeZone)}
-                    onDelete={(id) => void deleteJob(id)}
+                    // The permanent key rides along, so a write can only reach THIS portfolio's job (ids collide across portfolios).
+                    onUpdate={(id, patch) => void updateJob(id, patch, job.key ?? undefined)}
+                    onAssign={(id, projectId, timeZone) => void assignProject(id, projectId, timeZone, job.key ?? undefined)}
+                    onDelete={(id) => void deleteJob(id, job.key ?? undefined)}
                   />
                 ))}
               </ul>
 
-              <Button variant="accent" size="xs" onClick={addJob} disabled={busy} className="self-start">
+              <Button variant="accent" size="xs" onClick={addJob} disabled={busy || !(projects.loaded || projects.failed)} className="self-start">
                 {t(lang, "scheduledJobsAdd")}
               </Button>
 

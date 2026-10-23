@@ -34,14 +34,17 @@ export interface UseScheduledJobsArgs {
 
 export interface UseScheduledJobsResult {
   jobs: ScheduledJob[];
+  /** The backend `jobs` was read from (`backendOf`): undefined before the first read. After a config change `jobs`
+   *  still belongs to the previous backend until the new read lands. */
+  jobsSource: string | null | undefined;
   busy: boolean;
   ready: boolean;
   createJob: (input: CreateScheduledJobInput) => Promise<void>;
   /** projectId and key are set only by assignProject, so a patch can never save a project without them. */
-  updateJob: (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>) => Promise<void>;
-  deleteJob: (id: number) => Promise<void>;
+  updateJob: (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string) => Promise<void>;
+  deleteJob: (id: number, key?: string) => Promise<void>;
   /** Names the project (and zone) of a job; mints the permanent key in the same save when it has none. */
-  assignProject: (id: number, projectId: string, timeZone: string) => Promise<void>;
+  assignProject: (id: number, projectId: string, timeZone: string, key?: string) => Promise<void>;
   /** §772 — the runner found the job's project hard-deleted: back to "Choose a project" (the key stays). */
   clearProject: (id: number, key?: string) => Promise<void>;
   /** §772 — switch a job off (its project was archived). */
@@ -77,6 +80,7 @@ function matches(j: ScheduledJob, id: number, key: string | undefined): boolean 
 
 export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduledJobsResult {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
+  const [jobsSource, setJobsSource] = useState<string | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const cfgRef = useRef(config);
@@ -119,6 +123,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
       const list = await loadScheduledJobs(config);
       if (!mountedRef.current || startedAt !== generationOf(config) || backendOf(cfgRef.current) !== backendOf(config)) return;
       setJobs(list);
+      setJobsSource(backendOf(config));
     } catch {
       // optional feature — leave jobs as-is
     } finally {
@@ -149,7 +154,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         const next = transform(existing);
         await saveScheduledJobs(config, next);
         savedGenerations.set(backendOf(config), generationOf(config) + 1);
-        if (mountedRef.current && backendOf(cfgRef.current) === backendOf(config)) setJobs(next);
+        if (mountedRef.current && backendOf(cfgRef.current) === backendOf(config)) { setJobs(next); setJobsSource(backendOf(config)); }
         for (const reread of instances) if (reread !== rereadRef.current) reread();
       });
       // Keep the chain alive even if a link rejects, and clear busy at the end.
@@ -183,22 +188,22 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   }, [mutate]);
 
   const updateJob = useCallback(
-    (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>): Promise<void> => {
+    (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>, key?: string): Promise<void> => {
       return mutate((list) =>
-        list.map((j) => (j.id === id ? { ...j, ...patch, id: j.id } : j)),
+        list.map((j) => (matches(j, id, key) ? { ...j, ...patch, id: j.id } : j)),
       );
     },
     [mutate],
   );
 
-  const deleteJob = useCallback((id: number): Promise<void> => {
-    return mutate((list) => list.filter((j) => j.id !== id));
+  const deleteJob = useCallback((id: number, key?: string): Promise<void> => {
+    return mutate((list) => list.filter((j) => !matches(j, id, key)));
   }, [mutate]);
 
   const assignProject = useCallback(
-    (id: number, projectId: string, timeZone: string): Promise<void> => {
+    (id: number, projectId: string, timeZone: string, key?: string): Promise<void> => {
       return mutate((list) =>
-        list.map((j) => (j.id === id
+        list.map((j) => (matches(j, id, key)
           ? { ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? crypto.randomUUID() }
           : j)),
       );
@@ -220,5 +225,5 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     );
   }, [mutate]);
 
-  return { jobs, busy, ready, createJob, updateJob, deleteJob, assignProject, clearProject, disableJob, recordRun, refresh };
+  return { jobs, jobsSource, busy, ready, createJob, updateJob, deleteJob, assignProject, clearProject, disableJob, recordRun, refresh };
 }

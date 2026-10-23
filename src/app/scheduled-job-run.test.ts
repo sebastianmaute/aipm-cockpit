@@ -9,15 +9,15 @@ import type { ReportData } from "./scheduled-reports-store";
 import { defaultSettings } from "./settings-types";
 
 vi.mock("./scheduled-reports-store", () => ({
-  hasReport: vi.fn(),
+  hasReportAtOrAfter: vi.fn(),
   claimReport: vi.fn(),
   releaseClaim: vi.fn(),
   finishReport: vi.fn(),
 }));
-import { hasReport, claimReport, releaseClaim, finishReport } from "./scheduled-reports-store";
+import { hasReportAtOrAfter, claimReport, releaseClaim, finishReport } from "./scheduled-reports-store";
 import { runScheduledJob, toErrorToken, type RunDeps } from "./scheduled-job-run";
 
-const mHas = vi.mocked(hasReport);
+const mHas = vi.mocked(hasReportAtOrAfter);
 const mClaim = vi.mocked(claimReport);
 const mRelease = vi.mocked(releaseClaim);
 const mFinish = vi.mocked(finishReport);
@@ -116,6 +116,21 @@ describe("runScheduledJob", () => {
     expect(mClaim).not.toHaveBeenCalled();
     expect(d.analyse).not.toHaveBeenCalled();
     expect(d.recordRun).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: deleting the pre-claim `hasReportAtOrAfter` return (the edited, earlier slot would be claimed and billed).
+  it("a slot older than the job's last report is skipped: no claim, no analysis", async () => {
+    const existing = [{ key: "job-key-1", slot: "2026-10-23T07:00:00.000Z" }];
+    mHas.mockImplementation(async (_c, key, slot) => existing.some((r) => r.key === key && r.slot >= slot));
+    const d = deps();
+    const edited = new Date("2026-10-23T06:00:00.000Z"); // the job was moved to an earlier time after it ran at 07:00Z
+    expect(await runScheduledJob(job(), edited, d)).toBe("skipped");
+    expect(mHas).toHaveBeenCalledWith(CONFIG, "job-key-1", "2026-10-23T06:00:00.000Z");
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(d.analyse).not.toHaveBeenCalled();
+    // Control: a LATER slot than the last report still runs.
+    expect(await runScheduledJob(job(), new Date("2026-10-23T08:00:00.000Z"), d)).toBe("done");
+    expect(d.analyse).toHaveBeenCalledTimes(1);
   });
 
   it("losing the claim is claimed-elsewhere: no load, no analysis", async () => {

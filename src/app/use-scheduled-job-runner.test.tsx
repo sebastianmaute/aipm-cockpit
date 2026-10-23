@@ -18,14 +18,14 @@ vi.mock("./turso-backend", () => ({
   }),
 }));
 vi.mock("./scheduled-reports-store", () => ({
-  hasReport: vi.fn(),
+  hasReportAtOrAfter: vi.fn(),
   claimReport: vi.fn(),
   releaseClaim: vi.fn(),
   finishReport: vi.fn(),
 }));
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { listProjects, listArchivedProjects } from "./turso-portfolio";
-import { hasReport, claimReport, finishReport } from "./scheduled-reports-store";
+import { hasReportAtOrAfter, claimReport, finishReport } from "./scheduled-reports-store";
 import { emptyWorkspace } from "./workspace";
 import { defaultSettings } from "./settings-types";
 const mockRun = vi.mocked(runJobAnalysis);
@@ -56,6 +56,7 @@ function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJob
     enabled: true,
     guidesReady: true,
     jobs: [dailyJob()],
+    jobsSource: "https://example.test",
     recordRun: vi.fn(),
     config: { httpUrl: "https://example.test", authToken: "t" } as never,
     available: true,
@@ -71,7 +72,7 @@ function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJob
 }
 
 function resetStore(): void {
-  vi.mocked(hasReport).mockReset().mockResolvedValue(false);
+  vi.mocked(hasReportAtOrAfter).mockReset().mockResolvedValue(false);
   mClaim.mockReset().mockResolvedValue(true);
   vi.mocked(finishReport).mockReset().mockResolvedValue(undefined);
   vi.mocked(listProjects).mockReset().mockResolvedValue([{ id: "p1", meta: { name: "Apollo" }, archived: false } as never]);
@@ -184,8 +185,27 @@ describe("useScheduledJobRunner", () => {
     expect(order).toEqual(["start", "end", "start", "end"]);
   });
 
+  // KILLED BY: deleting the `jobsSource !== config.httpUrl` guard in the tick.
+  it("does not tick while the job list still belongs to another portfolio", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    await act(async () => {
+      renderHook(() => useScheduledJobRunner(baseArgs({ jobsSource: "https://previous.example" })));
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+    });
+    expect(vi.mocked(hasReportAtOrAfter)).not.toHaveBeenCalled();
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it("does not tick before the first job read has landed", async () => {
+    await act(async () => {
+      renderHook(() => useScheduledJobRunner(baseArgs({ jobsSource: undefined })));
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+    });
+    expect(vi.mocked(hasReportAtOrAfter)).not.toHaveBeenCalled();
+  });
+
   it("two runner instances ticking at once on the same job analyse once", async () => {
-    // A store whose claim is first-come-first-served, and a hasReport that holds BOTH ticks at the gate
+    // A store whose claim is first-come-first-served, and a hasReportAtOrAfter that holds BOTH ticks at the gate
     // until both have started: neither can see the other's claim before it makes its own.
     const claimed = new Set<string>();
     mClaim.mockReset().mockImplementation(async (_c, row) => {
@@ -196,14 +216,14 @@ describe("useScheduledJobRunner", () => {
     });
     let openGate: () => void = () => {};
     const gate = new Promise<void>((r) => { openGate = r; });
-    vi.mocked(hasReport).mockReset().mockImplementation(async () => { await gate; return false; });
+    vi.mocked(hasReportAtOrAfter).mockReset().mockImplementation(async () => { await gate; return false; });
     mockRun.mockResolvedValue({ summary: "s", actions: [] });
     await act(async () => {
       renderHook(() => useScheduledJobRunner(baseArgs()));
       renderHook(() => useScheduledJobRunner(baseArgs()));
       await Promise.resolve();
     });
-    expect(vi.mocked(hasReport)).toHaveBeenCalledTimes(2); // both ticks are in flight, before either claims
+    expect(vi.mocked(hasReportAtOrAfter)).toHaveBeenCalledTimes(2); // both ticks are in flight, before either claims
     expect(mClaim).not.toHaveBeenCalled();
     await act(async () => {
       openGate();
@@ -220,7 +240,7 @@ describe("useScheduledJobRunner", () => {
     const portfolioA = { httpUrl: "https://a.example.test", authToken: "t" } as never;
     const portfolioB = { httpUrl: "https://b.example.test", authToken: "t" } as never;
     const { rerender } = renderHook(
-      (p: { config: never }) => useScheduledJobRunner(baseArgs({ config: p.config, recordRun })),
+      (p: { config: never }) => useScheduledJobRunner(baseArgs({ config: p.config, recordRun, jobsSource: "https://a.example.test" })),
       { initialProps: { config: portfolioA } },
     );
     await act(async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); });
@@ -242,7 +262,7 @@ describe("useScheduledJobRunner", () => {
     const portfolioA = { httpUrl: "https://a.example.test", authToken: "t" } as never;
     const portfolioB = { httpUrl: "https://b.example.test", authToken: "t" } as never;
     const { rerender } = renderHook(
-      (p: { config: never }) => useScheduledJobRunner(baseArgs({ config: p.config, disableJob })),
+      (p: { config: never }) => useScheduledJobRunner(baseArgs({ config: p.config, disableJob, jobsSource: "https://a.example.test" })),
       { initialProps: { config: portfolioA } },
     );
     await act(async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); });

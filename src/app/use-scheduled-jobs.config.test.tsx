@@ -115,3 +115,35 @@ describe("useScheduledJobs — a backend change during a write (§750 review)", 
     await waitFor(() => expect(h.result.current.jobs.map((j) => j.name)).toEqual(["turso edited"]));
   });
 });
+
+describe("useScheduledJobs — jobsSource and keyed writes (§772 final review)", () => {
+  // KILLED BY: not setting the source with the list (the runner could tick on the previous backend's jobs).
+  it("names the backend its jobs were read from, and keeps the old name until the new read lands", async () => {
+    const h = mount(null);
+    expect(h.result.current.jobsSource).toBeUndefined();
+    await waitFor(() => expect(h.result.current.jobsSource).toBeNull());
+    store.holdLoadOf = TURSO;
+    h.rerender({ config: TURSO });
+    await waitFor(() => expect(store.holdLoadOf).toBeUndefined()); // PRECONDITION: the Turso read is held
+    expect(h.result.current.jobs.map((j) => j.name)).toEqual(["local"]);
+    expect(h.result.current.jobsSource).toBeNull();
+    await act(async () => { store.releaseLoad(); });
+    await waitFor(() => expect(h.result.current.jobsSource).toBe(TURSO.httpUrl));
+    expect(h.result.current.jobs.map((j) => j.name)).toEqual(["turso"]);
+  });
+
+  // KILLED BY: matching updateJob / deleteJob / assignProject by id alone.
+  it("an id-matching job with another key is neither updated, deleted nor assigned", async () => {
+    store.lists.set(TURSO.httpUrl, [{ ...job(1, "turso"), key: "key-1" }]);
+    const h = mount(TURSO);
+    await waitFor(() => expect(h.result.current.jobs).toHaveLength(1));
+    await act(async () => { await h.result.current.updateJob(1, { name: "wrong" }, "other-key"); });
+    await act(async () => { await h.result.current.assignProject(1, "p9", "UTC", "other-key"); });
+    await act(async () => { await h.result.current.deleteJob(1, "other-key"); });
+    expect(h.result.current.jobs.map((j) => [j.name, j.projectId])).toEqual([["turso", null]]);
+    await act(async () => { await h.result.current.updateJob(1, { name: "right" }, "key-1"); });
+    expect(h.result.current.jobs.map((j) => j.name)).toEqual(["right"]);
+    await act(async () => { await h.result.current.deleteJob(1, "key-1"); });
+    expect(h.result.current.jobs).toEqual([]);
+  });
+});

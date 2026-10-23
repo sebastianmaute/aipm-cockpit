@@ -1593,7 +1593,7 @@ const enUS = {
   scheduledReportsErr403: "The API key is not allowed to do this (403).",
   scheduledReportsErrParse: "The answer could not be read.",
   scheduledReportsErrStorage: "The project could not be loaded from storage.",
-  scheduledReportsErrTurso: "The portfolio database could not be reached.",
+  scheduledReportsErrTurso: "The portfolio database returned an error.",
   scheduledReportsErrProjectArchived: "The project is archived, so the job did not run.",
   scheduledReportsErrProjectMissing: "The project no longer exists.",
   scheduledReportsErrInterrupted: "This run was interrupted before it finished.",
