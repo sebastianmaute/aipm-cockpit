@@ -1174,10 +1174,10 @@ describe("TasksSection", () => {
     const task = { id: 1, taskName: "T1" };
     stubWorkspace([task], [task]);
     render(<TasksSection {...makeProps()} aiOptimizeButton={<button type="button">{t("en-US", "wbsPlanButton")}</button>} />);
-    expect(buttonNames()[0]).toContain(t("en-US", "addTaskButton"));
     // "Add task" names two buttons on the pane, which expectButtonOrder refuses
-    // as ambiguous; the first two positions are read directly instead.
-    expect(buttonNames()[1]).toContain(t("en-US", "wbsPlanButton"));
+    // as ambiguous; the first two positions are read directly, by exact name.
+    expect(buttonNames()[0]).toBe(t("en-US", "addTaskButton"));
+    expect(buttonNames()[1]).toBe(t("en-US", "wbsPlanButton"));
     expectButtonOrder(["wbsPlanButton", "clearAll", "printHint"]);
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
   });
