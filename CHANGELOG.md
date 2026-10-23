@@ -56,9 +56,6 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **Security updates: Next.js 16.4.2 and DOMPurify 3.4.17.** Both fix critical advisories published this week:
-  remote code execution in Next.js image optimisation and in `use cache` functions, and sanitiser bypasses in
-  DOMPurify.
 - **"Draft with AI" writes the whole steering report (§763).** Drafting a steering committee's status report
   often failed with "Could not draft the report", because Claude's reply was cut off before the report was
   complete. It now gets more room, and asks once more with more room if the reply is still cut off; you get the
@@ -189,6 +186,15 @@ longer carries its own changelog comment.
   After the switch to Turso, the app came back with an empty workspace: no project name in the header, a
   browser-storage label, and Edit project doing nothing. Creating the demo project from there also showed a
   false "changed in another tab" warning. A create that fails now leaves the app where it was.
+
+### Security
+
+- **Next.js 16.4.2.** The version in use fell inside critical advisories (GHSA-2464-fhr4-w9xw, remote code
+  execution in the Image Optimization API with SVG files; GHSA-673q-mjm6-r5xr, remote code execution in
+  `use cache` functions; GHSA-p3m5-59mp-jv5r, a Server Actions denial of service); `next` and
+  `eslint-config-next` move to 16.4.2.
+- **DOMPurify 3.4.17**, which fixes GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr and GHSA-c6gr-qvv4-5v3f
+  (sanitiser bypasses).
 
 ### Development
 
