@@ -1178,6 +1178,7 @@ describe("TasksSection", () => {
     // as ambiguous; the first two positions are read directly, by exact name.
     expect(buttonNames()[0]).toBe(t("en-US", "addTaskButton"));
     expect(buttonNames()[1]).toBe(t("en-US", "wbsPlanButton"));
+    // Relative order only: the leading position is proven by the two checks above.
     expectButtonOrder(["wbsPlanButton", "clearAll", "printHint"]);
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
   });

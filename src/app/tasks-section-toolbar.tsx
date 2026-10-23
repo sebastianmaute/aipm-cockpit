@@ -59,7 +59,7 @@ export interface TasksToolbarProps {
   jiraSyncing: boolean;
   jiraProjectKey: string;
   dedupButton: React.ReactNode;
-  /** The AI work-breakdown optimizer trigger; leads the control row (null in a popout). */
+  /** The AI work-breakdown optimizer trigger; second in the control row, after Add task (null in a popout). */
   aiOptimizeButton?: React.ReactNode;
   hideFinished: boolean;
   onToggleHideFinished: () => void;
