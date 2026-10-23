@@ -41,6 +41,24 @@ function weekdayOf(ymd: string): number {
   return new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
 }
 
+function addDays(ymd: string, n: number): string {
+  const [y, mo, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, mo - 1, d + n)).toISOString().slice(0, 10);
+}
+
+/**
+ * The UTC instant at which the cadence period of `at` begins in the job's CURRENT zone: local midnight of that day
+ * (daily) or of the Monday of its ISO week (weekly). A job runs at most once per period, so any report at or after
+ * this instant means the period is spent, whatever time or zone the job has since been edited to. Local midnight comes
+ * from `zonedInstant`, so a period that is 23 or 25 hours long (a DST change) still starts at the right instant.
+ */
+export function periodStartFor(job: ScheduledJob, at: Date): Date | null {
+  if (job.timeZone === null) return null;
+  const ymd = todayInZone(at, job.timeZone);
+  const startYmd = job.cadence.kind === "weekly" ? addDays(ymd, -((weekdayOf(ymd) + 6) % 7)) : ymd;
+  return zonedInstant(startYmd, "00:00", job.timeZone);
+}
+
 /** The UTC instant of the job's slot today in its own zone, or null: no zone, not the weekday, not reached. */
 export function slotFor(job: ScheduledJob, now: Date): Date | null {
   if (job.timeZone === null) return null;

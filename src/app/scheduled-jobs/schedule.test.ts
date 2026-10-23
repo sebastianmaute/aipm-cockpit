@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { appendRun, slotFor, isRunnable } from "./schedule";
+import { appendRun, slotFor, isRunnable, periodStartFor } from "./schedule";
 import type { ScheduledJob } from "./types";
 
 function daily(over: Partial<ScheduledJob> = {}): ScheduledJob {
@@ -95,5 +95,43 @@ describe("appendRun", () => {
     expect(job.history).toHaveLength(10);
     expect(job.history[0].summary).toBe("r11");
     expect(job.lastRunAt).toBe("2026-06-21T09:00:00.000Z");
+  });
+});
+
+describe("periodStartFor: where the cadence period begins, in the job's current zone (owner decision: one run per period)", () => {
+  const daily = (tz: string) => mk({ cadence: { kind: "daily", timeOfDay: "09:00" }, timeZone: tz });
+  const weekly = (tz: string, dayOfWeek: number) => mk({ cadence: { kind: "weekly", dayOfWeek, timeOfDay: "09:00" }, timeZone: tz });
+  const iso = (d: Date | null) => d?.toISOString();
+
+  // KILLED BY: starting the period at the slot instead of local midnight.
+  it("daily: local midnight of the slot's day", () => {
+    expect(iso(periodStartFor(daily("Europe/Berlin"), new Date("2026-10-23T07:00:00Z")))).toBe("2026-10-22T22:00:00.000Z");
+    expect(iso(periodStartFor(daily("UTC"), new Date("2026-10-23T09:00:00Z")))).toBe("2026-10-23T00:00:00.000Z");
+  });
+  it("daily: follows the zone it is given (a zone moved west starts the day later in UTC)", () => {
+    expect(iso(periodStartFor(daily("America/New_York"), new Date("2026-10-23T13:00:00Z")))).toBe("2026-10-23T04:00:00.000Z");
+  });
+  // KILLED BY: a fixed 24-hour day.
+  it.each([
+    ["Berlin spring-forward day (23 h)", "Europe/Berlin", "2027-03-28T07:00:00Z", "2027-03-27T23:00:00.000Z"],
+    ["Berlin fall-back day (25 h)", "Europe/Berlin", "2026-10-25T08:00:00Z", "2026-10-24T22:00:00.000Z"],
+    ["the day after Berlin's fall-back", "Europe/Berlin", "2026-10-26T08:00:00Z", "2026-10-25T23:00:00.000Z"],
+    ["New York spring-forward day (23 h)", "America/New_York", "2026-03-08T13:00:00Z", "2026-03-08T05:00:00.000Z"],
+    ["New York fall-back day (25 h)", "America/New_York", "2026-11-01T14:00:00Z", "2026-11-01T04:00:00.000Z"],
+  ])("daily on %s", (_n, tz, at, start) => {
+    expect(iso(periodStartFor(daily(tz), new Date(at)))).toBe(start);
+  });
+  // KILLED BY: starting the week on Sunday, or at the job's weekday.
+  it("weekly: local midnight of the Monday of the ISO week, whatever weekday the job runs on", () => {
+    expect(iso(periodStartFor(weekly("Europe/Berlin", 4), new Date("2026-10-22T07:00:00Z")))).toBe("2026-10-18T22:00:00.000Z"); // Thu -> Mon 19th
+    expect(iso(periodStartFor(weekly("Europe/Berlin", 1), new Date("2026-10-19T07:00:00Z")))).toBe("2026-10-18T22:00:00.000Z"); // Mon itself
+    expect(iso(periodStartFor(weekly("Europe/Berlin", 0), new Date("2026-10-25T08:00:00Z")))).toBe("2026-10-18T22:00:00.000Z"); // Sun belongs to the week that started Mon 19th
+  });
+  it("weekly: a week that contains a DST change still starts at local midnight (New York, 2026-03-08)", () => {
+    expect(iso(periodStartFor(weekly("America/New_York", 3), new Date("2026-03-11T13:00:00Z")))).toBe("2026-03-09T04:00:00.000Z"); // Mon 9th, EDT
+    expect(iso(periodStartFor(weekly("America/New_York", 0), new Date("2026-03-08T13:00:00Z")))).toBe("2026-03-02T05:00:00.000Z"); // Mon 2nd, EST
+  });
+  it("is null without a zone", () => {
+    expect(periodStartFor(mk({ timeZone: null }), new Date("2026-10-23T07:00:00Z"))).toBeNull();
   });
 });

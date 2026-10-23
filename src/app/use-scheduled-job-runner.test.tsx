@@ -551,6 +551,38 @@ describe("useScheduledJobRunner — operating guides (§701)", () => {
     expect(vi.mocked(slotStatus)).not.toHaveBeenCalled();
   });
 
+  // KILLED BY: judging lastRunAt against the slot instead of the period (an edited, later time would run again).
+  it("does not run a job that already ran earlier the same local day, whatever slot it was edited to", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    // The job is at 09:00 UTC; it ran at 05:00 UTC today (before the slot, e.g. under an earlier time).
+    renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ lastRunAt: "2026-10-23T05:00:00.000Z" })] })));
+    await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(vi.mocked(slotStatus)).not.toHaveBeenCalled();
+  });
+
+  it("runs a job whose last run was on an earlier local day", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ lastRunAt: "2026-10-22T23:00:00.000Z" })] })));
+    await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  // KILLED BY: remembering by slot (an edited time would look like a new, unspent slot).
+  it("a spent day stays remembered after the job's time is edited later the same day", async () => {
+    vi.mocked(slotStatus).mockReset().mockResolvedValue("final");
+    const args = baseArgs();
+    renderHook(() => useScheduledJobRunner(args));
+    await act(async () => { for (let i = 0; i < 60; i++) await Promise.resolve(); });
+    expect(vi.mocked(slotStatus)).toHaveBeenCalledTimes(1);
+    // The report table is asked about the whole period (UTC midnight for this UTC job), not the slot.
+    expect(vi.mocked(slotStatus).mock.calls[0][2]).toBe("2026-10-23T00:00:00.000Z");
+    storeState.jobs = [dailyJob({ cadence: { kind: "daily", timeOfDay: "10:00" } })];
+    document.dispatchEvent(new Event("visibilitychange"));
+    await act(async () => { for (let i = 0; i < 60; i++) await Promise.resolve(); });
+    expect(vi.mocked(slotStatus)).toHaveBeenCalledTimes(1);
+  });
+
   // KILLED BY: removing the `project-missing` exception in the due filter.
   it("a job whose last record is project-missing (no report written) is still due after a new project", async () => {
     mockRun.mockResolvedValue({ summary: "s", actions: [] });

@@ -7,7 +7,7 @@
 // visibility listener never re-subscribe on a render (also keeps us clear of the
 // banned react-hooks/set-state-in-effect rule — no render state here).
 import { useEffect, useRef } from "react";
-import { isRunnable, sameSchedule, slotFor } from "./scheduled-jobs/schedule";
+import { isRunnable, periodStartFor, sameSchedule, slotFor } from "./scheduled-jobs/schedule";
 import { loadScheduledJobs } from "./scheduled-jobs-store";
 import { slotStatus } from "./scheduled-reports-store";
 import { runJobAnalysis } from "./scheduled-job-analysis";
@@ -58,18 +58,19 @@ export interface ScheduledJobRunnerArgs {
 }
 
 interface DueJob { job: ScheduledJob; slot: Date }
-const slotId = (job: ScheduledJob, slot: Date): string => `${job.key ?? job.id}|${slot.toISOString()}`;
+/** The memo key: a job and its cadence PERIOD (not its slot), so an edited time cannot make a spent period look new. */
+const periodId = (job: ScheduledJob, slot: Date): string => `${job.key ?? job.id}|${(periodStartFor(job, slot) ?? slot).toISOString()}`;
 
 /** The jobs of a list that are runnable and whose slot has been reached, minus those that already ran for it. */
 function dueJobs(jobs: readonly ScheduledJob[], at: Date): DueJob[] {
   return jobs.filter(isRunnable).flatMap((job) => {
     const slot = slotFor(job, at);
     if (slot === null) return [];
-    // SECONDARY guard, skip-only: a job that already ran for this slot (a legacy job that ran today under a pre-§772
+    // SECONDARY guard, skip-only: a job that already ran in this cadence period (a legacy job that ran today under a pre-§772
     // runner, then got its project, or a record the report table does not know about) is not run again. The report
     // table stays the primary guard. A `project-missing` record wrote no report: it never means the slot ran.
     const lastRun = job.lastRunAt === null || job.history[0]?.error === "project-missing" ? Number.NaN : Date.parse(job.lastRunAt);
-    return Number.isFinite(lastRun) && lastRun >= slot.getTime() ? [] : [{ job, slot }];
+    return Number.isFinite(lastRun) && lastRun >= (periodStartFor(job, slot) ?? slot).getTime() ? [] : [{ job, slot }];
   });
 }
 
@@ -187,7 +188,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
       if (a.jobsSource !== a.config.httpUrl) return;
       if (isRunningRef.current) return; // a run is already in flight
       const at = (a.now ?? (() => new Date()))();
-      const notHandled = ({ job, slot }: DueJob) => !handledRef.current.has(slotId(job, slot));
+      const notHandled = ({ job, slot }: DueJob) => !handledRef.current.has(periodId(job, slot));
 
       isRunningRef.current = true;
       try {
@@ -207,17 +208,17 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
 
         if (due.length === 0) return;
 
-        // What the report table says per slot. Only a slot that is FINAL (a finished report, an interrupted claim, or
-        // a later slot's row) is remembered for the session; a live claim by another device may still be released, so
-        // it is skipped this tick and asked about again on the next. Jobs with nothing at the slot are the ones that
+        // What the report table says about each job's cadence PERIOD (local day or ISO week). Only a period that is FINAL
+        // (a finished report, or an interrupted claim, within it) is remembered for the session; a live claim by another device may still be released, so
+        // it is skipped this tick and asked about again on the next. Jobs with nothing in the period are the ones that
         // will really run, and only they decide whether the guide prefix is worth caching. A failed read counts as
         // pending.
         const checks = await Promise.allSettled(due.map(({ job, slot }) =>
-          job.key === null ? Promise.resolve("none" as const) : slotStatus(config, job.key, slot.toISOString())));
+          job.key === null ? Promise.resolve("none" as const) : slotStatus(config, job.key, (periodStartFor(job, slot) ?? slot).toISOString())));
         const pending = due.filter((d, i) => {
           const c = checks[i];
           const status = c.status === "fulfilled" ? c.value : "none";
-          if (status === "final") handledRef.current.add(slotId(d.job, d.slot));
+          if (status === "final") handledRef.current.add(periodId(d.job, d.slot));
           return status === "none";
         });
         if (pending.length === 0) return;
@@ -231,7 +232,7 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
             const outcome = await runScheduledJob(job, slot, deps);
             if (REPORT_WRITTEN.has(outcome)) window.dispatchEvent(new CustomEvent(SCHEDULED_REPORT_EVENT));
             // Our own finished row is final. "claimed-elsewhere" is NOT: that claim may yet be released.
-            if (REPORT_WRITTEN.has(outcome)) handledRef.current.add(slotId(job, slot));
+            if (REPORT_WRITTEN.has(outcome)) handledRef.current.add(periodId(job, slot));
           } catch {
             // The store or the project list was unreachable before anything was claimed or billed.
           }

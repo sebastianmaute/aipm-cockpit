@@ -517,7 +517,8 @@ billed Anthropic call. They are gated on a configured Anthropic key **and** the
 `ai.scheduledJobs` toggle. To turn them off: Settings → "Scheduled jobs" → flip
 the master toggle off (or remove the Anthropic key). Jobs run only while the app
 is open (on load, on tab re-focus, and on a light interval), run on the day
-they are due (a run missed on an earlier day is skipped), are **advisory only** (they never write to the workspace),
+they are due (a run missed on an earlier day is skipped) and **at most once per day (daily) or per week (weekly,
+Monday to Sunday)** in the job's time zone, however its time or zone is edited, are **advisory only** (they never write to the workspace),
 and **never run in popouts**. Each job names one project, needs a Turso portfolio, and keeps a report row in `scheduled_reports` for each run that reaches its project (a run whose project was deleted,
 and a transient storage failure, write none; the newest 50 per job are kept).
 State persists in a global `scheduled_jobs_v2` store (Turso, kept out of `TABLE_NAMES`, with a localStorage fallback;

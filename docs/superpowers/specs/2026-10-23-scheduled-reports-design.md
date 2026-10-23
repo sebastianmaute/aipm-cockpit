@@ -168,11 +168,16 @@ Per job, beside today's name, cadence, weekday, time and on/off:
 
 *(designer's call)* A job's slot is computed in the job's `timeZone`, not the device's, and stored as the UTC
 instant of that slot (ISO). Every device therefore computes the same slot for the same job. A job is due when the
-current slot has no report row yet (see *Claiming*) and the slot is not older than the job's last report; the job
-store's `lastRunAt` is not the guard that makes a slot due: the report table is. The runner keeps ONE secondary use
-of it, so a legacy job that already ran today under a pre-§772 runner does not bill again the moment it is given a
-project: a job whose `lastRunAt` is at or after the slot is not run (a `project-missing` record never counts, it
-wrote no report). That check can only skip a run, never cause one.
+current slot has no report row (see *Claiming*) and its CADENCE PERIOD has no report. **Owner decision: a job runs at
+most once per period** — once per local calendar day (daily) or once per local ISO week, Monday to Sunday (weekly),
+both in the job's CURRENT zone — so no later edit of its time or zone can make it bill again within that period. The
+period begins at local midnight of the day (daily) or of the Monday (weekly), computed with the same zone-correct
+helpers as the slot (`periodStartFor`), so a 23- or 25-hour day on a DST change still starts at the right instant. The
+pre-claim check is therefore "any report of this job whose slot is at or after the start of the current period"; the
+UNIQUE claim still guards the exact slot. The job store's `lastRunAt` is not the guard that makes a slot due: the report
+table is. The runner keeps ONE secondary use of it, so a legacy job that already ran today under a pre-§772 runner does
+not bill again the moment it is given a project: a job whose `lastRunAt` is at or after the start of the period is not
+run (a `project-missing` record never counts, it wrote no report). That check can only skip a run, never cause one.
 
 ### Claiming
 

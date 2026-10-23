@@ -1547,7 +1547,7 @@ const enUS = {
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:
-    "A scheduled job analyses the project it names, using the instruction you give it. Each result is kept as a report under Portfolio → Scheduled reports and also shown as a desktop notification. Scheduled jobs need a Turso portfolio and run only while the app is open: a run is made on the day it is due, so a time that passed while the app was closed is run if you open the app later that day and skipped once the day is over. Update every device that shares the portfolio: a device on an older version neither shows nor runs these jobs.",
+    "A scheduled job analyses the project it names, using the instruction you give it. Each result is kept as a report under Portfolio → Scheduled reports and also shown as a desktop notification. Scheduled jobs need a Turso portfolio and run only while the app is open: a run is made on the day it is due, so a time that passed while the app was closed is run if you open the app later that day and skipped once the day is over. A job runs at most once per day (daily) or per week (weekly, Monday to Sunday) in its time zone, even if you change its time or zone. Update every device that shares the portfolio: a device on an older version neither shows nor runs these jobs.",
   scheduledJobsCostNote: "Each scheduled run makes a billed Anthropic API call.",
   scheduledJobsAdd: "Add job",
   cadenceDaily: "Daily",

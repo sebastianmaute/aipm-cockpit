@@ -5,6 +5,7 @@
 import { groundEntity, type ActionAnalysis } from "./action-ai";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { buildProjectAnalysisInput } from "./project-analysis-input";
+import { periodStartFor } from "./scheduled-jobs/schedule";
 import { buildProjectDigest, DIGEST_MAX_CHARS } from "./project-digest";
 import {
   claimReport, finishReport, hasReportAtOrAfter, releaseClaim,
@@ -86,7 +87,10 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   if (projectId === null || jobKey === null) return "skipped";
   const slotIso = slot.toISOString();
 
-  if (await hasReportAtOrAfter(config, jobKey, slotIso)) return "skipped";
+  // At most one run per cadence period (day or ISO week, in the job's current zone): any report since the period began
+  // spends it, so a later edit of the time or zone cannot bill again. The UNIQUE claim still guards the exact slot.
+  const periodStart = (periodStartFor(job, slot) ?? slot).toISOString();
+  if (await hasReportAtOrAfter(config, jobKey, periodStart)) return "skipped";
 
   // 1. The project, before claiming: a hard-deleted project writes no row.
   const { active, archived } = await deps.listProjects();

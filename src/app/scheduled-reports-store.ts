@@ -98,9 +98,9 @@ export function __resetScheduledReportsSchemaCache(): void {
 /** The database's clock, as the uniform ISO text `ran_at` uses. */
 const SERVER_NOW_SQL = `strftime('%Y-%m-%dT%H:%M:%fZ','now')`;
 
-/** The pre-claim check (spec Slots): true when ANY report of this job has a slot at or after `slot`, i.e. the slot
- *  is taken or older than the job's last report. So a time or zone edited to an EARLIER slot does not re-run the day;
- *  an edit to a LATER slot gives a slot with no report at or after it, which is due and runs once more that day. Slots are uniform
+/** The pre-claim check (spec Slots): true when ANY report of this job has a slot at or after `slot`. The runner passes
+ *  the START of the current cadence period (local day or ISO week, `periodStartFor`), so a job runs at most once per
+ *  period whatever time or zone it is edited to; the exact slot is separately guarded by the UNIQUE claim. Slots are uniform
  *  `toISOString()` strings, so text order is time order. The UNIQUE claim still guards the exact slot. */
 export async function hasReportAtOrAfter(config: TursoConfig | null, jobKey: string, slot: string): Promise<boolean> {
   return withTable(config, async () => {
@@ -111,21 +111,21 @@ export async function hasReportAtOrAfter(config: TursoConfig | null, jobKey: str
   });
 }
 
-/** What the report table says about a slot of a job. `final`: a finished report (done or failed) exists, or a running
- *  claim old enough to count as interrupted (judged on the database's clock), or a row of a LATER slot exists.
- *  `in-flight`: a live running claim, which its claimant may still release. `none`: nothing at or after the slot. */
+/** What the report table says about the current cadence period of a job (`periodStart`: the UTC instant the job's local
+ *  day or ISO week began). `final`: a finished report (done or failed) exists in the period, or a running claim in it
+ *  old enough to count as interrupted (judged on the database's clock). `in-flight`: only live running claims, which
+ *  their claimants may still release. `none`: no row at or after the period's start. */
 export type SlotStatus = "none" | "in-flight" | "final";
 
-export async function slotStatus(config: TursoConfig | null, jobKey: string, slot: string): Promise<SlotStatus> {
+export async function slotStatus(config: TursoConfig | null, jobKey: string, periodStart: string): Promise<SlotStatus> {
   return withTable(config, async () => {
     const results = await runTursoPipeline(config, [{
       sql: `SELECT slot, status, ran_at, ${SERVER_NOW_SQL} AS server_now FROM scheduled_reports WHERE job_key = ? AND slot >= ?`,
-      args: [txt(jobKey), txt(slot)],
+      args: [txt(jobKey), txt(periodStart)],
     }]);
     const rows = rowObjects(results[0]);
     if (rows.length === 0) return "none";
-    const settled = rows.some((r) =>
-      r.status === "done" || r.slot > slot || runningIsStale(r.ran_at, Date.parse(r.server_now)));
+    const settled = rows.some((r) => r.status === "done" || runningIsStale(r.ran_at, Date.parse(r.server_now)));
     return settled ? "final" : "in-flight";
   });
 }

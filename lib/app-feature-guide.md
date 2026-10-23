@@ -253,6 +253,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - A Turso-only history of scheduled job runs, under Portfolio, newest first: a vertical tab list (time, project, job, state) with the selected report beside it.
 - Each report keeps one run's summary and suggested actions, the instruction the job ran with, and the device that ran it. A run still in progress or cut short is marked running or interrupted; a failed run says why. A report says so when part of the project could not be read.
+- A job runs at most once per day (daily) or per week (weekly, Monday to Sunday) in its own time zone, however its time or zone is edited, so a project gets at most one report per job per period.
 - A project filter lists every project that has reports, archived ones included. The view reloads on focus and after each run. Jobs are set up under Settings → Scheduled jobs.
 - AI: read-only — there is no reports tool. Needs a Turso portfolio; on file storage the view is hidden.
 

@@ -117,20 +117,83 @@ describe("runScheduledJob", () => {
     expect(d.recordRun).not.toHaveBeenCalled();
   });
 
-  // KILLED BY: deleting the pre-claim `hasReportAtOrAfter` return (the edited, earlier slot would be claimed and billed).
-  it("a slot older than the job's last report is skipped: no claim, no analysis", async () => {
+  // KILLED BY: deleting the pre-claim `hasReportAtOrAfter` return (the edited slot would be claimed and billed).
+  it("an earlier slot than the job's last report is skipped: no claim, no analysis", async () => {
     const existing = [{ key: "job-key-1", slot: "2026-10-23T07:00:00.000Z" }];
     mHas.mockImplementation(async (_c, key, slot) => existing.some((r) => r.key === key && r.slot >= slot));
     const d = deps();
     const edited = new Date("2026-10-23T06:00:00.000Z"); // the job was moved to an earlier time after it ran at 07:00Z
     expect(await runScheduledJob(job(), edited, d)).toBe("skipped");
-    expect(mHas).toHaveBeenCalledWith(CONFIG, "job-key-1", "2026-10-23T06:00:00.000Z");
+    // The guard asks about the whole period (Berlin's local day began at 22:00Z the evening before), not the slot.
+    expect(mHas).toHaveBeenCalledWith(CONFIG, "job-key-1", "2026-10-22T22:00:00.000Z");
     expect(mClaim).not.toHaveBeenCalled();
     expect(d.analyse).not.toHaveBeenCalled();
-    // Control: a LATER slot than the last report still runs.
-    expect(await runScheduledJob(job(), new Date("2026-10-23T08:00:00.000Z"), d)).toBe("done");
+  });
+});
+
+// Owner decision: a job runs at most once per cadence period (local day for daily, ISO week for weekly), in its
+// CURRENT zone. Reports are modelled as the report table would answer: any row at or after the asked-about instant.
+describe("runScheduledJob: at most one run per day or week (owner decision)", () => {
+  const reportAt = (...slots: string[]) => mHas.mockImplementation(async (_c, key, since) => key === "job-key-1" && slots.some((s) => s >= since));
+  const berlinDaily = (time: string) => job({ cadence: { kind: "daily", timeOfDay: time }, timeZone: "Europe/Berlin" });
+  const weeklyBerlin = (dayOfWeek: number) => job({ cadence: { kind: "weekly", dayOfWeek, timeOfDay: "09:00" }, timeZone: "Europe/Berlin" });
+
+  // KILLED BY: asking about the slot (a later slot the same day would be due again) instead of the period.
+  it("daily: ran at 09:00, moved to 10:00 the same day -> skipped", async () => {
+    reportAt("2026-10-23T07:00:00.000Z");
+    const d = deps();
+    expect(await runScheduledJob(berlinDaily("10:00"), new Date("2026-10-23T08:00:00.000Z"), d)).toBe("skipped");
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(d.analyse).not.toHaveBeenCalled();
+  });
+
+  it("daily: ran at 09:00 Berlin, zone moved west so the new slot is later in UTC -> skipped", async () => {
+    reportAt("2026-10-23T07:00:00.000Z");
+    const d = deps();
+    const newYork = job({ cadence: { kind: "daily", timeOfDay: "09:00" }, timeZone: "America/New_York" }); // 13:00Z
+    expect(await runScheduledJob(newYork, new Date("2026-10-23T13:00:00.000Z"), d)).toBe("skipped");
+    expect(d.analyse).not.toHaveBeenCalled();
+  });
+
+  it("daily: ran yesterday at 09:00, moved to 08:00 today -> runs today", async () => {
+    reportAt("2026-10-22T07:00:00.000Z");
+    const d = deps();
+    expect(await runScheduledJob(berlinDaily("08:00"), new Date("2026-10-23T06:00:00.000Z"), d)).toBe("done");
     expect(d.analyse).toHaveBeenCalledTimes(1);
   });
+
+  it("weekly: ran Monday, moved to Thursday of the same week -> skipped", async () => {
+    reportAt("2026-10-19T07:00:00.000Z");
+    const d = deps();
+    expect(await runScheduledJob(weeklyBerlin(4), new Date("2026-10-22T07:00:00.000Z"), d)).toBe("skipped");
+    expect(d.analyse).not.toHaveBeenCalled();
+  });
+
+  it("weekly: ran Monday, next week's slot -> runs", async () => {
+    reportAt("2026-10-19T07:00:00.000Z");
+    const d = deps();
+    expect(await runScheduledJob(weeklyBerlin(1), new Date("2026-10-26T08:00:00.000Z"), d)).toBe("done");
+    expect(d.analyse).toHaveBeenCalledTimes(1);
+  });
+
+  // KILLED BY: a fixed 24-hour day (the boundary would be an hour off on the days the clocks change).
+  it.each([
+    ["Berlin spring-forward day (23 h)", "Europe/Berlin", "2027-03-28T07:00:00.000Z", "2027-03-27T22:30:00.000Z", "2027-03-27T23:30:00.000Z"],
+    ["New York spring-forward day (23 h)", "America/New_York", "2026-03-08T13:00:00.000Z", "2026-03-08T04:30:00.000Z", "2026-03-08T05:30:00.000Z"],
+    ["Berlin fall-back day (25 h)", "Europe/Berlin", "2026-10-25T08:00:00.000Z", "2026-10-24T21:30:00.000Z", "2026-10-24T22:30:00.000Z"],
+    ["New York fall-back day (25 h)", "America/New_York", "2026-11-01T14:00:00.000Z", "2026-11-01T03:30:00.000Z", "2026-11-01T04:30:00.000Z"],
+  ])("on %s a report just before local midnight does not block, one just after does", async (_n, tz, slotAt, before, after) => {
+    const daily = job({ cadence: { kind: "daily", timeOfDay: "09:00" }, timeZone: tz });
+    reportAt(before);
+    const d1 = deps();
+    expect(await runScheduledJob(daily, new Date(slotAt), d1)).toBe("done");
+    reportAt(after);
+    const d2 = deps();
+    expect(await runScheduledJob(daily, new Date(slotAt), d2)).toBe("skipped");
+  });
+});
+
+describe("runScheduledJob (continued)", () => {
 
   it("losing the claim is claimed-elsewhere: no load, no analysis", async () => {
     mClaim.mockResolvedValue(false);

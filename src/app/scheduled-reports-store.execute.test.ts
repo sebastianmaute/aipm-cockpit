@@ -299,10 +299,13 @@ describe("slotStatus: what the pre-check may remember (§772 cr3 re-review)", ()
     expect(await slotStatus(CONFIG, "k", S1)).toBe("final");
   });
 
-  // KILLED BY: dropping the later-slot check.
-  it("is final when a LATER slot of the same job has a row, even a live one", async () => {
+  // KILLED BY: treating a live row of a later slot as final (its claimant may still release it), or not scoping by the period.
+  it("a live claim at a later slot of the period is in-flight, a finished one is final, and a row before the period is none", async () => {
     await claimReport(CONFIG, row("b", "k", S2));
+    expect(await slotStatus(CONFIG, "k", S1)).toBe("in-flight");
+    setStatus("b", "done");
     expect(await slotStatus(CONFIG, "k", S1)).toBe("final");
+    expect(await slotStatus(CONFIG, "k", "2026-10-25T00:00:00.000Z")).toBe("none");
   });
 });
 
