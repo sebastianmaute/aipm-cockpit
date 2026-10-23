@@ -8,6 +8,7 @@ import type { TemplateSeed } from "./templates";
 import type { Resource, Task } from "./types";
 import { PROJECT_AI_FIELDS, judgeProjectField, type ProjectAiField } from "./project-ai-fields";
 import { REGULATORY_REQUIREMENTS, IDENTITY_TYPES, DEPLOYMENTS } from "./project-options";
+import { NACE_SECTIONS } from "./nace-sections";
 import {
   sanitizeRaidItem,
   sanitizeModelChangeItem,
@@ -66,7 +67,10 @@ function metaProperties(): Record<string, Record<string, unknown>> {
   }
   out.name = { type: "string", description: "Concise project name." };
   out.products = { type: "string", description: "Products/services involved." };
-  out.naceSection = { type: "string", description: "NACE section letter (A-U)." };
+  // A fixed-set field must offer the set the judge checks: judgeMeta drops a
+  // refusal silently, so a live "G (retail)" left the form's field empty.
+  out.naceSection = { type: "string", enum: NACE_SECTIONS.map((s) => s.code), description: "NACE section letter." };
+  out.operatingTimezone = { type: "string", description: "IANA time zone name, e.g. Europe/Berlin." };
   return out;
 }
 

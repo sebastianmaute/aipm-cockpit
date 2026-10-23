@@ -12,6 +12,7 @@ import { ALL_MODULE_IDS } from "./feature-modules";
 import { PROJECT_AI_FIELDS } from "./project-ai-fields";
 import { BUDGET_NAME_MAX } from "./sanitize-entities";
 import { REGULATORY_REQUIREMENTS } from "./project-options";
+import { NACE_SECTIONS } from "./nace-sections";
 import { remapSeed } from "./template-apply";
 import { emptyWorkspace } from "./workspace";
 
@@ -485,6 +486,29 @@ describe("the proposal fills every offered project field (§715)", () => {
     const meta = PROPOSAL_TOOL.input_schema.properties.meta.properties as Record<string, { items?: { enum?: string[] } }>;
     expect(Object.keys(meta).sort()).toEqual([...PROJECT_AI_FIELDS].sort());
     expect(meta.regulatory.items?.enum).toEqual([...REGULATORY_REQUIREMENTS]);
+  });
+
+  // A live reply sent naceSection "G (retail)": the judge refuses anything but a
+  // bare code and judgeMeta drops a refusal without a word, so the form showed
+  // the field empty. The schema must offer the codes the judge accepts.
+  it("offers naceSection as the list of section codes the judge accepts", () => {
+    const meta = PROPOSAL_TOOL.input_schema.properties.meta.properties as Record<string, { enum?: string[] }>;
+    expect(meta.naceSection.enum).toEqual(NACE_SECTIONS.map((s) => s.code));
+  });
+
+  it("still refuses a decorated NACE value rather than repairing it", () => {
+    const p = parseProposal({ meta: { name: "P", naceSection: "G (retail)" }, features: [] });
+    expect(p).not.toBeNull();
+    expect("naceSection" in p!.meta).toBe(false);
+    expect(parseProposal({ meta: { name: "P", naceSection: "G" }, features: [] })!.meta.naceSection).toBe("G");
+  });
+
+  // Same gap, no enum possible (the IANA list is too long): the judge accepts
+  // only IANA names, so the schema has to say so or "CET" is dropped silently.
+  it("tells the model the time zone must be an IANA name", () => {
+    const meta = PROPOSAL_TOOL.input_schema.properties.meta.properties as Record<string, { description?: string }>;
+    expect(meta.operatingTimezone.description).toContain("IANA");
+    expect(meta.operatingTimezone.description).toContain("Europe/Berlin");
   });
 
   it("the system prompt asks for regulatory needs only from what the brief says", () => {
