@@ -43,8 +43,11 @@ export interface UseScheduledJobsResult {
   /** Names the project (and zone) of a job; mints the permanent key in the same save when it has none. */
   assignProject: (id: number, projectId: string, timeZone: string) => Promise<void>;
   /** §772 — the runner found the job's project hard-deleted: back to "Choose a project" (the key stays). */
-  clearProject: (id: number) => Promise<void>;
-  recordRun: (jobId: number, run: ScheduledJobRun) => Promise<void>;
+  clearProject: (id: number, key?: string) => Promise<void>;
+  /** §772 — switch a job off (its project was archived). */
+  disableJob: (id: number, key?: string) => Promise<void>;
+  /** With `key`, only the job carrying that permanent key is written: ids collide across portfolios. */
+  recordRun: (jobId: number, run: ScheduledJobRun, key?: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -66,6 +69,11 @@ const backendOf = (config: TursoConfig | null): string | null => (config ? confi
  *  re-read that write starts in every other instance. A save to the OTHER backend drops nothing. */
 const savedGenerations = new Map<string | null, number>();
 const generationOf = (config: TursoConfig | null): number => savedGenerations.get(backendOf(config)) ?? 0;
+
+/** The job a keyed write means: same id, and — when the caller knows it — the same permanent key. */
+function matches(j: ScheduledJob, id: number, key: string | undefined): boolean {
+  return j.id === id && (key === undefined || j.key === key);
+}
 
 export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduledJobsResult {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
@@ -198,15 +206,19 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     [mutate],
   );
 
-  const clearProject = useCallback((id: number): Promise<void> => {
-    return mutate((list) => list.map((j) => (j.id === id ? { ...j, projectId: null } : j)));
+  const clearProject = useCallback((id: number, key?: string): Promise<void> => {
+    return mutate((list) => list.map((j) => (matches(j, id, key) ? { ...j, projectId: null } : j)));
   }, [mutate]);
 
-  const recordRun = useCallback((jobId: number, run: ScheduledJobRun): Promise<void> => {
+  const disableJob = useCallback((id: number, key?: string): Promise<void> => {
+    return mutate((list) => list.map((j) => (matches(j, id, key) ? { ...j, enabled: false } : j)));
+  }, [mutate]);
+
+  const recordRun = useCallback((jobId: number, run: ScheduledJobRun, key?: string): Promise<void> => {
     return mutate((list) =>
-      list.map((j) => (j.id === jobId ? appendRun(j, run) : j)),
+      list.map((j) => (matches(j, jobId, key) ? appendRun(j, run) : j)),
     );
   }, [mutate]);
 
-  return { jobs, busy, ready, createJob, updateJob, deleteJob, assignProject, clearProject, recordRun, refresh };
+  return { jobs, busy, ready, createJob, updateJob, deleteJob, assignProject, clearProject, disableJob, recordRun, refresh };
 }

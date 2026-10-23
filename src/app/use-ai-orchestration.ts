@@ -202,8 +202,6 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     },
     [lang],
   );
-  const { updateJob } = scheduledJobs;
-  const disableScheduledJob = useCallback((jobId: number) => updateJob(jobId, { enabled: false }), [updateJob]);
   useScheduledJobRunner({
     enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true,
     guidesReady: settings.ai?.groundInGuides !== true || guidesReady,
@@ -215,7 +213,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     deviceSettings: settings,
     lang,
     clearProject: scheduledJobs.clearProject,
-    disableJob: disableScheduledJob,
+    disableJob: scheduledJobs.disableJob,
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: jobGuideText },
     notify: notifyScheduledJob,
   });

@@ -87,6 +87,15 @@ describe("scheduled_reports store (§772)", () => {
     expect(tx).toEqual(["BEGIN", "UPDATE", "DELETE", "COMMIT"]);
   });
 
+  it("finishReport never overwrites a row that is already done", async () => {
+    await claimReport(CONFIG, row("a", "k", "s1"));
+    await finishReport(CONFIG, "a", "k", true, data("good"));
+    await finishReport(CONFIG, "a", "k", false, data("late failure"));
+    const r = db.prepare("SELECT ok, data FROM scheduled_reports WHERE id = 'a'").get() as { ok: number; data: string };
+    expect(Number(r.ok)).toBe(1);
+    expect(JSON.parse(r.data).summary).toBe("good");
+  });
+
   it("releaseClaim deletes a running row and leaves a done row", async () => {
     await claimReport(CONFIG, row("a", "k", "s1"));
     await claimReport(CONFIG, row("b", "k", "s2"));

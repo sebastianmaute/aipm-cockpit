@@ -83,7 +83,7 @@ export async function finishReport(
   await runTursoPipeline(config, [
     { sql: `BEGIN` },
     {
-      sql: `UPDATE scheduled_reports SET status = 'done', ok = ?, data = ? WHERE id = ?`,
+      sql: `UPDATE scheduled_reports SET status = 'done', ok = ?, data = ? WHERE id = ? AND status = 'running'`,
       args: [txt(ok ? "1" : "0"), txt(JSON.stringify(data)), txt(id)],
     },
     // Counts `running` rows on purpose (spec): a running claim goes only once 50 newer slots of its job exist. Do not narrow to status = 'done'.

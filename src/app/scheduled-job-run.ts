@@ -31,9 +31,10 @@ export interface RunDeps {
   now(): Date;
   newId(): string;
   deviceLabel: string;
-  clearProject(jobId: number): Promise<void>;
-  disableJob(jobId: number): Promise<void>;
-  recordRun(jobId: number, run: ScheduledJobRun): Promise<void>;
+  /** The three job-store writers take the job's permanent `key` as well: ids collide across portfolios, keys do not. */
+  clearProject(jobId: number, jobKey: string): Promise<void>;
+  disableJob(jobId: number, jobKey: string): Promise<void>;
+  recordRun(jobId: number, run: ScheduledJobRun, jobKey: string): Promise<void>;
   notify(title: string, body: string): void;
 }
 
@@ -55,7 +56,10 @@ export function toErrorToken(e: unknown): ReportErrorToken {
   return "error";
 }
 
-const isTransient = (token: ReportErrorToken): boolean => token === "storage-unreachable" || token === "turso";
+/** Only connectivity-class failures are transient. `postPipeline` already folds a network failure or timeout into
+ *  `StorageNotReadyError`; a deterministic Turso step or SQL error is NOT, or it would claim, fail and release
+ *  every tick forever with no report and no history entry. */
+const isTransient = (e: unknown): boolean => e instanceof StorageNotReadyError;
 
 /** A rejecting store write (job deleted mid-run, write chain failure) must never fail the run. */
 async function settle(p: Promise<unknown>): Promise<void> {
@@ -76,8 +80,8 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   const activeHit = active.find((p) => p.id === projectId);
   const archivedHit = activeHit ? undefined : archived.find((p) => p.id === projectId);
   if (!activeHit && !archivedHit) {
-    await settle(deps.clearProject(job.id));
-    await settle(deps.recordRun(job.id, failedRun(deps.now(), "project-missing")));
+    await settle(deps.clearProject(job.id, jobKey));
+    await settle(deps.recordRun(job.id, failedRun(deps.now(), "project-missing"), jobKey));
     return "project-missing";
   }
   const projectName = (activeHit ?? archivedHit)?.name ?? "";
@@ -97,9 +101,13 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   if (!won) return "claimed-elsewhere";
 
   if (archivedHit) {
-    await finishReport(config, reportId, jobKey, false, { ...base, error: "project-archived" });
-    await settle(deps.disableJob(job.id));
-    await settle(deps.recordRun(job.id, failedRun(deps.now(), "project-archived")));
+    // The disable must not depend on the write: a failed finish would otherwise leave the job enabled and
+    // claim (and leave an interrupted row for) every later slot.
+    try {
+      await finishReport(config, reportId, jobKey, false, { ...base, error: "project-archived" });
+    } catch { /* the row stays `running` and is shown as interrupted */ }
+    await settle(deps.disableJob(job.id, jobKey));
+    await settle(deps.recordRun(job.id, failedRun(deps.now(), "project-archived"), jobKey));
     return "project-archived";
   }
 
@@ -109,15 +117,16 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   try {
     workspace = await deps.loadWorkspace(projectId);
   } catch (e) {
-    const token = toErrorToken(e);
-    if (isTransient(token)) {
+    if (isTransient(e)) {
       await settle(releaseClaim(config, reportId));
       return "transient";
     }
-    return failRun(job, reportId, jobKey, base, token, deps);
+    return failRun(job, reportId, jobKey, base, toErrorToken(e), deps);
   }
 
-  // 4–7. Digest, analyse, ground, finish.
+  // 4–6. Digest, analyse, ground.
+  let analysis: ActionAnalysis;
+  let actions: ReportData["actions"];
   try {
     const input = buildProjectAnalysisInput({
       workspace, deviceSettings: deps.deviceSettings, lang: deps.lang, now: deps.now(),
@@ -126,20 +135,29 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
       { ...input.digestInput, ...(job.instruction ? { instruction: job.instruction } : {}) },
       DIGEST_MAX_CHARS,
     );
-    const analysis = await deps.analyse(context);
-    const actions = analysis.actions.map(({ entity, ...rest }) => {
+    analysis = await deps.analyse(context);
+    actions = analysis.actions.map(({ entity, ...rest }) => {
       const grounded = groundEntity(entity, input.grounding);
       return grounded ? { ...rest, entity: { view: grounded.view, id: String(grounded.id) } } : rest;
     });
-    await finishReport(config, reportId, jobKey, true, { ...base, summary: analysis.summary, actions });
-    await settle(deps.recordRun(job.id, {
-      ranAt: deps.now().toISOString(), summary: analysis.summary, actionCount: actions.length, ok: true,
-    }));
-    deps.notify(job.name, `${projectName}: ${analysis.summary}`);
-    return "done";
   } catch (e) {
     return failRun(job, reportId, jobKey, base, toErrorToken(e), deps);
   }
+
+  // 7. Finish. If this throws the row may or may not have committed, so there is NO second finish here
+  // (it could overwrite a good report); an uncommitted row stays `running` and is shown as interrupted.
+  try {
+    await finishReport(config, reportId, jobKey, true, { ...base, summary: analysis.summary, actions });
+  } catch {
+    return "failed";
+  }
+
+  // 8. Record and notify — after the finish, outside its try, so neither can rewrite the stored report.
+  await settle(deps.recordRun(job.id, {
+    ranAt: deps.now().toISOString(), summary: analysis.summary, actionCount: actions.length, ok: true,
+  }, jobKey));
+  try { deps.notify(job.name, `${projectName}: ${analysis.summary}`); } catch { /* best-effort */ }
+  return "done";
 }
 
 async function failRun(
@@ -150,7 +168,7 @@ async function failRun(
   } catch {
     return "failed"; // the row stays `running` and is shown as interrupted; nothing more to do
   }
-  await settle(deps.recordRun(job.id, failedRun(deps.now(), token)));
+  await settle(deps.recordRun(job.id, failedRun(deps.now(), token), jobKey));
   return "failed";
 }
 

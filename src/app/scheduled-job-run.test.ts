@@ -86,7 +86,9 @@ describe("runScheduledJob", () => {
   it("a project in neither list is project-missing: the job's project is cleared, nothing is claimed or analysed", async () => {
     const d = deps({ listActive: vi.fn().mockResolvedValue([]) });
     expect(await runScheduledJob(job(), SLOT, d)).toBe("project-missing");
-    expect(d.clearProject).toHaveBeenCalledWith(7);
+    expect(d.clearProject).toHaveBeenCalledWith(7, "job-key-1");
+    expect(d.recordRun).toHaveBeenCalledWith(7, expect.objectContaining({ ok: false, error: "project-missing" }), "job-key-1");
+    expect(mFinish).not.toHaveBeenCalled();
     expect(mClaim).not.toHaveBeenCalled();
     expect(d.analyse).not.toHaveBeenCalled();
   });
@@ -102,7 +104,7 @@ describe("runScheduledJob", () => {
     const [, id, jobKey, ok, data] = mFinish.mock.calls[0];
     expect([id, jobKey, ok]).toEqual(["report-1", "job-key-1", false]);
     expect((data as ReportData).error).toBe("project-archived");
-    expect(d.disableJob).toHaveBeenCalledWith(7);
+    expect(d.disableJob).toHaveBeenCalledWith(7, "job-key-1");
     expect(d.analyse).not.toHaveBeenCalled();
   });
 
@@ -122,6 +124,41 @@ describe("runScheduledJob", () => {
     expect(await runScheduledJob(job(), SLOT, d)).toBe("claimed-elsewhere");
     expect(d.loadWorkspace).not.toHaveBeenCalled();
     expect(d.analyse).not.toHaveBeenCalled();
+  });
+
+  it("an archived project still disables the job when the finish write throws", async () => {
+    mFinish.mockRejectedValue(new Error("Turso error: boom"));
+    const d = deps({
+      listActive: vi.fn().mockResolvedValue([]),
+      listArchived: vi.fn().mockResolvedValue([{ id: "p1", name: "Apollo" }]),
+    });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("project-archived");
+    expect(d.disableJob).toHaveBeenCalledWith(7, "job-key-1");
+  });
+
+  it("a deterministic Turso error while loading is NOT transient: finished as failed with the turso token and recorded", async () => {
+    const d = deps({ loadWorkspace: vi.fn().mockRejectedValue(new TursoStepError(2, "no such column")) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("failed");
+    expect(mRelease).not.toHaveBeenCalled();
+    expect((mFinish.mock.calls[0][4] as ReportData).error).toBe("turso");
+    expect(JSON.stringify(mFinish.mock.calls[0])).not.toContain("no such column");
+    expect(d.recordRun).toHaveBeenCalledWith(7, expect.objectContaining({ ok: false, error: "turso" }), "job-key-1");
+  });
+
+  it("a finish that throws on the success path returns failed with no second finish and no run record", async () => {
+    mFinish.mockRejectedValue(new Error("Turso error: boom"));
+    const d = deps();
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("failed");
+    expect(mFinish).toHaveBeenCalledTimes(1);
+    expect(d.recordRun).not.toHaveBeenCalled();
+    expect(d.notify).not.toHaveBeenCalled();
+  });
+
+  it("a notify that throws after an ok finish leaves the stored report ok", async () => {
+    const d = deps({ notify: vi.fn().mockImplementation(() => { throw new Error("no permission"); }) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("done");
+    expect(mFinish).toHaveBeenCalledTimes(1);
+    expect(mFinish.mock.calls[0][3]).toBe(true);
   });
 
   it("a storage failure while loading is transient: the claim is released, nothing is finished or recorded", async () => {
@@ -173,7 +210,7 @@ describe("runScheduledJob", () => {
     expect(report.actions[0].entity).toEqual({ view: "open-points", id: "3" });
     expect(report.actions[1]).toEqual({ title: "Phantom", why: "invented", severity: "soon" });
     expect("entity" in report.actions[1]).toBe(false);
-    expect(d.recordRun).toHaveBeenCalledWith(7, expect.objectContaining({ ok: true, actionCount: 2 }));
+    expect(d.recordRun).toHaveBeenCalledWith(7, expect.objectContaining({ ok: true, actionCount: 2 }), "job-key-1");
     expect(d.notify).toHaveBeenCalledWith("Monday review", "Apollo: Two things to look at");
   });
 

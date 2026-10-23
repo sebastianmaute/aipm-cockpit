@@ -1,8 +1,9 @@
 "use client";
 // SP5 baseline scheduler: while the app is open this hook runs any DUE scheduled
 // Claude jobs (on mount, on tab re-focus, and every 5 minutes). It owns NO state —
-// jobs/store/context are injected by the caller (task-manager wires them). The
-// hook holds args behind refs so the tick callback is stable and the interval /
+// the jobs and the job-store writers are injected by the caller (use-ai-orchestration.ts
+// wires them); the run deps (portfolio lists, project load, AI call) are built here per
+// tick and handed to `runScheduledJob` (§772). The hook holds args behind refs so the tick callback is stable and the interval /
 // visibility listener never re-subscribe on a render (also keeps us clear of the
 // banned react-hooks/set-state-in-effect rule — no render state here).
 import { useEffect, useRef } from "react";
@@ -26,7 +27,7 @@ export interface ScheduledJobRunnerArgs {
   /** Caller passes ai.scheduledJobs===true && key present && !isPopout. */
   enabled: boolean;
   jobs: readonly ScheduledJob[];
-  recordRun: (jobId: number, run: ScheduledJobRun) => void | Promise<void>;
+  recordRun: (jobId: number, run: ScheduledJobRun, jobKey: string) => void | Promise<void>;
   /** §772 — the portfolio's Turso config; a run loads ITS job's project from it, not the open one. */
   config: TursoConfig | null;
   /** §772 — true only on a Turso portfolio with a config; a run reports on a stored project, so nothing
@@ -36,8 +37,8 @@ export interface ScheduledJobRunnerArgs {
   deviceSettings: Settings;
   lang: Lang;
   /** Clear a job's project (hard-deleted) / switch a job off (archived project). */
-  clearProject: (jobId: number) => Promise<void>;
-  disableJob: (jobId: number) => Promise<void>;
+  clearProject: (jobId: number, jobKey: string) => Promise<void>;
+  disableJob: (jobId: number, jobKey: string) => Promise<void>;
   ai: { apiKey: string; model: string; guideText?: string };
   /** Caller wires the desktop-notification path; already formats title/body. */
   notify: (title: string, body: string) => void;
@@ -124,6 +125,12 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
         // failure (bad key, outage) is not re-billed every tick. A transient storage failure writes
         // nothing and is simply tried again on the next tick.
         const config = a.config;
+        // A run outlives a portfolio switch (the load and the AI call take seconds). The job-store writers
+        // always write to the CURRENT portfolio, so after a switch they would hit an unrelated job that
+        // shares this job's numeric id: drop them unless the portfolio is still the one the tick began on.
+        // (They also match by the job's permanent key inside the store.)
+        const identity = config.httpUrl;
+        const samePortfolio = () => argsRef.current.config?.httpUrl === identity;
         const deps: RunDeps = {
           config,
           listActive: async () => (await listProjects(config)).map((p) => ({ id: p.id, name: p.meta.name })),
@@ -137,9 +144,9 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
           now: a.now ?? (() => new Date()),
           newId: () => crypto.randomUUID(),
           deviceLabel: getDeviceLabel(),
-          clearProject: a.clearProject,
-          disableJob: a.disableJob,
-          recordRun: async (jobId, run) => { await a.recordRun(jobId, run); },
+          clearProject: async (jobId, key) => { if (samePortfolio()) await argsRef.current.clearProject(jobId, key); },
+          disableJob: async (jobId, key) => { if (samePortfolio()) await argsRef.current.disableJob(jobId, key); },
+          recordRun: async (jobId, run, key) => { if (samePortfolio()) await argsRef.current.recordRun(jobId, run, key); },
           notify: a.notify,
         };
         for (const { job, slot } of due) {

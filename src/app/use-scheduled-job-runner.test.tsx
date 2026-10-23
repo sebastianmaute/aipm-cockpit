@@ -185,15 +185,81 @@ describe("useScheduledJobRunner", () => {
   });
 
   it("two runner instances ticking at once on the same job analyse once", async () => {
-    mClaim.mockReset().mockResolvedValueOnce(true).mockResolvedValue(false);
+    // A store whose claim is first-come-first-served, and a hasReport that holds BOTH ticks at the gate
+    // until both have started: neither can see the other's claim before it makes its own.
+    const claimed = new Set<string>();
+    mClaim.mockReset().mockImplementation(async (_c, row) => {
+      const k = `${row.jobKey}|${row.slot}`;
+      if (claimed.has(k)) return false;
+      claimed.add(k);
+      return true;
+    });
+    let openGate: () => void = () => {};
+    const gate = new Promise<void>((r) => { openGate = r; });
+    vi.mocked(hasReport).mockReset().mockImplementation(async () => { await gate; return false; });
     mockRun.mockResolvedValue({ summary: "s", actions: [] });
     await act(async () => {
       renderHook(() => useScheduledJobRunner(baseArgs()));
       renderHook(() => useScheduledJobRunner(baseArgs()));
+      await Promise.resolve();
+    });
+    expect(vi.mocked(hasReport)).toHaveBeenCalledTimes(2); // both ticks are in flight, before either claims
+    expect(mClaim).not.toHaveBeenCalled();
+    await act(async () => {
+      openGate();
       for (let i = 0; i < 40; i++) await Promise.resolve();
     });
     expect(mClaim).toHaveBeenCalledTimes(2);
     expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("job-store writes are dropped when the portfolio switched mid-run (ids collide across portfolios)", async () => {
+    let finishAnalysis: (v: { summary: string; actions: [] }) => void = () => {};
+    mockRun.mockReturnValue(new Promise((r) => { finishAnalysis = r; }));
+    const recordRun = vi.fn();
+    const portfolioA = { httpUrl: "https://a.example.test", authToken: "t" } as never;
+    const portfolioB = { httpUrl: "https://b.example.test", authToken: "t" } as never;
+    const { rerender } = renderHook(
+      (p: { config: never }) => useScheduledJobRunner(baseArgs({ config: p.config, recordRun })),
+      { initialProps: { config: portfolioA } },
+    );
+    await act(async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); });
+    expect(mockRun).toHaveBeenCalledTimes(1); // the run is in flight on portfolio A
+    rerender({ config: portfolioB });
+    await act(async () => {
+      finishAnalysis({ summary: "s", actions: [] });
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+    });
+    expect(recordRun).not.toHaveBeenCalled();
+  });
+
+  it("an archived-project disable is dropped when the portfolio switched during the finish", async () => {
+    vi.mocked(listProjects).mockResolvedValue([]);
+    vi.mocked(listArchivedProjects).mockResolvedValue([{ id: "p1", meta: { name: "Apollo" }, archived: true } as never]);
+    let finish: () => void = () => {};
+    vi.mocked(finishReport).mockReset().mockReturnValue(new Promise<void>((r) => { finish = r; }));
+    const disableJob = vi.fn().mockResolvedValue(undefined);
+    const portfolioA = { httpUrl: "https://a.example.test", authToken: "t" } as never;
+    const portfolioB = { httpUrl: "https://b.example.test", authToken: "t" } as never;
+    const { rerender } = renderHook(
+      (p: { config: never }) => useScheduledJobRunner(baseArgs({ config: p.config, disableJob })),
+      { initialProps: { config: portfolioA } },
+    );
+    await act(async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); });
+    expect(vi.mocked(finishReport)).toHaveBeenCalledTimes(1);
+    rerender({ config: portfolioB });
+    await act(async () => { finish(); for (let i = 0; i < 20; i++) await Promise.resolve(); });
+    expect(disableJob).not.toHaveBeenCalled();
+  });
+
+  it("passes the job's key to the job-store writers on the same portfolio", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const recordRun = vi.fn();
+    await act(async () => {
+      renderHook(() => useScheduledJobRunner(baseArgs({ recordRun })));
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+    });
+    expect(recordRun.mock.calls[0][2]).toBe("job-key-1");
   });
 
   it("announces a written report on window so the view can reload", async () => {

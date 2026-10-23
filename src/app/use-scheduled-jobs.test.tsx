@@ -71,6 +71,24 @@ describe("useScheduledJobs (localStorage backend)", () => {
     expect(result.current.jobs[0].key).toBe(key);
   });
 
+  it("keyed writes touch only the job with that key; disableJob switches a job off", async () => {
+    localStorage.setItem("aipm-cockpit:scheduled-jobs", JSON.stringify([{
+      id: 1, name: "Other portfolio's job", type: "portfolioAnalysis", cadence: dailyCadence, enabled: true,
+      projectId: "p9", timeZone: "UTC", key: "key-other", lastRunAt: null, history: [],
+    }]));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    const run = { ranAt: "2026-10-23T09:00:00.000Z", summary: "s", actionCount: 0, ok: true };
+    await act(async () => {
+      await result.current.disableJob(1, "key-mine");
+      await result.current.clearProject(1, "key-mine");
+      await result.current.recordRun(1, run, "key-mine");
+    });
+    expect(result.current.jobs[0]).toMatchObject({ enabled: true, projectId: "p9", history: [] });
+    await act(async () => { await result.current.disableJob(1, "key-other"); });
+    expect(result.current.jobs[0].enabled).toBe(false);
+  });
+
   it("createJob normalises instruction and drops an invalid zone", async () => {
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.ready).toBe(true));
