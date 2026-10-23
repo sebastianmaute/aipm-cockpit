@@ -12,7 +12,7 @@ this file covers what to do when the app needs to ship or starts misbehaving.
   no auth middleware, no session store,
   and no _server_ background jobs. "Scheduled jobs" (recurring Claude analyses,
   0.105.0+) run entirely in the browser while the app is open — there is no
-  server cron; missed runs catch up on next open. They are opt-in and off by
+  server cron; a run missed on an earlier day is skipped. They are opt-in and off by
   default (see "Disable / reset scheduled jobs" below).
 - **All user data lives in the browser** (`IndexedDB` for the workspace,
   `localStorage` for settings). Losing the server tier loses nothing about the
@@ -516,9 +516,10 @@ Scheduled jobs (0.105.0+) are **opt-in and off by default** — each run is a
 billed Anthropic call. They are gated on a configured Anthropic key **and** the
 `ai.scheduledJobs` toggle. To turn them off: Settings → "Scheduled jobs" → flip
 the master toggle off (or remove the Anthropic key). Jobs run only while the app
-is open (on load, on tab re-focus, and on a light interval), catch up missed
-runs on next open, are **advisory only** (they never write to the workspace),
-and **never run in popouts**. State persists in a global `scheduled_jobs` store
+is open (on load, on tab re-focus, and on a light interval), run on the day
+they are due (a run missed on an earlier day is skipped), are **advisory only** (they never write to the workspace),
+and **never run in popouts**. Each job names one project, needs a Turso portfolio, and keeps every run as a row in `scheduled_reports`.
+State persists in a global `scheduled_jobs` store
 (Turso, kept out of `TABLE_NAMES`, with a localStorage fallback) — to wipe it,
 clear the `aipm-cockpit:scheduled-jobs` localStorage key (`LOCAL_KEY` in `scheduled-jobs-store.ts`) or `DELETE FROM scheduled_jobs` on
 Turso. There is no server cron and no Periodic Background Sync, so jobs cannot

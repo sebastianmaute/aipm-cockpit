@@ -1003,6 +1003,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§763](#763-draft-with-ai-cuts-the-steering-report-off-and-a-fresh-draft-does-not-show--closed-2026-10-22) | "Draft with AI" cuts the steering report off, and a fresh draft does not show | — | — | **CLOSED** 2026-10-22 |
 | [§764](#764-a-reply-cut-for-length-is-re-asked-as-a-schema-failure-and-six-forced-calls-never-read-why-a-reply-stopped--open) | A reply cut for length is re-asked as a schema failure, and six forced calls never read why a reply stopped | — | — | open |
 | [§765](#765-the-demo-videos-are-not-in-the-app-and-there-is-no-german-demo-project-or-german-recording--open) | The demo videos are not in the app, and there is no German demo project or German recording | — | — | open |
+| [§772](#772-scheduled-jobs-analyse-only-the-open-project-take-no-instruction-and-keep-no-suggestions--closed-2026-10-23) | Scheduled jobs analyse only the open project, take no instruction and keep no suggestions | — | — | **CLOSED** 2026-10-23 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -19612,6 +19613,8 @@ missing extent is itself a rejection at the OOXML sinks.
 
 ## 224. Timelog bookings are fetched only on demand — no interval job, and no delta notice
 
+> **Banner 2026-10-23:** §772 REMOVED `isDue` and `currentSlot` and replaced them with `slotFor` and `isRunnable` (`scheduled-jobs/schedule.ts`). `slotFor` returns only today's slot in the job's own zone, so a run missed on an earlier day is skipped, not caught up; the catch-up property described below no longer holds.
+
 **Status:** open — a feature request, not a defect. Nothing misbehaves today. Reproduced 2026-08-28 by `grep -n "TICK_INTERVAL_MS" src/app/use-scheduled-job-runner.ts`.
 
 **Work item:** #197
@@ -19629,7 +19632,7 @@ user WHAT CHANGED since the previous pull rather than silently refreshing a cach
   than no polling at all. The background path needs its own quiet entry point.
 - Nothing polls today. `grep -rni "poll\|autoSync\|interval" src/app/use-timelog-sync.ts
   src/app/timelog-types.ts` returns NOTHING.
-- The scheduled-jobs subsystem is the natural host and is ALREADY catch-up-capable: `isDue`
+- The scheduled-jobs subsystem is the natural host and is ALREADY catch-up-capable: `isDue` (REMOVED by §772)
   (`scheduled-jobs/schedule.ts`) is true when `lastRunAt < currentSlot`, so a job whose slot
   passed while the app was shut runs on next open with no extra machinery. Half the ask is free.
 - ★ Calendar auto-sync is NOT the precedent it looks like. `useCalendarAutoSync` is
@@ -19640,7 +19643,7 @@ user WHAT CHANGED since the previous pull rather than silently refreshing a cach
 
 - ★★ `JobCadence` has no interval variant. It is `{kind:"daily"} | {kind:"weekly"}` and BOTH
   carry a `timeOfDay` — every cadence is a wall-clock SLOT, and the catch-up property above is a
-  property OF slots. `currentSlot` has no meaning for "every 30 minutes", so `isDue` must be
+  property OF slots. `currentSlot` (REMOVED by §772) has no meaning for "every 30 minutes", so `isDue` must be
   extended deliberately, never inherited. Decide explicitly what a MISSED interval means: one
   run on open, or none.
 - ★★ `TICK_INTERVAL_MS` is 5 minutes (`use-scheduled-job-runner.ts`), so any configured interval
@@ -45839,3 +45842,15 @@ Proposed: a design per piece, in the owner's order, as piece 1 had. The install 
 Size L (three pieces).
 
 **Source:** owner decision 2026-10-22, splitting the narration programme out of §715.
+
+## 772. Scheduled jobs analyse only the open project, take no instruction and keep no suggestions — CLOSED 2026-10-23
+
+**Status:** CLOSED 2026-10-23 on `docs/772-scheduled-reports-design`, design approved by the owner 2026-10-23 (spec `docs/superpowers/specs/2026-10-23-scheduled-reports-design.md`). A scheduled job now names one project, carries an instruction of its own and keeps each run as a report row in the `scheduled_reports` side table; the runner claims a run by inserting that row before any billed call, so two devices cannot both run a slot; the digest is wider (dates, status, owner, overdue state and one budget line, cut at `DIGEST_MAX_CHARS`); and a Scheduled reports view sits under Portfolio, Turso-only. Verified by the unit suites `src/app/scheduled-jobs/schedule.test.ts`, `src/app/scheduled-job-run.test.ts`, `src/app/scheduled-reports-store.execute.test.ts` and `src/app/scheduled-reports-panel.test.tsx`. ★★ NOT verified: `e2e/scheduled-reports-claim-live.spec.ts`, the probe that sends the claim's `INSERT … ON CONFLICT … RETURNING` through the Turso pipeline, has not been run against a real database (it needs the throwaway `TURSO_THROWAWAY_*` pair and `npm run e2e:live-destructive`), so the claim on a live engine is still unproven.
+
+Scheduled jobs could not be told what to check, and the job did less than its name said. Every run was the Action Center's analysis of whichever project happened to be open, because the job list is a global store; the help texts called it a portfolio analysis. The run kept only a summary and an action count, so a run the user did not watch could not be acted on, and the digest held titles only.
+
+Behaviour now: a job runs on the day it is due, in its own time zone. `slotFor` returns only today's slot, so a run missed on an earlier local day is skipped, not caught up; `isDue` and `currentSlot` no longer exist. The job store still loses concurrent updates (each write loads, transforms and rewrites the whole list), which is why the claim lives in the report row and not in the job. Existing jobs have no project and do not run until one is chosen in Settings → Scheduled jobs.
+
+Size M.
+
+**Source:** owner request 2026-10-23.

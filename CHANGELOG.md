@@ -12,6 +12,12 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **Scheduled reports, with a project and an instruction per job (§772).** A scheduled job now names the one project it
+  analyses and can carry an instruction of your own (what to look for, what to ignore). Each run is kept as a report
+  under Portfolio → Scheduled reports, with the summary and the suggested actions, so a run you did not watch can be
+  read later; the run history in Settings still lists the runs. The analysis sees more of the project: dates, status,
+  owner and overdue state per item, up to a size limit. A job runs on the day it is due, in its own time zone; a run
+  whose day passed while the app was closed is skipped, not made up later.
 - **A deployment can switch integrations off (§762).** A new server setting, `AIPM_DISABLED_INTEGRATIONS`,
   names integrations a deployment does not offer: Jira, Confluence, TimeLog, the ECB exchange rates and cloud
   speech-to-text. Their server routes then refuse, and the app hides their settings, buttons and the TimeLog
@@ -36,6 +42,7 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- Scheduled jobs now need a Turso portfolio, and each existing job needs a project chosen in Settings → Scheduled jobs before it runs again.
 - **Video guides recorder (§715).** One command per video for the 43 guides: the big video, seven chapters
   (the first is recorded by hand), 15 AI clips and 20 feature clips, taken through the app's own UI on the demo project and a throwaway
   Turso database. Each take starts clean, sets up off camera, checks that the data shows what the video needs,

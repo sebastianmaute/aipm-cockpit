@@ -1214,7 +1214,7 @@
   Workspace field). Hook lives in `task-manager.tsx` ABOVE the view so the in-memory result survives view
   remounts; bundle is `isPopout ? undefined`. Gated on key + `ai.actionSuggestions !== false` (default ON).
   Rendered above the now/soon/monitor tiers; AI rows use a separate `ai-action-row.tsx` (NOT `ActionRow`).
-- **AI scheduled jobs:** opt-in recurring portfolio-analysis. Pure i18n-free `scheduled-jobs/` engine
+- **AI scheduled jobs:** opt-in recurring analysis of ONE named project per job, kept as a report (§772). Pure i18n-free `scheduled-jobs/` engine
   (`slotFor`/`isRunnable`/`nextRunAt`/`appendRun`; `now` ALWAYS passed in — no `Date.now()`/`new Date()` inside).
   Global `scheduled_jobs` store (JSON-blob row, Turso-gated + localStorage fallback) OUT of `TABLE_NAMES`.
   ★★ `useScheduledJobs` has TWO instances (the runner's in `use-ai-orchestration.ts`, the Settings list in
@@ -1228,6 +1228,16 @@
   (`scheduled-job-analysis.ts`) so the runner loops it; `use-action-analysis` delegates. ADVISORY only; never
   in popouts. Gated on key + `ai.scheduledJobs === true` (default OFF / opt-in — UNLIKE
   `actionSuggestions`'s `!== false`).
+  ★★ **The claim is the report row, never the job store.** `scheduled_reports` has `UNIQUE (job_key, slot)` and the
+  runner claims a slot with ONE `INSERT … ON CONFLICT DO NOTHING RETURNING id` (`scheduled-reports-store.ts`); only the
+  caller that gets an id runs the job. ★★ The job store loses concurrent updates: each write is a load, a transform and
+  a `DELETE` plus one INSERT per job in separate requests, so a write from another device in between is overwritten.
+  Nothing that must not be lost may live there, which is why `lastRunAt` is informational and the claim is not in it.
+  ★★ `slotFor` returns only TODAY'S slot in the JOB'S own time zone (null without a zone, off the weekday, or before the
+  time), so a run missed on an earlier local day is SKIPPED, not caught up; an interrupted `running` row older than
+  `RUNNING_STALE_MS` shows as failed and is never re-run. `scheduled_reports` is a side table registered in
+  `PROJECT_SCOPED_SIDE_TABLES` (`project-side-tables.ts`), retained at `REPORT_RETENTION_PER_JOB` per job; the view is
+  Turso-only. Its live probe, `e2e/scheduled-reports-claim-live.spec.ts`, has NOT yet been run against a real database.
 - **AI weight suggestions:** "Suggest with AI" in the next-actions settings → ONE forced-tool call
   (`suggest_weights`, forced, NO loop) in `weight-suggestion-call.ts` (the fetch now routes through the shared
   `runForcedToolCallWithStop` (`ai-forced-call.ts`) — the single never-log envelope; a 4096-token reply cut at
