@@ -61,7 +61,7 @@ export function toErrorToken(e: unknown): ReportErrorToken {
 
 /** A busy or locked database (the open project's autosave holds the tenant database) is transient (spec Run step 3).
  *  Only the TYPE and the SQLite busy wording are read, never stored. */
-const BUSY = /SQLITE_BUSY|database is locked|database table is locked|\bbusy\b/i;
+const BUSY = /SQLITE_BUSY|SQLITE_LOCKED|database (table )?is (locked|busy)/i;
 const isBusy = (e: unknown): boolean => e instanceof Error && BUSY.test(e.message);
 
 /** Connectivity-class failures (`postPipeline` folds a network failure or timeout into `StorageNotReadyError`) and a
@@ -149,6 +149,13 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
       return "transient";
     }
     return failRun(job, reportId, jobKey, base, toErrorToken(e), deps);
+  }
+
+  // The load took seconds: re-read the live state once more before the billed call. A job switched off, deleted or
+  // re-pointed meanwhile writes no report, records no run and makes no AI call.
+  if (!deps.stillRunnable(job)) {
+    await settle(releaseClaim(config, reportId));
+    return "skipped";
   }
 
   // 4–6. Digest, analyse, ground.

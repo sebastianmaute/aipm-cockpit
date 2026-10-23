@@ -122,7 +122,8 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
           if (slot === null) return [];
           // A job that already ran for this slot (a legacy job given its project today, or a record the report
           // table does not know about) is not run again.
-          const lastRun = job.lastRunAt === null ? Number.NaN : Date.parse(job.lastRunAt);
+          // A `project-missing` record wrote no report: it never means the slot ran.
+          const lastRun = job.lastRunAt === null || job.history[0]?.error === "project-missing" ? Number.NaN : Date.parse(job.lastRunAt);
           return Number.isFinite(lastRun) && lastRun >= slot.getTime() ? [] : [{ job, slot }];
         });
       if (due.length === 0) return;

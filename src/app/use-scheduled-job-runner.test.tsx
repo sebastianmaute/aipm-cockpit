@@ -417,6 +417,15 @@ describe("useScheduledJobRunner — operating guides (§701)", () => {
     expect(vi.mocked(hasReportAtOrAfter)).not.toHaveBeenCalled();
   });
 
+  // KILLED BY: removing the `project-missing` exception in the due filter.
+  it("a job whose last record is project-missing (no report written) is still due after a new project", async () => {
+    mockRun.mockResolvedValue({ summary: "s", actions: [] });
+    const missing = { ranAt: "2026-10-23T09:30:00.000Z", summary: "", actionCount: 0, ok: false, error: "project-missing" };
+    renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ lastRunAt: missing.ranAt, history: [missing] })] })));
+    await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
   it("holds the tick while the guides load, then runs straight away when they arrive", async () => {
     mockRun.mockResolvedValue({ summary: "s", actions: [] });
     const { rerender } = renderHook(

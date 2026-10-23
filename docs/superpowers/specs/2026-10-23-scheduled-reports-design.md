@@ -150,7 +150,7 @@ each ran.
 
 Per job, beside today's name, cadence, weekday, time and on/off:
 - **Project:** a select of the portfolio's active projects by name, storing the id. A job without one shows
-  "Choose a project" in place of its next run. *(designer's call)* After the upgrade, a one-time note at the top
+  "Choose a project" in the row's run-status line. *(designer's call)* After the upgrade, a one-time note at the top
   of the section says the jobs need a project.
 - **Time zone:** the job's zone, defaulting as above.
 - **Instruction:** an optional textarea ("What should this job look for, and what should it ignore?").

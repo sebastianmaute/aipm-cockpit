@@ -79,12 +79,20 @@ function matches(j: ScheduledJob, id: number, key: string | undefined): boolean 
 }
 
 /** The free fields of a patch go through the same normalisation as a create and a load. */
+function normalizeZonePatch(timeZone: string | null | undefined): { timeZone?: string | null } {
+  const zone = normalizeJobFields(undefined, timeZone).timeZone;
+  return zone === null && typeof timeZone === "string" ? {} : { timeZone: zone };
+}
+
 function normalizePatch<P extends { instruction?: string; timeZone?: string | null }>(patch: P): P {
+  // An unrecognised zone is left out of the patch (the stored zone stays) instead of making the job unrunnable.
+  const rest: P = { ...patch };
+  delete rest.timeZone;
   return {
-    ...patch,
+    ...rest,
     ...("instruction" in patch ? { instruction: normalizeJobFields(patch.instruction, undefined).instruction } : {}),
-    ...("timeZone" in patch ? { timeZone: normalizeJobFields(undefined, patch.timeZone).timeZone } : {}),
-  };
+    ...("timeZone" in patch ? normalizeZonePatch(patch.timeZone) : {}),
+  } as P;
 }
 
 export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduledJobsResult {

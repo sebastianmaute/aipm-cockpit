@@ -310,6 +310,29 @@ describe("runScheduledJob: busy database, live re-check, orphan guard (§772 rev
     expect(d.analyse).not.toHaveBeenCalled();
   });
 
+  // KILLED BY: removing the stillRunnable re-check after the load.
+  it("a job disabled while its project loads: claim released, no AI call, no report, no run record", async () => {
+    let runnable = true;
+    const d = deps({
+      stillRunnable: vi.fn(() => runnable),
+      loadWorkspace: vi.fn(async () => { runnable = false; return workspace(); }),
+    });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("skipped");
+    expect(mClaim).toHaveBeenCalledTimes(1);
+    expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
+    expect(d.analyse).not.toHaveBeenCalled();
+    expect(mFinish).not.toHaveBeenCalled();
+    expect(d.recordRun).not.toHaveBeenCalled();
+    expect(d.notify).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: widening BUSY back to any "busy" text.
+  it("a load error that merely mentions the word busy is not transient", async () => {
+    const d = deps({ loadWorkspace: vi.fn().mockRejectedValue(new Error("Turso error: row 5 is busy-looking")) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("failed");
+    expect(mRelease).not.toHaveBeenCalled();
+  });
+
   it("an unreadable project list after the claim releases the claim as transient", async () => {
     const listProjects = vi.fn()
       .mockResolvedValueOnce({ active: [{ id: "p1", name: "Apollo" }], archived: [] })

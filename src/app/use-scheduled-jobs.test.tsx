@@ -140,7 +140,7 @@ describe("useScheduledJobs (localStorage backend)", () => {
     expect(result.current.jobs[0]).toMatchObject({ instruction: "focus", timeZone: "Asia/Tokyo" });
     await act(async () => { await result.current.updateJob(id, { instruction: "   ", timeZone: "Not/AZone" }); });
     expect(result.current.jobs[0].instruction).toBeUndefined();
-    expect(result.current.jobs[0].timeZone).toBeNull();
+    expect(result.current.jobs[0].timeZone).toBe("Asia/Tokyo"); // an invalid zone leaves the stored one
   });
 
   it("updateJob applies a patch immutably and preserves id", async () => {
