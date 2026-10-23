@@ -255,7 +255,9 @@ export function RolesEditor({
           <p className="text-sm text-muted-foreground">{t(lang, "rolesNoRoles")}</p>
         ) : (
           <>
-          <div className={INNER_TABLE_CLASS}>
+          {/* `scroll-pr-14`: focus scrolling ignores the pinned delete column (48px), so
+              without it Tab could land in a rate input hidden under the pin (§766). */}
+          <div className={`${INNER_TABLE_CLASS} scroll-pr-14`}>
           <DataTable className="w-full text-left text-sm" head={<>
               <tr>
                 <SortResizeTh

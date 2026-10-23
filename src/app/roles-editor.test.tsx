@@ -737,4 +737,17 @@ describe("RolesEditor rate card fits a 1280px window (§766)", () => {
     expect(last).toEqual(expect.arrayContaining(["sticky", "-right-2", "print:static"]));
     expect(last).not.toContain("right-0");
   });
+
+  // ★ Focus scrolling ignores a sticky overlay: at 1024×576, with the table scrolled
+  // to its start, the pinned column (48px) covered 36px of each External /d input,
+  // and Tab into one left it covered (measured 2026-10-24). Scroll padding the pin's
+  // width on THIS scroller makes focus and caret scrolling stop clear of it; the
+  // shared INNER_TABLE_CLASS stays as it is.
+  it("keeps focused cells clear of the pinned column with scroll padding (§766)", () => {
+    renderEditor();
+    const scroller = (document.querySelector("table") as HTMLElement).parentElement as HTMLElement;
+    const classes = scroller.className.split(/\s+/);
+    expect(classes).toEqual(expect.arrayContaining([...INNER_TABLE_CLASS.split(/\s+/), "scroll-pr-14"]));
+    expect(INNER_TABLE_CLASS).not.toMatch(/scroll-p/);
+  });
 });
