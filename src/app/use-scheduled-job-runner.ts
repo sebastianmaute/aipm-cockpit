@@ -9,7 +9,7 @@
 import { useEffect, useRef } from "react";
 import { isRunnable, sameSchedule, slotFor } from "./scheduled-jobs/schedule";
 import { loadScheduledJobs } from "./scheduled-jobs-store";
-import { hasReportAtOrAfter } from "./scheduled-reports-store";
+import { slotStatus } from "./scheduled-reports-store";
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { runScheduledJob, type RunDeps, type RunOutcome } from "./scheduled-job-run";
 import { getDeviceLabel } from "./device-label";
@@ -188,15 +188,14 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
       if (isRunningRef.current) return; // a run is already in flight
       const at = (a.now ?? (() => new Date()))();
       const notHandled = ({ job, slot }: DueJob) => !handledRef.current.has(slotId(job, slot));
-      // A cheap look at the copy read at mount: only a tick with something due goes on to read the store.
-      if (dueJobs(a.jobs, at).filter(notHandled).length === 0) return;
 
       isRunningRef.current = true;
       try {
         const config = a.config;
         const identity = config.httpUrl;
-        // ★ The mount-time copy is NOT what is judged: another tab or device may have deleted, switched off or
-        // re-pointed a job since. One fresh read of the job store before any claim; a failed read claims nothing.
+        // ★ The mount-time copy is NOT what is judged, neither for "is anything due" nor for the run: another tab or
+        // device may have created, enabled, moved, deleted, switched off or re-pointed a job since. One fresh read of
+        // the job store per tick, before any claim; a failed read claims nothing.
         let fresh: ScheduledJob[];
         try {
           fresh = await loadScheduledJobs(config);
@@ -206,16 +205,20 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
         if (argsRef.current.config?.httpUrl !== identity) return;
         const due = dueJobs(fresh, at).filter(notHandled);
 
-        // Jobs whose slot already has (or is older than) a report are skipped by the run anyway: only those that
-        // will really run decide whether the guide prefix is worth caching. A failed read counts as pending, and a
-        // slot found reported is remembered, so later ticks of the day do not ask again.
+        if (due.length === 0) return;
+
+        // What the report table says per slot. Only a slot that is FINAL (a finished report, an interrupted claim, or
+        // a later slot's row) is remembered for the session; a live claim by another device may still be released, so
+        // it is skipped this tick and asked about again on the next. Jobs with nothing at the slot are the ones that
+        // will really run, and only they decide whether the guide prefix is worth caching. A failed read counts as
+        // pending.
         const checks = await Promise.allSettled(due.map(({ job, slot }) =>
-          job.key === null ? Promise.resolve(false) : hasReportAtOrAfter(config, job.key, slot.toISOString())));
+          job.key === null ? Promise.resolve("none" as const) : slotStatus(config, job.key, slot.toISOString())));
         const pending = due.filter((d, i) => {
           const c = checks[i];
-          const reported = c.status === "fulfilled" && c.value;
-          if (reported) handledRef.current.add(slotId(d.job, d.slot));
-          return !reported;
+          const status = c.status === "fulfilled" ? c.value : "none";
+          if (status === "final") handledRef.current.add(slotId(d.job, d.slot));
+          return status === "none";
         });
         if (pending.length === 0) return;
         // The guard against a repeat is the slot's report row in Turso (claimed before any billed call, shared by
@@ -227,7 +230,8 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
           try {
             const outcome = await runScheduledJob(job, slot, deps);
             if (REPORT_WRITTEN.has(outcome)) window.dispatchEvent(new CustomEvent(SCHEDULED_REPORT_EVENT));
-            if (REPORT_WRITTEN.has(outcome) || outcome === "claimed-elsewhere") handledRef.current.add(slotId(job, slot));
+            // Our own finished row is final. "claimed-elsewhere" is NOT: that claim may yet be released.
+            if (REPORT_WRITTEN.has(outcome)) handledRef.current.add(slotId(job, slot));
           } catch {
             // The store or the project list was unreachable before anything was claimed or billed.
           }

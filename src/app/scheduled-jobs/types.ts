@@ -31,7 +31,7 @@ export interface ScheduledJob {
   extra?: Record<string, unknown>;
   /** Set when this version cannot read the job (a type or cadence it does not know). `raw` is the stored JSON, kept
    *  verbatim: the job never runs and is never edited here, only listed read-only and deletable. */
-  foreign?: { raw: Record<string, unknown> };
+  foreign?: { raw: Record<string, unknown>; /** The stored row id, when it is not the job's numeric id (then `id` is a stable placeholder). */ rowId?: string };
 }
 
 export const JOB_HISTORY_CAP = 10;

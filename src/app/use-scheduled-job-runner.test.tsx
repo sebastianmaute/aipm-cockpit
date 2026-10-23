@@ -35,13 +35,14 @@ vi.mock("./turso-backend", () => ({
 }));
 vi.mock("./scheduled-reports-store", () => ({
   hasReportAtOrAfter: vi.fn(),
+  slotStatus: vi.fn(),
   claimReport: vi.fn(),
   releaseClaim: vi.fn(),
   finishReport: vi.fn(),
 }));
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { listProjectRefs } from "./turso-portfolio";
-import { hasReportAtOrAfter, claimReport, finishReport, releaseClaim } from "./scheduled-reports-store";
+import { hasReportAtOrAfter, slotStatus, claimReport, finishReport, releaseClaim } from "./scheduled-reports-store";
 import { emptyWorkspace } from "./workspace";
 import { defaultSettings } from "./settings-types";
 const mockRun = vi.mocked(runJobAnalysis);
@@ -91,6 +92,7 @@ function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJob
 
 function resetStore(): void {
   vi.mocked(hasReportAtOrAfter).mockReset().mockResolvedValue(false);
+  vi.mocked(slotStatus).mockReset().mockResolvedValue("none");
   mClaim.mockReset().mockResolvedValue(true);
   vi.mocked(finishReport).mockReset().mockResolvedValue(undefined);
   vi.mocked(listProjectRefs).mockReset().mockResolvedValue({ active: [{ id: "p1", name: "Apollo" }], archived: [] });
@@ -174,7 +176,7 @@ describe("useScheduledJobRunner: jobs are judged on a fresh read of the store (�
     renderHook(() => useScheduledJobRunner(args));
     await settle();
     expect(storeState.reads).toBeGreaterThan(0);
-    expect(vi.mocked(hasReportAtOrAfter)).not.toHaveBeenCalled();
+    expect(vi.mocked(slotStatus)).not.toHaveBeenCalled();
     expect(mClaim).not.toHaveBeenCalled();
     expect(mockRun).not.toHaveBeenCalled();
   });
@@ -191,19 +193,55 @@ describe("useScheduledJobRunner: jobs are judged on a fresh read of the store (�
     expect(vi.mocked(finishReport)).not.toHaveBeenCalled();
   });
 
-  // KILLED BY: not remembering a reported slot (every tick of the day would ask again).
-  it("does not read the store or the report table again for a slot it already knows is reported", async () => {
-    vi.mocked(hasReportAtOrAfter).mockReset().mockResolvedValue(true);
+  // KILLED BY: not remembering a FINISHED slot (every tick of the day would ask the report table again).
+  it("does not ask the report table again for a slot it saw finished", async () => {
+    vi.mocked(slotStatus).mockReset().mockResolvedValue("final");
     const args = baseArgs();
     renderHook(() => useScheduledJobRunner(args));
     await settle();
-    const reads = storeState.reads;
-    const checks = vi.mocked(hasReportAtOrAfter).mock.calls.length;
-    expect(checks).toBe(1);
+    expect(vi.mocked(slotStatus)).toHaveBeenCalledTimes(1);
     document.dispatchEvent(new Event("visibilitychange"));
     await settle();
-    expect(storeState.reads).toBe(reads);
-    expect(vi.mocked(hasReportAtOrAfter)).toHaveBeenCalledTimes(checks);
+    expect(vi.mocked(slotStatus)).toHaveBeenCalledTimes(1);
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: remembering a live claim as if it were final (the slot would be lost when the claimant releases it).
+  it("another device's live claim is skipped but not remembered: the slot runs once it is released", async () => {
+    vi.mocked(slotStatus).mockReset().mockResolvedValueOnce("in-flight").mockResolvedValue("none");
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await settle();
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(mClaim).not.toHaveBeenCalled();
+    document.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+    expect(vi.mocked(slotStatus)).toHaveBeenCalledTimes(2);
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  // KILLED BY: remembering "claimed-elsewhere" (that claim may be released as transient).
+  it("losing the claim race is not remembered: a later tick runs the slot if the winner let go", async () => {
+    mClaim.mockReset().mockResolvedValueOnce(false).mockResolvedValue(true);
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await settle();
+    expect(mockRun).not.toHaveBeenCalled();
+    document.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+    expect(mClaim).toHaveBeenCalledTimes(2);
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  // KILLED BY: deciding "anything due" on the copy the hook read at mount.
+  it("picks up a job another device created or moved, within one tick, though the mount copy has none", async () => {
+    const args = baseArgs({ jobs: [] });
+    renderHook(() => useScheduledJobRunner(args));
+    await settle();
+    expect(mockRun).not.toHaveBeenCalled();
+    storeState.jobs = [dailyJob({ id: 5, key: "k5" })]; // created elsewhere
+    document.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(mClaim.mock.calls[0][1].jobKey).toBe("k5");
   });
 
   it("never runs a foreign job (a type or cadence this version does not know)", async () => {
@@ -328,7 +366,7 @@ describe("useScheduledJobRunner", () => {
       renderHook(() => useScheduledJobRunner(baseArgs({ jobsSource: "https://previous.example" })));
       for (let i = 0; i < 20; i++) await Promise.resolve();
     });
-    expect(vi.mocked(hasReportAtOrAfter)).not.toHaveBeenCalled();
+    expect(storeState.reads).toBe(0);
     expect(mockRun).not.toHaveBeenCalled();
   });
 
@@ -337,11 +375,11 @@ describe("useScheduledJobRunner", () => {
       renderHook(() => useScheduledJobRunner(baseArgs({ jobsSource: undefined })));
       for (let i = 0; i < 20; i++) await Promise.resolve();
     });
-    expect(vi.mocked(hasReportAtOrAfter)).not.toHaveBeenCalled();
+    expect(storeState.reads).toBe(0);
   });
 
   it("two runner instances ticking at once obey the claim result: only the claim winner analyses", async () => {
-    // A store whose claim is first-come-first-served, and a hasReportAtOrAfter that holds BOTH ticks at the gate
+    // A store whose claim is first-come-first-served, and a slot check that holds BOTH ticks at the gate
     // until both have started: neither can see the other's claim before it makes its own.
     const claimed = new Set<string>();
     mClaim.mockReset().mockImplementation(async (_c, row) => {
@@ -352,14 +390,14 @@ describe("useScheduledJobRunner", () => {
     });
     let openGate: () => void = () => {};
     const gate = new Promise<void>((r) => { openGate = r; });
-    vi.mocked(hasReportAtOrAfter).mockReset().mockImplementation(async () => { await gate; return false; });
+    vi.mocked(slotStatus).mockReset().mockImplementation(async () => { await gate; return "none"; });
     mockRun.mockResolvedValue({ summary: "s", actions: [] });
     await act(async () => {
       renderHook(() => useScheduledJobRunner(baseArgs()));
       renderHook(() => useScheduledJobRunner(baseArgs()));
       await Promise.resolve();
     });
-    expect(vi.mocked(hasReportAtOrAfter)).toHaveBeenCalledTimes(2); // both ticks are in flight, before either claims
+    expect(vi.mocked(slotStatus)).toHaveBeenCalledTimes(2); // both ticks are in flight, before either claims
     expect(mClaim).not.toHaveBeenCalled();
     await act(async () => {
       openGate();
@@ -496,7 +534,7 @@ describe("useScheduledJobRunner — operating guides (§701)", () => {
   // the next 5-minute interval.
   // KILLED BY: cacheGuides from `due.length` (the lone real request would pay a cache write nobody reads).
   it("does not cache the guide prefix when only one of two due jobs will really run", async () => {
-    vi.mocked(hasReportAtOrAfter).mockReset().mockImplementation(async (_c, key) => key === "k1");
+    vi.mocked(slotStatus).mockReset().mockImplementation(async (_c, key) => (key === "k1" ? "final" : "none"));
     mockRun.mockResolvedValue({ summary: "s", actions: [] });
     renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ id: 1, key: "k1" }), dailyJob({ id: 2, key: "k2", name: "Second" })] })));
     await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
@@ -510,7 +548,7 @@ describe("useScheduledJobRunner — operating guides (§701)", () => {
     renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ lastRunAt: "2026-10-23T09:30:00.000Z" })] })));
     await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
     expect(mockRun).not.toHaveBeenCalled();
-    expect(vi.mocked(hasReportAtOrAfter)).not.toHaveBeenCalled();
+    expect(vi.mocked(slotStatus)).not.toHaveBeenCalled();
   });
 
   // KILLED BY: removing the `project-missing` exception in the due filter.

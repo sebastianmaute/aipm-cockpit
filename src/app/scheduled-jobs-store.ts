@@ -66,7 +66,7 @@ function replaceAllStatements(jobs: readonly ScheduledJob[]): SqlStmt[] {
   for (const job of jobs) {
     stmts.push({
       sql: `INSERT INTO ${SCHEDULED_JOBS_V2_TABLE} (id, data) VALUES (?, ?)`,
-      args: [txt(String(job.id)), txt(JSON.stringify(serializeJob(job)))],
+      args: [txt(job.foreign?.rowId ?? String(job.id)), txt(JSON.stringify(serializeJob(job)))],
     });
   }
   stmts.push({ sql: "COMMIT" });
@@ -130,11 +130,11 @@ const KNOWN_JOB_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /** A job this version cannot read (an unknown type or cadence): a placeholder that carries the stored JSON verbatim. */
-function foreignJob(id: number, raw: Record<string, unknown>): ScheduledJob {
+function foreignJob(id: number, raw: Record<string, unknown>, rowId?: string): ScheduledJob {
   return {
     id, name: typeof raw.name === "string" ? raw.name : "", type: "portfolioAnalysis",
     cadence: { kind: "daily", timeOfDay: "00:00" }, enabled: false, projectId: null, timeZone: null, key: null,
-    lastRunAt: null, history: [], foreign: { raw },
+    lastRunAt: null, history: [], foreign: rowId !== undefined ? { raw, rowId } : { raw },
   };
 }
 
@@ -147,11 +147,24 @@ export function serializeJob(job: ScheduledJob): Record<string, unknown> {
   return { ...job.extra, ...known };
 }
 
-function sanitizeJob(raw: unknown, rowId?: number): ScheduledJob | null {
+/** A stable, negative placeholder id for a job whose own id is not a number (it cannot clash with a real one). */
+function placeholderId(seed: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619) >>> 0;
+  return -1 - (h % 2147483647);
+}
+
+const numericId = (v: unknown): number =>
+  typeof v === "number" || (typeof v === "string" && v.trim() !== "") ? Number(v) : Number.NaN;
+
+function sanitizeJob(raw: unknown, rowId?: string): ScheduledJob | null {
   if (!isRecord(raw) || Array.isArray(raw)) return null;
-  const rawId = Number(raw.id);
-  const id = Number.isFinite(rawId) ? rawId : (rowId ?? Number.NaN);
-  if (!Number.isFinite(id)) return null;
+  const rawId = numericId(raw.id);
+  const fromRow = rowId === undefined ? Number.NaN : numericId(rowId);
+  const id = Number.isFinite(rawId) ? rawId : fromRow;
+  // No numeric id anywhere: a newer version's job. Kept read-only and verbatim under a stable placeholder id; the
+  // stored row id (when there is one) is written back unchanged.
+  if (!Number.isFinite(id)) return foreignJob(placeholderId(rowId ?? JSON.stringify(raw)), raw, rowId);
   const cadence = sanitizeCadence(raw.cadence);
   if (cadence === null || raw.type !== "portfolioAnalysis") return foreignJob(id, raw);
   const history = Array.isArray(raw.history)
@@ -208,8 +221,8 @@ function rowsToJobs(res: PipelineResultLike | undefined): ScheduledJob[] {
     const cell = dataIdx >= 0 ? row[dataIdx] : undefined;
     if (cell == null || cell.value == null) continue;
     try {
-      const rowId = idIdx >= 0 ? Number(row[idIdx]?.value) : Number.NaN;
-      const job = sanitizeJob(JSON.parse(String(cell.value)) as unknown, Number.isFinite(rowId) ? rowId : undefined);
+      const idCell = idIdx >= 0 ? row[idIdx]?.value : undefined;
+      const job = sanitizeJob(JSON.parse(String(cell.value)) as unknown, idCell == null ? undefined : String(idCell));
       if (job !== null) jobs.push(job);
     } catch {
       // Skip an unparseable row rather than failing the whole load.

@@ -365,6 +365,19 @@ describe("useScheduledJobs: a newer version's jobs and fields survive (§772 cr3
     expect(shown?.lastRunAt).toBeNull();
   });
 
+  // KILLED BY: dropping a job whose id is not a number.
+  it("a job with a non-numeric id survives an edit of another job and can be deleted", async () => {
+    const odd = { ...foreign, id: "job-abc" };
+    localStorage.setItem(KEY, JSON.stringify([known, odd]));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(2));
+    await act(async () => { await result.current.updateJob(1, { name: "Renamed" }); });
+    expect(stored()[1]).toEqual(odd);
+    const placeholder = result.current.jobs.find((j) => j.foreign)!.id;
+    await act(async () => { await result.current.deleteJob(placeholder); });
+    expect(stored().map((j) => j.id)).toEqual([1]);
+  });
+
   it("a foreign job can still be deleted", async () => {
     localStorage.setItem(KEY, JSON.stringify([known, foreign]));
     const { result } = renderHook(() => useScheduledJobs({ config: null }));

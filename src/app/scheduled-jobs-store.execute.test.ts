@@ -220,3 +220,25 @@ describe("scheduled jobs: a newer version's data survives this version's writes 
     expect(v2Ids()).toEqual([MIGRATED_MARKER_ID]);
   });
 });
+
+describe("scheduled jobs: a job with a non-numeric id survives (§772 cr3 re-review)", () => {
+  // KILLED BY: dropping a job whose id is not a number (the next save would delete its row).
+  it("is kept verbatim under its own row id through a save of another job, and can be deleted", async () => {
+    await loadScheduledJobs(CONFIG);
+    const odd = { ...job(2), id: "job-abc", note: "from a newer version" };
+    db.prepare("INSERT INTO scheduled_jobs_v2 (id, data) VALUES ('1', ?)").run(JSON.stringify(job(1)));
+    db.prepare("INSERT INTO scheduled_jobs_v2 (id, data) VALUES ('job-abc', ?)").run(JSON.stringify(odd));
+    const loaded = await loadScheduledJobs(CONFIG);
+    const foreign = loaded.find((j) => j.foreign !== undefined);
+    expect(foreign?.foreign?.rowId).toBe("job-abc");
+    expect(foreign?.id).toBeLessThan(0);
+    await saveScheduledJobs(CONFIG, loaded.map((j) => (j.id === 1 ? { ...j, name: "renamed" } : j)));
+    const row = db.prepare("SELECT data FROM scheduled_jobs_v2 WHERE id = 'job-abc'").get() as { data: string };
+    expect(JSON.parse(row.data)).toEqual(odd);
+    // The placeholder id is stable across reads, so a delete by id reaches the same job.
+    const again = await loadScheduledJobs(CONFIG);
+    expect(again.find((j) => j.foreign !== undefined)?.id).toBe(foreign?.id);
+    await saveScheduledJobs(CONFIG, again.filter((j) => j.id !== foreign?.id));
+    expect(v2Ids()).toEqual(["1", MIGRATED_MARKER_ID]);
+  });
+});

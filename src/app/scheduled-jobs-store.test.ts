@@ -89,13 +89,15 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
     localStorage.setItem(LOCAL_KEY, JSON.stringify([
       job,                                   // valid
       null,                                  // garbage
-      { id: "nope" },                        // non-numeric id -> dropped
+      { id: "nope" },                        // non-numeric id -> kept, read-only
       { id: 3, type: "portfolioAnalysis" },  // missing/invalid cadence -> kept, read-only
       { id: 4, type: "other", cadence: { kind: "daily", timeOfDay: "07:00" } }, // unknown type -> kept, read-only
       "string-not-object",
     ]));
     const out = await loadScheduledJobs(null);
-    expect(out.map((j) => [j.id, j.foreign !== undefined])).toEqual([[1, false], [3, true], [4, true]]);
+    expect(out.map((j) => j.foreign !== undefined)).toEqual([false, true, true, true]);
+    expect(out.filter((j) => j.foreign === undefined).map((j) => j.id)).toEqual([1]);
+    expect(out.find((j) => j.foreign?.raw.id === "nope")?.id).toBeLessThan(0); // a stable placeholder id
   });
 
   it("returns [] for non-array / garbage JSON", async () => {

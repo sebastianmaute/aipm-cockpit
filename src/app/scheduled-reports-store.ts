@@ -110,6 +110,25 @@ export async function hasReportAtOrAfter(config: TursoConfig | null, jobKey: str
   });
 }
 
+/** What the report table says about a slot of a job. `final`: a finished report (done or failed) exists, or a running
+ *  claim old enough to count as interrupted (judged on the database's clock), or a row of a LATER slot exists.
+ *  `in-flight`: a live running claim, which its claimant may still release. `none`: nothing at or after the slot. */
+export type SlotStatus = "none" | "in-flight" | "final";
+
+export async function slotStatus(config: TursoConfig | null, jobKey: string, slot: string): Promise<SlotStatus> {
+  return withTable(config, async () => {
+    const results = await runTursoPipeline(config, [{
+      sql: `SELECT slot, status, ran_at, ${SERVER_NOW_SQL} AS server_now FROM scheduled_reports WHERE job_key = ? AND slot >= ?`,
+      args: [txt(jobKey), txt(slot)],
+    }]);
+    const rows = rowObjects(results[0]);
+    if (rows.length === 0) return "none";
+    const settled = rows.some((r) =>
+      r.status === "done" || r.slot > slot || runningIsStale(r.ran_at, Date.parse(r.server_now)));
+    return settled ? "final" : "in-flight";
+  });
+}
+
 /** True iff THIS call inserted the row, i.e. won the claim for `(jobKey, slot)`. */
 export async function claimReport(
   config: TursoConfig | null,
@@ -211,10 +230,14 @@ export async function listReports(config: TursoConfig | null): Promise<Scheduled
   });
 }
 
+/** A running claim older than `RUNNING_STALE_MS` is shown, and judged, as interrupted. */
+function runningIsStale(ranAt: string, referenceMs: number): boolean {
+  const started = Date.parse(ranAt);
+  return Number.isFinite(started) && Number.isFinite(referenceMs) && referenceMs - started > RUNNING_STALE_MS;
+}
+
 export function isInterrupted(r: ScheduledReport, now: Date): boolean {
   if (r.status !== "running") return false;
-  const started = Date.parse(r.ranAt);
   // Both ends on the database's clock when the row carries it: the claimant's and the viewer's clocks may differ.
-  const reference = r.serverNow !== undefined ? Date.parse(r.serverNow) : now.getTime();
-  return Number.isFinite(started) && Number.isFinite(reference) && reference - started > RUNNING_STALE_MS;
+  return runningIsStale(r.ranAt, r.serverNow !== undefined ? Date.parse(r.serverNow) : now.getTime());
 }

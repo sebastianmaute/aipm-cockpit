@@ -27,7 +27,7 @@ vi.mock("./turso-pipeline", () => ({
 
 import {
   REPORT_RETENTION_PER_JOB, RUNNING_STALE_MS,
-  REPORT_LIST_LIMIT, __resetScheduledReportsSchemaCache, hasReportAtOrAfter, claimReport, releaseClaim, finishReport, listReports, isInterrupted, sanitizeReportData,
+  REPORT_LIST_LIMIT, __resetScheduledReportsSchemaCache, slotStatus, hasReportAtOrAfter, claimReport, releaseClaim, finishReport, listReports, isInterrupted, sanitizeReportData,
   type ReportData, type ScheduledReport,
 } from "./scheduled-reports-store";
 import { SCHEDULED_REPORTS_DDL } from "./scheduled-reports-schema";
@@ -260,5 +260,48 @@ describe("listReports bound and partial flag (§772 cr2)", () => {
     expect(sanitizeReportData({ summary: "s", actions: [], partial: true })?.partial).toBe(true);
     expect(sanitizeReportData({ summary: "s", actions: [], partial: "yes" })?.partial).toBeUndefined();
     expect(sanitizeReportData({ summary: "s", actions: [] })?.partial).toBeUndefined();
+  });
+});
+
+describe("slotStatus: what the pre-check may remember (§772 cr3 re-review)", () => {
+  const S1 = "2026-10-23T07:00:00.000Z";
+  const S2 = "2026-10-24T07:00:00.000Z";
+  const setStatus = (id: string, status: string, ok = 1) =>
+    db.prepare("UPDATE scheduled_reports SET status = ?, ok = ? WHERE id = ?").run(status, ok, id);
+  const ageClaim = (id: string, minutes: number) =>
+    db.prepare("UPDATE scheduled_reports SET ran_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?) WHERE id = ?").run(`-${minutes} minutes`, id);
+
+  it("is none with nothing at or after the slot (and for another job's rows)", async () => {
+    expect(await slotStatus(CONFIG, "k", S1)).toBe("none");
+    await claimReport(CONFIG, row("o", "other", S1));
+    expect(await slotStatus(CONFIG, "k", S1)).toBe("none");
+  });
+
+  // KILLED BY: treating any row as final (a live claim by another device may still be released).
+  it("is in-flight for a live running claim", async () => {
+    await claimReport(CONFIG, row("a", "k", S1));
+    expect(await slotStatus(CONFIG, "k", S1)).toBe("in-flight");
+  });
+
+  // KILLED BY: dropping the done check.
+  it.each([["a finished report", 1], ["a failed report", 0]])("is final for %s", async (_n, ok) => {
+    await claimReport(CONFIG, row("a", "k", S1));
+    setStatus("a", "done", ok);
+    expect(await slotStatus(CONFIG, "k", S1)).toBe("final");
+  });
+
+  // KILLED BY: dropping the stale check (a claim whose device vanished would block the slot for ever).
+  it("is final for a running claim older than 30 minutes, on the database's clock, and in-flight at 29", async () => {
+    await claimReport(CONFIG, row("a", "k", S1));
+    ageClaim("a", 29);
+    expect(await slotStatus(CONFIG, "k", S1)).toBe("in-flight");
+    ageClaim("a", 31);
+    expect(await slotStatus(CONFIG, "k", S1)).toBe("final");
+  });
+
+  // KILLED BY: dropping the later-slot check.
+  it("is final when a LATER slot of the same job has a row, even a live one", async () => {
+    await claimReport(CONFIG, row("b", "k", S2));
+    expect(await slotStatus(CONFIG, "k", S1)).toBe("final");
   });
 });
