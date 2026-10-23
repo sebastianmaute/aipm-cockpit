@@ -53,6 +53,7 @@ import { Button } from "./button";
 import { FilePickerButton } from "./file-picker-button";
 import { ToggleButton } from "./toggle-button";
 import { buildRowTokens } from "./row-tokens";
+import { browserTimeZone, todayInZone } from "./timezone";
 
 type CreateFormat = "json" | "csv" | "md";
 
@@ -168,6 +169,9 @@ export function CreateProjectWizard({
   });
   const [step, setStep] = useState<Step>(aiEnabled ? 0 : 1);
   const [draftPatch, setDraftPatch] = useState<Partial<ProjectFormDraft> | undefined>(undefined);
+  // The proposal's end date when it lies before today: the prompt asks for future dates but nothing
+  // enforces it, so Step 1 says so instead of creating a project that is already over.
+  const [proposalPastEnd, setProposalPastEnd] = useState<string | null>(null);
   const [aiSeed, setAiSeed] = useState<TemplateSeed | undefined>(undefined);
   const [meta, setMeta] = useState<ProjectMeta | null>(null);
   const [format, setFormat] = useState<CreateFormat>("json");
@@ -227,11 +231,14 @@ export function CreateProjectWizard({
     // and silently drop this proposal's seed. Cleared HERE rather than on Back
     // so Back → Skip still returns to the import the user made.
     setImported(null);
-    const today = new Date().toISOString().slice(0, 10); // callback context — lint-safe
+    // The user's local day, the same one the proposal prompt was given; callback context — lint-safe.
+    const today = todayInZone(new Date(), browserTimeZone());
     // Clear any meta captured from a prior manual Step-1 visit so the fresh AI
     // draftPatch wins on the next Step-1 mount (initialMeta would otherwise shadow it).
     setMeta(null);
-    setDraftPatch(proposalToDraftPatch(p));
+    const patch = proposalToDraftPatch(p);
+    setDraftPatch(patch);
+    setProposalPastEnd(patch.endDate && patch.endDate < today ? patch.endDate : null);
     setFeatures(p.features.length ? p.features : [...ALL_MODULE_IDS]);
     const seed = proposalToSeed(p, today);
     setAiSeed(seed);
@@ -251,6 +258,7 @@ export function CreateProjectWizard({
     // own project meta (via draftPatch below) wins on the next Step-1 mount —
     // initialMeta would otherwise shadow it (same guard as runIngest above).
     setMeta(null);
+    setProposalPastEnd(null);
     if (ws.project) setDraftPatch(draftFromMeta(ws.project));
     setImportNonce((n) => n + 1);
     setStep(1);
@@ -428,6 +436,13 @@ export function CreateProjectWizard({
                 the hint beside its notice would read as if it did. */}
             {!aiEnabled && !imported && (
               <p className="mb-3 text-xs text-muted-foreground">{t(lang, "wizardAiOffHint")}</p>
+            )}
+            {/* Shown only while the form still holds the proposal (a later manual
+                visit captures meta, and the user may already have fixed the date). */}
+            {proposalPastEnd && !meta && !imported && (
+              <p role="status" className="mb-3 text-xs font-medium text-foreground">
+                {t(lang, "wizardAiEndDatePast", proposalPastEnd)}
+              </p>
             )}
             <CreateProjectForm
               key={importNonce}

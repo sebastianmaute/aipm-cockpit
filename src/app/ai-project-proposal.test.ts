@@ -522,6 +522,8 @@ describe("the proposal fills every offered project field (§715)", () => {
     const prompt = buildProposalSystemPrompt("2026-10-23");
     expect(prompt).toContain("Today is 2026-10-23.");
     expect(prompt).toContain("next occurrence on or after today");
+    // "October to December" asked in October means now, not next year.
+    expect(prompt).toContain("a month that contains today counts as this month");
     expect(buildProposalSystemPrompt("2027-01-05")).toContain("Today is 2027-01-05.");
   });
 });

@@ -58,7 +58,8 @@ longer carries its own changelog comment.
 
 - **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
   against the wrong year, so the new project and its milestones could already be over on the day you created
-  it. Claude is now told today's date and reads a month or range without a year as the next one to come.
+  it. Claude is now told today's date and reads a month or range without a year as the next one to come (the
+  current month counts as this month). If a proposal still ends in the past, the Details step says so.
 - **Claude's proposal fills the NACE section and the time zone.** A NACE answer like "G (retail)" was thrown
   away without a word and the field stayed empty; Claude now picks from the section codes, and is told the time
   zone must be a name like Europe/Berlin.

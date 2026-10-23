@@ -11,6 +11,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { runForcedToolCall } from "./ai-forced-call";
 import { useActionGuideText } from "./action-guides-context";
 import { isAbortError } from "./abort-error";
+import { browserTimeZone, todayInZone } from "./timezone";
 
 /** The user-message content the proposal call accepts: a plain string (SP3) or
  *  a multimodal block array (text + PDF/image/text attachments) for SP-D. */
@@ -42,8 +43,8 @@ export function useProjectProposal(ai: AiCreds) {
         const toolInput = await runForcedToolCall({
           apiKey: key,
           model: ai.model,
-          // Same "today" the wizard stamps on the seed; callback context — lint-safe.
-          system: buildProposalSystemPrompt(new Date().toISOString().slice(0, 10)),
+          // The user's local day (the same one the wizard stamps on the seed); callback context — lint-safe.
+          system: buildProposalSystemPrompt(todayInZone(new Date(), browserTimeZone())),
           guideText,
           tools: [PROPOSAL_TOOL],
           toolName: "propose_project",

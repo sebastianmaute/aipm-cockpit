@@ -579,6 +579,22 @@ describe("CreateProjectWizard AI Step 0", () => {
     ).not.toBeInTheDocument();
   });
 
+  // Review finding: the prompt asks for future dates but nothing enforced it,
+  // so a proposal that still ends in the past is flagged on the Details step.
+  it.each([
+    ["warns", "2020-01-31", true],
+    ["does not warn", "2999-12-31", false],
+  ])("%s when the proposed end date is %s", async (_label, endDate, warned) => {
+    generateMock.mockResolvedValue({ meta: { name: "Dated", endDate }, features: [], seed: undefined });
+    renderWithKey();
+    fireEvent.change(screen.getByLabelText(t("en-US", "aiCreateDescribeLabel")), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateGenerate") }));
+    await waitFor(() => expect(screen.getByDisplayValue("Dated")).toBeInTheDocument());
+    const warning = t("en-US", "wizardAiEndDatePast", endDate);
+    if (warned) expect(screen.getByText(warning)).toBeInTheDocument();
+    else expect(screen.queryByText(warning)).not.toBeInTheDocument();
+  });
+
   it("Generate populates the Details form and advances to Step 1", async () => {
     generateMock.mockResolvedValue({
       meta: { name: "Proposed Project" },

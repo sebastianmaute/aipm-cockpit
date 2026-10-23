@@ -1482,6 +1482,7 @@ const enUS = {
   wizardImportWorkspaceButton: "Import workspace file…",
   wizardAiOffHint:
     "The AI assistant can also draft a project from a document or a description. Turn it on in Settings, and add or unlock its API key.",
+  wizardAiEndDatePast: "Claude proposed an end date in the past ({0}). Check the dates before you continue.",
   wizardImportWorkspaceNotice: "Importing {0}: {1}",
   wizardImportTasksPart: "{0} tasks",
   wizardImportTasksPartOne: "{0} task",

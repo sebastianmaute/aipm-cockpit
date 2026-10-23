@@ -1378,6 +1378,7 @@ export const de: Record<TranslationKey, string> = {
   wizardImportWorkspaceButton: "Workspace-Datei importieren…",
   wizardAiOffHint:
     "Der KI-Assistent kann ein Projekt auch aus einem Dokument oder einer Beschreibung entwerfen. Aktivieren Sie ihn in den Einstellungen, und hinterlegen oder entsperren Sie seinen API-Schlüssel.",
+  wizardAiEndDatePast: "Claude hat ein Enddatum in der Vergangenheit vorgeschlagen ({0}). Prüfen Sie die Daten, bevor Sie fortfahren.",
   wizardImportWorkspaceNotice: "Import von {0}: {1}",
   wizardImportTasksPart: "{0} Aufgaben",
   wizardImportTasksPartOne: "{0} Aufgabe",

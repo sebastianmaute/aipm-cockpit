@@ -4,6 +4,13 @@ import { useProjectProposal } from "./use-project-proposal";
 import type { ReactNode } from "react";
 import { ActionGuidesProvider } from "./action-guides-context";
 
+// UTC+14, so a noon-UTC instant is already the next calendar day there: the
+// prompt's "today" must be the user's local day, not the UTC one.
+vi.mock("./timezone", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./timezone")>()),
+  browserTimeZone: () => "Pacific/Kiritimati",
+}));
+
 const ai = { apiKey: "sk-test", model: "claude-sonnet-4-6" };
 
 afterEach(() => vi.restoreAllMocks());
@@ -74,7 +81,7 @@ describe("useProjectProposal", () => {
     expect(result.current.error).toBeNull();
   });
 
-  it("tells the model today's date at the moment of the call", async () => {
+  it("tells the model the user's local date at the moment of the call", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime(new Date("2026-10-23T12:00:00Z"));
@@ -83,7 +90,7 @@ describe("useProjectProposal", () => {
       await act(async () => { await result.current.generate("March to February"); });
       const raw = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string).system as string | { text: string }[];
       const system = typeof raw === "string" ? raw : raw.map((b) => b.text).join("\n");
-      expect(system).toContain("Today is 2026-10-23.");
+      expect(system).toContain("Today is 2026-10-24.");
     } finally {
       vi.useRealTimers();
     }
