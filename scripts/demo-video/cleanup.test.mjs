@@ -19,13 +19,12 @@ describe('cleanupStatements (§715)', () => {
 
   it("clears the recorder's global stores", () => {
     const all = sqls(cleanupStatements(['a'], ['tasks']));
-    expect(all).toContain('DELETE FROM "scheduled_jobs_v2"');
     expect(all).toContain('DELETE FROM "scheduled_jobs"');
     expect(all).toContain('DELETE FROM "action_learning"');
   });
 
   it('no ids, no project deletes', () => {
-    expect(sqls(cleanupStatements([], ['tasks']))).toEqual(['DELETE FROM "scheduled_jobs_v2"', 'DELETE FROM "scheduled_jobs"', 'DELETE FROM "action_learning"']);
+    expect(sqls(cleanupStatements([], ['tasks']))).toEqual(['DELETE FROM "scheduled_jobs"', 'DELETE FROM "action_learning"']);
   });
 });
 

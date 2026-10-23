@@ -215,7 +215,7 @@ const weightsSuggest = step('weights-suggest', {
 async function storedRun(name) {
   const until = Date.now() + AI_TIMEOUT_MS;
   for (;;) {
-    const jobs = (await L.query('SELECT data FROM scheduled_jobs_v2 WHERE id <> \'__migrated__\'')).map((r) => JSON.parse(r[0].value));
+    const jobs = (await L.query('SELECT data FROM scheduled_jobs')).map((r) => JSON.parse(r[0].value));
     const run = jobs.find((j) => j.name === name)?.history?.[0];
     if (run) return run;
     if (Date.now() > until) throw new Error(`scheduled job ${name} did not run`);

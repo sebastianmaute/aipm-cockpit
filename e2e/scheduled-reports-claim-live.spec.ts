@@ -1,6 +1,7 @@
 // e2e/scheduled-reports-claim-live.spec.ts
 //
-// §772 — the run claim against a REAL Turso database: two concurrent `claimReport` calls for the same
+// §772 — (1) the jobs migration `scheduled_jobs` -> `scheduled_jobs_v2` (json_set, json_valid, the marker row, one
+// BEGIN..COMMIT) through the real pipeline, and (2) the run claim against a REAL Turso database: two concurrent `claimReport` calls for the same
 // (jobKey, slot) through the real pipeline must produce exactly one `true`. Unit tests run the SQL on
 // node:sqlite, which cannot show how a remote libSQL server orders two simultaneous inserts.
 //
@@ -11,6 +12,9 @@ import { test, expect } from "@playwright/test";
 import { runTursoPipeline } from "../src/app/turso-pipeline";
 import { rowObjects, txt } from "../src/app/turso-schema";
 import { claimReport, type ReportData } from "../src/app/scheduled-reports-store";
+import {
+  MIGRATED_MARKER_ID, SCHEDULED_JOBS_DDL, __resetScheduledJobsStoreCache, loadScheduledJobs,
+} from "../src/app/scheduled-jobs-store";
 import {
   THROWAWAY, LIVE, SKIP_NO_THROWAWAY, DESTRUCTIVE_RUN, pipelineBase,
 } from "./live-turso-env";
@@ -40,5 +44,58 @@ test.describe("§772 — two devices claiming one slot", () => {
     const winnerId = ids[wins.indexOf(true)];
     const [stored] = await runTursoPipeline(CONFIG, [{ sql: `SELECT id FROM scheduled_reports WHERE job_key = ? AND slot = ?`, args: [txt(JOB_KEY), txt(slot)] }]);
     expect(rowObjects(stored).map((r) => r.id)).toEqual([winnerId]);
+  });
+});
+
+test.describe("§772 — the scheduled-jobs migration on libSQL", () => {
+  test.skip(!LIVE, SKIP_NO_THROWAWAY);
+  test.skip(!DESTRUCTIVE_RUN, "Run via `npm run e2e:live-destructive` (E2E_LIVE_DESTRUCTIVE=1): this probe empties scheduled_jobs and scheduled_jobs_v2 of the THROWAWAY database.");
+
+  const LEGACY = {
+    id: 41, name: "Legacy probe", type: "portfolioAnalysis", cadence: { kind: "daily", timeOfDay: "09:00" },
+    enabled: true, projectId: "p-probe", instruction: "keep this", timeZone: "Europe/Berlin", key: "key-probe",
+    lastRunAt: "2026-10-22T08:00:00.000Z", history: [],
+  };
+  const clear = async (): Promise<void> => {
+    await runTursoPipeline(CONFIG, [
+      ...SCHEDULED_JOBS_DDL.map((sql) => ({ sql })),
+      { sql: "DELETE FROM scheduled_jobs_v2" },
+      { sql: "DELETE FROM scheduled_jobs" },
+    ]);
+  };
+  const dump = async (): Promise<{ v2: string[][]; legacy: string[][] }> => {
+    const [v2, legacy] = await runTursoPipeline(CONFIG, [
+      { sql: "SELECT id, data FROM scheduled_jobs_v2 ORDER BY id" },
+      { sql: "SELECT id, data FROM scheduled_jobs ORDER BY id" },
+    ]);
+    const rows = (r: typeof v2) => rowObjects(r).map((o) => [o.id, o.data]);
+    return { v2: rows(v2), legacy: rows(legacy) };
+  };
+
+  test.beforeEach(async () => {
+    __resetScheduledJobsStoreCache();
+    await clear();
+  });
+  test.afterAll(async () => {
+    await clear().catch(() => undefined);
+  });
+
+  test("copies every field, switches the legacy row off, writes the marker, and a second migration changes nothing", async () => {
+    await runTursoPipeline(CONFIG, [
+      ...SCHEDULED_JOBS_DDL.map((sql) => ({ sql })),
+      { sql: "INSERT INTO scheduled_jobs (id, data) VALUES (?, ?)", args: [txt("41"), txt(JSON.stringify(LEGACY))] },
+    ]);
+    const jobs = await loadScheduledJobs(CONFIG);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]).toMatchObject({ id: 41, projectId: "p-probe", key: "key-probe", timeZone: "Europe/Berlin", instruction: "keep this", enabled: true });
+
+    const first = await dump();
+    expect(first.v2.map((r) => r[0])).toEqual(["41", MIGRATED_MARKER_ID]);
+    expect(JSON.parse(first.v2[0][1])).toEqual(LEGACY); // every field, still enabled
+    expect(JSON.parse(first.legacy[0][1])).toEqual({ ...LEGACY, enabled: false }); // json_set switched it off, nothing else changed
+
+    __resetScheduledJobsStoreCache(); // a new session migrates again
+    await loadScheduledJobs(CONFIG);
+    expect(await dump()).toEqual(first);
   });
 });
