@@ -232,7 +232,7 @@ Table `scheduled_reports` (portfolio-wide, `CREATE TABLE IF NOT EXISTS`):
 (`running` | `done`), `ok INTEGER`, `ran_at TEXT`, `claimed_by TEXT`, `data TEXT` (JSON: `jobName`, `projectName`,
 `instruction`, `summary`, `actions` (title, why, severity, grounded entity or none), `error`), with
 `UNIQUE (job_key, slot)`. Retention: at most 50 rows per `job_key`, applied in step 7; a deleted job's reports are
-never pruned further. `claimed_by` is the same actor label the activity log records for the device's user.
+never pruned further. `claimed_by` is a per-device label: a random id minted once per device and kept in localStorage under `aipm-cockpit:device-label`; the view shows it as "this device" when it matches.
 
 **Who can read and who pays** *(stated, not new)*: anyone holding the portfolio's Turso config can read every
 report, as with every other table of a tenant portfolio — there are no per-project access rules. A job runs on

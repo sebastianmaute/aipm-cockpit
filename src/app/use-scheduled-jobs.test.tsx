@@ -1,6 +1,6 @@
 // src/app/use-scheduled-jobs.test.tsx — localStorage-backed hook tests.
 import { StrictMode } from "react";
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useScheduledJobs } from "./use-scheduled-jobs";
 import { JOB_HISTORY_CAP, type JobCadence, type ScheduledJobRun } from "./scheduled-jobs/types";
@@ -18,6 +18,45 @@ describe("useScheduledJobs (localStorage backend)", () => {
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.ready).toBe(true));
     expect(result.current.jobs).toEqual([]);
+  });
+
+  it("createJob mints a permanent key and keeps the project, zone and instruction", async () => {
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => {
+      await result.current.createJob({
+        name: "A", cadence: dailyCadence, enabled: true, projectId: "p1", timeZone: "UTC", instruction: "focus",
+      });
+      await result.current.createJob({ name: "B", cadence: dailyCadence, enabled: true });
+    });
+    const [a, b] = result.current.jobs;
+    expect(a).toMatchObject({ projectId: "p1", timeZone: "UTC", instruction: "focus" });
+    expect(a.key).toMatch(/\S+/);
+    expect(b).toMatchObject({ projectId: null, timeZone: null });
+    expect(b.key).toMatch(/\S+/);
+    expect(b.key).not.toBe(a.key);
+  });
+
+  it("assignProject on a legacy job persists project, key and zone in one save; a second keeps the key", async () => {
+    localStorage.setItem("aipm-cockpit:scheduled-jobs", JSON.stringify([{
+      id: 1, name: "Old", type: "portfolioAnalysis", cadence: dailyCadence, enabled: true, lastRunAt: null, history: [],
+    }]));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    const spy = vi.spyOn(Storage.prototype, "setItem");
+    await act(async () => { await result.current.assignProject(1, "p1", "Europe/Berlin"); });
+    const writes = spy.mock.calls.filter(([k]) => k === "aipm-cockpit:scheduled-jobs");
+    expect(writes).toHaveLength(1);
+    const saved = JSON.parse(writes[0][1] as string)[0];
+    expect(saved.projectId).toBe("p1");
+    expect(saved.timeZone).toBe("Europe/Berlin");
+    expect(saved.key).toMatch(/\S+/);
+    await act(async () => { await result.current.assignProject(1, "p2", "UTC"); });
+    const again = result.current.jobs[0];
+    expect(again.projectId).toBe("p2");
+    expect(again.key).toBe(saved.key);
+    expect(again.timeZone).toBe("Europe/Berlin");
+    spy.mockRestore();
   });
 
   it("createJob adds a job with id 1, then increments", async () => {

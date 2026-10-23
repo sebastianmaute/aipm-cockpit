@@ -6,6 +6,7 @@ import {
   loadScheduledJobs, saveScheduledJobs, LOCAL_KEY, SCHEDULED_JOBS_TABLE,
 } from "./scheduled-jobs-store";
 import { TABLE_NAMES } from "./turso-schema";
+import { TEXTAREA_MAX } from "./sanitize-core";
 import { JOB_HISTORY_CAP, type ScheduledJob, type ScheduledJobRun } from "./scheduled-jobs/types";
 
 const job: ScheduledJob = {
@@ -14,6 +15,9 @@ const job: ScheduledJob = {
   type: "portfolioAnalysis",
   cadence: { kind: "daily", timeOfDay: "08:00" },
   enabled: true,
+  projectId: null,
+  timeZone: null,
+  key: null,
   lastRunAt: null,
   history: [],
 };
@@ -57,6 +61,30 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
     const out = await loadScheduledJobs(null);
     expect(out[0].cadence).toEqual({ kind: "weekly", dayOfWeek: 1, timeOfDay: "09:30" });
     expect(out[0].history).toEqual([run]);
+  });
+
+  it("keeps projectId, trimmed capped instruction, valid timeZone and key", async () => {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([{
+      ...job, projectId: "p1", instruction: "  focus on risks  ", timeZone: "Europe/Berlin", key: "k-1",
+    }, {
+      ...job, id: 2, projectId: "p1", instruction: "x".repeat(TEXTAREA_MAX + 50), timeZone: "Not/AZone", key: "k-2",
+    }]));
+    const out = await loadScheduledJobs(null);
+    expect(out[0]).toMatchObject({ projectId: "p1", instruction: "focus on risks", timeZone: "Europe/Berlin", key: "k-1" });
+    expect(out[1].instruction).toHaveLength(TEXTAREA_MAX);
+    expect(out[1].timeZone).toBeNull();
+  });
+
+  it("loads a legacy blob with projectId, timeZone and key null, no instruction, and mints no key", async () => {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([{
+      id: 1, name: "Old", type: "portfolioAnalysis", cadence: { kind: "daily", timeOfDay: "08:00" },
+      enabled: true, lastRunAt: null, history: [],
+    }]));
+    const out = await loadScheduledJobs(null);
+    expect(out[0].projectId).toBeNull();
+    expect(out[0].timeZone).toBeNull();
+    expect(out[0].key).toBeNull();
+    expect("instruction" in out[0]).toBe(false);
   });
 
   it("drops malformed jobs and returns a clean array", async () => {

@@ -17,6 +17,14 @@ export interface ScheduledJob {
   type: "portfolioAnalysis";
   cadence: JobCadence;
   enabled: boolean;
+  /** The one Turso project the job reports on; null = not assigned yet (never runs). */
+  projectId: string | null;
+  /** Standing instruction the run follows; absent = the built-in default. */
+  instruction?: string;
+  /** IANA zone the cadence is read in; null = legacy job, never runs until assigned. */
+  timeZone: string | null;
+  /** Permanent identity of the job across runs and devices; null on a legacy job. */
+  key: string | null;
   lastRunAt: string | null;
   history: ScheduledJobRun[]; // newest-first, capped
 }

@@ -23,6 +23,9 @@ export interface CreateScheduledJobInput {
   cadence: JobCadence;
   enabled: boolean;
   type?: "portfolioAnalysis";
+  projectId?: string;
+  timeZone?: string;
+  instruction?: string;
 }
 
 export interface UseScheduledJobsArgs {
@@ -36,6 +39,8 @@ export interface UseScheduledJobsResult {
   createJob: (input: CreateScheduledJobInput) => Promise<void>;
   updateJob: (id: number, patch: Partial<Omit<ScheduledJob, "id">>) => Promise<void>;
   deleteJob: (id: number) => Promise<void>;
+  /** Names the project (and zone) of a job; mints the permanent key in the same save when it has none. */
+  assignProject: (id: number, projectId: string, timeZone: string) => Promise<void>;
   recordRun: (jobId: number, run: ScheduledJobRun) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -154,6 +159,10 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         type: input.type ?? "portfolioAnalysis",
         cadence: input.cadence,
         enabled: input.enabled,
+        projectId: input.projectId ?? null,
+        ...(input.instruction ? { instruction: input.instruction } : {}),
+        timeZone: input.timeZone ?? null,
+        key: crypto.randomUUID(),
         lastRunAt: null,
         history: [],
       };
@@ -174,11 +183,22 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     return mutate((list) => list.filter((j) => j.id !== id));
   }, [mutate]);
 
+  const assignProject = useCallback(
+    (id: number, projectId: string, timeZone: string): Promise<void> => {
+      return mutate((list) =>
+        list.map((j) => (j.id === id
+          ? { ...j, projectId, timeZone: j.timeZone ?? timeZone, key: j.key ?? crypto.randomUUID() }
+          : j)),
+      );
+    },
+    [mutate],
+  );
+
   const recordRun = useCallback((jobId: number, run: ScheduledJobRun): Promise<void> => {
     return mutate((list) =>
       list.map((j) => (j.id === jobId ? appendRun(j, run) : j)),
     );
   }, [mutate]);
 
-  return { jobs, busy, ready, createJob, updateJob, deleteJob, recordRun, refresh };
+  return { jobs, busy, ready, createJob, updateJob, deleteJob, assignProject, recordRun, refresh };
 }

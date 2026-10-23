@@ -1,11 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { nextRunAt, isDue, dueJobs, appendRun } from "./schedule";
+import { nextRunAt, isDue, dueJobs, appendRun, slotFor, isRunnable } from "./schedule";
 import type { ScheduledJob } from "./types";
 
 function daily(over: Partial<ScheduledJob> = {}): ScheduledJob {
   return { id: 1, name: "Daily", type: "portfolioAnalysis",
     cadence: { kind: "daily", timeOfDay: "09:00" },
-    enabled: true, lastRunAt: null, history: [], ...over };
+    enabled: true, projectId: null, timeZone: null, key: null, lastRunAt: null, history: [], ...over };
+}
+
+/** An enabled, runnable job (project, key and zone set) unless overridden. */
+function mk(over: Partial<ScheduledJob> = {}): ScheduledJob {
+  return daily({ projectId: "p1", key: "k1", timeZone: "UTC", ...over });
 }
 
 describe("isDue (daily, catch-up)", () => {
@@ -41,21 +46,66 @@ describe("isDue (weekly)", () => {
 });
 
 describe("nextRunAt", () => {
+  const dailyUtc = (timeOfDay: string) =>
+    mk({ cadence: { kind: "daily", timeOfDay }, timeZone: "UTC" });
+  const weeklyUtc = (dayOfWeek: number, timeOfDay: string) =>
+    mk({ cadence: { kind: "weekly", dayOfWeek, timeOfDay }, timeZone: "UTC" });
   it("daily: same day later today when before the slot", () => {
-    const next = nextRunAt({ kind: "daily", timeOfDay: "09:00" }, new Date("2026-06-19T08:00:00"));
-    expect(next).toEqual(new Date("2026-06-19T09:00:00"));
+    expect(nextRunAt(dailyUtc("09:00"), new Date("2026-06-19T08:00:00Z"))?.toISOString()).toBe("2026-06-19T09:00:00.000Z");
   });
   it("daily: rolls to next day when already past the slot", () => {
-    const next = nextRunAt({ kind: "daily", timeOfDay: "09:00" }, new Date("2026-06-19T10:00:00"));
-    expect(next).toEqual(new Date("2026-06-20T09:00:00"));
+    expect(nextRunAt(dailyUtc("09:00"), new Date("2026-06-19T10:00:00Z"))?.toISOString()).toBe("2026-06-20T09:00:00.000Z");
   });
   it("weekly: advances to the target weekday", () => {
-    const next = nextRunAt({ kind: "weekly", dayOfWeek: 1, timeOfDay: "09:00" }, new Date("2026-06-19T10:00:00")); // Fri
-    expect(next).toEqual(new Date("2026-06-22T09:00:00")); // following Mon
+    expect(nextRunAt(weeklyUtc(1, "09:00"), new Date("2026-06-19T10:00:00Z"))?.toISOString()).toBe("2026-06-22T09:00:00.000Z");
   });
   it("weekly: rolls a full week when same weekday but past the slot", () => {
-    const next = nextRunAt({ kind: "weekly", dayOfWeek: 1, timeOfDay: "09:00" }, new Date("2026-06-22T10:00:00")); // Mon past slot
-    expect(next).toEqual(new Date("2026-06-29T09:00:00")); // next Mon
+    expect(nextRunAt(weeklyUtc(1, "09:00"), new Date("2026-06-22T10:00:00Z"))?.toISOString()).toBe("2026-06-29T09:00:00.000Z");
+  });
+  it("reads the slot in the job's zone", () => {
+    const job = mk({ cadence: { kind: "daily", timeOfDay: "08:00" }, timeZone: "Europe/Berlin" });
+    expect(nextRunAt(job, new Date("2026-10-23T07:00:00Z"))?.toISOString()).toBe("2026-10-24T06:00:00.000Z");
+  });
+  it("is null without a time zone", () => {
+    expect(nextRunAt(mk({ timeZone: null }), new Date("2026-06-19T08:00:00Z"))).toBeNull();
+  });
+});
+
+describe("slotFor", () => {
+  it("computes a daily slot in the job's zone as a UTC instant", () => {
+    const job = mk({ cadence: { kind: "daily", timeOfDay: "08:00" }, timeZone: "Europe/Berlin" });
+    expect(slotFor(job, new Date("2026-10-23T07:00:00Z"))?.toISOString()).toBe("2026-10-23T06:00:00.000Z");
+    expect(slotFor(job, new Date("2026-10-23T05:59:00Z"))).toBeNull();
+  });
+  it("finds a weekly slot on the zone's weekday, not UTC's", () => {
+    const job = mk({ cadence: { kind: "weekly", dayOfWeek: 1, timeOfDay: "00:30" }, timeZone: "Europe/Berlin" });
+    // Monday 2026-10-26 00:30 Berlin (CET, UTC+1) = Sunday 23:30 UTC
+    expect(slotFor(job, new Date("2026-10-25T23:40:00Z"))?.toISOString()).toBe("2026-10-25T23:30:00.000Z");
+  });
+  it("is null on a weekly job's other weekdays", () => {
+    const job = mk({ cadence: { kind: "weekly", dayOfWeek: 1, timeOfDay: "08:00" }, timeZone: "UTC" });
+    expect(slotFor(job, new Date("2026-10-23T12:00:00Z"))).toBeNull(); // Friday
+  });
+  it("runs once across the spring-forward gap", () => {
+    const job = mk({ cadence: { kind: "daily", timeOfDay: "02:30" }, timeZone: "Europe/Berlin" });
+    expect(slotFor(job, new Date("2027-03-28T02:00:00Z"))?.toISOString()).toBe("2027-03-28T01:00:00.000Z"); // 03:00 CEST, first valid instant
+  });
+  it("runs once on the fall-back day (earlier of the two 02:30s)", () => {
+    const job = mk({ cadence: { kind: "daily", timeOfDay: "02:30" }, timeZone: "Europe/Berlin" });
+    expect(slotFor(job, new Date("2026-10-25T03:00:00Z"))?.toISOString()).toBe("2026-10-25T00:30:00.000Z");
+  });
+  it("is null without a time zone", () => {
+    expect(slotFor(mk({ timeZone: null }), new Date("2026-10-23T12:00:00Z"))).toBeNull();
+  });
+});
+
+describe("isRunnable", () => {
+  it("is never runnable without a project, key or time zone", () => {
+    expect(isRunnable(mk({ projectId: null }))).toBe(false);
+    expect(isRunnable(mk({ key: null }))).toBe(false);
+    expect(isRunnable(mk({ timeZone: null }))).toBe(false);
+    expect(isRunnable(mk({ enabled: false }))).toBe(false);
+    expect(isRunnable(mk({}))).toBe(true);
   });
 });
 

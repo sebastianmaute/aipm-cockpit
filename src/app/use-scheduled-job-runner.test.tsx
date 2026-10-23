@@ -18,6 +18,7 @@ function dailyJob(overrides: Partial<ScheduledJob> = {}): ScheduledJob {
     type: "portfolioAnalysis",
     cadence: { kind: "daily", timeOfDay: "09:00" },
     enabled: true,
+    projectId: null, timeZone: null, key: null,
     lastRunAt: null,
     history: [],
     ...overrides,

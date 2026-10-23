@@ -41,7 +41,7 @@ import { useScheduledJobs } from "./use-scheduled-jobs";
 
 const TURSO: TursoConfig = { httpUrl: "https://fictional.example", authToken: "tok" };
 const job = (id: number, name: string): ScheduledJob =>
-  ({ id, name, type: "portfolioAnalysis", cadence: { kind: "daily", timeOfDay: "09:00" }, enabled: true, lastRunAt: null, history: [] }) as ScheduledJob;
+  ({ id, name, type: "portfolioAnalysis", cadence: { kind: "daily", timeOfDay: "09:00" }, enabled: true, projectId: null, timeZone: null, key: null, lastRunAt: null, history: [] }) as ScheduledJob;
 
 function mount(config: TursoConfig | null) {
   return renderHook((props: { config: TursoConfig | null }) => useScheduledJobs({ config: props.config }), { initialProps: { config } });
