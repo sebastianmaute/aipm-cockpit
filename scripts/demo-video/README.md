@@ -42,9 +42,9 @@ node scripts/demo-video/discover.mjs "Resources>Planning" # list a view's contro
 3. **Setup, off camera.** The setup wizard connects Turso and the key; Finish switches the portfolio to Turso and reloads. Then **Explore the demo**, the device state for the new project (below), the weekly digest and the AI Assistant's consent. A chapter then replays the days before it. A clip's `setup` steps run last (for example `ai-scheduled` creates its job).
 4. **Preconditions.** Each one checks that the data shows what the video needs (a duplicate pair, an over-allocated person, two saved versions). A missing one skips the take before anything is recorded.
 5. **Recording.** The video's title in the caption bar for the first 3 s (`titleCard`), then the opening caption when it says more than the title (a chapter's opening is its title), then the steps. A `{ banner: <view> }` opening is that view's own hint text, read from the page; a sub-view names its path (`Resources>Planning`).
-6. **The closing beat**: the last frame held about 1.5 s with no caption.
+6. **The closing beat.** A video with a `closing` beat shows that beat's own text in the caption bar and speaks it; the caption stays on screen to the end of the video. Without one the caption bar is cleared. Either way the last frame is held until the voice is done, plus its 400 ms pause and 1.5 s: every video ends about 1.9 s after its last voice. A rehearsal shows the closing caption at its token pace.
 
-`ch2-connect` and `big` record the setup wizard itself, so their recording starts before step 3. `ch2-connect` is the first run (`firstRun`, `steps/first-run.mjs`): it also shows the first screen and the optional wizard steps and Review, lets Claude propose the first project and creates it, shows the empty project, then opens the demo from Projects. `big` keeps the short prologue, which cancels at the last step.
+`ch2-connect` and `big` record the setup wizard itself, so their recording starts before step 3. `ch2-connect` is the first run (`firstRun`, `steps/first-run.mjs`): it also shows the first screen and the optional wizard steps and Review, lets Claude propose the first project and creates it, shows the empty project, then opens the demo from Projects. `big` keeps the short prologue, which cancels at the last step. In both, the demo opens while the prologue's last beat is spoken (it says the demo opens next). The device setup that follows (step 3: the device state and its reload, the weekly digest in Settings, the AI Assistant's consent, about 30 s with nothing said) waits for that voice to end, is noted on the recording's timeline and is cut after the take, like the middle of a long AI wait.
 
 An AI step waits for its result by the UI's state, never by its text, then checks the result's structure (a merge pair, an Apply button, a narrative of some length). An empty result gets one more call; a second empty one fails the take. An AI step's `replay` applies a fixed outcome by hand, so every chapter opens on the same state whatever Claude wrote the day before.
 
@@ -52,7 +52,19 @@ An AI step waits for its result by the UI's state, never by its text, then check
 
 `<out>/<tier>/<NN>-<id>.webm`, with `NN` the video's position in its tier (`ch1-install` counts). `<out>` is `.superpowers/tmp/demo-video/`, which git ignores; set `DEMO_VIDEO_DIR` to write somewhere else. A take that does not end `ok` leaves `warn-<id>.png` in `<out>`.
 
-Every video shows about three seconds of each wait for Claude (a wait under four seconds is kept whole) (`MAX_AI_WAIT_S` in `trim.mjs`). The take notes when each AI wait starts and ends; afterwards a wait longer than that by more than a second keeps its first and last 1.5 seconds, the busy state and the result arriving, and ffmpeg cuts the rest (`ffmpeg` and `ffprobe` must be on the PATH). A trim that fails prints `TRIM FAILED` with ffmpeg's message, counts a warning and keeps the take untrimmed. The untrimmed take is kept as `<out>/untrimmed/<tier>/<NN>-<id>.webm`. A wait off camera (a chapter's replay of earlier days) is not timed, and a clip with no AI wait is left as it is.
+Every video shows about three seconds of each wait for Claude (a wait under four seconds is kept whole) (`MAX_AI_WAIT_S` in `trim.mjs`). The take notes when each AI wait starts and ends; afterwards a wait longer than that by more than a second keeps its first and last 1.5 seconds, the busy state and the result arriving, and ffmpeg cuts the rest (`ffmpeg` and `ffprobe` must be on the PATH). A trim that fails prints `TRIM FAILED` with ffmpeg's message, counts a warning and keeps the take untrimmed. The untrimmed take is kept as `<out>/untrimmed/<tier>/<NN>-<id>.webm`. A wait off camera (a chapter's replay of earlier days) is not timed.
+
+The trim also ends every video where its take ended. Playwright's recorder pads the video past `screencast.stop()`: at least 1 s of the last frame, and, because ffmpeg gives that last frame as long again as the screen stood still before the stop, up to several seconds more (a closing frame with no change gave 3.7 s extra on f-open-points). The take notes its end on the recording's timeline (`endAt`), and the trim cuts everything after it, so every take with a recording is re-encoded once.
+
+### The render check
+
+After the mix, every narrated take is checked on the finished video's timeline (`render-check.mjs`). Each finding prints one `RENDER …` line and counts a warning:
+
+- `RENDER gap`: a silence longer than `MAX_GAP_S` (8 s) between one voice and the next, unless a marked AI wait overlaps it. This is how a stalled step shows.
+- `RENDER tail`: more than `MAX_TAIL_S` (2.5 s) between the last voice and the end of the video.
+- `RENDER desync`: a caption whose voice starts more than `MAX_DESYNC_S` (1 s) after the caption appeared. The take logs each beat's first caption on the recording's timeline for this.
+
+`node scripts/demo-video/check-render.mjs <file.mp4> [...]` runs the gap and tail checks on finished renders without a take, from each `.mp4` and the `.srt` beside it (the length read with ffprobe). It cannot see captions, so it has no desync check. An AI clip's waits are not in the files, so its long silences are listed as `RENDER unverified (AI wait?) gap`. It prints `ok` for a clean render and exits 1 when any finding is not unverified.
 
 ## The week's clock and the replay
 
@@ -135,7 +147,7 @@ node scripts/demo-video/record.mjs --video ch3-monday       # the narrated take 
 - The voice plays over the action. A caption with a beat starts its voice at once and the take carries on; the next caption, the next step and the closing beat wait until that voice has finished plus a 400 ms pause (`PAUSE_MS`). So a step that opens another view before its first caption starts only once the last beat is spoken, and a voice never runs on over a view it does not describe. A step that leaves the view its beat describes, in the middle of the step, waits for the voice first (`holdVoice` in `ui.mjs`). A rehearsal has no voice and never waits.
 - A caption's beat id must be in the video's file. A recorded take fails with `no narration for beat <id>` on a missing one, and fails at the end with `narration beats never shown: ...` when a beat of the video's own file was never shown. A step lists the beats it may legitimately not show in `mayNotShow` (a wizard path, an optional branch); those are exempt.
 - A beat id shown twice in one take speaks the first time only. The later caption still changes, and holds 150 ms.
-- `title`, `opening` and `closing` are reserved ids for the title card, the opening caption and the closing frame. The closing frame is held until its voice is done.
+- `title`, `opening` and `closing` are reserved ids for the title card, the opening caption and the closing caption. The closing caption stays to the end, and the frame is held until its voice is done.
 - Beats are never cut by the AI-wait trim. Because the voice can run into the wait, the trim keeps the narrated spans and cuts around them.
 
 ### Outputs
@@ -180,7 +192,9 @@ No rehearsal can show these, because a rehearsal has no audio. Check them on the
 | `take.mjs` | `runTake`: one take, setup to closing beat, with the AI retry rule. |
 | `narrated.mjs` | The narration glue around a take: `narrationFor` (its beats, and the ids of its own file) and `trimAndMix` (trim around the beats, map each beat onto the trimmed video, mix in the take's language). |
 | `ai-wait.mjs` | `waitForAi`: waits for an AI call by its UI state; `timedAiWait` notes each wait on the recording's timeline. |
-| `trim.mjs` | Cuts each AI wait in a video down to `MAX_AI_WAIT_S` with ffmpeg; `keepRanges` and `trimArgs` are pure. |
+| `trim.mjs` | Cuts each AI wait in a video down to `MAX_AI_WAIT_S`, the off-camera spans, and everything after the take ended, with ffmpeg; `keepRanges` and `trimArgs` are pure. |
+| `render-check.mjs` | The post-render check: gaps, tail and caption/voice desync. Pure. |
+| `check-render.mjs` | Entry: the gap and tail checks on finished `.mp4` + `.srt` renders. |
 | `setup.mjs` | Off-camera setup: `connect`, `exploreDemo`, `seedDeviceState`, `enableDigest`, `enableChat`, `goToDay`, `currentProjectId`. |
 | `ui.mjs` | The cursor and caption overlay, `caption`, `speak`, `holdVoice`, `moveTo`, `click`, `type`, `choose`, `nav`, `viewHint`, `skipTour`, `titleCard`, `closingBeat`. |
 | `narrate.mjs` | Entry: renders the narration beats of the selected videos with ElevenLabs into the cache; `--audition` renders voice samples. |
@@ -195,4 +209,4 @@ No rehearsal can show these, because a rehearsal has no audio. Check them on the
 | `steps/features.mjs` | The 20 feature clips and their preconditions. |
 | `fixtures/` | The device state and the re-plan spreadsheet. |
 
-Tests: `week-story.test.ts`, `cleanup.test.mjs`, `device-state.test.ts`, `cli.test.mjs`, `videos.test.mjs`, `take.test.mjs`, `ui.test.mjs`, `ui-actions.test.mjs`, `replan-fixture.test.ts`.
+Tests: `week-story.test.ts`, `cleanup.test.mjs`, `device-state.test.ts`, `cli.test.mjs`, `videos.test.mjs`, `take.test.mjs`, `ui.test.mjs`, `ui-actions.test.mjs`, `trim.test.mjs`, `narrated.test.mjs`, `render-check.test.mjs`, `replan-fixture.test.ts`.
