@@ -187,6 +187,15 @@ longer carries its own changelog comment.
   browser-storage label, and Edit project doing nothing. Creating the demo project from there also showed a
   false "changed in another tab" warning. A create that fails now leaves the app where it was.
 
+### Security
+
+- **Next.js 16.4.2.** The version in use, 16.4.0, fell inside three advisories, two of them critical:
+  GHSA-2464-fhr4-w9xw (critical, remote code execution in the Image Optimization API with SVG files),
+  GHSA-673q-mjm6-r5xr (critical, remote code execution in `use cache` functions) and GHSA-p3m5-59mp-jv5r
+  (high, a Server Actions denial of service). `next` and `eslint-config-next` move to 16.4.2.
+- **DOMPurify 3.4.17.** The version in use, 3.4.16, fell inside three sanitiser-bypass advisories:
+  GHSA-cg2g-xh64-v4q7 (critical), GHSA-mrv2-3pqr-j5jr (high) and GHSA-c6gr-qvv4-5v3f (low).
+
 ### Development
 
 - **Demo video recorder (§715).** `scripts/demo-video/` records the browser part of the getting-started
