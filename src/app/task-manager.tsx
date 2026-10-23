@@ -101,7 +101,6 @@ import { useRaidCreate } from "./raid-create-host";
 import { buildAppModalsBlock } from "./app-modals-block";
 import { SettingsView } from "./settings-view";
 import { LearningInsights } from "./learning-insights";
-import { Button } from "./button";
 import { useActionLearning } from "./use-action-learning";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
@@ -1664,19 +1663,17 @@ function TaskManagerInner() {
     />
   );
 
+  // §777 — Back lives in the pane's own toolbar row now; no wrapper here, so
+  // the pane card is the shell's direct child and fills it like every view.
   const learningInsightsEl = (
-    <div className="flex flex-col gap-4">
-      <Button variant="secondary" size="sm" onClick={() => setActiveTab("settings")} className="self-start">
-        {t(lang, "wizardBack")}
-      </Button>
-      <LearningInsights
-        lang={lang}
-        state={learning.state}
-        overrides={learning.overrides}
-        onSetOverride={(kind, override) => { void learning.setOverride(kind, override); }}
-        onReset={() => { void learning.reset(); }}
-      />
-    </div>
+    <LearningInsights
+      lang={lang}
+      state={learning.state}
+      overrides={learning.overrides}
+      onSetOverride={(kind, override) => { void learning.setOverride(kind, override); }}
+      onReset={() => { void learning.reset(); }}
+      onBack={() => setActiveTab("settings")}
+    />
   );
 
   // The action-cluster menus (Voice/Export/Help/Version) shared with the classic
