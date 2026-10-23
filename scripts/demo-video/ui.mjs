@@ -105,6 +105,10 @@ export async function caption(ctx, text, id) {
     b.style.opacity = t ? '1' : '0';
   }, text);
   ctx.log('CAPTION ' + (text || '(clear)'));
+  // On the recording's timeline, a beat's first caption: the render check compares it with the beat's voice.
+  if (id && !again && ctx.recordingStartedAt != null) {
+    (ctx.captionLog ??= []).push({ id, at: (performance.now() - ctx.recordingStartedAt) / 1000 });
+  }
   if (voice) startVoice(ctx, id, beat.duration);
   else if (text) await pace(ctx, again ? REPEAT_MS : 1200);
 }
@@ -126,13 +130,14 @@ export async function titleCard(ctx, title, beat) {
   await pace(ctx, 1800);
 }
 
-/** The clip's closing beat: the last frame held without a caption, about 1.5 s. The last caption stays up
- *  until its voice is done; a narrated video may then speak its closing beat (`beat`, the reserved CLOSING
- *  id) over the cleared frame, which is held until that voice is done too. */
+/** The clip's closing beat. The last caption stays up until its voice is done. A narrated video with a closing
+ *  beat (`beat`, the reserved CLOSING id) then shows that beat's own text as its caption and speaks it; the
+ *  caption stays on screen to the end of the video. Without one the caption bar is cleared. Either way the last
+ *  frame is held until the voice is done, plus its pause and 1.5 s: about 1.9 s after the last voice. */
 export async function closingBeat(ctx, beat) {
   await waitForVoice(ctx);
-  await caption(ctx, '');
-  if (beat && ctx.narration?.has(beat)) await speak(ctx, beat);
+  const text = beat ? ctx.narration?.get(beat)?.text : null;
+  await caption(ctx, text ?? '', text ? beat : undefined);
   await waitForVoice(ctx);
   await pace(ctx, 1500);
 }

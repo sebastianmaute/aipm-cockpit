@@ -166,12 +166,33 @@ describe('voice-only beats (§715)', () => {
     expect(shownAt).toEqual([['A', 1000], ['', 1000 + 2000 + PAUSE_MS]]);
   });
 
-  it('closingBeat speaks the closing beat when the video has one', async () => {
+  it('closingBeat shows the closing beat as its caption, speaks it, and holds the voice plus 1500 ms', async () => {
     const { ctx, calls } = fakeCtx({ narration: { [CLOSING]: 1.0 } });
     await closingBeat(ctx, CLOSING);
     expect(ctx.beatLog.map((b) => b.id)).toEqual([CLOSING]);
-    // Spoken over the closing frame: after the clear, then held until it is done.
-    expect(calls).toEqual(['show()', `wait(${1000 + PAUSE_MS})`, 'wait(1500)']);
+    expect(calls).toEqual([`show(say ${CLOSING})`, `wait(${1000 + PAUSE_MS})`, 'wait(1500)']);
+  });
+
+  it('closingBeat keeps the closing caption on screen to the end: shown after the last voice, never cleared', async () => {
+    const { ctx, calls } = fakeCtx({ narration: { 'mon-a': 2.0, [CLOSING]: 1.0 } });
+    await caption(ctx, 'A', 'mon-a');
+    await closingBeat(ctx, CLOSING);
+    expect(calls).toEqual(['show(A)', `wait(${2000 + PAUSE_MS})`, `show(say ${CLOSING})`, `wait(${1000 + PAUSE_MS})`, 'wait(1500)']);
+    expect(calls.filter((c) => c.startsWith('show(')).at(-1)).toBe(`show(say ${CLOSING})`);
+  });
+
+  it('in a rehearsal, closingBeat shows the closing caption at the rehearsal pace', async () => {
+    const { ctx, calls } = fakeCtx({ narration: { [CLOSING]: null }, rehearse: true });
+    await closingBeat(ctx, CLOSING);
+    expect(calls).toEqual([`show(say ${CLOSING})`, 'wait(150)', 'wait(150)']);
+  });
+
+  it('a recorded caption is logged on the timeline with its beat id, once per id', async () => {
+    const { ctx } = fakeCtx({ narration: { 'mon-a': 1.0 } });
+    await caption(ctx, 'A', 'mon-a');
+    await caption(ctx, 'A again', 'mon-a');
+    await caption(ctx, '');
+    expect(ctx.captionLog).toEqual([{ id: 'mon-a', at: 0 }]);
   });
 
   it('titleCard speaks the title beat after showing the title, and only when there is one', async () => {
