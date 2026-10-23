@@ -7,9 +7,11 @@ import { REPORT_LIST_LIMIT, type ScheduledReport } from "./scheduled-reports-sto
 import type { TursoConfig } from "./turso-config";
 
 const mockList = vi.fn();
+const mockProjects = vi.fn();
 vi.mock("./scheduled-reports-store", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./scheduled-reports-store")>()),
   listReports: (...args: unknown[]) => mockList(...args),
+  listReportProjects: (...args: unknown[]) => mockProjects(...args),
 }));
 const mockDevice = vi.hoisted(() => vi.fn(() => "dev-mine"));
 vi.mock("./device-label", () => ({ getDeviceLabel: mockDevice }));
@@ -40,6 +42,19 @@ const THREE: ScheduledReport[] = [
   report({ id: "r1", slot: "2026-10-21", ranAt: "2026-10-21T08:00:00.000Z" }, { summary: "First summary" }),
 ];
 
+/** The projects the filter lists: one per project that has a report, named by its newest report. */
+function deriveProjects(list: readonly ScheduledReport[]): { id: string; name: string }[] {
+  const seen = new Map<string, string>();
+  for (const r of list) if (!seen.has(r.projectId)) seen.set(r.projectId, r.data.projectName);
+  return Array.from(seen, ([id, name]) => ({ id, name }));
+}
+
+/** What the store would return: the report rows, and (by its own query) the project list. */
+function setReports(list: ScheduledReport[]): void {
+  mockList.mockResolvedValue(list);
+  mockProjects.mockImplementation(async () => deriveProjects(list));
+}
+
 function renderPanel(over: Partial<React.ComponentProps<typeof ScheduledReportsPanel>> = {}) {
   return render(
     <ScheduledReportsPanel lang="en-US" tursoConfig={CONFIG} mode="turso" timeZone="UTC" {...over} />,
@@ -52,7 +67,8 @@ beforeAll(async () => {
 
 beforeEach(() => {
   mockList.mockReset();
-  mockList.mockResolvedValue(THREE);
+  mockProjects.mockReset();
+  setReports(THREE);
   mockDevice.mockReset();
   mockDevice.mockReturnValue("dev-mine");
 });
@@ -87,7 +103,7 @@ describe("ScheduledReportsPanel", () => {
   });
 
   it("keeps names unique when two reports read identically", async () => {
-    mockList.mockResolvedValue([report({ id: "a" }), report({ id: "b", slot: "2026-10-21" })]);
+    setReports([report({ id: "a" }), report({ id: "b", slot: "2026-10-21" })]);
     renderPanel();
     const tabs = await screen.findAllByRole("tab");
     const names = tabs.map((tab) => tab.getAttribute("aria-label") ?? tab.textContent);
@@ -140,7 +156,7 @@ describe("ScheduledReportsPanel", () => {
   });
 
   it("names an action's entity by its translated view label, not the internal view id", async () => {
-    mockList.mockResolvedValue([
+    setReports([
       report({ id: "x" }, { actions: [{ title: "Do it", why: "Because", severity: "soon", entity: { view: "open-points", id: "12" } }] }),
     ]);
     renderPanel();
@@ -150,7 +166,7 @@ describe("ScheduledReportsPanel", () => {
   });
 
   it("renders summary and action text as literal text, never as HTML", async () => {
-    mockList.mockResolvedValue([
+    setReports([
       report({ id: "x" }, {
         summary: "<b>x</b>",
         actions: [{ title: "<i>t</i>", why: "<u>w</u>", severity: "soon" }],
@@ -165,7 +181,7 @@ describe("ScheduledReportsPanel", () => {
   });
 
   it("marks a failed report with text and an icon, not colour alone", async () => {
-    mockList.mockResolvedValue([report({ id: "f", ok: false }, { error: "limit", actions: [] })]);
+    setReports([report({ id: "f", ok: false }, { error: "limit", actions: [] })]);
     renderPanel();
     const tab = await screen.findByRole("tab");
     expect(within(tab).getByText(en("scheduledReportsFailed"))).toBeInTheDocument();
@@ -173,7 +189,7 @@ describe("ScheduledReportsPanel", () => {
   });
 
   it("marks a running report older than 30 minutes as interrupted", async () => {
-    mockList.mockResolvedValue([
+    setReports([
       report({ id: "s", status: "running", ok: false, ranAt: "2020-01-01T00:00:00.000Z" }),
     ]);
     renderPanel();
@@ -182,7 +198,7 @@ describe("ScheduledReportsPanel", () => {
   });
 
   it("shows a fresh running report as running, not interrupted", async () => {
-    mockList.mockResolvedValue([
+    setReports([
       report({ id: "s", status: "running", ok: false, ranAt: new Date().toISOString() }),
     ]);
     renderPanel();
@@ -193,7 +209,7 @@ describe("ScheduledReportsPanel", () => {
 
   // KILLED BY: dropping the partial note.
   it("says so when a report was made from a partly read project", async () => {
-    mockList.mockResolvedValue([report({ id: "x" }, { partial: true })]);
+    setReports([report({ id: "x" }, { partial: true })]);
     renderPanel();
     await screen.findAllByRole("tab");
     expect(screen.getByText(en("scheduledReportsPartial"))).toBeInTheDocument();
@@ -207,7 +223,7 @@ describe("ScheduledReportsPanel", () => {
 
   // KILLED BY: using the raw (blank) project name for the option.
   it("gives a project without a name a placeholder option, never a blank one", async () => {
-    mockList.mockResolvedValue([report({ id: "x", projectId: "p7" }, { projectName: "" })]);
+    setReports([report({ id: "x", projectId: "p7" }, { projectName: "" })]);
     renderPanel();
     const select = await screen.findByRole("combobox", { name: en("scheduledReportsFilter") });
     const options = within(select).getAllByRole("option").map((o) => o.textContent);
@@ -217,7 +233,7 @@ describe("ScheduledReportsPanel", () => {
 
   // KILLED BY: dropping the duplicate-name disambiguation.
   it("tells two projects with one name apart in the filter", async () => {
-    mockList.mockResolvedValue([
+    setReports([
       report({ id: "a", projectId: "aaaa-1", slot: "2026-10-23" }, { projectName: "Same" }),
       report({ id: "b", projectId: "bbbb-2", slot: "2026-10-22" }, { projectName: "Same" }),
     ]);
@@ -229,7 +245,7 @@ describe("ScheduledReportsPanel", () => {
   });
 
   it("filters by project, listing archived projects by their newest report's name", async () => {
-    mockList.mockResolvedValue([
+    setReports([
       report({ id: "n", projectId: "p9", slot: "2026-10-23" }, { projectName: "Gamma (new name)", jobName: "G" }),
       report({ id: "o", projectId: "p9", slot: "2026-10-20" }, { projectName: "Gamma (old name)", jobName: "G" }),
       ...THREE,
@@ -246,10 +262,34 @@ describe("ScheduledReportsPanel", () => {
     expect(options).toContain("Beta");
     await user.selectOptions(select, "p9");
     expect(screen.getAllByRole("tab")).toHaveLength(2);
+    // The chosen project's rows are read from the database, not cut out of the newest rows of the whole table.
+    expect(mockList).toHaveBeenLastCalledWith(CONFIG, "p9");
+  });
+
+  // KILLED BY: building the options from the rows of the list read (a project whose reports are all older than the
+  // newest REPORT_LIST_LIMIT rows would be missing).
+  it("lists a project the report read did not return, from the project query", async () => {
+    setReports(THREE.filter((r) => r.projectId === "p1"));
+    mockProjects.mockImplementation(async () => [{ id: "p1", name: "Alpha" }, { id: "old", name: "Old one" }]);
+    renderPanel();
+    const select = await screen.findByRole("combobox", { name: en("scheduledReportsFilter") });
+    const options = within(select).getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain("Old one");
+    expect(options).toContain("Alpha");
+  });
+
+  // KILLED BY: showing the raw (blank) name in the tab and the detail.
+  it("shows the Unknown project label in the tab and the detail, as the filter does", async () => {
+    setReports([report({ id: "x", projectId: "p7" }, { projectName: "" })]);
+    renderPanel();
+    const tab = await screen.findByRole("tab");
+    expect(tab).toHaveAccessibleName(new RegExp(en("scheduledReportsUnknownProject")));
+    expect(within(tab).getByText(en("scheduledReportsUnknownProject"))).toBeInTheDocument();
+    expect(within(screen.getByRole("tabpanel")).getByText(en("scheduledReportsUnknownProject"))).toBeInTheDocument();
   });
 
   it("labels a report claimed by this device", async () => {
-    mockList.mockResolvedValue([report({ id: "m", claimedBy: "dev-mine" })]);
+    setReports([report({ id: "m", claimedBy: "dev-mine" })]);
     renderPanel();
     const panel = await screen.findByRole("tabpanel");
     expect(within(panel).getByText(en("scheduledReportsThisDevice"))).toBeInTheDocument();
@@ -263,7 +303,7 @@ describe("ScheduledReportsPanel", () => {
   });
 
   it("shows the empty state when there are no reports", async () => {
-    mockList.mockResolvedValue([]);
+    setReports([]);
     renderPanel();
     expect(await screen.findByText(en("scheduledReportsEmpty"))).toBeInTheDocument();
   });
@@ -307,7 +347,7 @@ describe("ScheduledReportsPanel", () => {
   });
 
   it("points the empty state to Settings and opens it from the action", async () => {
-    mockList.mockResolvedValue([]);
+    setReports([]);
     const onOpenSettings = vi.fn();
     renderPanel({ onOpenSettings });
     expect(await screen.findByText(/Settings → Scheduled jobs/)).toBeInTheDocument();
@@ -316,7 +356,7 @@ describe("ScheduledReportsPanel", () => {
   });
 
   it("offers no Settings action where the view cannot navigate", async () => {
-    mockList.mockResolvedValue([]);
+    setReports([]);
     renderPanel();
     await screen.findByText(en("scheduledReportsEmpty"));
     expect(screen.queryByRole("button", { name: en("scheduledReportsOpenSettings") })).toBeNull();
@@ -331,7 +371,7 @@ describe("ScheduledReportsPanel", () => {
     ["an interrupted run", { status: "running" as const, ok: false, ranAt: "2020-01-01T00:00:00.000Z" }, {}, "scheduledReportsErrInterrupted"],
     ["a run in progress", { status: "running" as const, ok: false, ranAt: "2999-01-01T00:00:00.000Z" }, {}, "scheduledReportsRunningNote"],
   ] as const)("explains %s in the detail instead of an empty result", async (_name, over, data, key) => {
-    mockList.mockResolvedValue([report({ id: "x", ...over }, { summary: "", actions: [], ...data })]);
+    setReports([report({ id: "x", ...over }, { summary: "", actions: [], ...data })]);
     renderPanel();
     const panel = await screen.findByRole("tabpanel");
     expect(within(panel).getByText(en(key))).toBeInTheDocument();
@@ -341,7 +381,7 @@ describe("ScheduledReportsPanel", () => {
   });
 
   it("still shows a summary a failed report did carry", async () => {
-    mockList.mockResolvedValue([report({ id: "x", ok: false }, { summary: "Partial notes", error: "error" })]);
+    setReports([report({ id: "x", ok: false }, { summary: "Partial notes", error: "error" })]);
     renderPanel();
     const panel = await screen.findByRole("tabpanel");
     expect(within(panel).getByText("Partial notes")).toBeInTheDocument();
@@ -349,14 +389,14 @@ describe("ScheduledReportsPanel", () => {
   });
 
   it("shows a done report with no suggestions as a clean result", async () => {
-    mockList.mockResolvedValue([report({ id: "x" }, { actions: [] })]);
+    setReports([report({ id: "x" }, { actions: [] })]);
     renderPanel();
     const panel = await screen.findByRole("tabpanel");
     expect(within(panel).getByText(en("scheduledReportsNoSuggestions"))).toBeInTheDocument();
   });
 
   it("lists a project whose only report is a project-archived failure", async () => {
-    mockList.mockResolvedValue([
+    setReports([
       report({ id: "z", projectId: "p-arch", ok: false }, { projectName: "Old project", error: "project-archived", summary: "", actions: [] }),
       ...THREE,
     ]);
@@ -371,7 +411,7 @@ describe("ScheduledReportsPanel", () => {
     const select = await screen.findByRole("combobox", { name: en("scheduledReportsFilter") });
     await user.selectOptions(select, "p2");
     expect(screen.getAllByRole("tab")).toHaveLength(1);
-    mockList.mockResolvedValue(THREE.filter((r) => r.projectId === "p1"));
+    setReports(THREE.filter((r) => r.projectId === "p1"));
     await act(async () => { window.dispatchEvent(new CustomEvent(SCHEDULED_REPORT_EVENT)); });
     await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(2));
     expect(screen.getByRole("combobox", { name: en("scheduledReportsFilter") })).toHaveValue("");
@@ -420,13 +460,13 @@ describe("ScheduledReportsPanel", () => {
 
   // KILLED BY: dropping the note (retained reports beyond the read bound would vanish without a word).
   it("says the list is capped when the read hit its bound, and not otherwise", async () => {
-    mockList.mockResolvedValue(Array.from({ length: REPORT_LIST_LIMIT }, (_, i) =>
+    setReports(Array.from({ length: REPORT_LIST_LIMIT }, (_, i) =>
       report({ id: `r${i}`, jobKey: `j${i}`, slot: `2026-10-23T00:${String(i % 60).padStart(2, "0")}:00.${String(i).padStart(3, "0")}Z` })));
     const view = renderPanel();
     await screen.findAllByRole("tab");
     expect(screen.getByText(en("scheduledReportsLimited").replace("{0}", String(REPORT_LIST_LIMIT)))).toBeInTheDocument();
     view.unmount();
-    mockList.mockResolvedValue(THREE);
+    setReports(THREE);
     renderPanel();
     await screen.findAllByRole("tab");
     expect(screen.queryByText(en("scheduledReportsLimited").replace("{0}", String(REPORT_LIST_LIMIT)))).toBeNull();
@@ -444,7 +484,7 @@ describe("ScheduledReportsPanel", () => {
 
   it("does not call the unknown-device fallback this device", async () => {
     mockDevice.mockReturnValue("unknown");
-    mockList.mockResolvedValue([report({ id: "m", claimedBy: "unknown" })]);
+    setReports([report({ id: "m", claimedBy: "unknown" })]);
     renderPanel();
     const panel = await screen.findByRole("tabpanel");
     expect(within(panel).queryByText(en("scheduledReportsThisDevice"))).toBeNull();

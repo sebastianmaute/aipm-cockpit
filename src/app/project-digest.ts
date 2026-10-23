@@ -67,6 +67,8 @@ function raidLines(raid: readonly RaidItem[], today: string): string[] {
     .map((r) => {
       const parts = [r.category, r.severity ?? "unrated", r.status, clip(r.owner ?? "") || "no owner"];
       if (r.targetDate) parts.push(`target ${r.targetDate}`);
+      // The review date: the last time the item was touched (what the review reminder counts from).
+      parts.push(`last touched ${r.localModifiedAt ? r.localModifiedAt.slice(0, 10) : r.raisedDate}`);
       if (isRaidOverdue(r, today)) parts.push("overdue");
       return `- raid#${r.id}: ${clip(r.title)} [${parts.join(", ")}]`;
     });

@@ -260,3 +260,17 @@ describe("free-text fields cannot forge a section (§772 cr3)", () => {
     expect(text.endsWith("## Job instruction\nThe real one.")).toBe(true);
   });
 });
+
+describe("RAID review date (§772 cr4)", () => {
+  // KILLED BY: leaving the review date off the RAID line.
+  test("a RAID line carries the last-touched date, from the edit time when there is one, else the raised date", () => {
+    const text = buildProjectDigest(base({
+      raid: [
+        raidItem({ id: 1, title: "Edited", raisedDate: "2026-09-01", localModifiedAt: "2026-10-12T09:30:00.000Z" }),
+        raidItem({ id: 2, title: "Untouched", raisedDate: "2026-09-02" }),
+      ],
+    }));
+    expect(lineWith(text, "raid#1")).toContain("last touched 2026-10-12");
+    expect(lineWith(text, "raid#2")).toContain("last touched 2026-09-02");
+  });
+});

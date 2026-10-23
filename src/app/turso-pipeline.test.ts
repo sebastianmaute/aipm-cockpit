@@ -65,6 +65,8 @@ describe("runTursoPipeline", () => {
     expect(err).toBeInstanceOf(TursoHttpError);
     expect((err as TursoHttpError).status).toBe(status);
     expect((err as Error).message).toBe(`Turso returned ${status}. Try again later.`);
+    // The storage diagnostics record String(err): it must read as before the typed error existed.
+    expect(String(err)).toBe(`Error: Turso returned ${status}. Try again later.`);
   });
 
   it("maps HTTP 401 to a StorageNotReadyError", async () => {

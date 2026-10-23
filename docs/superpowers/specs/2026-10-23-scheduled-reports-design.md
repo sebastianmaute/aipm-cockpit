@@ -60,8 +60,8 @@ Everything else below marked *(designer's call)* is the designer's ruling, open 
 ## Constraints from the codebase
 
 - **Runner:** `use-scheduled-job-runner.ts` ticks every 5 minutes, on becoming visible and when enabled; it runs
-  due jobs sequentially with `isRunningRef` as the re-entry guard. Keep that shape. It records runs with
-  `recordRunRef.current(...)` without awaiting it.
+  due jobs sequentially with `isRunningRef` as the re-entry guard. Keep that shape. It records runs through the
+  injected `recordRun`, awaited and best-effort (`settle`): a rejected write never fails the run.
 - **Job store writes lose updates:** every job write goes through `mutate` (`use-scheduled-jobs.ts`), which loads
   the list, transforms it and saves it with `saveScheduledJobs` — `DELETE FROM scheduled_jobs_v2` then one INSERT per
   job, in a separate request from the load (`scheduled-jobs-store.ts`). A write from another device in between
@@ -71,7 +71,10 @@ Everything else below marked *(designer's call)* is the designer's ruling, open 
   column migration — but `sanitizeJob` rebuilds each job from a fixed field list (and checks `type` against the
   literal `"portfolioAnalysis"`), and `createJob` lists its fields one by one, so both must learn the new fields
   or they are dropped on every load and save. The `type` literal stays as it is: renaming it would make
-  `sanitizeJob` drop every stored job.
+  `sanitizeJob` drop every stored job. (Review cr3 made `sanitizeJob` forward-compatible: unknown job fields are carried
+  in `extra` and written back, and a job with an unknown type or cadence, or with no numeric id, becomes a read-only
+  `foreign` job that holds its stored JSON verbatim, is listed in Settings with a "created by a newer version" note,
+  is deletable, and never runs.)
 - **Job ids are reused:** `createJob` mints `max + 1`, so deleting the newest job and creating another reuses its
   id. Reports must not refer to a job by that id.
 - **Slots are local time today:** `currentSlot` (`scheduled-jobs/schedule.ts`) uses the device's local
@@ -80,8 +83,9 @@ Everything else below marked *(designer's call)* is the designer's ruling, open 
 - **Analysis call:** `runJobAnalysis` (`scheduled-job-analysis.ts`) is shared with the Action Center
   (`use-action-analysis.ts`). Keep one call; add the instruction to the USER message as its own section, never to
   the cached system prompt. The operating guides the runner reads today (the `"jobAnalysis"` target) still apply.
-- **Three consumers of today's digest:** `buildAiContext` (`use-ai-orchestration.ts`) feeds the Action Center
-  button, the scheduled runner, and the AI weight-suggestion context (`buildWeightSuggestionContext`).
+- **Consumers of the digest:** `buildAiContext` (`use-ai-orchestration.ts`) is now only the AI weight-suggestion
+  context's digest (`buildWeightSuggestionContext`); the Action Center button and the scheduled runner use the wide
+  digest (`buildProjectDigest` over `buildProjectAnalysisInput`).
 - **Next actions input:** `buildActionInput` (`next-actions-input.ts`) already assembles `ActionInput`; only the
   dashboard model, comms reminders and workload alerts come from hooks (`use-next-actions.ts`). The queue is
   i18n descriptors translated with `actionText(lang, …)`.
@@ -90,8 +94,7 @@ Everything else below marked *(designer's call)* is the designer's ruling, open 
 - **Loading another project:** `new TursoBackend(tursoConfig, id).load()`, as `use-portfolio-health.ts` does. Its
   DDL runs outside the write lock, so a load can collide with the open project's autosave or a Portfolio health
   refresh and fail with `SQLITE_BUSY`. An unknown project id does NOT fail: `loadTenant` returns an empty
-  workspace, so "missing" is decided against the project list (`listProjects` / `listArchivedProjects`,
-  `turso-portfolio.ts`).
+  workspace, so "missing" is decided against the project lists (`listProjectRefs`, `turso-portfolio.ts`).
 - **Turso pipelines:** a plain pipeline keeps executing after a failing statement (AGENTS.md, §637); an atomic
   write uses `runTursoPipeline`'s batch form (BEGIN first, COMMIT last, no DDL before BEGIN).
 - **Turso gating:** check `tursoConfig !== null`, not only `storageConfig.kind` (AGENTS.md). The view goes into
@@ -101,8 +104,9 @@ Everything else below marked *(designer's call)* is the designer's ruling, open 
 - **New Turso table:** not workspace data, so OUT of `TABLE_NAMES`; it carries `project_id`, so it goes into
   `project-side-tables.ts` so `hardDeleteProject` sweeps it (its guard test fails otherwise). TEXT id.
 - **Size ratchet:** `task-manager.tsx` has zero headroom (`docs/baselines/file-sizes.json`). This work must not
-  add a line to it; the section, the runner and the view read the project list themselves (`listProjects`,
-  `listArchivedProjects`, `loadPortfolioMode()`), not through `usePortfolioProjects`, which is task-manager's
+  add a line to it; the section and the runner read the project list themselves (`listProjectRefs`, one
+  pipeline for both lists, and `loadPortfolioMode()`), the view reads no project list (its names come from the
+  reports), and none goes through `usePortfolioProjects`, which is task-manager's
   own orchestration hook.
 - **New-view checklist:** `AppView` + `NAV_GROUPS` + `TURSO_ONLY_VIEWS` (`nav-config.ts`), `VIEW_AI_SCOPE` (a total
   Record), the nav icon Record (`nav-icons.tsx`), a help entry (`help-content.ts`, stating the Turso condition),
@@ -186,7 +190,7 @@ mid-run) and never re-run.
 
 For each due job, in order:
 
-1. **Check the project** against `listProjects` / `listArchivedProjects` — before claiming, so no row is written
+1. **Check the project** against the active and archived lists (`listProjectRefs`, one pipeline) — before claiming, so no row is written
    for a project that is gone.
    - *Hard-deleted* (in neither list): no row is written; the job's `projectId` is cleared through the hook's
      `mutate` (it returns to "Choose a project") and its run history records `project-missing`.
@@ -230,7 +234,7 @@ the effective settings for that project.
 Per category it keeps `CONTEXT_CAP_PER_CATEGORY` and the `view#id` grounding format. *(designer's call)* Only open
 or active items fill the cap (not Done, Cancelled or Closed), overdue first, then by nearest date. Each line adds:
 - tasks: status, priority, assignee, due date, `overdue`;
-- RAID: category, severity, status, owner, due or review date, `overdue`;
+- RAID: category, severity, status, owner, due date, last-touched (review) date, `overdue`;
 - milestones: date, done or `overdue`;
 - changes: status, decision date when decided;
 - stakeholders: role or organisation;
@@ -263,7 +267,9 @@ is deleted.
   "Mon 27 Oct 2026, 08:00"), the project name and the job name beneath; a failed or interrupted run is marked by an
   icon and text, not colour alone. Accessible names are unique per row.
 - Above the list: a project filter, default "All projects", listing every project that has reports — archived
-  ones included, with the name from the newest report.
+  ones included, with the name from the newest report. The options come from a query of their own
+  (`listReportProjects`), and choosing one reads that project's rows from the database (`listReports(config,
+  projectId)`), so neither is limited to the newest rows of the whole table.
 - Right: the selected report: job name, project, run time, who ran it, the instruction it ran with, the summary,
   and the suggested actions (severity, title, why, entity as text). All report text renders as plain text, never
   HTML: it is model output steered by project content.
@@ -273,8 +279,7 @@ is deleted.
 ### Text changes
 
 `scheduledJobsHelp` and the AI help body describe a job as an analysis of the project it names, kept as a report
-under Scheduled reports, available with a Turso portfolio. A CHANGELOG entry carries the upgrade note under
-*Availability*.
+under Scheduled reports, available with a Turso portfolio. The CHANGELOG entries (Added and Changed) carry the upgrade note.
 
 ### Register
 

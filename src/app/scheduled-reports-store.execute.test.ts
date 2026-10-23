@@ -27,7 +27,7 @@ vi.mock("./turso-pipeline", () => ({
 
 import {
   REPORT_RETENTION_PER_JOB, RUNNING_STALE_MS,
-  REPORT_LIST_LIMIT, __resetScheduledReportsSchemaCache, slotStatus, hasReportAtOrAfter, claimReport, releaseClaim, finishReport, listReports, isInterrupted, sanitizeReportData,
+  REPORT_LIST_LIMIT, __resetScheduledReportsSchemaCache, listReportProjects, slotStatus, hasReportAtOrAfter, claimReport, releaseClaim, finishReport, listReports, isInterrupted, sanitizeReportData,
   type ReportData, type ScheduledReport,
 } from "./scheduled-reports-store";
 import { SCHEDULED_REPORTS_DDL } from "./scheduled-reports-schema";
@@ -303,5 +303,40 @@ describe("slotStatus: what the pre-check may remember (§772 cr3 re-review)", ()
   it("is final when a LATER slot of the same job has a row, even a live one", async () => {
     await claimReport(CONFIG, row("b", "k", S2));
     expect(await slotStatus(CONFIG, "k", S1)).toBe("final");
+  });
+});
+
+describe("the project filter does not depend on the newest rows (§772 cr4)", () => {
+  const named = (id: string, jobKey: string, slot: string, projectId: string, projectName: string): void => {
+    db.prepare("INSERT INTO scheduled_reports (id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data) VALUES (?, ?, ?, ?, 'done', 1, ?, 'dev', ?)")
+      .run(id, projectId, jobKey, slot, slot, JSON.stringify({ jobName: "J", projectName, summary: "s", actions: [] }));
+  };
+  const fill = async (): Promise<void> => {
+    await listReports(CONFIG); // creates the table
+    named("old1", "jo", "2025-01-01T00:00:00.000Z", "old", "Old name");
+    named("old2", "jo", "2025-01-02T00:00:00.000Z", "old", "Old project (newest name)");
+    for (let i = 0; i < REPORT_LIST_LIMIT + 5; i++) named(`n${i}`, `jn${i}`, `2026-01-01T00:00:${String(i % 60).padStart(2, "0")}.${String(i).padStart(3, "0")}Z`, "new", "New project");
+  };
+
+  // KILLED BY: reading the project list from the (capped) list rows.
+  it("lists every project that has reports, even one whose reports are all older than the newest 200 rows", async () => {
+    await fill();
+    const projects = await listReportProjects(CONFIG);
+    expect(projects.map((p) => p.id)).toEqual(["new", "old"]); // newest project first
+    expect(projects.find((p) => p.id === "old")?.name).toBe("Old project (newest name)"); // the newest report's name
+    expect((await listReports(CONFIG)).some((r) => r.projectId === "old")).toBe(false); // the cap hides it from the list
+  });
+
+  // KILLED BY: ignoring the project argument.
+  it("reads one project's rows from the database, reaching rows older than the cap", async () => {
+    await fill();
+    const rows = await listReports(CONFIG, "old");
+    expect(rows.map((r) => r.id)).toEqual(["old2", "old1"]);
+  });
+
+  it("a project with no name is listed with an empty name", async () => {
+    await listReports(CONFIG);
+    db.prepare("INSERT INTO scheduled_reports (id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data) VALUES ('z', 'pz', 'jz', '2026-01-01', 'done', 1, '2026-01-01', 'dev', '{}')").run();
+    expect(await listReportProjects(CONFIG)).toEqual([{ id: "pz", name: "" }]);
   });
 });

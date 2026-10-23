@@ -93,8 +93,8 @@ export class TursoStepError extends Error {
  *  blip (429, 5xx: try again) from anything else without reading the message. The message is unchanged. */
 export class TursoHttpError extends Error {
   constructor(public readonly status: number) {
+    // `name` stays "Error": `String(err)` reaches the storage diagnostics, whose text must not change.
     super(`Turso returned ${status}. Try again later.`);
-    this.name = "TursoHttpError";
   }
 }
 

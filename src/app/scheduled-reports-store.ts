@@ -99,7 +99,8 @@ export function __resetScheduledReportsSchemaCache(): void {
 const SERVER_NOW_SQL = `strftime('%Y-%m-%dT%H:%M:%fZ','now')`;
 
 /** The pre-claim check (spec Slots): true when ANY report of this job has a slot at or after `slot`, i.e. the slot
- *  is taken or older than the job's last report (an edited time or zone must not re-run the day). Slots are uniform
+ *  is taken or older than the job's last report. So a time or zone edited to an EARLIER slot does not re-run the day;
+ *  an edit to a LATER slot gives a slot with no report at or after it, which is due and runs once more that day. Slots are uniform
  *  `toISOString()` strings, so text order is time order. The UNIQUE claim still guards the exact slot. */
 export async function hasReportAtOrAfter(config: TursoConfig | null, jobKey: string, slot: string): Promise<boolean> {
   return withTable(config, async () => {
@@ -218,15 +219,34 @@ function decode(r: Record<string, string>): ScheduledReport | null {
   }
 }
 
-/** Newest slot first (a slot is never re-run, so this is also newest `ran_at` first); a row whose `data` does not parse is skipped. */
-export async function listReports(config: TursoConfig | null): Promise<ScheduledReport[]> {
+/** Newest slot first (a slot is never re-run, so this is also newest `ran_at` first); a row whose `data` does not parse is
+ *  skipped. With `projectId` only that project's rows are read (still the newest REPORT_LIST_LIMIT of them), so the view's
+ *  project filter reaches rows older than the newest REPORT_LIST_LIMIT overall. */
+export async function listReports(config: TursoConfig | null, projectId?: string): Promise<ScheduledReport[]> {
   return withTable(config, async () => {
+    const where = projectId === undefined ? "" : " WHERE project_id = ?";
     const results = await runTursoPipeline(config, [
-      { sql: `SELECT id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data, ${SERVER_NOW_SQL} AS server_now FROM scheduled_reports ORDER BY slot DESC, id DESC LIMIT ${REPORT_LIST_LIMIT}` },
+      {
+        sql: `SELECT id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data, ${SERVER_NOW_SQL} AS server_now FROM scheduled_reports${where} ORDER BY slot DESC, id DESC LIMIT ${REPORT_LIST_LIMIT}`,
+        ...(projectId === undefined ? {} : { args: [txt(projectId)] }),
+      },
     ]);
     return rowObjects(results[0])
       .map(decode)
       .filter((r): r is ScheduledReport => r !== null);
+  });
+}
+
+/** Every project that has a report, with the name its NEWEST report carries (newest project first): a cheap query of its
+ *  own, so the project filter does not depend on how many rows the list read returns. */
+export async function listReportProjects(config: TursoConfig | null): Promise<{ id: string; name: string }[]> {
+  return withTable(config, async () => {
+    const results = await runTursoPipeline(config, [{
+      sql: `SELECT r.project_id AS project_id, json_extract(r.data, '$.projectName') AS name FROM scheduled_reports r JOIN (SELECT project_id, MAX(slot) AS newest FROM scheduled_reports GROUP BY project_id) m ON r.project_id = m.project_id AND r.slot = m.newest ORDER BY r.slot DESC, r.id DESC`,
+    }]);
+    const seen = new Map<string, string>();
+    for (const r of rowObjects(results[0])) if (r.project_id && !seen.has(r.project_id)) seen.set(r.project_id, r.name ?? "");
+    return Array.from(seen, ([id, name]) => ({ id, name }));
   });
 }
 

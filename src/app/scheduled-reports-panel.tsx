@@ -9,7 +9,7 @@ import { type Lang, t } from "./i18n";
 import { navLabelKey } from "./nav-config";
 import type { TursoConfig } from "./turso-config";
 import type { PortfolioMode } from "./portfolio-mode";
-import { isInterrupted, listReports, REPORT_ERROR_KEY, REPORT_LIST_LIMIT, type ReportErrorToken, type ScheduledReport } from "./scheduled-reports-store";
+import { isInterrupted, listReportProjects, listReports, REPORT_ERROR_KEY, REPORT_LIST_LIMIT, type ReportErrorToken, type ScheduledReport } from "./scheduled-reports-store";
 import { SCHEDULED_REPORT_EVENT } from "./use-scheduled-job-runner";
 import { getDeviceLabel } from "./device-label";
 import { formatDisplayTimestamp } from "./tz-display";
@@ -34,10 +34,12 @@ export interface ScheduledReportsPanelProps {
   onOpenSettings?: () => void;
 }
 
+interface ProjectName { id: string; name: string }
+
 type Loaded =
   | { kind: "loading" }
   | { kind: "error" }
-  | { kind: "ready"; reports: readonly ScheduledReport[]; loadedAt: Date; deviceLabel: string; source: string };
+  | { kind: "ready"; reports: readonly ScheduledReport[]; loadedAt: Date; deviceLabel: string; source: string; projects: readonly ProjectName[] };
 
 const FILTER_ALL = "";
 const PANEL_ID = "scheduled-reports-detail";
@@ -50,15 +52,14 @@ function stateOf(r: ScheduledReport, now: Date): ReportTabState {
   return r.ok ? "done" : "failed";
 }
 
-/** One option per project that has a report, named by its NEWEST report (the list is newest first). */
-function projectOptions(reports: readonly ScheduledReport[], lang: Lang): { id: string; name: string }[] {
-  const seen = new Map<string, string>();
+/** One option per project that has a report, named by its NEWEST report. */
+function projectOptions(projects: readonly ProjectName[], lang: Lang): ProjectName[] {
   // A project whose meta could not be read has no name: a placeholder, never a blank option.
-  for (const r of reports) if (!seen.has(r.projectId)) seen.set(r.projectId, r.data.projectName || t(lang, "scheduledReportsUnknownProject"));
+  const named = projects.map((p) => ({ id: p.id, name: p.name || t(lang, "scheduledReportsUnknownProject") }));
   const counts = new Map<string, number>();
-  for (const name of seen.values()) counts.set(name, (counts.get(name) ?? 0) + 1);
+  for (const p of named) counts.set(p.name, (counts.get(p.name) ?? 0) + 1);
   // Two projects with one name get a short id, so the options read differently.
-  return Array.from(seen, ([id, name]) => ({ id, name: (counts.get(name) ?? 0) > 1 ? `${name} (${id.slice(0, 4)})` : name }));
+  return named.map((p) => ({ id: p.id, name: (counts.get(p.name) ?? 0) > 1 ? `${p.name} (${p.id.slice(0, 4)})` : p.name }));
 }
 
 const stateLabel = (lang: Lang, state: ReportTabState): string => stateText(lang, state) ?? "";
@@ -80,6 +81,8 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpe
     [stored, source],
   );
   const [filter, setFilter] = useState(FILTER_ALL);
+  // The reload reads the CHOSEN project's rows from the database, so it needs the filter without being rebuilt by it.
+  const filterRef = useRef(FILTER_ALL);
   const [selectedId, setSelectedId] = useState("");
 
   // Promise callbacks, not an awaited body: the setState calls land after the read, never inside the effect.
@@ -89,10 +92,18 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpe
   // `new Date()` and `getDeviceLabel()` (which can mint and store a label) are read here, never in render.
   const load = useCallback(() => {
     const mine = ++latest.current;
-    listReports(tursoConfig).then(
-      (reports) => {
+    const project = filterRef.current;
+    Promise.all([listReports(tursoConfig, project === FILTER_ALL ? undefined : project), listReportProjects(tursoConfig)]).then(
+      async ([first, projects]) => {
+        let reports = first;
+        // The chosen project has no report any more: back to All, and read those rows instead.
+        if (project !== FILTER_ALL && !projects.some((p) => p.id === project)) {
+          filterRef.current = FILTER_ALL;
+          reports = await listReports(tursoConfig);
+        }
         if (mine !== latest.current) return;
-        setLoaded({ kind: "ready", reports, loadedAt: new Date(), deviceLabel: getDeviceLabel(), source: tursoConfig?.httpUrl ?? "" });
+        if (filterRef.current !== project) setFilter(filterRef.current);
+        setLoaded({ kind: "ready", reports, loadedAt: new Date(), deviceLabel: getDeviceLabel(), source: tursoConfig?.httpUrl ?? "", projects });
       },
       // A failed reload keeps what is already on screen, but only if it was read from THIS portfolio.
       () => {
@@ -115,7 +126,8 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpe
 
   const reports = useMemo(() => (loaded.kind === "ready" ? loaded.reports : []), [loaded]);
   const loadedAt = loaded.kind === "ready" ? loaded.loadedAt : null;
-  const options = useMemo(() => projectOptions(reports, lang), [reports, lang]);
+  const projects = useMemo(() => (loaded.kind === "ready" ? loaded.projects : []), [loaded]);
+  const options = useMemo(() => projectOptions(projects, lang), [projects, lang]);
   // A filter whose project has no report any more reads as "All", exactly as the control shows it.
   const effectiveFilter = options.some((o) => o.id === filter) ? filter : FILTER_ALL;
   const visible = useMemo(
@@ -128,8 +140,9 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpe
     const base = visible.map((r) => {
       const when = formatDisplayTimestamp(r.ranAt, timeZone, lang);
       const state = stateOf(r, loadedAt);
-      const name = [when, r.data.projectName, r.data.jobName, stateLabel(lang, state)].filter(Boolean).join(" ");
-      return { id: r.id, when, projectName: r.data.projectName, jobName: r.data.jobName, state, name };
+      const projectName = r.data.projectName || t(lang, "scheduledReportsUnknownProject");
+      const name = [when, projectName, r.data.jobName, stateLabel(lang, state)].filter(Boolean).join(" ");
+      return { id: r.id, when, projectName, jobName: r.data.jobName, state, name };
     });
     const tokens = buildRowTokens(base.map((b) => ({ id: b.id, name: b.name })));
     return base.map(({ name, ...row }) => ({ ...row, label: tokens.get(row.id) ?? name }));
@@ -174,7 +187,7 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpe
         actions={
           <label className="flex items-center gap-1 text-xs text-foreground">
             <span>{t(lang, "scheduledReportsFilter")}</span>
-            <Select size="xs" value={effectiveFilter} onChange={(e) => setFilter(e.target.value)}>
+            <Select size="xs" value={effectiveFilter} onChange={(e) => { filterRef.current = e.target.value; setFilter(e.target.value); load(); }}>
               <option value={FILTER_ALL}>{t(lang, "scheduledReportsAllProjects")}</option>
               {options.map((o) => (
                 <option key={o.id} value={o.id}>{o.name}</option>
@@ -197,7 +210,7 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpe
         {selected && selectedRow && (
           <div id={PANEL_ID} role="tabpanel" aria-labelledby={`${PANEL_ID}-tab-${selected.id}`} tabIndex={0} className="min-w-0">
             <h3 className="text-base font-medium text-foreground">{selected.data.jobName}</h3>
-            <p className="text-sm text-muted-foreground">{selected.data.projectName}</p>
+            <p className="text-sm text-muted-foreground">{selectedRow.projectName}</p>
             <p className="text-xs text-muted-foreground">{selectedRow.when}</p>
             {selected.data.partial && <p className="text-xs text-foreground">{t(lang, "scheduledReportsPartial")}</p>}
             <p className="text-xs text-muted-foreground">
