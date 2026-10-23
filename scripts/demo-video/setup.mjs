@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as L from './lib.mjs';
-import { caption, click, holdVoice, moveTo, nav, pace, skipTour, type } from './ui.mjs';
+import { caption, choose, click, holdVoice, moveTo, nav, pace, skipTour, type } from './ui.mjs';
 
 // Visible dialogs only: a closed modal can stay in the DOM after the one on screen.
 const DLG = '[role="dialog"]:visible';
@@ -34,7 +34,7 @@ export async function connect(ctx, { onCamera, firstRun = false }) {
   await type(ctx, d.getByPlaceholder('libsql://your-db.turso.io'), ctx.secrets.url, 'url', { slow: false });
   await type(ctx, d.locator('input[type=password]').first(), ctx.secrets.token, 'token', { slow: false });
   await click(ctx, d.getByRole('button', { name: 'Test connection – Turso' }), 'Test connection', 5000);
-  await d.getByLabel('Portfolio storage').selectOption({ index: 1 });
+  await choose(ctx, d.getByLabel('Portfolio storage'), { index: 1 }, 'Portfolio storage');
   await pace(ctx, 1000);
   await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), 'Next');
   if (onCamera) await caption(ctx, 'Paste once. Stored encrypted on this device.', 'setup-key');
@@ -55,7 +55,7 @@ export async function connect(ctx, { onCamera, firstRun = false }) {
       await holdVoice(ctx);
       const reloaded = page.waitForEvent('load', { timeout: 60000 });
       // A bare click: ui.click settles the page by evaluating in it, which a reload mid-way would break.
-      await moveTo(ctx, fin);
+      await moveTo(ctx, fin, 'Finish');
       await fin.click();
       await reloaded;
       await L.settle(page);
@@ -88,9 +88,7 @@ async function pickModel(ctx, d, onCamera) {
     throw new Error('the model list has no Sonnet 5.5 after the key was entered');
   });
   if (onCamera) await caption(ctx, 'With the key in, the model list loads: pick Sonnet 5.5.', 'setup-model');
-  await moveTo(ctx, select);
-  await select.selectOption(await option.getAttribute('value'));
-  await L.settle(ctx.page);
+  await choose(ctx, select, { value: await option.getAttribute('value') }, 'Model');
   await pace(ctx, 1500);
 }
 
@@ -100,7 +98,7 @@ async function firstScreen(ctx) {
   for (const name of ['New project', 'Open existing', 'Explore the demo']) {
     const card = ctx.page.getByText(name, { exact: true }).first();
     if (await card.count()) {
-      await moveTo(ctx, card);
+      await moveTo(ctx, card, name);
       await pace(ctx, 1200);
     }
   }

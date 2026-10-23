@@ -46,10 +46,8 @@ const NARRATION_LANG = 'en';
 async function resolveOpening(ctx, opening) {
   if (typeof opening === 'string') return opening;
   for (const view of opening.banner.split('>')) await ui.nav(ctx, view);
-  // The view's callout (view-callout.tsx): its text is the <p> beside the "Dismiss hint" button.
-  const text = await ctx.page.locator('main div:has(> button[aria-label="Dismiss hint"]) > p').first().innerText().catch(() => '');
-  if (!text) throw new Error(`no banner text on ${opening.banner}`);
-  return text.trim().replace(/\s+/g, ' ');
+  // The visible callout only: a panel kept mounted while hidden (RAID) keeps its callout in the DOM.
+  return ui.viewHint(ctx, opening.banner);
 }
 
 async function take(browser, def) {

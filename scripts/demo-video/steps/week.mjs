@@ -4,7 +4,7 @@
 import { step } from './step.mjs';
 import { waitForAi } from '../ai-wait.mjs';
 import * as L from '../lib.mjs';
-import { caption, click, holdVoice, moveTo, nav, pace, type } from '../ui.mjs';
+import { caption, choose, click, holdVoice, moveTo, nav, pace, type } from '../ui.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -130,7 +130,7 @@ export const wizardProposal = step('wizard-proposal', {
   after: async (ctx) => {
     const d = ctx.page.locator(DLG).last();
     await caption(ctx, 'From the brief, Claude ticks GDPR and fills the other key facts.', 'prologue-gdpr');
-    await moveTo(ctx, gdprBox(d));
+    await moveTo(ctx, gdprBox(d), 'GDPR');
     await pace(ctx, 2500);
     for (const what of ['template', 'functions']) await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), `Next (${what})`, 2000);
     await caption(ctx, ctx.newFromEmpty ? 'The last step creates it. Here we open the demo project instead.' : 'The last step creates it. Here we cancel and stay in the demo.', 'prologue-cancel');
@@ -179,10 +179,10 @@ export const MONDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Dashboard');
       await caption(ctx, 'Do this first: the MVP target is overdue.', 'mon-do-first');
-      await moveTo(ctx, main(ctx).getByRole('button', { name: /^Open – Do this first – / }).first());
+      await moveTo(ctx, main(ctx).getByRole('button', { name: /^Open – Do this first – / }).first(), 'Do this first');
       await pace(ctx, 2500);
       await caption(ctx, 'Since Friday: one RAID item added, one task newly overdue.', 'mon-since-friday');
-      await moveTo(ctx, main(ctx).getByText('Since you last looked').first());
+      await moveTo(ctx, main(ctx).getByText('Since you last looked').first(), 'Since you last looked');
       await pace(ctx, 3000);
     },
   }),
@@ -235,7 +235,7 @@ export const MONDAY = [
       await nav(ctx, 'Knowledge');
       await caption(ctx, 'Knowledge: the CRM interface decision from design sign-off.', 'mon-knowledge-crm');
       await type(ctx, main(ctx).getByPlaceholder('Search knowledge'), 'CRM', 'search knowledge');
-      await moveTo(ctx, main(ctx).getByText('CRM interface decision (design sign-off)').first());
+      await moveTo(ctx, main(ctx).getByText('CRM interface decision (design sign-off)').first(), 'CRM interface decision');
       await pace(ctx, 3000);
     },
   }),
@@ -358,7 +358,7 @@ export const TUESDAY = [
       await caption(ctx, 'Work restarts with the blocker known: drag the CRM task to In Progress.', 'tue-board-crm');
       await click(ctx, main(ctx).getByRole('radio', { name: 'Board', exact: true }), 'Board', 1200);
       const card = main(ctx).getByRole('button', { name: DEMO_CRM_TASK, exact: true }).first();
-      await moveTo(ctx, card);
+      await moveTo(ctx, card, DEMO_CRM_TASK);
       await card.dragTo(main(ctx).locator('[aria-label="In Progress"]').first());
       await L.settle(ctx.page);
       await pace(ctx, 1500);
@@ -379,9 +379,9 @@ export const TUESDAY = [
       await click(ctx, main(ctx).getByRole('button', { name: '+ Add change', exact: true }), 'Add change', 1000);
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.getByRole('textbox', { name: /^Title/ }), CONNECTOR, 'change title');
-      await d.getByRole('combobox', { name: 'Type', exact: true }).selectOption('Scope');
-      await d.getByRole('combobox', { name: 'Status', exact: true }).selectOption('Under Review');
-      await d.getByRole('combobox', { name: 'Impact', exact: true }).selectOption('Medium');
+      await choose(ctx, d.getByRole('combobox', { name: 'Type', exact: true }), 'Scope', 'change type');
+      await choose(ctx, d.getByRole('combobox', { name: 'Status', exact: true }), 'Under Review', 'change status');
+      await choose(ctx, d.getByRole('combobox', { name: 'Impact', exact: true }), 'Medium', 'change impact');
       await type(ctx, d.getByRole('textbox', { name: 'Impact description', exact: true }), 'Licence cost and about one week of integration work; removes the failing custom CRM sync.', 'impact description');
       await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), 'Save change');
     },
@@ -420,7 +420,7 @@ export const TUESDAY = [
         return;
       }
       await caption(ctx, 'Review what it will change, then Apply: several items in one step.', 'tue-chat-review');
-      await moveTo(ctx, main(ctx).getByRole('region', { name: 'Proposed changes' }).last());
+      await moveTo(ctx, main(ctx).getByRole('region', { name: 'Proposed changes' }).last(), 'Proposed changes');
       await pace(ctx, 2500);
       await click(ctx, apply, 'Apply proposal', 2000);
     },
@@ -468,7 +468,7 @@ export const TUESDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Budget');
       await caption(ctx, `The bucket ${BUCKET}: planned hours per person.`, 'tue-bucket-hours');
-      await moveTo(ctx, main(ctx).getByRole('button', { name: `Edit bucket – ${BUCKET}`, exact: true }));
+      await moveTo(ctx, main(ctx).getByRole('button', { name: `Edit bucket – ${BUCKET}`, exact: true }), `Edit bucket – ${BUCKET}`);
       await pace(ctx, 3000);
     },
   }),
@@ -533,6 +533,17 @@ export async function setUtilization(ctx, who, month, value) {
   await L.settle(ctx.page);
 }
 
+/** The absence form's Assignee, the shared directory picker: the name typed, then the person picked from
+ *  its list, so the absence is linked to the resource rather than left as free text. */
+export async function absenceAssignee(ctx, d, who) {
+  const field = d.getByRole('combobox', { name: 'Assignee *', exact: true });
+  await type(ctx, field, who, 'absence who');
+  // Picking closes the list itself; its option opens with the name, then the email.
+  await click(ctx, d.getByRole('option', { name: new RegExp('^' + who) }).locator('button'), `pick ${who}`, 400);
+  const shown = await field.inputValue();
+  if (shown !== who) throw new Error(`the absence's Assignee shows "${shown}", not ${who}`);
+}
+
 export const WEDNESDAY = [
   step('discipline-role', {
     run: async (ctx) => {
@@ -540,8 +551,8 @@ export const WEDNESDAY = [
       await caption(ctx, 'The connector needs an integration engineer: a new discipline, then the role.', 'wed-discipline-role');
       await type(ctx, main(ctx).getByRole('textbox', { name: 'Add discipline', exact: true }), ROLE, 'discipline');
       await click(ctx, main(ctx).getByRole('button', { name: 'Add discipline', exact: true }), 'Add discipline');
-      await main(ctx).getByRole('combobox').filter({ has: ctx.page.locator('option', { hasText: /^Discipline$/ }) }).first().selectOption({ label: ROLE });
-      await main(ctx).getByRole('combobox').filter({ has: ctx.page.locator('option', { hasText: /^Grade$/ }) }).first().selectOption({ label: 'Senior' });
+      await choose(ctx, main(ctx).getByRole('combobox').filter({ has: ctx.page.locator('option', { hasText: /^Discipline$/ }) }).first(), { label: ROLE }, 'role discipline');
+      await choose(ctx, main(ctx).getByRole('combobox').filter({ has: ctx.page.locator('option', { hasText: /^Grade$/ }) }).first(), { label: 'Senior' }, 'role grade');
       await click(ctx, main(ctx).getByRole('button', { name: 'Add role', exact: true }), 'Add role');
       // The new row re-renders once it is stored; its hourly rate fields are writable once settled.
       await L.settle(ctx.page);
@@ -567,7 +578,7 @@ export const WEDNESDAY = [
       await type(ctx, d.getByRole('textbox', { name: /^Last name/ }), DEMO_NEW_MEMBER.lastName, 'last name');
       await type(ctx, d.locator('input[type=email]').first(), 'lukas.brandt@example.com', 'email');
       await click(ctx, d.getByRole('button', { name: 'Save resource' }), 'Save resource');
-      await main(ctx).getByRole('combobox', { name: `Role for ${MEMBER}`, exact: true }).selectOption({ label: `${ROLE} Senior` });
+      await choose(ctx, main(ctx).getByRole('combobox', { name: `Role for ${MEMBER}`, exact: true }), { label: `${ROLE} Senior` }, `Role for ${MEMBER}`);
       await pace(ctx, 1500);
     },
   }),
@@ -576,8 +587,7 @@ export const WEDNESDAY = [
       await caption(ctx, 'Noah, who owns the CRM integration, is on vacation next week.', 'wed-noah-vacation');
       await click(ctx, main(ctx).getByRole('button', { name: '+ Add absence', exact: true }), 'Add absence');
       const d = ctx.page.locator(DLG).last();
-      await type(ctx, d.getByPlaceholder('Name (matches existing Task assignees)'), 'Noah Bennett', 'absence who');
-      await ctx.page.keyboard.press('Tab');
+      await absenceAssignee(ctx, d, 'Noah Bennett');
       await click(ctx, d.getByText('Vacation', { exact: true }), 'Vacation', 300);
       await d.locator('input[type=date]').nth(0).fill('2026-09-28');
       await d.locator('input[type=date]').nth(1).fill('2026-10-02');
@@ -589,7 +599,7 @@ export const WEDNESDAY = [
       await resources(ctx, 'Workload');
       await caption(ctx, "Maya is over-allocated this month: bring her hours down.", 'wed-maya-util');
       const cell = main(ctx).getByRole('spinbutton', { name: 'Near-term utilization for Maya Patel', exact: true });
-      await moveTo(ctx, cell);
+      await moveTo(ctx, cell, 'Maya util');
       await pace(ctx, 1500);
       await type(ctx, cell, String(DEMO_MAYA_RELIEVED_HOURS), 'Maya util');
       await cell.press('Tab');
@@ -632,8 +642,10 @@ export const WEDNESDAY = [
       await nav(ctx, 'Open Points');
       await caption(ctx, `Swimlanes by person: give ${DEMO_NEW_MEMBER.firstName} a lane, then a CRM follow-up.`, 'wed-swimlane');
       await click(ctx, main(ctx).getByRole('radio', { name: 'Swimlanes', exact: true }), 'Swimlanes', 1200);
-      await main(ctx).getByRole('combobox', { name: 'Add person lane', exact: true }).selectOption({ label: MEMBER });
-      await L.settle(ctx.page);
+      // The select adds the lane and returns to its placeholder, so the lane itself is the check.
+      await choose(ctx, main(ctx).getByRole('combobox', { name: 'Add person lane', exact: true }), { label: MEMBER }, 'Add person lane', { resets: true });
+      await main(ctx).locator(`[aria-label="${MEMBER} – To Do"]`).first().waitFor({ state: 'attached', timeout: 5000 })
+        .catch(() => { throw new Error(`no lane for ${MEMBER} after Add person lane`); });
       await pace(ctx, 1000);
       // Filtered to the follow-up, its card sits right under the new lane: unfiltered they are thousands of
       // pixels apart, and a drag cannot scroll on the way.
@@ -641,7 +653,7 @@ export const WEDNESDAY = [
       await type(ctx, search, 'CRM provisioning fails', 'filter');
       await L.settle(ctx.page);
       const card = main(ctx).getByRole('button', { name: DEMO_DUPLICATE_PAIRS[0][1], exact: true }).first();
-      await moveTo(ctx, card);
+      await moveTo(ctx, card, DEMO_DUPLICATE_PAIRS[0][1]);
       await card.dragTo(main(ctx).locator(`[aria-label="${MEMBER} – To Do"]`).first());
       await L.settle(ctx.page);
       await pace(ctx, 1500);
@@ -685,7 +697,7 @@ async function pickOwner(ctx, d, who) {
 
 async function approveChange(ctx, title) {
   const d = await openRow(ctx, 'Changes', title);
-  await d.getByRole('combobox', { name: 'Status', exact: true }).selectOption('Approved');
+  await choose(ctx, d.getByRole('combobox', { name: 'Status', exact: true }), 'Approved', `status of ${title}`);
   await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), `approve ${title}`);
 }
 
@@ -721,7 +733,7 @@ export const THURSDAY = [
       await click(ctx, main(ctx).getByRole('button', { name: 'Add stakeholder', exact: true }), 'Add stakeholder');
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.getByRole('combobox', { name: 'Name', exact: true }), DEMO_DPO, 'stakeholder name');
-      await d.getByRole('combobox', { name: 'Category', exact: true }).selectOption('Customer');
+      await choose(ctx, d.getByRole('combobox', { name: 'Category', exact: true }), 'Customer', 'stakeholder category');
       // An address, so Friday's Draft message goes to the mail client instead of asking for one.
       await type(ctx, d.locator('input').nth(3), 'northwind.dpo@example.com', 'email');
       await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), 'Save stakeholder');
@@ -778,7 +790,7 @@ export const THURSDAY = [
       await nav(ctx, 'Influence / Interest');
       await caption(ctx, 'High influence, high interest: the DPO is managed closely.', 'thu-map-dpo');
       const chip = main(ctx).getByRole('button', { name: `Edit – ${DEMO_DPO}`, exact: true });
-      await moveTo(ctx, chip);
+      await moveTo(ctx, chip, DEMO_DPO);
       await chip.dragTo(main(ctx).locator('div:has(> p)', { hasText: 'Manage Closely' }).last());
       await L.settle(ctx.page);
       await pace(ctx, 2000);
@@ -788,7 +800,7 @@ export const THURSDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Steering committee');
       await caption(ctx, "Thursday's steering meeting approves the connector change and the MFA change.", 'thu-steering-approve');
-      await moveTo(ctx, main(ctx).getByRole('button', { name: 'Status report – Steering — MVP slip', exact: true }));
+      await moveTo(ctx, main(ctx).getByRole('button', { name: 'Status report – Steering — MVP slip', exact: true }), 'Status report');
       await pace(ctx, 2000);
       await approveChange(ctx, CONNECTOR);
       await approveChange(ctx, MFA_CHANGE);
@@ -847,7 +859,7 @@ export const THURSDAY = [
       await caption(ctx, 'The MVP target moves to Thursday 1 October; the customer re-demo stays on the 2nd.', 'thu-gantt-mvp');
       // Project D's milestone move, by keyboard: a week (Shift) plus six days from 18 September, then Enter.
       const marker = main(ctx).getByRole('slider', { name: /^Move milestone – MVP target/ }).first();
-      await moveTo(ctx, marker);
+      await moveTo(ctx, marker, 'MVP target');
       await marker.focus();
       await ctx.page.keyboard.press('Shift+ArrowRight');
       for (let i = 0; i < 6; i++) await ctx.page.keyboard.press('ArrowRight');
@@ -867,7 +879,7 @@ export const FRIDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Open Points');
       await caption(ctx, 'Erasure verified end to end: the CRM task is done.', 'fri-crm-done');
-      await main(ctx).getByRole('combobox', { name: `Status – ${DEMO_CRM_TASK}`, exact: true }).selectOption('Done');
+      await choose(ctx, main(ctx).getByRole('combobox', { name: `Status – ${DEMO_CRM_TASK}`, exact: true }), 'Done', `Status – ${DEMO_CRM_TASK}`);
       await L.settle(ctx.page);
       await pace(ctx, 1500);
       await caption(ctx, 'And the GDPR issue is resolved.', 'fri-gdpr-resolved');
@@ -882,7 +894,7 @@ export const FRIDAY = [
       await caption(ctx, 'Friday: the first thing to do now is to tell the DPO.', 'fri-do-first');
       const hero = main(ctx).getByRole('button', { name: `Open – Do this first – Update stakeholder: ${DEMO_DPO}`, exact: true });
       if (!(await hero.isVisible().catch(() => false))) throw new Error(`the Dashboard hero is not "Update stakeholder: ${DEMO_DPO}"`);
-      await moveTo(ctx, hero);
+      await moveTo(ctx, hero, 'Do this first');
       await pace(ctx, 3000);
     },
   }),
@@ -947,7 +959,7 @@ export const FRIDAY = [
       await click(ctx, n.getByRole('option', { name: /^Sofia Ramirez/ }).locator('button'), 'Sofia Ramirez', 500);
       await n.locator('input[type=date]').first().fill('2026-10-16');
       // The link-direction select is the dialog's last (it carries no accessible name).
-      await n.locator('select').last().selectOption({ label: 'Successor' });
+      await choose(ctx, n.locator('select').last(), { label: 'Successor' }, 'link direction');
       await click(ctx, n.getByRole('button', { name: 'Add', exact: true }), 'Add linked task', 800);
       await saveTask(ctx);
     },

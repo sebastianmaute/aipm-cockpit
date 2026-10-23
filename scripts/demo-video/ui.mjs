@@ -137,23 +137,74 @@ export async function closingBeat(ctx, beat) {
   await pace(ctx, 1500);
 }
 
-export async function moveTo(ctx, loc) {
-  await loc.scrollIntoViewIfNeeded().catch(() => {});
-  const box = await loc.boundingBox().catch(() => null);
-  if (box) {
-    await ctx.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: ctx.rehearse ? 2 : 12 });
-    await pace(ctx, 350);
-  }
-}
+/** How long a cursor move waits for its target. Short: a step that points at something not on screen
+ *  fails at once, instead of holding the frame for Playwright's 30 s default. */
+export const MOVE_TIMEOUT_MS = 5000;
+/** How long a click, a typed field or a select waits for its control to appear (a dialog opening, a list
+ *  rendering after its nav). */
+const ACTION_TIMEOUT_MS = 15000;
 
-export async function click(ctx, loc, label, after = 900) {
-  await loc.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+/** Waits up to `timeout` for `loc` to be visible, and requires it to match exactly one element. */
+async function visibleOne(loc, label, timeout) {
+  await loc.waitFor({ state: 'visible', timeout }).catch(() => {});
   if (!(await loc.isVisible().catch(() => false))) {
     // isVisible() also fails on a locator that matches several elements: say which it was.
     const n = await loc.count().catch(() => 0);
     throw new Error(n > 1 ? `ambiguous (${n} matches): ${label}` : `not visible: ${label}`);
   }
-  await moveTo(ctx, loc);
+}
+
+/** Moves the cursor onto `loc`, scrolled into view first (inside its scrolling container too, the sidebar
+ *  included). Throws when `loc` is not one visible element: an action the viewer cannot see fails the take. */
+export async function moveTo(ctx, loc, label) {
+  await visibleOne(loc, label, MOVE_TIMEOUT_MS);
+  await loc.scrollIntoViewIfNeeded({ timeout: MOVE_TIMEOUT_MS });
+  const box = await loc.boundingBox();
+  if (!box) throw new Error(`not visible: ${label}`);
+  await ctx.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: ctx.rehearse ? 2 : 12 });
+  await pace(ctx, 350);
+}
+
+/** Whether a select holds `option`, matched the way it was asked for: a string matches the value or the
+ *  label (as Playwright's selectOption does), else { label }, { value } or { index }. */
+const holds = (got, option) => (typeof option === 'string' ? got.value === option || got.label === option
+  : option.label != null ? got.label === option.label
+    : option.value != null ? got.value === option.value
+      : got.index === option.index);
+
+/** The state of a <select> element, read in the page. */
+const selectState = (s) => ({ value: s.value, label: s.selectedOptions[0]?.label ?? '', index: s.selectedIndex, connected: s.isConnected });
+
+/** Picks `option` in a native <select> where the viewer sees it: the cursor moves to the select, which takes
+ *  focus, then the option is selected (the native popup is not in the recording, so the choice shows as the
+ *  select's new value). Throws when the select is not one visible element, or does not hold the option: read
+ *  at once (a controlled select the app rejects is reset in the same event) and again once the page settled.
+ *  A select whose row goes away with the change (a reassigned task leaving a person's list) is read at once only.
+ *  `resets`: an action select that returns to its placeholder by design once picked ("Add person lane"); the
+ *  step checks what it did instead. */
+export async function choose(ctx, loc, option, label, { resets = false } = {}) {
+  await visibleOne(loc, label, ACTION_TIMEOUT_MS);
+  await moveTo(ctx, loc, label);
+  await loc.focus();
+  const select = await loc.elementHandle();
+  await loc.selectOption(option);
+  if (resets) {
+    await L.settle(ctx.page);
+    await pace(ctx, 600);
+    return;
+  }
+  const check = (got) => { if (!holds(got, option)) throw new Error(`did not take: ${label} (holds "${got.label}")`); };
+  check(await select.evaluate(selectState));
+  await L.settle(ctx.page);
+  await pace(ctx, 600);
+  const after = await select.evaluate(selectState);
+  if (after.connected) check(after);
+  else ctx.log(`choose: ${label} left the page with the change`);
+}
+
+export async function click(ctx, loc, label, after = 900) {
+  await visibleOne(loc, label, ACTION_TIMEOUT_MS);
+  await moveTo(ctx, loc, label);
   await loc.click();
   await L.settle(ctx.page);
   await pace(ctx, after);
@@ -175,7 +226,7 @@ export async function type(ctx, loc, text, label, { slow = true } = {}) {
 export async function nav(ctx, name) {
   const page = ctx.page;
   const loc = page.locator(L.NAV).filter({ hasText: new RegExp('^\\s*' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\d*\\s*$') }).first();
-  if (await loc.isVisible().catch(() => false)) await moveTo(ctx, loc);
+  if (await loc.isVisible().catch(() => false)) await moveTo(ctx, loc, `nav ${name}`);
   const title = async () => (await page.locator('header').first().innerText().catch(() => '')).split('\n')[0].trim();
   for (let attempt = 0; attempt < 3; attempt++) {
     // Matched as L.openView does (a trailing count badge dropped); serialised, so written out here.
@@ -192,6 +243,25 @@ export async function nav(ctx, name) {
     await page.waitForTimeout(2000);
   }
   throw new Error('nav did not reach ' + name);
+}
+
+/** A view's hint callout (view-callout.tsx): its text is the <p> beside the "Dismiss hint" button. */
+export const VIEW_HINT = 'main div:has(> button[aria-label="Dismiss hint"]) > p';
+const HINT_TRIES = 20;
+const HINT_POLL_MS = 250; // with HINT_TRIES, up to 5 s for the view's callout to render after its nav
+
+/** The text of the one visible hint callout of `view`. A hidden panel keeps its callout in the DOM (RAID's is
+ *  mounted on every tab, and comes first), so only a visible one counts; none or several visible throw. */
+export async function viewHint(ctx, view) {
+  let shown = [];
+  for (let i = 0; i < HINT_TRIES; i++) {
+    shown = [];
+    for (const p of await ctx.page.locator(VIEW_HINT).all()) if (await p.isVisible()) shown.push(p);
+    if (shown.length) break;
+    await ctx.page.waitForTimeout(HINT_POLL_MS);
+  }
+  if (shown.length !== 1) throw new Error(`${shown.length ? `${shown.length} visible hints` : 'no visible hint'} on ${view}`);
+  return (await shown[0].innerText()).trim().replace(/\s+/g, ' ');
 }
 
 export async function skipTour(ctx, waitMs = 0) {

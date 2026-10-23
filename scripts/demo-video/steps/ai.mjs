@@ -60,7 +60,7 @@ const chatTaskInOpenPoints = step('chat-task-in-open-points', {
   run: async (ctx) => {
     await nav(ctx, 'Open Points');
     await caption(ctx, 'The task is in Open Points, with its owner and date.', 'ai-chat-in-open-points');
-    await moveTo(ctx, main(ctx).locator('tbody tr', { hasText: CHAT_TASK }).first());
+    await moveTo(ctx, main(ctx).locator('tbody tr', { hasText: CHAT_TASK }).first(), CHAT_TASK);
     await pace(ctx, 2500);
   },
 });
@@ -106,7 +106,7 @@ const allocPlan = step('alloc-plan', {
   run: async (ctx) => {
     await resources(ctx, 'Planning');
     await caption(ctx, `${MAYA} is booked far over 100 % in September.`, 'ai-alloc-over');
-    await moveTo(ctx, main(ctx).getByRole('spinbutton', { name: `Utilization for ${MAYA} in 2026-09`, exact: true }));
+    await moveTo(ctx, main(ctx).getByRole('spinbutton', { name: `Utilization for ${MAYA} in 2026-09`, exact: true }), `${MAYA} in 2026-09`);
     await pace(ctx, 1500);
     if (await ctx.page.locator(DLG).count()) await ctx.page.keyboard.press('Escape');
     await click(ctx, main(ctx).getByRole('button', { name: 'Plan with AI', exact: true }), 'Plan with AI', 800);
@@ -244,7 +244,7 @@ const scheduledRun = step('scheduled-run', {
   run: async (ctx) => {
     await settingsTab(ctx, 'AI Assistant', 'Scheduled jobs');
     await caption(ctx, 'The morning check runs every day at 09:00.', 'ai-scheduled-daily');
-    await moveTo(ctx, main(ctx).getByRole('textbox', { name: 'Job name – Morning check', exact: true }));
+    await moveTo(ctx, main(ctx).getByRole('textbox', { name: 'Job name – Morning check', exact: true }), 'Morning check');
     await pace(ctx, 2000);
     // The app has no "run now": the runner checks every five minutes, so the clock jumps past 09:00
     // (fastForward fires each due timer once, not every tick in between).
@@ -258,7 +258,7 @@ const scheduledRun = step('scheduled-run', {
     const lastRun = main(ctx).getByText(/^Last run: /).first();
     await lastRun.waitFor({ timeout: 15000 });
     await caption(ctx, 'It ran: its suggestions are counted on the job.', 'ai-scheduled-ran');
-    await moveTo(ctx, lastRun);
+    await moveTo(ctx, lastRun, 'Last run');
     await pace(ctx, 3000);
   },
   // The row reads "Last run: <time> — N suggestions" in one element.

@@ -86,7 +86,8 @@ Everything a re-take needs is in the repository: these scripts, their fixtures a
 
 ## When a re-take breaks
 
-- **A selector no longer matches.** The UI changed. Run the video with `--rehearse`, open its `warn-<id>.png`, list the view's controls with `discover.mjs`, and fix the label in the step module (`steps/week.mjs`, `steps/ai.mjs` or `steps/features.mjs`).
+- **A selector no longer matches.** The UI changed. Run the video with `--rehearse`, open its `warn-<id>.png`, list the view's controls with `discover.mjs`, and fix the label in the step module (`steps/week.mjs`, `steps/ai.mjs` or `steps/features.mjs`). Every on-camera action fails the take rather than holding the frame: `moveTo` waits 5 s (`MOVE_TIMEOUT_MS`), `click`, `type` and `choose` 15 s, then the take ends with `not visible: <label>` or `ambiguous (N matches): <label>`. A panel kept mounted while hidden (RAID's) stays in the DOM, so a CSS selector over `main` can find its hidden rows first; a role query (`getByRole`) leaves them out.
+- **A select did not take.** A native `<select>` is picked with `choose()`, which checks the select holds the option afterwards and fails with `did not take: <label>`. A select whose row goes away with the change is checked at the pick only; an action select that resets itself (`resets: true`) is checked by its step.
 - **A nav click lands during a reload.** `nav()` tries up to three times while the page title does not change.
 - **A nav item was renamed or removed.** `nav()` waits for it, then the take fails with `nav: no item "<name>"`. A sub-view shows in the nav only while its parent is open: name the path.
 - **The demo project's tour covers the screen.** `skipTour` waits for its Skip button.
@@ -181,7 +182,7 @@ No rehearsal can show these, because a rehearsal has no audio. Check them on the
 | `ai-wait.mjs` | `waitForAi`: waits for an AI call by its UI state; `timedAiWait` notes each wait on the recording's timeline. |
 | `trim.mjs` | Cuts each AI wait in a video down to `MAX_AI_WAIT_S` with ffmpeg; `keepRanges` and `trimArgs` are pure. |
 | `setup.mjs` | Off-camera setup: `connect`, `exploreDemo`, `seedDeviceState`, `enableDigest`, `enableChat`, `goToDay`, `currentProjectId`. |
-| `ui.mjs` | The cursor and caption overlay, `caption`, `speak`, `holdVoice`, `moveTo`, `click`, `type`, `nav`, `skipTour`, `titleCard`, `closingBeat`. |
+| `ui.mjs` | The cursor and caption overlay, `caption`, `speak`, `holdVoice`, `moveTo`, `click`, `type`, `choose`, `nav`, `viewHint`, `skipTour`, `titleCard`, `closingBeat`. |
 | `narrate.mjs` | Entry: renders the narration beats of the selected videos with ElevenLabs into the cache; `--audition` renders voice samples. |
 | `narration/` | `beats.mjs` (the narration files), `tts.mjs` (voice, cache, cost cap, rendering), `mix.mjs` (the MP4 and `.srt`), and the scripts in `en/`. |
 | `lib.mjs` | `T0`, `atDay`, the `.env.local` reader, the Turso guard, `settle`, `query`. |
@@ -194,4 +195,4 @@ No rehearsal can show these, because a rehearsal has no audio. Check them on the
 | `steps/features.mjs` | The 20 feature clips and their preconditions. |
 | `fixtures/` | The device state and the re-plan spreadsheet. |
 
-Tests: `week-story.test.ts`, `cleanup.test.mjs`, `device-state.test.ts`, `cli.test.mjs`, `videos.test.mjs`, `take.test.mjs`, `replan-fixture.test.ts`.
+Tests: `week-story.test.ts`, `cleanup.test.mjs`, `device-state.test.ts`, `cli.test.mjs`, `videos.test.mjs`, `take.test.mjs`, `ui.test.mjs`, `ui-actions.test.mjs`, `replan-fixture.test.ts`.
