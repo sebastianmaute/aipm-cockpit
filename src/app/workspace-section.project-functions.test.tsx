@@ -155,20 +155,22 @@ describe("WorkspaceSection — Budget and Time bookings read the functions they 
     await screen.findByTestId(`${view}-panel`);
     return panelProps[view].at(-1)! as { features: readonly FeatureModuleId[]; onCommitFeatures: (next: FeatureModuleId[]) => void };
   }
-  /** What both panels' "Turn on" does: the shown set plus the missing function, in registry order. */
+  /** A MODEL of both panels' "Turn on" (the shown set plus the missing function, in registry order), so the
+   *  consequence of the handed list is visible here; the real buttons are tested in
+   *  `budget-setup-checklist.test.tsx` and `timelog-panel.test.tsx`. */
   const turnOn = (props: { features: readonly FeatureModuleId[]; onCommitFeatures: (next: FeatureModuleId[]) => void }, id: FeatureModuleId) => {
     const next = new Set<FeatureModuleId>([...props.features, id]);
     act(() => props.onCommitFeatures(ALL_MODULE_IDS.filter((m) => next.has(m))));
   };
 
-  it("Budget is handed the workspace's functions, so turning Resources on leaves Changes off", async () => {
+  it("Budget is handed the workspace's functions, not the settings mirror", async () => {
     const props = await handedTo("budget");
     expect(props.features).toEqual(WITHOUT_CHANGES_AND_RESOURCES);
     turnOn(props, "resources");
     expect(wsFeatures()).toEqual(ALL_MODULE_IDS.filter((id) => id !== "changes"));
   });
 
-  it("Time bookings is handed the workspace's functions, so turning Resources on leaves Changes off", async () => {
+  it("Time bookings is handed the workspace's functions, not the settings mirror", async () => {
     const props = await handedTo("timelog");
     expect(props.features).toEqual(WITHOUT_CHANGES_AND_RESOURCES);
     turnOn(props, "resources");
