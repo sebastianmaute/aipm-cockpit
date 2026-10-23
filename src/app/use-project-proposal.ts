@@ -42,7 +42,8 @@ export function useProjectProposal(ai: AiCreds) {
         const toolInput = await runForcedToolCall({
           apiKey: key,
           model: ai.model,
-          system: buildProposalSystemPrompt(),
+          // Same "today" the wizard stamps on the seed; callback context — lint-safe.
+          system: buildProposalSystemPrompt(new Date().toISOString().slice(0, 10)),
           guideText,
           tools: [PROPOSAL_TOOL],
           toolName: "propose_project",

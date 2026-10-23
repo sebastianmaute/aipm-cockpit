@@ -488,6 +488,16 @@ describe("the proposal fills every offered project field (§715)", () => {
   });
 
   it("the system prompt asks for regulatory needs only from what the brief says", () => {
-    expect(buildProposalSystemPrompt()).toContain("only from what the description says");
+    expect(buildProposalSystemPrompt("2026-10-23")).toContain("only from what the description says");
+  });
+
+  // Without today's date the model resolved "March to February" against its
+  // training year and proposed a project that had already ended (2025-03-01 →
+  // 2026-02-28, asked on 2026-10-23, live call against claude-sonnet-5).
+  it("the system prompt states today's date and asks for open ranges to start in the future", () => {
+    const prompt = buildProposalSystemPrompt("2026-10-23");
+    expect(prompt).toContain("Today is 2026-10-23.");
+    expect(prompt).toContain("next occurrence on or after today");
+    expect(buildProposalSystemPrompt("2027-01-05")).toContain("Today is 2027-01-05.");
   });
 });

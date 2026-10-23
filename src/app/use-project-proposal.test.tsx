@@ -73,6 +73,21 @@ describe("useProjectProposal", () => {
     await act(async () => { await result.current.generate("hi", ctrl.signal); });
     expect(result.current.error).toBeNull();
   });
+
+  it("tells the model today's date at the moment of the call", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-23T12:00:00Z"));
+      const fetchMock = mockFetchToolUse({ meta: { name: "P" }, features: [] });
+      const { result } = renderHook(() => useProjectProposal(ai));
+      await act(async () => { await result.current.generate("March to February"); });
+      const raw = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string).system as string | { text: string }[];
+      const system = typeof raw === "string" ? raw : raw.map((b) => b.text).join("\n");
+      expect(system).toContain("Today is 2026-10-23.");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 // §701 — the wizard's proposal call reads the guides that target it from the
