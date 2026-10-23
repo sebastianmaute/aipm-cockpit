@@ -53,24 +53,26 @@ describe('trimAndMix (§715)', () => {
     beats: [{ id: 'a', at: 2, duration: 1 }, { id: 'b', at: 18, duration: 2 }], narration, ...extra,
   });
   /** A trim that keeps `ranges` and records what it was given; a mix that records its call. */
-  function fakes({ ranges = [[0, 6.5], [16, 30]], capped = 1, mixWarning = false, trimThrows = false } = {}) {
+  function fakes({ ranges = [[0, 6.5], [16, 30]], capped = 1, mixWarning = false, trimThrows = false, length = 12 } = {}) {
     const calls = [];
     const lines = [];
     const trim = (file, waits, outRoot, opts) => {
-      calls.push({ trim: { file, waits, outRoot, protect: opts.protect } });
+      calls.push({ trim: { file, waits, outRoot, protect: opts.protect, end: opts.end, cuts: opts.cuts } });
       if (trimThrows) throw new Error('ffmpeg broke');
       return { ranges, capped, cut: 9.5 };
     };
-    const mix = (file, mapped, n, d, opts) => { calls.push({ mix: { file, mapped, n, d, opts } }); return { warning: mixWarning }; };
-    return { calls, lines, deps: { lang: 'de', outRoot: 'OUT', log: (...p) => lines.push(p.join(' ')), trim, mix } };
+    const mix = (file, mapped, n, d, opts) => { calls.push({ mix: { file, mapped, n, d, opts } }); return mixWarning ? { warning: true } : { warning: false, mp4: 'v.mp4' }; };
+    // The finished MP4's length, as ffprobe would read it.
+    const probe = (file) => { calls.push({ probe: file }); return length; };
+    return { calls, lines, deps: { lang: 'de', outRoot: 'OUT', log: (...p) => lines.push(p.join(' ')), trim, mix, probe } };
   }
 
   it('trims around the beats, maps each beat through the kept ranges, then mixes in the take language', () => {
     const f = fakes();
     const r = trimAndMix(def, take(), f.deps);
     expect(r.warnings).toBe(0);
-    expect(f.calls.map((c) => Object.keys(c)[0])).toEqual(['trim', 'mix']);
-    expect(f.calls[0].trim).toEqual({ file: 'v.webm', waits: [{ start: 5, end: 20 }], outRoot: 'OUT', protect: [[2, 3], [18, 20]] });
+    expect(f.calls.map((c) => Object.keys(c)[0])).toEqual(['trim', 'mix', 'probe']);
+    expect(f.calls[0].trim).toEqual({ file: 'v.webm', waits: [{ start: 5, end: 20 }], outRoot: 'OUT', protect: [[2, 3], [18, 20]], end: undefined, cuts: undefined });
     const { mapped, n, d, opts } = f.calls[1].mix;
     // b at 18 s lies 2 s into the second range, which starts after 6.5 s kept.
     expect(mapped).toEqual([{ id: 'a', at: 2, duration: 1 }, { id: 'b', at: 8.5, duration: 2 }]);
@@ -80,6 +82,31 @@ describe('trimAndMix (§715)', () => {
     expect(opts.duration).toBe(6.5 + 14);
     expect(opts.log).toBe(f.deps.log);
     expect(f.lines).toEqual(['[v] TRIM 1 AI wait(s) capped at 3 s, 9.5 s cut']);
+  });
+
+  it("passes the take's end and its off-camera cuts to the trim, so the recorder's padded tail is cut (§715)", () => {
+    const f = fakes();
+    trimAndMix(def, take({ endAt: 24.4, cuts: [{ start: 3.5, end: 4.5 }] }), f.deps);
+    expect(f.calls[0].trim.end).toBe(24.4);
+    expect(f.calls[0].trim.cuts).toEqual([{ start: 3.5, end: 4.5 }]);
+  });
+
+  it('after the mix, the render check logs each finding as a RENDER line and counts it a warning (§715)', () => {
+    const f = fakes({ ranges: [[0, 30]], length: 30, capped: 0 });
+    const r = trimAndMix(def, take({ aiWaits: [], warnings: 1 }), f.deps);
+    expect(f.lines).toEqual([
+      '[v] RENDER gap 15.0 s at 0:03.0 (after a)',
+      '[v] RENDER tail 10.0 s after the last voice (video 30.0 s)',
+    ]);
+    expect(r.warnings).toBe(3);
+  });
+
+  it('the check maps the AI waits and the captions through the kept ranges (§715)', () => {
+    const f = fakes({ ranges: [[0, 30]], length: 21.9 });
+    const r = trimAndMix(def, take({ captions: [{ id: 'b', at: 16.5 }] }), f.deps);
+    // The 15 s silence between a and b overlaps the AI wait (5 s to 20 s): not a stall. The caption came 1.5 s early.
+    expect(f.lines.filter((l) => l.includes('RENDER'))).toEqual(['[v] RENDER desync b: voice 1.5 s after its caption at 0:16.5']);
+    expect(r.warnings).toBe(1);
   });
 
   it('a failed trim keeps the take, counts a warning and mixes nothing', () => {
