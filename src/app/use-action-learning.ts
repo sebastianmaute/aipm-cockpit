@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildBiasMap,
+  normalizeLearningSnapshot,
   recordOutcome,
   type LearningOverride,
   type LearningOverrides,
@@ -11,6 +12,7 @@ import {
 } from "./action-learning";
 import { EMPTY_SNAPSHOT, pickLearningStore, type LearningSnapshot } from "./learning-store";
 import type { SuggestedAction } from "./next-actions/types";
+import { learningKindOf } from "./next-actions/learning-kind";
 import type { NextActionsLearningConfig } from "./settings-types";
 import type { TursoConfig } from "./turso-config";
 
@@ -28,8 +30,6 @@ interface UseActionLearningResult {
   setOverride(kind: string, override: LearningOverride): Promise<void>;
   reset(): Promise<void>;
 }
-
-const kindOf = (a: SuggestedAction): string => `${a.source}:${a.why.key}`;
 
 /**
  * Capture hook for the Action Center learning layer. Loads a learning snapshot
@@ -73,7 +73,9 @@ export function useActionLearning({
       .load()
       .then((s) => {
         if (live && !dirtyRef.current) {
-          setSnap(s);
+          // §778 — rows and overrides stored under a count-variant kind merge
+          // into the canonical one here; the next save writes them merged.
+          setSnap(normalizeLearningSnapshot(s));
           setNowTick(Date.now());
         }
       })
@@ -114,7 +116,7 @@ export function useActionLearning({
       if (action.source === "forecast-sim") return;
       persist({
         ...snapRef.current,
-        state: recordOutcome(snapRef.current.state, kindOf(action), type, Date.now()),
+        state: recordOutcome(snapRef.current.state, learningKindOf(action), type, Date.now()),
       });
     },
     [persist],

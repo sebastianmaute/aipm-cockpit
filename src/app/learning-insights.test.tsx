@@ -7,6 +7,8 @@ import { expectRowUniqueNames } from "../test/row-unique-names";
 import { buttonClassFor } from "../test/button-variant";
 import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
 import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { normalizeLearningSnapshot } from "./action-learning";
+import { canonicalLearningKind } from "./next-actions/learning-kind";
 
 beforeAll(async () => {
   await loadI18n("de");
@@ -112,6 +114,23 @@ describe("LearningInsights", () => {
     expect(screen.getByText("someRetiredWhy")).toBeTruthy();
   });
 
+  // §778 — one reason, one row: a stored singular-count row ("…One") merges into
+  // its plural sibling when the snapshot is read (useActionLearning's load), so
+  // the view the hook feeds shows one row and one override for both.
+  it("shows one row for a reason stored under its singular and plural kinds", () => {
+    const snap = normalizeLearningSnapshot({
+      state: {
+        "task-due:actionTaskWhySoonOne": stats(2),
+        "task-due:actionTaskWhySoon": stats(1),
+      },
+      overrides: {},
+    });
+    const { container } = render(<LearningInsights {...baseProps()} state={snap.state} now={0} />);
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(screen.getByText("Due soon")).toBeTruthy();
+    expect(screen.getByText("3")).toBeTruthy(); // 2 + 1 acted
+  });
+
   // §777 — the view is a standard pane: the resizable card, an inner scroll
   // region for the table (so the page itself never scrolls), the shared heading
   // colours, and ONE toolbar row: Back leads, the bulk reset precedes the
@@ -182,9 +201,11 @@ describe("learningKindLabel", () => {
       });
       expect(bad).toEqual([]);
     });
-    it(`gives every why key a distinct reason (${lang})`, () => {
+    // §778: over CANONICAL keys — a singular-count key ("…One") is the same
+    // learning kind as its plural sibling, so it shares that reason by design.
+    it(`gives every canonical why key a distinct reason (${lang})`, () => {
       const seen = new Map<string, string[]>();
-      for (const k of whyKeys) {
+      for (const k of whyKeys.filter((w) => canonicalLearningKind(`raid:${w}`) === `raid:${w}`)) {
         const { reason } = learningKindLabel(lang, `raid:${k}`);
         seen.set(reason, [...(seen.get(reason) ?? []), k]);
       }
@@ -199,6 +220,12 @@ describe("learningKindLabel", () => {
       reason: "Blocked",
     });
     expect(learningKindLabel("en-US", "mystery:x").source).toBe("mystery");
+  });
+
+  it("labels a singular-count kind as its plural sibling (§778)", () => {
+    expect(learningKindLabel("en-US", "committee:actionCommitteeInfoWhyOne")).toEqual(
+      learningKindLabel("en-US", "committee:actionCommitteeInfoWhy"),
+    );
   });
 
   it("does not treat an Object.prototype name as a why key", () => {

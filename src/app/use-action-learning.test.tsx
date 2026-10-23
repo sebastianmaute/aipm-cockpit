@@ -120,3 +120,38 @@ describe("useActionLearning", () => {
     expect(counts[2]).toBeCloseTo(result.current.state["raid:wk"].dismissed, 5);
   });
 });
+
+// §778 — one signal, one learning kind: a singular-count why key ("…One") is
+// learned under its plural sibling, and rows or overrides already stored under
+// the singular kind merge into it on load (and are written back merged).
+describe("useActionLearning — count-variant why keys (§778)", () => {
+  const ONE = "task-due:actionTaskWhySoonOne";
+  const MANY = "task-due:actionTaskWhySoon";
+
+  it("records a singular-count action under the plural kind", async () => {
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    await act(async () => { await result.current.record(action("task-due", "actionTaskWhySoonOne"), "acted"); });
+    await waitFor(() => expect(Object.keys(result.current.state)).toEqual([MANY]));
+  });
+
+  it("merges stored singular rows and overrides on load, and saves them merged", async () => {
+    localStorage.setItem("aipm-cockpit:action-learning", JSON.stringify({
+      state: {
+        [ONE]: { acted: 2, snoozed: 0, dismissed: 0, lastAt: 1000 },
+        [MANY]: { acted: 1, snoozed: 0, dismissed: 1, lastAt: 1000 },
+      },
+      overrides: { [ONE]: "suppress" },
+    }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    await waitFor(() => expect(result.current.state).toEqual({ [MANY]: { acted: 3, snoozed: 0, dismissed: 1, lastAt: 1000 } }));
+    expect(result.current.overrides).toEqual({ [MANY]: "suppress" });
+    expect(result.current.bias[MANY]).toBeLessThan(0);
+    // The next write stores the merged snapshot; the singular row is gone.
+    await act(async () => { await result.current.record(action("raid", "wk"), "acted"); });
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem("aipm-cockpit:action-learning") ?? "{}");
+      expect(Object.keys(stored.state).sort()).toEqual([MANY, "raid:wk"].sort());
+      expect(stored.overrides).toEqual({ [MANY]: "suppress" });
+    });
+  });
+});

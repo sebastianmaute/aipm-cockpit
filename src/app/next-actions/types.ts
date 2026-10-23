@@ -84,7 +84,7 @@ export interface ActionInput {
   clarityBonus?: number;
   semiClarityBonus?: number;
   staticPenalty?: number;
-  /** Learned per-kind bias (`${source}:${why.key}` -> points). Off when undefined. */
+  /** Learned per-kind bias (learning kind, `learningKindOf` in ./learning-kind -> points). Off when undefined. */
   learnedBias?: Record<string, number>;
   dismissed: ReadonlySet<string>;     // snoozed/dismissed action ids (injected; SP3 wires the store)
   /** Current project's id + metadata, feeding the `project-meta` provider.

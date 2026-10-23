@@ -3957,7 +3957,6 @@ const enUS = {
   learningReasonBudgetImproving: "Over budget but improving",
   learningReasonComms: "Stakeholder update due",
   learningReasonCommitteeInfo: "Information due",
-  learningReasonCommitteeInfoOne: "Information due in 1 day",
   calendarPush: "Push to Outlook",
   calendarPushing: "Pushing…",
   calendarPushResult: "Outlook calendar updated: {0} created, {1} updated, {2} removed.",

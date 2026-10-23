@@ -10,6 +10,7 @@
 import { en, t, type Lang, type TranslationKey } from "./i18n";
 import { ACTION_SOURCE_LABEL } from "./action-source-label";
 import type { ActionSource } from "./next-actions/types";
+import { canonicalLearningKind } from "./next-actions/learning-kind";
 
 /** A why key whose text takes parameters → its param-free reason label.
  *  ★ Covered by the "every why key" tests in `learning-insights.test.tsx`, which
@@ -38,7 +39,6 @@ const REASON_LABEL_KEY: Partial<Record<TranslationKey, TranslationKey>> = {
   actionBudgetWhyImproving: "learningReasonBudgetImproving",
   actionCommsWhy: "learningReasonComms",
   actionCommitteeInfoWhy: "learningReasonCommitteeInfo",
-  actionCommitteeInfoWhyOne: "learningReasonCommitteeInfoOne",
 };
 
 const PLACEHOLDER = /\{\d+\}/;
@@ -59,10 +59,13 @@ function reasonLabel(lang: Lang, whyKey: string): string {
   return whyKey;
 }
 
-/** The translated source and reason of one learning `kind`. Distinct kinds
- *  of one source get distinct reasons (pinned in `learning-insights.test.tsx`),
+/** The translated source and reason of one learning `kind`. Distinct canonical
+ *  kinds of one source get distinct reasons (pinned in `learning-insights.test.tsx`),
  *  which is what keeps the view's per-row control names unique (§248). */
-export function learningKindLabel(lang: Lang, kind: string): { source: string; reason: string } {
+export function learningKindLabel(lang: Lang, rawKind: string): { source: string; reason: string } {
+  // §778 — a count-variant kind ("…One") is its plural sibling's kind, so it
+  // takes that reason too; no singular label is needed.
+  const kind = canonicalLearningKind(rawKind);
   const sep = kind.indexOf(":");
   const source = sep < 0 ? kind : kind.slice(0, sep);
   const whyKey = sep < 0 ? "" : kind.slice(sep + 1);

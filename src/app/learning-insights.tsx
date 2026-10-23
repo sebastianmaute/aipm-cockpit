@@ -146,8 +146,8 @@ export function LearningInsights({
                         // dep-blocked), so those rows would share one name.
                         // The translated REASON restores uniqueness (§777 —
                         // it replaced the raw `kind` this name used to
-                        // carry): `learningKindLabel` gives distinct why keys
-                        // distinct reasons, pinned by the "every why key"
+                        // carry): `learningKindLabel` gives distinct learning
+                        // kinds distinct reasons, pinned by the "every why key"
                         // tests beside this file.
                         aria-label={rowLabel(t(lang, "learningColOverride"), `${label.source}: ${label.reason}`)}
                         size="xs"

@@ -95,3 +95,21 @@ describe("learnedBias in the engine", () => {
     expect(out[0].learning).toBeUndefined();
   });
 });
+
+// §778 — learned bias and overrides are keyed by the LEARNING kind, which merges
+// a count-variant why key ("…One") into its plural sibling. "Always suppress" on
+// "Task — Due soon" used to let a task due in exactly 1 working day through.
+describe("learning kind in the engine (§778)", () => {
+  function stubAction(id: string, whyKey: string, score: number): SuggestedAction {
+    return { id, source: "task-due", title: { key: "x" as never }, why: { key: whyKey as never }, score, tier: "monitor", cta: { kind: "snooze", actionId: id } };
+  }
+  const inp = (learnedBias: Record<string, number>): ActionInput =>
+    ({ ...baseInput, features: [], learnedBias } as ActionInput);
+
+  it("applies a bias learned on the plural kind to the singular-count action", () => {
+    const out = computeNextActions(inp({ "task-due:actionTaskWhySoon": -20 }), [
+      provider([stubAction("task-due:1:soon", "actionTaskWhySoonOne", 40), stubAction("task-due:2:soon", "actionTaskWhySoon", 41)]),
+    ]);
+    expect(out.map((a) => a.score)).toEqual([21, 20]);
+  });
+});

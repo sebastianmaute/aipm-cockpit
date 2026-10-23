@@ -3889,7 +3889,6 @@ export const de: Record<TranslationKey, string> = {
   learningReasonBudgetImproving: "Über Budget, Tendenz besser",
   learningReasonComms: "Stakeholder-Update fällig",
   learningReasonCommitteeInfo: "Information fällig",
-  learningReasonCommitteeInfoOne: "Information in 1 Tag fällig",
   calendarPush: "An Outlook senden",
   calendarPushing: "Wird gesendet…",
   calendarPushResult:
