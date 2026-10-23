@@ -35,8 +35,10 @@ import { PROJECT_SCOPED_SIDE_TABLES, projectSideTableSweepStatements } from "./p
 
 const CONFIG = { httpUrl: "https://x", authToken: "t" } as never;
 const data = (summary = "s"): ReportData => ({ jobName: "J", projectName: "P", summary, actions: [] });
+const NO_PERIOD_LIMIT = "~"; // sorts after every slot text, so the NOT EXISTS never finds a row
 const row = (id: string, jobKey: string, slot: string, projectId = "p1") =>
-  ({ id, projectId, jobKey, slot, claimedBy: "dev", data: data() });
+  // `periodStart` far in the future = "no period limit" for the tests that are about something else.
+  ({ id, projectId, jobKey, slot, periodStart: NO_PERIOD_LIMIT, claimedBy: "dev", data: data() });
 const count = (where = "1=1"): number =>
   Number((db.prepare(`SELECT COUNT(*) AS n FROM scheduled_reports WHERE ${where}`).get() as { n: number | bigint }).n);
 
@@ -341,5 +343,47 @@ describe("the project filter does not depend on the newest rows (§772 cr4)", ()
     await listReports(CONFIG);
     db.prepare("INSERT INTO scheduled_reports (id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data) VALUES ('z', 'pz', 'jz', '2026-01-01', 'done', 1, '2026-01-01', 'dev', '{}')").run();
     expect(await listReportProjects(CONFIG)).toEqual([{ id: "pz", name: "" }]);
+  });
+});
+
+describe("the period limit is atomic in the claim (§772 cr4 re-review)", () => {
+  const S1 = "2026-10-23T07:00:00.000Z";
+  const S2 = "2026-10-23T08:00:00.000Z";
+  const DAY = "2026-10-22T22:00:00.000Z"; // Berlin's local day began here
+  const claim = (id: string, slot: string, periodStart: string, jobKey = "k") => claimReport(CONFIG, { ...row(id, jobKey, slot), periodStart });
+
+  // KILLED BY: dropping the NOT EXISTS (the second slot of the day would win too).
+  it("of two claims for different slots in one period, exactly one wins", async () => {
+    expect(await claim("a", S1, DAY)).toBe(true);
+    expect(await claim("b", S2, DAY)).toBe(false);
+    expect(count()).toBe(1);
+    expect(await claim("c", "2026-10-23T05:00:00.000Z", DAY)).toBe(false); // an EARLIER slot of the period loses as well
+  });
+
+  it("a slot of the next period wins, and so does another job's slot in the same period", async () => {
+    await claim("a", S1, DAY);
+    expect(await claim("n", "2026-10-24T07:00:00.000Z", "2026-10-23T22:00:00.000Z")).toBe(true);
+    expect(await claim("o", S1, DAY, "other")).toBe(true);
+  });
+
+  it("the exact slot is still guarded by the unique index", async () => {
+    expect(await claim("a", S1, "2026-10-23T00:00:00.000Z")).toBe(true);
+    expect(await claim("b", S1, "2026-10-23T00:00:00.000Z")).toBe(false);
+  });
+
+  // KILLED BY: a statement that is not one (two tabs could both pass a separate check before either inserts).
+  it("is one statement", async () => {
+    await claim("a", S1, DAY);
+    const claimSends = sent.filter((s) => s.some((x) => /INSERT INTO scheduled_reports/.test(x.sql)));
+    expect(claimSends.every((s) => s.length === 1)).toBe(true);
+    expect(claimSends[0][0].sql).toMatch(/WHERE NOT EXISTS[\s\S]*ON CONFLICT/);
+  });
+
+  it("a malformed row does not fail the project filter", async () => {
+    await listReports(CONFIG);
+    db.prepare("INSERT INTO scheduled_reports (id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data) VALUES ('bad', 'pb', 'jb', '2026-02-01', 'done', 1, '2026-02-01', 'dev', '{not json')").run();
+    db.prepare("INSERT INTO scheduled_reports (id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data) VALUES ('ok', 'pg', 'jg', '2026-01-01', 'done', 1, '2026-01-01', 'dev', ?)").run(JSON.stringify({ projectName: "Good" }));
+    const projects = await listReportProjects(CONFIG);
+    expect(projects).toEqual([{ id: "pb", name: "" }, { id: "pg", name: "Good" }]);
   });
 });

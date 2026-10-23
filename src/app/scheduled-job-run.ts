@@ -101,7 +101,7 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   const archivedHit = activeHit ? undefined : archived.find((p) => p.id === projectId);
   if (!activeHit && !archivedHit) {
     await settle(deps.clearProject(job.id, jobKey));
-    await settle(deps.recordRun(job.id, failedRun(deps.now(), "project-missing"), jobKey));
+    await settle(deps.recordRun(job.id, failedRun(deps.now(), "project-missing", slotIso), jobKey));
     return "project-missing";
   }
   const projectName = (activeHit ?? archivedHit)?.name ?? "";
@@ -116,7 +116,7 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
     actions: [],
   };
   const won = await claimReport(config, {
-    id: reportId, projectId, jobKey, slot: slotIso, claimedBy: deps.deviceLabel, data: base,
+    id: reportId, projectId, jobKey, slot: slotIso, periodStart, claimedBy: deps.deviceLabel, data: base,
   });
   if (!won) return "claimed-elsewhere";
 
@@ -132,7 +132,7 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   if (!after.active.some((p) => p.id === projectId) && !after.archived.some((p) => p.id === projectId)) {
     await settle(releaseClaim(config, reportId));
     await settle(deps.clearProject(job.id, jobKey));
-    await settle(deps.recordRun(job.id, failedRun(deps.now(), "project-missing"), jobKey));
+    await settle(deps.recordRun(job.id, failedRun(deps.now(), "project-missing", slotIso), jobKey));
     return "project-missing";
   }
 
@@ -143,7 +143,7 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
       await finishReport(config, reportId, jobKey, false, { ...base, error: "project-archived" });
     } catch { /* the row stays `running` and is shown as interrupted */ }
     await settle(deps.disableJob(job.id, jobKey));
-    await settle(deps.recordRun(job.id, failedRun(deps.now(), "project-archived"), jobKey));
+    await settle(deps.recordRun(job.id, failedRun(deps.now(), "project-archived", slotIso), jobKey));
     return "project-archived";
   }
 
@@ -157,7 +157,7 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
       await settle(releaseClaim(config, reportId));
       return "transient";
     }
-    return failRun(job, reportId, jobKey, base, toErrorToken(e), deps);
+    return failRun(job, reportId, jobKey, base, toErrorToken(e), deps, slotIso);
   }
 
   // The load took seconds: re-read the live state once more before the billed call. A job switched off, deleted or
@@ -187,7 +187,7 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
       return grounded ? { ...rest, entity: { view: grounded.view, id: String(grounded.id) } } : rest;
     });
   } catch (e) {
-    return failRun(job, reportId, jobKey, reportBase, toErrorToken(e), deps);
+    return failRun(job, reportId, jobKey, reportBase, toErrorToken(e), deps, slotIso);
   }
 
   // 7. Finish. If this throws the row may or may not have committed, so there is NO second finish here
@@ -200,24 +200,24 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
 
   // 8. Record and notify — after the finish, outside its try, so neither can rewrite the stored report.
   await settle(deps.recordRun(job.id, {
-    ranAt: deps.now().toISOString(), summary: analysis.summary, actionCount: actions.length, ok: true,
+    ranAt: deps.now().toISOString(), summary: analysis.summary, actionCount: actions.length, ok: true, slot: slotIso,
   }, jobKey));
   try { deps.notify(job.name, `${projectName}: ${analysis.summary}`); } catch { /* best-effort */ }
   return "done";
 }
 
 async function failRun(
-  job: ScheduledJob, reportId: string, jobKey: string, base: ReportData, token: ReportErrorToken, deps: RunDeps,
+  job: ScheduledJob, reportId: string, jobKey: string, base: ReportData, token: ReportErrorToken, deps: RunDeps, slotIso: string,
 ): Promise<RunOutcome> {
   try {
     await finishReport(deps.config, reportId, jobKey, false, { ...base, error: token });
   } catch {
     return "failed"; // the row stays `running` and is shown as interrupted; nothing more to do
   }
-  await settle(deps.recordRun(job.id, failedRun(deps.now(), token), jobKey));
+  await settle(deps.recordRun(job.id, failedRun(deps.now(), token, slotIso), jobKey));
   return "failed";
 }
 
-function failedRun(at: Date, error: ReportErrorToken): ScheduledJobRun {
-  return { ranAt: at.toISOString(), summary: "", actionCount: 0, ok: false, error };
+function failedRun(at: Date, error: ReportErrorToken, slotIso: string): ScheduledJobRun {
+  return { ranAt: at.toISOString(), summary: "", actionCount: 0, ok: false, error, slot: slotIso };
 }

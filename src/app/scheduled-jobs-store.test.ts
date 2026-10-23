@@ -124,3 +124,15 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
     expect(only.foreign?.raw).toEqual(stored);
   });
 });
+
+describe("scheduled-jobs-store: the slot of a run record (§772 cr4 re-review)", () => {
+  beforeEach(() => localStorage.clear());
+
+  // KILLED BY: dropping slot in sanitizeRun.
+  it("keeps a run's slot, and drops one that is not a non-empty string", async () => {
+    const run = (extra: Record<string, unknown>) => ({ ranAt: "2026-10-23T09:00:00.000Z", summary: "s", actionCount: 1, ok: true, ...extra });
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([{ ...job, history: [run({ slot: "2026-10-23T08:58:00.000Z" }), run({ slot: 5 }), run({ slot: "" }), run({})] }]));
+    const [loaded] = await loadScheduledJobs(null);
+    expect(loaded.history.map((h) => h.slot)).toEqual(["2026-10-23T08:58:00.000Z", undefined, undefined, undefined]);
+  });
+});

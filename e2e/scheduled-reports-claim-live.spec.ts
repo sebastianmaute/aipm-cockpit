@@ -35,15 +35,21 @@ test.describe("§772 — two devices claiming one slot", () => {
   });
 
   test("exactly one of two concurrent claims wins", async () => {
-    const slot = "2026-01-01T00:00:00.000Z";
+    const periodStart = "2026-01-01T00:00:00.000Z"; // the start of the probe job's cadence period
+    const slot = "2026-01-01T09:00:00.000Z";
     const wins = await Promise.all(ids.map((id, i) =>
-      claimReport(CONFIG, { id, projectId: "probe", jobKey: JOB_KEY, slot, claimedBy: `dev-${i}`, data: DATA })));
+      claimReport(CONFIG, { id, projectId: "probe", jobKey: JOB_KEY, slot, periodStart, claimedBy: `dev-${i}`, data: DATA })));
     expect(wins.filter(Boolean)).toHaveLength(1);
     // The `true` must come from the insert that STORED the row: exactly one row exists for the slot, and its id is
     // the winner's.
     const winnerId = ids[wins.indexOf(true)];
     const [stored] = await runTursoPipeline(CONFIG, [{ sql: `SELECT id FROM scheduled_reports WHERE job_key = ? AND slot = ?`, args: [txt(JOB_KEY), txt(slot)] }]);
     expect(rowObjects(stored).map((r) => r.id)).toEqual([winnerId]);
+    // The period limit lives in the same statement: another slot of the SAME period loses, the next period's wins.
+    const sameDay = await claimReport(CONFIG, { id: `probe-c-${SUFFIX}`, projectId: "probe", jobKey: JOB_KEY, slot: "2026-01-01T10:00:00.000Z", periodStart, claimedBy: "dev-c", data: DATA });
+    expect(sameDay).toBe(false);
+    const nextDay = await claimReport(CONFIG, { id: `probe-d-${SUFFIX}`, projectId: "probe", jobKey: JOB_KEY, slot: "2026-01-02T09:00:00.000Z", periodStart: "2026-01-02T00:00:00.000Z", claimedBy: "dev-d", data: DATA });
+    expect(nextDay).toBe(true);
   });
 });
 

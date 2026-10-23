@@ -182,6 +182,8 @@ describe("runScheduledJob: at most one run per day or week (owner decision)", ()
     ["New York spring-forward day (23 h)", "America/New_York", "2026-03-08T13:00:00.000Z", "2026-03-08T04:30:00.000Z", "2026-03-08T05:30:00.000Z"],
     ["Berlin fall-back day (25 h)", "Europe/Berlin", "2026-10-25T08:00:00.000Z", "2026-10-24T21:30:00.000Z", "2026-10-24T22:30:00.000Z"],
     ["New York fall-back day (25 h)", "America/New_York", "2026-11-01T14:00:00.000Z", "2026-11-01T03:30:00.000Z", "2026-11-01T04:30:00.000Z"],
+    ["Santiago, the day its midnight does not exist", "America/Santiago", "2026-09-06T12:00:00.000Z", "2026-09-06T03:30:00.000Z", "2026-09-06T04:30:00.000Z"],
+    ["Havana, the day its midnight does not exist", "America/Havana", "2026-03-08T13:00:00.000Z", "2026-03-08T04:30:00.000Z", "2026-03-08T05:30:00.000Z"],
   ])("on %s a report just before local midnight does not block, one just after does", async (_n, tz, slotAt, before, after) => {
     const daily = job({ cadence: { kind: "daily", timeOfDay: "09:00" }, timeZone: tz });
     reportAt(before);
@@ -446,5 +448,47 @@ describe("runScheduledJob: a Turso server blip is transient, by status (§772 cr
 
   it("maps the typed HTTP error to the turso token", () => {
     expect(toErrorToken(new TursoHttpError(503))).toBe("turso");
+  });
+});
+
+describe("runScheduledJob: every run record carries the slot it ran for (§772 cr4 re-review)", () => {
+  const slotIso = SLOT.toISOString();
+
+  // KILLED BY: leaving the slot off a record (the period guard would have to judge by the end time again).
+  it("the success record", async () => {
+    const d = deps();
+    await runScheduledJob(job(), SLOT, d);
+    expect(d.recordRun).toHaveBeenCalledWith(7, expect.objectContaining({ ok: true, slot: slotIso }), "job-key-1");
+  });
+
+  it("a failed record", async () => {
+    const d = deps({ analyse: vi.fn().mockRejectedValue(new Error("parse")) });
+    await runScheduledJob(job(), SLOT, d);
+    expect(d.recordRun).toHaveBeenCalledWith(7, expect.objectContaining({ ok: false, slot: slotIso }), "job-key-1");
+  });
+
+  it("a project-missing record, before and after the claim", async () => {
+    const before = deps({ listProjects: vi.fn().mockResolvedValue({ active: [], archived: [] }) });
+    await runScheduledJob(job(), SLOT, before);
+    expect(before.recordRun).toHaveBeenCalledWith(7, expect.objectContaining({ error: "project-missing", slot: slotIso }), "job-key-1");
+    const after = deps({
+      listProjects: vi.fn()
+        .mockResolvedValueOnce({ active: [{ id: "p1", name: "Apollo" }], archived: [] })
+        .mockResolvedValueOnce({ active: [], archived: [] }),
+    });
+    await runScheduledJob(job(), SLOT, after);
+    expect(after.recordRun).toHaveBeenCalledWith(7, expect.objectContaining({ error: "project-missing", slot: slotIso }), "job-key-1");
+  });
+
+  it("a project-archived record", async () => {
+    const d = deps({ listProjects: vi.fn().mockResolvedValue({ active: [], archived: [{ id: "p1", name: "Apollo" }] }) });
+    await runScheduledJob(job(), SLOT, d);
+    expect(d.recordRun).toHaveBeenCalledWith(7, expect.objectContaining({ error: "project-archived", slot: slotIso }), "job-key-1");
+  });
+
+  // KILLED BY: not passing the period start to the claim.
+  it("the claim is given the period start", async () => {
+    await runScheduledJob(job(), SLOT, deps());
+    expect(mClaim.mock.calls[0][1]).toMatchObject({ slot: slotIso, periodStart: "2026-10-22T22:00:00.000Z" });
   });
 });

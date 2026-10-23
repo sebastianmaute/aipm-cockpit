@@ -69,8 +69,15 @@ function dueJobs(jobs: readonly ScheduledJob[], at: Date): DueJob[] {
     // SECONDARY guard, skip-only: a job that already ran in this cadence period (a legacy job that ran today under a pre-§772
     // runner, then got its project, or a record the report table does not know about) is not run again. The report
     // table stays the primary guard. A `project-missing` record wrote no report: it never means the slot ran.
-    const lastRun = job.lastRunAt === null || job.history[0]?.error === "project-missing" ? Number.NaN : Date.parse(job.lastRunAt);
-    return Number.isFinite(lastRun) && lastRun >= (periodStartFor(job, slot) ?? slot).getTime() ? [] : [{ job, slot }];
+    // It judges by the SLOT the newest run was for (`run.slot`), never by when it ended: a run that finishes after local
+    // midnight would otherwise land in the NEXT period and skip it. A record from an older version has no slot, and
+    // keeps the old comparison: its `lastRunAt` against the current slot instant.
+    const newest = job.history[0];
+    if (newest?.error === "project-missing") return [{ job, slot }];
+    const spent = newest?.slot !== undefined
+      ? Date.parse(newest.slot) >= (periodStartFor(job, slot) ?? slot).getTime()
+      : job.lastRunAt !== null && Date.parse(job.lastRunAt) >= slot.getTime();
+    return spent ? [] : [{ job, slot }];
   });
 }
 

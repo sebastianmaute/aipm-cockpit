@@ -118,6 +118,9 @@ describe("periodStartFor: where the cadence period begins, in the job's current 
     ["the day after Berlin's fall-back", "Europe/Berlin", "2026-10-26T08:00:00Z", "2026-10-25T23:00:00.000Z"],
     ["New York spring-forward day (23 h)", "America/New_York", "2026-03-08T13:00:00Z", "2026-03-08T05:00:00.000Z"],
     ["New York fall-back day (25 h)", "America/New_York", "2026-11-01T14:00:00Z", "2026-11-01T04:00:00.000Z"],
+    // The clocks jump at midnight, so local midnight does not exist: the day starts at the first valid instant (01:00).
+    ["Santiago, the day its midnight does not exist", "America/Santiago", "2026-09-06T12:00:00Z", "2026-09-06T04:00:00.000Z"],
+    ["Havana, the day its midnight does not exist", "America/Havana", "2026-03-08T13:00:00Z", "2026-03-08T05:00:00.000Z"],
   ])("daily on %s", (_n, tz, at, start) => {
     expect(iso(periodStartFor(daily(tz), new Date(at)))).toBe(start);
   });

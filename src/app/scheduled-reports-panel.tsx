@@ -93,23 +93,34 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpe
   const load = useCallback(() => {
     const mine = ++latest.current;
     const project = filterRef.current;
+    // A failed reload keeps what is already on screen, but only if it was read from THIS portfolio.
+    const fail = () => {
+      if (mine !== latest.current) return;
+      setLoaded((prev) => (prev.kind === "ready" && prev.source === (tursoConfig?.httpUrl ?? "") ? prev : { kind: "error" }));
+    };
     Promise.all([listReports(tursoConfig, project === FILTER_ALL ? undefined : project), listReportProjects(tursoConfig)]).then(
       async ([first, projects]) => {
         let reports = first;
-        // The chosen project has no report any more: back to All, and read those rows instead.
+        let backToAll = false;
+        // The chosen project has no report any more: back to All, and read those rows instead. This read can fail too.
         if (project !== FILTER_ALL && !projects.some((p) => p.id === project)) {
-          filterRef.current = FILTER_ALL;
-          reports = await listReports(tursoConfig);
+          try {
+            reports = await listReports(tursoConfig);
+            backToAll = true;
+          } catch {
+            fail();
+            return;
+          }
         }
         if (mine !== latest.current) return;
-        if (filterRef.current !== project) setFilter(filterRef.current);
+        // Only the newest request may change the filter: a superseded one must not undo what a newer one chose.
+        if (backToAll) {
+          filterRef.current = FILTER_ALL;
+          setFilter(FILTER_ALL);
+        }
         setLoaded({ kind: "ready", reports, loadedAt: new Date(), deviceLabel: getDeviceLabel(), source: tursoConfig?.httpUrl ?? "", projects });
       },
-      // A failed reload keeps what is already on screen, but only if it was read from THIS portfolio.
-      () => {
-        if (mine !== latest.current) return;
-        setLoaded((prev) => (prev.kind === "ready" && prev.source === (tursoConfig?.httpUrl ?? "") ? prev : { kind: "error" }));
-      },
+      fail,
     );
   }, [tursoConfig]);
 

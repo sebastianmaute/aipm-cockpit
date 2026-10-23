@@ -9,6 +9,9 @@ export interface ScheduledJobRun {
   actionCount: number;
   ok: boolean;
   error?: string; // status/token only — never key/body
+  /** The slot (ISO UTC) this run was for. `ranAt` is when it ENDED, which can be past local midnight, so the period
+   *  guard judges by this. Absent on a record from an older version. */
+  slot?: string;
 }
 
 export interface ScheduledJob {

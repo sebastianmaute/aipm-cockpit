@@ -504,3 +504,43 @@ describe("nav-config", () => {
     expect(TURSO_ONLY_VIEWS).toContain("scheduled-reports");
   });
 });
+
+describe("reload edges (§772 cr4 re-review)", () => {
+  const fire = () => window.dispatchEvent(new CustomEvent(SCHEDULED_REPORT_EVENT));
+  const onlyP1 = THREE.filter((r) => r.projectId === "p1");
+
+  // KILLED BY: an unguarded await in the fulfilled handler (the rejection would be unhandled and the view stuck).
+  it("keeps what is on screen when the read after a vanished project fails", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    const select = await screen.findByRole("combobox", { name: en("scheduledReportsFilter") });
+    await user.selectOptions(select, "p2");
+    expect(screen.getAllByRole("tab")).toHaveLength(1);
+    mockProjects.mockImplementation(async () => deriveProjects(onlyP1)); // p2 has no report any more
+    let calls = 0;
+    mockList.mockImplementation(async () => { calls += 1; if (calls === 1) return THREE; throw new Error("boom"); });
+    await act(async () => { fire(); });
+    await waitFor(() => expect(calls).toBe(2)); // the fallback read ran, and failed
+    expect(screen.getAllByRole("tab")).toHaveLength(1);
+    expect(screen.getByRole("combobox", { name: en("scheduledReportsFilter") })).toHaveValue("p2");
+  });
+
+  // KILLED BY: resetting the filter before the staleness check (a superseded load would undo the newer one's choice).
+  it("a superseded load does not reset the filter the newer load kept", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    const select = await screen.findByRole("combobox", { name: en("scheduledReportsFilter") });
+    await user.selectOptions(select, "p2");
+    let release: (v: ScheduledReport[]) => void = () => undefined;
+    const held = new Promise<ScheduledReport[]>((r) => { release = r; });
+    let calls = 0;
+    mockList.mockImplementation(async () => { calls += 1; return calls === 3 ? held : THREE; });
+    mockProjects.mockReset();
+    mockProjects.mockImplementationOnce(async () => deriveProjects(onlyP1)); // the first reload: p2 "vanished"
+    mockProjects.mockImplementation(async () => deriveProjects(THREE)); // the newer reload: p2 is there
+    await act(async () => { fire(); fire(); });
+    await waitFor(() => expect(calls).toBe(3)); // the first reload is waiting on its fallback read
+    await act(async () => { release(onlyP1); });
+    expect(screen.getByRole("combobox", { name: en("scheduledReportsFilter") })).toHaveValue("p2");
+  });
+});

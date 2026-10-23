@@ -176,8 +176,10 @@ helpers as the slot (`periodStartFor`), so a 23- or 25-hour day on a DST change 
 pre-claim check is therefore "any report of this job whose slot is at or after the start of the current period"; the
 UNIQUE claim still guards the exact slot. The job store's `lastRunAt` is not the guard that makes a slot due: the report
 table is. The runner keeps ONE secondary use of it, so a legacy job that already ran today under a pre-§772 runner does
-not bill again the moment it is given a project: a job whose `lastRunAt` is at or after the start of the period is not
-run (a `project-missing` record never counts, it wrote no report). That check can only skip a run, never cause one.
+not bill again the moment it is given a project: a job whose newest run record carries a slot (`run.slot`: the slot it
+ran FOR, never when it ended, which can be past local midnight) at or after the start of the period is not run; a
+record from an older version has no slot and is judged by its `lastRunAt` against the current slot (a `project-missing`
+record never counts, it wrote no report). That check can only skip a run, never cause one.
 
 ### Claiming
 
@@ -185,7 +187,10 @@ run (a `project-missing` record never counts, it wrote no report). That check ca
 `(id, project_id, job_key, slot, status='running', ran_at, claimed_by)` with
 `INSERT … ON CONFLICT (job_key, slot) DO NOTHING RETURNING id`, as ONE statement. Only a device that gets a row
 back runs the job; every other device skips it. No compare-and-set on the job store is involved, so its lost
-updates cannot erase a claim. *Owed:* the build verifies `RETURNING` through the app's Turso pipeline against a
+updates cannot erase a claim. The statement also carries the period limit, so two devices holding DIFFERENT slots of
+one period cannot both win: `INSERT … SELECT … WHERE NOT EXISTS (a report of this job at or after the period start)
+ON CONFLICT (job_key, slot) DO NOTHING RETURNING id`, still one statement. The separate pre-check
+(`hasReportAtOrAfter`) stays only as a cheap early exit that saves the project-list reads and the claim. *Owed:* the build verifies `RETURNING` through the app's Turso pipeline against a
 live database before relying on it (an `e2e:live-destructive` probe, as `turso-ddl-probe-live.spec.ts` does).
 
 A `running` row older than 30 minutes is shown as failed ("interrupted": the tab closed or the device slept

@@ -133,13 +133,16 @@ export async function slotStatus(config: TursoConfig | null, jobKey: string, per
 /** True iff THIS call inserted the row, i.e. won the claim for `(jobKey, slot)`. */
 export async function claimReport(
   config: TursoConfig | null,
-  row: { id: string; projectId: string; jobKey: string; slot: string; claimedBy: string; data: ReportData },
+  row: { id: string; projectId: string; jobKey: string; slot: string; periodStart: string; claimedBy: string; data: ReportData },
 ): Promise<boolean> {
   // ★ DDL goes in its own call before the insert. `ran_at` is the DATABASE's clock, not the claimant's.
   return withTable(config, async () => {
     const results = await runTursoPipeline(config, [{
-      sql: `INSERT INTO scheduled_reports (id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data) VALUES (?, ?, ?, ?, 'running', 0, ${SERVER_NOW_SQL}, ?, ?) ON CONFLICT (job_key, slot) DO NOTHING RETURNING id`,
-      args: [txt(row.id), txt(row.projectId), txt(row.jobKey), txt(row.slot), txt(row.claimedBy), txt(JSON.stringify(row.data))],
+      // ONE statement, so both limits are atomic with the insert: no report of this job at or after `periodStart` (the
+      // start of its cadence period: at most one run per period, whatever its time or zone was edited to), and the
+      // UNIQUE (job_key, slot) for the exact slot. The WHERE is what lets the upsert clause follow a SELECT.
+      sql: `INSERT INTO scheduled_reports (id, project_id, job_key, slot, status, ok, ran_at, claimed_by, data) SELECT ?, ?, ?, ?, 'running', 0, ${SERVER_NOW_SQL}, ?, ? WHERE NOT EXISTS (SELECT 1 FROM scheduled_reports WHERE job_key = ? AND slot >= ?) ON CONFLICT (job_key, slot) DO NOTHING RETURNING id`,
+      args: [txt(row.id), txt(row.projectId), txt(row.jobKey), txt(row.slot), txt(row.claimedBy), txt(JSON.stringify(row.data)), txt(row.jobKey), txt(row.periodStart)],
     }]);
     return rowObjects(results[0]).length > 0;
   });
@@ -242,7 +245,7 @@ export async function listReports(config: TursoConfig | null, projectId?: string
 export async function listReportProjects(config: TursoConfig | null): Promise<{ id: string; name: string }[]> {
   return withTable(config, async () => {
     const results = await runTursoPipeline(config, [{
-      sql: `SELECT r.project_id AS project_id, json_extract(r.data, '$.projectName') AS name FROM scheduled_reports r JOIN (SELECT project_id, MAX(slot) AS newest FROM scheduled_reports GROUP BY project_id) m ON r.project_id = m.project_id AND r.slot = m.newest ORDER BY r.slot DESC, r.id DESC`,
+      sql: `SELECT r.project_id AS project_id, CASE WHEN json_valid(r.data) THEN json_extract(r.data, '$.projectName') END AS name FROM scheduled_reports r JOIN (SELECT project_id, MAX(slot) AS newest FROM scheduled_reports GROUP BY project_id) m ON r.project_id = m.project_id AND r.slot = m.newest ORDER BY r.slot DESC, r.id DESC`,
     }]);
     const seen = new Map<string, string>();
     for (const r of rowObjects(results[0])) if (r.project_id && !seen.has(r.project_id)) seen.set(r.project_id, r.name ?? "");

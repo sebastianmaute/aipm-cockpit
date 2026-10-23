@@ -121,6 +121,7 @@ function sanitizeRun(raw: unknown): ScheduledJobRun | null {
     ok: raw.ok === true,
   };
   if (typeof raw.error === "string") run.error = raw.error;
+  if (typeof raw.slot === "string" && raw.slot !== "") run.slot = raw.slot;
   return run;
 }
 

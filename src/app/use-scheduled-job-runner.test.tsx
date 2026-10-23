@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useScheduledJobRunner, type ScheduledJobRunnerArgs } from "./use-scheduled-job-runner";
-import type { ScheduledJob } from "./scheduled-jobs/types";
+import type { ScheduledJob, ScheduledJobRun } from "./scheduled-jobs/types";
 
 // The runner builds the run deps itself: the AI call, the portfolio lists, the project load and the report
 // store are mocked at their module edge, so the REAL runScheduledJob runs in every test below.
@@ -554,8 +554,9 @@ describe("useScheduledJobRunner — operating guides (§701)", () => {
   // KILLED BY: judging lastRunAt against the slot instead of the period (an edited, later time would run again).
   it("does not run a job that already ran earlier the same local day, whatever slot it was edited to", async () => {
     mockRun.mockResolvedValue({ summary: "s", actions: [] });
-    // The job is at 09:00 UTC; it ran at 05:00 UTC today (before the slot, e.g. under an earlier time).
-    renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ lastRunAt: "2026-10-23T05:00:00.000Z" })] })));
+    // The job is at 09:00 UTC; it ran for a 05:00 UTC slot today (an earlier time it has since been edited away from).
+    const earlier = { ranAt: "2026-10-23T05:05:00.000Z", summary: "s", actionCount: 0, ok: true, slot: "2026-10-23T05:00:00.000Z" };
+    renderHook(() => useScheduledJobRunner(baseArgs({ jobs: [dailyJob({ lastRunAt: earlier.ranAt, history: [earlier] })] })));
     await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
     expect(mockRun).not.toHaveBeenCalled();
     expect(vi.mocked(slotStatus)).not.toHaveBeenCalled();
@@ -679,5 +680,66 @@ describe("useScheduledJobRunner — startup order (§701)", () => {
     await act(flush);
     expect(mockRun).toHaveBeenCalledTimes(1);
     expect(mockRun.mock.calls[0][1].guideText).toBe("GUIDE-LOADED");
+  });
+});
+
+describe("useScheduledJobRunner: the period guard judges by the run's slot, not its end (§772 cr4 re-review)", () => {
+  const settle = async () => act(async () => { for (let i = 0; i < 60; i++) await Promise.resolve(); });
+  beforeEach(() => {
+    mockRun.mockReset().mockResolvedValue({ summary: "s", actions: [] });
+    resetStore();
+  });
+  const record = (over: Partial<ScheduledJobRun> & { ranAt: string }): ScheduledJobRun => ({ summary: "s", actionCount: 0, ok: true, ...over });
+  const runAt = (jobs: ScheduledJob[], now: string) => {
+    renderHook(() => useScheduledJobRunner(baseArgs({ jobs, now: () => new Date(now) })));
+    return settle();
+  };
+
+  // KILLED BY: judging the END time (lastRunAt) against the period start (a run that ends after local midnight skips the next day).
+  it("a daily 23:58 job whose run ended at 00:03 still runs the next day", async () => {
+    const rec = record({ ranAt: "2026-10-24T00:03:00.000Z", slot: "2026-10-23T23:58:00.000Z" });
+    await runAt([dailyJob({ cadence: { kind: "daily", timeOfDay: "23:58" }, lastRunAt: rec.ranAt, history: [rec] })], "2026-10-24T23:59:00.000Z");
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("a weekly Sunday 23:58 job whose run ended on Monday at 00:03 still runs the next week", async () => {
+    const rec = record({ ranAt: "2026-10-26T00:03:00.000Z", slot: "2026-10-25T23:58:00.000Z" });
+    await runAt([dailyJob({ cadence: { kind: "weekly", dayOfWeek: 0, timeOfDay: "23:58" }, lastRunAt: rec.ranAt, history: [rec] })], "2026-11-01T23:59:00.000Z");
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("a FAILED run that ended after midnight does not skip the next day either", async () => {
+    const rec = record({ ok: false, error: "turso", ranAt: "2026-10-24T00:03:00.000Z", slot: "2026-10-23T23:58:00.000Z" });
+    await runAt([dailyJob({ cadence: { kind: "daily", timeOfDay: "23:58" }, lastRunAt: rec.ranAt, history: [rec] })], "2026-10-24T23:59:00.000Z");
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("a run for a slot in the same period still skips it", async () => {
+    const rec = record({ ranAt: "2026-10-24T23:50:00.000Z", slot: "2026-10-24T23:40:00.000Z" });
+    await runAt([dailyJob({ cadence: { kind: "daily", timeOfDay: "23:58" }, lastRunAt: rec.ranAt, history: [rec] })], "2026-10-24T23:59:00.000Z");
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: dropping the legacy comparison for a record without a slot.
+  it("a legacy record without a slot keeps the old comparison: its lastRunAt against the current slot", async () => {
+    const legacy = (ranAt: string) => dailyJob({ lastRunAt: ranAt, history: [record({ ranAt })] });
+    await runAt([legacy("2026-10-23T09:30:00.000Z")], "2026-10-23T14:00:00.000Z"); // at or after the 09:00 slot: skipped
+    expect(mockRun).not.toHaveBeenCalled();
+  });
+
+  it("a legacy record from before the slot runs", async () => {
+    const ranAt = "2026-10-23T08:59:00.000Z";
+    await runAt([dailyJob({ lastRunAt: ranAt, history: [record({ ranAt })] })], "2026-10-23T14:00:00.000Z");
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  // KILLED BY: a period start that assumes local midnight exists (it does not on this day in Santiago).
+  it.each([
+    ["a record for a slot before the local day began (03:30Z, Santiago's day starts 04:00Z)", "2026-09-06T03:30:00.000Z", 1],
+    ["a record for a slot after it began (04:30Z)", "2026-09-06T04:30:00.000Z", 0],
+  ])("in America/Santiago on the day its midnight does not exist: %s", async (_n, slot, runs) => {
+    const rec = record({ ranAt: slot, slot });
+    await runAt([dailyJob({ timeZone: "America/Santiago", lastRunAt: slot, history: [rec] })], "2026-09-06T15:00:00.000Z");
+    expect(mockRun).toHaveBeenCalledTimes(runs);
   });
 });
