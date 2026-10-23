@@ -1006,6 +1006,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§766](#766-manage-roles-gets-cramped-on-small-screens--open) | Manage roles gets cramped on small screens | — | — | open |
 | [§772](#772-scheduled-jobs-analyse-only-the-open-project-take-no-instruction-and-keep-no-suggestions--closed-2026-10-23) | Scheduled jobs analyse only the open project, take no instruction and keep no suggestions | — | — | **CLOSED** 2026-10-23 |
 | [§777](#777-the-action-center-learning-view-is-not-a-pane-and-shows-raw-kind-ids--closed-2026-10-23) | The Action Center learning view is not a pane and shows raw kind ids | — | — | **CLOSED** 2026-10-23 |
+| [§778](#778-one-next-actions-reason-is-learned-and-overridden-as-two-rows-singularplural-why-keys--closed-2026-10-24) | One Next-actions reason is learned and overridden as two rows (singular/plural why keys) | — | — | **CLOSED** 2026-10-24 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45880,3 +45881,25 @@ Size M.
 Size S.
 
 **Source:** owner report 2026-10-23 (14-ai-weights demo video).
+
+## 778. One Next-actions reason is learned and overridden as two rows (singular/plural why keys) — CLOSED 2026-10-24
+
+**Status:** CLOSED 2026-10-24 on `fix/learning-view-pane`, owner decision 2026-10-23 to fix it now. A pure, i18n-free `next-actions/learning-kind.ts` holds the fix:
+- `LEARNING_WHY_ALIAS` maps each count variant to its plural sibling. There are six "…One" keys (task overdue and due soon, RAID review overdue and not reviewed, workload overload, committee information) and the forecast's `actionForecastSimWhyBelow1`.
+- `learningKindOf` builds the kind wherever one is made: recording an outcome in `use-action-learning.ts`, and the bias and override lookup in `next-actions/engine.ts`.
+- `canonicalLearningKind` normalises a stored kind.
+
+Stored data is merged at read time, not migrated. `normalizeLearningSnapshot` (`action-learning.ts`) runs on the hook's load, for both the local and the Turso `action_learning` store. Rows of one canonical kind are each decayed to the later `lastAt` and summed. For overrides, an explicit (non-"auto") override stored under the canonical kind wins; otherwise a variant's explicit one is kept. The function is idempotent, so the full-rewrite save that both stores already do writes the merged snapshot on the next mutation. A device still on an older build can write singular rows again; they merge again on the next load. The §772 builders `buildProjectDigest` and `buildProjectAnalysisInput` read neither learning kinds nor learned bias, and the weight-suggestion prompt lists the loaded (merged) state, so neither needed a change. The learning view (§777) labels a variant as its plural. `learningReasonCommitteeInfoOne`, the only singular reason label, is removed (EN and DE), which leaves 22 `learningReason*` labels. The providers' own "…One" texts are unchanged.
+
+Verified with `npx vitest run src/app/next-actions src/app/action-learning.test.ts src/app/use-action-learning.test.tsx src/app/learning-insights.test.tsx src/app/learning-store-local.test.ts src/app/learning-store-turso.test.ts src/app/task-manager.learning-back.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-cpi-labels.test.ts src/app/settings-sections/next-actions-section.test.tsx` (32 files, 352 tests, green). 13 of the new tests failed against identity stubs first. The rest (idempotence, pass-through, alias hygiene) pass against an identity mapping by design. The due-soon test failed there for a fixture reason, not the defect, and was fixed. These mutants were each caught:
+- removing the `actionTaskWhySoonOne` alias (10 red);
+- the engine back on the raw why key together with the hook's load without normalising (2 red);
+- a variant override overwriting the canonical one (1 red).
+
+A derived test fails when a "…One" or "…Below1" why key in the EN dictionary has no alias.
+
+**Earlier:** found 2026-10-23 in the §777 review. Learning, learned bias and overrides were keyed by `${source}:${why.key}`, and the providers pick a singular key by count (`n === 1 ? "…One" : "…"`), so one signal was two kinds. "Always suppress" on "Task — Due soon" still let a task due in exactly 1 working day through, acting on a 1-day item trained a different row than a 2-day one, and the §777 view showed both rows.
+
+Size S–M.
+
+**Source:** found 2026-10-23 in the §777 review (owner: fix it now).

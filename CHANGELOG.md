@@ -74,6 +74,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A Next-actions reason is learned once, whatever its count (§778).** "Due in 1 working day" and "Due in 3
+  working days" are one reason, but were learned and overridden as two, so "Always suppress" on "Due soon" still
+  showed a task due in one working day. They now share one learning row and one override; rows and overrides already saved
+  under the one-day form are merged into it the next time the app loads them.
 - **The Action Center learning view looks like every other view (§777).** It sits in the standard pane card with
   the table scrolling inside it, and Back, the title, Reset learned data, Print and reset-size share one toolbar row.
   Each row now names its reason in words ("No recent update", "Blocked") instead of an internal id, in English and
