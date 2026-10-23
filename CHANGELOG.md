@@ -56,6 +56,12 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
+  against the wrong year, so the new project and its milestones could already be over on the day you created
+  it. Claude is now told today's date and reads a month or range without a year as the next one to come.
+- **Claude's proposal fills the NACE section and the time zone.** A NACE answer like "G (retail)" was thrown
+  away without a word and the field stayed empty; Claude now picks from the section codes, and is told the time
+  zone must be a name like Europe/Berlin.
 - **"Draft with AI" writes the whole steering report (§763).** Drafting a steering committee's status report
   often failed with "Could not draft the report", because Claude's reply was cut off before the report was
   complete. It now gets more room, and asks once more with more room if the reply is still cut off; you get the
