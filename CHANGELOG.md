@@ -75,10 +75,12 @@ longer carries its own changelog comment.
 ### Fixed
 
 - **Manage roles has room on smaller screens (§766).** The roles pane took half the window's content area, so the
-  rate card was cut off at every window size, and below 1366 pixels it showed only its first two or three columns.
-  It now uses the whole width, up to a cap the full rate card fits in. The Hours/Days switch no longer wraps onto
-  two lines, so the rows are less than two thirds as tall as before. The Print button now comes before the
-  reset-size button, as in other views.
+  rate card was cut off even in a 1920×1080 window, and at 1366×768 and smaller it showed only its first two or
+  three columns. The pane now uses the whole width, up to a cap, and the rate columns are narrower, so the whole
+  rate card shows in a 1280×720 window and larger. In smaller windows it still scrolls sideways inside the panel,
+  and each row's delete button stays in view at the right edge. The Hours/Days switch no longer wraps onto two
+  lines, so the rows are less than two thirds as tall as before. The Print button now comes before the reset-size
+  button, as in other views.
 - **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
   against the wrong year, so the new project and its milestones could already be over on the day you created
   it. Claude is now told today's date and reads a month or range without a year as the next one to come (the
