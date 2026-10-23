@@ -306,7 +306,10 @@ export function RolesEditor({
                     <InfoTooltip text={t(lang, "rolesRateBasisHint")} />
                   </span>
                 </th>
-                <th className="sticky right-0 px-3 py-2 font-medium print:static" />
+                {/* Pinned with the row delete cells below. `-right-2` cancels the
+                    scroller's `pr-2` (INNER_TABLE_CLASS): a sticky offset counts from the
+                    padding edge, so `right-0` left an 8px strip the table scrolled through. */}
+                <th className="sticky -right-2 px-3 py-2 font-medium print:static" />
               </tr>
             </>} tbodyClassName="divide-y divide-line">
               {sortedRoles.map((r) => {
@@ -369,7 +372,7 @@ export function RolesEditor({
                       title={t(lang, "rolesRateBasisHint")}
                     />
                   </td>
-                  <td className="sticky right-0 bg-surface px-3 py-2 text-right print:hidden">
+                  <td className="sticky -right-2 bg-surface px-3 py-2 text-right print:hidden">
                     <IconButton variant="danger" onClick={() => onDeleteRole(r.id)} label={`${t(lang, "delete")} – ${rowCtx}`} title={`${t(lang, "delete")} – ${rowCtx}`}>
                       <XMarkIcon aria-hidden="true" className="h-4 w-4" />
                     </IconButton>

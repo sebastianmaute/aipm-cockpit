@@ -717,17 +717,24 @@ describe("RolesEditor rate card fits a 1280px window (§766)", () => {
     }
   });
 
+  // ★ A sticky offset is measured from the scroller's PADDING edge, and the scroller
+  // (INNER_TABLE_CLASS) has `pr-2`. At `right-0` the pinned cells stopped 8px short
+  // of the edge and the Hours/Days control scrolled through that strip, beside the ✕
+  // (measured at 1024×576, 2026-10-24). `-right-2` cancels the padding exactly.
   it("pins the delete column to the right edge, header included, and not in print", () => {
+    expect(INNER_TABLE_CLASS.split(/\s+/)).toContain("pr-2");
     renderEditor();
     const table = document.querySelector("table") as HTMLElement;
     const deletes = within(table).getAllByRole("button", { name: new RegExp(`^${t("en-US", "delete")} – `) });
     expect(deletes).toHaveLength(roles.length);
     for (const d of deletes) {
-      const cell = d.closest("td") as HTMLElement;
-      expect(cell.className.split(/\s+/)).toEqual(expect.arrayContaining(["sticky", "right-0", "bg-surface", "print:hidden"]));
+      const classes = (d.closest("td") as HTMLElement).className.split(/\s+/);
+      expect(classes).toEqual(expect.arrayContaining(["sticky", "-right-2", "bg-surface", "print:hidden"]));
+      expect(classes).not.toContain("right-0");
     }
     const headerCells = table.querySelectorAll("thead th");
-    const last = headerCells[headerCells.length - 1] as HTMLElement;
-    expect(last.className.split(/\s+/)).toEqual(expect.arrayContaining(["sticky", "right-0", "print:static"]));
+    const last = (headerCells[headerCells.length - 1] as HTMLElement).className.split(/\s+/);
+    expect(last).toEqual(expect.arrayContaining(["sticky", "-right-2", "print:static"]));
+    expect(last).not.toContain("right-0");
   });
 });
