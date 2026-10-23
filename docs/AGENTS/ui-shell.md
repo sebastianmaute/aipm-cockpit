@@ -1014,6 +1014,8 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   is the reference, and RACI's "Suggest RACI" joined it in 0.212.0 (it had been sitting in the trailing group
   beside Print/Reset, reading as a trailing utility). The trailing group is unaffected either way: a leading
   control only has to come BEFORE it, which is why `expectButtonOrder` takes `contiguous` per call.
+  ★ Open Points is the deliberate exception to "the AI button leads": there Add task is the primary action and
+  comes first, with `aiOptimizeButton` second (owner decision 2026-10-23) — do not move it back.
   ★★ ASSERT THIS WITH THE SHARED `src/test/toolbar-order.ts`, never a local `compareDocumentPosition` walk.
   `buttonIndex` THROWS when a key matches zero or several buttons; a hand-rolled `findIndex` silently takes
   the first, so an ordering assertion can pass against the wrong control. And plain ordering is NOT enough

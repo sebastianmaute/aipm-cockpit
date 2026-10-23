@@ -1168,11 +1168,17 @@ describe("TasksSection", () => {
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
   });
 
-  it("leads the control row with the AI optimize button, ahead of everything else, keeping the trailing group contiguous", () => {
+  // Owner decision 2026-10-23: Add task is the pane's primary action and leads
+  // the row; the AI optimize button follows it (it led the row until then).
+  it("leads the control row with Add task, then the AI optimize button, keeping the trailing group contiguous", () => {
     const task = { id: 1, taskName: "T1" };
     stubWorkspace([task], [task]);
     render(<TasksSection {...makeProps()} aiOptimizeButton={<button type="button">{t("en-US", "wbsPlanButton")}</button>} />);
-    expect(buttonNames()[0]).toContain(t("en-US", "wbsPlanButton"));
+    // "Add task" names two buttons on the pane, which expectButtonOrder refuses
+    // as ambiguous; the first two positions are read directly, by exact name.
+    expect(buttonNames()[0]).toBe(t("en-US", "addTaskButton"));
+    expect(buttonNames()[1]).toBe(t("en-US", "wbsPlanButton"));
+    // Relative order only: the leading position is proven by the two checks above.
     expectButtonOrder(["wbsPlanButton", "clearAll", "printHint"]);
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
   });
