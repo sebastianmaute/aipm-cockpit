@@ -395,4 +395,115 @@ describe("§772 — project, time zone and instruction", () => {
     expect(screen.getByRole("textbox", { name: nameOf("scheduledJobInstruction", "Weekly review (1)") })).toBeInTheDocument();
     expectRowUniqueNames({ minControls: 6, roles: ["textbox", "checkbox", "combobox"], requireCollisionSeed: true });
   });
+
+  it("does not show the upgrade note for a job added now: it has a key, only no project", async () => {
+    mockJobs = [job({ id: 1, name: "Fresh", projectId: null, timeZone: "UTC", key: "k" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findAllByRole("option", { name: "Apollo" });
+    expect(screen.queryByText(t("en-US", "scheduledJobsUpgradeNote"))).toBeNull();
+    expect(screen.getByText(t("en-US", "scheduledJobChooseProject"), { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("shows the upgrade note for a job without a key, even while the master toggle is off", async () => {
+    mockJobs = [job({ id: 1, name: "Old", projectId: null, key: null })];
+    setup(withKey({ scheduledJobs: false }));
+    expect(await screen.findByText(t("en-US", "scheduledJobsUpgradeNote"))).toBeInTheDocument();
+  });
+
+  it("creates a new job in the device's time zone", () => {
+    setup({ ...withKey({ scheduledJobs: true }), timezone: "Asia/Kolkata" });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "scheduledJobsAdd") }));
+    expect((createJob.mock.calls as unknown[][])[0][0]).toMatchObject({ timeZone: "Asia/Kolkata" });
+  });
+
+  it("assigns with the device-settings zone, not the browser's", async () => {
+    mockJobs = [job({ id: 4, name: "Alpha" })];
+    setup({ ...withKey({ scheduledJobs: true }), timezone: "Asia/Kolkata" });
+    await screen.findByRole("option", { name: "Apollo" });
+    fireEvent.change(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") }), { target: { value: "p1" } });
+    expect(assignProject).toHaveBeenCalledWith(4, "p1", "Asia/Kolkata");
+  });
+
+  it("saves an emptied instruction as undefined", async () => {
+    mockJobs = [job({ id: 3, name: "Alpha", instruction: "keep" })];
+    setup(withKey({ scheduledJobs: true }));
+    const box = await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
+    fireEvent.change(box, { target: { value: "   " } });
+    fireEvent.blur(box);
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: undefined });
+  });
+
+  it("saves a typed instruction when the section unmounts before the field is blurred", async () => {
+    mockJobs = [job({ id: 3, name: "Alpha" })];
+    const { unmount } = render(<ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: true })} onChange={vi.fn()} config={TURSO} />);
+    const box = await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
+    fireEvent.change(box, { target: { value: "  watch the budget " } });
+    expect(updateJob).not.toHaveBeenCalled();
+    unmount();
+    expect(updateJob).toHaveBeenCalledWith(3, { instruction: "watch the budget" });
+  });
+
+  it("does not write on unmount when nothing was typed", async () => {
+    mockJobs = [job({ id: 3, name: "Alpha", instruction: "keep" })];
+    const { unmount } = render(<ScheduledJobsSection lang="en-US" settings={withKey({ scheduledJobs: true })} onChange={vi.fn()} config={TURSO} />);
+    await screen.findByRole("textbox", { name: nameOf("scheduledJobInstruction", "Alpha") });
+    unmount();
+    expect(updateJob).not.toHaveBeenCalled();
+  });
+
+  it("says so when the project list cannot be read", async () => {
+    listProjectsMock.mockRejectedValue(new Error("down"));
+    setup(withKey({ scheduledJobs: true }));
+    expect(await screen.findByText(t("en-US", "tursoPickerError"))).toBeInTheDocument();
+  });
+
+  it("does not offer another portfolio's projects while the new config's read is in flight", async () => {
+    const OTHER = { httpUrl: "https://other.example", authToken: "t" } as unknown as TursoConfig;
+    mockJobs = [job({ id: 1, name: "Alpha" })];
+    const props = { lang: "en-US" as const, settings: withKey({ scheduledJobs: true }), onChange: vi.fn() };
+    const { rerender } = render(<ScheduledJobsSection {...props} config={TURSO} />);
+    await screen.findByRole("option", { name: "Apollo" });
+    listProjectsMock.mockReturnValue(new Promise(() => {}));
+    rerender(<ScheduledJobsSection {...props} config={OTHER} />);
+    expect(screen.queryByRole("option", { name: "Apollo" })).toBeNull();
+  });
+
+  it("shows no raw project id as an option label before the lists are read", () => {
+    listProjectsMock.mockReturnValue(new Promise(() => {}));
+    mockJobs = [job({ id: 1, name: "Alpha", projectId: "3f9c-raw-uuid", timeZone: "UTC", key: "k" })];
+    setup(withKey({ scheduledJobs: true }));
+    expect(screen.queryByRole("option", { name: "3f9c-raw-uuid" })).toBeNull();
+    expect(screen.getByRole("option", { name: "…" })).toBeInTheDocument();
+  });
+
+  it("tells a user in file mode with no key about the portfolio requirement first", () => {
+    portfolioMode.value = "file";
+    setup(defaultSettings);
+    expect(screen.getByText(t("en-US", "scheduledJobsNeedPortfolio"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "emptyStateConfigAi"))).toBeNull();
+  });
+
+  it("switches a job back on when its archived project is replaced by an active one", async () => {
+    mockJobs = [job({ id: 5, name: "Alpha", enabled: false, projectId: "p9", timeZone: "UTC", key: "k" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByText(t("en-US", "scheduledJobArchived"));
+    fireEvent.change(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") }), { target: { value: "p1" } });
+    expect(assignProject).toHaveBeenCalledWith(5, "p1", "UTC");
+    expect(updateJob).toHaveBeenCalledWith(5, { enabled: true });
+  });
+
+  it("leaves a job the user switched off switched off when it is reassigned", async () => {
+    mockJobs = [job({ id: 5, name: "Alpha", enabled: false, projectId: "p1", timeZone: "UTC", key: "k" })];
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByRole("option", { name: "Apollo" });
+    fireEvent.change(screen.getByRole("combobox", { name: nameOf("scheduledJobProject", "Alpha") }), { target: { value: "p2" } });
+    expect(assignProject).toHaveBeenCalledWith(5, "p2", "UTC");
+    expect(updateJob).not.toHaveBeenCalled();
+  });
+
+  it("labels the instruction field with the spec's prompt", async () => {
+    mockJobs = [job({ id: 3, name: "Alpha" })];
+    setup(withKey({ scheduledJobs: true }));
+    expect(await screen.findByPlaceholderText("What should this job look for, and what should it ignore?")).toBeInTheDocument();
+  });
 });

@@ -1563,14 +1563,14 @@ const enUS = {
   scheduledJobNotifyTitle: "Scheduled analysis: {0}",
   scheduledJobNotifyBody: "{0}",
   scheduledJobsBgNote:
-    "Background runs are supported on installed Chrome/Edge only; otherwise jobs run when you next open the app.",
+    "Background runs are supported on installed Chrome/Edge only; otherwise a job runs when you open the app after its scheduled time that day.",
   scheduledJobsNeedPortfolio: "Scheduled reports need a Turso portfolio, because each one reports on a stored project. Connect a Turso database and switch to portfolio mode to use them.",
   scheduledJobsUpgradeNote: "Jobs created before this version have no project yet. Choose a project for each one; until then it does not run.",
   scheduledJobProject: "Project",
   scheduledJobChooseProject: "Choose a project",
   scheduledJobTimeZone: "Time zone",
   scheduledJobInstruction: "Instruction",
-  scheduledJobInstructionPlaceholder: "Optional: what the report should focus on",
+  scheduledJobInstructionPlaceholder: "What should this job look for, and what should it ignore?",
   scheduledJobArchived: "Switched off because its project is archived",
 
   aiConsentTitle: "Enable Claude chat?",

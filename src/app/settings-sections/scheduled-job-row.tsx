@@ -4,7 +4,7 @@
 // project, cadence, time zone, standing instruction and run history (§772). Presentational: the job and the
 // project lists arrive as props, every write leaves through a callback.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Lang, t, tPlural, type TranslationKey } from "../i18n";
 import { aiKeyMessageKeyForStatusToken } from "../ai-key-status";
 import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
@@ -43,8 +43,24 @@ const WEEKDAY_KEYS: TranslationKey[] = [
 
 export const DEFAULT_TIME = "09:00";
 
-/** The standing instruction, edited as a draft and saved (trimmed) when the field loses focus. The caller keys it
- *  by the stored value, so a save from elsewhere starts a fresh draft. */
+interface InstructionDraft {
+  jobId: number;
+  draft: string;
+  saved: string;
+  onUpdate: (id: number, patch: JobPatch) => void;
+}
+
+/** Writes the trimmed draft when it differs from what was last saved; clearing it writes `undefined`. */
+function flushInstruction(d: InstructionDraft) {
+  const trimmed = d.draft.trim();
+  if (trimmed === d.saved) return;
+  d.saved = trimmed;
+  d.onUpdate(d.jobId, { instruction: trimmed === "" ? undefined : trimmed });
+}
+
+/** The standing instruction, edited as a draft and saved (trimmed) when the field loses focus OR is unmounted
+ *  (closing the dialog fires no blur on a focused node that unmounts). The caller keys it by the stored value,
+ *  so a save from elsewhere starts a fresh draft. */
 function InstructionField({
   lang,
   job,
@@ -57,12 +73,16 @@ function InstructionField({
   onUpdate: (id: number, patch: JobPatch) => void;
 }) {
   const [draft, setDraft] = useState(job.instruction ?? "");
-
-  function save() {
-    const trimmed = draft.trim();
-    if (trimmed === (job.instruction ?? "")) return;
-    onUpdate(job.id, { instruction: trimmed === "" ? undefined : trimmed });
-  }
+  // What a save needs, kept current from the handlers (no ref write during render).
+  const latest = useRef<InstructionDraft>({ jobId: job.id, draft, saved: draft, onUpdate });
+  useEffect(() => {
+    latest.current.onUpdate = onUpdate;
+  });
+  // The cleanup is the unmount save; a draft already saved on blur is a no-op there.
+  useEffect(() => {
+    const state = latest.current;
+    return () => flushInstruction(state);
+  }, []);
 
   return (
     <label className="flex flex-col gap-1 text-xs text-foreground">
@@ -74,8 +94,11 @@ function InstructionField({
         value={draft}
         placeholder={t(lang, "scheduledJobInstructionPlaceholder")}
         aria-label={`${t(lang, "scheduledJobInstruction")} – ${token}`}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={save}
+        onChange={(e) => {
+          latest.current.draft = e.target.value;
+          setDraft(e.target.value);
+        }}
+        onBlur={() => flushInstruction(latest.current)}
       />
     </label>
   );
@@ -89,6 +112,7 @@ export function JobRow({
   tz,
   projects,
   archivedProjects,
+  projectsLoaded,
   zones,
   defaultZone,
   onUpdate,
@@ -105,6 +129,8 @@ export function JobRow({
   /** The active projects a job can report on; archived ones are not offered. */
   projects: readonly ProjectOption[];
   archivedProjects: readonly ProjectOption[];
+  /** False until the project lists have been read for the current portfolio. */
+  projectsLoaded: boolean;
   zones: readonly string[];
   /** The zone a newly assigned job starts in. */
   defaultZone: string;
@@ -179,12 +205,15 @@ export function JobRow({
             value={job.projectId ?? ""}
             aria-label={`${t(lang, "scheduledJobProject")} – ${token}`}
             onChange={(e) => {
-              if (e.target.value !== "") onAssign(job.id, e.target.value, zone);
+              if (e.target.value === "") return;
+              onAssign(job.id, e.target.value, zone);
+              // The runner switched it off because its project was archived; a new project brings it back.
+              if (!job.enabled && archivedProject !== undefined) onUpdate(job.id, { enabled: true });
             }}
           >
             {job.projectId === null && <option value="">{t(lang, "scheduledJobChooseProject")}</option>}
             {!projectKnown && job.projectId !== null && (
-              <option value={job.projectId}>{archivedProject?.name ?? job.projectId}</option>
+              <option value={job.projectId}>{archivedProject?.name ?? (projectsLoaded ? "—" : "…")}</option>
             )}
             {projects.map((p) => (
               <option key={p.id} value={p.id}>

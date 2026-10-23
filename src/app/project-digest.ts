@@ -1,8 +1,9 @@
 // src/app/project-digest.ts
 //
 // Pure, i18n-free builder of the WIDE per-project digest a scheduled report sends to
-// the model (§772). Unlike `buildAnalysisContext` (action-ai.ts) it is not capped per
-// category: it lists every open entity, most urgent first, and is bounded as a whole
+// the model (§772). Unlike `buildAnalysisContext` (action-ai.ts) each line carries status, dates and
+// urgency, open entities come most urgent first, and a budget line is added. Each category is still capped
+// at `CONTEXT_CAP_PER_CATEGORY` lines (the rest is counted in a "…(N more)" line), and the whole is bounded
 // by `DIGEST_MAX_CHARS`, dropping whole lines from the END so a cut never splits a line.
 // Lines keep the `view#id: title` grounding format the analysis reply is validated against.
 import { CONTEXT_CAP_PER_CATEGORY } from "./action-ai";

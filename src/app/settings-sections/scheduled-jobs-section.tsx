@@ -45,29 +45,35 @@ const toOption = (p: ProjectListEntry): ProjectOption => ({ id: p.id, name: p.me
 interface ProjectLists {
   active: ProjectOption[];
   archived: ProjectOption[];
+  /** False until read for the CURRENT config. */
+  loaded: boolean;
+  failed: boolean;
 }
 
-const NO_PROJECTS: ProjectLists = { active: [], archived: [] };
+const NO_PROJECTS: ProjectLists = { active: [], archived: [], loaded: false, failed: false };
 
-/** The active and archived projects of the Turso portfolio; empty until read, and when it cannot be. */
+/** The active and archived projects of the Turso portfolio. Each result carries the config it was read for, so the
+ *  lists of another portfolio are never offered while the new read is in flight; a failed read is reported. */
 function useProjectLists(config: TursoConfig | null, available: boolean): ProjectLists {
-  const [lists, setLists] = useState<ProjectLists>(NO_PROJECTS);
+  const [read, setRead] = useState<{ config: TursoConfig | null; lists: ProjectLists } | null>(null);
   useEffect(() => {
     if (!available) return;
     let cancelled = false;
     void (async () => {
       try {
         const [active, archived] = await Promise.all([listProjects(config), listArchivedProjects(config)]);
-        if (!cancelled) setLists({ active: active.map(toOption), archived: archived.map(toOption) });
+        if (!cancelled) {
+          setRead({ config, lists: { active: active.map(toOption), archived: archived.map(toOption), loaded: true, failed: false } });
+        }
       } catch {
-        // optional picker — leave the lists as they were
+        if (!cancelled) setRead({ config, lists: { ...NO_PROJECTS, failed: true } });
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [config, available]);
-  return lists;
+  return available && read !== null && read.config === config ? read.lists : NO_PROJECTS;
 }
 
 export function ScheduledJobsSection({ lang, settings, onChange, config }: ScheduledJobsSectionProps) {
@@ -83,7 +89,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
 
   const enabled = settings.ai.scheduledJobs === true;
   const hasKey = isAiEnabled(settings.ai);
-  const hasLegacyJob = jobs.some((j) => j.projectId === null);
+  // A LEGACY job predates §772: it carries no permanent key. A job added now has one (createJob mints it) and
+  // only lacks a project, which its own row says.
+  const hasLegacyJob = jobs.some((j) => j.key === null);
 
   function toggleEnabled() {
     onChange({ ...settings, ai: { ...settings.ai, scheduledJobs: !enabled } });
@@ -105,16 +113,17 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
         <FieldHint className="mt-1">{t(lang, "scheduledJobsHelp")}</FieldHint>
       </div>
 
-      {!hasKey ? (
-        <p className="rounded-md border border-line bg-surface p-3 text-xs text-muted-foreground">
-          {t(lang, "emptyStateConfigAi")}
-        </p>
-      ) : !portfolioAvailable ? (
+      {!portfolioAvailable ? (
         <p className="rounded-md border border-line bg-surface p-3 text-xs text-muted-foreground">
           {t(lang, "scheduledJobsNeedPortfolio")}
         </p>
+      ) : !hasKey ? (
+        <p className="rounded-md border border-line bg-surface p-3 text-xs text-muted-foreground">
+          {t(lang, "emptyStateConfigAi")}
+        </p>
       ) : (
         <>
+          {hasLegacyJob && <FieldHint>{t(lang, "scheduledJobsUpgradeNote")}</FieldHint>}
           <label className="flex items-center gap-2">
             <Checkbox
               aria-label={t(lang, "scheduledJobsToggle")}
@@ -127,7 +136,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
 
           {enabled && (
             <>
-              {hasLegacyJob && <FieldHint>{t(lang, "scheduledJobsUpgradeNote")}</FieldHint>}
+              {projects.failed && <FieldHint>{t(lang, "tursoPickerError")}</FieldHint>}
 
               <ul className="flex flex-col gap-2">
                 {jobs.map((job) => (
@@ -140,6 +149,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                     tz={tz}
                     projects={projects.active}
                     archivedProjects={projects.archived}
+                    projectsLoaded={projects.loaded}
                     zones={zones}
                     defaultZone={defaultZone}
                     onUpdate={(id, patch) => void updateJob(id, patch)}

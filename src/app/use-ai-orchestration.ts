@@ -29,6 +29,8 @@ import { summarizeTrendsForPrompt, type ActionTrends } from "./next-actions/tren
 import type { TursoConfig } from "./turso-config";
 import { buildAnalysisContext, buildGroundingIndex, groundEntity, type AiAction } from "./action-ai";
 import { buildProjectDigest } from "./project-digest";
+import { buildProjectAnalysisInput } from "./project-analysis-input";
+import { useWorkspace } from "./workspace-context";
 import { buildSuggestionContext } from "./weight-suggestion-ai";
 import type { SuggestionScope } from "./next-actions-tuning";
 import { deriveMode } from "./feature-modules";
@@ -110,8 +112,8 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     () => buildGroundingIndex({ tasks, raid, milestones, changes, stakeholders }),
     [tasks, raid, milestones, changes, stakeholders],
   );
-  // Shared workspace digest builder — used by the Action Center "Analyze with
-  // AI" button AND the SP5 scheduled-job runner (both feed the same SP4 call).
+  // The compact, title-only workspace digest. Its one caller is the weight-suggestion context below;
+  // "Analyze with AI" sends the wide digest (`buildWideContext`), as the scheduled runner does.
   const buildAiContext = useCallback(
     () =>
       buildAnalysisContext({
@@ -133,28 +135,38 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
       }),
     [project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang],
   );
-  // §772 — "Analyze with AI" sends the WIDE per-project digest a scheduled report sends: every open
-  // entity with its status and dates, not the title-only lists `buildAiContext` caps per category.
-  const buildWideContext = useCallback(
-    () =>
-      buildProjectDigest({
-        projectName: project?.name ?? "",
-        today,
-        mode: deriveMode(settings.features),
-        enabledModules: settings.features,
-        tasks,
-        raid,
-        milestones,
-        changes,
-        stakeholders,
-        queue: nextActions.map((a) => ({
-          title: actionText(lang, a.title),
-          why: actionText(lang, a.why),
-          tier: a.tier,
-        })),
-      }),
-    [project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang],
-  );
+  // §772 — "Analyze with AI" sends the WIDE per-project digest a scheduled report sends, built by the SAME
+  // `buildProjectAnalysisInput` over the live workspace (status and dates per line, plus the budget line). This
+  // hook runs inside WorkspaceProvider (task-manager's inner component), so the slices the deps do not carry
+  // are read from it. Only the queue stays the LIVE one: it honours the snoozes and learning a background
+  // run has no access to, so the model is never told about an action the user already dismissed.
+  const {
+    absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status,
+    features: projectFeatures, steeringCommittee, settingsOverrides,
+  } = useWorkspace();
+  const buildWideContext = useCallback(() => {
+    const { digestInput } = buildProjectAnalysisInput({
+      workspace: {
+        tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status,
+        project, milestones, changes, stakeholders, features: projectFeatures, steeringCommittee, settingsOverrides,
+      },
+      deviceSettings: settings,
+      lang,
+      now: new Date(),
+    });
+    return buildProjectDigest({
+      ...digestInput,
+      queue: nextActions.map((a) => ({
+        title: actionText(lang, a.title),
+        why: actionText(lang, a.why),
+        tier: a.tier,
+      })),
+    });
+  }, [
+    tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status,
+    project, milestones, changes, stakeholders, projectFeatures, steeringCommittee, settingsOverrides,
+    settings, lang, nextActions,
+  ]);
   const runActionAnalysis = useCallback(() => {
     void aiAnalyze(buildWideContext());
   }, [aiAnalyze, buildWideContext]);
