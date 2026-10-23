@@ -19,7 +19,7 @@
 // host's onCreate, which threads them to buildNewProjectWorkspace.
 
 import { useMemo, useRef, useState } from "react";
-import { XMarkIcon } from "./icons";
+import { ExclamationTriangleIcon, XMarkIcon } from "./icons";
 import { type Contact } from "./contacts";
 import { CREATE_FIELD_LABEL_CLASS, CreateProjectForm } from "./create-project-form";
 import { suggestTemplate } from "./template-suggest";
@@ -53,6 +53,7 @@ import { Button } from "./button";
 import { FilePickerButton } from "./file-picker-button";
 import { ToggleButton } from "./toggle-button";
 import { buildRowTokens } from "./row-tokens";
+import { resolveTimezone, todayInZone } from "./timezone";
 
 type CreateFormat = "json" | "csv" | "md";
 
@@ -162,12 +163,18 @@ export function CreateProjectWizard({
 
   const aiKey = aiKeyIfEnabled(settings.ai);
   const aiEnabled = aiKey.length > 0;
+  // The app's zone before any project exists: the per-device override, else the browser's.
+  const appZone = resolveTimezone(settings.timezone, undefined);
   const { generate, busy: aiBusy, error: aiError, reset: resetAi } = useProjectProposal({
     apiKey: aiKey,
     model: settings.ai?.model ?? "claude-sonnet-5",
+    timeZone: appZone,
   });
   const [step, setStep] = useState<Step>(aiEnabled ? 0 : 1);
   const [draftPatch, setDraftPatch] = useState<Partial<ProjectFormDraft> | undefined>(undefined);
+  // The proposal's end date when it lies before today: the prompt asks for future dates but nothing
+  // enforces it, so Step 1 says so instead of creating a project that is already over.
+  const [proposalPastEnd, setProposalPastEnd] = useState<string | null>(null);
   const [aiSeed, setAiSeed] = useState<TemplateSeed | undefined>(undefined);
   const [meta, setMeta] = useState<ProjectMeta | null>(null);
   const [format, setFormat] = useState<CreateFormat>("json");
@@ -227,11 +234,15 @@ export function CreateProjectWizard({
     // and silently drop this proposal's seed. Cleared HERE rather than on Back
     // so Back → Skip still returns to the import the user made.
     setImported(null);
-    const today = new Date().toISOString().slice(0, 10); // callback context — lint-safe
+    // The user's local day, computed the same way as the proposal prompt's (but after the reply, so the
+    // two can differ across midnight); callback context — lint-safe.
+    const today = todayInZone(new Date(), appZone);
     // Clear any meta captured from a prior manual Step-1 visit so the fresh AI
     // draftPatch wins on the next Step-1 mount (initialMeta would otherwise shadow it).
     setMeta(null);
-    setDraftPatch(proposalToDraftPatch(p));
+    const patch = proposalToDraftPatch(p);
+    setDraftPatch(patch);
+    setProposalPastEnd(patch.endDate && patch.endDate < today ? patch.endDate : null);
     setFeatures(p.features.length ? p.features : [...ALL_MODULE_IDS]);
     const seed = proposalToSeed(p, today);
     setAiSeed(seed);
@@ -251,7 +262,12 @@ export function CreateProjectWizard({
     // own project meta (via draftPatch below) wins on the next Step-1 mount —
     // initialMeta would otherwise shadow it (same guard as runIngest above).
     setMeta(null);
-    if (ws.project) setDraftPatch(draftFromMeta(ws.project));
+    // Only a file that brings its own project details replaces the proposal's (and its end date);
+    // without them the proposal's draft stays in the form, so its warning must stay too.
+    if (ws.project) {
+      setDraftPatch(draftFromMeta(ws.project));
+      setProposalPastEnd(null);
+    }
     setImportNonce((n) => n + 1);
     setStep(1);
   };
@@ -428,6 +444,17 @@ export function CreateProjectWizard({
                 the hint beside its notice would read as if it did. */}
             {!aiEnabled && !imported && (
               <p className="mb-3 text-xs text-muted-foreground">{t(lang, "wizardAiOffHint")}</p>
+            )}
+            {/* Shown only while the form still holds the proposal (a later manual
+                visit captures meta, and the user may already have fixed the date).
+                No `!imported` guard: an import that brings project details clears
+                proposalPastEnd itself, and one that does not leaves the past date
+                in the form, which Step 1 can create from straight away. */}
+            {proposalPastEnd && !meta && (
+              <p role="status" className="mb-3 flex items-start gap-1.5 text-xs font-medium text-foreground">
+                <ExclamationTriangleIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span>{t(lang, "wizardAiEndDatePast", proposalPastEnd)}</span>
+              </p>
             )}
             <CreateProjectForm
               key={importNonce}

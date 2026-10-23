@@ -579,6 +579,73 @@ describe("CreateProjectWizard AI Step 0", () => {
     ).not.toBeInTheDocument();
   });
 
+  // Review finding: the prompt asks for future dates but nothing enforced it,
+  // so a proposal that still ends in the past is flagged on the Details step.
+  const PAST_END = "2020-01-31";
+  // In range for sanitizeIsoDate (1900–2100), so it really reaches the form.
+  const FUTURE_END = "2099-12-31";
+  const pastWarning = () => t("en-US", "wizardAiEndDatePast", PAST_END);
+  async function generateWithEnd(endDate: string) {
+    generateMock.mockResolvedValue({ meta: { name: "Dated", endDate }, features: [], seed: undefined });
+    fireEvent.change(screen.getByLabelText(t("en-US", "aiCreateDescribeLabel")), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiCreateGenerate") }));
+    await waitFor(() => expect(screen.getByDisplayValue(endDate)).toBeInTheDocument());
+  }
+  function importWorkspace(text: string) {
+    const picker = screen
+      .getByRole("button", { name: t("en-US", "wizardImportWorkspaceButton") })
+      .parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(picker, { target: { files: [new File([text], "sample.json", { type: "application/json" })] } });
+  }
+
+  it("warns when the proposed end date is in the past", async () => {
+    renderWithKey();
+    await generateWithEnd(PAST_END);
+    expect(screen.getByText(pastWarning())).toBeInTheDocument();
+  });
+
+  it("does not warn when the proposed end date is in the future", async () => {
+    renderWithKey();
+    await generateWithEnd(FUTURE_END);
+    expect(screen.queryByText(t("en-US", "wizardAiEndDatePast", FUTURE_END))).not.toBeInTheDocument();
+  });
+
+  it("drops the warning when a second proposal ends in the future", async () => {
+    renderWithKey();
+    await generateWithEnd(PAST_END);
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    await generateWithEnd(FUTURE_END);
+    expect(screen.queryByText(pastWarning())).not.toBeInTheDocument();
+  });
+
+  it("drops the warning when an imported workspace replaces the proposal's details", async () => {
+    renderWithKey();
+    await generateWithEnd(PAST_END);
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    importWorkspace(sampleText);
+    await screen.findByText(/Importing sample\.json: \d+ tasks/);
+    expect(screen.queryByDisplayValue(PAST_END)).toBeNull();
+    expect(screen.queryByText(pastWarning())).not.toBeInTheDocument();
+  });
+
+  // An import with no project meta leaves the proposal's details in the form,
+  // so dismissing that import must not leave the past date unflagged.
+  it("keeps the warning when an imported workspace carries no project details", async () => {
+    renderWithKey();
+    await generateWithEnd(PAST_END);
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    const noProject = JSON.parse(sampleText) as Record<string, unknown>;
+    delete noProject.project;
+    importWorkspace(JSON.stringify(noProject));
+    await screen.findByText(/Importing sample\.json: \d+ tasks/);
+    // Step 1 can create from this import right away, so the warning must show while it is pending too.
+    expect(screen.getByDisplayValue(PAST_END)).toBeInTheDocument();
+    expect(screen.getByText(pastWarning())).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "wizardImportWorkspaceClear", "sample.json") }));
+    expect(screen.getByDisplayValue(PAST_END)).toBeInTheDocument();
+    expect(screen.getByText(pastWarning())).toBeInTheDocument();
+  });
+
   it("Generate populates the Details form and advances to Step 1", async () => {
     generateMock.mockResolvedValue({
       meta: { name: "Proposed Project" },

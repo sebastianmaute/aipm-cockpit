@@ -8,6 +8,7 @@ import type { TemplateSeed } from "./templates";
 import type { Resource, Task } from "./types";
 import { PROJECT_AI_FIELDS, judgeProjectField, type ProjectAiField } from "./project-ai-fields";
 import { REGULATORY_REQUIREMENTS, IDENTITY_TYPES, DEPLOYMENTS } from "./project-options";
+import { NACE_SECTIONS } from "./nace-sections";
 import {
   sanitizeRaidItem,
   sanitizeModelChangeItem,
@@ -66,7 +67,10 @@ function metaProperties(): Record<string, Record<string, unknown>> {
   }
   out.name = { type: "string", description: "Concise project name." };
   out.products = { type: "string", description: "Products/services involved." };
-  out.naceSection = { type: "string", description: "NACE section letter (A-U)." };
+  // A fixed-set field must offer the set the judge checks: judgeMeta drops a
+  // refusal silently, so a live "G (retail)" left the form's field empty.
+  out.naceSection = { type: "string", enum: NACE_SECTIONS.map((s) => s.code), description: "NACE section letter." };
+  out.operatingTimezone = { type: "string", description: "IANA time zone name, e.g. Europe/Berlin." };
   return out;
 }
 
@@ -539,11 +543,16 @@ export function seedHasContent(seed: TemplateSeed | undefined): boolean {
 
 /** System prompt for the proposal call. English + the module catalog; not the
  *  chat assistant prompt and not operating-guide grounded (no active context at
- *  creation time). */
-export function buildProposalSystemPrompt(): string {
+ *  creation time). `today` (ISO YYYY-MM-DD) anchors relative dates: without it
+ *  the model read "March to February" against its training year and proposed a
+ *  project that had already ended. */
+export function buildProposalSystemPrompt(today: string): string {
   return [
     "You are a senior project manager helping set up a new project tracker.",
     "From the user's description, call the propose_project tool EXACTLY ONCE.",
+    `Today is ${today}. Resolve dates relative to today: a month or range given without a year`,
+    "means its next occurrence on or after today (a month that contains today counts as this month),",
+    "unless the description says otherwise.",
     "Infer a concise name and any metadata you can; leave fields you cannot infer unset.",
     "Infer regulatory requirements, identity types and deployment only from what the description says",
     "(e.g. GDPR erasure → GDPR; an online retailer's customers → B2C); never guess them.",
