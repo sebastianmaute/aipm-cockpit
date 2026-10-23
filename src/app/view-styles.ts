@@ -38,10 +38,14 @@ export const CENTERED_MAP_PANE_CLASS =
 export const CENTERED_WIDE_PANE_CLASS =
   "relative mx-auto flex h-[50%] max-h-full min-h-[360px] w-[min(100%,64rem)] min-w-[420px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 resize";
 
-/** Centered, half-width pane that grows with its content but never exceeds the
- *  viewport (then its body scrolls), AND is user-resizable: the default height
- *  tracks the content, but the bottom-right corner drags to a custom size (the
- *  drag overrides the content-fit height/width within the min/max bounds). Used
- *  by Manage Roles. */
+/** Centered pane that grows with its content but never exceeds the viewport
+ *  (then its body scrolls), AND is user-resizable: the default height tracks the
+ *  content, but the bottom-right corner drags to a custom size (the drag
+ *  overrides the content-fit height/width within the min/max bounds). Used by
+ *  Manage Roles. The width is the whole content area up to 72rem, which the rate
+ *  card (about 1,050px of table) fits in (§766): half of the area left it
+ *  420–488px below a 1366px window (measured 2026-10-23). As in
+ *  CENTERED_WIDE_PANE_CLASS the cap lives in `width`, not a `max-w-*`, so a drag
+ *  wider than the cap still wins. */
 export const CENTERED_FIT_PANE_CLASS =
-  "relative mx-auto flex w-[50%] min-w-[420px] max-h-[calc(100vh-7rem)] min-h-[280px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 resize";
+  "relative mx-auto flex w-[min(100%,72rem)] min-w-[420px] max-h-[calc(100vh-7rem)] min-h-[280px] flex-col overflow-hidden rounded-xl border border-line bg-surface p-6 resize";

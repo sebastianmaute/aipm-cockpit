@@ -47,7 +47,9 @@ export const ROLES_COL_WIDTHS = {
   external: 120,
   internalDay: 120,
   externalDay: 120,
-  basis: 150,
+  // Room for the Hours/Days control on one line, German included (164px + px-3);
+  // narrower, it wraps and doubles every row's height (§766).
+  basis: 192,
 } as const;
 
 export interface RolesEditorProps {
@@ -242,8 +244,8 @@ export function RolesEditor({
         <div className="mb-2 flex items-center justify-between gap-2">
           <h4 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "rolesRateCard")}</h4>
           <div className="flex flex-row flex-nowrap items-center gap-2">
-            {onResetSize && <ResetSizeButton onClick={onResetSize} lang={lang} />}
             <PrintButton lang={lang} />
+            {onResetSize && <ResetSizeButton onClick={onResetSize} lang={lang} />}
           </div>
         </div>
         {sortedRoles.length === 0 ? (

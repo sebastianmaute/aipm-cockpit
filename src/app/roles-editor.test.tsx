@@ -1,7 +1,7 @@
 import { act, render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { RolesEditor } from "./roles-editor";
+import { RolesEditor, ROLES_COL_WIDTHS } from "./roles-editor";
 import { t } from "./i18n";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import type { Discipline, Grade, Role } from "./types";
@@ -459,6 +459,15 @@ describe("RolesEditor sortable column headers", () => {
     expect(headerFor(t("en-US", "rolesDiscipline"))).toHaveAttribute("aria-sort", "ascending");
     await userEvent.click(btn());
     expect(headerFor(t("en-US", "rolesDiscipline"))).toHaveAttribute("aria-sort", "descending");
+  });
+
+  // §766: the Hours/Days control is an inline-flex that WRAPS, so in a column too
+  // narrow for both options it stacks them and every rate-card row grows from 50px
+  // to 82px. Measured in Chromium on 2026-10-23 with wrapping switched off: 152px
+  // in English, 164px in German ("Stunden" / "Tage"); the cell adds px-3 (24px).
+  // jsdom has no layout, so the width is pinned against that measurement.
+  it("gives the basis column room for both options on one line, in German too (§766)", () => {
+    expect(ROLES_COL_WIDTHS.basis).toBeGreaterThanOrEqual(164 + 24);
   });
 
   // ROLES_COL_WIDTHS is a fixed const with no persistence and no setter, so the
