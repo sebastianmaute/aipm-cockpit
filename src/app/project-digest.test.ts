@@ -107,12 +107,12 @@ describe("buildProjectDigest", () => {
       stakeholders: [
         stakeholder({ id: 1, name: "Sofia Ramirez", title: "CFO", organization: "Acme" }),
         stakeholder({ id: 2, name: "Liam Foster", organization: "Globex" }),
-        stakeholder({ id: 3, name: "Mia Chen" }),
+        stakeholder({ id: 3, name: "Liam Foster" }),
       ],
     }));
     expect(text).toContain("stakeholders#1: Sofia Ramirez [CFO]");
     expect(text).toContain("stakeholders#2: Liam Foster [Globex]");
-    expect(text).toContain("stakeholders#3: Mia Chen [Sponsor]");
+    expect(text).toContain("stakeholders#3: Liam Foster [Sponsor]");
   });
 
   test("the queue keeps its tier format", () => {
