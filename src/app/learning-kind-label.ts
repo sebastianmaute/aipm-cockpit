@@ -71,6 +71,7 @@ export function learningKindLabel(lang: Lang, kind: string): { source: string; r
     : undefined;
   return {
     source: sourceKey ? t(lang, sourceKey) : source,
-    reason: reasonLabel(lang, whyKey),
+    // No why key (no ":", or nothing after it): the raw kind, not an empty line.
+    reason: whyKey ? reasonLabel(lang, whyKey) : kind,
   };
 }

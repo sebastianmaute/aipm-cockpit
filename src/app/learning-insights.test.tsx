@@ -204,4 +204,15 @@ describe("learningKindLabel", () => {
   it("does not treat an Object.prototype name as a why key", () => {
     expect(learningKindLabel("en-US", "raid:constructor").reason).toBe("constructor");
   });
+
+  it("does not treat an Object.prototype name as a source", () => {
+    expect(learningKindLabel("en-US", "constructor:x").source).toBe("constructor");
+  });
+
+  // A kind with no why key (no ":", or nothing after it) has no reason to name;
+  // the raw kind keeps two such rows apart instead of an empty line.
+  it("falls back to the raw kind when the why key is empty", () => {
+    expect(learningKindLabel("en-US", "legacykind").reason).toBe("legacykind");
+    expect(learningKindLabel("en-US", "raid:").reason).toBe("raid:");
+  });
 });

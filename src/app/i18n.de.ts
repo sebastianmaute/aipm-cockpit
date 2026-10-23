@@ -3865,7 +3865,8 @@ export const de: Record<TranslationKey, string> = {
   learningOverrideSurface: "Immer hervorheben",
   learningOverrideSuppress: "Immer unterdrücken",
   learningOverrideOff: "Aus",
-  // §777 — siehe `REASON_LABEL_KEY` in learning-kind-label.ts.
+  // §777 — param-free reason labels for the why keys whose text takes values
+  // (see `REASON_LABEL_KEY` in learning-kind-label.ts).
   learningReasonForecastSim: "Simulierte Abschlusschance gefährdet",
   learningReasonForecastSimBelow1: "Simulierte Abschlusschance unter 1 %",
   learningReasonTaskStale: "Länger nicht aktualisiert",
