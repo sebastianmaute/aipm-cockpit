@@ -2,6 +2,7 @@
 // the take: its narration and the beat ids of its own file (narrationFor). After it: the AI waits trimmed around
 // the beats, each beat's time mapped onto the trimmed video, and the mix in the take's language (trimAndMix).
 // See README.md.
+import fs from 'node:fs';
 import { loadBeats, ownBeatIds } from './narration/beats.mjs';
 import { mixTake } from './narration/mix.mjs';
 import { VOICE, audioFor } from './narration/tts.mjs';
@@ -24,9 +25,10 @@ export function narrationFor(def, { lang, rehearse, audio = (text) => audioFor(l
  *  warning, so the take's own warnings still reach the tally; a failed mix keeps the WebM and counts one too.
  *  The trim also cuts the take's off-camera spans (`r.cuts`) and everything after the take ended (`r.endAt`).
  *  Once mixed, the MP4 is checked (render-check.mjs): each finding is logged as a RENDER line and counts a warning.
- *  `log` must mask secrets (record.mjs passes its masking logger); `trim`, `mix` and `probe` (an MP4's length in
- *  seconds) are overridable for tests. */
-export function trimAndMix(def, r, { lang, log, outRoot, trim = trimAiWaits, mix = mixTake, probe = probeDuration }) {
+ *  Its AI waits are written beside the MP4 as `<name>.waits.json`, for check-render.mjs.
+ *  `log` must mask secrets (record.mjs passes its masking logger); `trim`, `mix`, `probe` (an MP4's length in
+ *  seconds) and `write` (a file's text) are overridable for tests. */
+export function trimAndMix(def, r, { lang, log, outRoot, trim = trimAiWaits, mix = mixTake, probe = probeDuration, write = fs.writeFileSync }) {
   if (r.status !== 'ok' || !r.file) return r;
   let ranges;
   try {
@@ -43,12 +45,15 @@ export function trimAndMix(def, r, { lang, log, outRoot, trim = trimAiWaits, mix
   const m = mix(r.file, mapped, r.narration, def, { duration, lang, log });
   let warnings = r.warnings + (m.warning ? 1 : 0);
   if (m.mp4) {
+    const waits = (r.aiWaits ?? []).map((w) => ({ start: mapTime(w.start, ranges), end: mapTime(w.end, ranges) }));
     let findings;
     try {
+      // Beside the MP4 and its .srt, so check-render.mjs can judge the render's gaps later.
+      write(m.mp4.replace(/\.mp4$/, '.waits.json'), JSON.stringify(waits));
       findings = renderFindings({
         beats: mapped,
         captions: (r.captions ?? []).map((c) => ({ ...c, at: mapTime(c.at, ranges) })),
-        waits: (r.aiWaits ?? []).map((w) => ({ start: mapTime(w.start, ranges), end: mapTime(w.end, ranges) })),
+        waits,
         duration: probe(m.mp4),
       });
     } catch (e) {

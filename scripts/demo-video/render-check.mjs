@@ -4,11 +4,13 @@
 // take after the mix, check-render.mjs on a finished .mp4 and its .srt. Each finding is one `RENDER …` line,
 // counted as a take warning. See README.md.
 
-/** A silence between two voices longer than this is a stall, unless an AI wait overlaps it. */
+/** No stretch longer than this without a voice (owner, 2026-10-24), the seconds of a marked AI wait aside. */
 export const MAX_GAP_S = 8;
 /** The standard outro is 1.9 s (ui.PAUSE_MS and the closing hold): a longer tail than this is dead air. */
 export const MAX_TAIL_S = 2.5;
-/** A caption's voice starts with it (ui.caption); later than this, picture and voice have come apart. */
+/** A caption's voice starts with it (ui.caption); later than this, picture and voice have come apart. ui.caption
+ *  logs the caption and starts the voice in the same call, so today this only guards against a future change
+ *  that separates the two; a late voice after a stall shows as a gap instead. */
 export const MAX_DESYNC_S = 1;
 
 /** m:ss.s on the video's timeline. */
@@ -18,20 +20,34 @@ function clock(sec) {
   return `${m}:${s}`;
 }
 
-const overlaps = (a, b, w) => w.start < b && w.end > a;
+/** The seconds of [a, b] that the waits ({ start, end }) cover, overlapping waits counted once. */
+function covered(a, b, waits) {
+  const parts = waits.map((w) => [Math.max(a, w.start), Math.min(b, w.end)]).filter(([x, y]) => y > x).sort((p, q) => p[0] - q[0]);
+  let total = 0;
+  let upTo = a;
+  for (const [x, y] of parts) {
+    if (y <= upTo) continue;
+    total += y - Math.max(x, upTo);
+    upTo = y;
+  }
+  return total;
+}
 
-/** Each silence longer than MAX_GAP_S between consecutive voices ({ id, at, end }, any order). A silence that
- *  a marked AI wait ({ start, end }) overlaps is the wait shown, not a stall. `unverified`: the waits are not
- *  known (an old render of an AI clip), so a long silence is reported as unverified rather than as a stall. */
+/** Each silence between consecutive voices ({ id, at, end }, any order) that is longer than MAX_GAP_S once the
+ *  seconds a marked AI wait ({ start, end }) covers are taken out: a wait shown is not a stall, but it excuses
+ *  only its own seconds. `unverified`: the waits are not known (an old render), so a long silence is reported
+ *  as unverified rather than as a stall. */
 export function gapFindings(spans, waits = [], { unverified = false } = {}) {
   const sorted = [...spans].sort((x, y) => x.at - y.at);
   const found = [];
   for (let i = 1; i < sorted.length; i++) {
     const from = sorted[i - 1].end;
     const to = sorted[i].at;
-    if (to - from <= MAX_GAP_S || waits.some((w) => overlaps(from, to, w))) continue;
+    const wait = covered(from, to, waits);
+    if (to - from - wait <= MAX_GAP_S) continue;
     const what = unverified ? 'unverified (AI wait?) gap' : 'gap';
-    found.push(`RENDER ${what} ${(to - from).toFixed(1)} s at ${clock(from)} (after ${sorted[i - 1].id})`);
+    const rest = wait > 0 ? `, ${(to - from - wait).toFixed(1)} s of it not an AI wait` : '';
+    found.push(`RENDER ${what} ${(to - from).toFixed(1)} s at ${clock(from)} (after ${sorted[i - 1].id})${rest}`);
   }
   return found;
 }

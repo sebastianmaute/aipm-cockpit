@@ -64,7 +64,9 @@ describe('trimAndMix (§715)', () => {
     const mix = (file, mapped, n, d, opts) => { calls.push({ mix: { file, mapped, n, d, opts } }); return mixWarning ? { warning: true } : { warning: false, mp4: 'v.mp4' }; };
     // The finished MP4's length, as ffprobe would read it.
     const probe = (file) => { calls.push({ probe: file }); return length; };
-    return { calls, lines, deps: { lang: 'de', outRoot: 'OUT', log: (...p) => lines.push(p.join(' ')), trim, mix, probe } };
+    const written = {};
+    const write = (file, text) => { written[file] = text; };
+    return { calls, lines, written, deps: { lang: 'de', outRoot: 'OUT', log: (...p) => lines.push(p.join(' ')), trim, mix, probe, write } };
   }
 
   it('trims around the beats, maps each beat through the kept ranges, then mixes in the take language', () => {
@@ -99,6 +101,13 @@ describe('trimAndMix (§715)', () => {
       '[v] RENDER tail 10.0 s after the last voice (video 30.0 s)',
     ]);
     expect(r.warnings).toBe(3);
+  });
+
+  it('writes the mapped AI waits beside the MP4, so check-render can judge its gaps later (§715)', () => {
+    const f = fakes();
+    trimAndMix(def, take(), f.deps);
+    // The wait from 5 s to 20 s, through the ranges [0, 6.5] and [16, 30]: 5 s to 10.5 s.
+    expect(JSON.parse(f.written['v.waits.json'])).toEqual([{ start: 5, end: 10.5 }]);
   });
 
   it('the check maps the AI waits and the captions through the kept ranges (§715)', () => {
