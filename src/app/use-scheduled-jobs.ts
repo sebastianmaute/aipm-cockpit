@@ -96,6 +96,11 @@ function normalizePatch<P extends { instruction?: string; timeZone?: string | nu
   } as P;
 }
 
+/** A failed read (a busy database while another tab migrates, a dropped connection) is retried a few times, so a tab
+ *  that lost the race does not stay empty for the session. */
+const MAX_LOAD_RETRIES = 3;
+const LOAD_RETRY_MS = 5_000;
+
 export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduledJobsResult {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [jobsSource, setJobsSource] = useState<string | null | undefined>(undefined);
@@ -103,6 +108,9 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   const [ready, setReady] = useState(false);
   const cfgRef = useRef(config);
   const mountedRef = useRef(true);
+  const retriesRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshRef = useRef<() => Promise<void>>(async () => {});
   useEffect(() => { cfgRef.current = config; }, [config]);
   // ★★ Re-set on mount, not merely cleared on unmount. React StrictMode mounts,
   //    unmounts and remounts in development (Next 16 defaults reactStrictMode to
@@ -131,7 +139,10 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   //    flagged for PLACEMENT, not on the tree or the commit number).
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+      if (retryTimerRef.current !== null) clearTimeout(retryTimerRef.current);
+    };
   }, []);
 
   const refresh = useCallback(async () => {
@@ -142,14 +153,28 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
       if (!mountedRef.current || startedAt !== generationOf(config) || backendOf(cfgRef.current) !== backendOf(config)) return;
       setJobs(list);
       setJobsSource(backendOf(config));
+      retriesRef.current = 0;
     } catch {
-      // optional feature — leave jobs as-is
+      // Optional feature: leave jobs as they are, and try again a few times.
+      if (mountedRef.current && retriesRef.current < MAX_LOAD_RETRIES) {
+        retriesRef.current += 1;
+        if (retryTimerRef.current !== null) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = setTimeout(() => {
+          retryTimerRef.current = null;
+          void refreshRef.current();
+        }, LOAD_RETRY_MS * retriesRef.current);
+      }
     } finally {
       if (mountedRef.current) setReady(true);
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh, config]);
+  useEffect(() => { refreshRef.current = refresh; }, [refresh]);
+  useEffect(() => {
+    retriesRef.current = 0; // a new backend starts with a fresh budget
+    if (retryTimerRef.current !== null) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
+    void refresh();
+  }, [refresh, config]);
 
   // §750 — this instance's re-read, which another instance's write calls.
   const rereadRef = useRef<() => void>(() => {});

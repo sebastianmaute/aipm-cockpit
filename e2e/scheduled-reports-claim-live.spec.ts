@@ -13,7 +13,7 @@ import { runTursoPipeline } from "../src/app/turso-pipeline";
 import { rowObjects, txt } from "../src/app/turso-schema";
 import { claimReport, type ReportData } from "../src/app/scheduled-reports-store";
 import {
-  MIGRATED_MARKER_ID, SCHEDULED_JOBS_DDL, __resetScheduledJobsStoreCache, loadScheduledJobs,
+  MIGRATED_MARKER_ID, SCHEDULED_JOBS_DDL, __resetScheduledJobsStoreCache, loadScheduledJobs, migrationStatements,
 } from "../src/app/scheduled-jobs-store";
 import {
   THROWAWAY, LIVE, SKIP_NO_THROWAWAY, DESTRUCTIVE_RUN, pipelineBase,
@@ -80,7 +80,7 @@ test.describe("§772 — the scheduled-jobs migration on libSQL", () => {
     await clear().catch(() => undefined);
   });
 
-  test("copies every field, switches the legacy row off, writes the marker, and a second migration changes nothing", async () => {
+  test("copies every field, switches the legacy row off, writes the marker; the marker skips a second session and the guarded SQL itself changes nothing when re-sent", async () => {
     await runTursoPipeline(CONFIG, [
       ...SCHEDULED_JOBS_DDL.map((sql) => ({ sql })),
       { sql: "INSERT INTO scheduled_jobs (id, data) VALUES (?, ?)", args: [txt("41"), txt(JSON.stringify(LEGACY))] },
@@ -96,6 +96,10 @@ test.describe("§772 — the scheduled-jobs migration on libSQL", () => {
 
     __resetScheduledJobsStoreCache(); // a new session migrates again
     await loadScheduledJobs(CONFIG);
+    expect(await dump()).toEqual(first); // the marker short-circuit
+
+    // The guarded SQL on its own, with the short-circuit bypassed: the marker's NOT EXISTS must make it a no-op.
+    await runTursoPipeline(CONFIG, migrationStatements());
     expect(await dump()).toEqual(first);
   });
 });

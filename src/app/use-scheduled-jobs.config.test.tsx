@@ -2,7 +2,7 @@
 // config is set) can change while a job write is in flight. The write must load from and save to ONE backend, and
 // an instance that moved to the other backend must show THAT backend's list, not the write's result. The store is
 // faked with one list per config, and its load and save can be held.
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import type { TursoConfig } from "./turso-config";
@@ -11,6 +11,8 @@ const store = vi.hoisted(() => ({
   lists: new Map<unknown, ScheduledJob[]>(), // keyed by `keyOf`: the database, not the config object
   saves: [] as Array<{ config: unknown; names: string[] }>,
   holdLoadOf: undefined as unknown,
+  failLoads: 0,
+  loadCalls: 0,
   holdSave: false,
   releaseLoad: (): void => {},
   releaseSave: (): void => {},
@@ -20,6 +22,8 @@ const keyOf = (config: unknown): unknown => (config === null ? null : (config as
 
 vi.mock("./scheduled-jobs-store", () => ({
   loadScheduledJobs: async (config: unknown) => {
+    store.loadCalls += 1;
+    if (store.failLoads > 0) { store.failLoads -= 1; throw new Error("Turso error: database is locked"); }
     const list = [...(store.lists.get(keyOf(config)) ?? [])];
     if (store.holdLoadOf !== undefined && config === store.holdLoadOf) {
       store.holdLoadOf = undefined;
@@ -52,6 +56,8 @@ beforeEach(() => {
   store.saves = [];
   store.holdLoadOf = undefined;
   store.holdSave = false;
+  store.failLoads = 0;
+  store.loadCalls = 0;
 });
 
 describe("useScheduledJobs — a backend change during a write (§750 review)", () => {
@@ -144,6 +150,31 @@ describe("useScheduledJobs — jobsSource and keyed writes (§772 final review)"
     await act(async () => { await h.result.current.updateJob(1, { name: "right" }, "key-1"); });
     expect(h.result.current.jobs.map((j) => j.name)).toEqual(["right"]);
     await act(async () => { await h.result.current.deleteJob(1, "key-1"); });
+    expect(h.result.current.jobs).toEqual([]);
+  });
+});
+
+describe("useScheduledJobs: a failed first read is retried (§772 cr2)", () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  // KILLED BY: dropping the retry (a tab that lost the migration race stays empty for the session).
+  it("shows the jobs after a busy first read, without any user action", async () => {
+    store.failLoads = 1;
+    const h = mount(TURSO);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(h.result.current.jobs).toEqual([]);
+    expect(h.result.current.ready).toBe(true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+    expect(h.result.current.jobs.map((j) => j.name)).toEqual(["turso"]);
+    expect(h.result.current.jobsSource).toBe(TURSO.httpUrl);
+  });
+
+  it("gives up after a bounded number of retries", async () => {
+    store.failLoads = 100;
+    const h = mount(TURSO);
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+    expect(store.loadCalls).toBe(4); // the first read plus three retries
     expect(h.result.current.jobs).toEqual([]);
   });
 });

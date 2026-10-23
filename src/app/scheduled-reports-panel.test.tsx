@@ -82,6 +82,8 @@ describe("ScheduledReportsPanel", () => {
     expect(marks.map((m) => m!.getAttribute("data-selected-marker"))).toEqual(tabs.map((tab) => (tab.getAttribute("aria-selected") === "true" ? "on" : "off")));
     expect(marks.filter((m) => m!.getAttribute("data-selected-marker") === "on")).toHaveLength(1);
     expect(marks.every((m) => m!.getAttribute("aria-hidden") === "true")).toBe(true);
+    // What the user sees: the glyph is hidden on every unselected tab and shown on the selected one.
+    expect(marks.map((m) => m!.classList.contains("invisible"))).toEqual(tabs.map((tab) => tab.getAttribute("aria-selected") !== "true"));
   });
 
   it("keeps names unique when two reports read identically", async () => {

@@ -123,8 +123,9 @@ view (reachable on single-database Turso through the nav) says the same.
 The runner additionally needs AI on and a key, as today. The view does NOT: existing reports stay readable with
 AI off.
 
-Jobs already stored where they no longer run — localStorage in file mode, the `scheduled_jobs_v2` table of a
-single-database Turso — are left in place, untouched. (Review cr2 changed where jobs live: the new job shape is in
+Jobs already stored where they no longer run — localStorage in file mode, the jobs of a single-database Turso — are
+left in place and do not run. Wherever a Turso config is present, a single-database Turso included, the first load
+migrates and switches that database's legacy `scheduled_jobs` rows off, which is what stops an older client's runner. (Review cr2 changed where jobs live: the new job shape is in
 `scheduled_jobs_v2`, migrated once from the pre-§772 `scheduled_jobs`, whose rows are then switched off and which
 an updated client never writes again, because an older client rebuilds every job from a fixed field list and would
 strip the new fields.) The CHANGELOG entry says that scheduled jobs now need a
