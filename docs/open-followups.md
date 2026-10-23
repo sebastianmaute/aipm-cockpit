@@ -1005,6 +1005,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§765](#765-the-demo-videos-are-not-in-the-app-and-there-is-no-german-demo-project-or-german-recording--open) | The demo videos are not in the app, and there is no German demo project or German recording | — | — | open |
 | [§766](#766-manage-roles-gets-cramped-on-small-screens--open) | Manage roles gets cramped on small screens | — | — | open |
 | [§772](#772-scheduled-jobs-analyse-only-the-open-project-take-no-instruction-and-keep-no-suggestions--closed-2026-10-23) | Scheduled jobs analyse only the open project, take no instruction and keep no suggestions | — | — | **CLOSED** 2026-10-23 |
+| [§779](#779-edit-project-shows-a-switched-off-function-as-still-on--closed-2026-10-24) | Edit project shows a switched-off function as still on | — | — | **CLOSED** 2026-10-24 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45871,3 +45872,13 @@ Behaviour now: a job runs on the day it is due, in its own time zone. `slotFor` 
 Size M.
 
 **Source:** owner request 2026-10-23.
+
+## 779. Edit project shows a switched-off function as still on — CLOSED 2026-10-24
+
+**Status:** CLOSED 2026-10-24 on `fix/project-functions-stale`, owner decision 2026-10-24 to fix it now. `workspace-section.tsx` now hands `ProjectsPanel` the slice its `onCommitFeatures` writes, `workspace.features ?? ALL_MODULE_IDS` (the legacy-project default `useFeaturesSync` mirrors), instead of the section's own `settings.features`. Verified by `src/app/workspace-section.project-functions.test.tsx` (both tests failed on the code before the fix: the reopened dialog showed Changes ticked, and switching another function off wrote Changes back on), and in the running app: switch Changes off and save, reopen through Settings → Functions, Changes shows off; switch Stakeholders off and save, Changes stays off. The other fields of the dialog were not stale: the project's metadata comes from `currentProject`, a prop from `task-manager.tsx`, and the Monte Carlo switch from `workspace.settingsOverrides`. Left as is, by decision: the section's other readers of `settings.features` (sub-tabs, panel gates) can show the all-modules default for a render or two after the section mounts; they recompute and seed nothing, so nothing is written from it.
+
+Settings → Functions → "Open this project's functions" opens Edit project on the Projects tab. With a function switched off and saved, the reopened dialog showed it ticked again, and a Save that changed any other function wrote the whole ticked list back, switching it on again. The request opens the dialog on the first render of `WorkspaceSection`'s own `useSettings` instance, before that instance has caught up (it starts at the all-modules default), and the dialog seeds its Functions draft once, at open, so the later correct value never reached it. The demo recorder's f-modules clip worked around it with a reload off camera.
+
+Size S.
+
+**Source:** found 2026-10-24 while fixing the f-modules demo clip (owner: fix it now).

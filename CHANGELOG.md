@@ -74,6 +74,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Edit project shows the functions you switched off (§779).** Opened from Settings → Functions, Edit project
+  showed a function you had just switched off as still on, and saving it after changing another function switched it
+  on again. It now shows the project's saved functions.
 - **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
   against the wrong year, so the new project and its milestones could already be over on the day you created
   it. Claude is now told today's date and reads a month or range without a year as the next one to come (the

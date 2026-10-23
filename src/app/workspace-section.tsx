@@ -37,6 +37,7 @@ import {
   subTabsFor,
 } from "./nav-config";
 import {
+  ALL_MODULE_IDS,
   isModuleEnabled,
   isViewEnabled,
 } from "./feature-modules";
@@ -1169,7 +1170,11 @@ export function WorkspaceSection({
               onSwitch={onSwitchProject}
               onCreate={onCreateProject}
               onUpdateCurrent={(meta) => void saveProjectFromForm({ write: onUpdateCurrentProject, before: currentProject, next: meta, getScopeEpoch, logActivityAs })}
-              features={features}
+              // §779 — read the slice `onCommitFeatures` writes, not this section's `settings.features`:
+              // a Settings -> Functions request opens Edit project on this instance's FIRST render, before
+              // its mirror has caught up, and the dialog seeds its draft once. `?? ALL_MODULE_IDS` is the
+              // legacy-project default `useFeaturesSync` mirrors.
+              features={workspace.features ?? ALL_MODULE_IDS}
               onCommitFeatures={workspace.setFeatures}
               simulation={isSimulationOn(workspace.settingsOverrides)}
               onCommitSimulation={!isPopout && isViewEnabled("forecast", features) ? (on) => workspace.setSettingsOverrides((prev) => withSimulation(prev, on)) : undefined}
