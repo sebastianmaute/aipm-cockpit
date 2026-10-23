@@ -42,6 +42,12 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Add task comes first in Open Points.** The Add task button is now the leftmost control in the Open Points
+  toolbar, with "Optimize with AI" after it.
+- **Pick the person for an absence from a searchable list.** The new-absence and edit-absence form now uses the
+  same searchable person picker as the task editor and the shift form: type to filter the resource directory and
+  contacts, and picking a person links the absence to them and fills their email. A name typed freely is still
+  accepted.
 - Scheduled jobs now need a Turso portfolio, and each existing job needs a project chosen in Settings → Scheduled jobs before it runs again.
 - **Video guides recorder (§715).** One command per video for the 43 guides: the big video, seven chapters
   (the first is recorded by hand), 15 AI clips and 20 feature clips, taken through the app's own UI on the demo project and a throwaway
@@ -63,6 +69,13 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
+  against the wrong year, so the new project and its milestones could already be over on the day you created
+  it. Claude is now told today's date and reads a month or range without a year as the next one to come (the
+  current month counts as this month). If a proposal still ends in the past, the Details step says so.
+- **Claude's proposal fills the NACE section and the time zone.** A NACE answer like "G (retail)" was thrown
+  away without a word and the field stayed empty; Claude now picks from the section codes, and is told the time
+  zone must be a name like Europe/Berlin.
 - **"Draft with AI" writes the whole steering report (§763).** Drafting a steering committee's status report
   often failed with "Could not draft the report", because Claude's reply was cut off before the report was
   complete. It now gets more room, and asks once more with more room if the reply is still cut off; you get the
@@ -193,6 +206,15 @@ longer carries its own changelog comment.
   After the switch to Turso, the app came back with an empty workspace: no project name in the header, a
   browser-storage label, and Edit project doing nothing. Creating the demo project from there also showed a
   false "changed in another tab" warning. A create that fails now leaves the app where it was.
+
+### Security
+
+- **Next.js 16.4.2.** The version in use, 16.4.0, fell inside three advisories, two of them critical:
+  GHSA-2464-fhr4-w9xw (critical, remote code execution in the Image Optimization API with SVG files),
+  GHSA-673q-mjm6-r5xr (critical, remote code execution in `use cache` functions) and GHSA-p3m5-59mp-jv5r
+  (high, a Server Actions denial of service). `next` and `eslint-config-next` move to 16.4.2.
+- **DOMPurify 3.4.17.** The version in use, 3.4.16, fell inside three sanitiser-bypass advisories:
+  GHSA-cg2g-xh64-v4q7 (critical), GHSA-mrv2-3pqr-j5jr (high) and GHSA-c6gr-qvv4-5v3f (low).
 
 ### Development
 

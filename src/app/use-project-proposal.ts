@@ -11,6 +11,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { runForcedToolCall } from "./ai-forced-call";
 import { useActionGuideText } from "./action-guides-context";
 import { isAbortError } from "./abort-error";
+import { browserTimeZone, todayInZone } from "./timezone";
 
 /** The user-message content the proposal call accepts: a plain string (SP3) or
  *  a multimodal block array (text + PDF/image/text attachments) for SP-D. */
@@ -19,6 +20,8 @@ export type ProposalContent = string | Array<{ type: "text"; text: string } | At
 interface AiCreds {
   apiKey: string;
   model: string;
+  /** IANA zone whose calendar day the prompt calls "today"; the browser's when omitted. */
+  timeZone?: string;
 }
 
 export function useProjectProposal(ai: AiCreds) {
@@ -42,7 +45,9 @@ export function useProjectProposal(ai: AiCreds) {
         const toolInput = await runForcedToolCall({
           apiKey: key,
           model: ai.model,
-          system: buildProposalSystemPrompt(),
+          // The user's local day, computed the same way as the one the wizard stamps on the seed
+          // (but at call start, so the two can differ across midnight); callback context — lint-safe.
+          system: buildProposalSystemPrompt(todayInZone(new Date(), ai.timeZone ?? browserTimeZone())),
           guideText,
           tools: [PROPOSAL_TOOL],
           toolName: "propose_project",
@@ -65,7 +70,7 @@ export function useProjectProposal(ai: AiCreds) {
         setBusy(false);
       }
     },
-    [ai.apiKey, ai.model, guideText],
+    [ai.apiKey, ai.model, ai.timeZone, guideText],
   );
 
   const reset = useCallback(() => setError(null), []);

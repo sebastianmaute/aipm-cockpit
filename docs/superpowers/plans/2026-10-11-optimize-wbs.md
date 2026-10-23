@@ -400,7 +400,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan;
 
 - [ ] **Step 1: Write failing tests:**
   - `app-modals-block.test.tsx` gains `wbsPlanModal` in `makeDeps`, plus a test that it renders, and renders in a popout too;
-  - `tasks-section.test.tsx` gains a test that a passed `aiOptimizeButton` is the first control in the toolbar row, through `expectButtonOrder` from `src/test/toolbar-order.ts`, with the existing trailing group still `contiguous: true`.
+  - `tasks-section.test.tsx` gains a test that a passed `aiOptimizeButton` is the first control in the toolbar row, through `expectButtonOrder` from `src/test/toolbar-order.ts`, with the existing trailing group still `contiguous: true`. *(Superseded 2026-10-23: Add task now leads the row and the AI button is second.)*
 - [ ] **Step 2: Run them and expect FAIL.**
 - [ ] **Step 3: Wire it.**
 - [ ] **Step 4: Measure** with `node -e "console.log(require('fs').readFileSync('src/app/task-manager.tsx','utf8').split('\n').length)"`. It must be ≤ 2082. Set that number in `file-sizes.json`, add the §491 sentence, and run `npm run size:check`: exit 0.
