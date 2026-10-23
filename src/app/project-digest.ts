@@ -5,16 +5,17 @@
 // category: it lists every open entity, most urgent first, and is bounded as a whole
 // by `DIGEST_MAX_CHARS`, dropping whole lines from the END so a cut never splits a line.
 // Lines keep the `view#id: title` grounding format the analysis reply is validated against.
+import { CONTEXT_CAP_PER_CATEGORY } from "./action-ai";
 import type { AppMode } from "./feature-modules";
 import { isTerminalChangeStatus } from "./change-log";
 import { isRaidActiveForReview } from "./raid-review";
+import { TEXTAREA_MAX } from "./sanitize-core";
 import { isTaskClosed } from "./task-closed";
 import type { ChangeItem, Milestone, RaidItem, Stakeholder, Task } from "./types";
 
 export const DIGEST_MAX_CHARS = 24_000;
 const TITLE_MAX_CHARS = 120;
 const TRUNCATION_LINE = "…(truncated)";
-const SEVERITY_RANK: Record<string, number> = { Critical: 4, High: 3, Medium: 2, Low: 1 };
 
 export interface ProjectDigestInput {
   projectName: string;
@@ -26,12 +27,19 @@ export interface ProjectDigestInput {
   milestones: readonly Milestone[];
   changes: readonly ChangeItem[];
   stakeholders: readonly Stakeholder[];
-  budget?: { currency: string; planned: number; actual: number; forecast: number };
+  /** `forecast` is absent when no pace forecast exists; the line then says n/a instead of repeating the plan. */
+  budget?: { currency: string; planned: number; actual: number; forecast?: number };
   queue: readonly { title: string; why: string; tier: "now" | "soon" | "monitor" }[];
   instruction?: string;
 }
 
 const clip = (s: string): string => s.replace(/\s+/g, " ").trim().slice(0, TITLE_MAX_CHARS);
+
+/** Keep the first `CONTEXT_CAP_PER_CATEGORY` lines and say how many were left out. */
+function capLines(lines: readonly string[]): string[] {
+  if (lines.length <= CONTEXT_CAP_PER_CATEGORY) return [...lines];
+  return [...lines.slice(0, CONTEXT_CAP_PER_CATEGORY), `- …(${lines.length - CONTEXT_CAP_PER_CATEGORY} more)`];
+}
 
 /** Ascending by date; an empty date sorts last. */
 const byDate = (a: string, b: string): number => (a === b ? 0 : a === "" ? 1 : b === "" ? -1 : a < b ? -1 : 1);
@@ -48,13 +56,17 @@ function taskLines(tasks: readonly Task[], today: string): string[] {
     });
 }
 
-function raidLines(raid: readonly RaidItem[]): string[] {
+const isRaidOverdue = (r: RaidItem, today: string): boolean => !!r.targetDate && r.targetDate < today;
+
+/** Nearest target date first, which puts every overdue item ahead of the rest; undated items last. */
+function raidLines(raid: readonly RaidItem[], today: string): string[] {
   return raid
     .filter(isRaidActiveForReview)
-    .sort((a, b) => (SEVERITY_RANK[b.severity ?? ""] ?? 0) - (SEVERITY_RANK[a.severity ?? ""] ?? 0) || a.id - b.id)
+    .sort((a, b) => byDate(a.targetDate ?? "", b.targetDate ?? "") || a.id - b.id)
     .map((r) => {
       const parts = [r.category, r.severity ?? "unrated", r.status, r.owner || "no owner"];
       if (r.targetDate) parts.push(`target ${r.targetDate}`);
+      if (isRaidOverdue(r, today)) parts.push("overdue");
       return `- raid#${r.id}: ${clip(r.title)} [${parts.join(", ")}]`;
     });
 }
@@ -70,11 +82,11 @@ function changeLines(changes: readonly ChangeItem[]): string[] {
   return changes
     .filter((c) => !isTerminalChangeStatus(c.status))
     .sort((a, b) => a.id - b.id)
-    .map((c) => `- changes#${c.id}: ${clip(c.title)} [${c.status}]`);
+    .map((c) => `- changes#${c.id}: ${clip(c.title)} [${c.status}${c.decisionDate ? `, decided ${c.decisionDate}` : ""}]`);
 }
 
 const stakeholderLines = (stakeholders: readonly Stakeholder[]): string[] =>
-  stakeholders.map((s) => `- stakeholders#${s.id}: ${clip(s.name)} [${s.category}]`);
+  stakeholders.map((s) => `- stakeholders#${s.id}: ${clip(s.name)} [${s.title || s.organization || s.category}]`);
 
 /** Keep whole lines from the front while they fit `budget` chars; append the marker. */
 function fitLines(lines: readonly string[], budget: number): string[] {
@@ -97,22 +109,23 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
     ? input.queue.map((q) => `- [${q.tier}] ${clip(q.title)} — ${clip(q.why)}`)
     : ["(none)"];
   const openTasks = taskLines(input.tasks, input.today);
+  const instruction = input.instruction?.slice(0, TEXTAREA_MAX);
   const body = [
     `Project: ${input.projectName}. Today: ${input.today}. Mode: ${input.mode}.`,
     `Enabled modules: ${input.enabledModules.join(", ") || "(none)"}. Open task count: ${openTasks.length}.`,
     'Entities are listed as "view#id: title"; reference an entity only by an id shown here.',
     ...(input.budget
-      ? [`Budget (${input.budget.currency}): planned ${input.budget.planned}, actual ${input.budget.actual}, forecast ${input.budget.forecast}.`]
+      ? [`Budget (${input.budget.currency}): planned ${input.budget.planned}, actual ${input.budget.actual}, forecast ${input.budget.forecast ?? "n/a"}.`]
       : []),
     "",
-    "## Current rule-based action queue", ...queue,
-    "", "## Open tasks", ...openTasks,
-    "", "## Active RAID", ...raidLines(input.raid),
-    "", "## Upcoming milestones", ...milestoneLines(input.milestones, input.today),
-    "", "## Pending changes", ...changeLines(input.changes),
-    "", "## Stakeholders", ...stakeholderLines(input.stakeholders),
+    "## Current rule-based action queue", ...capLines(queue),
+    "", "## Open tasks", ...capLines(openTasks),
+    "", "## Active RAID", ...capLines(raidLines(input.raid, input.today)),
+    "", "## Upcoming milestones", ...capLines(milestoneLines(input.milestones, input.today)),
+    "", "## Pending changes", ...capLines(changeLines(input.changes)),
+    "", "## Stakeholders", ...capLines(stakeholderLines(input.stakeholders)),
   ];
-  const tail = input.instruction ? `\n\n## Job instruction\n${input.instruction}` : "";
+  const tail = instruction ? `\n\n## Job instruction\n${instruction}` : "";
   const fitted = fitLines(body, Math.max(0, maxChars - tail.length));
   return fitted.join("\n") + tail;
 }

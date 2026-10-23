@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { buildProjectAnalysisInput } from "./project-analysis-input";
 import { emptyWorkspace, type Workspace } from "./workspace";
-import { defaultSettings } from "./settings-types";
+import { ALL_MODULE_IDS } from "./feature-modules";
+import { defaultSettings, type Settings } from "./settings-types";
 import type { Task } from "./types";
 
 const NOW = new Date("2026-10-23T09:00:00Z");
@@ -60,5 +61,36 @@ describe("buildProjectAnalysisInput", () => {
       expect(q.why).not.toMatch(/^[a-z]+[A-Z][A-Za-z0-9]+$/);
       expect(q.title.length).toBeGreaterThan(0);
     }
+  });
+
+  test("modules come from the workspace, never from the open project's device settings", () => {
+    const narrow: Settings = { ...defaultSettings, features: [] };
+    const runNarrow = (ws: Workspace) =>
+      buildProjectAnalysisInput({ workspace: ws, deviceSettings: narrow, lang: "en-US", now: NOW });
+    const own = runNarrow(workspace({ features: ["raid"] }));
+    expect(own.digestInput.enabledModules).toEqual(["raid"]);
+    expect(own.effectiveSettings.features).toEqual(["raid"]);
+    const legacy = runNarrow(workspace({ features: undefined }));
+    expect(legacy.digestInput.enabledModules).toEqual([...ALL_MODULE_IDS]);
+    expect(legacy.digestInput.mode).toBe("advanced");
+    expect(legacy.effectiveSettings.features).toEqual([...ALL_MODULE_IDS]);
+  });
+
+  test("a workspace without budgets carries no budget figures", () => {
+    expect(run(workspace()).digestInput.budget).toBeUndefined();
+  });
+
+  test("a budget maps the baseline currency, planned and actual; no pace data means no forecast", () => {
+    const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" } as Workspace["plan"];
+    const bucket = {
+      id: 1, name: "Delivery", type: "fixed", currency: "EUR", fixedPriceAmount: 50000,
+      startDate: "2026-01-01", endDate: "2026-12-31", status: "open", allocations: [],
+    } as unknown as NonNullable<Workspace["budgets"]>[number];
+    const { digestInput } = run(workspace({ plan, budgets: [bucket] }));
+    expect(digestInput.budget).toBeDefined();
+    expect(digestInput.budget!.currency).toBe("EUR");
+    expect(digestInput.budget!.planned).toBe(50000);
+    expect(digestInput.budget!.actual).toBe(0);
+    expect(digestInput.budget!.forecast).toBeUndefined();
   });
 });

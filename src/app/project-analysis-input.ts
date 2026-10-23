@@ -9,7 +9,7 @@
 import { buildGroundingIndex, type GroundingIndex } from "./action-ai";
 import { actionText } from "./action-text";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
-import { deriveMode, isModuleEnabled } from "./feature-modules";
+import { ALL_MODULE_IDS, deriveMode, isModuleEnabled } from "./feature-modules";
 import { isPaceAvailable } from "./budget-forecast";
 import type { Lang } from "./i18n";
 import { computeNextActions } from "./next-actions";
@@ -38,10 +38,15 @@ export function buildProjectAnalysisInput(args: {
   now: Date;
 }): ProjectAnalysisInput {
   const { workspace: ws, deviceSettings, lang, now } = args;
-  const effectiveSettings = resolveEffectiveSettings(deviceSettings, ws.settingsOverrides, undefined);
+  // `settings.features` mirrors the OPEN project (use-features-sync), so it is never a fallback here: a legacy
+  // project without its own list gets every module, exactly as the live sync does.
+  const features = ws.features ?? ALL_MODULE_IDS;
+  const effectiveSettings: Settings = {
+    ...resolveEffectiveSettings(deviceSettings, ws.settingsOverrides, undefined),
+    features: [...features],
+  };
   const tz = resolveTimezone(effectiveSettings.timezone, ws.project?.operatingTimezone);
   const today = todayInZone(now, tz);
-  const features = ws.features ?? effectiveSettings.features;
   const workdayHours = effectiveSettings.resources.workdayHours;
   const naCfg = resolveNextActionsConfig(effectiveSettings.nextActions);
   const notifications = effectiveSettings.notifications;
@@ -110,7 +115,7 @@ export function buildProjectAnalysisInput(args: {
           currency: dashboard.currency,
           planned: bundle.eur.facts.bac,
           actual: bundle.eur.facts.ac,
-          forecast: isPaceAvailable(bundle.eur.pace) ? bundle.eur.pace.eac : bundle.eur.facts.bac,
+          ...(isPaceAvailable(bundle.eur.pace) ? { forecast: bundle.eur.pace.eac } : {}),
         }
       : undefined;
 
