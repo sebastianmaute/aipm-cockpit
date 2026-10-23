@@ -1,5 +1,6 @@
-// Display labels for an Action Center learning `kind` (`${source}:${why.key}`,
-// see `LearningState` in action-learning.ts), for the learning insights view.
+// Display labels for an Action Center learning `kind` (`learningKindOf` in
+// next-actions/learning-kind.ts; see `LearningState` in action-learning.ts), for
+// the learning insights view.
 //
 // §777 — the view used to print the raw kind as each row's secondary text, so
 // two rows of one source (two "Attention" rows, say) differed only by an

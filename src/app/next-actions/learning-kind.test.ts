@@ -53,7 +53,9 @@ describe("canonicalLearningKind (§778)", () => {
 
 // §778 (e) — derived, so a new provider cannot reintroduce the split: every
 // count-variant why key in the EN dictionary ("…One", "…Below1") is aliased, and
-// every alias points at a real key that is itself canonical.
+// every alias points at a real key that is itself canonical. ★ It finds variants
+// by the "…One"/"…Below1" naming convention; a count split named another way
+// would not be seen.
 describe("LEARNING_WHY_ALIAS covers every count variant (§778)", () => {
   const whyKeys = Object.keys(en).filter((k) => /^action[A-Za-z]*Why[A-Za-z0-9]*$/.test(k));
   const variants = whyKeys.filter((k) => /(One|Below1)$/.test(k));
@@ -70,6 +72,8 @@ describe("LEARNING_WHY_ALIAS covers every count variant (§778)", () => {
       expect(Object.hasOwn(en, from), from).toBe(true);
       expect(Object.hasOwn(en, to), to).toBe(true);
       expect(Object.hasOwn(LEARNING_WHY_ALIAS, to), `${to} is itself aliased`).toBe(false);
+      // Its OWN sibling, not merely some canonical key.
+      expect(to).toBe(from.replace(/(One|Below1)$/, ""));
     }
   });
   it("leaves every non-variant why key as its own kind", () => {

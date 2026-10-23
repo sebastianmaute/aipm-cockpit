@@ -3,8 +3,10 @@
 // made canonical.
 //
 // §778 — the providers pick a singular why key by count (`n === 1 ? "…One" :
-// "…"`, and the forecast's "…Below1" for a chance under 1%). That split only
-// words the visible "why" line; it is one signal. Keyed by the raw why key, it
+// "…"`). That split only words the visible "why" line; it is one signal. The
+// forecast's "…Below1" (a chance under 1%, from `buildSimMilestoneActions`, not
+// a provider) is aliased for consistency only and is inert today: sim actions
+// never reach `computeNextActions`, and `record` returns early for them (§502). Keyed by the raw why key, it
 // was learned and overridden as TWO kinds: "Always suppress" on "Task — Due
 // soon" still let a task due in exactly 1 working day through. Every place that
 // builds a kind (recording an outcome, the engine's bias lookup) and every read

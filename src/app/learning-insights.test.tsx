@@ -117,7 +117,9 @@ describe("LearningInsights", () => {
   // §778 — one reason, one row: a stored singular-count row ("…One") merges into
   // its plural sibling when the snapshot is read (useActionLearning's load), so
   // the view the hook feeds shows one row and one override for both.
-  it("shows one row for a reason stored under its singular and plural kinds", () => {
+  // ★ This renders an ALREADY normalised snapshot; that the hook normalises on
+  // load is pinned in use-action-learning.test.tsx.
+  it("renders a normalised singular-plus-plural snapshot as one row", () => {
     const snap = normalizeLearningSnapshot({
       state: {
         "task-due:actionTaskWhySoonOne": stats(2),

@@ -139,7 +139,7 @@ export function LearningInsights({
                         // rendered list", and `kind` cannot.
                         //
                         // ★★★ But the SOURCE label alone fails that same
-                        // test: `kind` is `${source}:${why.key}`, and several
+                        // test: `kind` is source plus why key (`learningKindOf`), and several
                         // sources legitimately emit more than one `why.key`
                         // in one render (milestone: overdue/at-risk;
                         // task-attention: unassigned/stale/blocked/
