@@ -5,11 +5,10 @@
 //   tursoConfig === null -> localStorage (always-available default)
 //   tursoConfig !== null -> global Turso table (cross-device), out of TABLE_NAMES.
 import { readDeviceJson } from "./device-store";
-import { TEXTAREA_MAX } from "./sanitize-core";
-import { isValidTimeZone } from "./timezone";
 import { runTursoPipeline } from "./turso-pipeline";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
+import { normalizeJobFields } from "./scheduled-jobs/schedule";
 import {
   JOB_HISTORY_CAP, type JobCadence, type ScheduledJob, type ScheduledJobRun,
 } from "./scheduled-jobs/types";
@@ -93,7 +92,10 @@ function sanitizeJob(raw: unknown): ScheduledJob | null {
         .slice(0, JOB_HISTORY_CAP)
     : [];
   const lastRunAt = typeof raw.lastRunAt === "string" ? raw.lastRunAt : null;
-  const instruction = typeof raw.instruction === "string" ? raw.instruction.trim().slice(0, TEXTAREA_MAX) : "";
+  const { instruction, timeZone } = normalizeJobFields(
+    typeof raw.instruction === "string" ? raw.instruction : undefined,
+    typeof raw.timeZone === "string" ? raw.timeZone : null,
+  );
   return {
     id,
     name: typeof raw.name === "string" ? raw.name : "",
@@ -101,8 +103,8 @@ function sanitizeJob(raw: unknown): ScheduledJob | null {
     cadence,
     enabled: raw.enabled === true,
     projectId: typeof raw.projectId === "string" && raw.projectId !== "" ? raw.projectId : null,
-    ...(instruction !== "" ? { instruction } : {}),
-    timeZone: typeof raw.timeZone === "string" && isValidTimeZone(raw.timeZone) ? raw.timeZone : null,
+    ...(instruction !== undefined ? { instruction } : {}),
+    timeZone,
     key: typeof raw.key === "string" && raw.key !== "" ? raw.key : null,
     lastRunAt,
     history,

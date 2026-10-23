@@ -59,6 +59,28 @@ describe("useScheduledJobs (localStorage backend)", () => {
     spy.mockRestore();
   });
 
+  it("createJob normalises instruction and drops an invalid zone", async () => {
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => {
+      await result.current.createJob({
+        name: "A", cadence: dailyCadence, enabled: true, instruction: "  x  ", timeZone: "Not/AZone",
+      });
+    });
+    expect(result.current.jobs[0].instruction).toBe("x");
+    expect(result.current.jobs[0].timeZone).toBeNull();
+  });
+
+  it("assignProject stores an invalid zone as null", async () => {
+    localStorage.setItem("aipm-cockpit:scheduled-jobs", JSON.stringify([{
+      id: 1, name: "Old", type: "portfolioAnalysis", cadence: dailyCadence, enabled: true, lastRunAt: null, history: [],
+    }]));
+    const { result } = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1));
+    await act(async () => { await result.current.assignProject(1, "p1", "Not/AZone"); });
+    expect(result.current.jobs[0].timeZone).toBeNull();
+  });
+
   it("createJob adds a job with id 1, then increments", async () => {
     const { result } = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(result.current.ready).toBe(true));

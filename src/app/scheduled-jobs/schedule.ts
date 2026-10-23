@@ -1,4 +1,5 @@
-import { isoInZone, todayInZone } from "../timezone";
+import { TEXTAREA_MAX } from "../sanitize-core";
+import { isValidTimeZone, isoInZone, todayInZone } from "../timezone";
 import { JOB_HISTORY_CAP, type JobCadence, type ScheduledJob, type ScheduledJobRun } from "./types";
 
 const DAY_MS = 86_400_000;
@@ -52,6 +53,18 @@ export function slotFor(job: ScheduledJob, now: Date): Date | null {
   if (job.cadence.kind === "weekly" && weekdayOf(ymd) !== job.cadence.dayOfWeek) return null;
   const slot = zonedInstant(ymd, job.cadence.timeOfDay, job.timeZone);
   return now >= slot ? slot : null;
+}
+
+/** The one normalisation of the free fields a job carries — sanitizeJob (load) and every write path use it. */
+export function normalizeJobFields(
+  instruction: string | undefined,
+  timeZone: string | null | undefined,
+): { instruction?: string; timeZone: string | null } {
+  const trimmed = (instruction ?? "").trim().slice(0, TEXTAREA_MAX);
+  return {
+    ...(trimmed !== "" ? { instruction: trimmed } : {}),
+    timeZone: typeof timeZone === "string" && isValidTimeZone(timeZone) ? timeZone : null,
+  };
 }
 
 export function isRunnable(job: ScheduledJob): boolean {

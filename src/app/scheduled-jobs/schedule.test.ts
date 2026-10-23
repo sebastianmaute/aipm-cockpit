@@ -94,6 +94,20 @@ describe("slotFor", () => {
     const job = mk({ cadence: { kind: "daily", timeOfDay: "02:30" }, timeZone: "Europe/Berlin" });
     expect(slotFor(job, new Date("2026-10-25T03:00:00Z"))?.toISOString()).toBe("2026-10-25T00:30:00.000Z");
   });
+  it("keeps the fall-back slot after the second 02:30 has passed", () => {
+    const job = mk({ cadence: { kind: "daily", timeOfDay: "02:30" }, timeZone: "Europe/Berlin" });
+    expect(slotFor(job, new Date("2026-10-25T01:45:00Z"))?.toISOString()).toBe("2026-10-25T00:30:00.000Z");
+  });
+  it("reads a half-hour-offset zone (Asia/Kolkata)", () => {
+    const job = mk({ cadence: { kind: "daily", timeOfDay: "09:00" }, timeZone: "Asia/Kolkata" });
+    expect(slotFor(job, new Date("2026-10-23T05:00:00Z"))?.toISOString()).toBe("2026-10-23T03:30:00.000Z");
+  });
+  it("uses the zone's date when it is ahead of UTC (Pacific/Kiritimati, +14)", () => {
+    const job = mk({ cadence: { kind: "daily", timeOfDay: "08:00" }, timeZone: "Pacific/Kiritimati" });
+    // 12:00Z is 02:00 on the 24th there: that day's 08:00 slot (2026-10-23T18:00Z) is not reached yet.
+    expect(slotFor(job, new Date("2026-10-23T12:00:00Z"))).toBeNull();
+    expect(slotFor(job, new Date("2026-10-23T18:30:00Z"))?.toISOString()).toBe("2026-10-23T18:00:00.000Z");
+  });
   it("is null without a time zone", () => {
     expect(slotFor(mk({ timeZone: null }), new Date("2026-10-23T12:00:00Z"))).toBeNull();
   });

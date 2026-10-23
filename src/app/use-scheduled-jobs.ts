@@ -12,7 +12,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadScheduledJobs, saveScheduledJobs } from "./scheduled-jobs-store";
-import { appendRun } from "./scheduled-jobs/schedule";
+import { appendRun, normalizeJobFields } from "./scheduled-jobs/schedule";
 import type {
   JobCadence, ScheduledJob, ScheduledJobRun,
 } from "./scheduled-jobs/types";
@@ -37,7 +37,8 @@ export interface UseScheduledJobsResult {
   busy: boolean;
   ready: boolean;
   createJob: (input: CreateScheduledJobInput) => Promise<void>;
-  updateJob: (id: number, patch: Partial<Omit<ScheduledJob, "id">>) => Promise<void>;
+  /** projectId and key are set only by assignProject, so a patch can never save a project without them. */
+  updateJob: (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>) => Promise<void>;
   deleteJob: (id: number) => Promise<void>;
   /** Names the project (and zone) of a job; mints the permanent key in the same save when it has none. */
   assignProject: (id: number, projectId: string, timeZone: string) => Promise<void>;
@@ -153,6 +154,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
 
   const createJob = useCallback((input: CreateScheduledJobInput): Promise<void> => {
     return mutate((list) => {
+      const { instruction, timeZone } = normalizeJobFields(input.instruction, input.timeZone);
       const job: ScheduledJob = {
         id: nextJobId(list),
         name: input.name,
@@ -160,8 +162,8 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
         cadence: input.cadence,
         enabled: input.enabled,
         projectId: input.projectId ?? null,
-        ...(input.instruction ? { instruction: input.instruction } : {}),
-        timeZone: input.timeZone ?? null,
+        ...(instruction !== undefined ? { instruction } : {}),
+        timeZone,
         key: crypto.randomUUID(),
         lastRunAt: null,
         history: [],
@@ -171,7 +173,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   }, [mutate]);
 
   const updateJob = useCallback(
-    (id: number, patch: Partial<Omit<ScheduledJob, "id">>): Promise<void> => {
+    (id: number, patch: Partial<Omit<ScheduledJob, "id" | "projectId" | "key">>): Promise<void> => {
       return mutate((list) =>
         list.map((j) => (j.id === id ? { ...j, ...patch, id: j.id } : j)),
       );
@@ -187,7 +189,7 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
     (id: number, projectId: string, timeZone: string): Promise<void> => {
       return mutate((list) =>
         list.map((j) => (j.id === id
-          ? { ...j, projectId, timeZone: j.timeZone ?? timeZone, key: j.key ?? crypto.randomUUID() }
+          ? { ...j, projectId, timeZone: j.timeZone ?? normalizeJobFields(undefined, timeZone).timeZone, key: j.key ?? crypto.randomUUID() }
           : j)),
       );
     },
