@@ -21,7 +21,7 @@ import { Checkbox } from "../form-controls";
 import { useRowTokens } from "../use-row-tokens";
 import { Button } from "../button";
 import { useDisplayTzOrBrowser } from "../display-timezone-context";
-import { loadPortfolioMode } from "../portfolio-mode";
+import { loadCurrentTursoProjectId, loadPortfolioMode } from "../portfolio-mode";
 import { listArchivedProjects, listProjects } from "../turso-portfolio";
 import type { ProjectListEntry } from "../turso-tenant-schema";
 import { resolveTimezone, tzZones } from "../timezone";
@@ -98,11 +98,16 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   }
 
   function addJob() {
+    // A new job reports on the project that is open in the portfolio, else the first active one; with no active
+    // project it is created without one and its row says "Choose a project".
+    const openId = loadCurrentTursoProjectId();
+    const projectId = (projects.active.find((p) => p.id === openId) ?? projects.active[0])?.id;
     void createJob({
       name: t(lang, "scheduledJobsTitle"),
       cadence: defaultDailyCadence(),
       enabled: true,
       timeZone: defaultZone,
+      ...(projectId !== undefined ? { projectId } : {}),
     });
   }
 

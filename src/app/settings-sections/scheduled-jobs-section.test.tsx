@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { ScheduledJobsSection } from "./scheduled-jobs-section";
 import { defaultSettings, type Settings } from "../settings-types";
 import { t } from "../i18n";
@@ -19,7 +19,7 @@ const deleteJob = vi.fn(async () => {});
 const assignProject = vi.fn(async () => {});
 const listProjectsMock = vi.hoisted(() => vi.fn());
 const listArchivedMock = vi.hoisted(() => vi.fn());
-const portfolioMode = vi.hoisted(() => ({ value: "turso" as "turso" | "file" }));
+const portfolioMode = vi.hoisted(() => ({ value: "turso" as "turso" | "file", openProject: null as string | null }));
 let mockJobs: ScheduledJob[] = [];
 
 vi.mock("../use-scheduled-jobs", () => ({
@@ -40,11 +40,15 @@ vi.mock("../turso-portfolio", () => ({
   listProjects: listProjectsMock,
   listArchivedProjects: listArchivedMock,
 }));
-vi.mock("../portfolio-mode", () => ({ loadPortfolioMode: () => portfolioMode.value }));
+vi.mock("../portfolio-mode", () => ({
+  loadPortfolioMode: () => portfolioMode.value,
+  loadCurrentTursoProjectId: () => portfolioMode.openProject,
+}));
 
 beforeEach(() => {
   assignProject.mockClear();
   portfolioMode.value = "turso";
+  portfolioMode.openProject = null;
   listProjectsMock.mockReset();
   listArchivedMock.mockReset();
   listProjectsMock.mockResolvedValue([]);
@@ -408,6 +412,37 @@ describe("§772 — project, time zone and instruction", () => {
     mockJobs = [job({ id: 1, name: "Old", projectId: null, key: null })];
     setup(withKey({ scheduledJobs: false }));
     expect(await screen.findByText(t("en-US", "scheduledJobsUpgradeNote"))).toBeInTheDocument();
+  });
+
+  const created = () => (createJob.mock.calls as unknown[][])[0][0] as { projectId?: string };
+
+  it("creates a new job on the project open in the portfolio", async () => {
+    portfolioMode.openProject = "p2";
+    setup(withKey({ scheduledJobs: true }));
+    await screen.findByText(t("en-US", "scheduledJobsAdd"));
+    await waitFor(() => expect(listProjectsMock).toHaveBeenCalled());
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "scheduledJobsAdd") }));
+    expect(created().projectId).toBe("p2");
+  });
+
+  it("falls back to the first active project when the open one is not active", async () => {
+    portfolioMode.openProject = "p9";
+    setup(withKey({ scheduledJobs: true }));
+    await waitFor(() => expect(listProjectsMock).toHaveBeenCalled());
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "scheduledJobsAdd") }));
+    expect(created().projectId).toBe("p1");
+  });
+
+  it("creates the job without a project when there is no active project", async () => {
+    listProjectsMock.mockResolvedValue([]);
+    portfolioMode.openProject = "p1";
+    setup(withKey({ scheduledJobs: true }));
+    await waitFor(() => expect(listProjectsMock).toHaveBeenCalled());
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "scheduledJobsAdd") }));
+    expect("projectId" in created()).toBe(false);
   });
 
   it("creates a new job in the device's time zone", () => {
