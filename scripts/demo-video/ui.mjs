@@ -219,6 +219,10 @@ export async function click(ctx, loc, label, after = 900) {
   await pace(ctx, after);
 }
 
+/** The pause between two typed keys. Each key also costs about 60 ms of page work, so at this pace a 23-letter
+ *  name takes under 2 s: typing is seen, and a form filled on camera leaves no long silence (§715). */
+export const TYPE_DELAY_MS = 15;
+
 /** Types visibly; `slow: false` fills at once (credentials: never typed character by character). */
 export async function type(ctx, loc, text, label, { slow = true } = {}) {
   await click(ctx, loc, label, 200);
@@ -226,7 +230,7 @@ export async function type(ctx, loc, text, label, { slow = true } = {}) {
   // rate flips the row to the other basis when cleared). Typed over a selection, or filled at once.
   if (slow && !ctx.rehearse) {
     await loc.press('Control+A');
-    await loc.pressSequentially(text, { delay: 35 });
+    await loc.pressSequentially(text, { delay: TYPE_DELAY_MS });
   } else await loc.fill(text);
   await pace(ctx, 300);
 }

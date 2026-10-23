@@ -76,7 +76,8 @@ export async function chat(ctx, { chip, prompt }) {
     done: items.nth(before + 1),
     label: chip ?? 'chat',
   });
-  await pace(ctx, 3000);
+  // Long enough to see the reply arrive; the next beat reads it out or moves on (no silence over 8 s).
+  await pace(ctx, 2000);
 }
 
 // ---- prologue (end of chapter 2): the wizard to its last step with Claude's proposal, then cancel ----
@@ -507,8 +508,8 @@ export const TUESDAY = [
       if (await confirm.isVisible().catch(() => false)) await click(ctx, confirm, 'confirm columns', 1500);
       // Apply stays disabled until the preview of what will be written has been shown.
       const preview = d.getByRole('button', { name: 'Show preview', exact: true });
-      if (await preview.isVisible().catch(() => false)) await click(ctx, preview, 'Show preview', 2500);
-      await click(ctx, d.getByRole('button', { name: /^Apply/ }).last(), 'Apply import', 2000);
+      if (await preview.isVisible().catch(() => false)) await click(ctx, preview, 'Show preview', 1500);
+      await click(ctx, d.getByRole('button', { name: /^Apply/ }).last(), 'Apply import', 1000);
     },
     // E's applyDemoWeek leaves the bucket's hours as they are, so the replay does too.
     replay: noop,
@@ -536,10 +537,11 @@ export async function setUtilization(ctx, who, month, value) {
 /** A directory picker field (resource-picker.tsx) in dialog `d`: the name typed, then the person picked from
  *  its list, so the item is linked to the resource rather than left as free text. Throws unless the field
  *  then shows the name and reads as linked. */
-async function pickPerson(ctx, d, field, who, label) {
-  await type(ctx, field, who, label);
+export async function pickPerson(ctx, d, field, who, label, { typed = who } = {}) {
+  // `typed`: the start of the name is enough to find the person, and every keystroke is screen time.
+  await type(ctx, field, typed, label);
   // Picking closes the list itself; its option opens with the name, then the email.
-  await click(ctx, d.getByRole('option', { name: new RegExp('^' + who) }).locator('button'), `pick ${who}`, 400);
+  await click(ctx, d.getByRole('option', { name: new RegExp('^' + who) }).locator('button'), `pick ${who}`, 200);
   const shown = await field.inputValue();
   if (shown !== who) throw new Error(`${label} shows "${shown}", not ${who}`);
   // The field's clear button describes the link state in its title.
@@ -554,8 +556,9 @@ export const absenceAssignee = (ctx, d, who) =>
 export const WEDNESDAY = [
   step('discipline-role', {
     run: async (ctx) => {
-      await resources(ctx, 'Manage roles');
+      // Said on the way to Manage roles: in the big video the view before it is Tuesday's import (no silence over 8 s).
       await caption(ctx, 'The connector needs an integration engineer: a new discipline, then the role.', 'wed-discipline-role');
+      await resources(ctx, 'Manage roles');
       await type(ctx, main(ctx).getByRole('textbox', { name: 'Add discipline', exact: true }), ROLE, 'discipline');
       await click(ctx, main(ctx).getByRole('button', { name: 'Add discipline', exact: true }), 'Add discipline');
       await choose(ctx, main(ctx).getByRole('combobox').filter({ has: ctx.page.locator('option', { hasText: /^Discipline$/ }) }).first(), { label: ROLE }, 'role discipline');
@@ -684,16 +687,25 @@ export async function openRow(ctx, view, text) {
   return ctx.page.locator(DLG).last();
 }
 
+/** Open Points' Add task: opens the new-task form and returns it. */
+export async function openNewTask(ctx) {
+  await click(ctx, main(ctx).getByRole('button', { name: 'Add task', exact: true }).first(), 'Add task', 500);
+  return ctx.page.locator(DLG).last();
+}
+
+/** Fills the open new-task form `d` with a name, an owner picked from the directory by first name, and a due
+ *  date, then saves it. Kept short (no screen time a viewer gains nothing from): a long fill is silence. */
+export async function fillNewTask(ctx, d, name, assignee, due) {
+  await type(ctx, d.getByPlaceholder('What needs to happen?'), name, 'task name');
+  await pickPerson(ctx, d, d.getByPlaceholder('Assignee', { exact: true }), assignee, 'assignee', { typed: assignee.split(' ')[0] });
+  await d.locator('input[type=date]').nth(1).fill(due);
+  await click(ctx, d.getByRole('button', { name: 'Add task – New task' }), 'save task', 300);
+}
+
 /** Open Points → Add task with a name, owner and due date. */
 async function addTask(ctx, name, assignee, due) {
   await nav(ctx, 'Open Points');
-  await click(ctx, main(ctx).getByRole('button', { name: 'Add task', exact: true }).first(), 'Add task');
-  const d = ctx.page.locator(DLG).last();
-  await type(ctx, d.getByPlaceholder('What needs to happen?'), name, 'task name');
-  await type(ctx, d.getByPlaceholder('Assignee'), assignee, 'assignee');
-  await ctx.page.keyboard.press('Escape').catch(() => {});
-  await d.locator('input[type=date]').nth(1).fill(due);
-  await click(ctx, d.getByRole('button', { name: 'Add task – New task' }), 'save task', 600);
+  await fillNewTask(ctx, await openNewTask(ctx), name, assignee, due);
 }
 
 /** A RAID item's Owner, the shared directory picker (Tab alone does not pick). */
@@ -825,7 +837,7 @@ export const THURSDAY = [
         done: d.getByRole('button', { name: 'Draft with AI', exact: true }),
         label: 'steering report',
       });
-      await pace(ctx, 4000);
+      await pace(ctx, 2500);
     },
     check: async (ctx) => ((await ctx.page.locator(DLG).last().locator('[contenteditable="true"]').first().innerText().catch(() => '')).length > 200 ? null : 'no report'),
     after: async (ctx) => click(ctx, ctx.page.locator(DLG).last().getByRole('button', { name: 'Save', exact: true }), 'Save report', 1200),
@@ -833,8 +845,9 @@ export const THURSDAY = [
   }),
   step('connector-bucket', {
     run: async (ctx) => {
-      await nav(ctx, 'Budget');
+      // Said on the way to Budget, so the steering report's save and the nav are not silent (no silence over 8 s).
       await caption(ctx, 'The approved change gets its own budget bucket.', 'thu-connector-bucket');
+      await nav(ctx, 'Budget');
       await click(ctx, main(ctx).getByRole('button', { name: '+ Add bucket', exact: true }), 'Add bucket', 1000);
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.locator('input:not([type]), input[type=text]').first(), 'CRM connector (CR)', 'bucket name');
@@ -919,9 +932,10 @@ export const FRIDAY = [
   }),
   step('insights', {
     run: async (ctx) => {
+      // Said on the way to Insights, after the DPO chat (no silence over 8 s).
+      await caption(ctx, 'Insights: patterns the week left behind.', 'fri-insights');
       await nav(ctx, 'Dashboard');
       await nav(ctx, 'Insights');
-      await caption(ctx, 'Insights: patterns the week left behind.', 'fri-insights');
       await pace(ctx, 3000);
     },
   }),
@@ -985,7 +999,7 @@ export const FRIDAY = [
         done: d.getByRole('button', { name: /^Apply/ }).first().or(failToast(ctx)),
         label: 'optimize',
       });
-      await pace(ctx, 4000);
+      await pace(ctx, 2500);
     },
     check: async (ctx) => ((await ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).isEnabled().catch(() => false)) ? null : 'no change'),
     after: async (ctx) => click(ctx, ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).first(), 'Apply restructure', 2000),
@@ -993,9 +1007,10 @@ export const FRIDAY = [
   }),
   step('trends-activity-history', {
     run: async (ctx) => {
+      // Said on the way to Trends, after Optimize with AI (no silence over 8 s).
+      await caption(ctx, 'Trends: the weeks behind this one.', 'fri-trends');
       await nav(ctx, 'Dashboard');
       await nav(ctx, 'Trends');
-      await caption(ctx, 'Trends: the weeks behind this one.', 'fri-trends');
       await pace(ctx, 3000);
       // Each beat describes the view on screen: its voice ends there, before the next view opens.
       await holdVoice(ctx);

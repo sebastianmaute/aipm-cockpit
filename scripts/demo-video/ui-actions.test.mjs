@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { MOVE_TIMEOUT_MS, choose, moveTo, nav, viewHint } from './ui.mjs';
+import { MOVE_TIMEOUT_MS, TYPE_DELAY_MS, choose, moveTo, nav, type, viewHint } from './ui.mjs';
 
 /** A page that records the cursor's moves and the pauses; `main` never changes, so settle() ends at once. */
 function fakePage(calls) {
@@ -176,6 +176,21 @@ function navPage({ visible }) {
   };
   return { ctx: { page, rehearse: true, log: () => {} }, calls };
 }
+
+describe('type (§715)', () => {
+  it('types at TYPE_DELAY_MS a key, short enough that a filled form does not leave a long silence', async () => {
+    const calls = [];
+    const loc = {
+      ...fakeLoc(calls),
+      click: async () => { calls.push('click'); },
+      press: async (k) => { calls.push(`press(${k})`); },
+      pressSequentially: async (text, { delay }) => { calls.push(`keys(${text},${delay})`); },
+    };
+    await type({ ...ctxWith(calls), rehearse: false }, loc, 'Pilot', 'task name');
+    expect(TYPE_DELAY_MS).toBeLessThanOrEqual(15);
+    expect(calls).toContain(`keys(Pilot,${TYPE_DELAY_MS})`);
+  });
+});
 
 describe('nav (§715)', () => {
   it('scrolls the sidebar to the item and moves the cursor onto it before the click', async () => {

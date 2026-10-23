@@ -4,9 +4,10 @@ import { step } from './step.mjs';
 import * as L from '../lib.mjs';
 import { caption, choose, click, moveTo, nav, pace, type } from '../ui.mjs';
 import { DEMO_CRM_TASK, DEMO_DUPLICATE_PAIRS, DEMO_GDPR_ISSUE } from '../week-story.mjs';
-import { DLG, absenceAssignee, dedup, main, openRow, resources, saveVersion, setUtilization } from './week.mjs';
+import { DLG, absenceAssignee, dedup, fillNewTask, main, openNewTask, openRow, resources, saveVersion, setUtilization } from './week.mjs';
 
-const NEW_TASK = 'Draft the pilot rollout checklist';
+// Short: typed on camera, character by character.
+const NEW_TASK = 'Pilot rollout checklist';
 // Open and in the future: a Done bar is not draggable.
 const BAR_TASK = 'Load testing';
 const LATE_MILESTONE = 'Pilot Go-Live';
@@ -45,14 +46,11 @@ export const FEATURE_STEPS = Object.freeze({
     step('op-add-task', {
       run: async (ctx) => {
         await nav(ctx, 'Open Points');
+        // The caption comes with the open form, so its voice runs over the filling in, not before it (§715:
+        // no stretch over 8 s without a voice).
+        const d = await openNewTask(ctx);
         await caption(ctx, 'Add a task: name, owner, due date.', 'f-open-points-add');
-        await click(ctx, main(ctx).getByRole('button', { name: 'Add task', exact: true }).first(), 'Add task');
-        const d = ctx.page.locator(DLG).last();
-        await type(ctx, d.getByPlaceholder('What needs to happen?'), NEW_TASK, 'task name');
-        await type(ctx, d.getByPlaceholder('Assignee'), 'Sofia Ramirez', 'assignee');
-        await ctx.page.keyboard.press('Escape').catch(() => {});
-        await d.locator('input[type=date]').nth(1).fill('2026-10-09');
-        await click(ctx, d.getByRole('button', { name: 'Add task – New task' }), 'save task', 600);
+        await fillNewTask(ctx, d, NEW_TASK, 'Sofia Ramirez', '2026-10-09');
       },
     }),
     step('op-sort', {
