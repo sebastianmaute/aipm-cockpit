@@ -36,6 +36,8 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Add task comes first in Open Points.** The Add task button is now the leftmost control in the Open Points
+  toolbar, with "Optimize with AI" after it.
 - **Video guides recorder (§715).** One command per video for the 43 guides: the big video, seven chapters
   (the first is recorded by hand), 15 AI clips and 20 feature clips, taken through the app's own UI on the demo project and a throwaway
   Turso database. Each take starts clean, sets up off camera, checks that the data shows what the video needs,

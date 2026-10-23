@@ -108,7 +108,6 @@ export function TasksToolbar({
     fixed.some((key) => fold(t(lang, key)) === fold(value)) ? t(lang, "filterQuotedValue", value) : value;
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
-      {aiOptimizeButton}
       <AddButton
         onClick={onAdd}
         aria-label={t(lang, "addTaskButton")}
@@ -116,6 +115,7 @@ export function TasksToolbar({
       >
         + {t(lang, "addTaskButton")}
       </AddButton>
+      {aiOptimizeButton}
       {jiraEnabled && (
         <button
           type="button"
