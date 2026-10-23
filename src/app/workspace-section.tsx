@@ -1109,7 +1109,7 @@ export function WorkspaceSection({
 
         {activeTab === "scheduled-reports" && (
           <div id="panel-scheduled-reports" role="tabpanel" className={panelScrollClass}>
-            <ScheduledReportsPanel lang={lang} tursoConfig={chatTursoConfig} mode={mode} timeZone={effectiveTz} />
+            <ScheduledReportsPanel lang={lang} tursoConfig={chatTursoConfig} mode={mode} timeZone={effectiveTz} onOpenSettings={isPopout ? undefined : () => setActiveTab("settings")} />
           </div>
         )}
 

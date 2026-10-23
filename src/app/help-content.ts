@@ -155,14 +155,14 @@ const HELP_ENTRIES_LITERAL = [
   { id: "feature-keys", group: "features", titleKey: "helpSecKeysTitle", bodyKey: "helpSecKeysBody" },
 
   // ── Views that had no entry at all (slice 3) ──
-  // ★ TWO of these name a view a reader may not be able to reach:
-  // `portfolio-health` (in `TURSO_ONLY_VIEWS`) and `timelog` (a per-project
-  // module). `reports` and `help` are in `CORE_VIEWS`, and `projects` belongs
+  // ★ THREE of these name a view a reader may not be able to reach:
+  // `portfolio-health` and `scheduled-reports` (both in `TURSO_ONLY_VIEWS`) and
+  // `timelog` (a per-project module). `reports` and `help` are in `CORE_VIEWS`, and `projects` belongs
   // to no module and no Turso gate, so `isViewEnabled` returns true for it
   // unconditionally — none of those three can be pruned. Precedent allows
   // covering a gateable view: `trends` is Turso-only and has been covered
-  // since slice 1. ★ Both bodies now state their condition — Turso for
-  // portfolio health, the per-project module for Time bookings.
+  // since slice 1. ★ Every body states its condition — Turso for
+  // portfolio health and scheduled reports, the per-project module for Time bookings.
   { id: "feature-projects", group: "features", titleKey: "helpSecProjectsTitle", bodyKey: "helpSecProjectsBody", relatedViews: ["projects"] },
   { id: "feature-portfolio-health", group: "features", titleKey: "helpSecPortfolioHealthTitle", bodyKey: "helpSecPortfolioHealthBody", relatedViews: ["portfolio-health"], relatedConcepts: ["concept-baseline"] },
   { id: "feature-scheduled-reports", group: "features", titleKey: "helpSecScheduledReportsTitle", bodyKey: "helpSecScheduledReportsBody", relatedViews: ["scheduled-reports"] },

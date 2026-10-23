@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 import { render, screen, waitFor, within, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { t } from "./i18n";
-import { NAV_GROUPS, TURSO_ONLY_VIEWS } from "./nav-config";
+import { t, loadI18n, type Lang } from "./i18n";
+import { NAV_GROUPS, TURSO_ONLY_VIEWS, navLabelKey } from "./nav-config";
 import type { ScheduledReport } from "./scheduled-reports-store";
 import type { TursoConfig } from "./turso-config";
 
@@ -11,7 +11,8 @@ vi.mock("./scheduled-reports-store", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./scheduled-reports-store")>()),
   listReports: (...args: unknown[]) => mockList(...args),
 }));
-vi.mock("./device-label", () => ({ getDeviceLabel: () => "dev-mine" }));
+const mockDevice = vi.hoisted(() => vi.fn(() => "dev-mine"));
+vi.mock("./device-label", () => ({ getDeviceLabel: mockDevice }));
 
 import { ScheduledReportsPanel } from "./scheduled-reports-panel";
 import { SCHEDULED_REPORT_EVENT } from "./use-scheduled-job-runner";
@@ -45,9 +46,15 @@ function renderPanel(over: Partial<React.ComponentProps<typeof ScheduledReportsP
   );
 }
 
+beforeAll(async () => {
+  await loadI18n("de");
+});
+
 beforeEach(() => {
   mockList.mockReset();
   mockList.mockResolvedValue(THREE);
+  mockDevice.mockReset();
+  mockDevice.mockReturnValue("dev-mine");
 });
 
 describe("ScheduledReportsPanel", () => {
@@ -116,7 +123,17 @@ describe("ScheduledReportsPanel", () => {
     expect(within(panel).getByText("Call Sam")).toBeInTheDocument();
     expect(within(panel).getByText("Overdue")).toBeInTheDocument();
     expect(within(panel).getByText(en("actionTierNow"))).toBeInTheDocument();
-    expect(within(panel).getByText(/raid.*7/)).toBeInTheDocument();
+    expect(within(panel).getByText(`· ${t("en-US", navLabelKey("raid"))} #7`, { exact: false })).toBeInTheDocument();
+  });
+
+  it("names an action's entity by its translated view label, not the internal view id", async () => {
+    mockList.mockResolvedValue([
+      report({ id: "x" }, { actions: [{ title: "Do it", why: "Because", severity: "soon", entity: { view: "open-points", id: "12" } }] }),
+    ]);
+    renderPanel();
+    const panel = await screen.findByRole("tabpanel");
+    expect(within(panel).getByText(`· ${t("en-US", navLabelKey("open-points"))} #12`)).toBeInTheDocument();
+    expect(within(panel).queryByText(/open-points/)).toBeNull();
   });
 
   it("renders summary and action text as literal text, never as HTML", async () => {
@@ -213,11 +230,6 @@ describe("ScheduledReportsPanel", () => {
     expect(mockList).not.toHaveBeenCalled();
   });
 
-  it("renders the reports with no AI settings involved", async () => {
-    renderPanel();
-    expect(await screen.findAllByRole("tab")).toHaveLength(3);
-  });
-
   it("reloads on the scheduled-report event and on window focus", async () => {
     renderPanel();
     await screen.findAllByRole("tab");
@@ -228,10 +240,137 @@ describe("ScheduledReportsPanel", () => {
     await waitFor(() => expect(mockList.mock.calls.length).toBe(base + 2));
   });
 
-  it("shows no stale catch-up claim in its own strings", () => {
-    for (const key of ["scheduledReportsEmpty", "scheduledReportsNeedPortfolio", "helpSecScheduledReportsBody"] as const) {
-      expect(en(key)).not.toMatch(/catch/i);
+  it("makes no catch-up claim in any of its strings, in EN or DE", () => {
+    const keys = [
+      "scheduledReportsEmpty", "scheduledReportsNeedPortfolio", "scheduledReportsRunningNote",
+      "scheduledReportsErrInterrupted", "helpSecScheduledReportsBody",
+    ] as const;
+    const CATCH_UP = /catch|later|missed|made up|nachhol|nachgeholt|später|verpasst|versäumt/i;
+    for (const lang of ["en-US", "de"] as Lang[]) {
+      for (const key of keys) {
+        expect(t(lang, key), `${lang} ${key}`).not.toMatch(CATCH_UP);
+      }
     }
+    // The detector itself fires on the phrasings it exists for, in both languages.
+    expect("Missed runs are run later").toMatch(CATCH_UP);
+    expect("Verpasste Läufe werden nachgeholt").toMatch(CATCH_UP);
+  });
+
+  it("points the empty state to Settings and opens it from the action", async () => {
+    mockList.mockResolvedValue([]);
+    const onOpenSettings = vi.fn();
+    renderPanel({ onOpenSettings });
+    expect(await screen.findByText(/Settings → Scheduled jobs/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: en("scheduledReportsOpenSettings") }));
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no Settings action where the view cannot navigate", async () => {
+    mockList.mockResolvedValue([]);
+    renderPanel();
+    await screen.findByText(en("scheduledReportsEmpty"));
+    expect(screen.queryByRole("button", { name: en("scheduledReportsOpenSettings") })).toBeNull();
+  });
+
+  it.each([
+    ["an archived project", { status: "done" as const, ok: false }, { error: "project-archived" as const }, "scheduledReportsErrProjectArchived"],
+    ["a missing project", { status: "done" as const, ok: false }, { error: "project-missing" as const }, "scheduledReportsErrProjectMissing"],
+    ["a rate limit", { status: "done" as const, ok: false }, { error: "limit" as const }, "scheduledReportsErrLimit"],
+    ["an unreadable answer", { status: "done" as const, ok: false }, { error: "parse" as const }, "scheduledReportsErrParse"],
+    ["a failure without a token", { status: "done" as const, ok: false }, {}, "scheduledReportsErrError"],
+    ["an interrupted run", { status: "running" as const, ok: false, ranAt: "2020-01-01T00:00:00.000Z" }, {}, "scheduledReportsErrInterrupted"],
+    ["a run in progress", { status: "running" as const, ok: false, ranAt: "2999-01-01T00:00:00.000Z" }, {}, "scheduledReportsRunningNote"],
+  ] as const)("explains %s in the detail instead of an empty result", async (_name, over, data, key) => {
+    mockList.mockResolvedValue([report({ id: "x", ...over }, { summary: "", actions: [], ...data })]);
+    renderPanel();
+    const panel = await screen.findByRole("tabpanel");
+    expect(within(panel).getByText(en(key))).toBeInTheDocument();
+    expect(within(panel).queryByText(en("scheduledReportsNoSuggestions"))).toBeNull();
+    expect(within(panel).queryByText(en("scheduledReportsSummary"))).toBeNull();
+    expect(within(panel).queryByText(en("scheduledReportsSuggestions"))).toBeNull();
+  });
+
+  it("still shows a summary a failed report did carry", async () => {
+    mockList.mockResolvedValue([report({ id: "x", ok: false }, { summary: "Partial notes", error: "error" })]);
+    renderPanel();
+    const panel = await screen.findByRole("tabpanel");
+    expect(within(panel).getByText("Partial notes")).toBeInTheDocument();
+    expect(within(panel).getByText(en("scheduledReportsErrError"))).toBeInTheDocument();
+  });
+
+  it("shows a done report with no suggestions as a clean result", async () => {
+    mockList.mockResolvedValue([report({ id: "x" }, { actions: [] })]);
+    renderPanel();
+    const panel = await screen.findByRole("tabpanel");
+    expect(within(panel).getByText(en("scheduledReportsNoSuggestions"))).toBeInTheDocument();
+  });
+
+  it("lists a project whose only report is a project-archived failure", async () => {
+    mockList.mockResolvedValue([
+      report({ id: "z", projectId: "p-arch", ok: false }, { projectName: "Old project", error: "project-archived", summary: "", actions: [] }),
+      ...THREE,
+    ]);
+    renderPanel();
+    const select = await screen.findByRole("combobox", { name: en("scheduledReportsFilter") });
+    expect(within(select).getAllByRole("option").map((o) => o.textContent)).toContain("Old project");
+  });
+
+  it("falls back to All projects when the filtered project has no report any more", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    const select = await screen.findByRole("combobox", { name: en("scheduledReportsFilter") });
+    await user.selectOptions(select, "p2");
+    expect(screen.getAllByRole("tab")).toHaveLength(1);
+    mockList.mockResolvedValue(THREE.filter((r) => r.projectId === "p1"));
+    await act(async () => { window.dispatchEvent(new CustomEvent(SCHEDULED_REPORT_EVENT)); });
+    await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(2));
+    expect(screen.getByRole("combobox", { name: en("scheduledReportsFilter") })).toHaveValue("");
+  });
+
+  it("lets only the newest reload write, whatever order the answers arrive in", async () => {
+    let resolveSlow: (v: ScheduledReport[]) => void = () => undefined;
+    mockList.mockReset();
+    mockList.mockImplementationOnce(() => Promise.resolve(THREE.slice(0, 1)));
+    renderPanel();
+    await screen.findAllByRole("tab");
+    mockList.mockImplementationOnce(() => new Promise<ScheduledReport[]>((r) => { resolveSlow = r; }));
+    await act(async () => { fireEvent.focus(window); });
+    mockList.mockImplementationOnce(() => Promise.resolve(THREE));
+    await act(async () => { window.dispatchEvent(new CustomEvent(SCHEDULED_REPORT_EVENT)); });
+    await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(3));
+    await act(async () => { resolveSlow([]); });
+    expect(screen.getAllByRole("tab")).toHaveLength(3);
+  });
+
+  it("keeps the list on screen when a reload fails", async () => {
+    renderPanel();
+    await screen.findAllByRole("tab");
+    mockList.mockRejectedValueOnce(new Error("boom"));
+    await act(async () => { fireEvent.focus(window); });
+    expect(screen.getAllByRole("tab")).toHaveLength(3);
+  });
+
+  it("reads the device label once per load, never while rendering", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    const tabs = await screen.findAllByRole("tab");
+    expect(mockDevice).toHaveBeenCalledTimes(1);
+    await user.click(tabs[1]);
+    await user.click(tabs[2]);
+    expect(mockDevice).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call the unknown-device fallback this device", async () => {
+    mockDevice.mockReturnValue("unknown");
+    mockList.mockResolvedValue([report({ id: "m", claimedBy: "unknown" })]);
+    renderPanel();
+    const panel = await screen.findByRole("tabpanel");
+    expect(within(panel).queryByText(en("scheduledReportsThisDevice"))).toBeNull();
+  });
+
+  it("makes the detail panel reachable by Tab", async () => {
+    renderPanel();
+    expect(await screen.findByRole("tabpanel")).toHaveAttribute("tabindex", "0");
   });
 });
 

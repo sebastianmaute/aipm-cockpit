@@ -4,11 +4,12 @@
 // Turso-only (`TURSO_ONLY_VIEWS`); the panel guards at runtime too. Read-only — nothing here writes.
 // ★ Report text is model output: it is rendered as plain text, never as HTML.
 // ★ No AI setting gates this view — a report written earlier stays readable with the AI switched off.
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type Lang, type TranslationKey, t } from "./i18n";
+import { navLabelKey } from "./nav-config";
 import type { TursoConfig } from "./turso-config";
 import type { PortfolioMode } from "./portfolio-mode";
-import { isInterrupted, listReports, type ScheduledReport } from "./scheduled-reports-store";
+import { isInterrupted, listReports, type ReportErrorToken, type ScheduledReport } from "./scheduled-reports-store";
 import { SCHEDULED_REPORT_EVENT } from "./use-scheduled-job-runner";
 import { getDeviceLabel } from "./device-label";
 import { formatDisplayTimestamp } from "./tz-display";
@@ -29,16 +30,31 @@ export interface ScheduledReportsPanelProps {
   mode: PortfolioMode;
   /** The app's display zone for the run time. */
   timeZone: string;
+  /** Leads to Settings from the empty state. Omitted where the view cannot navigate (popouts). */
+  onOpenSettings?: () => void;
 }
 
 type Loaded =
   | { kind: "loading" }
   | { kind: "error" }
-  | { kind: "ready"; reports: readonly ScheduledReport[]; loadedAt: Date };
+  | { kind: "ready"; reports: readonly ScheduledReport[]; loadedAt: Date; deviceLabel: string };
 
 const FILTER_ALL = "";
 const PANEL_ID = "scheduled-reports-detail";
 const SEV_RAG: Record<AiActionSeverity, Health> = { now: "R", soon: "A", monitor: "G" };
+const UNKNOWN_DEVICE = "unknown"; // `getDeviceLabel`'s fallback: any device whose storage threw writes it, so it names no device
+const ERROR_KEY: Record<ReportErrorToken, TranslationKey> = {
+  limit: "scheduledReportsErrLimit",
+  "401": "scheduledReportsErr401",
+  "403": "scheduledReportsErr403",
+  parse: "scheduledReportsErrParse",
+  "storage-unreachable": "scheduledReportsErrStorage",
+  turso: "scheduledReportsErrTurso",
+  "project-archived": "scheduledReportsErrProjectArchived",
+  "project-missing": "scheduledReportsErrProjectMissing",
+  interrupted: "scheduledReportsErrInterrupted",
+  error: "scheduledReportsErrError",
+};
 const SEV_KEY = { now: "actionTierNow", soon: "actionTierSoon", monitor: "actionTierMonitor" } as const;
 
 function stateOf(r: ScheduledReport, now: Date): ReportTabState {
@@ -60,18 +76,36 @@ function stateLabel(lang: Lang, state: ReportTabState): string {
   return "";
 }
 
-export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone }: ScheduledReportsPanelProps) {
+/** Why a report that is not `done` has no result: its own state, with the stored error token when it failed. */
+function statusText(lang: Lang, state: ReportTabState, error: ReportErrorToken | undefined): string {
+  if (state === "running") return t(lang, "scheduledReportsRunningNote");
+  if (state === "interrupted") return t(lang, ERROR_KEY.interrupted);
+  return t(lang, ERROR_KEY[error ?? "error"]);
+}
+
+export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone, onOpenSettings }: ScheduledReportsPanelProps) {
   const usable = tursoConfig !== null && mode === "turso";
   const [loaded, setLoaded] = useState<Loaded>({ kind: "loading" });
   const [filter, setFilter] = useState(FILTER_ALL);
   const [selectedId, setSelectedId] = useState("");
 
   // Promise callbacks, not an awaited body: the setState calls land after the read, never inside the effect.
+  // Reloads overlap (focus, the runner event): only the newest request may write, or a slow older answer
+  // would replace a newer list.
+  const latest = useRef(0);
+  // `new Date()` and `getDeviceLabel()` (which can mint and store a label) are read here, never in render.
   const load = useCallback(() => {
+    const mine = ++latest.current;
     listReports(tursoConfig).then(
-      (reports) => setLoaded({ kind: "ready", reports, loadedAt: new Date() }),
+      (reports) => {
+        if (mine !== latest.current) return;
+        setLoaded({ kind: "ready", reports, loadedAt: new Date(), deviceLabel: getDeviceLabel() });
+      },
       // A failed reload keeps what is already on screen; only a first load shows the error.
-      () => setLoaded((prev) => (prev.kind === "ready" ? prev : { kind: "error" })),
+      () => {
+        if (mine !== latest.current) return;
+        setLoaded((prev) => (prev.kind === "ready" ? prev : { kind: "error" }));
+      },
     );
   }, [tursoConfig]);
 
@@ -126,14 +160,19 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone }: Sch
   if (reports.length === 0) {
     return (
       <div className={VIEW_PANE_FILL_CLASS}>
-        <EmptyState title={t(lang, "navScheduledReports")} description={t(lang, "scheduledReportsEmpty")} />
+        <EmptyState
+          title={t(lang, "navScheduledReports")}
+          description={t(lang, "scheduledReportsEmpty")}
+          actions={onOpenSettings ? [{ label: t(lang, "scheduledReportsOpenSettings"), onClick: onOpenSettings }] : undefined}
+        />
       </div>
     );
   }
 
   const selected = visible.find((r) => r.id === selectedId) ?? visible[0];
   const selectedRow = rows.find((r) => r.id === selected?.id);
-  const deviceLabel = getDeviceLabel();
+  const deviceLabel = loaded.deviceLabel;
+  const done = selectedRow?.state === "done";
 
   return (
     <div className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
@@ -160,12 +199,12 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone }: Sch
           panelId={PANEL_ID}
         />
         {selected && selectedRow && (
-          <div id={PANEL_ID} role="tabpanel" aria-labelledby={`${PANEL_ID}-tab-${selected.id}`} className="min-w-0">
+          <div id={PANEL_ID} role="tabpanel" aria-labelledby={`${PANEL_ID}-tab-${selected.id}`} tabIndex={0} className="min-w-0">
             <h3 className="text-base font-medium text-foreground">{selected.data.jobName}</h3>
             <p className="text-sm text-muted-foreground">{selected.data.projectName}</p>
             <p className="text-xs text-muted-foreground">{selectedRow.when}</p>
             <p className="text-xs text-muted-foreground">
-              {selected.claimedBy === deviceLabel
+              {deviceLabel !== UNKNOWN_DEVICE && selected.claimedBy === deviceLabel
                 ? t(lang, "scheduledReportsThisDevice")
                 : t(lang, "scheduledReportsRanBy", selected.claimedBy)}
             </p>
@@ -175,10 +214,19 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone }: Sch
                 <p className="whitespace-pre-wrap text-sm text-foreground">{selected.data.instruction}</p>
               </section>
             )}
-            <section className="mt-3">
-              <h4 className="text-sm font-medium text-foreground">{t(lang, "scheduledReportsSummary")}</h4>
-              <p className="whitespace-pre-wrap text-sm text-foreground">{selected.data.summary}</p>
-            </section>
+            {!done && (
+              <section className="mt-3">
+                <h4 className="text-sm font-medium text-foreground">{t(lang, "scheduledReportsStatus")}</h4>
+                <p className="text-sm text-foreground">{statusText(lang, selectedRow.state, selected.data.error)}</p>
+              </section>
+            )}
+            {(done || selected.data.summary) && (
+              <section className="mt-3">
+                <h4 className="text-sm font-medium text-foreground">{t(lang, "scheduledReportsSummary")}</h4>
+                <p className="whitespace-pre-wrap text-sm text-foreground">{selected.data.summary}</p>
+              </section>
+            )}
+            {(done || selected.data.actions.length > 0) && (
             <section className="mt-3">
               <h4 className="text-sm font-medium text-foreground">{t(lang, "scheduledReportsSuggestions")}</h4>
               {selected.data.actions.length === 0 ? (
@@ -193,7 +241,7 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone }: Sch
                         <p className="text-xs text-muted-foreground">{a.why}</p>
                         <p className="text-xs text-muted-foreground">
                           <span>{t(lang, SEV_KEY[a.severity])}</span>
-                          {a.entity && <span>{` · ${a.entity.view} #${a.entity.id}`}</span>}
+                          {a.entity && <span>{` · ${t(lang, navLabelKey(a.entity.view))} #${a.entity.id}`}</span>}
                         </p>
                       </div>
                     </li>
@@ -201,6 +249,7 @@ export function ScheduledReportsPanel({ lang, tursoConfig, mode, timeZone }: Sch
                 </ul>
               )}
             </section>
+            )}
           </div>
         )}
       </div>

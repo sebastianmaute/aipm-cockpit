@@ -117,6 +117,26 @@ describe("scheduled_reports store (§772)", () => {
     expect(list[0].data.jobName).toBe("J");
   });
 
+  it("listReports sanitises a row written by another app version: missing actions, bad severity, unknown error and entity", async () => {
+    await claimReport(CONFIG, row("a", "k", "2026-01-01"));
+    await claimReport(CONFIG, row("b", "k", "2026-02-01"));
+    await claimReport(CONFIG, row("c", "k", "2026-03-01"));
+    db.prepare("UPDATE scheduled_reports SET data = ? WHERE id = 'a'").run('{"jobName":"J"}');
+    db.prepare("UPDATE scheduled_reports SET data = ? WHERE id = 'b'").run(JSON.stringify({
+      jobName: "J", projectName: "P", summary: "s", error: "weird",
+      actions: [{ title: "t", why: "w", severity: "urgent", entity: { view: "nowhere", id: "1" } }, "junk", { title: "ok", why: "w", severity: "now", entity: { view: "raid", id: "7" } }],
+    }));
+    db.prepare("UPDATE scheduled_reports SET data = '[1]' WHERE id = 'c'").run();
+    const list = await listReports(CONFIG);
+    expect(list.map((r) => r.id)).toEqual(["b", "a"]);
+    expect(list[1].data).toEqual({ jobName: "J", projectName: "", summary: "", actions: [] });
+    expect(list[0].data.error).toBe("error");
+    expect(list[0].data.actions).toEqual([
+      { title: "t", why: "w", severity: "monitor" },
+      { title: "ok", why: "w", severity: "now", entity: { view: "raid", id: "7" } },
+    ]);
+  });
+
   it("isInterrupted is true for a running row older than 30 minutes only", () => {
     const base: ScheduledReport = { ...row("a", "k", "s"), status: "running", ok: false };
     const now = new Date("2026-10-23T12:00:00.000Z");

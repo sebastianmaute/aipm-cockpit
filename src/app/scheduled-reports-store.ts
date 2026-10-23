@@ -7,7 +7,7 @@ import { runTursoPipeline } from "./turso-pipeline";
 import { rowObjects, txt, type SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
 import { SCHEDULED_REPORTS_DDL } from "./scheduled-reports-schema";
-import type { AiActionSeverity, GroundableView } from "./action-ai";
+import { GROUNDABLE_VIEWS, type AiActionSeverity, type GroundableView } from "./action-ai";
 
 
 /** At most this many rows are kept per job key (newest by slot). */
@@ -95,10 +95,41 @@ export async function finishReport(
   ]);
 }
 
+const ERROR_TOKENS: ReadonlySet<string> = new Set<ReportErrorToken>([
+  "limit", "401", "403", "parse", "storage-unreachable", "turso",
+  "project-archived", "project-missing", "interrupted", "error",
+]);
+const SEVERITIES: ReadonlySet<string> = new Set<AiActionSeverity>(["now", "soon", "monitor"]);
+const GROUNDABLE: ReadonlySet<string> = new Set(GROUNDABLE_VIEWS);
+const str = (v: unknown): string => (typeof v === "string" ? v : "");
+
+/** ★ A row is shared with other devices and app versions, so `data` is external input: every field the view
+ *  reads is checked here. An unknown severity reads as the lowest tier, an unknown error token as plain "error",
+ *  and an entity the view cannot name is dropped. Null only when `data` is not an object at all. */
+export function sanitizeReportData(raw: unknown): ReportData | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const d = raw as Record<string, unknown>;
+  const actions = (Array.isArray(d.actions) ? d.actions : []).flatMap((a): ReportData["actions"] => {
+    if (!a || typeof a !== "object") return [];
+    const x = a as Record<string, unknown>;
+    const e = x.entity as Record<string, unknown> | undefined;
+    const entity = e && typeof e.id === "string" && typeof e.view === "string" && GROUNDABLE.has(e.view)
+      ? { view: e.view as GroundableView, id: e.id } : undefined;
+    const severity = typeof x.severity === "string" && SEVERITIES.has(x.severity) ? (x.severity as AiActionSeverity) : "monitor";
+    return [{ title: str(x.title), why: str(x.why), severity, ...(entity ? { entity } : {}) }];
+  });
+  const instruction = str(d.instruction);
+  const error = d.error === undefined ? undefined : ERROR_TOKENS.has(str(d.error)) ? (d.error as ReportErrorToken) : "error";
+  return {
+    jobName: str(d.jobName), projectName: str(d.projectName), summary: str(d.summary), actions,
+    ...(instruction ? { instruction } : {}), ...(error ? { error } : {}),
+  };
+}
+
 function decode(r: Record<string, string>): ScheduledReport | null {
   try {
-    const data = JSON.parse(r.data) as ReportData;
-    if (!data || typeof data !== "object") return null;
+    const data = sanitizeReportData(JSON.parse(r.data));
+    if (!data) return null;
     return {
       id: r.id, projectId: r.project_id, jobKey: r.job_key, slot: r.slot,
       status: r.status === "done" ? "done" : "running",
@@ -109,7 +140,7 @@ function decode(r: Record<string, string>): ScheduledReport | null {
   }
 }
 
-/** Newest slot first; a row whose `data` does not parse is skipped. */
+/** Newest slot first (a slot is never re-run, so this is also newest `ran_at` first); a row whose `data` does not parse is skipped. */
 export async function listReports(config: TursoConfig | null): Promise<ScheduledReport[]> {
   const results = await runTursoPipeline(config, [
     ...ddl(),
