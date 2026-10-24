@@ -8,16 +8,16 @@ The videos and their steps are data (`videos.mjs`, `steps/`). The specs they fol
 
 - `.env.local` in the repo root with `TURSO_THROWAWAY_DATABASE_URL`, `TURSO_THROWAWAY_AUTH_TOKEN` and `ANTHROPIC_API_KEY`. Use a throwaway key: a recording, or a rehearsal with `--with-ai`, makes real, billed Claude calls. The scripts never print these values. Do not run them with `DEBUG=pw:api`: Playwright then logs every `fill()` argument, the token and the key included.
 - The throwaway database must hold no other projects. If it holds one, the start screen is not empty and the connect step fails. Every take cleans the database first.
-- A dev server on port 3300 with the deployment defaults blanked, so the setup wizard starts empty (Git Bash):
+- A dev server on port 3300 with the deployment defaults blanked, so the setup wizard starts empty, and `DEMO_RECORDER=1`, which hides the Next.js dev indicator (the "N" badge) for this server only (`next.config.ts`; normal development keeps it) (Git Bash):
 
   ```bash
-  NEXT_PUBLIC_TURSO_DATABASE_URL= NEXT_PUBLIC_TURSO_AUTH_TOKEN= \
+  DEMO_RECORDER=1 NEXT_PUBLIC_TURSO_DATABASE_URL= NEXT_PUBLIC_TURSO_AUTH_TOKEN= \
   NEXT_PUBLIC_MSAL_TENANT_ID= NEXT_PUBLIC_MSAL_CLIENT_ID= NEXT_PUBLIC_TIMELOG_TENANT= \
   NEXT_PUBLIC_EXPORT_FOOTER= NEXT_PUBLIC_AI_POLICY_URL= NEXT_PUBLIC_AI_POLICY_ORG= ANTHROPIC_API_KEY= \
   node node_modules/next/dist/bin/next dev -p 3300
   ```
 
-  `QA_BASE_URL` points the scripts at another address.
+  `QA_BASE_URL` points the scripts at another address. A take that finds the dev badge on the page logs `DEV BADGE visible — start the dev server with DEMO_RECORDER=1` and counts a warning.
 
 ## Commands
 
@@ -38,10 +38,10 @@ node scripts/demo-video/discover.mjs "Resources>Planning" # list a view's contro
 ## What a take does
 
 1. **Cleanup.** The throwaway database is cleared of projects and of the global rows a take writes (`scheduled_jobs`, `action_learning`).
-2. **A fresh browser context**, 1280 × 720, `en-US`, Europe/Berlin, with the page clock installed at Monday 08:30.
+2. **A fresh browser context**, 1920 × 1080 (`VIEWPORT` in `lib.mjs`, also the screencast's size), `en-US`, Europe/Berlin, with the page clock installed at Monday 08:30.
 3. **Setup, off camera.** The setup wizard connects Turso and the key; Finish switches the portfolio to Turso and reloads. Then **Explore the demo**, the device state for the new project (below), the weekly digest and the AI Assistant's consent. A chapter then replays the days before it. A clip's `setup` steps run last (for example `ai-scheduled` creates its job).
 4. **Preconditions.** Each one checks that the data shows what the video needs (a duplicate pair, an over-allocated person, two saved versions). A missing one skips the take before anything is recorded.
-5. **Recording.** The video's title in the caption bar for the first 3 s (`titleCard`), then the opening caption when it says more than the title (a chapter's opening is its title), then the steps. A `{ banner: <view> }` opening is that view's own hint text, read from the page; a sub-view names its path (`Resources>Planning`).
+5. **Recording.** The splash for the first 3 s (`splash`, `SPLASH_MS`): the app's own `public/splash-aipm-cockpit.svg`, centred at 960 × 600 on its own `#003459` over the whole frame, above the caption bar, the cursor and the version label. It is shown inside the recording, so every later time (beats, captions, AI waits, the `.srt`) includes it and the music, which fades in from 0:00, starts with it; a rehearsal shows it at the token pace. Then the video's title in the caption bar for 3 s (`titleCard`), then the opening caption when it says more than the title (a chapter's opening is its title), then the steps. A `{ banner: <view> }` opening is that view's own hint text, read from the page; a sub-view names its path (`Resources>Planning`).
 6. **The closing beat.** A video with a `closing` beat shows that beat's own text in the caption bar and speaks it; the caption stays on screen to the end of the video. Without one the caption bar is cleared. Either way the last frame is held until the voice is done, plus its 400 ms pause and 1.5 s: every video ends about 1.9 s after its last voice. A rehearsal shows the closing caption at its token pace.
 
 `ch2-connect` and `big` record the setup wizard itself, so their recording starts before step 3. `ch2-connect` is the first run (`firstRun`, `steps/first-run.mjs`): it also shows the first screen and the optional wizard steps and Review, lets Claude propose the first project and creates it, shows the empty project, then opens the demo from Projects. `big` keeps the short prologue, which cancels at the last step. In both, the demo opens while the prologue's last beat is spoken (it says the demo opens next). The device setup that follows (step 3: the device state and its reload, the weekly digest in Settings, the AI Assistant's consent, about 30 s with nothing said) waits for that voice to end, is noted on the recording's timeline and is cut after the take, like the middle of a long AI wait. Nothing on camera shows it, so ch2's narration tells the viewer to do it: turn the weekly status report on in Settings, and accept the assistant's consent the first time it asks.
@@ -66,6 +66,17 @@ After the mix, every narrated take is checked on the finished video's timeline (
 
 `node scripts/demo-video/check-render.mjs <file.mp4> [...]` runs the gap and tail checks on finished renders without a take, from each `.mp4` and the `.srt` beside it (the length read with ffprobe). A take writes its AI waits beside the render as `<name>.waits.json`, and the gaps are judged with them. Without that file (a render older than it) the waits are unknown: in an AI clip, a chapter or big, which hold AI steps, a long silence is listed as `RENDER unverified (AI wait?) gap`; a feature clip has none. It cannot see captions, so it has no desync check. A file it cannot probe is reported and the rest are still checked. It prints `ok` for a clean render and exits 1 when any finding is not unverified.
 
+### The YouTube details page
+
+After every `record.mjs` run, a partial one too, `<out>/youtube-details.html` is written again (`youtube.mjs`). It lists every video that is not recorded by hand, in `videos.mjs` order, with a Copy button per field:
+
+- the file to upload (the `.mp4`, or "not rendered yet") and the `.srt` to upload as English captions;
+- the title (at most 100 characters);
+- the description: the opening line, a summary from the narration's own title and closing beats, the chapters, and the credits. A music tier (big and the chapters) always carries "Music: Made with ElevenMusic" (a licence requirement); every narrated video carries "Narration: AI-generated voice (ElevenLabs)";
+- tags, category (Science & Technology), audience (not made for kids) and language (English).
+
+The chapters come from `<name>.beats.json`, which the mix writes beside the `.mp4` (each beat's time on the final video and the caption it first showed). The first is 0:00 (the splash and the title), then one per caption beat; the big video uses its days. A chapter shorter than 10 s is merged into the one before it; with fewer than three left, the video gets none. A video without a sidecar is listed without chapters.
+
 ## The week's clock and the replay
 
 The demo week runs Monday 21 to Friday 25 September 2026 (`DEMO_WEEK_DATES` in `week-story.mjs`). A take starts at Monday 08:30 in Berlin. A chapter replays each earlier day off camera, moving the clock to 08:30 of that day and reloading first, then moves to its own day. The big video moves the clock between days on camera.
@@ -80,6 +91,8 @@ The demo week runs Monday 21 to Friday 25 September 2026 (`DEMO_WEEK_DATES` in `
 
 ## On screen
 
+- The frame is 1920 × 1080. The cursor is 36 px; the caption is 24 px in a centred box that ends 32 px above the bottom edge, so the app's footer tagline stays readable.
+- The demo's version, `v<APP_VERSION> <APP_MILESTONE>` (for example `v1.19.0 Nesbø`), sits top left under the logo on every frame after the splash. It is read from the two declarations in `src/app/version.ts` at the start of a run (`readAppVersionLabel` in `lib.mjs`), as text.
 - The database address is blurred wherever it appears. The token and the key are password fields, filled in one event so no frame shows them half typed.
 - Every Turso request to a host other than the throwaway database is blocked and counts as a warning.
 - Any secret found in a take's log counts as a warning.
@@ -196,10 +209,11 @@ No rehearsal can show these, because a rehearsal has no audio. Check them on the
 | `render-check.mjs` | The post-render check: gaps, tail and caption/voice desync. Pure. |
 | `check-render.mjs` | Entry: the gap and tail checks on finished `.mp4` + `.srt` renders. |
 | `setup.mjs` | Off-camera setup: `connect`, `exploreDemo`, `seedDeviceState`, `enableDigest`, `enableChat`, `goToDay`, `currentProjectId`. |
-| `ui.mjs` | The cursor and caption overlay, `caption`, `speak`, `holdVoice`, `moveTo`, `click`, `type`, `choose`, `nav`, `viewHint`, `skipTour`, `titleCard`, `closingBeat`. |
+| `ui.mjs` | The cursor and caption overlay, `caption`, `speak`, `holdVoice`, `moveTo`, `click`, `type`, `choose`, `nav`, `viewHint`, `skipTour`, `splash`, `checkDevBadge`, `titleCard`, `closingBeat`. |
 | `narrate.mjs` | Entry: renders the narration beats of the selected videos with ElevenLabs into the cache; `--audition` renders voice samples. |
 | `narration/` | `beats.mjs` (the narration files), `tts.mjs` (voice, cache, cost cap, rendering), `mix.mjs` (the MP4 and `.srt`), and the scripts in `en/`. |
-| `lib.mjs` | `T0`, `atDay`, the `.env.local` reader, the Turso guard, `settle`, `query`. |
+| `lib.mjs` | `T0`, `atDay`, `VIEWPORT`, the version label, the `.env.local` reader, the Turso guard, `settle`, `query`. |
+| `youtube.mjs` | The YouTube details page: `chaptersFor`, `descriptionFor` and `buildDetailsPage` are pure; `writeDetailsPage` reads the files. |
 | `cleanup.mjs` | `cleanup()` and the pure `cleanupStatements`; also runnable on its own. |
 | `discover.mjs` | Lists the controls of a view on the fresh demo, for writing a step's selectors. |
 | `week-story.mjs` | The story's names and dates, shared with project E's tests, and `DAY_FACTS`. |
@@ -209,4 +223,4 @@ No rehearsal can show these, because a rehearsal has no audio. Check them on the
 | `steps/features.mjs` | The 20 feature clips and their preconditions. |
 | `fixtures/` | The device state and the re-plan spreadsheet. |
 
-Tests: `week-story.test.ts`, `cleanup.test.mjs`, `device-state.test.ts`, `cli.test.mjs`, `videos.test.mjs`, `take.test.mjs`, `ui.test.mjs`, `ui-actions.test.mjs`, `trim.test.mjs`, `narrated.test.mjs`, `render-check.test.mjs`, `replan-fixture.test.ts`.
+Tests: `week-story.test.ts`, `cleanup.test.mjs`, `device-state.test.ts`, `cli.test.mjs`, `videos.test.mjs`, `take.test.mjs`, `ui.test.mjs`, `ui-actions.test.mjs`, `trim.test.mjs`, `narrated.test.mjs`, `render-check.test.mjs`, `frame.test.mjs`, `youtube.test.mjs`, `replan-fixture.test.ts`.
