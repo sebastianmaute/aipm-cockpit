@@ -1005,6 +1005,10 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§765](#765-the-demo-videos-are-not-in-the-app-and-there-is-no-german-demo-project-or-german-recording--open) | The demo videos are not in the app, and there is no German demo project or German recording | — | — | open |
 | [§766](#766-manage-roles-gets-cramped-on-small-screens--open) | Manage roles gets cramped on small screens | — | — | open |
 | [§772](#772-scheduled-jobs-analyse-only-the-open-project-take-no-instruction-and-keep-no-suggestions--closed-2026-10-23) | Scheduled jobs analyse only the open project, take no instruction and keep no suggestions | — | — | **CLOSED** 2026-10-23 |
+| [§777](#777-the-action-center-learning-view-is-not-a-pane-and-shows-raw-kind-ids--closed-2026-10-23) | The Action Center learning view is not a pane and shows raw kind ids | — | — | **CLOSED** 2026-10-23 |
+| [§778](#778-one-next-actions-reason-is-learned-and-overridden-as-two-rows-singularplural-why-keys--closed-2026-10-24) | One Next-actions reason is learned and overridden as two rows (singular/plural why keys) | — | — | **CLOSED** 2026-10-24 |
+| [§780](#780-the-learning-views-adjustment-column-contradicts-an-override--closed-2026-10-24) | The learning view's Adjustment column contradicts an override | — | — | **CLOSED** 2026-10-24 |
+| [§781](#781-action-center-learning-is-rewritten-from-a-snapshot-that-never-read-its-store--closed-2026-10-24) | Action Center learning is rewritten from a snapshot that never read its store | — | — | **CLOSED** 2026-10-24 |
 | [§782](#782-an-insight-recommendation-can-propose-a-change-that-cannot-be-applied-and-the-failure-is-silent--closed-2026-10-24) | An insight recommendation can propose a change that cannot be applied, and the failure is silent | — | — | **CLOSED** 2026-10-24 |
 <!-- INDEX:END -->
 
@@ -45872,6 +45876,172 @@ Behaviour now: a job runs on the day it is due, in its own time zone. `slotFor` 
 Size M.
 
 **Source:** owner request 2026-10-23.
+
+## 777. The Action Center learning view is not a pane and shows raw kind ids — CLOSED 2026-10-23
+
+**Status:** CLOSED 2026-10-23 on `fix/learning-view-pane`. `LearningInsights` (`learning-insights.tsx`) renders in `VIEW_PANE_RESIZABLE_CLASS` with the table in `INNER_TABLE_CLASS`, so the table scrolls inside the card and the page does not; its size is kept under `aipm-cockpit:learning-size`. One header row holds Back, the title (now `text-ui-dark-blue dark:text-ui-light-grey`, as Next actions has it), Reset learned data, Print and reset-size; there is no reset-columns, because the table's columns do not resize. Back moved from task-manager's wrapper div into the pane as the `onBack` prop, so the card is the shell's direct child. Each row's secondary text is a translated reason from `learningKindLabel` (`learning-kind-label.ts`): the why key's own text when it takes no values, otherwise one of 23 new param-free `learningReason*` labels (EN and DE) (22 since §778, 2026-10-24, which removed `learningReasonCommitteeInfoOne`; 21 since the final review, 2026-10-24, which removed the unused `learningReasonForecastSimBelow1`). The override select's name carries the reason instead of the raw kind (§248's uniqueness intent kept). A why key the build does not know still shows its raw key, the only thing that tells two such rows apart, and a kind with no why key (no `:`, or nothing after it) shows the raw kind. Verified with `npx vitest run src/app/learning-insights.test.tsx src/app/task-manager.learning-back.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-cpi-labels.test.ts src/app/settings-sections/next-actions-section.test.tsx src/app/action-learning.test.ts src/app/use-action-learning.test.tsx` (8 files, 90 tests, green) (re-run 2026-10-24 at 3ab81a2ef: 8 files, 109 tests, green; the difference is tests added later on this branch); the 14 new or changed tests of the first round failed on the old view, the review round's two (an `Object.prototype` name as the source, and a kind with no why key) failed with the source guard removed and before the raw-kind fallback, and two mutants (one label entry removed, two labels made equal) turned the derived "every why key" tests red. Eye-verified at 1920×1080 and 1280×720. The view is not in `A11Y_VIEWS`, so axe was not run. **Earlier:** found 2026-10-23 in the 14-ai-weights demo video. The view was a bare div on the grey background, so the whole page scrolled, Back sat above the title and half off screen, Reset learned data sat below the table, the `h2` had no heading colour, and each row showed its raw kind id (`task-attention:actionTaskWhyStale`) under the source label, so two "Attention" rows differed only by that id.
+
+Size S.
+
+**Source:** owner report 2026-10-23 (14-ai-weights demo video).
+
+## 778. One Next-actions reason is learned and overridden as two rows (singular/plural why keys) — CLOSED 2026-10-24
+
+**Status:** CLOSED 2026-10-24 on `fix/learning-view-pane`, owner decision 2026-10-23 to fix it now. Verified with `npx vitest run src/app/next-actions src/app/action-learning.test.ts src/app/use-action-learning.test.tsx src/app/learning-insights.test.tsx src/app/learning-store-local.test.ts src/app/learning-store-turso.test.ts src/app/task-manager.learning-back.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-cpi-labels.test.ts src/app/i18n-plural.test.ts src/app/settings-sections/next-actions-section.test.tsx` (32 files, 352 tests, green before `i18n-plural.test.ts` was added to the list) (re-run 2026-10-24 at 3ab81a2ef: 32 files, 362 tests, green; the difference is tests added later on this branch). `i18n-plural.test.ts` was RED from cf64ab023 until 96dbf9c21, because the earlier verification file lists left it out; the singular/plural alias keys needed its six-entry exemption, and the command above now includes it. A pure, i18n-free `next-actions/learning-kind.ts` holds the fix:
+- `LEARNING_WHY_ALIAS` maps each count variant to its plural sibling. There are six "…One" keys (task overdue and due soon, RAID review overdue and not reviewed, workload overload, committee information) and the forecast's `actionForecastSimWhyBelow1`, aliased for consistency only: it is inert today, because sim actions never reach `computeNextActions` and `record` returns early for them (§502).
+- `learningKindOf` builds the kind wherever one is made: recording an outcome in `use-action-learning.ts`, and the bias and override lookup in `next-actions/engine.ts`.
+- `canonicalLearningKind` normalises a stored kind.
+
+Stored data is merged at read time, not migrated. `normalizeLearningSnapshot` (`action-learning.ts`) runs on the hook's load, for both the local and the Turso `action_learning` store. Rows of one canonical kind are each decayed to the later `lastAt` and summed. For overrides, an explicit (non-"auto") override stored under the canonical kind wins; otherwise a variant's explicit one is kept. The function is idempotent, so the full-rewrite save that both stores already do writes the merged snapshot on the next mutation. A device still on an older build can write singular rows again; they merge again on the next load. The reverse also holds while both versions share one Turso database: a new build's save drops the singular rows (learned counts and override), so an older build, which looks kinds up by the raw key, loses that learned bias and stops demoting (or promoting) the singular-count action until it is updated. The §772 builders `buildProjectDigest` and `buildProjectAnalysisInput` read neither learning kinds nor learned bias, and the weight-suggestion prompt lists the loaded (merged) state, so neither needed a change. The learning view (§777) labels a variant as its plural. `learningReasonCommitteeInfoOne`, the only singular reason label, is removed (EN and DE), which leaves 22 `learningReason*` labels (21 since the final review, 2026-10-24, which also removed the unused `learningReasonForecastSimBelow1`). The providers' own "…One" texts are unchanged.
+
+Further verification: 13 of the new tests failed against identity stubs first. The rest (idempotence, pass-through, alias hygiene) pass against an identity mapping by design. The due-soon test failed there for a fixture reason, not the defect, and was fixed. These mutants were each caught:
+- removing the `actionTaskWhySoonOne` alias (10 red);
+- the engine back on the raw why key together with the hook's load without normalising (2 red);
+- a variant override overwriting the canonical one (1 red).
+
+A derived test fails when a "…One" or "…Below1" why key in the EN dictionary has no alias.
+
+**Earlier:** found 2026-10-23 in the §777 review. Learning, learned bias and overrides were keyed by `${source}:${why.key}`, and the providers pick a singular key by count (`n === 1 ? "…One" : "…"`), so one signal was two kinds. "Always suppress" on "Task — Due soon" did not demote a task due in exactly 1 working day (corrected 2026-10-24: an earlier wording said it let the task "through"; suppress is a -20 demotion with the now-tier floor, it never hides an action), acting on a 1-day item trained a different row than a 2-day one, and the §777 view showed both rows.
+
+Size S–M.
+
+**Source:** found 2026-10-23 in the §777 review (owner: fix it now).
+
+## 780. The learning view's Adjustment column contradicts an override — CLOSED 2026-10-24
+
+**Status:** CLOSED 2026-10-24 on `fix/learning-view-pane`, owner decision 2026-10-24 to fix it now. Verified with `npx vitest run src/app/learning-insights.test.tsx src/app/task-manager.learning-back.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-cpi-labels.test.ts src/app/action-learning.test.ts` (6 files, 76 tests, green) (re-run 2026-10-24 at 3ab81a2ef: 6 files, 81 tests, green; the difference is tests added later on this branch).
+
+The Adjustment column of the Action Center learning view (`learning-insights.tsx`) now shows `effectiveBias(d, override)`, the value `buildBiasMap` feeds the engine while learning is on (with learning off it shows 0, marked "learning off" (`learningBiasDisabled`), because `useActionLearning` then hands the engine no bias; added 2026-10-24 after the peer review, with five tests that failed first):
+- "Always surface" shows +20 (`BIAS_CAP`).
+- "Always suppress" shows -20; the score floor still keeps an intrinsically-now item in the now tier, whatever the shown -20 (the floor in `applyLearnedBias`, unchanged).
+- "Off" shows 0.
+- "Auto" shows the learned bias.
+
+Under an override, the learned value stays visible below the applied one, marked "learned +12" ("gelernt +12", new key `learningBiasLearned`). The cell holds no control, so no accessible name changed.
+
+Five new tests use a fixture with a learned bias of +12, distinct from ±20 and 0: one per override value (auto, surface, suppress, off), plus the German marking. All five failed on the old cell. Four of the failures came from the defect. The auto case failed only because the new two-line cell shape differs, since the old value was already right.
+
+A mutant that shows `learnedBias` again in the applied line turns the surface, suppress and off tests red.
+
+**Earlier:** found 2026-10-24 by the owner. The column printed `learnedBias(d)` whatever the row's override, so a row set to "Always suppress" could read "+5", contradicting the override that is actually applied.
+
+Size XS.
+
+**Source:** owner report 2026-10-24.
+
+## 781. Action Center learning is rewritten from a snapshot that never read its store — CLOSED 2026-10-24
+
+**Status:** CLOSED 2026-10-24 on `fix/learning-view-pane`, owner decisions 2026-10-24 to fix it now (both the early-write race and the store switch). Verified with `npx vitest run src/app/next-actions src/app/action-learning.test.ts src/app/use-action-learning.test.tsx src/app/learning-insights.test.tsx src/app/learning-store-local.test.ts src/app/learning-store-turso.test.ts src/app/learning-store-turso.load.test.ts src/app/task-manager.learning-back.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-cpi-labels.test.ts src/app/settings-sections/next-actions-section.test.tsx src/app/storage-transient.test.ts src/app/scheduled-job-analysis.test.ts src/app/scheduled-job-run.test.ts src/app/scheduled-jobs-store.execute.test.ts src/app/scheduled-jobs-store.test.ts src/app/use-scheduled-job-runner.test.tsx src/app/use-scheduled-jobs.config.test.tsx src/app/use-scheduled-jobs.reread.test.tsx src/app/use-scheduled-jobs.test.tsx` (42 files, 570 tests, green, at 62e9431e5; the scheduled-job suites ride along because their runner now imports `storage-transient.ts`).
+
+Every learning save is a full rewrite of its store. On Turso that is `DELETE FROM` the GLOBAL `action_learning` table, then re-inserts. `useActionLearning` (`use-action-learning.ts`) therefore saves only a snapshot that was loaded from that same store in this session:
+- **Hydration:** the load waits for `useSettings`' `hydrated`. Before it, the config is the default one (local, learning off).
+- **Store identity:** the load is keyed on `learningStoreKey` (`learning-store.ts`):
+  - `"local"`;
+  - `"turso:<url>#<fingerprint>"`, where the fingerprint is FNV-1a of the token, never the token itself;
+  - or `null` when Turso is chosen but has no usable config.
+  - A store switch in Settings, a Turso URL edit or a token change (a rotation, or a rejected token fixed in Settings) starts a new load, and saves then use the new token.
+- **Turso chosen but not usable** (a passphrase-locked token, a secret-merge timeout): nothing is loaded, writes queue, and learning never falls back to the local store, where `pickLearningStore` alone would. The queue replays onto Turso once its config arrives.
+- **Before a load succeeds:** writes (record, override, reset) are applied in memory and queued. The load replays the queue, in order, on top of what it read (normalised as in §778) and saves the result once, to the store object it loaded from.
+- **The queue survives a reload.** After a switch, the new store keeps its own rows plus this session's later writes. Until the new store is read, the view shows only those unsaved writes, so an override or Reset never acts on the old store's rows. Nothing is copied from the old store, so learning does not carry over between stores; switching back reads the old store again. This is deliberate (confirmed 2026-10-24): the owner's requirement is that a switch never overwrites the target, and copying the old store's rows in would count them twice on a switch back, or when two devices share one Turso database.
+- **Authority:** only the latest load is authoritative (`loadGenRef`). A load made stale by StrictMode's second mount, or by a switch, touches neither the queue, the state nor a save.
+- **A failed load:** nothing is saved, and the writes are kept. What happens next depends on the error (`isRetryableLearningLoadError` in the new `storage-transient.ts`, whose busy-database and server-blip checks the §772 scheduled-job runner now shares):
+  - **Retryable** (the store is unreachable or timed out, a Turso 429 or 5xx, a busy database): the load is retried 3 times with a growing delay (`LEARNING_LOAD_RETRY_MS`: 5, 10 and 15 s, as `useScheduledJobs` retries its read). After that, the next write starts a fresh round.
+  - **Permanent** (owner decision 2026-10-24): no retries, and a write does not restart the load. This covers:
+    - a rejected token (`tursoErrorKind` `auth`/`auth-env`), which is told to the user at once (`learningLoadRejectedToast`) and named in the notice (`learningTokenRejectedNotice`: update the token in Settings). A new token is a new store identity, so it reloads and saves the held writes without another write;
+    - any other HTTP or SQL error, and a missing SELECT result (which `tursoLearningStore.load` now treats as a failure rather than an empty table). These are `loadProblem` `"failed"`, final for the session: the notice (`learningLoadFailedFinalNotice`, not the retrying `learningLoadFailedNotice`) and the first held write's toast (`learningLoadFailedFinalToast`) say that the app will not try again until it is reloaded, that reloading the app DISCARDS the changes not saved yet (the held writes live only in memory, so a reload starts with an empty queue), and that changing the Turso URL or token in Settings saves them (only a new store identity reloads in-session: `learningStoreKey` is `"local"` or the Turso URL plus a fingerprint of the token, so the URL, the token and the store choice are what change it; a server-side fix, or a SQL or malformed-response failure, never reloads until the app does). A malformed response can be a passing proxy glitch, so this is strict; reloading the app retries the read, without the held changes.
+  - **After an unmount**, a load that fails schedules no retry (`mountedRef`). One that succeeds still saves the queue, deliberately: the writes are the user's, and the snapshot holds every stored row.
+- **The held writes are bounded:**
+  - a queued Reset drops everything queued before it;
+  - past `LEARNING_QUEUE_MAX` (500) the oldest writes are dropped (never a queued Reset), logged once per episode as `learning.queueDropped`;
+  - `pendingWrites` reports the count, and the notice shows it ("3 changes not saved yet.", `learningPendingWrites`).
+- **A reload waits for saves still in flight** (the save chain), so a token rotation or a switch back mid-save reads what that save wrote.
+- **What the user sees:**
+  - The learning view shows a `role="status"` notice (`loadProblem`):
+    - `learningLoadFailedNotice`: could not be read, will retry;
+    - `learningLoadFailedFinalNotice`: could not be read, reload or check the settings;
+    - `learningTokenRejectedNotice`: token rejected, update it in Settings;
+    - `learningStoreNotReadyNotice`: Turso is not available yet.
+  - The first write held by an unreadable store toasts `learningWriteHeldToast`, and by a store that is not ready, `learningStoreNotReadyToast`, both through `reportSilentFailure`. A rejected token toasts at once.
+  - Their changes are saved once a load succeeds. That happens on a timed retry or on the next write after the retries run out (both only for a retryable failure), or on a change of store identity (a new token, the config arriving). After a `"failed"` load, only a reload of the app or a change of store identity reads again. Changes are lost only if the app closes before a load succeeds; the stored learning is never touched.
+- **A failed save** is logged (`learning.saveFailed`) and toasted once per failing streak (`learningSaveFailedToast`). The next save carries the whole snapshot.
+
+Scope and known limits:
+- **Project scope:** learning is not project data. It lives in device storage, or in the global Turso table, which stays out of `TABLE_NAMES`. A project swap therefore cannot misattribute it, and the scope epoch does not apply.
+- **Two tabs or two devices on one store:** each one saves a full snapshot, so the last writer wins. This is unchanged and is not part of this fix.
+- **Remounting the hook** (a new `TaskManager` instance) while an old instance's queued save is in flight could let the new instance read before that save lands. `TaskManager` does not remount today.
+
+Tests:
+- `use-action-learning.test.tsx`:
+  - **Defect scenarios:**
+    - hydration then Turso: no store is touched before hydration, the Turso SELECT precedes any rewrite, and only stored rows plus the outcome are inserted;
+    - a store switch after the load: the target is read before it is rewritten, and the local rows are neither copied nor changed;
+    - an early outcome and override merge into a loaded snapshot;
+    - the Turso statements re-insert every stored row.
+  - **Ordering and authority:**
+    - the queued save goes to the store object that loaded;
+    - real StrictMode (`wrapper: StrictMode`; the test asserts 2 loads, so it is not vacuous);
+    - replay order: record, reset, record leaves only the last record.
+  - **Failure handling:**
+    - an early reset still clears everything;
+    - a late load merges under a newer in-memory outcome;
+    - a failed load is retried and then saves;
+    - a write after the retries run out restarts the load;
+    - a rotated token reloads and saves with the new token (review probe P6; it fails against c590c029a);
+    - the key holds a token fingerprint, never the token, and is `null` while Turso is not ready;
+    - Turso not ready: no store is touched, writes queue, the local store stays empty, and the queue is saved to Turso once its config arrives;
+    - during a switch, only unsaved writes show;
+    - no retry after unmount;
+    - a rejected token is its own `loadProblem`;
+    - a permanent non-token failure is `"failed"`, and its first held write reports `"failed"`;
+    - a Reset drops what was queued before it;
+    - the queue cap drops the oldest writes, never the Reset, and logs it;
+    - a reload waits for an in-flight save (review probe P9);
+    - real StrictMode still retries, which pins the `mountedRef` re-set (the reviewer's surviving mutant now fails);
+    - the not-ready test also checks that the held write is among the rows saved to Turso;
+    - a failed load is reported once, on the first write held;
+    - a failed save is reported once per streak;
+    - a rejected token stops the retries, is reported at once, survives a write without a reload, and a new token reloads and saves the held write.
+- `storage-transient.test.ts`: which errors are retried.
+- `learning-insights.test.tsx`: the notice.
+- `learning-store-turso.load.test.ts`: the missing SELECT result.
+- Nine mutants, one per mechanism, were each killed by their own test:
+  - the queued save re-picking the store (the first review's mutant);
+  - no hydration gate;
+  - a reversed replay;
+  - no missing-result throw;
+  - no stale-load check;
+  - no held-write report;
+  - no notice;
+  - no reload on a store change;
+  - no save-error report.
+- Two more mutants, for the permanent case (every error retryable; the token not a reload trigger), each turned the rejected-token test red.
+- Five more, for the re-review round, were each killed by their own test:
+  - no token fingerprint in the key;
+  - no clearing of the view on a switch;
+  - a rejected token not named;
+  - falling back to `"local"` when Turso is not ready;
+  - a retry scheduled after unmount.
+- Six more, for the final review, were each killed by their own test:
+  - no `mountedRef` re-set;
+  - no wait for in-flight saves;
+  - a Reset keeping earlier writes;
+  - the cap dropping a Reset;
+  - a final failure named `"unreadable"`;
+  - no cap.
+
+**Earlier:**
+- **2026-10-24, final review of the §777/§778/§780 branch:** found a pre-existing defect. An outcome recorded before the mount `load()` resolved set `dirtyRef`. The late load was then dropped, and `persist` saved only the new outcome, so one quick snooze wiped the global table. A failed load had the same effect on the next write.
+- **The first fix (7819806e0, ffb0146a7)** queued early writes, then switched saving off for the session after a failed load.
+- **The second round (e420cc4d1)** added the load retry.
+- **Both reviews then blocked the fix:**
+  - **The default-settings load:** the mount load picked its store from the first render's default settings, so a Turso-store user never read Turso, and the first outcome rewrote the table from the local snapshot, every session. Probe: 0 Turso loads, 1 Turso rewrite. **origin/main (c13356067) has the same wipe**, measured with the same probe against main's hook.
+  - **The StrictMode double load:** it drained the queue from a stale load.
+  - **The silent failed-load state.**
+  - **A register claim:** it said a store switch could not copy rows between stores, and only the queued save honoured that.
+
+Size M.
+
+**Source:** final review of `fix/learning-view-pane`, 2026-10-24 (owner: fix it now); widened by the two §781 reviews the same day.
 
 ## 782. An insight recommendation can propose a change that cannot be applied, and the failure is silent — CLOSED 2026-10-24
 
