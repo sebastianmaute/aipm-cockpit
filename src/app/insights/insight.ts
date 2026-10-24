@@ -92,7 +92,7 @@ export interface InsightRecommendation {
    *  work, hence "did not land" rather than "wrote nothing"). Present (> 0) only on an
    *  `applied` recommendation, so `applied` no
    *  longer means both "fully landed" and "partly landed". A count, bounded by
-   *  `INSIGHT_REC_MAX_CALLS`; absent ⇒ nothing was refused. Kept as a field,
+   *  `INSIGHT_REC_MAX_CALLS`; absent ⇒ every call landed. Kept as a field,
    *  not a new status, so an older build's status check does not reset the
    *  record to `proposed` (and re-offer its creates). */
   readonly refusedCalls?: number;

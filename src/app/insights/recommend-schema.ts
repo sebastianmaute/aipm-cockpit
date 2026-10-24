@@ -48,7 +48,12 @@ export const REC_TOOL_INPUT_SCHEMAS: Readonly<Record<string, InputSchema>> = Obj
  *   "object"` node it meets, and a closed object with no properties would leave
  *   the model only `{}` to send. It closes each BRANCH instead (`closeObjects`
  *   enters `anyOf`), and `matchesSchema` accepts a call that fits one branch, so
- *   a reply breaking its tool's schema is re-asked strict (§782 review). */
+ *   a reply breaking its tool's schema is re-asked strict (§782 review).
+ *  ★ An update's `id` is `type: "number"`, so a reply sending `id: "3"` (which
+ *   `runTool` would accept through `Number()`) also counts as a mismatch and is
+ *   re-asked strict, one extra request. Deliberate: `matchesSchema` is shared by
+ *   every forced-call tool, and loosening its number check would accept strings
+ *   for tools whose writers do not take them; the strict reply sends a number. */
 export const REC_CALL_ITEM_SCHEMA = {
   anyOf: [...ALLOWED_REC_TOOLS].map((name) => ({
     type: "object" as const,
