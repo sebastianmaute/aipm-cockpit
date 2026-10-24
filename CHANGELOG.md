@@ -77,10 +77,12 @@ longer carries its own changelog comment.
 - **Manage roles has room on smaller screens (§766).** The roles pane took half the window's content area, so the
   rate card was cut off even in a 1920×1080 window, and at 1366×768 and smaller it showed only its first two or
   three columns. The pane now uses the whole width, up to a cap, and the rate columns are narrower, so with typical
-  role names the whole rate card shows in a 1280×720 window and larger. In smaller windows it still scrolls sideways
-  inside the panel, each row's delete button stays in view at the right edge, and moving through the fields with
-  Tab scrolls each one clear of it. The Hours/Days switch no longer wraps onto two
-  lines, so the rows are less than two thirds as tall as before. The Print button now comes before the reset-size
+  role names and a one-character currency symbol such as € the whole rate card shows in a 1280×720 window and
+  larger (with "US$" it needs 1366×768). In smaller windows it still scrolls sideways inside the panel, each row's
+  delete button stays in view at the right edge, and moving through the fields with Tab scrolls each one clear of
+  it. The rate fields drop their up/down arrows to make room, and a value too long for its field shows in full when
+  you hover over it. The Hours/Days switch no longer wraps onto two lines, so the rows are less than two thirds as
+  tall as before. The Print button now comes before the reset-size
   button, as in other views.
 - **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
   against the wrong year, so the new project and its milestones could already be over on the day you created
