@@ -212,3 +212,19 @@ describe('review round (§715): the cut-off voice, the silence before the first 
     expect(r.unverified).toBe(true);
   });
 });
+
+describe('check-render and the splash (§715)', () => {
+  // The first voice at 9.5 s: 6.5 s after a splash, 9.5 s of silence from the start of a render without one.
+  const late = '1\n00:00:09,500 --> 00:00:12,000\nA\n\n2\n00:00:12,400 --> 00:00:15,000\nB\n';
+
+  it('measures the first silence from the end of the splash only for a render that has one', () => {
+    expect(checkRender({ srt: late, duration: 16.9, waits: [], splash: true })).toEqual([]);
+    expect(checkRender({ srt: late, duration: 16.9, waits: [] })).toEqual(['RENDER gap 9.5 s at 0:00.0 (after the start)']);
+  });
+
+  it('checkFiles reads a splash from the beats sidecar the take wrote beside the render', () => {
+    const deps = (withBeats) => ({ exists: (p) => p.endsWith('.srt') || (withBeats && p.endsWith('.beats.json')), read: () => late, probe: () => 16.9 });
+    expect(checkFiles(['out/features/01-a.mp4'], deps(true)).lines).toEqual(['out/features/01-a.mp4: ok']);
+    expect(checkFiles(['out/features/01-a.mp4'], deps(false)).lines).toEqual(['out/features/01-a.mp4: RENDER gap 9.5 s at 0:00.0 (after the start)']);
+  });
+});

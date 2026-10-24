@@ -14,12 +14,14 @@ import { SPLASH_S, gapFindings, parseSrt, parseWaits, tailFinding } from './rend
 import { probeDuration } from './trim.mjs';
 
 /** The findings for one render: `srt` is its subtitle text, `duration` its length, `waits` its AI waits on its
- *  timeline, or null when they are not known. */
-export function checkRender({ srt, duration, waits }) {
+ *  timeline, or null when they are not known. `splash`: the render opens on the splash, so its first silence is
+ *  measured from the splash's end; a render older than the splash is measured from 0:00, with no leniency. */
+export function checkRender({ srt, duration, waits, splash = false }) {
   const cues = parseSrt(srt);
   if (!cues.length) return ['RENDER no subtitles'];
   const lastEnd = Math.max(...cues.map((c) => c.end));
-  return [...gapFindings(cues, waits ?? [], { unverified: waits == null, from: SPLASH_S }), tailFinding(lastEnd, duration)].filter(Boolean);
+  const from = splash ? { from: SPLASH_S } : { from: 0, fromId: 'the start' };
+  return [...gapFindings(cues, waits ?? [], { unverified: waits == null, ...from }), tailFinding(lastEnd, duration)].filter(Boolean);
 }
 
 /** The tiers that hold AI steps: an old render of one, with no waits file, cannot be judged on its gaps. */
@@ -53,7 +55,9 @@ function checkFile(file, { exists, read, probe }) {
   } catch (e) {
     return { error: firstLine(e) };
   }
-  return { found: checkRender({ srt, duration, waits }) };
+  // The beats sidecar came with the splash (both are this recorder's, since Task 3): with it, the render opens on it.
+  const splash = exists(file.replace(/\.mp4$/, '.beats.json'));
+  return { found: checkRender({ srt, duration, waits, splash }) };
 }
 
 /** Checks each render, one at a time: a file it cannot read, probe or parse is reported and the next one is

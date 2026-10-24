@@ -41,11 +41,11 @@ function covered(a, b, waits) {
 
 /** Each silence between consecutive voices ({ id, at, end }, any order) that is longer than MAX_GAP_S once the
  *  seconds a marked AI wait ({ start, end }) covers are taken out: a wait shown is not a stall, but it excuses
- *  only its own seconds. `from`: where the first silence starts (the end of the splash), so the silence before
- *  the first voice is measured too. `unverified`: the waits are not known (an old render), so a long silence is
- *  reported as unverified rather than as a stall. */
-export function gapFindings(spans, waits = [], { unverified = false, from: start = null } = {}) {
-  const sorted = [...(start == null ? [] : [{ id: 'the splash', at: start, end: start }]), ...[...spans].sort((x, y) => x.at - y.at)];
+ *  only its own seconds. `from`: where the first silence starts (the end of the splash, named `fromId`), so the
+ *  silence before the first voice is measured too. `unverified`: the waits are not known (an old render), so a
+ *  long silence is reported as unverified rather than as a stall. */
+export function gapFindings(spans, waits = [], { unverified = false, from: start = null, fromId = 'the splash' } = {}) {
+  const sorted = [...(start == null ? [] : [{ id: fromId, at: start, end: start }]), ...[...spans].sort((x, y) => x.at - y.at)];
   const found = [];
   for (let i = 1; i < sorted.length; i++) {
     const from = sorted[i - 1].end;
