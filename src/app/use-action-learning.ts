@@ -106,8 +106,10 @@ export const LEARNING_QUEUE_MAX = 500;
  * - Only the LATEST load (`loadGenRef`) is authoritative. StrictMode's second
  *   mount, or a store switch, makes an earlier one stale: it then touches neither
  *   the queue, the state nor a save.
- * - A failed load is retried; meanwhile nothing is saved, `loadFailed` is true
- *   (the learning view shows a notice) and the first write held is reported.
+ * - A retryable failed load is retried (`isRetryableLearningLoadError`); a permanent
+ *   one (a rejected token, a store not ready, `"failed"`) is not. Meanwhile nothing is
+ *   saved, `loadProblem` is set (the learning view shows a notice), `pendingWrites`
+ *   counts the held writes and the first write held is reported.
  */
 export function useActionLearning({
   config,

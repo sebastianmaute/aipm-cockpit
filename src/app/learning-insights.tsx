@@ -36,7 +36,7 @@ interface LearningInsightsProps {
    *  the rows are this session's only, and nothing is saved until a read works (§781). */
   loadProblem: LearningLoadProblem;
   /** How many changes wait for a successful load (`useActionLearning`'s `pendingWrites`):
-   *  counted in the notice when there are any. */
+   *  counted in the load-problem notice (shown only while `loadProblem` is set) when there are any. */
   pendingWrites: number;
   /** Decay reference time. Defaults to Date.now(); injectable for deterministic tests. */
   now?: number;

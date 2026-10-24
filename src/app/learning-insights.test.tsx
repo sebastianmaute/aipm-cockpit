@@ -203,9 +203,27 @@ describe("LearningInsights", () => {
     expect(screen.getByRole("status").textContent).toBe(t("en-US", "learningStoreNotReadyNotice"));
     rerender(<LearningInsights {...baseProps()} loadProblem="failed" now={0} />);
     expect(screen.getByRole("status").textContent).toBe(t("en-US", "learningLoadFailedFinalNotice"));
-    // The held writes are still saved if a new store identity reads: "not saved YET".
-    expect(screen.getByRole("status").textContent).toContain("not saved yet");
     expect(t("en-US", "learningLoadFailedFinalToast")).toContain("not saved yet");
+  });
+
+  // §781 — a reload starts with an empty queue, so the final notice and toast must say it
+  // discards the held changes and that fixing the settings is what saves them, in both languages.
+  it("the final notice and toast say a reload discards the held changes", () => {
+    expect(t("en-US", "learningLoadFailedFinalNotice")).toMatch(/[Rr]eloading the app discards your unsaved changes/);
+    expect(t("en-US", "learningLoadFailedFinalNotice")).toContain("fixing the Turso settings saves them");
+    expect(t("en-US", "learningLoadFailedFinalToast")).toMatch(/[Rr]eloading the app discards it/);
+    expect(t("en-US", "learningLoadFailedFinalToast")).toContain("fixing the Turso settings saves it");
+    expect(t("de", "learningLoadFailedFinalNotice")).toContain("verwirft Ihre ungespeicherten Änderungen");
+    expect(t("de", "learningLoadFailedFinalNotice")).toContain("Turso-Einstellungen");
+    expect(t("de", "learningLoadFailedFinalToast")).toContain("Neuladen der App verwirft sie");
+  });
+
+  // The count is not a second "not saved yet" after the notice's own sentence.
+  it("the final notice and the held count do not repeat 'not saved yet'", () => {
+    render(<LearningInsights {...baseProps()} loadProblem="failed" pendingWrites={3} now={0} />);
+    const text = screen.getByRole("status").textContent ?? "";
+    expect(text.match(/not saved yet/g)).toHaveLength(1);
+    expect(text).toContain("3 changes not saved yet.");
   });
 
   // §781 — the notice counts the changes waiting to be saved, when there are any.
