@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useActionLearning } from "./use-action-learning";
+import { useActionLearning, LEARNING_LOAD_RETRY_MS } from "./use-action-learning";
 import { pickLearningStore } from "./learning-store";
 import type { LearningSnapshot } from "./learning-store";
 import type { SuggestedAction } from "./next-actions/types";
@@ -242,7 +242,7 @@ describe("useActionLearning — writes before the load resolves (§781)", () => 
     expect(result.current.state).toEqual({});
   });
 
-  it("writes nothing after a failed load, so an unreadable store is never overwritten", async () => {
+  it("saves nothing while the store cannot be read, so an unread store is never overwritten", async () => {
     const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {});
     vi.mocked(pickLearningStore).mockReturnValue({ load: () => Promise.reject(new Error("offline")), save });
     const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
@@ -251,5 +251,76 @@ describe("useActionLearning — writes before the load resolves (§781)", () => 
     await act(async () => { await result.current.record(action("raid", "late"), "acted"); });
     expect(Object.keys(result.current.state).sort()).toEqual(["raid:early", "raid:late"]); // kept in memory
     expect(save).not.toHaveBeenCalled();
+  });
+});
+
+// §781 (round 2) — the two remaining sides of the race.
+describe("useActionLearning — late loads and failed loads (§781)", () => {
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    const promise = new Promise<T>((res) => { resolve = res; });
+    return { promise, resolve };
+  }
+  const row = (acted: number) => ({ acted, snoozed: 0, dismissed: 0, lastAt: 1000 });
+  const LOADED: LearningSnapshot = { state: { "raid:a": row(3), "milestone:b": row(2) }, overrides: {} };
+
+  afterEach(() => { vi.useRealTimers(); });
+
+  // A load that resolves AFTER a write must not overwrite the newer in-memory
+  // outcome: the hook shows the stored rows AND the write, at once.
+  it("merges a late load under a newer in-memory outcome instead of replacing it", async () => {
+    const load = deferred<LearningSnapshot>();
+    vi.mocked(pickLearningStore).mockReturnValue({ load: () => load.promise, save: vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {}) });
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    await act(async () => { await result.current.record(action("raid", "a"), "acted"); });
+    expect(result.current.state["raid:a"].acted).toBe(1); // the outcome shows before the load
+    // Stored "now", so decay between the stored row and the outcome is negligible.
+    const fresh = { ...LOADED, state: { ...LOADED.state, "raid:a": { ...row(3), lastAt: Date.now() } } };
+    await act(async () => { load.resolve(fresh); await load.promise; });
+    expect(Object.keys(result.current.state).sort()).toEqual(["milestone:b", "raid:a"]);
+    expect(result.current.state["raid:a"].acted).toBeCloseTo(4, 2); // 3 stored + 1 new, not 1 and not 3
+  });
+
+  // A failed load is retried (as `useScheduledJobs` retries its read); the
+  // outcome waits in memory and is saved, on top of the stored rows, once a load
+  // succeeds. Nothing is written while the store cannot be read.
+  it("keeps an outcome through a failed load and saves it after a retried load succeeds", async () => {
+    vi.useFakeTimers();
+    const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {});
+    const load = vi.fn<() => Promise<LearningSnapshot>>()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue(LOADED);
+    vi.mocked(pickLearningStore).mockReturnValue({ load, save });
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); }); // the first load fails
+    await act(async () => { await result.current.record(action("budget", "c"), "acted"); });
+    expect(save).not.toHaveBeenCalled();
+    expect(Object.keys(result.current.state)).toEqual(["budget:c"]); // kept in memory
+    await act(async () => { await vi.advanceTimersByTimeAsync(LEARNING_LOAD_RETRY_MS); });
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(Object.keys(save.mock.calls[0][0].state).sort()).toEqual(["budget:c", "milestone:b", "raid:a"]);
+    expect(Object.keys(result.current.state).sort()).toEqual(["budget:c", "milestone:b", "raid:a"]);
+  });
+
+  // Once the timed retries are used up, the next write starts a fresh round, so an
+  // outcome recorded after a long outage is still saved once the store is back.
+  it("retries the load on the next write after the timed retries run out", async () => {
+    vi.useFakeTimers();
+    const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {});
+    const load = vi.fn<() => Promise<LearningSnapshot>>().mockRejectedValue(new Error("offline"));
+    vi.mocked(pickLearningStore).mockReturnValue({ load, save });
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(LEARNING_LOAD_RETRY_MS * 10); });
+    const attempts = load.mock.calls.length; // the first load + every timed retry
+    expect(attempts).toBeGreaterThan(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(LEARNING_LOAD_RETRY_MS * 10); });
+    expect(load).toHaveBeenCalledTimes(attempts); // no more timed retries
+    load.mockResolvedValue(LOADED);
+    await act(async () => { await result.current.record(action("budget", "c"), "acted"); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(load).toHaveBeenCalledTimes(attempts + 1);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(Object.keys(save.mock.calls[0][0].state).sort()).toEqual(["budget:c", "milestone:b", "raid:a"]);
   });
 });
