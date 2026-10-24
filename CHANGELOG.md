@@ -83,7 +83,7 @@ longer carries its own changelog comment.
   learning cannot be read, the learning view says so and your changes are kept and saved once a read works: the app
   tries again after a network failure, and when the Turso database rejects the token it tells you at once, and saves as
   soon as the token is fixed in Settings. If the stored learning is unreadable for another reason, the view says the app will not try
-  again until it is reloaded, that reloading discards the changes not saved yet, and that fixing the Turso settings saves them. A failed save is reported too.
+  again until it is reloaded, that reloading discards the changes not saved yet, and that changing the Turso URL or token in Settings saves them. A failed save is reported too.
 - **The learning view's Adjustment column shows what is applied (§780).** A row set to "Always suppress" could
   still read "+5", the learned value the override replaces. The column now shows the adjustment in effect (+20,
   -20 or 0 under Always surface, Always suppress and Off), with the learned value below it, marked "learned";

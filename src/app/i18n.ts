@@ -3945,8 +3945,8 @@ const enUS = {
   learningStoreNotReadyToast: "Learning is set to Turso, which is not available yet, so this change is not saved yet.",
   learningPendingWrites: "{0} changes not saved yet.",
   learningPendingWritesOne: "1 change not saved yet.",
-  learningLoadFailedFinalNotice: "Stored learning could not be read, and the app will not try again until it is reloaded. Reloading the app discards your unsaved changes here; fixing the Turso settings saves them.",
-  learningLoadFailedFinalToast: "Learning data could not be read, so this change is not saved yet. Reloading the app discards it; fixing the Turso settings saves it.",
+  learningLoadFailedFinalNotice: "Stored learning could not be read, and the app will not try again until it is reloaded. Reloading the app discards your unsaved changes here; changing the Turso URL or token in Settings saves them.",
+  learningLoadFailedFinalToast: "Learning data could not be read, so this change is not saved yet. Reloading the app discards it; changing the Turso URL or token in Settings saves it.",
   learningLoadRejectedToast: "Learning data could not be loaded: the Turso database refused access. Check the Turso settings; your changes are kept until then.",
   // §777 — param-free reason labels for the why keys whose text takes values
   // (see `REASON_LABEL_KEY` in learning-kind-label.ts).
