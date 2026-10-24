@@ -1,7 +1,7 @@
 // Pure settings-patch computation for the AI `update_settings` tool. Extracted
 // from use-chat-dispatcher so the hook stays under the 800-line ratchet and so
 // the validation is unit-testable without React. No refs, no setters, no clock.
-import { ALL_MODULE_IDS, sanitizeFeatures } from "./feature-modules";
+import { ALL_MODULE_IDS, sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import {
   NEXT_ACTIONS_FIELD_COERCE,
   resolveNextActionsConfig,
@@ -19,6 +19,26 @@ export interface SettingsPatchResult {
    *  ones (e.g. `enabledModules`/`nextActionsWeights` vs `features`/
    *  `nextActions`) — the model gets back an echo of what it asked for. */
   applied: Record<string, unknown>;
+}
+
+/** The verdict on one `enabledModules` value, shared by the write (`computeSettingsPatch`) and the
+ *  review card (`chat-proposal-describe-functions.ts`), so the card cannot show a change the write refuses.
+ *  Throws on a value the write refuses; otherwise the sanitised list and the ids it dropped (§779).
+ *
+ *  ★ The list is the PROJECT's saved functions, so a value that would only read as "switch everything off"
+ *   is refused instead of sanitised to []: `sanitizeFeatures` turns a non-array into [] and drops every
+ *   unknown id. `[]` itself stays allowed (it is the Simple preset, `deriveMode`). A list mixing known and
+ *   unknown ids keeps the known ones and names the rest in `dropped`, so a typo is reported rather than
+ *   silently switching that function off. The legacy `"documents"` id maps to `knowledge` and is not dropped. */
+export function judgeEnabledModules(raw: unknown): { features: FeatureModuleId[]; dropped: string[] } {
+  if (!Array.isArray(raw)) throw new Error("enabledModules must be a list of module ids");
+  const features = sanitizeFeatures(raw);
+  if (raw.length > 0 && features.length === 0) {
+    throw new Error(`enabledModules names no known module: ${raw.map(String).join(", ")}; known ids: ${ALL_MODULE_IDS.join(", ")}`);
+  }
+  const known = new Set<string>([...ALL_MODULE_IDS, "documents"]);
+  const dropped = raw.map(String).filter((id) => !known.has(id));
+  return { features, dropped };
 }
 
 export function computeSettingsPatch(
@@ -52,19 +72,11 @@ export function computeSettingsPatch(
     applied.hideExternalTasks = patch.hideExternalTasks;
   }
   if (patch.enabledModules !== undefined) {
-    // ★ §779 — the list is the PROJECT's saved functions now, so a value that would only read as
-    // "switch everything off" is refused (the caller writes nothing) instead of sanitised to []:
-    // `sanitizeFeatures` turns a non-array into [] and drops every unknown id. `[]` itself stays
-    // allowed (it is the Simple preset, `deriveMode`), and a list mixing known and unknown ids keeps
-    // the known ones, which `applied` echoes back to the model.
-    const raw: unknown = patch.enabledModules;
-    if (!Array.isArray(raw)) throw new Error("enabledModules must be a list of module ids");
-    const feats = sanitizeFeatures(raw);
-    if (raw.length > 0 && feats.length === 0) {
-      throw new Error(`enabledModules names no known module: ${raw.map(String).join(", ")}; known ids: ${ALL_MODULE_IDS.join(", ")}`);
-    }
-    changes.features = feats;
-    applied.enabledModules = feats;
+    // §779 — the shared judge: throws before any write on a refused value (see `judgeEnabledModules`).
+    const { features, dropped } = judgeEnabledModules(patch.enabledModules);
+    changes.features = features;
+    applied.enabledModules = features;
+    if (dropped.length > 0) applied.droppedModules = dropped;
   }
   if (patch.nextActionsWeights && typeof patch.nextActionsWeights === "object") {
     const curCfg = resolveNextActionsConfig(cur.nextActions);

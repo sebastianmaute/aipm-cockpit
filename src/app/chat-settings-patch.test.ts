@@ -56,6 +56,23 @@ describe("computeSettingsPatch", () => {
     expect(applied.enabledModules).not.toContain("not-a-module");
   });
 
+  // §779 — a typo in a mixed list silently switched that function off; the model is now told which
+  // ids were ignored. Mutation: dropping the `droppedModules` echo turns the first red.
+  it("reports the ids a mixed list dropped as droppedModules", () => {
+    const { changes, applied } = computeSettingsPatch(
+      { enabledModules: ["budget", "raidd", 7] } as never,
+      baseSettings(),
+    );
+    expect(changes.features).toEqual(["budget"]);
+    expect(applied.enabledModules).toEqual(["budget"]);
+    expect(applied.droppedModules).toEqual(["raidd", "7"]);
+  });
+
+  it("adds no droppedModules when every id is known, the legacy documents id included", () => {
+    const { applied } = computeSettingsPatch({ enabledModules: ["budget", "documents"] } as never, baseSettings());
+    expect(applied).toEqual({ enabledModules: ["budget", "knowledge"] });
+  });
+
   // §779 — the list now persists with the project, so a value that would read as "switch everything off"
   // by accident is refused instead of sanitised to [].
   // Mutation: removing the non-array refusal turns the first red; removing the all-unknown refusal, the second.
