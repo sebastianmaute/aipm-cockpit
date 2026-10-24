@@ -913,7 +913,9 @@ const reviewDialog = (ctx) => ctx.page.getByRole('dialog', { name: 'Review recom
 /** The review's line for a plan with nothing left to apply (its confirm button is then disabled). */
 export const EMPTY_PLAN = 'This recommendation has no remaining changes to apply.';
 /** Every outcome line a recommendation shows after Apply, by its i18n key (insightRecommendation*): copies, since the
- *  recorder runs without the app's modules; content.test.mjs pins each to src/app/i18n.ts. */
+ *  recorder runs without the app's modules; content.test.mjs pins each to src/app/i18n.ts. A `{0}` is the app's
+ *  slot for a detail and matches any text. The last two are §782's (fix/insight-rec-schema): known here before that
+ *  branch lands, so neither branch's tests depend on which merges first. */
 export const REC_OUTCOMES = Object.freeze({
   insightRecommendationApplied: 'Recommendation applied.',
   insightRecommendationAppliedPartial: "Partly applied — some changes weren't made. Generate a new recommendation for the rest.",
@@ -922,12 +924,30 @@ export const REC_OUTCOMES = Object.freeze({
   insightRecommendationStale: "This recommendation wasn't applied — the project data changed since it was generated. Generate a new one.",
   insightRecommendationCurrencyChanged: "This recommendation wasn't applied — the project's currency history changed since it was generated, so its amounts may be in a different currency. Generate a new one.",
   insightRecommendationStalePartial: "Some changes weren't applied — the project data changed since this recommendation was generated. Generate a new one for the rest.",
+  insightRecommendationApplyFailedDetail: "Some changes in this recommendation couldn't be applied. {0}",
+  insightRecommendationStalePartialDetail: "Some changes weren't applied — the project data changed since this recommendation was generated, and others couldn't be applied ({0}). Generate a new one for the rest.",
 });
-/** One of those lines, whole: no other app string with the same opening can match. */
+/** One of those lines, whole: no other app string with the same opening can match. A `{0}` matches any text. */
 export const REC_STATUS = (() => {
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`^(${Object.values(REC_OUTCOMES).map(esc).join('|')})$`);
+  const pattern = (line) => esc(line).split('\\{0\\}').join('[\\s\\S]+');
+  return new RegExp(`^(${Object.values(REC_OUTCOMES).map(pattern).join('|')})$`);
 })();
+
+/** The app's outcome keys, found by prefix: an outcome key named outside these prefixes is invisible to the check. */
+export const OUTCOME_KEY = /^insightRecommendation(Applied|Apply|AllRejected|Stale|Currency)/;
+/** REC_OUTCOMES against an i18n table (`dict`, key -> text): how many of its keys are outcome keys, those REC_OUTCOMES
+ *  does not know, those whose copy differs from the table, and those absent from the table (not pinned there). */
+export function recOutcomeCheck(dict) {
+  const keys = Object.keys(dict).filter((k) => OUTCOME_KEY.test(k));
+  const known = Object.keys(REC_OUTCOMES);
+  return {
+    matched: keys.length,
+    unknown: keys.filter((k) => !known.includes(k)),
+    mismatched: known.filter((k) => k in dict && dict[k] !== REC_OUTCOMES[k]),
+    absent: known.filter((k) => !(k in dict)),
+  };
+}
 /** The outcome lines after Apply, where the app shows them: the card's note once the recommendation is applied, and
  *  the toast (app-modals.tsx, role="status"). Both are read: a change that threw still leaves the card reading
  *  applied while the toast says some changes couldn't be applied, and an outcome that wrote nothing has the toast only. */

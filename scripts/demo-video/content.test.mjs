@@ -7,7 +7,7 @@ import { MIGRATED_MARKER_ID, SCHEDULED_JOBS_DDL } from '../../src/app/scheduled-
 import { SCHEDULED_REPORTS_DDL } from '../../src/app/scheduled-reports-schema.ts';
 import { GANTT_PREFS_KEY, countsMoved, ganttPrefsSeed, utilMoved } from './steps/features.mjs';
 import { MIGRATED_MARKER, REPORT_FOR_JOB_SQL, STORED_JOBS_SQL, jobsFromRows } from './steps/ai.mjs';
-import { EMPTY_PLAN, REC_OUTCOMES, REC_STATUS, proposalMissing, recommendationNotApplied } from './steps/week.mjs';
+import { EMPTY_PLAN, REC_OUTCOMES, REC_STATUS, proposalMissing, recOutcomeCheck, recommendationNotApplied } from './steps/week.mjs';
 import { en, t } from '../../src/app/i18n.ts';
 
 describe('ganttPrefsSeed (§715)', () => {
@@ -65,9 +65,27 @@ describe('the recommendation status after Apply (§715)', () => {
     expect(recommendationNotApplied([])).toBe('the recommendation shows no applied status');
   });
 
+  // The two lines §782 (fix/insight-rec-schema) adds: known to the step before that branch lands, so neither
+  // branch goes red whichever merges first. Each is pinned once its key is in this branch's i18n.ts.
+  const PENDING_782 = ['insightRecommendationApplyFailedDetail', 'insightRecommendationStalePartialDetail'];
+  const check = recOutcomeCheck(en);
+
   it("copies the recommendation's outcome lines and the empty-plan line from the app's i18n.ts", () => {
-    for (const [key, line] of Object.entries(REC_OUTCOMES)) expect(line, key).toBe(en[key]);
+    expect(check.mismatched).toEqual([]);
+    // A key not in i18n.ts is skipped only while it is one §782 brings.
+    expect(check.absent.filter((k) => !PENDING_782.includes(k))).toEqual([]);
     expect(EMPTY_PLAN).toBe(en.insightRecommendationEmptyPlan);
+  });
+
+  it('classifies a failure line with its {0} filled as a failure', () => {
+    const slotted = Object.entries(REC_OUTCOMES).filter(([, line]) => line.includes('{0}'));
+    expect(slotted.map(([key]) => key)).toEqual(PENDING_782);
+    for (const [key, line] of slotted) {
+      const filled = line.replace('{0}', 'create_task: taskName, assignee required');
+      expect(REC_STATUS.test(filled), key).toBe(true);
+      expect(recommendationNotApplied([en.insightRecommendationApplied, filled]), key)
+        .toBe(`the recommendation was not applied in full: "${filled}"`);
+    }
   });
 
   it('matches an outcome line whole, never another app string with the same opening', () => {
@@ -78,15 +96,13 @@ describe('the recommendation status after Apply (§715)', () => {
   });
 
   // Every outcome key the app has must be one the step knows, or a new outcome line would fail a take as an
-  // unknown status. Today it passes. It goes red when §782 merges, until REC_OUTCOMES learns that branch's
-  // insightRecommendationApplyFailedDetail and insightRecommendationStalePartialDetail. Both carry a {0}, so they
-  // need a pattern, not a copy. §782's insightRecommendationCallArgsRequired, …CallArgDate and …CallNotAllowed do
-  // not match this filter: they are the reasons placed into those {0}, not lines of their own.
-  const OUTCOME_KEY = /^insightRecommendation(Applied|Apply|AllRejected|Stale|Currency)/;
-  const outcomeKeys = Object.keys(en).filter((k) => OUTCOME_KEY.test(k));
-  it(`knows every outcome key of the app's i18n.ts (${outcomeKeys.length} matched)`, () => {
-    expect(outcomeKeys.length).toBeGreaterThan(0);
-    expect(outcomeKeys.filter((k) => !(k in REC_OUTCOMES))).toEqual([]);
+  // unknown status. The keys are found by prefix (OUTCOME_KEY): an outcome key named outside those prefixes is
+  // invisible to this test. It holds here and on a merge with §782, whose two {0} lines REC_OUTCOMES already has as
+  // patterns. §782's insightRecommendationCallArgsRequired, …CallArgDate and …CallNotAllowed do not match the
+  // prefixes: they are the reasons placed into those {0}, not lines of their own.
+  it(`knows every outcome key of the app's i18n.ts (${check.matched} matched)`, () => {
+    expect(check.matched).toBeGreaterThan(0);
+    expect(check.unknown).toEqual([]);
   });
 });
 

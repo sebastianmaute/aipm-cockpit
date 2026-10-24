@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { button, el, fakePage, text } from './fake-dom.mjs';
 import { runAi } from './take.mjs';
-import { DAYS } from './steps/week.mjs';
+import { DAYS, REC_OUTCOMES } from './steps/week.mjs';
 import { en } from '../../src/app/i18n.ts';
 
 const B = 'Budget off plan';
@@ -13,6 +13,8 @@ const B = 'Budget off plan';
 const EMPTY_PLAN = en.insightRecommendationEmptyPlan;
 const APPLIED = en.insightRecommendationApplied;
 const STALE = en.insightRecommendationStale;
+// §782's line is not in this branch's i18n.ts yet: the step's own copy, pinned by content.test.mjs once it is.
+const DETAIL_FILLED = REC_OUTCOMES.insightRecommendationApplyFailedDetail.replace('{0}', 'create_task: taskName, assignee required');
 
 /** What the review's confirm does: applies the plan (the card's note and a toast), applies it with a change that
  *  threw, writes nothing (the card stays proposed; only a toast says so), or writes nothing while another card
@@ -27,6 +29,8 @@ const OUTCOMES = {
   unreadable: (s) => { s.rec = 'applied'; s.unreadable = 'Target page, context or browser has been closed'; },
   // A change threw, and its toast lags the card's note: it shows from the second wait after the confirm on.
   lagging: (s) => { s.rec = 'applied'; s.toast = en.insightRecommendationApplyFailed; s.toastAfterWaits = 2; s.waits = 0; },
+  // §782's toast naming the failure: its {0} filled with the reason.
+  detail: (s) => { s.rec = 'applied'; s.toast = DETAIL_FILLED; },
 };
 
 /** The Insights view for `s`: { rec: null | 'proposed' | 'rejected' | 'applied', review, empty, toast, otherNote,
@@ -96,6 +100,11 @@ describe('the insight-recommendation step (§715)', () => {
   it('fails when the card reads applied but the toast says a change could not be applied', async () => {
     await expect(runAi(ctxFor(start([false], 'threw')), insightStep))
       .rejects.toThrow(`ch7-friday: the recommendation was not applied in full: "${en.insightRecommendationApplyFailed}"`);
+  });
+
+  it("fails on §782's toast that names the failure in its {0}", async () => {
+    await expect(runAi(ctxFor(start([false], 'detail')), insightStep))
+      .rejects.toThrow(`ch7-friday: the recommendation was not applied in full: "${DETAIL_FILLED}"`);
   });
 
   it('waits for a toast that lags the card, and fails on its line', async () => {
