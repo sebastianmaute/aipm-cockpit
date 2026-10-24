@@ -67,6 +67,7 @@ describe('the recommendation status after Apply (§715)', () => {
 
   // The two lines §782 (fix/insight-rec-schema) adds: known to the step before that branch lands, so neither
   // branch goes red whichever merges first. Each is pinned once its key is in this branch's i18n.ts.
+  // Delete this allowlist once §782 is on main.
   const PENDING_782 = ['insightRecommendationApplyFailedDetail', 'insightRecommendationStalePartialDetail'];
   const check = recOutcomeCheck(en);
 
