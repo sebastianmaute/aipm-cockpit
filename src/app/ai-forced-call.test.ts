@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetToolChoiceFallbackForTests, runForcedToolCall, runForcedToolCallWithStop } from "./ai-forced-call";
 import { AiHttpError } from "./ai-errors";
 import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
+import { RECOMMEND_TOOL } from "./insights/recommend";
 
 const KEY = "sk-ant-api03-ForcedCallKey000000000";
 
@@ -225,6 +226,34 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
       await expect(runForcedToolCall({ ...call(), model: "claude-sonnet-5" })).resolves.toEqual(MALFORMED);
       expect(sentBodies(fetchMock)[0].tools).toEqual([TOOL, OTHER]);
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    // §782 round 3 (Minor 5) — the same retry, driven by the real
+    // `propose_insight_actions` tool, whose calls are an `anyOf` of one branch
+    // per tool. A plain reply whose create_task lacks `taskName` and `assignee`
+    // must count as a mismatch and be re-asked strict, every branch closed.
+    it("re-asks propose_insight_actions strict when a create_task lacks its required arguments", async () => {
+      const recReply = (calls: unknown[]) => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: RECOMMEND_TOOL.name, input: { summary: "s", calls } }] }),
+      });
+      const valid = [{ name: "create_task", input: { taskName: "Review T&M burn", assignee: "Dana Ortiz", dueDate: "2026-09-25" } }];
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(REFUSAL)
+        .mockResolvedValueOnce(recReply([{ name: "create_task", input: { title: "Review T&M burn", dueDate: "2026-09-25" } }]))
+        .mockResolvedValueOnce(recReply(valid));
+      vi.stubGlobal("fetch", fetchMock);
+      const out = await runForcedToolCall({ ...args(), model: "claude-sonnet-5-5", tools: [RECOMMEND_TOOL], toolName: RECOMMEND_TOOL.name });
+      expect(out).toEqual({ summary: "s", calls: valid });
+      expect(shape(fetchMock)).toEqual([["tool", false], ["auto", false], ["auto", true]]);
+      type Branch = { additionalProperties?: boolean; properties: { name: { enum: string[] }; input: { additionalProperties?: boolean; required: string[] } } };
+      const strictTool = sentBodies(fetchMock)[2].tools[0] as unknown as { input_schema: { properties: { calls: { items: { anyOf: Branch[] } } } } };
+      const branches = strictTool.input_schema.properties.calls.items.anyOf;
+      const create = branches.find((b) => b.properties.name.enum[0] === "create_task");
+      expect(create?.properties.input.required).toEqual(["taskName", "assignee", "dueDate"]);
+      expect(branches.length).toBeGreaterThan(1);
+      expect(branches.every((b) => b.additionalProperties === false && b.properties.input.additionalProperties === false)).toBe(true);
     });
   });
 

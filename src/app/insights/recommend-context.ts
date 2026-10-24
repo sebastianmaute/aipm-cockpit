@@ -10,7 +10,7 @@ export function buildRecommendSystemPrompt(): string {
     "You are given ONE project insight and a compact slice of the project.",
     "Call the propose_insight_actions tool exactly once with concrete, minimal actions that resolve the insight.",
     "Use only the tools offered. Reference an entity only by a numeric id shown in the digest. Prefer editing an existing item over creating a new one. Keep the summary to one line.",
-    "Give every required argument of each tool you call, and assign a person only by a name listed under People.",
+    "Give every required argument of each tool you call, and assign a person only by a name listed under People. If People lists no one, do not propose create_task.",
   ].join(" ");
 }
 
@@ -22,9 +22,31 @@ export interface RecommendContextInput {
   readonly data: Readonly<Record<string, string | number>>;
   readonly entity?: { readonly view: string; readonly id: number; readonly title: string; readonly fields: string };
   readonly relatedTasks: readonly { readonly id: number; readonly title: string }[];
-  /** §782 — the people a create may name as its assignee or owner (display names of active resources). */
+  /** §782 — the people a create may name as its assignee or owner (`recommendPeople`). */
   readonly people?: readonly string[];
 }
+
+/** §782 — who a create may name: the active resources' names, then the
+ *  project's task assignees (free text, so a project with no resource
+ *  directory still has people). Each name once, trimmed and compared
+ *  case-insensitively, the first spelling kept; blanks dropped. Resources come
+ *  first because the digest caps the list (`PEOPLE_CAP`). */
+export function recommendPeople(resourceNames: readonly string[], assignees: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of [...resourceNames, ...assignees]) {
+    const name = raw.trim();
+    const key = name.toLowerCase();
+    if (name === "" || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
+}
+
+/** §782 round 3 — a bare "(none)" beside "assign only by a name listed under
+ *  People" forbade every assignee; this says no one is known instead. */
+const NO_PEOPLE_LINE = "(none known: do not propose create_task; prefer editing an existing item)";
 
 const RELATED_TASKS_CAP = 30;
 const PEOPLE_CAP = 30;
@@ -44,7 +66,7 @@ export function buildRecommendContext(input: RecommendContextInput): string {
     : "(none)";
   const people = input.people?.length
     ? input.people.slice(0, PEOPLE_CAP).map((name) => `- ${name.slice(0, 120)}`).join("\n")
-    : "(none)";
+    : NO_PEOPLE_LINE;
   return [
     `Project: ${input.projectName}. Today: ${input.today}.`,
     `Insight: ${input.insightType} (severity ${input.severity}).`,

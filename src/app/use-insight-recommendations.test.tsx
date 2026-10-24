@@ -4,7 +4,7 @@ import * as recommendCall from "./insights/recommend-call";
 import { AiHttpError } from "./ai-errors";
 import { useInsightRecommendations, type InsightRecommendationDeps } from "./use-insight-recommendations";
 import { entityToken } from "./ai-entity-token";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { baselineHistoryDigest, type Insight, type InsightRecommendation } from "./insights/insight";
 import { actionGuideText, type OperatingGuide } from "./operating-guide";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
@@ -774,5 +774,90 @@ describe("§782 — a call that did not land keeps the card from reading as full
     const ctx: string = spy.mock.calls[0][0].context;
     expect(ctx).toContain("## People (assign by name)\n- Dana Ortiz");
     expect(ctx.split("\n").filter((l) => l.trim() === "-")).toHaveLength(0);
+  });
+});
+
+// §782 review round 3.
+describe("§782 round 3 — people without a directory, a stale and a failed call together, and German reasons", () => {
+  afterEach(() => clearDiagLog());
+
+  async function peopleSection(over: Partial<InsightRecommendationDeps>) {
+    const spy = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42 }));
+    const store = mkStore([mkInsight()]);
+    const { result } = renderHook(() =>
+      useInsightRecommendations(mkDeps({ insights: store.read(), setInsights: store.setInsights, ...over })),
+    );
+    await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
+    const ctx = spy.mock.calls[0][0].context;
+    spy.mockRestore();
+    return ctx.split("## People (assign by name)\n")[1];
+  }
+
+  // I1 — assignees are free text, so a project with no resource directory still
+  // has people a create may name: the ones its tasks are assigned to.
+  it("lists the task assignees after the active resources, once each, case-insensitively", async () => {
+    const tasks = [
+      { ...task, assignee: "Sam Lee" },
+      { id: 43, taskName: "Second", status: "To Do", assignee: "sam lee" },
+      { id: 44, taskName: "Third", status: "To Do", assignee: " " },
+      { id: 45, taskName: "Fourth", status: "Done", assignee: "dana ortiz" },
+    ] as unknown as InsightRecommendationDeps["tasks"];
+    expect(await peopleSection({ tasks })).toBe("- Sam Lee\n- dana ortiz");
+    const resourcesById = new Map([[1, { id: 1, firstName: "Dana", lastName: "Ortiz", active: true }]]) as unknown as InsightRecommendationDeps["resourcesById"];
+    expect(await peopleSection({ tasks, resourcesById })).toBe("- Dana Ortiz\n- Sam Lee");
+  });
+
+  it("says no person is known when there is no directory and no task is assigned", async () => {
+    expect(await peopleSection({})).toBe("(none known: do not propose create_task; prefer editing an existing item)");
+  });
+
+  // Minor 1 — before this the stale toast returned first and the failure's
+  // reason was only logged.
+  it("names the failed call when another was refused as stale in the same apply", async () => {
+    const store = mkStore([mkInsight({
+      recommendation: {
+        summary: "two things",
+        proposedCalls: [
+          { name: "create_task", input: { taskName: "New", assignee: "A", dueDate: "2026-09-09" } },
+          { name: "update_task", input: { id: 42, status: "Done", expectedToken: "0000000000000000" } },
+        ],
+        generatedAt: "2026-09-03",
+        status: "proposed",
+      },
+    })]);
+    const dispatcher = {
+      ...(mkDispatcher().dispatcher as unknown as Record<string, unknown>),
+      createTask: vi.fn(() => { throw new Error("assignee is required"); }),
+    } as unknown as InsightRecommendationDeps["dispatcher"];
+    const deps = mkDeps({ insights: store.read(), setInsights: store.setInsights, dispatcher });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    act(() => { result.current.setReviewInsightId(1); });
+    await act(async () => { await result.current.confirmInsightRecommendation(); });
+    expect(deps.showToast).toHaveBeenCalledWith(
+      "error",
+      t("en-US", "insightRecommendationStalePartialDetail", "create_task: assignee is required"),
+    );
+    expect(deps.showToast).toHaveBeenCalledTimes(1);
+    // The advance and the record are those of any partly-landed apply.
+    expect(store.read()[0].recommendation?.refusedCalls).toBe(2);
+  });
+
+  // Minor 4 — the review's reason frame follows the UI language; tool and
+  // argument names stay as they are.
+  it("words a refused call's reason in the UI language", async () => {
+    await loadI18n("de");
+    const rec = { ...mkRec({}), proposedCalls: [
+      { name: "create_task", input: { title: "Review T&M burn", dueDate: "2026-09-25" } },
+      { name: "create_milestone", input: { name: "Go-live", date: "next week" } },
+    ] };
+    const store = mkStore([mkInsight({ recommendation: rec })]);
+    const { result } = renderHook(() =>
+      useInsightRecommendations(mkDeps({ lang: "de", insights: store.read(), setInsights: store.setInsights })),
+    );
+    act(() => { result.current.setReviewInsightId(1); });
+    expect(result.current.reviewPlan?.rejected.map((r) => r.detail)).toEqual([
+      "create_task: taskName, assignee erforderlich",
+      "create_milestone: date muss im Format JJJJ-MM-TT sein",
+    ]);
   });
 });

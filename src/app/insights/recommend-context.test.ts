@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildRecommendContext, buildRecommendSystemPrompt } from "./recommend-context";
+import { buildRecommendContext, buildRecommendSystemPrompt, recommendPeople } from "./recommend-context";
 
 const BASE = {
   projectName: "Apollo",
@@ -117,14 +117,41 @@ describe("buildRecommendContext — people", () => {
     expect(out.indexOf("## People")).toBeGreaterThan(out.indexOf("## Related open tasks"));
   });
 
-  it("caps the list at 30 and marks an empty one as none", () => {
+  it("caps the list at 30", () => {
     const people = Array.from({ length: 40 }, (_, i) => `Person ${i + 1}`);
 
     const out = buildRecommendContext({ ...BASE, people });
 
     expect(out).toContain("- Person 30");
     expect(out).not.toContain("- Person 31");
-    expect(buildRecommendContext(BASE)).toContain("## People (assign by name)\n(none)");
+  });
+
+  // §782 round 3 (I1) — with no one to name, a bare "(none)" beside "assign
+  // only by a name listed under People" forbade every assignee, so a
+  // create_task could never be valid. The line says so and steers to edits.
+  it("says no person is known, and not to propose create_task, when the list is empty", () => {
+    for (const people of [undefined, []]) {
+      const out = buildRecommendContext({ ...BASE, ...(people ? { people } : {}) });
+
+      expect(out.split("## People (assign by name)\n")[1]).toBe(
+        "(none known: do not propose create_task; prefer editing an existing item)",
+      );
+    }
+  });
+});
+
+describe("recommendPeople", () => {
+  it("lists the resource names first, then the task assignees", () => {
+    expect(recommendPeople(["Dana Ortiz"], ["Sam Lee", "Kim Ito"])).toEqual(["Dana Ortiz", "Sam Lee", "Kim Ito"]);
+  });
+
+  it("drops blanks and duplicates case-insensitively, keeping the first spelling", () => {
+    expect(recommendPeople(["Dana Ortiz", " "], ["dana ortiz", "", "Sam Lee", " Sam Lee ", "SAM LEE"])).toEqual(["Dana Ortiz", "Sam Lee"]);
+  });
+
+  it("gives the assignees alone when the directory is empty", () => {
+    expect(recommendPeople([], ["Sam Lee"])).toEqual(["Sam Lee"]);
+    expect(recommendPeople([], [])).toEqual([]);
   });
 });
 
@@ -134,6 +161,8 @@ describe("buildRecommendSystemPrompt", () => {
 
     expect(p).toContain("every required argument");
     expect(p).toContain("listed under People");
+    // §782 round 3 — and what to do when People lists no one.
+    expect(p).toContain("If People lists no one, do not propose create_task.");
   });
 
   it("is a stable single-line cacheable prefix", () => {

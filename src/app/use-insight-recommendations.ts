@@ -37,8 +37,9 @@ import { metricAtActionPatch } from "./insights/outcome";
 import type { ScopeEpochReader } from "./scope-epoch";
 import { useInsightRecommend } from "./use-insight-recommend";
 import { useInsightRecommendRunner } from "./use-insight-recommend-runner";
-import { buildRecommendContext } from "./insights/recommend-context";
+import { buildRecommendContext, recommendPeople } from "./insights/recommend-context";
 import { describeRecommendationPlan, type RecommendSnapshot } from "./insights/recommend-plan";
+import type { RecCallProblemFormat } from "./insights/recommend-schema";
 import { stripRejectedFields } from "./inline-ai-edit/plan";
 import { buildGroundingIndex } from "./action-ai";
 import { runTool, type ToolDispatcher } from "./chat-tools";
@@ -56,6 +57,16 @@ import { useGuideTextFrom } from "./action-guides-context";
 // recommendation prompt — the digest rides a billed call, so an unbounded
 // description must not blow up the token count (SP3).
 const ENTITY_DIGEST_TEXT_CAP = 200;
+
+/** §782 round 3 — a refused call's reason in the UI language, for the review
+ *  modal. Tool and argument names are identifiers and stay as they are. */
+function recCallProblemText(lang: Lang): RecCallProblemFormat {
+  return (p) => {
+    if (p.kind === "required") return t(lang, "insightRecommendationCallArgsRequired", p.tool, p.args.join(", "));
+    if (p.kind === "date") return t(lang, "insightRecommendationCallArgDate", p.tool, p.arg);
+    return t(lang, "insightRecommendationCallNotAllowed", p.tool);
+  };
+}
 
 /** Live render-scope values the insight recommendation cluster reads each render. */
 export interface InsightRecommendationDeps {
@@ -229,11 +240,13 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         relatedTasks: tasks.map((tk) => ({ id: tk.id, title: tk.taskName })),
         // §782 — create_task REQUIRES an assignee, and before this the digest
         // named nobody the model could give. Active people only: an archived
-        // resource is not someone to hand new work to.
-        people: [...resourcesById.values()]
-          .filter((r) => r.active !== false)
-          .map(resourceDisplayName)
-          .filter((name) => name.trim() !== ""),
+        // resource is not someone to hand new work to. ★ Round 3: then the
+        // tasks' own assignees, which are free text — with resources alone a
+        // project without a directory could never get a valid create_task.
+        people: recommendPeople(
+          [...resourcesById.values()].filter((r) => r.active !== false).map(resourceDisplayName),
+          tasks.map((tk) => tk.assignee ?? ""),
+        ),
       });
     },
     [project, today, tasks, resolveInsightEntity, resourcesById],
@@ -357,9 +370,9 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       reviewInsight?.recommendation
         ? describeRecommendationPlan(reviewInsight.recommendation.proposedCalls, {
             tasks, raid, changes, milestones, stakeholders,
-          })
+          }, recCallProblemText(lang))
         : null,
-    [reviewInsight, tasks, raid, changes, milestones, stakeholders],
+    [reviewInsight, tasks, raid, changes, milestones, stakeholders, lang],
   );
   // ★ No plan-level entity is derived any more: every `FieldDiff`/`LinkDiff`
   // carries the register it belongs to, so the modal labels each row from the
@@ -511,8 +524,15 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // ★ The stale message wins over the generic one when both kinds occurred:
     // "some of this was refused because the data moved — generate a new one" is
     // actionable, where "couldn't be applied" leaves the user with no next step.
+    // ★ §782 round 3 — when a call also THREW, its reason rides along: before
+    //  this the stale toast returned first and the reason was only logged.
     if (stale > 0) {
-      showToast("error", t(lang, "insightRecommendationStalePartial"));
+      showToast(
+        "error",
+        failed > 0
+          ? t(lang, "insightRecommendationStalePartialDetail", failures.join("; "))
+          : t(lang, "insightRecommendationStalePartial"),
+      );
       return;
     }
     // §782 — a hard failure is named with the dispatcher's own reason, as the

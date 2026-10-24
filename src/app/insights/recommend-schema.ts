@@ -78,18 +78,46 @@ function isGiven(schema: unknown, value: unknown): boolean {
   return value !== undefined && value !== null;
 }
 
+/** Why a call cannot be applied, as data, so a caller can word it in its own
+ *  language (§782 round 3). Tool and argument names are identifiers and are
+ *  never translated. */
+export type RecCallProblem =
+  | { readonly kind: "not-allowed"; readonly tool: string }
+  | { readonly kind: "required"; readonly tool: string; readonly args: readonly string[] }
+  | { readonly kind: "date"; readonly tool: string; readonly arg: string };
+
+/** Words a `RecCallProblem` as display text. */
+export type RecCallProblemFormat = (problem: RecCallProblem) => string;
+
+/** The English wording, and the default where no language is known. It mirrors
+ *  the `insightRecommendationCall*` strings in `i18n.ts`. */
+export const formatRecCallProblemEn: RecCallProblemFormat = (p) => {
+  if (p.kind === "not-allowed") return `${p.tool}: not allowed`;
+  if (p.kind === "required") return `${p.tool}: ${p.args.join(", ")} required`;
+  return `${p.tool}: ${p.arg} must be YYYY-MM-DD`;
+};
+
 /** Why `runTool` would refuse this call for its required arguments, as display
- *  text (`"create_task: taskName, assignee required"`), or null when it would
- *  not. Judges only what the WRITERS require; a field-level refusal is the
- *  plan's job (`describeEntityCalls`).
+ *  text (`"create_task: taskName, assignee required"` by default, else as
+ *  `format` words it), or null when it would not. Judges only what the WRITERS
+ *  require; a field-level refusal is the plan's job (`describeEntityCalls`).
  *  ★★ The review plan and the apply loop both call this, so a call the review
  *   shows as refused is exactly a call the apply does not send. */
-export function recommendationCallProblem(call: InsightToolCall): string | null {
-  const schema = REC_TOOL_INPUT_SCHEMAS[call.name];
-  if (!Object.hasOwn(REC_TOOL_INPUT_SCHEMAS, call.name) || !schema) return `${call.name}: not allowed`;
+export function recommendationCallProblem(
+  call: InsightToolCall,
+  format: RecCallProblemFormat = formatRecCallProblemEn,
+): string | null {
+  const problem = recCallProblemOf(call);
+  return problem === null ? null : format(problem);
+}
+
+function recCallProblemOf(call: InsightToolCall): RecCallProblem | null {
+  const tool = call.name;
+  const schema = REC_TOOL_INPUT_SCHEMAS[tool];
+  if (!Object.hasOwn(REC_TOOL_INPUT_SCHEMAS, tool) || !schema) return { kind: "not-allowed", tool };
   const missing = schema.required.filter((k) => !isGiven(schema.properties[k], call.input[k]));
-  if (missing.length > 0) return `${call.name}: ${missing.join(", ")} required`;
-  const dateArg = REQUIRED_DATE_ARGS[call.name];
-  if (dateArg !== undefined && sanitizeIsoDate(call.input[dateArg]) === "") return `${call.name}: ${dateArg} must be YYYY-MM-DD`;
+  if (missing.length > 0) return { kind: "required", tool, args: missing };
+  const dateArg = REQUIRED_DATE_ARGS[tool];
+  if (dateArg !== undefined && sanitizeIsoDate(call.input[dateArg]) === "") return { kind: "date", tool, arg: dateArg };
   return null;
 }

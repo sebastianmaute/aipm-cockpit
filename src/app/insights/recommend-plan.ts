@@ -11,7 +11,7 @@ import type { Workspace } from "../workspace";
 import { describeEntityCalls, type EditPlan, type ToolUseLike } from "../inline-ai-edit/plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "../inline-ai-edit/entity-descriptor";
 import type { InsightToolCall } from "./insight";
-import { REC_TOOL_INPUT_SCHEMAS, recommendationCallProblem } from "./recommend-schema";
+import { REC_TOOL_INPUT_SCHEMAS, recommendationCallProblem, type RecCallProblemFormat } from "./recommend-schema";
 
 // The `item` shape describeEntityCalls expects, without exporting a new type
 // from plan.ts (which stays untouched — only read for this task).
@@ -70,10 +70,13 @@ function inputId(input: Readonly<Record<string, unknown>>): number {
  *  item's id to the call's OWN target id so describeEntityCalls' "self"
  *  same-row guard (meant for the inline editor's single opened row) is a
  *  trivial pass, letting the real grounding — does that id still exist in
- *  the live list — do the work instead. Creates need no id grounding. */
+ *  the live list — do the work instead. Creates need no id grounding.
+ *  `formatProblem` words a whole-call refusal's `detail` (English by default);
+ *  the review modal passes the UI language's wording (§782 round 3). */
 export function describeRecommendationPlan(
   calls: readonly InsightToolCall[],
   ws: RecommendPlanWorkspace,
+  formatProblem?: RecCallProblemFormat,
 ): EditPlan {
   // describeEntityCalls is typed against the full Workspace but only ever reads
   // the five list fields in RecommendPlanWorkspace (verified) — cast once here so
@@ -86,7 +89,7 @@ export function describeRecommendationPlan(
     // rejected, with the reason, and never as a change. The apply loop asks the
     // same question, so it does not send it either. Only the recommendation
     // tools are judged: the delete branch below previews other callers' input.
-    const problem = Object.hasOwn(REC_TOOL_INPUT_SCHEMAS, call.name) ? recommendationCallProblem(call) : null;
+    const problem = Object.hasOwn(REC_TOOL_INPUT_SCHEMAS, call.name) ? recommendationCallProblem(call, formatProblem) : null;
     if (problem !== null) {
       merged.rejected.push({ toolName: call.name, reason: "bad-input", detail: problem });
       continue;
