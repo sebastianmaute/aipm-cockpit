@@ -127,7 +127,8 @@ export const PROPOSAL = {
       gdpr: await gdprBox(d).isChecked().catch(() => false),
       nace: await d.getByLabel(/^NACE section/).inputValue().catch(() => ''),
     };
-    ctx.log(`PROPOSAL name "${got.name}", GDPR ${got.gdpr ? 'ticked' : 'not ticked'}, NACE "${got.nace}"`);
+    // The name only as filled or not: a log must not carry a project's name (no project, so no id, exists yet).
+    ctx.log(`PROPOSAL name ${got.name ? 'filled' : 'empty'}, GDPR ${got.gdpr ? 'ticked' : 'not ticked'}, NACE "${got.nace}"`);
     return proposalMissing(got);
   },
 };
