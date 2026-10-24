@@ -1,7 +1,7 @@
 import { act, render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { RolesEditor, ROLES_COL_WIDTHS } from "./roles-editor";
+import { RolesEditor, ROLES_COL_WIDTHS, rateFieldDisplay } from "./roles-editor";
 import { t } from "./i18n";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import type { Discipline, Grade, Role } from "./types";
@@ -13,13 +13,13 @@ const disciplines: Discipline[] = [{ id: 1, name: "Engineering" }];
 const grades: Grade[] = [{ id: 1, name: "Senior" }];
 const roles: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 }];
 
-function renderEditor(currency = "EUR") {
+function renderEditor(currency = "EUR", roleList: Role[] = roles) {
   return render(
     <RolesEditor
       lang="en-US"
       currency={currency}
       workdayHours={8}
-      roles={roles}
+      roles={roleList}
       disciplines={disciplines}
       grades={grades}
       onSaveRole={noop}
@@ -733,22 +733,39 @@ describe("RolesEditor rate card fits a 1280px window (§766)", () => {
         "[&::-webkit-outer-spin-button]:appearance-none",
       ]));
       expect(i.value).not.toBe("");
-      expect(i.title).toBe(i.value);
+      expect(i.title).toBe(rateFieldDisplay(Number(i.value)));
     }
   });
 
-  // Guard: the 1280 fit is a budget. Measured 2026-10-24 at 1280×720 the scroller
-  // shows 916px; the delete column renders 48px and the rate columns render at their
-  // declared 100px, so the declared minimums plus the delete column must stay within
-  // 916px (8px headroom today). A new column, or a wider one, must re-measure first.
+  // §766: Chromium draws a number field's decimal separator in the browser's own
+  // locale, not the app language: measured 2026-10-24, "1166.67" showed as "1166,67"
+  // under `--lang=de-DE` and "1166.67" under `--lang=en-US`, whichever app language
+  // was set. The title follows the same rule, so it reads like the field.
+  it("formats the title the way the field displays it", () => {
+    expect(rateFieldDisplay(1166.67, "de-DE")).toBe("1166,67");
+    expect(rateFieldDisplay(1166.67, "en-US")).toBe("1166.67");
+    expect(rateFieldDisplay(10666.67, "de-DE")).toBe("10666,67");
+    expect(rateFieldDisplay(123456, "de-DE")).toBe("123456");
+    renderEditor("EUR", [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 133.33, externalRate: 200 }]);
+    const hourly = screen.getAllByRole("spinbutton")[0] as HTMLInputElement;
+    expect(hourly.value).toBe("133.33");
+    expect(hourly.title).toBe(rateFieldDisplay(133.33));
+  });
+
+  // Guard: the 1280 fit is a budget. Measured 2026-10-24 at 1280×720: the scroller
+  // shows 916px and the table is 908px, which is the declared widths (852) plus the
+  // 48px delete column plus 8px the table spends outside its declared columns. So
+  // the declared widths may grow by 8px at most; 9px more scrolls at 1280. A new
+  // column, or a wider one, must re-measure first.
   it("keeps the declared column widths inside the measured 1280 budget", () => {
     const SCROLLER_AT_1280 = 916;
     const DELETE_COL = 48;
+    const OUTSIDE_DECLARED = 8;
     renderEditor();
     const headerCells = (document.querySelector("table") as HTMLElement).querySelectorAll("thead th");
     expect(headerCells).toHaveLength(Object.keys(ROLES_COL_WIDTHS).length + 1);
     const declared = Object.values(ROLES_COL_WIDTHS).reduce((a, b) => a + b, 0);
-    expect(declared + DELETE_COL).toBeLessThanOrEqual(SCROLLER_AT_1280);
+    expect(declared + DELETE_COL + OUTSIDE_DECLARED).toBeLessThanOrEqual(SCROLLER_AT_1280);
   });
 
   // ★ A sticky offset is measured from the scroller's PADDING edge, and the scroller

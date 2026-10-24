@@ -45,8 +45,9 @@ const REORDER_HANDLE_CLASS = "cursor-move text-muted-foreground";
  *  "€"; "US$" (en-GB) widens each rate cell by 16px and the table scrolls there.
  *  A rate cell is px-3 + the currency symbol + a 64px spinner-less input. Measured in
  *  Chromium on 2026-10-24, editable and read-only, EN and DE: up to 7 characters show
- *  whole ("123456", "1166.67", "133.33"); 8 ("12345.67") overflow by 4px, and the
- *  field's `title` carries the full value. */
+ *  whole ("123456", "1166.67", "133.33"); 8 overflow by 4px, and the field's `title`
+ *  carries the full value. The real 8-character case: an INR day rate of ₹80,000 over
+ *  a 7.5-hour workday derives a read-only 10666.67 per hour. */
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
   grade: 100,
@@ -110,6 +111,15 @@ function clampRate(raw: string): number {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/** A rate as its number field shows it, for the field's `title`. Chromium draws the
+ *  decimal separator in the browser's own locale, not the app language (measured
+ *  2026-10-24: "1166,67" under `--lang=de-DE`, "1166.67" under `--lang=en-US`), and
+ *  without grouping, so only the separator is localised. `locale` is for tests. */
+export function rateFieldDisplay(value: number, locale?: string): string {
+  const sep = new Intl.NumberFormat(locale).formatToParts(1.5).find((p) => p.type === "decimal")?.value ?? ".";
+  return String(value).replace(".", sep);
 }
 
 export function RolesEditor({
@@ -240,7 +250,7 @@ export function RolesEditor({
               `title` for a value too long for the field (§766; see ROLES_COL_WIDTHS). */}
           <Input type="number" min={0} step={1} value={value} readOnly={!editable}
             aria-label={`${rowCtx} — ${t(lang, labelKey)}`}
-            title={String(value)}
+            title={rateFieldDisplay(value)}
             onChange={editable ? (e) => onChange(e.target.value) : undefined}
             size="xs" state={editable ? "default" : "muted"}
             className="w-16 text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
