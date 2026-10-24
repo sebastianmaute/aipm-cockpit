@@ -49,4 +49,4 @@ Generate now asks Claude for a short status report: where the project stands, wh
 When you need a refresher, Help has a guided tour of the app, the demo project, and these videos.
 
 ## closing
-That is the week. The cause of the slip is fixed, the plan and the budget fit the new dates, and the people who need to know have heard. Next Monday starts from a clear picture.
+That is the week. The cause of the slip is fixed, the plan fits the new dates, the budget has a plan to get back on track, and the people who need to know have heard. Next Monday starts from a clear picture.
