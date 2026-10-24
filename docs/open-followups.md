@@ -1008,6 +1008,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§777](#777-the-action-center-learning-view-is-not-a-pane-and-shows-raw-kind-ids--closed-2026-10-23) | The Action Center learning view is not a pane and shows raw kind ids | — | — | **CLOSED** 2026-10-23 |
 | [§778](#778-one-next-actions-reason-is-learned-and-overridden-as-two-rows-singularplural-why-keys--closed-2026-10-24) | One Next-actions reason is learned and overridden as two rows (singular/plural why keys) | — | — | **CLOSED** 2026-10-24 |
 | [§780](#780-the-learning-views-adjustment-column-contradicts-an-override--closed-2026-10-24) | The learning view's Adjustment column contradicts an override | — | — | **CLOSED** 2026-10-24 |
+| [§781](#781-a-learning-write-before-the-load-resolves-wipes-the-stored-action-center-learning--closed-2026-10-24) | A learning write before the load resolves wipes the stored Action Center learning | — | — | **CLOSED** 2026-10-24 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45926,3 +45927,35 @@ A mutant that shows `learnedBias` again in the applied line turns the surface, s
 Size XS.
 
 **Source:** owner report 2026-10-24.
+
+## 781. A learning write before the load resolves wipes the stored Action Center learning — CLOSED 2026-10-24
+
+**Status:** CLOSED 2026-10-24 on `fix/learning-view-pane`, owner decision 2026-10-24 to fix it now. Verified with `npx vitest run src/app/next-actions src/app/action-learning.test.ts src/app/use-action-learning.test.tsx src/app/learning-insights.test.tsx src/app/learning-store-local.test.ts src/app/learning-store-turso.test.ts src/app/task-manager.learning-back.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-cpi-labels.test.ts src/app/settings-sections/next-actions-section.test.tsx` (32 files, 367 tests, green).
+
+`useActionLearning` (`use-action-learning.ts`) keeps every write (record, override, reset) as a function:
+- **Before the mount load resolves**, a write is applied to the in-memory snapshot, so the view and the bias react at once. It is also queued.
+- **When the load resolves**, it replays the queue on top of the snapshot it read (normalised as in §778) and saves the result once, to the store it loaded from.
+- **A queued reset** still clears everything.
+- **After a failed load**, nothing is saved for the rest of the session, and `learning.loadFailedSavesOff` is logged. The store's contents are unknown then, and its save is a full rewrite.
+
+Scope:
+- **Project scope:** learning is not project data. It lives in device storage, or in the global Turso `action_learning` table, which stays out of `TABLE_NAMES`. So a project swap has nothing to misattribute, and the scope epoch does not apply. The queued writes go to the store they were loaded from, so a store switch during the load cannot copy one store's rows into the other.
+- **Local store:** the same queue covers it.
+- **Two tabs, or two devices on one Turso database:** each loads once and saves a full snapshot, so the last writer wins. This is unchanged from before and is not part of this fix.
+
+Tests:
+- Four new tests in `use-action-learning.test.tsx`:
+  - An early outcome and override merge into a loaded snapshot of three rows. Nothing is saved before the load.
+  - On the Turso path, the statements after the load re-insert both stored rows (an override included) plus the new outcome. No rewrite goes out before the load.
+  - An early reset still saves an empty snapshot.
+  - A failed load saves nothing.
+- Red on the old code: the first, second and fourth failed. The reset test passed on the old code too, because a reset was already a full clear; it guards the queue.
+- Mutants:
+  - Replaying the queue onto an empty base turned the merge and Turso tests red.
+  - Saving after a failed load turned the failed-load test red.
+
+**Earlier:** found 2026-10-24 in the final review of the §777/§778/§780 branch, and pre-existing. An outcome recorded before the mount `load()` resolved set `dirtyRef`. The late load was then dropped, and `persist` saved a snapshot holding only the new outcome. On Turso that save is a `DELETE FROM action_learning` followed by re-inserts, so one quick snooze right after start wiped the global, cross-project learning table. A failed load had the same effect on the next write.
+
+Size S.
+
+**Source:** final review of `fix/learning-view-pane`, 2026-10-24 (owner: fix it now).

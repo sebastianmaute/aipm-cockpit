@@ -74,6 +74,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Acting on a suggestion right after the app starts no longer erases learned Action Center data (§781).** An
+  outcome, override or reset recorded before the stored learning had finished loading replaced it, so one quick
+  snooze could wipe everything learned, on Turso for every project at once. Such early changes now wait for the
+  load and are added on top of it. If the stored learning cannot be read, nothing is saved for that session.
 - **The learning view's Adjustment column shows what is applied (§780).** A row set to "Always suppress" could
   still read "+5", the learned value the override replaces. The column now shows the adjustment in effect (+20,
   -20 or 0 under Always surface, Always suppress and Off), with the learned value below it, marked "learned";
