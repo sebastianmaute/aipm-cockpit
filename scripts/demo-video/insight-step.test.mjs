@@ -6,17 +6,20 @@ import { describe, expect, it } from 'vitest';
 import { button, el, fakePage, text } from './fake-dom.mjs';
 import { runAi } from './take.mjs';
 import { DAYS } from './steps/week.mjs';
+import { en } from '../../src/app/i18n.ts';
 
 const B = 'Budget off plan';
-const EMPTY_PLAN = 'This recommendation has no remaining changes to apply.';
-const STALE = "This recommendation wasn't applied — the project data changed since it was generated. Generate a new one.";
+// The app's own lines, so a rewording in i18n.ts breaks this test as it would break the step.
+const EMPTY_PLAN = en.insightRecommendationEmptyPlan;
+const APPLIED = en.insightRecommendationApplied;
+const STALE = en.insightRecommendationStale;
 
 /** What the review's confirm does: applies the plan (the card's note and a toast), writes nothing (the card
  *  stays proposed; only a toast says so), or writes nothing while another card shows an outcome line. */
 const OUTCOMES = {
-  applied: (s) => { s.rec = 'applied'; s.toast = 'Recommendation applied.'; },
+  applied: (s) => { s.rec = 'applied'; s.toast = APPLIED; },
   stale: (s) => { s.toast = STALE; },
-  elsewhere: (s) => { s.otherNote = "Partly applied — some changes weren't made."; },
+  elsewhere: (s) => { s.otherNote = en.insightRecommendationAppliedPartial; },
 };
 
 /** The Insights view for `s`: { rec: null | 'proposed' | 'rejected' | 'applied', review, empty, toast, otherNote,
@@ -25,13 +28,13 @@ function insights(s) {
   return () => {
     const controls = [];
     if (s.rec === null || s.rec === 'rejected') {
-      if (s.rec === 'rejected') controls.push(text('Recommendation dismissed.'));
+      if (s.rec === 'rejected') controls.push(text(en.insightRecommendationRejected));
       controls.push(button(`Generate recommendation – ${B}`, { on: () => { s.rec = 'proposed'; s.empty = s.plans.shift(); } }));
     } else if (s.rec === 'proposed') {
       controls.push(text('AI suggests: move budget to the pilot.'));
       controls.push(button(`Apply recommendation – ${B}`, { on: () => { s.review = true; } }));
       controls.push(button(`Reject – ${B}`, { on: () => { s.rec = 'rejected'; } }));
-    } else controls.push(text('Recommendation applied.'));
+    } else controls.push(text(APPLIED));
     const cards = [el({ tag: 'li' }, text(B), ...controls, button(`Dismiss – ${B}`))];
     if (s.otherNote) cards.push(el({ tag: 'li' }, text('Schedule slipping'), text(s.otherNote)));
     const body = [el({ tag: 'main' }, el({ tag: 'ul' }, ...cards))];

@@ -2,6 +2,12 @@
 // (getByRole, getByText, locator, filter({ has }), or, first, last) the way Playwright does: strict on several
 // matches, a wait that fails at once on a missing element. `view()` builds the tree from the test's state on
 // every query, so a click (a node's `on`) changes what the next query finds. No browser runs.
+// Its limits, kept on purpose (it is not a Playwright locator engine; add a call only when a step test needs it):
+// - no visibility, layout or styles: every element in the tree is visible, and a box is a fixed rectangle;
+// - roles and names are what a test writes on its nodes, never computed from tags or content;
+// - a string name or text matches case-insensitively as a substring, or exactly with `exact`; a regex is tested;
+// - locator() knows a tag name and the visible-dialog selector only, not CSS;
+// - nothing waits: a wait or a strict call on the wrong number of elements fails at once.
 
 /** An element: `tag`, `role`, accessible `name`, `text`, `enabled`, `pressed` (aria-pressed), `on` (its click). */
 export const el = (props, ...children) => ({ ...props, children });

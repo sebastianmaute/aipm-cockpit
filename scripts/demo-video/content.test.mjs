@@ -7,7 +7,8 @@ import { MIGRATED_MARKER_ID, SCHEDULED_JOBS_DDL } from '../../src/app/scheduled-
 import { SCHEDULED_REPORTS_DDL } from '../../src/app/scheduled-reports-schema.ts';
 import { GANTT_PREFS_KEY, countsMoved, ganttPrefsSeed, utilMoved } from './steps/features.mjs';
 import { MIGRATED_MARKER, REPORT_FOR_JOB_SQL, STORED_JOBS_SQL, jobsFromRows } from './steps/ai.mjs';
-import { proposalMissing, recommendationNotApplied } from './steps/week.mjs';
+import { EMPTY_PLAN, REC_OUTCOMES, REC_STATUS, proposalMissing, recommendationNotApplied } from './steps/week.mjs';
+import { en, t } from '../../src/app/i18n.ts';
 
 describe('ganttPrefsSeed (§715)', () => {
   it('switches off the layers the clip turns on, keeps milestones (dragged before) and puts them below', () => {
@@ -58,6 +59,18 @@ describe('the recommendation status after Apply (§715)', () => {
     expect(recommendationNotApplied('Recommendation applied.')).toBeNull();
     expect(recommendationNotApplied("Partly applied — some changes weren't made.")).toMatch(/not applied in full/);
     expect(recommendationNotApplied('')).toBe('the recommendation shows no applied status');
+  });
+
+  it("copies the recommendation's outcome lines and the empty-plan line from the app's i18n.ts", () => {
+    for (const [key, line] of Object.entries(REC_OUTCOMES)) expect(line, key).toBe(en[key]);
+    expect(EMPTY_PLAN).toBe(en.insightRecommendationEmptyPlan);
+  });
+
+  it('matches an outcome line whole, never another app string with the same opening', () => {
+    for (const line of Object.values(REC_OUTCOMES)) expect(REC_STATUS.test(line), line).toBe(true);
+    for (const other of [t('en-US', 'inlineAiEditRejected', 'x'), en.chatProposalFailed, en.wbsPlanSkippedTitle, 'Partly applied']) {
+      expect(REC_STATUS.test(other), other).toBe(false);
+    }
   });
 });
 

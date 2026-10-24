@@ -908,16 +908,30 @@ const insightCard = (ctx) => main(ctx).locator('li').filter({ has: ctx.page.getB
 /** The review Apply recommendation opens (insights/recommendation-review-modal.tsx). */
 const reviewDialog = (ctx) => ctx.page.getByRole('dialog', { name: 'Review recommendation', exact: true });
 /** The review's line for a plan with nothing left to apply (its confirm button is then disabled). */
-const EMPTY_PLAN = 'This recommendation has no remaining changes to apply.';
-/** Every outcome line a recommendation shows after Apply (i18n insightRecommendation*): applied, partly, not. */
-const REC_STATUS = /^(Recommendation applied\.|Partly applied|Not applied|This recommendation wasn't applied|Some changes (in this recommendation couldn't|weren't applied))/;
+export const EMPTY_PLAN = 'This recommendation has no remaining changes to apply.';
+/** Every outcome line a recommendation shows after Apply, by its i18n key (insightRecommendation*): copies, since the
+ *  recorder runs without the app's modules; content.test.mjs pins each to src/app/i18n.ts. */
+export const REC_OUTCOMES = Object.freeze({
+  insightRecommendationApplied: 'Recommendation applied.',
+  insightRecommendationAppliedPartial: "Partly applied — some changes weren't made. Generate a new recommendation for the rest.",
+  insightRecommendationApplyFailed: "Some changes in this recommendation couldn't be applied.",
+  insightRecommendationAllRejected: 'Not applied — every change in this recommendation was rejected.',
+  insightRecommendationStale: "This recommendation wasn't applied — the project data changed since it was generated. Generate a new one.",
+  insightRecommendationCurrencyChanged: "This recommendation wasn't applied — the project's currency history changed since it was generated, so its amounts may be in a different currency. Generate a new one.",
+  insightRecommendationStalePartial: "Some changes weren't applied — the project data changed since this recommendation was generated. Generate a new one for the rest.",
+});
+/** One of those lines, whole: no other app string with the same opening can match. */
+export const REC_STATUS = (() => {
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^(${Object.values(REC_OUTCOMES).map(esc).join('|')})$`);
+})();
 /** The outcome after Apply, read where the app shows it: the card's note once the recommendation is applied, or
  *  the toast (app-modals.tsx, role="status") for an outcome that wrote nothing and left the card as it was. */
 const recStatus = (ctx) => insightCard(ctx).getByText(REC_STATUS).or(ctx.page.getByRole('status').getByText(REC_STATUS)).first();
 
 /** What is wrong with a recommendation's status line after Apply, or null when it reads applied in full. */
 export function recommendationNotApplied(status) {
-  if (status === 'Recommendation applied.') return null;
+  if (status === REC_OUTCOMES.insightRecommendationApplied) return null;
   return status ? `the recommendation was not applied in full: "${status}"` : 'the recommendation shows no applied status';
 }
 const SPLIT_FROM = 'Pilot feedback fixes';
