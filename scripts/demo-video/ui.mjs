@@ -6,21 +6,28 @@
 // imports videos.mjs, which imports the step modules, which import this file, so importing it here is a cycle.
 import * as L from './lib.mjs';
 
-// Installed in every page before it loads: an arrow cursor that follows the mouse, the caption bar,
-// and a blur over any text that shows the database host. Serialised into the page, so self-contained.
-export const OVERLAY = (host) => {
+// Installed in every page before it loads: an arrow cursor that follows the mouse, the caption bar, the app's
+// version label (top left, under the logo), and a blur over any text that shows the database host. Sized for the
+// 1920x1080 frame (L.VIEWPORT): the cursor 36 px, the caption 24 px in a centred box that ends 32 px above the
+// bottom edge, so the app's footer tagline stays readable under it. Serialised into the page, so self-contained.
+export const OVERLAY = ({ host, label }) => {
   const install = () => {
     if (!document.body || document.getElementById('demo-cursor')) return;
     const c = document.createElement('div');
     c.id = 'demo-cursor';
-    c.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24"><path d="M5 3L19 12L12 13L9 20L5 3Z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/></svg>';
-    c.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;width:24px;height:24px;left:-40px;top:-40px;transition:left .1s,top .1s;filter:drop-shadow(1px 1px 2px rgba(0,0,0,.3))';
+    c.innerHTML = '<svg width="36" height="36" viewBox="0 0 24 24"><path d="M5 3L19 12L12 13L9 20L5 3Z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+    c.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;width:36px;height:36px;left:-60px;top:-60px;transition:left .1s,top .1s;filter:drop-shadow(1px 1px 2px rgba(0,0,0,.3))';
     document.body.appendChild(c);
     document.addEventListener('mousemove', (e) => { c.style.left = e.clientX + 'px'; c.style.top = e.clientY + 'px'; }, true);
     const b = document.createElement('div');
     b.id = 'demo-subtitle';
-    b.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:2147483646;text-align:center;padding:12px 24px;background:rgba(0,0,0,.75);color:#fff;font:500 16px -apple-system,"Segoe UI",sans-serif;pointer-events:none;opacity:0;transition:opacity .3s';
+    b.style.cssText = 'position:fixed;bottom:32px;left:50%;transform:translateX(-50%);width:max-content;max-width:1500px;border-radius:8px;z-index:2147483646;text-align:center;padding:14px 32px;background:rgba(0,0,0,.75);color:#fff;font:500 24px/1.35 -apple-system,"Segoe UI",sans-serif;pointer-events:none;opacity:0;transition:opacity .3s';
     document.body.appendChild(b);
+    const v = document.createElement('div');
+    v.id = 'demo-version';
+    v.textContent = label;
+    v.style.cssText = 'position:fixed;top:50px;left:16px;z-index:2147483645;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,.45);color:#fff;font:500 13px -apple-system,"Segoe UI",sans-serif;pointer-events:none';
+    document.body.appendChild(v);
     const s = document.createElement('style');
     s.textContent = 'input[placeholder^="libsql://"]{filter:blur(6px)}';
     document.head.appendChild(s);
@@ -107,7 +114,7 @@ export async function caption(ctx, text, id) {
   ctx.log('CAPTION ' + (text || '(clear)'));
   // On the recording's timeline, a beat's first caption: the render check compares it with the beat's voice.
   if (id && !again && ctx.recordingStartedAt != null) {
-    (ctx.captionLog ??= []).push({ id, at: (performance.now() - ctx.recordingStartedAt) / 1000 });
+    (ctx.captionLog ??= []).push({ id, at: (performance.now() - ctx.recordingStartedAt) / 1000, text });
   }
   if (voice) startVoice(ctx, id, beat.duration);
   else if (text) await pace(ctx, again ? REPEAT_MS : 1200);
@@ -120,6 +127,44 @@ export async function speak(ctx, id) {
   if (again || !voiced(ctx, beat)) return;
   await waitForVoice(ctx);
   startVoice(ctx, id, beat.duration);
+}
+
+/** The app's splash (public/), served by the dev server. Shown as it is: never re-saved (it carries a C2PA manifest). */
+export const SPLASH = '/splash-aipm-cockpit.svg';
+/** How long every video opens on the splash, before its title card. */
+export const SPLASH_MS = 3000;
+
+/** The splash over the whole frame, before anything else: centred at 1.5x (960x600) on the SVG's own #003459,
+ *  above the caption bar, the cursor and the version label, so none of them shows on it. Rendered inside the
+ *  recording, so every later time on the take's timeline (beats, captions, AI waits) includes it. A rehearsal
+ *  shows it at the token pace. */
+export async function splash(ctx) {
+  await ctx.page.evaluate((src) => new Promise((resolve) => {
+    const s = document.createElement('div');
+    s.id = 'demo-splash';
+    s.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#003459;display:flex;align-items:center;justify-content:center';
+    const img = document.createElement('img');
+    img.alt = '';
+    img.style.cssText = 'width:960px;height:600px';
+    img.onload = () => resolve();
+    img.onerror = () => resolve();
+    setTimeout(resolve, 3000); // a missing image must not hold the take
+    img.src = src;
+    s.appendChild(img);
+    document.body.appendChild(s);
+  }), SPLASH);
+  await pace(ctx, SPLASH_MS);
+  await ctx.page.evaluate(() => document.getElementById('demo-splash')?.remove());
+}
+
+/** At the start of a take: the Next.js dev indicator (the "N" badge, in a nextjs-portal's shadow root) must not
+ *  be in the picture. Its dev server is started with DEMO_RECORDER=1 (next.config.ts). Returns the warnings to count. */
+export async function checkDevBadge(ctx) {
+  const shown = await ctx.page.evaluate(() => [...document.querySelectorAll('nextjs-portal')]
+    .some((p) => p.shadowRoot?.querySelector('[data-nextjs-dev-tools-button]') != null)).catch(() => false);
+  if (!shown) return 0;
+  ctx.log('DEV BADGE visible — start the dev server with DEMO_RECORDER=1');
+  return 1;
 }
 
 /** The video's title in the caption bar for its first 3 s, so it says what it is about before anything moves.

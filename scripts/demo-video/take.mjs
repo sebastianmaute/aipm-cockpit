@@ -4,6 +4,7 @@
 // arrives in `deps`, so take.test.mjs drives it without a browser. A narrated take (`ctx.narration`) also
 // returns its beats on the recording's timeline and the beats of its own file it never used. See README.md.
 import { findSecrets } from './cli.mjs';
+import * as L from './lib.mjs';
 import { CLOSING, OPENING, TITLE } from './narration/beats.mjs';
 import { DAYS } from './steps/week.mjs';
 
@@ -97,7 +98,7 @@ export async function runTake(def, deps) {
     // From here on, captions are on camera: a narrated one is checked against its beat (ui.mjs).
     ctx.onCamera = true;
     if (!recording) return;
-    await ctx.page.screencast.start({ path: opts.outFile, size: { width: 1280, height: 720 } });
+    await ctx.page.screencast.start({ path: opts.outFile, size: L.VIEWPORT });
     started = true;
     // The AI waits are timed from here (ai-wait.mjs), so the take can trim them (trim.mjs).
     ctx.recordingStartedAt = performance.now();
@@ -122,8 +123,10 @@ export async function runTake(def, deps) {
     await setup.enableDigest(ctx);
     await setup.enableChat(ctx);
   };
-  // The title first (3 s), then the opening line when it says more than the title (a chapter's is its title).
+  // The splash first (3 s, every video), then the title (3 s), then the opening line when it says more than the
+  // title (a chapter's is its title).
   const intro = async (opening) => {
+    await ui.splash(ctx);
     await ui.titleCard(ctx, def.title, TITLE);
     if (opening && opening !== def.title) await ui.caption(ctx, opening, OPENING);
     // The first step may navigate first: the opening's voice ends on the screen it describes.

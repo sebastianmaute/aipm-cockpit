@@ -192,7 +192,7 @@ describe('voice-only beats (§715)', () => {
     await caption(ctx, 'A', 'mon-a');
     await caption(ctx, 'A again', 'mon-a');
     await caption(ctx, '');
-    expect(ctx.captionLog).toEqual([{ id: 'mon-a', at: 0 }]);
+    expect(ctx.captionLog).toEqual([{ id: 'mon-a', at: 0, text: 'A' }]);
   });
 
   it('titleCard speaks the title beat after showing the title, and only when there is one', async () => {

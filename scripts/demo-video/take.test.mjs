@@ -5,6 +5,7 @@ import { CLOSING, OPENING, TITLE } from './narration/beats.mjs';
 import { runTake, takeNarration, waitForAi } from './take.mjs';
 import * as ui from './ui.mjs';
 import { step } from './steps/step.mjs';
+import { VIEWPORT } from './lib.mjs';
 
 function harness({ preconditionsOk = true, checks = [], days } = {}) {
   const calls = [];
@@ -14,7 +15,7 @@ function harness({ preconditionsOk = true, checks = [], days } = {}) {
     const shown = args.map((a) => (a && typeof a === 'object' ? Object.entries(a).map(([k, v]) => `${k}=${v}`).join(',') : String(a)));
     calls.push(shown.length ? `${name}(${shown.join(',')})` : name);
   };
-  const page = { screencast: { start: async () => { calls.push('screencast.start'); }, stop: async () => { calls.push('screencast.stop'); } } };
+  const page = { screencast: { start: async (o) => { calls.push('screencast.start'); page.size = o?.size; }, stop: async () => { calls.push('screencast.stop'); } } };
   const ctx = { page, clipId: 'x', log: (l) => lines.push(l), lines };
   const deps = {
     ctx,
@@ -24,6 +25,7 @@ function harness({ preconditionsOk = true, checks = [], days } = {}) {
     },
     ui: {
       caption: async (_c, text) => { calls.push(`caption(${text})`); },
+      splash: async () => { calls.push('splash'); },
       titleCard: async (_c, title) => { calls.push(`titleCard(${title})`); },
       closingBeat: async () => { calls.push('closingBeat'); },
       holdVoice: async () => {},
@@ -48,21 +50,28 @@ describe('runTake (§715)', () => {
     expect(r.status).toBe('ok');
     expect(h.calls).toEqual([
       'connect(onCamera=false)', 'exploreDemo', 'seedDeviceState(p1)', 'enableDigest', 'enableChat', 'precondition',
-      'screencast.start', 'titleCard(T)', 'caption(Open)', 'run(a)', 'run(b)', 'closingBeat', 'screencast.stop',
+      'screencast.start', 'splash', 'titleCard(T)', 'caption(Open)', 'run(a)', 'run(b)', 'closingBeat', 'screencast.stop',
     ]);
+  });
+
+  it('records at the shared 1920x1080 frame, the size the browser viewport uses (§715)', async () => {
+    const h = harness();
+    await runTake(def({ steps: [h.s('a')] }), h.deps);
+    expect(h.deps.ctx.page.size).toEqual(VIEWPORT);
+    expect(VIEWPORT).toEqual({ width: 1920, height: 1080 });
   });
 
   it('a first-run take asks the setup for the first-run walk-through', async () => {
     const h = harness();
     await runTake(def({ prologueOnCamera: true, firstRun: true, prologue: [h.s('wizard')], steps: [h.s('a')] }), h.deps);
-    expect(h.calls.slice(0, 5)).toEqual(['screencast.start', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true,firstRun=true)', 'run(wizard)']);
+    expect(h.calls.slice(0, 6)).toEqual(['screencast.start', 'splash', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true,firstRun=true)', 'run(wizard)']);
   });
 
   it('the prologue is on camera for ch2-connect and big', async () => {
     const h = harness();
     await runTake(def({ prologueOnCamera: true, prologue: [h.s('wizard')], steps: [h.s('a')] }), h.deps);
     expect(h.calls).toEqual([
-      'screencast.start', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true)', 'run(wizard)', 'exploreDemo', 'seedDeviceState(p1)',
+      'screencast.start', 'splash', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true)', 'run(wizard)', 'exploreDemo', 'seedDeviceState(p1)',
       'enableDigest', 'enableChat', 'run(a)', 'closingBeat', 'screencast.stop',
     ]);
   });
@@ -72,7 +81,7 @@ describe('runTake (§715)', () => {
     h.deps.ui.holdVoice = async () => { h.calls.push('holdVoice'); };
     const r = await runTake(def({ prologueOnCamera: true, prologue: [h.s('cancel')], steps: [h.s('a')] }), h.deps);
     expect(h.calls).toEqual([
-      'screencast.start', 'titleCard(T)', 'caption(Open)', 'holdVoice', 'connect(onCamera=true)', 'run(cancel)', 'exploreDemo', 'holdVoice',
+      'screencast.start', 'splash', 'titleCard(T)', 'caption(Open)', 'holdVoice', 'connect(onCamera=true)', 'run(cancel)', 'exploreDemo', 'holdVoice',
       'seedDeviceState(p1)', 'enableDigest', 'enableChat', 'run(a)', 'holdVoice', 'closingBeat', 'screencast.stop',
     ]);
     expect(r.cuts).toHaveLength(1);
