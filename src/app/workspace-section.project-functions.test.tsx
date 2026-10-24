@@ -156,7 +156,8 @@ describe("WorkspaceSection — Budget and Time bookings read the functions they 
     return panelProps[view].at(-1)! as { features: readonly FeatureModuleId[]; onCommitFeatures: (next: FeatureModuleId[]) => void };
   }
   /** A MODEL of both panels' "Turn on" (the shown set plus the missing function, in registry order), so the
-   *  consequence of the handed list is visible here; the real buttons are tested in
+   *  consequence of the handed list is visible here. The real check is the `props.features` assertion; the
+   *  assertion after `turnOn` adds no evidence of its own. The real buttons are tested in
    *  `budget-setup-checklist.test.tsx` and `timelog-panel.test.tsx`. */
   const turnOn = (props: { features: readonly FeatureModuleId[]; onCommitFeatures: (next: FeatureModuleId[]) => void }, id: FeatureModuleId) => {
     const next = new Set<FeatureModuleId>([...props.features, id]);

@@ -1180,6 +1180,7 @@ export function WorkspaceSection({
               features={projectFeatures}
               onCommitFeatures={workspace.setFeatures}
               simulation={isSimulationOn(workspace.settingsOverrides)}
+              // May keep reading the mirror: `isViewEnabled("forecast", …)` ignores the list (§779 in docs/open-followups.md).
               onCommitSimulation={!isPopout && isViewEnabled("forecast", features) ? (on) => workspace.setSettingsOverrides((prev) => withSimulation(prev, on)) : undefined}
               onDelete={onDeleteProject}
               onExportCurrent={onExportCurrentProject}
